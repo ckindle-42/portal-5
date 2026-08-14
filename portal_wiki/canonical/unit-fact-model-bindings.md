@@ -5,14 +5,14 @@ title: "model bindings \u2014 0 reachability gap(s)"
 sources:
 - type: code
   path: config/backends.yaml
-  commit: f88abc4e3ed5
+  commit: 47d3e884c8f0
 - type: code
   path: config/portal.yaml
-  commit: f88abc4e3ed5
+  commit: 47d3e884c8f0
 - type: code
   path: config/personas/
-  commit: f88abc4e3ed5
-last_generated_commit: 75c5054f791636f367b62a1776bcc9f631794766
+  commit: 47d3e884c8f0
+last_generated_commit: 47d3e884c8f0
 claims: []
 confidence: high
 tags:
@@ -20,7 +20,7 @@ tags:
 - model-bindings
 - reachability
 created_at: 1784000421.433863
-updated_at: 1786661091.6100218
+updated_at: 1786721902.106016
 ---
 
 # Model bindings (reachability-resolved)
@@ -45,7 +45,7 @@ default.
 | `auto-daily` | `gemma4:26b-a4b-it-qat-ctx8k` | yes |
 | `auto-data` | `granite4.1:30b-ctx64k` | yes |
 | `auto-documents` | `granite4.1:8b-ctx16k` | yes |
-| `auto-extract-uncensored` | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M-ctx8k` | yes |
+| `auto-extract-uncensored` | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k` | yes |
 | `auto-general-uncensored` | `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` | yes |
 | `auto-image` | `granite4.1:8b-ctx16k` | yes |
 | `auto-math` | `phi4-mini-reasoning:latest-ctx24k` | yes |
@@ -68,6 +68,7 @@ default.
 | `glm-coder` | `auto-coding` | `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k` | yes |
 | `glm-thinker` | `auto-reasoning` | `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k` | yes |
 | `magistralstrategist` | `auto-reasoning` | `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k` | yes |
+| `qwen38coder` | `auto-coding` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M` | yes |
 
 **0 reachability gap(s)** — clean.
 

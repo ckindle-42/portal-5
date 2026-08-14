@@ -1,12 +1,12 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 218 model ids, 7 backend groups
+title: 219 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: dc96ff7df9a7
-last_generated_commit: 75c5054f791636f367b62a1776bcc9f631794766
+  commit: 47d3e884c8f0
+last_generated_commit: 47d3e884c8f0
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -15,12 +15,12 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1786489727.781368
+updated_at: 1786720824.81733
 ---
 
-# Model catalog (218 model ids across 7 backend groups)
+# Model catalog (219 model ids across 7 backend groups)
 
-## coding (41)
+## coding (42)
 
 - `Laguna-XS.2-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
@@ -48,6 +48,7 @@ updated_at: 1786489727.781368
 - `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL`
 - `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k`
 - `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL`
+- `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M`
 - `hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M`
 - `huihui_ai/qwen3-abliterated:14b-v2`
 - `laguna-xs.2:Q4_K_M`
@@ -72,7 +73,7 @@ updated_at: 1786489727.781368
 - `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k`
 - `hermes3:8b`
 - `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M`
-- `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M-ctx8k`
+- `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k`
 - `huihui_ai/Qwen3.6-abliterated:27b`
 - `huihui_ai/Qwen3.6-abliterated:27b-ctx8k`
 - `huihui_ai/baronllm-abliterated`

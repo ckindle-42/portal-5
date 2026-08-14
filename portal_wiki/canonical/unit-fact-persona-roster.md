@@ -1,27 +1,27 @@
 ---
 id: unit-fact-persona-roster
 kind: what
-title: 129 personas
+title: 130 personas
 sources:
 - type: code
   path: config/personas/
-  commit: f88abc4e3ed5
+  commit: 47d3e884c8f0
 - type: code
   path: config/personas/adversarysimulator.yaml
-  commit: f88abc4e3ed5
+  commit: 47d3e884c8f0
 - type: code
   path: config/personas/agenticheavy.yaml
-  commit: f88abc4e3ed5
+  commit: 47d3e884c8f0
 - type: code
   path: config/personas/agenticlite.yaml
-  commit: f88abc4e3ed5
+  commit: 47d3e884c8f0
 - type: code
   path: config/personas/agentorchestrator.yaml
-  commit: f88abc4e3ed5
+  commit: 47d3e884c8f0
 - type: code
   path: config/personas/bench_gemma4_12b.yaml
-  commit: f88abc4e3ed5
-last_generated_commit: 75c5054f791636f367b62a1776bcc9f631794766
+  commit: 47d3e884c8f0
+last_generated_commit: 47d3e884c8f0
 claims:
 - probe: personas.count
   pattern: Persona roster ({value} personas)
@@ -30,10 +30,10 @@ tags:
 - fact
 - personas
 created_at: 1784000421.217775
-updated_at: 1786661091.386035
+updated_at: 1786721901.874277
 ---
 
-# Persona roster (129 personas)
+# Persona roster (130 personas)
 
 | Slug | Module | Workspace | Model Pin |
 |---|---|---|---|
@@ -143,6 +143,7 @@ updated_at: 1786661091.386035
 | `purpleteamlead` | security | `auto-security` | — |
 | `pythoncodegeneratorcleanoptimizedproduction-ready` | coding | `auto-coding` | — |
 | `pythoninterpreter` | coding | `auto-coding` | — |
+| `qwen38coder` | coding | `auto-coding` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M` |
 | `redteamoperator` | security | `auto-security` | — |
 | `researchanalyst` | research | `auto-research` | — |
 | `rustengineer` | coding | `auto-coding` | — |

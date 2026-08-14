@@ -1,0 +1,125 @@
+{
+  "gsha": "68b23b51f852",
+  "samples": [
+    {
+      "workspace": "bench-qwen38-27b",
+      "model_hint": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 32.528995124972425
+    },
+    {
+      "workspace": "bench-qwen38-27b",
+      "model_hint": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 17.88404116604943
+    },
+    {
+      "workspace": "bench-qwen38-27b",
+      "model_hint": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 37.65177666704403
+    },
+    {
+      "workspace": "bench-qwen38-27b",
+      "model_hint": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 17.688993500021752
+    },
+    {
+      "workspace": "bench-qwen38-27b",
+      "model_hint": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 19.181791124981828
+    },
+    {
+      "workspace": "bench-qwen38-27b",
+      "model_hint": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 31.08913408301305
+    },
+    {
+      "workspace": "bench-qwen38-27b",
+      "model_hint": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 17.690491583023686
+    },
+    {
+      "workspace": "bench-qwen38-27b",
+      "model_hint": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 17.424533915997017
+    },
+    {
+      "workspace": "bench-qwen38-27b",
+      "model_hint": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 99.06161691597663
+    },
+    {
+      "workspace": "bench-qwen38-27b",
+      "model_hint": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 26.702266166976187
+    },
+    {
+      "workspace": "bench-qwen38-27b",
+      "model_hint": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 50.16297224996379
+    },
+    {
+      "workspace": "bench-qwen38-27b",
+      "model_hint": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 50.99625266698422
+    }
+  ]
+}

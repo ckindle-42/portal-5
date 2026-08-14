@@ -366,7 +366,7 @@ Router quality is a measured property, not an assumption — the bench pins the 
 ### Personas
 
 <!-- WIKI:GENERATED unit=unit-fact-persona-roster -->
-# Persona roster (129 personas)
+# Persona roster (130 personas)
 
 | Slug | Module | Workspace | Model Pin |
 |---|---|---|---|
@@ -476,6 +476,7 @@ Router quality is a measured property, not an assumption — the bench pins the 
 | `purpleteamlead` | security | `auto-security` | — |
 | `pythoncodegeneratorcleanoptimizedproduction-ready` | coding | `auto-coding` | — |
 | `pythoninterpreter` | coding | `auto-coding` | — |
+| `qwen38coder` | coding | `auto-coding` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M` |
 | `redteamoperator` | security | `auto-security` | — |
 | `researchanalyst` | research | `auto-research` | — |
 | `rustengineer` | coding | `auto-coding` | — |
@@ -525,7 +526,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `auto-daily` | general | `gemma4:26b-a4b-it-qat-ctx8k` |
 | `auto-data` | research | `granite4.1:30b-ctx64k` |
 | `auto-documents` | documents | `granite4.1:8b-ctx16k` |
-| `auto-extract-uncensored` | documents | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M-ctx8k` |
+| `auto-extract-uncensored` | documents | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k` |
 | `auto-general-uncensored` | general | `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` |
 | `auto-image` | media | `granite4.1:8b-ctx16k` |
 | `auto-math` | general | `phi4-mini-reasoning:latest-ctx24k` |
@@ -542,7 +543,6 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 
 - `bench-agentworld`
 - `bench-baronllm-q6k`
-- `bench-cybersecqwen-4b`
 - `bench-e2b-pentest`
 - `bench-exec-exploit`
 - `bench-exec-reasoning`
@@ -583,6 +583,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 - `bench-qwen36-27b-optiq`
 - `bench-qwen36-35b-a3b-ud`
 - `bench-qwen36-hauhaucs`
+- `bench-qwen38-27b`
 - `bench-supergemma4-sec`
 - `bench-vulnllm-r-7b`
 - `bench-vulnllm-r7b`
@@ -617,7 +618,7 @@ default.
 | `auto-daily` | `gemma4:26b-a4b-it-qat-ctx8k` | yes |
 | `auto-data` | `granite4.1:30b-ctx64k` | yes |
 | `auto-documents` | `granite4.1:8b-ctx16k` | yes |
-| `auto-extract-uncensored` | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M-ctx8k` | yes |
+| `auto-extract-uncensored` | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k` | yes |
 | `auto-general-uncensored` | `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` | yes |
 | `auto-image` | `granite4.1:8b-ctx16k` | yes |
 | `auto-math` | `phi4-mini-reasoning:latest-ctx24k` | yes |
@@ -640,6 +641,7 @@ default.
 | `glm-coder` | `auto-coding` | `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k` | yes |
 | `glm-thinker` | `auto-reasoning` | `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k` | yes |
 | `magistralstrategist` | `auto-reasoning` | `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k` | yes |
+| `qwen38coder` | `auto-coding` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M` | yes |
 
 **0 reachability gap(s)** — clean.
 
@@ -688,9 +690,9 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-# Model catalog (218 model ids across 7 backend groups)
+# Model catalog (219 model ids across 7 backend groups)
 
-## coding (41)
+## coding (42)
 
 - `Laguna-XS.2-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
@@ -718,6 +720,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL`
 - `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k`
 - `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL`
+- `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M`
 - `hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M`
 - `huihui_ai/qwen3-abliterated:14b-v2`
 - `laguna-xs.2:Q4_K_M`
@@ -742,7 +745,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k`
 - `hermes3:8b`
 - `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M`
-- `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M-ctx8k`
+- `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k`
 - `huihui_ai/Qwen3.6-abliterated:27b`
 - `huihui_ai/Qwen3.6-abliterated:27b-ctx8k`
 - `huihui_ai/baronllm-abliterated`

@@ -5,8 +5,8 @@ title: 23 production + 46 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: f88abc4e3ed5
-last_generated_commit: 75c5054f791636f367b62a1776bcc9f631794766
+  commit: 47d3e884c8f0
+last_generated_commit: 47d3e884c8f0
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'
@@ -15,7 +15,7 @@ tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1786661091.4323251
+updated_at: 1786720824.567308
 ---
 
 # Workspace roster (23 production, 46 eval, 69 total)
@@ -35,7 +35,7 @@ updated_at: 1786661091.4323251
 | `auto-daily` | general | `gemma4:26b-a4b-it-qat-ctx8k` |
 | `auto-data` | research | `granite4.1:30b-ctx64k` |
 | `auto-documents` | documents | `granite4.1:8b-ctx16k` |
-| `auto-extract-uncensored` | documents | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M-ctx8k` |
+| `auto-extract-uncensored` | documents | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k` |
 | `auto-general-uncensored` | general | `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` |
 | `auto-image` | media | `granite4.1:8b-ctx16k` |
 | `auto-math` | general | `phi4-mini-reasoning:latest-ctx24k` |
@@ -52,7 +52,6 @@ updated_at: 1786661091.4323251
 
 - `bench-agentworld`
 - `bench-baronllm-q6k`
-- `bench-cybersecqwen-4b`
 - `bench-e2b-pentest`
 - `bench-exec-exploit`
 - `bench-exec-reasoning`
@@ -93,6 +92,7 @@ updated_at: 1786661091.4323251
 - `bench-qwen36-27b-optiq`
 - `bench-qwen36-35b-a3b-ud`
 - `bench-qwen36-hauhaucs`
+- `bench-qwen38-27b`
 - `bench-supergemma4-sec`
 - `bench-vulnllm-r-7b`
 - `bench-vulnllm-r7b`

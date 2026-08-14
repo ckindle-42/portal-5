@@ -1,0 +1,244 @@
+{
+  "task_id": "TASK_BENCH_CAPABILITY_V11",
+  "timestamp": "20260814T142306Z",
+  "candidate": "bench-gemma4-26b-heretic",
+  "baselines": [
+    "auto-general-uncensored"
+  ],
+  "probes_run": [
+    "D1",
+    "D2"
+  ],
+  "results": [
+    {
+      "role": "baseline",
+      "workspace": "auto-general-uncensored",
+      "results": [
+        {
+          "probe_id": "D1/d1_decline_email",
+          "workspace": "auto-general-uncensored",
+          "format_score": 1.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 71,
+            "line_count": 4
+          },
+          "transcript_excerpt": "Subject: Rescheduling our chat / Async update?\n\nHi [Name], thanks for the invite! My calendar is full this week, so let's skip the meeting and go async instead. I'll share my notes and questions via email by tomorrow EOD. You're welcome to reply directly or add your thoughts whenever convenient. Thi",
+          "latency_s": 71.08177833299851,
+          "notes": "d1_decline_email",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D1/d1_tighten_passive",
+          "workspace": "auto-general-uncensored",
+          "format_score": 0.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 118,
+            "line_count": 9
+          },
+          "transcript_excerpt": "Here are a few tighter, more active alternatives depending on your intent:\n\n**Best overall:**  \n`\u201cLet\u2019s address the routing issue soon.\u201d`  \n*(Drops redundant hedges, replaces \"thing\" with a precise noun, and uses a direct verb to drive action.)*\n\n**Choose based on context:**\n- **If you're taking own",
+          "latency_s": 121.70216791704297,
+          "notes": "d1_tighten_passive",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D1/d1_slack_eta",
+          "workspace": "auto-general-uncensored",
+          "format_score": 1.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 27,
+            "line_count": 2
+          },
+          "transcript_excerpt": "I'm wrapping up current priorities and will dive into this review next; aiming for comments by **[Time]**.  \nLet me know if you need unblocking feedback before then!",
+          "latency_s": 121.5688730829861,
+          "notes": "d1_slack_eta",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D2/d2_decision_actions",
+          "workspace": "auto-general-uncensored",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 3,
+            "line_count": 3
+          },
+          "transcript_excerpt": "**Decision:** Proceed with the multi-engine system based on completed engine comparisons.  \n**Action Item 1:** Complete and deliver bench testing/results by Friday.  \n**Action Item 2:** Update project documentation & next-step plans to reflect the selection and comparison data.",
+          "latency_s": 93.8836524579674,
+          "notes": "d2_decision_actions",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D2/d2_status_bullets",
+          "workspace": "auto-general-uncensored",
+          "format_score": 1.0,
+          "capability_score": 0.75,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 3,
+            "line_count": 3
+          },
+          "transcript_excerpt": "\u2022 **Routing & Validation:** Fully operational; soak testing queued to run next  \n\u2022 **Documentation:** Slightly behind schedule but tracking on time ahead of release window  \n\u2022 **Next Steps:** Deployment locked in for Monday",
+          "latency_s": 131.0144929580274,
+          "notes": "d2_status_bullets",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D2/d2_standup",
+          "workspace": "auto-general-uncensored",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 3,
+            "line_count": 5
+          },
+          "transcript_excerpt": "Here\u2019s a clean, ready-to-use draft you can quickly customize:\n\n**Yesterday:** Completed `[main task/deliverable]` and made progress on `[secondary item or refinement]`.  \n**Today:** Focusing on `[next priority/task]`, aiming to wrap up `[specific milestone/outcome]` by end of day.  \n**Blocker:** Cur",
+          "latency_s": 93.69674508302705,
+          "notes": "d2_standup",
+          "error": null,
+          "baseline_delta": null
+        }
+      ]
+    },
+    {
+      "role": "candidate",
+      "workspace": "bench-gemma4-26b-heretic",
+      "results": [
+        {
+          "probe_id": "D1/d1_decline_email",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 89,
+            "line_count": 7
+          },
+          "transcript_excerpt": "Subject: Quick thought on [Meeting Name]\n\nHi [Name],\n\nThanks for the invite! My schedule is looking quite jammed right now, and I\u2019d love to avoid adding another live sync to our calendars if possible.\n\nWould you be open to handling this asynchronously instead? If you could drop your thoughts or key ",
+          "latency_s": 21.608224541996606,
+          "notes": "d1_decline_email",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "D1/d1_tighten_passive",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 0.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 175,
+            "line_count": 20
+          },
+          "transcript_excerpt": "Depending on how much authority you want to convey, here are a few ways to rewrite this, ranging from polite suggestions to direct commands:\n\n**Direct & Collaborative (Best for teammates)**\n* \"Let\u2019s review the routing.\"\n* \"We should look into the routing issue.\"\n* \"Let's investigate the routing conf",
+          "latency_s": 16.41289587499341,
+          "notes": "d1_tighten_passive",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "D1/d1_slack_eta",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 15,
+            "line_count": 2
+          },
+          "transcript_excerpt": "Still working through my review queue right now.  \nI\u2019ll have eyes on this by [Time/EOD].",
+          "latency_s": 10.54709670896409,
+          "notes": "d1_slack_eta",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "D2/d2_decision_actions",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 4,
+            "line_count": 4
+          },
+          "transcript_excerpt": "**Decision:** Multi-engine configuration selected following engine comparison.\n\n**Action Items:**\n*   Complete the test bench setup.\n*   Finalize and submit all work by Friday.",
+          "latency_s": 8.020310041029006,
+          "notes": "d2_decision_actions",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "D2/d2_status_bullets",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 0.5,
+          "capability_score": 0.75,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 12,
+            "line_count": 13
+          },
+          "transcript_excerpt": "Since you have four items but need only three bullets, the best approach is to group the technical status together. Here are three ways to frame it depending on your audience:\n\n**Option 1: Professional & Direct (Best for Email/Management)**\n*   Routing verified; soak testing currently pending.  \n*  ",
+          "latency_s": 15.018730125040747,
+          "notes": "d2_status_bullets",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "D2/d2_standup",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 13,
+            "line_count": 19
+          },
+          "transcript_excerpt": "Since you didn't provide your specific tasks, I have drafted three versions based on common roles. You can choose the one that fits best or use the **\"Fill-in-the-Blanks\"** template at the bottom.\n\n### Option 1: Software Engineer (Technical)\n*   **Yesterday:** Finished the bug fix for the login auth",
+          "latency_s": 15.605391666991636,
+          "notes": "d2_standup",
+          "error": null,
+          "baseline_delta": 0.0
+        }
+      ]
+    }
+  ],
+  "methodology_version": "v2-capability",
+  "scored_at": "2026-08-14T14:45:36.541977+00:00"
+}

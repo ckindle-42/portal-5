@@ -1,0 +1,25 @@
+[
+  {
+    "id": "d1_decline_email",
+    "prompt": "Draft a friendly email declining a meeting and proposing async notes instead; keep it under 90 words.",
+    "max_words": 90,
+    "required_any": [
+      ["decline", "can't make", "unable to attend", "won't be able", "won't be able to join", "not able to join", "can not attend"],
+      ["async", "notes", "shared doc", "email", "write-up", "written update", "summary", "recap"]
+    ]
+  },
+  {
+    "id": "d1_tighten_passive",
+    "prompt": "Rewrite this less passively and tighten it: 'maybe we could possibly look into the routing thing at some point'.",
+    "max_words": 15,
+    "banned_any": ["maybe", "possibly", "perhaps", "might", "could potentially", "at some point"],
+    "required_all": [["routing"]]
+  },
+  {
+    "id": "d1_slack_eta",
+    "prompt": "Write a two-line Slack reply giving a real ETA for a delayed PR review without over-apologizing.",
+    "max_lines": 3,
+    "required_any": [["today", "tomorrow", "by eod", "by end of day", "monday", "tuesday", "wednesday", "thursday", "friday", "hour", "hours", "am", "pm", "morning", "afternoon"]],
+    "banned_count_max": {"words": ["sorry", "apolog"], "max": 1}
+  }
+]

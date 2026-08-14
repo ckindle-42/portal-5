@@ -1,0 +1,244 @@
+{
+  "task_id": "TASK_BENCH_CAPABILITY_V11",
+  "timestamp": "20260814T140527Z",
+  "candidate": "bench-hermes3",
+  "baselines": [
+    "auto-daily"
+  ],
+  "probes_run": [
+    "D1",
+    "D2"
+  ],
+  "results": [
+    {
+      "role": "baseline",
+      "workspace": "auto-daily",
+      "results": [
+        {
+          "probe_id": "D1/d1_decline_email",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 84,
+            "line_count": 7
+          },
+          "transcript_excerpt": "Subject: Re: [Meeting Name]\n\nHi [Name],\n\nThanks for the invite! To respect everyone's time and stay focused on our current priorities, would you be open to handling this discussion asynchronously instead?\n\nPlease feel free to send over your key points or questions via email (or add them to our share",
+          "latency_s": 24.016102665977087,
+          "notes": "d1_decline_email",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D1/d1_tighten_passive",
+          "workspace": "auto-daily",
+          "format_score": 0.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 249,
+            "line_count": 26
+          },
+          "transcript_excerpt": "Depending on who you are talking to and how much authority you want to convey, here are a few ways to rewrite it:\n\n### 1. Direct & Professional (Best for most workplace scenarios)\nUse these if you want to sound competent and decisive without being aggressive.\n*   \"We should review the routing.\"\n*   ",
+          "latency_s": 16.108861042011995,
+          "notes": "d1_tighten_passive",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D1/d1_slack_eta",
+          "workspace": "auto-daily",
+          "format_score": 0.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 93,
+            "line_count": 9
+          },
+          "transcript_excerpt": "Depending on who you are talking to, choose the option that best fits your relationship with them:\n\n**Option 1: Direct and confident (Best for teammates/peers)**\nGot it\u2014aiming to have eyes on this by [Time today].\nThanks for the ping!\n\n**Option 2: The \"Focusing on something else\" approach (Best if y",
+          "latency_s": 17.17233008297626,
+          "notes": "d1_slack_eta",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D2/d2_decision_actions",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 4,
+            "line_count": 4
+          },
+          "transcript_excerpt": "**Decision:** Implement the multi-engine architecture.\n\n**Action Items:**\n*   Complete all benchmark testing.\n*   Finalize and deliver the bench by Friday.",
+          "latency_s": 14.264535708003677,
+          "notes": "d2_decision_actions",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D2/d2_status_bullets",
+          "workspace": "auto-daily",
+          "format_score": 0.5,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 9,
+            "line_count": 13
+          },
+          "transcript_excerpt": "Depending on the \"vibe\" of your report, here are three ways to group those four points into three crisp bullets:\n\n### Option 1: Professional & Polished (Best for Managers)\n* **Status:** Routing verified; soak testing underway.\n* **Risk:** Documentation is currently behind schedule.\n* **Target:** Dep",
+          "latency_s": 23.268290749983862,
+          "notes": "d2_status_bullets",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D2/d2_standup",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 8,
+            "line_count": 27
+          },
+          "transcript_excerpt": "Since I don\u2019t know your specific job role, I have provided **four different templates** based on common roles (Developer, Designer, Product Manager, and a Generic version). \n\nChoose the one that fits you best and fill in the bracketed information.\n\n### Option 1: For a Software Developer\n*Best if you",
+          "latency_s": 20.677817917021457,
+          "notes": "d2_standup",
+          "error": null,
+          "baseline_delta": null
+        }
+      ]
+    },
+    {
+      "role": "candidate",
+      "workspace": "bench-hermes3",
+      "results": [
+        {
+          "probe_id": "D1/d1_decline_email",
+          "workspace": "bench-hermes3",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 78,
+            "line_count": 6
+          },
+          "transcript_excerpt": "Subject: Meeting Sync - Alternative Proposal\n\nHi [Name],\n\nThank you for proposing a meeting to discuss [topic]. Unfortunately, I have a scheduling conflict and won't be able to join. However, I'm happy to provide my input asynchronously.\n\nWould you prefer if I sent over some notes on my thoughts, or",
+          "latency_s": 7.3786284170346335,
+          "notes": "d1_decline_email",
+          "error": null,
+          "baseline_delta": 0.5
+        },
+        {
+          "probe_id": "D1/d1_tighten_passive",
+          "workspace": "bench-hermes3",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 15,
+            "line_count": 1
+          },
+          "transcript_excerpt": "Let's consider investigating the routing issue. We should explore potential solutions in the near future.",
+          "latency_s": 0.5938823749893345,
+          "notes": "d1_tighten_passive",
+          "error": null,
+          "baseline_delta": 0.5
+        },
+        {
+          "probe_id": "D1/d1_slack_eta",
+          "workspace": "bench-hermes3",
+          "format_score": 1.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 41,
+            "line_count": 1
+          },
+          "transcript_excerpt": "Hey there, I'm still working on reviewing your PR, but it looks like it'll be another 30-45 minutes due to some unexpected issues that cropped up. Apologies for the delay, and thank you for your patience as I wrap this up!",
+          "latency_s": 1.2932918749866076,
+          "notes": "d1_slack_eta",
+          "error": null,
+          "baseline_delta": -0.5
+        },
+        {
+          "probe_id": "D2/d2_decision_actions",
+          "workspace": "bench-hermes3",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 2,
+            "line_count": 4
+          },
+          "transcript_excerpt": "Decision: The team has decided to use a multi-engine setup for the project.\n\nAction Items:\n1. Begin bench testing of the chosen engine configuration on Friday.\n2. Continue comparing and evaluating different engine options before making a final selection.",
+          "latency_s": 1.2309574999962933,
+          "notes": "d2_decision_actions",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "D2/d2_status_bullets",
+          "workspace": "bench-hermes3",
+          "format_score": 1.0,
+          "capability_score": 0.75,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 3,
+            "line_count": 3
+          },
+          "transcript_excerpt": "1. Routing functionality is fully operational.\n2. Soak testing in progress, with pending tasks to complete.\n3. Documentation creation is lagging and will be prioritized for deployment on Monday.",
+          "latency_s": 1.0303775839856826,
+          "notes": "d2_status_bullets",
+          "error": null,
+          "baseline_delta": -0.25
+        },
+        {
+          "probe_id": "D2/d2_standup",
+          "workspace": "bench-hermes3",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 9,
+            "line_count": 15
+          },
+          "transcript_excerpt": "Standup Update:\n\nYesterday:\n- Continued working on feature X and made progress with the API integration.\n- Discussed the UI design with the design team and gathered feedback.\n- Fixed two critical bugs reported by QA.\n\nToday:\n- Finished implementing the API integration for feature X and ran unit test",
+          "latency_s": 4.907476208987646,
+          "notes": "d2_standup",
+          "error": null,
+          "baseline_delta": 0.0
+        }
+      ]
+    }
+  ],
+  "methodology_version": "v2-capability",
+  "scored_at": "2026-08-14T14:19:04.831495+00:00"
+}
