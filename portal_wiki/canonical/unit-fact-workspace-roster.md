@@ -5,8 +5,8 @@ title: 24 production + 46 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 5acee6003d90
-last_generated_commit: 41df61e0a6102275a700700e9765972f1508c4c5
+  commit: 6d507e206994
+last_generated_commit: 6d507e206994
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'
@@ -15,7 +15,7 @@ tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1786736580.950596
+updated_at: 1786737934.450152
 ---
 
 # Workspace roster (24 production, 46 eval, 70 total)
@@ -40,7 +40,7 @@ updated_at: 1786736580.950596
 | `auto-image` | media | `granite4.1:8b-ctx16k` |
 | `auto-math` | general | `phi4-mini-reasoning:latest-ctx24k` |
 | `auto-music` | media | `lfm2.5:8b-ctx8k` |
-| `auto-nemotron` | general | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M` |
+| `auto-nemotron` | general | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx8k` |
 | `auto-reasoning` | general | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` |
 | `auto-research` | research | `portal5/xyz-aquila-mini:q4_k_m-ctx16k` |
 | `auto-security` | security | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` |

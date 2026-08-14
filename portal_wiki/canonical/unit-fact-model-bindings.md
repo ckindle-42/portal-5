@@ -5,14 +5,14 @@ title: "model bindings \u2014 0 reachability gap(s)"
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 5acee6003d90
+  commit: 6d507e206994
 - type: code
   path: config/portal.yaml
-  commit: 5acee6003d90
+  commit: 6d507e206994
 - type: code
   path: config/personas/
-  commit: 5acee6003d90
-last_generated_commit: 41df61e0a6102275a700700e9765972f1508c4c5
+  commit: 6d507e206994
+last_generated_commit: 6d507e206994
 claims: []
 confidence: high
 tags:
@@ -20,7 +20,7 @@ tags:
 - model-bindings
 - reachability
 created_at: 1784000421.433863
-updated_at: 1786736581.130791
+updated_at: 1786737934.631161
 ---
 
 # Model bindings (reachability-resolved)
@@ -50,7 +50,7 @@ default.
 | `auto-image` | `granite4.1:8b-ctx16k` | yes |
 | `auto-math` | `phi4-mini-reasoning:latest-ctx24k` | yes |
 | `auto-music` | `lfm2.5:8b-ctx8k` | yes |
-| `auto-nemotron` | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M` | yes |
+| `auto-nemotron` | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx8k` | yes |
 | `auto-reasoning` | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` | yes |
 | `auto-research` | `portal5/xyz-aquila-mini:q4_k_m-ctx16k` | yes |
 | `auto-security` | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` | yes |
