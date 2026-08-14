@@ -37,6 +37,7 @@ python3 scripts/blend_acceptance_results.py        # blend ACCEPTANCE_RESULTS.md
 ## Verification and measurement
 
 ```bash
+python3 scripts/check_model_bindings.py             # live gate: every model_pin/model_hint/alias/promptfoo-provider resolves to an installed Ollama tag
 python3 scripts/verify_proxmox_mcp.py              # quick Proxmox MCP check (no Docker)
 python3 scripts/spine_census.py                    # wiki granularity census (mirror/surface/orphan)
 python3 scripts/repin_stale.py --apply             # re-pin spine units after a BS push failure (Rule 12)
