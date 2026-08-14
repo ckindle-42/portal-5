@@ -21,7 +21,7 @@ sources:
 - type: code
   path: config/personas/bench_gemma4_12b.yaml
   commit: 47d3e884c8f0
-last_generated_commit: 47d3e884c8f0
+last_generated_commit: 64c5f5f41652bf67e97863ee1a6285289eaeea00
 claims:
 - probe: personas.count
   pattern: Persona roster ({value} personas)
