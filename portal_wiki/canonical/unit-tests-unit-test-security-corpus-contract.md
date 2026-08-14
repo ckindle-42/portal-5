@@ -5,7 +5,6 @@ title: Security corpus contract unit test
 sources:
 - type: code
   path: tests/unit/test_security_corpus_contract.py
-last_generated_commit: baca992c674a3cbb36a619e8f62e7e88b8fccfff
 claims: []
 confidence: high
 tags:

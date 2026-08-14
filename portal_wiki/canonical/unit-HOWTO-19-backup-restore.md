@@ -5,7 +5,6 @@ title: HOWTO -- 19. Backup & Restore
 sources:
 - type: code
   path: scripts/lib/backup.sh
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
 claims: []
 confidence: high
 tags:

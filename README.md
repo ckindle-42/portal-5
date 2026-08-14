@@ -1,6 +1,5 @@
 # Portal 5 — Local AI Platform
 
-<!-- WIKI:GENERATED unit=unit-readme-portal-5-local-ai-platform -->
 Portal 5 is a complete, private AI platform that runs on your hardware: text,
 code, security analysis, images, music, documents and voice — all local. It
 connects to Open WebUI, Telegram and Slack, and routes each task automatically to
@@ -21,13 +20,11 @@ replacement web stack, which keeps authentication, chat history and RAG inside a
 battle-tested frontend while the pipeline owns routing and model selection. The
 video shelving is an honesty contract: code is retained for future work but is
 neither advertised nor operated until the crash limitations are resolved.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Prerequisites
 
-<!-- WIKI:GENERATED unit=unit-readme-prerequisites -->
 The requirements `./launch.sh up` actually enforces are in `_check_hardware` in
 `scripts/lib/util.sh`, run on every start:
 
@@ -52,13 +49,11 @@ The hardware gate runs before any pull or compose step so the stack fails fast
 with a readable reason instead of dying mid-download or silently OOMing at first
 inference. The thresholds come from the real working set: the router plus a pinned
 model need 16 GB, and the FLUX checkpoint sets the floor for the disk check.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Quick Start
 
-<!-- WIKI:GENERATED unit=unit-readme-quick-start -->
 ```bash
 git clone https://github.com/ckindle-42/portal-5.git
 cd portal-5
@@ -95,13 +90,11 @@ command: secret generation, workspace init, hardware checks and model bootstrap
 all happen inside `up` so the operator never hand-edits a config to get started.
 The printed endpoints are the actual compose service URLs, so the first login uses
 credentials that already exist in `.env`.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## What Starts Automatically
 
-<!-- WIKI:GENERATED unit=unit-readme-what-starts-automatically -->
 `./launch.sh up` starts the core Docker stack (compose services plus profiles
 auto-selected from Telegram/Slack tokens). Host-native Apple Silicon services
 start when their launchd agent has been installed — `_ensure_native_services` in
@@ -139,7 +132,6 @@ Silicon runtimes (MLX, ComfyUI, embeddings) are faster and lighter outside Docke
 while the web services benefit from compose's networking, health checks and
 restart policy. launchd registration makes the native services survive reboots and
 crashes, so `up` only needs to confirm or start them rather than install them.
-<!-- /WIKI:GENERATED -->
 
 ---
 
@@ -172,7 +164,6 @@ benchmark lanes never leak into normal use unless the operator explicitly opts i
 
 ### Functional Workspaces
 
-<!-- WIKI:GENERATED unit=unit-readme-functional-workspaces -->
 The functional workspaces are the everyday entries in the Open WebUI model
 dropdown. Each is defined in `config/portal.yaml` under `workspaces:` with a
 `model_hint:` that pins the served model and a `tools:` array that grants the
@@ -216,7 +207,6 @@ usable without prompt discipline: the user picks an intent, and the workspace
 carries the model weight class and the capability grants. Keeping that mapping in
 `config/portal.yaml` lets operators add or retune a lane without touching code,
 and `sync-config` pushes it into routing and the Open WebUI presets.
-<!-- /WIKI:GENERATED -->
 
 ---
 
@@ -263,7 +253,6 @@ model dropdown while leaving a documented harness path.
 
 ## Common Commands
 
-<!-- WIKI:GENERATED unit=unit-readme-common-commands -->
 The operator surface is one dispatcher: `./launch.sh <command>`. The `case`
 statement in `launch.sh` routes every subcommand, and most delegate either to a
 sourced library under `scripts/lib/` or to `portal.platform.inference.cli`. The
@@ -289,7 +278,6 @@ each subcommand either maps to a small shell library or to one typed CLI module,
 so there is exactly one way to start, stop, seed or back up the stack. It also
 means the Docker Compose project directory and the `.env` file are never touched
 by hand, which keeps `docker compose up` and `launch.sh up` from diverging.
-<!-- /WIKI:GENERATED -->
 
 ---
 
@@ -297,7 +285,6 @@ by hand, which keeps `docker compose up` and `launch.sh up` from diverging.
 
 # Test everything is working
 
-<!-- WIKI:GENERATED unit=unit-readme-test-everything-is-working -->
 ```bash
 ./launch.sh test            # Run live smoke tests against running stack
 ```
@@ -318,13 +305,11 @@ short live smoke test is the first thing an operator runs after `up`. Keeping it
 inside the CLI (rather than a compose one-shot) means it uses the same environment
 the operator has, and a nonzero exit makes it usable in a scripted health check
 without parsing output.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 # Pull specialized models (security, coding, reasoning — 30–90 min)
 
-<!-- WIKI:GENERATED unit=unit-readme-pull-specialized-models-security-coding-reasoning-30-90-min -->
 ```bash
 ./launch.sh pull-models
 ```
@@ -346,7 +331,6 @@ lanes), so it is deliberately a separate, operator-initiated step after the thre
 core models have bootstrapped the stack. Keeping the pull set registry-driven
 means a model added to `config/portal.yaml` is automatically pullable without
 editing shell code, and retired entries stay documented but stop being fetched.
-<!-- /WIKI:GENERATED -->
 
 ---
 
@@ -354,7 +338,6 @@ editing shell code, and retired entries stay documented but stop being fetched.
 
 # User management
 
-<!-- WIKI:GENERATED unit=unit-readme-user-management -->
 ```bash
 ./launch.sh add-user alice@example.com "Alice Smith"
 ./launch.sh list-users
@@ -375,7 +358,6 @@ User accounts are owned by Open WebUI, so the CLI does not invent its own user
 store — it shells out to the same admin endpoints the UI uses, which keeps roles
 and password handling consistent. Wrapping them in `launch.sh` gives an operator a
 scriptable path to provision accounts without clicking through the admin panel.
-<!-- /WIKI:GENERATED -->
 
 ---
 
@@ -385,7 +367,6 @@ scriptable path to provision accounts without clicking through the admin panel.
 
 # Seeding
 
-<!-- WIKI:GENERATED unit=unit-readme-seeding -->
 ```bash
 ./launch.sh seed            # Re-seed Open WebUI (workspaces + personas)
 ./launch.sh reseed          # Force-refresh all presets (delete + recreate)
@@ -409,7 +390,6 @@ Seeding exists because the workspace and persona catalog is generated from
 The idempotent default makes `up` converge safely on every boot, while `reseed`
 is the explicit escape hatch to repair a drifted or partially edited preset set
 without touching Open WebUI's database by hand.
-<!-- /WIKI:GENERATED -->
 
 ---
 
@@ -419,7 +399,6 @@ without touching Open WebUI's database by hand.
 
 ## Enable Telegram Bot
 
-<!-- WIKI:GENERATED unit=unit-HOWTO-16-telegram-bot -->
 1. Message **@BotFather** on Telegram -> `/newbot` -> copy the token
 2. Get your Telegram user ID from **@userinfobot**
 3. Add to `.env`:
@@ -435,13 +414,11 @@ The bot container (`portal-telegram` in `deploy/portal-5/docker-compose.yml`) is
 ## Why
 
 A messaging bot is just a thin channel adapter: all the intelligence stays in the pipeline, so the bot container only relays text between Telegram and the OpenAI-compatible router. Making it a compose profile rather than a default service keeps the token-less install clean, and the token auto-detection in `up` means turning the channel on is a one-line `.env` change with no extra command.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Enable Slack Bot
 
-<!-- WIKI:GENERATED unit=unit-HOWTO-17-slack-bot -->
 1. Go to https://api.slack.com/apps -> **Create New App** -> **From scratch**
 2. Under **OAuth & Permissions** -> add bot scopes:
    `app_mentions:read`, `chat:write`, `channels:history`, `im:history`, `im:read`, `im:write` (Slack-side app configuration)
@@ -461,13 +438,11 @@ The bot container (`portal-slack` in the compose file) receives the three tokens
 ## Why
 
 Slack integration uses Socket Mode precisely because it needs no public endpoint: the app-level token establishes an outbound WebSocket from the bot container, which keeps the whole deployment firewalled. The two-token requirement (bot token for the app, app token for the socket) is why `up-slack` validates both before starting — a half-configured bot fails loudly instead of silently ignoring mentions.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Core models (pulled automatically on first run, ~4 GB)
 
-<!-- WIKI:GENERATED unit=unit-readme-core-models-pulled-automatically-on-first-run-4-gb -->
 Three core models are pulled automatically on the first `./launch.sh up` by the
 `ollama-init` service in `deploy/portal-5/docker-compose.yml`. Its command runs
 three `ollama pull` calls before reporting that core models are ready:
@@ -495,13 +470,11 @@ runs: a general chat model, a router standby and an embedding model guarantee
 that routing, conversation and RAG all function on first boot. Pulling them in the
 compose init container keeps the first-run pull inside the normal `up` path so the
 stack is never brought up half-configured.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Specialized models (pulled with `./launch.sh pull-models`, ~60–100 GB total)
 
-<!-- WIKI:GENERATED unit=unit-readme-specialized-models-pulled-with-launch-sh-pull-models-60-100-gb-total -->
 The specialized model catalog lives in `config/backends.yaml`, grouped by routing
 group, and is what the workspaces' `model_hint:` values reference. Verified
 members per group:
@@ -531,13 +504,11 @@ targets, so adding or retiring a lane is a config change, not a code change. The
 split between the pull-models registry and the update default set reflects two
 workflows: a deliberate operator pull versus a full upgrade that refreshes the
 whole fleet.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### MLX models (Apple Silicon, retained for audio/embedding/reranker only — chat inference is Ollama-only)
 
-<!-- WIKI:GENERATED unit=unit-readme-mlx-models-apple-silicon-retained-for-audio-embedding-reranker-only-chat-inference-is-ollama-only -->
 MLX survives in four non-chat runtimes, each started by its own launcher:
 
 - **Speech:** the host-native MLX speech server on port 8918 (`scripts/mlx-speech.py`,
@@ -562,13 +533,11 @@ Ollama has no equivalent: Ollama does not host Kokoro/Qwen3 TTS, diarized
 whisper, sentence embeddings or reranking. Those four runtimes stay host-native on
 Apple Silicon because the MPS path is substantially faster than the equivalent
 Docker images, and none of them touch the router.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Image generation (downloaded automatically on first run, ~12 GB)
 
-<!-- WIKI:GENERATED unit=unit-readme-image-generation-downloaded-automatically-on-first-run-12-gb -->
 Image generation runs through ComfyUI, and the default checkpoint is FLUX.1-schnell,
 set by `IMAGE_MODEL=flux-schnell` in `.env.example`. The same file documents the
 alternatives: `flux-dev` (about 24 GB, requires `HF_TOKEN`), `flux-uncensored`,
@@ -591,13 +560,11 @@ that bundling every option into the base install would waste disk and slow first
 boot. `IMAGE_MODEL` picks the default while the `pull-qwen-image` / `pull-wan22`
 commands fetch specific checkpoints on demand, so the operator pays the download
 cost only for the models actually used.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Speech (Text-to-Speech & Speech-to-Text)
 
-<!-- WIKI:GENERATED unit=unit-readme-speech-text-to-speech-speech-to-text -->
 Portal 5 includes a native MLX speech server on Apple Silicon
 (`scripts/mlx-speech.py`, port `MLX_SPEECH_PORT` default 8918) with three
 backends:
@@ -624,13 +591,11 @@ synthesis fast and the models are loaded once and reused. The PID-file plus
 `start-speech`/`stop-speech` pairing gives an operator lifecycle control without a
 container orchestrator, and Kokoro voices are addressed by the same prefix scheme
 the Kokoro model uses.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Troubleshooting
 
-<!-- WIKI:GENERATED unit=unit-readme-troubleshooting -->
 **Services not starting:**
 ```bash
 ./launch.sh status          # See which services failed
@@ -660,13 +625,11 @@ surface is deliberately two commands. `status` resolves the question of which
 container is not healthy without parsing compose output, and `clean` is scoped to
 remove exactly the data that is safe to lose, because nuking the Ollama volume
 would force hours of model re-downloads.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 # Then free disk space and retry ./launch.sh up
 
-<!-- WIKI:GENERATED unit=unit-readme-then-free-disk-space-and-retry-launch-sh-up -->
 The disk check in `_check_hardware` (`scripts/lib/util.sh`) is the first-run
 gating constraint: below 20 GB free it warns and suggests `docker system prune -a`
 before continuing, and below 50 GB it notes that more is needed for the full
@@ -688,13 +651,11 @@ most wasteful failure mode — the download restarts or half-completes, and the
 stack comes up without usable models. Gating on free space up front, and offering
 the exact prune command, turns a storage shortfall into a quick fix rather than a
 confusing mid-boot error.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 # Wait for Ollama to finish loading, then try again
 
-<!-- WIKI:GENERATED unit=unit-readme-wait-for-ollama-to-finish-loading-then-try-again -->
 "Wait for Ollama to finish loading, then try again" is the guidance for a cold
 start. During `up`, `_ensure_native_services` (`scripts/lib/util.sh`) restarts
 Ollama via `sudo -n launchctl kickstart -k system/com.portal5.ollama` on Apple
@@ -721,13 +682,11 @@ retry" is not a workaround but the documented behavior of the loader: the stack
 can be up before every model is resident. The 10-second readiness poll in
 `_ensure_native_services` draws the line between a service that is starting and
 one that is actually broken.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 # Stop the conflicting service, then ./launch.sh up
 
-<!-- WIKI:GENERATED unit=unit-readme-stop-the-conflicting-service-then-launch-sh-up -->
 "Stop the conflicting service, then `./launch.sh up`" is the resolution for a
 port-conflict abort. The `up` case in `launch.sh` runs `_check_ports`
 (`scripts/lib/util.sh`) as a pre-flight: it probes each reserved port with `nc`
@@ -748,13 +707,11 @@ half-started services and cross-talk between Open WebUI, the pipeline and the MC
 fleet. A hard pre-flight that names the offender and offers both stop and override
 escapes turns the most common first-run failure into a one-line fix instead of a
 log dig.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Required Environment Variables
 
-<!-- WIKI:GENERATED unit=unit-readme-required-environment-variables -->
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `PIPELINE_API_KEY` | **Yes** | API key for pipeline authentication. Generate with: `openssl rand -hex 32`. Pipeline will not start without this. |
@@ -779,13 +736,11 @@ authenticated against one credential instead of several hand-managed secrets, an
 generating it automatically in `up` means a first-time operator never has to
 produce or paste a random value. The remaining secrets are likewise auto-generated
 so `.env` is usable the moment it is created.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Network Exposure
 
-<!-- WIKI:GENERATED unit=unit-readme-network-exposure -->
 By default the Portal Pipeline binds to all interfaces. `deploy/portal-5/docker-compose.yml`
 maps `0.0.0.0:9099:9099`, so other machines on the LAN can reach it — intentional
 for multi-device setups. Requests are protected by `PIPELINE_API_KEY` authentication:
@@ -805,7 +760,6 @@ channel bots, so it exposes 0.0.0.0 and leans on the API key; the chat UI has no
 key of its own and should not be silently world-visible, so it defaults to
 loopback unless the operator opts into remote access. Firewall guidance applies to
 a LAN, not the public internet.
-<!-- /WIKI:GENERATED -->
 
 ---
 
@@ -853,7 +807,6 @@ credential controls the whole surface.
 
 ## Documentation
 
-<!-- WIKI:GENERATED unit=unit-readme-documentation -->
 The operator-facing manual is a set of reference docs at the repo root and under
 `docs/`, all of which exist as tracked files:
 
@@ -883,13 +836,11 @@ guides cover exactly the surfaces the platform exposes (tooling, accounts, alert
 media, clustering), so a new operator can find the answer for a feature without
 reading source. Coupling the generated guides to wiki units means a doc cannot
 silently drift from the config that produces it.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Acceptance Testing
 
-<!-- WIKI:GENERATED unit=unit-readme-acceptance-testing -->
 The acceptance suite is a live-stack gate, deliberately separate from the mocked
 pytest unit suite. The entrypoint `tests/portal5_acceptance_v6.py` is a thin shim:
 it re-exports the signal dictionaries from `tests/acceptance/_common.py` and calls
@@ -920,13 +871,11 @@ tools are missing, or container ports are wrong. Running against the live stack
 catches those contract breaks before a push. The section-per-file layout keeps each
 area (services, routing, personas, security MCP) independently re-runnable during
 debugging instead of forcing one monolithic run.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Unit Test CI
 
-<!-- WIKI:GENERATED unit=unit-readme-unit-test-ci -->
 The unit test suite runs on every PR and push to `main` via GitHub Actions. The
 workflow `.github/workflows/unit-tests.yml` runs `pytest` on `tests/unit` (with
 `-n auto -x --tb=short -v`) in a clean environment, so a change that breaks
@@ -953,13 +902,11 @@ a clean environment where local state cannot mask a broken import. The
 pre-commit hooks move the same checks earlier, catching style, freshness and
 test failures before the commit is made, while the heavier system validation stays
 at push time to keep the per-commit cost low.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Architecture
 
-<!-- WIKI:GENERATED unit=unit-readme-architecture -->
 The deployment is a Docker compose stack plus host-native runtimes, orchestrated
 by `launch.sh`. Open WebUI (port 8080) is the user-facing chat surface and the
 only component a human normally opens. It talks to the Portal Pipeline (port
@@ -1000,13 +947,11 @@ stack against the same GPU memory; MLX survives only where Ollama has no
 equivalent runtime — audio synthesis, diarization, embeddings and reranking. One
 tier also means one model catalog (`config/backends.yaml`) and one pull path for
 operators, which is why the retained MLX runtimes are explicitly non-chat.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## License
 
-<!-- WIKI:GENERATED unit=unit-readme-license -->
 Portal 5 is released under the MIT License — see [LICENSE](LICENSE) at the repo
 root for the full text. MIT grants permission to use, copy, modify and distribute
 the code for any purpose, including commercial use, subject to preserving the
@@ -1019,6 +964,5 @@ Open WebUI, and permissive licensing removes friction for operators who want to
 fork or vendor it internally. The individual GGUF models and runtimes it
 orchestrates carry their own licenses (for example gated HuggingFace repos
 require `HF_TOKEN`), which are separate from the project license.
-<!-- /WIKI:GENERATED -->
 
 ---

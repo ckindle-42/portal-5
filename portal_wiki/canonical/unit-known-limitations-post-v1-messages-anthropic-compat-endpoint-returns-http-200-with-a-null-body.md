@@ -9,7 +9,6 @@ sources:
   path: portal/platform/inference/router/anthropic_compat.py
 - type: code
   path: tests/unit/test_pipeline.py
-last_generated_commit: aae69a16de501e8524f279c9bff13f3fdc241f32
 claims: []
 confidence: high
 tags:

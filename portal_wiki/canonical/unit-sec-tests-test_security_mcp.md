@@ -6,7 +6,6 @@ sources:
 - type: code
   path: portal/modules/security/tests/test_security_mcp.py
   commit: bdbf509f
-last_generated_commit: bdbf509f
 claims: []
 confidence: high
 tags:

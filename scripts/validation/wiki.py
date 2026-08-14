@@ -101,28 +101,37 @@ def check_wiki_core() -> tuple[str, str, list[dict]]:
 
 
 @register(
-    "wiki_facts_current", "AW. wiki facts current (fact-units + generated doc blocks)", order=47
+    "wiki_facts_current",
+    "AW. wiki facts current (fact-units only, P0 A4)",
+    order=47,
 )
 def check_wiki_facts_current() -> tuple[str, str, list[dict]]:
-    """AW. Wiki fact-units are current vs live config, generated doc
-    blocks match their units, and migrated docs have no un-fenced substance.
+    """AW. Wiki fact-units are current vs live config, and every KEEP-FACT
+    generated doc block matches its unit's current body.
 
     DESIGN_WIKI_GENERATION_LOOP_V1.md F3 — the precise replacement for a
     coarse "a bound directory changed" doc-currency signal on the docs
     that now carry generated fact-blocks: read-only diff of each
     fact-unit's would-be body against what's stored, plus every
-    `<!-- WIKI:GENERATED unit=... -->` block in the Tier-1 docs against
-    its unit's current body. A mismatch here is precise ("unit says 138,
-    doc block says 130"), not "a directory changed, re-stamp" — it means
-    `sync-config` was not re-run after a source change before commit.
+    `<!-- WIKI:GENERATED unit=... -->` block bound to a KEEP-FACT unit in
+    the Tier-1 docs against its unit's current body. A mismatch here is
+    precise ("unit says 138, doc block says 130"), not "a directory
+    changed, re-stamp" — it means `sync-config` was not re-run after a
+    source change before commit.
+
+    P0 A4 scoped this check to the KEEP-FACT set (`claims.fact_unit_ids`) —
+    released prose carries no AW currency requirement, editing it is not a
+    `sync-config` event.
 
     Additionally enforces A1: a doc that has graduated to "migrated" status
     must have zero substantive remainder (no hand-edited facts outside
     WIKI:GENERATED or WIKI:HUMAN-OWNED fences). Edit the unit, not the shell.
     """
     from portal.platform.wiki.adapters.seed_facts import check_facts_current
+    from portal.platform.wiki.claims import fact_unit_ids
     from portal.platform.wiki.migration import substantive_remainder
     from portal.platform.wiki.render import check_generated_blocks_current, render_report
+    from portal.platform.wiki.store import load_all
 
     subs: list[dict] = []
 
@@ -135,10 +144,11 @@ def check_wiki_facts_current() -> tuple[str, str, list[dict]]:
         }
     )
 
-    drift = check_generated_blocks_current(REPO_ROOT)
+    fact_ids = fact_unit_ids(load_all())
+    drift = check_generated_blocks_current(REPO_ROOT, unit_ids=fact_ids)
     subs.append(
         {
-            "name": "generated doc blocks vs units",
+            "name": "generated doc blocks vs units (fact-units only, A4)",
             "status": "PASS" if not drift else "FAIL",
             "detail": "; ".join(drift) if drift else "all match",
         }
@@ -298,7 +308,7 @@ def _surface_manifests_differ(committed: list[dict], fresh: list[dict]) -> bool:
 
 @register(
     "spine_drift",
-    "BS. spine drift census (claims hold + pins resolvable + doc refs exist)",
+    "BS. spine drift census (claims hold + doc refs exist)",
     order=69,
 )
 def check_spine_drift() -> tuple[str, str, list[dict]]:
@@ -309,22 +319,22 @@ def check_spine_drift() -> tuple[str, str, list[dict]]:
     At the commit this gate landed, both were green while README asserted 60
     benchmark workspaces against a live 65 and 22 MCP servers against a live 21.
 
-    Three axes, two enforcement modes:
-      claims     — declared unit assertions vs live probes. HARD FAIL, never
-                   baselinable: a unit that states a wrong number is a bug.
-      pins       — `last_generated_commit` must resolve to a real commit.
-                   Ratcheted: 461 units were pinned to 05e42ec2, a SHA absent
-                   from all 1904 commits, so the field was decoration.
+    Two axes, both HARD FAIL, neither baselinable:
+      claims     — declared unit assertions vs live probes. A unit that
+                   states a wrong number is a bug.
       doc refs   — repo-relative paths named in Tier-1 docs must exist.
-                   Ratcheted.
+
+    P0 A1 deleted the third axis this check used to carry — the
+    `last_generated_commit` pins axis, which proved nothing about whether a
+    body was still true and only forced a two-commit re-pin dance. No pin
+    axis to restore.
     """
     from portal.platform.wiki.claims import claim_count, evaluate_claims
-    from portal.platform.wiki.drift import broken_path_refs, pin_health
+    from portal.platform.wiki.drift import broken_path_refs
     from portal.platform.wiki.store import load_all
 
     units = load_all()
     violations = evaluate_claims(units, REPO_ROOT)
-    pins = pin_health(REPO_ROOT, units)
     refs = broken_path_refs(REPO_ROOT)
 
     subs: list[dict] = [
@@ -338,33 +348,6 @@ def check_spine_drift() -> tuple[str, str, list[dict]]:
             ),
         },
         {
-            "name": "no phantom pin",
-            "status": "PASS" if not pins.phantom else "FAIL",
-            "detail": (
-                "every pin resolves to a real commit"
-                if not pins.phantom
-                else f"{len(pins.phantom)} phantom: {', '.join(pins.phantom[:6])}"
-            ),
-        },
-        {
-            "name": "no unpinned unit",
-            "status": "PASS" if not pins.unpinned else "FAIL",
-            "detail": (
-                "every unit records a pin"
-                if not pins.unpinned
-                else f"{len(pins.unpinned)} unpinned: {', '.join(pins.unpinned[:6])}"
-            ),
-        },
-        {
-            "name": "no stale unit",
-            "status": "PASS" if not pins.stale else "FAIL",
-            "detail": (
-                "every cited source is current at its pin"
-                if not pins.stale
-                else f"{len(pins.stale)} stale: {', '.join(pins.stale[:6])}"
-            ),
-        },
-        {
             "name": "no broken doc reference",
             "status": "PASS" if not refs else "FAIL",
             "detail": (
@@ -373,37 +356,18 @@ def check_spine_drift() -> tuple[str, str, list[dict]]:
                 else f"{len(refs)} dead refs: {', '.join(refs[:6])}"
             ),
         },
-        {
-            "name": "pin census measured",
-            "status": "PASS",
-            "detail": (
-                f"{len(pins.fresh)} fresh / {len(pins.stale)} stale / "
-                f"{len(pins.phantom)} phantom / {len(pins.unpinned)} unpinned "
-                f"of {pins.total}"
-            ),
-        },
     ]
 
-    hard = (
-        bool(violations)
-        or bool(pins.phantom)
-        or bool(pins.unpinned)
-        or bool(pins.stale)
-        or bool(refs)
-    )
+    hard = bool(violations) or bool(refs)
     if hard:
         return (
             "FAIL",
-            f"{len(violations)} claim violation(s), "
-            f"{len(pins.phantom)} phantom pin(s), "
-            f"{len(pins.unpinned)} unpinned unit(s), "
-            f"{len(pins.stale)} stale unit(s), "
-            f"{len(refs)} dead doc ref(s)",
+            f"{len(violations)} claim violation(s), {len(refs)} dead doc ref(s)",
             subs,
         )
     return (
         "PASS",
-        f"{claim_count(units)} claim(s) hold; no phantom pins, unpinned units, stale units, or dead refs",
+        f"{claim_count(units)} claim(s) hold; no dead refs",
         subs,
     )
 

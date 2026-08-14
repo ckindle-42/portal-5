@@ -6,7 +6,6 @@ sources:
 - type: code
   path: portal/platform/wiki/writeback.py
   commit: 649301d0f61c5bfcf00996b57c976122dd4f8e02
-last_generated_commit: 649301d0f61c5bfcf00996b57c976122dd4f8e02
 claims: []
 confidence: high
 tags:

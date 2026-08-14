@@ -6,7 +6,6 @@ sources:
 - type: code
   path: tests/acceptance/runner.py
   commit: a88ad75b
-last_generated_commit: a88ad75b
 claims: []
 confidence: high
 tags:

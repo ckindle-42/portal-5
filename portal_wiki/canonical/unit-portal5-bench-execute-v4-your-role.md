@@ -7,7 +7,6 @@ sources:
   path: tests/benchmarks/bench/config.py
 - type: code
   path: scripts/update_grafana_benchmarks.py
-last_generated_commit: 9ec2fd4984c047ba49d9056db6a9666a1a4f0caf
 claims: []
 confidence: high
 tags:

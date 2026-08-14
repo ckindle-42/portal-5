@@ -11,7 +11,6 @@ sources:
   path: config/attack_image_contract.json
 - type: code
   path: Dockerfile.attack
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
 claims: []
 confidence: high
 tags:

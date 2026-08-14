@@ -76,32 +76,23 @@ def _make_unit(
     sources: list[SourceRef],
     body: str,
     tags: list[str],
-    commit: str,
     confidence: str = "high",
     why: str = "",
     claims: list[dict] | None = None,
 ) -> KnowledgeUnit:
     """Construct a fact-unit that only changes on disk when its BODY changes.
 
-    Two idempotency traps, both fixed here:
+    KnowledgeUnit.__post_init__ defaults created_at/updated_at to "now" for
+    any instance that doesn't already carry them — building a fresh
+    KnowledgeUnit on every derive call would bump both fields every single
+    run even when the body is byte-identical. Fix: when the body is
+    unchanged from what's stored, reuse the PRIOR unit's sources/timestamps
+    wholesale (a true no-op write). Only when the body differs do
+    sources/updated_at advance to the current call's values.
 
-    1. KnowledgeUnit.__post_init__ defaults created_at/updated_at to "now"
-       for any instance that doesn't already carry them — building a fresh
-       KnowledgeUnit on every derive call would bump both fields every
-       single run even when the body is byte-identical.
-    2. `commit` is "whatever HEAD is right now" at derive time, which is
-       usually the PARENT of the commit-in-progress (pre-commit hooks run
-       before the commit lands) — baking it into `sources[].commit` /
-       `last_generated_commit` unconditionally means the unit file changes
-       on literally every future commit forever, even with zero functional
-       change, because HEAD always differs from the value last stamped.
-
-    Fix: when the body is unchanged from what's stored, reuse the PRIOR
-    unit's sources/commit/timestamps wholesale (a true no-op write) —
-    `last_generated_commit` means "commit at which this fact last actually
-    changed," not "commit at which this script last ran." Only when the
-    body differs do sources/commit/updated_at advance to the current call's
-    values.
+    (P0 A1 removed the `last_generated_commit` pin this docstring used to
+    describe — this function no longer stamps one; `sources[].commit` is
+    unaffected provenance metadata, not the pin.)
 
     `why` (if given) is appended as a `## Why` section so the fact unit
     passes the universal quality gate (structure check requires one), and
@@ -126,7 +117,6 @@ def _make_unit(
             tags=tags,
             confidence=confidence,
             claims=prior.claims or [],
-            last_generated_commit=prior.last_generated_commit,
             created_at=prior.created_at,
             updated_at=prior.updated_at,
         )
@@ -139,7 +129,6 @@ def _make_unit(
         tags=tags,
         confidence=confidence,
         claims=claims or [],
-        last_generated_commit=commit,
         created_at=prior.created_at if prior else 0.0,
         updated_at=time.time() if prior else 0.0,
     )
@@ -180,7 +169,6 @@ def derive_persona_roster(commit: str, save: bool = True) -> KnowledgeUnit:
         sources,
         "\n".join(body_lines),
         ["fact", "personas"],
-        commit,
         why=(
             "The roster is derived from the persona YAML files under "
             "`config/personas/`, one per specialist, so the count and the "
@@ -230,7 +218,6 @@ def derive_workspace_roster(commit: str, save: bool = True) -> KnowledgeUnit:
         [SourceRef(type="code", path="config/portal.yaml", commit=commit)],
         "\n".join(body_lines),
         ["fact", "workspaces"],
-        commit,
         why=(
             "The roster is the workspace mapping in `config/portal.yaml`, split "
             "into the production workspaces that acceptance/UAT exercises and the "
@@ -277,7 +264,6 @@ def derive_security_variants(commit: str, save: bool = True) -> KnowledgeUnit:
         ],
         "\n".join(body_lines),
         ["fact", "security"],
-        commit,
         why=(
             "The canonical variant set is the `variants` map on the "
             "`auto-security` workspace in `config/portal.yaml`. Each entry is an "
@@ -369,7 +355,6 @@ def derive_model_bindings(commit: str, save: bool = True) -> KnowledgeUnit:
         ],
         "\n".join(body_lines),
         ["fact", "model-bindings", "reachability"],
-        commit,
         confidence="high" if not gaps else "low",
         why=(
             "Model bindings are the reachability-resolved view of what each "
@@ -407,7 +392,6 @@ def derive_mcp_fleet(commit: str, save: bool = True) -> KnowledgeUnit:
         [SourceRef(type="code", path="config/portal.yaml", commit=commit, section="mcp_fleet")],
         "\n".join(body_lines),
         ["fact", "mcp"],
-        commit,
         why=(
             "The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the "
             "single source for every MCP tool server the pipeline can dispatch to. "
@@ -450,7 +434,6 @@ def derive_model_catalog(commit: str, save: bool = True) -> KnowledgeUnit:
         [SourceRef(type="code", path="config/backends.yaml", commit=commit)],
         "\n".join(body_lines),
         ["fact", "models"],
-        commit,
         why=(
             "The catalog groups every model id registered in "
             "`config/backends.yaml` by its routing group, which is the same "
@@ -592,7 +575,6 @@ def derive_tool_registry(commit: str, save: bool = True) -> KnowledgeUnit:
         [SourceRef(type="code", path="portal/modules/*/tools/*_mcp.py", commit=commit)],
         "\n".join(body_lines),
         ["fact", "tools", "mcp"],
-        commit,
         why=(
             "The registry is parsed directly from the MCP server source files: "
             '`@mcp.tool()` decorated functions, or `@mcp.custom_route("/tools/<name>")` '
@@ -640,7 +622,6 @@ def derive_tool_authorizations(commit: str, save: bool = True) -> KnowledgeUnit:
         ],
         "\n".join(body_lines),
         ["fact", "tools", "workspaces"],
-        commit,
         why=(
             "The authorizations table is the per-workspace `tools:` whitelist in "
             "`config/portal.yaml`, which is exactly what the pipeline enforces at "
@@ -717,7 +698,6 @@ def derive_media_memory_budget(commit: str, save: bool = True) -> KnowledgeUnit:
         ],
         "\n".join(body_lines),
         ["fact", "media", "memory"],
-        commit,
         why=(
             "The budget is the `MEDIA_MODEL_MEMORY_GB` table in this seeder, the "
             "session-observed peak unified-memory estimate the Tier-1 admission "
@@ -768,7 +748,6 @@ def derive_doc_migration_coverage(commit: str, save: bool = True) -> KnowledgeUn
         ],
         "\n".join(body_lines),
         ["fact", "wiki", "migration"],
-        commit,
         why=(
             "The migration numbers come from `render_report()` in "
             "`portal/platform/wiki/render.py`, which classifies every Tier-1 doc "

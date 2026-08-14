@@ -6,7 +6,6 @@ sources:
 - type: code
   path: portal_channels/__init__.py
   commit: 5b73259d
-last_generated_commit: 5b73259d
 claims: []
 confidence: high
 tags:

@@ -54,7 +54,6 @@ class KnowledgeUnit:
     title: str
     sources: list[SourceRef]
     body: str = ""
-    last_generated_commit: str = ""
     confidence: str = "high"  # "high" | "medium" | "low"
     # Executable assertions tying this unit's factual claims to live probes.
     # Must survive frontmatter round-trip: save_unit() rewrites the whole file,
@@ -86,7 +85,6 @@ class KnowledgeUnit:
             "kind": self.kind,
             "title": self.title,
             "sources": [s.to_dict() for s in self.sources],
-            "last_generated_commit": self.last_generated_commit,
             "claims": self.claims,
             "confidence": self.confidence,
             "tags": self.tags,
@@ -131,7 +129,6 @@ class KnowledgeUnit:
             title=fm["title"],
             sources=sources,
             body=body,
-            last_generated_commit=fm.get("last_generated_commit", ""),
             claims=fm.get("claims", []) or [],
             confidence=fm.get("confidence", "high"),
             tags=fm.get("tags", []),

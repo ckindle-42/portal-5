@@ -280,7 +280,6 @@ sources:
   path: config/PENDING_MODEL_VERDICTS.md
 - type: code
   path: config/model_inventory.snapshot
-last_generated_commit: pending-spine-sweep
 claims: []
 confidence: high
 tags:

@@ -7,7 +7,6 @@ sources:
   path: scripts/caldera_emulate.py
 - type: code
   path: portal/modules/security/core/siem/spl_backend.py
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
 claims: []
 confidence: high
 tags:

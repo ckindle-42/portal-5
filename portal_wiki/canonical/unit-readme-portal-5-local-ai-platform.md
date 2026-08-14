@@ -11,7 +11,6 @@ sources:
   path: .env.example
 - type: code
   path: KNOWN_LIMITATIONS.md
-last_generated_commit: aae69a16de501e8524f279c9bff13f3fdc241f32
 claims: []
 confidence: high
 tags:

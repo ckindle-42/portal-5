@@ -13,7 +13,6 @@ sources:
   path: portal/platform/inference/router/preinject.py
 - type: code
   path: portal/platform/inference/cluster_backends.py
-last_generated_commit: aae69a16de501e8524f279c9bff13f3fdc241f32
 claims: []
 confidence: high
 tags:

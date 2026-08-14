@@ -7,7 +7,6 @@ sources:
   path: deploy/portal-5/docker-compose.yml
 - type: code
   path: scripts/openwebui_init.py
-last_generated_commit: f28832a459fb834ed6696f953f9955694b962483
 claims: []
 confidence: high
 tags:

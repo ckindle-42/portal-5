@@ -9,7 +9,6 @@ sources:
   path: portal/platform/inference/router/app.py
 - type: code
   path: portal/platform/inference/config.py
-last_generated_commit: 9ec2fd4984c047ba49d9056db6a9666a1a4f0caf
 claims: []
 confidence: high
 tags:

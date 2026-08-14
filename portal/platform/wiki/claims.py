@@ -313,3 +313,13 @@ def claim_count(units=None) -> int:
 
         units = load_all()
     return sum(len(getattr(u, "claims", None) or []) for u in units)
+
+
+def fact_unit_ids(units=None) -> set[str]:
+    """KEEP-FACT set (P0 A2/A4): units with `claims` plus `unit-fact-*`. The
+    only set AW's generated-block-currency check governs post-P0."""
+    if units is None:
+        from portal.platform.wiki.store import load_all
+
+        units = load_all()
+    return {u.id for u in units if (getattr(u, "claims", None) or u.id.startswith("unit-fact-"))}

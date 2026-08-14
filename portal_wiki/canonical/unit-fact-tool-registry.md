@@ -6,7 +6,6 @@ sources:
 - type: code
   path: portal/modules/*/tools/*_mcp.py
   commit: 6df4cdf8e6e7
-last_generated_commit: 6df4cdf8e6e7
 claims: []
 confidence: high
 tags:

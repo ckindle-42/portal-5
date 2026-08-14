@@ -19,7 +19,6 @@ sources:
   path: scripts/lib/lab.sh
 - type: code
   path: tests/PORTAL5_BENCH_SEC_EXECUTE_V3.md
-last_generated_commit: baca992c674a3cbb36a619e8f62e7e88b8fccfff
 claims: []
 confidence: high
 tags:

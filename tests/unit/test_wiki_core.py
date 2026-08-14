@@ -205,7 +205,6 @@ class TestWikiIntegrity:
             kind="why",
             title="Authored",
             sources=[SourceRef(type="doc", path="README.md", commit="old")],
-            last_generated_commit="old",
         )
         monkeypatch.setattr("portal.platform.wiki.maintain.load_all", lambda: [unit])
 
@@ -218,7 +217,6 @@ class TestWikiIntegrity:
             title="Fact",
             sources=[SourceRef(type="code", path="config/portal.yaml", commit="old")],
             body="old body",
-            last_generated_commit="old",
         )
         fresh = KnowledgeUnit(
             id="unit-fact",
@@ -226,7 +224,6 @@ class TestWikiIntegrity:
             title="Fact",
             sources=[SourceRef(type="code", path="config/portal.yaml", commit="new")],
             body="new body",
-            last_generated_commit="new",
         )
         monkeypatch.setattr("portal.platform.wiki.maintain.load_all", lambda: [stored])
 
@@ -234,7 +231,6 @@ class TestWikiIntegrity:
             {
                 "unit_id": "unit-fact",
                 "kind": "what",
-                "generated_commit": "old",
                 "current_commit": "new",
             }
         ]

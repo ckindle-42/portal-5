@@ -6,7 +6,6 @@ title: "PORTAL5_BENCH_EXECUTE_V4 \u2014 Phase 0 \u2014 Preflight (required befor
 sources:
 - type: code
   path: scripts/execute_preflight.py
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
 claims: []
 confidence: high
 tags:

@@ -6,7 +6,6 @@ sources:
 - type: code
   path: tests/routing/build_corpus.py
   commit: dfa74e2e
-last_generated_commit: dfa74e2e
 claims: []
 confidence: high
 tags:

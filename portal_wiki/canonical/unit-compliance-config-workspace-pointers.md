@@ -6,7 +6,6 @@ sources:
 - type: code
   path: portal/modules/compliance/config/__init__.py
   commit: 1a0e2df4
-last_generated_commit: 1a0e2df4
 claims: []
 confidence: high
 tags:
