@@ -9,7 +9,7 @@ backends:
   # Nemotron 3.5 Lightning added 2026-08-14 for auto-nemotron workspace
   # (architectural diversity vs the Gemma-4 daily driver). supports_tools
   # verified via direct tool-call probe (clean tool_calls, typed arguments).
-  - id: hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M
+  - id: hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx8k
     supports_tools: true
   - id: huihui_ai/Qwen3.6-abliterated:27b
     supports_tools: true
@@ -683,7 +683,7 @@ backends:
   priority: 10
   aliases:
     gemma4:26b-a4b-it-qat-ctx8k: gemma-4-26b-a4b-it-QAT-4bit
-    hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
+    hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx8k: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}
 # omlx-reasoning carries 4 models, not 1: the reasoning group's daily

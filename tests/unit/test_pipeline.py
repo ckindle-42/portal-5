@@ -404,11 +404,10 @@ class TestComplianceWorkspace:
         loads with PORTAL_ENABLE_EVAL=1, see test_eval_gate_loads_all_116.
         44 -> 37 after Phase 5 folded 8 coding/agentic workspaces into
         auto-coding's variants; 37 -> 29 after Phase 6 folded 8 security
-        workspaces into auto-security's variants; later catalog changes,
-        including Council Review, TASK-DECISION-GATE-001's 12 slot-fix
-        workspace adds, TASK-LANE-CLOSEOUT-001's 47 bench-* deletes plus
-        the auto-research promotion, and the 2026-08-14 auto-nemotron add,
-        produce the current total)."""
+        workspaces into auto-security's variants; later catalog changes
+        (Council Review, TASK-DECISION-GATE-001's 12 slot-fix adds,
+        TASK-LANE-CLOSEOUT-001's 47 bench-* deletes, auto-research
+        promotion, 2026-08-14 auto-nemotron add) produce the total)."""
         from portal.platform.inference.router_pipe import WORKSPACES
 
         assert len(WORKSPACES) == 24, (
@@ -837,10 +836,9 @@ class TestSPLWorkspace:
         workspaces are gated off by default at boot as of
         BUILD_PROGRAM_COLLAPSE_V1.md Phase 4, 44 -> 37 after Phase 5 folded 8
         coding/agentic workspaces, 37 -> 29 after Phase 6 folded 8 security
-        workspaces; later catalog changes, including the 2026-08-14
-        auto-nemotron add, produce the current total. See
-        TestComplianceWorkspace.test_eval_gate_loads_all_116 for the
-        PORTAL_ENABLE_EVAL=1 path)."""
+        workspaces; later changes (incl. 2026-08-14 auto-nemotron) produce
+        the total. See TestComplianceWorkspace.test_eval_gate_loads_all_116
+        for the PORTAL_ENABLE_EVAL=1 path)."""
         from portal.platform.inference.router_pipe import WORKSPACES
 
         assert len(WORKSPACES) == 24, (

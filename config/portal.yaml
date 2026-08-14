@@ -283,7 +283,7 @@ workspaces:
     name: "⚡ Nemotron Lightning"
     description: |-
       Speed-focused general assistant on NVIDIA Nemotron 3.5 Lightning (30B-A3B MoE, ~3B active params/token, Apache 2.0). Added 2026-08-14 as an architecturally distinct alternative to the Gemma-4 daily driver — same everyday-assistant job, different model lineage. oMLX + MTPLX side-car MTP (txgsync/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp, real mtp.* weights verified) measured 70.0-70.3 tok/s vs 52.9-53.1 tok/s on the Ollama GGUF baseline (~1.33x), same prompt/hardware/session — high MTP draft-accept rate (76-87%) thanks to the small MoE active-param backbone. supports_tools:true verified on both the oMLX and Ollama paths via direct tool-call probes (clean tool_calls, correctly typed arguments). Freshly staged — no production track record yet.
-    model_hint: hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M
+    model_hint: hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx8k
     context_limit: 8192
     predict_limit: 4096
     max_concurrent: 1

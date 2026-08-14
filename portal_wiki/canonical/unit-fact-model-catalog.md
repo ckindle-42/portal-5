@@ -5,8 +5,8 @@ title: 222 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 5acee6003d90
-last_generated_commit: 41df61e0a6102275a700700e9765972f1508c4c5
+  commit: 6d507e206994
+last_generated_commit: 6d507e206994
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -15,7 +15,7 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1786736581.197869
+updated_at: 1786737934.698456
 ---
 
 # Model catalog (222 model ids across 7 backend groups)
@@ -118,7 +118,7 @@ updated_at: 1786736581.197869
 - `hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M`
 - `hf.co/Nguuma/security-slm-unsloth-1.5b:latest`
 - `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF`
-- `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M`
+- `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx8k`
 - `hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M`
 - `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf`
 - `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M`

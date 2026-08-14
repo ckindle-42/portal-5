@@ -532,7 +532,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `auto-image` | media | `granite4.1:8b-ctx16k` |
 | `auto-math` | general | `phi4-mini-reasoning:latest-ctx24k` |
 | `auto-music` | media | `lfm2.5:8b-ctx8k` |
-| `auto-nemotron` | general | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M` |
+| `auto-nemotron` | general | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx8k` |
 | `auto-reasoning` | general | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` |
 | `auto-research` | research | `portal5/xyz-aquila-mini:q4_k_m-ctx16k` |
 | `auto-security` | security | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` |
@@ -625,7 +625,7 @@ default.
 | `auto-image` | `granite4.1:8b-ctx16k` | yes |
 | `auto-math` | `phi4-mini-reasoning:latest-ctx24k` | yes |
 | `auto-music` | `lfm2.5:8b-ctx8k` | yes |
-| `auto-nemotron` | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M` | yes |
+| `auto-nemotron` | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx8k` | yes |
 | `auto-reasoning` | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` | yes |
 | `auto-research` | `portal5/xyz-aquila-mini:q4_k_m-ctx16k` | yes |
 | `auto-security` | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` | yes |
@@ -793,7 +793,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M`
 - `hf.co/Nguuma/security-slm-unsloth-1.5b:latest`
 - `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF`
-- `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M`
+- `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx8k`
 - `hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M`
 - `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf`
 - `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M`
