@@ -122,7 +122,11 @@ def repo_identifiers(repo_root: Path | None = None) -> set[str]:
     root = repo_root or _REPO_ROOT
     names: set[str] = set()
     for path in root.rglob("*.py"):
-        if any(p.startswith(".") or p == "__pycache__" for p in path.parts):
+        # Check parts relative to `root`, not the absolute path — otherwise a
+        # dot-prefixed ancestor (e.g. `.claude/worktrees/...`) zeroes the
+        # whole universe silently.
+        rel_parts = path.relative_to(root).parts
+        if any(p.startswith(".") or p == "__pycache__" for p in rel_parts):
             continue
         names.add(path.stem)
         try:
@@ -132,7 +136,8 @@ def repo_identifiers(repo_root: Path | None = None) -> set[str]:
         names.update(re.findall(r"[A-Za-z_][A-Za-z0-9_]{2,}", src))
     for pattern in ("*.yaml", "*.yml", "*.json", "*.toml", "*.sh"):
         for path in root.rglob(pattern):
-            if any(p.startswith(".") or p == "node_modules" for p in path.parts):
+            rel_parts = path.relative_to(root).parts
+            if any(p.startswith(".") or p == "node_modules" for p in rel_parts):
                 continue
             try:
                 names.update(
