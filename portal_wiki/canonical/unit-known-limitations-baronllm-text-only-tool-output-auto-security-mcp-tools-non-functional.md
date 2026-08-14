@@ -16,7 +16,7 @@ sources:
   path: portal/modules/eval/persona_matrix/cli.py
 - type: code
   path: tests/uat_catalog/g_auto_security.py
-last_generated_commit: 41df61e0a6102275a700700e9765972f1508c4c5
+last_generated_commit: aae69a16de501e8524f279c9bff13f3fdc241f32
 claims: []
 confidence: high
 tags:
