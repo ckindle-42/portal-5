@@ -12,7 +12,7 @@ sources:
 - type: code
   path: config/personas/
   commit: 6d507e206994
-last_generated_commit: 6d507e206994
+last_generated_commit: aae69a16de501e8524f279c9bff13f3fdc241f32
 claims: []
 confidence: high
 tags:
