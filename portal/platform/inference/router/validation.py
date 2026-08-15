@@ -76,6 +76,50 @@ def _model_supports_tools(model_id: str) -> bool:
     return registry.model_supports_tools(model_id)
 
 
+# Sampling keys shared by both engines (repeat_penalty aside — oMLX's field is
+# named repetition_penalty, handled separately in _inject_omlx_options).
+_SAMPLING_KEYS = (
+    "temperature",
+    "top_p",
+    "top_k",
+    "min_p",
+    "repeat_penalty",
+    "presence_penalty",
+    "seed",
+)
+
+
+def _resolve_sampling_values(ws_cfg_local: dict) -> dict:
+    """Merge a workspace's think/instruct profile (if any) over its flat fields.
+
+    ``think_profiles`` (``WorkspaceSpec.think_profiles``) holds a verified,
+    per-model documented table keyed ``"thinking"``/``"instruct"``. When the
+    workspace's ``think`` resolves to True/False and a matching profile
+    exists, that profile's keys take priority over the workspace's own flat
+    ``temperature``/``top_p``/etc — those flat fields are the generic
+    fleet-tuned fallback (deliberately hand-set per workspace, see
+    ``config/portal.yaml``), not a per-model verified value, so a verified
+    profile should win over them. Falls back to the flat fields entirely for
+    workspaces with no ``think_profiles`` or no ``think`` set.
+
+    Returns a plain ``{sampling_key: value}`` dict with only the keys that
+    resolved to something (flat field or profile); callers still setdefault
+    each key onto the request body so caller/OWUI values win over all of it.
+    """
+    think_profiles = ws_cfg_local.get("think_profiles")
+    ws_think = ws_cfg_local.get("think")
+    profile: dict = {}
+    if think_profiles and ws_think is not None:
+        profile = think_profiles.get("thinking" if ws_think else "instruct") or {}
+
+    resolved = {}
+    for key in _SAMPLING_KEYS:
+        val = profile.get(key, ws_cfg_local.get(key))
+        if val is not None:
+            resolved[key] = val
+    return resolved
+
+
 def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
     """Add Ollama-specific tuning to the outgoing request body. Returns a copy.
 
@@ -140,20 +184,11 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
         body.setdefault("stream_options", {})["include_usage"] = True
 
     # ── Per-workspace sampling tuning ────────────────────────────────────────
-    # All use setdefault — OWUI/user values always take precedence.
-    sampling_keys = (
-        "temperature",  # creativity vs determinism
-        "top_p",  # nucleus sampling cutoff
-        "top_k",  # vocabulary candidate pool size
-        "min_p",  # minimum token probability floor
-        "repeat_penalty",  # n-gram repetition penalty
-        "presence_penalty",  # discourage tokens already seen, independent of count
-        "seed",  # RNG seed (bench reproducibility)
-    )
-    for key in sampling_keys:
-        val = ws_cfg_local.get(key)
-        if val is not None:
-            body["options"].setdefault(key, val)
+    # All use setdefault — OWUI/user values always take precedence. Values
+    # come from the workspace's think/instruct profile when one applies,
+    # else its flat fields (see _resolve_sampling_values).
+    for key, val in _resolve_sampling_values(ws_cfg_local).items():
+        body["options"].setdefault(key, val)
 
     # mirostat (perplexity-based adaptive sampling) — mutually exclusive with
     # top_p/top_k; only inject when workspace explicitly opts in
@@ -204,13 +239,14 @@ def _inject_omlx_options(body: dict, workspace_id: str = "") -> dict:
     if body.get("stream", True):
         body.setdefault("stream_options", {})["include_usage"] = True
 
+    sampling_values = _resolve_sampling_values(ws_cfg_local)
     for key in ("temperature", "top_p", "top_k", "min_p", "presence_penalty", "seed"):
-        val = ws_cfg_local.get(key)
+        val = sampling_values.get(key)
         if val is not None:
             body.setdefault(key, val)
 
     # repeat_penalty is the Ollama idiom; oMLX's field is repetition_penalty.
-    repeat_penalty = ws_cfg_local.get("repeat_penalty")
+    repeat_penalty = sampling_values.get("repeat_penalty")
     if repeat_penalty is not None:
         body.setdefault("repetition_penalty", repeat_penalty)
 

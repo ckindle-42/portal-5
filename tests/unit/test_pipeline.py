@@ -1734,6 +1734,90 @@ class TestInjectOllamaOptions:
         )
 
 
+class TestThinkProfileResolution:
+    """TASK_SAMPLING_PROFILE_AUDIT_V1 Scope item 3: think-mode-aware sampling
+    switch. A workspace's verified think_profiles entry must win over its own
+    flat sampling fields (the generic fleet fallback), and caller values must
+    still win over the resolved profile."""
+
+    def test_thinking_profile_wins_over_flat_fields(self, monkeypatch):
+        from portal.platform.inference.router import validation as vm
+        from portal.platform.inference.router_pipe import _inject_ollama_options
+
+        monkeypatch.setitem(
+            vm.WORKSPACES,
+            "ws-think",
+            {
+                "temperature": 0.2,  # generic fleet fallback — should lose
+                "top_p": 0.9,
+                "think": True,
+                "think_profiles": {
+                    "thinking": {"temperature": 1.0, "top_p": 0.95, "presence_penalty": 0.0},
+                    "instruct": {"temperature": 0.7, "top_p": 0.8, "presence_penalty": 1.5},
+                },
+            },
+        )
+        body = _inject_ollama_options({}, "ws-think")
+        assert body["options"]["temperature"] == 1.0
+        assert body["options"]["top_p"] == 0.95
+        assert body["options"]["presence_penalty"] == 0.0
+        assert body["think"] is True
+
+    def test_instruct_profile_selected_when_think_false(self, monkeypatch):
+        from portal.platform.inference.router import validation as vm
+        from portal.platform.inference.router_pipe import _inject_ollama_options
+
+        monkeypatch.setitem(
+            vm.WORKSPACES,
+            "ws-instruct",
+            {
+                "temperature": 0.2,
+                "think": False,
+                "think_profiles": {
+                    "thinking": {"temperature": 1.0, "presence_penalty": 0.0},
+                    "instruct": {"temperature": 0.7, "presence_penalty": 1.5},
+                },
+            },
+        )
+        body = _inject_ollama_options({}, "ws-instruct")
+        assert body["options"]["temperature"] == 0.7
+        assert body["options"]["presence_penalty"] == 1.5
+        assert body["think"] is False
+
+    def test_no_think_set_falls_back_to_flat_fields(self, monkeypatch):
+        """A workspace with think_profiles but no `think` set (the current
+        fleet-wide default, per Finding 2) must behave exactly as before —
+        flat fields only, no profile applied."""
+        from portal.platform.inference.router import validation as vm
+        from portal.platform.inference.router_pipe import _inject_ollama_options
+
+        monkeypatch.setitem(
+            vm.WORKSPACES,
+            "ws-no-think",
+            {
+                "temperature": 0.2,
+                "top_p": 0.9,
+                "think_profiles": {"thinking": {"temperature": 1.0}},
+            },
+        )
+        body = _inject_ollama_options({}, "ws-no-think")
+        assert body["options"]["temperature"] == 0.2
+        assert body["options"]["top_p"] == 0.9
+        assert "think" not in body
+
+    def test_caller_value_wins_over_think_profile(self, monkeypatch):
+        from portal.platform.inference.router import validation as vm
+        from portal.platform.inference.router_pipe import _inject_ollama_options
+
+        monkeypatch.setitem(
+            vm.WORKSPACES,
+            "ws-think-caller",
+            {"think": True, "think_profiles": {"thinking": {"temperature": 1.0}}},
+        )
+        body = _inject_ollama_options({"options": {"temperature": 0.33}}, "ws-think-caller")
+        assert body["options"]["temperature"] == 0.33
+
+
 class TestRouterWarmupContext:
     """P5-ROUTER-EVICTION-001 regression: the startup warmup call for the LLM
     router must cap num_ctx the same way the real routing call does.
