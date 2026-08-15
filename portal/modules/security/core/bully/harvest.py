@@ -51,6 +51,8 @@ content-derived id changes with the corrected output) on the next
 from __future__ import annotations
 
 import json
+from collections.abc import Callable, Iterable
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from . import config as bully_config
@@ -82,6 +84,119 @@ _MIN_ROLE_SIZE_DEFAULT = 20  # size floor below which a build is an honest non-b
 
 class HarvestError(RuntimeError):
     """Raised on a harvest precondition failure (e.g. unknown role)."""
+
+
+@dataclass(frozen=True)
+class RefinementReadiness:
+    """Operator-facing marginal-knowledge readout (P6.7/A6)."""
+
+    role: str
+    ready: bool
+    size_ok: bool
+    new_families: tuple[str, ...]
+    new_cells: tuple[str, ...]
+    last_dataset_version: str | None
+    reason: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def evaluate_refinement_readiness(
+    *,
+    role: str,
+    usable_count: int,
+    current_families: Iterable[str],
+    current_cells: Iterable[str],
+    previous_families: Iterable[str] = (),
+    previous_cells: Iterable[str] = (),
+    last_dataset_version: str | None = None,
+    min_size: int = _MIN_ROLE_SIZE_DEFAULT,
+) -> RefinementReadiness:
+    """Pure readiness decision: enough data *and* genuinely new territory."""
+    current_family_set = {value for value in current_families if value}
+    current_cell_set = {value for value in current_cells if value}
+    new_families = tuple(sorted(current_family_set - set(previous_families)))
+    new_cells = tuple(sorted(current_cell_set - set(previous_cells)))
+    size_ok = usable_count >= min_size
+    has_new_territory = bool(new_families or new_cells)
+    ready = size_ok and has_new_territory
+    if not size_ok:
+        reason = f"below size floor: {usable_count} < {min_size}"
+    elif not has_new_territory:
+        reason = "size floor met but no new family or coverage cell since last refinement"
+    else:
+        reason = "dataset ready -- marginal knowledge available; operator may launch refinement"
+    return RefinementReadiness(
+        role=role,
+        ready=ready,
+        size_ok=size_ok,
+        new_families=new_families,
+        new_cells=new_cells,
+        last_dataset_version=last_dataset_version,
+        reason=reason,
+    )
+
+
+def _coverage_cells(examples: Iterable[dict[str, Any]]) -> set[str]:
+    cells: set[str] = set()
+    for example in examples:
+        try:
+            context = json.loads(example["input_text"]).get("context") or {}
+        except (KeyError, TypeError, json.JSONDecodeError):
+            continue
+        for key in ("cell_id", "coverage_cell", "selected_cell_id"):
+            value = context.get(key)
+            if isinstance(value, str) and value:
+                cells.add(value)
+    return cells
+
+
+def refinement_readiness(
+    store: Store, role: str, *, min_size: int = _MIN_ROLE_SIZE_DEFAULT
+) -> RefinementReadiness:
+    """Read current HARV facts and compare them with the last trained dataset."""
+    examples = store.training_examples_for_role(role, include_quarantined=False)
+    current_families = {row["group_family"] for row in examples if row["group_family"]}
+    current_cells = _coverage_cells(examples)
+    previous = store.last_trained_dataset_for_role(role)
+    previous_counts = previous["counts"] if previous else {}
+    return evaluate_refinement_readiness(
+        role=role,
+        usable_count=len(examples),
+        current_families=current_families,
+        current_cells=current_cells,
+        previous_families=previous_counts.get("families", ()),
+        previous_cells=previous_counts.get("coverage_cells", ()),
+        last_dataset_version=previous["dataset_version"] if previous else None,
+        min_size=min_size,
+    )
+
+
+def surface_refinement_readiness(
+    store: Store,
+    readout: RefinementReadiness,
+    *,
+    notify_fn: Callable[[str, str, str | None], None] | None = None,
+) -> str | None:
+    """Idempotently queue a ready readout; never starts TRAIN itself."""
+    if not readout.ready:
+        return None
+    item_id = "refinement:" + bully_config.content_hash(readout.as_dict())[:20]
+    queue_id = "rrq-" + bully_config.content_hash({"item_id": item_id})[:16]
+    if store.promotion_get(queue_id) is None:
+        store.promotion_enqueue(
+            queue_id=queue_id,
+            item_kind="review_escalation",
+            item_id=item_id,
+            hunt_id=None,
+        )
+        if notify_fn is None:
+            from .promotion import _notify_queue_arrival
+
+            notify_fn = _notify_queue_arrival
+        notify_fn("review_escalation", item_id, None)
+    return queue_id
 
 
 def _example_input_text(event) -> str:
@@ -259,6 +374,8 @@ def build_dataset(
     counts = {
         "total": len(examples),
         "by_split": {k: len(v) for k, v in split_manifest.items()},
+        "families": sorted({e["group_family"] for e in examples if e["group_family"]}),
+        "coverage_cells": sorted(_coverage_cells(examples)),
         "negatives": sum(1 for e in examples if e["is_negative"]),
         "adversarial": sum(1 for e in examples if e["is_adversarial"]),
         "distance_pairs": sum(1 for e in examples if e["is_distance_pair"]),

@@ -138,7 +138,7 @@ CREATE TABLE trained_models (
     toolchain_versions_json                           TEXT NOT NULL DEFAULT '{}',
     gguf_path                                             TEXT,
     gguf_hash                                                 TEXT,
-    five_arm_report_json                                          TEXT,
+    acceptance_report_json                                       TEXT,
     intake_report_json                                                TEXT,
     canary_report_json                                                    TEXT,
     acceptance_policy_version                                                 TEXT NOT NULL,
