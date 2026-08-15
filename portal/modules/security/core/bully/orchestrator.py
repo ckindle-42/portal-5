@@ -31,6 +31,8 @@ from . import costing, drift_engine
 from . import evidence as evidence_mod
 from . import investigation as investigation_mod
 from . import mutation as mutation_mod
+from . import plateau as plateau_mod
+from . import scoreboard as scoreboard_mod
 from . import signatures as signatures_mod
 from . import targeting as targeting_mod
 from .contracts import DecisionEvent, MutationPlan, new_id
@@ -437,6 +439,88 @@ def _do_cost(
     return record
 
 
+def _do_plateau(store: Store, organ: Organ, *, hunt_id: str, neighborhood: str) -> Any:
+    """COMPOUNDING -> CLOSED (P4.4, I-12): evaluate whether `neighborhood`
+    is statistically exhausted now that this iteration's own hunt has just
+    closed (so it counts as a valid trial for the *next* iteration's
+    decision -- this evaluation informs future targeting, it never blocks
+    the current iteration's own closure). Trials are assembled by
+    `store.plateau_trials_for_neighborhood`; `discovery_positive` per trial
+    is derived here via `scoreboard.score_record` (P4.2) over each trial's
+    cousin assessment, reusing the same discovery-axis definition SCORE
+    reports on rather than a second one.
+    """
+    hunt_config = bully_config.load_hunt_config()
+    plateau_cfg = hunt_config.get("plateau", {})
+    window = int(plateau_cfg.get("window", plateau_mod.MIN_VALID_TRIALS))
+    has_other_neighborhoods = bool(plateau_cfg.get("has_other_neighborhoods", True))
+
+    raw_trials = store.plateau_trials_for_neighborhood(neighborhood)
+    trials: list[dict[str, Any]] = []
+    for t in raw_trials:
+        assessment = t.get("assessment")
+        if assessment is not None:
+            scored = scoreboard_mod.score_record(assessment)
+            response_state = assessment.get("defense_response") or "NONE"
+            discovery_positive = scored["discovery_value"] > 0.0
+        else:
+            response_state = "NONE"
+            discovery_positive = False
+        trials.append(
+            {
+                "trial_id": t["trial_id"],
+                "neighborhood": t["neighborhood"],
+                "mutation_dim": t["mutation_dim"],
+                "valid": t["valid"],
+                "promoted": t["promoted"],
+                "response_state": response_state,
+                "discovery_positive": discovery_positive,
+                "version": t["version"],
+            }
+        )
+
+    decision = plateau_mod.evaluate(
+        neighborhood,
+        trials,
+        window,
+        has_other_neighborhoods=has_other_neighborhoods,
+        hunt_id=hunt_id,
+    )
+    store.plateau_put(decision)
+    _record(
+        store,
+        hunt_id=hunt_id,
+        iteration_id=None,
+        actor="system:orchestrator",
+        kind="plateau",
+        subject_id=decision.plateau_id,
+        rationale=f"PLT {decision.decision}/{decision.action} for {neighborhood!r}: {decision.note}",
+        data=decision.to_dict(),
+    )
+    with contextlib.suppress(OrganUnavailable):
+        # Same shared record shape the P1 "cousin" emission established
+        # (the hunt_memory projection is one table across emission kinds --
+        # `kind` differentiates); a dedicated plateau schema is future
+        # work, not invented here to avoid a schema-alignment break on the
+        # existing table.
+        organ.index_emissions(
+            [
+                {
+                    "kind": "plateau",
+                    "hunt_id": hunt_id,
+                    "episode_id": neighborhood,
+                    "relationship": decision.decision,
+                    "detection_response": decision.action,
+                    "rationale": decision.note,
+                    "trust_tier": "SUSPECT",
+                    "provenance_class": "hunt_emission",
+                }
+            ]
+        )
+        organ.process_outbox()
+    return decision
+
+
 def _do_analyze(
     store: Store,
     organ: Organ,
@@ -635,6 +719,11 @@ def run_hunt_iteration(
     _stage("CLOSED")
     store.lease_release(hunt_id, owner=actor)
 
+    # COMPOUNDING -> CLOSED plateau decision (P4.4) -- informs whether the
+    # *next* hunt in this neighborhood should continue/rotate/stop; never
+    # blocks this iteration's own closure.
+    plateau_decision = _do_plateau(store, organ, hunt_id=hunt_id, neighborhood=neighborhood)
+
     return {
         "hunt_id": hunt_id,
         "iteration_id": iteration_id,
@@ -652,6 +741,11 @@ def run_hunt_iteration(
             "record_id": cost_record.record_id,
             "computed_units": cost_record.computed_units,
             "quality_flag": cost_record.quality_flag,
+        },
+        "plateau": {
+            "plateau_id": plateau_decision.plateau_id,
+            "decision": plateau_decision.decision,
+            "action": plateau_decision.action,
         },
         "stage": "CLOSED",
     }

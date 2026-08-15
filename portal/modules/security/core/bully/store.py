@@ -29,13 +29,14 @@ from .contracts import (
     DriftFlag,
     HuntContext,
     MutationPlan,
+    PlateauDecision,
     RecallReceipt,
     ScenarioOverlay,
     is_legal_bin_transition,
     is_legal_hunt_transition,
 )
 
-SCHEMA_VERSION = 6  # highest migration this code understands
+SCHEMA_VERSION = 7  # highest migration this code understands
 _MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
 
@@ -503,6 +504,54 @@ class Store:
                     "composite": assessment["composite"],
                     "candidate_state": candidate["current_state"] if candidate else None,
                     "known_benign": known_benign is not None,
+                }
+            )
+        return out
+
+    def plateau_trials_for_neighborhood(self, neighborhood: str) -> list[dict]:
+        """Assemble `plateau.py`-ready trial facts (P4.4): one trial per
+        hunt scoped to this `neighborhood_scope` (this build runs exactly
+        one iteration per hunt, so a hunt IS a trial). `valid=False`
+        (blocked/infrastructure-failed, excluded from every plateau
+        denominator) whenever the hunt never reached `CLOSED`.
+        `mutation_dim` comes from the `gate`-kind decision event MUT
+        records (`_do_mutate`'s `applied_operators`) -- the first applied
+        operator, or `"NONE"` for an unmutated passthrough iteration.
+        Read-only assembly, no scoring -- `orchestrator.py`'s caller
+        derives `discovery_positive` via `scoreboard.score_record`."""
+        hunts = self._conn.execute(
+            "SELECT hunt_id, stage, config_version, started_at FROM hunts "
+            "WHERE neighborhood_scope=? ORDER BY started_at ASC",
+            (neighborhood,),
+        ).fetchall()
+        out: list[dict] = []
+        for h in hunts:
+            hunt_id = h["hunt_id"]
+            promoted = self._conn.execute(
+                "SELECT 1 FROM candidates WHERE hunt_id=? AND current_state='PROMOTED' LIMIT 1",
+                (hunt_id,),
+            ).fetchone()
+            gate_event = self._conn.execute(
+                "SELECT data FROM decision_events WHERE hunt_id=? AND kind='gate' "
+                "ORDER BY recorded_at ASC LIMIT 1",
+                (hunt_id,),
+            ).fetchone()
+            mutation_dim = "NONE"
+            if gate_event is not None:
+                data = _loads(gate_event["data"], {})
+                ops = data.get("applied_operators") or []
+                if ops:
+                    mutation_dim = ops[0]
+            assessments = self.scoreboard_records_for_hunt(hunt_id)
+            out.append(
+                {
+                    "trial_id": hunt_id,
+                    "neighborhood": neighborhood,
+                    "version": h["config_version"],
+                    "valid": h["stage"] == "CLOSED",
+                    "promoted": promoted is not None,
+                    "mutation_dim": mutation_dim,
+                    "assessment": assessments[0] if assessments else None,
                 }
             )
         return out
@@ -1499,6 +1548,52 @@ class Store:
             d["quality_flag"] = bool(d["quality_flag"])
             out.append(d)
         return out
+
+    # ── plateaus (P4.4, I-12) ────────────────────────────────────────────
+
+    def plateau_put(self, decision: PlateauDecision) -> None:
+        """Persist a `PlateauDecision` (DATA_MODEL SS1.13). Append-only: a
+        version-change reset produces a fresh row for the same
+        neighborhood, never an update of the prior one (the prior row
+        stays the audit trail of what was decided before the reset)."""
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO plateaus (plateau_id, hunt_id, neighborhood, qualifying_trial_ids, "
+                "promotions, unique_response_gain, posterior_upper_bound, saturation, "
+                "policy_version, decision, action, note, reset_trigger, reset_version, "
+                "override, expiry, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    decision.plateau_id,
+                    decision.hunt_id,
+                    decision.neighborhood,
+                    _json(list(decision.qualifying_trial_ids)),
+                    decision.promotions,
+                    decision.unique_response_gain,
+                    decision.posterior_upper_bound,
+                    decision.saturation,
+                    decision.policy_version,
+                    decision.decision,
+                    decision.action,
+                    decision.note,
+                    decision.reset_trigger,
+                    decision.reset_version,
+                    _json(decision.override) if decision.override is not None else None,
+                    decision.expiry,
+                    decision.created_at,
+                ),
+            )
+
+    def plateau_latest_for_neighborhood(self, neighborhood: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM plateaus WHERE neighborhood=? ORDER BY created_at DESC LIMIT 1",
+            (neighborhood,),
+        ).fetchone()
+        if row is None:
+            return None
+        d = _row_to_dict(row)
+        d["qualifying_trial_ids"] = _loads(d["qualifying_trial_ids"], [])
+        d["override"] = _loads(d["override"], None)
+        return d
 
     # ── doctor (integrity check) ─────────────────────────────────────────
 
