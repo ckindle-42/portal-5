@@ -253,6 +253,17 @@ backends:
   # entry above (verified via direct /api/chat probe, not inferred).
   - id: portal5/xyz-aquila-mini:q4_k_m-ctx16k
     supports_tools: true
+  # TASK_SAMPLING_PROFILE_AUDIT_V1: same pre-existing gap class as above —
+  # bench-qwen38-27b and bench-llama32-3b-abliterated route to the general
+  # group (all eval-module bench-* workspaces do) but their models were only
+  # declared in other groups (Qwen3.8 in coding) or not declared anywhere
+  # (Llama-3.2-abliterated), so strict hint validation failed container
+  # startup. supports_tools verified via direct /api/chat tool-call probes
+  # (clean tool_calls, correctly typed arguments), not inferred.
+  - id: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M
+    supports_tools: true
+  - id: hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest
+    supports_tools: true
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
 - group: coding
