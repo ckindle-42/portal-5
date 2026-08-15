@@ -473,6 +473,16 @@ class Store:
         required_for_closure: bool,
         payload: dict,
     ) -> str:
+        # Idempotent: (record_type, record_id, record_version, projection_version)
+        # is the natural key (DATA_MODEL SS1.10). A re-drive with the same key
+        # returns the existing outbox_id rather than erroring or duplicating.
+        existing = self._conn.execute(
+            "SELECT outbox_id FROM index_outbox WHERE record_type=? AND record_id=? "
+            "AND record_version=? AND projection_version=?",
+            (record_type, record_id, record_version, projection_version),
+        ).fetchone()
+        if existing is not None:
+            return existing["outbox_id"]
         outbox_id = f"ob-{uuid.uuid4().hex[:12]}"
         with self._tx() as cur:
             cur.execute(
