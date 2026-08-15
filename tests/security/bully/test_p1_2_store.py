@@ -48,11 +48,17 @@ def test_migration_idempotent_replay(tmp_path):
     db_path = tmp_path / "hunt_state.db"
     s1 = Store(db_path)
     s1.close()
-    # Reopening must not re-apply 001_init.sql (which would fail on
-    # `CREATE TABLE` of an already-existing table if it did).
+    # Reopening must not re-apply any already-applied migration file (which
+    # would fail on `CREATE TABLE` of an already-existing table if it did).
+    # The expected count tracks however many migration files ship on disk
+    # (001_init.sql in P1, +002_bin_heart.sql from P2, ...) rather than a
+    # value hardcoded at P1 time.
+    from portal.modules.security.core.bully.store import _MIGRATIONS_DIR
+
+    expected = len(list(_MIGRATIONS_DIR.glob("[0-9][0-9][0-9]_*.sql")))
     s2 = Store(db_path)
     row = s2._conn.execute("SELECT COUNT(*) AS n FROM schema_migrations").fetchone()
-    assert row["n"] == 1
+    assert row["n"] == expected
     s2.close()
 
 
