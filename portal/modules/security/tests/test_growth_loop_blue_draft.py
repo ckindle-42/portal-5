@@ -105,10 +105,29 @@ class TestSPLValidation:
 class TestProofHarness:
     """Draft proof: fresh-positive + negative-baseline + regression."""
 
-    def test_proof_with_valid_spl(self):
+    def test_proof_with_valid_spl_but_no_evidence_is_honestly_not_proven(self):
+        """P2 (TASK_BULLY_P2_BIN_HEART_V1): prove_draft's three legs are real
+        G1a/G1b/benign-corpus/regression checks, not placeholder-true --
+        valid SPL syntax alone is not proof; no evidence supplied is an
+        honest not-proven, never a fabricated pass."""
         gap = Gap("gap-1", "proc-1", "T1190", {}, "RED_ONLY", [])
         draft = propose_draft(gap, existing_spl='index=portal5_lab sourcetype="web:access" test')
         result = prove_draft(draft)
+        assert not result.fresh_positive
+        assert not result.negative_baseline
+        assert not result.regression
+        assert not result.all_passed()
+
+    def test_proof_with_valid_spl_and_real_evidence_passes(self):
+        gap = Gap("gap-1", "proc-1", "T1190", {}, "RED_ONLY", [])
+        draft = propose_draft(gap, existing_spl='index=portal5_lab sourcetype="web:access" test')
+        result = prove_draft(
+            draft,
+            g1a_evidence={"has_spl_hit": True, "within_window": True, "target_match": True},
+            g1b_evidence={"reexecution_runs": [True, True, True]},
+            negative_baseline_evidence={"benign_corpus_fires": False},
+            regression_evidence={"no_regressions": True},
+        )
         assert result.fresh_positive
         assert result.negative_baseline
         assert result.regression
