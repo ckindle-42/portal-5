@@ -461,6 +461,52 @@ class Store:
                 ),
             )
 
+    def cousin_assessment_get(self, assessment_id: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM cousin_assessments WHERE assessment_id=?", (assessment_id,)
+        ).fetchone()
+        return _row_to_dict(row)
+
+    def scoreboard_records_for_hunt(self, hunt_id: str) -> list[dict]:
+        """Assemble `scoreboard.py`-ready records for a hunt (P4.2): every
+        `grade`-kind decision event's cousin assessment, left-joined with
+        that hunt's candidate state (the latest candidate row for the
+        assessment, if BIN has been driven for it) and a `known_state`
+        `known_benign` flag keyed on the assessment's reference signature
+        -- read-only assembly, no scoring (scoring itself stays pure in
+        `scoreboard.py`)."""
+        grade_events = self._conn.execute(
+            "SELECT subject_id FROM decision_events WHERE hunt_id=? AND kind='grade' "
+            "ORDER BY recorded_at ASC",
+            (hunt_id,),
+        ).fetchall()
+        out: list[dict] = []
+        for ev in grade_events:
+            assessment = self.cousin_assessment_get(ev["subject_id"])
+            if assessment is None:
+                continue
+            candidate = self._conn.execute(
+                "SELECT current_state FROM candidates WHERE hunt_id=? AND assessment_id=? "
+                "ORDER BY created_at DESC LIMIT 1",
+                (hunt_id, assessment["assessment_id"]),
+            ).fetchone()
+            known_benign = self._conn.execute(
+                "SELECT 1 FROM known_state WHERE subject=? AND kind='known_benign' "
+                "AND superseded_by IS NULL LIMIT 1",
+                (assessment["reference_signature_id"] or assessment["subject_signature_id"],),
+            ).fetchone()
+            out.append(
+                {
+                    "assessment_id": assessment["assessment_id"],
+                    "relationship": assessment["relationship"],
+                    "defense_response": assessment["defense_response"],
+                    "composite": assessment["composite"],
+                    "candidate_state": candidate["current_state"] if candidate else None,
+                    "known_benign": known_benign is not None,
+                }
+            )
+        return out
+
     # ── recall receipts / decision impacts ──────────────────────────────
 
     def recall_receipt_put(self, receipt: RecallReceipt) -> None:
