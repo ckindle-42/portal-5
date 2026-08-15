@@ -113,6 +113,118 @@ def is_legal_hunt_transition(current: str, target: str) -> bool:
     return _HUNT_STAGE_ORDER.get(target, -1) > _HUNT_STAGE_ORDER.get(current, -1)
 
 
+# ── BIN state machine (I-7, P2.1) ───────────────────────────────────────────
+
+CANDIDATE_STATES: tuple[str, ...] = (
+    "CREATED",
+    "G_MINUS_1_PASS",
+    "G0_PASS",
+    "G1A_PASS",
+    "G1B_PASS",
+    "G2_PASS",
+    "COUNCIL_PASS",
+    "G3_PASS",
+    "AWAITING_OPERATOR",
+    "PROMOTED",
+    "DISPROVED",
+    "BLOCKED",
+    "KILLED",
+    "OPERATOR_ESCALATED",
+)
+
+GATE_IDS: tuple[str, ...] = ("G-1", "G0", "G1a", "G1b", "G2", "G4", "G3", "G5")
+GATE_OUTCOMES: tuple[str, ...] = ("pass", "fail", "blocked")
+
+# The candidates.current_state main sequence, in strict forward order. A
+# candidate advances one hop at a time through this sequence (no
+# skip-a-gate); HEART's clearance is persisted as a gate_results row with
+# gate_id='G5' between G2 and G3 (SS4.8's "gates + a G5 record").
+_BIN_TERMINAL_ADJACENT: frozenset[str] = frozenset(
+    {"BLOCKED", "KILLED", "DISPROVED", "OPERATOR_ESCALATED"}
+)
+_BIN_MAIN_ORDER: dict[str, int] = {
+    name: i
+    for i, name in enumerate(
+        (
+            "CREATED",
+            "G_MINUS_1_PASS",
+            "G0_PASS",
+            "G1A_PASS",
+            "G1B_PASS",
+            "G2_PASS",
+            "COUNCIL_PASS",
+            "G3_PASS",
+            "AWAITING_OPERATOR",
+            "PROMOTED",
+        )
+    )
+}
+
+
+def is_legal_bin_transition(current: str, target: str) -> bool:
+    """BIN state-machine legality (I-7 / C7 "illegal skip-a-gate transition
+    rejected"). Forward-only, one hop at a time through the gate sequence,
+    or into a terminal-adjacent recovery state (BLOCKED/KILLED/DISPROVED/
+    OPERATOR_ESCALATED) from any non-terminal state. Only AWAITING_OPERATOR
+    may advance to PROMOTED (operator-only, enforced by the caller checking
+    `actor`, not by this pure function). BLOCKED/OPERATOR_ESCALATED never
+    bare-transition onward -- resumption re-drives the specific gate that
+    was blocked/escalated via `promotion.process`, not a generic hop here.
+    """
+    if current not in CANDIDATE_STATES or target not in CANDIDATE_STATES:
+        raise ValueError(f"unknown candidate state: {current!r} -> {target!r}")
+    if current in ("PROMOTED", "DISPROVED", "KILLED"):
+        return False
+    if target in _BIN_TERMINAL_ADJACENT:
+        return True
+    if target == "PROMOTED":
+        return current == "AWAITING_OPERATOR"
+    if current in ("BLOCKED", "OPERATOR_ESCALATED"):
+        return False
+    cur_i = _BIN_MAIN_ORDER.get(current, -1)
+    tgt_i = _BIN_MAIN_ORDER.get(target, -1)
+    return tgt_i == cur_i + 1
+
+
+# ── Council / objection gate (I-8, P2.1) ────────────────────────────────────
+
+OBJECTION_CATEGORIES: tuple[str, ...] = (
+    "evidence_contradiction",
+    "covering_detection_id",
+    "benign_counter_evidence",
+    "scope_safety",
+    "reproducibility",
+    "telemetry_health",
+    "relationship_classification",
+    "defense_response",
+    "analyst_visibility",
+    "regression_risk",
+)
+
+OBJECTION_STATUSES: tuple[str, ...] = (
+    "open",
+    "rebutted",
+    "re_review",
+    "withdrawn",
+    "sustained",
+    "waived",
+    "superseded",
+)
+
+# ── Promotion queue (I-3/I-7, SS4.8) ────────────────────────────────────────
+
+QUEUE_ITEM_KINDS: tuple[str, ...] = (
+    "cousin_detection",
+    "model",
+    "playbook",
+    "roster",
+    "waiver",
+    "policy",
+    "review_escalation",
+)
+QUEUE_STATES: tuple[str, ...] = ("pending", "confirmed", "rejected")
+
+
 DECISION_EVENT_KINDS: tuple[str, ...] = (
     "target_select",
     "grade",
@@ -343,6 +455,171 @@ class HuntContext(_DTOMixin):
     known_state_view: list[dict[str, Any]] = field(default_factory=list)
     plateau_view: dict[str, Any] | None = None
     cost_view: dict[str, Any] | None = None
+
+
+# ── Candidate / GateResult / BinOutcome (I-7, SS1.5) ────────────────────────
+
+
+@dataclass(frozen=True)
+class Candidate(_DTOMixin):
+    """Suspect-until-proven promotion-pipeline row (I-7, SS1.5)."""
+
+    candidate_id: str
+    hunt_id: str
+    assessment_id: str
+    evidence_manifest_id: str | None
+    alert_version: int
+    current_state: str
+    gate_policy_version: str
+    terminal_reason: str | None = None
+    queue_state: str | None = None
+    decided_by: str | None = None
+    decided_at: float | None = None
+    rationale: str | None = None
+    version: int = 0
+    created_at: float = field(default_factory=time.time)
+
+    def __post_init__(self) -> None:
+        if self.current_state not in CANDIDATE_STATES:
+            raise ValueError(f"unknown candidate state: {self.current_state!r}")
+
+
+@dataclass(frozen=True)
+class GateResult(_DTOMixin):
+    """One gate attempt (I-7 "Gate internals"). Re-runnable; attempts are
+    separately numbered; UNIQUE(candidate_id, alert_version, gate_id, attempt)."""
+
+    result_id: str
+    candidate_id: str
+    alert_version: int
+    gate_id: str
+    attempt: int
+    outcome: str
+    validator_version: str
+    inputs: dict[str, Any] = field(default_factory=dict)
+    evidence: dict[str, Any] = field(default_factory=dict)
+    checks: list[dict[str, Any]] = field(default_factory=list)
+    reasons: list[str] = field(default_factory=list)
+    created_at: float = field(default_factory=time.time)
+
+    def __post_init__(self) -> None:
+        if self.gate_id not in GATE_IDS:
+            raise ValueError(f"unknown gate_id: {self.gate_id!r}")
+        if self.outcome not in GATE_OUTCOMES:
+            raise ValueError(f"unknown gate outcome: {self.outcome!r}")
+
+
+@dataclass(frozen=True)
+class BinOutcome(_DTOMixin):
+    """`promotion.process` return value (I-7)."""
+
+    candidate_id: str
+    state: str
+    gate_results: dict[str, str] = field(default_factory=dict)  # gate_id -> outcome
+    council_record_ref: str | None = None
+    queue_id: str | None = None
+    rationale: str = ""
+
+
+# ── Council (HEART, I-8, SS1.6) ──────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class CouncilOpinionRecord(_DTOMixin):
+    """One seat's persisted opinion (SS1.6 `council_opinions`). Distinct from
+    (but built from) `portal.platform.inference.router.council.CouncilOpinion`
+    -- this is the bully-persisted shape, one row per (packet, seat, attempt)."""
+
+    opinion_id: str
+    packet_id: str
+    seat_id: str
+    attempt: int
+    member_id: str
+    model: str
+    family: str
+    valid: bool
+    recommendation: str = ""
+    confidence: float = 0.0
+    error: str = ""
+    findings: list[dict[str, Any]] = field(default_factory=list)
+    strongest_objection: str = ""
+    missing_evidence: list[str] = field(default_factory=list)
+    conditions_to_change: list[str] = field(default_factory=list)
+    created_at: float = field(default_factory=time.time)
+
+
+@dataclass(frozen=True)
+class Objection(_DTOMixin):
+    objection_id: str
+    packet_id: str
+    seat_id: str
+    category: str
+    material: bool
+    claim: str
+    evidence_citations: list[str] = field(default_factory=list)
+    missing_proof_citations: list[str] = field(default_factory=list)
+    status: str = "open"
+    age_seconds: float | None = None
+    created_at: float = field(default_factory=time.time)
+
+    def __post_init__(self) -> None:
+        if self.category not in OBJECTION_CATEGORIES:
+            raise ValueError(f"unknown objection category: {self.category!r}")
+        if self.status not in OBJECTION_STATUSES:
+            raise ValueError(f"unknown objection status: {self.status!r}")
+
+
+@dataclass(frozen=True)
+class Rebuttal(_DTOMixin):
+    rebuttal_id: str
+    objection_id: str
+    author: str
+    claim: str
+    evidence_citations: list[str] = field(default_factory=list)
+    requested_review: str | None = None
+    re_review_result: str | None = None
+    created_at: float = field(default_factory=time.time)
+
+
+@dataclass(frozen=True)
+class CouncilRecord(_DTOMixin):
+    """`adversary.review` return value (I-8)."""
+
+    packet_id: str
+    candidate_id: str
+    evidence_manifest_hash: str
+    materiality_version: str
+    roster_snapshot: dict[str, Any]
+    opinions: list[CouncilOpinionRecord]
+    objections: list[Objection]
+    rebuttals: list[Rebuttal]
+    unresolved: bool
+    review_valid: bool
+    participation: float
+    created_at: float = field(default_factory=time.time)
+
+
+# ── SOC visibility (G3, I-7a) ────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class SOCDeliveryReceipt(_DTOMixin):
+    delivery_id: str
+    candidate_id: str
+    correlation_key: str
+    producer_ack: bool
+    consumer_query_ran: bool
+    consumer_triage_report: dict[str, Any] | None
+    priority: str
+    latency_s: float | None
+    content_hash_match: bool
+    load_profile: str
+    created_at: float = field(default_factory=time.time)
+
+    @property
+    def sufficient(self) -> bool:
+        """I-7a: "producer ack without a consumer query is insufficient."""
+        return bool(self.producer_ack and self.consumer_query_ran and self.content_hash_match)
 
 
 def round_trip(dto: _DTOMixin) -> Any:
