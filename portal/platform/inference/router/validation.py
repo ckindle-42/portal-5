@@ -98,7 +98,8 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
     Workspace-driven, all via ``setdefault`` so caller values win:
     ``num_ctx`` from ``context_limit``, top-level ``max_tokens`` from
     ``predict_limit``, sampling keys (``temperature``, ``top_p``, ``top_k``,
-    ``min_p``, ``repeat_penalty``, ``seed``), ``mirostat``/``mirostat_tau``/
+    ``min_p``, ``repeat_penalty``, ``presence_penalty``, ``seed``),
+    ``mirostat``/``mirostat_tau``/
     ``mirostat_eta`` (mutually exclusive with top_p/top_k; injected only when
     the workspace opts in), and ``think``.
 
@@ -146,6 +147,7 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
         "top_k",  # vocabulary candidate pool size
         "min_p",  # minimum token probability floor
         "repeat_penalty",  # n-gram repetition penalty
+        "presence_penalty",  # discourage tokens already seen, independent of count
         "seed",  # RNG seed (bench reproducibility)
     )
     for key in sampling_keys:
@@ -174,12 +176,23 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
 def _inject_omlx_options(body: dict, workspace_id: str = "") -> dict:
     """Per-request injection for ``type == "omlx"`` backends.
 
-    oMLX speaks plain OpenAI — no ``options`` sub-dict, no ``keep_alive``
-    (residency is server-side: EnginePool pinning/TTL), no ``num_ctx``/
-    ``num_batch``. Injects ``max_tokens`` from ``predict_limit``,
-    ``stream_options.include_usage`` for TPS accounting, and top-level
-    ``temperature``/``top_p`` when declared (caller values win via setdefault).
-    Body is copied at entry.
+    oMLX speaks an OpenAI-*compatible* schema, not the bare OpenAI API — its
+    own ``ChatCompletionRequest`` (vendored ``omlx/api/openai_models.py``,
+    verified live against the installed ``omlx`` package, 2026-08-15) extends
+    the standard fields with real, sampler-wired ``top_k``/``min_p``/
+    ``presence_penalty``/``seed`` and, notably, **``repetition_penalty``, not
+    ``repeat_penalty``** — the Ollama-idiom key name is silently dropped by
+    Pydantic's default ``extra="ignore"`` rather than erroring, so it must be
+    renamed on the way in, not just forwarded. There is no bare ``think``
+    field either; thinking is controlled via ``chat_template_kwargs``
+    (``{"enable_thinking": bool}``) and optionally ``thinking_budget``.
+
+    No ``options`` sub-dict, no ``keep_alive`` (residency is server-side:
+    EnginePool pinning/TTL), no ``num_ctx``/``num_batch``. Injects
+    ``max_tokens`` from ``predict_limit``, ``stream_options.include_usage``
+    for TPS accounting, top-level sampling keys, and the thinking toggle —
+    all via ``setdefault``/dict-merge so caller/OWUI values win. Body is
+    copied at entry.
     """
     body = dict(body)
     ws_cfg_local = WORKSPACES.get(workspace_id, {}) if workspace_id else {}
@@ -191,9 +204,21 @@ def _inject_omlx_options(body: dict, workspace_id: str = "") -> dict:
     if body.get("stream", True):
         body.setdefault("stream_options", {})["include_usage"] = True
 
-    for key in ("temperature", "top_p"):
+    for key in ("temperature", "top_p", "top_k", "min_p", "presence_penalty", "seed"):
         val = ws_cfg_local.get(key)
         if val is not None:
             body.setdefault(key, val)
+
+    # repeat_penalty is the Ollama idiom; oMLX's field is repetition_penalty.
+    repeat_penalty = ws_cfg_local.get("repeat_penalty")
+    if repeat_penalty is not None:
+        body.setdefault("repetition_penalty", repeat_penalty)
+
+    # oMLX has no bare `think` field — it reads chat_template_kwargs.enable_thinking.
+    ws_think = ws_cfg_local.get("think")
+    if ws_think is not None:
+        ctk = dict(body.get("chat_template_kwargs") or {})
+        ctk.setdefault("enable_thinking", ws_think)
+        body["chat_template_kwargs"] = ctk
 
     return body

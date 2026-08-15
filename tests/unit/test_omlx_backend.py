@@ -151,23 +151,45 @@ defaults:
 
 
 class TestInjectOmlxOptions:
-    def test_injects_openai_surface_only(self, monkeypatch):
+    def test_injects_full_sampling_surface(self, monkeypatch):
         from portal.platform.inference.router import validation as vm
 
         monkeypatch.setitem(
             vm.WORKSPACES,
             "ws-omlx",
-            {"predict_limit": 512, "temperature": 0.2, "top_p": 0.9, "top_k": 20},
+            {
+                "predict_limit": 512,
+                "temperature": 0.2,
+                "top_p": 0.9,
+                "top_k": 20,
+                "min_p": 0.05,
+                "repeat_penalty": 1.05,
+                "presence_penalty": 0.5,
+                "seed": 7,
+                "think": True,
+            },
         )
         out = vm._inject_omlx_options({"messages": [], "stream": True}, "ws-omlx")
         assert out["max_tokens"] == 512
         assert out["stream_options"]["include_usage"] is True
         assert out["temperature"] == 0.2
         assert out["top_p"] == 0.9
+        # oMLX's own ChatCompletionRequest schema wires these directly (verified
+        # live against the installed omlx package, 2026-08-15) — not "extra"
+        # OpenAI fields to omit, real sampler-affecting params to forward.
+        assert out["top_k"] == 20
+        assert out["min_p"] == 0.05
+        assert out["presence_penalty"] == 0.5
+        assert out["seed"] == 7
+        # repeat_penalty is the Ollama idiom; oMLX's field is repetition_penalty.
+        assert out["repetition_penalty"] == 1.05
+        assert "repeat_penalty" not in out
+        # oMLX has no bare `think` field — mapped to chat_template_kwargs.
+        assert out["chat_template_kwargs"] == {"enable_thinking": True}
+        assert "think" not in out
         # No Ollama-idiom anywhere: no options sub-dict, no keep_alive, no num_ctx
         assert "options" not in out
         assert "keep_alive" not in out
-        assert "top_k" not in out  # not an OpenAI field — left to server-side settings
 
     def test_caller_values_win_and_no_mutation(self, monkeypatch):
         from portal.platform.inference.router import validation as vm
