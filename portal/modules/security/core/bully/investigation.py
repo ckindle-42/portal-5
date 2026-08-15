@@ -37,6 +37,57 @@ class InvestigationResult:
     evidence: tuple[str, ...] = field(default_factory=tuple)
 
 
+def _render_playbook_directive(instruction_set: dict) -> str:
+    """Render a learned playbook's instruction_set (PLAY, I-16) into a short
+    directive string. Only the fields DATA_MODEL SS1.15 documents
+    (`recall priorities, deciding discriminators, common kills, ... stop
+    rules`) are rendered; unknown/empty fields are silently skipped rather
+    than fabricated."""
+    parts = []
+    priorities = instruction_set.get("recall_priorities")
+    if priorities:
+        parts.append(f"recall priorities: {', '.join(priorities)}")
+    discriminators = instruction_set.get("deciding_discriminators")
+    if discriminators:
+        parts.append(f"deciding discriminators: {', '.join(discriminators)}")
+    common_kills = instruction_set.get("common_kills")
+    if common_kills:
+        parts.append(f"common non-findings to rule out early: {', '.join(common_kills)}")
+    stop_rules = instruction_set.get("stop_rules")
+    if stop_rules:
+        parts.append(f"stop rules: {', '.join(stop_rules)}")
+    return "; ".join(parts)
+
+
+def _apply_playbook_context(episode: Any, playbook: dict | None) -> Any:
+    """PLAY injection point (I-16 CONSUMER: LOOP -- 'injection into the
+    investigation context'). Absence is neutral: with no active playbook
+    for the hunt's scenario_class, the original `episode` is returned
+    completely untouched -- the hunt proceeds unshaped, never a fabricated
+    default (I-16 FAILURE SEMANTICS).
+
+    A1 (non-obvious choice): `_build_trigger` (blue_orchestrate.py) is the
+    only free-text field the model sees before the tool loop starts, built
+    from `episode.scenario` + `episode.target_host` + telemetry source
+    names -- there is no dedicated "context" field on this Episode
+    dataclass to inject into without editing blue_orchestrate.py (out of
+    scope, KEEP-SIBLING). So the playbook directive is appended to a
+    *copy* of `episode.scenario` (`dataclasses.replace`, original object
+    never mutated) -- `episode.techniques` (ground truth) and
+    `episode.telemetry` are untouched, so grading is unaffected by
+    playbook shaping."""
+    if not playbook:
+        return episode
+    directive = _render_playbook_directive(playbook.get("instruction_set") or {})
+    if not directive:
+        return episode
+    import dataclasses
+
+    return dataclasses.replace(
+        episode, scenario=f"{episode.scenario} | LEARNED PLAYBOOK: {directive}"
+    )
+
+
 def run_arm(
     episode: Any,
     *,
@@ -44,6 +95,7 @@ def run_arm(
     max_rounds: int = DEFAULT_MAX_ROUNDS,
     wall_clock_s: float | None = None,
     dry_run: bool = False,
+    playbook: dict | None = None,
 ) -> InvestigationResult:
     """Run the investigation arm over a live Episode and apply the
     grounding gates to its own output before returning.
@@ -54,12 +106,18 @@ def run_arm(
     whatever it is handed to `_run_three_section`'s existing `models` dict
     (which expects `{"tool": ..., "reasoning": ..., "expert": ...}`, same
     keys `_run_three_section` already documents).
+
+    `playbook`, when given (LOOP's active playbook for this hunt's
+    scenario_class, P6.3), shapes the investigation context via
+    `_apply_playbook_context` -- absence (`None`) leaves the episode
+    completely unshaped.
     """
     from ..blue import _cite_or_drop, _discriminator_contradicts
     from ..blue_orchestrate import ExpertHandoff, HunterHandoff, _run_three_section
 
+    shaped_episode = _apply_playbook_context(episode, playbook)
     result = _run_three_section(
-        episode,
+        shaped_episode,
         models=models,
         max_rounds=max_rounds,
         wall_clock_s=wall_clock_s,
