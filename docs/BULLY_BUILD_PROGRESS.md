@@ -187,7 +187,15 @@ history.
   `DecisionImpact` feeds, and rollback recovery. Evidence lives under
   `/Volumes/data01/portal5_hunt/artifacts/specimen_corpus_v1/`,
   `/Volumes/data01/portal5_hunt/artifacts/calibration/20260815T195053Z/`, and
-  `/Volumes/data01/portal5_hunt/artifacts/p7_specimen_e2e/20260815T201500Z/`.
+  `/Volumes/data01/portal5_hunt/artifacts/p7_specimen_e2e/20260815T220000Z/`.
+  The final run controlled the dedicated `portal-lab-splunk` LXC through the
+  Proxmox MCP and checked reachability through the sandbox MCP, then shipped
+  the parent three times and the live-lab cousin once through HEC. Every receipt
+  was search-index confirmed; episode-scoped live Splunk queries returned the
+  imported parent with `imported_observed` origin and the lab cousin with
+  `observed_target_log` origin. Closeout now rejects an
+  offline-integrity E2E artifact; only `execution_mode: live_indexed` satisfies
+  P7 acceptance.
   Refinement/tool-call intake and any threshold or weight change remain
   explicitly deferred to the later training pass.
 

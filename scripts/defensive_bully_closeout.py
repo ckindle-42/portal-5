@@ -143,7 +143,9 @@ def _evidence_status(
                 for lane in ("attack_data", "replay_mutation", "live_lab")
             ),
             "specimen_e2e_recorded": proof.get("schema") == "BULLY_P7_SPECIMEN_E2E_V1"
-            and proof.get("passed") is True,
+            and proof.get("passed") is True
+            and proof.get("execution_mode") == "live_indexed"
+            and proof.get("checks", {}).get("live_indexed_replay") is True,
             "validation_passed": content["validation"].get("passed") is True,
         }
     )

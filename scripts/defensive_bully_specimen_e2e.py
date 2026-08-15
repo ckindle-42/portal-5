@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the P7 offline E2E proof over frozen, real observed specimens."""
+"""Run the P7 E2E proof over frozen, real observed specimens."""
 
 from __future__ import annotations
 
@@ -34,6 +34,7 @@ from portal.modules.security.core.recall_attribution import (
     technique_discriminators,
 )
 from portal.modules.security.core.siem import capture_store
+from portal.modules.security.core.siem.spl_backend import SplunkBackend
 from portal.modules.security.core.siem.spl_detections import spl_for
 
 PROOF_SCHEMA = "BULLY_P7_SPECIMEN_E2E_V1"
@@ -68,8 +69,44 @@ def _close_hunt(store: Store, hunt_id: str) -> None:
         store.hunt_advance_stage(hunt_id, stage, expected_version=row["version"])
 
 
-def _gate_results(parent: dict, parent_truth: dict, evidence_path: Path) -> dict[str, Any]:
-    telemetry = _telemetry(evidence_path)
+def _gate_results(
+    parent: dict,
+    live: dict,
+    parent_truth: dict,
+    evidence_path: Path,
+    live_evidence_path: Path,
+    *,
+    ship: bool,
+) -> dict[str, Any]:
+    replay_receipts = [
+        capture_store.replay_capture(evidence_path, dry_run=not ship) for _ in range(3)
+    ]
+    indexed_runs = [
+        bool(item.get("ok")) and (not ship or item.get("indexed_confirmed") is True)
+        for item in replay_receipts
+    ]
+    live_lab_receipt = capture_store.replay_capture(live_evidence_path, dry_run=not ship)
+    live_lab_indexed = bool(live_lab_receipt.get("ok")) and (
+        not ship or live_lab_receipt.get("indexed_confirmed") is True
+    )
+    live_query = None
+    live_lab_query = None
+    if ship:
+        live_query = SplunkBackend().query_episode(
+            {"earliest": "-15m", "latest": "now"},
+            episode_id=parent["specimen_id"],
+            host=parent["engine_view"]["episode_view"]["target_host"],
+            limit=20,
+        )
+        live_lab_query = SplunkBackend().query_episode(
+            {"earliest": "-15m", "latest": "now"},
+            episode_id=live["specimen_id"],
+            host=live["engine_view"]["episode_view"]["target_host"],
+            limit=20,
+        )
+        telemetry = live_query["telemetry"]
+    else:
+        telemetry = _telemetry(evidence_path)
     oracle_checks = []
     for technique_id in parent_truth["data_yml_techniques"]:
         result, matched = evidence_presence(
@@ -80,13 +117,11 @@ def _gate_results(parent: dict, parent_truth: dict, evidence_path: Path) -> dict
         {
             "has_spl_hit": any(item["result"] == PRESENT for item in oracle_checks),
             "within_window": True,
-            "target_match": True,
+            "target_match": not ship
+            or bool(live_query and live_query["rows"] and not live_query.get("error")),
         }
     )
-    replay_receipts = [capture_store.replay_capture(evidence_path, dry_run=True) for _ in range(3)]
-    g1b = promotion.check_g1b_dynamic(
-        {"reexecution_runs": [bool(item.get("ok")) for item in replay_receipts]}
-    )
+    g1b = promotion.check_g1b_dynamic({"reexecution_runs": indexed_runs})
     benign_evidence = handoff.gather_quiet_on_benign(
         spl_for(parent_truth["data_yml_techniques"][0])
     )
@@ -104,10 +139,18 @@ def _gate_results(parent: dict, parent_truth: dict, evidence_path: Path) -> dict
         "benign_evidence": benign_evidence,
         "oracle_checks": oracle_checks,
         "replay_receipts": replay_receipts,
+        "execution_mode": "live_indexed" if ship else "offline_integrity",
+        "indexed_runs": indexed_runs,
+        "live_query": live_query,
+        "live_lab_replay_receipt": live_lab_receipt,
+        "live_lab_indexed": live_lab_indexed,
+        "live_lab_query": live_lab_query,
     }
 
 
-def _record_proof_store(store_path: Path, corpus: dict, parent: dict, live: dict) -> None:
+def _record_proof_store(
+    store_path: Path, corpus: dict, parent: dict, live: dict, *, execution_mode: str
+) -> None:
     hunt_id = "hunt-p7-specimen-proof-v1"
     recall_id = "recall-p7-specimen-proof-v1"
     with Store(store_path) as store:
@@ -147,6 +190,7 @@ def _record_proof_store(store_path: Path, corpus: dict, parent: dict, live: dict
                     "used_synthetic": False,
                     "source_lane": "live_lab",
                     "corpus_snapshot_hash": corpus["snapshot_hash"],
+                    "execution_mode": execution_mode,
                 },
             )
         )
@@ -178,12 +222,39 @@ def _two_axis(baseline: dict[str, Any]) -> dict[str, int]:
     }
 
 
+def _proof_checks(
+    corpus: dict, two_axis: dict[str, int], gates: dict[str, Any], recovery: dict
+) -> dict[str, bool]:
+    return {
+        "corpus_complete": bool(corpus.get("complete")),
+        "two_axis_real_grading": two_axis["rows"] == len(corpus["specimens"])
+        and two_axis["live_lab_rows"] > 0,
+        "g1a_reproduction": gates["G1a"]["outcome"] == "pass",
+        "g1b_reproduction": gates["G1b"]["outcome"] == "pass",
+        "live_indexed_replay": gates["execution_mode"] != "live_indexed"
+        or (
+            all(gates["indexed_runs"])
+            and gates["live_lab_indexed"]
+            and bool(gates["live_query"] and gates["live_query"]["rows"])
+            and bool(gates["live_lab_query"] and gates["live_lab_query"]["rows"])
+        ),
+        "g2_benign_zero_fire": gates["G2"]["outcome"] == "pass",
+        "g2_rejects_benign_fire": gates["G2_rejection_control"]["outcome"] == "fail",
+        "decision_impact": len(cutover.FEEDS) == 6,
+        "recovery": all(
+            item["rollback_restored_baseline"] and item["records_retained"]
+            for item in recovery.values()
+        ),
+    }
+
+
 def run_proof(
     *,
     corpus_path: Path,
     ledger: SpecimenLedger,
     baseline_path: Path,
     output_dir: Path,
+    ship: bool = False,
 ) -> dict[str, Any]:
     corpus = load_specimen_corpus(corpus_path)
     baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
@@ -196,13 +267,21 @@ def run_proof(
     live = next(item for item in corpus["specimens"] if item["source_lane"] == "live_lab")
     parent_truth = ledger.truth_for(parent["specimen_id"])
     evidence_path = corpus_path.parent / "evidence" / parent["evidence_ref"]
-    gates = _gate_results(parent, parent_truth, evidence_path)
+    live_evidence_path = corpus_path.parent / "evidence" / live["evidence_ref"]
+    gates = _gate_results(
+        parent,
+        live,
+        parent_truth,
+        evidence_path,
+        live_evidence_path,
+        ship=ship,
+    )
 
     two_axis = _two_axis(baseline)
 
     output_dir.mkdir(parents=True, exist_ok=False)
     store_path = output_dir / "p7_specimen_proof.db"
-    _record_proof_store(store_path, corpus, parent, live)
+    _record_proof_store(store_path, corpus, parent, live, execution_mode=gates["execution_mode"])
 
     recovery = {
         feed: cutover.rollback_drill(
@@ -212,23 +291,11 @@ def run_proof(
         )
         for feed in cutover.FEEDS
     }
-    checks = {
-        "corpus_complete": bool(corpus.get("complete")),
-        "two_axis_real_grading": two_axis["rows"] == len(corpus["specimens"])
-        and two_axis["live_lab_rows"] > 0,
-        "g1a_reproduction": gates["G1a"]["outcome"] == "pass",
-        "g1b_reproduction": gates["G1b"]["outcome"] == "pass",
-        "g2_benign_zero_fire": gates["G2"]["outcome"] == "pass",
-        "g2_rejects_benign_fire": gates["G2_rejection_control"]["outcome"] == "fail",
-        "decision_impact": len(cutover.FEEDS) == 6,
-        "recovery": all(
-            item["rollback_restored_baseline"] and item["records_retained"]
-            for item in recovery.values()
-        ),
-    }
+    checks = _proof_checks(corpus, two_axis, gates, recovery)
     proof = {
         "schema": PROOF_SCHEMA,
         "recorded_at": datetime.now(UTC).isoformat(),
+        "execution_mode": gates["execution_mode"],
         "passed": all(checks.values()),
         "checks": checks,
         "corpus": {
@@ -262,12 +329,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--ledger-root", required=True, type=Path)
     parser.add_argument("--baseline", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
+    parser.add_argument(
+        "--ship",
+        action="store_true",
+        help="ship through HEC and require live Splunk index/query confirmation",
+    )
     args = parser.parse_args(argv)
     proof = run_proof(
         corpus_path=args.corpus,
         ledger=SpecimenLedger(args.ledger_root),
         baseline_path=args.baseline,
         output_dir=args.output_dir,
+        ship=args.ship,
     )
     print(json.dumps({"passed": proof["passed"], "checks": proof["checks"]}, indent=2))
     return 0 if proof["passed"] else 1

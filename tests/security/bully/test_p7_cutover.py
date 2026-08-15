@@ -197,7 +197,10 @@ def test_closeout_bundle_passes_only_with_all_six_effects(tmp_path):
         '"per_lane_counts":{"attack_data":1,"replay_mutation":1,"live_lab":1}}'
     )
     specimen_e2e = tmp_path / "e2e.json"
-    specimen_e2e.write_text('{"schema":"BULLY_P7_SPECIMEN_E2E_V1","passed":true}')
+    specimen_e2e.write_text(
+        '{"schema":"BULLY_P7_SPECIMEN_E2E_V1","passed":true,'
+        '"execution_mode":"live_indexed","checks":{"live_indexed_replay":true}}'
+    )
     validation = tmp_path / "validation.json"
     validation.write_text('{"passed": true}')
     bundle = defensive_bully_closeout.assemble(
@@ -212,6 +215,22 @@ def test_closeout_bundle_passes_only_with_all_six_effects(tmp_path):
     assert bundle["release_acceptance"]["status"] == "PASS"
     assert bundle["rollback_all_passed"] is True
     assert {proof["status"] for proof in bundle["feeds"].values()} == {"PASS"}
+
+    specimen_e2e.write_text(
+        '{"schema":"BULLY_P7_SPECIMEN_E2E_V1","passed":true,'
+        '"execution_mode":"offline_integrity","checks":{"live_indexed_replay":true}}'
+    )
+    offline_bundle = defensive_bully_closeout.assemble(
+        store_path=db,
+        calibration_report=calibration,
+        refinement_verdict=refinement,
+        specimen_corpus=corpus,
+        specimen_e2e=specimen_e2e,
+        validation_summary=validation,
+        validation_logs=[],
+    )
+    assert offline_bundle["specimen_e2e_recorded"] is False
+    assert offline_bundle["release_acceptance"]["status"] == "FAIL"
 
 
 def test_unexpected_live_driver_failure_blocks_and_releases_the_hunt(tmp_path, monkeypatch):
