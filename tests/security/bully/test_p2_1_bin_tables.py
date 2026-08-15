@@ -159,7 +159,7 @@ def test_migration_002_applies_and_is_idempotent(tmp_path):
     s1.close()
     s2 = Store(db_path)
     versions = {r["version"] for r in s2._conn.execute("SELECT version FROM schema_migrations")}
-    assert versions == {1, 2}
+    assert {1, 2}.issubset(versions)  # 002_bin_heart.sql applied; later phases may add more
     s2.close()
 
 
