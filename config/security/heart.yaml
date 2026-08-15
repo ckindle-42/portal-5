@@ -1,0 +1,24 @@
+# config/security/heart.yaml -- HEART council falsification-gate operator dials.
+#
+# HEART itself (adversary.py) lands in P2; declared now so hunt.yaml/heart.yaml's
+# combined shape is stable and config.py::HuntConfigSnapshot does not change
+# shape when P2 lands. Loaded by bully/config.py::load_heart_config.
+#
+# coding_task/bully/tasks/TASK_BULLY_P1_SPINE_V1.md P1.0 step 4.
+
+roster:
+  min_seats: 3
+  min_independence_families: 2     # family/correlation-group diversity enforced at load (I-19)
+  advisory_weight_bounds: [0.5, 2.0]
+
+floors:
+  min_participation: 0.6           # sub-floor -> review_valid=False -> operator escalation, never auto-pass
+
+waiver:
+  # A material-objection waiver is a separate authenticated command with a
+  # durable reason (I-8); this is the policy shape it is validated against,
+  # never a bypass default.
+  requires_operator_actor: true
+  requires_durable_reason: true
+
+materiality_version: "bully-heart-materiality-v1"

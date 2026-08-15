@@ -71,6 +71,12 @@ rag = [
     # Replaces sentence-transformers CPU path for Apple Silicon.
     "mlx-embeddings>=0.0.3",
 ]
+bully = [
+    # Defensive Bully ORG projection (bully/organ.py) -- embedded local
+    # vector store, no server/port (MASTER: "never created by this build:
+    # ... a second vector store"; this is a client library, not a service).
+    "lancedb>=0.37.0",
+]
 apple-silicon = [
     # MLX dual-server: mlx-lm for text-only models, mlx-vlm for VLM models.
     # mlx-lm>=0.31 required: qwen3_next moved to mlx_vlm in 0.31+; stay current for
@@ -101,6 +107,7 @@ dev = [
     "pytest-xdist>=3.5.0",
     "ruff>=0.1.0",
     "mypy>=1.7.0",
+    "lancedb>=0.37.0",     # bully/organ.py's ORG projection -- needed to run tests/security/bully/
 ]
 
 [project.scripts]
