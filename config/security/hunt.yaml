@@ -80,6 +80,17 @@ shadow:
   episode_dual_write: "off"        # off | shadow | authoritative
   cousin_dual_run: "off"           # off | shadow | authoritative
 
+# P7/M6 cutover state. Records are retained on rollback; switching a feed to
+# off disables consumption, not capture/history. P6.7 readiness is a readout
+# over training_pair_harvest and is deliberately not a seventh feed.
+feeds:
+  semantic_hunt_memory: "authoritative"
+  known_state: "authoritative"
+  roi_target_intelligence: "authoritative"
+  training_pair_harvest: "authoritative"
+  fleet_local_fine_tune: "authoritative"
+  playbook_memory: "authoritative"
+
 training:
   # TRAIN (P6.7). Periodic, operator-launched refinement of the investigation
   # arm only. base_models is the config alias defensive_bully_train.py

@@ -11,6 +11,7 @@ an import-scan test in ``tests/security/bully/test_boundaries.py``).
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 import time
@@ -36,7 +37,7 @@ from .contracts import (
     is_legal_hunt_transition,
 )
 
-SCHEMA_VERSION = 10  # highest migration this code understands
+SCHEMA_VERSION = 11  # highest migration this code understands
 _MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
 
@@ -221,6 +222,11 @@ class Store:
     def hunt_get(self, hunt_id: str) -> dict | None:
         row = self._conn.execute("SELECT * FROM hunts WHERE hunt_id=?", (hunt_id,)).fetchone()
         return _row_to_dict(row)
+
+    def hunts(self) -> list[dict[str, Any]]:
+        """Read hunt headers for audit/proof reporting."""
+        rows = self._conn.execute("SELECT * FROM hunts ORDER BY started_at, hunt_id").fetchall()
+        return [_row_to_dict(row) for row in rows]
 
     def hunt_advance_stage(self, hunt_id: str, target_stage: str, *, expected_version: int) -> None:
         """Compare-and-swap stage transition; rejects stale/illegal transitions (C1)."""
@@ -426,6 +432,50 @@ class Store:
                 ),
             )
         return entry_id
+
+    # ── persisted coverage cells (P7 capability-graph cutover) ────────
+
+    def coverage_cell_put(self, cell: dict[str, Any]) -> bool:
+        """Content-idempotent SUB persistence for on-demand coverage readout."""
+        cell_id = str(cell["cell_id"])
+        payload = _json(cell)
+        source_hash = hashlib.sha256(payload.encode()).hexdigest()
+        existing = self._conn.execute(
+            "SELECT source_hash FROM coverage_cells WHERE cell_id=?", (cell_id,)
+        ).fetchone()
+        if existing is not None and existing["source_hash"] == source_hash:
+            return False
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO coverage_cells "
+                "(cell_id, subject, scenario, payload_json, source_hash, version, updated_at) "
+                "VALUES (?,?,?,?,?,1,?) ON CONFLICT(cell_id) DO UPDATE SET "
+                "subject=excluded.subject, scenario=excluded.scenario, "
+                "payload_json=excluded.payload_json, source_hash=excluded.source_hash, "
+                "version=coverage_cells.version+1, updated_at=excluded.updated_at",
+                (
+                    cell_id,
+                    str(cell.get("subject", cell_id)),
+                    cell.get("scenario"),
+                    payload,
+                    source_hash,
+                    time.time(),
+                ),
+            )
+        return True
+
+    def coverage_cells(self) -> list[dict[str, Any]]:
+        rows = self._conn.execute("SELECT * FROM coverage_cells ORDER BY cell_id").fetchall()
+        out = []
+        for row in rows:
+            stored = _row_to_dict(row)
+            payload = _loads(stored["payload_json"], {})
+            payload["persistence"] = {
+                "source_hash": stored["source_hash"],
+                "version": stored["version"],
+            }
+            out.append(payload)
+        return out
 
     # ── behavior signatures ──────────────────────────────────────────────
 
@@ -642,6 +692,40 @@ class Store:
         ).fetchone()
         return row is not None
 
+    def recall_receipts(self) -> list[dict[str, Any]]:
+        """Read all recall receipts with their JSON fields decoded."""
+        rows = self._conn.execute(
+            "SELECT * FROM recall_receipts ORDER BY created_at, recall_id"
+        ).fetchall()
+        out = []
+        for row in rows:
+            item = _row_to_dict(row)
+            for key, fallback in (
+                ("filters", {}),
+                ("source_health", {}),
+                ("candidates", []),
+                ("exclusions", []),
+                ("selected_context", []),
+            ):
+                item[key] = _loads(item[key], fallback)
+            out.append(item)
+        return out
+
+    def latest_recall_id_for_hunt(self, hunt_id: str) -> str | None:
+        row = self._conn.execute(
+            "SELECT recall_id FROM recall_receipts WHERE hunt_id=? "
+            "ORDER BY created_at DESC LIMIT 1",
+            (hunt_id,),
+        ).fetchone()
+        return str(row["recall_id"]) if row is not None else None
+
+    def latest_recall_id(self) -> str | None:
+        """Return the newest durable recall for out-of-band flywheel links."""
+        row = self._conn.execute(
+            "SELECT recall_id FROM recall_receipts ORDER BY created_at DESC LIMIT 1"
+        ).fetchone()
+        return str(row["recall_id"]) if row is not None else None
+
     def decision_impact_put(self, impact: DecisionImpact) -> None:
         with self._tx() as cur:
             cur.execute(
@@ -660,6 +744,34 @@ class Store:
                     impact.created_at,
                 ),
             )
+
+    def decision_impacts_for_recall(self, recall_id: str) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            "SELECT * FROM decision_impacts WHERE recall_id=? ORDER BY created_at, impact_id",
+            (recall_id,),
+        ).fetchall()
+        out = []
+        for row in rows:
+            item = _row_to_dict(row)
+            item["before"] = _loads(item["before_json"], {})
+            item["after"] = _loads(item["after_json"], {})
+            item["cited_record_ids"] = _loads(item["cited_record_ids"], [])
+            out.append(item)
+        return out
+
+    def decision_impacts(self) -> list[dict[str, Any]]:
+        """Read all compounding links for closeout/audit reporting."""
+        rows = self._conn.execute(
+            "SELECT * FROM decision_impacts ORDER BY created_at, impact_id"
+        ).fetchall()
+        out = []
+        for row in rows:
+            item = _row_to_dict(row)
+            item["before"] = _loads(item["before_json"], {})
+            item["after"] = _loads(item["after_json"], {})
+            item["cited_record_ids"] = _loads(item["cited_record_ids"], [])
+            out.append(item)
+        return out
 
     # ── outbox ───────────────────────────────────────────────────────────
 
@@ -1599,6 +1711,19 @@ class Store:
             d["components"] = _loads(d["components"], [])
             d["quality_flag"] = bool(d["quality_flag"])
             out.append(d)
+        return out
+
+    def cost_ledger(self) -> list[dict]:
+        """Read cross-hunt cost history for later ROI target selection."""
+        rows = self._conn.execute(
+            "SELECT * FROM cost_ledger ORDER BY created_at, record_id"
+        ).fetchall()
+        out = []
+        for row in rows:
+            item = _row_to_dict(row)
+            item["components"] = _loads(item["components"], [])
+            item["quality_flag"] = bool(item["quality_flag"])
+            out.append(item)
         return out
 
     # ── plateaus (P4.4, I-12) ────────────────────────────────────────────

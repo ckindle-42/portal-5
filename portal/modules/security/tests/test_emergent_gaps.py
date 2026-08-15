@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from portal.modules.security.core.capability_graph import CapabilityGraph
 from portal.modules.security.core.emergent_gaps import feed_emergent_gaps, gaps_from_trajectory
-from portal.modules.security.core.growth_loop import run_growth_loop
 from portal.modules.security.core.trajectory_score import StepRecord, TrajectoryVerdict
 
 
@@ -46,17 +45,11 @@ def test_gap_ids_unique_per_step():
     assert len({g.gap_id for g in gaps}) == 2
 
 
-def test_feed_emergent_gaps_makes_run_growth_loop_see_them():
-    """The wiring: feed_emergent_gaps populates graph.gaps the same way the
-    scripted RED_ONLY feed does, so run_growth_loop (unchanged, no gap-list
-    param) picks emergent misses up as a first-class gap source."""
+def test_feed_emergent_gaps_persists_first_class_graph_rows():
+    """The retained historical adapter populates the graph read path."""
     graph = CapabilityGraph()
     steps = [StepRecord("s1", "kerberoast", "RED_LANDED", "DETECTION_NO_HIT")]
     fed = feed_emergent_gaps(graph, _v(steps), trajectory_id="t1")
 
     assert len(fed) == 1
     assert fed[0].gap_id in graph.gaps
-
-    result = run_growth_loop(graph, dry_run=True)
-    assert result.gaps_found == 1
-    assert result.drafts_proposed == 1

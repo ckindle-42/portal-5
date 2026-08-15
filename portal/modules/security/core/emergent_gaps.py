@@ -1,15 +1,9 @@
-"""Emergent-miss -> Gap feed (DESIGN_EMERGENT_LAB_AGENT_V2 Δ4 / Slice 3.1).
+"""Historical emergent-miss -> Gap adapter retained for MUT input.
 
-Turns off-script trajectory misses (RED_LANDED but detection absent) into the
-same Gap objects growth_loop already consumes. Only the gap *source* is new —
-run_growth_loop / propose_draft / prove_draft / surface_for_confirm are reused
-unchanged, and promotion stays confirm-only.
-
-Wiring: run_growth_loop(graph) scans graph.gaps directly (it takes no gap-list
-parameter) — the same way the scripted RED_ONLY feed already works via
-update_graph_from_episode's `graph.gaps[gap_id] = gap`. feed_emergent_gaps
-follows that exact idiom, so it is an additional gap *source* into the same
-graph, not a change to run_growth_loop itself.
+The retired growth-loop consumer is gone. ``bully.mutation`` still reuses
+``gaps_from_trajectory`` to turn proven non-synthetic misses into typed
+mutation opportunities; ``feed_emergent_gaps`` remains a compatibility read
+adapter for historical capability-graph consumers.
 """
 
 from __future__ import annotations
@@ -68,12 +62,7 @@ def gaps_from_trajectory(verdict: TrajectoryVerdict, *, trajectory_id: str) -> l
 def feed_emergent_gaps(
     graph: CapabilityGraph, verdict: TrajectoryVerdict, *, trajectory_id: str
 ) -> list[Gap]:
-    """Add gaps_from_trajectory's output into `graph.gaps` — the same
-    `graph.gaps[gap_id] = gap` idiom the scripted RED_ONLY feed already uses
-    (capability_graph.update_graph_from_episode), so a subsequent
-    `run_growth_loop(graph)` call picks these up as an additional gap source
-    without run_growth_loop itself changing.
-    """
+    """Add gaps from a trajectory to the retained historical graph readout."""
     gaps = gaps_from_trajectory(verdict, trajectory_id=trajectory_id)
     for gap in gaps:
         graph.add_gap(gap)

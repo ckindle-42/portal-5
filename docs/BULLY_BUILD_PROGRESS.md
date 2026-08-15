@@ -16,9 +16,9 @@ history.
 | P4 | `TASK_BULLY_P4_DISCOVERY_V1.md` | ✅ done | `913ded64` |
 | P5 | `TASK_BULLY_P5_HANDOFF_V1.md` | ✅ done | `58aab19f` |
 | P6 | `TASK_BULLY_P6_FLYWHEEL_V1.md` | ✅ done | `03e24a05` |
-| P6.7 | `TASK_BULLY_P6_7_TRAIN_REFINEMENT_CORRECTION_V1.md` | ✅ done | this closeout branch |
-| P6.8 | `TASK_BULLY_P6_8_COUSIN_CALIBRATION_BENCH_V1.md` | ✅ done | this closeout branch |
-| P7 | `TASK_BULLY_P7_CUTOVER_PROOF_V1.md` | ⬜ not started | — |
+| P6.7 | `TASK_BULLY_P6_7_TRAIN_REFINEMENT_CORRECTION_V1.md` | ✅ done | `f7434c86` |
+| P6.8 | `TASK_BULLY_P6_8_COUSIN_CALIBRATION_BENCH_V1.md` | ✅ done | `a2a95837` |
+| P7 | `TASK_BULLY_P7_CUTOVER_PROOF_V1.md` | ⚠️ cutover built; live proof blocked | — |
 
 ## What's landed (P0–P6)
 
@@ -186,8 +186,23 @@ itself before writing any code.
 
 ## Next
 
-**P7** — Complete the six authoritative cutovers, legacy replacement, and
-the single linked closeout proof bundle.
+**P7 proof prerequisite** — recapture a ground-truth-complete authorized-lab
+parent/cousin series, then rerun `scripts/defensive_bully_closeout.py`. The six
+cutover adapters, persisted `DecisionImpact` paths, rollback drills, SUB-backed
+coverage cells, legacy removals, canonical-Episode compatibility adapter, live
+driver, and fail-closed bundle assembler are built. The 2026-08-15 live attempts
+were correctly blocked before cousin grading because the captured observations
+were not valid test specimens:
+
+- `ad_full_compromise`: 25% ground-truth coverage (1/4 techniques).
+- `web_sqli_dump`: 0% (0/2).
+- `vuln_django_sqli`: 0% (0/1); target telemetry recorded `Not Found: /vuln/`.
+
+SUB hunt ids `hunt-20260815T170303Z-c3bcaccf` through
+`hunt-20260815T171154Z-9b541a15` remain as BLOCKED evidence, with leases
+released. This is a release finding, not a cousin-calibration result: no claim
+about unknown-cousin discovery is valid until the observation plane contains
+the frozen parent and intended mutation with complete provenance.
 
 ## Housekeeping note (unrelated to the bully program)
 
