@@ -1,0 +1,556 @@
+"""Eval-side cousin calibration bench (P6.8).
+
+Ground truth comes from the typed mutation plan used to construct each child,
+never from BR-COUSIN. Children are graded blind against a read-only Organ
+snapshot and are never indexed. The response axis uses the independent
+``recall_attribution`` discriminator oracle; this module is the one explicit
+eval-side exception to the production package's Rule-BM import boundary.
+"""
+
+from __future__ import annotations
+
+import csv
+import hashlib
+import json
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any, Protocol
+
+from ..recall_attribution import ABSENT, INDETERMINATE, evidence_presence, technique_discriminators
+from . import cousin_engine, mutation, signatures
+from .contracts import MutationOperatorSpec, MutationPlan
+
+CALIB_DISTANCE_POLICY_VERSION = "CALIB_DISTANCE_POLICY_V1"
+CALIB_PARENT_SET_VERSION = "CALIB_PARENTS_V1"
+CALIB_SWEEP_VERSION = "CALIB_SWEEP_V1"
+
+# Frozen structural weights. This table is intentionally unrelated to
+# cousin_engine._WEIGHTS and construction_distance never calls the grader.
+OPERATOR_CLASS_WEIGHTS: dict[str, float] = {
+    "REORDER_STEPS": 0.04,
+    "VARY_PARAMETER": 0.08,
+    "INJECT_EVASION_DIRECTIVE": 0.14,
+    "SUBSTITUTE_TECHNIQUE": 0.20,
+    "OFF_SCRIPT_SUPPLY": 0.26,
+    "REVERSE_GEN_SEED": 0.32,
+}
+
+FROZEN_SWEEP: tuple[tuple[str, ...], ...] = (
+    ("REORDER_STEPS",),
+    ("VARY_PARAMETER",),
+    ("INJECT_EVASION_DIRECTIVE",),
+    ("SUBSTITUTE_TECHNIQUE",),
+    ("SUBSTITUTE_TECHNIQUE", "INJECT_EVASION_DIRECTIVE"),
+    ("SUBSTITUTE_TECHNIQUE", "OFF_SCRIPT_SUPPLY"),
+    ("SUBSTITUTE_TECHNIQUE", "OFF_SCRIPT_SUPPLY", "REVERSE_GEN_SEED"),
+    tuple(OPERATOR_CLASS_WEIGHTS),
+)
+
+
+@dataclass(frozen=True)
+class CalibrationParent:
+    parent_id: str
+    scenario: str
+    family: str
+    covering_detection_id: str
+    reference_scenario: dict[str, Any]
+    technique_ids: tuple[str, ...]
+
+
+CALIB_PARENTS_V1: tuple[CalibrationParent, ...] = (
+    CalibrationParent(
+        parent_id="calib-parent-ad-kerberoast",
+        scenario="kerberoast_to_da",
+        family="active-directory",
+        covering_detection_id="T1558.003",
+        reference_scenario={
+            "red_order": [
+                "start_lab_target",
+                "run_nmap_scan",
+                "check_cve",
+                "exploit_service",
+                "establish_persistence",
+                "lateral_move",
+                "exfiltrate_data",
+                "revert_lab_target",
+            ],
+            "red_prompt": "authorized Kerberoast-to-domain-admin lab chain on $TARGET_HOST",
+            "mission_objective": "validate credential-theft and lateral-movement coverage",
+            "target_host": "10.10.11.21",
+        },
+        technique_ids=("T1558.003", "T1003.006", "T1053.005"),
+    ),
+    CalibrationParent(
+        parent_id="calib-parent-web-sqli",
+        scenario="web_sqli_dump",
+        family="web-injection",
+        covering_detection_id="T1190",
+        reference_scenario={
+            "red_order": ["execute_bash", "execute_bash", "execute_bash", "execute_bash"],
+            "red_prompt": "authorized SQL-injection data extraction on $TARGET_HOST",
+            "mission_objective": "validate public-facing exploit coverage",
+            "target_host": "10.10.11.50",
+        },
+        technique_ids=("T1190", "T1059.004"),
+    ),
+    CalibrationParent(
+        parent_id="calib-parent-smb-lateral",
+        scenario="meta3_smb_exploit",
+        family="lateral-movement",
+        covering_detection_id="T1210",
+        reference_scenario={
+            "red_order": ["execute_bash", "execute_bash", "execute_bash"],
+            "red_prompt": "authorized SMB enumeration and exploitation on $TARGET_HOST",
+            "mission_objective": "validate remote-services exploitation coverage",
+            "target_host": "10.10.11.13",
+        },
+        technique_ids=("T1210", "T1021.002"),
+    ),
+    CalibrationParent(
+        parent_id="calib-parent-web-ssrf",
+        scenario="web_ssrf",
+        family="cloud-metadata",
+        covering_detection_id="T1552",
+        reference_scenario={
+            "red_order": ["execute_bash", "execute_bash"],
+            "red_prompt": "authorized SSRF cloud-metadata probe on $TARGET_HOST",
+            "mission_objective": "validate metadata credential exposure coverage",
+            "target_host": "10.10.11.50",
+        },
+        technique_ids=("T1190", "T1552"),
+    ),
+)
+
+
+def _canonical(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
+
+
+CALIB_PARENTS_V1_SNAPSHOT_HASH = hashlib.sha256(
+    _canonical([asdict(parent) for parent in CALIB_PARENTS_V1]).encode()
+).hexdigest()
+
+
+@dataclass(frozen=True)
+class CalibrationVariant:
+    variant_id: str
+    parent_id: str
+    family: str
+    covering_detection_id: str
+    plan: MutationPlan
+    d_applied: float
+    episode_view: dict[str, Any]
+    telemetry_view: dict[str, Any]
+    model_visible_telemetry: str
+    discriminator_evasion: bool
+    negative_control: bool
+
+
+@dataclass(frozen=True)
+class BlindGrade:
+    variant: CalibrationVariant
+    relationship: str
+    response: str
+    distance: float
+    decomposition: dict[str, float | None]
+    confidence: float
+    reference_signature_id: str | None
+
+
+@dataclass(frozen=True)
+class CalibrationReport:
+    passed: bool
+    policy_version: str
+    parent_set_version: str
+    parent_snapshot_hash: str
+    sweep_version: str
+    thresholds_version: str
+    curve: tuple[dict[str, Any], ...]
+    by_family: dict[str, tuple[dict[str, Any], ...]]
+    failures: dict[str, tuple[dict[str, Any], ...]]
+    indeterminate: tuple[dict[str, Any], ...]
+    calibration_proposal: dict[str, Any] | None
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+class ReadOnlyKnnSnapshot(Protocol):
+    def knn(self, query: str, k: int, filters: dict[str, Any] | None = None): ...
+
+    def stats(self) -> dict[str, Any]: ...
+
+
+def construction_distance(plan: MutationPlan) -> float:
+    """Independent x-axis derived only from typed applied operators."""
+    return round(min(sum(OPERATOR_CLASS_WEIGHTS[op.operator] for op in plan.operators), 1.0), 6)
+
+
+def _operator(parent: CalibrationParent, name: str) -> MutationOperatorSpec:
+    order = list(parent.reference_scenario["red_order"])
+    params_by_name = {
+        "REORDER_STEPS": {"order": list(reversed(order))},
+        "VARY_PARAMETER": {"placeholder": "$TARGET_HOST", "value": "lab-alias.local"},
+        "INJECT_EVASION_DIRECTIVE": {
+            "directive_text": "preserve objective; vary exact discriminator representation"
+        },
+        "SUBSTITUTE_TECHNIQUE": {
+            "from": order[0],
+            "to": f"variant_{order[0]}",
+        },
+        "OFF_SCRIPT_SUPPLY": {"technique_ids": ["T9999.001"]},
+        "REVERSE_GEN_SEED": {"technique_id": "T9999.002"},
+    }
+    return MutationOperatorSpec(operator=name, params=params_by_name[name])
+
+
+def _plan(parent: CalibrationParent, operator_names: tuple[str, ...]) -> MutationPlan:
+    operators = tuple(_operator(parent, name) for name in operator_names)
+    digest = hashlib.sha256(
+        _canonical(
+            {
+                "parent": parent.parent_id,
+                "operators": [asdict(operator) for operator in operators],
+                "policy": CALIB_DISTANCE_POLICY_VERSION,
+            }
+        ).encode()
+    ).hexdigest()[:16]
+    return MutationPlan(
+        plan_id=f"calib-plan-{digest}",
+        plan_version=1,
+        reference_scenario=parent.scenario,
+        operators=operators,
+        invariants=("preserve_mission_objective",),
+        expected_observables={"parent_id": parent.parent_id},
+        controls=("unmodified-parent",) if len(operators) > 1 else (),
+        replay_policy="held_out_never_index",
+        allowed_targets=(parent.reference_scenario["target_host"],),
+        allowed_tools=(),
+        cleanup=(),
+        approval_ref=CALIB_SWEEP_VERSION,
+        budget_class="extended",
+        idempotency_key=f"calib-idem-{digest}",
+        proposer="eval:cousin-calibration",
+        created_at=0.0,
+    )
+
+
+def _mutated_attack_ids(parent: CalibrationParent, names: tuple[str, ...]) -> list[str]:
+    ids = list(parent.technique_ids)
+    if "SUBSTITUTE_TECHNIQUE" in names and ids:
+        ids[0] = "T9999.100"
+    if "OFF_SCRIPT_SUPPLY" in names:
+        ids.append("T9999.001")
+    if "REVERSE_GEN_SEED" in names:
+        ids.append("T9999.002")
+    return ids
+
+
+def generate_variants(
+    parent: CalibrationParent,
+    sweep: tuple[tuple[str, ...], ...] = FROZEN_SWEEP,
+) -> tuple[CalibrationVariant, ...]:
+    """Compile a byte-stable held-out sweep over MUT; no indexing occurs."""
+    variants: list[CalibrationVariant] = []
+    for operator_names in sweep:
+        plan = _plan(parent, operator_names)
+        overlay = mutation.validate_and_compile(
+            plan,
+            reference_scenario=parent.reference_scenario,
+            hunt_config={"mutation": {"max_variants_per_iteration": 20}},
+        )
+        d_applied = construction_distance(plan)
+        evasion = bool(set(operator_names) & {"INJECT_EVASION_DIRECTIVE", "SUBSTITUTE_TECHNIQUE"})
+        telemetry_shape: dict[str, Any] = {
+            "source": "calibration-scenario",
+            "target_host": parent.reference_scenario["target_host"],
+        }
+        context_topology: dict[str, Any] = {
+            "family": parent.family,
+            "target_host": parent.reference_scenario["target_host"],
+        }
+        if "VARY_PARAMETER" in operator_names:
+            telemetry_shape["parameter_variant"] = "lab-alias"
+        if "INJECT_EVASION_DIRECTIVE" in operator_names:
+            telemetry_shape["discriminator_representation"] = "varied"
+        if "OFF_SCRIPT_SUPPLY" in operator_names:
+            context_topology["off_script"] = True
+        if "REVERSE_GEN_SEED" in operator_names:
+            context_topology["reverse_generated"] = True
+
+        discriminator = technique_discriminators(parent.covering_detection_id)
+        visible_tokens = [] if evasion else discriminator["tokens"]
+        visible_telemetry = " ".join(visible_tokens)
+        variant_id = f"variant-{plan.plan_id.removeprefix('calib-plan-')}"
+        variants.append(
+            CalibrationVariant(
+                variant_id=variant_id,
+                parent_id=parent.parent_id,
+                family=parent.family,
+                covering_detection_id=parent.covering_detection_id,
+                plan=plan,
+                d_applied=d_applied,
+                episode_view={
+                    "episode_id": variant_id,
+                    "target_host": parent.reference_scenario["target_host"],
+                },
+                telemetry_view={
+                    "action_sequence": list(overlay.red_order),
+                    "event_graph": {"ordered": list(overlay.red_order)},
+                    "parameter_families": {"mutation_classes": list(operator_names)},
+                    "context_topology": context_topology,
+                    "artifacts": {"plan_id": plan.plan_id},
+                    "attack_mappings": [
+                        {"technique_id": technique_id}
+                        for technique_id in _mutated_attack_ids(parent, operator_names)
+                    ],
+                    "telemetry_shape": telemetry_shape,
+                    "detector_outcomes": {
+                        parent.covering_detection_id: "partial" if evasion else "fired"
+                    },
+                },
+                model_visible_telemetry=visible_telemetry,
+                discriminator_evasion=evasion,
+                negative_control=d_applied >= cousin_engine.DEFAULT_THRESHOLDS["new_max_distance"],
+            )
+        )
+    return tuple(variants)
+
+
+def parent_reference_record(parent: CalibrationParent) -> dict[str, Any]:
+    scenario = parent.reference_scenario
+    return {
+        "record_id": parent.parent_id,
+        "signature_id": parent.parent_id,
+        "kind": "calibration_parent",
+        "family": parent.family,
+        "tactic": parent.family,
+        "technique_ids": list(parent.technique_ids),
+        "action_sequence": list(scenario["red_order"]),
+        "behavior_sequence": " ".join(scenario["red_order"]),
+        "telemetry_shape": {
+            "source": "calibration-scenario",
+            "target_host": scenario["target_host"],
+        },
+        "context_topology": {"family": parent.family, "target_host": scenario["target_host"]},
+        "covering_detection_id": parent.covering_detection_id,
+        "relationship": "SAME",
+        "detection_response": "COVERED",
+    }
+
+
+def grade_blind(child: CalibrationVariant, snapshot: ReadOnlyKnnSnapshot) -> BlindGrade:
+    """Real signature→snapshot.knn→candidate_set→grade path, without parent id."""
+    before = snapshot.stats().get("row_count")
+    signature = signatures.build_signature(child.episode_view, child.telemetry_view)
+    semantic_candidates = snapshot.knn(signature.canonical_fingerprint, k=8)
+    candidates = cousin_engine.candidate_set(
+        signature,
+        semantic_candidates=semantic_candidates,
+        health={"snapshot": "read-only"},
+    )
+    coverage = cousin_engine.CoverageView(
+        applicable_detection_ids=(child.covering_detection_id,),
+        fired_detection_ids=() if child.discriminator_evasion else (child.covering_detection_id,),
+        partial_detection_ids=(child.covering_detection_id,) if child.discriminator_evasion else (),
+        telemetry_healthy=True,
+    )
+    assessment = cousin_engine.grade(signature, candidates, coverage)
+    after = snapshot.stats().get("row_count")
+    if before != after:
+        raise RuntimeError("read-only calibration snapshot changed while grading a child")
+    return BlindGrade(
+        variant=child,
+        relationship=assessment.relationship,
+        response=assessment.defense_response,
+        distance=assessment.composite,
+        decomposition=asdict(assessment.decomposition),
+        confidence=assessment.confidence,
+        reference_signature_id=assessment.reference_signature_id,
+    )
+
+
+def _curve_row(result: BlindGrade) -> dict[str, Any]:
+    discriminator = technique_discriminators(result.variant.covering_detection_id)
+    oracle, matched = evidence_presence(
+        result.variant.model_visible_telemetry, discriminator["tokens"]
+    )
+    if result.variant.discriminator_evasion and oracle == ABSENT:
+        oracle_response = "NEAR_MISS"
+    elif oracle == INDETERMINATE:
+        oracle_response = "INDETERMINATE"
+    else:
+        oracle_response = "COVERED"
+    return {
+        "variant_id": result.variant.variant_id,
+        "parent_id": result.variant.parent_id,
+        "family": result.variant.family,
+        "covering_detection_id": result.variant.covering_detection_id,
+        "d_applied": result.variant.d_applied,
+        "graded_distance": round(result.distance, 6),
+        "relationship": result.relationship,
+        "grader_response": result.response,
+        "oracle_response": oracle_response,
+        "oracle_result": oracle,
+        "matched_discriminators": matched,
+        "discriminator_evasion": result.variant.discriminator_evasion,
+        "negative_control": result.variant.negative_control,
+        "confidence": round(result.confidence, 6),
+        "reference_signature_id": result.reference_signature_id,
+        **{f"distance_{key}": value for key, value in result.decomposition.items()},
+    }
+
+
+def _proposal(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    thresholds = cousin_engine.DEFAULT_THRESHOLDS
+    same_observed = [
+        row["graded_distance"]
+        for row in rows
+        if row["d_applied"] <= thresholds["same_max_distance"]
+    ]
+    similar_observed = [
+        row["graded_distance"]
+        for row in rows
+        if row["d_applied"] <= thresholds["similar_max_distance"]
+    ]
+    new_observed = [
+        row["graded_distance"] for row in rows if row["d_applied"] <= thresholds["new_max_distance"]
+    ]
+    proposed_same = min(max(same_observed, default=thresholds["same_max_distance"]) + 0.01, 0.25)
+    proposed_similar = min(
+        max(
+            max(similar_observed, default=thresholds["similar_max_distance"]) + 0.01,
+            proposed_same,
+        ),
+        0.80,
+    )
+    proposed_new = min(
+        max(
+            max(new_observed, default=thresholds["new_max_distance"]) + 0.01,
+            proposed_similar,
+        ),
+        0.99,
+    )
+    return {
+        "status": "operator_confirmation_required",
+        "proposal_version": "bully-cousin-thresholds-v2-proposal",
+        "proposed_thresholds": {
+            "same_max_distance": round(proposed_same, 4),
+            "similar_max_distance": round(proposed_similar, 4),
+            "new_max_distance": round(proposed_new, 4),
+        },
+        "distance_policy_for_rerun": "CALIB_DISTANCE_POLICY_V2_PROPOSAL",
+        "required_action": "apply as a new policy version, freeze a fresh sweep, rerun",
+    }
+
+
+def score(
+    results: tuple[BlindGrade, ...], *, monotonic_tolerance: float = 0.05
+) -> CalibrationReport:
+    rows = [_curve_row(result) for result in results]
+    failures: dict[str, list[dict[str, Any]]] = {
+        "mid_band_graded_new": [],
+        "variant_graded_same": [],
+        "non_monotonic": [],
+        "band_crossing": [],
+        "false_cousin": [],
+        "wrong_parent": [],
+        "response_axis": [],
+    }
+    indeterminate: list[dict[str, Any]] = []
+    by_parent: dict[str, list[dict[str, Any]]] = {}
+    by_family: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        by_parent.setdefault(row["parent_id"], []).append(row)
+        by_family.setdefault(row["family"], []).append(row)
+        x_value = row["d_applied"]
+        relationship = row["relationship"]
+        if relationship == "ANOMALOUS_UNCLASSIFIED" or row["oracle_response"] == "INDETERMINATE":
+            indeterminate.append(row)
+            continue
+        if 0.05 < x_value <= 0.40 and relationship == "NEW":
+            failures["mid_band_graded_new"].append(row)
+        if x_value > 0.05 and relationship == "SAME":
+            failures["variant_graded_same"].append(row)
+        if row["negative_control"] and relationship in {"SAME", "SIMILAR"}:
+            failures["false_cousin"].append(row)
+        if row["reference_signature_id"] != row["parent_id"]:
+            failures["wrong_parent"].append(row)
+        if row["discriminator_evasion"] and row["oracle_response"] != "NEAR_MISS":
+            failures["response_axis"].append(row)
+        if abs(row["graded_distance"] - x_value) > 0.30:
+            failures["band_crossing"].append(row)
+
+    for parent_id, parent_rows in by_parent.items():
+        ordered = sorted(parent_rows, key=lambda row: row["d_applied"])
+        for previous, current in zip(ordered, ordered[1:], strict=False):
+            if current["graded_distance"] + monotonic_tolerance < previous["graded_distance"]:
+                failures["non_monotonic"].append(
+                    {"parent_id": parent_id, "previous": previous, "current": current}
+                )
+
+    passed = not any(failures.values()) and not indeterminate
+    return CalibrationReport(
+        passed=passed,
+        policy_version=CALIB_DISTANCE_POLICY_VERSION,
+        parent_set_version=CALIB_PARENT_SET_VERSION,
+        parent_snapshot_hash=CALIB_PARENTS_V1_SNAPSHOT_HASH,
+        sweep_version=CALIB_SWEEP_VERSION,
+        thresholds_version=cousin_engine.THRESHOLDS_VERSION,
+        curve=tuple(rows),
+        by_family={key: tuple(value) for key, value in sorted(by_family.items())},
+        failures={key: tuple(value) for key, value in failures.items()},
+        indeterminate=tuple(indeterminate),
+        calibration_proposal=None if passed else _proposal(rows),
+    )
+
+
+def write_artifacts(report: CalibrationReport, output_dir: Path) -> dict[str, str]:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    report_path = output_dir / "calibration_report.json"
+    csv_path = output_dir / "calibration_curve.csv"
+    plot_path = output_dir / "calibration_curve.svg"
+    report_path.write_text(json.dumps(report.to_dict(), indent=2, sort_keys=True), encoding="utf-8")
+    rows = list(report.curve)
+    with csv_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]) if rows else [])
+        if rows:
+            writer.writeheader()
+            writer.writerows(rows)
+
+    points = [(50 + row["d_applied"] * 500, 550 - row["graded_distance"] * 500) for row in rows]
+    circles = "\n".join(
+        f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4" fill="#2563eb" />' for x, y in points
+    )
+    plot_path.write_text(
+        "\n".join(
+            [
+                '<svg xmlns="http://www.w3.org/2000/svg" width="620" height="620" viewBox="0 0 620 620">',
+                '<rect width="620" height="620" fill="white"/>',
+                '<line x1="50" y1="550" x2="550" y2="550" stroke="black"/>',
+                '<line x1="50" y1="550" x2="50" y2="50" stroke="black"/>',
+                '<line x1="50" y1="550" x2="550" y2="50" stroke="#94a3b8" stroke-dasharray="6 6"/>',
+                '<text x="250" y="590">constructed distance</text>',
+                '<text x="15" y="330" transform="rotate(-90 15 330)">graded distance</text>',
+                circles,
+                "</svg>",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return {"report": str(report_path), "csv": str(csv_path), "plot": str(plot_path)}
+
+
+def run_bench(snapshot: ReadOnlyKnnSnapshot, output_dir: Path) -> CalibrationReport:
+    before = snapshot.stats().get("row_count")
+    results = tuple(
+        grade_blind(variant, snapshot)
+        for parent in CALIB_PARENTS_V1
+        for variant in generate_variants(parent)
+    )
+    after = snapshot.stats().get("row_count")
+    if before != after:
+        raise RuntimeError("calibration children contaminated the Organ snapshot")
+    report = score(results)
+    write_artifacts(report, output_dir)
+    return report

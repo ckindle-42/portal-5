@@ -17,6 +17,7 @@ history.
 | P5 | `TASK_BULLY_P5_HANDOFF_V1.md` | ✅ done | `58aab19f` |
 | P6 | `TASK_BULLY_P6_FLYWHEEL_V1.md` | ✅ done | `03e24a05` |
 | P6.7 | `TASK_BULLY_P6_7_TRAIN_REFINEMENT_CORRECTION_V1.md` | ✅ done | this closeout branch |
+| P6.8 | `TASK_BULLY_P6_8_COUSIN_CALIBRATION_BENCH_V1.md` | ✅ done | this closeout branch |
 | P7 | `TASK_BULLY_P7_CUTOVER_PROOF_V1.md` | ⬜ not started | — |
 
 ## What's landed (P0–P6)
@@ -184,9 +185,6 @@ be rebased. P2's agent caught and avoided the same stale-base failure mode
 itself before writing any code.
 
 ## Next
-
-**P6.8** — Build and record the independent cousin-calibration curve from
-construction-known, blind-graded held-out variants.
 
 **P7** — Complete the six authoritative cutovers, legacy replacement, and
 the single linked closeout proof bundle.
