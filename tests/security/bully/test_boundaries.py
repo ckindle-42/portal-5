@@ -159,12 +159,14 @@ def test_no_mcp_module_imports_bully():
             assert not hit, f"{path} imports bully: {hit}"
 
 
-def test_bully_never_imports_recall_attribution():
-    """MASTER SS3 / Rule BM: label-blind -- production code never imports
-    recall_attribution."""
+def test_only_eval_calibration_bench_imports_recall_attribution():
+    """Rule BM: production stays label-blind; P6.8's eval bench is isolated."""
     for path in BULLY_DIR.glob("*.py"):
         imports = _imported_names(path)
         hit = {i for i in imports if i.endswith("recall_attribution") or "recall_attribution" in i}
+        if path.stem == "cousin_calibration_bench":
+            assert hit, "eval bench must use the independent response oracle"
+            continue
         assert not hit, f"{path.name} imports recall_attribution: {hit}"
 
 

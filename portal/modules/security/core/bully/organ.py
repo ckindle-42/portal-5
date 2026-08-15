@@ -28,7 +28,7 @@ import httpx
 from .contracts import RecallReceipt
 from .store import Store
 
-DEFAULT_EMBED_URL = "http://localhost:8917/embed"
+DEFAULT_EMBED_URL = "http://localhost:8917/v1/embeddings"
 DEFAULT_RERANK_URL = "http://localhost:8925/rerank"
 PROJECTION_VERSION = "hunt-memory-v1"
 EMBEDDING_VERSION = "sentence-transformers-v1"
