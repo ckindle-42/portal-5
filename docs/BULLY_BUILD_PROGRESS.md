@@ -182,13 +182,29 @@ itself before writing any code.
 
 ## Next
 
+**P6.6 (new, blocking)** — Build the real frozen five-arm cousin-suite
+harness. Independent re-verification after the P6 merge found this isn't a
+live-demo nicety: `training._default_five_arm_eval` is a permanent stub
+(`macro_f1_delta_vs_full_stack: None`), which structurally blocks every
+TRAIN run from ever passing acceptance — the `declined_no_gain` verdict in
+P6's live demo wasn't a real measurement, it was the stub's one possible
+output. `FINAL_ARCHITECTURE_DEFENSIVE_BULLY.md` §4.3 and
+`FINAL_BUILD_PROGRAM_DEFENSIVE_BULLY.md`'s checklist both place this
+squarely inside P6.4/TRAIN's own scope, not a later phase. Full findings —
+what's already real and reusable (HARV's frozen test split, the
+label-blind `recall_attribution` oracle, `_sweep_driver._bootstrap_ci`,
+the retrieval/playbook/role-model mechanisms), the one open design
+question (what "cousin-judgment" concretely measures — see the doc), and
+the concrete build list — are written up in
+`docs/BULLY_P6_TRAIN_GAP_ANALYSIS.md`. A secondary, smaller gap in the
+same area: `incumbent_delta_pt` (the vs-incumbent regression leg) silently
+no-ops (passes) when unset instead of blocking, and nothing wires it to
+`candidate_eval`'s real delta today.
+
 **P7** — Cutover proof: `TASK_BULLY_P7_CUTOVER_PROOF_V1.md`. Depends on P6
-(flywheel merged, `03e24a05`). Note: P6 flagged one known gap worth
-revisiting before or during P7 — no frozen five-arm cousin-suite bench
-harness exists yet, so `training.evaluate_acceptance` has never been
-exercised against a real bench comparison (only fixtures + one honest
-`declined_no_gain` live run). If P7's cutover proof wants a genuine model
-promotion demonstration, building that harness is a prerequisite.
+(flywheel merged, `03e24a05`) **and** P6.6 — P7's release-acceptance
+checklist requires "a frozen five-arm training comparison runs to a
+recorded verdict," which needs P6.6's real harness, not the stub.
 
 ## Housekeeping note (unrelated to the bully program)
 
