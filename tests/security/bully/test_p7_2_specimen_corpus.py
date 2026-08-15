@@ -347,5 +347,7 @@ def test_cold_baseline_grades_before_truth_join_and_is_deterministic(tmp_path):
         output_dir=tmp_path / "p7-proof",
     )
     assert proof["passed"] is True
+    assert proof["execution_mode"] == "offline_integrity"
+    assert proof["checks"]["live_indexed_replay"] is True
     assert all(proof["checks"].values())
     assert len(proof["decision_impact_ids"]) == 6

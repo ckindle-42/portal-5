@@ -53,7 +53,7 @@ python3 scripts/rebench_plan.py                     # category-grouped re-bench 
 python3 scripts/execute_pending_verdicts.py         # two-stage plan/execute reclaim executor for recorded verdicts
 python3 scripts/defensive_bully_calibrate.py        # frozen P6.8 cousin-calibration run + curve artifacts
 python3 scripts/build_specimen_corpus.py            # frozen three-lane real specimen corpus builder
-python3 scripts/defensive_bully_specimen_e2e.py     # P7 offline real-specimen gate/cutover/rollback proof
+python3 scripts/defensive_bully_specimen_e2e.py     # P7 live-indexed real-specimen gate/cutover/rollback proof
 python3 scripts/defensive_bully_train.py            # operator-gated HARV/TRAIN build, serve, and rollback surface
 python3 scripts/defensive_bully_closeout.py         # fail-closed P7 proof-bundle assembler over durable evidence
 ```
