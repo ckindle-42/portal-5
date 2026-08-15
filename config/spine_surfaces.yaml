@@ -47,7 +47,7 @@ surfaces:
 - name: file-portal-modules-media-tools-comfyui_mcp
   globs:
   - portal/modules/media/tools/comfyui_mcp.py
-  unit: unit-comfyui-setup-step-3-use
+  unit: unit-HOWTO-8-image-generation
 - name: file-portal-modules-media-tools-music_mcp
   globs:
   - portal/modules/media/tools/music_mcp.py
@@ -55,7 +55,7 @@ surfaces:
 - name: file-portal-modules-media-tools-tts_mcp
   globs:
   - portal/modules/media/tools/tts_mcp.py
-  unit: unit-fish-speech-setup-installation-macos-apple-silicon
+  unit: unit-fact-tool-registry
 - name: file-portal-modules-media-tools-utils
   globs:
   - portal/modules/media/tools/utils.py
@@ -63,11 +63,11 @@ surfaces:
 - name: file-portal-modules-media-tools-video_mcp
   globs:
   - portal/modules/media/tools/video_mcp.py
-  unit: unit-comfyui-setup-then-set-video-backend-wan21-nsfw-in-env-and-restart-docker-compose-restart-mcp-video
+  unit: unit-comfyui-setup-cinematic-quality-t2v-a14b-slower
 - name: file-portal-modules-media-tools-whisper_mcp
   globs:
   - portal/modules/media/tools/whisper_mcp.py
-  unit: unit-known-limitations-diarized-transcription-task-transcribe-001
+  unit: unit-HOWTO-12-speech-to-text-asr
 - name: file-portal-modules-research-tools-browser_mcp
   globs:
   - portal/modules/research/tools/browser_mcp.py
@@ -75,7 +75,7 @@ surfaces:
 - name: file-portal-modules-research-tools-rag_mcp
   globs:
   - portal/modules/research/tools/rag_mcp.py
-  unit: unit-user-guide-uploading-documents
+  unit: unit-fact-tool-registry
 - name: file-portal-modules-research-tools-reranker_mcp
   globs:
   - portal/modules/research/tools/reranker_mcp.py
@@ -223,7 +223,7 @@ surfaces:
 - name: file-portal-platform-wiki-render
   globs:
   - portal/platform/wiki/render.py
-  unit: unit-fact-doc-migration-coverage
+  unit: unit-DESIGN_WIKI-discovery-termination
 - name: file-portal-platform-wiki-schema
   globs:
   - portal/platform/wiki/schema.py

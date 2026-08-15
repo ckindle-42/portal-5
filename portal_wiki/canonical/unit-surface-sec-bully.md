@@ -5,7 +5,6 @@ title: "Defensive Bully — autonomous purple-team hunt loop package"
 sources:
 - type: code
   path: portal/modules/security/core/bully/*.py
-last_generated_commit: 6a4b4d26
 claims: []
 confidence: high
 tags:

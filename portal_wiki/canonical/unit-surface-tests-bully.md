@@ -5,7 +5,6 @@ title: "Defensive Bully integration test lane"
 sources:
 - type: code
   path: tests/security/bully/*.py
-last_generated_commit: 6a4b4d26
 claims: []
 confidence: high
 tags:
