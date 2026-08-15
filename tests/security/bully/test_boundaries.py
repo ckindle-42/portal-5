@@ -11,6 +11,8 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BULLY_DIR = REPO_ROOT / "portal" / "modules" / "security" / "core" / "bully"
 
@@ -56,8 +58,9 @@ def test_only_organ_touches_the_projection_import():
 def test_pure_compute_modules_avoid_network_and_sql_imports():
     """MASTER SS3: cousin_engine/targeting/plateau/scoreboard/costing/roster/
     signatures/drift_engine are pure compute over injected data -- no network,
-    no SQL. Only the modules that exist at P1 are checked here; later phases'
-    modules (targeting.py etc.) get their own guard test when they land.
+    no SQL. Only the modules that exist so far are checked here; later
+    phases' modules (targeting.py etc.) get their own guard test when they
+    land.
     """
     pure_modules = [m for m in ("cousin_engine", "signatures") if _bully_module(m).exists()]
     forbidden = {"sqlite3", "httpx", "requests", "lancedb", "urllib.request"}
@@ -65,6 +68,55 @@ def test_pure_compute_modules_avoid_network_and_sql_imports():
         imports = _imported_names(_bully_module(name))
         hit = imports & forbidden
         assert not hit, f"{name}.py is supposed to be pure compute but imports {hit}"
+
+
+def _imported_symbols(path: Path) -> set[str]:
+    """Every name actually bound by an `import`/`from ... import` statement
+    (as opposed to `_imported_names`, which returns the *module* being
+    imported from) -- used to prove a specific symbol is never imported,
+    regardless of prose mentioning its name in a docstring/comment."""
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                names.add(alias.asname or alias.name)
+    return names
+
+
+def test_mutation_module_imports_nothing_beyond_the_public_scenario_surface():
+    """C9 guard test: MUT (`mutation.py`) never *imports* the Red-internals
+    lab-execution entry points (`_prepare_scenario`/`_run_chain_test`/
+    `set_scenario`) or SQL/network -- it emits data (a `ScenarioOverlay`)
+    that `orchestrator.py` alone hands to those unchanged functions. (The
+    module's own docstring names these functions in prose to document the
+    boundary it respects -- an AST import-scan, not a text search, is what
+    proves the boundary itself.)"""
+    path = _bully_module("mutation")
+    if not path.exists():
+        pytest.skip("mutation.py not landed yet")
+    imported_symbols = _imported_symbols(path)
+    forbidden_names = {"_prepare_scenario", "_run_chain_test", "set_scenario"}
+    hit = imported_symbols & forbidden_names
+    assert not hit, f"mutation.py imports Red-internals symbol(s) {hit}"
+    imports = _imported_names(path)
+    forbidden_modules = {"sqlite3", "httpx", "requests", "lancedb", "urllib.request"}
+    hit_modules = imports & forbidden_modules
+    assert not hit_modules, f"mutation.py imports {hit_modules}"
+
+
+def test_mutation_module_never_edits_red_source():
+    """M1/C9: 'Red source provably unedited' -- exec_chain.py and lab.py are
+    never imported for write, and this repo's git history for this build
+    never touches them (checked separately via `git diff main -- ...` in
+    the phase's own verification, not here -- this test covers the static
+    import-boundary half)."""
+    path = _bully_module("mutation")
+    if not path.exists():
+        pytest.skip("mutation.py not landed yet")
+    imports = _imported_names(path)
+    assert "exec_chain" not in {i.split(".")[-1] for i in imports}
+    assert "lab" not in {i.split(".")[-1] for i in imports}
 
 
 def test_bully_package_never_imports_mcp_modules():

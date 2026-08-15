@@ -12,10 +12,20 @@ budgets:
   max_lab_actions: 60
 
 mutation:
-  # MUT itself lands in P3; the budget dial is declared now so hunt.yaml's
-  # shape does not change shape again when it lands (I-20).
+  # MUT lands in P3 (bully/mutation.py). max_variants_per_iteration is I-20's
+  # per-hunt budget ceiling. allowed_classes is the operator-confirmed subset
+  # of the code-level MUTATION_OPERATORS catalog (contracts.py) a hunt may
+  # actually compile -- the initial baseline below is this landing's
+  # operator confirmation; a class outside it requires a plan-level
+  # approval_ref (mutation-class widening `[GATE]`, I-1).
   max_variants_per_iteration: 5
-  allowed_classes: []             # empty until P3 MUT typed-operator catalog lands
+  allowed_classes:
+    - REORDER_STEPS
+    - SUBSTITUTE_TECHNIQUE
+    - VARY_PARAMETER
+    - INJECT_EVASION_DIRECTIVE
+    - OFF_SCRIPT_SUPPLY
+    - REVERSE_GEN_SEED
 
 promote_policy: confirm            # promotion always requires an authenticated operator (MASTER SS7)
 

@@ -26,12 +26,14 @@ from .contracts import (
     DecisionEvent,
     DecisionImpact,
     HuntContext,
+    MutationPlan,
     RecallReceipt,
+    ScenarioOverlay,
     is_legal_bin_transition,
     is_legal_hunt_transition,
 )
 
-SCHEMA_VERSION = 3  # highest migration this code understands
+SCHEMA_VERSION = 4  # highest migration this code understands
 _MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
 
@@ -1279,6 +1281,64 @@ class Store:
             (candidate_id,),
         ).fetchall()
         return [_row_to_dict(r) for r in rows]
+
+    # ── mutation plans (P3.1, I-1) ───────────────────────────────────────
+
+    def mutation_plan_record(
+        self,
+        plan: MutationPlan,
+        *,
+        status: str,
+        overlay: ScenarioOverlay | None = None,
+        rejection_reason_code: str | None = None,
+        rejection_detail: str | None = None,
+    ) -> None:
+        """Persist a validated-or-rejected `MutationPlan` (I-1 PROVENANCE).
+        Idempotent on `idempotency_key`: re-recording the same plan is a
+        no-op, not a duplicate row or an error."""
+        if status not in ("validated", "rejected"):
+            raise ValueError(f"unknown mutation plan status: {status!r}")
+        existing = self._conn.execute(
+            "SELECT 1 FROM mutation_plans WHERE idempotency_key=?", (plan.idempotency_key,)
+        ).fetchone()
+        if existing is not None:
+            return
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO mutation_plans (plan_id, plan_version, reference_scenario, "
+                "operators, invariants, expected_observables, controls, replay_policy, "
+                "allowed_targets, allowed_tools, cleanup, approval_ref, budget_class, "
+                "idempotency_key, proposer, status, rejection_reason_code, rejection_detail, "
+                "overlay, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    plan.plan_id,
+                    plan.plan_version,
+                    plan.reference_scenario,
+                    _json([op.to_dict() for op in plan.operators]),
+                    _json(list(plan.invariants)),
+                    _json(plan.expected_observables),
+                    _json(list(plan.controls)),
+                    plan.replay_policy,
+                    _json(list(plan.allowed_targets)),
+                    _json(list(plan.allowed_tools)),
+                    _json(list(plan.cleanup)),
+                    plan.approval_ref,
+                    plan.budget_class,
+                    plan.idempotency_key,
+                    plan.proposer,
+                    status,
+                    rejection_reason_code,
+                    rejection_detail,
+                    _json(overlay.to_dict()) if overlay is not None else None,
+                    plan.created_at,
+                ),
+            )
+
+    def mutation_plan_get(self, plan_id: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM mutation_plans WHERE plan_id=?", (plan_id,)
+        ).fetchone()
+        return _row_to_dict(row)
 
     # ── doctor (integrity check) ─────────────────────────────────────────
 
