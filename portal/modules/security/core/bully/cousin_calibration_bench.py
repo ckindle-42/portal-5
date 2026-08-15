@@ -19,10 +19,12 @@ from typing import Any, Protocol
 from ..recall_attribution import ABSENT, INDETERMINATE, evidence_presence, technique_discriminators
 from . import cousin_engine, mutation, signatures
 from .contracts import MutationOperatorSpec, MutationPlan
+from .specimen_ledger import SpecimenLedger
 
 CALIB_DISTANCE_POLICY_VERSION = "CALIB_DISTANCE_POLICY_V1"
 CALIB_PARENT_SET_VERSION = "CALIB_PARENTS_V1"
 CALIB_SWEEP_VERSION = "CALIB_SWEEP_V1"
+BASELINE_CALIBRATION_V1 = "BASELINE_CALIBRATION_V1"
 
 # Frozen structural weights. This table is intentionally unrelated to
 # cousin_engine._WEIGHTS and construction_distance never calls the grader.
@@ -179,6 +181,39 @@ class ReadOnlyKnnSnapshot(Protocol):
     def knn(self, query: str, k: int, filters: dict[str, Any] | None = None): ...
 
     def stats(self) -> dict[str, Any]: ...
+
+
+@dataclass(frozen=True)
+class BlindCorpusVerdict:
+    specimen_id: str
+    source_lane: str
+    relationship: str
+    response: str
+    distance: float
+    decomposition: dict[str, float | None]
+    confidence: float
+    reference_signature_id: str | None
+
+
+@dataclass(frozen=True)
+class BaselineCalibrationReport:
+    schema: str
+    passed: bool
+    corpus_snapshot_hash: str
+    ledger_snapshot_hash: str
+    thresholds_version: str
+    cold_untuned: bool
+    training_applied: bool
+    threshold_tuning_applied: bool
+    per_lane_counts: dict[str, int]
+    curve: tuple[dict[str, Any], ...]
+    failures: dict[str, tuple[dict[str, Any], ...]]
+    unresolved: tuple[dict[str, Any], ...]
+    indeterminate: tuple[dict[str, Any], ...]
+    calibration_proposal: None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
 
 
 def construction_distance(
@@ -564,4 +599,228 @@ def run_bench(snapshot: ReadOnlyKnnSnapshot, output_dir: Path) -> CalibrationRep
         raise RuntimeError("calibration children contaminated the Organ snapshot")
     report = score(results)
     write_artifacts(report, output_dir)
+    return report
+
+
+def load_specimen_corpus(path: Path) -> dict[str, Any]:
+    corpus = json.loads(path.read_text(encoding="utf-8"))
+    if corpus.get("schema") != "SPECIMEN_CORPUS_V1":
+        raise ValueError("not a SPECIMEN_CORPUS_V1 artifact")
+    observed_hash = hashlib.sha256(_canonical(corpus.get("specimens") or []).encode()).hexdigest()
+    if observed_hash != corpus.get("snapshot_hash"):
+        raise ValueError("specimen corpus snapshot hash mismatch")
+    return corpus
+
+
+def corpus_parent_reference_record(entry: dict[str, Any]) -> dict[str, Any]:
+    """Project a parent evidence view into Organ without consulting scorer truth."""
+    view = entry["engine_view"]["telemetry_view"]
+    return {
+        "record_id": entry["specimen_id"],
+        "signature_id": entry["specimen_id"],
+        "kind": "specimen_parent",
+        "action_sequence": list(view.get("action_sequence") or []),
+        "behavior_sequence": " ".join(view.get("action_sequence") or []),
+        "telemetry_shape": dict(view.get("telemetry_shape") or {}),
+        "context_topology": dict(view.get("context_topology") or {}),
+        "attack_mappings": list(view.get("attack_mappings") or []),
+        "relationship": "SAME",
+        "detection_response": "INDETERMINATE",
+        "trust_tier": entry["engine_view"].get("trust_tier"),
+    }
+
+
+def grade_corpus_blind(
+    specimen: dict[str, Any], snapshot: ReadOnlyKnnSnapshot
+) -> BlindCorpusVerdict:
+    """Produce an engine verdict from the evidence view, before any truth join."""
+    before = snapshot.stats().get("row_count")
+    engine_view = specimen["engine_view"]
+    signature = signatures.build_signature(
+        engine_view["episode_view"], engine_view["telemetry_view"]
+    )
+    candidates = cousin_engine.candidate_set(
+        signature,
+        semantic_candidates=snapshot.knn(signature.canonical_fingerprint, k=8),
+        health={"snapshot": "read-only"},
+    )
+    outcomes = engine_view["telemetry_view"].get("detector_outcomes") or {}
+    coverage = cousin_engine.CoverageView(
+        applicable_detection_ids=tuple(sorted(outcomes)),
+        fired_detection_ids=tuple(
+            sorted(key for key, value in outcomes.items() if value == "fired")
+        ),
+        partial_detection_ids=tuple(
+            sorted(key for key, value in outcomes.items() if value == "partial")
+        ),
+        telemetry_healthy=True,
+    )
+    assessment = cousin_engine.grade(signature, candidates, coverage)
+    if snapshot.stats().get("row_count") != before:
+        raise RuntimeError("read-only baseline snapshot changed while grading")
+    return BlindCorpusVerdict(
+        specimen_id=specimen["specimen_id"],
+        source_lane=specimen["source_lane"],
+        relationship=assessment.relationship,
+        response=assessment.defense_response,
+        distance=assessment.composite,
+        decomposition=asdict(assessment.decomposition),
+        confidence=assessment.confidence,
+        reference_signature_id=assessment.reference_signature_id,
+    )
+
+
+def _visible_telemetry(corpus_dir: Path, specimen: dict[str, Any]) -> str:
+    payload = json.loads((corpus_dir / "evidence" / specimen["evidence_ref"]).read_text())
+    return "\n".join(
+        _canonical(event)
+        for sourcetype in sorted(payload.get("telemetry") or {})
+        for event in payload["telemetry"][sourcetype]
+    )
+
+
+def _oracle_response(telemetry: str, techniques: list[str]) -> tuple[str, dict[str, Any]]:
+    observations: dict[str, Any] = {}
+    for technique_id in techniques:
+        discriminator = technique_discriminators(technique_id)
+        result, matched = evidence_presence(telemetry, discriminator["tokens"])
+        observations[technique_id] = {"result": result, "matched": matched}
+    results = {value["result"] for value in observations.values()}
+    if not observations or INDETERMINATE in results:
+        return "INDETERMINATE", observations
+    if ABSENT in results:
+        return "NEAR_MISS", observations
+    return "COVERED", observations
+
+
+def score_baseline(
+    verdicts: tuple[BlindCorpusVerdict, ...],
+    *,
+    corpus: dict[str, Any],
+    corpus_dir: Path,
+    ledger: SpecimenLedger,
+    monotonic_tolerance: float = 0.05,
+) -> BaselineCalibrationReport:
+    """Join sealed truth only after every blind verdict, then score the cold reading."""
+    specimens = {item["specimen_id"]: item for item in corpus["specimens"]}
+    rows: list[dict[str, Any]] = []
+    failures: dict[str, list[dict[str, Any]]] = {
+        "mid_distance_new_blind_spot": [],
+        "real_same_overclaim": [],
+        "non_monotonic": [],
+        "wrong_parent": [],
+        "response_axis": [],
+    }
+    unresolved: list[dict[str, Any]] = []
+    indeterminate: list[dict[str, Any]] = []
+    by_parent: dict[str, list[dict[str, Any]]] = {}
+    for verdict in verdicts:
+        truth = ledger.truth_for(verdict.specimen_id)
+        if truth is None:
+            raise ValueError(f"sealed truth missing for {verdict.specimen_id}")
+        specimen = specimens[verdict.specimen_id]
+        oracle_response, oracle_detail = _oracle_response(
+            _visible_telemetry(corpus_dir, specimen), truth["data_yml_techniques"]
+        )
+        row = {
+            "specimen_id": verdict.specimen_id,
+            "source_lane": verdict.source_lane,
+            "parent_id": truth["parent_id"],
+            "d_applied": truth["construction_distance"],
+            "graded_distance": round(verdict.distance, 6),
+            "relationship": verdict.relationship,
+            "grader_response": verdict.response,
+            "oracle_response": oracle_response,
+            "oracle_detail": oracle_detail,
+            "confidence": round(verdict.confidence, 6),
+            "reference_signature_id": verdict.reference_signature_id,
+            **{f"distance_{key}": value for key, value in verdict.decomposition.items()},
+        }
+        rows.append(row)
+        if verdict.relationship == "ANOMALOUS_UNCLASSIFIED":
+            unresolved.append(row)
+        if verdict.response == "INDETERMINATE" or oracle_response == "INDETERMINATE":
+            indeterminate.append(row)
+        distance = truth["construction_distance"]
+        if 0.05 < distance <= 0.40 and verdict.relationship == "NEW":
+            failures["mid_distance_new_blind_spot"].append(row)
+        if distance > 0.05 and verdict.relationship == "SAME":
+            failures["real_same_overclaim"].append(row)
+        if truth["parent_id"] and verdict.reference_signature_id != truth["parent_id"]:
+            failures["wrong_parent"].append(row)
+        if oracle_response == "NEAR_MISS" and verdict.response not in {
+            "NEAR_MISS",
+            "INDETERMINATE",
+        }:
+            failures["response_axis"].append(row)
+        if truth["parent_id"]:
+            by_parent.setdefault(truth["parent_id"], []).append(row)
+
+    for parent_id, parent_rows in by_parent.items():
+        ordered = sorted(parent_rows, key=lambda item: (item["d_applied"], item["specimen_id"]))
+        for previous, current in zip(ordered, ordered[1:], strict=False):
+            if current["graded_distance"] + monotonic_tolerance < previous["graded_distance"]:
+                failures["non_monotonic"].append(
+                    {"parent_id": parent_id, "previous": previous, "current": current}
+                )
+    passed = not any(failures.values()) and not unresolved and not indeterminate
+    return BaselineCalibrationReport(
+        schema=BASELINE_CALIBRATION_V1,
+        passed=passed,
+        corpus_snapshot_hash=corpus["snapshot_hash"],
+        ledger_snapshot_hash=ledger.snapshot_hash(),
+        thresholds_version=cousin_engine.THRESHOLDS_VERSION,
+        cold_untuned=True,
+        training_applied=False,
+        threshold_tuning_applied=False,
+        per_lane_counts=dict(corpus["per_lane_counts"]),
+        curve=tuple(rows),
+        failures={key: tuple(value) for key, value in failures.items()},
+        unresolved=tuple(unresolved),
+        indeterminate=tuple(indeterminate),
+    )
+
+
+def write_baseline_artifacts(report: BaselineCalibrationReport, output_dir: Path) -> dict[str, str]:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    report_path = output_dir / "baseline_calibration_v1.json"
+    compatibility_path = output_dir / "calibration_report.json"
+    curve_path = output_dir / "baseline_calibration_curve.csv"
+    payload = json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n"
+    report_path.write_text(payload, encoding="utf-8")
+    compatibility_path.write_text(payload, encoding="utf-8")
+    rows = list(report.curve)
+    with curve_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]) if rows else [])
+        if rows:
+            writer.writeheader()
+            writer.writerows(rows)
+    return {
+        "report": str(report_path),
+        "compatibility_report": str(compatibility_path),
+        "csv": str(curve_path),
+    }
+
+
+def run_baseline_bench(
+    snapshot: ReadOnlyKnnSnapshot,
+    *,
+    corpus_path: Path,
+    ledger: SpecimenLedger,
+    output_dir: Path,
+) -> BaselineCalibrationReport:
+    corpus = load_specimen_corpus(corpus_path)
+    if ledger.snapshot_hash() != corpus["ledger_snapshot_hash"]:
+        raise ValueError("specimen corpus and sealed ledger snapshot do not match")
+    before = snapshot.stats().get("row_count")
+    verdicts = tuple(grade_corpus_blind(specimen, snapshot) for specimen in corpus["specimens"])
+    if snapshot.stats().get("row_count") != before:
+        raise RuntimeError("baseline specimens contaminated the Organ snapshot")
+    report = score_baseline(
+        verdicts,
+        corpus=corpus,
+        corpus_dir=corpus_path.parent,
+        ledger=ledger,
+    )
+    write_baseline_artifacts(report, output_dir)
     return report

@@ -62,6 +62,21 @@ def _replace(value: Any, source: str, target: str) -> Any:
     return value
 
 
+def _apply_evasion(
+    telemetry: dict[str, list[Any]], view: dict[str, Any], params: dict[str, Any]
+) -> None:
+    directive = str(params.get("directive_text") or "")
+    if not directive:
+        return
+    shape = dict(view.get("telemetry_shape") or {})
+    shape["representation"] = hashlib.sha256(directive.encode()).hexdigest()[:12]
+    view["telemetry_shape"] = shape
+    for token in params.get("discriminator_tokens") or ():
+        replacement = f"representation-{hashlib.sha256(str(token).encode()).hexdigest()[:8]}"
+        for sourcetype, events in telemetry.items():
+            telemetry[sourcetype] = _replace(events, str(token), replacement)
+
+
 def _apply_operator(  # noqa: PLR0912 - closed six-class transform catalog
     telemetry: dict[str, list[Any]],
     view: dict[str, Any],
@@ -99,11 +114,7 @@ def _apply_operator(  # noqa: PLR0912 - closed six-class transform catalog
             for sourcetype, events in telemetry.items():
                 telemetry[sourcetype] = _replace(events, placeholder, str(value))
     elif name == "INJECT_EVASION_DIRECTIVE":
-        directive = str(params.get("directive_text") or "")
-        if directive:
-            shape = dict(view.get("telemetry_shape") or {})
-            shape["representation"] = hashlib.sha256(directive.encode()).hexdigest()[:12]
-            view["telemetry_shape"] = shape
+        _apply_evasion(telemetry, view, params)
     elif name in {"OFF_SCRIPT_SUPPLY", "REVERSE_GEN_SEED"}:
         additions = list(params.get("technique_ids") or [])
         if params.get("technique_id"):

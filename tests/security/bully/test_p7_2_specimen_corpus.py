@@ -3,12 +3,20 @@
 from __future__ import annotations
 
 import ast
+import inspect
 import json
 from pathlib import Path
 
 import pytest
 
 from portal.modules.security.core.bully.contracts import MutationOperatorSpec
+from portal.modules.security.core.bully.cousin_calibration_bench import (
+    BASELINE_CALIBRATION_V1,
+    corpus_parent_reference_record,
+    grade_corpus_blind,
+    load_specimen_corpus,
+    run_baseline_bench,
+)
 from portal.modules.security.core.bully.cousin_forge import forge
 from portal.modules.security.core.bully.specimen_ledger import SpecimenLedger, SpecimenRecord
 from scripts.build_specimen_corpus import SPECIMEN_CORPUS_V1, build_corpus
@@ -158,17 +166,18 @@ def test_forge_distance_is_monotonic_by_applied_operator_weight(tmp_path):
 
 
 def _write_attack_data_fixture(root: Path) -> None:
-    admitted = root / "datasets" / "attack_techniques" / "T1059.001" / "fixture"
+    admitted = root / "datasets" / "attack_techniques" / "T1558.003" / "fixture"
     admitted.mkdir(parents=True)
     (admitted / "windows.log").write_text(
-        "EventCode=4688 Image=powershell.exe\nEventCode=4104 ScriptBlockText=Get-Process\n",
+        "EventCode=4769 TicketEncryptionType=0x17 Account=svc\n"
+        "EventCode=4769 TicketEncryptionType=0x17 Account=backup\n",
         encoding="utf-8",
     )
     (admitted / "data.yml").write_text(
         """date: '2026-01-01'
-mitre_technique: [T1059.001]
+mitre_technique: [T1558.003]
 datasets:
-  - path: /datasets/attack_techniques/T1059.001/fixture/windows.log
+  - path: /datasets/attack_techniques/T1558.003/fixture/windows.log
     sourcetype: XmlWinEventLog
     source: XmlWinEventLog:Security
 """,
@@ -247,8 +256,73 @@ def test_three_lane_corpus_is_coverage_gated_truth_sealed_and_deterministic(tmp_
         for item in first["coverage_report"]["excluded"]
     )
     visible = json.dumps(first, sort_keys=True)
-    assert "T1059.001" not in visible
+    assert "T1558.003" not in visible
     assert "specimen_parent_id" not in visible
 
     truth = SpecimenLedger(tmp_path / "ledger-1").records()
-    assert any(item["data_yml_techniques"] == ["T1059.001"] for item in truth)
+    assert any(item["data_yml_techniques"] == ["T1558.003"] for item in truth)
+
+
+class _ReadOnlySnapshot:
+    def __init__(self, records):
+        self.records = list(records)
+
+    def knn(self, query, k, filters=None):
+        return [(record, 0.08 + index * 0.01) for index, record in enumerate(self.records[:k])]
+
+    def stats(self):
+        return {"row_count": len(self.records)}
+
+
+def test_cold_baseline_grades_before_truth_join_and_is_deterministic(tmp_path):
+    root = tmp_path / "attack_data"
+    _write_attack_data_fixture(root)
+    live = tmp_path / "live.json"
+    _write_live_fixture(live)
+    output = tmp_path / "corpus"
+    ledger_root = tmp_path / "ledger"
+    built = build_corpus(
+        attack_data_root=root,
+        output_dir=output,
+        ledger_root=ledger_root,
+        live_lab_captures=(live,),
+    )
+    corpus_path = output / "specimen_corpus_v1.json"
+    corpus = load_specimen_corpus(corpus_path)
+    records = [
+        corpus_parent_reference_record(item)
+        for item in corpus["specimens"]
+        if item["source_lane"] == "attack_data"
+    ]
+    source = inspect.getsource(grade_corpus_blind)
+    assert "ledger" not in source
+    assert "truth_for" not in source
+
+    first = run_baseline_bench(
+        _ReadOnlySnapshot(records),
+        corpus_path=corpus_path,
+        ledger=SpecimenLedger(ledger_root),
+        output_dir=tmp_path / "baseline-1",
+    )
+    second = run_baseline_bench(
+        _ReadOnlySnapshot(records),
+        corpus_path=corpus_path,
+        ledger=SpecimenLedger(ledger_root),
+        output_dir=tmp_path / "baseline-2",
+    )
+    assert first.to_dict() == second.to_dict()
+    assert first.schema == BASELINE_CALIBRATION_V1
+    assert first.corpus_snapshot_hash == built["snapshot_hash"]
+    assert first.cold_untuned is True
+    assert first.training_applied is False
+    assert first.threshold_tuning_applied is False
+    assert first.calibration_proposal is None
+    assert first.indeterminate
+    assert set(first.failures) >= {
+        "mid_distance_new_blind_spot",
+        "real_same_overclaim",
+        "non_monotonic",
+    }
+    assert any(row["oracle_response"] == "NEAR_MISS" for row in first.curve)
+    assert (tmp_path / "baseline-1" / "baseline_calibration_v1.json").exists()
+    assert (tmp_path / "baseline-1" / "baseline_calibration_curve.csv").exists()
