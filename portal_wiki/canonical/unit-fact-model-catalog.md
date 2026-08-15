@@ -1,11 +1,11 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 222 model ids, 7 backend groups
+title: 224 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 6d507e206994
+  commit: ba7d7f121ac3
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1786737934.698456
+updated_at: 1786820572.0245461
 ---
 
-# Model catalog (222 model ids across 7 backend groups)
+# Model catalog (224 model ids across 7 backend groups)
 
 ## coding (43)
 
@@ -79,7 +79,7 @@ updated_at: 1786737934.698456
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (91)
+## general (93)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `cybersecqwen-4b-toolfix:latest`
@@ -117,6 +117,7 @@ updated_at: 1786737934.698456
 - `hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M`
 - `hf.co/Nguuma/security-slm-unsloth-1.5b:latest`
 - `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF`
+- `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest`
 - `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx8k`
 - `hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M`
 - `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf`
@@ -138,6 +139,7 @@ updated_at: 1786737934.698456
 - `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL`
 - `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k`
 - `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL`
+- `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M`
 - `hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M`
 - `huihui_ai/Qwen3.6-abliterated:27b`
 - `huihui_ai/Qwen3.6-abliterated:27b-ctx8k`

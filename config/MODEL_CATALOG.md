@@ -63,6 +63,16 @@ The `general`-group placement and `supports_tools: false` are asserted directly 
 
 ---
 
+### `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest`
+
+`hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest` is the explicitly-tagged form of the bare-id entry above (`config/backends.yaml` treats them as distinct ids for exact-string hint matching, even though `:latest` is Ollama's own default resolution of the bare pull). Registered in the `general` group with `supports_tools: true` — a live `/api/chat` tool-call probe during TASK_SAMPLING_PROFILE_AUDIT_V1 returned a clean, correctly-typed `tool_calls` response, contradicting the bare-id entry's template-inferred `supports_tools: false`. `config/portal.yaml`'s `bench-llama32-3b-abliterated` `model_hint` points at this `:latest` tag specifically.
+
+## Why
+
+Added because strict hint validation (`STRICT_HINT_VALIDATION=true`) failed pipeline startup: `bench-llama32-3b-abliterated`'s `model_hint` uses the `:latest` suffix, which had no `general`-group registration despite the bare id already being present — the two are different strings to the hint validator regardless of Ollama-side tag equivalence. The `supports_tools` disagreement with the bare-id entry is left unresolved for the bare id (out of this task's scope) but recorded here so a future session doesn't assume the two entries are redundant or that one is simply stale.
+
+---
+
 ### `llama3.2:3b`
 
 `llama3.2:3b` is a stock (non-abliterated) 3B Ollama tag registered in `config/backends.yaml` under the `general` group with `supports_tools: true`, live-audited via a direct tool-call probe (`_audit_tools_probe`) rather than inferred from the model card — it emitted a structured `tool_calls` response on the first probe. The model id has no presence in `config/portal.yaml`; it is reachable only through the general routing pool (or by callers addressing it literally as `model` in `/v1/chat/completions`, resolved via the pipeline router's literal-model-id match), making this a pure backend-registry entry with no dedicated workspace.
