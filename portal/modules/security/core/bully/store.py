@@ -36,7 +36,7 @@ from .contracts import (
     is_legal_hunt_transition,
 )
 
-SCHEMA_VERSION = 7  # highest migration this code understands
+SCHEMA_VERSION = 8  # highest migration this code understands
 _MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
 
@@ -349,7 +349,12 @@ class Store:
         hunt_id: str | None = None,
         trust_tier: str = "SUSPECT",
         supersedes: str | None = None,
+        deployment_id: str | None = None,
     ) -> str:
+        """`deployment_id` (P5.1): required by the DB when `kind='known_covered'`
+        (`trg_known_covered_requires_deploy_replay`, SS4.8) -- the deployment
+        must already carry a passed `replay_validations` row, or this insert
+        raises `sqlite3.IntegrityError`. Ignored for every other kind."""
         if not evidence:
             raise StoreError("known_state entries require evidence -- no evidence, no entry")
         entry_id = f"ks-{uuid.uuid4().hex[:12]}"
@@ -367,7 +372,7 @@ class Store:
             cur.execute(
                 "INSERT INTO known_state (entry_id, subject, kind, trust_tier, posterior_adjustment, "
                 "applicability, confidence_half_life_days, evidence, contradiction_links, "
-                "superseded_by, created_at, hunt_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                "superseded_by, created_at, hunt_id, deployment_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     entry_id,
                     subject,
@@ -381,6 +386,7 @@ class Store:
                     None,
                     now,
                     hunt_id,
+                    deployment_id,
                 ),
             )
         return entry_id
@@ -423,6 +429,16 @@ class Store:
                     signature.created_at,
                 ),
             )
+
+    def signature_get(self, signature_id: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM behavior_signatures WHERE signature_id=?", (signature_id,)
+        ).fetchone()
+        d = _row_to_dict(row)
+        if d is not None:
+            for key in ("attack_mappings", "action_sequence", "event_graph"):
+                d[key] = _loads(d[key], [] if key != "event_graph" else {})
+        return d
 
     # ── cousin assessments ───────────────────────────────────────────────
 
@@ -1594,6 +1610,217 @@ class Store:
         d["qualifying_trial_ids"] = _loads(d["qualifying_trial_ids"], [])
         d["override"] = _loads(d["override"], None)
         return d
+
+    # ── detection_proposals (HND, P5.1, I-14) ────────────────────────────
+
+    def detection_proposal_put(
+        self,
+        *,
+        proposal_id: str,
+        candidate_id: str,
+        hunt_id: str | None,
+        family: str,
+        package: dict,
+        content_hash: str,
+        owner: str | None = None,
+        expiry: float | None = None,
+        artifacts_dir: str | None = None,
+        supersedes: str | None = None,
+    ) -> int:
+        """Insert a new (draft) proposal version. `supersedes`, when given,
+        marks the prior proposal_id superseded and this row's `version` one
+        past it -- the "rebuild produces a superseding package version" /
+        idempotency contract (I-14)."""
+        version = 1
+        with self._tx() as cur:
+            if supersedes is not None:
+                prior = cur.execute(
+                    "SELECT version FROM detection_proposals WHERE proposal_id=?", (supersedes,)
+                ).fetchone()
+                if prior is None:
+                    raise StoreError(f"cannot supersede {supersedes!r}: not found")
+                version = prior["version"] + 1
+                cur.execute(
+                    "UPDATE detection_proposals SET superseded_by=? "
+                    "WHERE proposal_id=? AND superseded_by IS NULL",
+                    (proposal_id, supersedes),
+                )
+                if cur.rowcount != 1:
+                    raise StoreError(
+                        f"cannot supersede {supersedes!r}: not found or already superseded"
+                    )
+            cur.execute(
+                "INSERT INTO detection_proposals (proposal_id, version, candidate_id, hunt_id, "
+                "family, status, package_json, content_hash, owner, expiry, artifacts_dir, "
+                "created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    proposal_id,
+                    version,
+                    candidate_id,
+                    hunt_id,
+                    family,
+                    "draft",
+                    _json(package),
+                    content_hash,
+                    owner,
+                    expiry,
+                    artifacts_dir,
+                    time.time(),
+                ),
+            )
+        return version
+
+    def detection_proposal_get(self, proposal_id: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM detection_proposals WHERE proposal_id=?", (proposal_id,)
+        ).fetchone()
+        d = _row_to_dict(row)
+        if d is not None:
+            d["package"] = _loads(d["package_json"], {})
+            d["proof_legs"] = _loads(d["proof_legs_json"], {})
+        return d
+
+    def detection_proposal_latest_for_candidate(self, candidate_id: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM detection_proposals WHERE candidate_id=? ORDER BY version DESC LIMIT 1",
+            (candidate_id,),
+        ).fetchone()
+        d = _row_to_dict(row)
+        if d is not None:
+            d["package"] = _loads(d["package_json"], {})
+            d["proof_legs"] = _loads(d["proof_legs_json"], {})
+        return d
+
+    def detection_proposal_set_proof_legs(
+        self,
+        proposal_id: str,
+        *,
+        fires_on_attack: bool,
+        quiet_on_benign: bool,
+        no_regression: bool,
+        proof_legs: dict,
+        regression_recipe_name: str | None = None,
+    ) -> None:
+        with self._tx() as cur:
+            cur.execute(
+                "UPDATE detection_proposals SET fires_on_attack=?, quiet_on_benign=?, "
+                "no_regression=?, proof_legs_json=?, regression_recipe_name=? "
+                "WHERE proposal_id=?",
+                (
+                    int(fires_on_attack),
+                    int(quiet_on_benign),
+                    int(no_regression),
+                    _json(proof_legs),
+                    regression_recipe_name,
+                    proposal_id,
+                ),
+            )
+            if cur.rowcount != 1:
+                raise StoreError(f"no such detection_proposal: {proposal_id}")
+
+    def detection_proposal_set_status(
+        self, proposal_id: str, status: str, *, rationale: str | None = None
+    ) -> None:
+        """Advance `status` (closed enum, DB CHECK-enforced). The 'deployed'
+        transition additionally raises `sqlite3.IntegrityError` unless all
+        three proof legs are recorded pass (`trg_detection_proposal_deploy_
+        requires_proof_legs`); 'rejected' likewise requires a rationale
+        (`trg_detection_proposal_reject_requires_rationale`)."""
+        with self._tx() as cur:
+            cur.execute(
+                "UPDATE detection_proposals SET status=?, rationale=COALESCE(?, rationale) "
+                "WHERE proposal_id=?",
+                (status, rationale, proposal_id),
+            )
+            if cur.rowcount != 1:
+                raise StoreError(f"no such detection_proposal: {proposal_id}")
+
+    def detection_proposal_set_deployment(self, proposal_id: str, deployment_id: str) -> None:
+        with self._tx() as cur:
+            cur.execute(
+                "UPDATE detection_proposals SET deployment_id=? WHERE proposal_id=?",
+                (deployment_id, proposal_id),
+            )
+            if cur.rowcount != 1:
+                raise StoreError(f"no such detection_proposal: {proposal_id}")
+
+    def detection_proposal_set_coverage_validation_ref(self, proposal_id: str, ref: str) -> None:
+        with self._tx() as cur:
+            cur.execute(
+                "UPDATE detection_proposals SET coverage_validation_ref=? WHERE proposal_id=?",
+                (ref, proposal_id),
+            )
+            if cur.rowcount != 1:
+                raise StoreError(f"no such detection_proposal: {proposal_id}")
+
+    # ── deployments + replay_validations (operator commit receipt, P5.3) ──
+
+    def deployment_put(
+        self,
+        *,
+        deployment_id: str,
+        proposal_id: str,
+        spl_commit_ref: str,
+        deployed_by: str,
+        receipt_hash: str,
+    ) -> str:
+        """Content-derived `deployment_id`: a rebuild with the same
+        (proposal_id, spl_commit_ref) is a no-op, not a duplicate row --
+        'deployment ids deduplicate' (I-14 idempotency)."""
+        existing = self._conn.execute(
+            "SELECT deployment_id FROM deployments WHERE proposal_id=? AND spl_commit_ref=?",
+            (proposal_id, spl_commit_ref),
+        ).fetchone()
+        if existing is not None:
+            return existing["deployment_id"]
+        if not deployed_by.startswith("operator:"):
+            raise OperatorActorRequiredError(
+                f"actor {deployed_by!r} is not an operator; deployment_put requires "
+                f"actor='operator:<id>'"
+            )
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO deployments (deployment_id, proposal_id, spl_commit_ref, "
+                "deployed_by, receipt_hash, deployed_at) VALUES (?,?,?,?,?,?)",
+                (
+                    deployment_id,
+                    proposal_id,
+                    spl_commit_ref,
+                    deployed_by,
+                    receipt_hash,
+                    time.time(),
+                ),
+            )
+        return deployment_id
+
+    def deployment_get(self, deployment_id: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM deployments WHERE deployment_id=?", (deployment_id,)
+        ).fetchone()
+        return _row_to_dict(row)
+
+    def replay_validation_put(
+        self,
+        *,
+        validation_id: str,
+        deployment_id: str,
+        passed: bool,
+        noise_estimate: float | None = None,
+        detail: str = "",
+    ) -> None:
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO replay_validations (validation_id, deployment_id, passed, "
+                "noise_estimate, detail, validated_at) VALUES (?,?,?,?,?,?)",
+                (validation_id, deployment_id, int(passed), noise_estimate, detail, time.time()),
+            )
+
+    def replay_validations_for_deployment(self, deployment_id: str) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM replay_validations WHERE deployment_id=? ORDER BY validated_at ASC",
+            (deployment_id,),
+        ).fetchall()
+        return [_row_to_dict(r) for r in rows]
 
     # ── doctor (integrity check) ─────────────────────────────────────────
 

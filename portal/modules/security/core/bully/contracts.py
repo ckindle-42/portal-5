@@ -310,6 +310,23 @@ DECISION_EVENT_KINDS: tuple[str, ...] = (
     "config",
     "recall",
     "impact",
+    "handoff",
+    "deploy",
+)
+
+# ── Detection proposals (HND, P5.1, DATA_MODEL SS1.20) ──────────────────────
+
+PROPOSAL_STATES: tuple[str, ...] = (
+    "draft",
+    "submitted",
+    "accepted",
+    "revise",
+    "rejected",
+    "expired",
+    "deployed",
+    "replay-validated",
+    "replay-failed",
+    "retired",
 )
 
 OUTBOX_STATUSES: tuple[str, ...] = ("pending", "leased", "completed", "dead_letter")
@@ -970,6 +987,52 @@ class PlateauDecision(_DTOMixin):
         payload = {k: v for k, v in data.items() if k != "_schema_version"}
         payload["qualifying_trial_ids"] = tuple(payload.get("qualifying_trial_ids") or ())
         return cls(**payload)
+
+
+# ── HandoffPackage (HND, I-14, DESIGN SS23) ──────────────────────────────────
+
+
+@dataclass(frozen=True)
+class HandoffPackage(_DTOMixin):
+    """The 11-part family-generalizing detection-engineering exit (DESIGN
+    SS23). Built by `bully/handoff.py::build_package`; persisted as
+    `detection_proposals.package_json` plus rendered files under
+    `PORTAL5_HUNT_DIR/artifacts/` (I-14 STATE EFFECT)."""
+
+    proposal_id: str
+    candidate_id: str
+    family: str
+    # 1. generalized SPL + per-sourcetype variants (spl_variants shape)
+    spl: str
+    spl_variants: list[dict[str, Any]]
+    # 2. Sigma rule (YAML text)
+    sigma_rule: str
+    # 3. required-telemetry statement
+    required_telemetry: list[str]
+    # 4. ATT&CK mapping delta
+    attack_mapping_delta: dict[str, Any]
+    # 5. evidence package (episode refs, gate history, council record)
+    evidence_package: dict[str, Any]
+    # 6. reproduction instructions = a new capture recipe (regression test)
+    regression_recipe_name: str
+    regression_recipe: dict[str, Any]
+    # 7. FP analysis (G2 benign-corpus results)
+    fp_analysis: dict[str, Any]
+    # 8. known limitations
+    known_limitations: list[str]
+    # 9. IR implications (seeded from response_loop's RESPONSE_PRIMITIVES)
+    ir_implications: list[dict[str, Any]]
+    # 10. coverage-impact preview (SUB delta)
+    coverage_impact_preview: dict[str, Any]
+    # 11. rollout/rollback plan, owner, expiry
+    rollout_plan: str
+    rollback_plan: str
+    owner: str
+    expiry: float | None
+    # proof-leg results (fires-on-attack / quiet-on-benign / no-regression)
+    proof_legs: dict[str, Any]
+    content_hash: str = ""
+    created_at: float = field(default_factory=time.time)
 
 
 def round_trip(dto: _DTOMixin) -> Any:
