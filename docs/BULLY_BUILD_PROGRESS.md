@@ -64,6 +64,14 @@ C6, C9, M1–M2.
 
 ## Housekeeping note (unrelated to the bully program)
 
-After the next phase completes, upgrade Ollama to the latest release to
-properly support Qwen3.8 (per pinned-binary symlink-flip procedure —
-see memory `project_ollama_models_path`). Not yet started.
+Ollama upgraded 0.32.12 → 0.32.13 (2026-08-14, same-day release) for
+`qwen3.8: support developer instructions`. Done via the pinned-binary
+symlink-flip procedure (see memory `project_ollama_models_path`):
+downloaded + checksum-verified `ollama-darwin.tgz`, unpacked to
+`~/ollama-0.32.13`, flipped `~/ollama-current`, reloaded
+`com.portal5.ollama` via full unload/load. Smoke-tested against
+`hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M` with a `developer`-role message —
+instruction honored correctly (`done_reason: stop`). Prior versioned
+directories (0.32.7/0.32.9/0.32.11/0.32.12) pruned by operator choice —
+see `docs/ADMIN_GUIDE.md`'s Ollama-plist section for the rollback
+tradeoff this creates.
