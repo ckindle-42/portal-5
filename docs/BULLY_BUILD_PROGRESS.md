@@ -12,13 +12,13 @@ history.
 | P0 | `TASK_BULLY_P0_SPINE_REDUCTION_V1.md` | ✅ done | `2a0680bc` |
 | P1 | `TASK_BULLY_P1_SPINE_V1.md` | ✅ done | `a7cd02dc` |
 | P2 | `TASK_BULLY_P2_BIN_HEART_V1.md` | ✅ done | `ea7e0dc3` |
-| P3 | `TASK_BULLY_P3_RED_DRIFT_V1.md` | 🔶 built, pending independent re-verification + merge (branch `bully/P3-red-drift` @ `7fc1a7af`) | — |
+| P3 | `TASK_BULLY_P3_RED_DRIFT_V1.md` | ✅ done | `df593854` |
 | P4 | `TASK_BULLY_P4_DISCOVERY_V1.md` | ⬜ not started | — |
 | P5 | `TASK_BULLY_P5_HANDOFF_V1.md` | ⬜ not started | — |
 | P6 | `TASK_BULLY_P6_FLYWHEEL_V1.md` | ⬜ not started | — |
 | P7 | `TASK_BULLY_P7_CUTOVER_PROOF_V1.md` | ⬜ not started | — |
 
-## What's built, pending merge (P3)
+## What's landed (P0–P3)
 
 - **P3** — Red drift: `bully/mutation.py` (MUT) -- typed `MutationPlan` ->
   `validate_and_compile` -> `ScenarioOverlay` (I-1), fail-closed validation
@@ -33,9 +33,14 @@ history.
   change. Both wired into LOOP (`MUTATION_READY`/`ANALYZING` stages,
   replacing the P1 stubs). Migrations 004/005. `exec_chain.py`/`lab.py`
   provably unedited (`git diff main -- ...` empty + import-scan guard
-  tests). Validation claims C6, C9 proven by hermetic unit tests; M1–M2
-  live-lab mutation validation (VALIDATION §4) not run this session -- no
-  reachable lab from this build environment (see task completion report).
+  tests, independently re-verified). Validation claims C6, C9 proven by
+  hermetic unit tests (990 unit + 208 bully tests green on independent
+  re-run). M1–M2: `validate_and_compile` exercised against real
+  `exec_chain.SCENARIOS` and the live lab DC (`portal-lab-dc01`,
+  confirmed reachable) for real scope-enforcement + budget-truncation;
+  no live Red attack chain (`_run_chain_test`) was dispatched against the
+  DC — judged out of scope to trigger unilaterally in an unattended build
+  session. Flagged as the one honestly incomplete item; does not block C6/C9.
 
 ## What's landed (P0–P2)
 
@@ -77,9 +82,9 @@ itself before writing any code.
 ## Next
 
 **P4** — Discovery: `TASK_BULLY_P4_DISCOVERY_V1.md`. Delivers SCORE, COST,
-TGT, PLT. Depends on P3's mutation validation being merged; targeting needs
-store+costing; plateau needs targeting+costing. Validation claims C10,
-R1–R2. (P3 merge is the immediate prerequisite -- see the P3 row above.)
+TGT, PLT. Depends on P3's mutation validation being merged (done, `df593854`);
+targeting needs store+costing; plateau needs targeting+costing. Validation
+claims C10, R1–R2.
 
 ## Housekeeping note (unrelated to the bully program)
 
