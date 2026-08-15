@@ -52,6 +52,38 @@ TRUST_TIERS: tuple[str, ...] = (
     "SUPERSEDED",
 )
 
+DRIFT_FLAG_STATUSES: tuple[str, ...] = ("FLAGGED", "INSUFFICIENT_BASELINE")
+
+BASELINE_STATUSES: tuple[str, ...] = ("warmup", "active", "superseded")
+
+# ── Mutation director (MUT, I-1/I-20, P3.1) ─────────────────────────────────
+
+# The typed-operator catalog itself (code-level, closed). hunt.yaml's
+# `mutation.allowed_classes` is a *separate*, narrower, operator-confirmed
+# subset of this catalog per hunt (the `[GATE]` in I-1: "new/widened
+# mutation classes require explicit operator confirmation") -- this tuple is
+# what a class name must belong to before that per-hunt approval check even
+# applies.
+MUTATION_OPERATORS: tuple[str, ...] = (
+    "REORDER_STEPS",
+    "SUBSTITUTE_TECHNIQUE",
+    "VARY_PARAMETER",
+    "INJECT_EVASION_DIRECTIVE",
+    "OFF_SCRIPT_SUPPLY",
+    "REVERSE_GEN_SEED",
+)
+
+MUTATION_BUDGET_CLASSES: tuple[str, ...] = ("minimal", "standard", "extended")
+
+# Named invariants a plan may declare (checked for conflict against its own
+# operator set at validation time -- P3.1 "invariant conflict").
+MUTATION_INVARIANTS: tuple[str, ...] = (
+    "preserve_mission_objective",
+    "preserve_final_step",
+    "single_technique_only",
+    "no_new_techniques",
+)
+
 HUNT_STAGES: tuple[str, ...] = (
     "DRAFT",
     "AUTHORIZED",
@@ -620,6 +652,143 @@ class SOCDeliveryReceipt(_DTOMixin):
     def sufficient(self) -> bool:
         """I-7a: "producer ack without a consumer query is insufficient."""
         return bool(self.producer_ack and self.consumer_query_ran and self.content_hash_match)
+
+
+# ── MutationPlan / ScenarioOverlay (I-1/I-20, P3.1) ─────────────────────────
+
+
+@dataclass(frozen=True)
+class MutationOperatorSpec(_DTOMixin):
+    """One typed operator instance within a MutationPlan."""
+
+    operator: str
+    params: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.operator not in MUTATION_OPERATORS:
+            raise ValueError(f"unknown mutation operator: {self.operator!r}")
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MutationOperatorSpec:
+        payload = {k: v for k, v in data.items() if k != "_schema_version"}
+        return cls(**payload)
+
+
+@dataclass(frozen=True)
+class MutationPlan(_DTOMixin):
+    """Typed mutation plan (I-1). Data only -- never code changes to Red.
+
+    Compiled by `bully/mutation.py::validate_and_compile` into a
+    `ScenarioOverlay` handed to the unchanged `exec_chain._prepare_scenario`/
+    `BenchConfig.set_scenario`.
+    """
+
+    plan_id: str
+    plan_version: int
+    reference_scenario: str
+    operators: tuple[MutationOperatorSpec, ...]
+    invariants: tuple[str, ...]
+    expected_observables: dict[str, Any]
+    controls: tuple[str, ...]
+    replay_policy: str
+    allowed_targets: tuple[str, ...]
+    allowed_tools: tuple[str, ...]
+    cleanup: tuple[str, ...]
+    approval_ref: str | None
+    budget_class: str
+    idempotency_key: str
+    proposer: str
+    created_at: float = field(default_factory=time.time)
+
+    def __post_init__(self) -> None:
+        if self.budget_class not in MUTATION_BUDGET_CLASSES:
+            raise ValueError(f"unknown mutation budget_class: {self.budget_class!r}")
+        for inv in self.invariants:
+            if inv not in MUTATION_INVARIANTS:
+                raise ValueError(f"unknown mutation invariant: {inv!r}")
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MutationPlan:
+        payload = {k: v for k, v in data.items() if k != "_schema_version"}
+        ops = payload.get("operators") or ()
+        payload["operators"] = tuple(
+            op if isinstance(op, MutationOperatorSpec) else MutationOperatorSpec.from_dict(op)
+            for op in ops
+        )
+        for tuple_field in (
+            "invariants",
+            "controls",
+            "allowed_targets",
+            "allowed_tools",
+            "cleanup",
+        ):
+            if tuple_field in payload and payload[tuple_field] is not None:
+                payload[tuple_field] = tuple(payload[tuple_field])
+        return cls(**payload)
+
+
+@dataclass(frozen=True)
+class ScenarioOverlay(_DTOMixin):
+    """Rendered scenario overlay (I-1 OUTPUT): `red_prompt`, `red_order`,
+    expectation metadata -- handed unchanged to `exec_chain._prepare_scenario`
+    / `BenchConfig.set_scenario`. Compilation is a pure function of
+    `(plan, reference_scenario, hunt_config)`: the same plan version yields a
+    byte-identical `red_order`/`red_prompt`/`expectation` (`overlay_id` is
+    deterministic in the plan; `created_at` is audit metadata only and is
+    NOT part of the byte-identical guarantee -- MASTER SS0 anchor note)."""
+
+    overlay_id: str
+    plan_id: str
+    plan_version: int
+    reference_scenario: str
+    red_order: tuple[str, ...]
+    red_prompt: str
+    mission_objective: str | None
+    target_host: str | None
+    expectation: dict[str, Any]
+    applied_operators: tuple[str, ...]
+    truncated: bool
+    truncation_rationale: str | None
+    created_at: float = field(default_factory=time.time)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ScenarioOverlay:
+        payload = {k: v for k, v in data.items() if k != "_schema_version"}
+        for tuple_field in ("red_order", "applied_operators"):
+            if tuple_field in payload and payload[tuple_field] is not None:
+                payload[tuple_field] = tuple(payload[tuple_field])
+        return cls(**payload)
+
+
+# ── DriftFlag / DetectionBaseline (I-9, P3.2) ───────────────────────────────
+
+
+@dataclass(frozen=True)
+class DriftFlag(_DTOMixin):
+    """Temporal-cousin drift flag (I-9 OUTPUT). `drift_class` is always one
+    of `DRIFT_CLASSES`; `status` disambiguates a confident classification
+    (`FLAGGED`) from an honest non-answer (`INSUFFICIENT_BASELINE`, paired
+    with `drift_class="UNCLASSIFIED"`)."""
+
+    flag_id: str
+    detection_id: str
+    episode_id: str
+    drift_class: str
+    status: str
+    score: float
+    signals: dict[str, Any] = field(default_factory=dict)
+    bands: dict[str, Any] = field(default_factory=dict)
+    breaches: dict[str, Any] = field(default_factory=dict)
+    consecutive_count: int = 0
+    routed: bool = False
+    detail: str = ""
+    created_at: float = field(default_factory=time.time)
+
+    def __post_init__(self) -> None:
+        if self.drift_class not in DRIFT_CLASSES:
+            raise ValueError(f"unknown drift class: {self.drift_class!r}")
+        if self.status not in DRIFT_FLAG_STATUSES:
+            raise ValueError(f"unknown drift flag status: {self.status!r}")
 
 
 def round_trip(dto: _DTOMixin) -> Any:

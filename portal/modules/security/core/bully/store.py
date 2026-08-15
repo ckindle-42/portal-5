@@ -25,13 +25,16 @@ from .contracts import (
     CousinAssessment,
     DecisionEvent,
     DecisionImpact,
+    DriftFlag,
     HuntContext,
+    MutationPlan,
     RecallReceipt,
+    ScenarioOverlay,
     is_legal_bin_transition,
     is_legal_hunt_transition,
 )
 
-SCHEMA_VERSION = 3  # highest migration this code understands
+SCHEMA_VERSION = 5  # highest migration this code understands
 _MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
 
@@ -1277,6 +1280,141 @@ class Store:
         rows = self._conn.execute(
             "SELECT * FROM soc_deliveries WHERE candidate_id=? ORDER BY created_at ASC",
             (candidate_id,),
+        ).fetchall()
+        return [_row_to_dict(r) for r in rows]
+
+    # ── mutation plans (P3.1, I-1) ───────────────────────────────────────
+
+    def mutation_plan_record(
+        self,
+        plan: MutationPlan,
+        *,
+        status: str,
+        overlay: ScenarioOverlay | None = None,
+        rejection_reason_code: str | None = None,
+        rejection_detail: str | None = None,
+    ) -> None:
+        """Persist a validated-or-rejected `MutationPlan` (I-1 PROVENANCE).
+        Idempotent on `idempotency_key`: re-recording the same plan is a
+        no-op, not a duplicate row or an error."""
+        if status not in ("validated", "rejected"):
+            raise ValueError(f"unknown mutation plan status: {status!r}")
+        existing = self._conn.execute(
+            "SELECT 1 FROM mutation_plans WHERE idempotency_key=?", (plan.idempotency_key,)
+        ).fetchone()
+        if existing is not None:
+            return
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO mutation_plans (plan_id, plan_version, reference_scenario, "
+                "operators, invariants, expected_observables, controls, replay_policy, "
+                "allowed_targets, allowed_tools, cleanup, approval_ref, budget_class, "
+                "idempotency_key, proposer, status, rejection_reason_code, rejection_detail, "
+                "overlay, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    plan.plan_id,
+                    plan.plan_version,
+                    plan.reference_scenario,
+                    _json([op.to_dict() for op in plan.operators]),
+                    _json(list(plan.invariants)),
+                    _json(plan.expected_observables),
+                    _json(list(plan.controls)),
+                    plan.replay_policy,
+                    _json(list(plan.allowed_targets)),
+                    _json(list(plan.allowed_tools)),
+                    _json(list(plan.cleanup)),
+                    plan.approval_ref,
+                    plan.budget_class,
+                    plan.idempotency_key,
+                    plan.proposer,
+                    status,
+                    rejection_reason_code,
+                    rejection_detail,
+                    _json(overlay.to_dict()) if overlay is not None else None,
+                    plan.created_at,
+                ),
+            )
+
+    def mutation_plan_get(self, plan_id: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM mutation_plans WHERE plan_id=?", (plan_id,)
+        ).fetchone()
+        return _row_to_dict(row)
+
+    # ── drift baselines / flags (P3.2, I-9) ──────────────────────────────
+
+    def detection_baseline_get(self, baseline_key: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM detection_baselines WHERE baseline_key=?", (baseline_key,)
+        ).fetchone()
+        if row is None:
+            return None
+        d = _row_to_dict(row)
+        d["window"] = _loads(d["window"], [])
+        return d
+
+    def detection_baselines_get_many(self, baseline_keys: list[str]) -> dict[str, dict]:
+        out: dict[str, dict] = {}
+        for key in baseline_keys:
+            baseline = self.detection_baseline_get(key)
+            if baseline is not None:
+                out[key] = baseline
+        return out
+
+    def detection_baseline_upsert(self, baseline: dict) -> None:
+        """Persist a `drift_engine.update`-returned baseline dict (DATA_MODEL
+        SS1.8). `baseline_key` already encodes `(detection_id,
+        policy_version)`, so a version change lands on a distinct row (the
+        warm-up mechanism -- no special-cased supersede logic needed)."""
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO detection_baselines (baseline_key, detection_id, policy_version, "
+                "status, window, sample_count, model_canary_ref, last_episode_id, updated_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?) "
+                "ON CONFLICT(baseline_key) DO UPDATE SET "
+                "status=excluded.status, window=excluded.window, "
+                "sample_count=excluded.sample_count, model_canary_ref=excluded.model_canary_ref, "
+                "last_episode_id=excluded.last_episode_id, updated_at=excluded.updated_at",
+                (
+                    baseline["baseline_key"],
+                    baseline["detection_id"],
+                    baseline["policy_version"],
+                    baseline["status"],
+                    _json(baseline["window"]),
+                    baseline["sample_count"],
+                    baseline.get("model_canary_ref"),
+                    baseline.get("last_episode_id"),
+                    time.time(),
+                ),
+            )
+
+    def drift_flag_record(self, flag: DriftFlag) -> None:
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO drift_flags (flag_id, detection_id, episode_id, drift_class, "
+                "status, score, signals, bands, breaches, consecutive_count, routed, detail, "
+                "created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    flag.flag_id,
+                    flag.detection_id,
+                    flag.episode_id,
+                    flag.drift_class,
+                    flag.status,
+                    flag.score,
+                    _json(flag.signals),
+                    _json(flag.bands),
+                    _json(flag.breaches),
+                    flag.consecutive_count,
+                    1 if flag.routed else 0,
+                    flag.detail,
+                    flag.created_at,
+                ),
+            )
+
+    def drift_flags_for_detection(self, detection_id: str) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM drift_flags WHERE detection_id=? ORDER BY created_at ASC",
+            (detection_id,),
         ).fetchall()
         return [_row_to_dict(r) for r in rows]
 
