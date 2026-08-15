@@ -124,6 +124,31 @@ def resolve_investigation_models(*, hunt_config: dict[str, Any] | None = None) -
     }
 
 
+def resolve_council_models(*, hunt_config: dict[str, Any] | None = None) -> list[str]:
+    """Resolve HEART's council seat roster to a list of concrete Ollama
+    model tags via ``hunt.yaml::models.council_workspace``/``council_field``
+    (default ``blueteam-council``/``council_models``) -- same
+    config-resolved-alias discipline as `resolve_role_model` (MASTER SS3/
+    SS11: no hardcoded model id anywhere in the bully package)."""
+    cfg = hunt_config or load_hunt_config()
+    models_cfg = cfg.get("models") or {}
+    workspace_id = models_cfg.get("council_workspace", "blueteam-council")
+    field = models_cfg.get("council_field", "council_models")
+
+    from portal.platform.inference.config import load_portal_config
+
+    portal_cfg = load_portal_config()
+    value = _lookup_workspace_field(portal_cfg, workspace_id, field)
+    if not value:
+        raise ConfigError(
+            f"workspace/variant {workspace_id!r} referenced by hunt.yaml::models.council_workspace "
+            f"not found in portal.yaml, or has no {field!r} configured"
+        )
+    if not isinstance(value, list):
+        raise ConfigError(f"{workspace_id!r}.{field!r} must be a list of model tags")
+    return list(value)
+
+
 def content_hash(*payloads: dict[str, Any]) -> str:
     """Deterministic content hash of one or more JSON-serializable payloads.
 
