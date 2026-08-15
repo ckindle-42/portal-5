@@ -51,6 +51,9 @@ python3 scripts/fetch_pending_model_cards.py        # one-time network prefetch 
 python3 scripts/pending_verdicts_report.py          # per-model informed-decision analysis (intake/capability/fleet/card-alignment)
 python3 scripts/rebench_plan.py                     # category-grouped re-bench run plan from the newest analysis report
 python3 scripts/execute_pending_verdicts.py         # two-stage plan/execute reclaim executor for recorded verdicts
+python3 scripts/defensive_bully_calibrate.py        # frozen P6.8 cousin-calibration run + curve artifacts
+python3 scripts/defensive_bully_train.py            # operator-gated HARV/TRAIN build, serve, and rollback surface
+python3 scripts/defensive_bully_closeout.py         # fail-closed P7 proof-bundle assembler over durable evidence
 ```
 
 ## Convention

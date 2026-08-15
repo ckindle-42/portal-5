@@ -105,6 +105,18 @@ def test_targeting_selects_a_real_target_and_records_the_decision(store, organ):
     assert len(target_events) == 1
     assert target_events[0].data["status"] == "selected"
     assert target_events[0].data["ordered_targets"]  # full factor breakdown recorded
+    recall_id = store._conn.execute(
+        "SELECT recall_id FROM recall_receipts WHERE hunt_id='hunt-1'"
+    ).fetchone()["recall_id"]
+    impacts = store.decision_impacts_for_recall(recall_id)
+    assert len(impacts) == 5
+    assert {impact["explanation"].split(" for ")[1].split(";")[0] for impact in impacts} == {
+        "semantic_hunt_memory",
+        "known_state",
+        "roi_target_intelligence",
+        "fleet_local_fine_tune",
+        "playbook_memory",
+    }
 
 
 def test_recall_influenced_target_selection_changes_the_chosen_scenario(store, organ, monkeypatch):
