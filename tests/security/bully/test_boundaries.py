@@ -62,7 +62,9 @@ def test_pure_compute_modules_avoid_network_and_sql_imports():
     phases' modules (targeting.py etc.) get their own guard test when they
     land.
     """
-    pure_modules = [m for m in ("cousin_engine", "signatures") if _bully_module(m).exists()]
+    pure_modules = [
+        m for m in ("cousin_engine", "signatures", "drift_engine") if _bully_module(m).exists()
+    ]
     forbidden = {"sqlite3", "httpx", "requests", "lancedb", "urllib.request"}
     for name in pure_modules:
         imports = _imported_names(_bully_module(name))
