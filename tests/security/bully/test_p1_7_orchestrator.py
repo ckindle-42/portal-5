@@ -111,9 +111,12 @@ def test_full_iteration_e2e_synthetic_lab_and_mocked_models(store, organ):
     assert store.recall_receipt_exists("hunt-1")
 
     # Universal index emission proven: the outbox drained and the projection
-    # actually received a row.
+    # actually received a row. (P4.4: COMPOUNDING -> CLOSED now also emits
+    # a plateau decision record via its own outbox+organ.process_outbox
+    # call, so the projection ends the iteration with 2 rows -- the cousin
+    # emission this test targets, plus the plateau one.)
     assert result["outbox"]["completed"] == 1
-    assert organ.stats()["row_count"] == 1
+    assert organ.stats()["row_count"] == 2
 
 
 def test_run_hunt_top_level_entry_operator_gate_and_full_wiring(tmp_path, monkeypatch):

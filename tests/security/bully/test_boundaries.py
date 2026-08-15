@@ -63,7 +63,17 @@ def test_pure_compute_modules_avoid_network_and_sql_imports():
     land.
     """
     pure_modules = [
-        m for m in ("cousin_engine", "signatures", "drift_engine") if _bully_module(m).exists()
+        m
+        for m in (
+            "cousin_engine",
+            "signatures",
+            "drift_engine",
+            "costing",
+            "scoreboard",
+            "targeting",
+            "plateau",
+        )
+        if _bully_module(m).exists()
     ]
     forbidden = {"sqlite3", "httpx", "requests", "lancedb", "urllib.request"}
     for name in pure_modules:
