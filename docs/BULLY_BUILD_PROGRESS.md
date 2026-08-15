@@ -12,11 +12,30 @@ history.
 | P0 | `TASK_BULLY_P0_SPINE_REDUCTION_V1.md` | ✅ done | `2a0680bc` |
 | P1 | `TASK_BULLY_P1_SPINE_V1.md` | ✅ done | `a7cd02dc` |
 | P2 | `TASK_BULLY_P2_BIN_HEART_V1.md` | ✅ done | `ea7e0dc3` |
-| P3 | `TASK_BULLY_P3_RED_DRIFT_V1.md` | ⬜ not started | — |
+| P3 | `TASK_BULLY_P3_RED_DRIFT_V1.md` | 🔶 built, pending independent re-verification + merge (branch `bully/P3-red-drift` @ `7fc1a7af`) | — |
 | P4 | `TASK_BULLY_P4_DISCOVERY_V1.md` | ⬜ not started | — |
 | P5 | `TASK_BULLY_P5_HANDOFF_V1.md` | ⬜ not started | — |
 | P6 | `TASK_BULLY_P6_FLYWHEEL_V1.md` | ⬜ not started | — |
 | P7 | `TASK_BULLY_P7_CUTOVER_PROOF_V1.md` | ⬜ not started | — |
+
+## What's built, pending merge (P3)
+
+- **P3** — Red drift: `bully/mutation.py` (MUT) -- typed `MutationPlan` ->
+  `validate_and_compile` -> `ScenarioOverlay` (I-1), fail-closed validation
+  (unknown operator, invariant conflict, `perception.assert_in_lab` scope
+  violation, missing M2 control, unapproved mutation class `[GATE]`), budget
+  truncation recorded not silent (I-20), pure/byte-identical recompile.
+  `bully/drift_engine.py` (BR-DRIFT) -- `update(episode, detections,
+  baselines)` reusing `drift_gate.py`'s statistics pattern, deterministic
+  cause-attribution order with sensor failure always taking precedence,
+  ATTACKER_EVOLUTION the only class routed to BR-COUSIN, idempotent baseline
+  update keyed by `(detection_id, episode_id)`, warm-up on policy-version
+  change. Both wired into LOOP (`MUTATION_READY`/`ANALYZING` stages,
+  replacing the P1 stubs). Migrations 004/005. `exec_chain.py`/`lab.py`
+  provably unedited (`git diff main -- ...` empty + import-scan guard
+  tests). Validation claims C6, C9 proven by hermetic unit tests; M1–M2
+  live-lab mutation validation (VALIDATION §4) not run this session -- no
+  reachable lab from this build environment (see task completion report).
 
 ## What's landed (P0–P2)
 
@@ -57,10 +76,10 @@ itself before writing any code.
 
 ## Next
 
-**P3** — Red drift: `TASK_BULLY_P3_RED_DRIFT_V1.md`. Delivers typed mutation
-plans (MUT) and the drift engine (M4 mutation, M3 drift). Depends on P1's
-cousin_engine (mutation) and P1's store + LOOP (drift). Validation claims
-C6, C9, M1–M2.
+**P4** — Discovery: `TASK_BULLY_P4_DISCOVERY_V1.md`. Delivers SCORE, COST,
+TGT, PLT. Depends on P3's mutation validation being merged; targeting needs
+store+costing; plateau needs targeting+costing. Validation claims C10,
+R1–R2. (P3 merge is the immediate prerequisite -- see the P3 row above.)
 
 ## Housekeeping note (unrelated to the bully program)
 
