@@ -472,7 +472,68 @@ def hunt_doctor(*, store: Store | None = None) -> dict[str, Any]:
             store.close()
 
 
-def queue_resolve(*, item_id: str | None, actor: str, rationale: str = "") -> dict[str, Any]:
-    """`hunt queue --confirm <id>` -- promotion-queue resolution. [GATE] operator-only (P2)."""
+def queue_resolve(
+    *,
+    item_id: str | None,
+    actor: str,
+    rationale: str = "",
+    action: str = "confirm",
+    store: Store | None = None,
+) -> dict[str, Any]:
+    """`hunt queue` (list) / `hunt queue --confirm <id>` / `hunt queue
+    --reject <id> --rationale ...` -- promotion-queue resolution. [GATE]
+    operator-only (P2.5): `_require_operator` refuses a non-operator actor
+    before this function ever touches the store, and `store.promotion_resolve`
+    /`store.candidate_promote` each independently DB-enforce the same
+    requirement -- there is no code path here that promotes/rejects
+    without an operator actor (MASTER SS7).
+    """
     _require_operator(actor)
-    raise NotImplementedError("orchestrator.queue_resolve: promotion_queue lands with BIN (P2)")
+    from . import promotion as promotion_mod
+
+    owns_store = store is None
+    store = store or Store(bully_config.hunt_dir() / "hunt_state.db")
+    try:
+        if item_id is None:
+            return {"pending": store.promotion_list(state="pending")}
+
+        if action not in ("confirm", "reject"):
+            raise ValueError(f"unknown queue action: {action!r}")
+        target_state = "confirmed" if action == "confirm" else "rejected"
+        if target_state == "rejected" and not rationale.strip():
+            raise HonestBlockedError("hunt queue --reject requires a rationale")
+
+        row = store.promotion_get(item_id)
+        if row is None:
+            raise HonestBlockedError(f"no such promotion_queue item: {item_id}")
+
+        if row["item_kind"] == "cousin_detection":
+            if target_state == "confirmed":
+                promotion_mod.promote(store, row["item_id"], operator_actor=actor, note=rationale)
+            else:
+                promotion_mod.kill(
+                    store,
+                    row["item_id"],
+                    gate="operator_reject",
+                    rationale=rationale,
+                    actor=actor,
+                )
+
+        store.promotion_resolve(item_id, actor=actor, state=target_state, rationale=rationale)
+
+        with contextlib.suppress(Exception):
+            # Provenance (I-21/existing): append_entry is best-effort and
+            # never blocks the resolution itself on a ledger write failure.
+            from portal.platform.wiki.provenance_ledger import append_entry
+
+            append_entry(
+                episode_id=row["item_id"],
+                scenario=row.get("hunt_id") or "",
+                capability_verdict=target_state.upper(),
+                event="bully_promotion",
+            )
+
+        return {"queue_id": item_id, "state": target_state, "item_kind": row["item_kind"]}
+    finally:
+        if owns_store:
+            store.close()

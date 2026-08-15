@@ -22,6 +22,8 @@ class EventType(Enum):
     ENGAGEMENT_STUCK = "engagement_stuck"
     ENGAGEMENT_COMPLETE = "engagement_complete"
     VALIDATION_ALERT = "validation_alert"
+    # Defensive Bully promotion-queue events (TASK_BULLY_P2_BIN_HEART_V1 P2.5)
+    PROMOTION_QUEUED = "promotion_queued"
 
 
 @dataclass

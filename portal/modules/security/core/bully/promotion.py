@@ -26,6 +26,7 @@ default path is the real check.
 
 from __future__ import annotations
 
+import os
 import uuid
 from collections.abc import Callable
 from typing import Any
@@ -35,6 +36,51 @@ from .contracts import BinOutcome, DecisionEvent, new_id
 from .store import Store
 
 GATE_POLICY_VERSION = "bin-gates-v1"
+
+
+def _bully_notify_enabled() -> bool:
+    return os.environ.get("BULLY_NOTIFY_ENABLED", "true").lower() in ("true", "1", "yes")
+
+
+def _notify_queue_arrival(item_kind: str, item_id: str, hunt_id: str | None) -> None:
+    """I-21: reuse the existing notification subsystem exactly as
+    `loop.py:232-298` does (fire-and-forget, non-fatal, an env-gated flag)
+    for promotion-queue arrivals. No new channel code -- same dispatcher,
+    same channel set."""
+    if not _bully_notify_enabled():
+        return
+    try:
+        from portal.platform.inference.notifications import (
+            AlertEvent,
+            EventType,
+            NotificationDispatcher,
+        )
+        from portal.platform.inference.notifications.channels import (
+            EmailChannel,
+            PushoverChannel,
+            SlackChannel,
+            TelegramChannel,
+            WebhookChannel,
+        )
+
+        disp = NotificationDispatcher()
+        disp.add_channel(SlackChannel())
+        disp.add_channel(TelegramChannel())
+        disp.add_channel(EmailChannel())
+        disp.add_channel(PushoverChannel())
+        disp.add_channel(WebhookChannel())
+        disp._schedule(
+            disp.dispatch(
+                AlertEvent(
+                    type=EventType.PROMOTION_QUEUED,
+                    message=f"Bully promotion_queue arrival: {item_kind} {item_id}",
+                    metadata={"item_kind": item_kind, "item_id": item_id, "hunt_id": hunt_id},
+                )
+            )
+        )
+    except Exception:  # pragma: no cover -- notify failure is never fatal
+        pass
+
 
 # gate_id -> the candidate state it produces on a pass, and the state it
 # advances FROM (must match contracts._BIN_MAIN_ORDER's adjacency).
@@ -347,12 +393,14 @@ def _handle_escalate(
         terminal_reason=gate_id,
         rationale="; ".join(result.get("reasons", [])),
     )
+    queue_id = f"pq-{uuid.uuid4().hex[:12]}"
     store.promotion_enqueue(
-        queue_id=f"pq-{uuid.uuid4().hex[:12]}",
+        queue_id=queue_id,
         item_kind="review_escalation",
         item_id=candidate_id,
         hunt_id=cur["hunt_id"],
     )
+    _notify_queue_arrival("review_escalation", candidate_id, cur["hunt_id"])
     _record(
         store,
         hunt_id=cur["hunt_id"],
@@ -498,6 +546,7 @@ def process(
         item_id=candidate_id,
         hunt_id=final_row["hunt_id"],
     )
+    _notify_queue_arrival("cousin_detection", candidate_id, final_row["hunt_id"])
     _record(
         store,
         hunt_id=final_row["hunt_id"],
