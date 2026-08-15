@@ -20,6 +20,8 @@ from portal.modules.security.core.bully.cousin_calibration_bench import (
 from portal.modules.security.core.bully.cousin_forge import forge
 from portal.modules.security.core.bully.specimen_ledger import SpecimenLedger, SpecimenRecord
 from scripts.build_specimen_corpus import SPECIMEN_CORPUS_V1, build_corpus
+from scripts.corpus_ingest import windows_xml_kv
+from scripts.defensive_bully_specimen_e2e import run_proof
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BULLY_DIR = REPO_ROOT / "portal" / "modules" / "security" / "core" / "bully"
@@ -198,6 +200,17 @@ datasets:
     )
 
 
+def test_attack_data_windows_xml_is_flattened_for_existing_spl_fields():
+    event = (
+        "<Event><System><EventID>4769</EventID></System><EventData>"
+        "<Data Name='TargetUserName'>svc</Data>"
+        "<Data Name='TicketEncryptionType'>0x17</Data></EventData></Event>"
+    )
+    assert windows_xml_kv(event) == (
+        "EventCode=4769 Account=svc TargetUserName=svc TicketEncryptionType=0x17"
+    )
+
+
 def _write_live_fixture(path: Path) -> None:
     path.write_text(
         json.dumps(
@@ -326,3 +339,13 @@ def test_cold_baseline_grades_before_truth_join_and_is_deterministic(tmp_path):
     assert any(row["oracle_response"] == "NEAR_MISS" for row in first.curve)
     assert (tmp_path / "baseline-1" / "baseline_calibration_v1.json").exists()
     assert (tmp_path / "baseline-1" / "baseline_calibration_curve.csv").exists()
+
+    proof = run_proof(
+        corpus_path=corpus_path,
+        ledger=SpecimenLedger(ledger_root),
+        baseline_path=tmp_path / "baseline-1" / "baseline_calibration_v1.json",
+        output_dir=tmp_path / "p7-proof",
+    )
+    assert proof["passed"] is True
+    assert all(proof["checks"].values())
+    assert len(proof["decision_impact_ids"]) == 6

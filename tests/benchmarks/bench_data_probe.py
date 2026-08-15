@@ -62,67 +62,83 @@ def build_test_cases() -> list[dict]:
 
     # Q1 — total event count over a fixed slice
     slice1 = all_events[:20]
-    cases.append({
-        "id": "count_events",
-        "kind": "numeric",
-        "answer": float(len(slice1)),
-        "prompt": (
-            "Here are log events, one per line:\n" + fmt(slice1) +
-            "\n\nHow many log events are listed above? Answer with just the number."
-        ),
-    })
+    cases.append(
+        {
+            "id": "count_events",
+            "kind": "numeric",
+            "answer": float(len(slice1)),
+            "prompt": (
+                "Here are log events, one per line:\n"
+                + fmt(slice1)
+                + "\n\nHow many log events are listed above? Answer with just the number."
+            ),
+        }
+    )
 
     # Q2 — distinct TargetUserName across a slice
     slice2 = all_events
     users = set(re.findall(r"TargetUserName=(\w+)", " ".join(slice2)))
-    cases.append({
-        "id": "distinct_users",
-        "kind": "numeric",
-        "answer": float(len(users)),
-        "prompt": (
-            "Here are Windows security events:\n" + fmt([e for e in slice2 if "TargetUserName=" in e]) +
-            "\n\nHow many DISTINCT values of TargetUserName appear? Answer with just the number."
-        ),
-    })
+    cases.append(
+        {
+            "id": "distinct_users",
+            "kind": "numeric",
+            "answer": float(len(users)),
+            "prompt": (
+                "Here are Windows security events:\n"
+                + fmt([e for e in slice2 if "TargetUserName=" in e])
+                + "\n\nHow many DISTINCT values of TargetUserName appear? Answer with just the number."
+            ),
+        }
+    )
 
     # Q3 — count of a specific EventCode
     ev4624 = [e for e in all_events if "EventCode=4624" in e]
-    cases.append({
-        "id": "count_eventcode_4624",
-        "kind": "numeric",
-        "answer": float(len(ev4624)),
-        "prompt": (
-            "Here are Windows security events:\n" + fmt([e for e in all_events if "EventCode=" in e]) +
-            "\n\nHow many events have EventCode=4624? Answer with just the number."
-        ),
-    })
+    cases.append(
+        {
+            "id": "count_eventcode_4624",
+            "kind": "numeric",
+            "answer": float(len(ev4624)),
+            "prompt": (
+                "Here are Windows security events:\n"
+                + fmt([e for e in all_events if "EventCode=" in e])
+                + "\n\nHow many events have EventCode=4624? Answer with just the number."
+            ),
+        }
+    )
 
     # Q4 — most frequent EventCode (value question)
-    codes = Counter(re.search(r"EventCode=(\d+)", e).group(1)
-                    for e in all_events if "EventCode=" in e)
+    codes = Counter(
+        re.search(r"EventCode=(\d+)", e).group(1) for e in all_events if "EventCode=" in e
+    )
     top_code = codes.most_common(1)[0][0]
-    cases.append({
-        "id": "top_eventcode",
-        "kind": "token",
-        "answer": top_code,
-        "prompt": (
-            "Here are Windows security events:\n" + fmt([e for e in all_events if "EventCode=" in e]) +
-            "\n\nWhich EventCode appears most frequently? Answer with just the numeric code."
-        ),
-    })
+    cases.append(
+        {
+            "id": "top_eventcode",
+            "kind": "token",
+            "answer": top_code,
+            "prompt": (
+                "Here are Windows security events:\n"
+                + fmt([e for e in all_events if "EventCode=" in e])
+                + "\n\nWhich EventCode appears most frequently? Answer with just the numeric code."
+            ),
+        }
+    )
 
     # Q5 — distinct sourcetypes (from cell metadata, embedded explicitly)
     st = sorted({c["sourcetype"] for c in cells})
-    lines = [f'  host={c["host"]} sourcetype={c["sourcetype"]}' for c in cells]
-    cases.append({
-        "id": "distinct_sourcetypes",
-        "kind": "numeric",
-        "answer": float(len(st)),
-        "prompt": (
-            "Here are log cells:\n" + "\n".join(lines) +
-            "\n\nHow many DISTINCT sourcetypes appear? Answer with just the number."
-        ),
-    })
+    lines = [f"  host={c['host']} sourcetype={c['sourcetype']}" for c in cells]
+    cases.append(
+        {
+            "id": "distinct_sourcetypes",
+            "kind": "numeric",
+            "answer": float(len(st)),
+            "prompt": (
+                "Here are log cells:\n"
+                + "\n".join(lines)
+                + "\n\nHow many DISTINCT sourcetypes appear? Answer with just the number."
+            ),
+        }
+    )
     return cases
 
 
@@ -172,9 +188,13 @@ def run_case(model: str, case: dict) -> dict:
     eval_duration_ns = data.get("eval_duration") or 0
     tps = (eval_count / (eval_duration_ns / 1e9)) if eval_duration_ns else None
     return {
-        "id": case["id"], "ok": True, "matched": matched,
-        "expected": case["answer"], "response_preview": body[:120],
-        "tps": tps, "wall_s": time.monotonic() - t0,
+        "id": case["id"],
+        "ok": True,
+        "matched": matched,
+        "expected": case["answer"],
+        "response_preview": body[:120],
+        "tps": tps,
+        "wall_s": time.monotonic() - t0,
     }
 
 
@@ -187,9 +207,11 @@ def probe_model(model: str, cases: list[dict]) -> dict:
     tps_vals = [c["tps"] for c in ok if c.get("tps")]
     avg_tps = round(sum(tps_vals) / len(tps_vals), 2) if tps_vals else None
     return {
-        "model": model, "avg_tps": avg_tps,
+        "model": model,
+        "avg_tps": avg_tps,
         "quality_score": round(matched / total, 2) if total else None,
-        "runs_success": matched, "runs_total": total,
+        "runs_success": matched,
+        "runs_total": total,
         "prompt_category": "data",
         "cases": case_results,
     }

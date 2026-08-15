@@ -113,8 +113,7 @@ def test_released_harvest_dataset_records_the_sixth_feed_impact(tmp_path, monkey
         assert impacts[0]["change_kind"] == "CONTROL_ADDED"
 
 
-def test_closeout_bundle_passes_only_with_all_six_effects(tmp_path):
-    db = tmp_path / "hunt_state.db"
+def _write_closeout_store(db: Path) -> None:
     with Store(db) as store:
         store.hunt_create(
             hunt_id="hunt-proof",
@@ -146,7 +145,11 @@ def test_closeout_bundle_passes_only_with_all_six_effects(tmp_path):
                 kind="gate",
                 subject_id="episode-live",
                 rationale="truth-plane episode",
-                data={"episode_id": "episode-live", "used_synthetic": False},
+                data={
+                    "episode_id": "episode-live",
+                    "used_synthetic": False,
+                    "source_lane": "live_lab",
+                },
             )
         )
         for stage in (
@@ -176,16 +179,33 @@ def test_closeout_bundle_passes_only_with_all_six_effects(tmp_path):
                 )
             )
 
+
+def test_closeout_bundle_passes_only_with_all_six_effects(tmp_path):
+    db = tmp_path / "hunt_state.db"
+    _write_closeout_store(db)
+
     calibration = tmp_path / "calibration.json"
-    calibration.write_text('{"passed": false, "calibration_proposal": {"version": "v2"}}')
+    calibration.write_text(
+        '{"schema":"BASELINE_CALIBRATION_V1","passed":false,'
+        '"cold_untuned":true,"training_applied":false,"threshold_tuning_applied":false}'
+    )
     refinement = tmp_path / "verdict.json"
     refinement.write_text('{"verdict": "declined_no_gain"}')
+    corpus = tmp_path / "corpus.json"
+    corpus.write_text(
+        '{"schema":"SPECIMEN_CORPUS_V1","complete":true,'
+        '"per_lane_counts":{"attack_data":1,"replay_mutation":1,"live_lab":1}}'
+    )
+    specimen_e2e = tmp_path / "e2e.json"
+    specimen_e2e.write_text('{"schema":"BULLY_P7_SPECIMEN_E2E_V1","passed":true}')
     validation = tmp_path / "validation.json"
     validation.write_text('{"passed": true}')
     bundle = defensive_bully_closeout.assemble(
         store_path=db,
         calibration_report=calibration,
         refinement_verdict=refinement,
+        specimen_corpus=corpus,
+        specimen_e2e=specimen_e2e,
         validation_summary=validation,
         validation_logs=[],
     )

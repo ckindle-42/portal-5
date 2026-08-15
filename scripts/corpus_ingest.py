@@ -429,6 +429,28 @@ def windows_kv(ev: dict) -> str | None:
     return " ".join(parts)
 
 
+_XML_EVENT_ID = re.compile(r"<EventID(?:\s[^>]*)?>([^<]+)</EventID>", re.IGNORECASE)
+_XML_DATA = re.compile(r"<Data\s+Name=['\"]([^'\"]+)['\"]>(.*?)</Data>", re.IGNORECASE | re.DOTALL)
+
+
+def windows_xml_kv(event: str) -> str | None:
+    """Flatten a one-line Windows Event XML record for field-based SPL."""
+    event_id = _XML_EVENT_ID.search(event)
+    if event_id is None:
+        return None
+    parts = [f"EventCode={event_id.group(1).strip()}"]
+    fields = [
+        (name, re.sub(r"\s+", " ", value).strip()) for name, value in _XML_DATA.findall(event)
+    ]
+    for alias in _ACCOUNT_ALIASES:
+        value = next((value for name, value in fields if name == alias and value), "")
+        if value:
+            parts.append(f"Account={value}")
+            break
+    parts.extend(f"{name}={value}" for name, value in fields if value)
+    return " ".join(parts)
+
+
 def coerce(line: str) -> dict | str:
     """A JSON object becomes a dict (so fields index); anything else stays raw."""
     if line[:1] in "{[":
@@ -534,8 +556,8 @@ def run(src: str, root: Path, ship: bool, backdate_days: int, limit: int) -> int
                 # Windows channels ship as key=value so the SPL library matches
                 # them; non-Windows JSON keeps its structure, which Splunk's own
                 # JSON extraction already handles well.
-                if sourcetype.startswith("windows:") and isinstance(ev, dict):
-                    ev = windows_kv(ev) or ev
+                if sourcetype.startswith("windows:"):
+                    ev = windows_kv(ev) if isinstance(ev, dict) else windows_xml_kv(str(ev)) or ev
                 shipper.add(sourcetype, ev, epoch)
                 count += 1
                 if limit and count >= limit:

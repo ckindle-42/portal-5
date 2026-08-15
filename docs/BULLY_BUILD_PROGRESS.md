@@ -18,7 +18,7 @@ history.
 | P6 | `TASK_BULLY_P6_FLYWHEEL_V1.md` | ✅ done | `03e24a05` |
 | P6.7 | `TASK_BULLY_P6_7_TRAIN_REFINEMENT_CORRECTION_V1.md` | ✅ done | `f7434c86` |
 | P6.8 | `TASK_BULLY_P6_8_COUSIN_CALIBRATION_BENCH_V1.md` | ✅ done | `a2a95837` |
-| P7 | `TASK_BULLY_P7_CUTOVER_PROOF_V1.md` | ⚠️ cutover built; live proof blocked | — |
+| P7 | `TASK_BULLY_P7_2_SPECIMEN_CORPUS_AND_BLIND_BENCH_V1.md` | ✅ done; cold real-specimen proof | branch proof |
 
 ## What's landed (P0–P6)
 
@@ -169,6 +169,27 @@ history.
   incumbent evidence was therefore absent, and the canary reported
   `NO-BASELINE`. Evidence:
   `/Volumes/data01/portal5_hunt/artifacts/trained_models/bully-ae9fa52b558fbce0/bully-ae9fa52b558fbce0.verdict.json`.
+- **P7 / P7.2** — release proof on real specimens: added the sub-live
+  `imported_observed` trust tier, which passes G0 grading but cannot by itself
+  mint production `KNOWN_COVERED`; added a hash-chained scorer-only specimen
+  ledger and standalone measured cousin forge, with engine-path import guards
+  and untagged evidence views. `SPECIMEN_CORPUS_V1` is frozen at snapshot
+  `4f9edc8b78652a3d3b50a7011dda5b534ef99556adaa4d5a90da60f23788a0be`:
+  one verified `splunk/attack_data` parent, eight measured replay-mutation
+  cousins, and one ground-truth-complete live-lab cousin. The cold, untuned
+  `BASELINE_CALIBRATION_V1` recorded the instrument honestly: 10 blind rows,
+  three independent-oracle NEAR_MISS responses, one mid-distance NEW blind
+  spot, two non-monotonic pairs, zero real-SAME overclaims, zero wrong-parent
+  results, zero unresolved rows, and ten response-axis indeterminates. Its
+  `passed: false` is therefore a baseline measurement, not a hidden tuning
+  pass. The P7 specimen E2E passed two-axis grading, G1a/G1b reproduction, G2
+  benign zero-fire plus its rejection control, all six persisted
+  `DecisionImpact` feeds, and rollback recovery. Evidence lives under
+  `/Volumes/data01/portal5_hunt/artifacts/specimen_corpus_v1/`,
+  `/Volumes/data01/portal5_hunt/artifacts/calibration/20260815T195053Z/`, and
+  `/Volumes/data01/portal5_hunt/artifacts/p7_specimen_e2e/20260815T201500Z/`.
+  Refinement/tool-call intake and any threshold or weight change remain
+  explicitly deferred to the later training pass.
 
 ## Verification discipline used for every phase
 
@@ -186,23 +207,12 @@ itself before writing any code.
 
 ## Next
 
-**P7 proof prerequisite** — recapture a ground-truth-complete authorized-lab
-parent/cousin series, then rerun `scripts/defensive_bully_closeout.py`. The six
-cutover adapters, persisted `DecisionImpact` paths, rollback drills, SUB-backed
-coverage cells, legacy removals, canonical-Episode compatibility adapter, live
-driver, and fail-closed bundle assembler are built. The 2026-08-15 live attempts
-were correctly blocked before cousin grading because the captured observations
-were not valid test specimens:
-
-- `ad_full_compromise`: 25% ground-truth coverage (1/4 techniques).
-- `web_sqli_dump`: 0% (0/2).
-- `vuln_django_sqli`: 0% (0/1); target telemetry recorded `Not Found: /vuln/`.
-
-SUB hunt ids `hunt-20260815T170303Z-c3bcaccf` through
-`hunt-20260815T171154Z-9b541a15` remain as BLOCKED evidence, with leases
-released. This is a release finding, not a cousin-calibration result: no claim
-about unknown-cousin discovery is valid until the observation plane contains
-the frozen parent and intended mutation with complete provenance.
+**Training pass (deferred)** — fix tool-call intake, then consider refinement
+and cousin-engine threshold/weight changes only as informed proposals evaluated
+on a fresh frozen sweep. Do not tune against the P7.2 baseline that motivated
+the proposal. The earlier incomplete live attempts remain valid blocked
+evidence, but no longer block release proof because the frozen three-lane corpus
+contains verified real observations and a ground-truth-complete live-lab lane.
 
 ## Housekeeping note (unrelated to the bully program)
 

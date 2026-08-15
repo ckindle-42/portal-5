@@ -15,49 +15,57 @@ from typing import Any
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 
-from portal.modules.security.core.bully import config  # noqa: E402
-from portal.modules.security.core.bully.contracts import MutationOperatorSpec  # noqa: E402
-from portal.modules.security.core.bully.cousin_calibration_bench import (  # noqa: E402
+# ruff: noqa: E402
+
+from portal.modules.security.core.bully import config
+from portal.modules.security.core.bully.contracts import MutationOperatorSpec
+from portal.modules.security.core.bully.cousin_calibration_bench import (
     FROZEN_SWEEP,
     construction_distance,
 )
-from portal.modules.security.core.bully.cousin_forge import forge  # noqa: E402
-from portal.modules.security.core.bully.specimen_ledger import (  # noqa: E402
+from portal.modules.security.core.bully.cousin_forge import forge
+from portal.modules.security.core.bully.specimen_ledger import (
     SpecimenLedger,
     SpecimenRecord,
 )
-from portal.modules.security.core.recall_attribution import (  # noqa: E402
-    technique_discriminators,
-)
-from portal.modules.security.core.siem import capture_store  # noqa: E402
-from portal.modules.security.core.telemetry import (  # noqa: E402
+from portal.modules.security.core.recall_attribution import technique_discriminators
+from portal.modules.security.core.siem import capture_store
+from portal.modules.security.core.telemetry import (
     IMPORTED_OBSERVED,
     IMPORTED_OBSERVED_TRUST_TIER,
     LIVE_SENSOR_TRUST_TIER,
 )
-from scripts import corpus_ingest  # noqa: E402
+from scripts import corpus_ingest
 
 SPECIMEN_CORPUS_V1 = "SPECIMEN_CORPUS_V1"
 _EVENT_CODE = re.compile(r"(?:EventCode|EventID)\s*[=:]\s*([A-Za-z0-9_.-]+)")
+_OBSERVED_FIELD = re.compile(r"(?:Name=['\"]|\b)([A-Za-z][A-Za-z0-9_.-]+)(?:['\"]|)\s*[=>]")
 
 
 def _canonical(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
 
 
-def _event_name(event: dict | str, index: int) -> str:
+def _event_actions(event: dict | str, index: int) -> list[str]:
     if isinstance(event, dict):
         value = event.get("EventCode") or event.get("EventID") or event.get("type")
-        return f"event-{index}:{value or 'record'}"
+        fields = [str(key) for key in event if not str(key).startswith("@")]
+        return [f"event-{index}:{value or 'record'}", *(f"field:{key}" for key in fields[:4])]
     match = _EVENT_CODE.search(str(event))
-    return f"event-{index}:{match.group(1) if match else 'record'}"
+    fields = list(dict.fromkeys(_OBSERVED_FIELD.findall(str(event))))
+    return [
+        f"event-{index}:{match.group(1) if match else 'record'}",
+        *(f"field:{key}" for key in fields[:4]),
+    ]
 
 
 def _telemetry_view(telemetry: dict[str, list[dict | str]]) -> dict[str, Any]:
     events = [
         (sourcetype, event) for sourcetype in sorted(telemetry) for event in telemetry[sourcetype]
     ]
-    actions = [_event_name(event, index) for index, (_, event) in enumerate(events)]
+    actions = [
+        action for index, (_, event) in enumerate(events) for action in _event_actions(event, index)
+    ]
     field_names = sorted(
         {
             str(key)
@@ -86,8 +94,12 @@ def _read_parent(dataset: corpus_ingest.ManifestDataset, *, event_limit: int) ->
     events: list[dict | str] = []
     for line in corpus_ingest.iter_events_text(dataset.path):
         event = corpus_ingest.coerce(line)
-        if dataset.mapped_sourcetype.startswith("windows:") and isinstance(event, dict):
-            event = corpus_ingest.windows_kv(event) or event
+        if dataset.mapped_sourcetype.startswith("windows:"):
+            event = (
+                corpus_ingest.windows_kv(event)
+                if isinstance(event, dict)
+                else corpus_ingest.windows_xml_kv(str(event)) or event
+            )
         events.append(event)
         if len(events) >= event_limit:
             break
@@ -249,33 +261,16 @@ def _live_lab_entry(
     )
 
 
-def build_corpus(
+def _parent_entries(
+    datasets: list[corpus_ingest.ManifestDataset],
     *,
-    attack_data_root: Path,
-    output_dir: Path,
-    ledger_root: Path,
-    live_lab_captures: tuple[Path, ...] = (),
-    event_limit: int = 32,
-    max_parents: int = 0,
-    ship: bool = False,
-) -> dict[str, Any]:
-    ledger = SpecimenLedger(ledger_root)
-    evidence_dir = output_dir / "evidence"
-    catalog = corpus_ingest.load_manifest_catalog(attack_data_root)
-    eligible = [
-        item
-        for item in catalog
-        if item.path.is_file()
-        and item.techniques
-        and item.mapped_sourcetype in corpus_ingest.INGESTED_SOURCETYPES
-        and not corpus_ingest.is_lfs_pointer(item.path)
-    ]
-    admitted = list(eligible)
-    if max_parents:
-        admitted = admitted[:max_parents]
-
+    ledger: SpecimenLedger,
+    evidence_dir: Path,
+    event_limit: int,
+    ship: bool,
+) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
-    for dataset in admitted:
+    for dataset in datasets:
         parent = _read_parent(dataset, event_limit=event_limit)
         if not any(parent["telemetry"].values()):
             continue
@@ -322,33 +317,36 @@ def build_corpus(
             "provenance": "external_corpus",
         }
         entries.append(_entry(specimen_id, "attack_data", engine_view, parent_path))
-        for names in FROZEN_SWEEP:
-            child = forge(
-                parent,
-                _forge_operators(parent, names),
-                ledger=ledger,
-                evidence_dir=evidence_dir,
-                dry_run=not ship,
-            )
-            entries.append(
-                _entry(
-                    child.specimen_id,
-                    "replay_mutation",
-                    child.engine_view,
-                    Path(child.capture_path),
-                )
-            )
+        entries.extend(_forged_entries(parent, ledger=ledger, evidence_dir=evidence_dir, ship=ship))
+    return entries
 
-    for capture in sorted(live_lab_captures):
-        entries.append(
-            _live_lab_entry(capture, ledger=ledger, evidence_dir=evidence_dir, ship=ship)
+
+def _forged_entries(
+    parent: dict[str, Any], *, ledger: SpecimenLedger, evidence_dir: Path, ship: bool
+) -> list[dict[str, Any]]:
+    entries = []
+    for names in FROZEN_SWEEP:
+        child = forge(
+            parent,
+            _forge_operators(parent, names),
+            ledger=ledger,
+            evidence_dir=evidence_dir,
+            dry_run=not ship,
         )
-    entries.sort(key=lambda item: (item["source_lane"], item["specimen_id"]))
-    snapshot_hash = hashlib.sha256(_canonical(entries).encode()).hexdigest()
-    per_lane = {
-        lane: sum(entry["source_lane"] == lane for entry in entries)
-        for lane in ("attack_data", "replay_mutation", "live_lab")
-    }
+        entries.append(
+            _entry(
+                child.specimen_id, "replay_mutation", child.engine_view, Path(child.capture_path)
+            )
+        )
+    return entries
+
+
+def _exclusions(
+    catalog: list[corpus_ingest.ManifestDataset],
+    admitted: list[corpus_ingest.ManifestDataset],
+    eligible: list[corpus_ingest.ManifestDataset],
+    attack_data_root: Path,
+) -> list[dict[str, str]]:
     excluded = []
     for item in catalog:
         if item in admitted:
@@ -371,6 +369,52 @@ def build_corpus(
                 "reason": reason,
             }
         )
+    return excluded
+
+
+def build_corpus(
+    *,
+    attack_data_root: Path,
+    output_dir: Path,
+    ledger_root: Path,
+    live_lab_captures: tuple[Path, ...] = (),
+    event_limit: int = 32,
+    max_parents: int = 0,
+    ship: bool = False,
+) -> dict[str, Any]:
+    ledger = SpecimenLedger(ledger_root)
+    evidence_dir = output_dir / "evidence"
+    catalog = corpus_ingest.load_manifest_catalog(attack_data_root)
+    eligible = [
+        item
+        for item in catalog
+        if item.path.is_file()
+        and item.techniques
+        and item.mapped_sourcetype in corpus_ingest.INGESTED_SOURCETYPES
+        and not corpus_ingest.is_lfs_pointer(item.path)
+    ]
+    admitted = list(eligible)
+    if max_parents:
+        admitted = admitted[:max_parents]
+
+    entries = _parent_entries(
+        admitted,
+        ledger=ledger,
+        evidence_dir=evidence_dir,
+        event_limit=event_limit,
+        ship=ship,
+    )
+
+    for capture in sorted(live_lab_captures):
+        entries.append(
+            _live_lab_entry(capture, ledger=ledger, evidence_dir=evidence_dir, ship=ship)
+        )
+    entries.sort(key=lambda item: (item["source_lane"], item["specimen_id"]))
+    snapshot_hash = hashlib.sha256(_canonical(entries).encode()).hexdigest()
+    per_lane = {
+        lane: sum(entry["source_lane"] == lane for entry in entries)
+        for lane in ("attack_data", "replay_mutation", "live_lab")
+    }
     corpus = {
         "schema": SPECIMEN_CORPUS_V1,
         "snapshot_hash": snapshot_hash,
@@ -380,7 +424,7 @@ def build_corpus(
         "coverage_report": {
             "catalog_datasets": len(catalog),
             "admitted_parents": per_lane["attack_data"],
-            "excluded": excluded,
+            "excluded": _exclusions(catalog, admitted, eligible, attack_data_root),
         },
         "specimens": entries,
     }

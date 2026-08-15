@@ -1,19 +1,4 @@
-"""bully.cousin_engine -- BR-COUSIN, the two-axis grading engine (P1.5).
-
-API per I-6: build_signature, candidate_set, grade, explain. Pure compute
-over injected data (MASTER SS3) -- no network, no SQL, no model calls.
-`organ.knn()` results and `signatures.build_signature()` are computed
-elsewhere and handed in; this module never reaches out for them itself.
-
-Two independent axes (I-6 / C5 CLAIM 5 -- axis independence):
-  - structural RELATIONSHIP (SAME/SIMILAR/NEW/DIFFERENT/ANOMALOUS_UNCLASSIFIED),
-    a pure function of the five-dimension distance decomposition + vetoes.
-  - defense RESPONSE (COVERED/NEAR_MISS/MISSED/INDETERMINATE), a pure
-    function of the injected CoverageView only. Neither axis reads the
-    other's inputs; a MISSED response can never inflate D, and a
-    semantically-distant-but-response-identical pair grades DIFFERENT, not
-    NEW, because relationship never looks at response at all.
-"""
+"""BR-COUSIN pure-compute, independent relationship and response grading."""
 
 from __future__ import annotations
 
@@ -28,11 +13,8 @@ from .contracts import CousinAssessment, Decomposition
 
 ALGORITHM_VERSION = "cousin-v1"
 
-# Fixed per-dimension weights (DATA_MODEL SS1.4 decomposition order). Missing
-# dimensions are never renormalized back up to fill the weight budget -- a
-# missing dimension simply contributes 0 to both the weighted distance sum
-# and the weight-mass that becomes `confidence`/`completeness` (I-6 failure
-# semantics: "missing dimensions lower confidence, never renormalized").
+# Missing dimensions contribute no distance or confidence weight; weights are
+# never renormalized (I-6 failure semantics).
 _WEIGHTS = {
     "behavior": 0.30,
     "telemetry": 0.20,
@@ -306,6 +288,30 @@ def product_band(relationship: str, response: str) -> str:
     )
 
 
+def _empty_assessment(signature, candidates: CandidateSetReceipt, response: str):
+    return CousinAssessment(
+        assessment_id=f"ca-{uuid.uuid4().hex[:12]}",
+        subject_signature_id=signature.signature_id,
+        reference_signature_id=None,
+        candidate_set_id=candidates.receipt_id,
+        decomposition=Decomposition(None, None, None, None, None),
+        composite=1.0,
+        relationship="ANOMALOUS_UNCLASSIFIED",
+        nonsemantic_channels=0,
+        vetoes=[],
+        defense_response=response,
+        nearest_knowns=[],
+        confidence=0.0,
+        completeness=signature.completeness,
+        algorithm_version=ALGORITHM_VERSION,
+        thresholds_version=THRESHOLDS_VERSION,
+        explanation={
+            "reason": "empty candidate set",
+            "product_band": product_band("ANOMALOUS_UNCLASSIFIED", response),
+        },
+    )
+
+
 def grade(
     signature,
     candidates: CandidateSetReceipt,
@@ -318,30 +324,7 @@ def grade(
     response = _response_axis(coverage)
 
     if not candidates.candidates:
-        # Nothing to compare against at all -- a first-class success ("I
-        # see something"), not a failure (BN preserved).
-        decomp = Decomposition(None, None, None, None, None)
-        return CousinAssessment(
-            assessment_id=f"ca-{uuid.uuid4().hex[:12]}",
-            subject_signature_id=signature.signature_id,
-            reference_signature_id=None,
-            candidate_set_id=candidates.receipt_id,
-            decomposition=decomp,
-            composite=1.0,
-            relationship="ANOMALOUS_UNCLASSIFIED",
-            nonsemantic_channels=0,
-            vetoes=[],
-            defense_response=response,
-            nearest_knowns=[],
-            confidence=0.0,
-            completeness=signature.completeness,
-            algorithm_version=ALGORITHM_VERSION,
-            thresholds_version=THRESHOLDS_VERSION,
-            explanation={
-                "reason": "empty candidate set",
-                "product_band": product_band("ANOMALOUS_UNCLASSIFIED", response),
-            },
-        )
+        return _empty_assessment(signature, candidates, response)
 
     scored = []
     for candidate in candidates.candidates:

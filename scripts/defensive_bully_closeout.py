@@ -67,38 +67,35 @@ def _feed_name(explanation: str) -> str | None:
     return explanation.split(marker, 1)[1].split(";", 1)[0]
 
 
-def assemble(
-    *,
-    store_path: Path,
-    calibration_report: Path | None,
-    refinement_verdict: Path | None,
-    validation_summary: Path | None,
-    validation_logs: list[Path],
-) -> dict[str, Any]:
-    cfg = config.load_hunt_config()
+def _store_proof(store_path: Path) -> dict[str, Any]:
     with Store(store_path) as store:
         hunts = store.hunts()
-        recalls = store.recall_receipts()
-        impacts = store.decision_impacts()
-        events = {
-            hunt["hunt_id"]: [
-                event.to_dict() for event in store.decision_events_for_hunt(hunt["hunt_id"])
-            ]
-            for hunt in hunts
+        return {
+            "hunts": hunts,
+            "recalls": store.recall_receipts(),
+            "impacts": store.decision_impacts(),
+            "events": {
+                hunt["hunt_id"]: [
+                    event.to_dict() for event in store.decision_events_for_hunt(hunt["hunt_id"])
+                ]
+                for hunt in hunts
+            },
+            "costs": {
+                hunt["hunt_id"]: store.cost_ledger_for_hunt(hunt["hunt_id"]) for hunt in hunts
+            },
         }
-        costs = {hunt["hunt_id"]: store.cost_ledger_for_hunt(hunt["hunt_id"]) for hunt in hunts}
 
+
+def _feed_proofs(impacts: list[dict[str, Any]], cfg: dict[str, Any]) -> dict[str, Any]:
     by_feed: dict[str, list[dict[str, Any]]] = {feed: [] for feed in cutover.FEEDS}
     for impact in impacts:
         feed = _feed_name(impact["explanation"])
         if feed in by_feed:
             by_feed[feed].append(impact)
-
-    feed_proofs: dict[str, Any] = {}
-    for feed in cutover.FEEDS:
-        records = by_feed[feed]
+    proofs = {}
+    for feed, records in by_feed.items():
         changed = any(record["change_kind"] != "NO_EFFECT" for record in records)
-        feed_proofs[feed] = {
+        proofs[feed] = {
             "mode": cutover.feed_mode(cfg, feed),
             "status": "PASS" if changed else ("NO_EFFECT" if records else "MISSING"),
             "impact_ids": [record["impact_id"] for record in records],
@@ -109,32 +106,113 @@ def assemble(
                 baseline={"consumer": "baseline"},
             ),
         }
+    return proofs
 
-    calibration = _artifact(calibration_report)
-    refinement = _artifact(refinement_verdict)
-    validation = _artifact(validation_summary)
-    calibration_content = (calibration or {}).get("content") or {}
-    refinement_content = (refinement or {}).get("content") or {}
-    validation_content = (validation or {}).get("content") or {}
-    calibration_recorded = bool(calibration) and (
-        calibration_content.get("passed") is True
-        or bool(calibration_content.get("calibration_proposal"))
-    )
-    refinement_recorded = refinement_content.get("verdict") in {
-        "served",
-        "rejected",
-        "rolled_back",
-        "declined_no_gain",
-        "training_failed",
+
+def _evidence_status(
+    calibration_report: Path | None,
+    refinement_verdict: Path | None,
+    specimen_corpus: Path | None,
+    specimen_e2e: Path | None,
+    validation_summary: Path | None,
+) -> dict[str, Any]:
+    artifacts = {
+        "calibration": _artifact(calibration_report),
+        "refinement": _artifact(refinement_verdict),
+        "corpus": _artifact(specimen_corpus),
+        "specimen_proof": _artifact(specimen_e2e),
+        "validation": _artifact(validation_summary),
     }
+    content = {key: (value or {}).get("content") or {} for key, value in artifacts.items()}
+    calibration = content["calibration"]
+    corpus = content["corpus"]
+    proof = content["specimen_proof"]
+    artifacts.update(
+        {
+            "calibration_recorded": bool(artifacts["calibration"])
+            and calibration.get("schema") == "BASELINE_CALIBRATION_V1"
+            and calibration.get("cold_untuned") is True
+            and calibration.get("training_applied") is False
+            and calibration.get("threshold_tuning_applied") is False,
+            "refinement_recorded": content["refinement"].get("verdict")
+            in {"served", "rejected", "rolled_back", "declined_no_gain", "training_failed"},
+            "corpus_recorded": corpus.get("schema") == "SPECIMEN_CORPUS_V1"
+            and corpus.get("complete") is True
+            and all(
+                corpus.get("per_lane_counts", {}).get(lane, 0) > 0
+                for lane in ("attack_data", "replay_mutation", "live_lab")
+            ),
+            "specimen_e2e_recorded": proof.get("schema") == "BULLY_P7_SPECIMEN_E2E_V1"
+            and proof.get("passed") is True,
+            "validation_passed": content["validation"].get("passed") is True,
+        }
+    )
+    return artifacts
+
+
+def _release_acceptance(
+    *,
+    all_feeds_changed: bool,
+    evidence: dict[str, Any],
+    live_lab_recorded: bool,
+) -> dict[str, Any]:
+    passed = (
+        all_feeds_changed
+        and evidence["calibration_recorded"]
+        and evidence["corpus_recorded"]
+        and evidence["specimen_e2e_recorded"]
+        and live_lab_recorded
+        and evidence["validation_passed"]
+    )
+    return {
+        "six_feeds_changed": all_feeds_changed,
+        "calibration_recorded": evidence["calibration_recorded"],
+        "refinement_deferred": True,
+        "specimen_corpus_recorded": evidence["corpus_recorded"],
+        "specimen_e2e_recorded": evidence["specimen_e2e_recorded"],
+        "live_lab_recorded": live_lab_recorded,
+        "validation_passed": evidence["validation_passed"],
+        "status": "PASS" if passed else "FAIL",
+        "note": (
+            "This manifest proves only cited records. Refinement/tool-call intake is "
+            "deferred to the later training pass and is not a P7.2 acceptance input."
+        ),
+    }
+
+
+def assemble(
+    *,
+    store_path: Path,
+    calibration_report: Path | None,
+    refinement_verdict: Path | None,
+    specimen_corpus: Path | None,
+    specimen_e2e: Path | None,
+    validation_summary: Path | None,
+    validation_logs: list[Path],
+) -> dict[str, Any]:
+    cfg = config.load_hunt_config()
+    store_data = _store_proof(store_path)
+    hunts, events = store_data["hunts"], store_data["events"]
+    feed_proofs = _feed_proofs(store_data["impacts"], cfg)
+    evidence = _evidence_status(
+        calibration_report,
+        refinement_verdict,
+        specimen_corpus,
+        specimen_e2e,
+        validation_summary,
+    )
     all_feeds_changed = all(proof["status"] == "PASS" for proof in feed_proofs.values())
-    live_lab_recorded = any(
-        event.get("data", {}).get("used_synthetic") is False
-        and event.get("data", {}).get("episode_id")
-        for hunt_events in events.values()
-        for event in hunt_events
-    ) and any(hunt.get("stage") == "CLOSED" for hunt in hunts)
-    validation_passed = validation_content.get("passed") is True
+    live_lab_recorded = (
+        evidence["corpus_recorded"]
+        and evidence["specimen_e2e_recorded"]
+        and any(
+            event.get("data", {}).get("used_synthetic") is False
+            and event.get("data", {}).get("source_lane") == "live_lab"
+            for hunt_events in events.values()
+            for event in hunt_events
+        )
+        and any(hunt.get("stage") == "CLOSED" for hunt in hunts)
+    )
 
     return {
         "schema": "BULLY_CLOSEOUT_PROOF_V1",
@@ -149,10 +227,10 @@ def assemble(
             "path": str(store_path.resolve()),
             "sha256": _sha256(store_path),
             "hunts": hunts,
-            "recall_ids": [row["recall_id"] for row in recalls],
+            "recall_ids": [row["recall_id"] for row in store_data["recalls"]],
             "events_by_hunt": events,
-            "cost_records_by_hunt": costs,
-            "decision_impacts": impacts,
+            "cost_records_by_hunt": store_data["costs"],
+            "decision_impacts": store_data["impacts"],
         },
         "feeds": feed_proofs,
         "rollback_all_passed": all(
@@ -160,34 +238,24 @@ def assemble(
             and proof["rollback"]["records_retained"]
             for proof in feed_proofs.values()
         ),
-        "calibration": calibration,
-        "calibration_recorded": calibration_recorded,
-        "refinement": refinement,
-        "refinement_recorded": refinement_recorded,
+        "calibration": evidence["calibration"],
+        "calibration_recorded": evidence["calibration_recorded"],
+        "refinement": evidence["refinement"],
+        "refinement_recorded": evidence["refinement_recorded"],
+        "refinement_status": "deferred_to_training_pass",
+        "specimen_corpus": evidence["corpus"],
+        "specimen_corpus_recorded": evidence["corpus_recorded"],
+        "specimen_e2e": evidence["specimen_proof"],
+        "specimen_e2e_recorded": evidence["specimen_e2e_recorded"],
         "live_lab_recorded": live_lab_recorded,
-        "validation_summary": validation,
-        "validation_passed": validation_passed,
+        "validation_summary": evidence["validation"],
+        "validation_passed": evidence["validation_passed"],
         "validation_logs": [item for path in validation_logs if (item := _artifact(path))],
-        "release_acceptance": {
-            "six_feeds_changed": all_feeds_changed,
-            "calibration_recorded": calibration_recorded,
-            "refinement_recorded": refinement_recorded,
-            "live_lab_recorded": live_lab_recorded,
-            "validation_passed": validation_passed,
-            "status": (
-                "PASS"
-                if all_feeds_changed
-                and calibration_recorded
-                and refinement_recorded
-                and live_lab_recorded
-                and validation_passed
-                else "FAIL"
-            ),
-            "note": (
-                "This manifest proves only cited records. A synthetic hunt is not labeled as "
-                "the live-lab section 15 proof; missing evidence remains a release finding."
-            ),
-        },
+        "release_acceptance": _release_acceptance(
+            all_feeds_changed=all_feeds_changed,
+            evidence=evidence,
+            live_lab_recorded=live_lab_recorded,
+        ),
     }
 
 
@@ -218,7 +286,9 @@ def _markdown(bundle: dict[str, Any]) -> str:
             "## Frozen external evidence",
             "",
             f"- P6.8 calibration recorded: `{bundle['calibration_recorded']}`",
-            f"- P6.7 refinement verdict recorded: `{bundle['refinement_recorded']}`",
+            f"- SPECIMEN_CORPUS_V1 recorded: `{bundle['specimen_corpus_recorded']}`",
+            f"- P7 specimen E2E recorded: `{bundle['specimen_e2e_recorded']}`",
+            f"- Refinement: `{bundle['refinement_status']}`",
             f"- Non-synthetic closed hunt recorded: `{bundle['live_lab_recorded']}`",
             f"- Validation summary passed: `{bundle['validation_passed']}`",
             f"- Validation logs: {len(bundle['validation_logs'])}",
@@ -236,6 +306,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--store", type=Path, default=config.hunt_dir() / "hunt_state.db")
     parser.add_argument("--calibration-report", type=Path)
     parser.add_argument("--refinement-verdict", type=Path)
+    parser.add_argument("--specimen-corpus", type=Path)
+    parser.add_argument("--specimen-e2e", type=Path)
     parser.add_argument("--validation-summary", type=Path)
     parser.add_argument("--validation-log", type=Path, action="append", default=[])
     parser.add_argument("--output-dir", type=Path)
@@ -248,6 +320,12 @@ def main(argv: list[str] | None = None) -> int:
     refinement_verdict = args.refinement_verdict or _latest(
         artifact_root, "trained_models/**/*.verdict.json"
     )
+    specimen_corpus = args.specimen_corpus or _latest(
+        artifact_root, "specimen_corpus_v1/specimen_corpus_v1.json"
+    )
+    specimen_e2e = args.specimen_e2e or _latest(
+        artifact_root, "p7_specimen_e2e/*/p7_specimen_e2e.json"
+    )
     output_dir = args.output_dir or (
         artifact_root / "closeout" / datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     )
@@ -257,6 +335,8 @@ def main(argv: list[str] | None = None) -> int:
         store_path=args.store,
         calibration_report=calibration_report,
         refinement_verdict=refinement_verdict,
+        specimen_corpus=specimen_corpus,
+        specimen_e2e=specimen_e2e,
         validation_summary=args.validation_summary,
         validation_logs=args.validation_log,
     )

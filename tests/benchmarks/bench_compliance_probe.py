@@ -46,6 +46,7 @@ MAX_CASES = 10
 
 def load_corpus() -> dict:
     import yaml
+
     try:
         return yaml.safe_load(CORPUS.read_text()) or {}
     except Exception:
@@ -65,19 +66,21 @@ def build_test_cases() -> list[dict]:
         nerc = next((m.get("requirement") for m in cm if m.get("framework") == "nerc-cip"), None)
         if not (nist and nerc):
             continue
-        cases.append({
-            "id": tech,
-            "description": entry.get("description", ""),
-            "nist": nist,
-            "nerc": nerc,
-            "prompt": (
-                f"For MITRE ATT&CK technique {tech} ({entry.get('description','')}), "
-                f"identify the mapped compliance requirements. Give (1) the specific "
-                f"NIST SP 800-53 Rev 5 control ID, and (2) the specific NERC CIP "
-                f"requirement ID. Answer with just the two IDs, clearly labeled. If "
-                f"you are unsure of an exact ID, say so rather than guessing."
-            ),
-        })
+        cases.append(
+            {
+                "id": tech,
+                "description": entry.get("description", ""),
+                "nist": nist,
+                "nerc": nerc,
+                "prompt": (
+                    f"For MITRE ATT&CK technique {tech} ({entry.get('description', '')}), "
+                    f"identify the mapped compliance requirements. Give (1) the specific "
+                    f"NIST SP 800-53 Rev 5 control ID, and (2) the specific NERC CIP "
+                    f"requirement ID. Answer with just the two IDs, clearly labeled. If "
+                    f"you are unsure of an exact ID, say so rather than guessing."
+                ),
+            }
+        )
     return cases[:MAX_CASES]
 
 
@@ -131,9 +134,14 @@ def run_case(model: str, case: dict) -> dict:
     eval_duration_ns = data.get("eval_duration") or 0
     tps = (eval_count / (eval_duration_ns / 1e9)) if eval_duration_ns else None
     return {
-        "id": case["id"], "ok": True, "matched": score["passed"],
-        "compliance_score": score, "expected": {"nist": case["nist"], "nerc": case["nerc"]},
-        "response_preview": content[:160], "tps": tps, "wall_s": time.monotonic() - t0,
+        "id": case["id"],
+        "ok": True,
+        "matched": score["passed"],
+        "compliance_score": score,
+        "expected": {"nist": case["nist"], "nerc": case["nerc"]},
+        "response_preview": content[:160],
+        "tps": tps,
+        "wall_s": time.monotonic() - t0,
     }
 
 
@@ -148,9 +156,11 @@ def probe_model(model: str, cases: list[dict]) -> dict:
     tps_vals = [c["tps"] for c in ok if c.get("tps")]
     avg_tps = round(sum(tps_vals) / len(tps_vals), 2) if tps_vals else None
     return {
-        "model": model, "avg_tps": avg_tps,
+        "model": model,
+        "avg_tps": avg_tps,
         "quality_score": round(matched / total, 2) if total else None,
-        "runs_success": matched, "runs_total": total,
+        "runs_success": matched,
+        "runs_total": total,
         "prompt_category": "compliance",
         "nist_accuracy": round(nist / total, 2) if total else None,
         "nerc_accuracy": round(nerc / total, 2) if total else None,
@@ -172,7 +182,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  [{i}/{len(args.model)}] {model[:70]} ...", flush=True)
         r = probe_model(model, cases)
         results.append(r)
-        print(f"    quality={r['quality_score']} nist={r['nist_accuracy']} nerc={r['nerc_accuracy']} avg_tps={r['avg_tps']}")
+        print(
+            f"    quality={r['quality_score']} nist={r['nist_accuracy']} nerc={r['nerc_accuracy']} avg_tps={r['avg_tps']}"
+        )
     stamp = _dt.datetime.now(_dt.UTC).strftime("%Y%m%dT%H%M%SZ")
     out_path = RESULTS_DIR / f"compliance_probe_{stamp}.json"
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)

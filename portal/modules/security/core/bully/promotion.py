@@ -224,6 +224,11 @@ def check_g1b_dynamic(gate_input: dict) -> dict:
     return _default_g1b_dynamic({}, gate_input)
 
 
+def check_g2(gate_input: dict, *, cousin_assessment: dict | None = None) -> dict:
+    """Public wrapper for the G2 benign/counter-evidence decision."""
+    return _default_g2({}, gate_input, cousin_assessment=cousin_assessment)
+
+
 def _default_g1a_static(candidate_row: dict, gate_input: dict) -> dict:
     """Check the candidate's draft SPL fires within window on the right
     target against already-gathered replay evidence -- mirrors
