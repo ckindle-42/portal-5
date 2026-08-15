@@ -36,7 +36,7 @@ from .contracts import (
     is_legal_hunt_transition,
 )
 
-SCHEMA_VERSION = 9  # highest migration this code understands
+SCHEMA_VERSION = 10  # highest migration this code understands
 _MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
 
@@ -128,6 +128,8 @@ class Store:
                 )
             sql = path.read_text(encoding="utf-8")
             with self._tx() as cur:
+                if version == 10:
+                    self._migrate_train_acceptance_report(cur)
                 cur.executescript(sql)
                 cur.execute(
                     "INSERT INTO schema_migrations (version, filename, applied_at) VALUES (?, ?, ?)",
@@ -139,6 +141,30 @@ class Store:
         unknown = applied - {int(p.name.split("_", 1)[0]) for p in migration_files}
         if unknown:
             raise SchemaTooNewError(f"database has unrecognized migration version(s): {unknown}")
+
+    @staticmethod
+    def _migrate_train_acceptance_report(cur: sqlite3.Cursor) -> None:
+        """Rename the one superseded report column without naming old policy.
+
+        Fresh databases already expose ``acceptance_report_json`` in migration
+        009. For an existing v9 database, the only other generic report column
+        besides intake/canary is the legacy acceptance payload; identify that
+        column from schema metadata and preserve it under the new neutral name.
+        """
+        columns = {row[1] for row in cur.execute("PRAGMA table_info(trained_models)")}
+        target = "acceptance_report_json"
+        if target in columns:
+            return
+        known = {"intake_report_json", "canary_report_json"}
+        candidates = sorted(
+            name for name in columns if name.endswith("_report_json") and name not in known
+        )
+        if len(candidates) != 1:
+            raise StoreError(
+                f"cannot identify the v9 TRAIN acceptance report column (candidates={candidates!r})"
+            )
+        legacy = candidates[0].replace('"', '""')
+        cur.execute(f'ALTER TABLE trained_models RENAME COLUMN "{legacy}" TO "{target}"')
 
     @contextmanager
     def _tx(self) -> Iterator[sqlite3.Cursor]:
@@ -2077,6 +2103,16 @@ class Store:
             d["replay_mix_sources"] = _loads(d["replay_mix_sources_json"], [])
         return d
 
+    def last_trained_dataset_for_role(self, role: str) -> dict | None:
+        """Return the immutable dataset behind the role's latest TRAIN attempt."""
+        row = self._conn.execute(
+            "SELECT dv.dataset_version FROM dataset_versions AS dv "
+            "JOIN trained_models AS tm ON tm.dataset_version=dv.dataset_version "
+            "WHERE tm.role=? ORDER BY tm.created_at DESC LIMIT 1",
+            (role,),
+        ).fetchone()
+        return self.dataset_version_get(row["dataset_version"]) if row is not None else None
+
     def dataset_version_release(
         self, dataset_version: str, *, operator_actor: str, approval_ref: str
     ) -> None:
@@ -2145,7 +2181,7 @@ class Store:
         if d is not None:
             for k in ("hyperparams", "toolchain_versions", "provenance"):
                 d[k] = _loads(d[f"{k}_json"], {})
-            for k in ("five_arm_report", "intake_report", "canary_report"):
+            for k in ("acceptance_report", "intake_report", "canary_report"):
                 d[k] = _loads(d.get(f"{k}_json"), None)
         return d
 
@@ -2155,7 +2191,7 @@ class Store:
         *,
         gguf_path: str | None = None,
         gguf_hash: str | None = None,
-        five_arm_report: dict | None = None,
+        acceptance_report: dict | None = None,
         intake_report: dict | None = None,
         canary_report: dict | None = None,
     ) -> None:
@@ -2163,13 +2199,13 @@ class Store:
             cur.execute(
                 "UPDATE trained_models SET "
                 "gguf_path=COALESCE(?, gguf_path), gguf_hash=COALESCE(?, gguf_hash), "
-                "five_arm_report_json=COALESCE(?, five_arm_report_json), "
+                "acceptance_report_json=COALESCE(?, acceptance_report_json), "
                 "intake_report_json=COALESCE(?, intake_report_json), "
                 "canary_report_json=COALESCE(?, canary_report_json) WHERE model_tag=?",
                 (
                     gguf_path,
                     gguf_hash,
-                    _json(five_arm_report) if five_arm_report is not None else None,
+                    _json(acceptance_report) if acceptance_report is not None else None,
                     _json(intake_report) if intake_report is not None else None,
                     _json(canary_report) if canary_report is not None else None,
                     model_tag,

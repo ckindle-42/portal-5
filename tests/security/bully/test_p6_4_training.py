@@ -1,16 +1,17 @@
-"""P6.4 -- TRAIN: LoRA flywheel + frozen five-arm acceptance + toolchain
+"""P6.4/P6.7 -- TRAIN: periodic LoRA refinement + right-sized acceptance
 install (M8).
 
 Hermetic (`tmp_path`, no network, no real subprocess -- every subprocess
 call is intercepted by a fake `runner`). Feeds C11 TRAIN + F1-F2 shadow:
 import-scan (no training extras at startup); toolchain-missing -> explicit
-error; no-gain -> non-serve, alias unchanged; five-arm gate arithmetic on
-fixtures; canary rollback = alias re-point.
+error; missing/regressing evidence -> non-serve, alias unchanged; intake,
+incumbent, and canary arithmetic on fixtures; canary rollback = alias re-point.
 """
 
 from __future__ import annotations
 
 import ast
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -18,6 +19,7 @@ import pytest
 
 from portal.modules.security.core.bully import training
 from portal.modules.security.core.bully.store import Store
+from scripts.defensive_bully_train import _incumbent_delta_pt
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TRAINING_PY = REPO_ROOT / "portal" / "modules" / "security" / "core" / "bully" / "training.py"
@@ -70,16 +72,40 @@ def _fake_runner(calls, *, fail_step: str | None = None):
     return runner
 
 
-def _passing_five_arm():
-    return {
-        "macro_f1_delta_vs_full_stack": 7.2,
-        "ci95_lower": 1.1,
-        "per_arm_regressions_pt": {"retrieval": -0.5},
-    }
-
-
 def _passing_intake():
     return {"tps": 40.0, "tps_ok": True, "tool_ok": True}
+
+
+def _passing_canary():
+    return {"status": "OK"}
+
+
+def test_cli_recomputes_incumbent_delta_from_raw_general_bench_arms(tmp_path):
+    report = tmp_path / "candidate.json"
+    report.write_text(
+        json.dumps(
+            {
+                "candidate_results": [
+                    {"scenario": "s1", "model": "candidate", "unique_coverage": 0.72}
+                ],
+                "incumbent_results": [
+                    {"scenario": "s1", "model": "incumbent", "unique_coverage": 0.70}
+                ],
+                "deltas": [{"scenario": "__aggregate__", "unique_coverage_delta": -999}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert _incumbent_delta_pt(report) == 2.0
+
+
+def test_cli_rejects_general_bench_report_without_comparable_arms(tmp_path):
+    report = tmp_path / "candidate.json"
+    report.write_text(
+        json.dumps({"candidate_results": [], "incumbent_results": []}), encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="no comparable aggregate"):
+        _incumbent_delta_pt(report)
 
 
 # ── import-scan: no training extras at startup ─────────────────────────────
@@ -203,6 +229,17 @@ def test_run_requires_released_dataset(store, tmp_path):
         )
 
 
+def test_run_rejects_deterministic_cousin_grader_as_training_target(store, tmp_path):
+    with pytest.raises(training.TrainingError, match="calibrated, not trained"):
+        training.run(
+            store,
+            "cousin_smeller",
+            dataset_version="unused",
+            base_model="unused",
+            train_data_dir=tmp_path,
+        )
+
+
 def test_concurrent_lock_refuses_second_run(store, tmp_path):
     lock_path = tmp_path / "train.lock"
     lock_path.write_text("999999")
@@ -238,11 +275,9 @@ def test_lora_subprocess_failure_is_training_failed_no_row(store, tmp_path):
 # ── run(): full pipeline, no-gain -> declined_no_gain, non-serve ──────────
 
 
-def test_full_pipeline_no_gain_default_is_declined_non_serve(store, tmp_path):
-    """The default five-arm evaluator is an honest no-gain report (no real
-    cousin-suite harness exists yet) -- proves the no-gain path end to end
-    through the real subprocess sequence (faked) without loosening any
-    threshold to force a fabricated pass."""
+def test_full_pipeline_missing_incumbent_evidence_is_declined_non_serve(store, tmp_path):
+    """A completed refinement cannot enter the operator queue without the
+    independently recorded general-bench comparison."""
     dv = _released_dataset(store)
     calls = []
     outcome = training.run(
@@ -257,6 +292,7 @@ def test_full_pipeline_no_gain_default_is_declined_non_serve(store, tmp_path):
         artifacts_root=tmp_path / "artifacts",
         pending_verdicts_path=tmp_path / "PENDING_MODEL_VERDICTS.md",
         intake_eval_fn=lambda tag: _passing_intake(),
+        canary_eval_fn=lambda tag: _passing_canary(),
     )
     assert outcome["passed"] is False
     assert outcome["verdict"] == "declined_no_gain"
@@ -270,7 +306,7 @@ def test_full_pipeline_no_gain_default_is_declined_non_serve(store, tmp_path):
     assert len(calls) == 5
 
 
-def test_full_pipeline_passing_five_arm_queues_for_operator(store, tmp_path):
+def test_full_pipeline_clean_three_leg_acceptance_queues_for_operator(store, tmp_path):
     dv = _released_dataset(store)
     outcome = training.run(
         store,
@@ -284,7 +320,8 @@ def test_full_pipeline_passing_five_arm_queues_for_operator(store, tmp_path):
         artifacts_root=tmp_path / "artifacts",
         pending_verdicts_path=tmp_path / "PENDING_MODEL_VERDICTS.md",
         intake_eval_fn=lambda tag: _passing_intake(),
-        five_arm_eval_fn=lambda tag: _passing_five_arm(),
+        incumbent_delta_pt=0.0,
+        canary_eval_fn=lambda tag: _passing_canary(),
     )
     assert outcome["passed"] is True
     assert outcome["verdict"] == "pending"
@@ -317,20 +354,21 @@ def test_full_pipeline_never_touches_the_real_tracked_pending_verdicts_file(stor
         artifacts_root=tmp_path / "artifacts",
         pending_verdicts_path=tmp_path / "PENDING_MODEL_VERDICTS.md",
         intake_eval_fn=lambda tag: _passing_intake(),
+        canary_eval_fn=lambda tag: _passing_canary(),
     )
 
     after = real_path.read_text(encoding="utf-8") if real_path.exists() else None
     assert before == after
 
 
-# ── evaluate_acceptance: five-arm gate arithmetic on fixtures ─────────────
+# ── evaluate_acceptance: three-leg fail-closed arithmetic ───────────────
 
 
-def test_evaluate_acceptance_passes_with_a_clean_five_arm_win():
+def test_evaluate_acceptance_passes_with_clean_intake_incumbent_and_canary():
     result = training.evaluate_acceptance(
         intake_report=_passing_intake(),
         incumbent_delta_pt=0.5,
-        five_arm_report=_passing_five_arm(),
+        canary_report=_passing_canary(),
     )
     assert result["passed"] is True
     assert result["reasons"] == []
@@ -340,7 +378,7 @@ def test_evaluate_acceptance_fails_below_intake_floor():
     result = training.evaluate_acceptance(
         intake_report={"tps_ok": False, "tps": 5.0},
         incumbent_delta_pt=0.5,
-        five_arm_report=_passing_five_arm(),
+        canary_report=_passing_canary(),
     )
     assert result["passed"] is False
     assert any("intake" in r for r in result["reasons"])
@@ -350,59 +388,46 @@ def test_evaluate_acceptance_fails_on_incumbent_regression():
     result = training.evaluate_acceptance(
         intake_report=_passing_intake(),
         incumbent_delta_pt=-3.0,
-        five_arm_report=_passing_five_arm(),
+        canary_report=_passing_canary(),
     )
     assert result["passed"] is False
     assert any("incumbent" in r for r in result["reasons"])
 
 
-def test_evaluate_acceptance_fails_below_five_arm_macro_f1_floor():
+def test_evaluate_acceptance_fails_when_incumbent_evidence_is_missing():
+    result = training.evaluate_acceptance(
+        intake_report=_passing_intake(),
+        incumbent_delta_pt=None,
+        canary_report=_passing_canary(),
+    )
+    assert result["passed"] is False
+    assert any("evidence missing" in r for r in result["reasons"])
+
+
+def test_evaluate_acceptance_fails_when_canary_evidence_is_missing():
     result = training.evaluate_acceptance(
         intake_report=_passing_intake(),
         incumbent_delta_pt=0.0,
-        five_arm_report={
-            "macro_f1_delta_vs_full_stack": 2.0,
-            "ci95_lower": 1.0,
-            "per_arm_regressions_pt": {},
-        },
+        canary_report=None,
     )
     assert result["passed"] is False
-    assert any("macro-F1" in r for r in result["reasons"])
+    assert any("canary evidence missing" in r for r in result["reasons"])
 
 
-def test_evaluate_acceptance_fails_when_ci_lower_bound_not_positive():
+def test_evaluate_acceptance_fails_when_canary_is_indeterminate():
     result = training.evaluate_acceptance(
         intake_report=_passing_intake(),
         incumbent_delta_pt=0.0,
-        five_arm_report={
-            "macro_f1_delta_vs_full_stack": 6.0,
-            "ci95_lower": -0.1,
-            "per_arm_regressions_pt": {},
-        },
+        canary_report={"status": "INDETERMINATE"},
     )
     assert result["passed"] is False
-    assert any("CI" in r for r in result["reasons"])
-
-
-def test_evaluate_acceptance_fails_on_per_arm_regression_over_2pt():
-    result = training.evaluate_acceptance(
-        intake_report=_passing_intake(),
-        incumbent_delta_pt=0.0,
-        five_arm_report={
-            "macro_f1_delta_vs_full_stack": 6.0,
-            "ci95_lower": 1.0,
-            "per_arm_regressions_pt": {"playbook": -2.5},
-        },
-    )
-    assert result["passed"] is False
-    assert any("regression" in r for r in result["reasons"])
+    assert any("did not pass" in r for r in result["reasons"])
 
 
 def test_evaluate_acceptance_fails_on_flipped_canary():
     result = training.evaluate_acceptance(
         intake_report=_passing_intake(),
         incumbent_delta_pt=0.0,
-        five_arm_report=_passing_five_arm(),
         canary_report={"status": "FLIPPED"},
     )
     assert result["passed"] is False

@@ -1,5 +1,9 @@
 # P6 TRAIN acceptance gate — gap analysis (frozen five-arm cousin-suite)
 
+> Superseded 2026-08-15 by approved P6.7/A2-A3. Retained only as historical
+> evidence of the gap that motivated the correction; do not implement its
+> proposed harness. Current policy: `docs/BULLY_REFINEMENT_POLICY_V1.md`.
+
 Written 2026-08-15 after independent re-verification of the merged
 `bully/P6-flywheel` branch (`03e24a05`) surfaced that the acceptance gate's
 core measurement — not just a live-demo nicety — was left as a permanent
