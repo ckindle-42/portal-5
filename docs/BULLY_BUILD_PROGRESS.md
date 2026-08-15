@@ -15,93 +15,10 @@ history.
 | P3 | `TASK_BULLY_P3_RED_DRIFT_V1.md` | ✅ done | `df593854` |
 | P4 | `TASK_BULLY_P4_DISCOVERY_V1.md` | ✅ done | `913ded64` |
 | P5 | `TASK_BULLY_P5_HANDOFF_V1.md` | ✅ done | `58aab19f` |
-| P6 | `TASK_BULLY_P6_FLYWHEEL_V1.md` | ✅ done (branch `bully/P6-flywheel`, not yet merged) | `a4bbff0d` |
+| P6 | `TASK_BULLY_P6_FLYWHEEL_V1.md` | ✅ done | `03e24a05` |
 | P7 | `TASK_BULLY_P7_CUTOVER_PROOF_V1.md` | ⬜ not started | — |
 
-## What's landed (P6)
-
-- **P6** — the flywheel: `bully/harvest.py` (HARV, I-15) -- `append_pairs`
-  extracts role-tagged examples from a hunt's already-recorded
-  `decision_events` (kind->role mapping: target_select/recall->hunter,
-  promote->analyst, kill->disprover, grade/objection/council_block->
-  cousin_smeller), quarantining rather than silently including missing
-  provenance / suspect (unconfirmed) trust / duplicates; `build_dataset`
-  enforces a size floor (honest non-build below it), assigns a
-  deterministic family-keyed split, and writes the corpus JSONL + manifest
-  under `PORTAL5_HUNT_DIR/corpus/<role>/` before a content-hashed,
-  idempotent `dataset_version` row. `bully/playbooks.py` (PLAY, I-16) --
-  `draft_update` distills a hunt's trajectory into a versioned
-  instruction_set (no model call needed); DRAFT -> REPLAY_VALIDATED ->
-  CANARY -> AWAITING_OPERATOR -> ACTIVE lifecycle with atomic-pointer CAS
-  activation and auto-revert-with-cause on canary failure; wired into
-  LOOP (`orchestrator._do_analyze` -> `investigation.run_arm`'s new
-  `playbook` kwarg -- absence is neutral, unshaped). `bully/training.py`
-  (TRAIN, I-17) -- every tool invoked as an external subprocess only
-  (never imports mlx_lm/torch/transformers, Rule 8 holds trivially);
-  exclusive resource lock + preflight refusing an active hunt lease or a
-  concurrent bench/training process; `mlx_lm.lora` -> `mlx_lm.fuse` ->
-  llama.cpp GGUF convert+quantize -> `ollama create`; frozen five-arm
-  acceptance arithmetic (`evaluate_acceptance`) as a pure function over
-  fixtures, honest no-gain default (no cousin-suite bench harness exists
-  yet, so a real run declines rather than fabricating a pass); `serve()`
-  runs the model canary *before* the atomic alias promotion, `rollback()`
-  is the atomic alias re-point. Toolchain installed + verified for real
-  (llama.cpp via brew + a shallow `ggml-org/llama.cpp` clone for the GGUF
-  converter, its own dedicated venv, never added to this repo's
-  pyproject.toml). `bully/roster.py` (ROSTER, I-19) -- pure compute,
-  scores each seat's already-resolved outcomes into eligibility bands +
-  a bounded [0.5, 2.0] advisory weight; the objection gate (`adversary.py`)
-  and `roster.py` are fully import-decoupled in both directions (not
-  merely "weights ignored"); `enforce_diversity` mirrors
-  `adversary.validate_roster_diversity`'s pattern without importing it.
-  Migration 009 (M8): `playbooks`, `training_examples`, `dataset_versions`,
-  `trained_models`, `model_aliases`, `model_alias_history`,
-  `roster_records`, each with its SS4.8 DB check (one active playbook per
-  class, one active model alias per role, immutable released datasets,
-  immutable trained-model artifact fields, roster content-keyed
-  idempotency). C11 (HARV/PLAY/ROSTER + TRAIN acceptance arithmetic +
-  isolation) proven by 70 hermetic tests across the five P6 modules (all
-  370 bully tests green on independent re-run). F1-F2 (shadow) + L1: a
-  real dataset was harvested, built, and released; a real, complete
-  toolchain chain then ran through `training.run()` itself (not a manual
-  bypass) end to end -- `mlx_lm.lora` -> `mlx_lm.fuse` -> GGUF convert ->
-  `llama-quantize` -> `ollama create`, producing a genuine Ollama model
-  and a recorded documented non-serve verdict (`declined_no_gain`); model
-  canary (`serve()`) and rollback (`rollback()`) both proven via hermetic
-  tests exercising the real atomic-alias-repoint code path, not mocked
-  around it. No frozen five-arm cousin-suite bench harness exists yet in
-  this build (out of P6's scope to construct from scratch) -- flagged
-  honestly as the reason the live demonstration's own acceptance verdict
-  is a genuine non-serve rather than a forced pass; the gate arithmetic
-  itself (`evaluate_acceptance`) is fully built and tested against
-  fixtures.
-
-## What's landed (P0–P5)
-
-- **P5** — the exit: `bully/handoff.py` (HND) -- `build_package(candidate_id)`
-  produces the 11-part package (FINAL_DESIGN §23) from a promoted candidate;
-  SPL/Sigma drafted from cousin discriminators, validated in code
-  (`validate_spl_syntax` + dry-exec against the replayed capture). Three
-  detection-proof legs execute for real, not placeholder-true: fires-on-attack
-  via `capture_recipes` replay, quiet-on-benign via the real benign corpus
-  (`benign_corpus_bench`), no-regression via the real BQ/AZ lanes. Any
-  proof-leg or validation failure blocks the package (candidate stays
-  PENDING); rebuild produces a superseding version; FP analysis attached from
-  G2. Detection-proposal lifecycle tables (migration 008): `draft ->
-  submitted -> accepted/revise/rejected/expired -> deployed ->
-  replay-validated/failed -> retired`, with `KNOWN_COVERED` DB-enforced to
-  require a deployment receipt + successful post-deploy replay -- refused
-  otherwise even at the DB layer. Operator reject requires rationale and is
-  ORG-indexed. Deployment appends to `provenance_ledger`. Validation claim D1
-  proven by hermetic + real-code-path tests (300 bully tests green on
-  independent re-run; full CI-mirrored suite 2789 passed/33 skipped).
-  Confirmed no accidental mutation of the real `spl_detections.yaml` from
-  test runs. Build agent hit its account session-usage limit mid-verification
-  after landing all 3 commits cleanly; the remaining verification
-  (complexity re-baseline, ruff/pytest/validate_system reruns, D1 exit-check)
-  was completed directly rather than via a second agent spawn.
-
-## What's landed (P0–P4)
+## What's landed (P0–P6)
 
 - **P0** — spine/wiki thinned: `last_generated_commit` pin mechanism removed
   (kills the two-commit dance); 719 canonical units classified 14 KEEP-FACT /
@@ -171,6 +88,83 @@ history.
   surfaced by P4's multi-hunt wiring tests (never previously exercised) --
   not fixed per scope discipline, worked around in the test harness by
   giving each hunt its own private projection over the shared store.
+- **P5** — the exit: `bully/handoff.py` (HND) -- `build_package(candidate_id)`
+  produces the 11-part package (FINAL_DESIGN §23) from a promoted candidate;
+  SPL/Sigma drafted from cousin discriminators, validated in code
+  (`validate_spl_syntax` + dry-exec against the replayed capture). Three
+  detection-proof legs execute for real, not placeholder-true: fires-on-attack
+  via `capture_recipes` replay, quiet-on-benign via the real benign corpus
+  (`benign_corpus_bench`), no-regression via the real BQ/AZ lanes. Any
+  proof-leg or validation failure blocks the package (candidate stays
+  PENDING); rebuild produces a superseding version; FP analysis attached from
+  G2. Detection-proposal lifecycle tables (migration 008): `draft ->
+  submitted -> accepted/revise/rejected/expired -> deployed ->
+  replay-validated/failed -> retired`, with `KNOWN_COVERED` DB-enforced to
+  require a deployment receipt + successful post-deploy replay -- refused
+  otherwise even at the DB layer. Operator reject requires rationale and is
+  ORG-indexed. Deployment appends to `provenance_ledger`. Validation claim D1
+  proven by hermetic + real-code-path tests (300 bully tests green on
+  independent re-run; full CI-mirrored suite 2789 passed/33 skipped).
+  Confirmed no accidental mutation of the real `spl_detections.yaml` from
+  test runs. Build agent hit its account session-usage limit mid-verification
+  after landing all 3 commits cleanly; the remaining verification
+  (complexity re-baseline, ruff/pytest/validate_system reruns, D1 exit-check)
+  was completed directly rather than via a second agent spawn.
+- **P6** — the flywheel: `bully/harvest.py` (HARV, I-15) -- `append_pairs`
+  extracts role-tagged examples from a hunt's already-recorded
+  `decision_events` (kind->role mapping: target_select/recall->hunter,
+  promote->analyst, kill->disprover, grade/objection/council_block->
+  cousin_smeller), quarantining rather than silently including missing
+  provenance / suspect (unconfirmed) trust / duplicates; `build_dataset`
+  enforces a size floor (honest non-build below it), assigns a
+  deterministic family-keyed split, and writes the corpus JSONL + manifest
+  under `PORTAL5_HUNT_DIR/corpus/<role>/` before a content-hashed,
+  idempotent `dataset_version` row. `bully/playbooks.py` (PLAY, I-16) --
+  `draft_update` distills a hunt's trajectory into a versioned
+  instruction_set (no model call needed); DRAFT -> REPLAY_VALIDATED ->
+  CANARY -> AWAITING_OPERATOR -> ACTIVE lifecycle with atomic-pointer CAS
+  activation and auto-revert-with-cause on canary failure; wired into
+  LOOP (`orchestrator._do_analyze` -> `investigation.run_arm`'s new
+  `playbook` kwarg -- absence is neutral, unshaped). `bully/training.py`
+  (TRAIN, I-17) -- every tool invoked as an external subprocess only
+  (never imports mlx_lm/torch/transformers, Rule 8 holds trivially);
+  exclusive resource lock + preflight refusing an active hunt lease or a
+  concurrent bench/training process; `mlx_lm.lora` -> `mlx_lm.fuse` ->
+  llama.cpp GGUF convert+quantize -> `ollama create`; frozen five-arm
+  acceptance arithmetic (`evaluate_acceptance`) as a pure function over
+  fixtures, honest no-gain default (no cousin-suite bench harness exists
+  yet, so a real run declines rather than fabricating a pass); `serve()`
+  runs the model canary *before* the atomic alias promotion, `rollback()`
+  is the atomic alias re-point. Toolchain installed + verified for real
+  (llama.cpp via brew + a shallow `ggml-org/llama.cpp` clone for the GGUF
+  converter, its own dedicated venv, never added to this repo's
+  pyproject.toml). `bully/roster.py` (ROSTER, I-19) -- pure compute,
+  scores each seat's already-resolved outcomes into eligibility bands +
+  a bounded [0.5, 2.0] advisory weight; the objection gate (`adversary.py`)
+  and `roster.py` are fully import-decoupled in both directions (not
+  merely "weights ignored"); `enforce_diversity` mirrors
+  `adversary.validate_roster_diversity`'s pattern without importing it.
+  Migration 009 (M8): `playbooks`, `training_examples`, `dataset_versions`,
+  `trained_models`, `model_aliases`, `model_alias_history`,
+  `roster_records`, each with its SS4.8 DB check (one active playbook per
+  class, one active model alias per role, immutable released datasets,
+  immutable trained-model artifact fields, roster content-keyed
+  idempotency). C11 (HARV/PLAY/ROSTER + TRAIN acceptance arithmetic +
+  isolation) proven by 70 hermetic tests across the five P6 modules (all
+  370 bully tests green on independent re-run). F1-F2 (shadow) + L1: a
+  real dataset was harvested, built, and released; a real, complete
+  toolchain chain then ran through `training.run()` itself (not a manual
+  bypass) end to end -- `mlx_lm.lora` -> `mlx_lm.fuse` -> GGUF convert ->
+  `llama-quantize` -> `ollama create`, producing a genuine Ollama model
+  and a recorded documented non-serve verdict (`declined_no_gain`); model
+  canary (`serve()`) and rollback (`rollback()`) both proven via hermetic
+  tests exercising the real atomic-alias-repoint code path, not mocked
+  around it. No frozen five-arm cousin-suite bench harness exists yet in
+  this build (out of P6's scope to construct from scratch) -- flagged
+  honestly as the reason the live demonstration's own acceptance verdict
+  is a genuine non-serve rather than a forced pass; the gate arithmetic
+  itself (`evaluate_acceptance`) is fully built and tested against
+  fixtures.
 
 ## Verification discipline used for every phase
 
@@ -189,8 +183,12 @@ itself before writing any code.
 ## Next
 
 **P7** — Cutover proof: `TASK_BULLY_P7_CUTOVER_PROOF_V1.md`. Depends on P6
-(flywheel landed on `bully/P6-flywheel`, HEAD `a4bbff0d`; merge to `main`
-still pending as of this note).
+(flywheel merged, `03e24a05`). Note: P6 flagged one known gap worth
+revisiting before or during P7 — no frozen five-arm cousin-suite bench
+harness exists yet, so `training.evaluate_acceptance` has never been
+exercised against a real bench comparison (only fixtures + one honest
+`declined_no_gain` live run). If P7's cutover proof wants a genuine model
+promotion demonstration, building that harness is a prerequisite.
 
 ## Housekeeping note (unrelated to the bully program)
 
