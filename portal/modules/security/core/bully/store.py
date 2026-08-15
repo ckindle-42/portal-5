@@ -25,6 +25,7 @@ from .contracts import (
     CousinAssessment,
     DecisionEvent,
     DecisionImpact,
+    DriftFlag,
     HuntContext,
     MutationPlan,
     RecallReceipt,
@@ -33,7 +34,7 @@ from .contracts import (
     is_legal_hunt_transition,
 )
 
-SCHEMA_VERSION = 4  # highest migration this code understands
+SCHEMA_VERSION = 5  # highest migration this code understands
 _MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
 
@@ -1339,6 +1340,83 @@ class Store:
             "SELECT * FROM mutation_plans WHERE plan_id=?", (plan_id,)
         ).fetchone()
         return _row_to_dict(row)
+
+    # ── drift baselines / flags (P3.2, I-9) ──────────────────────────────
+
+    def detection_baseline_get(self, baseline_key: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM detection_baselines WHERE baseline_key=?", (baseline_key,)
+        ).fetchone()
+        if row is None:
+            return None
+        d = _row_to_dict(row)
+        d["window"] = _loads(d["window"], [])
+        return d
+
+    def detection_baselines_get_many(self, baseline_keys: list[str]) -> dict[str, dict]:
+        out: dict[str, dict] = {}
+        for key in baseline_keys:
+            baseline = self.detection_baseline_get(key)
+            if baseline is not None:
+                out[key] = baseline
+        return out
+
+    def detection_baseline_upsert(self, baseline: dict) -> None:
+        """Persist a `drift_engine.update`-returned baseline dict (DATA_MODEL
+        SS1.8). `baseline_key` already encodes `(detection_id,
+        policy_version)`, so a version change lands on a distinct row (the
+        warm-up mechanism -- no special-cased supersede logic needed)."""
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO detection_baselines (baseline_key, detection_id, policy_version, "
+                "status, window, sample_count, model_canary_ref, last_episode_id, updated_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?) "
+                "ON CONFLICT(baseline_key) DO UPDATE SET "
+                "status=excluded.status, window=excluded.window, "
+                "sample_count=excluded.sample_count, model_canary_ref=excluded.model_canary_ref, "
+                "last_episode_id=excluded.last_episode_id, updated_at=excluded.updated_at",
+                (
+                    baseline["baseline_key"],
+                    baseline["detection_id"],
+                    baseline["policy_version"],
+                    baseline["status"],
+                    _json(baseline["window"]),
+                    baseline["sample_count"],
+                    baseline.get("model_canary_ref"),
+                    baseline.get("last_episode_id"),
+                    time.time(),
+                ),
+            )
+
+    def drift_flag_record(self, flag: DriftFlag) -> None:
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO drift_flags (flag_id, detection_id, episode_id, drift_class, "
+                "status, score, signals, bands, breaches, consecutive_count, routed, detail, "
+                "created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    flag.flag_id,
+                    flag.detection_id,
+                    flag.episode_id,
+                    flag.drift_class,
+                    flag.status,
+                    flag.score,
+                    _json(flag.signals),
+                    _json(flag.bands),
+                    _json(flag.breaches),
+                    flag.consecutive_count,
+                    1 if flag.routed else 0,
+                    flag.detail,
+                    flag.created_at,
+                ),
+            )
+
+    def drift_flags_for_detection(self, detection_id: str) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM drift_flags WHERE detection_id=? ORDER BY created_at ASC",
+            (detection_id,),
+        ).fetchall()
+        return [_row_to_dict(r) for r in rows]
 
     # ── doctor (integrity check) ─────────────────────────────────────────
 

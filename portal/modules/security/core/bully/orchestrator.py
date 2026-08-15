@@ -1,15 +1,16 @@
 """bully.orchestrator -- LOOP, the only module that sequences a hunt
-iteration (P1.7, P3.1 MUT wiring).
+iteration (P1.7, P3 MUT/drift wiring).
 
 Stage machine (I-3): DRAFT -> AUTHORIZED -> RECALL_READY -> TARGETED ->
 MUTATION_READY -> EXECUTING -> ANALYZING -> PROMOTING -> COMPOUNDING ->
 CLOSED (+ BLOCKED / CANCELLED / FAILED). P1 wires exactly one iteration
 end-to-end; TARGETED is still a stubbed passthrough (real TGT lands P4).
 MUTATION_READY now compiles a real `MutationPlan` via `mutation.py` (P3.1,
-replacing the P1 stub). PROMOTING/COMPOUNDING do not yet run BIN/HEART here
-(P2's promotion pipeline is driven separately via `hunt queue
---confirm/--reject`) -- they still perform the universal index-emission
-step that later phases extend, never skip.
+replacing the P1 stub); ANALYZING now also runs BR-DRIFT (P3.2) after the
+cousin grade. PROMOTING/COMPOUNDING do not yet run BIN/HEART here (P2's
+promotion pipeline is driven separately via `hunt queue --confirm/--reject`)
+-- they still perform the universal index-emission step that later phases
+extend, never skip.
 
 `[GATE]` hunt authorization is operator-only: `hunt run`/`hunt resume`/
 `hunt cancel`/`hunt queue` all require an `actor` starting with
@@ -24,6 +25,7 @@ from collections.abc import Callable
 from typing import Any
 
 from . import config as bully_config
+from . import drift_engine
 from . import evidence as evidence_mod
 from . import investigation as investigation_mod
 from . import mutation as mutation_mod
@@ -249,6 +251,65 @@ def _do_mutate(
     return {**target_cell, "scenario": scenario_name, "mutation_overlay": overlay.to_dict()}
 
 
+def _do_drift(store: Store, *, hunt_id: str, episode_view: dict) -> list:
+    """ANALYZING (continued) -- BR-DRIFT temporal-cousin classification
+    (P3.2, I-9), run after the cousin grade.
+
+    Documented simplification (MASTER SS0 finding): the investigation arm
+    does not yet hand LOOP a per-SPL-detection outcome breakdown, so this
+    wiring treats the episode's own telemetry/detection reason codes as one
+    detection sample keyed by scenario (`episode:<scenario>`).
+    `drift_engine.update` itself is fully general over a real per-detection
+    breakdown whenever one is wired in (P4+) -- see its own unit tests for
+    multi-detection fixtures.
+    """
+    detection_id = f"episode:{episode_view['scenario']}"
+    telemetry_status = episode_view.get("telemetry_status")
+    detection_status = episode_view.get("detection_status")
+    sensor_healthy = telemetry_status not in (
+        "TELEMETRY_COLLECTION_FAILED",
+        "TELEMETRY_NOT_INDEXED",
+    )
+    completeness = {
+        "TELEMETRY_OBSERVED": 1.0,
+        "TELEMETRY_NOT_INDEXED": 0.4,
+        "TELEMETRY_COLLECTION_FAILED": 0.0,
+    }.get(telemetry_status, 0.9)
+    sample = {
+        "detection_id": detection_id,
+        "fired": detection_status == "DETECTION_CONFIRMED",
+        "sourcetype_completeness": completeness,
+        "clause_satisfied": (False if detection_status == "DETECTION_HIT_UNATTRIBUTED" else None),
+        "row_shape": None,
+        "environment_fingerprint": episode_view.get("target_host"),
+        "sensor_healthy": sensor_healthy,
+    }
+    hunt_config = bully_config.load_hunt_config()
+    policy_version = hunt_config.get("thresholds", {}).get("calibration_artifact", "v1")
+    key = drift_engine.baseline_key(detection_id, policy_version)
+    existing = store.detection_baseline_get(key)
+    baselines = {key: existing} if existing is not None else {}
+
+    flags, updated_baselines = drift_engine.update(
+        episode_view["episode_id"], [sample], baselines, policy_version=policy_version
+    )
+    for baseline in updated_baselines.values():
+        store.detection_baseline_upsert(baseline)
+    for flag in flags:
+        store.drift_flag_record(flag)
+        _record(
+            store,
+            hunt_id=hunt_id,
+            iteration_id=None,
+            actor="system:orchestrator",
+            kind="grade",
+            subject_id=flag.detection_id,
+            rationale=f"BR-DRIFT classified {flag.drift_class} (status={flag.status})",
+            data={"flag_id": flag.flag_id, "routed": flag.routed, "score": flag.score},
+        )
+    return flags
+
+
 def _do_analyze(
     store: Store,
     organ: Organ,
@@ -304,10 +365,10 @@ def run_hunt_iteration(
     """Drive exactly one hunt iteration through the full stage machine.
 
     LOAD -> RECALL -> SELECT(stub) -> DIRECT(MUT, P3.1) -> INVESTIGATE ->
-    GRADE -> RECORD -> STOP. Every stage transition is a real, checked SUB
-    write; there is no code path that reaches TARGETED without a persisted
-    RecallReceipt, and no code path that closes the iteration with a
-    required unindexed emission still pending.
+    GRADE -> DRIFT(P3.2) -> RECORD -> STOP. Every stage transition is a
+    real, checked SUB write; there is no code path that reaches TARGETED
+    without a persisted RecallReceipt, and no code path that closes the
+    iteration with a required unindexed emission still pending.
 
     `mutation_plan` lets a caller (CLI, test) inject an explicit
     `MutationPlan`; when omitted, `_do_mutate` builds a trivial zero-operator
@@ -391,7 +452,7 @@ def run_hunt_iteration(
             f"hunt {hunt_id}: episode {episode_view['episode_id']} INDETERMINATE"
         )
 
-    # ANALYZING -- investigation arm -> signature -> cousin grade.
+    # ANALYZING -- investigation arm -> signature -> cousin grade -> BR-DRIFT.
     _stage("ANALYZING")
     inv_result, assessment = _do_analyze(
         store,
@@ -403,6 +464,7 @@ def run_hunt_iteration(
         investigation_arm=investigation_arm,
         dry_run=dry_run,
     )
+    drift_flags = _do_drift(store, hunt_id=hunt_id, episode_view=episode_view)
 
     # PROMOTING / COMPOUNDING -- BIN/HEART land P2; universal index emission
     # (I-4) happens regardless, in this same iteration, never deferred to a
@@ -445,6 +507,10 @@ def run_hunt_iteration(
         "defense_response": assessment.defense_response,
         "investigation_verdict": inv_result.verdict,
         "outbox": outbox_result,
+        "drift_flags": [
+            {"drift_class": f.drift_class, "status": f.status, "routed": f.routed}
+            for f in drift_flags
+        ],
         "stage": "CLOSED",
     }
 

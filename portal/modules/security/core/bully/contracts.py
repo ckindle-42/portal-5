@@ -52,6 +52,10 @@ TRUST_TIERS: tuple[str, ...] = (
     "SUPERSEDED",
 )
 
+DRIFT_FLAG_STATUSES: tuple[str, ...] = ("FLAGGED", "INSUFFICIENT_BASELINE")
+
+BASELINE_STATUSES: tuple[str, ...] = ("warmup", "active", "superseded")
+
 # ── Mutation director (MUT, I-1/I-20, P3.1) ─────────────────────────────────
 
 # The typed-operator catalog itself (code-level, closed). hunt.yaml's
@@ -754,6 +758,37 @@ class ScenarioOverlay(_DTOMixin):
             if tuple_field in payload and payload[tuple_field] is not None:
                 payload[tuple_field] = tuple(payload[tuple_field])
         return cls(**payload)
+
+
+# ── DriftFlag / DetectionBaseline (I-9, P3.2) ───────────────────────────────
+
+
+@dataclass(frozen=True)
+class DriftFlag(_DTOMixin):
+    """Temporal-cousin drift flag (I-9 OUTPUT). `drift_class` is always one
+    of `DRIFT_CLASSES`; `status` disambiguates a confident classification
+    (`FLAGGED`) from an honest non-answer (`INSUFFICIENT_BASELINE`, paired
+    with `drift_class="UNCLASSIFIED"`)."""
+
+    flag_id: str
+    detection_id: str
+    episode_id: str
+    drift_class: str
+    status: str
+    score: float
+    signals: dict[str, Any] = field(default_factory=dict)
+    bands: dict[str, Any] = field(default_factory=dict)
+    breaches: dict[str, Any] = field(default_factory=dict)
+    consecutive_count: int = 0
+    routed: bool = False
+    detail: str = ""
+    created_at: float = field(default_factory=time.time)
+
+    def __post_init__(self) -> None:
+        if self.drift_class not in DRIFT_CLASSES:
+            raise ValueError(f"unknown drift class: {self.drift_class!r}")
+        if self.status not in DRIFT_FLAG_STATUSES:
+            raise ValueError(f"unknown drift flag status: {self.status!r}")
 
 
 def round_trip(dto: _DTOMixin) -> Any:
