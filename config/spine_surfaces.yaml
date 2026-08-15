@@ -357,6 +357,10 @@ surfaces:
   - scripts/lib/*.py
   - scripts/validation/*.py
   unit: unit-surface-scripts
+- name: unit-surface-sec-bully
+  globs:
+  - portal/modules/security/core/bully/*.py
+  unit: unit-surface-sec-bully
 - name: unit-surface-sec-core
   globs:
   - portal/modules/security/core/*.py
@@ -374,6 +378,10 @@ surfaces:
   globs:
   - portal/modules/security/core/siem/*.py
   unit: unit-surface-siem
+- name: unit-surface-tests-bully
+  globs:
+  - tests/security/bully/*.py
+  unit: unit-surface-tests-bully
 - name: unit-surface-tests-harness
   globs:
   - tests/*.py

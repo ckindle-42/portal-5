@@ -57,6 +57,10 @@ if __name__ == "__main__":
         from portal.modules.security.core.loop_cli import loop_main
 
         sys.exit(loop_main(sys.argv[2:]))
+    if len(sys.argv) > 1 and sys.argv[1] == "hunt":
+        from portal.modules.security.core.commands.hunt_modes import hunt_main
+
+        sys.exit(hunt_main(sys.argv[2:]))
     from portal.modules.security.core import main
 
     sys.exit(main())
