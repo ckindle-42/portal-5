@@ -1,0 +1,223 @@
+"""Standalone scorer-side lane for measured, untagged telemetry cousins."""
+
+from __future__ import annotations
+
+import copy
+import hashlib
+import json
+from collections.abc import Callable
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any
+
+from ..siem import capture_store
+from ..telemetry import IMPORTED_OBSERVED, IMPORTED_OBSERVED_TRUST_TIER
+from . import config
+from .contracts import MutationOperatorSpec
+from .cousin_calibration_bench import construction_distance
+from .specimen_ledger import SpecimenLedger, SpecimenRecord
+
+SIGNATURE_FEATURES = (
+    "action_sequence",
+    "event_graph",
+    "parameter_families",
+    "context_topology",
+    "artifacts",
+    "attack_mappings",
+    "telemetry_shape",
+    "detector_outcomes",
+)
+
+ReplayFn = Callable[..., dict[str, Any]]
+
+
+def _canonical(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
+
+
+def _features(telemetry_view: dict[str, Any]) -> dict[str, Any]:
+    return {name: copy.deepcopy(telemetry_view.get(name)) for name in SIGNATURE_FEATURES}
+
+
+def signature_feature_delta(
+    before: dict[str, Any], after: dict[str, Any]
+) -> dict[str, dict[str, Any]]:
+    """Return only engine-observable feature changes."""
+    delta: dict[str, dict[str, Any]] = {}
+    for feature in SIGNATURE_FEATURES:
+        old = before.get(feature)
+        new = after.get(feature)
+        if _canonical(old) != _canonical(new):
+            delta[feature] = {"before": old, "after": new}
+    return delta
+
+
+def _replace(value: Any, source: str, target: str) -> Any:
+    if isinstance(value, str):
+        return value.replace(source, target)
+    if isinstance(value, list):
+        return [_replace(item, source, target) for item in value]
+    if isinstance(value, dict):
+        return {key: _replace(item, source, target) for key, item in value.items()}
+    return value
+
+
+def _apply_operator(  # noqa: PLR0912 - closed six-class transform catalog
+    telemetry: dict[str, list[Any]],
+    view: dict[str, Any],
+    operator: MutationOperatorSpec,
+) -> None:
+    name, params = operator.operator, operator.params
+    actions = list(view.get("action_sequence") or [])
+    if name == "REORDER_STEPS":
+        requested = params.get("order")
+        reordered = (
+            list(requested)
+            if requested and sorted(requested) == sorted(actions)
+            else list(reversed(actions))
+        )
+        view["action_sequence"] = reordered
+        graph = dict(view.get("event_graph") or {})
+        graph["ordered"] = reordered
+        view["event_graph"] = graph
+        for sourcetype, events in telemetry.items():
+            telemetry[sourcetype] = list(reversed(events))
+    elif name == "SUBSTITUTE_TECHNIQUE":
+        source, target = str(params.get("from") or ""), str(params.get("to") or "")
+        if source and target:
+            view["action_sequence"] = [target if item == source else item for item in actions]
+            view["event_graph"] = _replace(view.get("event_graph") or {}, source, target)
+            for sourcetype, events in telemetry.items():
+                telemetry[sourcetype] = _replace(events, source, target)
+    elif name == "VARY_PARAMETER":
+        placeholder = str(params.get("placeholder") or "")
+        value = params.get("value")
+        if placeholder and value is not None:
+            families = dict(view.get("parameter_families") or {})
+            families[placeholder] = str(value)
+            view["parameter_families"] = families
+            for sourcetype, events in telemetry.items():
+                telemetry[sourcetype] = _replace(events, placeholder, str(value))
+    elif name == "INJECT_EVASION_DIRECTIVE":
+        directive = str(params.get("directive_text") or "")
+        if directive:
+            shape = dict(view.get("telemetry_shape") or {})
+            shape["representation"] = hashlib.sha256(directive.encode()).hexdigest()[:12]
+            view["telemetry_shape"] = shape
+    elif name in {"OFF_SCRIPT_SUPPLY", "REVERSE_GEN_SEED"}:
+        additions = list(params.get("technique_ids") or [])
+        if params.get("technique_id"):
+            additions.append(str(params["technique_id"]))
+        if additions:
+            topology = dict(view.get("context_topology") or {})
+            topology["off_script_observable_count"] = len(additions)
+            view["context_topology"] = topology
+
+
+def _clean_engine_view(specimen_id: str, parent: dict[str, Any], view: dict[str, Any]) -> dict:
+    visible_features = _features(view)
+    visible_features["attack_mappings"] = []
+    return {
+        "episode_view": {
+            "episode_id": specimen_id,
+            "target_host": parent.get("target_host") or "external-observed",
+            "trust_tier": IMPORTED_OBSERVED_TRUST_TIER,
+        },
+        "telemetry_view": {**visible_features, "trust_tier": IMPORTED_OBSERVED_TRUST_TIER},
+        "evidence_origin": IMPORTED_OBSERVED,
+        "trust_tier": IMPORTED_OBSERVED_TRUST_TIER,
+        "provenance": "derived_variant",
+    }
+
+
+@dataclass(frozen=True)
+class ForgedSpecimen:
+    specimen_id: str
+    engine_view: dict[str, Any]
+    construction_distance: float
+    differences: tuple[dict[str, Any], ...]
+    capture_path: str
+    replay_receipt: dict[str, Any]
+
+
+def forge(
+    parent_telemetry: dict[str, Any],
+    operators: tuple[MutationOperatorSpec, ...] | list[MutationOperatorSpec],
+    *,
+    ledger: SpecimenLedger | None = None,
+    evidence_dir: Path | None = None,
+    replay_fn: ReplayFn = capture_store.replay_capture,
+    dry_run: bool = False,
+) -> ForgedSpecimen:
+    """Mutate observed telemetry, replay it without lineage tags, then seal truth."""
+    parent_id = str(parent_telemetry.get("specimen_id") or parent_telemetry.get("parent_id") or "")
+    if not parent_id:
+        raise ValueError("parent telemetry requires a scorer-side specimen_id")
+    typed_ops = tuple(operators)
+    if not typed_ops:
+        raise ValueError("relabel-only, not a cousin")
+
+    raw = copy.deepcopy(parent_telemetry.get("telemetry") or {})
+    view = _features(parent_telemetry.get("telemetry_view") or parent_telemetry)
+    differences: list[dict[str, Any]] = []
+    moved_ops: list[MutationOperatorSpec] = []
+    for operator in typed_ops:
+        before = _features(view)
+        _apply_operator(raw, view, operator)
+        delta = signature_feature_delta(before, _features(view))
+        if delta:
+            moved_ops.append(operator)
+            differences.append({"operator": operator.operator, "features": delta})
+    moved_features = {feature for difference in differences for feature in difference["features"]}
+    if not moved_features:
+        raise ValueError("relabel-only, not a cousin")
+    distance = construction_distance(tuple(moved_ops), moved_features=moved_features)
+    digest = hashlib.sha256(
+        _canonical(
+            {
+                "parent": parent_id,
+                "operators": [asdict(operator) for operator in typed_ops],
+                "features": _features(view),
+            }
+        ).encode()
+    ).hexdigest()[:20]
+    specimen_id = f"specimen-{digest}"
+    engine_view = _clean_engine_view(specimen_id, parent_telemetry, view)
+
+    target_dir = Path(evidence_dir or (config.hunt_dir() / "specimen_evidence"))
+    target_dir.mkdir(parents=True, exist_ok=True)
+    capture_path = target_dir / f"{specimen_id}.json"
+    capture_payload = {
+        "schema_version": 2,
+        "scenario": "external-observed-specimen",
+        "target_host": parent_telemetry.get("target_host") or "external-observed",
+        "episode_id": specimen_id,
+        "telemetry": raw,
+        "telemetry_origins": dict.fromkeys(raw, IMPORTED_OBSERVED),
+        "telemetry_provenance": dict.fromkeys(raw, "derived_variant"),
+        "validity": {"checked": True, "valid": True, "coverage": 1.0},
+    }
+    capture_path.write_text(json.dumps(capture_payload, sort_keys=True), encoding="utf-8")
+    replay_receipt = replay_fn(capture_path, dry_run=dry_run)
+    if not replay_receipt.get("ok"):
+        raise RuntimeError(f"forged specimen replay failed: {replay_receipt}")
+
+    truth = SpecimenRecord(
+        specimen_id=specimen_id,
+        parent_id=parent_id,
+        source_lane="replay_mutation",
+        transform_ops=tuple(asdict(operator) for operator in typed_ops),
+        construction_distance=distance,
+        data_yml_techniques=tuple(parent_telemetry.get("data_yml_techniques") or ()),
+        created_at=float(parent_telemetry.get("created_at", 0.0)),
+        provenance={"class": "derived_variant", "differences": differences},
+    )
+    (ledger or SpecimenLedger()).record(truth)
+    return ForgedSpecimen(
+        specimen_id=specimen_id,
+        engine_view=engine_view,
+        construction_distance=distance,
+        differences=tuple(differences),
+        capture_path=str(capture_path),
+        replay_receipt=replay_receipt,
+    )

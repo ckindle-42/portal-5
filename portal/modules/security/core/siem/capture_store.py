@@ -256,6 +256,7 @@ def replay_capture(
     target_host = canonical_target_host(data)
     telemetry = data["telemetry"]
     telemetry_origins = data.get("telemetry_origins") or {}
+    telemetry_provenance = data.get("telemetry_provenance") or {}
     episode_id = data.get("episode_id")
     integrity_issues = capture_replay_issues(data)
     if integrity_issues:
@@ -289,6 +290,7 @@ def replay_capture(
             dry_run=dry_run,
             event_time=event_time,
             evidence_origin=telemetry_origins.get(sourcetype, "observed_target_log"),
+            evidence_provenance=telemetry_provenance.get(sourcetype),
             episode_id=episode_id,
         )
         if r.get("ok"):
