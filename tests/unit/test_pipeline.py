@@ -1735,10 +1735,7 @@ class TestInjectOllamaOptions:
 
 
 class TestThinkProfileResolution:
-    """TASK_SAMPLING_PROFILE_AUDIT_V1 Scope item 3: think-mode-aware sampling
-    switch. A workspace's verified think_profiles entry must win over its own
-    flat sampling fields (the generic fleet fallback), and caller values must
-    still win over the resolved profile."""
+    """think_profiles must win over flat fields; caller values win over both."""
 
     def test_thinking_profile_wins_over_flat_fields(self, monkeypatch):
         from portal.platform.inference.router import validation as vm
@@ -1748,7 +1745,7 @@ class TestThinkProfileResolution:
             vm.WORKSPACES,
             "ws-think",
             {
-                "temperature": 0.2,  # generic fleet fallback — should lose
+                "temperature": 0.2,  # flat fallback — should lose
                 "top_p": 0.9,
                 "think": True,
                 "think_profiles": {
@@ -1785,9 +1782,7 @@ class TestThinkProfileResolution:
         assert body["think"] is False
 
     def test_no_think_set_falls_back_to_flat_fields(self, monkeypatch):
-        """A workspace with think_profiles but no `think` set (the current
-        fleet-wide default, per Finding 2) must behave exactly as before —
-        flat fields only, no profile applied."""
+        """No `think` set (today's fleet-wide default) → flat fields only."""
         from portal.platform.inference.router import validation as vm
         from portal.platform.inference.router_pipe import _inject_ollama_options
 
