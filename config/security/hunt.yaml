@@ -45,13 +45,21 @@ thresholds:
   min_nonsemantic_channels_for_similar_or_new: 2
 
 models:
-  # Role-alias resolution mirrors the blueteam-council precedent
-  # (config/portal.yaml) -- bully never hardcodes a model tag (MASTER SS11).
-  workspace: blueteam-council
+  # Role-alias resolution mirrors the blueteam-council/blueteam-orchestrated
+  # precedent (config/portal.yaml): every role tag is a workspace field
+  # lookup at call time, never a literal model name in Python (MASTER SS11).
+  # blueteam-orchestrated holds exactly the tool/reasoning/expert trio the
+  # investigation arm's _run_three_section expects.
+  workspace: blueteam-orchestrated
   role_fields:
-    investigator: tool_model
-    council: council_models
+    tool: tool_model
+    reasoning: reasoning_model
     expert: expert_model
+  # Council seat roster (HEART, P2) resolves from a separate workspace since
+  # it is a list of models, not a single trio -- declared here so the
+  # config shape doesn't change again when P2 lands.
+  council_workspace: blueteam-council
+  council_field: council_models
 
 recall:
   mandatory: true                  # no code path may target without a persisted RecallReceipt

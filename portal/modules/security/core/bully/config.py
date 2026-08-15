@@ -46,11 +46,14 @@ def load_heart_config(path: Path | None = None) -> dict[str, Any]:
 
 
 def resolve_role_model(role: str, *, hunt_config: dict[str, Any] | None = None) -> str | list[str]:
-    """Resolve a bully model *role* (e.g. ``"investigator"``, ``"council"``,
-    ``"expert"``) to a concrete Ollama model tag (or list of tags for a
-    council roster), via the workspace named in ``hunt.yaml::models.workspace``
-    (default ``blueteam-council``) — mirroring the precedent resolution path
-    documented at ``config/portal.yaml::workspaces.blueteam-council``.
+    """Resolve a bully model *role* (e.g. ``"tool"``, ``"reasoning"``,
+    ``"expert"``) to a concrete Ollama model tag, via the workspace named in
+    ``hunt.yaml::models.workspace`` (default ``blueteam-orchestrated``, which
+    holds exactly the tool/reasoning/expert trio the investigation arm's
+    ``_run_three_section`` expects) — mirroring the precedent resolution
+    path documented at ``config/portal.yaml::workspaces.blueteam-council``
+    (a sibling confirm-only workspace holding the analogous
+    tool_model/council_models/expert_model trio for the council variant).
 
     Never returns a literal hardcoded model name from this module: the tag
     always comes from config/portal.yaml at call time, so a model-catalog
@@ -58,10 +61,10 @@ def resolve_role_model(role: str, *, hunt_config: dict[str, Any] | None = None) 
     """
     cfg = hunt_config or load_hunt_config()
     models_cfg = cfg.get("models") or {}
-    workspace_id = models_cfg.get("workspace", "blueteam-council")
+    workspace_id = models_cfg.get("workspace", "blueteam-orchestrated")
     field_map = models_cfg.get("role_fields") or {
-        "investigator": "tool_model",
-        "council": "council_models",
+        "tool": "tool_model",
+        "reasoning": "reasoning_model",
         "expert": "expert_model",
     }
     field = field_map.get(role)
@@ -73,17 +76,52 @@ def resolve_role_model(role: str, *, hunt_config: dict[str, Any] | None = None) 
     from portal.platform.inference.config import load_portal_config
 
     portal_cfg = load_portal_config()
-    workspace = portal_cfg.workspaces.get(workspace_id)
-    if workspace is None:
+    value = _lookup_workspace_field(portal_cfg, workspace_id, field)
+    if value is None:
         raise ConfigError(
-            f"workspace {workspace_id!r} referenced by hunt.yaml::models not found in portal.yaml"
-        )
-    value = getattr(workspace, field, None)
-    if not value:
-        raise ConfigError(
-            f"workspace {workspace_id!r} has no {field!r} configured for role {role!r}"
+            f"workspace/variant {workspace_id!r} referenced by hunt.yaml::models not found in "
+            f"portal.yaml, or has no {field!r} configured for role {role!r}"
         )
     return value
+
+
+def _lookup_workspace_field(portal_cfg: Any, workspace_id: str, field: str) -> Any:
+    """Resolve `field` off a top-level workspace OR a *variant* nested under
+    one (`WorkspaceSpec.variants: dict[str, dict]`).
+
+    Drift finding (re-anchored live, MASTER SS0): `blueteam-council` and
+    `blueteam-orchestrated` are not top-level `config/portal.yaml`
+    workspace ids -- both are entries under `auto-security`'s `variants`
+    dict (confirm-only variants of the auto-security workspace, not
+    separately routable workspaces; `expose_to_owui: false`). The task
+    file's "mirroring the blueteam-council resolution path" cites the
+    field *names* (tool_model/reasoning_model/expert_model) correctly; the
+    container is one level deeper than a flat `workspaces[id]` lookup.
+    This function tries a direct top-level workspace first (matches the
+    precedent's literal shape if it or a future workspace is ever promoted
+    to top-level), then searches every top-level workspace's `variants`
+    dict for `workspace_id` as a variant key.
+    """
+    top_level = portal_cfg.workspaces.get(workspace_id)
+    if top_level is not None:
+        value = getattr(top_level, field, None)
+        if value:
+            return value
+    for workspace in portal_cfg.workspaces.values():
+        variant = (getattr(workspace, "variants", None) or {}).get(workspace_id)
+        if variant is not None and variant.get(field):
+            return variant[field]
+    return None
+
+
+def resolve_investigation_models(*, hunt_config: dict[str, Any] | None = None) -> dict[str, str]:
+    """`{"tool": ..., "reasoning": ..., "expert": ...}` -- exactly the shape
+    `investigation.run_arm`/`_run_three_section` expect, each tag resolved
+    via `resolve_role_model` (no hardcoded model id)."""
+    cfg = hunt_config or load_hunt_config()
+    return {
+        role: resolve_role_model(role, hunt_config=cfg) for role in ("tool", "reasoning", "expert")
+    }
 
 
 def content_hash(*payloads: dict[str, Any]) -> str:

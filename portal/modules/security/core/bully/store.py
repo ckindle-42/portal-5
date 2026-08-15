@@ -18,6 +18,7 @@ import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 from . import events, outbox
 from .contracts import (
@@ -367,6 +368,45 @@ class Store:
                 ),
             )
         return entry_id
+
+    # ── behavior signatures ──────────────────────────────────────────────
+
+    def record_signature(self, signature: Any) -> None:
+        """Persist a `signatures.BehaviorSignature` (idempotent on its
+        natural key: episode_ref + algorithm version + input manifest
+        hash -- a re-drive with identical inputs is a silent no-op, not a
+        duplicate row or an error)."""
+        existing = self._conn.execute(
+            "SELECT 1 FROM behavior_signatures WHERE signature_id=?", (signature.signature_id,)
+        ).fetchone()
+        if existing is not None:
+            return
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO behavior_signatures (signature_id, episode_ref, "
+                "signature_algorithm_version, input_manifest_hash, canonical_fingerprint, "
+                "action_sequence, event_graph, parameter_families, context_topology, artifacts, "
+                "attack_mappings, telemetry_shape, detector_outcomes, evidence_manifest_id, "
+                "completeness, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    signature.signature_id,
+                    signature.episode_ref,
+                    signature.signature_algorithm_version,
+                    signature.input_manifest_hash,
+                    signature.canonical_fingerprint,
+                    _json(signature.action_sequence),
+                    _json(signature.event_graph),
+                    _json(signature.parameter_families),
+                    _json(signature.context_topology),
+                    _json(signature.artifacts),
+                    _json(signature.attack_mappings),
+                    _json(signature.telemetry_shape),
+                    _json(signature.detector_outcomes),
+                    signature.evidence_manifest_id,
+                    signature.completeness,
+                    signature.created_at,
+                ),
+            )
 
     # ── cousin assessments ───────────────────────────────────────────────
 

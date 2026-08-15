@@ -115,6 +115,49 @@ def test_bully_does_not_import_training_extras_at_module_scope():
         assert not hit, f"{path.name} imports a training extra at module scope: {hit}"
 
 
+def test_only_orchestrator_sequences_the_lab_execution_functions():
+    """MASTER SS3: 'Only orchestrator.py sequences a hunt iteration' --
+    the unchanged exec_chain/blue lab-execution entry points are called
+    from exactly one bully module."""
+
+    def _calls(path: Path, names: set[str]) -> set[str]:
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        found = set()
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.ImportFrom)
+                and node.module
+                and (node.module.endswith("exec_chain") or node.module.endswith(".blue"))
+            ):
+                found |= {alias.name for alias in node.names} & names
+        return found
+
+    lab_functions = {"_prepare_scenario", "_run_chain_test", "collect_and_ship_scenario_telemetry"}
+    callers = {}
+    for path in BULLY_DIR.glob("*.py"):
+        hit = _calls(path, lab_functions)
+        if hit:
+            callers[path.stem] = hit
+    assert set(callers.keys()) <= {"orchestrator"}, callers
+
+
+def test_model_calls_only_inside_investigation_and_future_model_calling_modules():
+    """MASTER SS3: model calls happen only inside investigation.py (P1) and
+    later adversary.py/handoff.py/playbooks.py -- never orchestrator.py or
+    the pure-compute modules directly."""
+    allowed = {"investigation", "adversary", "handoff", "playbooks"}
+    for path in BULLY_DIR.glob("*.py"):
+        if path.stem in allowed:
+            continue
+        imports = _imported_names(path)
+        hit = {
+            i
+            for i in imports
+            if i.endswith("_run_three_section") or i.endswith("agentic_blue_eval")
+        }
+        assert not hit, f"{path.name} imports a model-calling entry point: {hit}"
+
+
 def test_no_hardcoded_model_tag_string_in_bully_source():
     """MASTER SS5/SS11: no bully module hardcodes a model tag. A cheap proxy
     check: none of the current Ollama-catalog naming conventions
