@@ -35,7 +35,7 @@ tags:
 - omlx
 - verified-v1
 created_at: 1785719000.0
-updated_at: 1785723200.0
+updated_at: 1786828785.5367649
 ---
 
 # oMLX dual-backend plumbing (Phase 1 / B1, landed 2026-08-02)
@@ -65,11 +65,19 @@ via the tier-3 absolute-fallback net).
   (e.g. a GGUF tag) → engine-native model id (e.g. an oMLX directory name),
   so an engine swap stays a `config/backends.yaml` edit (Rule 1) with no
   workspace changes.
-- `_inject_omlx_options` (`validation.py`) — plain-OpenAI injection only
-  (`max_tokens`, `stream_options.include_usage`, top-level
-  `temperature`/`top_p`): no `options` sub-dict, no `keep_alive` (oMLX uses
-  server-side EnginePool pinning/TTL), no `num_ctx` (oMLX per-model
-  settings replace the `-ctxNk` derived-tag workaround, P5-OLLAMA-OPTIONS-001).
+- `_inject_omlx_options` (`validation.py`) — no `options` sub-dict, no
+  `keep_alive` (oMLX uses server-side EnginePool pinning/TTL), no `num_ctx`
+  (oMLX per-model settings replace the `-ctxNk` derived-tag workaround,
+  P5-OLLAMA-OPTIONS-001). Updated by `TASK_SAMPLING_PROFILE_AUDIT_V1`
+  (2026-08-15, Finding 6): originally forwarded only `max_tokens`/
+  `stream_options.include_usage`/top-level `temperature`/`top_p` — every
+  other workspace sampling key was silently dropped for oMLX-served traffic
+  even though oMLX's own `ChatCompletionRequest` schema (verified against
+  the live installed `omlx` package) genuinely wires `top_k`/`min_p`/
+  `presence_penalty`/`seed`. Now forwards the full set, with
+  `repeat_penalty` renamed to oMLX's `repetition_penalty` field and `think`
+  mapped to `chat_template_kwargs.enable_thinking` (oMLX has no bare
+  `think` field) rather than passed through as-is.
 - `router/backend_introspect.py` — `model_still_running(url)` seam replacing
   hardcoded `/api/ps` at the three timeout-disambiguation sites (streaming
   ×2, non-streaming ×1). Type is resolved from the lifespan registry
