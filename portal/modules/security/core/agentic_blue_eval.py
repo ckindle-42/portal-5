@@ -81,6 +81,14 @@ def _load_api_key() -> str:
 
 @dataclass
 class Episode:
+    """Legacy acceptance-bench episode.
+
+    P7 reconciliation: this is intentionally retained for corpus/acceptance
+    readers only. The authoritative hunting driver and persistence contract
+    use ``portal.modules.security.core.episode.Episode`` through LOOP; this
+    name is not a second production Episode authority.
+    """
+
     """A captured red episode with ground-truth techniques."""
 
     scenario: str

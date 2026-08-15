@@ -27,7 +27,7 @@ from collections.abc import Callable
 from typing import Any
 
 from . import config as bully_config
-from . import costing, drift_engine
+from . import costing, cutover, drift_engine
 from . import evidence as evidence_mod
 from . import investigation as investigation_mod
 from . import mutation as mutation_mod
@@ -36,7 +36,7 @@ from . import playbooks as playbooks_mod
 from . import scoreboard as scoreboard_mod
 from . import signatures as signatures_mod
 from . import targeting as targeting_mod
-from .contracts import DecisionEvent, MutationPlan, new_id
+from .contracts import DecisionEvent, DecisionImpact, MutationPlan, new_id
 from .cousin_engine import CoverageView, candidate_set, grade
 from .organ import Organ, OrganUnavailable
 from .store import IllegalTransitionError, Store
@@ -65,9 +65,10 @@ LabDriver = Callable[..., Any]  # (target_cell, *, dry_run) -> live Episode
 def _resolve_live_investigation_models(store: Store) -> dict[str, str]:
     """Resolve config models, then apply only operator-served TRAIN aliases."""
     models = bully_config.resolve_investigation_models()
+    mode = cutover.feed_mode(bully_config.load_hunt_config(), "fleet_local_fine_tune")
     for refinement_role, investigation_role in bully_config.REFINEMENT_ROLE_MAP.items():
         alias = store.model_alias_get(refinement_role)
-        if alias is not None:
+        if alias is not None and mode == "authoritative":
             models[investigation_role] = alias["model_tag"]
     return models
 
@@ -83,15 +84,15 @@ def _default_lab_driver(target_cell: dict, *, dry_run: bool) -> Any:
     """Real driver: unchanged `exec_chain._prepare_scenario` + `_run_chain_test`
     -> `blue.collect_and_ship_scenario_telemetry` -> `episode.Episode`.
 
-    `_run_chain_test`'s own `lab_exec=False` mode is already the existing
-    synthetic-fallback path (no live lab connection required) -- this is
-    the "synthetic lab" I2 exercises when no test-injected `lab_driver` is
-    given. Only reached when a caller doesn't inject its own driver, so
-    hermetic unit tests never hit this function at all.
+    ``dry_run=True`` selects the existing synthetic fallback; a real run
+    passes ``lab_exec=True`` through the unchanged Red/Blue machinery.
+    Only reached when a caller does not inject its own driver.
     """
     from .. import episode as episode_mod
-    from ..blue import collect_and_ship_scenario_telemetry
-    from ..chain import SCENARIOS, BenchConfig
+    from .._config import BenchConfig
+    from ..blue import _run_blue_chain_test, collect_and_ship_scenario_telemetry
+    from ..chain import CHAIN_TOOLS_BASE, SCENARIOS
+    from ..episode import derive_detection_status
     from ..exec_chain import _prepare_scenario, _run_chain_test
 
     scenario_name = target_cell.get("scenario") or next(iter(SCENARIOS))
@@ -108,26 +109,63 @@ def _default_lab_driver(target_cell: dict, *, dry_run: bool) -> Any:
             "red_prompt": overlay["red_prompt"],
             "mission_objective": overlay.get("mission_objective"),
         }
-    cfg = BenchConfig()
-    gate = _prepare_scenario(scenario, cfg, dry_run=dry_run, lab_exec=False)
+    cfg = BenchConfig(chain_tools=list(CHAIN_TOOLS_BASE))
+    lab_exec = not dry_run
+    gate = _prepare_scenario(scenario, cfg, dry_run=dry_run, lab_exec=lab_exec)
     if not gate.get("ready", False):
         raise HonestBlockedError(f"scenario {scenario_name!r} not ready: {gate.get('reason')}")
 
     model = target_cell.get("model") or bully_config.resolve_role_model("tool")
     scenario_start = time.time()
-    chain_result = _run_chain_test(model, cfg, dry_run=dry_run, lab_exec=False)
+    chain_result = _run_chain_test(model, cfg, dry_run=dry_run, lab_exec=lab_exec)
 
     episode_id = episode_mod.new_episode_id(scenario_name)
-    _telemetry_path, _hit, red_status = collect_and_ship_scenario_telemetry(
-        scenario, scenario_start, lab_exec=False, dry_run=dry_run, episode_id=episode_id
+    telemetry_path, indexed, telemetry_error = collect_and_ship_scenario_telemetry(
+        scenario, scenario_start, lab_exec=lab_exec, dry_run=dry_run, episode_id=episode_id
     )
+    blue_result = _run_blue_chain_test(
+        model,
+        scenario,
+        dry_run=dry_run,
+        lab_exec=lab_exec,
+        scenario_start=scenario_start,
+        query_live=lab_exec,
+        mode="discovery",
+        episode_id=episode_id,
+    )
+    observed = bool(
+        blue_result.get("episode_inventory_origins")
+        or any(blue_result.get("telemetry_origins", {}).values())
+    )
+    used_synthetic = bool(blue_result.get("synthetic_fallback")) or not lab_exec
+    episode_match = blue_result.get("episode_id") == episode_id
+    red_landed = bool(chain_result.get("lab_success"))
+    has_spl_hit = bool(blue_result.get("reported")) and red_landed and observed and episode_match
+    detection_status = derive_detection_status(
+        has_spl_hit=has_spl_hit,
+        used_synthetic=used_synthetic,
+        within_window=episode_match,
+        target_match=episode_match,
+        has_detection_rule=bool(scenario.get("detect_ground_truth")),
+    )
+    if observed:
+        telemetry_status = "TELEMETRY_OBSERVED"
+    elif indexed is False or telemetry_error == "TELEMETRY_NOT_INDEXED":
+        telemetry_status = "TELEMETRY_NOT_INDEXED"
+    elif lab_exec:
+        telemetry_status = "TELEMETRY_COLLECTION_FAILED"
+    else:
+        telemetry_status = "TELEMETRY_NOT_CONFIGURED"
     return episode_mod.Episode(
         episode_id=episode_id,
         scenario=scenario_name,
         target_host=gate.get("host"),
         started_at=scenario_start,
-        red_status=red_status or "RED_NOT_RUN",
-        used_synthetic=chain_result.get("mode") == "synthetic",
+        red_status="RED_LANDED" if red_landed else "RED_EXECUTION_FAILED",
+        telemetry_status=telemetry_status,
+        detection_status=detection_status,
+        used_synthetic=used_synthetic,
+        evidence_refs=[telemetry_path] if telemetry_path else [],
     )
 
 
@@ -202,13 +240,10 @@ def _do_target(
     "no eligible target"/"unrankable" `TargetDecision` blocks the hunt here
     (recorded), never silently falls through to an unranked scenario.
 
-    `open_cells` has no dedicated enumeration source in this build (SUB has
-    no standalone `coverage_cells` table -- DATA_MODEL SS1.7 folds the
-    concept into `known_state.subject`); this wiring derives one candidate
-    cell per entry in `chain.SCENARIOS` (the same source `_do_mutate`
-    already draws its reference scenario from), documented A-decision for
-    P4.3. A caller/test may inject `target_cell["candidate_cells"]` to
-    override this derivation directly.
+    Default cells are seeded content-idempotently into SUB and read back on
+    demand; this replaces the legacy capability-graph cold rebuild. A
+    caller/test may inject `target_cell["candidate_cells"]` to override the
+    persisted default readout directly.
 
     A hunt's very first iteration has no *measured* cost yet (COST only
     meters after EXECUTING) -- an honest "estimated" pre-flight cost
@@ -234,20 +269,100 @@ def _do_target(
 
     cells = target_cell.get("candidate_cells")
     if cells is None:
+        for name in SCENARIOS:
+            store.coverage_cell_put(
+                {
+                    "cell_id": f"cell:{name}",
+                    "subject": f"cell:{name}",
+                    "scenario": name,
+                    "prior": 0.5,
+                }
+            )
         cells = [
-            {
-                "cell_id": f"cell:{name}",
-                "subject": f"cell:{name}",
-                "scenario": name,
-                "cost_ref": hunt_id,
-                "prior": 0.5,
-            }
-            for name in SCENARIOS
+            {**cell, "cost_ref": cell.get("cost_ref") or hunt_id} for cell in store.coverage_cells()
         ]
 
     ranking_context = dataclasses.replace(context, open_cells=cells)
-    ledger = costing.CostView(store.cost_ledger_for_hunt(hunt_id))
-    decision = targeting_mod.select(ranking_context, recall_receipt, ledger)
+    baseline_context = dataclasses.replace(ranking_context, known_state_view=[])
+    baseline_recall = dataclasses.replace(recall_receipt, selected_context=[])
+
+    class _UniformLegacyCostView:
+        @staticmethod
+        def units_for(_reference: str) -> tuple[float, None]:
+            return 1.0, None
+
+    baseline_ledger = _UniformLegacyCostView()
+    replacement_ledger = costing.CostView(store.cost_ledger())
+    cfg = bully_config.load_hunt_config()
+    recall_mode = cutover.feed_mode(cfg, "semantic_hunt_memory")
+    known_mode = cutover.feed_mode(cfg, "known_state")
+    roi_mode = cutover.feed_mode(cfg, "roi_target_intelligence")
+    effective_recall = recall_receipt if recall_mode == "authoritative" else baseline_recall
+    effective_context = ranking_context if known_mode == "authoritative" else baseline_context
+    effective_ledger = replacement_ledger if roi_mode == "authoritative" else baseline_ledger
+    decision = targeting_mod.select(effective_context, effective_recall, effective_ledger)
+
+    # Paired, isolated feed comparisons produce durable causal links. Each
+    # replacement is compared with all other feeds held at the baseline.
+    baseline_decision = targeting_mod.select(baseline_context, baseline_recall, baseline_ledger)
+    feed_decisions = {
+        "semantic_hunt_memory": targeting_mod.select(
+            baseline_context, recall_receipt, baseline_ledger
+        ),
+        "known_state": targeting_mod.select(ranking_context, baseline_recall, baseline_ledger),
+        "roi_target_intelligence": targeting_mod.select(
+            baseline_context, baseline_recall, replacement_ledger
+        ),
+    }
+
+    def _projection(value) -> dict[str, Any]:
+        return {
+            "status": value.status,
+            "selected_cell_id": value.selected_cell_id,
+            "ordered_cell_ids": [row["cell_id"] for row in value.ordered_targets],
+        }
+
+    before_projection = _projection(baseline_decision)
+    semantic_ids = [
+        str((item.get("record") or {}).get("record_id"))
+        for item in recall_receipt.selected_context
+        if (item.get("record") or {}).get("record_id")
+    ]
+    known_ids = [
+        str(item.get("entry_id"))
+        for item in ranking_context.known_state_view
+        if item.get("entry_id")
+    ]
+    cost_ids = [str(record["record_id"]) for record in store.cost_ledger()]
+    citations = {
+        "semantic_hunt_memory": semantic_ids,
+        "known_state": known_ids,
+        "roi_target_intelligence": cost_ids,
+    }
+    for feed, feed_decision in feed_decisions.items():
+        after_projection = _projection(feed_decision)
+        if before_projection == after_projection:
+            change_kind = "NO_EFFECT"
+        elif feed_decision.selected_cell_id is None:
+            change_kind = "AVOIDED"
+        elif feed_decision.selected_cell_id != baseline_decision.selected_cell_id:
+            change_kind = "SELECTED"
+        else:
+            change_kind = "DEPRIORITIZED"
+        store.decision_impact_put(
+            DecisionImpact(
+                impact_id=new_id("impact"),
+                recall_id=recall_receipt.recall_id,
+                consuming_decision_ref=decision.decision_id,
+                before=before_projection,
+                after=after_projection,
+                cited_record_ids=citations[feed],
+                change_kind=change_kind,
+                explanation=(
+                    f"P7 paired cutover proof for {feed}; mode={cutover.feed_mode(cfg, feed)}"
+                ),
+            )
+        )
 
     _record(
         store,
@@ -269,6 +384,9 @@ def _do_target(
     chosen = next(c for c in cells if c["cell_id"] == decision.selected_cell_id)
     return {
         **target_cell,
+        "cell_id": chosen["cell_id"],
+        "subject": chosen.get("subject", chosen["cell_id"]),
+        "prior": chosen.get("prior", 0.5),
         "scenario": chosen.get("scenario", target_cell.get("scenario")),
         "target_decision_id": decision.decision_id,
     }
@@ -552,7 +670,9 @@ def _do_analyze(
     # pre-P6 investigation_arm stubs (fixed signature, no **kwargs) are
     # unaffected when no playbook is active.
     scenario_class = getattr(episode, "scenario", None)
-    playbook = playbooks_mod.for_hunt(store, scenario_class) if scenario_class else None
+    playbook_candidate = playbooks_mod.for_hunt(store, scenario_class) if scenario_class else None
+    playbook_mode = cutover.feed_mode(bully_config.load_hunt_config(), "playbook_memory")
+    playbook = playbook_candidate if playbook_mode == "authoritative" else None
     extra = {"playbook": playbook} if playbook else {}
     inv_result = investigation_arm(episode, models=models, dry_run=dry_run, **extra)
 
@@ -578,6 +698,41 @@ def _do_analyze(
             "playbook_id": playbook["playbook_id"] if playbook else None,
         },
     )
+    recall_id = store.latest_recall_id_for_hunt(hunt_id)
+    if recall_id is not None:
+        baseline_models = bully_config.resolve_investigation_models()
+        model_changed = baseline_models != models
+        store.decision_impact_put(
+            DecisionImpact(
+                impact_id=new_id("impact"),
+                recall_id=recall_id,
+                consuming_decision_ref=assessment.assessment_id,
+                before={"models": baseline_models},
+                after={"models": models},
+                cited_record_ids=sorted(set(models.values()) - set(baseline_models.values())),
+                change_kind="SELECTED" if model_changed else "NO_EFFECT",
+                explanation=(
+                    "P7 paired cutover proof for fleet_local_fine_tune; "
+                    f"mode={cutover.feed_mode(bully_config.load_hunt_config(), 'fleet_local_fine_tune')}"
+                ),
+            )
+        )
+        store.decision_impact_put(
+            DecisionImpact(
+                impact_id=new_id("impact"),
+                recall_id=recall_id,
+                consuming_decision_ref=assessment.assessment_id,
+                before={"playbook_id": None},
+                after={
+                    "playbook_id": playbook_candidate["playbook_id"] if playbook_candidate else None
+                },
+                cited_record_ids=(
+                    [playbook_candidate["playbook_id"]] if playbook_candidate else []
+                ),
+                change_kind="CONTROL_ADDED" if playbook_candidate else "NO_EFFECT",
+                explanation=f"P7 paired cutover proof for playbook_memory; mode={playbook_mode}",
+            )
+        )
     return inv_result, assessment
 
 
@@ -665,6 +820,16 @@ def run_hunt_iteration(
         raise
 
     episode_view = evidence_mod.adapt_episode(episode)
+    _record(
+        store,
+        hunt_id=hunt_id,
+        iteration_id=iteration_id,
+        actor="system:orchestrator",
+        kind="gate",
+        subject_id=episode_view["episode_id"],
+        rationale="episode truth-plane evidence recorded before grading",
+        data=episode_view,
+    )
     if evidence_mod.episode_verdict_is_blocked(episode):
         store.hunt_advance_stage(
             hunt_id, "BLOCKED", expected_version=store.hunt_get(hunt_id)["version"]
@@ -707,6 +872,16 @@ def run_hunt_iteration(
         exec_seconds=max(time.time() - _exec_started_at, 0.0),
         models=_resolve_live_investigation_models(store),
     )
+    if target_cell.get("cell_id"):
+        store.coverage_cell_put(
+            {
+                "cell_id": target_cell["cell_id"],
+                "subject": target_cell.get("subject", target_cell["cell_id"]),
+                "scenario": target_cell.get("scenario"),
+                "prior": target_cell.get("prior", 0.5),
+                "cost_ref": hunt_id,
+            }
+        )
 
     # PROMOTING / COMPOUNDING -- BIN/HEART land P2; universal index emission
     # (I-4) happens regardless, in this same iteration, never deferred to a
@@ -717,6 +892,7 @@ def run_hunt_iteration(
         "kind": "cousin",
         "hunt_id": hunt_id,
         "episode_id": episode_view["episode_id"],
+        "subject": target_cell.get("subject", target_cell.get("cell_id")),
         "relationship": assessment.relationship,
         "detection_response": assessment.defense_response,
         "rationale": assessment.explanation.get("product_band", ""),
@@ -780,6 +956,7 @@ def run_hunt(
     actor: str,
     store: Store | None = None,
     organ: Organ | None = None,
+    target_cell: dict | None = None,
     lab_driver: LabDriver | None = None,
     investigation_arm: Callable[..., Any] | None = None,
 ) -> dict[str, Any]:
@@ -816,16 +993,26 @@ def run_hunt(
             rationale="HUNT_CREATED",
             data={"neighborhood": neighborhood, "budget_class": budget_class, "dry_run": dry_run},
         )
-        result = run_hunt_iteration(
-            store,
-            organ,
-            hunt_id=hunt_id,
-            actor=actor,
-            neighborhood=neighborhood,
-            lab_driver=lab_driver,
-            investigation_arm=investigation_arm,
-            dry_run=dry_run,
-        )
+        try:
+            result = run_hunt_iteration(
+                store,
+                organ,
+                hunt_id=hunt_id,
+                actor=actor,
+                neighborhood=neighborhood,
+                target_cell=target_cell,
+                lab_driver=lab_driver,
+                investigation_arm=investigation_arm,
+                dry_run=dry_run,
+            )
+        except Exception:
+            row = store.hunt_get(hunt_id)
+            if row is not None and row["stage"] not in {"BLOCKED", "CLOSED", "FAILED"}:
+                with contextlib.suppress(IllegalTransitionError):
+                    store.hunt_advance_stage(hunt_id, "BLOCKED", expected_version=row["version"])
+            with contextlib.suppress(Exception):
+                store.lease_release(hunt_id, owner=actor)
+            raise
         return {
             "hunt_id": hunt_id,
             "iterations": 1,

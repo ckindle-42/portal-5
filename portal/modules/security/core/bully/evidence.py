@@ -136,8 +136,8 @@ def adapt_episode(episode: Any) -> dict:
 
 
 def episode_verdict_is_blocked(episode: Any) -> bool:
-    """LOOP treats INDETERMINATE as blocked, never miss/pass (I-2 failure semantics)."""
-    return episode.verdict() == "INDETERMINATE"
+    """LOOP blocks unscoreable infrastructure/unavailable truth planes."""
+    return episode.verdict() in {"INDETERMINATE", "UNAVAILABLE"}
 
 
 # ── Shadow ingestion (I-22) ──────────────────────────────────────────────────
