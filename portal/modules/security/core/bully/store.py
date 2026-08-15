@@ -769,6 +769,47 @@ class Store:
                     f"concurrent modification of candidate {candidate_id}"
                 )
 
+    def candidate_resume(
+        self, candidate_id: str, *, expected_version: int, target_state: str
+    ) -> None:
+        """Resume a BLOCKED/OPERATOR_ESCALATED candidate back into the main
+        gate sequence at `target_state` (I-3/I-7 "resumption re-drives the
+        specific gate that was blocked/escalated, not a generic hop").
+        Deliberately bypasses `is_legal_bin_transition`'s blanket refusal
+        for BLOCKED/OPERATOR_ESCALATED to bare-transition onward -- this
+        *is* the dedicated resume path that refusal exists to force callers
+        through, not a workaround of it. `target_state` must still be one
+        of the main-sequence states (never PROMOTED/a terminal state)."""
+        from .contracts import _BIN_MAIN_ORDER
+
+        if target_state not in _BIN_MAIN_ORDER or target_state == "PROMOTED":
+            raise IllegalBinTransitionError(
+                f"candidate_resume target_state must be a main-sequence, non-terminal state, "
+                f"got {target_state!r}"
+            )
+        row = self.candidate_get(candidate_id)
+        if row is None:
+            raise StoreError(f"no such candidate: {candidate_id}")
+        if row["current_state"] not in ("BLOCKED", "OPERATOR_ESCALATED"):
+            raise IllegalBinTransitionError(
+                f"candidate_resume only applies from BLOCKED/OPERATOR_ESCALATED, "
+                f"current state is {row['current_state']!r}"
+            )
+        if row["version"] != expected_version:
+            raise IllegalBinTransitionError(
+                f"stale expected_version={expected_version} for candidate {candidate_id}"
+            )
+        with self._tx() as cur:
+            cur.execute(
+                "UPDATE candidates SET current_state=?, terminal_reason=NULL, version=version+1 "
+                "WHERE candidate_id=? AND version=?",
+                (target_state, candidate_id, expected_version),
+            )
+            if cur.rowcount != 1:
+                raise IllegalBinTransitionError(
+                    f"concurrent modification of candidate {candidate_id}"
+                )
+
     def candidate_bump_alert_version(
         self, candidate_id: str, *, expected_version: int, new_evidence_manifest_id: str
     ) -> int:
@@ -990,6 +1031,47 @@ class Store:
             "SELECT * FROM objections WHERE packet_id=?", (packet_id,)
         ).fetchall()
         return [_row_to_dict(r) for r in rows]
+
+    def council_packet_get(self, packet_id: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM council_packets WHERE packet_id=?", (packet_id,)
+        ).fetchone()
+        return _row_to_dict(row)
+
+    def council_opinions_for_packet(self, packet_id: str) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM council_opinions WHERE packet_id=?", (packet_id,)
+        ).fetchall()
+        return [_row_to_dict(r) for r in rows]
+
+    def rebuttals_for_objection(self, objection_id: str) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM rebuttals WHERE objection_id=?", (objection_id,)
+        ).fetchall()
+        return [_row_to_dict(r) for r in rows]
+
+    def council_packet_set_unresolved(self, packet_id: str, unresolved: bool) -> None:
+        """Recompute-and-persist `unresolved` after a rebuttal/withdrawal/
+        waiver changes an objection's status (I-8 "closure paths")."""
+        with self._tx() as cur:
+            cur.execute(
+                "UPDATE council_packets SET unresolved=? WHERE packet_id=?",
+                (1 if unresolved else 0, packet_id),
+            )
+
+    def council_packet_finalize(
+        self, packet_id: str, *, review_valid: bool, participation: float, unresolved: bool
+    ) -> None:
+        """`adversary.review` inserts the packet row before its seat
+        opinions (opinions FK-reference the packet), then finalizes
+        review_valid/participation/unresolved once all seats have answered
+        and objections have been classified."""
+        with self._tx() as cur:
+            cur.execute(
+                "UPDATE council_packets SET review_valid=?, participation=?, unresolved=? "
+                "WHERE packet_id=?",
+                (1 if review_valid else 0, participation, 1 if unresolved else 0, packet_id),
+            )
 
     def rebuttal_put(
         self,
