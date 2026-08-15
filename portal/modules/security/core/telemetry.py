@@ -20,8 +20,13 @@ from typing import Protocol, runtime_checkable
 OBSERVED_PACKET = "observed_packet"
 OBSERVED_TARGET_LOG = "observed_target_log"
 SENSOR_DERIVED = "sensor_derived"
+IMPORTED_OBSERVED = "imported_observed"
 TRANSCRIPT_COUNTERFACTUAL = "transcript_counterfactual"
 SYNTHETIC_FIXTURE = "synthetic_fixture"
+
+LIVE_SENSOR_TRUST_TIER = "live_sensor"
+IMPORTED_OBSERVED_TRUST_TIER = "imported_observed"
+NON_OBSERVED_TRUST_TIER = "non_observed"
 
 OBSERVED_EVIDENCE_ORIGINS = frozenset(
     {
@@ -30,6 +35,7 @@ OBSERVED_EVIDENCE_ORIGINS = frozenset(
         SENSOR_DERIVED,
     }
 )
+GRADEABLE_EVIDENCE_ORIGINS = OBSERVED_EVIDENCE_ORIGINS | {IMPORTED_OBSERVED}
 NON_OBSERVED_EVIDENCE_ORIGINS = frozenset(
     {
         TRANSCRIPT_COUNTERFACTUAL,
@@ -39,8 +45,22 @@ NON_OBSERVED_EVIDENCE_ORIGINS = frozenset(
 
 
 def is_observed_origin(origin: str | None) -> bool:
-    """Return True only for evidence produced from an actual sensor observation."""
+    """Return True only for evidence eligible for production coverage credit."""
     return bool(origin and origin in OBSERVED_EVIDENCE_ORIGINS)
+
+
+def is_gradeable_origin(origin: str | None) -> bool:
+    """Return True for live or real externally observed evidence."""
+    return bool(origin and origin in GRADEABLE_EVIDENCE_ORIGINS)
+
+
+def evidence_trust_tier(origin: str | None) -> str:
+    """Map an origin claim onto the evidence authority tier seen by the engine."""
+    if origin in OBSERVED_EVIDENCE_ORIGINS:
+        return LIVE_SENSOR_TRUST_TIER
+    if origin == IMPORTED_OBSERVED:
+        return IMPORTED_OBSERVED_TRUST_TIER
+    return NON_OBSERVED_TRUST_TIER
 
 
 # ── Canonical TelemetryBackend protocol ──────────────────────────────────────

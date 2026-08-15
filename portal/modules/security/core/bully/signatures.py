@@ -46,6 +46,7 @@ class BehaviorSignature:
     attack_mappings: list[dict[str, Any]] = field(default_factory=list)
     telemetry_shape: dict[str, Any] = field(default_factory=dict)
     detector_outcomes: dict[str, Any] = field(default_factory=dict)
+    trust_tier: str = ""
     evidence_manifest_id: str | None = None
     completeness: float = 1.0
     created_at: float = field(default_factory=time.time)
@@ -87,6 +88,7 @@ def build_signature(
     attack_mappings = list(telemetry_view.get("attack_mappings") or [])
     telemetry_shape = dict(telemetry_view.get("telemetry_shape") or {})
     detector_outcomes = dict(telemetry_view.get("detector_outcomes") or {})
+    trust_tier = str(telemetry_view.get("trust_tier") or episode_view.get("trust_tier") or "")
 
     present = {
         "action_sequence": bool(action_sequence),
@@ -128,6 +130,7 @@ def build_signature(
         attack_mappings=attack_mappings,
         telemetry_shape=telemetry_shape,
         detector_outcomes=detector_outcomes,
+        trust_tier=trust_tier,
         evidence_manifest_id=evidence_manifest_id,
         completeness=completeness,
     )

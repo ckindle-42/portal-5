@@ -22,6 +22,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
+from ..telemetry import IMPORTED_OBSERVED_TRUST_TIER
 from . import signatures as sig_mod
 from .contracts import CousinAssessment, Decomposition
 
@@ -355,6 +356,13 @@ def grade(
     relationship = _classify_relationship(
         composite, confidence, nonsemantic, bool(vetoes), thresholds
     )
+    trust_adjustment = None
+    if (
+        relationship == "SAME"
+        and getattr(signature, "trust_tier", "") == IMPORTED_OBSERVED_TRUST_TIER
+    ):
+        relationship = "SIMILAR" if nonsemantic >= 2 else "DIFFERENT"
+        trust_adjustment = "imported_observed_cannot_solely_support_same"
 
     nearest_knowns = [
         (c["record"].get("record_id", ""), c.get("semantic_distance", s))
@@ -378,7 +386,7 @@ def grade(
         completeness=min(signature.completeness, confidence),
         algorithm_version=ALGORITHM_VERSION,
         thresholds_version=THRESHOLDS_VERSION,
-        explanation={"product_band": band},
+        explanation={"product_band": band, "trust_adjustment": trust_adjustment},
     )
 
 

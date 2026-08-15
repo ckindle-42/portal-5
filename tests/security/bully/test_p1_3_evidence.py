@@ -85,6 +85,20 @@ def test_observed_origin_manifest_passes_g0():
     assert ev.synthetic_never_passes_g0(items) is True
 
 
+def test_imported_observed_passes_g0_but_cannot_mint_known_covered():
+    items = [
+        ev.EvidenceItemRef(
+            evidence_id="ev-imported",
+            type="telemetry",
+            uri="x",
+            content_hash="h",
+            origin="imported_observed",
+        )
+    ]
+    assert ev.synthetic_never_passes_g0(items) is True
+    assert ev.can_mint_known_covered(items) is False
+
+
 def test_mixed_synthetic_and_observed_still_passes_g0():
     items = [
         ev.EvidenceItemRef(

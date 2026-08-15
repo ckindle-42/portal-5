@@ -17,7 +17,11 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from ..telemetry import OBSERVED_EVIDENCE_ORIGINS
+from ..telemetry import (
+    GRADEABLE_EVIDENCE_ORIGINS,
+    OBSERVED_EVIDENCE_ORIGINS,
+    evidence_trust_tier,
+)
 
 SHADOW_FLAGS = ("off", "shadow", "authoritative")
 
@@ -37,6 +41,7 @@ class EvidenceItemRef:
     uri: str
     content_hash: str
     origin: str = ""  # telemetry.py origin tag, e.g. observed_packet | synthetic_fixture
+    trust_tier: str = ""
     source_actor: str = ""
     synthetic: bool = False
     verification_status: str = "declared"  # declared|verified|invalid|quarantined|expired
@@ -92,8 +97,13 @@ def verify_item(item: EvidenceItemRef, actual_bytes: bytes) -> EvidenceItemRef:
     return replace(item, verification_status="verified")
 
 
+def has_gradeable_origin(items: list[EvidenceItemRef]) -> bool:
+    """G0 precondition: at least one live or imported observed item."""
+    return any(i.origin in GRADEABLE_EVIDENCE_ORIGINS for i in items)
+
+
 def has_observed_origin(items: list[EvidenceItemRef]) -> bool:
-    """G0 precondition (I-7): >=1 observed-origin evidence ref.
+    """Production-credit precondition: at least one live-sensor item.
 
     `source_actor` here is used to carry the origin tag
     (`telemetry.OBSERVED_EVIDENCE_ORIGINS` member) the same way
@@ -103,11 +113,25 @@ def has_observed_origin(items: list[EvidenceItemRef]) -> bool:
     return any(i.origin in OBSERVED_EVIDENCE_ORIGINS for i in items)
 
 
+def can_mint_known_covered(items: list[EvidenceItemRef]) -> bool:
+    """Imported telemetry can be graded but cannot alone mint coverage credit."""
+    return has_observed_origin(items)
+
+
 def synthetic_never_passes_g0(items: list[EvidenceItemRef]) -> bool:
     """C2: 'synthetic never passes G0.' True means the manifest is G0-eligible."""
-    if any(i.synthetic for i in items) and not has_observed_origin(items):
+    if any(i.synthetic for i in items) and not has_gradeable_origin(items):
         return False
-    return has_observed_origin(items)
+    return has_gradeable_origin(items)
+
+
+def with_inferred_trust(item: EvidenceItemRef) -> EvidenceItemRef:
+    """Return an item carrying the canonical tier for its origin claim."""
+    if item.trust_tier:
+        return item
+    from dataclasses import replace
+
+    return replace(item, trust_tier=evidence_trust_tier(item.origin))
 
 
 # ── Episode adapter (I-2) ────────────────────────────────────────────────────

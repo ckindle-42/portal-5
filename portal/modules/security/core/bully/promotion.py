@@ -160,6 +160,7 @@ def _default_g0(candidate_row: dict, gate_input: dict, *, store: Store) -> dict:
             uri=i["uri"],
             content_hash=i["content_hash"],
             origin=i.get("origin") or "",
+            trust_tier=i.get("trust_tier") or "",
             source_actor=i.get("source_actor") or "",
             synthetic=bool(i.get("synthetic")),
         )
@@ -171,7 +172,7 @@ def _default_g0(candidate_row: dict, gate_input: dict, *, store: Store) -> dict:
     if not evidence_mod.synthetic_never_passes_g0(refs):
         return {
             "outcome": "fail",
-            "reasons": ["no observed-origin evidence item (synthetic-only or empty)"],
+            "reasons": ["no gradeable-origin evidence item (synthetic-only or empty)"],
         }
     return {"outcome": "pass", "reasons": [], "evidence": {"manifest_id": manifest_id}}
 

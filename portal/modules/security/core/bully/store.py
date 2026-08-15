@@ -21,6 +21,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
+from ..telemetry import evidence_trust_tier
 from . import events, outbox
 from .contracts import (
     CostRecord,
@@ -37,7 +38,7 @@ from .contracts import (
     is_legal_hunt_transition,
 )
 
-SCHEMA_VERSION = 11  # highest migration this code understands
+SCHEMA_VERSION = 12  # highest migration this code understands
 _MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
 
@@ -924,8 +925,8 @@ class Store:
                     "content_hash, byte_size, media_encoding, captured_at, event_time, "
                     "source_actor, source_system, synthetic, redacted, access_class, "
                     "verification_status, verified_at, retention_hold, parent_evidence_id, "
-                    "parser_version, origin, created_at) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "parser_version, origin, trust_tier, created_at) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         item["evidence_id"],
                         manifest_id,
@@ -947,6 +948,7 @@ class Store:
                         item.get("parent_evidence_id"),
                         item.get("parser_version"),
                         item.get("origin"),
+                        item.get("trust_tier") or evidence_trust_tier(item.get("origin")),
                         time.time(),
                     ),
                 )

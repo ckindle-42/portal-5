@@ -37,6 +37,7 @@ from collections.abc import Callable
 from typing import Any
 
 from . import config as bully_config
+from . import evidence as evidence_mod
 from .contracts import DecisionEvent, HandoffPackage, new_id
 from .store import Store
 
@@ -655,16 +656,39 @@ def record_replay(
     org_record: dict[str, Any] | None = None
     if passed:
         store.detection_proposal_set_status(proposal["proposal_id"], "replay-validated")
-        entry_id = store.update_known_state(
-            f"cell:{proposal['family']}",
-            "known_covered",
-            {"deployment_id": deployment_id, "validation_id": validation_id, "detail": detail},
-            hunt_id=proposal.get("hunt_id"),
-            trust_tier="OPERATOR_CONFIRMED",
-            deployment_id=deployment_id,
+        candidate = store.candidate_get(proposal["candidate_id"])
+        evidence_rows = store.evidence_items_for_manifest(
+            candidate.get("evidence_manifest_id") or ""
         )
-        store.detection_proposal_set_coverage_validation_ref(proposal["proposal_id"], entry_id)
-        rationale = f"post-deploy replay passed -- cell {proposal['family']} now KNOWN_COVERED"
+        refs = [
+            evidence_mod.EvidenceItemRef(
+                evidence_id=row["evidence_id"],
+                type=row["type"],
+                uri=row["uri"],
+                content_hash=row["content_hash"],
+                origin=row.get("origin") or "",
+                trust_tier=row.get("trust_tier") or "",
+                synthetic=bool(row.get("synthetic")),
+            )
+            for row in evidence_rows
+        ]
+        production_credit = evidence_mod.can_mint_known_covered(refs)
+        if production_credit:
+            entry_id = store.update_known_state(
+                f"cell:{proposal['family']}",
+                "known_covered",
+                {"deployment_id": deployment_id, "validation_id": validation_id, "detail": detail},
+                hunt_id=proposal.get("hunt_id"),
+                trust_tier="OPERATOR_CONFIRMED",
+                deployment_id=deployment_id,
+            )
+            store.detection_proposal_set_coverage_validation_ref(proposal["proposal_id"], entry_id)
+            rationale = f"post-deploy replay passed -- cell {proposal['family']} now KNOWN_COVERED"
+        else:
+            rationale = (
+                "post-deploy replay passed on sub-live evidence; production KNOWN_COVERED "
+                "credit withheld"
+            )
     else:
         store.detection_proposal_set_status(proposal["proposal_id"], "replay-failed")
         rationale = "post-deploy replay failed -- cell stays uncovered"
@@ -692,6 +716,7 @@ def record_replay(
         "passed": passed,
         "status": store.detection_proposal_get(proposal["proposal_id"])["status"],
         "org_record": org_record,
+        "production_credit": production_credit if passed else False,
     }
 
 
