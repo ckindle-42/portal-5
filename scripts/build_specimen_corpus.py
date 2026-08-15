@@ -26,6 +26,9 @@ from portal.modules.security.core.bully.specimen_ledger import (  # noqa: E402
     SpecimenLedger,
     SpecimenRecord,
 )
+from portal.modules.security.core.recall_attribution import (  # noqa: E402
+    technique_discriminators,
+)
 from portal.modules.security.core.siem import capture_store  # noqa: E402
 from portal.modules.security.core.telemetry import (  # noqa: E402
     IMPORTED_OBSERVED,
@@ -140,10 +143,20 @@ def _write_and_replay(
 
 def _forge_operators(parent: dict[str, Any], names: tuple[str, ...]):
     actions = list(parent["telemetry_view"]["action_sequence"])
+    discriminator_tokens = sorted(
+        {
+            token
+            for technique_id in parent["data_yml_techniques"]
+            for token in technique_discriminators(technique_id)["tokens"]
+        }
+    )
     params = {
         "REORDER_STEPS": {"order": list(reversed(actions))},
         "VARY_PARAMETER": {"placeholder": "target", "value": "alias.local"},
-        "INJECT_EVASION_DIRECTIVE": {"directive_text": "vary observable representation"},
+        "INJECT_EVASION_DIRECTIVE": {
+            "directive_text": "vary observable representation",
+            "discriminator_tokens": discriminator_tokens,
+        },
         "SUBSTITUTE_TECHNIQUE": {
             "from": actions[0] if actions else "",
             "to": f"variant-{actions[0]}" if actions else "",
