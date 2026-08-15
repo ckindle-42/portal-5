@@ -181,9 +181,20 @@ class ReadOnlyKnnSnapshot(Protocol):
     def stats(self) -> dict[str, Any]: ...
 
 
-def construction_distance(plan: MutationPlan) -> float:
-    """Independent x-axis derived only from typed applied operators."""
-    return round(min(sum(OPERATOR_CLASS_WEIGHTS[op.operator] for op in plan.operators), 1.0), 6)
+def construction_distance(
+    plan_or_operators: MutationPlan | tuple[MutationOperatorSpec, ...] | list[MutationOperatorSpec],
+    *,
+    moved_features: set[str] | None = None,
+) -> float:
+    """Independent x-axis from applied operators that moved observable features."""
+    if moved_features is not None and not moved_features:
+        return 0.0
+    operators = (
+        plan_or_operators.operators
+        if isinstance(plan_or_operators, MutationPlan)
+        else tuple(plan_or_operators)
+    )
+    return round(min(sum(OPERATOR_CLASS_WEIGHTS[op.operator] for op in operators), 1.0), 6)
 
 
 def _operator(parent: CalibrationParent, name: str) -> MutationOperatorSpec:

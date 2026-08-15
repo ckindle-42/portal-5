@@ -26,6 +26,7 @@ def ship(
     dry_run: bool = False,
     event_time: float | None = None,
     evidence_origin: str | None = None,
+    evidence_provenance: str | None = None,
     episode_id: str | None = None,
 ) -> dict:
     """Post one event to HEC. Returns {'ok': bool, 'code': int|None, 'dry_run'?: True}.
@@ -46,6 +47,7 @@ def ship(
         key: value
         for key, value in {
             "evidence_origin": evidence_origin,
+            "evidence_provenance": evidence_provenance,
             "episode_id": episode_id,
         }.items()
         if value
@@ -77,6 +79,7 @@ def ship_batch(
     dry_run: bool = False,
     event_time: float | None = None,
     evidence_origin: str | None = None,
+    evidence_provenance: str | None = None,
     episode_id: str | None = None,
 ) -> dict:
     """Batch to /services/collector/event (newline-concatenated event objects).
@@ -102,6 +105,7 @@ def ship_batch(
             key: value
             for key, value in {
                 "evidence_origin": evidence_origin,
+                "evidence_provenance": evidence_provenance,
                 "episode_id": episode_id,
             }.items()
             if value
