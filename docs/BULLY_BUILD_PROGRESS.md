@@ -14,9 +14,34 @@ history.
 | P2 | `TASK_BULLY_P2_BIN_HEART_V1.md` | ✅ done | `ea7e0dc3` |
 | P3 | `TASK_BULLY_P3_RED_DRIFT_V1.md` | ✅ done | `df593854` |
 | P4 | `TASK_BULLY_P4_DISCOVERY_V1.md` | ✅ done | `913ded64` |
-| P5 | `TASK_BULLY_P5_HANDOFF_V1.md` | ⬜ not started | — |
+| P5 | `TASK_BULLY_P5_HANDOFF_V1.md` | ✅ done | `58aab19f` |
 | P6 | `TASK_BULLY_P6_FLYWHEEL_V1.md` | ⬜ not started | — |
 | P7 | `TASK_BULLY_P7_CUTOVER_PROOF_V1.md` | ⬜ not started | — |
+
+## What's landed (P0–P5)
+
+- **P5** — the exit: `bully/handoff.py` (HND) -- `build_package(candidate_id)`
+  produces the 11-part package (FINAL_DESIGN §23) from a promoted candidate;
+  SPL/Sigma drafted from cousin discriminators, validated in code
+  (`validate_spl_syntax` + dry-exec against the replayed capture). Three
+  detection-proof legs execute for real, not placeholder-true: fires-on-attack
+  via `capture_recipes` replay, quiet-on-benign via the real benign corpus
+  (`benign_corpus_bench`), no-regression via the real BQ/AZ lanes. Any
+  proof-leg or validation failure blocks the package (candidate stays
+  PENDING); rebuild produces a superseding version; FP analysis attached from
+  G2. Detection-proposal lifecycle tables (migration 008): `draft ->
+  submitted -> accepted/revise/rejected/expired -> deployed ->
+  replay-validated/failed -> retired`, with `KNOWN_COVERED` DB-enforced to
+  require a deployment receipt + successful post-deploy replay -- refused
+  otherwise even at the DB layer. Operator reject requires rationale and is
+  ORG-indexed. Deployment appends to `provenance_ledger`. Validation claim D1
+  proven by hermetic + real-code-path tests (300 bully tests green on
+  independent re-run; full CI-mirrored suite 2789 passed/33 skipped).
+  Confirmed no accidental mutation of the real `spl_detections.yaml` from
+  test runs. Build agent hit its account session-usage limit mid-verification
+  after landing all 3 commits cleanly; the remaining verification
+  (complexity re-baseline, ruff/pytest/validate_system reruns, D1 exit-check)
+  was completed directly rather than via a second agent spawn.
 
 ## What's landed (P0–P4)
 
@@ -105,8 +130,8 @@ itself before writing any code.
 
 ## Next
 
-**P5** — Handoff: `TASK_BULLY_P5_HANDOFF_V1.md`. Depends on P4 (SCORE/COST/
-TGT/PLT merged, `913ded64`).
+**P6** — Flywheel: `TASK_BULLY_P6_FLYWHEEL_V1.md`. Depends on P5 (HND merged,
+`58aab19f`).
 
 ## Housekeeping note (unrelated to the bully program)
 
