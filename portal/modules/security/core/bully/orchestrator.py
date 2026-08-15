@@ -1,13 +1,15 @@
 """bully.orchestrator -- LOOP, the only module that sequences a hunt
-iteration (P1.7).
+iteration (P1.7, P3.1 MUT wiring).
 
 Stage machine (I-3): DRAFT -> AUTHORIZED -> RECALL_READY -> TARGETED ->
 MUTATION_READY -> EXECUTING -> ANALYZING -> PROMOTING -> COMPOUNDING ->
 CLOSED (+ BLOCKED / CANCELLED / FAILED). P1 wires exactly one iteration
-end-to-end; TARGETED/MUTATION_READY are stubbed passthroughs (real TGT/MUT
-land P3/P4), and PROMOTING/COMPOUNDING do not yet run BIN/HEART (P2) --
-they still perform the universal index-emission step that later phases
-extend, never skip.
+end-to-end; TARGETED is still a stubbed passthrough (real TGT lands P4).
+MUTATION_READY now compiles a real `MutationPlan` via `mutation.py` (P3.1,
+replacing the P1 stub). PROMOTING/COMPOUNDING do not yet run BIN/HEART here
+(P2's promotion pipeline is driven separately via `hunt queue
+--confirm/--reject`) -- they still perform the universal index-emission
+step that later phases extend, never skip.
 
 `[GATE]` hunt authorization is operator-only: `hunt run`/`hunt resume`/
 `hunt cancel`/`hunt queue` all require an `actor` starting with
@@ -24,8 +26,9 @@ from typing import Any
 from . import config as bully_config
 from . import evidence as evidence_mod
 from . import investigation as investigation_mod
+from . import mutation as mutation_mod
 from . import signatures as signatures_mod
-from .contracts import DecisionEvent, new_id
+from .contracts import DecisionEvent, MutationPlan, new_id
 from .cousin_engine import CoverageView, candidate_set, grade
 from .organ import Organ, OrganUnavailable
 from .store import IllegalTransitionError, Store
@@ -75,6 +78,18 @@ def _default_lab_driver(target_cell: dict, *, dry_run: bool) -> Any:
 
     scenario_name = target_cell.get("scenario") or next(iter(SCENARIOS))
     scenario = SCENARIOS[scenario_name]
+    overlay = target_cell.get("mutation_overlay")
+    if overlay:
+        # MUT-compiled overlay (P3.1, I-1) -- data only. The overlay's
+        # red_order/red_prompt/mission_objective are handed to the same
+        # unchanged _prepare_scenario/set_scenario path a raw SCENARIOS
+        # entry uses; this is a dict key override, never a Red source edit.
+        scenario = {
+            **scenario,
+            "red_order": list(overlay["red_order"]),
+            "red_prompt": overlay["red_prompt"],
+            "mission_objective": overlay.get("mission_objective"),
+        }
     cfg = BenchConfig()
     gate = _prepare_scenario(scenario, cfg, dry_run=dry_run, lab_exec=False)
     if not gate.get("ready", False):
@@ -151,6 +166,89 @@ def _do_recall(store: Store, organ: Organ, *, hunt_id: str, neighborhood: str, c
         raise HonestBlockedError(f"hunt {hunt_id}: no recall receipt persisted, refusing to target")
 
 
+def _do_mutate(
+    store: Store,
+    *,
+    hunt_id: str,
+    actor: str,
+    target_cell: dict,
+    mutation_plan: MutationPlan | None,
+) -> dict:
+    """MUTATION_READY (P3.1, replacing the P1 stub) -- compile a
+    `MutationPlan` into a scenario overlay via `mutation.validate_and_compile`
+    and stash it on `target_cell` for the lab driver. Fail-closed: a
+    validation failure blocks the hunt honestly (no Red call, decision event
+    recorded) rather than silently falling back to an unmutated scenario.
+
+    When the caller doesn't inject an explicit `mutation_plan`, a trivial
+    zero-operator plan is built (pure passthrough -- the overlay equals the
+    reference scenario unchanged) so every iteration goes through the same
+    validated/compiled/recorded path, never an implicit bypass.
+    """
+    from ..chain import SCENARIOS
+
+    hunt_config = bully_config.load_hunt_config()
+    scenario_name = target_cell.get("scenario") or next(iter(SCENARIOS))
+    reference_scenario = SCENARIOS[scenario_name]
+
+    plan = mutation_plan or mutation_mod.build_plan(
+        reference_scenario=scenario_name,
+        operators=[],
+        allowed_targets=(
+            (reference_scenario["target_host"],) if reference_scenario.get("target_host") else ()
+        ),
+        proposer=actor,
+    )
+
+    try:
+        overlay = mutation_mod.validate_and_compile(
+            plan, reference_scenario=reference_scenario, hunt_config=hunt_config
+        )
+    except mutation_mod.MutationValidationError as exc:
+        store.mutation_plan_record(
+            plan,
+            status="rejected",
+            rejection_reason_code=exc.reason_code,
+            rejection_detail=str(exc),
+        )
+        store.hunt_advance_stage(
+            hunt_id, "BLOCKED", expected_version=store.hunt_get(hunt_id)["version"]
+        )
+        _record(
+            store,
+            hunt_id=hunt_id,
+            iteration_id=None,
+            actor="system:orchestrator",
+            kind="gate",
+            subject_id=plan.plan_id,
+            rationale=f"MUT validation failed: {exc.reason_code}",
+            data={"reason_code": exc.reason_code, "detail": str(exc)},
+        )
+        raise HonestBlockedError(
+            f"hunt {hunt_id}: mutation plan {plan.plan_id} rejected ({exc.reason_code})"
+        ) from exc
+
+    store.mutation_plan_record(plan, status="validated", overlay=overlay)
+    _record(
+        store,
+        hunt_id=hunt_id,
+        iteration_id=None,
+        actor="system:orchestrator",
+        kind="gate",
+        subject_id=plan.plan_id,
+        rationale=(
+            f"MUT compiled overlay for {scenario_name} "
+            f"(operators={list(overlay.applied_operators)}, truncated={overlay.truncated})"
+        ),
+        data={
+            "applied_operators": list(overlay.applied_operators),
+            "truncated": overlay.truncated,
+            "truncation_rationale": overlay.truncation_rationale,
+        },
+    )
+    return {**target_cell, "scenario": scenario_name, "mutation_overlay": overlay.to_dict()}
+
+
 def _do_analyze(
     store: Store,
     organ: Organ,
@@ -200,15 +298,21 @@ def run_hunt_iteration(
     target_cell: dict | None = None,
     lab_driver: LabDriver | None = None,
     investigation_arm: Callable[..., Any] | None = None,
+    mutation_plan: MutationPlan | None = None,
     dry_run: bool = False,
 ) -> dict[str, Any]:
-    """Drive exactly one hunt iteration through the full P1 stage machine.
+    """Drive exactly one hunt iteration through the full stage machine.
 
-    LOAD -> RECALL -> SELECT(stub) -> DIRECT(stub) -> INVESTIGATE -> GRADE
-    -> RECORD -> STOP (I2). Every stage transition is a real, checked SUB
-    write; there is no code path that reaches TARGETED without a
-    persisted RecallReceipt, and no code path that closes the iteration
-    with a required unindexed emission still pending.
+    LOAD -> RECALL -> SELECT(stub) -> DIRECT(MUT, P3.1) -> INVESTIGATE ->
+    GRADE -> RECORD -> STOP. Every stage transition is a real, checked SUB
+    write; there is no code path that reaches TARGETED without a persisted
+    RecallReceipt, and no code path that closes the iteration with a
+    required unindexed emission still pending.
+
+    `mutation_plan` lets a caller (CLI, test) inject an explicit
+    `MutationPlan`; when omitted, `_do_mutate` builds a trivial zero-operator
+    passthrough plan so every iteration still goes through the same
+    validated/compiled/recorded MUT path.
     """
     lab_driver = lab_driver or _default_lab_driver
     investigation_arm = investigation_arm or investigation_mod.run_arm
@@ -234,9 +338,8 @@ def run_hunt_iteration(
     _do_recall(store, organ, hunt_id=hunt_id, neighborhood=neighborhood, context=context)
     _stage("RECALL_READY")
 
-    # TARGETED / MUTATION_READY -- stubbed passthrough in P1 (real TGT/MUT
-    # land P3/P4). Recorded as a decision event so the stub is auditable,
-    # not silently skipped.
+    # TARGETED -- stubbed passthrough in P1 (real TGT lands P4). Recorded as
+    # a decision event so the stub is auditable, not silently skipped.
     _stage("TARGETED")
     _record(
         store,
@@ -247,6 +350,13 @@ def run_hunt_iteration(
         subject_id=target_cell.get("scenario", "auto"),
         rationale="P1 stub passthrough -- real TGT lands P4",
         data={"target_cell": target_cell},
+    )
+
+    # MUTATION_READY -- MUT compiles a MutationPlan into a scenario overlay
+    # (P3.1, replacing the P1 stub). Fail-closed: raises HonestBlockedError
+    # (already recorded + hunt advanced to BLOCKED inside _do_mutate).
+    target_cell = _do_mutate(
+        store, hunt_id=hunt_id, actor=actor, target_cell=target_cell, mutation_plan=mutation_plan
     )
     _stage("MUTATION_READY")
 
