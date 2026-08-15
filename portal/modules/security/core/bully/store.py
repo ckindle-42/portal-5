@@ -272,6 +272,16 @@ class Store:
                 (hunt_id, owner),
             )
 
+    def any_active_lease(self) -> bool:
+        """TRAIN's preflight (P6.4, MASTER SS5): 'refuse if a hunt ... is
+        active' -- a live (non-expired) lease on any hunt means a hunt
+        iteration is in flight."""
+        row = self._conn.execute(
+            "SELECT 1 FROM hunts WHERE lease_owner IS NOT NULL AND lease_expiry > ? LIMIT 1",
+            (time.time(),),
+        ).fetchone()
+        return row is not None
+
     # ── decision events (append-only, hash-chained) ─────────────────────
 
     def _last_event_hash(self, hunt_id: str | None) -> str | None:
