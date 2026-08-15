@@ -891,6 +891,7 @@ def queue_resolve(
     rationale: str = "",
     action: str = "confirm",
     store: Store | None = None,
+    handoff_inputs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """`hunt queue` (list) / `hunt queue --confirm <id>` / `hunt queue
     --reject <id> --rationale ...` -- promotion-queue resolution. [GATE]
@@ -899,6 +900,15 @@ def queue_resolve(
     /`store.candidate_promote` each independently DB-enforce the same
     requirement -- there is no code path here that promotes/rejects
     without an operator actor (MASTER SS7).
+
+    `handoff_inputs` (P5.3, ARCH SS4.2 "promotion.promote -> handoff.
+    build_package"): opt-in -- when supplied on a `cousin_detection`
+    confirm, `handoff.build_package` runs immediately after promotion using
+    these kwargs (capture_path/benign_events/evidence overrides, ...) and
+    the resulting package summary is attached to the return value. Left
+    `None` (the default) this call behaves exactly as it did before P5 --
+    MASTER SS2 forbids changing existing runtime behavior outside an
+    explicit cutover phase, so HND only runs when a caller opts in.
     """
     _require_operator(actor)
     from . import promotion as promotion_mod
@@ -919,9 +929,19 @@ def queue_resolve(
         if row is None:
             raise HonestBlockedError(f"no such promotion_queue item: {item_id}")
 
+        handoff_package = None
         if row["item_kind"] == "cousin_detection":
             if target_state == "confirmed":
                 promotion_mod.promote(store, row["item_id"], operator_actor=actor, note=rationale)
+                if handoff_inputs is not None:
+                    from . import handoff as handoff_mod
+
+                    pkg = handoff_mod.build_package(store, row["item_id"], **handoff_inputs)
+                    handoff_package = {
+                        "proposal_id": pkg.proposal_id,
+                        "family": pkg.family,
+                        "proof_legs": pkg.proof_legs,
+                    }
             else:
                 promotion_mod.kill(
                     store,
@@ -945,7 +965,119 @@ def queue_resolve(
                 event="bully_promotion",
             )
 
-        return {"queue_id": item_id, "state": target_state, "item_kind": row["item_kind"]}
+        result = {"queue_id": item_id, "state": target_state, "item_kind": row["item_kind"]}
+        if handoff_package is not None:
+            result["handoff"] = handoff_package
+        return result
     finally:
+        if owns_store:
+            store.close()
+
+
+# ── HND deployment + post-deploy replay + cell closure (P5.3, I-14) ────────
+
+
+def handoff_deploy(
+    *,
+    proposal_id: str,
+    actor: str,
+    spl_commit_ref: str,
+    receipt_hash: str,
+    store: Store | None = None,
+) -> dict[str, Any]:
+    """`portal security hunt handoff --deploy <proposal_id>` -- records the
+    operator's already-made `spl_detections.yaml` commit as a deployment
+    receipt (I-14 operator boundary: the commit itself goes through the
+    repo's normal pre-push BQ/AZ validation, outside this call). [GATE]
+    operator-only; DB-enforced independently
+    (`trg_deployment_operator_only`, `trg_detection_proposal_deploy_
+    requires_proof_legs`)."""
+    _require_operator(actor)
+    from . import handoff as handoff_mod
+
+    owns_store = store is None
+    store = store or Store(bully_config.hunt_dir() / "hunt_state.db")
+    try:
+        return handoff_mod.deploy(
+            store,
+            proposal_id,
+            operator_actor=actor,
+            spl_commit_ref=spl_commit_ref,
+            receipt_hash=receipt_hash,
+        )
+    finally:
+        if owns_store:
+            store.close()
+
+
+def handoff_record_replay(
+    *,
+    deployment_id: str,
+    passed: bool,
+    noise_estimate: float | None = None,
+    detail: str = "",
+    store: Store | None = None,
+    organ: Organ | None = None,
+) -> dict[str, Any]:
+    """Post-deploy Purple replay result (I-14): only a passed replay closes
+    the cell to `KNOWN_COVERED` (DB-enforced,
+    `trg_known_covered_requires_deploy_replay`); a failed replay is
+    ORG-indexed as negative learning (DESIGN SS23) -- `organ.py` is the only
+    module that touches the projection (MASTER SS3), so this orchestrator
+    function is what actually calls `organ.index_emissions` for the
+    `org_record` `handoff.record_replay` returns."""
+    from . import handoff as handoff_mod
+
+    owns_store = store is None
+    store = store or Store(bully_config.hunt_dir() / "hunt_state.db")
+    owns_organ = organ is None
+    try:
+        result = handoff_mod.record_replay(
+            store,
+            deployment_id,
+            passed=passed,
+            noise_estimate=noise_estimate,
+            detail=detail,
+        )
+        org_record = result.pop("org_record", None)
+        if org_record is not None:
+            if organ is None:
+                organ = Organ(store=store, db_path=bully_config.hunt_dir() / "hunt_memory")
+            organ.index_emissions([org_record])
+        return result
+    finally:
+        if owns_organ and organ is not None:
+            organ.close()
+        if owns_store:
+            store.close()
+
+
+def handoff_reject(
+    *,
+    proposal_id: str,
+    actor: str,
+    rationale: str,
+    store: Store | None = None,
+    organ: Organ | None = None,
+) -> dict[str, Any]:
+    """Operator reject -> DISPROVED-equivalent for a detection proposal;
+    ORG-indexed as negative learning (DESIGN SS23). [GATE] operator-only."""
+    _require_operator(actor)
+    from . import handoff as handoff_mod
+
+    owns_store = store is None
+    store = store or Store(bully_config.hunt_dir() / "hunt_state.db")
+    owns_organ = organ is None
+    try:
+        result = handoff_mod.reject(store, proposal_id, operator_actor=actor, rationale=rationale)
+        org_record = result.pop("org_record", None)
+        if org_record is not None:
+            if organ is None:
+                organ = Organ(store=store, db_path=bully_config.hunt_dir() / "hunt_memory")
+            organ.index_emissions([org_record])
+        return result
+    finally:
+        if owns_organ and organ is not None:
+            organ.close()
         if owns_store:
             store.close()
