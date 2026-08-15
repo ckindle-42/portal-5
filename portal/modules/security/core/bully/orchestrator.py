@@ -1,16 +1,17 @@
 """bully.orchestrator -- LOOP, the only module that sequences a hunt
-iteration (P1.7, P3 MUT/drift wiring).
+iteration (P1.7, P3 MUT/drift wiring, P4 TGT/COST wiring).
 
 Stage machine (I-3): DRAFT -> AUTHORIZED -> RECALL_READY -> TARGETED ->
 MUTATION_READY -> EXECUTING -> ANALYZING -> PROMOTING -> COMPOUNDING ->
-CLOSED (+ BLOCKED / CANCELLED / FAILED). P1 wires exactly one iteration
-end-to-end; TARGETED is still a stubbed passthrough (real TGT lands P4).
-MUTATION_READY now compiles a real `MutationPlan` via `mutation.py` (P3.1,
-replacing the P1 stub); ANALYZING now also runs BR-DRIFT (P3.2) after the
-cousin grade. PROMOTING/COMPOUNDING do not yet run BIN/HEART here (P2's
-promotion pipeline is driven separately via `hunt queue --confirm/--reject`)
--- they still perform the universal index-emission step that later phases
-extend, never skip.
+CLOSED (+ BLOCKED / CANCELLED / FAILED). TARGETED now runs real TGT
+selection via `targeting.py` (P4.3, replacing the P1 stub); MUTATION_READY
+compiles a real `MutationPlan` via `mutation.py` (P3.1, replacing an
+earlier P1 stub); ANALYZING now also runs BR-DRIFT (P3.2) after the cousin
+grade, followed by COST metering (P4.1) via `costing.py`. PROMOTING/
+COMPOUNDING do not yet run BIN/HEART here (P2's promotion pipeline is
+driven separately via `hunt queue --confirm/--reject`) -- they still
+perform the universal index-emission step that later phases extend, never
+skip.
 
 `[GATE]` hunt authorization is operator-only: `hunt run`/`hunt resume`/
 `hunt cancel`/`hunt queue` all require an `actor` starting with
@@ -20,16 +21,20 @@ extend, never skip.
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import time
 from collections.abc import Callable
 from typing import Any
 
 from . import config as bully_config
-from . import drift_engine
+from . import costing, drift_engine
 from . import evidence as evidence_mod
 from . import investigation as investigation_mod
 from . import mutation as mutation_mod
+from . import plateau as plateau_mod
+from . import scoreboard as scoreboard_mod
 from . import signatures as signatures_mod
+from . import targeting as targeting_mod
 from .contracts import DecisionEvent, MutationPlan, new_id
 from .cousin_engine import CoverageView, candidate_set, grade
 from .organ import Organ, OrganUnavailable
@@ -140,13 +145,16 @@ def _record(
     )
 
 
-def _do_recall(store: Store, organ: Organ, *, hunt_id: str, neighborhood: str, context) -> None:
+def _do_recall(store: Store, organ: Organ, *, hunt_id: str, neighborhood: str, context) -> Any:
     """RECALL_READY -- mandatory pre-hunt recall (I-4/C3). No code path
     reaches TARGETED without a persisted RecallReceipt: if organ.recall
     raises, the iteration is honestly BLOCKED right here, before any
-    target selection or lab action."""
+    target selection or lab action. Returns the `RecallReceipt` so TGT
+    (P4.3) can be recall-influenced without re-fetching it."""
     try:
-        organ.recall(hunt_id=hunt_id, query=f"{neighborhood} {context.neighborhood_scope}")
+        receipt = organ.recall(
+            hunt_id=hunt_id, query=f"{neighborhood} {context.neighborhood_scope}"
+        )
     except OrganUnavailable as exc:
         store.hunt_advance_stage(
             hunt_id, "BLOCKED", expected_version=store.hunt_get(hunt_id)["version"]
@@ -166,6 +174,93 @@ def _do_recall(store: Store, organ: Organ, *, hunt_id: str, neighborhood: str, c
         ) from exc
     if not store.recall_receipt_exists(hunt_id):  # pragma: no cover -- structural guard
         raise HonestBlockedError(f"hunt {hunt_id}: no recall receipt persisted, refusing to target")
+    return receipt
+
+
+def _do_target(
+    store: Store,
+    *,
+    hunt_id: str,
+    context: Any,
+    recall_receipt: Any,
+    target_cell: dict,
+) -> dict:
+    """TARGETED (P4.3, replacing the P1 stub) -- real TGT selection over
+    coverage cells + known-state (SUB), the just-persisted RecallReceipt
+    (ORG), and this hunt's own cost ledger (I-13). Fail-closed: an honest
+    "no eligible target"/"unrankable" `TargetDecision` blocks the hunt here
+    (recorded), never silently falls through to an unranked scenario.
+
+    `open_cells` has no dedicated enumeration source in this build (SUB has
+    no standalone `coverage_cells` table -- DATA_MODEL SS1.7 folds the
+    concept into `known_state.subject`); this wiring derives one candidate
+    cell per entry in `chain.SCENARIOS` (the same source `_do_mutate`
+    already draws its reference scenario from), documented A-decision for
+    P4.3. A caller/test may inject `target_cell["candidate_cells"]` to
+    override this derivation directly.
+
+    A hunt's very first iteration has no *measured* cost yet (COST only
+    meters after EXECUTING) -- an honest "estimated" pre-flight cost
+    observation is seeded once per hunt (never "measured", never
+    zero-filled) so TGT always has *some* real cost data to rank the
+    default scenario cells against; a cell whose own `cost_ref` points
+    elsewhere (never pre-flighted) still declines `MISSING_COST` exactly
+    as I-11 requires.
+    """
+    from ..chain import SCENARIOS
+
+    if not store.cost_ledger_for_hunt(hunt_id):
+        preflight = costing.build_record(
+            hunt_id,
+            None,
+            [
+                costing.observation(
+                    "lab_minutes", f"{hunt_id}:preflight_estimate", 5.0, quality="estimated"
+                )
+            ],
+        )
+        store.cost_ledger_put(preflight)
+
+    cells = target_cell.get("candidate_cells")
+    if cells is None:
+        cells = [
+            {
+                "cell_id": f"cell:{name}",
+                "subject": f"cell:{name}",
+                "scenario": name,
+                "cost_ref": hunt_id,
+                "prior": 0.5,
+            }
+            for name in SCENARIOS
+        ]
+
+    ranking_context = dataclasses.replace(context, open_cells=cells)
+    ledger = costing.CostView(store.cost_ledger_for_hunt(hunt_id))
+    decision = targeting_mod.select(ranking_context, recall_receipt, ledger)
+
+    _record(
+        store,
+        hunt_id=hunt_id,
+        iteration_id=None,
+        actor="system:orchestrator",
+        kind="target_select",
+        subject_id=decision.decision_id,
+        rationale=f"TGT status={decision.status} selected={decision.selected_cell_id!r}",
+        data=decision.to_dict(),
+    )
+
+    if decision.status != "selected":
+        store.hunt_advance_stage(
+            hunt_id, "BLOCKED", expected_version=store.hunt_get(hunt_id)["version"]
+        )
+        raise HonestBlockedError(f"hunt {hunt_id}: targeting {decision.status}, no target selected")
+
+    chosen = next(c for c in cells if c["cell_id"] == decision.selected_cell_id)
+    return {
+        **target_cell,
+        "scenario": chosen.get("scenario", target_cell.get("scenario")),
+        "target_decision_id": decision.decision_id,
+    }
 
 
 def _do_mutate(
@@ -310,6 +405,122 @@ def _do_drift(store: Store, *, hunt_id: str, episode_view: dict) -> list:
     return flags
 
 
+def _do_cost(
+    store: Store,
+    *,
+    hunt_id: str,
+    iteration_id: str,
+    exec_seconds: float,
+    models: dict[str, str],
+) -> Any:
+    """COST (P4.1, I-13): meter this iteration's real resource use and
+    append it to the cost ledger. `lab_minutes` and `analyst_minutes` are
+    directly measured (wall clock around the lab call; no human analyst
+    time in an automated LOOP iteration). `inference_calls` is an honest
+    coarse proxy (one call attempt per resolved investigation role) marked
+    `quality="estimated"` -- this build has no per-call token/latency
+    instrumentation wired from `investigation.run_arm` yet, so those meters
+    are simply not observed here rather than guessed at (I-13: never
+    zero-fill a measurement this code doesn't actually have)."""
+    components = [
+        costing.observation(
+            "lab_minutes", f"{iteration_id}:lab_minutes", round(exec_seconds / 60.0, 4)
+        ),
+        costing.observation("analyst_minutes", f"{iteration_id}:analyst_minutes", 0.0),
+        costing.observation(
+            "inference_calls",
+            f"{iteration_id}:inference_calls",
+            float(len(models)),
+            quality="estimated",
+        ),
+    ]
+    record = costing.build_record(hunt_id, iteration_id, components)
+    store.cost_ledger_put(record)
+    return record
+
+
+def _do_plateau(store: Store, organ: Organ, *, hunt_id: str, neighborhood: str) -> Any:
+    """COMPOUNDING -> CLOSED (P4.4, I-12): evaluate whether `neighborhood`
+    is statistically exhausted now that this iteration's own hunt has just
+    closed (so it counts as a valid trial for the *next* iteration's
+    decision -- this evaluation informs future targeting, it never blocks
+    the current iteration's own closure). Trials are assembled by
+    `store.plateau_trials_for_neighborhood`; `discovery_positive` per trial
+    is derived here via `scoreboard.score_record` (P4.2) over each trial's
+    cousin assessment, reusing the same discovery-axis definition SCORE
+    reports on rather than a second one.
+    """
+    hunt_config = bully_config.load_hunt_config()
+    plateau_cfg = hunt_config.get("plateau", {})
+    window = int(plateau_cfg.get("window", plateau_mod.MIN_VALID_TRIALS))
+    has_other_neighborhoods = bool(plateau_cfg.get("has_other_neighborhoods", True))
+
+    raw_trials = store.plateau_trials_for_neighborhood(neighborhood)
+    trials: list[dict[str, Any]] = []
+    for t in raw_trials:
+        assessment = t.get("assessment")
+        if assessment is not None:
+            scored = scoreboard_mod.score_record(assessment)
+            response_state = assessment.get("defense_response") or "NONE"
+            discovery_positive = scored["discovery_value"] > 0.0
+        else:
+            response_state = "NONE"
+            discovery_positive = False
+        trials.append(
+            {
+                "trial_id": t["trial_id"],
+                "neighborhood": t["neighborhood"],
+                "mutation_dim": t["mutation_dim"],
+                "valid": t["valid"],
+                "promoted": t["promoted"],
+                "response_state": response_state,
+                "discovery_positive": discovery_positive,
+                "version": t["version"],
+            }
+        )
+
+    decision = plateau_mod.evaluate(
+        neighborhood,
+        trials,
+        window,
+        has_other_neighborhoods=has_other_neighborhoods,
+        hunt_id=hunt_id,
+    )
+    store.plateau_put(decision)
+    _record(
+        store,
+        hunt_id=hunt_id,
+        iteration_id=None,
+        actor="system:orchestrator",
+        kind="plateau",
+        subject_id=decision.plateau_id,
+        rationale=f"PLT {decision.decision}/{decision.action} for {neighborhood!r}: {decision.note}",
+        data=decision.to_dict(),
+    )
+    with contextlib.suppress(OrganUnavailable):
+        # Same shared record shape the P1 "cousin" emission established
+        # (the hunt_memory projection is one table across emission kinds --
+        # `kind` differentiates); a dedicated plateau schema is future
+        # work, not invented here to avoid a schema-alignment break on the
+        # existing table.
+        organ.index_emissions(
+            [
+                {
+                    "kind": "plateau",
+                    "hunt_id": hunt_id,
+                    "episode_id": neighborhood,
+                    "relationship": decision.decision,
+                    "detection_response": decision.action,
+                    "rationale": decision.note,
+                    "trust_tier": "SUSPECT",
+                    "provenance_class": "hunt_emission",
+                }
+            ]
+        )
+        organ.process_outbox()
+    return decision
+
+
 def _do_analyze(
     store: Store,
     organ: Organ,
@@ -396,22 +607,20 @@ def run_hunt_iteration(
     )
 
     context = store.load_context(hunt_id)
-    _do_recall(store, organ, hunt_id=hunt_id, neighborhood=neighborhood, context=context)
+    recall_receipt = _do_recall(
+        store, organ, hunt_id=hunt_id, neighborhood=neighborhood, context=context
+    )
     _stage("RECALL_READY")
 
-    # TARGETED -- stubbed passthrough in P1 (real TGT lands P4). Recorded as
-    # a decision event so the stub is auditable, not silently skipped.
-    _stage("TARGETED")
-    _record(
+    # TARGETED -- real TGT selection (P4.3, replacing the P1 stub).
+    target_cell = _do_target(
         store,
         hunt_id=hunt_id,
-        iteration_id=None,
-        actor="system:orchestrator",
-        kind="target_select",
-        subject_id=target_cell.get("scenario", "auto"),
-        rationale="P1 stub passthrough -- real TGT lands P4",
-        data={"target_cell": target_cell},
+        context=context,
+        recall_receipt=recall_receipt,
+        target_cell=target_cell,
     )
+    _stage("TARGETED")
 
     # MUTATION_READY -- MUT compiles a MutationPlan into a scenario overlay
     # (P3.1, replacing the P1 stub). Fail-closed: raises HonestBlockedError
@@ -425,6 +634,7 @@ def run_hunt_iteration(
 
     # EXECUTING -- unchanged Red/Blue lab machinery via the injected driver.
     _stage("EXECUTING")
+    _exec_started_at = time.time()
     try:
         episode = lab_driver(target_cell, dry_run=dry_run)
     except HonestBlockedError:
@@ -466,6 +676,17 @@ def run_hunt_iteration(
     )
     drift_flags = _do_drift(store, hunt_id=hunt_id, episode_view=episode_view)
 
+    # COST (P4.1) -- meter this iteration's real resource use before
+    # PROMOTING/COMPOUNDING so later hunts' TGT selection has a real ledger
+    # to rank against.
+    cost_record = _do_cost(
+        store,
+        hunt_id=hunt_id,
+        iteration_id=iteration_id,
+        exec_seconds=max(time.time() - _exec_started_at, 0.0),
+        models=bully_config.resolve_investigation_models(),
+    )
+
     # PROMOTING / COMPOUNDING -- BIN/HEART land P2; universal index emission
     # (I-4) happens regardless, in this same iteration, never deferred to a
     # background worker that could silently never run in P1.
@@ -498,6 +719,11 @@ def run_hunt_iteration(
     _stage("CLOSED")
     store.lease_release(hunt_id, owner=actor)
 
+    # COMPOUNDING -> CLOSED plateau decision (P4.4) -- informs whether the
+    # *next* hunt in this neighborhood should continue/rotate/stop; never
+    # blocks this iteration's own closure.
+    plateau_decision = _do_plateau(store, organ, hunt_id=hunt_id, neighborhood=neighborhood)
+
     return {
         "hunt_id": hunt_id,
         "iteration_id": iteration_id,
@@ -511,6 +737,16 @@ def run_hunt_iteration(
             {"drift_class": f.drift_class, "status": f.status, "routed": f.routed}
             for f in drift_flags
         ],
+        "cost": {
+            "record_id": cost_record.record_id,
+            "computed_units": cost_record.computed_units,
+            "quality_flag": cost_record.quality_flag,
+        },
+        "plateau": {
+            "plateau_id": plateau_decision.plateau_id,
+            "decision": plateau_decision.decision,
+            "action": plateau_decision.action,
+        },
         "stage": "CLOSED",
     }
 
