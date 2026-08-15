@@ -15,6 +15,7 @@ from pathlib import Path
 
 import yaml
 
+from portal.platform.inference.router.validation import _resolve_sampling_values
 from portal.platform.wiki.provenance_ledger import append_entry
 from tests.benchmarks.bench_repair.checkpoint import (
     append_samples,
@@ -43,15 +44,39 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 RESULTS_DIR = REPO_ROOT / "tests" / "benchmarks" / "results"
 
 
-def _resolve_model_hint(workspace: str) -> str:
+def _omlx_alias_group(model_hint: str) -> str | None:
+    backends = yaml.safe_load((REPO_ROOT / "config" / "backends.yaml").read_text())
+    for backend in backends.get("backends", []):
+        if backend.get("type") == "omlx" and model_hint in (backend.get("aliases") or {}):
+            return backend.get("group", "?")
+    return None
+
+
+def _resolve_workspace(workspace: str) -> dict | None:
     d = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
     ws = d.get("workspaces", {}).get(workspace)
     if not ws:
-        raise SystemExit(f"workspace not found in portal.yaml: {workspace}")
+        print(
+            f"WARNING: workspace not found in portal.yaml, skipping: {workspace}", file=sys.stderr
+        )
+        return None
     hint = ws.get("model_hint")
     if not hint:
-        raise SystemExit(f"workspace {workspace} has no model_hint")
-    return hint
+        print(f"WARNING: workspace {workspace} has no model_hint, skipping", file=sys.stderr)
+        return None
+    omlx_group = _omlx_alias_group(hint)
+    if omlx_group:
+        print(
+            f"NOTE: {workspace}'s model ({hint}) is oMLX-eligible in production "
+            f"(group={omlx_group}, priority 10) — this harness is Ollama-only.",
+            file=sys.stderr,
+        )
+    return {
+        "model_hint": hint,
+        "sampling": _resolve_sampling_values(ws),
+        "think": ws.get("think"),
+        "omlx_group": omlx_group,
+    }
 
 
 def _parse_args() -> argparse.Namespace:
@@ -85,12 +110,18 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _print_plan(
-    workspaces: list[str], hints: dict[str, str], corpus: list[dict], gsha: str, ollama_version: str
+    workspaces: list[str],
+    resolved: dict[str, dict],
+    corpus: list[dict],
+    gsha: str,
+    ollama_version: str,
 ) -> None:
     print(f"bench_repair — gsha={gsha}")
     print(f"  workspaces ({len(workspaces)}):")
     for w in workspaces:
-        print(f"    {w:32}  {hints[w]}")
+        r = resolved[w]
+        think_note = f" think={r['think']}" if r["think"] is not None else ""
+        print(f"    {w:32}  {r['model_hint']}{think_note}")
     print(f"  problems: {len(corpus)}  arms: one-shot(n=5) + repair(n=2)")
     print(f"  total samples: {len(workspaces) * len(corpus) * (5 + 2)}")
     print(f"  ollama_version: {ollama_version}")
@@ -103,6 +134,8 @@ def _run_cell(
     gsha: str,
     ws: str,
     hint: str,
+    sampling: dict,
+    think: bool | None,
     prob: dict,
     arm: str,
     n: int,
@@ -115,20 +148,26 @@ def _run_cell(
         print(f"  {label}: skip (checkpointed)", end="", flush=True)
         return cell
     print(f"  {label}...", end="", flush=True)
-    cell = run_fn(ws, hint, prob)
+    cell = run_fn(ws, hint, prob, sampling=sampling, think=think)
     samples.extend(cell)
     append_samples(ckpt_path, gsha, cell)
     return cell
 
 
 def _run_all_workspaces(
-    workspaces: list[str], hints: dict[str, str], corpus: list[dict], *, ckpt_path: Path, gsha: str
+    workspaces: list[str],
+    resolved: dict[str, dict],
+    corpus: list[dict],
+    *,
+    ckpt_path: Path,
+    gsha: str,
 ) -> list[SampleResult]:
     samples: list[SampleResult] = load_checkpoint(ckpt_path)
     if samples:
         print(f"Resuming: {len(samples)} sample(s) already checkpointed at {ckpt_path}", flush=True)
     for mi, ws in enumerate(workspaces, 1):
-        hint = hints[ws]
+        r = resolved[ws]
+        hint = r["model_hint"]
         print(f"\n[{mi}/{len(workspaces)}] {ws}  ({hint})", flush=True)
         evict_all()  # kick prior residents
         t_ws_start = time.monotonic()
@@ -140,6 +179,8 @@ def _run_all_workspaces(
                 gsha=gsha,
                 ws=ws,
                 hint=hint,
+                sampling=r["sampling"],
+                think=r["think"],
                 prob=prob,
                 arm=ARM_ONESHOT,
                 n=ONESHOT_N,
@@ -155,6 +196,8 @@ def _run_all_workspaces(
                 gsha=gsha,
                 ws=ws,
                 hint=hint,
+                sampling=r["sampling"],
+                think=r["think"],
                 prob=prob,
                 arm=ARM_REPAIR,
                 n=REPAIR_N,
@@ -199,7 +242,7 @@ def _finalize_results(
 def main() -> int:
     args = _parse_args()
 
-    workspaces = [w.strip() for w in args.models.split(",") if w.strip()] or list(TARGETS)
+    requested = [w.strip() for w in args.models.split(",") if w.strip()] or list(TARGETS)
     corpus = load_corpus()
     if args.problems:
         wanted = {p.strip() for p in args.problems.split(",")}
@@ -209,8 +252,18 @@ def main() -> int:
         return 2
 
     gsha, breakdown = compute_gsha(corpus)
-    hints = {w: _resolve_model_hint(w) for w in workspaces}
-    _print_plan(workspaces, hints, corpus, gsha, breakdown["ollama_version"])
+    resolved = {w: r for w in requested if (r := _resolve_workspace(w)) is not None}
+    skipped = [w for w in requested if w not in resolved]
+    if skipped:
+        print(
+            f"Skipped {len(skipped)} unresolvable workspace(s): {', '.join(skipped)}",
+            file=sys.stderr,
+        )
+    workspaces = [w for w in requested if w in resolved]
+    if not workspaces:
+        print("ERROR: no requested workspace resolved against portal.yaml", file=sys.stderr)
+        return 2
+    _print_plan(workspaces, resolved, corpus, gsha, breakdown["ollama_version"])
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     ckpt_path = checkpoint_path(RESULTS_DIR, gsha)
@@ -223,7 +276,7 @@ def main() -> int:
         return 0
 
     t_run_start = time.monotonic()
-    samples = _run_all_workspaces(workspaces, hints, corpus, ckpt_path=ckpt_path, gsha=gsha)
+    samples = _run_all_workspaces(workspaces, resolved, corpus, ckpt_path=ckpt_path, gsha=gsha)
     total_elapsed = time.monotonic() - t_run_start
     print(f"\nTotal elapsed: {total_elapsed / 60:.1f}m over {len(samples)} samples")
 

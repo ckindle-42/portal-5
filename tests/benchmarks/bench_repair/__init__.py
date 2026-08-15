@@ -22,7 +22,6 @@ from tests.benchmarks.bench_repair.config import (
     REPAIR_N,
     REPAIR_TEMPLATE,
     TARGETS,
-    TEMPERATURE,
 )
 from tests.benchmarks.bench_repair.corpus import compute_gsha, load_corpus
 from tests.benchmarks.bench_repair.report import render_matrix
@@ -37,7 +36,6 @@ __all__ = [
     "ARMS",
     "ONESHOT_N",
     "REPAIR_N",
-    "TEMPERATURE",
     "OLLAMA_URL",
     "ONE_SHOT_TEMPLATE",
     "REPAIR_TEMPLATE",

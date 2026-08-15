@@ -22,9 +22,13 @@ from tests.benchmarks.bench_repair import (
     run_repair,
     samples_for_cell,
 )
-from tests.benchmarks.bench_repair.cli import _run_all_workspaces
+from tests.benchmarks.bench_repair.cli import (
+    _omlx_alias_group,
+    _resolve_workspace,
+    _run_all_workspaces,
+)
 from tests.benchmarks.bench_repair.config import arch_from_hint
-from tests.benchmarks.bench_repair.runner import SampleResult
+from tests.benchmarks.bench_repair.runner import SampleResult, _chat_ollama
 
 TRIVIAL_PROBLEM = {
     "id": "trivial",
@@ -208,9 +212,10 @@ def test_resume_skips_completed_cells_without_calling_ollama(tmp_path):
         patch("tests.benchmarks.bench_repair.runner._emits_reasoning", return_value=False),
         patch("tests.benchmarks.bench_repair.cli.evict_all"),
     ):
+        resolved = {"bench-fake": {"model_hint": "fake:latest", "sampling": {}, "think": None}}
         first = _run_all_workspaces(
             ["bench-fake"],
-            {"bench-fake": "fake:latest"},
+            resolved,
             corpus,
             ckpt_path=ckpt,
             gsha="gsha_resume",
@@ -221,7 +226,7 @@ def test_resume_skips_completed_cells_without_calling_ollama(tmp_path):
 
         second = _run_all_workspaces(
             ["bench-fake"],
-            {"bench-fake": "fake:latest"},
+            resolved,
             corpus,
             ckpt_path=ckpt,
             gsha="gsha_resume",
@@ -229,3 +234,84 @@ def test_resume_skips_completed_cells_without_calling_ollama(tmp_path):
     # Second call resumes entirely from checkpoint — no new Ollama calls.
     assert call_count["n"] == first_calls
     assert len(second) == len(first)
+
+
+class _FakeHttpxResponse:
+    def __init__(self, payload):
+        self._payload = payload
+
+    def raise_for_status(self):
+        pass
+
+    def json(self):
+        return self._payload
+
+
+def test_chat_ollama_sends_full_sampling_via_native_options(monkeypatch):
+    captured = {}
+
+    def _fake_post(url, json, timeout):
+        captured["url"] = url
+        captured["json"] = json
+        return _FakeHttpxResponse({"message": {"content": "hi"}})
+
+    monkeypatch.setattr("tests.benchmarks.bench_repair.runner.httpx.post", _fake_post)
+    content, _elapsed = _chat_ollama(
+        "some-model",
+        [{"role": "user", "content": "x"}],
+        token_budget=1234,
+        sampling={
+            "temperature": 0.7,
+            "top_p": 0.8,
+            "top_k": 20,
+            "min_p": 0.0,
+            "repeat_penalty": 1.0,
+            "presence_penalty": 1.5,
+            "seed": 42,
+        },
+        think=False,
+    )
+    assert content == "hi"
+    assert captured["url"].endswith("/api/chat")
+    body = captured["json"]
+    assert "options" in body and "choices" not in body  # not the OpenAI-compat shape
+    opts = body["options"]
+    assert opts["num_predict"] == 1234
+    assert opts["temperature"] == 0.7
+    assert opts["top_p"] == 0.8
+    assert opts["top_k"] == 20
+    assert opts["min_p"] == 0.0
+    assert opts["repeat_penalty"] == 1.0
+    assert opts["presence_penalty"] == 1.5
+    assert opts["seed"] == 42
+    assert body["think"] is False
+
+
+def test_chat_ollama_omits_unset_sampling_and_think(monkeypatch):
+    captured = {}
+
+    def _fake_post(url, json, timeout):
+        captured["json"] = json
+        return _FakeHttpxResponse({"message": {"content": ""}})
+
+    monkeypatch.setattr("tests.benchmarks.bench_repair.runner.httpx.post", _fake_post)
+    _chat_ollama("some-model", [{"role": "user", "content": "x"}], token_budget=100)
+    body = captured["json"]
+    assert body["options"] == {"num_predict": 100}
+    assert "think" not in body
+
+
+def test_resolve_workspace_skips_missing_workspace(capsys):
+    assert _resolve_workspace("bench-this-workspace-does-not-exist") is None
+    assert "WARNING" in capsys.readouterr().err
+
+
+def test_resolve_workspace_returns_model_hint_and_sampling():
+    r = _resolve_workspace("bench-qwen38-27b")
+    assert r is not None
+    assert r["model_hint"] == "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M"
+    assert isinstance(r["sampling"], dict)
+
+
+def test_omlx_alias_group_none_for_non_aliased_model():
+    assert _omlx_alias_group("this-model-id-is-not-aliased-anywhere") is None

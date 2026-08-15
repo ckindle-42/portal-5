@@ -1,7 +1,6 @@
-"""Ollama-direct chat + one-shot and +1-repair arms.
+"""Ollama-direct chat (native /api/chat + options) + one-shot and +1-repair arms.
 
-Eviction mirrors capability_probe.py's model-major pattern: keeps one
-model resident at a time on the 64 GB M4 Pro.
+Eviction mirrors capability_probe.py's model-major pattern (one resident model).
 """
 
 from __future__ import annotations
@@ -20,9 +19,18 @@ from tests.benchmarks.bench_repair.config import (
     ONESHOT_N,
     REPAIR_N,
     REPAIR_TEMPLATE,
-    TEMPERATURE,
 )
 from tests.benchmarks.bench_repair.scoring import score_code
+
+_SAMPLING_OPTION_KEYS = (
+    "temperature",
+    "top_p",
+    "top_k",
+    "min_p",
+    "repeat_penalty",
+    "presence_penalty",
+    "seed",
+)
 
 
 @dataclass
@@ -42,22 +50,29 @@ def _chat_ollama(
     messages: list[dict],
     *,
     token_budget: int,
-    temperature: float = TEMPERATURE,
+    sampling: dict | None = None,
+    think: bool | None = None,
     timeout: float = 600.0,
 ) -> tuple[str, float]:
-    """Returns (content, elapsed_s)."""
+    """Returns (content, elapsed_s). Uses Ollama's native /api/chat + options."""
+    options = {"num_predict": token_budget}
+    for key in _SAMPLING_OPTION_KEYS:
+        val = (sampling or {}).get(key)
+        if val is not None:
+            options[key] = val
     payload = {
         "model": model_hint,
         "messages": messages,
-        "max_tokens": token_budget,
-        "temperature": temperature,
+        "options": options,
         "stream": False,
     }
+    if think is not None:
+        payload["think"] = think
     t0 = time.monotonic()
-    r = httpx.post(f"{OLLAMA_URL}/v1/chat/completions", json=payload, timeout=timeout)
+    r = httpx.post(f"{OLLAMA_URL}/api/chat", json=payload, timeout=timeout)
     r.raise_for_status()
     elapsed = time.monotonic() - t0
-    content = r.json()["choices"][0]["message"].get("content", "")
+    content = r.json().get("message", {}).get("content", "")
     return content, elapsed
 
 
@@ -86,6 +101,8 @@ def run_one_shot(
     problem: dict,
     *,
     n: int = ONESHOT_N,
+    sampling: dict | None = None,
+    think: bool | None = None,
 ) -> list[SampleResult]:
     """n samples of one-shot generation + grading."""
     budget = _budget_for(workspace)
@@ -94,7 +111,9 @@ def run_one_shot(
     for i in range(n):
         messages = [{"role": "user", "content": prompt}]
         try:
-            resp, elapsed = _chat_ollama(model_hint, messages, token_budget=budget)
+            resp, elapsed = _chat_ollama(
+                model_hint, messages, token_budget=budget, sampling=sampling, think=think
+            )
             passed, _pytest_out, _code = score_code(resp, problem["test"])
             detail = "pass" if passed else "fail"
         except Exception as exc:  # noqa: BLE001
@@ -122,6 +141,8 @@ def run_repair(
     problem: dict,
     *,
     n: int = REPAIR_N,
+    sampling: dict | None = None,
+    think: bool | None = None,
 ) -> list[SampleResult]:
     """n samples of one-shot; on fail, one repair attempt with pytest stderr."""
     budget = _budget_for(workspace)
@@ -132,7 +153,11 @@ def run_repair(
         try:
             # First attempt
             resp1, e1 = _chat_ollama(
-                model_hint, [{"role": "user", "content": first_prompt}], token_budget=budget
+                model_hint,
+                [{"role": "user", "content": first_prompt}],
+                token_budget=budget,
+                sampling=sampling,
+                think=think,
             )
             elapsed_total += e1
             passed1, pytest_out, code1 = score_code(resp1, problem["test"])
@@ -160,6 +185,8 @@ def run_repair(
                 model_hint,
                 [{"role": "user", "content": repair_prompt}],
                 token_budget=budget,
+                sampling=sampling,
+                think=think,
             )
             elapsed_total += e2
             passed2, _pytest_out2, _code2 = score_code(resp2, problem["test"])

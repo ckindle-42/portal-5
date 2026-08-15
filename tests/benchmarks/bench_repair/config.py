@@ -6,6 +6,7 @@ OLLAMA_URL = "http://localhost:11434"
 
 # Tier A: @danpacary chart rows. Tier B: same-family dense/MoE pairs.
 # Tier C: code specialists. See task file "Model selection" for rationale.
+# 5 of these 10 no longer resolve against portal.yaml — cli.py skips + warns.
 TARGETS: list[str] = [
     "bench-qwen36-27b",
     "bench-qwen36-35b-a3b",
@@ -25,7 +26,6 @@ ARMS = (ARM_ONESHOT, ARM_REPAIR)
 
 ONESHOT_N = 5
 REPAIR_N = 2
-TEMPERATURE = 1.0
 
 # compute_gsha hashes these alongside the corpus, so changing either resets
 # fingerprint comparability.
