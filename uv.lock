@@ -1213,6 +1213,18 @@ wheels = [
 ]
 
 [[package]]
+name = "deprecation"
+version = "2.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "packaging" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5a/d3/8ae2869247df154b64c1884d7346d412fed0c49df84db635aab2d1c40e62/deprecation-2.1.0.tar.gz", hash = "sha256:72b3bde64e5d778694b0cf68178aed03d15e15477116add3fb773e581f9518ff", size = 173788, upload-time = "2020-04-20T14:23:38.738Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/02/c3/253a89ee03fc9b9682f1541728eb66db7db22148cd94f89ab22528cd1e1b/deprecation-2.1.0-py2.py3-none-any.whl", hash = "sha256:a10811591210e1fb0e768a8c25517cabeabcba6f0bf96564f8ff45189f90b14a", size = 11178, upload-time = "2020-04-20T14:23:36.581Z" },
+]
+
+[[package]]
 name = "dill"
 version = "0.4.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2062,6 +2074,55 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/6b/18/277bd18aeeceaf5c46a51bb50c1cbdccdad8cab7fd1d58f0173bbeeec708/kokoro_onnx-0.5.0.tar.gz", hash = "sha256:5beb15f085e2828ed8d493f792c079af857103ab2dceaa1e112b1760587ac96a", size = 84570, upload-time = "2026-01-30T03:05:45.6Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/0d/55/0bfcb4aa50033c89e5ac132af3d07fac0543824ce6eaefd4d1bfdcc3795b/kokoro_onnx-0.5.0-py3-none-any.whl", hash = "sha256:4e1c38a296db5dbc1f722f69f5e3c13f2e2877b3e5b145287f56ec057013e357", size = 17448, upload-time = "2026-01-30T03:05:46.931Z" },
+]
+
+[[package]]
+name = "lance-namespace"
+version = "0.11.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "lance-namespace-urllib3-client" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/38/b2/6db06b38de16a0032c8324ef55ebd7af4bea6518ebfecbdfc79dd2e35936/lance_namespace-0.11.0.tar.gz", hash = "sha256:5d91de188ed4420a02507da4ac1354fc0f4b8e409267f11c3b4c253f47e57a19", size = 11636, upload-time = "2026-08-14T18:52:01.721Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/42/37/1e1e638219cbb3e31cb9edf785efbf875186451d4d4faa710640759f58c6/lance_namespace-0.11.0-py3-none-any.whl", hash = "sha256:34fe37755f3a676c0f8ca4870dd877f790328d0d3d88f1afb995ac662c84d8c3", size = 13508, upload-time = "2026-08-14T18:51:59.755Z" },
+]
+
+[[package]]
+name = "lance-namespace-urllib3-client"
+version = "0.11.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "python-dateutil" },
+    { name = "typing-extensions" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5b/b0/fe391f747134635d1cb21c3b891346672dbb42224c1eacafd1f580b9a7ad/lance_namespace_urllib3_client-0.11.0.tar.gz", hash = "sha256:eeac5b4f48411e7e7a764abdd01a0a9a4aa4218a18850e5358ba661ccad2b7c6", size = 236668, upload-time = "2026-08-14T18:52:02.459Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/20/d1/f87c834e427cd84b473b2708d29cd3763ce46bfbc74eb26dd5e730f75a6f/lance_namespace_urllib3_client-0.11.0-py3-none-any.whl", hash = "sha256:bae3761ff64d29c56868faf78a671f5fdc75576b43688d76026ab0563edd67d7", size = 405947, upload-time = "2026-08-14T18:52:00.62Z" },
+]
+
+[[package]]
+name = "lancedb"
+version = "0.37.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "deprecation" },
+    { name = "lance-namespace" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "overrides", marker = "python_full_version < '3.12'" },
+    { name = "packaging" },
+    { name = "pyarrow" },
+    { name = "pydantic" },
+    { name = "tqdm" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/23/2f/4ddcab82bb618c6c8de00725f3cf59585dcb9040964dde13cb0cae6ed3cd/lancedb-0.37.1-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:c15c46f23cf6959c79fb93cdba2c76536cf784d3134386662da03dc6ccac3c26", size = 58474767, upload-time = "2026-08-10T10:41:45.675Z" },
+    { url = "https://files.pythonhosted.org/packages/e5/5e/dac0fd9478a21685444f23e6ec937babf4ff48b1616b68e8137778d6ecb9/lancedb-0.37.1-cp310-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:35d872d920cbfdc3771fbcd33f2c63bff6ff7203d6d2ba8fe4330e98eb859d12", size = 61666580, upload-time = "2026-08-10T10:41:49.535Z" },
+    { url = "https://files.pythonhosted.org/packages/1f/fa/ee1cdb1e904872d75fa0ff44ad35cd23494e810299c33e68de0687de7a71/lancedb-0.37.1-cp310-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:86597f4dbc51a33a07341550dc77d21a1ddd1f7539266eda5bb64c4f3bd11cca", size = 64802395, upload-time = "2026-08-10T10:41:52.969Z" },
+    { url = "https://files.pythonhosted.org/packages/42/55/65c69307373b7f05dea38465b7d3836c86390f0ebc79b5c56d2c0919f229/lancedb-0.37.1-cp310-abi3-win_amd64.whl", hash = "sha256:488eca15361dfc34439500c9e2607c4fb2b8bf190fa1003bd54b1d6eb40e0316", size = 70994296, upload-time = "2026-08-10T10:41:56.609Z" },
 ]
 
 [[package]]
@@ -3759,6 +3820,15 @@ wheels = [
 ]
 
 [[package]]
+name = "overrides"
+version = "7.7.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/36/86/b585f53236dec60aba864e050778b25045f857e17f6e5ea0ae95fe80edd2/overrides-7.7.0.tar.gz", hash = "sha256:55158fa3d93b98cc75299b1e67078ad9003ca27945c76162c1c0766d6f91820a", size = 22812, upload-time = "2024-01-27T21:01:33.423Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2c/ab/fc8290c6a4c722e5514d80f62b2dc4c4df1a68a41d1364e625c35990fcf3/overrides-7.7.0-py3-none-any.whl", hash = "sha256:c7ed9d062f78b8e4c1a7b70bd8796b35ead4d9f510227ef9c5dc7626c60d7e49", size = 17832, upload-time = "2024-01-27T21:01:31.393Z" },
+]
+
+[[package]]
 name = "packaging"
 version = "26.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4107,11 +4177,15 @@ apple-silicon = [
     { name = "torch" },
     { name = "torchaudio" },
 ]
+bully = [
+    { name = "lancedb" },
+]
 channels = [
     { name = "python-telegram-bot" },
     { name = "slack-bolt" },
 ]
 dev = [
+    { name = "lancedb" },
     { name = "mcp" },
     { name = "mypy" },
     { name = "promptfoo" },
@@ -4160,6 +4234,8 @@ requires-dist = [
     { name = "httpx", marker = "extra == 'mcp'", specifier = ">=0.26.0" },
     { name = "huggingface-hub", marker = "extra == 'mcp'", specifier = ">=0.20.0" },
     { name = "kokoro-onnx", marker = "extra == 'mcp'", specifier = ">=0.4.0" },
+    { name = "lancedb", marker = "extra == 'bully'", specifier = ">=0.37.0" },
+    { name = "lancedb", marker = "extra == 'dev'", specifier = ">=0.37.0" },
     { name = "markdown", marker = "extra == 'mcp'", specifier = ">=3.6" },
     { name = "mcp", marker = "extra == 'dev'", specifier = ">=2.0.0,<3.0.0" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=2.0.0,<3.0.0" },
@@ -4202,7 +4278,7 @@ requires-dist = [
     { name = "typer", specifier = ">=0.9.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.27.0" },
 ]
-provides-extras = ["channels", "notifications", "mcp", "generation", "rag", "apple-silicon", "dev"]
+provides-extras = ["channels", "notifications", "mcp", "generation", "rag", "bully", "apple-silicon", "dev"]
 
 [[package]]
 name = "posthog"
