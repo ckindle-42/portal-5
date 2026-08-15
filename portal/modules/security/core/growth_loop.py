@@ -179,6 +179,10 @@ def prove_draft(
     run_positive: bool = True,
     run_negative: bool = True,
     run_regression: bool = True,
+    g1a_evidence: dict | None = None,
+    g1b_evidence: dict | None = None,
+    negative_baseline_evidence: dict | None = None,
+    regression_evidence: dict | None = None,
 ) -> ProofResult:
     """Prove a draft detection against the lab.
 
@@ -187,12 +191,20 @@ def prove_draft(
     2. Negative-baseline: stays quiet on benign background traffic
     3. Regression: doesn't break existing detections
 
-    In production, this runs actual Splunk queries against the lab.
-    In this slice, we validate syntax + record the proof structure.
+    Legs 1 and (with a supplied recipe/re-run evidence) the fresh-positive
+    reproduction leg are the *same real checks* the BIN promotion machine
+    uses for G1a (static SPL-execution reproduction) and G1b (dynamic
+    re-execution reproduction) -- see `bully/promotion.py`
+    (TASK_BULLY_P2_BIN_HEART_V1 P2.2: "Replace growth_loop.prove_draft's
+    placeholder-true legs with real G1a/G1b reproduction"). Absent evidence
+    is an honest fail/incomplete, never a fabricated pass -- no leg
+    defaults to True just because it was requested.
 
     PROMOTE_POLICY: confirm-only — even proven drafts require operator
     confirmation.  Nothing auto-merges.
     """
+    from .bully.promotion import check_g1a_static, check_g1b_dynamic
+
     result = ProofResult(tested_at=time.time())
 
     # Leg 1: Syntax validation (deterministic gate)
@@ -202,24 +214,46 @@ def prove_draft(
         result.detail = f"SPL validation failed: {'; '.join(errors)}"
         return result
 
-    # Leg 2: Fresh-positive check
-    # In production: run the SPL against a fresh attack execution
-    # In this slice: mark as requiring lab execution
+    # Leg 2: Fresh-positive -- real G1a static + G1b dynamic reproduction.
+    # Both must pass; either's absence/failure is an honest not-proven, not
+    # a placeholder pass.
     if run_positive:
-        result.fresh_positive = True  # placeholder — real check in lab
-        result.detail += "positive: SPL syntax valid; "
+        g1a = check_g1a_static(g1a_evidence or {})
+        g1b = check_g1b_dynamic(g1b_evidence or {})
+        result.fresh_positive = g1a["outcome"] == "pass" and g1b["outcome"] == "pass"
+        result.detail += f"positive: G1a={g1a['outcome']} G1b={g1b['outcome']}; "
+        if g1a["outcome"] != "pass":
+            result.errors.extend(f"G1a: {r}" for r in g1a.get("reasons", []))
+        if g1b["outcome"] != "pass":
+            result.errors.extend(f"G1b: {r}" for r in g1b.get("reasons", []))
 
-    # Leg 3: Negative-baseline check
-    # In production: run the SPL against benign traffic
+    # Leg 3: Negative-baseline -- requires an explicit benign-corpus result;
+    # no evidence supplied is an honest not-proven (mirrors BIN's G2
+    # zero-fire check, `bully/promotion.py::_default_g2`).
     if run_negative:
-        result.negative_baseline = True  # placeholder — real check in lab
-        result.detail += "negative: requires lab baseline; "
+        evidence = negative_baseline_evidence or {}
+        fired = evidence.get("benign_corpus_fires")
+        result.negative_baseline = fired is False
+        result.detail += (
+            "negative: benign-corpus zero-fire confirmed; "
+            if result.negative_baseline
+            else "negative: no benign-corpus result supplied or a discriminator fired; "
+        )
+        if not result.negative_baseline:
+            result.errors.append("negative-baseline: no benign-corpus zero-fire evidence")
 
-    # Leg 4: Regression check
-    # In production: run all existing detections to verify no breakage
+    # Leg 4: Regression -- requires an explicit no-existing-detection-broken
+    # result (e.g. the BQ/AZ regression suite outcome).
     if run_regression:
-        result.regression = True  # placeholder — real check in lab
-        result.detail += "regression: requires full detection suite; "
+        evidence = regression_evidence or {}
+        result.regression = bool(evidence.get("no_regressions"))
+        result.detail += (
+            "regression: existing detection suite unaffected; "
+            if result.regression
+            else "regression: no regression-suite evidence supplied; "
+        )
+        if not result.regression:
+            result.errors.append("regression: no regression-suite evidence")
 
     return result
 

@@ -27,10 +27,11 @@ from .contracts import (
     DecisionImpact,
     HuntContext,
     RecallReceipt,
+    is_legal_bin_transition,
     is_legal_hunt_transition,
 )
 
-SCHEMA_VERSION = 1  # highest migration this code understands
+SCHEMA_VERSION = 3  # highest migration this code understands
 _MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
 
@@ -52,6 +53,16 @@ class OutboxIntegrityError(StoreError):
 
 class LeaseError(StoreError):
     """Raised on a lease conflict (one active lease per hunt)."""
+
+
+class IllegalBinTransitionError(StoreError):
+    """Raised on a stale/illegal candidate-state transition attempt (C7)."""
+
+
+class OperatorActorRequiredError(StoreError):
+    """Raised when a queue/promotion resolution is attempted by a non-operator
+    actor -- mirrors the DB trigger's refusal so the Python exception carries
+    a clear message instead of a bare sqlite3.IntegrityError (SS4.8)."""
 
 
 def _row_to_dict(row: sqlite3.Row) -> dict:
@@ -615,6 +626,659 @@ class Store:
         if hunt_id_prefix is not None:
             out = [r for r in out if str(r["record_id"]).startswith(hunt_id_prefix)]
         return out
+
+    # ── evidence manifests / items (P2.1 -- G0 needs a persisted manifest) ──
+
+    def evidence_manifest_put(
+        self,
+        *,
+        manifest_id: str,
+        episode_id: str | None,
+        required_types: list[str],
+        items: list[dict],
+        completeness: float,
+        reasons: list[str],
+    ) -> None:
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT OR IGNORE INTO evidence_manifests (manifest_id, episode_id, "
+                "attempt_refs, required_types, present_items, completeness, reasons, created_at) "
+                "VALUES (?,?,?,?,?,?,?,?)",
+                (
+                    manifest_id,
+                    episode_id,
+                    _json([]),
+                    _json(required_types),
+                    _json([i["evidence_id"] for i in items]),
+                    completeness,
+                    _json(reasons),
+                    time.time(),
+                ),
+            )
+            for item in items:
+                cur.execute(
+                    "INSERT OR IGNORE INTO evidence_items (evidence_id, manifest_id, type, uri, "
+                    "content_hash, byte_size, media_encoding, captured_at, event_time, "
+                    "source_actor, source_system, synthetic, redacted, access_class, "
+                    "verification_status, verified_at, retention_hold, parent_evidence_id, "
+                    "parser_version, origin, created_at) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        item["evidence_id"],
+                        manifest_id,
+                        item["type"],
+                        item["uri"],
+                        item["content_hash"],
+                        item.get("byte_size"),
+                        item.get("media_encoding"),
+                        item.get("captured_at"),
+                        item.get("event_time"),
+                        item.get("source_actor"),
+                        item.get("source_system"),
+                        1 if item.get("synthetic") else 0,
+                        1 if item.get("redacted") else 0,
+                        item.get("access_class"),
+                        item.get("verification_status", "declared"),
+                        item.get("verified_at"),
+                        1 if item.get("retention_hold") else 0,
+                        item.get("parent_evidence_id"),
+                        item.get("parser_version"),
+                        item.get("origin"),
+                        time.time(),
+                    ),
+                )
+
+    def evidence_items_for_manifest(self, manifest_id: str) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM evidence_items WHERE manifest_id=?", (manifest_id,)
+        ).fetchall()
+        return [_row_to_dict(r) for r in rows]
+
+    # ── candidates / gate_results (BIN, I-7) ─────────────────────────────
+
+    def candidate_create(
+        self,
+        *,
+        candidate_id: str,
+        hunt_id: str,
+        assessment_id: str,
+        evidence_manifest_id: str | None,
+        gate_policy_version: str,
+    ) -> None:
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO candidates (candidate_id, hunt_id, assessment_id, "
+                "evidence_manifest_id, alert_version, current_state, gate_policy_version, "
+                "terminal_reason, queue_state, decided_by, decided_at, rationale, version, "
+                "created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    candidate_id,
+                    hunt_id,
+                    assessment_id,
+                    evidence_manifest_id,
+                    1,
+                    "CREATED",
+                    gate_policy_version,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    0,
+                    time.time(),
+                ),
+            )
+
+    def candidate_get(self, candidate_id: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM candidates WHERE candidate_id=?", (candidate_id,)
+        ).fetchone()
+        return _row_to_dict(row)
+
+    def candidate_advance(
+        self,
+        candidate_id: str,
+        target_state: str,
+        *,
+        expected_version: int,
+        terminal_reason: str | None = None,
+        rationale: str | None = None,
+    ) -> None:
+        """Compare-and-swap candidate-state transition (C7): rejects
+        stale/illegal (skip-a-gate) transitions."""
+        row = self.candidate_get(candidate_id)
+        if row is None:
+            raise StoreError(f"no such candidate: {candidate_id}")
+        if row["version"] != expected_version:
+            raise IllegalBinTransitionError(
+                f"stale expected_version={expected_version} for candidate {candidate_id} "
+                f"(current={row['version']})"
+            )
+        if not is_legal_bin_transition(row["current_state"], target_state):
+            raise IllegalBinTransitionError(
+                f"{row['current_state']} -> {target_state} is not a legal bin transition"
+            )
+        with self._tx() as cur:
+            cur.execute(
+                "UPDATE candidates SET current_state=?, terminal_reason=?, rationale=?, "
+                "version=version+1 WHERE candidate_id=? AND version=?",
+                (target_state, terminal_reason, rationale, candidate_id, expected_version),
+            )
+            if cur.rowcount != 1:
+                raise IllegalBinTransitionError(
+                    f"concurrent modification of candidate {candidate_id}"
+                )
+
+    def candidate_resume(
+        self, candidate_id: str, *, expected_version: int, target_state: str
+    ) -> None:
+        """Resume a BLOCKED/OPERATOR_ESCALATED candidate back into the main
+        gate sequence at `target_state` (I-3/I-7 "resumption re-drives the
+        specific gate that was blocked/escalated, not a generic hop").
+        Deliberately bypasses `is_legal_bin_transition`'s blanket refusal
+        for BLOCKED/OPERATOR_ESCALATED to bare-transition onward -- this
+        *is* the dedicated resume path that refusal exists to force callers
+        through, not a workaround of it. `target_state` must still be one
+        of the main-sequence states (never PROMOTED/a terminal state)."""
+        from .contracts import _BIN_MAIN_ORDER
+
+        if target_state not in _BIN_MAIN_ORDER or target_state == "PROMOTED":
+            raise IllegalBinTransitionError(
+                f"candidate_resume target_state must be a main-sequence, non-terminal state, "
+                f"got {target_state!r}"
+            )
+        row = self.candidate_get(candidate_id)
+        if row is None:
+            raise StoreError(f"no such candidate: {candidate_id}")
+        if row["current_state"] not in ("BLOCKED", "OPERATOR_ESCALATED"):
+            raise IllegalBinTransitionError(
+                f"candidate_resume only applies from BLOCKED/OPERATOR_ESCALATED, "
+                f"current state is {row['current_state']!r}"
+            )
+        if row["version"] != expected_version:
+            raise IllegalBinTransitionError(
+                f"stale expected_version={expected_version} for candidate {candidate_id}"
+            )
+        with self._tx() as cur:
+            cur.execute(
+                "UPDATE candidates SET current_state=?, terminal_reason=NULL, version=version+1 "
+                "WHERE candidate_id=? AND version=?",
+                (target_state, candidate_id, expected_version),
+            )
+            if cur.rowcount != 1:
+                raise IllegalBinTransitionError(
+                    f"concurrent modification of candidate {candidate_id}"
+                )
+
+    def candidate_bump_alert_version(
+        self, candidate_id: str, *, expected_version: int, new_evidence_manifest_id: str
+    ) -> int:
+        """A changed evidence manifest creates a new alert version and
+        invalidates downstream passes (I-7 / SS4.8): the candidate rolls
+        back to G_MINUS_1_PASS (scope/budget approval is evidence-independent
+        and carries over; every evidence-dependent gate from G0 onward must
+        re-run and can only write gate_results at the *new* alert_version,
+        which the PROMOTED trigger's COUNT check requires)."""
+        row = self.candidate_get(candidate_id)
+        if row is None:
+            raise StoreError(f"no such candidate: {candidate_id}")
+        if row["version"] != expected_version:
+            raise IllegalBinTransitionError(
+                f"stale expected_version={expected_version} for candidate {candidate_id}"
+            )
+        new_alert_version = row["alert_version"] + 1
+        with self._tx() as cur:
+            cur.execute(
+                "UPDATE candidates SET alert_version=?, evidence_manifest_id=?, "
+                "current_state='G_MINUS_1_PASS', version=version+1 "
+                "WHERE candidate_id=? AND version=?",
+                (new_alert_version, new_evidence_manifest_id, candidate_id, expected_version),
+            )
+            if cur.rowcount != 1:
+                raise IllegalBinTransitionError(
+                    f"concurrent modification of candidate {candidate_id}"
+                )
+        return new_alert_version
+
+    def gate_result_put(
+        self,
+        *,
+        result_id: str,
+        candidate_id: str,
+        alert_version: int,
+        gate_id: str,
+        attempt: int,
+        outcome: str,
+        validator_version: str,
+        inputs: dict,
+        evidence: dict,
+        checks: list,
+        reasons: list,
+    ) -> None:
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO gate_results (result_id, candidate_id, alert_version, gate_id, "
+                "attempt, outcome, validator_version, inputs_json, evidence_json, checks_json, "
+                "reasons_json, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    result_id,
+                    candidate_id,
+                    alert_version,
+                    gate_id,
+                    attempt,
+                    outcome,
+                    validator_version,
+                    _json(inputs),
+                    _json(evidence),
+                    _json(checks),
+                    _json(reasons),
+                    time.time(),
+                ),
+            )
+
+    def gate_results_for_candidate(
+        self, candidate_id: str, *, alert_version: int | None = None
+    ) -> list[dict]:
+        if alert_version is None:
+            rows = self._conn.execute(
+                "SELECT * FROM gate_results WHERE candidate_id=? ORDER BY created_at ASC",
+                (candidate_id,),
+            ).fetchall()
+        else:
+            rows = self._conn.execute(
+                "SELECT * FROM gate_results WHERE candidate_id=? AND alert_version=? "
+                "ORDER BY created_at ASC",
+                (candidate_id, alert_version),
+            ).fetchall()
+        return [_row_to_dict(r) for r in rows]
+
+    def gate_next_attempt(self, candidate_id: str, alert_version: int, gate_id: str) -> int:
+        row = self._conn.execute(
+            "SELECT MAX(attempt) AS n FROM gate_results WHERE candidate_id=? "
+            "AND alert_version=? AND gate_id=?",
+            (candidate_id, alert_version, gate_id),
+        ).fetchone()
+        return (row["n"] or 0) + 1
+
+    # ── council (HEART, I-8) ──────────────────────────────────────────────
+
+    def council_packet_put(
+        self,
+        *,
+        packet_id: str,
+        candidate_id: str,
+        evidence_manifest_id: str | None,
+        evidence_manifest_hash: str,
+        roster_snapshot: dict,
+        materiality_version: str,
+        unresolved: bool,
+        review_valid: bool,
+        participation: float | None,
+    ) -> None:
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO council_packets (packet_id, candidate_id, evidence_manifest_id, "
+                "evidence_manifest_hash, roster_snapshot, materiality_version, unresolved, "
+                "review_valid, participation, superseded_by, created_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    packet_id,
+                    candidate_id,
+                    evidence_manifest_id,
+                    evidence_manifest_hash,
+                    _json(roster_snapshot),
+                    materiality_version,
+                    1 if unresolved else 0,
+                    1 if review_valid else 0,
+                    participation,
+                    None,
+                    time.time(),
+                ),
+            )
+
+    def council_opinion_put(
+        self,
+        *,
+        opinion_id: str,
+        packet_id: str,
+        seat_id: str,
+        attempt: int,
+        member_id: str,
+        model: str,
+        family: str,
+        valid: bool,
+        recommendation: str,
+        confidence: float,
+        error: str,
+        findings: list,
+        strongest_objection: str,
+        missing_evidence: list,
+        conditions_to_change: list,
+    ) -> None:
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO council_opinions (opinion_id, packet_id, seat_id, attempt, "
+                "member_id, model, family, valid, error, recommendation, confidence, "
+                "findings_json, strongest_objection, missing_evidence_json, "
+                "conditions_to_change_json, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    opinion_id,
+                    packet_id,
+                    seat_id,
+                    attempt,
+                    member_id,
+                    model,
+                    family,
+                    1 if valid else 0,
+                    error,
+                    recommendation,
+                    confidence,
+                    _json(findings),
+                    strongest_objection,
+                    _json(missing_evidence),
+                    _json(conditions_to_change),
+                    time.time(),
+                ),
+            )
+
+    def objection_put(
+        self,
+        *,
+        objection_id: str,
+        packet_id: str,
+        seat_id: str,
+        category: str,
+        material: bool,
+        claim: str,
+        evidence_citations: list,
+        missing_proof_citations: list,
+        status: str = "open",
+    ) -> None:
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO objections (objection_id, packet_id, seat_id, category, material, "
+                "claim, evidence_citations_json, missing_proof_citations_json, status, "
+                "age_seconds, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    objection_id,
+                    packet_id,
+                    seat_id,
+                    category,
+                    1 if material else 0,
+                    claim,
+                    _json(evidence_citations),
+                    _json(missing_proof_citations),
+                    status,
+                    0.0,
+                    time.time(),
+                ),
+            )
+
+    def objection_get(self, objection_id: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM objections WHERE objection_id=?", (objection_id,)
+        ).fetchone()
+        return _row_to_dict(row)
+
+    def objection_set_status(self, objection_id: str, status: str) -> None:
+        with self._tx() as cur:
+            cur.execute(
+                "UPDATE objections SET status=? WHERE objection_id=?", (status, objection_id)
+            )
+
+    def objections_for_packet(self, packet_id: str) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM objections WHERE packet_id=?", (packet_id,)
+        ).fetchall()
+        return [_row_to_dict(r) for r in rows]
+
+    def council_packet_get(self, packet_id: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM council_packets WHERE packet_id=?", (packet_id,)
+        ).fetchone()
+        return _row_to_dict(row)
+
+    def council_opinions_for_packet(self, packet_id: str) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM council_opinions WHERE packet_id=?", (packet_id,)
+        ).fetchall()
+        return [_row_to_dict(r) for r in rows]
+
+    def rebuttals_for_objection(self, objection_id: str) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM rebuttals WHERE objection_id=?", (objection_id,)
+        ).fetchall()
+        return [_row_to_dict(r) for r in rows]
+
+    def council_packet_set_unresolved(self, packet_id: str, unresolved: bool) -> None:
+        """Recompute-and-persist `unresolved` after a rebuttal/withdrawal/
+        waiver changes an objection's status (I-8 "closure paths")."""
+        with self._tx() as cur:
+            cur.execute(
+                "UPDATE council_packets SET unresolved=? WHERE packet_id=?",
+                (1 if unresolved else 0, packet_id),
+            )
+
+    def council_packet_finalize(
+        self, packet_id: str, *, review_valid: bool, participation: float, unresolved: bool
+    ) -> None:
+        """`adversary.review` inserts the packet row before its seat
+        opinions (opinions FK-reference the packet), then finalizes
+        review_valid/participation/unresolved once all seats have answered
+        and objections have been classified."""
+        with self._tx() as cur:
+            cur.execute(
+                "UPDATE council_packets SET review_valid=?, participation=?, unresolved=? "
+                "WHERE packet_id=?",
+                (1 if review_valid else 0, participation, 1 if unresolved else 0, packet_id),
+            )
+
+    def rebuttal_put(
+        self,
+        *,
+        rebuttal_id: str,
+        objection_id: str,
+        author: str,
+        claim: str,
+        evidence_citations: list,
+        requested_review: str | None,
+        re_review_result: str | None,
+    ) -> None:
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO rebuttals (rebuttal_id, objection_id, author, claim, "
+                "evidence_citations_json, requested_review, re_review_result, created_at) "
+                "VALUES (?,?,?,?,?,?,?,?)",
+                (
+                    rebuttal_id,
+                    objection_id,
+                    author,
+                    claim,
+                    _json(evidence_citations),
+                    requested_review,
+                    re_review_result,
+                    time.time(),
+                ),
+            )
+
+    # ── promotion_queue (I-3/I-7, SS4.8) ─────────────────────────────────
+
+    def promotion_enqueue(
+        self, *, queue_id: str, item_kind: str, item_id: str, hunt_id: str | None
+    ) -> None:
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO promotion_queue (queue_id, item_kind, item_id, hunt_id, state, "
+                "enqueued_at, resolved_by, resolved_at, rationale) VALUES (?,?,?,?,?,?,?,?,?)",
+                (queue_id, item_kind, item_id, hunt_id, "pending", time.time(), None, None, None),
+            )
+
+    def promotion_get(self, queue_id: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM promotion_queue WHERE queue_id=?", (queue_id,)
+        ).fetchone()
+        return _row_to_dict(row)
+
+    def promotion_list(self, *, state: str | None = None) -> list[dict]:
+        if state is None:
+            rows = self._conn.execute(
+                "SELECT * FROM promotion_queue ORDER BY enqueued_at ASC"
+            ).fetchall()
+        else:
+            rows = self._conn.execute(
+                "SELECT * FROM promotion_queue WHERE state=? ORDER BY enqueued_at ASC", (state,)
+            ).fetchall()
+        return [_row_to_dict(r) for r in rows]
+
+    def promotion_resolve(
+        self, queue_id: str, *, actor: str, state: str, rationale: str = ""
+    ) -> None:
+        """I-5 / MASTER SS7: 'requires actor="operator:*"'; DB check (the
+        002 migration's trg_promotion_queue_operator_only trigger) is the
+        actual enforcement -- this raises the same class of refusal as a
+        Python-level exception up front so the caller never even reaches
+        the trigger for the common non-operator case, and the trigger
+        still fires on any other write path (an operator SQL slip)."""
+        if state not in ("confirmed", "rejected"):
+            raise StoreError(f"promotion_resolve: unknown terminal state {state!r}")
+        if not actor.startswith("operator:"):
+            raise OperatorActorRequiredError(
+                f"actor {actor!r} is not an operator; promotion_resolve requires "
+                f"actor='operator:<id>'"
+            )
+        if state == "rejected" and not rationale.strip():
+            raise StoreError("promotion_resolve: rejection requires a rationale")
+        row = self.promotion_get(queue_id)
+        if row is None:
+            raise StoreError(f"no such promotion_queue item: {queue_id}")
+        with self._tx() as cur:
+            cur.execute(
+                "UPDATE promotion_queue SET state=?, resolved_by=?, resolved_at=?, rationale=? "
+                "WHERE queue_id=? AND state='pending'",
+                (state, actor, time.time(), rationale, queue_id),
+            )
+            if cur.rowcount != 1:
+                raise StoreError(
+                    f"promotion_queue item {queue_id} was not in 'pending' state (already resolved?)"
+                )
+
+    def candidate_promote(
+        self, candidate_id: str, *, expected_version: int, operator_actor: str, note: str = ""
+    ) -> None:
+        """AWAITING_OPERATOR -> PROMOTED. DB-enforced by
+        trg_candidate_promote_requires_full_gate_chain (SS4.8) -- a
+        candidate whose current alert_version does not have all seven
+        gates passing raises sqlite3.IntegrityError here, never silently
+        promotes."""
+        if not operator_actor.startswith("operator:"):
+            raise OperatorActorRequiredError(
+                f"actor {operator_actor!r} is not an operator; candidate_promote requires "
+                f"actor='operator:<id>'"
+            )
+        row = self.candidate_get(candidate_id)
+        if row is None:
+            raise StoreError(f"no such candidate: {candidate_id}")
+        if row["version"] != expected_version:
+            raise IllegalBinTransitionError(
+                f"stale expected_version={expected_version} for candidate {candidate_id}"
+            )
+        if not is_legal_bin_transition(row["current_state"], "PROMOTED"):
+            raise IllegalBinTransitionError(
+                f"{row['current_state']} -> PROMOTED is not a legal bin transition"
+            )
+        with self._tx() as cur:
+            cur.execute(
+                "UPDATE candidates SET current_state='PROMOTED', decided_by=?, decided_at=?, "
+                "rationale=?, version=version+1 WHERE candidate_id=? AND version=?",
+                (operator_actor, time.time(), note, candidate_id, expected_version),
+            )
+            if cur.rowcount != 1:
+                raise IllegalBinTransitionError(
+                    f"concurrent modification of candidate {candidate_id}"
+                )
+
+    def candidate_kill(
+        self, candidate_id: str, *, expected_version: int, gate: str, rationale: str
+    ) -> None:
+        row = self.candidate_get(candidate_id)
+        if row is None:
+            raise StoreError(f"no such candidate: {candidate_id}")
+        if row["version"] != expected_version:
+            raise IllegalBinTransitionError(
+                f"stale expected_version={expected_version} for candidate {candidate_id}"
+            )
+        if not is_legal_bin_transition(row["current_state"], "DISPROVED"):
+            raise IllegalBinTransitionError(
+                f"{row['current_state']} -> DISPROVED is not a legal bin transition"
+            )
+        with self._tx() as cur:
+            cur.execute(
+                "UPDATE candidates SET current_state='DISPROVED', terminal_reason=?, "
+                "decided_at=?, rationale=?, version=version+1 WHERE candidate_id=? AND version=?",
+                (gate, time.time(), rationale, candidate_id, expected_version),
+            )
+            if cur.rowcount != 1:
+                raise IllegalBinTransitionError(
+                    f"concurrent modification of candidate {candidate_id}"
+                )
+
+    # ── soc_deliveries (G3, I-7a) ─────────────────────────────────────────
+
+    def soc_delivery_put(
+        self,
+        *,
+        delivery_id: str,
+        candidate_id: str,
+        correlation_key: str,
+        destination: str | None,
+        config_version: str | None,
+        payload_hash: str,
+        producer_ack: bool,
+        consumer_query_ran: bool,
+        consumer_triage_report: dict | None,
+        priority: str | None,
+        latency_s: float | None,
+        content_hash_match: bool,
+        load_profile: str | None,
+        lifecycle_status: str = "sent",
+    ) -> None:
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO soc_deliveries (delivery_id, candidate_id, correlation_key, "
+                "destination, config_version, payload_hash, producer_ack, consumer_query_ran, "
+                "consumer_triage_report, priority, latency_s, content_hash_match, load_profile, "
+                "lifecycle_status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    delivery_id,
+                    candidate_id,
+                    correlation_key,
+                    destination,
+                    config_version,
+                    payload_hash,
+                    1 if producer_ack else 0,
+                    1 if consumer_query_ran else 0,
+                    _json(consumer_triage_report) if consumer_triage_report is not None else None,
+                    priority,
+                    latency_s,
+                    1 if content_hash_match else 0,
+                    load_profile,
+                    lifecycle_status,
+                    time.time(),
+                ),
+            )
+
+    def soc_delivery_get(self, delivery_id: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM soc_deliveries WHERE delivery_id=?", (delivery_id,)
+        ).fetchone()
+        return _row_to_dict(row)
+
+    def soc_deliveries_for_candidate(self, candidate_id: str) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM soc_deliveries WHERE candidate_id=? ORDER BY created_at ASC",
+            (candidate_id,),
+        ).fetchall()
+        return [_row_to_dict(r) for r in rows]
 
     # ── doctor (integrity check) ─────────────────────────────────────────
 
