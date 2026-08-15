@@ -25,7 +25,7 @@ from collections.abc import Callable
 from typing import Any
 
 from . import config as bully_config
-from . import drift_engine
+from . import costing, drift_engine
 from . import evidence as evidence_mod
 from . import investigation as investigation_mod
 from . import mutation as mutation_mod
@@ -310,6 +310,40 @@ def _do_drift(store: Store, *, hunt_id: str, episode_view: dict) -> list:
     return flags
 
 
+def _do_cost(
+    store: Store,
+    *,
+    hunt_id: str,
+    iteration_id: str,
+    exec_seconds: float,
+    models: dict[str, str],
+) -> Any:
+    """COST (P4.1, I-13): meter this iteration's real resource use and
+    append it to the cost ledger. `lab_minutes` and `analyst_minutes` are
+    directly measured (wall clock around the lab call; no human analyst
+    time in an automated LOOP iteration). `inference_calls` is an honest
+    coarse proxy (one call attempt per resolved investigation role) marked
+    `quality="estimated"` -- this build has no per-call token/latency
+    instrumentation wired from `investigation.run_arm` yet, so those meters
+    are simply not observed here rather than guessed at (I-13: never
+    zero-fill a measurement this code doesn't actually have)."""
+    components = [
+        costing.observation(
+            "lab_minutes", f"{iteration_id}:lab_minutes", round(exec_seconds / 60.0, 4)
+        ),
+        costing.observation("analyst_minutes", f"{iteration_id}:analyst_minutes", 0.0),
+        costing.observation(
+            "inference_calls",
+            f"{iteration_id}:inference_calls",
+            float(len(models)),
+            quality="estimated",
+        ),
+    ]
+    record = costing.build_record(hunt_id, iteration_id, components)
+    store.cost_ledger_put(record)
+    return record
+
+
 def _do_analyze(
     store: Store,
     organ: Organ,
@@ -425,6 +459,7 @@ def run_hunt_iteration(
 
     # EXECUTING -- unchanged Red/Blue lab machinery via the injected driver.
     _stage("EXECUTING")
+    _exec_started_at = time.time()
     try:
         episode = lab_driver(target_cell, dry_run=dry_run)
     except HonestBlockedError:
@@ -465,6 +500,17 @@ def run_hunt_iteration(
         dry_run=dry_run,
     )
     drift_flags = _do_drift(store, hunt_id=hunt_id, episode_view=episode_view)
+
+    # COST (P4.1) -- meter this iteration's real resource use before
+    # PROMOTING/COMPOUNDING so later hunts' TGT selection has a real ledger
+    # to rank against.
+    cost_record = _do_cost(
+        store,
+        hunt_id=hunt_id,
+        iteration_id=iteration_id,
+        exec_seconds=max(time.time() - _exec_started_at, 0.0),
+        models=bully_config.resolve_investigation_models(),
+    )
 
     # PROMOTING / COMPOUNDING -- BIN/HEART land P2; universal index emission
     # (I-4) happens regardless, in this same iteration, never deferred to a
@@ -511,6 +557,11 @@ def run_hunt_iteration(
             {"drift_class": f.drift_class, "status": f.status, "routed": f.routed}
             for f in drift_flags
         ],
+        "cost": {
+            "record_id": cost_record.record_id,
+            "computed_units": cost_record.computed_units,
+            "quality_flag": cost_record.quality_flag,
+        },
         "stage": "CLOSED",
     }
 

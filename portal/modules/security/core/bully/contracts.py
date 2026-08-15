@@ -84,6 +84,43 @@ MUTATION_INVARIANTS: tuple[str, ...] = (
     "no_new_techniques",
 )
 
+# ── Cost metering (COST, I-13, P4.1) ────────────────────────────────────────
+
+COST_METERS: tuple[str, ...] = (
+    "lab_minutes",
+    "inference_calls",
+    "inference_tokens",
+    "inference_latency_ms",
+    "analyst_minutes",
+    "replay_work",
+    "storage_bytes",
+    "training_allocation",
+)
+
+MEASUREMENT_QUALITIES: tuple[str, ...] = ("measured", "estimated", "missing")
+
+# ── Targeting (TGT, I-11, P4.3) ──────────────────────────────────────────────
+
+TARGET_DECLINE_REASONS: tuple[str, ...] = (
+    "KNOWN_BENIGN",
+    "UNAUTHORIZED",
+    "NOT_READY",
+    "UNHEALTHY",
+    "LOCKED",
+    "MISSING_COST",
+)
+
+TARGET_DECISION_STATUSES: tuple[str, ...] = (
+    "selected",
+    "no_eligible_target",
+    "unrankable",
+)
+
+# ── Plateau (PLT, I-12, P4.4) ────────────────────────────────────────────────
+
+PLATEAU_DECISIONS: tuple[str, ...] = ("CONTINUE", "PLATEAU", "INSUFFICIENT")
+PLATEAU_ACTIONS: tuple[str, ...] = ("continue", "rotate", "stop")
+
 HUNT_STAGES: tuple[str, ...] = (
     "DRAFT",
     "AUTHORIZED",
@@ -789,6 +826,150 @@ class DriftFlag(_DTOMixin):
             raise ValueError(f"unknown drift class: {self.drift_class!r}")
         if self.status not in DRIFT_FLAG_STATUSES:
             raise ValueError(f"unknown drift flag status: {self.status!r}")
+
+
+# ── Cost metering (I-13, P4.1) ───────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class CostComponent(_DTOMixin):
+    """One typed resource observation, keyed by `source_key` (idempotency
+    unit: I-13 "one cost component per source key"). `value` is `None` iff
+    `quality == "missing"` -- a missing material measurement is never
+    zero-filled."""
+
+    meter: str
+    source_key: str
+    value: float | None
+    quality: str
+
+    def __post_init__(self) -> None:
+        if self.meter not in COST_METERS:
+            raise ValueError(f"unknown cost meter: {self.meter!r}")
+        if self.quality not in MEASUREMENT_QUALITIES:
+            raise ValueError(f"unknown measurement quality: {self.quality!r}")
+        if self.quality == "missing" and self.value is not None:
+            raise ValueError("a 'missing' component must carry value=None -- never zero-filled")
+        if self.quality != "missing" and self.value is None:
+            raise ValueError(
+                f"component {self.source_key!r} quality={self.quality!r} needs a value"
+            )
+
+
+@dataclass(frozen=True)
+class CostRecord(_DTOMixin):
+    """Per-hunt/iteration cost ledger row (I-13 OUTPUT, DATA_MODEL SS1.12).
+    `computed_units` is `None` whenever any component is `quality="missing"`
+    -- material missing measurement blocks ROI claims, it never zero-fills."""
+
+    record_id: str
+    hunt_id: str
+    iteration_id: str | None
+    components: tuple[CostComponent, ...]
+    pricing_profile_version: str
+    computed_units: float | None
+    quality_flag: bool
+    created_at: float = field(default_factory=time.time)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> CostRecord:
+        payload = {k: v for k, v in data.items() if k != "_schema_version"}
+        comps = payload.get("components") or ()
+        payload["components"] = tuple(
+            c if isinstance(c, CostComponent) else CostComponent.from_dict(c) for c in comps
+        )
+        return cls(**payload)
+
+
+# ── Targeting (I-11, P4.3) ───────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class DeclinedCell(_DTOMixin):
+    """One hard-ineligible cell + why (I-11 OUTPUT "declined cells with
+    reasons")."""
+
+    cell_id: str
+    reason: str
+    detail: str = ""
+
+    def __post_init__(self) -> None:
+        if self.reason not in TARGET_DECLINE_REASONS:
+            raise ValueError(f"unknown decline reason: {self.reason!r}")
+
+
+@dataclass(frozen=True)
+class TargetDecision(_DTOMixin):
+    """TGT's output (I-11): ordered targets + full factor breakdown, declined
+    cells with reasons, recall influence, tie-break, and an honest terminal
+    status when nothing is selectable."""
+
+    decision_id: str
+    hunt_id: str
+    algorithm_version: str
+    config_version: str
+    status: str
+    selected_cell_id: str | None
+    ordered_targets: tuple[dict[str, Any], ...] = field(default_factory=tuple)
+    declined: tuple[DeclinedCell, ...] = field(default_factory=tuple)
+    recall_influence: dict[str, Any] = field(default_factory=dict)
+    tie_break: str | None = None
+    created_at: float = field(default_factory=time.time)
+
+    def __post_init__(self) -> None:
+        if self.status not in TARGET_DECISION_STATUSES:
+            raise ValueError(f"unknown target decision status: {self.status!r}")
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> TargetDecision:
+        payload = {k: v for k, v in data.items() if k != "_schema_version"}
+        payload["ordered_targets"] = tuple(payload.get("ordered_targets") or ())
+        declined = payload.get("declined") or ()
+        payload["declined"] = tuple(
+            d if isinstance(d, DeclinedCell) else DeclinedCell.from_dict(d) for d in declined
+        )
+        return cls(**payload)
+
+
+# ── Plateau (I-12, P4.4) ─────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class PlateauDecision(_DTOMixin):
+    """PLT's output (I-12, DATA_MODEL SS1.13): the classification
+    (`decision`) plus the operator-facing action (`action`,
+    continue|rotate|stop -- I-12's literal return-type comment); plateau is
+    always neighborhood-local."""
+
+    plateau_id: str
+    hunt_id: str
+    neighborhood: str
+    qualifying_trial_ids: tuple[str, ...]
+    promotions: int
+    unique_response_gain: float
+    posterior_upper_bound: float
+    saturation: float
+    policy_version: str
+    decision: str
+    action: str
+    note: str = ""
+    reset_trigger: str | None = None
+    reset_version: str | None = None
+    override: dict[str, Any] | None = None
+    expiry: float | None = None
+    created_at: float = field(default_factory=time.time)
+
+    def __post_init__(self) -> None:
+        if self.decision not in PLATEAU_DECISIONS:
+            raise ValueError(f"unknown plateau decision: {self.decision!r}")
+        if self.action not in PLATEAU_ACTIONS:
+            raise ValueError(f"unknown plateau action: {self.action!r}")
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> PlateauDecision:
+        payload = {k: v for k, v in data.items() if k != "_schema_version"}
+        payload["qualifying_trial_ids"] = tuple(payload.get("qualifying_trial_ids") or ())
+        return cls(**payload)
 
 
 def round_trip(dto: _DTOMixin) -> Any:

@@ -22,6 +22,7 @@ from typing import Any
 
 from . import events, outbox
 from .contracts import (
+    CostRecord,
     CousinAssessment,
     DecisionEvent,
     DecisionImpact,
@@ -34,7 +35,7 @@ from .contracts import (
     is_legal_hunt_transition,
 )
 
-SCHEMA_VERSION = 5  # highest migration this code understands
+SCHEMA_VERSION = 6  # highest migration this code understands
 _MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
 
@@ -1417,6 +1418,41 @@ class Store:
             (detection_id,),
         ).fetchall()
         return [_row_to_dict(r) for r in rows]
+
+    # ── cost ledger (P4.1, I-13) ─────────────────────────────────────────
+
+    def cost_ledger_put(self, record: CostRecord) -> None:
+        """Append a `CostRecord` (DATA_MODEL SS1.12). Append-only, like
+        `decision_events` -- a re-metered iteration produces a new row, it
+        never overwrites a prior one."""
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO cost_ledger (record_id, hunt_id, iteration_id, components, "
+                "pricing_profile_version, computed_units, quality_flag, created_at) "
+                "VALUES (?,?,?,?,?,?,?,?)",
+                (
+                    record.record_id,
+                    record.hunt_id,
+                    record.iteration_id,
+                    _json([c.to_dict() for c in record.components]),
+                    record.pricing_profile_version,
+                    record.computed_units,
+                    1 if record.quality_flag else 0,
+                    record.created_at,
+                ),
+            )
+
+    def cost_ledger_for_hunt(self, hunt_id: str) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM cost_ledger WHERE hunt_id=? ORDER BY created_at ASC", (hunt_id,)
+        ).fetchall()
+        out = []
+        for r in rows:
+            d = _row_to_dict(r)
+            d["components"] = _loads(d["components"], [])
+            d["quality_flag"] = bool(d["quality_flag"])
+            out.append(d)
+        return out
 
     # ── doctor (integrity check) ─────────────────────────────────────────
 
