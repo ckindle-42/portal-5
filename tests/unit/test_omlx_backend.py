@@ -203,8 +203,7 @@ class TestInjectOmlxOptions:
         assert "max_tokens" not in body or body["max_tokens"] == 99  # original untouched
 
     def test_think_profile_wins_over_flat_fields(self, monkeypatch):
-        """Same think_profiles resolution as the Ollama path (TASK_SAMPLING_
-        PROFILE_AUDIT_V1 Scope item 3) must apply on the oMLX path too."""
+        """Same think_profiles resolution as the Ollama path applies here too."""
         from portal.platform.inference.router import validation as vm
 
         monkeypatch.setitem(

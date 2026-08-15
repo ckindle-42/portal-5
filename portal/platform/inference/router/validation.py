@@ -76,8 +76,6 @@ def _model_supports_tools(model_id: str) -> bool:
     return registry.model_supports_tools(model_id)
 
 
-# Sampling keys shared by both engines (repeat_penalty aside — oMLX's field is
-# named repetition_penalty, handled separately in _inject_omlx_options).
 _SAMPLING_KEYS = (
     "temperature",
     "top_p",
@@ -90,22 +88,7 @@ _SAMPLING_KEYS = (
 
 
 def _resolve_sampling_values(ws_cfg_local: dict) -> dict:
-    """Merge a workspace's think/instruct profile (if any) over its flat fields.
-
-    ``think_profiles`` (``WorkspaceSpec.think_profiles``) holds a verified,
-    per-model documented table keyed ``"thinking"``/``"instruct"``. When the
-    workspace's ``think`` resolves to True/False and a matching profile
-    exists, that profile's keys take priority over the workspace's own flat
-    ``temperature``/``top_p``/etc — those flat fields are the generic
-    fleet-tuned fallback (deliberately hand-set per workspace, see
-    ``config/portal.yaml``), not a per-model verified value, so a verified
-    profile should win over them. Falls back to the flat fields entirely for
-    workspaces with no ``think_profiles`` or no ``think`` set.
-
-    Returns a plain ``{sampling_key: value}`` dict with only the keys that
-    resolved to something (flat field or profile); callers still setdefault
-    each key onto the request body so caller/OWUI values win over all of it.
-    """
+    """think_profiles wins over flat sampling fields when `think` is set."""
     think_profiles = ws_cfg_local.get("think_profiles")
     ws_think = ws_cfg_local.get("think")
     profile: dict = {}
@@ -143,9 +126,8 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
     ``num_ctx`` from ``context_limit``, top-level ``max_tokens`` from
     ``predict_limit``, sampling keys (``temperature``, ``top_p``, ``top_k``,
     ``min_p``, ``repeat_penalty``, ``presence_penalty``, ``seed``),
-    ``mirostat``/``mirostat_tau``/
-    ``mirostat_eta`` (mutually exclusive with top_p/top_k; injected only when
-    the workspace opts in), and ``think``.
+    ``mirostat``/``mirostat_tau``/``mirostat_eta`` (mutually exclusive with
+    top_p/top_k; injected only when the workspace opts in), and ``think``.
 
     Args:
         body: Outgoing request body. Not mutated.
@@ -184,9 +166,7 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
         body.setdefault("stream_options", {})["include_usage"] = True
 
     # ── Per-workspace sampling tuning ────────────────────────────────────────
-    # All use setdefault — OWUI/user values always take precedence. Values
-    # come from the workspace's think/instruct profile when one applies,
-    # else its flat fields (see _resolve_sampling_values).
+    # setdefault — caller wins; values from _resolve_sampling_values.
     for key, val in _resolve_sampling_values(ws_cfg_local).items():
         body["options"].setdefault(key, val)
 
@@ -209,25 +189,10 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
 
 
 def _inject_omlx_options(body: dict, workspace_id: str = "") -> dict:
-    """Per-request injection for ``type == "omlx"`` backends.
-
-    oMLX speaks an OpenAI-*compatible* schema, not the bare OpenAI API — its
-    own ``ChatCompletionRequest`` (vendored ``omlx/api/openai_models.py``,
-    verified live against the installed ``omlx`` package, 2026-08-15) extends
-    the standard fields with real, sampler-wired ``top_k``/``min_p``/
-    ``presence_penalty``/``seed`` and, notably, **``repetition_penalty``, not
-    ``repeat_penalty``** — the Ollama-idiom key name is silently dropped by
-    Pydantic's default ``extra="ignore"`` rather than erroring, so it must be
-    renamed on the way in, not just forwarded. There is no bare ``think``
-    field either; thinking is controlled via ``chat_template_kwargs``
-    (``{"enable_thinking": bool}``) and optionally ``thinking_budget``.
-
-    No ``options`` sub-dict, no ``keep_alive`` (residency is server-side:
-    EnginePool pinning/TTL), no ``num_ctx``/``num_batch``. Injects
-    ``max_tokens`` from ``predict_limit``, ``stream_options.include_usage``
-    for TPS accounting, top-level sampling keys, and the thinking toggle —
-    all via ``setdefault``/dict-merge so caller/OWUI values win. Body is
-    copied at entry.
+    """Per-request injection for ``type == "omlx"`` backends. Verified live
+    (2026-08-15): oMLX wires top_k/min_p/presence_penalty/seed, but names
+    repeat_penalty "repetition_penalty" and has no bare think (mapped to
+    chat_template_kwargs.enable_thinking). All via setdefault so caller wins.
     """
     body = dict(body)
     ws_cfg_local = WORKSPACES.get(workspace_id, {}) if workspace_id else {}
@@ -245,12 +210,10 @@ def _inject_omlx_options(body: dict, workspace_id: str = "") -> dict:
         if val is not None:
             body.setdefault(key, val)
 
-    # repeat_penalty is the Ollama idiom; oMLX's field is repetition_penalty.
     repeat_penalty = sampling_values.get("repeat_penalty")
     if repeat_penalty is not None:
         body.setdefault("repetition_penalty", repeat_penalty)
 
-    # oMLX has no bare `think` field — it reads chat_template_kwargs.enable_thinking.
     ws_think = ws_cfg_local.get("think")
     if ws_think is not None:
         ctk = dict(body.get("chat_template_kwargs") or {})

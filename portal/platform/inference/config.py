@@ -134,16 +134,7 @@ class WorkspaceSpec(BaseModel):
     repeat_penalty: float | None = None
     presence_penalty: float | None = None
     seed: int | None = None
-    # Per-model documented thinking-vs-instruct sampling tables (verified
-    # against a primary source — vendor generation_config.json or README —
-    # not invented). Keyed "thinking"/"instruct"; each value is a partial
-    # sampling-key dict (temperature/top_p/top_k/min_p/repeat_penalty/
-    # presence_penalty). When set and `think` resolves to a request-time
-    # True/False, the matching profile's keys win over this workspace's own
-    # flat sampling fields (which stay as the generic fleet fallback for
-    # models with no verified profile) — see
-    # validation.py's `_resolve_sampling_values`. Caller/OWUI request values
-    # still win over everything, via setdefault.
+    # Verified per-model thinking/instruct tables — see _resolve_sampling_values.
     think_profiles: dict[str, dict[str, float]] | None = None
 
     # --- Multi-model chain ---
