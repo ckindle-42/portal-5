@@ -79,3 +79,24 @@ shadow:
   # Every dual-run/shadow interface defaults off (MASTER SS6).
   episode_dual_write: "off"        # off | shadow | authoritative
   cousin_dual_run: "off"           # off | shadow | authoritative
+
+training:
+  # TRAIN (P6.4). base_models is the config alias defensive_bully_train.py
+  # resolves per role -- never a hardcoded model name in Python (MASTER
+  # SS3/SS5). "Base model is a config alias re-benchmarked at build HEAD"
+  # (MASTER P6 dependency note): the catalog is churning, so an operator
+  # re-points this before any production-scale run; the placeholder below
+  # is a genuinely tiny public model, deliberately chosen only to prove the
+  # pipeline mechanics end-to-end (P6.4 exit-criteria demonstration), not a
+  # production specialist candidate.
+  min_dataset_size: 20
+  quant: Q4_K_M
+  lora:
+    iters: 200
+    batch_size: 4
+    num_layers: 8
+  base_models:
+    hunter: HuggingFaceTB/SmolLM2-135M-Instruct
+    analyst: HuggingFaceTB/SmolLM2-135M-Instruct
+    disprover: HuggingFaceTB/SmolLM2-135M-Instruct
+    cousin_smeller: HuggingFaceTB/SmolLM2-135M-Instruct

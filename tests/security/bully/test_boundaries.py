@@ -72,6 +72,7 @@ def test_pure_compute_modules_avoid_network_and_sql_imports():
             "scoreboard",
             "targeting",
             "plateau",
+            "roster",
         )
         if _bully_module(m).exists()
     ]
