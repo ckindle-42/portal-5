@@ -90,3 +90,24 @@ def test_eval_env_actually_admits_bench_workspaces(monkeypatch):
     assert any(w.startswith("bench-") for w in live), (
         "expected bench-* workspaces to be present with PORTAL_ENABLE_EVAL=1"
     )
+
+
+def test_reasoning_model_patterns_cover_verified_dual_mode_fleet_hints():
+    from tests.benchmarks.bench.config import _is_reasoning_model
+
+    verified_reasoning_hints = [
+        "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M",
+        "qwen3-vl:32b-ctx8k",
+        "huihui_ai/qwen3-abliterated:14b-v2",
+        "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx8k",
+        "glm-4.7-flash:Q4_K_M",
+    ]
+    for hint in verified_reasoning_hints:
+        assert _is_reasoning_model(hint), f"{hint} should match _REASONING_MODEL_PATTERNS"
+
+
+def test_reasoning_model_patterns_no_false_positive_on_non_thinking_qwen_coder():
+    from tests.benchmarks.bench.config import _is_reasoning_model
+
+    assert not _is_reasoning_model("qwen3-coder:30b-a3b-q4_K_M")
+    assert not _is_reasoning_model("qwen3-coder-next:latest")
