@@ -42,9 +42,13 @@ def _build_parser() -> argparse.ArgumentParser:
     doctor_p.add_argument("--json", action="store_true")
 
     queue_p = sub.add_parser("queue", help="operator promotion-queue resolution")
-    queue_p.add_argument("--confirm", metavar="ITEM_ID")
+    queue_target = queue_p.add_mutually_exclusive_group()
+    queue_target.add_argument("--confirm", metavar="ITEM_ID")
+    queue_target.add_argument("--reject", metavar="ITEM_ID")
     queue_p.add_argument("--actor", required=True)
-    queue_p.add_argument("--rationale", default="")
+    queue_p.add_argument(
+        "--rationale", "--reason", dest="rationale", default="", help="required for --reject"
+    )
     queue_p.add_argument("--json", action="store_true")
 
     return parser
@@ -74,8 +78,10 @@ def hunt_main(argv: list[str]) -> int:
         elif args.mode == "doctor":
             report = orchestrator.hunt_doctor()
         elif args.mode == "queue":
+            item_id = args.confirm or args.reject
+            action = "reject" if args.reject else "confirm"
             report = orchestrator.queue_resolve(
-                item_id=args.confirm, actor=args.actor, rationale=args.rationale
+                item_id=item_id, actor=args.actor, rationale=args.rationale, action=action
             )
         else:  # pragma: no cover -- argparse enforces `required=True`
             parser.error(f"unknown mode {args.mode!r}")
