@@ -195,6 +195,16 @@ workspaces:
     temperature: 0.6
     top_p: 0.95
     repeat_penalty: 1.0
+    # TASK_SAMPLING_PROFILE_AUDIT_V1: verified Qwen3.5 thinking/instruct table
+    # (tier1/2 vendor README + unsloth docs.models, agree on the general rows
+    # used here). think=false keeps current non-thinking behavior — operator
+    # decision (2026-08-15): don't newly enable thinking anywhere pending
+    # further cost/quality evaluation; think_profiles just makes the flip a
+    # one-line change once that evaluation happens.
+    think: false
+    think_profiles:
+      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
     tools: []
     expose_to_owui: true
     enable_web_search: true
@@ -210,7 +220,8 @@ workspaces:
     keep_alive: 10m
     temperature: 0.6
     top_p: 0.95
-    repeat_penalty: 1.0
+    # TASK_SAMPLING_PROFILE_AUDIT_V1: 1.05 is Liquid AI's verified value.
+    repeat_penalty: 1.05
     system_prompt_append: |2-
   
   
@@ -230,6 +241,12 @@ workspaces:
     top_p: 0.9
     top_k: 40
     min_p: 0.05
+    # TASK_SAMPLING_PROFILE_AUDIT_V1 verified Qwen3.6 profile; think=false
+    # per operator decision — don't newly enable thinking pending evaluation.
+    think: false
+    think_profiles:
+      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
     system_prompt_append: |2-
   
   
@@ -291,6 +308,16 @@ workspaces:
     temperature: 0.7
     top_p: 0.9
     repeat_penalty: 1.0
+    # TASK_SAMPLING_PROFILE_AUDIT_V1: unsloth docs.models found Nemotron 3.5
+    # Lightning actually documents a thinking(0.6/0.95)/instruct(0.2) split —
+    # the vendor card's single temp=1.0 blended the two. think=false per
+    # operator decision (don't newly enable thinking pending evaluation);
+    # instruct row's top_p is undocumented by unsloth, falls back to the flat
+    # top_p=0.9 above.
+    think: false
+    think_profiles:
+      thinking: {temperature: 0.6, top_p: 0.95}
+      instruct: {temperature: 0.2}
     tools:
     - web_search
     - web_fetch
@@ -822,6 +849,16 @@ workspaces:
     top_p: 0.95
     top_k: 50
     min_p: 0.02
+    # TASK_SAMPLING_PROFILE_AUDIT_V1: HauhauCS has no HF card of its own —
+    # inherited_unverified from its Qwen3.6 base per the audit's Research
+    # protocol. Its current Ollama bake mixes thinking-mode sampling with
+    # instruct-mode presence_penalty=1.5 (Finding 3's original defect,
+    # confirmed fleet-wide); this instruct profile supersedes that bake for
+    # pipeline-routed requests. think=false per operator decision.
+    think: false
+    think_profiles:
+      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
     tools: []
     expose_to_owui: true
     enable_web_search: false
@@ -857,6 +894,12 @@ workspaces:
     top_p: 0.9
     top_k: 40
     min_p: 0.02
+    # TASK_SAMPLING_PROFILE_AUDIT_V1 verified Qwen3.6 profile; think=false
+    # per operator decision — don't newly enable thinking pending evaluation.
+    think: false
+    think_profiles:
+      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
     tools: []
     council:
       minimum_participation: 0.66
@@ -971,7 +1014,13 @@ workspaces:
     context_limit: 8192
     temperature: 0.8
     top_p: 0.95
-    repeat_penalty: 1.0
+    # TASK_SAMPLING_PROFILE_AUDIT_V1: 1.05 is Liquid AI's verified value
+    # (vendor generation_config.json/README + unsloth agree); Finding 3
+    # flagged the fleet's temp/top_k as "suspicious" but they were already
+    # correct — this repeat_penalty was the one real gap. temperature/top_p
+    # above stay as this workspace's deliberate creative-generation tuning,
+    # not overwritten with LFM2.5's base temp=0.2 (see Finding 2).
+    repeat_penalty: 1.05
     system_prompt_append: |2-
   
   
@@ -1106,8 +1155,14 @@ workspaces:
     model_hint: phi4-mini-reasoning:latest-ctx24k
     context_limit: 24576
     predict_limit: 8192
-    temperature: 0.6
+    # TASK_SAMPLING_PROFILE_AUDIT_V1: verified Microsoft profile (README code
+    # example) with unsloth's explicit min_p=0.00 addition. Single profile,
+    # reasoning-only (no non-thinking mode documented). top_k undocumented
+    # anywhere checked; repeat_penalty=1.0 kept as-is (unsourced but not
+    # contradicted, and nothing baked in the Modelfile to fall back to).
+    temperature: 0.8
     top_p: 0.95
+    min_p: 0.0
     repeat_penalty: 1.0
     emits_reasoning: true
     tools: []
@@ -1278,6 +1333,11 @@ workspaces:
     temperature: 0.6
     top_p: 0.95
     repeat_penalty: 1.0
+    # TASK_SAMPLING_PROFILE_AUDIT_V1 verified Qwen3.5 profile (general rows).
+    think: false
+    think_profiles:
+      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
     emits_reasoning: true
     tools: []
     expose_to_owui: true
@@ -1313,6 +1373,15 @@ workspaces:
     temperature: 0.2
     top_p: 0.9
     repeat_penalty: 1.1
+    # TASK_SAMPLING_PROFILE_AUDIT_V1: the model this audit started from — the
+    # generic bench defaults above never matched either of its documented
+    # rows (Qwen3.8 has nothing baked in Ollama either, per Finding 3).
+    # verified via vendor generation_config.json+README and unsloth docs.models
+    # (exact agreement, no conflicts). think=false per operator decision.
+    think: false
+    think_profiles:
+      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
     tools: []
     expose_to_owui: true
     enable_web_search: false
@@ -1344,6 +1413,11 @@ workspaces:
     temperature: 0.6
     top_p: 0.95
     repeat_penalty: 1.0
+    # TASK_SAMPLING_PROFILE_AUDIT_V1 verified Qwen3.6 profile.
+    think: false
+    think_profiles:
+      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
     emits_reasoning: true
     tools: []
     expose_to_owui: true
@@ -1363,6 +1437,11 @@ workspaces:
     top_p: 0.95
     top_k: 20
     repeat_penalty: 1.1
+    # TASK_SAMPLING_PROFILE_AUDIT_V1 verified Qwen3.6 profile.
+    think: false
+    think_profiles:
+      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
     emits_reasoning: true
     tools: []
     expose_to_owui: true
@@ -1381,6 +1460,12 @@ workspaces:
     temperature: 1
     top_p: 0.95
     repeat_penalty: 1.0
+    # TASK_SAMPLING_PROFILE_AUDIT_V1: HauhauCS inherited_unverified from
+    # Qwen3.6 base per Research protocol (no HF card of its own).
+    think: false
+    think_profiles:
+      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
     emits_reasoning: true
     tools: []
     expose_to_owui: true
@@ -1489,7 +1574,8 @@ workspaces:
     predict_limit: 8192
     temperature: 0.8
     top_p: 0.95
-    repeat_penalty: 1.0
+    # TASK_SAMPLING_PROFILE_AUDIT_V1: 1.05 is Liquid AI's verified value.
+    repeat_penalty: 1.05
     max_concurrent: 1
     tools: []
     expose_to_owui: false
@@ -1533,7 +1619,8 @@ workspaces:
     predict_limit: 8192
     temperature: 0.8
     top_p: 0.95
-    repeat_penalty: 1.0
+    # TASK_SAMPLING_PROFILE_AUDIT_V1: 1.05 is Liquid AI's verified value.
+    repeat_penalty: 1.05
     max_concurrent: 1
     tools: []
     expose_to_owui: false
@@ -1620,9 +1707,16 @@ workspaces:
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
+    # TASK_SAMPLING_PROFILE_AUDIT_V1: replaces the generic bench default
+    # (0.2/0.9/1.1, matched no documented row) with ZhipuAI's verified
+    # general-mode values, corroborated by unsloth's GGUF-serving docs
+    # (min_p=0.01, repeat_penalty disabled/1.0 — vendor's own README/
+    # generation_config.json don't specify either). Single-profile model,
+    # no thinking/instruct split documented.
+    temperature: 1.0
+    top_p: 0.95
+    min_p: 0.01
+    repeat_penalty: 1.0
     tools: []
     expose_to_owui: true
     enable_web_search: false
@@ -1706,6 +1800,11 @@ workspaces:
     top_p: 0.95
     top_k: 20
     repeat_penalty: 1.0
+    # TASK_SAMPLING_PROFILE_AUDIT_V1: inherited_unverified from Qwen3.6 base.
+    think: false
+    think_profiles:
+      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
     tools: []
     expose_to_owui: true
     enable_web_search: false
@@ -1723,6 +1822,11 @@ workspaces:
     top_p: 0.95
     top_k: 20
     repeat_penalty: 1.1
+    # TASK_SAMPLING_PROFILE_AUDIT_V1 verified Qwen3.6 profile.
+    think: false
+    think_profiles:
+      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
     tools: []
     expose_to_owui: true
     enable_web_search: false
@@ -1911,6 +2015,12 @@ workspaces:
     top_p: 0.95
     top_k: 20
     repeat_penalty: 1.0
+    # TASK_SAMPLING_PROFILE_AUDIT_V1: inherited_unverified from Qwen3.5 base
+    # (general rows) — no HF card of its own.
+    think: false
+    think_profiles:
+      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
     emits_reasoning: true
     tools: []
     expose_to_owui: false
@@ -1967,6 +2077,14 @@ workspaces:
     top_p: 0.8
     top_k: 20
     repeat_penalty: 1.05
+    # TASK_SAMPLING_PROFILE_AUDIT_V1: verified original-Qwen3 profile (distinct
+    # table from 3.5/3.6/3.8 — generations are not interchangeable, per
+    # Finding 3). instruct min_p=0.01 is unsloth's GGUF-serving correction
+    # over the vendor's documented 0 (same correction class as Coder-Next).
+    think: false
+    think_profiles:
+      thinking: {temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.0}
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.01}
     emits_reasoning: true
     tools:
     - report_detection
@@ -1983,9 +2101,13 @@ workspaces:
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: "5m"
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
+    # TASK_SAMPLING_PROFILE_AUDIT_V1: replaces the generic bench default with
+    # Mistral's verified profile (vendor generation_config.json/README +
+    # unsloth's own HF README, agree: only temp is vendor-documented,
+    # top_p=1.0/top_k=disabled are unsloth's GGUF-serving addition). No
+    # min_p/repeat_penalty documented anywhere checked.
+    temperature: 0.15
+    top_p: 1.0
     tools: []
     expose_to_owui: false
     enable_web_search: false
@@ -1998,9 +2120,15 @@ workspaces:
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: "5m"
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
+    # TASK_SAMPLING_PROFILE_AUDIT_V1: replaces the generic bench default with
+    # Mistral's verified Magistral profile — vendor generation_config.json/
+    # README exact match on temp/top_p; unsloth's docs.models page adds
+    # min_p/repeat_penalty the vendor left undocumented. Single profile, no
+    # thinking/instruct split documented (Magistral is reasoning-only).
+    temperature: 0.7
+    top_p: 0.95
+    min_p: 0.01
+    repeat_penalty: 1.0
     tools: []
     expose_to_owui: false
     enable_web_search: false
