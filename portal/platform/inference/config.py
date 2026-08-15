@@ -132,6 +132,7 @@ class WorkspaceSpec(BaseModel):
     top_k: int | None = None
     min_p: float | None = None
     repeat_penalty: float | None = None
+    presence_penalty: float | None = None
     seed: int | None = None
 
     # --- Multi-model chain ---
