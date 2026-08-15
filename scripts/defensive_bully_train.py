@@ -39,6 +39,7 @@ sys.path.insert(0, str(_REPO_ROOT))
 from portal.modules.security.core.bully import config as bully_config  # noqa: E402
 from portal.modules.security.core.bully import harvest, training  # noqa: E402
 from portal.modules.security.core.bully.store import Store  # noqa: E402
+from portal.modules.security.core.candidate_eval import _compute_delta  # noqa: E402
 
 
 def _open_store() -> Store:
@@ -49,6 +50,28 @@ def _training_config() -> dict:
     return bully_config.load_hunt_config().get("training") or {}
 
 
+def _incumbent_delta_pt(report_path: Path) -> float:
+    """Derive the frozen general-bench regression leg from raw arm results.
+
+    The candidate-eval aggregate's unique-coverage delta is expressed on a
+    0..1 scale. TRAIN's acceptance contract is in percentage points, so the
+    conversion is explicit here. We recompute from the two arms instead of
+    trusting a precomputed ``deltas`` field in the report.
+    """
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    candidate_results = report.get("candidate_results")
+    incumbent_results = report.get("incumbent_results")
+    if not isinstance(candidate_results, list) or not isinstance(incumbent_results, list):
+        raise ValueError(
+            "candidate-eval report must contain candidate_results and incumbent_results"
+        )
+    deltas = _compute_delta(candidate_results, incumbent_results)
+    aggregate = next((row for row in deltas if row.get("scenario") == "__aggregate__"), None)
+    if aggregate is None:
+        raise ValueError("candidate-eval report has no comparable aggregate evidence")
+    return round(float(aggregate["unique_coverage_delta"]) * 100.0, 3)
+
+
 def cmd_build_dataset(args: argparse.Namespace) -> int:
     store = _open_store()
     try:
@@ -56,6 +79,12 @@ def cmd_build_dataset(args: argparse.Namespace) -> int:
         ref = harvest.build_dataset(
             store, args.role, {"since": args.since}, min_size=cfg.get("min_dataset_size", 20)
         )
+        readiness = harvest.refinement_readiness(
+            store, args.role, min_size=cfg.get("min_dataset_size", 20)
+        )
+        queue_id = harvest.surface_refinement_readiness(store, readiness)
+        ref["refinement_readiness"] = readiness.as_dict()
+        ref["readiness_queue_id"] = queue_id
     finally:
         store.close()
     print(json.dumps(ref, indent=2, sort_keys=True, default=str))
@@ -88,6 +117,11 @@ def cmd_run(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 2
+        try:
+            incumbent_delta_pt = _incumbent_delta_pt(Path(args.candidate_eval_report))
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            print(f"invalid candidate-eval evidence: {exc}", file=sys.stderr)
+            return 2
         lora_cfg = cfg.get("lora") or {}
         outcome = training.run(
             store,
@@ -100,6 +134,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             lora_batch_size=args.batch_size or lora_cfg.get("batch_size", 4),
             lora_num_layers=args.num_layers or lora_cfg.get("num_layers", 8),
             seed=args.seed,
+            incumbent_delta_pt=incumbent_delta_pt,
         )
     except (training.TrainingBlockedError, training.ToolchainMissingError) as exc:
         print(f"TRAIN refused: {exc}", file=sys.stderr)
@@ -150,11 +185,14 @@ def main(argv: list[str] | None = None) -> int:
     p.set_defaults(func=cmd_release_dataset)
 
     p = sub.add_parser("run")
-    p.add_argument(
-        "--role", required=True, choices=("hunter", "analyst", "disprover", "cousin_smeller")
-    )
+    p.add_argument("--role", required=True, choices=tuple(bully_config.REFINEMENT_ROLE_MAP))
     p.add_argument("--dataset-version", required=True)
     p.add_argument("--data-dir", required=True, help="directory with train.jsonl/valid.jsonl")
+    p.add_argument(
+        "--candidate-eval-report",
+        required=True,
+        help="general security candidate-eval JSON containing candidate and incumbent arms",
+    )
     p.add_argument(
         "--base-model", default=None, help="override the config-resolved base model alias"
     )

@@ -387,13 +387,14 @@ use, retries/skips, failure meaning) — a required skip is a failure.
 - EXPECTED: invalid examples quarantine; grouped split prevents leakage;
   released manifest reproduces exact ordered bytes; later correction creates
   a new version.
-- CLAIM (L2 — specialist adds value beyond context): the frozen five-arm
-  evaluation on held-out families/campaigns/time shows specialist+retrieval+
-  playbook beats base+retrieval+playbook by ≥5 absolute macro-F1 points with
-  bootstrap 95% CI above zero and no >2-point regression in benign FPR,
-  calibration, tool reliability, known-bad recall, or mandatory security
-  lanes — else the model is DECLINED (not shipped), which is a success path
-  for honesty.
+- CLAIM (L2 — honest refinement verdict; superseded 2026-08-15 by approved
+  P6.7/A2-A3): periodic, operator-launched investigation-arm refinement runs
+  only when HARV reports marginal knowledge. Intake floors, a fail-closed
+  candidate-vs-incumbent general-security comparison, and a model canary must
+  all pass before the candidate enters `PENDING_MODEL_VERDICTS`; serving is a
+  separate operator-confirmed action. A genuine shelve/non-serve is an honest
+  success path. This supersedes the earlier per-cycle multi-arm-gain framing,
+  which over-read the concept source's future aspiration as an inline gate.
 - CLAIM (L3 — deployment/resources/rollback): exclusive lock prevents
   conflicting lab/bench work; preflight failure leaves the active alias
   unchanged; checkpoint resumes compatibly; hashes connect
@@ -459,7 +460,8 @@ on a clean authorized lab containing, linked in one audit graph:
 > observably changed by the first hunt's records (DecisionImpact) → a
 > statistical plateau + a version-change reset → a temporal
 > detection-degradation case correctly classified → playbook canary →
-> dataset release → frozen five-arm training comparison → model
+> cousin-calibration curve → dataset-readiness readout → one
+> operator-launched refinement to a genuine serve-or-shelve verdict → model
 > canary/rollback drill → injected-failure recovery (restart, outbox retry,
 > lease expiry) → all standing gates green.
 

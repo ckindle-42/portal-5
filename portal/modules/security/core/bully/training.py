@@ -1,4 +1,4 @@
-"""bully.training -- TRAIN, the LoRA specialist flywheel (P6.4, I-17).
+"""bully.training -- periodic operator-launched LoRA refinement (P6.7, I-17).
 
 ``run(store, role, dataset_version=...)`` drives: dataset (already built +
 released by HARV/an operator, checked here) -> exclusive resource lock +
@@ -6,7 +6,8 @@ preflight (refuses if a hunt or a bench/training process is active) ->
 ``mlx_lm.lora`` (subprocess) -> ``mlx_lm.fuse`` (subprocess) -> llama.cpp
 GGUF convert + quantize (subprocess) -> ``ollama create`` (subprocess,
 mirrors ``cli/models.py:cmd_models_import_gguf``'s Modelfile mechanism) ->
-acceptance gate -> verdict file + `PENDING_MODEL_VERDICTS.md` entry.
+right-sized acceptance (intake + incumbent comparison + canary) -> verdict
+file + `PENDING_MODEL_VERDICTS.md` entry.
 ``serve()`` is the separate operator-confirmed step that runs the model
 canary and only then does the atomic alias promotion; ``rollback()`` is the
 atomic alias re-point on a canary regression.
@@ -344,9 +345,8 @@ def _sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
-# ── acceptance gate arithmetic (I-18, frozen five-arm) ─────────────────────
+# ── acceptance gate arithmetic (I-18, P6.7 right-sized policy) ────────
 
-_FIVE_ARM_MIN_MACRO_F1_DELTA = 5.0
 _MAX_ARM_REGRESSION_PT = 2.0
 
 
@@ -354,61 +354,36 @@ def evaluate_acceptance(
     *,
     intake_report: dict[str, Any],
     incumbent_delta_pt: float | None,
-    five_arm_report: dict[str, Any],
-    canary_report: dict[str, Any] | None = None,
+    canary_report: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    """I-18 PASS contract: (a) intake floors, (b) no regression vs incumbent
-    on the general security bench, (c) frozen five-arm cousin-suite win
-    (+5 macro-F1, 95% CI > 0 over base+retrieval+playbook), plus the
-    per-arm <=2pt regression ceiling MASTER SS lists alongside it. Operator
-    confirm (d) is a separate step (`serve()`), not evaluated here. Pure
-    function over already-gathered evidence -- hermetic on fixtures, no
-    subprocess/network of its own."""
+    """Evaluate the three P6.7 evidence legs, all fail-closed.
+
+    Operator confirmation remains a separate authenticated action in
+    :func:`serve`; this pure function only decides whether a candidate may
+    enter that queue.
+    """
     reasons: list[str] = []
 
     if not intake_report.get("tps_ok", False):
         reasons.append(f"intake TPS floor not met: {intake_report.get('tps')}")
-    if intake_report.get("tool_ok") is False:
+    if not intake_report.get("tool_ok", False):
         reasons.append("intake tool-call gate failed")
 
-    if incumbent_delta_pt is not None and incumbent_delta_pt < -_MAX_ARM_REGRESSION_PT:
+    if incumbent_delta_pt is None:
+        reasons.append("incumbent regression evidence missing")
+    elif incumbent_delta_pt < -_MAX_ARM_REGRESSION_PT:
         reasons.append(
             f"regression vs incumbent on general security bench: {incumbent_delta_pt:+.1f}pt"
         )
 
-    macro_f1_delta = five_arm_report.get("macro_f1_delta_vs_full_stack")
-    ci95_lower = five_arm_report.get("ci95_lower")
-    if macro_f1_delta is None or macro_f1_delta < _FIVE_ARM_MIN_MACRO_F1_DELTA:
-        reasons.append(
-            f"five-arm macro-F1 win below +{_FIVE_ARM_MIN_MACRO_F1_DELTA}pt: {macro_f1_delta}"
-        )
-    if ci95_lower is None or ci95_lower <= 0:
-        reasons.append(f"five-arm 95% CI lower bound not > 0: {ci95_lower}")
-
-    per_arm_regressions = five_arm_report.get("per_arm_regressions_pt") or {}
-    bad = {k: v for k, v in per_arm_regressions.items() if v < -_MAX_ARM_REGRESSION_PT}
-    if bad:
-        reasons.append(f"arm regression(s) exceed {_MAX_ARM_REGRESSION_PT}pt floor: {bad}")
-
-    if canary_report is not None and canary_report.get("status") == "FLIPPED":
+    if canary_report is None:
+        reasons.append("model canary evidence missing")
+    elif canary_report.get("status") == "FLIPPED":
         reasons.append("model canary flipped vs baseline")
+    elif canary_report.get("status") not in {"OK", "PASS", "STABLE"}:
+        reasons.append(f"model canary did not pass: {canary_report.get('status')!r}")
 
     return {"passed": not reasons, "reasons": reasons}
-
-
-def _default_five_arm_eval(model_tag: str) -> dict[str, Any]:
-    """No real frozen five-arm cousin-suite harness exists yet in this
-    build (out of P6.4's scope to construct one from scratch) -- the
-    honest default is a report that evaluates to a no-gain acceptance
-    result, never a fabricated pass. Production/live-lab callers inject a
-    real `five_arm_eval_fn` once that harness lands (tracked separately)."""
-    return {
-        "model_tag": model_tag,
-        "macro_f1_delta_vs_full_stack": None,
-        "ci95_lower": None,
-        "per_arm_regressions_pt": {},
-        "note": "no five-arm cousin-suite harness available in this build -- honest non-gain default",
-    }
 
 
 def _default_intake_eval(model_tag: str) -> dict[str, Any]:
@@ -506,7 +481,7 @@ def run(
     process_lister: Callable[[], list[str]] | None = None,
     intake_eval_fn: Callable[[str], dict] | None = None,
     incumbent_delta_pt: float | None = None,
-    five_arm_eval_fn: Callable[[str], dict] | None = None,
+    canary_eval_fn: Callable[[str], dict] | None = None,
     artifacts_root: Path | None = None,
     toolchain_root: Path | None = None,
     pending_verdicts_path: Path | None = None,
@@ -515,6 +490,11 @@ def run(
     HARV-built *and* operator-released (checked here, never re-released by
     this function -- I-17 OPERATOR BOUNDARY: dataset release and model
     promotion are separate approvals)."""
+    if role not in bully_config.REFINEMENT_ROLE_MAP:
+        raise TrainingError(
+            f"role {role!r} is not an investigation refinement target; "
+            "deterministic cousin grading is calibrated, not trained"
+        )
     dataset = store.dataset_version_get(dataset_version)
     if dataset is None:
         raise TrainingError(f"no such dataset_version: {dataset_version}")
@@ -641,16 +621,19 @@ def run(
         )
 
         intake_eval_fn = intake_eval_fn or _default_intake_eval
-        five_arm_eval_fn = five_arm_eval_fn or _default_five_arm_eval
+        canary_eval_fn = canary_eval_fn or _default_canary_eval
         intake_report = intake_eval_fn(model_tag)
-        five_arm_report = five_arm_eval_fn(model_tag)
+        canary_report = canary_eval_fn(model_tag)
         acceptance = evaluate_acceptance(
             intake_report=intake_report,
             incumbent_delta_pt=incumbent_delta_pt,
-            five_arm_report=five_arm_report,
+            canary_report=canary_report,
         )
         store.trained_model_set_reports(
-            model_tag, five_arm_report=five_arm_report, intake_report=intake_report
+            model_tag,
+            acceptance_report=acceptance,
+            canary_report=canary_report,
+            intake_report=intake_report,
         )
 
         outcome = {
@@ -665,11 +648,11 @@ def run(
             store.trained_model_set_verdict(model_tag, "declined_no_gain")
         verdict_path = _write_verdict_file(model_tag, outcome, verdicts_dir=root)
         outcome["verdict_file"] = str(verdict_path)
-        _append_pending_verdict_entry(
-            model_tag, outcome, pending_verdicts_path=pending_verdicts_path
-        )
 
         if acceptance["passed"]:
+            _append_pending_verdict_entry(
+                model_tag, outcome, pending_verdicts_path=pending_verdicts_path
+            )
             store.promotion_enqueue(
                 queue_id=new_id("q"), item_kind="model", item_id=model_tag, hunt_id=None
             )
