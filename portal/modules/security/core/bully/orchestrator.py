@@ -32,6 +32,7 @@ from . import evidence as evidence_mod
 from . import investigation as investigation_mod
 from . import mutation as mutation_mod
 from . import plateau as plateau_mod
+from . import playbooks as playbooks_mod
 from . import scoreboard as scoreboard_mod
 from . import signatures as signatures_mod
 from . import targeting as targeting_mod
@@ -534,7 +535,16 @@ def _do_analyze(
 ):
     """ANALYZING -- investigation arm -> signature -> cousin grade."""
     models = bully_config.resolve_investigation_models()
-    inv_result = investigation_arm(episode, models=models, dry_run=dry_run)
+    # PLAY (P6.3, I-16 CONSUMER: LOOP): inject the active playbook for this
+    # hunt's scenario_class, if any -- absence is neutral (None), the hunt
+    # proceeds unshaped. `episode.scenario` is the closest existing field to
+    # a "scenario_class" label; injected only as an explicit kwarg so
+    # pre-P6 investigation_arm stubs (fixed signature, no **kwargs) are
+    # unaffected when no playbook is active.
+    scenario_class = getattr(episode, "scenario", None)
+    playbook = playbooks_mod.for_hunt(store, scenario_class) if scenario_class else None
+    extra = {"playbook": playbook} if playbook else {}
+    inv_result = investigation_arm(episode, models=models, dry_run=dry_run, **extra)
 
     signature = signatures_mod.build_signature(episode_view, {"attack_mappings": []})
     semantic_candidates = organ.knn(signature.canonical_fingerprint, k=8)
@@ -555,6 +565,7 @@ def _do_analyze(
         data={
             "investigation_verdict": inv_result.verdict,
             "assessment_id": assessment.assessment_id,
+            "playbook_id": playbook["playbook_id"] if playbook else None,
         },
     )
     return inv_result, assessment
