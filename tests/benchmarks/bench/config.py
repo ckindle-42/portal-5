@@ -257,6 +257,11 @@ _REASONING_MODEL_PATTERNS = (
     "AEON",
     "Foundation-Sec",  # always emits <think>; enable_thinking=False suppresses CoT overhead
     "olmo-3.1",  # OLMo-3.1-32B-Think — Allen AI thinking model
+    "Qwen3.8",
+    "Qwen3-VL",
+    "qwen3-abliterated:14b",
+    "Nemotron-3.5-Lightning",
+    "GLM-4.7-Flash",
 )
 
 # Models that use /nothink in the user message to suppress thinking chain.
