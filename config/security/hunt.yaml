@@ -1,0 +1,63 @@
+# config/security/hunt.yaml -- Defensive Bully LOOP operator dials.
+#
+# Loaded by portal/modules/security/core/bully/config.py::load_hunt_config.
+# A per-hunt frozen snapshot is taken at authorization time (HuntConfigSnapshot);
+# later edits here never retroactively change a running/closed hunt.
+#
+# coding_task/bully/tasks/TASK_BULLY_P1_SPINE_V1.md P1.0 step 4.
+
+budgets:
+  max_iterations: 20
+  max_wall_clock_seconds: 14400   # 4h
+  max_lab_actions: 60
+
+mutation:
+  # MUT itself lands in P3; the budget dial is declared now so hunt.yaml's
+  # shape does not change shape again when it lands (I-20).
+  max_variants_per_iteration: 5
+  allowed_classes: []             # empty until P3 MUT typed-operator catalog lands
+
+promote_policy: confirm            # promotion always requires an authenticated operator (MASTER SS7)
+
+council:
+  # HEART (P2) floors; declared here so config.py's schema is stable across phases.
+  min_participation: 0.6
+  materiality_categories:
+    - evidence_contradiction
+    - covering_detection_id
+    - benign_counter_evidence
+    - scope_safety
+    - reproducibility
+    - telemetry_health
+    - relationship_classification
+    - defense_response
+    - analyst_visibility
+    - regression_risk
+
+thresholds:
+  # Cousin-engine (BR-COUSIN) two-axis grading thresholds; calibration
+  # artifact pointer is a config-versioned string, not a magic number.
+  calibration_artifact: "bully-cousin-thresholds-v1"
+  relationship:
+    same_max_distance: 0.05
+    similar_max_distance: 0.35
+    new_max_distance: 0.75
+  min_nonsemantic_channels_for_similar_or_new: 2
+
+models:
+  # Role-alias resolution mirrors the blueteam-council precedent
+  # (config/portal.yaml) -- bully never hardcodes a model tag (MASTER SS11).
+  workspace: blueteam-council
+  role_fields:
+    investigator: tool_model
+    council: council_models
+    expert: expert_model
+
+recall:
+  mandatory: true                  # no code path may target without a persisted RecallReceipt
+  default_k: 8
+
+shadow:
+  # Every dual-run/shadow interface defaults off (MASTER SS6).
+  episode_dual_write: "off"        # off | shadow | authoritative
+  cousin_dual_run: "off"           # off | shadow | authoritative

@@ -47,7 +47,7 @@ surfaces:
 - name: file-portal-modules-media-tools-comfyui_mcp
   globs:
   - portal/modules/media/tools/comfyui_mcp.py
-  unit: unit-HOWTO-8-image-generation
+  unit: unit-comfyui-setup-step-3-use
 - name: file-portal-modules-media-tools-music_mcp
   globs:
   - portal/modules/media/tools/music_mcp.py
@@ -55,7 +55,7 @@ surfaces:
 - name: file-portal-modules-media-tools-tts_mcp
   globs:
   - portal/modules/media/tools/tts_mcp.py
-  unit: unit-fact-tool-registry
+  unit: unit-fish-speech-setup-installation-macos-apple-silicon
 - name: file-portal-modules-media-tools-utils
   globs:
   - portal/modules/media/tools/utils.py
@@ -63,11 +63,11 @@ surfaces:
 - name: file-portal-modules-media-tools-video_mcp
   globs:
   - portal/modules/media/tools/video_mcp.py
-  unit: unit-comfyui-setup-cinematic-quality-t2v-a14b-slower
+  unit: unit-comfyui-setup-then-set-video-backend-wan21-nsfw-in-env-and-restart-docker-compose-restart-mcp-video
 - name: file-portal-modules-media-tools-whisper_mcp
   globs:
   - portal/modules/media/tools/whisper_mcp.py
-  unit: unit-HOWTO-12-speech-to-text-asr
+  unit: unit-known-limitations-diarized-transcription-task-transcribe-001
 - name: file-portal-modules-research-tools-browser_mcp
   globs:
   - portal/modules/research/tools/browser_mcp.py
@@ -75,7 +75,7 @@ surfaces:
 - name: file-portal-modules-research-tools-rag_mcp
   globs:
   - portal/modules/research/tools/rag_mcp.py
-  unit: unit-fact-tool-registry
+  unit: unit-user-guide-uploading-documents
 - name: file-portal-modules-research-tools-reranker_mcp
   globs:
   - portal/modules/research/tools/reranker_mcp.py
@@ -223,7 +223,7 @@ surfaces:
 - name: file-portal-platform-wiki-render
   globs:
   - portal/platform/wiki/render.py
-  unit: unit-DESIGN_WIKI-discovery-termination
+  unit: unit-fact-doc-migration-coverage
 - name: file-portal-platform-wiki-schema
   globs:
   - portal/platform/wiki/schema.py
@@ -357,6 +357,10 @@ surfaces:
   - scripts/lib/*.py
   - scripts/validation/*.py
   unit: unit-surface-scripts
+- name: unit-surface-sec-bully
+  globs:
+  - portal/modules/security/core/bully/*.py
+  unit: unit-surface-sec-bully
 - name: unit-surface-sec-core
   globs:
   - portal/modules/security/core/*.py
@@ -374,6 +378,10 @@ surfaces:
   globs:
   - portal/modules/security/core/siem/*.py
   unit: unit-surface-siem
+- name: unit-surface-tests-bully
+  globs:
+  - tests/security/bully/*.py
+  unit: unit-surface-tests-bully
 - name: unit-surface-tests-harness
   globs:
   - tests/*.py
