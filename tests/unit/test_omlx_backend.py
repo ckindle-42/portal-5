@@ -202,6 +202,28 @@ class TestInjectOmlxOptions:
         assert "stream_options" not in out  # non-streaming
         assert "max_tokens" not in body or body["max_tokens"] == 99  # original untouched
 
+    def test_think_profile_wins_over_flat_fields(self, monkeypatch):
+        """Same think_profiles resolution as the Ollama path (TASK_SAMPLING_
+        PROFILE_AUDIT_V1 Scope item 3) must apply on the oMLX path too."""
+        from portal.platform.inference.router import validation as vm
+
+        monkeypatch.setitem(
+            vm.WORKSPACES,
+            "ws-omlx-think",
+            {
+                "temperature": 0.2,
+                "think": True,
+                "think_profiles": {
+                    "thinking": {"temperature": 1.0, "presence_penalty": 0.0},
+                    "instruct": {"temperature": 0.7, "presence_penalty": 1.5},
+                },
+            },
+        )
+        out = vm._inject_omlx_options({}, "ws-omlx-think")
+        assert out["temperature"] == 1.0
+        assert out["presence_penalty"] == 0.0
+        assert out["chat_template_kwargs"] == {"enable_thinking": True}
+
 
 class TestBackendIntrospect:
     @pytest.mark.asyncio
