@@ -45,6 +45,7 @@ import tarfile
 import zipfile
 from collections import Counter, defaultdict
 from collections.abc import Iterator
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -53,9 +54,13 @@ import yaml
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from portal.modules.security.core.siem.hec_ship import ship_batch  # noqa: E402
+from portal.modules.security.core.telemetry import IMPORTED_OBSERVED  # noqa: E402
 
 INDEX = os.environ.get("LAB_SPLUNK_INDEX", "portal5_lab")
 BATCH = int(os.environ.get("CORPUS_BATCH", "500"))
+INGESTED_SOURCETYPES = frozenset(
+    {"windows:security", "linux:auditd", "web:access", "docker:daemon"}
+)
 
 # Containers we can read events out of. .log/.txt are raw-line formats
 # (XmlWinEventLog, auditd, nginx); the rest are JSON-ish or archives.
@@ -219,15 +224,20 @@ def event_epoch(ev: Any, fallback: float) -> float:
 # ---------------------------------------------------------------------------
 
 
-def load_manifests(root: Path) -> dict[str, tuple[str | None, str | None, float | None]]:
-    """Map absolute data-file path -> (sourcetype, source, dataset epoch).
+@dataclass(frozen=True)
+class ManifestDataset:
+    path: Path
+    sourcetype: str | None
+    source: str | None
+    dataset_epoch: float | None
+    techniques: tuple[str, ...]
+    mapped_sourcetype: str
 
-    splunk/attack_data ships a ``data.yml`` beside each dataset declaring the
-    authoritative sourcetype/source. Corpora without manifests yield {} and fall
-    back to body inspection.
-    """
-    manifests: dict[str, tuple[str | None, str | None, float | None]] = {}
-    for yml in list(root.rglob("*.yml")) + list(root.rglob("*.yaml")):
+
+def load_manifest_catalog(root: Path) -> tuple[ManifestDataset, ...]:
+    """Read data.yml datasets with their sealed scorer-side ATT&CK truth."""
+    records: list[ManifestDataset] = []
+    for yml in sorted((*root.rglob("*.yml"), *root.rglob("*.yaml"))):
         try:
             doc = yaml.safe_load(yml.read_text(encoding="utf-8", errors="replace"))
         except Exception:
@@ -235,18 +245,39 @@ def load_manifests(root: Path) -> dict[str, tuple[str | None, str | None, float 
         if not isinstance(doc, dict) or not isinstance(doc.get("datasets"), list):
             continue
         date_epoch = _parse_ts(f"{doc['date']} 00:00:00") if doc.get("date") else None
+        techniques = tuple(sorted({str(item) for item in doc.get("mitre_technique") or []}))
         for entry in doc["datasets"]:
             if not isinstance(entry, dict) or not entry.get("path"):
                 continue
-            # manifest paths are repo-absolute ("/datasets/..."); the file sits
-            # beside the yml, so resolve by basename within the dataset dir.
             data_file = yml.parent / os.path.basename(str(entry["path"]))
-            manifests[str(data_file)] = (
-                entry.get("sourcetype"),
-                entry.get("source"),
-                date_epoch,
+            declared_st = entry.get("sourcetype")
+            declared_src = entry.get("source")
+            records.append(
+                ManifestDataset(
+                    path=data_file,
+                    sourcetype=declared_st,
+                    source=declared_src,
+                    dataset_epoch=date_epoch,
+                    techniques=techniques,
+                    mapped_sourcetype=resolve_sourcetype(
+                        declared_st, declared_src, {}, data_file.name
+                    ),
+                )
             )
-    return manifests
+    return tuple(sorted(records, key=lambda item: str(item.path)))
+
+
+def load_manifests(root: Path) -> dict[str, tuple[str | None, str | None, float | None]]:
+    """Map absolute data-file path -> (sourcetype, source, dataset epoch).
+
+    splunk/attack_data ships a ``data.yml`` beside each dataset declaring the
+    authoritative sourcetype/source. Corpora without manifests yield {} and fall
+    back to body inspection.
+    """
+    return {
+        str(item.path): (item.sourcetype, item.source, item.dataset_epoch)
+        for item in load_manifest_catalog(root)
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -461,7 +492,8 @@ class Shipper:
             host=f"corpus-{self.src}",
             index=self.index,
             event_time=float(epoch),
-            evidence_origin=f"corpus:{self.src}:{self.label}",
+            evidence_origin=IMPORTED_OBSERVED,
+            evidence_provenance="external_corpus",
         )
         if not result.get("ok"):
             self.failures += 1
@@ -523,17 +555,7 @@ def run(src: str, root: Path, ship: bool, backdate_days: int, limit: int) -> int
         by_sourcetype[sourcetype] += n
     print("\n  events by sourcetype:")
     for sourcetype, n in by_sourcetype.most_common():
-        flag = (
-            "  <- fires canned detections"
-            if sourcetype
-            in {
-                "windows:security",
-                "linux:auditd",
-                "web:access",
-                "docker:daemon",
-            }
-            else ""
-        )
+        flag = "  <- fires canned detections" if sourcetype in INGESTED_SOURCETYPES else ""
         print(f"    {n:>10}  {sourcetype}{flag}")
     print("\n  top datasets:")
     for (label, sourcetype), n in shipper.manifest.most_common(20):

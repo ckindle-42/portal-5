@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import json
 from pathlib import Path
 
 import pytest
@@ -10,6 +11,7 @@ import pytest
 from portal.modules.security.core.bully.contracts import MutationOperatorSpec
 from portal.modules.security.core.bully.cousin_forge import forge
 from portal.modules.security.core.bully.specimen_ledger import SpecimenLedger, SpecimenRecord
+from scripts.build_specimen_corpus import SPECIMEN_CORPUS_V1, build_corpus
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BULLY_DIR = REPO_ROOT / "portal" / "modules" / "security" / "core" / "bully"
@@ -153,3 +155,100 @@ def test_forge_distance_is_monotonic_by_applied_operator_weight(tmp_path):
         replay_fn=replay,
     )
     assert near.construction_distance < farther.construction_distance
+
+
+def _write_attack_data_fixture(root: Path) -> None:
+    admitted = root / "datasets" / "attack_techniques" / "T1059.001" / "fixture"
+    admitted.mkdir(parents=True)
+    (admitted / "windows.log").write_text(
+        "EventCode=4688 Image=powershell.exe\nEventCode=4104 ScriptBlockText=Get-Process\n",
+        encoding="utf-8",
+    )
+    (admitted / "data.yml").write_text(
+        """date: '2026-01-01'
+mitre_technique: [T1059.001]
+datasets:
+  - path: /datasets/attack_techniques/T1059.001/fixture/windows.log
+    sourcetype: XmlWinEventLog
+    source: XmlWinEventLog:Security
+""",
+        encoding="utf-8",
+    )
+    excluded = root / "datasets" / "attack_techniques" / "T9999" / "fixture"
+    excluded.mkdir(parents=True)
+    (excluded / "sysmon.log").write_text("EventCode=1 Image=cmd.exe\n", encoding="utf-8")
+    (excluded / "data.yml").write_text(
+        """date: '2026-01-01'
+mitre_technique: [T9999]
+datasets:
+  - path: /datasets/attack_techniques/T9999/fixture/sysmon.log
+    sourcetype: XmlWinEventLog
+    source: XmlWinEventLog:Microsoft-Windows-Sysmon/Operational
+""",
+        encoding="utf-8",
+    )
+
+
+def _write_live_fixture(path: Path) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "scenario": "external-live-cousin",
+                "target_host": "authorized-lab",
+                "episode_id": "specimen-live-1",
+                "specimen_parent_id": "specimen-parent-live",
+                "telemetry": {
+                    "web:access": [
+                        "GET /first HTTP/1.1 200",
+                        "POST /second HTTP/1.1 403",
+                    ]
+                },
+                "validity": {"checked": True, "valid": True, "coverage": 1.0},
+                "mutation_operators": [
+                    {"operator": "VARY_PARAMETER", "params": {"placeholder": "x", "value": "y"}}
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_three_lane_corpus_is_coverage_gated_truth_sealed_and_deterministic(tmp_path):
+    root = tmp_path / "attack_data"
+    _write_attack_data_fixture(root)
+    live = tmp_path / "live.json"
+    _write_live_fixture(live)
+
+    first = build_corpus(
+        attack_data_root=root,
+        output_dir=tmp_path / "out-1",
+        ledger_root=tmp_path / "ledger-1",
+        live_lab_captures=(live,),
+    )
+    second = build_corpus(
+        attack_data_root=root,
+        output_dir=tmp_path / "out-2",
+        ledger_root=tmp_path / "ledger-2",
+        live_lab_captures=(live,),
+    )
+    assert first["schema"] == SPECIMEN_CORPUS_V1
+    assert first["snapshot_hash"] == second["snapshot_hash"]
+    assert first["ledger_snapshot_hash"] == second["ledger_snapshot_hash"]
+    assert first["per_lane_counts"] == {
+        "attack_data": 1,
+        "replay_mutation": 8,
+        "live_lab": 1,
+    }
+    assert first["complete"] is True
+    assert first["coverage_report"]["admitted_parents"] == 1
+    assert any(
+        item["reason"] == "no_ingested_sourcetype_technique_coverage"
+        for item in first["coverage_report"]["excluded"]
+    )
+    visible = json.dumps(first, sort_keys=True)
+    assert "T1059.001" not in visible
+    assert "specimen_parent_id" not in visible
+
+    truth = SpecimenLedger(tmp_path / "ledger-1").records()
+    assert any(item["data_yml_techniques"] == ["T1059.001"] for item in truth)
