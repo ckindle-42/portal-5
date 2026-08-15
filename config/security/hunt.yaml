@@ -81,7 +81,8 @@ shadow:
   cousin_dual_run: "off"           # off | shadow | authoritative
 
 training:
-  # TRAIN (P6.4). base_models is the config alias defensive_bully_train.py
+  # TRAIN (P6.7). Periodic, operator-launched refinement of the investigation
+  # arm only. base_models is the config alias defensive_bully_train.py
   # resolves per role -- never a hardcoded model name in Python (MASTER
   # SS3/SS5). "Base model is a config alias re-benchmarked at build HEAD"
   # (MASTER P6 dependency note): the catalog is churning, so an operator
@@ -99,4 +100,3 @@ training:
     hunter: HuggingFaceTB/SmolLM2-135M-Instruct
     analyst: HuggingFaceTB/SmolLM2-135M-Instruct
     disprover: HuggingFaceTB/SmolLM2-135M-Instruct
-    cousin_smeller: HuggingFaceTB/SmolLM2-135M-Instruct

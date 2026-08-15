@@ -62,6 +62,16 @@ class OperatorRequiredError(RuntimeError):
 LabDriver = Callable[..., Any]  # (target_cell, *, dry_run) -> live Episode
 
 
+def _resolve_live_investigation_models(store: Store) -> dict[str, str]:
+    """Resolve config models, then apply only operator-served TRAIN aliases."""
+    models = bully_config.resolve_investigation_models()
+    for refinement_role, investigation_role in bully_config.REFINEMENT_ROLE_MAP.items():
+        alias = store.model_alias_get(refinement_role)
+        if alias is not None:
+            models[investigation_role] = alias["model_tag"]
+    return models
+
+
 def _require_operator(actor: str) -> None:
     if not actor.startswith("operator:"):
         raise OperatorRequiredError(
@@ -534,7 +544,7 @@ def _do_analyze(
     dry_run: bool,
 ):
     """ANALYZING -- investigation arm -> signature -> cousin grade."""
-    models = bully_config.resolve_investigation_models()
+    models = _resolve_live_investigation_models(store)
     # PLAY (P6.3, I-16 CONSUMER: LOOP): inject the active playbook for this
     # hunt's scenario_class, if any -- absence is neutral (None), the hunt
     # proceeds unshaped. `episode.scenario` is the closest existing field to
@@ -695,7 +705,7 @@ def run_hunt_iteration(
         hunt_id=hunt_id,
         iteration_id=iteration_id,
         exec_seconds=max(time.time() - _exec_started_at, 0.0),
-        models=bully_config.resolve_investigation_models(),
+        models=_resolve_live_investigation_models(store),
     )
 
     # PROMOTING / COMPOUNDING -- BIN/HEART land P2; universal index emission
@@ -792,7 +802,7 @@ def run_hunt(
             neighborhood_scope=neighborhood,
             authorization_ref=actor,
             config_version=snapshot.version,
-            role_snapshot=bully_config.resolve_investigation_models(),
+            role_snapshot=_resolve_live_investigation_models(store),
             budgets=snapshot.hunt.get("budgets", {}),
         )
         store.lease_acquire(hunt_id, owner=actor)

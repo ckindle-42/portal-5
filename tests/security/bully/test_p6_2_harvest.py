@@ -238,3 +238,106 @@ def test_build_dataset_changes_hash_when_examples_change(store, tmp_path):
 def test_build_dataset_rejects_unknown_role(store):
     with pytest.raises(harvest.HarvestError):
         harvest.build_dataset(store, "not-a-role", {})
+
+
+# ── P6.7 marginal-knowledge readiness ─────────────────────────────────
+
+
+def test_readiness_pure_function_requires_size_and_new_territory():
+    ready = harvest.evaluate_refinement_readiness(
+        role="analyst",
+        usable_count=20,
+        current_families={"fam-a", "fam-b"},
+        current_cells={"cell-1", "cell-2"},
+        previous_families={"fam-a"},
+        previous_cells={"cell-1"},
+        last_dataset_version="dv-old",
+    )
+    assert ready.ready is True
+    assert ready.new_families == ("fam-b",)
+    assert ready.new_cells == ("cell-2",)
+
+    no_margin = harvest.evaluate_refinement_readiness(
+        role="analyst",
+        usable_count=30,
+        current_families={"fam-a"},
+        current_cells={"cell-1"},
+        previous_families={"fam-a"},
+        previous_cells={"cell-1"},
+    )
+    assert no_margin.ready is False
+    assert "no new" in no_margin.reason
+
+    too_small = harvest.evaluate_refinement_readiness(
+        role="analyst",
+        usable_count=19,
+        current_families={"fam-new"},
+        current_cells={"cell-new"},
+    )
+    assert too_small.ready is False
+    assert too_small.size_ok is False
+
+
+def test_new_territory_surfaces_one_operator_queue_item_without_launching_train(store, tmp_path):
+    for i in range(2):
+        _emit(
+            store,
+            event_id=f"old-{i}",
+            hunt_id="h-old",
+            kind="promote",
+            subject_id=f"old-cand-{i}",
+            rationale=f"old {i}",
+            data={"technique_ids": ["fam-a"], "cell_id": "cell-1"},
+        )
+    harvest.append_pairs(store, "h-old")
+    old = harvest.build_dataset(
+        store, "analyst", {"since": 0}, min_size=2, corpus_root=tmp_path / "corpus"
+    )
+    store.trained_model_put(
+        model_tag="model-old",
+        role="analyst",
+        base_model="base",
+        base_digest=None,
+        dataset_version=old["dataset_version"],
+        seed=1,
+        hyperparams={},
+        toolchain_versions={},
+        acceptance_policy_version="v1",
+        provenance={},
+    )
+
+    _emit(
+        store,
+        event_id="new-1",
+        hunt_id="h-new",
+        kind="promote",
+        subject_id="new-cand",
+        rationale="new territory",
+        data={"technique_ids": ["fam-b"], "selected_cell_id": "cell-2"},
+    )
+    harvest.append_pairs(store, "h-new")
+    readout = harvest.refinement_readiness(store, "analyst", min_size=2)
+    assert readout.ready is True
+    assert readout.new_families == ("fam-b",)
+    assert readout.new_cells == ("cell-2",)
+
+    notifications = []
+    before_examples = store.training_examples_for_role("analyst")
+    queue_id = harvest.surface_refinement_readiness(
+        store, readout, notify_fn=lambda *args: notifications.append(args)
+    )
+    assert queue_id is not None
+    assert store.promotion_get(queue_id)["item_kind"] == "review_escalation"
+    assert notifications and notifications[0][0] == "review_escalation"
+    assert store.training_examples_for_role("analyst") == before_examples
+    assert store.trained_model_get("model-old")["verdict"] == "pending"
+
+    # Content-keyed queue id makes repeated readiness checks idempotent.
+    assert (
+        harvest.surface_refinement_readiness(
+            store, readout, notify_fn=lambda *args: notifications.append(args)
+        )
+        == queue_id
+    )
+    assert len(store.promotion_list()) == 1
+    assert len(notifications) == 1

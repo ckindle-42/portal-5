@@ -16,6 +16,7 @@ history.
 | P4 | `TASK_BULLY_P4_DISCOVERY_V1.md` | ✅ done | `913ded64` |
 | P5 | `TASK_BULLY_P5_HANDOFF_V1.md` | ✅ done | `58aab19f` |
 | P6 | `TASK_BULLY_P6_FLYWHEEL_V1.md` | ✅ done | `03e24a05` |
+| P6.7 | `TASK_BULLY_P6_7_TRAIN_REFINEMENT_CORRECTION_V1.md` | ✅ done | this closeout branch |
 | P7 | `TASK_BULLY_P7_CUTOVER_PROOF_V1.md` | ⬜ not started | — |
 
 ## What's landed (P0–P6)
@@ -126,14 +127,14 @@ history.
   activation and auto-revert-with-cause on canary failure; wired into
   LOOP (`orchestrator._do_analyze` -> `investigation.run_arm`'s new
   `playbook` kwarg -- absence is neutral, unshaped). `bully/training.py`
-  (TRAIN, I-17) -- every tool invoked as an external subprocess only
+  (TRAIN, I-17; corrected by P6.7) -- periodic, operator-launched
+  investigation-arm refinement; every tool is an external subprocess only
   (never imports mlx_lm/torch/transformers, Rule 8 holds trivially);
   exclusive resource lock + preflight refusing an active hunt lease or a
   concurrent bench/training process; `mlx_lm.lora` -> `mlx_lm.fuse` ->
-  llama.cpp GGUF convert+quantize -> `ollama create`; frozen five-arm
-  acceptance arithmetic (`evaluate_acceptance`) as a pure function over
-  fixtures, honest no-gain default (no cousin-suite bench harness exists
-  yet, so a real run declines rather than fabricating a pass); `serve()`
+  llama.cpp GGUF convert+quantize -> `ollama create`; right-sized acceptance
+  (`evaluate_acceptance`) is a pure, fail-closed decision over intake,
+  candidate-vs-incumbent general-bench evidence, and model canary; `serve()`
   runs the model canary *before* the atomic alias promotion, `rollback()`
   is the atomic alias re-point. Toolchain installed + verified for real
   (llama.cpp via brew + a shallow `ggml-org/llama.cpp` clone for the GGUF
@@ -159,12 +160,14 @@ history.
   and a recorded documented non-serve verdict (`declined_no_gain`); model
   canary (`serve()`) and rollback (`rollback()`) both proven via hermetic
   tests exercising the real atomic-alias-repoint code path, not mocked
-  around it. No frozen five-arm cousin-suite bench harness exists yet in
-  this build (out of P6's scope to construct from scratch) -- flagged
-  honestly as the reason the live demonstration's own acceptance verdict
-  is a genuine non-serve rather than a forced pass; the gate arithmetic
-  itself (`evaluate_acceptance`) is fully built and tested against
-  fixtures.
+  around it. P6.7 removed the over-scoped apparatus, added the
+  marginal-knowledge readiness readout/queue signal, and wired served aliases
+  into LOOP's `tool`/`reasoning`/`expert` seats. A fresh real refinement
+  (`bully-ae9fa52b558fbce0`, seed 1236) produced an honest shelf under the
+  corrected policy: throughput passed (194.9 t/s), tool-call intake failed,
+  incumbent evidence was therefore absent, and the canary reported
+  `NO-BASELINE`. Evidence:
+  `/Volumes/data01/portal5_hunt/artifacts/trained_models/bully-ae9fa52b558fbce0/bully-ae9fa52b558fbce0.verdict.json`.
 
 ## Verification discipline used for every phase
 
@@ -182,29 +185,11 @@ itself before writing any code.
 
 ## Next
 
-**P6.6 (new, blocking)** — Build the real frozen five-arm cousin-suite
-harness. Independent re-verification after the P6 merge found this isn't a
-live-demo nicety: `training._default_five_arm_eval` is a permanent stub
-(`macro_f1_delta_vs_full_stack: None`), which structurally blocks every
-TRAIN run from ever passing acceptance — the `declined_no_gain` verdict in
-P6's live demo wasn't a real measurement, it was the stub's one possible
-output. `FINAL_ARCHITECTURE_DEFENSIVE_BULLY.md` §4.3 and
-`FINAL_BUILD_PROGRAM_DEFENSIVE_BULLY.md`'s checklist both place this
-squarely inside P6.4/TRAIN's own scope, not a later phase. Full findings —
-what's already real and reusable (HARV's frozen test split, the
-label-blind `recall_attribution` oracle, `_sweep_driver._bootstrap_ci`,
-the retrieval/playbook/role-model mechanisms), the one open design
-question (what "cousin-judgment" concretely measures — see the doc), and
-the concrete build list — are written up in
-`docs/BULLY_P6_TRAIN_GAP_ANALYSIS.md`. A secondary, smaller gap in the
-same area: `incumbent_delta_pt` (the vs-incumbent regression leg) silently
-no-ops (passes) when unset instead of blocking, and nothing wires it to
-`candidate_eval`'s real delta today.
+**P6.8** — Build and record the independent cousin-calibration curve from
+construction-known, blind-graded held-out variants.
 
-**P7** — Cutover proof: `TASK_BULLY_P7_CUTOVER_PROOF_V1.md`. Depends on P6
-(flywheel merged, `03e24a05`) **and** P6.6 — P7's release-acceptance
-checklist requires "a frozen five-arm training comparison runs to a
-recorded verdict," which needs P6.6's real harness, not the stub.
+**P7** — Complete the six authoritative cutovers, legacy replacement, and
+the single linked closeout proof bundle.
 
 ## Housekeeping note (unrelated to the bully program)
 

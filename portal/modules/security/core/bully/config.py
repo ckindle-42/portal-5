@@ -16,6 +16,15 @@ from typing import Any
 
 import yaml
 
+# HARV corpus roles whose learned behavior is actually consumed by the
+# investigation arm. The deterministic cousin classifier is intentionally
+# absent: its weights/thresholds are calibrated, never LoRA-trained (P6.7/A5).
+REFINEMENT_ROLE_MAP: dict[str, str] = {
+    "hunter": "tool",
+    "analyst": "reasoning",
+    "disprover": "expert",
+}
+
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _HUNT_YAML = _REPO_ROOT / "config" / "security" / "hunt.yaml"
 _HEART_YAML = _REPO_ROOT / "config" / "security" / "heart.yaml"
