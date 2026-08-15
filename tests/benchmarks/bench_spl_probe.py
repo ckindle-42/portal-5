@@ -47,6 +47,7 @@ MAX_CASES = 8  # cap the sweep length; deterministic selection below
 
 def load_corpus() -> dict:
     import yaml
+
     try:
         return yaml.safe_load(SPL_CORPUS.read_text()) or {}
     except Exception:
@@ -61,21 +62,23 @@ def build_test_cases() -> list[dict]:
         toks = df.get("discriminator_tokens") or []
         if not toks:
             continue
-        cases.append({
-            "id": tech,
-            "description": entry.get("description", ""),
-            "expected_signal": entry.get("expected_signal", ""),
-            "discriminators": toks,
-            "reference_spl": entry.get("spl", ""),
-            "prompt": (
-                f"You are authoring a Splunk detection for MITRE ATT&CK technique "
-                f"{tech} ({entry.get('description','')}). The lab data is in "
-                f"`index=portal5_lab`. Write a single SPL search that detects this "
-                f"technique — target the correct index and sourcetype, match the "
-                f"literal indicators of the attack, and aggregate with stats. "
-                f"Output only the SPL query in a code block."
-            ),
-        })
+        cases.append(
+            {
+                "id": tech,
+                "description": entry.get("description", ""),
+                "expected_signal": entry.get("expected_signal", ""),
+                "discriminators": toks,
+                "reference_spl": entry.get("spl", ""),
+                "prompt": (
+                    f"You are authoring a Splunk detection for MITRE ATT&CK technique "
+                    f"{tech} ({entry.get('description', '')}). The lab data is in "
+                    f"`index=portal5_lab`. Write a single SPL search that detects this "
+                    f"technique — target the correct index and sourcetype, match the "
+                    f"literal indicators of the attack, and aggregate with stats. "
+                    f"Output only the SPL query in a code block."
+                ),
+            }
+        )
     return cases[:MAX_CASES]
 
 
@@ -98,7 +101,7 @@ def _core_literal(tok: str) -> str:
     Tokens are field patterns like 'NewProcessName=*lsass*'; the meaningful
     indicator is the value ('lsass'), stripped of field name, globs, and quotes."""
     v = tok.split("=", 1)[1] if "=" in tok else tok
-    return v.strip('*"\' ').lower()
+    return v.strip("*\"' ").lower()
 
 
 def _score_spl(spl: str, case: dict) -> dict:
@@ -156,9 +159,13 @@ def run_case(model: str, case: dict) -> dict:
     eval_duration_ns = data.get("eval_duration") or 0
     tps = (eval_count / (eval_duration_ns / 1e9)) if eval_duration_ns else None
     return {
-        "id": case["id"], "ok": True, "matched": score["passed"],
-        "spl_score": score, "response_preview": content[:160],
-        "tps": tps, "wall_s": time.monotonic() - t0,
+        "id": case["id"],
+        "ok": True,
+        "matched": score["passed"],
+        "spl_score": score,
+        "response_preview": content[:160],
+        "tps": tps,
+        "wall_s": time.monotonic() - t0,
     }
 
 
@@ -172,9 +179,11 @@ def probe_model(model: str, cases: list[dict]) -> dict:
     avg_tps = round(sum(tps_vals) / len(tps_vals), 2) if tps_vals else None
     cov = [c["spl_score"]["discriminator_coverage"] for c in ok if c.get("spl_score")]
     return {
-        "model": model, "avg_tps": avg_tps,
+        "model": model,
+        "avg_tps": avg_tps,
         "quality_score": round(matched / total, 2) if total else None,
-        "runs_success": matched, "runs_total": total,
+        "runs_success": matched,
+        "runs_total": total,
         "prompt_category": "spl",
         "avg_discriminator_coverage": round(sum(cov) / len(cov), 3) if cov else None,
         "cases": case_results,
@@ -195,7 +204,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  [{i}/{len(args.model)}] {model[:70]} ...", flush=True)
         r = probe_model(model, cases)
         results.append(r)
-        print(f"    quality={r['quality_score']} disc_cov={r['avg_discriminator_coverage']} avg_tps={r['avg_tps']}")
+        print(
+            f"    quality={r['quality_score']} disc_cov={r['avg_discriminator_coverage']} avg_tps={r['avg_tps']}"
+        )
     stamp = _dt.datetime.now(_dt.UTC).strftime("%Y%m%dT%H%M%SZ")
     out_path = RESULTS_DIR / f"spl_probe_{stamp}.json"
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)

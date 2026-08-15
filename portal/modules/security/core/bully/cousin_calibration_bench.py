@@ -693,6 +693,66 @@ def _oracle_response(telemetry: str, techniques: list[str]) -> tuple[str, dict[s
     return "COVERED", observations
 
 
+def _baseline_row(
+    verdict: BlindCorpusVerdict,
+    *,
+    specimen: dict[str, Any],
+    truth: dict[str, Any],
+    corpus_dir: Path,
+) -> dict[str, Any]:
+    response, detail = _oracle_response(
+        _visible_telemetry(corpus_dir, specimen), truth["data_yml_techniques"]
+    )
+    return {
+        "specimen_id": verdict.specimen_id,
+        "source_lane": verdict.source_lane,
+        "parent_id": truth["parent_id"],
+        "d_applied": truth["construction_distance"],
+        "graded_distance": round(verdict.distance, 6),
+        "relationship": verdict.relationship,
+        "grader_response": verdict.response,
+        "oracle_response": response,
+        "oracle_detail": detail,
+        "confidence": round(verdict.confidence, 6),
+        "reference_signature_id": verdict.reference_signature_id,
+        **{f"distance_{key}": value for key, value in verdict.decomposition.items()},
+    }
+
+
+def _classify_baseline_row(
+    row: dict[str, Any],
+    failures: dict[str, list[dict[str, Any]]],
+    unresolved: list[dict[str, Any]],
+    indeterminate: list[dict[str, Any]],
+) -> None:
+    relationship, response = row["relationship"], row["grader_response"]
+    distance = row["d_applied"]
+    if relationship == "ANOMALOUS_UNCLASSIFIED":
+        unresolved.append(row)
+    if response == "INDETERMINATE" or row["oracle_response"] == "INDETERMINATE":
+        indeterminate.append(row)
+    if 0.05 < distance <= 0.40 and relationship == "NEW":
+        failures["mid_distance_new_blind_spot"].append(row)
+    if distance > 0.05 and relationship == "SAME":
+        failures["real_same_overclaim"].append(row)
+    if row["parent_id"] and row["reference_signature_id"] != row["parent_id"]:
+        failures["wrong_parent"].append(row)
+    if row["oracle_response"] == "NEAR_MISS" and response not in {"NEAR_MISS", "INDETERMINATE"}:
+        failures["response_axis"].append(row)
+
+
+def _find_non_monotonic(
+    by_parent: dict[str, list[dict[str, Any]]], tolerance: float
+) -> list[dict[str, Any]]:
+    failures = []
+    for parent_id, parent_rows in by_parent.items():
+        ordered = sorted(parent_rows, key=lambda item: (item["d_applied"], item["specimen_id"]))
+        for previous, current in zip(ordered, ordered[1:], strict=False):
+            if current["graded_distance"] + tolerance < previous["graded_distance"]:
+                failures.append({"parent_id": parent_id, "previous": previous, "current": current})
+    return failures
+
+
 def score_baseline(
     verdicts: tuple[BlindCorpusVerdict, ...],
     *,
@@ -718,51 +778,18 @@ def score_baseline(
         truth = ledger.truth_for(verdict.specimen_id)
         if truth is None:
             raise ValueError(f"sealed truth missing for {verdict.specimen_id}")
-        specimen = specimens[verdict.specimen_id]
-        oracle_response, oracle_detail = _oracle_response(
-            _visible_telemetry(corpus_dir, specimen), truth["data_yml_techniques"]
+        row = _baseline_row(
+            verdict,
+            specimen=specimens[verdict.specimen_id],
+            truth=truth,
+            corpus_dir=corpus_dir,
         )
-        row = {
-            "specimen_id": verdict.specimen_id,
-            "source_lane": verdict.source_lane,
-            "parent_id": truth["parent_id"],
-            "d_applied": truth["construction_distance"],
-            "graded_distance": round(verdict.distance, 6),
-            "relationship": verdict.relationship,
-            "grader_response": verdict.response,
-            "oracle_response": oracle_response,
-            "oracle_detail": oracle_detail,
-            "confidence": round(verdict.confidence, 6),
-            "reference_signature_id": verdict.reference_signature_id,
-            **{f"distance_{key}": value for key, value in verdict.decomposition.items()},
-        }
         rows.append(row)
-        if verdict.relationship == "ANOMALOUS_UNCLASSIFIED":
-            unresolved.append(row)
-        if verdict.response == "INDETERMINATE" or oracle_response == "INDETERMINATE":
-            indeterminate.append(row)
-        distance = truth["construction_distance"]
-        if 0.05 < distance <= 0.40 and verdict.relationship == "NEW":
-            failures["mid_distance_new_blind_spot"].append(row)
-        if distance > 0.05 and verdict.relationship == "SAME":
-            failures["real_same_overclaim"].append(row)
-        if truth["parent_id"] and verdict.reference_signature_id != truth["parent_id"]:
-            failures["wrong_parent"].append(row)
-        if oracle_response == "NEAR_MISS" and verdict.response not in {
-            "NEAR_MISS",
-            "INDETERMINATE",
-        }:
-            failures["response_axis"].append(row)
-        if truth["parent_id"]:
-            by_parent.setdefault(truth["parent_id"], []).append(row)
+        _classify_baseline_row(row, failures, unresolved, indeterminate)
+        if row["parent_id"]:
+            by_parent.setdefault(row["parent_id"], []).append(row)
 
-    for parent_id, parent_rows in by_parent.items():
-        ordered = sorted(parent_rows, key=lambda item: (item["d_applied"], item["specimen_id"]))
-        for previous, current in zip(ordered, ordered[1:], strict=False):
-            if current["graded_distance"] + monotonic_tolerance < previous["graded_distance"]:
-                failures["non_monotonic"].append(
-                    {"parent_id": parent_id, "previous": previous, "current": current}
-                )
+    failures["non_monotonic"] = _find_non_monotonic(by_parent, monotonic_tolerance)
     passed = not any(failures.values()) and not unresolved and not indeterminate
     return BaselineCalibrationReport(
         schema=BASELINE_CALIBRATION_V1,
