@@ -71,7 +71,7 @@ def test_budget_and_stall_caps_are_forwarded_to_the_section_runner():
     assert kwargs["wall_clock_s"] == 120.0
 
 
-def test_adapter_consumes_a_live_episode_fixture():
+def test_adapter_projects_the_canonical_episode_for_the_legacy_bench_reader():
     ep = _live_episode()
     fake_result = _FakeOrchestrationResult(verdict="CONFIRMED", technique_ids=[], evidence=[])
     with patch(
@@ -79,7 +79,12 @@ def test_adapter_consumes_a_live_episode_fixture():
     ) as mocked:
         result = investigation.run_arm(ep, models={"tool": "t", "reasoning": "r", "expert": "e"})
     called_episode = mocked.call_args[0][0]
-    assert called_episode is ep  # the live Episode object itself, not a replay DTO
+    assert called_episode is not ep
+    assert called_episode.scenario == ep.scenario
+    assert called_episode.target_host == ep.target_host
+    assert hasattr(called_episode, "techniques")
+    assert hasattr(called_episode, "telemetry")
+    assert ep.episode_id == "ep-20260101T000000Z-scn-abcd1234"
     assert result.verdict == "CONFIRMED"
 
 

@@ -7,8 +7,7 @@ argparse CLI as the default) rather than a reimplementation — the RBP
 engine already owns real argument parsing for each of those; duplicating
 it here as separate Typer subcommands would be new integration code for
 no behavior change, and the spec's "bench, eval, coverage, report, grow"
-naming doesn't map 1:1 onto existing entry points (run_growth_loop has no
-standalone CLI wrapper today, for one). This keeps `portal security ...`
+naming doesn't map 1:1 onto the existing entry points. This keeps `portal security ...`
 and `python3 -m portal.modules.security.core ...` behaving identically —
 one surface, no drift.
 """

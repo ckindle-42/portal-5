@@ -37,7 +37,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 
 from portal.modules.security.core.bully import config as bully_config  # noqa: E402
-from portal.modules.security.core.bully import harvest, training  # noqa: E402
+from portal.modules.security.core.bully import cutover, harvest, training  # noqa: E402
+from portal.modules.security.core.bully.contracts import DecisionImpact, new_id  # noqa: E402
 from portal.modules.security.core.bully.store import Store  # noqa: E402
 from portal.modules.security.core.candidate_eval import _compute_delta  # noqa: E402
 
@@ -82,9 +83,15 @@ def cmd_build_dataset(args: argparse.Namespace) -> int:
         readiness = harvest.refinement_readiness(
             store, args.role, min_size=cfg.get("min_dataset_size", 20)
         )
-        queue_id = harvest.surface_refinement_readiness(store, readiness)
+        feed_mode = cutover.feed_mode(bully_config.load_hunt_config(), "training_pair_harvest")
+        queue_id = (
+            harvest.surface_refinement_readiness(store, readiness)
+            if feed_mode == "authoritative"
+            else None
+        )
         ref["refinement_readiness"] = readiness.as_dict()
         ref["readiness_queue_id"] = queue_id
+        ref["feed_mode"] = feed_mode
     finally:
         store.close()
     print(json.dumps(ref, indent=2, sort_keys=True, default=str))
@@ -94,10 +101,35 @@ def cmd_build_dataset(args: argparse.Namespace) -> int:
 def cmd_release_dataset(args: argparse.Namespace) -> int:
     store = _open_store()
     try:
+        before = store.dataset_version_get(args.dataset_version)
         store.dataset_version_release(
             args.dataset_version, operator_actor=args.operator, approval_ref=args.approval_ref
         )
         row = store.dataset_version_get(args.dataset_version)
+        recall_id = store.latest_recall_id()
+        mode = cutover.feed_mode(bully_config.load_hunt_config(), "training_pair_harvest")
+        if recall_id is not None:
+            store.decision_impact_put(
+                DecisionImpact(
+                    impact_id=new_id("impact"),
+                    recall_id=recall_id,
+                    consuming_decision_ref=args.dataset_version,
+                    before={
+                        "dataset_version": args.dataset_version,
+                        "status": before["status"] if before else None,
+                    },
+                    after={
+                        "dataset_version": args.dataset_version,
+                        "status": row["status"] if row else None,
+                    },
+                    cited_record_ids=[args.dataset_version],
+                    change_kind="CONTROL_ADDED",
+                    explanation=(
+                        "P7 paired cutover proof for training_pair_harvest; "
+                        f"mode={mode}; released corpus became eligible for later TRAIN consumption"
+                    ),
+                )
+            )
     finally:
         store.close()
     print(json.dumps(row, indent=2, sort_keys=True, default=str))
@@ -107,6 +139,14 @@ def cmd_release_dataset(args: argparse.Namespace) -> int:
 def cmd_run(args: argparse.Namespace) -> int:
     store = _open_store()
     try:
+        feed_mode = cutover.feed_mode(bully_config.load_hunt_config(), "training_pair_harvest")
+        if feed_mode != "authoritative":
+            print(
+                "TRAIN refused: training_pair_harvest consumption is not authoritative "
+                f"(mode={feed_mode})",
+                file=sys.stderr,
+            )
+            return 3
         cfg = _training_config()
         base_model = args.base_model or (cfg.get("base_models") or {}).get(args.role)
         if not base_model:

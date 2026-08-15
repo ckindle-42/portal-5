@@ -5,7 +5,7 @@
 generalization is drafted by a model from the cousin's discriminators
 (``siem.spl_detections.technique_signature_full`` / ``spl_variants_for``)
 and then validated in code: ``validate_spl_syntax`` (imported from
-``growth_loop`` -- KEEP-SIBLING, never duplicated) plus dry execution
+the retired growth-loop gate (now successor-owned here) plus dry execution
 against the replayed capture. The three detection-proof legs execute for
 real:
 
@@ -185,12 +185,19 @@ def dry_execute(spl: str, raw_events: list[str]) -> int:
 
 
 def validate_spl_syntax(spl: str) -> tuple[bool, list[str]]:
-    """Re-exported from growth_loop (I-14: 'validate_spl_syntax, extracted
-    from growth_loop') -- growth_loop stays (KEEP-SIBLING); this module
-    calls the same deterministic gate rather than duplicating it."""
-    from ..growth_loop import validate_spl_syntax as _validate
-
-    return _validate(spl)
+    """Successor-owned deterministic SPL gate (retired growth-loop adapter)."""
+    errors: list[str] = []
+    if not spl or not spl.strip():
+        return False, ["empty SPL"]
+    stripped = spl.strip()
+    if stripped.startswith("#"):
+        return False, ["SPL is a placeholder comment, not a real query"]
+    has_index = "index=" in stripped or "index " in stripped
+    has_pipe = "|" in stripped
+    has_search = stripped.startswith("search ") or has_index or has_pipe
+    if not has_search:
+        errors.append("SPL lacks a search command or index reference")
+    return not errors, errors
 
 
 # ── proof leg 1: fires-on-attack (capture_recipes replay) ─────────────────

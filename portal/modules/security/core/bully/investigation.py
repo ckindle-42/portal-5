@@ -18,7 +18,9 @@ internally; this module never calls a model directly itself.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 DEFAULT_MAX_ROUNDS = 6
@@ -88,6 +90,34 @@ def _apply_playbook_context(episode: Any, playbook: dict | None) -> Any:
     )
 
 
+def _to_acceptance_episode(episode: Any) -> Any:
+    """Compatibility adapter from canonical truth Episode to bench reader."""
+    if hasattr(episode, "techniques") and hasattr(episode, "telemetry"):
+        return episode
+    from ..agentic_blue_eval import Episode as AcceptanceEpisode
+    from ..chain import SCENARIOS
+
+    scenario = SCENARIOS.get(episode.scenario) or {}
+    telemetry: dict[str, list[str]] = {}
+    for reference in getattr(episode, "evidence_refs", ()):
+        path = Path(reference)
+        if not path.is_file():
+            continue
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        for sourcetype, lines in (payload.get("telemetry") or {}).items():
+            telemetry.setdefault(sourcetype, []).extend(str(line) for line in lines)
+    return AcceptanceEpisode(
+        scenario=episode.scenario,
+        target_host=episode.target_host or "",
+        techniques=list(scenario.get("detect_ground_truth") or []),
+        telemetry=telemetry,
+        captured_at=episode.started_at,
+    )
+
+
 def run_arm(
     episode: Any,
     *,
@@ -115,7 +145,7 @@ def run_arm(
     from ..blue import _cite_or_drop, _discriminator_contradicts
     from ..blue_orchestrate import ExpertHandoff, HunterHandoff, _run_three_section
 
-    shaped_episode = _apply_playbook_context(episode, playbook)
+    shaped_episode = _apply_playbook_context(_to_acceptance_episode(episode), playbook)
     result = _run_three_section(
         shaped_episode,
         models=models,
