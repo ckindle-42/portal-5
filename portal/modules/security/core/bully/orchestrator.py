@@ -1,12 +1,15 @@
 """bully.orchestrator -- LOOP, the only module that sequences a hunt
-iteration (P1.7).
+iteration (P1.7, P3 MUT/drift wiring).
 
 Stage machine (I-3): DRAFT -> AUTHORIZED -> RECALL_READY -> TARGETED ->
 MUTATION_READY -> EXECUTING -> ANALYZING -> PROMOTING -> COMPOUNDING ->
 CLOSED (+ BLOCKED / CANCELLED / FAILED). P1 wires exactly one iteration
-end-to-end; TARGETED/MUTATION_READY are stubbed passthroughs (real TGT/MUT
-land P3/P4), and PROMOTING/COMPOUNDING do not yet run BIN/HEART (P2) --
-they still perform the universal index-emission step that later phases
+end-to-end; TARGETED is still a stubbed passthrough (real TGT lands P4).
+MUTATION_READY now compiles a real `MutationPlan` via `mutation.py` (P3.1,
+replacing the P1 stub); ANALYZING now also runs BR-DRIFT (P3.2) after the
+cousin grade. PROMOTING/COMPOUNDING do not yet run BIN/HEART here (P2's
+promotion pipeline is driven separately via `hunt queue --confirm/--reject`)
+-- they still perform the universal index-emission step that later phases
 extend, never skip.
 
 `[GATE]` hunt authorization is operator-only: `hunt run`/`hunt resume`/
@@ -22,10 +25,12 @@ from collections.abc import Callable
 from typing import Any
 
 from . import config as bully_config
+from . import drift_engine
 from . import evidence as evidence_mod
 from . import investigation as investigation_mod
+from . import mutation as mutation_mod
 from . import signatures as signatures_mod
-from .contracts import DecisionEvent, new_id
+from .contracts import DecisionEvent, MutationPlan, new_id
 from .cousin_engine import CoverageView, candidate_set, grade
 from .organ import Organ, OrganUnavailable
 from .store import IllegalTransitionError, Store
@@ -75,6 +80,18 @@ def _default_lab_driver(target_cell: dict, *, dry_run: bool) -> Any:
 
     scenario_name = target_cell.get("scenario") or next(iter(SCENARIOS))
     scenario = SCENARIOS[scenario_name]
+    overlay = target_cell.get("mutation_overlay")
+    if overlay:
+        # MUT-compiled overlay (P3.1, I-1) -- data only. The overlay's
+        # red_order/red_prompt/mission_objective are handed to the same
+        # unchanged _prepare_scenario/set_scenario path a raw SCENARIOS
+        # entry uses; this is a dict key override, never a Red source edit.
+        scenario = {
+            **scenario,
+            "red_order": list(overlay["red_order"]),
+            "red_prompt": overlay["red_prompt"],
+            "mission_objective": overlay.get("mission_objective"),
+        }
     cfg = BenchConfig()
     gate = _prepare_scenario(scenario, cfg, dry_run=dry_run, lab_exec=False)
     if not gate.get("ready", False):
@@ -151,6 +168,148 @@ def _do_recall(store: Store, organ: Organ, *, hunt_id: str, neighborhood: str, c
         raise HonestBlockedError(f"hunt {hunt_id}: no recall receipt persisted, refusing to target")
 
 
+def _do_mutate(
+    store: Store,
+    *,
+    hunt_id: str,
+    actor: str,
+    target_cell: dict,
+    mutation_plan: MutationPlan | None,
+) -> dict:
+    """MUTATION_READY (P3.1, replacing the P1 stub) -- compile a
+    `MutationPlan` into a scenario overlay via `mutation.validate_and_compile`
+    and stash it on `target_cell` for the lab driver. Fail-closed: a
+    validation failure blocks the hunt honestly (no Red call, decision event
+    recorded) rather than silently falling back to an unmutated scenario.
+
+    When the caller doesn't inject an explicit `mutation_plan`, a trivial
+    zero-operator plan is built (pure passthrough -- the overlay equals the
+    reference scenario unchanged) so every iteration goes through the same
+    validated/compiled/recorded path, never an implicit bypass.
+    """
+    from ..chain import SCENARIOS
+
+    hunt_config = bully_config.load_hunt_config()
+    scenario_name = target_cell.get("scenario") or next(iter(SCENARIOS))
+    reference_scenario = SCENARIOS[scenario_name]
+
+    plan = mutation_plan or mutation_mod.build_plan(
+        reference_scenario=scenario_name,
+        operators=[],
+        allowed_targets=(
+            (reference_scenario["target_host"],) if reference_scenario.get("target_host") else ()
+        ),
+        proposer=actor,
+    )
+
+    try:
+        overlay = mutation_mod.validate_and_compile(
+            plan, reference_scenario=reference_scenario, hunt_config=hunt_config
+        )
+    except mutation_mod.MutationValidationError as exc:
+        store.mutation_plan_record(
+            plan,
+            status="rejected",
+            rejection_reason_code=exc.reason_code,
+            rejection_detail=str(exc),
+        )
+        store.hunt_advance_stage(
+            hunt_id, "BLOCKED", expected_version=store.hunt_get(hunt_id)["version"]
+        )
+        _record(
+            store,
+            hunt_id=hunt_id,
+            iteration_id=None,
+            actor="system:orchestrator",
+            kind="gate",
+            subject_id=plan.plan_id,
+            rationale=f"MUT validation failed: {exc.reason_code}",
+            data={"reason_code": exc.reason_code, "detail": str(exc)},
+        )
+        raise HonestBlockedError(
+            f"hunt {hunt_id}: mutation plan {plan.plan_id} rejected ({exc.reason_code})"
+        ) from exc
+
+    store.mutation_plan_record(plan, status="validated", overlay=overlay)
+    _record(
+        store,
+        hunt_id=hunt_id,
+        iteration_id=None,
+        actor="system:orchestrator",
+        kind="gate",
+        subject_id=plan.plan_id,
+        rationale=(
+            f"MUT compiled overlay for {scenario_name} "
+            f"(operators={list(overlay.applied_operators)}, truncated={overlay.truncated})"
+        ),
+        data={
+            "applied_operators": list(overlay.applied_operators),
+            "truncated": overlay.truncated,
+            "truncation_rationale": overlay.truncation_rationale,
+        },
+    )
+    return {**target_cell, "scenario": scenario_name, "mutation_overlay": overlay.to_dict()}
+
+
+def _do_drift(store: Store, *, hunt_id: str, episode_view: dict) -> list:
+    """ANALYZING (continued) -- BR-DRIFT temporal-cousin classification
+    (P3.2, I-9), run after the cousin grade.
+
+    Documented simplification (MASTER SS0 finding): the investigation arm
+    does not yet hand LOOP a per-SPL-detection outcome breakdown, so this
+    wiring treats the episode's own telemetry/detection reason codes as one
+    detection sample keyed by scenario (`episode:<scenario>`).
+    `drift_engine.update` itself is fully general over a real per-detection
+    breakdown whenever one is wired in (P4+) -- see its own unit tests for
+    multi-detection fixtures.
+    """
+    detection_id = f"episode:{episode_view['scenario']}"
+    telemetry_status = episode_view.get("telemetry_status")
+    detection_status = episode_view.get("detection_status")
+    sensor_healthy = telemetry_status not in (
+        "TELEMETRY_COLLECTION_FAILED",
+        "TELEMETRY_NOT_INDEXED",
+    )
+    completeness = {
+        "TELEMETRY_OBSERVED": 1.0,
+        "TELEMETRY_NOT_INDEXED": 0.4,
+        "TELEMETRY_COLLECTION_FAILED": 0.0,
+    }.get(telemetry_status, 0.9)
+    sample = {
+        "detection_id": detection_id,
+        "fired": detection_status == "DETECTION_CONFIRMED",
+        "sourcetype_completeness": completeness,
+        "clause_satisfied": (False if detection_status == "DETECTION_HIT_UNATTRIBUTED" else None),
+        "row_shape": None,
+        "environment_fingerprint": episode_view.get("target_host"),
+        "sensor_healthy": sensor_healthy,
+    }
+    hunt_config = bully_config.load_hunt_config()
+    policy_version = hunt_config.get("thresholds", {}).get("calibration_artifact", "v1")
+    key = drift_engine.baseline_key(detection_id, policy_version)
+    existing = store.detection_baseline_get(key)
+    baselines = {key: existing} if existing is not None else {}
+
+    flags, updated_baselines = drift_engine.update(
+        episode_view["episode_id"], [sample], baselines, policy_version=policy_version
+    )
+    for baseline in updated_baselines.values():
+        store.detection_baseline_upsert(baseline)
+    for flag in flags:
+        store.drift_flag_record(flag)
+        _record(
+            store,
+            hunt_id=hunt_id,
+            iteration_id=None,
+            actor="system:orchestrator",
+            kind="grade",
+            subject_id=flag.detection_id,
+            rationale=f"BR-DRIFT classified {flag.drift_class} (status={flag.status})",
+            data={"flag_id": flag.flag_id, "routed": flag.routed, "score": flag.score},
+        )
+    return flags
+
+
 def _do_analyze(
     store: Store,
     organ: Organ,
@@ -200,15 +359,21 @@ def run_hunt_iteration(
     target_cell: dict | None = None,
     lab_driver: LabDriver | None = None,
     investigation_arm: Callable[..., Any] | None = None,
+    mutation_plan: MutationPlan | None = None,
     dry_run: bool = False,
 ) -> dict[str, Any]:
-    """Drive exactly one hunt iteration through the full P1 stage machine.
+    """Drive exactly one hunt iteration through the full stage machine.
 
-    LOAD -> RECALL -> SELECT(stub) -> DIRECT(stub) -> INVESTIGATE -> GRADE
-    -> RECORD -> STOP (I2). Every stage transition is a real, checked SUB
-    write; there is no code path that reaches TARGETED without a
-    persisted RecallReceipt, and no code path that closes the iteration
-    with a required unindexed emission still pending.
+    LOAD -> RECALL -> SELECT(stub) -> DIRECT(MUT, P3.1) -> INVESTIGATE ->
+    GRADE -> DRIFT(P3.2) -> RECORD -> STOP. Every stage transition is a
+    real, checked SUB write; there is no code path that reaches TARGETED
+    without a persisted RecallReceipt, and no code path that closes the
+    iteration with a required unindexed emission still pending.
+
+    `mutation_plan` lets a caller (CLI, test) inject an explicit
+    `MutationPlan`; when omitted, `_do_mutate` builds a trivial zero-operator
+    passthrough plan so every iteration still goes through the same
+    validated/compiled/recorded MUT path.
     """
     lab_driver = lab_driver or _default_lab_driver
     investigation_arm = investigation_arm or investigation_mod.run_arm
@@ -234,9 +399,8 @@ def run_hunt_iteration(
     _do_recall(store, organ, hunt_id=hunt_id, neighborhood=neighborhood, context=context)
     _stage("RECALL_READY")
 
-    # TARGETED / MUTATION_READY -- stubbed passthrough in P1 (real TGT/MUT
-    # land P3/P4). Recorded as a decision event so the stub is auditable,
-    # not silently skipped.
+    # TARGETED -- stubbed passthrough in P1 (real TGT lands P4). Recorded as
+    # a decision event so the stub is auditable, not silently skipped.
     _stage("TARGETED")
     _record(
         store,
@@ -247,6 +411,13 @@ def run_hunt_iteration(
         subject_id=target_cell.get("scenario", "auto"),
         rationale="P1 stub passthrough -- real TGT lands P4",
         data={"target_cell": target_cell},
+    )
+
+    # MUTATION_READY -- MUT compiles a MutationPlan into a scenario overlay
+    # (P3.1, replacing the P1 stub). Fail-closed: raises HonestBlockedError
+    # (already recorded + hunt advanced to BLOCKED inside _do_mutate).
+    target_cell = _do_mutate(
+        store, hunt_id=hunt_id, actor=actor, target_cell=target_cell, mutation_plan=mutation_plan
     )
     _stage("MUTATION_READY")
 
@@ -281,7 +452,7 @@ def run_hunt_iteration(
             f"hunt {hunt_id}: episode {episode_view['episode_id']} INDETERMINATE"
         )
 
-    # ANALYZING -- investigation arm -> signature -> cousin grade.
+    # ANALYZING -- investigation arm -> signature -> cousin grade -> BR-DRIFT.
     _stage("ANALYZING")
     inv_result, assessment = _do_analyze(
         store,
@@ -293,6 +464,7 @@ def run_hunt_iteration(
         investigation_arm=investigation_arm,
         dry_run=dry_run,
     )
+    drift_flags = _do_drift(store, hunt_id=hunt_id, episode_view=episode_view)
 
     # PROMOTING / COMPOUNDING -- BIN/HEART land P2; universal index emission
     # (I-4) happens regardless, in this same iteration, never deferred to a
@@ -335,6 +507,10 @@ def run_hunt_iteration(
         "defense_response": assessment.defense_response,
         "investigation_verdict": inv_result.verdict,
         "outbox": outbox_result,
+        "drift_flags": [
+            {"drift_class": f.drift_class, "status": f.status, "routed": f.routed}
+            for f in drift_flags
+        ],
         "stage": "CLOSED",
     }
 
