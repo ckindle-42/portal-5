@@ -31,7 +31,7 @@ from .contracts import (
     is_legal_hunt_transition,
 )
 
-SCHEMA_VERSION = 2  # highest migration this code understands
+SCHEMA_VERSION = 3  # highest migration this code understands
 _MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
 
@@ -1221,6 +1221,64 @@ class Store:
                 raise IllegalBinTransitionError(
                     f"concurrent modification of candidate {candidate_id}"
                 )
+
+    # ── soc_deliveries (G3, I-7a) ─────────────────────────────────────────
+
+    def soc_delivery_put(
+        self,
+        *,
+        delivery_id: str,
+        candidate_id: str,
+        correlation_key: str,
+        destination: str | None,
+        config_version: str | None,
+        payload_hash: str,
+        producer_ack: bool,
+        consumer_query_ran: bool,
+        consumer_triage_report: dict | None,
+        priority: str | None,
+        latency_s: float | None,
+        content_hash_match: bool,
+        load_profile: str | None,
+        lifecycle_status: str = "sent",
+    ) -> None:
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO soc_deliveries (delivery_id, candidate_id, correlation_key, "
+                "destination, config_version, payload_hash, producer_ack, consumer_query_ran, "
+                "consumer_triage_report, priority, latency_s, content_hash_match, load_profile, "
+                "lifecycle_status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    delivery_id,
+                    candidate_id,
+                    correlation_key,
+                    destination,
+                    config_version,
+                    payload_hash,
+                    1 if producer_ack else 0,
+                    1 if consumer_query_ran else 0,
+                    _json(consumer_triage_report) if consumer_triage_report is not None else None,
+                    priority,
+                    latency_s,
+                    1 if content_hash_match else 0,
+                    load_profile,
+                    lifecycle_status,
+                    time.time(),
+                ),
+            )
+
+    def soc_delivery_get(self, delivery_id: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM soc_deliveries WHERE delivery_id=?", (delivery_id,)
+        ).fetchone()
+        return _row_to_dict(row)
+
+    def soc_deliveries_for_candidate(self, candidate_id: str) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM soc_deliveries WHERE candidate_id=? ORDER BY created_at ASC",
+            (candidate_id,),
+        ).fetchall()
+        return [_row_to_dict(r) for r in rows]
 
     # ── doctor (integrity check) ─────────────────────────────────────────
 
