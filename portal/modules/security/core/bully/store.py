@@ -36,7 +36,7 @@ from .contracts import (
     is_legal_hunt_transition,
 )
 
-SCHEMA_VERSION = 8  # highest migration this code understands
+SCHEMA_VERSION = 9  # highest migration this code understands
 _MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
 
@@ -1821,6 +1821,567 @@ class Store:
             (deployment_id,),
         ).fetchall()
         return [_row_to_dict(r) for r in rows]
+
+    # ── playbooks (PLAY, P6.1/I-16) ─────────────────────────────────────
+
+    def playbook_draft_put(
+        self,
+        *,
+        playbook_id: str,
+        scenario_class: str,
+        content_hash: str,
+        instruction_set: dict,
+        source_hunts: list[str],
+        supersedes: str | None = None,
+    ) -> int:
+        version = 1
+        with self._tx() as cur:
+            if supersedes is not None:
+                prior = cur.execute(
+                    "SELECT version FROM playbooks WHERE playbook_id=?", (supersedes,)
+                ).fetchone()
+                if prior is not None:
+                    version = prior["version"] + 1
+                    cur.execute(
+                        "UPDATE playbooks SET superseded_by=? "
+                        "WHERE playbook_id=? AND superseded_by IS NULL",
+                        (playbook_id, supersedes),
+                    )
+            cur.execute(
+                "INSERT INTO playbooks (playbook_id, scenario_class, version, content_hash, "
+                "instruction_set_json, source_hunts_json, status, created_at) "
+                "VALUES (?,?,?,?,?,?,?,?)",
+                (
+                    playbook_id,
+                    scenario_class,
+                    version,
+                    content_hash,
+                    _json(instruction_set),
+                    _json(source_hunts),
+                    "draft",
+                    time.time(),
+                ),
+            )
+        return version
+
+    def playbook_get(self, playbook_id: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM playbooks WHERE playbook_id=?", (playbook_id,)
+        ).fetchone()
+        d = _row_to_dict(row)
+        if d is not None:
+            d["instruction_set"] = _loads(d["instruction_set_json"], {})
+            d["source_hunts"] = _loads(d["source_hunts_json"], [])
+        return d
+
+    def playbook_active_for_class(self, scenario_class: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM playbooks WHERE scenario_class=? AND status='active'",
+            (scenario_class,),
+        ).fetchone()
+        d = _row_to_dict(row)
+        if d is not None:
+            d["instruction_set"] = _loads(d["instruction_set_json"], {})
+            d["source_hunts"] = _loads(d["source_hunts_json"], [])
+        return d
+
+    def playbook_set_status(
+        self,
+        playbook_id: str,
+        status: str,
+        *,
+        replay_results: dict | None = None,
+        canary_results: dict | None = None,
+        revert_cause: str | None = None,
+        activated_by: str | None = None,
+    ) -> None:
+        with self._tx() as cur:
+            cur.execute(
+                "UPDATE playbooks SET status=?, "
+                "replay_results_json=COALESCE(?, replay_results_json), "
+                "canary_results_json=COALESCE(?, canary_results_json), "
+                "revert_cause=COALESCE(?, revert_cause), "
+                "activated_by=COALESCE(?, activated_by), "
+                "activated_at=CASE WHEN ?='active' THEN ? ELSE activated_at END "
+                "WHERE playbook_id=?",
+                (
+                    status,
+                    _json(replay_results) if replay_results is not None else None,
+                    _json(canary_results) if canary_results is not None else None,
+                    revert_cause,
+                    activated_by,
+                    status,
+                    time.time(),
+                    playbook_id,
+                ),
+            )
+            if cur.rowcount != 1:
+                raise StoreError(f"no such playbook: {playbook_id}")
+
+    def playbook_activate(self, playbook_id: str, *, operator_actor: str) -> None:
+        """Atomic pointer CAS (I-16): supersede the prior active playbook for
+        the same scenario_class, then flip this one to 'active', inside a
+        single transaction. The unique partial index
+        (idx_playbooks_one_active_per_class) is the DB-level backstop if two
+        callers race."""
+        if not operator_actor.startswith("operator:"):
+            raise OperatorActorRequiredError(
+                f"actor {operator_actor!r} is not an operator; playbook_activate requires "
+                f"actor='operator:<id>'"
+            )
+        row = self.playbook_get(playbook_id)
+        if row is None:
+            raise StoreError(f"no such playbook: {playbook_id}")
+        with self._tx() as cur:
+            prior = cur.execute(
+                "SELECT playbook_id FROM playbooks WHERE scenario_class=? AND status='active'",
+                (row["scenario_class"],),
+            ).fetchone()
+            if prior is not None:
+                cur.execute(
+                    "UPDATE playbooks SET status='retired', superseded_by=? "
+                    "WHERE playbook_id=? AND status='active'",
+                    (playbook_id, prior["playbook_id"]),
+                )
+            cur.execute(
+                "UPDATE playbooks SET status='active', activated_by=?, activated_at=? "
+                "WHERE playbook_id=?",
+                (operator_actor, time.time(), playbook_id),
+            )
+            if cur.rowcount != 1:
+                raise StoreError(f"no such playbook: {playbook_id}")
+
+    # ── training_examples / dataset_versions (HARV, P6.2/I-15) ──────────
+
+    def training_example_put(
+        self,
+        *,
+        example_id: str,
+        role: str,
+        input_text: str,
+        output_text: str,
+        provenance: dict,
+        group_family: str | None,
+        group_campaign: str | None,
+        group_time: str | None,
+        leakage_flag: bool = False,
+        oracle_flag: bool = False,
+        is_negative: bool = False,
+        is_adversarial: bool = False,
+        is_distance_pair: bool = False,
+        split: str | None = None,
+        quarantine_reason: str | None = None,
+    ) -> None:
+        """Idempotent on `example_id` (content-derived) -- a re-harvest of
+        the same source data is an INSERT OR IGNORE no-op (I-15
+        IDEMPOTENCY)."""
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT OR IGNORE INTO training_examples (example_id, role, input_text, "
+                "output_text, provenance_json, group_family, group_campaign, group_time, "
+                "leakage_flag, oracle_flag, is_negative, is_adversarial, is_distance_pair, "
+                "split, quarantine_reason, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    example_id,
+                    role,
+                    input_text,
+                    output_text,
+                    _json(provenance),
+                    group_family,
+                    group_campaign,
+                    group_time,
+                    int(leakage_flag),
+                    int(oracle_flag),
+                    int(is_negative),
+                    int(is_adversarial),
+                    int(is_distance_pair),
+                    split,
+                    quarantine_reason,
+                    time.time(),
+                ),
+            )
+
+    def training_examples_for_role(
+        self, role: str, *, include_quarantined: bool = False
+    ) -> list[dict]:
+        if include_quarantined:
+            rows = self._conn.execute(
+                "SELECT * FROM training_examples WHERE role=?", (role,)
+            ).fetchall()
+        else:
+            rows = self._conn.execute(
+                "SELECT * FROM training_examples WHERE role=? AND quarantine_reason IS NULL",
+                (role,),
+            ).fetchall()
+        return [_row_to_dict(r) for r in rows]
+
+    def dataset_version_put(
+        self,
+        *,
+        dataset_version: str,
+        role: str,
+        window: dict,
+        counts: dict,
+        split_manifest: dict,
+        dedup_leakage_report: dict,
+        replay_mix_sources: list,
+        manifest_path: str | None,
+    ) -> bool:
+        """Content-keyed: inserting a `dataset_version` that already exists
+        is a no-op that returns False (I-15 'same window + config -> same
+        content hash') rather than raising or duplicating."""
+        existing = self._conn.execute(
+            "SELECT dataset_version FROM dataset_versions WHERE dataset_version=?",
+            (dataset_version,),
+        ).fetchone()
+        if existing is not None:
+            return False
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO dataset_versions (dataset_version, role, window_json, counts_json, "
+                "split_manifest_json, dedup_leakage_report_json, replay_mix_sources_json, "
+                "manifest_path, status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                (
+                    dataset_version,
+                    role,
+                    _json(window),
+                    _json(counts),
+                    _json(split_manifest),
+                    _json(dedup_leakage_report),
+                    _json(replay_mix_sources),
+                    manifest_path,
+                    "built",
+                    time.time(),
+                ),
+            )
+        return True
+
+    def dataset_version_get(self, dataset_version: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM dataset_versions WHERE dataset_version=?", (dataset_version,)
+        ).fetchone()
+        d = _row_to_dict(row)
+        if d is not None:
+            for k in ("window", "counts", "split_manifest", "dedup_leakage_report"):
+                d[k] = _loads(d[f"{k}_json"], {})
+            d["replay_mix_sources"] = _loads(d["replay_mix_sources_json"], [])
+        return d
+
+    def dataset_version_release(
+        self, dataset_version: str, *, operator_actor: str, approval_ref: str
+    ) -> None:
+        """I-15 'dataset release is a separate operator approval from model
+        promotion' -- DB-enforced by trg_dataset_versions_release_operator_
+        only."""
+        if not operator_actor.startswith("operator:"):
+            raise OperatorActorRequiredError(
+                f"actor {operator_actor!r} is not an operator; dataset_version_release requires "
+                f"actor='operator:<id>'"
+            )
+        with self._tx() as cur:
+            cur.execute(
+                "UPDATE dataset_versions SET status='released', released_by=?, released_at=?, "
+                "approval_ref=? WHERE dataset_version=? AND status='built'",
+                (operator_actor, time.time(), approval_ref, dataset_version),
+            )
+            if cur.rowcount != 1:
+                raise StoreError(
+                    f"dataset_version {dataset_version} not found or not in 'built' state"
+                )
+
+    # ── trained_models / model_aliases (TRAIN, P6.4/I-17) ────────────────
+
+    def trained_model_put(
+        self,
+        *,
+        model_tag: str,
+        role: str,
+        base_model: str,
+        base_digest: str | None,
+        dataset_version: str,
+        seed: int,
+        hyperparams: dict,
+        toolchain_versions: dict,
+        acceptance_policy_version: str,
+        provenance: dict,
+    ) -> None:
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO trained_models (model_tag, role, base_model, base_digest, "
+                "dataset_version, seed, hyperparams_json, toolchain_versions_json, "
+                "acceptance_policy_version, verdict, provenance_json, created_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    model_tag,
+                    role,
+                    base_model,
+                    base_digest,
+                    dataset_version,
+                    seed,
+                    _json(hyperparams),
+                    _json(toolchain_versions),
+                    acceptance_policy_version,
+                    "pending",
+                    _json(provenance),
+                    time.time(),
+                ),
+            )
+
+    def trained_model_get(self, model_tag: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM trained_models WHERE model_tag=?", (model_tag,)
+        ).fetchone()
+        d = _row_to_dict(row)
+        if d is not None:
+            for k in ("hyperparams", "toolchain_versions", "provenance"):
+                d[k] = _loads(d[f"{k}_json"], {})
+            for k in ("five_arm_report", "intake_report", "canary_report"):
+                d[k] = _loads(d.get(f"{k}_json"), None)
+        return d
+
+    def trained_model_set_reports(
+        self,
+        model_tag: str,
+        *,
+        gguf_path: str | None = None,
+        gguf_hash: str | None = None,
+        five_arm_report: dict | None = None,
+        intake_report: dict | None = None,
+        canary_report: dict | None = None,
+    ) -> None:
+        with self._tx() as cur:
+            cur.execute(
+                "UPDATE trained_models SET "
+                "gguf_path=COALESCE(?, gguf_path), gguf_hash=COALESCE(?, gguf_hash), "
+                "five_arm_report_json=COALESCE(?, five_arm_report_json), "
+                "intake_report_json=COALESCE(?, intake_report_json), "
+                "canary_report_json=COALESCE(?, canary_report_json) WHERE model_tag=?",
+                (
+                    gguf_path,
+                    gguf_hash,
+                    _json(five_arm_report) if five_arm_report is not None else None,
+                    _json(intake_report) if intake_report is not None else None,
+                    _json(canary_report) if canary_report is not None else None,
+                    model_tag,
+                ),
+            )
+            if cur.rowcount != 1:
+                raise StoreError(f"no such trained_model: {model_tag}")
+
+    def trained_model_set_verdict(
+        self, model_tag: str, verdict: str, *, operator_actor: str | None = None
+    ) -> None:
+        """'served' is DB-enforced operator-only
+        (trg_trained_models_serve_operator_only); every other terminal
+        verdict (rejected/declined_no_gain/training_failed/rolled_back) is a
+        system-recorded outcome, never requiring an operator actor (I-17
+        FAILURE SEMANTICS: acceptance-fail is recorded automatically)."""
+        with self._tx() as cur:
+            cur.execute(
+                "UPDATE trained_models SET verdict=?, served_by=COALESCE(?, served_by), "
+                "served_at=CASE WHEN ?='served' THEN ? ELSE served_at END WHERE model_tag=?",
+                (verdict, operator_actor, verdict, time.time(), model_tag),
+            )
+            if cur.rowcount != 1:
+                raise StoreError(f"no such trained_model: {model_tag}")
+
+    def model_alias_get(self, role: str) -> dict | None:
+        row = self._conn.execute("SELECT * FROM model_aliases WHERE role=?", (role,)).fetchone()
+        return _row_to_dict(row)
+
+    def model_alias_promote(
+        self, role: str, model_tag: str, *, operator_actor: str, model_tag_field: str = "model_tag"
+    ) -> None:
+        """Atomic alias re-point (I-17 'atomic promotion' / MASTER SS8
+        'canary rollback = alias re-point'). `model_aliases` is one row per
+        role -- an UPSERT is inherently the whole promotion, and
+        `previous_model_tag` is what a rollback re-points back to."""
+        if not operator_actor.startswith("operator:"):
+            raise OperatorActorRequiredError(
+                f"actor {operator_actor!r} is not an operator; model_alias_promote requires "
+                f"actor='operator:<id>'"
+            )
+        current = self.model_alias_get(role)
+        previous = current["model_tag"] if current is not None else None
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO model_aliases (role, model_tag, previous_model_tag, updated_by, "
+                "updated_at) VALUES (?,?,?,?,?) "
+                "ON CONFLICT(role) DO UPDATE SET model_tag=excluded.model_tag, "
+                "previous_model_tag=?, updated_by=excluded.updated_by, "
+                "updated_at=excluded.updated_at",
+                (role, model_tag, previous, operator_actor, time.time(), previous),
+            )
+            cur.execute(
+                "INSERT INTO model_alias_history (history_id, role, model_tag, action, actor, "
+                "reason, at) VALUES (?,?,?,?,?,?,?)",
+                (
+                    f"mah-{uuid.uuid4().hex[:12]}",
+                    role,
+                    model_tag,
+                    "promote",
+                    operator_actor,
+                    None,
+                    time.time(),
+                ),
+            )
+
+    def model_alias_rollback(self, role: str, *, operator_actor: str, reason: str) -> str | None:
+        """Re-point the role's active alias back to `previous_model_tag`
+        (canary regression -> atomic rollback, I-17). Returns the tag rolled
+        back to, or None if there was nothing to roll back."""
+        if not operator_actor.startswith("operator:"):
+            raise OperatorActorRequiredError(
+                f"actor {operator_actor!r} is not an operator; model_alias_rollback requires "
+                f"actor='operator:<id>'"
+            )
+        current = self.model_alias_get(role)
+        if current is None or current["previous_model_tag"] is None:
+            return None
+        target = current["previous_model_tag"]
+        with self._tx() as cur:
+            cur.execute(
+                "UPDATE model_aliases SET model_tag=?, previous_model_tag=?, updated_by=?, "
+                "updated_at=? WHERE role=?",
+                (target, current["model_tag"], operator_actor, time.time(), role),
+            )
+            cur.execute(
+                "INSERT INTO model_alias_history (history_id, role, model_tag, action, actor, "
+                "reason, at) VALUES (?,?,?,?,?,?,?)",
+                (
+                    f"mah-{uuid.uuid4().hex[:12]}",
+                    role,
+                    target,
+                    "rollback",
+                    operator_actor,
+                    reason,
+                    time.time(),
+                ),
+            )
+        return target
+
+    # ── roster_records (ROSTER, P6.5/I-19) ────────────────────────────────
+
+    def roster_record_put(
+        self,
+        *,
+        record_id: str,
+        seat_id: str,
+        window: dict,
+        independence_family: str | None,
+        capability_suite_version: str | None,
+        citation_validity: float | None,
+        objection_precision: float | None,
+        objection_recall: float | None,
+        cousin_call_correctness: float | None,
+        abstention_quality: float | None,
+        latency_cost: dict,
+        eligibility: str,
+        advisory_weight: float,
+        rationale: dict,
+        content_key: str,
+    ) -> str | None:
+        """Content-keyed idempotency (I-19): re-running `recompute` for the
+        same (seat, window, inputs) is a no-op that returns None instead of
+        inserting a duplicate row."""
+        existing = self._conn.execute(
+            "SELECT record_id FROM roster_records WHERE content_key=?", (content_key,)
+        ).fetchone()
+        if existing is not None:
+            return None
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO roster_records (record_id, seat_id, window_json, "
+                "independence_family, capability_suite_version, citation_validity, "
+                "objection_precision, objection_recall, cousin_call_correctness, "
+                "abstention_quality, latency_cost_json, eligibility, advisory_weight, "
+                "rationale_json, content_key, state, created_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    record_id,
+                    seat_id,
+                    _json(window),
+                    independence_family,
+                    capability_suite_version,
+                    citation_validity,
+                    objection_precision,
+                    objection_recall,
+                    cousin_call_correctness,
+                    abstention_quality,
+                    _json(latency_cost),
+                    eligibility,
+                    advisory_weight,
+                    _json(rationale),
+                    content_key,
+                    "proposed",
+                    time.time(),
+                ),
+            )
+        return record_id
+
+    def roster_record_get(self, record_id: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM roster_records WHERE record_id=?", (record_id,)
+        ).fetchone()
+        d = _row_to_dict(row)
+        if d is not None:
+            d["window"] = _loads(d["window_json"], {})
+            d["latency_cost"] = _loads(d["latency_cost_json"], {})
+            d["rationale"] = _loads(d["rationale_json"], {})
+        return d
+
+    def roster_active_for_seat(self, seat_id: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM roster_records WHERE seat_id=? AND state='active'", (seat_id,)
+        ).fetchone()
+        d = _row_to_dict(row)
+        if d is not None:
+            d["window"] = _loads(d["window_json"], {})
+            d["latency_cost"] = _loads(d["latency_cost_json"], {})
+            d["rationale"] = _loads(d["rationale_json"], {})
+        return d
+
+    def roster_active_all(self) -> list[dict]:
+        rows = self._conn.execute("SELECT * FROM roster_records WHERE state='active'").fetchall()
+        out = []
+        for row in rows:
+            d = _row_to_dict(row)
+            d["window"] = _loads(d["window_json"], {})
+            d["latency_cost"] = _loads(d["latency_cost_json"], {})
+            d["rationale"] = _loads(d["rationale_json"], {})
+            out.append(d)
+        return out
+
+    def roster_record_activate(self, record_id: str, *, operator_actor: str) -> None:
+        """Confirm-only activation (I-19); supersedes the seat's prior active
+        record inside the same transaction (mirrors playbook_activate's CAS
+        pattern)."""
+        if not operator_actor.startswith("operator:"):
+            raise OperatorActorRequiredError(
+                f"actor {operator_actor!r} is not an operator; roster_record_activate requires "
+                f"actor='operator:<id>'"
+            )
+        row = self.roster_record_get(record_id)
+        if row is None:
+            raise StoreError(f"no such roster_record: {record_id}")
+        with self._tx() as cur:
+            prior = cur.execute(
+                "SELECT record_id FROM roster_records WHERE seat_id=? AND state='active'",
+                (row["seat_id"],),
+            ).fetchone()
+            if prior is not None:
+                cur.execute(
+                    "UPDATE roster_records SET state='proposed', superseded_by=? "
+                    "WHERE record_id=? AND state='active'",
+                    (record_id, prior["record_id"]),
+                )
+            cur.execute(
+                "UPDATE roster_records SET state='active', activated_by=?, activated_at=? "
+                "WHERE record_id=?",
+                (operator_actor, time.time(), record_id),
+            )
+            if cur.rowcount != 1:
+                raise StoreError(f"no such roster_record: {record_id}")
 
     # ── doctor (integrity check) ─────────────────────────────────────────
 
