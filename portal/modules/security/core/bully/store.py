@@ -430,6 +430,16 @@ class Store:
                 ),
             )
 
+    def signature_get(self, signature_id: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM behavior_signatures WHERE signature_id=?", (signature_id,)
+        ).fetchone()
+        d = _row_to_dict(row)
+        if d is not None:
+            for key in ("attack_mappings", "action_sequence", "event_graph"):
+                d[key] = _loads(d[key], [] if key != "event_graph" else {})
+        return d
+
     # ── cousin assessments ───────────────────────────────────────────────
 
     def record_cousin(self, assessment: CousinAssessment) -> None:
