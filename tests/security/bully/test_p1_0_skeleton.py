@@ -11,6 +11,7 @@ from __future__ import annotations
 import fnmatch
 from pathlib import Path
 
+import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -61,21 +62,25 @@ def test_hunt_run_requires_operator_actor():
     assert rc == 1
 
 
-def test_hunt_run_with_operator_actor_reaches_orchestrator_not_implemented():
-    # P1.0: orchestrator is a stub -- the CLI must reach past its own parsing
-    # into the real orchestrator entry point (never fake a green here).
-    from portal.modules.security.core.bully.orchestrator import (
-        HonestBlockedError,
-        OperatorRequiredError,
-        run_hunt,
-    )
+def test_hunt_run_with_operator_actor_passes_the_gate_and_reaches_orchestrator(
+    tmp_path, monkeypatch
+):
+    # The operator gate itself is enforced before any store/lab touch --
+    # verified here without exercising the full P1.7 stage machine (that is
+    # tests/security/bully/test_p1_7_orchestrator.py's job). PORTAL5_HUNT_DIR
+    # is redirected to tmp_path so this never touches the real
+    # /Volumes/data01/portal5_hunt/ default (hermetic per the testing rules).
+    from portal.modules.security.core.bully.orchestrator import OperatorRequiredError, run_hunt
 
-    try:
+    monkeypatch.setenv("PORTAL5_HUNT_DIR", str(tmp_path))
+    with pytest.raises(OperatorRequiredError):
+        run_hunt(actor="not-an-operator")
+    # An operator actor clears the gate and reaches real orchestration code
+    # (which then needs a lab/model it doesn't have here) -- any exception
+    # other than OperatorRequiredError proves the gate was passed.
+    with pytest.raises(Exception) as exc_info:
         run_hunt(actor="operator:test")
-    except (NotImplementedError, HonestBlockedError, OperatorRequiredError):
-        pass
-    else:  # pragma: no cover
-        raise AssertionError("expected run_hunt to be unimplemented at P1.0")
+    assert not isinstance(exc_info.value, OperatorRequiredError)
 
 
 def test_no_hunt_logic_in_cli_module():
