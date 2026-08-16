@@ -11,6 +11,7 @@ from portal.modules.security.core.bully.cousin_calibration_bench import (
     load_specimen_corpus,
     run_baseline_bench,
 )
+from portal.modules.security.core.bully.organ import _canonical_record_text
 from portal.modules.security.core.bully.specimen_ledger import SpecimenLedger
 from scripts.build_specimen_corpus import SPECIMEN_CORPUS_V2, _read_parent, build_corpus_v2
 from scripts.corpus_ingest import ManifestDataset, coerce
@@ -254,6 +255,8 @@ def test_v2_baseline_is_hashed_and_characterizes_curve_lanes_and_response(tmp_pa
         for item in corpus["specimens"]
         if item["source_lane"] == "attack_data"
     ]
+    assert all("behavior_sequence" not in record for record in records)
+    assert all(record["field_signature"] in _canonical_record_text(record) for record in records)
     report = run_baseline_bench(
         _ReadOnlySnapshot(records),
         corpus_path=corpus_path,

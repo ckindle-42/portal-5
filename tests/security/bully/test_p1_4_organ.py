@@ -97,6 +97,31 @@ def test_duplicate_index_emission_upsert_converges(organ):
     assert organ.stats()["row_count"] == 1  # merge_insert, not a duplicate row
 
 
+def test_batch_upsert_and_prepared_knn_preserve_snapshot_semantics(organ):
+    embed_calls: list[list[str]] = []
+    fake_embed = _fake_embed()
+
+    def tracking_embed(texts):
+        embed_calls.append(list(texts))
+        return fake_embed(texts)
+
+    organ._embed = tracking_embed
+    record_ids = organ.upsert_many([_record("a"), _record("b"), _record("c")], batch_size=2)
+    assert len(record_ids) == 3
+    assert organ.stats()["row_count"] == 3
+    assert [len(call) for call in embed_calls] == [2, 1]
+
+    prepared = organ.prepare_knn(["query-a", "query-b", "query-a"], k=2, batch_size=2)
+    assert prepared == 2
+    calls_after_prepare = len(embed_calls)
+    assert organ.knn("query-a", k=2)
+    assert len(embed_calls) == calls_after_prepare
+
+    organ.upsert(_record("d"))
+    organ.knn("query-a", k=2)
+    assert len(embed_calls) == calls_after_prepare + 2
+
+
 # ── recall receipt shape + mandatory-ness ───────────────────────────────────
 
 
