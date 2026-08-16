@@ -9,6 +9,8 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
+import httpx
+
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 
@@ -39,11 +41,18 @@ def main(argv: list[str] | None = None) -> int:
     corpus = load_specimen_corpus(corpus_path)
 
     with Store(output_dir / "snapshot_state.db") as store:
-        snapshot = Organ(store=store, db_path=output_dir / "organ_snapshot")
+        snapshot = Organ(
+            store=store,
+            db_path=output_dir / "organ_snapshot",
+            embed_client=httpx.Client(timeout=120.0),
+        )
         try:
-            for parent in corpus["specimens"]:
-                if parent["source_lane"] == "attack_data":
-                    snapshot.upsert(corpus_parent_reference_record(parent))
+            parent_records = [
+                corpus_parent_reference_record(parent)
+                for parent in corpus["specimens"]
+                if parent["source_lane"] == "attack_data"
+            ]
+            snapshot.upsert_many(parent_records)
             seeded_rows = snapshot.stats()["row_count"]
             report = run_baseline_bench(
                 snapshot,

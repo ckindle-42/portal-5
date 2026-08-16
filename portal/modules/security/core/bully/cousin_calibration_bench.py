@@ -619,13 +619,15 @@ def load_specimen_corpus(path: Path) -> dict[str, Any]:
 
 def corpus_parent_reference_record(entry: dict[str, Any]) -> dict[str, Any]:
     """Project a parent evidence view into Organ without consulting scorer truth."""
+    engine_view = entry["engine_view"]
     view = entry["engine_view"]["telemetry_view"]
+    signature = signatures.build_signature(engine_view["episode_view"], view)
     return {
         "record_id": entry["specimen_id"],
         "signature_id": entry["specimen_id"],
         "kind": "specimen_parent",
+        "field_signature": signature.canonical_fingerprint,
         "action_sequence": list(view.get("action_sequence") or []),
-        "behavior_sequence": " ".join(view.get("action_sequence") or []),
         "telemetry_shape": dict(view.get("telemetry_shape") or {}),
         "context_topology": dict(view.get("context_topology") or {}),
         "attack_mappings": list(view.get("attack_mappings") or []),
@@ -639,7 +641,6 @@ def grade_corpus_blind(
     specimen: dict[str, Any], snapshot: ReadOnlyKnnSnapshot
 ) -> BlindCorpusVerdict:
     """Produce an engine verdict from the evidence view, before any truth join."""
-    before = snapshot.stats().get("row_count")
     engine_view = specimen["engine_view"]
     signature = signatures.build_signature(
         engine_view["episode_view"], engine_view["telemetry_view"]
@@ -661,8 +662,6 @@ def grade_corpus_blind(
         telemetry_healthy=True,
     )
     assessment = cousin_engine.grade(signature, candidates, coverage)
-    if snapshot.stats().get("row_count") != before:
-        raise RuntimeError("read-only baseline snapshot changed while grading")
     return BlindCorpusVerdict(
         specimen_id=specimen["specimen_id"],
         source_lane=specimen["source_lane"],
@@ -915,8 +914,9 @@ def score_baseline(
     unresolved: list[dict[str, Any]] = []
     indeterminate: list[dict[str, Any]] = []
     by_parent: dict[str, list[dict[str, Any]]] = {}
+    truth_by_id = {record["specimen_id"]: record for record in ledger.records()}
     for verdict in verdicts:
-        truth = ledger.truth_for(verdict.specimen_id)
+        truth = truth_by_id.get(verdict.specimen_id)
         if truth is None:
             raise ValueError(f"sealed truth missing for {verdict.specimen_id}")
         row = _baseline_row(
@@ -1009,6 +1009,16 @@ def run_baseline_bench(
     if ledger.snapshot_hash() != corpus["ledger_snapshot_hash"]:
         raise ValueError("specimen corpus and sealed ledger snapshot do not match")
     before = snapshot.stats().get("row_count")
+    prepare_knn = getattr(snapshot, "prepare_knn", None)
+    if callable(prepare_knn):
+        queries = [
+            signatures.build_signature(
+                specimen["engine_view"]["episode_view"],
+                specimen["engine_view"]["telemetry_view"],
+            ).canonical_fingerprint
+            for specimen in corpus["specimens"]
+        ]
+        prepare_knn(queries, k=8)
     verdicts = tuple(grade_corpus_blind(specimen, snapshot) for specimen in corpus["specimens"])
     if snapshot.stats().get("row_count") != before:
         raise RuntimeError("baseline specimens contaminated the Organ snapshot")
