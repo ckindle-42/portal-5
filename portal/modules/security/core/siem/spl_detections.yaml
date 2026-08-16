@@ -780,6 +780,102 @@ T1046:
       spl: 'index=portal5_lab sourcetype="windows:security" EventCode=4688 (NewProcessName="*nmap*" OR NewProcessName="*snmpwalk*" OR NewProcessName="*snmp*" OR Process_Command_Line="*nmap*" OR Process_Command_Line="*snmpwalk*") | stats count by NewProcessName, Account, Process_Command_Line'
       expected_signal: "Process creation (4688) for network discovery tools (nmap, snmpwalk)"
 
+# ── SA1 source-class onboarding detections ─────────────────────────────────
+# Each variant names the positive attack_data fixture and the shared benign
+# corpus used by BQ/AZ.  These entries are deliberately detection coverage,
+# not claims about cousin-engine quality; SA1 characterizes that separately.
+
+T1059.001:
+  description: "PowerShell execution — Sysmon process creation or script-block telemetry"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "execution"
+      source: "portal-mitre-mcp:T1059.001"
+    - framework: nist-800-53
+      control: "AU-12"
+      source: "NIST SP 800-53 Rev 5"
+  spl: 'index=portal5_lab sourcetype="windows:sysmon" EventCode=1 (Image="*powershell.exe" OR OriginalFileName="PowerShell.EXE") | stats count by host, Image, CommandLine, ParentImage'
+  expected_signal: "Sysmon process creation for PowerShell"
+  distinguishing_features:
+    event_codes: [1, 4104]
+    key_indicator: "PowerShell image in Sysmon or suspicious script-block content"
+    discriminator_tokens:
+      - "powershell.exe"
+      - "ScriptBlockText="
+  validation:
+    status: "validated"
+    known_positive: "attack_data:T1059.001/atomic_red_team/captcha_windows-sysmon.log"
+    benign_corpus: "config/security/benign_corpus_bench_benign_cells.json"
+  spl_variants:
+    - source: "windows:sysmon"
+      spl: 'index=portal5_lab sourcetype="windows:sysmon" EventCode=1 (Image="*powershell.exe" OR OriginalFileName="PowerShell.EXE") | stats count by host, Image, CommandLine, ParentImage'
+      expected_signal: "Sysmon process creation for PowerShell"
+      discriminator_tokens: ["powershell.exe"]
+      validation:
+        status: "validated"
+        known_positive: "attack_data:T1059.001/atomic_red_team/captcha_windows-sysmon.log"
+        benign_corpus: "config/security/benign_corpus_bench_benign_cells.json"
+    - source: "windows:powershell"
+      spl: 'index=portal5_lab sourcetype="windows:powershell" EventCode=4104 (ScriptBlockText="*FromBase64String*" OR ScriptBlockText="*Invoke-Expression*" OR ScriptBlockText="*IEX (*" OR ScriptBlockText="*DownloadString*" OR ScriptBlockText="*Reflection.Assembly*") | stats count by host, ScriptBlockId, ScriptBlockText'
+      expected_signal: "Suspicious PowerShell script-block execution"
+      discriminator_tokens:
+        - "ScriptBlockText="
+        - "FromBase64String"
+        - "Reflection.Assembly"
+      validation:
+        status: "validated"
+        known_positive: "attack_data:T1059.001/asyncrat_crypto_pwh_namespace/windows-powershell-xml.log"
+        benign_corpus: "config/security/benign_corpus_bench_benign_cells.json"
+
+T1543.003:
+  description: "Windows service creation — suspicious System 7045 service install"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "persistence"
+      source: "portal-mitre-mcp:T1543.003"
+    - framework: nist-800-53
+      control: "CM-6"
+      source: "NIST SP 800-53 Rev 5"
+  spl: 'index=portal5_lab sourcetype="windows:system" EventCode=7045 (ImagePath="*powershell*" OR ImagePath="*cmd.exe*" OR ImagePath="*RemComSvc.exe*" OR ServiceFileName="*powershell*" OR ServiceFileName="*cmd.exe*" OR ServiceFileName="*RemComSvc.exe*") | stats count by host, ServiceName, ImagePath, ServiceFileName, AccountName'
+  expected_signal: "System service creation for a suspicious executable or command interpreter"
+  distinguishing_features:
+    event_code: 7045
+    key_indicator: "EventCode=7045 with a suspicious service image path"
+    discriminator_tokens:
+      - "EventCode=7045"
+      - "RemComSvc.exe"
+  validation:
+    status: "validated"
+    known_positive: "attack_data:T1543.003/atomic_red_team/remcom_windows-system.log"
+    benign_corpus: "config/security/benign_corpus_bench_benign_cells.json"
+
+T1621:
+  description: "Multi-factor authentication request abuse — repeated failed Okta MFA events"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "credential-access"
+      source: "portal-mitre-mcp:T1621"
+    - framework: nist-800-53
+      control: "IA-2"
+      source: "NIST SP 800-53 Rev 5"
+  spl: 'index=portal5_lab sourcetype="OktaIM2:log" eventType="user.authentication.auth_via_mfa" outcome.result="FAILURE" | stats count by actor.alternateId, client.ipAddress | where count >= 3'
+  expected_signal: "Repeated failed MFA authentication requests for an Okta user"
+  distinguishing_features:
+    key_indicator: "Okta MFA authentication failures repeated for one actor/source"
+    discriminator_tokens:
+      - "user.authentication.auth_via_mfa"
+      - "outcome.result=FAILURE"
+  validation:
+    status: "validated"
+    known_positive: "attack_data:T1621/okta_mfa_login_failed/okta_mfa_login_failed.log"
+    benign_corpus: "config/security/benign_corpus_bench_benign_cells.json"
+
 # ── Honest blue-gaps: techniques with no in-lab telemetry source ─────────────
 # T1078.004 (Valid Accounts: Cloud Accounts) and T1537 (Transfer Data to Cloud
 # Account) require cloud-provider telemetry (AWS CloudTrail, Azure AD Sign-ins)

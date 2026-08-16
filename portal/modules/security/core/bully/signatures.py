@@ -49,6 +49,7 @@ class BehaviorSignature:
     trust_tier: str = ""
     evidence_manifest_id: str | None = None
     completeness: float = 1.0
+    present_dimensions: tuple[str, ...] = ()
     created_at: float = field(default_factory=time.time)
 
     def to_dict(self) -> dict[str, Any]:
@@ -140,6 +141,13 @@ def reference_record_fields(signature: BehaviorSignature) -> dict[str, Any]:
     family = signature_family(signature)
     techniques = list(attack_ids(signature))
     motif = event_graph_motif(signature)
+    source_classes = signature.telemetry_shape.get("source_class") or signature.telemetry_shape.get(
+        "sourcetypes"
+    )
+    if isinstance(source_classes, (list, tuple)):
+        source_class = str(source_classes[0]) if len(source_classes) == 1 else ""
+    else:
+        source_class = str(source_classes or "")
     return {
         "field_signature": signature.canonical_fingerprint,
         "semantic_query": semantic_query(signature),
@@ -147,6 +155,8 @@ def reference_record_fields(signature: BehaviorSignature) -> dict[str, Any]:
         "attack_primary": techniques[0] if techniques else "",
         "attack_ids_text": " ".join(techniques),
         "event_graph_motif": motif,
+        "source_class": source_class,
+        "present_dimensions": list(signature.present_dimensions),
         "action_sequence": list(signature.action_sequence),
         "behavior_sequence": " ".join(signature.action_sequence),
         "event_graph": dict(signature.event_graph),
@@ -231,4 +241,5 @@ def build_signature(
         trust_tier=trust_tier,
         evidence_manifest_id=evidence_manifest_id,
         completeness=completeness,
+        present_dimensions=tuple(name for name in _DIMENSIONS if present[name]),
     )

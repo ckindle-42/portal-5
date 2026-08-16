@@ -204,6 +204,35 @@ class SplunkBackend:
             "telemetry": "\n".join(row["raw"] for row in rows),
         }
 
+    def query_episode_ids(
+        self,
+        window: dict,
+        *,
+        episode_ids: set[str] | frozenset[str],
+    ) -> dict[str, int]:
+        """Return indexed counts for many episodes in one Splunk search.
+
+        The query intentionally retrieves the episode-id census once and
+        intersects locally.  Expanding thousands of IDs into an SPL ``OR``
+        clause is slower and can exceed request limits.
+        """
+        if not episode_ids:
+            return {}
+        earliest = window.get("earliest", "-24h")
+        latest = window.get("latest", "now")
+        rows = self._run_search(
+            f"search index={self.index} episode_id=* | stats count by episode_id",
+            earliest,
+            latest,
+        )
+        counts: dict[str, int] = {}
+        for row in rows:
+            fields = row.get("fields") or {}
+            episode_id = str(fields.get("episode_id") or "")
+            if episode_id in episode_ids:
+                counts[episode_id] = int(fields.get("count") or 0)
+        return counts
+
     def query_freeform(
         self,
         spl: str,

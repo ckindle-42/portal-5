@@ -35,6 +35,29 @@ PROJECTION_VERSION = "hunt-memory-v1"
 EMBEDDING_VERSION = "sentence-transformers-v1"
 TABLE_NAME = "hunt_memory"
 VECTOR_DIM = 1024
+_SINGLE_EMBED_INPUT_LENGTH = 2_000
+
+
+def _embedding_batches(
+    values: list[str], *, batch_size: int, single_input_length: int = _SINGLE_EMBED_INPUT_LENGTH
+):
+    """Pack normal inputs together while isolating unusually expensive inputs."""
+    pending: list[str] = []
+    for value in values:
+        if len(value) >= single_input_length:
+            if pending:
+                yield pending
+                pending = []
+            yield [value]
+            continue
+        pending.append(value)
+        if len(pending) == batch_size:
+            yield pending
+            pending = []
+    if pending:
+        yield pending
+
+
 _JSON_PROJECTION_FIELDS = {
     "action_sequence",
     "event_graph",
@@ -44,6 +67,7 @@ _JSON_PROJECTION_FIELDS = {
     "attack_mappings",
     "telemetry_shape",
     "detector_outcomes",
+    "present_dimensions",
 }
 
 
@@ -135,7 +159,12 @@ class Organ:
         except httpx.HTTPError as exc:
             raise OrganUnavailable(f"embed service unreachable at {self.embed_url}: {exc}") from exc
         data = resp.json()
-        vectors = data.get("embeddings") or [d["embedding"] for d in data.get("data", [])]
+        vectors = data.get("embeddings")
+        if not vectors:
+            items = data.get("data", [])
+            if items and all(isinstance(item.get("index"), int) for item in items):
+                items = sorted(items, key=lambda item: item["index"])
+            vectors = [item["embedding"] for item in items]
         if not vectors:
             raise OrganUnavailable("embed service returned no vectors")
         return vectors
@@ -170,10 +199,9 @@ class Organ:
             by_id[rid] = record
 
         prepared = [(rid, by_id[rid], _canonical_record_text(by_id[rid])) for rid in ordered_ids]
-        unique_texts = list(dict.fromkeys(item[2] for item in prepared))
+        unique_texts = sorted(dict.fromkeys(item[2] for item in prepared), key=len)
         vectors_by_text: dict[str, list[float]] = {}
-        for offset in range(0, len(unique_texts), batch_size):
-            batch = unique_texts[offset : offset + batch_size]
+        for batch in _embedding_batches(unique_texts, batch_size=batch_size):
             embedded = self._embed(batch)
             if len(embedded) != len(batch):
                 raise OrganUnavailable(
@@ -247,9 +275,9 @@ class Organ:
         missing = list(
             dict.fromkeys(query for query in queries if (query, k) not in self._prepared_knn)
         )
+        missing.sort(key=len)
         table = self._table()
-        for offset in range(0, len(missing), batch_size):
-            batch = missing[offset : offset + batch_size]
+        for batch in _embedding_batches(missing, batch_size=batch_size):
             vectors = self._embed(batch)
             if len(vectors) != len(batch):
                 raise OrganUnavailable(

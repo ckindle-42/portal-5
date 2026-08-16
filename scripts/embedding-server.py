@@ -21,6 +21,7 @@ import argparse
 import asyncio
 import logging
 import time
+from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -43,12 +44,18 @@ args, _ = parser.parse_known_args()
 # ── Model loading ────────────────────────────────────────────────────────────
 log.info(f"Loading embedding model: {args.model}")
 try:
+    model_path = str(Path(args.model).expanduser())
+    if not Path(model_path).exists():
+        from huggingface_hub import snapshot_download
+
+        model_path = snapshot_download(args.model, local_files_only=True)
+    log.info(f"Resolved embedding model path: {model_path}")
     from sentence_transformers import SentenceTransformer
 
     # CPU is used intentionally: MPS (Metal) is not thread-safe and crashes when
     # encode() is called from a thread pool executor. For a 0.6B embedding model
-    # CPU throughput (~20-50ms/batch) is sufficient and stable on Apple Silicon.
-    _model = SentenceTransformer(args.model, device="cpu")
+    # CPU throughput is sufficient and stable on Apple Silicon.
+    _model = SentenceTransformer(model_path, device="cpu")
     log.info("Model loaded on CPU")
 except Exception as e:
     log.error(f"Failed to load model: {e}")

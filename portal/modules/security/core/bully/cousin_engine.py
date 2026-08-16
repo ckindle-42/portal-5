@@ -235,30 +235,60 @@ def _flatten(d: dict) -> set[str]:
 def _decompose(
     subject: Any, reference: dict, *, semantic_distance: float | None
 ) -> dict[str, float | None]:
+    declared_presence = getattr(subject, "present_dimensions", None)
+    reference_presence = reference.get("present_dimensions")
+
+    def available(dimension: str, value: Any, reference_value: Any) -> bool:
+        if declared_presence is not None:
+            subject_available = dimension in declared_presence
+        else:
+            subject_available = bool(value)
+        if reference_presence is not None:
+            reference_available = dimension in reference_presence
+        else:
+            reference_available = bool(reference_value)
+        return subject_available and reference_available
+
+    subject_actions = getattr(subject, "action_sequence", None) or []
     ref_action = set(
         reference.get("action_sequence") or reference.get("behavior_sequence", "").split()
     )
-    subj_action = set(getattr(subject, "action_sequence", None) or [])
-    behavior = _jaccard_distance(subj_action, ref_action)
+    subj_action = set(subject_actions)
+    behavior = (
+        _jaccard_distance(subj_action, ref_action)
+        if available("action_sequence", subject_actions, ref_action)
+        else None
+    )
 
     ref_telemetry = _flatten(reference.get("telemetry_shape") or {})
-    subj_telemetry = _flatten(getattr(subject, "telemetry_shape", None) or {})
-    telemetry = _jaccard_distance(subj_telemetry, ref_telemetry)
+    subject_telemetry = getattr(subject, "telemetry_shape", None) or {}
+    subj_telemetry = _flatten(subject_telemetry)
+    telemetry = (
+        _jaccard_distance(subj_telemetry, ref_telemetry)
+        if available("telemetry_shape", subject_telemetry, ref_telemetry)
+        else None
+    )
 
     ref_attack = {
         t.get("technique_id") if isinstance(t, dict) else t
         for t in (reference.get("attack_mappings") or reference.get("technique_ids") or [])
     }
-    subj_attack = {
-        m.get("technique_id")
-        for m in (getattr(subject, "attack_mappings", None) or [])
-        if m.get("technique_id")
-    }
-    attack = _jaccard_distance(subj_attack, ref_attack)
+    subject_attack = getattr(subject, "attack_mappings", None) or []
+    subj_attack = {m.get("technique_id") for m in subject_attack if m.get("technique_id")}
+    attack = (
+        _jaccard_distance(subj_attack, ref_attack)
+        if available("attack_mappings", subject_attack, ref_attack)
+        else None
+    )
 
     ref_context = _flatten(reference.get("context_topology") or {})
-    subj_context = _flatten(getattr(subject, "context_topology", None) or {})
-    context = _jaccard_distance(subj_context, ref_context)
+    subject_context = getattr(subject, "context_topology", None) or {}
+    subj_context = _flatten(subject_context)
+    context = (
+        _jaccard_distance(subj_context, ref_context)
+        if available("context_topology", subject_context, ref_context)
+        else None
+    )
 
     return {
         "behavior": behavior,
