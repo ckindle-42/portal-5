@@ -164,7 +164,9 @@ def test_calibration_agreement_floor_on_the_five_fixtures():
             ),
             0.95,
             COVERED,
-            "DIFFERENT",
+            # A missing ATT&CK dimension contributes no weight and is never
+            # fabricated into maximum distance (SA1/X3).
+            "NEW",
         ),
     ]
     correct = 0

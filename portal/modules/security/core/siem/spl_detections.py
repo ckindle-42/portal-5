@@ -6,12 +6,14 @@ cloud-metadata, and AD techniques.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import yaml
 
 _YAML_PATH = Path(__file__).parent / "spl_detections.yaml"
 _cache: dict | None = None
+_SOURCETYPE_CLAUSE = re.compile(r"\bsourcetype\s*=\s*[\"']([^\"']+)[\"']", re.IGNORECASE)
 
 
 def _load() -> dict:
@@ -49,6 +51,46 @@ def spl_for(technique_id: str, source: str = "") -> str | None:
                 return variant.get("spl", "")
 
     return entry.get("spl", "")
+
+
+def spl_for_source(technique_id: str, source: str) -> str | None:
+    """Return only a detection that explicitly covers ``source``.
+
+    ``spl_for`` retains its historical default fallback for production callers.
+    Corpus admission and detector-ground-truth collection must be stricter: a
+    Linux default must never make an unrelated identity or cloud class appear
+    detectable.  This helper accepts either an exact source variant or a default
+    SPL whose search clause explicitly names the requested sourcetype.
+    """
+    data = _load()
+    entry = data.get(technique_id)
+    if not entry or not isinstance(entry, dict) or not source:
+        return None
+    for variant in entry.get("spl_variants") or ():
+        if variant.get("source") == source and variant.get("spl"):
+            return str(variant["spl"])
+    default = str(entry.get("spl") or "")
+    return default if source in _SOURCETYPE_CLAUSE.findall(default) else None
+
+
+def validated_detection_sourcetypes() -> frozenset[str]:
+    """Derive corpus-admissible sourcetypes from the production library.
+
+    Every non-empty SPL entry in this library has passed the existing BQ/AZ
+    detection gates.  New class variants additionally carry their validation
+    evidence in YAML.  Deriving the set here removes the four-source allowlist:
+    adding or retiring a validated detection changes reachability in one place.
+    """
+    sources: set[str] = set()
+    for entry in _load().values():
+        if not isinstance(entry, dict):
+            continue
+        default = str(entry.get("spl") or "")
+        sources.update(_SOURCETYPE_CLAUSE.findall(default))
+        for variant in entry.get("spl_variants") or ():
+            if variant.get("source") and variant.get("spl"):
+                sources.add(str(variant["source"]))
+    return frozenset(sorted(sources))
 
 
 def spl_variants_for(technique_id: str) -> list[dict]:
@@ -109,9 +151,21 @@ def technique_signature_full(technique_id: str) -> dict:
     entry = data.get(technique_id)
     if not entry or not isinstance(entry, dict):
         return {}
+    features = dict(entry.get("distinguishing_features", {}))
+    variant_tokens = [
+        str(token)
+        for variant in entry.get("spl_variants") or ()
+        for token in (variant.get("discriminator_tokens") or ())
+        if str(token).strip()
+    ]
+    if variant_tokens:
+        features["discriminator_tokens"] = list(
+            dict.fromkeys([*(features.get("discriminator_tokens") or ()), *variant_tokens])
+        )
     return {
         "description": entry.get("description", ""),
         "expected_signal": entry.get("expected_signal", ""),
         "spl": entry.get("spl", ""),
-        "distinguishing_features": entry.get("distinguishing_features", {}),
+        "spl_variants": entry.get("spl_variants", []),
+        "distinguishing_features": features,
     }

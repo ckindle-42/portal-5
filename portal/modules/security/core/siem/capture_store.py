@@ -235,6 +235,7 @@ def replay_capture(
     dry_run: bool = False,
     timeout_s: int = 30,
     event_time: float | None = None,
+    confirm_index: bool = True,
 ) -> dict:
     """Re-ship a saved capture to Splunk and confirm it indexed.
 
@@ -297,7 +298,7 @@ def replay_capture(
             shipped += len(lines)
 
     indexed_confirmed = None
-    if shipped and not dry_run:
+    if shipped and not dry_run and confirm_index:
         indexed_confirmed = wait_indexed(
             host=target_host,
             since_epoch=replay_start,

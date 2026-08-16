@@ -187,14 +187,14 @@ datasets:
     )
     excluded = root / "datasets" / "attack_techniques" / "T9999" / "fixture"
     excluded.mkdir(parents=True)
-    (excluded / "sysmon.log").write_text("EventCode=1 Image=cmd.exe\n", encoding="utf-8")
+    (excluded / "application.log").write_text("EventCode=1 Image=cmd.exe\n", encoding="utf-8")
     (excluded / "data.yml").write_text(
         """date: '2026-01-01'
 mitre_technique: [T9999]
 datasets:
-  - path: /datasets/attack_techniques/T9999/fixture/sysmon.log
+  - path: /datasets/attack_techniques/T9999/fixture/application.log
     sourcetype: XmlWinEventLog
-    source: XmlWinEventLog:Microsoft-Windows-Sysmon/Operational
+    source: XmlWinEventLog:Application
 """,
         encoding="utf-8",
     )
@@ -268,10 +268,9 @@ def test_three_lane_corpus_is_coverage_gated_truth_sealed_and_deterministic(tmp_
     assert census["reconciled"] is True
     assert sum(census["counts"].values()) == census["catalog_size"] == 2
     assert census["counts"]["admitted"] == 1
-    assert census["counts"]["no_ingested_sourcetype_technique_coverage"] == 1
+    assert census["counts"]["recognized_no_detection"] == 1
     assert any(
-        item["reason"] == "no_ingested_sourcetype_technique_coverage"
-        for item in first["coverage_report"]["excluded"]
+        item["reason"] == "recognized_no_detection" for item in first["coverage_report"]["excluded"]
     )
     visible = json.dumps(first, sort_keys=True)
     assert "T1558.003" in visible

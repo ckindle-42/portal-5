@@ -49,10 +49,25 @@ class SpecimenLedger:
     def __init__(self, root: Path | None = None) -> None:
         self.root = Path(root) if root is not None else config.hunt_dir() / "specimens"
         self.path = self.root / "specimen_ledger.jsonl"
+        self._rows_cache: list[dict[str, Any]] | None = None
+        self._rows_cache_stat: tuple[int, int] | None = None
+        self._by_specimen_id: dict[str, dict[str, Any]] = {}
+
+    def _path_stat(self) -> tuple[int, int] | None:
+        if not self.path.exists():
+            return None
+        stat = self.path.stat()
+        return stat.st_mtime_ns, stat.st_size
 
     def _rows(self) -> list[dict[str, Any]]:
-        if not self.path.exists():
+        path_stat = self._path_stat()
+        if path_stat is None:
+            self._rows_cache = []
+            self._rows_cache_stat = None
+            self._by_specimen_id = {}
             return []
+        if self._rows_cache is not None and path_stat == self._rows_cache_stat:
+            return self._rows_cache
         rows = [
             json.loads(line)
             for line in self.path.read_text(encoding="utf-8").splitlines()
@@ -75,16 +90,19 @@ class SpecimenLedger:
             ):
                 raise RuntimeError(f"specimen ledger seal broken at sequence {sequence}")
             previous = expected
+        self._rows_cache = rows
+        self._rows_cache_stat = path_stat
+        self._by_specimen_id = {
+            str(row["specimen"]["specimen_id"]): row["specimen"] for row in rows
+        }
         return rows
 
     def record(self, specimen: SpecimenRecord | dict[str, Any]) -> dict[str, Any]:
         record = specimen if isinstance(specimen, SpecimenRecord) else SpecimenRecord(**specimen)
         body = record.to_dict()
         rows = self._rows()
-        for row in rows:
-            existing = row["specimen"]
-            if existing["specimen_id"] != record.specimen_id:
-                continue
+        existing = self._by_specimen_id.get(record.specimen_id)
+        if existing is not None:
             if _canonical(existing) != _canonical(body):
                 raise ValueError(
                     f"specimen_id already sealed with different truth: {record.specimen_id}"
@@ -107,6 +125,10 @@ class SpecimenLedger:
             handle.flush()
             os.fsync(handle.fileno())
         self.path.chmod(0o600)
+        rows.append(sealed)
+        self._rows_cache = rows
+        self._rows_cache_stat = self._path_stat()
+        self._by_specimen_id[record.specimen_id] = body
         return dict(body)
 
     def truth_for(self, specimen_id: str) -> dict[str, Any] | None:

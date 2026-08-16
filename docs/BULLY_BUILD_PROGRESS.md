@@ -20,6 +20,8 @@ history.
 | P6.8 | `TASK_BULLY_P6_8_COUSIN_CALIBRATION_BENCH_V1.md` | ✅ done | `a2a95837` |
 | P7 | `TASK_BULLY_P7_2_SPECIMEN_CORPUS_AND_BLIND_BENCH_V1.md` | ✅ done; cold real-specimen proof | branch proof |
 | P7.3 | `TASK_BULLY_P7_3_SPECIMEN_SCALE_AND_BASELINE_V1.md` | ✅ done; volume characterization frozen | `28dc9368` |
+| P7.4 | retrieval-validity correction | ✅ done; valid V3 reference frozen | `5ba409db` |
+| SA1 | `TASK_BULLY_SA1_CLASS_ONBOARDING_LOOP_V1.md` | ✅ done; System admitted, three classes honestly flagged | this commit |
 
 ## What's landed (P0–P6)
 
@@ -276,6 +278,57 @@ history.
   Full controls, hashes, and the comparison contract are in
   `docs/BULLY_BASELINE_CALIBRATION_V3.md`.
 
+- **SA1** — standing source-class onboarding loop: replaced the four-source
+  admission allowlist with capability derived from exact-source production SPL,
+  added validated Sysmon, PowerShell, System, and Okta detections, and froze
+  `SPECIMEN_CORPUS_V2` snapshot
+  `76e018da356ad835a3ff5bdfab32f518c0c5e0567adc09c05434a0e11873f467`.
+  The corpus contains 988 parents, 7,904 replay-mutation cousins, and one
+  live-lab cousin (8,893 specimens), all live-indexed. The sealed-ledger hash is
+  `d371f6ec2ee05b1222a9df7535d761b10e48e35b19cb293e84a982820f891b42`;
+  the serialized corpus SHA-256 is
+  `08c98cfdcbeb7a2fb2e257f315ae8db78d081c9435bdbbea0d70200035550060`.
+
+  Reachability rose from 316/1,436 to 988/1,436 datasets (22.0% to 68.8%);
+  448 remain unreachable: 298 recognized classes without a validated detection,
+  135 without technique truth, and 15 missing payloads. The reconciled census
+  has zero parent-limit, LFS-pointer, or unrecognized-class exclusions. The
+  response axis now has 891 independently observed rows—312 fired and 579
+  missed, with 8,002 indeterminate—up by 494 from V3's 397 independently
+  observed rows. Detection QA was green on 36 benign cells and live positives:
+  12 Sysmon, 11 PowerShell, three System, and four Okta parent fires.
+
+  `SourceAdapter` was extracted after exercising endpoint and identity shapes;
+  a result-identity control preserves all eight pre-adapter dimensions for the
+  frozen classes and mixed live capture. Missing dimensions remain absent and
+  lower confidence. Cohort denominators stay class-local while retrieval uses
+  the mixed parent-only snapshot; reports preserve exact-parent and
+  correct-family as separate measures. The loop remains cold: no thresholds,
+  weights, training, or refinement state changed.
+
+  The real per-class loop completed with valid controls for all four onboarded
+  classes. `windows:system` is **ADMIT** at 55.5556% band accuracy, 98.9011%
+  monotonicity, 100% correct-family accuracy, zero wrong-parent results, and
+  zero overclaims. `windows:sysmon`, `windows:powershell`, and `OktaIM2:log`
+  are honestly **FLAG** rather than silently admitted: their monotonicity is
+  98.1301%, 95.6349%, and 91.8367%, respectively, below the frozen V3 shape.
+  Their controls still pass, band accuracy is 55.5749% / 55.5556% / 55.5556%,
+  correct-family accuracy is 100%, and overclaim rate is zero. The measured
+  response-independent denominators are 180 / 135 / 36; System has 27.
+
+  All cross-class acceptance checks X1–X5 pass: 40 multi-source-family cases
+  exercise unfiltered and filtered retrieval, sparse-dimension grading leaves
+  missing dimensions absent (completeness 0.375 versus 0.875 full), all seven
+  parent source classes preserve SAME identity in the mixed snapshot, and the
+  unrelated-source negative remains NEW. Frozen-current-four regression also
+  passes every check and improves the V3 profile without tuning: band accuracy
+  55.5009% versus 55.4657%, monotonicity 98.6444% versus 98.5088%, exact
+  wrong-parent rate 12.6137% versus 41.9533%, correct-family accuracy 100%, and
+  real-SAME overclaim rate zero. The loop artifact SHA-256 is
+  `9c235b9426c2fbae920a49ec6bc65f5e363a711b9ab4444151a650e9d1813f0e`;
+  evidence is under
+  `/Volumes/data01/portal5_hunt/artifacts/calibration/SA1_CLASS_ONBOARDING_V1/`.
+
 ## Verification discipline used for every phase
 
 Each phase was built by a background agent in an isolated git worktree, then
@@ -292,16 +345,18 @@ itself before writing any code.
 
 ## Next
 
-**Source-agnostic redesign / later calibration pass** — preserve the valid P7.4
-V3 reference on the current four-sourcetype scope while addressing the remaining
-41.9533% exact wrong-parent rate, mutation band-crossing errors, and
-response-axis sparsity. Correct-family accuracy is already 100%; exact-parent
-and family-aware metrics must remain separate. Add at
-least one genuinely new sourcetype and report it separately so it cannot dilute
-current-scope regressions. Any threshold or weight proposal must be developed on
-a different sweep and evaluated once against the frozen P7.4 corpus; never tune
-on this reference. Tool-call intake and any training/refinement remain deferred
-to the training pass.
+**Flagged-class follow-up / next source class** — preserve both the valid P7.4
+V3 current-four reference and SA1's cold class-local reports. Investigate the
+monotonic violations that flagged Sysmon, PowerShell, and Okta without changing
+thresholds or weights on these frozen specimens. Keep exact-parent and
+correct-family measures separate; the mixed-snapshot current-four regression
+has already reduced exact wrong-parent rate to 12.6137% while retaining 100%
+correct-family accuracy. Extend production SPL for one of the 298 recognized
+but unreachable datasets, then run that class through the same
+ONBOARD→BUILD→CHARACTERIZE→ADMIT→REGRESSION loop. Any threshold or weight
+proposal must be developed on a different sweep and evaluated once against the
+frozen references. Tool-call intake and training/refinement remain deferred to
+the training pass.
 
 ## Housekeeping note (unrelated to the bully program)
 

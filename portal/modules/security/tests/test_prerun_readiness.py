@@ -16,7 +16,11 @@ from pathlib import Path
 import yaml
 
 from portal.modules.security.core.exec_chain import SCENARIOS
-from portal.modules.security.core.siem.spl_detections import spl_for, techniques_covered
+from portal.modules.security.core.siem.spl_detections import (
+    spl_for,
+    techniques_covered,
+    validated_detection_sourcetypes,
+)
 
 # ── Honest blue-gaps: techniques with no in-lab telemetry source ─────────────
 # These require cloud-provider telemetry (CloudTrail, Azure AD, S3 access logs)
@@ -87,12 +91,7 @@ class TestSPLIntegrity:
 
     def test_spl_references_real_sourcetype(self):
         """Each SPL should reference a known lab sourcetype."""
-        valid_sourcetypes = {
-            "web:access",
-            "linux:auditd",
-            "windows:security",
-            "docker:daemon",
-        }
+        valid_sourcetypes = validated_detection_sourcetypes()
         data = yaml.safe_load(_SPL_YAML.read_text())
         for tid, entry in data.items():
             spl = entry.get("spl", "")

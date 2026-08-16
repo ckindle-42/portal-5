@@ -22,12 +22,35 @@ EMBEDDING_MODEL="${EMBEDDING_MODEL:-microsoft/harrier-oss-v1-0.6b}"
 EMBEDDING_HOST_PORT="${EMBEDDING_HOST_PORT:-8917}"
 EM_VENV="${HOME}/.portal5/embedding-venv"
 EM_PY="${EM_VENV}/bin/python3"
+EM_SITE_PACKAGES="${EM_VENV}/lib/python3.14/site-packages"
+EM_SERVICE_MODEL="${HOME}/.portal5/models/${EMBEDDING_MODEL//\//--}"
+
+if [ -d "$EM_SERVICE_MODEL" ]; then
+    EMBEDDING_MODEL="$EM_SERVICE_MODEL"
+elif [[ "$EMBEDDING_MODEL" != /* ]]; then
+    EM_MODEL_REPOSITORY="${HOME}/.cache/huggingface/hub/models--${EMBEDDING_MODEL//\//--}"
+    EM_MODEL_REFERENCE="${EM_MODEL_REPOSITORY}/refs/main"
+    EM_REVISION=""
+    if [ -r "$EM_MODEL_REFERENCE" ]; then
+        IFS= read -r EM_REVISION < "$EM_MODEL_REFERENCE" || true
+    fi
+    if [ -n "$EM_REVISION" ] && [ -d "${EM_MODEL_REPOSITORY}/snapshots/${EM_REVISION}" ]; then
+        EMBEDDING_MODEL="${EM_MODEL_REPOSITORY}/snapshots/${EM_REVISION}"
+    fi
+fi
 
 if [ ! -x "$EM_PY" ]; then
     echo "ERROR: embedding venv not found at $EM_VENV" >&2
     echo "Run: ./launch.sh install-embedding-service" >&2
     exit 1
 fi
+
+# A Homebrew patch-version replacement can leave the venv interpreter symlink
+# pointing at a compatible Python outside the venv prefix. Keep the installed
+# packages discoverable and resolve Hugging Face models from the local cache so
+# launchd startup never depends on network metadata.
+export PYTHONPATH="${EM_SITE_PACKAGES}${PYTHONPATH:+:${PYTHONPATH}}"
+export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
 
 exec "$EM_PY" "$PORTAL_ROOT/scripts/embedding-server.py" \
     --model "$EMBEDDING_MODEL" \

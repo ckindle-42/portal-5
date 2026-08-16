@@ -6,8 +6,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import re
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from pathlib import Path
@@ -25,6 +25,12 @@ from portal.modules.security.core.bully.cousin_calibration_bench import (
     construction_distance,
 )
 from portal.modules.security.core.bully.cousin_forge import forge
+from portal.modules.security.core.bully.source_adapters import (
+    EndpointSourceAdapter,
+)
+from portal.modules.security.core.bully.source_adapters import (
+    adapt as adapt_source,
+)
 from portal.modules.security.core.bully.specimen_ledger import (
     SpecimenLedger,
     SpecimenRecord,
@@ -35,7 +41,7 @@ from portal.modules.security.core.recall_attribution import (
 )
 from portal.modules.security.core.siem import capture_store
 from portal.modules.security.core.siem.spl_backend import SplunkBackend
-from portal.modules.security.core.siem.spl_detections import spl_for
+from portal.modules.security.core.siem.spl_detections import spl_for_source
 from portal.modules.security.core.telemetry import (
     IMPORTED_OBSERVED,
     IMPORTED_OBSERVED_TRUST_TIER,
@@ -46,8 +52,6 @@ from scripts import corpus_ingest
 SPECIMEN_CORPUS_V1 = "SPECIMEN_CORPUS_V1"
 SPECIMEN_CORPUS_V2 = "SPECIMEN_CORPUS_V2"
 DETECTOR_OUTCOME_POLICY_V1 = "DETECTOR_OUTCOME_POLICY_V1"
-_EVENT_CODE = re.compile(r"(?:EventCode|EventID)\s*[=:]\s*([A-Za-z0-9_.-]+)")
-_OBSERVED_FIELD = re.compile(r"(?:Name=['\"]|\b)([A-Za-z][A-Za-z0-9_.-]+)(?:['\"]|)\s*[=>]")
 
 
 class EpisodeDetectionBackend(Protocol):
@@ -74,48 +78,38 @@ def _canonical(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
 
 
-def _event_actions(event: dict | str, index: int) -> list[str]:
-    if isinstance(event, dict):
-        value = event.get("EventCode") or event.get("EventID") or event.get("type")
-        fields = [str(key) for key in event if not str(key).startswith("@")]
-        return [f"event-{index}:{value or 'record'}", *(f"field:{key}" for key in fields[:4])]
-    match = _EVENT_CODE.search(str(event))
-    fields = list(dict.fromkeys(_OBSERVED_FIELD.findall(str(event))))
-    return [
-        f"event-{index}:{match.group(1) if match else 'record'}",
-        *(f"field:{key}" for key in fields[:4]),
-    ]
+def _telemetry_view(
+    telemetry: dict[str, list[dict | str]],
+    *,
+    techniques: tuple[str, ...] | list[str] = (),
+    origin: str = "",
+    trust_tier: str = "",
+) -> dict[str, Any]:
+    """Translate corpus evidence through the class adapter seam.
 
-
-def _telemetry_view(telemetry: dict[str, list[dict | str]]) -> dict[str, Any]:
+    Corpus datasets are one-class records.  A multi-source live capture uses
+    the stable generic endpoint projection and records every source class.
+    """
     events = [
         (sourcetype, event) for sourcetype in sorted(telemetry) for event in telemetry[sourcetype]
     ]
-    actions = [
-        action for index, (_, event) in enumerate(events) for action in _event_actions(event, index)
-    ]
-    field_names = sorted(
-        {
-            str(key)
-            for _, event in events
-            if isinstance(event, dict)
-            for key in event
-            if not str(key).lower().startswith(("technique", "mitre", "parent"))
-        }
-    )
-    return {
-        "action_sequence": actions,
-        "event_graph": {"ordered": actions},
-        "parameter_families": {"event_volume_band": min(len(events), 10)},
-        "context_topology": {"source_classes": sorted(telemetry)},
-        "artifacts": {"observed_fields": field_names[:24]},
-        "attack_mappings": [],
-        "telemetry_shape": {
-            "sourcetypes": sorted(telemetry),
-            "event_count": len(events),
-        },
-        "detector_outcomes": {},
+    source = sorted(telemetry)[0] if len(telemetry) == 1 else "+".join(sorted(telemetry))
+    source_meta = {
+        "sourcetype": source,
+        "source_classes": sorted(telemetry),
+        "techniques": techniques,
+        "origin": origin,
+        "trust_tier": trust_tier,
     }
+    adapter = EndpointSourceAdapter() if len(telemetry) > 1 else None
+    view = (
+        adapter.adapt([event for _sourcetype, event in events], source_meta)
+        if adapter
+        else adapt_source([event for _sourcetype, event in events], source_meta)
+    )
+    view.setdefault("context_topology", {})["source_classes"] = sorted(telemetry)
+    view.setdefault("telemetry_shape", {})["sourcetypes"] = sorted(telemetry)
+    return view
 
 
 def _read_parent(
@@ -142,10 +136,12 @@ def _read_parent(
     relative_path = str(dataset.path.relative_to(attack_data_root))
     identity_hash = hashlib.sha256(f"{relative_path}:{content_hash}".encode()).hexdigest()
     specimen_id = f"specimen-parent-{identity_hash[:20]}"
-    telemetry_view = _telemetry_view(telemetry)
-    telemetry_view["attack_mappings"] = [
-        {"technique_id": technique_id} for technique_id in sorted(dataset.techniques)
-    ]
+    telemetry_view = _telemetry_view(
+        telemetry,
+        techniques=dataset.techniques,
+        origin=IMPORTED_OBSERVED,
+        trust_tier=IMPORTED_OBSERVED_TRUST_TIER,
+    )
     return {
         "specimen_id": specimen_id,
         "target_host": "corpus-attack-data",
@@ -227,9 +223,13 @@ def _entry(
     engine_view: dict[str, Any],
     evidence_path: Path,
 ) -> dict[str, Any]:
+    shape = engine_view.get("telemetry_view", {}).get("telemetry_shape", {})
+    sourcetypes = shape.get("sourcetypes") or ()
+    source_class = shape.get("source_class") or (sourcetypes[0] if len(sourcetypes) == 1 else "")
     return {
         "specimen_id": specimen_id,
         "source_lane": source_lane,
+        "source_class": source_class,
         "engine_view": engine_view,
         "evidence_ref": evidence_path.name,
     }
@@ -298,7 +298,7 @@ def _episode_detection_outcomes(
     )
     source = str(sourcetypes[0]) if len(sourcetypes) == 1 else ""
     applicable = {
-        str(technique_id): spl_for(str(technique_id), source=source)
+        str(technique_id): spl_for_source(str(technique_id), source=source)
         for technique_id in truth.get("data_yml_techniques") or ()
     }
     applicable = {key: value for key, value in applicable.items() if value}
@@ -380,7 +380,44 @@ def _populate_real_detector_outcomes(
     return counts
 
 
-def _replay_and_confirm_all(
+def _bulk_replay_and_confirm(
+    entries: list[dict[str, Any]],
+    *,
+    evidence_dir: Path,
+    bulk_census: Any,
+    workers: int,
+) -> dict[str, dict[str, Any]]:
+    episode_ids = {entry["specimen_id"] for entry in entries}
+    existing = bulk_census({"earliest": "-24h", "latest": "now"}, episode_ids=episode_ids)
+
+    def replay(entry: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+        specimen_id = entry["specimen_id"]
+        if existing.get(specimen_id, 0) > 0:
+            return specimen_id, {"ok": True, "indexed_confirmed": True}
+        receipt = capture_store.replay_capture(
+            evidence_dir / entry["evidence_ref"], confirm_index=False
+        )
+        return specimen_id, receipt
+
+    with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+        receipts = list(pool.map(replay, entries))
+    failed = [item for item in receipts if not item[1].get("ok")]
+    if failed:
+        raise RuntimeError(f"live replay failed: {failed[:5]}")
+    missing = sorted(episode_ids)
+    for attempt in range(6):
+        confirmed = bulk_census({"earliest": "-24h", "latest": "now"}, episode_ids=episode_ids)
+        missing = sorted(item for item in episode_ids if not confirmed.get(item))
+        if not missing:
+            break
+        if attempt < 5:
+            time.sleep(2)
+    if missing:
+        raise RuntimeError(f"bulk live-index confirmation failed: {missing[:5]}")
+    return {}
+
+
+def _individual_replay_and_confirm(
     entries: list[dict[str, Any]],
     *,
     evidence_dir: Path,
@@ -454,6 +491,23 @@ def _replay_and_confirm_all(
     return episode_queries
 
 
+def _replay_and_confirm_all(
+    entries: list[dict[str, Any]],
+    *,
+    evidence_dir: Path,
+    backend: EpisodeDetectionBackend,
+    workers: int,
+) -> dict[str, dict[str, Any]]:
+    bulk_census = getattr(backend, "query_episode_ids", None)
+    if callable(bulk_census):
+        return _bulk_replay_and_confirm(
+            entries, evidence_dir=evidence_dir, bulk_census=bulk_census, workers=workers
+        )
+    return _individual_replay_and_confirm(
+        entries, evidence_dir=evidence_dir, backend=backend, workers=workers
+    )
+
+
 def _live_lab_entry(
     path: Path,
     *,
@@ -503,7 +557,12 @@ def _live_lab_entry(
             },
         )
     )
-    view = _telemetry_view(telemetry)
+    view = _telemetry_view(
+        telemetry,
+        techniques=tuple(data.get("data_yml_techniques") or ()),
+        origin="observed_target_log",
+        trust_tier=LIVE_SENSOR_TRUST_TIER,
+    )
     return _entry(
         specimen_id,
         "live_lab",
@@ -616,6 +675,7 @@ def _exclusions(
     admitted: list[corpus_ingest.ManifestDataset],
     eligible: list[corpus_ingest.ManifestDataset],
     attack_data_root: Path,
+    include_sourcetypes: frozenset[str] | None = None,
 ) -> list[dict[str, str]]:
     excluded = []
     for item in catalog:
@@ -626,12 +686,16 @@ def _exclusions(
             reason = "parent_limit"
         elif not item.techniques:
             reason = "no_technique_truth"
-        elif item.mapped_sourcetype not in corpus_ingest.INGESTED_SOURCETYPES:
-            reason = "no_ingested_sourcetype_technique_coverage"
         elif not item.path.is_file():
             reason = "missing_data_file"
-        else:
+        elif corpus_ingest.is_lfs_pointer(item.path):
             reason = "lfs_pointer"
+        elif item.mapped_sourcetype in {"corpus:raw", "windows:event"}:
+            reason = "unrecognized_class"
+        elif include_sourcetypes is not None and item.mapped_sourcetype not in include_sourcetypes:
+            reason = "class_not_selected"
+        else:
+            reason = "recognized_no_detection"
         excluded.append(
             {
                 "dataset_ref": hashlib.sha256(relative.encode()).hexdigest()[:16],
@@ -646,7 +710,9 @@ _CENSUS_REASONS = (
     "admitted",
     "parent_limit",
     "no_technique_truth",
-    "no_ingested_sourcetype_technique_coverage",
+    "recognized_no_detection",
+    "unrecognized_class",
+    "class_not_selected",
     "missing_data_file",
     "lfs_pointer",
 )
@@ -658,6 +724,7 @@ def _admission_census(
     eligible: list[corpus_ingest.ManifestDataset],
     attack_data_root: Path,
     *,
+    include_sourcetypes: frozenset[str] | None = None,
     example_limit: int = 5,
 ) -> dict[str, Any]:
     admitted_set = set(admitted)
@@ -675,12 +742,16 @@ def _admission_census(
             reason = "parent_limit"
         elif not item.techniques:
             reason = "no_technique_truth"
-        elif item.mapped_sourcetype not in corpus_ingest.INGESTED_SOURCETYPES:
-            reason = "no_ingested_sourcetype_technique_coverage"
         elif not item.path.is_file():
             reason = "missing_data_file"
-        else:
+        elif corpus_ingest.is_lfs_pointer(item.path):
             reason = "lfs_pointer"
+        elif item.mapped_sourcetype in {"corpus:raw", "windows:event"}:
+            reason = "unrecognized_class"
+        elif include_sourcetypes is not None and item.mapped_sourcetype not in include_sourcetypes:
+            reason = "class_not_selected"
+        else:
+            reason = "recognized_no_detection"
         buckets[reason].append(example)
 
     counts = {reason: len(buckets[reason]) for reason in _CENSUS_REASONS}
@@ -693,7 +764,9 @@ def _admission_census(
 
 
 def _eligible_catalog(
-    catalog: list[corpus_ingest.ManifestDataset], max_parents: int
+    catalog: list[corpus_ingest.ManifestDataset],
+    max_parents: int,
+    include_sourcetypes: frozenset[str] | None = None,
 ) -> tuple[list[corpus_ingest.ManifestDataset], list[corpus_ingest.ManifestDataset]]:
     if max_parents < 0:
         raise ValueError("max_parents must be zero (unlimited) or positive")
@@ -703,6 +776,7 @@ def _eligible_catalog(
         if item.path.is_file()
         and item.techniques
         and item.mapped_sourcetype in corpus_ingest.INGESTED_SOURCETYPES
+        and (include_sourcetypes is None or item.mapped_sourcetype in include_sourcetypes)
         and not corpus_ingest.is_lfs_pointer(item.path)
     ]
     admitted = eligible[:max_parents] if max_parents else list(eligible)
@@ -718,6 +792,7 @@ def _freeze_corpus(
     admitted: list[corpus_ingest.ManifestDataset],
     eligible: list[corpus_ingest.ManifestDataset],
     attack_data_root: Path,
+    include_sourcetypes: frozenset[str] | None,
     response_observation_counts: dict[str, int] | None,
     output_dir: Path,
 ) -> dict[str, Any]:
@@ -734,9 +809,36 @@ def _freeze_corpus(
         "coverage_report": {
             "catalog_datasets": len(catalog),
             "admitted_parents": per_lane["attack_data"],
-            "excluded": _exclusions(catalog, admitted, eligible, attack_data_root),
+            "excluded": _exclusions(
+                catalog,
+                admitted,
+                eligible,
+                attack_data_root,
+                include_sourcetypes,
+            ),
         },
-        "admission_census": _admission_census(catalog, admitted, eligible, attack_data_root),
+        "admission_census": _admission_census(
+            catalog,
+            admitted,
+            eligible,
+            attack_data_root,
+            include_sourcetypes=include_sourcetypes,
+        ),
+        "capability_derived_sourcetypes": sorted(corpus_ingest.INGESTED_SOURCETYPES),
+        "per_class_counts": dict(
+            sorted(
+                {
+                    source_class: sum(
+                        entry.get("source_class") == source_class for entry in entries
+                    )
+                    for source_class in {
+                        str(entry.get("source_class"))
+                        for entry in entries
+                        if entry.get("source_class")
+                    }
+                }.items()
+            )
+        ),
         "specimens": entries,
     }
     if corpus_schema == SPECIMEN_CORPUS_V2:
@@ -759,6 +861,30 @@ def _freeze_corpus(
     return corpus
 
 
+def _response_observations(
+    corpus_schema: str,
+    entries: list[dict[str, Any]],
+    *,
+    ledger: SpecimenLedger,
+    detector_backend: EpisodeDetectionBackend | None,
+    query_workers: int,
+    episode_queries: dict[str, dict[str, Any]] | None,
+) -> dict[str, int] | None:
+    if corpus_schema != SPECIMEN_CORPUS_V2:
+        if corpus_schema != SPECIMEN_CORPUS_V1:
+            raise ValueError(f"unsupported specimen corpus schema: {corpus_schema}")
+        return None
+    if detector_backend is None:
+        raise ValueError("SPECIMEN_CORPUS_V2 requires a live detector backend")
+    return _populate_real_detector_outcomes(
+        entries,
+        ledger=ledger,
+        backend=detector_backend,
+        workers=query_workers,
+        episode_queries=episode_queries,
+    )
+
+
 def build_corpus(
     *,
     attack_data_root: Path,
@@ -773,11 +899,12 @@ def build_corpus(
     replay_workers: int = 1,
     query_workers: int = 1,
     live_index_confirmation: frozenset[str] | None = None,
+    include_sourcetypes: frozenset[str] | None = None,
 ) -> dict[str, Any]:
     ledger = SpecimenLedger(ledger_root)
     evidence_dir = output_dir / "evidence"
     catalog = corpus_ingest.load_manifest_catalog(attack_data_root)
-    eligible, admitted = _eligible_catalog(catalog, max_parents)
+    eligible, admitted = _eligible_catalog(catalog, max_parents, include_sourcetypes)
 
     deferred_replay = ship and replay_workers > 1
     entries = _parent_entries(
@@ -815,19 +942,14 @@ def build_corpus(
             backend=detector_backend or SplunkBackend(),
             workers=replay_workers,
         )
-    response_observation_counts = None
-    if corpus_schema == SPECIMEN_CORPUS_V2:
-        if detector_backend is None:
-            raise ValueError("SPECIMEN_CORPUS_V2 requires a live detector backend")
-        response_observation_counts = _populate_real_detector_outcomes(
-            entries,
-            ledger=ledger,
-            backend=detector_backend,
-            workers=query_workers,
-            episode_queries=episode_queries,
-        )
-    elif corpus_schema != SPECIMEN_CORPUS_V1:
-        raise ValueError(f"unsupported specimen corpus schema: {corpus_schema}")
+    response_observation_counts = _response_observations(
+        corpus_schema,
+        entries,
+        ledger=ledger,
+        detector_backend=detector_backend,
+        query_workers=query_workers,
+        episode_queries=episode_queries,
+    )
     return _freeze_corpus(
         corpus_schema=corpus_schema,
         entries=entries,
@@ -836,6 +958,7 @@ def build_corpus(
         admitted=admitted,
         eligible=eligible,
         attack_data_root=attack_data_root,
+        include_sourcetypes=include_sourcetypes,
         response_observation_counts=response_observation_counts,
         output_dir=output_dir,
     )
@@ -854,6 +977,7 @@ def build_corpus_v2(
     replay_workers: int = 1,
     query_workers: int = 1,
     live_index_confirmation: frozenset[str] | None = None,
+    include_sourcetypes: frozenset[str] | None = None,
 ) -> dict[str, Any]:
     if not ship and detector_backend is None:
         raise ValueError("V2 requires --ship or an injected real-query fixture")
@@ -870,6 +994,7 @@ def build_corpus_v2(
         replay_workers=replay_workers,
         query_workers=query_workers,
         live_index_confirmation=live_index_confirmation,
+        include_sourcetypes=include_sourcetypes,
     )
 
 
@@ -881,6 +1006,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--lab-capture", action="append", default=[], type=Path)
     parser.add_argument("--event-limit", type=int, default=32)
     parser.add_argument("--max-parents", type=int, default=0)
+    parser.add_argument(
+        "--include-sourcetype",
+        action="append",
+        default=[],
+        help="build only these detection-capable class cohorts (repeatable)",
+    )
     parser.add_argument("--ship", action="store_true")
     parser.add_argument("--replay-workers", type=int, default=12)
     parser.add_argument("--query-workers", type=int, default=12)
@@ -915,6 +1046,7 @@ def main(argv: list[str] | None = None) -> int:
         replay_workers=args.replay_workers,
         query_workers=args.query_workers,
         live_index_confirmation=confirmed_episode_ids,
+        include_sourcetypes=(frozenset(args.include_sourcetype) or None),
     )
     print(
         json.dumps(

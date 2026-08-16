@@ -54,13 +54,16 @@ import yaml
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from portal.modules.security.core.siem.hec_ship import ship_batch  # noqa: E402
+from portal.modules.security.core.siem.spl_detections import (  # noqa: E402
+    validated_detection_sourcetypes,
+)
 from portal.modules.security.core.telemetry import IMPORTED_OBSERVED  # noqa: E402
 
 INDEX = os.environ.get("LAB_SPLUNK_INDEX", "portal5_lab")
 BATCH = int(os.environ.get("CORPUS_BATCH", "500"))
-INGESTED_SOURCETYPES = frozenset(
-    {"windows:security", "linux:auditd", "web:access", "docker:daemon"}
-)
+# Compatibility name retained for callers, but capability is derived from the
+# validated production detection library rather than a parallel allowlist.
+INGESTED_SOURCETYPES = validated_detection_sourcetypes()
 
 # Containers we can read events out of. .log/.txt are raw-line formats
 # (XmlWinEventLog, auditd, nginx); the rest are JSON-ish or archives.
@@ -84,8 +87,8 @@ DATA_SUFFIXES = (
 # Matched in order against "<declared sourcetype> <declared source> <channel>".
 # Sysmon is tested before Security so a Sysmon channel never grabs the Windows
 # Security detections, and web/docker are tested before the generic Windows
-# fallbacks. Only the four detection sourcetypes drive the canned SPL; the rest
-# are descriptive and ship huntable-but-unmatched by design.
+# fallbacks. Detection-capable sourcetypes are derived from the SPL library;
+# recognized classes without one remain descriptive and are censused honestly.
 _SOURCETYPE_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("windows:sysmon", ("sysmon",)),
     ("linux:auditd", ("auditd", "linux:audit", "linux_audit")),

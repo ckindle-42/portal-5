@@ -11,9 +11,10 @@ replay determinism.
 
 from __future__ import annotations
 
+import httpx
 import pytest
 
-from portal.modules.security.core.bully.organ import Organ, OrganUnavailable
+from portal.modules.security.core.bully.organ import Organ, OrganUnavailable, _embedding_batches
 from portal.modules.security.core.bully.store import Store
 
 
@@ -120,6 +121,39 @@ def test_batch_upsert_and_prepared_knn_preserve_snapshot_semantics(organ):
     organ.upsert(_record("d"))
     organ.knn("query-a", k=2)
     assert len(embed_calls) == calls_after_prepare + 2
+
+
+def test_embed_restores_openai_response_index_order(tmp_path, store):
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    {"index": 1, "embedding": [2.0]},
+                    {"index": 0, "embedding": [1.0]},
+                ]
+            },
+        )
+
+    projection = Organ(
+        store=store,
+        db_path=tmp_path / "ordered-embedding-projection",
+        embed_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    try:
+        assert projection._embed(["first", "second"]) == [[1.0], [2.0]]
+    finally:
+        projection.close()
+
+
+def test_embedding_batches_isolate_oversized_inputs():
+    oversized = "x" * 2_000
+
+    assert list(_embedding_batches(["a", "bb", oversized, "ccc"], batch_size=2)) == [
+        ["a", "bb"],
+        [oversized],
+        ["ccc"],
+    ]
 
 
 # ── recall receipt shape + mandatory-ness ───────────────────────────────────

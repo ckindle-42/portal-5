@@ -744,6 +744,15 @@ def load_specimen_corpus(path: Path) -> dict[str, Any]:
     return corpus
 
 
+def specimen_source_class(specimen: dict[str, Any]) -> str:
+    """Return the explicit class label, with V2-artifact compatibility."""
+    if specimen.get("source_class"):
+        return str(specimen["source_class"])
+    shape = specimen.get("engine_view", {}).get("telemetry_view", {}).get("telemetry_shape", {})
+    sources = shape.get("sourcetypes") or ()
+    return str(sources[0]) if len(sources) == 1 else ""
+
+
 def corpus_parent_reference_record(entry: dict[str, Any]) -> dict[str, Any]:
     """Project a parent evidence view into Organ without consulting scorer truth."""
     engine_view = entry["engine_view"]
@@ -1278,8 +1287,7 @@ def _characterize_baseline(
         row["true_parent_present_in_candidates"] or row["family_parent_present_in_candidates"]
         for row in rows
     )
-    replay = per_lane["replay_mutation"]
-    lab = per_lane["live_lab"]
+    replay, lab = per_lane["replay_mutation"], per_lane["live_lab"]
     band_delta = (
         round(replay["band_crossing_accuracy"] - lab["band_crossing_accuracy"], 6)
         if replay["band_crossing_accuracy"] is not None
@@ -1559,4 +1567,175 @@ def run_baseline_bench(
         controls=controls,
     )
     write_baseline_artifacts(report, output_dir)
+    return report
+
+
+def _run_filtered_corpus_bench(
+    snapshot: ReadOnlyKnnSnapshot,
+    *,
+    corpus: dict[str, Any],
+    selected: list[dict[str, Any]],
+    corpus_path: Path,
+    ledger: SpecimenLedger,
+    output_dir: Path,
+    reference_guard: dict[str, Any],
+) -> tuple[BaselineCalibrationReport, dict[str, Any]]:
+    """Grade an isolated denominator against the standing mixed snapshot."""
+    cohort = {
+        **corpus,
+        "snapshot_hash": hashlib.sha256(_canonical(selected).encode()).hexdigest(),
+        "per_lane_counts": {
+            lane: sum(item["source_lane"] == lane for item in selected)
+            for lane in ("attack_data", "replay_mutation", "live_lab")
+        },
+        "specimens": selected,
+    }
+    before = snapshot.stats().get("row_count")
+    prepare_knn = getattr(snapshot, "prepare_knn", None)
+    if callable(prepare_knn):
+        cohort_signatures = [
+            signatures.build_signature(
+                specimen["engine_view"]["episode_view"],
+                specimen["engine_view"]["telemetry_view"],
+            )
+            for specimen in selected
+        ]
+        prepare_knn(
+            [
+                query
+                for signature in cohort_signatures
+                for query in cousin_engine.candidate_axis_queries(signature)
+            ],
+            k=8,
+            batch_size=16,
+        )
+    verdicts = tuple(grade_corpus_blind(specimen, snapshot) for specimen in selected)
+    if snapshot.stats().get("row_count") != before:
+        raise RuntimeError("class cohort contaminated the Organ snapshot")
+    controls = _baseline_controls(verdicts, corpus=cohort, ledger=ledger)
+    report = score_baseline(
+        verdicts,
+        corpus=cohort,
+        corpus_dir=corpus_path.parent,
+        ledger=ledger,
+        controls=controls,
+    )
+    report = replace(
+        report,
+        reference_guard=reference_guard,
+        snapshot_hash=None,
+    )
+    hash_payload = report.to_dict()
+    hash_payload["snapshot_hash"] = None
+    report = replace(
+        report,
+        snapshot_hash=hashlib.sha256(_canonical(hash_payload).encode()).hexdigest(),
+    )
+    write_baseline_artifacts(report, output_dir)
+    return report, cohort
+
+
+def run_class_cohort_bench(
+    snapshot: ReadOnlyKnnSnapshot,
+    *,
+    source_class: str,
+    corpus_path: Path,
+    ledger: SpecimenLedger,
+    output_dir: Path,
+) -> BaselineCalibrationReport:
+    """Run the full P7.4 controls and curve for exactly one source class.
+
+    The snapshot may remain mixed-class, which is intentional: the cohort
+    denominator is isolated while candidate retrieval still exercises the
+    source-agnostic standing corpus.  A class with failed controls emits an
+    INVALID report and no curve through the existing artifact writer.
+    """
+    corpus = load_specimen_corpus(corpus_path)
+    selected = [
+        specimen
+        for specimen in corpus["specimens"]
+        if specimen_source_class(specimen) == source_class
+    ]
+    if not selected:
+        raise ValueError(f"source class has no specimens: {source_class}")
+    report, cohort = _run_filtered_corpus_bench(
+        snapshot,
+        corpus=corpus,
+        selected=selected,
+        corpus_path=corpus_path,
+        ledger=ledger,
+        output_dir=output_dir,
+        reference_guard={
+            "immutable": True,
+            "designation": "source_class_cohort",
+            "acceptance": "admit_flag_or_reject_against_v3_profile",
+            "source_class": source_class,
+            "standing_corpus_snapshot_hash": corpus["snapshot_hash"],
+        },
+    )
+    summary = {
+        "schema": "CLASS_COHORT_CALIBRATION_V1",
+        "source_class": source_class,
+        "corpus_snapshot_hash": cohort["snapshot_hash"],
+        "standing_corpus_snapshot_hash": corpus["snapshot_hash"],
+        "status": report.status,
+        "controls": report.controls,
+        "characterization": report.characterization,
+        "cold_untuned": True,
+        "training_applied": False,
+        "threshold_tuning_applied": False,
+    }
+    (output_dir / "class_cohort_summary.json").write_text(
+        json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return report
+
+
+def run_source_scope_bench(
+    snapshot: ReadOnlyKnnSnapshot,
+    *,
+    source_classes: frozenset[str],
+    corpus_path: Path,
+    ledger: SpecimenLedger,
+    output_dir: Path,
+) -> BaselineCalibrationReport:
+    """Run a regression scope while retaining new classes in retrieval."""
+    corpus = load_specimen_corpus(corpus_path)
+    selected = [
+        specimen
+        for specimen in corpus["specimens"]
+        if specimen_source_class(specimen) in source_classes
+        or specimen["source_lane"] == "live_lab"
+    ]
+    report, cohort = _run_filtered_corpus_bench(
+        snapshot,
+        corpus=corpus,
+        selected=selected,
+        corpus_path=corpus_path,
+        ledger=ledger,
+        output_dir=output_dir,
+        reference_guard={
+            "immutable": True,
+            "designation": "standing_v3_regression_scope",
+            "acceptance": "match_or_beat_baseline_calibration_v3",
+            "scope": sorted(source_classes),
+            "standing_corpus_snapshot_hash": corpus["snapshot_hash"],
+            "mixed_snapshot": True,
+        },
+    )
+    summary = {
+        "schema": "SOURCE_SCOPE_CALIBRATION_V1",
+        "source_classes": sorted(source_classes),
+        "corpus_snapshot_hash": cohort["snapshot_hash"],
+        "standing_corpus_snapshot_hash": corpus["snapshot_hash"],
+        "status": report.status,
+        "controls": report.controls,
+        "characterization": report.characterization,
+        "cold_untuned": True,
+        "training_applied": False,
+        "threshold_tuning_applied": False,
+    }
+    (output_dir / "source_scope_summary.json").write_text(
+        json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     return report
