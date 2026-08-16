@@ -372,6 +372,57 @@ def _exclusions(
     return excluded
 
 
+_CENSUS_REASONS = (
+    "admitted",
+    "parent_limit",
+    "no_technique_truth",
+    "no_ingested_sourcetype_technique_coverage",
+    "missing_data_file",
+    "lfs_pointer",
+)
+
+
+def _admission_census(
+    catalog: list[corpus_ingest.ManifestDataset],
+    admitted: list[corpus_ingest.ManifestDataset],
+    eligible: list[corpus_ingest.ManifestDataset],
+    attack_data_root: Path,
+    *,
+    example_limit: int = 5,
+) -> dict[str, Any]:
+    """Persist a deterministic, reconcilable account of every catalog row."""
+    admitted_set = set(admitted)
+    eligible_set = set(eligible)
+    buckets: dict[str, list[dict[str, str]]] = {reason: [] for reason in _CENSUS_REASONS}
+    for item in catalog:
+        relative = str(item.path.relative_to(attack_data_root))
+        example = {
+            "dataset_ref": hashlib.sha256(relative.encode()).hexdigest()[:16],
+            "mapped_sourcetype": item.mapped_sourcetype,
+        }
+        if item in admitted_set:
+            reason = "admitted"
+        elif item in eligible_set:
+            reason = "parent_limit"
+        elif not item.techniques:
+            reason = "no_technique_truth"
+        elif item.mapped_sourcetype not in corpus_ingest.INGESTED_SOURCETYPES:
+            reason = "no_ingested_sourcetype_technique_coverage"
+        elif not item.path.is_file():
+            reason = "missing_data_file"
+        else:
+            reason = "lfs_pointer"
+        buckets[reason].append(example)
+
+    counts = {reason: len(buckets[reason]) for reason in _CENSUS_REASONS}
+    return {
+        "catalog_size": len(catalog),
+        "counts": counts,
+        "examples": {reason: buckets[reason][:example_limit] for reason in _CENSUS_REASONS},
+        "reconciled": sum(counts.values()) == len(catalog),
+    }
+
+
 def build_corpus(
     *,
     attack_data_root: Path,
@@ -382,6 +433,8 @@ def build_corpus(
     max_parents: int = 0,
     ship: bool = False,
 ) -> dict[str, Any]:
+    if max_parents < 0:
+        raise ValueError("max_parents must be zero (unlimited) or positive")
     ledger = SpecimenLedger(ledger_root)
     evidence_dir = output_dir / "evidence"
     catalog = corpus_ingest.load_manifest_catalog(attack_data_root)
@@ -426,6 +479,7 @@ def build_corpus(
             "admitted_parents": per_lane["attack_data"],
             "excluded": _exclusions(catalog, admitted, eligible, attack_data_root),
         },
+        "admission_census": _admission_census(catalog, admitted, eligible, attack_data_root),
         "specimens": entries,
     }
     output_dir.mkdir(parents=True, exist_ok=True)

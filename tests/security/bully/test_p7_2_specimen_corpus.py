@@ -264,6 +264,11 @@ def test_three_lane_corpus_is_coverage_gated_truth_sealed_and_deterministic(tmp_
     }
     assert first["complete"] is True
     assert first["coverage_report"]["admitted_parents"] == 1
+    census = first["admission_census"]
+    assert census["reconciled"] is True
+    assert sum(census["counts"].values()) == census["catalog_size"] == 2
+    assert census["counts"]["admitted"] == 1
+    assert census["counts"]["no_ingested_sourcetype_technique_coverage"] == 1
     assert any(
         item["reason"] == "no_ingested_sourcetype_technique_coverage"
         for item in first["coverage_report"]["excluded"]
