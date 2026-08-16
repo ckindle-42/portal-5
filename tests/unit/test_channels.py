@@ -299,20 +299,20 @@ class TestSlackAdapter:
         from portal.platform.inference.router_pipe import WORKSPACES
         from portal_channels.slack.bot import CHANNEL_WORKSPACE_MAP
 
-        for channel_keyword, workspace_id in CHANNEL_WORKSPACE_MAP.items():
+        for channel_keyword, (workspace_id, _variant) in CHANNEL_WORKSPACE_MAP.items():
             assert workspace_id in WORKSPACES, (
                 f"Slack channel '{channel_keyword}' → '{workspace_id}' "
                 f"is not a valid workspace. Valid: {sorted(WORKSPACES.keys())}"
             )
 
     def test_workspace_for_channel_routing(self):
-        """Channel names correctly map to workspace IDs."""
+        """Channel names correctly map to (workspace, variant) tuples."""
         from portal_channels.slack.bot import _workspace_for_channel
 
-        assert _workspace_for_channel("coding-help") == "auto-coding"
-        assert _workspace_for_channel("security-alerts") == "auto-security"
-        assert _workspace_for_channel("images-channel") == "auto-vision"  # NOT auto-images
-        assert _workspace_for_channel("unknown-channel") == "auto"  # default
+        assert _workspace_for_channel("coding-help") == ("auto-coding", None)
+        assert _workspace_for_channel("security-alerts") == ("auto-security", None)
+        assert _workspace_for_channel("images-channel") == ("auto-vision", None)  # NOT auto-images
+        assert _workspace_for_channel("unknown-channel") == ("auto", None)  # default
 
     def test_pipeline_call_correct_endpoint(self):
         """_call_pipeline sends request to correct endpoint with auth."""

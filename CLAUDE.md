@@ -22,11 +22,13 @@ An Open WebUI enhancement layer, not a replacement web stack. It extends Open We
 **Think before coding.** State assumptions; surface tradeoffs; if uncertain, ask. Check `KNOWN_LIMITATIONS.md` and lead discovery from the wiki fact-units before cold-grepping.
 **Simplicity first.** Minimum code that solves the problem. Nothing speculative, no unrequested flexibility.
 **Surgical changes.** Touch only what you must. Every changed line traces to the task. Remove imports/variables your change made unused; mention pre-existing dead code, don't delete it.
-**Goal-driven.** Define success criteria, loop until verified. Verification ladder: per-commit gate `pytest tests/unit/ -q && ruff check . && ruff format --check .`, final gate `bash scripts/ci_local.sh`, live streaming gate `./scripts/smoke_stream.sh`, doc reconciliation (Rule 12).
+**Goal-driven.** Define success criteria, loop until verified. Verification ladder: per-commit gate `uv run pytest tests/unit/ -q && uv run ruff check . && uv run ruff format --check .`, final gate `bash scripts/ci_local.sh`, live streaming gate `./scripts/smoke_stream.sh`, doc reconciliation (Rule 12).
 
 ## Tech Stack
 
-`uv` (not pip); `uv pip install -e ".[dev]"`; `ruff check . --fix` / `ruff format .`; `mypy portal/` (strict); `pytest tests/ -v --tb=short`; Python 3.10+; FastAPI + Pydantic v2, async; `./launch.sh up`; operator CLI `portal config show`.
+`uv` (not pip); `uv pip install -e ".[dev]"`; `uv run ruff check . --fix` / `uv run ruff format .`; `uv run mypy portal/` (strict); `uv run pytest tests/ -v --tb=short`; Python 3.10+; FastAPI + Pydantic v2, async; `./launch.sh up`; operator CLI `portal config show`.
+
+**Always prefix `pytest`/`ruff`/`mypy` with `uv run` (or activate `.venv` in the SAME shell command, not a prior one).** A bare `pytest` on PATH can resolve to an unrelated Homebrew/global install (`/opt/homebrew/bin/pytest` on this machine) instead of the project's `.venv`, silently running against the wrong Python/site-packages and producing bogus collection errors. `source .venv/bin/activate` does not persist across separate tool-call shell invocations — each is a fresh shell — so activation-then-run in two steps is unreliable here; `uv run <cmd>` is the one form that's always correct.
 
 ## Architectural Ground Rules
 ### 1 — config/backends.yaml Is Sacred
@@ -48,7 +50,7 @@ Never add `transformers` or `torch` to `portal/platform/inference/`. Model catal
 ### 9 — The Dockerfile Split Is Intentional
 `Dockerfile.pipeline` minimal (fastapi/uvicorn/httpx/pyyaml); `Dockerfile.mcp` heavier. Don't merge.
 ### 10 — Git Discipline
-Commit to `main` during stabilization; `pytest tests/ -q --tb=no` before every push; conventional commits; never force-push; never commit `.env`.
+Commit to `main` during stabilization; `uv run pytest tests/ -q --tb=no` before every push; conventional commits; never force-push; never commit `.env`.
 ### 11 — Shared Workspace Is The Only Path For User Files
 User files live at `${AI_OUTPUT_DIR}` (default `~/AI_Output/`), mounted at `/workspace`. Reads: `resolve_upload_path(file_id)`; writes: `get_generated_dir(category)` (categories: transcripts, documents, images, videos, music, speech). New Docker MCPs touching user files must mount `${AI_OUTPUT_DIR}:/workspace`.
 ### 12 — Docs Travel With The Work
