@@ -98,6 +98,85 @@ def candidate_set(
     )
 
 
+def _records_only(results: list[tuple[dict, float]]) -> list[dict]:
+    return [record for record, _distance in results]
+
+
+def _dedupe_records(records: list[dict]) -> list[dict]:
+    deduped: dict[str, dict] = {}
+    for record in records:
+        key = str(record.get("record_id") or record.get("signature_id") or id(record))
+        deduped.setdefault(key, record)
+    return list(deduped.values())
+
+
+def candidate_axis_queries(signature) -> tuple[str, ...]:
+    queries = [sig_mod.semantic_query(signature)]
+    family = sig_mod.signature_family(signature)
+    if family:
+        queries.append(f"scenario family: {family}")
+    queries.extend(f"ATT&CK technique: {value}" for value in sig_mod.attack_ids(signature))
+    motif = sig_mod.event_graph_motif(signature)
+    if motif:
+        queries.append(f"event graph motif: {motif}")
+    return tuple(queries)
+
+
+def retrieve_candidate_axes(signature, snapshot, *, k: int = 8) -> CandidateSetReceipt:
+    """Query and wire all four retrieval axes into a candidate receipt.
+
+    Family uses indexed metadata. ATT&CK and event-graph axes use focused
+    semantic queries followed by an exact shared-feature check, which works
+    with both Organ and small read-only calibration fixtures.
+    """
+    query = sig_mod.semantic_query(signature)
+    semantic = snapshot.knn(query, k=k)
+
+    family = sig_mod.signature_family(signature)
+    family_results = []
+    if family:
+        family_query = f"scenario family: {family}"
+        try:
+            family_results = snapshot.knn(family_query, k=k, filters={"family": family})
+        except (KeyError, RuntimeError, ValueError):
+            # Older projections may predate scalar family metadata. Keep those
+            # snapshots readable while requiring exact family agreement.
+            family_results = [
+                (record, distance)
+                for record, distance in snapshot.knn(family_query, k=k)
+                if sig_mod.signature_family_from_record(record) == family
+            ]
+
+    subject_attack = set(sig_mod.attack_ids(signature))
+    attack_pool: list[dict] = []
+    for technique_id in sorted(subject_attack):
+        for record, _distance in snapshot.knn(f"ATT&CK technique: {technique_id}", k=k):
+            record_attack = {
+                str(item.get("technique_id")) if isinstance(item, dict) else str(item)
+                for item in (record.get("attack_mappings") or record.get("technique_ids") or ())
+            }
+            record_attack.update(str(record.get("attack_ids_text") or "").split())
+            if technique_id in record_attack:
+                attack_pool.append(record)
+
+    motif = sig_mod.event_graph_motif(signature)
+    motif_pool = snapshot.knn(f"event graph motif: {motif}", k=k) if motif else []
+    motif_records = [
+        record
+        for record, _distance in motif_pool
+        if str(record.get("event_graph_motif") or "") == motif
+        or record.get("event_graph") == signature.event_graph
+    ]
+    return candidate_set(
+        signature,
+        semantic_candidates=semantic,
+        attack_neighbors=_dedupe_records(attack_pool),
+        family_members=_dedupe_records(_records_only(family_results)),
+        event_graph_motifs=_dedupe_records(motif_records),
+        health={"snapshot": "read-only", "semantic_query": query},
+    )
+
+
 # ── coverage view (defense-response axis input) ─────────────────────────────
 
 
@@ -340,9 +419,13 @@ def grade(
         composite, confidence, nonsemantic, bool(vetoes), thresholds
     )
     trust_adjustment = None
+    exact_signature_match = best_record.get("field_signature") == getattr(
+        signature, "canonical_fingerprint", None
+    )
     if (
         relationship == "SAME"
         and getattr(signature, "trust_tier", "") == IMPORTED_OBSERVED_TRUST_TIER
+        and not exact_signature_match
     ):
         relationship = "SIMILAR" if nonsemantic >= 2 else "DIFFERENT"
         trust_adjustment = "imported_observed_cannot_solely_support_same"

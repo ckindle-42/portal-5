@@ -235,13 +235,46 @@ history.
   indeterminate. These are inputs to a later fresh-sweep calibration or
   redesign pass; P7.3 changed no threshold, weight, or training state.
 
-  `BASELINE_CALIBRATION_V2` is the immutable source-agnostic-redesign reference.
-  Its self-hash is
+  `BASELINE_CALIBRATION_V2` was initially designated the immutable
+  source-agnostic-redesign reference; P7.4 invalidated that designation because
+  retrieval was broken. It remains immutable provenance only. Its self-hash is
   `1b5d6511bc11acb93908c610bc784c57ce609c828071a2b828a16d33b67e0afc`;
   the serialized report SHA-256 is
   `7bf57d451810f99c8961e86eb1a6f4fcebd051042b9b1201fe24a2896e0e5504`.
-  The exact comparison contract and artifact inventory are recorded in
+  The historical artifact inventory and invalidation notice are recorded in
   `docs/BULLY_BASELINE_CALIBRATION_V2.md`.
+
+- **P7.4** — retrieval and measurement validity: the P7.3 curve was traced to a
+  broken instrument, not an engine characterization. Both bench and production
+  embedded SHA-256 fingerprints, only the semantic candidate axis was live, and
+  signature inputs were starved. V2 is retained but explicitly invalid as a
+  redesign reference.
+
+  KNN now embeds a stable semantic serialization of actions, parameter
+  families, ATT&CK mappings, and scenario family. Semantic, ATT&CK-neighborhood,
+  scenario-family, and event-graph-motif candidates are wired in the production
+  hunt loop and calibration bench. Production signatures are built from the
+  episode's shipped evidence, corpus mappings are preserved, and indexed records
+  use the same representation as graded signatures.
+
+  The harness now hard-stops before emitting a curve unless parent identity,
+  retrieval health, and fixed near/far controls pass. Reports carry semantic
+  queries, candidate-set sizes, exact/family-parent presence, measurement
+  validity, and degenerate-retrieval rate; measurement-invalid rows are not
+  charged to the engine. The response oracle uses raw evidence only as
+  corroboration and requires independent live detector outcomes for ground
+  truth. Construction distance correlates `0.931253` with independent unweighted
+  signature-feature edit distance.
+
+  The cold `BASELINE_CALIBRATION_V3` run passed all controls: 316/316 identity,
+  2,845/2,845 parent-or-family retrieval, zero degenerate sets, known-near
+  SIMILAR at 0.25, known-far NEW at 0.60, and zero indexed children. Its valid
+  curve reaches 55.4657% band accuracy, 98.5088% monotonic-pair accuracy,
+  41.9533% exact wrong-parent rate, and 100% correct-family accuracy. The
+  self-hash is
+  `24177395f0adce7b89cea56f76090b44b1528db986fc53b81a532fe295078109`.
+  Full controls, hashes, and the comparison contract are in
+  `docs/BULLY_BASELINE_CALIBRATION_V3.md`.
 
 ## Verification discipline used for every phase
 
@@ -259,13 +292,14 @@ itself before writing any code.
 
 ## Next
 
-**Source-agnostic redesign / later calibration pass** — preserve the P7.3
-reference on the current four-sourcetype scope while addressing, in order, the
-91.3009% wrong-parent rate, the d=0/d=0.04 identity-band failure, the
-non-monotonic d=0.20/d=0.34 region, and response-axis sparsity/mismatch. Add at
+**Source-agnostic redesign / later calibration pass** — preserve the valid P7.4
+V3 reference on the current four-sourcetype scope while addressing the remaining
+41.9533% exact wrong-parent rate, mutation band-crossing errors, and
+response-axis sparsity. Correct-family accuracy is already 100%; exact-parent
+and family-aware metrics must remain separate. Add at
 least one genuinely new sourcetype and report it separately so it cannot dilute
 current-scope regressions. Any threshold or weight proposal must be developed on
-a different sweep and evaluated once against the frozen P7.3 corpus; never tune
+a different sweep and evaluated once against the frozen P7.4 corpus; never tune
 on this reference. Tool-call intake and any training/refinement remain deferred
 to the training pass.
 

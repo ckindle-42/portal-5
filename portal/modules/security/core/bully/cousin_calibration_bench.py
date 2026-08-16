@@ -27,6 +27,9 @@ CALIB_PARENT_SET_VERSION = "CALIB_PARENTS_V1"
 CALIB_SWEEP_VERSION = "CALIB_SWEEP_V1"
 BASELINE_CALIBRATION_V1 = "BASELINE_CALIBRATION_V1"
 BASELINE_CALIBRATION_V2 = "BASELINE_CALIBRATION_V2"
+BASELINE_CALIBRATION_V3 = "BASELINE_CALIBRATION_V3"
+RETRIEVAL_MIN_HIT_RATE = 0.60
+MAX_DEGENERATE_RETRIEVAL_RATE = 0.10
 
 # Frozen structural weights. This table is intentionally unrelated to
 # cousin_engine._WEIGHTS and construction_distance never calls the grader.
@@ -159,6 +162,13 @@ class BlindGrade:
     decomposition: dict[str, float | None]
     confidence: float
     reference_signature_id: str | None
+    semantic_query: str = ""
+    candidate_set_size: int = 0
+    candidate_ids: tuple[str, ...] = ()
+    parent_present_in_candidates: bool = False
+    family_parent_present_in_candidates: bool = False
+    reference_family: str = ""
+    measurement_valid: bool = True
 
 
 @dataclass(frozen=True)
@@ -174,6 +184,9 @@ class CalibrationReport:
     failures: dict[str, tuple[dict[str, Any], ...]]
     indeterminate: tuple[dict[str, Any], ...]
     calibration_proposal: dict[str, Any] | None
+    status: str = "VALID"
+    controls: dict[str, Any] = field(default_factory=dict)
+    instrument_health: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -195,6 +208,12 @@ class BlindCorpusVerdict:
     decomposition: dict[str, float | None]
     confidence: float
     reference_signature_id: str | None
+    semantic_query: str = ""
+    candidate_set_size: int = 0
+    candidate_ids: tuple[str, ...] = ()
+    candidate_families: tuple[str, ...] = ()
+    reference_family: str = ""
+    measurement_valid: bool = True
 
 
 @dataclass(frozen=True)
@@ -216,6 +235,12 @@ class BaselineCalibrationReport:
     characterization: dict[str, Any] = field(default_factory=dict)
     snapshot_hash: str | None = None
     reference_guard: dict[str, Any] = field(default_factory=dict)
+    status: str = "VALID"
+    controls: dict[str, Any] = field(default_factory=dict)
+    diagnosis: tuple[str, ...] = ()
+    instrument_health: dict[str, Any] = field(default_factory=dict)
+    oracle_independence_contract: dict[str, Any] = field(default_factory=dict)
+    x_axis_validity: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -370,23 +395,58 @@ def generate_variants(
 
 def parent_reference_record(parent: CalibrationParent) -> dict[str, Any]:
     scenario = parent.reference_scenario
+    episode_view = {"episode_id": parent.parent_id, "target_host": scenario["target_host"]}
+    telemetry_view = {
+        "action_sequence": list(scenario["red_order"]),
+        "event_graph": {"ordered": list(scenario["red_order"])},
+        "context_topology": {"family": parent.family, "target_host": scenario["target_host"]},
+        "attack_mappings": [
+            {"technique_id": technique_id} for technique_id in parent.technique_ids
+        ],
+        "telemetry_shape": {
+            "source": "calibration-scenario",
+            "target_host": scenario["target_host"],
+        },
+    }
+    signature = signatures.build_signature(episode_view, telemetry_view)
     return {
+        **signatures.reference_record_fields(signature),
         "record_id": parent.parent_id,
         "signature_id": parent.parent_id,
         "kind": "calibration_parent",
         "family": parent.family,
         "tactic": parent.family,
         "technique_ids": list(parent.technique_ids),
-        "action_sequence": list(scenario["red_order"]),
-        "behavior_sequence": " ".join(scenario["red_order"]),
-        "telemetry_shape": {
-            "source": "calibration-scenario",
-            "target_host": scenario["target_host"],
-        },
-        "context_topology": {"family": parent.family, "target_host": scenario["target_host"]},
         "covering_detection_id": parent.covering_detection_id,
         "relationship": "SAME",
         "detection_response": "COVERED",
+    }
+
+
+def _record_id(record: dict[str, Any]) -> str:
+    return str(record.get("record_id") or record.get("signature_id") or "")
+
+
+def _record_family(record: dict[str, Any]) -> str:
+    family = record.get("family") or (record.get("context_topology") or {}).get("family")
+    if family:
+        return str(family)
+    source_classes = (record.get("context_topology") or {}).get("source_classes") or ()
+    if isinstance(source_classes, str):
+        return source_classes
+    return "+".join(sorted(str(value) for value in source_classes if value))
+
+
+def _candidate_metadata(candidates: cousin_engine.CandidateSetReceipt) -> dict[str, Any]:
+    records = [item["record"] for item in candidates.candidates]
+    return {
+        "semantic_query": str(candidates.health.get("semantic_query") or ""),
+        "candidate_set_size": len(records),
+        "candidate_ids": tuple(_record_id(record) for record in records if _record_id(record)),
+        "candidate_families": tuple(
+            sorted({_record_family(record) for record in records if _record_family(record)})
+        ),
+        "measurement_valid": bool(records),
     }
 
 
@@ -394,12 +454,7 @@ def grade_blind(child: CalibrationVariant, snapshot: ReadOnlyKnnSnapshot) -> Bli
     """Real signature→snapshot.knn→candidate_set→grade path, without parent id."""
     before = snapshot.stats().get("row_count")
     signature = signatures.build_signature(child.episode_view, child.telemetry_view)
-    semantic_candidates = snapshot.knn(signature.canonical_fingerprint, k=8)
-    candidates = cousin_engine.candidate_set(
-        signature,
-        semantic_candidates=semantic_candidates,
-        health={"snapshot": "read-only"},
-    )
+    candidates = cousin_engine.retrieve_candidate_axes(signature, snapshot)
     coverage = cousin_engine.CoverageView(
         applicable_detection_ids=(child.covering_detection_id,),
         fired_detection_ids=() if child.discriminator_evasion else (child.covering_detection_id,),
@@ -410,6 +465,16 @@ def grade_blind(child: CalibrationVariant, snapshot: ReadOnlyKnnSnapshot) -> Bli
     after = snapshot.stats().get("row_count")
     if before != after:
         raise RuntimeError("read-only calibration snapshot changed while grading a child")
+    metadata = _candidate_metadata(candidates)
+    candidate_records = [item["record"] for item in candidates.candidates]
+    selected = next(
+        (
+            record
+            for record in candidate_records
+            if _record_id(record) == assessment.reference_signature_id
+        ),
+        {},
+    )
     return BlindGrade(
         variant=child,
         relationship=assessment.relationship,
@@ -418,6 +483,13 @@ def grade_blind(child: CalibrationVariant, snapshot: ReadOnlyKnnSnapshot) -> Bli
         decomposition=asdict(assessment.decomposition),
         confidence=assessment.confidence,
         reference_signature_id=assessment.reference_signature_id,
+        semantic_query=metadata["semantic_query"],
+        candidate_set_size=metadata["candidate_set_size"],
+        candidate_ids=metadata["candidate_ids"],
+        parent_present_in_candidates=child.parent_id in metadata["candidate_ids"],
+        family_parent_present_in_candidates=child.family in metadata["candidate_families"],
+        reference_family=_record_family(selected),
+        measurement_valid=metadata["measurement_valid"],
     )
 
 
@@ -426,12 +498,15 @@ def _curve_row(result: BlindGrade) -> dict[str, Any]:
     oracle, matched = evidence_presence(
         result.variant.model_visible_telemetry, discriminator["tokens"]
     )
-    if result.variant.discriminator_evasion and oracle == ABSENT:
+    detector_signal = set(result.variant.telemetry_view.get("detector_outcomes", {}).values())
+    if "fired" in detector_signal:
+        oracle_response = "COVERED"
+    elif detector_signal & {"partial", "missed"}:
         oracle_response = "NEAR_MISS"
     elif oracle == INDETERMINATE:
         oracle_response = "INDETERMINATE"
     else:
-        oracle_response = "COVERED"
+        oracle_response = "COVERED" if oracle != ABSENT else "NEAR_MISS"
     return {
         "variant_id": result.variant.variant_id,
         "parent_id": result.variant.parent_id,
@@ -444,15 +519,27 @@ def _curve_row(result: BlindGrade) -> dict[str, Any]:
         "oracle_response": oracle_response,
         "oracle_result": oracle,
         "matched_discriminators": matched,
+        "oracle_independence_established": bool(detector_signal),
+        "oracle_detector_signal": sorted(detector_signal),
         "discriminator_evasion": result.variant.discriminator_evasion,
         "negative_control": result.variant.negative_control,
         "confidence": round(result.confidence, 6),
         "reference_signature_id": result.reference_signature_id,
+        "reference_family": result.reference_family,
+        "semantic_query": result.semantic_query,
+        "candidate_set_size": result.candidate_set_size,
+        "parent_present_in_candidates": result.parent_present_in_candidates,
+        "family_parent_present_in_candidates": result.family_parent_present_in_candidates,
+        "measurement_valid": result.measurement_valid,
         **{f"distance_{key}": value for key, value in result.decomposition.items()},
     }
 
 
-def _proposal(rows: list[dict[str, Any]]) -> dict[str, Any]:
+def _propose_thresholds(
+    rows: list[dict[str, Any]], *, controls_passed: bool
+) -> dict[str, Any] | None:
+    if not controls_passed:
+        return None
     thresholds = cousin_engine.DEFAULT_THRESHOLDS
     same_observed = [
         row["graded_distance"]
@@ -496,8 +583,29 @@ def _proposal(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def score(
-    results: tuple[BlindGrade, ...], *, monotonic_tolerance: float = 0.05
+    results: tuple[BlindGrade, ...],
+    *,
+    monotonic_tolerance: float = 0.05,
+    controls: dict[str, Any] | None = None,
 ) -> CalibrationReport:
+    controls_passed = controls is None or bool(controls.get("passed"))
+    if not controls_passed:
+        return CalibrationReport(
+            passed=False,
+            policy_version=CALIB_DISTANCE_POLICY_VERSION,
+            parent_set_version=CALIB_PARENT_SET_VERSION,
+            parent_snapshot_hash=CALIB_PARENTS_V1_SNAPSHOT_HASH,
+            sweep_version=CALIB_SWEEP_VERSION,
+            thresholds_version=cousin_engine.THRESHOLDS_VERSION,
+            curve=(),
+            by_family={},
+            failures={},
+            indeterminate=(),
+            calibration_proposal=None,
+            status="INVALID",
+            controls=controls or {},
+            instrument_health=(controls or {}).get("retrieval_health", {}),
+        )
     rows = [_curve_row(result) for result in results]
     failures: dict[str, list[dict[str, Any]]] = {
         "mid_band_graded_new": [],
@@ -552,7 +660,23 @@ def score(
         by_family={key: tuple(value) for key, value in sorted(by_family.items())},
         failures={key: tuple(value) for key, value in failures.items()},
         indeterminate=tuple(indeterminate),
-        calibration_proposal=None if passed else _proposal(rows),
+        calibration_proposal=(
+            None if passed else _propose_thresholds(rows, controls_passed=controls_passed)
+        ),
+        controls=controls or {},
+        instrument_health={
+            "degenerate_retrieval_rate": _rate(
+                sum(row["candidate_set_size"] == 0 for row in rows), len(rows)
+            ),
+            "parent_or_family_candidate_rate": _rate(
+                sum(
+                    row["parent_present_in_candidates"]
+                    or row["family_parent_present_in_candidates"]
+                    for row in rows
+                ),
+                len(rows),
+            ),
+        },
     )
 
 
@@ -562,6 +686,8 @@ def write_artifacts(report: CalibrationReport, output_dir: Path) -> dict[str, st
     csv_path = output_dir / "calibration_curve.csv"
     plot_path = output_dir / "calibration_curve.svg"
     report_path.write_text(json.dumps(report.to_dict(), indent=2, sort_keys=True), encoding="utf-8")
+    if report.status == "INVALID":
+        return {"report": str(report_path)}
     rows = list(report.curve)
     with csv_path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]) if rows else [])
@@ -602,7 +728,8 @@ def run_bench(snapshot: ReadOnlyKnnSnapshot, output_dir: Path) -> CalibrationRep
     after = snapshot.stats().get("row_count")
     if before != after:
         raise RuntimeError("calibration children contaminated the Organ snapshot")
-    report = score(results)
+    controls = _calibration_controls(results, snapshot)
+    report = score(results, controls=controls)
     write_artifacts(report, output_dir)
     return report
 
@@ -623,14 +750,10 @@ def corpus_parent_reference_record(entry: dict[str, Any]) -> dict[str, Any]:
     view = entry["engine_view"]["telemetry_view"]
     signature = signatures.build_signature(engine_view["episode_view"], view)
     return {
+        **signatures.reference_record_fields(signature),
         "record_id": entry["specimen_id"],
         "signature_id": entry["specimen_id"],
         "kind": "specimen_parent",
-        "field_signature": signature.canonical_fingerprint,
-        "action_sequence": list(view.get("action_sequence") or []),
-        "telemetry_shape": dict(view.get("telemetry_shape") or {}),
-        "context_topology": dict(view.get("context_topology") or {}),
-        "attack_mappings": list(view.get("attack_mappings") or []),
         "relationship": "SAME",
         "detection_response": "INDETERMINATE",
         "trust_tier": entry["engine_view"].get("trust_tier"),
@@ -645,11 +768,7 @@ def grade_corpus_blind(
     signature = signatures.build_signature(
         engine_view["episode_view"], engine_view["telemetry_view"]
     )
-    candidates = cousin_engine.candidate_set(
-        signature,
-        semantic_candidates=snapshot.knn(signature.canonical_fingerprint, k=8),
-        health={"snapshot": "read-only"},
-    )
+    candidates = cousin_engine.retrieve_candidate_axes(signature, snapshot)
     outcomes = engine_view["telemetry_view"].get("detector_outcomes") or {}
     coverage = cousin_engine.CoverageView(
         applicable_detection_ids=tuple(sorted(outcomes)),
@@ -662,6 +781,15 @@ def grade_corpus_blind(
         telemetry_healthy=True,
     )
     assessment = cousin_engine.grade(signature, candidates, coverage)
+    metadata = _candidate_metadata(candidates)
+    selected = next(
+        (
+            item["record"]
+            for item in candidates.candidates
+            if _record_id(item["record"]) == assessment.reference_signature_id
+        ),
+        {},
+    )
     return BlindCorpusVerdict(
         specimen_id=specimen["specimen_id"],
         source_lane=specimen["source_lane"],
@@ -671,6 +799,12 @@ def grade_corpus_blind(
         decomposition=asdict(assessment.decomposition),
         confidence=assessment.confidence,
         reference_signature_id=assessment.reference_signature_id,
+        semantic_query=metadata["semantic_query"],
+        candidate_set_size=metadata["candidate_set_size"],
+        candidate_ids=metadata["candidate_ids"],
+        candidate_families=metadata["candidate_families"],
+        reference_family=_record_family(selected),
+        measurement_valid=metadata["measurement_valid"],
     )
 
 
@@ -683,18 +817,54 @@ def _visible_telemetry(corpus_dir: Path, specimen: dict[str, Any]) -> str:
     )
 
 
-def _oracle_response(telemetry: str, techniques: list[str]) -> tuple[str, dict[str, Any]]:
+def _oracle_response(
+    telemetry: str,
+    techniques: list[str],
+    detector_outcomes: dict[str, str] | None = None,
+) -> tuple[str, dict[str, Any]]:
     observations: dict[str, Any] = {}
     for technique_id in techniques:
         discriminator = technique_discriminators(technique_id)
         result, matched = evidence_presence(telemetry, discriminator["tokens"])
         observations[technique_id] = {"result": result, "matched": matched}
-    results = {value["result"] for value in observations.values()}
-    if not observations or INDETERMINATE in results:
-        return "INDETERMINATE", observations
-    if ABSENT in results:
+    detector_values = set((detector_outcomes or {}).values())
+    contract = {
+        "raw_evidence_source": "shipped evidence payload telemetry",
+        "forge_evasion_lever": "raw discriminator-token representation",
+        "independent_signal": "live detector outcomes",
+        "independence_established": bool(detector_values),
+        "detector_values": sorted(detector_values),
+    }
+    observations["_independence_contract"] = contract
+    if "fired" in detector_values:
+        return "COVERED", observations
+    if detector_values & {"partial", "missed"}:
         return "NEAR_MISS", observations
-    return "COVERED", observations
+    # Raw-token observations are retained for diagnosis, but they are not an
+    # independent oracle because the forge deliberately mutates those tokens.
+    return "INDETERMINATE", observations
+
+
+_FEATURE_EDIT_FIELDS = (
+    "action_sequence",
+    "event_graph",
+    "parameter_families",
+    "context_topology",
+    "artifacts",
+    "attack_mappings",
+    "telemetry_shape",
+)
+
+
+def signature_feature_edit_distance(
+    subject_view: dict[str, Any], reference_view: dict[str, Any]
+) -> float:
+    """Measure changed signature fields independently of forge operator weights."""
+    changed = sum(
+        _canonical(subject_view.get(field)) != _canonical(reference_view.get(field))
+        for field in _FEATURE_EDIT_FIELDS
+    )
+    return round(changed / len(_FEATURE_EDIT_FIELDS), 6)
 
 
 def _baseline_row(
@@ -703,9 +873,11 @@ def _baseline_row(
     specimen: dict[str, Any],
     truth: dict[str, Any],
     corpus_dir: Path,
+    parent_specimen: dict[str, Any] | None,
 ) -> dict[str, Any]:
+    outcomes = specimen["engine_view"]["telemetry_view"].get("detector_outcomes") or {}
     response, detail = _oracle_response(
-        _visible_telemetry(corpus_dir, specimen), truth["data_yml_techniques"]
+        _visible_telemetry(corpus_dir, specimen), truth["data_yml_techniques"], outcomes
     )
     source_classes = (
         specimen["engine_view"]["telemetry_view"]
@@ -713,6 +885,23 @@ def _baseline_row(
         .get("source_classes", [])
     )
     expected_relationship = _expected_relationship(float(truth["construction_distance"]))
+    expected_id = str(truth.get("parent_id") or specimen["specimen_id"])
+    expected_family = (
+        signatures.signature_family(
+            signatures.build_signature(
+                parent_specimen["engine_view"]["episode_view"],
+                parent_specimen["engine_view"]["telemetry_view"],
+            )
+        )
+        if parent_specimen
+        else ""
+    )
+    exact_parent_present = expected_id in verdict.candidate_ids
+    family_parent_present = bool(expected_family and expected_family in verdict.candidate_families)
+    measurement_valid = verdict.measurement_valid and (
+        exact_parent_present or family_parent_present
+    )
+    oracle_contract = detail.get("_independence_contract", {})
     return {
         "specimen_id": verdict.specimen_id,
         "source_lane": verdict.source_lane,
@@ -727,7 +916,23 @@ def _baseline_row(
         "oracle_detail": detail,
         "confidence": round(verdict.confidence, 6),
         "reference_signature_id": verdict.reference_signature_id,
+        "reference_family": verdict.reference_family,
         "scenario_family": source_classes[0] if len(source_classes) == 1 else "mixed_or_unknown",
+        "exact_parent_correct": verdict.reference_signature_id == expected_id,
+        "family_parent_correct": bool(
+            expected_family and verdict.reference_family == expected_family
+        ),
+        "candidate_set_size": verdict.candidate_set_size,
+        "true_parent_present_in_candidates": exact_parent_present,
+        "family_parent_present_in_candidates": family_parent_present,
+        "semantic_query": verdict.semantic_query,
+        "measurement_valid": measurement_valid,
+        "engine_verdict_counted": measurement_valid,
+        "oracle_independence_established": bool(oracle_contract.get("independence_established")),
+        "signature_feature_edit_distance": signature_feature_edit_distance(
+            specimen["engine_view"]["telemetry_view"],
+            parent_specimen["engine_view"]["telemetry_view"] if parent_specimen else {},
+        ),
         **{f"distance_{key}": value for key, value in verdict.decomposition.items()},
     }
 
@@ -740,6 +945,9 @@ def _classify_baseline_row(
 ) -> None:
     relationship, response = row["relationship"], row["grader_response"]
     distance = row["d_applied"]
+    if not row["measurement_valid"]:
+        failures["instrument_failure"].append(row)
+        return
     if relationship == "ANOMALOUS_UNCLASSIFIED":
         unresolved.append(row)
     if response == "INDETERMINATE" or row["oracle_response"] == "INDETERMINATE":
@@ -775,6 +983,226 @@ def _expected_relationship(distance: float) -> str:
     if distance <= thresholds["new_max_distance"]:
         return "NEW"
     return "DIFFERENT"
+
+
+def _known_near_far_controls() -> dict[str, Any]:
+    reference_episode = {"episode_id": "control-reference", "target_host": "control-host"}
+    reference_view = {
+        "action_sequence": ["alpha", "charlie"],
+        "event_graph": {"ordered": ["alpha", "charlie"]},
+        "context_topology": {"family": "control-family", "target_host": "control-host"},
+        "attack_mappings": [{"technique_id": "T1000"}],
+        "telemetry_shape": {"source": "control-a"},
+    }
+    reference_signature = signatures.build_signature(reference_episode, reference_view)
+    reference = {
+        **signatures.reference_record_fields(reference_signature),
+        "record_id": "control-reference",
+        "signature_id": "control-reference",
+    }
+
+    def classify(name: str, view: dict[str, Any], semantic_distance: float) -> dict[str, Any]:
+        subject = signatures.build_signature(
+            {"episode_id": f"control-{name}", "target_host": "control-host"}, view
+        )
+        receipt = cousin_engine.candidate_set(
+            subject, semantic_candidates=[(reference, semantic_distance)]
+        )
+        assessment = cousin_engine.grade(
+            subject,
+            receipt,
+            cousin_engine.CoverageView(
+                applicable_detection_ids=("control",), fired_detection_ids=("control",)
+            ),
+        )
+        return {
+            "relationship": assessment.relationship,
+            "distance": round(assessment.composite, 6),
+        }
+
+    near_view = {
+        **reference_view,
+        "action_sequence": ["alpha", "bravo"],
+        "event_graph": {"ordered": ["alpha", "bravo"]},
+    }
+    far_view = {
+        **reference_view,
+        "action_sequence": ["delta", "echo"],
+        "event_graph": {"ordered": ["delta", "echo"]},
+        "telemetry_shape": {"source": "control-b"},
+    }
+    near = classify("near", near_view, 0.2)
+    far = classify("far", far_view, 0.4)
+    return {
+        "passed": near["relationship"] == "SIMILAR" and far["relationship"] == "NEW",
+        "near": {**near, "expected": "SIMILAR"},
+        "far": {**far, "expected": "NEW"},
+    }
+
+
+def _retrieval_health(
+    rows: list[dict[str, Any]],
+    *,
+    parent_key: str,
+    family_key: str,
+) -> dict[str, Any]:
+    degenerate = sum(row["candidate_set_size"] == 0 for row in rows)
+    hits = sum(bool(row[parent_key] or row[family_key]) for row in rows)
+    hit_rate = _rate(hits, len(rows)) or 0.0
+    degenerate_rate = _rate(degenerate, len(rows)) or 0.0
+    return {
+        "passed": (
+            hit_rate >= RETRIEVAL_MIN_HIT_RATE and degenerate_rate <= MAX_DEGENERATE_RETRIEVAL_RATE
+        ),
+        "rows": len(rows),
+        "parent_or_family_hits": hits,
+        "parent_or_family_hit_rate": hit_rate,
+        "degenerate_candidate_sets": degenerate,
+        "degenerate_retrieval_rate": degenerate_rate,
+        "minimum_hit_rate": RETRIEVAL_MIN_HIT_RATE,
+        "maximum_degenerate_rate": MAX_DEGENERATE_RETRIEVAL_RATE,
+    }
+
+
+def _calibration_controls(
+    results: tuple[BlindGrade, ...], snapshot: ReadOnlyKnnSnapshot
+) -> dict[str, Any]:
+    rows = [
+        {
+            "candidate_set_size": result.candidate_set_size,
+            "parent": result.parent_present_in_candidates,
+            "family": result.family_parent_present_in_candidates,
+        }
+        for result in results
+    ]
+    retrieval = _retrieval_health(rows, parent_key="parent", family_key="family")
+    near_far = _known_near_far_controls()
+    identity_failures = []
+    for parent in CALIB_PARENTS_V1:
+        reference = parent_reference_record(parent)
+        signature = signatures.build_signature(
+            {
+                "episode_id": parent.parent_id,
+                "target_host": parent.reference_scenario["target_host"],
+            },
+            {
+                key: reference[key]
+                for key in (
+                    "action_sequence",
+                    "event_graph",
+                    "parameter_families",
+                    "context_topology",
+                    "artifacts",
+                    "attack_mappings",
+                    "telemetry_shape",
+                )
+            },
+        )
+        candidates = cousin_engine.candidate_set(signature, semantic_candidates=[(reference, 0.0)])
+        assessment = cousin_engine.grade(
+            signature,
+            candidates,
+            cousin_engine.CoverageView(
+                applicable_detection_ids=(parent.covering_detection_id,),
+                fired_detection_ids=(parent.covering_detection_id,),
+            ),
+        )
+        if (
+            assessment.relationship != "SAME"
+            or assessment.composite > cousin_engine.DEFAULT_THRESHOLDS["same_max_distance"]
+        ):
+            identity_failures.append(
+                {
+                    "parent_id": parent.parent_id,
+                    "relationship": assessment.relationship,
+                    "reference_signature_id": assessment.reference_signature_id,
+                    "distance": assessment.composite,
+                }
+            )
+    identity = {
+        "passed": not identity_failures,
+        "checked": len(CALIB_PARENTS_V1),
+        "failures": identity_failures,
+    }
+    return {
+        "passed": identity["passed"] and retrieval["passed"] and near_far["passed"],
+        "identity": identity,
+        "retrieval_health": retrieval,
+        "known_near_far": near_far,
+    }
+
+
+def _baseline_controls(
+    verdicts: tuple[BlindCorpusVerdict, ...],
+    *,
+    corpus: dict[str, Any],
+    ledger: SpecimenLedger,
+) -> dict[str, Any]:
+    specimens = {item["specimen_id"]: item for item in corpus["specimens"]}
+    truth_by_id = {record["specimen_id"]: record for record in ledger.records()}
+    rows: list[dict[str, Any]] = []
+    identity_failures: list[dict[str, Any]] = []
+    for verdict in verdicts:
+        truth = truth_by_id[verdict.specimen_id]
+        expected_id = str(truth.get("parent_id") or verdict.specimen_id)
+        parent = specimens.get(expected_id)
+        expected_family = ""
+        if parent:
+            expected_signature = signatures.build_signature(
+                parent["engine_view"]["episode_view"], parent["engine_view"]["telemetry_view"]
+            )
+            expected_family = signatures.signature_family(expected_signature)
+        exact_present = expected_id in verdict.candidate_ids
+        family_present = bool(expected_family and expected_family in verdict.candidate_families)
+        rows.append(
+            {
+                "candidate_set_size": verdict.candidate_set_size,
+                "parent": exact_present,
+                "family": family_present,
+            }
+        )
+        if truth.get("parent_id") is None:
+            signature = signatures.build_signature(
+                specimens[verdict.specimen_id]["engine_view"]["episode_view"],
+                specimens[verdict.specimen_id]["engine_view"]["telemetry_view"],
+            )
+            reference = corpus_parent_reference_record(specimens[verdict.specimen_id])
+            identity_assessment = cousin_engine.grade(
+                signature,
+                cousin_engine.candidate_set(signature, semantic_candidates=[(reference, 0.0)]),
+                cousin_engine.CoverageView(telemetry_healthy=True),
+            )
+            if (
+                identity_assessment.relationship != "SAME"
+                or identity_assessment.composite
+                > cousin_engine.DEFAULT_THRESHOLDS["same_max_distance"]
+            ):
+                identity_failures.append(
+                    {
+                        "specimen_id": verdict.specimen_id,
+                        "relationship": identity_assessment.relationship,
+                        "reference_signature_id": identity_assessment.reference_signature_id,
+                        "distance": identity_assessment.composite,
+                        "expected_max_distance": cousin_engine.DEFAULT_THRESHOLDS[
+                            "same_max_distance"
+                        ],
+                    }
+                )
+    identity = {
+        "passed": not identity_failures,
+        "checked": sum(
+            truth_by_id[verdict.specimen_id].get("parent_id") is None for verdict in verdicts
+        ),
+        "failures": identity_failures,
+    }
+    retrieval = _retrieval_health(rows, parent_key="parent", family_key="family")
+    near_far = _known_near_far_controls()
+    return {
+        "passed": identity["passed"] and retrieval["passed"] and near_far["passed"],
+        "identity": identity,
+        "retrieval_health": retrieval,
+        "known_near_far": near_far,
+    }
 
 
 def _rate(numerator: int, denominator: int) -> float | None:
@@ -820,17 +1248,22 @@ def _characterize_baseline(
     rows: list[dict[str, Any]],
     failures: dict[str, list[dict[str, Any]]],
 ) -> dict[str, Any]:
+    measured_rows = [row for row in rows if row["measurement_valid"]]
     band_hits = [
-        row for row in rows if row["relationship"] == _expected_relationship(row["d_applied"])
+        row
+        for row in measured_rows
+        if row["relationship"] == _expected_relationship(row["d_applied"])
     ]
     blind_spots = [
         row
-        for row in rows
+        for row in measured_rows
         if 0.05 < row["d_applied"] <= 0.40
         and row["relationship"] in {"NEW", "DIFFERENT", "ANOMALOUS_UNCLASSIFIED"}
     ]
-    overclaims = [row for row in rows if row["d_applied"] > 0.05 and row["relationship"] == "SAME"]
-    parent_rows = [row for row in rows if row["parent_id"]]
+    overclaims = [
+        row for row in measured_rows if row["d_applied"] > 0.05 and row["relationship"] == "SAME"
+    ]
+    parent_rows = [row for row in measured_rows if row["parent_id"]]
     wrong_parent = failures["wrong_parent"]
     comparable_pairs = 0
     by_parent: dict[str, list[dict[str, Any]]] = {}
@@ -839,15 +1272,31 @@ def _characterize_baseline(
     for grouped in by_parent.values():
         comparable_pairs += max(0, len(grouped) - 1)
 
-    per_lane = _lane_metrics(rows)
+    per_lane = _lane_metrics(measured_rows)
+    family_parent_correct = sum(row["family_parent_correct"] for row in parent_rows)
+    candidate_hits = sum(
+        row["true_parent_present_in_candidates"] or row["family_parent_present_in_candidates"]
+        for row in rows
+    )
     replay = per_lane["replay_mutation"]
     lab = per_lane["live_lab"]
+    band_delta = (
+        round(replay["band_crossing_accuracy"] - lab["band_crossing_accuracy"], 6)
+        if replay["band_crossing_accuracy"] is not None
+        and lab["band_crossing_accuracy"] is not None
+        else None
+    )
+    distance_delta = (
+        round(replay["mean_graded_distance"] - lab["mean_graded_distance"], 6)
+        if replay["mean_graded_distance"] is not None and lab["mean_graded_distance"] is not None
+        else None
+    )
     return {
         "published_thresholds": dict(cousin_engine.DEFAULT_THRESHOLDS),
         "band_crossing": {
             "correct": len(band_hits),
-            "rows": len(rows),
-            "accuracy": _rate(len(band_hits), len(rows)),
+            "rows": len(measured_rows),
+            "accuracy": _rate(len(band_hits), len(measured_rows)),
         },
         "monotonicity": {
             "comparable_pairs": comparable_pairs,
@@ -856,50 +1305,81 @@ def _characterize_baseline(
         },
         "blind_spots": {
             "count": len(blind_spots),
-            "rate": _rate(len(blind_spots), len(rows)),
+            "rate": _rate(len(blind_spots), len(measured_rows)),
         },
         "overclaims": {
             "count": len(overclaims),
-            "rate": _rate(len(overclaims), len(rows)),
+            "rate": _rate(len(overclaims), len(measured_rows)),
         },
         "wrong_parent": {
             "count": len(wrong_parent),
             "eligible_rows": len(parent_rows),
             "rate": _rate(len(wrong_parent), len(parent_rows)),
         },
+        "family_parent": {
+            "correct": family_parent_correct,
+            "eligible_rows": len(parent_rows),
+            "accuracy": _rate(family_parent_correct, len(parent_rows)),
+        },
+        "instrument_health": {
+            "measurement_valid_rows": len(measured_rows),
+            "measurement_invalid_rows": len(rows) - len(measured_rows),
+            "degenerate_retrieval_rate": _rate(
+                sum(row["candidate_set_size"] == 0 for row in rows), len(rows)
+            ),
+            "parent_or_family_candidate_rate": _rate(candidate_hits, len(rows)),
+        },
         "response_axis": {
-            "distribution": dict(sorted(Counter(row["grader_response"] for row in rows).items())),
+            "distribution": dict(
+                sorted(Counter(row["grader_response"] for row in measured_rows).items())
+            ),
             "oracle_distribution": dict(
-                sorted(Counter(row["oracle_response"] for row in rows).items())
+                sorted(Counter(row["oracle_response"] for row in measured_rows).items())
             ),
         },
         "per_lane": per_lane,
         "lane_comparison": {
             "replay_mutation_vs_live_lab": {
-                "band_accuracy_delta": (
-                    round(replay["band_crossing_accuracy"] - lab["band_crossing_accuracy"], 6)
-                    if replay["band_crossing_accuracy"] is not None
-                    and lab["band_crossing_accuracy"] is not None
-                    else None
-                ),
-                "mean_graded_distance_delta": (
-                    round(replay["mean_graded_distance"] - lab["mean_graded_distance"], 6)
-                    if replay["mean_graded_distance"] is not None
-                    and lab["mean_graded_distance"] is not None
-                    else None
-                ),
+                "band_accuracy_delta": band_delta,
+                "mean_graded_distance_delta": distance_delta,
             }
         },
     }
 
 
-def _baseline_reference_guard(is_v2: bool) -> dict[str, Any]:
-    if not is_v2:
+def _pearson(xs: list[float], ys: list[float]) -> float | None:
+    if len(xs) < 2 or len(xs) != len(ys):
+        return None
+    x_mean = sum(xs) / len(xs)
+    y_mean = sum(ys) / len(ys)
+    numerator = sum((x - x_mean) * (y - y_mean) for x, y in zip(xs, ys, strict=True))
+    x_mass = sum((x - x_mean) ** 2 for x in xs)
+    y_mass = sum((y - y_mean) ** 2 for y in ys)
+    denominator = (x_mass * y_mass) ** 0.5
+    return round(numerator / denominator, 6) if denominator else None
+
+
+def _x_axis_validity(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    xs = [float(row["d_applied"]) for row in rows]
+    ys = [float(row["signature_feature_edit_distance"]) for row in rows]
+    correlation = _pearson(xs, ys)
+    return {
+        "construction_proxy": "operator-weight construction distance",
+        "independent_measure": "unweighted signature-feature edit distance",
+        "rows": len(rows),
+        "pearson_correlation": correlation,
+        "correlated": correlation is not None and correlation > 0.0,
+    }
+
+
+def _baseline_reference_guard(is_v2: bool, controls_passed: bool) -> dict[str, Any]:
+    if not is_v2 or not controls_passed:
         return {}
     return {
         "immutable": True,
-        "designation": "source_agnostic_redesign_reference",
+        "designation": "first_trustworthy_redesign_reference",
         "acceptance": "match_or_beat",
+        "supersedes_invalid_reference": BASELINE_CALIBRATION_V2,
         "scope": [
             "windows:security",
             "linux:auditd",
@@ -916,9 +1396,11 @@ def score_baseline(
     corpus_dir: Path,
     ledger: SpecimenLedger,
     monotonic_tolerance: float = 0.05,
+    controls: dict[str, Any] | None = None,
 ) -> BaselineCalibrationReport:
     """Join sealed truth only after every blind verdict, then score the cold reading."""
     specimens = {item["specimen_id"]: item for item in corpus["specimens"]}
+    truth_by_id = {record["specimen_id"]: record for record in ledger.records()}
     rows: list[dict[str, Any]] = []
     failures: dict[str, list[dict[str, Any]]] = {
         "mid_distance_new_blind_spot": [],
@@ -926,33 +1408,48 @@ def score_baseline(
         "non_monotonic": [],
         "wrong_parent": [],
         "response_axis": [],
+        "instrument_failure": [],
     }
     unresolved: list[dict[str, Any]] = []
     indeterminate: list[dict[str, Any]] = []
     by_parent: dict[str, list[dict[str, Any]]] = {}
-    truth_by_id = {record["specimen_id"]: record for record in ledger.records()}
     for verdict in verdicts:
         truth = truth_by_id.get(verdict.specimen_id)
         if truth is None:
             raise ValueError(f"sealed truth missing for {verdict.specimen_id}")
+        parent_id = str(truth.get("parent_id") or verdict.specimen_id)
         row = _baseline_row(
             verdict,
             specimen=specimens[verdict.specimen_id],
             truth=truth,
             corpus_dir=corpus_dir,
+            parent_specimen=specimens.get(parent_id),
         )
         rows.append(row)
         _classify_baseline_row(row, failures, unresolved, indeterminate)
-        if row["parent_id"]:
+        if row["parent_id"] and row["measurement_valid"]:
             by_parent.setdefault(row["parent_id"], []).append(row)
-
     failures["non_monotonic"] = _find_non_monotonic(by_parent, monotonic_tolerance)
     passed = not any(failures.values()) and not unresolved and not indeterminate
     is_v2 = corpus["schema"] == "SPECIMEN_CORPUS_V2"
     characterization = _characterize_baseline(rows, failures) if is_v2 else {}
+    controls = controls or {"passed": True}
+    controls_passed = bool(controls.get("passed"))
+    if not controls_passed:
+        rows = []
+        failures = {key: [] for key in failures}
+        unresolved = []
+        indeterminate = []
+        characterization = {}
+    instrument_health = controls.get("retrieval_health", {})
+    diagnosis = tuple(
+        name
+        for name, result in controls.items()
+        if isinstance(result, dict) and not result.get("passed", True)
+    )
     report = BaselineCalibrationReport(
-        schema=BASELINE_CALIBRATION_V2 if is_v2 else BASELINE_CALIBRATION_V1,
-        passed=passed,
+        schema=BASELINE_CALIBRATION_V3 if is_v2 else BASELINE_CALIBRATION_V1,
+        passed=passed if controls_passed else False,
         corpus_snapshot_hash=corpus["snapshot_hash"],
         ledger_snapshot_hash=ledger.snapshot_hash(),
         thresholds_version=cousin_engine.THRESHOLDS_VERSION,
@@ -965,7 +1462,21 @@ def score_baseline(
         unresolved=tuple(unresolved),
         indeterminate=tuple(indeterminate),
         characterization=characterization,
-        reference_guard=_baseline_reference_guard(is_v2),
+        reference_guard=_baseline_reference_guard(is_v2, controls_passed),
+        status="VALID" if controls_passed else "INVALID",
+        controls=controls,
+        diagnosis=diagnosis,
+        instrument_health=instrument_health,
+        oracle_independence_contract={
+            "raw_evidence_source": "_visible_telemetry reads shipped evidence payload bytes",
+            "forge_evasion_lever": "discriminator-token representation in forged telemetry",
+            "independent_signal": "live detector outcomes from the episode query backend",
+            "rows_with_independent_signal": sum(
+                row["oracle_independence_established"] for row in rows
+            ),
+            "rows": len(rows),
+        },
+        x_axis_validity=_x_axis_validity(rows) if rows else {},
     )
     if not is_v2:
         return report
@@ -979,13 +1490,21 @@ def score_baseline(
 
 def write_baseline_artifacts(report: BaselineCalibrationReport, output_dir: Path) -> dict[str, str]:
     output_dir.mkdir(parents=True, exist_ok=True)
-    version = "v2" if report.schema == BASELINE_CALIBRATION_V2 else "v1"
+    version = {
+        BASELINE_CALIBRATION_V3: "v3",
+        BASELINE_CALIBRATION_V2: "v2",
+    }.get(report.schema, "v1")
     report_path = output_dir / f"baseline_calibration_{version}.json"
     compatibility_path = output_dir / "calibration_report.json"
     curve_path = output_dir / "baseline_calibration_curve.csv"
     payload = json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n"
     report_path.write_text(payload, encoding="utf-8")
     compatibility_path.write_text(payload, encoding="utf-8")
+    if report.status == "INVALID":
+        return {
+            "report": str(report_path),
+            "compatibility_report": str(compatibility_path),
+        }
     rows = list(report.curve)
     with curve_path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]) if rows else [])
@@ -1012,22 +1531,32 @@ def run_baseline_bench(
     before = snapshot.stats().get("row_count")
     prepare_knn = getattr(snapshot, "prepare_knn", None)
     if callable(prepare_knn):
-        queries = [
+        specimen_signatures = [
             signatures.build_signature(
                 specimen["engine_view"]["episode_view"],
                 specimen["engine_view"]["telemetry_view"],
-            ).canonical_fingerprint
+            )
             for specimen in corpus["specimens"]
         ]
-        prepare_knn(queries, k=8)
+        prepare_knn(
+            [
+                query
+                for signature in specimen_signatures
+                for query in cousin_engine.candidate_axis_queries(signature)
+            ],
+            k=8,
+            batch_size=16,
+        )
     verdicts = tuple(grade_corpus_blind(specimen, snapshot) for specimen in corpus["specimens"])
     if snapshot.stats().get("row_count") != before:
         raise RuntimeError("baseline specimens contaminated the Organ snapshot")
+    controls = _baseline_controls(verdicts, corpus=corpus, ledger=ledger)
     report = score_baseline(
         verdicts,
         corpus=corpus,
         corpus_dir=corpus_path.parent,
         ledger=ledger,
+        controls=controls,
     )
     write_baseline_artifacts(report, output_dir)
     return report

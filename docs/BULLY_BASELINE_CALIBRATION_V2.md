@@ -1,9 +1,13 @@
-# Defensive Bully `BASELINE_CALIBRATION_V2` reference
+# Defensive Bully `BASELINE_CALIBRATION_V2` provenance (invalid as reference)
 
-`BASELINE_CALIBRATION_V2` is the immutable cold-reading reference for the
-source-agnostic cousin-engine redesign. It is a characterization, so its
-`passed: false` records known engine weaknesses rather than a failed execution.
-The run applied no training, threshold tuning, or calibration proposal.
+`BASELINE_CALIBRATION_V2` is retained unchanged for provenance, but it is
+**invalid as a redesign reference**. The bench queried embeddings with SHA-256
+fingerprints, wired only the semantic candidate axis, and stripped ATT&CK
+mappings; it therefore measured broken retrieval rather than cousin-engine
+discrimination. Its trustworthy-looking curve must not be used for acceptance,
+tuning, or match-or-beat comparisons. The first valid replacement is
+`BASELINE_CALIBRATION_V3`, documented in
+`docs/BULLY_BASELINE_CALIBRATION_V3.md`.
 
 ## Frozen inputs and artifacts
 
@@ -29,14 +33,12 @@ null; it was independently recomputed after the run. The corpus contains 316
 attack-data parents, 2,528 replay mutations, and one live-lab cousin, all
 live-indexed.
 
-## Match-or-beat contract
+## Historical comparison table (void)
 
-A redesign comparison must grade the unchanged frozen corpus, join the unchanged
-sealed ledger only after all blind verdicts, and report the current four
-sourcetypes separately from every newly added sourcetype. On the existing scope
-it must meet all of these bounds:
+These values describe the invalid instrument reading only. They are not
+acceptance bounds:
 
-| Measure | Direction | P7.3 reference |
+| Measure | Direction | Invalid P7.3 reading |
 |---|---:|---:|
 | Band-crossing accuracy | at least | `0.467487` |
 | Monotonic-pair accuracy | at least | `0.750565` |
@@ -54,5 +56,5 @@ sourcetype is an additional acceptance dimension; its rows cannot be pooled into
 the denominator to hide a regression on Windows Security, Linux auditd, web
 access, or Docker daemon.
 
-No result may replace or re-bless this V2 reference. A later accepted baseline
-must use a new schema/version and cite this self-hash in its comparison record.
+No result may re-bless V2. V3 cites and supersedes it while retaining this file
+and its hashes as provenance.

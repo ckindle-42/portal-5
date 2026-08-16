@@ -37,7 +37,7 @@ from . import scoreboard as scoreboard_mod
 from . import signatures as signatures_mod
 from . import targeting as targeting_mod
 from .contracts import DecisionEvent, DecisionImpact, MutationPlan, new_id
-from .cousin_engine import CoverageView, candidate_set, grade
+from .cousin_engine import CoverageView, grade, retrieve_candidate_axes
 from .organ import Organ, OrganUnavailable
 from .store import IllegalTransitionError, Store
 
@@ -676,9 +676,9 @@ def _do_analyze(
     extra = {"playbook": playbook} if playbook else {}
     inv_result = investigation_arm(episode, models=models, dry_run=dry_run, **extra)
 
-    signature = signatures_mod.build_signature(episode_view, {"attack_mappings": []})
-    semantic_candidates = organ.knn(signature.canonical_fingerprint, k=8)
-    candidates = candidate_set(signature, semantic_candidates=semantic_candidates)
+    telemetry_view = evidence_mod.adapt_episode_telemetry(episode)
+    signature = signatures_mod.build_signature(episode_view, telemetry_view)
+    candidates = retrieve_candidate_axes(signature, organ)
     coverage = CoverageView(telemetry_healthy=True)
     assessment = grade(signature, candidates, coverage)
 
@@ -733,7 +733,7 @@ def _do_analyze(
                 explanation=f"P7 paired cutover proof for playbook_memory; mode={playbook_mode}",
             )
         )
-    return inv_result, assessment
+    return inv_result, assessment, signature
 
 
 def run_hunt_iteration(
@@ -850,7 +850,7 @@ def run_hunt_iteration(
 
     # ANALYZING -- investigation arm -> signature -> cousin grade -> BR-DRIFT.
     _stage("ANALYZING")
-    inv_result, assessment = _do_analyze(
+    inv_result, assessment, signature = _do_analyze(
         store,
         organ,
         hunt_id=hunt_id,
@@ -889,7 +889,9 @@ def run_hunt_iteration(
     _stage("PROMOTING")
     _stage("COMPOUNDING")
     org_record = {
+        **signatures_mod.reference_record_fields(signature),
         "kind": "cousin",
+        "signature_id": signature.signature_id,
         "hunt_id": hunt_id,
         "episode_id": episode_view["episode_id"],
         "subject": target_cell.get("subject", target_cell.get("cell_id")),

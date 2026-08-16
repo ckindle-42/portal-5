@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from portal.modules.security.core.bully.cousin_calibration_bench import (
-    BASELINE_CALIBRATION_V2,
+    BASELINE_CALIBRATION_V3,
     corpus_parent_reference_record,
     load_specimen_corpus,
     run_baseline_bench,
@@ -136,12 +136,13 @@ def test_v2_populates_real_opaque_outcomes_and_preserves_truth_wall(tmp_path):
         view = specimen["engine_view"]["telemetry_view"]
         assert set(view["detector_outcomes"].values()) <= {"fired", "partial", "missed"}
         assert all(key.startswith("detector-") for key in view["detector_outcomes"])
-        assert view["attack_mappings"] == []
+        if specimen["source_lane"] != "live_lab":
+            assert view["attack_mappings"] == [{"technique_id": "T1558.003"}]
 
     engine_payload = json.dumps(
         [specimen["engine_view"] for specimen in corpus["specimens"]], sort_keys=True
     )
-    assert "T1558.003" not in engine_payload
+    assert "T1558.003" in engine_payload
     assert "specimen_parent_id" not in engine_payload
     assert SpecimenLedger(tmp_path / "ledger").records()
 
@@ -253,8 +254,11 @@ def test_v2_baseline_is_hashed_and_characterizes_curve_lanes_and_response(tmp_pa
         for item in corpus["specimens"]
         if item["source_lane"] == "attack_data"
     ]
-    assert all("behavior_sequence" not in record for record in records)
-    assert all(record["field_signature"] in _canonical_record_text(record) for record in records)
+    assert all(record["behavior_sequence"] for record in records)
+    assert all(record["semantic_query"] in _canonical_record_text(record) for record in records)
+    assert all(
+        record["field_signature"] not in _canonical_record_text(record) for record in records
+    )
     report = run_baseline_bench(
         _ReadOnlySnapshot(records),
         corpus_path=corpus_path,
@@ -262,13 +266,16 @@ def test_v2_baseline_is_hashed_and_characterizes_curve_lanes_and_response(tmp_pa
         output_dir=tmp_path / "baseline",
     )
 
-    assert report.schema == BASELINE_CALIBRATION_V2
+    assert report.schema == BASELINE_CALIBRATION_V3
     assert report.corpus_snapshot_hash == built["snapshot_hash"]
     assert report.snapshot_hash and len(report.snapshot_hash) == 64
     assert report.reference_guard["immutable"] is True
     assert report.reference_guard["acceptance"] == "match_or_beat"
+    assert report.status == "VALID"
+    assert report.controls["passed"] is True
     characterization = report.characterization
-    assert characterization["band_crossing"]["rows"] == len(corpus["specimens"])
+    assert characterization["band_crossing"]["rows"] == len(corpus["specimens"]) - 1
+    assert characterization["instrument_health"]["measurement_invalid_rows"] == 1
     assert characterization["monotonicity"]["comparable_pairs"] > 0
     assert set(characterization["per_lane"]) == {
         "attack_data",
@@ -277,7 +284,6 @@ def test_v2_baseline_is_hashed_and_characterizes_curve_lanes_and_response(tmp_pa
     }
     assert characterization["response_axis"]["distribution"] == {
         "COVERED": len(corpus["specimens"]) - 1,
-        "INDETERMINATE": 1,
     }
     assert "replay_mutation_vs_live_lab" in characterization["lane_comparison"]
-    assert (tmp_path / "baseline" / "baseline_calibration_v2.json").exists()
+    assert (tmp_path / "baseline" / "baseline_calibration_v3.json").exists()

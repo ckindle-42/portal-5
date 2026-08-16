@@ -16,6 +16,7 @@ design explicitly rejects.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import time
@@ -34,6 +35,16 @@ PROJECTION_VERSION = "hunt-memory-v1"
 EMBEDDING_VERSION = "sentence-transformers-v1"
 TABLE_NAME = "hunt_memory"
 VECTOR_DIM = 1024
+_JSON_PROJECTION_FIELDS = {
+    "action_sequence",
+    "event_graph",
+    "parameter_families",
+    "context_topology",
+    "artifacts",
+    "attack_mappings",
+    "telemetry_shape",
+    "detector_outcomes",
+}
 
 
 class OrganUnavailable(RuntimeError):  # noqa: N818 -- exact name from FINAL_VALIDATION I2
@@ -43,11 +54,13 @@ class OrganUnavailable(RuntimeError):  # noqa: N818 -- exact name from FINAL_VAL
 def _canonical_record_text(record: dict[str, Any]) -> str:
     """Deterministic embed text (DATA_MODEL SS2): substantive fields only,
     no timestamps/ids (identity lives in metadata, not the embedded text)."""
+    semantic = str(record.get("semantic_query", ""))
     parts = [
         str(record.get("tactic", "")),
         " ".join(record.get("technique_ids") or []),
-        str(record.get("field_signature", "")),
-        str(record.get("behavior_sequence", "")),
+        semantic,
+        "" if semantic else str(record.get("field_signature", "")),
+        "" if semantic else str(record.get("behavior_sequence", "")),
         str(record.get("detection_response", "")),
         str(record.get("relationship", "")),
         str(record.get("rationale", "")),
@@ -66,6 +79,22 @@ def source_hash_for(record: dict[str, Any]) -> str:
     return hashlib.sha256(
         json.dumps(record, sort_keys=True, default=str).encode("utf-8")
     ).hexdigest()
+
+
+def _encode_projection_record(record: dict[str, Any]) -> dict[str, Any]:
+    encoded = dict(record)
+    for key in _JSON_PROJECTION_FIELDS & record.keys():
+        encoded[key] = json.dumps(record[key], sort_keys=True, default=str)
+    return encoded
+
+
+def _decode_projection_record(record: dict[str, Any]) -> dict[str, Any]:
+    decoded = dict(record)
+    for key in _JSON_PROJECTION_FIELDS & record.keys():
+        if isinstance(record[key], str):
+            with contextlib.suppress(json.JSONDecodeError):
+                decoded[key] = json.loads(record[key])
+    return decoded
 
 
 class Organ:
@@ -92,6 +121,7 @@ class Organ:
         self.embedding_version = embedding_version
         self._db = lancedb.connect(str(db_path))
         self._prepared_knn: dict[tuple[str, int], tuple[tuple[dict[str, Any], float], ...]] = {}
+        self._prepared_vectors: dict[str, list[float]] = {}
 
     def close(self) -> None:
         self._http.close()
@@ -153,14 +183,16 @@ class Organ:
 
         ingested_at = time.time()
         rows = [
-            {
-                **record,
-                "record_id": rid,
-                "text": text,
-                "vector": vectors_by_text[text],
-                "projection_version": self.projection_version,
-                "ingested_at": ingested_at,
-            }
+            _encode_projection_record(
+                {
+                    **record,
+                    "record_id": rid,
+                    "text": text,
+                    "vector": vectors_by_text[text],
+                    "projection_version": self.projection_version,
+                    "ingested_at": ingested_at,
+                }
+            )
             for rid, record, text in prepared
         ]
         table = self._table()
@@ -171,6 +203,7 @@ class Organ:
                 "record_id"
             ).when_matched_update_all().when_not_matched_insert_all().execute(rows)
         self._prepared_knn.clear()
+        self._prepared_vectors.clear()
         return ordered_ids
 
     @staticmethod
@@ -194,7 +227,12 @@ class Organ:
                 search = search.where(" AND ".join(clauses))
         rows = search.to_list()
         return [
-            ({key: value for key, value in row.items() if key != "_distance"}, row["_distance"])
+            (
+                _decode_projection_record(
+                    {key: value for key, value in row.items() if key != "_distance"}
+                ),
+                row["_distance"],
+            )
             for row in rows
         ]
 
@@ -218,6 +256,7 @@ class Organ:
                     f"embed service returned {len(vectors)} vectors for {len(batch)} inputs"
                 )
             for query, vector in zip(batch, vectors, strict=True):
+                self._prepared_vectors[query] = vector
                 self._prepared_knn[(query, k)] = tuple(self._search_table(table, vector, k))
         return len(missing)
 
@@ -230,7 +269,7 @@ class Organ:
         # empty result, but an unreachable embed service must surface as
         # OrganUnavailable even when there is nothing indexed yet -- recall
         # health is about the service, not about whether data exists.
-        vector = self._embed([query])[0]
+        vector = self._prepared_vectors.get(query) or self._embed([query])[0]
         return self._search_vector(vector, k, filters)
 
     # ── recall (mandatory pre-hunt) ──────────────────────────────────────

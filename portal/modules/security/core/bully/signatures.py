@@ -60,6 +60,104 @@ def _canonical_fingerprint(payload: dict[str, Any]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _semantic_tokens(value: Any) -> list[str]:
+    """Flatten a signature feature into stable, human-meaningful tokens."""
+    if isinstance(value, dict):
+        return [
+            token
+            for key in sorted(value)
+            for token in (str(key), *_semantic_tokens(value[key]))
+            if token
+        ]
+    if isinstance(value, (list, tuple, set)):
+        values = sorted(value, key=str) if isinstance(value, set) else value
+        return [token for item in values for token in _semantic_tokens(item)]
+    text = str(value or "").strip()
+    return [text] if text else []
+
+
+def signature_family(signature: BehaviorSignature) -> str:
+    """Return the stable scenario-family label carried by a signature."""
+    topology = signature.context_topology or {}
+    family = topology.get("family") or topology.get("scenario_family")
+    if family:
+        return str(family)
+    source_classes = topology.get("source_classes") or ()
+    if isinstance(source_classes, str):
+        return source_classes
+    return "+".join(sorted(str(value) for value in source_classes if value))
+
+
+def signature_family_from_record(record: dict[str, Any]) -> str:
+    family = record.get("family") or (record.get("context_topology") or {}).get("family")
+    if family:
+        return str(family)
+    source_classes = (record.get("context_topology") or {}).get("source_classes") or ()
+    if isinstance(source_classes, str):
+        return source_classes
+    return "+".join(sorted(str(value) for value in source_classes if value))
+
+
+def attack_ids(signature: BehaviorSignature) -> tuple[str, ...]:
+    """Return normalized ATT&CK ids without leaking the fingerprint hash."""
+    return tuple(
+        sorted(
+            {
+                str(mapping.get("technique_id"))
+                for mapping in signature.attack_mappings
+                if isinstance(mapping, dict) and mapping.get("technique_id")
+            }
+        )
+    )
+
+
+def event_graph_motif(signature: BehaviorSignature) -> str:
+    """Small semantic motif used by the fourth candidate-retrieval axis."""
+    graph = signature.event_graph or {}
+    ordered = graph.get("ordered") if isinstance(graph, dict) else None
+    tokens = _semantic_tokens(ordered if ordered else graph)
+    return " ".join(tokens[:12])
+
+
+def semantic_query(signature: BehaviorSignature) -> str:
+    """Serialize behavior for embedding retrieval.
+
+    The canonical fingerprint is an identity digest and deliberately never
+    appears here: cryptographic hashes have no useful embedding locality.
+    """
+    sections = (
+        ("actions", _semantic_tokens(signature.action_sequence)[:64]),
+        ("parameters", _semantic_tokens(signature.parameter_families)[:64]),
+        ("attack", list(attack_ids(signature))),
+        ("family", [signature_family(signature)] if signature_family(signature) else []),
+    )
+    query = " | ".join(f"{name}: {' '.join(tokens)}" for name, tokens in sections if tokens)
+    return query or "behavior: unclassified telemetry"
+
+
+def reference_record_fields(signature: BehaviorSignature) -> dict[str, Any]:
+    """Projection fields shared by index and grade representations."""
+    family = signature_family(signature)
+    techniques = list(attack_ids(signature))
+    motif = event_graph_motif(signature)
+    return {
+        "field_signature": signature.canonical_fingerprint,
+        "semantic_query": semantic_query(signature),
+        "family": family,
+        "attack_primary": techniques[0] if techniques else "",
+        "attack_ids_text": " ".join(techniques),
+        "event_graph_motif": motif,
+        "action_sequence": list(signature.action_sequence),
+        "behavior_sequence": " ".join(signature.action_sequence),
+        "event_graph": dict(signature.event_graph),
+        "parameter_families": dict(signature.parameter_families),
+        "telemetry_shape": dict(signature.telemetry_shape),
+        "context_topology": dict(signature.context_topology),
+        "artifacts": dict(signature.artifacts),
+        "attack_mappings": list(signature.attack_mappings),
+    }
+
+
 def build_signature(
     episode_view: dict[str, Any],
     telemetry_view: dict[str, Any] | None = None,
