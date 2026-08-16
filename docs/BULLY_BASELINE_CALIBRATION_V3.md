@@ -1,5 +1,18 @@
 # Defensive Bully `BASELINE_CALIBRATION_V3` reference
 
+**Superseded as the product metric (SA2, A3):** this document characterizes
+the forge/recognition lane (a real parent + a manufactured variant at a
+chosen construction distance), which SA2 reclassified as a
+regression/controls instrument, not the product. The `~0.554657`
+band-crossing accuracy below measures the recognition **floor**, not the
+unknown-cousin discovery **product** — the score is a near-fixed function of
+which of the 9 constructed rungs (8 `FROZEN_SWEEP` combinations + the `d=0`
+parent) a row came from, not of the specimen. See
+`docs/BULLY_BUILD_PROGRESS.md`'s `DISCOVERY_BASELINE_V1` entry for the first
+real-vs-real product measurement, and `cousin_calibration_bench.per_rung_band_accuracy`
+for the per-rung breakdown that replaces this aggregate as this lane's
+headline. Figures below are kept for history, not superseded in place.
+
 `BASELINE_CALIBRATION_V3` is the first trustworthy cold redesign reference.
 It uses semantic behavior queries, all four candidate axes, complete corpus
 ATT&CK mappings, and index/grade-symmetric signature records. Identity,
@@ -49,9 +62,17 @@ the other 2,448 rows are honestly INDETERMINATE rather than token-only labels.
 
 ## Cold characterization
 
+**Band-crossing accuracy is no longer this project's headline metric (SA2, A3)** —
+it is retained below for history and because it still gates the existing
+class-onboarding admit check. The forge lane's own headline is now the
+per-rung breakdown (`characterization.per_rung`): 8 `FROZEN_SWEEP` rungs +
+the `d=0` parent row, expected 2 SAME / 4 SIMILAR / 2 NEW / 1 DIFFERENT
+bands by construction. The aggregate below is a near-fixed function of that
+rung mix, not a discrimination score.
+
 | Measure | V3 reference |
 |---|---:|
-| Band-crossing accuracy | `0.554657` (`1,578 / 2,845`) |
+| Band-crossing accuracy (superseded headline, kept for history) | `0.554657` (`1,578 / 2,845`) |
 | Monotonic-pair accuracy | `0.985088` (`33` violations / `2,213` pairs) |
 | Mid-distance blind-spot rate | `0.000351` (`1 / 2,845`) |
 | Real-SAME overclaim rate | `0.000000` |

@@ -1253,6 +1253,44 @@ def _lane_metrics(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     return result
 
 
+CONSTRUCTION_CEILING_NOTE = (
+    "8 FROZEN_SWEEP rungs + the d=0 parent row -> expected bands 2 SAME / "
+    "4 SIMILAR / 2 NEW / 1 DIFFERENT by construction. The aggregate "
+    "~5/9 (0.5556) band-crossing accuracy this lane tends to land on is a "
+    "construction artifact of the rung/band mix, not a discrimination "
+    "score -- never a target to tune toward, and never the reported "
+    "product (SA2 A3: this lane is a regression/controls instrument; the "
+    "product metric is the real-vs-real discovery lane's joint "
+    "relationship x response outcome, see discovery_bench.py)."
+)
+
+
+def per_rung_band_accuracy(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """SA2.5 (A3): band-crossing accuracy broken out **per construction
+    rung** (`d_applied`), replacing relationship-only band accuracy as a
+    headline number for this (forge/recognition) lane. The forge stays a
+    cheap, deterministic regression/controls instrument -- it is not, and
+    is never reported as, the discovery-lane product metric."""
+    by_rung: dict[float, list[dict[str, Any]]] = {}
+    for row in rows:
+        by_rung.setdefault(row["d_applied"], []).append(row)
+    rungs = [
+        {
+            "d_applied": d_applied,
+            "rows": len(rung_rows),
+            "band_accuracy": _rate(
+                sum(row["band_crossing_correct"] for row in rung_rows), len(rung_rows)
+            ),
+        }
+        for d_applied, rung_rows in sorted(by_rung.items())
+    ]
+    return {
+        "instrument_role": "regression/controls instrument (A3) -- not the product metric",
+        "rungs": rungs,
+        "construction_ceiling_note": CONSTRUCTION_CEILING_NOTE,
+    }
+
+
 def _characterize_baseline(
     rows: list[dict[str, Any]],
     failures: dict[str, list[dict[str, Any]]],
@@ -1305,7 +1343,13 @@ def _characterize_baseline(
             "correct": len(band_hits),
             "rows": len(measured_rows),
             "accuracy": _rate(len(band_hits), len(measured_rows)),
+            "headline_note": (
+                "demoted (SA2 A3): this aggregate is retained for the existing "
+                "class-onboarding admit gate, never reported as the product "
+                "metric -- see per_rung for the current headline breakdown."
+            ),
         },
+        "per_rung": per_rung_band_accuracy(measured_rows),
         "monotonicity": {
             "comparable_pairs": comparable_pairs,
             "violations": len(failures["non_monotonic"]),
