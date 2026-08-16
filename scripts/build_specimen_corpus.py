@@ -261,7 +261,6 @@ def _normalized_outcome(value: Any) -> str | None:
 
 
 def _reported_detector_outcomes(query: dict[str, Any]) -> dict[str, str]:
-    """Read only explicit detector results carried by the live query response."""
     reported: dict[str, str] = {}
     for detector_id, value in (query.get("detector_outcomes") or {}).items():
         status = _normalized_outcome(value)
@@ -287,7 +286,6 @@ def _episode_detection_outcomes(
     backend: EpisodeDetectionBackend,
     episode_query: dict[str, Any] | None = None,
 ) -> tuple[dict[str, str], dict[str, Any]]:
-    """Observe real episode-scoped detector results without exposing scorer truth."""
     episode_id = entry["specimen_id"]
     host = entry["engine_view"]["episode_view"].get("target_host")
     window = {"earliest": "-24h", "latest": "now"}
@@ -386,8 +384,6 @@ def _replay_and_confirm_all(
     backend: EpisodeDetectionBackend,
     workers: int,
 ) -> dict[str, dict[str, Any]]:
-    """Ship independently, then require per-episode live index confirmation."""
-
     def replay(
         entry: dict[str, Any],
     ) -> tuple[str, dict[str, Any], dict[str, Any] | None]:
@@ -661,7 +657,6 @@ def _admission_census(
     *,
     example_limit: int = 5,
 ) -> dict[str, Any]:
-    """Persist a deterministic, reconcilable account of every catalog row."""
     admitted_set = set(admitted)
     eligible_set = set(eligible)
     buckets: dict[str, list[dict[str, str]]] = {reason: [] for reason in _CENSUS_REASONS}
@@ -694,6 +689,73 @@ def _admission_census(
     }
 
 
+def _eligible_catalog(
+    catalog: list[corpus_ingest.ManifestDataset], max_parents: int
+) -> tuple[list[corpus_ingest.ManifestDataset], list[corpus_ingest.ManifestDataset]]:
+    if max_parents < 0:
+        raise ValueError("max_parents must be zero (unlimited) or positive")
+    eligible = [
+        item
+        for item in catalog
+        if item.path.is_file()
+        and item.techniques
+        and item.mapped_sourcetype in corpus_ingest.INGESTED_SOURCETYPES
+        and not corpus_ingest.is_lfs_pointer(item.path)
+    ]
+    admitted = eligible[:max_parents] if max_parents else list(eligible)
+    return eligible, admitted
+
+
+def _freeze_corpus(
+    *,
+    corpus_schema: str,
+    entries: list[dict[str, Any]],
+    ledger: SpecimenLedger,
+    catalog: list[corpus_ingest.ManifestDataset],
+    admitted: list[corpus_ingest.ManifestDataset],
+    eligible: list[corpus_ingest.ManifestDataset],
+    attack_data_root: Path,
+    response_observation_counts: dict[str, int] | None,
+    output_dir: Path,
+) -> dict[str, Any]:
+    per_lane = {
+        lane: sum(entry["source_lane"] == lane for entry in entries)
+        for lane in ("attack_data", "replay_mutation", "live_lab")
+    }
+    corpus = {
+        "schema": corpus_schema,
+        "snapshot_hash": hashlib.sha256(_canonical(entries).encode()).hexdigest(),
+        "ledger_snapshot_hash": ledger.snapshot_hash(),
+        "per_lane_counts": per_lane,
+        "complete": all(per_lane.values()),
+        "coverage_report": {
+            "catalog_datasets": len(catalog),
+            "admitted_parents": per_lane["attack_data"],
+            "excluded": _exclusions(catalog, admitted, eligible, attack_data_root),
+        },
+        "admission_census": _admission_census(catalog, admitted, eligible, attack_data_root),
+        "specimens": entries,
+    }
+    if corpus_schema == SPECIMEN_CORPUS_V2:
+        corpus.update(
+            {
+                "execution_mode": "live_indexed",
+                "detector_outcome_policy_version": DETECTOR_OUTCOME_POLICY_V1,
+                "response_observation_counts": response_observation_counts,
+            }
+        )
+    output_dir.mkdir(parents=True, exist_ok=True)
+    filename = (
+        "specimen_corpus_v2.json"
+        if corpus_schema == SPECIMEN_CORPUS_V2
+        else "specimen_corpus_v1.json"
+    )
+    (output_dir / filename).write_text(
+        json.dumps(corpus, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return corpus
+
+
 def build_corpus(
     *,
     attack_data_root: Path,
@@ -709,22 +771,10 @@ def build_corpus(
     query_workers: int = 1,
     live_index_confirmation: frozenset[str] | None = None,
 ) -> dict[str, Any]:
-    if max_parents < 0:
-        raise ValueError("max_parents must be zero (unlimited) or positive")
     ledger = SpecimenLedger(ledger_root)
     evidence_dir = output_dir / "evidence"
     catalog = corpus_ingest.load_manifest_catalog(attack_data_root)
-    eligible = [
-        item
-        for item in catalog
-        if item.path.is_file()
-        and item.techniques
-        and item.mapped_sourcetype in corpus_ingest.INGESTED_SOURCETYPES
-        and not corpus_ingest.is_lfs_pointer(item.path)
-    ]
-    admitted = list(eligible)
-    if max_parents:
-        admitted = admitted[:max_parents]
+    eligible, admitted = _eligible_catalog(catalog, max_parents)
 
     deferred_replay = ship and replay_workers > 1
     entries = _parent_entries(
@@ -775,43 +825,17 @@ def build_corpus(
         )
     elif corpus_schema != SPECIMEN_CORPUS_V1:
         raise ValueError(f"unsupported specimen corpus schema: {corpus_schema}")
-    snapshot_hash = hashlib.sha256(_canonical(entries).encode()).hexdigest()
-    per_lane = {
-        lane: sum(entry["source_lane"] == lane for entry in entries)
-        for lane in ("attack_data", "replay_mutation", "live_lab")
-    }
-    corpus = {
-        "schema": corpus_schema,
-        "snapshot_hash": snapshot_hash,
-        "ledger_snapshot_hash": ledger.snapshot_hash(),
-        "per_lane_counts": per_lane,
-        "complete": all(per_lane.values()),
-        "coverage_report": {
-            "catalog_datasets": len(catalog),
-            "admitted_parents": per_lane["attack_data"],
-            "excluded": _exclusions(catalog, admitted, eligible, attack_data_root),
-        },
-        "admission_census": _admission_census(catalog, admitted, eligible, attack_data_root),
-        "specimens": entries,
-    }
-    if corpus_schema == SPECIMEN_CORPUS_V2:
-        corpus.update(
-            {
-                "execution_mode": "live_indexed",
-                "detector_outcome_policy_version": DETECTOR_OUTCOME_POLICY_V1,
-                "response_observation_counts": response_observation_counts,
-            }
-        )
-    output_dir.mkdir(parents=True, exist_ok=True)
-    filename = (
-        "specimen_corpus_v2.json"
-        if corpus_schema == SPECIMEN_CORPUS_V2
-        else "specimen_corpus_v1.json"
+    return _freeze_corpus(
+        corpus_schema=corpus_schema,
+        entries=entries,
+        ledger=ledger,
+        catalog=catalog,
+        admitted=admitted,
+        eligible=eligible,
+        attack_data_root=attack_data_root,
+        response_observation_counts=response_observation_counts,
+        output_dir=output_dir,
     )
-    (output_dir / filename).write_text(
-        json.dumps(corpus, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
-    return corpus
 
 
 def build_corpus_v2(
@@ -828,7 +852,6 @@ def build_corpus_v2(
     query_workers: int = 1,
     live_index_confirmation: frozenset[str] | None = None,
 ) -> dict[str, Any]:
-    """Build the response-axis-live, immutable V2 reference corpus."""
     if not ship and detector_backend is None:
         raise ValueError("V2 requires --ship or an injected real-query fixture")
     return build_corpus(

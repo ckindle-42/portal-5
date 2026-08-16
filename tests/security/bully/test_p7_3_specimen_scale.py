@@ -1,5 +1,3 @@
-"""P7.3 scaled corpus and real response-axis contracts."""
-
 from __future__ import annotations
 
 import json

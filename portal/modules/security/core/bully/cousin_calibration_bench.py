@@ -893,6 +893,22 @@ def _characterize_baseline(
     }
 
 
+def _baseline_reference_guard(is_v2: bool) -> dict[str, Any]:
+    if not is_v2:
+        return {}
+    return {
+        "immutable": True,
+        "designation": "source_agnostic_redesign_reference",
+        "acceptance": "match_or_beat",
+        "scope": [
+            "windows:security",
+            "linux:auditd",
+            "web:access",
+            "docker:daemon",
+        ],
+    }
+
+
 def score_baseline(
     verdicts: tuple[BlindCorpusVerdict, ...],
     *,
@@ -934,21 +950,6 @@ def score_baseline(
     passed = not any(failures.values()) and not unresolved and not indeterminate
     is_v2 = corpus["schema"] == "SPECIMEN_CORPUS_V2"
     characterization = _characterize_baseline(rows, failures) if is_v2 else {}
-    reference_guard = (
-        {
-            "immutable": True,
-            "designation": "source_agnostic_redesign_reference",
-            "acceptance": "match_or_beat",
-            "scope": [
-                "windows:security",
-                "linux:auditd",
-                "web:access",
-                "docker:daemon",
-            ],
-        }
-        if is_v2
-        else {}
-    )
     report = BaselineCalibrationReport(
         schema=BASELINE_CALIBRATION_V2 if is_v2 else BASELINE_CALIBRATION_V1,
         passed=passed,
@@ -964,7 +965,7 @@ def score_baseline(
         unresolved=tuple(unresolved),
         indeterminate=tuple(indeterminate),
         characterization=characterization,
-        reference_guard=reference_guard,
+        reference_guard=_baseline_reference_guard(is_v2),
     )
     if not is_v2:
         return report

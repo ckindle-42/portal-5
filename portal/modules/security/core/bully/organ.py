@@ -126,19 +126,11 @@ class Organ:
         return self.upsert_many([record], batch_size=1)[0]
 
     def upsert_many(self, records: list[dict[str, Any]], *, batch_size: int = 8) -> list[str]:
-        """Embed and upsert a bounded batch without changing row semantics.
-
-        This is primarily useful when constructing an isolated evaluation
-        snapshot. Production outbox processing continues to acknowledge each
-        record independently through :meth:`upsert`.
-        """
         if batch_size <= 0:
             raise ValueError("batch_size must be positive")
         if not records:
             return []
 
-        # A merge source must contain at most one row for each key. Preserve
-        # first-seen order while applying normal upsert last-write-wins behavior.
         ordered_ids: list[str] = []
         by_id: dict[str, dict[str, Any]] = {}
         for record in records:
@@ -212,11 +204,6 @@ class Organ:
         return self._search_table(self._table(), vector, k, filters)
 
     def prepare_knn(self, queries: list[str], *, k: int, batch_size: int = 8) -> int:
-        """Precompute unfiltered KNN reads for an immutable snapshot.
-
-        Embeddings are requested in bounded batches, while each LanceDB search
-        remains identical to :meth:`knn`. The cache is invalidated by any upsert.
-        """
         if batch_size <= 0:
             raise ValueError("batch_size must be positive")
         missing = list(
