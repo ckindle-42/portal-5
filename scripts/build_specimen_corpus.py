@@ -10,7 +10,7 @@ import re
 import sys
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
@@ -28,8 +28,13 @@ from portal.modules.security.core.bully.specimen_ledger import (
     SpecimenLedger,
     SpecimenRecord,
 )
-from portal.modules.security.core.recall_attribution import technique_discriminators
+from portal.modules.security.core.recall_attribution import (
+    evidence_presence,
+    technique_discriminators,
+)
 from portal.modules.security.core.siem import capture_store
+from portal.modules.security.core.siem.spl_backend import SplunkBackend
+from portal.modules.security.core.siem.spl_detections import spl_for
 from portal.modules.security.core.telemetry import (
     IMPORTED_OBSERVED,
     IMPORTED_OBSERVED_TRUST_TIER,
@@ -38,8 +43,30 @@ from portal.modules.security.core.telemetry import (
 from scripts import corpus_ingest
 
 SPECIMEN_CORPUS_V1 = "SPECIMEN_CORPUS_V1"
+SPECIMEN_CORPUS_V2 = "SPECIMEN_CORPUS_V2"
+DETECTOR_OUTCOME_POLICY_V1 = "DETECTOR_OUTCOME_POLICY_V1"
 _EVENT_CODE = re.compile(r"(?:EventCode|EventID)\s*[=:]\s*([A-Za-z0-9_.-]+)")
 _OBSERVED_FIELD = re.compile(r"(?:Name=['\"]|\b)([A-Za-z][A-Za-z0-9_.-]+)(?:['\"]|)\s*[=>]")
+
+
+class EpisodeDetectionBackend(Protocol):
+    def query_episode(
+        self,
+        window: dict[str, str],
+        *,
+        episode_id: str,
+        host: str | None = None,
+        limit: int = 500,
+    ) -> dict[str, Any]: ...
+
+    def query_freeform(
+        self,
+        spl: str,
+        window: dict[str, str],
+        *,
+        episode_id: str,
+        host: str | None = None,
+    ) -> dict[str, Any]: ...
 
 
 def _canonical(value: Any) -> str:
@@ -191,6 +218,154 @@ def _entry(
         "engine_view": engine_view,
         "evidence_ref": evidence_path.name,
     }
+
+
+def _opaque_detector_id(detector_id: str) -> str:
+    digest = hashlib.sha256(f"bully-specimen-detector:{detector_id}".encode()).hexdigest()
+    return f"detector-{digest[:16]}"
+
+
+def _normalized_outcome(value: Any) -> str | None:
+    if isinstance(value, dict):
+        if value.get("fired") is True:
+            return "fired"
+        if value.get("partial") is True:
+            return "partial"
+        value = value.get("status") or value.get("outcome")
+    if value is True:
+        return "fired"
+    if value is False:
+        return "missed"
+    normalized = str(value or "").strip().lower().replace("-", "_")
+    return {
+        "covered": "fired",
+        "fired": "fired",
+        "true_positive": "fired",
+        "near_miss": "partial",
+        "partial": "partial",
+        "missed": "missed",
+        "not_fired": "missed",
+        "false_negative": "missed",
+    }.get(normalized)
+
+
+def _reported_detector_outcomes(query: dict[str, Any]) -> dict[str, str]:
+    """Read only explicit detector results carried by the live query response."""
+    reported: dict[str, str] = {}
+    for detector_id, value in (query.get("detector_outcomes") or {}).items():
+        status = _normalized_outcome(value)
+        if status:
+            reported[_opaque_detector_id(str(detector_id))] = status
+    for row in query.get("rows") or ():
+        fields = row.get("fields") or {}
+        detector_id = fields.get("detection_id") or fields.get("detector_id")
+        status = _normalized_outcome(
+            fields.get("detection_status")
+            or fields.get("detector_status")
+            or fields.get("outcome")
+            or fields.get("fired")
+        )
+        if detector_id and status:
+            reported[_opaque_detector_id(str(detector_id))] = status
+    return reported
+
+
+def _episode_detection_outcomes(
+    entry: dict[str, Any],
+    truth: dict[str, Any],
+    backend: EpisodeDetectionBackend,
+) -> tuple[dict[str, str], dict[str, Any]]:
+    """Observe real episode-scoped detector results without exposing scorer truth."""
+    episode_id = entry["specimen_id"]
+    host = entry["engine_view"]["episode_view"].get("target_host")
+    window = {"earliest": "-15m", "latest": "now"}
+    episode_query = backend.query_episode(
+        window,
+        episode_id=episode_id,
+        host=host,
+        limit=500,
+    )
+    provenance = {
+        "backend": episode_query.get("backend"),
+        "source": episode_query.get("source"),
+        "row_count": len(episode_query.get("rows") or ()),
+        "query_error": episode_query.get("error"),
+    }
+    if episode_query.get("error"):
+        return {}, provenance
+
+    outcomes = _reported_detector_outcomes(episode_query)
+    telemetry = str(episode_query.get("telemetry") or "")
+    sourcetypes = (
+        entry["engine_view"]["telemetry_view"].get("telemetry_shape", {}).get("sourcetypes", ())
+    )
+    source = str(sourcetypes[0]) if len(sourcetypes) == 1 else ""
+    query_freeform = getattr(backend, "query_freeform", None)
+    for technique_id in truth.get("data_yml_techniques") or ():
+        detection_spl = spl_for(str(technique_id), source=source)
+        if not detection_spl:
+            continue
+        detector_id = _opaque_detector_id(str(technique_id))
+        if detector_id in outcomes:
+            continue
+        detection_query = (
+            query_freeform(
+                detection_spl,
+                window,
+                episode_id=episode_id,
+                host=host,
+            )
+            if callable(query_freeform)
+            else None
+        )
+        if detection_query and not detection_query.get("error"):
+            if detection_query.get("rows"):
+                outcomes[detector_id] = "fired"
+                continue
+            discriminator = technique_discriminators(str(technique_id))
+            _presence, matched = evidence_presence(telemetry, discriminator["tokens"])
+            outcomes[detector_id] = "partial" if matched else "missed"
+            continue
+        discriminator = technique_discriminators(str(technique_id))
+        presence, matched = evidence_presence(telemetry, discriminator["tokens"])
+        if presence == "PRESENT":
+            outcomes[detector_id] = "fired"
+        elif matched:
+            outcomes[detector_id] = "partial"
+        elif presence == "ABSENT":
+            outcomes[detector_id] = "missed"
+    return dict(sorted(outcomes.items())), provenance
+
+
+def _populate_real_detector_outcomes(
+    entries: list[dict[str, Any]],
+    *,
+    ledger: SpecimenLedger,
+    backend: EpisodeDetectionBackend,
+) -> dict[str, int]:
+    counts = {"fired": 0, "partial": 0, "missed": 0, "indeterminate": 0}
+    for entry in entries:
+        truth = ledger.truth_for(entry["specimen_id"])
+        if truth is None:
+            raise ValueError(f"sealed truth missing for {entry['specimen_id']}")
+        outcomes, provenance = _episode_detection_outcomes(entry, truth, backend)
+        telemetry_view = entry["engine_view"]["telemetry_view"]
+        telemetry_view["attack_mappings"] = []
+        telemetry_view["detector_outcomes"] = outcomes
+        entry["execution_mode"] = "live_indexed"
+        entry["detector_observation"] = {
+            "policy_version": DETECTOR_OUTCOME_POLICY_V1,
+            **provenance,
+        }
+        response_status = "indeterminate"
+        if "fired" in outcomes.values():
+            response_status = "fired"
+        elif "partial" in outcomes.values():
+            response_status = "partial"
+        elif outcomes:
+            response_status = "missed"
+        counts[response_status] += 1
+    return counts
 
 
 def _live_lab_entry(
@@ -432,6 +607,8 @@ def build_corpus(
     event_limit: int = 32,
     max_parents: int = 0,
     ship: bool = False,
+    corpus_schema: str = SPECIMEN_CORPUS_V1,
+    detector_backend: EpisodeDetectionBackend | None = None,
 ) -> dict[str, Any]:
     if max_parents < 0:
         raise ValueError("max_parents must be zero (unlimited) or positive")
@@ -463,13 +640,24 @@ def build_corpus(
             _live_lab_entry(capture, ledger=ledger, evidence_dir=evidence_dir, ship=ship)
         )
     entries.sort(key=lambda item: (item["source_lane"], item["specimen_id"]))
+    response_observation_counts = None
+    if corpus_schema == SPECIMEN_CORPUS_V2:
+        if detector_backend is None:
+            raise ValueError("SPECIMEN_CORPUS_V2 requires a live detector backend")
+        response_observation_counts = _populate_real_detector_outcomes(
+            entries,
+            ledger=ledger,
+            backend=detector_backend,
+        )
+    elif corpus_schema != SPECIMEN_CORPUS_V1:
+        raise ValueError(f"unsupported specimen corpus schema: {corpus_schema}")
     snapshot_hash = hashlib.sha256(_canonical(entries).encode()).hexdigest()
     per_lane = {
         lane: sum(entry["source_lane"] == lane for entry in entries)
         for lane in ("attack_data", "replay_mutation", "live_lab")
     }
     corpus = {
-        "schema": SPECIMEN_CORPUS_V1,
+        "schema": corpus_schema,
         "snapshot_hash": snapshot_hash,
         "ledger_snapshot_hash": ledger.snapshot_hash(),
         "per_lane_counts": per_lane,
@@ -482,11 +670,51 @@ def build_corpus(
         "admission_census": _admission_census(catalog, admitted, eligible, attack_data_root),
         "specimens": entries,
     }
+    if corpus_schema == SPECIMEN_CORPUS_V2:
+        corpus.update(
+            {
+                "execution_mode": "live_indexed",
+                "detector_outcome_policy_version": DETECTOR_OUTCOME_POLICY_V1,
+                "response_observation_counts": response_observation_counts,
+            }
+        )
     output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "specimen_corpus_v1.json").write_text(
+    filename = (
+        "specimen_corpus_v2.json"
+        if corpus_schema == SPECIMEN_CORPUS_V2
+        else "specimen_corpus_v1.json"
+    )
+    (output_dir / filename).write_text(
         json.dumps(corpus, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     return corpus
+
+
+def build_corpus_v2(
+    *,
+    attack_data_root: Path,
+    output_dir: Path,
+    ledger_root: Path,
+    live_lab_captures: tuple[Path, ...] = (),
+    event_limit: int = 32,
+    max_parents: int = 0,
+    ship: bool = True,
+    detector_backend: EpisodeDetectionBackend | None = None,
+) -> dict[str, Any]:
+    """Build the response-axis-live, immutable V2 reference corpus."""
+    if not ship and detector_backend is None:
+        raise ValueError("V2 requires --ship or an injected real-query fixture")
+    return build_corpus(
+        attack_data_root=attack_data_root,
+        output_dir=output_dir,
+        ledger_root=ledger_root,
+        live_lab_captures=live_lab_captures,
+        event_limit=event_limit,
+        max_parents=max_parents,
+        ship=ship,
+        corpus_schema=SPECIMEN_CORPUS_V2,
+        detector_backend=detector_backend or SplunkBackend(),
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -498,10 +726,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--event-limit", type=int, default=32)
     parser.add_argument("--max-parents", type=int, default=0)
     parser.add_argument("--ship", action="store_true")
+    parser.add_argument(
+        "--schema-version",
+        choices=("1", "2"),
+        default="2",
+        help="artifact version to build (default: response-axis-live V2)",
+    )
     args = parser.parse_args(argv)
-    output_dir = args.output_dir or config.hunt_dir() / "artifacts" / "specimen_corpus_v1"
+    default_corpus_dir = f"specimen_corpus_v{args.schema_version}"
+    output_dir = args.output_dir or config.hunt_dir() / "artifacts" / default_corpus_dir
     ledger_root = args.ledger_root or config.hunt_dir() / "specimens"
-    corpus = build_corpus(
+    build = build_corpus_v2 if args.schema_version == "2" else build_corpus
+    corpus = build(
         attack_data_root=args.attack_data_root,
         output_dir=output_dir,
         ledger_root=ledger_root,
