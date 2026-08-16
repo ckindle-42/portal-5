@@ -8,6 +8,7 @@ import hashlib
 import json
 import re
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Protocol
@@ -117,22 +118,30 @@ def _telemetry_view(telemetry: dict[str, list[dict | str]]) -> dict[str, Any]:
     }
 
 
-def _read_parent(dataset: corpus_ingest.ManifestDataset, *, event_limit: int) -> dict[str, Any]:
+def _read_parent(
+    dataset: corpus_ingest.ManifestDataset,
+    *,
+    event_limit: int,
+    attack_data_root: Path,
+) -> dict[str, Any]:
     events: list[dict | str] = []
     for line in corpus_ingest.iter_events_text(dataset.path):
         event = corpus_ingest.coerce(line)
         if dataset.mapped_sourcetype.startswith("windows:"):
-            event = (
+            flattened = (
                 corpus_ingest.windows_kv(event)
                 if isinstance(event, dict)
-                else corpus_ingest.windows_xml_kv(str(event)) or event
+                else corpus_ingest.windows_xml_kv(str(event))
             )
+            event = flattened if flattened is not None else event
         events.append(event)
         if len(events) >= event_limit:
             break
     telemetry = {dataset.mapped_sourcetype: events}
     content_hash = hashlib.sha256(dataset.path.read_bytes()).hexdigest()
-    specimen_id = f"specimen-parent-{content_hash[:20]}"
+    relative_path = str(dataset.path.relative_to(attack_data_root))
+    identity_hash = hashlib.sha256(f"{relative_path}:{content_hash}".encode()).hexdigest()
+    specimen_id = f"specimen-parent-{identity_hash[:20]}"
     return {
         "specimen_id": specimen_id,
         "target_host": "corpus-attack-data",
@@ -177,6 +186,8 @@ def _write_and_replay(
     receipt = capture_store.replay_capture(path, dry_run=not ship)
     if not receipt.get("ok"):
         raise RuntimeError(f"specimen replay failed for {specimen_id}: {receipt}")
+    if ship and receipt.get("indexed_confirmed") is not True:
+        raise RuntimeError(f"specimen was not confirmed live-indexed: {specimen_id}")
     return path
 
 
@@ -274,16 +285,30 @@ def _episode_detection_outcomes(
     entry: dict[str, Any],
     truth: dict[str, Any],
     backend: EpisodeDetectionBackend,
+    episode_query: dict[str, Any] | None = None,
 ) -> tuple[dict[str, str], dict[str, Any]]:
     """Observe real episode-scoped detector results without exposing scorer truth."""
     episode_id = entry["specimen_id"]
     host = entry["engine_view"]["episode_view"].get("target_host")
-    window = {"earliest": "-15m", "latest": "now"}
-    episode_query = backend.query_episode(
-        window,
-        episode_id=episode_id,
-        host=host,
-        limit=500,
+    window = {"earliest": "-24h", "latest": "now"}
+    sourcetypes = (
+        entry["engine_view"]["telemetry_view"].get("telemetry_shape", {}).get("sourcetypes", ())
+    )
+    source = str(sourcetypes[0]) if len(sourcetypes) == 1 else ""
+    applicable = {
+        str(technique_id): spl_for(str(technique_id), source=source)
+        for technique_id in truth.get("data_yml_techniques") or ()
+    }
+    applicable = {key: value for key, value in applicable.items() if value}
+    if not applicable:
+        return {}, {
+            "backend": getattr(backend, "name", None),
+            "source": "no_applicable_detection",
+            "row_count": 0,
+            "query_error": None,
+        }
+    episode_query = episode_query or backend.query_episode(
+        window, episode_id=episode_id, host=host, limit=500
     )
     provenance = {
         "backend": episode_query.get("backend"),
@@ -296,42 +321,14 @@ def _episode_detection_outcomes(
 
     outcomes = _reported_detector_outcomes(episode_query)
     telemetry = str(episode_query.get("telemetry") or "")
-    sourcetypes = (
-        entry["engine_view"]["telemetry_view"].get("telemetry_shape", {}).get("sourcetypes", ())
-    )
-    source = str(sourcetypes[0]) if len(sourcetypes) == 1 else ""
-    query_freeform = getattr(backend, "query_freeform", None)
-    for technique_id in truth.get("data_yml_techniques") or ():
-        detection_spl = spl_for(str(technique_id), source=source)
-        if not detection_spl:
-            continue
+    for technique_id in applicable:
         detector_id = _opaque_detector_id(str(technique_id))
         if detector_id in outcomes:
             continue
-        detection_query = (
-            query_freeform(
-                detection_spl,
-                window,
-                episode_id=episode_id,
-                host=host,
-            )
-            if callable(query_freeform)
-            else None
-        )
-        if detection_query and not detection_query.get("error"):
-            if detection_query.get("rows"):
-                outcomes[detector_id] = "fired"
-                continue
-            discriminator = technique_discriminators(str(technique_id))
-            _presence, matched = evidence_presence(telemetry, discriminator["tokens"])
-            outcomes[detector_id] = "partial" if matched else "missed"
-            continue
         discriminator = technique_discriminators(str(technique_id))
-        presence, matched = evidence_presence(telemetry, discriminator["tokens"])
+        presence, _matched = evidence_presence(telemetry, discriminator["tokens"])
         if presence == "PRESENT":
             outcomes[detector_id] = "fired"
-        elif matched:
-            outcomes[detector_id] = "partial"
         elif presence == "ABSENT":
             outcomes[detector_id] = "missed"
     return dict(sorted(outcomes.items())), provenance
@@ -342,13 +339,27 @@ def _populate_real_detector_outcomes(
     *,
     ledger: SpecimenLedger,
     backend: EpisodeDetectionBackend,
+    workers: int = 1,
+    episode_queries: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, int]:
     counts = {"fired": 0, "partial": 0, "missed": 0, "indeterminate": 0}
-    for entry in entries:
-        truth = ledger.truth_for(entry["specimen_id"])
+    truth_by_id = {row["specimen_id"]: row for row in ledger.records()}
+
+    def observe(entry: dict[str, Any]):
+        truth = truth_by_id.get(entry["specimen_id"])
         if truth is None:
             raise ValueError(f"sealed truth missing for {entry['specimen_id']}")
-        outcomes, provenance = _episode_detection_outcomes(entry, truth, backend)
+        outcomes, provenance = _episode_detection_outcomes(
+            entry,
+            truth,
+            backend,
+            (episode_queries or {}).get(entry["specimen_id"]),
+        )
+        return outcomes, provenance
+
+    with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+        observations = list(pool.map(observe, entries))
+    for entry, (outcomes, provenance) in zip(entries, observations, strict=True):
         telemetry_view = entry["engine_view"]["telemetry_view"]
         telemetry_view["attack_mappings"] = []
         telemetry_view["detector_outcomes"] = outcomes
@@ -366,6 +377,82 @@ def _populate_real_detector_outcomes(
             response_status = "missed"
         counts[response_status] += 1
     return counts
+
+
+def _replay_and_confirm_all(
+    entries: list[dict[str, Any]],
+    *,
+    evidence_dir: Path,
+    backend: EpisodeDetectionBackend,
+    workers: int,
+) -> dict[str, dict[str, Any]]:
+    """Ship independently, then require per-episode live index confirmation."""
+
+    def replay(
+        entry: dict[str, Any],
+    ) -> tuple[str, dict[str, Any], dict[str, Any] | None]:
+        specimen_id = entry["specimen_id"]
+        host = entry["engine_view"]["episode_view"].get("target_host")
+        existing = backend.query_episode(
+            {"earliest": "-24h", "latest": "now"},
+            episode_id=specimen_id,
+            host=host,
+            limit=500,
+        )
+        if existing.get("rows") and not existing.get("error"):
+            return (
+                specimen_id,
+                {
+                    "ok": True,
+                    "indexed_confirmed": True,
+                    "resumed_from_live_index": True,
+                },
+                existing,
+            )
+        receipt: dict[str, Any] = {}
+        for _attempt in range(3):
+            receipt = capture_store.replay_capture(evidence_dir / entry["evidence_ref"])
+            if receipt.get("ok") and receipt.get("indexed_confirmed") is True:
+                break
+        return specimen_id, receipt, None
+
+    with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+        receipts = list(pool.map(replay, entries))
+    entries_by_id = {entry["specimen_id"]: entry for entry in entries}
+    episode_queries = {
+        specimen_id: query for specimen_id, _receipt, query in receipts if query is not None
+    }
+
+    def confirm(specimen_id: str) -> tuple[str, dict[str, Any]]:
+        entry = entries_by_id[specimen_id]
+        return specimen_id, backend.query_episode(
+            {"earliest": "-24h", "latest": "now"},
+            episode_id=specimen_id,
+            host=entry["engine_view"]["episode_view"].get("target_host"),
+            limit=500,
+        )
+
+    pending = [specimen_id for specimen_id, _receipt, query in receipts if query is None]
+    with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+        episode_queries.update(pool.map(confirm, pending))
+    failures = [
+        {
+            "specimen_id": specimen_id,
+            "receipt": receipt,
+            "query_error": episode_queries[specimen_id].get("error"),
+        }
+        for specimen_id, receipt, _query in receipts
+        if (
+            (
+                not episode_queries[specimen_id].get("rows")
+                or episode_queries[specimen_id].get("error")
+            )
+            and receipt.get("indexed_confirmed") is not True
+        )
+    ]
+    if failures:
+        raise RuntimeError(f"live-index confirmation failed: {failures[:5]}")
+    return episode_queries
 
 
 def _live_lab_entry(
@@ -441,12 +528,17 @@ def _parent_entries(
     *,
     ledger: SpecimenLedger,
     evidence_dir: Path,
+    attack_data_root: Path,
     event_limit: int,
     ship: bool,
 ) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     for dataset in datasets:
-        parent = _read_parent(dataset, event_limit=event_limit)
+        parent = _read_parent(
+            dataset,
+            event_limit=event_limit,
+            attack_data_root=attack_data_root,
+        )
         if not any(parent["telemetry"].values()):
             continue
         specimen_id = parent["specimen_id"]
@@ -508,6 +600,10 @@ def _forged_entries(
             evidence_dir=evidence_dir,
             dry_run=not ship,
         )
+        if ship and child.replay_receipt.get("indexed_confirmed") is not True:
+            raise RuntimeError(
+                f"forged specimen was not confirmed live-indexed: {child.specimen_id}"
+            )
         entries.append(
             _entry(
                 child.specimen_id, "replay_mutation", child.engine_view, Path(child.capture_path)
@@ -609,6 +705,9 @@ def build_corpus(
     ship: bool = False,
     corpus_schema: str = SPECIMEN_CORPUS_V1,
     detector_backend: EpisodeDetectionBackend | None = None,
+    replay_workers: int = 1,
+    query_workers: int = 1,
+    live_index_confirmation: frozenset[str] | None = None,
 ) -> dict[str, Any]:
     if max_parents < 0:
         raise ValueError("max_parents must be zero (unlimited) or positive")
@@ -627,19 +726,42 @@ def build_corpus(
     if max_parents:
         admitted = admitted[:max_parents]
 
+    deferred_replay = ship and replay_workers > 1
     entries = _parent_entries(
         admitted,
         ledger=ledger,
         evidence_dir=evidence_dir,
+        attack_data_root=attack_data_root,
         event_limit=event_limit,
-        ship=ship,
+        ship=ship and not deferred_replay,
     )
 
     for capture in sorted(live_lab_captures):
         entries.append(
-            _live_lab_entry(capture, ledger=ledger, evidence_dir=evidence_dir, ship=ship)
+            _live_lab_entry(
+                capture,
+                ledger=ledger,
+                evidence_dir=evidence_dir,
+                ship=ship and not deferred_replay,
+            )
         )
     entries.sort(key=lambda item: (item["source_lane"], item["specimen_id"]))
+    episode_queries = None
+    if live_index_confirmation is not None:
+        missing = sorted(
+            entry["specimen_id"]
+            for entry in entries
+            if entry["specimen_id"] not in live_index_confirmation
+        )
+        if missing:
+            raise ValueError(f"live-index confirmation is missing specimens: {missing[:5]}")
+    elif deferred_replay:
+        episode_queries = _replay_and_confirm_all(
+            entries,
+            evidence_dir=evidence_dir,
+            backend=detector_backend or SplunkBackend(),
+            workers=replay_workers,
+        )
     response_observation_counts = None
     if corpus_schema == SPECIMEN_CORPUS_V2:
         if detector_backend is None:
@@ -648,6 +770,8 @@ def build_corpus(
             entries,
             ledger=ledger,
             backend=detector_backend,
+            workers=query_workers,
+            episode_queries=episode_queries,
         )
     elif corpus_schema != SPECIMEN_CORPUS_V1:
         raise ValueError(f"unsupported specimen corpus schema: {corpus_schema}")
@@ -700,6 +824,9 @@ def build_corpus_v2(
     max_parents: int = 0,
     ship: bool = True,
     detector_backend: EpisodeDetectionBackend | None = None,
+    replay_workers: int = 1,
+    query_workers: int = 1,
+    live_index_confirmation: frozenset[str] | None = None,
 ) -> dict[str, Any]:
     """Build the response-axis-live, immutable V2 reference corpus."""
     if not ship and detector_backend is None:
@@ -714,6 +841,9 @@ def build_corpus_v2(
         ship=ship,
         corpus_schema=SPECIMEN_CORPUS_V2,
         detector_backend=detector_backend or SplunkBackend(),
+        replay_workers=replay_workers,
+        query_workers=query_workers,
+        live_index_confirmation=live_index_confirmation,
     )
 
 
@@ -726,6 +856,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--event-limit", type=int, default=32)
     parser.add_argument("--max-parents", type=int, default=0)
     parser.add_argument("--ship", action="store_true")
+    parser.add_argument("--replay-workers", type=int, default=12)
+    parser.add_argument("--query-workers", type=int, default=12)
+    parser.add_argument(
+        "--live-index-confirmation",
+        type=Path,
+        help="persisted live SIEM episode census used to resume a replayed build",
+    )
     parser.add_argument(
         "--schema-version",
         choices=("1", "2"),
@@ -737,6 +874,10 @@ def main(argv: list[str] | None = None) -> int:
     output_dir = args.output_dir or config.hunt_dir() / "artifacts" / default_corpus_dir
     ledger_root = args.ledger_root or config.hunt_dir() / "specimens"
     build = build_corpus_v2 if args.schema_version == "2" else build_corpus
+    confirmed_episode_ids = None
+    if args.live_index_confirmation:
+        confirmation = json.loads(args.live_index_confirmation.read_text(encoding="utf-8"))
+        confirmed_episode_ids = frozenset(confirmation.get("episode_ids") or ())
     corpus = build(
         attack_data_root=args.attack_data_root,
         output_dir=output_dir,
@@ -745,6 +886,9 @@ def main(argv: list[str] | None = None) -> int:
         event_limit=args.event_limit,
         max_parents=args.max_parents,
         ship=args.ship,
+        replay_workers=args.replay_workers,
+        query_workers=args.query_workers,
+        live_index_confirmation=confirmed_episode_ids,
     )
     print(
         json.dumps(
