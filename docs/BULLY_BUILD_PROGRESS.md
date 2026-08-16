@@ -371,3 +371,30 @@ instruction honored correctly (`done_reason: stop`). Prior versioned
 directories (0.32.7/0.32.9/0.32.11/0.32.12) pruned by operator choice —
 see `docs/ADMIN_GUIDE.md`'s Ollama-plist section for the rollback
 tradeoff this creates.
+
+Ollama upgraded 0.32.13 → 0.32.14 (2026-08-16) and oMLX upgraded 0.5.7 →
+0.6.0 (2026-08-16), same session. Ollama via the same pinned-binary
+symlink-flip procedure: downloaded + checksum-verified `ollama-darwin.tgz`
+(`sha256 c7e8b91485943785bc6d295d96551e971ec94c6829d0d6b3500366942dc50cd1`),
+unpacked to `~/ollama-0.32.14`, flipped `~/ollama-current`, reloaded
+`com.portal5.ollama` via full unload/load; `ollama-0.32.13` retained on disk
+for rollback. Smoke-tested with a plain generate — `done: true`, coherent
+output.
+
+oMLX was found on a stray mix of a `brew install --HEAD` dev build
+(`HEAD-aef5a0c`) plus a leftover stable 0.5.7 install; both were uninstalled
+and replaced with a clean install of the official stable formula, which
+resolved to `0.6.0` from a prebuilt bottle (no source rebuild needed).
+Restarted via `brew services restart jundot/omlx/omlx`. This is the same
+port-8085 `homebrew.mxcl.omlx` service the Lightning MTP rollout
+(`project_omlx_lightning_mtp_gap`) depends on — its `config/backends.yaml`
+comments reference "oMLX 0.6.0.dev1's MTPLX side-car import path" for the
+`Qwen3.8-27B-oQ4e-mtp` and `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
+checkpoints (historical annotations from 2026-08-14, left as-is). Verified
+the upgrade to stable 0.6.0 didn't regress that side-car: both MTP
+checkpoints still list in `/v1/models`, and a live chat completion against
+`Qwen3.8-27B-oQ4e-mtp` showed the MTP path still activating in
+`/opt/homebrew/var/log/omlx.log` — `Speculative backend selected: Lightning
+MTP (active)`, `MTP path activated`, 81.8% draft accept rate on that call.
+A separate plain chat completion against `Laguna-XS.2-4bit` also came back
+clean (`finish_reason: stop`).
