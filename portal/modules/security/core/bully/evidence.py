@@ -12,9 +12,12 @@ verification on dereference, never a second copy of the bytes).
 from __future__ import annotations
 
 import hashlib
+import json
+import re
 import time
 import uuid
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from ..telemetry import (
@@ -156,6 +159,111 @@ def adapt_episode(episode: Any) -> dict:
         "used_synthetic": episode.used_synthetic,
         "evidence_refs": list(episode.evidence_refs),
         "verdict": episode.verdict(),
+    }
+
+
+_ATTACK_ID = re.compile(r"\bT\d{4}(?:\.\d{3})?\b")
+
+
+def _event_action(event: Any, index: int) -> str:
+    if isinstance(event, dict):
+        marker = (
+            event.get("EventCode")
+            or event.get("EventID")
+            or event.get("type")
+            or event.get("Image")
+            or event.get("command")
+            or "record"
+        )
+        return f"event-{index}:{marker}"
+    text = str(event)
+    match = re.search(r"(?:EventCode|EventID)[=:]\s*(\d+)", text)
+    return f"event-{index}:{match.group(1) if match else text[:80]}"
+
+
+def _technique_ids(value: Any) -> set[str]:
+    if isinstance(value, dict):
+        found = set()
+        for key, item in value.items():
+            if str(key).lower() in {
+                "technique_id",
+                "technique_ids",
+                "mitre_technique",
+                "mitre_techniques",
+                "attack_mappings",
+            }:
+                found.update(_ATTACK_ID.findall(json.dumps(item, default=str)))
+            else:
+                found.update(_technique_ids(item))
+        return found
+    if isinstance(value, list):
+        return {technique for item in value for technique in _technique_ids(item)}
+    return set()
+
+
+def adapt_episode_telemetry(episode: Any) -> dict[str, Any]:
+    """Build the production signature view from the episode's shipped evidence.
+
+    Evidence references are dereferenced read-only. Missing/unreadable evidence
+    stays missing and lowers signature completeness; it is never replaced with
+    a fabricated ATT&CK stub.
+    """
+    telemetry: dict[str, list[Any]] = {}
+    payloads: list[dict[str, Any]] = []
+    observed_fields: set[str] = set()
+    for reference in getattr(episode, "evidence_refs", ()) or ():
+        path = Path(str(reference))
+        if not path.is_file():
+            continue
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        payloads.append(payload)
+        for sourcetype, events in (payload.get("telemetry") or {}).items():
+            if isinstance(events, list):
+                telemetry.setdefault(str(sourcetype), []).extend(events)
+
+    flattened = [
+        (sourcetype, event) for sourcetype in sorted(telemetry) for event in telemetry[sourcetype]
+    ]
+    actions = [_event_action(event, index) for index, (_source, event) in enumerate(flattened)]
+    for _source, event in flattened:
+        if isinstance(event, dict):
+            observed_fields.update(str(key) for key in event)
+    techniques = sorted({item for payload in payloads for item in _technique_ids(payload)})
+
+    detector_outcomes: dict[str, str] = {}
+    detection_status = str(getattr(episode, "detection_status", ""))
+    scenario = str(getattr(episode, "scenario", "") or "")
+    if detection_status == "DETECTION_CONFIRMED":
+        detector_outcomes[f"episode:{scenario}"] = "fired"
+    elif detection_status == "DETECTION_NO_HIT":
+        detector_outcomes[f"episode:{scenario}"] = "missed"
+
+    return {
+        "action_sequence": actions,
+        "event_graph": {"ordered": actions} if actions else {},
+        "parameter_families": {
+            "event_volume_band": min(len(flattened), 10),
+        }
+        if flattened
+        else {},
+        "context_topology": {
+            "family": scenario,
+            "source_classes": sorted(telemetry),
+        },
+        "artifacts": {"observed_fields": sorted(observed_fields)[:24]} if observed_fields else {},
+        "attack_mappings": [{"technique_id": item} for item in techniques],
+        "telemetry_shape": {
+            "sourcetypes": sorted(telemetry),
+            "event_count": len(flattened),
+        }
+        if telemetry
+        else {},
+        "detector_outcomes": detector_outcomes,
     }
 
 

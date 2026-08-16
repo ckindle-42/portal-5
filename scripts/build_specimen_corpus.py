@@ -142,13 +142,17 @@ def _read_parent(
     relative_path = str(dataset.path.relative_to(attack_data_root))
     identity_hash = hashlib.sha256(f"{relative_path}:{content_hash}".encode()).hexdigest()
     specimen_id = f"specimen-parent-{identity_hash[:20]}"
+    telemetry_view = _telemetry_view(telemetry)
+    telemetry_view["attack_mappings"] = [
+        {"technique_id": technique_id} for technique_id in sorted(dataset.techniques)
+    ]
     return {
         "specimen_id": specimen_id,
         "target_host": "corpus-attack-data",
         "created_at": dataset.dataset_epoch or 0.0,
         "data_yml_techniques": list(dataset.techniques),
         "telemetry": telemetry,
-        "telemetry_view": _telemetry_view(telemetry),
+        "telemetry_view": telemetry_view,
         "source_path": str(dataset.path),
     }
 
@@ -359,7 +363,6 @@ def _populate_real_detector_outcomes(
         observations = list(pool.map(observe, entries))
     for entry, (outcomes, provenance) in zip(entries, observations, strict=True):
         telemetry_view = entry["engine_view"]["telemetry_view"]
-        telemetry_view["attack_mappings"] = []
         telemetry_view["detector_outcomes"] = outcomes
         entry["execution_mode"] = "live_indexed"
         entry["detector_observation"] = {

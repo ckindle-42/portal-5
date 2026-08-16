@@ -39,6 +39,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     ledger = SpecimenLedger(args.ledger_root or bully_config.hunt_dir() / "specimens")
     corpus = load_specimen_corpus(corpus_path)
+    if ledger.snapshot_hash() != corpus["ledger_snapshot_hash"]:
+        raise ValueError("specimen corpus and sealed ledger snapshot do not match")
 
     with Store(output_dir / "snapshot_state.db") as store:
         snapshot = Organ(
@@ -47,13 +49,22 @@ def main(argv: list[str] | None = None) -> int:
             embed_client=httpx.Client(timeout=120.0),
         )
         try:
+            # Parent semantic records are written singly so an embedding client
+            # cannot reorder a large response relative to its source records.
             parent_records = [
                 corpus_parent_reference_record(parent)
                 for parent in corpus["specimens"]
                 if parent["source_lane"] == "attack_data"
             ]
-            snapshot.upsert_many(parent_records)
             seeded_rows = snapshot.stats()["row_count"]
+            if seeded_rows == 0:
+                snapshot.upsert_many(parent_records, batch_size=1)
+                seeded_rows = snapshot.stats()["row_count"]
+            elif seeded_rows != len(parent_records):
+                raise RuntimeError(
+                    "existing calibration snapshot has an unexpected row count; "
+                    "use a fresh output directory"
+                )
             report = run_baseline_bench(
                 snapshot,
                 corpus_path=corpus_path,
@@ -66,6 +77,8 @@ def main(argv: list[str] | None = None) -> int:
 
     result = {
         "passed": report.passed,
+        "status": report.status,
+        "controls": report.controls,
         "output_dir": str(output_dir),
         "seeded_parent_rows": seeded_rows,
         "final_snapshot_rows": final_rows,
@@ -73,7 +86,7 @@ def main(argv: list[str] | None = None) -> int:
         "calibration_proposal": report.calibration_proposal,
     }
     print(json.dumps(result, indent=2, sort_keys=True))
-    return 0 if report.passed else 1
+    return 0 if report.status == "VALID" else 1
 
 
 if __name__ == "__main__":

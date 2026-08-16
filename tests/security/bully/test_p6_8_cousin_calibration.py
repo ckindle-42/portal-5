@@ -65,9 +65,11 @@ def test_blind_grade_calls_real_path_without_parent_hint_or_snapshot_write():
     before = snapshot.stats()["row_count"]
     result = bench.grade_blind(child, snapshot)
     assert snapshot.stats()["row_count"] == before
-    assert len(snapshot.queries) == 1
+    assert len(snapshot.queries) >= 4
     assert snapshot.queries[0]["query"] != child.parent_id
-    assert len(snapshot.queries[0]["query"]) == 64  # signature fingerprint only
+    assert len(snapshot.queries[0]["query"]) != 64
+    assert snapshot.queries[0]["query"].startswith("actions:")
+    assert any(query["filters"] == {"family": child.family} for query in snapshot.queries)
     assert result.relationship in {
         "SAME",
         "SIMILAR",
@@ -136,3 +138,4 @@ def test_run_bench_writes_curve_report_csv_and_plot_without_indexing_children(tm
     assert (tmp_path / "calibration_curve.svg").exists()
     payload = json.loads((tmp_path / "calibration_report.json").read_text())
     assert payload["policy_version"] == "CALIB_DISTANCE_POLICY_V1"
+    assert payload["controls"]["passed"] is True

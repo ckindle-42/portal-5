@@ -146,7 +146,6 @@ def _apply_operator(
 
 def _clean_engine_view(specimen_id: str, parent: dict[str, Any], view: dict[str, Any]) -> dict:
     visible_features = _features(view)
-    visible_features["attack_mappings"] = []
     return {
         "episode_view": {
             "episode_id": specimen_id,

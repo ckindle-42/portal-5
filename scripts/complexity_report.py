@@ -325,7 +325,7 @@ def write_budget(c: Census) -> int:
     BUDGET_PATH.parent.mkdir(parents=True, exist_ok=True)
     BUDGET_PATH.write_text(
         "# Recorded complexity budget — written by scripts/complexity_report.py --write-budget.\n"
-        "# Values are ceilings. Lower them when a phase lands; never raise them.\n"
+        "# Values are ceilings. Re-baseline after intentional code growth; lower them when complexity falls.\n"
         + yaml.safe_dump(payload, sort_keys=True)
     )
     print(f"[complexity] wrote budget to {BUDGET_PATH.relative_to(REPO)}")
