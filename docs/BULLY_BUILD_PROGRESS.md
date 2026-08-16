@@ -22,6 +22,7 @@ history.
 | P7.3 | `TASK_BULLY_P7_3_SPECIMEN_SCALE_AND_BASELINE_V1.md` | ✅ done; volume characterization frozen | `28dc9368` |
 | P7.4 | retrieval-validity correction | ✅ done; valid V3 reference frozen | `5ba409db` |
 | SA1 | `TASK_BULLY_SA1_CLASS_ONBOARDING_LOOP_V1.md` | ✅ done; System admitted, three classes honestly flagged | this commit |
+| SA2 | `TASK_BULLY_SA2_DISCOVERY_MEASUREMENT_V1.md` | ✅ done; `DISCOVERY_BASELINE_V1` frozen, first real product measurement | this commit |
 
 ## What's landed (P0–P6)
 
@@ -329,6 +330,104 @@ history.
   evidence is under
   `/Volumes/data01/portal5_hunt/artifacts/calibration/SA1_CLASS_ONBOARDING_V1/`.
 
+- **SA2** — first measurement of the actual product: everything through SA1
+  measured the recognition **floor** (a manufactured variant graded against
+  the real parent it was forged from) and never the discovery **product**
+  (two independently-collected real findings that are actually related and
+  actually uncovered). SA2 adds a real-vs-real discovery lane
+  (`portal/modules/security/core/bully/discovery_bench.py`): probes are drawn
+  only from the real `attack_data` lane (never the forge), self-excluded from
+  their own candidate set, graded by the unchanged four-axis
+  `cousin_engine.grade` path on telemetry + trust tier alone, then scored
+  against independent truth (`data.yml` ATT&CK technique/family) the engine
+  never sees. The joint `relationship x response` outcome is the reported
+  product (A1): `DISCOVERY` (SIMILAR|NEW|ANOMALOUS_UNCLASSIFIED x
+  NEAR_MISS|MISSED), `REGRESSION` (SAME x MISSED|NEAR_MISS), `FLOOR` (x
+  COVERED), `NO-RELATION`, `INDETERMINATE` — a distinct taxonomy from
+  `cousin_engine.PRODUCT_BAND_TABLE`, which still serves the older
+  forge/recognition lane. `ANOMALOUS_UNCLASSIFIED` is always `DISCOVERY`,
+  never a miss (A5).
+
+  **Scope note (honestly recorded, not silent):** the live embed service
+  (:8917) measured ~5s/item sustained latency in this session — embedding
+  all 988 real parents was impractical within one session (~80+ minutes for
+  seeding alone). The joint metric is in any case only measurable where a
+  real, independent detector outcome exists — exactly 99 of the 988 real
+  parents (~10%, the same response-axis sparsity SA1 already documented).
+  `DISCOVERY_BASELINE_V1` therefore grades those 99 real parents (all 7
+  source classes represented), with the candidate pool additionally widened
+  by 62 real, different-class parents that share a technique with one of the
+  99 (candidates only — never graded as probes, never forged) so that
+  genuinely cross-class candidates are reachable. The remaining ~889 real
+  parents stay reachable for a larger future run; this is a recorded
+  instrument-scope limitation, not a claim about the full corpus.
+
+  All controls passed: identity, retrieval-health, known-near/far, and the
+  new A7 **shuffled-label control** — real discovery precision is 0.794872
+  (31/39 truth-confirmed of 39 DISCOVERY-band rows); repeatedly shuffling the
+  probe↔independent-label correspondence (10 trials) collapses mean precision
+  to 0.164102, a >0.63 drop confirming the truth join is doing real
+  independent work, not circular self-agreement. A fixture-based control test
+  (`tests/security/bully/test_sa2_3_circularity.py`) further confirms a
+  deliberately circular truth source (unconditionally "related", carrying no
+  independent signal) is correctly caught as NOT collapsing.
+
+  The joint outcome distribution across the 99 graded real parents:
+  `SIMILARxMISSED` 35, `SIMILARxCOVERED` 31, `SAMExMISSED` 13,
+  `NEWxCOVERED` 6, `NEWxMISSED` 4, `SAMExCOVERED` 10 — collapsing to
+  `DISCOVERY` 39, `FLOOR` 47, `REGRESSION` 13 (no `NO-RELATION` or
+  `INDETERMINATE` rows in this measured-valid population). Discovery
+  precision is 0.794872; the recall proxy (of real technique/family-related,
+  response-uncovered pairs, how many the engine surfaced as `DISCOVERY`) is
+  0.704545. 13 `SAME x MISSED|NEAR_MISS` rows are flagged detection
+  regressions, reported separately from discovery, never counted as one (A1).
+
+  Same-class vs cross-class (A4): 98 same-class rows (discovery precision
+  0.789474) vs 1 cross-class row — a genuine, truth-confirmed cross-class
+  discovery: a `windows:security` parent (`specimen-parent-74b4da9f…`)
+  graded `NEW x MISSED` against its nearest real cousin, a
+  `windows:powershell` parent (`specimen-parent-f3be6a4e…`), sharing
+  ATT&CK `T1558.004` (distance `0.545492`) — a Kerberos-relay technique
+  visible from two independently-collected, independently-labeled real
+  sources that structural retrieval alone connected. Two coverage-asymmetry
+  findings were computed from real per-class detector outcomes: `T1068`
+  covered in `linux:auditd` but uncovered in `windows:security`, and `T1190`
+  covered in `web:access` but uncovered in `windows:sysmon`. This one small
+  cross-class row is directional evidence at this sample size, not a
+  population estimate — the honest gap is that a larger run (or the full 988)
+  is needed to characterize the cross-class cohort's true size and precision.
+
+  The forge/recognition lane is demoted (A3):
+  `cousin_calibration_bench.per_rung_band_accuracy` reports the 8
+  `FROZEN_SWEEP` rungs + the `d=0` parent row separately, with the
+  construction-ceiling note stated inline (2 SAME / 4 SIMILAR / 2 NEW / 1
+  DIFFERENT bands expected by construction; the historical ≈5/9 aggregate is
+  a construction artifact, not a discrimination score). Prior band-crossing
+  accuracy figures (P7.3, P7.4, SA1: 46.7487% / 55.4657% / 55.5556%-ish) are
+  **kept in this document for history**, not deleted, but are **superseded as
+  the product metric** as of SA2 — they measured the floor. The aggregate
+  still gates the SA1 class-onboarding admit check unchanged (an operational
+  threshold this cold task did not touch).
+
+  `DISCOVERY_BASELINE_V1` (schema `DISCOVERY_BASELINE_V1`, status `VALID`,
+  self-hash `b6fa85be369d9e166b085368a31d637790bb2af13633e851e61b45194666614c`)
+  is frozen at
+  `/Volumes/data01/portal5_hunt/artifacts/calibration/DISCOVERY_BASELINE_V1/discovery_baseline_v1.json`
+  (file SHA-256
+  `63e34ed9ef577c0522d83c3ab5522d7a95e6e46d1a5d37143f3bdc5bd4e71635`), drawn
+  from the unchanged `SPECIMEN_CORPUS_V2` snapshot
+  `76e018da356ad835a3ff5bdfab32f518c0c5e0567adc09c05434a0e11873f467`
+  (corpus file SHA-256
+  `08c98cfdcbeb7a2fb2e257f315ae8db78d081c9435bdbbea0d70200035550060`). Cold:
+  no threshold, weight, training, or refinement change anywhere in this task.
+
+  **Still unmeasured, named as open, not silently deferred (per the task's
+  own exit criteria):** compounding (six feeds making hunt N+1 measurably
+  better, with a recorded `DecisionImpact`), end-to-end promotion through the
+  bin to a real finding + handoff, and the response-axis coverage lift
+  further class onboarding will bring. The cross-class cohort's true size at
+  full-988 scale is also unmeasured here (1 row at n=99+62 candidates).
+
 ## Verification discipline used for every phase
 
 Each phase was built by a background agent in an isolated git worktree, then
@@ -357,6 +456,15 @@ ONBOARD→BUILD→CHARACTERIZE→ADMIT→REGRESSION loop. Any threshold or weigh
 proposal must be developed on a different sweep and evaluated once against the
 frozen references. Tool-call intake and training/refinement remain deferred to
 the training pass.
+
+**Discovery-lane scale-up (SA2 follow-up)** — `DISCOVERY_BASELINE_V1` graded
+99 of the 988 real parents (the response-observed subset) plus 62 candidate-
+only bridge specimens, bounded by embed-service throughput measured in this
+session (~5s/item). Re-run at full 988-parent scale (or against a faster
+embed backend) to characterize the cross-class cohort's true size — this
+run's single cross-class row is directional, not a population estimate.
+Still open per the task's own exit criteria: compounding, promotion-through-
+the-bin, and response-axis coverage lift are named, not measured.
 
 ## Housekeeping note (unrelated to the bully program)
 
