@@ -33,7 +33,7 @@ def main(argv: list[str] | None = None) -> int:
     output_dir = args.output_dir or (bully_config.hunt_dir() / "artifacts" / "calibration" / run_id)
     output_dir.mkdir(parents=True, exist_ok=True)
     corpus_path = args.corpus or (
-        bully_config.hunt_dir() / "artifacts" / "specimen_corpus_v1" / "specimen_corpus_v1.json"
+        bully_config.hunt_dir() / "artifacts" / "specimen_corpus_v2" / "specimen_corpus_v2.json"
     )
     ledger = SpecimenLedger(args.ledger_root or bully_config.hunt_dir() / "specimens")
     corpus = load_specimen_corpus(corpus_path)

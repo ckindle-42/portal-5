@@ -5,8 +5,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from portal.modules.security.core.bully.cousin_calibration_bench import (
+    BASELINE_CALIBRATION_V2,
+    corpus_parent_reference_record,
+    load_specimen_corpus,
+    run_baseline_bench,
+)
 from portal.modules.security.core.bully.specimen_ledger import SpecimenLedger
-from scripts.build_specimen_corpus import SPECIMEN_CORPUS_V2, build_corpus_v2
+from scripts.build_specimen_corpus import SPECIMEN_CORPUS_V2, _read_parent, build_corpus_v2
+from scripts.corpus_ingest import ManifestDataset, coerce
 
 
 def _write_attack_data_fixture(root: Path) -> None:
@@ -25,6 +32,32 @@ datasets:
 """,
         encoding="utf-8",
     )
+
+
+def test_non_object_json_is_preserved_as_real_raw_telemetry():
+    raw = '[{"EventCode": 4769}]'
+    assert coerce(raw) == raw
+    assert coerce("null") == "null"
+
+
+def test_windows_object_without_event_id_is_preserved_not_replaced_by_none(tmp_path):
+    root = tmp_path / "attack_data"
+    path = root / "datasets" / "fixture.jsonl"
+    path.parent.mkdir(parents=True)
+    path.write_text('{"Image":"cmd.exe"}\n', encoding="utf-8")
+    parent = _read_parent(
+        ManifestDataset(
+            path=path,
+            sourcetype="XmlWinEventLog",
+            source="XmlWinEventLog:Security",
+            dataset_epoch=0.0,
+            techniques=("T1059",),
+            mapped_sourcetype="windows:security",
+        ),
+        event_limit=32,
+        attack_data_root=root,
+    )
+    assert parent["telemetry"] == {"windows:security": [{"Image": "cmd.exe"}]}
 
 
 def _write_live_fixture(path: Path) -> None:
@@ -92,12 +125,16 @@ def test_v2_populates_real_opaque_outcomes_and_preserves_truth_wall(tmp_path):
 
     assert corpus["schema"] == SPECIMEN_CORPUS_V2
     assert corpus["execution_mode"] == "live_indexed"
-    assert len(backend.episodes) == len(corpus["specimens"])
-    assert corpus["response_observation_counts"]["fired"] == len(corpus["specimens"])
+    assert len(backend.episodes) == len(corpus["specimens"]) - 1
+    assert corpus["response_observation_counts"] == {
+        "fired": len(corpus["specimens"]) - 1,
+        "partial": 0,
+        "missed": 0,
+        "indeterminate": 1,
+    }
     for specimen in corpus["specimens"]:
         assert specimen["execution_mode"] == "live_indexed"
         view = specimen["engine_view"]["telemetry_view"]
-        assert view["detector_outcomes"]
         assert set(view["detector_outcomes"].values()) <= {"fired", "partial", "missed"}
         assert all(key.startswith("detector-") for key in view["detector_outcomes"])
         assert view["attack_mappings"] == []
@@ -150,3 +187,96 @@ def test_real_empty_detection_result_is_an_honest_miss(tmp_path):
         set(specimen["engine_view"]["telemetry_view"]["detector_outcomes"].values()) == {"missed"}
         for specimen in corpus["specimens"]
     )
+
+
+def test_identical_dataset_bytes_remain_distinct_admitted_parents(tmp_path):
+    attack_data = tmp_path / "attack_data"
+    _write_attack_data_fixture(attack_data)
+    duplicate = attack_data / "datasets" / "attack_techniques" / "T1003.006" / "fixture"
+    duplicate.mkdir(parents=True)
+    (duplicate / "windows.log").write_text(
+        "EventCode=4769 TicketEncryptionType=0x17 Account=svc\n", encoding="utf-8"
+    )
+    (duplicate / "data.yml").write_text(
+        """date: '2026-01-01'
+mitre_technique: [T1003.006]
+datasets:
+  - path: /datasets/attack_techniques/T1003.006/fixture/windows.log
+    sourcetype: XmlWinEventLog
+    source: XmlWinEventLog:Security
+""",
+        encoding="utf-8",
+    )
+    corpus = build_corpus_v2(
+        attack_data_root=attack_data,
+        output_dir=tmp_path / "corpus",
+        ledger_root=tmp_path / "ledger",
+        ship=False,
+        detector_backend=_RealQueryFixture(),
+    )
+    parent_ids = {
+        item["specimen_id"] for item in corpus["specimens"] if item["source_lane"] == "attack_data"
+    }
+    assert len(parent_ids) == 2
+    assert corpus["admission_census"]["counts"]["admitted"] == 2
+
+
+class _ReadOnlySnapshot:
+    def __init__(self, records):
+        self.records = list(records)
+
+    def knn(self, query, k, filters=None):
+        return [(record, 0.08 + index * 0.01) for index, record in enumerate(self.records[:k])]
+
+    def stats(self):
+        return {"row_count": len(self.records)}
+
+
+def test_v2_baseline_is_hashed_and_characterizes_curve_lanes_and_response(tmp_path):
+    attack_data = tmp_path / "attack_data"
+    _write_attack_data_fixture(attack_data)
+    live = tmp_path / "live.json"
+    _write_live_fixture(live)
+    output = tmp_path / "corpus"
+    ledger_root = tmp_path / "ledger"
+    built = build_corpus_v2(
+        attack_data_root=attack_data,
+        output_dir=output,
+        ledger_root=ledger_root,
+        live_lab_captures=(live,),
+        ship=False,
+        detector_backend=_RealQueryFixture(),
+    )
+    corpus_path = output / "specimen_corpus_v2.json"
+    corpus = load_specimen_corpus(corpus_path)
+    records = [
+        corpus_parent_reference_record(item)
+        for item in corpus["specimens"]
+        if item["source_lane"] == "attack_data"
+    ]
+    report = run_baseline_bench(
+        _ReadOnlySnapshot(records),
+        corpus_path=corpus_path,
+        ledger=SpecimenLedger(ledger_root),
+        output_dir=tmp_path / "baseline",
+    )
+
+    assert report.schema == BASELINE_CALIBRATION_V2
+    assert report.corpus_snapshot_hash == built["snapshot_hash"]
+    assert report.snapshot_hash and len(report.snapshot_hash) == 64
+    assert report.reference_guard["immutable"] is True
+    assert report.reference_guard["acceptance"] == "match_or_beat"
+    characterization = report.characterization
+    assert characterization["band_crossing"]["rows"] == len(corpus["specimens"])
+    assert characterization["monotonicity"]["comparable_pairs"] > 0
+    assert set(characterization["per_lane"]) == {
+        "attack_data",
+        "replay_mutation",
+        "live_lab",
+    }
+    assert characterization["response_axis"]["distribution"] == {
+        "COVERED": len(corpus["specimens"]) - 1,
+        "INDETERMINATE": 1,
+    }
+    assert "replay_mutation_vs_live_lab" in characterization["lane_comparison"]
+    assert (tmp_path / "baseline" / "baseline_calibration_v2.json").exists()

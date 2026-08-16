@@ -461,6 +461,7 @@ def coerce(line: str) -> dict | str:
         if isinstance(parsed, dict):
             return parsed
     return line
+    return line
 
 
 def is_lfs_pointer(path: Path) -> bool:
@@ -557,7 +558,8 @@ def run(src: str, root: Path, ship: bool, backdate_days: int, limit: int) -> int
                 # them; non-Windows JSON keeps its structure, which Splunk's own
                 # JSON extraction already handles well.
                 if sourcetype.startswith("windows:"):
-                    ev = windows_kv(ev) if isinstance(ev, dict) else windows_xml_kv(str(ev)) or ev
+                    flattened = windows_kv(ev) if isinstance(ev, dict) else windows_xml_kv(str(ev))
+                    ev = flattened if flattened is not None else ev
                 shipper.add(sourcetype, ev, epoch)
                 count += 1
                 if limit and count >= limit:

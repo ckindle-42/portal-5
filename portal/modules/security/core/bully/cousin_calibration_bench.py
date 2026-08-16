@@ -12,7 +12,8 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
-from dataclasses import asdict, dataclass
+from collections import Counter
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -25,6 +26,7 @@ CALIB_DISTANCE_POLICY_VERSION = "CALIB_DISTANCE_POLICY_V1"
 CALIB_PARENT_SET_VERSION = "CALIB_PARENTS_V1"
 CALIB_SWEEP_VERSION = "CALIB_SWEEP_V1"
 BASELINE_CALIBRATION_V1 = "BASELINE_CALIBRATION_V1"
+BASELINE_CALIBRATION_V2 = "BASELINE_CALIBRATION_V2"
 
 # Frozen structural weights. This table is intentionally unrelated to
 # cousin_engine._WEIGHTS and construction_distance never calls the grader.
@@ -211,6 +213,9 @@ class BaselineCalibrationReport:
     unresolved: tuple[dict[str, Any], ...]
     indeterminate: tuple[dict[str, Any], ...]
     calibration_proposal: None = None
+    characterization: dict[str, Any] = field(default_factory=dict)
+    snapshot_hash: str | None = None
+    reference_guard: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -604,8 +609,8 @@ def run_bench(snapshot: ReadOnlyKnnSnapshot, output_dir: Path) -> CalibrationRep
 
 def load_specimen_corpus(path: Path) -> dict[str, Any]:
     corpus = json.loads(path.read_text(encoding="utf-8"))
-    if corpus.get("schema") != "SPECIMEN_CORPUS_V1":
-        raise ValueError("not a SPECIMEN_CORPUS_V1 artifact")
+    if corpus.get("schema") not in {"SPECIMEN_CORPUS_V1", "SPECIMEN_CORPUS_V2"}:
+        raise ValueError("not a supported SPECIMEN_CORPUS artifact")
     observed_hash = hashlib.sha256(_canonical(corpus.get("specimens") or []).encode()).hexdigest()
     if observed_hash != corpus.get("snapshot_hash"):
         raise ValueError("specimen corpus snapshot hash mismatch")
@@ -703,11 +708,19 @@ def _baseline_row(
     response, detail = _oracle_response(
         _visible_telemetry(corpus_dir, specimen), truth["data_yml_techniques"]
     )
+    source_classes = (
+        specimen["engine_view"]["telemetry_view"]
+        .get("context_topology", {})
+        .get("source_classes", [])
+    )
+    expected_relationship = _expected_relationship(float(truth["construction_distance"]))
     return {
         "specimen_id": verdict.specimen_id,
         "source_lane": verdict.source_lane,
         "parent_id": truth["parent_id"],
         "d_applied": truth["construction_distance"],
+        "expected_relationship": expected_relationship,
+        "band_crossing_correct": verdict.relationship == expected_relationship,
         "graded_distance": round(verdict.distance, 6),
         "relationship": verdict.relationship,
         "grader_response": verdict.response,
@@ -715,6 +728,7 @@ def _baseline_row(
         "oracle_detail": detail,
         "confidence": round(verdict.confidence, 6),
         "reference_signature_id": verdict.reference_signature_id,
+        "scenario_family": source_classes[0] if len(source_classes) == 1 else "mixed_or_unknown",
         **{f"distance_{key}": value for key, value in verdict.decomposition.items()},
     }
 
@@ -751,6 +765,133 @@ def _find_non_monotonic(
             if current["graded_distance"] + tolerance < previous["graded_distance"]:
                 failures.append({"parent_id": parent_id, "previous": previous, "current": current})
     return failures
+
+
+def _expected_relationship(distance: float) -> str:
+    thresholds = cousin_engine.DEFAULT_THRESHOLDS
+    if distance <= thresholds["same_max_distance"]:
+        return "SAME"
+    if distance <= thresholds["similar_max_distance"]:
+        return "SIMILAR"
+    if distance <= thresholds["new_max_distance"]:
+        return "NEW"
+    return "DIFFERENT"
+
+
+def _rate(numerator: int, denominator: int) -> float | None:
+    return round(numerator / denominator, 6) if denominator else None
+
+
+def _lane_metrics(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    result: dict[str, dict[str, Any]] = {}
+    for lane in ("attack_data", "replay_mutation", "live_lab"):
+        lane_rows = [row for row in rows if row["source_lane"] == lane]
+        blind_spots = [
+            row
+            for row in lane_rows
+            if 0.05 < row["d_applied"] <= 0.40
+            and row["relationship"] in {"NEW", "DIFFERENT", "ANOMALOUS_UNCLASSIFIED"}
+        ]
+        overclaims = [
+            row for row in lane_rows if row["d_applied"] > 0.05 and row["relationship"] == "SAME"
+        ]
+        band_hits = [
+            row
+            for row in lane_rows
+            if row["relationship"] == _expected_relationship(row["d_applied"])
+        ]
+        result[lane] = {
+            "rows": len(lane_rows),
+            "band_crossing_accuracy": _rate(len(band_hits), len(lane_rows)),
+            "blind_spot_rate": _rate(len(blind_spots), len(lane_rows)),
+            "overclaim_rate": _rate(len(overclaims), len(lane_rows)),
+            "response_distribution": dict(
+                sorted(Counter(row["grader_response"] for row in lane_rows).items())
+            ),
+            "mean_graded_distance": (
+                round(sum(row["graded_distance"] for row in lane_rows) / len(lane_rows), 6)
+                if lane_rows
+                else None
+            ),
+        }
+    return result
+
+
+def _characterize_baseline(
+    rows: list[dict[str, Any]],
+    failures: dict[str, list[dict[str, Any]]],
+) -> dict[str, Any]:
+    band_hits = [
+        row for row in rows if row["relationship"] == _expected_relationship(row["d_applied"])
+    ]
+    blind_spots = [
+        row
+        for row in rows
+        if 0.05 < row["d_applied"] <= 0.40
+        and row["relationship"] in {"NEW", "DIFFERENT", "ANOMALOUS_UNCLASSIFIED"}
+    ]
+    overclaims = [row for row in rows if row["d_applied"] > 0.05 and row["relationship"] == "SAME"]
+    parent_rows = [row for row in rows if row["parent_id"]]
+    wrong_parent = failures["wrong_parent"]
+    comparable_pairs = 0
+    by_parent: dict[str, list[dict[str, Any]]] = {}
+    for row in parent_rows:
+        by_parent.setdefault(row["parent_id"], []).append(row)
+    for grouped in by_parent.values():
+        comparable_pairs += max(0, len(grouped) - 1)
+
+    per_lane = _lane_metrics(rows)
+    replay = per_lane["replay_mutation"]
+    lab = per_lane["live_lab"]
+    return {
+        "published_thresholds": dict(cousin_engine.DEFAULT_THRESHOLDS),
+        "band_crossing": {
+            "correct": len(band_hits),
+            "rows": len(rows),
+            "accuracy": _rate(len(band_hits), len(rows)),
+        },
+        "monotonicity": {
+            "comparable_pairs": comparable_pairs,
+            "violations": len(failures["non_monotonic"]),
+            "accuracy": _rate(comparable_pairs - len(failures["non_monotonic"]), comparable_pairs),
+        },
+        "blind_spots": {
+            "count": len(blind_spots),
+            "rate": _rate(len(blind_spots), len(rows)),
+        },
+        "overclaims": {
+            "count": len(overclaims),
+            "rate": _rate(len(overclaims), len(rows)),
+        },
+        "wrong_parent": {
+            "count": len(wrong_parent),
+            "eligible_rows": len(parent_rows),
+            "rate": _rate(len(wrong_parent), len(parent_rows)),
+        },
+        "response_axis": {
+            "distribution": dict(sorted(Counter(row["grader_response"] for row in rows).items())),
+            "oracle_distribution": dict(
+                sorted(Counter(row["oracle_response"] for row in rows).items())
+            ),
+        },
+        "per_lane": per_lane,
+        "lane_comparison": {
+            "replay_mutation_vs_live_lab": {
+                "band_accuracy_delta": (
+                    round(replay["band_crossing_accuracy"] - lab["band_crossing_accuracy"], 6)
+                    if replay["band_crossing_accuracy"] is not None
+                    and lab["band_crossing_accuracy"] is not None
+                    else None
+                ),
+                "mean_graded_distance_delta": (
+                    round(replay["mean_graded_distance"] - lab["mean_graded_distance"], 6)
+                    if replay["mean_graded_distance"] is not None
+                    and lab["mean_graded_distance"] is not None
+                    else None
+                ),
+            }
+        },
+    }
 
 
 def score_baseline(
@@ -791,8 +932,25 @@ def score_baseline(
 
     failures["non_monotonic"] = _find_non_monotonic(by_parent, monotonic_tolerance)
     passed = not any(failures.values()) and not unresolved and not indeterminate
-    return BaselineCalibrationReport(
-        schema=BASELINE_CALIBRATION_V1,
+    is_v2 = corpus["schema"] == "SPECIMEN_CORPUS_V2"
+    characterization = _characterize_baseline(rows, failures) if is_v2 else {}
+    reference_guard = (
+        {
+            "immutable": True,
+            "designation": "source_agnostic_redesign_reference",
+            "acceptance": "match_or_beat",
+            "scope": [
+                "windows:security",
+                "linux:auditd",
+                "web:access",
+                "docker:daemon",
+            ],
+        }
+        if is_v2
+        else {}
+    )
+    report = BaselineCalibrationReport(
+        schema=BASELINE_CALIBRATION_V2 if is_v2 else BASELINE_CALIBRATION_V1,
         passed=passed,
         corpus_snapshot_hash=corpus["snapshot_hash"],
         ledger_snapshot_hash=ledger.snapshot_hash(),
@@ -805,12 +963,23 @@ def score_baseline(
         failures={key: tuple(value) for key, value in failures.items()},
         unresolved=tuple(unresolved),
         indeterminate=tuple(indeterminate),
+        characterization=characterization,
+        reference_guard=reference_guard,
+    )
+    if not is_v2:
+        return report
+    hash_payload = report.to_dict()
+    hash_payload["snapshot_hash"] = None
+    return replace(
+        report,
+        snapshot_hash=hashlib.sha256(_canonical(hash_payload).encode()).hexdigest(),
     )
 
 
 def write_baseline_artifacts(report: BaselineCalibrationReport, output_dir: Path) -> dict[str, str]:
     output_dir.mkdir(parents=True, exist_ok=True)
-    report_path = output_dir / "baseline_calibration_v1.json"
+    version = "v2" if report.schema == BASELINE_CALIBRATION_V2 else "v1"
+    report_path = output_dir / f"baseline_calibration_{version}.json"
     compatibility_path = output_dir / "calibration_report.json"
     curve_path = output_dir / "baseline_calibration_curve.csv"
     payload = json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n"
