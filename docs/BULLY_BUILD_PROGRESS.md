@@ -19,6 +19,7 @@ history.
 | P6.7 | `TASK_BULLY_P6_7_TRAIN_REFINEMENT_CORRECTION_V1.md` | ✅ done | `f7434c86` |
 | P6.8 | `TASK_BULLY_P6_8_COUSIN_CALIBRATION_BENCH_V1.md` | ✅ done | `a2a95837` |
 | P7 | `TASK_BULLY_P7_2_SPECIMEN_CORPUS_AND_BLIND_BENCH_V1.md` | ✅ done; cold real-specimen proof | branch proof |
+| P7.3 | `TASK_BULLY_P7_3_SPECIMEN_SCALE_AND_BASELINE_V1.md` | ✅ done; volume characterization frozen | `28dc9368` |
 
 ## What's landed (P0–P6)
 
@@ -198,6 +199,49 @@ history.
   P7 acceptance.
   Refinement/tool-call intake and any threshold or weight change remain
   explicitly deferred to the later training pass.
+- **P7.3** — scaled characterization and redesign reference: expanded the full
+  `splunk/attack_data` catalog to 1,436 datasets and reconciled every row in an
+  admission census. The four-sourcetype gate admitted 316 parents (188
+  `windows:security`, 98 `linux:auditd`, 30 `web:access`, zero
+  `docker:daemon`); 985 datasets had no mapped ingested-sourcetype coverage and
+  135 had no technique truth. No row was excluded by the removed parent cap,
+  missing data, or an unresolved LFS pointer. `SPECIMEN_CORPUS_V2` freezes those
+  316 parents, 2,528 replay-mutation cousins, and one live-lab cousin—2,845
+  specimens total, all `execution_mode: live_indexed`—at snapshot
+  `eca338c1724d1b1bf8efa9704cbd0c74671a51dcdd28111e746df4c4a668eda6`.
+  Real live-SIEM observations exercise the response axis: 53 fired, 344 missed,
+  zero partial, and 2,448 honestly indeterminate outcomes.
+
+  The untuned `BASELINE_CALIBRATION_V2` cold reading graded all 2,845 rows
+  against a read-only 316-parent Organ snapshot and indexed zero children. Its
+  aggregate band-crossing accuracy is 46.7487%; monotonic-pair accuracy is
+  75.0565% (552 violations across 2,213 comparable pairs); the mid-distance
+  blind-spot rate is 25.9402% (738 rows); the real-SAME overclaim rate is 0%;
+  and wrong-parent rate is 91.3009% among 2,529 eligible cousin/lab rows. The
+  grader response distribution is 53 COVERED / 344 MISSED / 2,448
+  INDETERMINATE; the independent evidence oracle reads 109 COVERED / 522
+  NEAR_MISS / 2,214 INDETERMINATE, producing 339 response-axis failures. Replay
+  mutations reached 52.6108% band accuracy and mean graded distance 0.429807;
+  the single lab cousin reached 0% and 0.587611, respectively. That one-row lab
+  delta is directional evidence, not a population estimate.
+
+  The curve localizes the next work. Every d=0 parent was graded SIMILAR rather
+  than SAME. The d=0.04 sweep crossed too far (218 NEW, 98 SIMILAR); d=0.14 was
+  perfectly band-correct; d=0.20 and d=0.34 regressed to mostly NEW; and the
+  higher d=0.46/d=0.72 bands recovered to 82.91%/88.29% accuracy. Mid-distance
+  blind spots affect all admitted source classes (55.98% of eligible Windows,
+  60.71% Linux auditd, 65.00% web access), while wrong-parent selection is the
+  dominant weakness. Response coverage is real but sparse, with 86.05% of rows
+  indeterminate. These are inputs to a later fresh-sweep calibration or
+  redesign pass; P7.3 changed no threshold, weight, or training state.
+
+  `BASELINE_CALIBRATION_V2` is the immutable source-agnostic-redesign reference.
+  Its self-hash is
+  `1b5d6511bc11acb93908c610bc784c57ce609c828071a2b828a16d33b67e0afc`;
+  the serialized report SHA-256 is
+  `7bf57d451810f99c8961e86eb1a6f4fcebd051042b9b1201fe24a2896e0e5504`.
+  The exact comparison contract and artifact inventory are recorded in
+  `docs/BULLY_BASELINE_CALIBRATION_V2.md`.
 
 ## Verification discipline used for every phase
 
@@ -215,12 +259,15 @@ itself before writing any code.
 
 ## Next
 
-**Training pass (deferred)** — fix tool-call intake, then consider refinement
-and cousin-engine threshold/weight changes only as informed proposals evaluated
-on a fresh frozen sweep. Do not tune against the P7.2 baseline that motivated
-the proposal. The earlier incomplete live attempts remain valid blocked
-evidence, but no longer block release proof because the frozen three-lane corpus
-contains verified real observations and a ground-truth-complete live-lab lane.
+**Source-agnostic redesign / later calibration pass** — preserve the P7.3
+reference on the current four-sourcetype scope while addressing, in order, the
+91.3009% wrong-parent rate, the d=0/d=0.04 identity-band failure, the
+non-monotonic d=0.20/d=0.34 region, and response-axis sparsity/mismatch. Add at
+least one genuinely new sourcetype and report it separately so it cannot dilute
+current-scope regressions. Any threshold or weight proposal must be developed on
+a different sweep and evaluated once against the frozen P7.3 corpus; never tune
+on this reference. Tool-call intake and any training/refinement remain deferred
+to the training pass.
 
 ## Housekeeping note (unrelated to the bully program)
 
