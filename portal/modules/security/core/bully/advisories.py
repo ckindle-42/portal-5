@@ -86,9 +86,11 @@ class LiveAdvisoryConnector:
                 for item in raw_items
                 if isinstance(item, Mapping)
             ]
+            total_record_count = len(records)
             finding = None
         except Exception as exc:  # the result is the durable finding surface
             records = []
+            total_record_count = 0
             finding = {
                 "kind": "advisory_fetch",
                 "status": "unavailable",
@@ -96,11 +98,12 @@ class LiveAdvisoryConnector:
                 "reason": f"{type(exc).__name__}: {exc}",
                 "retrieved_at": retrieved_at,
             }
-        truncated = intent.limit is not None and len(records) >= intent.limit
+        truncated = intent.limit is not None and total_record_count > intent.limit
         if intent.limit is not None:
             records = records[: intent.limit]
         metadata = {
-            "record_count": len(records),
+            "record_count": total_record_count,
+            "sample_count": len(records),
             "source": self.source_url,
             "retrieved_at": retrieved_at,
             "licence": CISA_KEV_LICENCE,
