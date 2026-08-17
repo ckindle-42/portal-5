@@ -65,8 +65,9 @@ def analyst_probe_specimens(corpus: dict[str, Any]) -> list[dict[str, Any]]:
     endpoint backbone -- so the probe pool is real-vs-real across ALL scored
     lanes, never the forge (replay_mutation) or the single live-lab row.
     """
+    specimens = corpus.get("specimens") or analyst_snapshot_specimens(corpus)
     probes = []
-    for specimen in corpus["specimens"]:
+    for specimen in specimens:
         lane = specimen.get("source_lane")
         if lane in ("replay_mutation", "live_lab"):
             continue
