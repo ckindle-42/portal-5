@@ -179,7 +179,9 @@ def dataset_census(root: Path, *, manifest_labeling: str = "authoritative") -> d
         if first is None:
             no_events.append(relative)
             continue
-        sourcetype = resolve_sourcetype(declared_st, declared_src, coerce(first), path.name)
+        first_record = iter_cloudtrail_records(first)[0]
+        first_coerced = first_record if isinstance(first_record, dict) else coerce(first_record)
+        sourcetype = resolve_sourcetype(declared_st, declared_src, first_coerced, path.name)
         source_class = resolve_source_class(sourcetype)
         tier = label_tier_for(manifest_labeling if str(path) in manifests else None)
         entry = {
@@ -617,6 +619,26 @@ def coerce(line: str) -> dict | str:
         if isinstance(parsed, dict):
             return parsed
     return line
+
+
+def iter_cloudtrail_records(line: str) -> list[dict | str]:
+    """Expand a CloudTrail ``{"Records": [...]}`` envelope into its records.
+
+    CloudTrail exports bundle many records under one ``Records`` key; without
+    expansion a single line would ingest as one giant event and every
+    detection-shaped search would miss the individual API calls. Non-envelope
+    input returns the coerced line unchanged, so plain JSONL still works.
+    """
+    if line[:1] != "{":
+        return [coerce(line)]
+    try:
+        parsed = json.loads(line)
+    except ValueError:
+        return [coerce(line)]
+    if isinstance(parsed, dict) and isinstance(parsed.get("Records"), list):
+        records = parsed["Records"]
+        return [record for record in records if isinstance(record, dict)]
+    return [parsed]
     return line
 
 
@@ -713,17 +735,21 @@ def run(src: str, root: Path, ship: bool, backdate_days: int, limit: int) -> int
         count = 0
         try:
             for line in iter_events_text(path):
-                ev = coerce(line)
-                sourcetype = resolve_sourcetype(declared_st, declared_src, ev, path.name)
-                epoch = event_epoch(ev, fallback)
-                # Windows channels ship as key=value so the SPL library matches
-                # them; non-Windows JSON keeps its structure, which Splunk's own
-                # JSON extraction already handles well.
-                if sourcetype.startswith("windows:"):
-                    flattened = windows_kv(ev) if isinstance(ev, dict) else windows_xml_kv(str(ev))
-                    ev = flattened if flattened is not None else ev
-                shipper.add(sourcetype, ev, epoch)
-                count += 1
+                for ev in iter_cloudtrail_records(line):
+                    sourcetype = resolve_sourcetype(declared_st, declared_src, ev, path.name)
+                    epoch = event_epoch(ev, fallback)
+                    # Windows channels ship as key=value so the SPL library matches
+                    # them; non-Windows JSON keeps its structure, which Splunk's own
+                    # JSON extraction already handles well.
+                    if sourcetype.startswith("windows:"):
+                        flattened = (
+                            windows_kv(ev) if isinstance(ev, dict) else windows_xml_kv(str(ev))
+                        )
+                        ev = flattened if flattened is not None else ev
+                    shipper.add(sourcetype, ev, epoch)
+                    count += 1
+                    if limit and count >= limit:
+                        break
                 if limit and count >= limit:
                     break
         except Exception as exc:  # a malformed archive must not kill the whole run

@@ -26,6 +26,7 @@ _ENDPOINT_SOURCES = frozenset(
     }
 )
 _IDENTITY_SOURCE_PREFIXES = ("okta", "azure:monitor:aad", "o365:", "gws:reports:login")
+_CLOUD_SOURCE_PREFIXES = ("aws:", "azure:", "gcp:", "cloudtrail")
 
 
 class SourceAdapter(Protocol):
@@ -116,6 +117,12 @@ def _nested(event: Mapping[str, Any], *path: str) -> Any:
     return value
 
 
+def _account_from_arn(arn: str) -> str | None:
+    """Extract the AWS account id from an ARN (``arn:aws:iam::123:user/x``)."""
+    parts = str(arn or "").split(":")
+    return parts[4] if len(parts) > 4 and parts[4].isdigit() else None
+
+
 @dataclass(frozen=True)
 class IdentitySourceAdapter:
     """Translate auth/session/audit events into identity-shaped dimensions."""
@@ -199,6 +206,98 @@ class IdentitySourceAdapter:
 
 
 @dataclass(frozen=True)
+class CloudSourceAdapter:
+    """Translate AWS CloudTrail records into cloud-shaped dimensions (A3).
+
+    Cloud-trail semantics map into the stable eight-dimension contract without
+    padding: ``action_sequence`` from eventName/eventSource (the API action
+    the record observed), ``context_topology`` from account/region/principal
+    (who did what where), and ``artifacts`` from resource ARNs. A dimension
+    with no evidence stays absent (honest completeness), never invented.
+    """
+
+    def adapt(
+        self, raw_events: Iterable[dict[str, Any] | str], source_meta: Mapping[str, Any]
+    ) -> dict[str, Any]:
+        events = list(raw_events)
+        view = _base_view(events, source_meta)
+        mappings = [event for event in events if isinstance(event, Mapping)]
+        actions = [
+            action
+            for index, event in enumerate(mappings)
+            if (
+                operation := event.get("eventName")
+                or event.get("eventSource")
+                or event.get("eventType")
+            )
+            for action in (
+                f"cloud-{index}:{operation}",
+                *(
+                    [f"cloud-{index}:{event.get('eventSource')}"]
+                    if event.get("eventSource") and event.get("eventName")
+                    else []
+                ),
+                *(f"field:{key}" for key in list(event)[:4]),
+            )
+        ]
+        if actions:
+            view["action_sequence"] = actions
+            view["event_graph"] = {"ordered": actions}
+        topology = dict(view["context_topology"])
+        accounts = sorted(
+            {
+                str(value)
+                for event in mappings
+                for value in (
+                    event.get("recipientAccountId"),
+                    _nested(event, "userIdentity", "accountId"),
+                    _account_from_arn(str(_nested(event, "userIdentity", "arn") or "")),
+                )
+                if value
+            }
+        )
+        regions = sorted({str(value) for event in mappings if (value := event.get("awsRegion"))})
+        principals = sorted(
+            {
+                str(value)
+                for event in mappings
+                for value in (
+                    _nested(event, "userIdentity", "arn"),
+                    _nested(event, "userIdentity", "userName"),
+                    _nested(event, "userIdentity", "principalId"),
+                )
+                if value
+            }
+        )
+        if accounts:
+            topology["accounts"] = accounts[:24]
+        if regions:
+            topology["regions"] = regions[:24]
+        if principals:
+            topology["principals"] = principals[:24]
+        view["context_topology"] = topology
+        arns = sorted(
+            {
+                str(item.get("ARN") or item.get("arn"))
+                for event in mappings
+                for item in (event.get("resources") or ())
+                if isinstance(item, Mapping) and (item.get("ARN") or item.get("arn"))
+            }
+        )
+        events_seen = {str(event.get("eventName")) for event in mappings if event.get("eventName")}
+        view["artifacts"] = {
+            **view["artifacts"],
+            **({"resource_arns": arns[:24]} if arns else {}),
+            **({"observed_actions": sorted(events_seen)[:24]} if events_seen else {}),
+        }
+        view["parameter_families"] = {
+            "event_volume_band": min(len(events), 10),
+            **({"regions": regions[:24]} if regions else {}),
+        }
+        return view
+
+
+@dataclass(frozen=True)
 class FallbackSourceAdapter:
     """Recognize an unmapped source without inventing semantic dimensions."""
 
@@ -225,11 +324,13 @@ class FallbackSourceAdapter:
 
 
 def adapter_for(sourcetype: str) -> SourceAdapter:
-    normalized = str(sourcetype or "")
+    normalized = str(sourcetype or "").lower()
     if normalized in _ENDPOINT_SOURCES:
         return EndpointSourceAdapter()
-    if normalized.lower().startswith(_IDENTITY_SOURCE_PREFIXES):
+    if normalized.startswith(_IDENTITY_SOURCE_PREFIXES):
         return IdentitySourceAdapter()
+    if normalized.startswith(_CLOUD_SOURCE_PREFIXES):
+        return CloudSourceAdapter()
     return FallbackSourceAdapter()
 
 

@@ -95,15 +95,17 @@ def test_unmapped_class_routes_to_fallback_with_absent_dimensions():
 
 def test_cloud_class_admitted_and_classified():
     """A cloud sourcetype (CloudTrail) is recognized as a broad cloud class by
-    the injector, and admitted through the fallback adapter seam with honest
-    completeness (no cloud adapter yet -- A7): missing dimensions stay absent,
-    never padded, and the specimen is censused, never dropped."""
+    the injector, and admitted through the cloud adapter (SA5.2 A3): the
+    eight dimensions populate honestly from eventName/eventSource/principal,
+    missing dimensions stay absent (never padded), and the specimen is
+    censused, never dropped."""
     specimen = ingest_events(
         [
             {
                 "eventSource": "s3.amazonaws.com",
                 "eventName": "PutObject",
                 "userIdentity": {"arn": "arn:aws:iam::123:user/x"},
+                "awsRegion": "us-east-1",
             }
         ],
         specimen_id="cloudtrail-1",
@@ -111,9 +113,13 @@ def test_cloud_class_admitted_and_classified():
         labeling="authoritative",
         provenance={"source_id": "flaws.cloud", "origin": "cloudtrail"},
     )
-    assert specimen["adapter_status"] == "unmapped"
+    assert specimen["adapter_status"] == "mapped"
     assert specimen["source_class"] == "aws:cloudtrail"
     assert specimen["label_tier"] == T0_AUTHORITATIVE
+    view = specimen["engine_view"]["telemetry_view"]
+    assert "action_sequence" in view
+    assert view["context_topology"]["accounts"] == ["123"]
+    assert view["context_topology"]["principals"] == ["arn:aws:iam::123:user/x"]
     assert corpus_ingest.resolve_source_class("aws:cloudtrail") == "cloud"
     assert corpus_ingest.resolve_sourcetype(None, None, {}, "cloudtrail.log") == "aws:cloudtrail"
 
