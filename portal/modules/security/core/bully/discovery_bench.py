@@ -57,6 +57,36 @@ def real_probe_specimens(corpus: dict[str, Any]) -> list[dict[str, Any]]:
     return [s for s in corpus["specimens"] if s["source_lane"] == "attack_data"]
 
 
+def analyst_probe_specimens(corpus: dict[str, Any]) -> list[dict[str, Any]]:
+    """Scoreable real specimens from the analyst corpus (SA5.7): attack_data
+    parents plus acquired external-corpus specimens that carry T0/T1 labels.
+
+    The analyst snapshot is multi-class -- cloud/identity live beside the
+    endpoint backbone -- so the probe pool is real-vs-real across ALL scored
+    lanes, never the forge (replay_mutation) or the single live-lab row.
+    """
+    probes = []
+    for specimen in corpus["specimens"]:
+        lane = specimen.get("source_lane")
+        if lane in ("replay_mutation", "live_lab"):
+            continue
+        tier = str(specimen.get("label_tier") or "")
+        if tier not in ("T0", "T1"):
+            continue
+        probes.append(specimen)
+    return probes
+
+
+def analyst_snapshot_specimens(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
+    """Extract the distinct specimens from an ANALYST_CORPUS snapshot
+    (deduplicated on canonical text) for the discovery lane (SA5.7)."""
+    if "distinct_specimens" in snapshot and isinstance(snapshot.get("distinct_specimens"), list):
+        return snapshot["distinct_specimens"]
+    if isinstance(snapshot.get("specimens"), list):
+        return snapshot["specimens"]
+    raise ValueError("unsupported analyst snapshot shape: no distinct_specimens/specimens")
+
+
 def _specimen_technique_ids(specimen: dict[str, Any]) -> frozenset[str]:
     mappings = specimen["engine_view"]["telemetry_view"].get("attack_mappings") or []
     return frozenset(
@@ -237,9 +267,11 @@ def run_real_pairs(
     snapshot: ReadOnlyKnnSnapshot,
     *,
     corpus: dict[str, Any],
+    knn_batch_size: int = 32,
 ) -> tuple[RealPairVerdict, ...]:
     """Grade every real probe against the un-filtered real snapshot."""
-    index_by_id = {s["specimen_id"]: s for s in corpus["specimens"]}
+    specimens = corpus.get("specimens") or analyst_snapshot_specimens(corpus)
+    index_by_id = {s["specimen_id"]: s for s in specimens}
     prepare_knn = getattr(snapshot, "prepare_knn", None)
     if callable(prepare_knn):
         probe_signatures = [
@@ -251,7 +283,7 @@ def run_real_pairs(
         prepare_knn(
             [q for sig in probe_signatures for q in cousin_engine.candidate_axis_queries(sig)],
             k=8,
-            batch_size=32,
+            batch_size=knn_batch_size,
         )
     return tuple(grade_real_pair(p, snapshot, index_by_id=index_by_id) for p in probes)
 
@@ -503,6 +535,7 @@ def run_controls(
     *,
     thresholds: dict[str, float] | None = None,
     canonical_text_by_id: dict[str, str] | None = None,
+    identity_gate: str = "hard",
 ) -> dict[str, Any]:
     identity = _identity_control(
         probes,
@@ -514,12 +547,21 @@ def run_controls(
     near_far = _known_near_far_controls()
     probes_by_id = {p["specimen_id"]: p for p in probes}
     shuffle = shuffled_label_control(verdicts, probes_by_id)
+    # P0.3: identity is a CLASSIFIED diagnostic. Under the "diagnostic" gate,
+    # identity never sole-disqualifies an arm -- its by-cause classification
+    # (corpus-duplicate / scale-mismatch / genuine-discrimination-loss) is
+    # reported and discovery precision decides adoption. The anti-circularity
+    # controls (retrieval health, known near/far, shuffled-label collapse)
+    # still gate hard. The "hard" gate is the default and preserves the
+    # frozen V1 behavior.
+    identity_in_gate = identity["passed"] if identity_gate == "hard" else True
     return {
-        "passed": identity["passed"]
+        "passed": identity_in_gate
         and retrieval["passed"]
         and near_far["passed"]
         and shuffle["passed"],
         "identity": identity,
+        "identity_gate": identity_gate,
         "retrieval_health": retrieval,
         "known_near_far": near_far,
         "shuffled_label_control": shuffle,
@@ -677,8 +719,12 @@ def score_discovery(
         diagnosis = tuple(
             name
             for name, result in controls.items()
-            if isinstance(result, dict) and not result.get("passed", True)
+            if isinstance(result, dict) and name != "identity" and not result.get("passed", True)
         )
+        if controls.get("identity_gate") == "hard" and not controls.get("identity", {}).get(
+            "passed", True
+        ):
+            diagnosis = ("identity",) + diagnosis
         return DiscoveryReport(
             schema=DISCOVERY_BASELINE_V1,
             status="INVALID",
@@ -734,28 +780,40 @@ def write_discovery_artifacts(report: DiscoveryReport, output_dir: Path) -> dict
 def run_discovery_bench(
     snapshot: ReadOnlyKnnSnapshot,
     *,
-    corpus_path: Path,
-    output_dir: Path,
+    corpus_path: Path | None = None,
+    corpus: dict[str, Any] | None = None,
+    output_dir: Path | None = None,
     thresholds: dict[str, float] | None = None,
     canonical_text_by_id: dict[str, str] | None = None,
+    probe_selector=real_probe_specimens,
+    identity_gate: str = "hard",
+    knn_batch_size: int = 32,
 ) -> DiscoveryReport:
     """SA2.1-SA2.4 end to end: real-vs-real pairing, joint scoring, controls
     (incl. A7 shuffled-label), cross-class breakout. Never touches the forge.
 
-    ``thresholds`` optionally carries the per-embedding-space thresholds
-    (P0.2); identity is then a classified diagnostic against those (P0.3)
-    rather than the frozen constants.
+    ``corpus`` may be given directly (e.g. an analyst snapshot dict) instead
+    of ``corpus_path``; ``probe_selector`` picks the real probe pool (the
+    default filters attack_data parents; SA5.7 uses the multi-class analyst
+    selector). ``thresholds`` optionally carries the per-embedding-space
+    thresholds (P0.2); identity is then a classified diagnostic against those
+    (P0.3) rather than the frozen constants.
     """
-    corpus = load_specimen_corpus(corpus_path)
-    probes = real_probe_specimens(corpus)
-    verdicts = run_real_pairs(probes, snapshot, corpus=corpus)
+    if corpus is None:
+        if corpus_path is None:
+            raise ValueError("run_discovery_bench requires corpus or corpus_path")
+        corpus = load_specimen_corpus(corpus_path)
+    probes = probe_selector(corpus)
+    verdicts = run_real_pairs(probes, snapshot, corpus=corpus, knn_batch_size=knn_batch_size)
     controls = run_controls(
         probes,
         verdicts,
         snapshot,
         thresholds=thresholds,
         canonical_text_by_id=canonical_text_by_id,
+        identity_gate=identity_gate,
     )
     report = score_discovery(verdicts, probes, corpus=corpus, controls=controls)
-    write_discovery_artifacts(report, output_dir)
+    if output_dir is not None:
+        write_discovery_artifacts(report, output_dir)
     return report
