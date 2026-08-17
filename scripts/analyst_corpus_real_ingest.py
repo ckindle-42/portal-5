@@ -86,7 +86,10 @@ def ingest_source(
         events = list(_iter_cloudtrail_records(path))
         if not events:
             continue
-        specimen_id = f"corpus-{source_id}-{path.stem[:32]}"
+        import hashlib
+
+        stem_hash = hashlib.sha256(str(path.name).encode("utf-8")).hexdigest()[:16]
+        specimen_id = f"corpus-{source_id}-{stem_hash}"
         specimen = ingest_events(
             events,
             specimen_id=specimen_id,

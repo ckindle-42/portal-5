@@ -789,6 +789,7 @@ def run_discovery_bench(
     probe_selector=real_probe_specimens,
     identity_gate: str = "hard",
     knn_batch_size: int = 32,
+    max_probes: int | None = None,
 ) -> DiscoveryReport:
     """SA2.1-SA2.4 end to end: real-vs-real pairing, joint scoring, controls
     (incl. A7 shuffled-label), cross-class breakout. Never touches the forge.
@@ -805,6 +806,8 @@ def run_discovery_bench(
             raise ValueError("run_discovery_bench requires corpus or corpus_path")
         corpus = load_specimen_corpus(corpus_path)
     probes = probe_selector(corpus)
+    if max_probes is not None:
+        probes = probes[:max_probes]
     verdicts = run_real_pairs(probes, snapshot, corpus=corpus, knn_batch_size=knn_batch_size)
     controls = run_controls(
         probes,
