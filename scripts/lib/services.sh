@@ -437,6 +437,42 @@ _launch_stop_embedding_cpu_arm() {
     fi
 }
 
+_launch_start_embedding_arm_a() {
+    # Arm A (SA3.2): MLX-native embedding server (Qwen3-Embedding-0.6B mxfp8),
+    # GPU-native via mlx_embeddings. Binds to EMBEDDING_ARM_A_PORT (default 8941)
+    # so it can run alongside the incumbent CPU server during the SA3 bake-off.
+    if [ -f "$ENV_FILE" ]; then set -a; source "$ENV_FILE"; set +a; fi
+    PID_FILE="/tmp/portal-embedding-arm-a.pid"
+    if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+        echo "  ✅ Arm A MLX embedding server already running (PID $(cat "$PID_FILE"))"
+        exit 0
+    fi
+    MODEL="${EMBEDDING_MODEL_ARM_A:-${HOME}/.portal5/models/Qwen3-Embedding-0.6B-mxfp8}"
+    PORT="${EMBEDDING_ARM_A_PORT:-8941}"
+    LOG_FILE="${HOME}/.portal5/logs/embedding-server-mlx.log"
+    mkdir -p "$(dirname "$LOG_FILE")"
+    echo "Starting Arm A MLX embedding server (Qwen3-Embedding-0.6B mxfp8)..."
+    nohup uv run --project "$PORTAL_ROOT" python3 "$PORTAL_ROOT/scripts/embedding-server-mlx.py" \
+        --model "$MODEL" \
+        --port "$PORT" \
+        --host 0.0.0.0 \
+        >"$LOG_FILE" 2>&1 &
+    echo $! > "$PID_FILE"
+    echo "  ✅ Arm A MLX embedding server started (PID $!, port $PORT)"
+    echo "  📋 Log: $LOG_FILE"
+}
+
+_launch_stop_embedding_arm_a() {
+    PID_FILE="/tmp/portal-embedding-arm-a.pid"
+    if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+        kill "$(cat "$PID_FILE")"
+        rm -f "$PID_FILE"
+        echo "  ✅ Arm A MLX embedding server stopped"
+    else
+        echo "  ℹ️  Arm A MLX embedding server not running"
+    fi
+}
+
 _launch_install_embedding_service() {
     # Install a macOS launchd agent so the ARM64 embedding server starts at login
     # and auto-restarts on crash — no dependency on launch.sh being run first.

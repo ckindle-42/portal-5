@@ -539,6 +539,14 @@ PYEOF
     _launch_stop_embedding_cpu_arm
     ;;
 
+  start-embedding-arm-a)
+    _launch_start_embedding_arm_a
+    ;;
+
+  stop-embedding-arm-a)
+    _launch_stop_embedding_arm_a
+    ;;
+
   install-embedding-service)
     _launch_install_embedding_service
     ;;
