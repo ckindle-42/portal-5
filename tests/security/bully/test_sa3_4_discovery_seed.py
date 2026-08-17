@@ -117,6 +117,7 @@ def test_seed_projection_indexes_all_parents_with_version_tag(tmp_path: Path):
         query_embed_url=None,
         embedding_version="mlx-qwen3-embed-0.6b-mxfp8",
         batch_size=8,
+        embed_client=_mock_embed_client(),
     )
     assert report["schema"] == SEED_REPORT_SCHEMA
     assert report["parent_count"] == 20
@@ -149,6 +150,7 @@ def test_seed_projection_writes_seed_report(tmp_path: Path):
         query_embed_url=None,
         embedding_version="v-test",
         batch_size=4,
+        embed_client=_mock_embed_client(),
     )
     report_path = output / "seed_report.json"
     assert report_path.exists()
@@ -170,6 +172,7 @@ def test_two_arms_produce_non_overlapping_version_tagged_projections(tmp_path: P
         query_embed_url=None,
         embedding_version="mlx-qwen3-embed-0.6b-mxfp8",
         batch_size=4,
+        embed_client=_mock_embed_client(),
     )
     seed_projection(
         corpus_path=corpus_path,
@@ -178,6 +181,7 @@ def test_two_arms_produce_non_overlapping_version_tagged_projections(tmp_path: P
         query_embed_url="http://localhost:8943/v1/embeddings/query",
         embedding_version="llamacpp-embeddinggemma-300m-q8",
         batch_size=4,
+        embed_client=_mock_embed_client(),
     )
     for output, version in (
         (out_a, "mlx-qwen3-embed-0.6b-mxfp8"),

@@ -58,6 +58,7 @@ def seed_projection(
     query_embed_url: str | None,
     embedding_version: str,
     batch_size: int,
+    embed_client: httpx.Client | None = None,
 ) -> dict:
     corpus = load_specimen_corpus(corpus_path)
     records = _real_parent_records(corpus)
@@ -70,7 +71,7 @@ def seed_projection(
             embed_url=embed_url,
             query_embed_url=query_embed_url,
             embedding_version=embedding_version,
-            embed_client=httpx.Client(timeout=600.0),
+            embed_client=embed_client or httpx.Client(timeout=600.0),
         )
         try:
             seeded = organ.upsert_many(records, batch_size=batch_size)
