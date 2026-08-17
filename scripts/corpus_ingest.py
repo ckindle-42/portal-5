@@ -769,6 +769,63 @@ def run(src: str, root: Path, ship: bool, backdate_days: int, limit: int) -> int
     return shipper.total
 
 
+def verify_index_confirmed(src: str, *, expect_min: int = 1, index: str = INDEX) -> dict:
+    """Confirm a shipped source is searchable in lab Splunk (P7.2 standard).
+
+    Polls a per-source count search (``host=corpus-<src>`` -- the exact host
+    every event for this source shipped under) until the index confirms the
+    events are searchable. Returns ``{ok, count, source, index}``. This is
+    the A5 ``live_indexed`` receipt, not an offline artifact count.
+    """
+    from portal.modules.security.core.siem.index_wait import wait_indexed
+
+    # Corpus events are backdated to their ORIGINAL timestamps (2018-2023
+    # for the acquired CloudTrail sets), so the confirmation poll must cover
+    # the full timeline -- a recent-window earliest bound would find nothing.
+    confirmed = wait_indexed(
+        host=f"corpus-{src}",
+        since_epoch=0,
+        expect_min=expect_min,
+        timeout_s=60,
+        index=index,
+    )
+    count = _confirm_count_search(src, index=index) if confirmed else 0
+    return {
+        "schema": "CORPUS_SHIP_RECEIPT_V1",
+        "source": src,
+        "index": index,
+        "indexed_confirmed": confirmed,
+        "confirmed_count": count,
+    }
+
+
+def _confirm_count_search(src: str, *, index: str) -> int:
+    """Count search for ``host=corpus-<src>`` in ``index``; 0 on failure."""
+    url = os.environ.get("LAB_SPLUNK_URL", "https://10.0.1.30:8089")
+    user = os.environ.get("LAB_SPLUNK_USER", "admin")
+    pw = os.environ.get("LAB_SPLUNK_PASSWORD", "")
+    try:
+        import httpx
+
+        r = httpx.post(
+            f"{url.rstrip('/')}/services/search/jobs/export",
+            auth=(user, pw),
+            verify=False,
+            timeout=30.0,
+            data={
+                "search": f'search index={index} host="corpus-{src}" | stats count',
+                "exec_mode": "oneshot",
+                "output_mode": "json",
+            },
+        )
+        for ln in r.text.splitlines():
+            if '"count"' in ln:
+                return int(json.loads(ln).get("result", {}).get("count", "0"))
+    except Exception:  # noqa: BLE001 -- count is supplementary to confirmation
+        pass
+    return 0
+
+
 def _report_census(shipper: Shipper, by_sourcetype: Counter) -> None:
     """Per-sourcetype, per-source-class, and unmapped census output (SA4.2)."""
     print("\n  events by sourcetype:")
@@ -798,11 +855,16 @@ def main() -> int:
     group = ap.add_mutually_exclusive_group(required=True)
     group.add_argument("--dry-run", action="store_true")
     group.add_argument("--ship", action="store_true")
+    group.add_argument("--verify-index", action="store_true")
     args = ap.parse_args()
 
     if not args.root.is_dir():
         print(f"[FAIL] --root {args.root} is not a directory")
         return 2
+    if args.verify_index:
+        receipt = verify_index_confirmed(args.src)
+        print(json.dumps(receipt, indent=2, sort_keys=True))
+        return 0 if receipt["indexed_confirmed"] else 1
     run(args.src, args.root, args.ship, args.backdate_days, args.limit)
     return 0
 
