@@ -65,6 +65,150 @@ BATCH = int(os.environ.get("CORPUS_BATCH", "500"))
 # validated production detection library rather than a parallel allowlist.
 INGESTED_SOURCETYPES = validated_detection_sourcetypes()
 
+# Label tiers (TASK_BULLY_SA4 A1): ingestion is not gated on label quality;
+# the tier governs what may serve as ground truth. T0/T1 are scoreable;
+# T2/T3 participate in retrieval but a graded pair involving them resolves
+# INDETERMINATE, never a hit or a miss.
+LABEL_TIER_AUTHORITATIVE = "T0"
+LABEL_TIER_CONFIRMED = "T1"
+LABEL_TIER_PROPOSED = "T2"
+LABEL_TIER_UNKNOWN = "T3"
+LABEL_TIERS = (
+    LABEL_TIER_AUTHORITATIVE,
+    LABEL_TIER_CONFIRMED,
+    LABEL_TIER_PROPOSED,
+    LABEL_TIER_UNKNOWN,
+)
+SCOREABLE_LABEL_TIERS = frozenset({LABEL_TIER_AUTHORITATIVE, LABEL_TIER_CONFIRMED})
+
+
+def label_tier_for(labeling: str | None) -> str:
+    """Map a declared labeling quality to a T0-T3 tier (A1).
+
+    ``authoritative`` (external per-entry/per-dataset labels, e.g. attack_data
+    ``data.yml``, per-entry ATT&CK sets) -> ``T0``;
+    ``confirmed``/``reviewed``/``corroborated`` -> ``T1``;
+    ``proposed``/``machine``/``clustered``/``unconfirmed`` -> ``T2``; anything
+    else (unlabeled, benign/background, unknown) -> ``T3``.
+    """
+    normalized = str(labeling or "").strip().lower().replace("-", "_").replace("&", "_")
+    if any(
+        marker in normalized
+        for marker in ("unconfirmed", "proposed", "machine", "clustered", "hypothesis")
+    ):
+        return LABEL_TIER_PROPOSED
+    if any(
+        marker in normalized for marker in ("authoritative", "per_entry", "per_dataset", "data_yml")
+    ):
+        return LABEL_TIER_AUTHORITATIVE
+    if any(
+        marker in normalized for marker in ("confirmed", "reviewed", "corroborated", "validated")
+    ):
+        return LABEL_TIER_CONFIRMED
+    return LABEL_TIER_UNKNOWN
+
+
+def tier_is_scoreable(tier: str) -> bool:
+    """Only T0/T1 may serve as ground truth (A1)."""
+    return tier in SCOREABLE_LABEL_TIERS
+
+
+# Broad-class resolution for sourcetypes we do not yet model well. Evaluation
+# decides tier and priority, not admission: an unmapped class is routed through
+# the fallback adapter and censused, never dropped (SA4.2 A7).
+_CLASS_PREFIX_RULES: tuple[tuple[str, str], ...] = (
+    ("aws:", "cloud"),
+    ("cloudtrail", "cloud"),
+    ("azure:", "cloud"),
+    ("gcp:", "cloud"),
+    ("okta", "identity"),
+    ("identity:", "identity"),
+    ("azure:monitor:aad", "identity"),
+    ("o365:", "identity"),
+    ("gws:reports:login", "identity"),
+    ("threat-intel", "threat_intel"),
+    ("threatintel", "threat_intel"),
+    ("netflow", "network"),
+    ("syslog", "network"),
+    ("windows:", "endpoint"),
+    ("linux:", "endpoint"),
+    ("web:", "endpoint"),
+    ("docker:", "endpoint"),
+)
+
+
+def resolve_source_class(sourcetype: str | None) -> str | None:
+    """Resolve a sourcetype to a broad source class (cloud/identity/endpoint/
+    network/threat_intel), or None when unmapped (A7)."""
+    normalized = str(sourcetype or "").strip().lower()
+    for prefix, source_class in _CLASS_PREFIX_RULES:
+        if normalized.startswith(prefix):
+            return source_class
+    return None
+
+
+def dataset_census(root: Path, *, manifest_labeling: str = "authoritative") -> dict:
+    """Census every input dataset under ``root`` (SA4.2 A7).
+
+    Each dataset is either admitted (source class resolved, label tier
+    stamped) or counted as unmapped / no-events / error -- never silently
+    dropped. Datasets with a manifest (e.g. attack_data ``data.yml``) carry
+    authoritative labels (T0); everything else is unlabeled (T3).
+    """
+    manifests = load_manifests(root)
+    files = sorted(
+        p
+        for p in root.rglob("*")
+        if p.is_file() and p.name.lower().endswith(DATA_SUFFIXES) and str(p) not in manifests
+    )
+    files = sorted(set(files) | {Path(p) for p in manifests if os.path.exists(p)})
+    admitted: list[dict] = []
+    unmapped: list[dict] = []
+    no_events: list[str] = []
+    read_errors: list[dict] = []
+    for path in files:
+        relative = str(path.relative_to(root))
+        if is_lfs_pointer(path):
+            continue
+        declared_st, declared_src, _ = manifests.get(str(path), (None, None, None))
+        try:
+            first = next(iter_events_text(path), None)
+        except Exception as exc:  # a malformed archive must not kill the census
+            read_errors.append({"dataset": relative, "error": str(exc)})
+            continue
+        if first is None:
+            no_events.append(relative)
+            continue
+        sourcetype = resolve_sourcetype(declared_st, declared_src, coerce(first), path.name)
+        source_class = resolve_source_class(sourcetype)
+        tier = label_tier_for(manifest_labeling if str(path) in manifests else None)
+        entry = {
+            "dataset": relative,
+            "sourcetype": sourcetype,
+            "source_class": source_class or "unmapped",
+            "label_tier": tier,
+            "scoreable": tier_is_scoreable(tier),
+        }
+        if source_class is None:
+            unmapped.append(entry)
+        else:
+            admitted.append(entry)
+    skipped_pointers = sum(1 for p in files if is_lfs_pointer(p))
+    census = {
+        "schema": "CORPUS_INPUT_CENSUS_V1",
+        "datasets_observed": len(files),
+        "admitted": admitted,
+        "unmapped": unmapped,
+        "no_events": no_events,
+        "read_errors": read_errors,
+        "lfs_pointers_skipped": skipped_pointers,
+    }
+    census["reconciled"] = len(admitted) + len(unmapped) + len(no_events) + len(
+        read_errors
+    ) + skipped_pointers == len(files)
+    return census
+
+
 # Containers we can read events out of. .log/.txt are raw-line formats
 # (XmlWinEventLog, auditd, nginx); the rest are JSON-ish or archives.
 DATA_SUFFIXES = (
@@ -100,6 +244,11 @@ _SOURCETYPE_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("windows:security", ("security", "wineventlog:security")),
     ("windows:powershell", ("powershell",)),
     ("windows:system", ("xmlwineventlog:system", "wineventlog:system")),
+    # Non-endpoint classes: recognized broadly, censused honestly, admitted
+    # through the fallback adapter when no class adapter exists yet (SA4.2 A7).
+    ("aws:cloudtrail", ("cloudtrail", "aws_cloudtrail")),
+    ("okta:log", ("okta",)),
+    ("netflow", ("netflow",)),
 )
 
 _WEB_KEYS = ("http_method", "cs_method", "cs_uri_stem", "uri", "request_uri", "http_user_agent")
@@ -152,6 +301,10 @@ def resolve_sourcetype(
             return "linux:auditd"
         if any(k in ev for k in _WEB_KEYS):
             return "web:access"
+        if ev.get("eventSource") or ev.get("eventName"):
+            return "aws:cloudtrail"
+        if ev.get("eventType") or ev.get("userPrincipalName"):
+            return "identity:event"
     if sourcetype := _match_rules(path_hint.lower()):
         return sourcetype
     if declared_st:
@@ -495,6 +648,9 @@ class Shipper:
         self.ship = ship
         self.buckets: dict[tuple[str, int], list[dict | str]] = defaultdict(list)
         self.manifest: Counter[tuple[str, str]] = Counter()
+        self.classes: Counter[str] = Counter()
+        self.tiers: Counter[str] = Counter()
+        self.unmapped_sourcetypes: Counter[str] = Counter()
         self.total = 0
         self.failures = 0
         self.label = ""
@@ -502,6 +658,9 @@ class Shipper:
     def add(self, sourcetype: str, ev: dict | str, epoch: float) -> None:
         self.manifest[(self.label, sourcetype)] += 1
         self.total += 1
+        self.classes[resolve_source_class(sourcetype) or "unmapped"] += 1
+        if resolve_source_class(sourcetype) is None:
+            self.unmapped_sourcetypes[sourcetype] += 1
         key = (sourcetype, int(epoch))
         self.buckets[key].append(ev)
         if len(self.buckets[key]) >= BATCH:
@@ -580,14 +739,26 @@ def run(src: str, root: Path, ship: bool, backdate_days: int, limit: int) -> int
     by_sourcetype = Counter()
     for (_, sourcetype), n in shipper.manifest.items():
         by_sourcetype[sourcetype] += n
+    _report_census(shipper, by_sourcetype)
+    return shipper.total
+
+
+def _report_census(shipper: Shipper, by_sourcetype: Counter) -> None:
+    """Per-sourcetype, per-source-class, and unmapped census output (SA4.2)."""
     print("\n  events by sourcetype:")
     for sourcetype, n in by_sourcetype.most_common():
         flag = "  <- fires canned detections" if sourcetype in INGESTED_SOURCETYPES else ""
         print(f"    {n:>10}  {sourcetype}{flag}")
+    print("\n  events by source class (broad):")
+    for source_class, n in shipper.classes.most_common():
+        print(f"    {n:>10}  {source_class}")
+    if shipper.unmapped_sourcetypes:
+        print("\n  unmapped sourcetypes (fallback adapter, censused -- never dropped):")
+        for sourcetype, n in shipper.unmapped_sourcetypes.most_common():
+            print(f"    {n:>10}  {sourcetype}")
     print("\n  top datasets:")
     for (label, sourcetype), n in shipper.manifest.most_common(20):
         print(f"    {n:>10}  {sourcetype:<20} {label}")
-    return shipper.total
 
 
 def main() -> int:
