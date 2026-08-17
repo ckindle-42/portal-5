@@ -24,6 +24,7 @@ history.
 | SA1 | `TASK_BULLY_SA1_CLASS_ONBOARDING_LOOP_V1.md` | ✅ done; System admitted, three classes honestly flagged | this commit |
 | SA2 | `TASK_BULLY_SA2_DISCOVERY_MEASUREMENT_V1.md` | ✅ done; `DISCOVERY_BASELINE_V1` frozen, first real product measurement | this commit |
 | SA3 | `TASK BULLY SA3 EMBEDDING BAKEOFF V1.md` | 🔄 in progress; harness + both arms + seeds + bake-off runs recorded, **decision deferred** | — |
+| SA4 | `TASK BULLY SA4 ANALYST CORPUS V1.md` | ✅ done; corpus layer + `ANALYST_CORPUS_SNAPSHOT_V1` machinery; external bulk-ingest pending operator data | this commit |
 
 ## What's landed (P0–P6)
 
@@ -445,6 +446,16 @@ itself before writing any code.
 
 ## Next
 
+**Analyst-corpus bulk load (SA4 follow-up)** — the corpus layer is built and
+tested, but the evaluated cloud/identity sources (flaws.cloud, invictus-ir,
+arXiv 2606.18190, CloudTrail research set, DARPA OpTC/TC3) are not yet
+bulk-ingested: no copy of them is present in this environment. Provision the
+data, run the ranked ingestion plan (`rank_ingestion_plan`), then take
+`ANALYST_CORPUS_SNAPSHOT_V1` over the broad corpus and re-run the SA1 loop +
+P7.4 controls on the newly onboarded classes. That run answers the open list
+above (real benign ratio, class distribution, distinct-text collapse,
+pivot-pair yield).
+
 **Flagged-class follow-up / next source class** — preserve both the valid P7.4
 V3 current-four reference and SA1's cold class-local reports. Investigate the
 monotonic violations that flagged Sysmon, PowerShell, and Okta without changing
@@ -577,9 +588,92 @@ throughput win that unblocks full-corpus measurement. No adoption, batch-size
 change, CPU-path retirement, or `DISCOVERY_BASELINE_V2` freeze has been made —
 this task stops at the recorded findings.
 
-## Housekeeping note (unrelated to the bully program)
+## SA4 — analyst corpus (`TASK BULLY SA4 ANALYST CORPUS V1.md`)
 
-Ollama upgraded 0.32.12 → 0.32.13 (2026-08-14, same-day release) for
+Reframe landed: the corpus stops being a curated attack benchmark and becomes
+the analyst's world — broad, heterogeneous, mostly-unlabeled data with no
+schema-normalization step, where most data is unlabeled, most of it benign,
+and the value is connecting what a human would have pivoted through by hand.
+All machinery lives in
+`portal/modules/security/core/bully/analyst_corpus.py` (pure compute + the
+store seam), with tier-aware admission helpers in `scripts/corpus_ingest.py`.
+Cold (A9): no thresholds, weights, training, or refinement anywhere.
+
+- **SA4.1 — source dossiers + ranked ingestion plan.** `SourceDossier` schema
+  (`SOURCE_DOSSIER_V1`), license-policy enforcement, and `rank_ingestion_plan`
+  (`SOURCE_INGESTION_PLAN_V1`). All seven researched candidates carry a
+  dossier with a recorded license call and achievable tier. The one hard
+  blocker is license: **OTRF Security-Datasets (GPL-3.0) is flagged, never
+  silently ingested** — a dossier that marks an incompatible license
+  compatible fails schema validation (structural, not prose). Ranked priority
+  is achievable label tier → class → overlap: flaws.cloud CloudTrail (real,
+  non-simulated attackers, T0), arXiv 2606.18190 (per-entry ATT&CK, T0,
+  simultaneous capture), CloudTrail ATT&CK research set (T0), invictus-ir/
+  aws_dataset (T1 tool-attributable), DARPA OpTC/TC3 (T2 engagement-relative),
+  splunk/attack_data (T0 backbone, in use). **Not yet bulk-ingested** — the
+  dossiers are the evaluation; the real cloud/identity bulk load is pending
+  operator-supplied data (none is present in this session's environment).
+- **SA4.2 — broad ingestion with T0–T3 label tiering.** `label_tier_for`
+  maps declared labeling quality to T0 (authoritative external per-entry/
+  per-dataset) / T1 (confirmed) / T2 (machine-proposed) / T3 (unknown,
+  incl. benign). `ingest_events` routes through the adapter seam: known
+  shapes keep their class, unmapped shapes (cloud, advisory, netflow…)
+  route through `FallbackSourceAdapter` with missing dimensions **absent,
+  never padded**, and every specimen is stamped with its tier + provenance +
+  trust tier. `corpus_ingest` now resolves broad classes (cloud/identity/
+  endpoint/network/threat_intel), ships a per-source-class + unmapped census,
+  and its `dataset_census` accounts for **every** input file
+  (admitted/unmapped/no-events/read-error/lfs-pointer) with a reconciled
+  total — nothing is silently dropped (A7).
+- **SA4.3 — benign as first-class context.** `ingest_benign` stamps benign
+  volume `T3`/`benign` lane; `benign_ratio` and `per_class_benign_coverage`
+  report the realized benign:attack ratio as a **measured** property, never a
+  target (A3). `resolve_pair_band` short-circuits any graded pair whose
+  reference is T2/T3 to `INDETERMINATE` — a benign-only neighborhood cannot
+  manufacture a discovery.
+- **SA4.4 — analyst-pivot pairs with independent basis.** `identify_pivot_pairs`
+  accepts only REAL co-occurrence: shared authoritative/confirmed external
+  ATT&CK labels, shared entity/time-window observations from a caller-supplied
+  real join, or simultaneous multi-source capture recorded in provenance.
+  Every pair carries its independent `basis` + detail; cross-class pairs are
+  counted. **A machine-proposed (T2) label or any hypothesis-store output
+  never grounds a pair** (A2, proven by test). `PivotPairLedger` seals pairs
+  in a hash-chained ledger.
+- **SA4.5 — proposed-structure hypotheses.** `HypothesisStore` records
+  clusters / candidate relationships / recurring types as **hypotheses,
+  never labels**. Proposals never auto-promote; `confirm` requires an
+  independent basis and records it (T2→T1); `scoreable_labels` excludes
+  unconfirmed proposals from scored reports (A2).
+- **SA4.6 — snapshot, dedupe, integrate.** `take_snapshot` produces an
+  immutable, hash-verified `ANALYST_CORPUS_SNAPSHOT_V1` deduplicated on the
+  canonical embed text (the same text the Organ projection embeds — the P7.3
+  duplicate defect becomes a reported metric: specimen count / distinct
+  texts / duplicate texts / max copies). The corpus stays appendable; a
+  snapshot is a frozen view, and tampering fails hash verification. Ingested
+  classes populate `coverage_cells` (one per class, prior = measured scoreable
+  fraction) and `known_state` (`corpus_coverage`, `IMPORTED_OBSERVED` — context
+  that never adjusts a posterior) so `targeting.select` can rank them (A8).
+
+**Rejected / not-yet-ingested (with the honest reason):** OTRF Security-Datasets
+(GPL-3.0 — license-incompatible flag). flaws.cloud / invictus-ir / arXiv
+2606.18190 / CloudTrail research set / DARPA OpTC-TC3 are evaluated and ranked
+but **not bulk-loaded** — the environment held no copy of those datasets, so
+bulk ingest is blocked on operator-supplied data, not on admission. The
+existing frozen `SPECIMEN_CORPUS_V2` (988 real `attack_data` parents) remains
+the endpoint backbone; new classes are demonstrated through hermetic fixtures
+(cloud, identity, advisory, netflow, benign) rather than a live SIEM load.
+
+**What we still do not know about this data (the honest open list):** the real
+benign:attack ratio of the future multi-source corpus (fixtures show the
+mechanism, not the population); the true per-class distribution once cloud/
+identity/advisory volume lands; how many canonical-text duplicates the broad
+corpus carries at scale (the frozen V2 already collapses 316 parents to 173
+distinct texts); the pivot-pair population at real scale (fixtures prove
+cross-class identification, not its yield); and whether the OpTC/TC3
+engagement-relative labels are confirmable to T1 at all. Each is the standing
+input to the next round — understanding accumulates, it is not a prerequisite.
+
+## Housekeeping note (unrelated to the bully program)Ollama upgraded 0.32.12 → 0.32.13 (2026-08-14, same-day release) for
 `qwen3.8: support developer instructions`. Done via the pinned-binary
 symlink-flip procedure (see memory `project_ollama_models_path`):
 downloaded + checksum-verified `ollama-darwin.tgz`, unpacked to
