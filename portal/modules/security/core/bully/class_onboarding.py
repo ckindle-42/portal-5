@@ -38,6 +38,15 @@ def run_detection_qa(
             if specimen.get("source_class") == source_class
         ]
         parents = [item for item in rows if item["source_lane"] == "attack_data"]
+        # A class whose positives are the acquired external corpus (no
+        # attack_data parents -- e.g. cloud/identity from SA5.4's live-indexed
+        # ship) still proves its detection on real live fires (A4). The
+        # attack_data path is unchanged for the frozen four classes.
+        positive_cohort = (
+            parents
+            if parents
+            else [item for item in rows if item["source_lane"] == "external_corpus"]
+        )
 
         def outcomes(specimens: list[dict[str, Any]]) -> Counter[str]:
             return Counter(
@@ -46,7 +55,7 @@ def run_detection_qa(
                 for value in specimen["engine_view"]["telemetry_view"]["detector_outcomes"].values()
             )
 
-        parent_outcomes = outcomes(parents)
+        parent_outcomes = outcomes(positive_cohort)
         class_outcomes = outcomes(rows)
         classes[source_class] = {
             "technique_id": technique_id,
@@ -56,6 +65,7 @@ def run_detection_qa(
             "parent_detector_outcomes": dict(sorted(parent_outcomes.items())),
             "class_detector_outcomes": dict(sorted(class_outcomes.items())),
             "quiet_on_benign": quiet,
+            "positive_lane": "attack_data" if parents else "external_corpus",
             "passed": syntax_ok and parent_outcomes["fired"] > 0 and quiet["outcome"] == "pass",
         }
     report = {
