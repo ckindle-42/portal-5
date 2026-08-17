@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import time
 from pathlib import Path
@@ -17,6 +18,17 @@ from .live_connect import connect_lab_splunk, register_staged_corpora
 from .live_profiles import derive_live_profiles
 from .planner_proof import planner_proof
 from .store import Store
+
+
+def _safe_census(value: Any, *, key: str = "") -> Any:
+    if isinstance(value, dict):
+        return {name: _safe_census(child, key=name) for name, child in value.items()}
+    if isinstance(value, list):
+        return [_safe_census(child, key=key) for child in value]
+    if key in {"left_id", "right_id"} and value is not None:
+        digest = hashlib.sha256(str(value).encode("utf-8")).hexdigest()[:16]
+        return f"entity-redacted-{digest}"
+    return value
 
 
 def build_live_plane(
@@ -83,7 +95,7 @@ def write_live_census(
     payload = {
         "schema": "BULLY_SA7_LIVE_CENSUS_V1",
         "generated_at": time.time(),
-        "census": plane.census(),
+        "census": _safe_census(plane.census()),
         "planner_proof": planner,
         "findings": list(findings or []),
     }
