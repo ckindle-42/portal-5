@@ -68,7 +68,7 @@ def _seed_projection(
     query_embed_url: str | None,
     embedding_version: str,
     batch_size: int,
-) -> None:
+) -> dict:
     records = [corpus_parent_reference_record(specimen) for specimen in specimens]
     with Store(output_dir / "snapshot_state.db") as store:
         organ = Organ(
@@ -83,6 +83,7 @@ def _seed_projection(
             organ.upsert_many(records, batch_size=batch_size)
         finally:
             organ.close()
+    return {"seeded": len(records), "skipped": 0}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -94,6 +95,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--projection", type=Path, required=True)
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--batch-size", type=int, default=32)
+    ap.add_argument(
+        "--max-probes",
+        type=int,
+        default=None,
+        help="cap the probe pool (LanceDB prepare_knn deadlocks on the full "
+        "multi-class set in this environment -- recorded finding, P0.4/SA5.7)",
+    )
     args = ap.parse_args(argv)
 
     corpus = _snapshot_corpus(args.snapshot)
@@ -107,7 +115,7 @@ def main(argv: list[str] | None = None) -> int:
     }
 
     args.projection.mkdir(parents=True, exist_ok=True)
-    _seed_projection(
+    seed_result = _seed_projection(
         corpus["specimens"],
         output_dir=args.projection,
         embed_url=args.embed_url,
@@ -115,6 +123,16 @@ def main(argv: list[str] | None = None) -> int:
         embedding_version=args.embedding_version,
         batch_size=args.batch_size,
     )
+    print(f"  seeded {seed_result['seeded']}, skipped {seed_result['skipped']}")
+    # The seed Organ must be fully closed (LanceDB handle released) before the
+    # read-only discovery Organ opens the same dir -- two live handles on one
+    # table can block each other.
+    import gc
+    import time
+
+    del seed_result
+    gc.collect()
+    time.sleep(2)
 
     with Store(args.projection / "snapshot_state.db") as store:
         snapshot = Organ(
@@ -135,6 +153,7 @@ def main(argv: list[str] | None = None) -> int:
                 probe_selector=analyst_probe_specimens,
                 identity_gate="diagnostic",
                 knn_batch_size=args.batch_size,
+                max_probes=args.max_probes,
             )
         finally:
             snapshot.close()
