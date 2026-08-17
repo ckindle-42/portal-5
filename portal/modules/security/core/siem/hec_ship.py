@@ -78,21 +78,31 @@ def ship_batch(
     index: str = INDEX,
     dry_run: bool = False,
     event_time: float | None = None,
+    event_times: list[float] | None = None,
     evidence_origin: str | None = None,
     evidence_provenance: str | None = None,
     episode_id: str | None = None,
 ) -> dict:
     """Batch to /services/collector/event (newline-concatenated event objects).
 
-    event_time overrides the HEC 'time' field (epoch seconds) for every event in
-    the batch — pass the real attack time so the batch lands on the SIEM
-    timeline as if it happened then, instead of at ship time.
+    ``event_time`` overrides the HEC 'time' field (epoch seconds) for every
+    event in the batch -- pass the real attack time so the batch lands on the
+    SIEM timeline as if it happened then, instead of at ship time.  When
+    ``event_times`` is given (one epoch per event, parallel to ``events``),
+    each event carries its own original time in a single POST -- required for
+    bulk corpus ingest where events span years and per-second batching would
+    otherwise spawn one HTTP call per second (SA5.4).
     """
     if dry_run:
         return {"ok": True, "dry_run": True, "count": len(events)}
-    stamp = event_time if event_time is not None else time.time()
+    if event_times is not None:
+        if len(event_times) != len(events):
+            raise ValueError("event_times must be parallel to events")
+        stamps = event_times
+    else:
+        stamps = [event_time if event_time is not None else time.time()] * len(events)
 
-    def _envelope(e: dict | str) -> dict:
+    def _envelope(e: dict | str, stamp: float) -> dict:
         envelope = {
             "time": stamp,
             "host": host,
@@ -114,7 +124,9 @@ def ship_batch(
             envelope["fields"] = fields
         return envelope
 
-    payload = "\n".join(json.dumps(_envelope(e)) for e in events)
+    payload = "\n".join(
+        json.dumps(_envelope(e, stamp)) for e, stamp in zip(events, stamps, strict=True)
+    )
     try:
         r = httpx.post(
             f"{HEC_URL.rstrip('/')}/services/collector/event",

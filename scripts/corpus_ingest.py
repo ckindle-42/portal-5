@@ -660,15 +660,16 @@ def is_lfs_pointer(path: Path) -> bool:
 
 
 class Shipper:
-    """Buffers events by (sourcetype, whole second) so a batch keeps one true
-    timestamp — ``ship_batch`` stamps every event in a call with a single time,
-    so batching across seconds would flatten the timeline."""
+    """Buffers events by sourcetype and ships BATCH-sized POSTs, each carrying
+    every event's original timestamp (SA5.4): ``ship_batch`` now accepts a
+    parallel ``event_times`` list, so events spanning years batch by count
+    instead of one HTTP call per second."""
 
     def __init__(self, src: str, index: str, ship: bool) -> None:
         self.src = src
         self.index = index
         self.ship = ship
-        self.buckets: dict[tuple[str, int], list[dict | str]] = defaultdict(list)
+        self.buckets: dict[str, list[tuple[dict | str, float]]] = defaultdict(list)
         self.manifest: Counter[tuple[str, str]] = Counter()
         self.classes: Counter[str] = Counter()
         self.tiers: Counter[str] = Counter()
@@ -683,33 +684,32 @@ class Shipper:
         self.classes[resolve_source_class(sourcetype) or "unmapped"] += 1
         if resolve_source_class(sourcetype) is None:
             self.unmapped_sourcetypes[sourcetype] += 1
-        key = (sourcetype, int(epoch))
-        self.buckets[key].append(ev)
-        if len(self.buckets[key]) >= BATCH:
-            self._flush(key)
+        self.buckets[sourcetype].append((ev, float(epoch)))
+        if len(self.buckets[sourcetype]) >= BATCH:
+            self._flush(sourcetype)
 
-    def _flush(self, key: tuple[str, int]) -> None:
-        events = self.buckets.pop(key, [])
-        if not events or not self.ship:
+    def _flush(self, sourcetype: str) -> None:
+        entries = self.buckets.pop(sourcetype, [])
+        if not entries or not self.ship:
             return
-        sourcetype, epoch = key
+        events, epochs = zip(*entries, strict=True)
         result = ship_batch(
-            events,
+            list(events),
             sourcetype=sourcetype,
             host=f"corpus-{self.src}",
             index=self.index,
-            event_time=float(epoch),
+            event_times=list(epochs),
             evidence_origin=IMPORTED_OBSERVED,
             evidence_provenance="external_corpus",
         )
         if not result.get("ok"):
             self.failures += 1
             if self.failures <= 5:
-                print(f"  [ship-fail] {sourcetype} @{epoch}: {result}", file=sys.stderr)
+                print(f"  [ship-fail] {sourcetype}: {result}", file=sys.stderr)
 
     def flush(self) -> None:
-        for key in list(self.buckets):
-            self._flush(key)
+        for sourcetype in list(self.buckets):
+            self._flush(sourcetype)
 
 
 def run(src: str, root: Path, ship: bool, backdate_days: int, limit: int) -> int:
