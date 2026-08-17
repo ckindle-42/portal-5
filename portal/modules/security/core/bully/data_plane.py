@@ -766,7 +766,11 @@ def profile_source(
         volume_strategy(len(observed)),
         quality,
         access,
-        len(observed),
+        int(
+            metadata["record_count_override"]
+            if metadata.get("record_count_override") is not None
+            else len(observed)
+        ),
         version,
         freshness_at=metadata.get("freshness_at"),
         access_cost=float(metadata.get("access_cost", 0.0)),
