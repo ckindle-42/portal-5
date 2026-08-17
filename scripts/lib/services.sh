@@ -365,9 +365,10 @@ _launch_stop_speech() {
 }
 
 _launch_start_embedding_cpu_arm() {
-    # Start the native ARM64 embedding server (Python/sentence-transformers + MPS).
-    # Replaces the TEI Docker service on Apple Silicon where the x86-only TEI image
-    # has no ARM64 manifest. Binds to port 8917 — same as the Docker service.
+    # RETIRED CPU fallback (P0.4): the adopted default embedding backend at
+    # :8917 is now Arm A (MLX Qwen3, `start-embedding-arm-a` / launchd
+    # EMBEDDING_BACKEND=mlx). This function keeps the old sentence-transformers
+    # server available for explicit fallback only; it is no longer the default.
 
     # Source .env so EMBEDDING_MODEL, EMBEDDING_HOST_PORT, and ENABLE_REMOTE_ACCESS
     # overrides are respected when this command is run standalone (not via `up`).
@@ -411,7 +412,7 @@ _launch_start_embedding_cpu_arm() {
     LOG_FILE="${HOME}/.portal5/logs/embedding-server.log"
     mkdir -p "$(dirname "$LOG_FILE")"
 
-    echo "[portal-5] Starting ARM64 native embedding server..."
+    echo "[portal-5] Starting RETIRED CPU embedding server (fallback only)..."
     echo "  Model: $MODEL"
     echo "  Port:  $PORT"
     echo "  Log:   $LOG_FILE"
@@ -438,9 +439,10 @@ _launch_stop_embedding_cpu_arm() {
 }
 
 _launch_start_embedding_arm_a() {
-    # Arm A (SA3.2): MLX-native embedding server (Qwen3-Embedding-0.6B mxfp8),
-    # GPU-native via mlx_embeddings. Binds to EMBEDDING_ARM_A_PORT (default 8941)
-    # so it can run alongside the incumbent CPU server during the SA3 bake-off.
+    # ADOPTED default embedding backend (P0.4): MLX-native embedding server
+    # (Qwen3-Embedding-0.6B mxfp8), GPU-native via mlx_embeddings. Binds to
+    # EMBEDDING_HOST_PORT (default 8917) — the adopted :8917 default. The SA3
+    # bake-off port (8941) remains as EMBEDDING_ARM_A_PORT for parallel runs.
     if [ -f "$ENV_FILE" ]; then set -a; source "$ENV_FILE"; set +a; fi
     PID_FILE="/tmp/portal-embedding-arm-a.pid"
     if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
@@ -448,10 +450,10 @@ _launch_start_embedding_arm_a() {
         exit 0
     fi
     MODEL="${EMBEDDING_MODEL_ARM_A:-${HOME}/.portal5/models/Qwen3-Embedding-0.6B-mxfp8}"
-    PORT="${EMBEDDING_ARM_A_PORT:-8941}"
+    PORT="${EMBEDDING_ARM_A_PORT:-${EMBEDDING_HOST_PORT:-8917}}"
     LOG_FILE="${HOME}/.portal5/logs/embedding-server-mlx.log"
     mkdir -p "$(dirname "$LOG_FILE")"
-    echo "Starting Arm A MLX embedding server (Qwen3-Embedding-0.6B mxfp8)..."
+    echo "Starting Arm A MLX embedding server (Qwen3-Embedding-0.6B mxfp8, adopted default)..."
     nohup uv run --project "$PORTAL_ROOT" python3 "$PORTAL_ROOT/scripts/embedding-server-mlx.py" \
         --model "$MODEL" \
         --port "$PORT" \
