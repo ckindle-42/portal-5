@@ -56,6 +56,12 @@ python3 scripts/build_specimen_corpus.py            # frozen three-lane real spe
 python3 scripts/defensive_bully_specimen_e2e.py     # P7 live-indexed real-specimen gate/cutover/rollback proof
 python3 scripts/defensive_bully_train.py            # operator-gated HARV/TRAIN build, serve, and rollback surface
 python3 scripts/defensive_bully_closeout.py         # fail-closed P7 proof-bundle assembler over durable evidence
+python3 scripts/corpus_acquire.py                   # SA5.1 acquire/stage external corpus sources + acquisition manifest
+python3 scripts/corpus_ingest.py                    # SA5.2/SA5.4 bulk-inject acquired corpora to lab Splunk (live-indexed)
+python3 scripts/analyst_corpus_real_ingest.py       # SA5.5 ingest acquired cloud/identity data through analyst-corpus layer
+python3 scripts/analyst_corpus_snapshot_v2.py       # SA5.6 freeze ANALYST_CORPUS_SNAPSHOT_V2 + pivot pairs
+python3 scripts/defensive_bully_discovery_v3.py     # SA5.7 discovery re-run on multi-class corpus → DISCOVERY_BASELINE_V3
+python3 scripts/defensive_bully_p04_adoption.py     # P0.4 embed-arm adoption bake-off (A/B/C on deduplicated set)
 ```
 
 ## Convention
