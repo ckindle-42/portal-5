@@ -39,6 +39,13 @@ parser.add_argument(
     help="HuggingFace model ID (default: microsoft/harrier-oss-v1-0.6b)",
 )
 parser.add_argument("--host", default="0.0.0.0", help="Host to bind (default: 0.0.0.0)")
+parser.add_argument(
+    "--batch-size",
+    type=int,
+    default=32,
+    help="SentenceTransformer encode batch_size passed explicitly into "
+    "_model.encode(...) (Arm C, P0.1; library default otherwise applies)",
+)
 args, _ = parser.parse_known_args()
 
 # ── Model loading ────────────────────────────────────────────────────────────
@@ -97,7 +104,10 @@ async def create_embeddings(req: EmbeddingRequest):
         vectors = await loop.run_in_executor(
             None,
             lambda: _model.encode(
-                texts, normalize_embeddings=True, show_progress_bar=False
+                texts,
+                normalize_embeddings=True,
+                show_progress_bar=False,
+                batch_size=args.batch_size,
             ).tolist(),
         )
     except Exception as e:
