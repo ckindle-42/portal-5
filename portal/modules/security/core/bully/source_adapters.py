@@ -12,6 +12,8 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+Record = dict[str, Any] | str
+
 _EVENT_CODE = re.compile(r"(?:EventCode|EventID)\s*[=:]\s*([A-Za-z0-9_.-]+)")
 _OBSERVED_FIELD = re.compile(r"(?:Name=['\"]|\b)([A-Za-z][A-Za-z0-9_.-]+)(?:['\"]|)\s*[=>]")
 _ENDPOINT_SOURCES = frozenset(
@@ -30,11 +32,20 @@ _CLOUD_SOURCE_PREFIXES = ("aws:", "azure:", "gcp:", "cloudtrail")
 
 
 class SourceAdapter(Protocol):
-    """Stable source plugin interface from the source-agnostic design."""
+    """Stable record-shaped source plugin interface.
+
+    ``raw_events`` remains accepted by the dispatcher for compatibility with
+    the pre-SA7 event lane, but adapters consume records: events, documents,
+    inventory rows, and tickets are all valid inputs.
+    """
 
     def adapt(
-        self, raw_events: Iterable[dict[str, Any] | str], source_meta: Mapping[str, Any]
+        self, records: Iterable[Record], source_meta: Mapping[str, Any]
     ) -> dict[str, Any]: ...
+
+
+def _records(records: Iterable[Record] | None, raw_events: Iterable[Record] | None) -> list[Record]:
+    return list(records if records is not None else (raw_events or ()))
 
 
 def _event_actions(event: dict[str, Any] | str, index: int) -> list[str]:
@@ -102,10 +113,8 @@ def _base_view(
 class EndpointSourceAdapter:
     """Behavior-preserving adapter for host, web, audit, and container logs."""
 
-    def adapt(
-        self, raw_events: Iterable[dict[str, Any] | str], source_meta: Mapping[str, Any]
-    ) -> dict[str, Any]:
-        return _base_view(list(raw_events), source_meta)
+    def adapt(self, records: Iterable[Record], source_meta: Mapping[str, Any]) -> dict[str, Any]:
+        return _base_view(list(records), source_meta)
 
 
 def _nested(event: Mapping[str, Any], *path: str) -> Any:
@@ -127,10 +136,8 @@ def _account_from_arn(arn: str) -> str | None:
 class IdentitySourceAdapter:
     """Translate auth/session/audit events into identity-shaped dimensions."""
 
-    def adapt(
-        self, raw_events: Iterable[dict[str, Any] | str], source_meta: Mapping[str, Any]
-    ) -> dict[str, Any]:
-        events = list(raw_events)
+    def adapt(self, records: Iterable[Record], source_meta: Mapping[str, Any]) -> dict[str, Any]:
+        events = list(records)
         view = _base_view(events, source_meta)
         mappings = [event for event in events if isinstance(event, Mapping)]
         actions = [
@@ -216,10 +223,8 @@ class CloudSourceAdapter:
     with no evidence stays absent (honest completeness), never invented.
     """
 
-    def adapt(
-        self, raw_events: Iterable[dict[str, Any] | str], source_meta: Mapping[str, Any]
-    ) -> dict[str, Any]:
-        events = list(raw_events)
+    def adapt(self, records: Iterable[Record], source_meta: Mapping[str, Any]) -> dict[str, Any]:
+        events = list(records)
         view = _base_view(events, source_meta)
         mappings = [event for event in events if isinstance(event, Mapping)]
         actions = [
@@ -301,10 +306,8 @@ class CloudSourceAdapter:
 class FallbackSourceAdapter:
     """Recognize an unmapped source without inventing semantic dimensions."""
 
-    def adapt(
-        self, raw_events: Iterable[dict[str, Any] | str], source_meta: Mapping[str, Any]
-    ) -> dict[str, Any]:
-        events = list(raw_events)
+    def adapt(self, records: Iterable[Record], source_meta: Mapping[str, Any]) -> dict[str, Any]:
+        events = list(records)
         source = str(source_meta.get("sourcetype") or "unmapped")
         return {
             "artifacts": {"raw_event_count": len(events)},
@@ -323,8 +326,137 @@ class FallbackSourceAdapter:
         }
 
 
-def adapter_for(sourcetype: str) -> SourceAdapter:
+@dataclass(frozen=True)
+class DocumentSourceAdapter:
+    """Adapt advisory/document records without manufacturing event dimensions."""
+
+    def adapt(self, records: Iterable[Record], source_meta: Mapping[str, Any]) -> dict[str, Any]:
+        documents = [record for record in records if isinstance(record, (str, Mapping))]
+        artifacts = []
+        mappings = []
+        for record in documents:
+            if isinstance(record, Mapping):
+                mappings.append(record)
+                artifacts.extend(
+                    str(record[key])
+                    for key in ("ioc", "artifact", "url", "title")
+                    if record.get(key)
+                )
+            else:
+                artifacts.append(str(record))
+        result: dict[str, Any] = {
+            "artifacts": {"document_count": len(documents), "values": artifacts[:24]},
+            "context_topology": {
+                "source_classes": [str(source_meta.get("source_id") or "document")]
+            },
+            "telemetry_shape": {"source_class": "document", "record_count": len(documents)},
+        }
+        if mappings:
+            result["semantic_text"] = [
+                str(item.get("text") or item.get("content") or item.get("body"))
+                for item in mappings
+                if item.get("text") or item.get("content") or item.get("body")
+            ]
+        return result
+
+
+@dataclass(frozen=True)
+class InventorySourceAdapter:
+    """Adapt asset/identity inventory rows; absent activity stays absent."""
+
+    def adapt(self, records: Iterable[Record], source_meta: Mapping[str, Any]) -> dict[str, Any]:
+        rows = [record for record in records if isinstance(record, Mapping)]
+        identities = sorted(
+            {
+                str(record[key])
+                for record in rows
+                for key in ("id", "asset_id", "account", "user", "owner")
+                if record.get(key)
+            }
+        )
+        result: dict[str, Any] = {
+            "context_topology": {
+                "source_classes": [str(source_meta.get("source_id") or "inventory")]
+            },
+            "artifacts": {"inventory_ids": identities[:24]},
+            "telemetry_shape": {"source_class": "inventory", "record_count": len(rows)},
+        }
+        if rows:
+            result["parameter_families"] = {
+                "inventory_fields": sorted({str(key) for row in rows for key in row})[:24]
+            }
+        return result
+
+
+@dataclass(frozen=True)
+class CaseHistorySourceAdapter:
+    """Adapt tickets and analyst decisions as first-class context."""
+
+    def adapt(self, records: Iterable[Record], source_meta: Mapping[str, Any]) -> dict[str, Any]:
+        rows = [record for record in records if isinstance(record, Mapping)]
+        decisions = sorted(
+            {
+                str(record[key])
+                for record in rows
+                for key in ("decision", "outcome", "status")
+                if record.get(key)
+            }
+        )
+        return {
+            "context_topology": {"source_classes": ["case_history"]},
+            "artifacts": {
+                "ticket_ids": [
+                    str(row[key])
+                    for row in rows
+                    for key in ("ticket_id", "case_id")
+                    if row.get(key)
+                ][:24]
+            },
+            "parameter_families": {"analyst_decisions": decisions},
+            "telemetry_shape": {"source_class": "case_history", "record_count": len(rows)},
+        }
+
+
+@dataclass(frozen=True)
+class CoverageSourceAdapter:
+    """Adapt detections/rules as queryable response-axis content."""
+
+    def adapt(self, records: Iterable[Record], source_meta: Mapping[str, Any]) -> dict[str, Any]:
+        rows = [record for record in records if isinstance(record, Mapping)]
+        techniques = sorted(
+            {
+                str(record[key])
+                for record in rows
+                for key in ("technique", "technique_id", "rule_id")
+                if record.get(key)
+            }
+        )
+        return {
+            "attack_mappings": [{"technique_id": value} for value in techniques],
+            "context_topology": {"source_classes": ["coverage"]},
+            "artifacts": {
+                "rule_ids": [
+                    str(row[key])
+                    for row in rows
+                    for key in ("rule_id", "detection_id")
+                    if row.get(key)
+                ][:24]
+            },
+            "telemetry_shape": {"source_class": "coverage", "record_count": len(rows)},
+        }
+
+
+def adapter_for(sourcetype: str, *, record_class: str | None = None) -> SourceAdapter:
     normalized = str(sourcetype or "").lower()
+    explicit_class = str(record_class or "").lower()
+    if explicit_class in {"advisory", "document"}:
+        return DocumentSourceAdapter()
+    if explicit_class in {"inventory", "asset", "identity_inventory"}:
+        return InventorySourceAdapter()
+    if explicit_class in {"case", "ticket", "case_history"}:
+        return CaseHistorySourceAdapter()
+    if explicit_class in {"coverage", "detection"}:
+        return CoverageSourceAdapter()
     if normalized in _ENDPOINT_SOURCES:
         return EndpointSourceAdapter()
     if normalized.startswith(_IDENTITY_SOURCE_PREFIXES):
@@ -335,7 +467,18 @@ def adapter_for(sourcetype: str) -> SourceAdapter:
 
 
 def adapt(
-    raw_events: Iterable[dict[str, Any] | str], source_meta: Mapping[str, Any]
+    records: Iterable[Record] | None = None,
+    source_meta: Mapping[str, Any] | None = None,
+    *,
+    raw_events: Iterable[Record] | None = None,
 ) -> dict[str, Any]:
-    """Dispatch one source class through its registered adapter."""
-    return adapter_for(str(source_meta.get("sourcetype") or "")).adapt(raw_events, source_meta)
+    """Dispatch one record source through its registered adapter.
+
+    The keyword-only ``raw_events`` alias lets existing event callers migrate
+    without a flag day while the canonical contract is now ``records``.
+    """
+    meta = source_meta or {}
+    return adapter_for(
+        str(meta.get("sourcetype") or meta.get("source_id") or ""),
+        record_class=meta.get("record_class") or meta.get("source_class"),
+    ).adapt(_records(records, raw_events), meta)

@@ -26,6 +26,24 @@ history.
 | SA3 | `TASK BULLY SA3 EMBEDDING BAKEOFF V1.md` | ✅ done; both arms built + bake-off recorded, decision deferred → resolved in SA5 P0.4 | — |
 | SA4 | `TASK BULLY SA4 ANALYST CORPUS V1.md` | ✅ done; corpus layer + `ANALYST_CORPUS_SNAPSHOT_V1` machinery | this commit |
 | SA5 | `TASK BULLY SA5 ACQUIRE AND RUN V1.md` | ✅ done; acquisition + live ship + multi-class snapshot V2 + arms resolved (Arm A adopted) + `DISCOVERY_BASELINE_V3` | this commit |
+| SA7 Phase 0 | `TASK BULLY SA7 DATA PLANE AND INVESTIGATION V1.md` | ⚠️ implementation landed; operational gate honestly blocked on live non-telemetry connectors | this task |
+
+## SA7 Phase 0 checkpoint
+
+The universal data-plane contracts are implemented in
+`portal/modules/security/core/bully/connectors.py` and
+`portal/modules/security/core/bully/data_plane.py`. Record-shaped adapters,
+schema discovery, semantic/time/entity profiling, native query translation,
+catalog-driven planning, tier/quality/access metadata, audit logging, drift
+invalidation, capability-gap reporting, and the four non-telemetry adapter
+classes are covered by `tests/security/bully/test_sa7_data_plane.py` plus the
+existing SA1 adapter tests.
+
+The Phase 0 operational gate is not claimed green: this checkout does not have
+configured live advisory, case-history, inventory, and coverage connectors.
+Phase A and later SA7 phases must not begin until those sources are connected
+and the census in `docs/BULLY_DATA_PLANE_CENSUS_V1.md` is regenerated from live
+profiles.
 
 ## What's landed (P0–P6)
 
