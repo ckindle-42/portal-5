@@ -514,6 +514,18 @@ Harness run on port 8943: batch 8 → 109 items/s, batch 32 → 174 items/s,
 batch 128 → 188 items/s; RSS 68 MB. That is ~2x Arm A's throughput at ~1/20th
 the resident memory, and ~60x the CPU path.
 
+**SA3.4 — full-corpus re-index per arm (A4, done).**
+`scripts/defensive_bully_discovery_seed.py` re-embeds and re-indexes the FULL
+316 real parents of the frozen `SPECIMEN_CORPUS_V2` into a separate,
+version-tagged projection per arm, recording wall-clock (the A3 session bar).
+Live seeds:
+`/Volumes/data01/portal5_hunt/artifacts/embedding_bakeoff/arm-a` (316 rows,
+`mlx-qwen3-embed-0.6b-mxfp8`) seeded in **10.5 s** (~30 items/s), and
+`/Volumes/data01/portal5_hunt/artifacts/embedding_bakeoff/arm-b` (316 rows,
+`llamacpp-embeddinggemma-300m-q8`) seeded in **3.2 s** (~98 items/s). The
+measurement is no longer capped at 99 parents; full-corpus discovery is now
+practical within a session for either arm.
+
 ## Housekeeping note (unrelated to the bully program)
 
 Ollama upgraded 0.32.12 → 0.32.13 (2026-08-14, same-day release) for
