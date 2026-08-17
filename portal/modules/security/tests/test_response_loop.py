@@ -117,7 +117,7 @@ class TestThreatIntake:
             graph,
             threat_id="CVE-2024-5678",
             threat_type="cve",
-            technique_ids=["T1078.004"],  # no SPL detection
+            technique_ids=["T1040"],  # no SPL detection (T1078.004 gained one in SA5.3)
         )
         assert len(intake.gaps_identified) > 0
         assert any(g["gap_type"] == "detection" for g in intake.gaps_identified)
