@@ -895,7 +895,6 @@ T1078.004:
   description: "Valid Accounts: Cloud Accounts — interactive or non-interactive sign-in to an AWS account"
   matrix:
     - enterprise
-    - cloud
   compliance_mapping:
     - framework: mitre-attack
       tactic: "initial-access"
@@ -928,7 +927,6 @@ T1098:
   description: "Account Manipulation — creation of credentials, users, roles, or policies in a cloud account"
   matrix:
     - enterprise
-    - cloud
   compliance_mapping:
     - framework: mitre-attack
       tactic: "persistence"
@@ -966,7 +964,6 @@ T1530:
   description: "Data from Cloud Storage — read or copy of data held in cloud object storage"
   matrix:
     - enterprise
-    - cloud
   compliance_mapping:
     - framework: mitre-attack
       tactic: "collection"
@@ -1002,7 +999,6 @@ T1526:
   description: "Cloud Service Discovery — enumeration of cloud resources via Describe/List APIs"
   matrix:
     - enterprise
-    - cloud
   compliance_mapping:
     - framework: mitre-attack
       tactic: "discovery"
