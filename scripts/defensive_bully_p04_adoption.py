@@ -77,6 +77,9 @@ ARM_SPECS = {
         # texts are ~300 tokens each, so >4 texts/batch exceeds the slot and
         # returns 500 (recorded Arm B operational limit, P0.4).
         "batch_size": 4,
+        # One corpus record (~6900 chars) exceeds llama-server's context and
+        # returns a hard 500 -- recorded as a skipped-record finding (P0.4).
+        "max_text_chars": 4000,
         "label": "llamacpp-embeddinggemma",
     },
 }
@@ -110,8 +113,25 @@ def _seed_projection(
     query_embed_url: str | None,
     embedding_version: str,
     batch_size: int,
-) -> None:
+    max_text_chars: int | None = None,
+) -> dict:
+    """Seed the projection, recording per-record embed failures as findings.
+
+    A backend with a hard context limit (Arm B's llama-server, n_ubatch/context
+    bound) cannot embed every corpus record; the failing records are recorded
+    in a sidecar finding file and skipped, so the arm is still measured on the
+    records it CAN embed (honest re-scope, P0.4). ``max_text_chars`` lets an
+    arm declare its embeddable record ceiling (None = no skip; CPU/MLX embed
+    the full corpus). Returns {seeded, skipped}."""
     records = [corpus_parent_reference_record(specimen) for specimen in parents]
+    seedable = []
+    skipped: list[dict] = []
+    for record in records:
+        text = _canonical_record_text(record)
+        if max_text_chars is not None and len(text) > max_text_chars:
+            skipped.append({"record_id": record.get("record_id"), "text_chars": len(text)})
+            continue
+        seedable.append(record)
     with Store(output_dir / "snapshot_state.db") as store:
         organ = Organ(
             store=store,
@@ -127,7 +147,7 @@ def _seed_projection(
             attempts = 0
             while True:
                 try:
-                    organ.upsert_many(records, batch_size=batch_size)
+                    organ.upsert_many(seedable, batch_size=batch_size)
                     break
                 except Exception as exc:  # noqa: BLE001 -- retry on transient transport errors
                     attempts += 1
@@ -137,6 +157,13 @@ def _seed_projection(
                     time.sleep(3)
         finally:
             organ.close()
+    if skipped:
+        finding = output_dir / "seed_skipped_records.json"
+        finding.write_text(
+            json.dumps({"schema": "SEED_SKIPPED_RECORDS_V1", "skipped": skipped}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    return {"seeded": len(seedable), "skipped": len(skipped)}
 
 
 def _measure_space(
@@ -183,17 +210,20 @@ def run_arm(
     query_embed_url: str | None,
     embedding_version: str,
     batch_size: int,
+    max_text_chars: int | None = None,
 ) -> dict:
     arm_dir = output_dir / arm
     arm_dir.mkdir(parents=True, exist_ok=True)
-    _seed_projection(
+    seed_result = _seed_projection(
         parents,
         output_dir=arm_dir,
         embed_url=embed_url,
         query_embed_url=query_embed_url,
         embedding_version=embedding_version,
         batch_size=batch_size,
+        max_text_chars=max_text_chars,
     )
+    print(f"  seed: {seed_result['seeded']} embedded, {seed_result['skipped']} skipped")
     distributions = _measure_space(parents, embed_url=embed_url, query_embed_url=query_embed_url)
     thresholds = derive_thresholds(distributions, embedding_version=embedding_version)
     (arm_dir / "space_thresholds.json").write_text(
@@ -209,9 +239,25 @@ def run_arm(
             embed_client=httpx.Client(timeout=600.0),
         )
         try:
+            # Arms with a context ceiling (arm-b) probe a filtered parent set;
+            # pass the corpus dict directly so probes match the seeded rows.
+            if max_text_chars is not None:
+                corpus_for_arm = dict(corpus)
+                corpus_for_arm["specimens"] = [
+                    s
+                    for s in corpus["specimens"]
+                    if len(_canonical_record_text(corpus_parent_reference_record(s)))
+                    <= max_text_chars
+                ]
+                run_corpus = corpus_for_arm
+                run_corpus_path = None
+            else:
+                run_corpus = None
+                run_corpus_path = corpus["_path"]
             report = run_discovery_bench(
                 snapshot,
-                corpus_path=corpus["_path"],
+                corpus_path=run_corpus_path,
+                corpus=run_corpus,
                 output_dir=arm_dir / "discovery_v2",
                 thresholds=thresholds.to_dict(),
                 canonical_text_by_id=canonical_text_by_id(parents),
@@ -258,15 +304,26 @@ def main(argv: list[str] | None = None) -> int:
         spec = ARM_SPECS[arm]
         embed_url, query_embed_url = urls[arm]
         print(f"\n=== {arm} ({spec['label']}) ===")
+        # An arm with a hard context ceiling (arm-b) cannot embed every corpus
+        # record -- filter the oversized parents and record the finding.
+        arm_parents = parents
+        if spec.get("max_text_chars"):
+            arm_parents = [
+                p
+                for p in parents
+                if len(_canonical_record_text(corpus_parent_reference_record(p)))
+                <= spec["max_text_chars"]
+            ]
         result = run_arm(
             arm,
-            parents=parents,
+            parents=arm_parents,
             corpus=corpus,
             output_dir=args.bakeoff_root,
             embed_url=embed_url,
             query_embed_url=query_embed_url,
             embedding_version=spec["embedding_version"],
             batch_size=spec["batch_size"],
+            max_text_chars=spec.get("max_text_chars"),
         )
         print(
             f"{arm}: status={result['report']['status']} "

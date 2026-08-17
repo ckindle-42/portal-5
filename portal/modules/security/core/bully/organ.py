@@ -32,7 +32,10 @@ from .store import Store
 DEFAULT_EMBED_URL = "http://localhost:8917/v1/embeddings"
 DEFAULT_RERANK_URL = "http://localhost:8925/rerank"
 PROJECTION_VERSION = "hunt-memory-v1"
-EMBEDDING_VERSION = "sentence-transformers-v1"
+# Adopted embedding backend (TASK_BULLY_SA5 P0.4): Arm A, MLX Qwen3-Embedding
+# 0.6B mxfp8 at :8917. The retired CPU harrier path (sentence-transformers-v1)
+# stays readable on old projections via their own version tag.
+EMBEDDING_VERSION = "mlx-qwen3-embed-0.6b-mxfp8"
 TABLE_NAME = "hunt_memory"
 VECTOR_DIM = 1024
 _SINGLE_EMBED_INPUT_LENGTH = 2_000
