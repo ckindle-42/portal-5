@@ -499,6 +499,21 @@ at `~/.portal5/models/Qwen3-Embedding-0.6B-mxfp8`. `organ._embed` is unchanged
 (p50 114 ms), batch 32 → 55.2 items/s, batch 64/128 → ~44 items/s; RSS 1292 MB.
 That is ~25x the CPU path's throughput on the same workload.
 
+**SA3.3 — Arm B: llama.cpp embedding server (built, harness recorded).**
+`scripts/embedding-server-llamacpp.py` wraps `llama-server`
+(EmbeddingGemma-300M Q8_0, ~329 MB GGUF) behind the same `/v1/embeddings`
+contract, and applies EmbeddingGemma's asymmetric **task prefixes**:
+documents `title: none | text: {content}` (the /v1/embeddings default, used by
+`organ.upsert`) vs queries `task: search result | query: {content}`
+(/v1/embeddings/query, used by `organ.prepare_knn`/`knn`). The asymmetry is
+real — the two prefixes produce measurably different vectors for the same text
+(cos ≈ 0.63 for a short probe), which the CPU path never used (it embedded
+both sides identically). The wiring is an optional `query_embed_url` on
+`Organ` (defaults to `embed_url`, so arms without asymmetry are unchanged).
+Harness run on port 8943: batch 8 → 109 items/s, batch 32 → 174 items/s,
+batch 128 → 188 items/s; RSS 68 MB. That is ~2x Arm A's throughput at ~1/20th
+the resident memory, and ~60x the CPU path.
+
 ## Housekeeping note (unrelated to the bully program)
 
 Ollama upgraded 0.32.12 → 0.32.13 (2026-08-14, same-day release) for

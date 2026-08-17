@@ -473,6 +473,43 @@ _launch_stop_embedding_arm_a() {
     fi
 }
 
+_launch_start_embedding_arm_b() {
+    # Arm B (SA3.3): llama.cpp embedding server (EmbeddingGemma-300M Q8_0) with
+    # EmbeddingGemma task prefixes. Binds to EMBEDDING_ARM_B_PORT (default 8943)
+    # and spawns llama-server as a child on --llama-port. Runs alongside the
+    # incumbent CPU server during the SA3 bake-off.
+    if [ -f "$ENV_FILE" ]; then set -a; source "$ENV_FILE"; set +a; fi
+    PID_FILE="/tmp/portal-embedding-arm-b.pid"
+    if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+        echo "  ✅ Arm B llama.cpp embedding server already running (PID $(cat "$PID_FILE"))"
+        exit 0
+    fi
+    MODEL="${EMBEDDING_MODEL_ARM_B:-${HOME}/.portal5/models/embeddinggemma-300m/embeddinggemma-300M-Q8_0.gguf}"
+    PORT="${EMBEDDING_ARM_B_PORT:-8943}"
+    LOG_FILE="${HOME}/.portal5/logs/embedding-server-llamacpp.log"
+    mkdir -p "$(dirname "$LOG_FILE")"
+    echo "Starting Arm B llama.cpp embedding server (EmbeddingGemma-300M Q8)..."
+    nohup uv run --project "$PORTAL_ROOT" python3 "$PORTAL_ROOT/scripts/embedding-server-llamacpp.py" \
+        --model "$MODEL" \
+        --port "$PORT" \
+        --host 0.0.0.0 \
+        >"$LOG_FILE" 2>&1 &
+    echo $! > "$PID_FILE"
+    echo "  ✅ Arm B llama.cpp embedding server started (PID $!, port $PORT)"
+    echo "  📋 Log: $LOG_FILE"
+}
+
+_launch_stop_embedding_arm_b() {
+    PID_FILE="/tmp/portal-embedding-arm-b.pid"
+    if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+        kill "$(cat "$PID_FILE")"
+        rm -f "$PID_FILE"
+        echo "  ✅ Arm B llama.cpp embedding server stopped"
+    else
+        echo "  ℹ️  Arm B llama.cpp embedding server not running"
+    fi
+}
+
 _launch_install_embedding_service() {
     # Install a macOS launchd agent so the ARM64 embedding server starts at login
     # and auto-restarts on crash — no dependency on launch.sh being run first.

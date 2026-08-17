@@ -134,11 +134,13 @@ class Organ:
         embed_client: httpx.Client | None = None,
         projection_version: str = PROJECTION_VERSION,
         embedding_version: str = EMBEDDING_VERSION,
+        query_embed_url: str | None = None,
     ) -> None:
         import lancedb
 
         self.store = store
         self.embed_url = embed_url
+        self.query_embed_url = query_embed_url or embed_url
         self.rerank_url = rerank_url
         self._http = embed_client or httpx.Client(timeout=10.0)
         self.projection_version = projection_version
@@ -158,6 +160,32 @@ class Organ:
             resp.raise_for_status()
         except httpx.HTTPError as exc:
             raise OrganUnavailable(f"embed service unreachable at {self.embed_url}: {exc}") from exc
+        data = resp.json()
+        vectors = data.get("embeddings")
+        if not vectors:
+            items = data.get("data", [])
+            if items and all(isinstance(item.get("index"), int) for item in items):
+                items = sorted(items, key=lambda item: item["index"])
+            vectors = [item["embedding"] for item in items]
+        if not vectors:
+            raise OrganUnavailable("embed service returned no vectors")
+        return vectors
+
+    def _embed_query(self, texts: list[str]) -> list[list[float]]:
+        """Query-form embedding for knn (SA3.3): EmbeddingGemma's asymmetric
+        task prefixes mean query embedding must use the query form, not the
+        document form used for upserts. When no separate query endpoint is
+        configured (arms without asymmetry), this delegates to the document
+        path so behavior is unchanged."""
+        if self.query_embed_url == self.embed_url:
+            return self._embed(texts)
+        try:
+            resp = self._http.post(self.query_embed_url, json={"input": texts})
+            resp.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise OrganUnavailable(
+                f"embed service unreachable at {self.query_embed_url}: {exc}"
+            ) from exc
         data = resp.json()
         vectors = data.get("embeddings")
         if not vectors:
@@ -278,7 +306,7 @@ class Organ:
         missing.sort(key=len)
         table = self._table()
         for batch in _embedding_batches(missing, batch_size=batch_size):
-            vectors = self._embed(batch)
+            vectors = self._embed_query(batch)
             if len(vectors) != len(batch):
                 raise OrganUnavailable(
                     f"embed service returned {len(vectors)} vectors for {len(batch)} inputs"
@@ -297,7 +325,7 @@ class Organ:
         # empty result, but an unreachable embed service must surface as
         # OrganUnavailable even when there is nothing indexed yet -- recall
         # health is about the service, not about whether data exists.
-        vector = self._prepared_vectors.get(query) or self._embed([query])[0]
+        vector = self._prepared_vectors.get(query) or self._embed_query([query])[0]
         return self._search_vector(vector, k, filters)
 
     # ── recall (mandatory pre-hunt) ──────────────────────────────────────
