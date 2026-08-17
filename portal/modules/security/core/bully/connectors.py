@@ -10,7 +10,7 @@ audited without pretending that the source had a common schema.
 from __future__ import annotations
 
 import time
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -101,21 +101,43 @@ class IterableIngestConnector:
     records: tuple[Any, ...]
     language: str = "records"
     mode: ConnectorMode = INGEST_MODE
+    record_factory: Callable[[], Iterable[Any]] | None = None
+    record_count: int | None = None
 
-    def __init__(self, source_id: str, records: Iterable[Any], *, language: str = "records"):
+    def __init__(
+        self,
+        source_id: str,
+        records: Iterable[Any] | Callable[[], Iterable[Any]],
+        *,
+        language: str = "records",
+        record_count: int | None = None,
+    ):
         self.source_id = source_id
-        self.records = tuple(records)
+        if callable(records):
+            self.records = ()
+            self.record_factory = records
+        else:
+            self.records = tuple(records)
+            self.record_factory = lambda: self.records
         self.language = language
         self.mode = INGEST_MODE
+        self.record_count = record_count if record_count is not None else len(self.records)
 
     def translate(self, intent: QueryIntent) -> NativeQuery:
         return NativeQuery(self.source_id, self.language, {"intent": intent.purpose}, intent)
 
     def read(self, intent: QueryIntent) -> QueryResult:
         started = time.time()
-        selected = list(self.records)
-        if intent.limit is not None:
-            selected = selected[: intent.limit]
+        selected: list[Any] = []
+        for record in self.record_factory():
+            selected.append(record)
+            if intent.limit is not None and len(selected) >= intent.limit:
+                break
+        truncated = (
+            intent.limit is not None
+            and len(selected) >= intent.limit
+            and (self.record_count is None or self.record_count > intent.limit)
+        )
         return QueryResult(
             self.source_id,
             self.mode,
@@ -123,7 +145,8 @@ class IterableIngestConnector:
             tuple(selected),
             started,
             time.time(),
-            truncated=intent.limit is not None and len(self.records) > intent.limit,
+            truncated=truncated,
+            metadata={"record_count": self.record_count},
         )
 
 

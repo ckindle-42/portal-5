@@ -7,12 +7,17 @@ the data plane only retains the bounded profile sample and the query audit.
 
 from __future__ import annotations
 
+import gzip
+import json
 import os
+from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
 from .connectors import (
     ConnectorCredentials,
     CredentialedConnector,
+    IterableIngestConnector,
     NativeQuery,
     QueryInPlaceConnector,
     QueryIntent,
@@ -167,3 +172,114 @@ def connect_lab_splunk(
         "native_query": probe.native_query.expression,
         "metadata": probe.metadata,
     }
+
+
+def _records_from_path(path: Path) -> Iterator[Any]:
+    suffixes = path.suffixes
+    if path.suffix == ".jsonl":
+        with path.open(encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                if line.strip():
+                    try:
+                        yield json.loads(line)
+                    except json.JSONDecodeError:
+                        yield line.rstrip("\n")
+        return
+    if path.suffix == ".gz" or ".json.gz" in "".join(suffixes):
+        opener = gzip.open
+    elif path.suffix == ".json":
+        opener = Path.open
+    else:
+        return
+    with opener(path, "rt", encoding="utf-8", errors="replace") as handle:
+        try:
+            payload = json.load(handle)
+        except json.JSONDecodeError:
+            return
+    if isinstance(payload, dict):
+        payload = payload.get("Records", [payload])
+    if isinstance(payload, list):
+        yield from (record for record in payload if isinstance(record, (dict, str)))
+
+
+def iter_staged_records(root: Path) -> Iterator[Any]:
+    """Read standard JSON/JSONL staged records without retaining the corpus."""
+    for path in sorted(item for item in root.rglob("*") if item.is_file()):
+        yield from _records_from_path(path)
+
+
+def count_staged_records(root: Path) -> int:
+    """Count records from a staged root without retaining them."""
+    return sum(1 for _ in iter_staged_records(root))
+
+
+def register_staged_source(
+    plane: DataPlane,
+    *,
+    source_id: str,
+    root: Path,
+    sample_limit: int = 128,
+    record_count: int | None = None,
+    source_meta: dict[str, Any] | None = None,
+) -> SourceProfile:
+    """Register a staged root through the ingest fulfilment."""
+
+    def factory() -> Iterator[Any]:
+        return iter_staged_records(root)
+
+    connector = IterableIngestConnector(
+        source_id,
+        factory,
+        language="JSON-records",
+        record_count=record_count,
+    )
+    sample = connector.read(QueryIntent("profile staged records", limit=sample_limit))
+    meta = {
+        "record_class": "telemetry",
+        "freshness_at": sample.finished_at,
+        "record_count_override": record_count,
+        **(source_meta or {}),
+    }
+    return plane.connect(source_id, connector, sample.records, source_meta=meta)
+
+
+def register_staged_corpora(
+    plane: DataPlane,
+    *,
+    corpora_root: Path,
+    attack_data_root: Path,
+    sample_limit: int = 128,
+    counts: dict[str, int] | None = None,
+) -> tuple[SourceProfile, ...]:
+    """Register the staged attack-data and acquired cloud corpus roots."""
+    specs = (
+        ("attack_data", attack_data_root, {"label_basis": True}),
+        (
+            "flaws_cloud_cloudtrail",
+            corpora_root / "flaws_cloud_cloudtrail" / "records" / "flaws_cloudtrail_logs",
+            {"label_basis": True},
+        ),
+        (
+            "invictus_ir_aws_dataset",
+            corpora_root / "invictus_ir_aws_dataset" / "repo" / "CloudTrail",
+            {"label_basis": True},
+        ),
+    )
+    profiles = []
+    resolved_counts = dict(counts or {})
+    for source_id, root, meta in specs:
+        if not root.is_dir():
+            continue
+        if source_id not in resolved_counts:
+            resolved_counts[source_id] = count_staged_records(root)
+        profiles.append(
+            register_staged_source(
+                plane,
+                source_id=source_id,
+                root=root,
+                sample_limit=sample_limit,
+                record_count=resolved_counts[source_id],
+                source_meta=meta,
+            )
+        )
+    return tuple(profiles)
