@@ -613,6 +613,7 @@ class DataPlane:
         self.catalog = SourceCatalog()
         self.audit = QueryAuditLog()
         self.drift_reports: list[dict[str, Any]] = []
+        self.live_profile_evidence: dict[str, dict[str, Any]] = {}
 
     def connect(
         self,
@@ -666,6 +667,7 @@ class DataPlane:
         report["audit_entries"] = len(self.audit.entries())
         report["drift_reports"] = list(self.drift_reports)
         report["acquisition_gaps"] = capability_gap_acquisition(self.catalog)
+        report["live_profile_evidence"] = dict(self.live_profile_evidence)
         return report
 
     def gate(self) -> DataPlaneGate:
