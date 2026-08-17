@@ -813,7 +813,7 @@ def _confirm_count_search(src: str, *, index: str) -> int:
             verify=False,
             timeout=30.0,
             data={
-                "search": f'search index={index} host="corpus-{src}" | stats count',
+                "search": (f'search earliest=0 index={index} host="corpus-{src}" | stats count'),
                 "exec_mode": "oneshot",
                 "output_mode": "json",
             },

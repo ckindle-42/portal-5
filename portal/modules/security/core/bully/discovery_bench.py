@@ -259,13 +259,60 @@ def run_real_pairs(
 # ── controls (A6/A7) ─────────────────────────────────────────────────────────
 
 
+def classify_identity_failure(
+    probe: dict[str, Any],
+    assessment: cousin_engine.CousinAssessment,
+    *,
+    same_max_distance: float,
+    canonical_text_by_id: dict[str, str],
+) -> str:
+    """Classify one identity-control failure into a separated cause (P0.3).
+
+    - ``corpus-duplicate``: the probe's canonical text is shared with another
+      indexed record, so no embedder can name the exact row as SAME (two
+      identical rows are both distance 0).  Not an embedder defect.
+    - ``scale-mismatch``: the engine recovered the probe's OWN record as its
+      nearest candidate, but the composite exceeds ``same_max_distance`` --
+      the space's self-distance (e.g. query-vs-doc form) outruns the frozen
+      threshold (Arm B 25/25).  A per-space threshold fix rescues it.
+    - ``genuine-discrimination-loss``: a different record outranks the probe's
+      own row -- the model maps near-identical records to the same vector
+      (Arm A 4/25).  Not rescued by thresholds.
+    """
+    probe_id = str(probe["specimen_id"])
+    reference_id = str(assessment.reference_signature_id or "")
+    if reference_id == probe_id and assessment.composite > same_max_distance:
+        return "scale-mismatch"
+    probe_text = canonical_text_by_id.get(probe_id, "")
+    if reference_id != probe_id:
+        duplicates = [
+            other
+            for other, text in canonical_text_by_id.items()
+            if other != probe_id and text and text == probe_text
+        ]
+        if duplicates:
+            return "corpus-duplicate"
+    return "genuine-discrimination-loss"
+
+
 def _identity_control(
-    probes: list[dict[str, Any]], snapshot: ReadOnlyKnnSnapshot, *, sample_size: int = 25
+    probes: list[dict[str, Any]],
+    snapshot: ReadOnlyKnnSnapshot,
+    *,
+    sample_size: int = 25,
+    thresholds: dict[str, float] | None = None,
+    canonical_text_by_id: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Sanity check: WITHOUT self-exclusion the engine must recognize a
     probe's own indexed record as SAME at near-zero distance. This proves
     self-exclusion in `grade_real_pair` is doing real work, not masking a
-    broken retrieval path that would never find anything anyway."""
+    broken retrieval path that would never find anything anyway.
+
+    Identity is a **classified diagnostic**, not a sole disqualifier (P0.3):
+    each failure is separated into corpus-duplicate / scale-mismatch /
+    genuine-discrimination-loss, and the per-space thresholds are honored.
+    """
+    thresholds = thresholds or cousin_engine.DEFAULT_THRESHOLDS
     sample = probes[:sample_size]
     failures = []
     for probe in sample:
@@ -278,21 +325,37 @@ def _identity_control(
         coverage = cousin_engine.CoverageView(
             applicable_detection_ids=tuple(sorted(outcomes)), telemetry_healthy=True
         )
-        assessment = cousin_engine.grade(signature, candidates, coverage)
+        assessment = cousin_engine.grade(signature, candidates, coverage, thresholds=thresholds)
         if (
             assessment.reference_signature_id != probe["specimen_id"]
             or assessment.relationship != "SAME"
-            or assessment.composite > cousin_engine.DEFAULT_THRESHOLDS["same_max_distance"]
+            or assessment.composite > thresholds["same_max_distance"]
         ):
+            cause = classify_identity_failure(
+                probe,
+                assessment,
+                same_max_distance=float(thresholds["same_max_distance"]),
+                canonical_text_by_id=canonical_text_by_id or {},
+            )
             failures.append(
                 {
                     "specimen_id": probe["specimen_id"],
                     "relationship": assessment.relationship,
                     "reference_signature_id": assessment.reference_signature_id,
                     "distance": assessment.composite,
+                    "cause": cause,
                 }
             )
-    return {"passed": not failures, "checked": len(sample), "failures": failures}
+    by_cause: dict[str, int] = {}
+    for failure in failures:
+        by_cause[failure["cause"]] = by_cause.get(failure["cause"], 0) + 1
+    return {
+        "passed": not failures,
+        "checked": len(sample),
+        "failures": failures,
+        "by_cause": dict(sorted(by_cause.items())),
+        "thresholds_applied": dict(thresholds),
+    }
 
 
 def _retrieval_health(verdicts: tuple[RealPairVerdict, ...]) -> dict[str, Any]:
@@ -437,8 +500,16 @@ def run_controls(
     probes: list[dict[str, Any]],
     verdicts: tuple[RealPairVerdict, ...],
     snapshot: ReadOnlyKnnSnapshot,
+    *,
+    thresholds: dict[str, float] | None = None,
+    canonical_text_by_id: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    identity = _identity_control(probes, snapshot)
+    identity = _identity_control(
+        probes,
+        snapshot,
+        thresholds=thresholds,
+        canonical_text_by_id=canonical_text_by_id,
+    )
     retrieval = _retrieval_health(verdicts)
     near_far = _known_near_far_controls()
     probes_by_id = {p["specimen_id"]: p for p in probes}
@@ -665,13 +736,26 @@ def run_discovery_bench(
     *,
     corpus_path: Path,
     output_dir: Path,
+    thresholds: dict[str, float] | None = None,
+    canonical_text_by_id: dict[str, str] | None = None,
 ) -> DiscoveryReport:
     """SA2.1-SA2.4 end to end: real-vs-real pairing, joint scoring, controls
-    (incl. A7 shuffled-label), cross-class breakout. Never touches the forge."""
+    (incl. A7 shuffled-label), cross-class breakout. Never touches the forge.
+
+    ``thresholds`` optionally carries the per-embedding-space thresholds
+    (P0.2); identity is then a classified diagnostic against those (P0.3)
+    rather than the frozen constants.
+    """
     corpus = load_specimen_corpus(corpus_path)
     probes = real_probe_specimens(corpus)
     verdicts = run_real_pairs(probes, snapshot, corpus=corpus)
-    controls = run_controls(probes, verdicts, snapshot)
+    controls = run_controls(
+        probes,
+        verdicts,
+        snapshot,
+        thresholds=thresholds,
+        canonical_text_by_id=canonical_text_by_id,
+    )
     report = score_discovery(verdicts, probes, corpus=corpus, controls=controls)
     write_discovery_artifacts(report, output_dir)
     return report
