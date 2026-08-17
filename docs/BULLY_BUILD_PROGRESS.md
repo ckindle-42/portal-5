@@ -23,7 +23,7 @@ history.
 | P7.4 | retrieval-validity correction | ✅ done; valid V3 reference frozen | `5ba409db` |
 | SA1 | `TASK_BULLY_SA1_CLASS_ONBOARDING_LOOP_V1.md` | ✅ done; System admitted, three classes honestly flagged | this commit |
 | SA2 | `TASK_BULLY_SA2_DISCOVERY_MEASUREMENT_V1.md` | ✅ done; `DISCOVERY_BASELINE_V1` frozen, first real product measurement | this commit |
-| SA3 | `TASK BULLY SA3 EMBEDDING BAKEOFF V1.md` | 🔄 in progress; harness + Arm A built, bake-off pending | — |
+| SA3 | `TASK BULLY SA3 EMBEDDING BAKEOFF V1.md` | 🔄 in progress; harness + both arms + seeds + bake-off runs recorded, **decision deferred** | — |
 
 ## What's landed (P0–P6)
 
@@ -525,6 +525,57 @@ Live seeds:
 `llamacpp-embeddinggemma-300m-q8`) seeded in **3.2 s** (~98 items/s). The
 measurement is no longer capped at 99 parents; full-corpus discovery is now
 practical within a session for either arm.
+
+**SA3.5 — the bake-off run (A2/A5, recorded — decision pending).**
+`scripts/defensive_bully_discovery_bakeoff.py` runs the SA2 real-vs-real
+discovery lane per arm on its seeded projection (same corpus, same scorer,
+same controls). Full-corpus results (316 parents, both arms, recorded at
+`/Volumes/data01/portal5_hunt/artifacts/embedding_bakeoff/{arm-a,arm-b}/discovery/`):
+
+| arm | embedding_version | seed wall | items/s @b32 | identity control | near/far | retrieval | shuffled | status |
+|---|---|---|---|---|---|---|---|---|
+| Arm A | `mlx-qwen3-embed-0.6b-mxfp8` | 10.5 s | ~55 | **FAIL 4/25** | pass | pass | pass | INVALID |
+| Arm B | `llamacpp-embeddinggemma-300m-q8` | 3.2 s | ~174 | **FAIL 25/25** | pass | pass | pass | INVALID |
+
+Both arms fail the frozen identity control (`cousin_engine.DEFAULT_THRESHOLDS
+["same_max_distance"] = 0.05`) on the full corpus, so both report INVALID
+per A5. The identity control requires the engine to recover a probe's **own**
+indexed record as SAME (composite ≤ 0.05) without self-exclusion. Root cause
+is **not** throughput (both seed the full corpus in seconds) but embedding
+geometry on this corpus:
+
+- **Corpus-composition finding (affects all embedders):** the frozen corpus has
+  316 real parents but only **173 distinct canonical embed texts** — 143 parents
+  share a canonical text (up to 28 copies). For a probe whose text is duplicated
+  elsewhere, no embedder can name the *exact* row as SAME (two identical rows
+  are both distance 0). The CPU incumbent fails identity 1/25 on the full corpus
+  for exactly this reason (its 1 failure is a true text-duplicate).
+- **Arm A genuine discrimination loss (4/25, none are true text-duplicates):**
+  Qwen3-Embedding-0.6B maps near-identical records (e.g. event codes 4719 vs
+  4688, texts that differ only in one token) to effectively the same vector
+  (self-vs-other cosine ≈ 0.9998), so a near-twin outranks the probe's own row.
+  Verified across quantizations (mxfp8 and 4bit-DWQ behave identically) — it is
+  a model property on these structured security tokens, not an artifact. The
+  CPU harrier path keeps the discrimination (0.979 vs 0.969).
+- **Arm B distance-scale mismatch (25/25):** EmbeddingGemma self-distances
+  (query-form vs doc-form on the same text) land at ≈0.06–0.4, far above the
+  0.05 threshold that was calibrated for the CPU model's cosine scale. Even the
+  3 rows where Arm B recovers its own record are graded SIMILAR (0.06–0.08)
+  because the composite exceeds 0.05. The asymmetric task prefixes make
+  query-form-vs-document-form self-similarity intrinsically lower (cos ≈ 0.72
+  → distance 0.28), so the frozen threshold is unsatisfiable for this arm
+  regardless of retrieval quality.
+
+All other controls pass for both arms (near/far, retrieval health at 0.0%
+degenerate, shuffled-label collapse to 0.0). **Decision deferred:** the task's
+A5 rule (control fail → INVALID, disqualified) plus the fact that the incumbent
+itself fails 1/25 on the full corpus means this needs a human call on whether
+(a) identity should be measured on deduplicated text (the corpus-composition
+ambiguity), (b) the frozen `same_max_distance` should be re-derived per
+embedding space, and/or (c) a winner is still adopted for the measured ~25–60x
+throughput win that unblocks full-corpus measurement. No adoption, batch-size
+change, CPU-path retirement, or `DISCOVERY_BASELINE_V2` freeze has been made —
+this task stops at the recorded findings.
 
 ## Housekeeping note (unrelated to the bully program)
 
