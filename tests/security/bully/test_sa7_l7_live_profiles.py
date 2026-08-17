@@ -28,6 +28,10 @@ def test_profiles_are_rederived_from_live_samples_and_downgrades_are_recorded():
     evidence = plane.live_profile_evidence["live-records"]
 
     assert profiles["live-records"].schema.confidence > 0
+    assert profiles["live-records"].entity_links
+    assert all(
+        link.confidence > 0 and link.provenance for link in profiles["live-records"].entity_links
+    )
     assert evidence["derived_from_live"] is True
     assert evidence["mode"] == "ingest"
     assert "label_basis" in evidence["downgraded_capabilities"]

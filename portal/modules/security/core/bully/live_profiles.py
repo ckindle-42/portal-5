@@ -36,7 +36,13 @@ def derive_live_profiles(
                 "record_count_override": observed_count,
                 "sensitivity": previous.access.sensitivity if previous else "internal",
                 "credential_ref": previous.access.credential_ref if previous else None,
+                "capabilities": {
+                    "cross_source_entity": bool(
+                        previous and previous.capabilities.cross_source_entity
+                    )
+                },
             },
+            unified_ids=True,
         )
         plane.records[source_id] = tuple(result.records)
         plane.catalog.register(profile)
