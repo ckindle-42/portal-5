@@ -811,16 +811,22 @@ def _confirm_count_search(src: str, *, index: str) -> int:
             f"{url.rstrip('/')}/services/search/jobs/export",
             auth=(user, pw),
             verify=False,
-            timeout=30.0,
+            timeout=90.0,
             data={
                 "search": (f'search earliest=0 index={index} host="corpus-{src}" | stats count'),
                 "exec_mode": "oneshot",
                 "output_mode": "json",
             },
         )
-        for ln in r.text.splitlines():
-            if '"count"' in ln:
-                return int(json.loads(ln).get("result", {}).get("count", "0"))
+        # oneshot export streams progressive preview rows; the last row is the
+        # final count. Take the max observed so a stale preview never reads low.
+        counts = [
+            int(json.loads(ln).get("result", {}).get("count", "0"))
+            for ln in r.text.splitlines()
+            if '"count"' in ln
+        ]
+        if counts:
+            return max(counts)
     except Exception:  # noqa: BLE001 -- count is supplementary to confirmation
         pass
     return 0
