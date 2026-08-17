@@ -56,8 +56,17 @@ class TestMitreTools:
     def test_detections_for_technique_without_spl(self):
         from portal.modules.security.tools.mitre_mcp import mitre_detections_for_technique
 
-        result = mitre_detections_for_technique("T1078.004")
+        # T1078.004 gained a validated CloudTrail detection in SA5.3 (the SA4
+        # blue-gap is closed); pick a technique that genuinely has no SPL yet.
+        result = mitre_detections_for_technique("T1578.004")
         assert result["has_detection"] is False
+
+    def test_cloud_technique_now_has_detection_after_sa5_3(self):
+        from portal.modules.security.tools.mitre_mcp import mitre_detections_for_technique
+
+        result = mitre_detections_for_technique("T1078.004")
+        assert result["has_detection"] is True
+        assert "spl" in result
 
     def test_techniques_list(self):
         from portal.modules.security.tools.mitre_mcp import mitre_techniques_list

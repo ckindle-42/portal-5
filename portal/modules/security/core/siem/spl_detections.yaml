@@ -883,3 +883,154 @@ T1621:
 # BLUE_GAPS:
 #   T1078.004 — needs cloud identity telemetry (CloudTrail/Azure AD)
 #   T1537    — needs cloud storage access logs (S3/Azure Blob)
+
+# ── SA5.3 cloud/identity detections ────────────────────────────────────────
+# CloudTrail (`aws:cloudtrail`) records acquired from flaws.cloud / invictus-ir
+# / the CloudTrailAPIs-MITRE research set.  Each detection's discriminator
+# tokens match the JSON records as Splunk indexes them (the evidence oracle
+# normalizes `"key":"value"` to `key=value`, so declared tokens use that form).
+# Positive fixtures are the acquired dataset paths; the benign corpus is shared.
+
+T1078.004:
+  description: "Valid Accounts: Cloud Accounts — interactive or non-interactive sign-in to an AWS account"
+  matrix:
+    - enterprise
+    - cloud
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "initial-access"
+      source: "portal-mitre-mcp:T1078.004"
+    - framework: nist-800-53
+      control: "IA-5"
+      source: "NIST SP 800-53 Rev 5"
+  spl: 'index=portal5_lab sourcetype="aws:cloudtrail" eventName="ConsoleLogin" (responseElements.ConsentLevel="fullControl" OR responseElements="" ) | stats count by userIdentity.arn, sourceIPAddress, awsRegion'
+  expected_signal: "AWS Console sign-in event (ConsoleLogin) for a cloud account"
+  distinguishing_features:
+    key_indicator: "CloudTrail ConsoleLogin record"
+    discriminator_tokens:
+      - "eventName=ConsoleLogin"
+  validation:
+    status: "validated"
+    known_positive: "corpora/invictus_ir_aws_dataset/repo/CloudTrail"
+    benign_corpus: "config/security/benign_corpus_bench_benign_cells.json"
+  spl_variants:
+    - source: "aws:cloudtrail"
+      spl: 'index=portal5_lab sourcetype="aws:cloudtrail" eventName="ConsoleLogin" | stats count by userIdentity.arn, sourceIPAddress, awsRegion'
+      expected_signal: "AWS Console sign-in event (ConsoleLogin) for a cloud account"
+      discriminator_tokens:
+        - "eventName=ConsoleLogin"
+      validation:
+        status: "validated"
+        known_positive: "corpora/invictus_ir_aws_dataset/repo/CloudTrail"
+        benign_corpus: "config/security/benign_corpus_bench_benign_cells.json"
+
+T1098:
+  description: "Account Manipulation — creation of credentials, users, roles, or policies in a cloud account"
+  matrix:
+    - enterprise
+    - cloud
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "persistence"
+      source: "portal-mitre-mcp:T1098"
+    - framework: nist-800-53
+      control: "AC-2"
+      source: "NIST SP 800-53 Rev 5"
+  spl: 'index=portal5_lab sourcetype="aws:cloudtrail" (eventName="CreateAccessKey" OR eventName="CreateUser" OR eventName="CreateLoginProfile" OR eventName="AttachUserPolicy" OR eventName="CreateRole" OR eventName="AttachRolePolicy") | stats count by eventName, userIdentity.arn, awsRegion'
+  expected_signal: "CloudTrail record of credential/user/role creation or policy attachment"
+  distinguishing_features:
+    key_indicator: "CloudTrail account-manipulation API (CreateAccessKey/CreateUser/CreateRole/…)"
+    discriminator_tokens:
+      - "eventName=CreateAccessKey"
+      - "eventName=CreateUser"
+      - "eventName=CreateRole"
+      - "eventName=AttachUserPolicy"
+  validation:
+    status: "validated"
+    known_positive: "corpora/invictus_ir_aws_dataset/repo/CloudTrail"
+    benign_corpus: "config/security/benign_corpus_bench_benign_cells.json"
+  spl_variants:
+    - source: "aws:cloudtrail"
+      spl: 'index=portal5_lab sourcetype="aws:cloudtrail" (eventName="CreateAccessKey" OR eventName="CreateUser" OR eventName="CreateLoginProfile" OR eventName="AttachUserPolicy" OR eventName="CreateRole" OR eventName="AttachRolePolicy") | stats count by eventName, userIdentity.arn, awsRegion'
+      expected_signal: "CloudTrail record of credential/user/role creation or policy attachment"
+      discriminator_tokens:
+        - "eventName=CreateAccessKey"
+        - "eventName=CreateUser"
+        - "eventName=CreateRole"
+      validation:
+        status: "validated"
+        known_positive: "corpora/invictus_ir_aws_dataset/repo/CloudTrail"
+        benign_corpus: "config/security/benign_corpus_bench_benign_cells.json"
+
+T1530:
+  description: "Data from Cloud Storage — read or copy of data held in cloud object storage"
+  matrix:
+    - enterprise
+    - cloud
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "collection"
+      source: "portal-mitre-mcp:T1530"
+    - framework: nist-800-53
+      control: "AC-3"
+      source: "NIST SP 800-53 Rev 5"
+  spl: 'index=portal5_lab sourcetype="aws:cloudtrail" (eventName="GetObject" OR eventName="ListBucket" OR eventName="GetSecretValue" OR eventName="StartExportTask") | stats count by eventName, eventSource, userIdentity.arn, sourceIPAddress'
+  expected_signal: "CloudTrail record of cloud-storage read or data-export API"
+  distinguishing_features:
+    key_indicator: "CloudTrail S3/SecretsManager read or export API"
+    discriminator_tokens:
+      - "eventName=GetObject"
+      - "eventName=GetSecretValue"
+      - "eventName=ListBucket"
+  validation:
+    status: "validated"
+    known_positive: "corpora/invictus_ir_aws_dataset/repo/CloudTrail"
+    benign_corpus: "config/security/benign_corpus_bench_benign_cells.json"
+  spl_variants:
+    - source: "aws:cloudtrail"
+      spl: 'index=portal5_lab sourcetype="aws:cloudtrail" (eventName="GetObject" OR eventName="ListBucket" OR eventName="GetSecretValue" OR eventName="StartExportTask") | stats count by eventName, eventSource, userIdentity.arn, sourceIPAddress'
+      expected_signal: "CloudTrail record of cloud-storage read or data-export API"
+      discriminator_tokens:
+        - "eventName=GetObject"
+        - "eventName=GetSecretValue"
+      validation:
+        status: "validated"
+        known_positive: "corpora/invictus_ir_aws_dataset/repo/CloudTrail"
+        benign_corpus: "config/security/benign_corpus_bench_benign_cells.json"
+
+T1526:
+  description: "Cloud Service Discovery — enumeration of cloud resources via Describe/List APIs"
+  matrix:
+    - enterprise
+    - cloud
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "discovery"
+      source: "portal-mitre-mcp:T1526"
+    - framework: nist-800-53
+      control: "AC-4"
+      source: "NIST SP 800-53 Rev 5"
+  spl: 'index=portal5_lab sourcetype="aws:cloudtrail" (eventName="DescribeInstances" OR eventName="ListBuckets" OR eventName="DescribeVpcs" OR eventName="DescribeSecurityGroups" OR eventName="ListUsers" OR eventName="GetCallerIdentity" OR eventName="DescribeDBInstances") | stats count by eventName, userIdentity.arn, sourceIPAddress, awsRegion'
+  expected_signal: "CloudTrail record of cloud-resource enumeration (Describe/List API)"
+  distinguishing_features:
+    key_indicator: "CloudTrail Describe/List enumeration API"
+    discriminator_tokens:
+      - "eventName=DescribeInstances"
+      - "eventName=ListBuckets"
+      - "eventName=GetCallerIdentity"
+      - "eventName=ListUsers"
+  validation:
+    status: "validated"
+    known_positive: "corpora/invictus_ir_aws_dataset/repo/CloudTrail"
+    benign_corpus: "config/security/benign_corpus_bench_benign_cells.json"
+  spl_variants:
+    - source: "aws:cloudtrail"
+      spl: 'index=portal5_lab sourcetype="aws:cloudtrail" (eventName="DescribeInstances" OR eventName="ListBuckets" OR eventName="DescribeVpcs" OR eventName="DescribeSecurityGroups" OR eventName="ListUsers" OR eventName="GetCallerIdentity" OR eventName="DescribeDBInstances") | stats count by eventName, userIdentity.arn, sourceIPAddress, awsRegion'
+      expected_signal: "CloudTrail record of cloud-resource enumeration (Describe/List API)"
+      discriminator_tokens:
+        - "eventName=DescribeInstances"
+        - "eventName=ListBuckets"
+      validation:
+        status: "validated"
+        known_positive: "corpora/invictus_ir_aws_dataset/repo/CloudTrail"
+        benign_corpus: "config/security/benign_corpus_bench_benign_cells.json"
