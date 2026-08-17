@@ -381,6 +381,31 @@ class Store:
             )
         return out
 
+    def decision_events(self) -> list[DecisionEvent]:
+        """Read the complete append-only decision-event history."""
+        rows = self._conn.execute(
+            "SELECT * FROM decision_events ORDER BY recorded_at ASC, event_id ASC"
+        ).fetchall()
+        out = []
+        for r in rows:
+            out.append(
+                DecisionEvent(
+                    event_id=r["event_id"],
+                    hunt_id=r["hunt_id"],
+                    iteration_id=r["iteration_id"],
+                    actor=r["actor"],
+                    kind=r["kind"],
+                    subject_id=r["subject_id"],
+                    rationale=r["rationale"],
+                    data=_loads(r["data"], {}),
+                    prev_event_hash=r["prev_event_hash"],
+                    chain_hash=r["chain_hash"],
+                    occurred_at=r["occurred_at"],
+                    recorded_at=r["recorded_at"],
+                )
+            )
+        return out
+
     # ── known_state (supersede, never delete) ───────────────────────────
 
     def update_known_state(
