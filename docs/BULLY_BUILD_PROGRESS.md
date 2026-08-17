@@ -23,6 +23,7 @@ history.
 | P7.4 | retrieval-validity correction | ✅ done; valid V3 reference frozen | `5ba409db` |
 | SA1 | `TASK_BULLY_SA1_CLASS_ONBOARDING_LOOP_V1.md` | ✅ done; System admitted, three classes honestly flagged | this commit |
 | SA2 | `TASK_BULLY_SA2_DISCOVERY_MEASUREMENT_V1.md` | ✅ done; `DISCOVERY_BASELINE_V1` frozen, first real product measurement | this commit |
+| SA3 | `TASK BULLY SA3 EMBEDDING BAKEOFF V1.md` | 🔄 in progress; harness + Arm A built, bake-off pending | — |
 
 ## What's landed (P0–P6)
 
@@ -465,6 +466,38 @@ embed backend) to characterize the cross-class cohort's true size — this
 run's single cross-class row is directional, not a population estimate.
 Still open per the task's own exit criteria: compounding, promotion-through-
 the-bin, and response-axis coverage lift are named, not measured.
+
+## SA3 — embedding bake-off (`TASK BULLY SA3 EMBEDDING BAKEOFF V1.md`)
+
+`DISCOVERY_BASELINE_V1` graded only 99 of the corpus's real parents because
+the CPU-pinned sentence-transformers embed service (:8917) sustains ~2.2
+items/s on the real structured-security embed texts — full-corpus measurement
+is impractical in a session. SA3 replaces that service by testing two real
+candidates with data (discovery precision on the frozen corpus), not
+leaderboards.
+
+**SA3.1 — measurement harness (recorded baseline, not anecdote).**
+`portal/modules/security/core/bully/embedding_bench.py` is a backend-agnostic
+throughput harness: it POSTs a fixed sample of the corpus's canonical embed
+texts (`organ._canonical_record_text` of the real `attack_data` parents) to
+whatever `/v1/embeddings` service is at a given URL and reports items/s +
+p50/p95 latency at batch {8, 32, 64, 128}, plus cold-start and resident memory.
+Harness run against the incumbent CPU server (batch 8 → 2.78 items/s, p50
+3160 ms; batch 32+ → ~2.2 items/s, p50 ~14.5 s; RSS 1528 MB) — the ~5s/item
+sustained figure is now a recorded number (`/tmp/embed_bench_cpu.json`), not a
+session anecdote.
+
+**SA3.2 — Arm A: MLX-native embedding server (built, harness recorded).**
+`scripts/embedding-server-mlx.py` serves the same OpenAI-compatible
+`/v1/embeddings` contract via `mlx_embeddings` (GPU-native MLX), mirroring the
+proven :8925 reranker's load/generate pattern and deliberately avoiding the
+`run_in_executor` thread-pool pattern that crashed MPS in the CPU path.
+`Qwen3-Embedding-0.6B` was converted in-house to mxfp8
+(`mlx_embeddings.convert --quantize --q-mode mxfp8 --q-group-size 32 --q-bits 8`)
+at `~/.portal5/models/Qwen3-Embedding-0.6B-mxfp8`. `organ._embed` is unchanged
+(contract parity verified). Harness run on port 8941: batch 8 → 61.8 items/s
+(p50 114 ms), batch 32 → 55.2 items/s, batch 64/128 → ~44 items/s; RSS 1292 MB.
+That is ~25x the CPU path's throughput on the same workload.
 
 ## Housekeeping note (unrelated to the bully program)
 
