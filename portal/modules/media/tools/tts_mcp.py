@@ -44,16 +44,15 @@ def _cleanup_stale_audio(max_age_hours: int = 1) -> None:
         return
     cutoff = time.time() - (max_age_hours * 3600)
     removed = 0
-    for f in OUTPUT_DIR.glob("tts_*.wav"):
-        if f.stat().st_mtime < cutoff:
+    for pattern in ("tts_*.wav", "clone_*.wav"):
+        for f in OUTPUT_DIR.glob(pattern):
+            # A concurrent process (another cleanup pass, a test run) can
+            # delete `f` between glob() listing it and stat()/unlink() --
+            # suppress the whole check-and-remove, not just the unlink.
             with contextlib.suppress(OSError):
-                f.unlink()
-                removed += 1
-    for f in OUTPUT_DIR.glob("clone_*.wav"):
-        if f.stat().st_mtime < cutoff:
-            with contextlib.suppress(OSError):
-                f.unlink()
-                removed += 1
+                if f.stat().st_mtime < cutoff:
+                    f.unlink()
+                    removed += 1
     if removed:
         logger.info("Cleaned up %d stale TTS audio files", removed)
 
