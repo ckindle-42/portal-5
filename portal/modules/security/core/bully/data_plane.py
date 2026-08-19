@@ -648,6 +648,19 @@ class DataPlane:
         self.audit.record(result, sensitivity=profile.access.sensitivity if profile else "internal")
         return result
 
+    def query_annotated(
+        self, source_id: str, intent: QueryIntent
+    ) -> tuple[QueryResult, dict[str, Any]]:
+        """B.1: ungated read + capability annotation in one call. `query`
+        above already never checks capabilities (only whether a connector
+        is registered, KeyError is a wiring error, not a permission
+        denial) -- this wraps it with the annotation metadata that
+        modulates downstream confidence (S1/S5), so a zero-capability
+        source is still queryable and its result honestly says so."""
+        result = self.query(source_id, intent)
+        profile = self.catalog.get(source_id)
+        return result, annotate_query_result(result, profile)
+
     def plan(self, seed_id: str, intent: QueryIntent) -> InvestigationPlan:
         return CatalogPlanner(self.catalog).select(seed_id=seed_id, intent=intent)
 
@@ -788,6 +801,23 @@ def detect_drift(profile: SourceProfile, records: Iterable[Any]) -> dict[str, An
         "invalidate_catalog": changed,
         "old_fingerprint": profile.schema.fingerprint,
         "new_fingerprint": new_schema.fingerprint,
+    }
+
+
+def annotate_query_result(result: QueryResult, profile: SourceProfile | None) -> dict[str, Any]:
+    """B.1: capability status as ride-along metadata, never a gate. Missing
+    capability lowers `confidence_hint` (`CapabilityProfile.completeness`,
+    0.0 for a fully unproven source) -- it never blocks the read that
+    already happened above it."""
+    capabilities = profile.capabilities.as_dict() if profile is not None else {}
+    confidence_hint = profile.capabilities.completeness if profile is not None else 0.0
+    missing = sorted(name for name, present in capabilities.items() if not present)
+    return {
+        "source_id": result.source_id,
+        "record_count": len(result.records),
+        "capabilities": capabilities,
+        "missing_capabilities": missing,
+        "confidence_hint": confidence_hint,
     }
 
 
