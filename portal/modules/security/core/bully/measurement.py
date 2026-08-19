@@ -80,6 +80,79 @@ def compute_accuracy(
     return AccuracyReport(scored=tuple(scored), unscored_count=unscored, accuracy=accuracy)
 
 
+def _relation_ranked_cousins(relation: Any) -> tuple[tuple[str, float], ...]:
+    """Provoked `Relation` carries `nearest_knowns`; observed-mode
+    `CousinRelation` carries `ranked_cousins` -- same (anchor_id, distance)
+    shape under a different name (TASK_BULLY_COUSIN_RELATION_V1 C.3a)."""
+    ranked = getattr(relation, "nearest_knowns", None)
+    if ranked is None:
+        ranked = getattr(relation, "ranked_cousins", None)
+    return tuple(ranked or ())
+
+
+def ranked_external_cousins(
+    relation: Any, anchor_library: AnchorLibrary, *, top_k: int = 5
+) -> tuple[tuple[str, float], ...]:
+    """`ranked_cousins`/`nearest_knowns` filtered to EXTERNAL-tier anchors
+    only -- the scoring-eligible neighbour set (C.3a). `SYSTEM_GENERATED`
+    anchors (the system's own prior write-back) must not displace real
+    `EXTERNAL` anchors in the neighbour set used for scoring, even though
+    they may legitimately be the *nearest* match overall."""
+    out: list[tuple[str, float]] = []
+    for anchor_id, distance in _relation_ranked_cousins(relation):
+        anchor = anchor_library.get(anchor_id)
+        if anchor is not None and anchor.provenance_tier == "EXTERNAL":
+            out.append((anchor_id, distance))
+    return tuple(out[:top_k])
+
+
+@dataclass(frozen=True)
+class CompoundingReport:
+    """The compounding claim, scored external-only (G.3, C.3a). A row is
+    scored only when its nearest *EXTERNAL* cousin can be identified --
+    never against the relation's raw nearest match, which is frequently the
+    system's own prior `SYSTEM_GENERATED` output once write-back is live,
+    and is not itself score-eligible ground truth."""
+
+    scored: tuple[ScoredRow, ...]
+    external_scored_count: int
+    total_rows: int
+    coverage: float
+
+    @property
+    def valid(self) -> bool:
+        """A compounding claim resting on zero external rows is reported
+        INVALID, never as a result."""
+        return self.external_scored_count > 0
+
+
+def compounding_accuracy(
+    rows: list[tuple[Any, AnchorLibrary, str]],
+) -> CompoundingReport:
+    """`rows` is (relation, anchor_library, ground_truth_anchor_id). Scores
+    each row against its nearest EXTERNAL-tier cousin, not its raw nearest
+    match -- see `ranked_external_cousins`. Rows with no EXTERNAL cousin in
+    their ranked neighbours are excluded, same as `compute_accuracy`'s
+    unscored rows, but tracked separately here as the compounding-specific
+    coverage signal the M.3 published table omitted."""
+    scored: list[ScoredRow] = []
+    for relation, anchor_library, ground_truth in rows:
+        external = ranked_external_cousins(relation, anchor_library)
+        if not external:
+            continue
+        best_external_id, _distance = external[0]
+        scored.append(ScoredRow(relation, ground_truth, best_external_id == ground_truth))
+    total_rows = len(rows)
+    external_scored_count = len(scored)
+    coverage = external_scored_count / total_rows if total_rows else 0.0
+    return CompoundingReport(
+        scored=tuple(scored),
+        external_scored_count=external_scored_count,
+        total_rows=total_rows,
+        coverage=coverage,
+    )
+
+
 def shuffled_label_control(
     rows: list[tuple[Any, AnchorLibrary, str]], *, seed: int = 0
 ) -> tuple[float | None, float | None]:

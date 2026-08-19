@@ -18,7 +18,8 @@ each blocked here:
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from typing import Any
 
 DENSITY_FLOOR = 3
@@ -92,26 +93,61 @@ class UncertaintyVarianceReport:
     total: int
     max_repeat_fraction: float
     passes: bool
+    per_group_max_repeat_fraction: dict[str, float] = field(default_factory=dict)
+
+
+def _group_repeat_fraction(relations: list[Any]) -> float:
+    if len(relations) < 2:
+        return 0.0
+    counts = Counter(frozenset(r.uncertainty_reasons) for r in relations)
+    return counts.most_common(1)[0][1] / len(relations)
 
 
 def check_uncertainty_variance(
-    relations: list[Any], *, max_repeat_fraction: float = UNCERTAINTY_MAX_REPEAT_FRACTION
+    relations: list[Any],
+    *,
+    max_repeat_fraction: float = UNCERTAINTY_MAX_REPEAT_FRACTION,
+    group_by: Callable[[Any], str] | None = None,
 ) -> UncertaintyVarianceReport:
     """Fails when the same reason set repeats for (almost) every relation
     regardless of input -- a sign the reasons are boilerplate, not derived
-    from actual per-record missing dimensions/annotations."""
+    from actual per-record missing dimensions/annotations.
+
+    `group_by` (TASK_BULLY_COUSIN_RELATION_V1 C.3b) additionally runs the
+    repeat-fraction check *within* each group (e.g. per source), failing if
+    any single group is near-constant even when the batch as a whole looks
+    varied. Varying only *by* source is exactly the boilerplate condition
+    this guard exists to catch -- M.3 passed on 4 distinct reason sets that
+    mapped 1:1 onto its 5 source schemas, which is schema variety, not
+    content-driven variance.
+    """
     if len(relations) < 2:
         return UncertaintyVarianceReport(
             distinct_reason_sets=len(relations),
             total=len(relations),
             max_repeat_fraction=0.0,
             passes=True,
+            per_group_max_repeat_fraction={},
         )
     counts = Counter(frozenset(r.uncertainty_reasons) for r in relations)
     top_fraction = counts.most_common(1)[0][1] / len(relations)
+    passes = top_fraction <= max_repeat_fraction
+
+    per_group: dict[str, float] = {}
+    if group_by is not None:
+        groups: dict[str, list[Any]] = {}
+        for relation in relations:
+            groups.setdefault(group_by(relation), []).append(relation)
+        for group_id, group_relations in groups.items():
+            group_fraction = _group_repeat_fraction(group_relations)
+            per_group[group_id] = group_fraction
+            if group_fraction > max_repeat_fraction:
+                passes = False
+
     return UncertaintyVarianceReport(
         distinct_reason_sets=len(counts),
         total=len(relations),
         max_repeat_fraction=top_fraction,
-        passes=top_fraction <= max_repeat_fraction,
+        passes=passes,
+        per_group_max_repeat_fraction=per_group,
     )
