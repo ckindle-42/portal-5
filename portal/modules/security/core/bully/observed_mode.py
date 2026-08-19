@@ -147,28 +147,47 @@ def run_observed_investigation(
     promote_fn: Callable[[Any, Any], Any] | None = None,
     compound_fn: Callable[[Any, Any], Any] | None = None,
 ) -> ObservedRun:
-    """J.1 interlock, wired: SCOPING uses B.2's `build_scope`; RELATING
-    calls A.2's relation engine on the scope and puts the `Relation` into
-    the run's evidence; INVESTIGATING starts from that relation
-    (J.1's relation_investigation module), never a blank prompt.
+    """J.1 interlock, re-pointed (TASK_BULLY_COUSIN_RELATION_V1 C.2): SCOPING
+    uses B.2's `build_scope`; RELATING calls the observed-mode cousin grader
+    (`cousin_relation.relate_cousin`) on the scope and puts the
+    `CousinRelation` into the run's evidence; INVESTIGATING starts from that
+    relation (J.1's relation_investigation module), never a blank prompt.
+    The provoked path's `relation.relate` is untouched and still runnable
+    directly for the C.7 old-vs-new comparison -- it is simply no longer
+    this module's call site.
 
     `signature_fn` adapts a `Scope`'s native records into whatever the
     relation engine's subject signature needs -- left injectable because
     that adaptation is source-specific (evidence.py's concern), not this
     module's.
     """
-    from . import relation as relation_mod
+    from . import cousin_relation as cousin_mod
     from .relation_investigation import investigate_from_relation
     from .seed_scope import build_scope
 
     def _scope_fn(seed: Any) -> Any:
         return build_scope(seed, plane, source_id, scale_cap=scale_cap)
 
+    # Built once per run, not per seed -- the discriminative index is a
+    # corpus statistic over the anchor library, not a property of any one
+    # arrival (TASK_BULLY_COUSIN_RELATION_V1 C.2).
+    index = cousin_mod.build_discriminative_index(anchor_library.records())
+
     def _relate_fn(scope: Any) -> Any:
         signature = signature_fn(scope)
-        return relation_mod.relate(signature, anchor_library, capabilities=capabilities)
+        # `capabilities` is recorded as an annotation on the scope's evidence,
+        # never fed into the grader: axis participation is decided per-pair by
+        # what the arrival actually carries, which is strictly more honest
+        # than a declared capability flag, and a capability flag must never
+        # alter a measurement (C.2).
+        return cousin_mod.relate_cousin(
+            signature,
+            anchor_library.records(),
+            index=index,
+            subject_id=getattr(signature, "signature_id", None),
+        )
 
-    return run_observed(
+    run = run_observed(
         seed,
         scope_fn=_scope_fn,
         relate_fn=_relate_fn,
@@ -177,3 +196,7 @@ def run_observed_investigation(
         promote_fn=promote_fn,
         compound_fn=compound_fn,
     )
+    # Annotation only -- recorded for the run's evidence trail, never fed
+    # into the grader (see _relate_fn above).
+    run.evidence["capabilities_declared"] = dict(capabilities or {})
+    return run

@@ -99,9 +99,19 @@ def test_wired_observed_investigation_puts_relation_in_evidence():
         seed, plane, "edr", lib, signature_fn=_signature_fn
     )
 
+    # TASK_BULLY_COUSIN_RELATION_V1 C.2: RELATING is re-pointed at the
+    # observed-mode cousin grader, so evidence["relation"] is now a
+    # CousinRelation (`status`), not the provoked-grader Relation
+    # (`verdict`) -- see test_cousin_c2_observed_wiring.py for the
+    # CousinRelation-specific contract.
     assert run.current_stage == "CLOSED"
     assert run.evidence["relation"] is not None
-    assert run.evidence["relation"].verdict in {"SAME", "SIMILAR", "NEW", "ANOMALOUS_UNCLASSIFIED"}
+    assert run.evidence["relation"].status in {
+        "COUSIN_CANDIDATE",
+        "NOVEL_NOTABLE",
+        "INSUFFICIENT_VIEW",
+        "NO_RELATION",
+    }
     investigation = run.evidence["investigation"]
     assert investigation.relation is run.evidence["relation"]
     assert investigation.questions[0] == investigation.base_question

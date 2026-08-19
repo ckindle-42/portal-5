@@ -38,10 +38,21 @@ def _question_for_reason(reason: str) -> str:
 
 
 def _base_question(relation: Any) -> str:
-    nearest = relation.nearest_knowns[0][0] if relation.nearest_knowns else None
+    # `nearest_knowns`/`verdict` is the provoked-grader (`relation.Relation`)
+    # shape; `ranked_cousins`/`status` is the observed cousin grader
+    # (`cousin_relation.CousinRelation`, TASK_BULLY_COUSIN_RELATION_V1 C.2) --
+    # same (anchor_id, distance) shape under a different name, so this brief
+    # works unmodified against either RELATING output.
+    ranked = getattr(relation, "nearest_knowns", None)
+    if ranked is None:
+        ranked = getattr(relation, "ranked_cousins", ())
+    verdict = getattr(relation, "verdict", None)
+    if verdict is None:
+        verdict = getattr(relation, "status", "")
+    nearest = ranked[0][0] if ranked else None
     if nearest:
-        return f"this resembles {nearest} ({relation.verdict}) -- confirm or refute"
-    return f"no anchor resembles this neighbourhood ({relation.verdict}) -- characterize it"
+        return f"this resembles {nearest} ({verdict}) -- confirm or refute"
+    return f"no anchor resembles this neighbourhood ({verdict}) -- characterize it"
 
 
 @dataclass(frozen=True)
