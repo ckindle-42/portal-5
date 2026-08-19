@@ -7,6 +7,7 @@ imports the package and iterates ``all_checks()``.
 
 from . import (  # noqa: F401  (imports populate the check registry)
     blue_orchestration,
+    bully_relate,
     config,
     inference,
     lab,
