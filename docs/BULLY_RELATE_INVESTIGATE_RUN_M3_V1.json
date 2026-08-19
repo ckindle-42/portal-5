@@ -1,0 +1,1599 @@
+{
+  "anchor_library_starting_composition": {
+    "advisory": {
+      "weak": 64
+    },
+    "attack_episode": {
+      "strong": 1009
+    },
+    "confirmed_finding": {},
+    "detection_coverage": {
+      "moderate": 40
+    }
+  },
+  "compounding_experiment": {
+    "anchor_library_composition_after": {
+      "advisory": {
+        "weak": 64
+      },
+      "attack_episode": {
+        "strong": 1009
+      },
+      "confirmed_finding": {
+        "weak": 100
+      },
+      "detection_coverage": {
+        "moderate": 40
+      }
+    },
+    "control_second_half_no_growth": {
+      "anomalous_rate": 1.0,
+      "anomalous_rate_ceiling": 0.5,
+      "anomalous_rate_exceeded": true,
+      "confidence_distribution": {
+        "max": 0.55,
+        "mean": 0.39,
+        "median": 0.35,
+        "min": 0.35
+      },
+      "cost_tokens": 0,
+      "coverage": 1.0,
+      "data_access_records": 1600,
+      "n": 50,
+      "outcome_distribution": {
+        "ANOMALOUS_UNCLASSIFIED": 50
+      },
+      "scored_count": 50,
+      "uncertainty_distinct_reason_sets": 2,
+      "uncertainty_variance_passes": true,
+      "unscored_count": 0
+    },
+    "description": "same ordered seed sequence split at the midpoint; write-back enabled after every seed, so the second half's anchor library has grown from the first half's outcomes -- compare its second-half summary against the control arm's second-half summary (write-back disabled) below",
+    "first_half": {
+      "anomalous_rate": 0.62,
+      "anomalous_rate_ceiling": 0.5,
+      "anomalous_rate_exceeded": true,
+      "confidence_distribution": {
+        "max": 0.85,
+        "mean": 0.67,
+        "median": 0.55,
+        "min": 0.55
+      },
+      "cost_tokens": 0,
+      "coverage": 0.04,
+      "data_access_records": 1600,
+      "n": 50,
+      "outcome_distribution": {
+        "ANOMALOUS_UNCLASSIFIED": 31,
+        "SAME": 19
+      },
+      "scored_count": 2,
+      "uncertainty_distinct_reason_sets": 4,
+      "uncertainty_variance_passes": true,
+      "unscored_count": 48
+    },
+    "second_half_with_growth": {
+      "anomalous_rate": 0.24,
+      "anomalous_rate_ceiling": 0.5,
+      "anomalous_rate_exceeded": false,
+      "confidence_distribution": {
+        "max": 0.65,
+        "mean": 0.63,
+        "median": 0.65,
+        "min": 0.55
+      },
+      "cost_tokens": 0,
+      "coverage": 0.0,
+      "data_access_records": 1600,
+      "n": 50,
+      "outcome_distribution": {
+        "ANOMALOUS_UNCLASSIFIED": 12,
+        "SAME": 38
+      },
+      "scored_count": 0,
+      "uncertainty_distinct_reason_sets": 3,
+      "uncertainty_variance_passes": true,
+      "unscored_count": 50
+    }
+  },
+  "control_arm": {
+    "anomalous_rate": 1.0,
+    "anomalous_rate_ceiling": 0.5,
+    "anomalous_rate_exceeded": true,
+    "confidence_distribution": {
+      "max": 0.85,
+      "mean": 0.53,
+      "median": 0.55,
+      "min": 0.35
+    },
+    "cost_tokens": 0,
+    "coverage": 1.0,
+    "data_access_records": 3200,
+    "description": "full ordered seed sequence, anchor write-back disabled throughout",
+    "n": 100,
+    "outcome_distribution": {
+      "ANOMALOUS_UNCLASSIFIED": 100
+    },
+    "scored_count": 100,
+    "uncertainty_distinct_reason_sets": 4,
+    "uncertainty_variance_passes": true,
+    "unscored_count": 0
+  },
+  "planner_proof_hash": "b3718d17ded88a39",
+  "rows": [
+    {
+      "confidence": 0.85,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-attack_data-000",
+      "source_id": "attack_data",
+      "uncertainty_reasons": [
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "anchor_density:far_nearest_forced_anomalous"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.85,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-attack_data-001",
+      "source_id": "attack_data",
+      "uncertainty_reasons": [
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "anchor_density:far_nearest_forced_anomalous"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.85,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-attack_data-002",
+      "source_id": "attack_data",
+      "uncertainty_reasons": [
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "anchor_density:far_nearest_forced_anomalous"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.85,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-attack_data-003",
+      "source_id": "attack_data",
+      "uncertainty_reasons": [
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "anchor_density:far_nearest_forced_anomalous"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.85,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-attack_data-004",
+      "source_id": "attack_data",
+      "uncertainty_reasons": [
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "anchor_density:far_nearest_forced_anomalous"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.85,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-attack_data-005",
+      "source_id": "attack_data",
+      "uncertainty_reasons": [
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "anchor_density:far_nearest_forced_anomalous"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.85,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-attack_data-006",
+      "source_id": "attack_data",
+      "uncertainty_reasons": [
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "anchor_density:far_nearest_forced_anomalous"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.85,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-attack_data-007",
+      "source_id": "attack_data",
+      "uncertainty_reasons": [
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "anchor_density:far_nearest_forced_anomalous"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.85,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-attack_data-008",
+      "source_id": "attack_data",
+      "uncertainty_reasons": [
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "anchor_density:far_nearest_forced_anomalous"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.85,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-attack_data-009",
+      "source_id": "attack_data",
+      "uncertainty_reasons": [
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "anchor_density:far_nearest_forced_anomalous"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.85,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-attack_data-010",
+      "source_id": "attack_data",
+      "uncertainty_reasons": [
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "anchor_density:far_nearest_forced_anomalous"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.85,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-attack_data-011",
+      "source_id": "attack_data",
+      "uncertainty_reasons": [
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "anchor_density:far_nearest_forced_anomalous"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.85,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-attack_data-012",
+      "source_id": "attack_data",
+      "uncertainty_reasons": [
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "anchor_density:far_nearest_forced_anomalous"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.85,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-attack_data-013",
+      "source_id": "attack_data",
+      "uncertainty_reasons": [
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "anchor_density:far_nearest_forced_anomalous"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.85,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-attack_data-014",
+      "source_id": "attack_data",
+      "uncertainty_reasons": [
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "anchor_density:far_nearest_forced_anomalous"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.85,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-attack_data-015",
+      "source_id": "attack_data",
+      "uncertainty_reasons": [
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "anchor_density:far_nearest_forced_anomalous"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.85,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-attack_data-016",
+      "source_id": "attack_data",
+      "uncertainty_reasons": [
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "anchor_density:far_nearest_forced_anomalous"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.85,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-attack_data-017",
+      "source_id": "attack_data",
+      "uncertainty_reasons": [
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "anchor_density:far_nearest_forced_anomalous"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.85,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-attack_data-018",
+      "source_id": "attack_data",
+      "uncertainty_reasons": [
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "anchor_density:far_nearest_forced_anomalous"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.85,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-attack_data-019",
+      "source_id": "attack_data",
+      "uncertainty_reasons": [
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "anchor_density:far_nearest_forced_anomalous"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-lab-splunk-000",
+      "source_id": "lab-splunk",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-lab-splunk-001",
+      "source_id": "lab-splunk",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-lab-splunk-002",
+      "source_id": "lab-splunk",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-lab-splunk-003",
+      "source_id": "lab-splunk",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-lab-splunk-004",
+      "source_id": "lab-splunk",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-lab-splunk-005",
+      "source_id": "lab-splunk",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-lab-splunk-006",
+      "source_id": "lab-splunk",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-lab-splunk-007",
+      "source_id": "lab-splunk",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-lab-splunk-008",
+      "source_id": "lab-splunk",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-lab-splunk-009",
+      "source_id": "lab-splunk",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-lab-splunk-010",
+      "source_id": "lab-splunk",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-lab-splunk-011",
+      "source_id": "lab-splunk",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-lab-splunk-012",
+      "source_id": "lab-splunk",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-lab-splunk-013",
+      "source_id": "lab-splunk",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-lab-splunk-014",
+      "source_id": "lab-splunk",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-lab-splunk-015",
+      "source_id": "lab-splunk",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-lab-splunk-016",
+      "source_id": "lab-splunk",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-lab-splunk-017",
+      "source_id": "lab-splunk",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-lab-splunk-018",
+      "source_id": "lab-splunk",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-lab-splunk-019",
+      "source_id": "lab-splunk",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-live-advisories-000",
+      "source_id": "live-advisories",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-live-advisories-001",
+      "source_id": "live-advisories",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-live-advisories-002",
+      "source_id": "live-advisories",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-live-advisories-003",
+      "source_id": "live-advisories",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-live-advisories-004",
+      "source_id": "live-advisories",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-live-advisories-005",
+      "source_id": "live-advisories",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-live-advisories-006",
+      "source_id": "live-advisories",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-live-advisories-007",
+      "source_id": "live-advisories",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-live-advisories-008",
+      "source_id": "live-advisories",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-live-advisories-009",
+      "source_id": "live-advisories",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-live-advisories-010",
+      "source_id": "live-advisories",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-live-advisories-011",
+      "source_id": "live-advisories",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-live-advisories-012",
+      "source_id": "live-advisories",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-live-advisories-013",
+      "source_id": "live-advisories",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-live-advisories-014",
+      "source_id": "live-advisories",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-live-advisories-015",
+      "source_id": "live-advisories",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-live-advisories-016",
+      "source_id": "live-advisories",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-live-advisories-017",
+      "source_id": "live-advisories",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-live-advisories-018",
+      "source_id": "live-advisories",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.55,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-live-advisories-019",
+      "source_id": "live-advisories",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:attack",
+        "no_entity_identity:context_axis_weak",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-flaws_cloud_cloudtrail-000",
+      "source_id": "flaws_cloud_cloudtrail",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-flaws_cloud_cloudtrail-001",
+      "source_id": "flaws_cloud_cloudtrail",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-flaws_cloud_cloudtrail-002",
+      "source_id": "flaws_cloud_cloudtrail",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-flaws_cloud_cloudtrail-003",
+      "source_id": "flaws_cloud_cloudtrail",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-flaws_cloud_cloudtrail-004",
+      "source_id": "flaws_cloud_cloudtrail",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-flaws_cloud_cloudtrail-005",
+      "source_id": "flaws_cloud_cloudtrail",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-flaws_cloud_cloudtrail-006",
+      "source_id": "flaws_cloud_cloudtrail",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-flaws_cloud_cloudtrail-007",
+      "source_id": "flaws_cloud_cloudtrail",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-flaws_cloud_cloudtrail-008",
+      "source_id": "flaws_cloud_cloudtrail",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-flaws_cloud_cloudtrail-009",
+      "source_id": "flaws_cloud_cloudtrail",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-flaws_cloud_cloudtrail-010",
+      "source_id": "flaws_cloud_cloudtrail",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-flaws_cloud_cloudtrail-011",
+      "source_id": "flaws_cloud_cloudtrail",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-flaws_cloud_cloudtrail-012",
+      "source_id": "flaws_cloud_cloudtrail",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-flaws_cloud_cloudtrail-013",
+      "source_id": "flaws_cloud_cloudtrail",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-flaws_cloud_cloudtrail-014",
+      "source_id": "flaws_cloud_cloudtrail",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-flaws_cloud_cloudtrail-015",
+      "source_id": "flaws_cloud_cloudtrail",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-flaws_cloud_cloudtrail-016",
+      "source_id": "flaws_cloud_cloudtrail",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-flaws_cloud_cloudtrail-017",
+      "source_id": "flaws_cloud_cloudtrail",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-flaws_cloud_cloudtrail-018",
+      "source_id": "flaws_cloud_cloudtrail",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-flaws_cloud_cloudtrail-019",
+      "source_id": "flaws_cloud_cloudtrail",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-invictus_ir_aws_dataset-000",
+      "source_id": "invictus_ir_aws_dataset",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-invictus_ir_aws_dataset-001",
+      "source_id": "invictus_ir_aws_dataset",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-invictus_ir_aws_dataset-002",
+      "source_id": "invictus_ir_aws_dataset",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-invictus_ir_aws_dataset-003",
+      "source_id": "invictus_ir_aws_dataset",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-invictus_ir_aws_dataset-004",
+      "source_id": "invictus_ir_aws_dataset",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-invictus_ir_aws_dataset-005",
+      "source_id": "invictus_ir_aws_dataset",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-invictus_ir_aws_dataset-006",
+      "source_id": "invictus_ir_aws_dataset",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-invictus_ir_aws_dataset-007",
+      "source_id": "invictus_ir_aws_dataset",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-invictus_ir_aws_dataset-008",
+      "source_id": "invictus_ir_aws_dataset",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-invictus_ir_aws_dataset-009",
+      "source_id": "invictus_ir_aws_dataset",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-invictus_ir_aws_dataset-010",
+      "source_id": "invictus_ir_aws_dataset",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-invictus_ir_aws_dataset-011",
+      "source_id": "invictus_ir_aws_dataset",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-invictus_ir_aws_dataset-012",
+      "source_id": "invictus_ir_aws_dataset",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-invictus_ir_aws_dataset-013",
+      "source_id": "invictus_ir_aws_dataset",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-invictus_ir_aws_dataset-014",
+      "source_id": "invictus_ir_aws_dataset",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-invictus_ir_aws_dataset-015",
+      "source_id": "invictus_ir_aws_dataset",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-invictus_ir_aws_dataset-016",
+      "source_id": "invictus_ir_aws_dataset",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-invictus_ir_aws_dataset-017",
+      "source_id": "invictus_ir_aws_dataset",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-invictus_ir_aws_dataset-018",
+      "source_id": "invictus_ir_aws_dataset",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "confidence": 0.35,
+      "record_count": 32,
+      "scope_degraded": true,
+      "scored": true,
+      "seed_id": "seed-invictus_ir_aws_dataset-019",
+      "source_id": "invictus_ir_aws_dataset",
+      "uncertainty_reasons": [
+        "missing_dimension:behavior",
+        "missing_dimension:telemetry",
+        "missing_dimension:attack",
+        "confidence_below_classification_floor"
+      ],
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    }
+  ],
+  "schema": "BULLY_RELATE_INVESTIGATE_RUN_M3_V1",
+  "seed_count": 100,
+  "seed_sources": [
+    "attack_data",
+    "flaws_cloud_cloudtrail",
+    "invictus_ir_aws_dataset",
+    "lab-splunk",
+    "live-advisories"
+  ],
+  "unrelatable_coverage_gap": {
+    "count": 0,
+    "fraction_of_seeds": 0.0,
+    "sample": []
+  }
+}
