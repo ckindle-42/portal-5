@@ -127,8 +127,39 @@ class Relation:
     anchors_considered: tuple[str, ...]
     axis_contributions: dict[str, float | None]
     nearest_knowns: tuple[tuple[str, float], ...]
+    distance_profile: dict[str, Any] | None
     assessment: Any = field(repr=False)
     created_at: float = field(default_factory=time.time)
+
+
+# ── A.3: ANOMALOUS_UNCLASSIFIED as a first-class success ────────────────────
+
+# A "notable" neighbourhood is a *well-observed* one (enough structural
+# channels present to trust the distance, not a thin/absent record) that
+# still lands far from every anchor. Mere absence of a match (thin coverage,
+# few channels) already falls to ANOMALOUS via the confidence floor in
+# cousin_engine._classify_relationship -- this is the separate case where
+# the data is good and genuinely doesn't match anything known (S3).
+NOTABILITY_MIN_CHANNELS = 3
+
+
+def _is_notable_novelty(assessment) -> bool:
+    return (
+        assessment.relationship == "DIFFERENT"
+        and assessment.nonsemantic_channels >= NOTABILITY_MIN_CHANNELS
+        and assessment.confidence >= cousin_engine.MIN_CONFIDENCE_FOR_CLASSIFICATION
+    )
+
+
+def _distance_profile(assessment) -> dict[str, Any]:
+    distances = [d for _, d in assessment.nearest_knowns]
+    return {
+        "composite": assessment.composite,
+        "nearest_distance": distances[0] if distances else None,
+        "mean_distance": sum(distances) / len(distances) if distances else None,
+        "candidates_considered": len(distances),
+        "nonsemantic_channels": assessment.nonsemantic_channels,
+    }
 
 
 def relate(
@@ -162,17 +193,34 @@ def relate(
     anchors_considered = tuple(
         sorted({c["record"].get("record_id", "") for c in candidates.candidates})
     )
-    reasons = _uncertainty_reasons(
-        assessment, capabilities=capabilities, anchor_count=len(anchors_considered)
+    reasons = list(
+        _uncertainty_reasons(
+            assessment, capabilities=capabilities, anchor_count=len(anchors_considered)
+        )
     )
+
+    verdict = assessment.relationship
+    notable_novelty = _is_notable_novelty(assessment)
+    if notable_novelty:
+        # A well-observed neighbourhood that matches nothing known is the
+        # correct novel-attack-vector output (S3) -- never silence, never
+        # a stretched match to the nearest DIFFERENT anchor.
+        verdict = "ANOMALOUS_UNCLASSIFIED"
+        reasons.append("novel_behavior:no_anchor_match")
+
+    distance_profile = (
+        _distance_profile(assessment) if verdict == "ANOMALOUS_UNCLASSIFIED" else None
+    )
+
     return Relation(
         relation_id=f"rel-{uuid.uuid4().hex[:12]}",
-        verdict=assessment.relationship,
+        verdict=verdict,
         confidence=assessment.confidence,
-        uncertainty_reasons=reasons,
+        uncertainty_reasons=tuple(reasons),
         anchors_considered=anchors_considered,
         axis_contributions=axis_contributions,
         nearest_knowns=tuple(assessment.nearest_knowns),
+        distance_profile=distance_profile,
         assessment=assessment,
     )
 
