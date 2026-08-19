@@ -24,7 +24,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import cousin_engine
+from . import cousin_engine, degeneracy
 from . import signatures as sig_mod
 from .anchors import AnchorLibrary
 
@@ -208,6 +208,17 @@ def relate(
         verdict = "ANOMALOUS_UNCLASSIFIED"
         reasons.append("novel_behavior:no_anchor_match")
 
+    # G.4: anchor-density blindness guard -- confidence capped by local
+    # anchor density; a far-nearest-anchor forces ANOMALOUS rather than a
+    # stretched match, even when the composite math alone would not.
+    nearest_distance = assessment.nearest_knowns[0][1] if assessment.nearest_knowns else None
+    guarded_verdict, confidence = degeneracy.apply_density_guard(
+        verdict, assessment.confidence, nearest_distance, len(anchors_considered)
+    )
+    if guarded_verdict != verdict:
+        reasons.append("anchor_density:far_nearest_forced_anomalous")
+    verdict = guarded_verdict
+
     distance_profile = (
         _distance_profile(assessment) if verdict == "ANOMALOUS_UNCLASSIFIED" else None
     )
@@ -215,7 +226,7 @@ def relate(
     return Relation(
         relation_id=f"rel-{uuid.uuid4().hex[:12]}",
         verdict=verdict,
-        confidence=assessment.confidence,
+        confidence=confidence,
         uncertainty_reasons=tuple(reasons),
         anchors_considered=anchors_considered,
         axis_contributions=axis_contributions,
