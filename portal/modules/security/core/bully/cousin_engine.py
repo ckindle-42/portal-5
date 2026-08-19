@@ -299,17 +299,24 @@ def _decompose(
     }
 
 
-def _weighted_composite(decomposition: dict[str, float | None]) -> tuple[float, float, int]:
+def _weighted_composite(
+    decomposition: dict[str, float | None], weights: dict[str, float] | None = None
+) -> tuple[float, float, int]:
     """Returns (composite_distance, confidence, nonsemantic_channels).
 
     confidence = sum of weights whose dimension was actually present (never
     renormalized so the *distance* itself stays honest about what fraction
     of the weight-mass it represents).
+
+    `weights` overrides the module default `_WEIGHTS` (A.2: capability-driven
+    axis weighting -- structure leads where a source's annotations say text
+    is opaque). Callers that omit it get the unchanged default behavior.
     """
+    weights = weights if weights is not None else _WEIGHTS
     total = 0.0
     mass = 0.0
     nonsemantic = 0
-    for dim, weight in _WEIGHTS.items():
+    for dim, weight in weights.items():
         value = decomposition.get(dim)
         if value is None:
             continue
@@ -428,6 +435,7 @@ def grade(
     *,
     discriminators: list[str] | None = None,
     thresholds: dict | None = None,
+    weights: dict[str, float] | None = None,
 ) -> CousinAssessment:
     thresholds = thresholds or DEFAULT_THRESHOLDS
     response = _response_axis(coverage)
@@ -439,7 +447,7 @@ def grade(
     for candidate in candidates.candidates:
         record = candidate["record"]
         decomp = _decompose(signature, record, semantic_distance=candidate.get("semantic_distance"))
-        composite, confidence, nonsemantic = _weighted_composite(decomp)
+        composite, confidence, nonsemantic = _weighted_composite(decomp, weights)
         scored.append((composite, confidence, nonsemantic, decomp, record, candidate))
     scored.sort(key=lambda t: t[0])
     composite, confidence, nonsemantic, decomp, best_record, best_candidate = scored[0]
