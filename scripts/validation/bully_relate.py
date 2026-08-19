@@ -227,3 +227,263 @@ def check_uncertainty_reasons_vary() -> tuple[str, str, list[dict]]:
     if not report2.passes:
         return "FAIL", "genuinely varying uncertainty_reasons was incorrectly flagged", []
     return "PASS", "", []
+
+
+# ── TASK_BULLY_COUSIN_RELATION_V1 C.5: cousin-relation contract (CJ-CQ) ─────
+# Each check seeds a violation, confirms rejection, then confirms a clean
+# input still passes (N4: a guard that cannot fail is a defect).
+
+
+def _cousin_arrival(**kwargs):
+    defaults = dict(
+        signature_id="s1",
+        action_sequence=[],
+        telemetry_shape={},
+        context_topology={},
+        parameter_families={},
+        event_graph={},
+        attack_mappings=[],
+    )
+    defaults.update(kwargs)
+    return SimpleNamespace(**defaults)
+
+
+def _cousin_corpus() -> list[dict]:
+    """A small anchor corpus with a majority-boilerplate window and one
+    distinguishable parent -- the same shape the C.1 contract tests use, so
+    IDF weighting behaves predictably across these checks."""
+    common = [
+        {
+            "record_id": f"common-{i}",
+            "action_sequence": ["whoami", "net user", "ipconfig"],
+            "telemetry_shape": {"source_class": "windows"},
+            "context_topology": {"os": "windows"},
+            "attack_mappings": [{"technique_id": "T1087"}],
+        }
+        for i in range(20)
+    ]
+    common.append(
+        {
+            "record_id": "PARENT-cred",
+            "action_sequence": ["AssumeRole", "GetSessionToken", "ListBuckets"],
+            "telemetry_shape": {"source_class": "cloudtrail"},
+            "context_topology": {"cloud": "aws"},
+            "attack_mappings": [{"technique_id": "T1078.004"}],
+        }
+    )
+    return common
+
+
+@register(
+    "bully_cousin_coverage_never_gates",
+    "CJ. cousin coverage never gates classification",
+    order=85,
+)
+def check_cousin_coverage_never_gates() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import cousin_relation as cr
+
+    anchors = _cousin_corpus()
+    thin = _cousin_arrival(action_sequence=["AssumeRole", "GetSessionToken", "ListBuckets"])
+    rel = cr.relate_cousin(thin, anchors)
+    if rel.coverage >= 0.6:
+        return "FAIL", "fixture coverage is not below the old mass floor -- adjust fixture", []
+    if rel.status != "COUSIN_CANDIDATE":
+        return "FAIL", f"a coverage-{rel.coverage:.2f} arrival was refused ({rel.status})", []
+
+    # Seeded violation: a grader variant that gates on a mass floor must
+    # disagree with the real grader on this exact fixture.
+    def _gated_variant_status(coverage: float) -> str:
+        return "INSUFFICIENT_VIEW" if coverage < 0.6 else rel.status
+
+    if _gated_variant_status(rel.coverage) == rel.status:
+        return "FAIL", "a coverage-gated variant was not distinguishable from the real grader", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_cousin_distance_normalized",
+    "CK. cousin distance is normalized and comparable across coverage",
+    order=86,
+)
+def check_cousin_distance_normalized() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import cousin_relation as cr
+
+    anchors = _cousin_corpus()
+    behavior = ["AssumeRole", "GetSessionToken", "ListBuckets"]
+    thin = _cousin_arrival(action_sequence=behavior)
+    rich = _cousin_arrival(
+        signature_id="s2",
+        action_sequence=behavior,
+        telemetry_shape={"source_class": "cloudtrail"},
+        context_topology={"cloud": "aws"},
+    )
+    d_thin = cr.relate_cousin(thin, anchors).distance
+    d_rich = cr.relate_cousin(rich, anchors).distance
+    if d_thin != d_rich:
+        return "FAIL", f"distance not comparable across coverage: thin={d_thin} rich={d_rich}", []
+    if d_thin != 0.0:
+        return "FAIL", "fixture did not produce a perfect behavioural match", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_cousin_attack_axis_output_only",
+    "CL. cousin attack axis is never required of the arrival",
+    order=87,
+)
+def check_cousin_attack_axis_output_only() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import cousin_relation as cr
+
+    anchors = _cousin_corpus()
+    arrival = _cousin_arrival(action_sequence=["AssumeRole", "GetSessionToken", "ListBuckets"])
+    rel = cr.relate_cousin(arrival, anchors)
+    if rel.status != "COUSIN_CANDIDATE":
+        return "FAIL", "arrival with no attack_mappings failed to relate", []
+    if "T1078.004" not in rel.hypothesized_techniques:
+        return "FAIL", "anchor's technique was not hypothesized as output", []
+    if "attack" not in rel.delta.unobservable_dimensions:
+        return "FAIL", "attack axis was not marked unobservable for the arrival", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_cousin_delta_mandatory",
+    "CM. cousin delta is present on every COUSIN_CANDIDATE",
+    order=88,
+)
+def check_cousin_delta_mandatory() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import cousin_relation as cr
+
+    anchors = _cousin_corpus()
+    arrival = _cousin_arrival(
+        action_sequence=["AssumeRole", "GetSessionToken", "DescribeInstances"]
+    )
+    rel = cr.relate_cousin(arrival, anchors)
+    if rel.status != "COUSIN_CANDIDATE":
+        return "FAIL", "fixture did not produce a cousin verdict", []
+    if rel.delta.is_empty:
+        return "FAIL", "COUSIN_CANDIDATE emitted with an empty delta", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_cousin_no_overclaim",
+    "CN. no parent named outside a cousin verdict",
+    order=89,
+)
+def check_cousin_no_overclaim() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import cousin_relation as cr
+
+    anchors = _cousin_corpus()
+    unrelated = _cousin_arrival(
+        action_sequence=["SELECT", "INSERT", "COMMIT"],
+        telemetry_shape={"source_class": "db"},
+        context_topology={"engine": "pg"},
+    )
+    rel = cr.relate_cousin(unrelated, anchors)
+    if rel.status == "COUSIN_CANDIDATE":
+        return "FAIL", "fixture unexpectedly related closely -- adjust to a farther arrival", []
+    if rel.anchor_id is not None or rel.hypothesized_techniques != ():
+        return "FAIL", "a parent/technique was named outside a COUSIN_CANDIDATE verdict", []
+    if not rel.ranked_cousins:
+        return "FAIL", "the distance profile was withheld outside a cousin verdict", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_cousin_bin_split_reachable",
+    "CO. INSUFFICIENT_VIEW and NOVEL_NOTABLE are both reachable and distinct",
+    order=90,
+)
+def check_cousin_bin_split_reachable() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import cousin_relation as cr
+
+    anchors = _cousin_corpus()
+    blank = _cousin_arrival()
+    distinctive_unrelated = _cousin_arrival(
+        signature_id="s2",
+        action_sequence=["zzz-rare-token-1", "zzz-rare-token-2"],
+        telemetry_shape={"weird": "shape"},
+    )
+    insufficient = cr.relate_cousin(blank, anchors)
+    novel = cr.relate_cousin(distinctive_unrelated, anchors)
+    if insufficient.status != "INSUFFICIENT_VIEW":
+        return (
+            "FAIL",
+            f"a blank arrival did not reach INSUFFICIENT_VIEW ({insufficient.status})",
+            [],
+        )
+    if novel.status != "NOVEL_NOTABLE":
+        return (
+            "FAIL",
+            f"a distinctive-but-unrelated arrival did not reach NOVEL_NOTABLE ({novel.status})",
+            [],
+        )
+    if insufficient.status == novel.status:
+        return "FAIL", "INSUFFICIENT_VIEW and NOVEL_NOTABLE collapsed to one status", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_compounding_external_only",
+    "CP. compounding is never scored on SYSTEM_GENERATED truth",
+    order=91,
+)
+def check_compounding_external_only() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import measurement
+    from portal.modules.security.core.bully.anchors import AnchorLibrary
+
+    lib = AnchorLibrary()
+    sys_anchor = lib.load_confirmed_finding(
+        source_id="observed:x", record={}, outcome="ESCALATE", analyst_confirmed=False
+    )
+    relation = SimpleNamespace(ranked_cousins=((sys_anchor.anchor_id, 0.1),))
+    report = measurement.compounding_accuracy([(relation, lib, sys_anchor.anchor_id)])
+    if report.valid:
+        return "FAIL", "a compounding report with zero external rows reported valid=True", []
+    if report.external_scored_count != 0:
+        return "FAIL", "a SYSTEM_GENERATED match was scored as external ground truth", []
+
+    ext_anchor = lib.load_attack_episode(source_id="attack_data", record={}, techniques=("T1059",))
+    relation2 = SimpleNamespace(ranked_cousins=((ext_anchor.anchor_id, 0.1),))
+    report2 = measurement.compounding_accuracy([(relation2, lib, ext_anchor.anchor_id)])
+    if not report2.valid:
+        return "FAIL", "a compounding report with a real external row was incorrectly INVALID", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_uncertainty_varies_within_source",
+    "CQ. uncertainty reasons vary within a source, not just across sources",
+    order=92,
+)
+def check_uncertainty_varies_within_source() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import degeneracy
+
+    constant_within_each = []
+    for source in ("src-a", "src-b", "src-c", "src-d", "src-e"):
+        constant_within_each += [
+            SimpleNamespace(verdict="NEW", uncertainty_reasons=(f"boilerplate:{source}",))
+            for _ in range(4)
+        ]
+    batch_report = degeneracy.check_uncertainty_variance(constant_within_each)
+    if not batch_report.passes:
+        return "FAIL", "fixture unexpectedly failed the batch-level check -- adjust fixture", []
+
+    grouped_report = degeneracy.check_uncertainty_variance(
+        constant_within_each, group_by=lambda r: r.uncertainty_reasons[0].split(":", 1)[1]
+    )
+    if grouped_report.passes:
+        return "FAIL", "reasons constant within one source were not caught by the grouped check", []
+
+    varying = [
+        SimpleNamespace(verdict="NEW", uncertainty_reasons=(f"content:{source}:{i}",))
+        for source in ("src-a", "src-b")
+        for i in range(6)
+    ]
+    grouped_ok = degeneracy.check_uncertainty_variance(
+        varying, group_by=lambda r: r.uncertainty_reasons[0].split(":")[1]
+    )
+    if not grouped_ok.passes:
+        return "FAIL", "genuinely within-source-varying reasons were incorrectly flagged", []
+    return "PASS", "", []
