@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import hashlib
 import json
 import statistics
 from pathlib import Path
@@ -78,9 +79,15 @@ def build_anchor_library(attack_data_root: Path, coverage_path: Path, plane: Any
         if key in seen_datasets:
             continue
         seen_datasets.add(key)
+        # Deterministic record_id (hash of the dataset path) rather than the
+        # default random uuid4 -- otherwise every run reassigns anchor
+        # identities, which silently reshuffles distance-tie-breaking and
+        # makes C.6/C.7 results non-reproducible run-to-run.
+        record_id = f"attack-episode-{hashlib.sha256(key.encode()).hexdigest()[:16]}"
         lib.load_attack_episode(
             source_id="attack_data",
             record={
+                "record_id": record_id,
                 "action_sequence": _sample_actions_from_data_file(manifest.path),
                 "telemetry_shape": {"source_class": manifest.mapped_sourcetype or ""},
                 "context_topology": {"dataset": manifest.path.parent.name},
@@ -270,6 +277,9 @@ def run_pass(
                 "confidence": rel.confidence,
                 "coverage": rel.coverage,
                 "distance": rel.distance,
+                "anchor_id": rel.anchor_id,
+                "hypothesized_techniques": list(rel.hypothesized_techniques),
+                "delta": rel.delta.to_dict(),
                 "uncertainty_reasons": list(rel.uncertainty_reasons),
                 "scored": bool(measurement.ranked_external_cousins(rel, anchor_library)),
                 "record_count": len(scope.records),
