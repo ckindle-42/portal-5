@@ -132,3 +132,48 @@ def run_observed(
 
     run.enter("CLOSED")
     return run
+
+
+def run_observed_investigation(
+    seed: Any,
+    plane: Any,
+    source_id: str,
+    anchor_library: Any,
+    *,
+    signature_fn: Callable[[Any], Any],
+    capabilities: dict[str, bool] | None = None,
+    scale_cap: int = 500,
+    grade_fn: Callable[[Any, Any], Any] | None = None,
+    promote_fn: Callable[[Any, Any], Any] | None = None,
+    compound_fn: Callable[[Any, Any], Any] | None = None,
+) -> ObservedRun:
+    """J.1 interlock, wired: SCOPING uses B.2's `build_scope`; RELATING
+    calls A.2's relation engine on the scope and puts the `Relation` into
+    the run's evidence; INVESTIGATING starts from that relation
+    (J.1's relation_investigation module), never a blank prompt.
+
+    `signature_fn` adapts a `Scope`'s native records into whatever the
+    relation engine's subject signature needs -- left injectable because
+    that adaptation is source-specific (evidence.py's concern), not this
+    module's.
+    """
+    from . import relation as relation_mod
+    from .relation_investigation import investigate_from_relation
+    from .seed_scope import build_scope
+
+    def _scope_fn(seed: Any) -> Any:
+        return build_scope(seed, plane, source_id, scale_cap=scale_cap)
+
+    def _relate_fn(scope: Any) -> Any:
+        signature = signature_fn(scope)
+        return relation_mod.relate(signature, anchor_library, capabilities=capabilities)
+
+    return run_observed(
+        seed,
+        scope_fn=_scope_fn,
+        relate_fn=_relate_fn,
+        investigate_fn=investigate_from_relation,
+        grade_fn=grade_fn,
+        promote_fn=promote_fn,
+        compound_fn=compound_fn,
+    )
