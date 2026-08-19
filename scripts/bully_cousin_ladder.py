@@ -194,6 +194,7 @@ def run_ladder(
                     "name": rung.name,
                     "distance": rel.distance,
                     "status": rel.status,
+                    "confidence": rel.confidence,
                     "matched_anchor_id": rel.anchor_id,
                     "ranked_cousins": list(rel.ranked_cousins),
                 }
