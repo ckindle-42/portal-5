@@ -1,5 +1,20 @@
 # TASK_BULLY_RELATE_AND_INVESTIGATE_V1 — M.3 run and record
 
+> **Errata (2026-08-19, `TASK_BULLY_COUSIN_RELATION_V1`).** This run's
+> attribution of the 100/100 `ANOMALOUS_UNCLASSIFIED` result to anchor/adapter
+> coverage is **wrong**. The raw JSON disproves it: `confidence` took exactly
+> three values (0.35/0.55/0.85), one per source, because
+> `cousin_engine._weighted_composite` set `confidence = mass` — a
+> schema-completeness constant — and `_classify_relationship` gated on it
+> *before* any distance was examined. Zero of the 100 verdicts came from
+> comparing the arrival to a known anchor. The root cause and fix are in
+> [`DESIGN_BULLY_COUSIN_RELATION_V1.md`](DESIGN_BULLY_COUSIN_RELATION_V1.md);
+> the corrected re-run over the same 100 seeds is
+> [`BULLY_COUSIN_RELATION_RUN_C7_V1.md`](BULLY_COUSIN_RELATION_RUN_C7_V1.md)
+> (0/100 `ANOMALOUS_UNCLASSIFIED`-equivalent, 100/100 external-scored
+> coverage vs this run's 0.04/0.0 in the compounding halves). This document
+> is kept as the honest record of a wrong reading, not rewritten.
+
 Live run over the connected data plane (`scripts/bully_relate_run.py`,
 raw output `docs/BULLY_RELATE_INVESTIGATE_RUN_M3_V1.json`, planner-proof hash
 `b3718d17ded88a39`). Real lab Splunk (credentials sourced from `.env`),
