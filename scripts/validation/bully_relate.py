@@ -822,3 +822,276 @@ def check_novel_requires_positive_remarkability() -> tuple[str, str, list[dict]]
     if outcome.outcome != "NORMAL":
         return "FAIL", f"expected NORMAL with an unfitted baseline, got {outcome.outcome}", []
     return "PASS", "", []
+
+
+@register(
+    "bully_universal_intake_no_unit_from_invalid_role_map",
+    "DB. no unit is emitted from a source whose role map is invalid (Q1)",
+    order=103,
+)
+def check_no_unit_from_invalid_role_map() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully.artifact_graph import build_graph, enumerate_units
+
+    unextractable = [
+        {"blob": "x" * 300, "note": f"free text {i} unrelated content"} for i in range(10)
+    ]
+    graph = build_graph(unextractable)
+    if graph.role_map is None or graph.role_map.extraction_valid:
+        return "FAIL", "an unextractable source was not flagged extraction_valid=False", []
+    units = enumerate_units(graph)
+    if units:
+        return "FAIL", f"{len(units)} units were emitted from a source-level blind graph", []
+
+    valid_records = [
+        {
+            "eventName": ["AssumeRole", "ListBuckets"][i % 2],
+            "user": f"u{i % 10}",
+            "eventTime": 1_700_000_000.0 + i,
+        }
+        for i in range(40)
+    ]
+    valid_graph = build_graph(valid_records)
+    if valid_graph.role_map is None or not valid_graph.role_map.extraction_valid:
+        return "FAIL", "a genuinely extractable source was flagged invalid", []
+    if not enumerate_units(valid_graph):
+        return "FAIL", "a genuinely extractable source produced no units", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_universal_intake_field_roles_resolve_plural_schemas",
+    "DC. field roles resolve for >=3 disjoint schemas (Q2), against the E.3 fixture",
+    order=104,
+)
+def check_field_roles_resolve_plural_schemas() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import blend
+    from portal.modules.security.core.bully.artifact_graph import build_graph
+
+    records, provenance = blend.compose_blend()
+    schemas = blend.schemas_present(records, provenance)
+    if len(schemas) < 3:
+        return "FAIL", f"blend fixture carries only {len(schemas)} schemas, need >=3", []
+    graph = build_graph(records)
+    if graph.role_map is None or not graph.role_map.extraction_valid:
+        return "FAIL", "the plural blend fixture failed extraction", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_universal_intake_extraction_failure_never_shared_shape",
+    "DD. an extraction failure never produces a shared shape feature (the RC1 pattern)",
+    order=105,
+)
+def check_extraction_failure_never_shared_shape() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully.artifact_graph import build_graph, enumerate_units
+
+    # Two unrelated unextractable sources -- under the RC1 defect both would
+    # degrade to an identical all-`other` class_sequence and read as a
+    # shape match. Under the fix, neither emits a unit at all.
+    blind_a = [{"noise": f"aaaa{i}" * 5} for i in range(10)]
+    blind_b = [{"garble": f"zzzz{i}" * 5} for i in range(10)]
+    graph_a = build_graph(blind_a)
+    graph_b = build_graph(blind_b)
+    if enumerate_units(graph_a) or enumerate_units(graph_b):
+        return "FAIL", "an unextractable source emitted gradeable units", []
+    if graph_a.role_map is None or graph_b.role_map is None:
+        return "FAIL", "role maps missing on blind graphs", []
+    if graph_a.role_map.extraction_valid or graph_b.role_map.extraction_valid:
+        return "FAIL", "an unextractable source was marked extraction_valid", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_universal_intake_identical_fit_score_near_zero",
+    "DE. remarkability of an identical fitted+scored unit is ~0.0 (RC3)",
+    order=106,
+)
+def check_identical_fit_score_near_zero() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import baseline as bl
+
+    unit = _unit_from_verbs(["AssumeRole", "ListBuckets", "AttachUserPolicy"], "attacker")
+    model = bl.NormalBaseline(environment_id="ci")
+    model.fit([unit] * 100)
+    score = model.remarkability(unit)
+    if score >= 0.05:
+        return "FAIL", f"fit N copies, score the identical unit -> {score}, expected ~0.0", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_universal_intake_ladder_validated_on_shape_distance",
+    "DF. the falsification ladder is validated on shape_distance, the deciding variable (RC4)",
+    order=107,
+)
+def check_ladder_validated_on_shape_distance() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import unit_ladder as ul
+
+    parent_verbs = ["AssumeRole", "ListBuckets", "AttachUserPolicy"]
+    rungs = ul.build_rungs(
+        parent_verbs,
+        substitution_verb="AddRole",
+        cross_vocabulary_verbs=["Logon", "whoami", "Invoke-Command"],
+        unrelated_verbs=["SELECT", "INSERT", "COMMIT"],
+    )
+    report = ul.run_ladder({"record_id": "parent-type", "action_sequence": parent_verbs}, rungs)
+    if report.get("validated_variable") != "shape_distance":
+        return "FAIL", "ladder report does not declare shape_distance as the validated variable", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_universal_intake_neither_channel_never_a_concern",
+    "DG. neither-channel-observable never surfaces as a concern, only INSUFFICIENT_VIEW (RC5)",
+    order=108,
+)
+def check_neither_channel_never_a_concern() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import baseline as bl
+    from portal.modules.security.core.bully.artifact_graph import GradeableUnit
+    from portal.modules.security.core.bully.unit_outcome import resolve_unit_outcome
+
+    empty_unit = GradeableUnit(
+        unit_id="u-empty",
+        level="L1_ARTIFACT",
+        artifact_ids=("a0",),
+        entities=(),
+        action_classes=(),
+        edge_kinds=(),
+        span_seconds=None,
+        structural_signature={},
+        vocabulary=(),
+        source_ids=(),
+    )
+    model = bl.NormalBaseline(environment_id="ci")
+    outcome = resolve_unit_outcome(empty_unit, [], model)
+    if outcome.outcome != "INSUFFICIENT_VIEW":
+        return "FAIL", f"an uncomputable unit reached {outcome.outcome}, not INSUFFICIENT_VIEW", []
+    if outcome.brief is not None:
+        return "FAIL", "INSUFFICIENT_VIEW carried a brief -- it is not a concern", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_universal_intake_cousin_recall_excludes_novel",
+    "DH. cousin_recall excludes NOVEL outcomes (RC6)",
+    order=109,
+)
+def check_cousin_recall_excludes_novel() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import baseline as bl
+    from portal.modules.security.core.bully import unit_measurement as um
+
+    model = bl.NormalBaseline(environment_id="ci")
+    model.fit([_unit_from_verbs(["ListBuckets", "ListBuckets"], f"u{i}") for i in range(50)])
+    benign_cycle = ["ListBuckets", "GetObject", "DescribeInstances"]
+    attacker_verbs = [
+        "AssumeRole",
+        "GetSessionToken",
+        "AttachUserPolicy",
+        "PutBucketPolicy",
+        "DeleteBucket",
+        "PutObject",
+        "AssumeRole",
+        "AttachUserPolicy",
+        "DeleteBucket",
+    ]
+    benign_combo = (benign_cycle * ((len(attacker_verbs) // len(benign_cycle)) + 1))[
+        : len(attacker_verbs)
+    ]
+    model.fit([_unit_from_verbs(benign_combo, f"bg-combo-{i}") for i in range(50)])
+
+    eval_units = {"family_novel": [_unit_from_verbs(attacker_verbs, "attacker")]}
+    report = um.run_leave_one_family_out(
+        eval_units, {"family_novel": []}, [], model, benign_eval_units=[]
+    )
+    if report.novelty_recall <= 0.0:
+        return "FAIL", "fixture did not reach NOVEL -- adjust fixture", []
+    if report.cousin_recall != 0.0:
+        return "FAIL", "a pure-NOVEL population produced nonzero cousin_recall", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_universal_intake_absolute_recall_published",
+    "DI. absolute recall is published whenever conditional recall is (RC6)",
+    order=110,
+)
+def check_absolute_recall_published() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import baseline as bl
+    from portal.modules.security.core.bully import unit_measurement as um
+    from portal.modules.security.core.bully.anchors import AnchorLibrary
+
+    library = AnchorLibrary()
+    anchor = library.load_attack_episode(
+        source_id="attack_data",
+        record={"action_sequence": ["AssumeRole", "ListBuckets", "AttachUserPolicy"]},
+        techniques=("T1078",),
+    )
+    model = bl.NormalBaseline(environment_id="ci")
+    model.fit([_unit_from_verbs(["ListBuckets", "ListBuckets"], f"u{i}") for i in range(20)])
+    report = um.run_leave_one_family_out(
+        {"family_a": [_unit_from_verbs(["AssumeRole", "ListBuckets", "AttachUserPolicy"], "a1")]},
+        {"family_a": [anchor]},
+        list(library.all()),
+        model,
+        benign_eval_units=[],
+        known_activity_count_by_family={"family_a": 3},
+    )
+    payload = report.to_dict()
+    if "absolute_recall" not in payload or "conditional_recall" not in payload:
+        return "FAIL", "absolute_recall was not published beside conditional_recall", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_universal_intake_ground_truth_only_through_sealed_wall",
+    "DJ. generated ground truth reaches scoring only through the sealed wall (Q3)",
+    order=111,
+)
+def check_ground_truth_only_through_sealed_wall(tmp_path=None) -> tuple[str, str, list[dict]]:
+    import tempfile
+    from pathlib import Path
+
+    from portal.modules.security.core.bully import inject_plane as ip
+    from portal.modules.security.core.bully import specimen_ledger
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        steps = (
+            ip.GenerateStep(
+                family="discovery",
+                technique="T1018",
+                chain_id="ci-chain-1",
+                step_idx=0,
+                command="echo hi",
+                result={"ok": True, "output": "hi"},
+            ),
+        )
+        report = ip.GenerateReport(plane="live", reason="", steps=steps)
+        sealed = ip.seal_ground_truth(report, (), root=root)
+        if sealed != 1:
+            return "FAIL", "seal_ground_truth did not seal the generated step", []
+        ledger = specimen_ledger.SpecimenLedger(root)
+        truth = ledger.truth_for("ci-chain-1-step0")
+        if truth is None or truth.get("source_lane") != "live_lab":
+            return "FAIL", "sealed ground truth did not use the existing SpecimenLedger wall", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_universal_intake_injected_artifacts_carry_labels",
+    "DK. injected artifacts carry family/technique/chain/step labels (Q4)",
+    order=112,
+)
+def check_injected_artifacts_carry_labels() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import blend
+
+    _records, provenance = blend.compose_blend()
+    injected = [p for p in provenance.values() if p.injected]
+    if not injected:
+        return "FAIL", "the blend fixture produced no injected artifacts", []
+    for p in injected:
+        if p.family is None or p.technique is None or p.chain_id is None or p.step_idx is None:
+            return "FAIL", f"an injected artifact is missing a label: {p}", []
+    benign = [p for p in provenance.values() if not p.injected]
+    if any(p.family is not None or p.technique is not None for p in benign):
+        return "FAIL", "a benign artifact carried a family/technique label", []
+    return "PASS", "", []
