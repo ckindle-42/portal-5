@@ -24,6 +24,9 @@ class EventType(Enum):
     VALIDATION_ALERT = "validation_alert"
     # Defensive Bully promotion-queue events (TASK_BULLY_P2_BIN_HEART_V1 P2.5)
     PROMOTION_QUEUED = "promotion_queued"
+    # Defensive Bully analyst-loop concerns, routable separately from
+    # promotion-queue arrivals (TASK_BULLY_ANALYST_LOOP_V1 X.4)
+    CONCERN_RAISED = "concern_raised"
 
 
 @dataclass
