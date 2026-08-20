@@ -64,6 +64,16 @@ _ENTITY_MAX_DISTINCT_RATIO = 0.80
 _CONSTANT_MAX_DISTINCT = 1
 _CONSTANT_MIN_COVERAGE = 0.5
 
+# R.5b-fix: a COHESIVE identifier column (nearly all values share one
+# identifier template -- IP, GUID, ARN, path, or a `stem-NNN` counter shape)
+# is ENTITY at ANY cardinality. A busy real source legitimately has hundreds
+# of distinct hosts/users; demanding low cardinality on top of identifier
+# shape (the pre-fix rule) wrongly demoted a source's own identity column to
+# PAYLOAD once it had more than _ENTITY_MAX_DISTINCT_RATIO distinct values.
+# Only a near-unique column that is ALSO incohesive (mixed template shapes,
+# e.g. free-text record ids) is the genuine per-record-id PAYLOAD case.
+_COHESIVE_TEMPLATE_MIN_RATE = 0.9
+
 _IPV4 = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
 _GUIDISH = re.compile(r"^[{(]?[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-", re.ASCII)
 _ARNISH = re.compile(r"^arn:|:iam:|@|\\", re.ASCII)
@@ -184,9 +194,15 @@ def _looks_entity(value: Any) -> bool:
 
 def _strong_identifier(value: Any) -> bool:
     """Strong signal: this value has the STRUCTURE of a thing you pivot on --
-    an IP, GUID, ARN/email/principal, a path, or a name+digit-run token. A
-    closed-vocabulary verb (`AssumeRole`, `added`) has none of these, which is
-    what lets ACTION and ENTITY separate without a field-name list."""
+    an IP, GUID, ARN/email/principal, a path, or a name+digit-run TOKEN
+    (`svc344`, `host-3`, `dev-248` -- the ubiquitous `stem-NNN` counter-id
+    shape). A closed-vocabulary verb (`AssumeRole`, `added`) has none of
+    these, which is what lets ACTION and ENTITY separate without a field-name
+    list. The digit-run check requires a single whitespace-free token: a
+    free-text sentence that happens to contain a digit (`"free text 3
+    unrelated content"`) is not a counter-id and must not qualify -- without
+    this, `_IDENT_DIGITRUN`'s unanchored letter/digit search matches almost
+    any prose containing a number."""
     if not isinstance(value, str):
         return False
     text = value.strip()
@@ -196,7 +212,55 @@ def _strong_identifier(value: Any) -> bool:
         return True
     if _PATHISH.search(text):
         return True
+    if " " in text:
+        return False
     return bool(_IDENT_DIGITRUN.search(text))
+
+
+def _identifier_template(value: Any) -> str:
+    """The identifier SHAPE a value belongs to, coarse enough that every
+    rendering of "the same kind of id" collides: an IP/GUID/ARN/path each get
+    their own bucket, and the ubiquitous `stem-NNN` counter-id shape
+    (`svc344`, `dev-248`, `host-3`) collapses its digit run so `svc1` and
+    `svc9999` land in the same template. Values with no recognizable shape
+    bucket to themselves (incohesive)."""
+    if not isinstance(value, str):
+        return "opaque"
+    text = value.strip()
+    if _IPV4.match(text):
+        return "ipv4"
+    if _GUIDISH.match(text):
+        return "guid"
+    if _ARNISH.search(text):
+        return "arn"
+    if _PATHISH.search(text):
+        return "path"
+    if _IDENT_DIGITRUN.search(text):
+        return re.sub(r"\d+", "#", text)
+    return "opaque"
+
+
+def _cohesion_rate(values: list[Any]) -> float:
+    """Fraction of STRONG-IDENTIFIER-shaped values sharing the single most
+    common identifier template. A cohesive column (nearly all `stem-NNN`, or
+    nearly all IPs) is one identity kind at any cardinality; an incohesive
+    one (a grab-bag of unrelated shapes) is not a real pivot column even if
+    every individual value looks identifier-ish.
+
+    GUID-templated values are deliberately excluded from ever counting as
+    cohesion evidence: a per-event GUID (`requestID`) is the archetypal
+    record identifier -- globally unique by construction, never a pivotable
+    entity -- so a column of nothing but GUIDs must stay incohesive here and
+    fall through to the near-unique-record-id PAYLOAD rule, however uniform
+    the GUID shape looks. `stem-NNN` counter ids (`svc344`, `host-3`), IPs,
+    ARNs, and paths are the genuine cohesive-entity shapes.
+    """
+    templates = [_identifier_template(v) for v in values if _strong_identifier(v)]
+    templates = [t for t in templates if t != "guid"]
+    if not templates:
+        return 0.0
+    counts = Counter(templates)
+    return counts.most_common(1)[0][1] / len(templates)
 
 
 @dataclass(frozen=True)
@@ -272,6 +336,7 @@ def _decide_role(
     entity_rate: float,
     strong_rate: float,
     sample_size: int = _MIN_STATISTICAL_SAMPLE,
+    cohesion_rate: float = 0.0,
 ) -> tuple[str, tuple[str, ...]]:
     """Role by strongest evidence, not by branch order.
 
@@ -330,11 +395,21 @@ def _decide_role(
 
     # ENTITY: structurally an identifier (strong signal) AND recurs across
     # records. Near-unique identifiers are record ids (request id, per-event
-    # GUID) -> PAYLOAD, never pivoted on.
+    # GUID) -> PAYLOAD, never pivoted on -- UNLESS the column is COHESIVE (one
+    # identifier template dominates: nearly all IPs, or nearly all `stem-NNN`
+    # counter ids), in which case high cardinality is expected of a busy real
+    # source's own identity column, not evidence it is a record id (R.5b-fix).
     if is_identifier and distinct_ratio <= _ENTITY_MAX_DISTINCT_RATIO:
         return "ENTITY", (f"strong_identifier={strong_rate:.2f} recurs(dr={distinct_ratio:.2f})",)
     if is_identifier and distinct_ratio > _ENTITY_MAX_DISTINCT_RATIO:
-        return "PAYLOAD", (f"identifier_but_unique_per_record(dr={distinct_ratio:.2f})",)
+        if cohesion_rate >= _COHESIVE_TEMPLATE_MIN_RATE:
+            return "ENTITY", (
+                f"cohesive_identifier_template(cohesion={cohesion_rate:.2f}) at any cardinality",
+            )
+        return "PAYLOAD", (
+            f"identifier_but_unique_per_record_and_incohesive"
+            f"(dr={distinct_ratio:.2f}, cohesion={cohesion_rate:.2f})",
+        )
 
     # ACTION: a low-cardinality categorical that is NOT an identifier -- a verb
     # from a closed vocabulary (`added`, `AssumeRole`, `EventID=3`).
@@ -399,6 +474,7 @@ def infer_field_roles(
         entity_rate = entity_hits / len(values)
         strong_hits = sum(1 for v in values if _strong_identifier(v))
         strong_rate = strong_hits / len(values)
+        cohesion_rate = _cohesion_rate(values)
 
         name_lc = name.lower()
 
@@ -416,6 +492,7 @@ def infer_field_roles(
             entity_rate=entity_rate,
             strong_rate=strong_rate,
             sample_size=n,
+            cohesion_rate=cohesion_rate,
         )
 
         profiles[name] = FieldProfile(
