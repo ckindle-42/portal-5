@@ -38,7 +38,7 @@ inspected structurally; raw payload contents are never emitted or logged.
 from __future__ import annotations
 
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from typing import Any
 
@@ -354,22 +354,43 @@ def infer_field_roles(
     min_timestamp_coverage: float = MIN_TIMESTAMP_COVERAGE,
 ) -> FieldRoleMap:
     """Infer a role for every field from value behaviour, and decide whether
-    the source is structurally extractable at all."""
+    the source is structurally extractable at all.
+
+    When records carry `__source_id` (the multi-schema blend/live-capture
+    shape), a field's *coverage* is measured against only the records drawn
+    from the source(s) that field actually appears in, not the whole
+    cross-schema pool. Without this, a field present in every record of one
+    schema but absent from every other schema in the pool -- e.g.
+    CloudTrail's `awsRegion` when blended with Sysmon/osquery/firewall
+    records -- reads as globally sparse purely because most of the pool is
+    a different schema, which used to trip the sparse-strong-identifier
+    ENTITY override on a field that is a genuine whole-source CONSTANT.
+    Coverage inside a single-schema sample (or one with no `__source_id`
+    at all) is unaffected: with one source, "that field's home sources"
+    is the whole pool, identical to the old denominator.
+    """
     flat = [_flatten(r) for r in records if isinstance(r, dict)]
     n = len(flat)
     if n == 0:
         return FieldRoleMap(source_id, 0, {}, False, 0.0, 0.0, 0.0, ("empty_sample",))
 
+    record_sources = [str(r.get("__source_id") or source_id or "") for r in flat]
+    source_record_counts = Counter(record_sources)
+
     present: dict[str, list[Any]] = defaultdict(list)
-    for record in flat:
+    field_home_sources: dict[str, set[str]] = defaultdict(set)
+    for idx, record in enumerate(flat):
         for name, value in record.items():
             if value is None or value == "" or value == ():
                 continue
             present[name].append(value)
+            field_home_sources[name].add(record_sources[idx])
 
     profiles: dict[str, FieldProfile] = {}
     for name, values in present.items():
-        coverage = len(values) / n
+        home_sources = field_home_sources[name]
+        coverage_denominator = sum(source_record_counts[s] for s in home_sources) or n
+        coverage = len(values) / coverage_denominator
         distinct = len({repr(v) for v in values})
         distinct_ratio = distinct / len(values)
         time_hits = sum(1 for v in values if _parse_time(v) is not None)

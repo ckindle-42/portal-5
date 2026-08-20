@@ -1,8 +1,8 @@
 {
-  "all_other_brief_count": 1,
+  "all_other_brief_count": 5,
   "benign_count": 240,
   "cold": true,
-  "concern_brief_count": 244,
+  "concern_brief_count": 47,
   "cross_vocabulary_recovery": {
     "cross_vocabulary_overall_relation": "SIMILAR",
     "cross_vocabulary_shape_distance": 0.5714285714285714,
@@ -94,7 +94,7 @@
               "a00003"
             ],
             "axis_of_divergence": null,
-            "confidence": 0.7142857142857143,
+            "confidence": 0.8571428571428571,
             "diverging_shape_features": [],
             "diverging_vocabulary_features": [],
             "entities": [
@@ -102,7 +102,7 @@
             ],
             "level": "L4_WINDOW",
             "outcome": "NOVEL",
-            "remarkability": 0.7142857142857143,
+            "remarkability": 0.8571428571428571,
             "resembles_anchor_id": null,
             "resembles_kind": null,
             "shared_shape_features": [],
@@ -146,8 +146,8 @@
             ],
             "level": "L4_WINDOW",
             "outcome": "COUSIN",
-            "remarkability": 0.5,
-            "resembles_anchor_id": "anchor-d77ad9d4b91c",
+            "remarkability": 0.6666666666666666,
+            "resembles_anchor_id": "anchor-65458e15e990",
             "resembles_kind": "attack_episode",
             "shared_shape_features": [
               "class_bigram=other>other",
@@ -165,19 +165,19 @@
     "verdict": "VALID"
   },
   "n_records": 251,
-  "n_units_total": 325,
+  "n_units_total": 352,
   "outcome_distribution_by_level": {
     "L1_ARTIFACT": {
-      "COUSIN": 188,
-      "NORMAL": 63
+      "COUSIN": 32,
+      "NORMAL": 219
     },
     "L2_ENTITY": {
-      "NORMAL": 8,
-      "NOVEL": 1,
-      "UNKNOWN_SAME": 50
+      "NORMAL": 51,
+      "UNKNOWN_SAME": 5
     },
     "L3_CHAIN": {
-      "NORMAL": 9,
+      "NORMAL": 34,
+      "NOVEL": 5,
       "UNKNOWN_SAME": 5
     },
     "L4_WINDOW": {
@@ -194,44 +194,44 @@
       "note": "existing detection owns these; never the headline (P1)"
     },
     "overall": {
-      "n": 325,
+      "n": 352,
       "outcome_distribution": {
-        "COUSIN": 188,
-        "NORMAL": 81,
-        "NOVEL": 1,
-        "UNKNOWN_SAME": 55
+        "COUSIN": 32,
+        "NORMAL": 305,
+        "NOVEL": 5,
+        "UNKNOWN_SAME": 10
       },
-      "precision": 0.05327868852459016,
-      "recall": 0.7222222222222222
+      "precision": 0.0851063829787234,
+      "recall": 0.2222222222222222
     },
     "per_level": {
       "L1_ARTIFACT": {
         "n": 251,
         "outcome_distribution": {
-          "COUSIN": 188,
-          "NORMAL": 63
+          "COUSIN": 32,
+          "NORMAL": 219
         },
-        "precision": 0.0425531914893617,
-        "recall": 0.7272727272727273
+        "precision": 0.0625,
+        "recall": 0.18181818181818182
       },
       "L2_ENTITY": {
-        "n": 59,
+        "n": 56,
         "outcome_distribution": {
-          "NORMAL": 8,
-          "NOVEL": 1,
-          "UNKNOWN_SAME": 50
-        },
-        "precision": 0.058823529411764705,
-        "recall": 1.0
-      },
-      "L3_CHAIN": {
-        "n": 14,
-        "outcome_distribution": {
-          "NORMAL": 9,
+          "NORMAL": 51,
           "UNKNOWN_SAME": 5
         },
-        "precision": 0.4,
-        "recall": 0.6666666666666666
+        "precision": 0.2,
+        "recall": 0.3333333333333333
+      },
+      "L3_CHAIN": {
+        "n": 44,
+        "outcome_distribution": {
+          "NORMAL": 34,
+          "NOVEL": 5,
+          "UNKNOWN_SAME": 5
+        },
+        "precision": 0.1,
+        "recall": 0.3333333333333333
       },
       "L4_WINDOW": {
         "n": 1,
@@ -242,10 +242,10 @@
         "recall": 0.0
       }
     },
-    "scored_count": 325,
+    "scored_count": 352,
     "unscored_count": 0
   },
-  "real_concern_brief_count": 244,
+  "real_concern_brief_count": 47,
   "role_maps_by_source": {
     "blend-cloudtrail": {
       "action_coverage": 1.0,
@@ -584,7 +584,7 @@
   "sample_concern_briefs": [
     {
       "artifact_ids": [
-        "a00000"
+        "a00120"
       ],
       "axis_of_divergence": "vocabulary",
       "confidence": 0.25,
@@ -594,30 +594,28 @@
       "diverging_vocabulary_features": [
         "1",
         "13",
-        "arn=arn:aws:iam::111122223333:user/alice0",
-        "awsRegion=us-east-1",
-        "blend-cloudtrail"
+        "added",
+        "hostIdentifier=host-0"
       ],
       "entities": [
-        "awsRegion=us-east-1",
-        "arn=arn:aws:iam::111122223333:user/alice0"
+        "hostIdentifier=host-0"
       ],
       "level": "L1_ARTIFACT",
       "outcome": "COUSIN",
-      "remarkability": 0.35,
-      "resembles_anchor_id": "anchor-d77ad9d4b91c",
+      "remarkability": 0.40625,
+      "resembles_anchor_id": "anchor-65458e15e990",
       "resembles_kind": "attack_episode",
       "shared_shape_features": [
         "class_present=other"
       ],
       "shared_vocabulary_features": [],
       "span_seconds": 0.0,
-      "unit_id": "u-35893a1122c5ce",
+      "unit_id": "u-352f5da2638f0c",
       "what_could_not_be_seen": []
     },
     {
       "artifact_ids": [
-        "a00001"
+        "a00122"
       ],
       "axis_of_divergence": "vocabulary",
       "confidence": 0.25,
@@ -627,30 +625,28 @@
       "diverging_vocabulary_features": [
         "1",
         "13",
-        "arn=arn:aws:iam::111122223333:user/alice1",
-        "awsRegion=us-east-1",
-        "blend-cloudtrail"
+        "added",
+        "hostIdentifier=host-2"
       ],
       "entities": [
-        "awsRegion=us-east-1",
-        "arn=arn:aws:iam::111122223333:user/alice1"
+        "hostIdentifier=host-2"
       ],
       "level": "L1_ARTIFACT",
       "outcome": "COUSIN",
-      "remarkability": 0.35,
-      "resembles_anchor_id": "anchor-d77ad9d4b91c",
+      "remarkability": 0.40625,
+      "resembles_anchor_id": "anchor-65458e15e990",
       "resembles_kind": "attack_episode",
       "shared_shape_features": [
         "class_present=other"
       ],
       "shared_vocabulary_features": [],
       "span_seconds": 0.0,
-      "unit_id": "u-cc4ddd5d26a654",
+      "unit_id": "u-3c181d876c4e6a",
       "what_could_not_be_seen": []
     },
     {
       "artifact_ids": [
-        "a00002"
+        "a00124"
       ],
       "axis_of_divergence": "vocabulary",
       "confidence": 0.25,
@@ -660,30 +656,28 @@
       "diverging_vocabulary_features": [
         "1",
         "13",
-        "arn=arn:aws:iam::111122223333:user/alice2",
-        "awsRegion=us-east-1",
-        "blend-cloudtrail"
+        "added",
+        "hostIdentifier=host-4"
       ],
       "entities": [
-        "awsRegion=us-east-1",
-        "arn=arn:aws:iam::111122223333:user/alice2"
+        "hostIdentifier=host-4"
       ],
       "level": "L1_ARTIFACT",
       "outcome": "COUSIN",
-      "remarkability": 0.35,
-      "resembles_anchor_id": "anchor-d77ad9d4b91c",
+      "remarkability": 0.40625,
+      "resembles_anchor_id": "anchor-65458e15e990",
       "resembles_kind": "attack_episode",
       "shared_shape_features": [
         "class_present=other"
       ],
       "shared_vocabulary_features": [],
       "span_seconds": 0.0,
-      "unit_id": "u-8e1cd21d05c6fd",
+      "unit_id": "u-b6895794def2e5",
       "what_could_not_be_seen": []
     },
     {
       "artifact_ids": [
-        "a00003"
+        "a00126"
       ],
       "axis_of_divergence": "vocabulary",
       "confidence": 0.25,
@@ -693,30 +687,28 @@
       "diverging_vocabulary_features": [
         "1",
         "13",
-        "arn=arn:aws:iam::111122223333:user/alice3",
-        "awsRegion=us-east-1",
-        "blend-cloudtrail"
+        "added",
+        "hostIdentifier=host-6"
       ],
       "entities": [
-        "awsRegion=us-east-1",
-        "arn=arn:aws:iam::111122223333:user/alice3"
+        "hostIdentifier=host-6"
       ],
       "level": "L1_ARTIFACT",
       "outcome": "COUSIN",
-      "remarkability": 0.35,
-      "resembles_anchor_id": "anchor-d77ad9d4b91c",
+      "remarkability": 0.40625,
+      "resembles_anchor_id": "anchor-65458e15e990",
       "resembles_kind": "attack_episode",
       "shared_shape_features": [
         "class_present=other"
       ],
       "shared_vocabulary_features": [],
       "span_seconds": 0.0,
-      "unit_id": "u-f5998992cc5417",
+      "unit_id": "u-258a9c4ed1651c",
       "what_could_not_be_seen": []
     },
     {
       "artifact_ids": [
-        "a00004"
+        "a00128"
       ],
       "axis_of_divergence": "vocabulary",
       "confidence": 0.25,
@@ -726,25 +718,23 @@
       "diverging_vocabulary_features": [
         "1",
         "13",
-        "arn=arn:aws:iam::111122223333:user/alice4",
-        "awsRegion=us-east-1",
-        "blend-cloudtrail"
+        "added",
+        "hostIdentifier=host-0"
       ],
       "entities": [
-        "awsRegion=us-east-1",
-        "arn=arn:aws:iam::111122223333:user/alice4"
+        "hostIdentifier=host-0"
       ],
       "level": "L1_ARTIFACT",
       "outcome": "COUSIN",
-      "remarkability": 0.35,
-      "resembles_anchor_id": "anchor-d77ad9d4b91c",
+      "remarkability": 0.40625,
+      "resembles_anchor_id": "anchor-65458e15e990",
       "resembles_kind": "attack_episode",
       "shared_shape_features": [
         "class_present=other"
       ],
       "shared_vocabulary_features": [],
       "span_seconds": 0.0,
-      "unit_id": "u-bfb68386268660",
+      "unit_id": "u-d8152ef58141b9",
       "what_could_not_be_seen": []
     }
   ],

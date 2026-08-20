@@ -148,3 +148,43 @@ def test_diff_type_action_resolves_to_action_not_identifier() -> None:
     assert role_map.profiles[action_field].role == "ACTION"
     # closed vocabulary: only two values ever appear
     assert role_map.profiles[action_field].distinct_count == 2
+
+
+def test_whole_source_constant_is_constant_even_when_globally_sparse_in_a_blend() -> None:
+    """The M.6 residual finding, now fixed: a field present in every record
+    of ONE schema (a genuine whole-source CONSTANT, e.g. CloudTrail's
+    `awsRegion`) but absent from every other schema in a multi-schema pool
+    used to read as globally sparse -- present in a small fraction of the
+    combined record count -- which tripped the sparse-strong-identifier
+    ENTITY override on a value shaped like an identifier (`us-east-1`
+    matches the name+digit-run pattern). Coverage must be measured against
+    the field's own home source(s), not the whole cross-schema pool."""
+    cloudtrail_with_region = [
+        {**record, "awsRegion": "us-east-1", "__source_id": "cloudtrail"}
+        for record in CLOUDTRAIL_RECORDS
+    ]
+    other_schema_records = [
+        {
+            "calendarTime": f"Mon Jan 01 00:{i // 60:02d}:{i % 60:02d} 2024 UTC",
+            "hostIdentifier": f"host-{i % 3}",
+            "columns": {"action": "added", "path": f"/etc/passwd{i}"},
+            "name": "file_events",
+            "__source_id": "osquery",
+        }
+        for i in range(200)
+    ]
+    blended = cloudtrail_with_region + other_schema_records
+    role_map = fr.infer_field_roles(blended, source_id="blend")
+    assert role_map.profiles["awsRegion"].role == "CONSTANT"
+    assert role_map.profiles["awsRegion"].coverage == 1.0
+
+
+def test_seeded_violation_whole_pool_coverage_would_misfile_the_same_field() -> None:
+    """Reproduces the pre-fix defect directly against the raw coverage
+    arithmetic: computed over the whole cross-schema pool (ignoring source
+    membership), the same field reads as sparse enough to trip the
+    sparse-strong-identifier override."""
+    n_cloudtrail = len(CLOUDTRAIL_RECORDS)
+    n_total = n_cloudtrail + 200
+    whole_pool_coverage = n_cloudtrail / n_total
+    assert whole_pool_coverage < fr._CONSTANT_MIN_COVERAGE
