@@ -1,5 +1,15 @@
 # DESIGN_BULLY_UNKNOWN_COUSIN_V1
 
+> **2026-08-20 — wired into the loop.** The organ this doc designs is no longer
+> a standalone script: it is wired into the orchestrator via
+> `bully/loop_grader.py`, which the orchestrator's `_analyzing` calls in place
+> of `cousin_engine.grade`. The flat distance metric this doc's grader used to
+> decide `EXACT`/`SIMILAR` lacked an axis for *how robust* a match is; that axis
+> is pyramid level (`bully/pyramid.py`) — a match is now decided level-first
+> (does it hold at the L3 behavioural choke point, or only at L1/L2 evadable
+> detail) and distance refines within that level. See
+> `DESIGN_BULLY_LOOP_REINTEGRATION_V1.md` for the full reintegration design.
+
 Full-scope design doc for `TASK_BULLY_UNKNOWN_COUSIN_V1`. Companion to
 `BULLY_RELATE_INVESTIGATE_RUN_M3_V1.md` and `BULLY_COUSIN_RELATION_RUN_C7_V1.md`,
 both of which stay in the repo as the honest record of what each prior pass
