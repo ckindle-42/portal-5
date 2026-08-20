@@ -63,6 +63,16 @@ COUSIN_MAX_DISTANCE = 0.55
 # A real technique series has at least this many choke-point steps aligned,
 # else a single coincidental shared class would read as a cousin.
 MIN_ALIGNED_SPINE = 2
+# The aligned backbone must explain at least this fraction of the OBSERVED
+# series (TASK_BULLY_TRUTH_ACCEPTANCE_V1 D3/Y2). Scoring the alignment only
+# against the KNOWN side let a long, mostly-noise timeline "contain" a short
+# technique: a 4-step technique found inside a 14-step noisy timeline
+# explains 29% of what was actually observed -- coincidence, not cousinhood.
+MIN_OBSERVED_COVERAGE = 0.5
+# Distinctness as a RATIO of the aligned length, not an absolute count. An
+# absolute `>=2` gate let `auth + 13x execute` (2 distinct classes diluted
+# across a 14-step alignment) clear trivially.
+MIN_DISTINCT_RATIO = 0.5
 
 
 @dataclass(frozen=True)
@@ -226,6 +236,8 @@ def decide_cousin(
     exact_max: float = EXACT_MAX_DISTANCE,
     cousin_max: float = COUSIN_MAX_DISTANCE,
     min_aligned_spine: int = MIN_ALIGNED_SPINE,
+    min_observed_coverage: float = MIN_OBSERVED_COVERAGE,
+    min_distinct_ratio: float = MIN_DISTINCT_RATIO,
 ) -> SeriesCousinResult:
     """Decide cousinhood of an observed series against a library of known
     technique series, by sequence alignment. This is the answer to 'how do you
@@ -291,10 +303,20 @@ def decide_cousin(
     )
     salience_fraction = (aligned_salience / known_salience) if known_salience > 0 else 0.0
     distinct_aligned = len(set(best.aligned_spine))
+    # Coverage: what fraction of the OBSERVED series does the aligned
+    # backbone actually explain? (Y2 -- an alignment must explain the
+    # observed series, not merely be findable inside it.)
+    observed_coverage = (
+        len(best.aligned_spine) / best.observed_len if best.observed_len > 0 else 0.0
+    )
+    # Distinctness as a ratio of the aligned length, not an absolute count.
+    distinct_ratio = distinct_aligned / len(best.aligned_spine) if best.aligned_spine else 0.0
     aligned_ok = (
         len(best.aligned_spine) >= min_aligned_spine
         and distinct_aligned >= 2  # a real backbone, not one verb repeated
         and salience_fraction >= 0.4
+        and observed_coverage >= min_observed_coverage
+        and distinct_ratio >= min_distinct_ratio
     )
 
     # EXACT additionally requires the observed series to be nearly the same
