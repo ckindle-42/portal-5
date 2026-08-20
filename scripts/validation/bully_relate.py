@@ -1070,8 +1070,11 @@ def check_ground_truth_only_through_sealed_wall(tmp_path=None) -> tuple[str, str
         if sealed != 1:
             return "FAIL", "seal_ground_truth did not seal the generated step", []
         ledger = specimen_ledger.SpecimenLedger(root)
-        truth = ledger.truth_for("ci-chain-1-step0")
-        if truth is None or truth.get("source_lane") != "live_lab":
+        (row,) = ledger.records()
+        if (
+            not row["specimen_id"].startswith("ci-chain-1-step0")
+            or row.get("source_lane") != "live_lab"
+        ):
             return "FAIL", "sealed ground truth did not use the existing SpecimenLedger wall", []
     return "PASS", "", []
 

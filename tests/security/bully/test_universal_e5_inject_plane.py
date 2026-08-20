@@ -3,10 +3,12 @@ TASK_BULLY_UNIVERSAL_INTAKE_AND_INJECT_V1.
 
 Unit-suite-safe: no network, no real lab/Splunk. Exercises both the
 fail-closed path (lab genuinely unavailable in CI) AND the live-success
-path (`lab_available`, `lab.dispatch_lab_tool`, `live_connect.connect_lab_splunk`
-mocked so the "live" branches themselves run, not just the fallback --
-this environment has no lab credentials, so this is the only way that code
-runs at all short of a real lab)."""
+path (`lab_available`, `lab.dispatch_lab_tool`, `live_connect.lab_splunk_connector`
+mocked so the "live" branches themselves run, not just the fallback).
+This plane has also been run for real against the live lab (see
+docs/BULLY_UNIVERSAL_INTAKE_RUN_M6_V1.md) when `LAB_SPLUNK_PASSWORD` and
+the other lab-exec prerequisites are present in the environment; these
+mocked tests keep the live branches covered in CI, where they are not."""
 
 from __future__ import annotations
 
@@ -68,13 +70,42 @@ def test_seal_ground_truth_writes_through_specimen_ledger(tmp_path) -> None:
     assert sealed == 1
 
     ledger = specimen_ledger.SpecimenLedger(tmp_path)
-    truth = ledger.truth_for("test-chain-1-step0")
-    assert truth is not None
-    assert truth["source_lane"] == "live_lab"
-    assert truth["provenance"]["family"] == "discovery"
-    assert truth["provenance"]["technique"] == "T1018"
-    assert truth["provenance"]["chain_id"] == "test-chain-1"
-    assert truth["provenance"]["injected"] is True
+    (row,) = ledger.records()
+    assert row["specimen_id"].startswith("test-chain-1-step0-run")
+    assert row["source_lane"] == "live_lab"
+    assert row["provenance"]["family"] == "discovery"
+    assert row["provenance"]["technique"] == "T1018"
+    assert row["provenance"]["chain_id"] == "test-chain-1"
+    assert row["provenance"]["injected"] is True
+
+
+def test_seal_ground_truth_is_run_scoped_and_does_not_collide_across_runs(
+    tmp_path,
+) -> None:
+    """Seeded regression: `_LIVE_CHAINS`' chain ids are fixed literals, so a
+    bare chain_id/step_idx specimen_id would collide with -- and be
+    correctly refused by -- a previous run's already-sealed entry every
+    time this permanent, run-repeatedly infrastructure runs again."""
+    steps = (
+        ip.GenerateStep(
+            family="discovery",
+            technique="T1018",
+            chain_id="repeat-chain",
+            step_idx=0,
+            command="echo hi",
+            result={"ok": True, "output": "hi"},
+        ),
+    )
+    report = ip.GenerateReport(plane="live", reason="", steps=steps)
+    ip.seal_ground_truth(report, (), root=tmp_path)
+    # A second run of the exact same chain must not raise -- it seals under
+    # its own run-scoped specimen_id instead of colliding with the first.
+    ip.seal_ground_truth(report, (), root=tmp_path)
+
+    ledger = specimen_ledger.SpecimenLedger(tmp_path)
+    rows = ledger.records()
+    assert len(rows) == 2
+    assert len({r["specimen_id"] for r in rows}) == 2
 
 
 def test_seeded_violation_live_result_never_fabricated(monkeypatch) -> None:
@@ -135,34 +166,51 @@ def test_generate_reports_a_failed_step_honestly(monkeypatch) -> None:
     assert all(not s.ok for s in report.steps)
 
 
-def _fake_connect_lab_splunk(plane, *, sample_limit=100, **_kwargs):
-    from portal.modules.security.core.bully.connectors import IterableIngestConnector
-
-    records = [
-        {
-            "eventName": "AssumeRole",
-            "userIdentity": {"arn": "arn:aws:iam::111122223333:user/attacker"},
-            "eventTime": "2024-01-01T00:00:00Z",
-            "awsRegion": "us-east-1",
-        },
-        {
-            "eventName": "ListBuckets",
-            "userIdentity": {"arn": "arn:aws:iam::111122223333:user/attacker"},
-            "eventTime": "2024-01-01T00:00:40Z",
-            "awsRegion": "us-east-1",
-        },
-    ]
-    connector = IterableIngestConnector("lab-splunk", records)
-    profile = plane.connect(
-        "lab-splunk",
-        connector,
-        connector.records,
-        source_meta={
-            "record_class": "telemetry",
-            "capabilities": {"queryable_in_place": True, "benign_present": True},
-        },
+def _fake_lab_splunk_connector(*, source_id="lab-splunk", index=None):
+    """Mimics `live_connect.lab_splunk_connector`'s real contract: a
+    connector whose `.read()` returns the Splunk-wrapper shape
+    `SplunkBackend._run_search` actually produces (`_time`/`host` promoted
+    out of `fields`), so `capture_records`' unwrap-and-tag logic is
+    genuinely exercised, not bypassed."""
+    from portal.modules.security.core.bully.connectors import (
+        QUERY_IN_PLACE_MODE,
+        NativeQuery,
+        QueryResult,
     )
-    return profile, {"source_id": "lab-splunk", "records": len(records)}
+
+    class _FakeConnector:
+        source_id = "lab-splunk-plural"
+        mode = QUERY_IN_PLACE_MODE
+
+        def translate(self, intent):
+            return NativeQuery(self.source_id, "SPL", {"search": "search index=*"}, intent)
+
+        def read(self, intent):
+            records = (
+                {
+                    "_time": 1_700_000_000.0,
+                    "host": "10.10.11.21",
+                    "raw": "{}",
+                    "fields": {
+                        "sourcetype": "windows:security",
+                        "EventCode": "4624",
+                        "TargetUserName": "attacker",
+                    },
+                },
+                {
+                    "_time": 1_700_000_040.0,
+                    "host": "10.10.11.33",
+                    "raw": "{}",
+                    "fields": {
+                        "sourcetype": "windows:sysmon",
+                        "EventID": "1",
+                        "Computer": "SRV01.corp.local",
+                    },
+                },
+            )
+            return QueryResult(self.source_id, self.mode, self.translate(intent), records, 0.0, 0.0)
+
+    return _FakeConnector()
 
 
 def test_capture_reaches_live_plane_and_tags_source_id(monkeypatch) -> None:
@@ -170,14 +218,17 @@ def test_capture_reaches_live_plane_and_tags_source_id(monkeypatch) -> None:
 
     from portal.modules.security.core.bully import live_connect
 
-    monkeypatch.setattr(live_connect, "connect_lab_splunk", _fake_connect_lab_splunk)
+    monkeypatch.setattr(live_connect, "lab_splunk_connector", _fake_lab_splunk_connector)
 
     report = ip.capture_records()
     assert report.plane == "live"
     assert report.reason == ""
     assert len(report.records) == 2
+    assert report.schemas_present == {"windows:security", "windows:sysmon"}
     for record in report.records:
-        assert record["__source_id"] == "lab-splunk"
+        assert record["__source_id"].startswith("lab-splunk:")
+        assert record.get("host")
+        assert record.get("_time")
         # captured records are raw and untagged (Q3) -- no provenance label
         assert "family" not in record
         assert "injected" not in record
@@ -196,7 +247,7 @@ def test_run_inject_capture_reaches_live_plane_and_seals_ground_truth(
         "dispatch_lab_tool",
         lambda tool_name, arguments: {"ok": True, "output": "fake", "elapsed_s": 0.1},
     )
-    monkeypatch.setattr(live_connect, "connect_lab_splunk", _fake_connect_lab_splunk)
+    monkeypatch.setattr(live_connect, "lab_splunk_connector", _fake_lab_splunk_connector)
 
     run = ip.run_inject_capture(ledger_root=tmp_path)
     assert run.plane == "live"

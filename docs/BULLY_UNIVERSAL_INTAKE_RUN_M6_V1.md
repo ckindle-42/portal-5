@@ -16,6 +16,20 @@ appears in this doc; nothing is summarized away.
 > meaningfully (see below) -- the first run's `COUSIN` count included a fair
 > number of spurious L1 matches manufactured by that misfiling, not by genuine
 > content similarity. The corrected numbers below are the honest ones.
+>
+> **The live plane (E.5) has now actually been run against the real lab**
+> (credentials in `.env`, this project's own owned/maintained `portal.lab`) --
+> see "Live-plane verification" below. It genuinely dispatches authorized
+> recon commands, captures real multi-schema Splunk telemetry (7 sourcetypes,
+> far exceeding the Q2 `>=3` bar), and seals ground truth through the real
+> `SpecimenLedger`. This section's headline numbers still come from the E.3
+> fixture, because a live capture carries no inline provenance by design (Q3:
+> ground truth is sealed separately, joined only after grading) -- the
+> leave-one-family-out and precision/recall sections below need a labelled
+> population to score against, which only the fixture supplies inline today.
+> That is a scope boundary of this run, stated plainly, not a live-plane
+> failure: joining the sealed ledger's live truth against a live capture for
+> full grading-plane metrics is future work.
 
 ## Which plane produced these numbers
 
@@ -25,19 +39,18 @@ appears in this doc; nothing is summarized away.
 "sealed_count": 0
 ```
 
-`inject_plane.run_inject_capture()` attempted the live plane first (E.5) and fell
-back to the deterministic E.3 blend fixture (`blend.compose_blend()`) because this
-environment carries no `LAB_SPLUNK_PASSWORD` -- exactly the fail-closed contract
-E.5 exists to enforce: no synthetic stand-in is ever silently substituted for a
-live capture, and the run states which plane fed it, in the payload itself, not
-just in this prose. The live branches of `generate_labelled_activity`,
-`capture_records`, and `run_inject_capture` are exercised directly (mocked
-`lab.dispatch_lab_tool`/`live_connect.connect_lab_splunk`, real
-`DataPlane`/`SpecimenLedger`) in `tests/security/bully/test_universal_e5_inject_plane.py`,
-since this environment has no lab credentials to exercise them against a real
-lab. A future run with lab credentials present will report `"plane": "live"` and
-a nonzero `sealed_count` (ground truth sealed through
-`specimen_ledger.SpecimenLedger`, `source_lane="live_lab"`).
+This section's numbers come from the E.3 fixture (see the note above for why).
+`inject_plane.run_inject_capture()` attempted the live plane first (E.5); in this
+specific invocation `LAB_SPLUNK_PASSWORD` was deliberately unset to force the
+fixture path and produce the fully-labelled, all-sections-populated report below
+-- exactly the fail-closed contract E.5 exists to enforce: no synthetic stand-in
+is ever silently substituted for a live capture, and the run states which plane
+fed it, in the payload itself, not just in this prose. The live branches of
+`generate_labelled_activity`, `capture_records`, and `run_inject_capture` are
+exercised directly (mocked `lab.dispatch_lab_tool`/`live_connect.
+lab_splunk_connector`, real `DataPlane`/`SpecimenLedger`) in
+`tests/security/bully/test_universal_e5_inject_plane.py` for CI, and for real
+against the live lab as documented in "Live-plane verification" below.
 
 ## Field-role maps and source-level extraction validity (Q1)
 
@@ -212,12 +225,75 @@ never an empty relation.
 }
 ```
 
+## Live-plane verification (E.5, run for real against `portal.lab`)
+
+With `.env`'s lab credentials sourced, `inject_plane.run_inject_capture()` was run
+directly against the real, owned lab -- not mocked, not the fixture:
+
+```
+plane: live
+n_records: 500
+schemas_present: ["OktaIM2:log", "corpus:probe", "linux:auditd", "web:access",
+                   "windows:powershell", "windows:security", "windows:sysmon"]
+extraction_valid: true
+n_units: 503
+sealed_count: 3   (first run; a second run seals under fresh run-scoped
+                    specimen_ids -- see below)
+```
+
+**Generate.** `generate_labelled_activity()` dispatched every step of both
+`_LIVE_CHAINS` (`nxc smb`/`nxc smb --shares` for `discovery`/T1018, `nxc ldap
+--asreproast` for `credential_access`/T1558) against the live DC
+(`10.10.11.21`) via `lab.dispatch_lab_tool("execute_bash", ...)` -- the same
+dispatch path the security-bench exec chains already use. All three steps
+returned `ok: true`.
+
+**Capture.** `capture_records()` initially reused `live_connect.
+connect_lab_splunk`, which hardcodes `sourcetype=aws:cloudtrail` -- exactly the
+RC1/RC2 mistake for this module's purpose, verified directly: it captured only
+CloudTrail records, missing the Windows-side telemetry the generated recon
+chains actually produce. Fixed to query the whole index (`lab_splunk_connector`,
+no sourcetype filter, `sort -_time` for recency) -- the live capture above then
+returned 7 genuinely different schemas, `extraction_valid: true`, and 503
+gradeable units. (A tight relative-time window, e.g. `earliest=-30m`, was tried
+and found to return zero rows against this lab's Splunk export endpoint despite
+current-timestamped events existing -- a real quirk of this deployment, not a
+connector defect; left at the connector's `earliest="0"` default, which reliably
+returns current data when combined with `sort -_time`.)
+
+**Seal.** `seal_ground_truth()` wrote all three generated steps into the real,
+pre-existing production `SpecimenLedger` (the same ledger `cousin_calibration_
+bench.py` and this project's other bully runs already use) with `source_lane=
+"live_lab"` and the full `family`/`technique`/`chain_id`/`step_idx` provenance.
+A second seal of the same chains did **not** silently overwrite or collide with
+the first -- `specimen_id` is scoped with a random per-run suffix specifically
+because `_LIVE_CHAINS`' chain ids are fixed literals and this is meant to run
+repeatedly (see the fix in `inject_plane.seal_ground_truth`); the ledger's own
+duplicate-content check confirmed the first run's entries were still intact and
+unchanged.
+
+**What this proves.** The full generate -> capture -> seal pipeline works
+end-to-end against real, owned infrastructure, not just its fail-closed path.
+`insufficient_view_rate` computed by `bully_universal_intake_run.py`'s
+per-sourcetype isolation check (`_per_source_role_maps`) is high (5 of 7
+sourcetypes) for this specific 500-record sample even though the *combined*
+capture extracts cleanly -- each sourcetype's own isolated slice mostly carries
+Splunk's `host` field pinned to this lab's pre-loaded corpus tag
+(`corpus-attack-data`) rather than a varying per-event identity, so no field
+resolves ENTITY in isolation; only the combined pool's `source` field gives
+enough distinct values to clear the bar. This is an honest artifact of how this
+lab's existing corpus was loaded, not a defect in role inference, and is a
+concrete target for a future pass (real per-asset identity fields, e.g.
+`Computer`/`TargetUserName` from the Sysmon/Security payloads once parsed out of
+Splunk's `_raw`, would very likely resolve cleanly per-sourcetype too).
+
 ## Reproducing this run
 
 ```bash
 uv run python3 scripts/bully_universal_intake_run.py --output docs/BULLY_UNIVERSAL_INTAKE_RUN_M6_V1.json
 ```
 
-With `LAB_SPLUNK_PASSWORD` (and the other lab-exec prerequisites) set, the same
-command attempts the live plane first and reports `"plane": "live"` on success,
-falling back to the fixture and stating the reason otherwise -- never silently.
+With `LAB_SPLUNK_PASSWORD` (and the other lab-exec prerequisites, e.g. `source
+.env`) set, the same command attempts the live plane first and reports
+`"plane": "live"` on success, falling back to the fixture and stating the
+reason otherwise -- never silently.
