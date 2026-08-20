@@ -1098,3 +1098,246 @@ def check_injected_artifacts_carry_labels() -> tuple[str, str, list[dict]]:
     if any(p.family is not None or p.technique is not None for p in benign):
         return "FAIL", "a benign artifact carried a family/technique label", []
     return "PASS", "", []
+
+
+# ── DL-DS: TASK_BULLY_LOOP_REINTEGRATION_V1 (R.7) -- loop reintegration and
+# pyramid-of-pain invariants. Each seeds a violation, confirms rejection,
+# then confirms clean input passes. ──────────────────────────────────────────
+
+
+@register(
+    "bully_loop_reintegration_orchestrator_uses_loop_grader",
+    "DL. orchestrator's grade path uses loop_grader, never cousin_engine (R1)",
+    order=113,
+)
+def check_orchestrator_grades_via_loop_grader() -> tuple[str, str, list[dict]]:
+    import ast
+    from pathlib import Path
+
+    path = (
+        Path(__file__).resolve().parents[2]
+        / "portal"
+        / "modules"
+        / "security"
+        / "core"
+        / "bully"
+        / "orchestrator.py"
+    )
+    tree = ast.parse(path.read_text())
+    imported_from_cousin_engine: set[str] = set()
+    imported_loop_grader = False
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.ImportFrom)
+            and node.module
+            and node.module.endswith("cousin_engine")
+        ):
+            imported_from_cousin_engine.update(alias.name for alias in node.names)
+        if (
+            isinstance(node, ast.ImportFrom)
+            and node.module is None
+            and node.level >= 1
+            and any(alias.name == "loop_grader" for alias in node.names)
+        ):
+            imported_loop_grader = True
+    # seeded violation: a `grade` re-import would put cousin_engine back on
+    # the call path -- confirm it is rejected by this very assertion.
+    if "grade" in imported_from_cousin_engine:
+        return "FAIL", "orchestrator.py imports cousin_engine.grade -- R1 violated", []
+    if not imported_loop_grader:
+        return "FAIL", "orchestrator.py does not import loop_grader", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_loop_reintegration_same_requires_behavioural_match",
+    "DM. SAME never arises from a non-behavioural (L1/L2-only) match (R3)",
+    order=114,
+)
+def check_same_requires_behavioural_match() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import loop_grader, pyramid
+
+    l1_only_subj = [pyramid.level_feature("sourcetype=x", "CONSTANT")]
+    l1_only_anchor = [pyramid.level_feature("sourcetype=x", "CONSTANT")]
+    seeded = loop_grader.grade_for_loop(l1_only_subj, "a1", l1_only_anchor, distance=0.0)
+    if seeded.relationship == "SAME":
+        return "FAIL", "an L1-only match at distance=0 graded SAME -- R3 violated", []
+
+    behavioural_subj = [
+        pyramid.level_feature("v1", "ACTION", raw_verb="assumerole"),
+        pyramid.level_feature("v2", "ACTION", raw_verb="listbuckets"),
+    ]
+    behavioural_anchor = [
+        pyramid.level_feature("v1", "ACTION", raw_verb="assumerole"),
+        pyramid.level_feature("v2", "ACTION", raw_verb="listbuckets"),
+    ]
+    clean = loop_grader.grade_for_loop(behavioural_subj, "a2", behavioural_anchor, distance=0.05)
+    if clean.relationship != "SAME":
+        return "FAIL", f"a genuine L3 close match graded {clean.relationship}, not SAME", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_loop_reintegration_blindness_is_indeterminate_not_different",
+    "DN. extraction blindness -> ANOMALOUS_UNCLASSIFIED+INDETERMINATE, never DIFFERENT (Q1)",
+    order=115,
+)
+def check_blindness_is_indeterminate() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import loop_grader
+
+    seeded = loop_grader.grade_for_loop([], None, None, distance=None)
+    if seeded.relationship == "DIFFERENT":
+        return "FAIL", "instrument blindness graded DIFFERENT -- Q1 violated", []
+    if (
+        seeded.relationship != "ANOMALOUS_UNCLASSIFIED"
+        or seeded.defense_response != "INDETERMINATE"
+    ):
+        return (
+            "FAIL",
+            f"blind input graded {seeded.relationship}/{seeded.defense_response}, "
+            "expected ANOMALOUS_UNCLASSIFIED/INDETERMINATE",
+            [],
+        )
+    return "PASS", "", []
+
+
+@register(
+    "bully_loop_reintegration_cross_vocabulary_cousin_grades_similar",
+    "DO. a cross-vocabulary cousin (disjoint tokens, shared spine) grades SIMILAR",
+    order=116,
+)
+def check_cross_vocabulary_cousin_grades_similar() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import loop_grader, pyramid
+
+    aws = [
+        pyramid.level_feature("a1", "ACTION", raw_verb="GetSessionToken"),
+        pyramid.level_feature("a2", "ACTION", raw_verb="ListBuckets"),
+        pyramid.level_feature("a3", "ACTION", raw_verb="PutRolePolicy"),
+    ]
+    win = [
+        pyramid.level_feature("b1", "ACTION", raw_verb="kerberos tgt request"),
+        pyramid.level_feature("b2", "ACTION", raw_verb="net user /domain"),
+        pyramid.level_feature("b3", "ACTION", raw_verb="secretsdump"),
+    ]
+    shared_tokens = {f.token for f in aws} & {f.token for f in win}
+    if shared_tokens:
+        return "FAIL", "test fixture is not actually cross-vocabulary", []
+    grade = loop_grader.grade_for_loop(aws, "anchor-1", win, distance=0.45)
+    if grade.relationship != "SIMILAR":
+        return "FAIL", f"cross-vocabulary cousin graded {grade.relationship}, not SIMILAR", []
+    if grade.match_level != pyramid.L3_BEHAVIOR:
+        return "FAIL", "cross-vocabulary cousin did not hold at L3_BEHAVIOR", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_loop_reintegration_anomalous_reaches_discovery_axis",
+    "DP. ANOMALOUS_UNCLASSIFIED reaches the scoreboard discovery axis end to end",
+    order=117,
+)
+def check_anomalous_reaches_discovery_axis() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import scoreboard as scoreboard_mod
+
+    same_record = {
+        "assessment_id": "ca-1",
+        "relationship": "SAME",
+        "defense_response": "COVERED",
+        "composite": 0.05,
+        "candidate_state": None,
+        "known_benign": False,
+    }
+    seeded = scoreboard_mod.score_record(same_record)
+    if seeded["discovery_value"] != 0.0:
+        return "FAIL", "SAME (known-bad) scored nonzero on the discovery axis", []
+
+    anomalous_record = {
+        "assessment_id": "ca-2",
+        "relationship": "ANOMALOUS_UNCLASSIFIED",
+        "defense_response": "INDETERMINATE",
+        "composite": 0.0,
+        "candidate_state": None,
+        "known_benign": False,
+    }
+    clean = scoreboard_mod.score_record(anomalous_record)
+    if not (clean["catch"] and clean["discovery_value"] > 0.0):
+        return "FAIL", "ANOMALOUS_UNCLASSIFIED did not reach the discovery floor", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_loop_reintegration_confirmed_cousin_reaches_handoff",
+    "DQ. a confirmed cousin reaches a handoff detection draft",
+    order=118,
+)
+def check_confirmed_cousin_reaches_handoff() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import handoff as handoff_mod
+
+    def _fake_call_model(model: str, messages: list[dict]) -> dict:
+        return {
+            "content": "```spl\nindex=* sourcetype=windows:security EventCode=4672\n```\n"
+            "```sigma\ntitle: seeded\n```"
+        }
+
+    seeded_broken = handoff_mod.draft_generalization(
+        "T1078",
+        {"action_sequence": ["AssumeRole"]},
+        {"spl": "", "distinguishing_features": {}},
+        call_model=lambda *a, **k: (_ for _ in ()).throw(RuntimeError("model unavailable")),
+    )
+    if not seeded_broken.get("spl"):
+        return (
+            "FAIL",
+            "a model failure produced no fallback SPL at all -- should honest-degrade",
+            [],
+        )
+
+    draft = handoff_mod.draft_generalization(
+        "T1078",
+        {"action_sequence": ["AssumeRole", "ListBuckets"]},
+        {"spl": "", "distinguishing_features": {}},
+        call_model=_fake_call_model,
+    )
+    if not draft.get("spl") and not draft.get("sigma_rule"):
+        return "FAIL", "a confirmed cousin's draft carried neither SPL nor a Sigma rule", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_loop_reintegration_milestone_run_plane_live_or_blocked",
+    "DR. the milestone run's plane is live or the run is BLOCKED with a reason (R4)",
+    order=119,
+)
+def check_milestone_run_plane_live_or_blocked() -> tuple[str, str, list[dict]]:
+    import json
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "docs" / "BULLY_LOOP_MILESTONE_RUN_R6_V1.json"
+    if not path.is_file():
+        return "FAIL", "BULLY_LOOP_MILESTONE_RUN_R6_V1.json does not exist", []
+    report = json.loads(path.read_text())
+    plane = report.get("plane")
+    if plane not in ("live", "BLOCKED"):
+        return "FAIL", f"milestone run plane is {plane!r} -- must be live or BLOCKED", []
+    if plane == "BLOCKED" and not report.get("reason"):
+        return "FAIL", "milestone run is BLOCKED with no reason -- R4 violated", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_loop_reintegration_every_match_carries_level_and_robustness",
+    "DS. every match carries a pyramid level and robustness",
+    order=120,
+)
+def check_every_match_carries_level_and_robustness() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import pyramid
+
+    empty_match = pyramid.match_level([], [])
+    if empty_match.level != "" or empty_match.robustness != 0.0:
+        return "FAIL", "an empty match did not report level='' / robustness=0.0", []
+
+    subj = [pyramid.level_feature("v1", "ACTION", raw_verb="assumerole")]
+    anchor = [pyramid.level_feature("v1", "ACTION", raw_verb="assumerole")]
+    clean = pyramid.match_level(subj, anchor)
+    if not clean.level or clean.robustness <= 0.0:
+        return "FAIL", "a genuine L3 match did not carry a populated level/robustness", []
+    return "PASS", "", []

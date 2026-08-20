@@ -1,5 +1,13 @@
 # BULLY_COUSIN_RELATION_RUN_C7_V1 — cousin-relation verification run
 
+> **Errata (2026-08-20, `TASK_BULLY_LOOP_REINTEGRATION_V1`).** Every grader
+> this arc rebuilt, including this run's, was measured standalone -- the
+> orchestrator never called it. The grader is now wired into the loop
+> (`bully/loop_grader.py`), decided level-first on the pyramid axis
+> (`bully/pyramid.py`) rather than flat distance. See
+> `docs/DESIGN_BULLY_LOOP_REINTEGRATION_V1.md` and the live run
+> `docs/BULLY_LOOP_MILESTONE_RUN_R6_V1.md`.
+
 > **Errata (2026-08-19, `TASK_BULLY_UNKNOWN_COUSIN_V1`).** This run's own
 > L3 (cross-space) recovery rate of **0.0250** (1/40) is the concrete
 > symptom of the defect this task corrects: `_signature_from_scope` grades

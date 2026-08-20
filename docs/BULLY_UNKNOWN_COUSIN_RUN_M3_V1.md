@@ -1,5 +1,14 @@
 # BULLY_UNKNOWN_COUSIN_RUN_M3_V1
 
+> **Errata (2026-08-20, `TASK_BULLY_LOOP_REINTEGRATION_V1`):** beyond the
+> single-schema intake gap noted below, this run's grader was ALSO never wired
+> into the orchestrator -- a standalone-script pattern that recurred through
+> every subsequent pass until this task. The organ is now wired in via
+> `bully/loop_grader.py`, matching level-first on the pyramid axis
+> (`bully/pyramid.py`) instead of flat distance. See
+> `docs/DESIGN_BULLY_LOOP_REINTEGRATION_V1.md` and the live successor run
+> `docs/BULLY_LOOP_MILESTONE_RUN_R6_V1.md`.
+
 > **Errata (2026-08-19, `TASK_BULLY_UNIVERSAL_INTAKE_AND_INJECT_V1`):** this
 > run's intake was single-schema and effectively blind on 4 of 5 real sources.
 > `artifact_graph._ENTITY_FIELDS`/`_TIME_FIELDS`/`_ACTION_FIELDS` were hardcoded
