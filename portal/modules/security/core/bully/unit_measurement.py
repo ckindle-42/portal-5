@@ -1,5 +1,5 @@
 """bully.unit_measurement -- the grading-plane measurement stack for the
-unit-level pipeline (T.1-T.3, TASK_BULLY_UNKNOWN_COUSIN_V1).
+unit-level pipeline (T.1-T.4, TASK_BULLY_UNKNOWN_COUSIN_V1).
 
 The sealed manifest legend (`scripts.corpus_ingest.load_manifest_catalog`)
 carries real ATT&CK ground truth per dataset and is currently used only to
@@ -24,10 +24,13 @@ makes that split a first-class, checkable object rather than an assumption.
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
-from .unit_outcome import CONCERN_OUTCOMES, UnitOutcome
+from .anchors import Anchor
+from .artifact_graph import ActionClassifier, GradeableUnit
+from .baseline import NormalBaseline
+from .unit_outcome import CONCERN_OUTCOMES, UnitOutcome, resolve_unit_outcome
 
 
 @dataclass(frozen=True)
@@ -203,3 +206,178 @@ def precision_recall_report(rows: list[GradingPlaneRow]) -> dict[str, Any]:
             "fraction_of_scored": len(known_instance_rows) / len(scored) if scored else 0.0,
         },
     }
+
+
+# ── T.4: leave-one-family-out -- the product test ──────────────────────────
+
+# Controls, judgement calls recorded here and re-baselined only deliberately.
+SHUFFLED_CONTROL_MAX_RATIO = 0.5
+BENIGN_CONTROL_MAX_CONCERN_RATE = 0.3
+
+
+def _concern_rate(
+    units: list[GradeableUnit],
+    library: list[Anchor],
+    baseline: NormalBaseline,
+    *,
+    classifier: ActionClassifier | None,
+) -> tuple[float, list[dict[str, Any]]]:
+    if not units:
+        return 0.0, []
+    outcomes = [resolve_unit_outcome(u, library, baseline, classifier=classifier) for u in units]
+    concerning = [o for o in outcomes if o.outcome in CONCERN_OUTCOMES]
+    briefs = [o.brief.to_dict() for o in concerning if o.brief is not None]
+    return len(concerning) / len(units), briefs
+
+
+def _shuffled_library(library: list[Anchor], *, seed: int) -> list[Anchor]:
+    """A permutation-test control: pool every anchor's `action_sequence`
+    tokens across the *whole* library and redistribute them randomly,
+    preserving each anchor's original sequence length. A per-anchor swap of
+    whole records is not sufficient here -- grading matches on content, not
+    identity, so swapping which anchor holds which already-coherent
+    sequence leaves the set of matchable content completely unchanged and
+    recall untouched. Shuffling the tokens themselves is what actually
+    destroys the real correlation between a type's identity and its
+    content, so a real signal must collapse."""
+    rng = random.Random(seed)
+    pool: list[str] = []
+    lengths: list[int] = []
+    for anchor in library:
+        sequence = anchor.record.get("action_sequence") or []
+        pool.extend(str(token) for token in sequence)
+        lengths.append(len(sequence))
+    rng.shuffle(pool)
+
+    shuffled: list[Anchor] = []
+    cursor = 0
+    for anchor, length in zip(library, lengths, strict=False):
+        new_sequence = pool[cursor : cursor + length]
+        cursor += length
+        record = dict(anchor.record)
+        record["action_sequence"] = new_sequence
+        shuffled.append(
+            Anchor(
+                anchor_id=anchor.anchor_id,
+                kind=anchor.kind,
+                record=record,
+                provenance_tier=anchor.provenance_tier,
+                label_basis=anchor.label_basis,
+                grade=anchor.grade,
+                source_id=anchor.source_id,
+                malice=anchor.malice,
+                derived_from=anchor.derived_from,
+                generation_depth=anchor.generation_depth,
+            )
+        )
+    return shuffled
+
+
+@dataclass(frozen=True)
+class FamilyResult:
+    family: str
+    n_eval_units: int
+    unknown_cousin_recall: float
+    sample_briefs: tuple[dict[str, Any], ...] = field(default_factory=tuple)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "family": self.family,
+            "n_eval_units": self.n_eval_units,
+            "unknown_cousin_recall": self.unknown_cousin_recall,
+            "sample_briefs": list(self.sample_briefs),
+        }
+
+
+@dataclass(frozen=True)
+class LeaveOneFamilyOutReport:
+    """The headline measurement. `unknown_cousin_recall` is the product
+    number: of instances from a technique family the library has never
+    seen, what fraction still raised a concern naming a plausibly-related
+    surviving type. `full_library_recall` is published beside it --
+    full-library >> leave-one-out means the system is a matcher, and that
+    must be stated plainly, not smoothed."""
+
+    per_family: dict[str, FamilyResult]
+    unknown_cousin_recall: float
+    full_library_recall: float
+    shuffled_control_recall: float
+    benign_control_concern_rate: float
+    controls_hold: bool
+    verdict: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "per_family": {k: v.to_dict() for k, v in self.per_family.items()},
+            "unknown_cousin_recall": self.unknown_cousin_recall,
+            "full_library_recall": self.full_library_recall,
+            "shuffled_control_recall": self.shuffled_control_recall,
+            "benign_control_concern_rate": self.benign_control_concern_rate,
+            "controls_hold": self.controls_hold,
+            "verdict": self.verdict,
+            "matcher_warning": self.full_library_recall > 0
+            and self.unknown_cousin_recall < 0.5 * self.full_library_recall,
+        }
+
+
+def run_leave_one_family_out(
+    eval_units_by_family: dict[str, list[GradeableUnit]],
+    library_by_family: dict[str, list[Anchor]],
+    full_library: list[Anchor],
+    baseline: NormalBaseline,
+    *,
+    benign_eval_units: list[GradeableUnit],
+    classifier: ActionClassifier | None = None,
+    shuffle_seed: int = 0,
+) -> LeaveOneFamilyOutReport:
+    """For each family, exclude every type belonging to it, refit nothing
+    the caller has not already refit (`baseline`/`library_by_family` are the
+    caller's post-exclusion state), and measure `unknown_cousin_recall` over
+    that family's held-out evaluation units against everything else."""
+    per_family: dict[str, FamilyResult] = {}
+    all_eval_units: list[GradeableUnit] = []
+    for family, units in eval_units_by_family.items():
+        excluded_library = [
+            anchor
+            for fam, anchors in library_by_family.items()
+            if fam != family
+            for anchor in anchors
+        ]
+        recall, briefs = _concern_rate(units, excluded_library, baseline, classifier=classifier)
+        per_family[family] = FamilyResult(
+            family=family,
+            n_eval_units=len(units),
+            unknown_cousin_recall=recall,
+            sample_briefs=tuple(briefs[:3]),
+        )
+        all_eval_units.extend(units)
+
+    total_eval = sum(r.n_eval_units for r in per_family.values())
+    unknown_cousin_recall = (
+        sum(r.unknown_cousin_recall * r.n_eval_units for r in per_family.values()) / total_eval
+        if total_eval
+        else 0.0
+    )
+
+    full_recall, _ = _concern_rate(all_eval_units, full_library, baseline, classifier=classifier)
+
+    shuffled = _shuffled_library(full_library, seed=shuffle_seed)
+    shuffled_recall, _ = _concern_rate(all_eval_units, shuffled, baseline, classifier=classifier)
+
+    benign_rate, _ = _concern_rate(benign_eval_units, full_library, baseline, classifier=classifier)
+
+    shuffle_holds = shuffled_recall <= SHUFFLED_CONTROL_MAX_RATIO * max(
+        unknown_cousin_recall, full_recall, 1e-9
+    )
+    benign_holds = benign_rate <= BENIGN_CONTROL_MAX_CONCERN_RATE
+    controls_hold = shuffle_holds and benign_holds
+
+    return LeaveOneFamilyOutReport(
+        per_family=per_family,
+        unknown_cousin_recall=unknown_cousin_recall,
+        full_library_recall=full_recall,
+        shuffled_control_recall=shuffled_recall,
+        benign_control_concern_rate=benign_rate,
+        controls_hold=controls_hold,
+        verdict="VALID" if controls_hold else "INVALID",
+    )
