@@ -157,3 +157,24 @@ def test_grade_series_for_loop_blank_spine_is_anomalous_unclassified_indetermina
     grade = loop_grader.grade_series_for_loop(blank, [])
     assert grade.relationship == "ANOMALOUS_UNCLASSIFIED"
     assert grade.defense_response == "INDETERMINATE"
+
+
+def test_build_cousin_assessment_from_series_emits_valid_dto() -> None:
+    """R.6 wiring: build_cousin_assessment_from_series is what the milestone
+    run script uses to record a series-alignment grade through the SAME
+    CousinAssessment DTO orchestrator._analyzing emits."""
+    from portal.modules.security.core.bully import signatures as signatures_mod
+
+    known = BehaviouralSeries(
+        series_id="known-1", spine=("auth", "enumerate", "escalate", "collect"), n_logs=4
+    )
+    observed = BehaviouralSeries(
+        series_id="obs-1", spine=("auth", "enumerate", "lateral", "escalate", "collect"), n_logs=5
+    )
+    sig = signatures_mod.build_signature(
+        {"episode_id": "ep-1"}, {"action_sequence": list(observed.spine)}
+    )
+    assessment = loop_grader.build_cousin_assessment_from_series(sig, observed, [known])
+    assert assessment.relationship == "SIMILAR"
+    assert assessment.nonsemantic_channels >= 2
+    assert assessment.explanation["grader"] == "loop-grader-v1"
