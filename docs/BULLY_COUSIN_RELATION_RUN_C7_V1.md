@@ -1,5 +1,13 @@
 # BULLY_COUSIN_RELATION_RUN_C7_V1 — cousin-relation verification run
 
+> **Errata (2026-08-20, `TASK_BULLY_SCOREBOARD_CONFORMANCE_V1`).** This run's
+> headline is not a module contract, and its correctness axis
+> (`trust_mean_rank`, `false_flag_count` from `scoreboard.update()`) was never
+> published -- `correctness_axis_not_published` fires against this doc. See
+> `docs/DESIGN_BULLY_SCOREBOARD_CONFORMANCE_V1.md` for the corrected
+> diagnosis and the live successor run
+> `docs/BULLY_SCOREBOARD_CONFORMANCE_RUN_W6_V1.md`.
+
 > **Errata (2026-08-20, `TASK_BULLY_LOOP_REINTEGRATION_V1`).** Every grader
 > this arc rebuilt, including this run's, was measured standalone -- the
 > orchestrator never called it. The grader is now wired into the loop

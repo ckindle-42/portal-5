@@ -1,5 +1,14 @@
 # BULLY_UNKNOWN_COUSIN_RUN_M3_V1
 
+> **Errata (2026-08-20, `TASK_BULLY_SCOREBOARD_CONFORMANCE_V1`):** this run's
+> headline is not a module contract, and its correctness axis
+> (`trust_mean_rank`, `false_flag_count` from `scoreboard.update()`) was never
+> published -- `correctness_axis_not_published` fires against this doc,
+> alongside `perfect_precision`. See
+> `docs/DESIGN_BULLY_SCOREBOARD_CONFORMANCE_V1.md` for the corrected
+> diagnosis and the live successor run
+> `docs/BULLY_SCOREBOARD_CONFORMANCE_RUN_W6_V1.md`.
+
 > **Errata (2026-08-20, `TASK_BULLY_LOOP_REINTEGRATION_V1`):** beyond the
 > single-schema intake gap noted below, this run's grader was ALSO never wired
 > into the orchestrator -- a standalone-script pattern that recurred through
