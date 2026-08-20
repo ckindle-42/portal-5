@@ -121,6 +121,7 @@ capture.
 - SCATTER transformation (cross-source identity realization) is prose-described in the task but not implemented in universe.py as delivered; not exercised in this run.
 - R.5b's synthetic cousins are each realized within ONE target source shape, so R.5b does not itself exercise cross-source entity stitching -- that signal comes from R.5a's real multi-sourcetype lab telemetry (Windows/DNS/cloud identity representations of one principal).
 - Capture composition is time-window-dependent (most-recent-2000 records), so the SIMILAR/ANOMALOUS_UNCLASSIFIED split varies run to run with what the lab's ambient + implanted traffic happens to look like at capture time -- reported per-run, never smoothed or cherry-picked.
+- **Not measured in this run (follow-on):** implanted-cousin recovery broken out per transformation (REVOCABULARY/REIDENTITY/REORDER_MINOR/RESCHEMA/DOWNLEVEL) and leave-one-family-out behavioural-cousin-recall-vs-novelty, both called for in the R.6 build order. This run's 25-timeline sample was dominated by real captured lab/background telemetry rather than R.5b's 22 implanted-cousin artifacts specifically (a needle:hay ratio of 0.73% by design), so a per-transformation recovery table on this particular sample would be statistically thin; a dedicated run selecting timelines by proximity to the sealed cousin fingerprints (rather than richest-first) is the right follow-on, not a number manufactured from too few implanted hits.
 
 ## Full per-row data
 
