@@ -774,7 +774,7 @@ def check_leave_one_out_published_beside_full_library() -> tuple[str, str, list[
         benign_eval_units=[],
     )
     payload = report.to_dict()
-    if "unknown_cousin_recall" not in payload or "full_library_recall" not in payload:
+    if "cousin_recall" not in payload or "full_library_cousin_recall" not in payload:
         return "FAIL", "leave-one-out report did not publish both numbers together", []
     return "PASS", "", []
 

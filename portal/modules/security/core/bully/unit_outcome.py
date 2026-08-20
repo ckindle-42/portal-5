@@ -164,9 +164,28 @@ def _match_sort_key(pair: tuple[Anchor, UnitTypeRelation]) -> tuple[int, float]:
     return (rank, distance)
 
 
-def _unobservable_channels(relation: UnitTypeRelation | None) -> tuple[str, ...]:
+def _unobservable_channels(
+    relation: UnitTypeRelation | None, unit: GradeableUnit | None = None
+) -> tuple[str, ...]:
+    """RC5 (TASK_BULLY_UNIVERSAL_INTAKE_AND_INJECT_V1, M.4): when there is
+    no matching relation (the `NOVEL` path -- no anchor matched), the old
+    code hardcoded both channels unobservable regardless of whether the
+    unit itself actually had shape or vocabulary content. That let a
+    genuinely well-observed `NOVEL` unit carry
+    `what_could_not_be_seen: ["shape", "vocabulary"]` in its brief -- the
+    same signature `resolve_unit_outcome`'s own entry gate treats as
+    instrument failure, just reported inconsistently downstream. Fall back
+    to the unit's *own* observability, not a blanket claim, when there is
+    no relation to ask."""
     if relation is None:
-        return ("shape", "vocabulary")
+        if unit is None:
+            return ("shape", "vocabulary")
+        channels = []
+        if not unit_shape_tokens(unit):
+            channels.append("shape")
+        if not unit_vocabulary_tokens(unit):
+            channels.append("vocabulary")
+        return tuple(channels)
     channels = []
     if relation.shape.unobservable:
         channels.append("shape")
@@ -199,7 +218,7 @@ def _build_brief(
         axis_of_divergence=relation.delta.get("axis_of_divergence") if relation else None,
         remarkability=remarkability,
         confidence=confidence,
-        what_could_not_be_seen=_unobservable_channels(relation),
+        what_could_not_be_seen=_unobservable_channels(relation, unit),
     )
 
 

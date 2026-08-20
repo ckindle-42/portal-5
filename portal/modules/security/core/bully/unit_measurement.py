@@ -215,6 +215,17 @@ SHUFFLED_CONTROL_MAX_RATIO = 0.5
 BENIGN_CONTROL_MAX_CONCERN_RATE = 0.3
 
 
+# RC6 (TASK_BULLY_UNIVERSAL_INTAKE_AND_INJECT_V1, M.4): the M.3 headline
+# `unknown_cousin_recall` was 75% `NOVEL`, which never consults the anchor
+# library at all -- so a number nominally about matching related types was
+# mostly reporting something else. `COUSIN_OUTCOMES` (library-dependent) and
+# `NOVELTY_OUTCOMES` (library-independent) are reported and controlled
+# separately from here on; `CONCERN_OUTCOMES` (the union) remains the
+# suppression-vs-concern boundary elsewhere and is untouched.
+COUSIN_OUTCOMES: frozenset[str] = frozenset({"UNKNOWN_SAME", "COUSIN"})
+NOVELTY_OUTCOMES: frozenset[str] = frozenset({"NOVEL"})
+
+
 def _concern_rate(
     units: list[GradeableUnit],
     library: list[Anchor],
@@ -228,6 +239,25 @@ def _concern_rate(
     concerning = [o for o in outcomes if o.outcome in CONCERN_OUTCOMES]
     briefs = [o.brief.to_dict() for o in concerning if o.brief is not None]
     return len(concerning) / len(units), briefs
+
+
+def _outcome_rate(
+    units: list[GradeableUnit],
+    library: list[Anchor],
+    baseline: NormalBaseline,
+    *,
+    classifier: ActionClassifier | None,
+    outcomes_wanted: frozenset[str],
+) -> tuple[float, list[dict[str, Any]]]:
+    """Like `_concern_rate`, but restricted to a specific outcome subset --
+    the RC6 split between cousin (library-dependent) and novelty
+    (library-independent) recall."""
+    if not units:
+        return 0.0, []
+    resolved = [resolve_unit_outcome(u, library, baseline, classifier=classifier) for u in units]
+    matching = [o for o in resolved if o.outcome in outcomes_wanted]
+    briefs = [o.brief.to_dict() for o in matching if o.brief is not None]
+    return len(matching) / len(units), briefs
 
 
 def _shuffled_library(library: list[Anchor], *, seed: int) -> list[Anchor]:
@@ -277,46 +307,82 @@ def _shuffled_library(library: list[Anchor], *, seed: int) -> list[Anchor]:
 class FamilyResult:
     family: str
     n_eval_units: int
-    unknown_cousin_recall: float
+    cousin_recall: float
+    novelty_recall: float
+    n_known_activity: int = 0
     sample_briefs: tuple[dict[str, Any], ...] = field(default_factory=tuple)
+
+    @property
+    def absolute_recall(self) -> float:
+        """Recall over every dataset carrying known activity for this
+        family (RC6) -- including the ones that produced no unit at all and
+        so are silently absent from `n_eval_units`. Falls back to
+        `n_eval_units` (making absolute == conditional) when the caller
+        never supplied a known-activity count."""
+        denom = self.n_known_activity or self.n_eval_units
+        if not denom:
+            return 0.0
+        return (self.cousin_recall + self.novelty_recall) * self.n_eval_units / denom
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "family": self.family,
             "n_eval_units": self.n_eval_units,
-            "unknown_cousin_recall": self.unknown_cousin_recall,
+            "n_known_activity": self.n_known_activity or self.n_eval_units,
+            "cousin_recall": self.cousin_recall,
+            "novelty_recall": self.novelty_recall,
+            "conditional_recall": self.cousin_recall + self.novelty_recall,
+            "absolute_recall": self.absolute_recall,
             "sample_briefs": list(self.sample_briefs),
         }
 
 
 @dataclass(frozen=True)
 class LeaveOneFamilyOutReport:
-    """The headline measurement. `unknown_cousin_recall` is the product
-    number: of instances from a technique family the library has never
-    seen, what fraction still raised a concern naming a plausibly-related
-    surviving type. `full_library_recall` is published beside it --
-    full-library >> leave-one-out means the system is a matcher, and that
-    must be stated plainly, not smoothed."""
+    """The headline measurement, split per RC6: `cousin_recall`
+    (`UNKNOWN_SAME` + `COUSIN`, library-dependent -- the actual product
+    claim, "raised a concern naming a plausibly-related surviving type")
+    is reported separately from `novelty_recall` (`NOVEL`,
+    library-independent -- never consults the anchor library, so it proves
+    nothing about matching). The M.3 run's `unknown_cousin_recall` blended
+    the two and was 75% novelty. `full_library_cousin_recall` is published
+    beside `cousin_recall` -- full-library >> leave-one-out means the
+    system is a matcher, and that must be stated plainly, not smoothed;
+    the comparison is only meaningful for the library-dependent metric, so
+    it excludes novelty. `absolute_recall`/`conditional_recall` are
+    published per family and in aggregate (RC6): conditional is over
+    unit-forming datasets only (the old, sole denominator); absolute is
+    over every dataset carrying known activity, so a silence -- extraction
+    produced no unit -- is visible instead of quietly excluded."""
 
     per_family: dict[str, FamilyResult]
-    unknown_cousin_recall: float
-    full_library_recall: float
-    shuffled_control_recall: float
+    cousin_recall: float
+    novelty_recall: float
+    absolute_recall: float
+    full_library_cousin_recall: float
+    shuffled_control_cousin_recall: float
     benign_control_concern_rate: float
     controls_hold: bool
     verdict: str
 
+    @property
+    def conditional_recall(self) -> float:
+        return self.cousin_recall + self.novelty_recall
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "per_family": {k: v.to_dict() for k, v in self.per_family.items()},
-            "unknown_cousin_recall": self.unknown_cousin_recall,
-            "full_library_recall": self.full_library_recall,
-            "shuffled_control_recall": self.shuffled_control_recall,
+            "cousin_recall": self.cousin_recall,
+            "novelty_recall": self.novelty_recall,
+            "conditional_recall": self.conditional_recall,
+            "absolute_recall": self.absolute_recall,
+            "full_library_cousin_recall": self.full_library_cousin_recall,
+            "shuffled_control_cousin_recall": self.shuffled_control_cousin_recall,
             "benign_control_concern_rate": self.benign_control_concern_rate,
             "controls_hold": self.controls_hold,
             "verdict": self.verdict,
-            "matcher_warning": self.full_library_recall > 0
-            and self.unknown_cousin_recall < 0.5 * self.full_library_recall,
+            "matcher_warning": self.full_library_cousin_recall > 0
+            and self.cousin_recall < 0.5 * self.full_library_cousin_recall,
         }
 
 
@@ -329,11 +395,22 @@ def run_leave_one_family_out(
     benign_eval_units: list[GradeableUnit],
     classifier: ActionClassifier | None = None,
     shuffle_seed: int = 0,
+    known_activity_count_by_family: dict[str, int] | None = None,
 ) -> LeaveOneFamilyOutReport:
     """For each family, exclude every type belonging to it, refit nothing
     the caller has not already refit (`baseline`/`library_by_family` are the
-    caller's post-exclusion state), and measure `unknown_cousin_recall` over
-    that family's held-out evaluation units against everything else."""
+    caller's post-exclusion state), and measure `cousin_recall`/
+    `novelty_recall` separately (RC6) over that family's held-out
+    evaluation units against everything else.
+
+    `known_activity_count_by_family`, when supplied, is the total number of
+    datasets/artifacts carrying known activity for each family -- including
+    ones that produced zero units and so never appear in
+    `eval_units_by_family` at all. Omitting it makes absolute recall equal
+    conditional recall (the old, sole behaviour), which is honest but does
+    not surface silences; a caller that has dataset-level counts should
+    always supply it."""
+    known_counts = known_activity_count_by_family or {}
     per_family: dict[str, FamilyResult] = {}
     all_eval_units: list[GradeableUnit] = []
     for family, units in eval_units_by_family.items():
@@ -343,40 +420,81 @@ def run_leave_one_family_out(
             if fam != family
             for anchor in anchors
         ]
-        recall, briefs = _concern_rate(units, excluded_library, baseline, classifier=classifier)
+        cousin_recall, cousin_briefs = _outcome_rate(
+            units,
+            excluded_library,
+            baseline,
+            classifier=classifier,
+            outcomes_wanted=COUSIN_OUTCOMES,
+        )
+        novelty_recall, novelty_briefs = _outcome_rate(
+            units,
+            excluded_library,
+            baseline,
+            classifier=classifier,
+            outcomes_wanted=NOVELTY_OUTCOMES,
+        )
         per_family[family] = FamilyResult(
             family=family,
             n_eval_units=len(units),
-            unknown_cousin_recall=recall,
-            sample_briefs=tuple(briefs[:3]),
+            cousin_recall=cousin_recall,
+            novelty_recall=novelty_recall,
+            n_known_activity=known_counts.get(family, 0),
+            sample_briefs=tuple((cousin_briefs + novelty_briefs)[:3]),
         )
         all_eval_units.extend(units)
 
     total_eval = sum(r.n_eval_units for r in per_family.values())
-    unknown_cousin_recall = (
-        sum(r.unknown_cousin_recall * r.n_eval_units for r in per_family.values()) / total_eval
+    cousin_recall = (
+        sum(r.cousin_recall * r.n_eval_units for r in per_family.values()) / total_eval
         if total_eval
         else 0.0
     )
+    novelty_recall = (
+        sum(r.novelty_recall * r.n_eval_units for r in per_family.values()) / total_eval
+        if total_eval
+        else 0.0
+    )
+    total_known_activity = sum(r.n_known_activity or r.n_eval_units for r in per_family.values())
+    absolute_recall = (
+        sum((r.cousin_recall + r.novelty_recall) * r.n_eval_units for r in per_family.values())
+        / total_known_activity
+        if total_known_activity
+        else 0.0
+    )
 
-    full_recall, _ = _concern_rate(all_eval_units, full_library, baseline, classifier=classifier)
+    full_library_cousin_recall, _ = _outcome_rate(
+        all_eval_units,
+        full_library,
+        baseline,
+        classifier=classifier,
+        outcomes_wanted=COUSIN_OUTCOMES,
+    )
 
+    # The shuffle control is computed over the cousin subset only (RC6):
+    # shuffling the library and re-measuring a recall dominated by NOVEL
+    # (which never consults the library at all) proves nothing about
+    # whether the library's content matters.
     shuffled = _shuffled_library(full_library, seed=shuffle_seed)
-    shuffled_recall, _ = _concern_rate(all_eval_units, shuffled, baseline, classifier=classifier)
+    shuffled_cousin_recall, _ = _outcome_rate(
+        all_eval_units, shuffled, baseline, classifier=classifier, outcomes_wanted=COUSIN_OUTCOMES
+    )
 
     benign_rate, _ = _concern_rate(benign_eval_units, full_library, baseline, classifier=classifier)
 
-    shuffle_holds = shuffled_recall <= SHUFFLED_CONTROL_MAX_RATIO * max(
-        unknown_cousin_recall, full_recall, 1e-9
+    shuffle_holds = shuffled_cousin_recall <= SHUFFLED_CONTROL_MAX_RATIO * max(
+        cousin_recall, full_library_cousin_recall, 1e-9
     )
     benign_holds = benign_rate <= BENIGN_CONTROL_MAX_CONCERN_RATE
     controls_hold = shuffle_holds and benign_holds
 
     return LeaveOneFamilyOutReport(
         per_family=per_family,
-        unknown_cousin_recall=unknown_cousin_recall,
-        full_library_recall=full_recall,
-        shuffled_control_recall=shuffled_recall,
+        cousin_recall=cousin_recall,
+        novelty_recall=novelty_recall,
+        absolute_recall=absolute_recall,
+        full_library_cousin_recall=full_library_cousin_recall,
+        shuffled_control_cousin_recall=shuffled_cousin_recall,
         benign_control_concern_rate=benign_rate,
         controls_hold=controls_hold,
         verdict="VALID" if controls_hold else "INVALID",

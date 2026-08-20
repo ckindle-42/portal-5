@@ -430,8 +430,10 @@ def main() -> int:
             {
                 "output": str(args.output),
                 "families_evaluated": len(families_with_units),
-                "unknown_cousin_recall": (lofo_report or {}).get("unknown_cousin_recall"),
-                "full_library_recall": (lofo_report or {}).get("full_library_recall"),
+                "cousin_recall": (lofo_report or {}).get("cousin_recall"),
+                "novelty_recall": (lofo_report or {}).get("novelty_recall"),
+                "absolute_recall": (lofo_report or {}).get("absolute_recall"),
+                "full_library_cousin_recall": (lofo_report or {}).get("full_library_cousin_recall"),
                 "concern_brief_count": len(briefs),
             },
             sort_keys=True,
