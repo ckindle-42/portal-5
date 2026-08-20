@@ -46,6 +46,13 @@ BASELINE_ROOT = Path("/Volumes/data01/portal5_hunt/corpora/invictus_ir_aws_datas
 MAX_RECORDS_PER_DATASET = 200
 MIN_FAMILIES = 8
 
+# `eventTime` must land in the epoch-plausible numeric range field-role
+# inference (`field_roles._parse_time`) requires (TASK_BULLY_UNIVERSAL_INTAKE_
+# AND_INJECT_V1) -- a bare small offset is structurally indistinguishable from
+# a small-int field (a count, an EventID), which must never be misread as a
+# timestamp.
+_EPOCH_BASE = 1_700_000_000.0
+
 
 def _sample_records(path: Path, *, limit: int) -> list[dict[str, Any]]:
     """Real records from one dataset/log file, best-effort (S1): a format
@@ -198,7 +205,7 @@ def _individually_normal_flagship_case() -> tuple[
     dict[str, Any], anc.AnchorLibrary, bl.NormalBaseline
 ]:
     def _l1_unit(verb: str, entity: str) -> ag.GradeableUnit:
-        records = [{"eventName": verb, "user": entity, "eventTime": 0.0}]
+        records = [{"eventName": verb, "user": entity, "eventTime": _EPOCH_BASE}]
         graph = ag.build_graph(records)
         return next(u for u in ag.enumerate_units(graph) if u.level == "L1_ARTIFACT")
 
@@ -218,7 +225,8 @@ def _suppression_demo() -> dict[str, Any]:
 
     def _unit_for(entity: str) -> ag.GradeableUnit:
         records = [
-            {"eventName": v, "user": entity, "eventTime": i * 40.0} for i, v in enumerate(verbs)
+            {"eventName": v, "user": entity, "eventTime": _EPOCH_BASE + i * 40.0}
+            for i, v in enumerate(verbs)
         ]
         graph = ag.build_graph(records)
         return next(u for u in ag.enumerate_units(graph) if u.level == "L4_WINDOW")
