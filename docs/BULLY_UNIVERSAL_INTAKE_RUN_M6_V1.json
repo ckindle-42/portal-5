@@ -1,0 +1,765 @@
+{
+  "all_other_brief_count": 1,
+  "benign_count": 240,
+  "cold": true,
+  "concern_brief_count": 244,
+  "cross_vocabulary_recovery": {
+    "cross_vocabulary_overall_relation": "SIMILAR",
+    "cross_vocabulary_shape_distance": 0.5714285714285714,
+    "ladder_report": {
+      "monotonicity_valid": true,
+      "negative_control_holds": true,
+      "per_rung": {
+        "L0_IDENTITY": {
+          "combined_distance": 0.125,
+          "level": 0,
+          "overall_relation": "EXACT",
+          "shape_distance": 0.0,
+          "shape_distance_validated": 0.0,
+          "vocabulary_distance": 0.25
+        },
+        "L1_SUBSTITUTION": {
+          "combined_distance": 0.3,
+          "level": 1,
+          "overall_relation": "EXACT",
+          "shape_distance": 0.0,
+          "shape_distance_validated": 0.0,
+          "vocabulary_distance": 0.6
+        },
+        "L2_REORDERED": {
+          "combined_distance": 0.4107142857142857,
+          "level": 2,
+          "overall_relation": "SIMILAR",
+          "shape_distance": 0.5714285714285714,
+          "shape_distance_validated": 0.5714285714285714,
+          "vocabulary_distance": 0.25
+        },
+        "L3_CROSS_VOCABULARY": {
+          "combined_distance": 0.7857142857142857,
+          "level": 3,
+          "overall_relation": "SIMILAR",
+          "shape_distance": 0.5714285714285714,
+          "shape_distance_validated": 0.5714285714285714,
+          "vocabulary_distance": 1.0
+        },
+        "L4_UNRELATED": {
+          "combined_distance": 1.0,
+          "level": 4,
+          "overall_relation": "NOT_AT_ALL",
+          "shape_distance": 1.0,
+          "shape_distance_validated": 1.0,
+          "vocabulary_distance": 1.0
+        }
+      },
+      "rho": 0.9486832980505138,
+      "shuffle_collapsed": true,
+      "shuffled_rho": 0.4026633553947736,
+      "validated_variable": "shape_distance",
+      "verdict": "VALID"
+    },
+    "recovered": true
+  },
+  "extraction_valid_by_source": {
+    "blend-cloudtrail": true,
+    "blend-firewall": true,
+    "blend-osquery": true,
+    "blend-sysmon": true
+  },
+  "injected_count": 11,
+  "insufficient_view_rate": 0.0,
+  "leave_one_family_out": {
+    "absolute_recall": 1.0,
+    "benign_control_concern_rate": 0.0,
+    "conditional_recall": 1.0,
+    "controls_hold": true,
+    "cousin_recall": 0.5,
+    "full_library_cousin_recall": 1.0,
+    "matcher_warning": false,
+    "novelty_recall": 0.5,
+    "per_family": {
+      "credential_access": {
+        "absolute_recall": 1.0,
+        "conditional_recall": 1.0,
+        "cousin_recall": 0.0,
+        "family": "credential_access",
+        "n_eval_units": 1,
+        "n_known_activity": 1,
+        "novelty_recall": 1.0,
+        "sample_briefs": [
+          {
+            "artifact_ids": [
+              "a00000",
+              "a00001",
+              "a00002",
+              "a00003"
+            ],
+            "axis_of_divergence": null,
+            "confidence": 0.7142857142857143,
+            "diverging_shape_features": [],
+            "diverging_vocabulary_features": [],
+            "entities": [
+              "arn=arn:aws:iam::111122223333:user/attacker"
+            ],
+            "level": "L4_WINDOW",
+            "outcome": "NOVEL",
+            "remarkability": 0.7142857142857143,
+            "resembles_anchor_id": null,
+            "resembles_kind": null,
+            "shared_shape_features": [],
+            "shared_vocabulary_features": [],
+            "span_seconds": 60.0,
+            "unit_id": "u-1ff4f60998204a",
+            "what_could_not_be_seen": []
+          }
+        ]
+      },
+      "discovery": {
+        "absolute_recall": 1.0,
+        "conditional_recall": 1.0,
+        "cousin_recall": 1.0,
+        "family": "discovery",
+        "n_eval_units": 1,
+        "n_known_activity": 1,
+        "novelty_recall": 0.0,
+        "sample_briefs": [
+          {
+            "artifact_ids": [
+              "a00000",
+              "a00001",
+              "a00002"
+            ],
+            "axis_of_divergence": "vocabulary",
+            "confidence": 0.25,
+            "diverging_shape_features": [
+              "class_bigram=other>destroy",
+              "class_present=destroy"
+            ],
+            "diverging_vocabulary_features": [
+              "1",
+              "13",
+              "added",
+              "hostIdentifier=host-attacker",
+              "removed"
+            ],
+            "entities": [
+              "hostIdentifier=host-attacker"
+            ],
+            "level": "L4_WINDOW",
+            "outcome": "COUSIN",
+            "remarkability": 0.5,
+            "resembles_anchor_id": "anchor-d77ad9d4b91c",
+            "resembles_kind": "attack_episode",
+            "shared_shape_features": [
+              "class_bigram=other>other",
+              "class_present=other"
+            ],
+            "shared_vocabulary_features": [],
+            "span_seconds": 40.0,
+            "unit_id": "u-ffe3774ab8a6fe",
+            "what_could_not_be_seen": []
+          }
+        ]
+      }
+    },
+    "shuffled_control_cousin_recall": 0.0,
+    "verdict": "VALID"
+  },
+  "n_records": 251,
+  "n_units_total": 325,
+  "outcome_distribution_by_level": {
+    "L1_ARTIFACT": {
+      "COUSIN": 188,
+      "NORMAL": 63
+    },
+    "L2_ENTITY": {
+      "NORMAL": 8,
+      "NOVEL": 1,
+      "UNKNOWN_SAME": 50
+    },
+    "L3_CHAIN": {
+      "NORMAL": 9,
+      "UNKNOWN_SAME": 5
+    },
+    "L4_WINDOW": {
+      "NORMAL": 1
+    }
+  },
+  "plane": "fixture",
+  "plane_reason": "live plane unavailable: LAB_SPLUNK_PASSWORD not set -- capture side would be unauthenticated",
+  "precision_recall": {
+    "known_instance_floor": {
+      "count": 0,
+      "floor_metric": true,
+      "fraction_of_scored": 0.0,
+      "note": "existing detection owns these; never the headline (P1)"
+    },
+    "overall": {
+      "n": 325,
+      "outcome_distribution": {
+        "COUSIN": 188,
+        "NORMAL": 81,
+        "NOVEL": 1,
+        "UNKNOWN_SAME": 55
+      },
+      "precision": 0.05327868852459016,
+      "recall": 0.7222222222222222
+    },
+    "per_level": {
+      "L1_ARTIFACT": {
+        "n": 251,
+        "outcome_distribution": {
+          "COUSIN": 188,
+          "NORMAL": 63
+        },
+        "precision": 0.0425531914893617,
+        "recall": 0.7272727272727273
+      },
+      "L2_ENTITY": {
+        "n": 59,
+        "outcome_distribution": {
+          "NORMAL": 8,
+          "NOVEL": 1,
+          "UNKNOWN_SAME": 50
+        },
+        "precision": 0.058823529411764705,
+        "recall": 1.0
+      },
+      "L3_CHAIN": {
+        "n": 14,
+        "outcome_distribution": {
+          "NORMAL": 9,
+          "UNKNOWN_SAME": 5
+        },
+        "precision": 0.4,
+        "recall": 0.6666666666666666
+      },
+      "L4_WINDOW": {
+        "n": 1,
+        "outcome_distribution": {
+          "NORMAL": 1
+        },
+        "precision": null,
+        "recall": 0.0
+      }
+    },
+    "scored_count": 325,
+    "unscored_count": 0
+  },
+  "real_concern_brief_count": 244,
+  "role_maps_by_source": {
+    "blend-cloudtrail": {
+      "action_coverage": 1.0,
+      "entity_coverage": 1.0,
+      "extraction_valid": true,
+      "failure_reasons": [],
+      "profiles": {
+        "__source_id": {
+          "coverage": 1.0,
+          "distinct_count": 1,
+          "distinct_ratio": 0.0156,
+          "entity_like_rate": 1.0,
+          "name": "__source_id",
+          "reasons": [
+            "single_value_in_sample"
+          ],
+          "role": "CONSTANT",
+          "time_parse_rate": 0.0
+        },
+        "awsRegion": {
+          "coverage": 0.9375,
+          "distinct_count": 1,
+          "distinct_ratio": 0.0167,
+          "entity_like_rate": 1.0,
+          "name": "awsRegion",
+          "reasons": [
+            "single_value_in_sample"
+          ],
+          "role": "CONSTANT",
+          "time_parse_rate": 0.0
+        },
+        "eventName": {
+          "coverage": 1.0,
+          "distinct_count": 7,
+          "distinct_ratio": 0.1094,
+          "entity_like_rate": 1.0,
+          "name": "eventName",
+          "reasons": [
+            "closed_vocabulary_verb=7(0.11)"
+          ],
+          "role": "ACTION",
+          "time_parse_rate": 0.0
+        },
+        "eventTime": {
+          "coverage": 1.0,
+          "distinct_count": 64,
+          "distinct_ratio": 1.0,
+          "entity_like_rate": 1.0,
+          "name": "eventTime",
+          "reasons": [
+            "time_parse_rate=1.00"
+          ],
+          "role": "TIMESTAMP",
+          "time_parse_rate": 1.0
+        },
+        "sourceIPAddress": {
+          "coverage": 0.9375,
+          "distinct_count": 60,
+          "distinct_ratio": 1.0,
+          "entity_like_rate": 1.0,
+          "name": "sourceIPAddress",
+          "reasons": [
+            "identifier_but_unique_per_record(dr=1.00)"
+          ],
+          "role": "PAYLOAD",
+          "time_parse_rate": 0.0
+        },
+        "userIdentity.arn": {
+          "coverage": 1.0,
+          "distinct_count": 13,
+          "distinct_ratio": 0.2031,
+          "entity_like_rate": 1.0,
+          "name": "userIdentity.arn",
+          "reasons": [
+            "strong_identifier=1.00 recurs(dr=0.20)"
+          ],
+          "role": "ENTITY",
+          "time_parse_rate": 0.0
+        }
+      },
+      "sample_size": 64,
+      "source_id": "blend-cloudtrail",
+      "timestamp_coverage": 1.0
+    },
+    "blend-firewall": {
+      "action_coverage": 1.0,
+      "entity_coverage": 1.0,
+      "extraction_valid": true,
+      "failure_reasons": [],
+      "profiles": {
+        "__source_id": {
+          "coverage": 1.0,
+          "distinct_count": 1,
+          "distinct_ratio": 0.0167,
+          "entity_like_rate": 1.0,
+          "name": "__source_id",
+          "reasons": [
+            "single_value_in_sample"
+          ],
+          "role": "CONSTANT",
+          "time_parse_rate": 0.0
+        },
+        "_time": {
+          "coverage": 1.0,
+          "distinct_count": 60,
+          "distinct_ratio": 1.0,
+          "entity_like_rate": 1.0,
+          "name": "_time",
+          "reasons": [
+            "time_parse_rate=1.00"
+          ],
+          "role": "TIMESTAMP",
+          "time_parse_rate": 1.0
+        },
+        "disposition": {
+          "coverage": 1.0,
+          "distinct_count": 2,
+          "distinct_ratio": 0.0333,
+          "entity_like_rate": 1.0,
+          "name": "disposition",
+          "reasons": [
+            "closed_vocabulary_verb=2(0.03)"
+          ],
+          "role": "ACTION",
+          "time_parse_rate": 0.0
+        },
+        "dst_ip": {
+          "coverage": 1.0,
+          "distinct_count": 1,
+          "distinct_ratio": 0.0167,
+          "entity_like_rate": 1.0,
+          "name": "dst_ip",
+          "reasons": [
+            "single_value_in_sample"
+          ],
+          "role": "CONSTANT",
+          "time_parse_rate": 0.0
+        },
+        "dst_port": {
+          "coverage": 1.0,
+          "distinct_count": 4,
+          "distinct_ratio": 0.0667,
+          "entity_like_rate": 0.0,
+          "name": "dst_port",
+          "reasons": [
+            "closed_vocabulary_verb=4(0.07)",
+            "demoted_secondary_action"
+          ],
+          "role": "PAYLOAD",
+          "time_parse_rate": 0.0
+        },
+        "src_ip": {
+          "coverage": 1.0,
+          "distinct_count": 20,
+          "distinct_ratio": 0.3333,
+          "entity_like_rate": 1.0,
+          "name": "src_ip",
+          "reasons": [
+            "strong_identifier=1.00 recurs(dr=0.33)"
+          ],
+          "role": "ENTITY",
+          "time_parse_rate": 0.0
+        }
+      },
+      "sample_size": 60,
+      "source_id": "blend-firewall",
+      "timestamp_coverage": 1.0
+    },
+    "blend-osquery": {
+      "action_coverage": 1.0,
+      "entity_coverage": 1.0,
+      "extraction_valid": true,
+      "failure_reasons": [],
+      "profiles": {
+        "__source_id": {
+          "coverage": 1.0,
+          "distinct_count": 1,
+          "distinct_ratio": 0.0159,
+          "entity_like_rate": 1.0,
+          "name": "__source_id",
+          "reasons": [
+            "single_value_in_sample"
+          ],
+          "role": "CONSTANT",
+          "time_parse_rate": 0.0
+        },
+        "calendarTime": {
+          "coverage": 1.0,
+          "distinct_count": 63,
+          "distinct_ratio": 1.0,
+          "entity_like_rate": 0.0,
+          "name": "calendarTime",
+          "reasons": [
+            "time_parse_rate=1.00"
+          ],
+          "role": "TIMESTAMP",
+          "time_parse_rate": 1.0
+        },
+        "columns.action": {
+          "coverage": 1.0,
+          "distinct_count": 2,
+          "distinct_ratio": 0.0317,
+          "entity_like_rate": 1.0,
+          "name": "columns.action",
+          "reasons": [
+            "closed_vocabulary_verb=2(0.03)"
+          ],
+          "role": "ACTION",
+          "time_parse_rate": 0.0
+        },
+        "columns.path": {
+          "coverage": 1.0,
+          "distinct_count": 63,
+          "distinct_ratio": 1.0,
+          "entity_like_rate": 1.0,
+          "name": "columns.path",
+          "reasons": [
+            "identifier_but_unique_per_record(dr=1.00)"
+          ],
+          "role": "PAYLOAD",
+          "time_parse_rate": 0.0
+        },
+        "hostIdentifier": {
+          "coverage": 1.0,
+          "distinct_count": 9,
+          "distinct_ratio": 0.1429,
+          "entity_like_rate": 1.0,
+          "name": "hostIdentifier",
+          "reasons": [
+            "strong_identifier=0.95 recurs(dr=0.14)"
+          ],
+          "role": "ENTITY",
+          "time_parse_rate": 0.0
+        },
+        "name": {
+          "coverage": 1.0,
+          "distinct_count": 1,
+          "distinct_ratio": 0.0159,
+          "entity_like_rate": 1.0,
+          "name": "name",
+          "reasons": [
+            "single_value_in_sample"
+          ],
+          "role": "CONSTANT",
+          "time_parse_rate": 0.0
+        }
+      },
+      "sample_size": 63,
+      "source_id": "blend-osquery",
+      "timestamp_coverage": 1.0
+    },
+    "blend-sysmon": {
+      "action_coverage": 1.0,
+      "entity_coverage": 1.0,
+      "extraction_valid": true,
+      "failure_reasons": [],
+      "profiles": {
+        "Computer": {
+          "coverage": 1.0,
+          "distinct_count": 9,
+          "distinct_ratio": 0.1406,
+          "entity_like_rate": 1.0,
+          "name": "Computer",
+          "reasons": [
+            "strong_identifier=0.94 recurs(dr=0.14)"
+          ],
+          "role": "ENTITY",
+          "time_parse_rate": 0.0
+        },
+        "EventID": {
+          "coverage": 1.0,
+          "distinct_count": 5,
+          "distinct_ratio": 0.0781,
+          "entity_like_rate": 0.0,
+          "name": "EventID",
+          "reasons": [
+            "closed_vocabulary_verb=5(0.08)"
+          ],
+          "role": "ACTION",
+          "time_parse_rate": 0.0
+        },
+        "Image": {
+          "coverage": 0.9375,
+          "distinct_count": 5,
+          "distinct_ratio": 0.0833,
+          "entity_like_rate": 1.0,
+          "name": "Image",
+          "reasons": [
+            "strong_identifier=1.00 recurs(dr=0.08)"
+          ],
+          "role": "ENTITY",
+          "time_parse_rate": 0.0
+        },
+        "ParentImage": {
+          "coverage": 0.9375,
+          "distinct_count": 1,
+          "distinct_ratio": 0.0167,
+          "entity_like_rate": 1.0,
+          "name": "ParentImage",
+          "reasons": [
+            "single_value_in_sample"
+          ],
+          "role": "CONSTANT",
+          "time_parse_rate": 0.0
+        },
+        "UtcTime": {
+          "coverage": 1.0,
+          "distinct_count": 64,
+          "distinct_ratio": 1.0,
+          "entity_like_rate": 1.0,
+          "name": "UtcTime",
+          "reasons": [
+            "time_parse_rate=1.00"
+          ],
+          "role": "TIMESTAMP",
+          "time_parse_rate": 1.0
+        },
+        "__source_id": {
+          "coverage": 1.0,
+          "distinct_count": 1,
+          "distinct_ratio": 0.0156,
+          "entity_like_rate": 1.0,
+          "name": "__source_id",
+          "reasons": [
+            "single_value_in_sample"
+          ],
+          "role": "CONSTANT",
+          "time_parse_rate": 0.0
+        }
+      },
+      "sample_size": 64,
+      "source_id": "blend-sysmon",
+      "timestamp_coverage": 1.0
+    }
+  },
+  "sample_concern_briefs": [
+    {
+      "artifact_ids": [
+        "a00000"
+      ],
+      "axis_of_divergence": "vocabulary",
+      "confidence": 0.25,
+      "diverging_shape_features": [
+        "class_bigram=other>other"
+      ],
+      "diverging_vocabulary_features": [
+        "1",
+        "13",
+        "arn=arn:aws:iam::111122223333:user/alice0",
+        "awsRegion=us-east-1",
+        "blend-cloudtrail"
+      ],
+      "entities": [
+        "awsRegion=us-east-1",
+        "arn=arn:aws:iam::111122223333:user/alice0"
+      ],
+      "level": "L1_ARTIFACT",
+      "outcome": "COUSIN",
+      "remarkability": 0.35,
+      "resembles_anchor_id": "anchor-d77ad9d4b91c",
+      "resembles_kind": "attack_episode",
+      "shared_shape_features": [
+        "class_present=other"
+      ],
+      "shared_vocabulary_features": [],
+      "span_seconds": 0.0,
+      "unit_id": "u-35893a1122c5ce",
+      "what_could_not_be_seen": []
+    },
+    {
+      "artifact_ids": [
+        "a00001"
+      ],
+      "axis_of_divergence": "vocabulary",
+      "confidence": 0.25,
+      "diverging_shape_features": [
+        "class_bigram=other>other"
+      ],
+      "diverging_vocabulary_features": [
+        "1",
+        "13",
+        "arn=arn:aws:iam::111122223333:user/alice1",
+        "awsRegion=us-east-1",
+        "blend-cloudtrail"
+      ],
+      "entities": [
+        "awsRegion=us-east-1",
+        "arn=arn:aws:iam::111122223333:user/alice1"
+      ],
+      "level": "L1_ARTIFACT",
+      "outcome": "COUSIN",
+      "remarkability": 0.35,
+      "resembles_anchor_id": "anchor-d77ad9d4b91c",
+      "resembles_kind": "attack_episode",
+      "shared_shape_features": [
+        "class_present=other"
+      ],
+      "shared_vocabulary_features": [],
+      "span_seconds": 0.0,
+      "unit_id": "u-cc4ddd5d26a654",
+      "what_could_not_be_seen": []
+    },
+    {
+      "artifact_ids": [
+        "a00002"
+      ],
+      "axis_of_divergence": "vocabulary",
+      "confidence": 0.25,
+      "diverging_shape_features": [
+        "class_bigram=other>other"
+      ],
+      "diverging_vocabulary_features": [
+        "1",
+        "13",
+        "arn=arn:aws:iam::111122223333:user/alice2",
+        "awsRegion=us-east-1",
+        "blend-cloudtrail"
+      ],
+      "entities": [
+        "awsRegion=us-east-1",
+        "arn=arn:aws:iam::111122223333:user/alice2"
+      ],
+      "level": "L1_ARTIFACT",
+      "outcome": "COUSIN",
+      "remarkability": 0.35,
+      "resembles_anchor_id": "anchor-d77ad9d4b91c",
+      "resembles_kind": "attack_episode",
+      "shared_shape_features": [
+        "class_present=other"
+      ],
+      "shared_vocabulary_features": [],
+      "span_seconds": 0.0,
+      "unit_id": "u-8e1cd21d05c6fd",
+      "what_could_not_be_seen": []
+    },
+    {
+      "artifact_ids": [
+        "a00003"
+      ],
+      "axis_of_divergence": "vocabulary",
+      "confidence": 0.25,
+      "diverging_shape_features": [
+        "class_bigram=other>other"
+      ],
+      "diverging_vocabulary_features": [
+        "1",
+        "13",
+        "arn=arn:aws:iam::111122223333:user/alice3",
+        "awsRegion=us-east-1",
+        "blend-cloudtrail"
+      ],
+      "entities": [
+        "awsRegion=us-east-1",
+        "arn=arn:aws:iam::111122223333:user/alice3"
+      ],
+      "level": "L1_ARTIFACT",
+      "outcome": "COUSIN",
+      "remarkability": 0.35,
+      "resembles_anchor_id": "anchor-d77ad9d4b91c",
+      "resembles_kind": "attack_episode",
+      "shared_shape_features": [
+        "class_present=other"
+      ],
+      "shared_vocabulary_features": [],
+      "span_seconds": 0.0,
+      "unit_id": "u-f5998992cc5417",
+      "what_could_not_be_seen": []
+    },
+    {
+      "artifact_ids": [
+        "a00004"
+      ],
+      "axis_of_divergence": "vocabulary",
+      "confidence": 0.25,
+      "diverging_shape_features": [
+        "class_bigram=other>other"
+      ],
+      "diverging_vocabulary_features": [
+        "1",
+        "13",
+        "arn=arn:aws:iam::111122223333:user/alice4",
+        "awsRegion=us-east-1",
+        "blend-cloudtrail"
+      ],
+      "entities": [
+        "awsRegion=us-east-1",
+        "arn=arn:aws:iam::111122223333:user/alice4"
+      ],
+      "level": "L1_ARTIFACT",
+      "outcome": "COUSIN",
+      "remarkability": 0.35,
+      "resembles_anchor_id": "anchor-d77ad9d4b91c",
+      "resembles_kind": "attack_episode",
+      "shared_shape_features": [
+        "class_present=other"
+      ],
+      "shared_vocabulary_features": [],
+      "span_seconds": 0.0,
+      "unit_id": "u-bfb68386268660",
+      "what_could_not_be_seen": []
+    }
+  ],
+  "schema": "BULLY_UNIVERSAL_INTAKE_RUN_M6_V1",
+  "schemas_present": [
+    "cloudtrail",
+    "firewall_syslog",
+    "osquery",
+    "sysmon"
+  ],
+  "sealed_count": 0,
+  "unconnected_artifact": {
+    "cause": "sparse_source_or_no_shared_key",
+    "total_artifact_count": 251,
+    "unconnected_artifact_count": 0,
+    "unconnected_artifact_rate": 0.0
+  }
+}
