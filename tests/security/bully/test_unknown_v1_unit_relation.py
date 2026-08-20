@@ -8,7 +8,7 @@ from portal.modules.security.core.bully import unit_relation as ur
 
 
 def _unit_from_chain(
-    verbs: list[str], entity_value: str, base_time: float = 0.0
+    verbs: list[str], entity_value: str, base_time: float = 1_700_000_000.0
 ) -> ag.GradeableUnit:
     records = [
         {"eventName": v, "user": entity_value, "eventTime": base_time + i * 40.0}

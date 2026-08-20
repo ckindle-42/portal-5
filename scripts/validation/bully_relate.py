@@ -495,7 +495,10 @@ def check_uncertainty_varies_within_source() -> tuple[str, str, list[dict]]:
 def _unit_from_verbs(verbs: list[str], entity: str) -> object:
     from portal.modules.security.core.bully.artifact_graph import build_graph, enumerate_units
 
-    records = [{"eventName": v, "user": entity, "eventTime": i * 40.0} for i, v in enumerate(verbs)]
+    records = [
+        {"eventName": v, "user": entity, "eventTime": 1_700_000_000.0 + i * 40.0}
+        for i, v in enumerate(verbs)
+    ]
     graph = build_graph(records)
     return next(u for u in enumerate_units(graph) if u.level == "L4_WINDOW")
 
@@ -638,7 +641,11 @@ def check_insufficient_view_and_novel_are_distinct() -> tuple[str, str, list[dic
 
     model = bl.NormalBaseline(environment_id="ci")
     benign_records = [
-        {"eventName": "ListBuckets", "user": f"u{i}", "eventTime": float(i * 37)}
+        {
+            "eventName": "ListBuckets",
+            "user": f"u{i % 20}",
+            "eventTime": 1_700_000_000.0 + float(i * 37),
+        }
         for i in range(200)
     ]
     benign_graph = build_graph(benign_records)

@@ -12,7 +12,8 @@ _VERBS = ["AssumeRole", "ListBuckets", "AttachUserPolicy"]
 
 def _unit(entity: str) -> ag.GradeableUnit:
     records = [
-        {"eventName": v, "user": entity, "eventTime": i * 40.0} for i, v in enumerate(_VERBS)
+        {"eventName": v, "user": entity, "eventTime": 1_700_000_000.0 + i * 40.0}
+        for i, v in enumerate(_VERBS)
     ]
     graph = ag.build_graph(records)
     return next(u for u in ag.enumerate_units(graph) if u.level == "L4_WINDOW")
@@ -52,7 +53,7 @@ def test_a_malicious_cousin_is_never_suppressed_by_a_benign_writeback():
     # A materially different chain -- not the same shape/vocabulary as the
     # benign-closed unit -- must not be suppressed by it.
     different_records = [
-        {"eventName": v, "user": "attacker", "eventTime": i * 40.0}
+        {"eventName": v, "user": "attacker", "eventTime": 1_700_000_000.0 + i * 40.0}
         for i, v in enumerate(["Delete", "Remove", "Terminate", "Encrypt", "Exfiltrate"])
     ]
     graph = ag.build_graph(different_records)

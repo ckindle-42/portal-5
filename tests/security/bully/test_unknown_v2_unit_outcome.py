@@ -11,7 +11,10 @@ _VERBS = ["AssumeRole", "ListBuckets", "AttachUserPolicy"]
 
 
 def _unit(verbs: list[str], entity: str) -> ag.GradeableUnit:
-    records = [{"eventName": v, "user": entity, "eventTime": i * 40.0} for i, v in enumerate(verbs)]
+    records = [
+        {"eventName": v, "user": entity, "eventTime": 1_700_000_000.0 + i * 40.0}
+        for i, v in enumerate(verbs)
+    ]
     graph = ag.build_graph(records)
     level = "L1_ARTIFACT" if len(records) < 2 else "L4_WINDOW"
     return next(u for u in ag.enumerate_units(graph) if u.level == level)

@@ -43,9 +43,19 @@ def test_make_anchor_rejects_unknown_malice_value():
 
 
 def test_derive_recurring_benign_patterns_keeps_only_recurring_shapes():
+    # Users recur (2 identities) rather than being unique per record: a
+    # near-unique-per-record field is a record id under field-role inference
+    # (E.1/E.2), not a pivotable entity -- correctly, since real benign
+    # corpora recur by identity, which is exactly the premise this test
+    # exists to check.
     records = [
-        {"eventName": "ListBuckets", "user": f"u{i}", "eventTime": float(i)} for i in range(5)
-    ] + [{"eventName": "AssumeRole", "user": "one-off", "eventTime": 100.0}]
+        {
+            "eventName": "ListBuckets",
+            "user": f"u{i % 2}",
+            "eventTime": 1_700_000_000.0 + float(i),
+        }
+        for i in range(5)
+    ] + [{"eventName": "AssumeRole", "user": "one-off", "eventTime": 1_700_000_100.0}]
     patterns = anchors.derive_recurring_benign_patterns(records, min_recurrence=3)
     assert patterns
     assert all(p["recurrence_count"] >= 3 for p in patterns)

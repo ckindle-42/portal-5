@@ -8,7 +8,9 @@ from portal.modules.security.core.bully import artifact_graph as ag
 
 
 def test_deterministic_classifier_is_the_default():
-    graph = ag.build_graph([{"eventName": "AssumeRole", "user": "u1", "eventTime": 1.0}])
+    graph = ag.build_graph(
+        [{"eventName": "AssumeRole", "user": "u1", "eventTime": 1_700_000_000.0}]
+    )
     artifact = next(iter(graph.artifacts.values()))
     assert artifact.action_class == "auth"
 
@@ -37,7 +39,7 @@ class _StubClassifier:
 def test_injected_classifier_is_used_instead_of_the_default():
     stub = _StubClassifier(mapping={"Add-LocalGroupMember": "escalate"})
     graph = ag.build_graph(
-        [{"eventName": "Add-LocalGroupMember", "host": "h1", "eventTime": 1.0}],
+        [{"eventName": "Add-LocalGroupMember", "host": "h1", "eventTime": 1_700_000_000.0}],
         classifier=stub,
     )
     artifact = next(iter(graph.artifacts.values()))
@@ -56,10 +58,12 @@ def test_injected_classifier_bridges_cross_vocabulary_shape_matching():
         }
     )
     aws_graph = ag.build_graph(
-        [{"eventName": "AttachUserPolicy", "user": "u1", "eventTime": 1.0}], classifier=bridge
+        [{"eventName": "AttachUserPolicy", "user": "u1", "eventTime": 1_700_000_000.0}],
+        classifier=bridge,
     )
     win_graph = ag.build_graph(
-        [{"eventName": "Add-LocalGroupMember", "host": "h1", "eventTime": 1.0}], classifier=bridge
+        [{"eventName": "Add-LocalGroupMember", "host": "h1", "eventTime": 1_700_000_000.0}],
+        classifier=bridge,
     )
     aws_unit = next(u for u in ag.enumerate_units(aws_graph) if u.level == "L1_ARTIFACT")
     win_unit = next(u for u in ag.enumerate_units(win_graph) if u.level == "L1_ARTIFACT")
