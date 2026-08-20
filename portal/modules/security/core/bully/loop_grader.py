@@ -35,6 +35,7 @@ records it via the existing `store.record_cousin` and `DecisionEvent` path.
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass
 from typing import Any
 
@@ -42,6 +43,7 @@ from . import (
     pyramid,  # sibling module in the same package
     series_cousin,
 )
+from .contracts import CousinAssessment, Decomposition
 
 ALGORITHM_VERSION = "loop-grader-v1"
 
@@ -81,6 +83,27 @@ class LoopGrade:
     anchor_id: str | None
     explanation: dict[str, Any]
 
+    @property
+    def nonsemantic_channels(self) -> int:
+        """Count of independent non-semantic evidence channels backing this
+        grade -- the loop's CousinAssessment requires >=2 for SIMILAR/NEW
+        (C5 CLAIM 4). Derived from the pyramid match evidence itemised in
+        `explanation` (behavioural/tool/ephemeral overlap, an aligned series
+        spine) plus the anchor identity itself, rather than a flat constant,
+        so a thin match cannot masquerade as well-evidenced."""
+        match = self.explanation.get("match") or {}
+        series = self.explanation.get("series") or {}
+        channels = 0
+        if match.get("behavior_overlap") or series.get("aligned_spine"):
+            channels += 1
+        if match.get("tool_overlap"):
+            channels += 1
+        if match.get("ephemeral_overlap"):
+            channels += 1
+        if self.anchor_id:
+            channels += 1
+        return max(channels, 1 if self.relationship != "ANOMALOUS_UNCLASSIFIED" else 0)
+
     def to_assessment_kwargs(self) -> dict[str, Any]:
         """Shape for `contracts.CousinAssessment(**kwargs)` -- the loop's DTO.
         Kept as a dict so this module carries no import-time dependency on the
@@ -88,6 +111,8 @@ class LoopGrade:
         return {
             "relationship": self.relationship,
             "defense_response": self.defense_response,
+            "composite": self.composite,
+            "nonsemantic_channels": self.nonsemantic_channels,
             "explanation": {
                 **self.explanation,
                 "composite": self.composite,
@@ -242,4 +267,79 @@ def grade_series_for_loop(
             "series": result.to_dict(),
             "reason": f"series_alignment:{result.relation.lower()}",
         },
+    )
+
+
+def _levelled_features_from_dicts(raw: list[dict[str, Any]] | None) -> list[pyramid.LeveledFeature]:
+    return [pyramid.LeveledFeature(**f) for f in (raw or [])]
+
+
+def _best_candidate(candidates) -> tuple[dict[str, Any] | None, float | None]:
+    """Pick the best candidate for grading: prefer a behaviour-spine match
+    (R.3's retrieval axis), then the closest semantic distance."""
+    pool = list(candidates.candidates)
+    spine_hits = [c for c in pool if c.get("from_behavior_spine")]
+    if spine_hits:
+        c = spine_hits[0]
+        return c["record"], c.get("semantic_distance")
+    with_distance = [c for c in pool if "semantic_distance" in c]
+    if with_distance:
+        c = min(with_distance, key=lambda c: c["semantic_distance"])
+        return c["record"], c["semantic_distance"]
+    if pool:
+        return pool[0]["record"], None
+    return None, None
+
+
+def build_cousin_assessment(signature, candidates, coverage) -> CousinAssessment:
+    """R.4: the orchestrator's grade path. Builds the full loop `CousinAssessment`
+    DTO from a pyramid-levelled `grade_for_loop` decision -- this is what
+    `orchestrator._analyzing` calls in place of `cousin_engine.grade`, with no
+    change to the downstream store/scoreboard/BIN/investigation/handoff path,
+    all of which already consume a `CousinAssessment`.
+    """
+    subject_features = _levelled_features_from_dicts(list(signature.levelled_features))
+    best_record, distance = _best_candidate(candidates)
+    anchor_features = (
+        _levelled_features_from_dicts(best_record.get("levelled_features")) if best_record else None
+    )
+    anchor_id = (
+        (best_record.get("record_id") or best_record.get("signature_id")) if best_record else None
+    )
+
+    grade = grade_for_loop(
+        subject_features,
+        anchor_id,
+        anchor_features,
+        distance=distance,
+        telemetry_healthy=coverage.telemetry_healthy,
+    )
+
+    reference_signature_id = None
+    if best_record:
+        reference_signature_id = best_record.get("signature_id") or best_record.get("record_id")
+
+    return CousinAssessment(
+        assessment_id=f"ca-{uuid.uuid4().hex[:12]}",
+        subject_signature_id=signature.signature_id,
+        reference_signature_id=reference_signature_id,
+        candidate_set_id=candidates.receipt_id,
+        decomposition=Decomposition(
+            behavior=grade.robustness,
+            telemetry=None,
+            semantic=(1.0 - distance) if distance is not None else None,
+            attack=None,
+            context=None,
+        ),
+        composite=grade.composite,
+        relationship=grade.relationship,
+        nonsemantic_channels=grade.nonsemantic_channels,
+        vetoes=[],
+        defense_response=grade.defense_response,
+        nearest_knowns=[(anchor_id, distance)] if anchor_id and distance is not None else [],
+        confidence=grade.robustness,
+        completeness=signature.completeness,
+        algorithm_version=ALGORITHM_VERSION,
+        thresholds_version=ALGORITHM_VERSION,
+        explanation=grade.to_assessment_kwargs()["explanation"],
     )
