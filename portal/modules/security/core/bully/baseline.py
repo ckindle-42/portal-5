@@ -13,12 +13,36 @@ never from the type library -- fitting from the anchors would just be
 that is precisely the wrong corpus for "is this unusual for this
 environment specifically."
 
+RC3 (TASK_BULLY_UNIVERSAL_INTAKE_AND_INJECT_V1, E.4) -- the M.3 run fit on
+L1/L2 units and scored L4 units. `_feature_tokens` used to emit
+`level={unit.level}` plus size/span/edge-kind buckets that L1/L2 units
+structurally cannot produce (a single artifact has no multi-edge mix; a
+bare pair has a narrow span range), so every scored L4 unit carried
+never-seen tokens and scored ~0.95 remarkable regardless of content --
+proven with this module's own code: fit N copies of a unit and score that
+identical unit, and the *only* configuration that should return ~0.0
+returned ~0.7 under the old tokens. That also means the M.3 conclusion that
+invictus's benign control failing (1.0) was because the environment is
+compromised was wrong -- perfectly clean data failed identically under a
+fit/score level mismatch. The fix: drop the `level=` token, and partition
+fitted statistics *by* `GradeableUnit.level` -- fit and score always
+compare within the same level's pool, structurally, never across levels.
+Scoring against a level nothing has been fitted for returns 0.0 honestly
+(consistent with the existing "empty baseline never remarkable" rule, M.2
+invariant #10) instead of a silent, content-independent 0.95. A caller that
+wants a combination judged against genuinely comparable data fits that
+level explicitly -- e.g. `individually_normal_case_surfaces` fits both its
+L1_ARTIFACT baseline (individual artifacts are routine) and an L4_WINDOW
+baseline of other, unrelated benign combinations, so the flagship
+combination is judged remarkable *relative to normal combinations*, not by
+an accidental level mismatch.
+
 Pure compute over injected `GradeableUnit`s. No I/O, no model calls (COLD).
 """
 
 from __future__ import annotations
 
-from collections import Counter
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -59,7 +83,6 @@ def _feature_tokens(unit: GradeableUnit) -> set[str]:
         tokens.add(f"span_bucket={_bucket(unit.span_seconds, _SPAN_BUCKET_EDGES)}")
     if unit.edge_kinds:
         tokens.add(f"edge_mix={'+'.join(sorted(unit.edge_kinds))}")
-    tokens.add(f"level={unit.level}")
     return tokens
 
 
@@ -68,38 +91,56 @@ class NormalBaseline:
     """A per-environment frequency model. `fit` observes units; its one job
     is `remarkability` -- how unusual a unit is for *this* environment. It
     is never used to classify a unit as a known type; that is the anchor
-    library's job (`anchors.py`, N.1)."""
+    library's job (`anchors.py`, N.1).
+
+    Statistics are partitioned by `GradeableUnit.level` (RC3, E.4):
+    size/span/edge-kind buckets are level-dependent by construction (a
+    single artifact has no multi-edge mix; a window has a wide span range),
+    so comparing across levels always produced never-seen tokens and an
+    inflated, content-independent remarkability regardless of what the
+    scored unit actually contains. `fit` may be called with units from
+    several levels (each call's batch is grouped internally); `remarkability`
+    always compares a unit against *its own level's* pool, never another
+    level's, so the level a unit is scored at can never itself manufacture
+    remarkability."""
 
     environment_id: str
-    _token_counts: Counter[str] = field(default_factory=Counter)
-    _fitted_units: int = 0
+    _token_counts: dict[str, Counter[str]] = field(default_factory=lambda: defaultdict(Counter))
+    _fitted_units: dict[str, int] = field(default_factory=lambda: defaultdict(int))
 
     def fit(self, units: list[GradeableUnit]) -> None:
         for unit in units:
-            self._fitted_units += 1
+            self._fitted_units[unit.level] += 1
             for token in _feature_tokens(unit):
-                self._token_counts[token] += 1
+                self._token_counts[unit.level][token] += 1
 
     @property
     def fitted_units(self) -> int:
-        return self._fitted_units
+        return sum(self._fitted_units.values())
 
-    def token_frequency(self, token: str) -> float:
-        if self._fitted_units == 0:
+    def fitted_units_at(self, level: str) -> int:
+        return self._fitted_units.get(level, 0)
+
+    def token_frequency(self, token: str, *, level: str) -> float:
+        fitted = self._fitted_units.get(level, 0)
+        if fitted == 0:
             return 0.0
-        return self._token_counts.get(token, 0) / self._fitted_units
+        return self._token_counts[level].get(token, 0) / fitted
 
     def remarkability(self, unit: GradeableUnit) -> float:
-        """1.0 minus the mean observed frequency of `unit`'s feature tokens.
-        A token never seen in fitting contributes maximal (1.0) rarity, so a
+        """1.0 minus the mean observed frequency of `unit`'s feature tokens,
+        computed against the pool fitted at `unit.level` only. A token never
+        seen in that level's fitting contributes maximal (1.0) rarity, so a
         genuinely novel combination scores near 1.0 against a populated
-        baseline, while a routine one -- built from tokens the environment
-        produces constantly -- scores near 0.0. An empty baseline (nothing
-        fitted yet) can never call anything remarkable: 0.0, not a crash and
-        not a false positive."""
-        if self._fitted_units == 0 or not (tokens := _feature_tokens(unit)):
+        same-level baseline, while a routine one -- built from tokens the
+        environment produces constantly at that level -- scores near 0.0.
+        A level with nothing fitted yet can never call anything remarkable:
+        0.0, not a crash, not a false positive, and never a level-mismatch
+        floor (RC3)."""
+        fitted = self._fitted_units.get(unit.level, 0)
+        if fitted == 0 or not (tokens := _feature_tokens(unit)):
             return 0.0
-        rarities = [1.0 - self.token_frequency(t) for t in tokens]
+        rarities = [1.0 - self.token_frequency(t, level=unit.level) for t in tokens]
         return sum(rarities) / len(rarities)
 
     def is_remarkable(
@@ -110,6 +151,7 @@ class NormalBaseline:
     def to_dict(self) -> dict[str, Any]:
         return {
             "environment_id": self.environment_id,
-            "fitted_units": self._fitted_units,
-            "distinct_tokens": len(self._token_counts),
+            "fitted_units": self.fitted_units,
+            "fitted_units_by_level": dict(self._fitted_units),
+            "distinct_tokens": sum(len(c) for c in self._token_counts.values()),
         }

@@ -79,6 +79,9 @@ def test_individually_normal_combination_surfaces_as_a_concern():
         "PutBucketPolicy",
         "DeleteBucket",
         "PutObject",
+        "AssumeRole",
+        "AttachUserPolicy",
+        "DeleteBucket",
     ]
 
     def _l1(verbs: list[str], entity: str):
@@ -86,14 +89,33 @@ def test_individually_normal_combination_surfaces_as_a_concern():
         graph = ag.build_graph(records)
         return next(u for u in ag.enumerate_units(graph) if u.level == "L1_ARTIFACT")
 
+    def _l4(verbs: list[str], entity: str):
+        records = [
+            {"eventName": v, "user": entity, "eventTime": 1_700_000_000.0 + i * 40.0}
+            for i, v in enumerate(verbs)
+        ]
+        graph = ag.build_graph(records)
+        return next(u for u in ag.enumerate_units(graph) if u.level == "L4_WINDOW")
+
     # Each verb individually is common in this environment -- fit L1 units
     # for every one of them, across many entities, so no single artifact is
-    # remarkable on its own. Never fit the 6-step *combination* itself.
+    # remarkable on its own.
     fit_units = []
-    for verb in chain_verbs:
+    for verb in set(chain_verbs):
         for i in range(20):
             fit_units.append(_l1([verb], f"benign-{verb}-{i}"))
     baseline.fit(fit_units)
+
+    # RC3/E.4: fit and score compare within the same level. The combination
+    # check needs its own L4_WINDOW baseline -- routine, all-`enumerate`
+    # combinations from many actors -- so the malicious chain is judged
+    # remarkable *relative to normal combinations*, never by an accidental
+    # level mismatch.
+    benign_cycle = ["ListBuckets", "GetObject", "DescribeInstances"]
+    benign_combo = (benign_cycle * ((len(chain_verbs) // len(benign_cycle)) + 1))[
+        : len(chain_verbs)
+    ]
+    baseline.fit([_l4(benign_combo, f"benign-combo-{i}") for i in range(50)])
 
     result = ul.individually_normal_case_surfaces(chain_verbs, library=library, baseline=baseline)
     assert result["passes"], result

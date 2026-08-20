@@ -24,6 +24,21 @@ def _empty_baseline() -> bl.NormalBaseline:
     return bl.NormalBaseline(environment_id="test")
 
 
+_BENIGN_CYCLE = ["ListBuckets", "GetObject", "DescribeInstances"]
+
+
+def _benign_l4_units(count: int, *, steps: int) -> list[ag.GradeableUnit]:
+    """Routine `steps`-step L4_WINDOW combinations -- same size/span shape
+    as the probe being scored, all-`enumerate` content -- so a baseline can
+    be fit at the *same level* a novel L4_WINDOW combination is later
+    scored at (RC3, E.4). Matching size/span means remarkability comes from
+    genuine content divergence (the `auth`/`escalate` bigrams the benign
+    cycle never produces), not an incidental size mismatch that would
+    itself be a smaller instance of the RC3 defect."""
+    verbs = (_BENIGN_CYCLE * ((steps // len(_BENIGN_CYCLE)) + 1))[:steps]
+    return [_unit(verbs, f"benign-{i}") for i in range(count)]
+
+
 def test_exact_match_to_detection_coverage_is_known_instance_floor():
     library = anc.AnchorLibrary()
     library.load_detection_coverage(source_id="det", detection_id="det-1", techniques=("T1078",))
@@ -80,9 +95,21 @@ def test_no_match_and_unremarkable_is_normal_and_silent():
 
 
 def test_no_match_but_remarkable_is_novel_a_concern():
+    attacker_verbs = [
+        "AssumeRole",
+        "GetSessionToken",
+        "AttachUserPolicy",
+        "PutBucketPolicy",
+        "DeleteBucket",
+        "PutObject",
+        "AssumeRole",
+        "AttachUserPolicy",
+        "DeleteBucket",
+    ]
     model = bl.NormalBaseline(environment_id="env")
     model.fit([_unit(["ListBuckets"], f"u{i}") for i in range(50)])
-    unit = _unit(_VERBS, "attacker")
+    model.fit(_benign_l4_units(50, steps=len(attacker_verbs)))
+    unit = _unit(attacker_verbs, "attacker")
     outcome = uo.resolve_unit_outcome(unit, [], model)
     assert outcome.outcome == "NOVEL"
     assert outcome.brief is not None
@@ -115,9 +142,21 @@ def test_seeded_known_instance_never_ranks_above_cousin_or_novel():
     known_outcome = uo.resolve_unit_outcome(known_unit, list(library.all()), _empty_baseline())
     assert known_outcome.outcome == "KNOWN_INSTANCE"
 
+    novel_verbs = [
+        "AssumeRole",
+        "GetSessionToken",
+        "AttachUserPolicy",
+        "PutBucketPolicy",
+        "DeleteBucket",
+        "PutObject",
+        "AssumeRole",
+        "AttachUserPolicy",
+        "DeleteBucket",
+    ]
     model = bl.NormalBaseline(environment_id="env")
     model.fit([_unit(["ListBuckets"], f"u{i}") for i in range(50)])
-    novel_unit = _unit(["AssumeRole", "GetSessionToken", "PutBucketPolicy"], "novel-attacker")
+    model.fit(_benign_l4_units(50, steps=len(novel_verbs)))
+    novel_unit = _unit(novel_verbs, "novel-attacker")
     novel_outcome = uo.resolve_unit_outcome(novel_unit, [], model)
     assert novel_outcome.outcome == "NOVEL"
 

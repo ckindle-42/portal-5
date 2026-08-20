@@ -33,10 +33,31 @@ def test_routine_unit_scores_low_remarkability_after_fitting():
     assert not model.is_remarkable(probe)
 
 
+def _benign_combinations(count: int) -> list[ag.GradeableUnit]:
+    """Routine multi-step L4_WINDOW combinations (a benign browse pattern
+    repeated by many different actors) -- fitted so a genuinely novel
+    combination can be judged remarkable *relative to normal combinations*,
+    not by an accidental fit/score level mismatch (RC3, E.4)."""
+    units: list[ag.GradeableUnit] = []
+    for i in range(count):
+        records = [
+            {
+                "eventName": v,
+                "user": f"benign-{i % 15}",
+                "eventTime": 1_700_050_000.0 + i * 1000.0 + step * 40.0,
+            }
+            for step, v in enumerate(["ListBuckets", "GetObject"])
+        ]
+        graph = ag.build_graph(records)
+        units.append(next(u for u in ag.enumerate_units(graph) if u.level == "L4_WINDOW"))
+    return units
+
+
 def test_never_before_seen_shape_scores_high_remarkability():
     fit_units = _routine_units(200)
     model = bl.NormalBaseline(environment_id="env-1")
     model.fit(fit_units)
+    model.fit(_benign_combinations(60))
 
     chain = [
         {"eventName": v, "user": "attacker", "eventTime": 1_700_100_000.0 + i * 40.0}

@@ -207,7 +207,16 @@ def individually_normal_case_surfaces(
     """The flagship claim: build a chain from `artifact_verbs`, confirm
     every one of its L1_ARTIFACT units is individually `NORMAL`, then
     confirm the L4_WINDOW combination still raises a concern. `False` here
-    is the single most important failure this instrument can report."""
+    is the single most important failure this instrument can report.
+
+    `baseline` must carry fitted statistics at *both* levels (RC3, E.4):
+    L1_ARTIFACT so the individual-normalcy check means something, and
+    L4_WINDOW -- from other, unrelated benign combinations -- so the
+    flagship combination is judged remarkable relative to genuinely normal
+    combinations, never by an accidental level mismatch. A baseline with no
+    L4_WINDOW data fitted will honestly score the combination 0.0 remarkable
+    (never a silent floor), which correctly fails this claim rather than
+    faking success."""
     records = [
         {"eventName": v, "user": entity, "eventTime": _EPOCH_BASE + i * 40.0}
         for i, v in enumerate(artifact_verbs)
