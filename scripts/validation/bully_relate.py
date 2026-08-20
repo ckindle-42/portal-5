@@ -1796,3 +1796,283 @@ def check_analyst_loop_handoff_bin_off_path() -> tuple[str, str, list[dict]]:
     if offenders:
         return "FAIL", "; ".join(offenders), []
     return "PASS", "", []
+
+
+@register(
+    "bully_truth_x6_per_row_yields_invalid",
+    "EH. X.6's per_row yields INVALID from truth_acceptance (permanent regression, Y.1)",
+    order=135,
+)
+def check_truth_x6_per_row_yields_invalid() -> tuple[str, str, list[dict]]:
+    import json
+    from pathlib import Path
+
+    from portal.modules.security.core.bully import truth_acceptance as ta
+
+    path = Path(__file__).resolve().parents[2] / "docs" / "BULLY_ANALYST_LOOP_RUN_X6_V1.json"
+    if not path.is_file():
+        return "FAIL", "BULLY_ANALYST_LOOP_RUN_X6_V1.json does not exist", []
+    report = json.loads(path.read_text())
+    rows = [r for r in report["per_row"] if r["cycle"] == 1]
+    det = ta.detection_report(rows)
+    if det.verdict != "INVALID" or det.n_implants_graded != 0:
+        return (
+            "FAIL",
+            f"X.6 per_row must yield INVALID with 0 implants graded, got "
+            f"verdict={det.verdict} n_implants_graded={det.n_implants_graded}",
+            [],
+        )
+    return "PASS", "", []
+
+
+@register(
+    "bully_truth_acceptance_requires_sealed_truth_join",
+    "EI. no acceptance criterion is satisfiable without a sealed-truth join (Y.1)",
+    order=136,
+)
+def check_truth_acceptance_requires_sealed_truth_join() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import truth_acceptance as ta
+
+    # Seeded violation: a run whose grader's own labels split into two
+    # buckets, but sealed truth shows every graded entity is background
+    # (X.6's exact shape) -- if this passed, acceptance would be vacuous.
+    rows = [
+        {"implant_class_ground_truth": "background", "relationship": "SAME"} for _ in range(150)
+    ] + [
+        {"implant_class_ground_truth": "background", "relationship": "SIMILAR"} for _ in range(150)
+    ]
+    det = ta.detection_report(rows)
+    if det.verdict != "INVALID":
+        return (
+            "FAIL",
+            "a background-only population with a two-bucket label split must be INVALID",
+            [],
+        )
+    return "PASS", "", []
+
+
+@register(
+    "bully_truth_background_only_population_invalid",
+    "EJ. a background-only graded population is INVALID (Y.1)",
+    order=137,
+)
+def check_truth_background_only_population_invalid() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import truth_acceptance as ta
+
+    rows = [{"implant_class_ground_truth": "background", "relationship": "NONE"} for _ in range(20)]
+    det = ta.detection_report(rows)
+    if det.verdict != "INVALID":
+        return "FAIL", "zero-implant graded population did not report INVALID", []
+    good_rows = rows + [
+        {"implant_class_ground_truth": "known_bad", "relationship": "SAME"} for _ in range(3)
+    ]
+    det2 = ta.detection_report(good_rows)
+    if det2.verdict == "INVALID":
+        return "FAIL", "a population WITH implants was wrongly reported INVALID", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_truth_selection_report_published_when_implants_shipped",
+    "EK. selection_report is published whenever implants were shipped (Y.3)",
+    order=138,
+)
+def check_truth_selection_report_published_when_implants_shipped() -> tuple[str, str, list[dict]]:
+    import json
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "docs" / "BULLY_TRUTH_ACCEPTANCE_RUN_Y6_V1.json"
+    if not path.is_file():
+        return "FAIL", "BULLY_TRUTH_ACCEPTANCE_RUN_Y6_V1.json does not exist", []
+    report = json.loads(path.read_text())
+    if report.get("plane") == "BLOCKED":
+        if not report.get("reason"):
+            return "FAIL", "Y6 run is BLOCKED with no reason", []
+        return "PASS", "", []
+    sel = report.get("selection_report")
+    if not isinstance(sel, dict):
+        return "FAIL", "Y6 run publishes no selection_report", []
+    required = {
+        "n_implants_shipped",
+        "n_implant_entities_available",
+        "n_implant_entities_selected",
+        "selection_recall",
+        "verdict",
+    }
+    missing = required - set(sel)
+    if missing:
+        return "FAIL", f"selection_report missing fields: {sorted(missing)}", []
+    if sel["n_implants_shipped"] and sel["verdict"] == "FAIL":
+        return (
+            "FAIL",
+            "implants were shipped but selection_report FAILed -- implants excluded",
+            [],
+        )
+    return "PASS", "", []
+
+
+@register(
+    "bully_truth_scripted_verdict_contradicting_truth_writes_no_anchor",
+    "EL. a scripted verdict contradicting truth writes no anchor (Y.4)",
+    order=139,
+)
+def check_truth_scripted_verdict_contradicting_truth_writes_no_anchor() -> tuple[
+    str, str, list[dict]
+]:
+    from portal.modules.security.core.bully import analyst_loop as al
+    from portal.modules.security.core.bully import signatures as sig_mod
+    from portal.modules.security.core.bully.anchors import AnchorLibrary
+
+    lib = AnchorLibrary()
+    signature = sig_mod.build_signature(
+        {"target_host": "ci-host"},
+        {
+            "action_sequence": ["auth", "enumerate"],
+            "telemetry_shape": {"source_class": "ci"},
+        },
+    )
+    concern = al.raise_concern(
+        assessment_id="as-ci",
+        entity_id="ent-ci",
+        relationship="SAME",
+        notify=lambda _p: None,
+    )
+    closed, anchor = al.record_verdict(
+        concern,
+        al.CONFIRMED,
+        anchor_library=lib,
+        signature=signature,
+        scripted=True,
+        ground_truth="background",
+    )
+    if anchor is not None or len(lib) != 0:
+        return "FAIL", "scripted CONFIRMED on background wrote an anchor", []
+    if not closed.verdict_write_refused_reason:
+        return "FAIL", "refused write did not record a reason on the closed concern", []
+    # Same verdict from a real analyst (scripted=False, default) must still write.
+    closed2, anchor2 = al.record_verdict(
+        concern, al.CONFIRMED, anchor_library=lib, signature=signature, ground_truth="background"
+    )
+    if anchor2 is None:
+        return "FAIL", "a REAL analyst verdict was wrongly blocked by the truth guard", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_truth_alignment_below_coverage_never_grades_exact_or_cousin",
+    "EM. an alignment below MIN_OBSERVED_COVERAGE never grades EXACT/COUSIN (Y.2)",
+    order=140,
+)
+def check_truth_alignment_below_coverage_never_grades_exact_or_cousin() -> tuple[
+    str, str, list[dict]
+]:
+    from portal.modules.security.core.bully.series_cousin import (
+        BehaviouralSeries,
+        decide_cousin,
+    )
+
+    known = BehaviouralSeries(
+        series_id="known-1", spine=("auth", "execute", "execute"), n_logs=3, technique="T1078"
+    )
+    # 71%-noise timeline: the known spine appears in order but diluted across
+    # a much longer observed series -- must not clear EXACT/COUSIN.
+    noisy = BehaviouralSeries(
+        series_id="obs-noisy",
+        spine=(
+            "collect",
+            "persist",
+            "collect",
+            "persist",
+            "auth",
+            "collect",
+            "persist",
+            "execute",
+            "collect",
+            "persist",
+            "execute",
+            "collect",
+            "persist",
+            "collect",
+        ),
+        n_logs=14,
+    )
+    result = decide_cousin(noisy, [known])
+    if result.relation in ("EXACT", "COUSIN"):
+        return "FAIL", f"noisy-containment timeline graded {result.relation}, must not", []
+    # Reverting the coverage gate must reproduce the bug (proves the gate is load-bearing).
+    reverted = decide_cousin(noisy, [known], min_observed_coverage=0.0, min_distinct_ratio=0.0)
+    if reverted.relation not in ("EXACT", "COUSIN"):
+        return (
+            "FAIL",
+            "reverting MIN_OBSERVED_COVERAGE did not reproduce the noisy false match "
+            "-- the gate may not be load-bearing",
+            [],
+        )
+    return "PASS", "", []
+
+
+@register(
+    "bully_truth_classifier_distribution_and_entropy_published",
+    "EN. classifier output distribution and entropy are published every run (Y.5)",
+    order=141,
+)
+def check_truth_classifier_distribution_and_entropy_published() -> tuple[str, str, list[dict]]:
+    import json
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "docs" / "BULLY_TRUTH_ACCEPTANCE_RUN_Y6_V1.json"
+    if not path.is_file():
+        return "FAIL", "BULLY_TRUTH_ACCEPTANCE_RUN_Y6_V1.json does not exist", []
+    report = json.loads(path.read_text())
+    if report.get("plane") == "BLOCKED":
+        if not report.get("reason"):
+            return "FAIL", "Y6 run is BLOCKED with no reason", []
+        return "PASS", "", []
+    cov = report.get("classifier_coverage")
+    if not isinstance(cov, dict):
+        return "FAIL", "Y6 run publishes no classifier_coverage", []
+    required = {
+        "real_verb_output_distribution",
+        "real_verb_class_entropy_bits",
+        "real_verb_degenerate",
+    }
+    missing = required - set(cov)
+    if missing:
+        return "FAIL", f"classifier_coverage missing fields: {sorted(missing)}", []
+    if cov["real_verb_output_distribution"] is None:
+        return "FAIL", "real_verb_output_distribution was not populated", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_truth_json_raw_parsed_not_dropped",
+    "EO. JSON-shaped _raw captures the real payload, never silently dropped (D5, Y.6)",
+    order=142,
+)
+def check_truth_json_raw_parsed_not_dropped() -> tuple[str, str, list[dict]]:
+    import sys
+    from pathlib import Path
+
+    scripts_dir = Path(__file__).resolve().parents[2] / "scripts"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+    import bully_loop_milestone_run as r6
+
+    rec = {"_raw": '{"actor.id": "adv8370", "detail": {"src_id": "adv5738"}}'}
+    parsed = r6._parse_raw_kv(rec)
+    if parsed.get("actor.id") != "adv8370" or parsed.get("src_id") != "adv5738":
+        return (
+            "FAIL",
+            "JSON-shaped _raw was not recovered -- the payload would be silently "
+            "dropped, as it was for X.6/first Y.6 attempt (D5)",
+            [],
+        )
+    # Seeded violation: the old regex alone cannot parse JSON at all.
+    if list(r6._RAW_KV.finditer(rec["_raw"])):
+        return "FAIL", "the key=value regex unexpectedly matched JSON text", []
+    # Real KV-formatted raw text (actual Windows/Linux logs) must still work.
+    kv_rec = {"_raw": "EventCode=4624 Account=jsmith"}
+    kv_parsed = r6._parse_raw_kv(kv_rec)
+    if kv_parsed.get("EventCode") != "4624":
+        return "FAIL", "real key=value _raw text regressed", []
+    return "PASS", "", []
