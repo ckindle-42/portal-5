@@ -47,14 +47,24 @@ class NotificationDispatcher:
         logger.info("Notification channel registered: %s", channel.name)
 
     def _schedule(self, coro) -> None:
-        """Schedule a coroutine — prefer background task, fall back to sync execution."""
-        try:
-            asyncio.ensure_future(coro)
-        except RuntimeError:
-            # No running event loop (e.g., in tests) — run synchronously
-            import asyncio as _asyncio
+        """Schedule a coroutine — prefer background task, fall back to sync execution.
 
-            _asyncio.run(coro)
+        `asyncio.ensure_future(coro)` does NOT raise when there is no running
+        loop — it silently creates a fresh, never-run event loop and parks
+        the coroutine on it as a pending task that is dropped when the
+        interpreter exits, so nothing is ever actually sent. This bit a real
+        run: a synchronous CLI script (no `asyncio.run()` wrapper anywhere)
+        called this dozens of times, every call "succeeded", and zero
+        notifications were delivered. `get_running_loop()` is the correct
+        check — it raises RuntimeError precisely when there is no running
+        loop, which is the only case that needs the synchronous fallback.
+        """
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(coro)
+        else:
+            asyncio.ensure_future(coro)
 
     async def dispatch(self, event: AlertEvent | SummaryEvent) -> None:
         """Fan out an event to all registered channels, fire-and-forget."""
