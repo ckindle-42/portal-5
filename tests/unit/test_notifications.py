@@ -251,6 +251,35 @@ class TestNotificationDispatcher:
             disp.add_channel(mock_channel)
             assert len(disp._channels) == 0
 
+    def test_schedule_actually_runs_the_coroutine_with_no_running_loop(self):
+        """Regression: `asyncio.ensure_future(coro)` does NOT raise when there
+        is no running event loop -- it silently parks the coroutine on a
+        fresh, never-run loop, so it never executes and the interpreter can
+        exit having "scheduled" a notification that was never sent. A
+        synchronous CLI script (no `asyncio.run()` anywhere) hit exactly
+        this: every dispatch call "succeeded" and zero notifications were
+        ever delivered. `_schedule` must actually run the coroutine to
+        completion when called outside a running loop."""
+        with patch.dict(os.environ, {"NOTIFICATIONS_ENABLED": "true"}):
+            import importlib
+
+            import portal.platform.inference.notifications.dispatcher as disp_mod
+
+            importlib.reload(disp_mod)
+            from portal.platform.inference.notifications.dispatcher import (
+                NotificationDispatcher,
+            )
+
+            disp = NotificationDispatcher()
+            ran = []
+
+            async def coro():
+                ran.append(True)
+
+            # No event loop is running here -- this is the synchronous-script case.
+            disp._schedule(coro())
+            assert ran == [True], "the coroutine was scheduled but never actually run"
+
     def test_threshold_tracking_consecutive_failures(self):
         with patch.dict(
             os.environ, {"NOTIFICATIONS_ENABLED": "true", "ALERT_BACKEND_DOWN_THRESHOLD": "3"}
