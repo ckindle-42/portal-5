@@ -19,9 +19,14 @@ def _rungs() -> list[ul.Rung]:
         # (AttachUserPolicy) -- a one-step *content* change that leaves the
         # class shape untouched, smaller than L2's full reorder.
         substitution_verb="AddRole",
-        # Both classify to [auth, enumerate, escalate] under the
-        # deterministic table, disjoint literal vocabulary from the parent.
-        cross_vocabulary_verbs=["Authenticate", "Enumerate", "Grant"],
+        # Real Windows-native verbs (U.3', RC4) -- not the class names
+        # themselves. "Logon"->auth and "whoami"->enumerate match the
+        # parent's class sequence; "Invoke-Command"->execute does NOT match
+        # AttachUserPolicy's "escalate" -- a genuine classifier mismatch
+        # (the "Add-LocalGroupMember" gap this seam exists for), not a
+        # cherry-picked perfect mapping. The resulting nonzero shape
+        # distance is real degradation, not smoothed away.
+        cross_vocabulary_verbs=["Logon", "whoami", "Invoke-Command"],
         unrelated_verbs=["SELECT", "INSERT", "COMMIT"],
     )
 
