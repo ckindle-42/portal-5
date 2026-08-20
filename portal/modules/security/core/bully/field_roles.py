@@ -62,6 +62,7 @@ _ENTITY_MIN_DISTINCT_RATIO = 0.02
 # per event) is an identifier OF the record, not a thing you pivot on.
 _ENTITY_MAX_DISTINCT_RATIO = 0.80
 _CONSTANT_MAX_DISTINCT = 1
+_CONSTANT_MIN_COVERAGE = 0.5
 
 _IPV4 = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
 _GUIDISH = re.compile(r"^[{(]?[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-", re.ASCII)
@@ -73,6 +74,33 @@ _HEX_BLOB = re.compile(r"^[0-9a-fA-F]{32,}$")
 # identifiers. `AssumeRole`, `added`, `EventID=3` are not.
 _IDENT_DIGITRUN = re.compile(r"[A-Za-z].*\d|\d.*[A-Za-z]")
 _PATHISH = re.compile(r"[/\\]")
+
+# Below this many records, per-field cardinality statistics are too thin to
+# trust alone (a 3-verb chain has every verb "unique" by chance, not because
+# the field is free text). Below the floor, a name hint may break a tie that
+# the statistics genuinely cannot -- last resort, never primary (E.2).
+_MIN_STATISTICAL_SAMPLE = 20
+_ENTITY_NAME_HINTS = (
+    "user",
+    "host",
+    "identity",
+    "account",
+    "actor",
+    "principal",
+    "device",
+    "asset",
+    "arn",
+    "ip",
+)
+_ACTION_NAME_HINTS = (
+    "action",
+    "event",
+    "verb",
+    "operation",
+    "command",
+    "cmdline",
+    "signature",
+)
 
 _TIME_HINTS = ("time", "date", "stamp", "@timestamp", "_time", "created", "occurred")
 _TIME_FORMATS = (
@@ -243,6 +271,7 @@ def _decide_role(
     time_rate: float,
     entity_rate: float,
     strong_rate: float,
+    sample_size: int = _MIN_STATISTICAL_SAMPLE,
 ) -> tuple[str, tuple[str, ...]]:
     """Role by strongest evidence, not by branch order.
 
@@ -253,12 +282,44 @@ def _decide_role(
     field is an ENTITY you can pivot on; a non-entity-shaped low-cardinality
     field is the ACTION. This is what makes the two separable without a name
     list.
-    """
-    if distinct <= _CONSTANT_MAX_DISTINCT:
-        return "CONSTANT", ("single_value_in_sample",)
 
+    Below `_MIN_STATISTICAL_SAMPLE` records, cardinality ratios stop being
+    trustworthy on their own -- a 3-step chain makes every verb "distinct"
+    by construction, not because the field is free text. Below that floor, a
+    generic name hint may resolve what the statistics genuinely cannot; this
+    is the last-resort fallback the module docstring promises, never the
+    primary path (E.2) -- it only ever fires when distinct-value evidence
+    alone is ambiguous.
+    """
+    small_sample = sample_size < _MIN_STATISTICAL_SAMPLE
+    entity_hinted = any(h in name_lc for h in _ENTITY_NAME_HINTS)
+    action_hinted = any(h in name_lc for h in _ACTION_NAME_HINTS)
+
+    # TIMESTAMP is decided before CONSTANT: a field that is parseable as
+    # time is a timestamp even in a one-record sample (where every field is
+    # trivially "single-valued" by construction, `distinct <= 1`) -- the
+    # CONSTANT check must never shadow it.
     if time_rate >= 0.9 or (time_rate >= 0.6 and any(h in name_lc for h in _TIME_HINTS)):
         return "TIMESTAMP", (f"time_parse_rate={time_rate:.2f}",)
+
+    if distinct <= _CONSTANT_MAX_DISTINCT:
+        # A field present across (nearly) the whole sample with one value is
+        # a genuine constant -- an index name, the account the whole export
+        # belongs to. A field that is *sparse* (present on a minority of
+        # records) but structurally identifier-shaped where it does appear
+        # is a rare-but-real entity (a single attacker identity threaded
+        # through a handful of records in an otherwise benign stream) --
+        # exactly the case a low-and-slow chain produces, and exactly what
+        # CONSTANT must not swallow.
+        if strong_rate >= 0.6 and coverage < _CONSTANT_MIN_COVERAGE:
+            return "ENTITY", (
+                f"single_value_but_sparse_strong_identifier(coverage={coverage:.2f})",
+            )
+        if small_sample and entity_hinted:
+            return "ENTITY", (f"small_sample_entity_name_hint(n={sample_size})",)
+        if small_sample and action_hinted:
+            return "ACTION", (f"small_sample_action_name_hint(n={sample_size})",)
+        return "CONSTANT", ("single_value_in_sample",)
 
     low_card = (
         distinct <= _ACTION_MAX_DISTINCT_ABS
@@ -279,6 +340,8 @@ def _decide_role(
     # from a closed vocabulary (`added`, `AssumeRole`, `EventID=3`).
     if low_card:
         return "ACTION", (f"closed_vocabulary_verb={distinct}({distinct_ratio:.2f})",)
+    if small_sample and action_hinted and distinct <= _ACTION_MAX_DISTINCT_ABS and coverage >= 0.5:
+        return "ACTION", (f"small_sample_action_name_hint(n={sample_size})",)
 
     return "PAYLOAD", (f"high_card_freetext dr={distinct_ratio:.2f} strong={strong_rate:.2f}",)
 
@@ -331,6 +394,7 @@ def infer_field_roles(
             time_rate=time_rate,
             entity_rate=entity_rate,
             strong_rate=strong_rate,
+            sample_size=n,
         )
 
         profiles[name] = FieldProfile(

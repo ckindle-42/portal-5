@@ -32,10 +32,16 @@ ordered action classes, edge-type multiset, entity-role pattern, degree
 profile -- deliberately separate from its vocabulary, so a combination can
 be matched on shape even when every literal token differs.
 
-Pure compute over injected records. No I/O, no model calls, no schema
-normalization: edges are derived from relations (entity, time, causality)
-that exist regardless of a source's schema, which is what keeps this
-source-agnostic (the Crogl property).
+Pure compute over injected records. No I/O, no model calls. Entity, time and
+action extraction reads an inferred `field_roles.FieldRoleMap`, never a
+field-name list -- a name list is a schema normalization by construction,
+and a longer one is never universal, there is always another schema not on
+it (E.1/E.2, TASK_BULLY_UNIVERSAL_INTAKE_AND_INJECT_V1). When a source's
+role map says extraction failed (too few entities or timestamps inferable),
+`build_graph` reports that loudly via `role_map.extraction_valid` and
+`role_map.failure_reasons` instead of silently degrading every artifact's
+action to `other` -- an extraction failure must never become a shared shape
+feature that later reads as a match.
 """
 
 from __future__ import annotations
@@ -45,6 +51,10 @@ import json
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Protocol
+
+from .field_roles import FieldRoleMap, infer_field_roles
+from .field_roles import _flatten as _fr_flatten
+from .field_roles import _parse_time as _fr_parse_time
 
 ALGORITHM_VERSION = "artifact-graph-v1"
 
@@ -60,6 +70,11 @@ TEMPORAL_ADJACENCY_SECONDS = 300.0
 MAX_UNITS_PER_LEVEL = 512
 MIN_CHAIN_SIZE = 2
 
+# DEAD as of E.1/E.2: superseded by `field_roles.infer_field_roles`, which
+# resolves role from value behaviour and needs no field-name list. Kept
+# unused, named, and documented (never re-wired as the primary path) as the
+# last-resort reference these names used to serve, per the M.3 forensics: a
+# name list is a schema normalization and can never itself be "universal."
 _ENTITY_FIELDS: tuple[str, ...] = (
     "userIdentity.arn",
     "userIdentity.userName",
@@ -110,33 +125,41 @@ def _first_str(record: dict[str, Any], fields: tuple[str, ...]) -> str | None:
     return None
 
 
-def _parse_time(record: dict[str, Any]) -> float | None:
-    raw = _first_str(record, _TIME_FIELDS)
-    if raw is None:
-        return None
-    try:
-        return float(raw)
-    except (TypeError, ValueError):
-        pass
-    import datetime as _dt
-
-    for fmt in ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%d %H:%M:%S"):
-        try:
-            return _dt.datetime.strptime(raw, fmt).timestamp()
-        except ValueError:
+def _roled_time(flat: dict[str, Any], role_map: FieldRoleMap) -> float | None:
+    """Timestamp of a record, read from whichever field(s) `role_map`
+    inferred as TIMESTAMP -- never a hardcoded name list (E.2)."""
+    for field_name in role_map.timestamp_fields:
+        value = flat.get(field_name)
+        if value in (None, "", ()):
             continue
+        parsed = _fr_parse_time(value)
+        if parsed is not None:
+            return parsed
     return None
 
 
-def _entities(record: dict[str, Any]) -> tuple[str, ...]:
+def _roled_entities(flat: dict[str, Any], role_map: FieldRoleMap) -> tuple[str, ...]:
+    """Entities of a record, read from whichever field(s) `role_map`
+    inferred as ENTITY -- never a hardcoded name list (E.2)."""
     found: list[str] = []
-    for field_name in _ENTITY_FIELDS:
-        value = _dig(record, field_name)
-        if isinstance(value, (str, int, float)) and str(value).strip():
-            token = f"{field_name.split('.')[-1]}={str(value).strip()}"
-            if token not in found:
-                found.append(token)
+    for field_name in role_map.entity_fields:
+        value = flat.get(field_name)
+        if value in (None, "", ()):
+            continue
+        token = f"{field_name.rsplit('.', 1)[-1]}={str(value).strip()}"
+        if token not in found:
+            found.append(token)
     return tuple(found)
+
+
+def _roled_action(flat: dict[str, Any], role_map: FieldRoleMap) -> str | None:
+    """Action verb of a record, read from whichever field `role_map`
+    inferred as ACTION -- never a hardcoded name list (E.2)."""
+    for field_name in role_map.action_fields:
+        value = flat.get(field_name)
+        if value not in (None, "", ()):
+            return str(value).strip()
+    return None
 
 
 ACTION_CLASSES: tuple[str, ...] = (
@@ -328,13 +351,29 @@ class UnitSignature:
 
 
 class ArtifactGraph:
-    def __init__(self, artifacts: list[Artifact], edges: list[Edge]) -> None:
+    def __init__(
+        self,
+        artifacts: list[Artifact],
+        edges: list[Edge],
+        *,
+        role_map: FieldRoleMap | None = None,
+    ) -> None:
         self.artifacts = {a.artifact_id: a for a in artifacts}
         self.edges = edges
+        self.role_map = role_map
         self._adjacency: dict[str, set[str]] = defaultdict(set)
         for edge in edges:
             self._adjacency[edge.left].add(edge.right)
             self._adjacency[edge.right].add(edge.left)
+
+    @property
+    def insufficient_view(self) -> bool:
+        """Q1's source-level gate: a role map that could not extract entities
+        or timestamps for most of its sample makes this graph blind. No unit
+        may be emitted from a blind graph -- that is what stopped the M.3
+        defect (an extraction failure degrading into a shared `other` shape
+        that then read as a confident concern)."""
+        return self.role_map is not None and not self.role_map.extraction_valid
 
     def components(self) -> list[tuple[str, ...]]:
         seen: set[str] = set()
@@ -419,21 +458,34 @@ def build_graph(
     source_id: str = "",
     adjacency_seconds: float = TEMPORAL_ADJACENCY_SECONDS,
     classifier: ActionClassifier | None = None,
+    role_map: FieldRoleMap | None = None,
 ) -> ArtifactGraph:
+    """Build the artifact graph via inferred field roles (E.2). When
+    `role_map` is not supplied, it is inferred from `records` here. When the
+    resolved role map says extraction failed (`extraction_valid=False`), no
+    artifacts are extracted and the graph reports itself
+    `insufficient_view` -- the Q1 gate. This never falls back to the old
+    field-name lists as a primary path: a source with a genuinely blind role
+    map produces zero gradeable units, not an all-`other` shape."""
     active_classifier = classifier or DEFAULT_ACTION_CLASSIFIER
+    dict_records = [r for r in records if isinstance(r, dict)]
+    resolved_role_map = role_map or infer_field_roles(dict_records, source_id=source_id)
+
+    if not resolved_role_map.extraction_valid:
+        return ArtifactGraph([], [], role_map=resolved_role_map)
+
     artifacts: list[Artifact] = []
-    for i, record in enumerate(records):
-        if not isinstance(record, dict):
-            continue
-        action = _first_str(record, _ACTION_FIELDS)
+    for i, record in enumerate(dict_records):
+        flat = _fr_flatten(record)
+        action = _roled_action(flat, resolved_role_map)
         artifacts.append(
             Artifact(
                 artifact_id=f"a{i:05d}",
                 record=record,
-                entities=_entities(record),
+                entities=_roled_entities(flat, resolved_role_map),
                 action=action,
                 action_class=active_classifier.classify(action),
-                timestamp=_parse_time(record),
+                timestamp=_roled_time(flat, resolved_role_map),
                 source_id=str(record.get("__source_id") or source_id),
             )
         )
@@ -444,7 +496,7 @@ def build_graph(
         *_causal_parent_edges(artifacts),
     ]
 
-    return ArtifactGraph(artifacts, edges)
+    return ArtifactGraph(artifacts, edges, role_map=resolved_role_map)
 
 
 def _structural_signature(
@@ -529,6 +581,12 @@ def enumerate_units(
     unit that matches, because that is the most specific claim available.
     """
     units: list[GradeableUnit] = []
+    if graph.insufficient_view:
+        # Q1: a source whose role map could not resolve entities or
+        # timestamps is source-level blind. No unit may ever be emitted from
+        # it -- that would silently re-introduce the M.3 defect at a
+        # different layer.
+        return units
     seen: set[tuple[str, tuple[str, ...]]] = set()
 
     def _add(level: str, artifact_ids: tuple[str, ...]) -> None:

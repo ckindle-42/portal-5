@@ -10,7 +10,10 @@ from portal.modules.security.core.bully import unit_outcome as uo
 
 
 def _unit(verbs: list[str], entity: str, level: str = "L4_WINDOW") -> ag.GradeableUnit:
-    records = [{"eventName": v, "user": entity, "eventTime": i * 40.0} for i, v in enumerate(verbs)]
+    records = [
+        {"eventName": v, "user": entity, "eventTime": 1_700_000_000.0 + i * 40.0}
+        for i, v in enumerate(verbs)
+    ]
     graph = ag.build_graph(records)
     return next(u for u in ag.enumerate_units(graph) if u.level == level)
 

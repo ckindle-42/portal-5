@@ -82,7 +82,7 @@ def test_individually_normal_combination_surfaces_as_a_concern():
     ]
 
     def _l1(verbs: list[str], entity: str):
-        records = [{"eventName": v, "user": entity, "eventTime": 0.0} for v in verbs]
+        records = [{"eventName": v, "user": entity, "eventTime": 1_700_000_000.0} for v in verbs]
         graph = ag.build_graph(records)
         return next(u for u in ag.enumerate_units(graph) if u.level == "L1_ARTIFACT")
 

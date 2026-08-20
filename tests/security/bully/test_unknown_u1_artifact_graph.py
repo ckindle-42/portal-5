@@ -56,10 +56,18 @@ def test_seeded_violation_temporal_edge_without_shared_entity_collapses_l3_to_l4
     entity, a steady stream chains into one component and L3 collapses into
     L4 -- exactly the defect this module exists to prevent."""
     base_time = 1_700_000_000.0
+    # Users recur (25 distinct identities over 50 records) rather than being
+    # unique per record: field-role inference (E.1/E.2) demotes a
+    # near-unique-per-record field to PAYLOAD (a record id), not ENTITY --
+    # correctly, since that is the identifier-of-the-record case, not a
+    # thing an analyst pivots on. Recurrence keeps this a genuine ENTITY
+    # field while consecutive-in-time records still never share an identity,
+    # so the guard-vs-unguarded contrast this test exists to prove still
+    # holds.
     records = [
         {
             "eventName": "ListBuckets",
-            "userIdentity.userName": f"user-{i}",
+            "userIdentity.userName": f"user-{i % 25}",
             "eventTime": base_time + i * 5.0,
         }
         for i in range(50)
@@ -92,7 +100,21 @@ def test_seeded_violation_temporal_edge_without_shared_entity_collapses_l3_to_l4
 
 def test_artifact_set_reachable_via_two_entity_keys_yields_one_unit_per_level():
     base_time = 1_700_000_000.0
+    # A benign backdrop with recurring, varied identities gives "user" and
+    # "src_ip" enough distinct-value evidence for field-role inference
+    # (E.1/E.2) to resolve them as ENTITY; a two-record sample alone cannot
+    # be told apart, structurally, from a whole-corpus CONSTANT (an account
+    # id, a region) at n=2.
     records = [
+        {
+            "eventName": "ListBuckets",
+            "user": f"arn:aws:iam::111:user/benign{i % 10}",
+            "src_ip": f"10.0.0.{i % 10}",
+            "eventTime": base_time - 10_000.0 + i * 5.0,
+        }
+        for i in range(60)
+    ]
+    records += [
         {
             "eventName": "AssumeRole",
             "user": "arn:aws:iam::111:user/dual",
@@ -108,9 +130,8 @@ def test_artifact_set_reachable_via_two_entity_keys_yields_one_unit_per_level():
     ]
     graph = ag.build_graph(records)
     units = ag.enumerate_units(graph)
-    l2_units = [
-        u for u in units if u.level == "L2_ENTITY" and set(u.artifact_ids) == {"a00000", "a00001"}
-    ]
+    dual_ids = {"a00060", "a00061"}
+    l2_units = [u for u in units if u.level == "L2_ENTITY" and set(u.artifact_ids) == dual_ids]
     assert len(l2_units) == 1
 
 
@@ -143,13 +164,32 @@ def test_unit_cap_holds_under_large_window():
 
 def test_structural_signature_matches_across_disjoint_vocabulary_once_classes_align():
     base_time = 1_700_000_000.0
+    # Field-role inference (E.1/E.2) is statistical: it needs the chain
+    # repeated a few times to see the eventName field's cardinality is low
+    # relative to sample size (ACTION) and the identity field has more than
+    # one value (ENTITY, not a whole-corpus CONSTANT) -- neither is visible
+    # from 3 literally-unique records. Repeating the 3-step pattern keeps
+    # `class_sequence[2]` pointing at the same first-repetition step (sorted
+    # by ascending timestamp) while giving inference enough signal.
+    aws_verbs = ["AssumeRole", "ListBuckets", "AttachUserPolicy"]
+    aws_users = ["arn:aws:iam::1:user/a", "arn:aws:iam::1:user/a", "arn:aws:iam::1:user/a2"]
     aws_chain = [
-        {"eventName": v, "user": "arn:aws:iam::1:user/a", "eventTime": base_time + i * 40.0}
-        for i, v in enumerate(["AssumeRole", "ListBuckets", "AttachUserPolicy"])
+        {
+            "eventName": aws_verbs[i % 3],
+            "user": aws_users[i % 3],
+            "eventTime": base_time + i * 40.0,
+        }
+        for i in range(15)
     ]
+    win_verbs = ["Logon", "net user", "Add-LocalGroupMember"]
+    win_hosts = ["WIN-HOST-1", "WIN-HOST-1", "WIN-HOST-2"]
     win_chain = [
-        {"eventName": v, "host": "WIN-HOST-1", "eventTime": base_time + i * 40.0}
-        for i, v in enumerate(["Logon", "net user", "Add-LocalGroupMember"])
+        {
+            "eventName": win_verbs[i % 3],
+            "host": win_hosts[i % 3],
+            "eventTime": base_time + i * 40.0,
+        }
+        for i in range(15)
     ]
 
     aws_graph = ag.build_graph(aws_chain)

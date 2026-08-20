@@ -69,8 +69,19 @@ class GradeFn(Protocol):
     ) -> UnitTypeRelation: ...
 
 
+_EPOCH_BASE = 1_700_000_000.0
+
+
 def unit_from_verbs(verbs: list[str], *, entity: str) -> GradeableUnit:
-    records = [{"eventName": v, "user": entity, "eventTime": i * 40.0} for i, v in enumerate(verbs)]
+    """`eventTime` must land in the epoch-plausible numeric range field-role
+    inference (`field_roles._parse_time`) requires -- a bare small offset
+    (`i * 40.0`) is structurally indistinguishable from a small-int field
+    like a count or an EventID, which must never be misread as a
+    timestamp."""
+    records = [
+        {"eventName": v, "user": entity, "eventTime": _EPOCH_BASE + i * 40.0}
+        for i, v in enumerate(verbs)
+    ]
     graph = build_graph(records)
     return next(u for u in enumerate_units(graph) if u.level == "L4_WINDOW")
 
@@ -198,7 +209,7 @@ def individually_normal_case_surfaces(
     confirm the L4_WINDOW combination still raises a concern. `False` here
     is the single most important failure this instrument can report."""
     records = [
-        {"eventName": v, "user": entity, "eventTime": i * 40.0}
+        {"eventName": v, "user": entity, "eventTime": _EPOCH_BASE + i * 40.0}
         for i, v in enumerate(artifact_verbs)
     ]
     graph = build_graph(records)

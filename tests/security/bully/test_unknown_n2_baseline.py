@@ -7,8 +7,16 @@ from portal.modules.security.core.bully import baseline as bl
 
 
 def _routine_units(count: int) -> list[ag.GradeableUnit]:
+    # Users recur (20 identities cycling) rather than being unique per
+    # record: a near-unique-per-record field is a record id under
+    # field-role inference (E.1/E.2), not a pivotable entity -- correctly,
+    # since real routine telemetry recurs by identity.
     records = [
-        {"eventName": "ListBuckets", "user": f"u{i}", "eventTime": float(i * 10)}
+        {
+            "eventName": "ListBuckets",
+            "user": f"u{i % 20}",
+            "eventTime": 1_700_000_000.0 + float(i * 10),
+        }
         for i in range(count)
     ]
     graph = ag.build_graph(records)
@@ -31,7 +39,7 @@ def test_never_before_seen_shape_scores_high_remarkability():
     model.fit(fit_units)
 
     chain = [
-        {"eventName": v, "user": "attacker", "eventTime": 100000.0 + i * 40.0}
+        {"eventName": v, "user": "attacker", "eventTime": 1_700_100_000.0 + i * 40.0}
         for i, v in enumerate(
             [
                 "AssumeRole",
