@@ -27,7 +27,7 @@ from collections.abc import Callable
 from typing import Any
 
 from . import config as bully_config
-from . import costing, cutover, drift_engine
+from . import costing, cutover, drift_engine, loop_grader
 from . import evidence as evidence_mod
 from . import investigation as investigation_mod
 from . import mutation as mutation_mod
@@ -37,7 +37,7 @@ from . import scoreboard as scoreboard_mod
 from . import signatures as signatures_mod
 from . import targeting as targeting_mod
 from .contracts import DecisionEvent, DecisionImpact, MutationPlan, new_id
-from .cousin_engine import CoverageView, grade, retrieve_candidate_axes
+from .cousin_engine import CoverageView, retrieve_candidate_axes
 from .organ import Organ, OrganUnavailable
 from .store import IllegalTransitionError, Store
 
@@ -680,7 +680,10 @@ def _do_analyze(
     signature = signatures_mod.build_signature(episode_view, telemetry_view)
     candidates = retrieve_candidate_axes(signature, organ)
     coverage = CoverageView(telemetry_healthy=True)
-    assessment = grade(signature, candidates, coverage)
+    # R.4 (loop reintegration): grade via the reintegrated, pyramid-levelled
+    # loop_grader -- cousin_engine.grade is off this path. See
+    # docs/DESIGN_BULLY_LOOP_REINTEGRATION_V1.md.
+    assessment = loop_grader.build_cousin_assessment(signature, candidates, coverage)
 
     store.record_signature(signature)
     store.record_cousin(assessment)

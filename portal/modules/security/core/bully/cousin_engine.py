@@ -461,6 +461,15 @@ def grade(
     thresholds: dict | None = None,
     weights: dict[str, float] | None = None,
 ) -> CousinAssessment:
+    """DEPRECATED (R.4, 2026-08-20): no longer on the orchestrator's grade
+    path -- `orchestrator._do_analyze` grades via `loop_grader.
+    build_cousin_assessment` instead, which decides relationships
+    level-first on the pyramid axis rather than this module's flat
+    distance-only classification. This function is unreferenced by the
+    product and retained in-tree for one release as a rollback path (R1);
+    the follow-on cleanup task deletes it once the R.6 run is accepted. See
+    `docs/DESIGN_BULLY_LOOP_REINTEGRATION_V1.md`.
+    """
     thresholds = thresholds or DEFAULT_THRESHOLDS
     response = _response_axis(coverage)
 
