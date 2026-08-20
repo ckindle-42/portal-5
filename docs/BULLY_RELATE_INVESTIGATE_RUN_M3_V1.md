@@ -1,5 +1,12 @@
 # TASK_BULLY_RELATE_AND_INVESTIGATE_V1 — M.3 run and record
 
+> **Errata (2026-08-20, `TASK_BULLY_LOOP_REINTEGRATION_V1`).** The
+> `cousin_engine.grade` this run measured is now off the orchestrator's
+> grade path entirely -- replaced by `bully/loop_grader.py`, level-first on
+> the pyramid axis (`bully/pyramid.py`). See
+> `docs/DESIGN_BULLY_LOOP_REINTEGRATION_V1.md` and
+> `docs/BULLY_LOOP_MILESTONE_RUN_R6_V1.md`.
+
 > **Errata (2026-08-19, `TASK_BULLY_COUSIN_RELATION_V1`).** This run's
 > attribution of the 100/100 `ANOMALOUS_UNCLASSIFIED` result to anchor/adapter
 > coverage is **wrong**. The raw JSON disproves it: `confidence` took exactly

@@ -1,5 +1,13 @@
 # BULLY_UNIVERSAL_INTAKE_RUN_M6_V1
 
+> **Errata (2026-08-20, `TASK_BULLY_LOOP_REINTEGRATION_V1`):** this run measured
+> the reform organ on its own bench -- `bully_universal_intake_run.py`, never
+> called by the orchestrator (`orchestrator.py` graded with `cousin_engine.grade`
+> at this run's HEAD). The organ is now wired into the loop via
+> `bully/loop_grader.py`, and the live, loop-scoreboard-headlined successor run is
+> `docs/BULLY_LOOP_MILESTONE_RUN_R6_V1.md`. See
+> `docs/DESIGN_BULLY_LOOP_REINTEGRATION_V1.md` for the full reintegration design.
+
 M.6 verification run for `TASK_BULLY_UNIVERSAL_INTAKE_AND_INJECT_V1`. Companion to
 `BULLY_UNIVERSAL_INTAKE_RUN_M6_V1.json` (full per-row data;
 `scripts/bully_universal_intake_run.py` regenerates it). Every JSON column below
