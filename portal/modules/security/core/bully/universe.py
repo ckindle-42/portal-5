@@ -267,6 +267,12 @@ def _place(record: dict, shape: SourceShape, field_name: str, value: Any) -> Non
         record[field_name] = value
 
 
+def _extract(record: dict, shape: SourceShape, field_name: str) -> Any:
+    if shape.nesting and shape.container and field_name != shape.time_field:
+        return record.get(shape.container, {}).get(field_name)
+    return record.get(field_name)
+
+
 def _emit_record(
     rng: random.Random, shape: SourceShape, action_value: str, identity: str, ts: float
 ) -> dict[str, Any]:
@@ -308,6 +314,23 @@ class UniverseLot:
 
     def indexable(self) -> list[dict[str, Any]]:
         return [{k: v for k, v in e.items() if k != "_labels"} for e in self.events]
+
+    def training_examples(self) -> list[tuple[str, str]]:
+        """(raw_action_value, true_behavior_class) pairs for R.5c's learned
+        classifier -- the SEALED truth this lot produced, extracted from the
+        indexable record via each source's own action_field/nesting (never
+        from `_labels`, which stays out of the grader-visible path)."""
+        shapes_by_id = {s.source_id: s for s in self.shapes}
+        out: list[tuple[str, str]] = []
+        for e in self.events:
+            shape = shapes_by_id.get(e["source_id"])
+            if shape is None:
+                continue
+            value = _extract(e["event"], shape, shape.action_field)
+            true_class = e["_labels"].get("true_behavior_class")
+            if value is not None and true_class:
+                out.append((str(value), str(true_class)))
+        return out
 
 
 def _benign_behavior(rng: random.Random) -> str:
