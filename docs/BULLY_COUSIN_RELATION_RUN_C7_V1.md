@@ -1,5 +1,21 @@
 # BULLY_COUSIN_RELATION_RUN_C7_V1 — cousin-relation verification run
 
+> **Errata (2026-08-19, `TASK_BULLY_UNKNOWN_COUSIN_V1`).** This run's own
+> L3 (cross-space) recovery rate of **0.0250** (1/40) is the concrete
+> symptom of the defect this task corrects: `_signature_from_scope` grades
+> one flattened `action_sequence[:32]` token bag per scope, so shape
+> (co-occurrence, ordering, entity linkage) is discarded and only literal
+> vocabulary survives -- exactly what a cross-vocabulary cousin needs to be
+> matched on shape, not vocabulary, to be found at all. The five inversions
+> below (C.1) are correct and carry forward unchanged; they were applied to
+> the wrong unit of analysis (a whole scope, never an individual artifact or
+> a structurally-grouped combination). See
+> [`DESIGN_BULLY_UNKNOWN_COUSIN_V1.md`](DESIGN_BULLY_UNKNOWN_COUSIN_V1.md)
+> and the re-run,
+> [`BULLY_UNKNOWN_COUSIN_RUN_M3_V1.md`](BULLY_UNKNOWN_COUSIN_RUN_M3_V1.md).
+> This document is kept as the honest record of what C.7 actually measured,
+> not rewritten.
+
 `TASK_BULLY_COUSIN_RELATION_V1` C.7. Two parts: instrument validation (C.6's constructed ladder) and the live re-run over the real data plane through the new cousin grader. `valid: True` overall.
 
 ## Part 1 — instrument validation (C.6)

@@ -15,6 +15,21 @@
 > coverage vs this run's 0.04/0.0 in the compounding halves). This document
 > is kept as the honest record of a wrong reading, not rewritten.
 
+> **Errata (2026-08-19, `TASK_BULLY_UNKNOWN_COUSIN_V1`).** Both this run and
+> C.7's correction below graded a flattened per-scope signature
+> (`_signature_from_scope` makes one `build_signature` call per scope), which
+> discards co-occurrence, ordering and entity linkage -- the individual
+> artifact level never existed, and the combination level was reduced to a
+> bag of vocabulary. Accuracy against the legend's technique list was also
+> the wrong headline measurement: it scores matching a known *type*, not
+> whether a genuinely *unknown instance* raises a concern, which is the
+> product. Neither defect invalidates this run's own findings (the
+> confidence/gating bug above); they are a different, deeper layer. See
+> [`DESIGN_BULLY_UNKNOWN_COUSIN_V1.md`](DESIGN_BULLY_UNKNOWN_COUSIN_V1.md)
+> for the corrected unit-of-analysis and the leave-one-family-out product
+> test, and [`BULLY_UNKNOWN_COUSIN_RUN_M3_V1.md`](BULLY_UNKNOWN_COUSIN_RUN_M3_V1.md)
+> for the re-run.
+
 Live run over the connected data plane (`scripts/bully_relate_run.py`,
 raw output `docs/BULLY_RELATE_INVESTIGATE_RUN_M3_V1.json`, planner-proof hash
 `b3718d17ded88a39`). Real lab Splunk (credentials sourced from `.env`),
