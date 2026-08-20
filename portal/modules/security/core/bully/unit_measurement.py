@@ -1,5 +1,5 @@
 """bully.unit_measurement -- the grading-plane measurement stack for the
-unit-level pipeline (T.1-T.2, TASK_BULLY_UNKNOWN_COUSIN_V1).
+unit-level pipeline (T.1-T.3, TASK_BULLY_UNKNOWN_COUSIN_V1).
 
 The sealed manifest legend (`scripts.corpus_ingest.load_manifest_catalog`)
 carries real ATT&CK ground truth per dataset and is currently used only to
@@ -148,3 +148,58 @@ def assert_no_contamination(evaluation_dataset_keys: list[str], split: HeldOutSp
         raise ContaminationError(
             f"evaluation datasets also contributed a type: {sorted(set(offenders))}"
         )
+
+
+# ── T.3: precision/recall per unit level and outcome class ─────────────────
+
+
+def _level_report(rows: list[GradingPlaneRow]) -> dict[str, Any]:
+    from collections import Counter
+
+    outcome_counts = Counter(r.outcome.outcome for r in rows)
+    true_positive = sum(1 for r in rows if r.expected_concern and r.correct)
+    false_negative = sum(1 for r in rows if r.expected_concern and not r.correct)
+    false_positive = sum(1 for r in rows if not r.expected_concern and not r.correct)
+    precision = (
+        true_positive / (true_positive + false_positive)
+        if (true_positive + false_positive)
+        else None
+    )
+    recall = (
+        true_positive / (true_positive + false_negative)
+        if (true_positive + false_negative)
+        else None
+    )
+    return {
+        "n": len(rows),
+        "outcome_distribution": dict(outcome_counts),
+        "precision": precision,
+        "recall": recall,
+    }
+
+
+def precision_recall_report(rows: list[GradingPlaneRow]) -> dict[str, Any]:
+    """Real accuracy against the legend: per unit level and per outcome
+    class, over scored rows only. `KNOWN_INSTANCE` is reported separately
+    and labelled a floor metric (P1) -- it must never be read as the
+    headline number."""
+    scored = [r for r in rows if r.scored]
+    levels = sorted({r.outcome.unit.level for r in scored})
+    per_level = {
+        level: _level_report([r for r in scored if r.outcome.unit.level == level])
+        for level in levels
+    }
+
+    known_instance_rows = [r for r in scored if r.outcome.outcome == "KNOWN_INSTANCE"]
+    return {
+        "scored_count": len(scored),
+        "unscored_count": len(rows) - len(scored),
+        "per_level": per_level,
+        "overall": _level_report(scored),
+        "known_instance_floor": {
+            "floor_metric": True,
+            "note": "existing detection owns these; never the headline (P1)",
+            "count": len(known_instance_rows),
+            "fraction_of_scored": len(known_instance_rows) / len(scored) if scored else 0.0,
+        },
+    }
