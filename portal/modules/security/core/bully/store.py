@@ -38,7 +38,7 @@ from .contracts import (
     is_legal_hunt_transition,
 )
 
-SCHEMA_VERSION = 12  # highest migration this code understands
+SCHEMA_VERSION = 13  # highest migration this code understands
 _MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
 
@@ -70,6 +70,10 @@ class OperatorActorRequiredError(StoreError):
     """Raised when a queue/promotion resolution is attempted by a non-operator
     actor -- mirrors the DB trigger's refusal so the Python exception carries
     a clear message instead of a bare sqlite3.IntegrityError (SS4.8)."""
+
+
+class ConcernError(StoreError):
+    """Raised on a stale/duplicate concern-verdict recording attempt (X.2)."""
 
 
 def _row_to_dict(row: sqlite3.Row) -> dict:
@@ -2597,6 +2601,99 @@ class Store:
             )
             if cur.rowcount != 1:
                 raise StoreError(f"no such roster_record: {record_id}")
+
+    # ── concerns (X.2 -- the analyst review queue the store never had) ───
+
+    def concern_put(self, concern: dict[str, Any]) -> None:
+        """Content-idempotent insert keyed on `concern_id` (`analyst_loop.raise_concern`
+        mints a fresh uuid per concern, so a re-drive with the same id is a
+        silent no-op, mirroring `record_signature`'s natural-key idempotence)."""
+        existing = self._conn.execute(
+            "SELECT 1 FROM concerns WHERE concern_id=?", (concern["concern_id"],)
+        ).fetchone()
+        if existing is not None:
+            return
+        with self._tx() as cur:
+            cur.execute(
+                "INSERT INTO concerns (concern_id, assessment_id, entity_id, relationship, "
+                "concern_class, match_level, robustness, n_sources, source_ids_json, "
+                "span_seconds, aligned_spine_json, resembles, brief, raised_at, verdict, "
+                "verdict_note, verdict_at, version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0)",
+                (
+                    concern["concern_id"],
+                    concern["assessment_id"],
+                    concern["entity_id"],
+                    concern["relationship"],
+                    concern["concern_class"],
+                    concern.get("match_level"),
+                    concern.get("robustness", 0.0),
+                    concern.get("n_sources", 0),
+                    _json(concern.get("source_ids") or []),
+                    concern.get("span_seconds"),
+                    _json(concern.get("aligned_spine") or []),
+                    concern.get("resembles"),
+                    concern.get("brief", ""),
+                    concern.get("raised_at") or time.time(),
+                    concern.get("verdict"),
+                    concern.get("verdict_note", ""),
+                    concern.get("verdict_at"),
+                ),
+            )
+
+    @staticmethod
+    def _concern_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+        d = _row_to_dict(row)
+        d["source_ids"] = _loads(d.pop("source_ids_json"), [])
+        d["aligned_spine"] = _loads(d.pop("aligned_spine_json"), [])
+        return d
+
+    def concern_get(self, concern_id: str) -> dict[str, Any] | None:
+        row = self._conn.execute(
+            "SELECT * FROM concerns WHERE concern_id=?", (concern_id,)
+        ).fetchone()
+        return self._concern_row_to_dict(row) if row is not None else None
+
+    def concerns_open(self) -> list[dict[str, Any]]:
+        """The analyst's queue: every concern with no verdict yet, richest
+        first -- unknown cousins ahead of known-bads, then by source count
+        and robustness (mirrors `analyst_loop.open_queue`'s ordering)."""
+        rows = self._conn.execute(
+            "SELECT * FROM concerns WHERE verdict IS NULL "
+            "ORDER BY (concern_class='unknown_cousin') DESC, n_sources DESC, "
+            "robustness DESC, raised_at ASC"
+        ).fetchall()
+        return [self._concern_row_to_dict(r) for r in rows]
+
+    def concern_record_verdict(
+        self,
+        concern_id: str,
+        verdict: str,
+        *,
+        note: str = "",
+        expected_version: int = 0,
+    ) -> dict[str, Any]:
+        """Compare-and-swap verdict recording -- a concern can only be closed
+        once (supersede-never-delete: the row itself is never removed, its
+        verdict is filled in exactly one time)."""
+        row = self.concern_get(concern_id)
+        if row is None:
+            raise ConcernError(f"no such concern: {concern_id}")
+        if row["version"] != expected_version:
+            raise ConcernError(
+                f"stale expected_version={expected_version} for concern {concern_id} "
+                f"(current={row['version']})"
+            )
+        if row["verdict"] is not None:
+            raise ConcernError(f"concern {concern_id} already has a verdict recorded")
+        with self._tx() as cur:
+            cur.execute(
+                "UPDATE concerns SET verdict=?, verdict_note=?, verdict_at=?, "
+                "version=version+1 WHERE concern_id=? AND version=?",
+                (verdict, note, time.time(), concern_id, expected_version),
+            )
+            if cur.rowcount != 1:
+                raise ConcernError(f"concurrent modification of concern {concern_id}")
+        return self.concern_get(concern_id)
 
     # ── doctor (integrity check) ─────────────────────────────────────────
 
