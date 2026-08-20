@@ -1,5 +1,14 @@
 # BULLY_UNIVERSAL_INTAKE_RUN_M6_V1
 
+> **Errata (2026-08-20, `TASK_BULLY_SCOREBOARD_CONFORMANCE_V1`):** this run's
+> headline is not a module contract, and its correctness axis
+> (`trust_mean_rank`, `false_flag_count` from `scoreboard.update()`) was never
+> published -- `correctness_axis_not_published` fires against this doc,
+> alongside `recall_contradiction`. See
+> `docs/DESIGN_BULLY_SCOREBOARD_CONFORMANCE_V1.md` for the corrected
+> diagnosis and the live successor run
+> `docs/BULLY_SCOREBOARD_CONFORMANCE_RUN_W6_V1.md`.
+
 > **Errata (2026-08-20, `TASK_BULLY_LOOP_REINTEGRATION_V1`):** this run measured
 > the reform organ on its own bench -- `bully_universal_intake_run.py`, never
 > called by the orchestrator (`orchestrator.py` graded with `cousin_engine.grade`

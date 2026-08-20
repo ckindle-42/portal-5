@@ -1,5 +1,15 @@
 # TASK_BULLY_RELATE_AND_INVESTIGATE_V1 — M.3 run and record
 
+> **Errata (2026-08-20, `TASK_BULLY_SCOREBOARD_CONFORMANCE_V1`).** This run's
+> headline is not a module contract, and its correctness axis
+> (`trust_mean_rank`, `false_flag_count` from `scoreboard.update()`) was never
+> published -- `correctness_axis_not_published` fires against this doc,
+> alongside `ceiling_exceeded_not_failed` and
+> `per_row_drops_correctness_fields`. See
+> `docs/DESIGN_BULLY_SCOREBOARD_CONFORMANCE_V1.md` for the corrected
+> diagnosis and the live successor run
+> `docs/BULLY_SCOREBOARD_CONFORMANCE_RUN_W6_V1.md`.
+
 > **Errata (2026-08-20, `TASK_BULLY_LOOP_REINTEGRATION_V1`).** The
 > `cousin_engine.grade` this run measured is now off the orchestrator's
 > grade path entirely -- replaced by `bully/loop_grader.py`, level-first on

@@ -1,5 +1,21 @@
 # BULLY_LOOP_MILESTONE_RUN_R6_V1
 
+> **Errata (2026-08-20, `TASK_BULLY_SCOREBOARD_CONFORMANCE_V1`).** The
+> `"scoreboard"` block below is *labelled* scoreboard but shares zero fields
+> with `scoreboard.update()`'s actual contract (`catch_rate`,
+> `trust_mean_rank`, `discovery_total`, `discovery_mean`,
+> `false_flag_count`); `discovery_bubbled_rate` is an ad-hoc ratio invented
+> inline in the run script, not a module contract field, and has since been
+> deleted from the codebase. `per_row` drops every field
+> (`trust_class`/`trust_rank`/`false_flag`/`known_benign`) that could show a
+> finding was wrong, and the correctness axis was fed `candidate_state=None`
+> / `known_benign=False` hardcoded -- unreachable by construction. This run
+> never published whether any finding was actually correct. See
+> `docs/DESIGN_BULLY_SCOREBOARD_CONFORMANCE_V1.md` for the corrected
+> diagnosis and the live successor run
+> `docs/BULLY_SCOREBOARD_CONFORMANCE_RUN_W6_V1.md`, which publishes the
+> correctness axis for the first time in this workstream.
+
 Generated 2026-08-20T11:30:42Z -- plane **live** -- duration 875.5s
 
 ## Headline: the loop scoreboard
