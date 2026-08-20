@@ -193,46 +193,97 @@ def _jaccard_distance(a: set[str], b: set[str], index: DiscriminativeIndex | Non
 # ── discriminative weighting: rare shared features matter more ─────────────
 
 
-@dataclass(frozen=True)
-class DiscriminativeIndex:
-    """IDF over the anchor corpus. A feature held by nearly every anchor
-    explains nothing; a rare one held in common is the strongest cousin
-    signal there is."""
-
-    idf: dict[str, float]
-    anchor_count: int
-
-    def weight(self, token: str) -> float:
-        return self.idf.get(token, self.default_weight)
-
-    @property
-    def default_weight(self) -> float:
-        """An unseen token is maximally rare, hence maximally informative.
-        Deliberately the df=0 evaluation of the same idf formula used in
-        `build_discriminative_index`, so no in-index token can ever exceed
-        it and `distinctiveness` stays bounded in [0, 1]."""
-        if not self.anchor_count:
-            return 1.0
-        return math.log((self.anchor_count + 1) / 1.0) + 1.0
-
-    def salience(self, tokens: set[str]) -> float:
-        return sum(self.weight(t) for t in tokens)
+_LAPLACE = 1.0
 
 
-def build_discriminative_index(anchor_records: list[dict[str, Any]]) -> DiscriminativeIndex:
+def _document_frequency(records: list[dict[str, Any]]) -> dict[str, int]:
     document_frequency: dict[str, int] = {}
-    for record in anchor_records:
+    for record in records:
         tokens: set[str] = set()
         for axis_tokens in _anchor_axis_features(record).values():
             tokens |= axis_tokens
         for token in tokens:
             document_frequency[token] = document_frequency.get(token, 0) + 1
-    total = len(anchor_records)
-    idf = {
-        token: math.log((total + 1) / (count + 1)) + 1.0
-        for token, count in document_frequency.items()
-    }
-    return DiscriminativeIndex(idf=idf, anchor_count=total)
+    return document_frequency
+
+
+@dataclass(frozen=True)
+class DiscriminativeIndex:
+    """Likelihood-ratio weight: `P(feature | known types) / P(feature |
+    baseline)` (N.3, TASK_BULLY_UNKNOWN_COUSIN_V1).
+
+    This replaces plain IDF-over-the-anchor-corpus, which measured rarity
+    *among attacks only* -- rarity that says nothing about whether a feature
+    is actually distinctive of attacks versus just uncommon in general. That
+    inversion made ordinary junk maximally "distinctive" whenever it never
+    happened to appear in an attack episode, which is exactly the defect
+    behind C.7's 79% `NOVEL_NOTABLE`. The likelihood ratio corrects it
+    directly: a feature common in the environment's own baseline and absent
+    from known types scores at or below neutral (ratio <= 1), never maximal.
+
+    Without a baseline (`baseline_total == 0`) this degrades to legacy
+    IDF-over-anchors-only -- the floor, kept only for callers that have not
+    yet threaded a per-environment baseline through, and it inherits the
+    known inversion in that fallback path."""
+
+    known_df: dict[str, int]
+    known_total: int
+    baseline_df: dict[str, int]
+    baseline_total: int
+
+    def _known_p(self, token: str) -> float:
+        return (self.known_df.get(token, 0) + _LAPLACE) / (self.known_total + _LAPLACE)
+
+    def _baseline_p(self, token: str) -> float:
+        return (self.baseline_df.get(token, 0) + _LAPLACE) / (self.baseline_total + _LAPLACE)
+
+    def _legacy_idf(self, token: str) -> float:
+        count = self.known_df.get(token, 0)
+        return math.log((self.known_total + 1) / (count + 1)) + 1.0
+
+    def weight(self, token: str) -> float:
+        if self.baseline_total == 0:
+            return self._legacy_idf(token)
+        ratio = self._known_p(token) / self._baseline_p(token)
+        return min(ratio, self.default_weight)
+
+    @property
+    def default_weight(self) -> float:
+        """The unseen-token / ceiling weight. With a baseline, this is the
+        most extreme ratio Laplace smoothing can produce for an unseen
+        token: present in every known-type anchor, absent from the entire
+        baseline. Without one, it is the legacy df=0 IDF value -- kept so no
+        in-index token can ever exceed it and `distinctiveness` stays
+        bounded in [0, 1], matching the pre-N.3 contract."""
+        if self.baseline_total == 0:
+            if not self.known_total:
+                return 1.0
+            return math.log((self.known_total + 1) / 1.0) + 1.0
+        return (self.known_total + _LAPLACE) / _LAPLACE
+
+    def salience(self, tokens: set[str]) -> float:
+        return sum(self.weight(t) for t in tokens)
+
+    @property
+    def anchor_count(self) -> int:
+        return self.known_total
+
+
+def build_discriminative_index(
+    anchor_records: list[dict[str, Any]],
+    *,
+    baseline_records: list[dict[str, Any]] | None = None,
+) -> DiscriminativeIndex:
+    """`baseline_records` is the environment's own observed corpus (never
+    the type library -- fitting the "is this common" side from anchors
+    again would just be IDF wearing a different name). Omitting it is the
+    legacy floor path, documented on `DiscriminativeIndex`."""
+    return DiscriminativeIndex(
+        known_df=_document_frequency(anchor_records),
+        known_total=len(anchor_records),
+        baseline_df=_document_frequency(baseline_records) if baseline_records else {},
+        baseline_total=len(baseline_records) if baseline_records else 0,
+    )
 
 
 # ── the relation product ───────────────────────────────────────────────────
