@@ -1,13 +1,18 @@
 """bully.anchors -- the anchor library: a first-class store of known things
 (TASK_BULLY_RELATE_AND_INVESTIGATE_V1 A.1).
 
-Four anchor kinds, one shape: attack_data episodes (`data.yml` techniques),
+Five anchor kinds, one shape: attack_data episodes (`data.yml` techniques),
 advisories (sparse: technique + IOC + context, no action sequence),
-detection content + what it covers, and confirmed findings from prior
-investigations (J.3 writes these back). Every anchor carries provenance, a
-label basis (why we believe the label), and an anchor-quality grade that can
-differ across anchors and kinds -- an anchor without a label basis is stored
-as `weak`, never rejected (S1: nothing here gates on quality).
+detection content + what it covers, confirmed findings from prior
+investigations (J.3 writes these back), and benign patterns -- recurring
+structures from the non-event corpus (N.1, TASK_BULLY_UNKNOWN_COUSIN_V1).
+Every anchor carries provenance, a label basis (why we believe the label),
+an anchor-quality grade that can differ across anchors and kinds -- an
+anchor without a label basis is stored as `weak`, never rejected (S1:
+nothing here gates on quality) -- and a `malice` ("malicious" / "benign" /
+"unknown"): a property of the matched *type*, never a separate pipeline
+(known types and the normal baseline are different objects; see
+`docs/DESIGN_BULLY_UNKNOWN_COUSIN_V1.md`).
 
 Pure in-memory store, no I/O, no SQL (MASTER SS3 boundary: this module is
 called by loaders/investigation, it never owns persistence itself). The
@@ -20,6 +25,7 @@ from __future__ import annotations
 
 import time
 import uuid
+from collections import Counter
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -28,9 +34,12 @@ ANCHOR_KINDS: tuple[str, ...] = (
     "advisory",
     "detection_coverage",
     "confirmed_finding",
+    "benign_pattern",
 )
 
 ANCHOR_GRADES: tuple[str, ...] = ("strong", "moderate", "weak")
+
+MALICE_VALUES: tuple[str, ...] = ("malicious", "benign", "unknown")
 
 # Provenance tiers (G.2 uses these for the raise-confidence / depth-cap /
 # revocation rules; defined here because every anchor -- including the ones
@@ -42,6 +51,18 @@ _DEFAULT_TIER_BY_KIND: dict[str, str] = {
     "advisory": "EXTERNAL",
     "detection_coverage": "EXTERNAL",
     "confirmed_finding": "ANALYST_CONFIRMED",
+    "benign_pattern": "EXTERNAL",
+}
+
+# One mechanism, malice is a property of the matched type: every kind has a
+# default malice, overridable per-anchor where the kind's own semantics vary
+# (a confirmed_finding can go either way depending on its outcome).
+_DEFAULT_MALICE_BY_KIND: dict[str, str] = {
+    "attack_episode": "malicious",
+    "advisory": "malicious",
+    "detection_coverage": "malicious",
+    "confirmed_finding": "malicious",
+    "benign_pattern": "benign",
 }
 
 # Kinds whose label basis, when present, is treated as strong evidence
@@ -65,6 +86,7 @@ class Anchor:
     label_basis: str | None
     grade: str
     source_id: str
+    malice: str = "unknown"
     derived_from: tuple[str, ...] = ()
     generation_depth: int = 0
     created_at: float = field(default_factory=time.time)
@@ -80,6 +102,7 @@ def make_anchor(
     source_id: str,
     label_basis: str | None = None,
     provenance_tier: str | None = None,
+    malice: str | None = None,
     derived_from: tuple[str, ...] = (),
     generation_depth: int = 0,
     anchor_id: str | None = None,
@@ -89,6 +112,9 @@ def make_anchor(
     tier = provenance_tier or _DEFAULT_TIER_BY_KIND[kind]
     if tier not in PROVENANCE_TIERS:
         raise ValueError(f"unknown provenance tier: {tier!r}")
+    resolved_malice = malice or _DEFAULT_MALICE_BY_KIND[kind]
+    if resolved_malice not in MALICE_VALUES:
+        raise ValueError(f"unknown malice value: {resolved_malice!r}")
     record = dict(record)
     record.setdefault("record_id", anchor_id or f"anchor-{uuid.uuid4().hex[:12]}")
     record.setdefault("signature_id", record["record_id"])
@@ -100,6 +126,7 @@ def make_anchor(
         label_basis=label_basis,
         grade=_grade_anchor(kind, label_basis),
         source_id=source_id,
+        malice=resolved_malice,
         derived_from=tuple(derived_from),
         generation_depth=generation_depth,
     )
@@ -246,3 +273,70 @@ class AnchorLibrary:
                 generation_depth=generation_depth,
             )
         )
+
+    def load_benign_pattern(
+        self,
+        *,
+        source_id: str,
+        record: dict[str, Any],
+        recurrence_count: int,
+        label_basis: str | None = "recurring_corpus_structure",
+    ) -> Anchor:
+        """A benign type: a recurring structure found in the non-event
+        corpus data (N.1). That data is a first-class design input, not
+        contamination -- known-benign types are what makes "this is exactly
+        a known benign type" sayable, which is what turns `BENIGN_CLOSE`
+        write-back (L.1) from dead wiring into live suppression. Grade
+        follows the same rule as every other kind: no `label_basis` (a
+        pattern seen too rarely to trust) stores `weak`, never dropped."""
+        payload = dict(record)
+        payload["recurrence_count"] = recurrence_count
+        basis = label_basis if recurrence_count > 0 else None
+        return self.add(
+            make_anchor(
+                "benign_pattern",
+                payload,
+                source_id=source_id,
+                label_basis=basis,
+                malice="benign",
+            )
+        )
+
+
+def derive_recurring_benign_patterns(
+    records: list[dict[str, Any]],
+    *,
+    min_recurrence: int = 3,
+) -> list[dict[str, Any]]:
+    """Structural patterns worth loading as benign types: group non-event
+    corpus records by their behavioural-class shape (reusing U.1's
+    structural grouping, not a bespoke clustering) and keep the ones that
+    recur at least `min_recurrence` times. A one-off structure is not a
+    "type" -- it is noise, and is left out rather than stored `weak` under a
+    misleading pattern label.
+
+    Returns plain records (`action_sequence` = the recurring class shape,
+    `recurrence_count` = how often it recurred) ready for
+    `AnchorLibrary.load_benign_pattern`. Pure compute, no I/O -- the caller
+    supplies the corpus.
+    """
+    from . import artifact_graph as ag
+
+    graph = ag.build_graph(records)
+    shape_counts: Counter[tuple[str, ...]] = Counter()
+    for unit in ag.enumerate_units(graph, levels=("L1_ARTIFACT", "L2_ENTITY")):
+        shape = tuple(unit.structural_signature.get("class_sequence") or ())
+        if shape:
+            shape_counts[shape] += 1
+
+    patterns: list[dict[str, Any]] = []
+    for shape, count in shape_counts.items():
+        if count < min_recurrence:
+            continue
+        patterns.append(
+            {
+                "action_sequence": list(shape),
+                "recurrence_count": count,
+            }
+        )
+    return patterns
