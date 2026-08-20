@@ -234,6 +234,64 @@ class GradeableUnit:
             "source_ids": list(self.source_ids),
         }
 
+    def grading_projection(self) -> UnitSignature:
+        """The grading-facing view of this unit, shape and vocabulary kept
+        in **separate** channels so cousin_relation can grade a combination
+        on shape alone even when its vocabulary is unrecognisable.
+
+        `event_graph` carries `structural_signature` -- this is the fix for
+        the defect this module exists to correct: `event_graph` is declared
+        on `signatures.reference_record_fields` but was never populated
+        anywhere on the observed path, because the one-signature-per-scope
+        design had no combination-level object to populate it from. A
+        `GradeableUnit`'s `structural_signature` *is* that graph.
+        `action_sequence` carries the literal vocabulary and nothing else,
+        so a delta can say "same shape, entirely different vocabulary" --
+        the exact case an unknown instance of a known type produces.
+        `attack_mappings` is always empty: technique identity is what
+        relating is meant to *produce*, never an input a unit supplies
+        (C.1 inversion 3).
+        """
+        return UnitSignature(
+            signature_id=self.unit_id,
+            event_graph=dict(self.structural_signature),
+            action_sequence=self.vocabulary,
+            telemetry_shape=self.edge_kinds,
+            parameter_families=self.entities,
+            context_topology=(self.level, *self.source_ids),
+        )
+
+
+@dataclass(frozen=True)
+class UnitSignature:
+    """Grading-facing projection of a `GradeableUnit`. Field names are
+    duck-typed to `cousin_relation._subject_axis_features` so a unit can be
+    handed to `relate_cousin` exactly like any other subject signature, but
+    every field here traces to exactly one of the two channels: shape
+    (`event_graph`, `telemetry_shape`) or vocabulary (`action_sequence`,
+    `parameter_families`). Never both in one field -- that conflation is
+    what flattened combination-level signal into a token bag before U.1/U.2.
+    """
+
+    signature_id: str
+    event_graph: dict[str, Any]
+    action_sequence: tuple[str, ...]
+    telemetry_shape: tuple[str, ...]
+    parameter_families: tuple[str, ...]
+    context_topology: tuple[str, ...]
+    attack_mappings: tuple[dict[str, Any], ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "signature_id": self.signature_id,
+            "event_graph": dict(self.event_graph),
+            "action_sequence": list(self.action_sequence),
+            "telemetry_shape": list(self.telemetry_shape),
+            "parameter_families": list(self.parameter_families),
+            "context_topology": list(self.context_topology),
+            "attack_mappings": list(self.attack_mappings),
+        }
+
 
 class ArtifactGraph:
     def __init__(self, artifacts: list[Artifact], edges: list[Edge]) -> None:
