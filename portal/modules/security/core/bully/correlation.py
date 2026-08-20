@@ -306,11 +306,22 @@ def assemble_timelines(
     artifact_time: Callable[[dict[str, Any]], float | None],
     artifact_id: Callable[[dict[str, Any]], str],
     artifact_source: Callable[[dict[str, Any]], str],
+    priority_entity_ids: frozenset[str] | None = None,
 ) -> list[EntityTimeline]:
     """Assemble one cross-source timeline per resolved entity. An artifact
     joins every timeline whose entity it touches (an event with both a user and
     a host contributes to both). The result is the correlation view: sparse
-    per-source artifacts stitched into a coherent per-entity narrative."""
+    per-source artifacts stitched into a coherent per-entity narrative.
+
+    `priority_entity_ids` (TASK_BULLY_TRUTH_ACCEPTANCE_V1 Y.3): richest-first
+    is the right default for an operator's queue, but the wrong sampler for a
+    measurement run -- a ~1% implant needle never wins a richest-first sort
+    against a sea of busy background entities (D2). When supplied, entities
+    in this set sort first (still richest-first among themselves), the
+    remainder richest-first as before. This is a SAMPLING decision the run
+    supplies from the sealed ledger, after grading is configured -- it never
+    reaches the grader's inputs (Q3 wall: selection biases what is measured,
+    it must never bias how a graded timeline is scored)."""
     by_entity: dict[str, list[tuple[float | None, str, str]]] = defaultdict(list)
     for art in artifacts:
         aid = artifact_id(art)
@@ -339,6 +350,17 @@ def assemble_timelines(
                 n_sources=len(srcs),
             )
         )
-    # richest investigations first: cross-source, longest
-    timelines.sort(key=lambda t: (t.n_sources, len(t.artifact_ids)), reverse=True)
+    # richest investigations first: cross-source, longest -- unless a
+    # priority set is supplied (Y.3), in which case priority entities sort
+    # first (still richest-first among themselves) so a truth-bearing but
+    # sparse entity is never silently excluded by a fixed take-N cutoff.
+    priority = priority_entity_ids or frozenset()
+    timelines.sort(
+        key=lambda t: (
+            t.entity.entity_id in priority,
+            t.n_sources,
+            len(t.artifact_ids),
+        ),
+        reverse=True,
+    )
     return timelines
