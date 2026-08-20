@@ -1528,3 +1528,271 @@ def check_scoreboard_conformance_fails_historical_runs() -> tuple[str, str, list
     if missed:
         return "FAIL", f"the guard did not FAIL these historical runs: {missed}", []
     return "PASS", "", []
+
+
+# ── X.7: the analyst loop's CI invariants (TASK_BULLY_ANALYST_LOOP_V1) ─────
+
+
+@register(
+    "bully_analyst_loop_notifying_classes_fire_and_only_those",
+    "EA. every notifying class (SAME/SIMILAR/ANOMALOUS_UNCLASSIFIED) fires; DIFFERENT never does (X1)",
+    order=128,
+)
+def check_analyst_loop_notifying_classes() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import analyst_loop as al
+    from portal.modules.security.core.bully.contracts import RELATIONSHIPS
+
+    fired: dict[str, bool] = {}
+    for relationship in RELATIONSHIPS:
+        notified = []
+        concern = al.raise_concern(
+            assessment_id="as-ci",
+            entity_id="e-ci",
+            relationship=relationship,
+            notify=notified.append,
+        )
+        fired[relationship] = concern is not None
+        if (concern is not None) != bool(notified):
+            return "FAIL", f"{relationship}: concern/notify disagree", []
+
+    expected = {"SAME", "SIMILAR", "ANOMALOUS_UNCLASSIFIED"}
+    actually_fired = {r for r, f in fired.items() if f}
+    if actually_fired != expected:
+        return (
+            "FAIL",
+            f"notifying classes {sorted(actually_fired)} != expected {sorted(expected)}",
+            [],
+        )
+    if fired.get("DIFFERENT"):
+        return "FAIL", "DIFFERENT fired a concern -- X1 violated", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_analyst_loop_should_escalate_is_the_only_suppressor",
+    "EB. should_escalate is the ONLY suppression path -- no threshold/gate on attention",
+    order=129,
+)
+def check_analyst_loop_only_suppressor() -> tuple[str, str, list[dict]]:
+    import inspect
+
+    from portal.modules.security.core.bully import analyst_loop as al
+
+    params = set(inspect.signature(al.raise_concern).parameters)
+    # Seeded violation check: no parameter name resembling a score/count
+    # threshold exists on the entry point a gate would hide behind.
+    forbidden_substrings = ("threshold", "min_", "max_", "cutoff", "floor")
+    suspicious = [
+        p for p in params if any(s in p.lower() for s in forbidden_substrings) and p != "notify"
+    ]
+    if suspicious:
+        return "FAIL", f"raise_concern exposes a threshold-shaped parameter: {suspicious}", []
+
+    # should_escalate=False is the only way to suppress a notifying class.
+    notified = []
+    suppressed = al.raise_concern(
+        assessment_id="as-ci",
+        entity_id="e-ci",
+        relationship="SAME",
+        notify=notified.append,
+        should_escalate=False,
+    )
+    if suppressed is not None or notified:
+        return "FAIL", "should_escalate=False did not suppress", []
+
+    notified2 = []
+    unsuppressed = al.raise_concern(
+        assessment_id="as-ci",
+        entity_id="e-ci",
+        relationship="SAME",
+        notify=notified2.append,
+        should_escalate=True,
+    )
+    if unsuppressed is None or not notified2:
+        return "FAIL", "should_escalate=True (the default posture) failed to fire", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_analyst_loop_all_three_verdicts_write_back",
+    "EC. all three verdicts write back; BENIGN writes BENIGN_CLOSE at ANALYST_CONFIRMED",
+    order=130,
+)
+def check_analyst_loop_verdicts_write_back() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import analyst_loop as al
+    from portal.modules.security.core.bully import signatures as sig_mod
+    from portal.modules.security.core.bully.anchors import AnchorLibrary
+
+    expected = {
+        al.CONFIRMED: ("ESCALATE", "ANALYST_CONFIRMED"),
+        al.BENIGN: ("BENIGN_CLOSE", "ANALYST_CONFIRMED"),
+        al.UNSURE: ("ANOMALOUS_UNCLASSIFIED", "SYSTEM_GENERATED"),
+    }
+    for verdict, (outcome, tier) in expected.items():
+        lib = AnchorLibrary()
+        signature = sig_mod.build_signature(
+            {"target_host": "ci"}, {"action_sequence": ["ci_probe", verdict.lower()]}
+        )
+        concern = al.raise_concern(
+            assessment_id="as-ci", entity_id="e-ci", relationship="SAME", notify=lambda _p: None
+        )
+        _closed, anchor = al.record_verdict(
+            concern, verdict, anchor_library=lib, signature=signature
+        )
+        if anchor is None:
+            return "FAIL", f"{verdict} produced no anchor", []
+        if anchor.record.get("outcome") != outcome or anchor.provenance_tier != tier:
+            return (
+                "FAIL",
+                f"{verdict} -> outcome={anchor.record.get('outcome')!r}/"
+                f"tier={anchor.provenance_tier!r}, expected {outcome!r}/{tier!r}",
+                [],
+            )
+        if verdict == al.BENIGN and (
+            anchor.record.get("outcome") != "BENIGN_CLOSE"
+            or anchor.provenance_tier != "ANALYST_CONFIRMED"
+        ):
+            return "FAIL", "BENIGN did not write BENIGN_CLOSE at ANALYST_CONFIRMED", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_analyst_loop_unsure_weak_and_cannot_raise_confidence",
+    "ED. UNSURE writes weak/SYSTEM_GENERATED and cannot raise confidence (G.2)",
+    order=131,
+)
+def check_analyst_loop_unsure_weak() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import analyst_loop as al
+    from portal.modules.security.core.bully import signatures as sig_mod
+    from portal.modules.security.core.bully.anchors import AnchorLibrary
+
+    lib = AnchorLibrary()
+    signature = sig_mod.build_signature(
+        {"target_host": "ci"}, {"action_sequence": ["ci_probe_unsure"]}
+    )
+    concern = al.raise_concern(
+        assessment_id="as-ci",
+        entity_id="e-ci",
+        relationship="ANOMALOUS_UNCLASSIFIED",
+        notify=lambda _p: None,
+    )
+    _closed, anchor = al.record_verdict(concern, al.UNSURE, anchor_library=lib, signature=signature)
+    if anchor is None:
+        return "FAIL", "UNSURE produced no anchor -- uncertainty was discarded, not retained", []
+    if anchor.grade != "weak":
+        return "FAIL", f"UNSURE anchor graded {anchor.grade!r}, expected 'weak'", []
+    if anchor.provenance_tier != "SYSTEM_GENERATED":
+        return (
+            "FAIL",
+            f"UNSURE anchor tiered {anchor.provenance_tier!r}, expected SYSTEM_GENERATED",
+            [],
+        )
+    if anchor.label_basis == "analyst_decision":
+        return (
+            "FAIL",
+            "UNSURE anchor carries analyst_decision label basis -- would raise confidence",
+            [],
+        )
+    return "PASS", "", []
+
+
+@register(
+    "bully_analyst_loop_notification_payload_carries_concern_class",
+    "EE. the notification payload carries concern_class distinguishing known_bad from unknown_cousin (X4)",
+    order=132,
+)
+def check_analyst_loop_payload_carries_concern_class() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import analyst_loop as al
+
+    payloads = []
+    for relationship in ("SAME", "SIMILAR", "ANOMALOUS_UNCLASSIFIED"):
+        al.raise_concern(
+            assessment_id="as-ci",
+            entity_id="e-ci",
+            relationship=relationship,
+            notify=payloads.append,
+        )
+    if "concern_class" not in payloads[0]:
+        return "FAIL", "notification payload missing concern_class", []
+    if payloads[0]["concern_class"] != "known_bad":
+        return "FAIL", "SAME did not carry concern_class=known_bad", []
+    if (
+        payloads[1]["concern_class"] != "unknown_cousin"
+        or payloads[2]["concern_class"] != "unknown_cousin"
+    ):
+        return (
+            "FAIL",
+            "SIMILAR/ANOMALOUS_UNCLASSIFIED did not carry concern_class=unknown_cousin",
+            [],
+        )
+    return "PASS", "", []
+
+
+@register(
+    "bully_analyst_loop_run_publishes_maturation_report",
+    "EF. a run publishing concerns publishes the maturation report (X6)",
+    order=133,
+)
+def check_analyst_loop_run_publishes_maturation_report() -> tuple[str, str, list[dict]]:
+    import json
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "docs" / "BULLY_ANALYST_LOOP_RUN_X6_V1.json"
+    if not path.is_file():
+        return "FAIL", "BULLY_ANALYST_LOOP_RUN_X6_V1.json does not exist", []
+    report = json.loads(path.read_text())
+    if report.get("plane") == "BLOCKED":
+        if not report.get("reason"):
+            return "FAIL", "X6 run is BLOCKED with no reason", []
+        return "PASS", "", []
+    mat = report.get("maturation_report")
+    if not isinstance(mat, dict):
+        return "FAIL", "X6 run publishes no maturation_report", []
+    required = {
+        "concerns_before",
+        "concerns_after",
+        "suppressed_entities",
+        "n_suppressed",
+        "still_raised",
+        "newly_raised",
+        "noise_reduction",
+    }
+    missing = required - set(mat)
+    if missing:
+        return "FAIL", f"maturation_report missing fields: {sorted(missing)}", []
+    both = report.get("both_classes_notified") or {}
+    if not both.get("cycle_1_both_fired"):
+        return "FAIL", "X6 run did not fire both known_bad and unknown_cousin concerns", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_analyst_loop_handoff_and_bin_off_the_notification_path",
+    "EG. handoff/BIN are never imported by the concern-notification path (X.6 design note)",
+    order=134,
+)
+def check_analyst_loop_handoff_bin_off_path() -> tuple[str, str, list[dict]]:
+    import ast
+    from pathlib import Path
+
+    bully_dir = (
+        Path(__file__).resolve().parents[2] / "portal" / "modules" / "security" / "core" / "bully"
+    )
+    forbidden = {"handoff", "promotion"}
+    offenders = []
+    for name in ("analyst_loop",):
+        path = bully_dir / f"{name}.py"
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        imported: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module:
+                imported.add(node.module.rsplit(".", 1)[-1])
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    imported.add(alias.name.rsplit(".", 1)[-1])
+        hit = imported & forbidden
+        if hit:
+            offenders.append(f"{name}.py imports {sorted(hit)}")
+    if offenders:
+        return "FAIL", "; ".join(offenders), []
+    return "PASS", "", []
