@@ -90,6 +90,34 @@ half never ran; and `conformance_self_check` PASSed with
 `trust_axis_fed_nulls` as a WARN, so `candidate_state` was still `None` on
 every record despite W.2.
 
+## D5 -- discovered live during the Y.6 re-run: JSON `_raw` was unparseable
+
+The first Y.6 attempt, with every Y.1-Y.4 fix wired in, still reported
+`selection_report: FAIL, n_implant_entities_available: 0` -- the SAME zero
+as X.6, despite `priority_entity_ids` now being correct. Root-caused live
+(never accepted as a permanent "detects nothing," per the standing "own-lab,
+no permanent unreachable" discipline): `universe.py`'s generated events are
+python dicts, so HEC/Splunk store their `_raw` as JSON text
+(`{"actor.id": "adv8370", ...}`), but `_parse_raw_kv`
+(`scripts/bully_loop_milestone_run.py`) only ever matched `key=value` text
+via regex -- it silently returned JSON-shaped records completely unchanged,
+so field-role inference and entity resolution saw only Splunk's own metadata
+wrapper fields, never the real payload, for every synthetic record in the
+corpus (background and implants alike). A second symptom compounded it:
+`build_universe`'s default `start_ts` is a fixed historical epoch (Nov
+2023), shared by every past run (X6, R6) with no advancement -- a live
+capture reading "most recent N by `_time`" can never rank a fixed-2023 batch
+above genuinely current 2026 lab telemetry, so the entire synthetic corpus
+was invisible to capture regardless of the parsing bug. Both are fixed in
+`bully_truth_acceptance_run.py` (ship at `time.time() - background_span`,
+not the shared historical default) and `_parse_raw_kv` (JSON-first parsing,
+nested containers flattened to dot-joined keys with the bare leaf name also
+exposed, falling back to the `key=value` regex for genuine KV text like real
+Windows/Linux logs) -- verified against the live captured record directly
+before and after. With both fixed, the same run selected 5/5 implant
+entities (`selection_recall: 1.0`) and detected all 5
+(`detection.recall: 1.0`).
+
 ## Why `both_classes_notified` is vacuous, and what replaces it
 
 `both_classes_notified` asked "did the grader's own two label buckets both

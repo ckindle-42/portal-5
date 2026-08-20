@@ -191,17 +191,54 @@ def _parse_raw_kv(record: dict[str, Any]) -> dict[str, Any]:
     metadata and miss the real payload entirely -- the actual bottleneck a
     genuinely live capture hits that a fixture never would. Merges parsed
     `key=value` pairs (quoted or bare) into the record; unparseable/free-text
-    `_raw` is left as-is (still available as a PAYLOAD-role fallback)."""
+    `_raw` is left as-is (still available as a PAYLOAD-role fallback).
+
+    `_raw` shaped as a JSON object (this module's own `universe.py`-generated
+    events ship exactly this way -- `_emit_record`'s payload is a python
+    dict, so HEC/Splunk store `_raw` as its JSON text, not `key=value` text)
+    is parsed as JSON first, never falling through to the `key=value` regex,
+    which cannot match `"key": "value"` syntax at all and would silently
+    drop the entire payload -- discovered live (TASK_BULLY_TRUTH_ACCEPTANCE_V1
+    Y.6): every synthetic record's real fields, including the injected
+    identity, were unrecoverable via the regex path alone, so entity
+    resolution ran on incidental Splunk metadata instead of real payload
+    fields. Nested containers (`universe.py`'s `nesting`/`container`) are
+    flattened to dot-joined keys (`detail.src_id`) AND their bare leaf name
+    (`src_id`) is also merged, since `field_roles`/a shape's own
+    `identity_field` are generated against the leaf name."""
     raw = record.get("_raw")
     if not isinstance(raw, str) or not raw:
         return record
     merged = dict(record)
+    stripped = raw.strip()
+    if stripped.startswith("{"):
+        try:
+            payload = json.loads(stripped)
+        except (json.JSONDecodeError, ValueError):
+            payload = None
+        if isinstance(payload, dict):
+            _merge_json_payload(merged, payload)
+            return merged
     for m in _RAW_KV.finditer(raw):
         key = m.group("key")
         value = m.group("qval") or m.group("sqval") or m.group("val")
         if key not in merged and value:
             merged[key] = value
     return merged
+
+
+def _merge_json_payload(merged: dict[str, Any], payload: dict[str, Any], prefix: str = "") -> None:
+    for key, value in payload.items():
+        if isinstance(value, dict):
+            _merge_json_payload(merged, value, prefix=f"{prefix}{key}.")
+            continue
+        if not isinstance(value, str):
+            continue
+        flat_key = f"{prefix}{key}"
+        if flat_key not in merged:
+            merged[flat_key] = value
+        if key not in merged:
+            merged[key] = value
 
 
 def _extract_identifier_observations(
