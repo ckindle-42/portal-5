@@ -29,6 +29,8 @@ from collections import Counter
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from . import series_cousin as series_cousin_mod
+
 ANCHOR_KINDS: tuple[str, ...] = (
     "attack_episode",
     "advisory",
@@ -90,6 +92,11 @@ class Anchor:
     derived_from: tuple[str, ...] = ()
     generation_depth: int = 0
     created_at: float = field(default_factory=time.time)
+    # R.3c: an attack_episode anchor built from the WHOLE ordered set of a
+    # technique's logs carries its behavioural series here (None for anchors
+    # built from a single flattened record -- visibly thin, never silently
+    # treated as a full series).
+    behavioural_series: series_cousin_mod.BehaviouralSeries | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -106,6 +113,7 @@ def make_anchor(
     derived_from: tuple[str, ...] = (),
     generation_depth: int = 0,
     anchor_id: str | None = None,
+    behavioural_series: series_cousin_mod.BehaviouralSeries | None = None,
 ) -> Anchor:
     if kind not in ANCHOR_KINDS:
         raise ValueError(f"unknown anchor kind: {kind!r}")
@@ -129,6 +137,7 @@ def make_anchor(
         malice=resolved_malice,
         derived_from=tuple(derived_from),
         generation_depth=generation_depth,
+        behavioural_series=behavioural_series,
     )
 
 
@@ -182,16 +191,47 @@ class AnchorLibrary:
         record: dict[str, Any],
         techniques: tuple[str, ...] = (),
         label_basis: str | None = "data_yml",
+        logs: list[dict[str, Any]] | None = None,
+        action_of: Any = None,
+        behavior_classifier: Any = None,
     ) -> Anchor:
         """attack_data episode: `data.yml`-declared techniques are the
         label basis when present; an episode with no manifest techniques is
-        stored `weak`, not dropped (S1)."""
+        stored `weak`, not dropped (S1).
+
+        R.3c: an `attack_data` technique is a SERIES of logs, not one
+        flattened record. When the caller passes the ordered `logs` for this
+        episode plus `action_of` (log -> action verb), a `BehaviouralSeries`
+        is derived (`series_cousin.series_from_logs`) and stored on the
+        anchor. A single-log episode (or one loaded via `record` alone, the
+        pre-R.3c path) is still stored -- `record` never becomes required to
+        change -- but its series is `is_multi_log=False`, visibly thin, never
+        silently treated as a full technique series.
+        """
         payload = dict(record)
         if techniques:
             payload.setdefault("attack_mappings", [{"technique_id": t} for t in techniques])
         basis = label_basis if techniques else None
+        technique = techniques[0] if techniques else None
+        anchor_id = payload.get("record_id")
+        series: series_cousin_mod.BehaviouralSeries | None = None
+        if logs is not None and action_of is not None:
+            series = series_cousin_mod.series_from_logs(
+                anchor_id or f"attack_episode:{source_id}",
+                logs,
+                action_of=action_of,
+                classifier=behavior_classifier,
+                technique=technique,
+                source_ids=(source_id,),
+            )
         return self.add(
-            make_anchor("attack_episode", payload, source_id=source_id, label_basis=basis)
+            make_anchor(
+                "attack_episode",
+                payload,
+                source_id=source_id,
+                label_basis=basis,
+                behavioural_series=series,
+            )
         )
 
     def load_advisory(

@@ -38,9 +38,24 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from . import pyramid  # sibling module in the same package
+from . import (
+    pyramid,  # sibling module in the same package
+    series_cousin,
+)
 
 ALGORITHM_VERSION = "loop-grader-v1"
+
+# R.3c: series-alignment relation -> loop RELATIONSHIPS. Series alignment is
+# WHAT decides cousinhood when a behavioural series is available (an entity's
+# stitched cross-source timeline vs the known-technique library); pyramid
+# match_level (grade_for_loop, above) still qualifies HOW ROBUST the match is
+# when only a point signature is available (no series).
+_SERIES_RELATION_MAP: dict[str, str] = {
+    "EXACT": "SAME",
+    "COUSIN": "SIMILAR",
+    "NOVEL": "ANOMALOUS_UNCLASSIFIED",
+    "NONE": "DIFFERENT",
+}
 
 # Distance bands, expressed on the SAME normalized scale as cousin_relation,
 # but now conditioned on pyramid level. Recorded on every assessment; a change
@@ -181,4 +196,50 @@ def grade_for_loop(
         robustness=ml.robustness,
         anchor_id=best_anchor_id if relationship == "NEW" else None,
         explanation=explanation,
+    )
+
+
+def grade_series_for_loop(
+    observed: series_cousin.BehaviouralSeries,
+    known_library: list[series_cousin.BehaviouralSeries],
+    *,
+    telemetry_healthy: bool = True,
+    idf: dict[str, float] | None = None,
+) -> LoopGrade:
+    """Grade cousinhood by ordered sequence alignment (R.3c) rather than a
+    point signature. `observed` is the behavioural series built from an
+    entity's stitched cross-source timeline (correlation.py); `known_library`
+    is the anchor library's technique series. Series alignment is WHAT decides
+    the relationship; pyramid match_level (grade_for_loop) still qualifies
+    robustness at the point-signature level when no series is available.
+
+    A blank observed spine (R7 wall preserved) is loud, not a silent
+    DIFFERENT -- mirrors grade_for_loop's Q1 treatment of instrument
+    blindness.
+    """
+    if not observed.spine:
+        return LoopGrade(
+            relationship="ANOMALOUS_UNCLASSIFIED",
+            defense_response="INDETERMINATE",
+            composite=0.0,
+            match_level="",
+            robustness=0.0,
+            anchor_id=None,
+            explanation={"reason": "insufficient_view:no_observable_behavioural_series"},
+        )
+
+    result = series_cousin.decide_cousin(observed, known_library, idf=idf)
+    relationship = _SERIES_RELATION_MAP[result.relation]
+    robustness = pyramid.robustness(pyramid.L3_BEHAVIOR) if result.aligned_spine else 0.0
+    return LoopGrade(
+        relationship=relationship,
+        defense_response=_defense_response(True, telemetry_healthy),
+        composite=result.distance,
+        match_level=pyramid.L3_BEHAVIOR if result.aligned_spine else "",
+        robustness=robustness,
+        anchor_id=result.known_series_id,
+        explanation={
+            "series": result.to_dict(),
+            "reason": f"series_alignment:{result.relation.lower()}",
+        },
     )
