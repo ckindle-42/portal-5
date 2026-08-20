@@ -573,14 +573,16 @@ def main() -> int:
             "cross_source_share": round(n_cross_source / n_graded, 4) if n_graded else 0.0,
         },
         "classifier_coverage_before_after": coverage_before_after,
-        "scoreboard": {
+        # The literal `scoreboard.update()` return -- catch_rate, trust_mean_rank,
+        # discovery_total, discovery_mean, false_flag_count (W.3). Never a proxy
+        # ratio invented in this script; `scoreboard_conformance.check_run`
+        # enforces this contract in CI (W.5).
+        "scoreboard": {k: v for k, v in scoreboard_result.items() if k != "records"},
+        "grade_distribution": {
             "n_graded": n_graded,
             "n_anomalous_unclassified": n_anomalous,
             "n_similar": n_similar,
             "n_same": n_same,
-            "discovery_bubbled_rate": round((n_anomalous + n_similar) / n_graded, 4)
-            if n_graded
-            else 0.0,
             "pyramid_level_distribution": level_dist,
         },
         "investigation": {
@@ -649,6 +651,7 @@ def _render_md(report: dict[str, Any]) -> str:
             f"```json\n{json.dumps(report, indent=2, default=str)}\n```\n"
         )
     sb = report["scoreboard"]
+    gd = report["grade_distribution"]
     corr = report["correlation"]
     inv = report["investigation"]
     lines = [
@@ -657,14 +660,20 @@ def _render_md(report: dict[str, Any]) -> str:
         f"Generated {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(report['generated_at']))}"
         f" -- plane **{report['plane']}** -- duration {report['duration_s']}s",
         "",
-        "## Headline: the loop scoreboard",
+        "## Headline: the loop scoreboard (scoreboard.update() contract, W.3)",
         "",
-        f"- Graded: {sb['n_graded']} entity timelines",
-        f"- ANOMALOUS_UNCLASSIFIED (the product, bubbled to analyst): {sb['n_anomalous_unclassified']}",
-        f"- SIMILAR (behavioural cousin): {sb['n_similar']}",
-        f"- SAME (known behaviour): {sb['n_same']}",
-        f"- Discovery-bubbled rate: {sb['discovery_bubbled_rate']}",
-        f"- Pyramid level distribution: {sb['pyramid_level_distribution']}",
+        f"- catch_rate: {sb['catch_rate']}",
+        f"- **trust_mean_rank (correctness axis)**: {sb['trust_mean_rank']}",
+        f"- discovery_total / discovery_mean: {sb['discovery_total']} / {sb['discovery_mean']}",
+        f"- **false_flag_count (correctness axis)**: {sb['false_flag_count']}",
+        "",
+        "## Grade distribution (relationship counts -- NOT the scoreboard)",
+        "",
+        f"- Graded: {gd['n_graded']} entity timelines",
+        f"- ANOMALOUS_UNCLASSIFIED (the product, bubbled to analyst): {gd['n_anomalous_unclassified']}",
+        f"- SIMILAR (behavioural cousin): {gd['n_similar']}",
+        f"- SAME (known behaviour): {gd['n_same']}",
+        f"- Pyramid level distribution: {gd['pyramid_level_distribution']}",
         "",
         "## Correlation (cross-source entity timelines)",
         "",
