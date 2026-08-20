@@ -111,6 +111,12 @@ class Concern:
     verdict: str | None = None
     verdict_note: str = ""
     verdict_at: float | None = None
+    # Y.4 (TASK_BULLY_TRUTH_ACCEPTANCE_V1): set when a SCRIPTED verdict
+    # contradicting sealed truth was refused write-back -- the verdict is
+    # still recorded (an analyst-facing record of what was decided), but no
+    # anchor was written. None for every real analyst verdict and every
+    # scripted verdict that did not contradict truth.
+    verdict_write_refused_reason: str | None = None
 
     @property
     def is_open(self) -> bool:
@@ -135,6 +141,7 @@ class Concern:
             "verdict": self.verdict,
             "verdict_note": self.verdict_note,
             "verdict_at": self.verdict_at,
+            "verdict_write_refused_reason": self.verdict_write_refused_reason,
         }
 
 
@@ -278,6 +285,8 @@ def record_verdict(
     signature: Any = None,
     source_id: str = "analyst",
     write_back: Callable[..., Any] | None = None,
+    scripted: bool = False,
+    ground_truth: str | None = None,
 ) -> tuple[Concern, Any]:
     """Record an analyst verdict and write it back as knowledge.
 
@@ -286,27 +295,56 @@ def record_verdict(
     and SYSTEM_GENERATED so it enters retrieval without raising confidence.
     "Nothing" is documented, not discarded: that BENIGN_CLOSE anchor is what
     lets `should_escalate` quiet the neighbourhood next cycle.
+
+    `scripted`/`ground_truth` (Y.4, TASK_BULLY_TRUTH_ACCEPTANCE_V1): a
+    scripted stand-in for a human analyst must not manufacture knowledge it
+    cannot justify. When `scripted=True` and `ground_truth` is supplied
+    (`"background"`, `"known_bad"`, or `"unknown_cousin"`), a verdict that
+    CONTRADICTS it -- `CONFIRMED` on `background`, or `BENIGN` on an implant
+    -- is refused: the verdict is still recorded on the closed concern (what
+    was decided is not hidden), but no anchor is written and `anchor` is
+    `None`. A REAL analyst verdict (`scripted=False`, the default) is never
+    blocked -- a human may legitimately disagree with a label; X.6's
+    poisoning came from a SCRIPTED verdict standing in for one, not from
+    genuine analyst disagreement.
     """
     if verdict not in VERDICTS:
         raise ValueError(f"unknown verdict {verdict!r}; expected one of {VERDICTS}")
+
+    refused_reason: str | None = None
+    if scripted and _contradicts_truth(verdict, ground_truth):
+        refused_reason = (
+            f"scripted_verdict_refused: {verdict} on ground_truth={ground_truth!r} "
+            "contradicts sealed truth -- a scripted stand-in must not manufacture "
+            "knowledge it cannot justify"
+        )
 
     closed = Concern(
         **{
             **{
                 k: v
                 for k, v in concern.to_dict().items()
-                if k not in ("verdict", "verdict_note", "verdict_at", "source_ids", "aligned_spine")
+                if k
+                not in (
+                    "verdict",
+                    "verdict_note",
+                    "verdict_at",
+                    "verdict_write_refused_reason",
+                    "source_ids",
+                    "aligned_spine",
+                )
             },
             "source_ids": concern.source_ids,
             "aligned_spine": concern.aligned_spine,
             "verdict": verdict,
             "verdict_note": note,
             "verdict_at": time.time(),
+            "verdict_write_refused_reason": refused_reason,
         }
     )
 
     anchor = None
-    if anchor_library is not None and signature is not None:
+    if refused_reason is None and anchor_library is not None and signature is not None:
         fn = write_back
         if fn is None:
             from . import compounding
@@ -320,6 +358,17 @@ def record_verdict(
             analyst_confirmed=_VERDICT_ANALYST_CONFIRMED[verdict],
         )
     return closed, anchor
+
+
+def _contradicts_truth(verdict: str, ground_truth: str | None) -> bool:
+    """`CONFIRMED` asserts "this is something" -- contradicted by
+    `background`. `BENIGN` asserts "this is nothing" -- contradicted by
+    either implant class. `UNSURE` never contradicts (it asserts nothing)."""
+    if ground_truth is None:
+        return False
+    if verdict == CONFIRMED and ground_truth == "background":
+        return True
+    return verdict == BENIGN and ground_truth in ("known_bad", "unknown_cousin")
 
 
 def open_queue(concerns: list[Concern]) -> list[Concern]:

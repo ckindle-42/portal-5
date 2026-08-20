@@ -23,6 +23,7 @@ consume anchors directly as reference records without a translation layer.
 
 from __future__ import annotations
 
+import dataclasses
 import time
 import uuid
 from collections import Counter
@@ -97,6 +98,11 @@ class Anchor:
     # built from a single flattened record -- visibly thin, never silently
     # treated as a full series).
     behavioural_series: series_cousin_mod.BehaviouralSeries | None = None
+    # Y.4 (TASK_BULLY_TRUTH_ACCEPTANCE_V1): supersede-never-delete quarantine
+    # -- an ANALYST_CONFIRMED anchor later found to contradict sealed truth
+    # (X.6 wrote background as ESCALATE) is marked here, never removed.
+    quarantined: bool = False
+    quarantine_reason: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -146,6 +152,9 @@ class AnchorLibrary:
 
     def __init__(self) -> None:
         self._anchors: dict[str, Anchor] = {}
+        # Never-delete audit trail: the pre-quarantine snapshot of every
+        # anchor this library has quarantined (Y.4).
+        self._quarantine_log: list[Anchor] = []
 
     def __len__(self) -> int:
         return len(self._anchors)
@@ -181,6 +190,51 @@ class AnchorLibrary:
             bucket = out.setdefault(anchor.kind, {})
             bucket[anchor.grade] = bucket.get(anchor.grade, 0) + 1
         return out
+
+    # ── quarantine (Y.4: supersede, never delete) ────────────────────────
+
+    def quarantine(self, anchor_id: str, *, reason: str) -> Anchor:
+        """Supersede an anchor in place with a `quarantine_reason` -- the
+        pre-quarantine anchor is retained in the (never-cleared)
+        `quarantine_log`, never dropped. Idempotent: quarantining an already-
+        quarantined anchor is a no-op that returns it unchanged."""
+        existing = self._anchors.get(anchor_id)
+        if existing is None:
+            raise KeyError(f"no such anchor to quarantine: {anchor_id!r}")
+        if existing.quarantined:
+            return existing
+        self._quarantine_log.append(existing)
+        quarantined = dataclasses.replace(existing, quarantined=True, quarantine_reason=reason)
+        self._anchors[anchor_id] = quarantined
+        return quarantined
+
+    def quarantine_log(self) -> tuple[Anchor, ...]:
+        """Pre-quarantine snapshots, oldest first -- the audit trail."""
+        return tuple(self._quarantine_log)
+
+    def quarantine_poisoned_confirmed_findings(
+        self, *, ground_truth_by_anchor: dict[str, str], provenance: str
+    ) -> dict[str, Any]:
+        """Quarantine every `confirmed_finding` anchor whose outcome is
+        `ESCALATE` but whose sealed ground truth is `background` -- an
+        ANALYST_CONFIRMED verdict written on benign activity (X.6's D4).
+        `ground_truth_by_anchor` maps `anchor_id` -> ground truth, looked up
+        by the caller from the sealed ledger. Never deletes (Store
+        convention): each quarantined anchor's pre-quarantine snapshot is
+        retained in `quarantine_log`."""
+        quarantined_ids: list[str] = []
+        for anchor in self.by_kind("confirmed_finding"):
+            truth = ground_truth_by_anchor.get(anchor.anchor_id)
+            if anchor.record.get("outcome") == "ESCALATE" and truth == "background":
+                self.quarantine(
+                    anchor.anchor_id,
+                    reason=(
+                        f"{provenance}: ANALYST_CONFIRMED ESCALATE anchor written on "
+                        "background ground truth (TASK_BULLY_TRUTH_ACCEPTANCE_V1 D4/Y4)"
+                    ),
+                )
+                quarantined_ids.append(anchor.anchor_id)
+        return {"n_quarantined": len(quarantined_ids), "anchor_ids": quarantined_ids}
 
     # ── loaders: one per anchor kind ─────────────────────────────────────
 
