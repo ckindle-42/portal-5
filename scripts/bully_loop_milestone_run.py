@@ -67,6 +67,9 @@ from portal.modules.security.core.bully import (
     scoreboard as scoreboard_mod,
 )
 from portal.modules.security.core.bully import (
+    scoreboard_conformance as conformance_mod,
+)
+from portal.modules.security.core.bully import (
     signatures as signatures_mod,
 )
 from portal.modules.security.core.bully.contracts import DecisionEvent, new_id
@@ -592,6 +595,16 @@ def main() -> int:
         },
         "per_row": graded,
     }
+
+    # ---- 7. self-check: a run may not publish a headline it would itself
+    # reject (W.4). Refuse to write a PASS doc if the guard FAILs. ----
+    self_check = conformance_mod.conformance_report(report)
+    report["conformance_self_check"] = self_check
+    if self_check["verdict"] == "FAIL":
+        print("CONFORMANCE SELF-CHECK FAILED -- refusing to publish a PASS doc:")
+        print(json.dumps(self_check, indent=2))
+        return 1
+
     _publish(report, args.out_dir)
     print(json.dumps({k: v for k, v in report.items() if k != "per_row"}, indent=2))
     return 0
@@ -666,6 +679,11 @@ def _render_md(report: dict[str, Any]) -> str:
         f"- **trust_mean_rank (correctness axis)**: {sb['trust_mean_rank']}",
         f"- discovery_total / discovery_mean: {sb['discovery_total']} / {sb['discovery_mean']}",
         f"- **false_flag_count (correctness axis)**: {sb['false_flag_count']}",
+        "",
+        f"## Conformance self-check: {report['conformance_self_check']['verdict']}"
+        " (scoreboard_conformance.check_run, W.4)",
+        "",
+        f"```json\n{json.dumps(report['conformance_self_check'], indent=2)}\n```",
         "",
         "## Grade distribution (relationship counts -- NOT the scoreboard)",
         "",
