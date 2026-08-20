@@ -464,25 +464,14 @@ def main() -> int:
             f"R6_series_grade relationship={assessment.relationship}",
             {"entity_id": timeline.entity.entity_id, "n_sources": timeline.n_sources},
         )
-        score = scoreboard_mod.score_record(
-            {
-                "assessment_id": assessment.assessment_id,
-                "relationship": assessment.relationship,
-                "defense_response": assessment.defense_response,
-                "composite": assessment.composite,
-                "candidate_state": None,
-                "known_benign": False,
-            }
-        )
         row = {
+            "assessment_id": assessment.assessment_id,
             "entity_id": timeline.entity.entity_id,
             "is_cross_source": timeline.is_cross_source,
             "n_sources": timeline.n_sources,
             "relationship": assessment.relationship,
             "match_level": assessment.explanation.get("match_level", ""),
             "robustness": assessment.explanation.get("robustness", 0.0),
-            "discovery_value": score["discovery_value"],
-            "catch": score["catch"],
         }
         graded.append(row)
 
@@ -530,6 +519,18 @@ def main() -> int:
                         "investigation_error": f"{type(exc).__name__}: {exc}",
                     }
                 )
+
+    # ---- 5b. score: feed the instrument its REAL inputs (W.2). candidate_state
+    # and known_benign come from store.scoreboard_records_for_hunt, which
+    # left-joins every graded assessment with its latest BIN candidate row
+    # and its known_state known_benign flag -- never hardcoded nulls. ----
+    scoreboard_records = store.scoreboard_records_for_hunt(hunt_id)
+    scoreboard_result = scoreboard_mod.update(hunt_id, scoreboard_records)
+    scored_by_assessment = {r["assessment_id"]: r for r in scoreboard_result["records"]}
+    for row in graded:
+        scored = scored_by_assessment.get(row["assessment_id"])
+        if scored is not None:
+            row.update(scored)
 
     store.close()
 
