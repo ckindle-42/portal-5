@@ -146,6 +146,8 @@ def run_observed_investigation(
     grade_fn: Callable[[Any, Any], Any] | None = None,
     promote_fn: Callable[[Any, Any], Any] | None = None,
     compound_fn: Callable[[Any, Any], Any] | None = None,
+    notify: Callable[[dict[str, Any]], None] | None = None,
+    verdict_fn: Callable[[Any], str | None] | None = None,
 ) -> ObservedRun:
     """J.1 interlock, re-pointed (TASK_BULLY_COUSIN_RELATION_V1 C.2): SCOPING
     uses B.2's `build_scope`; RELATING calls the observed-mode cousin grader
@@ -160,7 +162,18 @@ def run_observed_investigation(
     relation engine's subject signature needs -- left injectable because
     that adaptation is source-specific (evidence.py's concern), not this
     module's.
+
+    X.3: when the caller supplies `grade_fn` (producing a loop
+    `contracts.CousinAssessment`, e.g. `loop_grader.build_cousin_assessment`),
+    `promote_fn`/`compound_fn` default to the analyst loop hinge instead of a
+    no-op -- this is the wiring that was previously entirely unbuilt. PROMOTING
+    raises a concern (`analyst_loop.raise_concern`) gated ONLY by
+    `compounding.should_escalate` on that grade; COMPOUNDING writes an analyst
+    verdict back (`analyst_loop.record_verdict`) whenever `verdict_fn` produces
+    one for the raised concern. An explicitly-supplied `promote_fn`/`compound_fn`
+    always wins -- these are defaults, not an override.
     """
+    from . import analyst_loop, compounding
     from . import cousin_relation as cousin_mod
     from .relation_investigation import investigate_from_relation
     from .seed_scope import build_scope
@@ -173,8 +186,15 @@ def run_observed_investigation(
     # arrival (TASK_BULLY_COUSIN_RELATION_V1 C.2).
     index = cousin_mod.build_discriminative_index(anchor_library.records())
 
+    # Carries the signature computed in RELATING through to PROMOTING/
+    # COMPOUNDING, whose hooks are `(scope, grade)`/`(scope, promotion)` --
+    # neither is handed the signature directly, and the anchor write-back
+    # needs it (compounding.write_outcome_as_anchor(anchor_library, signature, ...)).
+    _signature_by_scope: dict[str, Any] = {}
+
     def _relate_fn(scope: Any) -> Any:
         signature = signature_fn(scope)
+        _signature_by_scope[scope.scope_id] = signature
         # `capabilities` is recorded as an annotation on the scope's evidence,
         # never fed into the grader: axis participation is decided per-pair by
         # what the arrival actually carries, which is strictly more honest
@@ -187,16 +207,65 @@ def run_observed_investigation(
             subject_id=getattr(signature, "signature_id", None),
         )
 
+    def _default_promote_fn(scope: Any, grade: Any) -> Any:
+        # `grade` is the loop's `contracts.CousinAssessment` (from `grade_fn`,
+        # e.g. `loop_grader.build_cousin_assessment`); no grade, nothing to
+        # raise -- honest no-op, never a fabricated concern.
+        if grade is None:
+            return None
+        relation_view = _RelationView(verdict=grade.relationship, assessment=grade)
+        escalate = compounding.should_escalate(relation_view, anchor_library)
+        entities = scope.bounds.entities
+        entity_id = entities[0] if entities else scope.seed_id
+        return analyst_loop.raise_concern(
+            assessment_id=grade.assessment_id,
+            entity_id=entity_id,
+            relationship=grade.relationship,
+            match_level=str(grade.explanation.get("match_level", "")),
+            robustness=grade.composite,
+            n_sources=1,
+            source_ids=(source_id,),
+            aligned_spine=tuple(grade.explanation.get("aligned_spine", ())),
+            resembles=grade.reference_signature_id,
+            notify=notify,
+            should_escalate=escalate,
+        )
+
+    def _default_compound_fn(scope: Any, promotion: Any) -> Any:
+        # `promotion` is the `Concern` `_default_promote_fn` raised (or None
+        # if it didn't fire). Only writes back when a verdict actually exists
+        # -- this hook never invents an analyst's decision.
+        if promotion is None or verdict_fn is None:
+            return None
+        verdict = verdict_fn(promotion)
+        if verdict is None:
+            return None
+        signature = _signature_by_scope.get(scope.scope_id)
+        return analyst_loop.record_verdict(
+            promotion, verdict, anchor_library=anchor_library, signature=signature
+        )
+
     run = run_observed(
         seed,
         scope_fn=_scope_fn,
         relate_fn=_relate_fn,
         investigate_fn=investigate_from_relation,
         grade_fn=grade_fn,
-        promote_fn=promote_fn,
-        compound_fn=compound_fn,
+        promote_fn=promote_fn or _default_promote_fn,
+        compound_fn=compound_fn or _default_compound_fn,
     )
     # Annotation only -- recorded for the run's evidence trail, never fed
     # into the grader (see _relate_fn above).
     run.evidence["capabilities_declared"] = dict(capabilities or {})
     return run
+
+
+@dataclass(frozen=True)
+class _RelationView:
+    """Duck-typed shim matching what `compounding.should_escalate` reads off
+    `relation.Relation` (`.verdict`, `.assessment.reference_signature_id`) --
+    built from the loop's `CousinAssessment` rather than the legacy
+    `relation.relate` path, without constructing a full `Relation`."""
+
+    verdict: str
+    assessment: Any
