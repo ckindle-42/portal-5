@@ -81,7 +81,7 @@ def _class_shape_tokens(action_sequence: Any, classifier: ActionClassifier | Non
     return tokens
 
 
-def _unit_shape_tokens(unit: GradeableUnit) -> set[str]:
+def unit_shape_tokens(unit: GradeableUnit) -> set[str]:
     """Same encoding as `_type_shape_tokens`'s fallback -- class bigrams and
     presence only -- so two sides with an identical class sequence always
     land at distance 0 regardless of which one started with a
@@ -111,7 +111,7 @@ def _type_shape_tokens(
     return _class_shape_tokens(anchor_record.get("action_sequence"), classifier)
 
 
-def _unit_vocabulary_tokens(unit: GradeableUnit) -> set[str]:
+def unit_vocabulary_tokens(unit: GradeableUnit) -> set[str]:
     return _as_token_set(unit.vocabulary) | _as_token_set(unit.entities)
 
 
@@ -245,10 +245,10 @@ def grade_unit_against_type(
     classifier: ActionClassifier | None = None,
 ) -> UnitTypeRelation:
     shape = _grade_channel(
-        "shape", _unit_shape_tokens(unit), _type_shape_tokens(anchor_record, classifier)
+        "shape", unit_shape_tokens(unit), _type_shape_tokens(anchor_record, classifier)
     )
     vocabulary = _grade_channel(
-        "vocabulary", _unit_vocabulary_tokens(unit), _type_vocabulary_tokens(anchor_record)
+        "vocabulary", unit_vocabulary_tokens(unit), _type_vocabulary_tokens(anchor_record)
     )
     return UnitTypeRelation(
         unit_id=unit.unit_id,
