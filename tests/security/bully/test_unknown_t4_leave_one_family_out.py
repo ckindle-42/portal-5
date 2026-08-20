@@ -81,8 +81,8 @@ def test_headline_recall_and_full_library_recall_are_both_published():
         _baseline(),
         benign_eval_units=[_unit(_BENIGN_TYPE, f"benign-{i}") for i in range(10)],
     )
-    assert 0.0 <= report.unknown_cousin_recall <= 1.0
-    assert 0.0 <= report.full_library_recall <= 1.0
+    assert 0.0 <= report.cousin_recall <= 1.0
+    assert 0.0 <= report.full_library_cousin_recall <= 1.0
     assert "family_a" in report.per_family
     assert "family_b" in report.per_family
 
@@ -98,7 +98,7 @@ def test_full_library_recall_is_at_least_as_high_as_leave_one_out():
         _baseline(),
         benign_eval_units=[],
     )
-    assert report.full_library_recall >= report.unknown_cousin_recall
+    assert report.full_library_cousin_recall >= report.cousin_recall
 
 
 def test_seeded_violation_shuffled_type_labels_collapse_recall():
@@ -114,8 +114,8 @@ def test_seeded_violation_shuffled_type_labels_collapse_recall():
         _baseline(),
         benign_eval_units=[_unit(_BENIGN_TYPE, f"benign-{i}") for i in range(10)],
     )
-    assert report.shuffled_control_recall <= um.SHUFFLED_CONTROL_MAX_RATIO * max(
-        report.unknown_cousin_recall, report.full_library_recall, 1e-9
+    assert report.shuffled_control_cousin_recall <= um.SHUFFLED_CONTROL_MAX_RATIO * max(
+        report.cousin_recall, report.full_library_cousin_recall, 1e-9
     )
 
 
