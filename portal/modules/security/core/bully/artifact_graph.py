@@ -44,7 +44,7 @@ import hashlib
 import json
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
 ALGORITHM_VERSION = "artifact-graph-v1"
 
@@ -139,35 +139,69 @@ def _entities(record: dict[str, Any]) -> tuple[str, ...]:
     return tuple(found)
 
 
-def _action_class(action: str | None) -> str:
-    """Coarse behavioural class for an action verb.
+ACTION_CLASSES: tuple[str, ...] = (
+    "unknown",
+    "auth",
+    "enumerate",
+    "execute",
+    "destroy",
+    "escalate",
+    "collect",
+    "other",
+)
 
-    **This lookup table is itself a vocabulary artifact and is the known weak
-    seam in the whole design.** Shape-matching across sources only works if
-    two different verbs for the same behaviour map to the same class, and a
-    hand-written substring table cannot do that -- it fails the moment a
-    source uses words the table's author did not anticipate
-    (`Add-LocalGroupMember` is an escalation; no substring here says so).
-    Mapping an action verb to a behavioural class is a *semantic* task, and
-    this function is the seam a learned classifier replaces. Everything else
-    in this module is deliberately deterministic so that when that swap
-    happens, its effect is measurable in isolation.
+
+class ActionClassifier(Protocol):
+    """Maps an action verb to a coarse behavioural class.
+
+    **This is the known weak seam of the whole design.** Shape-matching
+    across sources only works if two different verbs for the same behaviour
+    map to the same class -- mapping a verb to a behavioural class is a
+    *semantic* task, not a deterministic one. This protocol exists so a
+    learned classifier can be swapped in behind it later, measurably and in
+    isolation, without touching anything else in this module. **U.3 ships
+    only the seam and the deterministic default; it does not add a learned
+    classifier** -- M.1's cross-vocabulary ladder rung is the number that
+    sizes that work, and swapping the instrument under a grader that cannot
+    yet measure it is the mistake that produced the last three passes'
+    misses.
     """
-    if not action:
-        return "unknown"
-    lowered = action.lower()
-    table = (
-        (("assumerole", "getsessiontoken", "logon", "authenticate", "login"), "auth"),
-        (("list", "describe", "get", "enumerate", "whoami", "net user", "query"), "enumerate"),
-        (("create", "put", "run", "start", "invoke", "exec", "spawn"), "execute"),
-        (("delete", "remove", "stop", "terminate", "disable", "clear"), "destroy"),
-        (("attach", "grant", "addrole", "putpolicy", "adduser"), "escalate"),
-        (("copy", "download", "getobject", "export", "sync"), "collect"),
-    )
-    for needles, label in table:
-        if any(needle in lowered for needle in needles):
-            return label
-    return "other"
+
+    def classify(self, action: str | None) -> str: ...
+
+
+@dataclass(frozen=True)
+class DeterministicActionClassifier:
+    """Hand-written substring table. Fails the moment a source uses
+    vocabulary its author did not anticipate (`Add-LocalGroupMember` is an
+    escalation; no substring here says so) -- that gap is real and is
+    reported, not hidden, via the U.1 cross-vocabulary test and M.1's ladder.
+    """
+
+    def classify(self, action: str | None) -> str:
+        if not action:
+            return "unknown"
+        lowered = action.lower()
+        table = (
+            (("assumerole", "getsessiontoken", "logon", "authenticate", "login"), "auth"),
+            (("list", "describe", "get", "enumerate", "whoami", "net user", "query"), "enumerate"),
+            (("create", "put", "run", "start", "invoke", "exec", "spawn"), "execute"),
+            (("delete", "remove", "stop", "terminate", "disable", "clear"), "destroy"),
+            (("attach", "grant", "addrole", "putpolicy", "adduser"), "escalate"),
+            (("copy", "download", "getobject", "export", "sync"), "collect"),
+        )
+        for needles, label in table:
+            if any(needle in lowered for needle in needles):
+                return label
+        return "other"
+
+
+DEFAULT_ACTION_CLASSIFIER = DeterministicActionClassifier()
+
+
+def _action_class(action: str | None, classifier: ActionClassifier | None = None) -> str:
+    """Coarse behavioural class for an action verb. See `ActionClassifier`."""
+    return (classifier or DEFAULT_ACTION_CLASSIFIER).classify(action)
 
 
 @dataclass(frozen=True)
@@ -384,7 +418,9 @@ def build_graph(
     *,
     source_id: str = "",
     adjacency_seconds: float = TEMPORAL_ADJACENCY_SECONDS,
+    classifier: ActionClassifier | None = None,
 ) -> ArtifactGraph:
+    active_classifier = classifier or DEFAULT_ACTION_CLASSIFIER
     artifacts: list[Artifact] = []
     for i, record in enumerate(records):
         if not isinstance(record, dict):
@@ -396,7 +432,7 @@ def build_graph(
                 record=record,
                 entities=_entities(record),
                 action=action,
-                action_class=_action_class(action),
+                action_class=active_classifier.classify(action),
                 timestamp=_parse_time(record),
                 source_id=str(record.get("__source_id") or source_id),
             )
