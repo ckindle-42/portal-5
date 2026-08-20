@@ -651,6 +651,27 @@ def check_insufficient_view_and_novel_are_distinct() -> tuple[str, str, list[dic
     benign_graph = build_graph(benign_records)
     model.fit([u for u in enumerate_units(benign_graph) if u.level == "L1_ARTIFACT"])
 
+    # RC3/E.4: fit and score compare within the same level -- the probe
+    # below is L4_WINDOW, so the baseline needs its own L4_WINDOW pool of
+    # routine combinations, or the probe would score 0.0 honestly (never a
+    # silent floor) instead of measuring genuine content novelty.
+    attacker_verbs = [
+        "AssumeRole",
+        "GetSessionToken",
+        "AttachUserPolicy",
+        "PutBucketPolicy",
+        "DeleteBucket",
+        "PutObject",
+        "AssumeRole",
+        "AttachUserPolicy",
+        "DeleteBucket",
+    ]
+    benign_cycle = ["ListBuckets", "GetObject", "DescribeInstances"]
+    benign_combo = (benign_cycle * ((len(attacker_verbs) // len(benign_cycle)) + 1))[
+        : len(attacker_verbs)
+    ]
+    model.fit([_unit_from_verbs(benign_combo, f"benign-combo-{i}") for i in range(50)])
+
     empty_unit = GradeableUnit(
         unit_id="u-empty",
         level="L1_ARTIFACT",
@@ -665,17 +686,7 @@ def check_insufficient_view_and_novel_are_distinct() -> tuple[str, str, list[dic
     )
     insufficient = resolve_unit_outcome(empty_unit, [], model)
     novel = resolve_unit_outcome(
-        _unit_from_verbs(
-            [
-                "AssumeRole",
-                "ListBuckets",
-                "AttachUserPolicy",
-                "PutObject",
-                "GetObject",
-                "DeleteBucket",
-            ],
-            "attacker",
-        ),
+        _unit_from_verbs(attacker_verbs, "attacker"),
         [],
         model,
     )
