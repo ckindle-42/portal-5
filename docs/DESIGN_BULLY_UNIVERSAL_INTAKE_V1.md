@@ -1,5 +1,13 @@
 # DESIGN_BULLY_UNIVERSAL_INTAKE_V1
 
+> **2026-08-20 — wired into the loop.** The intake organ this doc designs is
+> no longer a standalone script: it is wired into the orchestrator via
+> `bully/loop_grader.py` (the orchestrator's `_analyzing` calls it in place of
+> `cousin_engine.grade`), with `bully_universal_intake_run.py` demoted to a
+> thin loop caller rather than a second pipeline. Its flat token-distance
+> matching lacked an axis for match robustness; that axis is pyramid level
+> (`bully/pyramid.py`) — see `DESIGN_BULLY_LOOP_REINTEGRATION_V1.md`.
+
 Full-scope design doc for `TASK_BULLY_UNIVERSAL_INTAKE_AND_INJECT_V1`. Companion to
 `DESIGN_BULLY_UNKNOWN_COUSIN_V1.md` and `BULLY_UNKNOWN_COUSIN_RUN_M3_V1.md`, the
 latter now carrying a dated errata header pointing here (X.2). This is the fourth
