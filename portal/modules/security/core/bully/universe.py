@@ -457,6 +457,7 @@ def build_universe(
                 "artifact_fingerprints": fps,
                 "n_steps": len(fps),
                 "implant_class": implant_class,
+                "identity": identity,
             }
         )
 
