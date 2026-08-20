@@ -321,13 +321,18 @@ def main() -> int:
     parser.add_argument("--dry-run-generate", action="store_true", help="skip R.5a live dispatch")
     parser.add_argument("--dry-run-hec", action="store_true", help="skip HEC ship (log only)")
     parser.add_argument("--out-dir", type=Path, default=REPO_ROOT / "docs")
+    parser.add_argument(
+        "--doc-stem",
+        default="BULLY_LOOP_MILESTONE_RUN_R6_V1",
+        help="output filename stem (no extension) for the published .json/.md",
+    )
     args = parser.parse_args()
 
     started_at = time.time()
     available, reason = ip.lab_available()
     if not available:
         report = _blocked(f"lab unavailable: {reason}")
-        _publish(report, args.out_dir)
+        _publish(report, args.out_dir, args.doc_stem)
         print(json.dumps(report, indent=2))
         return 1
 
@@ -340,7 +345,7 @@ def main() -> int:
             "HEC ship failed for one or more sources",
             partial={"r5a": r5a_report, "hec": hec_report},
         )
-        _publish(report, args.out_dir)
+        _publish(report, args.out_dir, args.doc_stem)
         print(json.dumps(report, indent=2))
         return 1
 
@@ -355,7 +360,7 @@ def main() -> int:
             f"capture unavailable or empty: {capture.reason or 'zero records'}",
             partial={"r5a": r5a_report, "hec": hec_report},
         )
-        _publish(report, args.out_dir)
+        _publish(report, args.out_dir, args.doc_stem)
         print(json.dumps(report, indent=2))
         return 1
 
@@ -530,6 +535,14 @@ def main() -> int:
     scoreboard_records = store.scoreboard_records_for_hunt(hunt_id)
     scoreboard_result = scoreboard_mod.update(hunt_id, scoreboard_records)
     scored_by_assessment = {r["assessment_id"]: r for r in scoreboard_result["records"]}
+
+    # Residual risk (task exit criteria): trust_mean_rank/false_flag_count can
+    # be PRESENT yet UNINFORMATIVE -- trust_mean_rank never sees a candidate
+    # if BIN was never driven for this hunt, and false_flag_count is
+    # structurally zero if known_state is empty. Publish the provenance
+    # counts beside the axes so a zero is never misread as "none found".
+    n_candidates_driven = sum(1 for r in scoreboard_records if r["candidate_state"] is not None)
+    known_benign_rows_total = store.known_state_count(kind="known_benign")
     for row in graded:
         scored = scored_by_assessment.get(row["assessment_id"])
         if scored is not None:
@@ -581,6 +594,13 @@ def main() -> int:
         # ratio invented in this script; `scoreboard_conformance.check_run`
         # enforces this contract in CI (W.5).
         "scoreboard": {k: v for k, v in scoreboard_result.items() if k != "records"},
+        # Provenance for the correctness axis (residual risk, task exit
+        # criteria): present-but-uninformative is distinguishable from a
+        # genuine measurement only with these counts alongside it.
+        "correctness_axis_provenance": {
+            "candidates_driven_for_hunt": n_candidates_driven,
+            "known_benign_rows_total": known_benign_rows_total,
+        },
         "grade_distribution": {
             "n_graded": n_graded,
             "n_anomalous_unclassified": n_anomalous,
@@ -605,7 +625,7 @@ def main() -> int:
         print(json.dumps(self_check, indent=2))
         return 1
 
-    _publish(report, args.out_dir)
+    _publish(report, args.out_dir, args.doc_stem)
     print(json.dumps({k: v for k, v in report.items() if k != "per_row"}, indent=2))
     return 0
 
@@ -647,19 +667,19 @@ def _action_value_extractor(
     return action_of
 
 
-def _publish(report: dict[str, Any], out_dir: Path) -> None:
+def _publish(report: dict[str, Any], out_dir: Path, doc_stem: str) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
-    json_path = out_dir / "BULLY_LOOP_MILESTONE_RUN_R6_V1.json"
+    json_path = out_dir / f"{doc_stem}.json"
     json_path.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
 
-    md_path = out_dir / "BULLY_LOOP_MILESTONE_RUN_R6_V1.md"
-    md_path.write_text(_render_md(report), encoding="utf-8")
+    md_path = out_dir / f"{doc_stem}.md"
+    md_path.write_text(_render_md(report, doc_stem), encoding="utf-8")
 
 
-def _render_md(report: dict[str, Any]) -> str:
+def _render_md(report: dict[str, Any], doc_stem: str) -> str:
     if report.get("plane") == "BLOCKED":
         return (
-            "# BULLY_LOOP_MILESTONE_RUN_R6_V1\n\n"
+            f"# {doc_stem}\n\n"
             f"**plane:** BLOCKED\n\n**reason:** {report.get('reason')}\n\n"
             f"```json\n{json.dumps(report, indent=2, default=str)}\n```\n"
         )
@@ -668,7 +688,7 @@ def _render_md(report: dict[str, Any]) -> str:
     corr = report["correlation"]
     inv = report["investigation"]
     lines = [
-        "# BULLY_LOOP_MILESTONE_RUN_R6_V1",
+        f"# {doc_stem}",
         "",
         f"Generated {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(report['generated_at']))}"
         f" -- plane **{report['plane']}** -- duration {report['duration_s']}s",
@@ -679,6 +699,17 @@ def _render_md(report: dict[str, Any]) -> str:
         f"- **trust_mean_rank (correctness axis)**: {sb['trust_mean_rank']}",
         f"- discovery_total / discovery_mean: {sb['discovery_total']} / {sb['discovery_mean']}",
         f"- **false_flag_count (correctness axis)**: {sb['false_flag_count']}",
+        "",
+        "### Correctness axis provenance (present-but-uninformative check)",
+        "",
+        f"- Candidates driven through BIN for this hunt: "
+        f"{report['correctness_axis_provenance']['candidates_driven_for_hunt']} "
+        f"(0 means trust_mean_rank reflects only HONEST_ANOMALY catches, never a "
+        f"PROMOTED/KILLED/DISPROVED operator verdict)",
+        f"- known_state 'known_benign' rows (live, any hunt): "
+        f"{report['correctness_axis_provenance']['known_benign_rows_total']} "
+        f"(0 means false_flag_count={sb['false_flag_count']} is structurally zero -- "
+        f"no known-benign subject existed to be falsely flagged -- not evidence of zero false flags)",
         "",
         f"## Conformance self-check: {report['conformance_self_check']['verdict']}"
         " (scoreboard_conformance.check_run, W.4)",

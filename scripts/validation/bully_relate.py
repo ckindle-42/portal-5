@@ -1459,14 +1459,23 @@ def check_scoreboard_conformance_per_row_full_contract() -> tuple[str, str, list
     order=125,
 )
 def check_scoreboard_conformance_trust_axis_not_nulled() -> tuple[str, str, list[dict]]:
+    """`trust_axis_fed_nulls` is WARN-severity in the underlying guard by
+    design (task residual risks): a live run where BIN genuinely was never
+    driven for any assessment looks identical, on this signal alone, to the
+    old hardcoded-null call site -- the guard cannot tell environment state
+    from a coding defect and neither can this check, so it surfaces as WARN
+    (evidence for a human) rather than a hard CI FAIL that would block every
+    legitimate BIN-not-yet-driven run."""
     from portal.modules.security.core.bully.scoreboard_conformance import check_run
 
     for name, run_json in _scoreboard_conformance_new_run_docs():
-        codes = {f.code for f in check_run(run_json)}
-        if "trust_axis_fed_nulls" in codes:
+        warn_codes = {f.code for f in check_run(run_json) if f.severity == "WARN"}
+        if "trust_axis_fed_nulls" in warn_codes:
             return (
-                "FAIL",
-                f"{name} feeds the trust axis hardcoded candidate_state=None/known_benign=False",
+                "WARN",
+                f"{name}: every record has candidate_state=None and known_benign=False "
+                f"(BIN not yet driven for this hunt, or a regression to hardcoded nulls -- "
+                f"see the run's own correctness_axis_provenance if published)",
                 [],
             )
     return "PASS", "", []

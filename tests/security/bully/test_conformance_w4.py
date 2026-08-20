@@ -21,7 +21,7 @@ def test_run_script_computes_self_check_before_publish():
     self_check_idx = src.index("self_check = conformance_mod.conformance_report(report)")
     refuse_idx = src.index('if self_check["verdict"] == "FAIL":', self_check_idx)
     # the terminal (post-loop) _publish call, not the earlier BLOCKED-path ones
-    publish_idx = src.index("_publish(report, args.out_dir)", refuse_idx)
+    publish_idx = src.index("_publish(report, args.out_dir, args.doc_stem)", refuse_idx)
     assert self_check_idx < refuse_idx < publish_idx, (
         "self-check must be computed and checked BEFORE the terminal _publish call"
     )
@@ -33,7 +33,7 @@ def test_run_script_refuses_on_fail_before_publish_call():
     and the second (post-check) _publish call."""
     src = RUN_SCRIPT.read_text()
     refuse_block_start = src.index('if self_check["verdict"] == "FAIL":')
-    next_publish = src.index("_publish(report, args.out_dir)", refuse_block_start)
+    next_publish = src.index("_publish(report, args.out_dir, args.doc_stem)", refuse_block_start)
     block = src[refuse_block_start:next_publish]
     assert "return 1" in block
 

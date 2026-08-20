@@ -636,6 +636,23 @@ class Store:
             )
         return out
 
+    def known_state_count(self, kind: str | None = None) -> int:
+        """Live count of active (non-superseded) `known_state` entries,
+        optionally filtered by `kind` (e.g. `'known_benign'`). A run
+        publishing `false_flag_count` beside this makes a structural zero
+        (empty `known_state`) distinguishable from a genuine zero (a
+        populated `known_state` with no false flags found) -- W.6."""
+        if kind is None:
+            row = self._conn.execute(
+                "SELECT COUNT(*) AS n FROM known_state WHERE superseded_by IS NULL"
+            ).fetchone()
+        else:
+            row = self._conn.execute(
+                "SELECT COUNT(*) AS n FROM known_state WHERE kind=? AND superseded_by IS NULL",
+                (kind,),
+            ).fetchone()
+        return int(row["n"])
+
     def plateau_trials_for_neighborhood(self, neighborhood: str) -> list[dict]:
         """Assemble `plateau.py`-ready trial facts (P4.4): one trial per
         hunt scoped to this `neighborhood_scope` (this build runs exactly
