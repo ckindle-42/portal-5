@@ -2,6 +2,26 @@
 
 Generated 2026-08-20T19:24:52Z -- plane **live** -- duration 143.66s
 
+**Errata (2026-08-20, discovered post-run):** `notifications_dispatched` below
+(and the per-cycle `notification_counts_by_class`) count calls into
+`analyst_loop._default_notify`, not confirmed deliveries. Those calls went
+through `NotificationDispatcher._schedule`, which used
+`asyncio.ensure_future(coro)` -- a call that does NOT raise when there is no
+running event loop; it silently parks the coroutine on a freshly created,
+never-run loop, so it never executes. This run is a synchronous CLI script
+with no `asyncio.run()` wrapper anywhere, so every one of the notifications
+counted below was silently dropped -- zero were actually delivered, confirmed
+by the operator receiving nothing during the run. Fixed in
+`portal/platform/inference/notifications/dispatcher.py` (`_schedule` now
+uses `get_running_loop()` to correctly detect the no-loop case and falls
+back to `asyncio.run()`), verified with a real delivered notification and a
+regression test (`test_schedule_actually_runs_the_coroutine_with_no_running_loop`).
+This run was NOT re-executed after the fix (would re-fire ~500+ real pushes);
+every other figure in this document (concerns raised, verdicts, anchors
+written, the maturation report, the scoreboard contract) reflects the actual
+grading/write-back/suppression mechanism, which does not depend on
+notification delivery and is unaffected by this bug.
+
 **Scripted verdicts note:** analyst verdicts in this run are a deterministic CONFIRMED/BENIGN/UNSURE cycle sealed from the grader, standing in for a human reviewer -- they prove the mechanism, not analyst agreement (residual risk).
 
 ## Both classes notified (X1 -- a known-bads-only run is a FAILURE)

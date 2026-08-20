@@ -15162,5 +15162,12 @@
         "detail": "every record has candidate_state=None and known_benign=False: the correctness axis was fed nulls by construction"
       }
     ]
+  },
+  "errata": {
+    "date": "2026-08-20",
+    "discovered_post_run": true,
+    "issue": "notifications_dispatched and notification_counts_by_class count calls into analyst_loop._default_notify, not confirmed deliveries. NotificationDispatcher._schedule used asyncio.ensure_future(coro), which does not raise when there is no running event loop -- it silently parks the coroutine on a freshly created, never-run loop, so it never executes. This run is a synchronous CLI script with no asyncio.run() wrapper, so every notification counted below was silently dropped; zero were delivered.",
+    "fix": "portal/platform/inference/notifications/dispatcher.py: _schedule now uses get_running_loop() to detect the no-loop case and falls back to asyncio.run(). Verified with a real delivered notification and a regression test (tests/unit/test_notifications.py::test_schedule_actually_runs_the_coroutine_with_no_running_loop).",
+    "re_run": "This run was NOT re-executed after the fix (would re-fire ~500+ real pushes). Every other figure (concerns raised, verdicts, anchors written, maturation_report, scoreboard) reflects the grading/write-back/suppression mechanism, which does not depend on notification delivery and is unaffected by this bug."
   }
 }
