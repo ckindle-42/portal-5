@@ -1,5 +1,10 @@
-"""A.1 -- anchor library: all four kinds load; an anchor without label basis
-is stored as weak, not rejected; grades differ."""
+"""A.1 -- anchor library: all kinds load; an anchor without label basis
+is stored as weak, not rejected; grades differ.
+
+`benign_pattern` (N.1, TASK_BULLY_UNKNOWN_COUSIN_V1) added the library's
+fifth kind after this suite's original four-kind claim; the fixture and
+assertion below were extended in place rather than left asserting a stale
+count."""
 
 from __future__ import annotations
 
@@ -31,14 +36,19 @@ def _populated_library() -> anchors_mod.AnchorLibrary:
         outcome="ESCALATE",
         analyst_confirmed=True,
     )
+    lib.load_benign_pattern(
+        source_id="corpus",
+        record={"action_sequence": ["enumerate"]},
+        recurrence_count=5,
+    )
     return lib
 
 
-def test_all_four_anchor_kinds_load():
+def test_all_anchor_kinds_load():
     lib = _populated_library()
     kinds_present = {a.kind for a in lib.all()}
     assert kinds_present == set(anchors_mod.ANCHOR_KINDS)
-    assert len(lib) == 4
+    assert len(lib) == len(anchors_mod.ANCHOR_KINDS)
 
 
 def test_anchor_without_label_basis_is_weak_not_rejected():
