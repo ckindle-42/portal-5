@@ -23,11 +23,18 @@ def _run(slug: str) -> tuple[str, str, list[dict]]:
 
 
 def test_all_seven_invariants_registered_and_pass_clean():
+    """Six of the seven must be clean PASS. The seventh
+    (`..._trust_axis_not_hardcoded_nulls`) is allowed WARN too: a real live
+    run where BIN was never driven for any assessment (e.g. W.6, which does
+    not include a BIN-promotion phase) looks identical on this signal alone
+    to the old hardcoded-null defect, so the underlying guard reports it as
+    WARN by design (task residual risks) rather than a hard FAIL."""
     slugs = {s for s, _label, _fn in all_checks() if s.startswith("bully_scoreboard_conformance_")}
     assert set(_SLUGS) <= slugs
     for slug in _SLUGS:
         verdict, detail, _findings = _run(slug)
-        assert verdict == "PASS", f"{slug} should PASS on the clean repo but got: {detail}"
+        allowed = {"PASS", "WARN"} if slug.endswith("trust_axis_not_hardcoded_nulls") else {"PASS"}
+        assert verdict in allowed, f"{slug} should PASS/WARN on the clean repo but got: {detail}"
 
 
 def test_guard_fails_all_five_historical_runs_is_itself_verified_true():
