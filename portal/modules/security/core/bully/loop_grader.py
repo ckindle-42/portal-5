@@ -343,3 +343,44 @@ def build_cousin_assessment(signature, candidates, coverage) -> CousinAssessment
         thresholds_version=ALGORITHM_VERSION,
         explanation=grade.to_assessment_kwargs()["explanation"],
     )
+
+
+def build_cousin_assessment_from_series(
+    signature,
+    observed: series_cousin.BehaviouralSeries,
+    known_library: list[series_cousin.BehaviouralSeries],
+    *,
+    idf: dict[str, float] | None = None,
+) -> CousinAssessment:
+    """The R.3c/R.6 counterpart to `build_cousin_assessment`: grades by
+    sequence alignment over a cross-source entity timeline's behavioural
+    series rather than a point signature, and emits the SAME
+    `CousinAssessment` DTO -- so the milestone run records it through the
+    identical `store.record_cousin`/scoreboard/BIN/investigation/handoff
+    path `orchestrator._analyzing` uses, not a side metric.
+    """
+    grade = grade_series_for_loop(observed, known_library, idf=idf)
+    return CousinAssessment(
+        assessment_id=f"ca-{uuid.uuid4().hex[:12]}",
+        subject_signature_id=signature.signature_id,
+        reference_signature_id=grade.anchor_id,
+        candidate_set_id=f"series-lib-{len(known_library)}",
+        decomposition=Decomposition(
+            behavior=grade.robustness,
+            telemetry=None,
+            semantic=None,
+            attack=None,
+            context=None,
+        ),
+        composite=grade.composite,
+        relationship=grade.relationship,
+        nonsemantic_channels=grade.nonsemantic_channels,
+        vetoes=[],
+        defense_response=grade.defense_response,
+        nearest_knowns=[(grade.anchor_id, grade.composite)] if grade.anchor_id else [],
+        confidence=grade.robustness,
+        completeness=signature.completeness,
+        algorithm_version=ALGORITHM_VERSION,
+        thresholds_version=ALGORITHM_VERSION,
+        explanation=grade.to_assessment_kwargs()["explanation"],
+    )
