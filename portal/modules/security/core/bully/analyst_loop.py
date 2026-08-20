@@ -172,7 +172,7 @@ def _default_notify(payload: dict[str, Any]) -> None:
         disp._schedule(
             disp.dispatch(
                 AlertEvent(
-                    type=EventType.PROMOTION_QUEUED,
+                    type=EventType.CONCERN_RAISED,
                     message=(
                         f"Bully {cls}: {payload.get('relationship')} on "
                         f"{payload.get('entity_id')} across "
