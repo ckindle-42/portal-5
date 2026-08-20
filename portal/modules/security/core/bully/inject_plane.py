@@ -1,0 +1,321 @@
+"""bully.inject_plane -- generate/inject/capture: the live plural data plane
+(E.5, TASK_BULLY_UNIVERSAL_INTAKE_AND_INJECT_V1).
+
+Permanent infrastructure, built once, reused forever: every future bully
+run, every future universality claim, and the eventual training corpus draw
+from it. It is the live sibling of `blend.py` (E.3) -- both emit records
+carrying `__source_id` in the same shape, so field-role inference, the
+artifact graph, and grading are identical downstream regardless of which
+plane fed them.
+
+**Generate.** Drive real activity in the lab through the tooling already
+wired for authorized use (`portal.modules.security.core.lab.dispatch_lab_tool`,
+the same dispatch the security-bench exec chains use against `portal.lab`)
+-- labelled attack steps tagged at emission with
+`(family, technique, chain_id, step_idx, injected=True)`.
+
+**Capture.** Read activity back out of Splunk via the *existing*
+`live_connect.SplunkQueryInPlaceConnector` (read path unchanged; this module
+adds no write path to the grader's side). The captured records handed
+downstream are raw and untagged -- Q3.
+
+**Seal.** Ground truth is sealed through the existing sealed-ledger wall,
+`specimen_ledger.SpecimenLedger` (`source_lane="live_lab"`), the same
+mechanism `cousin_calibration_bench.py` already uses for blind-grade-then-
+join truth. No second sealing mechanism is built here.
+
+**Fail-closed.** If the lab is unreachable or a secret is missing, callers
+get a clear, itemised reason and never a silent synthetic substitute --
+`blend.py` is the explicit, stated fallback, never an implicit one.
+
+I/O only through the existing `live_connect`/`lab` plumbing; no new
+side-channel writes.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from . import specimen_ledger
+from .data_plane import DataPlane
+
+ALGORITHM_VERSION = "inject-plane-v1"
+
+# One small authorized command per (family, technique) -- run on the Kali
+# attack host via dispatch_lab_tool("execute_bash", ...), the same dispatch
+# path the security-bench exec chains already use against portal.lab.
+# Sparse relative to the benign backdrop already flowing through the lab's
+# Splunk index (Q4: every step is labelled at emission).
+_LIVE_CHAINS: tuple[dict[str, Any], ...] = (
+    {
+        "family": "discovery",
+        "technique": "T1018",
+        "chain_id": "live-discovery-T1018",
+        "steps": (
+            "nxc smb {dc} -u guest -p '' 2>&1 | head -20",
+            "nxc smb {dc} --shares 2>&1 | head -20",
+        ),
+    },
+    {
+        "family": "credential_access",
+        "technique": "T1558",
+        "chain_id": "live-credaccess-T1558",
+        "steps": (
+            "nxc ldap {dc} -u guest -p '' --asreproast /tmp/bully_asrep.txt 2>&1 | head -20",
+        ),
+    },
+)
+
+
+@dataclass(frozen=True)
+class GenerateStep:
+    family: str
+    technique: str
+    chain_id: str
+    step_idx: int
+    command: str
+    result: dict[str, Any]
+
+    @property
+    def ok(self) -> bool:
+        return bool(self.result.get("ok"))
+
+
+@dataclass(frozen=True)
+class GenerateReport:
+    plane: str  # "live" | "unavailable"
+    reason: str
+    steps: tuple[GenerateStep, ...]
+
+    @property
+    def succeeded(self) -> bool:
+        return self.plane == "live" and bool(self.steps) and all(s.ok for s in self.steps)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "plane": self.plane,
+            "reason": self.reason,
+            "steps": [
+                {
+                    "family": s.family,
+                    "technique": s.technique,
+                    "chain_id": s.chain_id,
+                    "step_idx": s.step_idx,
+                    "command": s.command,
+                    "ok": s.ok,
+                }
+                for s in self.steps
+            ],
+        }
+
+
+def lab_available() -> tuple[bool, str]:
+    """Fail-closed reachability check -- never a silent substitute. Reuses
+    the lab module's own gate rather than re-deriving one, and additionally
+    requires the Splunk credential the capture side needs."""
+    from .. import lab as lab_module
+
+    if not getattr(lab_module, "_LAB_EXEC_AVAILABLE", False):
+        return False, "lab exec MCP not available in this environment"
+    if not os.environ.get("LAB_SPLUNK_PASSWORD"):
+        return False, "LAB_SPLUNK_PASSWORD not set -- capture side would be unauthenticated"
+    if not lab_module.verify_lab_targets_reachable(dry_run=False):
+        return False, "lab DC/target reachability check failed"
+    return True, ""
+
+
+def generate_labelled_activity(
+    *,
+    dc_target: str | None = None,
+    chains: tuple[dict[str, Any], ...] = _LIVE_CHAINS,
+) -> GenerateReport:
+    """Drive one small authorized command per labelled chain against the
+    live lab. Fail-closed: returns `plane="unavailable"` with an itemised
+    reason rather than fabricating a result."""
+    available, reason = lab_available()
+    if not available:
+        return GenerateReport(plane="unavailable", reason=reason, steps=())
+
+    from .. import lab as lab_module
+
+    dc = dc_target or os.environ.get("LAB_TARGET_DC", "10.10.11.21")
+    steps: list[GenerateStep] = []
+    for chain in chains:
+        for step_idx, template in enumerate(chain["steps"]):
+            command = template.format(dc=dc)
+            result = lab_module.dispatch_lab_tool("execute_bash", {"cmd": command})
+            steps.append(
+                GenerateStep(
+                    family=chain["family"],
+                    technique=chain["technique"],
+                    chain_id=chain["chain_id"],
+                    step_idx=step_idx,
+                    command=command,
+                    result=result,
+                )
+            )
+    return GenerateReport(plane="live", reason="", steps=tuple(steps))
+
+
+def _fingerprint(record: dict[str, Any]) -> str:
+    digest = hashlib.sha256(json.dumps(record, sort_keys=True, default=str).encode()).hexdigest()
+    return f"art-{digest[:16]}"
+
+
+@dataclass(frozen=True)
+class CaptureReport:
+    plane: str  # "live" | "unavailable"
+    reason: str
+    records: tuple[dict[str, Any], ...]
+    schemas_present: frozenset[str]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "plane": self.plane,
+            "reason": self.reason,
+            "n_records": len(self.records),
+            "schemas_present": sorted(self.schemas_present),
+        }
+
+
+def capture_records(
+    *,
+    plane: DataPlane | None = None,
+    sample_limit: int = 500,
+) -> CaptureReport:
+    """Read activity back out of the lab's Splunk index via the existing
+    `SplunkQueryInPlaceConnector` -- the read path this module adds no
+    write path beside. Records are captured raw and untagged (Q3): no
+    family/technique/injected label ever rides on a captured record."""
+    available, reason = lab_available()
+    if not available:
+        return CaptureReport(
+            plane="unavailable", reason=reason, records=(), schemas_present=frozenset()
+        )
+
+    from .connectors import QueryIntent
+    from .live_connect import connect_lab_splunk
+
+    active_plane = plane or DataPlane()
+    profile, meta = connect_lab_splunk(active_plane, sample_limit=sample_limit)
+    if not (meta.get("records") or 0):
+        return CaptureReport(
+            plane="live",
+            reason="capture returned zero records",
+            records=(),
+            schemas_present=frozenset(),
+        )
+
+    result = active_plane.query(
+        profile.source_id, QueryIntent("capture recent telemetry", limit=sample_limit)
+    )
+    captured: list[dict[str, Any]] = []
+    for record in result.records:
+        if isinstance(record, dict):
+            tagged = dict(record)
+            tagged["__source_id"] = profile.source_id
+            captured.append(tagged)
+    schemas = frozenset({"cloudtrail"}) if captured else frozenset()
+    return CaptureReport(plane="live", reason="", records=tuple(captured), schemas_present=schemas)
+
+
+def seal_ground_truth(
+    generate_report: GenerateReport,
+    captured_records: tuple[dict[str, Any], ...],
+    *,
+    root: Path | None = None,
+) -> int:
+    """Seal every generated step's ground truth through the existing
+    `SpecimenLedger` wall (Q3) -- `source_lane="live_lab"`. Captured records
+    join to their provenance only by fingerprint, strictly after grading;
+    this function never hands truth to a grader."""
+    ledger = specimen_ledger.SpecimenLedger(root)
+    sealed = 0
+    captured_by_fingerprint = {_fingerprint(r): r for r in captured_records}
+    for step in generate_report.steps:
+        specimen_id = f"{step.chain_id}-step{step.step_idx}"
+        matched_fingerprint = next(
+            (
+                fp
+                for fp, rec in captured_by_fingerprint.items()
+                if step.command in json.dumps(rec, default=str)
+            ),
+            None,
+        )
+        record = specimen_ledger.SpecimenRecord(
+            specimen_id=specimen_id,
+            parent_id=step.chain_id,
+            source_lane="live_lab",
+            construction_distance=0.0,
+            data_yml_techniques=(step.technique,),
+            created_at=time.time(),
+            provenance={
+                "family": step.family,
+                "technique": step.technique,
+                "chain_id": step.chain_id,
+                "step_idx": step.step_idx,
+                "injected": True,
+                "matched_fingerprint": matched_fingerprint,
+            },
+        )
+        ledger.record(record)
+        sealed += 1
+    return sealed
+
+
+@dataclass(frozen=True)
+class InjectCaptureRun:
+    plane: str  # "live" | "fixture"
+    reason: str
+    records: tuple[dict[str, Any], ...]
+    sealed_count: int
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "plane": self.plane,
+            "reason": self.reason,
+            "n_records": len(self.records),
+            "sealed_count": self.sealed_count,
+        }
+
+
+def run_inject_capture(*, ledger_root: Path | None = None) -> InjectCaptureRun:
+    """The E.5 orchestrator. Fail-closed and honest: if the live plane is
+    unavailable, falls back to the E.3 fixture and states plainly that the
+    fixture, not a live capture, produced the returned records -- never a
+    silent synthetic substitute for what looks like a live run."""
+    generate_report = generate_labelled_activity()
+    if generate_report.plane != "live":
+        from . import blend
+
+        records, _provenance = blend.compose_blend()
+        return InjectCaptureRun(
+            plane="fixture",
+            reason=f"live plane unavailable: {generate_report.reason}",
+            records=tuple(records),
+            sealed_count=0,
+        )
+
+    capture_report = capture_records()
+    if capture_report.plane != "live" or not capture_report.records:
+        from . import blend
+
+        records, _provenance = blend.compose_blend()
+        reason = capture_report.reason or "live capture returned no records"
+        return InjectCaptureRun(
+            plane="fixture",
+            reason=f"live capture unavailable: {reason}",
+            records=tuple(records),
+            sealed_count=0,
+        )
+
+    sealed = seal_ground_truth(generate_report, capture_report.records, root=ledger_root)
+    return InjectCaptureRun(
+        plane="live", reason="", records=capture_report.records, sealed_count=sealed
+    )
