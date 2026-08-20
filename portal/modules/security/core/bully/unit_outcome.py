@@ -36,7 +36,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .anchors import Anchor
+from .anchors import Anchor, AnchorLibrary
 from .artifact_graph import ActionClassifier, GradeableUnit
 from .baseline import NormalBaseline
 from .unit_relation import (
@@ -299,3 +299,59 @@ def sort_for_report(outcomes: list[UnitOutcome]) -> list[UnitOutcome]:
     """Concern-raising outcomes first; `KNOWN_INSTANCE` never headlines
     (P1, M.2 invariant #4)."""
     return sorted(outcomes, key=lambda o: (o.report_rank, o.unit.unit_id))
+
+
+# ── L.1: outcomes become types; suppression goes live ──────────────────────
+
+ANALYST_DISPOSITIONS: tuple[str, ...] = ("BENIGN_CLOSE", "CONFIRMED_MALICIOUS")
+
+
+def _unit_type_record(unit: GradeableUnit) -> dict[str, Any]:
+    return {
+        "action_sequence": list(unit.vocabulary),
+        "event_graph": dict(unit.structural_signature),
+        "parameter_families": list(unit.entities),
+    }
+
+
+def write_unit_outcome_as_anchor(
+    library: AnchorLibrary,
+    outcome: UnitOutcome,
+    *,
+    source_id: str,
+    analyst_disposition: str,
+    analyst_confirmed: bool = True,
+) -> Anchor:
+    """Close the compounding loop for the unit-level pipeline: an
+    investigated unit's disposition becomes a typed anchor, malice carried,
+    so the *next* occurrence of the same shape/vocabulary resolves
+    differently.
+
+    `BENIGN_CLOSE` writes a `benign_pattern` anchor (N.1) -- this is what
+    turns `RECOGNIZED_NORMAL` suppression from dead wiring into something
+    that actually fires on repeat, because `resolve_unit_outcome` already
+    treats any `malice == "benign"` match as `RECOGNIZED_NORMAL`. Before
+    this function existed, an analyst's benign call was never persisted, so
+    a repeated benign unit only ever had a *type* library to match against,
+    never an *instance* the system itself had already closed.
+
+    `CONFIRMED_MALICIOUS` writes a `confirmed_finding` anchor -- on the next
+    occurrence this becomes the `KNOWN_INSTANCE` floor row rather than a
+    fresh `UNKNOWN_SAME`/`COUSIN` concern, exactly the "existing detection
+    owns it" disposition."""
+    if analyst_disposition not in ANALYST_DISPOSITIONS:
+        raise ValueError(f"unknown analyst disposition: {analyst_disposition!r}")
+    record = _unit_type_record(outcome.unit)
+    if analyst_disposition == "BENIGN_CLOSE":
+        return library.load_benign_pattern(
+            source_id=source_id,
+            record=record,
+            recurrence_count=1,
+        )
+    return library.load_confirmed_finding(
+        source_id=source_id,
+        record=record,
+        outcome="ESCALATE",
+        analyst_confirmed=analyst_confirmed,
+        derived_from=(outcome.unit.unit_id,),
+    )
