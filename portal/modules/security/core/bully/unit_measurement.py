@@ -1,5 +1,5 @@
 """bully.unit_measurement -- the grading-plane measurement stack for the
-unit-level pipeline (T.1, TASK_BULLY_UNKNOWN_COUSIN_V1).
+unit-level pipeline (T.1-T.2, TASK_BULLY_UNKNOWN_COUSIN_V1).
 
 The sealed manifest legend (`scripts.corpus_ingest.load_manifest_catalog`)
 carries real ATT&CK ground truth per dataset and is currently used only to
@@ -13,10 +13,17 @@ The hard wall holds: `unit_outcome.resolve_unit_outcome` never receives this
 binding. It grades a `GradeableUnit` against anchor content alone. Only
 after an outcome exists does this module attach the arriving side's known
 family/malice to it, purely to score the outcome after the fact.
+
+T.2 closes the other half of the same wall: attack_data seeds are drawn
+from the same dataset root that built the anchors, so an "arrival" is
+already in the type library before evaluation starts unless datasets are
+explicitly split into a type half and an evaluation half. `HeldOutSplit`
+makes that split a first-class, checkable object rather than an assumption.
 """
 
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass
 from typing import Any
 
@@ -87,3 +94,57 @@ def bind_ground_truth(
     outcome. Called once per unit, strictly after `resolve_unit_outcome` --
     the ordering itself is what keeps the hard wall honest."""
     return GradingPlaneRow(outcome=outcome, ground_truth=GroundTruth(family=family, malice=malice))
+
+
+class ContaminationError(ValueError):
+    """Raised when an evaluation artifact's dataset also contributed a type
+    -- the defect T.2 exists to catch, not silently tolerate."""
+
+
+@dataclass(frozen=True)
+class HeldOutSplit:
+    """Dataset keys partitioned into a type-library half and an evaluation
+    half. Disjoint by construction -- overlap is a contamination bug, not a
+    valid split, so it raises rather than being silently allowed."""
+
+    type_dataset_keys: frozenset[str]
+    eval_dataset_keys: frozenset[str]
+
+    def __post_init__(self) -> None:
+        overlap = self.type_dataset_keys & self.eval_dataset_keys
+        if overlap:
+            raise ContaminationError(
+                f"held-out split contaminated: datasets in both halves: {sorted(overlap)}"
+            )
+
+    def contaminates(self, evaluation_dataset_key: str) -> bool:
+        """True if an evaluation artifact's dataset also contributed a type
+        -- attack_data seeds drawn from the same root that built the
+        anchors are already "in the library" before evaluation starts,
+        unless this returns False for every evaluation artifact used."""
+        return evaluation_dataset_key in self.type_dataset_keys
+
+
+def split_datasets(
+    dataset_keys: list[str], *, type_fraction: float = 0.5, seed: int = 0
+) -> HeldOutSplit:
+    """Deterministic (seeded) split of dataset keys into type-library and
+    evaluation halves. Sorted before shuffling so the split is reproducible
+    across runs regardless of input order."""
+    ordered = sorted(set(dataset_keys))
+    rng = random.Random(seed)
+    rng.shuffle(ordered)
+    cut = round(len(ordered) * type_fraction)
+    return HeldOutSplit(
+        type_dataset_keys=frozenset(ordered[:cut]), eval_dataset_keys=frozenset(ordered[cut:])
+    )
+
+
+def assert_no_contamination(evaluation_dataset_keys: list[str], split: HeldOutSplit) -> None:
+    """Fails loudly on an unsplit or contaminated run rather than silently
+    scoring against a library the evaluation data helped build."""
+    offenders = [key for key in evaluation_dataset_keys if split.contaminates(key)]
+    if offenders:
+        raise ContaminationError(
+            f"evaluation datasets also contributed a type: {sorted(set(offenders))}"
+        )
