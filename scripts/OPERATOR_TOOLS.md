@@ -62,6 +62,8 @@ python3 scripts/analyst_corpus_real_ingest.py       # SA5.5 ingest acquired clou
 python3 scripts/analyst_corpus_snapshot_v2.py       # SA5.6 freeze ANALYST_CORPUS_SNAPSHOT_V2 + pivot pairs
 python3 scripts/defensive_bully_discovery_v3.py     # SA5.7 discovery re-run on multi-class corpus → DISCOVERY_BASELINE_V3
 python3 scripts/defensive_bully_p04_adoption.py     # P0.4 embed-arm adoption bake-off (A/B/C on deduplicated set)
+python3 scripts/bully_inject_capture.py             # E.5 generate/inject/capture live plural data plane run (fail-closed to the E.3 fixture)
+python3 scripts/bully_universal_intake_run.py       # M.6 universal-intake verification run → BULLY_UNIVERSAL_INTAKE_RUN_M6_V1
 ```
 
 ## Convention

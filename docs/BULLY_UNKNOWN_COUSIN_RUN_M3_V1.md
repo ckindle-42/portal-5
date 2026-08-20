@@ -1,5 +1,27 @@
 # BULLY_UNKNOWN_COUSIN_RUN_M3_V1
 
+> **Errata (2026-08-19, `TASK_BULLY_UNIVERSAL_INTAKE_AND_INJECT_V1`):** this
+> run's intake was single-schema and effectively blind on 4 of 5 real sources.
+> `artifact_graph._ENTITY_FIELDS`/`_TIME_FIELDS`/`_ACTION_FIELDS` were hardcoded
+> CloudTrail field names; every dataset in this eval was attack_data
+> (Sysmon/osquery), so entities went empty, timestamps went unparsed, and every
+> action mapped to `other` on non-CloudTrail records. The `unknown_cousin_recall
+> 0.973` headline below looked healthy because every published concern brief
+> shares exactly one shape feature (`class_present=other`) and "resembles" an
+> anchor only because both sides degraded to the same blindness -- see
+> `docs/DESIGN_BULLY_UNIVERSAL_INTAKE_V1.md` (RC1) for the forensic proof. This
+> run's benign-control failure (1.0) was **also misdiagnosed** below as evidence
+> the invictus environment is compromised; RC3 in the same design doc proves the
+> baseline's remarkability had a content-independent floor from a fit/score
+> level mismatch (fit L1/L2, score L4) -- perfectly clean data failed
+> identically, so the "compromised environment" conclusion was wrong. The unit
+> model (U.1), shape/vocabulary split (U.2), three-way grading (V.1), outcome
+> space (V.2), and leave-one-family-out (T.4) methodology below are all correct
+> and carry forward unchanged; they were fed by a broken intake. Corrected
+> intake, honest baseline, and re-run: `docs/BULLY_UNIVERSAL_INTAKE_RUN_M6_V1.md`.
+> This document stays in the repo as the honest record of what this pass
+> actually measured.
+
 M.3 verification run for `TASK_BULLY_UNKNOWN_COUSIN_V1`. COLD: no network,
 no model calls, no training. Real local data throughout -- no synthetic
 corpus was substituted anywhere a real one was available; where one was not
