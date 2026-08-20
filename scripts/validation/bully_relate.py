@@ -1341,3 +1341,181 @@ def check_every_match_carries_level_and_robustness() -> tuple[str, str, list[dic
     if not clean.level or clean.robustness <= 0.0:
         return "FAIL", "a genuine L3 match did not carry a populated level/robustness", []
     return "PASS", "", []
+
+
+# ── TASK_BULLY_SCOREBOARD_CONFORMANCE_V1 (W.5): every published run must be
+# the module's contract, never a proxy under its name. The five run docs
+# audited by the withdrawn diagnosis are grandfathered ONLY because W.0 gave
+# each a dated errata header pointing at the correction -- a new run has no
+# such excuse and must conform outright. ────────────────────────────────────
+
+_SCOREBOARD_CONFORMANCE_HISTORICAL_RUN_DOCS = (
+    "BULLY_COUSIN_RELATION_RUN_C7_V1.json",
+    "BULLY_LOOP_MILESTONE_RUN_R6_V1.json",
+    "BULLY_RELATE_INVESTIGATE_RUN_M3_V1.json",
+    "BULLY_UNIVERSAL_INTAKE_RUN_M6_V1.json",
+    "BULLY_UNKNOWN_COUSIN_RUN_M3_V1.json",
+)
+
+
+def _scoreboard_conformance_docs_dir():
+    from pathlib import Path
+
+    return Path(__file__).resolve().parents[2] / "docs"
+
+
+def _scoreboard_conformance_new_run_docs():
+    """Every `docs/BULLY_*RUN*.json` that is NOT one of the five grandfathered
+    historical runs -- i.e. a run this task's conformance guard must hold to
+    the real contract, not merely tolerate with an errata pointer."""
+    import json
+
+    docs_dir = _scoreboard_conformance_docs_dir()
+    out = []
+    for path in sorted(docs_dir.glob("BULLY_*RUN*.json")):
+        if path.name in _SCOREBOARD_CONFORMANCE_HISTORICAL_RUN_DOCS:
+            continue
+        out.append((path.name, json.loads(path.read_text())))
+    return out
+
+
+@register(
+    "bully_scoreboard_conformance_every_run_conforms_or_is_errata_d",
+    "DT. every published run passes the scoreboard-conformance guard, or is a "
+    "W.0-errata'd historical run",
+    order=121,
+)
+def check_scoreboard_conformance_every_run_conforms_or_errata() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully.scoreboard_conformance import check_run
+
+    for name, run_json in _scoreboard_conformance_new_run_docs():
+        findings = check_run(run_json)
+        fails = [f for f in findings if f.severity == "FAIL"]
+        if fails:
+            return (
+                "FAIL",
+                f"{name} is not grandfathered by W.0 errata and fails conformance: "
+                f"{[f.code for f in fails]}",
+                [f.to_dict() for f in fails],
+            )
+    return "PASS", "", []
+
+
+@register(
+    "bully_scoreboard_conformance_no_proxy_scoreboard_block",
+    "DU. no run publishes a 'scoreboard' block whose keys are not scoreboard.update()'s contract",
+    order=122,
+)
+def check_scoreboard_conformance_no_proxy_block() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully.scoreboard_conformance import check_run
+
+    for name, run_json in _scoreboard_conformance_new_run_docs():
+        codes = {f.code for f in check_run(run_json) if f.severity == "FAIL"}
+        if (
+            "scoreboard_block_is_not_the_contract" in codes
+            or "scoreboard_contract_incomplete" in codes
+        ):
+            return (
+                "FAIL",
+                f"{name} publishes a 'scoreboard' block that is not the real contract",
+                [],
+            )
+    return "PASS", "", []
+
+
+@register(
+    "bully_scoreboard_conformance_correctness_axis_present",
+    "DV. trust_mean_rank and false_flag_count are present in every new run (W.2)",
+    order=123,
+)
+def check_scoreboard_conformance_correctness_axis_present() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully.scoreboard_conformance import check_run
+
+    for name, run_json in _scoreboard_conformance_new_run_docs():
+        codes = {f.code for f in check_run(run_json) if f.severity == "FAIL"}
+        if "correctness_axis_not_published" in codes:
+            return "FAIL", f"{name} never published trust_mean_rank/false_flag_count", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_scoreboard_conformance_per_row_full_contract",
+    "DW. per_row retains the full score_record contract",
+    order=124,
+)
+def check_scoreboard_conformance_per_row_full_contract() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully.scoreboard_conformance import check_run
+
+    for name, run_json in _scoreboard_conformance_new_run_docs():
+        codes = {f.code for f in check_run(run_json) if f.severity == "FAIL"}
+        if "per_row_drops_correctness_fields" in codes:
+            return "FAIL", f"{name}'s per_row drops score_record correctness fields", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_scoreboard_conformance_trust_axis_not_hardcoded_nulls",
+    "DX. the trust axis is not fed hardcoded nulls (W.3)",
+    order=125,
+)
+def check_scoreboard_conformance_trust_axis_not_nulled() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully.scoreboard_conformance import check_run
+
+    for name, run_json in _scoreboard_conformance_new_run_docs():
+        codes = {f.code for f in check_run(run_json)}
+        if "trust_axis_fed_nulls" in codes:
+            return (
+                "FAIL",
+                f"{name} feeds the trust axis hardcoded candidate_state=None/known_benign=False",
+                [],
+            )
+    return "PASS", "", []
+
+
+@register(
+    "bully_scoreboard_conformance_contract_matches_update_no_drift",
+    "DY. SCOREBOARD_UPDATE_CONTRACT matches scoreboard.update()'s actual keys "
+    "(drift guard, never hardcoded from prose)",
+    order=126,
+)
+def check_scoreboard_conformance_contract_no_drift() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import scoreboard as scoreboard_mod
+    from portal.modules.security.core.bully.scoreboard_conformance import (
+        SCOREBOARD_UPDATE_CONTRACT,
+    )
+
+    actual = set(scoreboard_mod.update("drift-probe-hunt", []).keys()) - {"records"}
+    declared = set(SCOREBOARD_UPDATE_CONTRACT)
+    if actual != declared:
+        return (
+            "FAIL",
+            f"SCOREBOARD_UPDATE_CONTRACT has drifted from scoreboard.update(): "
+            f"declared={sorted(declared)} actual={sorted(actual)}",
+            [],
+        )
+    return "PASS", "", []
+
+
+@register(
+    "bully_scoreboard_conformance_guard_fails_all_five_historical_runs",
+    "DZ. the conformance guard FAILs all five historical runs (W.5 permanent regression)",
+    order=127,
+)
+def check_scoreboard_conformance_fails_historical_runs() -> tuple[str, str, list[dict]]:
+    import json
+
+    from portal.modules.security.core.bully.scoreboard_conformance import check_run
+
+    docs_dir = _scoreboard_conformance_docs_dir()
+    missed = []
+    for name in _SCOREBOARD_CONFORMANCE_HISTORICAL_RUN_DOCS:
+        path = docs_dir / name
+        if not path.is_file():
+            return "FAIL", f"missing historical run doc: {name}", []
+        run_json = json.loads(path.read_text())
+        findings = check_run(run_json)
+        if not any(f.severity == "FAIL" for f in findings):
+            missed.append(name)
+    if missed:
+        return "FAIL", f"the guard did not FAIL these historical runs: {missed}", []
+    return "PASS", "", []
