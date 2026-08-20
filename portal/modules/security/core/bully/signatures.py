@@ -15,6 +15,8 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from . import pyramid
+
 SIGNATURE_ALGORITHM_VERSION = "sig-v1"
 
 # The dimensions completeness is measured across (DATA_MODEL SS1.3): missing
@@ -51,6 +53,12 @@ class BehaviorSignature:
     completeness: float = 1.0
     present_dimensions: tuple[str, ...] = ()
     created_at: float = field(default_factory=time.time)
+    # R.3 (loop reintegration): the signature at pyramid-levelled granularity,
+    # not a flat token bag. behavior_spine is the ordered L3 class sequence
+    # derived from action_sequence -- the retrieval axis that lets a
+    # cross-vocabulary cousin actually land in the candidate set.
+    levelled_features: tuple[dict[str, Any], ...] = ()
+    behavior_spine: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -75,6 +83,47 @@ def _semantic_tokens(value: Any) -> list[str]:
         return [token for item in values for token in _semantic_tokens(item)]
     text = str(value or "").strip()
     return [text] if text else []
+
+
+def _level_signature_features(
+    action_sequence: list[str],
+    artifacts: dict[str, Any],
+    parameter_families: dict[str, Any],
+    *,
+    classifier: pyramid.BehaviorClassifier | None = None,
+) -> tuple[dict[str, Any], ...]:
+    """Level every raw feature of a signature onto the pyramid axis (R.3):
+    action-sequence verbs are ACTION (promoted to L3 when they classify),
+    artifact identifiers are ENTITY (L1), and parameter-family tokens are
+    PAYLOAD (L1). This replaces the flat token bag with features a
+    pyramid-aware grader can compare by level, not just by string equality.
+    """
+    features: list[pyramid.LeveledFeature] = [
+        pyramid.level_feature(verb, "ACTION", raw_verb=verb, classifier=classifier)
+        for verb in action_sequence
+        if verb
+    ]
+    for token in _semantic_tokens(artifacts):
+        features.append(pyramid.level_feature(token, "ENTITY"))
+    for token in _semantic_tokens(parameter_families):
+        features.append(pyramid.level_feature(token, "PAYLOAD"))
+    return tuple(f.__dict__.copy() for f in features)
+
+
+def _behavior_spine(levelled_features: tuple[dict[str, Any], ...]) -> tuple[str, ...]:
+    """The ordered L3 class sequence -- the retrieval axis (R.3)."""
+    return tuple(
+        f["behavior_class"]
+        for f in levelled_features
+        if f["level"] == pyramid.L3_BEHAVIOR and f["behavior_class"]
+    )
+
+
+def behavior_spine_motif(signature: BehaviorSignature) -> str:
+    """Small motif string for the behavioural-spine retrieval axis, parallel
+    to `event_graph_motif` -- what candidate_axis_queries/retrieve_candidate_axes
+    use to retrieve anchors by shared behaviour first."""
+    return " ".join(signature.behavior_spine)
 
 
 def signature_family(signature: BehaviorSignature) -> str:
@@ -165,6 +214,9 @@ def reference_record_fields(signature: BehaviorSignature) -> dict[str, Any]:
         "context_topology": dict(signature.context_topology),
         "artifacts": dict(signature.artifacts),
         "attack_mappings": list(signature.attack_mappings),
+        "behavior_spine": list(signature.behavior_spine),
+        "behavior_spine_motif": behavior_spine_motif(signature),
+        "levelled_features": [dict(f) for f in signature.levelled_features],
     }
 
 
@@ -174,6 +226,7 @@ def build_signature(
     *,
     evidence_manifest_id: str | None = None,
     evidence_manifest_hash: str = "",
+    behavior_classifier: pyramid.BehaviorClassifier | None = None,
 ) -> BehaviorSignature:
     """Build a `BehaviorSignature` from an adapted Episode + optional
     telemetry view (`evidence.adapt_episode(episode)`'s output shape, or
@@ -224,6 +277,11 @@ def build_signature(
         {"episode": episode_view, "telemetry": telemetry_view}
     )
 
+    levelled_features = _level_signature_features(
+        action_sequence, artifacts, parameter_families, classifier=behavior_classifier
+    )
+    behavior_spine = _behavior_spine(levelled_features)
+
     return BehaviorSignature(
         signature_id=f"sig-{uuid.uuid4().hex[:12]}",
         episode_ref=str(episode_view.get("episode_id", "")),
@@ -242,4 +300,6 @@ def build_signature(
         evidence_manifest_id=evidence_manifest_id,
         completeness=completeness,
         present_dimensions=tuple(name for name in _DIMENSIONS if present[name]),
+        levelled_features=levelled_features,
+        behavior_spine=behavior_spine,
     )

@@ -58,21 +58,31 @@ def candidate_set(
     attack_neighbors: list[dict] | None = None,
     family_members: list[dict] | None = None,
     event_graph_motifs: list[dict] | None = None,
+    behavior_spine_neighbors: list[dict] | None = None,
     health: dict | None = None,
 ) -> CandidateSetReceipt:
     """Union the injected candidate sources into one receipt.
 
     Every source is optional and independently injected (organ.knn results,
     an ATT&CK-neighborhood lookup, a scenario-family index, event-graph
-    motif matches) -- this function only merges + dedupes + records
-    provenance; it never fetches anything itself.
+    motif matches, behavioural-spine neighbors) -- this function only merges
+    + dedupes + records provenance; it never fetches anything itself.
+
+    `behavior_spine_neighbors` is merged FIRST (R.3): a cross-vocabulary
+    cousin shares no semantic/attack/family/motif tokens with its anchor by
+    construction, so it must be retrieved by shared behavioural spine or it
+    never reaches the candidate set at all.
     """
     semantic_candidates = semantic_candidates or []
     attack_neighbors = attack_neighbors or []
     family_members = family_members or []
     event_graph_motifs = event_graph_motifs or []
+    behavior_spine_neighbors = behavior_spine_neighbors or []
 
     merged: dict[str, dict[str, Any]] = {}
+    for record in behavior_spine_neighbors:
+        rid = record.get("record_id") or record.get("signature_id") or str(id(record))
+        merged.setdefault(rid, {"record": record})["from_behavior_spine"] = True
     for record, distance in semantic_candidates:
         rid = record.get("record_id") or record.get("signature_id") or str(id(record))
         merged.setdefault(rid, {"record": record})["semantic_distance"] = distance
@@ -88,6 +98,7 @@ def candidate_set(
     return CandidateSetReceipt(
         receipt_id=f"cs-{uuid.uuid4().hex[:12]}",
         sources={
+            "behavior_spine": len(behavior_spine_neighbors),
             "semantic_knn": len(semantic_candidates),
             "attack_neighborhood": len(attack_neighbors),
             "scenario_family": len(family_members),
@@ -132,6 +143,18 @@ def retrieve_candidate_axes(signature, snapshot, *, k: int = 8) -> CandidateSetR
     query = sig_mod.semantic_query(signature)
     semantic = snapshot.knn(query, k=k)
 
+    # Behavioural-spine axis first (R.3): retrieve by the L3 class sequence,
+    # not payload tokens, so a cross-vocabulary cousin (zero shared literal
+    # tokens with its anchor) is still in the candidate set.
+    subject_spine = set(getattr(signature, "behavior_spine", ()) or ())
+    spine_pool: list[dict] = []
+    if subject_spine:
+        motif = sig_mod.behavior_spine_motif(signature)
+        for record, _distance in snapshot.knn(f"behavior spine: {motif}", k=k):
+            record_spine = set(record.get("behavior_spine") or ())
+            if record_spine & subject_spine:
+                spine_pool.append(record)
+
     family = sig_mod.signature_family(signature)
     family_results = []
     if family:
@@ -173,6 +196,7 @@ def retrieve_candidate_axes(signature, snapshot, *, k: int = 8) -> CandidateSetR
         attack_neighbors=_dedupe_records(attack_pool),
         family_members=_dedupe_records(_records_only(family_results)),
         event_graph_motifs=_dedupe_records(motif_records),
+        behavior_spine_neighbors=_dedupe_records(spine_pool),
         health={"snapshot": "read-only", "semantic_query": query},
     )
 
