@@ -161,6 +161,7 @@ max-complexity = 15
 "tests/unit/test_proxmox_mcp.py" = ["SIM117"]
 "tests/acceptance/s04_documents.py" = ["B007"]
 "portal/modules/security/core/rescore_run.py" = ["B007", "B905", "C90", "PLR0912", "PLR0915"]
+"portal/modules/security/core/bully/correlation.py" = ["C90", "PLR0912"]
 # tests/uat inherits the UAT driver's pre-existing patterns (TASK_UAT_MODULARIZE_V1).
 # F821 is deliberately NOT ignored here — undefined-name checking is the
 # import-hygiene gate for the decomposition.
