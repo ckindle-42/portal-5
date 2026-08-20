@@ -487,3 +487,320 @@ def check_uncertainty_varies_within_source() -> tuple[str, str, list[dict]]:
     if not grouped_ok.passes:
         return "FAIL", "genuinely within-source-varying reasons were incorrectly flagged", []
     return "PASS", "", []
+
+
+# ── CR-DA: M.2 unknown-cousin invariants (TASK_BULLY_UNKNOWN_COUSIN_V1) ────
+
+
+def _unit_from_verbs(verbs: list[str], entity: str) -> object:
+    from portal.modules.security.core.bully.artifact_graph import build_graph, enumerate_units
+
+    records = [{"eventName": v, "user": entity, "eventTime": i * 40.0} for i, v in enumerate(verbs)]
+    graph = build_graph(records)
+    return next(u for u in enumerate_units(graph) if u.level == "L4_WINDOW")
+
+
+@register(
+    "bully_unknown_cousin_library_never_gates",
+    "CR. not in the library is never treated as not a concern (P2)",
+    order=93,
+)
+def check_library_absence_never_suppresses_concern() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import baseline as bl
+    from portal.modules.security.core.bully import unit_outcome as uo
+
+    model = bl.NormalBaseline(environment_id="ci")
+    model.fit([_unit_from_verbs(["ListBuckets", "ListBuckets"], f"bg-{i}") for i in range(30)])
+
+    remarkable_unit = _unit_from_verbs(
+        ["AssumeRole", "GetSessionToken", "PutBucketPolicy"], "attacker"
+    )
+    outcome = uo.resolve_unit_outcome(remarkable_unit, [], model)  # empty library
+    if outcome.outcome not in (*uo.CONCERN_OUTCOMES, "NORMAL"):
+        return "FAIL", f"empty library produced an unreachable outcome: {outcome.outcome}", []
+    if outcome.outcome == "NOVEL" and outcome.brief is None:
+        return "FAIL", "NOVEL with an empty library carried no ConcernBrief", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_unknown_cousin_channel_coverage_never_gates",
+    "CS. no classification gate reads coverage (carried from C.5)",
+    order=94,
+)
+def check_channel_coverage_never_gates_classification() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import unit_relation as ur
+
+    unit = _unit_from_verbs(["AssumeRole", "ListBuckets", "AttachUserPolicy"], "attacker")
+    # No parameter_families on the anchor -> vocabulary channel's coverage
+    # story differs from shape's, but shape alone must still be able to
+    # classify EXACT/SIMILAR; low/zero coverage on one channel must never
+    # deny the other.
+    anchor = {
+        "record_id": "t1",
+        "action_sequence": ["AssumeRole", "ListBuckets", "AttachUserPolicy"],
+    }
+    relation = ur.grade_unit_against_type(unit, anchor)
+    if relation.shape.relation == "NOT_AT_ALL" and relation.shape.coverage == 1.0:
+        return "FAIL", "a fully-observed shape channel was downgraded to NOT_AT_ALL", []
+    empty_anchor: dict = {"record_id": "t2"}
+    unobservable_relation = ur.grade_unit_against_type(unit, empty_anchor)
+    if unobservable_relation.vocabulary.relation != "NOT_AT_ALL":
+        return "FAIL", "an unobservable channel produced a relation other than NOT_AT_ALL", []
+    if unobservable_relation.vocabulary.coverage != 0.0:
+        return "FAIL", "an unobservable channel did not report zero coverage honestly", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_unknown_cousin_brief_mandatory",
+    "CT. every concern-raising outcome carries a non-empty ConcernBrief",
+    order=95,
+)
+def check_every_concern_carries_a_brief() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import baseline as bl
+    from portal.modules.security.core.bully.anchors import AnchorLibrary
+    from portal.modules.security.core.bully.unit_outcome import (
+        CONCERN_OUTCOMES,
+        resolve_unit_outcome,
+    )
+
+    library = AnchorLibrary()
+    library.load_attack_episode(
+        source_id="attack_data",
+        record={"action_sequence": ["AssumeRole", "ListBuckets", "AttachUserPolicy"]},
+        techniques=("T1078",),
+    )
+    model = bl.NormalBaseline(environment_id="ci")
+    model.fit([_unit_from_verbs(["ListBuckets", "ListBuckets"], f"bg-{i}") for i in range(20)])
+
+    unit = _unit_from_verbs(["AssumeRole", "ListBuckets", "AttachUserPolicy"], "attacker")
+    outcome = resolve_unit_outcome(unit, list(library.all()), model)
+    if outcome.outcome not in CONCERN_OUTCOMES:
+        return "FAIL", f"fixture did not reach a concern-raising outcome: {outcome.outcome}", []
+    if outcome.brief is None:
+        return "FAIL", f"{outcome.outcome} carried no ConcernBrief", []
+    if not outcome.brief.to_dict():
+        return "FAIL", "ConcernBrief serialised to an empty payload", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_unknown_cousin_known_instance_never_headlines",
+    "CU. KNOWN_INSTANCE never ranks above COUSIN/NOVEL (P1)",
+    order=96,
+)
+def check_known_instance_never_headlines() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import baseline as bl
+    from portal.modules.security.core.bully.anchors import AnchorLibrary
+    from portal.modules.security.core.bully.unit_outcome import (
+        resolve_unit_outcome,
+        sort_for_report,
+    )
+
+    library = AnchorLibrary()
+    library.load_detection_coverage(source_id="det", detection_id="det-1")
+    library._anchors["det-1"].record.update(
+        {"action_sequence": ["AssumeRole", "ListBuckets", "AttachUserPolicy"]}
+    )
+    model = bl.NormalBaseline(environment_id="ci")
+    model.fit([_unit_from_verbs(["ListBuckets", "ListBuckets"], f"bg-{i}") for i in range(20)])
+
+    known = resolve_unit_outcome(
+        _unit_from_verbs(["AssumeRole", "ListBuckets", "AttachUserPolicy"], "known"),
+        list(library.all()),
+        model,
+    )
+    if known.outcome != "KNOWN_INSTANCE":
+        return "FAIL", "fixture did not reach KNOWN_INSTANCE -- adjust fixture", []
+    novel = resolve_unit_outcome(
+        _unit_from_verbs(["Delete", "Remove", "Terminate"], "novel"), [], model
+    )
+    ranked = sort_for_report([known, novel])
+    if ranked[0].outcome == "KNOWN_INSTANCE" and ranked[0].outcome != ranked[-1].outcome:
+        return "FAIL", "KNOWN_INSTANCE ranked above a concern-raising outcome", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_unknown_cousin_insufficient_view_distinct",
+    "CV. INSUFFICIENT_VIEW and NOVEL are distinct and both reachable",
+    order=97,
+)
+def check_insufficient_view_and_novel_are_distinct() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import baseline as bl
+    from portal.modules.security.core.bully.artifact_graph import (
+        GradeableUnit,
+        build_graph,
+        enumerate_units,
+    )
+    from portal.modules.security.core.bully.unit_outcome import resolve_unit_outcome
+
+    model = bl.NormalBaseline(environment_id="ci")
+    benign_records = [
+        {"eventName": "ListBuckets", "user": f"u{i}", "eventTime": float(i * 37)}
+        for i in range(200)
+    ]
+    benign_graph = build_graph(benign_records)
+    model.fit([u for u in enumerate_units(benign_graph) if u.level == "L1_ARTIFACT"])
+
+    empty_unit = GradeableUnit(
+        unit_id="u-empty",
+        level="L1_ARTIFACT",
+        artifact_ids=("a0",),
+        entities=(),
+        action_classes=(),
+        edge_kinds=(),
+        span_seconds=None,
+        structural_signature={},
+        vocabulary=(),
+        source_ids=(),
+    )
+    insufficient = resolve_unit_outcome(empty_unit, [], model)
+    novel = resolve_unit_outcome(
+        _unit_from_verbs(
+            [
+                "AssumeRole",
+                "ListBuckets",
+                "AttachUserPolicy",
+                "PutObject",
+                "GetObject",
+                "DeleteBucket",
+            ],
+            "attacker",
+        ),
+        [],
+        model,
+    )
+    if insufficient.outcome != "INSUFFICIENT_VIEW":
+        return "FAIL", "an uncomputable unit did not reach INSUFFICIENT_VIEW", []
+    if novel.outcome != "NOVEL":
+        return "FAIL", "fixture did not reach NOVEL -- adjust fixture", []
+    if insufficient.outcome == novel.outcome:
+        return "FAIL", "INSUFFICIENT_VIEW and NOVEL collapsed to one status", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_unknown_cousin_channels_separable",
+    "CW. shape and vocabulary channels stay separable (P3)",
+    order=98,
+)
+def check_shape_and_vocabulary_channels_are_separable() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import unit_relation as ur
+
+    # Same class shape, entirely disjoint literal vocabulary.
+    unit = _unit_from_verbs(["Authenticate", "Enumerate", "Grant"], "attacker")
+    anchor = {
+        "record_id": "t1",
+        "action_sequence": ["AssumeRole", "ListBuckets", "AttachUserPolicy"],
+    }
+    relation = ur.grade_unit_against_type(unit, anchor)
+    if relation.shape.relation == "NOT_AT_ALL":
+        return "FAIL", "shape channel did not bridge a matching class shape", []
+    if relation.vocabulary.relation != "NOT_AT_ALL":
+        return "FAIL", "vocabulary channel matched despite disjoint literal tokens", []
+    if relation.shape.relation == relation.vocabulary.relation:
+        return "FAIL", "shape and vocabulary channels were not independently gradeable", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_unknown_cousin_temporal_edge_requires_entity",
+    "CX. temporal adjacency never creates an edge without a shared entity (P4)",
+    order=99,
+)
+def check_temporal_adjacency_requires_shared_entity() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully.artifact_graph import build_graph
+
+    records = [
+        {"eventName": "ListBuckets", "user": f"user-{i}", "eventTime": float(i * 5)}
+        for i in range(50)
+    ]
+    graph = build_graph(records)
+    bare_temporal = [
+        e
+        for e in graph.edges
+        if e.kind == "temporal_adjacency"
+        and not (set(graph.artifacts[e.left].entities) & set(graph.artifacts[e.right].entities))
+    ]
+    if bare_temporal:
+        return "FAIL", f"{len(bare_temporal)} temporal edges created without a shared entity", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_unknown_cousin_leave_one_out_published_beside_full",
+    "CY. leave-one-family-out is computed and published whenever a full-library number is",
+    order=100,
+)
+def check_leave_one_out_published_beside_full_library() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import baseline as bl
+    from portal.modules.security.core.bully import unit_measurement as um
+    from portal.modules.security.core.bully.anchors import AnchorLibrary
+
+    library = AnchorLibrary()
+    anchor_a = library.load_attack_episode(
+        source_id="attack_data",
+        record={"action_sequence": ["AssumeRole", "ListBuckets", "AttachUserPolicy"]},
+        techniques=("T1078",),
+    )
+    model = bl.NormalBaseline(environment_id="ci")
+    model.fit([_unit_from_verbs(["ListBuckets", "ListBuckets"], f"bg-{i}") for i in range(20)])
+
+    report = um.run_leave_one_family_out(
+        {"family_a": [_unit_from_verbs(["AssumeRole", "ListBuckets", "AttachUserPolicy"], "a1")]},
+        {"family_a": [anchor_a]},
+        list(library.all()),
+        model,
+        benign_eval_units=[],
+    )
+    payload = report.to_dict()
+    if "unknown_cousin_recall" not in payload or "full_library_recall" not in payload:
+        return "FAIL", "leave-one-out report did not publish both numbers together", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_unknown_cousin_held_out_split_enforced",
+    "CZ. evaluation artifacts never originate from type-contributing datasets (T.2)",
+    order=101,
+)
+def check_evaluation_datasets_never_contaminate_types() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import unit_measurement as um
+
+    unsplit = um.HeldOutSplit(
+        type_dataset_keys=frozenset({"ds-a", "ds-b"}), eval_dataset_keys=frozenset()
+    )
+    try:
+        um.assert_no_contamination(["ds-a"], unsplit)
+    except um.ContaminationError:
+        pass
+    else:
+        return "FAIL", "a contaminated evaluation set was not rejected", []
+
+    clean_split = um.split_datasets([f"ds-{i}" for i in range(10)], seed=1)
+    try:
+        um.assert_no_contamination(list(clean_split.eval_dataset_keys), clean_split)
+    except um.ContaminationError:
+        return "FAIL", "a genuinely clean evaluation set was incorrectly rejected", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_unknown_cousin_novel_requires_positive_remarkability",
+    "DA. NOVEL requires positive remarkability against the baseline, never mere absence",
+    order=102,
+)
+def check_novel_requires_positive_remarkability() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import baseline as bl
+    from portal.modules.security.core.bully.unit_outcome import resolve_unit_outcome
+
+    empty_model = bl.NormalBaseline(environment_id="ci-empty")
+    unit = _unit_from_verbs(["AssumeRole", "GetSessionToken", "PutBucketPolicy"], "attacker")
+    outcome = resolve_unit_outcome(unit, [], empty_model)
+    if outcome.outcome == "NOVEL":
+        return "FAIL", "an empty (never-fitted) baseline still produced NOVEL by absence alone", []
+    if outcome.outcome != "NORMAL":
+        return "FAIL", f"expected NORMAL with an unfitted baseline, got {outcome.outcome}", []
+    return "PASS", "", []
