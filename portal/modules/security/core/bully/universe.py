@@ -43,6 +43,14 @@ measurable against a source the grader has genuinely never seen.
 
 Pure record synthesis (COLD). No I/O. Deterministic under a seed so a run is
 reproducible and the offline fixture equals the live implant.
+
+X.5: a cousin spec carries `implant_class` -- `"known_bad"` (technique the
+run's library is built to know about, expected to grade `SAME`) or
+`"unknown_cousin"` (technique held out of the library for that run --
+leave-one-family-out -- expected to grade `SIMILAR`/`ANOMALOUS_UNCLASSIFIED`,
+genuinely unknown rather than merely mislabelled). Sealed per-artifact in
+`sealed_truth` alongside `family`/`technique` so a live run can prove both
+classes were implanted and notified.
 """
 
 from __future__ import annotations
@@ -54,6 +62,13 @@ from dataclasses import dataclass
 from typing import Any
 
 ALGORITHM_VERSION = "universe-v1"
+
+# X.5: the two classes a cousin spec's implant may belong to. `known_bad` is a
+# technique the run's anchor library is built to know about (expected SAME);
+# `unknown_cousin` is a technique held out of the library for that run --
+# leave-one-family-out -- so it is genuinely unknown, not merely mislabelled
+# (expected SIMILAR/ANOMALOUS_UNCLASSIFIED).
+IMPLANT_CLASSES = ("known_bad", "unknown_cousin")
 
 # The behavioural alphabet -- the ONLY fixed vocabulary in this module, because
 # behaviour is the invariant the product is built on. Everything else (field
@@ -315,6 +330,18 @@ class UniverseLot:
     def indexable(self) -> list[dict[str, Any]]:
         return [{k: v for k, v in e.items() if k != "_labels"} for e in self.events]
 
+    def families(self, implant_class: str) -> frozenset[str]:
+        """X.5: the `parent_family` values sealed under one implant class --
+        `held_out_families = lot.families("unknown_cousin")` is what a live
+        run script excludes when building the anchor library, so those
+        techniques are genuinely held out (leave-one-family-out), not merely
+        mislabelled."""
+        if implant_class not in IMPLANT_CLASSES:
+            raise ValueError(f"unknown implant_class: {implant_class!r}")
+        return frozenset(
+            t["family"] for t in self.sealed_truth if t["implant_class"] == implant_class
+        )
+
     def training_examples(self) -> list[tuple[str, str]]:
         """(raw_action_value, true_behavior_class) pairs for R.5c's learned
         classifier -- the SEALED truth this lot produced, extracted from the
@@ -390,6 +417,9 @@ def build_universe(
         identity = f"adv{rng.randint(1000, 9999)}"
         at = start_ts + rng.uniform(0, span)
         chain_id = spec.get("chain_id", f"cousin-{ci:03d}")
+        implant_class = spec.get("implant_class", "known_bad")
+        if implant_class not in IMPLANT_CLASSES:
+            raise ValueError(f"unknown implant_class: {implant_class!r}")
         fps: list[str] = []
         for step_idx, cls in enumerate(spine):
             value = rng.choice(target.behavior_realization.get(cls) or ("unknown",))
@@ -411,6 +441,7 @@ def build_universe(
                         "transformation": spec.get("transformation", "RESCHEMA"),
                         "true_behavior_class": cls,
                         "source_id": target.source_id,
+                        "implant_class": implant_class,
                     },
                 }
             )
@@ -425,6 +456,7 @@ def build_universe(
                 "realized_in_info_level": target.info_level,
                 "artifact_fingerprints": fps,
                 "n_steps": len(fps),
+                "implant_class": implant_class,
             }
         )
 
