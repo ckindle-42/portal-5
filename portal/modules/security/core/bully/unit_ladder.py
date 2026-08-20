@@ -118,12 +118,24 @@ def build_rungs(
 
 def _combined_distance(relation: UnitTypeRelation) -> float:
     """Mean of the two channel distances, unobservable treated as maximal
-    (1.0) -- a single scalar for monotonicity, while the per-channel
-    distances stay available on `relation` for anyone who wants them."""
+    (1.0) -- reported for visibility, but no longer what the ladder is
+    validated on (U.3', RC4): `combined_distance` was 0.9999 on the M.3 run
+    while the variable that actually decides a unit's outcome
+    (`shape_distance`) was non-monotone across the same rungs
+    (0.0, 0.0, 0.571, 0.0, 1.0) -- the headline number said nothing about
+    the variable the grader acts on."""
     distances = [
         d if d is not None else 1.0 for d in (relation.shape.distance, relation.vocabulary.distance)
     ]
     return sum(distances) / len(distances)
+
+
+def _shape_distance(relation: UnitTypeRelation) -> float:
+    """The deciding variable (RC4): `resolve_unit_outcome` classifies
+    EXACT/SIMILAR/NONE off `relation.shape`, never off the combined mean.
+    Unobservable is still treated as maximal (1.0), matching
+    `_combined_distance`'s convention, so the two scales stay comparable."""
+    return relation.shape.distance if relation.shape.distance is not None else 1.0
 
 
 def _spearman(xs: list[float], ys: list[float]) -> float | None:
@@ -144,24 +156,33 @@ def run_ladder(
 ) -> dict[str, Any]:
     """Grade every rung against `parent_type_record`, check monotonicity,
     the shuffle control, the negative control (L4 must be the farthest
-    rung), and report VALID/INVALID -- never numbers alone."""
+    rung), and report VALID/INVALID -- never numbers alone.
+
+    Validated on `shape_distance` (RC4, U.3'): that is the variable
+    `UnitTypeRelation.overall_relation` -- and so `resolve_unit_outcome` --
+    actually decides on (the closer-matching channel wins; shape alone can
+    make a relation EXACT/SIMILAR). `combined_distance` is still published
+    per rung for reference, but a report validated on it can look perfect
+    (rho 0.9999 on the M.3 run) while the deciding variable is non-monotone
+    underneath, which is exactly what happened."""
     levels: list[float] = []
-    distances: list[float] = []
+    shape_distances: list[float] = []
     per_rung: dict[str, dict[str, Any]] = {}
     for rung in rungs:
         relation = grade_fn(rung.unit, parent_type_record)
-        distance = _combined_distance(relation)
+        shape_distance = _shape_distance(relation)
         levels.append(float(rung.level))
-        distances.append(distance)
+        shape_distances.append(shape_distance)
         per_rung[rung.rung] = {
             "level": rung.level,
-            "combined_distance": distance,
+            "combined_distance": _combined_distance(relation),
             "shape_distance": relation.shape.distance,
+            "shape_distance_validated": shape_distance,
             "vocabulary_distance": relation.vocabulary.distance,
             "overall_relation": relation.overall_relation,
         }
 
-    rho = _spearman(levels, distances)
+    rho = _spearman(levels, shape_distances)
     monotonicity_valid = rho is not None and rho >= RHO_MONOTONICITY_FLOOR
 
     # A single shuffle of this few rungs has high variance -- average the
@@ -172,7 +193,7 @@ def run_ladder(
     for _ in range(50):
         shuffled_levels = levels[:]
         rng.shuffle(shuffled_levels)
-        trial_rho = _spearman(shuffled_levels, distances)
+        trial_rho = _spearman(shuffled_levels, shape_distances)
         if trial_rho is not None:
             trial_rhos.append(abs(trial_rho))
     shuffled_rho = (sum(trial_rhos) / len(trial_rhos)) if trial_rhos else None
@@ -182,8 +203,8 @@ def run_ladder(
 
     unrelated_entry = per_rung.get("L4_UNRELATED")
     negative_control_holds = unrelated_entry is not None and unrelated_entry[
-        "combined_distance"
-    ] == max(distances)
+        "shape_distance_validated"
+    ] == max(shape_distances)
 
     valid = monotonicity_valid and shuffle_collapsed and negative_control_holds
     return {
@@ -194,6 +215,7 @@ def run_ladder(
         "shuffle_collapsed": shuffle_collapsed,
         "negative_control_holds": negative_control_holds,
         "verdict": "VALID" if valid else "INVALID",
+        "validated_variable": "shape_distance",
     }
 
 

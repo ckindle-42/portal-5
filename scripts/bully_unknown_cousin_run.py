@@ -172,9 +172,11 @@ def _run_ladder_from_real_vocabulary(
     rungs = ul.build_rungs(
         parent_verbs,
         substitution_verb=substitution_verb,
-        # Same [auth, enumerate, execute] class shape as parent_verbs,
-        # entirely disjoint literal tokens.
-        cross_vocabulary_verbs=["Authenticate", "Enumerate", "Invoke"],
+        # Real Windows-native verbs (U.3', RC4) -- not the class names
+        # themselves. These are not hand-picked to classify perfectly;
+        # whatever shape distance results is the honest cross-vocabulary
+        # signal, published as-is rather than smoothed toward a clean rung.
+        cross_vocabulary_verbs=["Logon", "whoami", "Invoke-Command"],
         unrelated_verbs=["SELECT", "INSERT", "COMMIT"],
     )
     parent_type_record = {"record_id": "ladder-parent", "action_sequence": parent_verbs}
