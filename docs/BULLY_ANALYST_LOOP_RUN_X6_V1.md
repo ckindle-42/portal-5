@@ -2,6 +2,30 @@
 
 Generated 2026-08-20T19:24:52Z -- plane **live** -- duration 143.66s
 
+**Errata (2026-08-20, TASK_BULLY_TRUTH_ACCEPTANCE_V1 Y.0):** every figure in
+this document describes `background` -- the sealed
+`implant_class_ground_truth` column, cross-tabulated against `relationship`,
+shows 100% of graded entities (161 SAME + 139 SIMILAR in cycle 1, 196 SAME +
+102 SIMILAR + 2 ANOMALOUS_UNCLASSIFIED in cycle 2) were `background`. Not one
+implant reached the grader in either cycle: `correlation.assemble_timelines`
+sorted richest-first and the top 300 of 1,584 entities it selected were the
+busiest background entities, not the ~1% of entities carrying the 182
+implant events `hec_ship` reported as shipped. The run detected nothing --
+false-positive rate 100%, true-positive rate 0%. Its `noise_reduction:
+0.0533` maturation number measures suppression of false positives on
+background, not learning: the "known bads" `scripted_verdicts` confirmed as
+`ESCALATE`/`ANALYST_CONFIRMED` were background entities, so cycle 2 matched
+MORE background as SAME (161 -> 196) while SIMILAR fell (139 -> 102) -- the
+flywheel ran backwards. `both_classes_notified`, the criterion this run
+passed, is vacuous: it checks the grader's own labels split into two
+buckets, never consulting sealed truth, so it cannot fail on a run that
+detects nothing. See `docs/DESIGN_BULLY_TRUTH_ACCEPTANCE_V1.md` (D1-D4) and
+the corrected, truth-joined re-run at
+`docs/BULLY_TRUTH_ACCEPTANCE_RUN_Y6_V1.md`. The confirmed-on-background
+anchors this run wrote into the (in-process, non-persisted) anchor library
+must be treated as quarantined knowledge, not evidence (Y.4) -- see
+`anchors.AnchorLibrary.quarantine_poisoned_confirmed_findings`.
+
 **Errata (2026-08-20, discovered post-run):** `notifications_dispatched` below
 (and the per-cycle `notification_counts_by_class`) count calls into
 `analyst_loop._default_notify`, not confirmed deliveries. Those calls went
