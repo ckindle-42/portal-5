@@ -147,7 +147,7 @@
             "level": "L4_WINDOW",
             "outcome": "COUSIN",
             "remarkability": 0.6666666666666666,
-            "resembles_anchor_id": "anchor-65458e15e990",
+            "resembles_anchor_id": "anchor-d7e7ee6d6a04",
             "resembles_kind": "attack_episode",
             "shared_shape_features": [
               "class_bigram=other>other",
@@ -603,7 +603,7 @@
       "level": "L1_ARTIFACT",
       "outcome": "COUSIN",
       "remarkability": 0.40625,
-      "resembles_anchor_id": "anchor-65458e15e990",
+      "resembles_anchor_id": "anchor-d7e7ee6d6a04",
       "resembles_kind": "attack_episode",
       "shared_shape_features": [
         "class_present=other"
@@ -634,7 +634,7 @@
       "level": "L1_ARTIFACT",
       "outcome": "COUSIN",
       "remarkability": 0.40625,
-      "resembles_anchor_id": "anchor-65458e15e990",
+      "resembles_anchor_id": "anchor-d7e7ee6d6a04",
       "resembles_kind": "attack_episode",
       "shared_shape_features": [
         "class_present=other"
@@ -665,7 +665,7 @@
       "level": "L1_ARTIFACT",
       "outcome": "COUSIN",
       "remarkability": 0.40625,
-      "resembles_anchor_id": "anchor-65458e15e990",
+      "resembles_anchor_id": "anchor-d7e7ee6d6a04",
       "resembles_kind": "attack_episode",
       "shared_shape_features": [
         "class_present=other"
@@ -696,7 +696,7 @@
       "level": "L1_ARTIFACT",
       "outcome": "COUSIN",
       "remarkability": 0.40625,
-      "resembles_anchor_id": "anchor-65458e15e990",
+      "resembles_anchor_id": "anchor-d7e7ee6d6a04",
       "resembles_kind": "attack_episode",
       "shared_shape_features": [
         "class_present=other"
@@ -727,7 +727,7 @@
       "level": "L1_ARTIFACT",
       "outcome": "COUSIN",
       "remarkability": 0.40625,
-      "resembles_anchor_id": "anchor-65458e15e990",
+      "resembles_anchor_id": "anchor-d7e7ee6d6a04",
       "resembles_kind": "attack_episode",
       "shared_shape_features": [
         "class_present=other"

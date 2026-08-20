@@ -38,6 +38,7 @@ import hashlib
 import json
 import os
 import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -192,7 +193,22 @@ def capture_records(
     """Read activity back out of the lab's Splunk index via the existing
     `SplunkQueryInPlaceConnector` -- the read path this module adds no
     write path beside. Records are captured raw and untagged (Q3): no
-    family/technique/injected label ever rides on a captured record."""
+    family/technique/injected label ever rides on a captured record.
+
+    Queries the whole index with no `sourcetype` filter. `live_connect.
+    connect_lab_splunk` (used by other bully call sites) hardcodes
+    `sourcetype=aws:cloudtrail`, which is the right probe for a single-
+    schema CloudTrail baseline but is exactly the RC1/RC2 mistake for this
+    module's purpose: a capture that can only ever see one schema can never
+    prove plurality (Q2), and would silently miss the Windows-side telemetry
+    (`windows:security`/`windows:sysmon`/`windows:powershell` etc.) the
+    generated SMB/LDAP recon chains actually produce. Each Splunk search
+    hit carries the real event under `fields` (the SDK's per-result payload
+    minus the two fields the connector already promoted to `_time`/`host`);
+    `fields["sourcetype"]` is the genuine per-record schema tag, used as
+    `__source_id` so field-role inference and schema-plurality reporting
+    are keyed on what was actually indexed, not a hardcoded guess.
+    """
     available, reason = lab_available()
     if not available:
         return CaptureReport(
@@ -200,11 +216,32 @@ def capture_records(
         )
 
     from .connectors import QueryIntent
-    from .live_connect import connect_lab_splunk
+    from .live_connect import lab_splunk_connector
 
-    active_plane = plane or DataPlane()
-    profile, meta = connect_lab_splunk(active_plane, sample_limit=sample_limit)
-    if not (meta.get("records") or 0):
+    index = os.environ.get("LAB_SPLUNK_INDEX", "portal5_lab")
+    connector = lab_splunk_connector(index=index)
+    # Explicitly sorted most-recent-first, not an unbounded/unsorted
+    # "search index=X": this index also carries a large pre-loaded
+    # historical corpus (millions of events across many sourcetypes), so an
+    # unsorted capture can return an arbitrary slice dominated by that bulk-
+    # loaded corpus rather than genuinely recent activity. `earliest`/
+    # `latest` are deliberately left at this connector's defaults ("0"/
+    # "now"): this lab's export endpoint was found (empirically, verified
+    # against the live index) to return zero rows for any relative earliest
+    # bound ("-30m", "-1h", "-24h" all returned 0 despite events with
+    # `_time` timestamped at the moment of the query existing), while an
+    # unbounded earliest combined with `sort -_time` reliably returns
+    # genuinely current events -- a real quirk of this lab's Splunk
+    # deployment (likely an indextime/eventtime skew on the bulk-loaded
+    # corpus), not a defect in this connector's query construction.
+    result = connector.read(
+        QueryIntent(
+            "capture recent telemetry, all sourcetypes",
+            seed={"spl": f"search index={index} | sort -_time"},
+            limit=sample_limit,
+        )
+    )
+    if not result.records:
         return CaptureReport(
             plane="live",
             reason="capture returned zero records",
@@ -212,17 +249,42 @@ def capture_records(
             schemas_present=frozenset(),
         )
 
-    result = active_plane.query(
-        profile.source_id, QueryIntent("capture recent telemetry", limit=sample_limit)
+    active_plane = plane or DataPlane()
+    active_plane.connect(
+        "lab-splunk-plural",
+        connector,
+        result.records,
+        source_meta={
+            "record_class": "telemetry",
+            "credential_ref": "env:LAB_SPLUNK_PASSWORD",
+            "capabilities": {"queryable_in_place": True, "benign_present": True},
+        },
     )
+
     captured: list[dict[str, Any]] = []
+    schemas: set[str] = set()
     for record in result.records:
-        if isinstance(record, dict):
-            tagged = dict(record)
-            tagged["__source_id"] = profile.source_id
-            captured.append(tagged)
-    schemas = frozenset({"cloudtrail"}) if captured else frozenset()
-    return CaptureReport(plane="live", reason="", records=tuple(captured), schemas_present=schemas)
+        if not isinstance(record, dict):
+            continue
+        fields = record.get("fields")
+        event = dict(fields) if isinstance(fields, dict) else dict(record)
+        # `SplunkBackend._run_search` promotes the event's own timestamp and
+        # the first matching host-identity field (host/ComputerName/dest/
+        # Computer/src) out of `fields` into `_time`/`host` on the wrapper --
+        # the cleanest, already-parsed time and identity signal available.
+        # Losing them here would leave only Splunk's own internal metadata
+        # (_indextime, _bkt, _cd, ...) for role inference to work with.
+        if record.get("host"):
+            event.setdefault("host", record["host"])
+        if record.get("_time") is not None:
+            event.setdefault("_time", record["_time"])
+        sourcetype = str(event.get("sourcetype") or "unknown")
+        event["__source_id"] = f"lab-splunk:{sourcetype}"
+        schemas.add(sourcetype)
+        captured.append(event)
+    return CaptureReport(
+        plane="live", reason="", records=tuple(captured), schemas_present=frozenset(schemas)
+    )
 
 
 def seal_ground_truth(
@@ -234,12 +296,22 @@ def seal_ground_truth(
     """Seal every generated step's ground truth through the existing
     `SpecimenLedger` wall (Q3) -- `source_lane="live_lab"`. Captured records
     join to their provenance only by fingerprint, strictly after grading;
-    this function never hands truth to a grader."""
+    this function never hands truth to a grader.
+
+    `specimen_id` is scoped to this run (a random run-local suffix), not
+    just `chain_id`/`step_idx`: this is permanent infrastructure meant to be
+    run repeatedly (module docstring), and `_LIVE_CHAINS`' chain ids are
+    fixed literals, so a bare `f"{chain_id}-step{step_idx}"` would collide
+    with -- and correctly be refused by -- the previous run's already-sealed
+    entry every time this runs again. `SpecimenLedger.record` is otherwise
+    idempotent on identical content; run-scoping keeps each real run's truth
+    distinct rather than making every run after the first raise."""
     ledger = specimen_ledger.SpecimenLedger(root)
     sealed = 0
+    run_id = uuid.uuid4().hex[:12]
     captured_by_fingerprint = {_fingerprint(r): r for r in captured_records}
     for step in generate_report.steps:
-        specimen_id = f"{step.chain_id}-step{step.step_idx}"
+        specimen_id = f"{step.chain_id}-step{step.step_idx}-run{run_id}"
         matched_fingerprint = next(
             (
                 fp
