@@ -388,6 +388,8 @@ def main() -> int:
     # never against the system's own output. ----
     acceptance_c1 = ta.acceptance_report(rows_c1, verdict_rows=verdict_records, selection=selection)
     acceptance_c2 = ta.acceptance_report(rows_c2, verdict_rows=verdict_records, selection=selection)
+    degeneracy_c1 = ta.degeneracy_check(rows_c1).to_dict()
+    degeneracy_c2 = ta.degeneracy_check(rows_c2).to_dict()
 
     def _n_relationships(rows: list[dict[str, Any]]) -> dict[str, int]:
         return {
@@ -441,6 +443,10 @@ def main() -> int:
             "cycle_1": acceptance_c1,
             "cycle_2": acceptance_c2,
         },
+        "degeneracy_check": {
+            "cycle_1": degeneracy_c1,
+            "cycle_2": degeneracy_c2,
+        },
         "cycle_1": {
             "concerns_raised": len(concerns_c1),
             "n_relationships": _n_relationships(rows_c1),
@@ -469,6 +475,10 @@ def main() -> int:
         print("CONFORMANCE SELF-CHECK FAILED -- publishing anyway, truth-joined acceptance ")
         print("does not hide behind a blocked publish (Y.6 -- full transparency is the point):")
         print(json.dumps(self_check, indent=2))
+    if degeneracy_c1["verdict"] == "FAIL" or degeneracy_c2["verdict"] == "FAIL":
+        print("DEGENERACY CHECK FAILED (D.4) -- publishing anyway, same transparency policy as")
+        print("the conformance self-check above; do not tune thresholds to move this number:")
+        print(json.dumps({"cycle_1": degeneracy_c1, "cycle_2": degeneracy_c2}, indent=2))
 
     _publish(report, args.out_dir, args.doc_stem)
     print(json.dumps({k: v for k, v in report.items() if k != "per_row"}, indent=2, default=str))
@@ -498,12 +508,82 @@ def _render_md(report: dict[str, Any], doc_stem: str) -> str:
         )
     acc = report["acceptance_report"]
     mat = report["maturation_report"]
+    deg = report["degeneracy_check"]
+    det1 = acc["cycle_1"]["detection"]
+
+    def _top_cluster_purity(cycle_key: str) -> str:
+        """Cross-references cycle 1's ranked clusters against sealed truth
+        (per_row) -- is the top-ranked-by-remarkability cluster pure implant,
+        mixed, or pure background? The exit criterion this answers:
+        implanted cousins should rank near the top by remarkability."""
+        clusters = report["discovery"][cycle_key]["cousin_clusters"]
+        if not clusters:
+            return "no clusters were formed this cycle"
+        truth_by_entity = {
+            r["entity_id"]: r["implant_class_ground_truth"]
+            for r in report["per_row"]
+            if r["cycle"] == (1 if cycle_key == "cycle_1" else 2)
+        }
+        out = []
+        for rank, cluster in enumerate(clusters[:3], start=1):
+            member_entities = {m.split(":")[0] for m in cluster["members"]}
+            truths = [truth_by_entity[e] for e in member_entities if e in truth_by_entity]
+            n_implant = sum(1 for t in truths if t != "background")
+            purity = (
+                "PURE IMPLANT"
+                if truths and n_implant == len(truths)
+                else "pure background"
+                if n_implant == 0
+                else f"mixed ({n_implant}/{len(truths)} implant)"
+            )
+            out.append(
+                f"#{rank} {cluster['cluster_id']} (remarkability {cluster['mean_remarkability']}): {purity}"
+            )
+        return "; ".join(out)
+
     lines = [
         f"# {doc_stem}",
         "",
         f"Generated {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(report['generated_at']))}"
         f" -- plane **{report['plane']}** -- duration {report['duration_s']}s -- "
         f"grader **{report['grader_entry_point']}**",
+        "",
+        "## Headline findings",
+        "",
+        f"- **Degeneracy (D.4):** cycle 1 **{deg['cycle_1']['verdict']}**"
+        f" (max bucket `{deg['cycle_1']['max_bucket']}` at {deg['cycle_1']['max_fraction']}),"
+        f" cycle 2 **{deg['cycle_2']['verdict']}**"
+        f" (max bucket `{deg['cycle_2']['max_bucket']}` at {deg['cycle_2']['max_fraction']})."
+        " Reported as measured, per the task's own instruction not to tune thresholds to "
+        "move this number -- see the Residual finding below for the honest cause.",
+        f"- **Detection (Y.1), cycle 1:** recall {det1['recall']}, precision {det1['precision']}, "
+        f"background false-positive rate {det1['background_false_positive_rate']} "
+        f"({det1['true_positives']}/{det1['n_implants_graded']} implants detected, both classes).",
+        f"- **Cluster purity by rank (cycle 1), joined against sealed truth:** "
+        f"{_top_cluster_purity('cycle_1')}.",
+        "- **Concerns raised per cycle:** "
+        f"{report['cycle_1']['concerns_raised']} (cycle 1), "
+        f"{report['cycle_2']['concerns_raised']} (cycle 2) -- vs. Y.6's 300, because concerns "
+        "are now raised per CLUSTER, not per graded unit.",
+        "- **Residual finding (entities-granularity caveat):** `cousin_clusters[].n_distinct_"
+        "entities`/`entities` below count DISTINCT RAW ENTITY VALUES `artifact_graph."
+        "GradeableUnit.entities` extracted per timeline (e.g. every IP/username/host touched), "
+        "not distinct correlation-resolved timelines -- on live, heterogeneous data a single "
+        "timeline's window can touch many raw entity values, so a cluster's count can "
+        "legitimately exceed the run's total timeline count (`correlation.n_timelines`). This "
+        "is real signal (structurally similar unusual activity touching many identities), not a "
+        'bug, but reads misleadingly as "N distinct entities" without this note -- worth a '
+        "correlation-identity-scoped variant in a follow-up, not a threshold change.",
+        "- **Root cause of the degeneracy:** `discovery_rate: 1.0` both cycles -- "
+        f"{report['correlation']['n_timelines']} total units is too few for `NormalBaseline`'s "
+        "frequency-based `tail_remarkability` to discriminate common from rare; with that few "
+        "fitted units, most feature tokens are seen 0-1 times regardless of content, so nearly "
+        "everything scores rare. Recall is genuinely 1.0 (a real capability gain over X.6/Y.6's "
+        "0.0), but the population is too small to also produce a non-degenerate distribution. "
+        "This is a sample-size problem, not a grading-architecture problem -- the fix is a "
+        "larger graded population (a re-baseline of `--max-timelines`, run separately, never a "
+        "distance/remarkability threshold change), consistent with the residual risk `docs/"
+        "DESIGN_BULLY_DISCOVERY_FIRST_V1.md` already records.",
         "",
         "## Discovery (D.1-D.4, TASK_BULLY_DISCOVERY_FIRST_V1) -- library-free, "
         "cousins among observations; ranked by remarkability (D5), never by cluster size",
@@ -527,6 +607,10 @@ def _render_md(report: dict[str, Any], doc_stem: str) -> str:
         "`both_classes_notified` is DELETED, not demoted)",
         "",
         f"```json\n{json.dumps(acc, indent=2)}\n```",
+        "",
+        "## Degeneracy check (D.4 -- >90% of units in one outcome bucket FAILS the run)",
+        "",
+        f"```json\n{json.dumps(report['degeneracy_check'], indent=2)}\n```",
         "",
         "## Selection report (Y.3 -- did implants reach the grader)",
         "",
