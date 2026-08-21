@@ -69,6 +69,7 @@ BehaviorClassifier = Callable[[str], str]
 _BEHAVIOR_TABLE: tuple[tuple[tuple[str, ...], str], ...] = (
     (
         (
+            "auth",
             "assumerole",
             "getsessiontoken",
             "logon",
@@ -112,9 +113,10 @@ _BEHAVIOR_TABLE: tuple[tuple[tuple[str, ...], str], ...] = (
         ),
         "execute",
     ),
-    (("delete", "remove", "stop", "terminate", "disable", "clear", "wipe"), "destroy"),
+    (("destroy", "delete", "remove", "stop", "terminate", "disable", "clear", "wipe"), "destroy"),
     (
         (
+            "escalate",
             "attach",
             "grant",
             "addrole",

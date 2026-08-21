@@ -6,20 +6,23 @@ analyst's three-way verdict, writes BOTH answers back as knowledge, and
 proves the system MATURES cycle-over-cycle on live universal data. Per
 docs/DESIGN_BULLY_ANALYST_LOOP_V1.md and TASK_BULLY_ANALYST_LOOP_V1.
 
-Design note (grading path for this run): `analyst_loop.py`'s suppressor
-(`compounding.should_escalate`) and write-back (`compounding.
-write_outcome_as_anchor`) are wired to `relation.relate` + `anchors.
-AnchorLibrary` (the pre-reintegration grading organ, C.7's labelled
-rollback path) -- NOT to the reintegrated `loop_grader`/`series_cousin`/
-known-library pipeline `bully_loop_milestone_run.py` (R.6) exercises. That
-is a real, load-bearing fact about this codebase: the compounding loop
-(what actually lets a `BENIGN_CLOSE` anchor suppress a later match) only
-closes through `AnchorLibrary`. So this run grades every timeline via
-`relation.relate(signature, anchor_library)` -- still built from real
-captured telemetry, real entity correlation (`correlation.py`), and a real
-behavioural spine (`series_cousin.series_from_logs`) -- and reuses R.6's
-generation/capture/correlation machinery directly (imported, not
-duplicated) rather than re-deriving it.
+Design note (grading path for this run, inverted by D.3,
+TASK_BULLY_DISCOVERY_FIRST_V1): this run used to grade every timeline via
+`relation.relate(signature, anchor_library)` -- a signature database that
+decided every outcome by catalogue match, degenerate in the direction
+whichever way the library leaned (see `docs/DESIGN_BULLY_DISCOVERY_FIRST_V1.md`).
+`_grade_cycle` now grades **discovery-first**: it builds one `GradeableUnit`
+per timeline (`artifact_graph.build_graph`), fits a `NormalBaseline` from
+THIS cycle's own captured units (never the library, D2), runs `discovery.
+discover()` (remarkable + coherent, library-free) and `discovery.
+find_cousin_clusters()` (cousins among OBSERVATIONS, not against a
+catalogue, D3), and raises ONE concern per cluster -- an analyst reviews a
+pattern, not N copies of it. The library only enriches a cluster after it
+is found (`discovery.enrich()`), naming its shared shape or reporting
+`resembles_nothing` without retracting the finding (D4). Escalation is
+gated by `compounding.should_escalate_shape` (X1/D1): a library match alone
+never triggers a concern. Reuses R.6's generation/capture/correlation
+machinery directly (imported, not duplicated) rather than re-deriving it.
 
 1. Generates BOTH implant classes (X.5): known-bad techniques the anchor
    library is seeded with, and unknown-cousin techniques whose family is
@@ -27,9 +30,11 @@ duplicated) rather than re-deriving it.
    R.5a's real-tooling lab chains (also known).
 2. Ships to the live index via HEC, captures back, resolves entities,
    assembles timelines, derives a behavioural spine per timeline.
-3. CYCLE 1: grades every timeline against the seeded library, raises a
-   concern for every SAME/SIMILAR/ANOMALOUS_UNCLASSIFIED via
-   `analyst_loop.raise_concern`, gated ONLY by `compounding.should_escalate`.
+3. CYCLE 1: discovers remarkable+coherent units from THIS cycle's own
+   telemetry (library-free), clusters them into cousins among observations,
+   enriches each cluster against the seeded library, and raises ONE concern
+   per cluster via `analyst_loop.raise_concern`, gated ONLY by
+   `compounding.should_escalate_shape`.
 4. Applies SCRIPTED analyst verdicts (a deterministic CONFIRMED/BENIGN/
    UNSURE cycle, sealed from the grader) to every concern raised, writing
    every one back via `analyst_loop.record_verdict`.
@@ -48,6 +53,7 @@ presented as a live run.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import sys
 import time
@@ -66,11 +72,19 @@ from portal.modules.security.core.bully import (  # noqa: E402
     analyst_loop,
     compounding,
     correlation,
-    series_cousin,
     universe,
 )
 from portal.modules.security.core.bully import (
+    artifact_graph as ag,
+)
+from portal.modules.security.core.bully import (
+    baseline as bl,
+)
+from portal.modules.security.core.bully import (
     config as bully_config,
+)
+from portal.modules.security.core.bully import (
+    discovery as disc,
 )
 from portal.modules.security.core.bully import (
     inject_plane as ip,
@@ -85,8 +99,12 @@ from portal.modules.security.core.bully import (
     signatures as signatures_mod,
 )
 from portal.modules.security.core.bully.anchors import AnchorLibrary  # noqa: E402
-from portal.modules.security.core.bully.contracts import DecisionEvent, new_id  # noqa: E402
-from portal.modules.security.core.bully.relation import relate  # noqa: E402
+from portal.modules.security.core.bully.contracts import (  # noqa: E402
+    CousinAssessment,
+    DecisionEvent,
+    Decomposition,
+    new_id,
+)
 from portal.modules.security.core.bully.store import Store  # noqa: E402
 
 ALGORITHM_VERSION = "analyst-loop-run-x6-v1"
@@ -100,12 +118,6 @@ _KNOWN_SPINE = ("auth", "enumerate", "execute")
 # real lab chains, also seeded as known) so it never accidentally collides
 # with an unrelated known family's exact spine.
 _UNKNOWN_SPINE = ("auth", "enumerate", "persist")
-
-# Shared sensor-class marker set on every anchor AND every subject signature
-# (see `_seed_anchor_library`'s docstring) -- required for the deprecated
-# `cousin_engine.grade` confidence gate to classify past ANOMALOUS_UNCLASSIFIED
-# on a thin action-sequence-only signature.
-_SHARED_TELEMETRY_CLASS = "universal_behavioral"
 
 
 def _build_cousins() -> list[dict[str, Any]]:
@@ -139,40 +151,21 @@ def _build_cousins() -> list[dict[str, Any]]:
 
 def _stub_anchor_record(spine: list[str] | tuple[str, ...], technique: str) -> dict[str, Any]:
     """Build an anchor payload in the SAME shape `compounding.
-    write_outcome_as_anchor` writes (`sig_mod.reference_record_fields`) --
-    not a bare `{action_sequence: [...]}` dict. `relation.relate`'s semantic
-    axis matches on `semantic_query`/`_record_text`, which are DERIVED
-    fields (e.g. `"actions: auth enumerate execute"`, not the raw list);
-    seeding a raw dict without them means the subject's derived query never
-    achieves real token overlap with the anchor even on an exact
-    behavioural match, so the anchor never surfaces as a close semantic
-    candidate. `telemetry_shape` carries the shared marker (see
-    `_SHARED_TELEMETRY_CLASS`) so confidence mass crosses
-    `MIN_CONFIDENCE_FOR_CLASSIFICATION` on a genuine match."""
+    write_outcome_as_anchor` writes (`sig_mod.reference_record_fields`).
+
+    D.3 (TASK_BULLY_DISCOVERY_FIRST_V1): no token-overlap shaping needed any
+    more. `discovery.enrich()` compares a cluster's class-level
+    `shared_shape` directly against `record["action_sequence"]` -- the
+    retired `relation.relate`'s semantic-query token match (which this
+    function used to shape a `semantic_query` field for) is off the path."""
     stub_sig = signatures_mod.build_signature(
         {"target_host": None},
         {
             "action_sequence": list(spine),
             "attack_mappings": [{"technique_id": technique}],
-            "telemetry_shape": {"source_class": _SHARED_TELEMETRY_CLASS},
         },
     )
-    record = signatures_mod.reference_record_fields(stub_sig)
-    # The subject signature never declares `attack_mappings` (that would be
-    # handing the grader the answer) -- an anchor's `semantic_query` that
-    # includes an "attack:" section the subject can never match dilutes
-    # every real match's token overlap. Recompute it from an
-    # attack-mappings-free stub so it is shaped the way an observed
-    # subject's own semantic_query is (action text only).
-    plain_stub = signatures_mod.build_signature(
-        {"target_host": None},
-        {
-            "action_sequence": list(spine),
-            "telemetry_shape": {"source_class": _SHARED_TELEMETRY_CLASS},
-        },
-    )
-    record["semantic_query"] = signatures_mod.semantic_query(plain_stub)
-    return record
+    return signatures_mod.reference_record_fields(stub_sig)
 
 
 def _seed_anchor_library(lot: universe.UniverseLot) -> AnchorLibrary:
@@ -231,6 +224,113 @@ def _register_anchor_stub_signatures(store: Store, anchor_library: AnchorLibrary
         store.record_signature(stub)
 
 
+class _CallableActionClassifier:
+    """Adapts a bare callable (`behavior_classifier.LearnedBehaviorClassifier`
+    is `__call__`-only) to `artifact_graph.ActionClassifier`'s `.classify()`
+    protocol."""
+
+    def __init__(self, fn: Any) -> None:
+        self._fn = fn
+
+    def classify(self, action: str | None) -> str:
+        return self._fn(action) if action else ""
+
+
+def _as_action_classifier(classifier: Any) -> ag.ActionClassifier | None:
+    if classifier is None:
+        return None
+    return _CallableActionClassifier(classifier)
+
+
+def _relationship_for_enrichment(enrichment: disc.Enrichment) -> str:
+    """Map D.1's `Enrichment.relation` (EXACT/SIMILAR/NONE) onto the
+    RELATIONSHIPS vocabulary the store/scoreboard/analyst_loop machinery
+    already speaks, so none of that downstream wiring needs to change."""
+    if enrichment.relation == "EXACT":
+        return "SAME"
+    if enrichment.relation == "SIMILAR":
+        return "SIMILAR"
+    return "ANOMALOUS_UNCLASSIFIED"
+
+
+def _defense_response_for(relationship: str) -> str:
+    if relationship == "SAME":
+        return "COVERED"
+    if relationship in ("SIMILAR", "ANOMALOUS_UNCLASSIFIED", "NEW"):
+        return "NEAR_MISS"
+    return "COVERED"  # DIFFERENT -- ordinary, nothing to catch
+
+
+def _unit_signature(cycle: int, entity_id: str, unit: ag.GradeableUnit) -> Any:
+    """A `signatures.BehaviorSignature` built from the unit's OWN
+    class-level shape -- `action_sequence` here is `class_sequence`
+    (`"auth"`, `"escalate"`, ...), the same vocabulary `discovery.enrich()`
+    and every anchor's `_stub_anchor_record` speak, not raw verb literals.
+
+    Keyed on `entity_id` (the correlation-resolved timeline id), not
+    `unit.unit_id`: each timeline's `GradeableUnit` comes from its OWN
+    `build_graph` call, whose artifact ids restart at `a00000` every time,
+    so two different entities with the same artifact COUNT at the same
+    level hash to the identical `unit_id` -- a real collision, not a
+    theoretical one, against `behavior_signatures`' (episode_ref, algorithm
+    version, input_manifest_hash) uniqueness constraint."""
+    return signatures_mod.build_signature(
+        {"episode_id": f"ep-{cycle}-{entity_id}", "target_host": ",".join(unit.entities)},
+        {"action_sequence": list(unit.structural_signature.get("class_sequence") or ())},
+    )
+
+
+def _cluster_signature(cycle: int, cluster: disc.CousinCluster) -> Any:
+    return signatures_mod.build_signature(
+        {
+            "episode_id": f"ep-{cycle}-{cluster.cluster_id}",
+            "target_host": ",".join(cluster.entities),
+        },
+        {"action_sequence": list(cluster.shared_shape)},
+    )
+
+
+def _build_assessment(
+    *,
+    cycle: int,
+    entity_id: str,
+    signature_id: str,
+    relationship: str,
+    composite: float,
+    confidence: float,
+    resembles: str | None,
+) -> CousinAssessment:
+    defense_response = _defense_response_for(relationship)
+    return CousinAssessment(
+        assessment_id=f"ca-{cycle}-{entity_id}",
+        subject_signature_id=signature_id,
+        reference_signature_id=resembles,
+        candidate_set_id=f"discovery-first:{cycle}",
+        decomposition=Decomposition(
+            behavior=confidence,
+            telemetry=None,
+            semantic=(1.0 - composite) if composite is not None else None,
+            attack=None,
+            context=None,
+        ),
+        composite=composite,
+        relationship=relationship,
+        # SIMILAR/NEW require >=2 non-semantic channels (contracts.py C5
+        # CLAIM 4). Discovery genuinely carries two independent ones --
+        # remarkability (baseline) and structural coherence (cohesion) --
+        # for every relationship this grader can produce.
+        nonsemantic_channels=2 if relationship in ("SAME", "SIMILAR", "NEW") else 1,
+        vetoes=[],
+        defense_response=defense_response,
+        nearest_knowns=[(resembles, composite)] if resembles else [],
+        confidence=confidence,
+        completeness=1.0,
+        algorithm_version=ALGORITHM_VERSION,
+        thresholds_version=ALGORITHM_VERSION,
+        explanation={"grader": "discovery-first"},
+    )
+
+
 def _grade_cycle(
     timelines: list[correlation.EntityTimeline],
     by_artifact_index: dict[str, Any],
@@ -241,43 +341,183 @@ def _grade_cycle(
     cycle: int,
     identity_to_class: dict[str, str],
     notify_counter: list[int],
-) -> tuple[list[dict[str, Any]], list[analyst_loop.Concern], dict[str, Any]]:
-    """One cycle: grade every timeline via `relation.relate` against
-    `anchor_library`, raise a concern for every notifying relationship,
-    gated ONLY by `compounding.should_escalate` (X1). Returns per-row
-    grading data, the raised Concern objects (with their signatures kept
-    alongside for later write-back), and a signature_id -> signature map."""
-    rows: list[dict[str, Any]] = []
-    concerns: list[analyst_loop.Concern] = []
-    signatures_by_concern: dict[str, Any] = {}
+) -> tuple[list[dict[str, Any]], list[analyst_loop.Concern], dict[str, Any], dict[str, Any]]:
+    """One cycle, discovery-first (D.3, TASK_BULLY_DISCOVERY_FIRST_V1): build
+    one `GradeableUnit` per timeline, fit a `NormalBaseline` from THIS
+    cycle's own units (never the library, D2), `discover()` remarkable +
+    coherent units and `find_cousin_clusters()` them (cousins among
+    OBSERVATIONS, D3), then raise ONE concern per cluster -- an analyst
+    reviews a pattern, not N copies of it -- gated ONLY by `compounding.
+    should_escalate_shape` (X1/D1). The library only enriches
+    (`discovery.enrich()`) after a cluster is found; `resembles_nothing`
+    never retracts it (D4). Returns one row PER TIMELINE (so selection/
+    poisoning/acceptance joins against sealed truth keep working
+    unchanged), the raised per-cluster Concern objects (with their
+    signatures kept alongside for later write-back), and a
+    concern_id -> signature map, and a `meta` dict carrying
+    `grader_entry_point`, the discovery report, and clusters ranked by
+    mean remarkability (D5), each with its enrichment."""
+    action_classifier = _as_action_classifier(classifier)
+
+    units_by_entity: dict[str, ag.GradeableUnit] = {}
+    for timeline in timelines:
+        records = [by_artifact_index[a] for a in timeline.artifact_ids]
+        graph = ag.build_graph(
+            records, source_id=timeline.entity.entity_id, classifier=action_classifier
+        )
+        candidates = [u for u in ag.enumerate_units(graph) if u.level == "L4_WINDOW"]
+        if candidates:
+            unit = max(candidates, key=lambda u: u.size)
+            # `unit.unit_id` hashes (level, artifact_ids); `build_graph` is
+            # called separately per entity and its artifact ids restart at
+            # `a00000` every time, so two entities with the same artifact
+            # COUNT at this level hash to the IDENTICAL unit_id -- a real
+            # collision (two different entities running the same routine
+            # background shape, the common case), not a theoretical one.
+            # Every dict below is keyed on unit_id, so an un-prefixed id
+            # would silently drop one colliding entity's discovery.
+            units_by_entity[timeline.entity.entity_id] = dataclasses.replace(
+                unit, unit_id=f"{timeline.entity.entity_id}:{unit.unit_id}"
+            )
+
+    baseline = bl.NormalBaseline(environment_id=f"x6:{cycle}")
+    baseline.fit(list(units_by_entity.values()))
+
+    discoveries, discovery_report = disc.discover(list(units_by_entity.values()), baseline)
+    clusters = disc.find_cousin_clusters(discoveries)
+    library_shapes = [(a.anchor_id, a) for a in anchor_library.all()]
+
+    discovery_by_unit_id = {d.unit_id: d for d in discoveries}
+    cluster_by_unit_id = {m: c for c in clusters for m in c.members}
+    enrichment_by_cluster_id = {
+        c.cluster_id: disc.enrich(c.shared_shape, library_shapes) for c in clusters
+    }
 
     def _notify(payload: dict[str, Any]) -> None:
         notify_counter[0] += 1
         analyst_loop._default_notify(payload)
 
+    # ---- pass 1: ONE concern per cluster -----------------------------
+    unit_by_id = {u.unit_id: u for u in units_by_entity.values()}
+    entity_by_unit_id = {u.unit_id: e for e, u in units_by_entity.items()}
+    canonical_by_entity_id = {t.entity.entity_id: t.entity.canonical for t in timelines}
+
+    def _primary_entity(member_entity_ids: list[str]) -> str:
+        """`raise_concern`'s `entity_id` is a single field a caller (Y.6's
+        scripted-verdict truth check, maturation's true-positive filter)
+        looks `identity_to_class` up by. A cluster spans several resolved
+        entities, so prefer an implant entity as the representative when the
+        cluster contains one -- a mixed cluster must not silently present
+        as background just because a background entity sorted first."""
+        if not member_entity_ids:
+            return ""
+        return min(
+            member_entity_ids,
+            key=lambda e: (
+                identity_to_class.get(canonical_by_entity_id.get(e, ""), "background")
+                == "background"
+            ),
+        )
+
+    concerns: list[analyst_loop.Concern] = []
+    signatures_by_concern: dict[str, Any] = {}
+    concern_id_by_cluster: dict[str, str | None] = {}
+    for cluster in clusters:
+        enrichment = enrichment_by_cluster_id[cluster.cluster_id]
+        relationship = _relationship_for_enrichment(enrichment)
+        escalate = compounding.should_escalate_shape(cluster.shared_shape, anchor_library)
+        member_units = [unit_by_id[m] for m in cluster.members if m in unit_by_id]
+        member_entity_ids = [
+            entity_by_unit_id[m] for m in cluster.members if m in entity_by_unit_id
+        ]
+        signature = _cluster_signature(cycle, cluster)
+        concern = analyst_loop.raise_concern(
+            assessment_id=f"ca-cluster-{cycle}-{cluster.cluster_id}",
+            entity_id=_primary_entity(member_entity_ids),
+            relationship=relationship,
+            match_level="",
+            robustness=cluster.mean_remarkability,
+            n_sources=sum(len(u.source_ids) for u in member_units),
+            source_ids=tuple(sorted({s for u in member_units for s in u.source_ids})),
+            aligned_spine=cluster.shared_shape,
+            resembles=enrichment.resembles_type,
+            notify=_notify,
+            should_escalate=escalate,
+        )
+        if concern is not None:
+            concerns.append(concern)
+            signatures_by_concern[concern.concern_id] = signature
+        concern_id_by_cluster[cluster.cluster_id] = concern.concern_id if concern else None
+
+    # ---- pass 2: ONE row + ONE store assessment PER TIMELINE ---------
+    rows: list[dict[str, Any]] = []
     for timeline in timelines:
-        action_of = r6._action_value_extractor(timeline, by_artifact_index)
-        observed_series = series_cousin.series_from_logs(
-            f"x6:{cycle}:{timeline.entity.entity_id}",
-            [by_artifact_index[a] for a in timeline.artifact_ids],
-            action_of=action_of,
-            classifier=classifier,
+        entity_id = timeline.entity.entity_id
+        implant_class = identity_to_class.get(timeline.entity.canonical, "background")
+        unit = units_by_entity.get(entity_id)
+
+        if unit is None:
+            rows.append(
+                {
+                    "cycle": cycle,
+                    "assessment_id": None,
+                    "entity_id": entity_id,
+                    "implant_class_ground_truth": implant_class,
+                    "relationship": "DIFFERENT",
+                    "defense_response": "INDETERMINATE",
+                    "composite": 0.0,
+                    "concern_class": "not_a_concern",
+                    "concern_raised": False,
+                    "concern_id": None,
+                    "should_escalate": False,
+                    "n_sources": timeline.n_sources,
+                }
+            )
+            continue
+
+        cluster = cluster_by_unit_id.get(unit.unit_id)
+        discovery_hit = discovery_by_unit_id.get(unit.unit_id)
+        if cluster is not None:
+            enrichment = enrichment_by_cluster_id[cluster.cluster_id]
+            relationship = _relationship_for_enrichment(enrichment)
+            composite = (
+                enrichment.distance
+                if enrichment.distance is not None
+                else round(1.0 - cluster.mean_remarkability, 4)
+            )
+            confidence = cluster.mean_remarkability
+            resembles = enrichment.resembles_type
+            concern_id = concern_id_by_cluster.get(cluster.cluster_id)
+            escalate = compounding.should_escalate_shape(cluster.shared_shape, anchor_library)
+        elif discovery_hit is not None:
+            # Discovered, but recurs on no other entity -- a cluster of one
+            # is not a pattern (MIN_CLUSTER_SIZE); real signal, unraised.
+            relationship = "NEW"
+            composite = round(1.0 - discovery_hit.remarkability, 4)
+            confidence = discovery_hit.remarkability
+            resembles = None
+            concern_id = None
+            escalate = False
+        else:
+            relationship = "DIFFERENT"
+            composite = 0.0
+            confidence = 0.0
+            resembles = None
+            concern_id = None
+            escalate = False
+
+        unit_signature = _unit_signature(cycle, entity_id, unit)
+        assessment = _build_assessment(
+            cycle=cycle,
+            entity_id=entity_id,
+            signature_id=unit_signature.signature_id,
+            relationship=relationship,
+            composite=composite,
+            confidence=confidence,
+            resembles=resembles,
         )
-        episode_view = {
-            "episode_id": f"ep-x6-{cycle}-{timeline.entity.entity_id}",
-            "target_host": timeline.entity.canonical,
-        }
-        signature = signatures_mod.build_signature(
-            episode_view,
-            {
-                "action_sequence": list(observed_series.spine),
-                "telemetry_shape": {"source_class": _SHARED_TELEMETRY_CLASS},
-            },
-            behavior_classifier=classifier,
-        )
-        rel = relate(signature, anchor_library)
-        store.record_signature(signature)
-        store.record_cousin(rel.assessment)
+        store.record_signature(unit_signature)
+        store.record_cousin(assessment)
         store.record_decision(
             DecisionEvent(
                 event_id=new_id("dec"),
@@ -285,49 +525,42 @@ def _grade_cycle(
                 iteration_id=None,
                 actor="system:bully_analyst_loop_run",
                 kind="grade",
-                subject_id=rel.assessment.assessment_id,
-                rationale=f"X6_cycle{cycle}_grade relationship={rel.verdict}",
-                data={"entity_id": timeline.entity.entity_id, "cycle": cycle},
+                subject_id=assessment.assessment_id,
+                rationale=f"discovery_first_cycle{cycle}_grade relationship={relationship}",
+                data={"entity_id": entity_id, "cycle": cycle},
                 recorded_at=time.time(),
             )
         )
 
-        implant_class = identity_to_class.get(timeline.entity.canonical, "background")
-        escalate = compounding.should_escalate(rel, anchor_library)
-        concern = analyst_loop.raise_concern(
-            assessment_id=rel.assessment.assessment_id,
-            entity_id=timeline.entity.entity_id,
-            relationship=rel.verdict,
-            match_level="",
-            robustness=rel.confidence,
-            n_sources=timeline.n_sources,
-            source_ids=tuple(sorted({a.split(":")[0] for a in timeline.artifact_ids})),
-            aligned_spine=tuple(observed_series.spine),
-            resembles=rel.assessment.reference_signature_id,
-            notify=_notify,
-            should_escalate=escalate,
-        )
-        if concern is not None:
-            concerns.append(concern)
-            signatures_by_concern[concern.concern_id] = signature
-
         rows.append(
             {
                 "cycle": cycle,
-                "assessment_id": rel.assessment.assessment_id,
-                "entity_id": timeline.entity.entity_id,
+                "assessment_id": assessment.assessment_id,
+                "entity_id": entity_id,
                 "implant_class_ground_truth": implant_class,
-                "relationship": rel.verdict,
-                "defense_response": rel.assessment.defense_response,
-                "composite": rel.assessment.composite,
-                "concern_class": analyst_loop.concern_class(rel.verdict),
-                "concern_raised": concern is not None,
-                "concern_id": concern.concern_id if concern else None,
+                "relationship": relationship,
+                "defense_response": assessment.defense_response,
+                "composite": assessment.composite,
+                "concern_class": analyst_loop.concern_class(relationship),
+                "concern_raised": concern_id is not None,
+                "concern_id": concern_id,
                 "should_escalate": escalate,
                 "n_sources": timeline.n_sources,
             }
         )
-    return rows, concerns, signatures_by_concern
+
+    meta = {
+        "grader_entry_point": "discovery-first",
+        "discovery_report": discovery_report,
+        "cousin_clusters": [
+            {
+                **cluster.to_dict(),
+                "enrichment": enrichment_by_cluster_id[cluster.cluster_id].to_dict(),
+            }
+            for cluster in sorted(clusters, key=lambda c: c.mean_remarkability, reverse=True)
+        ],
+    }
+    return rows, concerns, signatures_by_concern, meta
 
 
 def main() -> int:
@@ -454,7 +687,7 @@ def main() -> int:
 
     # ---- 4. CYCLE 1 ----
     _register_anchor_stub_signatures(store, anchor_library)
-    rows_c1, concerns_c1, sigs_c1 = _grade_cycle(
+    rows_c1, concerns_c1, sigs_c1, meta_c1 = _grade_cycle(
         timelines,
         by_artifact_index,
         classifier,
@@ -496,7 +729,7 @@ def main() -> int:
 
     # ---- 6. CYCLE 2 -- identical telemetry, richer library ----
     _register_anchor_stub_signatures(store, anchor_library)
-    rows_c2, concerns_c2, _sigs_c2 = _grade_cycle(
+    rows_c2, concerns_c2, _sigs_c2, meta_c2 = _grade_cycle(
         timelines,
         by_artifact_index,
         classifier,
@@ -539,6 +772,7 @@ def main() -> int:
 
     report: dict[str, Any] = {
         "plane": "live",
+        "grader_entry_point": meta_c1["grader_entry_point"],
         "algorithm_version": ALGORITHM_VERSION,
         "generated_at": time.time(),
         "duration_s": round(time.time() - started_at, 2),
@@ -546,6 +780,16 @@ def main() -> int:
         "r5a_generate": r5a_report,
         "hec_ship": hec_report,
         "capture": capture.to_dict(),
+        "discovery": {
+            "cycle_1": {
+                "discovery_report": meta_c1["discovery_report"],
+                "cousin_clusters": meta_c1["cousin_clusters"],
+            },
+            "cycle_2": {
+                "discovery_report": meta_c2["discovery_report"],
+                "cousin_clusters": meta_c2["cousin_clusters"],
+            },
+        },
         "correlation": {
             "n_observations": len(observations),
             "n_resolved_entities": len(entities),

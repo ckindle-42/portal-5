@@ -18,9 +18,14 @@ wrong:
      is called with `priority_entity_ids` built from the sealed ledger, so
      implant entities are never silently excluded by a richest-first
      take-top-N cutoff. `selection_report` is published every run.
-  2. **The grader explains the observed series (Y.2)**: `series_cousin`'s
-     new `MIN_OBSERVED_COVERAGE`/`MIN_DISTINCT_RATIO` gates are the
-     defaults `relation.relate` already uses -- no wiring needed here.
+  2. **The grader explains the observed series (Y.2, historical)**: at Y.6,
+     `series_cousin`'s `MIN_OBSERVED_COVERAGE`/`MIN_DISTINCT_RATIO` gates
+     were the defaults `relation.relate` used. D.3 (TASK_BULLY_DISCOVERY_
+     FIRST_V1) retired `relation.relate` from this run's grading path
+     entirely -- `x6._grade_cycle` is now discovery-first (`discovery.
+     discover`/`find_cousin_clusters`/`enrich`), so this point is retained
+     as historical record, not current behaviour; see
+     `docs/DESIGN_BULLY_DISCOVERY_FIRST_V1.md`.
   3. **Scripted verdicts cannot poison the library (Y.4)**: every scripted
      verdict is checked against sealed truth (`record_verdict(scripted=
      True, ground_truth=...)`) before write-back; a contradicting verdict
@@ -276,17 +281,18 @@ def main() -> int:
 
     notify_counter = [0]
 
-    # `_grade_cycle` (reused from X6, unmodified) looks up ground truth by
+    # `_grade_cycle` (reused from X6, discovery-first as of D.3,
+    # TASK_BULLY_DISCOVERY_FIRST_V1) looks up ground truth by
     # `timeline.entity.canonical` against an `identity -> class` map. Project
     # the alias-aware `entity_id_to_truth` onto each entity's `.canonical` so
     # that lookup lands correctly even when the sealed identity survived only
     # as an alias (see the priority-set note above).
     canonical_to_class = {entities[eid].canonical: cls for eid, cls in entity_id_to_truth.items()}
 
-    # ---- 4. CYCLE 1 (unmodified grading path: relation.relate, which now
-    # runs through series_cousin's Y.2 gates) ----
+    # ---- 4. CYCLE 1 (discovery-first grading path: baseline fit from this
+    # cycle's own captured units, discover+cluster, library enriches) ----
     x6._register_anchor_stub_signatures(store, anchor_library)
-    rows_c1, concerns_c1, sigs_c1 = x6._grade_cycle(
+    rows_c1, concerns_c1, sigs_c1, meta_c1 = x6._grade_cycle(
         timelines,
         by_artifact_index,
         classifier,
@@ -342,7 +348,7 @@ def main() -> int:
 
     # ---- 6. CYCLE 2 -- identical telemetry, richer library ----
     x6._register_anchor_stub_signatures(store, anchor_library)
-    rows_c2, concerns_c2, _sigs_c2 = x6._grade_cycle(
+    rows_c2, concerns_c2, _sigs_c2, meta_c2 = x6._grade_cycle(
         timelines,
         by_artifact_index,
         classifier,
@@ -396,6 +402,7 @@ def main() -> int:
 
     report: dict[str, Any] = {
         "plane": "live",
+        "grader_entry_point": meta_c1["grader_entry_point"],
         "algorithm_version": ALGORITHM_VERSION,
         "generated_at": time.time(),
         "duration_s": round(time.time() - started_at, 2),
@@ -403,6 +410,16 @@ def main() -> int:
         "r5a_generate": r5a_report,
         "hec_ship": hec_report,
         "capture": capture.to_dict(),
+        "discovery": {
+            "cycle_1": {
+                "discovery_report": meta_c1["discovery_report"],
+                "cousin_clusters": meta_c1["cousin_clusters"],
+            },
+            "cycle_2": {
+                "discovery_report": meta_c2["discovery_report"],
+                "cousin_clusters": meta_c2["cousin_clusters"],
+            },
+        },
         "correlation": {
             "n_observations": len(observations),
             "n_resolved_entities": len(entities),
@@ -485,7 +502,20 @@ def _render_md(report: dict[str, Any], doc_stem: str) -> str:
         f"# {doc_stem}",
         "",
         f"Generated {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(report['generated_at']))}"
-        f" -- plane **{report['plane']}** -- duration {report['duration_s']}s",
+        f" -- plane **{report['plane']}** -- duration {report['duration_s']}s -- "
+        f"grader **{report['grader_entry_point']}**",
+        "",
+        "## Discovery (D.1-D.4, TASK_BULLY_DISCOVERY_FIRST_V1) -- library-free, "
+        "cousins among observations; ranked by remarkability (D5), never by cluster size",
+        "",
+        f"```json\nCycle 1 discovery_report: "
+        f"{json.dumps(report['discovery']['cycle_1']['discovery_report'], indent=2)}\n```",
+        f"```json\nCycle 1 cousin_clusters: "
+        f"{json.dumps(report['discovery']['cycle_1']['cousin_clusters'], indent=2)}\n```",
+        f"```json\nCycle 2 discovery_report: "
+        f"{json.dumps(report['discovery']['cycle_2']['discovery_report'], indent=2)}\n```",
+        f"```json\nCycle 2 cousin_clusters: "
+        f"{json.dumps(report['discovery']['cycle_2']['cousin_clusters'], indent=2)}\n```",
         "",
         "**Scripted verdicts note:** analyst verdicts in this run are a deterministic "
         "CONFIRMED/BENIGN/UNSURE cycle sealed from the grader, standing in for a human "
