@@ -58,7 +58,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 ALGORITHM_VERSION = "corpus-bed-v1"
@@ -247,6 +247,15 @@ class AnswerKeyEntry:
     # used only to place an injected cousin ADJACENT to real activity (I5),
     # never to grade discovery.
     confirmed_at: float | None = None
+    # hop distance (from `entities[0]`, via a real live-discovered pivot
+    # chain) -> a real entity that many pivots away (A4,
+    # TASK_BULLY_ADAPTIVE_REACH_V1). Populated by a live run from an actual
+    # investigation over the real corpus, never fabricated. `plan_cousins`
+    # plants one cousin PER KNOWN DISTANCE so recovery measures REACH, not
+    # planting position: I.6 shipped every cousin under the parent's own
+    # entity (0 hops), so `20/20` recovery measured the anchor confirming
+    # its own existence, not a pivot.
+    entities_by_distance: dict[int, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -256,6 +265,7 @@ class AnswerKeyEntry:
             "entities": list(self.entities),
             "sourcetypes": list(self.sourcetypes),
             "confirmed_at": self.confirmed_at,
+            "entities_by_distance": dict(self.entities_by_distance),
         }
 
 
@@ -283,6 +293,11 @@ class CousinSpec:
     expected_recoverable_level: str
     injected_at: float
     anchor_entity: str = ""
+    # How many real pivot hops `anchor_entity` sits from the technique's own
+    # confirmed entity (`entities[0]`). 0 is a CONTROL, not a result: it
+    # measures whether the anchor query finds its own entity, not whether an
+    # investigation can reach anything (A4).
+    planted_distance: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -295,6 +310,8 @@ class CousinSpec:
             "expected_recoverable_level": self.expected_recoverable_level,
             "injected_at": self.injected_at,
             "anchor_entity": self.anchor_entity,
+            "planted_distance": self.planted_distance,
+            "is_control": self.planted_distance == 0,
         }
 
 
@@ -359,9 +376,26 @@ def plan_cousins(
     span = corpus_latest - corpus_earliest
     specs: list[CousinSpec] = []
     for e_i, entry in enumerate(answer_key):
-        anchor_entity = entry.entities[0] if entry.entities else ""
+        # `entities_by_distance` carries real, live-discovered entities at
+        # known pivot hops from the technique's own confirmed entity (A4).
+        # 0 hops always falls back to `entities[0]` -- the pre-A4 behaviour,
+        # kept as the CONTROL distance -- when no chain was discovered.
+        distances = dict(entry.entities_by_distance)
+        distances.setdefault(0, entry.entities[0] if entry.entities else "")
+        distance_keys = sorted(k for k in distances if distances[k])
+        if not distance_keys:
+            distance_keys = [0]
+            distances = {0: ""}
         for t_i, transformation in enumerate(transformations):
             for n in range(per_technique):
+                # Cycle deterministically through every known distance so a
+                # run plants cousins at 0/1/2/3 hops rather than only ever
+                # at the parent's own entity -- I.6's shape, where every
+                # cousin's `anchor_entity` equalled the anchor's entity and
+                # `20/20` recovery measured planting position, not reach.
+                slot_idx = t_i * per_technique + n
+                planted_distance = distance_keys[slot_idx % len(distance_keys)]
+                anchor_entity = distances[planted_distance]
                 targets = entry.sourcetypes
                 if transformation == "RESCHEMA" and corpus_sourcetypes:
                     # express it in a real sourcetype the parent did NOT use
@@ -389,7 +423,7 @@ def plan_cousins(
 
                 specs.append(
                     CousinSpec(
-                        cousin_id=f"cz-{entry.technique}-{transformation}-{t_i}{n}",
+                        cousin_id=f"cz-{entry.technique}-{transformation}-{t_i}{n}-d{planted_distance}",
                         parent_technique=entry.technique,
                         parent_dataset=entry.dataset,
                         behavioural_spine=entry.behavioural_spine,
@@ -402,6 +436,7 @@ def plan_cousins(
                         ),
                         injected_at=injected_at,
                         anchor_entity=anchor_entity,
+                        planted_distance=planted_distance,
                     )
                 )
     return specs
