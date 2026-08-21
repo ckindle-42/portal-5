@@ -1,5 +1,14 @@
 # BULLY_DISCOVERY_FIRST_RUN_D4_V1
 
+> **Errata (2026-08-21, `TASK_BULLY_CORPUS_BED_V1` C.0):** this run was live
+> in transport and synthetic in content. `inject_plane.capture_records`
+> hardcoded `index=portal5_lab` at a 2,000-row cap, so it read back only the
+> `gen:*` synthetic universe this run had just written itself -- BOTS lives
+> under separate `botsv1`/`botsv2`/`botsv3` indexes never queried here. The
+> distributions, false-positive rates and recall figures below describe
+> generated data the system authored, not the real corpus. See
+> `docs/DESIGN_BULLY_CORPUS_BED_V1.md`.
+
 Generated 2026-08-21T02:20:48Z -- plane **live** -- duration 160.95s -- grader **discovery-first**
 
 ## Headline findings

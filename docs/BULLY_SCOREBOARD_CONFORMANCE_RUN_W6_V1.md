@@ -1,5 +1,14 @@
 # BULLY_SCOREBOARD_CONFORMANCE_RUN_W6_V1
 
+> **Errata (2026-08-21, `TASK_BULLY_CORPUS_BED_V1` C.0):** this run was live
+> in transport and synthetic in content. `inject_plane.capture_records`
+> hardcoded `index=portal5_lab` at a 2,000-row cap, so it read back only the
+> `gen:*` synthetic universe this run had just written itself -- BOTS lives
+> under separate `botsv1`/`botsv2`/`botsv3` indexes never queried here. The
+> distributions, false-positive rates and recall figures below describe
+> generated data the system authored, not the real corpus. See
+> `docs/DESIGN_BULLY_CORPUS_BED_V1.md`.
+
 Generated 2026-08-20T16:51:15Z -- plane **live** -- duration 849.42s
 
 Supersedes `docs/BULLY_LOOP_MILESTONE_RUN_R6_V1.md` as the headline for this
