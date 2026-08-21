@@ -32,7 +32,7 @@ citation is true, and the retired `AK` ledger check bound zero docs —
 honestly, but leaving no doc-currency signal in the harness at all.
 Of 567 generated blocks across 25 Tier-1 docs, 7 came from a machine-derived
 `unit-fact-*` unit; the remaining 560 were authored prose with no executable link
-to code. Check `BS` closes that gap, bringing the harness to 151 validate checks
+to code. Check `BS` closes that gap, bringing the harness to 158 validate checks
 (`BT` later asserting archived units stay unreachable from the live store, `BU`
 the complexity-census advisory, `BX` the pending-model-verdicts backlog cap,
 `BY`-`CI` the TASK_BULLY_RELATE_AND_INVESTIGATE_V1 operating/measurement
@@ -44,8 +44,13 @@ TASK_BULLY_LOOP_REINTEGRATION_V1 loop-reintegration and pyramid-of-pain
 invariants, `DT`-`DZ` the TASK_BULLY_SCOREBOARD_CONFORMANCE_V1
 scoreboard-conformance invariants, `EA`-`EG` the TASK_BULLY_ANALYST_LOOP_V1
 analyst-verdict-loop invariants, `EH`-`EO` the TASK_BULLY_TRUTH_ACCEPTANCE_V1
-truth-joined-acceptance invariants; the doc-ledger `AK` check was removed once
-the ledger was emptied in TASK_WIKI_ZERO_DEBT_V1).
+truth-joined-acceptance invariants, `EP`-`EW` the TASK_BULLY_DISCOVERY_FIRST_V1
+discovery-first and doc-currency invariants, `EX`-`FD` the
+TASK_BULLY_CORPUS_BED_V1 corpus-bed invariants (the haystack floor, cousins
+derived from a published answer key, floor/product/cost kept apart, the
+answer key never reaching the grader, fit-wide/score-narrow, Lane A index
+resolution, and D.4's permanent non-haystack regression); the doc-ledger `AK`
+check was removed once the ledger was emptied in TASK_WIKI_ZERO_DEBT_V1).
 
 A **claim** binds a figure in a unit body to a live probe. The claim names the
 probe and a `pattern` containing `{value}`; the probe result is substituted and
