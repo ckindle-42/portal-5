@@ -210,7 +210,7 @@ class Investigation:
         }
 
 
-def investigate(  # noqa: PLR0912
+def investigate(  # noqa: PLR0912, C901
     anchor: Anchor,
     indexes: list[str],
     execute: Callable[[PivotQuery], list[dict[str, Any]]],
@@ -277,6 +277,15 @@ def investigate(  # noqa: PLR0912
 
         rows = execute(query)
         inv.queries.append(query)
+        # A single query's own result can exceed the remaining event budget
+        # in one call (a live run against botsv3 hit this: one bounded,
+        # entity-scoped query returned 26k+ rows in one round trip) -- the
+        # cap has to trim the batch itself, not just stop issuing queries,
+        # or `max_events` is not actually a bound on events read.
+        remaining = max_events - len(inv.events)
+        if len(rows) > remaining:
+            rows = rows[:remaining]
+            inv.truncated_reasons.append(f"max_events:{max_events}")
         inv.events.extend(rows)
 
         if query.depth >= max_depth:
