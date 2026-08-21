@@ -2758,3 +2758,337 @@ def check_real_telemetry_all_unclassified_cluster_is_detectable() -> tuple[str, 
             [],
         )
     return "PASS", "", []
+
+
+# ── TASK_BULLY_INVESTIGATION_V1 (I.7): the anchor-pivot investigation model,
+# concentration-aware classifier health, and the universal (table-free)
+# behaviour inference path are all permanent regressions -- earliest=0,
+# sourcetype-filtered capture, unbounded cousin injection, and the T.3
+# suricata-dominant distribution must never silently return. ───────────────
+
+
+@register(
+    "bully_investigation_no_corpus_query_with_earliest_zero",
+    "FL. an entity-scoped corpus query with no explicit earliest/latest "
+    "window raises rather than defaulting to earliest=0 (I1/I2)",
+    order=165,
+)
+def check_investigation_no_earliest_zero() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully.connectors import QueryIntent
+    from portal.modules.security.core.bully.live_connect import _search_from_intent
+
+    intent = QueryIntent("investigate", seed={}, entities=("BSTOLL-L",))
+    try:
+        _search_from_intent(intent, index="botsv3")
+    except ValueError as exc:
+        if "earliest=0" not in str(exc):
+            return "FAIL", f"raised, but not for the earliest=0 reason: {exc}", []
+    else:
+        return "FAIL", "an entity-scoped intent with no window did not raise", []
+
+    bounded = QueryIntent(
+        "investigate", seed={}, start=1534737600.0, end=1534824000.0, entities=("BSTOLL-L",)
+    )
+    expr = _search_from_intent(bounded, index="botsv3")
+    if expr["earliest"] != 1534737600.0 or expr["latest"] != 1534824000.0:
+        return "FAIL", f"a bounded intent's window was not passed through: {expr}", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_investigation_no_capture_query_filters_by_sourcetype",
+    "FM. no pivot query ever filters by sourcetype -- a capture that "
+    "filters cannot discover a source it was not told to look at (I6)",
+    order=166,
+)
+def check_investigation_no_sourcetype_filter() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully.investigation_pivot import PivotQuery
+
+    q = PivotQuery(
+        query_id="q0-0",
+        index="botsv3",
+        entity="BSTOLL-L",
+        entity_kind="host",
+        earliest=1534737600.0,
+        latest=1534824000.0,
+        depth=0,
+        parent_query_id=None,
+        reason="test",
+    )
+    intent = q.to_intent()
+    if intent.get("sourcetype") is not None:
+        return "FAIL", f"PivotQuery.to_intent() carried a sourcetype filter: {intent}", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_investigation_publishes_caps_and_truncation_state",
+    "FN. every investigation publishes its caps and truncation state -- a "
+    "truncated reconstruction is never presented as complete (I4)",
+    order=167,
+)
+def check_investigation_publishes_truncation_state() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import investigation_pivot as ip
+
+    anchor = ip.Anchor(
+        anchor_id="a-1",
+        at=1534737600.0,
+        entity="e1",
+        entity_kind="host",
+        sourcetype="st",
+        why="test",
+        index="botsv3",
+    )
+
+    def execute(query: ip.PivotQuery) -> list[dict]:
+        return [{"_time": 1534737600.0, "sourcetype": "st", "entity": query.entity}]
+
+    def extract(row: dict) -> list[tuple[str, str]]:
+        # always discovers a NEW entity, so a query beyond the cap is always
+        # pending -- otherwise max_queries=1 never gets a chance to bind.
+        return [("host", f"{row['entity']}-next")]
+
+    inv = ip.investigate(anchor, ["botsv3"], execute, extract, max_queries=1)
+    d = inv.to_dict()
+    if "truncated_reasons" not in d or "queries" not in d:
+        return "FAIL", f"Investigation.to_dict() missing bounds/truncation fields: {sorted(d)}", []
+    if not d["truncated_reasons"]:
+        return "FAIL", "a max_queries=1 investigation with pivots pending did not truncate", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_investigation_cousin_outside_corpus_range_refused",
+    "FO. a cousin whose injected_at falls outside the corpus's real range "
+    "is refused, never silently shipped (I5)",
+    order=168,
+)
+def check_investigation_cousin_outside_range_refused() -> tuple[str, str, list[dict]]:
+    import dataclasses
+
+    from portal.modules.security.core.bully import corpus_bed as cb
+    from portal.modules.security.core.bully.bots_answer_key import BOTS_ANSWER_KEY
+
+    ce, cl = 1534737600.0, 1534824000.0
+    cousins = cb.plan_cousins([BOTS_ANSWER_KEY[0]], corpus_earliest=ce, corpus_latest=cl)
+    t3_now_2026 = 1787316013.0
+    bad = dataclasses.replace(cousins[0], injected_at=t3_now_2026)
+    try:
+        cb.validate_cousin_in_range(bad, corpus_earliest=ce, corpus_latest=cl)
+    except cb.CousinOutsideCorpusRangeError:
+        pass
+    else:
+        return "FAIL", "a cousin with a 2026 (T.3-shaped) injected_at was not refused", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_investigation_pivot_recursion_is_load_bearing",
+    "FP. pivot recursion is load-bearing -- depth-1 misses what depth-3 reaches",
+    order=169,
+)
+def check_investigation_pivot_recursion_load_bearing() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import investigation_pivot as ip
+
+    # entity_a -> entity_b -> entity_c, a two-hop chain only depth>=2 reaches
+    chain = {
+        "entity_a": [("host", "entity_b")],
+        "entity_b": [("host", "entity_c")],
+    }
+
+    def execute(query: ip.PivotQuery) -> list[dict]:
+        return [{"_time": query.earliest + 1, "sourcetype": "st", "entity": query.entity}]
+
+    def extract(row: dict) -> list[tuple[str, str]]:
+        return chain.get(row.get("entity"), [])
+
+    anchor = ip.Anchor(
+        anchor_id="a-1",
+        at=1534737600.0,
+        entity="entity_a",
+        entity_kind="host",
+        sourcetype="st",
+        why="test",
+        index="botsv3",
+    )
+    shallow = ip.investigate(anchor, ["botsv3"], execute, extract, max_depth=1)
+    deep = ip.investigate(anchor, ["botsv3"], execute, extract, max_depth=3)
+    if "entity_c" in shallow.entities_seen:
+        return "FAIL", "depth=1 unexpectedly reached the two-hop entity", []
+    if "entity_c" not in deep.entities_seen:
+        return (
+            "FAIL",
+            "depth=3 did not reach the two-hop entity -- recursion is not load-bearing",
+            [],
+        )
+    return "PASS", "", []
+
+
+@register(
+    "bully_investigation_classifier_health_fails_on_concentration",
+    "FQ. coverage_report fails on class or source concentration, not just entropy (I5)",
+    order=170,
+)
+def check_investigation_classifier_concentration() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import telemetry_behavior as tb
+
+    records: list[tuple[dict, str]] = []
+    records += [({"EventCode": "4624"}, "wineventlog:security")] * 12000
+    records += [({"EventCode": "4688"}, "wineventlog:security")] * 6000
+    records += [({"EventCode": "1"}, "xmlwineventlog:sysmon")] * 4000
+    records += [({"query": "x"}, "stream:dns")] * 3356
+    records += [({"_raw": "{}"}, "suricata")] * 20317
+
+    def stub(record: dict, sourcetype: str) -> str:
+        if sourcetype == "suricata":
+            return "evade"
+        return tb.classify_record(record, sourcetype)
+
+    report = tb.coverage_report(records, classifier=stub)
+    if report.degenerate:
+        return "FAIL", "T.3's real distribution is not degenerate by entropy alone", []
+    if not report.concentrated:
+        return (
+            "FAIL",
+            "T.3's shape (evade 44.8% all from suricata) was not flagged concentrated",
+            [],
+        )
+    return "PASS", "", []
+
+
+@register(
+    "bully_investigation_t3_distribution_permanent_regression",
+    "FR. T.3's suricata-dominant distribution is a permanent regression "
+    "case for the concentration checks",
+    order=171,
+)
+def check_investigation_t3_distribution_regression() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import telemetry_behavior as tb
+
+    records: list[tuple[dict, str]] = [({"_raw": "{}"}, "suricata")] * 20317
+    records += [({"EventCode": "4624"}, "wineventlog:security")] * 25039
+
+    def stub(record: dict, sourcetype: str) -> str:
+        if sourcetype == "suricata":
+            return "evade"
+        return tb.classify_record(record, sourcetype)
+
+    report = tb.coverage_report(records, classifier=stub)
+    if abs(report.class_concentration.get("evade", 0.0) - 0.4479) > 0.01:
+        return "FAIL", f"expected ~44.8% evade share, got {report.class_concentration}", []
+    if report.source_concentration.get("evade") != 1.0:
+        return "FAIL", "expected evade to be 100% sourced from suricata", []
+    if not report.concentrated:
+        return "FAIL", "T.3's exact historical distribution was not flagged concentrated", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_investigation_no_discovery_path_touches_curated_table_or_answer_key",
+    "FS. no discovery path imports telemetry_behavior, the answer key, or "
+    "plan_cousins -- proven by import-scan, not asserted (I7)",
+    order=172,
+)
+def check_investigation_no_discovery_path_imports_curated() -> tuple[str, str, list[dict]]:
+    import ast
+    from pathlib import Path
+
+    bully_dir = (
+        Path(__file__).resolve().parents[2] / "portal" / "modules" / "security" / "core" / "bully"
+    )
+    forbidden = {"telemetry_behavior", "bots_answer_key"}
+    offenders = []
+    for name in ("investigation_pivot", "behavior_inference"):
+        path = bully_dir / f"{name}.py"
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        imported: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module:
+                imported.add(node.module.rsplit(".", 1)[-1])
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    imported.add(alias.name.rsplit(".", 1)[-1])
+        hit = imported & forbidden
+        if hit:
+            offenders.append(f"{name}.py imports {sorted(hit)}")
+    if offenders:
+        return "FAIL", "; ".join(offenders), []
+    return "PASS", "", []
+
+
+@register(
+    "bully_investigation_behavior_inference_never_sees_curated_names",
+    "FT. behaviour spines come from behavior_inference; infer_behaviors "
+    "takes no curated-table argument, and naming is a separate, later step "
+    "(I8)",
+    order=173,
+)
+def check_investigation_inference_no_curated_input() -> tuple[str, str, list[dict]]:
+    import inspect
+
+    from portal.modules.security.core.bully import behavior_inference as bi
+
+    sig = inspect.signature(bi.infer_behaviors)
+    if "curated" in sig.parameters or "answer_key" in sig.parameters:
+        return "FAIL", f"infer_behaviors accepts a curated/answer-key input: {sig}", []
+    name_sig = inspect.signature(bi.name_from_answer_key)
+    if "curated" not in name_sig.parameters:
+        return "FAIL", "naming has no separate curated-table entry point", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_investigation_every_run_publishes_inference_and_unmapped_count",
+    "FU. every run publishes inference_report and the unreadable-"
+    "sourcetype count beside every recall figure (I9)",
+    order=174,
+)
+def check_investigation_run_publishes_inference_and_unmapped() -> tuple[str, str, list[dict]]:
+    import json
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "docs" / "BULLY_INVESTIGATION_RUN_I6_V1.json"
+    if not path.is_file():
+        return "FAIL", f"{path} does not exist", []
+    doc = json.loads(path.read_text())
+    if "inference_report" not in doc:
+        return "FAIL", "run doc does not publish inference_report", []
+    coverage = doc.get("classifier_coverage_report") or {}
+    if "unmapped_sourcetypes" not in coverage:
+        return "FAIL", "run doc does not publish the unmapped-sourcetype count beside coverage", []
+    if not any("reach_recall" in json.dumps(inv) for inv in doc.get("investigations", [])):
+        return "FAIL", "run doc publishes no reach_recall figure to publish the count beside", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_investigation_unseen_schema_still_profiled_and_classified",
+    "FV. a schema absent from every curated table is still profiled and "
+    "classified by behavior_inference",
+    order=175,
+)
+def check_investigation_unseen_schema_profiled() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import behavior_inference as bi
+
+    records = []
+    for i in range(10):
+        ent = f"ent-{i}"
+        for role, action, t in (("auth", "qrx-77", 0), ("egress", "qrx-52", 1)):
+            records.append(
+                {"action": action, "entity": ent, "_time": float(t), "sourcetype": "zz:unknown"}
+            )
+    profiles = bi.profile_actions(
+        records,
+        action_of=lambda r: r["action"],
+        entity_of=lambda r: [r["entity"]],
+        time_of=lambda r: r["_time"],
+        sourcetype_of=lambda r: r["sourcetype"],
+    )
+    zz_actions = {p.action for p in profiles if p.sourcetype == "zz:unknown"}
+    if not zz_actions:
+        return "FAIL", "zz:unknown (in no curated table) was not profiled at all", []
+    behaviors = bi.infer_behaviors(profiles)
+    classified = {a for b in behaviors for a in b.members}
+    if not (zz_actions <= classified):
+        return "FAIL", f"zz:unknown actions were not classified: {zz_actions - classified}", []
+    return "PASS", "", []
