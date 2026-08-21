@@ -52,6 +52,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from . import telemetry_behavior
 from .field_roles import FieldRoleMap, infer_field_roles
 from .field_roles import _flatten as _fr_flatten
 from .field_roles import _parse_time as _fr_parse_time
@@ -193,6 +194,18 @@ class ActionClassifier(Protocol):
     def classify(self, action: str | None) -> str: ...
 
 
+class RecordActionClassifier(Protocol):
+    """Optional richer seam: a classifier that reads the whole record and
+    its real sourcetype (T1, TASK_BULLY_REAL_TELEMETRY_V1) rather than a
+    single extracted verb string. `build_graph` prefers this when the
+    active classifier implements it and a sourcetype is recoverable from
+    the record -- real telemetry carries no verb (a Windows logon is
+    EventCode `4624`, not a word), so a verb-substring table cannot read it
+    regardless of how the substrings are chosen."""
+
+    def classify_record(self, record: dict[str, Any], sourcetype: str) -> str: ...
+
+
 @dataclass(frozen=True)
 class DeterministicActionClassifier:
     """Hand-written substring table. Fails the moment a source uses
@@ -219,12 +232,47 @@ class DeterministicActionClassifier:
         return "other"
 
 
-DEFAULT_ACTION_CLASSIFIER = DeterministicActionClassifier()
+@dataclass(frozen=True)
+class TelemetryActionClassifier:
+    """The default classifier (T1, TASK_BULLY_REAL_TELEMETRY_V1).
+    `classify_record` reads real telemetry the way its sourcetype encodes
+    behaviour (`telemetry_behavior.classify_record`); `.classify(action)`
+    falls back to the legacy verb-substring table for callers that only
+    ever had a verb string (synthetic/`universe.py` inputs, which still
+    embed the class name in their tokens and so still classify correctly
+    through the substring path)."""
+
+    def classify(self, action: str | None) -> str:
+        return DeterministicActionClassifier().classify(action)
+
+    def classify_record(self, record: dict[str, Any], sourcetype: str) -> str:
+        return telemetry_behavior.classify_record(record, sourcetype)
+
+
+DEFAULT_ACTION_CLASSIFIER = TelemetryActionClassifier()
 
 
 def _action_class(action: str | None, classifier: ActionClassifier | None = None) -> str:
     """Coarse behavioural class for an action verb. See `ActionClassifier`."""
     return (classifier or DEFAULT_ACTION_CLASSIFIER).classify(action)
+
+
+def _telemetry_sourcetype(record: dict[str, Any], source_id: str) -> str:
+    """Recover the real sourcetype a captured record carries. `__source_id`
+    is set by `inject_plane.capture_records` as `f"lab-splunk:{sourcetype}"`
+    (T1); a record that also kept its raw `sourcetype` field (pre-wrap, or
+    a caller that never went through the lab-splunk wrapper) falls back to
+    that. Neither present means this is not real captured telemetry --
+    returns "", which routes the caller to the legacy verb path."""
+    sid = str(record.get("__source_id") or "")
+    if sid.startswith("lab-splunk:"):
+        return sid.split(":", 1)[1]
+    st = record.get("sourcetype")
+    if st:
+        return str(st)
+    if source_id.startswith("lab-splunk:"):
+        return source_id.split(":", 1)[1]
+    return ""
 
 
 @dataclass(frozen=True)
@@ -474,17 +522,27 @@ def build_graph(
     if not resolved_role_map.extraction_valid:
         return ArtifactGraph([], [], role_map=resolved_role_map)
 
+    record_classify = getattr(active_classifier, "classify_record", None)
     artifacts: list[Artifact] = []
     for i, record in enumerate(dict_records):
         flat = _fr_flatten(record)
         action = _roled_action(flat, resolved_role_map)
+        sourcetype = _telemetry_sourcetype(record, source_id)
+        # Real telemetry has no verb to substring-match (T1): a captured
+        # record with a recoverable sourcetype is read via the record
+        # classifier; only a caller with no sourcetype (synthetic/verb-only
+        # input) falls back to the legacy action-verb table.
+        if sourcetype and record_classify is not None:
+            action_class = record_classify(record, sourcetype)
+        else:
+            action_class = active_classifier.classify(action)
         artifacts.append(
             Artifact(
                 artifact_id=f"a{i:05d}",
                 record=record,
                 entities=_roled_entities(flat, resolved_role_map),
                 action=action,
-                action_class=active_classifier.classify(action),
+                action_class=action_class,
                 timestamp=_roled_time(flat, resolved_role_map),
                 source_id=str(record.get("__source_id") or source_id),
             )
