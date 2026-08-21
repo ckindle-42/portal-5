@@ -1,5 +1,7 @@
 # BULLY_REAL_TELEMETRY_RUN_T3_V1
 
+
+> **Errata (2026-08-21, `TASK_BULLY_FULL_ASSEMBLY_V1` F.0):** this run exercised 6/16 of the bully modules over 79,999 records (0.028% of the 281,069,416-record corpus) and is a partial assembly at proxy scale (see `docs/DESIGN_BULLY_FULL_ASSEMBLY_V1.md`); its findings describe that subset, not the system.
 Generated 2026-08-21T13:05:29Z -- plane **live** -- duration 1517.7s
 
 **DIAGNOSTIC, NOT AN ACCEPTED RESULT** (T.3, `TASK_BULLY_REAL_TELEMETRY_V1`):

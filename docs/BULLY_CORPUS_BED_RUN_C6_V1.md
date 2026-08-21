@@ -1,5 +1,7 @@
 # BULLY_CORPUS_BED_RUN_C6_V1
 
+
+> **Errata (2026-08-21, `TASK_BULLY_FULL_ASSEMBLY_V1` F.0):** this run exercised 6/16 of the bully modules over 19,999 records (0.007% of the 281,069,416-record corpus) and is a partial assembly at proxy scale (see `docs/DESIGN_BULLY_FULL_ASSEMBLY_V1.md`); its findings describe that subset, not the system.
 Generated 2026-08-21T10:58:11Z -- plane **live** -- duration 198.5s
 
 ## ERRATA (T.0, `TASK_BULLY_REAL_TELEMETRY_V1`, 2026-08-21)

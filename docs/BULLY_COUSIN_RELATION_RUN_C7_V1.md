@@ -1,5 +1,7 @@
 # BULLY_COUSIN_RELATION_RUN_C7_V1 — cousin-relation verification run
 
+
+> **Errata (2026-08-21, `TASK_BULLY_FULL_ASSEMBLY_V1` F.0):** this run exercised 1/16 of the bully modules over a token record count (well under 0.001% of the 281,069,416-record corpus) and is a partial assembly at proxy scale (see `docs/DESIGN_BULLY_FULL_ASSEMBLY_V1.md`); its findings describe that subset, not the system.
 > **Errata (2026-08-20, `TASK_BULLY_SCOREBOARD_CONFORMANCE_V1`).** This run's
 > headline is not a module contract, and its correctness axis
 > (`trust_mean_rank`, `false_flag_count` from `scoreboard.update()`) was never
