@@ -49,13 +49,26 @@ def test_exact_match_to_detection_coverage_is_known_instance_floor():
     assert outcome.brief is None
 
 
+def _remarkable_baseline(*, steps: int) -> bl.NormalBaseline:
+    """D.2, discovery-first: a library match no longer surfaces a concern by
+    itself (D1) -- the unit must also be remarkable for its environment. Fit
+    a baseline on an unrelated benign shape at the same level/size so the
+    probe unit's own content, not an incidental size mismatch, is what
+    scores it remarkable (RC3, E.4)."""
+    model = bl.NormalBaseline(environment_id="env")
+    model.fit(_benign_l4_units(50, steps=steps))
+    return model
+
+
 def test_exact_match_to_attack_episode_is_unknown_same_a_concern():
     library = anc.AnchorLibrary()
     library.load_attack_episode(
         source_id="attack_data", record={"action_sequence": _VERBS}, techniques=("T1078",)
     )
     unit = _unit(_VERBS, "attacker")
-    outcome = uo.resolve_unit_outcome(unit, list(library.all()), _empty_baseline())
+    outcome = uo.resolve_unit_outcome(
+        unit, list(library.all()), _remarkable_baseline(steps=len(_VERBS))
+    )
     assert outcome.outcome == "UNKNOWN_SAME"
     assert outcome.outcome in uo.CONCERN_OUTCOMES
     assert outcome.brief is not None
@@ -69,9 +82,27 @@ def test_similar_but_not_exact_match_is_cousin_a_concern():
         techniques=("T1078",),
     )
     unit = _unit(_VERBS, "attacker")
-    outcome = uo.resolve_unit_outcome(unit, list(library.all()), _empty_baseline())
+    outcome = uo.resolve_unit_outcome(
+        unit, list(library.all()), _remarkable_baseline(steps=len(_VERBS))
+    )
     assert outcome.outcome in ("COUSIN", "UNKNOWN_SAME")
     assert outcome.brief is not None
+
+
+def test_exact_match_but_unremarkable_is_normal_not_a_concern():
+    """D1: a library match alone -- with nothing unusual about the unit for
+    this environment -- must never surface a concern. This is precisely the
+    X.6/Y.6 degeneracy: a library that matches everything used to decide
+    every outcome regardless of the baseline."""
+    library = anc.AnchorLibrary()
+    library.load_attack_episode(
+        source_id="attack_data", record={"action_sequence": _VERBS}, techniques=("T1078",)
+    )
+    unit = _unit(_VERBS, "attacker")
+    outcome = uo.resolve_unit_outcome(unit, list(library.all()), _empty_baseline())
+    assert outcome.outcome == "NORMAL"
+    assert outcome.outcome not in uo.CONCERN_OUTCOMES
+    assert outcome.brief is None
 
 
 def test_benign_pattern_match_is_recognized_normal_and_suppressed():

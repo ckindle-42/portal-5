@@ -62,6 +62,11 @@ def test_concern_never_carries_both_channels_unobservable() -> None:
     nothing was actually seen, which is INSUFFICIENT_VIEW's job."""
     model = bl.NormalBaseline(environment_id="env")
     model.fit([_unit(["ListBuckets"], f"u{i}") for i in range(50)])
+    # D.2, discovery-first: a library match alone no longer surfaces a
+    # concern (D1) -- fit an unrelated benign L4_WINDOW shape so the probe's
+    # own content, not a missing baseline, is what makes it remarkable.
+    benign_cycle = ["ListBuckets", "GetObject", "DescribeInstances"]
+    model.fit([_unit(benign_cycle[: len(_VERBS)], f"benign-{i}") for i in range(50)])
     library = anc.AnchorLibrary()
     library.load_attack_episode(
         source_id="attack_data", record={"action_sequence": _VERBS}, techniques=("T1078",)

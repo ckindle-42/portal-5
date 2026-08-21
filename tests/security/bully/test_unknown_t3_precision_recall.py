@@ -37,6 +37,15 @@ def test_known_instance_reported_separately_as_floor_never_headline():
 
 def test_precision_and_recall_computed_over_scored_rows_only():
     baseline = bl.NormalBaseline(environment_id="e")
+    # D.2, discovery-first: a library match alone no longer surfaces a
+    # concern (D1) -- fit an unrelated benign L4_WINDOW shape so `hit` is
+    # remarkable for a reason other than an empty baseline. A different
+    # size (3 verbs vs. `hit`'s 2) means the bigram AND the size bucket are
+    # both unseen, enough rare signal for tail_remarkability to clear the
+    # discovery threshold.
+    baseline.fit(
+        [_unit(["GetObject", "DescribeInstances", "PutObject"], f"benign-{i}") for i in range(50)]
+    )
     library = anc.AnchorLibrary()
     library.load_attack_episode(
         source_id="attack_data",
