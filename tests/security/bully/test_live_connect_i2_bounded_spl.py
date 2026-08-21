@@ -75,3 +75,21 @@ def test_non_entity_intent_keeps_prior_default_unaffected():
     expr = _search_from_intent(intent, index="portal5_lab")
     assert expr["earliest"] == "0"
     assert expr["latest"] == "now"
+
+
+def test_entity_term_also_matches_explicit_host_field():
+    """Live-verified finding (I.6): a bare keyword phrase only searches
+    `_raw`'s tokenized text -- an entity that lives ONLY in Splunk's `host`
+    metadata field (e.g. a structured JSON cousin event shipped under its
+    real anchor_entity, with no inline text mention of the host) is
+    invisible to a phrase-only search. The SPL must also match `host=`
+    explicitly."""
+    intent = QueryIntent(
+        "investigate",
+        seed={},
+        start=1534737600.0,
+        end=1534824000.0,
+        entities=("BGIST-L",),
+    )
+    expr = _search_from_intent(intent, index="botsv3")
+    assert 'host="BGIST-L"' in expr["search"]

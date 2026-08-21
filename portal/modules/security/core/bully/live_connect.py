@@ -66,7 +66,18 @@ def _search_from_intent(intent: QueryIntent, *, index: str) -> dict[str, Any]:
         # filter is ever added here (I6) -- a capture that filters cannot
         # discover a source it was not told to look at. No `| head` either
         # (I1): the time/entity window bounds the result, not truncation.
-        terms = " OR ".join(f'"{e}"' for e in intent.entities)
+        #
+        # Both a free-text phrase AND an explicit `host=` match, per entity
+        # (live-verified, I6): a bare keyword phrase searches `_raw`'s
+        # tokenized text, which finds an entity a real schema embeds inline
+        # (a Windows hostname inside its own message text) but NOT one that
+        # lives only in Splunk's `host` metadata field (e.g. a structured
+        # JSON event whose only carrier of the entity is `host=`) -- the
+        # exact shape of an injected cousin shipped under its real
+        # anchor_entity. `host` is a universal Splunk default field, so this
+        # adds no schema-specific assumption beyond what capture already
+        # promotes host identity through.
+        terms = " OR ".join(f'"{e}" OR host="{e}"' for e in intent.entities)
         return {
             "search": f"{requested} ({terms})",
             "earliest": intent.start,
