@@ -68,6 +68,13 @@ class SplunkBackend:
                 "earliest_time": earliest,
                 "latest_time": latest,
                 "output_mode": "json",
+                # This lab's Splunk instance renders `_time` as a locale-style
+                # string ("2018-08-20 15:17:58.000 GMT") by default, not an
+                # epoch -- live-verified against botsv3. Requesting raw epoch
+                # seconds directly is far more robust than parsing that
+                # string client-side, and avoids the silent fallback below
+                # ever firing on a real event's own timestamp.
+                "time_format": "%s",
             },
         )
         r.raise_for_status()
