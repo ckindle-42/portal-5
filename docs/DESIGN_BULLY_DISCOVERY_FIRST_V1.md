@@ -24,8 +24,10 @@ re-verified live at the HEAD this task built against):
 
 ```python
 matches = [(a, r) for a, r in graded if r.overall_relation in ("EXACT", "SIMILAR")]
-if matches:   outcome = KNOWN_INSTANCE / UNKNOWN_SAME / COUSIN / RECOGNIZED_NORMAL
-else:         outcome = "NOVEL" if baseline.is_remarkable(unit) else "NORMAL"
+if matches:
+    outcome = KNOWN_INSTANCE / UNKNOWN_SAME / COUSIN / RECOGNIZED_NORMAL
+else:
+    outcome = "NOVEL" if baseline.is_remarkable(unit) else "NORMAL"
 ```
 
 The library is consulted first and decides everything; the baseline runs only
