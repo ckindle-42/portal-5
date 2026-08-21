@@ -166,6 +166,7 @@ max-complexity = 15
 "scripts/bully_loop_milestone_run.py" = ["C90", "PLR0912", "PLR0915"]
 "scripts/bully_analyst_loop_run.py" = ["C90", "PLR0912", "PLR0915"]
 "scripts/bully_truth_acceptance_run.py" = ["C90", "PLR0912", "PLR0915"]
+"scripts/bully_corpus_hunt_run.py" = ["C90", "PLR0912", "PLR0915"]
 # tests/uat inherits the UAT driver's pre-existing patterns (TASK_UAT_MODULARIZE_V1).
 # F821 is deliberately NOT ignored here — undefined-name checking is the
 # import-hygiene gate for the decomposition.
