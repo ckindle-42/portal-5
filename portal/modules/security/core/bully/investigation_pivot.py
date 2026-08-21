@@ -424,6 +424,13 @@ class ReachReport:
     This is the floor measured the way a defender would judge it: starting
     from a symptom, did the reconstruction reach the documented stages of the
     incident. A flat slab read cannot answer this at all.
+
+    A recall computed over one expected entity is degenerate and refused
+    (A3): reaching an anchor's own entity from a query scoped to that entity
+    confirms the anchor exists, it does not test a pivot. I.6 scored every
+    truth-targeted anchor against a single-entity expectation and published
+    `reach_recall 1.0` on all four -- a 0-hop measurement of the starting
+    position, not investigative reach.
     """
 
     anchor_id: str
@@ -435,6 +442,7 @@ class ReachReport:
     n_queries: int
     span_seconds: float | None
     truncated: bool
+    degenerate_expectation: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -447,22 +455,37 @@ class ReachReport:
             "n_queries": self.n_queries,
             "span_seconds": self.span_seconds,
             "truncated": self.truncated,
+            "degenerate_expectation": self.degenerate_expectation,
         }
 
 
 def reach_report(inv: Investigation, expected_stage_entities: Iterable[str]) -> ReachReport:
+    """`expected_stage_entities` must be a CHAIN: at least two entities, and
+    not just the anchor's own entity. A single-entity expectation -- or one
+    whose only member IS the anchor -- cannot distinguish a real pivot from
+    the anchor query confirming its own existence, so it is refused
+    (`reach_recall=None`, `degenerate_expectation` set) rather than silently
+    scored as a perfect 1.0 (I.6's `reach_report` shape)."""
     expected = tuple(expected_stage_entities)
     seen = set(inv.entities_seen)
     reached = tuple(e for e in expected if e in seen)
     missed = tuple(e for e in expected if e not in seen)
+
+    degenerate: str | None = None
+    if len(expected) < 2:
+        degenerate = f"fewer_than_two_expected_stage_entities:{len(expected)}"
+    elif set(expected) <= {inv.anchor.entity}:
+        degenerate = f"expectation_is_anchor_only:{inv.anchor.entity}"
+
     return ReachReport(
         anchor_id=inv.anchor.anchor_id,
         expected_stage_entities=expected,
         reached=reached,
         missed=missed,
-        reach_recall=(len(reached) / len(expected)) if expected else None,
+        reach_recall=None if degenerate else ((len(reached) / len(expected)) if expected else None),
         n_sourcetypes=len(inv.sourcetypes),
         n_queries=len(inv.queries),
         span_seconds=inv.span_seconds,
         truncated=bool(inv.truncated_reasons),
+        degenerate_expectation=degenerate,
     )

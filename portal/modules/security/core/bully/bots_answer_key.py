@@ -45,6 +45,16 @@ BOTS_ANSWER_KEY: tuple[AnswerKeyEntry, ...] = (
         # does capture is a privilege escalation -> escalate.
         behavioural_spine=("auth", "auth", "escalate"),
         sourcetypes=("wineventlog:security",),
+        # The documented multi-stage chain of this scenario (A3,
+        # TASK_BULLY_ADAPTIVE_REACH_V1): a public S3 bucket
+        # (`frothlywebcode`) leaks AS-REP-roastable service-account
+        # credentials (`web_admin`, `null_admin`), which lead to the
+        # compromised endpoint (`BSTOLL-L`, discovered via its own user
+        # `bstoll`). Five entities sharing NO identifier -- only a pivot
+        # chain connects them. `reach_report` requires at least two
+        # entities not collapsing to the anchor itself (A3); a single-
+        # entity expectation (I.6's shape) is refused as degenerate.
+        entities=("BSTOLL-L", "bstoll", "web_admin", "null_admin", "frothlywebcode"),
     ),
     AnswerKeyEntry(
         dataset="botsv3",
