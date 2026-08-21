@@ -16,7 +16,6 @@ inside the shipped event body itself.
 
 from __future__ import annotations
 
-import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -92,19 +91,32 @@ class InjectReport:
 def inject_cousins(
     cousins: list[corpus_bed.CousinSpec],
     *,
+    corpus_earliest: float,
+    corpus_latest: float,
     index: str | None = None,
     dry_run: bool = True,
 ) -> list[InjectReport]:
-    """Ship every planned cousin's synthetic events via `ship_batch`.
+    """Ship every planned cousin's synthetic events via `ship_batch`, each at
+    its own `cousin.injected_at` -- inside the corpus's real time range,
+    never at ship time (`now`). `corpus_earliest`/`corpus_latest` are
+    required, not defaulted: an injection with no real range to be validated
+    against is exactly the T.3 defect (cousins shipped ~8 years outside
+    every BOTS index). A cousin whose `injected_at` falls outside that range
+    is refused outright with `CousinOutsideCorpusRangeError`
+    (`cousin_outside_corpus_range`), never silently shipped.
 
     SCATTER cousins round-robin their spine's steps across every target
     sourcetype (the whole point of the transformation -- a chain expressed
     across several real sourcetypes and identities); every other
     transformation ships to its single resolved sourcetype.
     """
+    for cousin in cousins:
+        corpus_bed.validate_cousin_in_range(
+            cousin, corpus_earliest=corpus_earliest, corpus_latest=corpus_latest
+        )
+
     target_index = index or corpus_bed.CORPUS_INDEX
     reports: list[InjectReport] = []
-    now = time.time()
     for cousin in cousins:
         sourcetypes = cousin.target_sourcetypes or ("corpus:cousin",)
         spine = _cousin_spine(cousin)
@@ -126,7 +138,7 @@ def inject_cousins(
                 sourcetype=st,
                 host=f"corpus-cousin-{cousin.cousin_id}",
                 index=target_index,
-                event_times=[now] * len(events),
+                event_times=[cousin.injected_at] * len(events),
                 evidence_origin=f"corpus:cousin:{cousin.cousin_id}",
                 evidence_provenance="cousin_injection",
                 dry_run=dry_run,

@@ -11,9 +11,11 @@ from __future__ import annotations
 from portal.modules.security.core.bully import corpus_bed, cousin_inject
 from portal.modules.security.core.bully.bots_answer_key import BOTS_ANSWER_KEY
 
+_CE, _CL = 1534737600.0, 1534824000.0  # botsv3's real single-day range
+
 
 def test_every_cousin_parent_technique_is_in_the_bots_answer_key() -> None:
-    cousins = corpus_bed.plan_cousins(list(BOTS_ANSWER_KEY))
+    cousins = corpus_bed.plan_cousins(list(BOTS_ANSWER_KEY), corpus_earliest=_CE, corpus_latest=_CL)
     answer_key_techniques = {e.technique for e in BOTS_ANSWER_KEY}
     assert cousins  # the plan is non-empty
     assert all(c.parent_technique in answer_key_techniques for c in cousins)
@@ -25,6 +27,8 @@ def test_reschema_cousin_shares_no_literal_action_token_with_parent() -> None:
         [entry],
         transformations=("RESCHEMA",),
         corpus_sourcetypes=("wineventlog:security", "aws:cloudtrail", "stream:dns"),
+        corpus_earliest=_CE,
+        corpus_latest=_CL,
     )
     assert len(cousins) == 1
     cousin = cousins[0]
@@ -39,7 +43,9 @@ def test_reidentity_cousin_keeps_parent_vocabulary() -> None:
     """REIDENTITY varies the principal, not the vocabulary -- its rendered
     actions ARE the parent's own spine tokens, unlike RESCHEMA/REVOCABULARY."""
     entry = BOTS_ANSWER_KEY[0]
-    cousins = corpus_bed.plan_cousins([entry], transformations=("REIDENTITY",))
+    cousins = corpus_bed.plan_cousins(
+        [entry], transformations=("REIDENTITY",), corpus_earliest=_CE, corpus_latest=_CL
+    )
     cousin = cousins[0]
     rendered_actions = {
         cousin_inject.render_cousin_event(cousin, step_index=i)["action"]
@@ -61,8 +67,12 @@ def test_inject_cousins_evidence_origin_unique_per_cousin_and_count_exact(monkey
         list(BOTS_ANSWER_KEY),
         transformations=("REVOCABULARY", "RESCHEMA"),
         corpus_sourcetypes=("wineventlog:security", "stream:http", "xmlwineventlog:sysmon"),
+        corpus_earliest=_CE,
+        corpus_latest=_CL,
     )
-    reports = cousin_inject.inject_cousins(cousins, dry_run=True)
+    reports = cousin_inject.inject_cousins(
+        cousins, dry_run=True, corpus_earliest=_CE, corpus_latest=_CL
+    )
 
     assert len(reports) == len(cousins)
     origins_seen = [c["evidence_origin"] for c in calls]
@@ -102,8 +112,10 @@ def test_scatter_cousin_splits_events_across_target_sourcetypes(monkeypatch) -> 
         [entry],
         transformations=("SCATTER",),
         corpus_sourcetypes=("wineventlog:security", "aws:cloudtrail", "stream:dns"),
+        corpus_earliest=_CE,
+        corpus_latest=_CL,
     )
-    cousin_inject.inject_cousins(cousins, dry_run=True)
+    cousin_inject.inject_cousins(cousins, dry_run=True, corpus_earliest=_CE, corpus_latest=_CL)
 
     sourcetypes_shipped = {c["sourcetype"] for c in calls}
     assert len(sourcetypes_shipped) > 1  # split across several real sourcetypes

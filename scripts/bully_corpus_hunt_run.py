@@ -95,6 +95,25 @@ def _live_index_counts() -> dict[str, int]:
     return counts
 
 
+def _live_corpus_range(indexes: tuple[str, ...]) -> tuple[float, float]:
+    """The REAL discovered time range across every queried index (I5) -- the
+    union bound cousins must land inside, never "now"."""
+    from portal.modules.security.core.bully.live_connect import lab_splunk_connector
+
+    earliest_candidates: list[float] = []
+    latest_candidates: list[float] = []
+    for index in indexes:
+        connector = lab_splunk_connector(index=index)
+        rng = ip.discover_index_range(connector, index)
+        if rng.earliest is not None:
+            earliest_candidates.append(rng.earliest)
+        if rng.latest is not None:
+            latest_candidates.append(rng.latest)
+    if not earliest_candidates or not latest_candidates:
+        raise RuntimeError("could not discover a real time range for any queried index")
+    return min(earliest_candidates), max(latest_candidates)
+
+
 def _seed_anchor_library_from_answer_key() -> AnchorLibrary:
     """Seed ONE anchor per answer-key technique so `disc.enrich` can name a
     discovered cluster against a real, published BOTS technique -- the
@@ -173,12 +192,20 @@ def main() -> int:
 
     # ---- 2. plan + inject cousins of answer-key-confirmed techniques (C.5) --
     corpus_sourcetypes = tuple(sorted({st for e in BOTS_ANSWER_KEY for st in e.sourcetypes}))
+    corpus_earliest, corpus_latest = _live_corpus_range(tuple(records_available))
     cousins = corpus_bed.plan_cousins(
         list(BOTS_ANSWER_KEY),
         corpus_sourcetypes=corpus_sourcetypes,
         per_technique=args.cousins_per_technique,
+        corpus_earliest=corpus_earliest,
+        corpus_latest=corpus_latest,
     )
-    inject_reports = cousin_inject.inject_cousins(cousins, dry_run=args.dry_run_inject)
+    inject_reports = cousin_inject.inject_cousins(
+        cousins,
+        dry_run=args.dry_run_inject,
+        corpus_earliest=corpus_earliest,
+        corpus_latest=corpus_latest,
+    )
     cousin_host_ids = {_cousin_host(c.cousin_id) for c in cousins}
 
     if not args.dry_run_inject:

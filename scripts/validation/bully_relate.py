@@ -2394,7 +2394,10 @@ def check_corpus_bed_cousin_parent_in_answer_key() -> tuple[str, str, list[dict]
     from portal.modules.security.core.bully import corpus_bed as cb
     from portal.modules.security.core.bully.bots_answer_key import BOTS_ANSWER_KEY
 
-    cousins = cb.plan_cousins(list(BOTS_ANSWER_KEY))
+    corpus_earliest, corpus_latest = 1534737600.0, 1568916650.0  # botsv3's real range
+    cousins = cb.plan_cousins(
+        list(BOTS_ANSWER_KEY), corpus_earliest=corpus_earliest, corpus_latest=corpus_latest
+    )
     if not cousins:
         return "FAIL", "plan_cousins produced no cousins from the BOTS answer key", []
     answer_key_techniques = {e.technique for e in BOTS_ANSWER_KEY}
@@ -2403,7 +2406,9 @@ def check_corpus_bed_cousin_parent_in_answer_key() -> tuple[str, str, list[dict]
         return "FAIL", f"cousins with a parent technique absent from the answer key: {orphaned}", []
     # seeded violation: plan_cousins must never emit a cousin for a technique
     # it was not handed
-    narrow = cb.plan_cousins([BOTS_ANSWER_KEY[0]])
+    narrow = cb.plan_cousins(
+        [BOTS_ANSWER_KEY[0]], corpus_earliest=corpus_earliest, corpus_latest=corpus_latest
+    )
     if any(c.parent_technique != BOTS_ANSWER_KEY[0].technique for c in narrow):
         return "FAIL", "plan_cousins emitted a cousin for a technique it was not given", []
     return "PASS", "", []
