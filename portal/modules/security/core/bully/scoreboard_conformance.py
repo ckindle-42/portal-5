@@ -268,7 +268,19 @@ def _check_perfect_precision(flat: dict[str, Any]) -> list[ConformanceFinding]:
 # then recovered it). A run correctly reporting floor 0.0 next to selection
 # 1.0 is not self-contradicting -- it is reporting two different things this
 # guard's original single-concept "recall" vocabulary predates.
-_ORTHOGONAL_RECALL_PREFIXES: tuple[str, ...] = ("bed_acceptance.", "selection_report.")
+#
+# per_transformation_cousin_recovery.<T>.recall is the same kind of
+# orthogonality one level deeper (T.3, TASK_BULLY_REAL_TELEMETRY_V1):
+# REVOCABULARY/RESCHEMA/REIDENTITY/SCATTER/REORDER_MINOR are five DIFFERENT
+# transformations, each scored on its own small n (4 cousins at C.6/T.3
+# diagnostic scale) -- SCATTER recovering 4/4 while another transformation
+# recovers 0/4 is small-sample variance across distinct measurements, not
+# one measurement contradicting itself.
+_ORTHOGONAL_RECALL_PREFIXES: tuple[str, ...] = (
+    "bed_acceptance.",
+    "selection_report.",
+    "per_transformation_cousin_recovery.",
+)
 
 
 def _check_recall_contradiction(flat: dict[str, Any]) -> list[ConformanceFinding]:

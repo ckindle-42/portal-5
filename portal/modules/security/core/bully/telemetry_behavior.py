@@ -158,6 +158,8 @@ _HOST_SOURCETYPE: dict[str, str] = {
     "Script:GetEndpointInfo": "enumerate",
     "osquery:results": "enumerate",
     "osquery:info": "enumerate",
+    "osquery_results": "enumerate",  # underscore variant, T.3 live capture
+    "osquery_info": "enumerate",  # underscore variant, T.3 live capture
     "netstat": "enumerate",
     "openPorts": "enumerate",
     "ps": "execute",
@@ -215,22 +217,28 @@ def classify_record(record: dict[str, Any], sourcetype: str) -> str:
     st = _norm_sourcetype(sourcetype)
     low = st.lower()
 
-    # Windows security: the event id IS the behaviour
-    if "wineventlog" in low and "sysmon" not in low:
+    # Windows security: the event id IS the behaviour. `wineventlog:security`
+    # and bare `WinEventLog` both surface live (T.3, TASK_BULLY_REAL_
+    # TELEMETRY_V1); Splunk's TA-windows add-on separately ships the same
+    # data under `windows:security`, a naming variant this run's own capture
+    # exposed -- `unmapped_sourcetypes` is what is supposed to drive this.
+    if ("wineventlog" in low or ("windows" in low and "security" in low)) and "sysmon" not in low:
         code = _dig(record, *_FIELD_EVENTCODE)
         if code and code in _WINSEC_EVENTS:
             return _WINSEC_EVENTS[code]
         return ""
 
-    # Sysmon
+    # Sysmon (`xmlwineventlog:sysmon`, `windows:sysmon` -- both contain
+    # "sysmon", so no separate branch is needed for the TA-windows variant)
     if "sysmon" in low:
         code = _dig(record, *_FIELD_EVENTCODE)
         if code and code in _SYSMON_EVENTS:
             return _SYSMON_EVENTS[code]
         return ""
 
-    # auditd / linux_audit
-    if low in ("auditd", "linux_audit"):
+    # auditd / linux_audit -- `linux:auditd` is the TA-linux add-on's own
+    # naming for the same data (T.3 live capture).
+    if low in ("auditd", "linux_audit", "linux:auditd"):
         t = _dig(record, *_FIELD_AUDIT_TYPE)
         if t:
             key = t.upper().split(":")[0]

@@ -61,6 +61,7 @@ from portal.modules.security.core.bully import (
     corpus_bed,
     correlation,
     cousin_inject,
+    telemetry_behavior,
 )
 from portal.modules.security.core.bully import (
     inject_plane as ip,
@@ -203,6 +204,22 @@ def main() -> int:
     captured_records = [r6._parse_raw_kv(r) for r in capture.records]
     observations = r6._extract_identifier_observations(captured_records)
     entities, value_to_id = correlation.resolve_entities(observations)
+
+    # ---- classifier health, measured on what this run ACTUALLY captured
+    # (T3, TASK_BULLY_REAL_TELEMETRY_V1) -- coverage on synthetic held-out
+    # data says nothing about real telemetry, which is what C.6's published
+    # `learned_coverage: 0.963` did while every real verb read `unknown`. ----
+    def _sourcetype_of(rec: dict[str, Any]) -> str:
+        sid = str(rec.get("__source_id") or "")
+        return (
+            sid.split(":", 1)[1]
+            if sid.startswith("lab-splunk:")
+            else str(rec.get("sourcetype") or "")
+        )
+
+    classifier_coverage = telemetry_behavior.coverage_report(
+        [(rec, _sourcetype_of(rec)) for rec in captured_records]
+    )
 
     by_artifact_index: dict[str, dict[str, Any]] = {}
     for src, group in r6._group_by_source(captured_records).items():
@@ -440,6 +457,7 @@ def main() -> int:
             "baseline_fitted_units_l4_window": fitted_at_level,
         },
         "entity_resolution_quality": entity_resolution_quality,
+        "classifier_coverage_report": classifier_coverage.to_dict(),
         "discovery": {
             "discovery_report": meta["discovery_report"],
             "cousin_clusters": meta["cousin_clusters"],
@@ -504,6 +522,10 @@ def _render_md(report: dict[str, Any], doc_stem: str) -> str:
         "## Entity resolution quality (real cross-source identities)",
         "",
         f"```json\n{json.dumps(report['entity_resolution_quality'], indent=2)}\n```",
+        "",
+        "## Classifier coverage (measured on records THIS run captured)",
+        "",
+        f"```json\n{json.dumps(report['classifier_coverage_report'], indent=2)}\n```",
         "",
         "## Discovery",
         "",
