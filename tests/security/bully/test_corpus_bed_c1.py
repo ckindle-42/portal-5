@@ -12,7 +12,9 @@ from portal.modules.security.core.bully import corpus_bed
 
 def test_d4_record_counts_are_not_a_haystack_permanent_regression() -> None:
     # D.4's real numbers: only portal5_lab, 2000 records read.
-    bed = corpus_bed.assess_bed({"portal5_lab": 2000}, records_read=2000)
+    bed = corpus_bed.assess_bed(
+        {"portal5_lab": 2000}, records_read=2000, units_fitted=0, units_scored=0
+    )
     assert bed.is_haystack is False
     reasons = " ".join(bed.reasons)
     assert "corpus_too_small" in reasons
@@ -27,7 +29,9 @@ def test_real_multi_index_bed_passes() -> None:
         "botsv3": 5_650_000,
     }
     total = sum(available.values())
-    bed = corpus_bed.assess_bed(available, records_read=total)
+    bed = corpus_bed.assess_bed(
+        available, records_read=total, units_fitted=20_000, units_scored=10_000
+    )
     assert bed.is_haystack is True
     assert bed.lanes_present == ("A", "B", "C")
     assert bed.reasons == ()
@@ -44,6 +48,8 @@ def test_floor_only_yields_fail() -> None:
     bed = corpus_bed.assess_bed(
         {"portal5_lab": 50_000, "botsv1": 3_000_000, "botsv2": 5_000_000, "botsv3": 5_650_000},
         records_read=13_700_000,
+        units_fitted=20_000,
+        units_scored=10_000,
     )
     acceptance = corpus_bed.bed_acceptance(
         answer_key_hit=10,
@@ -61,7 +67,9 @@ def test_floor_only_yields_fail() -> None:
 
 
 def test_non_haystack_bed_yields_invalid_whatever_the_recall() -> None:
-    bed = corpus_bed.assess_bed({"portal5_lab": 2000}, records_read=2000)
+    bed = corpus_bed.assess_bed(
+        {"portal5_lab": 2000}, records_read=2000, units_fitted=0, units_scored=0
+    )
     acceptance = corpus_bed.bed_acceptance(
         answer_key_hit=25,
         answer_key_total=25,

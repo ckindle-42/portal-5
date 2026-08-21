@@ -138,14 +138,31 @@ def main() -> int:
         print(json.dumps(report, indent=2))
         return 1
 
-    # ---- 1. bed_report FIRST -- a run that is not a haystack stops here ----
+    # ---- 1. cheap pre-flight on the corpus itself -- stop before an
+    # expensive capture if the corpus can never be a haystack regardless of
+    # what this run reads (T.2, TASK_BULLY_REAL_TELEMETRY_V1: assess_bed now
+    # requires units_fitted/units_scored, which are not known until step 6,
+    # so the full bed assessment happens there; this is a size/lane-only
+    # pre-check, not `corpus_bed.assess_bed` itself). ----
     records_available = _live_index_counts()
-    bed = corpus_bed.assess_bed(records_available, records_read=0)
-    if not bed.is_haystack:
+    total_available = sum(records_available.values())
+    lanes_available = {
+        lane.lane for lane in corpus_bed.LANES if records_available.get(lane.index, 0) > 0
+    }
+    if total_available < corpus_bed.MIN_HAYSTACK_RECORDS or "A" not in lanes_available:
         report = {
             "plane": "INVALID",
             "reason": "not_a_haystack",
-            "bed_report": bed.to_dict(),
+            "bed_report": {
+                "indexes_queried": sorted(records_available),
+                "records_available": records_available,
+                "records_read": 0,
+                "lanes_present": sorted(lanes_available),
+                "is_haystack": False,
+                "reasons": [
+                    "pre_flight: corpus too small or lane A absent -- see records_available"
+                ],
+            },
             "algorithm_version": ALGORITHM_VERSION,
             "generated_at": time.time(),
         }
@@ -172,7 +189,7 @@ def main() -> int:
         report = {
             "plane": "BLOCKED",
             "reason": f"capture unavailable or empty: {capture.reason or 'zero records'}",
-            "bed_report": bed.to_dict(),
+            "bed_report": capture.bed_report.to_dict() if capture.bed_report else None,
             "algorithm_version": ALGORITHM_VERSION,
             "generated_at": time.time(),
             "inject_reports": [r.to_dict() for r in inject_reports],
@@ -252,6 +269,31 @@ def main() -> int:
     baseline = bl.NormalBaseline(environment_id="c6:corpus-bed")
     baseline.fit(list(fit_units.values()))
     fitted_at_level = baseline.fitted_units_at("L4_WINDOW")
+
+    # ---- bed_report FINAL -- the real records_read/units_fitted/units_scored
+    # are only known here (T.2, TASK_BULLY_REAL_TELEMETRY_V1: assess_bed's
+    # units_fitted/units_scored are required, so this is the single call this
+    # run's PUBLISHED bed_report/bed_acceptance are computed from -- never the
+    # records_read=0 placeholder the pre-flight check above used). ----
+    bed = corpus_bed.assess_bed(
+        records_available,
+        records_read=len(capture.records),
+        units_fitted=fitted_at_level,
+        units_scored=len(score_timelines),
+    )
+    if not bed.is_haystack:
+        report = {
+            "plane": "INVALID",
+            "reason": "not_a_haystack",
+            "bed_report": bed.to_dict(),
+            "capture": capture.to_dict(),
+            "algorithm_version": ALGORITHM_VERSION,
+            "generated_at": time.time(),
+        }
+        _publish(report, args.out_dir, args.doc_stem)
+        print(json.dumps(report, indent=2))
+        return 1
+
     if fitted_at_level < corpus_bed.MIN_BASELINE_UNITS:
         report = {
             "plane": "BLOCKED",
