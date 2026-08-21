@@ -260,12 +260,26 @@ def _check_perfect_precision(flat: dict[str, Any]) -> list[ConformanceFinding]:
     return findings
 
 
+# bed_acceptance's floor/product recall and selection_report's selection
+# recall are DELIBERATELY separate, orthogonal measurements
+# (TASK_BULLY_CORPUS_BED_V1 C3 -- "floor, product and cost are reported
+# separately, never averaged"; Y.3 -- selection recall asks whether truth
+# reached the grader at all, a different question from whether the grader
+# then recovered it). A run correctly reporting floor 0.0 next to selection
+# 1.0 is not self-contradicting -- it is reporting two different things this
+# guard's original single-concept "recall" vocabulary predates.
+_ORTHOGONAL_RECALL_PREFIXES: tuple[str, ...] = ("bed_acceptance.", "selection_report.")
+
+
 def _check_recall_contradiction(flat: dict[str, Any]) -> list[ConformanceFinding]:
-    """8. recall 1.0 beside recall ~0 in one file."""
+    """8. recall 1.0 beside recall ~0 in one file, for the SAME measurement."""
     recalls = [
         (k, float(v))
         for k, v in flat.items()
-        if "recall" in k.split(".")[-1] and isinstance(v, (int, float)) and not isinstance(v, bool)
+        if "recall" in k.split(".")[-1]
+        and isinstance(v, (int, float))
+        and not isinstance(v, bool)
+        and not k.startswith(_ORTHOGONAL_RECALL_PREFIXES)
     ]
     hi = [k for k, v in recalls if v >= 0.999]
     lo = [k for k, v in recalls if v <= 0.001]
