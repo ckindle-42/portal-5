@@ -567,3 +567,176 @@ def run_inject_capture(*, ledger_root: Path | None = None) -> InjectCaptureRun:
     return InjectCaptureRun(
         plane="live", reason="", records=capture_report.records, sealed_count=sealed
     )
+
+
+# ── I.3: capture driven by bounded investigations, not a slab scan ─────────
+
+_ENTITY_FIELDS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("user", ("user", "src_user", "userIdentity", "Account_Name", "user_name", "TargetUserName")),
+    ("host", ("host", "ComputerName", "dest", "Computer", "src_host")),
+    ("ip", ("src_ip", "dest_ip", "ip", "sourceIPAddress")),
+    ("process", ("process", "Image", "new_process_name")),
+    ("hash", ("hash", "md5", "sha256", "file_hash")),
+    ("resource", ("bucket", "resource", "arn", "bucketName", "requestParameters.bucketName")),
+)
+
+
+def _extract_pivot_entities(record: dict[str, Any]) -> list[tuple[str, str]]:
+    """Generic, sourcetype-AGNOSTIC entity extraction from a captured
+    record's already-flattened event body -- looked up BY FIELD NAME across
+    common real schemas (Windows, AWS, Linux, network), never by sourcetype,
+    so a pivot can reach a related entity regardless of which schema it
+    surfaces under. This is what links stages that share no identifier
+    (`web_admin` in `aws:cloudtrail`, `BSTOLL-L` in `xmlwineventlog:sysmon`)."""
+    out: list[tuple[str, str]] = []
+    for kind, fields in _ENTITY_FIELDS:
+        for f in fields:
+            value = record.get(f)
+            if value:
+                out.append((kind, str(value)))
+    return out
+
+
+@dataclass(frozen=True)
+class IndexRange:
+    """An index's REAL discovered time bounds -- never assumed, always
+    queried live (`| tstats min(_time) max(_time)`, the one legitimate
+    unbounded use besides `eventcount`: bucket metadata, not a scan)."""
+
+    index: str
+    earliest: float | None
+    latest: float | None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"index": self.index, "earliest": self.earliest, "latest": self.latest}
+
+
+def discover_index_range(connector: Any, index: str) -> IndexRange:
+    from .connectors import QueryIntent
+
+    result = connector.read(
+        QueryIntent(
+            "discover corpus index time range",
+            seed={"spl": f"| tstats min(_time) as first max(_time) as last where index={index}"},
+            limit=1,
+        )
+    )
+    if not result.records:
+        return IndexRange(index, None, None)
+    first_row = result.records[0]
+    fields = first_row.get("fields", {}) if isinstance(first_row, dict) else {}
+
+    def _to_float(raw: Any) -> float | None:
+        try:
+            return float(raw) if raw is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    return IndexRange(
+        index,
+        _to_float(fields.get("first")),
+        _to_float(fields.get("last")),
+    )
+
+
+@dataclass(frozen=True)
+class InvestigationCaptureReport:
+    """The result of running one or more anchor-pivot investigations across
+    the corpus's real time range, in place of one unbounded slab scan."""
+
+    plane: str
+    reason: str
+    investigations: tuple[Any, ...]  # investigation_pivot.Investigation
+    index_ranges: dict[str, IndexRange]
+    bed_report: corpus_bed.BedReport | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "plane": self.plane,
+            "reason": self.reason,
+            "n_investigations": len(self.investigations),
+            "index_ranges": {k: v.to_dict() for k, v in self.index_ranges.items()},
+            "investigations": [inv.to_dict() for inv in self.investigations],
+            "bed_report": self.bed_report.to_dict() if self.bed_report else None,
+        }
+
+
+def capture_investigation(
+    anchors: list[Any],  # investigation_pivot.Anchor
+    *,
+    indexes: tuple[str, ...] | None = None,
+    **investigate_kwargs: Any,
+) -> InvestigationCaptureReport:
+    """Reconstruct one incident per anchor by recursive, bounded, entity-
+    scoped pivoting -- the replacement for `capture_records`'s single
+    `search index=X | head N` slab scan.
+
+    Every index's REAL time bounds are discovered first and every
+    investigation is clamped to its anchor index's bounds (I5): an
+    investigation cannot wander outside the data it is meant to explain, and
+    a cousin injected outside that range is provably unreachable rather than
+    silently missed. No query issued here ever filters by `sourcetype` (I6).
+    """
+    from . import investigation_pivot as ip
+    from .connectors import QueryIntent
+    from .live_connect import lab_splunk_connector
+
+    available, reason = lab_available()
+    if not available:
+        return InvestigationCaptureReport(
+            plane="unavailable", reason=reason, investigations=(), index_ranges={}
+        )
+
+    target_indexes = indexes if indexes is not None else corpus_bed.resolve_indexes()
+    connectors = {idx: lab_splunk_connector(index=idx) for idx in target_indexes}
+    index_ranges = {idx: discover_index_range(connectors[idx], idx) for idx in target_indexes}
+
+    records_available: dict[str, int] = {}
+    total_captured = 0
+
+    def execute(query: Any) -> list[dict[str, Any]]:
+        nonlocal total_captured
+        connector = connectors[query.index]
+        result = connector.read(
+            QueryIntent(
+                "anchor-pivot investigation",
+                start=query.earliest,
+                end=query.latest,
+                entities=(query.entity,),
+            )
+        )
+        schemas: set[str] = set()
+        out: list[dict[str, Any]] = []
+        for record in result.records:
+            tagged = _tag_captured_record(record, index=query.index, schemas=schemas)
+            if tagged is not None:
+                out.append(tagged)
+        total_captured += len(out)
+        return out
+
+    investigations = []
+    for anchor in anchors:
+        rng = index_ranges.get(anchor.index) if anchor.index else None
+        inv = ip.investigate(
+            anchor,
+            list(target_indexes),
+            execute,
+            _extract_pivot_entities,
+            corpus_earliest=rng.earliest if rng else None,
+            corpus_latest=rng.latest if rng else None,
+            **investigate_kwargs,
+        )
+        investigations.append(inv)
+
+    for idx in target_indexes:
+        records_available[idx] = _index_count(connectors[idx], idx)
+    bed = corpus_bed.assess_bed(
+        records_available, records_read=total_captured, units_fitted=0, units_scored=0
+    )
+    return InvestigationCaptureReport(
+        plane="live",
+        reason="",
+        investigations=tuple(investigations),
+        index_ranges=index_ranges,
+        bed_report=bed,
+    )
