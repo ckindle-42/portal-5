@@ -344,24 +344,27 @@ def capture_records(
     for index in target_indexes:
         connector = lab_splunk_connector(index=index)
         records_available[index] = _index_count(connector, index)
-        # Explicitly sorted most-recent-first, not an unbounded/unsorted
-        # "search index=X": each index also carries pre-loaded historical
-        # volume, so an unsorted capture can return an arbitrary slice
-        # dominated by that bulk-loaded corpus rather than genuinely recent
-        # activity. `earliest`/`latest` are deliberately left at this
-        # connector's defaults ("0"/"now"): this lab's export endpoint was
-        # found (empirically, verified against the live index) to return
-        # zero rows for any relative earliest bound ("-30m", "-1h", "-24h"
-        # all returned 0 despite events with `_time` timestamped at the
-        # moment of the query existing), while an unbounded earliest
-        # combined with `sort -_time` reliably returns genuinely current
-        # events -- a real quirk of this lab's Splunk deployment (likely an
-        # indextime/eventtime skew on the bulk-loaded corpus), not a defect
-        # in this connector's query construction.
+        # No explicit `sort -_time`: Splunk's default bucket-scan order for a
+        # plain `search index=X` is already newest-bucket-first (verified
+        # live against botsv3 -- the first two rows of an unsorted `| head 5`
+        # come back at 2019-09-19 then 2018-08-20, correctly descending), so
+        # `| head N` alone gets recent-first ordering without materializing
+        # and sorting the whole index. On this corpus (261M+ events across
+        # four indexes, 4 vCPU / 4GB lab hardware) an explicit `sort -_time`
+        # measured ~173s for botsv1 (33M events) alone -- untenable when this
+        # loop pays that cost per index, per run. `earliest`/`latest` are
+        # deliberately left at this connector's defaults ("0"/"now"): this
+        # lab's export endpoint was found (empirically, verified against the
+        # live index) to return zero rows for any relative earliest bound
+        # ("-30m", "-1h", "-24h" all returned 0 despite events with `_time`
+        # timestamped at the moment of the query existing) -- a real quirk of
+        # this lab's Splunk deployment (likely an indextime/eventtime skew on
+        # the bulk-loaded corpus), not a defect in this connector's query
+        # construction, and unrelated to the sort removal above.
         result = connector.read(
             QueryIntent(
                 "capture recent telemetry, all sourcetypes",
-                seed={"spl": f"search index={index} | sort -_time"},
+                seed={"spl": f"search index={index}"},
                 limit=sample_limit,
             )
         )
