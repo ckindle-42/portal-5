@@ -198,3 +198,23 @@ def test_caps_populate_truncated_reasons():
     )
     assert inv.truncated_reasons
     assert any("max_queries" in r for r in inv.truncated_reasons)
+
+
+def test_a_single_querys_own_result_is_trimmed_to_the_event_cap():
+    """Seeded against a live-run finding: one bounded, entity-scoped query
+    can return more rows than the remaining event budget in a single call
+    (a real botsv3 query returned 26k+ rows against a 20k cap) -- the cap
+    must trim the batch itself, not just stop issuing further queries."""
+
+    def huge_execute(query: ip.PivotQuery) -> list[dict]:
+        return [{"_time": query.earliest, "sourcetype": "st", "entity": query.entity}] * 50
+
+    inv = ip.investigate(
+        SYMPTOM_ANCHOR,
+        ["botsv3"],
+        huge_execute,
+        lambda row: [],
+        max_events=10,
+    )
+    assert len(inv.events) <= 10
+    assert any("max_events" in r for r in inv.truncated_reasons)
