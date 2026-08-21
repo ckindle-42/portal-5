@@ -79,6 +79,17 @@ MIN_HAYSTACK_RECORDS = 100_000
 # something. Fit wide, score narrow.
 MIN_BASELINE_UNITS = 2_000
 
+# The scored sample itself must be large enough that its recall/FP figures
+# generalise. C.6 scored 200 units and published rates as if they did (T.2,
+# TASK_BULLY_REAL_TELEMETRY_V1) -- this floor was specified in
+# TASK_BULLY_CORPUS_BED_V1 and never landed in this module, so it never ran.
+MIN_SCORED_UNITS = 10_000
+
+# The fitted population must be a multiple of the scored population -- "fit
+# wide, score narrow" is not satisfied by fitting and scoring the same-sized
+# sample, which is what made D.4's discovery_rate degenerate.
+MIN_FIT_TO_SCORE_RATIO = 2.0
+
 
 @dataclass(frozen=True)
 class CorpusLane:
@@ -147,14 +158,40 @@ def assess_bed(
     records_available: dict[str, int],
     records_read: int,
     *,
+    units_fitted: int,
+    units_scored: int,
     min_records: int = MIN_HAYSTACK_RECORDS,
+    min_scored_units: int = MIN_SCORED_UNITS,
+    min_fit_to_score_ratio: float = MIN_FIT_TO_SCORE_RATIO,
 ) -> BedReport:
     """Is this a haystack or a sample? A run that cannot answer yes must say
-    so in its own output rather than publishing rates computed on a sample."""
+    so in its own output rather than publishing rates computed on a sample.
+
+    `units_fitted`/`units_scored` are required, not optional (T4,
+    TASK_BULLY_REAL_TELEMETRY_V1): `MIN_SCORED_UNITS`/`MIN_FIT_TO_SCORE_RATIO`
+    were specified in TASK_BULLY_CORPUS_BED_V1 but never wired into this
+    function, so C.6 scored 200 units against what should have been a
+    10,000-unit floor and the floor never ran. An optional guard input is a
+    guard that silently does not run; a required one forces a `TypeError` on
+    every caller that omits it, not a silent pass.
+    """
     reasons: list[str] = []
     lanes = tuple(sorted({lane.lane for lane in LANES if records_available.get(lane.index, 0) > 0}))
     total = sum(records_available.values())
     is_haystack = True
+
+    # A run that read NOTHING cannot be a haystack, regardless of what the
+    # corpus contains. Checked FIRST and unconditionally: `records_read and
+    # total and ...` below is skipped when `records_read == 0` (falsy in
+    # Python), which is exactly how C.6 published `is_haystack: true` on a
+    # run that read zero records (a permanent regression, pinned by test).
+    if records_read == 0:
+        is_haystack = False
+        reasons.append(
+            "no_records_read: records_read=0 -- a run that reported reading "
+            "nothing cannot be a haystack, no matter how large the corpus is"
+        )
+
     if total < min_records:
         is_haystack = False
         reasons.append(
@@ -171,6 +208,17 @@ def assess_bed(
         reasons.append(
             f"partial_read:{records_read}/{total} -- a capped read of a real corpus "
             "biases every downstream statistic toward whatever the cap selected"
+        )
+    if units_scored < min_scored_units:
+        reasons.append(
+            f"scored_sample_too_small:{units_scored}<{min_scored_units} -- recall/FP "
+            "figures computed on this scored population do not generalise"
+        )
+    if units_scored and units_fitted < units_scored * min_fit_to_score_ratio:
+        reasons.append(
+            f"fit_to_score_ratio_too_small:{units_fitted}<{units_scored}*{min_fit_to_score_ratio} "
+            "-- 'fit wide, score narrow' is not satisfied by a baseline fitted on a "
+            "population no larger than what it scores"
         )
     return BedReport(
         indexes_queried=tuple(sorted(records_available)),
@@ -346,6 +394,15 @@ def bed_acceptance(
     if product is not None and product == 0.0 and cousin_total:
         verdict = "FAIL" if verdict == "PASS" else verdict
         reasons.append("zero_cousin_recall: floor only, no product")
+    if floor is not None and floor == 0.0 and answer_key_total:
+        # T5, TASK_BULLY_REAL_TELEMETRY_V1: a system that cannot find a
+        # single one of the corpus's own PUBLISHED known-bads has a broken
+        # floor, and any product/cousin recall reported beside it is
+        # unmeasurable noise -- C.6 came out FAIL only via the background FP
+        # rate while floor_known_recall sat at 0.0 unexamined. FAIL, not
+        # merely INVALID, so this holds even when the bed itself is fine.
+        verdict = "FAIL" if verdict == "PASS" else verdict
+        reasons.append(f"zero_floor_recall: 0/{answer_key_total}")
     if cost is not None and cost > max_background_fp:
         verdict = "FAIL" if verdict == "PASS" else verdict
         reasons.append(f"background_fp_rate_{cost:.3f}>{max_background_fp}")

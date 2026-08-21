@@ -2366,15 +2366,19 @@ def check_behavior_table_self_recognition() -> tuple[str, str, list[dict]]:
 def check_corpus_bed_below_floor_or_no_lane_a_is_invalid() -> tuple[str, str, list[dict]]:
     from portal.modules.security.core.bully import corpus_bed as cb
 
-    small = cb.assess_bed({"portal5_lab": 500}, records_read=500)
+    small = cb.assess_bed({"portal5_lab": 500}, records_read=500, units_fitted=0, units_scored=0)
     if small.is_haystack:
         return "FAIL", "a 500-record corpus was accepted as a haystack", []
-    lane_a_absent = cb.assess_bed({"portal5_lab": 200_000}, records_read=200_000)
+    lane_a_absent = cb.assess_bed(
+        {"portal5_lab": 200_000}, records_read=200_000, units_fitted=0, units_scored=0
+    )
     if lane_a_absent.is_haystack:
         return "FAIL", "a corpus with no botsv1/2/3 records was accepted as a haystack", []
     real_bed = cb.assess_bed(
         {"portal5_lab": 50_000, "botsv1": 3_000_000, "botsv2": 5_000_000, "botsv3": 5_650_000},
         records_read=13_700_000,
+        units_fitted=20_000,
+        units_scored=10_000,
     )
     if not real_bed.is_haystack:
         return "FAIL", f"a real multi-index bed was rejected: {real_bed.reasons}", []
@@ -2416,6 +2420,8 @@ def check_corpus_bed_floor_product_cost_never_averaged() -> tuple[str, str, list
     real_bed = cb.assess_bed(
         {"portal5_lab": 50_000, "botsv1": 3_000_000, "botsv2": 5_000_000, "botsv3": 5_650_000},
         records_read=13_700_000,
+        units_fitted=20_000,
+        units_scored=10_000,
     )
     floor_only = cb.bed_acceptance(
         answer_key_hit=4,
@@ -2517,7 +2523,7 @@ def check_corpus_bed_resolve_indexes_includes_all_bots() -> tuple[str, str, list
 def check_corpus_bed_d4_counts_never_a_haystack() -> tuple[str, str, list[dict]]:
     from portal.modules.security.core.bully import corpus_bed as cb
 
-    bed = cb.assess_bed({"portal5_lab": 2000}, records_read=2000)
+    bed = cb.assess_bed({"portal5_lab": 2000}, records_read=2000, units_fitted=0, units_scored=0)
     if bed.is_haystack:
         return (
             "FAIL",
