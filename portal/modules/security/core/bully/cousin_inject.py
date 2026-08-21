@@ -30,16 +30,23 @@ ALGORITHM_VERSION = "cousin-inject-v1"
 # behavioural level, which is the whole claim (C.5). REORDER_MINOR and
 # REIDENTITY keep the parent's own verbs (they vary order/principal, not
 # vocabulary), so they are deliberately absent from this map.
+#
+# Keyed on the shared behaviour-class alphabet (T1, TASK_BULLY_REAL_
+# TELEMETRY_V1) -- `bots_answer_key.BOTS_ANSWER_KEY.behavioural_spine` was
+# updated to that vocabulary (`auth`/`escalate`/`c2_exfil`/`execute`, ...)
+# so `discovery.enrich()` can compare a real-classified cluster shape
+# against it; this map's keys moved with it.
 _REVOCABULARY_MAP: dict[str, str] = {
-    "kerberos_asrep_request": "identity_ticket_probe",
-    "hash_extraction": "credential_material_pull",
-    "offline_crack": "async_secret_recovery",
-    "http_beacon": "periodic_outbound_signal",
-    "periodic_checkin": "scheduled_egress_ping",
-    "miner_process_spawn": "background_worker_launch",
-    "outbound_stratum_connection": "external_pool_handshake",
-    "http_exploit_request": "malformed_endpoint_call",
-    "webshell_drop": "server_side_artifact_write",
+    "auth": "identity_ticket_probe",
+    "escalate": "privilege_state_change",
+    "c2_exfil": "periodic_outbound_signal",
+    "execute": "background_worker_launch",
+    "enumerate": "passive_directory_sweep",
+    "collect": "staged_artifact_pull",
+    "persist": "residual_footprint_write",
+    "evade": "trace_suppression_action",
+    "lateral": "adjacent_session_pivot",
+    "destroy": "irreversible_state_removal",
 }
 
 _REVOCABULARIED_TRANSFORMATIONS = frozenset({"REVOCABULARY", "RESCHEMA", "SCATTER"})

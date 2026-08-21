@@ -45,7 +45,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import pyramid
+from . import pyramid, telemetry_behavior
 
 ALGORITHM_VERSION = "series-cousin-v1"
 
@@ -109,19 +109,29 @@ def series_from_logs(
     *,
     action_of: Any,
     classifier: Any = None,
+    sourcetype_of: Any = None,
     technique: str | None = None,
     source_ids: tuple[str, ...] = (),
 ) -> BehaviouralSeries:
-    """Build a behavioural series from an ordered list of log records. Each
-    log contributes its behavioural class (via the pyramid classifier over its
-    action verb); unclassifiable logs contribute nothing to the spine but ARE
-    counted in `n_logs` (so a series that is mostly unreadable is visibly
-    thin, not silently short). This is the source-event-data-first construction
-    the design should have had from the start."""
+    """Build a behavioural series from an ordered list of log records.
+
+    When `sourcetype_of` is supplied (T1, TASK_BULLY_REAL_TELEMETRY_V1) each
+    log contributes its behavioural class read from real telemetry semantics
+    (`telemetry_behavior.classify_record`, per the log's own sourcetype) --
+    real logs carry no verb, so `action_of`/the pyramid substring table
+    cannot read them regardless of which classifier is swapped in behind it.
+    Without `sourcetype_of` (the pre-T1 path, still correct for synthetic
+    `universe.py`/`attack_data` verb tokens) each log contributes its class
+    via the pyramid classifier over `action_of(log)`. Unclassifiable logs
+    contribute nothing to the spine but ARE counted in `n_logs` (so a series
+    that is mostly unreadable is visibly thin, not silently short)."""
     spine: list[str] = []
     for log in logs:
-        verb = action_of(log)
-        cls = pyramid.classify_behavior(verb or "", classifier)
+        if sourcetype_of is not None:
+            cls = telemetry_behavior.classify_record(log, sourcetype_of(log) or "")
+        else:
+            verb = action_of(log)
+            cls = pyramid.classify_behavior(verb or "", classifier)
         if cls:
             spine.append(cls)
     return BehaviouralSeries(
