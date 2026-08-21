@@ -243,6 +243,10 @@ class AnswerKeyEntry:
     behavioural_spine: tuple[str, ...]
     entities: tuple[str, ...] = ()
     sourcetypes: tuple[str, ...] = ()
+    # When known, the real epoch this technique was confirmed active at --
+    # used only to place an injected cousin ADJACENT to real activity (I5),
+    # never to grade discovery.
+    confirmed_at: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -251,6 +255,7 @@ class AnswerKeyEntry:
             "behavioural_spine": list(self.behavioural_spine),
             "entities": list(self.entities),
             "sourcetypes": list(self.sourcetypes),
+            "confirmed_at": self.confirmed_at,
         }
 
 
@@ -259,7 +264,15 @@ class CousinSpec:
     """A cousin OF A CONFIRMED-PRESENT technique, to be injected into the real
     haystack. This is the thing the product exists to find: same behavioural
     spine, different vocabulary/identity/schema, sitting inside millions of
-    real records rather than inside data we authored."""
+    real records rather than inside data we authored.
+
+    `injected_at` is always inside the corpus's own time range (I5) -- a
+    cousin shipped with a "now" timestamp sits years away from the haystack
+    it was meant to hide in, and no time-bounded investigation can ever
+    reach it (the T.3 defect this closes). `anchor_entity` carries a real
+    entity from the parent technique so the cousin is reachable by a pivot,
+    not merely present at the right time.
+    """
 
     cousin_id: str
     parent_technique: str
@@ -268,6 +281,8 @@ class CousinSpec:
     transformation: str
     target_sourcetypes: tuple[str, ...]
     expected_recoverable_level: str
+    injected_at: float
+    anchor_entity: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -278,7 +293,27 @@ class CousinSpec:
             "transformation": self.transformation,
             "target_sourcetypes": list(self.target_sourcetypes),
             "expected_recoverable_level": self.expected_recoverable_level,
+            "injected_at": self.injected_at,
+            "anchor_entity": self.anchor_entity,
         }
+
+
+class CousinOutsideCorpusRangeError(ValueError):
+    """A cousin's `injected_at` falls outside the corpus's real time range.
+    Raised instead of silently shipping a needle the haystack's own time
+    bounds can never reach (I5) -- the T.3 configuration (2026 timestamps
+    against a 2016-2019 corpus) is a permanent regression case for this."""
+
+
+def validate_cousin_in_range(
+    cousin: CousinSpec, *, corpus_earliest: float, corpus_latest: float
+) -> None:
+    if not (corpus_earliest <= cousin.injected_at <= corpus_latest):
+        raise CousinOutsideCorpusRangeError(
+            f"cousin_outside_corpus_range: {cousin.cousin_id} injected_at="
+            f"{cousin.injected_at} is outside the corpus's real range "
+            f"[{corpus_earliest}, {corpus_latest}]"
+        )
 
 
 # Transformations that make an injected chain a genuine COUSIN rather than a
@@ -296,19 +331,35 @@ COUSIN_TRANSFORMATIONS: tuple[str, ...] = (
 def plan_cousins(
     answer_key: list[AnswerKeyEntry],
     *,
+    corpus_earliest: float,
+    corpus_latest: float,
     transformations: tuple[str, ...] = COUSIN_TRANSFORMATIONS,
     corpus_sourcetypes: tuple[str, ...] = (),
     per_technique: int = 1,
 ) -> list[CousinSpec]:
-    """Plan one cousin per (confirmed technique, transformation).
+    """Plan one cousin per (confirmed technique, transformation), placed
+    INSIDE the corpus's own time range (I5).
 
     Deliberately derived FROM the answer key: a cousin is only meaningful as a
     variant of something we know is genuinely present. Inventing both the
     haystack and the needle -- what every prior run did -- makes recall a
     measurement of the generator.
+
+    `corpus_earliest`/`corpus_latest` are required, not defaulted, because a
+    cousin planned with no real range to sit inside of is exactly the T.3
+    defect (cousins shipped at "now", ~8 years outside every BOTS index).
+    Each cousin lands adjacent to its parent's own confirmed activity when
+    `entry.confirmed_at` is known, otherwise spread deterministically across
+    the corpus span -- either way inside `[corpus_earliest, corpus_latest]`.
     """
+    if corpus_latest <= corpus_earliest:
+        raise ValueError(
+            f"corpus_latest ({corpus_latest}) must be after corpus_earliest ({corpus_earliest})"
+        )
+    span = corpus_latest - corpus_earliest
     specs: list[CousinSpec] = []
-    for entry in answer_key:
+    for e_i, entry in enumerate(answer_key):
+        anchor_entity = entry.entities[0] if entry.entities else ""
         for t_i, transformation in enumerate(transformations):
             for n in range(per_technique):
                 targets = entry.sourcetypes
@@ -318,6 +369,24 @@ def plan_cousins(
                     targets = alt[:1] or entry.sourcetypes
                 elif transformation == "SCATTER" and corpus_sourcetypes:
                     targets = tuple(corpus_sourcetypes[:3])
+
+                if entry.confirmed_at is not None:
+                    # Adjacent to the parent's own real activity, offset per
+                    # (transformation, n) so cousins of the same parent don't
+                    # collide, and clamped back inside the corpus's range.
+                    offset = (t_i * per_technique + n + 1) * 300.0
+                    injected_at = min(
+                        max(entry.confirmed_at + offset, corpus_earliest), corpus_latest
+                    )
+                else:
+                    # No known confirmation time: spread deterministically
+                    # across the corpus span rather than collapsing onto one
+                    # instant.
+                    slot = (e_i * len(transformations) * per_technique) + (t_i * per_technique + n)
+                    total_slots = len(answer_key) * len(transformations) * per_technique
+                    fraction = (slot + 1) / (total_slots + 1) if total_slots else 0.5
+                    injected_at = corpus_earliest + span * fraction
+
                 specs.append(
                     CousinSpec(
                         cousin_id=f"cz-{entry.technique}-{transformation}-{t_i}{n}",
@@ -331,6 +400,8 @@ def plan_cousins(
                             if transformation in ("REVOCABULARY", "RESCHEMA", "SCATTER")
                             else "L2_TOOL"
                         ),
+                        injected_at=injected_at,
+                        anchor_entity=anchor_entity,
                     )
                 )
     return specs

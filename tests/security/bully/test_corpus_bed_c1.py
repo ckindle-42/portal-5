@@ -94,7 +94,10 @@ def test_plan_cousins_refuses_technique_absent_from_answer_key() -> None:
         )
     ]
     cousins = corpus_bed.plan_cousins(
-        answer_key, corpus_sourcetypes=("wineventlog:security", "aws:cloudtrail")
+        answer_key,
+        corpus_sourcetypes=("wineventlog:security", "aws:cloudtrail"),
+        corpus_earliest=1534737600.0,
+        corpus_latest=1534824000.0,
     )
     # every cousin's parent technique is drawn from the answer key
     assert all(c.parent_technique == "T1558.004" for c in cousins)
@@ -116,6 +119,8 @@ def test_reschema_cousin_targets_a_sourcetype_the_parent_did_not_use() -> None:
         answer_key,
         transformations=("RESCHEMA",),
         corpus_sourcetypes=("wineventlog:security", "aws:cloudtrail", "stream:dns"),
+        corpus_earliest=1534737600.0,
+        corpus_latest=1534824000.0,
     )
     assert len(cousins) == 1
     reschema = cousins[0]
