@@ -210,6 +210,12 @@ def assess_bed(
             "biases every downstream statistic toward whatever the cap selected"
         )
     if units_scored < min_scored_units:
+        # A5, TASK_BULLY_ADAPTIVE_REACH_V1: this used to be advisory-only, so
+        # I.6 published `is_haystack: true` alongside ZERO scored units
+        # (`scored_sample_too_small: 0<10000`) -- a run with no scored
+        # population at all cannot claim to be standing on a haystack, no
+        # matter how large the corpus behind it is.
+        is_haystack = False
         reasons.append(
             f"scored_sample_too_small:{units_scored}<{min_scored_units} -- recall/FP "
             "figures computed on this scored population do not generalise"
@@ -522,6 +528,26 @@ def bed_acceptance(
         verdict=verdict,
         reasons=tuple(reasons),
     )
+
+
+class RunOutputMissingBedAcceptanceError(ValueError):
+    """A run published recovery figures (`reach_report`, cousin recovery,
+    an inference report, ...) without publishing `bed_acceptance` alongside
+    them (A5). Without it there is no way to tell whether the run stood on a
+    haystack or a sample, so any recovery figure in the same document is
+    INVALID -- refused outright rather than trusted at face value."""
+
+
+def require_bed_acceptance(run_output: dict[str, Any]) -> None:
+    """Every run doc that publishes recovery figures must publish
+    `bed_acceptance` in the same document. Raises when it is missing or not
+    a real acceptance verdict (`None`, or a dict lacking a `verdict`)."""
+    acceptance = run_output.get("bed_acceptance")
+    if not isinstance(acceptance, dict) or "verdict" not in acceptance:
+        raise RunOutputMissingBedAcceptanceError(
+            "run output is missing bed_acceptance -- a run publishing recovery "
+            "figures without it is INVALID (A5, TASK_BULLY_ADAPTIVE_REACH_V1)"
+        )
 
 
 def stream_corpus(
