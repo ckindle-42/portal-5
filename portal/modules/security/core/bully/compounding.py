@@ -14,6 +14,7 @@ from typing import Any
 
 from . import signatures as sig_mod
 from .anchors import Anchor, AnchorLibrary
+from .discovery import COUSIN_MAX_DISTANCE, _shape_distance
 
 
 def write_outcome_as_anchor(
@@ -57,3 +58,28 @@ def should_escalate(relation: Any, anchor_library: AnchorLibrary) -> bool:
         and anchor.kind == "confirmed_finding"
         and anchor.record.get("outcome") == "BENIGN_CLOSE"
     )
+
+
+def should_escalate_shape(
+    shape: tuple[str, ...],
+    anchor_library: AnchorLibrary,
+    *,
+    similar_max: float = COUSIN_MAX_DISTANCE,
+) -> bool:
+    """Discovery-first (D.3, TASK_BULLY_DISCOVERY_FIRST_V1) form of
+    `should_escalate`: `discovery.enrich()` reports only the SINGLE nearest
+    library match, so a benign anchor tied (or nearly tied) in distance with
+    some other anchor can be shadowed by whichever the nearest-match sort
+    happens to prefer. That is exactly wrong here -- an analyst-confirmed
+    `benign_pattern` is accumulated knowledge, and knowledge must dominate a
+    tie, not lose it to sort order (carried over from the withdrawn
+    `TASK_BULLY_SERIES_COMPOUNDING_V1`). Checks EVERY anchor within the
+    enrichment radius, not just the reported nearest, so a benign match is
+    never silently outranked by an equally-close non-benign one."""
+    for anchor in anchor_library.all():
+        if anchor.malice != "benign":
+            continue
+        lib_shape = tuple((anchor.record or {}).get("action_sequence") or ())
+        if lib_shape and _shape_distance(shape, lib_shape) <= similar_max:
+            return False
+    return True
