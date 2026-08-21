@@ -50,10 +50,27 @@ sourcetype classified fractions and the output-class entropy so a collapse is
 detectable the way C.6's was not.
 
 Pure compute (COLD). No I/O, no model, no training.
+
+**This module is scoped to answer-keyed corpora, and is a VALIDATION
+INSTRUMENT, never the primary discovery path** (I.5, TASK_BULLY_
+INVESTIGATION_V1). It is a curated, per-sourcetype mapping over a fixed
+ten-class alphabet chosen in advance -- on universal data there is no reason
+that alphabet is the right one, and no amount of table-writing closes the
+gap (T.3 left ~100 sourcetypes unreadable: `OktaIM2:log`, `ms:aad:signin`,
+`windows:powershell`, `aws:cloudtrail`, every `gen:*`). `behavior_inference`
+is the universal path: it infers behaviour classes from OBSERVABLE
+STRUCTURE, with no table and no fixed alphabet, and is the primary source
+for spines and shapes. This module's coverage measures how much of the BED
+(the answer-keyed corpora) it can name -- never a claim of universal
+capability -- and it remains useful for exactly two things: naming an
+inferred class against the answer key's own vocabulary
+(`behavior_inference.name_from_answer_key`), and validating a run's floor
+against published ground truth. No discovery path may import or call it.
 """
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -146,8 +163,42 @@ _STREAM_SOURCETYPE: dict[str, str] = {
     "aws:cloudwatchlogs:vpcflow": "c2_exfil",
     "pan:traffic": "c2_exfil",
     "cisco:asa": "c2_exfil",
-    "suricata": "evade",
     "access_combined": "c2_exfil",
+}
+
+# `suricata` is deliberately ABSENT from `_STREAM_SOURCETYPE` above (I.5,
+# TASK_BULLY_INVESTIGATION_V1): the T.3 run mapped every `suricata` record to
+# `evade` unconditionally and that one line alone supplied 44.8% of all
+# classified behaviour (20,317 of 45,356) -- a Suricata alert is a
+# DETECTION OF potentially any of several behaviours (a trojan's C2 beacon,
+# a privilege-gain exploit, a DoS), and non-alert Suricata records
+# (`dns`/`flow`/`http`/`tls`/`fileinfo`, live-verified against botsv1/v3)
+# are protocol telemetry, not a verdict at all. Collapsing all of it to one
+# class manufactures a dominant class rather than reading one.
+#
+# `suricata` records land in this lab's Splunk with NO field extraction --
+# the entire JSON event sits in `_raw` (live-verified: `fields` carries only
+# Splunk's own `_bkt`/`_cd`/`_indextime`/... metadata) -- so the alert's
+# `event_type` and, for an alert, `alert.category` are read by parsing
+# `_raw` directly. Only the small set of categories below are confident
+# enough to name a behaviour; everything else (informational categories,
+# an empty category, protocol-only records with no confident mapping) is
+# left unmapped and VISIBLE -- unmapped-and-honest beats wrong-and-dominant.
+_SURICATA_CATEGORY_MAP: dict[str, str] = {
+    "a network trojan was detected": "c2_exfil",
+    "attempted administrator privilege gain": "escalate",
+    "successful administrative privilege gain": "escalate",
+    "web application attack": "execute",
+    "attempted information leak": "collect",
+    "denial of service": "destroy",
+    "detection of a denial of service attack": "destroy",
+}
+
+# Non-alert Suricata `event_type`s: only `dns` (a query/answer pair) is a
+# confident enough protocol purpose to name; `flow`/`http`/`tls`/`fileinfo`/
+# etc. describe connection metadata, not a behaviour, and stay unmapped.
+_SURICATA_EVENT_TYPE_MAP: dict[str, str] = {
+    "dns": "enumerate",
 }
 
 # ── Host / endpoint sourcetypes ────────────────────────────────────────────
@@ -210,6 +261,23 @@ def _norm_sourcetype(sourcetype: str) -> str:
     return (sourcetype or "").strip()
 
 
+def _parse_suricata_json(record: dict[str, Any]) -> dict[str, Any]:
+    """This lab's Splunk does no field extraction for `suricata` (live-
+    verified: `fields` carries only Splunk's own metadata, the whole event
+    sits in `_raw` as JSON) -- so read the alert's `event_type`/`alert`
+    block by parsing `_raw` directly. Falls back to the record itself for
+    already-flattened inputs (e.g. tests, or a future extraction fix)."""
+    raw = record.get("_raw")
+    if isinstance(raw, str) and raw.strip().startswith("{"):
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            parsed = None
+        if isinstance(parsed, dict):
+            return parsed
+    return record
+
+
 def classify_record(record: dict[str, Any], sourcetype: str) -> str:
     """Behaviour class for ONE real telemetry record, read the way its
     sourcetype encodes behaviour. Returns "" when this sourcetype has no
@@ -246,6 +314,20 @@ def classify_record(record: dict[str, Any], sourcetype: str) -> str:
                 return _AUDITD_TYPES[key]
         return ""
 
+    # Suricata: a DETECTION of potentially several behaviours, never one
+    # fixed class (I.5) -- derive from the alert's signature category where
+    # available, otherwise leave unmapped and visible.
+    if low == "suricata":
+        parsed = _parse_suricata_json(record)
+        event_type = str(parsed.get("event_type") or "").strip().lower()
+        if event_type == "alert":
+            alert = parsed.get("alert")
+            category = (
+                str(alert.get("category") or "").strip().lower() if isinstance(alert, dict) else ""
+            )
+            return _SURICATA_CATEGORY_MAP.get(category, "")
+        return _SURICATA_EVENT_TYPE_MAP.get(event_type, "")
+
     # protocol streams and network appliances: the protocol's purpose
     if st in _STREAM_SOURCETYPE:
         return _STREAM_SOURCETYPE[st]
@@ -278,6 +360,13 @@ class CoverageReport:
     class_entropy_bits: float
     degenerate: bool
     unmapped_sourcetypes: tuple[str, ...]
+    class_concentration: dict[str, float]
+    source_concentration: dict[str, float]
+    concentration_reasons: tuple[str, ...]
+
+    @property
+    def concentrated(self) -> bool:
+        return bool(self.concentration_reasons)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -290,6 +379,10 @@ class CoverageReport:
             "class_entropy_bits": round(self.class_entropy_bits, 4),
             "degenerate": self.degenerate,
             "unmapped_sourcetypes": list(self.unmapped_sourcetypes),
+            "class_concentration": dict(self.class_concentration),
+            "source_concentration": dict(self.source_concentration),
+            "concentration_reasons": list(self.concentration_reasons),
+            "concentrated": self.concentrated,
         }
 
 
@@ -297,12 +390,25 @@ class CoverageReport:
 # however high its coverage. C.6's real-verb entropy was 0.302 bits of 2.0.
 MIN_CLASS_ENTROPY_BITS = 1.0
 
+# Entropy alone did not catch the T.3 suricata collapse (2.28 bits,
+# `degenerate=False`) because entropy is a whole-distribution statistic and
+# T.3's real distribution still had several other populated classes. These
+# two ceilings catch it directly: no single class may be more than 40% of
+# everything classified, and no single sourcetype may supply more than 90%
+# of any one class's members. T.3's `evade` was 44.8% of all classified
+# behaviour (fails the first) and 100% of it came from `suricata` alone
+# (fails the second) -- a permanent regression case for both.
+MAX_CLASS_SHARE = 0.40
+MAX_SOURCE_SHARE_OF_CLASS = 0.90
+
 
 def coverage_report(
     records: list[tuple[dict[str, Any], str]],
     *,
     classifier: ClassifierFn | None = None,
     min_entropy: float = MIN_CLASS_ENTROPY_BITS,
+    max_class_share: float = MAX_CLASS_SHARE,
+    max_source_share_of_class: float = MAX_SOURCE_SHARE_OF_CLASS,
 ) -> CoverageReport:
     """Measure the classifier on the records a run ACTUALLY captured."""
     import math
@@ -311,6 +417,7 @@ def coverage_report(
     fn = classifier or classify_record
     per_st: dict[str, list[int]] = defaultdict(lambda: [0, 0])  # [total, classified]
     dist: Counter[str] = Counter()
+    by_class_source: dict[str, Counter[str]] = defaultdict(Counter)
     unmapped: set[str] = set()
 
     for record, sourcetype in records:
@@ -319,6 +426,7 @@ def coverage_report(
         if cls:
             per_st[sourcetype][1] += 1
             dist[cls] += 1
+            by_class_source[cls][sourcetype] += 1
         else:
             unmapped.add(sourcetype)
 
@@ -335,6 +443,21 @@ def coverage_report(
         }
         for st, v in sorted(per_st.items())
     }
+
+    class_concentration = {cls: round(count / total, 4) for cls, count in dist.items()}
+    source_concentration = {
+        cls: round(max(counter.values()) / sum(counter.values()), 4)
+        for cls, counter in by_class_source.items()
+    }
+    concentration_reasons: list[str] = []
+    for cls, share in sorted(class_concentration.items()):
+        if share > max_class_share:
+            concentration_reasons.append(f"class_concentration:{cls}={share}")
+    for cls, share in sorted(source_concentration.items()):
+        if share > max_source_share_of_class:
+            dominant = max(by_class_source[cls].items(), key=lambda kv: kv[1])[0]
+            concentration_reasons.append(f"source_concentration:{cls}<-{dominant}={share}")
+
     return CoverageReport(
         n_records=n,
         n_classified=n_cls,
@@ -344,4 +467,7 @@ def coverage_report(
         class_entropy_bits=entropy,
         degenerate=(entropy < min_entropy),
         unmapped_sourcetypes=tuple(sorted(st for st in unmapped if per_st[st][1] == 0)),
+        class_concentration=class_concentration,
+        source_concentration=source_concentration,
+        concentration_reasons=tuple(concentration_reasons),
     )
