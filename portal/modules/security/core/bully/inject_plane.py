@@ -388,9 +388,13 @@ def capture_records(
     # units_fitted/units_scored are unknown at capture time (T.2,
     # TASK_BULLY_REAL_TELEMETRY_V1 -- assess_bed now requires them): this is
     # a capture-only checkpoint, so 0/0 is honest, not a placeholder that
-    # hides a real number. The scale-floor reasons this produces
-    # ("scored_sample_too_small") are advisory and never flip `is_haystack`;
-    # the caller re-assesses with the real fitted/scored counts once known.
+    # hides a real number. As of A5 (TASK_BULLY_ADAPTIVE_REACH_V1),
+    # `scored_sample_too_small` DOES flip `is_haystack` to False here --
+    # correctly: a checkpoint with zero scored units is not standing on a
+    # haystack yet, whatever the corpus behind it contains (I.6 published
+    # `is_haystack: true` with 0 scored units). The caller re-assesses with
+    # the real fitted/scored counts once known, and `is_haystack` can only
+    # become True once a real scored population exists.
     bed = corpus_bed.assess_bed(
         records_available, records_read=len(captured), units_fitted=0, units_scored=0
     )

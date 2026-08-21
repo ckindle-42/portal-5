@@ -52,7 +52,15 @@ def test_capture_reads_from_all_four_indexes_when_bots_counts_present(monkeypatc
     seen_indexes = {r["__index"] for r in report.records}
     assert seen_indexes == set(corpus_bed.resolve_indexes())
     assert report.bed_report is not None
-    assert report.bed_report.is_haystack is True
+    # A5 (TASK_BULLY_ADAPTIVE_REACH_V1): this is a capture-only checkpoint
+    # with units_scored=0, so `scored_sample_too_small` now correctly forces
+    # is_haystack=False -- a checkpoint with no scored population is not yet
+    # standing on a haystack, however large the corpus behind it is. Lane A
+    # and volume are otherwise satisfied, which is what the other assertions
+    # here confirm.
+    assert report.bed_report.is_haystack is False
+    assert any(r.startswith("scored_sample_too_small") for r in report.bed_report.reasons)
+    assert "lane_A_absent" not in " ".join(report.bed_report.reasons)
 
 
 def test_bed_report_says_lane_a_absent_with_only_portal5_lab(monkeypatch) -> None:
