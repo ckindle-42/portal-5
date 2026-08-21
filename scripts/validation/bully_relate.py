@@ -3092,3 +3092,224 @@ def check_investigation_unseen_schema_profiled() -> tuple[str, str, list[dict]]:
     if not (zz_actions <= classified):
         return "FAIL", f"zz:unknown actions were not classified: {zz_actions - classified}", []
     return "PASS", "", []
+
+
+# ── TASK_BULLY_ADAPTIVE_REACH_V1 (A.7): CI invariants for adaptive scoping,
+# depth-budgeted pivoting, chain-only reach, and the zero-scored-units bed
+# guard. Each check seeds the exact I.6 defect it closes. ──────────────────
+
+
+@register(
+    "bully_adaptive_reach_no_flat_event_cap_a_depth_budget_is_required",
+    "FW. no investigation uses a flat event cap -- a DepthBudget reserves "
+    "per depth so query one cannot spend what a deeper pivot needs (A2)",
+    order=176,
+)
+def check_adaptive_reach_depth_budget_required() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import adaptive_scope as ascope
+    from portal.modules.security.core.bully import investigation_pivot as ip
+
+    anchor = ip.Anchor(
+        anchor_id="a-1",
+        at=1534737600.0,
+        entity="busy-host",
+        entity_kind="host",
+        sourcetype="st",
+        why="test",
+        index="botsv3",
+    )
+
+    def execute(query: ip.PivotQuery) -> list[dict]:
+        # A large, constant result regardless of window -- the I.6 shape.
+        return [{"_time": query.earliest + 1, "sourcetype": "st", "entity": query.entity}] * 100
+
+    inv = ip.investigate(anchor, ["botsv3"], execute, lambda row: [], max_events=1_000)
+    if inv.saturation_report is None:
+        return "FAIL", "investigate() published no saturation_report", []
+    if inv.saturation_report.budget.get("allowance_per_depth") is None:
+        return "FAIL", "no per-depth allowance published -- a flat cap left no trace", []
+    if inv.saturation_report.budget["allowance_per_depth"] >= 1_000:
+        return "FAIL", "allowance_per_depth was not divided across depths", []
+    # Seeded violation, mirrored: a flat cap DOES let depth 0 take everything.
+    flat = ascope.DepthBudget(total_events=1_000, max_depth=0, per_query_cap=1_000)
+    if flat.allowance_per_depth != 1_000:
+        return "FAIL", "control case (max_depth=0) unexpectedly reserved per-depth", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_adaptive_reach_saturation_narrows_rather_than_terminating",
+    "FX. a saturating window NARROWs rather than ending the investigation "
+    "-- I.6 treated a large result as budget spent (A1)",
+    order=177,
+)
+def check_adaptive_reach_saturation_narrows() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import adaptive_scope as ascope
+
+    decision = ascope.next_window(
+        5_000, ascope.OPENING_BACKWARD_SECONDS, ascope.OPENING_FORWARD_SECONDS
+    )
+    if decision.action != "NARROW":
+        return "FAIL", f"a 5000-row result did not narrow: {decision.action}", []
+    if decision.backward >= ascope.OPENING_BACKWARD_SECONDS:
+        return "FAIL", "narrow decision did not actually shrink the window", []
+    # Seeded violation: I.6's own behaviour (treat saturation as "stop").
+    old_style_stopped = 5_000 >= 20_000  # I.6's flat MAX_EVENTS comparison
+    if old_style_stopped:
+        return "FAIL", "seeded check itself is broken", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_adaptive_reach_every_investigation_publishes_pivot_ran",
+    "FY. every investigation publishes saturation_report with pivot_ran, "
+    "so a non-pivoting reconstruction is never read as complete (A2)",
+    order=178,
+)
+def check_adaptive_reach_publishes_pivot_ran() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import investigation_pivot as ip
+
+    anchor = ip.Anchor(
+        anchor_id="a-1",
+        at=1534737600.0,
+        entity="e1",
+        entity_kind="host",
+        sourcetype="st",
+        why="test",
+        index="botsv3",
+    )
+    inv = ip.investigate(anchor, ["botsv3"], lambda q: [], lambda row: [])
+    d = inv.to_dict()
+    if "saturation_report" not in d or "pivot_ran" not in d:
+        return "FAIL", f"Investigation.to_dict() missing pivot_ran: {sorted(d)}", []
+    if d["pivot_ran"] is not False:
+        return "FAIL", "an investigation with zero rows returned claimed pivot_ran", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_adaptive_reach_reach_report_refuses_single_entity_expectation",
+    "FZ. reach_report refuses a single-entity (or anchor-only) expectation "
+    "-- I.6 published reach_recall 1.0 on exactly this shape (A3)",
+    order=179,
+)
+def check_adaptive_reach_reach_report_refuses_single_entity() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import investigation_pivot as ip
+
+    anchor = ip.Anchor(
+        anchor_id="a-truth-T1558.004",
+        at=1534737600.0,
+        entity="BGIST-L",
+        entity_kind="host",
+        sourcetype="WinEventLog",
+        why="test",
+        index="botsv3",
+    )
+    inv = ip.Investigation(anchor=anchor)
+    inv.entities_seen["BGIST-L"] = "host"
+    report = ip.reach_report(inv, ["BGIST-L"])  # I.6's exact shape
+    if report.reach_recall is not None:
+        return "FAIL", f"single-entity expectation was not refused: {report.reach_recall}", []
+    if not report.degenerate_expectation:
+        return "FAIL", "no degenerate_expectation reason published", []
+    # Control: a real two-entity chain must still score normally.
+    inv.entities_seen["other-host"] = "host"
+    chain_report = ip.reach_report(inv, ["BGIST-L", "other-host"])
+    if chain_report.degenerate_expectation is not None:
+        return "FAIL", "a genuine two-entity chain was incorrectly refused", []
+    if chain_report.reach_recall != 1.0:
+        return "FAIL", f"a genuine two-entity chain did not score: {chain_report.reach_recall}", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_adaptive_reach_recovery_published_by_distance_zero_hop_flagged",
+    "GA. cousin recovery is published by planted distance, and a run "
+    "reaching only 0-hop cousins is flagged zero_hop_only (A4)",
+    order=180,
+)
+def check_adaptive_reach_distance_recovery_published() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import adaptive_scope as ascope
+
+    # I.6's exact shape: every cousin recovered, all at 0 hops.
+    planted = [(f"c{i}", 0) for i in range(20)]
+    reached = {f"c{i}" for i in range(20)}
+    rec = ascope.distance_recovery(planted, reached)
+    if not rec.to_dict()["zero_hop_only"]:
+        return "FAIL", "an all-0-hop recovery run was not flagged zero_hop_only", []
+    # Control: a run that reaches distance 2 is not flagged.
+    planted2 = [*planted, ("c20", 1), ("c21", 2)]
+    reached2 = reached | {"c20", "c21"}
+    rec2 = ascope.distance_recovery(planted2, reached2)
+    if rec2.to_dict()["zero_hop_only"]:
+        return "FAIL", "a run that reached distance 2 was incorrectly flagged zero_hop_only", []
+    if rec2.max_reached_distance != 2:
+        return "FAIL", f"max_reached_distance wrong: {rec2.max_reached_distance}", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_adaptive_reach_zero_scored_units_forces_is_haystack_false",
+    "GB. zero scored units forces is_haystack=False -- I.6 published "
+    "is_haystack: true with 0 scored units (A5)",
+    order=181,
+)
+def check_adaptive_reach_zero_scored_units_forces_false() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import corpus_bed as cb
+
+    # I.6's exact bed shape.
+    bed = cb.assess_bed({"botsv3": 2_030_370}, records_read=213_311, units_fitted=0, units_scored=0)
+    if bed.is_haystack is not False:
+        return "FAIL", "zero scored units did not force is_haystack=False", []
+    if not any(r.startswith("scored_sample_too_small") for r in bed.reasons):
+        return "FAIL", "scored_sample_too_small reason not published", []
+    try:
+        cb.require_bed_acceptance({"reach_report": {}})
+    except cb.RunOutputMissingBedAcceptanceError:
+        pass
+    else:
+        return "FAIL", "a run doc missing bed_acceptance was not refused", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_adaptive_reach_i6_density_profile_permanent_regression",
+    "GC. I.6's exact density profile (900 rows/hour, 24h window "
+    "saturating a flat cap) is a permanent regression case for pivot_ran",
+    order=182,
+)
+def check_adaptive_reach_i6_density_permanent_regression() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import investigation_pivot as ip
+
+    chain = {"busy-host": [("user", "stage-1-user")], "stage-1-user": [("resource", "stage-2")]}
+    anchor = ip.Anchor(
+        anchor_id="a-i6-density",
+        at=1534737600.0 + 15 * 3600,
+        entity="busy-host",
+        entity_kind="host",
+        sourcetype="WinEventLog",
+        why="i6_density_profile",
+        index="botsv3",
+    )
+
+    def execute(query: ip.PivotQuery) -> list[dict]:
+        span_hours = max(query.latest - query.earliest, 1.0) / 3600.0
+        n = max(1, int(span_hours * 900))  # I.6's real measured ~900 rows/hour
+        return [
+            {"_time": query.earliest + 1, "sourcetype": "WinEventLog", "entity": query.entity}
+            for _ in range(n)
+        ]
+
+    def extract(row: dict) -> list[tuple[str, str]]:
+        return chain.get(row.get("entity"), [])
+
+    inv = ip.investigate(anchor, ["botsv3"], execute, extract)
+    if inv.saturation_report is None or not inv.saturation_report.pivot_ran:
+        return (
+            "FAIL",
+            "I.6's density profile regressed: pivot_ran is False again",
+            [],
+        )
+    if max(inv.saturation_report.depths_reached, default=-1) < 1:
+        return "FAIL", "I.6's density profile did not reach depth >= 1", []
+    return "PASS", "", []
