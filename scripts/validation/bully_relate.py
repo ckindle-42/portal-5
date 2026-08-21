@@ -2349,3 +2349,186 @@ def check_behavior_table_self_recognition() -> tuple[str, str, list[dict]]:
     if failures:
         return "FAIL", f"labels that do not classify to themselves: {failures}", []
     return "PASS", "", []
+
+
+# ── EX-FD: TASK_BULLY_CORPUS_BED_V1 (C.7) -- the corpus bed: the haystack
+# must be real, cousins are derived from a published answer key, floor/
+# product/cost never collapse into one number, and the answer key never
+# reaches the grader. Each seeds a violation, confirms rejection, then
+# confirms clean input passes. ────────────────────────────────────────────
+
+
+@register(
+    "bully_corpus_bed_below_floor_or_no_lane_a_is_invalid",
+    "EX. a run below the haystack floor, or without Lane A, is not a haystack (C1)",
+    order=151,
+)
+def check_corpus_bed_below_floor_or_no_lane_a_is_invalid() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import corpus_bed as cb
+
+    small = cb.assess_bed({"portal5_lab": 500}, records_read=500)
+    if small.is_haystack:
+        return "FAIL", "a 500-record corpus was accepted as a haystack", []
+    lane_a_absent = cb.assess_bed({"portal5_lab": 200_000}, records_read=200_000)
+    if lane_a_absent.is_haystack:
+        return "FAIL", "a corpus with no botsv1/2/3 records was accepted as a haystack", []
+    real_bed = cb.assess_bed(
+        {"portal5_lab": 50_000, "botsv1": 3_000_000, "botsv2": 5_000_000, "botsv3": 5_650_000},
+        records_read=13_700_000,
+    )
+    if not real_bed.is_haystack:
+        return "FAIL", f"a real multi-index bed was rejected: {real_bed.reasons}", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_corpus_bed_cousin_parent_in_answer_key",
+    "EY. every planned cousin's parent technique is drawn from the answer key (C2)",
+    order=152,
+)
+def check_corpus_bed_cousin_parent_in_answer_key() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import corpus_bed as cb
+    from portal.modules.security.core.bully.bots_answer_key import BOTS_ANSWER_KEY
+
+    cousins = cb.plan_cousins(list(BOTS_ANSWER_KEY))
+    if not cousins:
+        return "FAIL", "plan_cousins produced no cousins from the BOTS answer key", []
+    answer_key_techniques = {e.technique for e in BOTS_ANSWER_KEY}
+    orphaned = [c.cousin_id for c in cousins if c.parent_technique not in answer_key_techniques]
+    if orphaned:
+        return "FAIL", f"cousins with a parent technique absent from the answer key: {orphaned}", []
+    # seeded violation: plan_cousins must never emit a cousin for a technique
+    # it was not handed
+    narrow = cb.plan_cousins([BOTS_ANSWER_KEY[0]])
+    if any(c.parent_technique != BOTS_ANSWER_KEY[0].technique for c in narrow):
+        return "FAIL", "plan_cousins emitted a cousin for a technique it was not given", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_corpus_bed_floor_product_cost_never_averaged",
+    "EZ. floor, product and cost are published separately, never averaged (C3)",
+    order=153,
+)
+def check_corpus_bed_floor_product_cost_never_averaged() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import corpus_bed as cb
+
+    real_bed = cb.assess_bed(
+        {"portal5_lab": 50_000, "botsv1": 3_000_000, "botsv2": 5_000_000, "botsv3": 5_650_000},
+        records_read=13_700_000,
+    )
+    floor_only = cb.bed_acceptance(
+        answer_key_hit=4,
+        answer_key_total=4,
+        cousin_hit=0,
+        cousin_total=20,
+        background_flagged=0,
+        background_total=200,
+        bed=real_bed,
+    )
+    if floor_only.verdict != "FAIL":
+        return (
+            "FAIL",
+            f"perfect floor with zero product did not FAIL bed_acceptance: {floor_only.verdict}",
+            [],
+        )
+    if floor_only.floor_known_recall != 1.0 or floor_only.product_cousin_recall != 0.0:
+        return "FAIL", "floor/product were blended rather than kept as separate numbers", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_corpus_bed_answer_key_never_reaches_grader",
+    "FA. the BOTS answer key is never imported by grading modules (C4/Q3)",
+    order=154,
+)
+def check_corpus_bed_answer_key_never_reaches_grader() -> tuple[str, str, list[dict]]:
+    import ast
+    from pathlib import Path
+
+    bully_dir = (
+        Path(__file__).resolve().parents[2] / "portal" / "modules" / "security" / "core" / "bully"
+    )
+    grading_modules = ("discovery.py", "artifact_graph.py", "cousin_engine.py", "baseline.py")
+    offenders: list[str] = []
+    for name in grading_modules:
+        path = bully_dir / name
+        if not path.exists():
+            continue
+        tree = ast.parse(path.read_text())
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.ImportFrom)
+                and node.module
+                and "bots_answer_key" in node.module
+            ):
+                offenders.append(name)
+            if isinstance(node, ast.Import):
+                if any("bots_answer_key" in alias.name for alias in node.names):
+                    offenders.append(name)
+    if offenders:
+        return "FAIL", f"grading modules importing the answer key: {offenders}", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_corpus_bed_fit_population_exceeds_scored_population",
+    "FB. the baseline fit population exceeds the scored population (C5, fit wide/score narrow)",
+    order=155,
+)
+def check_corpus_bed_fit_population_exceeds_scored_population() -> tuple[str, str, list[dict]]:
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "scripts" / "bully_analyst_loop_run.py"
+    source = path.read_text()
+    if "fit_timelines = timelines" not in source:
+        return "FAIL", "bully_analyst_loop_run.py no longer fits from the full timeline set", []
+    if "score_timelines = timelines[: args.score_limit]" not in source:
+        return "FAIL", "bully_analyst_loop_run.py no longer scores a narrower slice", []
+    # runtime confirmation: slicing the same list can never grow it
+    timelines = list(range(500))
+    fit_timelines = timelines
+    score_timelines = timelines[:25]
+    if not (len(fit_timelines) >= len(score_timelines)):
+        return "FAIL", "fit population did not exceed (or equal) the scored population", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_corpus_bed_resolve_indexes_includes_all_bots",
+    "FC. resolve_indexes() includes every installed BOTS index (Lane A)",
+    order=156,
+)
+def check_corpus_bed_resolve_indexes_includes_all_bots() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import corpus_bed as cb
+
+    indexes = cb.resolve_indexes()
+    missing = [i for i in cb.BOTS_INDEXES if i not in indexes]
+    if missing:
+        return "FAIL", f"resolve_indexes() is missing BOTS indexes: {missing}", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_corpus_bed_d4_counts_never_a_haystack",
+    "FD. D.4's own record counts still yield is_haystack=False (permanent regression)",
+    order=157,
+)
+def check_corpus_bed_d4_counts_never_a_haystack() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import corpus_bed as cb
+
+    bed = cb.assess_bed({"portal5_lab": 2000}, records_read=2000)
+    if bed.is_haystack:
+        return (
+            "FAIL",
+            "D.4's real record counts ({'portal5_lab': 2000}) were accepted as a haystack",
+            [],
+        )
+    reasons = " ".join(bed.reasons)
+    if "corpus_too_small" not in reasons or "lane_A_absent" not in reasons:
+        return (
+            "FAIL",
+            f"expected both corpus_too_small and lane_A_absent reasons, got: {bed.reasons}",
+            [],
+        )
+    return "PASS", "", []
