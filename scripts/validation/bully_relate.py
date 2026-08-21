@@ -2076,3 +2076,276 @@ def check_truth_json_raw_parsed_not_dropped() -> tuple[str, str, list[dict]]:
     if kv_parsed.get("EventCode") != "4624":
         return "FAIL", "real key=value _raw text regressed", []
     return "PASS", "", []
+
+
+# ── D-CI: TASK_BULLY_DISCOVERY_FIRST_V1 invariants ─────────────────────────
+
+
+def _majority_and_attack_units() -> tuple[list, list]:
+    """A baseline fit ONLY on a routine majority shape, plus a small attack
+    shape sharing every structural boilerplate token (edge mix, span, size,
+    entity role) but none of its behavioural bigrams -- the fixture several
+    D-CI checks below share."""
+    from portal.modules.security.core.bully.artifact_graph import GradeableUnit
+
+    def _unit(unit_id: str, entity: str, classes: tuple[str, ...]) -> GradeableUnit:
+        n = len(classes)
+        return GradeableUnit(
+            unit_id=unit_id,
+            level="L4_WINDOW",
+            artifact_ids=tuple(f"{unit_id}-a{i}" for i in range(n)),
+            entities=(entity,),
+            action_classes=classes,
+            edge_kinds=("shared_entity", "temporal_adjacency"),
+            span_seconds=200.0,
+            structural_signature={
+                "class_sequence": list(classes),
+                "entity_role_profile": {"actor": 1},
+            },
+            vocabulary=(),
+            source_ids=(f"src-{unit_id}",),
+        )
+
+    majority = [
+        _unit(f"maj-{i}", f"benign-{i}", ("enumerate", "collect", "enumerate", "collect"))
+        for i in range(100)
+    ]
+    attack = [
+        _unit(f"atk-{i}", f"attacker-{i}", ("auth", "escalate", "execute", "collect"))
+        for i in range(3)
+    ]
+    return majority, attack
+
+
+@register(
+    "bully_discovery_no_anchor_library_param",
+    "EP. discover() accepts no anchor library (D2, signature check)",
+    order=143,
+)
+def check_discovery_no_anchor_library_param() -> tuple[str, str, list[dict]]:
+    import inspect
+
+    from portal.modules.security.core.bully import discovery as disc
+
+    bad = [
+        n
+        for n in inspect.signature(disc.discover).parameters
+        if "library" in n.lower() or "anchor" in n.lower()
+    ]
+    if bad:
+        return "FAIL", f"discover() accepts a library/anchor parameter: {bad}", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_discovery_library_never_sole_trigger",
+    "EQ. no code path makes surfacing conditional on a catalogue match alone (D1)",
+    order=144,
+)
+def check_library_never_sole_trigger() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import anchors as anc
+    from portal.modules.security.core.bully import baseline as bl
+    from portal.modules.security.core.bully.unit_outcome import resolve_unit_outcome
+
+    library = anc.AnchorLibrary()
+    library.load_attack_episode(
+        source_id="attack_data",
+        record={"action_sequence": ["AssumeRole", "ListBuckets"]},
+        techniques=("T1078",),
+    )
+    unit = _unit_from_verbs(["AssumeRole", "ListBuckets"], "attacker")
+    # An empty (never-fitted) baseline: the unit cannot be remarkable, so an
+    # EXACT library match here must resolve NORMAL, not UNKNOWN_SAME/COUSIN.
+    outcome = resolve_unit_outcome(
+        unit, list(library.all()), bl.NormalBaseline(environment_id="ci")
+    )
+    if outcome.outcome != "NORMAL":
+        return (
+            "FAIL",
+            f"a library match alone (unremarkable unit) surfaced as {outcome.outcome}, "
+            "expected NORMAL -- the library triggered a concern by itself",
+            [],
+        )
+    return "PASS", "", []
+
+
+@register(
+    "bully_discovery_resembles_nothing_still_surfaced",
+    "ER. a discovery with resembles_nothing is still surfaced, never a miss (D4)",
+    order=145,
+)
+def check_resembles_nothing_still_surfaced() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import baseline as bl
+    from portal.modules.security.core.bully import discovery as disc
+
+    majority, attack = _majority_and_attack_units()
+    model = bl.NormalBaseline(environment_id="ci")
+    model.fit(majority)
+    discoveries, _report = disc.discover(attack, model)
+    if len(discoveries) != len(attack):
+        return (
+            "FAIL",
+            f"expected all {len(attack)} attack units discovered, got {len(discoveries)}",
+            [],
+        )
+    clusters = disc.find_cousin_clusters(discoveries)
+    if not clusters:
+        return "FAIL", "attack units did not cluster into cousins of each other", []
+    cluster = clusters[0]
+    enrichment = disc.enrich(cluster.shared_shape, library_shapes=[])
+    if not enrichment.resembles_nothing:
+        return "FAIL", "empty library did not report resembles_nothing", []
+    if cluster.n_distinct_entities < 2:
+        return "FAIL", "the cluster finding did not stand (retracted) after resembles_nothing", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_discovery_cousin_clusters_library_free",
+    "ES. cousin clusters are computed without the library (D3, signature check)",
+    order=146,
+)
+def check_cousin_clusters_library_free() -> tuple[str, str, list[dict]]:
+    import inspect
+
+    from portal.modules.security.core.bully import discovery as disc
+
+    bad = [
+        n
+        for n in inspect.signature(disc.find_cousin_clusters).parameters
+        if "library" in n.lower() or "anchor" in n.lower()
+    ]
+    if bad:
+        return "FAIL", f"find_cousin_clusters() accepts a library/anchor parameter: {bad}", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_discovery_ranked_by_rarity_not_cluster_size",
+    "ET. cousin-cluster ranking is by remarkability, not cluster size (D5)",
+    order=147,
+)
+def check_ranked_by_rarity_not_cluster_size() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import baseline as bl
+    from portal.modules.security.core.bully import discovery as disc
+    from portal.modules.security.core.bully.artifact_graph import GradeableUnit
+
+    def _unit(unit_id: str, entity: str, classes: tuple[str, ...]) -> GradeableUnit:
+        n = len(classes)
+        return GradeableUnit(
+            unit_id=unit_id,
+            level="L4_WINDOW",
+            artifact_ids=tuple(f"{unit_id}-a{i}" for i in range(n)),
+            entities=(entity,),
+            action_classes=classes,
+            edge_kinds=("shared_entity", "temporal_adjacency"),
+            span_seconds=200.0,
+            structural_signature={
+                "class_sequence": list(classes),
+                "entity_role_profile": {"actor": 1},
+            },
+            vocabulary=(),
+            source_ids=(f"src-{unit_id}",),
+        )
+
+    majority = [
+        _unit(f"maj-{i}", f"benign-{i}", ("enumerate", "collect", "enumerate", "collect"))
+        for i in range(100)
+    ]
+    minority = [
+        _unit(f"min-{i}", f"minor-{i}", ("auth", "enumerate", "auth", "enumerate"))
+        for i in range(23)
+    ]
+    attack = [
+        _unit(f"atk-{i}", f"attacker-{i}", ("auth", "escalate", "execute", "collect"))
+        for i in range(3)
+    ]
+    model = bl.NormalBaseline(environment_id="ci")
+    model.fit(majority)
+    discoveries, _report = disc.discover(minority + attack, model)
+    clusters = disc.find_cousin_clusters(discoveries)
+    if len(clusters) != 2:
+        return "FAIL", f"expected 2 clusters (minority, attack), got {len(clusters)}", []
+    by_size = max(clusters, key=lambda c: len(c.members))
+    by_rarity = sorted(clusters, key=lambda c: c.mean_remarkability, reverse=True)[0]
+    if len(by_size.members) != 23:
+        return "FAIL", "fixture assumption broke: minority cluster is no longer the larger one", []
+    if by_rarity is by_size:
+        return (
+            "FAIL",
+            "the larger, less-rare cluster ranked first by remarkability -- D5 violated",
+            [],
+        )
+    return "PASS", "", []
+
+
+@register(
+    "bully_discovery_degeneracy_gate",
+    "EU. >90% of units in one outcome bucket FAILS the run (D.4)",
+    order=148,
+)
+def check_degeneracy_gate() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import truth_acceptance as ta
+
+    degenerate_rows = [{"relationship": "SAME"} for _ in range(95)] + [
+        {"relationship": "DIFFERENT"} for _ in range(5)
+    ]
+    result = ta.degeneracy_check(degenerate_rows)
+    if result.verdict != "FAIL":
+        return (
+            "FAIL",
+            f"95/100 rows in one bucket did not FAIL degeneracy_check: {result.verdict}",
+            [],
+        )
+    healthy_rows = [{"relationship": "SAME"} for _ in range(40)] + [
+        {"relationship": "DIFFERENT"} for _ in range(60)
+    ]
+    healthy = ta.degeneracy_check(healthy_rows)
+    if healthy.verdict != "PASS":
+        return "FAIL", f"a 40/60 split unexpectedly FAILed degeneracy_check: {healthy.verdict}", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_discovery_tail_remarkability_beats_mean",
+    "EV. tail_remarkability beats mean remarkability on the seeded attack case (D.1)",
+    order=149,
+)
+def check_tail_remarkability_beats_mean() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import baseline as bl
+    from portal.modules.security.core.bully import discovery as disc
+
+    majority, attack = _majority_and_attack_units()
+    model = bl.NormalBaseline(environment_id="ci")
+    model.fit(majority)
+    for unit in attack:
+        mean = model.remarkability(unit)
+        tail = disc.tail_remarkability(unit, model)
+        if not (tail > mean):
+            return (
+                "FAIL",
+                f"tail_remarkability ({tail}) did not beat mean remarkability ({mean})",
+                [],
+            )
+        if not (mean < disc.DISCOVERY_MIN_REMARKABILITY <= tail):
+            return (
+                "FAIL",
+                f"expected mean<{disc.DISCOVERY_MIN_REMARKABILITY}<=tail, got mean={mean} tail={tail}",
+                [],
+            )
+    return "PASS", "", []
+
+
+@register(
+    "bully_discovery_behavior_table_self_recognition",
+    "EW. every behaviour-table label classifies to itself",
+    order=150,
+)
+def check_behavior_table_self_recognition() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import pyramid as p
+
+    labels = ("auth", "enumerate", "execute", "destroy", "escalate", "collect", "c2_exfil")
+    failures = [label for label in labels if p.classify_behavior(label) != label]
+    if failures:
+        return "FAIL", f"labels that do not classify to themselves: {failures}", []
+    return "PASS", "", []
