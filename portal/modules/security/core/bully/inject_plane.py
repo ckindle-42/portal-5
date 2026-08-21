@@ -240,14 +240,22 @@ class CaptureReport:
 
 
 def _index_count(connector: Any, index: str) -> int:
-    """Cheap `| stats count` probe for one index -- used only to populate
-    `corpus_bed.assess_bed`'s `records_available`, never to load records."""
+    """Cheap probe for one index's total event count -- used only to populate
+    `corpus_bed.assess_bed`'s `records_available`, never to load records.
+
+    `| eventcount summarize=false index=<index>` reads Splunk's own bucket
+    metadata (a report command) rather than scanning events like
+    `| stats count` (a full search over every event in the index). On a
+    261M+ event corpus running on modest lab hardware (4 vCPU / 4GB LXC),
+    `stats count` took minutes per index and made every bed assessment and
+    every capture re-pay that cost; `eventcount` answers all four lane
+    indexes in low single-digit seconds, verified live against this corpus."""
     from .connectors import QueryIntent
 
     result = connector.read(
         QueryIntent(
             "count telemetry for bed assessment",
-            seed={"spl": f"search index={index} | stats count"},
+            seed={"spl": f"| eventcount summarize=false index={index}"},
             limit=1,
         )
     )

@@ -27,7 +27,7 @@ def _fake_connector_factory(counts: dict[str, int], rows_per_index: dict[str, li
 
             def read(self, intent):
                 spl = intent.seed.get("spl", "")
-                if "stats count" in spl:
+                if "eventcount" in spl:
                     records = ({"fields": {"count": counts.get(index, 0)}},)
                 else:
                     records = tuple(rows_per_index.get(index, []))
