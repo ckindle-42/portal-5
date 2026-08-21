@@ -51,22 +51,37 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
+from . import adaptive_scope as ascope
+
 ALGORITHM_VERSION = "investigation-pivot-v1"
 
 # Asymmetric by design: an investigation reaches much further backward (toward
 # delivery and initial access) than forward (toward consequences already
-# visible). Defaults are tuned for a BOTS-shaped single-day scenario; a real
-# environment with 14-day median dwell needs a far longer backward reach, and
-# that is a per-corpus setting, not a constant.
-BACKWARD_SECONDS = 24 * 3600
-FORWARD_SECONDS = 1 * 3600
+# visible). These are OPENING windows, not the actual reach: `investigate()`
+# re-scopes every query against what it actually returned (`adaptive_scope.
+# next_window`) rather than trusting a window fixed in advance -- I.6's flat
+# `BACKWARD_SECONDS = 24 * 3600` saturated on query one against a busy real
+# entity and the recursive pivot never ran (`pivots: 0` on all five live
+# investigations). A real environment with 14-day median dwell needs a far
+# longer eventual reach than BOTS's single-day scenarios tolerate; that upper
+# bound is `adaptive_scope.MAX_BACKWARD_SECONDS`, a per-corpus setting.
+BACKWARD_SECONDS = ascope.OPENING_BACKWARD_SECONDS
+FORWARD_SECONDS = ascope.OPENING_FORWARD_SECONDS
 
 # An investigation is bounded work. These caps are what make it an
 # investigation rather than a scan, and they are published with every result
 # so a truncated reconstruction is never mistaken for a complete one.
+#
+# `MAX_EVENTS` is no longer spent by a single query: I.6 sized it against a
+# probe where a query returned a handful of rows, and on a real index one
+# bounded, entity-scoped query returned more than the whole budget -- so
+# query one consumed it and depths 1-3 never ran. It is now a TOTAL pool that
+# `adaptive_scope.DepthBudget` reserves PER DEPTH (A2), so no single query,
+# however large its own result, can spend what a deeper pivot needs.
 MAX_PIVOT_DEPTH = 3
 MAX_QUERIES = 40
 MAX_EVENTS = 20_000
+PER_QUERY_CAP = 500
 
 # Entity kinds worth pivoting on, in the order a defender reaches for them.
 PIVOTABLE_KINDS: tuple[str, ...] = ("user", "host", "ip", "process", "hash", "resource")
@@ -185,6 +200,7 @@ class Investigation:
     entities_seen: dict[str, str] = field(default_factory=dict)  # value -> kind
     pivots: list[dict[str, Any]] = field(default_factory=list)
     truncated_reasons: list[str] = field(default_factory=list)
+    saturation_report: ascope.SaturationReport | None = None
 
     @property
     def sourcetypes(self) -> tuple[str, ...]:
@@ -207,10 +223,14 @@ class Investigation:
             "pivots": self.pivots,
             "truncated_reasons": self.truncated_reasons,
             "queries": [q.to_dict() for q in self.queries],
+            "saturation_report": (
+                self.saturation_report.to_dict() if self.saturation_report else None
+            ),
+            "pivot_ran": self.saturation_report.pivot_ran if self.saturation_report else False,
         }
 
 
-def investigate(  # noqa: PLR0912, C901
+def investigate(  # noqa: PLR0912, C901, PLR0915
     anchor: Anchor,
     indexes: list[str],
     execute: Callable[[PivotQuery], list[dict[str, Any]]],
@@ -221,11 +241,23 @@ def investigate(  # noqa: PLR0912, C901
     max_depth: int = MAX_PIVOT_DEPTH,
     max_queries: int = MAX_QUERIES,
     max_events: int = MAX_EVENTS,
+    per_query_cap: int = PER_QUERY_CAP,
+    max_rescopes: int = ascope.MAX_RESCOPES,
     corpus_earliest: float | None = None,
     corpus_latest: float | None = None,
 ) -> Investigation:
-    """Reconstruct an incident from an anchor by recursive, bounded,
-    time-scoped entity pivoting.
+    """Reconstruct an incident from an anchor by recursive, entity-scoped
+    pivoting whose SCOPE responds to what each query actually returns.
+
+    Every query opens at `backward`/`forward` (an OPENING window, not the
+    eventual reach) and is re-scoped via `adaptive_scope.next_window` until
+    its result lands in a readable band or the rescope budget is spent: a
+    saturating result NARROWs, a sparse one WIDENs. `max_events` is a TOTAL
+    pool that `adaptive_scope.DepthBudget` reserves PER DEPTH, so one query
+    -- however large its own result -- can never spend what a deeper pivot
+    needs. This is the direct fix for I.6: a flat `MAX_EVENTS` let query one
+    consume the whole budget against a busy real entity, and the recursive
+    pivot (`pivots: 0` on all five live investigations) never ran.
 
     Every query is clamped to the corpus's own time range when one is given,
     so an investigation cannot wander outside the data it is meant to explain
@@ -235,60 +267,103 @@ def investigate(  # noqa: PLR0912, C901
     inv = Investigation(anchor=anchor)
     inv.entities_seen[anchor.entity] = anchor.entity_kind
 
+    depth_budget = ascope.DepthBudget(
+        total_events=max_events, max_depth=max_depth, per_query_cap=per_query_cap
+    )
+
     frontier: list[PivotQuery] = plan_initial_queries(
         anchor, indexes, backward=backward, forward=forward
     )
     seen_scopes: set[tuple[str, str, int, int]] = set()
     qn = 0
+    queries_issued = 0
+    total_rescopes = 0
+    narrowed = 0
+    widened = 0
+    saturated_queries = 0
+    starved_queries = 0
+    depths_reached: set[int] = set()
+    query_budget_exhausted = False
 
-    while frontier:
+    while frontier and not query_budget_exhausted:
         query = frontier.pop(0)
 
-        if len(inv.queries) >= max_queries:
-            inv.truncated_reasons.append(f"max_queries:{max_queries}")
+        cur_backward, cur_forward = backward, forward
+        rescopes_used = 0
+        accepted_rows: list[dict[str, Any]] | None = None
+        final_query = query
+
+        while True:
+            if queries_issued >= max_queries:
+                inv.truncated_reasons.append(f"max_queries:{max_queries}")
+                query_budget_exhausted = True
+                break
+
+            earliest = anchor.at - cur_backward
+            latest = anchor.at + cur_forward
+            if corpus_earliest is not None:
+                earliest = max(earliest, corpus_earliest)
+            if corpus_latest is not None:
+                latest = min(latest, corpus_latest)
+            final_query = PivotQuery(
+                query_id=query.query_id,
+                index=query.index,
+                entity=query.entity,
+                entity_kind=query.entity_kind,
+                earliest=earliest,
+                latest=latest,
+                depth=query.depth,
+                parent_query_id=query.parent_query_id,
+                reason=query.reason,
+            )
+            if latest <= earliest:
+                accepted_rows = []
+                break
+
+            scope = (final_query.index, final_query.entity, int(earliest), int(latest))
+            if scope in seen_scopes:
+                accepted_rows = []
+                break
+            seen_scopes.add(scope)
+
+            rows = execute(final_query)
+            queries_issued += 1
+            decision = ascope.next_window(
+                len(rows),
+                cur_backward,
+                cur_forward,
+                rescopes_used=rescopes_used,
+                max_rescopes=max_rescopes,
+            )
+            if decision.action in ("NARROW", "WIDEN"):
+                total_rescopes += 1
+                rescopes_used += 1
+                narrowed += decision.action == "NARROW"
+                widened += decision.action == "WIDEN"
+                cur_backward, cur_forward = decision.backward, decision.forward
+                continue
+
+            accepted_rows = rows
             break
-        if len(inv.events) >= max_events:
-            inv.truncated_reasons.append(f"max_events:{max_events}")
+
+        if query_budget_exhausted:
             break
 
-        earliest, latest = query.earliest, query.latest
-        if corpus_earliest is not None:
-            earliest = max(earliest, corpus_earliest)
-        if corpus_latest is not None:
-            latest = min(latest, corpus_latest)
-        if latest <= earliest:
-            continue
-        query = PivotQuery(
-            query_id=query.query_id,
-            index=query.index,
-            entity=query.entity,
-            entity_kind=query.entity_kind,
-            earliest=earliest,
-            latest=latest,
-            depth=query.depth,
-            parent_query_id=query.parent_query_id,
-            reason=query.reason,
-        )
+        depths_reached.add(final_query.depth)
+        inv.queries.append(final_query)
 
-        scope = (query.index, query.entity, int(earliest), int(latest))
-        if scope in seen_scopes:
-            continue
-        seen_scopes.add(scope)
-
-        rows = execute(query)
-        inv.queries.append(query)
-        # A single query's own result can exceed the remaining event budget
-        # in one call (a live run against botsv3 hit this: one bounded,
-        # entity-scoped query returned 26k+ rows in one round trip) -- the
-        # cap has to trim the batch itself, not just stop issuing queries,
-        # or `max_events` is not actually a bound on events read.
-        remaining = max_events - len(inv.events)
-        if len(rows) > remaining:
-            rows = rows[:remaining]
+        rows = accepted_rows or []
+        allowance = depth_budget.may_spend(final_query.depth)
+        if len(rows) > allowance:
+            saturated_queries += 1
+            rows = rows[:allowance]
             inv.truncated_reasons.append(f"max_events:{max_events}")
+        elif not rows and accepted_rows is not None and allowance == 0:
+            starved_queries += 1
+        depth_budget.record(final_query.depth, len(rows))
         inv.events.extend(rows)
 
-        if query.depth >= max_depth:
+        if final_query.depth >= max_depth:
             continue
 
         # Recursive pivot: entities discovered in these results become the
@@ -307,27 +382,38 @@ def investigate(  # noqa: PLR0912, C901
             qn += 1
             inv.pivots.append(
                 {
-                    "from_entity": query.entity,
+                    "from_entity": final_query.entity,
                     "to_entity": value,
                     "to_kind": kind,
-                    "depth": query.depth + 1,
-                    "via_query": query.query_id,
+                    "depth": final_query.depth + 1,
+                    "via_query": final_query.query_id,
                 }
             )
             for index in indexes:
                 frontier.append(
                     PivotQuery(
-                        query_id=f"q{query.depth + 1}-{qn}-{index}",
+                        query_id=f"q{final_query.depth + 1}-{qn}-{index}",
                         index=index,
                         entity=value,
                         entity_kind=kind,
-                        earliest=query.earliest,
-                        latest=query.latest,
-                        depth=query.depth + 1,
-                        parent_query_id=query.query_id,
-                        reason=f"pivot_from:{query.entity}",
+                        earliest=anchor.at - backward,
+                        latest=anchor.at + forward,
+                        depth=final_query.depth + 1,
+                        parent_query_id=final_query.query_id,
+                        reason=f"pivot_from:{final_query.entity}",
                     )
                 )
+
+    inv.saturation_report = ascope.SaturationReport(
+        queries_issued=queries_issued,
+        rescopes=total_rescopes,
+        narrowed=narrowed,
+        widened=widened,
+        depths_reached=tuple(sorted(depths_reached)),
+        budget=depth_budget.to_dict(),
+        saturated_queries=saturated_queries,
+        starved_queries=starved_queries,
+    )
     return inv
 
 
