@@ -244,12 +244,28 @@ def _raw_kv_fields(record: dict[str, Any]) -> dict[str, str]:
     `search index=botsv3 "BSTOLL-L"` returns none of `EventCode`/
     `ComputerName`/..., but adding `EventCode=4689` as a search term makes
     Splunk return it) -- so a capture that doesn't already know which field
-    it wants sees none of them. The Windows EventLog/auditd wire format is
-    line-oriented `key=value`, so parse `_raw` directly rather than depend
-    on which fields happened to be referenced upstream."""
+    it wants sees none of them. Two real wire shapes need parsing directly
+    from `_raw` rather than depending on which fields happened to be
+    referenced upstream:
+
+      * Windows EventLog/auditd -- line-oriented `key=value`.
+      * A JSON-bodied event (e.g. an injected cousin) shipped under a
+        sourcetype whose OWN extraction rules expect a different wire
+        format (`wineventlog:security`'s classic-text rules, not JSON) --
+        live-verified: HEC's automatic JSON field extraction is skipped
+        entirely in that case, leaving the JSON only in `_raw` text.
+    """
     raw = record.get("_raw")
     if not isinstance(raw, str):
         return {}
+    stripped = raw.strip()
+    if stripped.startswith("{"):
+        try:
+            parsed = json.loads(stripped)
+        except (json.JSONDecodeError, TypeError):
+            parsed = None
+        if isinstance(parsed, dict):
+            return {k: str(v) for k, v in parsed.items() if not isinstance(v, (dict, list))}
     out: dict[str, str] = {}
     for line in raw.splitlines():
         if "=" not in line:

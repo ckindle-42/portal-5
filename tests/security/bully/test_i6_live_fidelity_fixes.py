@@ -55,3 +55,14 @@ def test_dig_prefers_already_present_field_over_raw_parsing():
 def test_classify_record_reads_real_windows_security_event_from_raw_only():
     record = {"_raw": "08/20/2018 03:17:58 AM\nLogName=Security\nEventCode=4689\n"}
     assert tb.classify_record(record, "WinEventLog") == "execute"
+
+
+def test_dig_parses_json_raw_when_sourcetype_extraction_is_skipped():
+    """Live-verified (I.6): an injected cousin's JSON body shipped under a
+    real sourcetype whose OWN extraction rules expect a different wire
+    format (wineventlog:security's classic-text rules) never gets HEC's
+    automatic JSON field extraction -- the JSON sits in _raw untouched."""
+    record = {
+        "_raw": '{"action": "privilege_state_change", "cousin_id": "cz-T1558.004-REVOCABULARY-00"}'
+    }
+    assert tb._dig(record, "cousin_id") == "cz-T1558.004-REVOCABULARY-00"
