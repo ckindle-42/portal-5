@@ -1,5 +1,7 @@
 # BULLY_INVESTIGATION_RUN_I6_V1.md
 
+
+> **Errata (2026-08-21, `TASK_BULLY_FULL_ASSEMBLY_V1` F.0):** this run exercised 5/16 of the bully modules over 213,311 records (0.076% of the 281,069,416-record corpus) and is a partial assembly at proxy scale (see `docs/DESIGN_BULLY_FULL_ASSEMBLY_V1.md`); its findings describe that subset, not the system.
 Live run of the anchor-pivot investigation engine (I.1-I.5) against real
 BOTS data. Raw output: `BULLY_INVESTIGATION_RUN_I6_V1.json`, produced by
 `scripts/bully_investigation_run_i6.py`.

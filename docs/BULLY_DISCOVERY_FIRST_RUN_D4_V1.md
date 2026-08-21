@@ -1,5 +1,7 @@
 # BULLY_DISCOVERY_FIRST_RUN_D4_V1
 
+
+> **Errata (2026-08-21, `TASK_BULLY_FULL_ASSEMBLY_V1` F.0):** this run exercised 7/16 of the bully modules over 2,000 records (0.0007% of the 281,069,416-record corpus) and is a partial assembly at proxy scale (see `docs/DESIGN_BULLY_FULL_ASSEMBLY_V1.md`); its findings describe that subset, not the system.
 > **Errata (2026-08-21, `TASK_BULLY_CORPUS_BED_V1` C.0):** this run was live
 > in transport and synthetic in content. `inject_plane.capture_records`
 > hardcoded `index=portal5_lab` at a 2,000-row cap, so it read back only the

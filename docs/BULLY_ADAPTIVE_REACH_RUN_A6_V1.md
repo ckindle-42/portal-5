@@ -1,5 +1,7 @@
 # BULLY_ADAPTIVE_REACH_RUN_A6_V1.md
 
+
+> **Errata (2026-08-21, `TASK_BULLY_FULL_ASSEMBLY_V1` F.0):** this run exercised 7/16 of the bully modules over 67,545 records (0.024% of the 281,069,416-record corpus) and is a partial assembly at proxy scale (see `docs/DESIGN_BULLY_FULL_ASSEMBLY_V1.md`); its findings describe that subset, not the system.
 Live run of the adaptive-scoping investigation engine (A1-A5) across all
 three BOTS indexes. Raw output: `BULLY_ADAPTIVE_REACH_RUN_A6_V1.json`,
 produced by `scripts/bully_investigation_run_a6.py`. Direct comparison

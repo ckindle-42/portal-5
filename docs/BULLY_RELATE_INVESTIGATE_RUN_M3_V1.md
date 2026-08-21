@@ -1,5 +1,7 @@
 # TASK_BULLY_RELATE_AND_INVESTIGATE_V1 — M.3 run and record
 
+
+> **Errata (2026-08-21, `TASK_BULLY_FULL_ASSEMBLY_V1` F.0):** this run exercised 0/16 of the bully modules over 32 records (well under 0.001% of the 281,069,416-record corpus) and is a partial assembly at proxy scale (see `docs/DESIGN_BULLY_FULL_ASSEMBLY_V1.md`); its findings describe that subset, not the system.
 > **Errata (2026-08-20, `TASK_BULLY_SCOREBOARD_CONFORMANCE_V1`).** This run's
 > headline is not a module contract, and its correctness axis
 > (`trust_mean_rank`, `false_flag_count` from `scoreboard.update()`) was never
