@@ -2,6 +2,31 @@
 
 Generated 2026-08-21T10:58:11Z -- plane **live** -- duration 198.5s
 
+## ERRATA (T.0, `TASK_BULLY_REAL_TELEMETRY_V1`, 2026-08-21)
+
+**The bed was real and the classifier could not read it.** Every cousin
+cluster's `shared_shape` below (`{'unknown': N, 'other': N}`) describes
+*unclassified* records, not a genuine absence of structure --
+`artifact_graph.DeterministicActionClassifier`, the classifier this run
+actually exercised, is a substring table over verb text, and real BOTS
+telemetry carries no verb (a Windows logon is EventCode `4624`, not the
+word "logon"). `floor_known_recall: 0.0` means every shape-based figure in
+this run -- `discovery_rate`, the degeneracy verdict, every `shared_shape`
+below -- describes unclassified records, not a genuine absence of
+detectable structure. This run's `is_haystack: true` was also produced by a
+guard that short-circuited on `records_read: 0` (falsy in Python, so the
+partial-read check below it never ran) -- a permanent regression test now
+pins this exact defect (`corpus_bed.assess_bed`).
+
+Credit what stands: the corpus binding (281,069,416 real records across
+`botsv1`/`botsv2`/`botsv3`/`portal5_lab`), real cross-source entity
+resolution (`entities_per_record 0.299`, 1,363 cross-source entities,
+22.8% -- a number the synthetic universe was structurally incapable of
+producing), and `SCATTER` cousin recall (4/4, 1.0, entity/remarkability-
+driven and independent of the classifier defect). See
+`docs/DESIGN_BULLY_REAL_TELEMETRY_V1.md` for the full design note and
+`docs/BULLY_REAL_TELEMETRY_RUN_T3_V1.md` for the floor-recovery diagnostic.
+
 ## Bed report (is this a real haystack?) -- published FIRST
 
 ```json
