@@ -238,6 +238,29 @@ _FIELD_EVENTCODE = ("EventCode", "EventID", "event_id", "eventcode", "signature_
 _FIELD_AUDIT_TYPE = ("type", "record_type")
 
 
+def _raw_kv_fields(record: dict[str, Any]) -> dict[str, str]:
+    """This lab's Splunk only surfaces a field in captured JSON when the
+    search itself referenced it (live-verified against botsv3: a plain
+    `search index=botsv3 "BSTOLL-L"` returns none of `EventCode`/
+    `ComputerName`/..., but adding `EventCode=4689` as a search term makes
+    Splunk return it) -- so a capture that doesn't already know which field
+    it wants sees none of them. The Windows EventLog/auditd wire format is
+    line-oriented `key=value`, so parse `_raw` directly rather than depend
+    on which fields happened to be referenced upstream."""
+    raw = record.get("_raw")
+    if not isinstance(raw, str):
+        return {}
+    out: dict[str, str] = {}
+    for line in raw.splitlines():
+        if "=" not in line:
+            continue
+        key, _, value = line.strip().partition("=")
+        key = key.strip()
+        if key and key.isidentifier():
+            out.setdefault(key, value.strip())
+    return out
+
+
 def _dig(record: dict[str, Any], *names: str) -> str | None:
     for n in names:
         v = record.get(n)
@@ -254,6 +277,11 @@ def _dig(record: dict[str, Any], *names: str) -> str | None:
                 break
         if ok and cur not in (None, "", {}):
             return str(cur).strip()
+    raw_fields = _raw_kv_fields(record)
+    for n in names:
+        v = raw_fields.get(n)
+        if v not in (None, ""):
+            return v
     return None
 
 
