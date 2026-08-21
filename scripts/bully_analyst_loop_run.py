@@ -71,6 +71,7 @@ import bully_loop_milestone_run as r6  # noqa: E402 -- reuse, never re-derive
 from portal.modules.security.core.bully import (  # noqa: E402
     analyst_loop,
     compounding,
+    corpus_bed,
     correlation,
     universe,
 )
@@ -331,34 +332,17 @@ def _build_assessment(
     )
 
 
-def _grade_cycle(
+def _build_units(
     timelines: list[correlation.EntityTimeline],
     by_artifact_index: dict[str, Any],
     classifier: Any,
-    anchor_library: AnchorLibrary,
-    store: Store,
-    hunt_id: str,
-    cycle: int,
-    identity_to_class: dict[str, str],
-    notify_counter: list[int],
-) -> tuple[list[dict[str, Any]], list[analyst_loop.Concern], dict[str, Any], dict[str, Any]]:
-    """One cycle, discovery-first (D.3, TASK_BULLY_DISCOVERY_FIRST_V1): build
-    one `GradeableUnit` per timeline, fit a `NormalBaseline` from THIS
-    cycle's own units (never the library, D2), `discover()` remarkable +
-    coherent units and `find_cousin_clusters()` them (cousins among
-    OBSERVATIONS, D3), then raise ONE concern per cluster -- an analyst
-    reviews a pattern, not N copies of it -- gated ONLY by `compounding.
-    should_escalate_shape` (X1/D1). The library only enriches
-    (`discovery.enrich()`) after a cluster is found; `resembles_nothing`
-    never retracts it (D4). Returns one row PER TIMELINE (so selection/
-    poisoning/acceptance joins against sealed truth keep working
-    unchanged), the raised per-cluster Concern objects (with their
-    signatures kept alongside for later write-back), and a
-    concern_id -> signature map, and a `meta` dict carrying
-    `grader_entry_point`, the discovery report, and clusters ranked by
-    mean remarkability (D5), each with its enrichment."""
+) -> dict[str, ag.GradeableUnit]:
+    """One `GradeableUnit` per timeline. Factored out of `_grade_cycle` (C.4,
+    TASK_BULLY_CORPUS_BED_V1) so the SAME builder produces both the WIDE
+    fit population and the narrower scored population -- fit wide, score
+    narrow, never the same 25-unit sample doing both jobs (D.4's
+    `discovery_rate: 1.0`)."""
     action_classifier = _as_action_classifier(classifier)
-
     units_by_entity: dict[str, ag.GradeableUnit] = {}
     for timeline in timelines:
         records = [by_artifact_index[a] for a in timeline.artifact_ids]
@@ -379,9 +363,38 @@ def _grade_cycle(
             units_by_entity[timeline.entity.entity_id] = dataclasses.replace(
                 unit, unit_id=f"{timeline.entity.entity_id}:{unit.unit_id}"
             )
+    return units_by_entity
 
-    baseline = bl.NormalBaseline(environment_id=f"x6:{cycle}")
-    baseline.fit(list(units_by_entity.values()))
+
+def _grade_cycle(
+    timelines: list[correlation.EntityTimeline],
+    by_artifact_index: dict[str, Any],
+    classifier: Any,
+    anchor_library: AnchorLibrary,
+    store: Store,
+    hunt_id: str,
+    cycle: int,
+    identity_to_class: dict[str, str],
+    notify_counter: list[int],
+    baseline: bl.NormalBaseline,
+) -> tuple[list[dict[str, Any]], list[analyst_loop.Concern], dict[str, Any], dict[str, Any]]:
+    """One cycle, discovery-first (D.3, TASK_BULLY_DISCOVERY_FIRST_V1): build
+    one `GradeableUnit` per SCORED timeline, score against the ALREADY-FITTED
+    `baseline` (C.4 -- fitted wide, by the caller, across the whole corpus
+    stream; never refit here from the scored sample, which is what made
+    D.4's `discovery_rate` degenerate), `discover()` remarkable + coherent
+    units and `find_cousin_clusters()` them (cousins among OBSERVATIONS, D3),
+    then raise ONE concern per cluster -- an analyst reviews a pattern, not N
+    copies of it -- gated ONLY by `compounding.should_escalate_shape`
+    (X1/D1). The library only enriches (`discovery.enrich()`) after a
+    cluster is found; `resembles_nothing` never retracts it (D4). Returns one
+    row PER SCORED TIMELINE (so selection/poisoning/acceptance joins against
+    sealed truth keep working unchanged), the raised per-cluster Concern
+    objects (with their signatures kept alongside for later write-back), and
+    a concern_id -> signature map, and a `meta` dict carrying
+    `grader_entry_point`, the discovery report, and clusters ranked by
+    mean remarkability (D5), each with its enrichment."""
+    units_by_entity = _build_units(timelines, by_artifact_index, classifier)
 
     discoveries, discovery_report = disc.discover(list(units_by_entity.values()), baseline)
     clusters = disc.find_cousin_clusters(discoveries)
@@ -568,8 +581,18 @@ def main() -> int:
     parser.add_argument("--n-sources", type=int, default=40)
     parser.add_argument("--background-n", type=int, default=3000)
     parser.add_argument("--seed", type=int, default=20260820)
-    parser.add_argument("--capture-limit", type=int, default=2000)
-    parser.add_argument("--max-timelines", type=int, default=25)
+    parser.add_argument(
+        "--fit-limit",
+        type=int,
+        default=None,
+        help="cap on records captured to FIT the baseline (default unbounded -- fit wide)",
+    )
+    parser.add_argument(
+        "--score-limit",
+        type=int,
+        default=25,
+        help="cap on timelines actually GRADED per cycle (score narrow)",
+    )
     parser.add_argument("--dry-run-generate", action="store_true", help="skip R.5a live dispatch")
     parser.add_argument("--dry-run-hec", action="store_true", help="skip HEC ship (log only)")
     parser.add_argument("--out-dir", type=Path, default=REPO_ROOT / "docs")
@@ -617,8 +640,11 @@ def main() -> int:
     if not args.dry_run_hec:
         time.sleep(5.0)
 
-    # ---- 2. capture blended universal telemetry ----
-    capture = ip.capture_records(sample_limit=args.capture_limit)
+    # ---- 2. capture blended universal telemetry -- WIDE (C.4: every corpus
+    # lane, `--fit-limit` records, default unbounded) so the baseline is fit
+    # from the whole corpus stream, never from the same handful of units it
+    # is about to score ----
+    capture = ip.capture_records(sample_limit=args.fit_limit)
     if capture.plane != "live" or not capture.records:
         report = {
             "plane": "BLOCKED",
@@ -632,8 +658,10 @@ def main() -> int:
         print(json.dumps(report, indent=2))
         return 1
 
-    # ---- 3. correlation: entity resolution + timeline assembly (shared by
-    # BOTH cycles -- identical telemetry is the whole point) ----
+    # ---- 3. correlation: entity resolution + TRUTH-AWARE timeline assembly
+    # (Y.3) -- identical telemetry shared by BOTH cycles. `priority_entity_ids`
+    # guarantees injected cousins survive the fit-wide -> score-narrow cut,
+    # not just the richest-first assembly order. ----
     captured_records = [r6._parse_raw_kv(r) for r in capture.records]
     observations = r6._extract_identifier_observations(captured_records)
     entities, value_to_id = correlation.resolve_entities(observations)
@@ -647,6 +675,15 @@ def main() -> int:
         rec = by_artifact_index.get(art_key, {})
         return [v for v in rec.values() if isinstance(v, str) and v in value_to_id]
 
+    entity_id_to_truth: dict[str, str] = {}
+    for eid, ent in entities.items():
+        for alias in ent.aliases:
+            cls = identity_to_class.get(alias)
+            if cls is not None:
+                entity_id_to_truth[eid] = cls
+                break
+    priority_entity_ids = frozenset(entity_id_to_truth)
+
     timelines = correlation.assemble_timelines(
         [{"_key": k, **v} for k, v in by_artifact_index.items()],
         entities,
@@ -655,8 +692,13 @@ def main() -> int:
         artifact_time=lambda a: None,
         artifact_id=lambda a: a["_key"],
         artifact_source=lambda a: str(a.get("__source_id") or "unknown"),
+        priority_entity_ids=priority_entity_ids,
     )
-    timelines = timelines[: args.max_timelines]
+    # FIT WIDE: every assembled timeline feeds the baseline.
+    fit_timelines = timelines
+    # SCORE NARROW: only the front slice (truth-aware -- priority entities
+    # sort first) is actually graded.
+    score_timelines = timelines[: args.score_limit]
 
     training_examples = lot.training_examples() + r6._REAL_TELEMETRY_SEED
     classifier = (
@@ -685,10 +727,37 @@ def main() -> int:
 
     notify_counter = [0]
 
+    # ---- 3b. FIT WIDE: one baseline, fit from every assembled timeline
+    # (not the scored sample) and shared by both cycles -- the population a
+    # NormalBaseline needs to discriminate "rare" from "common" is the whole
+    # corpus stream, not the 25-unit slice about to be graded (C.4). Refuse
+    # to score on an undersized fit rather than silently reproduce D.4's
+    # `discovery_rate: 1.0`.
+    fit_units = _build_units(fit_timelines, by_artifact_index, classifier)
+    baseline = bl.NormalBaseline(environment_id="x6:shared")
+    baseline.fit(list(fit_units.values()))
+    fitted_at_level = baseline.fitted_units_at("L4_WINDOW")
+    if fitted_at_level < corpus_bed.MIN_BASELINE_UNITS:
+        report = {
+            "plane": "BLOCKED",
+            "reason": (
+                f"baseline_undersized: fitted_units_at('L4_WINDOW')={fitted_at_level} "
+                f"< corpus_bed.MIN_BASELINE_UNITS={corpus_bed.MIN_BASELINE_UNITS}"
+            ),
+            "algorithm_version": ALGORITHM_VERSION,
+            "generated_at": time.time(),
+            "r5a": r5a_report,
+            "hec": hec_report,
+            "capture": capture.to_dict(),
+        }
+        _publish(report, args.out_dir, args.doc_stem)
+        print(json.dumps(report, indent=2))
+        return 1
+
     # ---- 4. CYCLE 1 ----
     _register_anchor_stub_signatures(store, anchor_library)
     rows_c1, concerns_c1, sigs_c1, meta_c1 = _grade_cycle(
-        timelines,
+        score_timelines,
         by_artifact_index,
         classifier,
         anchor_library,
@@ -697,6 +766,7 @@ def main() -> int:
         1,
         identity_to_class,
         notify_counter,
+        baseline,
     )
 
     # ---- 5. SCRIPTED verdicts (sealed from the grader -- a stand-in for a
@@ -730,7 +800,7 @@ def main() -> int:
     # ---- 6. CYCLE 2 -- identical telemetry, richer library ----
     _register_anchor_stub_signatures(store, anchor_library)
     rows_c2, concerns_c2, _sigs_c2, meta_c2 = _grade_cycle(
-        timelines,
+        score_timelines,
         by_artifact_index,
         classifier,
         anchor_library,
@@ -739,6 +809,7 @@ def main() -> int:
         2,
         identity_to_class,
         notify_counter,
+        baseline,
     )
 
     maturation = analyst_loop.maturation_report(concerns_c1, concerns_c2)
@@ -793,7 +864,9 @@ def main() -> int:
         "correlation": {
             "n_observations": len(observations),
             "n_resolved_entities": len(entities),
-            "n_timelines": len(timelines),
+            "n_timelines_fit": len(fit_timelines),
+            "n_timelines_scored": len(score_timelines),
+            "baseline_fitted_units_l4_window": fitted_at_level,
         },
         "cycle_1": {
             "concerns_raised": len(concerns_c1),
