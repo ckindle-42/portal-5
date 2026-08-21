@@ -273,6 +273,76 @@ def poisoning_report(
     )
 
 
+@dataclass(frozen=True)
+class DegeneracyReport:
+    """D.4/D.5 (TASK_BULLY_DISCOVERY_FIRST_V1): the exact failure mode six
+    prior runs shared -- a library that matched everything, or matched
+    nothing, put >90% of the graded population in ONE outcome bucket. A
+    grader whose distribution is that concentrated measured its own
+    architecture (library composition, or its absence), not the data. This
+    is a run-level gate, not advisory: a run this concentrated FAILS,
+    whatever its acceptance numbers say."""
+
+    n_rows: int
+    bucket_fractions: dict[str, float]
+    max_bucket: str | None
+    max_fraction: float | None
+    verdict: str
+    reasons: tuple[str, ...]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "n_rows": self.n_rows,
+            "bucket_fractions": self.bucket_fractions,
+            "max_bucket": self.max_bucket,
+            "max_fraction": self.max_fraction,
+            "verdict": self.verdict,
+            "reasons": list(self.reasons),
+        }
+
+
+def degeneracy_check(
+    rows: list[dict[str, Any]], *, max_bucket_fraction: float = 0.90
+) -> DegeneracyReport:
+    """FAIL when any single `relationship` bucket holds more than
+    `max_bucket_fraction` of the graded population. An empty population is
+    reported honestly (no rows to be degenerate over), never PASS by
+    default absence."""
+    n = len(rows)
+    if n == 0:
+        return DegeneracyReport(
+            n_rows=0,
+            bucket_fractions={},
+            max_bucket=None,
+            max_fraction=None,
+            verdict="INVALID",
+            reasons=("no_rows_graded",),
+        )
+    counts: dict[str, int] = {}
+    for row in rows:
+        rel = str(row.get("relationship") or "UNKNOWN")
+        counts[rel] = counts.get(rel, 0) + 1
+    fractions = {rel: round(c / n, 4) for rel, c in counts.items()}
+    max_bucket, max_count = max(counts.items(), key=lambda kv: kv[1])
+    max_fraction = round(max_count / n, 4)
+    reasons: list[str] = []
+    verdict = "PASS"
+    if max_fraction > max_bucket_fraction:
+        verdict = "FAIL"
+        reasons.append(
+            f"bucket_{max_bucket}_holds_{max_fraction:.3f}>{max_bucket_fraction}_of_the_population "
+            "-- the grader measured its own architecture, not the data"
+        )
+    return DegeneracyReport(
+        n_rows=n,
+        bucket_fractions=fractions,
+        max_bucket=max_bucket,
+        max_fraction=max_fraction,
+        verdict=verdict,
+        reasons=tuple(reasons),
+    )
+
+
 def acceptance_report(
     rows: list[dict[str, Any]],
     *,
