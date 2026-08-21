@@ -28,11 +28,18 @@ from .data_plane import DataPlane, SourceProfile
 
 def _search_from_intent(intent: QueryIntent, *, index: str) -> dict[str, Any]:
     requested = str(intent.seed.get("spl") or "").strip()
+    # A leading-pipe SPL string (`| eventcount ...`, `| tstats ...`) is
+    # already a complete generating/report command -- prepending "search "
+    # turns it into an empty search piped into that command, which Splunk
+    # silently answers with zero rows rather than an error (verified live).
+    # `spl_backend.py`'s own dispatch already treats a leading "|" as
+    # complete for the same reason; this mirrors that check.
+    is_pipe_command = requested.startswith("|")
     if not requested:
         requested = f"search index={index}"
-    elif not requested.lower().startswith("search "):
+    elif not requested.lower().startswith("search ") and not is_pipe_command:
         requested = f"search {requested}"
-    if "index=" not in requested.lower():
+    if not is_pipe_command and "index=" not in requested.lower():
         requested = f"search index={index} | {requested[7:].strip()}"
     limit = intent.limit or 100
     if "| head " not in requested.lower():
