@@ -1,0 +1,1191 @@
+{
+  "algorithm_version": "investigation-run-i6-v1",
+  "plane": "live",
+  "generated_at": 1787335255.4088,
+  "hunt_id": "i6-live-investigation-run",
+  "index_ranges": {
+    "botsv1": {
+      "index": "botsv1",
+      "earliest": 1470009600.0,
+      "latest": 1472450339.0
+    },
+    "botsv2": {
+      "index": "botsv2",
+      "earliest": 1501545600.0,
+      "latest": 1504223999.0
+    },
+    "botsv3": {
+      "index": "botsv3",
+      "earliest": 1534737603.0,
+      "latest": 1568916650.0
+    }
+  },
+  "investigations": [
+    {
+      "anchor_id": "a-truth-T1190",
+      "anchor_provenance": "truth_targeted",
+      "dataset": "botsv1",
+      "n_queries": 1,
+      "n_events": 20000,
+      "n_entities": 2,
+      "sourcetypes": [
+        "MSAD:NT6:Health",
+        "MSAD:NT6:SiteInfo",
+        "stream:dhcp",
+        "stream:dns",
+        "stream:http",
+        "stream:ip",
+        "stream:ldap",
+        "stream:smb",
+        "stream:tcp",
+        "suricata"
+      ],
+      "span_seconds": 14662.0,
+      "truncated_reasons": [
+        "max_events:20000",
+        "max_events:20000"
+      ],
+      "reach_report": {
+        "anchor_id": "a-truth-T1190",
+        "expected_stage_entities": [
+          "splunk-02"
+        ],
+        "reached": [
+          "splunk-02"
+        ],
+        "missed": [],
+        "reach_recall": 1.0,
+        "n_sourcetypes": 10,
+        "n_queries": 1,
+        "span_seconds": 14662.0,
+        "truncated": true
+      }
+    },
+    {
+      "anchor_id": "a-truth-T1496",
+      "anchor_provenance": "truth_targeted",
+      "dataset": "botsv2",
+      "n_queries": 1,
+      "n_events": 20000,
+      "n_entities": 4,
+      "sourcetypes": [
+        "MSAD:NT6:Health",
+        "MSAD:NT6:SiteInfo",
+        "Perfmon:CPU",
+        "Perfmon:LogicalDisk",
+        "Perfmon:Memory",
+        "Perfmon:Network",
+        "Perfmon:PhysicalDisk",
+        "Perfmon:Process",
+        "Perfmon:System",
+        "Script:ListeningPorts",
+        "WinEventLog",
+        "WinHostMon",
+        "WinRegistry",
+        "stream:dns",
+        "stream:smb",
+        "symantec:ep:agent:file",
+        "symantec:ep:packet:file",
+        "symantec:ep:traffic:file",
+        "xmlwineventlog",
+        "xmlwineventlog:sysmon"
+      ],
+      "span_seconds": 11736.0,
+      "truncated_reasons": [
+        "max_events:20000",
+        "max_events:20000"
+      ],
+      "reach_report": {
+        "anchor_id": "a-truth-T1496",
+        "expected_stage_entities": [
+          "venus"
+        ],
+        "reached": [
+          "venus"
+        ],
+        "missed": [],
+        "reach_recall": 1.0,
+        "n_sourcetypes": 20,
+        "n_queries": 1,
+        "span_seconds": 11736.0,
+        "truncated": true
+      }
+    },
+    {
+      "anchor_id": "a-discovered-failed-logon",
+      "anchor_provenance": "discovered",
+      "dataset": "botsv3",
+      "n_queries": 1,
+      "n_events": 20000,
+      "n_entities": 1,
+      "sourcetypes": [
+        "PerfmonMk:Process",
+        "WinEventLog",
+        "WinHostMon",
+        "stream:arp",
+        "stream:dhcp",
+        "stream:dns",
+        "stream:http",
+        "stream:igmp",
+        "stream:ip",
+        "stream:smb",
+        "stream:tcp",
+        "stream:udp",
+        "xmlwineventlog"
+      ],
+      "span_seconds": 1234.0,
+      "truncated_reasons": [
+        "max_events:20000"
+      ]
+    },
+    {
+      "anchor_id": "a-truth-T1558.004",
+      "anchor_provenance": "truth_targeted",
+      "dataset": "botsv3",
+      "n_queries": 1,
+      "n_events": 24,
+      "n_entities": 1,
+      "sourcetypes": [
+        "MSAD:NT6:Health",
+        "MSAD:NT6:SiteInfo",
+        "Perfmon:CPU",
+        "WinEventLog",
+        "wineventlog:security"
+      ],
+      "span_seconds": 1500.0,
+      "truncated_reasons": [],
+      "reach_report": {
+        "anchor_id": "a-truth-T1558.004",
+        "expected_stage_entities": [
+          "BGIST-L"
+        ],
+        "reached": [
+          "BGIST-L"
+        ],
+        "missed": [],
+        "reach_recall": 1.0,
+        "n_sourcetypes": 5,
+        "n_queries": 1,
+        "span_seconds": 1500.0,
+        "truncated": false
+      }
+    },
+    {
+      "anchor_id": "a-truth-T1071.001",
+      "anchor_provenance": "truth_targeted",
+      "dataset": "botsv3",
+      "n_queries": 1,
+      "n_events": 16,
+      "n_entities": 1,
+      "sourcetypes": [
+        "MSAD:NT6:Health",
+        "MSAD:NT6:SiteInfo",
+        "stream:http"
+      ],
+      "span_seconds": 1500.0,
+      "truncated_reasons": [],
+      "reach_report": {
+        "anchor_id": "a-truth-T1071.001",
+        "expected_stage_entities": [
+          "gacrux.i-0920036c8ca91e501"
+        ],
+        "reached": [
+          "gacrux.i-0920036c8ca91e501"
+        ],
+        "missed": [],
+        "reach_recall": 1.0,
+        "n_sourcetypes": 3,
+        "n_queries": 1,
+        "span_seconds": 1500.0,
+        "truncated": false
+      }
+    }
+  ],
+  "throughput": {
+    "total_events": 60040,
+    "elapsed_seconds": 63.16895413398743,
+    "records_per_second": 950.4668998104573,
+    "t3_unbounded_scan_records_per_second": 53.0
+  },
+  "classifier_coverage_report": {
+    "algorithm_version": "telemetry-behavior-v1",
+    "n_records": 60040,
+    "n_classified": 24550,
+    "coverage": 0.4089,
+    "by_sourcetype": {
+      "MSAD:NT6:Health": {
+        "records": 16,
+        "classified": 0,
+        "coverage": 0.0
+      },
+      "MSAD:NT6:SiteInfo": {
+        "records": 7,
+        "classified": 0,
+        "coverage": 0.0
+      },
+      "Perfmon:CPU": {
+        "records": 266,
+        "classified": 0,
+        "coverage": 0.0
+      },
+      "Perfmon:LogicalDisk": {
+        "records": 436,
+        "classified": 0,
+        "coverage": 0.0
+      },
+      "Perfmon:Memory": {
+        "records": 381,
+        "classified": 0,
+        "coverage": 0.0
+      },
+      "Perfmon:Network": {
+        "records": 116,
+        "classified": 0,
+        "coverage": 0.0
+      },
+      "Perfmon:PhysicalDisk": {
+        "records": 336,
+        "classified": 0,
+        "coverage": 0.0
+      },
+      "Perfmon:Process": {
+        "records": 11475,
+        "classified": 0,
+        "coverage": 0.0
+      },
+      "Perfmon:System": {
+        "records": 164,
+        "classified": 0,
+        "coverage": 0.0
+      },
+      "PerfmonMk:Process": {
+        "records": 15330,
+        "classified": 0,
+        "coverage": 0.0
+      },
+      "Script:ListeningPorts": {
+        "records": 6,
+        "classified": 6,
+        "coverage": 1.0
+      },
+      "WinEventLog": {
+        "records": 1156,
+        "classified": 922,
+        "coverage": 0.7976
+      },
+      "WinHostMon": {
+        "records": 1755,
+        "classified": 1755,
+        "coverage": 1.0
+      },
+      "WinRegistry": {
+        "records": 6005,
+        "classified": 6005,
+        "coverage": 1.0
+      },
+      "stream:arp": {
+        "records": 62,
+        "classified": 62,
+        "coverage": 1.0
+      },
+      "stream:dhcp": {
+        "records": 16,
+        "classified": 0,
+        "coverage": 0.0
+      },
+      "stream:dns": {
+        "records": 5936,
+        "classified": 5936,
+        "coverage": 1.0
+      },
+      "stream:http": {
+        "records": 130,
+        "classified": 130,
+        "coverage": 1.0
+      },
+      "stream:igmp": {
+        "records": 10,
+        "classified": 0,
+        "coverage": 0.0
+      },
+      "stream:ip": {
+        "records": 6293,
+        "classified": 0,
+        "coverage": 0.0
+      },
+      "stream:ldap": {
+        "records": 469,
+        "classified": 469,
+        "coverage": 1.0
+      },
+      "stream:smb": {
+        "records": 1198,
+        "classified": 1198,
+        "coverage": 1.0
+      },
+      "stream:tcp": {
+        "records": 7717,
+        "classified": 7717,
+        "coverage": 1.0
+      },
+      "stream:udp": {
+        "records": 348,
+        "classified": 348,
+        "coverage": 1.0
+      },
+      "suricata": {
+        "records": 117,
+        "classified": 0,
+        "coverage": 0.0
+      },
+      "symantec:ep:agent:file": {
+        "records": 2,
+        "classified": 2,
+        "coverage": 1.0
+      },
+      "symantec:ep:packet:file": {
+        "records": 136,
+        "classified": 0,
+        "coverage": 0.0
+      },
+      "symantec:ep:traffic:file": {
+        "records": 15,
+        "classified": 0,
+        "coverage": 0.0
+      },
+      "wineventlog:security": {
+        "records": 9,
+        "classified": 0,
+        "coverage": 0.0
+      },
+      "xmlwineventlog": {
+        "records": 127,
+        "classified": 0,
+        "coverage": 0.0
+      },
+      "xmlwineventlog:sysmon": {
+        "records": 6,
+        "classified": 0,
+        "coverage": 0.0
+      }
+    },
+    "class_distribution": {
+      "c2_exfil": 8849,
+      "enumerate": 8228,
+      "lateral": 1198,
+      "persist": 6005,
+      "execute": 225,
+      "evade": 2,
+      "auth": 13,
+      "escalate": 27,
+      "collect": 3
+    },
+    "class_entropy_bits": 1.85,
+    "degenerate": false,
+    "unmapped_sourcetypes": [
+      "MSAD:NT6:Health",
+      "MSAD:NT6:SiteInfo",
+      "Perfmon:CPU",
+      "Perfmon:LogicalDisk",
+      "Perfmon:Memory",
+      "Perfmon:Network",
+      "Perfmon:PhysicalDisk",
+      "Perfmon:Process",
+      "Perfmon:System",
+      "PerfmonMk:Process",
+      "stream:dhcp",
+      "stream:igmp",
+      "stream:ip",
+      "suricata",
+      "symantec:ep:packet:file",
+      "symantec:ep:traffic:file",
+      "wineventlog:security",
+      "xmlwineventlog",
+      "xmlwineventlog:sysmon"
+    ],
+    "class_concentration": {
+      "c2_exfil": 0.3604,
+      "enumerate": 0.3352,
+      "lateral": 0.0488,
+      "persist": 0.2446,
+      "execute": 0.0092,
+      "evade": 0.0001,
+      "auth": 0.0005,
+      "escalate": 0.0011,
+      "collect": 0.0001
+    },
+    "source_concentration": {
+      "c2_exfil": 0.8721,
+      "enumerate": 0.7214,
+      "lateral": 1.0,
+      "persist": 1.0,
+      "execute": 1.0,
+      "evade": 1.0,
+      "auth": 1.0,
+      "escalate": 1.0,
+      "collect": 1.0
+    },
+    "concentration_reasons": [
+      "source_concentration:auth<-WinEventLog=1.0",
+      "source_concentration:collect<-WinEventLog=1.0",
+      "source_concentration:escalate<-WinEventLog=1.0",
+      "source_concentration:evade<-symantec:ep:agent:file=1.0",
+      "source_concentration:execute<-WinEventLog=1.0",
+      "source_concentration:lateral<-stream:smb=1.0",
+      "source_concentration:persist<-WinRegistry=1.0"
+    ],
+    "concentrated": true
+  },
+  "inference_report": {
+    "algorithm_version": "behavior-inference-v1",
+    "actions_profiled": 14,
+    "schemas_seen": 2,
+    "classes_inferred": 4,
+    "cross_schema_classes": 1,
+    "cross_schema_fraction": 0.25,
+    "largest_class_members": 10
+  },
+  "cousins_planned": 20,
+  "cousins_shipped": true,
+  "inject_reports": [
+    {
+      "cousin_id": "cz-T1558.004-REVOCABULARY-00",
+      "sourcetypes_used": [
+        "wineventlog:security"
+      ],
+      "n_events": 3,
+      "ok": true
+    },
+    {
+      "cousin_id": "cz-T1558.004-RESCHEMA-10",
+      "sourcetypes_used": [
+        "MSAD:NT6:Health"
+      ],
+      "n_events": 3,
+      "ok": true
+    },
+    {
+      "cousin_id": "cz-T1558.004-REIDENTITY-20",
+      "sourcetypes_used": [
+        "wineventlog:security"
+      ],
+      "n_events": 3,
+      "ok": true
+    },
+    {
+      "cousin_id": "cz-T1558.004-SCATTER-30",
+      "sourcetypes_used": [
+        "MSAD:NT6:Health",
+        "MSAD:NT6:SiteInfo",
+        "Perfmon:CPU"
+      ],
+      "n_events": 3,
+      "ok": true
+    },
+    {
+      "cousin_id": "cz-T1558.004-REORDER_MINOR-40",
+      "sourcetypes_used": [
+        "wineventlog:security"
+      ],
+      "n_events": 3,
+      "ok": true
+    },
+    {
+      "cousin_id": "cz-T1071.001-REVOCABULARY-00",
+      "sourcetypes_used": [
+        "stream:http"
+      ],
+      "n_events": 2,
+      "ok": true
+    },
+    {
+      "cousin_id": "cz-T1071.001-RESCHEMA-10",
+      "sourcetypes_used": [
+        "MSAD:NT6:Health"
+      ],
+      "n_events": 2,
+      "ok": true
+    },
+    {
+      "cousin_id": "cz-T1071.001-REIDENTITY-20",
+      "sourcetypes_used": [
+        "stream:http"
+      ],
+      "n_events": 2,
+      "ok": true
+    },
+    {
+      "cousin_id": "cz-T1071.001-SCATTER-30",
+      "sourcetypes_used": [
+        "MSAD:NT6:Health",
+        "MSAD:NT6:SiteInfo"
+      ],
+      "n_events": 2,
+      "ok": true
+    },
+    {
+      "cousin_id": "cz-T1071.001-REORDER_MINOR-40",
+      "sourcetypes_used": [
+        "stream:http"
+      ],
+      "n_events": 2,
+      "ok": true
+    },
+    {
+      "cousin_id": "cz-T1496-REVOCABULARY-00",
+      "sourcetypes_used": [
+        "xmlwineventlog:sysmon"
+      ],
+      "n_events": 2,
+      "ok": true
+    },
+    {
+      "cousin_id": "cz-T1496-RESCHEMA-10",
+      "sourcetypes_used": [
+        "MSAD:NT6:Health"
+      ],
+      "n_events": 2,
+      "ok": true
+    },
+    {
+      "cousin_id": "cz-T1496-REIDENTITY-20",
+      "sourcetypes_used": [
+        "xmlwineventlog:sysmon"
+      ],
+      "n_events": 2,
+      "ok": true
+    },
+    {
+      "cousin_id": "cz-T1496-SCATTER-30",
+      "sourcetypes_used": [
+        "MSAD:NT6:Health",
+        "MSAD:NT6:SiteInfo"
+      ],
+      "n_events": 2,
+      "ok": true
+    },
+    {
+      "cousin_id": "cz-T1496-REORDER_MINOR-40",
+      "sourcetypes_used": [
+        "xmlwineventlog:sysmon"
+      ],
+      "n_events": 2,
+      "ok": true
+    },
+    {
+      "cousin_id": "cz-T1190-REVOCABULARY-00",
+      "sourcetypes_used": [
+        "stream:http"
+      ],
+      "n_events": 2,
+      "ok": true
+    },
+    {
+      "cousin_id": "cz-T1190-RESCHEMA-10",
+      "sourcetypes_used": [
+        "MSAD:NT6:Health"
+      ],
+      "n_events": 2,
+      "ok": true
+    },
+    {
+      "cousin_id": "cz-T1190-REIDENTITY-20",
+      "sourcetypes_used": [
+        "stream:http"
+      ],
+      "n_events": 2,
+      "ok": true
+    },
+    {
+      "cousin_id": "cz-T1190-SCATTER-30",
+      "sourcetypes_used": [
+        "MSAD:NT6:Health",
+        "MSAD:NT6:SiteInfo"
+      ],
+      "n_events": 2,
+      "ok": true
+    },
+    {
+      "cousin_id": "cz-T1190-REORDER_MINOR-40",
+      "sourcetypes_used": [
+        "stream:http"
+      ],
+      "n_events": 2,
+      "ok": true
+    }
+  ],
+  "per_transformation_cousin_recovery": {
+    "REVOCABULARY": {
+      "reached": 4,
+      "total": 4
+    },
+    "RESCHEMA": {
+      "reached": 4,
+      "total": 4
+    },
+    "REIDENTITY": {
+      "reached": 4,
+      "total": 4
+    },
+    "SCATTER": {
+      "reached": 4,
+      "total": 4
+    },
+    "REORDER_MINOR": {
+      "reached": 4,
+      "total": 4
+    }
+  },
+  "scoreboard": {
+    "hunt_id": "i6-live-investigation-run",
+    "n_records": 20,
+    "catch_count": 20,
+    "catch_rate": 1.0,
+    "trust_mean_rank": 2.0,
+    "discovery_total": 0.0,
+    "discovery_mean": null,
+    "false_flag_count": 0,
+    "records": [
+      {
+        "assessment_id": "cz-T1558.004-REVOCABULARY-00",
+        "relationship": "SAME",
+        "defense_response": "OBSERVED",
+        "composite": 1.0,
+        "catch": true,
+        "trust_class": "confirmed_correct",
+        "trust_rank": 2,
+        "discovery_value": 0.0,
+        "known_benign": false,
+        "false_flag": false,
+        "false_flag_kind": null
+      },
+      {
+        "assessment_id": "cz-T1558.004-RESCHEMA-10",
+        "relationship": "SAME",
+        "defense_response": "OBSERVED",
+        "composite": 1.0,
+        "catch": true,
+        "trust_class": "confirmed_correct",
+        "trust_rank": 2,
+        "discovery_value": 0.0,
+        "known_benign": false,
+        "false_flag": false,
+        "false_flag_kind": null
+      },
+      {
+        "assessment_id": "cz-T1558.004-REIDENTITY-20",
+        "relationship": "SAME",
+        "defense_response": "OBSERVED",
+        "composite": 1.0,
+        "catch": true,
+        "trust_class": "confirmed_correct",
+        "trust_rank": 2,
+        "discovery_value": 0.0,
+        "known_benign": false,
+        "false_flag": false,
+        "false_flag_kind": null
+      },
+      {
+        "assessment_id": "cz-T1558.004-SCATTER-30",
+        "relationship": "SAME",
+        "defense_response": "OBSERVED",
+        "composite": 1.0,
+        "catch": true,
+        "trust_class": "confirmed_correct",
+        "trust_rank": 2,
+        "discovery_value": 0.0,
+        "known_benign": false,
+        "false_flag": false,
+        "false_flag_kind": null
+      },
+      {
+        "assessment_id": "cz-T1558.004-REORDER_MINOR-40",
+        "relationship": "SAME",
+        "defense_response": "OBSERVED",
+        "composite": 1.0,
+        "catch": true,
+        "trust_class": "confirmed_correct",
+        "trust_rank": 2,
+        "discovery_value": 0.0,
+        "known_benign": false,
+        "false_flag": false,
+        "false_flag_kind": null
+      },
+      {
+        "assessment_id": "cz-T1071.001-REVOCABULARY-00",
+        "relationship": "SAME",
+        "defense_response": "OBSERVED",
+        "composite": 1.0,
+        "catch": true,
+        "trust_class": "confirmed_correct",
+        "trust_rank": 2,
+        "discovery_value": 0.0,
+        "known_benign": false,
+        "false_flag": false,
+        "false_flag_kind": null
+      },
+      {
+        "assessment_id": "cz-T1071.001-RESCHEMA-10",
+        "relationship": "SAME",
+        "defense_response": "OBSERVED",
+        "composite": 1.0,
+        "catch": true,
+        "trust_class": "confirmed_correct",
+        "trust_rank": 2,
+        "discovery_value": 0.0,
+        "known_benign": false,
+        "false_flag": false,
+        "false_flag_kind": null
+      },
+      {
+        "assessment_id": "cz-T1071.001-REIDENTITY-20",
+        "relationship": "SAME",
+        "defense_response": "OBSERVED",
+        "composite": 1.0,
+        "catch": true,
+        "trust_class": "confirmed_correct",
+        "trust_rank": 2,
+        "discovery_value": 0.0,
+        "known_benign": false,
+        "false_flag": false,
+        "false_flag_kind": null
+      },
+      {
+        "assessment_id": "cz-T1071.001-SCATTER-30",
+        "relationship": "SAME",
+        "defense_response": "OBSERVED",
+        "composite": 1.0,
+        "catch": true,
+        "trust_class": "confirmed_correct",
+        "trust_rank": 2,
+        "discovery_value": 0.0,
+        "known_benign": false,
+        "false_flag": false,
+        "false_flag_kind": null
+      },
+      {
+        "assessment_id": "cz-T1071.001-REORDER_MINOR-40",
+        "relationship": "SAME",
+        "defense_response": "OBSERVED",
+        "composite": 1.0,
+        "catch": true,
+        "trust_class": "confirmed_correct",
+        "trust_rank": 2,
+        "discovery_value": 0.0,
+        "known_benign": false,
+        "false_flag": false,
+        "false_flag_kind": null
+      },
+      {
+        "assessment_id": "cz-T1496-REVOCABULARY-00",
+        "relationship": "SAME",
+        "defense_response": "OBSERVED",
+        "composite": 1.0,
+        "catch": true,
+        "trust_class": "confirmed_correct",
+        "trust_rank": 2,
+        "discovery_value": 0.0,
+        "known_benign": false,
+        "false_flag": false,
+        "false_flag_kind": null
+      },
+      {
+        "assessment_id": "cz-T1496-RESCHEMA-10",
+        "relationship": "SAME",
+        "defense_response": "OBSERVED",
+        "composite": 1.0,
+        "catch": true,
+        "trust_class": "confirmed_correct",
+        "trust_rank": 2,
+        "discovery_value": 0.0,
+        "known_benign": false,
+        "false_flag": false,
+        "false_flag_kind": null
+      },
+      {
+        "assessment_id": "cz-T1496-REIDENTITY-20",
+        "relationship": "SAME",
+        "defense_response": "OBSERVED",
+        "composite": 1.0,
+        "catch": true,
+        "trust_class": "confirmed_correct",
+        "trust_rank": 2,
+        "discovery_value": 0.0,
+        "known_benign": false,
+        "false_flag": false,
+        "false_flag_kind": null
+      },
+      {
+        "assessment_id": "cz-T1496-SCATTER-30",
+        "relationship": "SAME",
+        "defense_response": "OBSERVED",
+        "composite": 1.0,
+        "catch": true,
+        "trust_class": "confirmed_correct",
+        "trust_rank": 2,
+        "discovery_value": 0.0,
+        "known_benign": false,
+        "false_flag": false,
+        "false_flag_kind": null
+      },
+      {
+        "assessment_id": "cz-T1496-REORDER_MINOR-40",
+        "relationship": "SAME",
+        "defense_response": "OBSERVED",
+        "composite": 1.0,
+        "catch": true,
+        "trust_class": "confirmed_correct",
+        "trust_rank": 2,
+        "discovery_value": 0.0,
+        "known_benign": false,
+        "false_flag": false,
+        "false_flag_kind": null
+      },
+      {
+        "assessment_id": "cz-T1190-REVOCABULARY-00",
+        "relationship": "SAME",
+        "defense_response": "OBSERVED",
+        "composite": 1.0,
+        "catch": true,
+        "trust_class": "confirmed_correct",
+        "trust_rank": 2,
+        "discovery_value": 0.0,
+        "known_benign": false,
+        "false_flag": false,
+        "false_flag_kind": null
+      },
+      {
+        "assessment_id": "cz-T1190-RESCHEMA-10",
+        "relationship": "SAME",
+        "defense_response": "OBSERVED",
+        "composite": 1.0,
+        "catch": true,
+        "trust_class": "confirmed_correct",
+        "trust_rank": 2,
+        "discovery_value": 0.0,
+        "known_benign": false,
+        "false_flag": false,
+        "false_flag_kind": null
+      },
+      {
+        "assessment_id": "cz-T1190-REIDENTITY-20",
+        "relationship": "SAME",
+        "defense_response": "OBSERVED",
+        "composite": 1.0,
+        "catch": true,
+        "trust_class": "confirmed_correct",
+        "trust_rank": 2,
+        "discovery_value": 0.0,
+        "known_benign": false,
+        "false_flag": false,
+        "false_flag_kind": null
+      },
+      {
+        "assessment_id": "cz-T1190-SCATTER-30",
+        "relationship": "SAME",
+        "defense_response": "OBSERVED",
+        "composite": 1.0,
+        "catch": true,
+        "trust_class": "confirmed_correct",
+        "trust_rank": 2,
+        "discovery_value": 0.0,
+        "known_benign": false,
+        "false_flag": false,
+        "false_flag_kind": null
+      },
+      {
+        "assessment_id": "cz-T1190-REORDER_MINOR-40",
+        "relationship": "SAME",
+        "defense_response": "OBSERVED",
+        "composite": 1.0,
+        "catch": true,
+        "trust_class": "confirmed_correct",
+        "trust_rank": 2,
+        "discovery_value": 0.0,
+        "known_benign": false,
+        "false_flag": false,
+        "false_flag_kind": null
+      }
+    ]
+  },
+  "correctness_axis_provenance": "trust_mean_rank/false_flag_count are computed by scoreboard.update() over real per-cousin reachability: relationship=SAME when a live investigation pivoting from the cousin's own real anchor_entity found that cousin's cousin_id, DIFFERENT otherwise. candidate_state is PROMOTED/KILLED on the same reachability signal -- ground truth is known here (this run planted every scored cousin itself), so a real investigation reaching it is a genuinely confirmed-correct verdict and a miss is genuinely confirmed-wrong. known_benign=False throughout (every scored record is a planted cousin, never a real-corpus record graded as benign), so false_flag_count is structurally 0 for this run -- it measures cousin recovery, not background false-positive rate.",
+  "per_row": [
+    {
+      "assessment_id": "cz-T1558.004-REVOCABULARY-00",
+      "relationship": "SAME",
+      "defense_response": "OBSERVED",
+      "composite": 1.0,
+      "catch": true,
+      "trust_class": "confirmed_correct",
+      "trust_rank": 2,
+      "discovery_value": 0.0,
+      "known_benign": false,
+      "false_flag": false,
+      "false_flag_kind": null
+    },
+    {
+      "assessment_id": "cz-T1558.004-RESCHEMA-10",
+      "relationship": "SAME",
+      "defense_response": "OBSERVED",
+      "composite": 1.0,
+      "catch": true,
+      "trust_class": "confirmed_correct",
+      "trust_rank": 2,
+      "discovery_value": 0.0,
+      "known_benign": false,
+      "false_flag": false,
+      "false_flag_kind": null
+    },
+    {
+      "assessment_id": "cz-T1558.004-REIDENTITY-20",
+      "relationship": "SAME",
+      "defense_response": "OBSERVED",
+      "composite": 1.0,
+      "catch": true,
+      "trust_class": "confirmed_correct",
+      "trust_rank": 2,
+      "discovery_value": 0.0,
+      "known_benign": false,
+      "false_flag": false,
+      "false_flag_kind": null
+    },
+    {
+      "assessment_id": "cz-T1558.004-SCATTER-30",
+      "relationship": "SAME",
+      "defense_response": "OBSERVED",
+      "composite": 1.0,
+      "catch": true,
+      "trust_class": "confirmed_correct",
+      "trust_rank": 2,
+      "discovery_value": 0.0,
+      "known_benign": false,
+      "false_flag": false,
+      "false_flag_kind": null
+    },
+    {
+      "assessment_id": "cz-T1558.004-REORDER_MINOR-40",
+      "relationship": "SAME",
+      "defense_response": "OBSERVED",
+      "composite": 1.0,
+      "catch": true,
+      "trust_class": "confirmed_correct",
+      "trust_rank": 2,
+      "discovery_value": 0.0,
+      "known_benign": false,
+      "false_flag": false,
+      "false_flag_kind": null
+    },
+    {
+      "assessment_id": "cz-T1071.001-REVOCABULARY-00",
+      "relationship": "SAME",
+      "defense_response": "OBSERVED",
+      "composite": 1.0,
+      "catch": true,
+      "trust_class": "confirmed_correct",
+      "trust_rank": 2,
+      "discovery_value": 0.0,
+      "known_benign": false,
+      "false_flag": false,
+      "false_flag_kind": null
+    },
+    {
+      "assessment_id": "cz-T1071.001-RESCHEMA-10",
+      "relationship": "SAME",
+      "defense_response": "OBSERVED",
+      "composite": 1.0,
+      "catch": true,
+      "trust_class": "confirmed_correct",
+      "trust_rank": 2,
+      "discovery_value": 0.0,
+      "known_benign": false,
+      "false_flag": false,
+      "false_flag_kind": null
+    },
+    {
+      "assessment_id": "cz-T1071.001-REIDENTITY-20",
+      "relationship": "SAME",
+      "defense_response": "OBSERVED",
+      "composite": 1.0,
+      "catch": true,
+      "trust_class": "confirmed_correct",
+      "trust_rank": 2,
+      "discovery_value": 0.0,
+      "known_benign": false,
+      "false_flag": false,
+      "false_flag_kind": null
+    },
+    {
+      "assessment_id": "cz-T1071.001-SCATTER-30",
+      "relationship": "SAME",
+      "defense_response": "OBSERVED",
+      "composite": 1.0,
+      "catch": true,
+      "trust_class": "confirmed_correct",
+      "trust_rank": 2,
+      "discovery_value": 0.0,
+      "known_benign": false,
+      "false_flag": false,
+      "false_flag_kind": null
+    },
+    {
+      "assessment_id": "cz-T1071.001-REORDER_MINOR-40",
+      "relationship": "SAME",
+      "defense_response": "OBSERVED",
+      "composite": 1.0,
+      "catch": true,
+      "trust_class": "confirmed_correct",
+      "trust_rank": 2,
+      "discovery_value": 0.0,
+      "known_benign": false,
+      "false_flag": false,
+      "false_flag_kind": null
+    },
+    {
+      "assessment_id": "cz-T1496-REVOCABULARY-00",
+      "relationship": "SAME",
+      "defense_response": "OBSERVED",
+      "composite": 1.0,
+      "catch": true,
+      "trust_class": "confirmed_correct",
+      "trust_rank": 2,
+      "discovery_value": 0.0,
+      "known_benign": false,
+      "false_flag": false,
+      "false_flag_kind": null
+    },
+    {
+      "assessment_id": "cz-T1496-RESCHEMA-10",
+      "relationship": "SAME",
+      "defense_response": "OBSERVED",
+      "composite": 1.0,
+      "catch": true,
+      "trust_class": "confirmed_correct",
+      "trust_rank": 2,
+      "discovery_value": 0.0,
+      "known_benign": false,
+      "false_flag": false,
+      "false_flag_kind": null
+    },
+    {
+      "assessment_id": "cz-T1496-REIDENTITY-20",
+      "relationship": "SAME",
+      "defense_response": "OBSERVED",
+      "composite": 1.0,
+      "catch": true,
+      "trust_class": "confirmed_correct",
+      "trust_rank": 2,
+      "discovery_value": 0.0,
+      "known_benign": false,
+      "false_flag": false,
+      "false_flag_kind": null
+    },
+    {
+      "assessment_id": "cz-T1496-SCATTER-30",
+      "relationship": "SAME",
+      "defense_response": "OBSERVED",
+      "composite": 1.0,
+      "catch": true,
+      "trust_class": "confirmed_correct",
+      "trust_rank": 2,
+      "discovery_value": 0.0,
+      "known_benign": false,
+      "false_flag": false,
+      "false_flag_kind": null
+    },
+    {
+      "assessment_id": "cz-T1496-REORDER_MINOR-40",
+      "relationship": "SAME",
+      "defense_response": "OBSERVED",
+      "composite": 1.0,
+      "catch": true,
+      "trust_class": "confirmed_correct",
+      "trust_rank": 2,
+      "discovery_value": 0.0,
+      "known_benign": false,
+      "false_flag": false,
+      "false_flag_kind": null
+    },
+    {
+      "assessment_id": "cz-T1190-REVOCABULARY-00",
+      "relationship": "SAME",
+      "defense_response": "OBSERVED",
+      "composite": 1.0,
+      "catch": true,
+      "trust_class": "confirmed_correct",
+      "trust_rank": 2,
+      "discovery_value": 0.0,
+      "known_benign": false,
+      "false_flag": false,
+      "false_flag_kind": null
+    },
+    {
+      "assessment_id": "cz-T1190-RESCHEMA-10",
+      "relationship": "SAME",
+      "defense_response": "OBSERVED",
+      "composite": 1.0,
+      "catch": true,
+      "trust_class": "confirmed_correct",
+      "trust_rank": 2,
+      "discovery_value": 0.0,
+      "known_benign": false,
+      "false_flag": false,
+      "false_flag_kind": null
+    },
+    {
+      "assessment_id": "cz-T1190-REIDENTITY-20",
+      "relationship": "SAME",
+      "defense_response": "OBSERVED",
+      "composite": 1.0,
+      "catch": true,
+      "trust_class": "confirmed_correct",
+      "trust_rank": 2,
+      "discovery_value": 0.0,
+      "known_benign": false,
+      "false_flag": false,
+      "false_flag_kind": null
+    },
+    {
+      "assessment_id": "cz-T1190-SCATTER-30",
+      "relationship": "SAME",
+      "defense_response": "OBSERVED",
+      "composite": 1.0,
+      "catch": true,
+      "trust_class": "confirmed_correct",
+      "trust_rank": 2,
+      "discovery_value": 0.0,
+      "known_benign": false,
+      "false_flag": false,
+      "false_flag_kind": null
+    },
+    {
+      "assessment_id": "cz-T1190-REORDER_MINOR-40",
+      "relationship": "SAME",
+      "defense_response": "OBSERVED",
+      "composite": 1.0,
+      "catch": true,
+      "trust_class": "confirmed_correct",
+      "trust_rank": 2,
+      "discovery_value": 0.0,
+      "known_benign": false,
+      "false_flag": false,
+      "false_flag_kind": null
+    }
+  ],
+  "bed_report": {
+    "indexes_queried": [
+      "botsv3"
+    ],
+    "records_available": {
+      "botsv3": 2030370
+    },
+    "records_read": 213311,
+    "lanes_present": [
+      "A"
+    ],
+    "is_haystack": true,
+    "reasons": [
+      "partial_read:213311/2030370 -- a capped read of a real corpus biases every downstream statistic toward whatever the cap selected",
+      "scored_sample_too_small:0<10000 -- recall/FP figures computed on this scored population do not generalise"
+    ]
+  }
+}
