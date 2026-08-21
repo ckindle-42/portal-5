@@ -136,7 +136,13 @@ def inject_cousins(
             result = ship_batch(
                 events,
                 sourcetype=st,
-                host=f"corpus-cousin-{cousin.cousin_id}",
+                # Reachable by a real pivot chain, not merely present at the
+                # right time (I5): when the cousin carries a real
+                # `anchor_entity`, ship it under that entity's own identity
+                # so an investigation starting from the parent's genuine
+                # activity actually reaches it. The synthetic per-cousin
+                # host is the fallback only when no real entity is known.
+                host=cousin.anchor_entity or f"corpus-cousin-{cousin.cousin_id}",
                 index=target_index,
                 event_times=[cousin.injected_at] * len(events),
                 evidence_origin=f"corpus:cousin:{cousin.cousin_id}",

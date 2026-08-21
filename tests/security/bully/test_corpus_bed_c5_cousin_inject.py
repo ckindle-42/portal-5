@@ -119,3 +119,31 @@ def test_scatter_cousin_splits_events_across_target_sourcetypes(monkeypatch) -> 
 
     sourcetypes_shipped = {c["sourcetype"] for c in calls}
     assert len(sourcetypes_shipped) > 1  # split across several real sourcetypes
+
+
+def test_cousin_ships_under_its_real_anchor_entity_not_a_synthetic_host(monkeypatch) -> None:
+    """I.4: a cousin is reachable by a real pivot chain, not merely present
+    at the right time -- when it carries a real anchor_entity, it must ship
+    under THAT identity, not a synthetic per-cousin host."""
+    calls: list[dict] = []
+
+    def _fake_ship_batch(events, **kwargs):
+        calls.append(kwargs)
+        return {"ok": True}
+
+    monkeypatch.setattr(cousin_inject, "ship_batch", _fake_ship_batch)
+
+    entry = corpus_bed.AnswerKeyEntry(
+        dataset="botsv3",
+        technique="T1558.004",
+        behavioural_spine=("a", "b"),
+        entities=("BGIST-L",),
+        sourcetypes=("wineventlog:security",),
+    )
+    cousins = corpus_bed.plan_cousins(
+        [entry], transformations=("REIDENTITY",), corpus_earliest=_CE, corpus_latest=_CL
+    )
+    cousin_inject.inject_cousins(cousins, dry_run=True, corpus_earliest=_CE, corpus_latest=_CL)
+
+    assert calls
+    assert all(c["host"] == "BGIST-L" for c in calls)
