@@ -2538,3 +2538,218 @@ def check_corpus_bed_d4_counts_never_a_haystack() -> tuple[str, str, list[dict]]
             [],
         )
     return "PASS", "", []
+
+
+# ── TASK_BULLY_REAL_TELEMETRY_V1 (T.5): the real-telemetry classifier, the
+# three closed guard holes, and the floor-gates-product invariant are all
+# permanent regressions -- C.6's `{'unknown','other'}` collapse, its
+# `records_read: 0` / `is_haystack: true` guard hole, and its unenforced
+# scale floors must never silently return. ─────────────────────────────────
+
+
+@register(
+    "bully_real_telemetry_captured_records_use_telemetry_behavior",
+    "FE. artifact_graph.build_graph's default classifier reads real "
+    "sourcetype semantics, not a verb-substring table (T1)",
+    order=158,
+)
+def check_real_telemetry_captured_records_use_telemetry_behavior() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import artifact_graph as ag
+
+    records = [
+        {"__source_id": "lab-splunk:wineventlog:security", "EventCode": "4624", "host": "h1"},
+        {"__source_id": "lab-splunk:wineventlog:security", "EventCode": "4672", "host": "h1"},
+        {"__source_id": "lab-splunk:xmlwineventlog:sysmon", "EventCode": "3", "host": "h1"},
+    ]
+    base_t = 1_700_000_000.0
+    for i, r in enumerate(records):
+        r["user"] = "AR-WIN-3\\Administrator"
+        r["eventTime"] = base_t + i * 5.0
+    graph = ag.build_graph(records, source_id="lab-splunk:wineventlog:security")
+    classes = {a.action_class for a in graph.artifacts.values()}
+    if classes != {"auth", "escalate", "c2_exfil"}:
+        return "FAIL", f"expected real behaviour classes, got {classes}", []
+    # seeded violation: the OLD default (a verb-substring table) reading the
+    # same records with no extractable verb collapses to 'unknown'
+    det = ag.DeterministicActionClassifier()
+    if det.classify(None) != "unknown":
+        return "FAIL", "the legacy substring classifier no longer reproduces C.6's collapse", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_real_telemetry_unmapped_sourcetype_is_empty_never_unknown",
+    "FF. an unmapped sourcetype classifies to '' and is reported, never "
+    "'unknown' or a majority-class guess (T2)",
+    order=159,
+)
+def check_real_telemetry_unmapped_sourcetype_is_empty() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import telemetry_behavior as tb
+
+    cls = tb.classify_record({"anything": 1}, "Perfmon:CPU")
+    if cls != "":
+        return "FAIL", f"unmapped sourcetype classified as {cls!r}, expected ''", []
+    report = tb.coverage_report(
+        [
+            ({"EventCode": "4624"}, "wineventlog:security"),
+            ({"cpu_pct": 3.2}, "Perfmon:CPU"),
+        ]
+    )
+    if "Perfmon:CPU" not in report.unmapped_sourcetypes:
+        return "FAIL", "unmapped sourcetype not published in unmapped_sourcetypes", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_real_telemetry_coverage_report_degenerate_fails",
+    "FG. classifier coverage_report is published per run and degenerate "
+    "output-class entropy is a detectable failure (T3)",
+    order=160,
+)
+def check_real_telemetry_coverage_report_degenerate_fails() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import telemetry_behavior as tb
+
+    # C.6's exact shape: every real record resolves to one class -- entropy
+    # 0.302 bits of a possible ~3.3, well under the 1.0-bit floor.
+    collapsed = tb.coverage_report(
+        [({"EventCode": "4624"}, "wineventlog:security") for _ in range(100)]
+    )
+    if not collapsed.degenerate:
+        return "FAIL", "a single-class collapse (C.6's exact shape) was not flagged degenerate", []
+    mixed = tb.coverage_report(
+        [
+            ({"EventCode": "4624"}, "wineventlog:security"),
+            ({"EventCode": "4672"}, "wineventlog:security"),
+            ({"EventCode": "1"}, "xmlwineventlog:sysmon"),
+            ({"EventCode": "3"}, "xmlwineventlog:sysmon"),
+            ({"query": "x"}, "stream:dns"),
+        ]
+    )
+    if mixed.degenerate:
+        return "FAIL", "a genuinely mixed real-class distribution was flagged degenerate", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_real_telemetry_assess_bed_requires_scale_inputs",
+    "FH. corpus_bed.assess_bed cannot be called without units_fitted/"
+    "units_scored -- an optional guard input is a guard that silently does "
+    "not run (T4)",
+    order=161,
+)
+def check_real_telemetry_assess_bed_requires_scale_inputs() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import corpus_bed as cb
+
+    try:
+        cb.assess_bed({"portal5_lab": 500}, records_read=500)  # type: ignore[call-arg]
+    except TypeError:
+        pass
+    else:
+        return "FAIL", "assess_bed accepted a call with no units_fitted/units_scored", []
+    if cb.MIN_SCORED_UNITS <= 0 or cb.MIN_FIT_TO_SCORE_RATIO <= 0:
+        return (
+            "FAIL",
+            "MIN_SCORED_UNITS/MIN_FIT_TO_SCORE_RATIO are not wired to positive floors",
+            [],
+        )
+    return "PASS", "", []
+
+
+@register(
+    "bully_real_telemetry_zero_records_read_never_a_haystack",
+    "FI. records_read == 0 yields is_haystack=False unconditionally -- the "
+    "permanent C.6 regression (records_read:0 published alongside "
+    "is_haystack:true)",
+    order=162,
+)
+def check_real_telemetry_zero_records_read_never_a_haystack() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import corpus_bed as cb
+
+    # C.6's exact shape: a 281M-record corpus, zero records actually read.
+    bed = cb.assess_bed(
+        {
+            "portal5_lab": 19_300_000,
+            "botsv1": 33_400_000,
+            "botsv2": 226_300_000,
+            "botsv3": 2_000_000,
+        },
+        records_read=0,
+        units_fitted=4183,
+        units_scored=200,
+    )
+    if bed.is_haystack:
+        return "FAIL", "records_read=0 was accepted as is_haystack=True (C.6's exact defect)", []
+    if not any("no_records_read" in r for r in bed.reasons):
+        return "FAIL", f"is_haystack=False but no_records_read reason missing: {bed.reasons}", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_real_telemetry_zero_floor_recall_fails_acceptance",
+    "FJ. floor_known_recall == 0.0 FAILs bed_acceptance independent of "
+    "cousin/background checks -- a broken floor invalidates any product "
+    "recall reported beside it (T5)",
+    order=163,
+)
+def check_real_telemetry_zero_floor_recall_fails_acceptance() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import corpus_bed as cb
+
+    bed = cb.assess_bed(
+        {
+            "portal5_lab": 19_300_000,
+            "botsv1": 33_400_000,
+            "botsv2": 226_300_000,
+            "botsv3": 2_000_000,
+        },
+        records_read=200_000_000,
+        units_fitted=180_000,
+        units_scored=25_000,
+    )
+    acceptance = cb.bed_acceptance(
+        answer_key_hit=0,
+        answer_key_total=4,
+        cousin_hit=10,
+        cousin_total=20,
+        background_flagged=10,
+        background_total=1000,
+        bed=bed,
+    )
+    if acceptance.verdict == "PASS":
+        return "FAIL", "zero floor_known_recall did not fail bed_acceptance", []
+    if not any("zero_floor_recall" in r for r in acceptance.reasons):
+        return "FAIL", f"expected a zero_floor_recall reason, got: {acceptance.reasons}", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_real_telemetry_all_unclassified_cluster_is_detectable",
+    "FK. a cousin cluster whose shared shape is entirely unclassified is "
+    "detectable from its sourcetypes, never silently indistinguishable "
+    "from a genuine finding",
+    order=164,
+)
+def check_real_telemetry_all_unclassified_cluster_is_detectable() -> tuple[str, str, list[dict]]:
+    """T.3's live diagnostic run against the real corpus bed produced three
+    cousin clusters whose `shared_shape` was entirely `""` (honest per T2 --
+    every record in them came from a sourcetype `telemetry_behavior` does
+    not map, e.g. `Perfmon:*`/`gen:*`). That is expected on real, partially-
+    unmapped data and is not itself a defect; what would be a defect is an
+    all-unclassified cluster that LOOKS like a genuine discovery because
+    nothing distinguishes it. `coverage_report`'s `unmapped_sourcetypes`
+    is that distinguishing signal -- this seeds exactly T.3's shape (every
+    record from one unmapped sourcetype) and confirms it surfaces there."""
+    from portal.modules.security.core.bully import telemetry_behavior as tb
+
+    all_unclassified_records = [({"cpu_pct": float(i)}, "Perfmon:CPU") for i in range(50)]
+    report = tb.coverage_report(all_unclassified_records)
+    if report.n_classified != 0:
+        return "FAIL", "seeded all-unmapped input was not entirely unclassified", []
+    if "Perfmon:CPU" not in report.unmapped_sourcetypes:
+        return (
+            "FAIL",
+            "an all-unclassified cluster's sourcetype did not surface in "
+            "unmapped_sourcetypes -- it would be indistinguishable from a "
+            "genuine finding",
+            [],
+        )
+    return "PASS", "", []
