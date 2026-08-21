@@ -1,0 +1,137 @@
+"""bully.cousin_inject -- generate and ship cousins of answer-key-confirmed
+BOTS techniques into the real corpus via Lane B (C.5, TASK_BULLY_CORPUS_BED_V1).
+
+No new transport: this reuses `siem.hec_ship.ship_batch`, the same primitive
+`scripts/corpus_ingest.py` already uses for Lane B. Every injected event is
+tagged `evidence_origin=corpus:cousin:<cousin_id>`, attributable and
+reversible with the documented rollback
+(`unit-corpus-injection-rollback`):
+
+    index=<lab index> evidence_origin=corpus:cousin:* | delete
+
+The grader never sees this tag (Q3): it rides in the HEC envelope's `source`
+field (Splunk-side metadata `ship_batch` sets from `evidence_origin`), never
+inside the shipped event body itself.
+"""
+
+from __future__ import annotations
+
+import time
+from dataclasses import dataclass
+from typing import Any
+
+from ..siem.hec_ship import ship_batch
+from . import corpus_bed
+
+ALGORITHM_VERSION = "cousin-inject-v1"
+
+# REVOCABULARY/RESCHEMA/SCATTER cousins must share NO literal action token
+# with their parent's behavioural spine -- recoverable only at the
+# behavioural level, which is the whole claim (C.5). REORDER_MINOR and
+# REIDENTITY keep the parent's own verbs (they vary order/principal, not
+# vocabulary), so they are deliberately absent from this map.
+_REVOCABULARY_MAP: dict[str, str] = {
+    "kerberos_asrep_request": "identity_ticket_probe",
+    "hash_extraction": "credential_material_pull",
+    "offline_crack": "async_secret_recovery",
+    "http_beacon": "periodic_outbound_signal",
+    "periodic_checkin": "scheduled_egress_ping",
+    "miner_process_spawn": "background_worker_launch",
+    "outbound_stratum_connection": "external_pool_handshake",
+    "http_exploit_request": "malformed_endpoint_call",
+    "webshell_drop": "server_side_artifact_write",
+}
+
+_REVOCABULARIED_TRANSFORMATIONS = frozenset({"REVOCABULARY", "RESCHEMA", "SCATTER"})
+
+
+def _cousin_spine(cousin: corpus_bed.CousinSpec) -> tuple[str, ...]:
+    if cousin.transformation in _REVOCABULARIED_TRANSFORMATIONS:
+        return tuple(
+            _REVOCABULARY_MAP.get(step, f"variant_{step}") for step in cousin.behavioural_spine
+        )
+    return cousin.behavioural_spine
+
+
+def render_cousin_event(cousin: corpus_bed.CousinSpec, *, step_index: int) -> dict[str, Any]:
+    """One synthetic event body for a single step of a cousin's spine."""
+    spine = _cousin_spine(cousin)
+    step = spine[step_index % len(spine)] if spine else "unknown_step"
+    return {
+        "action": step,
+        "cousin_id": cousin.cousin_id,
+        "parent_technique": cousin.parent_technique,
+        "transformation": cousin.transformation,
+        "step_index": step_index,
+    }
+
+
+@dataclass(frozen=True)
+class InjectReport:
+    cousin_id: str
+    sourcetypes_used: tuple[str, ...]
+    n_events: int
+    ok: bool
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "cousin_id": self.cousin_id,
+            "sourcetypes_used": list(self.sourcetypes_used),
+            "n_events": self.n_events,
+            "ok": self.ok,
+        }
+
+
+def inject_cousins(
+    cousins: list[corpus_bed.CousinSpec],
+    *,
+    index: str | None = None,
+    dry_run: bool = True,
+) -> list[InjectReport]:
+    """Ship every planned cousin's synthetic events via `ship_batch`.
+
+    SCATTER cousins round-robin their spine's steps across every target
+    sourcetype (the whole point of the transformation -- a chain expressed
+    across several real sourcetypes and identities); every other
+    transformation ships to its single resolved sourcetype.
+    """
+    target_index = index or corpus_bed.CORPUS_INDEX
+    reports: list[InjectReport] = []
+    now = time.time()
+    for cousin in cousins:
+        sourcetypes = cousin.target_sourcetypes or ("corpus:cousin",)
+        spine = _cousin_spine(cousin)
+        events_by_sourcetype: dict[str, list[dict[str, Any]]] = {}
+        for i in range(len(spine)):
+            st = (
+                sourcetypes[i % len(sourcetypes)]
+                if cousin.transformation == "SCATTER"
+                else sourcetypes[0]
+            )
+            events_by_sourcetype.setdefault(st, []).append(
+                render_cousin_event(cousin, step_index=i)
+            )
+        ok = True
+        n_events = 0
+        for st, events in events_by_sourcetype.items():
+            result = ship_batch(
+                events,
+                sourcetype=st,
+                host=f"corpus-cousin-{cousin.cousin_id}",
+                index=target_index,
+                event_times=[now] * len(events),
+                evidence_origin=f"corpus:cousin:{cousin.cousin_id}",
+                evidence_provenance="cousin_injection",
+                dry_run=dry_run,
+            )
+            ok = ok and bool(result.get("ok"))
+            n_events += len(events)
+        reports.append(
+            InjectReport(
+                cousin_id=cousin.cousin_id,
+                sourcetypes_used=tuple(events_by_sourcetype),
+                n_events=n_events,
+                ok=ok,
+            )
+        )
+    return reports
