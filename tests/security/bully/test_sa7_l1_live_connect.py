@@ -45,6 +45,22 @@ def test_live_splunk_registration_uses_native_query_and_audit(monkeypatch):
     assert "test-secret" not in str(plane.audit.replay_plan())
 
 
+def test_leading_pipe_spl_is_not_prefixed_with_search(monkeypatch):
+    """A report command (`| eventcount ...`) is already complete SPL --
+    prepending "search " turns it into an empty search piped into the
+    command, which Splunk silently answers with zero rows (verified live
+    against the corpus bed, C.6)."""
+    monkeypatch.setenv("LAB_SPLUNK_PASSWORD", "test-secret")
+    backend = _FakeSplunk()
+    connector = lab_splunk_connector(backend=backend, index="botsv1")
+    connector.read(
+        QueryIntent("count", seed={"spl": "| eventcount summarize=false index=botsv1"}, limit=1)
+    )
+    search, _earliest, _latest = backend.calls[-1]
+    assert not search.startswith("search |")
+    assert search.startswith("|")
+
+
 def test_live_splunk_connector_fails_closed_without_credentials(monkeypatch):
     monkeypatch.delenv("LAB_SPLUNK_PASSWORD", raising=False)
     connector = lab_splunk_connector(backend=_FakeSplunk())

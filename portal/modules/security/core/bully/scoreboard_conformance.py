@@ -293,6 +293,21 @@ def check_run(
     rows = run_json.get("per_row") or run_json.get("rows") or []
 
     findings: list[ConformanceFinding] = []
+    # A BLOCKED/INVALID run (TASK_BULLY_CORPUS_BED_V1 C.1: a run below the
+    # haystack floor publishes INVALID and stops there) never graded
+    # anything -- it has no scoreboard block, no per-row data, and no
+    # correctness axis to publish, by construction, not by omission.
+    # Requiring those fields anyway would make "refuse to score a sample
+    # that isn't a real corpus" itself a conformance FAIL, which is exactly
+    # backwards. The headline/ceiling/precision/recall checks still run:
+    # they are naturally vacuous on an empty `flat`, and a BLOCKED run that
+    # somehow DID publish a fabricated headline must still be caught.
+    if str(run_json.get("plane") or "") in ("BLOCKED", "INVALID"):
+        findings += _check_invented_headline(flat, update_contract)
+        findings += _check_ceiling_exceeded(flat)
+        findings += _check_perfect_precision(flat)
+        findings += _check_recall_contradiction(flat)
+        return findings
     findings += _check_scoreboard_block(run_json, update_contract)
     findings += _check_correctness_axis_published(flat)
     findings += _check_per_row_fields(rows)
