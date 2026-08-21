@@ -27,14 +27,52 @@ from .data_plane import DataPlane, SourceProfile
 
 
 def _search_from_intent(intent: QueryIntent, *, index: str) -> dict[str, Any]:
+    """Translate a `QueryIntent` to native SPL.
+
+    `intent.entities` is the signal that this is an anchor-pivot investigation
+    query (`investigation_pivot.PivotQuery.to_intent()` always sets it): those
+    queries are held to the I1/I2/I6 discipline below -- bounded, entity-
+    scoped, never `sourcetype=`-filtered, and `earliest=0` is refused outright
+    rather than defaulted. Non-entity intents (census/profile probes that
+    predate the investigation engine) keep the prior "0"/"now" default so
+    this change does not silently re-scope unrelated call sites; the point of
+    this task is the discovery/capture path, not every live-plane probe.
+    """
     requested = str(intent.seed.get("spl") or "").strip()
     # A leading-pipe SPL string (`| eventcount ...`, `| tstats ...`) is
     # already a complete generating/report command -- prepending "search "
     # turns it into an empty search piped into that command, which Splunk
     # silently answers with zero rows rather than an error (verified live).
     # `spl_backend.py`'s own dispatch already treats a leading "|" as
-    # complete for the same reason; this mirrors that check.
+    # complete for the same reason; this mirrors that check. It is also the
+    # one legitimate unbounded use (index sizing via `eventcount`/`tstats`):
+    # a generating/report command reads Splunk's bucket metadata, not events,
+    # so time bounds do not apply to it and it is exempt from the raise below.
     is_pipe_command = requested.startswith("|")
+
+    if intent.entities and not is_pipe_command:
+        if intent.start is None or intent.end is None:
+            raise ValueError(
+                "corpus query has no explicit earliest/latest window -- "
+                f"earliest=0 is forbidden on a corpus index: {intent!r}"
+            )
+        if not requested:
+            requested = f"search index={index}"
+        elif not requested.lower().startswith("search "):
+            requested = f"search {requested}"
+        if "index=" not in requested.lower():
+            requested = requested.replace("search ", f"search index={index} ", 1)
+        # Entity-scoped: the whole point of a pivot query. No `sourcetype=`
+        # filter is ever added here (I6) -- a capture that filters cannot
+        # discover a source it was not told to look at. No `| head` either
+        # (I1): the time/entity window bounds the result, not truncation.
+        terms = " OR ".join(f'"{e}"' for e in intent.entities)
+        return {
+            "search": f"{requested} ({terms})",
+            "earliest": intent.start,
+            "latest": intent.end,
+        }
+
     if not requested:
         requested = f"search index={index}"
     elif not requested.lower().startswith("search ") and not is_pipe_command:
