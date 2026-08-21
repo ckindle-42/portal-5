@@ -220,7 +220,7 @@ def test_capture_reaches_live_plane_and_tags_source_id(monkeypatch) -> None:
 
     monkeypatch.setattr(live_connect, "lab_splunk_connector", _fake_lab_splunk_connector)
 
-    report = ip.capture_records()
+    report = ip.capture_records(indexes=("portal5_lab",))
     assert report.plane == "live"
     assert report.reason == ""
     assert len(report.records) == 2
@@ -252,7 +252,11 @@ def test_run_inject_capture_reaches_live_plane_and_seals_ground_truth(
     run = ip.run_inject_capture(ledger_root=tmp_path)
     assert run.plane == "live"
     assert run.reason == ""
-    assert len(run.records) == 2
+    # capture now reads every corpus lane (C.3) -- the fake connector returns
+    # the same 2 fixture records per index, times 4 default indexes.
+    from portal.modules.security.core.bully import corpus_bed as cb
+
+    assert len(run.records) == 2 * len(cb.resolve_indexes())
     total_steps = sum(len(chain["steps"]) for chain in ip._LIVE_CHAINS)
     assert run.sealed_count == total_steps
 
