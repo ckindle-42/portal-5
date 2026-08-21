@@ -43,7 +43,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from . import specimen_ledger
+from . import corpus_bed, specimen_ledger
 from .data_plane import DataPlane
 
 ALGORITHM_VERSION = "inject-plane-v1"
@@ -227,6 +227,7 @@ class CaptureReport:
     reason: str
     records: tuple[dict[str, Any], ...]
     schemas_present: frozenset[str]
+    bed_report: corpus_bed.BedReport | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -234,32 +235,89 @@ class CaptureReport:
             "reason": self.reason,
             "n_records": len(self.records),
             "schemas_present": sorted(self.schemas_present),
+            "bed_report": self.bed_report.to_dict() if self.bed_report else None,
         }
+
+
+def _index_count(connector: Any, index: str) -> int:
+    """Cheap `| stats count` probe for one index -- used only to populate
+    `corpus_bed.assess_bed`'s `records_available`, never to load records."""
+    from .connectors import QueryIntent
+
+    result = connector.read(
+        QueryIntent(
+            "count telemetry for bed assessment",
+            seed={"spl": f"search index={index} | stats count"},
+            limit=1,
+        )
+    )
+    if not result.records:
+        return 0
+    first = result.records[0]
+    fields = first.get("fields", {}) if isinstance(first, dict) else {}
+    raw = fields.get("count") if isinstance(fields, dict) else None
+    if raw is None and isinstance(first, dict):
+        raw = first.get("count")
+    try:
+        return int(raw) if raw is not None else 0
+    except (TypeError, ValueError):
+        return 0
+
+
+def _tag_captured_record(record: Any, *, index: str, schemas: set[str]) -> dict[str, Any] | None:
+    if not isinstance(record, dict):
+        return None
+    fields = record.get("fields")
+    event = dict(fields) if isinstance(fields, dict) else dict(record)
+    # `SplunkBackend._run_search` promotes the event's own timestamp and
+    # the first matching host-identity field (host/ComputerName/dest/
+    # Computer/src) out of `fields` into `_time`/`host` on the wrapper --
+    # the cleanest, already-parsed time and identity signal available.
+    # Losing them here would leave only Splunk's own internal metadata
+    # (_indextime, _bkt, _cd, ...) for role inference to work with.
+    if record.get("host"):
+        event.setdefault("host", record["host"])
+    if record.get("_time") is not None:
+        event.setdefault("_time", record["_time"])
+    sourcetype = str(event.get("sourcetype") or "unknown")
+    event["__source_id"] = f"lab-splunk:{sourcetype}"
+    event["__index"] = index
+    schemas.add(sourcetype)
+    return event
 
 
 def capture_records(
     *,
     plane: DataPlane | None = None,
     sample_limit: int = 500,
+    indexes: tuple[str, ...] | None = None,
 ) -> CaptureReport:
-    """Read activity back out of the lab's Splunk index via the existing
+    """Read activity back out of the lab's Splunk indexes via the existing
     `SplunkQueryInPlaceConnector` -- the read path this module adds no
     write path beside. Records are captured raw and untagged (Q3): no
     family/technique/injected label ever rides on a captured record.
 
-    Queries the whole index with no `sourcetype` filter. `live_connect.
-    connect_lab_splunk` (used by other bully call sites) hardcodes
-    `sourcetype=aws:cloudtrail`, which is the right probe for a single-
-    schema CloudTrail baseline but is exactly the RC1/RC2 mistake for this
-    module's purpose: a capture that can only ever see one schema can never
-    prove plurality (Q2), and would silently miss the Windows-side telemetry
-    (`windows:security`/`windows:sysmon`/`windows:powershell` etc.) the
-    generated SMB/LDAP recon chains actually produce. Each Splunk search
-    hit carries the real event under `fields` (the SDK's per-result payload
-    minus the two fields the connector already promoted to `_time`/`host`);
-    `fields["sourcetype"]` is the genuine per-record schema tag, used as
-    `__source_id` so field-role inference and schema-plurality reporting
-    are keyed on what was actually indexed, not a hardcoded guess.
+    Reads across every index `corpus_bed.resolve_indexes()` names -- Lane B/C
+    (`LAB_SPLUNK_INDEX`, default `portal5_lab`) plus Lane A's `botsv1`/
+    `botsv2`/`botsv3` -- not the single hardcoded `portal5_lab` this function
+    used to read exclusively (every bully run through D.4 could see only the
+    `gen:*` synthetic universe it had just written itself; BOTS lives under a
+    different index name and was invisible to a single-index capture).
+
+    Queries each index with no `sourcetype` filter: a capture that can only
+    ever see one schema can never prove plurality (Q2), and would silently
+    miss the Windows-side telemetry (`windows:security`/`windows:sysmon`/
+    `windows:powershell` etc.) the generated SMB/LDAP recon chains actually
+    produce. Each Splunk search hit carries the real event under `fields`
+    (the SDK's per-result payload minus the two fields the connector already
+    promoted to `_time`/`host`); `fields["sourcetype"]` is the genuine
+    per-record schema tag, used as `__source_id` so field-role inference and
+    schema-plurality reporting are keyed on what was actually indexed, not a
+    hardcoded guess. Every record also carries `__index` so downstream code
+    (and `corpus_bed.assess_bed`) can attribute it to its lane.
+
+    `corpus_bed.assess_bed(...)` is published on every run (`bed_report`) so
+    a sample can never again be silently mistaken for a haystack.
     """
     available, reason = lab_available()
     if not available:
@@ -270,72 +328,119 @@ def capture_records(
     from .connectors import QueryIntent
     from .live_connect import lab_splunk_connector
 
-    index = os.environ.get("LAB_SPLUNK_INDEX", "portal5_lab")
-    connector = lab_splunk_connector(index=index)
-    # Explicitly sorted most-recent-first, not an unbounded/unsorted
-    # "search index=X": this index also carries a large pre-loaded
-    # historical corpus (millions of events across many sourcetypes), so an
-    # unsorted capture can return an arbitrary slice dominated by that bulk-
-    # loaded corpus rather than genuinely recent activity. `earliest`/
-    # `latest` are deliberately left at this connector's defaults ("0"/
-    # "now"): this lab's export endpoint was found (empirically, verified
-    # against the live index) to return zero rows for any relative earliest
-    # bound ("-30m", "-1h", "-24h" all returned 0 despite events with
-    # `_time` timestamped at the moment of the query existing), while an
-    # unbounded earliest combined with `sort -_time` reliably returns
-    # genuinely current events -- a real quirk of this lab's Splunk
-    # deployment (likely an indextime/eventtime skew on the bulk-loaded
-    # corpus), not a defect in this connector's query construction.
-    result = connector.read(
-        QueryIntent(
-            "capture recent telemetry, all sourcetypes",
-            seed={"spl": f"search index={index} | sort -_time"},
-            limit=sample_limit,
+    target_indexes = indexes if indexes is not None else corpus_bed.resolve_indexes()
+
+    captured: list[dict[str, Any]] = []
+    schemas: set[str] = set()
+    records_available: dict[str, int] = {}
+    for index in target_indexes:
+        connector = lab_splunk_connector(index=index)
+        records_available[index] = _index_count(connector, index)
+        # Explicitly sorted most-recent-first, not an unbounded/unsorted
+        # "search index=X": each index also carries pre-loaded historical
+        # volume, so an unsorted capture can return an arbitrary slice
+        # dominated by that bulk-loaded corpus rather than genuinely recent
+        # activity. `earliest`/`latest` are deliberately left at this
+        # connector's defaults ("0"/"now"): this lab's export endpoint was
+        # found (empirically, verified against the live index) to return
+        # zero rows for any relative earliest bound ("-30m", "-1h", "-24h"
+        # all returned 0 despite events with `_time` timestamped at the
+        # moment of the query existing), while an unbounded earliest
+        # combined with `sort -_time` reliably returns genuinely current
+        # events -- a real quirk of this lab's Splunk deployment (likely an
+        # indextime/eventtime skew on the bulk-loaded corpus), not a defect
+        # in this connector's query construction.
+        result = connector.read(
+            QueryIntent(
+                "capture recent telemetry, all sourcetypes",
+                seed={"spl": f"search index={index} | sort -_time"},
+                limit=sample_limit,
+            )
         )
-    )
-    if not result.records:
+        for record in result.records:
+            tagged = _tag_captured_record(record, index=index, schemas=schemas)
+            if tagged is not None:
+                captured.append(tagged)
+        if result.records:
+            active_plane = plane or DataPlane()
+            active_plane.connect(
+                f"lab-splunk-plural:{index}",
+                connector,
+                result.records,
+                source_meta={
+                    "record_class": "telemetry",
+                    "credential_ref": "env:LAB_SPLUNK_PASSWORD",
+                    "capabilities": {"queryable_in_place": True, "benign_present": True},
+                },
+            )
+
+    bed = corpus_bed.assess_bed(records_available, records_read=len(captured))
+    if not captured:
         return CaptureReport(
             plane="live",
             reason="capture returned zero records",
             records=(),
             schemas_present=frozenset(),
+            bed_report=bed,
         )
-
-    active_plane = plane or DataPlane()
-    active_plane.connect(
-        "lab-splunk-plural",
-        connector,
-        result.records,
-        source_meta={
-            "record_class": "telemetry",
-            "credential_ref": "env:LAB_SPLUNK_PASSWORD",
-            "capabilities": {"queryable_in_place": True, "benign_present": True},
-        },
+    return CaptureReport(
+        plane="live",
+        reason="",
+        records=tuple(captured),
+        schemas_present=frozenset(schemas),
+        bed_report=bed,
     )
 
-    captured: list[dict[str, Any]] = []
-    schemas: set[str] = set()
-    for record in result.records:
-        if not isinstance(record, dict):
-            continue
-        fields = record.get("fields")
-        event = dict(fields) if isinstance(fields, dict) else dict(record)
-        # `SplunkBackend._run_search` promotes the event's own timestamp and
-        # the first matching host-identity field (host/ComputerName/dest/
-        # Computer/src) out of `fields` into `_time`/`host` on the wrapper --
-        # the cleanest, already-parsed time and identity signal available.
-        # Losing them here would leave only Splunk's own internal metadata
-        # (_indextime, _bkt, _cd, ...) for role inference to work with.
-        if record.get("host"):
-            event.setdefault("host", record["host"])
-        if record.get("_time") is not None:
-            event.setdefault("_time", record["_time"])
-        sourcetype = str(event.get("sourcetype") or "unknown")
-        event["__source_id"] = f"lab-splunk:{sourcetype}"
-        schemas.add(sourcetype)
-        captured.append(event)
-    return CaptureReport(
-        plane="live", reason="", records=tuple(captured), schemas_present=frozenset(schemas)
+
+class _SplunkPaginatedFetcher:
+    """`.fetch(offset, limit)` adapter over `SplunkQueryInPlaceConnector` for
+    `corpus_bed.stream_corpus`. Splunk's REST search has no native row
+    offset, so pagination over a stable `sort -_time` ordering is done with
+    `head (offset+limit) | tail limit` -- the standard SPL idiom for windowed
+    reads over a deterministic sort, and correct for any index size."""
+
+    def __init__(self, index: str) -> None:
+        from .live_connect import lab_splunk_connector
+
+        self.index = index
+        self._connector = lab_splunk_connector(index=index)
+
+    def fetch(self, *, offset: int, limit: int) -> list[dict[str, Any]]:
+        from .connectors import QueryIntent
+
+        spl = f"search index={self.index} | sort -_time | head {offset + limit} | tail {limit}"
+        result = self._connector.read(
+            QueryIntent(
+                f"stream corpus batch offset={offset}",
+                seed={"spl": spl},
+                limit=limit,
+            )
+        )
+        schemas: set[str] = set()
+        out: list[dict[str, Any]] = []
+        for record in result.records:
+            tagged = _tag_captured_record(record, index=self.index, schemas=schemas)
+            if tagged is not None:
+                out.append(tagged)
+        return out
+
+
+def stream_captured_records(
+    *,
+    indexes: tuple[str, ...] | None = None,
+    batch_size: int = 10_000,
+    max_records: int | None = None,
+) -> Any:
+    """Stream captured records across every corpus lane in batches, built on
+    `corpus_bed.stream_corpus` -- millions of records processed without ever
+    being loaded whole. Callers fit a baseline incrementally from this
+    stream; scoring may then sample a subset (fit wide, score narrow)."""
+    target_indexes = indexes if indexes is not None else corpus_bed.resolve_indexes()
+    return corpus_bed.stream_corpus(
+        _SplunkPaginatedFetcher,
+        target_indexes,
+        batch_size=batch_size,
+        max_records=max_records,
     )
 
 
