@@ -1,29 +1,47 @@
 """bully.unit_outcome -- resolve the outcome table and emit ConcernBriefs
-(V.2, TASK_BULLY_UNKNOWN_COUSIN_V1).
+(V.2, TASK_BULLY_UNKNOWN_COUSIN_V1; inverted to discovery-first by D.2,
+TASK_BULLY_DISCOVERY_FIRST_V1).
 
 Combines V.1's unit-vs-type grading with N.1's known-benign types and N.2's
 baseline to resolve the outcome table from
-`docs/DESIGN_BULLY_UNKNOWN_COUSIN_V1.md`:
+`docs/DESIGN_BULLY_UNKNOWN_COUSIN_V1.md`, **discovery-first**
+(`docs/DESIGN_BULLY_DISCOVERY_FIRST_V1.md`, D1/D2): a unit is surfaced as a
+concern when it is remarkable (`baseline`) and structurally coherent
+(`discovery.cohesion`), whatever the library says. Only then is the library
+consulted, to *name* the concern as `UNKNOWN_SAME`/`COUSIN`, or to leave it
+`NOVEL` when it resembles nothing. As shipped before D.2, the library ran
+FIRST and decided everything -- `outcome = NOVEL if baseline.is_remarkable
+else NORMAL` only ran when nothing in the library matched -- so whichever way
+the library leaned determined 100% of outcomes (a library that matched
+everything never let the baseline run at all; a library that matched nothing
+sent every unit to the fallback). D1 forbids that: no concern-raising
+outcome may be conditional on a catalogue match alone.
 
-| type relation             | baseline    | outcome           | disposition |
-|----------------------------|-------------|--------------------|--------------|
-| EXACT malicious, known instance   | --   | KNOWN_INSTANCE     | floor        |
-| EXACT malicious, unknown instance | --   | UNKNOWN_SAME       | concern      |
-| SIMILAR malicious                 | --   | COUSIN             | concern      |
-| EXACT/SIMILAR benign              | --   | RECOGNIZED_NORMAL  | suppress     |
-| none                       | unremarkable| NORMAL             | silent       |
-| none                       | remarkable  | NOVEL              | concern      |
-| uncomputable                | --  | INSUFFICIENT_VIEW  | instrument   |
+| discovery (baseline+cohesion) | library relation | outcome           | disposition |
+|--------------------------------|-------------------|--------------------|--------------|
+| any                             | benign match       | RECOGNIZED_NORMAL  | suppress     |
+| any                             | known-instance kind| KNOWN_INSTANCE     | floor        |
+| discovered                      | EXACT (other)      | UNKNOWN_SAME       | concern      |
+| discovered                      | SIMILAR (other)    | COUSIN             | concern      |
+| discovered                      | none               | NOVEL              | concern      |
+| not discovered                  | none / other       | NORMAL             | silent       |
+| uncomputable                    | --                  | INSUFFICIENT_VIEW  | instrument   |
 
-"Known instance" is decided by anchor *kind*, not by matching a type: a
-`confirmed_finding` or `detection_coverage` anchor means this exact
-occurrence (or something covered by existing detection content) is already
-on file -- the floor, "existing detection owns it." An `attack_episode` or
-`advisory` anchor defines a technique *type*; matching one exactly still
-means the *instance* in front of us was never seen before, which is
-`UNKNOWN_SAME`, not `KNOWN_INSTANCE` -- conflating "matches a known type"
-with "is a known instance" is precisely the error this whole task exists to
-correct (P1).
+`RECOGNIZED_NORMAL` (an analyst-confirmed benign type) and `KNOWN_INSTANCE`
+(an already-actioned instance -- "existing detection owns it") are the two
+library-driven exceptions, and only those two: both are *accumulated
+knowledge* an analyst or a detection already closed, not a catalogue lookup
+deciding what is interesting. "Known instance" is decided by anchor *kind*,
+not by matching a type: a `confirmed_finding` or `detection_coverage` anchor
+means this exact occurrence (or something covered by existing detection
+content) is already on file -- the floor, "existing detection owns it." An
+`attack_episode` or `advisory` anchor defines a technique *type*; matching
+one exactly still means the *instance* in front of us was never seen before,
+which is `UNKNOWN_SAME`, not `KNOWN_INSTANCE` -- conflating "matches a known
+type" with "is a known instance" is precisely the error P1 exists to correct,
+and it is unaffected by the D.2 inversion: `KNOWN_INSTANCE` is a dedup floor,
+not a discovery concern, so it is reported at whatever remarkability the
+instance happens to carry.
 
 Every concern-raising outcome (`UNKNOWN_SAME`, `COUSIN`, `NOVEL`) emits a
 `ConcernBrief` -- a verdict label with no brief is not actionable and does
@@ -39,6 +57,12 @@ from typing import Any
 from .anchors import Anchor, AnchorLibrary
 from .artifact_graph import ActionClassifier, GradeableUnit
 from .baseline import NormalBaseline
+from .discovery import (
+    DISCOVERY_MIN_COHESION,
+    DISCOVERY_MIN_REMARKABILITY,
+    cohesion,
+    tail_remarkability,
+)
 from .unit_relation import (
     UnitTypeRelation,
     grade_unit_against_type,
@@ -246,21 +270,46 @@ def resolve_unit_outcome(
         for anchor in library_anchors
     ]
     matches = [(a, r) for a, r in graded if r.overall_relation in ("EXACT", "SIMILAR")]
-    remarkability = baseline.remarkability(unit)
+    # `tail_remarkability`, not `baseline.remarkability`: the mean-over-all-
+    # tokens shape is diluted by the boilerplate every unit shares (size,
+    # span, edge-mix, entity-role), which is exactly the defect D.1's
+    # docstring measures -- a unit carrying rare, never-before-seen
+    # behavioural bigrams can still average out below threshold. Discovery
+    # is evidenced by the PRESENCE of something rare, not the average
+    # commonness of everything.
+    remarkability = tail_remarkability(unit, baseline)
 
-    if matches:
-        best_anchor, best_relation = min(matches, key=_match_sort_key)
-        if best_anchor.malice == "benign":
-            outcome = "RECOGNIZED_NORMAL"
-        elif best_anchor.kind in _KNOWN_INSTANCE_KINDS:
-            outcome = "KNOWN_INSTANCE"
-        elif best_relation.overall_relation == "EXACT":
-            outcome = "UNKNOWN_SAME"
+    # D1: the library may never be the trigger. It gets exactly two
+    # library-driven exceptions -- both accumulated knowledge, not a
+    # catalogue lookup deciding what is interesting -- and nothing else.
+    benign_matches = [(a, r) for a, r in matches if a.malice == "benign"]
+    known_instance_matches = [(a, r) for a, r in matches if a.kind in _KNOWN_INSTANCE_KINDS]
+
+    # PRIMARY gate, library-free (D2): unusual for this environment
+    # (`baseline`) AND structurally coherent (`discovery.cohesion`).
+    discovered = remarkability >= DISCOVERY_MIN_REMARKABILITY and cohesion(unit) >= (
+        DISCOVERY_MIN_COHESION
+    )
+
+    if benign_matches:
+        best_anchor, best_relation = min(benign_matches, key=_match_sort_key)
+        outcome = "RECOGNIZED_NORMAL"
+    elif known_instance_matches:
+        best_anchor, best_relation = min(known_instance_matches, key=_match_sort_key)
+        outcome = "KNOWN_INSTANCE"
+    elif discovered:
+        # Discovery already decided this is worth an analyst's attention.
+        # The library only NAMES it -- and `resembles nothing` is NOVEL,
+        # never a miss (D4).
+        if matches:
+            best_anchor, best_relation = min(matches, key=_match_sort_key)
+            outcome = "UNKNOWN_SAME" if best_relation.overall_relation == "EXACT" else "COUSIN"
         else:
-            outcome = "COUSIN"
+            best_anchor, best_relation = None, None
+            outcome = "NOVEL"
     else:
         best_anchor, best_relation = None, None
-        outcome = "NOVEL" if baseline.is_remarkable(unit) else "NORMAL"
+        outcome = "NORMAL"
 
     brief = (
         _build_brief(unit, outcome, best_anchor, best_relation, remarkability)

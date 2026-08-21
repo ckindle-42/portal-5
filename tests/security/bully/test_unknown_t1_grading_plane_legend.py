@@ -25,9 +25,22 @@ def test_scored_means_legend_knows_not_merely_reachable():
     library.load_attack_episode(
         source_id="attack_data", record={"action_sequence": _VERBS}, techniques=("T1078",)
     )
-    outcome = uo.resolve_unit_outcome(
-        _unit(), list(library.all()), bl.NormalBaseline(environment_id="e")
-    )
+    # D.2, discovery-first: a library match alone no longer surfaces a
+    # concern (D1) -- fit an unrelated benign L4_WINDOW shape so the probe
+    # is remarkable for a reason other than an empty baseline.
+    model = bl.NormalBaseline(environment_id="e")
+    benign_cycle = ["ListBuckets", "GetObject", "DescribeInstances"]
+
+    def _benign(entity: str) -> ag.GradeableUnit:
+        records = [
+            {"eventName": v, "user": entity, "eventTime": 1_700_000_000.0 + i * 40.0}
+            for i, v in enumerate(benign_cycle[: len(_VERBS)])
+        ]
+        graph = ag.build_graph(records)
+        return next(u for u in ag.enumerate_units(graph) if u.level == "L4_WINDOW")
+
+    model.fit([_benign(f"benign-{i}") for i in range(50)])
+    outcome = uo.resolve_unit_outcome(_unit(), list(library.all()), model)
     assert outcome.outcome == "UNKNOWN_SAME"
 
     unscored_row = um.bind_ground_truth(outcome, family=None, malice="unknown")
