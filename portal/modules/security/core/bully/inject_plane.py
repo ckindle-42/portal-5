@@ -417,34 +417,91 @@ def capture_records(
 
 class _SplunkPaginatedFetcher:
     """`.fetch(offset, limit)` adapter over `SplunkQueryInPlaceConnector` for
-    `corpus_bed.stream_corpus`. Splunk's REST search has no native row
-    offset, so pagination over a stable `sort -_time` ordering is done with
-    `head (offset+limit) | tail limit` -- the standard SPL idiom for windowed
-    reads over a deterministic sort, and correct for any index size."""
+    `corpus_bed.stream_corpus`.
+
+    Time-windowed, not row-offset (F.4 fix, TASK_BULLY_FULL_ASSEMBLY_V1): the
+    original `sort -_time | head (offset+limit) | tail limit` idiom forces
+    Splunk to re-materialize `offset+limit` rows on EVERY call -- O(n) per
+    page, O(n^2/batch_size) total across a full corpus walk. Measured live
+    against the 281M-record corpus: the first ~347 batches (offset 0 to
+    3.47M) took ~50 minutes; the NEXT single batch alone ran past 13 hours
+    before being killed, with Splunk's own job log showing that one query
+    (`head 3480000 | tail 10000`) actively running the whole time -- not
+    hung, just genuinely O(offset) per call. At that growth rate the
+    smallest index alone was on a multi-day trajectory and the 226M-row
+    `botsv2` index would not have finished within any plausible run.
+
+    Each call instead asks for a bounded TIME WINDOW, independent of how far
+    into the index the walk has progressed: window width is estimated once,
+    from the index's own event count and time range (`_index_count`/
+    `discover_index_range`), as `span * limit / count`, so each window holds
+    roughly `limit` events on data with a reasonably even time distribution.
+    Real telemetry is bursty, so a window returning nothing is EXPANDED
+    (doubled) rather than treated as exhaustion; results inside a window are
+    still capped with a generous `head` as a safety net, but the window --
+    never the corpus position -- bounds each query's cost."""
 
     def __init__(self, index: str) -> None:
         from .live_connect import lab_splunk_connector
 
         self.index = index
         self._connector = lab_splunk_connector(index=index)
+        self._cursor: float | None = None
+        self._latest: float | None = None
+        self._window_seconds: float = 3600.0
+        self._exhausted = False
+
+    def _ensure_bounds(self, limit: int) -> None:
+        if self._cursor is not None or self._exhausted:
+            return
+        rng = discover_index_range(self._connector, self.index)
+        if rng.earliest is None or rng.latest is None or rng.earliest >= rng.latest:
+            self._exhausted = True
+            return
+        count = _index_count(self._connector, self.index)
+        span = rng.latest - rng.earliest
+        density = (count / span) if span > 0 else 0.0
+        window = (limit / density) if density > 0 else span
+        self._window_seconds = max(1.0, min(window, span))
+        self._cursor = rng.earliest
+        self._latest = rng.latest
 
     def fetch(self, *, offset: int, limit: int) -> list[dict[str, Any]]:
         from .connectors import QueryIntent
 
-        spl = f"search index={self.index} | sort -_time | head {offset + limit} | tail {limit}"
-        result = self._connector.read(
-            QueryIntent(
-                f"stream corpus batch offset={offset}",
-                seed={"spl": spl},
-                limit=limit,
-            )
-        )
-        schemas: set[str] = set()
+        self._ensure_bounds(limit)
+        if self._exhausted or self._cursor is None or self._latest is None:
+            return []
+        window = self._window_seconds
         out: list[dict[str, Any]] = []
-        for record in result.records:
-            tagged = _tag_captured_record(record, index=self.index, schemas=schemas)
-            if tagged is not None:
-                out.append(tagged)
+        while True:
+            t0 = self._cursor
+            t1 = min(self._latest, t0 + window)
+            result = self._connector.read(
+                QueryIntent(
+                    f"stream corpus batch window={t0}-{t1}",
+                    seed={"spl": f"search index={self.index} | head {limit * 3}"},
+                    start=t0,
+                    end=t1,
+                    limit=limit * 3,
+                )
+            )
+            schemas: set[str] = set()
+            out = []
+            for record in result.records:
+                tagged = _tag_captured_record(record, index=self.index, schemas=schemas)
+                if tagged is not None:
+                    out.append(tagged)
+            reached_end = t1 >= self._latest
+            if out or reached_end:
+                self._cursor = t1
+                if reached_end:
+                    self._exhausted = True
+                break
+            # A window with nothing in it (sparse period) doubles rather
+            # than signalling exhaustion -- exhaustion is only ever "the
+            # window reached the index's real latest bound".
+            window = window * 4
         return out
 
 
