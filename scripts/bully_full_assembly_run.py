@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -42,6 +43,7 @@ from portal.modules.security.core.bully import (
     analyst_loop,  # noqa: E402
     corpus_bed,  # noqa: E402
     correlation,  # noqa: E402
+    cousin_inject,  # noqa: E402
     loop_grader,  # noqa: E402
     pyramid,  # noqa: E402
     series_cousin,  # noqa: E402
@@ -143,15 +145,48 @@ def build_stages(  # noqa: C901, PLR0915
         return {"n_indexes": len(ranges)}
 
     def stream_corpus_sample(ctx: fp.RunContext) -> dict[str, Any]:
+        """Fit WIDE, score NARROW (corpus_bed's own doctrine, C.6): stream
+        the corpus in batches with NO total-record cap by default (F.4 --
+        `max_records` stays `None` unless a caller explicitly bounds it for
+        a smoke test), incrementally fitting `NormalBaseline` per batch so
+        the fit reflects millions of records without ever holding them all
+        in memory. Only the LAST batch is kept in `ctx["records"]` as a
+        bounded real-data working set for the downstream structural stages
+        (field roles, telemetry classification, correlation, discovery) --
+        those stages score narrow, on purpose, over whatever the wide pass
+        most recently saw."""
         indexes = ctx.get("indexes", ())
-        records: list[dict[str, Any]] = []
+        baseline = bl.NormalBaseline(environment_id="full_assembly")
+        last_batch: list[dict[str, Any]] = []
+        batch: list[dict[str, Any]] = []
+
+        def _fit_batch(rows: list[dict[str, Any]]) -> None:
+            if not rows:
+                return
+            graph = ag.build_graph(rows, source_id="full_assembly")
+            units = ag.enumerate_units(graph)
+            baseline.fit(units)
+
         for row in ip.stream_captured_records(
             indexes=indexes, batch_size=batch_size, max_records=max_records
         ):
-            records.append(row)
+            batch.append(row)
             ctx.count("records_processed")
-        ctx.put("records", records)
-        return {"n_records": len(records)}
+            if len(batch) >= batch_size:
+                _fit_batch(batch)
+                last_batch = batch
+                batch = []
+        if batch:
+            _fit_batch(batch)
+            last_batch = batch
+
+        ctx.put("records", last_batch)
+        ctx.put("wide_baseline", baseline)
+        return {
+            "n_records_wide_fit": ctx.counters.get("records_processed", 0),
+            "n_records_last_batch": len(last_batch),
+            "wide_fitted_units": baseline.fitted_units,
+        }
 
     def infer_field_roles(ctx: fp.RunContext) -> dict[str, Any]:
         records = ctx.get("records", [])
@@ -218,9 +253,18 @@ def build_stages(  # noqa: C901, PLR0915
         return {"n_entities": len(entities), "n_timelines": len(timelines)}
 
     def fit_baseline(ctx: fp.RunContext) -> dict[str, Any]:
+        # The WIDE fit already happened incrementally across the whole
+        # streamed corpus in `stream_corpus_sample` -- fitting again here
+        # from only the last batch would throw away exactly the "fit wide"
+        # discipline this run exists to prove. This stage's job is to also
+        # fold in the last batch's own units (already inside the wide fit
+        # only if it landed on a batch boundary) so `discover_and_cluster`
+        # always scores narrow against a baseline that has seen its own
+        # scoring units at least once.
+        baseline = ctx.get("wide_baseline") or bl.NormalBaseline(environment_id="full_assembly")
         units = ctx.get("units", [])
-        baseline = bl.NormalBaseline(environment_id="full_assembly")
-        baseline.fit(units)
+        if units:
+            baseline.fit(units)
         ctx.put("baseline", baseline)
         return {"fitted_units": baseline.fitted_units}
 
@@ -307,55 +351,103 @@ def build_stages(  # noqa: C901, PLR0915
             },
         }
 
+    def _anchor_for(entry: Any, ctx: fp.RunContext) -> pivot.Anchor:
+        index_ranges = ctx.get("index_ranges", {})
+        rng = index_ranges.get(entry.dataset)
+        at = rng.earliest if rng and rng.earliest is not None else time.time()
+        return pivot.Anchor(
+            anchor_id=f"a-assembly-{entry.technique}",
+            at=at,
+            entity=entry.entities[0],
+            entity_kind="host",
+            sourcetype=entry.sourcetypes[0] if entry.sourcetypes else "",
+            why=f"answer_key:{entry.technique}",
+            index=entry.dataset,
+        )
+
     def investigate_anchors(ctx: fp.RunContext) -> dict[str, Any]:
+        """Search the answer key's real anchors ONE AT A TIME and stop at
+        the FIRST that produces a genuine finding (a live investigation
+        that actually captured events) -- proving the investigation loop
+        works against the real corpus without exhaustively investigating
+        all 27 entries. `n_answer_key_entries_tried` publishes how much of
+        the key had to be searched, so a run finding nothing after trying
+        all of them reads as a real negative, not a truncated one."""
         indexes = ctx.get("indexes", ())
-        anchors: list[pivot.Anchor] = []
-        for entry in BOTS_ANSWER_KEY:
-            if entry.dataset not in indexes or not entry.entities:
-                continue
-            index_ranges = ctx.get("index_ranges", {})
-            rng = index_ranges.get(entry.dataset)
-            at = rng.earliest if rng and rng.earliest is not None else time.time()
-            anchors.append(
-                pivot.Anchor(
-                    anchor_id=f"a-assembly-{entry.technique}",
-                    at=at,
-                    entity=entry.entities[0],
-                    entity_kind="host",
-                    sourcetype=entry.sourcetypes[0] if entry.sourcetypes else "",
-                    why=f"answer_key:{entry.technique}",
-                    index=entry.dataset,
-                )
-            )
-        if not anchors:
-            return {"n_investigations": 0, "seam_defect": "no answer-key anchors in scope"}
-        capture = ip.capture_investigation(anchors, indexes=indexes)
-        ctx.put("investigations", capture.investigations)
-        ctx.put("investigation_bed_report", capture.bed_report)
-        return {"n_investigations": len(capture.investigations)}
+        candidates = [e for e in BOTS_ANSWER_KEY if e.dataset in indexes and e.entities]
+        tried = 0
+        for entry in candidates:
+            anchor = _anchor_for(entry, ctx)
+            capture = ip.capture_investigation([anchor], indexes=(entry.dataset,))
+            tried += 1
+            invs = capture.investigations
+            if invs and len(invs[0].events) > 0:
+                ctx.put("investigations", invs)
+                ctx.put("investigation_bed_report", capture.bed_report)
+                ctx.put("found_anchor_entry", entry)
+                ctx.put("found_anchor", anchor)
+                return {
+                    "n_investigations": len(invs),
+                    "n_events": len(invs[0].events),
+                    "n_answer_key_entries_tried": tried,
+                    "found_technique": entry.technique,
+                    "found_dataset": entry.dataset,
+                }
+        return {
+            "n_investigations": 0,
+            "n_answer_key_entries_tried": tried,
+            "n_answer_key_entries_available": len(candidates),
+            "seam_defect": "searched every in-scope answer-key anchor, none captured a live event",
+        }
 
     def plant_and_measure_cousins(ctx: fp.RunContext) -> dict[str, Any]:
+        """Narrow proof, not a corpus-wide sweep: once `investigate_anchors`
+        found ONE real anchor with real events, plant exactly ONE cousin of
+        THAT technique, ship it live (unless `--dry-run-cousins`), let it
+        land, then re-run the SAME anchor's investigation to measure
+        whether the chain that just proved itself real can also recover an
+        injected cousin next to it."""
+        entry = ctx.get("found_anchor_entry")
+        anchor = ctx.get("found_anchor")
         earliest = ctx.get("corpus_earliest")
         latest = ctx.get("corpus_latest")
+        if entry is None or anchor is None or earliest is None or latest is None:
+            return {
+                "n_planted": 0,
+                "seam_defect": "no anchor found by investigate_anchors to test a cousin against",
+            }
         coverage = ctx.get("coverage")
-        if earliest is None or latest is None:
-            return {"n_planted": 0, "seam_defect": "no discovered corpus range to plant inside"}
         sourcetypes = tuple(sorted(coverage.by_sourcetype)) if coverage else ()
         cousins = corpus_bed.plan_cousins(
-            list(BOTS_ANSWER_KEY),
+            [entry],
             corpus_earliest=earliest,
             corpus_latest=latest,
             corpus_sourcetypes=sourcetypes,
+            per_technique=1,
         )
         ctx.put("planned_cousins", cousins)
-        investigations = ctx.get("investigations", [])
+        inject_reports = cousin_inject.inject_cousins(
+            cousins,
+            index=entry.dataset,
+            corpus_earliest=earliest,
+            corpus_latest=latest,
+            dry_run=dry_run_cousins,
+        )
+        if not dry_run_cousins and any(r.ok for r in inject_reports):
+            time.sleep(5.0)  # let HEC-shipped events land before recovery capture
+        recovery_capture = ip.capture_investigation([anchor], indexes=(entry.dataset,))
         reached: set[str] = set()
-        for inv in investigations:
+        for inv in recovery_capture.investigations:
             reached |= set(inv.entities_seen)
         planted = [(c.anchor_entity, c.planted_distance) for c in cousins if c.anchor_entity]
         recovery = ascope.distance_recovery(planted, reached)
         ctx.put("distance_recovery", recovery)
-        return {"n_planted": len(cousins), **recovery.to_dict()}
+        return {
+            "n_planted": len(cousins),
+            "dry_run": dry_run_cousins,
+            "inject_reports": [r.to_dict() for r in inject_reports],
+            **recovery.to_dict(),
+        }
 
     def raise_and_verdict_concerns(ctx: fp.RunContext) -> dict[str, Any]:
         outcomes = ctx.get("unit_outcomes", [])
@@ -404,9 +496,19 @@ def main() -> int:
     parser.add_argument("--dry-run-cousins", action="store_true")
     args = parser.parse_args()
 
-    available, reason = ip.lab_available()
-    if not available:
-        print(json.dumps({"plane": "unavailable", "reason": reason}, indent=2))
+    # `ip.lab_available()` also gates on the DC/SRV attack-simulation VMs
+    # answering AD ports -- irrelevant to reading the already-indexed BOTS
+    # corpus or injecting a cousin via HEC, both of which only need Splunk
+    # itself. Gating the WHOLE run on it would abort a genuine corpus hunt
+    # over an unrelated subsystem being down; the credential check below is
+    # the real precondition for streaming, and any stage that DOES need the
+    # DC/SRV path (`investigate_anchors`, via `capture_investigation`)
+    # already degrades to an honest empty result rather than raising, so
+    # F.1's fix-in-place discipline covers it without a blanket abort here.
+    if not os.environ.get("LAB_SPLUNK_PASSWORD"):
+        print(
+            json.dumps({"plane": "unavailable", "reason": "LAB_SPLUNK_PASSWORD not set"}, indent=2)
+        )
         return 1
 
     stages = build_stages(
