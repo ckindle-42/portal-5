@@ -429,7 +429,19 @@ def plan_cousins(
 
                 specs.append(
                     CousinSpec(
-                        cousin_id=f"cz-{entry.technique}-{transformation}-{t_i}{n}-d{planted_distance}",
+                        # Qualified by dataset AND entry index (F.3,
+                        # TASK_BULLY_FULL_ASSEMBLY_V1): the answer key scaled
+                        # from 4 entries (one per technique) to dozens, where
+                        # the SAME technique legitimately recurs across
+                        # datasets and entries (T1190 in botsv1's Joomla
+                        # exploit and botsv3's Struts2 exploit, for example).
+                        # A cousin_id keyed on technique alone collided the
+                        # moment two entries shared one, silently merging two
+                        # cousins' `| delete` rollback tags into one.
+                        cousin_id=(
+                            f"cz-{entry.dataset}-{entry.technique}-{e_i:03d}-"
+                            f"{transformation}-{t_i}{n}-d{planted_distance}"
+                        ),
                         parent_technique=entry.technique,
                         parent_dataset=entry.dataset,
                         behavioural_spine=entry.behavioural_spine,
