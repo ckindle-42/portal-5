@@ -98,6 +98,10 @@ portal/modules/security/core/results/*.bak
 portal/modules/security/core/results/*.raw.jsonl
 portal/modules/security/core/results/*.json.log
 portal/modules/security/core/results/ABLATION_REPORT_*.md
+
+# TTS MCP output (get_generated_dir("speech"), CLAUDE.md Rule 11) --
+# locally-generated user artifacts, not source, replayable on demand.
+data/generated/*.wav
 portal/modules/security/core/results/VALIDATION_*.md
 /ABLATION_DECISION.raw.jsonl
 /ABLATION_DECISION*.bak
