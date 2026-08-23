@@ -73,6 +73,13 @@ ALGORITHM_VERSION = "full-assembly-run-f2-v1"
 STAGE_PLAN: tuple[tuple[str, str], ...] = (
     ("resolve_indexes", "corpus_bed"),
     ("discover_index_range", "inject_plane"),
+    # Fast proof FIRST (targeted, entity/time-scoped queries -- not a
+    # corpus walk), ahead of the uncapped wide fit below: a live run
+    # showed the wide fit alone can run for many hours, and gating "does
+    # the assembled loop actually work" behind that grind defeats the
+    # point of checking early.
+    ("investigate_anchors", "investigation_pivot"),
+    ("plant_and_measure_cousins", "adaptive_scope"),
     ("stream_corpus_sample", "corpus_bed"),
     ("infer_field_roles", "field_roles"),
     ("classify_telemetry", "telemetry_behavior"),
@@ -85,10 +92,50 @@ STAGE_PLAN: tuple[tuple[str, str], ...] = (
     ("level_match", "pyramid"),
     ("grade_to_loop_contract", "loop_grader"),
     ("resolve_unit_outcomes", "unit_outcome"),
-    ("investigate_anchors", "investigation_pivot"),
-    ("plant_and_measure_cousins", "adaptive_scope"),
     ("raise_and_verdict_concerns", "analyst_loop"),
 )
+
+# Checkpoint for `stream_corpus_sample` -- the one stage long enough (hours
+# to days) that a kill/interruption must resume, not restart (F.4 finding).
+# Small by construction: NormalBaseline's token vocabulary is bounded
+# regardless of corpus size (bigrams over ~10 behaviour classes, a handful
+# of buckets), so this file stays kilobytes, never gigabytes.
+CHECKPOINT_PATH = Path("/tmp/bully_full_assembly_f4_checkpoint.json")
+CHECKPOINT_INTERVAL_SECONDS = 120.0
+
+
+def _serialize_baseline(baseline: bl.NormalBaseline) -> dict[str, Any]:
+    return {
+        "environment_id": baseline.environment_id,
+        "token_counts": {level: dict(counter) for level, counter in baseline._token_counts.items()},
+        "fitted_units": dict(baseline._fitted_units),
+    }
+
+
+def _deserialize_baseline(data: dict[str, Any]) -> bl.NormalBaseline:
+    from collections import Counter
+
+    baseline = bl.NormalBaseline(environment_id=data.get("environment_id", "full_assembly"))
+    for level, counts in (data.get("token_counts") or {}).items():
+        baseline._token_counts[level] = Counter(counts)
+    for level, n in (data.get("fitted_units") or {}).items():
+        baseline._fitted_units[level] = n
+    return baseline
+
+
+def _load_checkpoint() -> dict[str, Any] | None:
+    if not CHECKPOINT_PATH.exists():
+        return None
+    try:
+        return json.loads(CHECKPOINT_PATH.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _save_checkpoint(data: dict[str, Any]) -> None:
+    tmp = CHECKPOINT_PATH.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data))
+    tmp.replace(CHECKPOINT_PATH)
 
 
 def _action_of(r: dict[str, Any]) -> str | None:
@@ -144,7 +191,7 @@ def build_stages(  # noqa: C901, PLR0915
             ctx.put("corpus_latest", max(latest_all))
         return {"n_indexes": len(ranges)}
 
-    def stream_corpus_sample(ctx: fp.RunContext) -> dict[str, Any]:
+    def stream_corpus_sample(ctx: fp.RunContext) -> dict[str, Any]:  # noqa: C901, PLR0912, PLR0915
         """Fit WIDE, score NARROW (corpus_bed's own doctrine, C.6): stream
         the corpus in batches with NO total-record cap by default (F.4 --
         `max_records` stays `None` unless a caller explicitly bounds it for
@@ -162,15 +209,40 @@ def build_stages(  # noqa: C901, PLR0915
         contract -- exactly what happened live, when a transient
         `ConnectTimeout` after ~18 hours and 105,958,787 real records
         (37.7% of the corpus) discarded every one of the other 15 stages'
-        chance to run against that genuine progress. A network blip this
-        deep into a wide fit is the definition of a partial result worth
-        more than a clean one over nothing; it is recorded honestly below,
-        never silently swallowed."""
-        indexes = ctx.get("indexes", ())
-        baseline = bl.NormalBaseline(environment_id="full_assembly")
+        chance to run against that genuine progress.
+
+        RESUMABLE, not all-or-none (second F.4 finding): a run this long
+        WILL be interrupted more than once against real infrastructure, and
+        restarting the wide fit from record zero every time throws away
+        the same hours repeatedly. Progress checkpoints to `CHECKPOINT_PATH`
+        every `CHECKPOINT_INTERVAL_SECONDS` -- which index, how far its time
+        cursor has advanced, and the baseline's own (small, bounded) fitted
+        state -- and a subsequent run resumes from there instead of from
+        `indexes[0]`'s start. The checkpoint is per-index-cursor, using
+        `_SplunkPaginatedFetcher` directly rather than delegating to
+        `stream_captured_records`'s implicit multi-index loop, which has no
+        seam to resume mid-index from."""
+        indexes = list(ctx.get("indexes", ()))
+        checkpoint = _load_checkpoint()
+        resuming = bool(checkpoint) and checkpoint.get("all_indexes") == indexes
+        if resuming:
+            baseline = _deserialize_baseline(checkpoint)
+            completed = list(checkpoint.get("completed_indexes", []))
+            resume_index = checkpoint.get("current_index")
+            resume_cursor = checkpoint.get("current_cursor")
+            processed_before = int(checkpoint.get("records_processed", 0))
+        else:
+            baseline = bl.NormalBaseline(environment_id="full_assembly")
+            completed = []
+            resume_index = None
+            resume_cursor = None
+            processed_before = 0
+        for _ in range(processed_before):
+            ctx.count("records_processed")
+
         last_batch: list[dict[str, Any]] = []
-        batch: list[dict[str, Any]] = []
         interrupted_reason: str | None = None
+        last_checkpoint_at = time.time()
 
         def _fit_batch(rows: list[dict[str, Any]]) -> None:
             if not rows:
@@ -179,21 +251,69 @@ def build_stages(  # noqa: C901, PLR0915
             units = ag.enumerate_units(graph)
             baseline.fit(units)
 
+        def _checkpoint(index: str, fetcher: Any) -> None:
+            _save_checkpoint(
+                {
+                    "all_indexes": indexes,
+                    "completed_indexes": completed,
+                    "current_index": index,
+                    "current_cursor": fetcher._cursor,
+                    "records_processed": ctx.counters.get("records_processed", 0),
+                    **_serialize_baseline(baseline),
+                }
+            )
+
+        index: str | None = None
+        fetcher: Any = None
         try:
-            for row in ip.stream_captured_records(
-                indexes=indexes, batch_size=batch_size, max_records=max_records
-            ):
-                batch.append(row)
-                ctx.count("records_processed")
-                if len(batch) >= batch_size:
+            for index in [i for i in indexes if i not in completed]:
+                fetcher = ip._SplunkPaginatedFetcher(index)
+                if index == resume_index and resume_cursor is not None:
+                    fetcher._ensure_bounds(batch_size)
+                    if fetcher._latest is not None:
+                        fetcher._cursor = resume_cursor
+                batch: list[dict[str, Any]] = []
+                offset = 0
+                while True:
+                    if (
+                        max_records is not None
+                        and ctx.counters.get("records_processed", 0) >= max_records
+                    ):
+                        break
+                    rows = fetcher.fetch(offset=offset, limit=batch_size)
+                    if not rows:
+                        break
+                    offset += len(rows)
+                    batch.extend(rows)
+                    for _ in rows:
+                        ctx.count("records_processed")
+                    if len(batch) >= batch_size:
+                        _fit_batch(batch)
+                        last_batch = batch
+                        batch = []
+                    if time.time() - last_checkpoint_at >= CHECKPOINT_INTERVAL_SECONDS:
+                        _checkpoint(index, fetcher)
+                        last_checkpoint_at = time.time()
+                if batch:
                     _fit_batch(batch)
                     last_batch = batch
-                    batch = []
+                completed.append(index)
+                resume_index, resume_cursor = None, None
+                if max_records is not None and ctx.counters.get("records_processed", 0) >= (
+                    max_records
+                ):
+                    break
         except Exception as exc:  # noqa: BLE001 -- absorb here so the run continues
             interrupted_reason = f"{type(exc).__name__}: {exc}"
-        if batch:
-            _fit_batch(batch)
-            last_batch = batch
+            if index is not None and fetcher is not None:
+                try:
+                    _checkpoint(index, fetcher)
+                except Exception:  # noqa: BLE001 -- best-effort; never mask the interruption
+                    pass
+
+        finished_all_indexes = len(completed) == len(indexes) and interrupted_reason is None
+        if finished_all_indexes and CHECKPOINT_PATH.exists():
+            CHECKPOINT_PATH.unlink(missing_ok=True)
 
         ctx.put("records", last_batch)
         ctx.put("wide_baseline", baseline)
@@ -201,9 +321,15 @@ def build_stages(  # noqa: C901, PLR0915
             "n_records_wide_fit": ctx.counters.get("records_processed", 0),
             "n_records_last_batch": len(last_batch),
             "wide_fitted_units": baseline.fitted_units,
+            "resumed_from_checkpoint": resuming,
+            "indexes_completed": list(completed),
+            "indexes_total": len(indexes),
         }
         if interrupted_reason:
-            result["seam_defect"] = f"corpus stream interrupted, continuing: {interrupted_reason}"
+            result["seam_defect"] = (
+                f"corpus stream interrupted, continuing (checkpoint saved for "
+                f"resume): {interrupted_reason}"
+            )
         return result
 
     def infer_field_roles(ctx: fp.RunContext) -> dict[str, Any]:
@@ -434,8 +560,14 @@ def build_stages(  # noqa: C901, PLR0915
                 "n_planted": 0,
                 "seam_defect": "no anchor found by investigate_anchors to test a cousin against",
             }
-        coverage = ctx.get("coverage")
-        sourcetypes = tuple(sorted(coverage.by_sourcetype)) if coverage else ()
+        # `coverage` (telemetry_behavior's sourcetype breakdown) comes from
+        # `classify_telemetry`, which runs AFTER this stage now that the
+        # fast proof is sequenced ahead of the wide fit -- so this reads
+        # sourcetypes from the found investigation's OWN captured events
+        # instead, which is available here and arguably more relevant (only
+        # sourcetypes this specific anchor's investigation actually saw).
+        investigations = ctx.get("investigations", [])
+        sourcetypes = tuple(sorted({st for inv in investigations for st in inv.sourcetypes}))
         cousins = corpus_bed.plan_cousins(
             [entry],
             corpus_earliest=earliest,
@@ -485,6 +617,10 @@ def build_stages(  # noqa: C901, PLR0915
     stages = [
         fp.Stage("resolve_indexes", "corpus_bed", resolve_indexes, required=True),
         fp.Stage("discover_index_range", "inject_plane", discover_index_range, required=True),
+        # Fast proof first: targeted, entity/time-scoped queries against
+        # known answer-key anchors, not a corpus walk -- see STAGE_PLAN.
+        fp.Stage("investigate_anchors", "investigation_pivot", investigate_anchors),
+        fp.Stage("plant_and_measure_cousins", "adaptive_scope", plant_and_measure_cousins),
         # NOT required (F.4 finding): this stage internally absorbs its own
         # interruption and always returns a real, if partial, result -- see
         # its docstring. Marking it required would still abort the whole
@@ -501,8 +637,6 @@ def build_stages(  # noqa: C901, PLR0915
         fp.Stage("level_match", "pyramid", level_match),
         fp.Stage("grade_to_loop_contract", "loop_grader", grade_to_loop_contract),
         fp.Stage("resolve_unit_outcomes", "unit_outcome", resolve_unit_outcomes_stage),
-        fp.Stage("investigate_anchors", "investigation_pivot", investigate_anchors),
-        fp.Stage("plant_and_measure_cousins", "adaptive_scope", plant_and_measure_cousins),
         fp.Stage("raise_and_verdict_concerns", "analyst_loop", raise_and_verdict_concerns),
     ]
     _ = (dry_run_cousins, LibraryAnchor, AnchorLibrary)  # reserved for cousin write-back seam
