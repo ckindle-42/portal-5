@@ -154,11 +154,23 @@ def build_stages(  # noqa: C901, PLR0915
         bounded real-data working set for the downstream structural stages
         (field roles, telemetry classification, correlation, discovery) --
         those stages score narrow, on purpose, over whatever the wide pass
-        most recently saw."""
+        most recently saw.
+
+        Interruption is caught HERE, not left to propagate (F.4 finding):
+        this stage alone can run for many hours, and a `required=True`
+        stage that raises stops the WHOLE pipeline per F.1's fix-in-place
+        contract -- exactly what happened live, when a transient
+        `ConnectTimeout` after ~18 hours and 105,958,787 real records
+        (37.7% of the corpus) discarded every one of the other 15 stages'
+        chance to run against that genuine progress. A network blip this
+        deep into a wide fit is the definition of a partial result worth
+        more than a clean one over nothing; it is recorded honestly below,
+        never silently swallowed."""
         indexes = ctx.get("indexes", ())
         baseline = bl.NormalBaseline(environment_id="full_assembly")
         last_batch: list[dict[str, Any]] = []
         batch: list[dict[str, Any]] = []
+        interrupted_reason: str | None = None
 
         def _fit_batch(rows: list[dict[str, Any]]) -> None:
             if not rows:
@@ -167,26 +179,32 @@ def build_stages(  # noqa: C901, PLR0915
             units = ag.enumerate_units(graph)
             baseline.fit(units)
 
-        for row in ip.stream_captured_records(
-            indexes=indexes, batch_size=batch_size, max_records=max_records
-        ):
-            batch.append(row)
-            ctx.count("records_processed")
-            if len(batch) >= batch_size:
-                _fit_batch(batch)
-                last_batch = batch
-                batch = []
+        try:
+            for row in ip.stream_captured_records(
+                indexes=indexes, batch_size=batch_size, max_records=max_records
+            ):
+                batch.append(row)
+                ctx.count("records_processed")
+                if len(batch) >= batch_size:
+                    _fit_batch(batch)
+                    last_batch = batch
+                    batch = []
+        except Exception as exc:  # noqa: BLE001 -- absorb here so the run continues
+            interrupted_reason = f"{type(exc).__name__}: {exc}"
         if batch:
             _fit_batch(batch)
             last_batch = batch
 
         ctx.put("records", last_batch)
         ctx.put("wide_baseline", baseline)
-        return {
+        result: dict[str, Any] = {
             "n_records_wide_fit": ctx.counters.get("records_processed", 0),
             "n_records_last_batch": len(last_batch),
             "wide_fitted_units": baseline.fitted_units,
         }
+        if interrupted_reason:
+            result["seam_defect"] = f"corpus stream interrupted, continuing: {interrupted_reason}"
+        return result
 
     def infer_field_roles(ctx: fp.RunContext) -> dict[str, Any]:
         records = ctx.get("records", [])
@@ -467,7 +485,11 @@ def build_stages(  # noqa: C901, PLR0915
     stages = [
         fp.Stage("resolve_indexes", "corpus_bed", resolve_indexes, required=True),
         fp.Stage("discover_index_range", "inject_plane", discover_index_range, required=True),
-        fp.Stage("stream_corpus_sample", "corpus_bed", stream_corpus_sample, required=True),
+        # NOT required (F.4 finding): this stage internally absorbs its own
+        # interruption and always returns a real, if partial, result -- see
+        # its docstring. Marking it required would still abort the whole
+        # 16-stage run on any OTHER unexpected exception here.
+        fp.Stage("stream_corpus_sample", "corpus_bed", stream_corpus_sample),
         fp.Stage("infer_field_roles", "field_roles", infer_field_roles),
         fp.Stage("classify_telemetry", "telemetry_behavior", classify_telemetry),
         fp.Stage("infer_universal_behaviors", "behavior_inference", infer_universal_behaviors),

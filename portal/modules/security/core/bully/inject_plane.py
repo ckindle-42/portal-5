@@ -477,15 +477,30 @@ class _SplunkPaginatedFetcher:
         while True:
             t0 = self._cursor
             t1 = min(self._latest, t0 + window)
-            result = self._connector.read(
-                QueryIntent(
-                    f"stream corpus batch window={t0}-{t1}",
-                    seed={"spl": f"search index={self.index} | head {limit * 3}"},
-                    start=t0,
-                    end=t1,
-                    limit=limit * 3,
-                )
-            )
+            # A run over the whole corpus spans hours; a transient network
+            # blip (F.4 finding: a `ConnectTimeout` after ~18 hours and
+            # 105,958,787 real records) should not cost the batch it landed
+            # on. Three attempts, short exponential backoff.
+            result = None
+            last_exc: Exception | None = None
+            for attempt in range(3):
+                try:
+                    result = self._connector.read(
+                        QueryIntent(
+                            f"stream corpus batch window={t0}-{t1}",
+                            seed={"spl": f"search index={self.index} | head {limit * 3}"},
+                            start=t0,
+                            end=t1,
+                            limit=limit * 3,
+                        )
+                    )
+                    break
+                except Exception as exc:  # noqa: BLE001 -- retry transient transport errors
+                    last_exc = exc
+                    if attempt < 2:
+                        time.sleep(2.0 * (4**attempt))
+            if result is None:
+                raise last_exc if last_exc else RuntimeError("fetch failed with no exception")
             schemas: set[str] = set()
             out = []
             for record in result.records:
