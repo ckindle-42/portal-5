@@ -495,6 +495,56 @@ def build_stages(  # noqa: C901, PLR0915
             },
         }
 
+    def _investigate_anchors_directly(
+        anchors: list[pivot.Anchor], indexes: tuple[str, ...], ctx: fp.RunContext
+    ) -> list[pivot.Investigation]:
+        """Mirrors `inject_plane.capture_investigation`'s own query/execute
+        logic, MINUS its `lab_available()` gate (F.4 finding, seam defect
+        shimmed here per F.2's own doctrine, not fixed in the module): that
+        gate requires the DC/SRV attack-simulation VMs to answer AD ports,
+        which is irrelevant to reading the already-indexed historical BOTS
+        corpus around an anchor -- this only needs Splunk, already verified
+        reachable. Routing through the real gate meant `investigate_anchors`
+        could never find anything in this environment no matter how long it
+        searched, independent of whether the corpus itself held a match."""
+        from portal.modules.security.core.bully.connectors import QueryIntent
+        from portal.modules.security.core.bully.live_connect import lab_splunk_connector
+
+        connectors = {idx: lab_splunk_connector(index=idx) for idx in indexes}
+        index_ranges = ctx.get("index_ranges", {})
+
+        def execute(query: Any) -> list[dict[str, Any]]:
+            connector = connectors[query.index]
+            result = connector.read(
+                QueryIntent(
+                    "anchor-pivot investigation",
+                    start=query.earliest,
+                    end=query.latest,
+                    entities=(query.entity,),
+                )
+            )
+            schemas: set[str] = set()
+            out: list[dict[str, Any]] = []
+            for record in result.records:
+                tagged = ip._tag_captured_record(record, index=query.index, schemas=schemas)
+                if tagged is not None:
+                    out.append(tagged)
+            return out
+
+        investigations = []
+        for anchor in anchors:
+            rng = index_ranges.get(anchor.index)
+            inv = pivot.investigate(
+                anchor,
+                list(indexes),
+                execute,
+                ip._extract_pivot_entities,
+                corpus_earliest=rng.earliest if rng else None,
+                corpus_latest=rng.latest if rng else None,
+            )
+            investigations.append(inv)
+        return investigations
+
     def _anchor_for(entry: Any, ctx: fp.RunContext) -> pivot.Anchor:
         index_ranges = ctx.get("index_ranges", {})
         rng = index_ranges.get(entry.dataset)
@@ -522,12 +572,10 @@ def build_stages(  # noqa: C901, PLR0915
         tried = 0
         for entry in candidates:
             anchor = _anchor_for(entry, ctx)
-            capture = ip.capture_investigation([anchor], indexes=(entry.dataset,))
+            invs = _investigate_anchors_directly([anchor], (entry.dataset,), ctx)
             tried += 1
-            invs = capture.investigations
             if invs and len(invs[0].events) > 0:
                 ctx.put("investigations", invs)
-                ctx.put("investigation_bed_report", capture.bed_report)
                 ctx.put("found_anchor_entry", entry)
                 ctx.put("found_anchor", anchor)
                 return {
@@ -585,9 +633,9 @@ def build_stages(  # noqa: C901, PLR0915
         )
         if not dry_run_cousins and any(r.ok for r in inject_reports):
             time.sleep(5.0)  # let HEC-shipped events land before recovery capture
-        recovery_capture = ip.capture_investigation([anchor], indexes=(entry.dataset,))
+        recovery_investigations = _investigate_anchors_directly([anchor], (entry.dataset,), ctx)
         reached: set[str] = set()
-        for inv in recovery_capture.investigations:
+        for inv in recovery_investigations:
             reached |= set(inv.entities_seen)
         planted = [(c.anchor_entity, c.planted_distance) for c in cousins if c.anchor_entity]
         recovery = ascope.distance_recovery(planted, reached)
@@ -657,10 +705,10 @@ def main() -> int:
     # corpus or injecting a cousin via HEC, both of which only need Splunk
     # itself. Gating the WHOLE run on it would abort a genuine corpus hunt
     # over an unrelated subsystem being down; the credential check below is
-    # the real precondition for streaming, and any stage that DOES need the
-    # DC/SRV path (`investigate_anchors`, via `capture_investigation`)
-    # already degrades to an honest empty result rather than raising, so
-    # F.1's fix-in-place discipline covers it without a blanket abort here.
+    # the real precondition for streaming. `investigate_anchors`/
+    # `plant_and_measure_cousins` no longer route through that gate at all
+    # (F.4 finding: it made a live anchor find structurally impossible in
+    # this environment, not just slow) -- see `_investigate_anchors_directly`.
     if not os.environ.get("LAB_SPLUNK_PASSWORD"):
         print(
             json.dumps({"plane": "unavailable", "reason": "LAB_SPLUNK_PASSWORD not set"}, indent=2)
@@ -672,9 +720,25 @@ def main() -> int:
         batch_size=args.batch_size,
         dry_run_cousins=args.dry_run_cousins,
     )
-    ctx, report = fp.run_pipeline(stages, fix_in_place=True)
 
-    print(json.dumps(report.to_dict(), indent=2, default=str))
+    # Print EACH stage's result as it completes (F.4 finding): a run whose
+    # expensive stage can take hours must not stay silent until the very
+    # end -- there is no way to tell a resolved fast-proof from a stalled
+    # run otherwise. `full_pipeline.run_pipeline` already threads an
+    # `on_stage` callback for exactly this.
+    def _on_stage(result: fp.StageResult) -> None:
+        print(
+            json.dumps(
+                {"stage_complete": result.to_dict(), "produced": result.produced},
+                indent=2,
+                default=str,
+            ),
+            flush=True,
+        )
+
+    ctx, report = fp.run_pipeline(stages, fix_in_place=True, on_stage=_on_stage)
+
+    print(json.dumps({"final_report": report.to_dict()}, indent=2, default=str))
     return 0
 
 
