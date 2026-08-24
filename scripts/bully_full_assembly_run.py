@@ -381,7 +381,7 @@ def build_stages(  # noqa: C901, PLR0915
         ctx.put("role_map", role_map)
         return {
             "extraction_valid": role_map.extraction_valid,
-            "n_fields": len(role_map.roles) if role_map.extraction_valid else 0,
+            "n_fields": len(role_map.profiles) if role_map.extraction_valid else 0,
         }
 
     def classify_telemetry(ctx: fp.RunContext) -> dict[str, Any]:
@@ -416,9 +416,12 @@ def build_stages(  # noqa: C901, PLR0915
         return {"n_artifacts": len(graph.artifacts), "n_units": len(units)}
 
     def resolve_entities_and_timelines(ctx: fp.RunContext) -> dict[str, Any]:
+        # `graph.artifacts` is a dict keyed by artifact_id -- iterating it
+        # directly yields the KEYS (strings), not the Artifact values.
         graph = ctx.get("graph")
+        artifacts = list(graph.artifacts.values()) if graph else []
         observations = []
-        for artifact in graph.artifacts if graph else []:
+        for artifact in artifacts:
             for entity in artifact.entities:
                 observations.append(
                     correlation.IdentifierObservation(
@@ -427,7 +430,7 @@ def build_stages(  # noqa: C901, PLR0915
                 )
         entities, value_to_id = correlation.resolve_entities(observations)
         timelines = correlation.assemble_timelines(
-            [a.__dict__ for a in (graph.artifacts if graph else [])],
+            [a.__dict__ for a in artifacts],
             entities,
             value_to_id,
             artifact_entity_values=lambda a: list(a.get("entities") or ()),
