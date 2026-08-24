@@ -155,10 +155,38 @@ def _sourcetype_of(r: dict[str, Any]) -> str:
     return str(r.get("sourcetype") or "")
 
 
+def _list_sourcetypes(connector: Any, index: str) -> list[tuple[str, int]]:
+    """Every distinct sourcetype this index actually carries, via Splunk's
+    `metadata` command -- bucket-metadata only, not an event scan (verified
+    live: <0.1s on 3 of the 4 corpus indexes, ~6s on the largest)."""
+    from portal.modules.security.core.bully.connectors import QueryIntent
+
+    result = connector.read(
+        QueryIntent(
+            "list sourcetypes for stratified sample",
+            seed={"spl": f"| metadata type=sourcetypes index={index}"},
+            limit=1000,
+        )
+    )
+    out: list[tuple[str, int]] = []
+    for record in result.records:
+        fields = record.get("fields", {}) if isinstance(record, dict) else {}
+        st = fields.get("sourcetype")
+        if not st:
+            continue
+        try:
+            count = int(fields.get("totalCount") or 0)
+        except (TypeError, ValueError):
+            count = 0
+        out.append((str(st), count))
+    return out
+
+
 def build_stages(  # noqa: C901, PLR0915
     *,
     max_records: int | None,
     batch_size: int,
+    per_sourcetype_cap: int,
     dry_run_cousins: bool,
 ) -> list[fp.Stage]:
     """Build the real stage list. Every `run` callable below reads its
@@ -192,50 +220,48 @@ def build_stages(  # noqa: C901, PLR0915
         return {"n_indexes": len(ranges)}
 
     def stream_corpus_sample(ctx: fp.RunContext) -> dict[str, Any]:  # noqa: C901, PLR0912, PLR0915
-        """Fit WIDE, score NARROW (corpus_bed's own doctrine, C.6): stream
-        the corpus in batches with NO total-record cap by default (F.4 --
-        `max_records` stays `None` unless a caller explicitly bounds it for
-        a smoke test), incrementally fitting `NormalBaseline` per batch so
-        the fit reflects millions of records without ever holding them all
-        in memory. Only the LAST batch is kept in `ctx["records"]` as a
-        bounded real-data working set for the downstream structural stages
-        (field roles, telemetry classification, correlation, discovery) --
-        those stages score narrow, on purpose, over whatever the wide pass
-        most recently saw.
+        """Fit WIDE, score NARROW (corpus_bed's own doctrine, C.6) -- STRATIFIED
+        by sourcetype, not sequential by volume (operator finding, second F.4
+        redesign): `NormalBaseline` fits over a small, BOUNDED vocabulary
+        (behaviour-class bigrams, entity-role tags, size/span buckets, edge-
+        kind mixes -- a few hundred distinct tokens total). A sequential walk
+        through one index's raw record volume before moving to the next
+        cannot guarantee that vocabulary sees every real event TYPE the
+        corpus carries, and pays for redundant volume within a dominant
+        sourcetype instead. This pulls up to `per_sourcetype_cap` records
+        from EVERY distinct sourcetype in EVERY index (`_list_sourcetypes`,
+        a fast bucket-metadata query, not an event scan), so the fit
+        converges on genuine event-type diversity in minutes to low hours
+        rather than days of largely repetitive volume.
 
-        Interruption is caught HERE, not left to propagate (F.4 finding):
-        this stage alone can run for many hours, and a `required=True`
-        stage that raises stops the WHOLE pipeline per F.1's fix-in-place
-        contract -- exactly what happened live, when a transient
-        `ConnectTimeout` after ~18 hours and 105,958,787 real records
-        (37.7% of the corpus) discarded every one of the other 15 stages'
-        chance to run against that genuine progress.
+        This deliberately trades away F.4's literal `corpus_fraction >= 0.10`
+        floor (raw records processed / records available) for something the
+        raw-volume metric never measured: sourcetype/event-type COVERAGE.
+        `assembly_verdict` (F.1) will grade this `PROXY_SCALE` on the
+        corpus_fraction number alone, and that is reported as the headline,
+        not hidden -- `n_sourcetypes_covered`/`n_sourcetypes_available` is
+        published alongside it as the metric this run actually optimized
+        for, and the trade-off is on the record in the published doc.
 
-        RESUMABLE, not all-or-none (second F.4 finding): a run this long
-        WILL be interrupted more than once against real infrastructure, and
-        restarting the wide fit from record zero every time throws away
-        the same hours repeatedly. Progress checkpoints to `CHECKPOINT_PATH`
-        every `CHECKPOINT_INTERVAL_SECONDS` -- which index, how far its time
-        cursor has advanced, and the baseline's own (small, bounded) fitted
-        state -- and a subsequent run resumes from there instead of from
-        `indexes[0]`'s start. The checkpoint is per-index-cursor, using
-        `_SplunkPaginatedFetcher` directly rather than delegating to
-        `stream_captured_records`'s implicit multi-index loop, which has no
-        seam to resume mid-index from."""
+        Interruption is caught HERE, not left to propagate (first F.4
+        finding): a `required=True` stage that raises stops the WHOLE
+        pipeline per F.1's fix-in-place contract. RESUMABLE (second F.4
+        finding): progress checkpoints to `CHECKPOINT_PATH` every
+        `CHECKPOINT_INTERVAL_SECONDS`, now at (index, sourcetype)
+        granularity, and a subsequent run resumes from the next
+        not-yet-covered sourcetype instead of restarting."""
         indexes = list(ctx.get("indexes", ()))
         checkpoint = _load_checkpoint()
         resuming = bool(checkpoint) and checkpoint.get("all_indexes") == indexes
         if resuming:
             baseline = _deserialize_baseline(checkpoint)
-            completed = list(checkpoint.get("completed_indexes", []))
-            resume_index = checkpoint.get("current_index")
-            resume_cursor = checkpoint.get("current_cursor")
+            covered: set[tuple[str, str]] = {
+                (pair[0], pair[1]) for pair in checkpoint.get("covered", [])
+            }
             processed_before = int(checkpoint.get("records_processed", 0))
         else:
             baseline = bl.NormalBaseline(environment_id="full_assembly")
-            completed = []
-            resume_index = None
-            resume_cursor = None
+            covered = set()
             processed_before = 0
         for _ in range(processed_before):
             ctx.count("records_processed")
@@ -243,6 +269,14 @@ def build_stages(  # noqa: C901, PLR0915
         last_batch: list[dict[str, Any]] = []
         interrupted_reason: str | None = None
         last_checkpoint_at = time.time()
+        connectors: dict[str, Any] = {}
+
+        def _connector(index: str) -> Any:
+            if index not in connectors:
+                from portal.modules.security.core.bully.live_connect import lab_splunk_connector
+
+                connectors[index] = lab_splunk_connector(index=index)
+            return connectors[index]
 
         def _fit_batch(rows: list[dict[str, Any]]) -> None:
             if not rows:
@@ -251,68 +285,72 @@ def build_stages(  # noqa: C901, PLR0915
             units = ag.enumerate_units(graph)
             baseline.fit(units)
 
-        def _checkpoint(index: str, fetcher: Any) -> None:
+        def _checkpoint() -> None:
             _save_checkpoint(
                 {
                     "all_indexes": indexes,
-                    "completed_indexes": completed,
-                    "current_index": index,
-                    "current_cursor": fetcher._cursor,
+                    "covered": [list(pair) for pair in covered],
                     "records_processed": ctx.counters.get("records_processed", 0),
                     **_serialize_baseline(baseline),
                 }
             )
 
-        index: str | None = None
-        fetcher: Any = None
+        n_sourcetypes_available = 0
+        current: tuple[str, str] | None = None
         try:
-            for index in [i for i in indexes if i not in completed]:
-                fetcher = ip._SplunkPaginatedFetcher(index)
-                if index == resume_index and resume_cursor is not None:
-                    fetcher._ensure_bounds(batch_size)
-                    if fetcher._latest is not None:
-                        fetcher._cursor = resume_cursor
-                batch: list[dict[str, Any]] = []
-                offset = 0
-                while True:
+            for index in indexes:
+                sourcetypes = _list_sourcetypes(_connector(index), index)
+                n_sourcetypes_available += len(sourcetypes)
+                for sourcetype, _count in sourcetypes:
+                    current = (index, sourcetype)
+                    if current in covered:
+                        continue
+                    from portal.modules.security.core.bully.connectors import QueryIntent
+
+                    result = _connector(index).read(
+                        QueryIntent(
+                            f"stratified sample {index}/{sourcetype}",
+                            seed={
+                                "spl": (
+                                    f'search index={index} sourcetype="{sourcetype}" '
+                                    f"| head {per_sourcetype_cap}"
+                                )
+                            },
+                            limit=per_sourcetype_cap,
+                        )
+                    )
+                    schemas: set[str] = set()
+                    batch: list[dict[str, Any]] = []
+                    for record in result.records:
+                        tagged = ip._tag_captured_record(record, index=index, schemas=schemas)
+                        if tagged is not None:
+                            batch.append(tagged)
+                    for _ in batch:
+                        ctx.count("records_processed")
+                    if batch:
+                        _fit_batch(batch)
+                        last_batch = batch
+                    covered.add(current)
+                    current = None
                     if (
                         max_records is not None
                         and ctx.counters.get("records_processed", 0) >= max_records
                     ):
-                        break
-                    rows = fetcher.fetch(offset=offset, limit=batch_size)
-                    if not rows:
-                        break
-                    offset += len(rows)
-                    batch.extend(rows)
-                    for _ in rows:
-                        ctx.count("records_processed")
-                    if len(batch) >= batch_size:
-                        _fit_batch(batch)
-                        last_batch = batch
-                        batch = []
+                        raise StopIteration  # noqa: TRY301 -- deliberate early-exit, not an error
                     if time.time() - last_checkpoint_at >= CHECKPOINT_INTERVAL_SECONDS:
-                        _checkpoint(index, fetcher)
+                        _checkpoint()
                         last_checkpoint_at = time.time()
-                if batch:
-                    _fit_batch(batch)
-                    last_batch = batch
-                completed.append(index)
-                resume_index, resume_cursor = None, None
-                if max_records is not None and ctx.counters.get("records_processed", 0) >= (
-                    max_records
-                ):
-                    break
+        except StopIteration:
+            pass
         except Exception as exc:  # noqa: BLE001 -- absorb here so the run continues
             interrupted_reason = f"{type(exc).__name__}: {exc}"
-            if index is not None and fetcher is not None:
-                try:
-                    _checkpoint(index, fetcher)
-                except Exception:  # noqa: BLE001 -- best-effort; never mask the interruption
-                    pass
+            try:
+                _checkpoint()
+            except Exception:  # noqa: BLE001 -- best-effort; never mask the interruption
+                pass
 
-        finished_all_indexes = len(completed) == len(indexes) and interrupted_reason is None
-        if finished_all_indexes and CHECKPOINT_PATH.exists():
+        finished_all = len(covered) >= n_sourcetypes_available and interrupted_reason is None
+        if finished_all and CHECKPOINT_PATH.exists():
             CHECKPOINT_PATH.unlink(missing_ok=True)
 
         ctx.put("records", last_batch)
@@ -322,8 +360,13 @@ def build_stages(  # noqa: C901, PLR0915
             "n_records_last_batch": len(last_batch),
             "wide_fitted_units": baseline.fitted_units,
             "resumed_from_checkpoint": resuming,
-            "indexes_completed": list(completed),
-            "indexes_total": len(indexes),
+            "n_sourcetypes_covered": len(covered),
+            "n_sourcetypes_available": n_sourcetypes_available,
+            "coverage_note": (
+                "this run optimizes sourcetype/event-type coverage, not raw corpus "
+                "volume -- corpus_fraction will read low against F.4's literal 0.10 "
+                "floor by design (operator decision); see stage docstring"
+            ),
         }
         if interrupted_reason:
             result["seam_defect"] = (
@@ -697,6 +740,7 @@ def main() -> int:
     parser.add_argument("--doc-stem", default="BULLY_FULL_ASSEMBLY_RUN_F4_V1")
     parser.add_argument("--max-records", type=int, default=None)
     parser.add_argument("--batch-size", type=int, default=10_000)
+    parser.add_argument("--per-sourcetype-cap", type=int, default=2_000)
     parser.add_argument("--dry-run-cousins", action="store_true")
     args = parser.parse_args()
 
@@ -718,6 +762,7 @@ def main() -> int:
     stages = build_stages(
         max_records=args.max_records,
         batch_size=args.batch_size,
+        per_sourcetype_cap=args.per_sourcetype_cap,
         dry_run_cousins=args.dry_run_cousins,
     )
 
