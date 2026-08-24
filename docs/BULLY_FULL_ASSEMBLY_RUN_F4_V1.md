@@ -6,7 +6,7 @@
 - corpus_fraction: 0.00128
 - modules_missing: []
 - degraded_stages: []
-- reasons: ['corpus_fraction_0.00128<0.1: 359742 of 281069897 records -- this is another proxy']
+- reasons: ['corpus_fraction_0.00128<0.1: 359757 of 281069912 records -- this is another proxy']
 
 ## The four standing claims, answered by THIS run
 
@@ -23,8 +23,8 @@
     "claim": "finds same/similar on a real haystack"
   },
   "corpus": {
-    "records_processed": 359742,
-    "records_available": 281069897,
+    "records_processed": 359757,
+    "records_available": 281069912,
     "fraction": 0.00128,
     "claim": "the real ground is actually used"
   },
@@ -49,9 +49,26 @@
   "n_background_sampled": 0,
   "verdict": "INVALID",
   "reasons": [
-    "partial_read:359742/281069897 -- a capped read of a real corpus biases every downstream statistic toward whatever the cap selected",
+    "partial_read:359757/281069912 -- a capped read of a real corpus biases every downstream statistic toward whatever the cap selected",
     "scored_sample_too_small:70<10000 -- recall/FP figures computed on this scored population do not generalise"
   ]
+}
+```
+
+## scoreboard.update() -- the correctness axis (W.2)
+
+- trust_mean_rank: 1.0
+- false_flag_count: 0
+```json
+{
+  "hunt_id": "full_assembly_f4",
+  "n_records": 1,
+  "catch_count": 1,
+  "catch_rate": 1.0,
+  "trust_mean_rank": 1.0,
+  "discovery_total": 0.6,
+  "discovery_mean": 0.6,
+  "false_flag_count": 0
 }
 ```
 
@@ -60,11 +77,11 @@
 ## Per-stage timings and outputs
 
 - **resolve_indexes** (corpus_bed) -- OK, 0.0s
-- **discover_index_range** (inject_plane) -- OK, 12.397s
-- **investigate_anchors** (investigation_pivot) -- OK, 1.692s
-- **plant_and_measure_cousins** (adaptive_scope) -- OK, 6.713s
-- **stream_corpus_sample** (corpus_bed) -- OK, 365.344s
-- **infer_field_roles** (field_roles) -- OK, 0.032s
+- **discover_index_range** (inject_plane) -- OK, 7.581s
+- **investigate_anchors** (investigation_pivot) -- OK, 1.612s
+- **plant_and_measure_cousins** (adaptive_scope) -- OK, 6.63s
+- **stream_corpus_sample** (corpus_bed) -- OK, 370.909s
+- **infer_field_roles** (field_roles) -- OK, 0.031s
 - **classify_telemetry** (telemetry_behavior) -- OK, 0.0s
 - **infer_universal_behaviors** (behavior_inference) -- OK, 0.0s
 - **build_artifact_graph** (artifact_graph) -- OK, 0.001s
@@ -77,7 +94,7 @@
 - **resolve_unit_outcomes** (unit_outcome) -- OK, 0.0s
 - **raise_and_verdict_concerns** (analyst_loop) -- OK, 0.0s
 
-Total duration: 386.18s
+Total duration: 386.77s
 
 ## Full stage outputs
 
@@ -94,7 +111,7 @@ Total duration: 386.18s
   },
   "investigate_anchors": {
     "n_investigations": 1,
-    "n_events": 3,
+    "n_events": 6,
     "n_answer_key_entries_tried": 1,
     "found_technique": "T1558.004",
     "found_dataset": "botsv3"
@@ -155,9 +172,9 @@ Total duration: 386.18s
     "zero_hop_only": true
   },
   "stream_corpus_sample": {
-    "n_records_wide_fit": 359742,
+    "n_records_wide_fit": 359757,
     "n_records_last_batch": 63,
-    "wide_fitted_units": 99018,
+    "wide_fitted_units": 99033,
     "resumed_from_checkpoint": false,
     "n_sourcetypes_covered": 325,
     "n_sourcetypes_available": 430,
@@ -208,7 +225,7 @@ Total duration: 386.18s
     "n_timelines": 1
   },
   "fit_baseline": {
-    "fitted_units": 99088
+    "fitted_units": 99103
   },
   "discover_and_cluster": {
     "algorithm_version": "discovery-v1",

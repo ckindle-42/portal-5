@@ -2,7 +2,7 @@
   "assembly_verdict": {
     "verdict": "PROXY_SCALE",
     "reasons": [
-      "corpus_fraction_0.00128<0.1: 359742 of 281069897 records -- this is another proxy"
+      "corpus_fraction_0.00128<0.1: 359757 of 281069912 records -- this is another proxy"
     ],
     "integration_fraction": 1.0,
     "corpus_fraction": 0.00128,
@@ -38,8 +38,8 @@
       "claim": "finds same/similar on a real haystack"
     },
     "corpus": {
-      "records_processed": 359742,
-      "records_available": 281069897,
+      "records_processed": 359757,
+      "records_available": 281069912,
       "fraction": 0.00128,
       "claim": "the real ground is actually used"
     },
@@ -59,7 +59,7 @@
     "n_background_sampled": 0,
     "verdict": "INVALID",
     "reasons": [
-      "partial_read:359742/281069897 -- a capped read of a real corpus biases every downstream statistic toward whatever the cap selected",
+      "partial_read:359757/281069912 -- a capped read of a real corpus biases every downstream statistic toward whatever the cap selected",
       "scored_sample_too_small:70<10000 -- recall/FP figures computed on this scored population do not generalise"
     ]
   },
@@ -74,9 +74,9 @@
       "portal5_lab": 19287824,
       "botsv1": 33413837,
       "botsv2": 226337741,
-      "botsv3": 2030495
+      "botsv3": 2030510
     },
-    "records_read": 359742,
+    "records_read": 359757,
     "lanes_present": [
       "A",
       "B",
@@ -84,15 +84,40 @@
     ],
     "is_haystack": false,
     "reasons": [
-      "partial_read:359742/281069897 -- a capped read of a real corpus biases every downstream statistic toward whatever the cap selected",
+      "partial_read:359757/281069912 -- a capped read of a real corpus biases every downstream statistic toward whatever the cap selected",
       "scored_sample_too_small:70<10000 -- recall/FP figures computed on this scored population do not generalise"
+    ]
+  },
+  "scoreboard": {
+    "hunt_id": "full_assembly_f4",
+    "n_records": 1,
+    "catch_count": 1,
+    "catch_rate": 1.0,
+    "trust_mean_rank": 1.0,
+    "discovery_total": 0.6,
+    "discovery_mean": 0.6,
+    "false_flag_count": 0,
+    "records": [
+      {
+        "assessment_id": "ca-7ad9d6aa7edd",
+        "relationship": "ANOMALOUS_UNCLASSIFIED",
+        "defense_response": "INDETERMINATE",
+        "composite": 0.0,
+        "catch": true,
+        "trust_class": "honest_anomaly",
+        "trust_rank": 1,
+        "discovery_value": 0.6,
+        "known_benign": false,
+        "false_flag": false,
+        "false_flag_kind": null
+      }
     ]
   },
   "found_anchor_technique": "T1558.004",
   "found_anchor_dataset": "botsv3",
   "pipeline_report": {
     "algorithm_version": "full-pipeline-v1",
-    "duration_seconds": 386.18,
+    "duration_seconds": 386.77,
     "n_stages": 17,
     "modules_built": 16,
     "modules_exercised": [
@@ -118,7 +143,7 @@
     "integration_fraction": 1.0,
     "degraded_stages": [],
     "counters": {
-      "records_processed": 359742
+      "records_processed": 359757
     },
     "stages": [
       {
@@ -133,7 +158,7 @@
         "stage": "discover_index_range",
         "module": "inject_plane",
         "status": "OK",
-        "seconds": 12.397,
+        "seconds": 7.581,
         "error": null,
         "traceback_head": null
       },
@@ -141,7 +166,7 @@
         "stage": "investigate_anchors",
         "module": "investigation_pivot",
         "status": "OK",
-        "seconds": 1.692,
+        "seconds": 1.612,
         "error": null,
         "traceback_head": null
       },
@@ -149,7 +174,7 @@
         "stage": "plant_and_measure_cousins",
         "module": "adaptive_scope",
         "status": "OK",
-        "seconds": 6.713,
+        "seconds": 6.63,
         "error": null,
         "traceback_head": null
       },
@@ -157,7 +182,7 @@
         "stage": "stream_corpus_sample",
         "module": "corpus_bed",
         "status": "OK",
-        "seconds": 365.344,
+        "seconds": 370.909,
         "error": null,
         "traceback_head": null
       },
@@ -165,7 +190,7 @@
         "stage": "infer_field_roles",
         "module": "field_roles",
         "status": "OK",
-        "seconds": 0.032,
+        "seconds": 0.031,
         "error": null,
         "traceback_head": null
       },
@@ -271,7 +296,7 @@
     },
     "investigate_anchors": {
       "n_investigations": 1,
-      "n_events": 3,
+      "n_events": 6,
       "n_answer_key_entries_tried": 1,
       "found_technique": "T1558.004",
       "found_dataset": "botsv3"
@@ -332,9 +357,9 @@
       "zero_hop_only": true
     },
     "stream_corpus_sample": {
-      "n_records_wide_fit": 359742,
+      "n_records_wide_fit": 359757,
       "n_records_last_batch": 63,
-      "wide_fitted_units": 99018,
+      "wide_fitted_units": 99033,
       "resumed_from_checkpoint": false,
       "n_sourcetypes_covered": 325,
       "n_sourcetypes_available": 430,
@@ -385,7 +410,7 @@
       "n_timelines": 1
     },
     "fit_baseline": {
-      "fitted_units": 99088
+      "fitted_units": 99103
     },
     "discover_and_cluster": {
       "algorithm_version": "discovery-v1",
