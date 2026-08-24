@@ -1,7 +1,13 @@
 # HANDOFF — Bully / Crogl, state as of 2026-08-21
 
-**Repo HEAD at time of writing:** `495397d8` (2026-08-24) — F.4 assembly run has since landed;
-see §2.1a for its result, which supersedes the "never assembled" framing below.
+**Repo HEAD at time of writing:** `0868ef33` (2026-08-24) — `TASK_BULLY_HUNT_SWEEP_V1`
+H.0–H.4/H.6 have since landed on top of K.5. See `docs/DESIGN_BULLY_HUNT_SWEEP_V1.md`
+for the errata on `BULLY_SCORER_FEED_RUN_K4_V1.md`: **K.4's loop is valid and was
+deliberately narrowed to one entry; its claim numbers describe that one six-event
+proof, not the corpus.** The sweep (`docs/BULLY_HUNT_SWEEP_RUN_H5_V1.md`, run
+separately once preflight/calibration commit) is what widens that proof to all 27
+answer-key entries. §2.1a below (F.4's result) still supersedes the "never
+assembled" framing further down this document.
 
 > **READ THIS FIRST.** If `git log` at HEAD is beyond `bf35d192`, **HEAD wins over
 > every statement in this document.** This captures where things stood on
