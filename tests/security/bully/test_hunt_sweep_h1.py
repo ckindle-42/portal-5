@@ -134,23 +134,46 @@ def test_checkpoint_that_roundtrips_passes() -> None:
 
 def test_already_planted_blocks_replant_on_resume() -> None:
     progress = EntryProgress()
-    progress.planted_cousins["T1558.004"] = "cz-botsv3-T1558.004-000-REORDER_MINOR-00-d0"
-    assert progress.already_planted("T1558.004") is not None
-    assert progress.already_planted("T1190") is None
+    progress.record_plant("botsv3", "T1558.004", "cz-botsv3-T1558.004-000-REORDER_MINOR-00-d0")
+    assert progress.already_planted("botsv3", "T1558.004") is not None
+    assert progress.already_planted("botsv3", "T1190") is None
+
+
+def test_already_planted_distinguishes_same_technique_across_datasets() -> None:
+    """The same MITRE technique legitimately recurs across BOTS datasets
+    (T1071.001 in botsv3, botsv2, and twice in botsv1 alone) -- a plant in
+    one dataset must never be mistaken for a plant in another."""
+    progress = EntryProgress()
+    progress.record_plant("botsv3", "T1071.001", "cz-botsv3-T1071.001-000-REORDER_MINOR-00-d0")
+    assert progress.already_planted("botsv3", "T1071.001") is not None
+    assert progress.already_planted("botsv2", "T1071.001") is None
+    assert progress.already_planted("botsv1", "T1071.001") is None
 
 
 def test_unattempted_entries_reported_not_dropped() -> None:
     progress = EntryProgress()
     progress.record(
-        "T1558.004", {"located": True, "cousin_planted": True, "cousin_recovered": True}
+        "botsv3",
+        "T1558.004",
+        {"located": True, "cousin_planted": True, "cousin_recovered": True},
     )
-    progress.entries_not_attempted.extend(["T1190", "T1078"])
+    progress.entries_not_attempted.extend(["botsv1:T1190", "botsv3:T1078"])
     d = progress.to_dict()
     assert d["n_not_attempted"] == 2
-    assert d["entries_not_attempted"] == ["T1190", "T1078"]
+    assert d["entries_not_attempted"] == ["botsv1:T1190", "botsv3:T1078"]
     assert d["n_done"] == 1
     assert d["floor_recall"] == 1.0
     assert d["cousin_recall"] == 1.0
+
+
+def test_already_done_distinguishes_same_technique_across_datasets() -> None:
+    """A technique attempted in one dataset must not be treated as already
+    done for the SAME technique in a different dataset -- the exact defect
+    that silently dropped 7-8 real entries from a live 27/28-entry sweep."""
+    progress = EntryProgress()
+    progress.record("botsv1", "T1190", {"located": True})
+    assert progress.already_done("botsv1", "T1190") is True
+    assert progress.already_done("botsv3", "T1190") is False
 
 
 def test_anchors_resolve_reports_unresolved_entries() -> None:

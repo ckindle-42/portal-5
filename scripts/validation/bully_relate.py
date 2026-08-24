@@ -3490,16 +3490,20 @@ def check_hunt_sweep_every_entry_attempted_or_reported() -> tuple[str, str, list
 
     progress = rpf.EntryProgress()
     progress.record(
-        "T1558.004", {"located": True, "cousin_planted": True, "cousin_recovered": True}
+        "botsv3",
+        "T1558.004",
+        {"located": True, "cousin_planted": True, "cousin_recovered": True},
     )
     # seeded violation: an entry that never ran must not vanish -- it has to
     # show up in entries_not_attempted, never be silently dropped.
-    candidates = ["T1558.004", "T1078", "T1021.001"]
-    progress.entries_not_attempted = [t for t in candidates if not progress.already_done(t)]
+    candidates = [("botsv3", "T1558.004"), ("botsv3", "T1078"), ("botsv3", "T1021.001")]
+    progress.entries_not_attempted = [
+        rpf.entry_key(ds, t) for ds, t in candidates if not progress.already_done(ds, t)
+    ]
     payload = progress.to_dict()
     if payload["n_done"] + payload["n_not_attempted"] != len(candidates):
         return "FAIL", "attempted + not-attempted does not cover every in-scope entry", []
-    if "T1078" not in payload["entries_not_attempted"]:
+    if "botsv3:T1078" not in payload["entries_not_attempted"]:
         return "FAIL", "an unattempted entry was silently dropped, not reported", []
     return "PASS", "", []
 
@@ -3605,7 +3609,7 @@ def check_hunt_sweep_incremental_checkpoint() -> tuple[str, str, list[dict]]:
         fa.CHECKPOINT_PATH = Path(tmp) / "checkpoint.json"
         try:
             progress = rpf.EntryProgress()
-            progress.record("T1558.004", {"located": True, "seconds": 1.0})
+            progress.record("botsv3", "T1558.004", {"located": True, "seconds": 1.0})
             fa._save_hunt_checkpoint(progress, span_seconds=600.0)
             # seeded violation: a run that died right here must still leave a
             # readable checkpoint with the one entry it finished.
@@ -3613,7 +3617,7 @@ def check_hunt_sweep_incremental_checkpoint() -> tuple[str, str, list[dict]]:
             if reloaded is None:
                 return "FAIL", "a checkpoint saved after one entry did not round-trip", []
             reloaded_progress, span = reloaded
-            if reloaded_progress.entries_done != ["T1558.004"] or span != 600.0:
+            if reloaded_progress.entries_done != ["botsv3:T1558.004"] or span != 600.0:
                 return (
                     "FAIL",
                     f"checkpoint round-trip lost state: {reloaded_progress.to_dict()}",
@@ -3633,17 +3637,24 @@ def check_hunt_sweep_resumed_run_never_replants() -> tuple[str, str, list[dict]]
     from portal.modules.security.core.bully import run_preflight as rpf
 
     progress = rpf.EntryProgress()
-    progress.planted_cousins["T1558.004"] = "cz-botsv3-T1558.004-000-d0"
+    progress.record_plant("botsv3", "T1558.004", "cz-botsv3-T1558.004-000-d0")
     # seeded violation: a naive resume that ignores already_planted would
     # ship a second cousin id for the same technique.
-    already = progress.already_planted("T1558.004")
+    already = progress.already_planted("botsv3", "T1558.004")
     if already is None:
         return "FAIL", "already_planted did not recognise a cousin shipped in a prior run", []
     if already != "cz-botsv3-T1558.004-000-d0":
         return "FAIL", "already_planted returned the wrong cousin id", []
-    never_planted = progress.already_planted("T1021.001")
+    never_planted = progress.already_planted("botsv3", "T1021.001")
     if never_planted is not None:
         return "FAIL", "already_planted invented a cousin id for a technique never planted", []
+    cross_dataset = progress.already_planted("botsv2", "T1558.004")
+    if cross_dataset is not None:
+        return (
+            "FAIL",
+            "already_planted matched a different dataset's own copy of the same technique",
+            [],
+        )
     return "PASS", "", []
 
 

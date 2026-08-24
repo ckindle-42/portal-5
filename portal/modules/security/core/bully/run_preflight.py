@@ -324,6 +324,23 @@ def preflight(
 # ── per-entry progress, so a death is not a wasted run ─────────────────────
 
 
+def entry_key(dataset: str, technique: str) -> str:
+    """Identity for one answer-key entry: dataset AND technique, never
+    technique alone. The same MITRE technique legitimately recurs across
+    BOTS datasets -- T1071.001 appears in botsv3, botsv2, and twice in
+    botsv1 alone -- so a bare-technique key silently collapses distinct
+    entries: the second occurrence reads as "already done"/"already
+    planted" without ever being attempted, and (because
+    `entries_not_attempted` is derived from the same check) it vanishes
+    from the report entirely rather than showing up as skipped.
+    `corpus_bed.plan_cousins` hit and fixed this exact class of bug once
+    already for `cousin_id`; this mirrors that fix for entry identity.
+    Published (not just internal): a qualified id also disambiguates the
+    published `entries_done`/`entries_not_attempted` lists, which a bare
+    technique could not."""
+    return f"{dataset}:{technique}"
+
+
 @dataclass
 class EntryProgress:
     """Per-entry state, checkpointed and published INCREMENTALLY.
@@ -339,17 +356,20 @@ class EntryProgress:
     planted_cousins: dict[str, str] = field(default_factory=dict)
     results: list[dict[str, Any]] = field(default_factory=list)
 
-    def record(self, technique: str, result: dict[str, Any]) -> None:
-        self.entries_done.append(technique)
+    def record(self, dataset: str, technique: str, result: dict[str, Any]) -> None:
+        self.entries_done.append(entry_key(dataset, technique))
         self.results.append({"technique": technique, **result})
 
-    def already_done(self, technique: str) -> bool:
-        return technique in self.entries_done
+    def already_done(self, dataset: str, technique: str) -> bool:
+        return entry_key(dataset, technique) in self.entries_done
 
-    def already_planted(self, technique: str) -> str | None:
+    def already_planted(self, dataset: str, technique: str) -> str | None:
         """A resumed run must not re-plant: duplicates pollute the corpus and
         inflate recovery."""
-        return self.planted_cousins.get(technique)
+        return self.planted_cousins.get(entry_key(dataset, technique))
+
+    def record_plant(self, dataset: str, technique: str, cousin_id: str) -> None:
+        self.planted_cousins[entry_key(dataset, technique)] = cousin_id
 
     def to_dict(self) -> dict[str, Any]:
         located = sum(1 for r in self.results if r.get("located"))
