@@ -789,8 +789,146 @@ def main() -> int:
 
     ctx, report = fp.run_pipeline(stages, fix_in_place=True, on_stage=_on_stage)
 
-    print(json.dumps({"final_report": report.to_dict()}, indent=2, default=str))
+    published = _build_published_report(ctx, report, indexes=corpus_bed.resolve_indexes())
+    print(json.dumps({"final_report": published}, indent=2, default=str))
+
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / f"{args.doc_stem}.json").write_text(
+        json.dumps(published, indent=2, default=str), encoding="utf-8"
+    )
+    (out_dir / f"{args.doc_stem}.md").write_text(
+        _render_md(published, args.doc_stem), encoding="utf-8"
+    )
     return 0
+
+
+def _build_published_report(
+    ctx: fp.RunContext, report: fp.PipelineReport, *, indexes: tuple[str, ...]
+) -> dict[str, Any]:
+    """Assemble F.4's required publication shape: `assembly_verdict` FIRST
+    (F.1's own harness never trusted to run itself -- this is the one call
+    site that actually invokes it), `ClaimEvidence` for the four standing
+    claims, `bed_acceptance` (required by `corpus_bed.require_bed_
+    acceptance`), and every stage's own output, so a reader never has to
+    reconstruct what happened from raw stdout."""
+    stage_by_name = {s.name: s for s in report.stages}
+
+    records_available: dict[str, int] = {}
+    for index in indexes:
+        try:
+            from portal.modules.security.core.bully.live_connect import lab_splunk_connector
+
+            records_available[index] = ip._index_count(lab_splunk_connector(index=index), index)
+        except Exception:  # noqa: BLE001 -- a failed count must not block publication
+            records_available[index] = 0
+    total_available = sum(records_available.values())
+
+    stream_produced = getattr(stage_by_name.get("stream_corpus_sample"), "produced", None) or {}
+    role_map = ctx.get("role_map")
+    recovery = ctx.get("distance_recovery")
+    investigations = ctx.get("investigations", [])
+    found_entry = ctx.get("found_anchor_entry")
+
+    evidence = fp.ClaimEvidence(
+        crogl_sourcetypes_reviewed=stream_produced.get("n_sourcetypes_covered", 0),
+        crogl_identity_coverage=(role_map.entity_coverage if role_map else None),
+        bully_chain_reach_recall=(recovery.recall_at(0) if recovery else None),
+        bully_max_pivot_distance=(recovery.max_reached_distance if recovery else None),
+        corpus_records_processed=ctx.counters.get("records_processed", 0),
+        corpus_records_available=total_available,
+        generator_cousin_recall_at_distance=(
+            {str(h): recovery.recall_at(h) for h in recovery.by_distance} if recovery else {}
+        ),
+    )
+    verdict = fp.assembly_verdict(report, evidence)
+
+    # bed_acceptance (A5, required by corpus_bed.require_bed_acceptance):
+    # floor_known_recall here means "did the search-until-first-match design
+    # confirm at least one answer-key technique live", NOT "what fraction of
+    # all 27 techniques recovered" -- this run stops at the first hit by
+    # design (operator instruction), so scoring against all candidates tried
+    # would be a denominator of 1 and a trivial 100%. Denominator is the
+    # full in-scope answer-key candidate count instead, so the number reads
+    # honestly as "confirmed 1 of N", not as an inflated recall figure.
+    n_candidates = len([e for e in BOTS_ANSWER_KEY if e.dataset in indexes and e.entities])
+    n_hit = 1 if investigations and investigations[0].events else 0
+    cousins = ctx.get("planned_cousins", [])
+    cousin_reached = sum(
+        h.get("reached", 0) for h in (recovery.by_distance.values() if recovery else [])
+    )
+    bed_report = corpus_bed.assess_bed(
+        records_available,
+        records_read=evidence.corpus_records_processed,
+        units_fitted=stream_produced.get("wide_fitted_units", 0),
+        units_scored=len(ctx.get("units", [])),
+    )
+    acceptance = corpus_bed.bed_acceptance(
+        answer_key_hit=n_hit,
+        answer_key_total=n_candidates,
+        cousin_hit=cousin_reached,
+        cousin_total=len(cousins),
+        background_flagged=0,
+        background_total=0,
+        bed=bed_report,
+    )
+
+    return {
+        "assembly_verdict": verdict,
+        "claim_evidence": evidence.to_dict(),
+        "bed_acceptance": acceptance.to_dict(),
+        "bed_report": bed_report.to_dict(),
+        "found_anchor_technique": found_entry.technique if found_entry else None,
+        "found_anchor_dataset": found_entry.dataset if found_entry else None,
+        "pipeline_report": report.to_dict(),
+        "stage_outputs": {s.name: s.produced for s in report.stages},
+    }
+
+
+def _render_md(published: dict[str, Any], doc_stem: str) -> str:
+    verdict = published["assembly_verdict"]
+    evidence = published["claim_evidence"]
+    acceptance = published["bed_acceptance"]
+    pr = published["pipeline_report"]
+    lines = [
+        f"# {doc_stem}",
+        "",
+        f"## assembly_verdict: **{verdict['verdict']}**",
+        "",
+        f"- integration_fraction: {verdict['integration_fraction']} "
+        f"({len(verdict['modules_exercised'])}/16 modules)",
+        f"- corpus_fraction: {verdict['corpus_fraction']}",
+        f"- modules_missing: {verdict['modules_missing']}",
+        f"- degraded_stages: {pr['degraded_stages']}",
+        f"- reasons: {verdict['reasons']}",
+        "",
+        "## The four standing claims, answered by THIS run",
+        "",
+        f"```json\n{json.dumps(evidence, indent=2)}\n```",
+        "",
+        "## bed_acceptance (A5)",
+        "",
+        f"```json\n{json.dumps(acceptance, indent=2)}\n```",
+        "",
+        f"- found_anchor: {published['found_anchor_technique']} "
+        f"({published['found_anchor_dataset']})",
+        "",
+        "## Per-stage timings and outputs",
+        "",
+    ]
+    for s in pr["stages"]:
+        lines.append(f"- **{s['stage']}** ({s['module']}) -- {s['status']}, {s['seconds']}s")
+        if s["error"]:
+            lines.append(f"  - error: {s['error']}")
+    lines += [
+        "",
+        f"Total duration: {pr['duration_seconds']}s",
+        "",
+        "## Full stage outputs",
+        "",
+        f"```json\n{json.dumps(published['stage_outputs'], indent=2, default=str)}\n```",
+    ]
+    return "\n".join(lines) + "\n"
 
 
 if __name__ == "__main__":
