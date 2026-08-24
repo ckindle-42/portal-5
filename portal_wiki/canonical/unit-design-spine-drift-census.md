@@ -32,7 +32,7 @@ citation is true, and the retired `AK` ledger check bound zero docs —
 honestly, but leaving no doc-currency signal in the harness at all.
 Of 567 generated blocks across 25 Tier-1 docs, 7 came from a machine-derived
 `unit-fact-*` unit; the remaining 560 were authored prose with no executable link
-to code. Check `BS` closes that gap, bringing the harness to 189 validate checks
+to code. Check `BS` closes that gap, bringing the harness to 197 validate checks
 (`BT` later asserting archived units stay unreachable from the live store, `BU`
 the complexity-census advisory, `BX` the pending-model-verdicts backlog cap,
 `BY`-`CI` the TASK_BULLY_RELATE_AND_INVESTIGATE_V1 operating/measurement
@@ -53,7 +53,14 @@ resolution, and D.4's permanent non-haystack regression), `GD`-`GI` the
 TASK_BULLY_SCORER_FEED_V1 scorer-feed invariants (the stratified sample
 reaching the analytical path, `scorer_input_verdict` publication, per-stage
 records-received, F.4's permanent STARVED regression, head/tail-slice
-rejection, and the handoff doc's HEAD pin); the doc-ledger `AK`
+rejection, and the handoff doc's HEAD pin), `GJ`-`GQ` the
+TASK_BULLY_HUNT_SWEEP_V1 hunt-sweep invariants (every in-scope entry
+attempted or reported not-attempted, a sampled hunt window raising rather
+than proceeding, `NARROW_SPAN` blocking an otherwise-green preflight, the
+hunt-loop checkpoint round-tripping per entry, a resumed run never
+re-planting a cousin, no claim published from a zero-record stage, Crogl
+reported as comprehension rather than exposure, and K.4's own one-entry
+zero-record shape as a permanent regression case); the doc-ledger `AK`
 check was removed once the ledger was emptied in TASK_WIKI_ZERO_DEBT_V1).
 
 A **claim** binds a figure in a unit body to a live probe. The claim names the

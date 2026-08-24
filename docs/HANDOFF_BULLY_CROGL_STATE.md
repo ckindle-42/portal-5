@@ -1,13 +1,23 @@
 # HANDOFF — Bully / Crogl, state as of 2026-08-21
 
-**Repo HEAD at time of writing:** `0868ef33` (2026-08-24) — `TASK_BULLY_HUNT_SWEEP_V1`
-H.0–H.4/H.6 have since landed on top of K.5. See `docs/DESIGN_BULLY_HUNT_SWEEP_V1.md`
-for the errata on `BULLY_SCORER_FEED_RUN_K4_V1.md`: **K.4's loop is valid and was
-deliberately narrowed to one entry; its claim numbers describe that one six-event
-proof, not the corpus.** The sweep (`docs/BULLY_HUNT_SWEEP_RUN_H5_V1.md`, run
-separately once preflight/calibration commit) is what widens that proof to all 27
-answer-key entries. §2.1a below (F.4's result) still supersedes the "never
-assembled" framing further down this document.
+**Repo HEAD at time of writing:** `TASK_BULLY_HUNT_SWEEP_V1` H.0–H.4 and H.6 are
+landed on top of K.5 (`0868ef33`); H.5 (the actual 27-entry sweep run) has not.
+See `docs/DESIGN_BULLY_HUNT_SWEEP_V1.md` for the errata on
+`BULLY_SCORER_FEED_RUN_K4_V1.md`: **K.4's loop is valid and was deliberately
+narrowed to one entry; its claim numbers describe that one six-event proof, not
+the corpus.** A live-calibration pass (against the real lab Splunk, not mocked)
+also surfaced and fixed a real defect in H.2's own `_anchor_for`: it fell back to
+`rng.earliest` for every entry lacking a hand-curated `confirmed_at` (all 27),
+so every hunt window landed at the SAME instant regardless of technique.
+`_resolve_anchor_time` (one term search per entry) fixes it; live-verified on
+T1558.004/botsv3: 9 records/14 units at the old index-earliest window vs 36,640
+records/537 units at the corrected, entity-resolved window. H.1's calibration on
+that corrected entry (10m span) returned **`COMMIT`, projected 0.19h across 27
+entries** — well under the 4h budget. The sweep
+(`docs/BULLY_HUNT_SWEEP_RUN_H5_V1.md`, run separately once preflight/calibration
+commit — see `TASK_BULLY_HUNT_SWEEP_V1` H.5 for the exact command) is what widens
+that proof to all 27 answer-key entries. §2.1a below (F.4's result) still
+supersedes the "never assembled" framing further down this document.
 
 > **READ THIS FIRST.** If `git log` at HEAD is beyond `bf35d192`, **HEAD wins over
 > every statement in this document.** This captures where things stood on
