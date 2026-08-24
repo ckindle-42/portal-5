@@ -1,0 +1,142 @@
+"""H.2 -- widen the locate-plant-hunt loop to the whole answer key, keep it
+intact (TASK_BULLY_HUNT_SWEEP_V1). Seeded to fail against a naive/no-op
+implementation: a run resumed after entry 5 does not re-plant entries 1-5;
+an entry whose window is sampled raises rather than proceeding."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT / "scripts") not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+
+import bully_full_assembly_run as fa  # noqa: E402
+
+from portal.modules.security.core.bully import run_preflight as rpf  # noqa: E402
+from portal.modules.security.core.bully.corpus_bed import AnswerKeyEntry  # noqa: E402
+from portal.modules.security.core.bully.full_pipeline import RunContext  # noqa: E402
+
+
+def _entry(technique: str) -> AnswerKeyEntry:
+    return AnswerKeyEntry(
+        dataset="botsv3",
+        technique=technique,
+        behavioural_spine=("auth", "escalate"),
+        entities=(f"host-{technique}",),
+        sourcetypes=("wineventlog:security",),
+    )
+
+
+def _fake_window_read(entity: str, n: int = 3) -> list[dict]:
+    return [{"host": entity, "sourcetype": "wineventlog:security", "_time": 1.0}] * n
+
+
+def _ctx_for(entries: tuple[AnswerKeyEntry, ...]) -> RunContext:
+    ctx = RunContext()
+    ctx.put("indexes", ("botsv3",))
+    ctx.put("index_ranges", {"botsv3": _FakeRange()})
+    ctx.put("corpus_earliest", 0.0)
+    ctx.put("corpus_latest", 100_000.0)
+    return ctx
+
+
+class _FakeRange:
+    earliest = 1000.0
+    latest = 50_000.0
+
+
+def _stage_for(name: str, **build_kwargs):
+    stages = fa.build_stages(
+        max_records=None,
+        batch_size=10,
+        per_sourcetype_cap=10,
+        dry_run_cousins=True,
+        **build_kwargs,
+    )
+    return next(s for s in stages if s.name == name)
+
+
+@patch("bully_full_assembly_run.cousin_inject.inject_cousins")
+@patch("bully_full_assembly_run._read_window_completely")
+@patch("portal.modules.security.core.bully.live_connect.lab_splunk_connector")
+def test_resumed_run_never_replants_entries_1_through_5(mock_connector, mock_read, mock_inject):
+    mock_connector.return_value = object()
+    mock_inject.return_value = []
+
+    all_entries = tuple(_entry(f"T{i:04d}") for i in range(1, 8))
+    with patch.object(fa, "BOTS_ANSWER_KEY", all_entries):
+        # Pre-loaded progress: entries 1-5 already done, technique 1-5 already
+        # planted (simulating a prior attempt that shipped their cousins).
+        progress = rpf.EntryProgress()
+        for i in range(1, 6):
+            technique = f"T{i:04d}"
+            progress.entries_done.append(technique)
+            progress.planted_cousins[technique] = f"cz-{technique}-000"
+            progress.results.append(
+                {
+                    "technique": technique,
+                    "located": True,
+                    "cousin_planted": True,
+                    "cousin_recovered": True,
+                }
+            )
+
+        def fake_read(connector, index, start, end):
+            # every window "contains" every entry's own entity -- located
+            # is always true so the resumed entries (6, 7) would plant if
+            # not already-planted-guarded.
+            return _fake_window_read("any", n=1) + [
+                {"host": e.entities[0], "sourcetype": "wineventlog:security", "_time": 1.0}
+                for e in all_entries
+            ]
+
+        mock_read.side_effect = fake_read
+
+        stage = _stage_for("investigate_anchors", hunt_progress=progress)
+        ctx = _ctx_for(all_entries)
+        stage.run(ctx)
+
+    # inject_cousins must only be called for entries 6 and 7 (not already
+    # planted) -- never re-invoked for 1-5.
+    planted_techniques_this_run = [call.kwargs.get("index") for call in mock_inject.call_args_list]
+    assert mock_inject.call_count == 2, (
+        f"expected exactly 2 new plants (entries 6,7), got {mock_inject.call_count} "
+        f"calls: {planted_techniques_this_run}"
+    )
+    for i in range(1, 6):
+        technique = f"T{i:04d}"
+        assert progress.already_planted(technique) == f"cz-{technique}-000"
+
+
+@patch("bully_full_assembly_run._window_count")
+@patch("portal.modules.security.core.bully.live_connect.lab_splunk_connector")
+def test_sampled_window_raises_rather_than_proceeding(mock_connector, mock_window_count):
+    """A window read that returns fewer rows than the window's true count is
+    a sampled window, not a complete one -- H2 requires this to raise."""
+
+    class _Result:
+        records = [{"host": "h1", "sourcetype": "wineventlog:security", "_time": 1.0}]
+
+    def fake_read(_intent):
+        return _Result()
+
+    connector = type("FakeConnector", (), {"read": staticmethod(fake_read)})()
+    mock_window_count.return_value = 500  # true count vastly exceeds what "read" returns
+
+    with pytest.raises(fa.SampledWindowError):
+        fa._read_window_completely(connector, "botsv3", 0.0, 600.0)
+
+
+def test_complete_window_read_with_matching_count_does_not_raise():
+    class _Result:
+        records = [{"host": "h1", "sourcetype": "wineventlog:security", "_time": 1.0}] * 3
+
+    connector = type("FakeConnector", (), {"read": staticmethod(lambda _intent: _Result())})()
+    with patch("bully_full_assembly_run._window_count", return_value=3):
+        rows = fa._read_window_completely(connector, "botsv3", 0.0, 600.0)
+    assert len(rows) == 3
