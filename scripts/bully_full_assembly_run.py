@@ -1066,11 +1066,37 @@ def _build_published_report(
     total_available = sum(records_available.values())
 
     stream_produced = getattr(stage_by_name.get("stream_corpus_sample"), "produced", None) or {}
+    behaviors_produced = (
+        getattr(stage_by_name.get("infer_universal_behaviors"), "produced", None) or {}
+    )
     role_map = ctx.get("role_map")
     recovery = ctx.get("distance_recovery")
-    investigations = ctx.get("investigations", [])
-    found_entry = ctx.get("found_anchor_entry")
+    progress = ctx.get("entry_progress")
+    progress_dict = progress.to_dict() if progress is not None else {}
 
+    # H.4: a claim may not be published from a stage whose records_received
+    # was 0 (K.4's exact defect -- `chain_reach_recall 1.0` computed from
+    # `investigate_anchors` at 0 records). Disqualified stages null out
+    # their fields below rather than publishing a fabricated number.
+    guard = fp.zero_record_claim_guard(report, ("investigate_anchors", "infer_universal_behaviors"))
+    disqualified = set(guard["disqualified_stages"])
+
+    # H.4: Crogl reported as COMPREHENSION (sources behaviourally profiled /
+    # sources the scorer actually sampled), not exposure (sourcetypes
+    # touched by the stream / corpus total) -- see `ClaimEvidence`'s own
+    # docstring. K.4's own numbers: 5/245 = 0.020.
+    sample_report = stream_produced.get("sample_report") or {}
+    crogl_sources_sampled = sample_report.get("sourcetypes_sampled")
+    crogl_sources_profiled = (
+        None
+        if "infer_universal_behaviors" in disqualified
+        else behaviors_produced.get("schemas_seen")
+    )
+
+    # H.4: Bully reported FROM THE SWEEP (H.2's widened locate-plant-hunt
+    # loop across the whole answer key), not from K.4's single found-entry
+    # shape.
+    bully_disqualified = "investigate_anchors" in disqualified
     evidence = fp.ClaimEvidence(
         crogl_sourcetypes_reviewed=stream_produced.get("n_sourcetypes_covered", 0),
         crogl_identity_coverage=(role_map.entity_coverage if role_map else None),
@@ -1081,23 +1107,29 @@ def _build_published_report(
         generator_cousin_recall_at_distance=(
             {str(h): recovery.recall_at(h) for h in recovery.by_distance} if recovery else {}
         ),
+        crogl_sources_profiled=crogl_sources_profiled,
+        crogl_sources_sampled=crogl_sources_sampled,
+        bully_entries_located=(None if bully_disqualified else progress_dict.get("n_located")),
+        bully_entries_attempted=(None if bully_disqualified else progress_dict.get("n_done")),
+        bully_cousins_planted=(
+            None if bully_disqualified else progress_dict.get("n_cousins_planted")
+        ),
+        bully_cousins_recovered=(
+            None if bully_disqualified else progress_dict.get("n_cousins_recovered")
+        ),
     )
     verdict = fp.assembly_verdict(report, evidence)
 
     # bed_acceptance (A5, required by corpus_bed.require_bed_acceptance):
-    # floor_known_recall here means "did the search-until-first-match design
-    # confirm at least one answer-key technique live", NOT "what fraction of
-    # all 27 techniques recovered" -- this run stops at the first hit by
-    # design (operator instruction), so scoring against all candidates tried
-    # would be a denominator of 1 and a trivial 100%. Denominator is the
-    # full in-scope answer-key candidate count instead, so the number reads
-    # honestly as "confirmed 1 of N", not as an inflated recall figure.
+    # H.4 -- floor_known_recall now reads from the SWEEP (H.2), over every
+    # in-scope answer-key entry attempted, not from a single stop-at-first
+    # -hit shape (the pre-H.2 denominator-of-1 caveat this comment used to
+    # describe no longer applies: the sweep denominator is real entries
+    # attempted).
     n_candidates = len([e for e in BOTS_ANSWER_KEY if e.dataset in indexes and e.entities])
-    n_hit = 1 if investigations and investigations[0].events else 0
-    cousins = ctx.get("planned_cousins", [])
-    cousin_reached = sum(
-        h.get("reached", 0) for h in (recovery.by_distance.values() if recovery else [])
-    )
+    n_hit = progress_dict.get("n_located", 0)
+    n_planted = progress_dict.get("n_cousins_planted", 0)
+    cousin_reached = progress_dict.get("n_cousins_recovered", 0)
     bed_report = corpus_bed.assess_bed(
         records_available,
         records_read=evidence.corpus_records_processed,
@@ -1108,7 +1140,7 @@ def _build_published_report(
         answer_key_hit=n_hit,
         answer_key_total=n_candidates,
         cousin_hit=cousin_reached,
-        cousin_total=len(cousins),
+        cousin_total=n_planted,
         background_flagged=0,
         background_total=0,
         bed=bed_report,
@@ -1150,12 +1182,15 @@ def _build_published_report(
     return {
         "assembly_verdict": verdict,
         "claim_evidence": evidence.to_dict(),
+        "claim_guard": guard,
         "bed_acceptance": acceptance.to_dict(),
         "bed_report": bed_report.to_dict(),
         "scoreboard": scoreboard_row,
         "starvation_check": starvation,
-        "found_anchor_technique": found_entry.technique if found_entry else None,
-        "found_anchor_dataset": found_entry.dataset if found_entry else None,
+        # H.4: replaces the pre-H.2 single-entry `found_anchor_technique`/
+        # `found_anchor_dataset` shape -- the sweep attempts every in-scope
+        # entry, so there is no longer one "found anchor" to name.
+        "sweep_summary": progress_dict,
         "pipeline_report": report.to_dict(),
         "stage_outputs": {s.name: s.produced for s in report.stages},
     }
@@ -1194,8 +1229,11 @@ def _render_md(published: dict[str, Any], doc_stem: str) -> str:
         f"- false_flag_count: {sb.get('false_flag_count')}",
         f"```json\n{json.dumps({k: v for k, v in sb.items() if k != 'records'}, indent=2)}\n```",
         "",
-        f"- found_anchor: {published['found_anchor_technique']} "
-        f"({published['found_anchor_dataset']})",
+        "## sweep_summary (H.2/H.4) -- per-entry floor/cousin recall across the sweep",
+        "",
+        f"```json\n{json.dumps(published['sweep_summary'], indent=2, default=str)}\n```",
+        "",
+        f"## claim_guard: disqualified_stages={published['claim_guard']['disqualified_stages']}",
         "",
         f"## starvation_check (K.3): **{starv['verdict']}**",
         "",

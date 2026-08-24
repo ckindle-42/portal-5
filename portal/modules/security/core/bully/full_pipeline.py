@@ -308,6 +308,29 @@ def starvation_check(
     return {"verdict": verdict, "findings": findings, "min_fraction": min_fraction}
 
 
+def zero_record_claim_guard(
+    report: PipelineReport, claim_stage_names: tuple[str, ...]
+) -> dict[str, Any]:
+    """Which of `claim_stage_names` may NOT source a published claim.
+
+    K.4 published `chain_reach_recall 1.0` from `investigate_anchors`
+    while `records_received` for that stage's own inputs was 0 -- a claim
+    computed from a stage that never actually ran against real data. A
+    stage that reported OK with `records_received == 0` is disqualified: a
+    caller building `ClaimEvidence` must null out (never fabricate) any
+    field it would have sourced from a disqualified stage.
+    """
+    by_name = {s.name: s for s in report.stages}
+    disqualified: list[str] = []
+    for name in claim_stage_names:
+        stage = by_name.get(name)
+        if stage is None:
+            continue
+        if stage.status == STAGE_OK and (stage.records_received or 0) == 0:
+            disqualified.append(name)
+    return {"disqualified_stages": disqualified, "guard_active": True}
+
+
 # ── reporting against the four standing claims ─────────────────────────────
 
 
@@ -328,6 +351,25 @@ class ClaimEvidence:
     corpus_records_processed: int
     corpus_records_available: int
     generator_cousin_recall_at_distance: dict[str, float | None]
+    # H.4 (TASK_BULLY_HUNT_SWEEP_V1): Crogl reported as COMPREHENSION, not
+    # exposure. `crogl_sourcetypes_reviewed` (above) is "how many sourcetypes
+    # this run's stream touched" -- exposure, published in K.4 as
+    # `sourcetypes_reviewed: 325`, which reads as breadth achieved. The real
+    # comprehension question is narrower: of the sources the SCORER actually
+    # sampled, how many did the behavioural inference stage genuinely
+    # profile? K.4's own numbers answer this at 5/245 = 0.020 -- a fact its
+    # published `sourcetypes_reviewed: 325` obscured entirely. `None` when
+    # the source stage is disqualified by `zero_record_claim_guard`.
+    crogl_sources_profiled: int | None = None
+    crogl_sources_sampled: int | None = None
+    # Bully reported FROM THE SWEEP (H.2's widened locate-plant-hunt loop
+    # across the whole answer key), not from K.4's single-entry proof. `None`
+    # fields mean "the sweep has not run" or "disqualified by the zero-record
+    # claim guard" -- never a fabricated 0.
+    bully_entries_located: int | None = None
+    bully_entries_attempted: int | None = None
+    bully_cousins_planted: int | None = None
+    bully_cousins_recovered: int | None = None
 
     @property
     def corpus_fraction(self) -> float | None:
@@ -335,16 +377,61 @@ class ClaimEvidence:
             return None
         return self.corpus_records_processed / self.corpus_records_available
 
+    @property
+    def crogl_comprehension_fraction(self) -> float | None:
+        if not self.crogl_sources_sampled:
+            return None
+        if self.crogl_sources_profiled is None:
+            return None
+        return self.crogl_sources_profiled / self.crogl_sources_sampled
+
+    @property
+    def bully_floor_recall(self) -> float | None:
+        if not self.bully_entries_attempted:
+            return None
+        if self.bully_entries_located is None:
+            return None
+        return self.bully_entries_located / self.bully_entries_attempted
+
+    @property
+    def bully_cousin_recall(self) -> float | None:
+        if not self.bully_cousins_planted:
+            return None
+        if self.bully_cousins_recovered is None:
+            return None
+        return self.bully_cousins_recovered / self.bully_cousins_planted
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "crogl": {
                 "sourcetypes_reviewed": self.crogl_sourcetypes_reviewed,
                 "identity_coverage": self.crogl_identity_coverage,
+                "sources_profiled": self.crogl_sources_profiled,
+                "sources_sampled": self.crogl_sources_sampled,
+                "comprehension_fraction": (
+                    round(self.crogl_comprehension_fraction, 4)
+                    if self.crogl_comprehension_fraction is not None
+                    else None
+                ),
                 "claim": "ingests any source",
             },
             "bully": {
                 "chain_reach_recall": self.bully_chain_reach_recall,
                 "max_pivot_distance": self.bully_max_pivot_distance,
+                "entries_located": self.bully_entries_located,
+                "entries_attempted": self.bully_entries_attempted,
+                "floor_recall": (
+                    round(self.bully_floor_recall, 4)
+                    if self.bully_floor_recall is not None
+                    else None
+                ),
+                "cousins_planted": self.bully_cousins_planted,
+                "cousins_recovered": self.bully_cousins_recovered,
+                "cousin_recall": (
+                    round(self.bully_cousin_recall, 4)
+                    if self.bully_cousin_recall is not None
+                    else None
+                ),
                 "claim": "finds same/similar on a real haystack",
             },
             "corpus": {
