@@ -1,0 +1,419 @@
+{
+  "assembly_verdict": {
+    "verdict": "PROXY_SCALE",
+    "reasons": [
+      "corpus_fraction_0.00128<0.1: 359742 of 281069897 records -- this is another proxy"
+    ],
+    "integration_fraction": 1.0,
+    "corpus_fraction": 0.00128,
+    "modules_exercised": [
+      "adaptive_scope",
+      "analyst_loop",
+      "artifact_graph",
+      "baseline",
+      "behavior_inference",
+      "corpus_bed",
+      "correlation",
+      "discovery",
+      "field_roles",
+      "inject_plane",
+      "investigation_pivot",
+      "loop_grader",
+      "pyramid",
+      "series_cousin",
+      "telemetry_behavior",
+      "unit_outcome"
+    ],
+    "modules_missing": []
+  },
+  "claim_evidence": {
+    "crogl": {
+      "sourcetypes_reviewed": 325,
+      "identity_coverage": 1.0,
+      "claim": "ingests any source"
+    },
+    "bully": {
+      "chain_reach_recall": 1.0,
+      "max_pivot_distance": 0,
+      "claim": "finds same/similar on a real haystack"
+    },
+    "corpus": {
+      "records_processed": 359742,
+      "records_available": 281069897,
+      "fraction": 0.00128,
+      "claim": "the real ground is actually used"
+    },
+    "generator": {
+      "cousin_recall_at_distance": {
+        "0": 1.0
+      },
+      "claim": "cousins of what is in the corpus, injected into it"
+    }
+  },
+  "bed_acceptance": {
+    "floor_known_recall": 0.037037037037037035,
+    "product_cousin_recall": 1.0,
+    "cost_background_fp_rate": null,
+    "n_answer_key": 27,
+    "n_cousins_injected": 5,
+    "n_background_sampled": 0,
+    "verdict": "INVALID",
+    "reasons": [
+      "partial_read:359742/281069897 -- a capped read of a real corpus biases every downstream statistic toward whatever the cap selected",
+      "scored_sample_too_small:70<10000 -- recall/FP figures computed on this scored population do not generalise"
+    ]
+  },
+  "bed_report": {
+    "indexes_queried": [
+      "botsv1",
+      "botsv2",
+      "botsv3",
+      "portal5_lab"
+    ],
+    "records_available": {
+      "portal5_lab": 19287824,
+      "botsv1": 33413837,
+      "botsv2": 226337741,
+      "botsv3": 2030495
+    },
+    "records_read": 359742,
+    "lanes_present": [
+      "A",
+      "B",
+      "C"
+    ],
+    "is_haystack": false,
+    "reasons": [
+      "partial_read:359742/281069897 -- a capped read of a real corpus biases every downstream statistic toward whatever the cap selected",
+      "scored_sample_too_small:70<10000 -- recall/FP figures computed on this scored population do not generalise"
+    ]
+  },
+  "found_anchor_technique": "T1558.004",
+  "found_anchor_dataset": "botsv3",
+  "pipeline_report": {
+    "algorithm_version": "full-pipeline-v1",
+    "duration_seconds": 386.18,
+    "n_stages": 17,
+    "modules_built": 16,
+    "modules_exercised": [
+      "adaptive_scope",
+      "analyst_loop",
+      "artifact_graph",
+      "baseline",
+      "behavior_inference",
+      "corpus_bed",
+      "correlation",
+      "discovery",
+      "field_roles",
+      "inject_plane",
+      "investigation_pivot",
+      "loop_grader",
+      "pyramid",
+      "series_cousin",
+      "telemetry_behavior",
+      "unit_outcome"
+    ],
+    "n_modules_exercised": 16,
+    "modules_missing": [],
+    "integration_fraction": 1.0,
+    "degraded_stages": [],
+    "counters": {
+      "records_processed": 359742
+    },
+    "stages": [
+      {
+        "stage": "resolve_indexes",
+        "module": "corpus_bed",
+        "status": "OK",
+        "seconds": 0.0,
+        "error": null,
+        "traceback_head": null
+      },
+      {
+        "stage": "discover_index_range",
+        "module": "inject_plane",
+        "status": "OK",
+        "seconds": 12.397,
+        "error": null,
+        "traceback_head": null
+      },
+      {
+        "stage": "investigate_anchors",
+        "module": "investigation_pivot",
+        "status": "OK",
+        "seconds": 1.692,
+        "error": null,
+        "traceback_head": null
+      },
+      {
+        "stage": "plant_and_measure_cousins",
+        "module": "adaptive_scope",
+        "status": "OK",
+        "seconds": 6.713,
+        "error": null,
+        "traceback_head": null
+      },
+      {
+        "stage": "stream_corpus_sample",
+        "module": "corpus_bed",
+        "status": "OK",
+        "seconds": 365.344,
+        "error": null,
+        "traceback_head": null
+      },
+      {
+        "stage": "infer_field_roles",
+        "module": "field_roles",
+        "status": "OK",
+        "seconds": 0.032,
+        "error": null,
+        "traceback_head": null
+      },
+      {
+        "stage": "classify_telemetry",
+        "module": "telemetry_behavior",
+        "status": "OK",
+        "seconds": 0.0,
+        "error": null,
+        "traceback_head": null
+      },
+      {
+        "stage": "infer_universal_behaviors",
+        "module": "behavior_inference",
+        "status": "OK",
+        "seconds": 0.0,
+        "error": null,
+        "traceback_head": null
+      },
+      {
+        "stage": "build_artifact_graph",
+        "module": "artifact_graph",
+        "status": "OK",
+        "seconds": 0.001,
+        "error": null,
+        "traceback_head": null
+      },
+      {
+        "stage": "resolve_entities_and_timelines",
+        "module": "correlation",
+        "status": "OK",
+        "seconds": 0.0,
+        "error": null,
+        "traceback_head": null
+      },
+      {
+        "stage": "fit_baseline",
+        "module": "baseline",
+        "status": "OK",
+        "seconds": 0.0,
+        "error": null,
+        "traceback_head": null
+      },
+      {
+        "stage": "discover_and_cluster",
+        "module": "discovery",
+        "status": "OK",
+        "seconds": 0.001,
+        "error": null,
+        "traceback_head": null
+      },
+      {
+        "stage": "series_and_level",
+        "module": "series_cousin",
+        "status": "OK",
+        "seconds": 0.0,
+        "error": null,
+        "traceback_head": null
+      },
+      {
+        "stage": "level_match",
+        "module": "pyramid",
+        "status": "OK",
+        "seconds": 0.0,
+        "error": null,
+        "traceback_head": null
+      },
+      {
+        "stage": "grade_to_loop_contract",
+        "module": "loop_grader",
+        "status": "OK",
+        "seconds": 0.0,
+        "error": null,
+        "traceback_head": null
+      },
+      {
+        "stage": "resolve_unit_outcomes",
+        "module": "unit_outcome",
+        "status": "OK",
+        "seconds": 0.0,
+        "error": null,
+        "traceback_head": null
+      },
+      {
+        "stage": "raise_and_verdict_concerns",
+        "module": "analyst_loop",
+        "status": "OK",
+        "seconds": 0.0,
+        "error": null,
+        "traceback_head": null
+      }
+    ]
+  },
+  "stage_outputs": {
+    "resolve_indexes": [
+      "portal5_lab",
+      "botsv1",
+      "botsv2",
+      "botsv3"
+    ],
+    "discover_index_range": {
+      "n_indexes": 4
+    },
+    "investigate_anchors": {
+      "n_investigations": 1,
+      "n_events": 3,
+      "n_answer_key_entries_tried": 1,
+      "found_technique": "T1558.004",
+      "found_dataset": "botsv3"
+    },
+    "plant_and_measure_cousins": {
+      "n_planted": 5,
+      "dry_run": false,
+      "inject_reports": [
+        {
+          "cousin_id": "cz-botsv3-T1558.004-000-REVOCABULARY-00-d0",
+          "sourcetypes_used": [
+            "wineventlog:security"
+          ],
+          "n_events": 3,
+          "ok": true
+        },
+        {
+          "cousin_id": "cz-botsv3-T1558.004-000-RESCHEMA-10-d0",
+          "sourcetypes_used": [
+            "wineventlog:security"
+          ],
+          "n_events": 3,
+          "ok": true
+        },
+        {
+          "cousin_id": "cz-botsv3-T1558.004-000-REIDENTITY-20-d0",
+          "sourcetypes_used": [
+            "wineventlog:security"
+          ],
+          "n_events": 3,
+          "ok": true
+        },
+        {
+          "cousin_id": "cz-botsv3-T1558.004-000-SCATTER-30-d0",
+          "sourcetypes_used": [
+            "wineventlog:security"
+          ],
+          "n_events": 3,
+          "ok": true
+        },
+        {
+          "cousin_id": "cz-botsv3-T1558.004-000-REORDER_MINOR-40-d0",
+          "sourcetypes_used": [
+            "wineventlog:security"
+          ],
+          "n_events": 3,
+          "ok": true
+        }
+      ],
+      "by_distance": {
+        "0": {
+          "total": 5,
+          "reached": 5,
+          "recall": 1.0
+        }
+      },
+      "max_reached_distance": 0,
+      "zero_hop_only": true
+    },
+    "stream_corpus_sample": {
+      "n_records_wide_fit": 359742,
+      "n_records_last_batch": 63,
+      "wide_fitted_units": 99018,
+      "resumed_from_checkpoint": false,
+      "n_sourcetypes_covered": 325,
+      "n_sourcetypes_available": 430,
+      "coverage_note": "this run optimizes sourcetype/event-type coverage, not raw corpus volume -- corpus_fraction will read low against F.4's literal 0.10 floor by design (operator decision); see stage docstring"
+    },
+    "infer_field_roles": {
+      "extraction_valid": true,
+      "n_fields": 17
+    },
+    "classify_telemetry": {
+      "algorithm_version": "telemetry-behavior-v1",
+      "n_records": 63,
+      "n_classified": 0,
+      "coverage": 0.0,
+      "by_sourcetype": {
+        "yum-too_small": {
+          "records": 63,
+          "classified": 0,
+          "coverage": 0.0
+        }
+      },
+      "class_distribution": {},
+      "class_entropy_bits": 0,
+      "degenerate": true,
+      "unmapped_sourcetypes": [
+        "yum-too_small"
+      ],
+      "class_concentration": {},
+      "source_concentration": {},
+      "concentration_reasons": [],
+      "concentrated": false
+    },
+    "infer_universal_behaviors": {
+      "algorithm_version": "behavior-inference-v1",
+      "actions_profiled": 0,
+      "schemas_seen": 0,
+      "classes_inferred": 0,
+      "cross_schema_classes": 0,
+      "cross_schema_fraction": null,
+      "largest_class_members": 0
+    },
+    "build_artifact_graph": {
+      "n_artifacts": 63,
+      "n_units": 70
+    },
+    "resolve_entities_and_timelines": {
+      "n_entities": 1,
+      "n_timelines": 1
+    },
+    "fit_baseline": {
+      "fitted_units": 99088
+    },
+    "discover_and_cluster": {
+      "algorithm_version": "discovery-v1",
+      "units_examined": 70,
+      "discovered": 7,
+      "rejected_unremarkable": 63,
+      "rejected_incoherent": 0,
+      "discovery_rate": 0.1,
+      "n_clusters": 1
+    },
+    "series_and_level": {
+      "n_series": 1
+    },
+    "level_match": {
+      "n_matches": 1
+    },
+    "grade_to_loop_contract": {
+      "assessments": 1
+    },
+    "resolve_unit_outcomes": {
+      "n_outcomes": 70,
+      "by_outcome": {
+        "NOVEL": 7,
+        "NORMAL": 63
+      }
+    },
+    "raise_and_verdict_concerns": {
+      "n_concerns": 0
+    }
+  }
+}
