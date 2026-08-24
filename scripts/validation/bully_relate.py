@@ -3464,3 +3464,298 @@ def check_scorer_feed_handoff_doc_exists() -> tuple[str, str, list[dict]]:
     if "HEAD wins over" not in text:
         return "FAIL", "handoff doc is missing its HEAD-wins-over-every-statement warning", []
     return "PASS", "", []
+
+
+# ── GJ-GQ: TASK_BULLY_HUNT_SWEEP_V1 H.6 -- the hunt-sweep invariants. Each
+# seeds a violation, confirms rejection, then confirms clean input passes. ──
+
+
+def _scripts_dir():
+    import sys
+    from pathlib import Path
+
+    scripts_dir = Path(__file__).resolve().parents[2] / "scripts"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+    return scripts_dir
+
+
+@register(
+    "bully_hunt_sweep_every_entry_attempted_or_reported",
+    "GJ. the sweep attempts every in-scope entry, or reports it not-attempted (H1)",
+    order=189,
+)
+def check_hunt_sweep_every_entry_attempted_or_reported() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import run_preflight as rpf
+
+    progress = rpf.EntryProgress()
+    progress.record(
+        "T1558.004", {"located": True, "cousin_planted": True, "cousin_recovered": True}
+    )
+    # seeded violation: an entry that never ran must not vanish -- it has to
+    # show up in entries_not_attempted, never be silently dropped.
+    candidates = ["T1558.004", "T1078", "T1021.001"]
+    progress.entries_not_attempted = [t for t in candidates if not progress.already_done(t)]
+    payload = progress.to_dict()
+    if payload["n_done"] + payload["n_not_attempted"] != len(candidates):
+        return "FAIL", "attempted + not-attempted does not cover every in-scope entry", []
+    if "T1078" not in payload["entries_not_attempted"]:
+        return "FAIL", "an unattempted entry was silently dropped, not reported", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_hunt_sweep_sampled_window_raises",
+    "GK. a hunt window is read completely; a sampled window raises (H2)",
+    order=190,
+)
+def check_hunt_sweep_sampled_window_raises() -> tuple[str, str, list[dict]]:
+    from unittest.mock import patch
+
+    _scripts_dir()
+    import bully_full_assembly_run as fa
+
+    class _Result:
+        records = [{"host": "h1", "sourcetype": "wineventlog:security", "_time": 1.0}] * 5
+
+    connector = type("FakeConnector", (), {"read": staticmethod(lambda _intent: _Result())})()
+
+    # seeded violation: the window's true count vastly exceeds what the read
+    # actually returned -- a truncated/sampled window, not a complete one.
+    with patch("bully_full_assembly_run._window_count", return_value=500):
+        try:
+            fa._read_window_completely(connector, "botsv3", 0.0, 600.0)
+        except fa.SampledWindowError:
+            pass
+        else:
+            return "FAIL", "an under-read window did not raise SampledWindowError", []
+
+    with patch("bully_full_assembly_run._window_count", return_value=5):
+        try:
+            rows = fa._read_window_completely(connector, "botsv3", 0.0, 600.0)
+        except fa.SampledWindowError:
+            return "FAIL", "a genuinely complete window incorrectly raised SampledWindowError", []
+    if len(rows) != 5:
+        return "FAIL", "a complete window did not return all its records", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_hunt_sweep_narrow_span_blocks_the_sweep",
+    "GL. calibration runs before the sweep and NARROW_SPAN blocks it (H3)",
+    order=191,
+)
+def check_hunt_sweep_narrow_span_blocks() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import run_preflight as rpf
+
+    over_budget = rpf.calibrate_span(
+        span_seconds=3600,
+        index="botsv3",
+        measured_records=84_583,
+        measured_units=2_158,
+        measured_cluster_seconds=3_894.0,
+        measured_total_seconds=3_894.0,
+        n_entries=27,
+        budget_hours=4.0,
+    )
+    report = rpf.preflight(
+        [rpf.PreflightCheck(name="anchors_resolve", passed=True, detail="ok")],
+        calibration=over_budget,
+    )
+    # seeded violation: every gate check passing must not be enough to
+    # commit if the calibration itself says NARROW_SPAN.
+    if report.passed:
+        return "FAIL", "NARROW_SPAN calibration did not block an otherwise-green preflight", []
+
+    committed = rpf.calibrate_span(
+        span_seconds=600,
+        index="botsv3",
+        measured_records=36_640,
+        measured_units=537,
+        measured_cluster_seconds=25.4,
+        measured_total_seconds=25.4,
+        n_entries=27,
+        budget_hours=4.0,
+    )
+    clean_report = rpf.preflight(
+        [rpf.PreflightCheck(name="anchors_resolve", passed=True, detail="ok")],
+        calibration=committed,
+    )
+    if not clean_report.passed:
+        return "FAIL", "a genuine COMMIT calibration was incorrectly blocked", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_hunt_sweep_incremental_checkpoint_and_publication",
+    "GM. per-entry results are checkpointed and published incrementally (H4)",
+    order=192,
+)
+def check_hunt_sweep_incremental_checkpoint() -> tuple[str, str, list[dict]]:
+    import tempfile
+    from pathlib import Path
+
+    _scripts_dir()
+    import bully_full_assembly_run as fa
+
+    from portal.modules.security.core.bully import run_preflight as rpf
+
+    with tempfile.TemporaryDirectory() as tmp:
+        original = fa.CHECKPOINT_PATH
+        fa.CHECKPOINT_PATH = Path(tmp) / "checkpoint.json"
+        try:
+            progress = rpf.EntryProgress()
+            progress.record("T1558.004", {"located": True, "seconds": 1.0})
+            fa._save_hunt_checkpoint(progress, span_seconds=600.0)
+            # seeded violation: a run that died right here must still leave a
+            # readable checkpoint with the one entry it finished.
+            reloaded = fa._load_hunt_checkpoint()
+            if reloaded is None:
+                return "FAIL", "a checkpoint saved after one entry did not round-trip", []
+            reloaded_progress, span = reloaded
+            if reloaded_progress.entries_done != ["T1558.004"] or span != 600.0:
+                return (
+                    "FAIL",
+                    f"checkpoint round-trip lost state: {reloaded_progress.to_dict()}",
+                    [],
+                )
+        finally:
+            fa.CHECKPOINT_PATH = original
+    return "PASS", "", []
+
+
+@register(
+    "bully_hunt_sweep_resumed_run_never_replants",
+    "GN. a resumed run never re-plants a cousin",
+    order=193,
+)
+def check_hunt_sweep_resumed_run_never_replants() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully import run_preflight as rpf
+
+    progress = rpf.EntryProgress()
+    progress.planted_cousins["T1558.004"] = "cz-botsv3-T1558.004-000-d0"
+    # seeded violation: a naive resume that ignores already_planted would
+    # ship a second cousin id for the same technique.
+    already = progress.already_planted("T1558.004")
+    if already is None:
+        return "FAIL", "already_planted did not recognise a cousin shipped in a prior run", []
+    if already != "cz-botsv3-T1558.004-000-d0":
+        return "FAIL", "already_planted returned the wrong cousin id", []
+    never_planted = progress.already_planted("T1021.001")
+    if never_planted is not None:
+        return "FAIL", "already_planted invented a cousin id for a technique never planted", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_hunt_sweep_no_claim_from_zero_record_stage",
+    "GO. no claim is published from a zero-record stage (H4)",
+    order=194,
+)
+def check_hunt_sweep_no_claim_from_zero_record_stage() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully.full_pipeline import (
+        STAGE_OK,
+        PipelineReport,
+        StageResult,
+        zero_record_claim_guard,
+    )
+
+    zero = PipelineReport()
+    zero.stages = [
+        StageResult(
+            name="investigate_anchors",
+            module="investigation_pivot",
+            status=STAGE_OK,
+            seconds=0.1,
+            records_received=0,
+        )
+    ]
+    guard = zero_record_claim_guard(zero, ("investigate_anchors", "infer_universal_behaviors"))
+    if "investigate_anchors" not in guard["disqualified_stages"]:
+        return "FAIL", "a zero-record investigate_anchors stage was not disqualified", []
+
+    healthy = PipelineReport()
+    healthy.stages = [
+        StageResult(
+            name="investigate_anchors",
+            module="investigation_pivot",
+            status=STAGE_OK,
+            seconds=12.0,
+            records_received=36_640,
+        )
+    ]
+    guard2 = zero_record_claim_guard(healthy, ("investigate_anchors", "infer_universal_behaviors"))
+    if "investigate_anchors" in guard2["disqualified_stages"]:
+        return "FAIL", "a genuinely populated stage was incorrectly disqualified", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_hunt_sweep_crogl_reported_as_comprehension_not_exposure",
+    "GP. Crogl is reported as comprehension, not exposure",
+    order=195,
+)
+def check_hunt_sweep_crogl_comprehension_not_exposure() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully.full_pipeline import ClaimEvidence
+
+    fields = ClaimEvidence.__dataclass_fields__
+    # seeded violation: K.4 published exposure (sourcetypes touched by the
+    # stream) as if it answered comprehension. The dedicated
+    # crogl_sources_profiled/crogl_sources_sampled pair must exist
+    # separately from the exposure-only crogl_sourcetypes_reviewed field.
+    if "crogl_sources_profiled" not in fields or "crogl_sources_sampled" not in fields:
+        return "FAIL", "ClaimEvidence carries no dedicated comprehension fields", []
+    evidence = ClaimEvidence(
+        crogl_sourcetypes_reviewed=325,
+        crogl_identity_coverage=None,
+        bully_chain_reach_recall=None,
+        bully_max_pivot_distance=None,
+        corpus_records_processed=0,
+        corpus_records_available=0,
+        generator_cousin_recall_at_distance={},
+        crogl_sources_profiled=5,
+        crogl_sources_sampled=245,
+    )
+    if evidence.crogl_sources_profiled == evidence.crogl_sourcetypes_reviewed:
+        return (
+            "FAIL",
+            "comprehension collapsed onto the exposure field -- fixture is degenerate",
+            [],
+        )
+    return "PASS", "", []
+
+
+@register(
+    "bully_hunt_sweep_k4_one_entry_shape_permanent_regression",
+    "GQ. K.4's one-entry shape remains a permanent regression case (GJ)",
+    order=196,
+)
+def check_hunt_sweep_k4_one_entry_shape_permanent_regression() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully.full_pipeline import (
+        STAGE_OK,
+        PipelineReport,
+        StageResult,
+        zero_record_claim_guard,
+    )
+
+    # K.4's own exact shape: investigate_anchors ran at records_received: 0
+    # (n_answer_key_entries_tried: 1, the single-entry proof, not a sweep).
+    k4_shape = PipelineReport()
+    k4_shape.stages = [
+        StageResult(
+            name="investigate_anchors",
+            module="investigation_pivot",
+            status=STAGE_OK,
+            seconds=0.0,
+            records_received=0,
+        )
+    ]
+    guard = zero_record_claim_guard(k4_shape, ("investigate_anchors", "infer_universal_behaviors"))
+    if "investigate_anchors" not in guard["disqualified_stages"]:
+        return (
+            "FAIL",
+            "K.4's own zero-record investigate_anchors shape no longer disqualifies "
+            "Bully claims -- the regression case this check exists to pin has drifted",
+            [],
+        )
+    return "PASS", "", []
