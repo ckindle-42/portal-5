@@ -37,13 +37,17 @@ def test_stage_plan_covers_all_sixteen() -> None:
 
 
 def test_build_stages_registers_without_naming_an_unbuilt_module() -> None:
-    stages = fa.build_stages(max_records=10, batch_size=10, dry_run_cousins=True)
+    stages = fa.build_stages(
+        max_records=10, batch_size=10, per_sourcetype_cap=10, dry_run_cousins=True
+    )
     assert len(stages) == len(fa.STAGE_PLAN)
     built_modules = {stage.module for stage in stages}
     assert built_modules == BUILT_MODULES
 
 
 def test_no_stage_name_or_module_is_duplicated() -> None:
-    stages = fa.build_stages(max_records=10, batch_size=10, dry_run_cousins=True)
+    stages = fa.build_stages(
+        max_records=10, batch_size=10, per_sourcetype_cap=10, dry_run_cousins=True
+    )
     names = [s.name for s in stages]
     assert len(names) == len(set(names))
