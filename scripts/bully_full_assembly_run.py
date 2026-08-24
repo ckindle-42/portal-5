@@ -267,7 +267,9 @@ def build_stages(  # noqa: C901, PLR0915
         for _ in range(processed_before):
             ctx.count("records_processed")
 
-        last_batch: list[dict[str, Any]] = []
+        from portal.modules.security.core.bully import score_sample as ss
+
+        sample = ss.StratifiedSample()
         interrupted_reason: str | None = None
         last_checkpoint_at = time.time()
         connectors: dict[str, Any] = {}
@@ -330,7 +332,7 @@ def build_stages(  # noqa: C901, PLR0915
                         ctx.count("records_processed")
                     if batch:
                         _fit_batch(batch)
-                        last_batch = batch
+                        sample.extend(batch, sourcetype_of=_sourcetype_of)
                     covered.add(current)
                     current = None
                     if (
@@ -354,15 +356,18 @@ def build_stages(  # noqa: C901, PLR0915
         if finished_all and CHECKPOINT_PATH.exists():
             CHECKPOINT_PATH.unlink(missing_ok=True)
 
-        ctx.put("records", last_batch)
+        ctx.put("records", sample.records())
         ctx.put("wide_baseline", baseline)
+        sample_report = sample.report()
+        verdict = ss.scorer_input_verdict(sample_report, len(covered))
         result: dict[str, Any] = {
             "n_records_wide_fit": ctx.counters.get("records_processed", 0),
-            "n_records_last_batch": len(last_batch),
             "wide_fitted_units": baseline.fitted_units,
             "resumed_from_checkpoint": resuming,
             "n_sourcetypes_covered": len(covered),
             "n_sourcetypes_available": n_sourcetypes_available,
+            "sample_report": sample_report,
+            "scorer_input_verdict": verdict,
             "coverage_note": (
                 "this run optimizes sourcetype/event-type coverage, not raw corpus "
                 "volume -- corpus_fraction will read low against F.4's literal 0.10 "
