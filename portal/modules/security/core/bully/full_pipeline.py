@@ -81,6 +81,7 @@ BUILT_MODULES: frozenset[str] = frozenset(
         "unit_outcome",
         "loop_grader",
         "inject_plane",
+        "run_preflight",
     }
 )
 

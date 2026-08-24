@@ -32,8 +32,11 @@ def test_stage_plan_covers_all_sixteen() -> None:
     # F.2's table names all sixteen; this is a stronger assertion than the
     # >=14 floor above, kept separate so a future seam defect that drops one
     # module fails loudly here without weakening the >=14 acceptance floor.
+    # `run_preflight` (H.1, TASK_BULLY_HUNT_SWEEP_V1) is excluded: it is a
+    # gating module invoked before the pipeline runs, never as a Stage in
+    # STAGE_PLAN itself -- it adds no capability to assert coverage of here.
     modules = {module for _name, module in fa.STAGE_PLAN}
-    assert modules == BUILT_MODULES
+    assert modules == BUILT_MODULES - {"run_preflight"}
 
 
 def test_build_stages_registers_without_naming_an_unbuilt_module() -> None:
@@ -42,7 +45,7 @@ def test_build_stages_registers_without_naming_an_unbuilt_module() -> None:
     )
     assert len(stages) == len(fa.STAGE_PLAN)
     built_modules = {stage.module for stage in stages}
-    assert built_modules == BUILT_MODULES
+    assert built_modules == BUILT_MODULES - {"run_preflight"}
 
 
 def test_no_stage_name_or_module_is_duplicated() -> None:
