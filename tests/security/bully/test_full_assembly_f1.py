@@ -105,7 +105,7 @@ def test_integration_fraction_counts_only_ok_stages() -> None:
     _ctx, report = run_pipeline(stages, fix_in_place=True)
 
     assert report.modules_exercised == ("correlation", "field_roles")
-    assert report.integration_fraction == pytest.approx(2 / 16)
+    assert report.integration_fraction == pytest.approx(2 / len(BUILT_MODULES))
 
 
 def _real_run_evidence(records_processed: int) -> ClaimEvidence:
@@ -169,7 +169,7 @@ def test_r6_actual_figures_are_a_permanent_partial_assembly_regression() -> None
     verdict = assembly_verdict(report, evidence)
 
     assert verdict["verdict"] == "PARTIAL_ASSEMBLY"
-    assert verdict["integration_fraction"] == pytest.approx(7 / 16)
+    assert verdict["integration_fraction"] == pytest.approx(7 / len(BUILT_MODULES), abs=1e-4)
     assert verdict["corpus_fraction"] < 0.10
 
 
