@@ -872,23 +872,62 @@ def build_stages(  # noqa: C901, PLR0915
         time_budget = hunt_time_budget_seconds
         ctx.put("entry_progress", progress)
         started = time.time()
-        for entry in candidates:
-            if progress.already_done(entry.technique):
-                continue
-            if time_budget is not None and (time.time() - started) >= time_budget:
-                # H5: a time budget caps entries ATTEMPTED, never the read
-                # within one -- checked only BETWEEN entries, never mid-read.
-                continue
-            result = _hunt_entry(entry, ctx, span_seconds=span_seconds, progress=progress)
-            progress.record(entry.technique, result)
-            # H.3: checkpoint AND publish after every entry -- a death at
-            # entry 19 must yield 19 measurements, not zero (H4).
-            _save_hunt_checkpoint(progress, span_seconds=span_seconds)
-            if on_entry_done is not None:
-                on_entry_done(progress, result)
-        progress.entries_not_attempted = [
-            e.technique for e in candidates if not progress.already_done(e.technique)
-        ]
+        try:
+            for entry in candidates:
+                if progress.already_done(entry.technique):
+                    continue
+                if time_budget is not None and (time.time() - started) >= time_budget:
+                    # H5: a time budget caps entries ATTEMPTED, never the read
+                    # within one -- checked only BETWEEN entries, never mid-read.
+                    continue
+                try:
+                    result = _hunt_entry(entry, ctx, span_seconds=span_seconds, progress=progress)
+                except SampledWindowError as exc:
+                    # A window a handful of records short of its known count
+                    # is far more often live-indexing lag between the count
+                    # probe and the read (both hit a corpus still ingesting)
+                    # than a real truncation -- one retry after a short
+                    # settle absorbs that race without weakening the
+                    # completeness guarantee itself. A SECOND miss is
+                    # recorded against this one entry and the sweep moves
+                    # on, rather than losing every remaining entry to a
+                    # window that genuinely will not read complete (any
+                    # OTHER exception still propagates and kills the
+                    # process -- that is the checkpoint/resume path's job,
+                    # not a per-entry catch, per the H.3 kill/resume test).
+                    time.sleep(3.0)
+                    try:
+                        result = _hunt_entry(
+                            entry, ctx, span_seconds=span_seconds, progress=progress
+                        )
+                    except SampledWindowError as exc2:
+                        result = {
+                            "technique": entry.technique,
+                            "dataset": entry.dataset,
+                            "located": False,
+                            "cousin_planted": False,
+                            "cousin_id": None,
+                            "cousin_recovered": None,
+                            "distance": None,
+                            "records_read": None,
+                            "units": None,
+                            "seconds": None,
+                            "error": f"SampledWindowError (2x): {exc}; retry: {exc2}",
+                        }
+                progress.record(entry.technique, result)
+                # H.3: checkpoint AND publish after every entry -- a death at
+                # entry 19 must yield 19 measurements, not zero (H4).
+                _save_hunt_checkpoint(progress, span_seconds=span_seconds)
+                if on_entry_done is not None:
+                    on_entry_done(progress, result)
+        finally:
+            # Always reflects real progress, even if something above this
+            # loop's own per-entry guards still escapes (e.g. Ctrl-C) --
+            # H1's requirement that unattempted entries are reported as
+            # such, never silently dropped, must hold on an early exit too.
+            progress.entries_not_attempted = [
+                e.technique for e in candidates if not progress.already_done(e.technique)
+            ]
         n_located = sum(1 for r in progress.results if r.get("located"))
         return {
             "n_entries_in_scope": len(candidates),

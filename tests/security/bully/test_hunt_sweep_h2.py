@@ -138,6 +138,58 @@ def test_sampled_window_raises_rather_than_proceeding(mock_connector, mock_windo
         fa._read_window_completely(connector, "botsv3", 0.0, 600.0)
 
 
+@patch("bully_full_assembly_run.time.sleep")
+@patch("bully_full_assembly_run._read_window_completely")
+@patch("portal.modules.security.core.bully.live_connect.lab_splunk_connector")
+def test_one_entrys_sampled_window_does_not_abort_the_remaining_sweep(
+    mock_connector, mock_read, _mock_sleep, tmp_path, monkeypatch
+):
+    """A SampledWindowError on entry 2 (a live-indexing-lag race, not a
+    process crash) must be recorded against that one entry and the sweep
+    must continue to entries 3+ -- not lose the rest of the answer key to
+    one flaky window, and not silently drop them from
+    `entries_not_attempted` either."""
+    monkeypatch.setattr(fa, "CHECKPOINT_PATH", tmp_path / "checkpoint.json")
+    mock_connector.return_value = object()
+
+    all_entries = tuple(_entry(f"T{i:04d}") for i in range(1, 4))  # T0001..T0003
+
+    def fake_read(connector, index, start, end):
+        return [
+            {"host": e.entities[0], "sourcetype": "wineventlog:security", "_time": 1.0}
+            for e in all_entries
+        ]
+
+    call_count = {"n": 0}
+
+    def fake_read_with_failure(connector, index, start, end):
+        call_count["n"] += 1
+        # Entry 1 locates cleanly (its own locate + post-plant recovery
+        # reads are calls 1-2). Entry 2's locate read then fails on BOTH
+        # its first attempt and its retry (calls 3-4) -- a persistent, not
+        # transient, incomplete window, so it never reaches a recovery
+        # read at all. Entry 3 (calls 5-6) locates cleanly again.
+        if call_count["n"] in (3, 4):
+            raise fa.SampledWindowError("botsv3 window sampled, not complete")
+        return fake_read(connector, index, start, end)
+
+    mock_read.side_effect = fake_read_with_failure
+
+    with patch.object(fa, "BOTS_ANSWER_KEY", all_entries):
+        stage = _stage_for("investigate_anchors")
+        ctx = _ctx_for(all_entries)
+        result = stage.run(ctx)
+
+    assert result["n_entries_attempted"] == 3
+    assert result["n_entries_not_attempted"] == 0
+    progress = ctx.get("entry_progress")
+    by_technique = {r["technique"]: r for r in progress.results}
+    assert by_technique["T0001"]["located"] is True
+    assert by_technique["T0002"]["located"] is False
+    assert "SampledWindowError" in by_technique["T0002"]["error"]
+    assert by_technique["T0003"]["located"] is True
+
+
 def test_complete_window_read_with_matching_count_does_not_raise():
     class _Result:
         records = [{"host": "h1", "sourcetype": "wineventlog:security", "_time": 1.0}] * 3
