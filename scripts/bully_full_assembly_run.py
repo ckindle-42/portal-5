@@ -425,7 +425,10 @@ def build_stages(  # noqa: C901, PLR0915
             for entity in artifact.entities:
                 observations.append(
                     correlation.IdentifierObservation(
-                        artifact_id=artifact.artifact_id, value=entity
+                        value=entity,
+                        field_path="entities",
+                        source_id=artifact.source_id,
+                        artifact_id=artifact.artifact_id,
                     )
                 )
         entities, value_to_id = correlation.resolve_entities(observations)
