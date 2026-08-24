@@ -694,10 +694,49 @@ def build_stages(  # noqa: C901, PLR0915
             },
         }
 
-    def _anchor_for(entry: Any, ctx: fp.RunContext) -> pivot.Anchor:
+    def _resolve_anchor_time(entry: Any, ctx: fp.RunContext, connector: Any) -> float:
+        """The real epoch the entry's own entity first appears at, via one
+        cheap term search over the entity across the FULL corpus range --
+        NOT `rng.earliest` (H.2 finding, live-verified: every entry without
+        a hand-curated `confirmed_at` fell back to the index's own earliest
+        record, so every entry's hunt window landed at the SAME instant
+        regardless of technique, independent of when that technique's
+        activity actually occurred). Mirrors H.1's own `anchors_resolve`
+        preflight probe -- same cost, same query shape -- just keeping the
+        first hit's `_time` instead of only a hit count."""
+        from portal.modules.security.core.bully.connectors import QueryIntent
+
         index_ranges = ctx.get("index_ranges", {})
         rng = index_ranges.get(entry.dataset)
-        at = rng.earliest if rng and rng.earliest is not None else time.time()
+        fallback = rng.earliest if rng and rng.earliest is not None else time.time()
+        entity = entry.entities[0] if entry.entities else None
+        if not entity:
+            return fallback
+        try:
+            result = connector.read(
+                QueryIntent(
+                    "resolve real anchor time for hunt window",
+                    seed={"spl": f'search index={entry.dataset} "{entity}"'},
+                    start=rng.earliest if rng and rng.earliest is not None else 0,
+                    end=rng.latest if rng and rng.latest is not None else time.time(),
+                    limit=1,
+                )
+            )
+        except Exception:  # noqa: BLE001 -- resolution failure falls back, never blocks
+            return fallback
+        if not result.records:
+            return fallback
+        first = result.records[0]
+        raw_time = first.get("_time") if isinstance(first, dict) else None
+        if raw_time is None and isinstance(first, dict):
+            fields = first.get("fields", {})
+            raw_time = fields.get("_time") if isinstance(fields, dict) else None
+        try:
+            return float(raw_time) if raw_time is not None else fallback
+        except (TypeError, ValueError):
+            return fallback
+
+    def _anchor_for(entry: Any, ctx: fp.RunContext, *, at: float) -> pivot.Anchor:
         return pivot.Anchor(
             anchor_id=f"a-assembly-{entry.technique}",
             at=at,
@@ -723,7 +762,9 @@ def build_stages(  # noqa: C901, PLR0915
         from portal.modules.security.core.bully.live_connect import lab_splunk_connector
 
         t0 = time.time()
-        anchor = _anchor_for(entry, ctx)
+        connector = lab_splunk_connector(index=entry.dataset)
+        anchor_at = _resolve_anchor_time(entry, ctx, connector)
+        anchor = _anchor_for(entry, ctx, at=anchor_at)
         half = span_seconds / 2.0
         corpus_earliest = ctx.get("corpus_earliest")
         corpus_latest = ctx.get("corpus_latest")
@@ -736,7 +777,6 @@ def build_stages(  # noqa: C901, PLR0915
         if end <= start:
             end = start + span_seconds
 
-        connector = lab_splunk_connector(index=entry.dataset)
         records = _read_window_completely(connector, entry.dataset, start, end)
 
         entities_seen = {v for r in records for _k, v in ip._extract_pivot_entities(r) if v}

@@ -64,7 +64,13 @@ def _stage_for(name: str, **build_kwargs):
 @patch("bully_full_assembly_run.cousin_inject.inject_cousins")
 @patch("bully_full_assembly_run._read_window_completely")
 @patch("portal.modules.security.core.bully.live_connect.lab_splunk_connector")
-def test_resumed_run_never_replants_entries_1_through_5(mock_connector, mock_read, mock_inject):
+def test_resumed_run_never_replants_entries_1_through_5(
+    mock_connector, mock_read, mock_inject, tmp_path, monkeypatch
+):
+    # `investigate_anchors` checkpoints after every entry regardless of
+    # whether `hunt_progress` was passed explicitly -- isolate from the
+    # real CHECKPOINT_PATH or this test pollutes /tmp for any real run.
+    monkeypatch.setattr(fa, "CHECKPOINT_PATH", tmp_path / "checkpoint.json")
     mock_connector.return_value = object()
     mock_inject.return_value = []
 
