@@ -46,6 +46,7 @@ from portal.modules.security.core.bully import (
     cousin_inject,  # noqa: E402
     loop_grader,  # noqa: E402
     pyramid,  # noqa: E402
+    scoreboard,  # noqa: E402
     series_cousin,  # noqa: E402
     signatures,  # noqa: E402
     unit_outcome,  # noqa: E402
@@ -873,11 +874,34 @@ def _build_published_report(
         bed=bed_report,
     )
 
+    # scoreboard.update() (W.2/W.5, TASK_BULLY_SCOREBOARD_CONFORMANCE_V1):
+    # every published run must report the real correctness axis
+    # (trust_mean_rank/false_flag_count) computed from scoreboard.update(),
+    # not a proxy recall/coverage figure alone -- CI's DT/DV checks enforce
+    # this repo-wide. `grade_to_loop_contract` already produces real
+    # CousinAssessment rows (module=loop_grader, one of the sixteen); this
+    # scores them through the real contract rather than inventing a second
+    # scoring path.
+    cousin_assessments = ctx.get("cousin_assessments", [])
+    scoreboard_rows = [
+        {
+            "assessment_id": a.assessment_id,
+            "relationship": a.relationship,
+            "defense_response": a.defense_response,
+            "composite": a.composite,
+            "candidate_state": None,
+            "known_benign": False,
+        }
+        for a in cousin_assessments
+    ]
+    scoreboard_row = scoreboard.update("full_assembly_f4", scoreboard_rows)
+
     return {
         "assembly_verdict": verdict,
         "claim_evidence": evidence.to_dict(),
         "bed_acceptance": acceptance.to_dict(),
         "bed_report": bed_report.to_dict(),
+        "scoreboard": scoreboard_row,
         "found_anchor_technique": found_entry.technique if found_entry else None,
         "found_anchor_dataset": found_entry.dataset if found_entry else None,
         "pipeline_report": report.to_dict(),
@@ -889,6 +913,7 @@ def _render_md(published: dict[str, Any], doc_stem: str) -> str:
     verdict = published["assembly_verdict"]
     evidence = published["claim_evidence"]
     acceptance = published["bed_acceptance"]
+    sb = published["scoreboard"]
     pr = published["pipeline_report"]
     lines = [
         f"# {doc_stem}",
@@ -909,6 +934,12 @@ def _render_md(published: dict[str, Any], doc_stem: str) -> str:
         "## bed_acceptance (A5)",
         "",
         f"```json\n{json.dumps(acceptance, indent=2)}\n```",
+        "",
+        "## scoreboard.update() -- the correctness axis (W.2)",
+        "",
+        f"- trust_mean_rank: {sb.get('trust_mean_rank')}",
+        f"- false_flag_count: {sb.get('false_flag_count')}",
+        f"```json\n{json.dumps({k: v for k, v in sb.items() if k != 'records'}, indent=2)}\n```",
         "",
         f"- found_anchor: {published['found_anchor_technique']} "
         f"({published['found_anchor_dataset']})",
