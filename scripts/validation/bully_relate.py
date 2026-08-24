@@ -3313,3 +3313,154 @@ def check_adaptive_reach_i6_density_permanent_regression() -> tuple[str, str, li
     if max(inv.saturation_report.depths_reached, default=-1) < 1:
         return "FAIL", "I.6's density profile did not reach depth >= 1", []
     return "PASS", "", []
+
+
+# ── TASK_BULLY_SCORER_FEED_V1 (K.5): F.4 reached `integration_fraction 1.0`
+# with every stage OK while the analytical path received 63 records of one
+# sourcetype out of 325 the stream covered -- `ctx.put("records", last_
+# batch)` fed the scorer whatever the final streaming iteration happened to
+# hold. These checks hold the fix (K.1/K.2/K.3) in place. ───────────────────
+
+
+@register(
+    "bully_scorer_feed_stratified_sample_never_single_batch",
+    "GD. the analytical path receives a stratified sample, never a single batch (K1)",
+    order=183,
+)
+def check_scorer_feed_stratified_never_single_batch() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully.score_sample import StratifiedSample
+
+    stream = [({"i": i}, f"st-{i % 50}") for i in range(2_000)]
+    sample = StratifiedSample(per_sourcetype=200)
+    for rec, st in stream:
+        sample.add(rec, st)
+    if sample.total == 0:
+        return "FAIL", "stratified sample produced no records from a real stream", []
+    if len(sample.sourcetypes) != 50:
+        return "FAIL", f"expected 50 sourcetypes represented, got {len(sample.sourcetypes)}", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_scorer_feed_verdict_published_and_starved_fails",
+    "GE. scorer_input_verdict is published every run and STARVED fails it",
+    order=184,
+)
+def check_scorer_feed_verdict_starved_fails() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully.score_sample import scorer_input_verdict
+
+    starved_report = {
+        "sourcetypes_sampled": 1,
+        "largest_sourcetype_share": 1.0,
+        "truncated_at_max_total": False,
+    }
+    starved = scorer_input_verdict(starved_report, sourcetypes_covered_by_stream=325)
+    if starved["verdict"] != "STARVED":
+        return "FAIL", "a scorer input covering 1/325 sourcetypes did not grade STARVED", []
+
+    healthy_report = {
+        "sourcetypes_sampled": 325,
+        "largest_sourcetype_share": 0.003,
+        "truncated_at_max_total": False,
+    }
+    healthy = scorer_input_verdict(healthy_report, sourcetypes_covered_by_stream=325)
+    if healthy["verdict"] != "OK":
+        return "FAIL", f"a healthy scorer input did not grade OK: {healthy}", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_scorer_feed_records_received_published_per_stage",
+    "GF. per-stage records-received is published alongside timing (K2/K3)",
+    order=185,
+)
+def check_scorer_feed_records_received_published() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully.full_pipeline import (
+        STAGE_OK,
+        PipelineReport,
+        StageResult,
+    )
+
+    report = PipelineReport()
+    report.stages = [
+        StageResult(name="s", module="m", status=STAGE_OK, seconds=0.0, records_received=42)
+    ]
+    d = report.to_dict()
+    stage_dict = d["stages"][0]
+    if "records_received" not in stage_dict:
+        return "FAIL", "StageResult.to_dict() does not publish records_received", []
+    if stage_dict["records_received"] != 42:
+        return "FAIL", f"records_received round-tripped wrong: {stage_dict}", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_scorer_feed_f4_profile_permanent_starved_regression",
+    "GG. F.4's stage profile (records_received 63, stream 359,757) remains "
+    "a permanent STARVED regression case",
+    order=186,
+)
+def check_scorer_feed_f4_profile_permanent_regression() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully.full_pipeline import (
+        STAGE_OK,
+        PipelineReport,
+        StageResult,
+        starvation_check,
+    )
+
+    analytical_stages = (
+        "infer_field_roles",
+        "classify_telemetry",
+        "infer_universal_behaviors",
+        "resolve_entities_and_timelines",
+        "raise_and_verdict_concerns",
+    )
+    report = PipelineReport()
+    report.stages = [
+        StageResult(name=n, module="m", status=STAGE_OK, seconds=0.0, records_received=63)
+        for n in analytical_stages
+    ]
+    result = starvation_check(report, stream_total=359_757, analytical_stages=analytical_stages)
+    if result["verdict"] != "FAIL":
+        return "FAIL", "F.4's own stage profile no longer fails starvation_check", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_scorer_feed_head_or_tail_slice_fails_stratification",
+    "GH. a head or tail slice fails the stratification check (K3)",
+    order=187,
+)
+def check_scorer_feed_head_or_tail_slice_fails() -> tuple[str, str, list[dict]]:
+    from portal.modules.security.core.bully.score_sample import scorer_input_verdict
+
+    # a flat 1,878-record head slice of a 6,678-record, 325-sourcetype
+    # stream (dominant first sourcetype) covers exactly one sourcetype.
+    head_report = {
+        "sourcetypes_sampled": 1,
+        "largest_sourcetype_share": 1.0,
+        "truncated_at_max_total": False,
+    }
+    verdict = scorer_input_verdict(head_report, sourcetypes_covered_by_stream=325)
+    if verdict["verdict"] != "STARVED":
+        return "FAIL", "a head-slice-shaped scorer input did not grade STARVED", []
+    return "PASS", "", []
+
+
+@register(
+    "bully_scorer_feed_handoff_doc_exists_with_head_pin",
+    "GI. docs/HANDOFF_BULLY_CROGL_STATE.md exists and its HEAD pin is present (K4)",
+    order=188,
+)
+def check_scorer_feed_handoff_doc_exists() -> tuple[str, str, list[dict]]:
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "docs" / "HANDOFF_BULLY_CROGL_STATE.md"
+    if not path.exists():
+        return "FAIL", f"{path} does not exist", []
+    text = path.read_text()
+    if "Repo HEAD at time of writing" not in text:
+        return "FAIL", "handoff doc is missing its HEAD pin header", []
+    if "HEAD wins over" not in text:
+        return "FAIL", "handoff doc is missing its HEAD-wins-over-every-statement warning", []
+    return "PASS", "", []

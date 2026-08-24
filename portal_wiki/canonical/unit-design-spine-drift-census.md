@@ -32,7 +32,7 @@ citation is true, and the retired `AK` ledger check bound zero docs —
 honestly, but leaving no doc-currency signal in the harness at all.
 Of 567 generated blocks across 25 Tier-1 docs, 7 came from a machine-derived
 `unit-fact-*` unit; the remaining 560 were authored prose with no executable link
-to code. Check `BS` closes that gap, bringing the harness to 183 validate checks
+to code. Check `BS` closes that gap, bringing the harness to 189 validate checks
 (`BT` later asserting archived units stay unreachable from the live store, `BU`
 the complexity-census advisory, `BX` the pending-model-verdicts backlog cap,
 `BY`-`CI` the TASK_BULLY_RELATE_AND_INVESTIGATE_V1 operating/measurement
@@ -49,7 +49,11 @@ discovery-first and doc-currency invariants, `EX`-`FD` the
 TASK_BULLY_CORPUS_BED_V1 corpus-bed invariants (the haystack floor, cousins
 derived from a published answer key, floor/product/cost kept apart, the
 answer key never reaching the grader, fit-wide/score-narrow, Lane A index
-resolution, and D.4's permanent non-haystack regression); the doc-ledger `AK`
+resolution, and D.4's permanent non-haystack regression), `GD`-`GI` the
+TASK_BULLY_SCORER_FEED_V1 scorer-feed invariants (the stratified sample
+reaching the analytical path, `scorer_input_verdict` publication, per-stage
+records-received, F.4's permanent STARVED regression, head/tail-slice
+rejection, and the handoff doc's HEAD pin); the doc-ledger `AK`
 check was removed once the ledger was emptied in TASK_WIKI_ZERO_DEBT_V1).
 
 A **claim** binds a figure in a unit body to a live probe. The claim names the
