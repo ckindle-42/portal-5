@@ -29,6 +29,7 @@ import json
 import os
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -59,6 +60,7 @@ from portal.modules.security.core.bully import field_roles as fr  # noqa: E402
 from portal.modules.security.core.bully import full_pipeline as fp  # noqa: E402
 from portal.modules.security.core.bully import inject_plane as ip  # noqa: E402
 from portal.modules.security.core.bully import investigation_pivot as pivot  # noqa: E402
+from portal.modules.security.core.bully import run_preflight as rpf  # noqa: E402
 from portal.modules.security.core.bully import telemetry_behavior as tb  # noqa: E402
 from portal.modules.security.core.bully.anchors import Anchor as LibraryAnchor  # noqa: E402
 from portal.modules.security.core.bully.anchors import AnchorLibrary  # noqa: E402
@@ -74,14 +76,15 @@ ALGORITHM_VERSION = "full-assembly-run-f2-v1"
 STAGE_PLAN: tuple[tuple[str, str], ...] = (
     ("resolve_indexes", "corpus_bed"),
     ("discover_index_range", "inject_plane"),
-    # Fast proof FIRST (targeted, entity/time-scoped queries -- not a
-    # corpus walk), ahead of the uncapped wide fit below: a live run
-    # showed the wide fit alone can run for many hours, and gating "does
-    # the assembled loop actually work" behind that grind defeats the
-    # point of checking early.
+    ("stream_corpus_sample", "corpus_bed"),
+    # H.2 (TASK_BULLY_HUNT_SWEEP_V1): moved AFTER the stream, not before it.
+    # K.4's fast-proof-first ordering made sense when these stages ran a
+    # single capped, entity-pivot investigation; the sweep loop below reads
+    # each entry's own window completely and needs `wide_baseline` (set by
+    # `stream_corpus_sample`) to score it, so it now reads the corpus rather
+    # than running at `records_received: 0`.
     ("investigate_anchors", "investigation_pivot"),
     ("plant_and_measure_cousins", "adaptive_scope"),
-    ("stream_corpus_sample", "corpus_bed"),
     ("infer_field_roles", "field_roles"),
     ("classify_telemetry", "telemetry_behavior"),
     ("infer_universal_behaviors", "behavior_inference"),
@@ -112,6 +115,22 @@ ANALYTICAL_STAGES: tuple[str, ...] = tuple(
 # of buckets), so this file stays kilobytes, never gigabytes.
 CHECKPOINT_PATH = Path("/tmp/bully_full_assembly_f4_checkpoint.json")
 CHECKPOINT_INTERVAL_SECONDS = 120.0
+
+# H.1's 10m-span calibration returned COMMIT (0.9h projected across 27
+# entries); this is the default a caller gets without passing
+# `--hunt-span-seconds` explicitly. `main()`'s preflight step is the one
+# place this should actually be decided from a live calibration, not here.
+DEFAULT_HUNT_SPAN_SECONDS = 600.0
+
+
+class SampledWindowError(RuntimeError):
+    """A hunt window read fewer records than the window actually contains.
+
+    H2: a hunt reads its window completely, never a sample of it -- a rare
+    planted cousin cannot survive being sampled out. Raising here (rather
+    than silently truncating) is deliberate: over budget means narrow the
+    span and re-calibrate, never quietly sample the window.
+    """
 
 
 def _serialize_baseline(baseline: bl.NormalBaseline) -> dict[str, Any]:
@@ -192,12 +211,87 @@ def _list_sourcetypes(connector: Any, index: str) -> list[tuple[str, int]]:
     return out
 
 
+def _window_count(connector: Any, index: str, start: float, end: float) -> int:
+    """Exact event count for one time-bounded window, via `| stats count`
+    scoped by the same `earliest`/`latest` the actual read will use -- the
+    reference the read is checked against for H2's completeness guarantee."""
+    from portal.modules.security.core.bully.connectors import QueryIntent
+
+    result = connector.read(
+        QueryIntent(
+            "exact count for hunt window completeness check",
+            seed={"spl": f"search index={index} | stats count"},
+            start=start,
+            end=end,
+            limit=1,
+        )
+    )
+    if not result.records:
+        return 0
+    first = result.records[0]
+    fields = first.get("fields", {}) if isinstance(first, dict) else {}
+    raw = fields.get("count") if isinstance(fields, dict) else None
+    if raw is None and isinstance(first, dict):
+        raw = first.get("count")
+    try:
+        return int(raw) if raw is not None else 0
+    except (TypeError, ValueError):
+        return 0
+
+
+# A hunt window this large would mean the span calibration (H.1) was never
+# run or was ignored -- a hard ceiling, not a tuning knob, so a caller
+# cannot quietly widen it away from the calibrated span.
+MAX_WINDOW_READ_RECORDS = 500_000
+
+
+def _read_window_completely(
+    connector: Any, index: str, start: float, end: float
+) -> list[dict[str, Any]]:
+    """Read every record in `[start, end)` for `index` -- no `dedup`, no
+    per-sourcetype cap (H2). The window's true count is fetched first
+    (`_window_count`) and compared against what the actual read returns;
+    a mismatch means the read was truncated -- sampled, not complete -- and
+    `SampledWindowError` is raised rather than silently proceeding on a
+    partial window. A rare planted cousin cannot survive a sampled window,
+    which is the entire reason this function exists instead of reusing
+    `investigation_pivot.investigate`'s capped, entity-pivot search."""
+    from portal.modules.security.core.bully.connectors import QueryIntent
+
+    true_count = _window_count(connector, index, start, end)
+    result = connector.read(
+        QueryIntent(
+            f"complete window read {index} [{start},{end})",
+            seed={"spl": f"search index={index}"},
+            start=start,
+            end=end,
+            limit=max(true_count, 1) if true_count else MAX_WINDOW_READ_RECORDS,
+        )
+    )
+    schemas: set[str] = set()
+    rows: list[dict[str, Any]] = []
+    for record in result.records:
+        tagged = ip._tag_captured_record(record, index=index, schemas=schemas)
+        if tagged is not None:
+            rows.append(tagged)
+    if true_count and len(rows) < true_count:
+        raise SampledWindowError(
+            f"{index} window [{start},{end}) read {len(rows)} of {true_count} known "
+            "records -- sampled, not complete; narrow the span and re-calibrate"
+        )
+    return rows
+
+
 def build_stages(  # noqa: C901, PLR0915
     *,
     max_records: int | None,
     batch_size: int,
     per_sourcetype_cap: int,
     dry_run_cousins: bool,
+    hunt_span_seconds: float = DEFAULT_HUNT_SPAN_SECONDS,
+    hunt_time_budget_seconds: float | None = None,
+    hunt_progress: rpf.EntryProgress | None = None,
+    on_entry_done: Callable[[rpf.EntryProgress, dict[str, Any]], None] | None = None,
 ) -> list[fp.Stage]:
     """Build the real stage list. Every `run` callable below reads its
     inputs from `ctx` (produced by an earlier stage) and writes its outputs
@@ -559,56 +653,6 @@ def build_stages(  # noqa: C901, PLR0915
             },
         }
 
-    def _investigate_anchors_directly(
-        anchors: list[pivot.Anchor], indexes: tuple[str, ...], ctx: fp.RunContext
-    ) -> list[pivot.Investigation]:
-        """Mirrors `inject_plane.capture_investigation`'s own query/execute
-        logic, MINUS its `lab_available()` gate (F.4 finding, seam defect
-        shimmed here per F.2's own doctrine, not fixed in the module): that
-        gate requires the DC/SRV attack-simulation VMs to answer AD ports,
-        which is irrelevant to reading the already-indexed historical BOTS
-        corpus around an anchor -- this only needs Splunk, already verified
-        reachable. Routing through the real gate meant `investigate_anchors`
-        could never find anything in this environment no matter how long it
-        searched, independent of whether the corpus itself held a match."""
-        from portal.modules.security.core.bully.connectors import QueryIntent
-        from portal.modules.security.core.bully.live_connect import lab_splunk_connector
-
-        connectors = {idx: lab_splunk_connector(index=idx) for idx in indexes}
-        index_ranges = ctx.get("index_ranges", {})
-
-        def execute(query: Any) -> list[dict[str, Any]]:
-            connector = connectors[query.index]
-            result = connector.read(
-                QueryIntent(
-                    "anchor-pivot investigation",
-                    start=query.earliest,
-                    end=query.latest,
-                    entities=(query.entity,),
-                )
-            )
-            schemas: set[str] = set()
-            out: list[dict[str, Any]] = []
-            for record in result.records:
-                tagged = ip._tag_captured_record(record, index=query.index, schemas=schemas)
-                if tagged is not None:
-                    out.append(tagged)
-            return out
-
-        investigations = []
-        for anchor in anchors:
-            rng = index_ranges.get(anchor.index)
-            inv = pivot.investigate(
-                anchor,
-                list(indexes),
-                execute,
-                ip._extract_pivot_entities,
-                corpus_earliest=rng.earliest if rng else None,
-                corpus_latest=rng.latest if rng else None,
-            )
-            investigations.append(inv)
-        return investigations
-
     def _anchor_for(entry: Any, ctx: fp.RunContext) -> pivot.Anchor:
         index_ranges = ctx.get("index_ranges", {})
         rng = index_ranges.get(entry.dataset)
@@ -623,91 +667,171 @@ def build_stages(  # noqa: C901, PLR0915
             index=entry.dataset,
         )
 
-    def investigate_anchors(ctx: fp.RunContext) -> dict[str, Any]:
-        """Search the answer key's real anchors ONE AT A TIME and stop at
-        the FIRST that produces a genuine finding (a live investigation
-        that actually captured events) -- proving the investigation loop
-        works against the real corpus without exhaustively investigating
-        all 27 entries. `n_answer_key_entries_tried` publishes how much of
-        the key had to be searched, so a run finding nothing after trying
-        all of them reads as a real negative, not a truncated one."""
-        indexes = ctx.get("indexes", ())
-        candidates = [e for e in BOTS_ANSWER_KEY if e.dataset in indexes and e.entities]
-        tried = 0
-        for entry in candidates:
-            anchor = _anchor_for(entry, ctx)
-            invs = _investigate_anchors_directly([anchor], (entry.dataset,), ctx)
-            tried += 1
-            if invs and len(invs[0].events) > 0:
-                ctx.put("investigations", invs)
-                ctx.put("found_anchor_entry", entry)
-                ctx.put("found_anchor", anchor)
-                return {
-                    "n_investigations": len(invs),
-                    "n_events": len(invs[0].events),
-                    "n_answer_key_entries_tried": tried,
-                    "found_technique": entry.technique,
-                    "found_dataset": entry.dataset,
-                }
-        return {
-            "n_investigations": 0,
-            "n_answer_key_entries_tried": tried,
-            "n_answer_key_entries_available": len(candidates),
-            "seam_defect": "searched every in-scope answer-key anchor, none captured a live event",
-        }
+    def _hunt_entry(
+        entry: Any, ctx: fp.RunContext, *, span_seconds: float, progress: rpf.EntryProgress
+    ) -> dict[str, Any]:
+        """One full turn of the intact locate-plant-hunt loop (H1: never
+        split into a floor pass and a cousin pass) for a single answer-key
+        entry: read this entry's own window COMPLETELY (H2), locate the
+        documented activity in it, and -- only if located -- plant a
+        cousin derived from what was actually found and re-hunt the SAME
+        window to measure recovery. A resumed run never re-plants
+        (`progress.already_planted`): `corpus_bed.plan_cousins` is a pure
+        function of (entry, window), so the cousin spec is reproduced
+        deterministically to measure recovery without re-shipping it."""
+        from portal.modules.security.core.bully.live_connect import lab_splunk_connector
 
-    def plant_and_measure_cousins(ctx: fp.RunContext) -> dict[str, Any]:
-        """Narrow proof, not a corpus-wide sweep: once `investigate_anchors`
-        found ONE real anchor with real events, plant exactly ONE cousin of
-        THAT technique, ship it live (unless `--dry-run-cousins`), let it
-        land, then re-run the SAME anchor's investigation to measure
-        whether the chain that just proved itself real can also recover an
-        injected cousin next to it."""
-        entry = ctx.get("found_anchor_entry")
-        anchor = ctx.get("found_anchor")
-        earliest = ctx.get("corpus_earliest")
-        latest = ctx.get("corpus_latest")
-        if entry is None or anchor is None or earliest is None or latest is None:
-            return {
-                "n_planted": 0,
-                "seam_defect": "no anchor found by investigate_anchors to test a cousin against",
-            }
-        # `coverage` (telemetry_behavior's sourcetype breakdown) comes from
-        # `classify_telemetry`, which runs AFTER this stage now that the
-        # fast proof is sequenced ahead of the wide fit -- so this reads
-        # sourcetypes from the found investigation's OWN captured events
-        # instead, which is available here and arguably more relevant (only
-        # sourcetypes this specific anchor's investigation actually saw).
-        investigations = ctx.get("investigations", [])
-        sourcetypes = tuple(sorted({st for inv in investigations for st in inv.sourcetypes}))
+        t0 = time.time()
+        anchor = _anchor_for(entry, ctx)
+        half = span_seconds / 2.0
+        corpus_earliest = ctx.get("corpus_earliest")
+        corpus_latest = ctx.get("corpus_latest")
+        start = anchor.at - half
+        end = anchor.at + half
+        if corpus_earliest is not None:
+            start = max(start, corpus_earliest)
+        if corpus_latest is not None:
+            end = min(end, corpus_latest)
+        if end <= start:
+            end = start + span_seconds
+
+        connector = lab_splunk_connector(index=entry.dataset)
+        records = _read_window_completely(connector, entry.dataset, start, end)
+
+        entities_seen = {v for r in records for _k, v in ip._extract_pivot_entities(r) if v}
+        located = bool(records) and anchor.entity in entities_seen
+
+        graph = ag.build_graph(records, source_id="hunt_sweep") if records else None
+        units = ag.enumerate_units(graph) if graph is not None else []
+
+        result: dict[str, Any] = {
+            "technique": entry.technique,
+            "dataset": entry.dataset,
+            "located": located,
+            "cousin_planted": False,
+            "cousin_id": None,
+            "cousin_recovered": None,
+            "distance": None,
+            "records_read": len(records),
+            "units": len(units),
+            "seconds": round(time.time() - t0, 2),
+        }
+        if not located:
+            return result
+
+        already_planted_id = progress.already_planted(entry.technique)
+        sourcetypes = tuple(sorted({_sourcetype_of(r) for r in records}))
         cousins = corpus_bed.plan_cousins(
             [entry],
-            corpus_earliest=earliest,
-            corpus_latest=latest,
+            corpus_earliest=start,
+            corpus_latest=end,
             corpus_sourcetypes=sourcetypes,
             per_technique=1,
         )
-        ctx.put("planned_cousins", cousins)
-        inject_reports = cousin_inject.inject_cousins(
-            cousins,
-            index=entry.dataset,
-            corpus_earliest=earliest,
-            corpus_latest=latest,
-            dry_run=dry_run_cousins,
+        cousin = cousins[0] if cousins else None
+        if cousin is None:
+            result["seconds"] = round(time.time() - t0, 2)
+            return result
+
+        if already_planted_id is None:
+            inject_reports = cousin_inject.inject_cousins(
+                cousins,
+                index=entry.dataset,
+                corpus_earliest=start,
+                corpus_latest=end,
+                dry_run=dry_run_cousins,
+            )
+            progress.planted_cousins[entry.technique] = cousin.cousin_id
+            if not dry_run_cousins and any(r.ok for r in inject_reports):
+                time.sleep(5.0)  # let HEC-shipped events land before recovery capture
+
+        recovery_records = _read_window_completely(connector, entry.dataset, start, end)
+        reached = {v for r in recovery_records for _k, v in ip._extract_pivot_entities(r) if v}
+        recovery = ascope.distance_recovery(
+            [(cousin.anchor_entity, cousin.planted_distance)], reached
         )
-        if not dry_run_cousins and any(r.ok for r in inject_reports):
-            time.sleep(5.0)  # let HEC-shipped events land before recovery capture
-        recovery_investigations = _investigate_anchors_directly([anchor], (entry.dataset,), ctx)
-        reached: set[str] = set()
-        for inv in recovery_investigations:
-            reached |= set(inv.entities_seen)
-        planted = [(c.anchor_entity, c.planted_distance) for c in cousins if c.anchor_entity]
-        recovery = ascope.distance_recovery(planted, reached)
+        recovered = bool(recovery.by_distance.get(cousin.planted_distance, {}).get("reached"))
+        result.update(
+            cousin_planted=True,
+            cousin_id=cousin.cousin_id,
+            cousin_recovered=recovered,
+            distance=cousin.planted_distance,
+            seconds=round(time.time() - t0, 2),
+        )
+        return result
+
+    def investigate_anchors(ctx: fp.RunContext) -> dict[str, Any]:
+        """H2 (TASK_BULLY_HUNT_SWEEP_V1): sweeps EVERY in-scope answer-key
+        entry with the intact locate-plant-hunt loop, widened from K.4's
+        proof that deliberately stopped at the first hit. The loop itself
+        does not split (H1): `_hunt_entry` locates, plants (only if
+        located), and re-hunts in one call per entry, before this stage
+        moves to the next entry. `plant_and_measure_cousins` below is a
+        reporting seam, not a second pass over the corpus -- `STAGE_PLAN`
+        names two stages, so this stage populates `ctx["entry_progress"]`
+        and the other stage re-surfaces its cousin-facing numbers from the
+        SAME sweep run here; there is exactly one loop over the corpus."""
+        indexes = ctx.get("indexes", ())
+        candidates = [e for e in BOTS_ANSWER_KEY if e.dataset in indexes and e.entities]
+        span_seconds = hunt_span_seconds
+        time_budget = hunt_time_budget_seconds
+        progress = hunt_progress if hunt_progress is not None else rpf.EntryProgress()
+        ctx.put("entry_progress", progress)
+        started = time.time()
+        for entry in candidates:
+            if progress.already_done(entry.technique):
+                continue
+            if time_budget is not None and (time.time() - started) >= time_budget:
+                # H5: a time budget caps entries ATTEMPTED, never the read
+                # within one -- checked only BETWEEN entries, never mid-read.
+                continue
+            result = _hunt_entry(entry, ctx, span_seconds=span_seconds, progress=progress)
+            progress.record(entry.technique, result)
+            if on_entry_done is not None:
+                on_entry_done(progress, result)
+        progress.entries_not_attempted = [
+            e.technique for e in candidates if not progress.already_done(e.technique)
+        ]
+        n_located = sum(1 for r in progress.results if r.get("located"))
+        return {
+            "n_entries_in_scope": len(candidates),
+            "n_entries_attempted": len(progress.entries_done),
+            "n_entries_not_attempted": len(progress.entries_not_attempted),
+            "n_located": n_located,
+            "floor_recall": (
+                round(n_located / len(progress.results), 4) if progress.results else None
+            ),
+            "span_seconds": span_seconds,
+        }
+
+    def plant_and_measure_cousins(ctx: fp.RunContext) -> dict[str, Any]:
+        """The cousin/recovery-facing view of the SAME sweep
+        `investigate_anchors` just ran -- see that stage's docstring for
+        why this is not a second pass over the corpus. Reads
+        `ctx["entry_progress"]`, already fully populated."""
+        progress = ctx.get("entry_progress")
+        if progress is None:
+            return {
+                "n_planted": 0,
+                "seam_defect": "investigate_anchors did not populate entry_progress",
+            }
+        d = progress.to_dict()
+        by_distance: dict[int, dict[str, int]] = {}
+        for r in progress.results:
+            if not r.get("cousin_planted"):
+                continue
+            dist = r.get("distance") or 0
+            slot = by_distance.setdefault(dist, {"total": 0, "reached": 0})
+            slot["total"] += 1
+            if r.get("cousin_recovered"):
+                slot["reached"] += 1
+        recovery = ascope.DistanceRecovery(by_distance=by_distance)
         ctx.put("distance_recovery", recovery)
         return {
-            "n_planted": len(cousins),
+            "n_planted": d["n_cousins_planted"],
+            "n_recovered": d["n_cousins_recovered"],
+            "cousin_recall": d["cousin_recall"],
             "dry_run": dry_run_cousins,
-            "inject_reports": [r.to_dict() for r in inject_reports],
             **recovery.to_dict(),
         }
 
@@ -751,7 +875,7 @@ def build_stages(  # noqa: C901, PLR0915
         fp.Stage("resolve_unit_outcomes", "unit_outcome", resolve_unit_outcomes_stage),
         fp.Stage("raise_and_verdict_concerns", "analyst_loop", raise_and_verdict_concerns),
     ]
-    _ = (dry_run_cousins, LibraryAnchor, AnchorLibrary)  # reserved for cousin write-back seam
+    _ = (LibraryAnchor, AnchorLibrary)  # reserved for cousin write-back seam
     return stages
 
 
@@ -763,6 +887,20 @@ def main() -> int:
     parser.add_argument("--batch-size", type=int, default=10_000)
     parser.add_argument("--per-sourcetype-cap", type=int, default=2_000)
     parser.add_argument("--dry-run-cousins", action="store_true")
+    parser.add_argument(
+        "--hunt-span-seconds",
+        type=float,
+        default=DEFAULT_HUNT_SPAN_SECONDS,
+        help="H.1: the span a preflight calibration returned COMMIT for. Never "
+        "widen this past what was actually calibrated -- narrow it and "
+        "re-calibrate instead.",
+    )
+    parser.add_argument(
+        "--hunt-time-budget-seconds",
+        type=float,
+        default=None,
+        help="H5: caps entries ATTEMPTED, never the read within one entry.",
+    )
     args = parser.parse_args()
 
     # `ip.lab_available()` also gates on the DC/SRV attack-simulation VMs
@@ -773,7 +911,8 @@ def main() -> int:
     # the real precondition for streaming. `investigate_anchors`/
     # `plant_and_measure_cousins` no longer route through that gate at all
     # (F.4 finding: it made a live anchor find structurally impossible in
-    # this environment, not just slow) -- see `_investigate_anchors_directly`.
+    # this environment, not just slow) -- see `_hunt_entry`/
+    # `_read_window_completely`.
     if not os.environ.get("LAB_SPLUNK_PASSWORD"):
         print(
             json.dumps({"plane": "unavailable", "reason": "LAB_SPLUNK_PASSWORD not set"}, indent=2)
@@ -785,6 +924,8 @@ def main() -> int:
         batch_size=args.batch_size,
         per_sourcetype_cap=args.per_sourcetype_cap,
         dry_run_cousins=args.dry_run_cousins,
+        hunt_span_seconds=args.hunt_span_seconds,
+        hunt_time_budget_seconds=args.hunt_time_budget_seconds,
     )
 
     # Print EACH stage's result as it completes (F.4 finding): a run whose
