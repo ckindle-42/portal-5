@@ -167,6 +167,47 @@ def _save_checkpoint(data: dict[str, Any]) -> None:
     tmp.replace(CHECKPOINT_PATH)
 
 
+# H.3 (TASK_BULLY_HUNT_SWEEP_V1): the hunt loop's own checkpoint state,
+# carried in the SAME file as `stream_corpus_sample`'s (merge, not a second
+# file) -- prefixed `hunt_*` so the two stages' keys never collide. Before
+# H.3 the hunt loop had no checkpoint at all: a death at entry 22 would
+# restart at entry 1 and RE-PLANT cousins already shipped, polluting the
+# corpus with duplicates (this is what H.1's `resume_roundtrip` preflight
+# check and `EntryProgress.already_planted` exist to prevent in the first
+# place -- this is what makes that guarantee durable across a process
+# restart, not just within one).
+#
+# Deliberately NOT deleted when the sweep finishes (unlike the stream's own
+# checkpoint): `planted_cousins` is the only durable record of which cousin
+# ids were shipped into the shared corpus, needed for the documented
+# `evidence_origin=corpus:cousin:* | delete` rollback (residual risk in
+# TASK_BULLY_HUNT_SWEEP_V1) even after a successful run.
+def _save_hunt_checkpoint(progress: rpf.EntryProgress, *, span_seconds: float) -> None:
+    existing = _load_checkpoint() or {}
+    existing.update(
+        {
+            "hunt_entries_done": list(progress.entries_done),
+            "hunt_planted_cousins": dict(progress.planted_cousins),
+            "hunt_results": list(progress.results),
+            "hunt_span_seconds": span_seconds,
+        }
+    )
+    _save_checkpoint(existing)
+
+
+def _load_hunt_checkpoint() -> tuple[rpf.EntryProgress, float] | None:
+    data = _load_checkpoint()
+    if not data or "hunt_entries_done" not in data:
+        return None
+    progress = rpf.EntryProgress(
+        entries_done=list(data.get("hunt_entries_done", [])),
+        planted_cousins=dict(data.get("hunt_planted_cousins", {})),
+        results=list(data.get("hunt_results", [])),
+    )
+    span_seconds = float(data.get("hunt_span_seconds", DEFAULT_HUNT_SPAN_SECONDS))
+    return progress, span_seconds
+
+
 def _action_of(r: dict[str, Any]) -> str | None:
     return tb._dig(r, *tb._FIELD_EVENTCODE) or tb._dig(r, "event_type")
 
@@ -774,8 +815,21 @@ def build_stages(  # noqa: C901, PLR0915
         indexes = ctx.get("indexes", ())
         candidates = [e for e in BOTS_ANSWER_KEY if e.dataset in indexes and e.entities]
         span_seconds = hunt_span_seconds
+        if hunt_progress is not None:
+            # A caller that hands in an explicit progress object (tests,
+            # or a caller wiring its own resume) always wins over disk.
+            progress = hunt_progress
+        else:
+            # H.3: a process restart resumes from CHECKPOINT_PATH's own
+            # `hunt_*` keys, not from entry 1 -- the failure H.1's
+            # `resume_roundtrip` preflight check exists to catch before a
+            # long run ever starts.
+            loaded = _load_hunt_checkpoint()
+            if loaded is not None:
+                progress, span_seconds = loaded
+            else:
+                progress = rpf.EntryProgress()
         time_budget = hunt_time_budget_seconds
-        progress = hunt_progress if hunt_progress is not None else rpf.EntryProgress()
         ctx.put("entry_progress", progress)
         started = time.time()
         for entry in candidates:
@@ -787,6 +841,9 @@ def build_stages(  # noqa: C901, PLR0915
                 continue
             result = _hunt_entry(entry, ctx, span_seconds=span_seconds, progress=progress)
             progress.record(entry.technique, result)
+            # H.3: checkpoint AND publish after every entry -- a death at
+            # entry 19 must yield 19 measurements, not zero (H4).
+            _save_hunt_checkpoint(progress, span_seconds=span_seconds)
             if on_entry_done is not None:
                 on_entry_done(progress, result)
         progress.entries_not_attempted = [
@@ -919,6 +976,30 @@ def main() -> int:
         )
         return 1
 
+    # H.3/H4: the run doc was previously written only after every stage
+    # completed, so a death at hour 20 produced nothing. `out_dir` is
+    # created up front so `_on_entry_done` can publish a partial sweep doc
+    # -- readable at ANY point -- after every entry, not only at the end.
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    partial_path = out_dir / f"{args.doc_stem}_PARTIAL.json"
+
+    def _on_entry_done(progress: rpf.EntryProgress, result: dict[str, Any]) -> None:
+        tmp = partial_path.with_suffix(".tmp")
+        tmp.write_text(
+            json.dumps(
+                {
+                    "last_entry": result,
+                    "entry_progress": progress.to_dict(),
+                    "published_at": time.time(),
+                },
+                indent=2,
+                default=str,
+            ),
+            encoding="utf-8",
+        )
+        tmp.replace(partial_path)
+
     stages = build_stages(
         max_records=args.max_records,
         batch_size=args.batch_size,
@@ -926,6 +1007,7 @@ def main() -> int:
         dry_run_cousins=args.dry_run_cousins,
         hunt_span_seconds=args.hunt_span_seconds,
         hunt_time_budget_seconds=args.hunt_time_budget_seconds,
+        on_entry_done=_on_entry_done,
     )
 
     # Print EACH stage's result as it completes (F.4 finding): a run whose
@@ -953,8 +1035,6 @@ def main() -> int:
     published = _build_published_report(ctx, report, indexes=corpus_bed.resolve_indexes())
     print(json.dumps({"final_report": published}, indent=2, default=str))
 
-    out_dir = Path(args.out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / f"{args.doc_stem}.json").write_text(
         json.dumps(published, indent=2, default=str), encoding="utf-8"
     )
