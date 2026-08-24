@@ -81,8 +81,8 @@ def test_resumed_run_never_replants_entries_1_through_5(
         progress = rpf.EntryProgress()
         for i in range(1, 6):
             technique = f"T{i:04d}"
-            progress.entries_done.append(technique)
-            progress.planted_cousins[technique] = f"cz-{technique}-000"
+            progress.entries_done.append(rpf.entry_key("botsv3", technique))
+            progress.record_plant("botsv3", technique, f"cz-{technique}-000")
             progress.results.append(
                 {
                     "technique": technique,
@@ -116,7 +116,7 @@ def test_resumed_run_never_replants_entries_1_through_5(
     )
     for i in range(1, 6):
         technique = f"T{i:04d}"
-        assert progress.already_planted(technique) == f"cz-{technique}-000"
+        assert progress.already_planted("botsv3", technique) == f"cz-{technique}-000"
 
 
 @patch("bully_full_assembly_run._window_count")
@@ -188,6 +188,70 @@ def test_one_entrys_sampled_window_does_not_abort_the_remaining_sweep(
     assert by_technique["T0002"]["located"] is False
     assert "SampledWindowError" in by_technique["T0002"]["error"]
     assert by_technique["T0003"]["located"] is True
+
+
+@patch("bully_full_assembly_run.cousin_inject.inject_cousins")
+@patch("bully_full_assembly_run._read_window_completely")
+@patch("portal.modules.security.core.bully.live_connect.lab_splunk_connector")
+def test_same_technique_across_two_datasets_are_both_attempted(
+    mock_connector, mock_read, mock_inject, tmp_path, monkeypatch
+):
+    """The real BOTS answer key has genuine technique-ID collisions across
+    datasets (T1071.001 in botsv3, botsv2, and twice in botsv1 alone). A
+    sweep over an entry list with the same technique in two different
+    datasets must attempt BOTH -- not silently treat the second as
+    already-done because it shares a bare technique id with the first
+    (the exact defect that dropped 7-8 real entries from a live 27/28-entry
+    sweep: they never appeared in entries_done OR entries_not_attempted,
+    they simply vanished)."""
+    monkeypatch.setattr(fa, "CHECKPOINT_PATH", tmp_path / "checkpoint.json")
+    mock_connector.return_value = object()
+    mock_inject.return_value = []
+
+    def _entry_ds(dataset: str, technique: str) -> AnswerKeyEntry:
+        return AnswerKeyEntry(
+            dataset=dataset,
+            technique=technique,
+            behavioural_spine=("auth", "escalate"),
+            entities=(f"host-{dataset}-{technique}",),
+            sourcetypes=("wineventlog:security",),
+        )
+
+    all_entries = (
+        _entry_ds("botsv3", "T1071.001"),
+        _entry_ds("botsv2", "T1071.001"),
+        _entry_ds("botsv1", "T1071.001"),
+    )
+
+    def fake_read(connector, index, start, end):
+        return [
+            {"host": e.entities[0], "sourcetype": "wineventlog:security", "_time": 1.0}
+            for e in all_entries
+        ]
+
+    mock_read.side_effect = fake_read
+
+    ctx = RunContext()
+    ctx.put("indexes", ("botsv3", "botsv2", "botsv1"))
+    ctx.put(
+        "index_ranges",
+        {ds: _FakeRange() for ds in ("botsv3", "botsv2", "botsv1")},
+    )
+    ctx.put("corpus_earliest", 0.0)
+    ctx.put("corpus_latest", 100_000.0)
+
+    with patch.object(fa, "BOTS_ANSWER_KEY", all_entries):
+        stage = _stage_for("investigate_anchors")
+        result = stage.run(ctx)
+
+    assert result["n_entries_attempted"] == 3
+    assert result["n_entries_not_attempted"] == 0
+    progress = ctx.get("entry_progress")
+    datasets_seen = sorted(r["dataset"] for r in progress.results)
+    assert datasets_seen == ["botsv1", "botsv2", "botsv3"]
+    assert mock_inject.call_count == 3, (
+        f"expected a separate plant for each dataset's own T1071.001, got {mock_inject.call_count}"
+    )
 
 
 def test_complete_window_read_with_matching_count_does_not_raise():
