@@ -96,6 +96,15 @@ STAGE_PLAN: tuple[tuple[str, str], ...] = (
     ("raise_and_verdict_concerns", "analyst_loop"),
 )
 
+# Every stage downstream of the corpus stream that reads `ctx.get("records")`
+# -- the analytical path K.3's starvation_check watches. Derived from
+# STAGE_PLAN rather than hardcoded twice: everything after `stream_corpus_
+# sample`, which is where "records" is first populated.
+ANALYTICAL_STAGES: tuple[str, ...] = tuple(
+    name
+    for name, _module in STAGE_PLAN[[n for n, _m in STAGE_PLAN].index("stream_corpus_sample") + 1 :]
+)
+
 # Checkpoint for `stream_corpus_sample` -- the one stage long enough (hours
 # to days) that a kill/interruption must resume, not restart (F.4 finding).
 # Small by construction: NormalBaseline's token vocabulary is bounded
@@ -793,7 +802,12 @@ def main() -> int:
             flush=True,
         )
 
-    ctx, report = fp.run_pipeline(stages, fix_in_place=True, on_stage=_on_stage)
+    ctx, report = fp.run_pipeline(
+        stages,
+        fix_in_place=True,
+        on_stage=_on_stage,
+        records_of=lambda c: len(c.get("records", [])),
+    )
 
     published = _build_published_report(ctx, report, indexes=corpus_bed.resolve_indexes())
     print(json.dumps({"final_report": published}, indent=2, default=str))
@@ -901,12 +915,24 @@ def _build_published_report(
     ]
     scoreboard_row = scoreboard.update("full_assembly_f4", scoreboard_rows)
 
+    # starvation_check (K.3, TASK_BULLY_SCORER_FEED_V1): a stage completing
+    # in ~0s on a large run is a starvation signal stage status cannot show
+    # by itself (F.4: all seventeen stages reported OK at 63/359,757
+    # records). Compared against the stream's own record total, not the
+    # scorer sample's, so this is a genuine cross-check on K.1/K.2's fix.
+    starvation = fp.starvation_check(
+        report,
+        stream_total=stream_produced.get("n_records_wide_fit", 0),
+        analytical_stages=ANALYTICAL_STAGES,
+    )
+
     return {
         "assembly_verdict": verdict,
         "claim_evidence": evidence.to_dict(),
         "bed_acceptance": acceptance.to_dict(),
         "bed_report": bed_report.to_dict(),
         "scoreboard": scoreboard_row,
+        "starvation_check": starvation,
         "found_anchor_technique": found_entry.technique if found_entry else None,
         "found_anchor_dataset": found_entry.dataset if found_entry else None,
         "pipeline_report": report.to_dict(),
@@ -920,6 +946,7 @@ def _render_md(published: dict[str, Any], doc_stem: str) -> str:
     acceptance = published["bed_acceptance"]
     sb = published["scoreboard"]
     pr = published["pipeline_report"]
+    starv = published["starvation_check"]
     lines = [
         f"# {doc_stem}",
         "",
@@ -949,11 +976,18 @@ def _render_md(published: dict[str, Any], doc_stem: str) -> str:
         f"- found_anchor: {published['found_anchor_technique']} "
         f"({published['found_anchor_dataset']})",
         "",
-        "## Per-stage timings and outputs",
+        f"## starvation_check (K.3): **{starv['verdict']}**",
+        "",
+        f"```json\n{json.dumps(starv, indent=2)}\n```",
+        "",
+        "## Per-stage timings, records received, and outputs",
         "",
     ]
     for s in pr["stages"]:
-        lines.append(f"- **{s['stage']}** ({s['module']}) -- {s['status']}, {s['seconds']}s")
+        lines.append(
+            f"- **{s['stage']}** ({s['module']}) -- {s['status']}, {s['seconds']}s, "
+            f"records_received={s['records_received']}"
+        )
         if s["error"]:
             lines.append(f"  - error: {s['error']}")
     lines += [

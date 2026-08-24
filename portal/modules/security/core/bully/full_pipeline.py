@@ -137,6 +137,7 @@ class StageResult:
     produced: Any = None
     error: str | None = None
     traceback_head: str | None = None
+    records_received: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -144,6 +145,7 @@ class StageResult:
             "module": self.module,
             "status": self.status,
             "seconds": round(self.seconds, 3),
+            "records_received": self.records_received,
             "error": self.error,
             "traceback_head": self.traceback_head,
         }
@@ -194,6 +196,7 @@ def run_pipeline(
     *,
     fix_in_place: bool = True,
     on_stage: Callable[[StageResult], None] | None = None,
+    records_of: Callable[[RunContext], int] | None = None,
 ) -> tuple[RunContext, PipelineReport]:
     """Execute every stage, recording what each produced and what it cost.
 
@@ -205,11 +208,20 @@ def run_pipeline(
     A `required` stage that fails still stops the run: some failures (no
     corpus, no connector) make everything downstream meaningless, and
     continuing would manufacture numbers rather than findings.
+
+    `records_of`, when given, is called against `ctx` immediately BEFORE each
+    stage runs and its result recorded as that stage's `records_received`
+    (K.2/K.3, TASK_BULLY_SCORER_FEED_V1): a stage completing in ~0s on a
+    large run is a starvation signal that stage status alone cannot show --
+    F.4 published `integration_fraction 1.0` with every stage OK while the
+    analytical path received 63 records of 359,757 streamed. This makes that
+    visible per stage instead of only inferable from timing.
     """
     ctx = ctx if ctx is not None else RunContext()
     report = PipelineReport(started_at=time.time())
 
     for stage in stages:
+        received = records_of(ctx) if records_of else None
         t0 = time.time()
         try:
             produced = stage.run(ctx)
@@ -219,6 +231,7 @@ def run_pipeline(
                 status=STAGE_OK,
                 seconds=time.time() - t0,
                 produced=produced,
+                records_received=received,
             )
         except Exception as exc:  # noqa: BLE001 -- attributing failure is the job
             head = "".join(traceback.format_exc().splitlines(keepends=True)[-4:])
@@ -229,6 +242,7 @@ def run_pipeline(
                 seconds=time.time() - t0,
                 error=f"{type(exc).__name__}: {exc}",
                 traceback_head=head,
+                records_received=received,
             )
             if stage.required or not fix_in_place:
                 report.stages.append(result)
@@ -244,6 +258,53 @@ def run_pipeline(
     report.counters = dict(ctx.counters)
     report.finished_at = time.time()
     return ctx, report
+
+
+# A stage receiving less than this fraction of the records the stream covered,
+# while reporting OK, has been starved regardless of what its status says
+# (K.3): F.4's analytical stages all reported OK at 63/359,757 = 0.018%.
+MIN_STAGE_RECORDS_FRACTION = 0.01
+
+
+def starvation_check(
+    report: PipelineReport,
+    *,
+    stream_total: int,
+    analytical_stages: tuple[str, ...],
+    min_fraction: float = MIN_STAGE_RECORDS_FRACTION,
+) -> dict[str, Any]:
+    """Did any analytical stage run on a starved input while reporting OK?
+
+    F.4's stage statuses were structurally incapable of showing this --
+    all seventeen stages reported OK while the analytical path received one
+    sourcetype of 325. `records_received` (this module) plus this check are
+    what make a starved stage visible without having to eyeball a 0.0s
+    timing column.
+    """
+    findings: list[dict[str, Any]] = []
+    verdict = "PASS"
+    by_name = {s.name: s for s in report.stages}
+    for name in analytical_stages:
+        stage = by_name.get(name)
+        if stage is None or stage.status != STAGE_OK:
+            continue
+        received = stage.records_received or 0
+        frac = (received / stream_total) if stream_total else None
+        if frac is not None and frac < min_fraction:
+            verdict = "FAIL"
+            findings.append(
+                {
+                    "stage": name,
+                    "records_received": received,
+                    "stream_total": stream_total,
+                    "fraction": round(frac, 6),
+                    "reason": (
+                        f"{name} received {received} of {stream_total} records "
+                        f"({frac:.5f}<{min_fraction}) while reporting OK -- starved"
+                    ),
+                }
+            )
+    return {"verdict": verdict, "findings": findings, "min_fraction": min_fraction}
 
 
 # ── reporting against the four standing claims ─────────────────────────────
