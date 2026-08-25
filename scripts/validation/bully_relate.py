@@ -3655,6 +3655,21 @@ def check_hunt_sweep_resumed_run_never_replants() -> tuple[str, str, list[dict]]
             "already_planted matched a different dataset's own copy of the same technique",
             [],
         )
+    # seeded violation: (dataset, technique) alone is still not a unique
+    # answer-key identity -- the real key has two DIFFERENT confirmed
+    # botsv1/T1071.001 entries (distinct source hosts, same C2 domain).
+    # already_planted must key on entities too, or the second entry's
+    # plant is mistaken for the first's.
+    progress.record_plant("botsv1", "T1071.001", "cz-a", entities=("192.168.250.40",))
+    same_pair_other_entity = progress.already_planted(
+        "botsv1", "T1071.001", entities=("192.168.250.70",)
+    )
+    if same_pair_other_entity is not None:
+        return (
+            "FAIL",
+            "already_planted matched a different entry sharing (dataset, technique)",
+            [],
+        )
     return "PASS", "", []
 
 

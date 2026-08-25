@@ -324,21 +324,30 @@ def preflight(
 # ── per-entry progress, so a death is not a wasted run ─────────────────────
 
 
-def entry_key(dataset: str, technique: str) -> str:
-    """Identity for one answer-key entry: dataset AND technique, never
-    technique alone. The same MITRE technique legitimately recurs across
-    BOTS datasets -- T1071.001 appears in botsv3, botsv2, and twice in
-    botsv1 alone -- so a bare-technique key silently collapses distinct
-    entries: the second occurrence reads as "already done"/"already
+def entry_key(dataset: str, technique: str, entities: tuple[str, ...] = ()) -> str:
+    """Identity for one answer-key entry: dataset, technique, AND entities --
+    never technique alone, and not even (dataset, technique) alone.
+
+    The same MITRE technique legitimately recurs across BOTS datasets --
+    T1071.001 appears in botsv3, botsv2, and twice in botsv1 alone -- so a
+    bare-technique key silently collapses distinct entries. (dataset,
+    technique) alone is STILL not enough: botsv1 has two DIFFERENT
+    confirmed T1071.001 entries (192.168.250.40 and .70, two different
+    source hosts against the same C2 domain) -- live-verified, a run under
+    the dataset+technique-only key silently dropped one of them (26 done,
+    0 not-attempted, but the answer key has 27 entries: 26+0 != 27). Any
+    entry a coarser key collapses reads as "already done"/"already
     planted" without ever being attempted, and (because
     `entries_not_attempted` is derived from the same check) it vanishes
     from the report entirely rather than showing up as skipped.
     `corpus_bed.plan_cousins` hit and fixed this exact class of bug once
     already for `cousin_id`; this mirrors that fix for entry identity.
-    Published (not just internal): a qualified id also disambiguates the
-    published `entries_done`/`entries_not_attempted` lists, which a bare
-    technique could not."""
-    return f"{dataset}:{technique}"
+    (dataset, technique, entities) is verified unique across the full
+    answer key. Published (not just internal): a qualified id also
+    disambiguates the published `entries_done`/`entries_not_attempted`
+    lists, which a bare technique could not."""
+    suffix = f":{'|'.join(entities)}" if entities else ""
+    return f"{dataset}:{technique}{suffix}"
 
 
 @dataclass
@@ -356,20 +365,31 @@ class EntryProgress:
     planted_cousins: dict[str, str] = field(default_factory=dict)
     results: list[dict[str, Any]] = field(default_factory=list)
 
-    def record(self, dataset: str, technique: str, result: dict[str, Any]) -> None:
-        self.entries_done.append(entry_key(dataset, technique))
+    def record(
+        self,
+        dataset: str,
+        technique: str,
+        result: dict[str, Any],
+        *,
+        entities: tuple[str, ...] = (),
+    ) -> None:
+        self.entries_done.append(entry_key(dataset, technique, entities))
         self.results.append({"technique": technique, **result})
 
-    def already_done(self, dataset: str, technique: str) -> bool:
-        return entry_key(dataset, technique) in self.entries_done
+    def already_done(self, dataset: str, technique: str, entities: tuple[str, ...] = ()) -> bool:
+        return entry_key(dataset, technique, entities) in self.entries_done
 
-    def already_planted(self, dataset: str, technique: str) -> str | None:
+    def already_planted(
+        self, dataset: str, technique: str, entities: tuple[str, ...] = ()
+    ) -> str | None:
         """A resumed run must not re-plant: duplicates pollute the corpus and
         inflate recovery."""
-        return self.planted_cousins.get(entry_key(dataset, technique))
+        return self.planted_cousins.get(entry_key(dataset, technique, entities))
 
-    def record_plant(self, dataset: str, technique: str, cousin_id: str) -> None:
-        self.planted_cousins[entry_key(dataset, technique)] = cousin_id
+    def record_plant(
+        self, dataset: str, technique: str, cousin_id: str, *, entities: tuple[str, ...] = ()
+    ) -> None:
+        self.planted_cousins[entry_key(dataset, technique, entities)] = cousin_id
 
     def to_dict(self) -> dict[str, Any]:
         located = sum(1 for r in self.results if r.get("located"))
