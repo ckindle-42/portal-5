@@ -141,7 +141,10 @@ def test_killed_mid_sweep_resumes_at_next_unattempted_entry_with_prior_results_i
         loaded = fa._load_hunt_checkpoint()
         assert loaded is not None
         progress_after_kill, _span = loaded
-        assert progress_after_kill.entries_done == ["botsv3:T0001", "botsv3:T0002"]
+        assert progress_after_kill.entries_done == [
+            "botsv3:T0001:host-T0001",
+            "botsv3:T0002:host-T0002",
+        ]
 
         # a fresh process (hunt_progress=None) resumes from disk and finishes
         # the remaining entries without re-attempting or re-planting 1-2.
@@ -152,10 +155,10 @@ def test_killed_mid_sweep_resumes_at_next_unattempted_entry_with_prior_results_i
     assert result["n_entries_not_attempted"] == 0
     final_progress = fa._load_hunt_checkpoint()[0]
     assert final_progress.entries_done == [
-        "botsv3:T0001",
-        "botsv3:T0002",
-        "botsv3:T0003",
-        "botsv3:T0004",
+        "botsv3:T0001:host-T0001",
+        "botsv3:T0002:host-T0002",
+        "botsv3:T0003:host-T0003",
+        "botsv3:T0004:host-T0004",
     ]
     # entries 1-2's own results must still be present, not overwritten by
     # the resumed run.

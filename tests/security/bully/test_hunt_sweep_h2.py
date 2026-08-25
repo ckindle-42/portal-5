@@ -81,8 +81,9 @@ def test_resumed_run_never_replants_entries_1_through_5(
         progress = rpf.EntryProgress()
         for i in range(1, 6):
             technique = f"T{i:04d}"
-            progress.entries_done.append(rpf.entry_key("botsv3", technique))
-            progress.record_plant("botsv3", technique, f"cz-{technique}-000")
+            entities = (f"host-{technique}",)
+            progress.entries_done.append(rpf.entry_key("botsv3", technique, entities))
+            progress.record_plant("botsv3", technique, f"cz-{technique}-000", entities=entities)
             progress.results.append(
                 {
                     "technique": technique,
@@ -116,7 +117,8 @@ def test_resumed_run_never_replants_entries_1_through_5(
     )
     for i in range(1, 6):
         technique = f"T{i:04d}"
-        assert progress.already_planted("botsv3", technique) == f"cz-{technique}-000"
+        entities = (f"host-{technique}",)
+        assert progress.already_planted("botsv3", technique, entities) == f"cz-{technique}-000"
 
 
 @patch("bully_full_assembly_run._window_count")
@@ -251,6 +253,66 @@ def test_same_technique_across_two_datasets_are_both_attempted(
     assert datasets_seen == ["botsv1", "botsv2", "botsv3"]
     assert mock_inject.call_count == 3, (
         f"expected a separate plant for each dataset's own T1071.001, got {mock_inject.call_count}"
+    )
+
+
+@patch("bully_full_assembly_run.cousin_inject.inject_cousins")
+@patch("bully_full_assembly_run._read_window_completely")
+@patch("portal.modules.security.core.bully.live_connect.lab_splunk_connector")
+def test_two_entries_sharing_dataset_and_technique_are_both_attempted(
+    mock_connector, mock_read, mock_inject, tmp_path, monkeypatch
+):
+    """(dataset, technique) alone is STILL not a unique answer-key identity:
+    the real answer key has two DIFFERENT confirmed botsv1/T1071.001
+    entries (192.168.250.40 and .70, two source hosts against the same C2
+    domain) -- live-verified, a run keyed on (dataset, technique) alone
+    silently dropped the second one (26 done, 0 not-attempted, but the
+    real answer key has 27 entries)."""
+    monkeypatch.setattr(fa, "CHECKPOINT_PATH", tmp_path / "checkpoint.json")
+    mock_connector.return_value = object()
+    mock_inject.return_value = []
+
+    all_entries = (
+        AnswerKeyEntry(
+            dataset="botsv1",
+            technique="T1071.001",
+            behavioural_spine=("c2_exfil",),
+            entities=("192.168.250.40", "imreallynotbatman.com"),
+            sourcetypes=("stream:http",),
+        ),
+        AnswerKeyEntry(
+            dataset="botsv1",
+            technique="T1071.001",
+            behavioural_spine=("c2_exfil",),
+            entities=("192.168.250.70", "imreallynotbatman.com"),
+            sourcetypes=("stream:http",),
+        ),
+    )
+
+    def fake_read(connector, index, start, end):
+        return [
+            {"host": e.entities[0], "sourcetype": "stream:http", "_time": 1.0} for e in all_entries
+        ]
+
+    mock_read.side_effect = fake_read
+
+    ctx = RunContext()
+    ctx.put("indexes", ("botsv1",))
+    ctx.put("index_ranges", {"botsv1": _FakeRange()})
+    ctx.put("corpus_earliest", 0.0)
+    ctx.put("corpus_latest", 100_000.0)
+
+    with patch.object(fa, "BOTS_ANSWER_KEY", all_entries):
+        stage = _stage_for("investigate_anchors")
+        result = stage.run(ctx)
+
+    assert result["n_entries_attempted"] == 2
+    assert result["n_entries_not_attempted"] == 0
+    progress = ctx.get("entry_progress")
+    assert len(progress.results) == 2
+    assert mock_inject.call_count == 2, (
+        f"expected a separate plant for each of the two distinct entries "
+        f"sharing (dataset, technique), got {mock_inject.call_count}"
     )
 
 

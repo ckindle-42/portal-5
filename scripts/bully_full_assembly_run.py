@@ -846,7 +846,9 @@ def build_stages(  # noqa: C901, PLR0915
         if not located:
             return result
 
-        already_planted_id = progress.already_planted(entry.dataset, entry.technique)
+        already_planted_id = progress.already_planted(
+            entry.dataset, entry.technique, entry.entities
+        )
         sourcetypes = tuple(sorted({_sourcetype_of(r) for r in records}))
         cousins = corpus_bed.plan_cousins(
             [entry],
@@ -868,7 +870,9 @@ def build_stages(  # noqa: C901, PLR0915
                 corpus_latest=end,
                 dry_run=dry_run_cousins,
             )
-            progress.record_plant(entry.dataset, entry.technique, cousin.cousin_id)
+            progress.record_plant(
+                entry.dataset, entry.technique, cousin.cousin_id, entities=entry.entities
+            )
             if not dry_run_cousins and any(r.ok for r in inject_reports):
                 time.sleep(5.0)  # let HEC-shipped events land before recovery capture
 
@@ -920,7 +924,7 @@ def build_stages(  # noqa: C901, PLR0915
         started = time.time()
         try:
             for entry in candidates:
-                if progress.already_done(entry.dataset, entry.technique):
+                if progress.already_done(entry.dataset, entry.technique, entry.entities):
                     continue
                 if time_budget is not None and (time.time() - started) >= time_budget:
                     # H5: a time budget caps entries ATTEMPTED, never the read
@@ -960,7 +964,7 @@ def build_stages(  # noqa: C901, PLR0915
                             "seconds": None,
                             "error": f"SampledWindowError (2x): {exc}; retry: {exc2}",
                         }
-                progress.record(entry.dataset, entry.technique, result)
+                progress.record(entry.dataset, entry.technique, result, entities=entry.entities)
                 # H.3: checkpoint AND publish after every entry -- a death at
                 # entry 19 must yield 19 measurements, not zero (H4).
                 _save_hunt_checkpoint(progress, span_seconds=span_seconds)
@@ -972,9 +976,9 @@ def build_stages(  # noqa: C901, PLR0915
             # H1's requirement that unattempted entries are reported as
             # such, never silently dropped, must hold on an early exit too.
             progress.entries_not_attempted = [
-                rpf.entry_key(e.dataset, e.technique)
+                rpf.entry_key(e.dataset, e.technique, e.entities)
                 for e in candidates
-                if not progress.already_done(e.dataset, e.technique)
+                if not progress.already_done(e.dataset, e.technique, e.entities)
             ]
         n_located = sum(1 for r in progress.results if r.get("located"))
         return {
