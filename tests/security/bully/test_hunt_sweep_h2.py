@@ -167,11 +167,12 @@ def test_one_entrys_sampled_window_does_not_abort_the_remaining_sweep(
     def fake_read_with_failure(connector, index, start, end):
         call_count["n"] += 1
         # Entry 1 locates cleanly (its own locate + post-plant recovery
-        # reads are calls 1-2). Entry 2's locate read then fails on BOTH
-        # its first attempt and its retry (calls 3-4) -- a persistent, not
-        # transient, incomplete window, so it never reaches a recovery
-        # read at all. Entry 3 (calls 5-6) locates cleanly again.
-        if call_count["n"] in (3, 4):
+        # reads are calls 1-2). Entry 2's locate read then fails on its
+        # first attempt and all three escalating-backoff retries (calls
+        # 3-6) -- a persistent, not transient, incomplete window, so it
+        # never reaches a recovery read at all. Entry 3 (calls 7-8) locates
+        # cleanly again.
+        if call_count["n"] in (3, 4, 5, 6):
             raise fa.SampledWindowError("botsv3 window sampled, not complete")
         return fake_read(connector, index, start, end)
 

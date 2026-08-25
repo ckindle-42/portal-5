@@ -324,6 +324,12 @@ def _window_count(connector: Any, index: str, start: float, end: float) -> int:
 # cannot quietly widen it away from the calibrated span.
 MAX_WINDOW_READ_RECORDS = 500_000
 
+# A `SampledWindowError` retry's escalating settle time before each of the
+# 3 re-reads after the first attempt -- see `investigate_anchors` (H5
+# follow-up: live-indexing lag between a shared window's `_window_count`
+# probe and its full read can outlast a single 3s retry).
+_HUNT_RETRY_BACKOFFS_SECONDS = (3.0, 6.0, 12.0)
+
 
 def _read_window_completely(
     connector: Any, index: str, start: float, end: float
@@ -891,6 +897,49 @@ def build_stages(  # noqa: C901, PLR0915
         )
         return result
 
+    def _hunt_entry_with_retries(
+        entry: Any, ctx: fp.RunContext, *, span_seconds: float, progress: rpf.EntryProgress
+    ) -> dict[str, Any]:
+        """`_hunt_entry`, retried through `SampledWindowError` with escalating
+        backoff (H5 follow-up).
+
+        A window a handful of records short of its known count is far more
+        often live-indexing lag between the count probe and the read than a
+        real truncation -- live-verified: a narrow window shared by several
+        answer-key entries (each planting its own cousin into it in turn)
+        kept missing by exactly the count of a SIBLING entry's just-planted,
+        not-yet-search-visible cousin, and a single 3s retry wasn't always
+        enough to outlast that lag. Escalating backoff across a bounded
+        number of attempts absorbs the race without weakening the
+        completeness guarantee itself. A miss on every attempt is recorded
+        against this one entry and the sweep moves on, rather than looping
+        forever or losing every remaining entry to a window that genuinely
+        will not read complete (any OTHER exception still propagates and
+        kills the process -- that is the checkpoint/resume path's job, not a
+        per-entry catch, per the H.3 kill/resume test)."""
+        errors: list[str] = []
+        for backoff in (0.0, *_HUNT_RETRY_BACKOFFS_SECONDS):
+            if backoff:
+                time.sleep(backoff)
+            try:
+                return _hunt_entry(entry, ctx, span_seconds=span_seconds, progress=progress)
+            except SampledWindowError as exc:
+                errors.append(str(exc))
+        joined = "; ".join(f"retry {i}: {msg}" if i else msg for i, msg in enumerate(errors))
+        return {
+            "technique": entry.technique,
+            "dataset": entry.dataset,
+            "located": False,
+            "cousin_planted": False,
+            "cousin_id": None,
+            "cousin_recovered": None,
+            "distance": None,
+            "records_read": None,
+            "units": None,
+            "seconds": None,
+            "error": f"SampledWindowError ({len(errors)}x): {joined}",
+        }
+
     def investigate_anchors(ctx: fp.RunContext) -> dict[str, Any]:
         """H2 (TASK_BULLY_HUNT_SWEEP_V1): sweeps EVERY in-scope answer-key
         entry with the intact locate-plant-hunt loop, widened from K.4's
@@ -930,40 +979,9 @@ def build_stages(  # noqa: C901, PLR0915
                     # H5: a time budget caps entries ATTEMPTED, never the read
                     # within one -- checked only BETWEEN entries, never mid-read.
                     continue
-                try:
-                    result = _hunt_entry(entry, ctx, span_seconds=span_seconds, progress=progress)
-                except SampledWindowError as exc:
-                    # A window a handful of records short of its known count
-                    # is far more often live-indexing lag between the count
-                    # probe and the read (both hit a corpus still ingesting)
-                    # than a real truncation -- one retry after a short
-                    # settle absorbs that race without weakening the
-                    # completeness guarantee itself. A SECOND miss is
-                    # recorded against this one entry and the sweep moves
-                    # on, rather than losing every remaining entry to a
-                    # window that genuinely will not read complete (any
-                    # OTHER exception still propagates and kills the
-                    # process -- that is the checkpoint/resume path's job,
-                    # not a per-entry catch, per the H.3 kill/resume test).
-                    time.sleep(3.0)
-                    try:
-                        result = _hunt_entry(
-                            entry, ctx, span_seconds=span_seconds, progress=progress
-                        )
-                    except SampledWindowError as exc2:
-                        result = {
-                            "technique": entry.technique,
-                            "dataset": entry.dataset,
-                            "located": False,
-                            "cousin_planted": False,
-                            "cousin_id": None,
-                            "cousin_recovered": None,
-                            "distance": None,
-                            "records_read": None,
-                            "units": None,
-                            "seconds": None,
-                            "error": f"SampledWindowError (2x): {exc}; retry: {exc2}",
-                        }
+                result = _hunt_entry_with_retries(
+                    entry, ctx, span_seconds=span_seconds, progress=progress
+                )
                 progress.record(entry.dataset, entry.technique, result, entities=entry.entities)
                 # H.3: checkpoint AND publish after every entry -- a death at
                 # entry 19 must yield 19 measurements, not zero (H4).
