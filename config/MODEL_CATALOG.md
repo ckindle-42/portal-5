@@ -1822,3 +1822,13 @@ The model id, its `general` group placement, and its probed `supports_tools: tru
 Kept as a separate catalog entry (not folded into the base tag's) because `test_model_catalog_parity.py::test_all_backends_models_have_catalog_entry` requires a `### \`id\`` section for every distinct id in `backends.yaml`, and because the derived tag is the one actually served — a future session checking why `bench-deepwen-cad` doesn't route to the plain `q4.5-moq` id should find this pointer immediately rather than assuming a typo.
 
 ---
+
+### `SuperQwen3.8-27b-abliterated-MLX-4bit`
+
+`SuperQwen3.8-27b-abliterated-MLX-4bit` (`Jiunsong/SuperQwen3.8-27b-abliterated-MLX-4bit` on Hugging Face) is a dense 27B, MLX-native affine 4-bit build (~15GB) of the abliterated `Jiunsong/SuperQwen3.8-27b-abliterated` checkpoint, built on `mlx-community/Qwen3.8-27B-4bit`. It has no GGUF counterpart pulled, so it is oMLX-only with no Ollama fallback for this hint. Reasoning is on by default: `chat_template.jinja` resolves `enable_thinking` to true and `reasoning_effort` to bounded `medium` unless overridden (`xhigh`/`low` also selectable), confirmed live via unprompted `reasoning_content` in responses. Sampling in the `bench-superqwen38-27b-abliterated` workspace (`temperature: 1.0, top_p: 0.95, top_k: 20, think: true`) is taken directly from this checkpoint's own `generation_config.json` and chat template defaults — not carried over from the unrelated `bench-qwen38-27b` GGUF workspace. `config/backends.yaml` registers it in both `omlx-local` (holding group) and `omlx-general` (group `general`, `priority: 10`) — registration in `omlx-local` alone is insufficient because `STRICT_HINT_VALIDATION` only checks a workspace's routed groups at pipeline startup, not the tier-3 absolute-fallback net, and crashed the pipeline on boot until the `omlx-general` entry was added. `supports_tools: true` verified via a direct `/v1/chat/completions` tool-call probe (clean `tool_calls`, correctly typed arguments).
+
+## Why
+
+Grounding anchors the model to the two live-verified facts that would otherwise be easy to get wrong by analogy to nearby entries: sampling parameters belong to this specific checkpoint's own shipped config, not a sibling workspace's, and dual registration in `omlx-local`/`omlx-general` is a startup-validation requirement, not redundant config.
+
+---

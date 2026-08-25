@@ -40,7 +40,7 @@ Standalone MCP SDK v2 servers; zero imports from `portal.platform.inference` or 
 ### 4 — The Pipeline Is Stateless
 `router_pipe.py` holds no conversation state (Open WebUI owns that). It persists operational metrics to `metrics_state.json` for telemetry only — never for routing.
 ### 5 — Personas Live in config/personas/
-One YAML per persona (`name`, `slug`, `module`, `workspace_model`, `category`, and `system_prompt` or `prompt_template`). `openwebui_init.py` seeds them. Catalog currently at `config/personas/` — currently 131 files (extractor-derived count — never hardcode it in prose).
+One YAML per persona (`name`, `slug`, `module`, `workspace_model`, `category`, and `system_prompt` or `prompt_template`). `openwebui_init.py` seeds them. Catalog currently at `config/personas/` — currently 132 files (extractor-derived count — never hardcode it in prose).
 ### 6 — config/portal.yaml Is the Single Source of Truth
 All workspaces and the MCP fleet live here. After any change run `./launch.sh sync-config` (idempotent). Never hand-edit the derived files: `config/backends.yaml` `workspace_routing`, `.mcp.json`, `imports/openwebui/workspaces/*.json`. Auto-routing: Layer 1 LLM intent classifier (default `gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M`), Layer 2 weighted keyword fallback.
 ### 7 — All Ports Are Reserved

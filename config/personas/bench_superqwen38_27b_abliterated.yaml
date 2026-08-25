@@ -1,0 +1,22 @@
+name: 🔬 Bench · SuperQwen3.8-27B (abliterated, MLX)
+slug: bench-superqwen38-27b-abliterated
+category: benchmark
+workspace_model: bench-superqwen38-27b-abliterated
+preferred_models:
+  - SuperQwen3.8-27b-abliterated-MLX-4bit
+module: eval
+# Jiunsong/SuperQwen3.8-27b-abliterated-MLX-4bit (~15GB, dense 27B, MLX-native
+# 4bit, no GGUF counterpart pulled). oMLX-only, registered in both
+# omlx-local (holding) and omlx-general (group=general, the routed group
+# this workspace actually resolves through). Thinking model, reasoning ON
+# by default (bounded 'medium') — emits reasoning_content. supports_tools:true
+# verified via a direct /v1/chat/completions tool-call probe.
+system_prompt: |
+  You are a fast, capable everyday assistant for benchmarking
+  SuperQwen3.8-27B-abliterated (MLX). Be helpful, concise, and accurate.
+  Answer the user's question directly without unnecessary preamble.
+tags:
+  - benchmark
+  - abliterated
+  - thinking
+  - mlx-only
