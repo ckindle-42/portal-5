@@ -65,6 +65,7 @@
   "bench-qwen36-35b-a3b-ud": "coding",
   "bench-qwen36-hauhaucs": "creative",
   "bench-qwen38-27b": "coding",
+  "bench-superqwen38-27b-abliterated": "general",
   "bench-supergemma4-sec": "security",
   "bench-vulnllm-r-7b": "general",
   "bench-vulnllm-r7b": "security",

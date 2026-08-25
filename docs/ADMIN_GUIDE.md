@@ -316,7 +316,7 @@ Router quality is a measured property, not an assumption — the bench pins the 
 ### Personas
 
 <!-- WIKI:GENERATED unit=unit-fact-persona-roster -->
-# Persona roster (131 personas)
+# Persona roster (132 personas)
 
 | Slug | Module | Workspace | Model Pin |
 |---|---|---|---|
@@ -349,6 +349,7 @@ Router quality is a measured property, not an assumption — the bench pins the 
 | `bench-qwen3-coder-30b` | eval | `bench-qwen3-coder-30b` | — |
 | `bench-qwen3-coder-next` | eval | `bench-qwen3-coder-next` | — |
 | `bench-qwen3-coder-next-abliterated` | eval | `bench-qwen3-coder-next-abliterated` | — |
+| `bench-superqwen38-27b-abliterated` | eval | `bench-superqwen38-27b-abliterated` | — |
 | `blueteamdefender` | security | `auto-security` | — |
 | `bugdiscoverycodeassistant` | coding | `auto-coding` | — |
 | `businessanalyst` | general | `auto-reasoning` | — |
@@ -460,7 +461,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-# Workspace roster (24 production, 46 eval, 70 total)
+# Workspace roster (24 production, 47 eval, 71 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -537,6 +538,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 - `bench-qwen36-hauhaucs`
 - `bench-qwen38-27b`
 - `bench-supergemma4-sec`
+- `bench-superqwen38-27b-abliterated`
 - `bench-vulnllm-r-7b`
 - `bench-vulnllm-r7b`
 
@@ -643,7 +645,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-# Model catalog (224 model ids across 7 backend groups)
+# Model catalog (226 model ids across 7 backend groups)
 
 ## coding (43)
 
@@ -705,9 +707,10 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (93)
+## general (94)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
+- `SuperQwen3.8-27b-abliterated-MLX-4bit`
 - `cybersecqwen-4b-toolfix:latest`
 - `deepseek-r1:32b-q4_k_m`
 - `devstral-small-2:latest`
@@ -801,10 +804,11 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `sylink/sylink:8b`
 
-## omlx (2)
+## omlx (3)
 
 - `Laguna-XS.2-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
+- `SuperQwen3.8-27b-abliterated-MLX-4bit`
 
 ## reasoning (27)
 

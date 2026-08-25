@@ -1,26 +1,26 @@
 ---
 id: unit-fact-persona-roster
 kind: what
-title: 131 personas
+title: 132 personas
 sources:
 - type: code
   path: config/personas/
-  commit: 5acee6003d90
+  commit: dd1830a67eea
 - type: code
   path: config/personas/adversarysimulator.yaml
-  commit: 5acee6003d90
+  commit: dd1830a67eea
 - type: code
   path: config/personas/agenticheavy.yaml
-  commit: 5acee6003d90
+  commit: dd1830a67eea
 - type: code
   path: config/personas/agenticlite.yaml
-  commit: 5acee6003d90
+  commit: dd1830a67eea
 - type: code
   path: config/personas/agentorchestrator.yaml
-  commit: 5acee6003d90
+  commit: dd1830a67eea
 - type: code
   path: config/personas/bench_gemma4_12b.yaml
-  commit: 5acee6003d90
+  commit: dd1830a67eea
 claims:
 - probe: personas.count
   pattern: Persona roster ({value} personas)
@@ -29,10 +29,10 @@ tags:
 - fact
 - personas
 created_at: 1784000421.217775
-updated_at: 1786736580.903234
+updated_at: 1787619347.231766
 ---
 
-# Persona roster (131 personas)
+# Persona roster (132 personas)
 
 | Slug | Module | Workspace | Model Pin |
 |---|---|---|---|
@@ -65,6 +65,7 @@ updated_at: 1786736580.903234
 | `bench-qwen3-coder-30b` | eval | `bench-qwen3-coder-30b` | — |
 | `bench-qwen3-coder-next` | eval | `bench-qwen3-coder-next` | — |
 | `bench-qwen3-coder-next-abliterated` | eval | `bench-qwen3-coder-next-abliterated` | — |
+| `bench-superqwen38-27b-abliterated` | eval | `bench-superqwen38-27b-abliterated` | — |
 | `blueteamdefender` | security | `auto-security` | — |
 | `bugdiscoverycodeassistant` | coding | `auto-coding` | — |
 | `businessanalyst` | general | `auto-reasoning` | — |
