@@ -167,6 +167,45 @@ def _save_checkpoint(data: dict[str, Any]) -> None:
     tmp.replace(CHECKPOINT_PATH)
 
 
+# Keys `stream_corpus_sample`'s own `_checkpoint()`/completion cleanup owns.
+# Never touch a `hunt_*` key from either path -- see `_save_hunt_checkpoint`'s
+# docstring on why that state must survive a successful run intact.
+_STREAM_CHECKPOINT_KEYS = (
+    "all_indexes",
+    "covered",
+    "records_processed",
+    "environment_id",
+    "token_counts",
+    "fitted_units",
+)
+
+
+def _clear_stream_checkpoint() -> None:
+    """Remove only `stream_corpus_sample`'s own keys on a clean finish.
+
+    The pre-existing code called `CHECKPOINT_PATH.unlink()` here, deleting
+    the WHOLE file -- including any `hunt_*` keys `investigate_anchors`
+    (which runs earlier in `STAGE_PLAN`, in the SAME pipeline invocation)
+    had just written for this run. That silently erased the one durable
+    record of which cousins were shipped into the shared corpus, directly
+    contradicting `_save_hunt_checkpoint`'s own documented guarantee that
+    this state survives a successful run -- and it meant a SEPARATE later
+    run (hunt_progress=None, `_load_hunt_checkpoint` finding nothing) could
+    not tell an already-planted cousin from a new one, and re-shipped it
+    (live-verified: a rerun after this bug re-injected 8 already-planted
+    cousins a second time into the real corpus). Removing only this
+    stage's own keys -- never the whole file -- is the fix."""
+    existing = _load_checkpoint()
+    if existing is None:
+        return
+    for key in _STREAM_CHECKPOINT_KEYS:
+        existing.pop(key, None)
+    if any(key.startswith("hunt_") for key in existing):
+        _save_checkpoint(existing)
+    else:
+        CHECKPOINT_PATH.unlink(missing_ok=True)
+
+
 # H.3 (TASK_BULLY_HUNT_SWEEP_V1): the hunt loop's own checkpoint state,
 # carried in the SAME file as `stream_corpus_sample`'s (merge, not a second
 # file) -- prefixed `hunt_*` so the two stages' keys never collide. Before
@@ -433,7 +472,13 @@ def build_stages(  # noqa: C901, PLR0915
             baseline.fit(units)
 
         def _checkpoint() -> None:
-            _save_checkpoint(
+            # Merge onto whatever is already on disk -- never a full
+            # replace. `investigate_anchors` runs earlier in the SAME
+            # pipeline invocation and may already have written `hunt_*`
+            # keys into this file; a full replace here would silently
+            # erase them before the run even finishes (H5 follow-up).
+            existing = _load_checkpoint() or {}
+            existing.update(
                 {
                     "all_indexes": indexes,
                     "covered": [list(pair) for pair in covered],
@@ -441,6 +486,7 @@ def build_stages(  # noqa: C901, PLR0915
                     **_serialize_baseline(baseline),
                 }
             )
+            _save_checkpoint(existing)
 
         n_sourcetypes_available = 0
         current: tuple[str, str] | None = None
@@ -497,8 +543,8 @@ def build_stages(  # noqa: C901, PLR0915
                 pass
 
         finished_all = len(covered) >= n_sourcetypes_available and interrupted_reason is None
-        if finished_all and CHECKPOINT_PATH.exists():
-            CHECKPOINT_PATH.unlink(missing_ok=True)
+        if finished_all:
+            _clear_stream_checkpoint()
 
         ctx.put("records", sample.records())
         ctx.put("wide_baseline", baseline)
