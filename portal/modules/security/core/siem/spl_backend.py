@@ -40,6 +40,35 @@ _EPISODE_PIPE_COMMANDS = frozenset(
 )
 
 
+def _iter_json_objects(text: str):
+    """Yield each top-level JSON object from a Splunk export response body.
+
+    The export endpoint emits one JSON object per result, but a raw event
+    (e.g. an indexed binary payload) can carry a literal, unescaped newline
+    inside a string value -- live-verified against a botsv2 window whose
+    `_raw` held binary content. Splitting on `\\n` then cuts that object
+    across two lines, `json.loads` throws on the truncated fragment, and the
+    record silently vanishes (surfacing later as `SampledWindowError`).
+    Incremental decoding over the whole body sidesteps line boundaries
+    entirely: each `raw_decode` consumes exactly one well-formed object
+    regardless of what its string values contain, then resumes from there.
+    """
+    decoder = json.JSONDecoder()
+    idx = 0
+    length = len(text)
+    while idx < length:
+        while idx < length and text[idx] in " \t\r\n":
+            idx += 1
+        if idx >= length:
+            break
+        try:
+            obj, end = decoder.raw_decode(text, idx)
+        except json.JSONDecodeError:
+            break
+        yield obj
+        idx = end
+
+
 class SplunkBackend:
     """Splunk telemetry backend — real SPL via the REST export endpoint."""
 
@@ -80,15 +109,10 @@ class SplunkBackend:
         r.raise_for_status()
 
         rows = []
-        for line in r.text.splitlines():
-            line = line.strip()
-            if not line.startswith("{") or '"result"' not in line:
+        for obj in _iter_json_objects(r.text):
+            if "result" not in obj:
                 continue
-            try:
-                obj = json.loads(line)
-                result = obj.get("result", obj)
-            except json.JSONDecodeError:
-                continue
+            result = obj.get("result", obj)
 
             _time_raw = result.get("_time", "")
             try:
@@ -103,6 +127,7 @@ class SplunkBackend:
                     break
 
             fields = {k: v for k, v in result.items() if k != "_time" and k not in _HOST_FIELDS}
+            line = json.dumps(result)
             rows.append({"_time": _time, "host": host, "raw": line, "fields": fields})
         return rows
 

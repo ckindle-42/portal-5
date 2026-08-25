@@ -20,6 +20,37 @@ from portal.modules.security.core.bully import telemetry_behavior as tb
 from portal.modules.security.core.siem import spl_backend
 
 
+def test_run_search_survives_a_unicode_line_separator_inside_a_result(monkeypatch):
+    """H.5 follow-up: a binary `_raw` payload (live-verified against a real
+    botsv2 window -- an indexed binary event) decoded to text containing a
+    U+2028 LINE SEPARATOR byte inside its JSON string value. That code
+    point is perfectly legal JSON (only 0x00-0x1F need escaping) but
+    `str.splitlines()` treats it as a line break, so the old
+    `r.text.splitlines()` + per-line `json.loads` parser cut that one
+    result across two lines, threw `Unterminated string` on the fragment,
+    and silently dropped it -- surfacing later as `SampledWindowError`
+    ("read N-1 of N known records") with no indication the loss was a
+    parser bug rather than missing data. Incremental `raw_decode` over the
+    whole body must recover both results regardless of the embedded
+    separator."""
+
+    class _FakeResponse:
+        text = (
+            '{"preview":false,"offset":0,"result":{"_time":"1.0","host":"h1"}}\n'
+            '{"preview":false,"offset":1,"result":{"_time":"2.0","host":"line1\u2028line2"}}\n'
+        )
+
+        def raise_for_status(self):
+            return None
+
+    monkeypatch.setattr(spl_backend.httpx, "post", lambda url, **kwargs: _FakeResponse())
+    backend = spl_backend.SplunkBackend()
+    rows = backend._run_search("search index=botsv2", "0", "now")
+    assert len(rows) == 2
+    assert rows[0]["host"] == "h1"
+    assert rows[1]["host"] == "line1 line2"
+
+
 def test_run_search_requests_epoch_time_format(monkeypatch):
     captured = {}
 
