@@ -1,11 +1,11 @@
 ---
 id: unit-fact-mcp-fleet
 kind: what
-title: 24 MCP fleet servers
+title: 23 MCP fleet servers
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 6df4cdf8e6e7
+  commit: 39bf2ecc9c19
   section: mcp_fleet
 claims:
 - probe: mcp.fleet.entries
@@ -15,10 +15,10 @@ tags:
 - fact
 - mcp
 created_at: 1784000421.477582
-updated_at: 1786309245.4610949
+updated_at: 1787772966.857206
 ---
 
-# MCP fleet (24 servers)
+# MCP fleet (23 servers)
 
 | ID | Name | Port |
 |---|---|---|
@@ -27,7 +27,6 @@ updated_at: 1786309245.4610949
 | `git` | git |  |
 | `serena` | serena |  |
 | `docker` | docker |  |
-| `comfyui` | portal-comfyui | 8910 |
 | `music` | portal-music | 8912 |
 | `documents` | portal-documents | 8913 |
 | `execution` | portal-sandbox | 8914 |

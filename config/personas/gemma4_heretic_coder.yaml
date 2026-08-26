@@ -1,7 +1,7 @@
 name: "🔓 Gemma-4-26B Heretic Coder (MoE)"
 slug: gemma4-heretic-coder
 workspace_model: auto-coding
-model_pin: hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M
+model_pin: portal5/gemma4-26b-heretic:q4_K_M-ctx256k
 module: coding
 category: coding
 ide_expose: true

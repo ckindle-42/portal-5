@@ -274,12 +274,21 @@ backends:
   # MoE-vs-dense IDE-lane candidates added 2026-08-26. All three MoE, ~58-59
   # tok/s decode (vs the ~14-20 tok/s dense Qwen3.8-27B lanes above/below).
   # supports_tools:true verified via a direct /api/chat tool-call probe
-  # (clean tool_calls, correctly typed arguments) for all three.
-  - id: hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M
+  # (clean tool_calls, correctly typed arguments) for all three. Registered
+  # here as ctx256k derived tags (PARAMETER num_ctx 262144 baked via
+  # `ollama create`, idempotent, no re-download) -- the bare tags default
+  # to Ollama's 32768 context cap, which real opencode requests exceed
+  # (confirmed: an 87,665-token real-scale prompt gets a clean
+  # exceed_context_size_error at the bare tag's 32768 default). Same
+  # large-scale prompt completed correctly at 200000 (later raised to the full native 262144, same footprint +1GB): HauhauCS 386s,
+  # gemma4-heretic 388s, Ornith-1.5 570s (all ~150-230 tok/s effective
+  # prefill, well above the oMLX dense/Laguna lanes' ~90-110 tok/s on the
+  # same hardware).
+  - id: portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k
     supports_tools: true
-  - id: hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M
+  - id: portal5/gemma4-26b-heretic:q4_K_M-ctx256k
     supports_tools: true
-  - id: hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M
+  - id: portal5/ornith15-35b:q4_K_M-ctx256k
     supports_tools: true
   - id: omnicoder2:9b-q4_k_m
     supports_tools: true

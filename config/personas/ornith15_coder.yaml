@@ -1,7 +1,7 @@
 name: "🔓 Ornith-1.5 Coder (Qwen3.6-35B-A3B MoE)"
 slug: ornith15-coder
 workspace_model: auto-coding
-model_pin: hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M
+model_pin: portal5/ornith15-35b:q4_K_M-ctx256k
 module: coding
 category: coding
 ide_expose: true

@@ -89,7 +89,7 @@ The `general`-group placement and `supports_tools: true` are asserted directly b
 
 ## Why
 
-Discovered while building a fair oMLX-vs-Ollama multi-model bake-off: the bare `llama3.2:3b` tag was loading at its full 131072-token context regardless of any per-request cap. Superseded an earlier `llama3.2:3b-ctx8k` (Q4_K_M) tag: a settings-parity audit found oMLX's counterpart (`Llama-3.2-3B-Instruct-8bit`) runs at 8-bit precision (3.6GB) while the default Ollama pull is Q4_K_M (2.0GB) — a real, unmatched ~2x precision gap. This tag uses `llama3.2:3b-instruct-q8_0` (3.4GB, Q8_0) instead, matching oMLX's bit-width class for a genuine apples-to-apples comparison.
+Discovered while building a fair oMLX-vs-Ollama multi-model bake-off: the bare `llama3.2:3b` tag was loading at its full 200000-token context regardless of any per-request cap. Superseded an earlier `llama3.2:3b-ctx8k` (Q4_K_M) tag: a settings-parity audit found oMLX's counterpart (`Llama-3.2-3B-Instruct-8bit`) runs at 8-bit precision (3.6GB) while the default Ollama pull is Q4_K_M (2.0GB) — a real, unmatched ~2x precision gap. This tag uses `llama3.2:3b-instruct-q8_0` (3.4GB, Q8_0) instead, matching oMLX's bit-width class for a genuine apples-to-apples comparison.
 
 ---
 
@@ -205,7 +205,7 @@ Grounding anchors the tag to the general-group registration whose supports_tools
 
 ### `phi4-mini`
 
-`phi4-mini` is Microsoft Phi-4-Mini (Feb 2025, MIT, 3.8B, ~2.5GB Q4, 128K ctx), trained on synthetic data for multilingual, function-calling, reasoning, and math tasks, outperforming Llama 3.2 3B and Qwen 2.5 3B on reasoning and math. `config/backends.yaml` registers it in `group: general` with `supports_tools: true`. `config/portal.yaml` does not pin the base id directly; the auto-math workspace serves the reasoning sibling `phi4-mini-reasoning:latest-ctx24k` as its `model_hint`. The catalog warns against pulling the `:math` variant — the 2026-06-21 bench scored it 0.67 quality versus the base's 1.00 at equal TPS.
+`phi4-mini` is Microsoft Phi-4-Mini (Feb 2025, MIT, 3.8B, ~2.5GB Q4, 200K ctx), trained on synthetic data for multilingual, function-calling, reasoning, and math tasks, outperforming Llama 3.2 3B and Qwen 2.5 3B on reasoning and math. `config/backends.yaml` registers it in `group: general` with `supports_tools: true`. `config/portal.yaml` does not pin the base id directly; the auto-math workspace serves the reasoning sibling `phi4-mini-reasoning:latest-ctx24k` as its `model_hint`. The catalog warns against pulling the `:math` variant — the 2026-06-21 bench scored it 0.67 quality versus the base's 1.00 at equal TPS.
 
 ## Why
 
@@ -235,7 +235,7 @@ The doc body's "router classifier candidate" role is now grounded: `config/porta
 
 ### `hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M`
 
-`hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M` is Liquid AI's LFM2.5-350M Q4_K_M (~230MB Q4, 128K ctx), an ultra-small variant in the LLM router classifier candidate set. `config/backends.yaml` registers it in the `general` group with `supports_tools: false`. `config/portal.yaml` selects it as the `model_hint` for `bench-lfm-micro-350m`, whose description records the CPU decode throughput and frames it as a router and daily-summarizer candidate, bench-only, evaluated via bench_router.py Round 4. Its role in the fleet is classification, not chat or tool dispatch, which is exactly what the false tool flag encodes.
+`hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M` is Liquid AI's LFM2.5-350M Q4_K_M (~230MB Q4, 200K ctx), an ultra-small variant in the LLM router classifier candidate set. `config/backends.yaml` registers it in the `general` group with `supports_tools: false`. `config/portal.yaml` selects it as the `model_hint` for `bench-lfm-micro-350m`, whose description records the CPU decode throughput and frames it as a router and daily-summarizer candidate, bench-only, evaluated via bench_router.py Round 4. Its role in the fleet is classification, not chat or tool dispatch, which is exactly what the false tool flag encodes.
 
 ## Why
 
@@ -265,7 +265,7 @@ Grounding ties the model to the general-group registration whose supports_tools 
 
 ### `gemma4:e4b-it-q4_K_M`
 
-`gemma4:e4b-it-q4_K_M` is registered in `config/backends.yaml` under the `general` group with `supports_tools: true` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-e4b` workspace `model_hint`, describing it as a Google MoE with 4B active (~9.6GB, 128K ctx, vision+thinking+tools) and a daily-driver candidate. The catalog's corrected notes record audio+image+video input and thinking mode, with per-layer embeddings giving representational depth beyond the 4B weight count; an audit-tools run on 2026-06-18 confirmed tool_call. It is retained as the production vision fallback while the QAT variant is benchmarked.
+`gemma4:e4b-it-q4_K_M` is registered in `config/backends.yaml` under the `general` group with `supports_tools: true` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-e4b` workspace `model_hint`, describing it as a Google MoE with 4B active (~9.6GB, 200K ctx, vision+thinking+tools) and a daily-driver candidate. The catalog's corrected notes record audio+image+video input and thinking mode, with per-layer embeddings giving representational depth beyond the 4B weight count; an audit-tools run on 2026-06-18 confirmed tool_call. It is retained as the production vision fallback while the QAT variant is benchmarked.
 
 ## Why
 
@@ -520,7 +520,7 @@ The doc body carried the stale promotion claim (29.7 t/s, 5/5 TPS, kerberoast_to
 
 ### `glm-4.7-flash:Q4_K_M`
 
-`glm-4.7-flash:Q4_K_M` is registered in `config/backends.yaml` under the `coding` group with `supports_tools: true`, the `security` group with `supports_tools: true`, and the `general` group with `supports_tools: false`. `config/portal.yaml` binds it as the `bench-glm` workspace `model_hint` and the `auto-security` description names it the strongest candidate on generic tool reliability, describing a ZhipuAI / Z.AI MIT-licensed 31B MoE (4 experts/token, ~3B active, 128K context) of non-Meta/Qwen lineage. The catalog records the 2026-07-16 re-verification: direct probes and an audit-tools run confirmed clean tool calls, and the kerberoast chain scored valid_rate 1.00 with redundant_call_rate 0.00, which is why `supports_tools` was flipped to true in `config/backends.yaml`. The `:math` variant is not pulled.
+`glm-4.7-flash:Q4_K_M` is registered in `config/backends.yaml` under the `coding` group with `supports_tools: true`, the `security` group with `supports_tools: true`, and the `general` group with `supports_tools: false`. `config/portal.yaml` binds it as the `bench-glm` workspace `model_hint` and the `auto-security` description names it the strongest candidate on generic tool reliability, describing a ZhipuAI / Z.AI MIT-licensed 31B MoE (4 experts/token, ~3B active, full native 262144 context) of non-Meta/Qwen lineage. The catalog records the 2026-07-16 re-verification: direct probes and an audit-tools run confirmed clean tool calls, and the kerberoast chain scored valid_rate 1.00 with redundant_call_rate 0.00, which is why `supports_tools` was flipped to true in `config/backends.yaml`. The `:math` variant is not pulled.
 
 ## Why
 
@@ -961,7 +961,7 @@ Grounding anchors the tag to the two backends.yaml registrations that carry it �
 
 ### `phi4-mini-reasoning`
 
-`phi4-mini-reasoning` is Microsoft Phi-4-Mini-Reasoning (2025, MIT, 3.8B, ~2.5GB Q4, 128K ctx), RL-trained for math, formal proofs, and symbolic computation, beating 7B models on AIME, MATH-500, and GPQA at its size. `config/backends.yaml` registers it in `group: reasoning` with `supports_tools: false`, consistent with a math specialist that does not route tools. `config/portal.yaml`'s auto-math workspace describes the model in its text and serves the derived `phi4-mini-reasoning:latest-ctx24k` tag as `model_hint`. The catalog warns against pulling the `:math` variant — the 2026-06-21 bench scored it 0.50 quality versus the base's 1.00 at equal TPS.
+`phi4-mini-reasoning` is Microsoft Phi-4-Mini-Reasoning (2025, MIT, 3.8B, ~2.5GB Q4, 200K ctx), RL-trained for math, formal proofs, and symbolic computation, beating 7B models on AIME, MATH-500, and GPQA at its size. `config/backends.yaml` registers it in `group: reasoning` with `supports_tools: false`, consistent with a math specialist that does not route tools. `config/portal.yaml`'s auto-math workspace describes the model in its text and serves the derived `phi4-mini-reasoning:latest-ctx24k` tag as `model_hint`. The catalog warns against pulling the `:math` variant — the 2026-06-21 bench scored it 0.50 quality versus the base's 1.00 at equal TPS.
 
 ## Why
 
@@ -981,7 +981,7 @@ The `reasoning`-group placement and `supports_tools: false` are asserted directl
 
 ### `hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0`
 
-`hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0` is Cisco's Foundation-Sec-8B-Reasoning Q8_0 (~8.5GB, 128K ctx, Llama-3.1-8B cybersec continued-pretrain + reasoning, Apache 2.0, native `<think>`). `config/backends.yaml` registers it in the `reasoning` group only, with `supports_tools: false` — matching the documented 400 error on all tool probes from the 2026-06-21 Run A; it is not present in the security group. `config/portal.yaml` uses it as the `model_hint` for `bench-foundation-sec-8b-reasoning` (the GATE-D ablation's locked V2-trio Expert model) and as the `expert_model` for the `blueteam-council` and `blueteam-orchestrated` variants of `auto-security`, where the no-tools reasoning model renders analytical verdicts.
+`hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0` is Cisco's Foundation-Sec-8B-Reasoning Q8_0 (~8.5GB, 200K ctx, Llama-3.1-8B cybersec continued-pretrain + reasoning, Apache 2.0, native `<think>`). `config/backends.yaml` registers it in the `reasoning` group only, with `supports_tools: false` — matching the documented 400 error on all tool probes from the 2026-06-21 Run A; it is not present in the security group. `config/portal.yaml` uses it as the `model_hint` for `bench-foundation-sec-8b-reasoning` (the GATE-D ablation's locked V2-trio Expert model) and as the `expert_model` for the `blueteam-council` and `blueteam-orchestrated` variants of `auto-security`, where the no-tools reasoning model renders analytical verdicts.
 
 ## Why
 
@@ -1035,7 +1035,7 @@ Both the `general` and `vision` group registrations in `config/backends.yaml` as
 
 ### `gemma4:e4b-it-q4_K_M`
 
-`gemma4:e4b-it-q4_K_M` is registered in `config/backends.yaml` under the `general` group with `supports_tools: true` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-e4b` workspace `model_hint`, describing it as a Google MoE with 4B active (~9.6GB, 128K ctx, vision+thinking+tools) and a daily-driver candidate. The catalog's corrected notes record audio+image+video input and thinking mode, with per-layer embeddings giving representational depth beyond the 4B weight count; an audit-tools run on 2026-06-18 confirmed tool_call. It is retained as the production vision fallback while the QAT variant is benchmarked.
+`gemma4:e4b-it-q4_K_M` is registered in `config/backends.yaml` under the `general` group with `supports_tools: true` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-e4b` workspace `model_hint`, describing it as a Google MoE with 4B active (~9.6GB, 200K ctx, vision+thinking+tools) and a daily-driver candidate. The catalog's corrected notes record audio+image+video input and thinking mode, with per-layer embeddings giving representational depth beyond the 4B weight count; an audit-tools run on 2026-06-18 confirmed tool_call. It is retained as the production vision fallback while the QAT variant is benchmarked.
 
 ## Why
 
@@ -1045,7 +1045,7 @@ Both the `general` and `vision` group registrations in `config/backends.yaml` as
 
 ### `gemma4:e2b-it-qat`
 
-`gemma4:e2b-it-qat` is registered in `config/backends.yaml` under the `general` group with `supports_tools: false` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-e2b` workspace `model_hint`, describing an effective 2B QAT (~3GB, 128K ctx, audio+image+video+text, thinking) that is the fastest TPS candidate in the fleet, with per-layer embeddings giving ~5.1B representational depth from 2.3B active parameters.
+`gemma4:e2b-it-qat` is registered in `config/backends.yaml` under the `general` group with `supports_tools: false` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-e2b` workspace `model_hint`, describing an effective 2B QAT (~3GB, 200K ctx, audio+image+video+text, thinking) that is the fastest TPS candidate in the fleet, with per-layer embeddings giving ~5.1B representational depth from 2.3B active parameters.
 
 ## Why
 
@@ -1055,7 +1055,7 @@ The `vision` group registration in `config/backends.yaml` asserts `supports_tool
 
 ### `gemma4:e4b-it-qat`
 
-`gemma4:e4b-it-qat` is registered in `config/backends.yaml` under the `general` group with `supports_tools: false` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-e4b-qat` workspace `model_hint`, describing an effective 4B QAT (~5GB, 128K ctx, audio+image+video+text, thinking, QAT near-BF16 at 4-bit) positioned as a quality upgrade over the production `gemma4:e4b-it-q4_K_M`.
+`gemma4:e4b-it-qat` is registered in `config/backends.yaml` under the `general` group with `supports_tools: false` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-e4b-qat` workspace `model_hint`, describing an effective 4B QAT (~5GB, 200K ctx, audio+image+video+text, thinking, QAT near-BF16 at 4-bit) positioned as a quality upgrade over the production `gemma4:e4b-it-q4_K_M`.
 
 ## Why
 
@@ -1848,9 +1848,9 @@ Both bugs looked identical from the outside ("nothing happens on large prompts")
 
 ---
 
-### `hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M`
+### `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k`
 
-Added 2026-08-26 for the MoE-vs-dense IDE-lane comparison (persona `hauhaucs-coder`, variant of `auto-coding`). Ollama GGUF, MoE 35B-A3B, uncensored. Distinct from the existing `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive` repack already in the fleet — this is the direct HauhauCS author repo, pulled at explicit operator request. `config/backends.yaml` registers it in `ollama-coding`. `supports_tools: true` verified via a direct `/api/chat` tool-call probe (clean `tool_calls`, correctly typed arguments). Measured ~57.6 tok/s decode.
+Added 2026-08-26 for the MoE-vs-dense IDE-lane comparison (persona `hauhaucs-coder`, variant of `auto-coding`). Ollama GGUF, MoE 35B-A3B, uncensored. Distinct from the existing `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive` repack already in the fleet — this is the direct HauhauCS author repo, pulled at explicit operator request. `config/backends.yaml` registers it in `ollama-coding`. `supports_tools: true` verified via a direct `/api/chat` tool-call probe (clean `tool_calls`, correctly typed arguments). Measured ~57.6 tok/s decode. This id is the ctx256k derived tag (`PARAMETER num_ctx 262144` baked via `ollama create`) -- the bare `hf.co/HauhauCS/...` tag defaults to Ollama's 32768 cap, too small for real opencode requests; confirmed the same 87,665-token prompt completes correctly at 200000 in 386s (~227 tok/s effective prefill).
 
 ## Why
 
@@ -1858,9 +1858,9 @@ Kept separate from the existing `fredrezones55` repack entry because they're dif
 
 ---
 
-### `hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M`
+### `portal5/gemma4-26b-heretic:q4_K_M-ctx256k`
 
-Added 2026-08-26 for the MoE-vs-dense IDE-lane comparison (persona `gemma4-heretic-coder`, variant of `auto-coding`). Ollama GGUF, MoE 26B-A4B, heretic/uncensored tune. Distinct from the existing `mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF` already in the fleet — that's a separate "-uncensored-heretic" release, this is mradermacher's plain "-heretic" release. `config/backends.yaml` registers it in `ollama-coding`. `supports_tools: true` verified via a direct `/api/chat` tool-call probe. Measured ~59.0 tok/s decode.
+Added 2026-08-26 for the MoE-vs-dense IDE-lane comparison (persona `gemma4-heretic-coder`, variant of `auto-coding`). Ollama GGUF, MoE 26B-A4B, heretic/uncensored tune. Distinct from the existing `mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF` already in the fleet — that's a separate "-uncensored-heretic" release, this is mradermacher's plain "-heretic" release. `config/backends.yaml` registers it in `ollama-coding`. `supports_tools: true` verified via a direct `/api/chat` tool-call probe. Measured ~59.0 tok/s decode. ctx256k derived tag as above -- confirmed completing an 85,850-token prompt in 388s (~221 tok/s effective prefill).
 
 ## Why
 
@@ -1868,9 +1868,9 @@ The near-identical repo name to the existing uncensored-heretic entry is exactly
 
 ---
 
-### `hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M`
+### `portal5/ornith15-35b:q4_K_M-ctx256k`
 
-Added 2026-08-26 for the MoE-vs-dense IDE-lane comparison (persona `ornith15-coder`, variant of `auto-coding`). Ollama GGUF, MoE 35B-A3B, uncensored, **K_M quant per explicit operator choice** (not the i1-GGUF imatrix variant of the same release). Distinct from the existing `deepreinforce-ai/Ornith-1.0-35B-GGUF` already in the fleet — this is the newer 1.5 release from a different publisher (mradermacher's community GGUF of the 1.5 checkpoint). `config/backends.yaml` registers it in `ollama-coding`. `supports_tools: true` verified via a direct `/api/chat` tool-call probe. Measured ~58.6 tok/s decode.
+Added 2026-08-26 for the MoE-vs-dense IDE-lane comparison (persona `ornith15-coder`, variant of `auto-coding`). Ollama GGUF, MoE 35B-A3B, uncensored, **K_M quant per explicit operator choice** (not the i1-GGUF imatrix variant of the same release). Distinct from the existing `deepreinforce-ai/Ornith-1.0-35B-GGUF` already in the fleet — this is the newer 1.5 release from a different publisher (mradermacher's community GGUF of the 1.5 checkpoint). `config/backends.yaml` registers it in `ollama-coding`. `supports_tools: true` verified via a direct `/api/chat` tool-call probe. Measured ~58.6 tok/s decode. ctx256k derived tag as above -- confirmed completing an 87,665-token prompt in 570s (~154 tok/s effective prefill, slower than the other two).
 
 ## Why
 

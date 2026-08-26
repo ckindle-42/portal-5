@@ -45,10 +45,6 @@
         "mcp-docker-server"
       ]
     },
-    "portal-comfyui": {
-      "type": "http",
-      "url": "http://localhost:8910/mcp"
-    },
     "portal-music": {
       "type": "http",
       "url": "http://localhost:8912/mcp"
