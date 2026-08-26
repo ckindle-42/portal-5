@@ -21,4 +21,5 @@ paths = [
   '''portal/modules/security/core/results/.*\.json$''',   # generated bench output; prompt_key values (e.g. eternalblue_ms17010) trip generic-api-key on entropy
   '''portal/modules/security/core/field_journal/.*\.json$''',  # same prompt_key field, journal copy
   '''tests/benchmarks/bench_lab_exec\.py$''',  # lab-target-only constants (ADMIN_PASS, tomcat:tomcat weak creds) — live pentest lab, not real secrets
+  '''portal/modules/binary_research/examples/sample_project/\.expected$''',  # synthetic smoke-test token/hash for the binary research harness sample project — not a secret
 ]
