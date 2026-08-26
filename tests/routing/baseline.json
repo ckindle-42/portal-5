@@ -36,7 +36,7 @@
   },
   "fold_agentic_heavy": {
     "base": "auto-coding",
-    "served_model": "qwen3-coder-next:latest-ctx64k",
+    "served_model": "portal5/qwen3-coder-next:latest-ctx256k",
     "variant": "heavy"
   },
   "fold_blueteam": {
@@ -46,7 +46,7 @@
   },
   "fold_coding_agentic_laguna": {
     "base": "auto-coding",
-    "served_model": "laguna-xs.2:Q4_K_M-ctx64k",
+    "served_model": "portal5/laguna-xs2:q4_K_M-ctx128k",
     "variant": "laguna"
   },
   "fold_coding_northmini": {
@@ -61,12 +61,12 @@
   },
   "fold_coding_uncensored_agentic": {
     "base": "auto-coding",
-    "served_model": "qwen3-coder-next:latest-ctx64k",
+    "served_model": "portal5/qwen3-coder-next:latest-ctx256k",
     "variant": "heavy"
   },
   "fold_devstral_manual_only": {
     "base": "auto-coding",
-    "served_model": "laguna-xs.2:Q4_K_M-ctx64k",
+    "served_model": "portal5/laguna-xs2:q4_K_M-ctx128k",
     "variant": "laguna"
   },
   "fold_glm_manual_only": {
@@ -411,12 +411,12 @@
   },
   "rr_variant_coding_heavy": {
     "base": "auto-coding",
-    "served_model": "qwen3-coder-next:latest-ctx64k",
+    "served_model": "portal5/qwen3-coder-next:latest-ctx256k",
     "variant": "heavy"
   },
   "rr_variant_coding_laguna": {
     "base": "auto-coding",
-    "served_model": "laguna-xs.2:Q4_K_M-ctx64k",
+    "served_model": "portal5/laguna-xs2:q4_K_M-ctx128k",
     "variant": "laguna"
   },
   "rr_variant_security_base": {

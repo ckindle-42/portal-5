@@ -294,6 +294,10 @@ backends:
     supports_tools: true
   - id: omnicoder2:9b-q4_k_m-ctx8k
     supports_tools: true
+  # Full-native-context tag (262144) added 2026-08-26 for the codinguncensored
+  # persona -- ctx8k was severely undersized for real opencode/agentic use.
+  - id: portal5/omnicoder2-9b:q4_k_m-ctx256k
+    supports_tools: true
   - id: devstral:24b
     supports_tools: true
   - id: devstral-small-2
@@ -303,6 +307,12 @@ backends:
   - id: laguna-xs.2:Q4_K_M
     supports_tools: true
   - id: laguna-xs.2:Q4_K_M-ctx64k
+    supports_tools: true
+  # Full-native-context tag (131072) added 2026-08-26 for the codingagentic
+  # persona (opencode's default) -- ctx64k was undersized for real opencode
+  # requests (verified: an 87,665-token real-scale prompt exceeds 64K).
+  # ~23GB footprint, 100% GPU, no CPU offload. Tool-calling verified.
+  - id: portal5/laguna-xs2:q4_K_M-ctx128k
     supports_tools: true
   - id: gpt-oss:20b
     supports_tools: true
@@ -326,15 +336,28 @@ backends:
     supports_tools: true
   - id: hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k
     supports_tools: true
+  # Full-native-context tag (262144) added 2026-08-26 for the agenticlite
+  # persona -- ctx64k was undersized for real opencode requests.
+  - id: portal5/agentworld-35b:ud-q4_K_XL-ctx256k
+    supports_tools: true
   - id: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M
     supports_tools: true
   - id: qwen3-coder-next:latest
     supports_tools: true
   - id: qwen3-coder-next:latest-ctx64k
     supports_tools: true
+  # Full-native-context tag (262144) added 2026-08-26 for the agenticheavy
+  # persona -- ctx64k was undersized for real opencode requests.
+  - id: portal5/qwen3-coder-next:latest-ctx256k
+    supports_tools: true
   - id: hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M
     supports_tools: true
   - id: hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k
+    supports_tools: true
+  # Full-native-context tag (262144) added 2026-08-26 for the
+  # codinguncensoredagentic persona -- ctx64k was undersized for real
+  # opencode requests.
+  - id: portal5/qwen3-coder-next-abliterated:q4_K_M-ctx256k
     supports_tools: true
   - id: hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M
     supports_tools: true
@@ -680,6 +703,7 @@ backends:
   aliases:
     qwen3-coder:30b-a3b-q4_K_M-ctx16k: Qwen3-Coder-30B-A3B-Instruct-4bit
     laguna-xs.2:Q4_K_M-ctx64k: Laguna-XS.2-4bit
+    portal5/laguna-xs2:q4_K_M-ctx128k: Laguna-XS.2-4bit
     hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M: Qwen3.8-27B-oQ4e-mtp
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}
