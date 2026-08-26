@@ -610,15 +610,6 @@ backends:
     supports_tools: true
   - id: Laguna-XS.2-4bit
     supports_tools: true
-  # SuperQwen3.8-27b-abliterated-MLX-4bit added 2026-08-24 for the
-  # bench-superqwen38-27b-abliterated workspace (Jiunsong/SuperQwen3.8-27b-
-  # abliterated-MLX-4bit, MLX-native, no GGUF counterpart pulled — oMLX-only,
-  # reachable via tier-3 absolute-fallback like the other holding-group
-  # entries above). supports_tools:true verified via a direct /v1/chat/
-  # completions tool-call probe (clean tool_calls, correctly typed
-  # arguments). Model also emits reasoning_content (thinking model).
-  - id: SuperQwen3.8-27b-abliterated-MLX-4bit
-    supports_tools: true
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}
 # oMLX shadow-then-shift for the coding group (PUNCHLIST B2, 2026-08-02).
@@ -651,6 +642,20 @@ backends:
   - id: Laguna-XS.2-4bit
     supports_tools: true
   - id: Qwen3.8-27B-oQ4e-mtp
+    supports_tools: true
+  # Qwen3.8-27B-4bit (mlx-community base, no abliteration) + DFlash2 lossless
+  # speculative decoding (incoai/Qwen3.8-27B-DFlash2), added 2026-08-26 for
+  # the qwen38coder-dflash persona. dflash_max_ctx: 65536 set in oMLX's own
+  # ~/.omlx/model_settings.json (host config, not in this repo) -- unlimited
+  # (the oMLX default) hangs indefinitely past ~70-85K prompt tokens
+  # (confirmed: 67,153 tokens completed in 742s; 87,652 tokens produced zero
+  # tokens after 900s+ with near-0% CPU, a real stall not a slow one). Past
+  # the threshold oMLX cleanly evicts DFlash and falls back to its plain VLM
+  # engine, confirmed completing an 87,652-token prompt in 923s. No GGUF/
+  # Ollama fallback exists for this exact combo, so this hint is oMLX-only.
+  # supports_tools:true verified via a direct /v1/chat/completions tool-call
+  # probe (clean tool_calls, correctly typed arguments).
+  - id: Qwen3.8-27B-4bit
     supports_tools: true
   priority: 10
   aliases:
@@ -689,17 +694,6 @@ backends:
   id: omlx-general
   models:
   - id: gemma-4-26b-a4b-it-QAT-4bit
-    supports_tools: true
-  # SuperQwen3.8-27b-abliterated-MLX-4bit added 2026-08-24: bench-
-  # superqwen38-27b-abliterated routes to group=general (its only routed
-  # group, per workspace_routing) but the model is oMLX-only (no GGUF
-  # counterpart pulled, so no Ollama fallback exists for this hint).
-  # STRICT_HINT_VALIDATION only checks a workspace's routed groups at
-  # startup, not the tier-3 absolute-fallback net, so listing it only in
-  # the omlx-local holding group (as originally done) crashed the pipeline
-  # on boot. Registering it here too — matching this hint only, does not
-  # affect any other workspace's routing.
-  - id: SuperQwen3.8-27b-abliterated-MLX-4bit
     supports_tools: true
   # Nemotron 3.5 Lightning oQ4e-mtp added 2026-08-14 (txgsync/NVIDIA-Nemotron-
   # 3.5-Lightning-30B-A3B-oQ4e-mtp, oMLX 0.6.0.dev1 MTPLX side-car import —
@@ -894,8 +888,6 @@ workspace_routing:
   bench-omnicoder2:
   - general
   bench-qwen38-27b:
-  - general
-  bench-superqwen38-27b-abliterated:
   - general
   bench-gemma4-26b-optiq:
   - general

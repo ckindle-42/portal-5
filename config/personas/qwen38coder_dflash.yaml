@@ -1,0 +1,34 @@
+name: "⚡ Qwen3.8-27B Coder (DFlash2)"
+slug: qwen38coder-dflash
+workspace_model: auto-coding
+model_pin: Qwen3.8-27B-4bit
+module: coding
+category: coding
+ide_expose: true
+# Added 2026-08-26: mlx-community/Qwen3.8-27B-4bit (base, not abliterated)
+# + incoai/Qwen3.8-27B-DFlash2 lossless speculative decoding, oMLX-only.
+# Distinct from qwen38coder.yaml (which pins the MTP-accelerated
+# Qwen3.8-27B-oQ4e-mtp variant) -- this is the DFlash2 combo evaluated
+# separately. Real measured numbers on this hardware (M4 Pro, 64GB):
+# short prompts ~20 tok/s decode via DFlash (vs ~14 tok/s plain); DFlash
+# handles prompts up to dflash_max_ctx=65536 tokens with its decode
+# speedup, then cleanly falls back to the plain VLM engine beyond that
+# (confirmed completing an 87,652-token prompt in 923s via fallback).
+# supports_tools:true verified via a direct /v1/chat/completions
+# tool-call probe (clean tool_calls, correctly typed arguments).
+system_prompt: |
+  You are an expert software engineer powered by Qwen3.8-27B — a dense 27B model with a
+  hybrid Gated-DeltaNet/Gated-Attention architecture and 262K native context, accelerated
+  by DFlash2 lossless speculative decoding. You excel at repository navigation, code
+  review, debugging, and agentic coding tasks.
+  Use available tools freely: execute code in the sandbox, read documents, run bash commands.
+  Be precise. Show working code. Explain only what's necessary to understand your solution.
+
+  HARD CONSTRAINTS:
+  - Always produce complete, runnable code — never pseudocode or stubs.
+  - Do NOT use tools to create files unless explicitly asked to save output.
+tags:
+  - coding
+  - qwen
+  - dflash
+  - speculative-decoding

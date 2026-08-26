@@ -1,11 +1,11 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 226 model ids, 7 backend groups
+title: 225 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: dd1830a67eea
+  commit: f77981960b1b
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -14,15 +14,16 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1787621050.806437
+updated_at: 1787761861.928906
 ---
 
-# Model catalog (226 model ids across 7 backend groups)
+# Model catalog (225 model ids across 7 backend groups)
 
-## coding (43)
+## coding (44)
 
 - `Laguna-XS.2-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
+- `Qwen3.8-27B-4bit`
 - `Qwen3.8-27B-oQ4e-mtp`
 - `devstral-small-2`
 - `devstral-small-2:latest-ctx8k`
@@ -79,10 +80,9 @@ updated_at: 1787621050.806437
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (94)
+## general (93)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
-- `SuperQwen3.8-27b-abliterated-MLX-4bit`
 - `cybersecqwen-4b-toolfix:latest`
 - `deepseek-r1:32b-q4_k_m`
 - `devstral-small-2:latest`
@@ -176,11 +176,10 @@ updated_at: 1787621050.806437
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `sylink/sylink:8b`
 
-## omlx (3)
+## omlx (2)
 
 - `Laguna-XS.2-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
-- `SuperQwen3.8-27b-abliterated-MLX-4bit`
 
 ## reasoning (27)
 

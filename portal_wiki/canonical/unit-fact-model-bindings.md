@@ -5,13 +5,13 @@ title: "model bindings \u2014 0 reachability gap(s)"
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 6d507e206994
+  commit: f77981960b1b
 - type: code
   path: config/portal.yaml
-  commit: 6d507e206994
+  commit: f77981960b1b
 - type: code
   path: config/personas/
-  commit: 6d507e206994
+  commit: f77981960b1b
 claims: []
 confidence: high
 tags:
@@ -19,7 +19,7 @@ tags:
 - model-bindings
 - reachability
 created_at: 1784000421.433863
-updated_at: 1786737934.631161
+updated_at: 1787761861.8515
 ---
 
 # Model bindings (reachability-resolved)
@@ -69,6 +69,7 @@ default.
 | `glm-thinker` | `auto-reasoning` | `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k` | yes |
 | `magistralstrategist` | `auto-reasoning` | `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k` | yes |
 | `qwen38coder` | `auto-coding` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M` | yes |
+| `qwen38coder-dflash` | `auto-coding` | `Qwen3.8-27B-4bit` | yes |
 
 **0 reachability gap(s)** — clean.
 

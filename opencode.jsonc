@@ -113,6 +113,11 @@
           "attachment": true,
           "reasoning": false
         },
+        "qwen38coder-dflash": {
+          "name": "Portal · Qwen3.8-27B Coder (DFlash2 speculative decoding)",
+          "attachment": true,
+          "reasoning": true
+        },
 
         // ── Security ──────────────────────────────────────────────────────────
         "auto-security": {
