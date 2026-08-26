@@ -1,0 +1,36 @@
+# Binary Research Harness — config.example.yaml
+# Copy to config.yaml (in a project dir or the projects root) and edit.
+
+projects_root: ~/binresearch   # each research item is a subfolder here (or set BINRESEARCH_PROJECTS_ROOT)
+
+llm:
+  base_url: http://127.0.0.1:11434/v1
+  api_key: local
+  # Leave unset to be prompted (TTY) or default to Qwen3.8-27B for the analysis loop.
+  # model: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M   # dense, thinking, slow, strong (DEFAULT)
+  temperature: 0.2
+  max_tokens: 4096
+  timeout: 600
+  extra_body:
+    num_ctx: 262144   # REQUIRED — bare tags default to Ollama's 32768 cap
+
+scaffold:
+  # Fast MoE that drives the new-project interview (rapid-fire Q&A).
+  model: portal5/gemma4-26b-heretic:q4_K_M-ctx256k
+
+re_mcp:
+  base_url: http://127.0.0.1:8930
+
+budget:
+  max_turns: 80
+  max_tool_calls: 200
+  max_repeat_same_call: 3
+
+policy:
+  allow_network: false
+  allow_execution_of_artifacts: false
+  allow_host_exec: false   # true ONLY for Mach-O host tools (otool/codesign/lipo)
+  deny_command_substrings: ["rm -rf /", "mkfs", "dd if="]
+  extra_allowed_roots: []
+  tool_output_chars: 24000
+  tool_timeout_sec: 120
