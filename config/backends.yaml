@@ -271,6 +271,16 @@ backends:
   models:
   - id: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M
     supports_tools: true
+  # MoE-vs-dense IDE-lane candidates added 2026-08-26. All three MoE, ~58-59
+  # tok/s decode (vs the ~14-20 tok/s dense Qwen3.8-27B lanes above/below).
+  # supports_tools:true verified via a direct /api/chat tool-call probe
+  # (clean tool_calls, correctly typed arguments) for all three.
+  - id: hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M
+    supports_tools: true
+  - id: hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M
+    supports_tools: true
+  - id: hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M
+    supports_tools: true
   - id: omnicoder2:9b-q4_k_m
     supports_tools: true
   - id: omnicoder2:9b-q4_k_m-ctx8k

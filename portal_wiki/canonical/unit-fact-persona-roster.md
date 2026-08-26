@@ -1,26 +1,26 @@
 ---
 id: unit-fact-persona-roster
 kind: what
-title: 132 personas
+title: 135 personas
 sources:
 - type: code
   path: config/personas/
-  commit: f77981960b1b
+  commit: 86e1552aa04f
 - type: code
   path: config/personas/adversarysimulator.yaml
-  commit: f77981960b1b
+  commit: 86e1552aa04f
 - type: code
   path: config/personas/agenticheavy.yaml
-  commit: f77981960b1b
+  commit: 86e1552aa04f
 - type: code
   path: config/personas/agenticlite.yaml
-  commit: f77981960b1b
+  commit: 86e1552aa04f
 - type: code
   path: config/personas/agentorchestrator.yaml
-  commit: f77981960b1b
+  commit: 86e1552aa04f
 - type: code
   path: config/personas/bench_gemma4_12b.yaml
-  commit: f77981960b1b
+  commit: 86e1552aa04f
 claims:
 - probe: personas.count
   pattern: Persona roster ({value} personas)
@@ -29,10 +29,10 @@ tags:
 - fact
 - personas
 created_at: 1784000421.217775
-updated_at: 1787761861.5914571
+updated_at: 1787768557.2821162
 ---
 
-# Persona roster (132 personas)
+# Persona roster (135 personas)
 
 | Slug | Module | Workspace | Model Pin |
 |---|---|---|---|
@@ -101,6 +101,7 @@ updated_at: 1787761861.5914571
 | `formfiller` | coding | `auto-coding` | — |
 | `fullstacksoftwaredeveloper` | coding | `auto-coding` | — |
 | `gdprdpoadvisor` | compliance | `auto-compliance` | — |
+| `gemma4-heretic-coder` | coding | `auto-coding` | `hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M` |
 | `gemma4e4bvision` | general | `auto-vision` | — |
 | `gemma4jangvision` | general | `auto-vision` | `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf` |
 | `gemma_e4b` | general | `auto-daily` | — |
@@ -112,6 +113,7 @@ updated_at: 1787761861.5914571
 | `glm-thinker` | general | `auto-reasoning` | `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k` |
 | `goengineer` | coding | `auto-coding` | — |
 | `gptossanalyst` | general | `auto-reasoning` | — |
+| `hauhaucs-coder` | coding | `auto-coding` | `hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M` |
 | `hermes3writer` | media | `auto-creative` | — |
 | `hipaaprivacyofficer` | compliance | `auto-compliance` | — |
 | `interviewcoach` | media | `auto-creative` | — |
@@ -129,6 +131,7 @@ updated_at: 1787761861.5914571
 | `nerccipcomplianceanalyst` | compliance | `auto-compliance` | — |
 | `networkengineer` | security | `auto-security` | — |
 | `ocrspecialist` | general | `auto-vision` | — |
+| `ornith15-coder` | coding | `auto-coding` | `hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M` |
 | `paywalledresearcher` | research | `auto-research` | — |
 | `pcidssassessor` | compliance | `auto-compliance` | — |
 | `pentester` | security | `auto-security` | — |

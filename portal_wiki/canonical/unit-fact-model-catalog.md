@@ -1,11 +1,11 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 225 model ids, 7 backend groups
+title: 228 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: f77981960b1b
+  commit: 86e1552aa04f
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -14,12 +14,12 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1787761861.928906
+updated_at: 1787768557.609396
 ---
 
-# Model catalog (225 model ids across 7 backend groups)
+# Model catalog (228 model ids across 7 backend groups)
 
-## coding (44)
+## coding (47)
 
 - `Laguna-XS.2-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
@@ -31,6 +31,7 @@ updated_at: 1787761861.928906
 - `glm-4.7-flash:Q4_K_M`
 - `gpt-oss:20b`
 - `hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M`
+- `hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M`
 - `hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M`
 - `hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf`
 - `hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M`
@@ -43,6 +44,8 @@ updated_at: 1787761861.928906
 - `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M`
 - `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M-ctx64k`
 - `hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M`
+- `hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M`
+- `hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M`
 - `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M`
 - `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL`
 - `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k`

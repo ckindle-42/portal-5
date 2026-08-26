@@ -5,13 +5,13 @@ title: "model bindings \u2014 0 reachability gap(s)"
 sources:
 - type: code
   path: config/backends.yaml
-  commit: f77981960b1b
+  commit: 86e1552aa04f
 - type: code
   path: config/portal.yaml
-  commit: f77981960b1b
+  commit: 86e1552aa04f
 - type: code
   path: config/personas/
-  commit: f77981960b1b
+  commit: 86e1552aa04f
 claims: []
 confidence: high
 tags:
@@ -19,7 +19,7 @@ tags:
 - model-bindings
 - reachability
 created_at: 1784000421.433863
-updated_at: 1787761861.8515
+updated_at: 1787768557.535093
 ---
 
 # Model bindings (reachability-resolved)
@@ -63,11 +63,14 @@ default.
 | Persona | Workspace | model_pin | Reachable |
 |---|---|---|---|
 | `devstral_coder` | `auto-coding` | `devstral-small-2:latest-ctx8k` | yes |
+| `gemma4-heretic-coder` | `auto-coding` | `hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M` | yes |
 | `gemma4jangvision` | `auto-vision` | `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf` | yes |
 | `gemma_vision` | `auto-vision` | `gemma4:31b-it-qat-ctx8k` | yes |
 | `glm-coder` | `auto-coding` | `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k` | yes |
 | `glm-thinker` | `auto-reasoning` | `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k` | yes |
+| `hauhaucs-coder` | `auto-coding` | `hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M` | yes |
 | `magistralstrategist` | `auto-reasoning` | `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k` | yes |
+| `ornith15-coder` | `auto-coding` | `hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M` | yes |
 | `qwen38coder` | `auto-coding` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M` | yes |
 | `qwen38coder-dflash` | `auto-coding` | `Qwen3.8-27B-4bit` | yes |
 

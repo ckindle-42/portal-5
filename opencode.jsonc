@@ -118,6 +118,21 @@
           "attachment": true,
           "reasoning": true
         },
+        "hauhaucs-coder": {
+          "name": "Portal · HauhauCS Coder (Qwen3.6-35B-A3B MoE, uncensored)",
+          "attachment": true,
+          "reasoning": true
+        },
+        "gemma4-heretic-coder": {
+          "name": "Portal · Gemma-4-26B Heretic Coder (MoE, uncensored)",
+          "attachment": true,
+          "reasoning": false
+        },
+        "ornith15-coder": {
+          "name": "Portal · Ornith-1.5 Coder (Qwen3.6-35B-A3B MoE, uncensored)",
+          "attachment": true,
+          "reasoning": true
+        },
 
         // ── Security ──────────────────────────────────────────────────────────
         "auto-security": {

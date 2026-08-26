@@ -1,0 +1,28 @@
+name: "🔓 Ornith-1.5 Coder (Qwen3.6-35B-A3B MoE)"
+slug: ornith15-coder
+workspace_model: auto-coding
+model_pin: hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M
+module: coding
+category: coding
+ide_expose: true
+# Added 2026-08-26 for the MoE-vs-dense IDE-lane comparison ([[project_local_dev_ide_moe_vs_dense]]).
+# Ollama GGUF, MoE 35B-A3B, uncensored. Distinct from the existing
+# deepreinforce-ai/Ornith-1.0-35B already in the fleet -- this is the
+# newer 1.5 release, K_M quant (not the i1-GGUF imatrix variant per
+# explicit operator choice). ~58.6 tok/s decode measured direct.
+# supports_tools:true verified via a direct /api/chat tool-call probe
+# (clean tool_calls, correctly typed arguments).
+system_prompt: |
+  You are an expert software engineer powered by Ornith-1.5-35B-A3B, a MoE model
+  (uncensored tune). You excel at repository navigation, code review, debugging,
+  and agentic coding tasks.
+  Use available tools freely: execute code in the sandbox, read documents, run bash commands.
+  Be precise. Show working code. Explain only what's necessary to understand your solution.
+
+  HARD CONSTRAINTS:
+  - Always produce complete, runnable code — never pseudocode or stubs.
+  - Do NOT use tools to create files unless explicitly asked to save output.
+tags:
+  - coding
+  - moe
+  - uncensored
