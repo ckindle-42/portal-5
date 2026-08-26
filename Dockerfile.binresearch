@@ -1,0 +1,36 @@
+# Dockerfile.binresearch — native arm64 static-RE toolchain for the binary
+# research harness. Owned by the binresearch MCP (port 8930); the harness's
+# bash tool (target=container) runs commands here against a mounted project dir.
+#
+# Built by: ./launch.sh build-binresearch  (tags portal5-binresearch:latest, loads into DinD)
+#
+# Static analysis only — for INSPECTING artifacts, not running them. No QEMU/
+# emulation. Mach-O tools (otool/codesign/lipo) are macOS-only and are NOT here;
+# those use the harness host escape hatch.
+FROM kalilinux/kali-rolling
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        radare2 rizin binutils llvm file xxd \
+        binwalk squashfs-tools cpio cabextract p7zip-full \
+        yara ssdeep poppler-utils \
+        apktool jadx dex2jar \
+        openssl hashdeep \
+        python3 python3-pip python3-venv ca-certificates git \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install --no-cache-dir --break-system-packages \
+        lief pefile macholib capstone keystone-engine ropper python-magic tlsh unblob \
+    || pip3 install --no-cache-dir \
+        lief pefile macholib capstone keystone-engine ropper python-magic tlsh unblob
+
+RUN useradd -m -s /bin/bash analyst
+USER analyst
+WORKDIR /work
+
+RUN radare2 -v >/dev/null \
+    && binwalk --help >/dev/null 2>&1 \
+    && yara --version >/dev/null \
+    && python3 -c "import lief, capstone, pefile; print('re-pylibs ok')"

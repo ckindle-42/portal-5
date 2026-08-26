@@ -465,6 +465,10 @@ services:
       # side -- DinD bind-mount sources resolve against the daemon's fs, not
       # the client (mcp-sandbox) container's. See code_sandbox_mcp.py.
       - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}/lab/vulhub:/vulhub-src:ro
+      # Binary research projects root, bind-mounted into DinD read-write so
+      # `docker run -v /binresearch-projects/<name>:/work` (issued by the
+      # binresearch MCP) resolves on the daemon fs. Same rationale as vulhub.
+      - ${BINRESEARCH_PROJECTS_ROOT:-${HOME}/binresearch}:/binresearch-projects:rw
     # P7: Resource limits prevent DinD from consuming all system RAM/CPU.
     deploy:
       resources:
@@ -525,6 +529,39 @@ services:
       start_period: 60s
       retries: 3
     # NO docker.sock mount
+
+  # ── MCP: Binary Research toolchain ────────────────────────────────────────
+  # Owns portal5-binresearch (static-RE arsenal). The harness bash tool
+  # (target=container) POSTs here; commands run in the container with the named
+  # project mounted at /work. Build the image first: ./launch.sh build-binresearch
+  mcp-binresearch:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.mcp
+    container_name: portal5-mcp-binresearch
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${BINRESEARCH_MCP_HOST_PORT:-8930}:8930"
+    environment:
+      - BINRESEARCH_MCP_PORT=8930
+      - MCP_PORT=8930
+      - DOCKER_HOST=tcp://dind:2375
+      - BINRESEARCH_IMAGE=${BINRESEARCH_IMAGE:-portal5-binresearch:latest}
+      - BINRESEARCH_MEMORY=${BINRESEARCH_MEMORY:-4g}
+      - BINRESEARCH_CPUS=${BINRESEARCH_CPUS:-2.0}
+      - BINRESEARCH_TIMEOUT=${BINRESEARCH_TIMEOUT:-120}
+      - BINRESEARCH_TIMEOUT_MAX=${BINRESEARCH_TIMEOUT_MAX:-600}
+      - BINRESEARCH_JOBS_DIR=/binresearch-projects
+    depends_on:
+      dind:
+        condition: service_healthy
+    command: ["python", "-m", "portal.modules.binary_research.tools.binresearch_mcp"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8930/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
 
   # ── MCP: Proxmox VE Management ────────────────────────────────────────────
   # Full VM/LXC/snapshot/storage management via Proxmox REST API.

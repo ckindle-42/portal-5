@@ -314,6 +314,10 @@ surfaces:
   - tests/benchmarks/bench/*.py
   - tests/benchmarks/bench_repair/*.py
   unit: unit-surface-benchmarks
+- name: unit-surface-binary-research
+  globs:
+  - portal/modules/binary_research/**/*.py
+  unit: unit-surface-binary-research
 - name: unit-surface-comfyui-tests
   globs:
   - tests/comfyui/*.py

@@ -108,6 +108,10 @@
     "portal-wiki": {
       "type": "http",
       "url": "http://localhost:8931/mcp"
+    },
+    "portal-binresearch": {
+      "type": "http",
+      "url": "http://localhost:8930/mcp"
     }
   }
 }
