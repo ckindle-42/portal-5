@@ -587,11 +587,16 @@ services:
       retries: 3
 
   # ── MCP: ComfyUI Bridge (image generation) ───────────────────────────────────
-  # Enabled by default — image generation is an operated capability.
+  # DISABLED 2026-08-26 — not in active use; the ~229GB of host-side ComfyUI
+  # models (checkpoints/diffusion_models/text_encoders/clip/vae/loras) were
+  # cleared to reclaim disk. Own profile (not `video`) so re-enabling image
+  # gen never re-gates video, and vice versa. Re-enable if revisited:
+  # ./launch.sh up --profile comfyui (re-pull models first; they're gone).
   # History: this was gated because *video* was the blocker (Wan2.2 T2V-A14B
   # fp8_scaled crashes on Apple Silicon MPS), and mcp-comfyui shared a profile
   # with mcp-video, so gating video took images down with it. Image generation
-  # itself was never the problem. Video now has its own profile; see below.
+  # itself was never the problem — that's why it was later made default-on
+  # before this second, deliberate disable. Video now has its own profile.
   # Requires: ComfyUI running at COMFYUI_URL (host-native launchd on this host).
   mcp-comfyui:
     build:
@@ -599,6 +604,7 @@ services:
       dockerfile: Dockerfile.mcp
     container_name: portal5-mcp-comfyui
     restart: unless-stopped
+    profiles: [comfyui]
     ports:
       - "127.0.0.1:${COMFYUI_MCP_HOST_PORT:-8910}:8910"
     environment:

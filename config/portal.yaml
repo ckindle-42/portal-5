@@ -54,12 +54,14 @@ mcp_fleet:
     command:
       type: local
       command: ["npx", "-y", "mcp-docker-server"]
-  - id: comfyui
-    module: media
-    name: portal-comfyui
-    port: 8910
-    expose_to_pipeline: true
-    expose_to_ide: true
+  # id: comfyui (portal-comfyui, :8910) intentionally removed from the fleet
+  # 2026-08-26 -- not in active use, ~229GB of host-side ComfyUI models
+  # cleared to reclaim disk. The service definition stays in
+  # deploy/portal-5/docker-compose.yml (behind `profiles: [comfyui]`) and
+  # portal/modules/media/tools/comfyui_mcp.py is untouched -- only fleet
+  # registration (tool advertisement, validate_system.py's liveness
+  # expectation) is removed. Re-add here (and re-pull models, and
+  # `./launch.sh up --profile comfyui`) if image generation is revisited.
   # id: video (portal-video, :8911) intentionally removed from the fleet
   # 2026-07-29 -- video generation is shelved, not operated. See
   # KNOWN_LIMITATIONS.md "Wan 2.2 fp8_scaled Checkpoints Crash on Apple

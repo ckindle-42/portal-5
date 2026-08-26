@@ -1,7 +1,7 @@
 name: "🔓 HauhauCS Coder (Qwen3.6-35B-A3B MoE)"
 slug: hauhaucs-coder
 workspace_model: auto-coding
-model_pin: hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M
+model_pin: portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k
 module: coding
 category: coding
 ide_expose: true

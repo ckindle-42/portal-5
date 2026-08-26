@@ -23,7 +23,6 @@ modules:
 launched_mcp_ids:
 - browser
 - cad_render
-- comfyui
 - detections
 - docker
 - documents
