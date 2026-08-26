@@ -1823,12 +1823,27 @@ Kept as a separate catalog entry (not folded into the base tag's) because `test_
 
 ---
 
-### `SuperQwen3.8-27b-abliterated-MLX-4bit`
+### `SuperQwen3.8-27b-abliterated-MLX-4bit` — DROPPED
 
-`SuperQwen3.8-27b-abliterated-MLX-4bit` (`Jiunsong/SuperQwen3.8-27b-abliterated-MLX-4bit` on Hugging Face) is a dense 27B, MLX-native affine 4-bit build (~15GB) of the abliterated `Jiunsong/SuperQwen3.8-27b-abliterated` checkpoint, built on `mlx-community/Qwen3.8-27B-4bit`. It has no GGUF counterpart pulled, so it is oMLX-only with no Ollama fallback for this hint. Reasoning is on by default: `chat_template.jinja` resolves `enable_thinking` to true and `reasoning_effort` to bounded `medium` unless overridden (`xhigh`/`low` also selectable), confirmed live via unprompted `reasoning_content` in responses. Sampling in the `bench-superqwen38-27b-abliterated` workspace (`temperature: 1.0, top_p: 0.95, top_k: 20, think: true`) is taken directly from this checkpoint's own `generation_config.json` and chat template defaults — not carried over from the unrelated `bench-qwen38-27b` GGUF workspace. `config/backends.yaml` registers it in both `omlx-local` (holding group) and `omlx-general` (group `general`, `priority: 10`) — registration in `omlx-local` alone is insufficient because `STRICT_HINT_VALIDATION` only checks a workspace's routed groups at pipeline startup, not the tier-3 absolute-fallback net, and crashed the pipeline on boot until the `omlx-general` entry was added. `supports_tools: true` verified via a direct `/v1/chat/completions` tool-call probe (clean `tool_calls`, correctly typed arguments).
+`SuperQwen3.8-27b-abliterated-MLX-4bit` (Jiunsong, dense 27B, MLX-native 4-bit, oMLX-only) was installed and bench-wired 2026-08-24, then dropped the same day: it has no MTP/DFlash speculative-decoding weights, and on this hardware a large agentic-scale prompt (~174K tokens, a real opencode request) got throttled by oMLX's `prefill_memory_guard` to near-zero progress — confirmed by isolating it as the only loaded model and still seeing zero tokens emitted after 590s. Removed from `config/backends.yaml`, `config/portal.yaml`, its persona file, and the oMLX model directory. Superseded by `mlx-community/Qwen3.8-27B-4bit` + `incoai/Qwen3.8-27B-DFlash2` (lossless speculative decoding), the combo the model's own card documents as its working DFlash2 pairing.
 
 ## Why
 
-Grounding anchors the model to the two live-verified facts that would otherwise be easy to get wrong by analogy to nearby entries: sampling parameters belong to this specific checkpoint's own shipped config, not a sibling workspace's, and dual registration in `omlx-local`/`omlx-general` is a startup-validation requirement, not redundant config.
+Kept as a DROPPED entry rather than deleted outright per additive-only catalog discipline (`test_no_orphan_catalog_entries`) — a future session searching for why this id isn't in the fleet should find the measured failure mode, not silence.
+
+---
+
+### `Qwen3.8-27B-4bit`
+
+`Qwen3.8-27B-4bit` (`mlx-community/Qwen3.8-27B-4bit` on Hugging Face, base checkpoint, not abliterated) is the DFlash2 replacement for the dropped SuperQwen bench entry above, added 2026-08-26 for the `qwen38coder-dflash` persona (variant of `auto-coding`). Paired with `incoai/Qwen3.8-27B-DFlash2` for lossless speculative decoding via oMLX's native `dflash_enabled`/`dflash_draft_model` per-model settings (`~/.omlx/model_settings.json`, host config, not in this repo). Two real bugs were root-caused and fixed getting this working on this hardware (M4 Pro, 64GB):
+
+1. **Missing ANE bank compiler.** The default oMLX bottle install doesn't ship the private-ANE bank compiler at all (`qwen35_ane_bank_compiler_available()` returns `False`), so `/admin/api/bench/ane-tune` always reported "ANE unavailable" and recommended GPU-only regardless of actual hardware capability. Rebuilding oMLX from source with `--with-custom-kernel` (`brew reinstall jundot/omlx/omlx --with-custom-kernel --build-from-source`) fixes this; ANE tuning then runs for real, though for this specific model/workload it measured only a 0.85% speedup over GPU-only (124.05 vs 125.1 tok/s at sequence_length=2048) — not worth enabling here, but the earlier "unavailable" verdict was itself the bug, not a hardware limit.
+2. **`dflash_max_ctx` defaulting to `unlimited` hangs on large prompts.** DFlash's own engine isn't built to handle very large contexts: a 67,153-token prompt completed via DFlash in 742s (prefill dominates: 739.3s of it, ~91 tok/s — the same prefill rate as plain GPU, confirming DFlash doesn't accelerate prefill, only decode), but an 87,652-token prompt produced zero tokens after 900+s with the engine's CPU sustained near 0% (confirmed via direct process/log observation, not a client timeout — a genuine stall). Setting `dflash_max_ctx: 65536` (with margin below the confirmed-good 67,153 mark) makes oMLX cleanly evict DFlash and fall back to its plain VLM engine past that threshold, confirmed completing the same 87,652-token prompt in 923s via fallback.
+
+`config/backends.yaml` registers it in the `coding` group (`omlx-coding`, `priority: 10`) alongside the existing Qwen3-Coder/Laguna/Qwen3.8-oQ4e-mtp entries. `supports_tools: true` verified via a direct `/v1/chat/completions` tool-call probe (clean `tool_calls`, correctly typed arguments). Real measured decode speed: ~20 tok/s with DFlash active (vs ~14 tok/s plain) for prompts under the max_ctx threshold.
+
+## Why
+
+Both bugs looked identical from the outside ("nothing happens on large prompts") but had different root causes and different fixes — ANE was a missing build artifact, the hang was an unset fallback threshold. Recording both here so a future session hitting either doesn't have to re-derive them: check `dflash_max_ctx` first for any hang on a DFlash-enabled model, and don't trust an "ANE unavailable" verdict without checking whether the bottle was built `--with-custom-kernel`.
 
 ---

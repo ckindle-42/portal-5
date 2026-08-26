@@ -1387,25 +1387,6 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
-  bench-superqwen38-27b-abliterated:
-    module: eval
-    name: 🔬 Bench · SuperQwen3.8-27B (abliterated, MLX)
-    description: |-
-      Benchmark: Jiunsong/SuperQwen3.8-27b-abliterated-MLX-4bit (dense 27B, MLX-native 4bit, ~15GB). MLX-only -- no GGUF counterpart pulled, so this workspace routes exclusively through oMLX (registered in the omlx-local holding group, reachable via the tier-3 absolute-fallback net, not a routed production group). Thinking model, reasoning ON by default (chat_template.jinja: enable_thinking undefined/true resolves reasoning_effort to bounded 'medium'; xhigh/low also selectable) -- confirmed live via reasoning_content on an unprompted probe. Sampling per the model's own generation_config.json (temperature 1.0, top_p 0.95, top_k 20 -- do not carry over the unrelated Bench-Qwen3.8-27B GGUF workspace's think:false/low-temperature profile, this checkpoint is a different release with reasoning on by default). supports_tools:true verified via a direct /v1/chat/completions tool-call probe (clean tool_calls, correctly typed arguments). Head-to-head not yet run. PROMOTE_POLICY=confirm.
-    model_hint: SuperQwen3.8-27b-abliterated-MLX-4bit
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 1.0
-    top_p: 0.95
-    top_k: 20
-    repeat_penalty: 1.0
-    think: true
-    tools: []
-    expose_to_owui: true
-    enable_web_search: false
-    owui_system_prompt: |-
-      You are a general-purpose assistant for benchmarking SuperQwen3.8-27B-abliterated (MLX).
   bench-gemma4-26b-optiq:
     module: eval
     name: 🔬 Bench · Gemma-4-26B-A4B (OptiQ)

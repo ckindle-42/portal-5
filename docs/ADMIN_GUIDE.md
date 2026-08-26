@@ -349,7 +349,6 @@ Router quality is a measured property, not an assumption — the bench pins the 
 | `bench-qwen3-coder-30b` | eval | `bench-qwen3-coder-30b` | — |
 | `bench-qwen3-coder-next` | eval | `bench-qwen3-coder-next` | — |
 | `bench-qwen3-coder-next-abliterated` | eval | `bench-qwen3-coder-next-abliterated` | — |
-| `bench-superqwen38-27b-abliterated` | eval | `bench-superqwen38-27b-abliterated` | — |
 | `blueteamdefender` | security | `auto-security` | — |
 | `bugdiscoverycodeassistant` | coding | `auto-coding` | — |
 | `businessanalyst` | general | `auto-reasoning` | — |
@@ -429,6 +428,7 @@ Router quality is a measured property, not an assumption — the bench pins the 
 | `pythoncodegeneratorcleanoptimizedproduction-ready` | coding | `auto-coding` | — |
 | `pythoninterpreter` | coding | `auto-coding` | — |
 | `qwen38coder` | coding | `auto-coding` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M` |
+| `qwen38coder-dflash` | coding | `auto-coding` | `Qwen3.8-27B-4bit` |
 | `redteamoperator` | security | `auto-security` | — |
 | `researchanalyst` | research | `auto-research` | — |
 | `rustengineer` | coding | `auto-coding` | — |
@@ -461,7 +461,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-# Workspace roster (24 production, 47 eval, 71 total)
+# Workspace roster (24 production, 46 eval, 70 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -538,7 +538,6 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 - `bench-qwen36-hauhaucs`
 - `bench-qwen38-27b`
 - `bench-supergemma4-sec`
-- `bench-superqwen38-27b-abliterated`
 - `bench-vulnllm-r-7b`
 - `bench-vulnllm-r7b`
 
@@ -597,6 +596,7 @@ default.
 | `glm-thinker` | `auto-reasoning` | `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k` | yes |
 | `magistralstrategist` | `auto-reasoning` | `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k` | yes |
 | `qwen38coder` | `auto-coding` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M` | yes |
+| `qwen38coder-dflash` | `auto-coding` | `Qwen3.8-27B-4bit` | yes |
 
 **0 reachability gap(s)** — clean.
 
@@ -645,12 +645,13 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-# Model catalog (226 model ids across 7 backend groups)
+# Model catalog (225 model ids across 7 backend groups)
 
-## coding (43)
+## coding (44)
 
 - `Laguna-XS.2-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
+- `Qwen3.8-27B-4bit`
 - `Qwen3.8-27B-oQ4e-mtp`
 - `devstral-small-2`
 - `devstral-small-2:latest-ctx8k`
@@ -707,10 +708,9 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (94)
+## general (93)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
-- `SuperQwen3.8-27b-abliterated-MLX-4bit`
 - `cybersecqwen-4b-toolfix:latest`
 - `deepseek-r1:32b-q4_k_m`
 - `devstral-small-2:latest`
@@ -804,11 +804,10 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `sylink/sylink:8b`
 
-## omlx (3)
+## omlx (2)
 
 - `Laguna-XS.2-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
-- `SuperQwen3.8-27b-abliterated-MLX-4bit`
 
 ## reasoning (27)
 

@@ -5,22 +5,22 @@ title: 132 personas
 sources:
 - type: code
   path: config/personas/
-  commit: dd1830a67eea
+  commit: f77981960b1b
 - type: code
   path: config/personas/adversarysimulator.yaml
-  commit: dd1830a67eea
+  commit: f77981960b1b
 - type: code
   path: config/personas/agenticheavy.yaml
-  commit: dd1830a67eea
+  commit: f77981960b1b
 - type: code
   path: config/personas/agenticlite.yaml
-  commit: dd1830a67eea
+  commit: f77981960b1b
 - type: code
   path: config/personas/agentorchestrator.yaml
-  commit: dd1830a67eea
+  commit: f77981960b1b
 - type: code
   path: config/personas/bench_gemma4_12b.yaml
-  commit: dd1830a67eea
+  commit: f77981960b1b
 claims:
 - probe: personas.count
   pattern: Persona roster ({value} personas)
@@ -29,7 +29,7 @@ tags:
 - fact
 - personas
 created_at: 1784000421.217775
-updated_at: 1787619347.231766
+updated_at: 1787761861.5914571
 ---
 
 # Persona roster (132 personas)
@@ -65,7 +65,6 @@ updated_at: 1787619347.231766
 | `bench-qwen3-coder-30b` | eval | `bench-qwen3-coder-30b` | — |
 | `bench-qwen3-coder-next` | eval | `bench-qwen3-coder-next` | — |
 | `bench-qwen3-coder-next-abliterated` | eval | `bench-qwen3-coder-next-abliterated` | — |
-| `bench-superqwen38-27b-abliterated` | eval | `bench-superqwen38-27b-abliterated` | — |
 | `blueteamdefender` | security | `auto-security` | — |
 | `bugdiscoverycodeassistant` | coding | `auto-coding` | — |
 | `businessanalyst` | general | `auto-reasoning` | — |
@@ -145,6 +144,7 @@ updated_at: 1787619347.231766
 | `pythoncodegeneratorcleanoptimizedproduction-ready` | coding | `auto-coding` | — |
 | `pythoninterpreter` | coding | `auto-coding` | — |
 | `qwen38coder` | coding | `auto-coding` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M` |
+| `qwen38coder-dflash` | coding | `auto-coding` | `Qwen3.8-27B-4bit` |
 | `redteamoperator` | security | `auto-security` | — |
 | `researchanalyst` | research | `auto-research` | — |
 | `rustengineer` | coding | `auto-coding` | — |
