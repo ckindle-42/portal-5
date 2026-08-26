@@ -1847,3 +1847,33 @@ Kept as a DROPPED entry rather than deleted outright per additive-only catalog d
 Both bugs looked identical from the outside ("nothing happens on large prompts") but had different root causes and different fixes — ANE was a missing build artifact, the hang was an unset fallback threshold. Recording both here so a future session hitting either doesn't have to re-derive them: check `dflash_max_ctx` first for any hang on a DFlash-enabled model, and don't trust an "ANE unavailable" verdict without checking whether the bottle was built `--with-custom-kernel`.
 
 ---
+
+### `hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M`
+
+Added 2026-08-26 for the MoE-vs-dense IDE-lane comparison (persona `hauhaucs-coder`, variant of `auto-coding`). Ollama GGUF, MoE 35B-A3B, uncensored. Distinct from the existing `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive` repack already in the fleet — this is the direct HauhauCS author repo, pulled at explicit operator request. `config/backends.yaml` registers it in `ollama-coding`. `supports_tools: true` verified via a direct `/api/chat` tool-call probe (clean `tool_calls`, correctly typed arguments). Measured ~57.6 tok/s decode.
+
+## Why
+
+Kept separate from the existing `fredrezones55` repack entry because they're different HF repos with independent provenance, even if the underlying weights are the same release — additive-only catalog discipline treats each distinct id on its own.
+
+---
+
+### `hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M`
+
+Added 2026-08-26 for the MoE-vs-dense IDE-lane comparison (persona `gemma4-heretic-coder`, variant of `auto-coding`). Ollama GGUF, MoE 26B-A4B, heretic/uncensored tune. Distinct from the existing `mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF` already in the fleet — that's a separate "-uncensored-heretic" release, this is mradermacher's plain "-heretic" release. `config/backends.yaml` registers it in `ollama-coding`. `supports_tools: true` verified via a direct `/api/chat` tool-call probe. Measured ~59.0 tok/s decode.
+
+## Why
+
+The near-identical repo name to the existing uncensored-heretic entry is exactly the kind of thing a future session could mistake for a duplicate/typo — recorded here so the distinction (two separate mradermacher releases, not one) is explicit.
+
+---
+
+### `hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M`
+
+Added 2026-08-26 for the MoE-vs-dense IDE-lane comparison (persona `ornith15-coder`, variant of `auto-coding`). Ollama GGUF, MoE 35B-A3B, uncensored, **K_M quant per explicit operator choice** (not the i1-GGUF imatrix variant of the same release). Distinct from the existing `deepreinforce-ai/Ornith-1.0-35B-GGUF` already in the fleet — this is the newer 1.5 release from a different publisher (mradermacher's community GGUF of the 1.5 checkpoint). `config/backends.yaml` registers it in `ollama-coding`. `supports_tools: true` verified via a direct `/api/chat` tool-call probe. Measured ~58.6 tok/s decode.
+
+## Why
+
+Ornith 1.0 and 1.5 are different model versions from different repos, not a re-quant of the same weights — kept as fully separate catalog entries, not folded together.
+
+---

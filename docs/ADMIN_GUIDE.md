@@ -316,7 +316,7 @@ Router quality is a measured property, not an assumption — the bench pins the 
 ### Personas
 
 <!-- WIKI:GENERATED unit=unit-fact-persona-roster -->
-# Persona roster (132 personas)
+# Persona roster (135 personas)
 
 | Slug | Module | Workspace | Model Pin |
 |---|---|---|---|
@@ -385,6 +385,7 @@ Router quality is a measured property, not an assumption — the bench pins the 
 | `formfiller` | coding | `auto-coding` | — |
 | `fullstacksoftwaredeveloper` | coding | `auto-coding` | — |
 | `gdprdpoadvisor` | compliance | `auto-compliance` | — |
+| `gemma4-heretic-coder` | coding | `auto-coding` | `hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M` |
 | `gemma4e4bvision` | general | `auto-vision` | — |
 | `gemma4jangvision` | general | `auto-vision` | `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf` |
 | `gemma_e4b` | general | `auto-daily` | — |
@@ -396,6 +397,7 @@ Router quality is a measured property, not an assumption — the bench pins the 
 | `glm-thinker` | general | `auto-reasoning` | `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k` |
 | `goengineer` | coding | `auto-coding` | — |
 | `gptossanalyst` | general | `auto-reasoning` | — |
+| `hauhaucs-coder` | coding | `auto-coding` | `hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M` |
 | `hermes3writer` | media | `auto-creative` | — |
 | `hipaaprivacyofficer` | compliance | `auto-compliance` | — |
 | `interviewcoach` | media | `auto-creative` | — |
@@ -413,6 +415,7 @@ Router quality is a measured property, not an assumption — the bench pins the 
 | `nerccipcomplianceanalyst` | compliance | `auto-compliance` | — |
 | `networkengineer` | security | `auto-security` | — |
 | `ocrspecialist` | general | `auto-vision` | — |
+| `ornith15-coder` | coding | `auto-coding` | `hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M` |
 | `paywalledresearcher` | research | `auto-research` | — |
 | `pcidssassessor` | compliance | `auto-compliance` | — |
 | `pentester` | security | `auto-security` | — |
@@ -590,11 +593,14 @@ default.
 | Persona | Workspace | model_pin | Reachable |
 |---|---|---|---|
 | `devstral_coder` | `auto-coding` | `devstral-small-2:latest-ctx8k` | yes |
+| `gemma4-heretic-coder` | `auto-coding` | `hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M` | yes |
 | `gemma4jangvision` | `auto-vision` | `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf` | yes |
 | `gemma_vision` | `auto-vision` | `gemma4:31b-it-qat-ctx8k` | yes |
 | `glm-coder` | `auto-coding` | `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k` | yes |
 | `glm-thinker` | `auto-reasoning` | `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k` | yes |
+| `hauhaucs-coder` | `auto-coding` | `hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M` | yes |
 | `magistralstrategist` | `auto-reasoning` | `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k` | yes |
+| `ornith15-coder` | `auto-coding` | `hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M` | yes |
 | `qwen38coder` | `auto-coding` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M` | yes |
 | `qwen38coder-dflash` | `auto-coding` | `Qwen3.8-27B-4bit` | yes |
 
@@ -645,9 +651,9 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-# Model catalog (225 model ids across 7 backend groups)
+# Model catalog (228 model ids across 7 backend groups)
 
-## coding (44)
+## coding (47)
 
 - `Laguna-XS.2-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
@@ -659,6 +665,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `glm-4.7-flash:Q4_K_M`
 - `gpt-oss:20b`
 - `hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M`
+- `hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M`
 - `hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M`
 - `hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf`
 - `hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M`
@@ -671,6 +678,8 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M`
 - `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M-ctx64k`
 - `hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M`
+- `hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M`
+- `hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M`
 - `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M`
 - `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL`
 - `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k`

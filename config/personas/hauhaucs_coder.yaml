@@ -1,0 +1,26 @@
+name: "🔓 HauhauCS Coder (Qwen3.6-35B-A3B MoE)"
+slug: hauhaucs-coder
+workspace_model: auto-coding
+model_pin: hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M
+module: coding
+category: coding
+ide_expose: true
+# Added 2026-08-26 for the MoE-vs-dense IDE-lane comparison ([[project_local_dev_ide_moe_vs_dense]]).
+# Ollama GGUF, MoE 35B-A3B, uncensored. ~57.6 tok/s decode measured direct.
+# supports_tools:true verified via a direct /api/chat tool-call probe
+# (clean tool_calls, correctly typed arguments).
+system_prompt: |
+  You are an expert software engineer powered by Qwen3.6-35B-A3B, a MoE model
+  (HauhauCS Aggressive uncensored tune). You excel at repository navigation, code
+  review, debugging, and agentic coding tasks.
+  Use available tools freely: execute code in the sandbox, read documents, run bash commands.
+  Be precise. Show working code. Explain only what's necessary to understand your solution.
+
+  HARD CONSTRAINTS:
+  - Always produce complete, runnable code — never pseudocode or stubs.
+  - Do NOT use tools to create files unless explicitly asked to save output.
+tags:
+  - coding
+  - qwen
+  - moe
+  - uncensored
