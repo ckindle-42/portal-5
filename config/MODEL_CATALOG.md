@@ -1303,6 +1303,16 @@ This unit previously parroted the generic derived-tag template from the doc. Re-
 
 ---
 
+### `portal5/qwen3-coder-next-abliterated:q4_K_M-ctx256k`
+
+`portal5/qwen3-coder-next-abliterated:q4_K_M-ctx256k` is the full-native-context derived tag of the abliterated Qwen3-Coder-Next, added 2026-08-26 as the `model_hint` of the `auto-coding` `uncensored-agentic` variant, replacing the undersized `-ctx64k` tag. `config/backends.yaml` registers it in the `coding` group with `supports_tools: true`, verified live via a direct `/api/chat` tool-call probe (clean `tool_calls`, correctly typed arguments). `PARAMETER num_ctx 262144` is baked in via `portal models apply-params`. The `auto-spl` workspace still uses the `-ctx64k` tag and was left out of scope. Memory footprint at full context was empirically confirmed negligible over the `-ctx64k` tag (~1GB), so no memory-safety tradeoff exists at this size.
+
+## Why
+
+The `-ctx64k` tag silently capped real opencode agentic sessions well below their actual token usage (observed up to ~87K tokens in a single request), causing hard context-exceeded failures. This tag exists so the `uncensored-agentic` variant runs at the model's true native context instead.
+
+---
+
 ### `hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4-ctx8k`
 
 `hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4-ctx8k` is the 8K-context derived tag of North-Mini-Code-1.0-QAD, promoted 2026-06-30 to the `northmini` variant of `auto-coding` as an additional lineage-diversity option. `config/backends.yaml` registers it in the `coding` group with `supports_tools: true`; the inline comment attributes tool support to the cohere_command4 parser on the cohere2moe architecture, which smoke-loaded cleanly on this Ollama build. `config/portal.yaml` selects this exact tag as the `model_hint` for the `northmini` variant of `auto-coding` — the coding workspace that keeps the Qwen3-Coder-30B primary untouched. `PARAMETER num_ctx 8192` is baked in via `portal models apply-params` because Ollama ignores request-time context options. The base `NVFP4` tag remains `bench-north-mini-code`'s `model_hint`.
@@ -1383,6 +1393,16 @@ The distinguishing fact is routing: `config/portal.yaml` resolves the `auto-agen
 
 ---
 
+### `portal5/agentworld-35b:ud-q4_K_XL-ctx256k`
+
+`portal5/agentworld-35b:ud-q4_K_XL-ctx256k` is the full-native-context derived tag of the AgentWorld world model, added 2026-08-26 as the `model_hint` of the `auto-coding` `lite` variant, replacing the undersized `-ctx64k` tag. `config/backends.yaml` registers it in the `coding` group with `supports_tools: true`, verified live via a direct `/api/chat` tool-call probe (clean `tool_calls`, correctly typed arguments). `PARAMETER num_ctx 262144` is baked in via `portal models apply-params`. The separate `general`-group `-ctx64k` entry (used by `auto-agentic`'s lite variant, a different workspace) was left out of scope.
+
+## Why
+
+The `-ctx64k` tag silently capped real opencode agentic sessions well below their actual token usage, causing hard context-exceeded failures. This tag exists so the `auto-coding` `lite` variant runs at the model's true native context instead.
+
+---
+
 ### `huihui_ai/Qwen3.6-abliterated:27b-ctx8k`
 
 `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` is the 8K-context derived tag of the Qwen3.6-abliterated 27B model, registered in `config/backends.yaml` under both the `general` and `creative` groups with `supports_tools: true`. `config/portal.yaml` routes the `auto-general-uncensored` workspace to this tag with an 8192 context limit, giving the uncensored generalist lane its promptable model. The `PARAMETER num_ctx 8192` is baked into the tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`. Full model detail lives in the base `:27b` entry; this tag exists to enforce the general-uncensored lane's context cap as a distinct model id.
@@ -1453,6 +1473,16 @@ The ctx64k variant exists because the completion endpoint discards per-request c
 
 ---
 
+### `portal5/laguna-xs2:q4_K_M-ctx128k`
+
+`portal5/laguna-xs2:q4_K_M-ctx128k` is the full-native-context derived tag of `laguna-xs.2:Q4_K_M`, added 2026-08-26 as the `model_hint` of the `auto-coding` laguna variant — the default model behind opencode's `codingagentic` persona — replacing the undersized `-ctx64k` tag. `config/backends.yaml` registers it in `group: coding` with `supports_tools: true`, and the `omlx-coding` `aliases` block additionally maps it to the oMLX `Laguna-XS.2-4bit` model (same as the old tag). `PARAMETER num_ctx 131072` is baked in via `portal models apply-params`. Verified live via a direct tool-call probe (clean `tool_calls`, correctly typed arguments) and empirically confirmed ~23-24GB footprint, 100% GPU, negligible marginal memory cost over the `-ctx64k` tag.
+
+## Why
+
+Real opencode agentic sessions were observed reaching 87K+ tokens (tool-call payloads included), well past the old `-ctx64k` cap, causing hard context-exceeded failures on Laguna specifically since it is opencode's default model. The original 64K sizing was a 2026-07-02 workload estimate, not a deliberate memory-safety decision (confirmed before raising it), and the memory cost of the full 131072 native window is negligible, so this tag exists to close that gap.
+
+---
+
 ### `lfm2.5:8b-ctx8k`
 
 `lfm2.5:8b-ctx8k` is the derived tag of `lfm2.5:8b` with `PARAMETER num_ctx 8192` baked in via the `apply-params` command, needed because Ollama's `/v1/chat/completions` drops request-time `options.num_ctx`. `config/backends.yaml` lists it in `group: general` and `group: security` with `supports_tools: true`, mirroring its parent. `config/portal.yaml` makes it the `auto-music` workspace `model_hint` with `context_limit: 8192`, so music generation runs against the capped tag rather than the full-context base. Base model detail lives in the parent unit.
@@ -1470,6 +1500,16 @@ The ctx8k variant is the tag the music lane actually serves, so the grounding is
 ## Why
 
 The ctx8k variant is the tag the auto-coding uncensored lane actually serves, so the grounding is the coding-group registration plus the uncensored variant's `model_hint` and `context_limit`. Stating that general carries only the untagged id explains why the derived tag is absent there. The bake-in mechanism is kept because the endpoint cannot take the context bound per request.
+
+---
+
+### `portal5/omnicoder2-9b:q4_k_m-ctx256k`
+
+`portal5/omnicoder2-9b:q4_k_m-ctx256k` is the full-native-context derived tag of `omnicoder2:9b-q4_k_m`, added 2026-08-26 as the `model_hint` of the `auto-coding` `uncensored` variant, replacing the severely undersized `-ctx8k` tag. `config/backends.yaml` registers it in `group: coding` with `supports_tools: true`, verified live via a direct tool-call probe (clean `tool_calls`, correctly typed arguments). `PARAMETER num_ctx 262144` is baked in via `portal models apply-params`.
+
+## Why
+
+An 8K context was far too small for real opencode/agentic use (tool-call round-trips alone can exceed it); this tag brings the uncensored one-shot codegen lane up to the model's true native context, matching the fix applied to the rest of the `auto-coding` variant lineup.
 
 ---
 
@@ -1500,6 +1540,16 @@ This derived tag is the exception case: registered in the coding backend for com
 ## Why
 
 The heavy auto-coding variant is the only production workspace that references this tag, and its `context_limit` must match the baked `PARAMETER num_ctx` exactly or the KV-cache reservation silently widens past the workspace's declared intent. Grounding the tag in `apply-params` and the workspace pin makes the derivation mechanism traceable to the code that creates it and to the config that consumes it.
+
+---
+
+### `portal5/qwen3-coder-next:latest-ctx256k`
+
+`portal5/qwen3-coder-next:latest-ctx256k` is the full-native-context derived tag of `qwen3-coder-next:latest`, added 2026-08-26 as the `model_hint` of the `auto-coding` `heavy` variant, replacing the undersized `-ctx64k` tag. `config/backends.yaml` registers it in `group: coding` (`ollama-coding`) with `supports_tools: true`, verified live via a direct tool-call probe (clean `tool_calls`, correctly typed arguments). `PARAMETER num_ctx 262144` is baked in via `portal models apply-params`.
+
+## Why
+
+The `-ctx64k` cap was undersized for real opencode agentic requests (observed up to ~87K tokens); confirming the native 262144 window costs only ~1GB more memory over the capped tag made raising it to full native context the correct fix, matching the change applied across the rest of the `auto-coding` lineup.
 
 ---
 

@@ -650,9 +650,9 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-# Model catalog (228 model ids across 7 backend groups)
+# Model catalog (233 model ids across 7 backend groups)
 
-## coding (47)
+## coding (52)
 
 - `Laguna-XS.2-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
@@ -691,9 +691,14 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `omnicoder2:9b-q4_k_m-ctx8k`
 - `phi4-reasoning:plus`
 - `phi4-reasoning:plus-ctx32k`
+- `portal5/agentworld-35b:ud-q4_K_XL-ctx256k`
 - `portal5/gemma4-26b-heretic:q4_K_M-ctx256k`
 - `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k`
+- `portal5/laguna-xs2:q4_K_M-ctx128k`
+- `portal5/omnicoder2-9b:q4_k_m-ctx256k`
 - `portal5/ornith15-35b:q4_K_M-ctx256k`
+- `portal5/qwen3-coder-next-abliterated:q4_K_M-ctx256k`
+- `portal5/qwen3-coder-next:latest-ctx256k`
 - `qwen3-coder-next:latest`
 - `qwen3-coder-next:latest-ctx64k`
 - `qwen3-coder:30b-a3b-q4_K_M`

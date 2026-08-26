@@ -1035,9 +1035,17 @@ class TestAgenticWorkspace:
         default to a KV cache that spilled off-GPU and stalled every request. auto-agentic
         is a long-horizon agentic workspace (multi-file SWE-agent-style tool loops), so it
         needs real room for both the accumulated tool-call history and reasoning — hence
-        the derived -ctx64k tag and context_limit=65536, not None. Enforced now via a
-        derived Ollama model tag, since Ollama's /v1/chat/completions ignores request-time
-        options.num_ctx (see portal.platform.inference.cli.models apply-params).
+        the derived -ctx64k tag and context_limit=65536, not None, at the time.
+
+        Raised to the model's full native context (262144) on 2026-08-26
+        (TASK_CODING_FULL_CONTEXT_V1): real opencode agentic sessions were observed
+        reaching ~87K tokens, past the 65536 cap, causing hard context-exceeded
+        failures. The 65536 sizing was confirmed to be a 2026-07-02 workload
+        estimate, not a deliberate memory-safety decision, and the marginal memory
+        cost of the full window was confirmed negligible (~1GB) before raising it.
+        Enforced via a derived Ollama model tag (portal5/qwen3-coder-next:latest-ctx256k),
+        since Ollama's /v1/chat/completions ignores request-time options.num_ctx
+        (see portal.platform.inference.cli.models apply-params).
         """
         from portal.platform.inference.router.preinject import (
             _resolve_workspace_variant,
@@ -1054,8 +1062,8 @@ class TestAgenticWorkspace:
             f"auto-agentic hint should be qwen3-coder-next:latest (V8 promotion), got: {hint}"
         )
         ctx = merged.get("context_limit")
-        assert ctx == 65536, (
-            f"auto-agentic context_limit should be 65536 (agentic long-horizon tuning), got: {ctx}"
+        assert ctx == 262144, (
+            f"auto-agentic context_limit should be 262144 (full native context, 2026-08-26), got: {ctx}"
         )
 
     def test_agentic_workspace_has_model_hint(self):
