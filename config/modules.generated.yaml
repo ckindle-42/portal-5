@@ -21,6 +21,7 @@ modules:
   security:
     enabled: true
 launched_mcp_ids:
+- binresearch
 - browser
 - cad_render
 - detections

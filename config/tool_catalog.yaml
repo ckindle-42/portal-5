@@ -214,3 +214,75 @@ tools:
     targets_services: [ldap]
     typical_args: "(Python library — used in enumeration scripts)"
     notes: Python LDAP client for custom AD enumeration.
+  - name: rizin
+    category: reverse-engineering
+    phase: exploit
+    targets_services: []
+    typical_args: "-A -q -c 'afl' binary"
+    notes: radare2 fork — disassembly/analysis, used by the binary research harness.
+  - name: readelf
+    category: reverse-engineering
+    phase: recon
+    targets_services: []
+    typical_args: "-a binary"
+    notes: ELF header/section/symbol inspection.
+  - name: objdump
+    category: reverse-engineering
+    phase: recon
+    targets_services: []
+    typical_args: "-d binary"
+    notes: Disassembly + object inspection (binutils).
+  - name: llvm-objdump
+    category: reverse-engineering
+    phase: recon
+    targets_services: []
+    typical_args: "-d --macho binary"
+    notes: LLVM disassembler — handles Mach-O/ELF/PE object formats.
+  - name: strings
+    category: reverse-engineering
+    phase: recon
+    targets_services: []
+    typical_args: "-a -t x binary"
+    notes: Printable-string extraction with offsets.
+  - name: unblob
+    category: firmware
+    phase: recon
+    targets_services: []
+    typical_args: "-e outdir firmware.bin"
+    notes: Recursive firmware/container extraction (binwalk successor).
+  - name: yara
+    category: reverse-engineering
+    phase: detect
+    targets_services: []
+    typical_args: "rules.yar target"
+    notes: Signature matching against binaries/memory.
+  - name: ssdeep
+    category: reverse-engineering
+    phase: detect
+    targets_services: []
+    typical_args: "-b sample"
+    notes: Fuzzy hashing for sample similarity clustering.
+  - name: lief
+    category: reverse-engineering
+    phase: recon
+    targets_services: []
+    typical_args: "(Python library — ELF/PE/Mach-O parsing)"
+    notes: Parse/modify executable formats programmatically.
+  - name: capstone
+    category: reverse-engineering
+    phase: exploit
+    targets_services: []
+    typical_args: "(Python library — multi-arch disassembly)"
+    notes: Disassembly framework used in analysis scripts.
+  - name: pefile
+    category: reverse-engineering
+    phase: recon
+    targets_services: []
+    typical_args: "(Python library — PE parsing)"
+    notes: Windows PE header/import/section inspection.
+  - name: ropper
+    category: exploit-dev
+    phase: exploit
+    targets_services: []
+    typical_args: "--file binary --search 'pop rdi'"
+    notes: ROP/JOP gadget discovery for exploit-dev analysis.

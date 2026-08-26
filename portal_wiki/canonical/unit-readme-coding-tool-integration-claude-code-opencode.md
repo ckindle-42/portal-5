@@ -25,7 +25,7 @@ updated_at: 1784946220.6907141
 Portal 5 ships first-class support for AI coding assistants. Two repo-root config
 files activate automatically when either tool opens this project:
 
-- **`.mcp.json`** — currently 21 MCP servers (count with `python3 -c "import json; print(len(json.load(open('.mcp.json'))['mcpServers']))"`): filesystem, git, docker, fetch, portal-sandbox (execute_bash), portal-pipeline (FastContext code explorer + stack introspection), plus the other portal-* tool servers.
+- **`.mcp.json`** — currently 22 MCP servers (count with `python3 -c "import json; print(len(json.load(open('.mcp.json'))['mcpServers']))"`): filesystem, git, docker, fetch, portal-sandbox (execute_bash), portal-pipeline (FastContext code explorer + stack introspection), plus the other portal-* tool servers.
 - **`opencode.jsonc`** — points opencode at the pipeline (`http://localhost:9099/v1`) as a fully local AI backend; a curated 20-entry model picker whose default is `model: portal/codingagentic`; the cloud providers (anthropic, openai, google, bedrock, vertex) are disabled in its disabled_providers list.
 
 The `codingagentic` persona (`config/personas/codingagentic.yaml`) binds the
