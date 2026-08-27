@@ -336,31 +336,22 @@ _ensure_native_services() {
         fi
     fi
 
-    # ── Music MCP (native on macOS for MPS; skip on non-arm64) ──────────────
+    # ── MiniMax music MCP (native MLX on Apple Silicon) ─────────────────────
     if [ "$ARCH" = "arm64" ]; then
-        local MUSIC_VENV="$HOME/.portal5/music/.venv"
-        if [ -f "$MUSIC_VENV/bin/python" ]; then
-            if ! curl -s "http://localhost:${MUSIC_HOST_PORT:-8912}/health" &>/dev/null 2>&1; then
-                echo "[portal-5]   Music MCP installed but not running — starting..."
-                mkdir -p "$HOME/.portal5/logs"
-                if launchctl list com.portal5.music-mcp &>/dev/null 2>&1; then
-                    launchctl start com.portal5.music-mcp 2>>"$HOME/.portal5/logs/music-mcp-launchctl.log" || true
-                else
-                    PYTHONPATH="$PORTAL_ROOT" \
-                    HF_HOME="${HF_HOME:-$HOME/.portal5/music/hf_cache}" \
-                    TRANSFORMERS_CACHE="${HF_HOME:-$HOME/.portal5/music/hf_cache}" \
-                    OUTPUT_DIR="${AI_OUTPUT_DIR:-$HOME/AI_Output}" \
-                    MUSIC_MCP_PORT="${MUSIC_HOST_PORT:-8912}" \
-                    nohup "$MUSIC_VENV/bin/python" -m portal.modules.media.tools.music_mcp \
-                        > "$HOME/.portal5/logs/music-mcp.log" 2>&1 &
-                    echo $! > /tmp/music-mcp.pid
-                fi
-                echo "[portal-5]   ⏳ Music MCP starting on :${MUSIC_HOST_PORT:-8912}"
-                echo "[portal-5]      Logs: $HOME/.portal5/logs/music-mcp.log"
+        if [ -f "$HOME/.portal5/music-minimax/.venv/bin/python" ]; then
+            if ! curl -s "http://localhost:${MUSIC_MINIMAX_PORT:-8912}/health" &>/dev/null 2>&1; then
+                launchctl start com.portal5.music-minimax 2>/dev/null || true
+                echo "[portal-5]   ⏳ MiniMax music MCP starting on :${MUSIC_MINIMAX_PORT:-8912}"
             else
-                echo "[portal-5]   ✅ Music MCP: running"
+                echo "[portal-5]   ✅ MiniMax music MCP: running"
             fi
         fi
+    fi
+
+    # ACE-Step engine and proxy are independently supervised by launchd.
+    if [ -f "$HOME/.portal5/music-ace/.venv/bin/python" ]; then
+        curl -s "http://localhost:${MUSIC_ACE_MCP_PORT:-8933}/health" &>/dev/null 2>&1 || launchctl start com.portal5.music-ace-mcp 2>/dev/null || true
+        curl -s "http://localhost:${ACESTEP_ENGINE_PORT:-8001}/health" &>/dev/null 2>&1 || launchctl start com.portal5.acestep-server 2>/dev/null || true
     fi
 
     # ── MLX Speech (Apple Silicon native only) ──────────────────────────────
@@ -448,20 +439,10 @@ _do_down() {
             echo "[portal-5] ComfyUI: not running (nothing to stop)."
         fi
 
-        # Music MCP (:8912)
-        if launchctl list com.portal5.music-mcp &>/dev/null 2>&1; then
-            launchctl stop com.portal5.music-mcp 2>/dev/null || true
-            echo "[portal-5] Music MCP service stopped (launchd)."
-        elif [ -f /tmp/music-mcp.pid ] && kill -0 "$(cat /tmp/music-mcp.pid)" 2>/dev/null; then
-            kill "$(cat /tmp/music-mcp.pid)" 2>/dev/null || true
-            rm -f /tmp/music-mcp.pid
-            echo "[portal-5] Music MCP process stopped."
-        elif pgrep -f "music_mcp|music-mcp" &>/dev/null 2>&1; then
-            pkill -f "music_mcp|music-mcp" 2>/dev/null || true
-            echo "[portal-5] Music MCP process stopped (pkill)."
-        else
-            echo "[portal-5] Music MCP: not running (nothing to stop)."
-        fi
+        launchctl stop com.portal5.music-minimax 2>/dev/null || true
+        launchctl stop com.portal5.music-ace-mcp 2>/dev/null || true
+        launchctl stop com.portal5.acestep-server 2>/dev/null || true
+        echo "[portal-5] Music backends stopped (MiniMax, ACE proxy, ACE engine)."
 
         # MLX Speech (:8918)
         if [ -f /tmp/portal-mlx-speech.pid ] && kill -0 "$(cat /tmp/portal-mlx-speech.pid)" 2>/dev/null; then
@@ -604,7 +585,7 @@ _check_ports() {
     _port_check "${DOCUMENTS_HOST_PORT:-8913}"  "MCP Documents"
     # Music MCP runs natively on macOS — skip Docker port conflict check
     if [ "$(uname -m)" != "arm64" ]; then
-        _port_check "${MUSIC_HOST_PORT:-8912}"  "MCP Music"
+        _port_check "${MUSIC_MINIMAX_PORT:-8912}"  "MCP Music MiniMax"
     fi
     _port_check "${TTS_HOST_PORT:-8916}"        "MCP TTS"
     _port_check "${WHISPER_HOST_PORT:-8915}"    "MCP Whisper"
@@ -829,13 +810,23 @@ print(d.get('system',{}).get('comfyui_version','?'))
             printf "    ❌  %-28s %s\n" "ComfyUI" "not running — ~/ComfyUI/start.sh"
         fi
 
-        if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:${MUSIC_HOST_PORT:-8912}/health', timeout=2)" &>/dev/null 2>&1; then
-            printf "    ✅  %-28s %s\n" "Music MCP" ":${MUSIC_HOST_PORT:-8912}"
-        elif [ -f "$HOME/.portal5/music/.venv/bin/python" ]; then
-            printf "    ❌  %-28s %s\n" "Music MCP" "installed but not running — ./launch.sh up"
+        if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:${MUSIC_MINIMAX_PORT:-8912}/health', timeout=2)" &>/dev/null 2>&1; then
+            printf "    ✅  %-28s %s\n" "Music MiniMax MCP" ":${MUSIC_MINIMAX_PORT:-8912}"
+        elif [ -f "$HOME/.portal5/music-minimax/.venv/bin/python" ]; then
+            printf "    ❌  %-28s %s\n" "Music MiniMax MCP" "installed but not running"
         else
-            printf "    ℹ️   %-28s %s\n" "Music MCP" "not installed — ./launch.sh install-music"
+            printf "    ℹ️   %-28s %s\n" "Music MiniMax MCP" "not installed — ./launch.sh install-music-minimax"
         fi
+        for _music_check in "Music ACE MCP|${MUSIC_ACE_MCP_PORT:-8933}|$HOME/.portal5/music-ace/.venv/bin/python|install-music-ace" "ACE-Step engine|${ACESTEP_ENGINE_PORT:-8001}|$HOME/.portal5/music-ace/ace-runtime|install-music-ace"; do
+            IFS='|' read -r _music_label _music_port _music_path _music_install <<< "$_music_check"
+            if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:${_music_port}/health', timeout=2)" &>/dev/null 2>&1; then
+                printf "    ✅  %-28s %s\n" "$_music_label" ":${_music_port}"
+            elif [ -e "$_music_path" ]; then
+                printf "    ❌  %-28s %s\n" "$_music_label" "installed but not running"
+            else
+                printf "    ℹ️   %-28s %s\n" "$_music_label" "not installed — ./launch.sh $_music_install"
+            fi
+        done
 
         # MLX Speech
         if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8918/health', timeout=2)" &>/dev/null 2>&1; then

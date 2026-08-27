@@ -5,7 +5,7 @@ title: tool authorizations for 25 production workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 2c7a5b00c6db
+  commit: 570249c65237
   section: workspaces[].tools
 claims: []
 confidence: high
@@ -14,7 +14,7 @@ tags:
 - tools
 - workspaces
 created_at: 1784049584.703768
-updated_at: 1787845701.438581
+updated_at: 1787857926.3801181
 ---
 
 # Tool authorizations (per-workspace `tools:` whitelist)
@@ -31,14 +31,14 @@ The pipeline strips any tool a workspace does not authorize (metric `portal5_too
 | `auto-compliance` | compliance | `create_word_document`, `read_pdf`, `kb_search`, `kb_list`, `web_search` |
 | `auto-council` | general | _(none)_ |
 | `auto-creative` | media | _(none)_ |
-| `auto-daily` | general | `web_search`, `web_fetch`, `kb_search`, `kb_list`, `read_pdf`, `read_word_document`, `read_excel`, `create_word_document`, `create_excel`, `create_powerpoint`, `execute_python`, `remember`, `recall`, `generate_music`, `transcribe_audio` |
+| `auto-daily` | general | `web_search`, `web_fetch`, `kb_search`, `kb_list`, `read_pdf`, `read_word_document`, `read_excel`, `create_word_document`, `create_excel`, `create_powerpoint`, `execute_python`, `remember`, `recall`, `minimax_generate`, `minimax_status`, `transcribe_audio` |
 | `auto-data` | research | `execute_python`, `create_excel`, `kb_search` |
 | `auto-documents` | documents | `create_word_document`, `create_excel`, `create_powerpoint`, `read_word_document`, `read_excel`, `read_powerpoint`, `read_pdf`, `transcribe_with_speakers` |
 | `auto-extract-uncensored` | documents | _(none)_ |
 | `auto-general-uncensored` | general | `execute_bash`, `execute_python`, `read_word_document`, `read_pdf`, `remember`, `recall` |
 | `auto-image` | media | `generate_image`, `list_workflows`, `get_generation_status`, `get_latest_images`, `start_image_generation` |
 | `auto-math` | general | _(none)_ |
-| `auto-music` | media | `generate_music`, `generate_continuation`, `list_music_models`, `speak`, `transcribe_audio`, `clone_voice`, `list_voices` |
+| `auto-music` | media | `minimax_generate`, `minimax_status`, `minimax_models`, `ace_generate`, `ace_status`, `ace_models`, `speak`, `transcribe_audio`, `clone_voice`, `list_voices` |
 | `auto-nemotron` | general | `web_search`, `web_fetch`, `kb_search`, `kb_list`, `read_pdf`, `read_word_document`, `remember`, `recall` |
 | `auto-reasoning` | general | _(none)_ |
 | `auto-research` | research | `web_search`, `web_fetch`, `news_search`, `kb_search`, `kb_search_all`, `kb_list`, `remember`, `recall` |

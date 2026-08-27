@@ -166,7 +166,7 @@ Run 13 is the first comprehensive test with all new sections (S24, S38, S40, S1-
 - File-on-disk verification with keyword checks
 
 ### Music & Video (S7, S10)
-- MusicGen generation with WAV validation
+- MiniMax and ACE-Step full-quality generation with audio validation
 - Video MCP health and model listing
 - Workspace round-trips working
 

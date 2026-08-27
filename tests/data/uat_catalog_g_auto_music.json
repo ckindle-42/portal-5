@@ -23,10 +23,10 @@
     "id": "WS-12",
     "media_kind": "sound",
     "model_slug": "auto-music",
-    "name": "Music Producer \u2014 Dark Ambient Generation",
-    "prompt": "Generate a 20-second piece: dark ambient electronic, cinematic tension, slow evolving pads, subtle percussion, minor key, suitable for a suspense scene.",
+    "name": "Music Producer \u2014 Dark Ambient Generation (MiniMax)",
+    "prompt": "Using MiniMax, generate a 60-second piece: dark ambient electronic, cinematic tension, slow evolving pads, subtle percussion, minor key, suitable for a suspense scene.",
     "section": "auto-music",
-    "timeout": 180,
+    "timeout": 1200,
     "workspace_tier": "media_heavy"
   },
   {

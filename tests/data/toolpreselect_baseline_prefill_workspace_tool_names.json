@@ -57,7 +57,8 @@
     "execute_python",
     "remember",
     "recall",
-    "generate_music",
+    "minimax_generate",
+    "minimax_status",
     "transcribe_audio"
   ]
 }

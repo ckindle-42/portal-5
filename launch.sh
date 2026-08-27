@@ -524,8 +524,16 @@ PYEOF
     _launch_install_comfyui
     ;;
 
-  install-music)
-    _launch_install_music
+  install-music-minimax)
+    _launch_install_music_minimax
+    ;;
+
+  install-music-ace)
+    _launch_install_music_ace
+    ;;
+
+  stop-music-ace)
+    _launch_stop_music_ace
     ;;
 
   start-speech)
@@ -626,12 +634,14 @@ PYEOF
 
 
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|sync-config|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|download-comfyui-models|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|pull-wan22|pull-qwen-image|apply-mtp-drafts|build-lab-attack|build-binresearch]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|sync-config|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music-minimax|install-music-ace|stop-music-ace|download-comfyui-models|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|pull-wan22|pull-qwen-image|apply-mtp-drafts|build-lab-attack|build-binresearch]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
     echo "  install-comfyui       Install ComfyUI natively via git+pip (Apple Silicon)"
-    echo "  install-music         Install Music MCP natively via venv (Apple Silicon / MPS)"
+    echo "  install-music-minimax Install MiniMax-Music3-MLX MCP (Apple Silicon / MLX)"
+    echo "  install-music-ace     Install ACE-Step engine and proxy MCP"
+    echo "  stop-music-ace        Stop the ACE-Step engine and proxy MCP"
     echo "  download-comfyui-models  REMOVED, no implementation (see download-comfyui-models handler)"
   echo "  pull-wan22            Pull Wan 2.2 TI2V-5B + S2V-14B + T2V-A14B ComfyUI models (~50 GB; Animate-14B not covered, see scripts/lib/services.sh)"
   echo "  pull-qwen-image       Pull working Qwen-Image T2I + Edit-2509 + Lightning models (~48 GiB)"

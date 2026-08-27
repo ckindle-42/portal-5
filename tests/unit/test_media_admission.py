@@ -112,8 +112,9 @@ class TestMediaModelMemoryDict:
         """The 14B video model that caused the live 2026-07-14 lockup must be >= 35GB."""
         assert _admission.MEDIA_MODEL_MEMORY_GB.get("video:wan21-nsfw", 0) >= 35.0
 
-    def test_small_music_model_has_reasonable_estimate(self):
-        assert _admission.MEDIA_MODEL_MEMORY_GB.get("music:small", 999) < 10.0
+    def test_music_models_use_live_complete_quality_estimates(self):
+        assert _admission.MEDIA_MODEL_MEMORY_GB["music:minimax3"] == 27.0
+        assert _admission.MEDIA_MODEL_MEMORY_GB["music:acestep-sft"] == 40.0
 
     def test_headroom_constant_exists(self):
         assert _admission.MEMORY_HEADROOM_GB >= 0

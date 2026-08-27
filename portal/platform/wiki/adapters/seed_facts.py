@@ -643,7 +643,8 @@ def derive_tool_authorizations(commit: str, save: bool = True) -> KnowledgeUnit:
 # only. These figures are session-observed (Slice P media bring-up, 2026-07-14): Flux
 # summed from on-disk checkpoint+CLIP+VAE sizes, Wan2.1-NSFW-14B likewise (the exact
 # combination that drove swap to 66.7GB/67.6GB and locked the system), SDXL from its
-# single-file size, MusicGen from music_mcp.py's own list_music_models RAM figures.
+# single-file size. Music backend figures are live 60s/30-step vm_stat measurements
+# with standard headroom (see the per-engine entries below).
 # Operator-confirmed as the basis pending real vendor-spec numbers (see AskUserQuestion
 # in that session — GATE: HISTORY had no applicable historical table to recover).
 MEDIA_MODEL_MEMORY_GB: dict[str, float] = {
@@ -655,9 +656,10 @@ MEDIA_MODEL_MEMORY_GB: dict[str, float] = {
     # not capture real peak usage — diffusion activation/buffer overhead pushes this
     # backend close to the entire 64GB unified pool regardless of frame count.
     "video:wan21-nsfw": 55.0,
-    "music:small": 2.0,
-    "music:medium": 6.0,
-    "music:large": 12.0,
+    # Measured live (Phase 5): MiniMax-Music3-MLX 60s/30-step, vm_stat delta + headroom.
+    "music:minimax3": 27.0,  # coarse sampled delta 22.02GiB + 4GiB headroom, rounded up
+    # Measured live (Phase 5): ACE-Step-1.5 sft 2B + 1.7B LM 60s/30-step, vm_stat delta + headroom.
+    "music:acestep-sft": 40.0,  # coarse sampled delta 35.43GiB + 4GiB headroom, rounded up
     # Rationale, incident history: unit-known-limitations-qwen-image-bf16-crashes-on-apple-silicon-mps
     "comfyui:qwen-image-2512": 38.0,  # fp8 diffusion 20.4 + fp8_scaled text encoder 9.4 + vae 0.25 static + margin
     "comfyui:qwen-image-2512-lightning": 39.0,  # same base weights (QWEN_IMAGE_MODEL, fp8) + ~0.85GB LoRA

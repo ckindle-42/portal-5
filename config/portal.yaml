@@ -69,10 +69,16 @@ mcp_fleet:
   # compose.yml and portal/modules/media/tools/video_mcp.py is untouched --
   # only fleet registration (tool advertisement, validate_system.py's
   # liveness expectation) is removed. Re-add here if video is revisited.
-  - id: music
+  - id: music-minimax
     module: media
-    name: portal-music
+    name: portal-music-minimax
     port: 8912
+    expose_to_pipeline: true
+    expose_to_ide: true
+  - id: music-ace
+    module: media
+    name: portal-music-ace
+    port: 8933
     expose_to_pipeline: true
     expose_to_ide: true
   - id: documents
@@ -339,7 +345,8 @@ workspaces:
     - execute_python
     - remember
     - recall
-    - generate_music
+    - minimax_generate
+    - minimax_status
     - transcribe_audio
     expose_to_owui: true
     enable_web_search: true
@@ -1066,7 +1073,7 @@ workspaces:
     module: media
     name: 🎵 Portal Music Producer
     description: |-
-      Generate music and audio via AudioCraft/MusicGen. LFM2.5-8B-A1B hybrid (V8: fastest structured-output model in fleet, 89 t/s, unique non-transformer architecture, tool-capable, Apache 2.0).
+      Generate full songs (lyrics/vocals or instrumental) via two engines available for side-by-side comparison: MiniMax-Music3-MLX and ACE-Step-1.5 (which also does cover/remix/extend). LFM2.5-8B-A1B hybrid (V8: fastest structured-output model in fleet, 89 t/s, unique non-transformer architecture, tool-capable, Apache 2.0).
     model_hint: lfm2.5:8b-ctx8k
     context_limit: 8192
     temperature: 0.8
@@ -1081,11 +1088,14 @@ workspaces:
     system_prompt_append: |2-
   
   
-      You have music, speech, and transcription tools available. Use generate_music to create original music from a text description. Use generate_continuation to extend an existing audio clip. Use list_music_models to show available model sizes. Use speak to synthesise speech from text. Use clone_voice to reproduce a supplied reference voice (5-30s of clean speech) and list_voices to show available voices. Use transcribe_audio to convert speech to text — when the user has just uploaded an audio file, call transcribe_audio with no file argument; it auto-detects and uses the most recently uploaded audio file, so never ask the user for a file path. Always call the appropriate tool rather than just describing what you would do.
+      You have TWO music-generation engines plus speech/transcription tools. The two engines are for the operator to compare: MiniMax (tools minimax_generate / minimax_status / minimax_models) and ACE-Step (tools ace_generate / ace_status / ace_models). BOTH generate full songs with optional lyrics/vocals (use [Verse]/[Chorus] tags in lyrics, or "[Instrumental]" for no vocals) and BOTH are job-based: call the *_generate tool to start, then poll the matching *_status(job_id) every ~10-15 seconds and tell the user it is still rendering until status is "done" or "error" — a complete-quality clip (60s, 30 steps) takes several minutes, so never claim it is finished before status says so. When the user names an engine ("with minimax" / "using ace"), use that engine's tools; when they ask to compare, run the same prompt through both and return both download links; if they don't specify and aren't comparing, ask which engine. ACE-Step additionally supports editing an existing clip: ace_generate with task_type="repaint" (regenerate/extend a time range) or "cover" (style transfer) plus src_audio_path. Use speak to synthesise speech, clone_voice to reproduce a supplied reference voice, list_voices to show voices, and transcribe_audio to convert speech to text (call it with no file argument to auto-detect the most recently uploaded audio; never ask the user for a path). Always call the appropriate tool rather than describing what you would do.
     tools:
-    - generate_music
-    - generate_continuation
-    - list_music_models
+    - minimax_generate
+    - minimax_status
+    - minimax_models
+    - ace_generate
+    - ace_status
+    - ace_models
     - speak
     - transcribe_audio
     - clone_voice
@@ -1093,7 +1103,7 @@ workspaces:
     expose_to_owui: true
     enable_web_search: false
     owui_system_prompt: |-
-      You create music. Use the Portal Music MCP tool to generate audio clips. Ask for style, mood, tempo, and duration if not specified. After generating audio, include the download_url from the tool result as a clickable link so the user can download the file.
+      You create full songs (lyrics/vocals or instrumental) using two engines the operator is comparing: MiniMax (minimax_generate / minimax_status) and ACE-Step (ace_generate / ace_status, which also does cover/repaint to edit or extend an existing clip). Both are job-based — start with the *_generate tool, then poll *_status(job_id) until done, telling the user it's rendering in the meantime. When the user names an engine use it; to compare, run both and return both links; otherwise ask which engine. Ask for style, mood, tempo, and lyrics-vs-instrumental if unspecified. After a job completes, include the download_url from the tool result as a clickable link.
   auto-research:
     module: research
     name: 🔍 Portal Research Assistant

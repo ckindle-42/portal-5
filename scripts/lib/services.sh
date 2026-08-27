@@ -186,141 +186,168 @@ PLIST
     echo "  ./launch.sh up                        — start Portal 5 stack"
 }
 
-_launch_install_music() {
-    # Source .env so HF_HOME, AI_OUTPUT_DIR, and MUSIC_HOST_PORT propagate into
-    # the generated com.portal5.music-mcp.plist EnvironmentVariables block.
-    # Without this, a fresh shell running `./launch.sh install-music` defaults
-    # HF_HOME to ~/.portal5/music/hf_cache — separate from MLX's HF cache,
-    # fragmenting model storage.
-    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-
-    echo "=== Installing Music MCP natively (Apple Silicon / MPS) ==="
+_launch_install_music_minimax() {
+    echo "=== Installing MiniMax-Music3-MLX MCP natively (Apple Silicon / MLX) ==="
     ARCH=$(uname -m)
-    MUSIC_DIR="$HOME/.portal5/music"
-    MUSIC_VENV="$MUSIC_DIR/.venv"
-    MUSIC_LOG="$HOME/.portal5/logs/music-mcp.log"
-    MUSIC_PORT="${MUSIC_HOST_PORT:-8912}"
+    MM_DIR="$HOME/.portal5/music-minimax"
+    MM_VENV="$MM_DIR/.venv"
+    MM_MODEL_DIR="$MM_DIR/model"
+    MM_LOG="$HOME/.portal5/logs/music-minimax.log"
+    MM_PORT="${MUSIC_MINIMAX_PORT:-8912}"
 
     if [ "$ARCH" != "arm64" ]; then
-        echo "  ℹ️  Non-Apple-Silicon detected ($ARCH)."
-        echo "  Music MCP is designed for native macOS/MPS. On x86_64+CUDA, it can"
-        echo "  still run natively but Docker is also an option."
-        echo "  Continuing anyway..."
-    fi
-
-    if ! command -v python3 &>/dev/null; then
-        echo "  ❌ python3 not found. Install via brew: brew install python"
+        echo "  ❌ MiniMax-Music3-MLX requires Apple Silicon (arm64). Detected: $ARCH."
+        echo "  There is no CPU/CUDA fallback for this engine."
         exit 1
     fi
+    command -v python3 &>/dev/null || { echo "  ❌ python3 not found (brew install python)"; exit 1; }
 
-    # ── Create venv ───────────────────────────────────────────────────────────
-    mkdir -p "$MUSIC_DIR"
-    mkdir -p "$HOME/.portal5/logs"
-    if [ ! -d "$MUSIC_VENV" ]; then
-        echo "  Creating Python venv at $MUSIC_VENV..."
-        python3 -m venv "$MUSIC_VENV"
+    mkdir -p "$MM_DIR" "$HOME/.portal5/logs"
+    [ -d "$MM_VENV" ] || { echo "  Creating venv..."; python3 -m venv "$MM_VENV"; }
+
+    # Versions pinned to the model repo's own requirements.txt (verified 2026-08-27):
+    # mlx==0.30.6, mlx-metal==0.30.6, numpy>=2.0,<3, tokenizers>=0.22,<0.23. No torch.
+    echo "  Installing deps (mlx, mcp)..."
+    "$MM_VENV/bin/pip" install --quiet --upgrade pip
+    "$MM_VENV/bin/pip" install --quiet \
+        "mlx==0.30.6" "mlx-metal==0.30.6" "numpy>=2.0,<3" "tokenizers>=0.22,<0.23" \
+        "huggingface_hub[hf_xet]" "fastapi>=0.109.0" "uvicorn[standard]>=0.27.0" \
+        "httpx>=0.26.0" "pyyaml>=6.0.1" "starlette>=0.35.0" "mcp>=2.0.0,<3.0.0"
+
+    if [ -f "$MM_MODEL_DIR/minimax_mlx_model.py" ]; then
+        echo "  ✅ Model already present at $MM_MODEL_DIR"
     else
-        echo "  ✅ Venv already exists at $MUSIC_VENV"
+        echo "  Downloading PocketAiHub/MiniMax-Music3-MLX (~11.9GB, one-time)..."
+        mkdir -p "$MM_MODEL_DIR"
+        "$MM_VENV/bin/hf" download PocketAiHub/MiniMax-Music3-MLX --local-dir "$MM_MODEL_DIR"
+        SIZE_GB=$(du -sg "$MM_MODEL_DIR" 2>/dev/null | cut -f1)
+        [ -n "$SIZE_GB" ] && [ "$SIZE_GB" -lt 8 ] && echo "  ⚠️  Only ${SIZE_GB}GB downloaded — expected ~12GB; re-run install-music-minimax"
     fi
 
-    # ── Install dependencies ──────────────────────────────────────────────────
-    echo "  Installing dependencies (torch, transformers, mcp — this may take a few minutes)..."
-    "$MUSIC_VENV/bin/pip" install --quiet --upgrade pip
-    "$MUSIC_VENV/bin/pip" install --quiet \
-        "torch>=2.1.0" \
-        "torchaudio>=2.1.0" \
-        "transformers>=4.40.0" \
-        "scipy>=1.11.0" \
-        "fastapi>=0.109.0" \
-        "uvicorn[standard]>=0.27.0" \
-        "httpx>=0.26.0" \
-        "pyyaml>=6.0.1" \
-        "starlette>=0.35.0" \
-        "mcp>=2.0.0,<3.0.0"
-    echo "  ✅ Dependencies installed"
-
-    # ── HuggingFace cache dir ─────────────────────────────────────────────────
-    HF_CACHE="${HF_HOME:-$MUSIC_DIR/hf_cache}"
-    mkdir -p "$HF_CACHE"
-    echo "  HuggingFace cache: $HF_CACHE"
-    echo "  (MusicGen models download here on first generate_music call)"
-
-    # ── Create start script ───────────────────────────────────────────────────
-    cat > "$MUSIC_DIR/start.sh" << MUSIC_START
+    cat > "$MM_DIR/start.sh" << MM_START
 #!/bin/bash
-# Start Music MCP natively for MPS acceleration on Apple Silicon.
-# PORTAL_ROOT is baked at install-music time — re-run install-music
-# if the portal-5 repo moves.
 PORTAL_ROOT="${PORTAL_ROOT}"
-if [ ! -d "\$PORTAL_ROOT/portal_mcp" ]; then
-    echo "ERROR: PORTAL_ROOT=\$PORTAL_ROOT no longer contains portal_mcp/" >&2
-    echo "Re-run: ./launch.sh install-music" >&2
-    exit 1
-fi
+[ -d "\$PORTAL_ROOT/portal_mcp" ] || { echo "ERROR: PORTAL_ROOT invalid; re-run install-music-minimax" >&2; exit 1; }
 export PYTHONPATH="\$PORTAL_ROOT"
-export HF_HOME="${HF_CACHE}"
-export TRANSFORMERS_CACHE="${HF_CACHE}"
+export MUSIC_MINIMAX_MODEL_DIR="${MM_MODEL_DIR}"
 export OUTPUT_DIR="\${AI_OUTPUT_DIR:-\$HOME/AI_Output}"
-export MUSIC_MCP_PORT="${MUSIC_PORT}"
+export MUSIC_MINIMAX_MCP_PORT="${MM_PORT}"
 mkdir -p "\$OUTPUT_DIR"
-exec "$MUSIC_VENV/bin/python" -m portal.modules.media.tools.music_mcp
-MUSIC_START
-    chmod +x "$MUSIC_DIR/start.sh"
-    echo "  ✅ Start script: $MUSIC_DIR/start.sh"
+exec "$MM_VENV/bin/python" -m portal.modules.media.tools.music_minimax_mcp
+MM_START
+    chmod +x "$MM_DIR/start.sh"
 
-    # ── Register launchd plist (auto-start on login) ──────────────────────────
-    PLIST_PATH="$HOME/Library/LaunchAgents/com.portal5.music-mcp.plist"
-    cat > "$PLIST_PATH" << PLIST
+    PLIST="$HOME/Library/LaunchAgents/com.portal5.music-minimax.plist"
+    cat > "$PLIST" << PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.portal5.music-mcp</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>$MUSIC_DIR/start.sh</string>
-    </array>
-    <key>EnvironmentVariables</key>
-    <dict>
-        <key>PYTHONPATH</key>
-        <string>$PORTAL_ROOT</string>
-        <key>HF_HOME</key>
-        <string>$HF_CACHE</string>
-        <key>TRANSFORMERS_CACHE</key>
-        <string>$HF_CACHE</string>
-        <key>OUTPUT_DIR</key>
-        <string>${AI_OUTPUT_DIR:-$HOME/AI_Output}</string>
-        <key>MUSIC_MCP_PORT</key>
-        <string>$MUSIC_PORT</string>
-    </dict>
-    <key>WorkingDirectory</key>
-    <string>$PORTAL_ROOT</string>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-    <key>StandardOutPath</key>
-    <string>$MUSIC_LOG</string>
-    <key>StandardErrorPath</key>
-    <string>$MUSIC_LOG</string>
-</dict>
-</plist>
+<plist version="1.0"><dict>
+    <key>Label</key><string>com.portal5.music-minimax</string>
+    <key>ProgramArguments</key><array><string>$MM_DIR/start.sh</string></array>
+    <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
+    <key>StandardOutPath</key><string>$MM_LOG</string>
+    <key>StandardErrorPath</key><string>$MM_LOG</string>
+</dict></plist>
 PLIST
-    launchctl load "$PLIST_PATH" 2>/dev/null || true
-    echo "  ✅ Registered as launchd service: com.portal5.music-mcp"
+    launchctl load "$PLIST" 2>/dev/null || true
+    echo "  ✅ Registered launchd service: com.portal5.music-minimax (port $MM_PORT)"
+}
 
-    echo ""
-    echo "=== Music MCP installed ==="
-    echo "  Port:    :$MUSIC_PORT"
-    echo "  Venv:    $MUSIC_VENV"
-    echo "  Cache:   $HF_CACHE"
-    echo "  Log:     $MUSIC_LOG"
-    echo "  Start:   ./launch.sh up  (auto-started)"
-    echo "  Models download on first call (~300MB small, ~1.5GB medium)"
-    echo ""
-    echo "Next steps:"
-    echo "  ./launch.sh up   — start Portal 5 (Music MCP starts automatically)"
+_launch_install_music_ace() {
+    echo "=== Installing ACE-Step-1.5 engine + proxy MCP (Apple Silicon / MLX) ==="
+    ARCH=$(uname -m)
+    ACE_DIR="$HOME/.portal5/music-ace"
+    ACE_RUNTIME="$ACE_DIR/ace-runtime"
+    ACE_VENV="$ACE_DIR/.venv"
+    ACE_ENGINE_PORT="${ACESTEP_ENGINE_PORT:-8001}"
+    ACE_MCP_PORT="${MUSIC_ACE_MCP_PORT:-8933}"
+    ACE_LOG="$HOME/.portal5/logs/music-ace.log"
+    ACE_ENGINE_LOG="$HOME/.portal5/logs/acestep-server.log"
+
+    if [ "$ARCH" != "arm64" ]; then
+        echo "  ℹ️  Non-arm64 ($ARCH): ACE-Step-1.5 auto-falls-back to PyTorch (no MLX accel). Continuing."
+    fi
+    mkdir -p "$ACE_DIR" "$HOME/.portal5/logs"
+    command -v uv &>/dev/null || { echo "  Installing uv..."; curl -LsSf https://astral.sh/uv/install.sh | sh; }
+    UV_BIN=$(command -v uv)
+
+    if [ ! -d "$ACE_RUNTIME" ]; then
+        echo "  Cloning ace-step/ACE-Step-1.5..."
+        git clone https://github.com/ace-step/ACE-Step-1.5.git "$ACE_RUNTIME"
+    fi
+    cd "$ACE_RUNTIME"
+    uv sync
+
+    if [ ! -d "checkpoints/acestep-v15-sft" ]; then
+        echo "  Downloading ACE-Step main bundle + sft (2B non-turbo) DiT..."
+        uv run acestep-download
+        uv run hf download ACE-Step/acestep-v15-sft --local-dir ./checkpoints/acestep-v15-sft
+    fi
+    chmod +x start_api_server_macos.sh
+
+    cat > "$ACE_DIR/start-engine.sh" << ACE_ENGINE
+#!/bin/bash
+cd "$ACE_RUNTIME"
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export ACESTEP_API_PORT="${ACE_ENGINE_PORT}"
+export ACESTEP_CONFIG_PATH="acestep-v15-sft"
+export ACESTEP_LM_BACKEND="mlx"
+exec "$UV_BIN" run acestep-api --host 127.0.0.1 --port "${ACE_ENGINE_PORT}" --lm-model-path acestep-5Hz-lm-1.7B
+ACE_ENGINE
+    chmod +x "$ACE_DIR/start-engine.sh"
+
+    PLIST_ENGINE="$HOME/Library/LaunchAgents/com.portal5.acestep-server.plist"
+    cat > "$PLIST_ENGINE" << PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+    <key>Label</key><string>com.portal5.acestep-server</string>
+    <key>ProgramArguments</key><array><string>$ACE_DIR/start-engine.sh</string></array>
+    <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
+    <key>StandardOutPath</key><string>$ACE_ENGINE_LOG</string>
+    <key>StandardErrorPath</key><string>$ACE_ENGINE_LOG</string>
+</dict></plist>
+PLIST
+    launchctl load "$PLIST_ENGINE" 2>/dev/null || true
+
+    [ -d "$ACE_VENV" ] || python3 -m venv "$ACE_VENV"
+    "$ACE_VENV/bin/pip" install --quiet --upgrade pip
+    "$ACE_VENV/bin/pip" install --quiet \
+        "fastapi>=0.109.0" "uvicorn[standard]>=0.27.0" "httpx>=0.26.0" \
+        "pyyaml>=6.0.1" "starlette>=0.35.0" "mcp>=2.0.0,<3.0.0"
+
+    cat > "$ACE_DIR/start-mcp.sh" << ACE_MCP
+#!/bin/bash
+PORTAL_ROOT="${PORTAL_ROOT}"
+[ -d "\$PORTAL_ROOT/portal_mcp" ] || { echo "ERROR: PORTAL_ROOT invalid; re-run install-music-ace" >&2; exit 1; }
+export PYTHONPATH="\$PORTAL_ROOT"
+export ACESTEP_URL="http://127.0.0.1:${ACE_ENGINE_PORT}"
+export OUTPUT_DIR="\${AI_OUTPUT_DIR:-\$HOME/AI_Output}"
+export MUSIC_ACE_MCP_PORT="${ACE_MCP_PORT}"
+mkdir -p "\$OUTPUT_DIR"
+exec "$ACE_VENV/bin/python" -m portal.modules.media.tools.music_ace_mcp
+ACE_MCP
+    chmod +x "$ACE_DIR/start-mcp.sh"
+
+    PLIST_MCP="$HOME/Library/LaunchAgents/com.portal5.music-ace-mcp.plist"
+    cat > "$PLIST_MCP" << PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+    <key>Label</key><string>com.portal5.music-ace-mcp</string>
+    <key>ProgramArguments</key><array><string>$ACE_DIR/start-mcp.sh</string></array>
+    <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
+    <key>StandardOutPath</key><string>$ACE_LOG</string>
+    <key>StandardErrorPath</key><string>$ACE_LOG</string>
+</dict></plist>
+PLIST
+    launchctl load "$PLIST_MCP" 2>/dev/null || true
+    echo "  ✅ ACE-Step engine (com.portal5.acestep-server, :$ACE_ENGINE_PORT) + proxy MCP (com.portal5.music-ace-mcp, :$ACE_MCP_PORT)"
+}
+
+_launch_stop_music_ace() {
+    launchctl unload "$HOME/Library/LaunchAgents/com.portal5.music-ace-mcp.plist" 2>/dev/null || true
+    launchctl unload "$HOME/Library/LaunchAgents/com.portal5.acestep-server.plist" 2>/dev/null || true
 }
 
 _launch_start_speech() {

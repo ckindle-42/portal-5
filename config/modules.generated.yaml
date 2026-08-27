@@ -34,7 +34,8 @@ launched_mcp_ids:
 - memory
 - mitre
 - mlx_transcribe
-- music
+- music-ace
+- music-minimax
 - pipeline
 - proxmox
 - rag

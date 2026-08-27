@@ -57,7 +57,7 @@ If automation fails, you can manually import files through the Open WebUI admin 
 |---|---|---|---|
 | `tools/portal_comfyui.json` | MCP Tool Server | Admin > Settings > Tools | 1 of 7 |
 | `tools/portal_video.json` | MCP Tool Server | Admin > Settings > Tools | 2 of 7 |
-| `tools/portal_music.json` | MCP Tool Server | Admin > Settings > Tools | 3 of 7 |
+| `tools/portal_music_minimax.json`, `tools/portal_music_ace.json` | MCP Tool Servers | Admin > Settings > Tools | 6 of 10 |
 | `tools/portal_documents.json` | MCP Tool Server | Admin > Settings > Tools | 4 of 7 |
 | `tools/portal_code.json` | MCP Tool Server | Admin > Settings > Tools | 5 of 7 |
 | `tools/portal_whisper.json` | MCP Tool Server | Admin > Settings > Tools | 6 of 7 |

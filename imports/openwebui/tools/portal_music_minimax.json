@@ -1,0 +1,1 @@
+{"id":"portal_music_minimax","name":"Portal Music (MiniMax)","type":"mcp","meta":{"description":"Generate full songs (lyrics/vocals or instrumental) using MiniMax-Music3-MLX","manifest":{"type":"mcp","url":"http://host.docker.internal:8912/mcp"}},"settings":{"api_key":""}}

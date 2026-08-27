@@ -1,10 +1,12 @@
 ---
 id: unit-HOWTO-10-music-generation
 kind: why
-title: "HOWTO \u2014 10. Music Generation"
+title: "HOWTO — 10. Music Generation"
 sources:
 - type: code
-  path: portal/modules/media/tools/music_mcp.py
+  path: portal/modules/media/tools/music_minimax_mcp.py
+- type: code
+  path: portal/modules/media/tools/music_ace_mcp.py
 - type: code
   path: scripts/lib/services.sh
 claims: []
@@ -14,15 +16,17 @@ tags:
 - docs
 - verified-v1
 created_at: 1783195000.8455648
-updated_at: 1783195000.8455648
+updated_at: 1787857994
 ---
 
-**What:** Generate music clips from text descriptions using HuggingFace MusicGen.
+**What:** Generate full songs — with lyrics/vocals or instrumental — from text descriptions, using either of two music engines installed side by side for comparison: MiniMax-Music3-MLX and ACE-Step-1.5. ACE-Step additionally edits/extends existing clips (cover, repaint).
 
-**Activate:** Select `Music Producer` (`auto-music`) from the model dropdown. The Music tools — `generate_music`, `generate_continuation`, `list_music_models`, plus the speech and transcription tools — are granted by `auto-music`'s `tools` list in `config/portal.yaml`, so they are available when that workspace is selected.
+**Activate:** Select `Music Producer` (`auto-music`). Both engines' tools — `minimax_generate`/`minimax_status`/`minimax_models` and `ace_generate`/`ace_status`/`ace_models`, plus speech/transcription tools — are granted by `auto-music`'s `tools` list.
 
-**How:** `portal/modules/media/tools/music_mcp.py` runs the MusicGen models through the `transformers` library, not AudioCraft — AudioCraft's `torchtext`/`xformers` dependencies have no aarch64 wheels. Model sizes `small`, `medium`, `large` download to the HuggingFace cache on first use. The server runs host-native on Apple Silicon (install with `./launch.sh install-music`, auto-started by `up` through `_ensure_native_services`); the port is 8912. Clips write to the shared workspace `generated/music/` and the tool returns a download URL. Duration is capped at 30 seconds per clip; `generate_continuation` extends an existing WAV using a melody as conditioning.
+**How:** MiniMax runs in-process in `music_minimax_mcp.py` (port 8912) via the vendor's MLX pipeline. ACE-Step runs as its own host-native API server (`./launch.sh install-music-ace`, launchd `com.portal5.acestep-server`, port 8001), fronted by `music_ace_mcp.py` (port 8933). Both are job-based: call `*_generate` for a `job_id`, then poll `*_status(job_id)` until done. Complete-quality defaults are 60 seconds / 30 steps on both; ACE-Step uses the non-turbo `acestep-v15-sft` DiT with the 1.7B LM planner. Lyrics use `[Verse]`/`[Chorus]` tags or `[Instrumental]`. ACE-Step's `task_type="repaint"` regenerates/extends a time range; `task_type="cover"` does style transfer.
+
+**What changed:** MusicGen was removed entirely and replaced with these two engines. Which one is kept long-term is an open operator decision.
 
 ## Why
 
-Music generation is a large, cold model that Docker would run on CPU, so it is a host-native service kept out of the container set and auto-started only when installed. Routing the tools through the `auto-music` workspace rather than globally keeps the heavy models out of everyday chat while still exposing them to any persona that binds to that workspace.
+Independent modules let either engine be removed without touching the other. ACE-Step's separate-server shape provides crash isolation and an independent upgrade path. Job polling exists because complete-quality generation takes minutes.

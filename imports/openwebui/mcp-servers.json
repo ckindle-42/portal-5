@@ -2,7 +2,8 @@
   "version": "1.2",
   "description": "Portal 6.0.4 MCP Tool Server configurations. portal_comfyui (8910) and portal_video (8911) intentionally omitted — both backends were removed/shelved from config/portal.yaml's mcp_fleet (see scripts/update_workspace_tools.py's DEAD_SERVERS); registering a Tool Server with no live backend just shows as a broken connection in OWUI. Re-add here if either service returns (`./launch.sh up --profile comfyui`).",
   "tool_servers": [
-    { "name": "Portal Music",          "id": "portal_music",     "url": "http://host.docker.internal:8912/mcp", "api_key": "" },
+    { "name": "Portal Music (MiniMax)", "id": "portal_music_minimax", "url": "http://host.docker.internal:8912/mcp", "api_key": "" },
+    { "name": "Portal Music (ACE-Step)", "id": "portal_music_ace", "url": "http://host.docker.internal:8933/mcp", "api_key": "" },
     { "name": "Portal Documents",      "id": "portal_documents", "url": "http://host.docker.internal:8913/mcp", "api_key": "" },
     { "name": "Portal Code",           "id": "portal_code",      "url": "http://host.docker.internal:8914/mcp", "api_key": "" },
     { "name": "Portal Whisper",        "id": "portal_whisper",   "url": "http://host.docker.internal:8915/mcp", "api_key": "" },

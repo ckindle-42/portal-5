@@ -40,7 +40,8 @@ _KNOWN_DESCRIPTIONS: dict[str, str] = {
     "render_openscad": "Render an OpenSCAD 3D CAD model to an image or STL",
     "speak": "Convert text to speech audio",
     "transcribe_audio": "Transcribe an audio file to text",
-    "generate_music": "Generate a music clip from a text prompt",
+    "minimax_generate": "Generate a full song with MiniMax-Music3-MLX",
+    "ace_generate": "Generate or edit a full song with ACE-Step",
     "browser_navigate": "Navigate a headless browser to a URL",
     "browser_screenshot": "Take a screenshot of the current browser page",
 }
