@@ -1828,7 +1828,7 @@ workspaces:
     module: cad
     name: 📐 Portal CAD / 3D-Print Designer
     description: |-
-      Parametric 3D-model generation via code-CAD (OpenSCAD primary; Python+trimesh for procedural geometry). Produces STL/3MF for FDM/SLA printing. Qwen3-Coder 30B-A3B MoE (Ollama, tool-capable, >20 t/s). Use render_openscad tool to convert SCAD code → STL + preview PNG. Note: CadQuery/build123d require OCP which has no arm64 wheels — use OpenSCAD.
+      Parametric 3D-model generation via code-CAD: constrained structured-intermediate generation (generate_scad — feature-level JSON in, validated OpenSCAD+STL+PNG out, self-correcting on failure) for parts with holes/pockets/patterns/shells; direct render_openscad for trivial single-primitive parts; Python+trimesh for procedural geometry. Produces STL/3MF for FDM/SLA printing. Qwen3-Coder 30B-A3B MoE (Ollama, tool-capable, >20 t/s). Every render is mesh-validated (watertight/volume/bbox) and CadQuery/build123d/OCP are now available via conda-forge (capability-gated, not platform-hardcoded — see PLATFORM.md).
     model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx16k
     context_limit: 16384
     predict_limit: 16384
@@ -1838,12 +1838,15 @@ workspaces:
     # Observed hallucinating tool names that don't exist ("write_note",
     # "render_3d" instead of the real render_openscad) rather than not
     # calling a tool at all — forcing a real call at least keeps it inside
-    # the actual tool schema instead of free-form fabrication.
+    # the actual tool schema instead of free-form fabrication. generate_scad
+    # is now the preferred target for anything beyond a trivial primitive;
+    # re-evaluate `auto` only if a bench shows reliable convergence on it
+    # with the current prompt (TASK_CAD_MODULE_OVERHAUL_V1 Phase 7/8).
     tool_choice: required
     system_prompt_append: |2-
-  
-  
-      CAD OUTPUT RULE: When asked for a 3D model or printable part, write COMPLETE OpenSCAD source code in a fenced ```openscad block. State all dimensions as named variables at the top (units=mm, wall thickness, tolerances) so the part is parametric. End by calling the render_openscad tool with your code to produce the STL + preview PNG. For procedural geometry (arrays, math-driven surfaces), use Python with trimesh in execute_python — trimesh is available. Do not leave stubs.
+
+
+      CAD OUTPUT RULE: For any part with holes, pockets, patterns, shells, standoffs, or multiple features — PRIMARY PATH is the generate_scad tool. Describe the part as feature-level JSON: a `base` solid plus named features (holes/pockets/standoffs/ribs/shell/pattern) positioned by face + anchor + offset — NEVER compute 3D translate/rotate coordinates yourself, the tool's deterministic emitter owns all coordinate-frame math. Example: `{"parameters": {"width": 60, "depth": 40, "height": 25}, "base": {"type": "box", "dimensions": {"width": "width", "depth": "depth", "height": "height"}}, "holes": [{"diameter": 3, "face": "top", "offset_from": "center", "offset_x": 0, "offset_y": 0}]}`. generate_scad validates, compiles, mesh-validates, renders, and self-corrects (auto-retries deterministic fixes) in one call — read the returned `validation`, `problems`, and `retry_log`; if `printable` is still false after its own retries, issue a corrected generate_scad call describing the fix. For a Tier-A vocabulary gap, an `escape_hatch.csg` subtree is available (bounded CSG primitives/booleans) — steer to Tier-A features first. For trivial single-primitive parts or quick iteration, write complete OpenSCAD source in a fenced ```openscad block and call render_openscad. State all dimensions as named variables at the top (units=mm). For procedural geometry (arrays, math-driven surfaces), use Python with trimesh in execute_python — trimesh is available. Do not leave stubs.
     tools:
     - execute_python
     - execute_bash
@@ -1858,6 +1861,7 @@ workspaces:
     - render_mesh
     - render_openscad
     - convert_cad
+    - generate_scad
     expose_to_owui: true
     enable_web_search: false
   bench-supergemma4-sec:

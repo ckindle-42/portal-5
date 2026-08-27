@@ -6,6 +6,12 @@ sources:
 - type: code
   path: portal/modules/cad/tools/cad_render_mcp.py
 - type: code
+  path: portal/modules/cad/tools/capabilities.py
+- type: code
+  path: portal/modules/cad/tools/scad_emitter.py
+- type: code
+  path: portal/modules/cad/tools/mesh_validator.py
+- type: code
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml

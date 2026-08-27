@@ -78,7 +78,7 @@ async def run() -> None:
     t0 = time.time()
     code, body = await _get(f"http://localhost:{_CAD_RENDER_PORT}/tools")
     tools = {t["name"] for t in body.get("tools", [])} if isinstance(body, dict) else set()
-    expected = {"render_mesh", "render_openscad", "convert_cad"}
+    expected = {"render_mesh", "render_openscad", "convert_cad", "generate_scad"}
     record(
         sec,
         "S17-02",
@@ -251,4 +251,58 @@ async def run() -> None:
         "PASS" if routed_ok else "FAIL",
         f"HTTP {code_r}",
         t0=t0,
+    )
+
+    # ── S17-11: generate_scad — Tier-A feature-based cube + parameter ────────
+    await _mcp(
+        _CAD_RENDER_PORT,
+        "generate_scad",
+        {
+            "geometry": {
+                "parameters": {"size": 20},
+                "base": {
+                    "type": "box",
+                    "dimensions": {"width": "size", "depth": "size", "height": 10},
+                },
+            },
+            "resolution": 128,
+        },
+        section=sec,
+        tid="S17-11",
+        name="generate_scad — Tier-A feature-based cube + parameter",
+        ok_fn=lambda t: (
+            "png_url" in t and "stl_path" in t and "scad_source" in t and '"watertight": true' in t
+        ),
+        detail_fn=lambda t: t[:200],
+        timeout=90,
+    )
+
+    # ── S17-12: generate_scad — loop recovers a repair-needing part ─────────
+    await _mcp(
+        _CAD_RENDER_PORT,
+        "generate_scad",
+        {
+            "geometry": {
+                "base": {"type": "box", "dimensions": {"width": 30, "depth": 20, "height": 10}},
+                "holes": [
+                    {
+                        "diameter": 4,
+                        "face": "top",
+                        "offset_from": "center",
+                        "offset_x": 0,
+                        "offset_y": 0,
+                    }
+                ],
+            },
+            "resolution": 128,
+            "max_retries": 2,
+        },
+        section=sec,
+        tid="S17-12",
+        name="generate_scad — self-correction loop produces a printable result",
+        ok_fn=lambda t: (
+            '"printable": true' in t or ('"watertight": true' in t and '"attempts"' in t)
+        ),
+        detail_fn=lambda t: t[:200],
+        timeout=90,
     )

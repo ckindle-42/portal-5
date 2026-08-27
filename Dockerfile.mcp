@@ -84,11 +84,29 @@ RUN pip install --no-cache-dir \
     "numpy>=1.26.0"
 
 # Code-CAD geometry libs — trimesh + numpy-stl for procedural STL generation in Python.
-# Note: CadQuery/build123d require OCP (OpenCASCADE Python bindings) which has no
-# pre-built arm64 wheels; they cannot be installed on linux/arm64 without a source
-# build. Primary code-CAD path on this platform is OpenSCAD (via render_openscad tool).
 RUN pip install --no-cache-dir \
     "numpy-stl>=3.0.0"
+
+# CadQuery/build123d/OCP via conda-forge (arm64/OSX tier, TASK_CAD_MODULE_OVERHAUL_V1
+# Phase 0). P5-CAD-ARM64-001 ("OCP has no arm64 wheels, unusable") was a *pip-wheel*
+# artifact — conda-forge's ocp/occt ship for linux-aarch64 AND osx-arm64. Empirically
+# verified via a standalone micromamba probe on osx-arm64 (occt 7.8.1, ocp 7.8.1.2,
+# cadquery 2.7.0, build123d 0.9.1 all installed + imported + exported STL cleanly) —
+# see portal/modules/cad/PLATFORM.md for the exact verification and its scope (host
+# probe, not yet re-verified inside this image's own linux/arm64 build — do that at
+# the next `./launch.sh rebuild` before relying on it in production).
+# Installed into an isolated env (not the base pip site-packages) so a conda-forge
+# ABI mismatch can never break the rest of this shared image; capabilities.py adds
+# the env's site-packages to sys.path only when CAD_CONDA_ENV_SITE_PACKAGES is set.
+ENV MAMBA_ROOT_PREFIX=/opt/conda
+RUN curl -fsSL https://micro.mamba.pm/api/micromamba/linux-aarch64/latest \
+        -o /tmp/micromamba.tar.bz2 \
+    && tar -xjf /tmp/micromamba.tar.bz2 -C /usr/local bin/micromamba \
+    && rm /tmp/micromamba.tar.bz2 \
+    && /usr/local/bin/micromamba create -y -n cad -c conda-forge \
+        python=3.11 cadquery build123d ocp \
+    && /usr/local/bin/micromamba clean -a -y
+ENV CAD_CONDA_ENV_SITE_PACKAGES=/opt/conda/envs/cad/lib/python3.11/site-packages
 
 # Channel adapters (Telegram + Slack) — used by portal-telegram, portal-slack
 RUN pip install --no-cache-dir \

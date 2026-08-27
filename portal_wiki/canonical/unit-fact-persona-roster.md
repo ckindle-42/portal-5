@@ -5,22 +5,22 @@ title: 135 personas
 sources:
 - type: code
   path: config/personas/
-  commit: 39bf2ecc9c19
+  commit: 2c7a5b00c6db
 - type: code
   path: config/personas/adversarysimulator.yaml
-  commit: 39bf2ecc9c19
+  commit: 2c7a5b00c6db
 - type: code
   path: config/personas/agenticheavy.yaml
-  commit: 39bf2ecc9c19
+  commit: 2c7a5b00c6db
 - type: code
   path: config/personas/agenticlite.yaml
-  commit: 39bf2ecc9c19
+  commit: 2c7a5b00c6db
 - type: code
   path: config/personas/agentorchestrator.yaml
-  commit: 39bf2ecc9c19
+  commit: 2c7a5b00c6db
 - type: code
   path: config/personas/bench_gemma4_12b.yaml
-  commit: 39bf2ecc9c19
+  commit: 2c7a5b00c6db
 claims:
 - probe: personas.count
   pattern: Persona roster ({value} personas)
@@ -29,7 +29,7 @@ tags:
 - fact
 - personas
 created_at: 1784000421.217775
-updated_at: 1787771861.747104
+updated_at: 1787846125.3705778
 ---
 
 # Persona roster (135 personas)
@@ -68,7 +68,7 @@ updated_at: 1787771861.747104
 | `blueteamdefender` | security | `auto-security` | — |
 | `bugdiscoverycodeassistant` | coding | `auto-coding` | — |
 | `businessanalyst` | general | `auto-reasoning` | — |
-| `cadquerydesigner` | cad | `auto-cad` | — |
+| `caddesigner` | cad | `auto-cad` | — |
 | `chartanalyst` | general | `auto-vision` | — |
 | `cippolicywriter` | compliance | `auto-compliance` | — |
 | `codebasewikidocumentationskill` | coding | `auto-coding` | — |

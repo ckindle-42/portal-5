@@ -25,6 +25,9 @@ from pathlib import Path
 from mcp.server import MCPServer
 from starlette.responses import FileResponse, JSONResponse
 
+from portal.modules.cad.tools.capabilities import cad_capabilities
+from portal.modules.cad.tools.mesh_validator import validate_mesh
+from portal.modules.cad.tools.scad_emitter import FN_DEFAULT, EmitError, emit_scad
 from portal.platform.data_loader import load_data
 from portal.platform.mcp_host.workspace import get_generated_dir
 
@@ -168,6 +171,11 @@ async def health_check(request):
     return JSONResponse({"status": "ok", "service": "cad-render-mcp"})
 
 
+@mcp.custom_route("/capabilities", methods=["GET"])
+async def capabilities_route(request):
+    return JSONResponse(cad_capabilities())
+
+
 @mcp.custom_route("/files/models3d/{filename:path}", methods=["GET"])
 async def serve_generated_file(request):
     filename = request.path_params["filename"]
@@ -250,6 +258,7 @@ async def render_mesh(
         if extents is not None
         else None
     )
+    validation = validate_mesh(src)
 
     result = {
         "png_path": str(out_png),
@@ -257,6 +266,8 @@ async def render_mesh(
         "bounding_box": dims,
         "render_note": note,
         "watertight": bool(getattr(geom, "is_watertight", False)),
+        "validation": validation,
+        "problems": validation["problems"],
     }
     critique = _maybe_review(out_png, prompt or f"mesh {src.name}") if review else None
     if critique:
@@ -266,6 +277,24 @@ async def render_mesh(
             "review requested but CAD_RENDER_REVIEW_LOOP is off (default); artifact emitted without critique"
         )
     return result
+
+
+def _compile_scad(
+    code: str, scad_path: Path, stl_path: Path, timeout: int = 120
+) -> tuple[bool, str, bool]:
+    """Run openscad --render. Returns (ok, stderr, timed_out)."""
+    scad_path.write_text(code)
+    openscad = os.getenv("OPENSCAD_BIN", "openscad")
+    cmd = [openscad, "--render", "-o", str(stl_path), str(scad_path)]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=False)  # noqa: S603
+    except FileNotFoundError:
+        return False, f"openscad binary not found (set OPENSCAD_BIN). Tried: {openscad}", False
+    except subprocess.TimeoutExpired:
+        return False, f"openscad render timed out ({timeout}s)", True
+    if proc.returncode != 0 or not stl_path.exists():
+        return False, proc.stderr, False
+    return True, proc.stderr, False
 
 
 @mcp.tool()
@@ -281,27 +310,22 @@ async def render_openscad(code: str, resolution: int = 1024) -> dict:
     stl_path = _out_dir() / f"model_{uid}.stl"
     png_name = f"model_{uid}.png"
     png_path = _out_dir() / png_name
-    scad_path.write_text(code)
 
-    openscad = os.getenv("OPENSCAD_BIN", "openscad")
-    # Export to STL (no display required); PNG via mesh renderer below.
-    cmd = [openscad, "--render", "-o", str(stl_path), str(scad_path)]
-    try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120, check=False)  # noqa: S603
-    except FileNotFoundError:
-        return {"error": f"openscad binary not found (set OPENSCAD_BIN). Tried: {openscad}"}
-    except subprocess.TimeoutExpired:
-        return {"error": "openscad render timed out (120s)"}
-    if proc.returncode != 0 or not stl_path.exists():
-        return {"error": f"openscad failed (rc={proc.returncode}): {proc.stderr[:400]}"}
+    ok, stderr, timed_out = _compile_scad(code, scad_path, stl_path)
+    if not ok:
+        err = classify_openscad_error(stderr, timed_out=timed_out)
+        return {"error": f"openscad failed: {err['raw']}", "error_detail": err}
 
     note = _render_mesh_to_png(stl_path, png_path, resolution=resolution)
+    validation = validate_mesh(stl_path)
     return {
         "png_path": str(png_path),
         "png_url": f"{PUBLIC_URL}/{png_name}",
         "scad_path": str(scad_path),
         "stl_path": str(stl_path),
         "render_note": note,
+        "validation": validation,
+        "problems": validation["problems"],
     }
 
 
@@ -316,6 +340,12 @@ async def convert_cad(input_path: str, to_format: str) -> dict:
     src = _resolve_input(input_path)
 
     if src.suffix.lower() in {".step", ".stp"}:
+        if not cad_capabilities()["step_read"]:
+            return {
+                "error": "STEP read requires build123d/OCP, neither is importable in this "
+                "process (cad_capabilities()['step_read'] is False). Export STL from the "
+                "sandbox instead, or install the conda-forge OCP layer (see PLATFORM.md)."
+            }
         try:
             from build123d import import_step  # type: ignore
 
@@ -333,6 +363,173 @@ async def convert_cad(input_path: str, to_format: str) -> dict:
     out_path = _out_dir() / out_name
     geom.export(str(out_path))
     return {"output_path": str(out_path), "output_url": f"{PUBLIC_URL}/{out_name}"}
+
+
+# ── self-correcting feedback loop (TASK_CAD_MODULE_OVERHAUL_V1 Phase 4) ─────
+
+
+def classify_openscad_error(stderr: str, timed_out: bool = False) -> dict:
+    """Categorize openscad stderr into actionable buckets with a fix hint."""
+    cats = {
+        "syntax_error": bool(re.search(r"syntax error|parse error|expected", stderr, re.I)),
+        "undefined_variable": bool(re.search(r"undefined|unknown variable", stderr, re.I)),
+        "empty_geometry": bool(
+            re.search(r"empty geometry|no geometry|WARNING:.*empty", stderr, re.I)
+        ),
+        "non_manifold": bool(re.search(r"non.?manifold|self.?intersect", stderr, re.I)),
+        "timeout": timed_out,
+    }
+    active = {k: v for k, v in cats.items() if v}
+    return {"raw": (stderr or "")[:800], "categories": active, "suggestion": _suggest_fix(active)}
+
+
+def _suggest_fix(active: dict) -> str:
+    if "timeout" in active:
+        return "Render timed out — the CSG tree may be too deep/expensive; simplify or reduce $fn."
+    if "undefined_variable" in active:
+        return "A dimension references a name not in parameters{}; add it or fix the spelling."
+    if "syntax_error" in active:
+        return (
+            "OpenSCAD syntax error in the emitted/escape-hatch source; check for unbalanced braces."
+        )
+    if "non_manifold" in active:
+        return "Non-manifold geometry — likely a coincident face; nudge overlapping features apart."
+    if "empty_geometry" in active:
+        return "The CSG tree produced no geometry — check that a difference() didn't remove everything."
+    return "Unclassified openscad failure; inspect 'raw' for detail."
+
+
+def _auto_repair(geometry: dict, err: dict) -> dict | None:
+    """Deterministic, safe repairs only — never mutates design intent.
+    Returns a repaired geometry dict, or None if this error needs the model's judgment."""
+    cats = err.get("categories", {})
+    if "timeout" in cats:
+        repaired = dict(geometry)
+        repaired["_fn_override"] = 24  # coarser tessellation, cheaper render
+        return repaired
+    return None  # syntax/undefined_variable/non_manifold/empty_geometry need model judgment
+
+
+def _auto_repair_mesh(geometry: dict, mv: dict) -> dict | None:
+    """Deterministic repairs for a validated-but-flawed mesh. None => surface to the model."""
+    problems = mv.get("problems", [])
+    if problems == ["degenerate_faces"] and not geometry.get("_fn_override"):
+        # A common degenerate-face cause is too-coarse tessellation on curved
+        # features; bumping $fn is a safe, intent-preserving fix.
+        repaired = dict(geometry)
+        repaired["_fn_override"] = 96
+        return repaired
+    return None
+
+
+@mcp.tool()
+async def generate_scad(geometry: dict, resolution: int = 1024, max_retries: int = 2) -> dict:
+    """Generate a parametric part from a constrained Tier-A/B JSON geometry description.
+
+    One call: validate JSON -> emit SCAD (scad_emitter.py owns all coordinate-frame
+    math) -> compile -> validate mesh -> render PNG -> on failure, auto-retry with
+    the classified error fed back (Layer 1). If still not printable after
+    max_retries, the model should read `validation`/`problems`/`retry_log` and
+    issue a corrected call (Layer 2) — see auto-cad's system_prompt_append.
+    """
+    retry_log: list[dict] = []
+    attempt = 0
+    uid = uuid.uuid4().hex[:8]
+
+    while attempt <= max_retries:
+        try:
+            scad = emit_scad(geometry, fn=geometry.get("_fn_override", FN_DEFAULT))
+        except EmitError as e:
+            return {
+                "error": f"geometry validation failed: {e}",
+                "error_category": e.category,
+                "attempts": attempt + 1,
+                "retry_log": retry_log,
+            }
+
+        scad_path = _out_dir() / f"gen_{uid}_{attempt}.scad"
+        stl_path = _out_dir() / f"gen_{uid}_{attempt}.stl"
+        ok, stderr, timed_out = _compile_scad(scad, scad_path, stl_path)
+
+        if not ok:
+            err = classify_openscad_error(stderr, timed_out=timed_out)
+            retry_log.append({"attempt": attempt, "stage": "compile", "error": err})
+            repaired = _auto_repair(geometry, err)
+            if repaired is None or attempt == max_retries:
+                return {
+                    "error": f"openscad compile failed: {err['raw']}",
+                    "error_detail": err,
+                    "scad_source": scad,
+                    "attempts": attempt + 1,
+                    "retry_log": retry_log,
+                }
+            geometry = repaired
+            attempt += 1
+            continue
+
+        validation = validate_mesh(stl_path)
+        if validation["problems"]:
+            retry_log.append(
+                {"attempt": attempt, "stage": "validate", "problems": validation["problems"]}
+            )
+            repaired = _auto_repair_mesh(geometry, validation)
+            if repaired is None or attempt == max_retries:
+                png_name = f"gen_{uid}_{attempt}.png"
+                png_path = _out_dir() / png_name
+                note = _render_mesh_to_png(stl_path, png_path, resolution=resolution)
+                return {
+                    "scad_source": scad,
+                    "scad_path": str(scad_path),
+                    "stl_path": str(stl_path),
+                    "png_path": str(png_path),
+                    "png_url": f"{PUBLIC_URL}/{png_name}",
+                    "render_note": note,
+                    "validation": validation,
+                    "bounding_box": validation["bounding_box"],
+                    "watertight": validation["watertight"],
+                    "attempts": attempt + 1,
+                    "retry_log": retry_log,
+                }
+            geometry = repaired
+            attempt += 1
+            continue
+
+        # success
+        png_name = f"gen_{uid}_{attempt}.png"
+        png_path = _out_dir() / png_name
+        note = _render_mesh_to_png(stl_path, png_path, resolution=resolution)
+        return {
+            "scad_source": scad,
+            "scad_path": str(scad_path),
+            "stl_path": str(stl_path),
+            "png_path": str(png_path),
+            "png_url": f"{PUBLIC_URL}/{png_name}",
+            "render_note": note,
+            "validation": validation,
+            "bounding_box": validation["bounding_box"],
+            "watertight": validation["watertight"],
+            "attempts": attempt + 1,
+            "retry_log": retry_log,
+        }
+
+    # unreachable (loop always returns), but keeps type-checkers happy
+    return {
+        "error": "retry loop exhausted without a terminal result",
+        "attempts": attempt,
+        "retry_log": retry_log,
+    }
+
+
+@mcp.custom_route("/tools/generate_scad", methods=["POST"])
+async def generate_scad_endpoint(request):
+    body = await request.json()
+    args = body.get("arguments", {})
+    result = await generate_scad(
+        geometry=args.get("geometry", {}),
+        resolution=int(args.get("resolution", 1024)),
+        max_retries=int(args.get("max_retries", 2)),
+    )
+    return JSONResponse(result)
 
 
 if __name__ == "__main__":
