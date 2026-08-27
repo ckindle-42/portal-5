@@ -4,9 +4,7 @@
   "meta": {
     "description": "✍️  Portal Creative Writer",
     "profile_image_url": "",
-    "toolIds": [
-      "server:mcp:portal_tts"
-    ]
+    "toolIds": []
   },
   "params": {
     "model": "auto-creative",

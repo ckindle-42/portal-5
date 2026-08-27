@@ -18,6 +18,7 @@ Run:
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import re
 import sys
@@ -26,18 +27,20 @@ from typing import Any
 
 import yaml
 
-from portal.platform.data_loader import load_data
-
 REPO: Path = Path(__file__).resolve().parents[3]
 
 
-# ── update_workspace_tools.py tool-ID mapping ────────────────────────────────
-# Maps workspace-id → OWUI toolIds (server:mcp:<name> format).
-# Authoritative source: scripts/update_workspace_tools.py; this is a copy
-# so sync-config doesn't need to exec that script separately.
-_WORKSPACE_TOOL_IDS: dict[str, list[str]] = load_data(
-    "config/inference", "sync_config_workspace_tool_ids"
+# ── scripts/update_workspace_tools.py: TOOL_TO_SERVER ground truth ────────────
+# Loaded by path (scripts/ isn't a package) so there is exactly one
+# raw-tool-name -> OWUI toolId mapping in the repo, not a hand-copied one
+# per consumer (that drift was the actual bug behind several toolIds gaps
+# found 2026-08-27 — see the fix commit for the audit).
+_uwt_spec = importlib.util.spec_from_file_location(
+    "update_workspace_tools", REPO / "scripts" / "update_workspace_tools.py"
 )
+_uwt = importlib.util.module_from_spec(_uwt_spec)
+_uwt_spec.loader.exec_module(_uwt)
+compute_tool_ids = _uwt.compute_tool_ids
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -50,7 +53,7 @@ def _ws_filename(ws_id: str) -> str:
 
 def _owui_preset(ws_id: str, spec: Any) -> dict[str, Any]:
     """Build an OWUI workspace preset payload from a WorkspaceSpec."""
-    tool_ids = _WORKSPACE_TOOL_IDS.get(ws_id, [])
+    tool_ids = compute_tool_ids(spec.tools)
     preset: dict[str, Any] = {
         "id": ws_id,
         "name": spec.name,
@@ -288,6 +291,23 @@ def main() -> int:
     # 4. OWUI workspace presets
     c, u, r = emit_owui_presets(config)
     print(f"  imports/openwebui/workspaces/: {c} created, {u} updated, {r} removed")
+
+    # 4b. dead-tools self-check — a workspace whose every declared tool maps
+    # to a DEAD_SERVERS entry (backend intentionally removed/shelved) is
+    # exposed in OWUI with zero working functionality. Catches this class of
+    # bug automatically instead of one-off manual fixes (see auto-image,
+    # found + fixed 2026-08-27).
+    dead = [
+        ws_id
+        for ws_id, spec in config.workspaces.items()
+        if spec.expose_to_owui and _uwt.all_tools_dead(spec.tools)
+    ]
+    if dead:
+        print(
+            f"  ⚠️  WARNING: {len(dead)} OWUI-exposed workspace(s) have zero working tools "
+            f"(every tool maps to a dead/removed backend): {sorted(dead)}"
+        )
+        print("     Set expose_to_owui: false until the backend returns, or fix the tools list.")
 
     # 5. module manifest snapshot (M7 toggle layer)
     changed = emit_module_manifest(config)

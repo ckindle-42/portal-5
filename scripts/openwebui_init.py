@@ -24,6 +24,7 @@ Environment variables:
 from __future__ import annotations
 
 import asyncio
+import importlib.util
 import json
 import os
 import sys
@@ -31,6 +32,15 @@ import time
 from pathlib import Path
 
 import httpx
+
+# scripts/ isn't a package, so update_workspace_tools (TOOL_TO_SERVER ground
+# truth, compute_tool_ids, load_workspace_raw_tools) is loaded by path once
+# here and reused by every function below that needs OWUI toolIds.
+_uwt_spec = importlib.util.spec_from_file_location(
+    "update_workspace_tools", Path(__file__).parent / "update_workspace_tools.py"
+)
+_uwt = importlib.util.module_from_spec(_uwt_spec)
+_uwt_spec.loader.exec_module(_uwt)
 
 OPENWEBUI_URL = os.environ.get("OPENWEBUI_URL", "http://open-webui:8080").rstrip("/")
 ADMIN_EMAIL = os.environ.get("OPENWEBUI_ADMIN_EMAIL", "admin@portal.local")
@@ -175,6 +185,26 @@ async def register_tool_servers_async(client: httpx.AsyncClient, token: str) -> 
         return u.rstrip("/").removesuffix("/mcp")
 
     existing_urls = {_normalize_url(c.get("url", "")) for c in current_connections}
+    current_server_ids = {s.get("id", "") for s in servers}
+
+    # Drop stale connections: any entry whose info.id looks like ours
+    # (portal_*, our own naming convention) but is no longer in
+    # mcp-servers.json — e.g. portal_comfyui/portal_video after their
+    # backends were removed (found live 2026-08-27: they stayed registered
+    # indefinitely, since this function only ever added, never reconciled).
+    # Never touches a connection an operator added manually outside our
+    # portal_* convention.
+    removed = 0
+    kept_connections: list[dict] = []
+    for c in current_connections:
+        info = c.get("info") or {}
+        cid = info.get("id", "")
+        if cid.startswith("portal_") and cid not in current_server_ids:
+            print(f"  Removing stale: {info.get('name', cid)}")
+            removed += 1
+        else:
+            kept_connections.append(c)
+    current_connections = kept_connections
 
     added = skipped = 0
     for server in servers:
@@ -203,7 +233,7 @@ async def register_tool_servers_async(client: httpx.AsyncClient, token: str) -> 
             print(f"  Adding: {server['name']}")
             added += 1
 
-    if added > 0:
+    if added > 0 or removed > 0:
         try:
             resp = await client.post(
                 f"{OPENWEBUI_URL}/api/v1/configs/tool_servers",
@@ -212,7 +242,7 @@ async def register_tool_servers_async(client: httpx.AsyncClient, token: str) -> 
                 timeout=15.0,
             )
             if resp.status_code in (200, 201):
-                print(f"  Done: {added} added, {skipped} skipped")
+                print(f"  Done: {added} added, {removed} removed, {skipped} skipped")
             else:
                 print(f"  Failed to update tool servers: HTTP {resp.status_code}")
         except Exception as e:
@@ -230,16 +260,7 @@ async def create_workspaces_async(client: httpx.AsyncClient, token: str) -> None
 
     # Ensure workspace toolIds are current before seeding
     try:
-        import importlib.util
-
-        spec = importlib.util.spec_from_file_location(
-            "update_workspace_tools",
-            Path(__file__).parent / "update_workspace_tools.py",
-        )
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        if hasattr(mod, "main"):
-            mod.main()
+        _uwt.main()
     except Exception as e:
         import logging
 
@@ -263,6 +284,13 @@ async def create_workspaces_async(client: httpx.AsyncClient, token: str) -> None
     # via CREATE instead of UPDATE, which then 401s on OWUI's id-collision
     # check and gets reported as a plain failure.
     existing_names: set[str] = set()
+    # Overlay-style presets (base_model_id=None) with no matching workspace
+    # file are orphans — this creator is the only thing that ever sets
+    # base_model_id=None (see the payload below), so any such id no longer
+    # backed by a workspace_*.json is safe to delete (e.g. auto-image after
+    # ComfyUI removal — found 2026-08-27, it stayed live in OWUI indefinitely
+    # because nothing ever deleted a removed workspace's old preset).
+    overlay_ids: set[str] = set()
     for attempt in range(3):
         try:
             resp = await client.get(
@@ -279,7 +307,11 @@ async def create_workspaces_async(client: httpx.AsyncClient, token: str) -> None
                 )
                 for m in models:
                     if isinstance(m, dict):
-                        existing_names.add(m.get("id", ""))
+                        mid = m.get("id", "")
+                        existing_names.add(mid)
+                        info = m.get("info")
+                        if isinstance(info, dict) and info.get("base_model_id") is None:
+                            overlay_ids.add(mid)
                 break  # Success — exit retry loop
         except Exception as e:
             if attempt == 2:
@@ -367,6 +399,31 @@ async def create_workspaces_async(client: httpx.AsyncClient, token: str) -> None
 
     print(f"  Workspaces: {created} created, {updated} updated, {failed} failed")
 
+    current_ws_ids = {json.loads(f.read_text()).get("id", "") for f in ws_files}
+    # Scope orphan-deletion strictly to ids config/portal.yaml has ever known
+    # as a workspace (includes bench-* ids, which never get a file since
+    # they're expose_to_owui:false but can still have old live presets from
+    # before that flag existed) — never touch an OWUI system model like
+    # "arena-model", which also happens to have base_model_id=None.
+    known_ws_ids = set(_uwt.load_workspace_raw_tools().keys())
+    orphans = overlay_ids & (known_ws_ids - current_ws_ids)
+    for ws_id in sorted(orphans):
+        try:
+            resp = await client.post(
+                f"{OPENWEBUI_URL}/api/v1/models/model/delete",
+                json={"id": ws_id},
+                headers=auth_headers(token),
+                timeout=10.0,
+            )
+            if resp.status_code in (200, 201):
+                print(f"  Removed orphaned workspace preset: {ws_id}")
+            else:
+                print(
+                    f"  Warning: could not remove orphaned preset {ws_id}: HTTP {resp.status_code}"
+                )
+        except Exception as e:
+            print(f"  Warning: could not remove orphaned preset {ws_id}: {e}")
+
 
 # --- Persona Presets -----------------------------------------------------------
 
@@ -433,6 +490,21 @@ async def create_persona_presets_async(
     except Exception:
         pass  # Non-critical — /export already covers presets
 
+    # workspace-id -> raw tools list, for resolving each persona's effective
+    # tool set (see _uwt import at module level).
+    _ws_raw_tools = _uwt.load_workspace_raw_tools()
+
+    def _persona_tool_ids(persona: dict, workspace_model: str) -> list[str]:
+        """tools_allow replaces the workspace's tools, tools_deny subtracts —
+        same resolution rule as portal/platform/inference/router/workspaces.py
+        _resolve_persona_tools, so OWUI's UI reflects the same tool set the
+        pipeline actually grants this persona."""
+        ws_tools = _ws_raw_tools.get(workspace_model, [])
+        allow = persona.get("tools_allow")
+        deny = set(persona.get("tools_deny") or [])
+        effective = set(ws_tools) if allow is None else set(allow)
+        return _uwt.compute_tool_ids(sorted(effective - deny))
+
     # Build persona payloads first (file reads, not network I/O)
     persona_payloads = []
     for f in persona_files:
@@ -469,6 +541,7 @@ async def create_persona_presets_async(
                     "meta": {
                         "description": f"Portal persona: {name}",
                         "profile_image_url": "",
+                        "toolIds": _persona_tool_ids(persona, workspace_model),
                         "tags": [{"name": persona.get("category", "general")}],
                     },
                     "params": {
@@ -672,7 +745,13 @@ def verify_persona_tool_bindings(client: httpx.Client, token: str) -> None:
             or match.get("meta", {}).get("toolIds")
             or []
         )
-        missing = [t for t in required_tools if t not in bound_tool_ids]
+        # required_tools are raw MCP tool function names (e.g.
+        # "transcribe_with_speakers"); bound_tool_ids are OWUI server-level
+        # ids (e.g. "server:mcp:portal_whisper") — comparing them directly
+        # always fails regardless of correctness. Map required_tools through
+        # the same ground-truth table before comparing.
+        required_server_ids = set(_uwt.compute_tool_ids(required_tools))
+        missing = sorted(required_server_ids - set(bound_tool_ids))
         if missing:
             print(
                 f"  ERROR: Persona '{slug}' is missing tool bindings: {missing}. "

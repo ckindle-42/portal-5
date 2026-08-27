@@ -5,6 +5,8 @@
     "description": "⚖️  Portal Compliance Analyst",
     "profile_image_url": "",
     "toolIds": [
+      "server:mcp:portal_documents",
+      "server:mcp:portal_rag",
       "server:mcp:portal_research"
     ]
   },

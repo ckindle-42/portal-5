@@ -1,9 +1,7 @@
 {
   "version": "1.2",
-  "description": "Portal 6.0.4 MCP Tool Server configurations",
+  "description": "Portal 6.0.4 MCP Tool Server configurations. portal_comfyui (8910) and portal_video (8911) intentionally omitted — both backends were removed/shelved from config/portal.yaml's mcp_fleet (see scripts/update_workspace_tools.py's DEAD_SERVERS); registering a Tool Server with no live backend just shows as a broken connection in OWUI. Re-add here if either service returns (`./launch.sh up --profile comfyui`).",
   "tool_servers": [
-    { "name": "Portal ComfyUI",        "id": "portal_comfyui",   "url": "http://host.docker.internal:8910/mcp", "api_key": "" },
-    { "name": "Portal Video",          "id": "portal_video",     "url": "http://host.docker.internal:8911/mcp", "api_key": "" },
     { "name": "Portal Music",          "id": "portal_music",     "url": "http://host.docker.internal:8912/mcp", "api_key": "" },
     { "name": "Portal Documents",      "id": "portal_documents", "url": "http://host.docker.internal:8913/mcp", "api_key": "" },
     { "name": "Portal Code",           "id": "portal_code",      "url": "http://host.docker.internal:8914/mcp", "api_key": "" },
@@ -15,6 +13,7 @@
     { "name": "Portal RAG",            "id": "portal_rag",       "url": "http://host.docker.internal:8921/mcp", "api_key": "" },
     { "name": "Portal Research",       "id": "portal_research",  "url": "http://host.docker.internal:8922/mcp", "api_key": "" },
     { "name": "Portal Browser",        "id": "portal_browser",   "url": "http://host.docker.internal:8923/mcp", "api_key": "" },
+    { "name": "Portal CAD",            "id": "portal_cad",       "url": "http://host.docker.internal:8926/mcp", "api_key": "" },
     { "name": "Portal Proxmox",        "id": "portal_proxmox",   "url": "http://host.docker.internal:8927/mcp", "api_key": "" },
     { "name": "Portal Pipeline",       "id": "portal_pipeline",  "url": "http://host.docker.internal:8928/mcp", "api_key": "" },
     { "name": "Portal MITRE ATT&CK",   "id": "portal_mitre",     "url": "http://host.docker.internal:8929/mcp", "api_key": "" },

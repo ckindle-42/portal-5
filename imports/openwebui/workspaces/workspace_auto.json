@@ -4,9 +4,7 @@
   "meta": {
     "description": "🤖 Portal Auto Router",
     "profile_image_url": "",
-    "toolIds": [
-      "server:mcp:portal_comfyui"
-    ]
+    "toolIds": []
   },
   "params": {
     "model": "auto",

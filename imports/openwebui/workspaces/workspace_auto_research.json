@@ -5,6 +5,8 @@
     "description": "🔍 Portal Research Assistant",
     "profile_image_url": "",
     "toolIds": [
+      "server:mcp:portal_memory",
+      "server:mcp:portal_rag",
       "server:mcp:portal_research"
     ]
   },
