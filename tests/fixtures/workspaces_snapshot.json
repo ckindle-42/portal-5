@@ -404,17 +404,16 @@
     "tools": []
   },
   "auto-music": {
-    "description": "Generate full songs via MiniMax-Music3-MLX and ACE-Step-1.5 for side-by-side comparison.",
+    "description": "Generate full songs via MiniMax-Music3-MLX.",
     "model_hint": "lfm2.5:8b",
     "name": "🎵 Portal Music Producer",
-    "system_prompt_append": "\n\nUse the distinct MiniMax or ACE-Step generate/status tools. Both are job-based; ACE-Step additionally supports cover and repaint editing.",
+    "system_prompt_append": "\n\nUse the MiniMax generate/status tools. Job-based.",
     "tools": [
+      "clone_voice",
+      "list_voices",
       "minimax_generate",
-      "minimax_status",
       "minimax_models",
-      "ace_generate",
-      "ace_status",
-      "ace_models",
+      "minimax_status",
       "speak",
       "transcribe_audio"
     ]

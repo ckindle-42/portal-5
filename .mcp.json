@@ -49,10 +49,6 @@
       "type": "http",
       "url": "http://localhost:8912/mcp"
     },
-    "portal-music-ace": {
-      "type": "http",
-      "url": "http://localhost:8933/mcp"
-    },
     "portal-documents": {
       "type": "http",
       "url": "http://localhost:8913/mcp"

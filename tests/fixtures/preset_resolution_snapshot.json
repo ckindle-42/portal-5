@@ -2169,9 +2169,6 @@
   },
   "workspace::auto-music": {
     "effective_tools": [
-      "ace_generate",
-      "ace_models",
-      "ace_status",
       "clone_voice",
       "list_voices",
       "minimax_generate",
