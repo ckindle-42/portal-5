@@ -1937,7 +1937,10 @@ workspaces:
       +1-repair, see tests/benchmarks/results/BENCH_REPAIR_MOE_CODERS_20260826.md). CAD is a code
       task, so it's a fair question whether that track's leader also serves CAD. PROMOTE_POLICY=confirm.
     model_hint: hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M
-    context_limit: 16384
+    # No -ctxNk baked tag for this bare id (P5-OLLAMA-OPTIONS-001: context_limit:
+    # is silently dropped by Ollama's /v1 endpoint for un-baked tags) -- omitted
+    # rather than left as misleading dead config. Actual context is whatever this
+    # bare tag defaults to (~32768, per its ctx256k sibling's own catalog entry).
     predict_limit: 16384
     temperature: 0.2
     top_p: 0.9
