@@ -5,7 +5,12 @@
     "description": "📐 Portal CAD / 3D-Print Designer",
     "profile_image_url": "",
     "toolIds": [
-      "server:mcp:portal_code"
+      "server:mcp:portal_cad",
+      "server:mcp:portal_code",
+      "server:mcp:portal_documents",
+      "server:mcp:portal_memory",
+      "server:mcp:portal_rag",
+      "server:mcp:portal_research"
     ]
   },
   "params": {

@@ -6,7 +6,8 @@
     "profile_image_url": "",
     "toolIds": [
       "server:mcp:portal_music",
-      "server:mcp:portal_tts"
+      "server:mcp:portal_tts",
+      "server:mcp:portal_whisper"
     ]
   },
   "params": {

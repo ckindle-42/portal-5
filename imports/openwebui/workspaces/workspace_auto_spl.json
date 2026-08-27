@@ -5,7 +5,8 @@
     "description": "🔍 Portal SPL Engineer",
     "profile_image_url": "",
     "toolIds": [
-      "server:mcp:portal_code"
+      "server:mcp:portal_rag",
+      "server:mcp:portal_security"
     ]
   },
   "params": {

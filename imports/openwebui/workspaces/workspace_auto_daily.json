@@ -5,8 +5,13 @@
     "description": "🪶 Portal Daily Driver",
     "profile_image_url": "",
     "toolIds": [
+      "server:mcp:portal_code",
+      "server:mcp:portal_documents",
+      "server:mcp:portal_memory",
+      "server:mcp:portal_music",
+      "server:mcp:portal_rag",
       "server:mcp:portal_research",
-      "server:mcp:portal_memory"
+      "server:mcp:portal_whisper"
     ]
   },
   "params": {

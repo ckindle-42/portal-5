@@ -4,9 +4,7 @@
   "meta": {
     "description": "🧠 Portal Deep Reasoner",
     "profile_image_url": "",
-    "toolIds": [
-      "server:mcp:portal_research"
-    ]
+    "toolIds": []
   },
   "params": {
     "model": "auto-reasoning",

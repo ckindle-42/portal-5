@@ -1040,7 +1040,14 @@ workspaces:
     - get_generation_status
     - get_latest_images
     - start_image_generation
-    expose_to_owui: true
+    # ComfyUI (portal_comfyui) was intentionally removed from mcp_fleet —
+    # every tool this workspace declares is currently dead, so it has zero
+    # working functionality. Hidden from OWUI (auto-video, its sibling, is
+    # hidden for the same reason) instead of seeding a selectable workspace
+    # that can't actually do anything. Flip back to true if ComfyUI returns
+    # (`./launch.sh up --profile comfyui`) — sync-config's dead-tools check
+    # will stop warning once portal_comfyui is out of DEAD_SERVERS.
+    expose_to_owui: false
     enable_web_search: false
     owui_system_prompt: |-
       You help generate images. Use the generate_image tool (ComfyUI backend) to create images
