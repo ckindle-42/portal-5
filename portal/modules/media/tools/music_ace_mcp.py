@@ -91,8 +91,17 @@ async def ace_generate(
     repainting_end: float | None = None,
     model: str = "acestep-v15-sft",
     steps: int = 30,
+    audio_format: str = "wav",
 ) -> dict:
-    """Start an ACE-Step song generation or edit job; poll ace_status."""
+    """Start an ACE-Step song generation or edit job; poll ace_status.
+
+    audio_format defaults to "wav" (lossless) rather than the ACE-Step
+    server's own default of "mp3" @128kbps — MiniMax writes lossless WAV
+    directly, so a lossy default here would confound any quality comparison
+    between the two engines with compression artifacts. Other formats the
+    server accepts ("mp3", "flac", "wav32", "opus", "aac") remain available
+    for an operator who wants smaller files after the comparison is done.
+    """
     seconds = max(10.0, min(600.0, float(seconds)))
     steps = max(1, int(steps))
     refusal = await admit("music:acestep-sft")
@@ -107,6 +116,7 @@ async def ace_generate(
         "inference_steps": steps,
         "model": model,
         "thinking": True,
+        "audio_format": audio_format,
     }
     if task_type != "text2music":
         if not src_audio_path:
