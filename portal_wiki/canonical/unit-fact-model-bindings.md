@@ -5,13 +5,13 @@ title: "model bindings \u2014 0 reachability gap(s)"
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 39bf2ecc9c19
+  commit: c6818a3df1b8
 - type: code
   path: config/portal.yaml
-  commit: 39bf2ecc9c19
+  commit: c6818a3df1b8
 - type: code
   path: config/personas/
-  commit: 39bf2ecc9c19
+  commit: c6818a3df1b8
 claims: []
 confidence: high
 tags:
@@ -19,7 +19,7 @@ tags:
 - model-bindings
 - reachability
 created_at: 1784000421.433863
-updated_at: 1787771862.0046048
+updated_at: 1787815056.577436
 ---
 
 # Model bindings (reachability-resolved)
@@ -54,6 +54,7 @@ default.
 | `auto-research` | `portal5/xyz-aquila-mini:q4_k_m-ctx16k` | yes |
 | `auto-security` | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` | yes |
 | `auto-spl` | `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k` | yes |
+| `auto-uncensored-throwaway` | `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k` | yes |
 | `auto-video` | `granite4.1:8b-ctx16k` | yes |
 | `auto-vision` | `qwen3-vl:32b-ctx8k` | yes |
 | `tools-specialist` | `granite4.1:8b-ctx8k` | yes |

@@ -1,0 +1,2105 @@
+{
+  "gsha": "066355de23d5",
+  "samples": [
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 114.2202624999918
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 142.72064300009515
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 158.7089250839781
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 194.99734629201703
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 185.72339333291166
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 135.25024916697294
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 74.80814720806666
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 182.46866695804056
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 147.8559345420217
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 207.88827250001486
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 186.8442324580392
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 207.64886445796583
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 115.52374416706152
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_after_repair",
+      "latency_s": 318.4538718749536
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 208.6600529589923
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 75.97788129094988
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 208.3056422090158
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 76.89981687499676
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 78.0675044999225
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 78.21096175001003
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 59.35970533301588
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 141.6689661659766
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 208.31987345800735
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 101.2392771251034
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 208.21016333403531
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 180.50296424992848
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 166.62445549992844
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 115.0993504159851
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 161.95658537501004
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 207.64597800001502
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 165.74395066697616
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 208.0009122500196
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 188.03200854104944
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_5",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 154.01187562500127
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_5",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 161.2120964169735
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 208.5983435829403
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 208.13134033302777
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 208.60596366692334
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 208.4265488750534
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 208.03450212499592
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_6",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 416.8489181250334
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_6",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 417.24923245899845
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 126.73549029207788
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 208.10276862501632
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 207.9489989170106
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 207.70432608400006
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 208.04703479201999
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_7",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 415.95654312497936
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_7",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 416.5286780000897
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 208.61832250002772
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 208.41282779211178
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 196.5205092499964
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 208.1252074999502
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 208.5396581250243
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_8",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 417.35669533291366
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_8",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 417.9919723329367
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 106.92485216690693
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 94.91064112493768
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 103.3001227088971
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 108.268778125057
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 86.75023641705047
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_9",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 121.39343662501778
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_9",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 88.36435554199852
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 59.4389029169688
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 64.37131491699256
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 94.1081169169629
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 66.15818333404604
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 91.69033016695175
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_10",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 125.4529912089929
+    },
+    {
+      "workspace": "bench-hauhaucs-coder",
+      "model_hint": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_10",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 41.875681000063196
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 40.19860204204451
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 26.044533667038195
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 23.608175292029046
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 26.128264290979132
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 26.264424000051804
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 25.59747433406301
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 25.87226529198233
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 37.72172812500503
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 49.03535112505779
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 26.025311707984656
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 26.59363554196898
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 25.514322542003356
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 22.498218334047124
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 21.850958417053334
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 23.410493874922395
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 30.841683292062953
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 34.200517083052546
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 26.231421999982558
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 38.314637542003766
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 23.483800542075187
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 33.33141737501137
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 23.069714374956675
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 18.83468183397781
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 23.33474695798941
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 25.684135791962035
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 22.181045833975077
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 24.27891241700854
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 21.371919499943033
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 49.883710458059795
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 41.742650375002995
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 37.23745562497061
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 38.12890691694338
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 39.74173066695221
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_5",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 38.72282649995759
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_5",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 31.196382916998118
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 55.59968270896934
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 49.79614704102278
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 51.48060129105579
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 76.12025858298875
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 51.98685674997978
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_6",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 59.35454504203517
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_6",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 61.22370637499262
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 50.82179441594053
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 32.72461687494069
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 44.0241199999582
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 61.068705791956745
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 49.350837750011124
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_7",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 44.41244595893659
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_7",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 34.08523800002877
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 27.809674665913917
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 32.55574520805385
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 31.117405166034587
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 26.68872412503697
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 28.442281167022884
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_8",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 36.5654835839523
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_8",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 24.966547291958705
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 43.03571299999021
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 45.69453524996061
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 55.13589662499726
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 42.66553133400157
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 50.80522483296227
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_9",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 44.917785125086084
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_9",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 55.008595249964856
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 16.33584512490779
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 16.010450582951307
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 16.097436500014737
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 16.78478283295408
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 15.000663583050482
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_10",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 16.57389112492092
+    },
+    {
+      "workspace": "bench-gemma4-heretic-coder",
+      "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_10",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 16.54215854103677
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 32.36231758305803
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 20.973633541958407
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 20.11399466707371
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 18.139357042033225
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 16.511788084055297
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 19.220637875027023
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 21.305971750058234
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 42.8676752919564
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 39.82542691600975
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 37.30939770792611
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 55.688156374963
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 45.062501000007614
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 40.80628662498202
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 38.84233854198828
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 30.81048850005027
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 28.377212708001025
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 31.28984641598072
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 31.391897374996915
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 208.57594204205088
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 35.03698150010314
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 65.57122162496671
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 21.970332083059475
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 21.967114708037116
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 16.767058082972653
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 17.82793666701764
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 20.981305333902128
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 18.98260195797775
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 18.445133000030182
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 37.664200959028676
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 32.31790862500202
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 29.726717042038217
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 28.62393358303234
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 30.693007167079486
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_5",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 44.88307641702704
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_5",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 243.25565658300184
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 104.45539983303752
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 207.98407745792065
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 208.36742441705428
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 208.5522417089669
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 207.44898833404295
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_6",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 171.96963641699404
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_6",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 166.83638395904563
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 56.370501749916
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 178.0504852909362
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 52.35329170792829
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 61.27249404101167
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 42.38485237502027
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_7",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 60.94100608304143
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_7",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 72.67356987495441
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 42.148697791970335
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 38.13623037491925
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 45.05924941692501
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 41.791370999999344
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 57.99136287497822
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_8",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 37.47480204200838
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_8",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 47.795764666981995
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 83.13517329201568
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 120.93692516698502
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 73.42513087508269
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 77.71667558304034
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 75.08679512504023
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_9",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 75.1267092920607
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_9",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 121.93562829191796
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 41.75755283399485
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 49.23137008398771
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 42.410578417009674
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 58.24707708298229
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 50.04915745800827
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_10",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 39.80388620798476
+    },
+    {
+      "workspace": "bench-ornith15-coder",
+      "model_hint": "hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_10",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 44.881774083012715
+    }
+  ]
+}

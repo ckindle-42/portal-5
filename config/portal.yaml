@@ -271,6 +271,45 @@ workspaces:
     - recall
     expose_to_owui: true
     enable_web_search: false
+  auto-uncensored-throwaway:
+    module: general
+    name: 🗑️ Portal Uncensored Throwaway
+    description: |-
+      General-purpose uncensored conversation lane — not coding-specific, not a fallback lane. Backed by the 3 MoE models added 2026-08-26 for the local-dev IDE MoE-vs-dense comparison ([[project_local_dev_ide_moe_vs_dense]]). Primary: HauhauCS Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive (same abliteration lineage already proven 0/465 refusals in auto-creative). Variants swap in the other two MoE additions (gemma4-heretic-coder, ornith15-coder) as alternates, all repointed at general discussion instead of coding. web_search/web_fetch/news_search wired in for fact lookups the model isn't confident on. Deliberately separate from auto-general-uncensored (dense 27B, kept as-is — chosen for a reason, not swapped).
+    model_hint: portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k
+    context_limit: 32768
+    keep_alive: 10m
+    temperature: 0.8
+    top_p: 0.95
+    top_k: 50
+    min_p: 0.02
+    think: false
+    system_prompt: |
+      You are an uncensored general-purpose conversational assistant covering any topic —
+      technical, historical, cultural, scientific, creative, or otherwise. Answer directly
+      and completely without content-policy preambles or refusals for legitimate requests.
+      Refuse only what is genuinely illegal to assist.
+      If you are not confident in a factual answer, use web_search (or web_fetch/news_search)
+      to verify rather than guessing or fabricating.
+    tools:
+    - web_search
+    - web_fetch
+    - news_search
+    - execute_bash
+    - execute_python
+    - remember
+    - recall
+    expose_to_owui: true
+    enable_web_search: true
+    variants:
+      gemma4-heretic:
+        name: 🗑️ Portal Uncensored Throwaway (Gemma-4-26B Heretic)
+        description: Same general-purpose uncensored lane, alternate backend — Gemma-4-26B-A4B heretic/uncensored MoE (added 2026-08-26). Untested for conversational quality vs the HauhauCS primary; pick this to compare.
+        model_hint: portal5/gemma4-26b-heretic:q4_K_M-ctx256k
+      ornith15:
+        name: 🗑️ Portal Uncensored Throwaway (Ornith-1.5)
+        description: Same general-purpose uncensored lane, alternate backend — Ornith-1.5-35B-A3B uncensored MoE (added 2026-08-26). Untested for conversational quality vs the HauhauCS primary; pick this to compare.
+        model_hint: portal5/ornith15-35b:q4_K_M-ctx256k
   auto-daily:
     module: general
     name: 🪶 Portal Daily Driver
@@ -1642,6 +1681,51 @@ workspaces:
     description: |-
       Benchmark: hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M (bartowski, 74k downloads, huihui-ai abliteration of Qwen/Qwen3-Coder-Next, ~46GB Q4_K_M). Abliterated Qwen3-Coder-Next — 80B/3B MoE agentic coder without refusals. Candidate for auto-agentic / auto-redteam coding lane. Head-to-head vs non-abliterated bench-qwen3-coder-next. PROMOTE_POLICY=confirm.
     model_hint: hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M
+    predict_limit: 16384
+    temperature: 0.2
+    top_p: 0.95
+    repeat_penalty: 1.1
+    max_concurrent: 1
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-hauhaucs-coder:
+    module: eval
+    name: 🔬 Bench · HauhauCS Coder (Qwen3.6-35B-A3B MoE)
+    description: |-
+      Benchmark: hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M (MoE 35B-A3B, HauhauCS-Aggressive abliteration). Added 2026-08-26 for the local-dev IDE MoE-vs-dense comparison track alongside gemma4-heretic-coder and ornith15-coder. bench_repair (C2 one-shot/+1-repair corpus) head-to-head. PROMOTE_POLICY=confirm.
+    model_hint: hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M
+    predict_limit: 16384
+    temperature: 0.2
+    top_p: 0.95
+    repeat_penalty: 1.1
+    max_concurrent: 1
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-gemma4-heretic-coder:
+    module: eval
+    name: 🔬 Bench · Gemma-4-26B Heretic Coder (MoE)
+    description: |-
+      Benchmark: hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M (MoE 26B-A4B, heretic/uncensored tune). Added 2026-08-26 for the local-dev IDE MoE-vs-dense comparison track alongside hauhaucs-coder and ornith15-coder. bench_repair (C2 one-shot/+1-repair corpus) head-to-head. PROMOTE_POLICY=confirm.
+    model_hint: hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M
+    predict_limit: 16384
+    temperature: 0.2
+    top_p: 0.95
+    repeat_penalty: 1.1
+    max_concurrent: 1
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-ornith15-coder:
+    module: eval
+    name: 🔬 Bench · Ornith-1.5 Coder (Qwen3.6-35B-A3B MoE)
+    description: |-
+      Benchmark: hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M (MoE 35B-A3B, uncensored, K_M quant per explicit operator choice). Added 2026-08-26 for the local-dev IDE MoE-vs-dense comparison track alongside hauhaucs-coder and gemma4-heretic-coder. bench_repair (C2 one-shot/+1-repair corpus) head-to-head. PROMOTE_POLICY=confirm.
+    model_hint: hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M
     predict_limit: 16384
     temperature: 0.2
     top_p: 0.95

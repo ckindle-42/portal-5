@@ -48,6 +48,7 @@ VALID_WORKSPACES = frozenset(
         "auto-compliance",
         "auto-math",
         "auto-audio",
+        "auto-uncensored-throwaway",
         # Coding capability benchmark workspaces (user-selected only)
         "bench-qwen3-coder-next",
         "bench-qwen3-coder-30b",

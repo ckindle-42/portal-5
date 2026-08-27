@@ -11,6 +11,28 @@ backends:
   # verified via direct tool-call probe (clean tool_calls, typed arguments).
   - id: hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx8k
     supports_tools: true
+  # Same 3 MoE-vs-dense IDE-lane candidates as the `coding` group (added
+  # 2026-08-26), also needed here for auto-uncensored-throwaway (general
+  # group) repointing them at open-topic conversation. ctx256k tags are the
+  # workspace's real model_hints (full native context, matches coding
+  # group's production tags); bare tags are kept registered only because
+  # the completed bench_repair run (2026-08-26/27) benched against them
+  # directly via bench-hauhaucs-coder/bench-gemma4-heretic-coder/
+  # bench-ornith15-coder — see config/MODEL_CATALOG.md for the bare-tag
+  # provenance notes. supports_tools:true verified via a direct /api/chat
+  # tool-call probe for all three.
+  - id: portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k
+    supports_tools: true
+  - id: portal5/gemma4-26b-heretic:q4_K_M-ctx256k
+    supports_tools: true
+  - id: portal5/ornith15-35b:q4_K_M-ctx256k
+    supports_tools: true
+  - id: hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M
+    supports_tools: true
+  - id: hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M
+    supports_tools: true
+  - id: hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M
+    supports_tools: true
   - id: huihui_ai/Qwen3.6-abliterated:27b
     supports_tools: true
   - id: huihui_ai/Qwen3.6-abliterated:27b-ctx8k
@@ -858,6 +880,8 @@ workspace_routing:
   - creative
   auto-general-uncensored:
   - general
+  auto-uncensored-throwaway:
+  - general
   auto-daily:
   - general
   auto-nemotron:
@@ -961,6 +985,12 @@ workspace_routing:
   bench-lfm25-8b-uncensored:
   - general
   bench-qwen3-coder-next-abliterated:
+  - general
+  bench-hauhaucs-coder:
+  - general
+  bench-gemma4-heretic-coder:
+  - general
+  bench-ornith15-coder:
   - general
   bench-e2b-pentest:
   - general
