@@ -4,7 +4,9 @@
   "meta": {
     "description": "🔓 Portal Extract (Uncensored)",
     "profile_image_url": "",
-    "toolIds": []
+    "toolIds": [
+      "server:mcp:portal_code"
+    ]
   },
   "params": {
     "model": "auto-extract-uncensored"

@@ -2,14 +2,13 @@
   "auto": [
     "server:mcp:portal_comfyui"
   ],
-  "auto-agentic": [
-    "server:mcp:portal_code"
-  ],
   "auto-audio": [
     "server:mcp:portal_whisper"
   ],
-  "auto-blueteam": [
-    "server:mcp:portal_research",
+  "auto-bigfix": [
+    "server:mcp:portal_code"
+  ],
+  "auto-cad": [
     "server:mcp:portal_code"
   ],
   "auto-coding": [
@@ -19,6 +18,7 @@
   "auto-compliance": [
     "server:mcp:portal_research"
   ],
+  "auto-council": [],
   "auto-creative": [
     "server:mcp:portal_tts"
   ],
@@ -35,23 +35,27 @@
     "server:mcp:portal_documents",
     "server:mcp:portal_code"
   ],
+  "auto-extract-uncensored": [
+    "server:mcp:portal_code"
+  ],
+  "auto-general-uncensored": [
+    "server:mcp:portal_research"
+  ],
   "auto-image": [
     "server:mcp:portal_comfyui"
   ],
   "auto-math": [],
-  "auto-mistral": [
-    "server:mcp:portal_research"
-  ],
   "auto-music": [
     "server:mcp:portal_music",
     "server:mcp:portal_tts"
   ],
+  "auto-nemotron": [
+    "server:mcp:portal_research",
+    "server:mcp:portal_documents",
+    "server:mcp:portal_memory"
+  ],
   "auto-reasoning": [
     "server:mcp:portal_research"
-  ],
-  "auto-redteam": [
-    "server:mcp:portal_research",
-    "server:mcp:portal_code"
   ],
   "auto-research": [
     "server:mcp:portal_research"

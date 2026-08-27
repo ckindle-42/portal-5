@@ -4,7 +4,11 @@
   "meta": {
     "description": "⚡ Nemotron Lightning",
     "profile_image_url": "",
-    "toolIds": []
+    "toolIds": [
+      "server:mcp:portal_research",
+      "server:mcp:portal_documents",
+      "server:mcp:portal_memory"
+    ]
   },
   "params": {
     "model": "auto-nemotron",

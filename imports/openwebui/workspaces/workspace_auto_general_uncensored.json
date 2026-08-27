@@ -4,7 +4,9 @@
   "meta": {
     "description": "🔓 Portal General (Uncensored)",
     "profile_image_url": "",
-    "toolIds": []
+    "toolIds": [
+      "server:mcp:portal_research"
+    ]
   },
   "params": {
     "model": "auto-general-uncensored"
