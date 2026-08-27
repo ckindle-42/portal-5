@@ -400,11 +400,13 @@ Grounding anchors the model to its two backends.yaml group registrations with th
 
 ### `qwen3.6:27b-q4_K_M-ctx16k`
 
-`qwen3.6:27b-q4_K_M-ctx16k` is the derived tag of `qwen3.6:27b-q4_K_M` with `PARAMETER num_ctx 16384` baked in via the `apply-params` command, created as a P5-ROUTER-EVICTION-001 follow-up. `config/backends.yaml` registers it in `group: general` with `supports_tools: false`. `config/portal.yaml` pins it as the `auto-council` workspace `model_hint` with `context_limit: 16384` and uses it as the council `synthesizer_model`. Because the base's native 262144-token context would reserve enormous KV cache and evict the fleet, the council lane needed a dedicated capped id rather than a request-time option the endpoint ignores.
+`qwen3.6:27b-q4_K_M-ctx16k` is the derived tag of `qwen3.6:27b-q4_K_M` with `PARAMETER num_ctx 16384` baked in via the `apply-params` command, created as a P5-ROUTER-EVICTION-001 follow-up. `config/backends.yaml` registers it in `group: general` with `supports_tools: false`. `config/portal.yaml` pins it as the `auto-council` workspace `model_hint` with `context_limit: 16384` and uses it as the council `synthesizer_model`. Because the base's native 262144-token context would reserve enormous KV cache and evict the fleet, the council lane needed a dedicated capped id rather than a request-time option the endpoint ignores. Also used (2026-08-27) as the `model_hint` for `bench-qwen36-cad`, TASK_CAD_MODULE_OVERHAUL_V1 Phase 8's dense CAD challenger arm, cloning `auto-cad`'s full tool loop incl. `generate_scad`.
 
 ## Why
 
 Grounding anchors the tag to the general-group registration and to the auto-council wiring in portal.yaml — the `model_hint`, the matching `context_limit`, and the `synthesizer_model` role. The eviction rationale is kept because it is the institutional reason this derived id exists at all; the tag is not a parity artifact but the fix for a specific routing problem.
+
+**CAD bench (Phase 8) — PENDING.** `bench-qwen36-cad` is being run as this catalog entry is written; the dense-vs-MoE-vs-incumbent verdict is not yet available (the first attempt was invalidated by a missing `think: false` pin — see `auto-council`'s own precedent for this same model — and is being re-run). A follow-up edit to this section should record: pass/fail per gauntlet task, whether dense held CSG/coordinate state better than the MoE arm as hypothesized, and whether it beats the retooled `auto-cad` incumbent enough to justify a model swap. Do not treat this placeholder's absence of a verdict as a negative finding.
 
 ---
 
@@ -1555,21 +1557,21 @@ The `-ctx64k` cap was undersized for real opencode agentic requests (observed up
 
 ### `qwen3-coder:30b-a3b-q4_K_M-ctx16k`
 
-`qwen3-coder:30b-a3b-q4_K_M-ctx16k` is the derived tag of `qwen3-coder:30b-a3b-q4_K_M` with `PARAMETER num_ctx 16384` baked in via the `apply-params` command, required because Ollama's `/v1/chat/completions` drops request-time `options.num_ctx`. `config/backends.yaml` registers it in `group: coding` with `supports_tools: true`; the `omlx-coding` `aliases` block maps it to the oMLX `Qwen3-Coder-30B-A3B-Instruct-4bit` model. `config/portal.yaml` pins it as the `auto-coding` workspace `model_hint` with `context_limit: 16384`, and the auto-bigfix workspace uses the same tag. Base model detail lives in the parent unit.
+`qwen3-coder:30b-a3b-q4_K_M-ctx16k` is the derived tag of `qwen3-coder:30b-a3b-q4_K_M` with `PARAMETER num_ctx 16384` baked in via the `apply-params` command, required because Ollama's `/v1/chat/completions` drops request-time `options.num_ctx`. `config/backends.yaml` registers it in `group: coding` with `supports_tools: true`; the `omlx-coding` `aliases` block maps it to the oMLX `Qwen3-Coder-30B-A3B-Instruct-4bit` model. `config/portal.yaml` pins it as the `auto-coding` and `auto-bigfix` workspace `model_hint`, and (as of TASK_CAD_MODULE_OVERHAUL_V1 Phase 1) `auto-cad` as well — 8k was too tight for Tier-A structured-intermediate JSON payloads and the multi-turn self-correction revision loop, which carries prior SCAD + error context across retries. All three pin `context_limit: 16384`. Base model detail lives in the parent unit.
 
 ## Why
 
-The ctx16k variant is the tag the auto-coding and auto-bigfix lanes actually serve, so the grounding is the coding-group registration plus those two `model_hint` pins with their matching `context_limit`. The omlx alias is recorded because it lets the same GGUF hint reach the oMLX backend. The bake-in mechanism is stated because the endpoint cannot take the context bound per request.
+The ctx16k variant is the tag the auto-coding, auto-bigfix, and (now) auto-cad lanes actually serve, so the grounding is the coding-group registration plus those `model_hint` pins with their matching `context_limit`. The omlx alias is recorded because it lets the same GGUF hint reach the oMLX backend. The bake-in mechanism is stated because the endpoint cannot take the context bound per request.
 
 ---
 
 ### `qwen3-coder:30b-a3b-q4_K_M-ctx8k`
 
-`qwen3-coder:30b-a3b-q4_K_M-ctx8k` is the derived tag of `qwen3-coder:30b-a3b-q4_K_M` with `PARAMETER num_ctx 8192` baked in via the `apply-params` command, needed because Ollama's `/v1/chat/completions` discards request-time `options.num_ctx`. `config/backends.yaml` registers it in `group: coding` with `supports_tools: true`. `config/portal.yaml` pins it as the `auto-cad` workspace `model_hint` with `context_limit: 8192`, so parametric 3D-model generation runs against the capped tag rather than the full-context base. Parent model detail lives in the base unit.
+`qwen3-coder:30b-a3b-q4_K_M-ctx8k` is the derived tag of `qwen3-coder:30b-a3b-q4_K_M` with `PARAMETER num_ctx 8192` baked in via the `apply-params` command, needed because Ollama's `/v1/chat/completions` discards request-time `options.num_ctx`. `config/backends.yaml` registers it in `group: coding` with `supports_tools: true`. **No longer the `auto-cad` production `model_hint`** — TASK_CAD_MODULE_OVERHAUL_V1 Phase 1 bumped `auto-cad` to the `-ctx16k` tag (see above); this tag is retained because `config/portal.yaml`'s `bench-cad-prior` eval workspace (Phase 8's "what-was" reference arm — the old tool loop without `generate_scad`, used to isolate how much the Phase 0-7 tooling alone moved outcomes) deliberately pins the old ctx8k tag to reproduce the pre-overhaul baseline. Parent model detail lives in the base unit.
 
 ## Why
 
-The ctx8k variant is the tag the auto-cad lane serves, so the grounding is the coding-group registration plus the workspace `model_hint` and its matching `context_limit`. The single-group placement contrasts with the parent's general/coding split, which is why the tool flag here is simply true. The bake-in mechanism is kept because the endpoint cannot apply the context bound per request.
+The ctx8k variant is now the tag the `bench-cad-prior` eval-only reference arm serves, not a production lane, so the grounding is the coding-group registration plus that workspace's `model_hint` and matching `context_limit`. The single-group placement contrasts with the parent's general/coding split, which is why the tool flag here is simply true. The bake-in mechanism is kept because the endpoint cannot apply the context bound per request. Keeping this tag registered (rather than removing it once auto-cad moved off it) is what lets the prior-harness bench arm exist at all.
 
 ---
 
@@ -1916,7 +1918,9 @@ Kept separate from the existing `fredrezones55` repack entry because they're dif
 
 ### `hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M`
 
-The bare (undecorated) pull tag for the model documented below as `portal5/gemma4-26b-heretic:q4_K_M-ctx256k`. Same registration/provenance rationale as the HauhauCS bare-tag entry above: kept in `config/backends.yaml`'s `general` group 2026-08-27 for the `bench-gemma4-heretic-coder` bench workspace (which the completed bench_repair run actually used) and as an `auto-uncensored-throwaway` variant backend; the ctx256k tag is used for the workspace's primary/default routing.
+The bare (undecorated) pull tag for the model documented below as `portal5/gemma4-26b-heretic:q4_K_M-ctx256k`. Same registration/provenance rationale as the HauhauCS bare-tag entry above: kept in `config/backends.yaml`'s `general` group 2026-08-27 for the `bench-gemma4-heretic-coder` bench workspace (which the completed bench_repair run actually used) and as an `auto-uncensored-throwaway` variant backend; the ctx256k tag is used for the workspace's primary/default routing. Also this bare tag is the `model_hint` for `bench-moecad` (TASK_CAD_MODULE_OVERHAUL_V1 Phase 8's MoE CAD challenger, cloning `auto-cad`'s full tool loop incl. `generate_scad`) — the 2026-08-26/27 local-dev IDE MoE-vs-dense track's leader, tested here on whether that lead transfers to CAD.
+
+**CAD bench (Phase 8) — PROVISIONAL, pending final commit.** An initial gauntlet run completed against this arm: `t3_bracket` and `t4_spur_gear` (direct OpenSCAD path) passed cleanly (watertight, plausible bbox); `t2_grommet_plate` (generate_scad Tier-A) called the right tool but produced a genuine model dimension error (built a 4mm-deep plate against an 80x30x4mm spec — wrong dimension mapping); `t1_enclosure` and `t5_gyroid_panel` returned inconclusive results the harness couldn't fully diagnose (a raw-tool-response capture gap, since fixed). This entry should be reconciled against the parallel Phase 8 bench-matrix commit's final results rather than treated as the last word.
 
 ---
 
