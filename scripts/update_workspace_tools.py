@@ -19,7 +19,9 @@ WORKSPACE_TOOLS = {
     "auto-daily": ["server:mcp:portal_research", "server:mcp:portal_memory"],
     "auto-coding": ["server:mcp:portal_code", "server:mcp:portal_memory"],
     "auto-compliance": ["server:mcp:portal_research"],
+    "auto-council": [],
     "auto-documents": ["server:mcp:portal_documents", "server:mcp:portal_code"],
+    "auto-image": ["server:mcp:portal_comfyui"],
     "auto-music": ["server:mcp:portal_music", "server:mcp:portal_tts"],
     "auto-video": ["server:mcp:portal_video", "server:mcp:portal_comfyui"],
     "auto-security": [
@@ -37,6 +39,11 @@ WORKSPACE_TOOLS = {
         "server:mcp:portal_documents",
     ],
     "auto-math": [],
+    "auto-nemotron": [
+        "server:mcp:portal_research",
+        "server:mcp:portal_documents",
+        "server:mcp:portal_memory",
+    ],
     "auto-spl": ["server:mcp:portal_code"],
     "auto-bigfix": ["server:mcp:portal_code"],
     "auto-general-uncensored": ["server:mcp:portal_research"],
