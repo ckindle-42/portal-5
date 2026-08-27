@@ -301,8 +301,51 @@ def main() -> int:
     changed_docs = render_all_generated_blocks(Path("."))
     print(f"  wiki fact-units + generated doc blocks: {len(changed_docs)} doc(s) updated")
 
+    # 7. live pipeline drift check — config/portal.yaml is baked into the
+    # portal5-pipeline image (unlike backends.yaml, which is live-mounted),
+    # so a running container can silently keep serving a stale workspace
+    # list after this script edits portal.yaml. Warn loudly rather than
+    # let a newly-added workspace look "missing" in OWUI.
+    _check_pipeline_freshness(config)
+
     print("sync-config: done")
     return 0
+
+
+def _check_pipeline_freshness(config: Any) -> None:
+    import json as _json
+    import os
+    import urllib.error
+    import urllib.request
+
+    port = os.environ.get("PIPELINE_PORT", "9099")
+    api_key = os.environ.get("PIPELINE_API_KEY", "")
+    req = urllib.request.Request(
+        f"http://localhost:{port}/v1/models",
+        headers={"Authorization": f"Bearer {api_key}"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=2) as resp:
+            data = _json.loads(resp.read())
+    except (urllib.error.URLError, OSError, ValueError):
+        # Pipeline not running (e.g. pre-launch, or Docker down) — nothing to
+        # check, and sync-config must work standalone regardless.
+        return
+
+    live_ids = {m.get("id") for m in data.get("data", [])}
+    missing = set(config.workspaces) - live_ids
+    if missing:
+        print(
+            f"  ⚠️  WARNING: the running portal5-pipeline container does not yet serve "
+            f"{len(missing)} workspace(s) just added/changed in config/portal.yaml: "
+            f"{sorted(missing)}"
+        )
+        print(
+            "     config/portal.yaml is baked into the Docker image at build time "
+            "(unlike backends.yaml, which is live-mounted) — a plain restart will NOT "
+            "pick this up."
+        )
+        print("     Run: ./launch.sh rebuild")
 
 
 if __name__ == "__main__":
