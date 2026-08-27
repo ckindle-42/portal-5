@@ -1898,6 +1898,12 @@ Both bugs looked identical from the outside ("nothing happens on large prompts")
 
 ---
 
+### `hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M`
+
+The bare (undecorated) pull tag for the model documented below as `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k`. Registered in `config/backends.yaml`'s `general` group (in addition to `coding`'s ctx256k derived tag) 2026-08-27 as the `bench-hauhaucs-coder` bench workspace's `model_hint` and as one variant backend of `auto-uncensored-throwaway` — the bench_repair coding-correctness run (2026-08-26/27, `tests/benchmarks/results/BENCH_REPAIR_MOE_CODERS_20260826.md`) ran against this exact bare tag, so it is kept registered for provenance even though the bare tag defaults to Ollama's 32768 context cap (too small for real opencode/agentic use — see the ctx256k entry below). `auto-uncensored-throwaway`'s primary `model_hint` uses the ctx256k tag instead; this bare id remains only for the bench workspace and as a documented alternate.
+
+---
+
 ### `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k`
 
 Added 2026-08-26 for the MoE-vs-dense IDE-lane comparison (persona `hauhaucs-coder`, variant of `auto-coding`). Ollama GGUF, MoE 35B-A3B, uncensored. Distinct from the existing `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive` repack already in the fleet — this is the direct HauhauCS author repo, pulled at explicit operator request. `config/backends.yaml` registers it in `ollama-coding`. `supports_tools: true` verified via a direct `/api/chat` tool-call probe (clean `tool_calls`, correctly typed arguments). Measured ~57.6 tok/s decode. This id is the ctx256k derived tag (`PARAMETER num_ctx 262144` baked via `ollama create`) -- the bare `hf.co/HauhauCS/...` tag defaults to Ollama's 32768 cap, too small for real opencode requests; confirmed the same 87,665-token prompt completes correctly at 200000 in 386s (~227 tok/s effective prefill).
@@ -1908,6 +1914,12 @@ Kept separate from the existing `fredrezones55` repack entry because they're dif
 
 ---
 
+### `hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M`
+
+The bare (undecorated) pull tag for the model documented below as `portal5/gemma4-26b-heretic:q4_K_M-ctx256k`. Same registration/provenance rationale as the HauhauCS bare-tag entry above: kept in `config/backends.yaml`'s `general` group 2026-08-27 for the `bench-gemma4-heretic-coder` bench workspace (which the completed bench_repair run actually used) and as an `auto-uncensored-throwaway` variant backend; the ctx256k tag is used for the workspace's primary/default routing.
+
+---
+
 ### `portal5/gemma4-26b-heretic:q4_K_M-ctx256k`
 
 Added 2026-08-26 for the MoE-vs-dense IDE-lane comparison (persona `gemma4-heretic-coder`, variant of `auto-coding`). Ollama GGUF, MoE 26B-A4B, heretic/uncensored tune. Distinct from the existing `mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF` already in the fleet — that's a separate "-uncensored-heretic" release, this is mradermacher's plain "-heretic" release. `config/backends.yaml` registers it in `ollama-coding`. `supports_tools: true` verified via a direct `/api/chat` tool-call probe. Measured ~59.0 tok/s decode. ctx256k derived tag as above -- confirmed completing an 85,850-token prompt in 388s (~221 tok/s effective prefill).
@@ -1915,6 +1927,12 @@ Added 2026-08-26 for the MoE-vs-dense IDE-lane comparison (persona `gemma4-heret
 ## Why
 
 The near-identical repo name to the existing uncensored-heretic entry is exactly the kind of thing a future session could mistake for a duplicate/typo — recorded here so the distinction (two separate mradermacher releases, not one) is explicit.
+
+---
+
+### `hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M`
+
+The bare (undecorated) pull tag for the model documented below as `portal5/ornith15-35b:q4_K_M-ctx256k`. Same registration/provenance rationale as the other two bare-tag entries above: kept in `config/backends.yaml`'s `general` group 2026-08-27 for the `bench-ornith15-coder` bench workspace (which the completed bench_repair run actually used) and as an `auto-uncensored-throwaway` variant backend; the ctx256k tag is used for the workspace's primary/default routing.
 
 ---
 

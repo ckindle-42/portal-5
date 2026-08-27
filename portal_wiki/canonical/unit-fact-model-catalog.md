@@ -1,11 +1,11 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 233 model ids, 7 backend groups
+title: 239 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 89e15c60266d
+  commit: c6818a3df1b8
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1787776672.184443
+updated_at: 1787815056.654022
 ---
 
-# Model catalog (233 model ids across 7 backend groups)
+# Model catalog (239 model ids across 7 backend groups)
 
 ## coding (52)
 
@@ -88,7 +88,7 @@ updated_at: 1787776672.184443
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (93)
+## general (99)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `cybersecqwen-4b-toolfix:latest`
@@ -117,6 +117,7 @@ updated_at: 1787776672.184443
 - `hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M`
 - `hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M`
 - `hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K`
+- `hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M`
 - `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF:Q4_K_M`
 - `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M`
 - `hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf`
@@ -137,8 +138,10 @@ updated_at: 1787776672.184443
 - `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M`
 - `hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M`
 - `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M`
+- `hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M`
 - `hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M`
 - `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M`
+- `hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M`
 - `hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf`
 - `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M`
 - `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL`
@@ -172,6 +175,9 @@ updated_at: 1787776672.184443
 - `portal5/deepwen-3.6:q4.5-moq`
 - `portal5/deepwen-3.6:q4.5-moq-ctx32k`
 - `portal5/gemma4-12b:q4_K_M-ctx8k`
+- `portal5/gemma4-26b-heretic:q4_K_M-ctx256k`
+- `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k`
+- `portal5/ornith15-35b:q4_K_M-ctx256k`
 - `portal5/qwen3.6-27b-mtp:q8_0-drafted`
 - `portal5/xyz-aquila-mini:Q4_K_M`
 - `portal5/xyz-aquila-mini:q4_k_m-ctx16k`

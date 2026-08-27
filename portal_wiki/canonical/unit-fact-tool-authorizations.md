@@ -1,11 +1,11 @@
 ---
 id: unit-fact-tool-authorizations
 kind: what
-title: tool authorizations for 24 production workspaces
+title: tool authorizations for 25 production workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 5acee6003d90
+  commit: c6818a3df1b8
   section: workspaces[].tools
 claims: []
 confidence: high
@@ -14,7 +14,7 @@ tags:
 - tools
 - workspaces
 created_at: 1784049584.703768
-updated_at: 1786736581.251984
+updated_at: 1787798558.3907259
 ---
 
 # Tool authorizations (per-workspace `tools:` whitelist)
@@ -44,6 +44,7 @@ The pipeline strips any tool a workspace does not authorize (metric `portal5_too
 | `auto-research` | research | `web_search`, `web_fetch`, `news_search`, `kb_search`, `kb_search_all`, `kb_list`, `remember`, `recall` |
 | `auto-security` | security | `web_search`, `web_fetch`, `classify_vulnerability`, `execute_python`, `execute_bash`, `kb_search`, `kb_list` |
 | `auto-spl` | general | `classify_vulnerability`, `kb_search`, `kb_list` |
+| `auto-uncensored-throwaway` | general | `web_search`, `web_fetch`, `news_search`, `execute_bash`, `execute_python`, `remember`, `recall` |
 | `auto-video` | media | `generate_video`, `generate_image`, `list_video_models` |
 | `auto-vision` | general | `transcribe_audio`, `generate_image`, `list_workflows`, `get_generation_status` |
 | `tools-specialist` | general | `execute_python`, `remember`, `recall` |

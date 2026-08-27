@@ -1,0 +1,13 @@
+{
+  "id": "auto-uncensored-throwaway",
+  "name": "🗑️ Portal Uncensored Throwaway",
+  "meta": {
+    "description": "🗑️ Portal Uncensored Throwaway",
+    "profile_image_url": "",
+    "toolIds": []
+  },
+  "params": {
+    "model": "auto-uncensored-throwaway",
+    "enable_web_search": true
+  }
+}

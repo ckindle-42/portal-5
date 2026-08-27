@@ -1,11 +1,11 @@
 ---
 id: unit-fact-workspace-roster
 kind: what
-title: 24 production + 46 eval workspaces
+title: 25 production + 49 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: f77981960b1b
+  commit: c6818a3df1b8
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1787752482.408781
+updated_at: 1787815056.3760571
 ---
 
-# Workspace roster (24 production, 46 eval, 70 total)
+# Workspace roster (25 production, 49 eval, 74 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -44,6 +44,7 @@ updated_at: 1787752482.408781
 | `auto-research` | research | `portal5/xyz-aquila-mini:q4_k_m-ctx16k` |
 | `auto-security` | security | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` |
 | `auto-spl` | general | `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k` |
+| `auto-uncensored-throwaway` | general | `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k` |
 | `auto-video` | media | `granite4.1:8b-ctx16k` |
 | `auto-vision` | general | `qwen3-vl:32b-ctx8k` |
 | `tools-specialist` | general | `granite4.1:8b-ctx8k` |
@@ -66,9 +67,11 @@ updated_at: 1787752482.408781
 - `bench-gemma4-e2b`
 - `bench-gemma4-e4b`
 - `bench-gemma4-e4b-qat`
+- `bench-gemma4-heretic-coder`
 - `bench-glm`
 - `bench-granite41-30b`
 - `bench-granite41-8b`
+- `bench-hauhaucs-coder`
 - `bench-hermes3`
 - `bench-huihui-qwen36-27b`
 - `bench-huihui-qwen36-35b-a3b`
@@ -82,6 +85,7 @@ updated_at: 1787752482.408781
 - `bench-north-mini-code`
 - `bench-omnicoder2`
 - `bench-ornith-35b`
+- `bench-ornith15-coder`
 - `bench-qwable-35b`
 - `bench-qwen3-14b-abliterated`
 - `bench-qwen3-coder-30b`
