@@ -82,7 +82,7 @@ async def run() -> None:
     # S2-08 to S2-15: MCP services
     mcp_services = [
         ("S2-08", "documents", MCP["documents"]),
-        # Music MCP is host-native (not a Docker service) — requires ./launch.sh install-music
+        # Music MCPs are host-native — install with install-music-minimax/install-music-ace.
         # WARN is expected if not installed; this is not a regression
         ("S2-09", "music", MCP["music"]),
         ("S2-10", "tts", MCP["tts"]),

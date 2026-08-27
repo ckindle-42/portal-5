@@ -23,8 +23,9 @@ updated_at: 1784946220.536941
 ---
 
 On macOS Apple Silicon there is no Portal-specific Fish Speech installer;
-`launch.sh` only manages `install-comfyui`, `install-music` and the host-native
-speech server, and nothing in the repo provisions Fish Speech. The zero-setup
+`launch.sh` manages `install-comfyui`, `install-music-minimax`,
+`install-music-ace`, and the host-native speech server, but nothing in the repo
+provisions Fish Speech. The zero-setup
 speech backend is Kokoro inside the `mcp-tts` container, which `Dockerfile.mcp`
 supplies at build time, while the host speech server in `scripts/mlx-speech.py`
 runs natively for MPS access and serves Open WebUI through

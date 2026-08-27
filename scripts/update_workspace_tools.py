@@ -22,7 +22,8 @@ import yaml
 #   portal/modules/documents/tools/document_mcp.py     -> portal_documents
 #   portal/modules/media/tools/whisper_mcp.py          -> portal_whisper
 #   portal/modules/media/tools/tts_mcp.py              -> portal_tts
-#   portal/modules/media/tools/music_mcp.py            -> portal_music
+#   portal/modules/media/tools/music_minimax_mcp.py    -> portal_music_minimax
+#   portal/modules/media/tools/music_ace_mcp.py        -> portal_music_ace
 #   portal/modules/media/tools/comfyui_mcp.py          -> portal_comfyui (DEAD)
 #   portal/modules/media/tools/video_mcp.py            -> portal_video (DEAD)
 #   portal/modules/security/tools/security_mcp.py      -> portal_security
@@ -55,10 +56,12 @@ TOOL_TO_SERVER: dict[str, str] = {
     "speak": "portal_tts",
     "clone_voice": "portal_tts",
     "list_voices": "portal_tts",
-    # portal_music
-    "generate_music": "portal_music",
-    "generate_continuation": "portal_music",
-    "list_music_models": "portal_music",
+    "minimax_generate": "portal_music_minimax",
+    "minimax_status": "portal_music_minimax",
+    "minimax_models": "portal_music_minimax",
+    "ace_generate": "portal_music_ace",
+    "ace_status": "portal_music_ace",
+    "ace_models": "portal_music_ace",
     # portal_comfyui — DEAD: service intentionally removed from mcp_fleet
     # (image generation not scaffolded; see config/portal.yaml comment near
     # the mcp_fleet comfyui entry). Kept mapped so a workspace/persona still

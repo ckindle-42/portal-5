@@ -1,0 +1,1 @@
+{"id":"portal_music_ace","name":"Portal Music (ACE-Step)","type":"mcp","meta":{"description":"Generate or edit full songs using ACE-Step-1.5","manifest":{"type":"mcp","url":"http://host.docker.internal:8933/mcp"}},"settings":{"api_key":""}}

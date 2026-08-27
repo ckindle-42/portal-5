@@ -509,7 +509,8 @@ class TestAllMCPServerToolAlignment:
         "module_path",
         [
             "portal.modules.documents.tools.document_mcp",
-            "portal.modules.media.tools.music_mcp",
+            "portal.modules.media.tools.music_minimax_mcp",
+            "portal.modules.media.tools.music_ace_mcp",
             "portal.modules.media.tools.tts_mcp",
             "portal.modules.media.tools.whisper_mcp",
             "portal.modules.media.tools.comfyui_mcp",

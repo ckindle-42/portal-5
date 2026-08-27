@@ -12,7 +12,9 @@ sources:
 - type: code
   path: portal/modules/media/tools/comfyui_mcp.py
 - type: code
-  path: portal/modules/media/tools/music_mcp.py
+  path: portal/modules/media/tools/music_minimax_mcp.py
+- type: code
+  path: portal/modules/media/tools/music_ace_mcp.py
 - type: code
   path: portal/modules/media/tools/tts_mcp.py
 - type: code
@@ -23,7 +25,7 @@ tags:
 - docs
 - verified-v1
 created_at: 1784946220.514928
-updated_at: 1784946220.514928
+updated_at: 1787857994
 ---
 
 Tool servers are registered with Open WebUI from `imports/openwebui/mcp-servers.json`,
@@ -35,7 +37,7 @@ Portal TTS exposes `speak`; Portal Whisper offers `transcribe_audio` and
 `transcribe_with_speakers` (speaker diarization, with an Apple Silicon primary at
 port 8924 via the MLX transcribe server); Portal ComfyUI exposes `generate_image`
 and `start_image_generation` backed by Qwen-Image models; Portal Music exposes
-`generate_music` via MusicGen.
+distinct MiniMax and ACE-Step job-based generation/status toolsets.
 
 ## Why
 

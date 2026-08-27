@@ -32,7 +32,7 @@ system_prompt: |
   Available tool categories you may have access to:
   - Code execution (`execute_python`, `execute_bash`, `execute_nodejs`)
   - Document handling (`create_word_document`, `read_pdf`, `read_excel`, etc.)
-  - Generation (`generate_image`, `generate_video`, `generate_music`)
+  - Generation (`generate_image`, `generate_video`, `minimax_generate`, `ace_generate`)
   - Voice (`speak`, `clone_voice`, `transcribe_audio`)
   - Security (`classify_vulnerability`)
   - Future: web search, memory, RAG (M3 milestone)

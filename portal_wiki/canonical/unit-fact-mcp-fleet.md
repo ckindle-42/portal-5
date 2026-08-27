@@ -1,11 +1,11 @@
 ---
 id: unit-fact-mcp-fleet
 kind: what
-title: 24 MCP fleet servers
+title: 25 MCP fleet servers
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 7df1b83dc258
+  commit: 570249c65237
   section: mcp_fleet
 claims:
 - probe: mcp.fleet.entries
@@ -15,10 +15,10 @@ tags:
 - fact
 - mcp
 created_at: 1784000421.477582
-updated_at: 1787786654.259084
+updated_at: 1787857926.298025
 ---
 
-# MCP fleet (24 servers)
+# MCP fleet (25 servers)
 
 | ID | Name | Port |
 |---|---|---|
@@ -27,7 +27,7 @@ updated_at: 1787786654.259084
 | `git` | git |  |
 | `serena` | serena |  |
 | `docker` | docker |  |
-| `music` | portal-music | 8912 |
+| `music-minimax` | portal-music-minimax | 8912 |
 | `documents` | portal-documents | 8913 |
 | `execution` | portal-sandbox | 8914 |
 | `whisper` | portal-whisper | 8915 |
@@ -46,6 +46,7 @@ updated_at: 1787786654.259084
 | `binresearch` | portal-binresearch | 8930 |
 | `wiki` | portal-wiki | 8931 |
 | `detections` | portal-detections | 8932 |
+| `music-ace` | portal-music-ace | 8933 |
 
 ## Why
 

@@ -27,9 +27,10 @@ MEDIA_MODEL_MEMORY_GB: dict[str, float] = {
     # overhead push the measured peak close to the full 64GB unified pool even
     # for a tiny 9-frame, 5-step job.
     "video:wan21-nsfw": 55.0,
-    "music:small": 2.0,
-    "music:medium": 6.0,
-    "music:large": 12.0,
+    # Measured live (Phase 5): MiniMax-Music3-MLX 60s/30-step, vm_stat delta + headroom.
+    "music:minimax3": 27.0,  # coarse sampled delta 22.02GiB + 4GiB headroom, rounded up
+    # Measured live (Phase 5): ACE-Step-1.5 sft 2B + 1.7B LM 60s/30-step, vm_stat delta + headroom.
+    "music:acestep-sft": 40.0,  # coarse sampled delta 35.43GiB + 4GiB headroom, rounded up
     # Rationale, incident history: unit-known-limitations-qwen-image-bf16-crashes-on-apple-silicon-mps
     "comfyui:qwen-image-2512": 38.0,  # fp8 diffusion 20.4 + fp8_scaled text encoder 9.4 + vae 0.25 static + margin
     "comfyui:qwen-image-2512-lightning": 39.0,  # same base weights (QWEN_IMAGE_MODEL, fp8) + ~0.85GB LoRA
@@ -55,7 +56,7 @@ def _free_gb_from_proc_meminfo() -> float | None:
 
 
 def _free_gb_from_vm_stat() -> float | None:
-    """macOS (host-native processes, e.g. music_mcp.py): free pages from vm_stat, in GB."""
+    """macOS host-native processes: free pages from vm_stat, in GB."""
     import subprocess
 
     try:

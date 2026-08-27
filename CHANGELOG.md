@@ -4,6 +4,9 @@ All notable changes to Portal 5 will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **Music generation overhauled — MusicGen removed, two engines added side by side.** MiniMax-Music3-MLX (`music-minimax:8912`) and ACE-Step-1.5 (`music-ace:8933`, engine `:8001`) now provide distinct job-based toolsets in `auto-music`, both defaulting to 60 seconds / 30 steps. ACE-Step also supports repaint and cover editing. See P5-MUSIC-MINIMAX-001 and P5-MUSIC-ACESTEP-001 in `KNOWN_LIMITATIONS.md`.
+
 ## [8.0.0] — 2026-07-29
 
 Major release. Four independently major-justifying changes since 7.6.0: `video` removed

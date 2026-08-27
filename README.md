@@ -98,7 +98,7 @@ credentials that already exist in `.env`.
 `./launch.sh up` starts the core Docker stack (compose services plus profiles
 auto-selected from Telegram/Slack tokens). Host-native Apple Silicon services
 start when their launchd agent has been installed — `_ensure_native_services` in
-`scripts/lib/util.sh` checks each registered launchd label (ComfyUI, Music MCP,
+`scripts/lib/util.sh` checks each registered launchd label (ComfyUI, both music backends,
 MLX Speech, MLX Transcribe, embedding) and boots the service via `launchctl` or a
 background `nohup` fallback.
 
@@ -109,7 +109,7 @@ background `nohup` fallback.
 | Ollama | Local GGUF models via Metal | :11434 |
 | SearXNG | Private web search | :8088 |
 | ComfyUI | Image generation (host-native; video shelved) | http://localhost:8188 |
-| MCP fleet | ComfyUI :8910, Music :8912, Documents :8913, Sandbox :8914, Whisper :8915, TTS :8916, Security :8919, Memory :8920, RAG :8921, Research :8922, Browser :8923, CAD :8926, Proxmox :8927 | config/portal.yaml |
+| MCP fleet | ComfyUI :8910, Music-MiniMax :8912, Music-ACE :8933, Documents :8913, Sandbox :8914, Whisper :8915, TTS :8916, Security :8919, Memory :8920, RAG :8921, Research :8922, Browser :8923, CAD :8926, Proxmox :8927 | config/portal.yaml |
 | Pipeline MCP | Stack introspection + FastContext explorer | :8928 |
 | MITRE ATT&CK MCP | Technique lookup, data sources, detections | :8929 |
 | Detections MCP | SPL library search, validate_syntax, explain | :8932 |
@@ -184,7 +184,7 @@ with the pinned model, is:
 | `auto-data` | `granite4.1:30b` (execute_python, create_excel) |
 | `auto-math` | `phi4-mini-reasoning` |
 | `auto-audio` | `gemma4:12b-it-qat` (transcribe tools) |
-| `auto-music` | `lfm2.5:8b` (generate_music, speak, transcribe) |
+| `auto-music` | `lfm2.5:8b` (minimax_generate / ace_generate + status tools, speak, transcribe) |
 | `auto-video` | shelved — retained in config but not operated |
 | `auto-image` | `granite4.1:8b` (generate_image, ComfyUI tools) |
 | `auto-cad` | `qwen3-coder:30b-a3b-q4_K_M` (render_mesh, render_openscad, convert_cad) |
@@ -769,7 +769,7 @@ a LAN, not the public internet.
 Portal 5 ships first-class support for AI coding assistants. Two repo-root config
 files activate automatically when either tool opens this project:
 
-- **`.mcp.json`** — currently 22 MCP servers (count with `python3 -c "import json; print(len(json.load(open('.mcp.json'))['mcpServers']))"`): filesystem, git, docker, fetch, portal-sandbox (execute_bash), portal-pipeline (FastContext code explorer + stack introspection), plus the other portal-* tool servers.
+- **`.mcp.json`** — currently 23 MCP servers (count with `python3 -c "import json; print(len(json.load(open('.mcp.json'))['mcpServers']))"`): filesystem, git, docker, fetch, portal-sandbox (execute_bash), portal-pipeline (FastContext code explorer + stack introspection), plus the other portal-* tool servers.
 - **`opencode.jsonc`** — points opencode at the pipeline (`http://localhost:9099/v1`) as a fully local AI backend; a curated 20-entry model picker whose default is `model: portal/codingagentic`; the cloud providers (anthropic, openai, google, bedrock, vertex) are disabled in its disabled_providers list.
 
 The `codingagentic` persona (`config/personas/codingagentic.yaml`) binds the

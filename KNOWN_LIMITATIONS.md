@@ -962,3 +962,34 @@ This is a permanent, box-level constraint that silently caps every future large-
 Recording both gate failures with their specific numbers (49GB rung, no TurboQuant build present) means a future session doesn't have to re-derive whether this candidate is worth attempting — it can check whether either constraint has changed (more RAM, a TurboQuant build becomes available) before re-evaluating, rather than re-running the same failed preflight.
 
 ---
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-minimax-music3-mlx -->
+### MiniMax-Music3-MLX Apple-Silicon-Only, No Continuation, Community License
+
+- **ID**: P5-MUSIC-MINIMAX-001
+- **Description**: `music_minimax_mcp.py` uses PocketAiHub/MiniMax-Music3-MLX, a native MLX port with no CPU/CUDA/Linux fallback. Batch size is one. It has no clip-editing or continuation capability.
+- **Impact**: This engine is unavailable off Apple Silicon. Output falls under the MiniMax-Music3 Community License, including its commercial attribution and revenue conditions.
+- **Mitigation**: ACE-Step covers editing/continuation and has a PyTorch fallback. `_launch_install_music_minimax` refuses non-arm64 installs.
+
+## Why
+
+The architecture and license constraints need to remain visible at operation time because both can turn an otherwise successful local install into an unusable or non-compliant deployment. Keeping them in the generated register makes hardware eligibility and output obligations reviewable before an operator commits to this backend.
+<!-- /WIKI:GENERATED -->
+
+---
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-acestep15-mlx-backend -->
+### ACE-Step-1.5 XL/4B MLX Bug Out of Scope; Two-Process Architecture
+
+- **ID**: P5-MUSIC-ACESTEP-001
+- **Description**: `music_ace_mcp.py` proxies to a separate ACE-Step-1.5 API server. Upstream issue #995 documents an MLX DiT bug specific to XL/4B. This deployment defaults to non-turbo 2B `acestep-v15-sft`. Engine and proxy are separate launchd processes.
+- **Impact**: XL/4B overrides may fail on MLX until the issue is fixed. If the engine dies, proxy tools report connection errors until launchd restarts it.
+- **Mitigation**: Do not select XL/4B until #995 is confirmed fixed. `./launch.sh status` reports both processes; inspect `~/.portal5/logs/acestep-server.log` for engine failures.
+- **Note**: ACE-Step-1.5 is MIT-licensed.
+
+## Why
+
+The two-process failure mode is specific to this integration and belongs in this repository's limitations register. Recording it separately from upstream model constraints gives operators a direct way to distinguish a proxy connection problem from a generation failure and avoids escalating routine launchd recovery into model debugging.
+<!-- /WIKI:GENERATED -->
+
+---

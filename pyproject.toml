@@ -57,15 +57,7 @@ mcp = [
     # HTTP for ComfyUI/video bridge
     "httpx>=0.26.0",
 ]
-generation = [
-    # MusicGen via HuggingFace transformers — works on aarch64/MPS/CUDA/CPU.
-    # AudioCraft removed: torchtext/xformers have no aarch64 Linux wheels.
-    # music_mcp runs natively on macOS (MPS) via ./launch.sh install-music.
-    "torch>=2.1.0",
-    "torchaudio>=2.1.0",
-    "transformers>=4.40.0",
-    "scipy>=1.11.0",
-]
+generation = []
 rag = [
     # MLX-native embeddings + reranking (Qwen3-Embedding/Reranker family)
     # Replaces sentence-transformers CPU path for Apple Silicon.

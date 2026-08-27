@@ -81,7 +81,8 @@ AUTH = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"
 MCP = {
     "comfyui": int(os.environ.get("COMFYUI_MCP_HOST_PORT", "8910")),
     "video": int(os.environ.get("VIDEO_MCP_HOST_PORT", "8911")),
-    "music": int(os.environ.get("MUSIC_HOST_PORT", "8912")),
+    "music_minimax": int(os.environ.get("MUSIC_MINIMAX_PORT", "8912")),
+    "music_ace": int(os.environ.get("MUSIC_ACE_MCP_PORT", "8933")),
     "documents": int(os.environ.get("DOCUMENTS_HOST_PORT", "8913")),
     "sandbox": int(os.environ.get("SANDBOX_HOST_PORT", "8914")),
     "whisper": int(os.environ.get("WHISPER_HOST_PORT", "8915")),

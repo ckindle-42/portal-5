@@ -12,11 +12,8 @@
       "url": "http://host.docker.internal:8911/mcp",
       "api_key": ""
     },
-    {
-      "name": "Portal Music",
-      "url": "http://host.docker.internal:8912/mcp",
-      "api_key": ""
-    },
+    {"name": "Portal Music (MiniMax)", "url": "http://host.docker.internal:8912/mcp", "api_key": ""},
+    {"name": "Portal Music (ACE-Step)", "url": "http://host.docker.internal:8933/mcp", "api_key": ""},
     {
       "name": "Portal Documents",
       "url": "http://host.docker.internal:8913/mcp",
@@ -94,21 +91,8 @@
         "api_key": ""
       }
     },
-    {
-      "id": "portal_music",
-      "name": "Portal Music",
-      "type": "mcp",
-      "meta": {
-        "description": "Generate music using AudioCraft/MusicGen",
-        "manifest": {
-          "type": "mcp",
-          "url": "http://host.docker.internal:8912/mcp"
-        }
-      },
-      "settings": {
-        "api_key": ""
-      }
-    },
+    {"id": "portal_music_minimax", "name": "Portal Music (MiniMax)", "type": "mcp", "meta": {"description": "Generate full songs with MiniMax-Music3-MLX", "manifest": {"type": "mcp", "url": "http://host.docker.internal:8912/mcp"}}, "settings": {"api_key": ""}},
+    {"id": "portal_music_ace", "name": "Portal Music (ACE-Step)", "type": "mcp", "meta": {"description": "Generate or edit full songs with ACE-Step-1.5", "manifest": {"type": "mcp", "url": "http://host.docker.internal:8933/mcp"}}, "settings": {"api_key": ""}},
     {
       "id": "portal_shell",
       "name": "Portal Shell",
@@ -296,7 +280,8 @@
         "description": "🎵 Portal Music Producer",
         "profile_image_url": "",
         "toolIds": [
-          "portal_music",
+          "portal_music_minimax",
+          "portal_music_ace",
           "portal_tts"
         ]
       },

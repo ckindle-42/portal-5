@@ -73,7 +73,7 @@ For the full live roster (production + eval workspaces, module, model hint) use 
 | `auto-coding` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | execute_python, execute_nodejs, execute_bash |
 | `auto-security` | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` | web_search, classify_vulnerability, execute_bash |
 | `auto-documents` | `granite4.1:8b-ctx16k` | create_word_document, create_excel, create_powerpoint |
-| `auto-music` | `lfm2.5:8b-ctx8k` | generate_music, speak, clone_voice |
+| `auto-music` | `lfm2.5:8b-ctx8k` | minimax_generate, ace_generate, status tools, speak, clone_voice |
 | `auto-vision` | `qwen3-vl:32b-ctx8k` | transcribe_audio, generate_image |
 
 `auto-video` is defined with `expose_to_owui: false` (shelved — see the Video Generation unit). Eval workspaces (the `bench-*` set) additionally require `PORTAL_ENABLE_EVAL=1` at pipeline startup.
@@ -208,15 +208,15 @@ Shelving rather than deleting preserves an operational option at near-zero cost:
 
 ## 10. Music Generation
 
-**What:** Generate music clips from text descriptions using HuggingFace MusicGen.
+**What:** Generate full songs with lyrics/vocals or instrumentals using MiniMax-Music3-MLX or ACE-Step-1.5. ACE-Step also edits and extends clips.
 
-**Activate:** Select `Music Producer` (`auto-music`) from the model dropdown. The Music tools — `generate_music`, `generate_continuation`, `list_music_models`, plus the speech and transcription tools — are granted by `auto-music`'s `tools` list in `config/portal.yaml`, so they are available when that workspace is selected.
+**Activate:** Select `Music Producer` (`auto-music`). Its tools include `minimax_generate`/`minimax_status`/`minimax_models`, `ace_generate`/`ace_status`/`ace_models`, and speech/transcription tools.
 
-**How:** `portal/modules/media/tools/music_mcp.py` runs the MusicGen models through the `transformers` library, not AudioCraft — AudioCraft's `torchtext`/`xformers` dependencies have no aarch64 wheels. Model sizes `small`, `medium`, `large` download to the HuggingFace cache on first use. The server runs host-native on Apple Silicon (install with `./launch.sh install-music`, auto-started by `up` through `_ensure_native_services`); the port is 8912. Clips write to the shared workspace `generated/music/` and the tool returns a download URL. Duration is capped at 30 seconds per clip; `generate_continuation` extends an existing WAV using a melody as conditioning.
+**How:** MiniMax runs in-process as a native MLX MCP on port 8912. ACE-Step runs as a host-native API server on port 8001 behind a thin proxy MCP on port 8933. Both are job-based: call the matching generate tool, then poll its status tool until done. Defaults are 60 seconds and 30 steps; ACE uses the non-turbo `acestep-v15-sft` DiT and 1.7B LM. For editing, use ACE `task_type="repaint"` or `"cover"` with a source filename from the output directory.
 
 ## Why
 
-Music generation is a large, cold model that Docker would run on CPU, so it is a host-native service kept out of the container set and auto-started only when installed. Routing the tools through the `auto-music` workspace rather than globally keeps the heavy models out of everyday chat while still exposing them to any persona that binds to that workspace.
+The independent host-native modules preserve accelerator access, crash isolation, and clean removability. Job polling reflects real multi-minute generation latency, while workspace-scoped authorization keeps these 27 GB and 40 GB admission workloads out of unrelated chat.
 
 ---
 

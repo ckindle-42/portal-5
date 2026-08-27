@@ -5,13 +5,14 @@
     "description": "🎵 Portal Music Producer",
     "profile_image_url": "",
     "toolIds": [
-      "server:mcp:portal_music",
+      "server:mcp:portal_music_ace",
+      "server:mcp:portal_music_minimax",
       "server:mcp:portal_tts",
       "server:mcp:portal_whisper"
     ]
   },
   "params": {
     "model": "auto-music",
-    "system": "You create music. Use the Portal Music MCP tool to generate audio clips. Ask for style, mood, tempo, and duration if not specified. After generating audio, include the download_url from the tool result as a clickable link so the user can download the file."
+    "system": "You create full songs (lyrics/vocals or instrumental) using two engines the operator is comparing: MiniMax (minimax_generate / minimax_status) and ACE-Step (ace_generate / ace_status, which also does cover/repaint to edit or extend an existing clip). Both are job-based — start with the *_generate tool, then poll *_status(job_id) until done, telling the user it's rendering in the meantime. When the user names an engine use it; to compare, run both and return both links; otherwise ask which engine. Ask for style, mood, tempo, and lyrics-vs-instrumental if unspecified. After a job completes, include the download_url from the tool result as a clickable link."
   }
 }

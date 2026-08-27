@@ -53,7 +53,7 @@ _SECTION_DESCRIPTIONS: dict[str, str] = {
     "S4": "Document generation MCP (:8913) — Word, Excel, PowerPoint generation end-to-end",
     "S5": "Code sandbox MCP (:8914) — Python/Bash execution, sandboxed isolation",
     "S6": "Security workspaces — auto-blueteam and auto-compliance routing + content signal",
-    "S7": "Music generation MCP (:8912) — MusicGen end-to-end",
+    "S7": "Dual music generation MCPs (:8912/:8933) — MiniMax + ACE-Step end-to-end",
     "S8": "Text-to-Speech — MLX speech server Kokoro/Qwen3-TTS (:8918)",
     "S9": "Speech-to-Text — MLX transcribe mlx-whisper + pyannote diarization (:8924)",
     "S10": "Personas (Ollama) — 86 non-bench personas grouped by Ollama model, behavioral signal",
