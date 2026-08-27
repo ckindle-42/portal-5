@@ -75,7 +75,7 @@ Portal TTS exposes `speak`; Portal Whisper offers `transcribe_audio` and
 `transcribe_with_speakers` (speaker diarization, with an Apple Silicon primary at
 port 8924 via the MLX transcribe server); Portal ComfyUI exposes `generate_image`
 and `start_image_generation` backed by Qwen-Image models; Portal Music exposes
-the MiniMax and ACE-Step job-based music toolsets.
+the MiniMax job-based music toolset.
 
 ## Why
 

@@ -1,4 +1,6 @@
-"""S7: Music generation tests — both engines (MiniMax + ACE-Step)."""
+"""S7: Music generation tests — MiniMax-Music3-MLX (sole engine; ACE-Step disabled
+2026-08-27 after TASK_MUSIC_DUAL_BACKEND's [GATE: SELECT ENGINE] — see
+unit-known-limitations-acestep15-mlx-backend)."""
 
 import asyncio
 import json
@@ -79,22 +81,18 @@ async def _run_engine(
 
 
 async def run() -> None:
-    print("\n━━━ S7. MUSIC GENERATION (dual engine) ━━━")
+    print("\n━━━ S7. MUSIC GENERATION (MiniMax-Music3-MLX) ━━━")
     section = "S7"
-    for tid, key, label in (
-        ("S7-01", "music_minimax", "MiniMax MCP"),
-        ("S7-02", "music_ace", "ACE MCP"),
-    ):
-        t0 = time.time()
-        code, data = await _get(f"http://localhost:{MCP[key]}/health")
-        record(
-            section,
-            tid,
-            f"{label} health",
-            "PASS" if code == 200 else "WARN",
-            data.get("service", "?") if isinstance(data, dict) else f"HTTP {code}",
-            t0=t0,
-        )
+    t0 = time.time()
+    code, data = await _get(f"http://localhost:{MCP['music_minimax']}/health")
+    record(
+        section,
+        "S7-01",
+        "MiniMax MCP health",
+        "PASS" if code == 200 else "WARN",
+        data.get("service", "?") if isinstance(data, dict) else f"HTTP {code}",
+        t0=t0,
+    )
     await _run_engine(
         section,
         MCP["music_minimax"],
@@ -108,40 +106,6 @@ async def run() -> None:
             "steps": 30,
         },
     )
-    ace_file = await _run_engine(
-        section,
-        MCP["music_ace"],
-        "ace_generate",
-        "ace_status",
-        "S7-04",
-        {
-            "prompt": "upbeat jazz piano solo",
-            "lyrics": "[Instrumental]",
-            "seconds": 60,
-            "steps": 30,
-            "model": "acestep-v15-sft",
-        },
-    )
-    if ace_file:
-        await _run_engine(
-            section,
-            MCP["music_ace"],
-            "ace_generate",
-            "ace_status",
-            "S7-05",
-            {
-                "prompt": "add a brighter horn section here",
-                "task_type": "repaint",
-                "src_audio_path": ace_file,
-                "repainting_start": 5,
-                "repainting_end": 10,
-                "steps": 30,
-            },
-        )
-    else:
-        record(
-            section, "S7-05", "ACE repaint", "WARN", "no S7-04 output to repaint", t0=time.time()
-        )
     t0 = time.time()
     code, text = await _chat(
         "auto-music",

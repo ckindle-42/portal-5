@@ -59,6 +59,11 @@ TOOL_TO_SERVER: dict[str, str] = {
     "minimax_generate": "portal_music_minimax",
     "minimax_status": "portal_music_minimax",
     "minimax_models": "portal_music_minimax",
+    # portal_music_ace — DEAD: disabled 2026-08-27 after TASK_MUSIC_DUAL_BACKEND's
+    # [GATE: SELECT ENGINE] (operator picked MiniMax; see config/portal.yaml's
+    # mcp_fleet comment for the full rationale). Kept mapped so a stale
+    # workspace/persona reference is recognized, not silently dropped as
+    # unknown; DEAD_SERVERS below excludes it from any computed toolIds.
     "ace_generate": "portal_music_ace",
     "ace_status": "portal_music_ace",
     "ace_models": "portal_music_ace",
@@ -119,7 +124,7 @@ TOOL_TO_SERVER: dict[str, str] = {
 # Server ids with no live backing service right now — a tool that maps here
 # contributes no toolId (the workspace/persona keeps its other, working tools;
 # this one just won't show as active in OWUI's UI, matching reality).
-DEAD_SERVERS: frozenset[str] = frozenset({"portal_comfyui", "portal_video"})
+DEAD_SERVERS: frozenset[str] = frozenset({"portal_comfyui", "portal_video", "portal_music_ace"})
 
 # Host-native pipeline tools with no MCP server / OWUI toolId by design
 # (portal/platform/inference router_pipe.py handles these directly, not via

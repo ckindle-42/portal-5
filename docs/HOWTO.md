@@ -73,7 +73,7 @@ For the full live roster (production + eval workspaces, module, model hint) use 
 | `auto-coding` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | execute_python, execute_nodejs, execute_bash |
 | `auto-security` | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` | web_search, classify_vulnerability, execute_bash |
 | `auto-documents` | `granite4.1:8b-ctx16k` | create_word_document, create_excel, create_powerpoint |
-| `auto-music` | `lfm2.5:8b-ctx8k` | minimax_generate, ace_generate, status tools, speak, clone_voice |
+| `auto-music` | `lfm2.5:8b-ctx8k` | minimax_generate, minimax_status, speak, clone_voice |
 | `auto-vision` | `qwen3-vl:32b-ctx8k` | transcribe_audio, generate_image |
 
 `auto-video` is defined with `expose_to_owui: false` (shelved — see the Video Generation unit). Eval workspaces (the `bench-*` set) additionally require `PORTAL_ENABLE_EVAL=1` at pipeline startup.
@@ -208,11 +208,11 @@ Shelving rather than deleting preserves an operational option at near-zero cost:
 
 ## 10. Music Generation
 
-**What:** Generate full songs with lyrics/vocals or instrumentals using MiniMax-Music3-MLX or ACE-Step-1.5. ACE-Step also edits and extends clips.
+**What:** Generate full songs with lyrics/vocals or instrumentals using MiniMax-Music3-MLX.
 
-**Activate:** Select `Music Producer` (`auto-music`). Its tools include `minimax_generate`/`minimax_status`/`minimax_models`, `ace_generate`/`ace_status`/`ace_models`, and speech/transcription tools.
+**Activate:** Select `Music Producer` (`auto-music`). Its tools include `minimax_generate`/`minimax_status`/`minimax_models`, and speech/transcription tools.
 
-**How:** MiniMax runs in-process as a native MLX MCP on port 8912. ACE-Step runs as a host-native API server on port 8001 behind a thin proxy MCP on port 8933. Both are job-based: call the matching generate tool, then poll its status tool until done. Defaults are 60 seconds and 30 steps; ACE uses the non-turbo `acestep-v15-sft` DiT and 1.7B LM. For editing, use ACE `task_type="repaint"` or `"cover"` with a source filename from the output directory.
+**How:** MiniMax runs in-process as a native MLX MCP on port 8912. Job-based: call `minimax_generate`, then poll `minimax_status` until done. Defaults are 60 seconds and 30 steps. MiniMax has no clip-editing/continuation capability. (ACE-Step-1.5 was evaluated side-by-side and disabled 2026-08-27 after the operator's `[GATE: SELECT ENGINE]` decision — its module code remains in the repo unwired; see `KNOWN_LIMITATIONS.md` P5-MUSIC-ACESTEP-001.)
 
 ## Why
 

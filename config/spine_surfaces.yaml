@@ -60,13 +60,13 @@ surfaces:
   globs:
   - portal/modules/media/tools/comfyui_mcp.py
   unit: unit-HOWTO-8-image-generation
-- name: file-portal-modules-media-tools-music_minimax_mcp
-  globs:
-  - portal/modules/media/tools/music_minimax_mcp.py
-  unit: unit-HOWTO-10-music-generation
 - name: file-portal-modules-media-tools-music_ace_mcp
   globs:
   - portal/modules/media/tools/music_ace_mcp.py
+  unit: unit-fact-tool-registry
+- name: file-portal-modules-media-tools-music_minimax_mcp
+  globs:
+  - portal/modules/media/tools/music_minimax_mcp.py
   unit: unit-HOWTO-10-music-generation
 - name: file-portal-modules-media-tools-tts_mcp
   globs:
