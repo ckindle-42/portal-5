@@ -56,16 +56,31 @@ def _free_gb_from_proc_meminfo() -> float | None:
 
 
 def _free_gb_from_vm_stat() -> float | None:
-    """macOS host-native processes: free pages from vm_stat, in GB."""
+    """macOS host-native processes: reclaimable memory from vm_stat, in GB.
+
+    "Pages free" alone undercounts real headroom by several GB on a
+    long-uptime macOS host — the kernel keeps recently-evicted pages in
+    "inactive" rather than immediately freeing them, since it costs nothing
+    to hold them until real pressure hits, at which point they're reclaimed
+    just as fast as free pages. Live comparison against ComfyUI's own
+    psutil-based system_stats (`ram_free`, which reports true
+    available-for-allocation memory) confirmed free+inactive matches within
+    ~0.1GB where free-alone undercounted by ~8.5GB — enough to cause a false
+    admission refusal for a job that would have fit.
+    """
     import subprocess
 
     try:
         out = subprocess.check_output(["vm_stat"], timeout=5).decode()
         page_size = 16384  # Apple Silicon default; vm_stat's header confirms this per-host
+        pages: dict[str, int] = {}
         for line in out.splitlines():
-            if line.startswith("Pages free:"):
-                pages = int(line.split(":")[1].strip().rstrip("."))
-                return pages * page_size / 1024 / 1024 / 1024
+            for label in ("Pages free:", "Pages inactive:"):
+                if line.startswith(label):
+                    pages[label] = int(line.split(":")[1].strip().rstrip("."))
+        if "Pages free:" not in pages or "Pages inactive:" not in pages:
+            return None
+        return (pages["Pages free:"] + pages["Pages inactive:"]) * page_size / 1024 / 1024 / 1024
     except (OSError, ValueError, IndexError, subprocess.SubprocessError):
         pass
     return None
