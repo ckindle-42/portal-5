@@ -10,17 +10,19 @@ The register is a rendered view, not an independent ledger, which is the whole p
 
 ---
 
-### CadQuery and build123d Unusable on linux/arm64
+### CadQuery and build123d on linux/arm64 (RESOLVED)
 
 - **ID**: P5-CAD-ARM64-001
-- **Description**: CadQuery and build123d both require OCP (OpenCASCADE Python bindings), which has no pre-built wheels for `linux/arm64`. `Dockerfile.mcp` documents this: the code-CAD dependency comment states CadQuery/build123d cannot be installed on `linux/arm64` without a source build, so only `trimesh[easy]`, `pyrender`, and `numpy-stl` are installed.
-- **Impact**: Python-native parametric CAD (`.box()`, `.extrude()` style) is unavailable inside the MCP containers. The `auto-cad` workspace in `config/portal.yaml` uses OpenSCAD instead, which runs headlessly with no platform restriction, and notes the OCP arm64 limitation in its own description.
-- **Mitigation**: Use OpenSCAD via the `render_openscad` tool (exposed by `portal/modules/cad/tools/cad_render_mcp.py`) for parametric geometry. Use `trimesh` for procedural mesh manipulation.
-- **Do not re-add** `cadquery` or `build123d` to `Dockerfile.mcp` without first verifying an arm64 wheel exists — the build would silently succeed on x86 CI and fail on this hardware.
+- **Status**: RESOLVED (TASK_CAD_MODULE_OVERHAUL_V1 Phase 0, 2026-08-27). See
+  `portal/modules/cad/PLATFORM.md` for the full empirical record.
+- **Original claim (now known wrong)**: "CadQuery and build123d both require OCP (OpenCASCADE Python bindings), which has no pre-built wheels for `linux/arm64` — cannot install on arm64, use OpenSCAD only." This was a **pip-wheel artifact**, not a platform ceiling: true for *pip* wheels of OCP as of early 2024, but conda-forge's `ocp`/`occt` packages ship for `linux-aarch64` and `osx-arm64` (also linux-64/osx-64/win-64).
+- **Resolution**: A micromamba/conda-forge layer in `Dockerfile.mcp` installs `cadquery`/`build123d`/`ocp` on the arm64 MCP image. Verified empirically on an osx-arm64 host: `occt-7.8.1`/`ocp-7.8.1.2`/`cadquery-2.7.0`/`build123d-0.9.1` installed cleanly, all imported, and a CadQuery box exported to a valid STL. `portal.modules.cad.tools.capabilities.cad_capabilities()` now probes `cadquery`/`build123d`/`ocp`/`step_read` at runtime instead of hardcoding platform assumptions, and `convert_cad`'s STEP path gates on that probe.
+- **Do not reinstate** the "no arm64 wheels, OpenSCAD only" wording — it is factually wrong regardless of pip's continued arm64 gap. If a future session hits a *different* install failure, record the specific new failure as its own entry rather than reviving this one.
+- **Residual verification note**: the empirical check above ran in a throwaway micromamba env on the host, proving package resolution and import; independently confirming the same result inside the rebuilt `Dockerfile.mcp` container image (via its `/capabilities` route) is tracked as a follow-up in `PLATFORM.md`.
 
 ## Why
 
-The MCP CAD container must stay buildable on Apple Silicon hosts, and OCP's missing `linux/arm64` wheel makes both libraries a hard build failure there. Choosing OpenSCAD as the primary path keeps parametric geometry available without a multi-hour source compile, and the comment in `Dockerfile.mcp` records the constraint at the exact place a future dependency edit would otherwise ignore it.
+The original register entry existed to stop CadQuery/build123d from being silently re-added in a way that would build on x86 CI and fail on Apple Silicon. That risk is now inverted: OCP genuinely works on arm64 via conda-forge, and the residual risk is a future reader trusting the old "impossible" framing and never trying. Keeping this entry (marked resolved, with the original wrong claim preserved) rather than deleting it prevents that regression in belief, while the still-open residual-verification item keeps the record honest about what was proven where.
 
 ---
 

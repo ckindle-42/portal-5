@@ -15,7 +15,7 @@ surfaces:
 - name: file-portal-modules-cad-tools-capabilities
   globs:
   - portal/modules/cad/tools/capabilities.py
-  unit: unit-module-cad
+  unit: unit-known-limitations-cadquery-and-build123d-unusable-on-linux-arm64
 - name: file-portal-modules-cad-tools-mesh_validator
   globs:
   - portal/modules/cad/tools/mesh_validator.py
