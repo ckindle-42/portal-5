@@ -34,15 +34,25 @@ def _catalog_model_ids() -> set[str]:
 
 
 def _catalog_retired_ids() -> set[str]:
-    """Catalog headers explicitly marked DROPPED/RETIRED in the header line.
+    """Catalog headers explicitly marked DROPPED/RETIRED/NEEDS-GGUF-CONVERSION.
 
     Additive-only catalog discipline: nothing is deleted, retired models are
     labeled in place rather than purged. Such entries are expected to have no
     backends.yaml counterpart — that's the point of removal — so they're
     exempt from the orphan check below without exempting genuine drift.
+    NEEDS-GGUF-CONVERSION marks a surveyed specialist that was never
+    registered (conversion blocked or, per TASK_CAD_MODULE_OVERHAUL_V1,
+    a broken upstream checkpoint) — same "no backends.yaml entry expected"
+    shape as DROPPED/RETIRED.
     """
     text = CATALOG.read_text()
-    return set(re.findall(r"^### `([^`]+)` — (?:DROPPED|RETIRED)\b", text, re.MULTILINE))
+    return set(
+        re.findall(
+            r"^### `([^`]+)` — (?:DROPPED|RETIRED|NEEDS-GGUF-CONVERSION)\b",
+            text,
+            re.MULTILINE,
+        )
+    )
 
 
 def test_all_backends_models_have_catalog_entry() -> None:
