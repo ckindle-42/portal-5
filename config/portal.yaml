@@ -1864,6 +1864,101 @@ workspaces:
     - generate_scad
     expose_to_owui: true
     enable_web_search: false
+  bench-cad-prior:
+    module: eval
+    name: 🔬 Bench · CAD Prior Harness (qwen3-coder ctx8k, no generate_scad)
+    description: |-
+      TASK_CAD_MODULE_OVERHAUL_V1 Phase 8 "what-was" reference: qwen3-coder:30b-a3b at the
+      OLD auto-cad harness — ctx8k, no generate_scad structured intermediate, no mesh-validation
+      self-correction loop. Old tool loop only (render_openscad, render_mesh, convert_cad).
+      Measured against the retooled current auto-cad to isolate how much the Phase 2-4 tooling
+      (not a model swap) moved CAD gauntlet outcomes. PROMOTE_POLICY=confirm.
+    model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx8k
+    context_limit: 8192
+    predict_limit: 16384
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
+    tool_choice: required
+    tools:
+    - render_mesh
+    - render_openscad
+    - convert_cad
+    expose_to_owui: false
+    enable_web_search: false
+  bench-qwen36-cad:
+    module: eval
+    name: 🔬 Bench · Qwen3.6-27B Dense (CAD challenger)
+    description: |-
+      TASK_CAD_MODULE_OVERHAUL_V1 Phase 8 "could-be-dense" challenger: same auto-cad tool loop
+      (incl. generate_scad structured intermediate + self-correcting loop) on Qwen3.6-27B dense
+      instead of the qwen3-coder MoE incumbent. Hypothesis under test: does holding CSG/coordinate
+      state across a part favor a dense model over sparse MoE. PROMOTE_POLICY=confirm.
+    model_hint: qwen3.6:27b-q4_K_M-ctx16k
+    context_limit: 16384
+    predict_limit: 16384
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
+    tool_choice: required
+    system_prompt_append: |2-
+
+
+      CAD OUTPUT RULE: For any part with holes, pockets, patterns, shells, standoffs, or multiple features — PRIMARY PATH is the generate_scad tool. Describe the part as feature-level JSON: a `base` solid plus named features (holes/pockets/standoffs/ribs/shell/pattern) positioned by face + anchor + offset — NEVER compute 3D translate/rotate coordinates yourself, the tool's deterministic emitter owns all coordinate-frame math. Example: `{"parameters": {"width": 60, "depth": 40, "height": 25}, "base": {"type": "box", "dimensions": {"width": "width", "depth": "depth", "height": "height"}}, "holes": [{"diameter": 3, "face": "top", "offset_from": "center", "offset_x": 0, "offset_y": 0}]}`. generate_scad validates, compiles, mesh-validates, renders, and self-corrects (auto-retries deterministic fixes) in one call — read the returned `validation`, `problems`, and `retry_log`; if `printable` is still false after its own retries, issue a corrected generate_scad call describing the fix. For a Tier-A vocabulary gap, an `escape_hatch.csg` subtree is available (bounded CSG primitives/booleans) — steer to Tier-A features first. For trivial single-primitive parts or quick iteration, write complete OpenSCAD source in a fenced ```openscad block and call render_openscad. State all dimensions as named variables at the top (units=mm). For procedural geometry (arrays, math-driven surfaces), use Python with trimesh in execute_python — trimesh is available. Do not leave stubs.
+    tools:
+    - execute_python
+    - execute_bash
+    - sandbox_status
+    - read_pdf
+    - read_word_document
+    - web_search
+    - web_fetch
+    - remember
+    - recall
+    - kb_search
+    - render_mesh
+    - render_openscad
+    - convert_cad
+    - generate_scad
+    expose_to_owui: false
+    enable_web_search: false
+  bench-moecad:
+    module: eval
+    name: 🔬 Bench · Gemma-4-26B Heretic MoE (CAD challenger)
+    description: |-
+      TASK_CAD_MODULE_OVERHAUL_V1 Phase 8 "could-be-MoE" challenger: same auto-cad tool loop
+      (incl. generate_scad) on hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M, the
+      2026-08-26/27 local-dev IDE MoE-vs-dense track leader (100%/100% on bench_repair one-shot/
+      +1-repair, see tests/benchmarks/results/BENCH_REPAIR_MOE_CODERS_20260826.md). CAD is a code
+      task, so it's a fair question whether that track's leader also serves CAD. PROMOTE_POLICY=confirm.
+    model_hint: hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M
+    context_limit: 16384
+    predict_limit: 16384
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
+    tool_choice: required
+    system_prompt_append: |2-
+
+
+      CAD OUTPUT RULE: For any part with holes, pockets, patterns, shells, standoffs, or multiple features — PRIMARY PATH is the generate_scad tool. Describe the part as feature-level JSON: a `base` solid plus named features (holes/pockets/standoffs/ribs/shell/pattern) positioned by face + anchor + offset — NEVER compute 3D translate/rotate coordinates yourself, the tool's deterministic emitter owns all coordinate-frame math. Example: `{"parameters": {"width": 60, "depth": 40, "height": 25}, "base": {"type": "box", "dimensions": {"width": "width", "depth": "depth", "height": "height"}}, "holes": [{"diameter": 3, "face": "top", "offset_from": "center", "offset_x": 0, "offset_y": 0}]}`. generate_scad validates, compiles, mesh-validates, renders, and self-corrects (auto-retries deterministic fixes) in one call — read the returned `validation`, `problems`, and `retry_log`; if `printable` is still false after its own retries, issue a corrected generate_scad call describing the fix. For a Tier-A vocabulary gap, an `escape_hatch.csg` subtree is available (bounded CSG primitives/booleans) — steer to Tier-A features first. For trivial single-primitive parts or quick iteration, write complete OpenSCAD source in a fenced ```openscad block and call render_openscad. State all dimensions as named variables at the top (units=mm). For procedural geometry (arrays, math-driven surfaces), use Python with trimesh in execute_python — trimesh is available. Do not leave stubs.
+    tools:
+    - execute_python
+    - execute_bash
+    - sandbox_status
+    - read_pdf
+    - read_word_document
+    - web_search
+    - web_fetch
+    - remember
+    - recall
+    - kb_search
+    - render_mesh
+    - render_openscad
+    - convert_cad
+    - generate_scad
+    expose_to_owui: false
+    enable_web_search: false
   bench-supergemma4-sec:
     module: eval
     name: 🔬 Bench · SuperGemma4 26B Uncensored [PROMOTED → auto-redteam-deep]

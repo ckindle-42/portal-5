@@ -464,7 +464,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-# Workspace roster (25 production, 49 eval, 74 total)
+# Workspace roster (25 production, 52 eval, 77 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -500,6 +500,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 
 - `bench-agentworld`
 - `bench-baronllm-q6k`
+- `bench-cad-prior`
 - `bench-e2b-pentest`
 - `bench-exec-exploit`
 - `bench-exec-reasoning`
@@ -528,6 +529,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 - `bench-llama32-3b-abliterated`
 - `bench-magistral-small`
 - `bench-mistral-small-3-2`
+- `bench-moecad`
 - `bench-nex-n2-mini`
 - `bench-north-mini-code`
 - `bench-omnicoder2`
@@ -542,6 +544,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 - `bench-qwen35-abliterated`
 - `bench-qwen36-27b-optiq`
 - `bench-qwen36-35b-a3b-ud`
+- `bench-qwen36-cad`
 - `bench-qwen36-hauhaucs`
 - `bench-qwen38-27b`
 - `bench-supergemma4-sec`
