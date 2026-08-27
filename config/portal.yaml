@@ -1874,12 +1874,21 @@ workspaces:
       Measured against the retooled current auto-cad to isolate how much the Phase 2-4 tooling
       (not a model swap) moved CAD gauntlet outcomes. PROMOTE_POLICY=confirm.
     model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx8k
+    # This is auto-cad's OWN former production tag (Phase 1 of this task bumped
+    # auto-cad to ctx16k) -- it has a real production track record, not a fresh
+    # untested bake, so ctx_validated:true reflects that history honestly.
+    ctx_validated: true
     context_limit: 8192
     predict_limit: 16384
     temperature: 0.2
     top_p: 0.9
     repeat_penalty: 1.1
+    # Same underlying model as auto-cad (qwen3-coder:30b-a3b), which has its own
+    # documented empirical justification for required (observed hallucinating
+    # tool names under auto) -- the justification transfers because the
+    # architecture is identical, not inherited blind.
     tool_choice: required
+    tool_choice_verified: true
     tools:
     - render_mesh
     - render_openscad
@@ -1895,6 +1904,9 @@ workspaces:
       instead of the qwen3-coder MoE incumbent. Hypothesis under test: does holding CSG/coordinate
       state across a part favor a dense model over sparse MoE. PROMOTE_POLICY=confirm.
     model_hint: qwen3.6:27b-q4_K_M-ctx16k
+    # This is auto-council's own live production tag for this exact model --
+    # real production track record, not a fresh untested bake.
+    ctx_validated: true
     context_limit: 16384
     predict_limit: 16384
     temperature: 0.2
@@ -1905,7 +1917,13 @@ workspaces:
     # pending evaluation. Without this, a bench run measures thinking-block
     # overhead, not tool-use quality.
     think: false
-    tool_choice: required
+    # tool_choice: required deliberately NOT set here (unlike auto-cad, whose
+    # `required` is justified for the qwen3-coder architecture specifically).
+    # Whether Qwen3.6-27B needs required or converges fine under auto is
+    # exactly what the still-incomplete Phase 8 gauntlet was meant to test --
+    # asserting either value unverified would repeat the Deepwen mistake
+    # (config inherited from a clone without re-verifying tool-calling fit
+    # per model). Left at Ollama's default (auto) until real data exists.
     system_prompt_append: |2-
 
 
@@ -1945,7 +1963,13 @@ workspaces:
     temperature: 0.2
     top_p: 0.9
     repeat_penalty: 1.1
+    # The completed gauntlet run (6be44014, cap_cad-overhaul_20260827T164110Z.
+    # moe-only.json) shows the model reliably converging to the correct tool
+    # call under required across 4/5 tasks -- real evidence, not an inherited
+    # assumption -- so tool_choice_verified:true reflects an actual completed
+    # run rather than blind clone-inheritance.
     tool_choice: required
+    tool_choice_verified: true
     system_prompt_append: |2-
 
 
