@@ -19,12 +19,32 @@ RUN apt-get update \
         apktool jadx dex2jar \
         openssl hashdeep \
         python3 python3-pip python3-venv ca-certificates git \
+        python3-keystone-engine python3-tlsh \
     && rm -rf /var/lib/apt/lists/*
 
+# ropper depends on filebytes>=0.10.0, whose setup.py calls the long-removed
+# ast.Str/.s (dropped in Python 3.12+); kali-rolling now ships Python 3.14, so
+# a plain `pip install ropper` fails building filebytes from source. Build a
+# patched wheel first (ast.Str -> ast.Constant, .s -> .value) and install it,
+# so the normal install below finds filebytes already satisfied.
+RUN pip3 install --no-cache-dir --break-system-packages setuptools wheel \
+    && python3 -c "import urllib.request; urllib.request.urlretrieve('https://files.pythonhosted.org/packages/01/44/4ea92a74ca7d7940a29d6c437f62a91fd05d43bfa04fc8306b5dc541d01d/filebytes-0.10.2.tar.gz', '/tmp/filebytes.tar.gz')" \
+    && mkdir -p /tmp/filebytes-src \
+    && tar xzf /tmp/filebytes.tar.gz -C /tmp/filebytes-src --strip-components=1 \
+    && sed -i -e 's/ast\.Str/ast.Constant/' -e 's/e\.value\.s\b/e.value.value/' /tmp/filebytes-src/setup.py \
+    && pip3 wheel --no-deps --no-build-isolation -w /tmp/wheels /tmp/filebytes-src \
+    && pip3 install --no-cache-dir --break-system-packages /tmp/wheels/filebytes-*.whl \
+    && rm -rf /tmp/filebytes.tar.gz /tmp/filebytes-src /tmp/wheels
+
+# keystone-engine and tlsh are installed above via apt (python3-keystone-engine,
+# python3-tlsh): keystone's PyPI sdist (0.9.2) is missing the vendored `kstool`
+# directory needed by its CMake build (upstream packaging bug), and PyPI's
+# "tlsh" package is an abandoned 1.2KB stub with no actual module content —
+# both `import` as dead weight from pip. The Kali packages are real builds.
 RUN pip3 install --no-cache-dir --break-system-packages \
-        lief pefile macholib capstone keystone-engine ropper python-magic tlsh unblob \
+        lief pefile macholib capstone ropper python-magic unblob \
     || pip3 install --no-cache-dir \
-        lief pefile macholib capstone keystone-engine ropper python-magic tlsh unblob
+        lief pefile macholib capstone ropper python-magic unblob
 
 RUN useradd -m -s /bin/bash analyst
 USER analyst
@@ -33,4 +53,4 @@ WORKDIR /work
 RUN radare2 -v >/dev/null \
     && binwalk --help >/dev/null 2>&1 \
     && yara --version >/dev/null \
-    && python3 -c "import lief, capstone, pefile; print('re-pylibs ok')"
+    && python3 -c "import lief, capstone, pefile, macholib, ropper, tlsh; print('re-pylibs ok')"
