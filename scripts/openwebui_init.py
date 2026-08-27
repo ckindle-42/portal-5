@@ -255,12 +255,18 @@ async def create_workspaces_async(client: httpx.AsyncClient, token: str) -> None
         return
 
     # Get existing workspaces
-    # Use /export (not /list) — /list is paginated (30/page) and would miss models beyond page 1
+    # Use /api/v1/models (not /export or /list): /list is paginated (30/page)
+    # and would miss models beyond page 1; /export silently omits overlay-style
+    # presets (base_model_id=None, matching a pipeline connection by id) even
+    # though they exist and GET-by-id returns them — confirmed live 2026-08-27,
+    # this caused every existing workspace preset to be (wrongly) re-attempted
+    # via CREATE instead of UPDATE, which then 401s on OWUI's id-collision
+    # check and gets reported as a plain failure.
     existing_names: set[str] = set()
     for attempt in range(3):
         try:
             resp = await client.get(
-                f"{OPENWEBUI_URL}/api/v1/models/export",
+                f"{OPENWEBUI_URL}/api/v1/models",
                 headers=auth_headers(token),
             )
             if resp.status_code == 200:
@@ -292,12 +298,18 @@ async def create_workspaces_async(client: httpx.AsyncClient, token: str) -> None
         # which lets model.info.meta.toolIds be read by the frontend for tool resolution.
         # Non-null base_model_id treats the preset as a standalone model that is skipped
         # when a pipeline model with the same id already exists.
+        # access_grants must be an explicit [] (not omitted/None): OWUI's
+        # /model/update route re-validates the request against ModelForm,
+        # which requires a list — an omitted field defaults to None on
+        # ingress and then 500s on that re-validation. Every existing
+        # preset's update silently failed this way until this was added.
         payload = {
             "id": ws_id,
             "name": ws_name,
             "base_model_id": None,
             "meta": ws.get("meta", {}),
             "params": ws.get("params", {}),
+            "access_grants": [],
         }
 
         try:

@@ -40,6 +40,11 @@ WORKSPACE_TOOLS = {
     "auto-spl": ["server:mcp:portal_code"],
     "auto-bigfix": ["server:mcp:portal_code"],
     "auto-general-uncensored": ["server:mcp:portal_research"],
+    "auto-uncensored-throwaway": [
+        "server:mcp:portal_research",
+        "server:mcp:portal_code",
+        "server:mcp:portal_memory",
+    ],
     "auto-extract-uncensored": ["server:mcp:portal_code"],
     "auto-cad": ["server:mcp:portal_code"],
     "auto-audio": ["server:mcp:portal_whisper"],

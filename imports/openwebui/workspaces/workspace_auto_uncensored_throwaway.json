@@ -4,7 +4,11 @@
   "meta": {
     "description": "🗑️ Portal Uncensored Throwaway",
     "profile_image_url": "",
-    "toolIds": []
+    "toolIds": [
+      "server:mcp:portal_research",
+      "server:mcp:portal_code",
+      "server:mcp:portal_memory"
+    ]
   },
   "params": {
     "model": "auto-uncensored-throwaway",

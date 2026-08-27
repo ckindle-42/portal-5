@@ -64,6 +64,11 @@
   "auto-spl": [
     "server:mcp:portal_code"
   ],
+  "auto-uncensored-throwaway": [
+    "server:mcp:portal_research",
+    "server:mcp:portal_code",
+    "server:mcp:portal_memory"
+  ],
   "auto-video": [
     "server:mcp:portal_video",
     "server:mcp:portal_comfyui"
