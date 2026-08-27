@@ -202,6 +202,32 @@ class TestAdmit:
         assert refusal is None
 
 
+class TestFreeGbFromVmStat:
+    """Regression for a false admission refusal: ACE-Step (~40GB) was refused
+    with 35.6GB reported free by vm_stat while ComfyUI's own psutil-based
+    system_stats reported 44GB free at the same instant — free+inactive
+    matched ComfyUI within 0.1GB, free-alone did not."""
+
+    _VM_STAT_OUT = (
+        "Mach Virtual Memory Statistics: (page size of 16384 bytes)\n"
+        "Pages free:                                  2330580.\n"
+        "Pages active:                                 472285.\n"
+        "Pages inactive:                               562220.\n"
+        "Pages speculative:                              2619.\n"
+    )
+
+    def test_includes_inactive_pages(self):
+        with patch("subprocess.check_output", return_value=self._VM_STAT_OUT.encode()):
+            free_gb = _admission._free_gb_from_vm_stat()
+        assert free_gb is not None
+        assert free_gb == pytest.approx(44.14, abs=0.01)
+
+    def test_returns_none_when_inactive_missing(self):
+        out = "Pages free:                                  2330580.\n"
+        with patch("subprocess.check_output", return_value=out.encode()):
+            assert _admission._free_gb_from_vm_stat() is None
+
+
 class TestMediaModelMemoryDictInSyncWithWikiFact:
     """_admission.py's docstring explains MEDIA_MODEL_MEMORY_GB is deliberately
     NOT imported from seed_facts.py (Rule 3: MCP modules stay independent) but
