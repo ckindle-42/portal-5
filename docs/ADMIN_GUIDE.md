@@ -473,7 +473,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `auto` | general | `huihui_ai/qwen3.5-abliterated:9b-ctx8k` |
 | `auto-audio` | media | `gemma4:12b-it-qat-ctx8k` |
 | `auto-bigfix` | general | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` |
-| `auto-cad` | cad | `qwen3-coder:30b-a3b-q4_K_M-ctx8k` |
+| `auto-cad` | cad | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` |
 | `auto-coding` | coding | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` |
 | `auto-compliance` | compliance | `granite4.1:8b-ctx16k` |
 | `auto-council` | general | `qwen3.6:27b-q4_K_M-ctx16k` |
@@ -570,7 +570,7 @@ default.
 | `auto` | `huihui_ai/qwen3.5-abliterated:9b-ctx8k` | yes |
 | `auto-audio` | `gemma4:12b-it-qat-ctx8k` | yes |
 | `auto-bigfix` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | yes |
-| `auto-cad` | `qwen3-coder:30b-a3b-q4_K_M-ctx8k` | yes |
+| `auto-cad` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | yes |
 | `auto-coding` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | yes |
 | `auto-compliance` | `granite4.1:8b-ctx16k` | yes |
 | `auto-council` | `qwen3.6:27b-q4_K_M-ctx16k` | yes |

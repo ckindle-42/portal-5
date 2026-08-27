@@ -1829,8 +1829,8 @@ workspaces:
     name: 📐 Portal CAD / 3D-Print Designer
     description: |-
       Parametric 3D-model generation via code-CAD (OpenSCAD primary; Python+trimesh for procedural geometry). Produces STL/3MF for FDM/SLA printing. Qwen3-Coder 30B-A3B MoE (Ollama, tool-capable, >20 t/s). Use render_openscad tool to convert SCAD code → STL + preview PNG. Note: CadQuery/build123d require OCP which has no arm64 wheels — use OpenSCAD.
-    model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx8k
-    context_limit: 8192
+    model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx16k
+    context_limit: 16384
     predict_limit: 16384
     temperature: 0.2
     top_p: 0.9

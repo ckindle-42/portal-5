@@ -5,13 +5,13 @@ title: "model bindings \u2014 0 reachability gap(s)"
 sources:
 - type: code
   path: config/backends.yaml
-  commit: c6818a3df1b8
+  commit: 587b13bb9706
 - type: code
   path: config/portal.yaml
-  commit: c6818a3df1b8
+  commit: 587b13bb9706
 - type: code
   path: config/personas/
-  commit: c6818a3df1b8
+  commit: 587b13bb9706
 claims: []
 confidence: high
 tags:
@@ -19,7 +19,7 @@ tags:
 - model-bindings
 - reachability
 created_at: 1784000421.433863
-updated_at: 1787815056.577436
+updated_at: 1787844007.166799
 ---
 
 # Model bindings (reachability-resolved)
@@ -36,7 +36,7 @@ default.
 | `auto` | `huihui_ai/qwen3.5-abliterated:9b-ctx8k` | yes |
 | `auto-audio` | `gemma4:12b-it-qat-ctx8k` | yes |
 | `auto-bigfix` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | yes |
-| `auto-cad` | `qwen3-coder:30b-a3b-q4_K_M-ctx8k` | yes |
+| `auto-cad` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | yes |
 | `auto-coding` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | yes |
 | `auto-compliance` | `granite4.1:8b-ctx16k` | yes |
 | `auto-council` | `qwen3.6:27b-q4_K_M-ctx16k` | yes |
