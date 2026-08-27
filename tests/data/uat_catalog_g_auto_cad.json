@@ -234,7 +234,7 @@
       }
     ],
     "id": "P-CAD-01",
-    "model_slug": "cadquerydesigner",
+    "model_slug": "caddesigner",
     "name": "CAD Designer Persona \u2014 Spur Gear",
     "prompt": "Design a spur gear with 20 teeth, module 2, 10mm face width, and a 6mm bore. All parameters must be named variables. Render and show me the preview.",
     "section": "auto-cad",

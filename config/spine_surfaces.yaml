@@ -12,6 +12,18 @@ surfaces:
   globs:
   - portal/modules/cad/tools/cad_render_mcp.py
   unit: unit-fact-tool-registry
+- name: file-portal-modules-cad-tools-capabilities
+  globs:
+  - portal/modules/cad/tools/capabilities.py
+  unit: unit-module-cad
+- name: file-portal-modules-cad-tools-mesh_validator
+  globs:
+  - portal/modules/cad/tools/mesh_validator.py
+  unit: unit-module-cad
+- name: file-portal-modules-cad-tools-scad_emitter
+  globs:
+  - portal/modules/cad/tools/scad_emitter.py
+  unit: unit-module-cad
 - name: file-portal-modules-coding-tools-code_sandbox_mcp
   globs:
   - portal/modules/coding/tools/code_sandbox_mcp.py

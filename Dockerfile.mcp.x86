@@ -1,0 +1,19 @@
+# UNBUILT / UNVERIFIED — x86/CUDA tier stub (TASK_CAD_MODULE_OVERHAUL_V1 Phase 0).
+#
+# This is a placeholder for the later dual-platform focus (the P40 box), not exercised
+# by CI or `docker build` today. Do not build or deploy from this file yet.
+#
+# What this tier is genuinely FOR: CUDA-class model execution (e.g. a Vicuna-13B
+# VLM like CAD-Coder(LLaVA) benefits from CUDA on a P40; a 13B model with a CLIP
+# tower is loadable-but-slow on Apple Silicon Metal). It is NOT for OCP/CadQuery/
+# build123d — those install and run on arm64/OSX via conda-forge (see
+# portal/modules/cad/PLATFORM.md and Dockerfile.mcp's conda layer). Reinstating
+# "OCP needs x86" here would reintroduce the stale P5-CAD-ARM64-001 belief this
+# overhaul retired.
+#
+# When this tier is actually built out, base it on Dockerfile.mcp and layer:
+#   - CUDA-enabled torch (matching the target P40 driver/CUDA version)
+#   - any x86-only model runtimes needed for CUDA-class inference
+#
+# FROM nvidia/cuda:<pin>-runtime-ubuntu22.04 AS mcp-x86-base
+# ... (unbuilt — fill in when the dual-platform focus starts)

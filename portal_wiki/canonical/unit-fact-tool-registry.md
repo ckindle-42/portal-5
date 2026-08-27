@@ -1,11 +1,11 @@
 ---
 id: unit-fact-tool-registry
 kind: what
-title: 104 MCP tools across 24 servers
+title: 105 MCP tools across 24 servers
 sources:
 - type: code
   path: portal/modules/*/tools/*_mcp.py
-  commit: 7df1b83dc258
+  commit: 2c7a5b00c6db
 claims: []
 confidence: high
 tags:
@@ -13,7 +13,7 @@ tags:
 - tools
 - mcp
 created_at: 1784049584.748966
-updated_at: 1787787068.6455832
+updated_at: 1787845701.4978318
 ---
 
 # MCP tool registry
@@ -24,7 +24,7 @@ What each MCP server actually registers — `@mcp.tool()` defs, or `@mcp.custom_
 |---|---|
 | `binresearch` | _(unresolved — server file not found)_ |
 | `browser` | `browser_click`, `browser_close`, `browser_evaluate`, `browser_fill`, `browser_list_profiles`, `browser_navigate`, `browser_screenshot`, `browser_snapshot` |
-| `cad_render` | `convert_cad`, `render_mesh`, `render_openscad` |
+| `cad_render` | `convert_cad`, `generate_scad`, `render_mesh`, `render_openscad` |
 | `detections` | `spl_diff_hypothesis`, `spl_explain_detection`, `spl_search_library`, `spl_techniques_covered`, `spl_validate_syntax` |
 | `docker` | _(unresolved — server file not found)_ |
 | `documents` | `convert_document`, `create_excel`, `create_powerpoint`, `create_word_document`, `list_generated_files`, `read_excel`, `read_pdf`, `read_powerpoint`, `read_word_document` |

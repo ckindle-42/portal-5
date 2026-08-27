@@ -5,7 +5,7 @@ title: tool authorizations for 25 production workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: c6818a3df1b8
+  commit: 2c7a5b00c6db
   section: workspaces[].tools
 claims: []
 confidence: high
@@ -14,7 +14,7 @@ tags:
 - tools
 - workspaces
 created_at: 1784049584.703768
-updated_at: 1787798558.3907259
+updated_at: 1787845701.438581
 ---
 
 # Tool authorizations (per-workspace `tools:` whitelist)
@@ -26,7 +26,7 @@ The pipeline strips any tool a workspace does not authorize (metric `portal5_too
 | `auto` | general | _(none)_ |
 | `auto-audio` | media | `transcribe_audio`, `transcribe_with_speakers` |
 | `auto-bigfix` | general | `execute_python`, `execute_bash`, `web_search` |
-| `auto-cad` | cad | `execute_python`, `execute_bash`, `sandbox_status`, `read_pdf`, `read_word_document`, `web_search`, `web_fetch`, `remember`, `recall`, `kb_search`, `render_mesh`, `render_openscad`, `convert_cad` |
+| `auto-cad` | cad | `execute_python`, `execute_bash`, `sandbox_status`, `read_pdf`, `read_word_document`, `web_search`, `web_fetch`, `remember`, `recall`, `kb_search`, `render_mesh`, `render_openscad`, `convert_cad`, `generate_scad` |
 | `auto-coding` | coding | `execute_python`, `execute_nodejs`, `execute_bash`, `sandbox_status`, `read_word_document`, `read_pdf`, `remember`, `recall` |
 | `auto-compliance` | compliance | `create_word_document`, `read_pdf`, `kb_search`, `kb_list`, `web_search` |
 | `auto-council` | general | _(none)_ |

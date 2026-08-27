@@ -352,7 +352,7 @@ Router quality is a measured property, not an assumption — the bench pins the 
 | `blueteamdefender` | security | `auto-security` | — |
 | `bugdiscoverycodeassistant` | coding | `auto-coding` | — |
 | `businessanalyst` | general | `auto-reasoning` | — |
-| `cadquerydesigner` | cad | `auto-cad` | — |
+| `caddesigner` | cad | `auto-cad` | — |
 | `chartanalyst` | general | `auto-vision` | — |
 | `cippolicywriter` | compliance | `auto-compliance` | — |
 | `codebasewikidocumentationskill` | coding | `auto-coding` | — |

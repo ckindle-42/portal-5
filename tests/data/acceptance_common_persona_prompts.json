@@ -88,7 +88,7 @@
       "constraint"
     ]
   ],
-  "cadquerydesigner": [
+  "caddesigner": [
     "Write CadQuery Python code to create a simple 10mm cube.",
     [
       "cadquery",

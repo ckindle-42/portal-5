@@ -71,5 +71,31 @@
       ],
       "type": "object"
     }
+  },
+  {
+    "description": "PRIMARY tool for parts with holes/pockets/patterns/shells/standoffs. Generate a parametric part from a constrained feature-level JSON geometry description (base solid + named features positioned by face+anchor+offset, never raw 3D coordinates). Validates, emits OpenSCAD, compiles, mesh-validates, renders, and self-corrects (auto-retries deterministic fixes) in one call. Returns scad_source, stl_path, png_url, validation (watertight/volume/bbox/problems), attempts, retry_log.",
+    "name": "generate_scad",
+    "parameters": {
+      "properties": {
+        "geometry": {
+          "description": "Feature-level geometry description matching config/inference/cad_geometry_schema.json (Tier A: base + holes/pockets/standoffs/ribs/shell/pattern by face+anchor+offset; Tier B: bounded escape_hatch.csg for what Tier A can't express).",
+          "type": "object"
+        },
+        "resolution": {
+          "default": 1024,
+          "description": "Square render resolution in px",
+          "type": "integer"
+        },
+        "max_retries": {
+          "default": 2,
+          "description": "Max auto-repair attempts inside the tool before returning to the model",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "geometry"
+      ],
+      "type": "object"
+    }
   }
 ]

@@ -1,0 +1,261 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CAD Geometry Description (generate_scad input)",
+  "description": "Feature-level part description for generate_scad. Tier A (base + named features positioned by face+anchor+offset) is the primary, preferred surface — the model describes WHAT and the relationships; the deterministic emitter (scad_emitter.py) computes WHERE in 3D space. Tier B is a bounded CSG escape hatch for geometry the feature vocabulary can't express yet.",
+  "type": "object",
+  "required": ["base"],
+  "properties": {
+    "units": {
+      "type": "string",
+      "enum": ["mm"],
+      "default": "mm"
+    },
+    "parameters": {
+      "type": "object",
+      "description": "Named variables: name -> number or arithmetic expression string referencing other parameters (e.g. \"width - 2*wall_thickness\"). Resolved by a restricted evaluator, never eval().",
+      "additionalProperties": {
+        "type": ["number", "string"]
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "part_name": { "type": "string" },
+        "description": { "type": "string" },
+        "print_orientation_hint": { "type": "string" }
+      }
+    },
+    "base": {
+      "type": "object",
+      "description": "Tier A: the primary solid this part is built from.",
+      "required": ["type", "dimensions"],
+      "properties": {
+        "type": { "type": "string", "enum": ["box", "cylinder"] },
+        "dimensions": {
+          "type": "object",
+          "description": "box: width/depth/height. cylinder: radius/height.",
+          "additionalProperties": { "type": ["number", "string"] }
+        }
+      }
+    },
+    "shell": {
+      "type": "object",
+      "description": "Hollow the base solid.",
+      "required": ["wall_thickness"],
+      "properties": {
+        "wall_thickness": { "type": ["number", "string"] },
+        "open_face": {
+          "type": "string",
+          "enum": ["top", "bottom", "front", "back", "left", "right", "none"],
+          "default": "top"
+        }
+      }
+    },
+    "holes": {
+      "type": "array",
+      "description": "Cylindrical through/blind holes positioned by face + semantic anchor + offset, never by raw 3D coordinates.",
+      "items": {
+        "type": "object",
+        "required": ["diameter", "face", "offset_from", "offset_x", "offset_y"],
+        "properties": {
+          "diameter": { "type": ["number", "string"] },
+          "depth": {
+            "type": ["number", "string"],
+            "description": "Omit or set >= base thickness for a through-hole."
+          },
+          "face": {
+            "type": "string",
+            "enum": ["top", "bottom", "front", "back", "left", "right"]
+          },
+          "offset_from": {
+            "type": "string",
+            "enum": ["corner", "center", "edge"]
+          },
+          "offset_x": { "type": ["number", "string"] },
+          "offset_y": { "type": ["number", "string"] }
+        }
+      }
+    },
+    "pockets": {
+      "type": "array",
+      "description": "Rectangular recesses positioned by face + anchor + offset.",
+      "items": {
+        "type": "object",
+        "required": ["width", "depth_dim", "cut_depth", "face", "offset_from", "offset_x", "offset_y"],
+        "properties": {
+          "width": { "type": ["number", "string"] },
+          "depth_dim": { "type": ["number", "string"], "description": "Pocket footprint depth (in-plane), not cut depth." },
+          "cut_depth": { "type": ["number", "string"], "description": "How far the pocket is cut into the base." },
+          "face": { "type": "string", "enum": ["top", "bottom", "front", "back", "left", "right"] },
+          "offset_from": { "type": "string", "enum": ["corner", "center", "edge"] },
+          "offset_x": { "type": ["number", "string"] },
+          "offset_y": { "type": ["number", "string"] }
+        }
+      }
+    },
+    "standoffs": {
+      "type": "array",
+      "description": "Cylindrical bosses (e.g. for M3 self-tapping screws), positioned by face + anchor + offset.",
+      "items": {
+        "type": "object",
+        "required": ["outer_diameter", "height", "face", "offset_from", "offset_x", "offset_y"],
+        "properties": {
+          "outer_diameter": { "type": ["number", "string"] },
+          "inner_diameter": { "type": ["number", "string"], "description": "Pilot hole diameter, omit for solid boss." },
+          "height": { "type": ["number", "string"] },
+          "face": { "type": "string", "enum": ["top", "bottom", "front", "back", "left", "right"] },
+          "offset_from": { "type": "string", "enum": ["corner", "center", "edge"] },
+          "offset_x": { "type": ["number", "string"] },
+          "offset_y": { "type": ["number", "string"] }
+        }
+      }
+    },
+    "fillets": {
+      "type": "array",
+      "description": "Edge rounding on the base solid's vertical edges (2D-profile round via minkowski, per emitter implementation).",
+      "items": {
+        "type": "object",
+        "required": ["radius"],
+        "properties": {
+          "radius": { "type": ["number", "string"] },
+          "edges": { "type": "string", "enum": ["all", "top", "bottom"], "default": "all" }
+        }
+      }
+    },
+    "chamfers": {
+      "type": "array",
+      "description": "Edge chamfers on the base solid.",
+      "items": {
+        "type": "object",
+        "required": ["size"],
+        "properties": {
+          "size": { "type": ["number", "string"] },
+          "edges": { "type": "string", "enum": ["all", "top", "bottom"], "default": "all" }
+        }
+      }
+    },
+    "ribs": {
+      "type": "array",
+      "description": "Thin reinforcement webs between two faces.",
+      "items": {
+        "type": "object",
+        "required": ["thickness", "height", "face", "offset_from", "offset_x", "offset_y"],
+        "properties": {
+          "thickness": { "type": ["number", "string"] },
+          "height": { "type": ["number", "string"] },
+          "face": { "type": "string", "enum": ["top", "bottom", "front", "back", "left", "right"] },
+          "offset_from": { "type": "string", "enum": ["corner", "center", "edge"] },
+          "offset_x": { "type": ["number", "string"] },
+          "offset_y": { "type": ["number", "string"] }
+        }
+      }
+    },
+    "pattern": {
+      "type": "object",
+      "description": "Repeat a named feature (by index into its list) linearly or circularly.",
+      "required": ["type", "feature_kind", "feature_index", "count"],
+      "properties": {
+        "type": { "type": "string", "enum": ["linear", "circular"] },
+        "feature_kind": { "type": "string", "enum": ["holes", "standoffs", "pockets", "ribs"] },
+        "feature_index": { "type": "integer", "description": "Index of the template feature within its list to repeat." },
+        "count": { "type": "integer" },
+        "spacing": { "type": ["number", "string"], "description": "linear pattern: center-to-center spacing." },
+        "angle": { "type": ["number", "string"], "description": "circular pattern: total sweep angle in degrees (default 360)." }
+      }
+    },
+    "escape_hatch": {
+      "type": "object",
+      "description": "Tier B: bounded CSG subtree for geometry the Tier-A vocabulary can't express. Steer to Tier A first; only drop here when necessary. Parameter references and expressions are still resolved by the emitter.",
+      "properties": {
+        "csg": {
+          "$ref": "#/definitions/csgNode"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "csgNode": {
+      "type": "object",
+      "description": "One node in a constrained CSG tree: a primitive, a transform wrapping one child, or a boolean/extrude op over children.",
+      "properties": {
+        "op": {
+          "type": "string",
+          "enum": [
+            "box", "cylinder", "sphere",
+            "translate", "rotate", "scale",
+            "union", "difference", "intersection",
+            "linear_extrude", "rotate_extrude"
+          ]
+        },
+        "dimensions": { "type": "object", "additionalProperties": { "type": ["number", "string"] } },
+        "vector": {
+          "type": "array",
+          "items": { "type": ["number", "string"] },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "amount": { "type": ["number", "string"] },
+        "children": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/csgNode" }
+        },
+        "child": { "$ref": "#/definitions/csgNode" }
+      },
+      "required": ["op"]
+    }
+  },
+  "examples": [
+    {
+      "_description": "Tier A — feature-based enclosure with a hole",
+      "units": "mm",
+      "parameters": { "width": 60, "depth": 40, "height": 25, "wall_thickness": 2 },
+      "metadata": { "part_name": "sensor_enclosure", "description": "Basic enclosure with a top vent hole" },
+      "base": { "type": "box", "dimensions": { "width": "width", "depth": "depth", "height": "height" } },
+      "shell": { "wall_thickness": "wall_thickness", "open_face": "top" },
+      "holes": [
+        { "diameter": 6, "face": "top", "offset_from": "center", "offset_x": 0, "offset_y": 0 }
+      ]
+    },
+    {
+      "_description": "Tier A — hole-pattern plate",
+      "units": "mm",
+      "parameters": { "width": 80, "depth": 30, "height": 4, "hole_dia": 10 },
+      "metadata": { "part_name": "grommet_plate" },
+      "base": { "type": "box", "dimensions": { "width": "width", "depth": "depth", "height": "height" } },
+      "holes": [
+        { "diameter": "hole_dia", "face": "top", "offset_from": "edge", "offset_x": 15, "offset_y": 15 }
+      ],
+      "pattern": { "type": "linear", "feature_kind": "holes", "feature_index": 0, "count": 3, "spacing": 25 }
+    },
+    {
+      "_description": "Tier A — standoff boss",
+      "units": "mm",
+      "parameters": { "width": 60, "depth": 40, "height": 20, "standoff_od": 6, "standoff_id": 2.5 },
+      "metadata": { "part_name": "standoff_test" },
+      "base": { "type": "box", "dimensions": { "width": "width", "depth": "depth", "height": "height" } },
+      "standoffs": [
+        { "outer_diameter": "standoff_od", "inner_diameter": "standoff_id", "height": 8, "face": "top", "offset_from": "corner", "offset_x": 5, "offset_y": 5 }
+      ]
+    },
+    {
+      "_description": "Tier B — escape-hatch CSG part (geometry the feature vocabulary can't express)",
+      "units": "mm",
+      "parameters": { "r1": 10, "r2": 5, "h": 20 },
+      "metadata": { "part_name": "stepped_cylinder_bore" },
+      "base": { "type": "cylinder", "dimensions": { "radius": "r1", "height": "h" } },
+      "escape_hatch": {
+        "csg": {
+          "op": "difference",
+          "children": [
+            { "op": "cylinder", "dimensions": { "radius": "r1", "height": "h" } },
+            {
+              "op": "translate",
+              "vector": [0, 0, 5],
+              "child": { "op": "cylinder", "dimensions": { "radius": "r2", "height": "h" } }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
