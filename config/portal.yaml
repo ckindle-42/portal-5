@@ -1900,6 +1900,11 @@ workspaces:
     temperature: 0.2
     top_p: 0.9
     repeat_penalty: 1.1
+    # TASK_SAMPLING_PROFILE_AUDIT_V1 verified Qwen3.6 profile; think=false per
+    # operator decision (see auto-council) — don't newly enable thinking
+    # pending evaluation. Without this, a bench run measures thinking-block
+    # overhead, not tool-use quality.
+    think: false
     tool_choice: required
     system_prompt_append: |2-
 
