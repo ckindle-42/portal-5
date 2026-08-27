@@ -227,10 +227,10 @@ async def _mcp(
     t0 = time.time()
     try:
         from mcp import ClientSession
-        from mcp.client.streamable_http import streamablehttp_client
+        from mcp.client.streamable_http import streamable_http_client
 
         url = f"http://localhost:{port}/mcp"
-        async with streamablehttp_client(url) as (read, write, _):
+        async with streamable_http_client(url) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await asyncio.wait_for(session.call_tool(tool, args), timeout=timeout)
@@ -271,10 +271,10 @@ async def _mcp_raw(
     text = ""
     try:
         from mcp import ClientSession
-        from mcp.client.streamable_http import streamablehttp_client
+        from mcp.client.streamable_http import streamable_http_client
 
         url = f"http://localhost:{port}/mcp"
-        async with streamablehttp_client(url) as (read, write, _):
+        async with streamable_http_client(url) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await asyncio.wait_for(session.call_tool(tool, args), timeout=timeout)
