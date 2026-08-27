@@ -1001,6 +1001,15 @@ workspace_routing:
   auto-cad:
   - coding
   - general
+  bench-cad-prior:
+  - coding
+  - general
+  bench-qwen36-cad:
+  - coding
+  - general
+  bench-moecad:
+  - coding
+  - general
   bench-supergemma4-sec:
   - general
   bench-vulnllm-r7b:

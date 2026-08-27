@@ -1,11 +1,11 @@
 ---
 id: unit-fact-workspace-roster
 kind: what
-title: 25 production + 49 eval workspaces
+title: 25 production + 52 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 587b13bb9706
+  commit: 07cfba14b880
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1787844006.927176
+updated_at: 1787847043.151516
 ---
 
-# Workspace roster (25 production, 49 eval, 74 total)
+# Workspace roster (25 production, 52 eval, 77 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -53,6 +53,7 @@ updated_at: 1787844006.927176
 
 - `bench-agentworld`
 - `bench-baronllm-q6k`
+- `bench-cad-prior`
 - `bench-e2b-pentest`
 - `bench-exec-exploit`
 - `bench-exec-reasoning`
@@ -81,6 +82,7 @@ updated_at: 1787844006.927176
 - `bench-llama32-3b-abliterated`
 - `bench-magistral-small`
 - `bench-mistral-small-3-2`
+- `bench-moecad`
 - `bench-nex-n2-mini`
 - `bench-north-mini-code`
 - `bench-omnicoder2`
@@ -95,6 +97,7 @@ updated_at: 1787844006.927176
 - `bench-qwen35-abliterated`
 - `bench-qwen36-27b-optiq`
 - `bench-qwen36-35b-a3b-ud`
+- `bench-qwen36-cad`
 - `bench-qwen36-hauhaucs`
 - `bench-qwen38-27b`
 - `bench-supergemma4-sec`
