@@ -48,7 +48,7 @@ Mechanical termination exists so migration is never an open-ended rewrite campai
 ### Migration coverage
 
 <!-- WIKI:GENERATED unit=unit-fact-doc-migration-coverage -->
-# Doc migration coverage (0/25 docs migrated, 0.0%)
+# Doc migration coverage (0/24 docs migrated, 0.0%)
 
 Total generated blocks across migrated docs: 12
 
@@ -70,7 +70,6 @@ Total generated blocks across migrated docs: 12
 - `docs/PERFORMANCE.md`
 - `docs/MCP_DEV_TOOLING.md`
 - `docs/COMFYUI_SETUP.md`
-- `docs/FISH_SPEECH_SETUP.md`
 - `docs/COMPLIANCE_FALLBACK_POLICY.md`
 - `docs/BACKUP_RESTORE.md`
 - `docs/LAB_SETUP.md`

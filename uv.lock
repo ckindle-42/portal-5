@@ -3455,7 +3455,7 @@ requires-dist = [
     { name = "mcp", marker = "extra == 'dev'", specifier = ">=2.0.0,<3.0.0" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=2.0.0,<3.0.0" },
     { name = "misaki", marker = "extra == 'apple-silicon'", specifier = ">=0.1.0" },
-    { name = "mlx-audio", marker = "extra == 'apple-silicon'", specifier = ">=0.3.0" },
+    { name = "mlx-audio", marker = "extra == 'apple-silicon'", specifier = ">=0.4.3" },
     { name = "mlx-embeddings", marker = "extra == 'rag'", specifier = ">=0.0.3" },
     { name = "mlx-lm", marker = "extra == 'apple-silicon'", specifier = ">=0.31" },
     { name = "mlx-vlm", marker = "extra == 'apple-silicon'", specifier = ">=0.1.0" },

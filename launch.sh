@@ -645,7 +645,7 @@ PYEOF
     echo "  download-comfyui-models  REMOVED, no implementation (see download-comfyui-models handler)"
   echo "  pull-wan22            Pull Wan 2.2 TI2V-5B + S2V-14B + T2V-A14B ComfyUI models (~50 GB; Animate-14B not covered, see scripts/lib/services.sh)"
   echo "  pull-qwen-image       Pull working Qwen-Image T2I + Edit-2509 + Lightning models (~48 GiB)"
-    echo "  start-speech          Start MLX Speech server (Qwen3-TTS + Qwen3-ASR)"
+    echo "  start-speech          Start MLX Speech server (Kokoro + Chatterbox clone + Qwen3-ASR)"
     echo "  stop-speech           Stop MLX Speech server"
     echo "  start-transcribe      Start MLX Transcribe server (Parakeet + VibeVoice diarization, :8924)"
     echo "  stop-transcribe       Stop MLX Transcribe server"

@@ -1,62 +1,48 @@
 [
   {
-    "description": "Convert text to speech. Returns path to generated audio file.",
+    "description": "Convert text to speech. Use a Kokoro voice (af_heart, am_adam, ...), a saved trainer voice as 'trainer:<name>', or a one-off clone as 'clone:/path/to/ref.wav'.",
     "name": "speak",
     "parameters": {
       "properties": {
-        "backend": {
-          "default": "",
-          "description": "Force specific backend: 'kokoro' or 'fish_speech'",
-          "type": "string"
-        },
-        "speed": {
-          "default": 1.0,
-          "description": "Speech rate (0.5-2.0, default 1.0)",
-          "type": "number"
-        },
-        "text": {
-          "description": "The text to convert to speech",
-          "type": "string"
-        },
+        "text": { "description": "The text to convert to speech", "type": "string" },
         "voice": {
           "default": "af_heart",
-          "description": "Voice name (kokoro: af_heart, af_sky, am_adam, bf_emma, bm_george)",
+          "description": "Kokoro voice (af_heart, af_sky, am_adam), 'trainer:<name>' for a saved trainer voice, or 'clone:/path/to/ref.wav'",
           "type": "string"
         }
       },
-      "required": [
-        "text"
-      ],
+      "required": ["text"],
       "type": "object"
     }
   },
   {
-    "description": "Clone a voice from reference audio and speak text with it. Requires fish-speech to be installed.",
+    "description": "Speak text in a voice cloned from a reference clip (one-off, not persisted). For a recurring trainer voice, use register_voice then speak with voice='trainer:<name>'.",
     "name": "clone_voice",
     "parameters": {
       "properties": {
-        "reference_audio": {
-          "description": "Path to 5-30 second reference audio file",
-          "type": "string"
-        },
-        "text": {
-          "description": "Text to speak with the cloned voice",
-          "type": "string"
-        }
+        "reference_audio": { "description": "Path to a 5-15s clean reference clip", "type": "string" },
+        "text": { "description": "Text to speak with the cloned voice", "type": "string" }
       },
-      "required": [
-        "reference_audio",
-        "text"
-      ],
+      "required": ["reference_audio", "text"],
       "type": "object"
     }
   },
   {
-    "description": "List available voices for text-to-speech.",
-    "name": "list_voices",
+    "description": "Register a persisted trainer-voice profile so future training sessions can be narrated in that voice. Register once, then speak with voice='trainer:<name>'.",
+    "name": "register_voice",
     "parameters": {
-      "properties": {},
+      "properties": {
+        "name": { "description": "Short profile name (lowercase letters, digits, _ or -)", "type": "string" },
+        "reference_audio": { "description": "Path to 10-15s of the trainer's clean speech", "type": "string" },
+        "reference_text": { "description": "Exact transcript of the reference clip", "type": "string" }
+      },
+      "required": ["name", "reference_audio"],
       "type": "object"
     }
+  },
+  {
+    "description": "List available voices, including built-in voices and registered trainer-voice profiles.",
+    "name": "list_voices",
+    "parameters": { "properties": {}, "type": "object" }
   }
 ]

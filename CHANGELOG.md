@@ -5,6 +5,16 @@ All notable changes to Portal 5 will be documented in this file.
 ## [Unreleased]
 
 ### Changed
+- **Voice-cloning engine replaced**: fish-speech (Docker, never-functional) and Qwen3-TTS Base
+  (host) → **Chatterbox** (`mlx-community/chatterbox-fp16`, English v2, MIT). Added a
+  **`register_voice`** tool and persisted **trainer-voice profiles** (`voice="trainer:<name>"`)
+  so training sessions narrate in a captured trainer's voice. `tts_mcp.py` now proxies its tools
+  to the host `mlx-speech.py` (:8918) instead of running a local backend; the fish-speech
+  false-green `voice_cloning` health signal is gone. Chatterbox output carries an inaudible PerTh
+  watermark — see KNOWN_LIMITATIONS (P5-SPEECH-CLONE-001). Kokoro narration and Qwen3-TTS
+  CustomVoice/VoiceDesign are unchanged. Retired the dead fish-speech subsystem it replaced:
+  `docs/FISH_SPEECH_SETUP.md`, its wiki units, and `portal/modules/media/tools/utils.py`
+  (`get_torch_device`, now unused).
 - **ASR + diarization stack replaced**: `transcribe_audio` → Parakeet-TDT-v3 (word-level timestamps);
   `transcribe_with_speakers` → VibeVoice-ASR single-pass diarization (text + speaker + timestamps in one
   model, up to ~60 min). Retired pyannote + the `HF_TOKEN` diarization gate + the Voxtral path. The Docker
