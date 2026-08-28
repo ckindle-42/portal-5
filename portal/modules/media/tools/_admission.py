@@ -59,14 +59,17 @@ def _free_gb_from_vm_stat() -> float | None:
     """macOS host-native processes: reclaimable memory from vm_stat, in GB.
 
     "Pages free" alone undercounts real headroom by several GB on a
-    long-uptime macOS host — the kernel keeps recently-evicted pages in
-    "inactive" rather than immediately freeing them, since it costs nothing
-    to hold them until real pressure hits, at which point they're reclaimed
-    just as fast as free pages. Live comparison against ComfyUI's own
-    psutil-based system_stats (`ram_free`, which reports true
-    available-for-allocation memory) confirmed free+inactive matches within
-    ~0.1GB where free-alone undercounted by ~8.5GB — enough to cause a false
-    admission refusal for a job that would have fit.
+    long-uptime macOS host — the kernel keeps reclaimable pages in "inactive"
+    (recently-evicted anonymous/file pages), "speculative" (read-ahead file
+    cache), and "purgeable" (app-volunteered caches) rather than immediately
+    freeing them, since it costs nothing to hold them until real pressure hits,
+    at which point they're reclaimed just as fast as free pages. All three are
+    counted here alongside free. Live comparison against ComfyUI's own
+    psutil-based system_stats (`ram_free`) and `memory_pressure`'s "free
+    percentage" confirmed this sum tracks true available memory within ~1-2GB,
+    where free+inactive alone undercounted by ~12GB with the Docker Desktop VM
+    running — enough to cause a false admission refusal for a job that would
+    have fit.
     """
     import subprocess
 
@@ -74,13 +77,16 @@ def _free_gb_from_vm_stat() -> float | None:
         out = subprocess.check_output(["vm_stat"], timeout=5).decode()
         page_size = 16384  # Apple Silicon default; vm_stat's header confirms this per-host
         pages: dict[str, int] = {}
+        wanted = ("Pages free:", "Pages inactive:", "Pages speculative:", "Pages purgeable:")
         for line in out.splitlines():
-            for label in ("Pages free:", "Pages inactive:"):
+            for label in wanted:
                 if line.startswith(label):
                     pages[label] = int(line.split(":")[1].strip().rstrip("."))
         if "Pages free:" not in pages or "Pages inactive:" not in pages:
             return None
-        return (pages["Pages free:"] + pages["Pages inactive:"]) * page_size / 1024 / 1024 / 1024
+        # speculative/purgeable may be absent on older vm_stat — default to 0
+        reclaimable = sum(pages.get(label, 0) for label in wanted)
+        return reclaimable * page_size / 1024 / 1024 / 1024
     except (OSError, ValueError, IndexError, subprocess.SubprocessError):
         pass
     return None
@@ -142,12 +148,19 @@ async def admit(model_key: str, comfyui_url: str = "") -> dict | None:
     known_note = "" if is_known else " (unknown model — using a conservative default estimate)"
     return {
         "success": False,
+        "retryable": True,
         "error": (
-            f"Refused: {model_key} needs ~{estimated_gb:.0f}GB{known_note} "
-            f"(+{MEMORY_HEADROOM_GB:.0f}GB headroom), only {free_gb:.1f}GB free. "
-            "Stop ComfyUI (launchctl kickstart -k gui/$(id -u)/com.portal5.comfyui) after "
-            "unloading any large model, or unload a loaded Ollama model first "
-            "(curl localhost:11434/api/ps to check). See unit-HOWTO-media-memory-and-"
-            "launch-order for the safe co-residency matrix."
+            f"Not enough free memory right now: this job needs about "
+            f"{estimated_gb:.0f}GB{known_note} plus {MEMORY_HEADROOM_GB:.0f}GB headroom, "
+            f"but only {free_gb:.1f}GB is free. This is temporary — free up memory and "
+            "try again. Close other running models or large chats, or wait a few minutes "
+            "for background models to unload."
+        ),
+        "operator_hint": (
+            "Unload a loaded Ollama model (curl localhost:11434/api/ps to check, "
+            "ollama stop <model>), or stop ComfyUI "
+            "(launchctl kickstart -k gui/$(id -u)/com.portal5.comfyui) after unloading "
+            "any large model. See unit-HOWTO-media-memory-and-launch-order for the safe "
+            "co-residency matrix."
         ),
     }

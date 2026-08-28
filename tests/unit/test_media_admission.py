@@ -151,14 +151,18 @@ class TestAdmit:
         assert len(refusal["error"]) > 0
 
     async def test_refusal_message_is_actionable(self):
-        """Refusal message must mention the model, a GB estimate, and recovery steps."""
+        """User-facing error states the shortfall and that it's temporary; the
+        operator_hint carries the unload/stop recovery commands."""
         with patch.object(_admission, "free_unified_gb", AsyncMock(return_value=10.0)):
             refusal = await _admission.admit("video:wan21-nsfw")
         assert refusal is not None
+        assert refusal["retryable"] is True
         msg = refusal["error"]
-        assert "video:wan21-nsfw" in msg
         assert "GB" in msg
-        assert any(word in msg.lower() for word in ["stop", "unload", "comfyui", "ollama"])
+        assert "10.0GB" in msg  # the measured free amount
+        assert "temporary" in msg.lower()
+        hint = refusal["operator_hint"]
+        assert any(word in hint.lower() for word in ["stop", "unload", "comfyui", "ollama"])
 
     async def test_unknown_model_admitted_when_memory_plentiful(self):
         with patch.object(_admission, "free_unified_gb", AsyncMock(return_value=64.0)):
@@ -203,24 +207,37 @@ class TestAdmit:
 
 
 class TestFreeGbFromVmStat:
-    """Regression for a false admission refusal: ACE-Step (~40GB) was refused
-    with 35.6GB reported free by vm_stat while ComfyUI's own psutil-based
-    system_stats reported 44GB free at the same instant — free+inactive
-    matched ComfyUI within 0.1GB, free-alone did not."""
+    """Regression for false admission refusals: (1) ACE-Step (~40GB) was refused
+    with 35.6GB reported free while ComfyUI's psutil system_stats reported 44GB —
+    fixed by adding inactive pages. (2) MiniMax (~27GB) was refused with ~29GB
+    free+inactive while memory_pressure reported ~41GB available with the Docker
+    Desktop VM running — fixed by also counting speculative (read-ahead file
+    cache) and purgeable pages, both reclaimed as fast as free pages."""
 
     _VM_STAT_OUT = (
         "Mach Virtual Memory Statistics: (page size of 16384 bytes)\n"
         "Pages free:                                  2330580.\n"
         "Pages active:                                 472285.\n"
         "Pages inactive:                               562220.\n"
-        "Pages speculative:                              2619.\n"
+        "Pages speculative:                             120000.\n"
+        "Pages purgeable:                                 3000.\n"
     )
 
-    def test_includes_inactive_pages(self):
+    def test_counts_free_inactive_speculative_purgeable(self):
         with patch("subprocess.check_output", return_value=self._VM_STAT_OUT.encode()):
             free_gb = _admission._free_gb_from_vm_stat()
         assert free_gb is not None
-        assert free_gb == pytest.approx(44.14, abs=0.01)
+        pages = 2330580 + 562220 + 120000 + 3000
+        assert free_gb == pytest.approx(pages * 16384 / 1024**3, abs=0.01)
+
+    def test_missing_speculative_and_purgeable_default_to_zero(self):
+        out = (
+            "Pages free:                                  2330580.\n"
+            "Pages inactive:                               562220.\n"
+        )
+        with patch("subprocess.check_output", return_value=out.encode()):
+            free_gb = _admission._free_gb_from_vm_stat()
+        assert free_gb == pytest.approx((2330580 + 562220) * 16384 / 1024**3, abs=0.01)
 
     def test_returns_none_when_inactive_missing(self):
         out = "Pages free:                                  2330580.\n"
