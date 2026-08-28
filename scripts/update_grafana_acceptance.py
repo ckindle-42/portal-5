@@ -55,7 +55,7 @@ _SECTION_DESCRIPTIONS: dict[str, str] = {
     "S6": "Security workspaces — auto-blueteam and auto-compliance routing + content signal",
     "S7": "Dual music generation MCPs (:8912/:8933) — MiniMax + ACE-Step end-to-end",
     "S8": "Text-to-Speech — MLX speech server Kokoro/Qwen3-TTS (:8918)",
-    "S9": "Speech-to-Text — MLX transcribe mlx-whisper + pyannote diarization (:8924)",
+    "S9": "Speech-to-Text — MLX transcribe Parakeet-TDT-v3 + VibeVoice diarization (:8924)",
     "S10": "Personas (Ollama) — 86 non-bench personas grouped by Ollama model, behavioral signal",
     "S10c": "Compliance personas — 7 NERC/CIP compliance scenarios via fixture",
     "S12": "Web search — SearXNG integration, search result quality",

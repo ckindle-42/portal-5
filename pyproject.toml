@@ -78,11 +78,10 @@ apple-silicon = [
     "mlx-vlm>=0.1.0",
     # MLX Speech: unified TTS (Kokoro + Qwen3-TTS) + ASR (Qwen3-ASR) on Apple Silicon
     "mlx-audio>=0.3.0",
-    # MLX Transcribe: diarized transcription on Apple Silicon (TASK-TRANSCRIBE-001)
-    # mlx-whisper emits Whisper-format segments with timestamps (Metal-accelerated)
-    # pyannote.audio runs on MPS via PyTorch; HF token required for gated models
+    # MLX Transcribe: Parakeet-TDT-v3 fast ASR + VibeVoice-ASR single-pass diarization
+    # on Apple Silicon (both native in mlx-audio, ungated — no pyannote, no HF token).
+    # mlx-whisper is retained for the faster-whisper Docker fallback's model family.
     "mlx-whisper>=0.4.0",
-    "pyannote.audio>=3.1.0",
     "torch>=2.1.0",
     "torchaudio>=2.1.0",
     # Kokoro TTS phonemizer dependencies (required by mlx-audio Kokoro backend)

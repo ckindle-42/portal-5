@@ -759,11 +759,10 @@ _launch_start_transcribe() {
       exit 1
     fi
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-    if [ -z "${HF_TOKEN:-}" ]; then
-      echo "⚠️  HF_TOKEN not set — diarization will fail on first call."
-      echo "   Set in .env after accepting pyannote model licenses on HuggingFace."
-    fi
-    echo "Starting MLX Transcribe (port 8924)..."
+    # Warm the fast engine so the first request isn't a cold multi-GB download.
+    python3 -c "from mlx_audio.stt.utils import load; load('${MLX_PARAKEET_MODEL:-mlx-community/parakeet-tdt-0.6b-v3}')" >/dev/null 2>&1 \
+      && echo "  ✅ Parakeet ASR ready" || echo "  ⚠️  Parakeet warmup skipped (or run: pip3 install -U mlx-audio)"
+    echo "Starting MLX Transcribe (port 8924, Parakeet + VibeVoice diarization)..."
     _ensure_native_mcp_service \
       "mlx-transcribe" "com.portal5.mlx-transcribe" \
       "${MLX_TRANSCRIBE_PORT:-8924}" "mlx-transcribe"

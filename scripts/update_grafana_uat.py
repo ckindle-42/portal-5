@@ -162,7 +162,7 @@ _SECTION_DESCRIPTIONS: dict[str, str] = {
     "A": "Agentic multi-step — autonomous task chains, memory store/recall, multi-tool orchestration, and long-horizon planning",
     "M": "Media — audio transcription (Whisper STT), text-to-speech (TTS/Kokoro), and voice workflow integration",
     "S": "Security workspace — vulnerability analysis, threat modeling, CVE lookup via SearXNG, and NERC/CIP compliance",
-    "TR": "Transcription workflow — diarized speaker transcription (mlx-whisper + pyannote), transcript formatting, and downstream document creation",
+    "TR": "Transcription workflow — single-pass diarized speaker transcription (VibeVoice-ASR), transcript formatting, and downstream document creation",
     "EX": "Extended / exploratory — edge-case and regression tests outside the main catalog",
     "BT": "Benchmark targeted — single-model deep-dive tests run against a specific model build (e.g., Foundation-Sec-8B-Reasoning); not part of the general fleet sweep",
     "DD": "Daily Driver Tool Validation — tool-proof tests run inside the daily-driver workspace to confirm general-purpose models can invoke tools, not just specialist workspaces",
