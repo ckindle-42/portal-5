@@ -19,8 +19,10 @@ Usage:
 
 import asyncio
 import contextlib
+import json
 import logging
 import os
+import re
 import tempfile
 import time
 import uuid
@@ -60,11 +62,18 @@ QWEN3_TTS_CUSTOM_MODEL = os.getenv(
 QWEN3_TTS_DESIGN_MODEL = os.getenv(
     "MLX_QWEN3_TTS_DESIGN", "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit"
 )
-QWEN3_TTS_BASE_MODEL = os.getenv(
-    "MLX_QWEN3_TTS_BASE", "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit"
-)
+# Chatterbox (English v2) — voice-cloning engine (TASK_SPEECH_CHATTERBOX_CLONE_REPLACE).
+# Replaces Qwen3-TTS Base for cloning (Qwen3 carries a Chinese accent on English; this
+# deployment is American English). MIT, ResembleAI, native in mlx-audio.
+CHATTERBOX_MODEL = os.getenv("MLX_CHATTERBOX_MODEL", "mlx-community/chatterbox-fp16")
 QWEN3_ASR_MODEL = os.getenv("MLX_QWEN3_ASR", "mlx-community/Qwen3-ASR-1.7B-8bit")
 VOXTRAL_MODEL = os.getenv("MLX_VOXTRAL", "mlx-community/Voxtral-Mini-3B-2507-bf16")
+
+# Persisted trainer-voice profiles: VOICE_PROFILES_DIR/<name>/{reference.wav,reference.txt,meta.json}
+VOICE_PROFILES_DIR = Path(
+    os.getenv("VOICE_PROFILES_DIR", str(Path.home() / ".portal5" / "voice_profiles"))
+)
+VOICE_PROFILES_DIR.mkdir(parents=True, exist_ok=True)
 
 # Qwen3-TTS preset speakers (CustomVoice model)
 QWEN3_SPEAKERS = [
@@ -112,6 +121,133 @@ def _get_asr_model():
         _asr_model = load(QWEN3_ASR_MODEL)
         logger.info("ASR model loaded: %s", QWEN3_ASR_MODEL)
     return _asr_model
+
+
+# ── Chatterbox clone engine + persisted trainer-voice profiles ────────────────
+
+_SAFE_PROFILE = re.compile(r"^[a-z0-9][a-z0-9_\-]{0,63}$")
+_chatterbox_model = None
+
+
+def _get_chatterbox():
+    """Lazy-load and cache the Chatterbox clone model (English v2)."""
+    global _chatterbox_model
+    if _chatterbox_model is None:
+        from mlx_audio.tts.utils import load_model
+
+        logger.info("Loading Chatterbox clone model: %s", CHATTERBOX_MODEL)
+        _chatterbox_model = load_model(CHATTERBOX_MODEL)
+        logger.info("Chatterbox loaded")
+    return _chatterbox_model
+
+
+def _profile_dir(name: str) -> Path:
+    if not _SAFE_PROFILE.match(name):
+        raise ValueError(
+            f"Invalid profile name '{name}'. Use lowercase letters, digits, _ or -, max 64 chars."
+        )
+    return VOICE_PROFILES_DIR / name
+
+
+def list_voice_profiles() -> list[str]:
+    if not VOICE_PROFILES_DIR.exists():
+        return []
+    return sorted(
+        p.name
+        for p in VOICE_PROFILES_DIR.iterdir()
+        if p.is_dir() and (p / "reference.wav").exists()
+    )
+
+
+def register_voice_profile(name: str, ref_audio_path: str, ref_text: str) -> dict:
+    """Persist a named trainer-voice profile from a reference clip + transcript."""
+    import numpy as np
+    import soundfile as sf
+
+    src = Path(ref_audio_path)
+    if not src.exists():
+        return {"error": f"Reference audio not found: {ref_audio_path}"}
+    if not ref_text.strip():
+        return {
+            "error": "reference_text is required — it is the transcript of the clip and improves fidelity."
+        }
+    info = sf.info(str(src))
+    if info.duration < 5.0:
+        return {
+            "error": f"Reference clip is {info.duration:.1f}s; Chatterbox needs >=5s (10-15s clean clones best)."
+        }
+
+    pdir = _profile_dir(name)
+    pdir.mkdir(parents=True, exist_ok=True)
+    audio, sr = sf.read(str(src))
+    if audio.ndim > 1:  # normalize to mono so every backend reads it identically
+        audio = audio.mean(axis=1)
+    sf.write(str(pdir / "reference.wav"), audio.astype(np.float32), sr)
+    (pdir / "reference.txt").write_text(ref_text.strip(), encoding="utf-8")
+    (pdir / "meta.json").write_text(
+        json.dumps(
+            {
+                "name": name,
+                "created_at": time.time(),
+                "sample_rate": sr,
+                "duration_s": round(float(info.duration), 2),
+                "source": str(src),
+                "engine": "chatterbox",
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    return {
+        "status": "success",
+        "profile": name,
+        "duration_s": round(float(info.duration), 2),
+        "message": f"Trainer voice '{name}' registered. Use voice='trainer:{name}' to speak with it.",
+    }
+
+
+def _chatterbox_clone(text: str, ref_audio_path: str, ref_text: str, output_path: Path) -> dict:
+    """Clone via Chatterbox. Shared by the throwaway-clip and trainer-profile routes."""
+    import numpy as np
+    import soundfile as sf
+
+    model = _get_chatterbox()
+    # Phase 0 confirmed mlx-audio 0.4.3 chatterbox.generate(text=, ref_audio=<path>, ...);
+    # ref_text is accepted via **kwargs and ignored by this build (kept for forward compat).
+    results = list(model.generate(text=text, ref_audio=ref_audio_path, ref_text=ref_text or ""))
+    if not results:
+        return {"error": "Chatterbox generated no audio"}
+    audio_np = np.array(results[0].audio, dtype=np.float32)
+    sf.write(str(output_path), audio_np, 24000)
+    return {"status": "success", "file_path": str(output_path), "backend": "chatterbox"}
+
+
+def _clone_route(voice: str, text: str, output_path: Path) -> dict:
+    """Resolve a "clone:<path>" or "trainer:<name>" voice to a Chatterbox clone."""
+    if voice.startswith("clone:"):
+        ref_audio_path = voice[len("clone:") :]
+        if not Path(ref_audio_path).exists():
+            return {"error": f"Reference audio not found: {ref_audio_path}"}
+        ref_text = ""
+    else:  # trainer:<name>
+        name = voice[len("trainer:") :]
+        try:
+            pdir = _profile_dir(name)
+        except ValueError as e:
+            return {"error": str(e)}
+        ref_wav = pdir / "reference.wav"
+        if not ref_wav.exists():
+            return {
+                "error": f"No trainer voice '{name}'. Register it first with register_voice. "
+                f"Available: {list_voice_profiles()}"
+            }
+        ref_audio_path = str(ref_wav)
+        ref_txt = pdir / "reference.txt"
+        ref_text = ref_txt.read_text(encoding="utf-8") if ref_txt.exists() else ""
+
+    result = _chatterbox_clone(text, ref_audio_path, ref_text, output_path)
+    result["voice"] = voice
+    return result
 
 
 def _get_voxtral_model():
@@ -179,7 +315,8 @@ async def health():
         "backends": backends,
         "tts_default_backend": DEFAULT_TTS_BACKEND,
         "tts_default_voice": DEFAULT_TTS_VOICE,
-        "voice_cloning": True,
+        "voice_cloning": "chatterbox",
+        "trainer_profiles": list_voice_profiles(),
     }
 
 
@@ -197,7 +334,8 @@ async def openai_audio_speech(request: Request):
     - Kokoro voices (af_heart, bm_george, etc.) → mlx-audio Kokoro backend
     - Qwen3 preset speakers (Chelsie, Ryan, etc.) → Qwen3-TTS CustomVoice
     - "design:<description>" → Qwen3-TTS VoiceDesign (creates voice from text)
-    - "clone:<audio_path>" → Qwen3-TTS Base (voice cloning from reference audio)
+    - "clone:<audio_path>" → Chatterbox clone (one-off, from a reference clip)
+    - "trainer:<name>"     → Chatterbox clone from a saved trainer-voice profile
     """
     try:
         body = await request.json()
@@ -300,31 +438,9 @@ def _generate_speech(text: str, voice: str, speed: float, instruct: str, languag
                 "voice": voice,
             }
 
-        # ── Route 3: Qwen3-TTS Base (voice cloning from reference audio) ──
-        if voice.startswith("clone:"):
-            ref_audio_path = voice[len("clone:") :]
-            if not Path(ref_audio_path).exists():
-                return {"error": f"Reference audio not found: {ref_audio_path}"}
-            model = _get_tts_model(QWEN3_TTS_BASE_MODEL)
-            results = list(
-                model.generate(
-                    text=text,
-                    ref_audio=ref_audio_path,
-                    ref_text="",  # Auto-transcribed if empty
-                )
-            )
-            if not results:
-                return {"error": "Voice cloning generated no audio"}
-            import numpy as np
-
-            audio_np = np.array(results[0].audio, dtype=np.float32)
-            sf.write(str(output_path), audio_np, 24000)
-            return {
-                "status": "success",
-                "file_path": str(output_path),
-                "backend": "qwen3_base_clone",
-                "voice": voice,
-            }
+        # ── Route 3: Chatterbox clone (one-off "clone:" clip or saved "trainer:" profile) ──
+        if voice.startswith(("clone:", "trainer:")):
+            return _clone_route(voice, text, output_path)
 
         # ── Route 4: Qwen3-TTS CustomVoice (preset speakers + style) ──────
         # Default for unrecognized voice names — try as Qwen3 speaker
@@ -453,7 +569,7 @@ async def list_models():
                 {"id": "kokoro", "object": "model", "owned_by": "portal-5"},
                 {"id": "qwen3-tts-custom", "object": "model", "owned_by": "portal-5"},
                 {"id": "qwen3-tts-design", "object": "model", "owned_by": "portal-5"},
-                {"id": "qwen3-tts-clone", "object": "model", "owned_by": "portal-5"},
+                {"id": "chatterbox-clone", "object": "model", "owned_by": "portal-5"},
                 {"id": "qwen3-asr", "object": "model", "owned_by": "portal-5"},
                 {"id": "voxtral-mini-3b", "object": "model", "owned_by": "portal-5"},
             ],
@@ -462,6 +578,25 @@ async def list_models():
 
 
 # ── Voices endpoint (Portal 5 extension) ──────────────────────────────────────
+
+
+@app.post("/v1/voices")
+async def register_voice_endpoint(request: Request):
+    """Register a persisted trainer-voice profile from a reference clip + transcript."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    name = body.get("name", "")
+    ref_audio = body.get("reference_audio", "")
+    ref_text = body.get("reference_text", "")
+    if not name or not ref_audio:
+        return JSONResponse({"error": "name and reference_audio are required"}, status_code=400)
+    try:
+        result = await asyncio.to_thread(register_voice_profile, name, ref_audio, ref_text)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    return JSONResponse(result, status_code=200 if result.get("status") == "success" else 400)
 
 
 @app.get("/v1/voices")
@@ -501,8 +636,12 @@ async def list_voices():
                     "design:A cheerful young voice with high energy",
                 ],
             },
-            "qwen3_clone": {
-                "note": "Use voice='clone:/path/to/reference.wav' to clone from 3-30s audio.",
+            "chatterbox_clone": {
+                "note": "voice='clone:/path/to/reference.wav' for a one-off Chatterbox clone (5-15s clip).",
+            },
+            "trainer_profiles": {
+                "registered": list_voice_profiles(),
+                "note": "Register once with POST /v1/voices, then voice='trainer:<name>'.",
             },
         }
     )
@@ -514,11 +653,14 @@ if __name__ == "__main__":
     _cleanup_stale_audio()
     logger.info("MLX Speech Server starting on %s:%d", HOST, PORT)
     logger.info(
-        "TTS backends: Kokoro (%s), Qwen3-TTS CustomVoice (%s), VoiceDesign (%s), Base/Clone (%s)",
+        "TTS backends: Kokoro (%s), Qwen3-TTS CustomVoice (%s), VoiceDesign (%s), Chatterbox clone (%s)",
         KOKORO_MODEL,
         QWEN3_TTS_CUSTOM_MODEL,
         QWEN3_TTS_DESIGN_MODEL,
-        QWEN3_TTS_BASE_MODEL,
+        CHATTERBOX_MODEL,
+    )
+    logger.info(
+        "Trainer voice profiles: %s (%d registered)", VOICE_PROFILES_DIR, len(list_voice_profiles())
     )
     logger.info("ASR backend: Qwen3-ASR (%s)", QWEN3_ASR_MODEL)
     logger.info("Models load lazily on first request.")
