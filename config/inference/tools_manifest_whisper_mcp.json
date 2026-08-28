@@ -19,12 +19,12 @@
     }
   },
   {
-    "description": "Transcribe an audio file with speaker identification in a single pass (VibeVoice-ASR): text + speaker labels + timestamps, up to ~60 min. No separate diarization step and no HuggingFace token required. Runs on the host MLX server (:8924).",
+    "description": "Transcribe an audio file and label who is speaking: full transcript (Parakeet-TDT-v3) plus speaker turns (Sortformer diarization), merged at the word level. A monologue comes back as one speaker; a conversation gets SPEAKER_00/SPEAKER_01/... per turn (up to 4 speakers). No HuggingFace token. Runs on the host MLX server (:8924); if diarization is unavailable the transcript still returns without labels. If the user uploaded an audio file, omit the file arg to auto-detect the most recent upload.",
     "name": "transcribe_with_speakers",
     "parameters": {
       "properties": {
         "file": {
-          "description": "Audio reference: OWUI file ID, filename in uploads/, or absolute path",
+          "description": "Audio reference: OWUI file ID, filename in uploads/, or absolute path. Omit to auto-detect the most recent upload.",
           "type": "string"
         },
         "language": {
@@ -32,11 +32,11 @@
           "type": "string"
         },
         "num_speakers": {
-          "description": "Optional expected speaker count hint (VibeVoice infers speakers itself).",
+          "description": "Optional cap on the speaker count — folds over-segmented speakers into the nearest kept one. Inferred when omitted.",
           "type": "integer"
         }
       },
-      "required": ["file"],
+      "required": [],
       "type": "object"
     }
   }

@@ -15,7 +15,7 @@ from portal.platform.data_loader import load_data
 
 logger = logging.getLogger(__name__)
 
-# Primary transcription path is the host MLX server (Parakeet + VibeVoice) on :8924.
+# Primary transcription path is the host MLX server (Parakeet + Sortformer) on :8924.
 # This module proxies there first and only falls back to the in-Docker faster-whisper
 # path (below) on non-Apple-Silicon nodes where the host server is unreachable.
 MLX_TRANSCRIBE_URL = os.getenv("MLX_TRANSCRIBE_URL", "http://host.docker.internal:8924").rstrip("/")
@@ -148,7 +148,7 @@ async def invoke_tool(request):
 
 
 # Docker fallback only (non-Apple-Silicon nodes). Primary is the host MLX server
-# (Parakeet + VibeVoice) via MLX_TRANSCRIBE_URL. 'base' was a real accuracy floor.
+# (Parakeet + Sortformer) via MLX_TRANSCRIBE_URL. 'base' was a real accuracy floor.
 WHISPER_MODEL_SIZE = os.getenv("WHISPER_MODEL", "large-v3-turbo")
 _model = None
 
@@ -230,33 +230,37 @@ async def transcribe_audio(file_path: str | None = None, language: str | None = 
 
 
 # ── Diarized transcription (TASK_TRANSCRIBE_VIBEVOICE_PARAKEET_REPLACE) ─────────
-# Single-pass diarization runs on the host MLX server (VibeVoice-ASR, :8924).
-# There is no in-Docker diarizer — pyannote and the HF_TOKEN gate are retired.
+# Runs on the host MLX server (:8924): Parakeet transcript + Sortformer speaker
+# diarization, merged at the word level. No in-Docker diarizer — pyannote and the
+# HF_TOKEN gate are retired.
 
 
 @mcp.tool()
 async def transcribe_with_speakers(
-    file: str,
+    file: str = "",
     num_speakers: int | None = None,
     language: str | None = None,
 ) -> dict:
     """
-    Transcribe an audio file with speaker identification in a single pass.
+    Transcribe an audio file and label who is speaking.
 
-    Runs on the host MLX server (VibeVoice-ASR, port 8924): text + speaker labels
-    + timestamps from one model, no separate diarization step and no HuggingFace
-    token. Speaker identification is Apple-Silicon-only — on nodes where the host
-    server is unreachable this returns an error rather than an unlabeled transcript.
+    Runs on the host MLX server (port 8924): full transcript (Parakeet-TDT-v3) plus
+    speaker turns (Sortformer diarization), merged at the word level. A monologue
+    returns one speaker; a conversation returns SPEAKER_00/SPEAKER_01/... per turn
+    (up to 4). No HuggingFace token. Speaker labelling is Apple-Silicon-only — on
+    nodes where the host server is unreachable this returns an error rather than an
+    unlabeled transcript (use transcribe_audio there).
 
     Args:
-        file: Audio reference. Accepts OWUI file ID, filename in uploads/,
-              or absolute path.
-        num_speakers: Optional expected speaker count hint (VibeVoice infers it).
+        file: Audio reference. Omit to auto-detect the most recent upload; otherwise
+              an OWUI file ID, filename in uploads/, or absolute path.
+        num_speakers: Optional cap on the speaker count (folds over-segmented
+              speakers into the nearest kept one). Inferred when omitted.
         language: ISO language code. Auto-detected if omitted.
 
     Returns:
-        dict with text, language, duration, speaker_count, segments,
-        markdown, json_path, md_path, timing.
+        dict with text, language, duration, speaker_count, segments, markdown,
+        json_path, md_path, timing, engine; ``warning`` if diarization was skipped.
     """
     host_args: dict = {"file": file}
     if num_speakers is not None:
@@ -267,7 +271,8 @@ async def transcribe_with_speakers(
     if res is not None:
         return res
     return {
-        "error": "speaker diarization requires the host MLX transcribe server (:8924) — unreachable"
+        "error": "speaker labelling requires the host MLX transcribe server (:8924) — "
+        "unreachable; use transcribe_audio for a transcript without speaker labels"
     }
 
 

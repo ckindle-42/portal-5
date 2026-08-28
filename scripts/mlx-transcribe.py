@@ -4,7 +4,11 @@ MLX Transcribe Server — Portal 5 (TASK-TRANSCRIBE-001)
 
 Host-native transcription server for Apple Silicon.
 - Fast ASR: Parakeet-TDT-v3 (Metal-accelerated, word-level timestamps)
-- Diarized: VibeVoice-ASR 9B — text + speaker labels + timestamps in one pass (no HF token)
+- Diarized: Parakeet transcript + Sortformer speaker diarization, merged at the
+  word level. Parakeet always produces the full transcript; Sortformer only adds
+  "who spoke when". A monologue → one speaker; a conversation → labels per turn.
+  If diarization fails or the file is very long, the transcript still comes back
+  (single-speaker) rather than truncating. No HuggingFace token required.
 - Output: JSON canonical + Markdown sidecar in workspace generated/transcripts/
 
 Runs on the host (not Docker) — same pattern as mlx-proxy.py and mlx-speech.py.
@@ -63,22 +67,24 @@ logger = logging.getLogger("mlx-transcribe")
 PORT = int(os.getenv("MLX_TRANSCRIBE_PORT", "8924"))
 HOST = os.getenv("MLX_TRANSCRIBE_HOST", "0.0.0.0")
 
-# ASR (fast, no diarization) — Parakeet-TDT-v3, word-level timestamps.
+# ASR (transcript + word-level timestamps) — Parakeet-TDT-v3. Used by both tools.
 PARAKEET_MODEL = os.getenv("MLX_PARAKEET_MODEL", "mlx-community/parakeet-tdt-0.6b-v3")
-# Diarized transcription (text + speaker + timestamps, single pass) — VibeVoice-ASR 9B.
-VIBEVOICE_MODEL = os.getenv("MLX_VIBEVOICE_MODEL", "mlx-community/VibeVoice-ASR-bf16")
-# pyannote + HF_TOKEN diarization gate and the Voxtral path are retired
-# (TASK_TRANSCRIBE_VIBEVOICE_PARAKEET_REPLACE) — VibeVoice diarizes in one pass, ungated.
+# Speaker diarization ("who spoke when") — NVIDIA Sortformer, MLX port. 4-speaker
+# ceiling; runs in one forward pass (no HF token, no pyannote).
+DIARIZE_MODEL = os.getenv("MLX_DIARIZE_MODEL", "mlx-community/diar_sortformer_4spk-v1-fp32")
+# Above this duration (s) the single-pass Sortformer forward is skipped and the
+# transcript is returned single-speaker with a warning — it would risk OOM.
+DIARIZE_MAX_S = float(os.getenv("MLX_DIARIZE_MAX_S", "1800"))
 
 # ── Model cache ────────────────────────────────────────────────────────────────
 
 _parakeet_model: Any = None
-_vibevoice_model: Any = None
+_diarizer_model: Any = None
 _pipeline_lock = asyncio.Semaphore(1)  # GPU-heavy; serialize.
 
 
 def _get_parakeet() -> Any:
-    """Lazy-load and cache Parakeet-TDT-v3 (fast ASR, word timestamps)."""
+    """Lazy-load and cache Parakeet-TDT-v3 (transcript + word timestamps)."""
     global _parakeet_model
     if _parakeet_model is None:
         from mlx_audio.stt.utils import load
@@ -89,73 +95,43 @@ def _get_parakeet() -> Any:
     return _parakeet_model
 
 
-def _get_vibevoice() -> Any:
-    """Lazy-load and cache VibeVoice-ASR (9B; text + speaker + timestamps, single pass)."""
-    global _vibevoice_model
-    if _vibevoice_model is None:
-        from mlx_audio.stt.utils import load
+def _get_diarizer() -> Any:
+    """Lazy-load and cache the Sortformer speaker-diarization model."""
+    global _diarizer_model
+    if _diarizer_model is None:
+        from mlx_audio.vad import load
 
-        logger.info("Loading VibeVoice-ASR (9B, first load is slow): %s", VIBEVOICE_MODEL)
-        _vibevoice_model = load(VIBEVOICE_MODEL)
-        logger.info("VibeVoice-ASR ready")
-    return _vibevoice_model
-
-
-def _vibevoice_segments_to_canonical(segments: list) -> list[dict]:
-    """Map VibeVoice segment keys to canonical {start, end, speaker, text}.
-
-    Phase 0 confirmed this build's parsed shape is {"start","end","speaker_id","text"}
-    (speaker_id absent on non-speech segments); the raw JSON shape is
-    {"Start","End","Speaker","Content"}. Handle all three key spellings so a minor
-    version bump doesn't silently break the adapter.
-
-    Non-speech marker segments (VibeVoice emits a standalone "[Silence]", "[Music]",
-    etc. with no speaker_id) are dropped — they carry no transcript content and
-    would otherwise inflate speaker_count via SPEAKER_UNKNOWN.
-    """
-    out: list[dict] = []
-    for s in segments:
-        start = s.get("start", s.get("start_time", s.get("Start", 0.0)))
-        end = s.get("end", s.get("end_time", s.get("End", 0.0)))
-        spk = s.get("speaker_id", s.get("Speaker"))
-        text = s.get("text", s.get("Content", "")).strip()
-        if spk is None and re.fullmatch(r"\[[^\]]*\]", text):
-            continue
-        out.append(
-            {
-                "start": round(float(start), 2),
-                "end": round(float(end), 2),
-                "speaker": f"SPEAKER_{int(spk):02d}" if spk is not None else "SPEAKER_UNKNOWN",
-                "text": text,
-            }
-        )
-    return out
-
-
-def _vibevoice_untranscribed_seconds(segments: list) -> float:
-    """Total seconds VibeVoice-ASR marked as speech but did not transcribe.
-
-    On long single-speaker stretches VibeVoice sometimes stops early and emits a
-    standalone ``[Speech]`` marker segment (no speaker_id) covering the remainder.
-    That span carries no transcript, so the caller should warn and steer the user
-    to ``transcribe_audio`` (Parakeet) for a complete non-diarized transcript.
-    """
-    total = 0.0
-    for s in segments:
-        spk = s.get("speaker_id", s.get("Speaker"))
-        text = s.get("text", s.get("Content", "")).strip().lower()
-        if spk is None and text in ("[speech]", "[speaker]"):
-            start = float(s.get("start", s.get("start_time", s.get("Start", 0.0))))
-            end = float(s.get("end", s.get("end_time", s.get("End", 0.0))))
-            total += max(0.0, end - start)
-    return round(total, 2)
+        logger.info("Loading Sortformer diarizer: %s", DIARIZE_MODEL)
+        _diarizer_model = load(DIARIZE_MODEL)
+        logger.info("Sortformer ready")
+    return _diarizer_model
 
 
 # ── Core pipeline ──────────────────────────────────────────────────────────────
 
 
+def _parakeet_words(audio_path: str) -> tuple[str, list[dict], float]:
+    """Run Parakeet and return (full_text, words, duration).
+
+    ``words`` is a flat list of {start, end, text} at token granularity — Parakeet
+    tokens are SentencePiece word-pieces whose ``text`` carries a leading space at
+    word starts, so ``"".join(w["text"] ...)`` reconstructs spacing exactly.
+    """
+    model = _get_parakeet()
+    result = model.generate(audio_path)
+    words: list[dict] = []
+    for sent in getattr(result, "sentences", []):
+        for tok in getattr(sent, "tokens", []):
+            words.append({"start": float(tok.start), "end": float(tok.end), "text": tok.text})
+    duration = words[-1]["end"] if words else 0.0
+    return result.text.strip(), words, round(duration, 2)
+
+
 def _transcribe(audio_path: str, language: str | None) -> dict:
-    """Fast ASR via Parakeet-TDT-v3. Returns {text, language, duration, segments}."""
+    """Fast ASR via Parakeet-TDT-v3 (no speaker labels).
+
+    Returns {text, language, duration, segments} where segments are sentences.
+    """
     model = _get_parakeet()
     result = model.generate(audio_path)
     segments = [
@@ -171,34 +147,174 @@ def _transcribe(audio_path: str, language: str | None) -> dict:
     }
 
 
-def _diarized_transcribe(audio_path: str, num_speakers: int | None, language: str | None) -> dict:
-    """Single-pass diarized transcription via VibeVoice-ASR (text + speaker + timestamps).
+def _diarize(audio_path: str) -> list[dict]:
+    """Sortformer speaker turns → [{start, end, speaker:int}] (raw speaker ids 0-3)."""
+    model = _get_diarizer()
+    out = model.generate(
+        audio_path,
+        threshold=float(os.getenv("MLX_DIARIZE_THRESHOLD", "0.5")),
+        min_duration=float(os.getenv("MLX_DIARIZE_MIN_DURATION", "0.3")),
+        merge_gap=float(os.getenv("MLX_DIARIZE_MERGE_GAP", "0.5")),
+    )
+    return [
+        {"start": float(s.start), "end": float(s.end), "speaker": int(s.speaker)}
+        for s in out.segments
+    ]
 
-    num_speakers is accepted for API compatibility; VibeVoice infers speakers itself.
-    Returns {text, language, duration, speaker_count, segments}.
+
+def _speaker_for_span(diar: list[dict], w0: float, w1: float) -> int | None:
+    """Speaker whose turns overlap [w0, w1] most; fall back to the nearest turn."""
+    if not diar:
+        return None
+    per: dict[int, float] = {}
+    for seg in diar:
+        ov = max(0.0, min(w1, seg["end"]) - max(w0, seg["start"]))
+        if ov > 0:
+            per[seg["speaker"]] = per.get(seg["speaker"], 0.0) + ov
+    if per:
+        return max(per, key=lambda k: per[k])
+    mid = (w0 + w1) / 2
+    nearest = min(diar, key=lambda s: min(abs(s["start"] - mid), abs(s["end"] - mid)))
+    return nearest["speaker"]
+
+
+def _smooth_speaker_runs(raw: list[int], words: list[dict]) -> list[int]:
+    """Flip a short speaker run wedged between two runs of the same other speaker.
+
+    Such a run is almost always a diarization boundary wobble (e.g. "we'"/"re"
+    split across a turn edge), not a real one-word interjection.
     """
-    model = _get_vibevoice()
-    result = model.generate(audio=audio_path, max_tokens=8192, temperature=0.0)
-    raw_segments = getattr(result, "segments", [])
-    merged = _vibevoice_segments_to_canonical(raw_segments)
-    speaker_count = len({s["speaker"] for s in merged}) if merged else 0
-    duration = merged[-1]["end"] if merged else 0.0
-    text = getattr(result, "text", "") or " ".join(s["text"] for s in merged)
-    out = {
-        "text": text.strip(),
-        "language": language or "en",
-        "duration": round(duration, 2),
-        "speaker_count": speaker_count,
-        "segments": merged,
-    }
-    dropped = _vibevoice_untranscribed_seconds(raw_segments)
-    if dropped >= 5.0:
-        out["warning"] = (
-            f"VibeVoice-ASR left ~{dropped:.0f}s of speech untranscribed (emitted a "
-            f"[Speech] placeholder, common on long single-speaker stretches). "
-            f"Use transcribe_audio for a complete non-diarized transcript."
+    min_turn_s = float(os.getenv("MLX_DIARIZE_MIN_TURN", "1.0"))
+    out = list(raw)
+    i = 0
+    while i < len(out):
+        j = i
+        while j < len(out) and out[j] == out[i]:
+            j += 1
+        span = words[j - 1]["end"] - words[i]["start"]
+        prev_spk = out[i - 1] if i > 0 else None
+        next_spk = out[j] if j < len(out) else None
+        if span < min_turn_s and prev_spk is not None and prev_spk == next_spk:
+            for k in range(i, j):
+                out[k] = prev_spk
+        i = j
+    return out
+
+
+def _merge_words_and_speakers(
+    words: list[dict], diar: list[dict], num_speakers: int | None
+) -> tuple[list[dict], int]:
+    """Assign every Parakeet word to a Sortformer speaker, then group into turns.
+
+    - Each word goes to the speaker with the most temporal overlap (nearest turn
+      if none overlaps) — so a speaker change lands on a word boundary, never
+      mid-word.
+    - If ``num_speakers`` is given and diarization found more, the least-talkative
+      raw speakers are folded into the nearest kept speaker.
+    - Kept speakers are renumbered by order of first appearance, so ``SPEAKER_00``
+      is whoever speaks first.
+    """
+    if not words:
+        return [], 0
+
+    raw = [_speaker_for_span(diar, w["start"], w["end"]) for w in words]
+    raw = [r if r is not None else 0 for r in raw]
+
+    # Sentence-final punctuation is emitted as its own token timestamped right on
+    # the turn boundary — pin it to the previous word's speaker so it never opens
+    # or closes a turn on its own (" ? Good." → "? " stays with the question).
+    for i in range(1, len(words)):
+        if words[i]["text"].strip() in {".", ",", "?", "!", ";", ":", "…", "-", "—"}:
+            raw[i] = raw[i - 1]
+
+    # Optional cap: keep the N speakers with the most words, remap the rest.
+    if num_speakers and num_speakers > 0:
+        totals: dict[int, float] = {}
+        for spk, w in zip(raw, words, strict=True):
+            totals[spk] = totals.get(spk, 0.0) + (w["end"] - w["start"])
+        if len(totals) > num_speakers:
+            keep = {s for s, _ in sorted(totals.items(), key=lambda kv: -kv[1])[:num_speakers]}
+            kept_turns = [s for s in diar if s["speaker"] in keep] or diar
+            raw = [
+                r if r in keep else (_speaker_for_span(kept_turns, w["start"], w["end"]) or 0)
+                for r, w in zip(raw, words, strict=True)
+            ]
+
+    raw = _smooth_speaker_runs(raw, words)
+
+    # Renumber by first appearance.
+    order: dict[int, int] = {}
+    for r in raw:
+        if r not in order:
+            order[r] = len(order)
+    final = [order[r] for r in raw]
+
+    # Group consecutive same-speaker words into turns.
+    turns: list[dict] = []
+    for spk, w in zip(final, words, strict=True):
+        label = f"SPEAKER_{spk:02d}"
+        if turns and turns[-1]["speaker"] == label:
+            turns[-1]["end"] = round(w["end"], 2)
+            turns[-1]["_text"] += w["text"]
+        else:
+            turns.append(
+                {
+                    "start": round(w["start"], 2),
+                    "end": round(w["end"], 2),
+                    "speaker": label,
+                    "_text": w["text"],
+                }
+            )
+    segments = [
+        {"start": t["start"], "end": t["end"], "speaker": t["speaker"], "text": t["_text"].strip()}
+        for t in turns
+    ]
+    return segments, len(order)
+
+
+def _diarized_transcribe(audio_path: str, num_speakers: int | None, language: str | None) -> dict:
+    """Parakeet transcript + Sortformer diarization, merged at word level.
+
+    The transcript is always complete. If diarization is skipped (file too long) or
+    fails, everything is returned as a single speaker with a ``warning``.
+    Returns {text, language, duration, speaker_count, segments, diarize_s, warning?}.
+    """
+    text, words, duration = _parakeet_words(audio_path)
+
+    diar: list[dict] = []
+    diarize_s = 0.0
+    warning: str | None = None
+    if duration > DIARIZE_MAX_S:
+        warning = (
+            f"audio is {duration / 60:.0f} min — past the {DIARIZE_MAX_S / 60:.0f} min "
+            f"single-pass diarization ceiling; transcript returned without speaker labels"
         )
-        logger.warning("VibeVoice truncation: %.0fs of speech left untranscribed", dropped)
+        logger.warning("diarization skipped: %s", warning)
+    else:
+        t0 = time.time()
+        try:
+            diar = _diarize(audio_path)
+            diarize_s = round(time.time() - t0, 2)
+        except Exception as e:  # noqa: BLE001 — any diarizer failure degrades gracefully
+            warning = (
+                f"speaker diarization failed ({e}); transcript returned without speaker labels"
+            )
+            logger.warning("diarization failed: %s", e, exc_info=True)
+
+    segments, speaker_count = _merge_words_and_speakers(words, diar, num_speakers)
+    if not diar and segments:
+        speaker_count = 1
+
+    out: dict = {
+        "text": text,
+        "language": language or "en",
+        "duration": duration,
+        "speaker_count": speaker_count,
+        "segments": segments,
+        "diarize_s": diarize_s,
+    }
+    if warning:
+        out["warning"] = warning
     return out
 
 
@@ -229,13 +345,14 @@ def _run_pipeline(
     num_speakers: int | None,
     source_name: str = "audio",
 ) -> dict:
-    """Synchronous diarized pipeline (VibeVoice single pass). Caller wraps in asyncio.to_thread."""
+    """Synchronous diarized pipeline (Parakeet + Sortformer). Caller wraps in asyncio.to_thread."""
     t0 = time.time()
     diarized = _diarized_transcribe(audio_path, num_speakers, language)
     total_s = round(time.time() - t0, 2)
 
     merged = diarized["segments"]
     speaker_count = diarized["speaker_count"]
+    diarize_s = diarized.get("diarize_s", 0.0)
 
     meta = {
         "text": diarized["text"],
@@ -243,8 +360,8 @@ def _run_pipeline(
         "duration": diarized["duration"],
         "speaker_count": speaker_count,
         "timing": {
-            "transcribe_s": total_s,  # single pass — transcription and diarization are one call
-            "diarize_s": 0.0,
+            "transcribe_s": round(total_s - diarize_s, 2),
+            "diarize_s": diarize_s,
             "total_s": total_s,
         },
     }
@@ -355,9 +472,9 @@ async def health() -> JSONResponse:
             "status": "ok",
             "service": "mlx-transcribe",
             "asr_model": PARAKEET_MODEL,
-            "diarization_model": VIBEVOICE_MODEL,
+            "diarization_model": DIARIZE_MODEL,
             "parakeet_loaded": _parakeet_model is not None,
-            "vibevoice_loaded": _vibevoice_model is not None,
+            "diarizer_loaded": _diarizer_model is not None,
         }
     )
 
@@ -383,7 +500,7 @@ async def invoke_tool(tool_name: str, request: Request) -> JSONResponse:
                 result = await asyncio.to_thread(
                     _run_pipeline, str(path), language, num_speakers, source_name
                 )
-                result["engine"] = "vibevoice-asr"
+                result["engine"] = "parakeet+sortformer"
                 return JSONResponse(result)
             except Exception as e:
                 logger.error("invoke_tool transcribe_with_speakers failed: %s", e, exc_info=True)
@@ -436,10 +553,12 @@ async def list_tools() -> JSONResponse:
                 {
                     "name": "transcribe_with_speakers",
                     "description": (
-                        "Transcribe an audio file with speaker identification in a single pass "
-                        "(VibeVoice-ASR): text + speaker labels + timestamps, up to ~60 min. No "
-                        "separate diarization step and no HuggingFace token required. Call with "
-                        "no arguments to auto-detect the most recently uploaded audio file."
+                        "Transcribe an audio file and label who is speaking: full transcript "
+                        "(Parakeet) plus speaker turns (Sortformer diarization), merged at the "
+                        "word level. A monologue comes back as one speaker; a conversation gets "
+                        "SPEAKER_00/SPEAKER_01/... per turn. Up to 4 speakers, no HuggingFace "
+                        "token. Call with no arguments to auto-detect the most recently uploaded "
+                        "audio file."
                     ),
                     "parameters": {
                         "type": "object",
@@ -450,7 +569,7 @@ async def list_tools() -> JSONResponse:
                             },
                             "num_speakers": {
                                 "type": "integer",
-                                "description": "Optional expected speaker count hint (VibeVoice infers speakers itself).",
+                                "description": "Optional cap on speaker count — folds over-segmented speakers into the nearest kept one. Diarization infers the count when omitted.",
                             },
                             "language": {
                                 "type": "string",
@@ -558,10 +677,16 @@ async def transcribe_with_speakers(
     language: str | None = None,
 ) -> dict:
     """
-    Transcribe an audio file with speaker identification in a single pass (VibeVoice-ASR).
+    Transcribe an audio file and label who is speaking.
 
-    Produces a transcript and saves both JSON and Markdown to the workspace
-    generated/transcripts/ directory. The full markdown is included in the response.
+    Full transcript via Parakeet-TDT-v3 + speaker turns via Sortformer diarization,
+    merged at the word level. A monologue returns one speaker; a conversation
+    returns SPEAKER_00/SPEAKER_01/... per turn (up to 4). No HuggingFace token. If
+    diarization is skipped (very long file) or fails, the transcript still comes
+    back as a single speaker with a ``warning`` — it never truncates.
+
+    Saves JSON + Markdown to the workspace generated/transcripts/ directory; the
+    full markdown is included in the response.
 
     Args:
         file: Audio file reference. Omit (or leave empty) to auto-detect the
@@ -569,10 +694,9 @@ async def transcribe_with_speakers(
               - OWUI file ID from a chat attachment (e.g., 'abc-123-def')
               - Filename in the uploads directory (e.g., 'meeting.mp3')
               - Absolute path on the host (e.g., '/Users/me/audio.wav')
-        num_speakers: Optional expected speaker count hint. Auto-detected if omitted.
+        num_speakers: Optional cap on the speaker count (folds over-segmented
+              speakers into the nearest kept one). Inferred when omitted.
         language: ISO language code (e.g., 'en'). Auto-detected if omitted.
-
-    (Diarization is single-pass via VibeVoice-ASR — no engine selection, no HF token.)
 
     Returns:
         dict with:
@@ -583,7 +707,8 @@ async def transcribe_with_speakers(
           - json_path, md_path: workspace file paths
           - json_url, md_url: download URLs (port :8924)
           - timing: {transcribe_s, diarize_s, total_s}
-          - engine: which engine was used
+          - engine: "parakeet+sortformer"
+          - warning: present only if diarization was skipped or failed
 
         On error: {"error": "..."}
     """
@@ -603,7 +728,7 @@ async def transcribe_with_speakers(
             result = await asyncio.to_thread(
                 _run_pipeline, str(path), language, num_speakers, source_name
             )
-            result["engine"] = "vibevoice-asr"
+            result["engine"] = "parakeet+sortformer"
             return result
         except Exception as e:
             logger.error("MCP transcribe_with_speakers failed: %s", e, exc_info=True)
@@ -623,8 +748,8 @@ app.mount("/mcp", _mcp_sub_app)
 
 if __name__ == "__main__":
     logger.info("Starting mlx-transcribe on %s:%d", HOST, PORT)
-    logger.info("ASR (fast): %s", PARAKEET_MODEL)
-    logger.info("Diarized (single-pass): %s", VIBEVOICE_MODEL)
+    logger.info("ASR: %s", PARAKEET_MODEL)
+    logger.info("Diarizer: %s (skipped above %.0f min)", DIARIZE_MODEL, DIARIZE_MAX_S / 60)
     logger.info("Output dir: %s", get_generated_dir("transcripts"))
-    logger.info("Models load lazily on first request. No HF token required for diarization.")
+    logger.info("Models load lazily on first request. No HF token required.")
     uvicorn.run(app, host=HOST, port=PORT, log_level="info")

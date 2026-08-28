@@ -12,14 +12,14 @@ tags:
 - authored-v1
 - scripts
 created_at: 1785799539.676291
-updated_at: 1787879900.0
+updated_at: 1787931352.0
 ---
 
-Host-native transcription server for Apple Silicon. Fast transcription via Parakeet-TDT-v3 (word-level timestamps, transcribe_audio) and single-pass diarized transcription via VibeVoice-ASR (text + speaker labels + timestamps in one model, transcribe_with_speakers). No pyannote and no HuggingFace token — VibeVoice does diarization itself.
+Host-native transcription server for Apple Silicon. `transcribe_audio` is fast plain transcription via Parakeet-TDT-v3 (word-level timestamps). `transcribe_with_speakers` runs the same Parakeet transcript plus Sortformer speaker diarization (`mlx-community/diar_sortformer_4spk-v1-fp32`, 4-speaker ceiling), merged at the word level: each Parakeet word is assigned to the Sortformer speaker whose turn it overlaps, then consecutive same-speaker words are grouped into turns. A monologue collapses to one speaker; a conversation gets `SPEAKER_00`/`SPEAKER_01`/… No pyannote and no HuggingFace token. If diarization is skipped (file past `MLX_DIARIZE_MAX_S`) or fails, the transcript is still returned single-speaker with a `warning` — it never truncates.
 
 ## Why
 
-Running transcription host-native on Metal is the performance answer on Apple Silicon. A single model (VibeVoice-ASR) emitting text + speaker + timestamps in one pass removes the alignment-bug class of the previous mlx-whisper + pyannote greedy-overlap merge and drops the HF_TOKEN gate; Parakeet-TDT-v3 covers the fast path when speaker labels aren't needed.
+Running transcription host-native on Metal is the performance answer on Apple Silicon. Splitting transcription (Parakeet) from diarization (Sortformer) rather than using one joint model means a diarization failure costs only the speaker labels, never the transcript — a joint model that stops early on a long monologue loses both. Word-level assignment keeps a speaker change on a word boundary; a short run wedged between two runs of the same other speaker is smoothed away as a boundary wobble. Sortformer's forward pass is ~0.5s for a few minutes of audio, so the diarized path is only marginally slower than plain transcription.
 
 ## Interfaces
 
