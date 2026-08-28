@@ -359,6 +359,9 @@ services:
     environment:
       - TTS_MCP_PORT=8916
       - MCP_PORT=8916
+      # tts_mcp proxies all tools to the host mlx-speech.py server (Chatterbox clone,
+      # trainer profiles, Kokoro) — the same host hop OWUI's built-in TTS uses.
+      - MLX_SPEECH_URL=${MLX_SPEECH_URL:-http://host.docker.internal:8918}
       - TTS_PUBLIC_URL=${TTS_PUBLIC_URL:-http://localhost:8916/files/tts}
       - TTS_BACKEND=${TTS_BACKEND:-kokoro}
       - TTS_DEFAULT_VOICE=${TTS_DEFAULT_VOICE:-af_heart}
