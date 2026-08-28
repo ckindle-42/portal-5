@@ -228,13 +228,14 @@ _launch_install_music_minimax() {
 #!/bin/bash
 PORTAL_ROOT="${PORTAL_ROOT}"
 [ -d "\$PORTAL_ROOT/portal_mcp" ] || { echo "ERROR: PORTAL_ROOT invalid; re-run install-music-minimax" >&2; exit 1; }
+# launchd gives us no shell env and no .env — source it so OWUI_API_KEY /
+# PORTAL_PUBLIC_URL reach publish_file_sync (host-native, unlike the Docker MCPs).
+set -a; [ -f "\$PORTAL_ROOT/.env" ] && . "\$PORTAL_ROOT/.env"; set +a
 export PYTHONPATH="\$PORTAL_ROOT"
 export MUSIC_MINIMAX_MODEL_DIR="${MM_MODEL_DIR}"
 export OUTPUT_DIR="\${AI_OUTPUT_DIR:-\$HOME/AI_Output}"
 export MUSIC_MINIMAX_MCP_PORT="${MM_PORT}"
 export OPENWEBUI_URL="\${OPENWEBUI_URL:-http://localhost:8080}"
-export OWUI_API_KEY="\${OWUI_API_KEY:-}"
-export PORTAL_PUBLIC_URL="\${PORTAL_PUBLIC_URL:-}"
 mkdir -p "\$OUTPUT_DIR"
 exec "$MM_VENV/bin/python" -m portal.modules.media.tools.music_minimax_mcp
 MM_START
