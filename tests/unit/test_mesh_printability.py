@@ -3,9 +3,11 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import numpy as np
-import trimesh
+import pytest
 
 from portal.modules.cad.tools.mesh_validator import check_printability
+
+trimesh = pytest.importorskip("trimesh")
 
 LIMITS = {
     "nozzle_diameter_mm": 0.4,
