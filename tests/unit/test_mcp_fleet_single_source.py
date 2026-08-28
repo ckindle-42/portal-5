@@ -88,6 +88,20 @@ def test_fleet_pipeline_exposed_matches_mcp_servers() -> None:
     )
 
 
+def test_env_override_normalizes_hyphenated_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A hyphenated fleet id is overridable via an underscored env key.
+
+    ``music-minimax`` runs host-native (no compose service), so the pipeline
+    container must be able to repoint it at host.docker.internal. Env var names
+    can't carry hyphens, so the key is ``MCP_MUSIC_MINIMAX_URL``.
+    """
+    config = load_portal_config()
+    assert any(s.id == "music-minimax" for s in config.mcp_fleet)
+    monkeypatch.setenv("MCP_MUSIC_MINIMAX_URL", "http://host.docker.internal:8912")
+    derived = get_pipeline_mcp_servers(config)
+    assert derived["music-minimax"] == "http://host.docker.internal:8912"
+
+
 def test_ide_servers_in_fleet() -> None:
     """.mcp.json server names must all be from the fleet (expose_to_ide=True entries)."""
     mcp_json = json.loads((REPO / ".mcp.json").read_text())

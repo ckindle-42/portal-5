@@ -406,13 +406,15 @@ def get_pipeline_mcp_servers(config: PortalConfig) -> dict[str, str]:
     """Return ``{id: base_url}`` for all pipeline-exposed HTTP MCP servers.
 
     Env vars ``MCP_<ID_UPPER>_URL`` override the default
-    ``http://localhost:{port}`` constructed from the fleet table.
+    ``http://localhost:{port}`` constructed from the fleet table. Hyphens in the
+    fleet id become underscores in the key (``music-minimax`` → ``MCP_MUSIC_MINIMAX_URL``)
+    since shell/compose env names can't carry hyphens.
     """
     servers: dict[str, str] = {}
     for server in config.mcp_fleet:
         if not server.expose_to_pipeline or server.port is None:
             continue
-        env_key = f"MCP_{server.id.upper()}_URL"
+        env_key = f"MCP_{server.id.upper().replace('-', '_')}_URL"
         default_url = f"http://localhost:{server.port}"
         servers[server.id] = os.environ.get(env_key, default_url)
     return servers
