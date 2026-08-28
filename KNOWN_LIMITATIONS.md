@@ -291,7 +291,7 @@ The whole point of preselection is a cheap model deciding which schemas the expe
 
 ## MLX Inference Proxy — RETIRED (commit 3a0c58e)
 
-The MLX inference proxy (formerly ports 8081/18081/18082) was retired in commit `3a0c58e`, and all its limitations (single-model eviction, cold-boot 503 windows, admission control, deploy staleness) no longer apply. All chat inference runs through Ollama on port 11434, which reaches parity with standalone `mlx_lm` on this hardware without the dual-stack overhead. MLX is retained only outside chat inference: speech (`scripts/mlx-speech.py`, :8918), diarized transcription (`scripts/mlx-transcribe.py`, :8924), embeddings (:8917), and the RAG reranker (:8925). Do not remove those when "cleaning up MLX".
+The MLX inference proxy (formerly ports 8081/18081/18082) was retired in commit `3a0c58e`, and all its limitations (single-model eviction, cold-boot 503 windows, admission control, deploy staleness) no longer apply. All chat inference runs through Ollama on port 11434, which reaches parity with standalone `mlx_lm` on this hardware without the dual-stack overhead. MLX is retained only outside chat inference: speech (`scripts/mlx-speech.py`, :8918), transcription (`scripts/mlx-transcribe.py` — Parakeet + VibeVoice, :8924), embeddings (:8917), and the RAG reranker (:8925). Do not remove those when "cleaning up MLX".
 
 ## Why
 
@@ -525,17 +525,18 @@ The shared-workspace contract is the single path for user files, but the migrati
 
 ---
 
-## Diarized Transcription (TASK-TRANSCRIBE-001)
+## Diarized Transcription (TASK_TRANSCRIBE_VIBEVOICE_PARAKEET_REPLACE)
 
-- **Pyannote model gating.** `scripts/mlx-transcribe.py` gates diarization on `HF_TOKEN` (env `DIARIZATION_MODEL` defaults to `pyannote/speaker-diarization-3.1`); without it the pipeline returns an error telling the operator to accept the HF agreements and set `HF_TOKEN` in `.env`. The Docker fallback `portal/modules/media/tools/whisper_mcp.py` gates on the same token.
-- **Overlapping speech.** Pyannote underperforms when multiple speakers talk simultaneously; segments are assigned to a single speaker by maximum overlap.
-- **Speaker count drift on long recordings.** For long recordings pyannote may split one speaker into two IDs after long silence gaps. Pass `num_speakers=N` when known; both `scripts/mlx-transcribe.py` and `whisper_mcp.py` forward it to the diarization pipeline.
+- **VibeVoice-ASR is a 9B model — slower than whisper-turbo.** `transcribe_with_speakers` runs `scripts/mlx-transcribe.py` through `mlx-community/VibeVoice-ASR-bf16`. Phase 2 smoke: ~24s to transcribe an 18-second clip after a ~25s first load. Give long files generous wall-clock headroom; long-form support is ~60 min.
+- **Diarization accuracy is not yet validated on real audio.** The repo's `tests/fixtures/audio/two_speaker_10s.wav` is a synthetic sine tone and `sample_two_speakers.wav` is single-voice TTS — neither exercises speaker separation. The Phase-2 `[GATE: DIARIZATION ACCURACY]` (real 2–3 speaker recording + operator sign-off) is still open.
+- **Speakers are model-inferred, not named.** Labels are `SPEAKER_00`, `SPEAKER_01`, … `num_speakers` is accepted for API compatibility but VibeVoice infers the count itself.
+- **Host server runs `HF_HUB_OFFLINE=1`.** Under launchd the huggingface_hub cached-file revalidation requests hang indefinitely, so `scripts/native-mcp-service.sh` forces offline mode. `launch.sh start-transcribe` pre-downloads Parakeet + VibeVoice before starting the service; a model that was never warmed will fail fast rather than download.
+- **Apple-Silicon-only for speaker labels.** The Docker fallback (`portal/modules/media/tools/whisper_mcp.py`) is faster-whisper `large-v3-turbo` with no diarization; `transcribe_with_speakers` returns an error when the host MLX server (:8924) is unreachable.
 - **OWUI tool-call timeout for long files.** OWUI's MCP tool-call ceiling can fire before a long file finishes. Raise `AIOHTTP_CLIENT_TIMEOUT_TOOL_SERVER_DATA` (set to 1800 in `.env.example`) or use the direct endpoint on port `8924`.
-- **MLX path is Apple-Silicon-specific.** `scripts/mlx-transcribe.py` is the host-native MPS path (mlx-whisper + pyannote on MPS, ~5x faster). The Docker `whisper_mcp.py` fallback (faster-whisper + pyannote on CPU, or CUDA on Linux nodes) is the cross-platform alternative.
 
 ## Why
 
-Diarization lives behind HuggingFace gated model agreements, so the code fails fast with a token hint instead of a mysterious 500; that keeps the failure mode self-diagnosing. Keeping the fast MPS path and the portable Docker path side by side, with the token gate shared between them, means one operational prerequisite (`HF_TOKEN`) governs both routes and the platform choice is left to the host.
+Single-pass diarized transcription (one model emits text + speaker + timestamps) removes the alignment-bug class of the previous mlx-whisper + pyannote greedy-overlap merge (overlap collapse, speaker-count drift) and drops the `HF_TOKEN` gate, at the cost of a slower 9B forward pass. Sortformer + Parakeet is the documented future two-stage upgrade once its mlx-audio Python API is confirmed.
 
 ---
 
