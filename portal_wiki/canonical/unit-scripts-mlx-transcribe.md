@@ -12,14 +12,14 @@ tags:
 - authored-v1
 - scripts
 created_at: 1785799539.676291
-updated_at: 1785799539.676291
+updated_at: 1787879900.0
 ---
 
-Host-native diarized transcription server for Apple Silicon: mlx-whisper for transcription and pyannote.audio on MPS for diarization.
+Host-native transcription server for Apple Silicon. Fast transcription via Parakeet-TDT-v3 (word-level timestamps, transcribe_audio) and single-pass diarized transcription via VibeVoice-ASR (text + speaker labels + timestamps in one model, transcribe_with_speakers). No pyannote and no HuggingFace token — VibeVoice does diarization itself.
 
 ## Why
 
-Diarized transcription needs speaker separation, and running it host-native on Metal is the performance answer on Apple Silicon. The server pairs the Metal-accelerated whisper transcription with the MPS diarization so the fleet has a single transcription surface.
+Running transcription host-native on Metal is the performance answer on Apple Silicon. A single model (VibeVoice-ASR) emitting text + speaker + timestamps in one pass removes the alignment-bug class of the previous mlx-whisper + pyannote greedy-overlap merge and drops the HF_TOKEN gate; Parakeet-TDT-v3 covers the fast path when speaker labels aren't needed.
 
 ## Interfaces
 
