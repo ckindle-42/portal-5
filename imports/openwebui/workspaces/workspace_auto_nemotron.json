@@ -9,7 +9,10 @@
       "server:mcp:portal_memory",
       "server:mcp:portal_rag",
       "server:mcp:portal_research"
-    ]
+    ],
+    "capabilities": {
+      "builtin_tools": false
+    }
   },
   "params": {
     "model": "auto-nemotron",

@@ -12,7 +12,10 @@
       "server:mcp:portal_rag",
       "server:mcp:portal_research",
       "server:mcp:portal_whisper"
-    ]
+    ],
+    "capabilities": {
+      "builtin_tools": false
+    }
   },
   "params": {
     "model": "auto-daily",

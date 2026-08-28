@@ -9,7 +9,10 @@
       "server:mcp:portal_rag",
       "server:mcp:portal_research",
       "server:mcp:portal_security"
-    ]
+    ],
+    "capabilities": {
+      "builtin_tools": false
+    }
   },
   "params": {
     "model": "auto-security",

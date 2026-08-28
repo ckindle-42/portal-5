@@ -4,7 +4,10 @@
   "meta": {
     "description": "🤖 Portal Auto Router",
     "profile_image_url": "",
-    "toolIds": []
+    "toolIds": [],
+    "capabilities": {
+      "builtin_tools": false
+    }
   },
   "params": {
     "model": "auto",

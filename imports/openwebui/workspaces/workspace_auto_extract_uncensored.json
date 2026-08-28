@@ -4,7 +4,10 @@
   "meta": {
     "description": "🔓 Portal Extract (Uncensored)",
     "profile_image_url": "",
-    "toolIds": []
+    "toolIds": [],
+    "capabilities": {
+      "builtin_tools": false
+    }
   },
   "params": {
     "model": "auto-extract-uncensored"

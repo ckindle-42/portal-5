@@ -113,6 +113,12 @@ def _load_pipeline() -> Any:
 _JOBS: dict[str, dict[str, Any]] = {}
 _JOB_ORDER: list[str] = []
 
+# MiniMax loads one MLX pipeline and generates single-threaded. Two concurrent
+# jobs thrash unified memory and have crash-looped the whole MCP (losing every
+# in-flight job). Serialize: the second caller's job waits here rather than
+# running in parallel.
+_GEN_LOCK = asyncio.Lock()
+
 
 def _record_job(job_id: str, **fields: Any) -> None:
     _JOBS.setdefault(job_id, {}).update(fields)
@@ -129,15 +135,25 @@ def _new_job() -> str:
 async def _run_job(
     job_id: str, prompt: str, lyrics: str, seconds: float, steps: int, seed: int
 ) -> None:
-    _record_job(job_id, status="running", stage=0, message="Starting…", started_at=time.time())
-
     def progress(stage: int, message: str) -> None:
         _record_job(job_id, stage=stage, message=message)
 
-    try:
-        result = await asyncio.to_thread(
-            _generate_sync, job_id, prompt, lyrics, seconds, steps, seed, progress
+    if _GEN_LOCK.locked():
+        _record_job(
+            job_id,
+            status="running",
+            stage=0,
+            message="Queued behind another job…",
+            started_at=time.time(),
         )
+    try:
+        async with _GEN_LOCK:
+            _record_job(
+                job_id, status="running", stage=0, message="Starting…", started_at=time.time()
+            )
+            result = await asyncio.to_thread(
+                _generate_sync, job_id, prompt, lyrics, seconds, steps, seed, progress
+            )
         if result.get("success"):
             _record_job(job_id, status="done", **result, finished_at=time.time())
             _cleanup_old_music_files()
