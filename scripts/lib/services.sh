@@ -759,9 +759,13 @@ _launch_start_transcribe() {
       exit 1
     fi
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-    # Warm the fast engine so the first request isn't a cold multi-GB download.
-    python3 -c "from mlx_audio.stt.utils import load; load('${MLX_PARAKEET_MODEL:-mlx-community/parakeet-tdt-0.6b-v3}')" >/dev/null 2>&1 \
-      && echo "  ✅ Parakeet ASR ready" || echo "  ⚠️  Parakeet warmup skipped (or run: pip3 install -U mlx-audio)"
+    # Pre-download both engines here (this shell has network + HF cache access).
+    # The service itself runs with HF_HUB_OFFLINE=1 — under launchd the cached-file
+    # revalidation HEAD requests hang indefinitely, so the service must never touch
+    # the network. Warm now, serve from cache.
+    TR_PY="$PORTAL_ROOT/.venv/bin/python3"; [ -x "$TR_PY" ] || TR_PY="$(command -v python3)"
+    "$TR_PY" -c "from mlx_audio.stt.utils import load; load('${MLX_PARAKEET_MODEL:-mlx-community/parakeet-tdt-0.6b-v3}'); load('${MLX_VIBEVOICE_MODEL:-mlx-community/VibeVoice-ASR-bf16}')" >/dev/null 2>&1 \
+      && echo "  ✅ Parakeet + VibeVoice cached" || echo "  ⚠️  Engine warmup skipped — first request will fail if models aren't already cached (run: uv pip install -U mlx-audio)"
     echo "Starting MLX Transcribe (port 8924, Parakeet + VibeVoice diarization)..."
     _ensure_native_mcp_service \
       "mlx-transcribe" "com.portal5.mlx-transcribe" \

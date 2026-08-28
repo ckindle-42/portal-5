@@ -22,6 +22,10 @@ cd "$PORTAL_ROOT"
 
 case "$SERVICE" in
     mlx-transcribe)
+        # Under launchd the HF cached-file revalidation HEAD requests hang
+        # indefinitely; models are pre-warmed by `launch.sh start-transcribe`, so
+        # the service serves strictly from cache.
+        export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
         exec "$PY" "$PORTAL_ROOT/scripts/mlx-transcribe.py"
         ;;
     pipeline-mcp)
