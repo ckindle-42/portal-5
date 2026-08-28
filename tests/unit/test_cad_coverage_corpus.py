@@ -4,9 +4,10 @@ import shutil
 import subprocess
 
 import pytest
-import trimesh
 
 from portal.modules.cad.tools.scad_emitter import emit_scad
+
+trimesh = pytest.importorskip("trimesh")
 
 
 def _base(width=40, depth=30, height=5):
