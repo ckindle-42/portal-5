@@ -216,7 +216,13 @@ async def minimax_generate(
         "success": True,
         "job_id": job_id,
         "seed": seed,
-        "message": f"Generation started (job {job_id}). Poll minimax_status to check progress.",
+        "next_action": f"call minimax_status with job_id='{job_id}'",
+        "message": (
+            f"Generation started (job {job_id}); it takes a few minutes. "
+            f"Now tell the user it is rendering, then call minimax_status(job_id='{job_id}') "
+            f"and keep polling every ~15s until status is 'done' (give them the download_url) "
+            f"or 'error'. Do not end your turn with an empty reply."
+        ),
     }
 
 
