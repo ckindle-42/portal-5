@@ -771,9 +771,9 @@ _launch_start_transcribe() {
     # revalidation HEAD requests hang indefinitely, so the service must never touch
     # the network. Warm now, serve from cache.
     TR_PY="$PORTAL_ROOT/.venv/bin/python3"; [ -x "$TR_PY" ] || TR_PY="$(command -v python3)"
-    "$TR_PY" -c "from mlx_audio.stt.utils import load; load('${MLX_PARAKEET_MODEL:-mlx-community/parakeet-tdt-0.6b-v3}'); load('${MLX_VIBEVOICE_MODEL:-mlx-community/VibeVoice-ASR-bf16}')" >/dev/null 2>&1 \
-      && echo "  ✅ Parakeet + VibeVoice cached" || echo "  ⚠️  Engine warmup skipped — first request will fail if models aren't already cached (run: uv pip install -U mlx-audio)"
-    echo "Starting MLX Transcribe (port 8924, Parakeet + VibeVoice diarization)..."
+    "$TR_PY" -c "from mlx_audio.stt.utils import load as sload; from mlx_audio.vad import load as vload; sload('${MLX_PARAKEET_MODEL:-mlx-community/parakeet-tdt-0.6b-v3}'); vload('${MLX_DIARIZE_MODEL:-mlx-community/diar_sortformer_4spk-v1-fp32}')" >/dev/null 2>&1 \
+      && echo "  ✅ Parakeet + Sortformer cached" || echo "  ⚠️  Engine warmup skipped — first request will fail if models aren't already cached (run: uv pip install -U mlx-audio)"
+    echo "Starting MLX Transcribe (port 8924, Parakeet transcript + Sortformer diarization)..."
     _ensure_native_mcp_service \
       "mlx-transcribe" "com.portal5.mlx-transcribe" \
       "${MLX_TRANSCRIBE_PORT:-8924}" "mlx-transcribe"

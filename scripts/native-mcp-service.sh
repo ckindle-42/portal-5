@@ -26,6 +26,9 @@ case "$SERVICE" in
         # indefinitely; models are pre-warmed by `launch.sh start-transcribe`, so
         # the service serves strictly from cache.
         export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
+        # launchd starts with a bare PATH; mlx-audio shells out to ffmpeg to decode
+        # m4a/mp4/webm uploads (what phones and OWUI produce), so make it findable.
+        export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
         exec "$PY" "$PORTAL_ROOT/scripts/mlx-transcribe.py"
         ;;
     pipeline-mcp)

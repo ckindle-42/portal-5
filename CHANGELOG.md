@@ -19,10 +19,15 @@ All notable changes to Portal 5 will be documented in this file.
   `docs/FISH_SPEECH_SETUP.md`, its wiki units, and `portal/modules/media/tools/utils.py`
   (`get_torch_device`, now unused). New helper: `scripts/register_trainer_voice.py`.
 - **ASR + diarization stack replaced**: `transcribe_audio` → Parakeet-TDT-v3 (word-level timestamps);
-  `transcribe_with_speakers` → VibeVoice-ASR single-pass diarization (text + speaker + timestamps in one
-  model, up to ~60 min). Retired pyannote + the `HF_TOKEN` diarization gate + the Voxtral path. The Docker
-  fallback default model went `base` → `large-v3-turbo`, and `whisper_mcp.py` now proxies to the host
-  `mlx-transcribe.py` (:8924). See KNOWN_LIMITATIONS for the 9B speed tradeoff.
+  `transcribe_with_speakers` → Parakeet transcript + **Sortformer** speaker diarization
+  (`mlx-community/diar_sortformer_4spk-v1-fp32`), merged at the word level — each word is assigned to the
+  speaker whose turn it overlaps, then grouped into turns and smoothed. A monologue collapses to one
+  speaker; a conversation gets `SPEAKER_00`/`SPEAKER_01`/… (4-speaker ceiling). If diarization is skipped
+  (file past `MLX_DIARIZE_MAX_S`) or fails, the transcript still returns single-speaker with a `warning` —
+  it never truncates. ~20× faster than the joint model first tried here (VibeVoice-ASR 9B, which stopped
+  early on long single-speaker audio). Retired pyannote + the `HF_TOKEN` diarization gate + the Voxtral
+  path. The Docker fallback default model went `base` → `large-v3-turbo`, and `whisper_mcp.py` now proxies
+  to the host `mlx-transcribe.py` (:8924). See KNOWN_LIMITATIONS (Diarized Transcription).
 - **Music generation overhauled — MusicGen removed; MiniMax-Music3-MLX is now the sole engine.** Two independent engines (MiniMax-Music3-MLX and ACE-Step-1.5) were installed side by side for a real operator comparison (`TASK_MUSIC_DUAL_BACKEND`). After generating real 60s/30-step clips on both — lyrics/vocals and an ACE repaint included — the operator kept MiniMax (`music-minimax:8912`, `minimax_generate`/`minimax_status`/`minimax_models` in `auto-music`) and disabled ACE-Step: its own resident footprint plus its admission requirement exceeds this hardware's 64GB total once loaded, its LM captioning was non-deterministic (one run contradicted the requested vocal gender), and its output quality did not hold up in a direct listen. ACE-Step's module code, install function, and tools manifest remain in the repo (unwired, downloaded models removed) for a possible future re-enable. See P5-MUSIC-MINIMAX-001 and P5-MUSIC-ACESTEP-001 in `KNOWN_LIMITATIONS.md`.
 
 ## [8.0.0] — 2026-07-29

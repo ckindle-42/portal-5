@@ -77,10 +77,13 @@ apple-silicon = [
     "mlx-lm>=0.31",
     "mlx-vlm>=0.1.0",
     # MLX Speech: unified TTS (Kokoro + Qwen3-TTS + Higgs Audio v2 voice clone) + ASR (Qwen3-ASR) on Apple Silicon
-    "mlx-audio>=0.4.3",
-    # MLX Transcribe: Parakeet-TDT-v3 fast ASR + VibeVoice-ASR single-pass diarization
-    # on Apple Silicon (both native in mlx-audio, ungated — no pyannote, no HF token).
-    # mlx-whisper is retained for the faster-whisper Docker fallback's model family.
+    # 0.4.8 ships mlx_audio.vad (Sortformer diarization) alongside stt; cap below
+    # 0.5 to avoid the transformers>=5.16 transitive bump until it's vetted.
+    "mlx-audio>=0.4.8,<0.5.0",
+    # MLX Transcribe: Parakeet-TDT-v3 transcript + Sortformer speaker diarization,
+    # merged at word level on Apple Silicon (both native in mlx-audio, ungated —
+    # no pyannote, no HF token). mlx-whisper is retained for the faster-whisper
+    # Docker fallback's model family.
     "mlx-whisper>=0.4.0",
     "torch>=2.1.0",
     "torchaudio>=2.1.0",

@@ -1,7 +1,8 @@
 """Unit tests for mlx-transcribe deterministic helpers.
 
-Covers the VibeVoice segment adapter, markdown formatting, and file resolution.
-Model loading and audio I/O are out of scope (acceptance tests S9-03..05 cover those).
+Covers the Parakeet-word / Sortformer-turn merge, run smoothing, markdown
+formatting, and file resolution. Model loading and audio I/O are out of scope
+(acceptance tests S9-03..05 cover those).
 """
 
 from __future__ import annotations
@@ -20,10 +21,13 @@ def transcribe_module():
     """Load mlx-transcribe.py with heavy deps stubbed."""
     sys.modules.setdefault("mlx_audio", type(sys)("mlx_audio"))
     stt = type(sys)("mlx_audio.stt")
-    utils = type(sys)("mlx_audio.stt.utils")
-    utils.load = lambda *a, **k: None  # type: ignore[attr-defined]
+    stt_utils = type(sys)("mlx_audio.stt.utils")
+    stt_utils.load = lambda *a, **k: None  # type: ignore[attr-defined]
+    vad = type(sys)("mlx_audio.vad")
+    vad.load = lambda *a, **k: None  # type: ignore[attr-defined]
     sys.modules.setdefault("mlx_audio.stt", stt)
-    sys.modules.setdefault("mlx_audio.stt.utils", utils)
+    sys.modules.setdefault("mlx_audio.stt.utils", stt_utils)
+    sys.modules.setdefault("mlx_audio.vad", vad)
 
     spec = importlib.util.spec_from_file_location("mlx_transcribe", SCRIPT_PATH)
     assert spec is not None and spec.loader is not None
@@ -32,61 +36,119 @@ def transcribe_module():
     return mod
 
 
-def test_adapter_parsed_shape(transcribe_module):
-    segs = [
-        {"start_time": 0.0, "end_time": 2.0, "speaker_id": 0, "text": " Hello "},
-        {"start_time": 2.0, "end_time": 4.0, "speaker_id": 1, "text": "World"},
+def _words(*spans: tuple[float, float, str]) -> list[dict]:
+    return [{"start": s, "end": e, "text": t} for s, e, t in spans]
+
+
+# ── _speaker_for_span ─────────────────────────────────────────────────────────
+
+
+def test_speaker_for_span_picks_max_overlap(transcribe_module):
+    diar = [
+        {"start": 0.0, "end": 5.0, "speaker": 0},
+        {"start": 5.0, "end": 10.0, "speaker": 1},
     ]
-    out = transcribe_module._vibevoice_segments_to_canonical(segs)
-    assert out[0] == {"start": 0.0, "end": 2.0, "speaker": "SPEAKER_00", "text": "Hello"}
-    assert out[1]["speaker"] == "SPEAKER_01"
+    assert transcribe_module._speaker_for_span(diar, 4.0, 4.9) == 0
+    assert transcribe_module._speaker_for_span(diar, 5.1, 9.0) == 1
+    # straddles the boundary but mostly in speaker 1's turn
+    assert transcribe_module._speaker_for_span(diar, 4.8, 6.0) == 1
 
 
-def test_adapter_bare_parsed_shape(transcribe_module):
-    """Phase 0 confirmed this build emits bare start/end/speaker_id/text."""
-    segs = [{"start": 0, "end": 14.16, "speaker_id": 0, "text": "Hello everyone"}]
-    out = transcribe_module._vibevoice_segments_to_canonical(segs)
-    assert out[0] == {"start": 0.0, "end": 14.16, "speaker": "SPEAKER_00", "text": "Hello everyone"}
+def test_speaker_for_span_nearest_when_no_overlap(transcribe_module):
+    diar = [{"start": 0.0, "end": 2.0, "speaker": 0}, {"start": 8.0, "end": 9.0, "speaker": 1}]
+    assert transcribe_module._speaker_for_span(diar, 7.0, 7.5) == 1
 
 
-def test_adapter_raw_shape(transcribe_module):
-    segs = [{"Start": 0.0, "End": 5.2, "Speaker": 0, "Content": "Hello everyone"}]
-    out = transcribe_module._vibevoice_segments_to_canonical(segs)
-    assert out[0]["speaker"] == "SPEAKER_00"
-    assert out[0]["text"] == "Hello everyone"
-    assert out[0]["end"] == 5.2
+def test_speaker_for_span_empty_diar_is_none(transcribe_module):
+    assert transcribe_module._speaker_for_span([], 0.0, 1.0) is None
 
 
-def test_adapter_missing_speaker(transcribe_module):
-    out = transcribe_module._vibevoice_segments_to_canonical(
-        [{"start": 0.0, "end": 1.0, "text": "x"}]
+# ── _smooth_speaker_runs ──────────────────────────────────────────────────────
+
+
+def test_smooth_flips_short_wedge(transcribe_module):
+    # a single 0.1s "1" wedged between two runs of "0" is a boundary wobble
+    words = _words((0.0, 1.0, "a"), (1.0, 1.1, "b"), (1.1, 3.0, "c"))
+    assert transcribe_module._smooth_speaker_runs([0, 1, 0], words) == [0, 0, 0]
+
+
+def test_smooth_keeps_long_interjection(transcribe_module):
+    words = _words((0.0, 1.0, "a"), (1.0, 3.0, "b"), (3.0, 4.0, "c"))
+    assert transcribe_module._smooth_speaker_runs([0, 1, 0], words) == [0, 1, 0]
+
+
+def test_smooth_keeps_real_speaker_change(transcribe_module):
+    words = _words((0.0, 2.0, "a"), (2.0, 4.0, "b"))
+    assert transcribe_module._smooth_speaker_runs([0, 1], words) == [0, 1]
+
+
+# ── _merge_words_and_speakers ─────────────────────────────────────────────────
+
+
+def test_merge_monologue_single_speaker(transcribe_module):
+    words = _words((0.0, 1.0, " Hello"), (1.0, 2.0, " world"), (2.0, 3.0, " again"))
+    diar = [{"start": 0.0, "end": 3.0, "speaker": 0}]
+    segments, count = transcribe_module._merge_words_and_speakers(words, diar, None)
+    assert count == 1
+    assert len(segments) == 1
+    assert segments[0]["speaker"] == "SPEAKER_00"
+    assert segments[0]["text"] == "Hello world again"
+
+
+def test_merge_two_speaker_conversation(transcribe_module):
+    words = _words(
+        (0.0, 1.0, "Hi"),
+        (1.0, 2.0, " there"),
+        (2.0, 3.0, " Hello"),
+        (3.0, 4.0, " back"),
+        (4.0, 5.0, " Bye"),
     )
-    assert out[0]["speaker"] == "SPEAKER_UNKNOWN"
-
-
-def test_adapter_drops_nonspeech_markers(transcribe_module):
-    """A standalone [Silence]/[Music] segment with no speaker_id is dropped so it
-    never inflates speaker_count via SPEAKER_UNKNOWN."""
-    segs = [
-        {"start": 0.0, "end": 6.5, "text": "[Silence]"},
-        {"start": 6.5, "end": 7.2, "speaker_id": 0, "text": "Hello."},
-        {"start": 7.2, "end": 8.3, "speaker_id": 1, "text": "Hello."},
+    diar = [
+        {"start": 0.0, "end": 2.0, "speaker": 1},
+        {"start": 2.0, "end": 4.0, "speaker": 0},
+        {"start": 4.0, "end": 5.0, "speaker": 1},
     ]
-    out = transcribe_module._vibevoice_segments_to_canonical(segs)
-    assert [s["speaker"] for s in out] == ["SPEAKER_00", "SPEAKER_01"]
+    segments, count = transcribe_module._merge_words_and_speakers(words, diar, None)
+    assert count == 2
+    assert [s["speaker"] for s in segments] == ["SPEAKER_00", "SPEAKER_01", "SPEAKER_00"]
+    # renumbered by first appearance: raw speaker 1 spoke first -> SPEAKER_00
+    assert segments[0]["text"] == "Hi there"
+    assert segments[1]["text"] == "Hello back"
 
 
-def test_untranscribed_seconds_detects_speech_placeholder(transcribe_module):
-    """A trailing [Speech] marker (no speaker_id) covering a long span is counted
-    so the pipeline can warn about VibeVoice truncation."""
-    segs = [
-        {"Start": 0.0, "End": 26.0, "Speaker": 0, "Content": "Alright, what you got?"},
-        {"Start": 26.0, "End": 136.68, "Content": "[Speech]"},
+def test_merge_punctuation_pinned_to_previous_speaker(transcribe_module):
+    # "?" is timestamped just inside speaker 1's turn but belongs to the question
+    words = _words((0.0, 1.4, "How are you"), (1.4, 1.5, "?"), (1.5, 3.0, " Good"))
+    diar = [{"start": 0.0, "end": 1.45, "speaker": 0}, {"start": 1.45, "end": 3.0, "speaker": 1}]
+    segments, _ = transcribe_module._merge_words_and_speakers(words, diar, None)
+    assert segments[0]["text"] == "How are you?"
+    assert segments[1]["text"] == "Good"
+
+
+def test_merge_num_speakers_caps_over_segmentation(transcribe_module):
+    words = _words((0.0, 3.0, " aaa"), (3.0, 6.0, " bbb"), (6.0, 6.3, " x"), (6.3, 9.0, " ccc"))
+    diar = [
+        {"start": 0.0, "end": 3.0, "speaker": 0},
+        {"start": 3.0, "end": 6.0, "speaker": 1},
+        {"start": 6.0, "end": 6.3, "speaker": 2},  # blip
+        {"start": 6.3, "end": 9.0, "speaker": 0},
     ]
-    assert transcribe_module._vibevoice_untranscribed_seconds(segs) == pytest.approx(110.68)
-    # ...and it is NOT emitted as a transcript segment
-    out = transcribe_module._vibevoice_segments_to_canonical(segs)
-    assert len(out) == 1
+    _, count = transcribe_module._merge_words_and_speakers(words, diar, num_speakers=2)
+    assert count == 2
+
+
+def test_merge_no_diarization_all_one_speaker(transcribe_module):
+    words = _words((0.0, 1.0, "a"), (1.0, 2.0, " b"))
+    segments, count = transcribe_module._merge_words_and_speakers(words, [], None)
+    assert count == 1
+    assert all(s["speaker"] == "SPEAKER_00" for s in segments)
+
+
+def test_merge_empty_words(transcribe_module):
+    assert transcribe_module._merge_words_and_speakers([], [], None) == ([], 0)
+
+
+# ── markdown + file resolution (unchanged behaviour) ──────────────────────────
 
 
 def test_format_markdown_includes_metadata(transcribe_module):

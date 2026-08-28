@@ -647,7 +647,7 @@ PYEOF
   echo "  pull-qwen-image       Pull working Qwen-Image T2I + Edit-2509 + Lightning models (~48 GiB)"
     echo "  start-speech          Start MLX Speech server (Kokoro + Chatterbox clone + Qwen3-ASR)"
     echo "  stop-speech           Stop MLX Speech server"
-    echo "  start-transcribe      Start MLX Transcribe server (Parakeet + VibeVoice diarization, :8924)"
+    echo "  start-transcribe      Start MLX Transcribe server (Parakeet transcript + Sortformer diarization, :8924)"
     echo "  stop-transcribe       Stop MLX Transcribe server"
     echo ""
     echo "  workspace-init        Create shared workspace directory structure (uploads, generated/*)"

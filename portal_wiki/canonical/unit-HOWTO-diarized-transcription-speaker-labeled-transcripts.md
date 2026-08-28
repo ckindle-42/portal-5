@@ -14,23 +14,21 @@ tags:
 - docs
 - verified-v1
 created_at: 1783195000.848667
-updated_at: 1783195000.848667
+updated_at: 1787931459.0
 ---
 
-**What:** Drop an audio file in OWUI chat, get back a transcript with speaker labels (SPEAKER_00, SPEAKER_01, ...). Outputs JSON + Markdown to the shared workspace at `~/AI_Output/generated/transcripts/`.
+**What:** Drop an audio file in an OWUI chat that grants `transcribe_with_speakers` (e.g. `auto-audio`, `auto-documents`), ask "who said what", and get back a transcript with speaker labels (`SPEAKER_00`, `SPEAKER_01`, …). A single-speaker recording simply comes back as one speaker — you don't have to know in advance. Outputs JSON + Markdown to the shared workspace at `~/AI_Output/generated/transcripts/`, served as download URLs on port 8924.
 
-**Pre-flight (one-time):**
+**Pre-flight:** none. No HuggingFace token, no gated models.
 
-1. Accept the gated pyannote models on HuggingFace (`pyannote/speaker-diarization-3.1` — the pipeline pulls the segmentation model internally)
-2. Generate a read token at https://huggingface.co/settings/tokens
-3. Add to `.env`: `HF_TOKEN=hf_...` — without it, `scripts/mlx-transcribe.py` refuses to load the diarization pipeline
-
-**Start the service (Apple Silicon primary):**
+**Start the service (Apple Silicon):**
 ```bash
 ./launch.sh start-transcribe
 ```
-`_launch_start_transcribe` in `scripts/lib/services.sh` warns when `HF_TOKEN` is missing, then registers the server (port 8924, `MLX_TRANSCRIBE_PORT`) as a native service. The engine is `mlx-whisper` (large-v3-turbo) for transcription plus pyannote.audio 3.1 diarization on MPS; the `voxtral-mini-3b` engine is available for multilingual files. OWUI chats reach it through the workspace that grants `transcribe_with_speakers` (e.g. `auto-documents`), and the generated files are served as download URLs on port 8924.
+`_launch_start_transcribe` in `scripts/lib/services.sh` pre-downloads Parakeet-TDT-v3 and the Sortformer diarizer (`mlx-community/diar_sortformer_4spk-v1-fp32`), then registers the server (port 8924, `MLX_TRANSCRIBE_PORT`) as a native service. Under launchd it runs with `HF_HUB_OFFLINE=1` and serves strictly from the warmed cache.
+
+**How it works:** Parakeet produces the full transcript with a timestamp on every word. Sortformer produces speaker turns ("speaker 1 from 0.0–12.4s, speaker 2 from 12.4–18.0s, …"). The server assigns each word to the speaker whose turn it overlaps, groups consecutive same-speaker words into turns, and smooths sub-second flicker at the boundaries. Up to 4 speakers. `num_speakers` optionally caps the count.
 
 ## Why
 
-Diarization is gated HuggingFace content, so the token requirement is enforced at load time rather than silently skipped — a transcript that claims speaker labels without pyannote would be wrong in a hard-to-notice way. Outputting both canonical JSON and a Markdown sidecar into the shared workspace means the transcript is immediately available to any other service, not just the chat thread that requested it.
+Two models, not one. If the diarizer is skipped (file past `MLX_DIARIZE_MAX_S`) or fails, you still get the complete Parakeet transcript as one speaker with a `warning` — a joint transcribe-and-diarize model that stops early loses the text too. Word-level assignment keeps a speaker change on a word boundary instead of mid-word. Outputting both canonical JSON and a Markdown sidecar into the shared workspace means the transcript is immediately available to any other service, not just the chat thread that requested it.
