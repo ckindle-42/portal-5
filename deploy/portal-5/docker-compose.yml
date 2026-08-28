@@ -198,6 +198,11 @@ services:
       - OPENAI_API_BASE_URL=http://portal-pipeline:9099/v1
       - OPENAI_API_KEY=${PIPELINE_API_KEY}
 
+      # ── API keys ────────────────────────────────────────────────────────────
+      # Lets you mint an "sk-..." key (Settings -> Account) for OWUI_API_KEY, so
+      # the media MCPs can publish generated files back through this server.
+      - ENABLE_API_KEY=true
+
       # ── Image generation (ComfyUI) — disabled; re-enable with comfyui profile ──
       - ENABLE_IMAGE_GENERATION=False
 
@@ -362,6 +367,12 @@ services:
       # tts_mcp proxies all tools to the host mlx-speech.py server (voice clone,
       # trainer profiles, Kokoro) — the same host hop OWUI's built-in TTS uses.
       - MLX_SPEECH_URL=${MLX_SPEECH_URL:-http://host.docker.internal:8918}
+      # Generated audio is published through Open WebUI's files API so the
+      # download link rides :8080 (the only tunnel-exposed port). Needs an
+      # Open WebUI API key; without it the tool falls back to a local URL.
+      - OPENWEBUI_URL=http://open-webui:8080
+      - OWUI_API_KEY=${OWUI_API_KEY:-}
+      - PORTAL_PUBLIC_URL=${PORTAL_PUBLIC_URL:-}
       - TTS_PUBLIC_URL=${TTS_PUBLIC_URL:-http://localhost:8916/files/tts}
       - TTS_BACKEND=${TTS_BACKEND:-kokoro}
       - TTS_DEFAULT_VOICE=${TTS_DEFAULT_VOICE:-af_heart}
