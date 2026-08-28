@@ -25,8 +25,12 @@ async def _try_host(tool_name: str, arguments: dict) -> dict | None:
     """Proxy to the host MLX transcribe server; return None if unreachable so the
     caller can fall back to the in-Docker faster-whisper path."""
     url = f"{MLX_TRANSCRIBE_URL}/tools/{tool_name}"
+    # 30 min, matching AIOHTTP_CLIENT_TIMEOUT_TOOL_SERVER_DATA — a 2 h recording is
+    # ~3-4 min of host work, but a loaded box or a longer file needs the headroom.
     try:
-        async with httpx.AsyncClient(timeout=float(os.getenv("WHISPER_PROXY_TIMEOUT", "600"))) as c:
+        async with httpx.AsyncClient(
+            timeout=float(os.getenv("WHISPER_PROXY_TIMEOUT", "1800"))
+        ) as c:
             r = await c.post(url, json={"arguments": arguments})
             if r.status_code == 200:
                 return r.json()
