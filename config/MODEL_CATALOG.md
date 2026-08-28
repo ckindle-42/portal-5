@@ -1922,6 +1922,10 @@ The bare (undecorated) pull tag for the model documented below as `portal5/gemma
 
 **CAD bench (Phase 8) — the only arm with completed data; the rest of the matrix is deferred.** This MoE arm's gauntlet run (`6be44014`, `tests/benchmarks/results/cap_cad-overhaul_20260827T164110Z.moe-only.txt`) is the sole completed dataset from Phase 8: `t3_bracket` and `t4_spur_gear` (direct OpenSCAD path) passed cleanly (watertight, plausible bbox); `t2_grommet_plate` (generate_scad Tier-A) called the right tool but produced a genuine model dimension error (built a 4mm-deep plate against an 80x30x4mm spec — wrong dimension mapping); `t1_enclosure` and `t5_gyroid_panel` returned inconclusive results (a since-fixed raw-tool-response capture gap). The what-was (`bench-cad-prior`), what-is (`auto-cad` incumbent), and could-be-dense (`bench-qwen36-cad`) arms were never run to completion — no dense-vs-MoE-vs-incumbent verdict exists. The operator intends to run the full gauntlet directly in a later session.
 
+### `hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M-ctx16k`
+
+Context-bounded CAD benchmark derivative of the bare Gemma-4 26B-A4B Heretic Q4_K_M tag. Created locally from the bare model with `PARAMETER num_ctx 16384` because Ollama's OpenAI-compatible `/v1` endpoint does not honor request-time `num_ctx`. Registered with `supports_tools: true` based on the completed required-tool Phase-8 MoE arm and used only by the hidden `bench-moecad` workspace. It is a comparison arm, not a production promotion.
+
 ---
 
 ### `portal5/gemma4-26b-heretic:q4_K_M-ctx256k`

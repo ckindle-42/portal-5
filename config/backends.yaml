@@ -31,6 +31,8 @@ backends:
     supports_tools: true
   - id: hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M
     supports_tools: true
+  - id: hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M-ctx16k
+    supports_tools: true
   - id: hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M
     supports_tools: true
   - id: huihui_ai/Qwen3.6-abliterated:27b

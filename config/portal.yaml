@@ -1861,10 +1861,11 @@ workspaces:
     # re-evaluate `auto` only if a bench shows reliable convergence on it
     # with the current prompt (TASK_CAD_MODULE_OVERHAUL_V1 Phase 7/8).
     tool_choice: required
+    tool_choice_verified: true
     system_prompt_append: |2-
 
 
-      CAD OUTPUT RULE: For any part with holes, pockets, patterns, shells, standoffs, or multiple features — PRIMARY PATH is the generate_scad tool. Describe the part as feature-level JSON: a `base` solid plus named features (holes/pockets/standoffs/ribs/shell/pattern) positioned by face + anchor + offset — NEVER compute 3D translate/rotate coordinates yourself, the tool's deterministic emitter owns all coordinate-frame math. Example: `{"parameters": {"width": 60, "depth": 40, "height": 25}, "base": {"type": "box", "dimensions": {"width": "width", "depth": "depth", "height": "height"}}, "holes": [{"diameter": 3, "face": "top", "offset_from": "center", "offset_x": 0, "offset_y": 0}]}`. generate_scad validates, compiles, mesh-validates, renders, and self-corrects (auto-retries deterministic fixes) in one call — read the returned `validation`, `problems`, and `retry_log`; if `printable` is still false after its own retries, issue a corrected generate_scad call describing the fix. For a Tier-A vocabulary gap, an `escape_hatch.csg` subtree is available (bounded CSG primitives/booleans) — steer to Tier-A features first. For trivial single-primitive parts or quick iteration, write complete OpenSCAD source in a fenced ```openscad block and call render_openscad. State all dimensions as named variables at the top (units=mm). For procedural geometry (arrays, math-driven surfaces), use Python with trimesh in execute_python — trimesh is available. Do not leave stubs.
+      CAD OUTPUT RULE: For any part with holes, pockets, patterns, shells, standoffs, or multiple features — PRIMARY PATH is the generate_scad tool. The coordinate convention is right-handed, Z-up, and millimetres: `width`=X, `depth`=Y, `height`=Z; for a flat plate, thickness is `height`, never `depth`. Describe the part as feature-level JSON: a `base` solid plus named features (holes/pockets/standoffs/ribs/shell/pattern) positioned by face + anchor + offset — NEVER compute 3D translate/rotate coordinates yourself, the tool's deterministic emitter owns all coordinate-frame math. Example: `{"parameters": {"width": 60, "depth": 40, "height": 25}, "base": {"type": "box", "dimensions": {"width": "width", "depth": "depth", "height": "height"}}, "holes": [{"diameter": 3, "face": "top", "offset_from": "center", "offset_x": 0, "offset_y": 0}]}`. generate_scad validates, compiles, mesh-validates, renders, and self-corrects (auto-retries deterministic fixes) in one call — read `manifold_ok`, advisory `printability` warnings, `problems`, and `retry_log`; correct genuine design errors in a new call. For a Tier-A vocabulary gap, an `escape_hatch.csg` subtree is available (bounded CSG primitives/booleans) — steer to Tier-A features first. For trivial single-primitive parts or quick iteration, write complete OpenSCAD source in a fenced ```openscad block and call render_openscad. State all dimensions as named variables at the top (units=mm). For procedural geometry (arrays, math-driven surfaces), use Python with trimesh in execute_python — trimesh is available. Do not leave stubs.
     tools:
     - execute_python
     - execute_bash
@@ -1935,17 +1936,15 @@ workspaces:
     # pending evaluation. Without this, a bench run measures thinking-block
     # overhead, not tool-use quality.
     think: false
-    # tool_choice: required deliberately NOT set here (unlike auto-cad, whose
-    # `required` is justified for the qwen3-coder architecture specifically).
-    # Whether Qwen3.6-27B needs required or converges fine under auto is
-    # exactly what the still-incomplete Phase 8 gauntlet was meant to test --
-    # asserting either value unverified would repeat the Deepwen mistake
-    # (config inherited from a clone without re-verifying tool-calling fit
-    # per model). Left at Ollama's default (auto) until real data exists.
+    # 2026-08-27 preflight: under auto + think:false, the exact ctx16k tag
+    # emitted one valid render_openscad call for a 10mm cube and did not
+    # hallucinate a tool name. Keep auto; required is unnecessary for this arm.
+    tool_choice: auto
+    tool_choice_verified: true
     system_prompt_append: |2-
 
 
-      CAD OUTPUT RULE: For any part with holes, pockets, patterns, shells, standoffs, or multiple features — PRIMARY PATH is the generate_scad tool. Describe the part as feature-level JSON: a `base` solid plus named features (holes/pockets/standoffs/ribs/shell/pattern) positioned by face + anchor + offset — NEVER compute 3D translate/rotate coordinates yourself, the tool's deterministic emitter owns all coordinate-frame math. Example: `{"parameters": {"width": 60, "depth": 40, "height": 25}, "base": {"type": "box", "dimensions": {"width": "width", "depth": "depth", "height": "height"}}, "holes": [{"diameter": 3, "face": "top", "offset_from": "center", "offset_x": 0, "offset_y": 0}]}`. generate_scad validates, compiles, mesh-validates, renders, and self-corrects (auto-retries deterministic fixes) in one call — read the returned `validation`, `problems`, and `retry_log`; if `printable` is still false after its own retries, issue a corrected generate_scad call describing the fix. For a Tier-A vocabulary gap, an `escape_hatch.csg` subtree is available (bounded CSG primitives/booleans) — steer to Tier-A features first. For trivial single-primitive parts or quick iteration, write complete OpenSCAD source in a fenced ```openscad block and call render_openscad. State all dimensions as named variables at the top (units=mm). For procedural geometry (arrays, math-driven surfaces), use Python with trimesh in execute_python — trimesh is available. Do not leave stubs.
+      CAD OUTPUT RULE: For any part with holes, pockets, patterns, shells, standoffs, or multiple features — PRIMARY PATH is the generate_scad tool. Coordinates are right-handed, Z-up millimetres: `width`=X, `depth`=Y, `height`=Z; plate thickness is `height`. Describe feature-level JSON using the full tool schema: a `base` plus holes/pockets/standoffs/ribs/shell/pattern by face + anchor + offset; deterministic code owns coordinate math. Example: `{"parameters": {"width": 60, "depth": 40, "height": 25}, "base": {"type": "box", "dimensions": {"width": "width", "depth": "depth", "height": "height"}}, "holes": [{"diameter": 3, "face": "top", "offset_from": "center", "offset_x": 0, "offset_y": 0}]}`. Read `manifold_ok`, advisory `printability`, `problems`, and `retry_log`; correct genuine design errors in a new call. Use `escape_hatch.csg` only for a real vocabulary gap. For trivial primitives use complete OpenSCAD with render_openscad; for procedural geometry use Python+trimesh. Do not leave stubs.
     tools:
     - execute_python
     - execute_bash
@@ -1972,11 +1971,9 @@ workspaces:
       2026-08-26/27 local-dev IDE MoE-vs-dense track leader (100%/100% on bench_repair one-shot/
       +1-repair, see tests/benchmarks/results/BENCH_REPAIR_MOE_CODERS_20260826.md). CAD is a code
       task, so it's a fair question whether that track's leader also serves CAD. PROMOTE_POLICY=confirm.
-    model_hint: hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M
-    # No -ctxNk baked tag for this bare id (P5-OLLAMA-OPTIONS-001: context_limit:
-    # is silently dropped by Ollama's /v1 endpoint for un-baked tags) -- omitted
-    # rather than left as misleading dead config. Actual context is whatever this
-    # bare tag defaults to (~32768, per its ctx256k sibling's own catalog entry).
+    model_hint: hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M-ctx16k
+    context_limit: 16384
+    ctx_validated: true
     predict_limit: 16384
     temperature: 0.2
     top_p: 0.9
@@ -1991,7 +1988,7 @@ workspaces:
     system_prompt_append: |2-
 
 
-      CAD OUTPUT RULE: For any part with holes, pockets, patterns, shells, standoffs, or multiple features — PRIMARY PATH is the generate_scad tool. Describe the part as feature-level JSON: a `base` solid plus named features (holes/pockets/standoffs/ribs/shell/pattern) positioned by face + anchor + offset — NEVER compute 3D translate/rotate coordinates yourself, the tool's deterministic emitter owns all coordinate-frame math. Example: `{"parameters": {"width": 60, "depth": 40, "height": 25}, "base": {"type": "box", "dimensions": {"width": "width", "depth": "depth", "height": "height"}}, "holes": [{"diameter": 3, "face": "top", "offset_from": "center", "offset_x": 0, "offset_y": 0}]}`. generate_scad validates, compiles, mesh-validates, renders, and self-corrects (auto-retries deterministic fixes) in one call — read the returned `validation`, `problems`, and `retry_log`; if `printable` is still false after its own retries, issue a corrected generate_scad call describing the fix. For a Tier-A vocabulary gap, an `escape_hatch.csg` subtree is available (bounded CSG primitives/booleans) — steer to Tier-A features first. For trivial single-primitive parts or quick iteration, write complete OpenSCAD source in a fenced ```openscad block and call render_openscad. State all dimensions as named variables at the top (units=mm). For procedural geometry (arrays, math-driven surfaces), use Python with trimesh in execute_python — trimesh is available. Do not leave stubs.
+      CAD OUTPUT RULE: For any part with holes, pockets, patterns, shells, standoffs, or multiple features — PRIMARY PATH is generate_scad. Coordinates are right-handed, Z-up millimetres: `width`=X, `depth`=Y, `height`=Z; plate thickness is `height`. Describe feature-level JSON using the full tool schema: a `base` plus holes/pockets/standoffs/ribs/shell/pattern by face + anchor + offset; deterministic code owns coordinate math. Example: `{"parameters": {"width": 60, "depth": 40, "height": 25}, "base": {"type": "box", "dimensions": {"width": "width", "depth": "depth", "height": "height"}}, "holes": [{"diameter": 3, "face": "top", "offset_from": "center", "offset_x": 0, "offset_y": 0}]}`. Read `manifold_ok`, advisory `printability`, `problems`, and `retry_log`; correct genuine design errors in a new call. Use `escape_hatch.csg` only for a real vocabulary gap. For trivial primitives use complete OpenSCAD with render_openscad; for procedural geometry use Python+trimesh. Do not leave stubs.
     tools:
     - execute_python
     - execute_bash

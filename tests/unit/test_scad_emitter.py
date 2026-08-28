@@ -122,6 +122,35 @@ def test_circular_hole_pattern_count_and_symmetry():
     assert len(translates) == 4
 
 
+def test_cylinder_uses_same_min_corner_frame_as_feature_anchors():
+    scad = emit_scad(
+        {
+            "base": {"type": "cylinder", "dimensions": {"radius": 10, "height": 5}},
+            "holes": [
+                {
+                    "diameter": 3,
+                    "face": "top",
+                    "offset_from": "center",
+                    "offset_x": 0,
+                    "offset_y": 0,
+                }
+            ],
+        }
+    )
+    assert "translate([10, 10, 0]) cylinder(h=5, r=10" in scad
+    assert "translate([10, 10, 5.5])" in scad
+
+
+def test_cylindrical_shell_emits_concentric_cavity():
+    scad = emit_scad(
+        {
+            "base": {"type": "cylinder", "dimensions": {"radius": 10, "height": 12}},
+            "shell": {"wall_thickness": 2, "open_face": "top"},
+        }
+    )
+    assert "translate([10, 10, 2]) cylinder(h=10.5, r=8" in scad
+
+
 # ── fixture 4: shell / hollow ────────────────────────────────────────────────
 
 
@@ -239,3 +268,61 @@ def test_deterministic_same_input_same_output():
         ],
     }
     assert emit_scad(geo) == emit_scad(geo)
+
+
+def test_unknown_nested_pattern_has_actionable_top_level_guidance():
+    geo = {
+        "base": {"type": "box", "dimensions": {"width": 80, "depth": 30, "height": 4}},
+        "holes": [
+            {
+                "diameter": 10,
+                "face": "top",
+                "offset_from": "center",
+                "offset_x": 0,
+                "offset_y": 0,
+                "pattern": {"count": 3},
+            }
+        ],
+    }
+    error = " ".join(validate_geometry(geo))
+    assert "holes[0].pattern" in error
+    assert "top-level key" in error
+
+
+@pytest.mark.parametrize(
+    ("feature", "needle"),
+    [
+        ({"chamfer": 1}, "r1=6"),
+        ({"counterbore": {"diameter": 8, "depth": 2}}, "r=4"),
+        ({"countersink": {"diameter": 8, "angle": 90}}, "r1=4"),
+    ],
+)
+def test_hole_fastener_features_emit(feature, needle):
+    hole = {
+        "diameter": 10 if "chamfer" in feature else 4,
+        "face": "top",
+        "offset_from": "center",
+        "offset_x": 0,
+        "offset_y": 0,
+        **feature,
+    }
+    scad = emit_scad(
+        {
+            "base": {"type": "box", "dimensions": {"width": 30, "depth": 30, "height": 5}},
+            "holes": [hole],
+        }
+    )
+    assert "union()" in scad
+    assert needle in scad
+
+
+def test_multiple_selective_edge_treatments_compose_without_minkowski():
+    scad = emit_scad(
+        {
+            "base": {"type": "box", "dimensions": {"width": 30, "depth": 20, "height": 8}},
+            "fillets": [{"radius": 1, "edges": "top"}, {"radius": 0.5, "edges": "bottom"}],
+            "chamfers": [{"size": 0.75, "edges": "all"}],
+        }
+    )
+    assert scad.count("intersection()") == 3
+    assert "minkowski" not in scad

@@ -1,0 +1,6 @@
+{
+  "nozzle_diameter_mm": 0.4,
+  "minimum_feature_nozzles": 2.0,
+  "max_unsupported_overhang_deg": 45.0,
+  "bed_size_mm": {"x": 220.0, "y": 220.0, "z": 250.0}
+}

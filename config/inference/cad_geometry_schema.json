@@ -1,14 +1,16 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "CAD Geometry Description (generate_scad input)",
-  "description": "Feature-level part description for generate_scad. Tier A (base + named features positioned by face+anchor+offset) is the primary, preferred surface — the model describes WHAT and the relationships; the deterministic emitter (scad_emitter.py) computes WHERE in 3D space. Tier B is a bounded CSG escape hatch for geometry the feature vocabulary can't express yet.",
+  "description": "Feature-level part description for generate_scad. Z-up, right-handed, millimetres: width=X, depth=Y, height=Z; a flat plate's thickness is height, never depth. Tier A (base + named features positioned by face+anchor+offset) is preferred — the model describes WHAT and deterministic code computes WHERE.",
   "type": "object",
+  "additionalProperties": false,
   "required": ["base"],
   "properties": {
     "units": {
       "type": "string",
       "enum": ["mm"],
-      "default": "mm"
+      "default": "mm",
+      "description": "All dimensions are millimetres. Coordinates are right-handed and Z-up."
     },
     "parameters": {
       "type": "object",
@@ -19,6 +21,7 @@
     },
     "metadata": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "part_name": { "type": "string" },
         "description": { "type": "string" },
@@ -27,21 +30,33 @@
     },
     "base": {
       "type": "object",
-      "description": "Tier A: the primary solid this part is built from.",
+      "description": "Tier A primary solid. Z-up/right-handed: box width=X, depth=Y, height=Z. For a flat plate, thickness is height.",
       "required": ["type", "dimensions"],
+      "additionalProperties": false,
       "properties": {
         "type": { "type": "string", "enum": ["box", "cylinder"] },
         "dimensions": {
           "type": "object",
-          "description": "box: width/depth/height. cylinder: radius/height.",
-          "additionalProperties": { "type": ["number", "string"] }
+          "description": "box: width=X, depth=Y, height=Z; cylinder: radius in XY, axis at (radius,radius), and height=Z. Millimetres. For a flat plate thickness is height.",
+          "properties": {
+            "width": { "type": ["number", "string"], "description": "X-axis extent in millimetres." },
+            "depth": { "type": ["number", "string"], "description": "Y-axis extent in millimetres; not plate thickness." },
+            "height": { "type": ["number", "string"], "description": "Z-axis extent in millimetres; this is plate thickness." },
+            "radius": { "type": ["number", "string"], "description": "Cylinder radius in the XY plane, in millimetres." }
+          },
+          "additionalProperties": false
         }
-      }
+      },
+      "allOf": [
+        { "if": { "properties": { "type": { "const": "box" } } }, "then": { "properties": { "dimensions": { "required": ["width", "depth", "height"] } } } },
+        { "if": { "properties": { "type": { "const": "cylinder" } } }, "then": { "properties": { "dimensions": { "required": ["radius", "height"] } } } }
+      ]
     },
     "shell": {
       "type": "object",
       "description": "Hollow the base solid.",
       "required": ["wall_thickness"],
+      "additionalProperties": false,
       "properties": {
         "wall_thickness": { "type": ["number", "string"] },
         "open_face": {
@@ -57,6 +72,7 @@
       "items": {
         "type": "object",
         "required": ["diameter", "face", "offset_from", "offset_x", "offset_y"],
+        "additionalProperties": false,
         "properties": {
           "diameter": { "type": ["number", "string"] },
           "depth": {
@@ -72,7 +88,26 @@
             "enum": ["corner", "center", "edge"]
           },
           "offset_x": { "type": ["number", "string"] },
-          "offset_y": { "type": ["number", "string"] }
+          "offset_y": { "type": ["number", "string"] },
+          "chamfer": { "type": ["number", "string"], "description": "Symmetric edge chamfer size in mm at the hole entrance." },
+          "counterbore": {
+            "type": "object",
+            "required": ["diameter", "depth"],
+            "additionalProperties": false,
+            "properties": {
+              "diameter": { "type": ["number", "string"] },
+              "depth": { "type": ["number", "string"] }
+            }
+          },
+          "countersink": {
+            "type": "object",
+            "required": ["diameter", "angle"],
+            "additionalProperties": false,
+            "properties": {
+              "diameter": { "type": ["number", "string"] },
+              "angle": { "type": ["number", "string"], "description": "Included countersink angle in degrees." }
+            }
+          }
         }
       }
     },
@@ -82,6 +117,7 @@
       "items": {
         "type": "object",
         "required": ["width", "depth_dim", "cut_depth", "face", "offset_from", "offset_x", "offset_y"],
+        "additionalProperties": false,
         "properties": {
           "width": { "type": ["number", "string"] },
           "depth_dim": { "type": ["number", "string"], "description": "Pocket footprint depth (in-plane), not cut depth." },
@@ -99,6 +135,7 @@
       "items": {
         "type": "object",
         "required": ["outer_diameter", "height", "face", "offset_from", "offset_x", "offset_y"],
+        "additionalProperties": false,
         "properties": {
           "outer_diameter": { "type": ["number", "string"] },
           "inner_diameter": { "type": ["number", "string"], "description": "Pilot hole diameter, omit for solid boss." },
@@ -116,6 +153,7 @@
       "items": {
         "type": "object",
         "required": ["radius"],
+        "additionalProperties": false,
         "properties": {
           "radius": { "type": ["number", "string"] },
           "edges": { "type": "string", "enum": ["all", "top", "bottom"], "default": "all" }
@@ -128,6 +166,7 @@
       "items": {
         "type": "object",
         "required": ["size"],
+        "additionalProperties": false,
         "properties": {
           "size": { "type": ["number", "string"] },
           "edges": { "type": "string", "enum": ["all", "top", "bottom"], "default": "all" }
@@ -140,6 +179,7 @@
       "items": {
         "type": "object",
         "required": ["thickness", "height", "face", "offset_from", "offset_x", "offset_y"],
+        "additionalProperties": false,
         "properties": {
           "thickness": { "type": ["number", "string"] },
           "height": { "type": ["number", "string"] },
@@ -154,11 +194,12 @@
       "type": "object",
       "description": "Repeat a named feature (by index into its list) linearly or circularly.",
       "required": ["type", "feature_kind", "feature_index", "count"],
+      "additionalProperties": false,
       "properties": {
         "type": { "type": "string", "enum": ["linear", "circular"] },
         "feature_kind": { "type": "string", "enum": ["holes", "standoffs", "pockets", "ribs"] },
-        "feature_index": { "type": "integer", "description": "Index of the template feature within its list to repeat." },
-        "count": { "type": "integer" },
+        "feature_index": { "type": "integer", "minimum": 0, "description": "Index of the template feature within its list to repeat." },
+        "count": { "type": "integer", "minimum": 1 },
         "spacing": { "type": ["number", "string"], "description": "linear pattern: center-to-center spacing." },
         "angle": { "type": ["number", "string"], "description": "circular pattern: total sweep angle in degrees (default 360)." }
       }
@@ -166,6 +207,7 @@
     "escape_hatch": {
       "type": "object",
       "description": "Tier B: bounded CSG subtree for geometry the Tier-A vocabulary can't express. Steer to Tier A first; only drop here when necessary. Parameter references and expressions are still resolved by the emitter.",
+      "additionalProperties": false,
       "properties": {
         "csg": {
           "$ref": "#/definitions/csgNode"
@@ -177,6 +219,7 @@
     "csgNode": {
       "type": "object",
       "description": "One node in a constrained CSG tree: a primitive, a transform wrapping one child, or a boolean/extrude op over children.",
+      "additionalProperties": false,
       "properties": {
         "op": {
           "type": "string",
@@ -206,7 +249,6 @@
   },
   "examples": [
     {
-      "_description": "Tier A — feature-based enclosure with a hole",
       "units": "mm",
       "parameters": { "width": 60, "depth": 40, "height": 25, "wall_thickness": 2 },
       "metadata": { "part_name": "sensor_enclosure", "description": "Basic enclosure with a top vent hole" },
@@ -217,7 +259,6 @@
       ]
     },
     {
-      "_description": "Tier A — hole-pattern plate",
       "units": "mm",
       "parameters": { "width": 80, "depth": 30, "height": 4, "hole_dia": 10 },
       "metadata": { "part_name": "grommet_plate" },
@@ -228,7 +269,6 @@
       "pattern": { "type": "linear", "feature_kind": "holes", "feature_index": 0, "count": 3, "spacing": 25 }
     },
     {
-      "_description": "Tier A — standoff boss",
       "units": "mm",
       "parameters": { "width": 60, "depth": 40, "height": 20, "standoff_od": 6, "standoff_id": 2.5 },
       "metadata": { "part_name": "standoff_test" },
@@ -238,7 +278,6 @@
       ]
     },
     {
-      "_description": "Tier B — escape-hatch CSG part (geometry the feature vocabulary can't express)",
       "units": "mm",
       "parameters": { "r1": 10, "r2": 5, "h": 20 },
       "metadata": { "part_name": "stepped_cylinder_bore" },

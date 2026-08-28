@@ -4154,6 +4154,7 @@ source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
+    { name = "jsonschema" },
     { name = "prometheus-client" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -4226,6 +4227,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.26.0" },
     { name = "httpx", marker = "extra == 'mcp'", specifier = ">=0.26.0" },
     { name = "huggingface-hub", marker = "extra == 'mcp'", specifier = ">=0.20.0" },
+    { name = "jsonschema", specifier = ">=4.20.0" },
     { name = "kokoro-onnx", marker = "extra == 'mcp'", specifier = ">=0.4.0" },
     { name = "lancedb", marker = "extra == 'bully'", specifier = ">=0.37.0" },
     { name = "lancedb", marker = "extra == 'dev'", specifier = ">=0.37.0" },

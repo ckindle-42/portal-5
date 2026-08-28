@@ -10,15 +10,22 @@ removes the spatial-reasoning burden that breaks LLM OpenSCAD past ~20 lines.
 
 Coordinate convention: Z-up, right-handed. The base solid's local frame has
 its "min" corner at the origin: a box spans x in [0,width], y in [0,depth],
-z in [0,height]; a cylinder is centered on the Z axis, z in [0,height].
+z in [0,height]; a cylinder's XY footprint also starts at (0,0), with its
+axis at (radius,radius), and z in [0,height].
 """
 
 from __future__ import annotations
 
 import ast
+import difflib
+import json
 import math
 import operator
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
+
+from jsonschema import Draft7Validator
 
 FN_DEFAULT = 48
 EPSILON = 0.5  # mm — coincident-face overshoot so subtract/union never leaves a knife-edge
@@ -120,51 +127,64 @@ def resolve_value(value: Any, params: dict[str, float]) -> float:
 
 # ── validation ───────────────────────────────────────────────────────────────
 
-_BOX_DIMS = {"width", "depth", "height"}
-_CYL_DIMS = {"radius", "height"}
-_FACES = {"top", "bottom", "front", "back", "left", "right"}
+SCHEMA_PATH = Path(__file__).resolve().parents[4] / "config/inference/cad_geometry_schema.json"
+
+
+@lru_cache(maxsize=1)
+def geometry_schema() -> dict:
+    schema = json.loads(SCHEMA_PATH.read_text())
+    Draft7Validator.check_schema(schema)
+    return schema
+
+
+def _path(parts: list[Any], leaf: str | None = None) -> str:
+    out = ""
+    for part in parts:
+        out += f"[{part}]" if isinstance(part, int) else ("." if out else "") + str(part)
+    return f"{out}.{leaf}" if leaf and out else leaf or out or "geometry"
+
+
+def _format_schema_error(error: Any) -> str:
+    path = list(error.absolute_path)
+    if error.validator == "additionalProperties":
+        valid = sorted((error.schema.get("properties") or {}).keys())
+        extras = (
+            sorted(set(error.instance) - set(valid)) if isinstance(error.instance, dict) else []
+        )
+        bad = extras[0] if extras else "unknown key"
+        location = _path(path, bad)
+        hint = difflib.get_close_matches(bad, valid, n=1, cutoff=0.65)
+        suggestion = f" Did you mean '{hint[0]}'?" if hint else ""
+        if bad == "pattern" and path and path[0] == "holes":
+            suggestion = (
+                " 'pattern' is a top-level key referencing a feature with "
+                "feature_kind + feature_index; for example "
+                '{"pattern":{"type":"linear","feature_kind":"holes",'
+                '"feature_index":0,"count":3,"spacing":25}}.'
+            )
+        return f"{location} is not valid here; valid keys: {valid}.{suggestion}".strip()
+    location = _path(path)
+    if error.validator == "enum":
+        return f"{location}: {error.instance!r} is invalid; valid values: {error.validator_value}"
+    if error.validator == "required":
+        return (
+            f"{location}: {error.message}; valid keys: {sorted(error.schema.get('properties', {}))}"
+        )
+    return f"{location}: {error.message}"
 
 
 def validate_geometry(geometry: dict) -> list[str]:
-    """Structural presence checks. Returns a list of error strings (empty = OK)."""
-    errors: list[str] = []
-    if not isinstance(geometry, dict):
-        return ["geometry must be a JSON object"]
-    base = geometry.get("base")
-    if not isinstance(base, dict):
-        errors.append("missing required 'base'")
-    else:
-        btype = base.get("type")
-        dims = base.get("dimensions") or {}
-        if btype == "box":
-            missing = _BOX_DIMS - set(dims)
-            if missing:
-                errors.append(f"base box missing dimensions: {sorted(missing)}")
-        elif btype == "cylinder":
-            missing = _CYL_DIMS - set(dims)
-            if missing:
-                errors.append(f"base cylinder missing dimensions: {sorted(missing)}")
-        else:
-            errors.append(f"base.type must be 'box' or 'cylinder', got {btype!r}")
-
-    for kind, required in (
-        ("holes", {"diameter", "face", "offset_from", "offset_x", "offset_y"}),
-        (
-            "pockets",
-            {"width", "depth_dim", "cut_depth", "face", "offset_from", "offset_x", "offset_y"},
-        ),
-        ("standoffs", {"outer_diameter", "height", "face", "offset_from", "offset_x", "offset_y"}),
-        ("ribs", {"thickness", "height", "face", "offset_from", "offset_x", "offset_y"}),
-    ):
-        for i, item in enumerate(geometry.get(kind) or []):
-            missing = required - set(item)
-            if missing:
-                errors.append(f"{kind}[{i}] missing fields: {sorted(missing)}")
-            face = item.get("face")
-            if face is not None and face not in _FACES:
-                errors.append(f"{kind}[{i}].face invalid: {face!r}")
-
-    return errors
+    """Validate against the canonical JSON Schema and return actionable errors."""
+    public_geometry = (
+        {k: v for k, v in geometry.items() if not k.startswith("_")}
+        if isinstance(geometry, dict)
+        else geometry
+    )
+    errors = sorted(
+        Draft7Validator(geometry_schema()).iter_errors(public_geometry),
+        key=lambda error: tuple(str(part) for part in error.absolute_path),
+    )
+    return [_format_schema_error(error) for error in errors]
 
 
 # ── face frame — the coordinate-math core ───────────────────────────────────
@@ -349,10 +369,36 @@ def _emit_hole(item: dict, params: dict, width: float, depth: float, height: flo
     start = (px - nx * EPSILON, py - ny * EPSILON, pz - nz * EPSILON)
     length = depth_val + 2 * EPSILON
     r = _fmt(diameter / 2)
-    return (
-        f"translate({_vec(start)}) rotate({_vec(frame['inward_rotate'])}) "
-        f"cylinder(h={_fmt(length)}, r={r}, $fn=$fn);"
-    )
+    transform = f"translate({_vec(start)}) rotate({_vec(frame['inward_rotate'])})"
+    cuts = [f"{transform} cylinder(h={_fmt(length)}, r={r}, $fn=$fn);"]
+    if item.get("chamfer") is not None:
+        size = resolve_value(item["chamfer"], params)
+        cuts.append(
+            f"{transform} cylinder(h={_fmt(size + EPSILON)}, r1={_fmt(diameter / 2 + size)}, "
+            f"r2={r}, $fn=$fn);"
+        )
+    if item.get("counterbore"):
+        counterbore = item["counterbore"]
+        cb_diameter = resolve_value(counterbore["diameter"], params)
+        cb_depth = resolve_value(counterbore["depth"], params)
+        cuts.append(
+            f"{transform} cylinder(h={_fmt(cb_depth + EPSILON)}, r={_fmt(cb_diameter / 2)}, $fn=$fn);"
+        )
+    if item.get("countersink"):
+        countersink = item["countersink"]
+        cs_diameter = resolve_value(countersink["diameter"], params)
+        angle = math.radians(resolve_value(countersink["angle"], params) / 2)
+        if cs_diameter <= diameter or not 0 < angle < math.pi / 2:
+            raise EmitError(
+                "countersink requires diameter > hole diameter and included angle between 0 and 180 degrees",
+                category="intent_error",
+            )
+        cs_depth = (cs_diameter - diameter) / 2 / math.tan(angle)
+        cuts.append(
+            f"{transform} cylinder(h={_fmt(cs_depth + EPSILON)}, r1={_fmt(cs_diameter / 2)}, "
+            f"r2={r}, $fn=$fn);"
+        )
+    return cuts[0] if len(cuts) == 1 else "union() { " + " ".join(cuts) + " }"
 
 
 def _emit_standoff(item: dict, params: dict, width: float, depth: float, height: float) -> str:
@@ -448,8 +494,49 @@ def _emit_rib(item: dict, params: dict, width: float, depth: float, height: floa
     return f"translate({_vec(origin)}) cube({_vec(size)});"
 
 
+def _box_profile(width: float, depth: float, z: float, inset: float, radius: float = 0) -> str:
+    inner_w = max(width - 2 * (inset + radius), 0.01)
+    inner_d = max(depth - 2 * (inset + radius), 0.01)
+    return (
+        f"translate({_vec((inset + radius, inset + radius, z))}) "
+        f"linear_extrude(height=0.01) offset(r={_fmt(radius)}) "
+        f"square([{_fmt(inner_w)}, {_fmt(inner_d)}]);"
+    )
+
+
+def _box_edge_envelope(
+    width: float, depth: float, height: float, amount: float, edges: str, rounded: bool
+) -> str:
+    if amount <= 0 or amount * 2 >= min(width, depth, height):
+        raise EmitError(
+            f"edge treatment {amount:g}mm does not fit base {width:g}x{depth:g}x{height:g}mm",
+            category="intent_error",
+        )
+    layers: list[tuple[float, float, float]] = [(0.0, 0.0, amount if rounded else 0.0)]
+    steps = 5 if rounded else 1
+    if edges in {"all", "bottom"}:
+        layers = []
+        for i in range(steps + 1):
+            t = i / steps
+            inset = amount * (1 - math.sin(t * math.pi / 2)) if rounded else amount * (1 - t)
+            radius = amount if rounded else 0.0
+            layers.append((amount * t, inset, radius))
+    if edges not in {"all", "bottom"}:
+        layers = [(0.0, 0.0, amount if rounded else 0.0)]
+    if edges in {"all", "top"}:
+        for i in range(steps + 1):
+            t = i / steps
+            inset = amount * (1 - math.sin(t * math.pi / 2)) if rounded else amount * (1 - t)
+            radius = amount if rounded else 0.0
+            layers.append((height - amount * t, inset, radius))
+    else:
+        layers.append((height, 0.0, amount if rounded else 0.0))
+    slices = " ".join(_box_profile(width, depth, z, inset, radius) for z, inset, radius in layers)
+    return f"hull() {{ {slices} }}"
+
+
 def _emit_base(geometry: dict, params: dict) -> tuple[str, float, float, float]:
-    base = geometry["base"]
+    base = geometry.get("base")
     dims = base["dimensions"]
     if base["type"] == "box":
         width = resolve_value(dims["width"], params)
@@ -460,24 +547,39 @@ def _emit_base(geometry: dict, params: dict) -> tuple[str, float, float, float]:
         radius = resolve_value(dims["radius"], params)
         height = resolve_value(dims["height"], params)
         width = depth = radius * 2
-        solid = f"cylinder(h={_fmt(height)}, r={_fmt(radius)}, $fn=$fn);"
+        solid = (
+            f"translate([{_fmt(radius)}, {_fmt(radius)}, 0]) "
+            f"cylinder(h={_fmt(height)}, r={_fmt(radius)}, $fn=$fn);"
+        )
 
     for fillet in geometry.get("fillets") or []:
         r = resolve_value(fillet["radius"], params)
-        # Approximation: round all edges via minkowski (shrink then grow by r).
-        solid = (
-            f"translate({_vec((r, r, r))}) minkowski() {{ "
-            f"cube({_vec((max(width - 2 * r, 0.01), max(depth - 2 * r, 0.01), max(height - 2 * r, 0.01)))}); "
-            f"sphere(r={_fmt(r)}, $fn=24); }}"
-        )
+        edges = fillet.get("edges", "all")
+        if base["type"] == "box":
+            envelope = _box_edge_envelope(width, depth, height, r, edges, rounded=True)
+        else:
+            radius = width / 2
+            bottom = r if edges in {"all", "bottom"} else 0
+            top = r if edges in {"all", "top"} else 0
+            envelope = (
+                f"hull() {{ translate([{_fmt(radius)},{_fmt(radius)},{_fmt(bottom)}]) cylinder(h=0.01,r={_fmt(radius - bottom)},$fn=$fn); "
+                f"translate([{_fmt(radius)},{_fmt(radius)},{_fmt(height - top)}]) cylinder(h=0.01,r={_fmt(radius - top)},$fn=$fn); }}"
+            )
+        solid = f"intersection() {{ {solid} {envelope} }}"
     for chamfer in geometry.get("chamfers") or []:
-        s = resolve_value(chamfer["size"], params)
-        # Approximation: soften all edges via minkowski with a small cube.
-        solid = (
-            f"translate({_vec((s, s, s))}) minkowski() {{ "
-            f"cube({_vec((max(width - 2 * s, 0.01), max(depth - 2 * s, 0.01), max(height - 2 * s, 0.01)))}); "
-            f"cube({_vec((s, s, s))}, center=true); }}"
-        )
+        size = resolve_value(chamfer["size"], params)
+        edges = chamfer.get("edges", "all")
+        if base["type"] == "box":
+            envelope = _box_edge_envelope(width, depth, height, size, edges, rounded=False)
+        else:
+            radius = width / 2
+            bottom = size if edges in {"all", "bottom"} else 0
+            top = size if edges in {"all", "top"} else 0
+            envelope = (
+                f"hull() {{ translate([{_fmt(radius)},{_fmt(radius)},{_fmt(bottom)}]) cylinder(h=0.01,r={_fmt(radius - bottom)},$fn=$fn); "
+                f"translate([{_fmt(radius)},{_fmt(radius)},{_fmt(height - top)}]) cylinder(h=0.01,r={_fmt(radius - top)},$fn=$fn); }}"
+            )
+        solid = f"intersection() {{ {solid} {envelope} }}"
     return solid, width, depth, height
 
 
@@ -523,8 +625,33 @@ def _collect_subtractive(geometry: dict, params: dict, w: float, d: float, h: fl
     if shell:
         wall = resolve_value(shell["wall_thickness"], params)
         open_face = shell.get("open_face", "top")
-        inner_origin, inner_size = _shell_cavity(open_face, wall, w, d, h)
-        subtractive.append(f"translate({_vec(inner_origin)}) cube({_vec(inner_size)});")
+        if geometry["base"]["type"] == "cylinder":
+            radius = w / 2
+            if wall >= min(radius, h / 2):
+                raise EmitError(
+                    "shell.wall_thickness leaves no cylindrical interior", category="intent_error"
+                )
+            z0 = -EPSILON if open_face == "bottom" else wall
+            cavity_h = h - wall if open_face in {"top", "bottom"} else h - 2 * wall
+            if open_face == "top":
+                cavity_h += EPSILON
+            subtractive.append(
+                f"translate([{_fmt(radius)}, {_fmt(radius)}, {_fmt(z0)}]) "
+                f"cylinder(h={_fmt(cavity_h + (EPSILON if open_face == 'bottom' else 0))}, "
+                f"r={_fmt(radius - wall)}, $fn=$fn);"
+            )
+            side_tunnels = {
+                "left": (-EPSILON, wall, wall, radius + EPSILON, d - 2 * wall, h - 2 * wall),
+                "right": (radius, wall, wall, radius + EPSILON, d - 2 * wall, h - 2 * wall),
+                "front": (wall, -EPSILON, wall, w - 2 * wall, radius + EPSILON, h - 2 * wall),
+                "back": (wall, radius, wall, w - 2 * wall, radius + EPSILON, h - 2 * wall),
+            }
+            if open_face in side_tunnels:
+                x, y, z, sx, sy, sz = side_tunnels[open_face]
+                subtractive.append(f"translate({_vec((x, y, z))}) cube({_vec((sx, sy, sz))});")
+        else:
+            inner_origin, inner_size = _shell_cavity(open_face, wall, w, d, h)
+            subtractive.append(f"translate({_vec(inner_origin)}) cube({_vec(inner_size)});")
     for hole in geometry.get("holes") or []:
         subtractive.append(_emit_hole(hole, params, w, d, h))
     for pocket in geometry.get("pockets") or []:
@@ -567,6 +694,17 @@ def emit_scad(geometry: dict, fn: int = FN_DEFAULT) -> str:
     base_solid, width, depth, height = _emit_base(geometry, params)
     geometry = _expand_pattern(geometry, params, width, depth, height)
 
+    for index, hole in enumerate(geometry.get("holes") or []):
+        face = hole["face"]
+        diameter = resolve_value(hole["diameter"], params)
+        u_dim, v_dim = _face_uv_dims(face, width, depth, height)
+        if diameter > min(u_dim, v_dim):
+            raise EmitError(
+                f"holes[{index}].diameter={diameter:g}mm exceeds the {face} face's "
+                f"smallest extent {min(u_dim, v_dim):g}mm; correct the design dimensions",
+                category="intent_error",
+            )
+
     additive = _collect_additive(geometry, params, base_solid, width, depth, height)
     subtractive = _collect_subtractive(geometry, params, width, depth, height)
 
@@ -584,7 +722,8 @@ def emit_scad(geometry: dict, fn: int = FN_DEFAULT) -> str:
     body_parts = _compose_body(additive, subtractive, escape_stmt, has_tier_a_features)
 
     lines = [
-        "// units=mm — generated by scad_emitter.py (TASK_CAD_MODULE_OVERHAUL_V1 Phase 2)",
+        f"// units={geometry.get('units', 'mm')} — generated by scad_emitter.py",
+        f"// part={str((geometry.get('metadata') or {}).get('part_name', 'unnamed')).replace(chr(10), ' ')}",
         f"$fn = {fn};",
         "",
     ]

@@ -15,6 +15,7 @@ Start with: python -m portal.modules.cad.tools.cad_render_mcp
 """
 
 import base64
+import copy
 import logging
 import os
 import re
@@ -410,6 +411,49 @@ def _auto_repair(geometry: dict, err: dict) -> dict | None:
     return None  # syntax/undefined_variable/non_manifold/empty_geometry need model judgment
 
 
+def _auto_repair_geometry(geometry: dict) -> dict | None:
+    repaired = copy.deepcopy(geometry)
+    changed = False
+    aliases = {
+        "hole": "holes",
+        "pocket": "pockets",
+        "standoff": "standoffs",
+        "stand_off": "standoffs",
+        "stand_offs": "standoffs",
+        "standofs": "standoffs",
+        "rib": "ribs",
+        "fillet": "fillets",
+        "chamfer": "chamfers",
+        "hole_pattern": "pattern",
+    }
+    for alias, canonical in aliases.items():
+        if alias in repaired and canonical not in repaired:
+            value = repaired.pop(alias)
+            repaired[canonical] = (
+                value if canonical == "pattern" or isinstance(value, list) else [value]
+            )
+            changed = True
+
+    features = repaired.get("features")
+    if isinstance(features, list):
+        normalized: dict[str, list] = {}
+        for feature in features:
+            if (
+                not isinstance(feature, dict)
+                or feature.get("type") not in aliases
+                or aliases[feature["type"]] == "pattern"
+            ):
+                return None
+            item = dict(feature)
+            kind = aliases[item.pop("type")]
+            normalized.setdefault(kind, []).append(item)
+        repaired.pop("features")
+        for kind, items in normalized.items():
+            repaired.setdefault(kind, []).extend(items)
+        changed = True
+    return repaired if changed else None
+
+
 def _auto_repair_mesh(geometry: dict, mv: dict) -> dict | None:
     """Deterministic repairs for a validated-but-flawed mesh. None => surface to the model."""
     problems = mv.get("problems", [])
@@ -420,6 +464,55 @@ def _auto_repair_mesh(geometry: dict, mv: dict) -> dict | None:
         repaired["_fn_override"] = 96
         return repaired
     return None
+
+
+def _metadata_warnings(geometry: dict, validation: dict) -> list[dict]:
+    metadata = geometry.get("metadata") or {}
+    label = " ".join(str(metadata.get(key, "")) for key in ("part_name", "description")).lower()
+    bbox = validation.get("bounding_box") or {}
+    dims = [bbox.get(axis) for axis in ("x", "y", "z")]
+    if (
+        "plate" in label
+        and all(isinstance(value, (int, float)) and value > 0 for value in dims)
+        and max(dims) / min(dims) <= 2
+    ):
+        return [
+            {
+                "code": "plate_aspect_ratio",
+                "measured_ratio": max(dims) / min(dims),
+                "limit_ratio": 2.0,
+                "detail": "metadata calls this a plate, but all three extents are within 2×; verify height is the intended Z thickness",
+            }
+        ]
+    return []
+
+
+def _generated_result(
+    uid: str,
+    attempt: int,
+    scad: str,
+    scad_path: Path,
+    stl_path: Path,
+    validation: dict,
+    retry_log: list[dict],
+    resolution: int,
+) -> dict:
+    png_name = f"gen_{uid}_{attempt}.png"
+    png_path = _out_dir() / png_name
+    note = _render_mesh_to_png(stl_path, png_path, resolution=resolution)
+    return {
+        "scad_source": scad,
+        "scad_path": str(scad_path),
+        "stl_path": str(stl_path),
+        "png_path": str(png_path),
+        "png_url": f"{PUBLIC_URL}/{png_name}",
+        "render_note": note,
+        "validation": validation,
+        "bounding_box": validation["bounding_box"],
+        "watertight": validation["watertight"],
+        "attempts": attempt + 1,
+        "retry_log": retry_log,
+    }
 
 
 @mcp.tool()
@@ -434,18 +527,31 @@ async def generate_scad(geometry: dict, resolution: int = 1024, max_retries: int
     """
     retry_log: list[dict] = []
     attempt = 0
+    fn_override = FN_DEFAULT
     uid = uuid.uuid4().hex[:8]
 
     while attempt <= max_retries:
         try:
-            scad = emit_scad(geometry, fn=geometry.get("_fn_override", FN_DEFAULT))
+            scad = emit_scad(geometry, fn=fn_override)
         except EmitError as e:
-            return {
-                "error": f"geometry validation failed: {e}",
-                "error_category": e.category,
-                "attempts": attempt + 1,
-                "retry_log": retry_log,
+            detail = {
+                "category": e.category,
+                "message": str(e),
+                "suggestion": str(e),
             }
+            retry_log.append({"attempt": attempt, "stage": "validation", "error": detail})
+            repaired = _auto_repair_geometry(geometry) if e.category == "validation" else None
+            if repaired is None or attempt == max_retries:
+                return {
+                    "error": f"geometry validation failed: {e}",
+                    "error_category": e.category,
+                    "error_detail": detail,
+                    "attempts": attempt + 1,
+                    "retry_log": retry_log,
+                }
+            geometry = repaired
+            attempt += 1
+            continue
 
         scad_path = _out_dir() / f"gen_{uid}_{attempt}.scad"
         stl_path = _out_dir() / f"gen_{uid}_{attempt}.stl"
@@ -464,53 +570,30 @@ async def generate_scad(geometry: dict, resolution: int = 1024, max_retries: int
                     "retry_log": retry_log,
                 }
             geometry = repaired
+            fn_override = int(repaired.pop("_fn_override", fn_override))
             attempt += 1
             continue
 
         validation = validate_mesh(stl_path)
+        validation["printability"].extend(_metadata_warnings(geometry, validation))
+        validation["printable"] = validation["manifold_ok"] and not validation["printability"]
         if validation["problems"]:
             retry_log.append(
                 {"attempt": attempt, "stage": "validate", "problems": validation["problems"]}
             )
             repaired = _auto_repair_mesh(geometry, validation)
             if repaired is None or attempt == max_retries:
-                png_name = f"gen_{uid}_{attempt}.png"
-                png_path = _out_dir() / png_name
-                note = _render_mesh_to_png(stl_path, png_path, resolution=resolution)
-                return {
-                    "scad_source": scad,
-                    "scad_path": str(scad_path),
-                    "stl_path": str(stl_path),
-                    "png_path": str(png_path),
-                    "png_url": f"{PUBLIC_URL}/{png_name}",
-                    "render_note": note,
-                    "validation": validation,
-                    "bounding_box": validation["bounding_box"],
-                    "watertight": validation["watertight"],
-                    "attempts": attempt + 1,
-                    "retry_log": retry_log,
-                }
+                return _generated_result(
+                    uid, attempt, scad, scad_path, stl_path, validation, retry_log, resolution
+                )
             geometry = repaired
+            fn_override = int(repaired.pop("_fn_override", fn_override))
             attempt += 1
             continue
 
-        # success
-        png_name = f"gen_{uid}_{attempt}.png"
-        png_path = _out_dir() / png_name
-        note = _render_mesh_to_png(stl_path, png_path, resolution=resolution)
-        return {
-            "scad_source": scad,
-            "scad_path": str(scad_path),
-            "stl_path": str(stl_path),
-            "png_path": str(png_path),
-            "png_url": f"{PUBLIC_URL}/{png_name}",
-            "render_note": note,
-            "validation": validation,
-            "bounding_box": validation["bounding_box"],
-            "watertight": validation["watertight"],
-            "attempts": attempt + 1,
-            "retry_log": retry_log,
-        }
+        return _generated_result(
+            uid, attempt, scad, scad_path, stl_path, validation, retry_log, resolution
+        )
 
     # unreachable (loop always returns), but keeps type-checkers happy
     return {
