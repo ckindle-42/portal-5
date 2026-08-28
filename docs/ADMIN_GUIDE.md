@@ -106,7 +106,7 @@ Bindings are per-service in `deploy/portal-5/docker-compose.yml`. Open WebUI pub
 
 ### Recommended remote access: Cloudflare Tunnel
 
-Recommended remote access is a Cloudflare Tunnel: `cloudflared` runs on the host and merges the reference ingress from `config/cloudflared/config.yml.example` into its own config. The rules route `/files/{music,tts}/*` to ports 8912/8916 and a ComfyUI hostname to 8188 before the catch-all to 8080. Remote media links need `ENABLE_REMOTE_ACCESS=true` and `PORTAL_PUBLIC_URL=https://portal.example.com`; `launch.sh` derives `MUSIC_PUBLIC_URL`, `TTS_PUBLIC_URL`, `VIDEO_PUBLIC_URL`, and `COMFYUI_PUBLIC_URL` from it and the MCPs emit those into chat. Without `PORTAL_PUBLIC_URL` the MCPs fall back to localhost URLs that a remote browser cannot resolve.
+Recommended remote access is a Cloudflare Tunnel: `cloudflared` merges the reference ingress from `config/cloudflared/config.yml.example` into its own config. The rules route `/files/{music,tts,models3d}/*` to ports 8912/8916/8926 and a ComfyUI hostname to 8188 before the catch-all to 8080. Remote media links need `ENABLE_REMOTE_ACCESS=true` and `PORTAL_PUBLIC_URL=https://portal.example.com`; `launch.sh` derives `MUSIC_PUBLIC_URL`, `TTS_PUBLIC_URL`, `VIDEO_PUBLIC_URL`, `CAD_RENDER_PUBLIC_URL`, and `COMFYUI_PUBLIC_URL` from it and the MCPs emit those into chat. Without `PORTAL_PUBLIC_URL` the MCPs fall back to localhost URLs that a remote browser cannot resolve. The tunnel does not have to run on this machine; only `PORTAL_PUBLIC_URL` is set here, and the tunnel host handles the `/files/*` ingress routing.
 
 ## Why
 
@@ -114,7 +114,7 @@ cloudflared on the host is the chosen remote path because it reaches host-loopba
 
 ### Alternative: LAN reverse proxy (Caddy / nginx)
 
-For deployments that skip Cloudflare Tunnel, a Caddy or nginx proxy on the same host plays the same role. Route only the media paths to the loopback services — `/files/{music,tts,video}/*` toward ports 8912/8916/8911 and a ComfyUI hostname toward 8188 — set `PORTAL_PUBLIC_URL` to the proxy's public address, and `launch.sh` derives `MUSIC_PUBLIC_URL`, `TTS_PUBLIC_URL`, `VIDEO_PUBLIC_URL`, and `COMFYUI_PUBLIC_URL` from it. Bindings are per-service in `docker-compose.yml`: the Docker MCP servers bind `127.0.0.1`, but the pipeline API binds `0.0.0.0:9099`, Grafana binds `0.0.0.0:3000`, and the host-native MCP servers (`scripts/mlx-speech.py`, `portal/platform/mcp_host/pipeline_mcp.py`) default to `0.0.0.0`. The proxy must therefore be the only path that exposes those surfaces; never proxy the bare MCP tool APIs.
+For deployments that skip Cloudflare Tunnel, a Caddy or nginx proxy on the same host plays the same role. Route only the media paths to the loopback services — `/files/{music,tts,video,models3d}/*` toward ports 8912/8916/8911/8926 and a ComfyUI hostname toward 8188 — set `PORTAL_PUBLIC_URL` to the proxy's public address, and `launch.sh` derives `MUSIC_PUBLIC_URL`, `TTS_PUBLIC_URL`, `VIDEO_PUBLIC_URL`, `CAD_RENDER_PUBLIC_URL`, and `COMFYUI_PUBLIC_URL` from it. Bindings are per-service in `docker-compose.yml`: the Docker MCP servers bind `127.0.0.1`, but the pipeline API binds `0.0.0.0:9099`, Grafana binds `0.0.0.0:3000`, and the host-native MCP servers (`scripts/mlx-speech.py`, `portal/platform/mcp_host/pipeline_mcp.py`) default to `0.0.0.0`. The proxy must therefore be the only path that exposes those surfaces; never proxy the bare MCP tool APIs.
 
 ## Why
 

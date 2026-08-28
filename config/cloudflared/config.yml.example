@@ -39,6 +39,10 @@ ingress:
     path: ^/files/video/.*
     service: http://localhost:8911
 
+  - hostname: portal.example.com
+    path: ^/files/models3d/.*
+    service: http://localhost:8926
+
   # ComfyUI's /view?filename=...&type=output endpoint, namespaced under
   # /comfyui/ on the public side. comfyui_mcp.py and video_mcp.py emit
   # URLs of the form ${COMFYUI_PUBLIC_URL}/view?filename=... — with
