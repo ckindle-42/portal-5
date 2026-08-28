@@ -8,7 +8,10 @@
       "server:mcp:portal_documents",
       "server:mcp:portal_rag",
       "server:mcp:portal_research"
-    ]
+    ],
+    "capabilities": {
+      "builtin_tools": false
+    }
   },
   "params": {
     "model": "auto-compliance",

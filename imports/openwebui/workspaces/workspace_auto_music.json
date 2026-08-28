@@ -8,7 +8,10 @@
       "server:mcp:portal_music_minimax",
       "server:mcp:portal_tts",
       "server:mcp:portal_whisper"
-    ]
+    ],
+    "capabilities": {
+      "builtin_tools": false
+    }
   },
   "params": {
     "model": "auto-music",

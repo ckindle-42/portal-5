@@ -61,6 +61,13 @@ def _owui_preset(ws_id: str, spec: Any) -> dict[str, Any]:
             "description": spec.name,
             "profile_image_url": "",
             "toolIds": tool_ids,
+            # Portal ships its own tools via MCP; OWUI's built-in note/calendar/
+            # reminder/task tools are not part of the design. Left on, OWUI injects
+            # their ~4k-token manifest alongside the MCP tools whenever a chat has a
+            # session_id (i.e. the browser, not the API), and small workspace models
+            # pick the note/reminder tool over the real one — the exact "I'll save
+            # your lyrics to a note" non-answer seen on auto-music.
+            "capabilities": {"builtin_tools": False},
         },
         "params": {
             "model": ws_id,
@@ -72,10 +79,9 @@ def _owui_preset(ws_id: str, spec: Any) -> dict[str, Any]:
         preset["params"]["enable_web_search"] = True
     if tool_ids:
         # Native tool-calling: pass the tool schemas straight to the model API.
-        # OWUI's default ("default") mode is prompt-based — it runs a separate
-        # tool-selection LLM call whose JSON small models (e.g. lfm2.5 on
-        # auto-music) routinely fail to produce, leaving the model with no tools
-        # and improvising a wrong "I have no such tool" refusal.
+        # OWUI's legacy mode is prompt-based — it runs a separate tool-selection LLM
+        # call whose JSON small models (e.g. lfm2.5 on auto-music) routinely fail to
+        # produce, leaving the model with no tools and improvising a wrong refusal.
         preset["params"]["function_calling"] = "native"
     return preset
 

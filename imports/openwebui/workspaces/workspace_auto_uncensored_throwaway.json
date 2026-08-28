@@ -8,7 +8,10 @@
       "server:mcp:portal_code",
       "server:mcp:portal_memory",
       "server:mcp:portal_research"
-    ]
+    ],
+    "capabilities": {
+      "builtin_tools": false
+    }
   },
   "params": {
     "model": "auto-uncensored-throwaway",

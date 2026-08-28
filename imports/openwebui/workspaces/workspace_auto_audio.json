@@ -6,7 +6,10 @@
     "profile_image_url": "",
     "toolIds": [
       "server:mcp:portal_whisper"
-    ]
+    ],
+    "capabilities": {
+      "builtin_tools": false
+    }
   },
   "params": {
     "model": "auto-audio",
