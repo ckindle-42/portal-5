@@ -42,7 +42,14 @@ SANDBOX_MCP = "http://localhost:8914"
 # tokens keep arriving; only a genuinely stalled stream does. See
 # feedback_uat_timer_vs_events (project memory) — event-driven waits over
 # blind timers is a standing preference here.
-INACTIVITY_TIMEOUT = 90
+DEFAULT_INACTIVITY_TIMEOUT = 120
+TASK_INACTIVITY_TIMEOUTS = {
+    "t1_enclosure": 120,
+    "t2_grommet_plate": 120,
+    "t3_bracket": 90,
+    "t4_spur_gear": 120,
+    "t5_gyroid_panel": 360,
+}
 HARD_CAP_S = 1800  # sanity ceiling against a truly runaway/broken stream
 MAX_TURNS = 4
 
@@ -149,16 +156,6 @@ TASKS = [
 
 ARMS = [
     {
-        "key": "moe",
-        "label": "could-be-MoE",
-        "workspace": "bench-moecad",
-    },
-    {
-        "key": "dense",
-        "label": "could-be-dense",
-        "workspace": "bench-qwen36-cad",
-    },
-    {
         "key": "prior",
         "label": "what-was (prior harness)",
         "workspace": "bench-cad-prior",
@@ -167,6 +164,16 @@ ARMS = [
         "key": "current",
         "label": "what-is (current incumbent)",
         "workspace": "auto-cad",
+    },
+    {
+        "key": "dense",
+        "label": "could-be-dense",
+        "workspace": "bench-qwen36-cad",
+    },
+    {
+        "key": "moe",
+        "label": "could-be-MoE",
+        "workspace": "bench-moecad",
     },
 ]
 
@@ -183,7 +190,9 @@ def unload(model: str) -> None:
         pass
 
 
-def stream_chat_completion(payload: dict) -> dict:
+def stream_chat_completion(
+    payload: dict, inactivity_timeout: int = DEFAULT_INACTIVITY_TIMEOUT
+) -> dict:
     """POST /v1/chat/completions with stream:true, returning the assembled message.
 
     Uses httpx's per-read timeout as the cutoff: it only fires when no bytes
@@ -195,7 +204,7 @@ def stream_chat_completion(payload: dict) -> dict:
     stream_payload = {**payload, "stream": True}
     content_parts: list[str] = []
     tool_calls_acc: dict[int, dict] = {}
-    timeout = httpx.Timeout(30.0, read=INACTIVITY_TIMEOUT)
+    timeout = httpx.Timeout(30.0, read=inactivity_timeout)
     t_start = time.monotonic()
     with (
         httpx.Client(timeout=timeout) as client,
@@ -237,12 +246,12 @@ def stream_chat_completion(payload: dict) -> dict:
     return message
 
 
-def execute_tool(name: str, args: dict) -> dict:
+def execute_tool(name: str, args: dict, timeout_s: int = 180) -> dict:
     route = TOOL_ROUTES.get(name)
     if not route:
         return {"error": f"unknown tool {name}"}
     try:
-        resp = httpx.post(route, json={"arguments": args}, timeout=180)
+        resp = httpx.post(route, json={"arguments": args}, timeout=timeout_s)
         resp.raise_for_status()
         return resp.json()
     except Exception as e:
@@ -267,6 +276,35 @@ def _bbox_sane(got, want) -> bool | None:
     g = sorted(got)
     w = sorted(want)
     return all(abs(a - b) <= max(0.3 * b, 3.0) for a, b in zip(g, w, strict=False))
+
+
+def score_result(result: dict) -> str:
+    if result.get("called_target_tool") and result.get("watertight"):
+        return "WRONGSIZE" if result.get("bbox_sane") is False else "PASS"
+    return "FAIL"
+
+
+def _validation_summary(last_result: dict | None) -> dict:
+    if last_result is None:
+        return {
+            "watertight": None,
+            "printable": None,
+            "manifold_ok": None,
+            "printability": [],
+            "problems": [],
+            "attempts": None,
+            "bbox": None,
+        }
+    validation = last_result.get("validation") or last_result
+    return {
+        "watertight": validation.get("watertight"),
+        "printable": validation.get("printable"),
+        "manifold_ok": validation.get("manifold_ok"),
+        "printability": validation.get("printability") or [],
+        "problems": validation.get("problems") or [],
+        "attempts": last_result.get("attempts"),
+        "bbox": _bbox_of(last_result),
+    }
 
 
 def run_task(workspace_id: str, ws_cfg: dict, task: dict) -> dict:
@@ -304,7 +342,12 @@ def run_task(workspace_id: str, ws_cfg: dict, task: dict) -> dict:
         if "think" in ws_cfg:
             payload["think"] = ws_cfg["think"]
         try:
-            msg = stream_chat_completion(payload)
+            msg = stream_chat_completion(
+                payload,
+                inactivity_timeout=TASK_INACTIVITY_TIMEOUTS.get(
+                    task["id"], DEFAULT_INACTIVITY_TIMEOUT
+                ),
+            )
         except Exception as e:
             return {
                 "task": task["id"],
@@ -322,7 +365,9 @@ def run_task(workspace_id: str, ws_cfg: dict, task: dict) -> dict:
                 fn_args = json.loads(fn.get("arguments") or "{}")
             except json.JSONDecodeError:
                 fn_args = {}
-            result = execute_tool(fn_name, fn_args)
+            result = execute_tool(
+                fn_name, fn_args, timeout_s=600 if task["id"] == "t5_gyroid_panel" else 180
+            )
             tool_calls_made.append({"tool": fn_name, "args": fn_args, "result": result})
             if fn_name == task["target_tool"]:
                 called_target = True
@@ -337,30 +382,15 @@ def run_task(workspace_id: str, ws_cfg: dict, task: dict) -> dict:
 
     elapsed = round(time.monotonic() - t0, 1)
 
-    watertight = None
-    printable = None
-    problems: list[str] = []
-    attempts = None
-    bbox = None
-    if last_result is not None:
-        val = last_result.get("validation") or last_result
-        watertight = val.get("watertight")
-        printable = val.get("printable")
-        problems = val.get("problems") or []
-        attempts = last_result.get("attempts")
-        bbox = _bbox_of(last_result)
+    summary = _validation_summary(last_result)
 
     return {
         "task": task["id"],
         "target_tool": task["target_tool"],
         "called_target_tool": called_target,
         "tool_calls": tool_calls_made,
-        "watertight": watertight,
-        "printable": printable,
-        "problems": problems,
-        "attempts": attempts,
-        "bbox": bbox,
-        "bbox_sane": _bbox_sane(bbox, task.get("expect_bbox")),
+        **summary,
+        "bbox_sane": _bbox_sane(summary["bbox"], task.get("expect_bbox")),
         "last_result": last_result,
         "elapsed_s": elapsed,
         "under_120s": elapsed < 120,
@@ -390,6 +420,10 @@ def run_arm(arm: dict) -> dict:
         "label": arm["label"],
         "workspace": arm["workspace"],
         "model": model,
+        "tool_choice": ws_cfg.get("tool_choice", "auto"),
+        "tool_choice_verified": ws_cfg.get("tool_choice_verified", False),
+        "think": ws_cfg.get("think"),
+        "context_limit": ws_cfg.get("context_limit"),
         "results": results,
     }
 
@@ -413,9 +447,16 @@ def render_matrix(all_results: list[dict]) -> str:
             elif r.get("error"):
                 row.append(f"ERROR: {r['error'][:40]}")
             else:
-                mark = "PASS" if r.get("called_target_tool") and r.get("watertight") else "FAIL"
+                mark = score_result(r)
                 extra = f" attempts={r.get('attempts')}" if r.get("attempts") is not None else ""
-                row.append(f"{mark} ({r.get('elapsed_s')}s){extra}")
+                problems = ",".join(r.get("problems") or []) or "none"
+                warnings = (
+                    ",".join(w.get("code", "warning") for w in r.get("printability") or [])
+                    or "none"
+                )
+                row.append(
+                    f"{mark} ({r.get('elapsed_s')}s){extra} problems={problems} printability={warnings}"
+                )
         lines.append("| " + " | ".join(row) + " |")
     lines.append("\n## Per-arm detail\n")
     for arm_res in all_results:
@@ -436,14 +477,22 @@ def main() -> int:
     args = ap.parse_args()
 
     arms = [a for a in ARMS if not args.arm or a["key"] in args.arm]
-    stamp = _dt.datetime.now(_dt.UTC).strftime("%Y%m%dT%H%M%SZ")
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    out_path = RESULTS_DIR / f"cap_cad-overhaul_{stamp}.txt"
-    json_path = RESULTS_DIR / f"cap_cad-overhaul_{stamp}.json"
+    out_path = RESULTS_DIR / "cap_cad-fixup_latest.txt"
+    json_path = RESULTS_DIR / "cap_cad-fixup_latest.json"
 
     all_results: list[dict] = []
+    if json_path.exists():
+        try:
+            all_results = json.loads(json_path.read_text())
+        except (json.JSONDecodeError, TypeError):
+            all_results = []
     for a in arms:
-        all_results.append(run_arm(a))
+        arm_result = run_arm(a)
+        all_results = [result for result in all_results if result.get("arm") != a["key"]]
+        all_results.append(arm_result)
+        order = {arm["key"]: index for index, arm in enumerate(ARMS)}
+        all_results.sort(key=lambda result: order.get(result.get("arm"), len(order)))
         # Persist after every arm — a kill/crash mid-run keeps completed arms.
         json_path.write_text(json.dumps(all_results, indent=2, default=str))
         out_path.write_text(render_matrix(all_results))
