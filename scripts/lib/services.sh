@@ -364,10 +364,11 @@ _launch_start_speech() {
     fi
 
     mkdir -p "${VOICE_PROFILES_DIR:-$HOME/.portal5/voice_profiles}"
-    # Warm Chatterbox weights so the first clone isn't a cold multi-GB download.
-    python3 -c "from mlx_audio.tts.utils import load_model; load_model('${MLX_CHATTERBOX_MODEL:-mlx-community/chatterbox-fp16}')" >/dev/null 2>&1 \
-        && echo "  ✅ Chatterbox clone model ready" \
-        || echo "  ⚠️  Chatterbox warmup failed — first clone will cold-load (or run: pip3 install -U mlx-audio)"
+    # Warm the voice-clone weights so the first clone isn't a cold multi-GB download.
+    _clone_model="${MLX_CLONE_MODEL:-${MLX_CHATTERBOX_MODEL:-mlx-community/higgs-audio-v2-3B-mlx-q8}}"
+    python3 -c "from mlx_audio.tts.utils import load_model; load_model('${_clone_model}')" >/dev/null 2>&1 \
+        && echo "  ✅ Voice-clone model ready (${_clone_model})" \
+        || echo "  ⚠️  Voice-clone warmup failed — first clone will cold-load (or run: pip3 install -U mlx-audio)"
 
     PID_FILE="/tmp/portal-mlx-speech.pid"
     LOG_FILE="$HOME/.portal5/logs/mlx-speech.log"
@@ -378,7 +379,7 @@ _launch_start_speech() {
         exit 0
     fi
 
-    echo "Starting MLX Speech Server (Kokoro + Chatterbox clone + Qwen3-ASR)..."
+    echo "Starting MLX Speech Server (Kokoro + voice clone + Qwen3-ASR)..."
     nohup python3 "$PORTAL_ROOT/scripts/mlx-speech.py" >> "$LOG_FILE" 2>&1 &
     echo $! > "$PID_FILE"
     echo "  ✅ MLX Speech started (PID $!, port ${MLX_SPEECH_PORT:-8918})"

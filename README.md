@@ -115,7 +115,7 @@ background `nohup` fallback.
 | Detections MCP | SPL library search, validate_syntax, explain | :8932 |
 | Wiki MCP | Canonical knowledge layer — search, get_unit | :8931 |
 | MLX Transcribe | Diarized transcription (Apple Silicon) | :8924 |
-| MLX Speech | Kokoro TTS + Chatterbox clone + Qwen3-TTS/ASR (Apple Silicon) | :8918 |
+| MLX Speech | Kokoro TTS + Higgs Audio v2 voice clone + Qwen3-TTS/ASR (Apple Silicon) | :8918 |
 | Embedding | Harrier-0.6B text embeddings | :8917 |
 | Reranker | Qwen3-Reranker-0.6B two-stage RAG | :8925 |
 | Prometheus | Metrics collection | http://localhost:9090 |
@@ -512,7 +512,7 @@ whole fleet.
 MLX survives in four non-chat runtimes, each started by its own launcher:
 
 - **Speech:** the host-native MLX speech server on port 8918 (`scripts/mlx-speech.py`,
-  started by `start-speech` in `scripts/lib/services.sh`) — Kokoro + Chatterbox clone + Qwen3-TTS/ASR.
+  started by `start-speech` in `scripts/lib/services.sh`) — Kokoro + Higgs Audio v2 voice clone + Qwen3-TTS/ASR.
 - **Transcription:** MLX Transcribe on port 8924 (`scripts/mlx-transcribe.py`) —
   Parakeet-TDT-v3 (fast, word timestamps) + VibeVoice-ASR single-pass diarization
   (speaker labels + timestamps, no HF token), host-native.
@@ -573,8 +573,9 @@ backends:
 - **Kokoro TTS** — the `mlx-community/Kokoro-82M-bf16` model via mlx-audio; voices
   are selected by the Kokoro naming prefix (`af_`, `am_`, `bf_`, `bm_`, `jf_`,
   `jm_`, `zf_`, `zm_`), e.g. `af_heart`, `bm_george`.
-- **Chatterbox (English v2)** — voice cloning (one-off `clone:` clips or persisted
-  `trainer:<name>` profiles registered via `register_voice`); inaudible PerTh watermark.
+- **Higgs Audio v2** — voice cloning (one-off `clone:` clips or persisted `trainer:<name>`
+  profiles registered via `register_voice`); no provenance watermark. `MLX_CLONE_MODEL`
+  swaps the engine (e.g. to `mlx-community/chatterbox-fp16`).
 - **Qwen3-TTS CustomVoice / VoiceDesign** — preset speakers + voice-from-description (retained).
 - **Qwen3-ASR** — speech-to-text via `mlx_audio.stt`.
 

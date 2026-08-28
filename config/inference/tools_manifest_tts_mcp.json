@@ -20,10 +20,10 @@
     "name": "clone_voice",
     "parameters": {
       "properties": {
-        "reference_audio": { "description": "Path to a 5-15s clean reference clip", "type": "string" },
+        "reference_audio": { "description": "The uploaded reference clip (file id, filename, or path). Leave empty to use the most recently uploaded audio.", "type": "string" },
         "text": { "description": "Text to speak with the cloned voice", "type": "string" }
       },
-      "required": ["reference_audio", "text"],
+      "required": ["text"],
       "type": "object"
     }
   },
@@ -33,10 +33,10 @@
     "parameters": {
       "properties": {
         "name": { "description": "Short profile name (lowercase letters, digits, _ or -)", "type": "string" },
-        "reference_audio": { "description": "Path to 10-15s of the trainer's clean speech", "type": "string" },
-        "reference_text": { "description": "Exact transcript of the reference clip", "type": "string" }
+        "reference_audio": { "description": "The trainer's uploaded reference clip (file id, filename, or path). Leave empty to use the most recently uploaded audio. 10-15s of clean speech works best.", "type": "string" },
+        "reference_text": { "description": "Exact transcript of the reference clip (improves fidelity)", "type": "string" }
       },
-      "required": ["name", "reference_audio"],
+      "required": ["name"],
       "type": "object"
     }
   },

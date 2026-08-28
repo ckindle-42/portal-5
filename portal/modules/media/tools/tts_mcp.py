@@ -12,14 +12,19 @@ Start with: python -m portal.modules.media.tools.tts_mcp
 
 from __future__ import annotations
 
+import base64
+import contextlib
 import logging
 import os
+import secrets
+from pathlib import Path
 
 import httpx
 from mcp.server import MCPServer
 from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
+from portal.platform.mcp_host.workspace import get_uploads_dir, resolve_upload_path
 
 logger = logging.getLogger(__name__)
 port = int(os.getenv("TTS_MCP_PORT", "8916"))
@@ -27,6 +32,48 @@ mcp = MCPServer("tts-generation")
 
 SPEECH_URL = os.getenv("MLX_SPEECH_URL", "http://host.docker.internal:8918").rstrip("/")
 HTTP_TIMEOUT = float(os.getenv("TTS_PROXY_TIMEOUT", "120"))
+_AUDIO_EXTS = (".wav", ".flac", ".ogg", ".mp3", ".m4a", ".aac", ".webm", ".aiff", ".aif")
+
+
+def _resolve_reference(reference_audio: str) -> Path | None:
+    """Resolve a reference-audio argument to a container-visible file.
+
+    Accepts an OWUI file id / stored name / original filename (looked up in the
+    shared workspace uploads dir), a container path, or "" to pick the most
+    recent upload. Returns None if nothing resolves — the caller then passes the
+    raw string through for the host to resolve (a host-visible path from the CLI).
+    """
+    if reference_audio:
+        hit = resolve_upload_path(reference_audio)
+        if hit and hit.is_file():
+            return hit
+        p = Path(reference_audio)
+        if p.is_file():
+            return p
+        return None
+    try:
+        uploads = get_uploads_dir()
+    except Exception:
+        return None
+    cands = [p for p in uploads.iterdir() if p.is_file() and p.suffix.lower() in _AUDIO_EXTS]
+    return max(cands, key=lambda p: p.stat().st_mtime) if cands else None
+
+
+async def _post_register(name: str, ref: Path | None, raw: str, reference_text: str) -> dict:
+    """POST a profile registration to the host — audio bytes if we resolved a
+    readable file, else the raw path string for the host to resolve."""
+    payload: dict = {"name": name, "reference_text": reference_text}
+    if ref is not None:
+        payload["reference_audio_b64"] = base64.b64encode(ref.read_bytes()).decode()
+        payload["reference_audio_name"] = ref.name
+    else:
+        payload["reference_audio"] = raw
+    try:
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+            r = await client.post(f"{SPEECH_URL}/v1/voices", json=payload)
+            return r.json()
+    except Exception as e:
+        return {"error": f"host speech server unreachable at {SPEECH_URL}: {e}"}
 
 
 async def _speech_speak(text: str, voice: str) -> dict:
@@ -176,47 +223,56 @@ async def speak(text: str, voice: str = "af_heart") -> dict:
 
 
 @mcp.tool()
-async def clone_voice(reference_audio: str, text: str) -> dict:
+async def clone_voice(reference_audio: str = "", text: str = "") -> dict:
     """
     Speak text in a voice cloned from a reference clip (one-off, not persisted).
     For a recurring trainer voice, use register_voice once, then speak(voice="trainer:<name>").
 
     Args:
-        reference_audio: Path to a 5-15s clean reference clip (host-visible path).
+        reference_audio: The uploaded reference clip — an OWUI file id, its filename,
+            or a path. Leave empty to use the most recently uploaded audio.
         text: Text to speak in the cloned voice.
     """
-    if not reference_audio or not text.strip():
-        return {"error": "reference_audio and text are required"}
-    return await _speech_speak(text, f"clone:{reference_audio}")
+    if not text.strip():
+        return {"error": "text is required"}
+    ref = _resolve_reference(reference_audio)
+    if ref is None and not reference_audio:
+        return {"error": "No reference audio — upload a clip or pass reference_audio."}
+    if ref is None:
+        # Host-visible path (CLI/direct): let the host clone from it directly.
+        return await _speech_speak(text, f"clone:{reference_audio}")
+
+    ephemeral = f"oneoff-{secrets.token_hex(4)}"
+    reg = await _post_register(ephemeral, ref, "", "one-off clone reference")
+    if reg.get("status") != "success":
+        return reg
+    try:
+        return await _speech_speak(text, f"trainer:{ephemeral}")
+    finally:
+        with contextlib.suppress(Exception):
+            async with httpx.AsyncClient(timeout=10) as client:
+                await client.delete(f"{SPEECH_URL}/v1/voices/{ephemeral}")
 
 
 @mcp.tool()
-async def register_voice(name: str, reference_audio: str, reference_text: str) -> dict:
+async def register_voice(name: str, reference_audio: str = "", reference_text: str = "") -> dict:
     """
     Register a persisted trainer-voice profile so training sessions can be narrated in that
     voice. Register once; then speak(voice="trainer:<name>") in any later session.
 
     Args:
         name: Short profile name (lowercase letters, digits, _ or -).
-        reference_audio: Path to 10-15s of the trainer's clean speech (host-visible path).
+        reference_audio: The trainer's uploaded reference clip — an OWUI file id, its
+            filename, or a path. Leave empty to use the most recently uploaded audio.
+            10-15s of clean continuous speech works best.
         reference_text: Exact transcript of the reference clip (improves fidelity).
     """
-    if not name or not reference_audio:
-        return {"error": "name and reference_audio are required"}
-    url = f"{SPEECH_URL}/v1/voices"
-    try:
-        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
-            r = await client.post(
-                url,
-                json={
-                    "name": name,
-                    "reference_audio": reference_audio,
-                    "reference_text": reference_text,
-                },
-            )
-            return r.json()
-    except Exception as e:
-        return {"error": f"host speech server unreachable at {SPEECH_URL}: {e}"}
+    if not name:
+        return {"error": "name is required"}
+    ref = _resolve_reference(reference_audio)
+    if ref is None and not reference_audio:
+        return {"error": "No reference audio — upload a clip or pass reference_audio."}
+    return await _post_register(name, ref, reference_audio, reference_text)
 
 
 @mcp.tool()
