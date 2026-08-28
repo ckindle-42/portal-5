@@ -16,23 +16,38 @@ import base64
 import contextlib
 import logging
 import os
+import re
 import secrets
 from pathlib import Path
 
 import httpx
 from mcp.server import MCPServer
-from starlette.responses import JSONResponse, Response
+from starlette.responses import FileResponse, JSONResponse, Response
 
 from portal.platform.data_loader import load_data
-from portal.platform.mcp_host.workspace import get_uploads_dir, resolve_upload_path
+from portal.platform.mcp_host.workspace import (
+    get_generated_dir,
+    get_uploads_dir,
+    resolve_upload_path,
+)
 
 logger = logging.getLogger(__name__)
 port = int(os.getenv("TTS_MCP_PORT", "8916"))
 mcp = MCPServer("tts-generation")
 
 SPEECH_URL = os.getenv("MLX_SPEECH_URL", "http://host.docker.internal:8918").rstrip("/")
+PUBLIC_URL = os.getenv("TTS_PUBLIC_URL", f"http://localhost:{port}/files/tts").rstrip("/")
 HTTP_TIMEOUT = float(os.getenv("TTS_PROXY_TIMEOUT", "120"))
 _AUDIO_EXTS = (".wav", ".flac", ".ogg", ".mp3", ".m4a", ".aac", ".webm", ".aiff", ".aif")
+_SAFE_FILENAME = re.compile(r"^[A-Za-z0-9._-]+\.wav$")
+
+
+def _save_speech(content: bytes, voice: str) -> tuple[str, str]:
+    """Write generated speech to the shared workspace and return (filename, url)."""
+    slug = re.sub(r"[^a-z0-9]+", "-", voice.lower()).strip("-") or "voice"
+    fname = f"speak_{slug}_{secrets.token_hex(16)}.wav"
+    (get_generated_dir("speech") / fname).write_bytes(content)
+    return fname, f"{PUBLIC_URL}/{fname}"
 
 
 def _resolve_reference(reference_audio: str) -> Path | None:
@@ -87,11 +102,22 @@ async def _speech_speak(text: str, voice: str) -> dict:
     if r.status_code == 200 and not r.headers.get("content-type", "").startswith(
         "application/json"
     ):
+        try:
+            fname, url = _save_speech(r.content, voice)
+        except Exception as e:  # noqa: BLE001 — still hand back the bytes count
+            return {
+                "status": "success",
+                "voice": voice,
+                "audio_bytes": len(r.content),
+                "message": f"Spoke {len(text)} chars with '{voice}' (could not save file: {e}).",
+            }
         return {
             "status": "success",
             "voice": voice,
+            "filename": fname,
+            "download_url": url,
             "audio_bytes": len(r.content),
-            "message": f"Spoke {len(text)} chars with voice '{voice}'.",
+            "message": f"Spoke {len(text)} chars with '{voice}'. [Download audio]({url})",
         }
     if r.headers.get("content-type", "").startswith("application/json"):
         return r.json()
@@ -155,6 +181,18 @@ async def openai_audio_speech(request):
     return JSONResponse(payload, status_code=r.status_code if r.status_code >= 400 else 503)
 
 
+@mcp.custom_route("/files/tts/{filename:path}", methods=["GET"])
+async def serve_generated_speech(request):
+    """Serve a generated speech file for the download link in a tool result."""
+    filename = request.path_params["filename"]
+    if not _SAFE_FILENAME.match(filename):
+        return JSONResponse({"error": "Invalid filename"}, status_code=400)
+    file_path = get_generated_dir("speech") / filename
+    if not file_path.is_file():
+        return JSONResponse({"error": "File not found"}, status_code=404)
+    return FileResponse(path=str(file_path), filename=filename, media_type="audio/wav")
+
+
 @mcp.custom_route("/v1/models", methods=["GET"])
 async def openai_models(request):
     """OpenAI-compatible models list — proxies to the host mlx-speech.py server (:8918)."""
@@ -210,7 +248,8 @@ async def list_voices_endpoint(request):
 @mcp.tool()
 async def speak(text: str, voice: str = "af_heart") -> dict:
     """
-    Convert text to speech via the host MLX speech server.
+    Convert text to speech via the host MLX speech server. Returns a download_url
+    for the generated .wav — surface it to the user as the Markdown link in `message`.
 
     Args:
         text: The text to speak.

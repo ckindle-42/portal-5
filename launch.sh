@@ -122,6 +122,7 @@ case "${1:-up}" in
         export MUSIC_PUBLIC_URL="${_BASE}/files/music"
         export TTS_PUBLIC_URL="${_BASE}/files/tts"
         export VIDEO_PUBLIC_URL="${_BASE}/files/video"
+        export CAD_RENDER_PUBLIC_URL="${_BASE}/files/models3d"
         export COMFYUI_PUBLIC_URL="${_BASE}/comfyui"
         echo "[portal-5] Public media URLs derived from PORTAL_PUBLIC_URL=${_BASE}"
         echo "[portal-5]   For Cloudflare Tunnel, see config/cloudflared/config.yml.example"
