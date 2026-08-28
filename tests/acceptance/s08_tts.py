@@ -43,7 +43,7 @@ async def _ensure_speech_reference(tmp_dir: Path) -> Path | None:
 
 
 async def _trainer_voice_roundtrip(sec: str) -> None:
-    """S8-03/S8-04: register a trainer-voice profile, then speak with it (Chatterbox clone)."""
+    """S8-03/S8-04: register a trainer-voice profile, then speak with it (voice clone)."""
     import tempfile
 
     with tempfile.TemporaryDirectory() as td:

@@ -141,16 +141,16 @@ ComfyUI on Apple Silicon needs direct access to the Metal/MPS device, which a co
 
 ---
 
-### Chatterbox Voice Cloning Constraints
+### Voice Cloning Constraints (Higgs Audio v2)
 
 - **ID**: P5-SPEECH-CLONE-001
-- **Description**: Cloning runs through `mlx-community/chatterbox-fp16` (English v2, MIT) in the host `scripts/mlx-speech.py` — Apple-Silicon-only, no CPU/CUDA/Docker path (the Docker `tts_mcp.py` only proxies to it). Every generated clip carries Resemble AI's **PerTh watermark** — an inaudible, traceable provenance marker; it does not restrict use but marks output as AI-generated. Cloning is zero-shot from a clip/profile — **not** a fine-tune, so fidelity tracks reference-clip quality (10-15s clean close-mic clones best). English v2. Measured on this host: model load ~3s (warm; first pull downloads ~2GB of weights), per-clone ~3s for a short sentence, ~3.4GB peak working set.
-- **Impact**: Off Apple Silicon, cloning is unavailable. Watermarked output should not be presented as an indistinguishable real recording. A poor reference yields a poor clone.
-- **Mitigation**: Capture trainer reference clips carefully (quiet room, close mic, 10-15s, accurate transcript) and register them as profiles once with `POST /v1/voices` / the `register_voice` tool. None else needed for this single-user deployment.
+- **Description**: Cloning runs through `mlx-community/higgs-audio-v2-3B-mlx-q8` (Boson AI Higgs Audio v2) in the host `scripts/mlx-speech.py` — Apple-Silicon-only, no CPU/CUDA/Docker path (the Docker `tts_mcp.py` only proxies to it). Zero-shot from a clip/profile — **not** a fine-tune, so fidelity tracks reference-clip quality, and the engine reads only the first ~10-15s of the reference (a tight, expressive clip beats a long flat one). Output is 24 kHz. Higgs Audio v2 emits **no provenance watermark**, so clones are not automatically identifiable as AI-generated. Chosen over Chatterbox (`mlx-community/chatterbox-fp16`, still selectable via `MLX_CLONE_MODEL`) in the operator fidelity gate — Chatterbox's output was consistently ~1 kHz darker in spectral centroid than the reference. Higgs is a 3B model: measured on this host, load ~3s (warm; first pull ~3-4 GB), per-clone ~4s, ~7 GB peak working set (Chatterbox ~3.4 GB).
+- **Impact**: Off Apple Silicon, cloning is unavailable. A poor reference yields a poor clone. Unwatermarked output should not be presented as an indistinguishable real recording.
+- **Mitigation**: Capture trainer reference clips carefully (quiet room, close mic, 10-15s, natural delivery, accurate transcript) and register them as profiles once — `register_voice` tool, `POST /v1/voices`, or `scripts/register_trainer_voice.py`. `MLX_CLONE_MODEL=mlx-community/chatterbox-fp16` falls back to the lighter engine.
 
 ## Why
 
-A register-once/reuse profile design fits the training use case better than per-call cloning, and storing the reference WAV+transcript (not a serialized embedding) keeps profiles valid across mlx-audio upgrades. Recording the PerTh watermark and no-fallback constraint here keeps them visible in the limitations register.
+A register-once/reuse profile design fits the training use case better than per-call cloning, and storing the reference WAV+transcript (not a serialized embedding) keeps profiles valid across mlx-audio upgrades and an engine swap. Recording the engine choice, the no-watermark fact, and the no-fallback constraint here keeps them visible in the limitations register.
 
 ---
 

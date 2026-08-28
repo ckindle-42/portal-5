@@ -359,18 +359,22 @@ services:
     environment:
       - TTS_MCP_PORT=8916
       - MCP_PORT=8916
-      # tts_mcp proxies all tools to the host mlx-speech.py server (Chatterbox clone,
+      # tts_mcp proxies all tools to the host mlx-speech.py server (voice clone,
       # trainer profiles, Kokoro) — the same host hop OWUI's built-in TTS uses.
       - MLX_SPEECH_URL=${MLX_SPEECH_URL:-http://host.docker.internal:8918}
       - TTS_PUBLIC_URL=${TTS_PUBLIC_URL:-http://localhost:8916/files/tts}
       - TTS_BACKEND=${TTS_BACKEND:-kokoro}
       - TTS_DEFAULT_VOICE=${TTS_DEFAULT_VOICE:-af_heart}
       - OUTPUT_DIR=/app/data/generated
+      # Shared workspace so register_voice/clone_voice can resolve an OWUI upload
+      # to bytes and forward them to the host (the container fs is not the host's).
+      - WORKSPACE_DIR=/workspace
       - HF_HOME=/app/data/hf_cache
       - HF_TOKEN=${HF_TOKEN:-}
     command: ["python", "-m", "portal.modules.media.tools.tts_mcp"]
     volumes:
       - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/app/data/generated
+      - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/workspace
       - portal5-hf-cache:/app/data/hf_cache
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8916/health"]

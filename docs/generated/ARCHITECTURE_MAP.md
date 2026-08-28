@@ -274,7 +274,6 @@
 | `unit-known-limitations-auto-math-workspace-reasoning-block-support` | what | 1 |
 | `unit-known-limitations-baronllm-text-only-tool-output-auto-security-mcp-tools-non-functional` | what | 6 |
 | `unit-known-limitations-cadquery-and-build123d-unusable-on-linux-arm64` | what | 4 |
-| `unit-known-limitations-chatterbox-voice-cloning` | mixed | 1 |
 | `unit-known-limitations-code-sandbox-requires-privileged-container` | what | 2 |
 | `unit-known-limitations-comfyui-cross-model-family-memory-exhaustion-apple-silicon` | what | 2 |
 | `unit-known-limitations-comfyui-model-download-commands-are-broken` | what | 3 |
@@ -283,6 +282,7 @@
 | `unit-known-limitations-diarized-transcription-task-transcribe-001` | what | 3 |
 | `unit-known-limitations-emergent-objective-loop-curated-capability-tool-names-vs-live-dispatch-whitelist` | what | 8 |
 | `unit-known-limitations-fara-cua-tag-closure` | what | 1 |
+| `unit-known-limitations-higgs-voice-cloning` | mixed | 1 |
 | `unit-known-limitations-host-native-mcp-lifecycle-launcher-child-exit` | what | 5 |
 | `unit-known-limitations-importing-the-security-bench-module-sets-a-linux-only-prometheus-multiproc-dir-host-side` | what | 4 |
 | `unit-known-limitations-known-limitations` | what | 1 |

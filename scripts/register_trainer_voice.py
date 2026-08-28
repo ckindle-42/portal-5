@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """
-Register a trainer-voice profile with the host MLX speech server (Chatterbox clone).
+Register a trainer-voice profile with the host MLX speech server (voice clone).
 
 Cleans a raw recording (downmix to mono, trim leading/trailing silence, optional
 [start, start+duration] window, peak-normalise) and POSTs it to the speech server's
-POST /v1/voices endpoint. Chatterbox only consults the first ~10s of the reference
-for timbre and the first ~6s for prosody, so a tight, expressive 12-15s clip beats
-a long flat one.
+POST /v1/voices endpoint. The clone engine only consults the first ~10-15s of the
+reference, so a tight, expressive 12-15s clip beats a long flat one.
 
 Accepts wav/flac/ogg/mp3 directly; m4a/aac/mov are converted via ffmpeg first.
 
@@ -111,7 +110,7 @@ def main() -> int:
     sf.write(str(out), audio, sr)
     print(f"cleaned reference: {dur:.1f}s @ {sr} Hz -> {out}")
     if dur > 16:
-        print("  note: Chatterbox only uses the first ~10s (timbre) / ~6s (prosody).")
+        print("  note: the clone engine only uses the first ~10-15s of the reference.")
 
     url = f"{args.speech_url.rstrip('/')}/v1/voices"
     r = httpx.post(

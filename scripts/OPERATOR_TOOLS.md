@@ -6,11 +6,13 @@ results; they are the deliberate, documented operator surface of the repo. Listi
 them here is what makes each one "referenced", so the complexity census does not
 report them as unwired.
 
-## Image / video generation
+## Image / video / speech generation
 
 ```bash
 python3 scripts/gen-image.py        # rapid image generation via the ComfyUI MCP
 python3 scripts/gen-video.py        # video generation via the video MCP (shelved service, retained tooling)
+python3 scripts/register_trainer_voice.py --audio <clip> --name <name> --text "<transcript>" --test
+                                    # clean a recording + register it as a voice-clone trainer profile (host :8918)
 ```
 
 ## Lab and corpus operations

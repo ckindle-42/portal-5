@@ -49,7 +49,7 @@ mcp = [
     "openpyxl>=3.1.0",
     "pdfplumber>=0.11.0",
     "markdown>=3.6",
-    # Audio — TTS. Cloning is Chatterbox via mlx-audio (host mlx-speech.py); Kokoro narration via mlx-audio.
+    # Audio — TTS. Cloning is Higgs Audio v2 via mlx-audio (host mlx-speech.py); Kokoro narration via mlx-audio.
     "kokoro-onnx>=0.4.0",
     "soundfile>=0.12.1",
     "huggingface_hub>=0.20.0",
@@ -76,7 +76,7 @@ apple-silicon = [
     # new model architectures (Laguna SWA, Mamba2, etc.) and thread-local stream fixes.
     "mlx-lm>=0.31",
     "mlx-vlm>=0.1.0",
-    # MLX Speech: unified TTS (Kokoro + Qwen3-TTS + Chatterbox clone) + ASR (Qwen3-ASR) on Apple Silicon
+    # MLX Speech: unified TTS (Kokoro + Qwen3-TTS + Higgs Audio v2 voice clone) + ASR (Qwen3-ASR) on Apple Silicon
     "mlx-audio>=0.4.3",
     # MLX Transcribe: Parakeet-TDT-v3 fast ASR + VibeVoice-ASR single-pass diarization
     # on Apple Silicon (both native in mlx-audio, ungated — no pyannote, no HF token).
@@ -84,6 +84,8 @@ apple-silicon = [
     "mlx-whisper>=0.4.0",
     "torch>=2.1.0",
     "torchaudio>=2.1.0",
+    # Reference-clip resampling for voice cloning (mlx-speech.py _voice_clone)
+    "scipy>=1.10.0",
     # Kokoro TTS phonemizer dependencies (required by mlx-audio Kokoro backend)
     "misaki>=0.1.0",
     "num2words>=0.5.0",

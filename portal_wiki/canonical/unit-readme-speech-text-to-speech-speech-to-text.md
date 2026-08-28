@@ -25,11 +25,12 @@ backends:
 - **Kokoro TTS** — the `mlx-community/Kokoro-82M-bf16` model via mlx-audio; voices
   are selected by the Kokoro naming prefix (`af_`, `am_`, `bf_`, `bm_`, `jf_`,
   `jm_`, `zf_`, `zm_`), e.g. `af_heart`, `bm_george`.
-- **Chatterbox (English v2)** — voice cloning. One-off via `voice="clone:/path/to/ref.wav"`,
-  or register a reusable trainer voice with `POST /v1/voices` (name + reference clip +
-  transcript) and then use `voice="trainer:<name>"`. Zero-shot from a 5-15s clip; not a
-  fine-tune, so fidelity tracks reference-clip quality. Every clip carries Resemble AI's
-  inaudible PerTh watermark.
+- **Higgs Audio v2** (`mlx-community/higgs-audio-v2-3B-mlx-q8`, Boson AI) — voice cloning.
+  One-off via `voice="clone:/path/to/ref.wav"`, or register a reusable trainer voice with
+  the `register_voice` tool / `POST /v1/voices` (name + reference clip + transcript) and then
+  use `voice="trainer:<name>"`. Zero-shot from a 10-15s clip; not a fine-tune, so fidelity
+  tracks reference-clip quality. No provenance watermark. `MLX_CLONE_MODEL` swaps the engine
+  (e.g. `mlx-community/chatterbox-fp16`).
 - **Qwen3-TTS CustomVoice / VoiceDesign** — preset speakers and voice-from-description
   (retained; not used for cloning).
 - **Qwen3-ASR** — speech-to-text via `mlx_audio.stt`.
