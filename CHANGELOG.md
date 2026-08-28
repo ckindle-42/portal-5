@@ -28,6 +28,13 @@ All notable changes to Portal 5 will be documented in this file.
   early on long single-speaker audio). Retired pyannote + the `HF_TOKEN` diarization gate + the Voxtral
   path. The Docker fallback default model went `base` → `large-v3-turbo`, and `whisper_mcp.py` now proxies
   to the host `mlx-transcribe.py` (:8924). See KNOWN_LIMITATIONS (Diarized Transcription).
+  Long audio is handled: Parakeet chunks past 2 min, Sortformer switches to its streaming pass past
+  15 min (measured 40 min → 29s, 124 min → 90s on 64 GB Apple Silicon).
+  **Decommissioned**: removed the orphaned Voxtral ASR backend from `mlx-speech.py` (Qwen3-ASR remains
+  the plain-STT engine there), dropped the unused `mlx-whisper` dependency, and deleted ~26 GB of retired
+  weights from the HF cache (VibeVoice-ASR-bf16, Voxtral-Mini-3B, mlx whisper-large-v3-turbo/small, and
+  the four pyannote diarization repos). The `transcriptanalyst` persona's stale `engine=` instructions
+  were removed.
 - **Music generation overhauled — MusicGen removed; MiniMax-Music3-MLX is now the sole engine.** Two independent engines (MiniMax-Music3-MLX and ACE-Step-1.5) were installed side by side for a real operator comparison (`TASK_MUSIC_DUAL_BACKEND`). After generating real 60s/30-step clips on both — lyrics/vocals and an ACE repaint included — the operator kept MiniMax (`music-minimax:8912`, `minimax_generate`/`minimax_status`/`minimax_models` in `auto-music`) and disabled ACE-Step: its own resident footprint plus its admission requirement exceeds this hardware's 64GB total once loaded, its LM captioning was non-deterministic (one run contradicted the requested vocal gender), and its output quality did not hold up in a direct listen. ACE-Step's module code, install function, and tools manifest remain in the repo (unwired, downloaded models removed) for a possible future re-enable. See P5-MUSIC-MINIMAX-001 and P5-MUSIC-ACESTEP-001 in `KNOWN_LIMITATIONS.md`.
 
 ## [8.0.0] — 2026-07-29

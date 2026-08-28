@@ -20,7 +20,7 @@ tags:
 - docs
 - verified-v1
 created_at: 1784946220.686982
-updated_at: 1784946220.686982
+updated_at: 1787936130.0
 ---
 
 MLX survives in four non-chat runtimes, each started by its own launcher:
@@ -28,7 +28,7 @@ MLX survives in four non-chat runtimes, each started by its own launcher:
 - **Speech:** the host-native MLX speech server on port 8918 (`scripts/mlx-speech.py`,
   started by `start-speech` in `scripts/lib/services.sh`) — Kokoro + Qwen3-TTS/ASR.
 - **Transcription:** MLX Transcribe on port 8924 (`scripts/mlx-transcribe.py`) —
-  mlx-whisper + pyannote diarization, host-native.
+  Parakeet-TDT-v3 + Sortformer speaker diarization, host-native.
 - **Embedding:** Harrier-0.6B on port 8917 (`scripts/embedding-server.py`, default
   `EMBEDDING_MODEL=microsoft/harrier-oss-v1-0.6b`) — the RAG/memory embedding
   endpoint (`MLX_EMBEDDING_URL` in `rag_mcp.py`).
@@ -43,7 +43,7 @@ commit 3a0c58e, so no MLX runtime participates in conversation routing.
 ## Why
 
 Retiring the MLX proxy removed a second chat-serving stack while keeping MLX where
-Ollama has no equivalent: Ollama does not host Kokoro/Qwen3 TTS, diarized
-whisper, sentence embeddings or reranking. Those four runtimes stay host-native on
+Ollama has no equivalent: Ollama does not host Kokoro/Qwen3 TTS, word-level
+diarized transcription, sentence embeddings or reranking. Those four runtimes stay host-native on
 Apple Silicon because the MPS path is substantially faster than the equivalent
 Docker images, and none of them touch the router.
