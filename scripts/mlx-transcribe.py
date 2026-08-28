@@ -108,6 +108,10 @@ def _vibevoice_segments_to_canonical(segments: list) -> list[dict]:
     (speaker_id absent on non-speech segments); the raw JSON shape is
     {"Start","End","Speaker","Content"}. Handle all three key spellings so a minor
     version bump doesn't silently break the adapter.
+
+    Non-speech marker segments (VibeVoice emits a standalone "[Silence]", "[Music]",
+    etc. with no speaker_id) are dropped — they carry no transcript content and
+    would otherwise inflate speaker_count via SPEAKER_UNKNOWN.
     """
     out: list[dict] = []
     for s in segments:
@@ -115,6 +119,8 @@ def _vibevoice_segments_to_canonical(segments: list) -> list[dict]:
         end = s.get("end", s.get("end_time", s.get("End", 0.0)))
         spk = s.get("speaker_id", s.get("Speaker"))
         text = s.get("text", s.get("Content", "")).strip()
+        if spk is None and re.fullmatch(r"\[[^\]]*\]", text):
+            continue
         out.append(
             {
                 "start": round(float(start), 2),

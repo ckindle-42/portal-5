@@ -64,6 +64,18 @@ def test_adapter_missing_speaker(transcribe_module):
     assert out[0]["speaker"] == "SPEAKER_UNKNOWN"
 
 
+def test_adapter_drops_nonspeech_markers(transcribe_module):
+    """A standalone [Silence]/[Music] segment with no speaker_id is dropped so it
+    never inflates speaker_count via SPEAKER_UNKNOWN."""
+    segs = [
+        {"start": 0.0, "end": 6.5, "text": "[Silence]"},
+        {"start": 6.5, "end": 7.2, "speaker_id": 0, "text": "Hello."},
+        {"start": 7.2, "end": 8.3, "speaker_id": 1, "text": "Hello."},
+    ]
+    out = transcribe_module._vibevoice_segments_to_canonical(segs)
+    assert [s["speaker"] for s in out] == ["SPEAKER_00", "SPEAKER_01"]
+
+
 def test_format_markdown_includes_metadata(transcribe_module):
     merged = [
         {"start": 0.0, "end": 5.0, "speaker": "SPEAKER_00", "text": "Hello there"},
