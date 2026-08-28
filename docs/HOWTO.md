@@ -73,7 +73,7 @@ For the full live roster (production + eval workspaces, module, model hint) use 
 | `auto-coding` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | execute_python, execute_nodejs, execute_bash |
 | `auto-security` | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` | web_search, classify_vulnerability, execute_bash |
 | `auto-documents` | `granite4.1:8b-ctx16k` | create_word_document, create_excel, create_powerpoint |
-| `auto-music` | `lfm2.5:8b-ctx8k` | minimax_generate, minimax_status, speak, clone_voice |
+| `auto-music` | `lfm2.5:8b-ctx8k` | minimax_generate, minimax_status, speak, clone_voice, register_voice |
 | `auto-vision` | `qwen3-vl:32b-ctx8k` | transcribe_audio, generate_image |
 
 `auto-video` is defined with `expose_to_owui: false` (shelved — see the Video Generation unit). Eval workspaces (the `bench-*` set) additionally require `PORTAL_ENABLE_EVAL=1` at pipeline startup.
@@ -222,15 +222,17 @@ The independent host-native modules preserve accelerator access, crash isolation
 
 ## 11. Text-to-Speech
 
-**What:** Convert text to spoken audio using MLX-native speech (Kokoro + Qwen3-TTS).
+**What:** Convert text to spoken audio using MLX-native speech (Kokoro narration + Chatterbox voice cloning).
 
-**Activate:** Select `Music Producer` (`auto-music`) from the model dropdown. The TTS tools (`speak`, `clone_voice`, `list_voices`) are granted by `auto-music`'s `tools` list in `config/portal.yaml` — they are not available in every workspace.
+**Activate:** Select `Music Producer` (`auto-music`) from the model dropdown. The TTS tools (`speak`, `clone_voice`, `register_voice`, `list_voices`) are granted by `auto-music`'s `tools` list in `config/portal.yaml` — they are not available in every workspace.
 
-**How:** The host-native MLX speech server (`scripts/mlx-speech.py`, port 8918) provides TTS via Kokoro (default backend, `af_heart` default voice) and Qwen3-TTS (voice cloning, emotion control, 10 languages). Start it with `./launch.sh start-speech` — `_launch_start_speech` in `scripts/lib/services.sh` requires Apple Silicon and `mlx-audio`, and models load lazily on the first request. The Docker `mcp-tts` container (port 8916, `portal/modules/media/tools/tts_mcp.py`) is the fallback tool server, defaulting to the kokoro-onnx backend. Audio files land in `generated/speech/` and the tool returns a download URL.
+**How:** The host-native MLX speech server (`scripts/mlx-speech.py`, port 8918) provides Kokoro narration (default backend, `af_heart` default voice), Chatterbox voice cloning, and Qwen3-TTS CustomVoice/VoiceDesign. Start it with `./launch.sh start-speech` — `_launch_start_speech` in `scripts/lib/services.sh` requires Apple Silicon and `mlx-audio`, warms Chatterbox, and models otherwise load lazily on the first request. The Docker `mcp-tts` container (port 8916, `portal/modules/media/tools/tts_mcp.py`) proxies every tool to port 8918. Audio files land in `generated/speech/` and the tool returns a download URL.
+
+**Cloning:** `speak(voice="clone:/path/to/ref.wav")` for a one-off clone from a 5-15s clip, or register a reusable trainer voice and reuse it as `voice="trainer:<name>"`. Register via the `register_voice` tool, `POST /v1/voices` (`{name, reference_audio, reference_text}`), or `scripts/register_trainer_voice.py --audio <clip> --name <name> --text "<transcript>" --test` (cleans the recording first). Profiles persist under `${VOICE_PROFILES_DIR:-~/.portal5/voice_profiles}/<name>/`. Chatterbox reads only the first ~10s of the reference for timbre and ~6s for prosody, so a tight, expressive clip beats a long flat one; output is 24 kHz with an inaudible PerTh watermark (KNOWN_LIMITATIONS P5-SPEECH-CLONE-001).
 
 ## Why
 
-Speech is an audio runtime, not part of the chat inference tier, so it runs outside Ollama entirely: a native server on Apple Silicon uses the Metal GPU for fast synthesis while the MCP tool layer keeps the model-facing call uniform. Lazy model loading keeps `start-speech` cheap to bring up — the first utterance pays the load cost, not the startup command.
+Speech is an audio runtime, not part of the chat inference tier, so it runs outside Ollama entirely: a native server on Apple Silicon uses the Metal GPU for fast synthesis while the MCP tool layer keeps the model-facing call uniform. Lazy model loading keeps `start-speech` cheap to bring up — the first utterance pays the load cost, not the startup command. Cloning is a separate MIT-licensed English model (Chatterbox) rather than Qwen3-TTS, whose Chinese-accented English was wrong for an American-English trainer voice.
 
 ---
 
