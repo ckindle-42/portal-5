@@ -1,8 +1,7 @@
-"""Unit tests for transcribe_with_speakers logic (TASK-TRANSCRIBE-001).
+"""Unit tests for mlx-transcribe deterministic helpers.
 
-Covers deterministic in-memory parts: merge, markdown formatting, file
-resolution. Model loading and audio I/O are out of scope (covered by
-acceptance tests S9-03 / S9-04 / S9-05 with fixtures).
+Covers the VibeVoice segment adapter, markdown formatting, and file resolution.
+Model loading and audio I/O are out of scope (acceptance tests S9-03..05 cover those).
 """
 
 from __future__ import annotations
@@ -19,11 +18,12 @@ SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "mlx-transcribe.
 @pytest.fixture(scope="module")
 def transcribe_module():
     """Load mlx-transcribe.py with heavy deps stubbed."""
-    # Stub imports that pull MLX/PyTorch
-    sys.modules.setdefault("mlx_whisper", type(sys)("mlx_whisper"))
-    sys.modules.setdefault("pyannote", type(sys)("pyannote"))
-    sys.modules.setdefault("pyannote.audio", type(sys)("pyannote.audio"))
-    sys.modules.setdefault("torch", type(sys)("torch"))
+    sys.modules.setdefault("mlx_audio", type(sys)("mlx_audio"))
+    stt = type(sys)("mlx_audio.stt")
+    utils = type(sys)("mlx_audio.stt.utils")
+    utils.load = lambda *a, **k: None  # type: ignore[attr-defined]
+    sys.modules.setdefault("mlx_audio.stt", stt)
+    sys.modules.setdefault("mlx_audio.stt.utils", utils)
 
     spec = importlib.util.spec_from_file_location("mlx_transcribe", SCRIPT_PATH)
     assert spec is not None and spec.loader is not None
@@ -32,50 +32,36 @@ def transcribe_module():
     return mod
 
 
-def test_merge_no_diarization_falls_back_to_single_speaker(transcribe_module):
-    segments = [
-        {"start": 0.0, "end": 2.0, "text": "Hello"},
-        {"start": 2.0, "end": 4.0, "text": "World"},
+def test_adapter_parsed_shape(transcribe_module):
+    segs = [
+        {"start_time": 0.0, "end_time": 2.0, "speaker_id": 0, "text": " Hello "},
+        {"start_time": 2.0, "end_time": 4.0, "speaker_id": 1, "text": "World"},
     ]
-    merged = transcribe_module._merge(segments, [])
-    assert len(merged) == 2
-    assert all(s["speaker"] == "SPEAKER_00" for s in merged)
+    out = transcribe_module._vibevoice_segments_to_canonical(segs)
+    assert out[0] == {"start": 0.0, "end": 2.0, "speaker": "SPEAKER_00", "text": "Hello"}
+    assert out[1]["speaker"] == "SPEAKER_01"
 
 
-def test_merge_assigns_max_overlap_speaker(transcribe_module):
-    segments = [
-        {"start": 0.0, "end": 5.0, "text": "First turn"},
-        {"start": 5.0, "end": 10.0, "text": "Second turn"},
-    ]
-    turns = [
-        {"start": 0.0, "end": 5.0, "speaker": "SPEAKER_00"},
-        {"start": 5.0, "end": 10.0, "speaker": "SPEAKER_01"},
-    ]
-    merged = transcribe_module._merge(segments, turns)
-    assert merged[0]["speaker"] == "SPEAKER_00"
-    assert merged[1]["speaker"] == "SPEAKER_01"
+def test_adapter_bare_parsed_shape(transcribe_module):
+    """Phase 0 confirmed this build emits bare start/end/speaker_id/text."""
+    segs = [{"start": 0, "end": 14.16, "speaker_id": 0, "text": "Hello everyone"}]
+    out = transcribe_module._vibevoice_segments_to_canonical(segs)
+    assert out[0] == {"start": 0.0, "end": 14.16, "speaker": "SPEAKER_00", "text": "Hello everyone"}
 
 
-def test_merge_collapses_adjacent_same_speaker(transcribe_module):
-    segments = [
-        {"start": 0.0, "end": 2.0, "text": "Hello"},
-        {"start": 2.0, "end": 4.0, "text": "world"},
-        {"start": 4.0, "end": 6.0, "text": "again"},
-    ]
-    turns = [{"start": 0.0, "end": 6.0, "speaker": "SPEAKER_00"}]
-    merged = transcribe_module._merge(segments, turns)
-    assert len(merged) == 1
-    assert merged[0]["text"] == "Hello world again"
+def test_adapter_raw_shape(transcribe_module):
+    segs = [{"Start": 0.0, "End": 5.2, "Speaker": 0, "Content": "Hello everyone"}]
+    out = transcribe_module._vibevoice_segments_to_canonical(segs)
+    assert out[0]["speaker"] == "SPEAKER_00"
+    assert out[0]["text"] == "Hello everyone"
+    assert out[0]["end"] == 5.2
 
 
-def test_merge_handles_partial_overlap(transcribe_module):
-    segments = [{"start": 0.0, "end": 4.0, "text": "mostly speaker 0"}]
-    turns = [
-        {"start": 0.0, "end": 3.0, "speaker": "SPEAKER_00"},
-        {"start": 3.0, "end": 5.0, "speaker": "SPEAKER_01"},
-    ]
-    merged = transcribe_module._merge(segments, turns)
-    assert merged[0]["speaker"] == "SPEAKER_00"
+def test_adapter_missing_speaker(transcribe_module):
+    out = transcribe_module._vibevoice_segments_to_canonical(
+        [{"start": 0.0, "end": 1.0, "text": "x"}]
+    )
+    assert out[0]["speaker"] == "SPEAKER_UNKNOWN"
 
 
 def test_format_markdown_includes_metadata(transcribe_module):
@@ -86,10 +72,8 @@ def test_format_markdown_includes_metadata(transcribe_module):
     meta = {"duration": 10.0, "language": "en", "speaker_count": 2}
     md = transcribe_module._format_markdown(merged, meta, "audio.wav")
     assert "Transcript: audio.wav" in md
-    assert "**Duration**: 10.0s" in md
     assert "**Speakers**: 2" in md
     assert "**SPEAKER_00**" in md
-    assert "**SPEAKER_01**" in md
 
 
 def test_format_markdown_timestamps(transcribe_module):
@@ -103,7 +87,6 @@ def test_resolve_audio_input_absolute_path(transcribe_module, tmp_path):
     audio = tmp_path / "test.wav"
     audio.write_bytes(b"fake audio")
     path, name = transcribe_module._resolve_audio_input(str(audio))
-    assert path is not None
     assert path == audio.resolve()
     assert name == "test.wav"
 

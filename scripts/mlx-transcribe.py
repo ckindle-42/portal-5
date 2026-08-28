@@ -2,9 +2,9 @@
 """
 MLX Transcribe Server — Portal 5 (TASK-TRANSCRIBE-001)
 
-Host-native diarized transcription server for Apple Silicon.
-- Transcription: mlx-whisper (Metal-accelerated, large-v3-turbo)
-- Diarization: pyannote.audio 3.1 on MPS
+Host-native transcription server for Apple Silicon.
+- Fast ASR: Parakeet-TDT-v3 (Metal-accelerated, word-level timestamps)
+- Diarized: VibeVoice-ASR 9B — text + speaker labels + timestamps in one pass (no HF token)
 - Output: JSON canonical + Markdown sidecar in workspace generated/transcripts/
 
 Runs on the host (not Docker) — same pattern as mlx-proxy.py and mlx-speech.py.
@@ -63,181 +63,108 @@ logger = logging.getLogger("mlx-transcribe")
 PORT = int(os.getenv("MLX_TRANSCRIBE_PORT", "8924"))
 HOST = os.getenv("MLX_TRANSCRIBE_HOST", "0.0.0.0")
 
-WHISPER_MODEL = os.getenv("MLX_WHISPER_MODEL", "mlx-community/whisper-large-v3-turbo")
-DIARIZATION_MODEL = os.getenv("DIARIZATION_MODEL", "pyannote/speaker-diarization-3.1")
-HF_TOKEN = os.getenv("HF_TOKEN", "")
-VOXTRAL_MODEL = os.getenv("MLX_VOXTRAL", "mlx-community/Voxtral-Mini-3B-2507-bf16")
+# ASR (fast, no diarization) — Parakeet-TDT-v3, word-level timestamps.
+PARAKEET_MODEL = os.getenv("MLX_PARAKEET_MODEL", "mlx-community/parakeet-tdt-0.6b-v3")
+# Diarized transcription (text + speaker + timestamps, single pass) — VibeVoice-ASR 9B.
+VIBEVOICE_MODEL = os.getenv("MLX_VIBEVOICE_MODEL", "mlx-community/VibeVoice-ASR-bf16")
+# pyannote + HF_TOKEN diarization gate and the Voxtral path are retired
+# (TASK_TRANSCRIBE_VIBEVOICE_PARAKEET_REPLACE) — VibeVoice diarizes in one pass, ungated.
 
 # ── Model cache ────────────────────────────────────────────────────────────────
 
-_diarization_pipeline: Any = None
-_voxtral_model: Any = None
+_parakeet_model: Any = None
+_vibevoice_model: Any = None
 _pipeline_lock = asyncio.Semaphore(1)  # GPU-heavy; serialize.
 
 
-def _get_voxtral_model() -> Any:
-    """Lazy-load and cache the Voxtral model via mlx_audio."""
-    global _voxtral_model
-    if _voxtral_model is None:
+def _get_parakeet() -> Any:
+    """Lazy-load and cache Parakeet-TDT-v3 (fast ASR, word timestamps)."""
+    global _parakeet_model
+    if _parakeet_model is None:
         from mlx_audio.stt.utils import load
 
-        logger.info("Loading Voxtral model: %s", VOXTRAL_MODEL)
-        _voxtral_model = load(VOXTRAL_MODEL)
-        logger.info("Voxtral model ready")
-    return _voxtral_model
+        logger.info("Loading Parakeet ASR: %s", PARAKEET_MODEL)
+        _parakeet_model = load(PARAKEET_MODEL)
+        logger.info("Parakeet ready")
+    return _parakeet_model
 
 
-def _voxtral_transcribe(audio_path: str, language: str | None) -> dict:
-    """Transcribe via Voxtral (multilingual, no diarization). Returns same shape as _transcribe()."""
-    from mlx_audio.stt.utils import transcribe as voxtral_transcribe_fn
+def _get_vibevoice() -> Any:
+    """Lazy-load and cache VibeVoice-ASR (9B; text + speaker + timestamps, single pass)."""
+    global _vibevoice_model
+    if _vibevoice_model is None:
+        from mlx_audio.stt.utils import load
 
-    model = _get_voxtral_model()
-    kwargs: dict[str, Any] = {}
-    if language:
-        kwargs["language"] = language
-    result = voxtral_transcribe_fn(model, audio_path, **kwargs)
-    # mlx_audio returns {"text": ..., "language": ..., "segments": [...]}
-    segments = [
-        {
-            "start": round(seg.get("start", 0.0), 2),
-            "end": round(seg.get("end", 0.0), 2),
-            "text": seg.get("text", "").strip(),
-        }
-        for seg in result.get("segments", [])
-    ]
-    duration = segments[-1]["end"] if segments else 0.0
-    return {
-        "text": result.get("text", "").strip(),
-        "language": result.get("language", language or "unknown"),
-        "duration": round(duration, 2),
-        "segments": segments,
-    }
+        logger.info("Loading VibeVoice-ASR (9B, first load is slow): %s", VIBEVOICE_MODEL)
+        _vibevoice_model = load(VIBEVOICE_MODEL)
+        logger.info("VibeVoice-ASR ready")
+    return _vibevoice_model
 
 
-def _get_diarization_pipeline() -> Any:
-    """Lazy-load and cache the pyannote diarization pipeline on MPS."""
-    global _diarization_pipeline
-    if _diarization_pipeline is None:
-        if not HF_TOKEN:
-            raise RuntimeError(
-                "HF_TOKEN not set. Diarization models are gated — "
-                "accept terms at https://huggingface.co/pyannote/speaker-diarization-3.1 "
-                "and set HF_TOKEN in .env"
-            )
-        import torch
-        from pyannote.audio import Pipeline
+def _vibevoice_segments_to_canonical(segments: list) -> list[dict]:
+    """Map VibeVoice segment keys to canonical {start, end, speaker, text}.
 
-        logger.info("Loading diarization pipeline: %s", DIARIZATION_MODEL)
-        pipeline = Pipeline.from_pretrained(DIARIZATION_MODEL, token=HF_TOKEN)
-        if torch.backends.mps.is_available():
-            pipeline.to(torch.device("mps"))
-            logger.info("Diarization pipeline placed on MPS")
-        else:
-            logger.warning("MPS unavailable; diarization will run on CPU (slower)")
-        _diarization_pipeline = pipeline
-        logger.info("Diarization pipeline ready")
-    return _diarization_pipeline
+    Phase 0 confirmed this build's parsed shape is {"start","end","speaker_id","text"}
+    (speaker_id absent on non-speech segments); the raw JSON shape is
+    {"Start","End","Speaker","Content"}. Handle all three key spellings so a minor
+    version bump doesn't silently break the adapter.
+    """
+    out: list[dict] = []
+    for s in segments:
+        start = s.get("start", s.get("start_time", s.get("Start", 0.0)))
+        end = s.get("end", s.get("end_time", s.get("End", 0.0)))
+        spk = s.get("speaker_id", s.get("Speaker"))
+        text = s.get("text", s.get("Content", "")).strip()
+        out.append(
+            {
+                "start": round(float(start), 2),
+                "end": round(float(end), 2),
+                "speaker": f"SPEAKER_{int(spk):02d}" if spk is not None else "SPEAKER_UNKNOWN",
+                "text": text,
+            }
+        )
+    return out
 
 
 # ── Core pipeline ──────────────────────────────────────────────────────────────
 
 
 def _transcribe(audio_path: str, language: str | None) -> dict:
-    """Run mlx-whisper transcription. Returns {text, language, duration, segments}."""
-    import mlx_whisper
-
-    kwargs: dict[str, Any] = {"path_or_hf_repo": WHISPER_MODEL}
-    if language:
-        kwargs["language"] = language
-    result = mlx_whisper.transcribe(audio_path, **kwargs)
+    """Fast ASR via Parakeet-TDT-v3. Returns {text, language, duration, segments}."""
+    model = _get_parakeet()
+    result = model.generate(audio_path)
     segments = [
-        {
-            "start": round(seg["start"], 2),
-            "end": round(seg["end"], 2),
-            "text": seg["text"].strip(),
-        }
-        for seg in result.get("segments", [])
+        {"start": round(float(s.start), 2), "end": round(float(s.end), 2), "text": s.text.strip()}
+        for s in getattr(result, "sentences", [])
     ]
     duration = segments[-1]["end"] if segments else 0.0
     return {
-        "text": result.get("text", "").strip(),
-        "language": result.get("language", language or "unknown"),
+        "text": result.text.strip(),
+        "language": language or "en",
         "duration": round(duration, 2),
         "segments": segments,
     }
 
 
-def _diarize(audio_path: str, num_speakers: int | None) -> list[dict]:
-    """Run pyannote diarization. Returns sorted list of {start, end, speaker}.
+def _diarized_transcribe(audio_path: str, num_speakers: int | None, language: str | None) -> dict:
+    """Single-pass diarized transcription via VibeVoice-ASR (text + speaker + timestamps).
 
-    Converts to 16kHz mono WAV before diarization — pyannote raises ValueError
-    on MP3 files where compressed frame boundaries produce sample-count mismatches.
+    num_speakers is accepted for API compatibility; VibeVoice infers speakers itself.
+    Returns {text, language, duration, speaker_count, segments}.
     """
-    import shutil
-    import subprocess
-
-    pipeline = _get_diarization_pipeline()
-
-    # Convert to 16kHz mono WAV to avoid MP3 chunk-boundary sample-count errors
-    ffmpeg = shutil.which("ffmpeg") or "ffmpeg"
-    wav_tmp = audio_path + "_diarize.wav"
-    try:
-        subprocess.run(
-            [ffmpeg, "-y", "-i", audio_path, "-ar", "16000", "-ac", "1", wav_tmp],
-            check=True,
-            capture_output=True,
-        )
-        diarize_input = wav_tmp
-    except Exception as e:
-        logger.warning("WAV conversion failed (%s); falling back to original path", e)
-        diarize_input = audio_path
-
-    try:
-        kwargs: dict[str, Any] = {}
-        if num_speakers is not None:
-            kwargs["num_speakers"] = num_speakers
-        output = pipeline(diarize_input, **kwargs)
-        # pyannote 4.x returns DiarizeOutput(speaker_diarization=Annotation, ...)
-        # pyannote 3.x returns Annotation directly
-        annotation = getattr(output, "speaker_diarization", output)
-    finally:
-        import os
-
-        if diarize_input != audio_path:
-            os.unlink(wav_tmp)
-
-    turns = [
-        {
-            "start": round(turn.start, 2),
-            "end": round(turn.end, 2),
-            "speaker": speaker,
-        }
-        for turn, _, speaker in annotation.itertracks(yield_label=True)
-    ]
-    turns.sort(key=lambda t: t["start"])
-    return turns
-
-
-def _merge(segments: list[dict], turns: list[dict]) -> list[dict]:
-    """Assign each segment to max-overlap speaker, then collapse adjacent same-speaker."""
-    if not turns:
-        return [{**s, "speaker": "SPEAKER_00"} for s in segments]
-    labeled: list[dict] = []
-    for seg in segments:
-        best_speaker, best_overlap = "SPEAKER_UNKNOWN", 0.0
-        for t in turns:
-            overlap = min(seg["end"], t["end"]) - max(seg["start"], t["start"])
-            if overlap > best_overlap:
-                best_overlap, best_speaker = overlap, t["speaker"]
-        labeled.append({**seg, "speaker": best_speaker})
-    merged: list[dict] = []
-    for seg in labeled:
-        if merged and merged[-1]["speaker"] == seg["speaker"]:
-            merged[-1]["end"] = seg["end"]
-            merged[-1]["text"] = (merged[-1]["text"] + " " + seg["text"]).strip()
-        else:
-            merged.append(dict(seg))
-    return merged
+    model = _get_vibevoice()
+    result = model.generate(audio=audio_path, max_tokens=8192, temperature=0.0)
+    merged = _vibevoice_segments_to_canonical(getattr(result, "segments", []))
+    speaker_count = len({s["speaker"] for s in merged}) if merged else 0
+    duration = merged[-1]["end"] if merged else 0.0
+    text = getattr(result, "text", "") or " ".join(s["text"] for s in merged)
+    return {
+        "text": text.strip(),
+        "language": language or "en",
+        "duration": round(duration, 2),
+        "speaker_count": speaker_count,
+        "segments": merged,
+    }
 
 
 def _format_markdown(merged: list[dict], meta: dict, source_name: str = "audio") -> str:
@@ -267,35 +194,23 @@ def _run_pipeline(
     num_speakers: int | None,
     source_name: str = "audio",
 ) -> dict:
-    """Synchronous full pipeline. Caller wraps in asyncio.to_thread."""
+    """Synchronous diarized pipeline (VibeVoice single pass). Caller wraps in asyncio.to_thread."""
     t0 = time.time()
-    transcript = _transcribe(audio_path, language)
-    t_transcribe = time.time() - t0
+    diarized = _diarized_transcribe(audio_path, num_speakers, language)
+    total_s = round(time.time() - t0, 2)
 
-    t1 = time.time()
-    diarization_warning: str | None = None
-    try:
-        speaker_turns = _diarize(audio_path, num_speakers)
-    except Exception as e:
-        diarization_warning = (
-            f"Diarization unavailable ({type(e).__name__}: {e}); using single-speaker fallback"
-        )
-        logger.warning(diarization_warning)
-        speaker_turns = []
-    t_diarize = time.time() - t1
-
-    merged = _merge(transcript["segments"], speaker_turns)
-    speaker_count = len({s["speaker"] for s in merged}) if merged else 0
+    merged = diarized["segments"]
+    speaker_count = diarized["speaker_count"]
 
     meta = {
-        "text": transcript["text"],
-        "language": transcript["language"],
-        "duration": transcript["duration"],
+        "text": diarized["text"],
+        "language": diarized["language"],
+        "duration": diarized["duration"],
         "speaker_count": speaker_count,
         "timing": {
-            "transcribe_s": round(t_transcribe, 2),
-            "diarize_s": round(t_diarize, 2),
-            "total_s": round(time.time() - t0, 2),
+            "transcribe_s": total_s,  # single pass — transcription and diarization are one call
+            "diarize_s": 0.0,
+            "total_s": total_s,
         },
     }
 
@@ -319,50 +234,7 @@ def _run_pipeline(
         "json_url": f"http://host.docker.internal:{PORT}/files/{json_path.name}",
         "md_url": f"http://host.docker.internal:{PORT}/files/{md_path.name}",
     }
-    if diarization_warning:
-        result["diarization_warning"] = diarization_warning
     return result
-
-
-def _run_voxtral_pipeline(
-    audio_path: str,
-    language: str | None,
-    source_name: str = "audio",
-) -> dict:
-    """Voxtral-only pipeline (no diarization). Caller wraps in asyncio.to_thread."""
-    t0 = time.time()
-    transcript = _voxtral_transcribe(audio_path, language)
-    elapsed = round(time.time() - t0, 2)
-
-    segments = [{**s, "speaker": "SPEAKER_00"} for s in transcript["segments"]]
-
-    meta = {
-        "text": transcript["text"],
-        "language": transcript["language"],
-        "duration": transcript["duration"],
-        "speaker_count": 1,
-        "timing": {"transcribe_s": elapsed, "diarize_s": 0.0, "total_s": elapsed},
-    }
-
-    out_dir = get_generated_dir("transcripts")
-    uid = uuid.uuid4().hex[:12]
-    json_path = out_dir / f"transcript_{uid}.json"
-    md_path = out_dir / f"transcript_{uid}.md"
-
-    full_payload = {**meta, "segments": segments, "source": source_name}
-    json_path.write_text(json.dumps(full_payload, indent=2))
-    markdown = _format_markdown(segments, meta, source_name)
-    md_path.write_text(markdown)
-
-    return {
-        **meta,
-        "segments": segments,
-        "markdown": markdown,
-        "json_path": str(json_path),
-        "md_path": str(md_path),
-        "json_url": f"http://host.docker.internal:{PORT}/files/{json_path.name}",
-        "md_url": f"http://host.docker.internal:{PORT}/files/{md_path.name}",
-    }
 
 
 _AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".webm", ".aac", ".mp4"}
@@ -445,11 +317,10 @@ async def health() -> JSONResponse:
         {
             "status": "ok",
             "service": "mlx-transcribe",
-            "whisper_model": WHISPER_MODEL,
-            "voxtral_model": VOXTRAL_MODEL,
-            "diarization_model": DIARIZATION_MODEL,
-            "diarization_loaded": _diarization_pipeline is not None,
-            "voxtral_loaded": _voxtral_model is not None,
+            "asr_model": PARAKEET_MODEL,
+            "diarization_model": VIBEVOICE_MODEL,
+            "parakeet_loaded": _parakeet_model is not None,
+            "vibevoice_loaded": _vibevoice_model is not None,
         }
     )
 
@@ -467,24 +338,32 @@ async def invoke_tool(tool_name: str, request: Request) -> JSONResponse:
         file_arg = arguments.get("file", "")
         num_speakers = arguments.get("num_speakers")
         language = arguments.get("language")
-        engine = arguments.get("engine", "whisper-large-v3-turbo")
         path, source_name = _resolve_audio_input(file_arg)
         if path is None:
             return JSONResponse({"error": source_name})
         async with _pipeline_lock:
             try:
-                if engine == "voxtral-mini-3b":
-                    result = await asyncio.to_thread(
-                        _run_voxtral_pipeline, str(path), language, source_name
-                    )
-                else:
-                    result = await asyncio.to_thread(
-                        _run_pipeline, str(path), language, num_speakers, source_name
-                    )
-                result["engine"] = engine
+                result = await asyncio.to_thread(
+                    _run_pipeline, str(path), language, num_speakers, source_name
+                )
+                result["engine"] = "vibevoice-asr"
                 return JSONResponse(result)
             except Exception as e:
                 logger.error("invoke_tool transcribe_with_speakers failed: %s", e, exc_info=True)
+                return JSONResponse({"error": str(e)}, status_code=500)
+    elif tool_name == "transcribe_audio":
+        file_arg = arguments.get("file", arguments.get("audio_path", ""))
+        language = arguments.get("language")
+        path, source_name = _resolve_audio_input(file_arg)
+        if path is None:
+            return JSONResponse({"error": source_name})
+        async with _pipeline_lock:
+            try:
+                result = await asyncio.to_thread(_transcribe, str(path), language)
+                result["engine"] = "parakeet-tdt-v3"
+                return JSONResponse(result)
+            except Exception as e:
+                logger.error("invoke_tool transcribe_audio failed: %s", e, exc_info=True)
                 return JSONResponse({"error": str(e)}, status_code=500)
     else:
         return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
@@ -496,12 +375,34 @@ async def list_tools() -> JSONResponse:
         {
             "tools": [
                 {
+                    "name": "transcribe_audio",
+                    "description": (
+                        "Fast, accurate transcription (Parakeet-TDT-v3, word-level timestamps, "
+                        "no speaker labels). Call with no arguments to auto-detect the most "
+                        "recently uploaded audio file."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "file": {
+                                "type": "string",
+                                "description": "Audio file reference: OWUI file ID, filename in uploads/, or absolute path. Omit to auto-detect most recent upload.",
+                            },
+                            "language": {
+                                "type": "string",
+                                "description": "ISO language code (e.g. 'en'). Auto-detected if omitted.",
+                            },
+                        },
+                        "required": [],
+                    },
+                },
+                {
                     "name": "transcribe_with_speakers",
                     "description": (
-                        "Transcribe an audio file using MLX. Default engine: whisper-large-v3-turbo "
-                        "with pyannote speaker diarization. Use engine='voxtral-mini-3b' for "
-                        "multilingual transcription (en/fr/de/es/it/pt/nl/ru, no diarization). "
-                        "Call with no arguments to auto-detect the most recently uploaded audio file."
+                        "Transcribe an audio file with speaker identification in a single pass "
+                        "(VibeVoice-ASR): text + speaker labels + timestamps, up to ~60 min. No "
+                        "separate diarization step and no HuggingFace token required. Call with "
+                        "no arguments to auto-detect the most recently uploaded audio file."
                     ),
                     "parameters": {
                         "type": "object",
@@ -512,21 +413,16 @@ async def list_tools() -> JSONResponse:
                             },
                             "num_speakers": {
                                 "type": "integer",
-                                "description": "Expected speaker count (whisper engine only). Auto-detected if omitted. Recommended for >15 min audio.",
+                                "description": "Optional expected speaker count hint (VibeVoice infers speakers itself).",
                             },
                             "language": {
                                 "type": "string",
-                                "description": "ISO language code (e.g. 'en', 'fr'). Auto-detected if omitted.",
-                            },
-                            "engine": {
-                                "type": "string",
-                                "enum": ["whisper-large-v3-turbo", "voxtral-mini-3b"],
-                                "description": "Transcription engine. 'whisper-large-v3-turbo' (default): speaker-diarized English-optimized. 'voxtral-mini-3b': Mistral multilingual (8 languages), no diarization.",
+                                "description": "ISO language code (e.g. 'en'). Auto-detected if omitted.",
                             },
                         },
                         "required": [],
                     },
-                }
+                },
             ]
         }
     )
@@ -595,15 +491,37 @@ mcp = MCPServer("mlx-transcribe")
 
 
 @mcp.tool()
+async def transcribe_audio(file: str = "", language: str | None = None) -> dict:
+    """
+    Fast transcription (Parakeet-TDT-v3, word-level timestamps, no speaker labels).
+
+    Args:
+        file: Audio reference. Omit to auto-detect the most recent upload; otherwise an
+              OWUI file ID, a filename in uploads/, or an absolute host path.
+        language: ISO language code (e.g. 'en'). Auto-detected if omitted.
+    """
+    path, source_name = _resolve_audio_input(file)
+    if path is None:
+        return {"error": source_name}
+    async with _pipeline_lock:
+        try:
+            result = await asyncio.to_thread(_transcribe, str(path), language)
+            result["engine"] = "parakeet-tdt-v3"
+            result["source"] = source_name
+            return result
+        except Exception as e:
+            logger.error("MCP transcribe_audio failed: %s", e, exc_info=True)
+            return {"error": str(e)}
+
+
+@mcp.tool()
 async def transcribe_with_speakers(
     file: str = "",
     num_speakers: int | None = None,
     language: str | None = None,
-    engine: str = "whisper-large-v3-turbo",
 ) -> dict:
     """
-    Transcribe an audio file with speaker diarization (whisper) or multilingual
-    recognition (voxtral).
+    Transcribe an audio file with speaker identification in a single pass (VibeVoice-ASR).
 
     Produces a transcript and saves both JSON and Markdown to the workspace
     generated/transcripts/ directory. The full markdown is included in the response.
@@ -614,15 +532,10 @@ async def transcribe_with_speakers(
               - OWUI file ID from a chat attachment (e.g., 'abc-123-def')
               - Filename in the uploads directory (e.g., 'meeting.mp3')
               - Absolute path on the host (e.g., '/Users/me/audio.wav')
-        num_speakers: Hint for expected speaker count (whisper engine only).
-                      Auto-detected if omitted. Recommended for files >15 min.
-        language: ISO language code (e.g., 'en', 'es', 'fr'). Auto-detected if
-                  omitted. Voxtral supports: en, fr, de, es, it, pt, nl, ru.
-        engine: Transcription engine to use.
-                - "whisper-large-v3-turbo" (default): mlx-whisper + pyannote
-                  diarization, English-optimized, speaker labels
-                - "voxtral-mini-3b": Mistral Voxtral, 8-language multilingual,
-                  no diarization, requires PULL_VOXTRAL=1 download first
+        num_speakers: Optional expected speaker count hint. Auto-detected if omitted.
+        language: ISO language code (e.g., 'en'). Auto-detected if omitted.
+
+    (Diarization is single-pass via VibeVoice-ASR — no engine selection, no HF token.)
 
     Returns:
         dict with:
@@ -638,11 +551,10 @@ async def transcribe_with_speakers(
         On error: {"error": "..."}
     """
     logger.info(
-        "transcribe_with_speakers called: file=%r num_speakers=%r language=%r engine=%r",
+        "transcribe_with_speakers called: file=%r num_speakers=%r language=%r",
         file,
         num_speakers,
         language,
-        engine,
     )
     path, source_name = _resolve_audio_input(file)
     if path is None:
@@ -651,15 +563,10 @@ async def transcribe_with_speakers(
 
     async with _pipeline_lock:
         try:
-            if engine == "voxtral-mini-3b":
-                result = await asyncio.to_thread(
-                    _run_voxtral_pipeline, str(path), language, source_name
-                )
-            else:
-                result = await asyncio.to_thread(
-                    _run_pipeline, str(path), language, num_speakers, source_name
-                )
-            result["engine"] = engine
+            result = await asyncio.to_thread(
+                _run_pipeline, str(path), language, num_speakers, source_name
+            )
+            result["engine"] = "vibevoice-asr"
             return result
         except Exception as e:
             logger.error("MCP transcribe_with_speakers failed: %s", e, exc_info=True)
@@ -679,10 +586,8 @@ app.mount("/mcp", _mcp_sub_app)
 
 if __name__ == "__main__":
     logger.info("Starting mlx-transcribe on %s:%d", HOST, PORT)
-    logger.info("Whisper model: %s", WHISPER_MODEL)
-    logger.info("Voxtral model: %s (lazy-loaded on first voxtral-mini-3b request)", VOXTRAL_MODEL)
-    logger.info("Diarization model: %s", DIARIZATION_MODEL)
+    logger.info("ASR (fast): %s", PARAKEET_MODEL)
+    logger.info("Diarized (single-pass): %s", VIBEVOICE_MODEL)
     logger.info("Output dir: %s", get_generated_dir("transcripts"))
-    if not HF_TOKEN:
-        logger.warning("HF_TOKEN not set — diarization will fail on first call")
+    logger.info("Models load lazily on first request. No HF token required for diarization.")
     uvicorn.run(app, host=HOST, port=PORT, log_level="info")

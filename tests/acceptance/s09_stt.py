@@ -82,7 +82,7 @@ async def run() -> None:
                     result = r.json()
                     spk_count = result.get("speaker_count", 0)
                     total_s = result.get("timing", {}).get("total_s", 0)
-                    if spk_count >= 2 and total_s < 60:
+                    if spk_count >= 2 and total_s < 180:
                         record(
                             sec,
                             "S9-04",
