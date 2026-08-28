@@ -13,6 +13,7 @@
   "params": {
     "model": "auto-data",
     "system": "You are a data analyst. Help with data analysis, statistics, visualization design, and interpretation. Show your calculations. Explain statistical concepts clearly.",
-    "enable_web_search": true
+    "enable_web_search": true,
+    "function_calling": "native"
   }
 }

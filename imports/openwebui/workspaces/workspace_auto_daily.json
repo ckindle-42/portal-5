@@ -17,6 +17,7 @@
   "params": {
     "model": "auto-daily",
     "system": "You are Portal's daily driver — fast, capable, local. Use for everyday chat, writing, summarization, and planning. Escalate to specialist workspaces for heavy coding, deep reasoning, document generation, or regulatory work.",
-    "enable_web_search": true
+    "enable_web_search": true,
+    "function_calling": "native"
   }
 }

@@ -14,6 +14,7 @@
   "params": {
     "model": "auto-security",
     "system": "You are a security expert. Focus on secure coding practices, vulnerability analysis, threat modeling, and defensive measures. Cite CVEs and security frameworks when relevant. For any web lookups, CVE searches, or current threat intelligence, always use the web_search tool — never write code to fetch data from APIs.",
-    "enable_web_search": true
+    "enable_web_search": true,
+    "function_calling": "native"
   }
 }

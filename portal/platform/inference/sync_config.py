@@ -70,6 +70,13 @@ def _owui_preset(ws_id: str, spec: Any) -> dict[str, Any]:
         preset["params"]["system"] = spec.owui_system_prompt
     if spec.enable_web_search:
         preset["params"]["enable_web_search"] = True
+    if tool_ids:
+        # Native tool-calling: pass the tool schemas straight to the model API.
+        # OWUI's default ("default") mode is prompt-based — it runs a separate
+        # tool-selection LLM call whose JSON small models (e.g. lfm2.5 on
+        # auto-music) routinely fail to produce, leaving the model with no tools
+        # and improvising a wrong "I have no such tool" refusal.
+        preset["params"]["function_calling"] = "native"
     return preset
 
 
