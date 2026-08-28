@@ -75,7 +75,6 @@ CLONE_MODEL = os.getenv(
     os.getenv("MLX_CHATTERBOX_MODEL", "mlx-community/higgs-audio-v2-3B-mlx-q8"),
 )
 QWEN3_ASR_MODEL = os.getenv("MLX_QWEN3_ASR", "mlx-community/Qwen3-ASR-1.7B-8bit")
-VOXTRAL_MODEL = os.getenv("MLX_VOXTRAL", "mlx-community/Voxtral-Mini-3B-2507-bf16")
 
 # Persisted trainer-voice profiles: VOICE_PROFILES_DIR/<name>/{reference.wav,reference.txt,meta.json}
 VOICE_PROFILES_DIR = Path(
@@ -100,7 +99,6 @@ QWEN3_SPEAKERS = [
 
 _tts_models: dict = {}  # keyed by model path
 _asr_model = None
-_voxtral_model = None
 
 # Serialize TTS requests — concurrent Metal GPU command buffer encoding crashes
 # AGXG16XFamilyCommandBuffer (macOS Apple Silicon). Semaphore(1) ensures one
@@ -291,18 +289,6 @@ def _clone_route(voice: str, text: str, output_path: Path) -> dict:
     result = _voice_clone(text, ref_audio_path, ref_text, output_path)
     result["voice"] = voice
     return result
-
-
-def _get_voxtral_model():
-    """Lazy-load and cache the Voxtral STT model."""
-    global _voxtral_model
-    if _voxtral_model is None:
-        from mlx_audio.stt.utils import load as mlx_audio_load
-
-        logger.info("Loading Voxtral model: %s (first call — takes ~30s)", VOXTRAL_MODEL)
-        _voxtral_model = mlx_audio_load(VOXTRAL_MODEL)
-        logger.info("Voxtral model loaded: %s", VOXTRAL_MODEL)
-    return _voxtral_model
 
 
 def _cleanup_stale_audio(max_age_hours: int = 1) -> None:
@@ -552,10 +538,7 @@ async def openai_audio_transcriptions(
 
     try:
         lang = language if language != "auto" else None
-        if model == "voxtral-mini-3b":
-            result = await asyncio.to_thread(_transcribe_voxtral, tmp_path, lang)
-        else:
-            result = await asyncio.to_thread(_transcribe, tmp_path, lang)
+        result = await asyncio.to_thread(_transcribe, tmp_path, lang)
     except Exception as e:
         logger.error("ASR failed: %s", e, exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)
@@ -585,21 +568,6 @@ def _transcribe(file_path: str, language: str | None) -> dict:
         return {"error": str(e), "backend": "qwen3_asr"}
 
 
-def _transcribe_voxtral(file_path: str, language: str | None) -> dict:
-    """Transcribe audio using Voxtral-Mini-3B via mlx-audio. Runs in thread pool."""
-    try:
-        voxtral = _get_voxtral_model()
-        result = voxtral.generate(file_path)
-        return {
-            "text": result.text,
-            "language": getattr(result, "language", language or "auto"),
-            "backend": "voxtral-mini-3b",
-        }
-    except Exception as e:
-        logger.error("Voxtral ASR error: %s", e)
-        return {"error": str(e), "backend": "voxtral-mini-3b"}
-
-
 # ── Models endpoint ────────────────────────────────────────────────────────────
 
 
@@ -614,7 +582,6 @@ async def list_models():
                 {"id": "qwen3-tts-design", "object": "model", "owned_by": "portal-5"},
                 {"id": "voice-clone", "object": "model", "owned_by": "portal-5"},
                 {"id": "qwen3-asr", "object": "model", "owned_by": "portal-5"},
-                {"id": "voxtral-mini-3b", "object": "model", "owned_by": "portal-5"},
             ],
         }
     )

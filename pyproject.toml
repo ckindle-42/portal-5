@@ -82,9 +82,8 @@ apple-silicon = [
     "mlx-audio>=0.4.8,<0.5.0",
     # MLX Transcribe: Parakeet-TDT-v3 transcript + Sortformer speaker diarization,
     # merged at word level on Apple Silicon (both native in mlx-audio, ungated —
-    # no pyannote, no HF token). mlx-whisper is retained for the faster-whisper
-    # Docker fallback's model family.
-    "mlx-whisper>=0.4.0",
+    # no pyannote, no HF token). The non-Apple-Silicon fallback is faster-whisper
+    # (base deps), which bundles its own CTranslate2 runtime — no mlx-whisper.
     "torch>=2.1.0",
     "torchaudio>=2.1.0",
     # Reference-clip resampling for voice cloning (mlx-speech.py _voice_clone)

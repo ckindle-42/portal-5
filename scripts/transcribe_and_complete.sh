@@ -22,8 +22,7 @@
 #
 # Prerequisites (one-time):
 #   - TASK-WORKSPACE-001 + TASK-TRANSCRIBE-001 merged
-#   - HF_TOKEN in .env, pyannote licenses accepted on HuggingFace
-#   - ./launch.sh start-transcribe (mlx-transcribe on :8924)
+#   - ./launch.sh start-transcribe (mlx-transcribe on :8924; no HF token needed)
 #   - mcp-documents container running (docx render via persona's tool call)
 #   - Open WebUI API key generated and exported as OWUI_API_KEY
 #     (OWUI → Settings → Account → API Keys → Create New)
@@ -128,7 +127,7 @@ HEALTH="$(curl -sf --max-time 5 "$TRANSCRIBE_URL/health")" || {
   err "mlx-transcribe unreachable. Run: ./launch.sh start-transcribe"
   exit 1
 }
-echo "$HEALTH" | jq -r '"  Whisper:      \(.whisper_model)\n  Diarization:  \(.diarization_model)\n  Loaded:       \(.diarization_loaded)"' >&2
+echo "$HEALTH" | jq -r '"  ASR:          \(.asr_model)\n  Diarization:  \(.diarization_model)\n  Diarizer up:  \(.diarizer_loaded)"' >&2
 
 info "Open WebUI at $OWUI_URL"
 curl -sf --max-time 5 -H "Authorization: Bearer $OWUI_API_KEY" \
