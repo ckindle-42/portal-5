@@ -25,6 +25,7 @@ from mcp.server import MCPServer
 from starlette.responses import FileResponse, JSONResponse, Response
 
 from portal.platform.data_loader import load_data
+from portal.platform.mcp_host.owui_files import publish_file
 from portal.platform.mcp_host.workspace import (
     get_generated_dir,
     get_uploads_dir,
@@ -42,11 +43,20 @@ _AUDIO_EXTS = (".wav", ".flac", ".ogg", ".mp3", ".m4a", ".aac", ".webm", ".aiff"
 _SAFE_FILENAME = re.compile(r"^[A-Za-z0-9._-]+\.wav$")
 
 
-def _save_speech(content: bytes, voice: str) -> tuple[str, str]:
-    """Write generated speech to the shared workspace and return (filename, url)."""
+async def _save_speech(content: bytes, voice: str) -> tuple[str, str]:
+    """Persist generated speech and return (filename, download_url).
+
+    Preferred path: publish through Open WebUI so the link rides the one port
+    the tunnel exposes (:8080). Fallback (no OWUI_API_KEY): the local file +
+    this server's /files/tts route.
+    """
     slug = re.sub(r"[^a-z0-9]+", "-", voice.lower()).strip("-") or "voice"
     fname = f"speak_{slug}_{secrets.token_hex(16)}.wav"
-    (get_generated_dir("speech") / fname).write_bytes(content)
+    path = get_generated_dir("speech") / fname
+    path.write_bytes(content)
+    published = await publish_file(path, content_type="audio/wav")
+    if published:
+        return fname, published["url"]
     return fname, f"{PUBLIC_URL}/{fname}"
 
 
@@ -103,7 +113,7 @@ async def _speech_speak(text: str, voice: str) -> dict:
         "application/json"
     ):
         try:
-            fname, url = _save_speech(r.content, voice)
+            fname, url = await _save_speech(r.content, voice)
         except Exception as e:  # noqa: BLE001 — still hand back the bytes count
             return {
                 "status": "success",

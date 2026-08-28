@@ -659,6 +659,9 @@ def configure_user_settings(client: httpx.Client, token: str) -> None:
         if cfg_resp.status_code == 200:
             cfg = cfg_resp.json()
             cfg["ENABLE_SIGNUP"] = ENABLE_SIGNUP
+            # Let the operator mint an sk- key (Settings -> Account) for
+            # OWUI_API_KEY, so media MCPs can publish files back through :8080.
+            cfg["ENABLE_API_KEYS"] = True
             resp = client.post(
                 f"{OPENWEBUI_URL}/api/v1/auths/admin/config",
                 json=cfg,
