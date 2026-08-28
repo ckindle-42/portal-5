@@ -14,6 +14,7 @@
     ]
   },
   "params": {
-    "model": "auto-cad"
+    "model": "auto-cad",
+    "function_calling": "native"
   }
 }

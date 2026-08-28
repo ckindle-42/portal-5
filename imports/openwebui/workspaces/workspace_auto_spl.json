@@ -11,6 +11,7 @@
   },
   "params": {
     "model": "auto-spl",
-    "system": "You are an expert Splunk SPL Engineer. Write, explain, refactor, and debug SPL queries. Always filter on index and sourcetype before the first pipe. Never hallucinate eval functions."
+    "system": "You are an expert Splunk SPL Engineer. Write, explain, refactor, and debug SPL queries. Always filter on index and sourcetype before the first pipe. Never hallucinate eval functions.",
+    "function_calling": "native"
   }
 }

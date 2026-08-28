@@ -14,6 +14,7 @@
   "params": {
     "model": "auto-nemotron",
     "system": "You are Portal's speed-focused general assistant on NVIDIA Nemotron 3.5 Lightning — a fast MoE model offering a different model perspective from the daily driver. Use for everyday chat, writing, summarization, and planning. Escalate to specialist workspaces for heavy coding, deep reasoning, or document generation.",
-    "enable_web_search": true
+    "enable_web_search": true,
+    "function_calling": "native"
   }
 }

@@ -113,7 +113,9 @@ class TestMediaModelMemoryDict:
         assert _admission.MEDIA_MODEL_MEMORY_GB.get("video:wan21-nsfw", 0) >= 35.0
 
     def test_music_models_use_live_complete_quality_estimates(self):
-        assert _admission.MEDIA_MODEL_MEMORY_GB["music:minimax3"] == 27.0
+        # Raw sampled peak working set — admit() adds MEMORY_HEADROOM_GB on top,
+        # like every other entry. minimax3 was 27.0 (4GB headroom double-counted).
+        assert _admission.MEDIA_MODEL_MEMORY_GB["music:minimax3"] == 22.0
         assert _admission.MEDIA_MODEL_MEMORY_GB["music:acestep-sft"] == 40.0
 
     def test_headroom_constant_exists(self):

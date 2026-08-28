@@ -5,7 +5,7 @@ title: memory budget for 9 media backend/model combinations
 sources:
 - type: code
   path: portal/platform/wiki/adapters/seed_facts.py
-  commit: 570249c65237
+  commit: f5297714db3d
   section: MEDIA_MODEL_MEMORY_GB
 claims: []
 confidence: high
@@ -14,7 +14,7 @@ tags:
 - media
 - memory
 created_at: 1784057641.950119
-updated_at: 1787859509.898585
+updated_at: 1787953098.848402
 ---
 
 # Media backend memory budget (Tier 0, cross-engine VRAM admission)
@@ -32,7 +32,7 @@ The `video:*` row is retained for the archived `video_mcp` code path; video serv
 | `comfyui:qwen-image-edit-2511` | 60.0 |
 | `comfyui:sdxl` | 6.5 |
 | `music:acestep-sft` | 40.0 |
-| `music:minimax3` | 27.0 |
+| `music:minimax3` | 22.0 |
 | `video:wan21-nsfw` | 55.0 |
 
 ## Why

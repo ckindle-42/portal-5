@@ -10,6 +10,7 @@
     ]
   },
   "params": {
-    "model": "auto-bigfix"
+    "model": "auto-bigfix",
+    "function_calling": "native"
   }
 }

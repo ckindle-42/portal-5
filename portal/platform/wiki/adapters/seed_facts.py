@@ -656,8 +656,11 @@ MEDIA_MODEL_MEMORY_GB: dict[str, float] = {
     # not capture real peak usage — diffusion activation/buffer overhead pushes this
     # backend close to the entire 64GB unified pool regardless of frame count.
     "video:wan21-nsfw": 55.0,
-    # Measured live (Phase 5): MiniMax-Music3-MLX 60s/30-step, vm_stat delta + headroom.
-    "music:minimax3": 27.0,  # coarse sampled delta 22.02GiB + 4GiB headroom, rounded up
+    # Measured live: MiniMax-Music3-MLX 60s/30-step, vm_stat sampled peak working set.
+    # Raw peak only — admit() adds MEMORY_HEADROOM_GB on top (every other entry here
+    # is likewise a raw size, not a headroom-inclusive figure). Was 27.0 with 4GB of
+    # headroom double-counted, which false-refused real 22GB jobs on this 64GB host.
+    "music:minimax3": 22.0,  # coarse sampled delta 22.02GiB, rounded down to the GiB
     # Measured live (Phase 5): ACE-Step-1.5 sft 2B + 1.7B LM 60s/30-step, vm_stat delta + headroom.
     "music:acestep-sft": 40.0,  # coarse sampled delta 35.43GiB + 4GiB headroom, rounded up
     # Rationale, incident history: unit-known-limitations-qwen-image-bf16-crashes-on-apple-silicon-mps
