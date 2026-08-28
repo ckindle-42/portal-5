@@ -141,15 +141,16 @@ ComfyUI on Apple Silicon needs direct access to the Metal/MPS device, which a co
 
 ---
 
-### Voice Cloning (fish-speech) Requires Separate Installation
+### Chatterbox Voice Cloning Constraints
 
-- **Description**: Voice cloning via `fish-speech` is not in the Docker stack — it requires host-side installation. The Docker `tts_mcp`'s `clone_voice` tool requires it: `_check_fish_speech` in `portal/modules/media/tools/tts_mcp.py` imports `fish_speech` and reports "fish-speech not installed (voice cloning unavailable)" on `ImportError`, and the `fish_speech` backend is selected only when that check passes.
-- **Impact**: The docker-side `clone_voice` tool is unavailable without fish-speech installed.
-- **Mitigation**: Voice cloning still works without fish-speech via the native `mlx-speech` service on port 8918: `scripts/mlx-speech.py` accepts `voice="clone:/path/to/reference.wav"` (Qwen3-TTS Base voice cloning from reference audio). `kokoro-onnx` covers non-cloned TTS out of the box either way, as `tts_mcp.py`'s backend fallback shows. See `docs/FISH_SPEECH_SETUP.md` for fish-speech.
+- **ID**: P5-SPEECH-CLONE-001
+- **Description**: Cloning runs through `mlx-community/chatterbox-fp16` (English v2, MIT) in the host `scripts/mlx-speech.py` — Apple-Silicon-only, no CPU/CUDA/Docker path (the Docker `tts_mcp.py` only proxies to it). Every generated clip carries Resemble AI's **PerTh watermark** — an inaudible, traceable provenance marker; it does not restrict use but marks output as AI-generated. Cloning is zero-shot from a clip/profile — **not** a fine-tune, so fidelity tracks reference-clip quality (10-15s clean close-mic clones best). English v2. Measured on this host: model load ~3s (warm; first pull downloads ~2GB of weights), per-clone ~3s for a short sentence, ~3.4GB peak working set.
+- **Impact**: Off Apple Silicon, cloning is unavailable. Watermarked output should not be presented as an indistinguishable real recording. A poor reference yields a poor clone.
+- **Mitigation**: Capture trainer reference clips carefully (quiet room, close mic, 10-15s, accurate transcript) and register them as profiles once with `POST /v1/voices` / the `register_voice` tool. None else needed for this single-user deployment.
 
 ## Why
 
-fish-speech is a heavy optional dependency, so the container keeps it out and the MCP fails with a precise diagnostic rather than a vague error. The native `mlx-speech` service provides the same capability through a different mechanism, which keeps voice cloning available on the default stack while letting operators who want the higher-quality fish-speech path install it separately — two routes, one documented prerequisite each.
+A register-once/reuse profile design fits the training use case better than per-call cloning, and storing the reference WAV+transcript (not a serialized embedding) keeps profiles valid across mlx-audio upgrades. Recording the PerTh watermark and no-fallback constraint here keeps them visible in the limitations register.
 
 ---
 

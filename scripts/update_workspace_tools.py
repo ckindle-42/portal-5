@@ -55,6 +55,7 @@ TOOL_TO_SERVER: dict[str, str] = {
     # portal_tts
     "speak": "portal_tts",
     "clone_voice": "portal_tts",
+    "register_voice": "portal_tts",
     "list_voices": "portal_tts",
     "minimax_generate": "portal_music_minimax",
     "minimax_status": "portal_music_minimax",

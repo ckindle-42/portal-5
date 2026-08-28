@@ -49,7 +49,7 @@ mcp = [
     "openpyxl>=3.1.0",
     "pdfplumber>=0.11.0",
     "markdown>=3.6",
-    # Audio — TTS (kokoro primary, fish-speech optional)
+    # Audio — TTS. Cloning is Chatterbox via mlx-audio (host mlx-speech.py); Kokoro narration via mlx-audio.
     "kokoro-onnx>=0.4.0",
     "soundfile>=0.12.1",
     "huggingface_hub>=0.20.0",
@@ -76,8 +76,8 @@ apple-silicon = [
     # new model architectures (Laguna SWA, Mamba2, etc.) and thread-local stream fixes.
     "mlx-lm>=0.31",
     "mlx-vlm>=0.1.0",
-    # MLX Speech: unified TTS (Kokoro + Qwen3-TTS) + ASR (Qwen3-ASR) on Apple Silicon
-    "mlx-audio>=0.3.0",
+    # MLX Speech: unified TTS (Kokoro + Qwen3-TTS + Chatterbox clone) + ASR (Qwen3-ASR) on Apple Silicon
+    "mlx-audio>=0.4.3",
     # MLX Transcribe: Parakeet-TDT-v3 fast ASR + VibeVoice-ASR single-pass diarization
     # on Apple Silicon (both native in mlx-audio, ungated — no pyannote, no HF token).
     # mlx-whisper is retained for the faster-whisper Docker fallback's model family.

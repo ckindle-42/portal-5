@@ -1,11 +1,11 @@
 ---
 id: unit-fact-tool-registry
 kind: what
-title: 102 MCP tools across 24 servers
+title: 103 MCP tools across 24 servers
 sources:
 - type: code
   path: portal/modules/*/tools/*_mcp.py
-  commit: c0bb47235612
+  commit: 3692f584f7ae
 claims: []
 confidence: high
 tags:
@@ -13,7 +13,7 @@ tags:
 - tools
 - mcp
 created_at: 1784049584.748966
-updated_at: 1787872096.8351119
+updated_at: 1787921361.351895
 ---
 
 # MCP tool registry
@@ -43,7 +43,7 @@ What each MCP server actually registers — `@mcp.tool()` defs, or `@mcp.custom_
 | `research` | _(unresolved — server file not found)_ |
 | `security` | `classify_vulnerability`, `lab_perception` |
 | `serena` | _(unresolved — server file not found)_ |
-| `tts` | `clone_voice`, `list_voices`, `speak` |
+| `tts` | `clone_voice`, `list_voices`, `register_voice`, `speak` |
 | `whisper` | `transcribe_audio`, `transcribe_with_speakers` |
 | `wiki` | _(unresolved — server file not found)_ |
 

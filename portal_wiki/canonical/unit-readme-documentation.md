@@ -25,7 +25,6 @@ The operator-facing manual is a set of reference docs at the repo root and under
 | [Admin Guide](docs/ADMIN_GUIDE.md) | User management, configuration, security |
 | [Alerts & Notifications](docs/ALERTS.md) | Operational alerts and daily summaries |
 | [ComfyUI Setup](docs/COMFYUI_SETUP.md) | Image-model configuration and archived video status |
-| [Fish Speech Setup](docs/FISH_SPEECH_SETUP.md) | Optional voice cloning TTS backend |
 | [Cluster Scaling](docs/CLUSTER_SCALE.md) | Running multiple Ollama instances |
 | [Agent Loop](docs/AGENT_LOOP.md) | Platform-core bounded agent loop (`portal/platform/agent/`), the `portal agent` CLI |
 | [Backup & Restore](docs/BACKUP_RESTORE.md) | Data backup procedures |

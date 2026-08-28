@@ -2174,6 +2174,7 @@
       "minimax_generate",
       "minimax_models",
       "minimax_status",
+      "register_voice",
       "speak",
       "transcribe_audio"
     ],

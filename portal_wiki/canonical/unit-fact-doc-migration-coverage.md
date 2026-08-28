@@ -1,11 +1,11 @@
 ---
 id: unit-fact-doc-migration-coverage
 kind: what
-title: 0/25 docs migrated (0.0%)
+title: 0/24 docs migrated (0.0%)
 sources:
 - type: code
   path: portal/platform/wiki/render.py
-  commit: 570249c65237
+  commit: 3692f584f7ae
   section: render_report
 claims: []
 confidence: high
@@ -14,10 +14,10 @@ tags:
 - wiki
 - migration
 created_at: 1784941448.187764
-updated_at: 1787859509.91711
+updated_at: 1787921843.68994
 ---
 
-# Doc migration coverage (0/25 docs migrated, 0.0%)
+# Doc migration coverage (0/24 docs migrated, 0.0%)
 
 Total generated blocks across migrated docs: 12
 
@@ -39,7 +39,6 @@ Total generated blocks across migrated docs: 12
 - `docs/PERFORMANCE.md`
 - `docs/MCP_DEV_TOOLING.md`
 - `docs/COMFYUI_SETUP.md`
-- `docs/FISH_SPEECH_SETUP.md`
 - `docs/COMPLIANCE_FALLBACK_POLICY.md`
 - `docs/BACKUP_RESTORE.md`
 - `docs/LAB_SETUP.md`

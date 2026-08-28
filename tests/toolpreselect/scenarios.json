@@ -14,7 +14,7 @@
     {
       "name": "clone_voice",
       "server_id": "tts",
-      "description": "Clone a voice from reference audio and speak text with it. Requires fish-speech to be installed."
+      "description": "Speak text in a voice cloned from a reference clip (one-off, not persisted). For a recurring trainer voice, use register_voice then speak with voice='trainer:<name>'."
     },
     {
       "name": "convert_cad",

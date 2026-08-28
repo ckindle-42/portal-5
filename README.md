@@ -115,7 +115,7 @@ background `nohup` fallback.
 | Detections MCP | SPL library search, validate_syntax, explain | :8932 |
 | Wiki MCP | Canonical knowledge layer — search, get_unit | :8931 |
 | MLX Transcribe | Diarized transcription (Apple Silicon) | :8924 |
-| MLX Speech | Kokoro TTS + Qwen3-TTS/ASR (Apple Silicon) | :8918 |
+| MLX Speech | Kokoro TTS + Chatterbox clone + Qwen3-TTS/ASR (Apple Silicon) | :8918 |
 | Embedding | Harrier-0.6B text embeddings | :8917 |
 | Reranker | Qwen3-Reranker-0.6B two-stage RAG | :8925 |
 | Prometheus | Metrics collection | http://localhost:9090 |
@@ -184,7 +184,7 @@ with the pinned model, is:
 | `auto-data` | `granite4.1:30b` (execute_python, create_excel) |
 | `auto-math` | `phi4-mini-reasoning` |
 | `auto-audio` | `gemma4:12b-it-qat` (transcribe tools) |
-| `auto-music` | `lfm2.5:8b` (minimax_generate / minimax_status, speak, transcribe) |
+| `auto-music` | `lfm2.5:8b` (minimax_generate / minimax_status, speak, clone_voice, register_voice, transcribe) |
 | `auto-video` | shelved — retained in config but not operated |
 | `auto-image` | `granite4.1:8b` (generate_image, ComfyUI tools) |
 | `auto-cad` | `qwen3-coder:30b-a3b-q4_K_M` (render_mesh, render_openscad, convert_cad) |
@@ -512,7 +512,7 @@ whole fleet.
 MLX survives in four non-chat runtimes, each started by its own launcher:
 
 - **Speech:** the host-native MLX speech server on port 8918 (`scripts/mlx-speech.py`,
-  started by `start-speech` in `scripts/lib/services.sh`) — Kokoro + Qwen3-TTS/ASR.
+  started by `start-speech` in `scripts/lib/services.sh`) — Kokoro + Chatterbox clone + Qwen3-TTS/ASR.
 - **Transcription:** MLX Transcribe on port 8924 (`scripts/mlx-transcribe.py`) —
   Parakeet-TDT-v3 (fast, word timestamps) + VibeVoice-ASR single-pass diarization
   (speaker labels + timestamps, no HF token), host-native.
@@ -573,8 +573,9 @@ backends:
 - **Kokoro TTS** — the `mlx-community/Kokoro-82M-bf16` model via mlx-audio; voices
   are selected by the Kokoro naming prefix (`af_`, `am_`, `bf_`, `bm_`, `jf_`,
   `jm_`, `zf_`, `zm_`), e.g. `af_heart`, `bm_george`.
-- **Qwen3-TTS** — 10 languages, voice cloning, voice design and emotion control
-  (per the `mlx-speech.py` module docstring and `MLX_TTS_BACKEND` selection).
+- **Chatterbox (English v2)** — voice cloning (one-off `clone:` clips or persisted
+  `trainer:<name>` profiles registered via `register_voice`); inaudible PerTh watermark.
+- **Qwen3-TTS CustomVoice / VoiceDesign** — preset speakers + voice-from-description (retained).
 - **Qwen3-ASR** — speech-to-text via `mlx_audio.stt`.
 
 Manage it with the `start-speech` and `stop-speech` subcommands of `launch.sh`
@@ -819,7 +820,6 @@ The operator-facing manual is a set of reference docs at the repo root and under
 | [Admin Guide](docs/ADMIN_GUIDE.md) | User management, configuration, security |
 | [Alerts & Notifications](docs/ALERTS.md) | Operational alerts and daily summaries |
 | [ComfyUI Setup](docs/COMFYUI_SETUP.md) | Image-model configuration and archived video status |
-| [Fish Speech Setup](docs/FISH_SPEECH_SETUP.md) | Optional voice cloning TTS backend |
 | [Cluster Scaling](docs/CLUSTER_SCALE.md) | Running multiple Ollama instances |
 | [Agent Loop](docs/AGENT_LOOP.md) | Platform-core bounded agent loop (`portal/platform/agent/`), the `portal agent` CLI |
 | [Backup & Restore](docs/BACKUP_RESTORE.md) | Data backup procedures |

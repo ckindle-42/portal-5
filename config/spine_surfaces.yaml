@@ -72,10 +72,6 @@ surfaces:
   globs:
   - portal/modules/media/tools/tts_mcp.py
   unit: unit-fact-tool-registry
-- name: file-portal-modules-media-tools-utils
-  globs:
-  - portal/modules/media/tools/utils.py
-  unit: unit-fish-speech-setup-download-the-1-4-model-recommended
 - name: file-portal-modules-media-tools-video_mcp
   globs:
   - portal/modules/media/tools/video_mcp.py

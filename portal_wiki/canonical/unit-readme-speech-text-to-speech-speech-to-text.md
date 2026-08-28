@@ -15,7 +15,7 @@ tags:
 - docs
 - verified-v1
 created_at: 1784946220.687758
-updated_at: 1784946220.687758
+updated_at: 1787921600
 ---
 
 Portal 5 includes a native MLX speech server on Apple Silicon
@@ -25,8 +25,13 @@ backends:
 - **Kokoro TTS** — the `mlx-community/Kokoro-82M-bf16` model via mlx-audio; voices
   are selected by the Kokoro naming prefix (`af_`, `am_`, `bf_`, `bm_`, `jf_`,
   `jm_`, `zf_`, `zm_`), e.g. `af_heart`, `bm_george`.
-- **Qwen3-TTS** — 10 languages, voice cloning, voice design and emotion control
-  (per the `mlx-speech.py` module docstring and `MLX_TTS_BACKEND` selection).
+- **Chatterbox (English v2)** — voice cloning. One-off via `voice="clone:/path/to/ref.wav"`,
+  or register a reusable trainer voice with `POST /v1/voices` (name + reference clip +
+  transcript) and then use `voice="trainer:<name>"`. Zero-shot from a 5-15s clip; not a
+  fine-tune, so fidelity tracks reference-clip quality. Every clip carries Resemble AI's
+  inaudible PerTh watermark.
+- **Qwen3-TTS CustomVoice / VoiceDesign** — preset speakers and voice-from-description
+  (retained; not used for cloning).
 - **Qwen3-ASR** — speech-to-text via `mlx_audio.stt`.
 
 Manage it with the `start-speech` and `stop-speech` subcommands of `launch.sh`

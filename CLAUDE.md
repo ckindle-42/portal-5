@@ -89,7 +89,7 @@ See `KNOWN_LIMITATIONS.md` before adding tasks or filing issues — some items a
 
 ## Reference Docs
 
-`config/backends.yaml` · `config/personas/` · `docs/HOWTO.md` (speech, transcription) · `docs/FISH_SPEECH_SETUP.md` · `docs/MCP_DEV_TOOLING.md` · `docs/CLUSTER_SCALE.md` · `docs/ADMIN_GUIDE.md` · `docs/ALERTS.md` · `docs/COMFYUI_SETUP.md` · `config/PENDING_MODEL_VERDICTS.md` (bench-evaluated models awaiting a promote/decline decision — regenerate via `scripts/model_cleanup_audit.py`, `- [x]` lines persist across reruns).
+`config/backends.yaml` · `config/personas/` · `docs/HOWTO.md` (speech, transcription) · `docs/MCP_DEV_TOOLING.md` · `docs/CLUSTER_SCALE.md` · `docs/ADMIN_GUIDE.md` · `docs/ALERTS.md` · `docs/COMFYUI_SETUP.md` · `config/PENDING_MODEL_VERDICTS.md` (bench-evaluated models awaiting a promote/decline decision — regenerate via `scripts/model_cleanup_audit.py`, `- [x]` lines persist across reruns).
 
 ## Portal Wiki — Canonical Knowledge Layer
 
