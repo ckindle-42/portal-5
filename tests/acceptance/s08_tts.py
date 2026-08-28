@@ -12,21 +12,56 @@ from tests.acceptance._common import (
     record,
 )
 
+_TRAINER_REF_TEXT = (
+    "Welcome to the training session. Today we will walk through the incident "
+    "response playbook step by step, starting with detection and then moving "
+    "through containment and recovery."
+)
+
+
+async def _ensure_speech_reference(tmp_dir: Path) -> Path | None:
+    """Get a real ~12s speech clip to clone from. Prefer a local fixture; else
+    synthesize one via the speech server's Qwen3 CustomVoice route (a tone
+    fixture registers fine but proves nothing about clone fidelity)."""
+    fixture = Path("tests/fixtures/audio/trainer_ref_12s.wav")
+    if fixture.exists():
+        return fixture
+    out = tmp_dir / "trainer_ref_synth.wav"
+    try:
+        c = _get_acc_client()
+        r = await c.post(
+            f"{MLX_SPEECH_URL}/v1/audio/speech",
+            json={"input": _TRAINER_REF_TEXT, "voice": "Serena"},
+            timeout=120,
+        )
+        if r.status_code == 200 and _wav_info(r.content):
+            out.write_bytes(r.content)
+            return out
+    except Exception:
+        return None
+    return None
+
 
 async def _trainer_voice_roundtrip(sec: str) -> None:
     """S8-03/S8-04: register a trainer-voice profile, then speak with it (Chatterbox clone)."""
-    ref = Path("tests/fixtures/audio/two_speaker_10s.wav")
-    if not ref.exists():
-        record(
-            sec,
-            "S8-03",
-            "Register trainer voice",
-            "INFO",
-            "reference fixture missing",
-            t0=time.time(),
-        )
-        return
+    import tempfile
 
+    with tempfile.TemporaryDirectory() as td:
+        ref = await _ensure_speech_reference(Path(td))
+        if ref is None:
+            record(
+                sec,
+                "S8-03",
+                "Register trainer voice",
+                "INFO",
+                "no speech reference available",
+                t0=time.time(),
+            )
+            return
+        await _trainer_roundtrip_with_ref(sec, ref)
+
+
+async def _trainer_roundtrip_with_ref(sec: str, ref: Path) -> None:
     t0 = time.time()
     try:
         c = _get_acc_client()
@@ -35,7 +70,7 @@ async def _trainer_voice_roundtrip(sec: str) -> None:
             json={
                 "name": "acctest",
                 "reference_audio": str(ref.resolve()),
-                "reference_text": "the quick brown fox jumps over the lazy dog",
+                "reference_text": _TRAINER_REF_TEXT,
             },
             timeout=60,
         )
