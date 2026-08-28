@@ -5,22 +5,20 @@ from __future__ import annotations
 import json
 import logging
 import os
-import re
 from pathlib import Path
 from typing import Any
 
 import httpx
 from mcp.server import MCPServer
-from starlette.responses import FileResponse, JSONResponse
+from starlette.responses import JSONResponse
 
 from portal.modules.media.tools._admission import admit
 from portal.platform.data_loader import load_data
+from portal.platform.mcp_host.owui_files import publish_file
 
 port = int(os.getenv("MUSIC_ACE_MCP_PORT", "8933"))
 mcp = MCPServer("music-ace")
 ACESTEP_URL = os.getenv("ACESTEP_URL", "http://127.0.0.1:8001").rstrip("/")
-PUBLIC_URL = os.getenv("MUSIC_PUBLIC_URL", f"http://localhost:{port}/files/music").rstrip("/")
-SAFE_FILENAME = re.compile(r"^[\w\-\.\s]+$")
 logger = logging.getLogger(__name__)
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "data/generated"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -30,18 +28,6 @@ MAX_MUSIC_FILES = int(os.getenv("MAX_MUSIC_FILES", "20"))
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request):
     return JSONResponse({"status": "ok", "service": "music-ace-mcp"})
-
-
-@mcp.custom_route("/files/music/{filename:path}", methods=["GET"])
-async def serve_generated_file(request):
-    filename = request.path_params["filename"]
-    if not SAFE_FILENAME.match(filename):
-        return JSONResponse({"error": "Invalid filename"}, status_code=400)
-    file_path = OUTPUT_DIR / filename
-    if not file_path.exists() or not file_path.is_file():
-        return JSONResponse({"error": "File not found"}, status_code=404)
-    media_type = "audio/mpeg" if file_path.suffix.lower() == ".mp3" else "audio/wav"
-    return FileResponse(path=str(file_path), filename=filename, media_type=media_type)
 
 
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_music_ace_mcp")
@@ -224,18 +210,20 @@ async def ace_status(job_id: str) -> dict:
     output_file = OUTPUT_DIR / f"music_{job_id}{ext}"
     output_file.write_bytes(audio_response.content)
     _cleanup_old_music_files()
-    download_url = f"{PUBLIC_URL}/{output_file.name}"
+    pub = await publish_file(output_file)
+    if "error" in pub:
+        return {"status": "error", "job_id": job_id, "error": pub["error"]}
     metas = item.get("metas", {}) or {}
     return {
         "status": "done",
         "job_id": job_id,
-        "filename": output_file.name,
-        "download_url": download_url,
+        "filename": pub["filename"],
+        "download_url": pub["url"],
         "duration_seconds": metas.get("duration"),
         "bpm": metas.get("bpm"),
         "key_scale": metas.get("keyscale"),
         "model": item.get("dit_model"),
-        "message": f"Music generated. [Download]({download_url})",
+        "message": f"Music generated. [Download]({pub['url']})",
     }
 
 

@@ -9,14 +9,14 @@ Start with: python -m mcp.documents.document_mcp
 
 import logging
 import os
-import re
 import uuid
 from pathlib import Path
 
 from mcp.server import MCPServer
-from starlette.responses import FileResponse, JSONResponse
+from starlette.responses import JSONResponse
 
 from portal.platform.data_loader import load_data
+from portal.platform.mcp_host.owui_files import publish_file_sync
 
 port = int(os.getenv("DOCUMENTS_MCP_PORT", "8913"))
 mcp = MCPServer("document-tools")
@@ -24,28 +24,23 @@ mcp = MCPServer("document-tools")
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "data/generated"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-SAFE_FILENAME = re.compile(r"^[\w\-\.\s]+$")
+
+def _published(output_path: Path, noun: str) -> dict:
+    """Publish a freshly generated file through Open WebUI and shape the tool result."""
+    pub = publish_file_sync(output_path)
+    if "error" in pub:
+        return {"success": False, "error": pub["error"]}
+    return {
+        "success": True,
+        "filename": pub["filename"],
+        "download_url": pub["url"],
+        "message": f"{noun} created: {pub['filename']}. [Download]({pub['url']})",
+    }
 
 
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request):
     return JSONResponse({"status": "ok", "service": "documents-mcp"})
-
-
-@mcp.custom_route("/files/{filename:path}", methods=["GET"])
-async def serve_generated_file(request):
-    """Serve generated files for browser download."""
-    filename = request.path_params["filename"]
-    if not SAFE_FILENAME.match(filename):
-        return JSONResponse({"error": "Invalid filename"}, status_code=400)
-    file_path = OUTPUT_DIR / filename
-    if not file_path.exists() or not file_path.is_file():
-        return JSONResponse({"error": "File not found"}, status_code=404)
-    return FileResponse(
-        path=str(file_path),
-        filename=filename,
-        media_type="application/octet-stream",
-    )
 
 
 # Tool manifest for discovery
@@ -150,13 +145,7 @@ def create_word_document(
 
         output_path = _unique_path(title, "docx")
         doc.save(str(output_path))
-        download_url = f"http://localhost:{port}/files/{output_path.name}"
-        return {
-            "success": True,
-            "filename": output_path.name,
-            "download_url": download_url,
-            "message": f"Document created: {output_path.name}. Download: {download_url}",
-        }
+        return _published(output_path, "Document")
     except Exception as e:
         logger.exception("Word document creation failed")
         return {"success": False, "error": str(e)}
@@ -226,13 +215,7 @@ def create_powerpoint(
 
         output_path = _unique_path(title, "pptx")
         prs.save(str(output_path))
-        download_url = f"http://localhost:{port}/files/{output_path.name}"
-        return {
-            "success": True,
-            "filename": output_path.name,
-            "download_url": download_url,
-            "message": f"Presentation created: {output_path.name}. Download: {download_url}",
-        }
+        return _published(output_path, "Presentation")
     except Exception as e:
         logger.exception("Presentation creation failed")
         return {"success": False, "error": str(e)}
@@ -311,13 +294,7 @@ def create_excel(
 
         output_path = _unique_path(title, "xlsx")
         wb.save(str(output_path))
-        download_url = f"http://localhost:{port}/files/{output_path.name}"
-        return {
-            "success": True,
-            "filename": output_path.name,
-            "download_url": download_url,
-            "message": f"Spreadsheet created: {output_path.name}. Download: {download_url}",
-        }
+        return _published(output_path, "Spreadsheet")
     except Exception as e:
         logger.exception("Spreadsheet creation failed")
         return {"success": False, "error": str(e)}
@@ -384,7 +361,7 @@ def convert_document(
             converted = src.parent / f"{src.stem}.{target_format}"
             if converted.exists():
                 shutil.move(str(converted), str(out_path))
-                return {"success": True, "path": str(out_path), "method": "libreoffice"}
+                return {**_published(out_path, "Converted document"), "method": "libreoffice"}
     except (FileNotFoundError, subprocess.TimeoutExpired):
         logger.debug(
             "LibreOffice conversion failed (not installed or timed out) — using copy fallback"
@@ -412,8 +389,7 @@ def convert_document(
 
     shutil.copy2(str(src), str(out_path))
     return {
-        "success": True,
-        "path": str(out_path),
+        **_published(out_path, "Converted document"),
         "method": "copy",
         "note": f"Copied {src_ext} → {target_format}. "
         "Install LibreOffice for true format conversion.",

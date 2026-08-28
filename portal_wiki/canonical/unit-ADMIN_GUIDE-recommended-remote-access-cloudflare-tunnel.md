@@ -19,10 +19,10 @@ created_at: 1783195000.813865
 updated_at: 1783195000.813865
 ---
 
-Recommended remote access is a Cloudflare Tunnel pointed only at Open WebUI on `:8080`. Set `ENABLE_REMOTE_ACCESS=true`, `PORTAL_PUBLIC_URL=https://portal.example.com`, and `OWUI_API_KEY` (an Open WebUI `sk-` key from Settings → Account). With the key set, the media MCPs publish each generated file through Open WebUI's own files API and hand chat a `${PORTAL_PUBLIC_URL}/api/v1/files/{id}/content` link — served on `:8080`, authorised by the viewer's existing session, needing no extra ingress rule and no exposed MCP port. The tunnel can run on any host; only these three variables are set here.
+Recommended remote access is a Cloudflare Tunnel pointed only at Open WebUI on `:8080` — a single catch-all rule, no path routing (`config/cloudflared/config.yml.example`). Set three things in `.env`: `ENABLE_REMOTE_ACCESS=true`, `PORTAL_PUBLIC_URL=https://portal.example.com` (the address users type), and `OWUI_API_KEY` (an Open WebUI `sk-` key from Settings → Account → API Keys).
 
-Fallback, when `OWUI_API_KEY` is unset: the MCPs emit per-service localhost URLs and `launch.sh` derives `MUSIC_PUBLIC_URL`, `TTS_PUBLIC_URL`, `VIDEO_PUBLIC_URL`, `CAD_RENDER_PUBLIC_URL`, and `COMFYUI_PUBLIC_URL` from `PORTAL_PUBLIC_URL`. That path needs the tunnel to also route `/files/{music,tts,models3d}/*` to ports 8912/8916/8926 and a ComfyUI hostname to 8188 — the reference rules in `config/cloudflared/config.yml.example`.
+Every generator — speech, music, 3D, documents, spreadsheets, images, transcripts — writes its file locally, then publishes it through Open WebUI's files API via `portal.platform.mcp_host.owui_files.publish_file`. Chat gets one link shape, `${PORTAL_PUBLIC_URL}/api/v1/files/{id}/content/{name}`, served on `:8080` and authorised by the viewer's existing session cookie. No MCP serves files, no per-service ports, no ingress rules. The tunnel can run on any host. With `OWUI_API_KEY` unset a generator returns an error instead of a dead link.
 
 ## Why
 
-Routing generated files back through Open WebUI keeps the tunnel a single hostname to a single port: nothing but `:8080` is ever exposed, and file access rides the same auth as the rest of the UI. The per-MCP `/files/*` path predates the files-API route and stays only as a no-API-key fallback.
+One publish path through Open WebUI keeps the external surface a single hostname to a single port: nothing but `:8080` is ever exposed, file access rides the UI's own auth, and adding a new generator needs no tunnel or firewall change. Earlier builds served files from each MCP's own port behind per-path ingress rules; consolidating onto the files API removed that entirely.

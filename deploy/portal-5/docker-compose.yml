@@ -342,6 +342,10 @@ services:
       - DOCUMENTS_MCP_PORT=8913
       - MCP_PORT=8913
       - OUTPUT_DIR=/app/data/generated
+      # Generated files are handed back via Open WebUI's files API (:8080).
+      - OPENWEBUI_URL=http://open-webui:8080
+      - OWUI_API_KEY=${OWUI_API_KEY:-}
+      - PORTAL_PUBLIC_URL=${PORTAL_PUBLIC_URL:-}
     command: ["python", "-m", "portal.modules.documents.tools.document_mcp"]
     volumes:
       - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/app/data/generated
@@ -368,12 +372,10 @@ services:
       # trainer profiles, Kokoro) — the same host hop OWUI's built-in TTS uses.
       - MLX_SPEECH_URL=${MLX_SPEECH_URL:-http://host.docker.internal:8918}
       # Generated audio is published through Open WebUI's files API so the
-      # download link rides :8080 (the only tunnel-exposed port). Needs an
-      # Open WebUI API key; without it the tool falls back to a local URL.
+      # download link rides :8080 (the only tunnel-exposed port).
       - OPENWEBUI_URL=http://open-webui:8080
       - OWUI_API_KEY=${OWUI_API_KEY:-}
       - PORTAL_PUBLIC_URL=${PORTAL_PUBLIC_URL:-}
-      - TTS_PUBLIC_URL=${TTS_PUBLIC_URL:-http://localhost:8916/files/tts}
       - TTS_BACKEND=${TTS_BACKEND:-kokoro}
       - TTS_DEFAULT_VOICE=${TTS_DEFAULT_VOICE:-af_heart}
       - OUTPUT_DIR=/app/data/generated
@@ -409,6 +411,10 @@ services:
       - HF_HOME=/app/data/hf_cache
       - HF_TOKEN=${HF_TOKEN:-}
       - WORKSPACE_DIR=/workspace
+      # Transcript files are handed back via Open WebUI's files API (:8080).
+      - OPENWEBUI_URL=http://open-webui:8080
+      - OWUI_API_KEY=${OWUI_API_KEY:-}
+      - PORTAL_PUBLIC_URL=${PORTAL_PUBLIC_URL:-}
     command: ["python", "-m", "portal.modules.media.tools.whisper_mcp"]
     volumes:
       - portal5-hf-cache:/app/data/hf_cache
@@ -661,14 +667,20 @@ services:
       - COMFYUI_MCP_PORT=8910
       - MCP_PORT=8910
       - COMFYUI_URL=${COMFYUI_URL:-http://host.docker.internal:8188}
-      - COMFYUI_PUBLIC_URL=${COMFYUI_PUBLIC_URL:-http://localhost:8188}
       - IMAGE_BACKEND=${IMAGE_BACKEND:-flux}
       - FLUX_CKPT_FILE=${FLUX_CKPT_FILE:-flux1-schnell.safetensors}
       - FLUX_CLIP_L_FILE=${FLUX_CLIP_L_FILE:-clip_l.safetensors}
       - FLUX_CLIP_T5_FILE=${FLUX_CLIP_T5_FILE:-t5xxl_fp8_e4m3fn.safetensors}
       - FLUX_VAE_FILE=${FLUX_VAE_FILE:-ae.safetensors}
       - COMFYUI_TIMEOUT=${COMFYUI_TIMEOUT:-1200}
+      - WORKSPACE_DIR=/workspace
+      # Generated images are handed back via Open WebUI's files API (:8080).
+      - OPENWEBUI_URL=http://open-webui:8080
+      - OWUI_API_KEY=${OWUI_API_KEY:-}
+      - PORTAL_PUBLIC_URL=${PORTAL_PUBLIC_URL:-}
     command: ["python", "-m", "portal.modules.media.tools.comfyui_mcp"]
+    volumes:
+      - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/workspace
     depends_on: []
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8910/health"]
@@ -956,7 +968,10 @@ services:
       - "127.0.0.1:${CAD_RENDER_HOST_PORT:-8926}:8926"
     environment:
       - CAD_RENDER_MCP_PORT=8926
-      - CAD_RENDER_PUBLIC_URL=${CAD_RENDER_PUBLIC_URL:-http://localhost:8926/files/models3d}
+      # Rendered previews + meshes are handed back via Open WebUI's files API (:8080).
+      - OPENWEBUI_URL=http://open-webui:8080
+      - OWUI_API_KEY=${OWUI_API_KEY:-}
+      - PORTAL_PUBLIC_URL=${PORTAL_PUBLIC_URL:-}
       - PYOPENGL_PLATFORM=osmesa
       - CAD_RENDER_REVIEW_LOOP=${CAD_RENDER_REVIEW_LOOP:-0}
       - CAD_RENDER_REVIEW_MODEL=${CAD_RENDER_REVIEW_MODEL:-qwen3-vl:32b}

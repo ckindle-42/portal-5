@@ -19,6 +19,8 @@ from starlette.responses import JSONResponse
 
 from portal.modules.media.tools._admission import admit
 from portal.platform.data_loader import load_data
+from portal.platform.mcp_host.owui_files import publish_file
+from portal.platform.mcp_host.workspace import get_generated_dir
 
 mcp = MCPServer("comfyui-generation")
 
@@ -51,6 +53,20 @@ async def _get_client() -> httpx.AsyncClient:
             timeout=float(COMFYUI_TIMEOUT), limits=httpx.Limits(max_connections=5)
         )
     return _http_client
+
+
+async def _publish_output(filename: str) -> str:
+    """Fetch a ComfyUI output image and publish it through Open WebUI; return its URL."""
+    client = await _get_client()
+    try:
+        r = await client.get(f"{COMFYUI_URL}/view", params={"filename": filename, "type": "output"})
+        r.raise_for_status()
+        local = get_generated_dir("images") / filename
+        local.write_bytes(r.content)
+    except Exception as e:  # noqa: BLE001 — surface, never crash the tool
+        return f"could not retrieve image from ComfyUI: {e}"
+    pub = await publish_file(local)
+    return pub.get("url") or pub.get("error", "publish failed")
 
 
 async def _close_client() -> None:
@@ -150,9 +166,6 @@ async def get_generation_status_endpoint(request):
 
 
 COMFYUI_URL = os.getenv("COMFYUI_URL", "http://localhost:8188")
-# Public URL used in links returned to the browser — differs from COMFYUI_URL when the
-# MCP container reaches ComfyUI via host.docker.internal but the browser uses localhost.
-COMFYUI_PUBLIC_URL = os.getenv("COMFYUI_PUBLIC_URL", "http://localhost:8188")
 IMAGE_BACKEND = os.getenv("IMAGE_BACKEND", "flux")  # "flux", "flux-uncensored", or "sdxl"
 
 # FLUX.1 workflow — split-loader approach.
@@ -753,7 +766,7 @@ async def get_image_status(job_id: str) -> dict:
             images = node_output.get("images", [])
             if images:
                 filename = images[0]["filename"]
-                url = f"{COMFYUI_PUBLIC_URL}/view?filename={filename}&type=output"
+                url = await _publish_output(filename)
                 return {
                     "status": "complete",
                     "job_id": job_id,
@@ -832,7 +845,7 @@ async def get_latest_images(count: int = 5) -> list[dict]:
                     images.append(
                         {
                             "filename": filename,
-                            "url": f"{COMFYUI_PUBLIC_URL}/view?filename={filename}&type=output",
+                            "url": await _publish_output(filename),
                             "job_id": prompt_id,
                         }
                     )
@@ -928,7 +941,7 @@ async def generate_image(
                 images = node_output.get("images", [])
                 if images:
                     filename = images[0]["filename"]
-                    url = f"{COMFYUI_PUBLIC_URL}/view?filename={filename}&type=output"
+                    url = await _publish_output(filename)
                     return {
                         "success": True,
                         "filename": filename,

@@ -14,7 +14,7 @@ Cluster scaling is a config-only operation. Adding a node means appending a back
 ### ADMIN_GUIDE — Alternative: LAN reverse proxy (Caddy / nginx)
 *Source: deploy/portal-5/docker-compose.yml*
 
-For deployments that skip Cloudflare Tunnel, a Caddy or nginx proxy on the same host plays the same role. Route only the media paths to the loopback services — `/files/{music,tts,video}/*` toward ports 8912/8916/8911 and a ComfyUI hostname toward 8188 — set `PORTAL_PUBLIC_URL` to the proxy's public address, and `launch.sh` derives `MUSIC_PUBLIC_URL`, `TTS_PUBLIC_URL`, `VIDEO_PUBLIC_URL`, and `COMFYUI_PUBLIC_URL` from it. Bindings are per-service in `docker-compose.yml`: the Docker MCP servers bi
+For deployments that skip Cloudflare Tunnel, a Caddy or nginx proxy on the same host plays the same role: proxy Open WebUI on `:8080`, set `PORTAL_PUBLIC_URL` to the proxy's public address and `OWUI_API_KEY` to an Open WebUI `sk-` key. Generated files then come back as `${PORTAL_PUBLIC_URL}/api/v1/files/{id}/content/{name}` on `:8080` — the same one-port story as the tunnel. Bindings are per-service in `docker-compose.yml`: the Docker MCP servers bind `127.0.0.1`, but the pipeline API binds `0.0
 
 ### ADMIN_GUIDE — Approve Pending Users
 *Source: .env.example*

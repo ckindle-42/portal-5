@@ -405,6 +405,15 @@ class TestDocumentMCPTools:
         import portal.modules.documents.tools.document_mcp as doc_mod
 
         importlib.reload(doc_mod)
+        monkeypatch.setattr(
+            doc_mod,
+            "publish_file_sync",
+            lambda path: {
+                "id": "testid",
+                "filename": doc_mod.Path(path).name,
+                "url": f"http://owui/api/v1/files/testid/content/{doc_mod.Path(path).name}",
+            },
+        )
 
         result = doc_mod.create_powerpoint(
             title="Test Deck",
@@ -430,6 +439,15 @@ class TestDocumentMCPTools:
         import portal.modules.documents.tools.document_mcp as doc_mod
 
         importlib.reload(doc_mod)
+        monkeypatch.setattr(
+            doc_mod,
+            "publish_file_sync",
+            lambda path: {
+                "id": "testid",
+                "filename": doc_mod.Path(path).name,
+                "url": f"http://owui/api/v1/files/testid/content/{doc_mod.Path(path).name}",
+            },
+        )
 
         result = doc_mod.create_excel(
             title="Test Spreadsheet",
@@ -452,6 +470,15 @@ class TestDocumentMCPTools:
         import portal.modules.documents.tools.document_mcp as doc_mod
 
         importlib.reload(doc_mod)
+        monkeypatch.setattr(
+            doc_mod,
+            "publish_file_sync",
+            lambda path: {
+                "id": "testid",
+                "filename": doc_mod.Path(path).name,
+                "url": f"http://owui/api/v1/files/testid/content/{doc_mod.Path(path).name}",
+            },
+        )
 
         result = doc_mod.create_word_document(
             title="Test Document",
