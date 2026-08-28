@@ -69,12 +69,18 @@ HOST = os.getenv("MLX_TRANSCRIBE_HOST", "0.0.0.0")
 
 # ASR (transcript + word-level timestamps) — Parakeet-TDT-v3. Used by both tools.
 PARAKEET_MODEL = os.getenv("MLX_PARAKEET_MODEL", "mlx-community/parakeet-tdt-0.6b-v3")
+# Parakeet's conformer encoder is O(n^2) in sequence length — a single forward
+# pass OOMs somewhere past ~20 min of audio. Chunk long files (mlx-audio merges
+# the per-chunk tokens across the overlap). ~40x realtime, so chunking is cheap.
+PARAKEET_CHUNK_S = float(os.getenv("MLX_PARAKEET_CHUNK_S", "120"))
+PARAKEET_OVERLAP_S = float(os.getenv("MLX_PARAKEET_OVERLAP_S", "15"))
 # Speaker diarization ("who spoke when") — NVIDIA Sortformer, MLX port. 4-speaker
 # ceiling; runs in one forward pass (no HF token, no pyannote).
 DIARIZE_MODEL = os.getenv("MLX_DIARIZE_MODEL", "mlx-community/diar_sortformer_4spk-v1-fp32")
-# Above this duration (s) the single-pass Sortformer forward is skipped and the
-# transcript is returned single-speaker with a warning — it would risk OOM.
-DIARIZE_MAX_S = float(os.getenv("MLX_DIARIZE_MAX_S", "1800"))
+# Safety valve: above this duration (s) diarization is skipped and the transcript
+# is returned single-speaker with a warning. Streaming diarization has bounded
+# memory, so this is really an OWUI-wall-clock guard, not a memory one.
+DIARIZE_MAX_S = float(os.getenv("MLX_DIARIZE_MAX_S", "10800"))
 
 # ── Model cache ────────────────────────────────────────────────────────────────
 
@@ -110,6 +116,48 @@ def _get_diarizer() -> Any:
 # ── Core pipeline ──────────────────────────────────────────────────────────────
 
 
+def _audio_seconds(audio_path: str) -> float:
+    """Best-effort audio duration in seconds (0.0 if it can't be read cheaply)."""
+    try:
+        import soundfile as sf
+
+        return float(sf.info(audio_path).duration)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        import wave
+
+        with wave.open(audio_path, "rb") as w:
+            return w.getnframes() / float(w.getframerate())
+    except Exception:  # noqa: BLE001
+        return 0.0
+
+
+def _parakeet_generate(audio_path: str) -> Any:
+    """Parakeet transcription, chunked when the file is long enough to OOM a
+    single forward pass. mlx-audio merges the per-chunk tokens across the overlap.
+    A single pass that OOMs anyway is retried chunked.
+    """
+    model = _get_parakeet()
+    if _audio_seconds(audio_path) > PARAKEET_CHUNK_S:
+        return model.generate(
+            audio_path,
+            chunk_duration=PARAKEET_CHUNK_S,
+            overlap_duration=PARAKEET_OVERLAP_S,
+        )
+    try:
+        return model.generate(audio_path)
+    except RuntimeError as e:
+        if "malloc" not in str(e) and "buffer size" not in str(e):
+            raise
+        logger.warning("Parakeet single pass OOMed (%s) — retrying chunked", e)
+        return model.generate(
+            audio_path,
+            chunk_duration=PARAKEET_CHUNK_S,
+            overlap_duration=PARAKEET_OVERLAP_S,
+        )
+
+
 def _parakeet_words(audio_path: str) -> tuple[str, list[dict], float]:
     """Run Parakeet and return (full_text, words, duration).
 
@@ -117,8 +165,7 @@ def _parakeet_words(audio_path: str) -> tuple[str, list[dict], float]:
     tokens are SentencePiece word-pieces whose ``text`` carries a leading space at
     word starts, so ``"".join(w["text"] ...)`` reconstructs spacing exactly.
     """
-    model = _get_parakeet()
-    result = model.generate(audio_path)
+    result = _parakeet_generate(audio_path)
     words: list[dict] = []
     for sent in getattr(result, "sentences", []):
         for tok in getattr(sent, "tokens", []):
@@ -132,8 +179,7 @@ def _transcribe(audio_path: str, language: str | None) -> dict:
 
     Returns {text, language, duration, segments} where segments are sentences.
     """
-    model = _get_parakeet()
-    result = model.generate(audio_path)
+    result = _parakeet_generate(audio_path)
     segments = [
         {"start": round(float(s.start), 2), "end": round(float(s.end), 2), "text": s.text.strip()}
         for s in getattr(result, "sentences", [])
@@ -147,19 +193,57 @@ def _transcribe(audio_path: str, language: str | None) -> dict:
     }
 
 
+# Sortformer's full-context forward pass gives the best speaker consistency but
+# its conformer attention is O(n^2): measured clean to 20 min on 64 GB, thrashing
+# swap by 25 min, hard OOM by 40 min. Below this cutoff use it; above it fall back
+# to the streaming path (fixed chunks + a speaker cache — bounded memory, slightly
+# noisier speaker identity, still fine for a long recording).
+DIARIZE_FULL_CONTEXT_MAX_S = float(os.getenv("MLX_DIARIZE_FULL_CONTEXT_MAX_S", "900"))
+
+
 def _diarize(audio_path: str) -> list[dict]:
     """Sortformer speaker turns → [{start, end, speaker:int}] (raw speaker ids 0-3)."""
     model = _get_diarizer()
-    out = model.generate(
-        audio_path,
-        threshold=float(os.getenv("MLX_DIARIZE_THRESHOLD", "0.5")),
-        min_duration=float(os.getenv("MLX_DIARIZE_MIN_DURATION", "0.3")),
-        merge_gap=float(os.getenv("MLX_DIARIZE_MERGE_GAP", "0.5")),
-    )
-    return [
-        {"start": float(s.start), "end": float(s.end), "speaker": int(s.speaker)}
-        for s in out.segments
-    ]
+    threshold = float(os.getenv("MLX_DIARIZE_THRESHOLD", "0.5"))
+    min_duration = float(os.getenv("MLX_DIARIZE_MIN_DURATION", "0.3"))
+    merge_gap = float(os.getenv("MLX_DIARIZE_MERGE_GAP", "0.5"))
+
+    raw: list[dict] = []
+    if _audio_seconds(audio_path) <= DIARIZE_FULL_CONTEXT_MAX_S:
+        out = model.generate(
+            audio_path, threshold=threshold, min_duration=min_duration, merge_gap=merge_gap
+        )
+        raw = [
+            {"start": float(s.start), "end": float(s.end), "speaker": int(s.speaker)}
+            for s in out.segments
+        ]
+    else:
+        chunk_s = float(os.getenv("MLX_DIARIZE_CHUNK_S", "20"))
+        for chunk in model.generate_stream(
+            audio_path,
+            chunk_duration=chunk_s,
+            threshold=threshold,
+            min_duration=min_duration,
+            merge_gap=merge_gap,
+        ):
+            raw.extend(
+                {"start": float(s.start), "end": float(s.end), "speaker": int(s.speaker)}
+                for s in chunk.segments
+            )
+
+    # Stitch chunk-boundary splits: adjacent same-speaker segments within merge_gap.
+    raw.sort(key=lambda s: s["start"])
+    merged: list[dict] = []
+    for s in raw:
+        if (
+            merged
+            and merged[-1]["speaker"] == s["speaker"]
+            and s["start"] - merged[-1]["end"] <= merge_gap
+        ):
+            merged[-1]["end"] = max(merged[-1]["end"], s["end"])
+        else:
+            merged.append(dict(s))
+    return merged
 
 
 def _speaker_for_span(diar: list[dict], w0: float, w1: float) -> int | None:

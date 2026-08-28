@@ -12,7 +12,7 @@ tags:
 - authored-v1
 - scripts
 created_at: 1785799539.676291
-updated_at: 1787931352.0
+updated_at: 1787934168.0
 ---
 
 Host-native transcription server for Apple Silicon. `transcribe_audio` is fast plain transcription via Parakeet-TDT-v3 (word-level timestamps). `transcribe_with_speakers` runs the same Parakeet transcript plus Sortformer speaker diarization (`mlx-community/diar_sortformer_4spk-v1-fp32`, 4-speaker ceiling), merged at the word level: each Parakeet word is assigned to the Sortformer speaker whose turn it overlaps, then consecutive same-speaker words are grouped into turns. A monologue collapses to one speaker; a conversation gets `SPEAKER_00`/`SPEAKER_01`/… No pyannote and no HuggingFace token. If diarization is skipped (file past `MLX_DIARIZE_MAX_S`) or fails, the transcript is still returned single-speaker with a `warning` — it never truncates.
