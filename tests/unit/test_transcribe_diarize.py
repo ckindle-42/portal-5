@@ -76,6 +76,19 @@ def test_adapter_drops_nonspeech_markers(transcribe_module):
     assert [s["speaker"] for s in out] == ["SPEAKER_00", "SPEAKER_01"]
 
 
+def test_untranscribed_seconds_detects_speech_placeholder(transcribe_module):
+    """A trailing [Speech] marker (no speaker_id) covering a long span is counted
+    so the pipeline can warn about VibeVoice truncation."""
+    segs = [
+        {"Start": 0.0, "End": 26.0, "Speaker": 0, "Content": "Alright, what you got?"},
+        {"Start": 26.0, "End": 136.68, "Content": "[Speech]"},
+    ]
+    assert transcribe_module._vibevoice_untranscribed_seconds(segs) == pytest.approx(110.68)
+    # ...and it is NOT emitted as a transcript segment
+    out = transcribe_module._vibevoice_segments_to_canonical(segs)
+    assert len(out) == 1
+
+
 def test_format_markdown_includes_metadata(transcribe_module):
     merged = [
         {"start": 0.0, "end": 5.0, "speaker": "SPEAKER_00", "text": "Hello there"},

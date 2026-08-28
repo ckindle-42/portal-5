@@ -132,6 +132,25 @@ def _vibevoice_segments_to_canonical(segments: list) -> list[dict]:
     return out
 
 
+def _vibevoice_untranscribed_seconds(segments: list) -> float:
+    """Total seconds VibeVoice-ASR marked as speech but did not transcribe.
+
+    On long single-speaker stretches VibeVoice sometimes stops early and emits a
+    standalone ``[Speech]`` marker segment (no speaker_id) covering the remainder.
+    That span carries no transcript, so the caller should warn and steer the user
+    to ``transcribe_audio`` (Parakeet) for a complete non-diarized transcript.
+    """
+    total = 0.0
+    for s in segments:
+        spk = s.get("speaker_id", s.get("Speaker"))
+        text = s.get("text", s.get("Content", "")).strip().lower()
+        if spk is None and text in ("[speech]", "[speaker]"):
+            start = float(s.get("start", s.get("start_time", s.get("Start", 0.0))))
+            end = float(s.get("end", s.get("end_time", s.get("End", 0.0))))
+            total += max(0.0, end - start)
+    return round(total, 2)
+
+
 # ── Core pipeline ──────────────────────────────────────────────────────────────
 
 
@@ -160,17 +179,27 @@ def _diarized_transcribe(audio_path: str, num_speakers: int | None, language: st
     """
     model = _get_vibevoice()
     result = model.generate(audio=audio_path, max_tokens=8192, temperature=0.0)
-    merged = _vibevoice_segments_to_canonical(getattr(result, "segments", []))
+    raw_segments = getattr(result, "segments", [])
+    merged = _vibevoice_segments_to_canonical(raw_segments)
     speaker_count = len({s["speaker"] for s in merged}) if merged else 0
     duration = merged[-1]["end"] if merged else 0.0
     text = getattr(result, "text", "") or " ".join(s["text"] for s in merged)
-    return {
+    out = {
         "text": text.strip(),
         "language": language or "en",
         "duration": round(duration, 2),
         "speaker_count": speaker_count,
         "segments": merged,
     }
+    dropped = _vibevoice_untranscribed_seconds(raw_segments)
+    if dropped >= 5.0:
+        out["warning"] = (
+            f"VibeVoice-ASR left ~{dropped:.0f}s of speech untranscribed (emitted a "
+            f"[Speech] placeholder, common on long single-speaker stretches). "
+            f"Use transcribe_audio for a complete non-diarized transcript."
+        )
+        logger.warning("VibeVoice truncation: %.0fs of speech left untranscribed", dropped)
+    return out
 
 
 def _format_markdown(merged: list[dict], meta: dict, source_name: str = "audio") -> str:
@@ -219,6 +248,8 @@ def _run_pipeline(
             "total_s": total_s,
         },
     }
+    if diarized.get("warning"):
+        meta["warning"] = diarized["warning"]
 
     # Persist via workspace helper
     out_dir = get_generated_dir("transcripts")
