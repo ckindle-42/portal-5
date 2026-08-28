@@ -1,6 +1,6 @@
 [
   {
-    "description": "Transcribe audio using faster-whisper. If the user uploaded an audio file, omit audio_path and the tool will auto-detect the most recently uploaded file from the workspace.",
+    "description": "Fast, accurate transcription (Parakeet-TDT-v3, word-level timestamps, no speaker labels) via the host MLX server; Docker faster-whisper (large-v3-turbo) fallback. If the user uploaded an audio file, omit the file arg to auto-detect the most recent upload.",
     "name": "transcribe_audio",
     "parameters": {
       "properties": {
@@ -10,7 +10,7 @@
         },
         "language": {
           "default": "auto",
-          "description": "Language code (e.g., en, zh)",
+          "description": "Language code (e.g. en). Auto-detected if omitted.",
           "type": "string"
         }
       },
@@ -19,7 +19,7 @@
     }
   },
   {
-    "description": "Transcribe an audio file with speaker diarization (Docker fallback path). On Apple Silicon, prefer the host-native MLX path on port 8924 (mlx-whisper + pyannote on MPS, ~5x faster). This Docker path is the cross-platform fallback for Linux/CUDA nodes.",
+    "description": "Transcribe an audio file with speaker identification in a single pass (VibeVoice-ASR): text + speaker labels + timestamps, up to ~60 min. No separate diarization step and no HuggingFace token required. Runs on the host MLX server (:8924).",
     "name": "transcribe_with_speakers",
     "parameters": {
       "properties": {
@@ -32,13 +32,11 @@
           "type": "string"
         },
         "num_speakers": {
-          "description": "Hint for expected speaker count. Auto-detected if omitted.",
+          "description": "Optional expected speaker count hint (VibeVoice infers speakers itself).",
           "type": "integer"
         }
       },
-      "required": [
-        "file"
-      ],
+      "required": ["file"],
       "type": "object"
     }
   }

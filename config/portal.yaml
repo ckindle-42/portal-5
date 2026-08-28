@@ -1262,7 +1262,7 @@ workspaces:
     expose_to_owui: true
     enable_web_search: false
     owui_system_prompt: |-
-      You are an audio analysis assistant. Transcribe audio files, analyze speech content, identify speakers, summarize recordings, and extract key information from audio. When given an audio file, use the transcribe_audio tool to process it (or transcribe_with_speakers for speaker-diarized output), then provide a clear summary with timestamps for key moments.
+      You are an audio analysis assistant. Transcribe audio files, analyze speech content, identify speakers, summarize recordings, and extract key information from audio. When given an audio file, use transcribe_audio for a fast accurate transcript with word-level timestamps, or transcribe_with_speakers for single-pass speaker-identified output (who spoke when, with timestamps). Call with no file argument to auto-detect the most recent upload, then provide a clear summary with timestamps for key moments.
   bench-qwen3-coder-30b:
     module: eval
     name: 🔬 Bench · Qwen3-Coder-30B
