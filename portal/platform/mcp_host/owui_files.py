@@ -1,19 +1,27 @@
-"""Publish a generated media file through Open WebUI's files API.
+"""The single path for handing a generated file back to the user.
 
-Portal's remote surface is Open WebUI (:8080) behind the tunnel — no other
-port is exposed. So generated audio/music/3D files are handed to viewers as
-``{PORTAL_PUBLIC_URL}/api/v1/files/{id}/content/{name}``: Open WebUI stores
-the bytes and serves them on the one port the tunnel already carries, using
-the viewer's existing session cookie for auth. MCP file ports stay loopback.
+Portal's only remote surface is Open WebUI on :8080. Every generator —
+speech, music, 3D, documents, spreadsheets, images, transcripts — writes its
+file locally, then calls ``publish_file`` (async) or ``publish_file_sync``.
+The bytes go to Open WebUI's files API and the caller gets back one link:
 
-Requires ``OWUI_API_KEY`` (an Open WebUI API key, ``sk-...``). When it is
-unset the helper returns ``None`` and the caller falls back to a local URL —
-this keeps a no-Open-WebUI dev box working.
+    {PORTAL_PUBLIC_URL}/api/v1/files/{id}/content/{name}
+
+Open WebUI stores and serves the file on the port the tunnel already
+carries, authorised by the viewer's existing session. No MCP serves files,
+no per-service ports or ingress rules exist.
+
+Config (``.env``): ``OWUI_API_KEY`` (an Open WebUI key, ``sk-...``, from
+Settings -> Account) and, when reached remotely, ``PORTAL_PUBLIC_URL``.
+On any failure the helpers return ``{"error": "..."}`` — a tool should pass
+that straight back so the operator sees what to fix.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import mimetypes
 import os
 from pathlib import Path
 
@@ -21,40 +29,50 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-# Internal address for the upload POST; the returned link uses the public base.
-_OWUI_URL = os.getenv("OPENWEBUI_URL", "http://open-webui:8080").rstrip("/")
+
+def _owui_url() -> str:
+    return os.getenv("OPENWEBUI_URL", "http://open-webui:8080").rstrip("/")
 
 
 def _public_base() -> str:
-    return (os.getenv("PORTAL_PUBLIC_URL") or _OWUI_URL).rstrip("/")
+    return (os.getenv("PORTAL_PUBLIC_URL") or _owui_url()).rstrip("/")
 
 
-async def publish_file(
-    path: Path, *, content_type: str = "application/octet-stream"
-) -> dict | None:
-    """Upload ``path`` to Open WebUI and return ``{"id", "filename", "url"}``.
-
-    Returns ``None`` if ``OWUI_API_KEY`` is unset or the upload fails — the
-    caller should then fall back to its local file URL.
-    """
+def _upload(path: Path) -> dict:
+    """Upload one file to Open WebUI. Returns {"id","filename","url"} or {"error"}."""
     api_key = os.getenv("OWUI_API_KEY", "")
     if not api_key:
-        return None
+        return {"error": "OWUI_API_KEY is not set — cannot publish the generated file."}
+    if not path.is_file():
+        return {"error": f"generated file missing: {path}"}
+    ctype = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
     try:
-        data = path.read_bytes()
-        async with httpx.AsyncClient(timeout=30) as client:
-            r = await client.post(
-                f"{_OWUI_URL}/api/v1/files/",
+        with httpx.Client(timeout=60) as client:
+            r = client.post(
+                f"{_owui_url()}/api/v1/files/",
                 headers={"Authorization": f"Bearer {api_key}"},
-                files={"file": (path.name, data, content_type)},
+                files={"file": (path.name, path.read_bytes(), ctype)},
             )
         r.raise_for_status()
         fid = r.json()["id"]
-    except Exception as e:  # noqa: BLE001 — degrade to local URL, never crash the tool
-        logger.warning("Open WebUI file publish failed (%s); falling back to local URL", e)
-        return None
+    except Exception as e:  # noqa: BLE001 — report, never crash the tool
+        logger.warning("Open WebUI file publish failed: %s", e)
+        return {"error": f"Open WebUI file publish failed: {e}"}
     return {
         "id": fid,
         "filename": path.name,
         "url": f"{_public_base()}/api/v1/files/{fid}/content/{path.name}",
     }
+
+
+def publish_file_sync(path: Path | str) -> dict:
+    """Publish a generated file from synchronous tool code.
+
+    Returns ``{"id", "filename", "url"}`` on success, ``{"error": "..."}`` otherwise.
+    """
+    return _upload(Path(path))
+
+
+async def publish_file(path: Path | str) -> dict:
+    """Publish a generated file from async tool code. See ``publish_file_sync``."""
+    return await asyncio.to_thread(_upload, Path(path))

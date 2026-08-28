@@ -6,7 +6,6 @@ import asyncio
 import logging
 import os
 import random
-import re
 import sys
 import time
 import uuid
@@ -15,15 +14,14 @@ from pathlib import Path
 from typing import Any
 
 from mcp.server import MCPServer
-from starlette.responses import FileResponse, JSONResponse
+from starlette.responses import JSONResponse
 
 from portal.modules.media.tools._admission import admit
 from portal.platform.data_loader import load_data
+from portal.platform.mcp_host.owui_files import publish_file_sync
 
 port = int(os.getenv("MUSIC_MINIMAX_MCP_PORT", "8912"))
 mcp = MCPServer("music-minimax")
-PUBLIC_URL = os.getenv("MUSIC_PUBLIC_URL", f"http://localhost:{port}/files/music").rstrip("/")
-SAFE_FILENAME = re.compile(r"^[\w\-\.\s]+$")
 logger = logging.getLogger(__name__)
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "data/generated"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -37,17 +35,6 @@ MAX_JOB_RECORDS = 50
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request):
     return JSONResponse({"status": "ok", "service": "music-minimax-mcp"})
-
-
-@mcp.custom_route("/files/music/{filename:path}", methods=["GET"])
-async def serve_generated_file(request):
-    filename = request.path_params["filename"]
-    if not SAFE_FILENAME.match(filename):
-        return JSONResponse({"error": "Invalid filename"}, status_code=400)
-    file_path = OUTPUT_DIR / filename
-    if not file_path.exists() or not file_path.is_file():
-        return JSONResponse({"error": "File not found"}, status_code=404)
-    return FileResponse(path=str(file_path), filename=filename, media_type="audio/wav")
 
 
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_music_minimax_mcp")
@@ -184,11 +171,13 @@ def _generate_sync(
             wav_file.setsampwidth(2)
             wav_file.setframerate(SAMPLE_RATE)
             wav_file.writeframes(pcm.tobytes())
-        download_url = f"{PUBLIC_URL}/{output_file.name}"
+        pub = publish_file_sync(output_file)
+        if "error" in pub:
+            return {"success": False, "error": pub["error"]}
         return {
             "success": True,
-            "filename": output_file.name,
-            "download_url": download_url,
+            "filename": pub["filename"],
+            "download_url": pub["url"],
             "duration_seconds": round(seconds, 2),
             "sample_rate": SAMPLE_RATE,
             "channels": 2,
@@ -196,7 +185,7 @@ def _generate_sync(
             "lyrics": lyrics,
             "seed": seed,
             "model": "MiniMax-Music3-MLX",
-            "message": f"Music generated ({round(seconds, 1)}s). [Download WAV]({download_url})",
+            "message": f"Music generated ({round(seconds, 1)}s). [Download WAV]({pub['url']})",
         }
     except Exception as exc:
         logger.exception("MiniMax generation failed")

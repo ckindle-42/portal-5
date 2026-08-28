@@ -12,8 +12,29 @@ from pathlib import Path
 import httpx
 
 from portal.platform.data_loader import load_data
+from portal.platform.mcp_host.owui_files import publish_file
+from portal.platform.mcp_host.workspace import get_generated_dir
 
 logger = logging.getLogger(__name__)
+
+
+async def _attach_transcript_urls(res: dict) -> dict:
+    """Publish the transcript files the host wrote so the user gets download links.
+
+    The host returns absolute paths on its own filesystem; the same files are
+    visible here under the shared workspace mount, keyed by basename.
+    """
+    tdir = get_generated_dir("transcripts")
+    for path_key, url_key in (("json_path", "json_url"), ("md_path", "md_url")):
+        p = res.get(path_key)
+        if not p:
+            continue
+        local = tdir / Path(p).name
+        if local.is_file():
+            pub = await publish_file(local)
+            res[url_key] = pub.get("url") or pub.get("error", "publish failed")
+    return res
+
 
 # Primary transcription path is the host MLX server (Parakeet + Sortformer) on :8924.
 # This module proxies there first and only falls back to the in-Docker faster-whisper
@@ -273,7 +294,7 @@ async def transcribe_with_speakers(
         host_args["language"] = language
     res = await _try_host("transcribe_with_speakers", host_args)
     if res is not None:
-        return res
+        return await _attach_transcript_urls(res)
     return {
         "error": "speaker labelling requires the host MLX transcribe server (:8924) — "
         "unreachable; use transcribe_audio for a transcript without speaker labels"

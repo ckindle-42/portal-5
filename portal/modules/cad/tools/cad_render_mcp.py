@@ -24,12 +24,13 @@ import uuid
 from pathlib import Path
 
 from mcp.server import MCPServer
-from starlette.responses import FileResponse, JSONResponse
+from starlette.responses import JSONResponse
 
 from portal.modules.cad.tools.capabilities import cad_capabilities
 from portal.modules.cad.tools.mesh_validator import validate_mesh
 from portal.modules.cad.tools.scad_emitter import FN_DEFAULT, EmitError, emit_scad
 from portal.platform.data_loader import load_data
+from portal.platform.mcp_host.owui_files import publish_file
 from portal.platform.mcp_host.workspace import get_generated_dir
 
 logger = logging.getLogger(__name__)
@@ -37,10 +38,12 @@ logger = logging.getLogger(__name__)
 port = int(os.getenv("CAD_RENDER_MCP_PORT", "8926"))
 mcp = MCPServer("cad-render")
 
-PUBLIC_URL = os.getenv("CAD_RENDER_PUBLIC_URL", f"http://localhost:{port}/files/models3d").rstrip(
-    "/"
-)
-SAFE_FILENAME = re.compile(r"^[\w\-\.\s]+$")
+
+async def _publish_url(p: Path) -> str:
+    """Publish a rendered artifact through Open WebUI; return its URL (or the error)."""
+    pub = await publish_file(p)
+    return pub.get("url") or pub.get("error", "publish failed")
+
 
 # Master switch for the vision review loop. Default OFF (see B6). Per-call `review`
 # must ALSO be true for the loop to fire.
@@ -177,18 +180,6 @@ async def capabilities_route(request):
     return JSONResponse(cad_capabilities())
 
 
-@mcp.custom_route("/files/models3d/{filename:path}", methods=["GET"])
-async def serve_generated_file(request):
-    filename = request.path_params["filename"]
-    if not SAFE_FILENAME.match(filename):
-        return JSONResponse({"error": "Invalid filename"}, status_code=400)
-    file_path = _out_dir() / filename
-    if not file_path.exists() or not file_path.is_file():
-        return JSONResponse({"error": "File not found"}, status_code=404)
-    media = "image/png" if file_path.suffix == ".png" else "application/octet-stream"
-    return FileResponse(path=str(file_path), filename=filename, media_type=media)
-
-
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_cad_render_mcp")
 
 
@@ -263,7 +254,7 @@ async def render_mesh(
 
     result = {
         "png_path": str(out_png),
-        "png_url": f"{PUBLIC_URL}/{out_name}",
+        "png_url": await _publish_url(out_png),
         "bounding_box": dims,
         "render_note": note,
         "watertight": bool(getattr(geom, "is_watertight", False)),
@@ -321,7 +312,8 @@ async def render_openscad(code: str, resolution: int = 1024) -> dict:
     validation = validate_mesh(stl_path)
     return {
         "png_path": str(png_path),
-        "png_url": f"{PUBLIC_URL}/{png_name}",
+        "png_url": await _publish_url(png_path),
+        "stl_url": await _publish_url(stl_path),
         "scad_path": str(scad_path),
         "stl_path": str(stl_path),
         "render_note": note,
@@ -363,7 +355,7 @@ async def convert_cad(input_path: str, to_format: str) -> dict:
     out_name = f"{src.stem}_{uuid.uuid4().hex[:6]}.{to_format}"
     out_path = _out_dir() / out_name
     geom.export(str(out_path))
-    return {"output_path": str(out_path), "output_url": f"{PUBLIC_URL}/{out_name}"}
+    return {"output_path": str(out_path), "output_url": await _publish_url(out_path)}
 
 
 # ── self-correcting feedback loop (TASK_CAD_MODULE_OVERHAUL_V1 Phase 4) ─────
@@ -487,7 +479,7 @@ def _metadata_warnings(geometry: dict, validation: dict) -> list[dict]:
     return []
 
 
-def _generated_result(
+async def _generated_result(
     uid: str,
     attempt: int,
     scad: str,
@@ -505,7 +497,8 @@ def _generated_result(
         "scad_path": str(scad_path),
         "stl_path": str(stl_path),
         "png_path": str(png_path),
-        "png_url": f"{PUBLIC_URL}/{png_name}",
+        "png_url": await _publish_url(png_path),
+        "stl_url": await _publish_url(stl_path),
         "render_note": note,
         "validation": validation,
         "bounding_box": validation["bounding_box"],
@@ -583,7 +576,7 @@ async def generate_scad(geometry: dict, resolution: int = 1024, max_retries: int
             )
             repaired = _auto_repair_mesh(geometry, validation)
             if repaired is None or attempt == max_retries:
-                return _generated_result(
+                return await _generated_result(
                     uid, attempt, scad, scad_path, stl_path, validation, retry_log, resolution
                 )
             geometry = repaired
@@ -591,7 +584,7 @@ async def generate_scad(geometry: dict, resolution: int = 1024, max_retries: int
             attempt += 1
             continue
 
-        return _generated_result(
+        return await _generated_result(
             uid, attempt, scad, scad_path, stl_path, validation, retry_log, resolution
         )
 

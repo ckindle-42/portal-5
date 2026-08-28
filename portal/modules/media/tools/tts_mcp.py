@@ -22,7 +22,7 @@ from pathlib import Path
 
 import httpx
 from mcp.server import MCPServer
-from starlette.responses import FileResponse, JSONResponse, Response
+from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
 from portal.platform.mcp_host.owui_files import publish_file
@@ -37,27 +37,19 @@ port = int(os.getenv("TTS_MCP_PORT", "8916"))
 mcp = MCPServer("tts-generation")
 
 SPEECH_URL = os.getenv("MLX_SPEECH_URL", "http://host.docker.internal:8918").rstrip("/")
-PUBLIC_URL = os.getenv("TTS_PUBLIC_URL", f"http://localhost:{port}/files/tts").rstrip("/")
 HTTP_TIMEOUT = float(os.getenv("TTS_PROXY_TIMEOUT", "120"))
 _AUDIO_EXTS = (".wav", ".flac", ".ogg", ".mp3", ".m4a", ".aac", ".webm", ".aiff", ".aif")
-_SAFE_FILENAME = re.compile(r"^[A-Za-z0-9._-]+\.wav$")
 
 
-async def _save_speech(content: bytes, voice: str) -> tuple[str, str]:
-    """Persist generated speech and return (filename, download_url).
+async def _save_speech(content: bytes, voice: str) -> dict:
+    """Write the WAV locally and publish it through Open WebUI.
 
-    Preferred path: publish through Open WebUI so the link rides the one port
-    the tunnel exposes (:8080). Fallback (no OWUI_API_KEY): the local file +
-    this server's /files/tts route.
+    Returns the publish result — ``{"id", "filename", "url"}`` or ``{"error"}``.
     """
     slug = re.sub(r"[^a-z0-9]+", "-", voice.lower()).strip("-") or "voice"
-    fname = f"speak_{slug}_{secrets.token_hex(16)}.wav"
-    path = get_generated_dir("speech") / fname
+    path = get_generated_dir("speech") / f"speak_{slug}_{secrets.token_hex(16)}.wav"
     path.write_bytes(content)
-    published = await publish_file(path, content_type="audio/wav")
-    if published:
-        return fname, published["url"]
-    return fname, f"{PUBLIC_URL}/{fname}"
+    return await publish_file(path)
 
 
 def _resolve_reference(reference_audio: str) -> Path | None:
@@ -112,19 +104,14 @@ async def _speech_speak(text: str, voice: str) -> dict:
     if r.status_code == 200 and not r.headers.get("content-type", "").startswith(
         "application/json"
     ):
-        try:
-            fname, url = await _save_speech(r.content, voice)
-        except Exception as e:  # noqa: BLE001 — still hand back the bytes count
-            return {
-                "status": "success",
-                "voice": voice,
-                "audio_bytes": len(r.content),
-                "message": f"Spoke {len(text)} chars with '{voice}' (could not save file: {e}).",
-            }
+        published = await _save_speech(r.content, voice)
+        if "error" in published:
+            return published
+        url = published["url"]
         return {
             "status": "success",
             "voice": voice,
-            "filename": fname,
+            "filename": published["filename"],
             "download_url": url,
             "audio_bytes": len(r.content),
             "message": f"Spoke {len(text)} chars with '{voice}'. [Download audio]({url})",
@@ -189,18 +176,6 @@ async def openai_audio_speech(request):
         else {"error": f"speech server {r.status_code}: {r.text[:200]}"}
     )
     return JSONResponse(payload, status_code=r.status_code if r.status_code >= 400 else 503)
-
-
-@mcp.custom_route("/files/tts/{filename:path}", methods=["GET"])
-async def serve_generated_speech(request):
-    """Serve a generated speech file for the download link in a tool result."""
-    filename = request.path_params["filename"]
-    if not _SAFE_FILENAME.match(filename):
-        return JSONResponse({"error": "Invalid filename"}, status_code=400)
-    file_path = get_generated_dir("speech") / filename
-    if not file_path.is_file():
-        return JSONResponse({"error": "File not found"}, status_code=404)
-    return FileResponse(path=str(file_path), filename=filename, media_type="audio/wav")
 
 
 @mcp.custom_route("/v1/models", methods=["GET"])

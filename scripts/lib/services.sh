@@ -232,6 +232,9 @@ export PYTHONPATH="\$PORTAL_ROOT"
 export MUSIC_MINIMAX_MODEL_DIR="${MM_MODEL_DIR}"
 export OUTPUT_DIR="\${AI_OUTPUT_DIR:-\$HOME/AI_Output}"
 export MUSIC_MINIMAX_MCP_PORT="${MM_PORT}"
+export OPENWEBUI_URL="\${OPENWEBUI_URL:-http://localhost:8080}"
+export OWUI_API_KEY="\${OWUI_API_KEY:-}"
+export PORTAL_PUBLIC_URL="\${PORTAL_PUBLIC_URL:-}"
 mkdir -p "\$OUTPUT_DIR"
 exec "$MM_VENV/bin/python" -m portal.modules.media.tools.music_minimax_mcp
 MM_START
@@ -324,6 +327,9 @@ export PYTHONPATH="\$PORTAL_ROOT"
 export ACESTEP_URL="http://127.0.0.1:${ACE_ENGINE_PORT}"
 export OUTPUT_DIR="\${AI_OUTPUT_DIR:-\$HOME/AI_Output}"
 export MUSIC_ACE_MCP_PORT="${ACE_MCP_PORT}"
+export OPENWEBUI_URL="\${OPENWEBUI_URL:-http://localhost:8080}"
+export OWUI_API_KEY="\${OWUI_API_KEY:-}"
+export PORTAL_PUBLIC_URL="\${PORTAL_PUBLIC_URL:-}"
 mkdir -p "\$OUTPUT_DIR"
 exec "$ACE_VENV/bin/python" -m portal.modules.media.tools.music_ace_mcp
 ACE_MCP
