@@ -5,7 +5,7 @@ code, security analysis, images, music, documents and voice — all local. It
 connects to Open WebUI, Telegram and Slack, and routes each task automatically to
 the workspace that carries the right model and toolset. Image and video
 generation are MLX-native on Apple Silicon (MFLUX for images; `ltx-2-mlx` for
-video, behind the `video` module which is off by default).
+video, behind the `video` module — off by default, shipped enabled).
 
 Inference is fully local: prompts and responses never leave the machine. Model
 downloads from HuggingFace or Ollama registries transmit standard HTTP metadata,
@@ -18,8 +18,9 @@ The platform is scoped as an enhancement layer over Open WebUI rather than a
 replacement web stack, which keeps authentication, chat history and RAG inside a
 battle-tested frontend while the pipeline owns routing and model selection. Image
 and video generation moved to the host MLX layer (from a ComfyUI path that Metal's
-lack of FP8 made unrunnable here); video is a real but disabled M7 module, so
-enabling it is a one-command toggle rather than a rebuild.
+lack of FP8 made unrunnable here); video is an M7 module that is disabled by
+default but shipped enabled, so flipping it is a one-command toggle rather than
+a rebuild.
 
 ---
 
@@ -107,7 +108,7 @@ background `nohup` fallback.
 | Portal Pipeline | Routing, auth, metrics, MCP dispatch | :9099 |
 | Ollama | Local GGUF models via Metal | :11434 |
 | SearXNG | Private web search | :8088 |
-| MCP fleet | MFLUX image :8933, video-mlx :8935 (module off by default), Music-MiniMax :8912, Documents :8913, Sandbox :8914, Whisper :8915, TTS :8916, Security :8919, Memory :8920, RAG :8921, Research :8922, Browser :8923, CAD :8926, Proxmox :8927 | config/portal.yaml |
+| MCP fleet | MFLUX image :8933, video-mlx :8935, Music-MiniMax :8912, Documents :8913, Sandbox :8914, Whisper :8915, TTS :8916, Security :8919, Memory :8920, RAG :8921, Research :8922, Browser :8923, MLX Transcribe :8924, Reranker :8925, CAD :8926, Proxmox :8927, Pipeline MCP :8928, MITRE ATT&CK :8929, BinResearch :8930, Wiki :8931, Detections :8932 | config/portal.yaml |
 | Pipeline MCP | Stack introspection + FastContext explorer | :8928 |
 | MITRE ATT&CK MCP | Technique lookup, data sources, detections | :8929 |
 | Detections MCP | SPL library search, validate_syntax, explain | :8932 |
@@ -183,7 +184,7 @@ with the pinned model, is:
 | `auto-math` | `phi4-mini-reasoning` |
 | `auto-audio` | `gemma4:12b-it-qat` (transcribe tools) |
 | `auto-music` | `lfm2.5:8b` (minimax_generate / minimax_status, speak, clone_voice, register_voice, transcribe) |
-| `auto-video` | shelved — retained in config but not operated |
+| `auto-video` | `granite4.1:8b-ctx16k` (generate_video / animate_image, MLX LTX-2.3; shipped enabled) |
 | `auto-image` | `granite4.1:8b` (generate_image / edit_image, MLX FLUX) |
 | `auto-cad` | `qwen3-coder:30b-a3b-q4_K_M` (render_mesh, render_openscad, convert_cad) |
 | `auto-spl` | Qwen3-Coder-Next abliterated (classify_vulnerability, kb_search) |
@@ -549,9 +550,10 @@ for legible text in the image), `dev`. `edit_image` does instruction editing
 ~18 GB.
 
 Video generation is the **video-mlx MCP** (`video_mlx_mcp.py`, port 8935), a
-wrapper over `ltx-2-mlx` (pure-MLX LTX-2.3). It is behind the `video` M7 module,
-**off by default** — enable with `./launch.sh install-video-mlx` then
-`portal module enable video`. Clips are preview-grade and practically capped at
+wrapper over `ltx-2-mlx` (pure-MLX LTX-2.3). It is behind the `video` M7 module
+— **off by default, shipped enabled** — installed with
+`./launch.sh install-video-mlx` (and toggled with `portal module enable` /
+`disable video`). Clips are preview-grade and practically capped at
 ~4–6 seconds on this hardware.
 
 Both replaced a ComfyUI-based path removed in `TASK_IMAGE_VIDEO_OVERHAUL_V1`:

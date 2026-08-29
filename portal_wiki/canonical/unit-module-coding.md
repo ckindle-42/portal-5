@@ -25,7 +25,15 @@ updated_at: 1783821386.783052
 
 ## Tools
 
-portal.modules.coding.tools.code_sandbox_mcp — isolated code execution (:8914)
+portal.modules.coding.tools.code_sandbox_mcp — session-managed, multi-runtime
+isolated code execution (:8914) on the `portal5-sandbox` container. Tools (from
+`config/inference/tools_manifest_code_sandbox_mcp.json`): `execute_python`,
+`execute_nodejs`, `execute_bash`, `execute_powershell` (each launching a
+throwaway container from its runtime image), `sandbox_status`, and the session
+tools `list_sessions` / `reset_session` — a session persists an interpreter
+between calls so state survives across tool invocations. Default posture: no
+network, `SANDBOX_TIMEOUT` 30s, small memory ceiling; `SANDBOX_LAB_EXEC` swaps
+in the attack-image lab envelope for the `-exec` variants.
 
 ## Workspaces
 

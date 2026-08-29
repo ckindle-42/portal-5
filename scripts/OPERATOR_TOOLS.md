@@ -10,7 +10,7 @@ report them as unwired.
 
 ```bash
 ./launch.sh install-mflux          # MLX-native image generation MCP (:8933)
-python3 scripts/gen-video.py        # video generation via the video MCP (shelved service, retained tooling)
+./launch.sh install-video-mlx      # install the MLX-native video MCP (LTX-2.3, :8935); start-video-mlx runs it
 python3 scripts/register_trainer_voice.py --audio <clip> --name <name> --text "<transcript>" --test
                                     # clean a recording + register it as a voice-clone trainer profile (host :8918)
 ```

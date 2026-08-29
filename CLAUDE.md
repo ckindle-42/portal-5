@@ -4,7 +4,7 @@
 
 ## What Portal 5 Is
 
-An Open WebUI enhancement layer, not a replacement web stack. It extends Open WebUI through its Pipeline server (:9099) and MCP Tool Servers: a local AI platform for text, code, security, images, music, documents, voice — all on your hardware, one interface. Image generation is MLX-native (MFLUX, host layer); video generation is MLX-native (ltx-2-mlx) behind the `video` module, off by default.
+An Open WebUI enhancement layer, not a replacement web stack. It extends Open WebUI through its Pipeline server (:9099) and MCP Tool Servers: a local AI platform for text, code, security, images, music, documents, voice — all on your hardware, one interface. Image generation is MLX-native (MFLUX, host layer); video generation is MLX-native (ltx-2-mlx) behind the `video` module, off by default and shipped enabled.
 
 **Architecture:** Open WebUI → Portal Pipeline (:9099) → Ollama (:11434) → local models. MCP servers (:8912–8935) provide tools (documents, code sandbox, TTS, research, memory, RAG, browser, proxmox, pipeline introspection, MLX image/video generation).
 **Inference:** Single tier — **Ollama** (GGUF, 0.32.4+ with native MLX Metal on Apple Silicon). MLX proxy retired (`3a0c58e`); MLX remains for speech (:8918), transcription (:8924), embeddings (:8917), reranking (:8925) — not chat. Host-native, not Docker.
@@ -44,7 +44,7 @@ One YAML per persona (`name`, `slug`, `module`, `workspace_model`, `category`, a
 ### 6 — config/portal.yaml Is the Single Source of Truth
 All workspaces and the MCP fleet live here. After any change run `./launch.sh sync-config` (idempotent). Never hand-edit the derived files: `config/backends.yaml` `workspace_routing`, `.mcp.json`, `imports/openwebui/workspaces/*.json`. Auto-routing: Layer 1 LLM intent classifier (default `gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M`), Layer 2 weighted keyword fallback.
 ### 7 — All Ports Are Reserved
-8080 OWUI · 9099 Pipeline · 8912–8916 MCP (music/documents/sandbox/whisper/tts) · 8917 embedding · 8918 MLX speech · 8919 security MCP · 8920 memory · 8921 RAG · 8922 research · 8923 browser · 8924 MLX transcribe · 8925 reranker · 8926 CAD · 8928 pipeline MCP · 8929 MITRE · 8932 detections · 8931 wiki · 8933 MFLUX image MCP · 8935 video-mlx MCP · 8088 SearXNG · 11434 Ollama · 9090 Prometheus · 3000 Grafana. Enforced in `.env.example`.
+8080 OWUI · 9099 Pipeline · 8912 music · 8913 documents · 8914 sandbox · 8915 whisper · 8916 TTS · 8917 embedding (host MLX) · 8918 MLX speech (host) · 8919 security · 8920 memory · 8921 RAG · 8922 research · 8923 browser · 8924 MLX transcribe · 8925 reranker · 8926 CAD · 8927 proxmox · 8928 pipeline MCP · 8929 MITRE · 8930 binresearch · 8931 wiki · 8932 detections · 8933 MFLUX image · 8935 video-mlx · 8088 SearXNG · 11434 Ollama · 9090 Prometheus · 3000 Grafana. Enforced in `.env.example`. (Authoritative roster: `config/portal.yaml` `mcp_fleet`.)
 ### 8 — Single Inference Tier: Ollama
 Never add `transformers` or `torch` to `portal/platform/inference/`. Model catalog + memory budgets in `config/backends.yaml`.
 ### 9 — The Dockerfile Split Is Intentional
@@ -64,7 +64,7 @@ Before grepping, query the wiki: `wiki_search` / `wiki_get_unit` / `wiki_explain
 
 - `tests/unit/` must pass with no network, no real Ollama/OWUI/Docker; `tmp_path` for I/O; mock `httpx.AsyncClient`.
 - `pytest portal` (module-tree suite) leaves real write-through artifacts in `portal/modules/security/core/field_journal/` and `results/checkpoints/` — after running it, `git checkout -- portal/modules/security/core/field_journal/_index.json` and `git clean` new dated entries before staging.
-- Pre-commit hooks: ruff lint+format, generated-artifact freshness, no duplicate dep pins, pytest unit suite. The `validate-system` hook (all 72 lettered checks, ~60s) runs at **push** time. Install: `pip install pre-commit && pre-commit install && pre-commit install --hook-type pre-push`.
+- Pre-commit hooks: ruff lint+format, generated-artifact freshness, no duplicate dep pins, pytest unit suite. The `validate-system` hook runs the full lettered check suite (current count: `python3 scripts/validate_system.py`; registry under `scripts/validation/`) at **push** time. Install: `pip install pre-commit && pre-commit install && pre-commit install --hook-type pre-push`.
 - **Before any testing/benchmark:** verify Docker images aren't stale vs HEAD (`docker images` vs `git log`); rebuild with `./launch.sh rebuild` if any portal image predates a relevant commit. Stale images invalidate results.
 - **Checkpoint backup — non-negotiable:** multi-hour bench/sweep checkpoints (e.g. `/tmp/agentic_blue_sweep.json`) must be `cp`-backed-up before ever being cleared or overwritten.
 - **Streaming changes MUST run `./scripts/smoke_stream.sh` against the live stack** before commit — unit mocks can't catch dependency-contract mismatches.
