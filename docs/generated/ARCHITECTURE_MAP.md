@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 670 canonical units.*
+*Deterministic projection of 696 canonical units.*
 
 ## Knowledge Layer
 
@@ -183,6 +183,32 @@
 | `unit-bench-security` | mixed | 1 |
 | `unit-blue-orchestration-v2-capture-gap` | why | 8 |
 | `unit-blue-orchestration-v3-council-of-agreement` | why | 3 |
+| `unit-capability-binresearch` | mixed | 3 |
+| `unit-capability-browser` | mixed | 3 |
+| `unit-capability-cad-render` | mixed | 3 |
+| `unit-capability-detections` | mixed | 2 |
+| `unit-capability-docker` | mixed | 2 |
+| `unit-capability-documents` | mixed | 3 |
+| `unit-capability-execution` | mixed | 3 |
+| `unit-capability-fetch` | mixed | 2 |
+| `unit-capability-filesystem` | mixed | 2 |
+| `unit-capability-git` | mixed | 2 |
+| `unit-capability-memory` | mixed | 3 |
+| `unit-capability-mflux` | mixed | 3 |
+| `unit-capability-mitre` | mixed | 2 |
+| `unit-capability-mlx-transcribe` | mixed | 3 |
+| `unit-capability-music-minimax` | mixed | 4 |
+| `unit-capability-pipeline` | mixed | 3 |
+| `unit-capability-proxmox` | mixed | 3 |
+| `unit-capability-rag` | mixed | 3 |
+| `unit-capability-reranker` | mixed | 2 |
+| `unit-capability-research` | mixed | 3 |
+| `unit-capability-security` | mixed | 2 |
+| `unit-capability-serena` | mixed | 3 |
+| `unit-capability-tts` | mixed | 3 |
+| `unit-capability-video-mlx` | mixed | 3 |
+| `unit-capability-whisper` | mixed | 3 |
+| `unit-capability-wiki` | mixed | 3 |
 | `unit-channels-dispatcher` | mixed | 1 |
 | `unit-channels-namespace` | mixed | 1 |
 | `unit-channels-slack-adapter` | mixed | 1 |
@@ -679,11 +705,11 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 670 units
+**Total:** 696 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1593 references
+- **code**: 1664 references
 - **config**: 1 references
 - **mitre**: 32 references
