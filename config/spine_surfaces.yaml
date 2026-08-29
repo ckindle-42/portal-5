@@ -11,7 +11,7 @@ surfaces:
 - name: file-portal-modules-cad-tools-cad_render_mcp
   globs:
   - portal/modules/cad/tools/cad_render_mcp.py
-  unit: unit-fact-tool-registry
+  unit: unit-capability-cad-render
 - name: file-portal-modules-cad-tools-capabilities
   globs:
   - portal/modules/cad/tools/capabilities.py
@@ -39,7 +39,7 @@ surfaces:
 - name: file-portal-modules-documents-tools-document_mcp
   globs:
   - portal/modules/documents/tools/document_mcp.py
-  unit: unit-fact-tool-registry
+  unit: unit-capability-documents
 - name: file-portal-modules-general-__init__
   globs:
   - portal/modules/general/__init__.py
@@ -51,7 +51,7 @@ surfaces:
 - name: file-portal-modules-general-tools-__init__
   globs:
   - portal/modules/general/tools/__init__.py
-  unit: unit-general-tools-vendored-fleet
+  unit: unit-capability-docker
 - name: file-portal-modules-media-tools-_admission
   globs:
   - portal/modules/media/tools/_admission.py
@@ -63,7 +63,7 @@ surfaces:
 - name: file-portal-modules-media-tools-music_ace_mcp
   globs:
   - portal/modules/media/tools/music_ace_mcp.py
-  unit: unit-fact-tool-registry
+  unit: unit-capability-music-minimax
 - name: file-portal-modules-media-tools-music_minimax_mcp
   globs:
   - portal/modules/media/tools/music_minimax_mcp.py
@@ -71,7 +71,7 @@ surfaces:
 - name: file-portal-modules-media-tools-tts_mcp
   globs:
   - portal/modules/media/tools/tts_mcp.py
-  unit: unit-fact-tool-registry
+  unit: unit-capability-tts
 - name: file-portal-modules-media-tools-video_mlx_mcp
   globs:
   - portal/modules/media/tools/video_mlx_mcp.py
@@ -83,15 +83,15 @@ surfaces:
 - name: file-portal-modules-research-tools-browser_mcp
   globs:
   - portal/modules/research/tools/browser_mcp.py
-  unit: unit-fact-tool-registry
+  unit: unit-capability-browser
 - name: file-portal-modules-research-tools-rag_mcp
   globs:
   - portal/modules/research/tools/rag_mcp.py
-  unit: unit-fact-tool-registry
+  unit: unit-capability-rag
 - name: file-portal-modules-research-tools-reranker_mcp
   globs:
   - portal/modules/research/tools/reranker_mcp.py
-  unit: unit-fact-tool-registry
+  unit: unit-capability-reranker
 - name: file-portal-modules-research-tools-web_search_mcp
   globs:
   - portal/modules/research/tools/web_search_mcp.py
@@ -135,19 +135,19 @@ surfaces:
 - name: file-portal-modules-security-tools-detections_mcp
   globs:
   - portal/modules/security/tools/detections_mcp.py
-  unit: unit-fact-tool-registry
+  unit: unit-capability-detections
 - name: file-portal-modules-security-tools-mitre_mcp
   globs:
   - portal/modules/security/tools/mitre_mcp.py
-  unit: unit-fact-tool-registry
+  unit: unit-capability-mitre
 - name: file-portal-modules-security-tools-proxmox_mcp
   globs:
   - portal/modules/security/tools/proxmox_mcp.py
-  unit: unit-fact-tool-registry
+  unit: unit-capability-proxmox
 - name: file-portal-modules-security-tools-security_mcp
   globs:
   - portal/modules/security/tools/security_mcp.py
-  unit: unit-fact-tool-registry
+  unit: unit-capability-security
 - name: file-portal-platform-agent-__init__
   globs:
   - portal/platform/agent/__init__.py
@@ -187,7 +187,7 @@ surfaces:
 - name: file-portal-platform-memory-memory_mcp
   globs:
   - portal/platform/memory/memory_mcp.py
-  unit: unit-memory-mcp-lancedb
+  unit: unit-capability-memory
 - name: file-portal-platform-storage-__init__
   globs:
   - portal/platform/storage/__init__.py
