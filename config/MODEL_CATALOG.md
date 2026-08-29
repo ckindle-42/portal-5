@@ -1555,13 +1555,23 @@ The `-ctx64k` cap was undersized for real opencode agentic requests (observed up
 
 ---
 
-### `qwen3-coder:30b-a3b-q4_K_M-ctx16k`
+### `qwen3-coder:30b-a3b-q4_K_M-ctx256k`
 
-`qwen3-coder:30b-a3b-q4_K_M-ctx16k` is the derived tag of `qwen3-coder:30b-a3b-q4_K_M` with `PARAMETER num_ctx 16384` baked in via the `apply-params` command, required because Ollama's `/v1/chat/completions` drops request-time `options.num_ctx`. `config/backends.yaml` registers it in `group: coding` with `supports_tools: true`; the `omlx-coding` `aliases` block maps it to the oMLX `Qwen3-Coder-30B-A3B-Instruct-4bit` model. `config/portal.yaml` pins it as the `auto-coding` and `auto-bigfix` workspace `model_hint`, and (as of TASK_CAD_MODULE_OVERHAUL_V1 Phase 1) `auto-cad` as well — 8k was too tight for Tier-A structured-intermediate JSON payloads and the multi-turn self-correction revision loop, which carries prior SCAD + error context across retries. All three pin `context_limit: 16384`. Base model detail lives in the parent unit.
+`qwen3-coder:30b-a3b-q4_K_M-ctx256k` is the derived tag of `qwen3-coder:30b-a3b-q4_K_M` with `PARAMETER num_ctx 262144` (the model's full native context) baked in, required because Ollama's `/v1/chat/completions` drops request-time `options.num_ctx`. `config/backends.yaml` registers it in `group: coding` with `supports_tools: true`; the `omlx-coding` `aliases` block maps it to the oMLX `Qwen3-Coder-30B-A3B-Instruct-4bit` model. `config/portal.yaml` pins it as the `auto-coding` default-variant `model_hint` with `context_limit: 262144`. Base model detail lives in the parent unit.
 
 ## Why
 
-The ctx16k variant is the tag the auto-coding, auto-bigfix, and (now) auto-cad lanes actually serve, so the grounding is the coding-group registration plus those `model_hint` pins with their matching `context_limit`. The omlx alias is recorded because it lets the same GGUF hint reach the oMLX backend. The bake-in mechanism is stated because the endpoint cannot take the context bound per request.
+`77b53f68` raised every `auto-coding` *variant* to full native context but left the *default* variant at `-ctx16k` — normally masked because the default is oMLX-served at native context, but the 16k cap silently truncated agentic tool-loop sessions on the Ollama fallback path (the path taken when the host oMLX server wedges, per `4b7b9a6`). This tag closes that gap, matching the rest of the lineup; the grounding is the coding-group registration plus the `auto-coding` `model_hint`/`context_limit` pin and the omlx alias.
+
+---
+
+### `qwen3-coder:30b-a3b-q4_K_M-ctx16k`
+
+`qwen3-coder:30b-a3b-q4_K_M-ctx16k` is the derived tag of `qwen3-coder:30b-a3b-q4_K_M` with `PARAMETER num_ctx 16384` baked in via the `apply-params` command, required because Ollama's `/v1/chat/completions` drops request-time `options.num_ctx`. `config/backends.yaml` registers it in `group: coding` with `supports_tools: true`; the `omlx-coding` `aliases` block maps it to the oMLX `Qwen3-Coder-30B-A3B-Instruct-4bit` model. `config/portal.yaml` pins it as the `auto-bigfix` workspace `model_hint`, and (as of TASK_CAD_MODULE_OVERHAUL_V1 Phase 1) `auto-cad` as well — 8k was too tight for Tier-A structured-intermediate JSON payloads and the multi-turn self-correction revision loop, which carries prior SCAD + error context across retries. Both pin `context_limit: 16384`. (`auto-coding` moved to the `-ctx256k` tag above.) Base model detail lives in the parent unit.
+
+## Why
+
+The ctx16k variant is the tag the auto-bigfix and auto-cad lanes actually serve, so the grounding is the coding-group registration plus those `model_hint` pins with their matching `context_limit`. The omlx alias is recorded because it lets the same GGUF hint reach the oMLX backend. The bake-in mechanism is stated because the endpoint cannot take the context bound per request.
 
 ---
 

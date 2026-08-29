@@ -1,7 +1,7 @@
 {
   "bench_prompts[coding]": {
     "base": "auto-coding",
-    "served_model": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+    "served_model": "qwen3-coder:30b-a3b-q4_K_M-ctx256k",
     "variant": null
   },
   "bench_prompts[creative]": {
@@ -56,7 +56,7 @@
   },
   "fold_coding_uncensored": {
     "base": "auto-coding",
-    "served_model": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+    "served_model": "qwen3-coder:30b-a3b-q4_K_M-ctx256k",
     "variant": null
   },
   "fold_coding_uncensored_agentic": {
@@ -101,7 +101,7 @@
   },
   "fold_purpleteam_exec": {
     "base": "auto-coding",
-    "served_model": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+    "served_model": "qwen3-coder:30b-a3b-q4_K_M-ctx256k",
     "variant": null
   },
   "fold_redteam_deep": {
@@ -216,7 +216,7 @@
   },
   "routing_examples[28]": {
     "base": "auto-coding",
-    "served_model": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+    "served_model": "qwen3-coder:30b-a3b-q4_K_M-ctx256k",
     "variant": null
   },
   "routing_examples[29]": {
@@ -336,7 +336,7 @@
   },
   "rr_bench_prompts[coding]": {
     "base": "auto-coding",
-    "served_model": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+    "served_model": "qwen3-coder:30b-a3b-q4_K_M-ctx256k",
     "variant": null
   },
   "rr_bench_prompts[creative]": {
@@ -396,7 +396,7 @@
   },
   "rr_s21_02_coding_auto": {
     "base": "auto-coding",
-    "served_model": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+    "served_model": "qwen3-coder:30b-a3b-q4_K_M-ctx256k",
     "variant": null
   },
   "rr_s21_03_compliance_auto": {
@@ -406,7 +406,7 @@
   },
   "rr_variant_coding_base": {
     "base": "auto-coding",
-    "served_model": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+    "served_model": "qwen3-coder:30b-a3b-q4_K_M-ctx256k",
     "variant": null
   },
   "rr_variant_coding_heavy": {

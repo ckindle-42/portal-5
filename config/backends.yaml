@@ -346,6 +346,8 @@ backends:
     supports_tools: true
   - id: qwen3-coder:30b-a3b-q4_K_M
     supports_tools: true
+  - id: qwen3-coder:30b-a3b-q4_K_M-ctx256k
+    supports_tools: true
   - id: qwen3-coder:30b-a3b-q4_K_M-ctx16k
     supports_tools: true
   - id: qwen3-coder:30b-a3b-q4_K_M-ctx8k
@@ -725,6 +727,7 @@ backends:
     supports_tools: true
   priority: 10
   aliases:
+    qwen3-coder:30b-a3b-q4_K_M-ctx256k: Qwen3-Coder-30B-A3B-Instruct-4bit
     qwen3-coder:30b-a3b-q4_K_M-ctx16k: Qwen3-Coder-30B-A3B-Instruct-4bit
     laguna-xs.2:Q4_K_M-ctx64k: Laguna-XS.2-4bit
     portal5/laguna-xs2:q4_K_M-ctx128k: Laguna-XS.2-4bit

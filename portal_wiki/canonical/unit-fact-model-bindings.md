@@ -5,13 +5,13 @@ title: "model bindings \u2014 0 reachability gap(s)"
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 587b13bb9706
+  commit: 2877d1d88890
 - type: code
   path: config/portal.yaml
-  commit: 587b13bb9706
+  commit: 2877d1d88890
 - type: code
   path: config/personas/
-  commit: 587b13bb9706
+  commit: 2877d1d88890
 claims: []
 confidence: high
 tags:
@@ -19,7 +19,7 @@ tags:
 - model-bindings
 - reachability
 created_at: 1784000421.433863
-updated_at: 1787844007.166799
+updated_at: 1788046055.986701
 ---
 
 # Model bindings (reachability-resolved)
@@ -37,7 +37,7 @@ default.
 | `auto-audio` | `gemma4:12b-it-qat-ctx8k` | yes |
 | `auto-bigfix` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | yes |
 | `auto-cad` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | yes |
-| `auto-coding` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | yes |
+| `auto-coding` | `qwen3-coder:30b-a3b-q4_K_M-ctx256k` | yes |
 | `auto-compliance` | `granite4.1:8b-ctx16k` | yes |
 | `auto-council` | `qwen3.6:27b-q4_K_M-ctx16k` | yes |
 | `auto-creative` | `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` | yes |

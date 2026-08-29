@@ -409,8 +409,8 @@ workspaces:
     module: coding
     name: 💻 Portal Code Expert
     description: Code generation, debugging, architecture review (Qwen3-Coder-30B MoE, Ollama, 0.22s TTFT)
-    model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx16k
-    context_limit: 16384
+    model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx256k
+    context_limit: 262144
     predict_limit: 16384
     temperature: 0.2
     top_p: 0.9
