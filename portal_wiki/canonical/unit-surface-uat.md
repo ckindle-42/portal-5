@@ -5,6 +5,8 @@ title: "UAT driver library \u2014 modularized live-stack acceptance runner"
 sources:
 - type: code
   path: tests/uat/*.py
+- type: code
+  path: tests/uat/adaptive/*.py
 claims: []
 confidence: high
 tags:
@@ -28,3 +30,7 @@ Entry and orchestration: the CLI selects sections and run modes, the runner walk
 ## Gotchas
 
 The runner drives real Open WebUI — a live acceptance run, not a unit test — so stale images must block, not warn. The monitor must not mutate the run state it reports. Heavy format validators import lazily; an absent format cannot crash the run. Eager skip rules hide failures.
+
+## Adaptive layer
+
+`tests/uat/adaptive/` sits above the keyword catalog: it introspects each OWUI-addressable space's declared contract from config, has an independent agent author deep intended-use challenges across seven dimensions, executes them through the same browser runner via `--adaptive` (a catalog swap in `_select_tests` — nothing downstream changes), and rolls results up capability-by-capability behind an operator `[GATE]`. It is additive; the keyword catalog is untouched and stays the fast regression layer.
