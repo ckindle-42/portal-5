@@ -23,10 +23,9 @@ updated_at: 1784946220.67769
 Portal 5 is a complete, private AI platform that runs on your hardware: text,
 code, security analysis, images, music, documents and voice — all local. It
 connects to Open WebUI, Telegram and Slack, and routes each task automatically to
-the workspace that carries the right model and toolset. The retained
-video-generation code is shelved and not part of normal operation, documented in
-`KNOWN_LIMITATIONS.md` and left unregistered in `config/portal.yaml`
-(`mcp_fleet`), where the `video` fleet entry is intentionally removed.
+the workspace that carries the right model and toolset. Image and video
+generation are MLX-native on Apple Silicon (MFLUX for images; `ltx-2-mlx` for
+video, behind the `video` module — off by default, shipped enabled).
 
 Inference is fully local: prompts and responses never leave the machine. Model
 downloads from HuggingFace or Ollama registries transmit standard HTTP metadata,
@@ -37,6 +36,8 @@ to HuggingFace. No cloud accounts or usage fees are required.
 
 The platform is scoped as an enhancement layer over Open WebUI rather than a
 replacement web stack, which keeps authentication, chat history and RAG inside a
-battle-tested frontend while the pipeline owns routing and model selection. The
-video shelving is an honesty contract: code is retained for future work but is
-neither advertised nor operated until the crash limitations are resolved.
+battle-tested frontend while the pipeline owns routing and model selection. Image
+and video generation moved to the host MLX layer (from a ComfyUI path that Metal's
+lack of FP8 made unrunnable here); video is an M7 module that is disabled by
+default but shipped enabled, so flipping it is a one-command toggle rather than
+a rebuild.

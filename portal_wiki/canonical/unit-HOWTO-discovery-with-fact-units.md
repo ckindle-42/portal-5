@@ -30,8 +30,8 @@ authored in the spine and then rendered into the documents that humans read.
 
 ## Order of operations
 1. Use `wiki_search` / `wiki_explain` to find the relevant canonical unit.
-2. Edit that unit for authored knowledge, or edit the governing config/code for
-   a machine-derived fact-unit.
+2. Edit that unit for authored knowledge, or edit the governing config or code
+   for a machine-derived fact-unit.
 3. Run `sync-config` so fact-units refresh and all managed document blocks are
    regenerated.
 4. Treat `sources:` as provenance and navigation. They must resolve, but they do
@@ -39,7 +39,7 @@ authored in the spine and then rendered into the documents that humans read.
 
 ## Trust tiers
 - **Fact-units** (`kind: what`, `tags: [fact]`) — generated from governing
-  config/code and checked by AW.
+  config and code and checked by AW.
 - **WHY / HOWTO units** — authored canonical intent and operating guidance.
 - **Rendered documents** — projections only; direct edits are reserved for
   bounded human-owned fences and marker placement.

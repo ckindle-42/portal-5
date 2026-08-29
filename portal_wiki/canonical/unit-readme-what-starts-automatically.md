@@ -21,7 +21,7 @@ updated_at: 1784946220.678988
 `./launch.sh up` starts the core Docker stack (compose services plus profiles
 auto-selected from Telegram/Slack tokens). Host-native Apple Silicon services
 start when their launchd agent has been installed — `_ensure_native_services` in
-`scripts/lib/util.sh` checks each registered launchd label (MFLUX image, Music MCP,
+`scripts/lib/util.sh` checks each registered launchd label (MFLUX image, music backend,
 MLX Speech, MLX Transcribe, embedding) and boots the service via `launchctl` or a
 background `nohup` fallback.
 
@@ -31,13 +31,13 @@ background `nohup` fallback.
 | Portal Pipeline | Routing, auth, metrics, MCP dispatch | :9099 |
 | Ollama | Local GGUF models via Metal | :11434 |
 | SearXNG | Private web search | :8088 |
-| MCP fleet | MFLUX image :8933, Music :8912, Documents :8913, Sandbox :8914, Whisper :8915, TTS :8916, Security :8919, Memory :8920, RAG :8921, Research :8922, Browser :8923, CAD :8926, Proxmox :8927 | config/portal.yaml |
+| MCP fleet | MFLUX image :8933, video-mlx :8935, Music-MiniMax :8912, Documents :8913, Sandbox :8914, Whisper :8915, TTS :8916, Security :8919, Memory :8920, RAG :8921, Research :8922, Browser :8923, MLX Transcribe :8924, Reranker :8925, CAD :8926, Proxmox :8927, Pipeline MCP :8928, MITRE ATT&CK :8929, BinResearch :8930, Wiki :8931, Detections :8932 | config/portal.yaml |
 | Pipeline MCP | Stack introspection + FastContext explorer | :8928 |
 | MITRE ATT&CK MCP | Technique lookup, data sources, detections | :8929 |
 | Detections MCP | SPL library search, validate_syntax, explain | :8932 |
 | Wiki MCP | Canonical knowledge layer — search, get_unit | :8931 |
 | MLX Transcribe | Diarized transcription (Apple Silicon) | :8924 |
-| MLX Speech | Kokoro TTS + Qwen3-TTS/ASR (Apple Silicon) | :8918 |
+| MLX Speech | Kokoro TTS + Higgs Audio v2 voice clone + Qwen3-TTS/ASR (Apple Silicon) | :8918 |
 | Embedding | Harrier-0.6B text embeddings | :8917 |
 | Reranker | Qwen3-Reranker-0.6B two-stage RAG | :8925 |
 | Prometheus | Metrics collection | http://localhost:9090 |

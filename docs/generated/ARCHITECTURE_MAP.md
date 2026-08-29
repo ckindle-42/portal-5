@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 700 canonical units.*
+*Deterministic projection of 705 canonical units.*
 
 ## Knowledge Layer
 
@@ -64,9 +64,11 @@
 | `unit-HOWTO-adding-new-capabilities` | why | 5 |
 | `unit-HOWTO-diarized-transcription-speaker-labeled-transcripts` | why | 2 |
 | `unit-HOWTO-discovery-with-fact-units` | why | 3 |
+| `unit-HOWTO-embed-media-in-documents` | why | 1 |
 | `unit-HOWTO-media-memory-and-launch-order` | why | 2 |
 | `unit-HOWTO-quick-reference-cli-commands` | what | 1 |
 | `unit-HOWTO-shared-workspace` | why | 1 |
+| `unit-HOWTO-user-management` | why | 3 |
 | `unit-SEC_BENCH-architecture-invariant` | why | 3 |
 | `unit-SEC_BENCH-blue-orchestration` | what | 2 |
 | `unit-SEC_BENCH-coding-agent-reentry` | what | 6 |
@@ -601,6 +603,7 @@
 | `unit-readme-core-models-pulled-automatically-on-first-run-4-gb` | what | 4 |
 | `unit-readme-documentation` | what | 1 |
 | `unit-readme-functional-workspaces` | what | 4 |
+| `unit-readme-image-video-generation-mlx-native-host-layer` | what | 4 |
 | `unit-readme-license` | what | 1 |
 | `unit-readme-mlx-models-apple-silicon-retained-for-audio-embedding-reranker-only-chat-inference-is-ollama-only` | what | 5 |
 | `unit-readme-network-exposure` | what | 4 |
@@ -610,9 +613,11 @@
 | `unit-readme-quick-start` | what | 4 |
 | `unit-readme-required-environment-variables` | what | 4 |
 | `unit-readme-seeding` | what | 2 |
+| `unit-readme-slack-bot-setup` | what | 4 |
 | `unit-readme-specialized-models-pulled-with-launch-sh-pull-models-60-100-gb-total` | what | 3 |
 | `unit-readme-speech-text-to-speech-speech-to-text` | what | 3 |
 | `unit-readme-stop-the-conflicting-service-then-launch-sh-up` | what | 2 |
+| `unit-readme-telegram-bot-setup` | what | 4 |
 | `unit-readme-test-everything-is-working` | what | 2 |
 | `unit-readme-then-free-disk-space-and-retry-launch-sh-up` | what | 2 |
 | `unit-readme-troubleshooting` | what | 2 |
@@ -693,7 +698,7 @@
 | `unit-user-guide-personas` | what | 2 |
 | `unit-user-guide-supported-formats` | what | 3 |
 | `unit-user-guide-tips` | what | 2 |
-| `unit-user-guide-tools-mcp-servers` | what | 8 |
+| `unit-user-guide-tools-mcp-servers` | what | 7 |
 | `unit-user-guide-uploading-documents` | what | 2 |
 | `unit-user-guide-workspaces` | what | 3 |
 | `unit-wiki-adapter-modules` | mixed | 1 |
@@ -709,11 +714,11 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 700 units
+**Total:** 705 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1686 references
+- **code**: 1701 references
 - **config**: 1 references
 - **mitre**: 32 references

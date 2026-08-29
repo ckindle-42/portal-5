@@ -4,6 +4,7 @@
 
 ## 1. Quick Start
 
+<!-- WIKI:GENERATED unit=unit-HOWTO-1-quick-start -->
 Complete working examples for every feature. Each section shows: what it does, how to activate it, a working example, and how to verify.
 
 **What:** Launch the entire platform with one command.
@@ -33,11 +34,13 @@ When the stack is ready `launch.sh` prints the service URLs:
 ## Why
 
 First-run bootstrapping lives inside the `up` case rather than in a manual checklist so every post-clone dependency — env file, secrets, workspace tree, Docker images, model weights — is generated or fetched by one command and a fresh checkout converges to the same running stack as an old install. The secret-repair loop also makes an interrupted first run self-healing: re-running `up` regenerates whatever placeholder value is left over.
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## 2. Chat with AI
 
+<!-- WIKI:GENERATED unit=unit-HOWTO-2-chat-with-ai -->
 **What:** Open WebUI connects to Portal Pipeline, which routes each request to the best-fit model.
 
 **How:** Open `http://localhost:8080` and sign in with the admin credentials from `.env` — `OPENWEBUI_ADMIN_EMAIL` / `OPENWEBUI_ADMIN_PASSWORD`, the latter auto-generated on first run and printed by `launch.sh`. Open WebUI's `OPENAI_API_BASE_URL` points at the pipeline's `http://portal-pipeline:9099/v1` in `deploy/portal-5/docker-compose.yml`, so every chat flows through the router.
@@ -54,11 +57,13 @@ The `auto` workspace is special: when no explicit model is chosen, the LLM inten
 ## Why
 
 Routing is deliberately split from serving: Open WebUI only knows one OpenAI-compatible endpoint, and the pipeline decides which workspace and model answer. Keeping the chat UI that thin means model selection, persona overrides, and tool grants can all evolve inside `config/portal.yaml` and `routing.py` without any Open WebUI change, and the two-layer classifier makes the router both accurate (LLM) and fast (keywords) without blocking the request on the classifier.
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## 3. Workspaces
 
+<!-- WIKI:GENERATED unit=unit-HOWTO-3-workspaces -->
 **What:** Each workspace routes to a specialized model and activates the relevant tools.
 
 **How:** Workspaces are defined in `config/portal.yaml` under the `workspaces:` block — each entry declares `module`, `name`, `model_hint`, `tools`, and `expose_to_owui`. Select one from the model dropdown; the exposed ones are exactly those with `expose_to_owui: true`. `./launch.sh sync-config` regenerates the derived artifacts (`workspace_routing` in `config/backends.yaml`, `.mcp.json`, and the Open WebUI workspace presets under `imports/openwebui/workspaces/`) so `config/portal.yaml` stays the single source of truth.
@@ -75,18 +80,20 @@ For the full live roster (production + eval workspaces, module, model hint) use 
 | `auto-music` | `lfm2.5:8b-ctx8k` | minimax_generate, minimax_status, speak, clone_voice, register_voice |
 | `auto-vision` | `qwen3-vl:32b-ctx8k` | transcribe_audio, generate_image |
 
-`auto-video` is defined with `expose_to_owui: false` (shelved — see the Video Generation unit). Eval workspaces (the `bench-*` set) additionally require `PORTAL_ENABLE_EVAL=1` at pipeline startup.
+`auto-video` is exposed with `generate_video` / `animate_image` (shipped enabled — see the Video Generation unit). Eval workspaces (the `bench-*` set) additionally require `PORTAL_ENABLE_EVAL=1` at pipeline startup.
 
 **Example — coding:** select `Portal Code Expert` and ask a coding question; `auto-coding` answers with Qwen3-Coder-30B and its sandbox tools (`execute_bash`, `execute_python`, `sandbox_status`) run code on request.
 
 ## Why
 
 Workspaces are pure configuration, not code. Putting name, model hint, tool grants, and OWUI exposure in one YAML block means adding or tuning a lane never requires a pipeline code change, and the module-toggle layer can hide an entire workspace family at sync time. Mechanically deriving the presets keeps the dropdown and routing in lockstep, which is why `sync-config` idempotence is enforced by the test suite.
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## 4. Personas
 
+<!-- WIKI:GENERATED unit=unit-HOWTO-4-personas -->
 **What:** Pre-configured specialist prompts that shape the AI's behavior.
 
 **How:** Personas live as one YAML file each under `config/personas/`. During seeding, `scripts/openwebui_init.py` reads them and creates model presets in Open WebUI, binding each persona to a `workspace_model` and an optional `variant`. Select a persona from the model dropdown alongside workspaces.
@@ -118,27 +125,31 @@ curl -s http://localhost:9099/v1/models \
 ## Why
 
 Personas are data, not code: one YAML per persona means adding a specialist never touches the pipeline, and the workspace-model binding guarantees a persona is always served by the model family it was written for. Routing a persona through a workspace variant rather than a standalone workspace keeps model, prompt, tool grants, and guardrail posture in one place instead of duplicating them across near-identical workspaces.
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## 5. Code Generation & Execution
 
+<!-- WIKI:GENERATED unit=unit-HOWTO-5-code-generation-execution -->
 **What:** Generate code with AI and execute it in an isolated Docker-in-Docker sandbox.
 
 **Activate:** Select `Portal Code Expert` (`auto-coding`) from the model dropdown. Its `tools` list in `config/portal.yaml` grants `execute_python`, `execute_nodejs`, `execute_bash`, and `sandbox_status`; the sandbox MCP's full surface also includes `execute_powershell` and the session tools `list_sessions` / `reset_session` (manifest: `config/inference/tools_manifest_code_sandbox_mcp.json`). Sessions persist an interpreter between calls, so long tasks keep state instead of re-seeding a throwaway container each time.
 
-**How:** Execution runs through `portal/modules/coding/tools/code_sandbox_mcp.py`, the sandbox MCP server on the `portal5-sandbox` container. Each tool launches a throwaway container from an image (`python:3.11-slim`, `node:20-alpine`, `alpine:latest` by default) inside the Docker-in-Docker daemon, with a default `SANDBOX_TIMEOUT` of 30 seconds, no network (`SANDBOX_ALLOW_NETWORK=false`), and a small memory ceiling.
+**How:** Execution runs through `portal/modules/coding/tools/code_sandbox_mcp.py`, the sandbox MCP server on the `portal5-mcp-sandbox` container. Each tool launches a throwaway container from an image (`python:3.11-slim`, `node:20-alpine`, `alpine:latest` by default) inside the Docker-in-Docker daemon, with a default `SANDBOX_TIMEOUT` of 30 seconds, no network (`SANDBOX_ALLOW_NETWORK=false`), and a small memory ceiling.
 
 Environment knobs live in `.env`: `SANDBOX_TIMEOUT`, `SANDBOX_ALLOW_NETWORK`, and `SANDBOX_LAB_EXEC`. The last one swaps in the attack-image lab envelope used by the `-exec` security variants, widening the timeout and enabling a routable lab network (`$LAB_TARGET_*`). Pass an explicit `timeout` argument per call when a task may run long; the ceiling is enforced by the server, not the caller.
 
 ## Why
 
 Code execution must never touch the host directly, so the sandbox MCP shells out to a Docker-in-Docker daemon with throwaway containers, a strict default timeout, and networking disabled by default. Because the isolation posture is expressed as env flags rather than hardcoded, the same tool surface serves both the locked-down default lane and the authorized lab-exec lane without duplicating handlers.
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## 6. Security Analysis
 
+<!-- WIKI:GENERATED unit=unit-HOWTO-6-security-analysis -->
 **What:** One base workspace (`auto-security`) covering research, simulation, and execution tiers. The former sibling workspaces collapsed into `?variant=` query params (or a persona's `variant:` field) are resolved by `_resolve_workspace_variant` in `portal/platform/inference/router/preinject.py` instead of separate workspace ids. The complete variant catalog — including the newer `blueteam-orchestrated` and `blueteam-council` — is defined under `auto-security.variants` in `config/portal.yaml`; `unit-fact-security-variants` is the live index.
 
 Verified variant summary from `config/portal.yaml`:
@@ -160,11 +171,13 @@ The `pentest` variant runs inside the `portal5-attack` Kali image with `$LAB_TAR
 ## Why
 
 Collapsing the sibling workspaces into one base plus variants removed duplicate model registrations, prompt text, and tool grants that had drifted apart. The variant mechanism is a pure config transform applied at request time, so a tier change (an extra hop, a guardrail flip) is an edit to `config/portal.yaml`, not pipeline code, and the same resolution path serves both `?variant=` query params and persona `variant:` fields.
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## 7. Document Generation
 
+<!-- WIKI:GENERATED unit=unit-HOWTO-7-document-generation -->
 **What:** Generate Word (.docx), Excel (.xlsx), and PowerPoint (.pptx) files from chat.
 
 **Activate:** Select `Portal Document Builder` (`auto-documents`) from the model dropdown. Its `tools` list in `config/portal.yaml` grants `create_word_document`, `create_excel`, `create_powerpoint`, the matching `read_*` tools, and `transcribe_with_speakers`, so the Documents tool is available automatically in that workspace.
@@ -174,60 +187,70 @@ Collapsing the sibling workspaces into one base plus variants removed duplicate 
 ## Why
 
 Document output is a two-part contract: the MCP server owns the byte-level format work while the workspace prompt owns the chat behavior (always returning a download link). Keeping generation in a dedicated MCP means the same file-producing tools are available to any workspace that lists them, and writing into the shared workspace means files are immediately reachable by other services and by the host.
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## 8. Image Generation
 
+<!-- WIKI:GENERATED unit=unit-HOWTO-8-image-generation -->
 **What:** Generate and edit images with MLX-native FLUX — `schnell` (fast default), `klein` (FLUX.2), `qwen-image` (best for legible text in the image).
 
-**Activate:** `./launch.sh install-mflux` installs the MFLUX MCP as a host-native launchd service on port 8933 (Apple Silicon only — a Docker container cannot reach the Metal GPU). `./launch.sh pull-mflux-models` pre-pulls the weights. The `auto-image` workspace (`Portal Image Creator`) grants `generate_image` / `edit_image`, so selecting that workspace makes image generation available; `auto-vision` also grants `generate_image`.
+**Activate:** `./launch.sh install-mflux` installs the MFLUX MCP as a host-native launchd service on port 8933 (Apple Silicon only — a Docker container cannot reach the Metal GPU). `./launch.sh pull-mflux-models` pre-pulls the weights. The `auto-image` workspace (`Portal Image Creator`) grants `generate_image` / `edit_image`; `auto-vision` also grants `generate_image`.
 
-**How:** `portal/modules/media/tools/mflux_mcp.py` shells out to the `mflux-generate` / `mflux-generate-flux2` CLI. `generate_image(prompt, model, width, height, steps, seed)` is synchronous — a few seconds (`schnell`) to a couple of minutes (`klein` / `qwen-image`). `edit_image(image_url, prompt, model, strength)` does instruction editing (`qwen-image-edit`) or img2img; `image_url` is a public http(s) URL or an already-uploaded file name (SSRF-gated by `assert_public_http_url`). Every job passes a `mflux:<model>` key through the Tier-1 admission check. Outputs land in the shared workspace `generated/images/` and publish through Open WebUI's files API. Measured MLX peaks: `schnell` ~14.5 GB, `klein` ~18 GB (`--quantize 8 --low-ram`).
+**How:** `portal/modules/media/tools/mflux_mcp.py` shells out to the `mflux-generate` / `mflux-generate-flux2` CLI. `generate_image(prompt, model, width, height, steps, seed)` is synchronous — a few seconds (`schnell`) to a couple of minutes (`klein` / `qwen-image`). `edit_image(image_url, prompt, model, strength)` does instruction editing (`qwen-image-edit`) or img2img; `image_url` is a public http(s) URL or an already-uploaded file name (SSRF-gated by `assert_public_http_url`). Every job passes a `mflux:<model>` key through the Tier-1 admission check. Outputs land in `generated/images/` and publish through Open WebUI's files API. Measured MLX peaks: `schnell` ~14.5 GB, `klein` ~18 GB (`--quantize 8 --low-ram`).
 
 ## Why
 
 Image generation runs on the host MLX layer alongside speech/transcription/embeddings — one accelerator path, no Docker-to-Metal bridge, clean per-module removability. It replaced a ComfyUI-based path that could not run on this hardware (Metal has no FP8). The synchronous tool surface is enough because MFLUX jobs finish inside a chat request; the admission check refuses an oversized job before it OOMs the 64 GB box.
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## 9. Video Generation
 
+<!-- WIKI:GENERATED unit=unit-HOWTO-9-video-generation -->
 **What:** Generate short clips (with synchronized audio) from a text prompt or animate a still image, via MLX-native LTX-2.3.
 
-**Off by default:** the `video` M7 module is disabled by default — LTX-2.3 runs a large MLX working set, is thermally punishing on a 64 GB box, and produces preview-grade clips practically capped at ~4–6 s. Enable with `./launch.sh install-video-mlx` (clones `dgrauet/ltx-2-mlx`, `uv sync`) then `portal module enable video`; `sync-config` then adds the `video_mlx` fleet id and the `auto-video` workspace to the presets.
+**Off by default, shipped enabled:** the `video` module ships enabled in the default config — `auto-video` is exposed to Open WebUI, the `video_mlx` fleet entry (port 8935) is registered, and `sync-config` keeps both in the presets. What stays off by default is the engine: LTX-2.3 is a host-native MLX install (Apple Silicon only, no Docker-to-Metal bridge) that a fresh box lacks until `./launch.sh install-video-mlx` (clones `dgrauet/ltx-2-mlx`, `uv sync`) and `./launch.sh start-video-mlx` are run. It runs a large MLX working set, is thermally punishing on a 64 GB box, and produces preview-grade clips practically capped at ~4–6 s.
 
 **How:** `portal/modules/media/tools/video_mlx_mcp.py` shells out to `ltx-2-mlx generate --distilled --low-ram`. `generate_video(prompt, model, frames, width, height, seed)` (frames snap to the LTX `8k+1` constraint) and `animate_image(image_url, prompt, ...)` (i2v). Model packs: `ltx-2.3-q4` (int4) / `ltx-2.3-q8` (int8). Jobs run several minutes; a `video_mlx:<model>` admission key gates each one. Output is an mp4 published through Open WebUI's files API.
 
 ## Why
 
-Video is the heaviest media surface, so it is footprint-first — off unless an operator opts in, mirroring the `eval` module. Keeping it a real (if disabled) module rather than deleted code means enabling it is a one-command toggle, not a rebuild.
+Video is the heaviest media surface, so the engine install stays footprint-first — off until an operator opts in — even though the module itself ships enabled so the workspace, fleet entry, and routing are present by default. Keeping it a real module rather than deleted code means enabling is a one-command toggle, not a rebuild.
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## 10. Music Generation
 
-**What:** Generate full songs with lyrics/vocals or instrumentals using MiniMax-Music3-MLX.
+<!-- WIKI:GENERATED unit=unit-HOWTO-10-music-generation -->
+**What:** Generate full songs — with lyrics/vocals or instrumental — from text descriptions, using MiniMax-Music3-MLX.
 
-**Activate:** Select `Music Producer` (`auto-music`). Its tools include `minimax_generate`/`minimax_status`/`minimax_models`, and speech/transcription tools.
+**Activate:** Select `Music Producer` (`auto-music`). MiniMax's tools — `minimax_generate`/`minimax_status`/`minimax_models`, plus speech/transcription tools — are granted by `auto-music`'s `tools` list.
 
-**How:** MiniMax runs in-process as a native MLX MCP on port 8912. Job-based: call `minimax_generate`, then poll `minimax_status` until done. Defaults are 60 seconds and 30 steps. MiniMax has no clip-editing/continuation capability. (ACE-Step-1.5 was evaluated side-by-side and disabled 2026-08-27 after the operator's `[GATE: SELECT ENGINE]` decision — its module code remains in the repo unwired; see `KNOWN_LIMITATIONS.md` P5-MUSIC-ACESTEP-001.)
+**How:** MiniMax runs in-process in `music_minimax_mcp.py` (port 8912) via the vendor's MLX pipeline. Generation is job-based: call `minimax_generate` for a `job_id`, then poll `minimax_status(job_id)` until done. The complete-quality default is 60 seconds / 30 steps. Lyrics use `[Verse]`/`[Chorus]` tags or `[Instrumental]`. MiniMax has no clip-editing/continuation capability (see `unit-known-limitations-minimax-music3-mlx`).
+
+**What changed:** MusicGen was removed (`TASK_MUSIC_DUAL_BACKEND`) and replaced with two independent engines, MiniMax-Music3-MLX and ACE-Step-1.5, installed side by side for an operator comparison. After real 60s/30-step generations on both — including lyrics/vocals and an ACE repaint — the operator's `[GATE: SELECT ENGINE]` decision (2026-08-27) kept MiniMax and disabled ACE-Step: ACE's own resident footprint plus its admission requirement exceeded this machine's 64GB total once loaded (a structural ceiling, not a fluke), its LM captioning stage was non-deterministic and once contradicted the requested vocal gender, and its output quality did not hold up against MiniMax's in a direct listen. ACE-Step's module code (`music_ace_mcp.py`), install function, and tools manifest remain in the repo, unwired, for a possible future re-enable — see `unit-known-limitations-acestep15-mlx-backend` for the full finding and what re-enabling would take.
 
 ## Why
 
-The independent host-native modules preserve accelerator access, crash isolation, and clean removability. Job polling reflects real multi-minute generation latency, while workspace-scoped authorization keeps these 27 GB and 40 GB admission workloads out of unrelated chat.
+MiniMax runs in-process because its footprint (~27GB measured) comfortably coexists with the rest of the live stack. Job polling exists because complete-quality generation takes minutes. The disabled ACE-Step module was kept rather than deleted specifically so a future re-evaluation (e.g. after upstream fixes the captioning non-determinism, or hardware with more RAM) doesn't require rebuilding it from scratch.
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## 11. Text-to-Speech
 
+<!-- WIKI:GENERATED unit=unit-HOWTO-11-text-to-speech -->
 **What:** Convert text to spoken audio using MLX-native speech (Kokoro narration + Higgs Audio v2 voice cloning).
 
 **Activate:** Select `Music Producer` (`auto-music`) from the model dropdown. The TTS tools (`speak`, `clone_voice`, `register_voice`, `list_voices`) are granted by `auto-music`'s `tools` list in `config/portal.yaml` — they are not available in every workspace.
 
-**How:** The host-native MLX speech server (`scripts/mlx-speech.py`, port 8918) provides Kokoro narration (default backend, `af_heart` default voice), Higgs Audio v2 voice cloning (`MLX_CLONE_MODEL` swaps the engine), and Qwen3-TTS CustomVoice/VoiceDesign. Start it with `./launch.sh start-speech` — `_launch_start_speech` in `scripts/lib/services.sh` requires Apple Silicon and `mlx-audio`, warms the clone model, and models otherwise load lazily on the first request. The Docker `mcp-tts` container (port 8916, `portal/modules/media/tools/tts_mcp.py`) proxies every tool to port 8918. Generated audio is published through Open WebUI's files API (`OWUI_API_KEY` in `.env`); the tool returns a `${PORTAL_PUBLIC_URL}/api/v1/files/{id}/content` link served on `:8080`, the only port a tunnel needs to expose.
+**How:** The host-native MLX speech server (`scripts/mlx-speech.py`, port 8918) provides Kokoro narration (default backend, `af_heart` default voice), Higgs Audio v2 voice cloning (`MLX_CLONE_MODEL` swaps the engine), and Qwen3-TTS CustomVoice/VoiceDesign. Start it with `./launch.sh start-speech` — `_launch_start_speech` in `scripts/lib/services.sh` requires Apple Silicon and `mlx-audio`, warms the clone model, and models otherwise load lazily on the first request. The Docker `mcp-tts` container (port 8916, `portal/modules/media/tools/tts_mcp.py`) proxies every tool to port 8918. Generated audio is published through Open WebUI's files API (`OWUI_API_KEY` in `.env`); the tool returns a `${PORTAL_PUBLIC_URL}/api/v1/files/{id}/content` link served on `:8080`.
 
-**Cloning:** `speak(voice="clone:/path/to/ref.wav")` for a one-off clone from a 5-15s clip, or register a reusable trainer voice and reuse it as `voice="trainer:<name>"`. Register via the `register_voice` tool, `POST /v1/voices` (`{name, reference_audio, reference_text}`), or `scripts/register_trainer_voice.py` (cleans the recording first). In OWUI, upload the clip and call `register_voice` with just the name and transcript — the reference resolves from the upload. Profiles persist under `${VOICE_PROFILES_DIR:-~/.portal5/voice_profiles}/<name>/`. The engine reads only the first ~10-15s of the reference, so a tight, expressive clip beats a long flat one; output is 24 kHz with no provenance watermark (KNOWN_LIMITATIONS P5-SPEECH-CLONE-001).
+**Cloning:** `speak(voice="clone:/path/to/ref.wav")` for a one-off clone from a 5-15s clip, or register a reusable trainer voice once and reuse it as `voice="trainer:<name>"`. Register via the `register_voice` tool, `POST /v1/voices` (`{name, reference_audio, reference_text}`), or `scripts/register_trainer_voice.py --audio <clip> --name <name> --text "<transcript>" --test`, which cleans the recording (mono, silence-trimmed, peak-normalised) before registering. In OWUI, upload the clip and call `register_voice` with just the name and transcript — the reference resolves from the upload. Profiles persist under `${VOICE_PROFILES_DIR:-~/.portal5/voice_profiles}/<name>/`. The engine reads only the first ~10-15s of the reference, so a tight, expressive clip beats a long flat one; output is 24 kHz with no provenance watermark (see KNOWN_LIMITATIONS P5-SPEECH-CLONE-001).
 
 **Example prompts (in the `Music Producer` workspace):**
 
@@ -242,24 +265,28 @@ Re-registering the same name overwrites the profile; `DELETE /v1/voices/<name>` 
 ## Why
 
 Speech is an audio runtime, not part of the chat inference tier, so it runs outside Ollama entirely: a native server on Apple Silicon uses the Metal GPU for fast synthesis while the MCP tool layer keeps the model-facing call uniform. Lazy model loading keeps `start-speech` cheap to bring up — the first utterance pays the load cost, not the startup command. Cloning is a separate model (Higgs Audio v2) rather than Qwen3-TTS, whose Chinese-accented English was wrong for an American-English trainer voice; the operator picked Higgs over Chatterbox in the fidelity gate.
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## 12. Speech-to-Text (ASR)
 
+<!-- WIKI:GENERATED unit=unit-HOWTO-12-speech-to-text-asr -->
 **What:** Transcribe audio files to text — MLX-native ASR and a Docker Whisper fallback.
 
 **Activate:** Transcription is available only in workspaces that grant the tools: `transcribe_audio` and `transcribe_with_speakers` appear in `auto-music`, `auto-daily`, `auto-audio`, `auto-vision`, and `auto-documents` (`config/portal.yaml`). It is not enabled in every workspace.
 
-**How:** The host-native MLX Transcribe server (`scripts/mlx-transcribe.py`, port 8924, `./launch.sh start-transcribe`) backs both tools on Apple Silicon: `transcribe_audio` is Parakeet-TDT-v3 (transcript + word timestamps), `transcribe_with_speakers` adds Sortformer speaker diarization merged at the word level — see the Diarized Transcription section below. The Docker `mcp-whisper` server (port 8915, `portal/modules/media/tools/whisper_mcp.py`) proxies there first and only falls back to in-Docker faster-whisper (`large-v3-turbo`, no diarization) on non-Apple-Silicon nodes. The workspace prompts tell the model to call the tool with no file argument so the most recently uploaded audio is auto-detected from the shared workspace `uploads/` directory.
+**How:** The host-native MLX Transcribe server (`scripts/mlx-transcribe.py`, port 8924, `./launch.sh start-transcribe`) backs both tools on Apple Silicon: `transcribe_audio` is Parakeet-TDT-v3 (transcript + word timestamps), `transcribe_with_speakers` adds Sortformer speaker diarization merged at the word level — see the Diarized Transcription unit. The Docker `mcp-whisper` server (port 8915, `portal/modules/media/tools/whisper_mcp.py`) proxies there first and only falls back to in-Docker faster-whisper (`large-v3-turbo`, no diarization) on non-Apple-Silicon nodes. The workspace prompts tell the model to call the tool with no file argument so the most recently uploaded audio is auto-detected from the shared workspace `uploads/` directory.
 
 ## Why
 
 Transcription availability is deliberately workspace-scoped because ASR is not free — each engine loads a model and takes GPU time, so granting it everywhere would add latency to chat lanes that never transcribe. Scoping by workspace tools means audio-heavy lanes (music, audio analysis, documents) carry the capability while general chat stays lean.
+<!-- /WIKI:GENERATED -->
 
 ### Diarized Transcription (Speaker-Labeled Transcripts)
 
-**What:** Drop an audio file in an OWUI chat that grants `transcribe_with_speakers` (e.g. `auto-audio`, `auto-documents`), ask "who said what", and get back a transcript with speaker labels (`SPEAKER_00`, `SPEAKER_01`, …). A single-speaker recording comes back as one speaker — you don't have to know in advance. Outputs JSON + Markdown to the shared workspace at `~/AI_Output/generated/transcripts/`, returned as Open WebUI files-API download links (`json_url`, `md_url`).
+<!-- WIKI:GENERATED unit=unit-HOWTO-diarized-transcription-speaker-labeled-transcripts -->
+**What:** Drop an audio file in an OWUI chat that grants `transcribe_with_speakers` (e.g. `auto-audio`, `auto-documents`), ask "who said what", and get back a transcript with speaker labels (`SPEAKER_00`, `SPEAKER_01`, …). A single-speaker recording simply comes back as one speaker — you don't have to know in advance. Outputs JSON + Markdown to the shared workspace at `~/AI_Output/generated/transcripts/`, served as download URLs on port 8924.
 
 **Pre-flight:** none. No HuggingFace token, no gated models.
 
@@ -267,18 +294,20 @@ Transcription availability is deliberately workspace-scoped because ASR is not f
 ```bash
 ./launch.sh start-transcribe
 ```
-`_launch_start_transcribe` in `scripts/lib/services.sh` pre-downloads Parakeet-TDT-v3 and the Sortformer diarizer (`mlx-community/diar_sortformer_4spk-v1-fp32`), then registers the server (port 8924, `MLX_TRANSCRIBE_PORT`) as a native service. Under launchd it runs `HF_HUB_OFFLINE=1` and serves from the warmed cache.
+`_launch_start_transcribe` in `scripts/lib/services.sh` pre-downloads Parakeet-TDT-v3 and the Sortformer diarizer (`mlx-community/diar_sortformer_4spk-v1-fp32`), then registers the server (port 8924, `MLX_TRANSCRIBE_PORT`) as a native service. Under launchd it runs with `HF_HUB_OFFLINE=1` and serves strictly from the warmed cache.
 
-**How it works:** Parakeet produces the full transcript with a timestamp on every word; Sortformer produces speaker turns. The server assigns each word to the speaker whose turn it overlaps, groups consecutive same-speaker words into turns, and smooths sub-second flicker at the boundaries. Up to 4 speakers; `num_speakers` optionally caps the count.
+**How it works:** Parakeet produces the full transcript with a timestamp on every word. Sortformer produces speaker turns ("speaker 1 from 0.0–12.4s, speaker 2 from 12.4–18.0s, …"). The server assigns each word to the speaker whose turn it overlaps, groups consecutive same-speaker words into turns, and smooths sub-second flicker at the boundaries. Up to 4 speakers. `num_speakers` optionally caps the count.
 
 ## Why
 
-Two models, not one. If the diarizer is skipped (file past `MLX_DIARIZE_MAX_S`) or fails, you still get the complete Parakeet transcript as one speaker with a `warning` — a joint transcribe-and-diarize model that stops early loses the text too. Word-level assignment keeps a speaker change on a word boundary. Outputting both canonical JSON and a Markdown sidecar into the shared workspace means the transcript is immediately available to any other service, not just the chat thread that requested it.
+Two models, not one. If the diarizer is skipped (file past `MLX_DIARIZE_MAX_S`) or fails, you still get the complete Parakeet transcript as one speaker with a `warning` — a joint transcribe-and-diarize model that stops early loses the text too. Word-level assignment keeps a speaker change on a word boundary instead of mid-word. Outputting both canonical JSON and a Markdown sidecar into the shared workspace means the transcript is immediately available to any other service, not just the chat thread that requested it.
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## 13. Web Search
 
+<!-- WIKI:GENERATED unit=unit-HOWTO-13-web-search -->
 **What:** Web search via a self-hosted SearXNG instance.
 
 **Activate:** Workspaces opt in with `enable_web_search: true` in `config/portal.yaml` (for example `auto-daily`, `auto-research`, `auto-compliance`); the model then sees `web_search` / `news_search` in its tool grant. `auto-research` even forces `tool_choice: required` because it once narrated a search without completing it.
@@ -288,11 +317,13 @@ Two models, not one. If the diarizer is skipped (file past `MLX_DIARIZE_MAX_S`) 
 ## Why
 
 Self-hosting the aggregator keeps the search control plane (which engine, what formatting, what rate limits) under Portal's config rather than inside a model call, while the workspace-level `enable_web_search` flag keeps the capability out of lanes that do not need it. The privacy claim is accurate only about AI providers, which is why the engine list is the grounding for what actually leaves the host.
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## 14. Document RAG (Knowledge Base)
 
+<!-- WIKI:GENERATED unit=unit-HOWTO-14-document-rag-knowledge-base -->
 **What:** Upload documents in Open WebUI and have conversations grounded in their content.
 
 **How:** Two layers provide this. Open WebUI owns the knowledge base itself — chat uploads become a searchable collection through its native RAG, which is out of Portal 5's scope by design. On the pipeline side, workspaces with `auto_rag: true` in `config/portal.yaml` (e.g. `auto-daily`) get automatic knowledge-base context: before answering, the router dispatches a `kb_search` against the `portal-rag` MCP (port 8921) and injects the top snippets into the prompt (`inject_retrieved_context` in `portal/platform/inference/router/context_inject.py`). Workspaces can also grant the explicit `kb_search` / `kb_list` tools for the model to call on demand.
@@ -300,21 +331,27 @@ Self-hosting the aggregator keeps the search control plane (which engine, what f
 ## Why
 
 Document grounding is deliberately split: Open WebUI keeps the uploaded corpus and search index — the durable knowledge store — while the pipeline only reads it at request time through tool dispatch. That separation means a knowledge base works without Portal touching Open WebUI internals, and auto-injection is an opt-in workspace flag so RAG latency only affects lanes that opt into it.
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## 15. User Management
 
-Self-registration arrives with the `pending` role because `DEFAULT_USER_ROLE=pending` in `.env.example` is the shipped default, and a pending account has no access until an admin promotes it. Two promotion paths exist. The web path is Open WebUI's Admin Panel > Users: locate the pending account and change its role to `user`. The CLI path is `./launch.sh add-user <email> [name] [role]` with an explicit `pending` role, whose role values scripts/lib/users.sh documents as `user | admin | pending`. `ENABLE_SIGNUP=true` toggles whether self-registration exists at all.
+<!-- WIKI:GENERATED unit=unit-HOWTO-user-management -->
+**What:** Control who can sign into Open WebUI: self-registration, an approval gate, and operator-provisioned accounts.
+
+**How:** Self-registration arrives with the `pending` role because `DEFAULT_USER_ROLE=pending` in `.env.example` is the shipped default, and a pending account has no access until an admin promotes it. Two promotion paths exist. The web path is Open WebUI's Admin Panel > Users: locate the pending account and change its role to `user`. The CLI path is `./launch.sh add-user <email> [name] [role]` with an explicit `pending` role, whose role values `scripts/lib/users.sh` documents as `user | admin | pending`. `ENABLE_SIGNUP=true` toggles whether self-registration exists at all.
 
 ## Why
 
 Pending-by-default is the deliberate team-deployment posture: nobody gains access silently on a shared box, and every account is either approved or created by an operator. Both registration paths share the same role vocabulary, so the approval gate stays consistent whether a user self-signs or is provisioned from the shell.
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## 16. Telegram Bot
 
+<!-- WIKI:GENERATED unit=unit-HOWTO-16-telegram-bot -->
 1. Message **@BotFather** on Telegram -> `/newbot` -> copy the token
 2. Get your Telegram user ID from **@userinfobot**
 3. Add to `.env`:
@@ -330,11 +367,13 @@ The bot container (`portal-telegram` in `deploy/portal-5/docker-compose.yml`) is
 ## Why
 
 A messaging bot is just a thin channel adapter: all the intelligence stays in the pipeline, so the bot container only relays text between Telegram and the OpenAI-compatible router. Making it a compose profile rather than a default service keeps the token-less install clean, and the token auto-detection in `up` means turning the channel on is a one-line `.env` change with no extra command.
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## 17. Slack Bot
 
+<!-- WIKI:GENERATED unit=unit-HOWTO-17-slack-bot -->
 1. Go to https://api.slack.com/apps -> **Create New App** -> **From scratch**
 2. Under **OAuth & Permissions** -> add bot scopes:
    `app_mentions:read`, `chat:write`, `channels:history`, `im:history`, `im:read`, `im:write` (Slack-side app configuration)
@@ -354,11 +393,13 @@ The bot container (`portal-slack` in the compose file) receives the three tokens
 ## Why
 
 Slack integration uses Socket Mode precisely because it needs no public endpoint: the app-level token establishes an outbound WebSocket from the bot container, which keeps the whole deployment firewalled. The two-token requirement (bot token for the app, app token for the socket) is why `up-slack` validates both before starting — a half-configured bot fails loudly instead of silently ignoring mentions.
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## 18. Notifications & Alerts
 
+<!-- WIKI:GENERATED unit=unit-HOWTO-18-notifications-alerts -->
 **What:** Get operational alerts and daily usage summaries via Slack, Telegram, Email, Pushover, or a generic webhook.
 
 **How:** The pipeline's notification dispatcher (`portal/platform/inference/notifications/`) fires `AlertEvent` and `SummaryEvent` messages to every configured channel. Enable it with `NOTIFICATIONS_ENABLED=true` in `.env` (default `false`). Each channel is configured by its env var in `.env.example`:
@@ -376,11 +417,13 @@ The daily summary is scheduled by `ALERT_SUMMARY_ENABLED` (default true), `ALERT
 ## Why
 
 Alerting lives in the pipeline process rather than a separate daemon so it shares the request telemetry it reports on — the daily summary needs live counters, so it reads them from the same memory the router writes. Channel configuration is pure env plumbing, which keeps notification support out of Open WebUI and lets an operator add a channel without a rebuild.
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Shared Workspace
 
+<!-- WIKI:GENERATED unit=unit-HOWTO-shared-workspace -->
 **What:** A single host directory that all Portal 5 services read from and write to. Files dropped in OWUI chat, MCP-generated outputs, and host-native script outputs all live here, eliminating cross-service file-bridging friction.
 
 **Where:** `AI_OUTPUT_DIR` in `.env` (default `~/AI_Output`). Containers see it mounted at `/workspace` with `WORKSPACE_DIR=/workspace` (docker-compose volumes), and Open WebUI's uploads bind-mount `${AI_OUTPUT_DIR}/uploads` to `/app/backend/data/uploads`. Path resolution lives in `portal/platform/mcp_host/workspace.py`: `WORKSPACE_DIR` → `AI_OUTPUT_DIR` → `/workspace` → `~/AI_Output`.
@@ -419,11 +462,13 @@ from portal.platform.mcp_host import get_uploads_dir, get_generated_dir, resolve
 ## Why
 
 A single shared root with category subdirectories is the interface contract between services that otherwise have no shared filesystem understanding: a document MCP writes `generated/documents/`, the host user finds it in `~/AI_Output/`, and OWUI uploads land in `uploads/` for every service to read. Centralizing the paths in `mcp_host/workspace.py` means a future remap — a different mount point or drive — is one configuration change instead of a repo-wide search-and-replace.
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## 19. Backup & Restore
 
+<!-- WIKI:GENERATED unit=unit-HOWTO-19-backup-restore -->
 Backup and restore are implemented in `scripts/lib/backup.sh`.
 
 ```bash
@@ -436,11 +481,13 @@ Backup and restore are implemented in `scripts/lib/backup.sh`.
 ## Why
 
 Backup is scoped to small, generated state — OWUI data, Grafana, env, config — and deliberately excludes the large, reproducible Ollama weights that `pull-models` can always rebuild. A timestamped directory instead of a single tarball makes restores auditable and safe, and the confirmation prompt plus stack teardown in `_launch_restore` prevents restoring onto a live database.
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## 20. Cluster Scaling
 
+<!-- WIKI:GENERATED unit=unit-HOWTO-20-cluster-scaling -->
 **What:** Add more machines to increase throughput — no pipeline code changes needed.
 
 **How:** Cluster scaling is a `config/backends.yaml` edit (CLAUDE.md Rule 1). The file's `backends:` block lists backend groups (general, coding, security, reasoning, vision, creative); each backend declares a `type` (ollama) and a `url` — e.g. `http://192.168.1.102:11434` for a second Mac Studio running Ollama. `BackendRegistry` in `portal/platform/inference/cluster_backends.py` loads this file at startup (resolving the path across container `/app/config/backends.yaml`, local dev, and CI), expands `${OLLAMA_URL}`-style env refs, and health-checks each backend. After editing, restart the pipeline container so the registry re-reads the file. Never edit the generated `workspace_routing` block — `sync-config` owns it.
@@ -450,11 +497,13 @@ The full scale-out walkthrough is `docs/CLUSTER_SCALE.md` (single Mac through a 
 ## Why
 
 Capacity is treated as data, not architecture: because the router only knows backends through the registry, adding a node is a YAML edit plus a restart. Keeping `workspace_routing` generated while `backends:` stays hand-edited preserves the two jobs — routing intent belongs to the workspaces, hardware topology belongs to the operator — so the scaling surface is exactly the file the operator already owns.
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## 21. Remote API Access (Pipeline at :9099)
 
+<!-- WIKI:GENERATED unit=unit-HOWTO-21-remote-api-access-pipeline-at-9099 -->
 **What:** The Portal Pipeline exposes an OpenAI-compatible HTTP API on port 9099. Any tool that accepts a custom OpenAI base URL can connect directly — no Open WebUI required.
 
 **Endpoints** (`portal/platform/inference/router/app.py`):
@@ -476,11 +525,13 @@ curl http://localhost:9099/v1/models -H "Authorization: Bearer ${PIPELINE_API_KE
 ## Why
 
 Exposing the same router as a plain HTTP API is what lets Open WebUI, the Telegram and Slack bots, IDE pickers, and arbitrary scripts all share one routing brain. Because auth is a single shared bearer key rather than per-client state, any consumer can point its OpenAI client at the pipeline and inherit workspace routing, persona handling, and tool dispatch without knowing any of it.
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## 22. MLX Acceleration (Apple Silicon) — RETIRED
 
+<!-- WIKI:GENERATED unit=unit-HOWTO-22-mlx-acceleration-apple-silicon-retired -->
 **Retired (commit 3a0c58e).** The MLX inference proxy was removed; all chat inference now runs through Ollama (port 11434) with its native MLX Metal backend on Apple Silicon. This is a standing decision, not a gap: Ollama 0.32.4+ carries the Metal-residency fix that keeps pinned router and inference models loaded together, reaching parity with standalone `mlx_lm` throughput while removing the dual-stack operational overhead. The Ollama-only inference tier is recorded in `config/backends.yaml` (every backend is `type: ollama`) and enforced as a project rule; see the MLX notes in `KNOWN_LIMITATIONS.md`.
 
 The MLX speech (port 8918), transcription (port 8924), embedding (port 8917), and reranker (port 8925) servers documented elsewhere in this guide are unaffected and remain in use — MLX is not gone from the project, only from chat inference. `COMPUTE_BACKEND=mps` in `.env.example` records the Apple Silicon Metal target.
@@ -488,11 +539,13 @@ The MLX speech (port 8918), transcription (port 8924), embedding (port 8917), an
 ## Why
 
 Retiring the proxy kept one inference tier instead of two, which removed a whole class of admission-control and thread-patch maintenance at the cost of a hardware-accelerated fallback that no longer outperformed the native path. The distinction matters for future work: a regression in Ollama Metal performance is a reason to revisit, not evidence that the retired proxy should return, and the audio and retrieval runtimes legitimately keep using MLX.
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## 23. Metrics & Monitoring
 
+<!-- WIKI:GENERATED unit=unit-HOWTO-23-metrics-monitoring -->
 **What:** Prometheus metrics collection and Grafana dashboards for the pipeline.
 
 **How:** The pipeline exposes Prometheus-compatible metrics at `GET /metrics` (`metrics` in `portal/platform/inference/router/handlers.py` — intentionally unauthenticated so Prometheus can scrape it). The `prometheus` service scrapes on port 9090 using `config/prometheus/prometheus.yml`, and the `grafana` service serves on port 3000 with dashboards and datasources provisioned from `config/grafana/dashboards` and `config/grafana/datasources` (both defined in `deploy/portal-5/docker-compose.yml`). Grafana login is `admin` / `GRAFANA_PASSWORD` from `.env`. Both are part of the default `./launch.sh up` stack.
@@ -507,11 +560,13 @@ curl http://localhost:9099/metrics
 ## Why
 
 Observability is kept out of Open WebUI and out of the pipeline's code: the router only emits Prometheus text, and dashboards live as provisioned files under `config/grafana/`. That makes metrics reproducible from git — there are no click-configured panels to lose — and lets an operator point any Prometheus-compatible stack at the pipeline without changing Portal itself.
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Quick Reference: All CLI Commands
 
+<!-- WIKI:GENERATED unit=unit-HOWTO-quick-reference-cli-commands -->
 All commands below are the actual `case` branches in `launch.sh` (or dispatch into `python3 -m portal.platform.inference.cli`).
 
 # Start / stop
@@ -566,12 +621,181 @@ All commands below are the actual `case` branches in `launch.sh` (or dispatch in
 ## Why
 
 This surface is deliberately a thin shell over `launch.sh` cases and the typed CLI, so every command has one implementation and the usage text in the `*)` branch stays the reference. Commands that need real logic — `pull-models`, `update`, `test`, workspace — delegate to `portal.platform.inference.cli`, keeping the shell file declarative and testable instead of growing bespoke logic in bash.
-# Generate and embed media in documents
+<!-- /WIKI:GENERATED -->
 
-Generate an image with the enabled media tool and use its published Open WebUI
-URL as `image_url` in `prepare_embed_image`. Pass the returned object in
-`create_word_document(images=[...])` or in a PowerPoint slide's `images` list.
-Remote images must use public HTTPS URLs; private and local network addresses
-are rejected. Local images may be referenced only from the configured document
-output directory. Use `also_pdf=true` for a second PDF result when LibreOffice
-is installed on the MCP host.
+---
+
+## Generate and Embed Media in Documents
+
+<!-- WIKI:GENERATED unit=unit-HOWTO-embed-media-in-documents -->
+**What:** Embed a generated image into a Word or PowerPoint document.
+
+**How:** Generate an image with the enabled media tool and use its published Open WebUI URL as `image_url` in `prepare_embed_image`. Pass the returned object in `create_word_document(images=[...])` or in a PowerPoint slide's `images` list. Remote images must use public HTTPS URLs; private and local network addresses are rejected. Local images may be referenced only from the configured document output directory. Use `also_pdf=true` for a second PDF result when LibreOffice is installed on the MCP host.
+
+## Why
+
+Images are passed by reference rather than embedded as raw bytes so the document MCP never depends on the image engine that produced them: a model can generate with whatever media tool a workspace grants and hand the published URL to the document tool without the two sharing a filesystem contract. Enforcing public HTTPS for remote sources keeps the embed path free of SSRF, and `also_pdf` makes the PDF variant a second rendering of the same object rather than a separate pipeline.
+<!-- /WIKI:GENERATED -->
+
+---
+
+## Adding New Capabilities
+
+<!-- WIKI:GENERATED unit=unit-HOWTO-adding-new-capabilities -->
+# Adding new capabilities
+
+Checklists for extending Portal 5 with a new MCP tool server, persona, workspace routing tier, or cluster node.
+
+## New MCP Tool Server
+1. Create `portal/modules/<discipline>/tools/<name>_mcp.py`, or for a
+   platform-owned server use `portal/platform/<area>/` (e.g. `memory` at
+   `portal/platform/memory/`) — the `module:` tag on the fleet entry is
+   what assigns ownership (see CLAUDE.md Rule 6).
+2. Add the service to `deploy/portal-5/docker-compose.yml` on an unused port (Rule 7).
+3. Add the server to `config/portal.yaml` under `mcp_fleet:` with the canonical `id`, `name`, `port`, and flags.
+4. Run `./launch.sh sync-config` — regenerates `.mcp.json` and the OWUI workspace presets.
+5. Add tool JSON to `imports/openwebui/tools/portal_<name>.json`.
+6. `openwebui_init.py` registers tool servers from the fleet-derived `.mcp.json` automatically.
+7. Reconcile the wiki: `./launch.sh sync-config` refreshes fact-units and
+   generated doc blocks; validate check AW (`scripts/validate_system.py`)
+   catches any that drifted. Edit authored units directly.
+
+## New Persona
+1. Create `config/personas/<slug>.yaml` with: `name`, `slug`, `module`, `workspace_model`, `category`, and one of `system_prompt`/`prompt_template`.
+2. `openwebui_init.py` creates the Open WebUI model preset on next seed.
+3. No other changes needed.
+4. Reconcile the wiki: fact-units like `unit-fact-persona-roster`
+   regenerate on `./launch.sh sync-config`; AW verifies they match live config.
+
+## New Workspace Routing Tier
+1. Add the workspace entry to `config/portal.yaml` under `workspaces:`.
+2. Run `./launch.sh sync-config` — regenerates `backends.yaml workspace_routing`, OWUI preset JSON, and `.mcp.json`.
+3. Verify: `python3 -m pytest tests/unit/test_generated_artifacts_fresh.py -q`.
+4. Do NOT hand-edit `backends.yaml workspace_routing` or `imports/openwebui/workspaces/` — those are generated.
+5. Reconcile the wiki via `sync-config` + AW, per the earlier checklists.
+
+## New Cluster Node
+1. Edit `config/backends.yaml` — add backend entry, assign to group.
+2. `docker compose restart portal-pipeline`.
+3. Done. No code changes.
+4. Reconcile the wiki via `sync-config` + AW, per the earlier checklists.
+
+## Why
+
+These four checklists share one rule: every capability lands as a config
+edit plus a regeneration step, never as scattered hand-edits to derived
+files. `config/portal.yaml` is the single source for workspaces and the
+MCP fleet, `config/backends.yaml` is the single source for backends and
+groups, and `sync-config` mechanically rewrites `workspace_routing`,
+`.mcp.json`, and the OWUI presets from them — which is why the older
+commit-stamp ledger re-stamp step is gone: doc currency is now enforced
+by AW comparing each fact-unit and generated block against live config
+after `sync-config`, and by the drift census, not by a stamp run. The
+cluster-node checklist is intentionally the shortest because a backend
+entry is just data under Rule 1.
+<!-- /WIKI:GENERATED -->
+
+---
+
+## Discovery with Fact-Units
+
+<!-- WIKI:GENERATED unit=unit-HOWTO-discovery-with-fact-units -->
+# Discovery with fact-units
+
+The canonical units under `portal_wiki/canonical/` are the source of truth.
+Fact-units (`unit-fact-*`) are the machine-derived subset: `sync-config`
+refreshes them from live configuration and validate check AW prevents their
+generated projections from drifting. Other canonical units are intentionally
+authored in the spine and then rendered into the documents that humans read.
+
+## Order of operations
+1. Use `wiki_search` / `wiki_explain` to find the relevant canonical unit.
+2. Edit that unit for authored knowledge, or edit the governing config or code
+   for a machine-derived fact-unit.
+3. Run `sync-config` so fact-units refresh and all managed document blocks are
+   regenerated.
+4. Treat `sources:` as provenance and navigation. They must resolve, but they do
+   not reverse authority from the canonical unit back into a rendered document.
+
+## Trust tiers
+- **Fact-units** (`kind: what`, `tags: [fact]`) — generated from governing
+  config and code and checked by AW.
+- **WHY / HOWTO units** — authored canonical intent and operating guidance.
+- **Rendered documents** — projections only; direct edits are reserved for
+  bounded human-owned fences and marker placement.
+
+## The tool-reachability pair
+- `unit-fact-tool-authorizations` — what each workspace exposes (the `tools:` whitelist).
+- `unit-fact-tool-registry` — what each MCP server registers (`@mcp.tool()` defs).
+A tool present in the registry but absent from a workspace's authorizations is a reachability gap;
+a `!` in the authorizations unit is an authorized tool with no registry match (a bug).
+
+## Why
+
+Discovery is routed through fact-units because they are the only units
+whose content is mechanically regenerated from live config rather than
+authored: `seed_facts.py` derives each `unit-fact-*` body from
+`config/portal.yaml` and `config/backends.yaml`, `sync-config` re-runs the
+seeder, and validate check AW diffs each fact-unit against live config so
+a drifted catalog cannot hide. The `wiki_search`/`wiki_explain` tools in
+`portal_wiki/mcp.py` search this store, which is why the "order of
+operations" starts with the search tools rather than with a grep: an
+answer found through the fact-units is current, cited, and re-derivable,
+where a claim read cold from source may describe a config that has since
+moved.
+<!-- /WIKI:GENERATED -->
+
+---
+
+## Media Memory and Launch Order
+
+<!-- WIKI:GENERATED unit=unit-HOWTO-media-memory-and-launch-order -->
+# Media memory and launch order
+
+The MLX media generators (MFLUX image :8933, video-mlx :8935, MiniMax music
+:8912) and Ollama share the same 64GB unified-memory pool on Apple Silicon,
+with **no cross-engine backpressure**: Ollama's `OLLAMA_MAX_LOADED_MODELS` /
+`OLLAMA_MEMORY_LIMIT` do not govern the MLX generators, and the retired
+MLX-proxy admission gate (`3a0c58e`) never covered media backends either. See
+`unit-fact-media-memory-budget` for per-backend GB estimates.
+
+## The guard
+
+Each media generation job passes a `mflux:*` / `video_mlx:*` / `music:*` key
+through the Tier-1 pre-flight admission check
+(`portal/modules/media/tools/_admission.py`, `admit()`) before it starts. The
+check compares the model's measured peak plus a headroom margin against a
+live free-memory snapshot (`vm_stat` on macOS) and returns a structured,
+retryable refusal rather than letting the job OOM the box. It fails open when
+free memory can't be measured.
+
+## Safe co-residency matrix
+
+| Active combination | Safe? | Why |
+|---|---|---|
+| Ollama small/medium model (<20GB) + MFLUX schnell/klein (~15–18GB) | Usually | Admission still checks current free memory plus headroom |
+| Ollama large model (30GB+) + MFLUX qwen-image (~22GB) | Marginal or refused | Unload the Ollama model first (`ollama stop <model>`) |
+| Any Ollama model + video-mlx (LTX-2.3, ~24–34GB) | Marginal | Video is thermally heavy and off by default; run it with the box otherwise quiet |
+
+## Launch order (until a Tier 2 cross-engine broker exists)
+
+1. Before a large media job, check what's loaded: `curl localhost:11434/api/ps`
+   (Ollama) and the target backend's estimated GB (`unit-fact-media-memory-budget`).
+2. If a large Ollama model is loaded and the media job is also large, unload the
+   Ollama model first (`ollama stop <model>`) or wait for `KEEP_ALIVE` to expire.
+3. The MLX generation servers release memory between jobs — if a job is refused,
+   wait a few minutes and retry rather than restarting the service.
+4. The Tier-1 check cannot see what Ollama or another in-flight job will use
+   beyond the free-memory snapshot at admission time, so steps 1–2 still matter.
+
+## Why
+
+This guidance exists because the MLX media generators and Ollama share one
+unified-memory pool with no cross-engine broker, so a large media job can OOM a
+system that looks idle to either stack alone. The co-residency matrix and
+launch-order steps are grounded in the per-backend peak estimates in
+`portal/modules/media/tools/_admission.py` (mirrored from
+`unit-fact-media-memory-budget`) and the remediation strings that check returns
+in its structured refusal — verifiable against the admission code rather than
+operator folklore, and due for revisiting the day a Tier 2 broker exists.
+<!-- /WIKI:GENERATED -->

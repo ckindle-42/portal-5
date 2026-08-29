@@ -37,7 +37,7 @@ models through its Metal backend on Apple Silicon.
                                │       │
                         ┌──────▼──┐ ┌──▼───────────────┐
                         │ Ollama  │ │ MCP fleet        │
-                        │ :11434  │ │ :8910–:8932      │
+                        │ :11434  │ │ :8912–:8935      │
                         └─────────┘ └──────────────────┘
 Telegram Bot ──► Pipeline    Slack Bot ──► Pipeline
 (profile telegram)           (profile slack)

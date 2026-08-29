@@ -39,7 +39,7 @@ surfaces:
 - name: file-portal-modules-documents-tools-document_mcp
   globs:
   - portal/modules/documents/tools/document_mcp.py
-  unit: unit-capability-documents
+  unit: unit-HOWTO-embed-media-in-documents
 - name: file-portal-modules-general-__init__
   globs:
   - portal/modules/general/__init__.py
