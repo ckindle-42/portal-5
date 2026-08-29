@@ -11,7 +11,9 @@ sources:
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml#mcp_fleet
-claims: []
+claims:
+- probe: modules.enabled
+  contains: general
 confidence: high
 tags:
 - general

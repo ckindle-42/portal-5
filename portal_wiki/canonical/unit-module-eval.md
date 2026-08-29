@@ -9,7 +9,9 @@ sources:
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: modules.disabled
+  contains: eval
 confidence: high
 tags:
 - eval

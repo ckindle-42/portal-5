@@ -17,7 +17,9 @@ sources:
   path: config/portal.yaml
 - type: code
   path: module-state-change:media:cli
-claims: []
+claims:
+- probe: modules.enabled
+  contains: media
 confidence: high
 tags:
 - media
