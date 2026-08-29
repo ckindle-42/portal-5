@@ -863,6 +863,14 @@ async def _run_uat(args, token) -> None:
 async def main() -> None:
     args = _build_parser().parse_args()
 
+    if getattr(args, "adaptive", False):
+        # Adaptive UAT has its own operator scorecard — tests/ADAPTIVE_UAT_RESULTS.md,
+        # built by the review rollup from the corpus. It must never touch the static
+        # keyword-UAT report, which a bare `--adaptive` run (no --section/--test, so
+        # not "targeted") would otherwise overwrite via init_results(). Redirect the
+        # driver's own row/summary writer to a separate adaptive file.
+        config.RESULTS_FILE = Path("tests/UAT_RESULTS_ADAPTIVE.md")
+
     print("\nPortal 5 UAT Driver")
     print(f"OWUI: {OPENWEBUI_URL}  |  User: {ADMIN_EMAIL}")
     print(f"Results: {config.RESULTS_FILE}\n")

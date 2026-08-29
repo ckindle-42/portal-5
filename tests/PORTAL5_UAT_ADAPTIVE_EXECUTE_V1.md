@@ -87,6 +87,13 @@ python3 tests/portal5_uat_driver.py --adaptive --section adaptive-image --append
 Run the same inter-phase memory/health gate the static UAT uses. Each challenge
 writes a rubric-enriched row to `tests/uat_corpus/uat_<run>.jsonl` automatically.
 
+`--adaptive` never touches the static keyword-UAT report (`tests/UAT_RESULTS.md`);
+the driver's own row/summary writer is redirected to `tests/UAT_RESULTS_ADAPTIVE.md`
+(machine-assertion view only). The operator scorecard is `tests/ADAPTIVE_UAT_RESULTS.md`,
+built from the corpus by `--packet` in Step 4. Both are gitignored run artifacts.
+`--append` accumulates the adaptive file across phases; a bare `--adaptive` run with
+no `--section`/`--test` starts it fresh.
+
 ## Step 3 — Assess (you, first pass)
 
 Read each captured response and propose a rubric assessment:
