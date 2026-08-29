@@ -311,7 +311,7 @@ _launch_install_music_ace() {
     ACE_RUNTIME="$ACE_DIR/ace-runtime"
     ACE_VENV="$ACE_DIR/.venv"
     ACE_ENGINE_PORT="${ACESTEP_ENGINE_PORT:-8001}"
-    ACE_MCP_PORT="${MUSIC_ACE_MCP_PORT:-8933}"
+    ACE_MCP_PORT="${MUSIC_ACE_MCP_PORT:-8934}"
     ACE_LOG="$HOME/.portal5/logs/music-ace.log"
     ACE_ENGINE_LOG="$HOME/.portal5/logs/acestep-server.log"
 
