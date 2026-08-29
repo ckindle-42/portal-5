@@ -29,22 +29,37 @@ from portal.platform.mcp_host.workspace import get_generated_dir
 port = int(os.getenv("MFLUX_MCP_PORT", "8933"))
 mcp = MCPServer("mflux-generation")
 
-# mflux ships two CLIs: `mflux-generate` for FLUX.1 / schnell / dev / z-image /
-# qwen-image, and `mflux-generate-flux2` for the FLUX.2 Klein family. MFLUX_BIN
-# is the base; the flux2 entry point is derived from it (or overridden).
+# mflux 0.19+ ships a separate entry-point binary per model family — routing a
+# non-FLUX.1 model through the base `mflux-generate` silently falls back to the
+# FLUX weight loader (it then dies looking for a `text_encoder_2/`). MFLUX_BIN is
+# the base (FLUX.1 schnell/dev); the family binaries are derived from its dirname
+# so an operator only sets MFLUX_BIN once (e.g. to a venv path).
 MFLUX_BIN = os.environ.get("MFLUX_BIN", "mflux-generate")
-MFLUX_FLUX2_BIN = os.environ.get("MFLUX_FLUX2_BIN") or (
-    f"{MFLUX_BIN}-flux2" if not MFLUX_BIN.endswith("-flux2") else MFLUX_BIN
-)
-MFLUX_FLUX2_MODELS = frozenset({"klein"})
+_BIN_DIR = os.path.dirname(MFLUX_BIN)
+_BIN_STEM = os.path.basename(MFLUX_BIN).removesuffix("-flux2")  # tolerate a *-flux2 override
+
+
+def _family_bin(suffix: str) -> str:
+    name = f"{_BIN_STEM}-{suffix}" if suffix else _BIN_STEM
+    return os.path.join(_BIN_DIR, name) if _BIN_DIR else name
+
+
+# roster key -> mflux entry-point binary. Env overrides win.
+MFLUX_MODEL_BIN: dict[str, str] = {
+    "klein": os.environ.get("MFLUX_FLUX2_BIN") or _family_bin("flux2"),
+    "qwen-image": os.environ.get("MFLUX_QWEN_BIN") or _family_bin("qwen"),
+    "qwen-image-edit": os.environ.get("MFLUX_QWEN_EDIT_BIN") or _family_bin("qwen-edit"),
+    "z-image": os.environ.get("MFLUX_ZIMAGE_BIN") or _family_bin("z-image-turbo"),
+}
+
 MFLUX_DEFAULT_MODEL = os.environ.get("MFLUX_DEFAULT_MODEL", "schnell")
 MFLUX_TIMEOUT = int(os.environ.get("MFLUX_TIMEOUT", "900"))
 MFLUX_QUANTIZE = os.environ.get("MFLUX_QUANTIZE", "8")
 MFLUX_LOW_RAM = os.environ.get("MFLUX_LOW_RAM", "1") not in ("", "0", "false", "no")
 
-# Roster key -> the value the installed mflux-generate accepts for --model.
-# `mflux-generate --help` is the authority on the exact built-in tags; the env
-# overrides let an operator repoint a key without a code change.
+# Roster key -> the `--model` value its family binary (MFLUX_MODEL_BIN) accepts.
+# `<binary> --help` is the authority on the exact built-in tags; the env overrides
+# let an operator repoint a key without a code change.
 MFLUX_MODELS: dict[str, str] = {
     "schnell": os.environ.get("MFLUX_SCHNELL_TAG", "schnell"),
     "dev": os.environ.get("MFLUX_DEV_TAG", "dev"),
@@ -61,7 +76,7 @@ MFLUX_DEFAULT_STEPS: dict[str, int] = {
     "dev": 20,
     "klein": 28,
     "z-image": 8,
-    "qwen-image": 20,
+    "qwen-image": 8,
     "qwen-image-edit": 20,
 }
 
@@ -123,7 +138,7 @@ async def _generate(
 ) -> dict:
     out = get_generated_dir("images") / f"mflux_{uuid.uuid4().hex[:8]}.png"
     cli_model = MFLUX_MODELS.get(model, model)
-    bin_ = MFLUX_FLUX2_BIN if model in MFLUX_FLUX2_MODELS else MFLUX_BIN
+    bin_ = MFLUX_MODEL_BIN.get(model, MFLUX_BIN)
     cmd = [
         bin_,
         "--model",
