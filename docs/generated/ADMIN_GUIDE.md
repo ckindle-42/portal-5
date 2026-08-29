@@ -81,7 +81,7 @@ Every `auto` request goes through two layers in routing.py. Layer 1 `_route_with
 - **240 model ids, 7 backend groups**: 1 source(s)
 - **25 production + 52 eval workspaces**: 1 source(s)
 - **26 MCP fleet servers**: 1 source(s)
-- **3/23 docs migrated (13.0%)**: 1 source(s)
+- **4/23 docs migrated (17.4%)**: 1 source(s)
 - **ADMIN_GUIDE — Debugging crashes**: 3 source(s)
 - **ADMIN_GUIDE — Pull Additional Models**: 3 source(s)
 - **AGENT_LOOP — Agent Loop (platform core)**: 9 source(s)
