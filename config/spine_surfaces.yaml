@@ -419,6 +419,7 @@ surfaces:
 - name: unit-surface-uat
   globs:
   - tests/uat/*.py
+  - tests/uat/adaptive/*.py
   unit: unit-surface-uat
 - name: unit-surface-uat-catalog
   globs:
