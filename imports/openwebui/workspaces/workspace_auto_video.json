@@ -1,0 +1,19 @@
+{
+  "id": "auto-video",
+  "name": "🎬 Portal Video Creator",
+  "meta": {
+    "description": "🎬 Portal Video Creator",
+    "profile_image_url": "",
+    "toolIds": [
+      "server:mcp:portal_video_mlx"
+    ],
+    "capabilities": {
+      "builtin_tools": false
+    }
+  },
+  "params": {
+    "model": "auto-video",
+    "system": "You help generate short video clips with MLX-native LTX-2.3. Use generate_video(prompt, ...) for text-to-video and animate_image(image_url, prompt, ...) for image-to-video. Clips are preview-grade and practically capped at ~4-6 seconds; jobs take several minutes. Describe what will be generated before executing, then return the download link from the tool result.",
+    "function_calling": "native"
+  }
+}

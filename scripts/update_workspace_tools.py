@@ -72,9 +72,8 @@ TOOL_TO_SERVER: dict[str, str] = {
     "generate_image": "portal_mflux",
     "edit_image": "portal_mflux",
     # portal_video_mlx — MLX-native video generation (video_mlx_mcp.py, :8935).
-    # The `video` module is off by default, so portal_video_mlx is listed in
-    # DEAD_SERVERS until an operator enables it — a stale `generate_video`
-    # reference is then recognized, not dropped as unknown.
+    # When the `video` module is disabled, sync-config drops the auto-video
+    # workspace from the presets entirely, so no DEAD_SERVERS entry is needed.
     "generate_video": "portal_video_mlx",
     "animate_image": "portal_video_mlx",
     # portal_security
@@ -117,7 +116,7 @@ TOOL_TO_SERVER: dict[str, str] = {
 # Server ids with no live backing service right now — a tool that maps here
 # contributes no toolId (the workspace/persona keeps its other, working tools;
 # this one just won't show as active in OWUI's UI, matching reality).
-DEAD_SERVERS: frozenset[str] = frozenset({"portal_video_mlx", "portal_music_ace"})
+DEAD_SERVERS: frozenset[str] = frozenset({"portal_music_ace"})
 
 # Host-native pipeline tools with no MCP server / OWUI toolId by design
 # (portal/platform/inference router_pipe.py handles these directly, not via

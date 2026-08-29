@@ -1,0 +1,34 @@
+{
+  "proposed_id": "proposed-unit-module-video-1787967818",
+  "unit_id": "unit-module-video",
+  "kind": "mixed",
+  "title": "Video Module \u2014 MLX-native video generation (off by default)",
+  "sources": [
+    {
+      "type": "code",
+      "path": "portal/modules/media/tools/video_mlx_mcp.py"
+    },
+    {
+      "type": "code",
+      "path": "portal/platform/wiki/adapters/modules.py"
+    },
+    {
+      "type": "code",
+      "path": "config/portal.yaml"
+    },
+    {
+      "type": "code",
+      "path": "module-state-change:video:cli"
+    }
+  ],
+  "body": "# Video Module \u2014 MLX-native video generation (off by default)\n\n## Tools\n\n`video_mlx_mcp` (:8935) \u2014 a headless host-MLX wrapper over the `ltx-2-mlx`\nCLI (pure-MLX LTX-2.3 port for Apple Silicon). Exposes `generate_video`\n(text-to-video, with synchronized audio) and `animate_image`\n(image-to-video). It replaced the removed ComfyUI `video_mcp` path \u2014 the\ntool names are deliberately identical so the video workspace repoints with\na backend swap, not a tool-rename cascade.\n\n## Workspaces\n\n- `auto-video` \u2014 video creation\n\n## Module State\n\n```yaml\nenabled: true\n```\n\n## Why\n\nVideo is the heaviest media surface \u2014 LTX-2.3 int4 runs a ~20-24GB MLX\nworking set, is thermally punishing on a 64GB box, and produces\npreview-grade clips practically capped at ~4-6s \u2014 so it is footprint-first,\noff by default, mirroring `eval`. An operator opts in with\n`portal module enable video`, after which sync-config adds the `video_mlx`\nfleet id to `launched_mcp_ids` and the `auto-video` workspace to the\npresets; disabling drops both with no code change. Membership is derived\nfrom the `module: video` tag on the `video_mlx` fleet entry and the\n`auto-video` workspace in `config/portal.yaml`; the fenced `enabled:` value\nis read by `portal/platform/wiki/adapters/modules.py` (`_unit_enabled_state`),\nand a missing value falls back to `DEFAULT_DISABLED_MODULES` (off).",
+  "tags": [
+    "video",
+    "module"
+  ],
+  "proposed_by": "cli",
+  "proposed_at": 1787967818.360717,
+  "status": "confirmed",
+  "auto_confirm": true,
+  "supersede": false
+}

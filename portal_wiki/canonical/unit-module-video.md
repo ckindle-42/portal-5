@@ -1,7 +1,7 @@
 ---
 id: unit-module-video
 kind: mixed
-title: "Video Module — MLX-native video generation (off by default)"
+title: "Video Module \u2014 MLX-native video generation (off by default)"
 sources:
 - type: code
   path: portal/modules/media/tools/video_mlx_mcp.py
@@ -9,11 +9,15 @@ sources:
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml
+- type: code
+  path: module-state-change:video:cli
 claims: []
 confidence: high
 tags:
 - video
 - module
+created_at: 1787967818.3609989
+updated_at: 1787967818.3609989
 ---
 
 # Video Module — MLX-native video generation (off by default)
@@ -34,7 +38,7 @@ a backend swap, not a tool-rename cascade.
 ## Module State
 
 ```yaml
-enabled: false
+enabled: true
 ```
 
 ## Why

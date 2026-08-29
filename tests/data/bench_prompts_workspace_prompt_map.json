@@ -74,5 +74,6 @@
   "bench-supergemma4-sec": "security",
   "bench-vulnllm-r-7b": "general",
   "bench-vulnllm-r7b": "security",
-  "tools-specialist": "general"
+  "tools-specialist": "general",
+  "auto-video": "creative"
 }
