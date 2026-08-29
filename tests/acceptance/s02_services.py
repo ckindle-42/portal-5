@@ -84,7 +84,7 @@ async def run() -> None:
         ("S2-08", "documents", MCP["documents"]),
         # Music MCPs are host-native — install with install-music-minimax/install-music-ace.
         # WARN is expected if not installed; this is not a regression
-        ("S2-09", "music", MCP["music"]),
+        ("S2-09", "music", MCP["music_minimax"]),
         ("S2-10", "tts", MCP["tts"]),
         ("S2-11", "whisper", MCP["whisper"]),
         ("S2-12", "sandbox", MCP["sandbox"]),
