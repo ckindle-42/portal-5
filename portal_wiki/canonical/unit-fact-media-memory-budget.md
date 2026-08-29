@@ -5,7 +5,7 @@ title: memory budget for 10 media backend/model combinations
 sources:
 - type: code
   path: portal/platform/wiki/adapters/seed_facts.py
-  commit: c73d5ca76df0
+  commit: 38cdbb1fcea0
   section: MEDIA_MODEL_MEMORY_GB
 claims: []
 confidence: high
@@ -14,7 +14,7 @@ tags:
 - media
 - memory
 created_at: 1784057641.950119
-updated_at: 1787964855.5112672
+updated_at: 1787966215.572633
 ---
 
 # Media backend memory budget (Tier 0, cross-engine VRAM admission)
@@ -27,10 +27,10 @@ Image is `mflux:*` (MLX-native FLUX, host layer), video is `video_mlx:*` (ltx-2-
 |---|---|
 | `mflux:dev` | 16.0 |
 | `mflux:klein` | 18.0 |
-| `mflux:qwen-image` | 22.0 |
-| `mflux:qwen-image-edit` | 24.0 |
+| `mflux:qwen-image` | 40.0 |
+| `mflux:qwen-image-edit` | 42.0 |
 | `mflux:schnell` | 15.0 |
-| `mflux:z-image` | 14.0 |
+| `mflux:z-image` | 30.0 |
 | `music:acestep-sft` | 40.0 |
 | `music:minimax3` | 22.0 |
 | `video_mlx:ltx-2.3-q4` | 18.0 |

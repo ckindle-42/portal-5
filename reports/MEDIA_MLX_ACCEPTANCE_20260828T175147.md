@@ -15,17 +15,23 @@ shells out to.
 
 | Arm | CLI model | steps | wall | peak MLX | verdict |
 |---|---|---|---|---|---|
-| `schnell` | `schnell` | 4 | 67 s cached (344 s incl. 34 GB one-time pull) | 14.5 GB | ✅ **usable** — clean photoreal mug-on-desk, correct lighting |
-| `klein` | `flux2-klein-4b` (`mflux-generate-flux2`) | 28 | ~30 s gen (497 s incl. 12 GB one-time pull) | 18.0 GB | ✅ **usable** — sharp studio-lit mug, strong glaze/wood material rendering |
-| `qwen-image` | `qwen-image` | 20 | — | — | ⚠️ **BLOCKED** — this `mflux` build's qwen-image loader requires a `text_encoder_2/` dir absent from the `Qwen/Qwen-Image-2512` HF snapshot (`FileNotFoundError`). Same failure as z-image. |
-| `z-image` | `z-image-turbo` | 8 | — | — | ⚠️ **BLOCKED** — identical `text_encoder_2/` error in the `Tongyi-MAI/Z-Image-Turbo` snapshot. |
+| `schnell` | `mflux-generate` | 4 | 67 s cached (344 s incl. one-time pull) | 14.5 GB | ✅ **usable** — clean photoreal mug-on-desk |
+| `klein` | `mflux-generate-flux2` | 28 | ~30 s gen | 18.0 GB | ✅ **usable** — sharp studio-lit mug, strong material rendering |
+| `qwen-image` | `mflux-generate-qwen` | 8 | ~135 s denoise | **36.8 GB** | ✅ **usable** — bookshop storefront with crisp, legible "GRAND OPENING" text; the text-rendering arm |
+| `z-image` | `mflux-generate-z-image-turbo` | 8 | ~2 min | **26.8 GB** | ✅ **usable** — sharp red mug on wood, softbox visible, strong studio lighting |
+
+**All four image arms produce usable output within the 64 GB envelope.**
+qwen-image (36.8 GB) and z-image (26.8 GB) are heavier — the admission table
+reflects the measured peaks so an oversized co-resident job is refused.
 
 Without `--low-ram`, `schnell` peaks ~25 GB MLX vs 14.5 GB with it.
 
-**Blocked-arm next step (not gating):** pin a `mflux` version whose qwen-image /
-z-image loader matches the current HF repo layout, or point `MFLUX_QWEN_TAG` /
-`MFLUX_ZIMAGE_TAG` at a pre-converted single-encoder community pack. Neither
-blocks shipping schnell + klein now — `generate_image` defaults to `schnell`.
+**Root cause of the earlier qwen/z-image failures (fixed):** mflux 0.19 ships a
+separate entry-point binary per model family (`mflux-generate-qwen`,
+`mflux-generate-qwen-edit`, `mflux-generate-z-image-turbo`, `mflux-generate-flux2`);
+routing a non-FLUX.1 model through the base `mflux-generate` silently falls back to
+the FLUX weight loader, which then dies looking for a `text_encoder_2/`.
+`mflux_mcp.py` now dispatches to the right family binary per model.
 
 ## Track B — Video (ltx-2-mlx / LTX-2.3) — GO (proven, off by default)
 
@@ -65,10 +71,9 @@ Well inside the 64 GB envelope. Distilled two-stage: stage-1 denoise 8 steps
    `tests/comfyui/`, the OWUI comfyui/video tools, ~30 `unit-comfyui-*` wiki
    units, `docs/COMFYUI_SETUP.md` — is removed. Model weights on disk left for a
    separate operator reclaim decision.
-4. **qwen-image / z-image (follow-up, not gating):** both blocked in the pinned
-   `mflux` (loader wants a `text_encoder_2/` the HF snapshots don't ship). Pin a
-   matching `mflux` version or a pre-converted community pack. schnell + klein +
-   video cover acceptance.
+4. **qwen-image / z-image — fixed.** Root cause was mflux 0.19's per-family
+   entry-point binaries (`mflux-generate-qwen` etc.); `mflux_mcp.py` now
+   dispatches correctly. All four image models verified usable.
 
 `validate_system.py`: 195 pass / 1 fail / 1 warn. The fail is `H. unit test
 suite` — pre-existing: `validate_system.py` shells out to Homebrew `python3`
