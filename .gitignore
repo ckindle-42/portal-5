@@ -70,6 +70,7 @@ tests/uat_corpus/*.json
 # and the exposure-gap manifest are all generated per run (agent authors worksheets
 # ahead of a sign-off; --dry-run templates during dev).
 tests/uat_adaptive/
+tests/ADAPTIVE_UAT_RESULTS.md
 config/proxmox_ca.pem
 
 # lab_discover.py output — live host state snapshot, not source
