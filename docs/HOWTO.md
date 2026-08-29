@@ -566,3 +566,12 @@ All commands below are the actual `case` branches in `launch.sh` (or dispatch in
 ## Why
 
 This surface is deliberately a thin shell over `launch.sh` cases and the typed CLI, so every command has one implementation and the usage text in the `*)` branch stays the reference. Commands that need real logic — `pull-models`, `update`, `test`, workspace — delegate to `portal.platform.inference.cli`, keeping the shell file declarative and testable instead of growing bespoke logic in bash.
+# Generate and embed media in documents
+
+Generate an image with the enabled media tool and use its published Open WebUI
+URL as `image_url` in `prepare_embed_image`. Pass the returned object in
+`create_word_document(images=[...])` or in a PowerPoint slide's `images` list.
+Remote images must use public HTTPS URLs; private and local network addresses
+are rejected. Local images may be referenced only from the configured document
+output directory. Use `also_pdf=true` for a second PDF result when LibreOffice
+is installed on the MCP host.

@@ -1,6 +1,6 @@
 [
   {
-    "description": "Create a Word document",
+    "description": "Create a Word document with rich Markdown, tables, code blocks, links, images, optional Portal theme, and optional PDF export",
     "name": "create_word_document",
     "parameters": {
       "properties": {
@@ -11,16 +11,31 @@
         "title": {
           "description": "Document title",
           "type": "string"
+        },
+        "images": {
+          "description": "Images with source/path_or_url, optional caption and width_in",
+          "items": {"type": "object"},
+          "type": "array"
+        },
+        "template": {
+          "description": "Style template name, for example portal",
+          "type": "string"
+        },
+        "also_pdf": {
+          "default": false,
+          "description": "Also export PDF using host LibreOffice",
+          "type": "boolean"
         }
       },
       "required": [
+        "title",
         "content"
       ],
       "type": "object"
     }
   },
   {
-    "description": "Create a PowerPoint presentation",
+    "description": "Create a PowerPoint presentation with optional per-slide charts/images, Portal theme, and PDF export",
     "name": "create_powerpoint",
     "parameters": {
       "properties": {
@@ -31,16 +46,26 @@
         "title": {
           "description": "Presentation title",
           "type": "string"
+        },
+        "template": {
+          "description": "Style template name, for example portal",
+          "type": "string"
+        },
+        "also_pdf": {
+          "default": false,
+          "description": "Also export PDF using host LibreOffice",
+          "type": "boolean"
         }
       },
       "required": [
+        "title",
         "slides"
       ],
       "type": "object"
     }
   },
   {
-    "description": "Create an Excel spreadsheet",
+    "description": "Create an Excel spreadsheet with optional native bar, line, or pie charts and PDF export",
     "name": "create_excel",
     "parameters": {
       "properties": {
@@ -48,19 +73,34 @@
           "description": "Array of rows",
           "type": "array"
         },
+        "sheets": {
+          "description": "Multiple sheets with name, headers, and rows",
+          "items": {"type": "object"},
+          "type": "array"
+        },
         "sheet_name": {
           "description": "Sheet name",
           "type": "string"
+        },
+        "charts": {
+          "description": "Native chart specifications",
+          "items": {"type": "object"},
+          "type": "array"
+        },
+        "also_pdf": {
+          "default": false,
+          "description": "Also export PDF using host LibreOffice",
+          "type": "boolean"
         }
       },
       "required": [
-        "data"
+        "title"
       ],
       "type": "object"
     }
   },
   {
-    "description": "Convert between document formats using pandoc",
+    "description": "Convert between document formats using host LibreOffice",
     "name": "convert_document",
     "parameters": {
       "properties": {
@@ -77,6 +117,30 @@
         "source_path",
         "target_format"
       ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Export a generated Office document to PDF. Requires LibreOffice on the host and returns a clear error when unavailable.",
+    "name": "export_pdf",
+    "parameters": {
+      "properties": {
+        "source_path": {"description": "Path to a generated Office document", "type": "string"}
+      },
+      "required": ["source_path"],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Prepare a media/image URL for embedding in create_word_document images or a create_powerpoint slide's images list",
+    "name": "prepare_embed_image",
+    "parameters": {
+      "properties": {
+        "image_url": {"description": "Published HTTPS image URL", "type": "string"},
+        "caption": {"description": "Optional image caption", "type": "string"},
+        "width_in": {"description": "Rendered width in inches", "type": "number"}
+      },
+      "required": ["image_url"],
       "type": "object"
     }
   },

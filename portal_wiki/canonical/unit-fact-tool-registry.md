@@ -1,11 +1,11 @@
 ---
 id: unit-fact-tool-registry
 kind: what
-title: 103 MCP tools across 26 servers
+title: 107 MCP tools across 26 servers
 sources:
 - type: code
   path: portal/modules/*/tools/*_mcp.py
-  commit: c73d5ca76df0
+  commit: 7f22baeede82
 claims: []
 confidence: high
 tags:
@@ -13,7 +13,7 @@ tags:
 - tools
 - mcp
 created_at: 1784049584.748966
-updated_at: 1787958190.814133
+updated_at: 1787969218.6540911
 ---
 
 # MCP tool registry
@@ -27,8 +27,8 @@ What each MCP server actually registers — `@mcp.tool()` defs, or `@mcp.custom_
 | `cad_render` | `convert_cad`, `generate_scad`, `render_mesh`, `render_openscad` |
 | `detections` | `spl_diff_hypothesis`, `spl_explain_detection`, `spl_search_library`, `spl_techniques_covered`, `spl_validate_syntax` |
 | `docker` | _(unresolved — server file not found)_ |
-| `documents` | `convert_document`, `create_excel`, `create_powerpoint`, `create_word_document`, `list_generated_files`, `read_excel`, `read_pdf`, `read_powerpoint`, `read_word_document` |
-| `execution` | `execute_bash`, `execute_nodejs`, `execute_powershell`, `execute_python`, `sandbox_status` |
+| `documents` | `convert_document`, `create_excel`, `create_powerpoint`, `create_word_document`, `export_pdf`, `list_generated_files`, `prepare_embed_image`, `read_excel`, `read_pdf`, `read_powerpoint`, `read_word_document` |
+| `execution` | `execute_bash`, `execute_nodejs`, `execute_powershell`, `execute_python`, `list_sessions`, `reset_session`, `sandbox_status` |
 | `fetch` | _(unresolved — server file not found)_ |
 | `filesystem` | _(unresolved — server file not found)_ |
 | `git` | _(unresolved — server file not found)_ |

@@ -7,10 +7,15 @@ Requires: pip install python-docx python-pptx openpyxl
 Start with: python -m mcp.documents.document_mcp
 """
 
+import ipaddress
+import json
 import logging
 import os
+import socket
 import uuid
 from pathlib import Path
+from urllib.parse import urlparse
+from xml.etree import ElementTree
 
 from mcp.server import MCPServer
 from starlette.responses import JSONResponse
@@ -23,6 +28,7 @@ mcp = MCPServer("document-tools")
 
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "data/generated"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+TEMPLATES_DIR = Path(__file__).resolve().parents[4] / "config" / "documents" / "templates"
 
 
 def _published(output_path: Path, noun: str) -> dict:
@@ -32,10 +38,160 @@ def _published(output_path: Path, noun: str) -> dict:
         return {"success": False, "error": pub["error"]}
     return {
         "success": True,
+        "path": str(output_path),
         "filename": pub["filename"],
         "download_url": pub["url"],
         "message": f"{noun} created: {pub['filename']}. [Download]({pub['url']})",
     }
+
+
+def _with_optional_pdf(result: dict, output_path: Path, also_pdf: bool) -> dict:
+    if not also_pdf or not result.get("success"):
+        return result
+    pdf = export_pdf(str(output_path))
+    if pdf.get("success"):
+        result["pdf"] = pdf
+    else:
+        result["pdf_note"] = pdf.get("error", "PDF export unavailable")
+    return result
+
+
+def _load_template(template: str | None) -> dict:
+    if not template:
+        return {}
+    safe = "".join(c for c in template if c.isalnum() or c in ("-", "_"))
+    path = TEMPLATES_DIR / f"{safe}.json"
+    if not safe or not path.is_file():
+        raise ValueError(f"Unknown document template: {template}")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _add_hyperlink(paragraph, text: str, url: str):
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    relationship = paragraph.part.relate_to(
+        url, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", True
+    )
+    hyperlink = OxmlElement("w:hyperlink")
+    hyperlink.set(qn("r:id"), relationship)
+    run = OxmlElement("w:r")
+    props = OxmlElement("w:rPr")
+    color = OxmlElement("w:color")
+    color.set(qn("w:val"), "0563C1")
+    props.append(color)
+    run.append(props)
+    node = OxmlElement("w:t")
+    node.text = text
+    run.append(node)
+    hyperlink.append(run)
+    paragraph._p.append(hyperlink)
+
+
+def _render_inline(paragraph, node) -> None:
+    if node.text:
+        paragraph.add_run(node.text)
+    for child in node:
+        text = "".join(child.itertext())
+        if child.tag == "a":
+            _add_hyperlink(paragraph, text, child.attrib.get("href", ""))
+        else:
+            run = paragraph.add_run(text)
+            run.bold = child.tag in {"strong", "b"}
+            run.italic = child.tag in {"em", "i"}
+            if child.tag == "code":
+                run.font.name = "Courier New"
+        if child.tail:
+            paragraph.add_run(child.tail)
+
+
+def _render_markdown(doc, content: str) -> None:
+    import markdown
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+    from docx.shared import Pt
+
+    html = markdown.markdown(content, extensions=["extra", "sane_lists"])
+    root = ElementTree.fromstring(f"<root>{html}</root>")
+
+    def render_list(node, level: int = 0, ordered: bool = False) -> None:
+        for item in node.findall("li"):
+            para = doc.add_paragraph(style="List Number" if ordered else "List Bullet")
+            para.paragraph_format.left_indent = Pt(18 * level)
+            _render_inline(para, item)
+            for child in item:
+                if child.tag in {"ul", "ol"}:
+                    render_list(child, level + 1, child.tag == "ol")
+
+    for node in root:
+        if node.tag in {"h1", "h2", "h3", "h4", "h5", "h6"}:
+            doc.add_heading("".join(node.itertext()), level=int(node.tag[1]))
+        elif node.tag == "p":
+            _render_inline(doc.add_paragraph(), node)
+        elif node.tag in {"ul", "ol"}:
+            render_list(node, ordered=node.tag == "ol")
+        elif node.tag == "blockquote":
+            para = doc.add_paragraph(style="Intense Quote")
+            _render_inline(para, node[0] if len(node) else node)
+        elif node.tag == "pre":
+            para = doc.add_paragraph()
+            run = para.add_run("".join(node.itertext()))
+            run.font.name = "Courier New"
+            shading = OxmlElement("w:shd")
+            shading.set(qn("w:fill"), "F2F2F2")
+            para._p.get_or_add_pPr().append(shading)
+        elif node.tag == "table":
+            rows = node.findall(".//tr")
+            width = max((len(row) for row in rows), default=1)
+            table = doc.add_table(rows=len(rows), cols=width)
+            table.style = "Table Grid"
+            for row_index, row in enumerate(rows):
+                for col_index, cell in enumerate(row):
+                    target = table.cell(row_index, col_index)
+                    target.text = "".join(cell.itertext())
+                    if cell.tag == "th":
+                        for run in target.paragraphs[0].runs:
+                            run.bold = True
+        elif node.tag == "hr":
+            para = doc.add_paragraph("―" * 20)
+            para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+
+def _safe_remote_image(source: str) -> Path:
+    import httpx
+
+    parsed = urlparse(source)
+    if parsed.scheme != "https" or not parsed.hostname:
+        raise ValueError("Remote images must use https")
+    for info in socket.getaddrinfo(parsed.hostname, 443, type=socket.SOCK_STREAM):
+        address = ipaddress.ip_address(info[4][0])
+        if not address.is_global:
+            raise ValueError("Private or local image addresses are not allowed")
+    suffix = Path(parsed.path).suffix.lower()
+    if suffix not in {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff"}:
+        suffix = ".img"
+    destination = _unique_path("embedded_image", suffix.lstrip("."))
+    with httpx.Client(timeout=30, follow_redirects=False) as client:
+        response = client.get(source)
+        response.raise_for_status()
+        if len(response.content) > 25 * 1024 * 1024:
+            raise ValueError("Remote image exceeds 25 MiB")
+        destination.write_bytes(response.content)
+    return destination
+
+
+def _resolve_image(source: str) -> Path:
+    if source.startswith(("http://", "https://")):
+        return _safe_remote_image(source)
+    candidate = Path(source)
+    if not candidate.is_absolute():
+        candidate = OUTPUT_DIR / candidate
+    resolved = candidate.resolve()
+    root = OUTPUT_DIR.resolve()
+    if not resolved.is_file() or not resolved.is_relative_to(root):
+        raise ValueError("Local images must be files within the output directory")
+    return resolved
 
 
 @mcp.custom_route("/health", methods=["GET"])
@@ -90,6 +246,9 @@ def create_word_document(
     title: str,
     content: str,
     author: str = "Portal AI",
+    images: list[dict] | None = None,
+    template: str | None = None,
+    also_pdf: bool = False,
 ) -> dict:
     """
     Create a Word (.docx) document from a title and markdown-style content.
@@ -111,7 +270,8 @@ def create_word_document(
     """
     try:
         from docx import Document
-        from docx.shared import Pt
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx.shared import Inches, Pt, RGBColor
     except ImportError:
         return {
             "success": False,
@@ -120,32 +280,49 @@ def create_word_document(
 
     try:
         doc = Document()
+        theme = _load_template(template)
         doc.core_properties.author = author
         doc.core_properties.title = title
+
+        styles = doc.styles
+        if theme.get("body_font"):
+            styles["Normal"].font.name = theme["body_font"]
+        if theme.get("heading_font"):
+            for level in range(1, 7):
+                styles[f"Heading {level}"].font.name = theme["heading_font"]
+        if theme.get("accent_color"):
+            color = RGBColor.from_string(theme["accent_color"].lstrip("#"))
+            for level in range(1, 7):
+                styles[f"Heading {level}"].font.color.rgb = color
 
         # Title heading
         heading = doc.add_heading(title, level=0)
         heading.runs[0].font.size = Pt(24)
 
-        for line in content.splitlines():
-            stripped = line.strip()
-            if not stripped:
+        _render_markdown(doc, content)
+
+        for image in images or []:
+            source = image.get("source") or image.get("path_or_url")
+            if not source:
                 continue
-            if stripped.startswith("### "):
-                doc.add_heading(stripped[4:], level=3)
-            elif stripped.startswith("## "):
-                doc.add_heading(stripped[3:], level=2)
-            elif stripped.startswith("# "):
-                doc.add_heading(stripped[2:], level=1)
-            elif stripped.startswith("- ") or stripped.startswith("* "):
-                para = doc.add_paragraph(stripped[2:], style="List Bullet")
-                para.paragraph_format.space_before = Pt(0)
-            else:
-                doc.add_paragraph(stripped)
+            doc.add_picture(
+                str(_resolve_image(str(source))), width=Inches(float(image.get("width_in", 6)))
+            )
+            if image.get("caption"):
+                caption = doc.add_paragraph(str(image["caption"]))
+                caption.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                for run in caption.runs:
+                    run.italic = True
+                    run.font.size = Pt(9)
+
+        if theme.get("footer"):
+            footer = doc.sections[0].footer.paragraphs[0]
+            footer.text = theme["footer"]
+            footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
         output_path = _unique_path(title, "docx")
         doc.save(str(output_path))
-        return _published(output_path, "Document")
+        return _with_optional_pdf(_published(output_path, "Document"), output_path, also_pdf)
     except Exception as e:
         logger.exception("Word document creation failed")
         return {"success": False, "error": str(e)}
@@ -156,6 +333,8 @@ def create_powerpoint(
     title: str,
     slides: list[dict],
     author: str = "Portal AI",
+    template: str | None = None,
+    also_pdf: bool = False,
 ) -> dict:
     """
     Create a PowerPoint (.pptx) presentation.
@@ -175,6 +354,8 @@ def create_powerpoint(
     """
     try:
         from pptx import Presentation
+        from pptx.dml.color import RGBColor
+        from pptx.util import Inches
     except ImportError:
         return {
             "success": False,
@@ -183,6 +364,7 @@ def create_powerpoint(
 
     try:
         prs = Presentation()
+        theme = _load_template(template)
         prs.core_properties.author = author
         prs.core_properties.title = title
 
@@ -213,9 +395,55 @@ def create_powerpoint(
                 notes_slide = slide.notes_slide
                 notes_slide.notes_text_frame.text = slide_data["notes"]
 
+            chart_spec = slide_data.get("chart")
+            if chart_spec:
+                from pptx.chart.data import CategoryChartData
+                from pptx.enum.chart import XL_CHART_TYPE
+
+                chart_types = {
+                    "bar": XL_CHART_TYPE.COLUMN_CLUSTERED,
+                    "line": XL_CHART_TYPE.LINE,
+                    "pie": XL_CHART_TYPE.PIE,
+                }
+                chart_data = CategoryChartData()
+                chart_data.categories = chart_spec.get("categories", [])
+                for series in chart_spec.get("series", []):
+                    chart_data.add_series(series.get("name", ""), series.get("values", []))
+                graphic_frame = slide.shapes.add_chart(
+                    chart_types.get(
+                        str(chart_spec.get("type", "bar")).lower(), XL_CHART_TYPE.COLUMN_CLUSTERED
+                    ),
+                    Inches(1),
+                    Inches(2),
+                    Inches(8),
+                    Inches(4.5),
+                    chart_data,
+                )
+                graphic_frame.chart.has_title = bool(chart_spec.get("title"))
+                if chart_spec.get("title"):
+                    graphic_frame.chart.chart_title.text_frame.text = str(chart_spec["title"])
+
+            for image in slide_data.get("images", []):
+                source = image.get("source") or image.get("path_or_url")
+                if source:
+                    slide.shapes.add_picture(
+                        str(_resolve_image(str(source))),
+                        Inches(float(image.get("left_in", 1))),
+                        Inches(float(image.get("top_in", 2))),
+                        width=Inches(float(image.get("width_in", 6))),
+                    )
+
+            if theme.get("accent_color") and slide.shapes.title:
+                color = RGBColor.from_string(theme["accent_color"].lstrip("#"))
+                for paragraph in slide.shapes.title.text_frame.paragraphs:
+                    for run in paragraph.runs:
+                        run.font.color.rgb = color
+                        if theme.get("heading_font"):
+                            run.font.name = theme["heading_font"]
+
         output_path = _unique_path(title, "pptx")
         prs.save(str(output_path))
-        return _published(output_path, "Presentation")
+        return _with_optional_pdf(_published(output_path, "Presentation"), output_path, also_pdf)
     except Exception as e:
         logger.exception("Presentation creation failed")
         return {"success": False, "error": str(e)}
@@ -227,6 +455,8 @@ def create_excel(
     data: list | None = None,
     sheets: list[dict] | None = None,
     sheet_name: str = "Sheet1",
+    charts: list[dict] | None = None,
+    also_pdf: bool = False,
 ) -> dict:
     """
     Create an Excel (.xlsx) spreadsheet.
@@ -292,9 +522,39 @@ def create_excel(
         else:
             return {"success": False, "error": "Provide either 'data' or 'sheets' parameter"}
 
+        if charts:
+            from openpyxl.chart import BarChart, LineChart, PieChart, Reference
+
+            chart_types = {"bar": BarChart, "line": LineChart, "pie": PieChart}
+            for spec in charts:
+                target = wb[spec["sheet"]] if spec.get("sheet") in wb.sheetnames else wb.active
+                chart = chart_types.get(str(spec.get("type", "bar")).lower(), BarChart)()
+                chart.title = spec.get("title", "")
+                chart.add_data(
+                    Reference(
+                        target,
+                        min_col=int(spec["min_col"]),
+                        max_col=int(spec["max_col"]),
+                        min_row=int(spec["min_row"]),
+                        max_row=int(spec["max_row"]),
+                    ),
+                    titles_from_data=True,
+                )
+                if spec.get("cats_col"):
+                    chart.set_categories(
+                        Reference(
+                            target,
+                            min_col=int(spec["cats_col"]),
+                            max_col=int(spec["cats_col"]),
+                            min_row=int(spec["min_row"]) + 1,
+                            max_row=int(spec["max_row"]),
+                        )
+                    )
+                target.add_chart(chart, spec.get("anchor", "H2"))
+
         output_path = _unique_path(title, "xlsx")
         wb.save(str(output_path))
-        return _published(output_path, "Spreadsheet")
+        return _with_optional_pdf(_published(output_path, "Spreadsheet"), output_path, also_pdf)
     except Exception as e:
         logger.exception("Spreadsheet creation failed")
         return {"success": False, "error": str(e)}
@@ -394,6 +654,26 @@ def convert_document(
         "note": f"Copied {src_ext} → {target_format}. "
         "Install LibreOffice for true format conversion.",
     }
+
+
+@mcp.tool()
+def export_pdf(source_path: str) -> dict:
+    """Export a generated Office document to PDF using host LibreOffice.
+
+    Returns a clear error when LibreOffice is unavailable; it never renames or
+    copies Office bytes into a misleading .pdf file.
+    """
+    return convert_document(source_path, "pdf")
+
+
+@mcp.tool()
+def prepare_embed_image(
+    image_url: str,
+    caption: str = "",
+    width_in: float = 6.0,
+) -> dict:
+    """Build an image spec accepted by Word documents and PowerPoint slides."""
+    return {"source": image_url, "caption": caption, "width_in": width_in}
 
 
 @mcp.tool()

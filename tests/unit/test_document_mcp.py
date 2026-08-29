@@ -308,3 +308,71 @@ class TestReadPDF:
         assert result["success"] is True
         assert result["filename"] == "test.pdf"
         assert "pages" in result
+
+
+class TestDocumentCreationOverhaul:
+    def test_excel_chart_is_embedded(self, tmp_path, monkeypatch):
+        import openpyxl
+
+        from portal.modules.documents.tools import document_mcp
+
+        monkeypatch.setattr(document_mcp, "OUTPUT_DIR", tmp_path)
+        monkeypatch.setattr(
+            document_mcp,
+            "publish_file_sync",
+            lambda path: {"filename": path.name, "url": f"https://example.test/{path.name}"},
+        )
+        result = document_mcp.create_excel(
+            "chart",
+            data=[["Region", "Sales"], ["N", 10], ["S", 22]],
+            charts=[
+                {
+                    "type": "bar",
+                    "min_col": 2,
+                    "max_col": 2,
+                    "min_row": 1,
+                    "max_row": 3,
+                    "cats_col": 1,
+                }
+            ],
+        )
+        workbook = openpyxl.load_workbook(result["path"])
+        assert result["success"] is True
+        assert len(workbook.active._charts) == 1
+
+    def test_rich_markdown_and_template(self, tmp_path, monkeypatch):
+        from docx import Document
+
+        from portal.modules.documents.tools import document_mcp
+
+        monkeypatch.setattr(document_mcp, "OUTPUT_DIR", tmp_path)
+        monkeypatch.setattr(
+            document_mcp,
+            "publish_file_sync",
+            lambda path: {"filename": path.name, "url": f"https://example.test/{path.name}"},
+        )
+        result = document_mcp.create_word_document(
+            "rich",
+            "## Heading\n\n**bold** and `code`\n\n| A | B |\n|---|---|\n| 1 | 2 |",
+            template="portal",
+        )
+        document = Document(result["path"])
+        assert result["success"] is True
+        assert any(table.cell(1, 1).text == "2" for table in document.tables)
+        assert any(run.bold for paragraph in document.paragraphs for run in paragraph.runs)
+
+    def test_export_pdf_reports_missing_libreoffice(self, tmp_path, monkeypatch):
+        import subprocess
+
+        from portal.modules.documents.tools import document_mcp
+
+        source = tmp_path / "source.docx"
+        source.write_bytes(b"docx")
+        monkeypatch.setattr(document_mcp, "OUTPUT_DIR", tmp_path)
+
+        def missing(*args, **kwargs):
+            raise FileNotFoundError
+
+        monkeypatch.setattr(subprocess, "run", missing)
+        result = document_mcp.export_pdf(str(source))
+        assert "without LibreOffice" in result["error"]

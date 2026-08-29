@@ -15,6 +15,7 @@ Start with: python -m mcp.execution.code_sandbox_mcp
 import asyncio
 import logging
 import os
+import shutil
 import uuid
 from pathlib import Path
 
@@ -22,6 +23,7 @@ from mcp.server import MCPServer
 from starlette.responses import JSONResponse
 
 from portal.platform.data_loader import load_data
+from portal.platform.mcp_host.owui_files import publish_file_sync
 
 mcp = MCPServer("code-sandbox")
 
@@ -58,6 +60,11 @@ PYTHON_IMAGE = os.getenv("SANDBOX_DOCKER_IMAGE", "python:3.11-slim")
 NODE_IMAGE = os.getenv("SANDBOX_NODE_IMAGE", "node:20-alpine")
 BASH_IMAGE = os.getenv("SANDBOX_BASH_IMAGE", "alpine:latest")
 MAX_OUTPUT_BYTES = 50_000  # 50KB output cap
+SANDBOX_ARTIFACT_MAX_FILES = int(os.getenv("SANDBOX_ARTIFACT_MAX_FILES", "8"))
+SANDBOX_ARTIFACT_MAX_BYTES = int(os.getenv("SANDBOX_ARTIFACT_MAX_BYTES", str(25 * 1024 * 1024)))
+SANDBOX_SESSIONS_DIR = SANDBOX_DIR / "sessions"
+SANDBOX_SESSION_MAX_BYTES = int(os.getenv("SANDBOX_SESSION_MAX_BYTES", str(512 * 1024 * 1024)))
+SANDBOX_PIP_INSTALL_ENABLED = os.getenv("SANDBOX_PIP_INSTALL_ENABLED", "true").lower() == "true"
 
 # Opt-in network access (DEFAULT OFF — production posture unchanged).
 # Set SANDBOX_ALLOW_NETWORK=true ONLY for capability-probe test runs that need
@@ -162,17 +169,150 @@ def _resolve_image(default_image: str) -> str:
     return default_image
 
 
+def _safe_session_id(session_id: str) -> str:
+    """Return the filesystem-safe canonical form of a session identifier."""
+    return "".join(c for c in session_id if c.isalnum() or c in ("-", "_"))[:48] or "default"
+
+
+def _session_dir(session_id: str) -> Path:
+    d = SANDBOX_SESSIONS_DIR / _safe_session_id(session_id)
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _directory_size(path: Path) -> int:
+    return sum(f.stat().st_size for f in path.rglob("*") if f.is_file())
+
+
+def _publish_artifacts(out_dir: Path) -> list[dict]:
+    """Publish files sandboxed code wrote to /out."""
+    if not out_dir.is_dir():
+        return []
+    files = sorted(f for f in out_dir.rglob("*") if f.is_file())
+    artifacts: list[dict] = []
+    for artifact in files[:SANDBOX_ARTIFACT_MAX_FILES]:
+        relative_name = str(artifact.relative_to(out_dir))
+        try:
+            if artifact.stat().st_size > SANDBOX_ARTIFACT_MAX_BYTES:
+                artifacts.append({"name": relative_name, "error": "exceeds artifact size cap"})
+                continue
+            published = publish_file_sync(artifact)
+            if published.get("url"):
+                artifacts.append({"name": relative_name, "url": published["url"]})
+            else:
+                artifacts.append(
+                    {"name": relative_name, "error": published.get("error", "publish failed")}
+                )
+        except Exception as exc:  # noqa: BLE001
+            artifacts.append({"name": relative_name, "error": str(exc)[:200]})
+    if len(files) > SANDBOX_ARTIFACT_MAX_FILES:
+        artifacts.append(
+            {
+                "name": f"(+{len(files) - SANDBOX_ARTIFACT_MAX_FILES} more)",
+                "error": "count cap",
+            }
+        )
+    return artifacts
+
+
+def _list_sessions() -> list[dict]:
+    if not SANDBOX_SESSIONS_DIR.is_dir():
+        return []
+    return [
+        {"session_id": d.name, "bytes": _directory_size(d)}
+        for d in sorted(SANDBOX_SESSIONS_DIR.iterdir())
+        if d.is_dir()
+    ]
+
+
+def _reset_session(session_id: str) -> dict:
+    safe = _safe_session_id(session_id)
+    d = SANDBOX_SESSIONS_DIR / safe
+    if d.is_dir():
+        shutil.rmtree(d)
+    return {"session_id": safe, "reset": True}
+
+
+async def _install_packages(sess: Path, image: str, kind: str, packages: list[str]) -> dict:
+    """Install validated packages into a persistent session directory."""
+    if not SANDBOX_PIP_INSTALL_ENABLED:
+        return {"error": "Persistent package installation is disabled"}
+    safe = [p for p in packages if p and all(c.isalnum() or c in "-_.=<>[]~!" for c in p)][:20]
+    if len(safe) != len(packages[:20]):
+        return {"error": "One or more package names contain unsupported characters"}
+    if kind == "python":
+        cmd = ["pip", "install", "--target", "/session/.pylibs", "--no-cache-dir", *safe]
+    else:
+        cmd = ["npm", "install", "--prefix", "/session", "--ignore-scripts", *safe]
+    docker_cmd = [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "bridge",
+        "--cpus",
+        "1.0",
+        "--memory",
+        "1g",
+        "--pids-limit",
+        "128",
+        "--security-opt",
+        "no-new-privileges",
+        "--cap-drop",
+        "ALL",
+        "-v",
+        f"{sess.absolute()}:/session",
+        "--workdir",
+        "/session",
+        image,
+        *cmd,
+    ]
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *docker_cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=_get_docker_env(),
+        )
+    except FileNotFoundError:
+        return {"error": "Docker not found; package installation is unavailable"}
+    try:
+        out, err = await asyncio.wait_for(proc.communicate(), timeout=180)
+    except TimeoutError:
+        proc.kill()
+        await proc.communicate()
+        return {"error": "package install timed out"}
+    if proc.returncode != 0:
+        return {"error": (err or b"").decode("utf-8", "replace")[-500:]}
+    return {"installed": safe, "log": (out or b"").decode("utf-8", "replace")[-800:]}
+
+
 async def _run_in_docker(
     image: str,
     command: list[str],
     code: str,
     timeout: int,
     extra_args: list[str] | None = None,
+    session_id: str | None = None,
 ) -> dict:
     """Run code in a Docker container with isolation constraints."""
     run_id = uuid.uuid4().hex[:8]
     work_dir = SANDBOX_DIR / run_id
     work_dir.mkdir(parents=True, exist_ok=True)
+    out_dir = work_dir / "out"
+    out_dir.mkdir()
+    sess = _session_dir(session_id) if session_id else None
+    if sess and _directory_size(sess) > SANDBOX_SESSION_MAX_BYTES:
+        shutil.rmtree(work_dir, ignore_errors=True)
+        return {
+            "success": False,
+            "error_type": "session_size_limit",
+            "stderr": f"Session exceeds {SANDBOX_SESSION_MAX_BYTES} byte limit; reset it first.",
+            "stdout": "",
+            "exit_code": -1,
+            "timed_out": False,
+            "artifacts": [],
+        }
 
     # Write code to temp file
     code_file = work_dir / "code"
@@ -299,7 +439,11 @@ async def _run_in_docker(
             ["-v", f"{SANDBOX_LAB_VULHUB_DIR}:/vulhub:ro"] if SANDBOX_LAB_EXEC else []
         )
         + (extra_args or [])
+        + (["-v", f"{sess.absolute()}:/session", "--workdir", "/session"] if sess else [])
+        + (["--env", "PYTHONPATH=/session/.pylibs"] if sess else [])
         + [
+            "-v",
+            f"{out_dir.absolute()}:/out",
             "-v",
             f"{code_file.absolute()}:/code:ro",
             image,
@@ -325,18 +469,24 @@ async def _run_in_docker(
                 "stderr": f"Execution timed out after {timeout} seconds",
                 "exit_code": -1,
                 "timed_out": True,
+                "error_type": "timeout",
+                "artifacts": _publish_artifacts(out_dir),
             }
 
         _output_cap = SANDBOX_LAB_OUTPUT_MAX if SANDBOX_LAB_EXEC else MAX_OUTPUT_BYTES
         stdout_text = stdout[:_output_cap].decode("utf-8", errors="replace")
         stderr_text = stderr[:_output_cap].decode("utf-8", errors="replace")
-        return {
+        result = {
             "success": proc.returncode == 0,
             "stdout": stdout_text,
             "stderr": stderr_text,
             "exit_code": proc.returncode,
             "timed_out": False,
+            "artifacts": _publish_artifacts(out_dir),
         }
+        if proc.returncode != 0:
+            result["error_type"] = "nonzero_exit"
+        return result
     except FileNotFoundError:
         return {
             "success": False,
@@ -344,12 +494,13 @@ async def _run_in_docker(
             "stderr": "Docker not found. Ensure Docker is installed and running.",
             "exit_code": -1,
             "timed_out": False,
+            "error_type": "docker_unavailable",
+            "artifacts": [],
         }
     finally:
         # Clean up temp files
         try:
-            code_file.unlink(missing_ok=True)
-            work_dir.rmdir()
+            shutil.rmtree(work_dir)
         except OSError:
             pass
 
@@ -358,6 +509,8 @@ async def _run_in_docker(
 async def execute_python(
     code: str,
     timeout: int = DEFAULT_TIMEOUT,
+    session_id: str | None = None,
+    packages: list[str] | None = None,
 ) -> dict:
     """
     Execute Python code in an isolated Docker sandbox.
@@ -382,18 +535,36 @@ async def execute_python(
     )
     timeout = min(timeout, _cap)
     # Use file-based execution to avoid shell escaping issues
-    return await _run_in_docker(
-        image=_resolve_image(PYTHON_IMAGE),
+    image = _resolve_image(PYTHON_IMAGE)
+    if packages and not session_id:
+        return {
+            "success": False,
+            "error_type": "session_required",
+            "error": "packages requires session_id",
+        }
+    install = None
+    if packages:
+        install = await _install_packages(_session_dir(session_id or ""), image, "python", packages)
+        if install.get("error"):
+            return {"success": False, "error_type": "package_install", "error": install["error"]}
+    result = await _run_in_docker(
+        image=image,
         command=["python3", "/code"],
         code=code,
         timeout=timeout,
+        session_id=session_id,
     )
+    if install is not None:
+        result.update(installed=install["installed"], install_log=install["log"])
+    return result
 
 
 @mcp.tool()
 async def execute_nodejs(
     code: str,
     timeout: int = DEFAULT_TIMEOUT,
+    session_id: str | None = None,
+    packages: list[str] | None = None,
 ) -> dict:
     """
     Execute JavaScript/Node.js code in an isolated Docker sandbox.
@@ -411,18 +582,36 @@ async def execute_nodejs(
     """
     timeout = min(timeout, SANDBOX_NET_TIMEOUT_MAX if SANDBOX_ALLOW_NETWORK else 120)
     # Use file-based execution to avoid shell escaping issues
-    return await _run_in_docker(
+    if packages and not session_id:
+        return {
+            "success": False,
+            "error_type": "session_required",
+            "error": "packages requires session_id",
+        }
+    install = None
+    if packages:
+        install = await _install_packages(
+            _session_dir(session_id or ""), NODE_IMAGE, "node", packages
+        )
+        if install.get("error"):
+            return {"success": False, "error_type": "package_install", "error": install["error"]}
+    result = await _run_in_docker(
         image=NODE_IMAGE,
         command=["node", "/code"],
         code=code,
         timeout=timeout,
+        session_id=session_id,
     )
+    if install is not None:
+        result.update(installed=install["installed"], install_log=install["log"])
+    return result
 
 
 @mcp.tool()
 async def execute_bash(
     code: str,
     timeout: int = DEFAULT_TIMEOUT,
+    session_id: str | None = None,
 ) -> dict:
     """
     Execute a Bash script in an isolated Docker sandbox.
@@ -450,7 +639,20 @@ async def execute_bash(
         command=[_shell, "/code"],
         code=code,
         timeout=timeout,
+        session_id=session_id,
     )
+
+
+@mcp.tool()
+def list_sessions() -> list[dict]:
+    """List persistent code-interpreter sessions and their disk usage."""
+    return _list_sessions()
+
+
+@mcp.tool()
+def reset_session(session_id: str) -> dict:
+    """Delete one persistent code-interpreter session."""
+    return _reset_session(session_id)
 
 
 @mcp.tool()
@@ -544,7 +746,12 @@ async def execute_python_endpoint(request):
     if not code:
         return JSONResponse({"error": "code is required"}, status_code=400)
     timeout = min(int(args.get("timeout", DEFAULT_TIMEOUT)), 120)
-    result = await execute_python(code=code, timeout=timeout)
+    result = await execute_python(
+        code=code,
+        timeout=timeout,
+        session_id=args.get("session_id"),
+        packages=args.get("packages"),
+    )
     return JSONResponse(result)
 
 
@@ -556,7 +763,12 @@ async def execute_nodejs_endpoint(request):
     if not code:
         return JSONResponse({"error": "code is required"}, status_code=400)
     timeout = min(int(args.get("timeout", DEFAULT_TIMEOUT)), 120)
-    result = await execute_nodejs(code=code, timeout=timeout)
+    result = await execute_nodejs(
+        code=code,
+        timeout=timeout,
+        session_id=args.get("session_id"),
+        packages=args.get("packages"),
+    )
     return JSONResponse(result)
 
 
@@ -585,9 +797,10 @@ async def execute_bash_endpoint(request):
             result = await execute_python(
                 code=py_code,
                 timeout=min(timeout, SANDBOX_NET_TIMEOUT_MAX if SANDBOX_ALLOW_NETWORK else 120),
+                session_id=args.get("session_id"),
             )
             return JSONResponse(result)
-    result = await execute_bash(code=code, timeout=timeout)
+    result = await execute_bash(code=code, timeout=timeout, session_id=args.get("session_id"))
     return JSONResponse(result)
 
 
@@ -607,6 +820,20 @@ async def execute_powershell_endpoint(request):
 async def sandbox_status_endpoint(request):
     result = await sandbox_status()
     return JSONResponse(result)
+
+
+@mcp.custom_route("/tools/list_sessions", methods=["POST"])
+async def list_sessions_endpoint(request):
+    return JSONResponse(list_sessions())
+
+
+@mcp.custom_route("/tools/reset_session", methods=["POST"])
+async def reset_session_endpoint(request):
+    body = await request.json()
+    args = body.get("arguments", {})
+    if not args.get("session_id"):
+        return JSONResponse({"error": "session_id is required"}, status_code=400)
+    return JSONResponse(reset_session(args["session_id"]))
 
 
 if __name__ == "__main__":
