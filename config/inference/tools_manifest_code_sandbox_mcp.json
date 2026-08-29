@@ -1,6 +1,6 @@
 [
   {
-    "description": "Execute Python code in an isolated Docker container",
+    "description": "Execute Python code in an isolated Docker container. Optional session_id persists /session files and packages. Save generated files (including matplotlib figures) under /out to return downloadable links in artifacts.",
     "name": "execute_python",
     "parameters": {
       "properties": {
@@ -12,6 +12,15 @@
           "default": 30,
           "description": "Timeout in seconds",
           "type": "integer"
+        },
+        "session_id": {
+          "description": "Optional persistent workspace identifier",
+          "type": "string"
+        },
+        "packages": {
+          "description": "Packages to install durably; requires session_id",
+          "items": {"type": "string"},
+          "type": "array"
         }
       },
       "required": [
@@ -21,7 +30,7 @@
     }
   },
   {
-    "description": "Execute Node.js code in an isolated Docker container",
+    "description": "Execute Node.js code in an isolated Docker container. Optional session_id persists /session files and packages. Files written to /out are returned as downloadable links in artifacts.",
     "name": "execute_nodejs",
     "parameters": {
       "properties": {
@@ -33,6 +42,15 @@
           "default": 30,
           "description": "Timeout in seconds",
           "type": "integer"
+        },
+        "session_id": {
+          "description": "Optional persistent workspace identifier",
+          "type": "string"
+        },
+        "packages": {
+          "description": "npm packages to install durably; requires session_id",
+          "items": {"type": "string"},
+          "type": "array"
         }
       },
       "required": [
@@ -42,7 +60,7 @@
     }
   },
   {
-    "description": "Execute Bash commands in an isolated Docker container",
+    "description": "Execute Bash commands in an isolated Docker container. Optional session_id persists files under /session. Files written to /out are returned as downloadable links in artifacts.",
     "name": "execute_bash",
     "parameters": {
       "properties": {
@@ -54,11 +72,29 @@
           "default": 30,
           "description": "Timeout in seconds",
           "type": "integer"
+        },
+        "session_id": {
+          "description": "Optional persistent workspace identifier",
+          "type": "string"
         }
       },
       "required": [
         "command"
       ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "List persistent code-interpreter sessions and their disk usage",
+    "name": "list_sessions",
+    "parameters": {"properties": {}, "required": [], "type": "object"}
+  },
+  {
+    "description": "Delete a persistent code-interpreter session",
+    "name": "reset_session",
+    "parameters": {
+      "properties": {"session_id": {"description": "Session to delete", "type": "string"}},
+      "required": ["session_id"],
       "type": "object"
     }
   },

@@ -5,6 +5,8 @@ title: "Documents Module \u2014 Word/PowerPoint/Excel/PDF generation and reading
 sources:
 - type: code
   path: portal/modules/documents/tools/document_mcp.py
+- type: config
+  path: config/documents/templates/portal.json
 - type: code
   path: portal/platform/wiki/adapters/modules.py
 - type: code
@@ -25,7 +27,9 @@ updated_at: 1783821386.790256
 
 `portal.modules.documents.tools.document_mcp` — the document MCP server,
 registered as `documents` in `config/portal.yaml` `mcp_fleet:` on port
-8913, pipeline- and IDE-exposed.
+8913, pipeline- and IDE-exposed. It creates rich-Markdown Word documents,
+native Excel/PowerPoint charts, image-bearing documents, themed outputs, and
+LibreOffice-backed PDFs in addition to reading Office and PDF formats.
 
 ## Workspaces
 
