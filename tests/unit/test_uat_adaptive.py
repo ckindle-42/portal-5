@@ -41,6 +41,17 @@ def test_introspect_returns_enabled_spaces():
     assert all(s.kind in ("workspace", "persona") for s in spaces)
 
 
+def test_every_space_is_owui_addressable():
+    """Every workspace + non-bench persona is seeded into OWUI as a model preset,
+    so nothing is excluded from the run as 'designed but unreachable' (verified
+    live at 152/152 during TASK_UAT_ADAPTIVE_OVERHAUL_V1). A genuinely missing
+    slug is caught at run time as BLOCKED, not pre-filtered by a heuristic."""
+    spaces = introspect.introspect_spaces()
+    assert spaces
+    assert all(s.owui_addressable for s in spaces)
+    assert any(s.kind == "persona" for s in spaces)
+
+
 def test_introspect_module_gating_hides_disabled():
     enabled = {"general": True, "video": False}
     ws = introspect.load_workspace_contracts(enabled)
