@@ -56,6 +56,55 @@ def _emit_corpus_row(
         "elapsed_seconds": float(elapsed) if elapsed is not None else 0.0,
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
+
+    # Adaptive UAT enrichment (TASK_UAT_ADAPTIVE_OVERHAUL_V1). When the test
+    # is an adaptive challenge, persist its dimension + rubric and pre-fill
+    # the rubric auto criteria from the assertion results, so the operator
+    # review packet builds straight from the corpus. No-op otherwise.
+    if test.get("adaptive"):
+        auto_scores: dict = {}
+        rubric = test.get("rubric", {}) or {}
+        try:
+            from tests.uat.adaptive.rubric import Criterion, Rubric, auto_score_from_assertions
+
+            crit = rubric.get("criteria", [])
+            if crit:
+                r_obj = Rubric(
+                    rubric_id=rubric.get("rubric_id", ""),
+                    space_id=rubric.get("space_id", ""),
+                    dimension=rubric.get("dimension", ""),
+                )
+                r_obj.criteria = [
+                    Criterion(
+                        key=c["key"],
+                        label=c.get("label", c["key"]),
+                        guidance=c.get("guidance", ""),
+                        weight=c.get("weight", 1.0),
+                        auto=c.get("auto", False),
+                        auto_source=c.get("auto_source", ""),
+                    )
+                    for c in crit
+                ]
+                auto_scores = auto_score_from_assertions(r_obj, assertions_result or [])
+        except Exception:
+            auto_scores = {}
+        row.update(
+            {
+                "adaptive": True,
+                "dimension": test.get("dimension", ""),
+                "rubric": rubric,
+                "design_refs": test.get("design_refs", []),
+                "owui_addressable": test.get("owui_addressable", True),
+                "auto_scores": auto_scores,
+                "agent_scores": {},
+                "agent_verdict": "",
+                "agent_rationale": "",
+                "operator_scores": {},
+                "operator_verdict": "",
+                "operator_notes": "",
+            }
+        )
+
     try:
         with corpus_path.open("a", encoding="utf-8") as f:
             f.write(_json.dumps(row, ensure_ascii=False) + "\n")

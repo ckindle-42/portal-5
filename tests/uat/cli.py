@@ -147,6 +147,10 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Generate quality_signals suggestions from a reviewed calibration JSON",
     )
 
+    from tests.uat.adaptive.cli_args import add_adaptive_args
+
+    add_adaptive_args(parser)
+
     return parser
 
 
@@ -322,6 +326,19 @@ def _apply_rerun_failed(args) -> None:
 
 
 def _select_tests(args) -> list:
+    # Adaptive UAT: swap the static catalog for dynamically-generated,
+    # per-space intended-use challenges executed through OWUI
+    # (TASK_UAT_ADAPTIVE_OVERHAUL_V1). All downstream execution — browser,
+    # cascade, corpus, chat archival — is unchanged.
+    if getattr(args, "adaptive", False):
+        from tests.uat.adaptive.catalog import build_adaptive_catalog
+
+        tests = build_adaptive_catalog(args)
+        if not tests:
+            print("No adaptive challenges selected.", file=__import__("sys").stderr)
+            __import__("sys").exit(1)
+        print(f"Adaptive UAT: {len(tests)} challenge(s) selected")
+        return tests
     # Determine test selection. --media composes with --section by union;
     # --test always overrides.
     if args.test:
