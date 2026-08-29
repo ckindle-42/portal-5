@@ -173,10 +173,67 @@ def _probe_backend_types(root: Path) -> list[str]:
     return sorted({str(e["type"]) for e in _backend_entries(root) if e.get("type")})
 
 
+def _modules_generated(root: Path) -> dict:
+    import yaml
+
+    data = (
+        yaml.safe_load((root / "config" / "modules.generated.yaml").read_text(encoding="utf-8"))
+        or {}
+    )
+    return {
+        str(k): bool(v.get("enabled"))
+        for k, v in (data.get("modules") or {}).items()
+        if isinstance(v, dict)
+    }
+
+
+def _probe_modules_enabled(root: Path) -> list[str]:
+    return sorted(k for k, v in _modules_generated(root).items() if v)
+
+
+def _probe_modules_disabled(root: Path) -> list[str]:
+    return sorted(k for k, v in _modules_generated(root).items() if not v)
+
+
+def _probe_workspaces_exposed(root: Path) -> list[str]:
+    """Workspace ids with `expose_to_owui: true` — the set that becomes presets."""
+    workspaces = _load_portal_yaml(root).get("workspaces") or {}
+    out = []
+    for wid, spec in workspaces.items():
+        if isinstance(spec, dict) and spec.get("expose_to_owui"):
+            out.append(str(wid))
+    return sorted(out)
+
+
+def _probe_launch_commands(root: Path) -> int:
+    import re
+
+    src = (root / "launch.sh").read_text(encoding="utf-8")
+    return len(set(re.findall(r"^\s+([a-z][a-z0-9-]+)\)", src, re.M)))
+
+
+def _probe_env_vars(root: Path) -> int:
+    import re
+
+    src = (root / ".env.example").read_text(encoding="utf-8")
+    return len(re.findall(r"^#?\s*([A-Z][A-Z0-9_]{2,})=", src, re.M))
+
+
+def _probe_config_files(root: Path) -> int:
+    return len(list((root / "config").glob("*.yaml")))
+
+
+def _probe_dockerfiles(root: Path) -> int:
+    return len(list(root.glob("Dockerfile*")))
+
+
 PROBES: dict[str, Callable[[Path], Any]] = {
     "workspaces.total": _probe_workspaces_total,
     "workspaces.bench": _probe_workspaces_bench,
     "workspaces.functional": _probe_workspaces_functional,
+    "workspaces.exposed": _probe_workspaces_exposed,
+    "modules.enabled": _probe_modules_enabled,
+    "modules.disabled": _probe_modules_disabled,
     "mcp.fleet.entries": _probe_fleet_entries,
     "mcp.fleet.ports": _probe_fleet_ports,
     "mcpjson.servers": _probe_mcpjson_servers,
@@ -189,6 +246,10 @@ PROBES: dict[str, Callable[[Path], Any]] = {
     "backends.groups.count": _probe_backend_groups_count,
     "backends.ids": _probe_backend_ids,
     "backends.types": _probe_backend_types,
+    "launch.commands": _probe_launch_commands,
+    "env.vars": _probe_env_vars,
+    "config.files": _probe_config_files,
+    "dockerfiles": _probe_dockerfiles,
 }
 
 

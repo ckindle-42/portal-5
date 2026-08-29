@@ -48,7 +48,7 @@ All workspaces and the MCP fleet live here. After any change run `./launch.sh sy
 ### 8 — Single Inference Tier: Ollama
 Never add `transformers` or `torch` to `portal/platform/inference/`. Model catalog + memory budgets in `config/backends.yaml`.
 ### 9 — The Dockerfile Split Is Intentional
-`Dockerfile.pipeline` minimal (fastapi/uvicorn/httpx/pyyaml); `Dockerfile.mcp` heavier. Don't merge.
+`Dockerfile.pipeline` minimal (fastapi/uvicorn/httpx/pyyaml); `Dockerfile.mcp` heavier. Don't merge. Full image index (all 7 Dockerfiles, what each builds): `unit-fact-dockerfile-index`.
 ### 10 — Git Discipline
 Commit to `main` during stabilization; `uv run pytest tests/ -q --tb=no` before every push; conventional commits; never force-push; never commit `.env`.
 ### 11 — Shared Workspace Is The Only Path For User Files

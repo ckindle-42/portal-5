@@ -11,7 +11,9 @@ sources:
   path: config/portal.yaml
 - type: code
   path: module-state-change:video:cli
-claims: []
+claims:
+- probe: modules.enabled
+  contains: video
 confidence: high
 tags:
 - video

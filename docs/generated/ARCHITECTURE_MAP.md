@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 696 canonical units.*
+*Deterministic projection of 700 canonical units.*
 
 ## Knowledge Layer
 
@@ -249,7 +249,11 @@
 | `unit-design-omlx-dual-backend-plumbing` | mixed | 12 |
 | `unit-design-spine-drift-census` | mixed | 4 |
 | `unit-design-wiki-archive-mechanism` | mixed | 5 |
+| `unit-fact-config-index` | mixed | 9 |
 | `unit-fact-doc-migration-coverage` | what | 1 |
+| `unit-fact-dockerfile-index` | mixed | 7 |
+| `unit-fact-env-reference` | mixed | 3 |
+| `unit-fact-launch-commands` | mixed | 3 |
 | `unit-fact-mcp-fleet` | what | 1 |
 | `unit-fact-media-memory-budget` | what | 1 |
 | `unit-fact-model-bindings` | what | 3 |
@@ -705,11 +709,11 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 696 units
+**Total:** 700 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1664 references
+- **code**: 1686 references
 - **config**: 1 references
 - **mitre**: 32 references
