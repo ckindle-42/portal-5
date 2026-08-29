@@ -117,21 +117,9 @@ def cmd_update(
         # Step 3: Rebuild
         typer.echo("[3/8] Rebuilding portal-pipeline + MCP servers...")
         build_cmd = ["docker", "compose", "-f", str(compose_dir / "docker-compose.yml"), "build"]
-        comfyui_dir = os.environ.get("COMFYUI_DIR", str(Path.home() / "ComfyUI"))
-        if Path(comfyui_dir).exists():
-            build_cmd.extend(
-                [
-                    "mcp-comfyui",
-                    "mcp-video",
-                    "portal-pipeline",
-                    "mcp-documents",
-                    "mcp-tts",
-                    "mcp-whisper",
-                    "mcp-sandbox",
-                ]
-            )
-        else:
-            build_cmd.append("portal-pipeline")
+        build_cmd.extend(
+            ["portal-pipeline", "mcp-documents", "mcp-tts", "mcp-whisper", "mcp-sandbox"]
+        )
         subprocess.run(build_cmd, check=False, cwd=str(compose_dir), capture_output=True)
         typer.echo("  ✅ Images rebuilt")
         typer.echo("")
@@ -161,22 +149,16 @@ def cmd_update(
         typer.echo("")
 
     if not models_only:
-        # Step 5-6: ComfyUI and Music MCP not ported (host-native, bash-only)
-        typer.echo("[5/7] Checking ComfyUI (host-native)...")
-        comfyui_dir = os.environ.get("COMFYUI_DIR", str(Path.home() / "ComfyUI"))
-        if Path(comfyui_dir / ".git").exists():
-            subprocess.run(["git", "-C", comfyui_dir, "pull", "--quiet"], check=False)
-            typer.echo("  ✅ ComfyUI updated")
-        else:
-            typer.echo("  ℹ️  ComfyUI not installed — skipping")
+        # Step 5-6: host-native MLX MCPs (mflux/video-mlx/music/speech) are
+        # managed by their own launchd services and `./launch.sh install-*` /
+        # `pip install --upgrade` in their venvs — not rebuilt here.
+        typer.echo("[5/7] Host-native MLX MCPs (mflux, video-mlx, music, speech)...")
+        typer.echo(
+            "  ℹ️  Update deps with pip in ~/.portal5/<svc>/.venv, or re-run ./launch.sh install-<svc>"
+        )
         typer.echo("")
 
-        typer.echo("[6/7] Checking Music MCP...")
-        music_venv = Path.home() / ".portal5" / "music" / ".venv"
-        if music_venv.exists():
-            typer.echo("  (Music MCP deps: use 'pip install --upgrade' in venv)")
-        else:
-            typer.echo("  ℹ️  Music MCP not installed — skipping")
+        typer.echo("[6/7] (reserved)")
         typer.echo("")
 
         # Step 7: Re-seed + restart
@@ -218,8 +200,7 @@ def cmd_update(
     if not skip_models:
         typer.echo("    ✅ Ollama models (checked for updates)")
     if not models_only:
-        typer.echo("    ✅ ComfyUI (if installed)")
-        typer.echo("    ✅ Music MCP (if installed)")
+        typer.echo("    ✅ Host-native MLX MCPs (managed via launchd / ./launch.sh install-*)")
         typer.echo("    ✅ Open WebUI presets (re-seeded)")
     typer.echo("\n  Check status: portal status")
 

@@ -12,7 +12,7 @@
         "type": "not_contains"
       },
       {
-        "label": "MP4 \u22651s",
+        "label": "MP4 ≥1s",
         "min_seconds": 1.0,
         "type": "mp4_valid"
       }
@@ -21,14 +21,11 @@
     "id": "WS-11",
     "media_kind": "video",
     "model_slug": "auto-video",
-    "name": "Video Creator \u2014 Storm Timelapse",
-    "prompt": "Generate a 3-second video: a timelapse of storm clouds building over a city skyline, dramatic lighting, dark blues and oranges, cinematic wide shot.",
+    "name": "Video Creator — Storm Timelapse (LTX-2.3)",
+    "prompt": "Generate a short video: a timelapse of storm clouds building over a city skyline, dramatic lighting, dark blues and oranges, cinematic wide shot.",
     "section": "auto-video",
-    "skip_if": [
-      "no_comfyui",
-      "video_shelved"
-    ],
-    "timeout": 360,
+    "skip_if": "video_gated",
+    "timeout": 900,
     "workspace_tier": "media_heavy"
   },
   {
@@ -38,14 +35,13 @@
         "keywords": [
           "error",
           "failed",
-          "unavailable",
-          "comfyui not"
+          "unavailable"
         ],
         "label": "No error",
         "type": "not_contains"
       },
       {
-        "label": "PNG \u2265512px",
+        "label": "PNG ≥512px",
         "min_height": 512,
         "min_width": 512,
         "type": "png_valid"
@@ -55,10 +51,10 @@
     "id": "T-08",
     "media_kind": "image",
     "model_slug": "auto",
-    "name": "Image Generation \u2014 ComfyUI FLUX",
+    "name": "Image Generation — MLX FLUX",
     "prompt": "Generate an image: isometric technical diagram of a server rack with labeled components, clean line art style, white background, 1024x1024.",
     "section": "auto-video",
-    "skip_if": "no_comfyui",
+    "skip_if": "no_mflux",
     "timeout": 180,
     "workspace_tier": "media_heavy"
   }

@@ -4,9 +4,9 @@
 
 ## What Portal 5 Is
 
-An Open WebUI enhancement layer, not a replacement web stack. It extends Open WebUI through its Pipeline server (:9099) and MCP Tool Servers: a local AI platform for text, code, security, images, music, documents, voice — all on your hardware, one interface. Video-generation code is retained, but the service is shelved.
+An Open WebUI enhancement layer, not a replacement web stack. It extends Open WebUI through its Pipeline server (:9099) and MCP Tool Servers: a local AI platform for text, code, security, images, music, documents, voice — all on your hardware, one interface. Image generation is MLX-native (MFLUX, host layer); video generation is MLX-native (ltx-2-mlx) behind the `video` module, off by default.
 
-**Architecture:** Open WebUI → Portal Pipeline (:9099) → Ollama (:11434) → local models. MCP servers (:8910–8928) provide tools (documents, code sandbox, TTS, research, memory, RAG, browser, proxmox, pipeline introspection).
+**Architecture:** Open WebUI → Portal Pipeline (:9099) → Ollama (:11434) → local models. MCP servers (:8912–8935) provide tools (documents, code sandbox, TTS, research, memory, RAG, browser, proxmox, pipeline introspection, MLX image/video generation).
 **Inference:** Single tier — **Ollama** (GGUF, 0.32.4+ with native MLX Metal on Apple Silicon). MLX proxy retired (`3a0c58e`); MLX remains for speech (:8918), transcription (:8924), embeddings (:8917), reranking (:8925) — not chat. Host-native, not Docker.
 
 **Core values:** Privacy-first, fully local, zero cloud dependencies, launch in one command.
@@ -44,7 +44,7 @@ One YAML per persona (`name`, `slug`, `module`, `workspace_model`, `category`, a
 ### 6 — config/portal.yaml Is the Single Source of Truth
 All workspaces and the MCP fleet live here. After any change run `./launch.sh sync-config` (idempotent). Never hand-edit the derived files: `config/backends.yaml` `workspace_routing`, `.mcp.json`, `imports/openwebui/workspaces/*.json`. Auto-routing: Layer 1 LLM intent classifier (default `gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M`), Layer 2 weighted keyword fallback.
 ### 7 — All Ports Are Reserved
-8080 OWUI · 9099 Pipeline · 8910–8916 MCP (comfyui/video/music/documents/sandbox/whisper/tts) · 8917 embedding · 8918 MLX speech · 8919 security MCP · 8920 memory · 8921 RAG · 8922 research · 8923 browser · 8924 MLX transcribe · 8925 reranker · 8926 CAD · 8928 pipeline MCP · 8929 MITRE · 8932 detections · 8931 wiki · 8188 ComfyUI · 8088 SearXNG · 11434 Ollama · 9090 Prometheus · 3000 Grafana. Enforced in `.env.example`.
+8080 OWUI · 9099 Pipeline · 8912–8916 MCP (music/documents/sandbox/whisper/tts) · 8917 embedding · 8918 MLX speech · 8919 security MCP · 8920 memory · 8921 RAG · 8922 research · 8923 browser · 8924 MLX transcribe · 8925 reranker · 8926 CAD · 8928 pipeline MCP · 8929 MITRE · 8932 detections · 8931 wiki · 8933 MFLUX image MCP · 8935 video-mlx MCP · 8088 SearXNG · 11434 Ollama · 9090 Prometheus · 3000 Grafana. Enforced in `.env.example`.
 ### 8 — Single Inference Tier: Ollama
 Never add `transformers` or `torch` to `portal/platform/inference/`. Model catalog + memory budgets in `config/backends.yaml`.
 ### 9 — The Dockerfile Split Is Intentional
@@ -89,7 +89,7 @@ See `KNOWN_LIMITATIONS.md` before adding tasks or filing issues — some items a
 
 ## Reference Docs
 
-`config/backends.yaml` · `config/personas/` · `docs/HOWTO.md` (speech, transcription) · `docs/MCP_DEV_TOOLING.md` · `docs/CLUSTER_SCALE.md` · `docs/ADMIN_GUIDE.md` · `docs/ALERTS.md` · `docs/COMFYUI_SETUP.md` · `config/PENDING_MODEL_VERDICTS.md` (bench-evaluated models awaiting a promote/decline decision — regenerate via `scripts/model_cleanup_audit.py`, `- [x]` lines persist across reruns).
+`config/backends.yaml` · `config/personas/` · `docs/HOWTO.md` (speech, transcription) · `docs/MCP_DEV_TOOLING.md` · `docs/CLUSTER_SCALE.md` · `docs/ADMIN_GUIDE.md` · `docs/ALERTS.md` · `config/PENDING_MODEL_VERDICTS.md` (bench-evaluated models awaiting a promote/decline decision — regenerate via `scripts/model_cleanup_audit.py`, `- [x]` lines persist across reruns).
 
 ## Portal Wiki — Canonical Knowledge Layer
 

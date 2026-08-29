@@ -30,7 +30,7 @@ updated_at: 1787872869
      loaded, its own resident footprint (~23GB) plus its admission
      requirement (~44GB free) exceeds this machine's 64GB total — it cannot
      pass its own admission check for a second job without being unloaded
-     first, even with the entire rest of the stack (Docker, ComfyUI, MLX
+     first, even with the entire rest of the stack (Docker, MLX generation,
      services) shut down. The first job in a session succeeds only if enough
      is freed beforehand; a follow-up job (e.g. a repaint) on the same
      resident model cannot.

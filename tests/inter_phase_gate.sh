@@ -1,23 +1,18 @@
 #!/bin/bash
 # inter_phase_gate.sh — hard gate between UAT phases (Ollama-only)
 # Sleeps/recovers until system safe; exits 0 on PASS, exits 1 on UNRECOVERABLE.
-# Usage: bash tests/inter_phase_gate.sh <phase_num> <phase_test_count> [--keep-comfyui]
-#   --keep-comfyui: don't kill ComfyUI even if memory is tight (use before media_heavy phase)
+# Usage: bash tests/inter_phase_gate.sh <phase_num> <phase_test_count>
 #
 # OLLAMA-ONLY (rewritten after MLX inference-proxy retirement, commit 3a0c58e).
 # Chat inference runs entirely through Ollama (:11434). The memory gate reclaims
 # unified memory by evicting Ollama models (/api/ps + keep_alive:0) and reading
 # pressure from vm_stat — no MLX proxy, no /health/wired, no mlx_lm/mlx_vlm servers.
-# Retained MLX audio (mlx-speech :8918) is detected only as a memory-pressure source,
-# never killed.
+# Retained MLX services (mlx-speech :8918, mflux :8933, video-mlx :8935) are
+# detected only as memory-pressure sources, never killed.
 
 set -euo pipefail
-PHASE_NUM="${1:?usage: $0 <phase_num> <phase_test_count> [--keep-comfyui]}"
-PHASE_TESTS="${2:?usage: $0 <phase_num> <phase_test_count> [--keep-comfyui]}"
-KEEP_COMFYUI=false
-if [ "${3:-}" = "--keep-comfyui" ]; then
-    KEEP_COMFYUI=true
-fi
+PHASE_NUM="${1:?usage: $0 <phase_num> <phase_test_count>}"
+PHASE_TESTS="${2:?usage: $0 <phase_num> <phase_test_count>}"
 ELAPSED=0  # accumulated wait time, credited against the 600s memory cap
 FAIL_BEFORE=$(grep -c '| FAIL |' tests/UAT_RESULTS.md 2>/dev/null || true); FAIL_BEFORE=${FAIL_BEFORE:-0}
 PASS_BEFORE=$(grep -c '| PASS |' tests/UAT_RESULTS.md 2>/dev/null || true); PASS_BEFORE=${PASS_BEFORE:-0}
@@ -102,19 +97,11 @@ if [ "$OLLAMA_OK" != true ]; then
 fi
 echo "[GATE:$PHASE_NUM] Ollama healthy"
 
-# ---- Gate 2.5: detect OTHER memory-pressure sources (ComfyUI, retained MLX audio) ----
-# These share the unified-memory pool. ComfyUI (FLUX 12-22GB) is stopped between
-# non-media phases unless --keep-comfyui. Retained MLX audio (mlx-speech) is only
-# reported, never killed — it is a live service.
+# ---- Gate 2.5: detect OTHER memory-pressure sources (retained MLX services) ----
+# These share the unified-memory pool. The MLX image/video MCPs (mflux :8933,
+# video-mlx :8935) are launchd-supervised and release memory between jobs — only
+# reported here, never killed. Retained MLX audio (mlx-speech) likewise.
 PRESSURE_SOURCES=""
-COMFY_PID=$(pgrep -f "comfyui\|ComfyUI\|main.py --listen" 2>/dev/null | head -1 || true)
-if [ -n "$COMFY_PID" ] && [ "$KEEP_COMFYUI" != true ]; then
-    echo "[GATE:$PHASE_NUM] ComfyUI running (PID=$COMFY_PID) and --keep-comfyui not set — stopping to reclaim GPU memory..."
-    launchctl stop com.portal5.comfyui 2>/dev/null || kill "$COMFY_PID" 2>/dev/null || true
-    sleep 5
-elif [ -n "$COMFY_PID" ]; then
-    echo "[GATE:$PHASE_NUM] ComfyUI running (PID=$COMFY_PID) — kept (--keep-comfyui). Expect elevated memory; media-heavy tests need it."
-fi
 SPEECH_PID=$(pgrep -f "mlx-speech" 2>/dev/null | head -1 || true)
 if [ -n "$SPEECH_PID" ]; then
     PRESSURE_SOURCES="$PRESSURE_SOURCES mlx-speech(PID=$SPEECH_PID,retained)"

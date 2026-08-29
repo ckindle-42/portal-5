@@ -1,4 +1,9 @@
-"""S31: Video generation tests (Wan2.2)."""
+"""S31: Video generation MCP health (MLX-native LTX-2.3 via video_mlx).
+
+The `video` M7 module is off by default, so an absent video_mlx MCP is INFO,
+not a failure — enable with `./launch.sh install-video-mlx` + `portal module
+enable video`.
+"""
 
 import time
 
@@ -10,17 +15,16 @@ from tests.acceptance._common import (
 
 
 async def run() -> None:
-    """S31: Video generation tests."""
+    """S31: video_mlx MCP health."""
     print("\n━━━ S31. VIDEO GENERATION ━━━")
     sec = "S31"
 
-    # S31-01: Video MCP health
     t0 = time.time()
-    code, _ = await _get(f"http://localhost:{MCP['video']}/health")
+    code, _ = await _get(f"http://localhost:{MCP['video_mlx']}/health")
     record(
         sec,
         "S31-01",
-        "Video MCP health",
+        "video-mlx MCP health (optional)",
         "PASS" if code == 200 else "INFO",
         f"HTTP {code}",
         t0=t0,

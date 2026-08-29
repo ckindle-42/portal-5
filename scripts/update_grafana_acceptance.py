@@ -64,7 +64,7 @@ _SECTION_DESCRIPTIONS: dict[str, str] = {
     "S16": "Security MCP (CIRCL VLAI) — vulnerability classification end-to-end (:8919)",
     "S21": "LLM Intent Router — Llama-3.2-3B intent classifier accuracy across workspace categories",
     "S23": "Model diversity — Ollama catalog coverage, all 68+ unique models reachable",
-    "S30": "Image generation — ComfyUI/FLUX end-to-end (:8910/:8188)",
+    "S30": "Image / video generation — MLX end-to-end (:8933/:8935)",
     "S31": "Video generation — Wan2.2 end-to-end (:8911)",
     "S40": "Metrics/monitoring — Prometheus metrics, Grafana health, pipeline /metrics",
     "S41": "Production hardening — concurrency slots, request lifecycle, error surface",

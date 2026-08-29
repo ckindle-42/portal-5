@@ -464,7 +464,7 @@ async def _enable_tool(page, tool_id: str) -> None:
         "portal_music_ace": "Portal Music (ACE-Step)",
         "portal_tts": "Portal TTS",
         "portal_video": "Portal Video",
-        "portal_comfyui": "Portal ComfyUI",
+        "portal_mflux": "Portal MFLUX (image)",
         "portal_security": "Portal Security",
         "portal_whisper": "Portal Whisper",
     }
@@ -532,29 +532,6 @@ async def _download_artifact(
             except Exception:
                 pass
 
-        # Try 1b: ComfyUI /view?filename=... URL (host-native ComfyUI at :8188).
-        # generate_image / generate_video return:
-        #   http://localhost:8188/view?filename=portal_xxx.png&type=output
-        # The /files/ pattern above never matches this shape.
-        comfyui_pat = (
-            rf"https?://[^\s)>\]]*/view\?filename=[^\s)>\]]*\.{re.escape(expected_ext)}[^\s)>\]]*"
-        )
-        comfyui_match = re.search(comfyui_pat, response_text)
-        if comfyui_match:
-            from urllib.parse import parse_qs, urlparse
-
-            download_url = comfyui_match.group(0)
-            qs = parse_qs(urlparse(download_url).query)
-            fname = qs.get("filename", ["unknown"])[0]
-            dest = ARTIFACT_DIR / Path(fname).name
-            try:
-                r = httpx.get(download_url, timeout=30)
-                if r.status_code == 200:
-                    dest.write_bytes(r.content)
-                    return dest
-            except Exception:
-                pass
-
         # Try 2: Match /app/data/generated/<filename>.<ext> container path
         container_pattern = rf"/app/data/generated/\S+\.{re.escape(expected_ext)}"
         container_match = re.search(container_pattern, response_text)
@@ -563,8 +540,6 @@ async def _download_artifact(
             for container in [
                 "portal5-mcp-documents",
                 "portal5-mcp-sandbox",
-                "portal5-mcp-comfyui",
-                "portal5-mcp-video",
             ]:
                 dest = ARTIFACT_DIR / Path(container_path).name
                 result = subprocess.run(
@@ -580,8 +555,6 @@ async def _download_artifact(
     for container in [
         "portal5-mcp-documents",
         "portal5-mcp-sandbox",
-        "portal5-mcp-comfyui",
-        "portal5-mcp-video",
     ]:
         try:
             result = subprocess.run(
@@ -607,49 +580,8 @@ async def _download_artifact(
         except Exception:
             continue
 
-    # Try 4: ComfyUI direct download — query /history for the most recent
-    # portal_*.{mp4,png}. ComfyUI runs host-native (port 8188), so docker cp
-    # never finds its output files regardless of extension.
-    # png: prefix "portal_" (comfyui_mcp.py SaveImage node)
-    # mp4: prefix "portal_video_" (video_mcp.py)
-    # Recency guard: only accept files generated in the last 15 minutes, to
-    # avoid picking up stale files from a previous test session.
-    if expected_ext in ("mp4", "png"):
-        try:
-            import time as _time
-
-            now_ms = int(_time.time() * 1000)
-            cutoff_ms = now_ms - (15 * 60 * 1000)
-            r = httpx.get("http://localhost:8188/history", timeout=10)
-            if r.status_code == 200:
-                history = r.json()
-                best_ts: int = -1
-                best_fname: str | None = None
-                for job_data in history.values():
-                    if not job_data.get("status", {}).get("completed"):
-                        continue
-                    outputs = job_data.get("outputs", {})
-                    for node_outputs in outputs.values():
-                        for img in node_outputs.get("images", []):
-                            fname = img.get("filename", "")
-                            ext_match = fname.endswith(f".{expected_ext}")
-                            prefix_match = (
-                                expected_ext == "mp4" and fname.startswith("portal_video_")
-                            ) or (expected_ext == "png" and fname.startswith("portal_"))
-                            if ext_match and prefix_match:
-                                msgs = job_data.get("status", {}).get("messages", [])
-                                ts = msgs[0][1].get("timestamp", 0) if msgs else 0
-                                if ts >= cutoff_ms and ts > best_ts:
-                                    best_ts = ts
-                                    best_fname = fname
-                if best_fname:
-                    url = f"http://localhost:8188/view?filename={best_fname}&type=output"
-                    dest = ARTIFACT_DIR / best_fname
-                    r2 = httpx.get(url, timeout=60)
-                    if r2.status_code == 200 and len(r2.content) > 0:
-                        dest.write_bytes(r2.content)
-                        return dest
-        except Exception:
-            pass
+    # The MLX generation MCPs (mflux :8933, video-mlx :8935) publish outputs
+    # through Open WebUI's files API, so the /files/ and /app/data/generated/
+    # paths above cover them — no engine-specific fallback needed.
 
     return None

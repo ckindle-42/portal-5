@@ -34,10 +34,7 @@ from tests.uat.health import (
     _wait_for_drain,
 )
 from tests.uat.lifecycle import (
-    _comfyui_running,
     _pipeline_pre_warm,
-    _start_comfyui,
-    _stop_comfyui,
     _wait_for_ollama_ps_empty,
     cleanup_after_uat,
     unload_all_models,
@@ -79,7 +76,9 @@ def _build_parser() -> argparse.ArgumentParser:
         "--test", metavar="ID", action="append", help="Run test(s) by ID (repeatable)"
     )
     parser.add_argument("--headed", action="store_true", help="Show browser window")
-    parser.add_argument("--skip-artifacts", action="store_true", help="Skip ComfyUI/Wan2.2 tests")
+    parser.add_argument(
+        "--skip-artifacts", action="store_true", help="Skip image/video generation tests"
+    )
     parser.add_argument("--skip-bots", action="store_true", help="Skip Telegram/Slack bot tests")
     parser.add_argument(
         "--media",
@@ -349,7 +348,7 @@ def _select_tests(args) -> list:
 
     # Apply skip flags
     if args.skip_artifacts:
-        tests = [t for t in tests if t.get("skip_if") not in ("no_comfyui",)]
+        tests = [t for t in tests if t.get("skip_if") not in ("no_mflux",)]
     if args.skip_bots:
         tests = [t for t in tests if t.get("skip_if") not in ("no_bot_telegram", "no_bot_slack")]
 
@@ -585,17 +584,8 @@ async def _run_suite(
                     update_summary(counts)
                     continue
 
-            # ComfyUI lifecycle: only keep ComfyUI running during tests that
-            # actually need it. Stop it before non-ComfyUI tests to reclaim GPU
-            # memory; start it (with warmup wait) before ComfyUI-dependent tests.
-            needs_comfyui = test.get("skip_if") == "no_comfyui"
-            if needs_comfyui and not _comfyui_running():
-                # Bring ComfyUI up and give Metal a 30s warmup before the test
-                started = _start_comfyui(wait_s=60)
-                if started:
-                    time.sleep(30)  # Metal warmup before first inference
-            elif not needs_comfyui and _comfyui_running():
-                _stop_comfyui()
+            # The MLX image/video generation MCPs are launchd-supervised and
+            # release memory between jobs — no per-test start/stop dance needed.
 
             # If the crash watcher saw a crash since the last
             # test, block here until memory has fully drained before loading

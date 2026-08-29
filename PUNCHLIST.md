@@ -191,7 +191,7 @@ Full context: `OMLX_DECISION.md` §"Re-evaluation v3" +
 - SpecPrefill + prefix cache for personas (static system prompts) and the tool
   loop — measure hop-2+ TTFT reduction (headline agentic-latency metric).
 - Pin router + daily drivers; TTLs on bench models; memory guard sized for
-  ComfyUI co-residency (`portal/modules/media/tools/_admission.py` budget table).
+  MLX media co-residency (`portal/modules/media/tools/_admission.py` budget table).
 - Optional: raise `iogpu.wired_limit_mb` to 59392 (sudo, persistent) for
   30B+co-residency headroom (oMLX recommended; Phase 0 ran fine at the 47GB cap).
 

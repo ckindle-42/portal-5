@@ -25,10 +25,20 @@ logger = logging.getLogger(__name__)
 # Path to the single source of truth — relative to repo root
 PORTAL_YAML: Path = Path(__file__).resolve().parents[3] / "config" / "portal.yaml"
 
-# The nine discipline modules; "platform" is additionally valid on mcp_fleet
+# The discipline modules; "platform" is additionally valid on mcp_fleet
 # entries (infra no discipline owns).
 ModuleName = Literal[
-    "cad", "coding", "compliance", "documents", "eval", "general", "media", "research", "security"
+    "cad",
+    "coding",
+    "compliance",
+    "documents",
+    "eval",
+    "general",
+    "image",
+    "media",
+    "research",
+    "security",
+    "video",
 ]
 
 # ── Schema models ─────────────────────────────────────────────────────────────
@@ -264,9 +274,9 @@ class McpServer(BaseModel):
         default=True,
         description=(
             "False for fleet members that stay declared for tool advertisement "
-            "but are profile-gated off by default in docker-compose.yml (e.g. "
-            "comfyui). validate_system.py's fleet-health check must not treat "
-            "these as down when unreachable."
+            "but are off by default (e.g. video_mlx — the `video` module is "
+            "disabled by default). validate_system.py's fleet-health check must "
+            "not treat these as down when unreachable."
         ),
     )
 

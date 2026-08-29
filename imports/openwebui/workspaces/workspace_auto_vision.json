@@ -5,6 +5,7 @@
     "description": "👁️  Portal Vision",
     "profile_image_url": "",
     "toolIds": [
+      "server:mcp:portal_mflux",
       "server:mcp:portal_whisper"
     ],
     "capabilities": {
@@ -13,7 +14,7 @@
   },
   "params": {
     "model": "auto-vision",
-    "system": "You analyze images and handle multimodal tasks. Describe what you observe in detail. For image generation requests, call the generate_image tool (ComfyUI backend); use list_workflows to choose a style and get_generation_status to poll long jobs.",
+    "system": "You analyze images and handle multimodal tasks. Describe what you observe in detail. For image generation requests, call the generate_image tool (MLX-native FLUX); pass model='qwen-image' when the image needs legible text. Use edit_image with image_url set to modify an existing image by instruction.",
     "function_calling": "native"
   }
 }

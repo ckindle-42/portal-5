@@ -62,7 +62,6 @@ TIER1_DOCS = (
     "docs/ALERTS.md",
     "docs/PERFORMANCE.md",
     "docs/MCP_DEV_TOOLING.md",
-    "docs/COMFYUI_SETUP.md",
     "docs/COMPLIANCE_FALLBACK_POLICY.md",
     "docs/BACKUP_RESTORE.md",
     "docs/LAB_SETUP.md",

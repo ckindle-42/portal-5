@@ -33,7 +33,6 @@ When the stack is ready `launch.sh` prints the service URLs:
 
 - Open WebUI: `http://localhost:8080`
 - SearXNG: `http://localhost:8088`
-- ComfyUI: `http://localhost:8188`
 - Grafana: `http://localhost:3000`
 - Prometheus: `http://localhost:9090`
 

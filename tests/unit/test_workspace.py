@@ -99,8 +99,8 @@ def test_resolve_upload_path_rejects_absolute_path_escape(
 ) -> None:
     """An absolute path must not bypass the uploads dir via pathlib's
     Path(a) / "/b" == Path("/b") join semantics — this is an LLM-controlled
-    tool argument, not a trusted identifier (see comfyui_mcp.py's
-    _upload_image_to_comfyui security fix)."""
+    tool argument, not a trusted identifier (see mflux_mcp.py's
+    _fetch_source_image, which routes local names through this helper)."""
     get_uploads_dir()
     secret_dir = tmp_path_factory.mktemp("outside_uploads")
     secret = secret_dir / "secret.txt"

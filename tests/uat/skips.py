@@ -18,11 +18,15 @@ from tests.uat import config
 
 def evaluate_skip_conditions() -> dict:
     conditions: dict[str, bool] = {}
+    import os
+
     try:
-        r = httpx.get("http://localhost:8188/system_stats", timeout=3)
-        conditions["no_comfyui"] = r.status_code != 200
+        r = httpx.get(
+            f"http://localhost:{os.environ.get('MFLUX_MCP_PORT', '8933')}/health", timeout=3
+        )
+        conditions["no_mflux"] = r.status_code != 200
     except Exception:
-        conditions["no_comfyui"] = True
+        conditions["no_mflux"] = True
 
     env_content = Path(".env").read_text() if Path(".env").exists() else ""
     # Per-key check: KEY=value on its own line, value non-empty, value != "CHANGEME".
@@ -30,11 +34,12 @@ def evaluate_skip_conditions() -> dict:
     # placeholder elsewhere in the file (PIPELINE_API_KEY, GRAFANA_PASSWORD, the
     # comment on line 3 of .env.example, etc.), falsely flagging both bot
     # predicates as "not configured" even with valid tokens set.
-    # Video is shelved (absent from mcp_fleet). Image generation is NOT — it is an
-    # operated capability, so a comfyui outage must stay a real failure, never a
-    # skip. Derived from config + live probe, never hardcoded, so re-registering
-    # video would re-arm its tests automatically.
-    conditions["video_shelved"] = _fleet_member_state("video") in ("shelved", "gated")
+    # Video generation (video_mlx) is gated: the `video` module is off by
+    # default. Image generation (mflux) is an operated capability, so an mflux
+    # outage stays a real failure (no_mflux above is for fixture-less
+    # environments, not a live-outage mask). Derived from config + live probe,
+    # never hardcoded, so `portal module enable video` re-arms its tests.
+    conditions["video_gated"] = _fleet_member_state("video_mlx") in ("shelved", "gated", "down")
     conditions["no_bot_telegram"] = not _env_var_set(env_content, "TELEGRAM_BOT_TOKEN")
     conditions["no_bot_slack"] = not _env_var_set(env_content, "SLACK_BOT_TOKEN")
     fixtures = Path(__file__).resolve().parents[1] / "fixtures"
@@ -81,11 +86,11 @@ def _fleet_member_state(fleet_id: str, *, probe: bool = True) -> str:
     regardless of what portal.yaml says, so bringing a profile up re-arms its
     tests automatically.
 
-    - shelved: absent from mcp_fleet entirely (video, removed 2026-07-29).
-    - gated:   declared for tool advertisement but `default_enabled: false`.
-    - down:    declared, expected live, not answering. This is a REAL failure and
-               deliberately not a skip reason -- masking it would hide an outage.
-               `comfyui` classifies here, by design: images are operated.
+    - shelved: absent from mcp_fleet entirely.
+    - gated:   declared for tool advertisement but `default_enabled: false`, or
+               owned by a module that is disabled (video_mlx / `video` module).
+    - down:    declared, expected live, not answering. For an operated capability
+               (mflux) this is a REAL failure and deliberately not a skip reason.
     """
     import yaml
 

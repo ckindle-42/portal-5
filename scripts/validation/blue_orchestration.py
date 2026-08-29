@@ -327,7 +327,7 @@ def check_fleet_health_reality() -> tuple[str, str, list[dict]]:
     if not any(results.values()):
         return ("WARN", "stack appears down — skipping fleet health (not a failure)", [])
 
-    # default_enabled: false fleet members (e.g. comfyui, profile-gated off
+    # default_enabled: false fleet members (e.g. video_mlx, module-gated off
     # in docker-compose.yml) stay declared for tool advertisement but must
     # not fail liveness — they're expected down unless their profile is on.
     down = [f"{name}:{port}" for name, port, enabled in ports if enabled and not results[name]]

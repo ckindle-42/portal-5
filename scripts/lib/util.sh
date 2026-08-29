@@ -154,16 +154,9 @@ _check_hardware() {
             echo "     sudo launchctl kickstart -k system/com.portal5.ollama"
             WARN=1
         fi
-        # Check native ComfyUI is running
-        if curl -s http://localhost:8188/system_stats &>/dev/null 2>&1; then
-            echo "  ✅ ComfyUI: native — Metal GPU active (:8188)"
-        elif pgrep -f "ComfyUI/main.py|comfyui" &>/dev/null 2>&1; then
-            echo "  ⏳ ComfyUI: starting in background (may take 30-60s)"
-        else
-            echo "  ℹ️  ComfyUI not running (image/video generation unavailable)"
-            echo "     Install: ./launch.sh install-comfyui"
-            echo "     Start:   ~/ComfyUI/start.sh"
-        fi
+        # Image/video generation is host-native MLX now (mflux :8933, video-mlx
+        # :8935), managed by their own launchd services — see ./launch.sh
+        # install-mflux / install-video-mlx. Not checked here.
     elif [ "$ARCH" = "x86_64" ]; then
         # Check for NVIDIA GPU
         if command -v nvidia-smi &>/dev/null && nvidia-smi -L &>/dev/null 2>&1; then
@@ -314,25 +307,21 @@ _ensure_native_services() {
         fi
     fi
 
-    # ── ComfyUI (Apple Silicon native only) ──────────────────────────────────
+    # ── MFLUX image MCP (native MLX on Apple Silicon) ──────────────────────
     if [ "$ARCH" = "arm64" ]; then
-        local COMFYUI_DIR="${COMFYUI_DIR:-$HOME/ComfyUI}"
-        if [ -f "$COMFYUI_DIR/start.sh" ]; then
-            if ! curl -s http://localhost:8188/system_stats &>/dev/null 2>&1; then
-                echo "[portal-5]   ComfyUI installed but not running — starting..."
-                mkdir -p "$HOME/.portal5/logs"
-                if launchctl list com.portal5.comfyui &>/dev/null 2>&1; then
-                    launchctl start com.portal5.comfyui 2>>"$HOME/.portal5/logs/comfyui-launchctl.log" || true
-                else
-                    nohup "$COMFYUI_DIR/start.sh" \
-                        > "$HOME/.portal5/logs/comfyui.log" 2>&1 &
-                fi
-                echo "[portal-5]   ⏳ ComfyUI starting in background (may take 30-60s)"
-                echo "[portal-5]      Logs: $HOME/.portal5/logs/comfyui.log"
-                echo "[portal-5]      UI:   http://localhost:8188"
+        if [ -f "$HOME/.portal5/mflux/.venv/bin/python" ]; then
+            if ! curl -s "http://localhost:${MFLUX_MCP_PORT:-8933}/health" &>/dev/null 2>&1; then
+                launchctl start com.portal5.mflux 2>/dev/null || true
+                echo "[portal-5]   ⏳ MFLUX image MCP starting on :${MFLUX_MCP_PORT:-8933}"
             else
-                echo "[portal-5]   ✅ ComfyUI: running"
+                echo "[portal-5]   ✅ MFLUX image MCP: running"
             fi
+        fi
+        # video-mlx MCP is supervised by launchd only when the operator has
+        # installed it (video module is off by default) — start if present.
+        if [ -f "$HOME/.portal5/video-mlx/ltx-2-mlx/.venv/bin/python" ]; then
+            curl -s "http://localhost:${VIDEO_MLX_MCP_PORT:-8935}/health" &>/dev/null 2>&1 \
+                || launchctl start com.portal5.video-mlx 2>/dev/null || true
         fi
     fi
 
@@ -424,20 +413,13 @@ _do_down() {
     docker compose --profile telegram --profile slack down
     echo "[portal-5] Docker stack stopped."
 
-    # ── Stop native macOS services (ComfyUI, Music MCP, Speech) ──────────────
+    # ── Stop native macOS services (MLX image/video, Music MCP, Speech) ──────
     # These run outside Docker and must be stopped explicitly.
     # Uses launchctl if the service is registered, falls back to pkill.
     if [ "$(uname -s)" = "Darwin" ]; then
-        # ComfyUI (:8188)
-        if launchctl list com.portal5.comfyui &>/dev/null 2>&1; then
-            launchctl stop com.portal5.comfyui 2>/dev/null || true
-            echo "[portal-5] ComfyUI service stopped (launchd)."
-        elif pgrep -f "comfyui|ComfyUI|main.py.*comfy" &>/dev/null 2>&1; then
-            pkill -f "comfyui|ComfyUI|main.py.*comfy" 2>/dev/null || true
-            echo "[portal-5] ComfyUI process stopped (pkill)."
-        else
-            echo "[portal-5] ComfyUI: not running (nothing to stop)."
-        fi
+        # MLX image/video generation MCPs (:8933 / :8935)
+        launchctl stop com.portal5.mflux 2>/dev/null || true
+        launchctl stop com.portal5.video-mlx 2>/dev/null || true
 
         launchctl stop com.portal5.music-minimax 2>/dev/null || true
         launchctl stop com.portal5.music-ace-mcp 2>/dev/null || true
@@ -590,11 +572,11 @@ _check_ports() {
     _port_check "${TTS_HOST_PORT:-8916}"        "MCP TTS"
     _port_check "${WHISPER_HOST_PORT:-8915}"    "MCP Whisper"
     _port_check "${SANDBOX_HOST_PORT:-8914}"    "MCP Sandbox"
-    # ComfyUI / Video MCP only run when ComfyUI is installed — skip check otherwise
-    if [ -d "${COMFYUI_DIR:-$HOME/ComfyUI}" ]; then
-        _port_check "${COMFYUI_MCP_HOST_PORT:-8910}" "MCP ComfyUI Bridge"
-        _port_check "${VIDEO_MCP_HOST_PORT:-8911}"  "MCP Video"
-    fi
+    # MLX image/video MCPs run host-native under launchd when installed.
+    [ -f "$HOME/.portal5/mflux/.venv/bin/python" ] && \
+        _port_check "${MFLUX_MCP_PORT:-8933}" "MCP MFLUX (image)"
+    [ -f "$HOME/.portal5/video-mlx/ltx-2-mlx/.venv/bin/python" ] && \
+        _port_check "${VIDEO_MLX_MCP_PORT:-8935}" "MCP video-mlx"
     # On ARM64 the native embedding server is launchd-managed and intentionally
     # owns this port — skip the conflict check when it's our own service.
     if [ "$(uname -m)" = "arm64" ] && launchctl list com.portal5.embedding 2>/dev/null | grep -q '"PID"'; then
@@ -626,7 +608,7 @@ _check_ports() {
         echo "  Options:"
         echo "  1. Stop the conflicting process (see 'kill <PID>' above)"
         echo "  2. If it's a previous Portal 5 stack:  ./launch.sh down"
-        echo "     Note: 'down' also stops native Speech (:8918) and ComfyUI (:8188)"
+        echo "     Note: 'down' also stops native Speech (:8918) and the MLX image/video MCPs"
         echo "  3. If it's a different service, override the port in .env:"
         echo "     e.g.:  DOCUMENTS_HOST_PORT=9013  (for MCP Documents)"
         echo "     All overrideable ports are documented in .env.example"
@@ -767,8 +749,6 @@ rows = [
     ('portal5-mcp-tts',       'MCP TTS',              ':8916'),
     ('portal5-mcp-whisper',   'MCP Whisper',          ':8915'),
     ('portal5-mcp-sandbox',   'MCP Code Sandbox',     ':8914'),
-    ('portal5-mcp-comfyui',   'MCP ComfyUI Bridge',   ':8910'),
-    ('portal5-mcp-video',     'MCP Video',            ':8911'),
     ('portal5-mcp-security',  'MCP Security',         ':8919'),
     ('portal5-playwright',    'MCP Browser (Playwright)', ':8923'),
     ('portal5-mcp-research',  'MCP Research',         ':8922'),
@@ -797,17 +777,19 @@ for key, label, url in rows:
             printf "    ❌  %-28s %s\n" "Ollama" "not running — sudo launchctl kickstart -k system/com.portal5.ollama"
         fi
 
-        if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8188/system_stats', timeout=2)" &>/dev/null 2>&1; then
-            _CV=$(python3 -c "
-import urllib.request, json
-d = json.loads(urllib.request.urlopen('http://localhost:8188/system_stats', timeout=3).read())
-print(d.get('system',{}).get('comfyui_version','?'))
-" 2>/dev/null || echo "?")
-            printf "    ✅  %-28s %s\n" "ComfyUI (v${_CV})" ":8188"
-        elif pgrep -f "ComfyUI/main.py|comfyui" &>/dev/null 2>&1; then
-            printf "    ⏳  %-28s %s\n" "ComfyUI" "starting"
+        if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:${MFLUX_MCP_PORT:-8933}/health', timeout=2)" &>/dev/null 2>&1; then
+            printf "    ✅  %-28s %s\n" "MFLUX image MCP" ":${MFLUX_MCP_PORT:-8933}"
+        elif [ -f "$HOME/.portal5/mflux/.venv/bin/python" ]; then
+            printf "    ❌  %-28s %s\n" "MFLUX image MCP" "installed but not running"
         else
-            printf "    ❌  %-28s %s\n" "ComfyUI" "not running — ~/ComfyUI/start.sh"
+            printf "    ℹ️   %-28s %s\n" "MFLUX image MCP" "not installed — ./launch.sh install-mflux"
+        fi
+        if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:${VIDEO_MLX_MCP_PORT:-8935}/health', timeout=2)" &>/dev/null 2>&1; then
+            printf "    ✅  %-28s %s\n" "video-mlx MCP" ":${VIDEO_MLX_MCP_PORT:-8935}"
+        elif [ -f "$HOME/.portal5/video-mlx/ltx-2-mlx/.venv/bin/python" ]; then
+            printf "    ❌  %-28s %s\n" "video-mlx MCP" "installed but not running"
+        else
+            printf "    ℹ️   %-28s %s\n" "video-mlx MCP" "not installed (video module off by default) — ./launch.sh install-video-mlx"
         fi
 
         if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:${MUSIC_MINIMAX_PORT:-8912}/health', timeout=2)" &>/dev/null 2>&1; then

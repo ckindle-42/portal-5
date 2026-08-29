@@ -1,4 +1,4 @@
-"""Portal 5 UAT — model unload, pipeline pre-warm, ComfyUI start/stop.
+"""Portal 5 UAT — model unload, pipeline pre-warm, media-MCP health.
 
 Extracted verbatim from tests/portal5_uat_driver.py (TASK_UAT_MODULARIZE_V1
 phase B). Imports memory_pct directly from tests.memory_guard (not via
@@ -139,57 +139,17 @@ def unload_all_models() -> None:
     _wait_for_ollama_ps_empty(timeout_s=30.0)
 
 
-def _comfyui_running() -> bool:
-    """Return True if ComfyUI is reachable on :8188."""
+def _mflux_running() -> bool:
+    """Return True if the MFLUX image MCP is reachable on :8933."""
+    import os
+
     try:
-        r = httpx.get("http://localhost:8188/system_stats", timeout=3)
+        r = httpx.get(
+            f"http://localhost:{os.environ.get('MFLUX_MCP_PORT', '8933')}/health", timeout=3
+        )
         return r.status_code == 200
     except Exception:
         return False
-
-
-def _start_comfyui(wait_s: int = 45) -> bool:
-    """Start ComfyUI via launchctl and wait for it to become reachable."""
-    import subprocess
-
-    print("  [comfyui] Starting ComfyUI ...", flush=True)
-    try:
-        subprocess.run(
-            ["launchctl", "start", "com.portal5.comfyui"],
-            capture_output=True,
-            timeout=10,
-        )
-    except Exception as e:
-        print(f"  [comfyui] launchctl start failed: {e}", flush=True)
-        return False
-    deadline = time.time() + wait_s
-    while time.time() < deadline:
-        if _comfyui_running():
-            print("  [comfyui] ComfyUI ready", flush=True)
-            return True
-        time.sleep(3)
-    print(f"  [comfyui] ComfyUI did not become ready after {wait_s}s", flush=True)
-    return False
-
-
-def _stop_comfyui() -> None:
-    """Stop ComfyUI via launchctl to reclaim GPU memory between non-media phases."""
-    import subprocess
-
-    if not _comfyui_running():
-        return
-    print("  [comfyui] Stopping ComfyUI to reclaim GPU memory ...", flush=True)
-    try:
-        subprocess.run(
-            ["launchctl", "stop", "com.portal5.comfyui"],
-            capture_output=True,
-            timeout=10,
-        )
-        # Wait briefly for Metal to release
-        time.sleep(5)
-        print("  [comfyui] ComfyUI stopped", flush=True)
-    except Exception as e:
-        print(f"  [comfyui] stop failed: {e}", flush=True)
 
 
 def cleanup_after_uat() -> None:

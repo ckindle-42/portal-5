@@ -22,7 +22,7 @@ Calibration mode (capture real responses for signal extraction):
 Maintenance:
     python3 tests/portal5_uat_driver.py --purge-uat        # delete all UAT chats + folder (post-review cleanup)
     python3 tests/portal5_uat_driver.py --migrate          # move root chats into UAT folder
-    python3 tests/portal5_uat_driver.py --skip-artifacts  # skip ComfyUI/Wan2.2 tests
+    python3 tests/portal5_uat_driver.py --skip-artifacts  # skip image/video generation tests
     python3 tests/portal5_uat_driver.py --skip-bots       # skip Telegram/Slack tests
 
 See tests/uat/__init__.py for the module map and tests/uat/cli.py for
@@ -143,10 +143,8 @@ from tests.uat.health import (  # noqa: E402, F401
     _wait_for_drain,
 )
 from tests.uat.lifecycle import (  # noqa: E402, F401
-    _comfyui_running,
+    _mflux_running,
     _pipeline_pre_warm,
-    _start_comfyui,
-    _stop_comfyui,
     _unload_running_ollama_models,
     _wait_for_ollama_ps_empty,
     cleanup_after_uat,

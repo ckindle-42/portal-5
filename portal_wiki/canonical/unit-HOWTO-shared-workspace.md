@@ -26,7 +26,7 @@ updated_at: 1783195000.857887
 └── generated/
     ├── transcripts/        ← Diarized transcripts (mlx-transcribe, whisper)
     ├── documents/          ← Word/Excel/PowerPoint (documents MCP)
-    ├── images/             ← ComfyUI outputs
+    ├── images/             ← MFLUX image outputs
     ├── videos/             ← Retained archival video-output category
     ├── music/              ← Music MCP outputs
     └── speech/             ← TTS outputs

@@ -19,7 +19,7 @@ created_at: 1784946220.67051
 updated_at: 1784946220.67051
 ---
 
-- **Description**: During the MLX evaluation, several separate large downloads (each in the 18-26GB range) silently stalled mid-transfer for 30+ minutes with no error — the blob stopped growing with stale TCP close-wait sockets. It happened on both the official registry (`ollama pull`, via `./launch.sh pull-models`) and HuggingFace (`hf download`, the mechanism `scripts/lib/services.sh` uses for ComfyUI pulls), so it is a network/CDN reliability issue for large single-file transfers on this connection, not a tool-specific bug. No stalls appeared on smaller pulls.
+- **Description**: During the MLX evaluation, several separate large downloads (each in the 18-26GB range) silently stalled mid-transfer for 30+ minutes with no error — the blob stopped growing with stale TCP close-wait sockets. It happened on both the official registry (`ollama pull`, via `./launch.sh pull-models`) and HuggingFace (`hf download`, the mechanism `scripts/lib/services.sh` uses for MLX model pulls), so it is a network/CDN reliability issue for large single-file transfers on this connection, not a tool-specific bug. No stalls appeared on smaller pulls.
 - **Mitigation**: A stall-detection wrapper (poll the blob size every 10s, kill and retry after 90s with no growth) recovered every case on retry. It is **not** a committed script — the codebase has no such wrapper today. If large-model pulls become a recurring pain point, promote this pattern into `scripts/`.
 
 ## Why

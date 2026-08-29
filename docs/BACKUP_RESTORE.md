@@ -178,7 +178,7 @@ The Open WebUI database is the one piece of state the platform cannot regenerate
 
 # Stop services first
 
-Restoring data should happen while the stack is down, and `_launch_restore` enforces that internally by calling the same compose teardown the `down` case uses, passing the telegram and slack profiles so profiled containers are not orphaned. The standalone `./launch.sh down` command additionally stops the native macOS services such as ComfyUI and speech via launchctl or pkill. Backup, by contrast, mounts volumes directly and does not require the stack to be stopped first.
+Restoring data should happen while the stack is down, and `_launch_restore` enforces that internally by calling the same compose teardown the `down` case uses, passing the telegram and slack profiles so profiled containers are not orphaned. The standalone `./launch.sh down` command additionally stops the native macOS services such as the MLX image/video MCPs and speech via launchctl. Backup, by contrast, mounts volumes directly and does not require the stack to be stopped first.
 
 ## Why
 

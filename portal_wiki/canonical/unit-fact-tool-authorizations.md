@@ -5,7 +5,7 @@ title: tool authorizations for 25 production workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 3692f584f7ae
+  commit: c73d5ca76df0
   section: workspaces[].tools
 claims: []
 confidence: high
@@ -14,7 +14,7 @@ tags:
 - tools
 - workspaces
 created_at: 1784049584.703768
-updated_at: 1787921361.2884731
+updated_at: 1787961447.0333471
 ---
 
 # Tool authorizations (per-workspace `tools:` whitelist)
@@ -36,7 +36,7 @@ The pipeline strips any tool a workspace does not authorize (metric `portal5_too
 | `auto-documents` | documents | `create_word_document`, `create_excel`, `create_powerpoint`, `read_word_document`, `read_excel`, `read_powerpoint`, `read_pdf`, `transcribe_with_speakers` |
 | `auto-extract-uncensored` | documents | _(none)_ |
 | `auto-general-uncensored` | general | `execute_bash`, `execute_python`, `read_word_document`, `read_pdf`, `remember`, `recall` |
-| `auto-image` | media | `generate_image`, `list_workflows`, `get_generation_status`, `get_latest_images`, `start_image_generation` |
+| `auto-image` | image | `generate_image`, `edit_image` |
 | `auto-math` | general | _(none)_ |
 | `auto-music` | media | `minimax_generate`, `minimax_status`, `minimax_models`, `speak`, `transcribe_audio`, `clone_voice`, `register_voice`, `list_voices` |
 | `auto-nemotron` | general | `web_search`, `web_fetch`, `kb_search`, `kb_list`, `read_pdf`, `read_word_document`, `remember`, `recall` |
@@ -45,8 +45,8 @@ The pipeline strips any tool a workspace does not authorize (metric `portal5_too
 | `auto-security` | security | `web_search`, `web_fetch`, `classify_vulnerability`, `execute_python`, `execute_bash`, `kb_search`, `kb_list` |
 | `auto-spl` | general | `classify_vulnerability`, `kb_search`, `kb_list` |
 | `auto-uncensored-throwaway` | general | `web_search`, `web_fetch`, `news_search`, `execute_bash`, `execute_python`, `remember`, `recall` |
-| `auto-video` | media | `generate_video`, `generate_image`, `list_video_models` |
-| `auto-vision` | general | `transcribe_audio`, `generate_image`, `list_workflows`, `get_generation_status` |
+| `auto-video` | video | `generate_video`, `animate_image` |
+| `auto-vision` | general | `transcribe_audio`, `generate_image`, `edit_image` |
 | `tools-specialist` | general | `execute_python`, `remember`, `recall` |
 
 ## Why

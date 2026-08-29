@@ -10,7 +10,7 @@ sources:
 - type: code
   path: portal/modules/coding/tools/code_sandbox_mcp.py
 - type: code
-  path: portal/modules/media/tools/comfyui_mcp.py
+  path: portal/modules/media/tools/mflux_mcp.py
 - type: code
   path: portal/modules/media/tools/music_minimax_mcp.py
 - type: code
@@ -35,7 +35,7 @@ server with the `+` icon, then call its tools through the model. Portal Document
 files; Portal Code runs `execute_bash`/`execute_python` in an isolated sandbox;
 Portal TTS exposes `speak`; Portal Whisper offers `transcribe_audio` and
 `transcribe_with_speakers` (speaker diarization, with an Apple Silicon primary at
-port 8924 via the MLX transcribe server); Portal ComfyUI exposes `generate_image`
+port 8924 via the MLX transcribe server); Portal MFLUX exposes `generate_image` / `edit_image`
 and `start_image_generation` backed by Qwen-Image models; Portal Music exposes
 distinct MiniMax and ACE-Step job-based generation/status toolsets.
 

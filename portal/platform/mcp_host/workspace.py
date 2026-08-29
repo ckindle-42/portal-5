@@ -69,7 +69,7 @@ def get_generated_dir(category: str) -> Path:
 def assert_public_http_url(url: str) -> None:
     """Reject URLs resolving to loopback/link-local/private/reserved addresses.
 
-    Media MCPs (comfyui, video, whisper, ...) let an LLM tool call pass a
+    Media MCPs (mflux, video-mlx, whisper, ...) let an LLM tool call pass a
     remote URL (image_url, audio_url, ...) that gets server-side fetched — a
     prompt-injected model could otherwise be steered into requesting
     http://169.254.169.254/... (cloud metadata SSRF) or any other internal-only

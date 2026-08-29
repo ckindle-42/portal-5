@@ -3,10 +3,9 @@
 Portal 5 is a complete, private AI platform that runs on your hardware: text,
 code, security analysis, images, music, documents and voice — all local. It
 connects to Open WebUI, Telegram and Slack, and routes each task automatically to
-the workspace that carries the right model and toolset. The retained
-video-generation code is shelved and not part of normal operation, documented in
-`KNOWN_LIMITATIONS.md` and left unregistered in `config/portal.yaml`
-(`mcp_fleet`), where the `video` fleet entry is intentionally removed.
+the workspace that carries the right model and toolset. Image and video
+generation are MLX-native on Apple Silicon (MFLUX for images; `ltx-2-mlx` for
+video, behind the `video` module which is off by default).
 
 Inference is fully local: prompts and responses never leave the machine. Model
 downloads from HuggingFace or Ollama registries transmit standard HTTP metadata,
@@ -17,9 +16,10 @@ to HuggingFace. No cloud accounts or usage fees are required.
 
 The platform is scoped as an enhancement layer over Open WebUI rather than a
 replacement web stack, which keeps authentication, chat history and RAG inside a
-battle-tested frontend while the pipeline owns routing and model selection. The
-video shelving is an honesty contract: code is retained for future work but is
-neither advertised nor operated until the crash limitations are resolved.
+battle-tested frontend while the pipeline owns routing and model selection. Image
+and video generation moved to the host MLX layer (from a ComfyUI path that Metal's
+lack of FP8 made unrunnable here); video is a real but disabled M7 module, so
+enabling it is a one-command toggle rather than a rebuild.
 
 ---
 
@@ -38,10 +38,10 @@ The requirements `./launch.sh up` actually enforces are in `_check_hardware` in
 Apple Silicon is the recommended platform: `install-ollama` reports the pinned
 native Ollama install's status (a system LaunchDaemon, `com.portal5.ollama` —
 not Homebrew, which lags upstream releases below this project's minimum
-version; disabled and uninstalled 2026-08-10), `install-comfyui` sets up
-ComfyUI with an MPS venv, and the native MLX services run on the M-series
-Metal path. On non-Apple-Silicon machines the installers print Linux/Docker
-alternatives instead of failing.
+version; disabled and uninstalled 2026-08-10), `install-mflux` sets up the
+MLX-native image generator, and the other native MLX services run on the
+M-series Metal path. On non-Apple-Silicon machines the installers print
+Linux/Docker alternatives instead of failing.
 
 ## Why
 
@@ -74,7 +74,6 @@ When it finishes, the terminal prints the real endpoint list:
 [portal-5] Stack started.
   Open WebUI:  http://localhost:8080
   SearXNG:     http://localhost:8088
-  ComfyUI:     http://localhost:8188
   Grafana:     http://localhost:3000  (admin / check .env)
   Prometheus:  http://localhost:9090
 ```
@@ -98,7 +97,7 @@ credentials that already exist in `.env`.
 `./launch.sh up` starts the core Docker stack (compose services plus profiles
 auto-selected from Telegram/Slack tokens). Host-native Apple Silicon services
 start when their launchd agent has been installed — `_ensure_native_services` in
-`scripts/lib/util.sh` checks each registered launchd label (ComfyUI, both music backends,
+`scripts/lib/util.sh` checks each registered launchd label (MFLUX image, music backend,
 MLX Speech, MLX Transcribe, embedding) and boots the service via `launchctl` or a
 background `nohup` fallback.
 
@@ -108,8 +107,7 @@ background `nohup` fallback.
 | Portal Pipeline | Routing, auth, metrics, MCP dispatch | :9099 |
 | Ollama | Local GGUF models via Metal | :11434 |
 | SearXNG | Private web search | :8088 |
-| ComfyUI | Image generation (host-native; video shelved) | http://localhost:8188 |
-| MCP fleet | ComfyUI :8910, Music-MiniMax :8912, Documents :8913, Sandbox :8914, Whisper :8915, TTS :8916, Security :8919, Memory :8920, RAG :8921, Research :8922, Browser :8923, CAD :8926, Proxmox :8927 | config/portal.yaml |
+| MCP fleet | MFLUX image :8933, video-mlx :8935 (module off by default), Music-MiniMax :8912, Documents :8913, Sandbox :8914, Whisper :8915, TTS :8916, Security :8919, Memory :8920, RAG :8921, Research :8922, Browser :8923, CAD :8926, Proxmox :8927 | config/portal.yaml |
 | Pipeline MCP | Stack introspection + FastContext explorer | :8928 |
 | MITRE ATT&CK MCP | Technique lookup, data sources, detections | :8929 |
 | Detections MCP | SPL library search, validate_syntax, explain | :8932 |
@@ -128,7 +126,7 @@ the compose container names and health checks are in
 ## Why
 
 The split into a compose stack and host-native launchers exists because Apple
-Silicon runtimes (MLX, ComfyUI, embeddings) are faster and lighter outside Docker,
+Silicon runtimes (MLX generation, embeddings) are faster and lighter outside Docker,
 while the web services benefit from compose's networking, health checks and
 restart policy. launchd registration makes the native services survive reboots and
 crashes, so `up` only needs to confirm or start them rather than install them.
@@ -186,7 +184,7 @@ with the pinned model, is:
 | `auto-audio` | `gemma4:12b-it-qat` (transcribe tools) |
 | `auto-music` | `lfm2.5:8b` (minimax_generate / minimax_status, speak, clone_voice, register_voice, transcribe) |
 | `auto-video` | shelved — retained in config but not operated |
-| `auto-image` | `granite4.1:8b` (generate_image, ComfyUI tools) |
+| `auto-image` | `granite4.1:8b` (generate_image / edit_image, MLX FLUX) |
 | `auto-cad` | `qwen3-coder:30b-a3b-q4_K_M` (render_mesh, render_openscad, convert_cad) |
 | `auto-spl` | Qwen3-Coder-Next abliterated (classify_vulnerability, kb_search) |
 | `auto-compliance` | `granite4.1:8b` (NERC CIP gap analysis) |
@@ -538,30 +536,35 @@ Docker images, and none of them touch the router.
 
 ---
 
-### Image generation (downloaded automatically on first run, ~12 GB)
+### Image / video generation (MLX-native, host layer)
 
-Image generation runs through ComfyUI, and the default checkpoint is FLUX.1-schnell,
-set by `IMAGE_MODEL=flux-schnell` in `.env.example`. The same file documents the
-alternatives: `flux-dev` (about 24 GB, requires `HF_TOKEN`), `flux-uncensored`,
-`sdxl`, `juggernaut-xl`, `pony-diffusion` and `epicrealism-xl`.
+Image generation is the **MFLUX MCP** (`portal/modules/media/tools/mflux_mcp.py`,
+port 8933) — a headless wrapper over the `mflux-generate` CLI (MLX-native FLUX
+for Apple Silicon). `./launch.sh install-mflux` sets it up as a launchd service;
+`./launch.sh pull-mflux-models` pre-pulls the weights (FLUX.1-schnell full
+weights are ~34 GB one-time). The `generate_image` tool takes a `model` arg:
+`schnell` (fast default), `klein` (FLUX.2, higher quality), `qwen-image` (best
+for legible text in the image), `dev`. `edit_image` does instruction editing
+(`qwen-image-edit`) or img2img. Measured MLX peaks: `schnell` ~14.5 GB, `klein`
+~18 GB.
 
-`IMAGE_MODEL` is consumed in `deploy/portal-5/docker-compose.yml` by the opt-in
-`comfyui-model-init` service (`IMAGE_MODEL=${IMAGE_MODEL:-flux-schnell}`), which
-downloads checkpoints on first start under the `docker-comfyui` profile. On the
-default Apple Silicon path ComfyUI runs natively on the host, and checkpoints are
-fetched with `./launch.sh pull-qwen-image` / `./launch.sh pull-wan22`
-(`scripts/lib/services.sh`), which download ComfyUI-flat model files via `hf
-download`. The MCP tool `generate_image` in
-`portal/modules/media/tools/comfyui_mcp.py` selects the checkpoint per workflow,
-and `scripts/gen-image.py` is the standalone CLI wrapper with a `--model` override.
+Video generation is the **video-mlx MCP** (`video_mlx_mcp.py`, port 8935), a
+wrapper over `ltx-2-mlx` (pure-MLX LTX-2.3). It is behind the `video` M7 module,
+**off by default** — enable with `./launch.sh install-video-mlx` then
+`portal module enable video`. Clips are preview-grade and practically capped at
+~4–6 seconds on this hardware.
+
+Both replaced a ComfyUI-based path removed in `TASK_IMAGE_VIDEO_OVERHAUL_V1`:
+Metal has no FP8, so ComfyUI's standard quantized checkpoints never ran here.
 
 ## Why
 
-Image checkpoints are large enough (the FLUX schnell default is roughly 12 GB)
-that bundling every option into the base install would waste disk and slow first
-boot. `IMAGE_MODEL` picks the default while the `pull-qwen-image` / `pull-wan22`
-commands fetch specific checkpoints on demand, so the operator pays the download
-cost only for the models actually used.
+Image and video generation run on the host MLX layer alongside
+speech/transcription/embeddings — one accelerator path, no Docker-to-Metal
+bridge, and each is its own toggleable module so a tight-footprint box can
+disable the heavy `video` surface (or image generation) without losing the
+audio media. Weights download on demand via `install-*` / `pull-*` so the
+operator pays the cost only for the models actually used.
 
 ---
 
@@ -700,7 +703,7 @@ start and exits 1.
 
 The printed options are the actual remediation paths: stop the conflicting
 process, run `./launch.sh down` if the owner is a previous Portal 5 stack (it also
-stops native Speech and ComfyUI), or override the port in `.env` (for example
+stops native Speech and the MLX image/video MCPs), or override the port in `.env` (for example
 `DOCUMENTS_HOST_PORT=9013` for MCP Documents). After freeing the port, re-run
 `./launch.sh up`.
 
@@ -821,7 +824,6 @@ The operator-facing manual is a set of reference docs at the repo root and under
 | [User Guide](docs/USER_GUIDE.md) | How to use workspaces, tools, personas |
 | [Admin Guide](docs/ADMIN_GUIDE.md) | User management, configuration, security |
 | [Alerts & Notifications](docs/ALERTS.md) | Operational alerts and daily summaries |
-| [ComfyUI Setup](docs/COMFYUI_SETUP.md) | Image-model configuration and archived video status |
 | [Cluster Scaling](docs/CLUSTER_SCALE.md) | Running multiple Ollama instances |
 | [Agent Loop](docs/AGENT_LOOP.md) | Platform-core bounded agent loop (`portal/platform/agent/`), the `portal agent` CLI |
 | [Backup & Restore](docs/BACKUP_RESTORE.md) | Data backup procedures |
@@ -927,7 +929,7 @@ models through its Metal backend on Apple Silicon.
                                │       │
                         ┌──────▼──┐ ┌──▼───────────────┐
                         │ Ollama  │ │ MCP fleet        │
-                        │ :11434  │ │ :8910–:8932      │
+                        │ :11434  │ │ :8912–:8935      │
                         └─────────┘ └──────────────────┘
 Telegram Bot ──► Pipeline    Slack Bot ──► Pipeline
 (profile telegram)           (profile slack)

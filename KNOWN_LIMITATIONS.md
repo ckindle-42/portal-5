@@ -129,15 +129,15 @@ Metasploitable3 is a Windows target, so Linux-shaped scenario payloads and SPL w
 
 Alert-fatigue evaluation must use plausibly confusable benign telemetry, not obviously-safe records, or it overstates precision. The corpus generator reuses the attack record's transport shape so the only difference from an attack is the operational context the verdict contract must weigh; the resolution hardening — requiring adversarial evidence, not just a dual-use primitive — is what makes a benign case a true negative instead of an anomaly.
 
-### ComfyUI Runs Outside Docker
+### Image / Video Generation Run Outside Docker (MLX, host layer)
 
-- **Description**: ComfyUI runs on the host (not in Docker) to access MPS directly. `_launch_install_comfyui` in `scripts/lib/services.sh` installs it natively on Apple Silicon via git+pip; on non-Apple-Silicon it exits with pointers to Docker (via the compose `docker-comfyui` profile) or a manual install. Native host execution is required for supported image-generation performance; video operation is shelved.
-- **Impact**: Manual setup is required outside `./launch.sh up`. On a fresh machine, ComfyUI must be installed separately with `./launch.sh install-comfyui`; the media MCPs reach it over HTTP rather than through the compose stack.
-- **Mitigation**: `./launch.sh install-comfyui` handles setup on supported platforms. See `docs/COMFYUI_SETUP.md`.
+- **Description**: Image generation (MFLUX MCP, :8933) and video generation (video-mlx MCP, :8935) run host-native on the Apple Silicon MLX layer, not in Docker — a container cannot reach the Metal GPU. `_launch_install_mflux` / `_launch_install_video_mlx` in `scripts/lib/services.sh` set them up as launchd services (Apple Silicon only; no CPU/CUDA fallback). This replaced a ComfyUI-based path removed in TASK_IMAGE_VIDEO_OVERHAUL_V1 — Metal has no FP8, so ComfyUI's standard quantized checkpoints never ran here.
+- **Impact**: Manual setup is required outside `./launch.sh up` — run `./launch.sh install-mflux` (and, for video, `install-video-mlx` plus `portal module enable video`). The `video` module is off by default (heavy, thermally punishing, preview-grade, ~4–6 s practical ceiling).
+- **Mitigation**: `./launch.sh install-mflux` / `install-video-mlx` handle setup on Apple Silicon.
 
 ## Why
 
-ComfyUI on Apple Silicon needs direct access to the Metal/MPS device, which a container boundary would blunt or break, so the supported path runs it on the host with its own launchd agent. That keeps inference performance but moves ComfyUI out of the one-command compose lifecycle — hence the dedicated install command and setup doc that document the divergence.
+The MLX generation servers sit alongside the other host-native MLX runtimes (speech, transcription, embeddings) rather than in the compose lifecycle, because the Metal path is the only one that works and is substantially faster. Video is footprint-first — a real but disabled M7 module — so enabling it is a one-command toggle, not a rebuild.
 
 ---
 
@@ -151,31 +151,6 @@ ComfyUI on Apple Silicon needs direct access to the Metal/MPS device, which a co
 ## Why
 
 A register-once/reuse profile design fits the training use case better than per-call cloning, and storing the reference WAV+transcript (not a serialized embedding) keeps profiles valid across mlx-audio upgrades and an engine swap. Recording the engine choice, the no-watermark fact, and the no-fallback constraint here keeps them visible in the limitations register.
-
----
-
-### Legacy ComfyUI Model Download Command Is Retired
-
-- **Description**: The legacy `./launch.sh download-comfyui-models` command no longer downloads models. `_launch_download_comfyui_models` in `scripts/lib/services.sh` exits with an error explaining that the standalone download script it once called was removed (2026-05-23) and pointing to the family-specific commands `pull-wan22` and `pull-qwen-image`. The command still appears in the `launch.sh` usage string for compatibility.
-- **Resolution**: `_launch_pull_qwen_image` in `scripts/lib/services.sh` downloads the Qwen-Image checkpoint set verified on Apple Silicon MPS (T2I FP8, Edit-2509 FP8, shared text encoder/VAE, Lightning LoRA) into ComfyUI's flat `models/{diffusion_models,text_encoders,vae,loras}/` layout. `_launch_pull_wan22` downloads the Wan 2.2 TI2V-5B/S2V-14B/T2V-A14B set; video operation remains shelved even though the archival pull command exists.
-- **Remaining impact**: Operators must use the explicit family command instead of the retired alias. Separately, `flux-uncensored` still has no verified working checkpoint source; the media MCP references a `Flux_v8-NSFW.safetensors` filename in `portal/modules/media/tools/comfyui_mcp.py`.
-- **Operator action**: Run `./launch.sh pull-qwen-image` for the supported image set. Do not treat `pull-wan22` as enabling video operation; see the Wan 2.2 fp8 scaled-checkpoint limitation.
-
-## Why
-
-The monolithic download script was removed in favor of per-family handlers because the checkpoint sources and verification differ per model family, and a single script could not stay current across all of them. Keeping the dead alias registered but failing loudly with a pointer preserves CLI compatibility while forcing the operator to the command that actually works for their target family.
-
----
-
-### ComfyUI Cross-Model-Family Memory Exhaustion (Apple Silicon)
-
-- **Description**: ComfyUI on MPS does not reliably evict a previously-loaded model's weights when a new workflow loads a different model family in the same long-running process. Observed live: a Wan2.1-NSFW 14B video job following a Flux image job in the same process drove swap into a full system lockup, and a tiny 9-frame/5-step wan21-nsfw job still exhausted nearly the whole 64GB unified pool. The 14B backend's real peak (diffusion activation and buffer overhead) runs well above its static on-disk weight size, regardless of frame count.
-- **Impact**: Chaining image generation and large video generation, or switching between very different model families, without restarting ComfyUI in between risks a full system lockup on 64GB unified-memory Apple Silicon. The wan21-nsfw backend should be treated as needing the whole machine, not just its weight size.
-- **Mitigation**: Tier 1 pre-flight admission control is implemented in `portal/modules/media/tools/_admission.py` (`admit()`); its `MEDIA_MODEL_MEMORY_GB` map sets `video:wan21-nsfw` to 55.0 GB (not the ~39GB weight size) to reflect the observed real peak, and the comment there documents the tiny-job lockup incident. Restart ComfyUI between large model-family switches regardless; the service runs as a launchd agent named `com.portal5.comfyui` (see `tests/uat/lifecycle.py`). A shared cross-engine broker with Ollama is explicitly not built.
-
-## Why
-
-ComfyUI's single long-running MPS process is where model-family switching accumulates memory, and the measured peak of the 14B video backend far exceeds its weight file size, so static size is a dangerously misleading admission input. The admission map hard-codes the observed 55GB figure with the incident comment attached, making the operational truth visible to any future edit that might lower the estimate.
 
 ---
 
@@ -374,7 +349,7 @@ The pipeline's backend contract is one endpoint family, and its URL construction
 
 ### P5-MLX-EVAL-004 — Large single-blob MLX downloads hang intermittently
 
-- **Description**: During the MLX evaluation, several separate large downloads (each in the 18-26GB range) silently stalled mid-transfer for 30+ minutes with no error — the blob stopped growing with stale TCP close-wait sockets. It happened on both the official registry (`ollama pull`, via `./launch.sh pull-models`) and HuggingFace (`hf download`, the mechanism `scripts/lib/services.sh` uses for ComfyUI pulls), so it is a network/CDN reliability issue for large single-file transfers on this connection, not a tool-specific bug. No stalls appeared on smaller pulls.
+- **Description**: During the MLX evaluation, several separate large downloads (each in the 18-26GB range) silently stalled mid-transfer for 30+ minutes with no error — the blob stopped growing with stale TCP close-wait sockets. It happened on both the official registry (`ollama pull`, via `./launch.sh pull-models`) and HuggingFace (`hf download`, the mechanism `scripts/lib/services.sh` uses for MLX model pulls), so it is a network/CDN reliability issue for large single-file transfers on this connection, not a tool-specific bug. No stalls appeared on smaller pulls.
 - **Mitigation**: A stall-detection wrapper (poll the blob size every 10s, kill and retry after 90s with no growth) recovered every case on retry. It is **not** a committed script — the codebase has no such wrapper today. If large-model pulls become a recurring pain point, promote this pattern into `scripts/`.
 
 ## Why
@@ -646,34 +621,6 @@ The following models were evaluated for the V8 catalog and deferred on hardware 
 ## Why
 
 Deferral here is a hardware ceiling, not a quality judgment — all three models were considered and excluded because the full-size weights cannot fit the M4 Pro 64 GB budget at any usable quantization. Recording them as deferred (rather than simply absent) tells a future operator they were already evaluated and why, preventing re-litigation, while the note on the N2-mini and R1-0528-8B variants points at what was actually adopted in their place.
-
----
-
-### Wan 2.2 fp8_scaled Checkpoints Crash on Apple Silicon MPS (Video Generation Shelved)
-
-- **Description**: Every Wan 2.2 ComfyUI checkpoint published as `*_fp8_scaled.safetensors` (Comfy-Org/Wan_2.2_ComfyUI_Repackaged) crashes at inference time on this host's Apple Silicon MPS stack with an undefined fp8 dtype error during the dequantization of the fp8 diffusion weights. Confirmed live against the T2V-A14B high/low-noise pair and the S2V-14B checkpoint, each with all three `UNETLoader` `weight_dtype` options, failing the same way every time during model load. `wan2.2_ti2v_5B_fp16.safetensors` (TI2V-5B) is unaffected because it is full fp16, not fp8-quantized — it generated successfully end to end.
-- **Impact**: T2V-A14B and S2V-14B are unusable on this hardware via their `_fp8_scaled` checkpoints. The only working alternative is full fp16/bf16, roughly 90GB combined and against the project's usual quantized-only model policy — a genuine hardware blocker rather than a quality tradeoff. `video_mcp.py`'s `_WAN22_T2V_A14B_WORKFLOW` was also independently corrected to the real two-expert MoE graph (two `UNETLoader` + two chained `KSamplerAdvanced`), matching ComfyUI's official reference workflow, in the same session and independent of the fp8 finding.
-- **Decision (2026-07-29)**: Video generation is shelved for this project — Portal 5 operates ComfyUI **image** generation (via `mcp-comfyui`), not video. The `mcp-video` container is profile-gated and not part of the default `./launch.sh up` set; `deploy/portal-5/docker-compose.yml` documents that image and video were split into separate profiles so gating video does not take images down. The video workflow code is left in place — designed, not deleted — in case MPS fp8 support improves later, but nothing video-related should be treated as in operation.
-- **Mitigation**: None pursued. If video generation is revisited, first check whether a newer PyTorch/comfy_kitchen release fixes MPS fp8 support, then fall back to the fp16/bf16 downloads.
-
-## Why
-
-The fp8_scaled checkpoint family is the standard published form of Wan 2.2, and it fails on MPS at the dequantization step — a PyTorch/comfy_kitchen platform gap, not a workflow bug. Shelving video rather than carrying a broken, unquantized 90GB path keeps the fleet policy consistent, while splitting the compose profiles preserves image generation, which was never the problem. The corrected workflow and the decision are recorded so the shelving is reversible when MPS support lands.
-
----
-
-### Qwen-Image Apple Silicon Working Routes and Constraints
-
-- **Memory constraint**: The original Qwen-Image-2512 bf16 diffusion and text-encoder pair needs ~57.4GB of static weights. On this 64GB unified-memory host, Docker and loaded Ollama models leave far less free memory than nominal capacity; an unguarded load exhausted host memory and rebooted the machine.
-- **Memory-safe configuration**: `qwen-image-2512` uses `qwen_image_fp8_e4m3fn.safetensors` plus `qwen_2.5_vl_7b_fp8_scaled.safetensors` (filenames configured in `portal/modules/media/tools/comfyui_mcp.py` and pulled by `scripts/lib/services.sh`). Admission estimates live in `portal/modules/media/tools/_admission.py`: 38.0 GB for the base model, 39.0 GB for Lightning, 38.0 GB for edit-2509, and 60.0 GB for edit-2511, each annotated with the incident rationale.
-- **Black-output root cause and fix**: A global `--force-fp16` launch override bypassed QwenImage's declared bf16/float32 compute, producing all-NaN latents before VAE decode. Removing the override from the launcher restored bf16 compute; the current launchd plist generated by `scripts/lib/services.sh` (`com.portal5.comfyui`) carries no such override.
-- **Remaining limitation — Qwen-Image-Edit-2511**: The bf16 edit checkpoint is estimated at 60.0 GB in `_admission.py`, so admission control refuses it on this host. The smaller official variants remain unusable on this MPS stack (fp8 dequantization failure and unsupported MPS ops requiring slow CPU fallback). Use a larger or remote CUDA host for 2511.
-- **Serving invariant**: The public 2509 and 2511 names map to their actual checkpoint generations; 2509 is not silently served as 2511. The tool manifest and HTTP dispatch endpoints retain `image_url` so edit calls reach the workflow.
-- **Launcher invariant**: Do not use a global ComfyUI inference-dtype override. Model families declare different supported compute dtypes, and a global fp16 flag can turn an otherwise safe quantized checkpoint into numerically invalid compute.
-
-## Why
-
-Qwen-Image is memory- and dtype-sensitive in ways that generic image tooling masks: a global fp16 override silently corrupts its compute, and its real working peak is set by activation overhead, not weight size. The admission map encodes the measured figures so a job cannot be admitted on a host that will OOM, and the launcher invariant documents the specific flag that caused the black-image incident so it is not reintroduced.
 
 ---
 
@@ -1003,7 +950,7 @@ The architecture and license constraints need to remain visible at operation tim
      loaded, its own resident footprint (~23GB) plus its admission
      requirement (~44GB free) exceeds this machine's 64GB total — it cannot
      pass its own admission check for a second job without being unloaded
-     first, even with the entire rest of the stack (Docker, ComfyUI, MLX
+     first, even with the entire rest of the stack (Docker, MLX generation,
      services) shut down. The first job in a session succeeds only if enough
      is freed beforehand; a follow-up job (e.g. a repaint) on the same
      resident model cannot.

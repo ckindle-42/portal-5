@@ -21,7 +21,7 @@ updated_at: 1784946220.678988
 `./launch.sh up` starts the core Docker stack (compose services plus profiles
 auto-selected from Telegram/Slack tokens). Host-native Apple Silicon services
 start when their launchd agent has been installed — `_ensure_native_services` in
-`scripts/lib/util.sh` checks each registered launchd label (ComfyUI, Music MCP,
+`scripts/lib/util.sh` checks each registered launchd label (MFLUX image, Music MCP,
 MLX Speech, MLX Transcribe, embedding) and boots the service via `launchctl` or a
 background `nohup` fallback.
 
@@ -31,8 +31,7 @@ background `nohup` fallback.
 | Portal Pipeline | Routing, auth, metrics, MCP dispatch | :9099 |
 | Ollama | Local GGUF models via Metal | :11434 |
 | SearXNG | Private web search | :8088 |
-| ComfyUI | Image generation (host-native; video shelved) | http://localhost:8188 |
-| MCP fleet | ComfyUI :8910, Music :8912, Documents :8913, Sandbox :8914, Whisper :8915, TTS :8916, Security :8919, Memory :8920, RAG :8921, Research :8922, Browser :8923, CAD :8926, Proxmox :8927 | config/portal.yaml |
+| MCP fleet | MFLUX image :8933, Music :8912, Documents :8913, Sandbox :8914, Whisper :8915, TTS :8916, Security :8919, Memory :8920, RAG :8921, Research :8922, Browser :8923, CAD :8926, Proxmox :8927 | config/portal.yaml |
 | Pipeline MCP | Stack introspection + FastContext explorer | :8928 |
 | MITRE ATT&CK MCP | Technique lookup, data sources, detections | :8929 |
 | Detections MCP | SPL library search, validate_syntax, explain | :8932 |
@@ -51,7 +50,7 @@ the compose container names and health checks are in
 ## Why
 
 The split into a compose stack and host-native launchers exists because Apple
-Silicon runtimes (MLX, ComfyUI, embeddings) are faster and lighter outside Docker,
+Silicon runtimes (MLX generation, embeddings) are faster and lighter outside Docker,
 while the web services benefit from compose's networking, health checks and
 restart policy. launchd registration makes the native services survive reboots and
 crashes, so `up` only needs to confirm or start them rather than install them.

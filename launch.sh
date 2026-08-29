@@ -203,7 +203,6 @@ case "${1:-up}" in
         echo "  Open WebUI:  http://localhost:8080"
     fi
     echo "  SearXNG:     http://localhost:8088"
-    echo "  ComfyUI:     http://localhost:8188"
     echo "  Grafana:     http://localhost:3000  (admin / check .env)"
     echo "  Prometheus:  http://localhost:9090"
     ;;
@@ -515,12 +514,42 @@ PYEOF
     _launch_install_ollama
     ;;
 
-  install-comfyui)
-    _launch_install_comfyui
-    ;;
-
   install-music-minimax)
     _launch_install_music_minimax
+    ;;
+
+  install-mflux)
+    _launch_install_mflux
+    ;;
+
+  start-mflux)
+    _launch_start_mflux
+    ;;
+
+  stop-mflux)
+    _launch_stop_mflux
+    ;;
+
+  pull-mflux-models)
+    shift
+    _launch_pull_mflux_models "$@"
+    ;;
+
+  install-video-mlx)
+    _launch_install_video_mlx
+    ;;
+
+  start-video-mlx)
+    _launch_start_video_mlx
+    ;;
+
+  stop-video-mlx)
+    _launch_stop_video_mlx
+    ;;
+
+  pull-video-mlx-models)
+    shift
+    _launch_pull_video_mlx_models "$@"
     ;;
 
   install-music-ace)
@@ -607,18 +636,6 @@ PYEOF
     exec python3 -m portal.platform.inference.cli models import-gguf "${@:2}"
     ;;
 
-  download-comfyui-models)
-    _launch_download_comfyui_models
-    ;;
-
-  pull-wan22)
-    _launch_pull_wan22
-    ;;
-
-  pull-qwen-image)
-    _launch_pull_qwen_image
-    ;;
-
   apply-mtp-drafts)
     exec python3 -m portal.platform.inference.cli models apply-mtp-drafts "${@:2}"
     ;;
@@ -629,17 +646,21 @@ PYEOF
 
 
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|sync-config|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music-minimax|install-music-ace|stop-music-ace|download-comfyui-models|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|pull-wan22|pull-qwen-image|apply-mtp-drafts|build-lab-attack|build-binresearch]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|sync-config|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-music-minimax|install-mflux|start-mflux|stop-mflux|pull-mflux-models|install-video-mlx|start-video-mlx|stop-video-mlx|pull-video-mlx-models|install-music-ace|stop-music-ace|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|apply-mtp-drafts|build-lab-attack|build-binresearch]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
-    echo "  install-comfyui       Install ComfyUI natively via git+pip (Apple Silicon)"
     echo "  install-music-minimax Install MiniMax-Music3-MLX MCP (Apple Silicon / MLX)"
+    echo "  install-mflux         Install MFLUX MCP — MLX-native image generation (Apple Silicon), port 8933"
+    echo "  start-mflux           Start (or install) the MFLUX MCP launchd service"
+    echo "  stop-mflux            Stop the MFLUX MCP launchd service"
+    echo "  pull-mflux-models     Pre-pull MFLUX weights (schnell + klein + z-image + qwen-image)"
+    echo "  install-video-mlx     Install Video-MLX MCP — LTX-2.3 MLX video generation (Apple Silicon), port 8935"
+    echo "  start-video-mlx       Start (or install) the Video-MLX MCP launchd service"
+    echo "  stop-video-mlx        Stop the Video-MLX MCP launchd service"
+    echo "  pull-video-mlx-models Pre-pull LTX-2.3 model packs (q4 + q8)"
     echo "  install-music-ace     Install ACE-Step engine and proxy MCP"
     echo "  stop-music-ace        Stop the ACE-Step engine and proxy MCP"
-    echo "  download-comfyui-models  REMOVED, no implementation (see download-comfyui-models handler)"
-  echo "  pull-wan22            Pull Wan 2.2 TI2V-5B + S2V-14B + T2V-A14B ComfyUI models (~50 GB; Animate-14B not covered, see scripts/lib/services.sh)"
-  echo "  pull-qwen-image       Pull working Qwen-Image T2I + Edit-2509 + Lightning models (~48 GiB)"
     echo "  start-speech          Start MLX Speech server (Kokoro + Chatterbox clone + Qwen3-ASR)"
     echo "  stop-speech           Stop MLX Speech server"
     echo "  start-transcribe      Start MLX Transcribe server (Parakeet transcript + Sortformer diarization, :8924)"

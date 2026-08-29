@@ -1,0 +1,1 @@
+{"id":"portal_mflux","name":"Portal MFLUX (image)","type":"mcp","meta":{"description":"MLX-native local image generation and editing (FLUX schnell / klein / qwen-image) via generate_image / edit_image","manifest":{"type":"mcp","url":"http://host.docker.internal:8933/mcp"}},"settings":{"api_key":""}}

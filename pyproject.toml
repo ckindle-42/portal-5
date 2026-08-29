@@ -55,7 +55,6 @@ mcp = [
     "huggingface_hub>=0.20.0",
     # Audio — transcription
     "faster-whisper>=1.0.0",
-    # HTTP for ComfyUI/video bridge
     "httpx>=0.26.0",
 ]
 generation = []
@@ -131,7 +130,6 @@ max-complexity = 15
 # Acceptance/UAT scripts use uppercase section names (C0, C1…) as a deliberate design
 # convention matching their CLI identifiers.  N802/N806/E741/F821/F841/SIM117 are
 # pre-existing patterns in these standalone scripts.
-"tests/portal5_acceptance_comfyui.py" = ["N802", "E741", "F821", "F841", "SIM115", "SIM117"]
 "tests/portal5_acceptance_v6.py" = ["N802", "N806", "E402", "E741", "F821", "F841", "SIM115", "SIM117"]
 # acceptance package: carries same patterns as the monolith it replaces
 "tests/acceptance/_common.py" = ["SIM117", "SIM105"]
@@ -139,9 +137,7 @@ max-complexity = 15
 "tests/acceptance/runner.py" = ["N802"]
 "tests/portal5_persona_matrix.py" = ["F401", "F841"]
 "tests/benchmarks/bench_lab_exec.py" = ["SIM102"]
-# tests/comfyui/runner.py: same deliberate C0, C1… section-identifier convention as the
 # acceptance scripts above.
-"tests/comfyui/runner.py" = ["N802"]
 # scripts/_archive/: frozen, retired snapshots (see coding_task/TASK_ARCHIVE_RETIRED_MLX_SCRIPTS_V1.md)
 # — not maintained, not imported by live code; excluded rather than edited.
 "scripts/_archive/**/*.py" = ["E741", "N806", "B905", "SIM115"]
@@ -195,7 +191,6 @@ max-complexity = 15
 # file is refactored below the complexity threshold), never added.
 "portal/modules/documents/tools/document_mcp.py" = ["C90", "PLR0912", "PLR0915"]
 "portal/modules/eval/persona_matrix/sweep.py" = ["C90", "PLR0912", "PLR0915"]
-"portal/modules/media/tools/comfyui_mcp.py" = ["C90", "PLR0912", "PLR0915"]
 "portal/modules/media/tools/video_mcp.py" = ["C90", "PLR0912", "PLR0915"]
 "portal/modules/research/tools/rag_mcp.py" = ["C90", "PLR0912", "PLR0915"]
 "portal/modules/security/core/_sweep_driver.py" = ["C90", "PLR0912", "PLR0915"]
@@ -257,9 +252,6 @@ max-complexity = 15
 "tests/benchmarks/bench/measure.py" = ["C90", "PLR0912", "PLR0915"]
 "tests/benchmarks/bench/runners.py" = ["C90", "PLR0912", "PLR0915"]
 "tests/benchmarks/bench_omlx_v3.py" = ["C90", "PLR0912", "PLR0915"]
-"tests/comfyui/_common.py" = ["C90", "PLR0912", "PLR0915"]
-"tests/comfyui/c01_direct_api.py" = ["C90", "PLR0912", "PLR0915"]
-"tests/comfyui/c10_output_validation.py" = ["C90", "PLR0912", "PLR0915"]
 "tests/lib/coding_fixtures.py" = ["C90", "PLR0912", "PLR0915"]
 "tests/persona_matrix_diff.py" = ["C90", "PLR0912", "PLR0915"]
 "tests/recall_scorer.py" = ["C90", "PLR0912", "PLR0915"]

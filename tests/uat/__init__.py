@@ -6,7 +6,7 @@ Decomposition of tests/portal5_uat_driver.py. Module map:
     state        mutable per-run state (routing log, chat ids, archival)
     freshness    running-image vs git-HEAD freshness check
     health       backend health, memory pressure, OOM/zombie detection
-    lifecycle    model unload, pipeline pre-warm, ComfyUI start/stop
+    lifecycle    model unload, pipeline pre-warm, media-MCP health
     owui_api     OWUI REST helpers, chat archival, response retrieval
     routing      slug->workspace mapping, routed-model validation
     browser      Playwright helpers (login, send, completion-wait, artifacts)

@@ -54,27 +54,33 @@ mcp_fleet:
     command:
       type: local
       command: ["npx", "-y", "mcp-docker-server"]
-  # id: comfyui (portal-comfyui, :8910) intentionally removed from the fleet
-  # 2026-08-26 -- not in active use, ~229GB of host-side ComfyUI models
-  # cleared to reclaim disk. The service definition stays in
-  # deploy/portal-5/docker-compose.yml (behind `profiles: [comfyui]`) and
-  # portal/modules/media/tools/comfyui_mcp.py is untouched -- only fleet
-  # registration (tool advertisement, validate_system.py's liveness
-  # expectation) is removed. Re-add here (and re-pull models, and
-  # `./launch.sh up --profile comfyui`) if image generation is revisited.
-  # id: video (portal-video, :8911) intentionally removed from the fleet
-  # 2026-07-29 -- video generation is shelved, not operated. See
-  # KNOWN_LIMITATIONS.md "Wan 2.2 fp8_scaled Checkpoints Crash on Apple
-  # Silicon MPS". The service definition stays in deploy/portal-5/docker-
-  # compose.yml and portal/modules/media/tools/video_mcp.py is untouched --
-  # only fleet registration (tool advertisement, validate_system.py's
-  # liveness expectation) is removed. Re-add here if video is revisited.
+  # The ComfyUI image + video subsystem (comfyui/video fleet ids, comfyui_mcp.py,
+  # video_mcp.py, the compose `comfyui` profile) was removed entirely in
+  # TASK_IMAGE_VIDEO_OVERHAUL_V1 -- Metal has no FP8, so it never ran on this
+  # hardware. Image generation is now `mflux` (:8933, host MLX layer) and video
+  # is `video_mlx` (:8935, host MLX layer, `video` module off by default).
   - id: music-minimax
     module: media
     name: portal-music-minimax
     port: 8912
     expose_to_pipeline: true
     expose_to_ide: true
+  - id: mflux
+    module: image
+    name: portal-mflux
+    port: 8933
+    expose_to_pipeline: true
+    expose_to_ide: false
+  - id: video_mlx
+    module: video
+    name: portal-video-mlx
+    port: 8935
+    expose_to_pipeline: true
+    expose_to_ide: false
+    # The `video` M7 module is off by default (heaviest media surface); the
+    # server is declared for tool advertisement but expected down until an
+    # operator runs `./launch.sh install-video-mlx` + `portal module enable video`.
+    default_enabled: false
   # id: music-ace (portal-music-ace, :8933) intentionally removed from the
   # fleet 2026-08-27 -- TASK_MUSIC_DUAL_BACKEND's [GATE: SELECT ENGINE]:
   # operator compared both engines on real 60s/30-step generations and
@@ -1020,17 +1026,14 @@ workspaces:
     owui_system_prompt: |-
       You help create professional documents. When asked to create a Word, Excel, or PowerPoint file, use the available MCP document tools. After a tool creates a file, ALWAYS include the download_url from the tool result as a clickable link in your response so the user can download the file. Format it as: 'Download: <download_url>'. Never say you cannot create files — you have MCP tools for this.
   auto-video:
-    module: media
+    module: video
     name: 🎬 Portal Video Creator
     description: >-
-      Generate videos via ComfyUI / Wan2.2. SHELVED 2026-07-29: mcp-video is
-      stopped, not part of default ./launch.sh up. Wan2.2 fp8_scaled
-      checkpoints crash on this host's Apple Silicon MPS stack (see
-      KNOWN_LIMITATIONS.md "Wan 2.2 fp8_scaled Checkpoints Crash on Apple
-      Silicon MPS"); only TI2V-5B works and that alone wasn't judged worth
-      operating. Kept defined, not deleted, in case this becomes fixable
-      later. expose_to_owui is false on purpose -- do not flip it back on
-      without re-verifying generation actually works end to end first.
+      Generate short clips (with audio) via MLX-native LTX-2.3 (video_mlx MCP,
+      :8935). The `video` M7 module is OFF by default — enable with
+      `./launch.sh install-video-mlx` then `portal module enable video`.
+      expose_to_owui flips to true automatically once the module is enabled
+      and sync-config re-runs.
     model_hint: granite4.1:8b-ctx16k
     context_limit: 16384
     temperature: 0.8
@@ -1038,15 +1041,14 @@ workspaces:
     repeat_penalty: 1.0
     tools:
     - generate_video
-    - generate_image
-    - list_video_models
+    - animate_image
     expose_to_owui: false
     enable_web_search: false
     owui_system_prompt: |-
-      You help generate videos. Use the Portal Video MCP tool to create video clips from text descriptions. Describe what will be generated before executing.
+      You help generate short video clips with MLX-native LTX-2.3. Use generate_video(prompt, ...) for text-to-video and animate_image(image_url, prompt, ...) for image-to-video. Clips are preview-grade and practically capped at ~4-6 seconds; jobs take several minutes. Describe what will be generated before executing, then return the download link from the tool result.
   auto-image:
     name: "🖼️  Portal Image Creator"
-    module: media
+    module: image
     model_hint: granite4.1:8b-ctx16k
     context_limit: 16384
     temperature: 0.8
@@ -1054,32 +1056,19 @@ workspaces:
     repeat_penalty: 1.0
     tools:
     - generate_image
-    - list_workflows
-    - get_generation_status
-    - get_latest_images
-    - start_image_generation
-    # ComfyUI (portal_comfyui) was intentionally removed from mcp_fleet —
-    # every tool this workspace declares is currently dead, so it has zero
-    # working functionality. Hidden from OWUI (auto-video, its sibling, is
-    # hidden for the same reason) instead of seeding a selectable workspace
-    # that can't actually do anything. Flip back to true if ComfyUI returns
-    # (`./launch.sh up --profile comfyui`) — sync-config's dead-tools check
-    # will stop warning once portal_comfyui is out of DEAD_SERVERS.
-    expose_to_owui: false
+    - edit_image
+    expose_to_owui: true
     enable_web_search: false
     owui_system_prompt: |-
-      You help generate images. Use the generate_image tool (ComfyUI backend) to create images
-      from text descriptions. Pass model='flux' by default (fast). Pass model='qwen-image-2512'
-      instead when the request needs legible text rendered in the image (posters, slides,
-      typography, signs, labels) — Qwen-Image is best-in-class for this and FLUX/SDXL are not.
-      Pass model='qwen-image-2512-lightning' for the same strength when speed matters more than
-      quality (8-step distilled). Pass model='qwen-image-edit-2509' with image_url set when the
-      user wants an existing image edited by instruction (e.g. "make the sky sunset orange").
-      The newer qwen-image-edit-2511 route requires a larger or CUDA host; do not select it on
-      this Apple Silicon host. Use list_workflows to choose
-      a style and get_generation_status to poll long jobs. Describe what you will generate before
-      executing, then return the download link from the tool result.
-    description: Generate images via ComfyUI (Flux/SDXL/Qwen-Image). Driver granite4.1:8b; generation-first sibling of auto-video.
+      You help generate and edit images with MLX-native FLUX. Use the generate_image tool to
+      create images from text descriptions. Pass model='schnell' by default (fast, 4-step). Pass
+      model='klein' (FLUX.2) when quality matters more than speed. Pass model='qwen-image' when the
+      request needs legible text rendered in the image (posters, slides, typography, signs, labels)
+      — Qwen-Image is best-in-class for this and schnell/klein are not. Use edit_image with
+      image_url set when the user wants an existing image edited by instruction (e.g. "make the sky
+      sunset orange"). Describe what you will generate before executing, then return the download
+      link from the tool result.
+    description: Generate and edit images with MLX-native FLUX (schnell / klein / qwen-image). Driver granite4.1:8b.
   auto-music:
     module: media
     name: 🎵 Portal Music Producer
@@ -1160,12 +1149,11 @@ workspaces:
     tools:
     - transcribe_audio
     - generate_image
-    - list_workflows
-    - get_generation_status
+    - edit_image
     expose_to_owui: true
     enable_web_search: false
     owui_system_prompt: |-
-      You analyze images and handle multimodal tasks. Describe what you observe in detail. For image generation requests, call the generate_image tool (ComfyUI backend); use list_workflows to choose a style and get_generation_status to poll long jobs.
+      You analyze images and handle multimodal tasks. Describe what you observe in detail. For image generation requests, call the generate_image tool (MLX-native FLUX); pass model='qwen-image' when the image needs legible text. Use edit_image with image_url set to modify an existing image by instruction.
   auto-data:
     module: research
     name: 📊 Portal Data Analyst

@@ -21,10 +21,23 @@ from __future__ import annotations
 import re
 
 DEFAULT_ENABLED_MODULES: frozenset[str] = frozenset(
-    {"security", "general", "coding", "media", "cad", "documents", "research", "compliance"}
+    {
+        "security",
+        "general",
+        "coding",
+        "media",
+        "cad",
+        "documents",
+        "research",
+        "compliance",
+        "image",
+    }
 )
-# Per DESIGN-MODULES-V1: bench/testing apparatus is off by default.
-DEFAULT_DISABLED_MODULES: frozenset[str] = frozenset({"eval"})
+# Per DESIGN-MODULES-V1: bench/testing apparatus is off by default. `video` is
+# the heaviest media surface (LTX-2 MLX ~20-24GB working set, thermally punishing,
+# preview-grade) — footprint-first, off by default, mirroring `eval`; an operator
+# opts in with `portal module enable video`.
+DEFAULT_DISABLED_MODULES: frozenset[str] = frozenset({"eval", "video"})
 
 ALL_MODULES: frozenset[str] = DEFAULT_ENABLED_MODULES | DEFAULT_DISABLED_MODULES
 
