@@ -339,7 +339,7 @@ _ensure_native_services() {
 
     # ACE-Step engine and proxy are independently supervised by launchd.
     if [ -f "$HOME/.portal5/music-ace/.venv/bin/python" ]; then
-        curl -s "http://localhost:${MUSIC_ACE_MCP_PORT:-8933}/health" &>/dev/null 2>&1 || launchctl start com.portal5.music-ace-mcp 2>/dev/null || true
+        curl -s "http://localhost:${MUSIC_ACE_MCP_PORT:-8934}/health" &>/dev/null 2>&1 || launchctl start com.portal5.music-ace-mcp 2>/dev/null || true
         curl -s "http://localhost:${ACESTEP_ENGINE_PORT:-8001}/health" &>/dev/null 2>&1 || launchctl start com.portal5.acestep-server 2>/dev/null || true
     fi
 
@@ -572,11 +572,23 @@ _check_ports() {
     _port_check "${TTS_HOST_PORT:-8916}"        "MCP TTS"
     _port_check "${WHISPER_HOST_PORT:-8915}"    "MCP Whisper"
     _port_check "${SANDBOX_HOST_PORT:-8914}"    "MCP Sandbox"
-    # MLX image/video MCPs run host-native under launchd when installed.
-    [ -f "$HOME/.portal5/mflux/.venv/bin/python" ] && \
-        _port_check "${MFLUX_MCP_PORT:-8933}" "MCP MFLUX (image)"
-    [ -f "$HOME/.portal5/video-mlx/ltx-2-mlx/.venv/bin/python" ] && \
-        _port_check "${VIDEO_MLX_MCP_PORT:-8935}" "MCP video-mlx"
+    # MLX image/video MCPs run host-native under launchd when installed, and
+    # `up` starts them (via _ensure_native_services) *before* this check runs —
+    # so a healthy /health response means it's our own service, not a squatter.
+    if [ -f "$HOME/.portal5/mflux/.venv/bin/python" ]; then
+        if curl -s "http://localhost:${MFLUX_MCP_PORT:-8933}/health" &>/dev/null 2>&1; then
+            echo "  ✅ Port ${MFLUX_MCP_PORT:-8933} (MCP MFLUX (image)) — launchd-managed native server"
+        else
+            _port_check "${MFLUX_MCP_PORT:-8933}" "MCP MFLUX (image)"
+        fi
+    fi
+    if [ -f "$HOME/.portal5/video-mlx/ltx-2-mlx/.venv/bin/python" ]; then
+        if curl -s "http://localhost:${VIDEO_MLX_MCP_PORT:-8935}/health" &>/dev/null 2>&1; then
+            echo "  ✅ Port ${VIDEO_MLX_MCP_PORT:-8935} (MCP video-mlx) — launchd-managed native server"
+        else
+            _port_check "${VIDEO_MLX_MCP_PORT:-8935}" "MCP video-mlx"
+        fi
+    fi
     # On ARM64 the native embedding server is launchd-managed and intentionally
     # owns this port — skip the conflict check when it's our own service.
     if [ "$(uname -m)" = "arm64" ] && launchctl list com.portal5.embedding 2>/dev/null | grep -q '"PID"'; then
@@ -799,7 +811,7 @@ for key, label, url in rows:
         else
             printf "    ℹ️   %-28s %s\n" "Music MiniMax MCP" "not installed — ./launch.sh install-music-minimax"
         fi
-        for _music_check in "Music ACE MCP|${MUSIC_ACE_MCP_PORT:-8933}|$HOME/.portal5/music-ace/.venv/bin/python|install-music-ace" "ACE-Step engine|${ACESTEP_ENGINE_PORT:-8001}|$HOME/.portal5/music-ace/ace-runtime|install-music-ace"; do
+        for _music_check in "Music ACE MCP|${MUSIC_ACE_MCP_PORT:-8934}|$HOME/.portal5/music-ace/.venv/bin/python|install-music-ace" "ACE-Step engine|${ACESTEP_ENGINE_PORT:-8001}|$HOME/.portal5/music-ace/ace-runtime|install-music-ace"; do
             IFS='|' read -r _music_label _music_port _music_path _music_install <<< "$_music_check"
             if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:${_music_port}/health', timeout=2)" &>/dev/null 2>&1; then
                 printf "    ✅  %-28s %s\n" "$_music_label" ":${_music_port}"
