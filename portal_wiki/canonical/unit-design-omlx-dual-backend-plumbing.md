@@ -35,7 +35,7 @@ tags:
 - omlx
 - verified-v1
 created_at: 1785719000.0
-updated_at: 1786828785.5367649
+updated_at: 1788024568.0
 ---
 
 # oMLX dual-backend plumbing (Phase 1 / B1, landed 2026-08-02)
@@ -93,6 +93,28 @@ via the tier-3 absolute-fallback net).
 **Gates at landing:** 873 unit ✅, ruff ✅, pipeline rebuilt (all backends
 healthy incl. `omlx-local`), `smoke_stream.sh` ✅, `ci_local.sh` 2652 ✅,
 BR ratchet covered by this unit.
+
+## Host supervision — brew LaunchAgent + liveness watchdog (2026-08-29)
+
+The oMLX **process** is supervised on the host by Homebrew's
+`homebrew.mxcl.omlx` LaunchAgent (`brew services`, tap `jundot/omlx`),
+peer to the way Ollama runs under its own plist. This is host ops, wholly
+outside `portal/platform/inference/` — the pipeline still does zero process
+management, so the retired-MLX-proxy regression guard ("no custom
+process/watchdog management") is intact.
+
+`brew services` `KeepAlive` only restarts oMLX on a clean **exit**. In
+production oMLX has instead **wedged** — process alive, RSS collapsed, no
+answer on `:8085` — which launchd never notices and which makes every
+`omlx-*` backend group report unhealthy (a dropped `backends_healthy` count
+in `./launch.sh status`) until a manual `brew services restart
+jundot/omlx/omlx`. Closed by
+`scripts/omlx-watchdog.sh` + `deploy/launchd/com.portal5.omlx-watchdog.plist`
+(`StartInterval` 120s): probes `GET :8085/v1/models`, restarts the brew
+service after two consecutive failures (one failure can be a cold model
+load), logs to `~/.portal5/logs/omlx-watchdog.log`. `_ensure_native_services`
+installs/bootstraps the watchdog and kicks the brew service on `./launch.sh
+up`; `_cmd_status` now shows an `oMLX :8085` row under NATIVE SERVICES.
 
 ## B2 — Shadow then shift, auto-coding first (landed 2026-08-02)
 

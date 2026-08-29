@@ -307,6 +307,39 @@ _ensure_native_services() {
         fi
     fi
 
+    # ── oMLX inference server (host-native, :8085) ──────────────────────────
+    # Peer infra to Ollama: serves the six omlx-* backend groups in
+    # config/backends.yaml (Lightning MTP / shadow-shift). Supervised by
+    # Homebrew's `homebrew.mxcl.omlx` LaunchAgent, whose KeepAlive only
+    # catches a clean exit — not the "process alive but not answering :8085"
+    # wedge we have hit in production. So: (1) make sure the brew service is
+    # started, (2) install the liveness watchdog LaunchAgent that restarts it
+    # on a hang (see scripts/omlx-watchdog.sh).
+    if [ "$ARCH" = "arm64" ] && command -v brew &>/dev/null && brew services list 2>/dev/null | grep -q '^omlx'; then
+        if curl -fsS -m 5 "http://127.0.0.1:8085/v1/models" &>/dev/null 2>&1; then
+            echo "[portal-5]   ✅ oMLX: running on :8085"
+        else
+            echo "[portal-5]   oMLX not answering on :8085 — restarting brew service..."
+            brew services restart jundot/omlx/omlx &>/dev/null || true
+        fi
+
+        local _omlx_wd_label="com.portal5.omlx-watchdog"
+        local _omlx_wd_src="$PORTAL_ROOT/deploy/launchd/${_omlx_wd_label}.plist"
+        local _omlx_wd_dst="$HOME/Library/LaunchAgents/${_omlx_wd_label}.plist"
+        local _omlx_wd_domain="gui/$(id -u)"
+        if [ -f "$_omlx_wd_src" ]; then
+            mkdir -p "$HOME/.portal5/logs" "$HOME/Library/LaunchAgents"
+            sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
+                -e "s#__LOG_DIR__#${HOME}/.portal5/logs#g" \
+                "$_omlx_wd_src" > "$_omlx_wd_dst"
+            if ! launchctl print "${_omlx_wd_domain}/${_omlx_wd_label}" &>/dev/null 2>&1; then
+                launchctl bootstrap "$_omlx_wd_domain" "$_omlx_wd_dst" &>/dev/null \
+                    && echo "[portal-5]   ✅ oMLX watchdog: launchd supervision enabled (120s interval)" \
+                    || echo "[portal-5]   ⚠️  oMLX watchdog: launchd registration failed"
+            fi
+        fi
+    fi
+
     # ── MFLUX image MCP (native MLX on Apple Silicon) ──────────────────────
     if [ "$ARCH" = "arm64" ]; then
         if [ -f "$HOME/.portal5/mflux/.venv/bin/python" ]; then
@@ -787,6 +820,16 @@ for key, label, url in rows:
             printf "    ✅  %-28s %s\n" "Ollama" ":11434  (v${_OV:-?})"
         else
             printf "    ❌  %-28s %s\n" "Ollama" "not running — sudo launchctl kickstart -k system/com.portal5.ollama"
+        fi
+
+        # oMLX inference server — serves the six omlx-* backend groups
+        if command -v brew &>/dev/null && brew services list 2>/dev/null | grep -q '^omlx'; then
+            if python3 -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8085/v1/models', timeout=3)" &>/dev/null 2>&1; then
+                _OMV=$(brew list --versions omlx 2>/dev/null | awk '{print $2}')
+                printf "    ✅  %-28s %s\n" "oMLX" ":8085  (v${_OMV:-?})"
+            else
+                printf "    ❌  %-28s %s\n" "oMLX" "wedged/not answering — brew services restart jundot/omlx/omlx"
+            fi
         fi
 
         if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:${MFLUX_MCP_PORT:-8933}/health', timeout=2)" &>/dev/null 2>&1; then
