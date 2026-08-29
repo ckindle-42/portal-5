@@ -65,6 +65,11 @@ tests/fixtures/sample.wav
 # UAT response corpus — run artifacts; schema doc README.md is tracked
 tests/uat_corpus/*.jsonl
 tests/uat_corpus/*.json
+
+# Adaptive UAT run artifacts — frozen/authored suites, worksheets, review packets,
+# and the exposure-gap manifest are all generated per run (agent authors worksheets
+# ahead of a sign-off; --dry-run templates during dev).
+tests/uat_adaptive/
 config/proxmox_ca.pem
 
 # lab_discover.py output — live host state snapshot, not source
