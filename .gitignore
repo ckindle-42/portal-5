@@ -71,6 +71,7 @@ tests/uat_corpus/*.json
 # ahead of a sign-off; --dry-run templates during dev).
 tests/uat_adaptive/
 tests/ADAPTIVE_UAT_RESULTS.md
+tests/UAT_RESULTS_ADAPTIVE.md
 config/proxmox_ca.pem
 
 # lab_discover.py output — live host state snapshot, not source
