@@ -71,7 +71,7 @@ class SpaceContract:
     category: str = ""
     tier: str = "ollama"  # workspace_tier for cascade ordering
     model_slug: str = ""  # the OWUI model id the runner selects to reach this space
-    owui_addressable: bool = True  # best-guess: is this selectable in OWUI?
+    owui_addressable: bool = True  # seeded as an OWUI model preset (workspace slug / persona slug)
     design_refs: list[str] = field(default_factory=list)  # design docs to review
 
     def to_dict(self) -> dict:
@@ -239,12 +239,15 @@ def load_persona_contracts(enabled: dict[str, bool]) -> list[SpaceContract]:
         tools = list(pdef.get("tools_allow", []) or [])
         sections, strict = _derive_output_sections(directives)
         slug = pdef.get("slug", Path(path).stem)
-        # A persona is reachable in OWUI when it is exposed as a preset/model.
-        # The reliable local signals are an explicit `workspace`/`ide_expose`
-        # field; absent those we still emit the challenge but mark it
-        # not-addressable so the runner SKIPs with a note (honest-BLOCKED) and
-        # the operator sees "designed but unreachable" rather than a fake pass.
-        owui_addressable = bool(pdef.get("workspace") or pdef.get("ide_expose"))
+        # Every non-bench persona is seeded into OWUI as a selectable model
+        # preset keyed by its slug (scripts/openwebui_init.create_persona_presets_async
+        # — id=slug, base_model_id=workspace_model). A live audit at
+        # TASK_UAT_ADAPTIVE_OVERHAUL_V1 execution confirmed 110/110 non-bench
+        # personas + 42/42 expose_to_owui workspaces present via /api/v1/models.
+        # So a persona IS addressable; if a slug is ever genuinely unreachable
+        # (added but not reseeded) the runner records it as BLOCKED at run time
+        # via _PresetUnreachableError — an honest signal, not a pre-run guess.
+        owui_addressable = True
         out.append(
             SpaceContract(
                 space_id=f"persona:{slug}",
