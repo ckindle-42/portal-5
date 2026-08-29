@@ -48,23 +48,23 @@ Mechanical termination exists so migration is never an open-ended rewrite campai
 ### Migration coverage
 
 <!-- WIKI:GENERATED unit=unit-fact-doc-migration-coverage -->
-# Doc migration coverage (0/23 docs migrated, 0.0%)
+# Doc migration coverage (3/23 docs migrated, 13.0%)
 
-Total generated blocks across migrated docs: 12
+Total generated blocks across migrated docs: 80
 
 ## Migrated docs (content-hash gate only)
 
+- `README.md`
+- `docs/HOWTO.md`
+- `docs/USER_GUIDE.md`
 
 ## Unmigrated docs
 
-- `README.md`
 - `P5_ROADMAP.md`
 - `KNOWN_ISSUES.md`
 - `KNOWN_LIMITATIONS.md`
-- `docs/HOWTO.md`
 - `docs/ADMIN_GUIDE.md`
 - `docs/SECURITY_BENCH_EXEC.md`
-- `docs/USER_GUIDE.md`
 - `docs/CLUSTER_SCALE.md`
 - `docs/ALERTS.md`
 - `docs/PERFORMANCE.md`
