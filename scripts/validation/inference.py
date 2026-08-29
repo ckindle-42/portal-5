@@ -157,8 +157,26 @@ def check_cli_introspection() -> tuple[str, str, list[dict]]:
 
 @register("unit_tests", "H. unit test suite", order=7)
 def check_unit_tests(*, skip_env_only: bool = True) -> tuple[str, str, list[dict]]:
-    """H. Run pytest tests/unit (optionally excluding environment-only files)."""
-    args = [sys.executable, "-m", "pytest", "tests/unit", "-q", "--tb=no"]
+    """H. Run pytest tests/unit (optionally excluding environment-only files).
+
+    Runs pytest under the project venv, not ``sys.executable``: validate_system.py
+    is commonly launched as bare ``python3``, which on dev Macs resolves to a
+    Homebrew interpreter whose site-packages (numpy C-extensions etc.) are built
+    for a different Python minor — the suite then dies at collection with an
+    ABI ImportError that has nothing to do with the code under test. The repo's
+    ``.venv`` (or ``uv run``) is the only interpreter guaranteed to match how
+    the tests are actually developed and how CI runs them.
+    """
+    import shutil
+
+    venv_py = REPO_ROOT / ".venv" / "bin" / "python"
+    if venv_py.exists():
+        base = [str(venv_py), "-m", "pytest"]
+    elif shutil.which("uv"):
+        base = ["uv", "run", "--quiet", "pytest"]
+    else:
+        base = [sys.executable, "-m", "pytest"]
+    args = [*base, "tests/unit", "-q", "--tb=no"]
     if skip_env_only:
         # Env-only failures on the M4 Pro Mac Mini may differ — these ignores
         # match the audit container; tune per local env.
