@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 703 canonical units.*
+*Deterministic projection of 670 canonical units.*
 
 ## Knowledge Layer
 
@@ -191,34 +191,6 @@
 | `unit-cluster-scale-stage-1-stage-2-add-a-second-mac-studio` | what | 3 |
 | `unit-cluster-scale-stage-3-vllm-for-70b-models` | what | 2 |
 | `unit-cluster-scale-stage-4-5-specialized-model-groups` | what | 2 |
-| `unit-comfyui-common` | mixed | 1 |
-| `unit-comfyui-setup-cinematic-quality-t2v-a14b-slower` | what | 2 |
-| `unit-comfyui-setup-download-models` | what | 1 |
-| `unit-comfyui-setup-explicit-model-override` | what | 2 |
-| `unit-comfyui-setup-fast-preset-ti2v-5b-9-min-per-5s-clip` | what | 2 |
-| `unit-comfyui-setup-flux-images-are-pure-static-tv-noise` | what | 2 |
-| `unit-comfyui-setup-image-flux-schnell-default` | what | 2 |
-| `unit-comfyui-setup-image-sdxl-simpler-single-self-contained-file-no-separate-clip-vae-needed` | what | 2 |
-| `unit-comfyui-setup-linux-nvidia-gpu` | what | 1 |
-| `unit-comfyui-setup-manual-start-stop` | what | 1 |
-| `unit-comfyui-setup-models-download-automatically-on-first-start` | what | 2 |
-| `unit-comfyui-setup-portal-5-comfyui-setup-guide` | what | 2 |
-| `unit-comfyui-setup-quick-install-apple-silicon` | what | 1 |
-| `unit-comfyui-setup-restart` | what | 2 |
-| `unit-comfyui-setup-should-return-json-with-gpu-info-showing-mps-device` | what | 2 |
-| `unit-comfyui-setup-start` | what | 1 |
-| `unit-comfyui-setup-step-1-pull-the-weights-opt-in-80gb-total` | what | 2 |
-| `unit-comfyui-setup-step-2-export-comfyui-workflow-templates` | what | 2 |
-| `unit-comfyui-setup-step-3-use` | what | 2 |
-| `unit-comfyui-setup-stop` | what | 1 |
-| `unit-comfyui-setup-then-set-video-backend-wan21-nsfw-in-env-and-restart-docker-compose-restart-mcp-video` | what | 2 |
-| `unit-comfyui-setup-ti2v-5b-fast-image-to-video-single-file-comfyui-native-repackaging` | what | 2 |
-| `unit-comfyui-setup-use-docker-comfyui-with-cuda-profile` | what | 1 |
-| `unit-comfyui-setup-verify` | what | 1 |
-| `unit-comfyui-setup-via-mcp-tool` | what | 2 |
-| `unit-comfyui-setup-video-wan21-nsfw-currently-configured-video-backend-in-env` | what | 2 |
-| `unit-comfyui-setup-view-logs` | what | 1 |
-| `unit-comfyui-setup-wan-2-2-family-v6-2-addition` | what | 2 |
 | `unit-compliance-config-workspace-pointers` | mixed | 1 |
 | `unit-compliance-fallback-policy-canonical-baseline` | what | 5 |
 | `unit-compliance-fallback-policy-compliance-fallback-policy` | what | 4 |
@@ -275,9 +247,6 @@
 | `unit-known-limitations-baronllm-text-only-tool-output-auto-security-mcp-tools-non-functional` | what | 6 |
 | `unit-known-limitations-cadquery-and-build123d-unusable-on-linux-arm64` | what | 4 |
 | `unit-known-limitations-code-sandbox-requires-privileged-container` | what | 2 |
-| `unit-known-limitations-comfyui-cross-model-family-memory-exhaustion-apple-silicon` | what | 2 |
-| `unit-known-limitations-comfyui-model-download-commands-are-broken` | what | 3 |
-| `unit-known-limitations-comfyui-runs-outside-docker` | what | 2 |
 | `unit-known-limitations-devstral-24b-runtime-vram-footprint-25-7-gb` | what | 3 |
 | `unit-known-limitations-diarized-transcription-task-transcribe-001` | what | 3 |
 | `unit-known-limitations-emergent-objective-loop-curated-capability-tool-names-vs-live-dispatch-whitelist` | what | 8 |
@@ -307,7 +276,6 @@
 | `unit-known-limitations-phi4-reasoning-plus-crashes-ollama-s-llama-server-on-this-host-confirmed-not-a-corrupted-download` | what | 3 |
 | `unit-known-limitations-post-v1-messages-anthropic-compat-endpoint-returns-http-200-with-a-null-body` | what | 3 |
 | `unit-known-limitations-pytest-portal-leaves-real-write-through-test-artifacts` | what | 4 |
-| `unit-known-limitations-qwen-image-bf16-crashes-on-apple-silicon-mps` | what | 3 |
 | `unit-known-limitations-rbp-benign-corpus-alert-fatigue` | what | 5 |
 | `unit-known-limitations-request-size-cap-relies-on-content-length-only` | what | 2 |
 | `unit-known-limitations-router-model-eviction-single-request` | what | 6 |
@@ -318,7 +286,6 @@
 | `unit-known-limitations-tool-preselection-candidate-1b-models-cannot-rank-tools` | what | 6 |
 | `unit-known-limitations-v5-model-visible-corpus-retrieval-coverage` | what | 4 |
 | `unit-known-limitations-v8-catalog-deferred-insufficient-hardware` | what | 2 |
-| `unit-known-limitations-wan22-fp8-scaled-checkpoints-crash-on-apple-silicon-mps` | what | 3 |
 | `unit-lab-setup-all-these-should-succeed-after-setup` | what | 4 |
 | `unit-lab-setup-full-setup-downloads-vulhub-challenge-composes-base-images-model-pulls` | what | 2 |
 | `unit-lab-setup-lab-setup-cold-start-runbook` | what | 3 |
@@ -519,12 +486,14 @@
 | `unit-module-cad` | mixed | 6 |
 | `unit-module-coding` | mixed | 4 |
 | `unit-module-compliance` | mixed | 3 |
-| `unit-module-documents` | mixed | 3 |
+| `unit-module-documents` | mixed | 4 |
 | `unit-module-eval` | mixed | 3 |
 | `unit-module-general` | mixed | 4 |
+| `unit-module-image` | mixed | 3 |
 | `unit-module-media` | mixed | 7 |
 | `unit-module-research` | mixed | 4 |
 | `unit-module-security` | mixed | 5 |
+| `unit-module-video` | mixed | 4 |
 | `unit-p5-roadmap-future-considerations-not-yet-implemented` | what | 5 |
 | `unit-p5-roadmap-p5-fut-004-webhook-based-event-notifications` | what | 2 |
 | `unit-p5-roadmap-p5-fut-006-llm-based-intent-routing` | what | 5 |
@@ -602,7 +571,6 @@
 | `unit-readme-core-models-pulled-automatically-on-first-run-4-gb` | what | 4 |
 | `unit-readme-documentation` | what | 1 |
 | `unit-readme-functional-workspaces` | what | 4 |
-| `unit-readme-image-generation-downloaded-automatically-on-first-run-12-gb` | what | 5 |
 | `unit-readme-license` | what | 1 |
 | `unit-readme-mlx-models-apple-silicon-retained-for-audio-embedding-reranker-only-chat-inference-is-ollama-only` | what | 5 |
 | `unit-readme-network-exposure` | what | 4 |
@@ -651,7 +619,6 @@
 | `unit-surface-archive-mlx` | mixed | 1 |
 | `unit-surface-benchmarks` | mixed | 3 |
 | `unit-surface-binary-research` | mixed | 1 |
-| `unit-surface-comfyui-tests` | mixed | 1 |
 | `unit-surface-inference` | mixed | 1 |
 | `unit-surface-inference-cli` | mixed | 1 |
 | `unit-surface-investigation` | mixed | 1 |
@@ -712,10 +679,11 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 703 units
+**Total:** 670 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1651 references
+- **code**: 1593 references
+- **config**: 1 references
 - **mitre**: 32 references

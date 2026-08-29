@@ -101,6 +101,57 @@ def check_wiki_core() -> tuple[str, str, list[dict]]:
 
 
 @register(
+    "docs_generated_current",
+    "AK. docs/generated POC projections current (live unit count)",
+    order=36,
+)
+def check_docs_generated_current() -> tuple[str, str, list[dict]]:
+    """AK. The docs/generated/ POC renders must project the live unit count.
+
+    `render_admin_guide` / `render_architecture_map` are refreshed by
+    `python3 -m portal_wiki render --all`, **not** by `sync-config`, so they can
+    silently freeze against a stale canonical set while every other gate stays
+    green. Parse the `*Deterministic projection of N canonical units.*` line in
+    every `docs/generated/*.md` and HARD-FAIL when N differs from the live
+    `portal_wiki/canonical/*.md` count — staleness then fails the push-time
+    `validate-system` hook instead of shipping a misleading projection.
+    """
+    import re
+
+    live = len(list((REPO_ROOT / "portal_wiki" / "canonical").glob("*.md")))
+    violations: list[str] = []
+    for p in sorted((REPO_ROOT / "docs" / "generated").glob("*.md")):
+        m = re.search(
+            r"Deterministic projection of (\d+) canonical units", p.read_text(encoding="utf-8")
+        )
+        if m and int(m.group(1)) != live:
+            violations.append(f"{p.name}: projects {m.group(1)} units, live is {live}")
+    if violations:
+        return (
+            "FAIL",
+            "; ".join(violations) + " — run `python3 -m portal_wiki render --all`",
+            [
+                {
+                    "name": "docs/generated projections match live unit count",
+                    "status": "FAIL",
+                    "detail": "; ".join(violations),
+                }
+            ],
+        )
+    return (
+        "PASS",
+        f"docs/generated projections match the live canonical count ({live})",
+        [
+            {
+                "name": "docs/generated projections match live unit count",
+                "status": "PASS",
+                "detail": f"all project {live} units",
+            }
+        ],
+    )
+
+
+@register(
     "wiki_facts_current",
     "AW. wiki facts current (fact-units only, P0 A4)",
     order=47,
