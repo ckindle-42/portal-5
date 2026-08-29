@@ -28,14 +28,15 @@ declares a `name`, a `model_hint` that selects its model, `expose_to_owui`
 The synchronization script writes presets only for exposed workspaces, so the
 model dropdown shows that curated set; variants such as the agentic coding lanes
 or the security sub-roles (`blueteam`, `redteam`) are addressed by query hint, not
-listed in the dropdown. `auto-video` is defined but `expose_to_owui: false` and
-shelved, and `auto-council` runs an opt-in multi-model review chain whose quorum
+listed in the dropdown. `auto-video` is exposed (`expose_to_owui: true`) under
+the `video` module — disabled by default but shipped enabled — and
+`auto-council` runs an opt-in multi-model review chain whose quorum
 and dissent handling are enforced in code.
 
 ## Why
 
 The guide presented a fixed table of dropdown workspaces that mixed exposed
-workspaces, hidden variants, a shelved service, and a persona that never existed
+workspaces, hidden variants, and a persona that never existed
 in config. Workspace presence in the interface is a mechanical consequence of
 `expose_to_owui` in `portal.yaml` plus the preset generator, so the unit must
 describe that rule instead of reprinting a snapshot. This keeps the claim stable
@@ -74,7 +75,7 @@ files; Portal Code runs `execute_bash`/`execute_python` in an isolated sandbox;
 Portal TTS exposes `speak`; Portal Whisper offers `transcribe_audio` and
 `transcribe_with_speakers` (speaker diarization, with an Apple Silicon primary at
 port 8924 via the MLX transcribe server); Portal MFLUX exposes `generate_image` / `edit_image`
-and `start_image_generation` backed by Qwen-Image models; Portal Music exposes
+(synchronous, MLX FLUX — including the `qwen-image` model); Portal Music exposes
 the MiniMax job-based music toolset.
 
 ## Why

@@ -125,7 +125,7 @@ Personas are data, not code: one YAML per persona means adding a specialist neve
 
 **What:** Generate code with AI and execute it in an isolated Docker-in-Docker sandbox.
 
-**Activate:** Select `Portal Code Expert` (`auto-coding`) from the model dropdown. Its `tools` list in `config/portal.yaml` grants `execute_python`, `execute_nodejs`, `execute_bash`, and `sandbox_status`, so the sandbox tools are available the moment the workspace is selected.
+**Activate:** Select `Portal Code Expert` (`auto-coding`) from the model dropdown. Its `tools` list in `config/portal.yaml` grants `execute_python`, `execute_nodejs`, `execute_bash`, and `sandbox_status`; the sandbox MCP's full surface also includes `execute_powershell` and the session tools `list_sessions` / `reset_session` (manifest: `config/inference/tools_manifest_code_sandbox_mcp.json`). Sessions persist an interpreter between calls, so long tasks keep state instead of re-seeding a throwaway container each time.
 
 **How:** Execution runs through `portal/modules/coding/tools/code_sandbox_mcp.py`, the sandbox MCP server on the `portal5-sandbox` container. Each tool launches a throwaway container from an image (`python:3.11-slim`, `node:20-alpine`, `alpine:latest` by default) inside the Docker-in-Docker daemon, with a default `SANDBOX_TIMEOUT` of 30 seconds, no network (`SANDBOX_ALLOW_NETWORK=false`), and a small memory ceiling.
 
