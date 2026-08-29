@@ -312,7 +312,7 @@ class TestReadPDF:
 
 class TestDocumentCreationOverhaul:
     def test_excel_chart_is_embedded(self, tmp_path, monkeypatch):
-        import openpyxl
+        openpyxl = pytest.importorskip("openpyxl", reason="openpyxl not installed")
 
         from portal.modules.documents.tools import document_mcp
 
@@ -341,6 +341,7 @@ class TestDocumentCreationOverhaul:
         assert len(workbook.active._charts) == 1
 
     def test_rich_markdown_and_template(self, tmp_path, monkeypatch):
+        pytest.importorskip("docx", reason="python-docx not installed")
         from docx import Document
 
         from portal.modules.documents.tools import document_mcp
