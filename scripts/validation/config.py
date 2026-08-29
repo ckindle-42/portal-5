@@ -26,9 +26,10 @@ def check_config_loads() -> tuple[str, str, list[dict]]:
 def check_rule_6() -> tuple[str, str, list[dict]]:
     """D. portal.yaml workspaces ↔ backends.yaml workspace_routing ↔ WORKSPACES.
 
-    module: eval workspaces (bench-*) are gated off WORKSPACES by default
-    (BUILD_PROGRAM_COLLAPSE_V1.md Phase 4), so ws_router is compared against
-    portal.yaml's non-eval-gated subset. workspace_routing is different: it's
+    Workspaces owned by a disabled module (bench-* under `eval`, auto-video
+    under `video` — both off by default) are gated off WORKSPACES, so
+    ws_router is compared against portal.yaml's module-enabled subset (plus
+    eval when PORTAL_ENABLE_EVAL is set). workspace_routing is different: it's
     a static backend-group lookup table for every known workspace, NOT gated
     on module-enabled state (see sync_config.emit_workspace_routing's
     docstring — gating it on live enable state made its completeness depend
@@ -40,11 +41,13 @@ def check_rule_6() -> tuple[str, str, list[dict]]:
 
     from portal.platform.inference.config import _eval_enabled, load_portal_config
     from portal.platform.inference.router.workspaces import WORKSPACES
+    from portal.platform.wiki.adapters.modules import enabled_modules
 
     cfg = load_portal_config()
     eval_on = _eval_enabled()
+    live_mods = set(enabled_modules()) | ({"eval"} if eval_on else set())
     ws_all = set(cfg.workspaces.keys())
-    ws_yaml = {wid for wid, spec in cfg.workspaces.items() if eval_on or spec.module != "eval"}
+    ws_yaml = {wid for wid, spec in cfg.workspaces.items() if spec.module in live_mods}
     ws_router = set(WORKSPACES.keys())
 
     backends_path = REPO_ROOT / "config" / "backends.yaml"

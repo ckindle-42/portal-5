@@ -3,17 +3,20 @@
   "generator": "scripts/generate_import_bundle.py",
   "tool_servers": [
     {
-      "name": "Portal ComfyUI",
-      "url": "http://host.docker.internal:8910/mcp",
+      "name": "Portal MFLUX (image)",
+      "url": "http://host.docker.internal:8933/mcp",
       "api_key": ""
     },
     {
-      "name": "Portal Video",
-      "url": "http://host.docker.internal:8911/mcp",
+      "name": "Portal Music (MiniMax)",
+      "url": "http://host.docker.internal:8912/mcp",
       "api_key": ""
     },
-    {"name": "Portal Music (MiniMax)", "url": "http://host.docker.internal:8912/mcp", "api_key": ""},
-    {"name": "Portal Music (ACE-Step)", "url": "http://host.docker.internal:8933/mcp", "api_key": ""},
+    {
+      "name": "Portal Music (ACE-Step)",
+      "url": "http://host.docker.internal:8933/mcp",
+      "api_key": ""
+    },
     {
       "name": "Portal Documents",
       "url": "http://host.docker.internal:8913/mcp",
@@ -47,6 +50,21 @@
   ],
   "tools": [
     {
+      "id": "portal_mflux",
+      "name": "Portal MFLUX (image)",
+      "type": "mcp",
+      "meta": {
+        "description": "MLX-native local image generation (FLUX schnell / klein / qwen-image)",
+        "manifest": {
+          "type": "mcp",
+          "url": "http://host.docker.internal:8933/mcp"
+        }
+      },
+      "settings": {
+        "api_key": ""
+      }
+    },
+    {
       "id": "portal_code",
       "name": "Portal Code",
       "type": "mcp",
@@ -55,21 +73,6 @@
         "manifest": {
           "type": "mcp",
           "url": "http://host.docker.internal:8914/mcp"
-        }
-      },
-      "settings": {
-        "api_key": ""
-      }
-    },
-    {
-      "id": "portal_comfyui",
-      "name": "Portal ComfyUI",
-      "type": "mcp",
-      "meta": {
-        "description": "Generate images and videos via ComfyUI workflows",
-        "manifest": {
-          "type": "mcp",
-          "url": "http://host.docker.internal:8910/mcp"
         }
       },
       "settings": {
@@ -91,8 +94,36 @@
         "api_key": ""
       }
     },
-    {"id": "portal_music_minimax", "name": "Portal Music (MiniMax)", "type": "mcp", "meta": {"description": "Generate full songs with MiniMax-Music3-MLX", "manifest": {"type": "mcp", "url": "http://host.docker.internal:8912/mcp"}}, "settings": {"api_key": ""}},
-    {"id": "portal_music_ace", "name": "Portal Music (ACE-Step)", "type": "mcp", "meta": {"description": "Generate or edit full songs with ACE-Step-1.5", "manifest": {"type": "mcp", "url": "http://host.docker.internal:8933/mcp"}}, "settings": {"api_key": ""}},
+    {
+      "id": "portal_music_minimax",
+      "name": "Portal Music (MiniMax)",
+      "type": "mcp",
+      "meta": {
+        "description": "Generate full songs with MiniMax-Music3-MLX",
+        "manifest": {
+          "type": "mcp",
+          "url": "http://host.docker.internal:8912/mcp"
+        }
+      },
+      "settings": {
+        "api_key": ""
+      }
+    },
+    {
+      "id": "portal_music_ace",
+      "name": "Portal Music (ACE-Step)",
+      "type": "mcp",
+      "meta": {
+        "description": "Generate or edit full songs with ACE-Step-1.5",
+        "manifest": {
+          "type": "mcp",
+          "url": "http://host.docker.internal:8933/mcp"
+        }
+      },
+      "settings": {
+        "api_key": ""
+      }
+    },
     {
       "id": "portal_shell",
       "name": "Portal Shell",
@@ -117,21 +148,6 @@
         "manifest": {
           "type": "mcp",
           "url": "http://host.docker.internal:8916/mcp"
-        }
-      },
-      "settings": {
-        "api_key": ""
-      }
-    },
-    {
-      "id": "portal_video",
-      "name": "Portal Video",
-      "type": "mcp",
-      "meta": {
-        "description": "Generate video clips using Wan2.2",
-        "manifest": {
-          "type": "mcp",
-          "url": "http://host.docker.internal:8911/mcp"
         }
       },
       "settings": {
@@ -172,9 +188,9 @@
   "workspaces": [
     {
       "id": "auto",
-      "name": "🤖 Portal Auto Router",
+      "name": "\ud83e\udd16 Portal Auto Router",
       "meta": {
-        "description": "🤖 Portal Auto Router",
+        "description": "\ud83e\udd16 Portal Auto Router",
         "profile_image_url": "",
         "toolIds": []
       },
@@ -185,9 +201,9 @@
     },
     {
       "id": "auto-blueteam",
-      "name": "🔵 Portal Blue Team",
+      "name": "\ud83d\udd35 Portal Blue Team",
       "meta": {
-        "description": "🔵 Portal Blue Team",
+        "description": "\ud83d\udd35 Portal Blue Team",
         "profile_image_url": "",
         "toolIds": [
           "portal_code"
@@ -200,9 +216,9 @@
     },
     {
       "id": "auto-coding",
-      "name": "💻 Portal Code Expert",
+      "name": "\ud83d\udcbb Portal Code Expert",
       "meta": {
-        "description": "💻 Portal Code Expert",
+        "description": "\ud83d\udcbb Portal Code Expert",
         "profile_image_url": "",
         "toolIds": [
           "portal_code"
@@ -215,22 +231,22 @@
     },
     {
       "id": "auto-compliance",
-      "name": "⚖️  Portal Compliance Analyst",
+      "name": "\u2696\ufe0f  Portal Compliance Analyst",
       "meta": {
-        "description": "⚖️  Portal Compliance Analyst",
+        "description": "\u2696\ufe0f  Portal Compliance Analyst",
         "profile_image_url": "",
         "toolIds": []
       },
       "params": {
-        "system": "You are a NERC CIP compliance analyst with deep expertise in the CIP-002 through CIP-015 reliability standards.\n\nWhen analyzing documents:\n1. Always cite the exact CIP standard, version, requirement number, and part (e.g., CIP-007-6 R2 Part 2.1).\n2. Always cite the exact org policy section, document name, and page if available.\n3. Classify compliance status as one of: Full / Partial / None / Ambiguous.\n4. For Partial or None: quote the specific language gap — what the policy says vs. what the standard requires.\n5. For Ambiguous: flag the specific interpretive question and recommend SME review.\n6. Propose concrete remediation language for each gap.\n7. Output gap analyses as markdown tables with columns: [Req ID | Standard Version | Org Policy Section | Status | Gap Description | Recommended Remediation].\n\nDo not infer compliance from vague or aspirational policy language. If a policy says 'we strive to' or 'as appropriate', classify as Ambiguous, not Full.\n\nFor CIP-003-9: Note that the standard became enforceable April 1, 2026. Flag any R1 Part 1.2.6 gaps (vendor electronic remote access for Low Impact BES) as Priority-1.\n\nAlways end your analysis with a summary count: X requirements analyzed, Y Full, Z Partial, W None, V Ambiguous.",
+        "system": "You are a NERC CIP compliance analyst with deep expertise in the CIP-002 through CIP-015 reliability standards.\n\nWhen analyzing documents:\n1. Always cite the exact CIP standard, version, requirement number, and part (e.g., CIP-007-6 R2 Part 2.1).\n2. Always cite the exact org policy section, document name, and page if available.\n3. Classify compliance status as one of: Full / Partial / None / Ambiguous.\n4. For Partial or None: quote the specific language gap \u2014 what the policy says vs. what the standard requires.\n5. For Ambiguous: flag the specific interpretive question and recommend SME review.\n6. Propose concrete remediation language for each gap.\n7. Output gap analyses as markdown tables with columns: [Req ID | Standard Version | Org Policy Section | Status | Gap Description | Recommended Remediation].\n\nDo not infer compliance from vague or aspirational policy language. If a policy says 'we strive to' or 'as appropriate', classify as Ambiguous, not Full.\n\nFor CIP-003-9: Note that the standard became enforceable April 1, 2026. Flag any R1 Part 1.2.6 gaps (vendor electronic remote access for Low Impact BES) as Priority-1.\n\nAlways end your analysis with a summary count: X requirements analyzed, Y Full, Z Partial, W None, V Ambiguous.",
         "model": "auto-compliance"
       }
     },
     {
       "id": "auto-creative",
-      "name": "✍️  Portal Creative Writer",
+      "name": "\u270d\ufe0f  Portal Creative Writer",
       "meta": {
-        "description": "✍️  Portal Creative Writer",
+        "description": "\u270d\ufe0f  Portal Creative Writer",
         "profile_image_url": "",
         "toolIds": [
           "portal_tts"
@@ -243,9 +259,9 @@
     },
     {
       "id": "auto-data",
-      "name": "📊 Portal Data Analyst",
+      "name": "\ud83d\udcca Portal Data Analyst",
       "meta": {
-        "description": "📊 Portal Data Analyst",
+        "description": "\ud83d\udcca Portal Data Analyst",
         "profile_image_url": "",
         "toolIds": [
           "portal_code",
@@ -259,9 +275,9 @@
     },
     {
       "id": "auto-documents",
-      "name": "📄 Portal Document Builder",
+      "name": "\ud83d\udcc4 Portal Document Builder",
       "meta": {
-        "description": "📄 Portal Document Builder",
+        "description": "\ud83d\udcc4 Portal Document Builder",
         "profile_image_url": "",
         "toolIds": [
           "portal_documents",
@@ -275,9 +291,9 @@
     },
     {
       "id": "auto-music",
-      "name": "🎵 Portal Music Producer",
+      "name": "\ud83c\udfb5 Portal Music Producer",
       "meta": {
-        "description": "🎵 Portal Music Producer",
+        "description": "\ud83c\udfb5 Portal Music Producer",
         "profile_image_url": "",
         "toolIds": [
           "portal_music_minimax",
@@ -291,9 +307,9 @@
     },
     {
       "id": "auto-reasoning",
-      "name": "🧠 Portal Deep Reasoner",
+      "name": "\ud83e\udde0 Portal Deep Reasoner",
       "meta": {
-        "description": "🧠 Portal Deep Reasoner",
+        "description": "\ud83e\udde0 Portal Deep Reasoner",
         "profile_image_url": "",
         "toolIds": []
       },
@@ -304,9 +320,9 @@
     },
     {
       "id": "auto-redteam",
-      "name": "🔴 Portal Red Team",
+      "name": "\ud83d\udd34 Portal Red Team",
       "meta": {
-        "description": "🔴 Portal Red Team",
+        "description": "\ud83d\udd34 Portal Red Team",
         "profile_image_url": "",
         "toolIds": [
           "portal_code"
@@ -319,9 +335,9 @@
     },
     {
       "id": "auto-research",
-      "name": "🔍 Portal Research Assistant",
+      "name": "\ud83d\udd0d Portal Research Assistant",
       "meta": {
-        "description": "🔍 Portal Research Assistant",
+        "description": "\ud83d\udd0d Portal Research Assistant",
         "profile_image_url": "",
         "toolIds": []
       },
@@ -332,9 +348,9 @@
     },
     {
       "id": "auto-security",
-      "name": "🔒 Portal Security Analyst",
+      "name": "\ud83d\udd12 Portal Security Analyst",
       "meta": {
-        "description": "🔒 Portal Security Analyst",
+        "description": "\ud83d\udd12 Portal Security Analyst",
         "profile_image_url": "",
         "toolIds": [
           "portal_code"
@@ -347,32 +363,32 @@
     },
     {
       "id": "auto-video",
-      "name": "🎬 Portal Video Creator",
+      "name": "\ud83c\udfac Portal Video Creator",
       "meta": {
-        "description": "🎬 Portal Video Creator",
+        "description": "\ud83c\udfac Portal Video Creator",
         "profile_image_url": "",
         "toolIds": [
-          "portal_video",
-          "portal_comfyui"
+          "portal_video_mlx",
+          "portal_mflux"
         ]
       },
       "params": {
-        "system": "You help generate videos. Use the Portal Video MCP tool to create video clips from text descriptions. Describe what will be generated before executing.",
+        "system": "You help generate videos. Use the video-generation tool (generate_video) to create video clips from text descriptions. Describe what will be generated before executing.",
         "model": "auto-video"
       }
     },
     {
       "id": "auto-vision",
-      "name": "👁️  Portal Vision",
+      "name": "\ud83d\udc41\ufe0f  Portal Vision",
       "meta": {
-        "description": "👁️  Portal Vision",
+        "description": "\ud83d\udc41\ufe0f  Portal Vision",
         "profile_image_url": "",
         "toolIds": [
-          "portal_comfyui"
+          "portal_mflux"
         ]
       },
       "params": {
-        "system": "You analyze images and handle multimodal tasks. Describe what you observe in detail. For image generation requests, use the ComfyUI MCP tool.",
+        "system": "You analyze images and handle multimodal tasks. Describe what you observe in detail. For image generation requests, use the image-generation tool (generate_image).",
         "model": "auto-vision"
       }
     }

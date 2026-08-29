@@ -9,7 +9,7 @@ report them as unwired.
 ## Image / video / speech generation
 
 ```bash
-python3 scripts/gen-image.py        # rapid image generation via the ComfyUI MCP
+./launch.sh install-mflux          # MLX-native image generation MCP (:8933)
 python3 scripts/gen-video.py        # video generation via the video MCP (shelved service, retained tooling)
 python3 scripts/register_trainer_voice.py --audio <clip> --name <name> --text "<transcript>" --test
                                     # clean a recording + register it as a voice-clone trainer profile (host :8918)

@@ -485,7 +485,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `auto-documents` | documents | `granite4.1:8b-ctx16k` |
 | `auto-extract-uncensored` | documents | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k` |
 | `auto-general-uncensored` | general | `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` |
-| `auto-image` | media | `granite4.1:8b-ctx16k` |
+| `auto-image` | image | `granite4.1:8b-ctx16k` |
 | `auto-math` | general | `phi4-mini-reasoning:latest-ctx24k` |
 | `auto-music` | media | `lfm2.5:8b-ctx8k` |
 | `auto-nemotron` | general | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx8k` |
@@ -494,7 +494,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `auto-security` | security | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` |
 | `auto-spl` | general | `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k` |
 | `auto-uncensored-throwaway` | general | `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k` |
-| `auto-video` | media | `granite4.1:8b-ctx16k` |
+| `auto-video` | video | `granite4.1:8b-ctx16k` |
 | `auto-vision` | general | `qwen3-vl:32b-ctx8k` |
 | `tools-specialist` | general | `granite4.1:8b-ctx8k` |
 
@@ -624,7 +624,7 @@ Model bindings are the reachability-resolved view of what each workspace `model_
 ### MCP Fleet
 
 <!-- WIKI:GENERATED unit=unit-fact-mcp-fleet -->
-# MCP fleet (24 servers)
+# MCP fleet (26 servers)
 
 | ID | Name | Port |
 |---|---|---|
@@ -652,6 +652,8 @@ Model bindings are the reachability-resolved view of what each workspace `model_
 | `binresearch` | portal-binresearch | 8930 |
 | `wiki` | portal-wiki | 8931 |
 | `detections` | portal-detections | 8932 |
+| `mflux` | portal-mflux | 8933 |
+| `video_mlx` | portal-video-mlx | 8935 |
 
 ## Why
 

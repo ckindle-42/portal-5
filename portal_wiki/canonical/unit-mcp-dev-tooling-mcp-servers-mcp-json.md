@@ -19,7 +19,7 @@ updated_at: 1784946220.570611
 `.mcp.json` is the MCP server roster consumed by Claude Code. Four entries are
 command-transport servers launched through `npx` or `uvx`: `filesystem`, `fetch`,
 `git`, and `docker`. The rest are remote HTTP servers pointing at the reserved
-portal-* ports — comfyui :8910, documents :8913, sandbox :8914, tts :8916,
+portal-* ports — mflux :8933, documents :8913, sandbox :8914, tts :8916,
 security :8919, memory :8920, rag :8921, research :8922, browser :8923,
 proxmox :8927, pipeline :8928, mitre :8929, wiki :8931, and detections :8932 among
 them — so each tool set is available to the client without a local install.

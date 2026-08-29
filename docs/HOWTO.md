@@ -20,7 +20,6 @@ When the stack is ready `launch.sh` prints the service URLs:
 
 - Open WebUI: `http://localhost:8080`
 - SearXNG: `http://localhost:8088`
-- ComfyUI: `http://localhost:8188`
 - Grafana: `http://localhost:3000`
 - Prometheus: `http://localhost:9090`
 
@@ -180,29 +179,29 @@ Document output is a two-part contract: the MCP server owns the byte-level forma
 
 ## 8. Image Generation
 
-**What:** Generate images using ComfyUI — FLUX, SDXL, and Qwen-Image checkpoints.
+**What:** Generate and edit images with MLX-native FLUX — `schnell` (fast default), `klein` (FLUX.2), `qwen-image` (best for legible text in the image).
 
-**Activate:** ComfyUI runs natively on the host (`./launch.sh install-comfyui`, installed into `COMFYUI_DIR`, served at `http://localhost:8188`) because a Docker container cannot reach the Metal GPU. The `mcp-comfyui` container (port 8910) exposes the `generate_image` / `start_image_generation` tools to models, and the `auto-image` workspace (`Portal Image Creator`) grants them, so selecting that workspace makes image generation available.
+**Activate:** `./launch.sh install-mflux` installs the MFLUX MCP as a host-native launchd service on port 8933 (Apple Silicon only — a Docker container cannot reach the Metal GPU). `./launch.sh pull-mflux-models` pre-pulls the weights. The `auto-image` workspace (`Portal Image Creator`) grants `generate_image` / `edit_image`, so selecting that workspace makes image generation available; `auto-vision` also grants `generate_image`.
 
-**How:** `portal/modules/media/tools/comfyui_mcp.py` drives ComfyUI's workflow API. The default `flux` model maps to the `comfyui:flux-schnell` checkpoint; `sdxl`, `qwen-image-2512`, and the `qwen-image-edit-*` editing models are selectable per call. Jobs can take minutes, so the tool surface splits into a blocking `generate_image` and the async `start_image_generation` + `get_image_status` pair. Outputs land in the shared workspace `generated/images/` and the MCP returns a URL. `.env` sets `COMFYUI_URL` and the `COMFYUI_TIMEOUT` ceiling. See `docs/COMFYUI_SETUP.md` for the full setup.
+**How:** `portal/modules/media/tools/mflux_mcp.py` shells out to the `mflux-generate` / `mflux-generate-flux2` CLI. `generate_image(prompt, model, width, height, steps, seed)` is synchronous — a few seconds (`schnell`) to a couple of minutes (`klein` / `qwen-image`). `edit_image(image_url, prompt, model, strength)` does instruction editing (`qwen-image-edit`) or img2img; `image_url` is a public http(s) URL or an already-uploaded file name (SSRF-gated by `assert_public_http_url`). Every job passes a `mflux:<model>` key through the Tier-1 admission check. Outputs land in the shared workspace `generated/images/` and publish through Open WebUI's files API. Measured MLX peaks: `schnell` ~14.5 GB, `klein` ~18 GB (`--quantize 8 --low-ram`).
 
 ## Why
 
-Image generation is split across two processes by hardware reality: ComfyUI must run on the host to use MPS, while the MCP bridge keeps the model-facing tool API uniform. The async job surface exists because diffusion jobs routinely outlast a chat request timeout, so models are taught to start a job, return the id, and poll rather than block.
+Image generation runs on the host MLX layer alongside speech/transcription/embeddings — one accelerator path, no Docker-to-Metal bridge, clean per-module removability. It replaced a ComfyUI-based path that could not run on this hardware (Metal has no FP8). The synchronous tool surface is enough because MFLUX jobs finish inside a chat request; the admission check refuses an oversized job before it OOMs the 64 GB box.
 
 ---
 
 ## 9. Video Generation
 
-**Shelved (2026-07-29):** Video generation is not currently in operation.
+**What:** Generate short clips (with synchronized audio) from a text prompt or animate a still image, via MLX-native LTX-2.3.
 
-Wan 2.2's `fp8_scaled` checkpoints (T2V-A14B, S2V-14B) crash on this host's Apple Silicon MPS stack — see `KNOWN_LIMITATIONS.md`, "Wan 2.2 fp8_scaled Checkpoints Crash on Apple Silicon MPS." TI2V-5B alone does work but was not judged worth exposing on its own. The `auto-video` workspace remains defined in `config/portal.yaml` with `expose_to_owui: false` so it stays hidden from the model dropdown, and the `mcp-video` container is profile-gated out of the default `./launch.sh up` set. Only image generation (`auto-image`, the ComfyUI MCP) is in operation.
+**Off by default:** the `video` M7 module is disabled by default — LTX-2.3 runs a large MLX working set, is thermally punishing on a 64 GB box, and produces preview-grade clips practically capped at ~4–6 s. Enable with `./launch.sh install-video-mlx` (clones `dgrauet/ltx-2-mlx`, `uv sync`) then `portal module enable video`; `sync-config` then adds the `video_mlx` fleet id and the `auto-video` workspace to the presets.
 
-The code path is left in place, not deleted, in case this becomes viable later — the `KNOWN_LIMITATIONS.md` entry lists what would need to change. `./launch.sh pull-wan22` still exists as an archival download command but must not be treated as enabling video operation.
+**How:** `portal/modules/media/tools/video_mlx_mcp.py` shells out to `ltx-2-mlx generate --distilled --low-ram`. `generate_video(prompt, model, frames, width, height, seed)` (frames snap to the LTX `8k+1` constraint) and `animate_image(image_url, prompt, ...)` (i2v). Model packs: `ltx-2.3-q4` (int4) / `ltx-2.3-q8` (int8). Jobs run several minutes; a `video_mlx:<model>` admission key gates each one. Output is an mp4 published through Open WebUI's files API.
 
 ## Why
 
-Shelving rather than deleting preserves an operational option at near-zero cost: the workspace, the ComfyUI workflows, and the pull commands are tested code that only lacks a viable MPS checkpoint. Keeping `expose_to_owui: false` and the compose profile gate means the shelf stays literal — nothing video-facing is advertised to users, so the documented posture cannot silently rot into a half-working feature.
+Video is the heaviest media surface, so it is footprint-first — off unless an operator opts in, mirroring the `eval` module. Keeping it a real (if disabled) module rather than deleted code means enabling it is a one-command toggle, not a rebuild.
 
 ---
 
@@ -393,7 +392,7 @@ Alerting lives in the pipeline process rather than a separate daemon so it share
 └── generated/
     ├── transcripts/        ← Diarized transcripts (mlx-transcribe, whisper)
     ├── documents/          ← Word/Excel/PowerPoint (documents MCP)
-    ├── images/             ← ComfyUI outputs
+    ├── images/             ← MFLUX image outputs
     ├── videos/             ← Retained archival video-output category
     ├── music/              ← Music MCP outputs
     └── speech/             ← TTS outputs

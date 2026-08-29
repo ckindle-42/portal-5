@@ -17,85 +17,23 @@ from portal.modules.media.tools import _admission
 REPO = Path(__file__).resolve().parents[2]
 
 
-def test_comfyui_launcher_does_not_override_model_inference_dtype():
+def test_no_comfyui_residue_in_launch_scripts():
+    """The ComfyUI image/video subsystem was removed (TASK_IMAGE_VIDEO_OVERHAUL_V1)."""
+    for rel in ("launch.sh", "scripts/lib/services.sh", "scripts/lib/util.sh"):
+        assert "comfyui" not in (REPO / rel).read_text().lower(), rel
+
+
+def test_mflux_installer_is_apple_silicon_only():
     services = (REPO / "scripts/lib/services.sh").read_text()
-    installer = services.split("_launch_install_comfyui()", 1)[1].split("\n}", 1)[0]
-    assert "--force-fp16" not in installer
+    installer = services.split("_launch_install_mflux()", 1)[1].split("\n}", 1)[0]
+    assert 'ARCH" != "arm64"' in installer
+    assert "mflux-generate" in installer
 
 
-def test_qwen_installer_uses_verified_mps_checkpoints():
-    services = (REPO / "scripts/lib/services.sh").read_text()
-    installer = services.split("_launch_pull_qwen_image()", 1)[1]
-    assert "qwen_image_fp8_e4m3fn.safetensors" in installer
-    assert "qwen_image_edit_2509_fp8_e4m3fn.safetensors" in installer
-    assert "qwen_image_2512_bf16.safetensors" not in installer
-    assert "qwen_image_edit_2511_bf16.safetensors" not in installer
-
-
-def test_routine_rebuilds_do_not_restart_shelved_video_service():
+def test_routine_rebuilds_do_not_reference_removed_video_service():
     launch = (REPO / "launch.sh").read_text()
     assert "mcp-video" not in launch
-
-
-def test_qwen_edit_2509_route_builds_distinct_workflow():
-    from portal.modules.media.tools import comfyui_mcp
-
-    workflow, seed = comfyui_mcp._build_image_workflow(
-        prompt="make the suit green",
-        width=512,
-        height=512,
-        steps=20,
-        cfg=4.0,
-        negative_prompt="",
-        seed=2509,
-        model="qwen-image-edit-2509",
-        checkpoint="",
-        lora="",
-        lora_strength=1.0,
-        image_filename="source.png",
-    )
-
-    assert seed == 2509
-    assert workflow["12"]["inputs"]["unet_name"] == ("qwen_image_edit_2509_fp8_e4m3fn.safetensors")
-    assert workflow["41"]["inputs"]["image"] == "source.png"
-    assert workflow["68"]["inputs"]["prompt"] == "make the suit green"
-    assert workflow["66"]["inputs"]["width"] == 512
-    assert workflow["66"]["inputs"]["height"] == 512
-
-
-@pytest.mark.asyncio
-async def test_http_dispatch_forwards_image_url():
-    from portal.modules.media.tools import comfyui_mcp
-
-    for tool_name in ("start_image_generation", "generate_image"):
-        manifest = next(tool for tool in comfyui_mcp.TOOLS_MANIFEST if tool["name"] == tool_name)
-        assert "image_url" in manifest["parameters"]["properties"]
-
-    request = AsyncMock()
-    request.json.return_value = {
-        "arguments": {
-            "prompt": "make the suit green",
-            "model": "qwen-image-edit-2509",
-            "image_url": "/workspace/uploads/source.png",
-        }
-    }
-    with patch.object(
-        comfyui_mcp,
-        "start_image_generation",
-        AsyncMock(return_value={"success": True, "job_id": "test-job"}),
-    ) as start:
-        await comfyui_mcp.start_image_generation_endpoint(request)
-
-    assert start.await_args.kwargs["image_url"] == "/workspace/uploads/source.png"
-
-    with patch.object(
-        comfyui_mcp,
-        "generate_image",
-        AsyncMock(return_value={"success": True, "filename": "test.png"}),
-    ) as generate:
-        await comfyui_mcp.generate_image_endpoint(request)
-
-    assert generate.await_args.kwargs["image_url"] == "/workspace/uploads/source.png"
+    assert "mcp-comfyui" not in launch
 
 
 class TestMediaModelMemoryDict:
@@ -108,9 +46,9 @@ class TestMediaModelMemoryDict:
             assert isinstance(gb, (int, float)), f"{key}: expected float, got {type(gb)}"
             assert gb > 0, f"{key}: memory estimate must be > 0 GB"
 
-    def test_heavy_video_model_has_large_estimate(self):
-        """The 14B video model that caused the live 2026-07-14 lockup must be >= 35GB."""
-        assert _admission.MEDIA_MODEL_MEMORY_GB.get("video:wan21-nsfw", 0) >= 35.0
+    def test_video_model_has_large_estimate(self):
+        """LTX-2.3 video packs run a large working set — keep the estimate conservative."""
+        assert _admission.MEDIA_MODEL_MEMORY_GB.get("video_mlx:ltx-2.3-q8", 0) >= 25.0
 
     def test_music_models_use_live_complete_quality_estimates(self):
         # Raw sampled peak working set — admit() adds MEMORY_HEADROOM_GB on top,
@@ -121,18 +59,19 @@ class TestMediaModelMemoryDict:
     def test_headroom_constant_exists(self):
         assert _admission.MEMORY_HEADROOM_GB >= 0
 
-    def test_qwen_edit_2509_uses_measured_estimate(self):
-        assert _admission.MEDIA_MODEL_MEMORY_GB["comfyui:qwen-image-edit-2509"] == 38.0
+    def test_mflux_image_models_use_measured_estimates(self):
+        assert _admission.MEDIA_MODEL_MEMORY_GB["mflux:schnell"] == 15.0
+        assert _admission.MEDIA_MODEL_MEMORY_GB["mflux:klein"] == 18.0
 
 
 class TestEstimateJobGb:
     def test_known_model_returns_table_value(self):
-        gb, known = _admission.estimate_job_gb("comfyui:sdxl")
-        assert gb == _admission.MEDIA_MODEL_MEMORY_GB["comfyui:sdxl"]
+        gb, known = _admission.estimate_job_gb("mflux:schnell")
+        assert gb == _admission.MEDIA_MODEL_MEMORY_GB["mflux:schnell"]
         assert known is True
 
     def test_unknown_model_returns_conservative_default(self):
-        gb, known = _admission.estimate_job_gb("comfyui:some-future-model")
+        gb, known = _admission.estimate_job_gb("mflux:some-future-model")
         assert gb == _admission.MEMORY_UNKNOWN_DEFAULT_GB
         assert known is False
 
@@ -141,22 +80,22 @@ class TestEstimateJobGb:
 class TestAdmit:
     async def test_admits_when_sufficient_memory(self):
         with patch.object(_admission, "free_unified_gb", AsyncMock(return_value=64.0)):
-            refusal = await _admission.admit("comfyui:sdxl")
+            refusal = await _admission.admit("mflux:schnell")
         assert refusal is None
 
     async def test_refuses_when_insufficient_memory(self):
-        # video:wan21-nsfw ~38.2GB + default 4GB headroom = 42.2GB needed; only 20GB free
+        # video_mlx:ltx-2.3-q8 ~34GB + default 4GB headroom = 38GB needed; only 20GB free
         with patch.object(_admission, "free_unified_gb", AsyncMock(return_value=20.0)):
-            refusal = await _admission.admit("video:wan21-nsfw")
+            refusal = await _admission.admit("video_mlx:ltx-2.3-q8")
         assert refusal is not None
         assert refusal["success"] is False
         assert len(refusal["error"]) > 0
 
     async def test_refusal_message_is_actionable(self):
         """User-facing error states the shortfall and that it's temporary; the
-        operator_hint carries the unload/stop recovery commands."""
+        operator_hint carries the unload/wait recovery guidance."""
         with patch.object(_admission, "free_unified_gb", AsyncMock(return_value=10.0)):
-            refusal = await _admission.admit("video:wan21-nsfw")
+            refusal = await _admission.admit("video_mlx:ltx-2.3-q8")
         assert refusal is not None
         assert refusal["retryable"] is True
         msg = refusal["error"]
@@ -164,38 +103,38 @@ class TestAdmit:
         assert "10.0GB" in msg  # the measured free amount
         assert "temporary" in msg.lower()
         hint = refusal["operator_hint"]
-        assert any(word in hint.lower() for word in ["stop", "unload", "comfyui", "ollama"])
+        assert any(word in hint.lower() for word in ["stop", "unload", "wait", "ollama"])
 
     async def test_unknown_model_admitted_when_memory_plentiful(self):
         with patch.object(_admission, "free_unified_gb", AsyncMock(return_value=64.0)):
-            refusal = await _admission.admit("comfyui:some-future-model")
+            refusal = await _admission.admit("mflux:some-future-model")
         assert refusal is None
 
     async def test_unknown_model_refused_on_low_memory(self):
         # default estimate 16GB + 4GB headroom = 20GB needed; only 5GB free
         with patch.object(_admission, "free_unified_gb", AsyncMock(return_value=5.0)):
-            refusal = await _admission.admit("comfyui:some-future-model")
+            refusal = await _admission.admit("mflux:some-future-model")
         assert refusal is not None
 
     async def test_borderline_passes(self):
         """Exactly at threshold should pass (<=, not <)."""
-        gb = _admission.MEDIA_MODEL_MEMORY_GB["comfyui:sdxl"]
+        gb = _admission.MEDIA_MODEL_MEMORY_GB["mflux:schnell"]
         exact = gb + _admission.MEMORY_HEADROOM_GB
         with patch.object(_admission, "free_unified_gb", AsyncMock(return_value=exact)):
-            refusal = await _admission.admit("comfyui:sdxl")
+            refusal = await _admission.admit("mflux:schnell")
         assert refusal is None
 
     async def test_borderline_fails(self):
-        gb = _admission.MEDIA_MODEL_MEMORY_GB["comfyui:sdxl"]
+        gb = _admission.MEDIA_MODEL_MEMORY_GB["mflux:schnell"]
         just_short = gb + _admission.MEMORY_HEADROOM_GB - 0.1
         with patch.object(_admission, "free_unified_gb", AsyncMock(return_value=just_short)):
-            refusal = await _admission.admit("comfyui:sdxl")
+            refusal = await _admission.admit("mflux:schnell")
         assert refusal is not None
 
     async def test_fails_open_when_memory_unmeasurable(self):
         """An unmeasurable free-memory signal must never block a job outright."""
         with patch.object(_admission, "free_unified_gb", AsyncMock(return_value=None)):
-            refusal = await _admission.admit("video:wan21-nsfw")
+            refusal = await _admission.admit("video_mlx:ltx-2.3-q8")
         assert refusal is None
 
     async def test_headroom_zero_disables_check(self):
@@ -204,13 +143,13 @@ class TestAdmit:
             patch.object(_admission, "MEMORY_HEADROOM_GB", 0),
             patch.object(_admission, "free_unified_gb", AsyncMock(return_value=0.0)),
         ):
-            refusal = await _admission.admit("video:wan21-nsfw")
+            refusal = await _admission.admit("video_mlx:ltx-2.3-q8")
         assert refusal is None
 
 
 class TestFreeGbFromVmStat:
     """Regression for false admission refusals: (1) ACE-Step (~40GB) was refused
-    with 35.6GB reported free while ComfyUI's psutil system_stats reported 44GB —
+    with 35.6GB reported free while a psutil system_stats reading showed 44GB —
     fixed by adding inactive pages. (2) MiniMax (~27GB) was refused with ~29GB
     free+inactive while memory_pressure reported ~41GB available with the Docker
     Desktop VM running — fixed by also counting speculative (read-ahead file
@@ -251,8 +190,7 @@ class TestMediaModelMemoryDictInSyncWithWikiFact:
     """_admission.py's docstring explains MEDIA_MODEL_MEMORY_GB is deliberately
     NOT imported from seed_facts.py (Rule 3: MCP modules stay independent) but
     kept as a manually-synced copy instead. Regression test for drift going
-    uncaught — see unit-known-limitations-qwen-image-bf16-crashes-on-apple-
-    silicon-mps."""
+    uncaught."""
 
     def test_tables_match(self):
         import portal.platform.wiki.adapters.seed_facts as seed_facts

@@ -37,7 +37,7 @@ truth via `expected_model_keys`, `model_matches_expected`, and `resolve_expected
 `run_assertions`, the result model, and the `stream_wait` idle-gap waiter.
 `quality_score`, `score_function_recall`, `classify_lines`, `compute_regressions`,
 `added_removed_cells`, and `build_dashboard` cover scoring and reporting. The shims
-`portal5_acceptance_v6.py`, `portal5_acceptance_comfyui.py`, `portal5_uat_driver.py`,
+`portal5_acceptance_v6.py`, `portal5_uat_driver.py`,
 and `portal5_persona_matrix.py` forward to their packages.
 
 ## Gotchas

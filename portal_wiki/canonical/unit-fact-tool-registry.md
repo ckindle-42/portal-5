@@ -1,11 +1,11 @@
 ---
 id: unit-fact-tool-registry
 kind: what
-title: 103 MCP tools across 24 servers
+title: 103 MCP tools across 26 servers
 sources:
 - type: code
   path: portal/modules/*/tools/*_mcp.py
-  commit: 3692f584f7ae
+  commit: c73d5ca76df0
 claims: []
 confidence: high
 tags:
@@ -13,7 +13,7 @@ tags:
 - tools
 - mcp
 created_at: 1784049584.748966
-updated_at: 1787921361.351895
+updated_at: 1787958190.814133
 ---
 
 # MCP tool registry
@@ -33,6 +33,7 @@ What each MCP server actually registers — `@mcp.tool()` defs, or `@mcp.custom_
 | `filesystem` | _(unresolved — server file not found)_ |
 | `git` | _(unresolved — server file not found)_ |
 | `memory` | `clear_memories`, `forget`, `list_memories`, `recall`, `remember` |
+| `mflux` | _(unresolved — server file not found)_ |
 | `mitre` | `mitre_data_sources_for_technique`, `mitre_detections_for_technique`, `mitre_technique_lookup`, `mitre_techniques_list` |
 | `mlx_transcribe` | _(unresolved — server file not found)_ |
 | `music-minimax` | _(unresolved — server file not found)_ |
@@ -44,6 +45,7 @@ What each MCP server actually registers — `@mcp.tool()` defs, or `@mcp.custom_
 | `security` | `classify_vulnerability`, `lab_perception` |
 | `serena` | _(unresolved — server file not found)_ |
 | `tts` | `clone_voice`, `list_voices`, `register_voice`, `speak` |
+| `video_mlx` | _(unresolved — server file not found)_ |
 | `whisper` | `transcribe_audio`, `transcribe_with_speakers` |
 | `wiki` | _(unresolved — server file not found)_ |
 

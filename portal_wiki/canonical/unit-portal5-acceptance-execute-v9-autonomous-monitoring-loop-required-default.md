@@ -25,7 +25,7 @@ live stack, so a full run is long and the machine is unattended for extended
 windows. The S10c compliance section is the most expensive phase: it drives
 every compliance persona through every applicable scenario expanded from the
 compliance fixture, issuing one pipeline chat request per scenario. Because a
-run can stall silently on cold model loads, ComfyUI memory pressure, or an
+run can stall silently on cold model loads, MLX generation memory pressure, or an
 Ollama crash, the operator must monitor rather than fire-and-forget.
 
 After launching the suite, establish a scheduled wakeup loop that periodically:

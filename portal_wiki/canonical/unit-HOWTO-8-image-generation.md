@@ -1,26 +1,23 @@
 ---
 id: unit-HOWTO-8-image-generation
 kind: why
-title: "HOWTO \u2014 8. Image Generation"
+title: "HOWTO — 8. Image Generation"
 sources:
 - type: code
-  path: portal/modules/media/tools/comfyui_mcp.py
+  path: portal/modules/media/tools/mflux_mcp.py
 claims: []
 confidence: high
 tags:
 - HOWTO
 - docs
-- verified-v1
-created_at: 1783195000.84399
-updated_at: 1783195000.84399
 ---
 
-**What:** Generate images using ComfyUI — FLUX, SDXL, and Qwen-Image checkpoints.
+**What:** Generate and edit images with MLX-native FLUX — `schnell` (fast default), `klein` (FLUX.2), `qwen-image` (best for legible text in the image).
 
-**Activate:** ComfyUI runs natively on the host (`./launch.sh install-comfyui`, installed into `COMFYUI_DIR`, served at `http://localhost:8188`) because a Docker container cannot reach the Metal GPU. The `mcp-comfyui` container (port 8910) exposes the `generate_image` / `start_image_generation` tools to models, and the `auto-image` workspace (`Portal Image Creator`) grants them, so selecting that workspace makes image generation available.
+**Activate:** `./launch.sh install-mflux` installs the MFLUX MCP as a host-native launchd service on port 8933 (Apple Silicon only — a Docker container cannot reach the Metal GPU). `./launch.sh pull-mflux-models` pre-pulls the weights. The `auto-image` workspace (`Portal Image Creator`) grants `generate_image` / `edit_image`; `auto-vision` also grants `generate_image`.
 
-**How:** `portal/modules/media/tools/comfyui_mcp.py` drives ComfyUI's workflow API. The default `flux` model maps to the `comfyui:flux-schnell` checkpoint; `sdxl`, `qwen-image-2512`, and the `qwen-image-edit-*` editing models are selectable per call. Jobs can take minutes, so the tool surface splits into a blocking `generate_image` and the async `start_image_generation` + `get_image_status` pair. Outputs land in the shared workspace `generated/images/` and the MCP returns a URL. `.env` sets `COMFYUI_URL` and the `COMFYUI_TIMEOUT` ceiling. See `docs/COMFYUI_SETUP.md` for the full setup.
+**How:** `portal/modules/media/tools/mflux_mcp.py` shells out to the `mflux-generate` / `mflux-generate-flux2` CLI. `generate_image(prompt, model, width, height, steps, seed)` is synchronous — a few seconds (`schnell`) to a couple of minutes (`klein` / `qwen-image`). `edit_image(image_url, prompt, model, strength)` does instruction editing (`qwen-image-edit`) or img2img; `image_url` is a public http(s) URL or an already-uploaded file name (SSRF-gated by `assert_public_http_url`). Every job passes a `mflux:<model>` key through the Tier-1 admission check. Outputs land in `generated/images/` and publish through Open WebUI's files API. Measured MLX peaks: `schnell` ~14.5 GB, `klein` ~18 GB (`--quantize 8 --low-ram`).
 
 ## Why
 
-Image generation is split across two processes by hardware reality: ComfyUI must run on the host to use MPS, while the MCP bridge keeps the model-facing tool API uniform. The async job surface exists because diffusion jobs routinely outlast a chat request timeout, so models are taught to start a job, return the id, and poll rather than block.
+Image generation runs on the host MLX layer alongside speech/transcription/embeddings — one accelerator path, no Docker-to-Metal bridge, clean per-module removability. It replaced a ComfyUI-based path that could not run on this hardware (Metal has no FP8). The synchronous tool surface is enough because MFLUX jobs finish inside a chat request; the admission check refuses an oversized job before it OOMs the 64 GB box.

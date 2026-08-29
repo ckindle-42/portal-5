@@ -266,7 +266,7 @@ ALL_SECTIONS: dict[str, object] = {
     "S8": S8,
     "S9": S9,
     "S7": S7,
-    # Phase 6: ComfyUI tests (LAST - huge memory)
+    # Phase 6: media generation tests (LAST - heaviest memory)
     "S30": S30,
     "S31": S31,
     # Phase 7: M5/M6 features
@@ -327,7 +327,7 @@ async def run_sections(sections: list[str], verbose: bool = False) -> tuple[list
 
     phase_transitions = {
         "S10": "Personas → Audio/MCP",
-        "S7": "Audio → ComfyUI",
+        "S7": "Audio → media generation",
     }
     running_full_suite = len(sections) > 10
 

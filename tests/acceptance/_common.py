@@ -66,7 +66,6 @@ OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434").replace(
 SEARXNG_URL = "http://localhost:8088"
 PROMETHEUS_URL = "http://localhost:9090"
 GRAFANA_URL = "http://localhost:3000"
-COMFYUI_URL = "http://localhost:8188"
 EMBEDDING_URL = os.environ.get("EMBEDDING_URL", "http://localhost:8917")
 
 # ── API credentials ──────────────────────────────────────────────────────────
@@ -79,8 +78,8 @@ AUTH = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"
 
 # ── MCP ports ────────────────────────────────────────────────────────────────
 MCP = {
-    "comfyui": int(os.environ.get("COMFYUI_MCP_HOST_PORT", "8910")),
-    "video": int(os.environ.get("VIDEO_MCP_HOST_PORT", "8911")),
+    "mflux": int(os.environ.get("MFLUX_MCP_PORT", "8933")),
+    "video_mlx": int(os.environ.get("VIDEO_MLX_MCP_PORT", "8935")),
     "music_minimax": int(os.environ.get("MUSIC_MINIMAX_PORT", "8912")),
     "documents": int(os.environ.get("DOCUMENTS_HOST_PORT", "8913")),
     "sandbox": int(os.environ.get("SANDBOX_HOST_PORT", "8914")),
@@ -598,14 +597,6 @@ async def _unload_ollama_models() -> None:
         print(f"  ⚠️  Ollama eviction failed: {e}")
 
 
-def _stop_comfyui() -> None:
-    """Kill ComfyUI process to reclaim GPU/RAM."""
-    result = subprocess.run(["pkill", "-f", "comfyui"], capture_output=True)
-    if result.returncode == 0:
-        print("  ── ComfyUI stopped to free memory ──")
-    subprocess.run(["pkill", "-f", "comfyui_mcp"], capture_output=True)
-
-
 async def _ensure_free_ram_gb(needed_gb: float, phase: str) -> float:
     """Ensure at least needed_gb of free RAM, evicting what we can. Returns actual free GB."""
     free = _free_ram_gb()
@@ -617,11 +608,7 @@ async def _ensure_free_ram_gb(needed_gb: float, phase: str) -> float:
     free = await _wait_metal_drain_async(timeout_s=90.0)
     print(f"  ── RAM after eviction: {free:.1f} GB free ──")
     if free < needed_gb:
-        print(f"  ⚠️  Still low on RAM ({free:.1f}GB < {needed_gb}GB needed) — stopping ComfyUI")
-        _stop_comfyui()
-        await asyncio.sleep(10)
-        free = _free_ram_gb()
-        print(f"  ── RAM after ComfyUI stop: {free:.1f} GB free ──")
+        print(f"  ⚠️  Still low on RAM ({free:.1f}GB < {needed_gb}GB needed)")
     return free
 
 

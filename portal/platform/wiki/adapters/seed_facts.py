@@ -637,25 +637,12 @@ def derive_tool_authorizations(commit: str, save: bool = True) -> KnowledgeUnit:
 
 
 # ── Media backend memory budget (Slice 7, TASK_VRAM_ADMISSION_V1) ───────────────
-# No historical per-model GB table exists for ComfyUI/media backends — the retired
-# MLX-proxy admission gate's MODEL_MEMORY dict (commit 91f13a9) only covered the old
-# text/VLM inference tier (Qwen/Llama/Gemma), and config/MODEL_CATALOG.md is GGUF/Ollama
-# only. These figures are session-observed (Slice P media bring-up, 2026-07-14): Flux
-# summed from on-disk checkpoint+CLIP+VAE sizes, Wan2.1-NSFW-14B likewise (the exact
-# combination that drove swap to 66.7GB/67.6GB and locked the system), SDXL from its
-# single-file size. Music backend figures are live 60s/30-step vm_stat measurements
-# with standard headroom (see the per-engine entries below).
-# Operator-confirmed as the basis pending real vendor-spec numbers (see AskUserQuestion
-# in that session — GATE: HISTORY had no applicable historical table to recover).
+# Session-observed peak unified-memory figures per media backend/model, consumed by
+# the Tier-1 admission check in portal/modules/media/tools/_admission.py to refuse a
+# job before it OOMs the host. Music backend figures are live 60s/30-step vm_stat
+# measurements with standard headroom; the image/video figures are measured MLX
+# peaks from TASK_IMAGE_VIDEO_OVERHAUL_V1 (quantize 8 + --low-ram / block streaming).
 MEDIA_MODEL_MEMORY_GB: dict[str, float] = {
-    "comfyui:flux-schnell": 27.2,  # checkpoint 22 + vae 0.32 + clip_l 0.235 + t5xxl_fp8 4.6
-    "comfyui:sdxl": 6.5,  # single self-contained checkpoint
-    # Corrected 38.2 -> 55.0 after a second live lockup during this same session's
-    # verification test: a *tiny* job (9 frames, 5 steps) still crashed free RAM from
-    # ~45GB to ~60MB. Static weight size (unet 27 + clip 11 + vae 0.24 = 38.2GB) does
-    # not capture real peak usage — diffusion activation/buffer overhead pushes this
-    # backend close to the entire 64GB unified pool regardless of frame count.
-    "video:wan21-nsfw": 55.0,
     # Measured live: MiniMax-Music3-MLX 60s/30-step, vm_stat sampled peak working set.
     # Raw peak only — admit() adds MEMORY_HEADROOM_GB on top (every other entry here
     # is likewise a raw size, not a headroom-inclusive figure). Was 27.0 with 4GB of
@@ -663,11 +650,18 @@ MEDIA_MODEL_MEMORY_GB: dict[str, float] = {
     "music:minimax3": 22.0,  # coarse sampled delta 22.02GiB, rounded down to the GiB
     # Measured live (Phase 5): ACE-Step-1.5 sft 2B + 1.7B LM 60s/30-step, vm_stat delta + headroom.
     "music:acestep-sft": 40.0,  # coarse sampled delta 35.43GiB + 4GiB headroom, rounded up
-    # Rationale, incident history: unit-known-limitations-qwen-image-bf16-crashes-on-apple-silicon-mps
-    "comfyui:qwen-image-2512": 38.0,  # fp8 diffusion 20.4 + fp8_scaled text encoder 9.4 + vae 0.25 static + margin
-    "comfyui:qwen-image-2512-lightning": 39.0,  # same base weights (QWEN_IMAGE_MODEL, fp8) + ~0.85GB LoRA
-    "comfyui:qwen-image-edit-2509": 38.0,  # plain fp8 storage expands to bf16 compute; live 512px peak used ~34GB
-    "comfyui:qwen-image-edit-2511": 60.0,  # bf16 diffusion 40.8 (no smaller variant yet) + fp8_scaled text encoder 9.4 + vae 0.25 static + margin
+    # MLX-native image generation (MFLUX / mflux-generate CLI, host MLX layer) —
+    # measured live in TASK_IMAGE_VIDEO_OVERHAUL_V1 I1, quantize 8 + --low-ram.
+    "mflux:schnell": 15.0,
+    "mflux:dev": 16.0,
+    "mflux:klein": 18.0,
+    "mflux:z-image": 14.0,
+    "mflux:qwen-image": 22.0,
+    "mflux:qwen-image-edit": 24.0,
+    # MLX-native video generation (ltx-2-mlx CLI, host MLX layer) — LTX-2.3
+    # distilled, --low-ram. Measured live in TASK_IMAGE_VIDEO_OVERHAUL_V1 V1.
+    "video_mlx:ltx-2.3-q4": 18.0,  # measured 16.0GB peak footprint, --distilled --low-ram, 512x320
+    "video_mlx:ltx-2.3-q8": 28.0,  # int8, ~+10GB over q4
 }
 
 
@@ -676,14 +670,13 @@ def derive_media_memory_budget(commit: str, save: bool = True) -> KnowledgeUnit:
     body_lines = [
         "# Media backend memory budget (Tier 0, cross-engine VRAM admission)",
         "",
-        "Session-observed peak unified-memory estimates per media backend/model — no "
-        "historical per-model table exists for ComfyUI/media (the retired MLX-proxy admission "
-        "gate only covered the text/VLM inference tier). Used by the Tier 1 pre-flight admission "
-        "check (`portal/modules/media/tools/_admission.py`) to refuse a job before it OOMs "
-        "instead of after.",
+        "Session-observed peak unified-memory estimates per media backend/model. Used by "
+        "the Tier 1 pre-flight admission check (`portal/modules/media/tools/_admission.py`) "
+        "to refuse a job before it OOMs instead of after.",
         "",
-        "The `video:*` row is retained for the archived `video_mcp` code path; video service "
-        "operation is shelved. Active ComfyUI operation is image-only.",
+        "Image is `mflux:*` (MLX-native FLUX, host layer), video is `video_mlx:*` "
+        "(ltx-2-mlx, host layer), music is `music:*`. All are measured MLX peaks with "
+        "`--low-ram` / block streaming.",
         "",
         "| Backend:model | Estimated GB |",
         "|---|---|",

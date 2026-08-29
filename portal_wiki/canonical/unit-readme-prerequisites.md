@@ -29,8 +29,8 @@ The requirements `./launch.sh up` actually enforces are in `_check_hardware` in
 Apple Silicon is the recommended platform: `install-ollama` reports the pinned
 native Ollama install's status (a system LaunchDaemon, `com.portal5.ollama` —
 not Homebrew, which lags upstream releases below this project's minimum
-version; disabled and uninstalled 2026-08-10), `install-comfyui` sets up
-ComfyUI with an MPS venv, and the native MLX services run on the M-series
+version; disabled and uninstalled 2026-08-10), `install-mflux` sets up
+the MLX image generator, and the native MLX services run on the M-series
 Metal path. On non-Apple-Silicon machines the installers print Linux/Docker
 alternatives instead of failing.
 

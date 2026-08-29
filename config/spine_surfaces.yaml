@@ -56,9 +56,9 @@ surfaces:
   globs:
   - portal/modules/media/tools/_admission.py
   unit: unit-HOWTO-media-memory-and-launch-order
-- name: file-portal-modules-media-tools-comfyui_mcp
+- name: file-portal-modules-media-tools-mflux_mcp
   globs:
-  - portal/modules/media/tools/comfyui_mcp.py
+  - portal/modules/media/tools/mflux_mcp.py
   unit: unit-HOWTO-8-image-generation
 - name: file-portal-modules-media-tools-music_ace_mcp
   globs:
@@ -72,10 +72,10 @@ surfaces:
   globs:
   - portal/modules/media/tools/tts_mcp.py
   unit: unit-fact-tool-registry
-- name: file-portal-modules-media-tools-video_mcp
+- name: file-portal-modules-media-tools-video_mlx_mcp
   globs:
-  - portal/modules/media/tools/video_mcp.py
-  unit: unit-comfyui-setup-cinematic-quality-t2v-a14b-slower
+  - portal/modules/media/tools/video_mlx_mcp.py
+  unit: unit-HOWTO-9-video-generation
 - name: file-portal-modules-media-tools-whisper_mcp
   globs:
   - portal/modules/media/tools/whisper_mcp.py
@@ -330,10 +330,6 @@ surfaces:
   globs:
   - portal/modules/binary_research/**/*.py
   unit: unit-surface-binary-research
-- name: unit-surface-comfyui-tests
-  globs:
-  - tests/comfyui/*.py
-  unit: unit-surface-comfyui-tests
 - name: unit-surface-inference
   globs:
   - portal/platform/inference/*.py

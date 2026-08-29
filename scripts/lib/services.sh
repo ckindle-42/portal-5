@@ -55,137 +55,6 @@ _launch_install_ollama() {
     exit 1
 }
 
-_launch_install_comfyui() {
-    echo "=== Installing ComfyUI natively (Apple Silicon / Metal GPU) ==="
-    ARCH=$(uname -m)
-    COMFYUI_DIR="${COMFYUI_DIR:-$HOME/ComfyUI}"
-
-    if [ "$ARCH" != "arm64" ]; then
-        echo "  ℹ️  Non-Apple-Silicon detected ($ARCH)."
-        echo "  For Linux with NVIDIA: use Docker ComfyUI via --profile docker-comfyui"
-        echo "  Or install manually: https://github.com/comfyanonymous/ComfyUI"
-        exit 0
-    fi
-
-    # ── Install Python dependency manager ────────────────────────────────────
-    if ! command -v python3 &>/dev/null; then
-        echo "  ❌ python3 not found. Install via brew: brew install python"
-        exit 1
-    fi
-
-    # ── Clone ComfyUI ─────────────────────────────────────────────────────────
-    if [ -d "$COMFYUI_DIR" ]; then
-        echo "  ✅ ComfyUI already cloned at $COMFYUI_DIR"
-        echo "  Updating..."
-        git -C "$COMFYUI_DIR" pull --quiet
-    else
-        echo "  Cloning ComfyUI to $COMFYUI_DIR..."
-        git clone https://github.com/comfyanonymous/ComfyUI "$COMFYUI_DIR"
-        echo "  ✅ ComfyUI cloned"
-    fi
-
-    # ── Install Python dependencies ───────────────────────────────────────────
-    echo "  Installing Python dependencies (this may take a few minutes)..."
-    cd "$COMFYUI_DIR"
-
-    # Use a venv to avoid system Python conflicts
-    if [ ! -d "$COMFYUI_DIR/.venv" ]; then
-        python3 -m venv "$COMFYUI_DIR/.venv"
-    fi
-
-    "$COMFYUI_DIR/.venv/bin/pip" install --quiet --upgrade pip
-    "$COMFYUI_DIR/.venv/bin/pip" install --quiet -r requirements.txt
-    # PyTorch for Apple Silicon (MPS)
-    "$COMFYUI_DIR/.venv/bin/pip" install --quiet \
-        torch torchvision torchaudio
-    echo "  ✅ Dependencies installed"
-
-    # ── Create model directories ──────────────────────────────────────────────
-    mkdir -p "$COMFYUI_DIR/models/checkpoints"
-    mkdir -p "$COMFYUI_DIR/models/video"
-    mkdir -p "$COMFYUI_DIR/output"
-    echo "  ✅ Model directories created"
-
-    # ── Create a launch script for ComfyUI ───────────────────────────────────
-    cat > "$COMFYUI_DIR/start.sh" << 'COMFY_START'
-#!/bin/bash
-# Start ComfyUI with Metal (MPS) acceleration for Apple Silicon
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
-.venv/bin/python main.py \
-    --listen 0.0.0.0 \
-    --port 8188
-COMFY_START
-    chmod +x "$COMFYUI_DIR/start.sh"
-
-    # ── Register as a launchd service (auto-start on login) ──────────────────
-    PLIST_PATH="$HOME/Library/LaunchAgents/com.portal5.comfyui.plist"
-    cat > "$PLIST_PATH" << PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.portal5.comfyui</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>$COMFYUI_DIR/.venv/bin/python</string>
-        <string>$COMFYUI_DIR/main.py</string>
-        <string>--listen</string>
-        <string>0.0.0.0</string>
-        <string>--port</string>
-        <string>8188</string>
-    </array>
-    <key>WorkingDirectory</key>
-    <string>$COMFYUI_DIR</string>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-    <key>StandardOutPath</key>
-    <string>$HOME/.portal5/logs/comfyui.log</string>
-    <key>StandardErrorPath</key>
-    <string>$HOME/.portal5/logs/comfyui-error.log</string>
-</dict>
-</plist>
-PLIST
-
-    mkdir -p "$HOME/.portal5/logs"
-
-    # ── Install ComfyUI-VideoHelperSuite (required for VHS_VideoCombine video output) ──
-    echo "  Installing ComfyUI-VideoHelperSuite (video output node)..."
-    VHS_DIR="$COMFYUI_DIR/custom_nodes/ComfyUI-VideoHelperSuite"
-    if [ -d "$VHS_DIR" ]; then
-        echo "  ✅ ComfyUI-VideoHelperSuite already installed — updating"
-        git -C "$VHS_DIR" pull --quiet
-    else
-        git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git "$VHS_DIR"
-        echo "  ✅ ComfyUI-VideoHelperSuite installed"
-    fi
-    if [ -f "$VHS_DIR/requirements.txt" ]; then
-        "$COMFYUI_DIR/.venv/bin/pip" install --quiet -r "$VHS_DIR/requirements.txt"
-    fi
-
-    # Load the service
-    launchctl load "$PLIST_PATH" 2>/dev/null || true
-    launchctl start com.portal5.comfyui 2>/dev/null || true
-    sleep 5
-
-    if curl -s http://localhost:8188/system_stats &>/dev/null; then
-        echo "  ✅ ComfyUI is running at http://localhost:8188"
-        echo "  ✅ Auto-starts on login via launchd"
-    else
-        echo "  ⚠️  ComfyUI installed but not yet responding."
-        echo "  Logs: $HOME/.portal5/logs/comfyui.log"
-        echo "  Or start manually: $COMFYUI_DIR/start.sh"
-    fi
-
-    echo ""
-    echo "Next steps:"
-    echo "  ./launch.sh download-comfyui-models   — download image/video models"
-    echo "  ./launch.sh up                        — start Portal 5 stack"
-}
-
 _launch_install_music_minimax() {
     echo "=== Installing MiniMax-Music3-MLX MCP natively (Apple Silicon / MLX) ==="
     ARCH=$(uname -m)
@@ -255,6 +124,181 @@ MM_START
 PLIST
     launchctl load "$PLIST" 2>/dev/null || true
     echo "  ✅ Registered launchd service: com.portal5.music-minimax (port $MM_PORT)"
+}
+
+_launch_install_mflux() {
+    echo "=== Installing MFLUX MCP natively (MLX-native image generation, Apple Silicon) ==="
+    ARCH=$(uname -m)
+    MX_DIR="$HOME/.portal5/mflux"
+    MX_VENV="$MX_DIR/.venv"
+    MX_LOG="$HOME/.portal5/logs/mflux.log"
+    MX_PORT="${MFLUX_MCP_PORT:-8933}"
+
+    if [ "$ARCH" != "arm64" ]; then
+        echo "  ❌ MFLUX requires Apple Silicon (arm64). Detected: $ARCH."
+        echo "  There is no CPU/CUDA fallback for this engine."
+        exit 1
+    fi
+    command -v python3 &>/dev/null || { echo "  ❌ python3 not found (brew install python)"; exit 1; }
+
+    mkdir -p "$MX_DIR" "$HOME/.portal5/logs"
+    [ -d "$MX_VENV" ] || { echo "  Creating venv..."; python3 -m venv "$MX_VENV"; }
+
+    echo "  Installing deps (mflux, mcp)..."
+    "$MX_VENV/bin/pip" install --quiet --upgrade pip
+    "$MX_VENV/bin/pip" install --quiet \
+        "mflux" "fastapi>=0.109.0" "uvicorn[standard]>=0.27.0" "httpx>=0.26.0" \
+        "pyyaml>=6.0.1" "starlette>=0.35.0" "mcp>=2.0.0,<3.0.0"
+
+    cat > "$MX_DIR/start.sh" << MX_START
+#!/bin/bash
+PORTAL_ROOT="${PORTAL_ROOT}"
+[ -d "\$PORTAL_ROOT/portal" ] || { echo "ERROR: PORTAL_ROOT invalid; re-run install-mflux" >&2; exit 1; }
+# launchd gives us no shell env and no .env — source it so OWUI_API_KEY /
+# PORTAL_PUBLIC_URL reach publish_file (host-native, unlike the Docker MCPs).
+set -a; [ -f "\$PORTAL_ROOT/.env" ] && . "\$PORTAL_ROOT/.env"; set +a
+export PYTHONPATH="\$PORTAL_ROOT"
+export MFLUX_BIN="$MX_VENV/bin/mflux-generate"
+export MFLUX_FLUX2_BIN="$MX_VENV/bin/mflux-generate-flux2"
+export MFLUX_MCP_PORT="${MX_PORT}"
+# Respect an operator HF cache override (large weight dir on an external volume);
+# default is HF's own ~/.cache/huggingface. All mflux model families must resolve
+# under the SAME \$HF_HOME/hub — mixing cache roots re-downloads weights.
+[ -n "\${HF_HOME:-}" ] && export HF_HOME
+export AI_OUTPUT_DIR="\${AI_OUTPUT_DIR:-\$HOME/AI_Output}"
+export OPENWEBUI_URL="\${OPENWEBUI_URL:-http://localhost:8080}"
+mkdir -p "\$AI_OUTPUT_DIR"
+exec "$MX_VENV/bin/python" -m portal.modules.media.tools.mflux_mcp
+MX_START
+    chmod +x "$MX_DIR/start.sh"
+
+    PLIST="$HOME/Library/LaunchAgents/com.portal5.mflux.plist"
+    cat > "$PLIST" << PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+    <key>Label</key><string>com.portal5.mflux</string>
+    <key>ProgramArguments</key><array><string>$MX_DIR/start.sh</string></array>
+    <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
+    <key>StandardOutPath</key><string>$MX_LOG</string>
+    <key>StandardErrorPath</key><string>$MX_LOG</string>
+</dict></plist>
+PLIST
+    launchctl load "$PLIST" 2>/dev/null || true
+    echo "  ✅ Registered launchd service: com.portal5.mflux (port $MX_PORT)"
+}
+
+_launch_start_mflux() {
+    launchctl kickstart -k "gui/$(id -u)/com.portal5.mflux" 2>/dev/null \
+        || _launch_install_mflux
+    echo "  ✅ MFLUX MCP started (port ${MFLUX_MCP_PORT:-8933})"
+}
+
+_launch_stop_mflux() {
+    if launchctl print "gui/$(id -u)/com.portal5.mflux" &>/dev/null 2>&1; then
+        launchctl bootout "gui/$(id -u)/com.portal5.mflux" 2>/dev/null || true
+        echo "MFLUX MCP stopped (launchd)"
+    else
+        echo "MFLUX MCP not running"
+    fi
+}
+
+_launch_pull_mflux_models() {
+    MX_VENV="$HOME/.portal5/mflux/.venv"
+    [ -x "$MX_VENV/bin/mflux-generate" ] || { echo "  ❌ Run ./launch.sh install-mflux first." >&2; exit 1; }
+    echo "  Pre-pulling MFLUX model weights (schnell ~34GB, then klein/z-image/qwen-image)..."
+    for m in "${@:-schnell flux2-klein-4b z-image-turbo qwen-image}"; do
+        echo "  → $m"
+        "$MX_VENV/bin/mflux-generate" --model "$m" --prompt "warmup" --steps 1 \
+            --quantize 8 --low-ram --width 512 --height 512 \
+            --output "/tmp/mflux_warmup_${m}.png" 2>&1 | tail -3 || true
+    done
+}
+
+_launch_install_video_mlx() {
+    echo "=== Installing Video-MLX MCP natively (LTX-2.3 MLX video generation, Apple Silicon) ==="
+    ARCH=$(uname -m)
+    VX_DIR="$HOME/.portal5/video-mlx"
+    VX_SRC="$VX_DIR/ltx-2-mlx"
+    VX_VENV="$VX_SRC/.venv"
+    VX_LOG="$HOME/.portal5/logs/video-mlx.log"
+    VX_PORT="${VIDEO_MLX_MCP_PORT:-8935}"
+
+    if [ "$ARCH" != "arm64" ]; then
+        echo "  ❌ Video-MLX requires Apple Silicon (arm64). Detected: $ARCH."
+        echo "  There is no CPU/CUDA fallback for this engine."
+        exit 1
+    fi
+    command -v uv &>/dev/null || { echo "  ❌ uv not found (curl -LsSf https://astral.sh/uv/install.sh | sh)"; exit 1; }
+    command -v ffmpeg &>/dev/null || echo "  ⚠️  ffmpeg not found — ltx-2-mlx needs it for video encoding (brew install ffmpeg)"
+
+    mkdir -p "$VX_DIR" "$HOME/.portal5/logs"
+    if [ -d "$VX_SRC/.git" ]; then
+        echo "  Updating ltx-2-mlx..."; git -C "$VX_SRC" pull --quiet || true
+    else
+        echo "  Cloning dgrauet/ltx-2-mlx..."; git clone --depth 1 https://github.com/dgrauet/ltx-2-mlx.git "$VX_SRC"
+    fi
+    echo "  Resolving deps (uv sync)..."
+    ( cd "$VX_SRC" && uv sync --all-extras )
+    # The MCP server needs mcp + starlette in the same venv as ltx-2-mlx.
+    "$VX_VENV/bin/python" -m pip install --quiet "mcp>=2.0.0,<3.0.0" "starlette>=0.35.0" \
+        "httpx>=0.26.0" "pyyaml>=6.0.1" 2>/dev/null || \
+        ( cd "$VX_SRC" && uv pip install "mcp>=2.0.0,<3.0.0" "starlette>=0.35.0" "httpx>=0.26.0" "pyyaml>=6.0.1" )
+
+    cat > "$VX_DIR/start.sh" << VX_START
+#!/bin/bash
+PORTAL_ROOT="${PORTAL_ROOT}"
+[ -d "\$PORTAL_ROOT/portal" ] || { echo "ERROR: PORTAL_ROOT invalid; re-run install-video-mlx" >&2; exit 1; }
+set -a; [ -f "\$PORTAL_ROOT/.env" ] && . "\$PORTAL_ROOT/.env"; set +a
+export PYTHONPATH="\$PORTAL_ROOT"
+export VIDEO_MLX_BIN="$VX_VENV/bin/ltx-2-mlx"
+export VIDEO_MLX_MCP_PORT="${VX_PORT}"
+export AI_OUTPUT_DIR="\${AI_OUTPUT_DIR:-\$HOME/AI_Output}"
+export OPENWEBUI_URL="\${OPENWEBUI_URL:-http://localhost:8080}"
+mkdir -p "\$AI_OUTPUT_DIR"
+exec "$VX_VENV/bin/python" -m portal.modules.media.tools.video_mlx_mcp
+VX_START
+    chmod +x "$VX_DIR/start.sh"
+
+    PLIST="$HOME/Library/LaunchAgents/com.portal5.video-mlx.plist"
+    cat > "$PLIST" << PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+    <key>Label</key><string>com.portal5.video-mlx</string>
+    <key>ProgramArguments</key><array><string>$VX_DIR/start.sh</string></array>
+    <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
+    <key>StandardOutPath</key><string>$VX_LOG</string>
+    <key>StandardErrorPath</key><string>$VX_LOG</string>
+</dict></plist>
+PLIST
+    launchctl load "$PLIST" 2>/dev/null || true
+    echo "  ✅ Registered launchd service: com.portal5.video-mlx (port $VX_PORT)"
+}
+
+_launch_start_video_mlx() {
+    launchctl kickstart -k "gui/$(id -u)/com.portal5.video-mlx" 2>/dev/null \
+        || _launch_install_video_mlx
+    echo "  ✅ Video-MLX MCP started (port ${VIDEO_MLX_MCP_PORT:-8935})"
+}
+
+_launch_stop_video_mlx() {
+    if launchctl print "gui/$(id -u)/com.portal5.video-mlx" &>/dev/null 2>&1; then
+        launchctl bootout "gui/$(id -u)/com.portal5.video-mlx" 2>/dev/null || true
+        echo "Video-MLX MCP stopped (launchd)"
+    else
+        echo "Video-MLX MCP not running"
+    fi
+}
+
+_launch_pull_video_mlx_models() {
+    VX_VENV="$HOME/.portal5/video-mlx/ltx-2-mlx/.venv"
+    [ -x "$VX_VENV/bin/ltx-2-mlx" ] || { echo "  ❌ Run ./launch.sh install-video-mlx first." >&2; exit 1; }
+    echo "  Pre-pulling LTX-2.3 model packs (q4 ~12GB, q8 ~21GB)..."
+    for m in "${@:-dgrauet/ltx-2.3-mlx-q4}"; do
+        echo "  → $m"
+        "$VX_VENV/bin/ltx-2-mlx" info --model "$m" 2>&1 | tail -5 || true
+    done
 }
 
 _launch_install_music_ace() {
@@ -811,142 +855,3 @@ _launch_stop_transcribe() {
     fi
 }
 
-_launch_download_comfyui_models() {
-    echo "  ❌ download-comfyui-models has no implementation." >&2
-    echo "     scripts/download_comfyui_models.py was removed in ea864cf2 (2026-05-23)," >&2
-    echo "     with the intent that pull-wan22/pull-qwen-image would replace it." >&2
-    echo "     Use ./launch.sh pull-wan22 for Wan 2.2 video models." >&2
-    exit 1
-}
-
-# Wan 2.2 TI2V-5B + S2V-14B + T2V-A14B — flat filenames in ComfyUI's
-# actually-scanned models/<type>/ folders. Comfy-Org/Wan_2.2_ComfyUI_Repackaged
-# nests these under split_files/<type>/ internally; --local-dir must target
-# the model-type-folder itself (not models/) and the split_files/<type>/
-# prefix must be stripped from the destination, or ComfyUI never sees the
-# files (see unit-known-limitations-comfyui-model-download-commands-are-broken).
-#
-# T2V-A14B is a two-expert MoE (high-noise + low-noise, ~13GB each) — there is
-# no single merged file, matching ComfyUI's official reference workflow.
-#
-# Animate-14B is NOT covered: stub requiring SAM2/DWPreprocessor/CLIPVision
-# custom ComfyUI nodes that aren't installed. Documented gap, not promised —
-# see unit-known-limitations-wan22-fp8-scaled-checkpoints-crash-on-apple-silicon-mps.
-_launch_pull_wan22() {
-    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-    COMFYUI_DIR="${COMFYUI_DIR:-$HOME/ComfyUI}"
-
-    if [ ! -d "$COMFYUI_DIR" ]; then
-        echo "  ❌ $COMFYUI_DIR not found. Run ./launch.sh install-comfyui first." >&2
-        exit 1
-    fi
-
-    if ! command -v hf &>/dev/null; then
-        echo "  Installing huggingface_hub CLI..."
-        pip install "huggingface_hub>=0.28" --quiet --break-system-packages 2>/dev/null || \
-            python3 -m pip install "huggingface_hub>=0.28" --quiet
-    fi
-
-    echo "=== Pulling Wan 2.2 TI2V-5B + S2V-14B + T2V-A14B (ComfyUI-flat layout) ==="
-    echo "  Target: $COMFYUI_DIR/models/{diffusion_models,vae,text_encoders,audio_encoders}/"
-    echo ""
-
-    REPO="Comfy-Org/Wan_2.2_ComfyUI_Repackaged"
-    declare -a FILES=(
-        "split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors:diffusion_models"
-        "split_files/vae/wan2.2_vae.safetensors:vae"
-        "split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors:text_encoders"
-        "split_files/diffusion_models/wan2.2_s2v_14B_fp8_scaled.safetensors:diffusion_models"
-        "split_files/audio_encoders/wav2vec2_large_english_fp16.safetensors:audio_encoders"
-        "split_files/diffusion_models/wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors:diffusion_models"
-        "split_files/diffusion_models/wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors:diffusion_models"
-    )
-
-    for entry in "${FILES[@]}"; do
-        repo_path="${entry%%:*}"
-        model_type="${entry##*:}"
-        dest_dir="$COMFYUI_DIR/models/$model_type"
-        filename="${repo_path##*/}"
-        mkdir -p "$dest_dir"
-        if [ -f "$dest_dir/$filename" ]; then
-            echo "  ✅ $model_type/$filename already present, skipping"
-            continue
-        fi
-        echo "  Downloading $repo_path -> $dest_dir/"
-        hf download "$REPO" "$repo_path" --local-dir "$dest_dir"
-        # hf download preserves the repo-internal split_files/<type>/ prefix
-        # as real subdirectories under --local-dir; flatten it.
-        if [ -f "$dest_dir/$repo_path" ]; then
-            mv "$dest_dir/$repo_path" "$dest_dir/$filename"
-            rm -rf "$dest_dir/split_files"
-        fi
-    done
-
-    echo ""
-    echo "Done. Restart ComfyUI (or wait for its live model-folder re-scan) and verify:"
-    echo "  curl -s localhost:8188/object_info/UNETLoader | grep wan2.2"
-}
-
-# Qwen-Image family (T2I, MPS-compatible Edit-2509, Lightning distillation
-# LoRA) — same flat-layout / split_files-flatten handling as pull-wan22.
-# These are the exact checkpoints verified on this Apple Silicon host. Plain
-# fp8 storage works; the scaled/mixed fp8 2511 checkpoint does not. ~48GiB total.
-_launch_pull_qwen_image() {
-    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-    COMFYUI_DIR="${COMFYUI_DIR:-$HOME/ComfyUI}"
-
-    if [ ! -d "$COMFYUI_DIR" ]; then
-        echo "  ❌ $COMFYUI_DIR not found. Run ./launch.sh install-comfyui first." >&2
-        exit 1
-    fi
-
-    if ! command -v hf &>/dev/null; then
-        echo "  Installing huggingface_hub CLI..."
-        pip install "huggingface_hub>=0.28" --quiet --break-system-packages 2>/dev/null || \
-            python3 -m pip install "huggingface_hub>=0.28" --quiet
-    fi
-
-    echo "=== Pulling Qwen-Image T2I + Edit-2509 + Lightning LoRA (ComfyUI-flat layout) ==="
-    echo "  Target: $COMFYUI_DIR/models/{diffusion_models,text_encoders,vae,loras}/"
-    echo ""
-
-    _pull_flat() {
-        local repo="$1" repo_path="$2" model_type="$3"
-        local dest_dir="$COMFYUI_DIR/models/$model_type"
-        local filename="${repo_path##*/}"
-        mkdir -p "$dest_dir"
-        if [ -f "$dest_dir/$filename" ]; then
-            echo "  ✅ $model_type/$filename already present, skipping"
-            return
-        fi
-        echo "  Downloading $repo_path -> $dest_dir/"
-        hf download "$repo" "$repo_path" --local-dir "$dest_dir"
-        if [ -f "$dest_dir/$repo_path" ]; then
-            mv "$dest_dir/$repo_path" "$dest_dir/$filename"
-            rm -rf "$dest_dir/split_files"
-        fi
-    }
-
-    QI_REPO="Comfy-Org/Qwen-Image_ComfyUI"
-    QI_EDIT_REPO="Comfy-Org/Qwen-Image-Edit_ComfyUI"
-    LIGHTNING_REPO="lightx2v/Qwen-Image-Lightning"
-
-    _pull_flat "$QI_REPO" "split_files/diffusion_models/qwen_image_fp8_e4m3fn.safetensors" "diffusion_models"
-    _pull_flat "$QI_REPO" "split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors" "text_encoders"
-    _pull_flat "$QI_REPO" "split_files/vae/qwen_image_vae.safetensors" "vae"
-    _pull_flat "$QI_EDIT_REPO" "split_files/diffusion_models/qwen_image_edit_2509_fp8_e4m3fn.safetensors" "diffusion_models"
-
-    LORA_DEST="$COMFYUI_DIR/models/loras"
-    LORA_FILE="Qwen-Image-Lightning-8steps-V1.1-bf16.safetensors"
-    mkdir -p "$LORA_DEST"
-    if [ -f "$LORA_DEST/$LORA_FILE" ]; then
-        echo "  ✅ loras/$LORA_FILE already present, skipping"
-    else
-        echo "  Downloading $LORA_FILE -> $LORA_DEST/"
-        hf download "$LIGHTNING_REPO" "$LORA_FILE" --local-dir "$LORA_DEST"
-    fi
-
-    echo ""
-    echo "Done. Verify:"
-    echo "  curl -s localhost:8188/object_info/UNETLoader | grep qwen"
-}

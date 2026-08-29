@@ -40,7 +40,6 @@ When it finishes, the terminal prints the real endpoint list:
 [portal-5] Stack started.
   Open WebUI:  http://localhost:8080
   SearXNG:     http://localhost:8088
-  ComfyUI:     http://localhost:8188
   Grafana:     http://localhost:3000  (admin / check .env)
   Prometheus:  http://localhost:9090
 ```

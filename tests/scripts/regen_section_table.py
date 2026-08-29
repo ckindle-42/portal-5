@@ -66,7 +66,7 @@ SECTION_LABELS: dict[str, str] = {
     "S16": "Security MCP tools (CIRCL VLAI)",
     "S21": "LLM Intent Router",
     "S23": "Model diversity",
-    "S30": "Image generation (ComfyUI/FLUX)",
+    "S30": "Image / video generation (MLX)",
     "S31": "Video generation (Wan2.2)",
     "S40": "Metrics/monitoring",
     "S41": "M6 production hardening",
@@ -156,7 +156,7 @@ def _generate_block() -> str:
         f"{table}\n"
         f"\n"
         f"**Memory cleanup points:** After S10 (Personas→Audio/MCP), "
-        f"after S7 (Audio→ComfyUI)\n"
+        f"after S7 (Audio→media)\n"
         f"\n"
         f"{END_MARKER}"
     )

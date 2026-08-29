@@ -1,16 +1,16 @@
 ---
 id: unit-module-media
 kind: mixed
-title: "Media Module \u2014 image/audio/speech generation"
+title: "Media Module — audio/music/speech generation"
 sources:
-- type: code
-  path: portal/modules/media/tools/comfyui_mcp.py
-- type: code
-  path: portal/modules/media/tools/video_mcp.py
 - type: code
   path: portal/modules/media/tools/music_minimax_mcp.py
 - type: code
   path: portal/modules/media/tools/music_ace_mcp.py
+- type: code
+  path: portal/modules/media/tools/tts_mcp.py
+- type: code
+  path: portal/modules/media/tools/whisper_mcp.py
 - type: code
   path: portal/platform/wiki/adapters/modules.py
 - type: code
@@ -27,22 +27,21 @@ created_at: 1783895633.381192
 updated_at: 1787857994
 ---
 
-# Media Module — image/audio/speech generation
+# Media Module — audio/music/speech generation
 
 ## Tools
 
-Active tools: `comfyui_mcp` (:8910, image), `music_minimax_mcp` (:8912),
-`music_ace_mcp` (:8933), `tts_mcp` (:8916), and `whisper_mcp` (:8915, STT).
-`video_mcp` (:8911) is retained as archival code but disabled in normal
-operation — video generation is shelved and its fleet registration is
-removed from `config/portal.yaml` `mcp_fleet:`, while the service
-definition stays in `deploy/portal-5/docker-compose.yml`.
+Active tools: `music_minimax_mcp` (:8912, song generation), `tts_mcp` (:8916,
+text-to-speech), and `whisper_mcp` (:8915, STT). `music_ace_mcp` is retained as
+unwired code (ACE-Step disabled 2026-08-27 after the operator's engine-select
+gate). Image generation and video generation are their own modules now —
+`unit-module-image` (`mflux`, :8933) and `unit-module-video` (`video_mlx`,
+:8935) — not part of the media toggle.
 
 ## Workspaces
 
 - `auto-audio` — audio analysis
 - `auto-creative` — creative writing
-- `auto-image` — image creation
 - `auto-music` — music generation
 
 ## Module State
@@ -53,12 +52,12 @@ enabled: true
 
 ## Why
 
-The media module's toggle gates five fleet ids (`comfyui`, `music-minimax`,
-`music-ace`, `tts`, `whisper`) and four workspaces, making it the highest-blast-radius
-media surface; `video` is intentionally not part of that surface while
-shelved. The fenced `enabled:` value is read as live config by
-`portal/platform/wiki/adapters/modules.py` (`_unit_enabled_state`), and
-the current true state was written by the module CLI — recorded as the
+The media module's toggle gates the music/tts/whisper fleet ids and the
+audio workspaces. Image and video generation were split out into their own
+modules (`image`, `video`) so a tight-footprint box can disable the heavy
+video surface — or image generation — without losing the audio media. The
+fenced `enabled:` value is read as live config by
+`portal/platform/wiki/adapters/modules.py` (`_unit_enabled_state`), and the
+current true state was written by the module CLI — recorded as the
 `module-state-change:media:cli` provenance source preserved on this unit.
-Ports and fleet ids are grounded to `config/portal.yaml`; the archival
-`video_mcp` lives on as code that is not registered.
+Ports and fleet ids are grounded to `config/portal.yaml`.

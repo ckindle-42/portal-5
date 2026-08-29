@@ -14,12 +14,16 @@ modules:
     enabled: false
   general:
     enabled: true
+  image:
+    enabled: true
   media:
     enabled: true
   research:
     enabled: true
   security:
     enabled: true
+  video:
+    enabled: false
 launched_mcp_ids:
 - binresearch
 - browser
@@ -32,6 +36,7 @@ launched_mcp_ids:
 - filesystem
 - git
 - memory
+- mflux
 - mitre
 - mlx_transcribe
 - music-minimax

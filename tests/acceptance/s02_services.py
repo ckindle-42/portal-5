@@ -88,7 +88,7 @@ async def run() -> None:
         ("S2-10", "tts", MCP["tts"]),
         ("S2-11", "whisper", MCP["whisper"]),
         ("S2-12", "sandbox", MCP["sandbox"]),
-        ("S2-13", "video", MCP["video"]),
+        ("S2-13", "mflux", MCP["mflux"]),
         ("S2-14", "embedding", MCP["embedding"]),
         ("S2-15", "security", MCP["security"]),
     ]

@@ -42,7 +42,7 @@ with the pinned model, is:
 | `auto-audio` | `gemma4:12b-it-qat` (transcribe tools) |
 | `auto-music` | `lfm2.5:8b` (MiniMax/ACE generate + status tools, speak, transcribe) |
 | `auto-video` | shelved — retained in config but not operated |
-| `auto-image` | `granite4.1:8b` (generate_image, ComfyUI tools) |
+| `auto-image` | `granite4.1:8b` (generate_image / edit_image, MFLUX) |
 | `auto-cad` | `qwen3-coder:30b-a3b-q4_K_M` (render_mesh, render_openscad, convert_cad) |
 | `auto-spl` | Qwen3-Coder-Next abliterated (classify_vulnerability, kb_search) |
 | `auto-compliance` | `granite4.1:8b` (NERC CIP gap analysis) |

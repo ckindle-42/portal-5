@@ -156,7 +156,7 @@
       "profile_image_url": ""
     },
     "params": {
-      "system": "You analyze images and handle multimodal tasks. Describe what you observe in detail. For image generation requests, use the ComfyUI MCP tool.",
+      "system": "You analyze images and handle multimodal tasks. Describe what you observe in detail. For image generation requests, use the generate_image / edit_image tools (MLX FLUX).",
       "model": "auto-vision"
     }
   },

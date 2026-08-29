@@ -25,7 +25,7 @@ start and exits 1.
 
 The printed options are the actual remediation paths: stop the conflicting
 process, run `./launch.sh down` if the owner is a previous Portal 5 stack (it also
-stops native Speech and ComfyUI), or override the port in `.env` (for example
+stops native Speech and the MLX image/video MCPs), or override the port in `.env` (for example
 `DOCUMENTS_HOST_PORT=9013` for MCP Documents). After freeing the port, re-run
 `./launch.sh up`.
 

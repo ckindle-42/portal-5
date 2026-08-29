@@ -645,7 +645,7 @@
     ]
   },
   "auto-video": {
-    "description": "Generate videos via ComfyUI / Wan2.2",
+    "description": "Generate short clips via MLX-native LTX-2.3",
     "model_hint": "granite4.1:8b",
     "name": "🎬 Portal Video Creator",
     "tools": [
