@@ -1,11 +1,17 @@
 {
  "version": "1.2",
- "description": "Portal MCP Tool Server configurations. portal_music_ace (8933) and portal_video_mlx (8935) are intentionally omitted \u2014 music-ace is disabled and the video module is off by default (see scripts/update_workspace_tools.py's DEAD_SERVERS); registering a Tool Server with no live backend shows as a broken connection in OWUI. Re-add portal_video_mlx here after `./launch.sh install-video-mlx` + `portal module enable video`.",
+ "description": "Portal MCP Tool Server configurations. portal_music_ace (8933) is omitted (music-ace disabled). portal_video_mlx (8935) is included but only reachable when the `video` M7 module is enabled (`./launch.sh install-video-mlx` + `portal module enable video`); otherwise it shows as a broken connection in OWUI.",
  "tool_servers": [
   {
    "name": "Portal MFLUX (image)",
    "id": "portal_mflux",
    "url": "http://host.docker.internal:8933/mcp",
+   "api_key": ""
+  },
+  {
+   "name": "Portal video-mlx",
+   "id": "portal_video_mlx",
+   "url": "http://host.docker.internal:8935/mcp",
    "api_key": ""
   },
   {

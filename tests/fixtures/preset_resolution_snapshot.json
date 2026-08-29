@@ -2308,9 +2308,8 @@
   },
   "workspace::auto-video": {
     "effective_tools": [
-      "generate_image",
-      "generate_video",
-      "list_video_models"
+      "animate_image",
+      "generate_video"
     ],
     "id": "auto-video",
     "kind": "workspace",

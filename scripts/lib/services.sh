@@ -251,8 +251,11 @@ PORTAL_ROOT="${PORTAL_ROOT}"
 [ -d "\$PORTAL_ROOT/portal" ] || { echo "ERROR: PORTAL_ROOT invalid; re-run install-video-mlx" >&2; exit 1; }
 set -a; [ -f "\$PORTAL_ROOT/.env" ] && . "\$PORTAL_ROOT/.env"; set +a
 export PYTHONPATH="\$PORTAL_ROOT"
+# launchd hands a bare PATH — ltx-2-mlx shells out to ffmpeg for muxing.
+export PATH="/opt/homebrew/bin:/usr/local/bin:\$PATH"
 export VIDEO_MLX_BIN="$VX_VENV/bin/ltx-2-mlx"
 export VIDEO_MLX_MCP_PORT="${VX_PORT}"
+[ -n "\${HF_HOME:-}" ] && export HF_HOME
 export AI_OUTPUT_DIR="\${AI_OUTPUT_DIR:-\$HOME/AI_Output}"
 export OPENWEBUI_URL="\${OPENWEBUI_URL:-http://localhost:8080}"
 mkdir -p "\$AI_OUTPUT_DIR"

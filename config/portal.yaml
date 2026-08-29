@@ -1031,9 +1031,9 @@ workspaces:
     description: >-
       Generate short clips (with audio) via MLX-native LTX-2.3 (video_mlx MCP,
       :8935). The `video` M7 module is OFF by default — enable with
-      `./launch.sh install-video-mlx` then `portal module enable video`.
-      expose_to_owui flips to true automatically once the module is enabled
-      and sync-config re-runs.
+      `./launch.sh install-video-mlx` then `portal module enable video`. When the
+      `video` module is disabled, sync-config drops this workspace from the
+      presets entirely regardless of expose_to_owui.
     model_hint: granite4.1:8b-ctx16k
     context_limit: 16384
     temperature: 0.8
@@ -1042,7 +1042,7 @@ workspaces:
     tools:
     - generate_video
     - animate_image
-    expose_to_owui: false
+    expose_to_owui: true
     enable_web_search: false
     owui_system_prompt: |-
       You help generate short video clips with MLX-native LTX-2.3. Use generate_video(prompt, ...) for text-to-video and animate_image(image_url, prompt, ...) for image-to-video. Clips are preview-grade and practically capped at ~4-6 seconds; jobs take several minutes. Describe what will be generated before executing, then return the download link from the tool result.

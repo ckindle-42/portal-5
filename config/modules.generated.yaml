@@ -23,7 +23,7 @@ modules:
   security:
     enabled: true
   video:
-    enabled: false
+    enabled: true
 launched_mcp_ids:
 - binresearch
 - browser
@@ -48,5 +48,6 @@ launched_mcp_ids:
 - security
 - serena
 - tts
+- video_mlx
 - whisper
 - wiki
