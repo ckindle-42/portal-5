@@ -189,9 +189,10 @@ async def register_tool_servers_async(client: httpx.AsyncClient, token: str) -> 
 
     # Drop stale connections: any entry whose info.id looks like ours
     # (portal_*, our own naming convention) but is no longer in
-    # mcp-servers.json — e.g. portal_comfyui/portal_video after their
-    # backends were removed (found live 2026-08-27: they stayed registered
-    # indefinitely, since this function only ever added, never reconciled).
+    # mcp-servers.json — e.g. a portal_* tool server whose backend was
+    # removed from the fleet (found live 2026-08-27: such entries stayed
+    # registered indefinitely, since this function only ever added, never
+    # reconciled).
     # Never touches a connection an operator added manually outside our
     # portal_* convention.
     removed = 0
@@ -287,9 +288,9 @@ async def create_workspaces_async(client: httpx.AsyncClient, token: str) -> None
     # Overlay-style presets (base_model_id=None) with no matching workspace
     # file are orphans — this creator is the only thing that ever sets
     # base_model_id=None (see the payload below), so any such id no longer
-    # backed by a workspace_*.json is safe to delete (e.g. auto-image after
-    # ComfyUI removal — found 2026-08-27, it stayed live in OWUI indefinitely
-    # because nothing ever deleted a removed workspace's old preset).
+    # backed by a workspace_*.json is safe to delete (e.g. a workspace that
+    # was renamed or dropped — found live 2026-08-27, its old preset stayed
+    # in OWUI indefinitely because nothing ever deleted it).
     overlay_ids: set[str] = set()
     for attempt in range(3):
         try:
