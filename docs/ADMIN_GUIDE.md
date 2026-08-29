@@ -530,7 +530,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `auto-audio` | media | `gemma4:12b-it-qat-ctx8k` |
 | `auto-bigfix` | general | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` |
 | `auto-cad` | cad | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` |
-| `auto-coding` | coding | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` |
+| `auto-coding` | coding | `qwen3-coder:30b-a3b-q4_K_M-ctx256k` |
 | `auto-compliance` | compliance | `granite4.1:8b-ctx16k` |
 | `auto-council` | general | `qwen3.6:27b-q4_K_M-ctx16k` |
 | `auto-creative` | media | `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` |
@@ -630,7 +630,7 @@ default.
 | `auto-audio` | `gemma4:12b-it-qat-ctx8k` | yes |
 | `auto-bigfix` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | yes |
 | `auto-cad` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | yes |
-| `auto-coding` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | yes |
+| `auto-coding` | `qwen3-coder:30b-a3b-q4_K_M-ctx256k` | yes |
 | `auto-compliance` | `granite4.1:8b-ctx16k` | yes |
 | `auto-council` | `qwen3.6:27b-q4_K_M-ctx16k` | yes |
 | `auto-creative` | `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` | yes |
@@ -717,9 +717,9 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-# Model catalog (240 model ids across 7 backend groups)
+# Model catalog (241 model ids across 7 backend groups)
 
-## coding (52)
+## coding (53)
 
 - `Laguna-XS.2-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
@@ -770,6 +770,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `qwen3-coder-next:latest-ctx64k`
 - `qwen3-coder:30b-a3b-q4_K_M`
 - `qwen3-coder:30b-a3b-q4_K_M-ctx16k`
+- `qwen3-coder:30b-a3b-q4_K_M-ctx256k`
 - `qwen3-coder:30b-a3b-q4_K_M-ctx8k`
 - `qwen3.6:27b-q4_K_M`
 - `qwen3.6:35b-a3b-q4_K_M`
