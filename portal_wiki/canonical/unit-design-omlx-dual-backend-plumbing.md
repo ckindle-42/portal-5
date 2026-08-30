@@ -116,6 +116,20 @@ load), logs to `~/.portal5/logs/omlx-watchdog.log`. `_ensure_native_services`
 installs/bootstraps the watchdog and kicks the brew service on `./launch.sh
 up`; `_cmd_status` now shows an `oMLX :8085` row under NATIVE SERVICES.
 
+## Host supervision — settings.json context floor (2026-08-29)
+
+oMLX clamps every request to `~/.omlx/settings.json` `sampling.max_context_window`
+regardless of the per-request context the pipeline sends (it has no
+`--max-context-window` serve flag). A stale `32768` there silently truncated the
+`auto-coding` / laguna / heavy coding lanes well below the window
+`config/portal.yaml` grants them (`qwen3-coder:30b-a3b-q4_K_M-ctx256k` = 262144),
+producing the mid-tool-loop restart-and-stub failure the adaptive UAT surfaced.
+`_ensure_native_services` now raises `sampling.max_context_window` and
+`sampling.max_tokens` to a 262144 floor (the fleet's largest declared window) on
+`./launch.sh up`, restarting the brew service only when it actually changed the
+file — idempotent, same pattern as the watchdog bootstrap above. The memory guard
+still protects against genuine OOM; this only stops the silent truncation.
+
 ## B2 — Shadow then shift, auto-coding first (landed 2026-08-02)
 
 **What:** `auto-coding` now shadow-shifts to oMLX. A second `group: coding`

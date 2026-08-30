@@ -316,6 +316,31 @@ _ensure_native_services() {
     # started, (2) install the liveness watchdog LaunchAgent that restarts it
     # on a hang (see scripts/omlx-watchdog.sh).
     if [ "$ARCH" = "arm64" ] && command -v brew &>/dev/null && brew services list 2>/dev/null | grep -q '^omlx'; then
+        # oMLX caps every request at settings.json `sampling.max_context_window`
+        # regardless of the per-request context — a stale 32768 there silently
+        # truncated the auto-coding / laguna / heavy lanes below the context
+        # config/portal.yaml grants them (up to 262144). Raise the floor to the
+        # fleet's largest declared window; restart only if we actually changed it.
+        _omlx_settings="$HOME/.omlx/settings.json"
+        if [ -f "$_omlx_settings" ] && python3 - "$_omlx_settings" <<'PY'
+import json, sys
+FLOOR = 262144
+p = sys.argv[1]
+d = json.load(open(p))
+s = d.setdefault("sampling", {})
+changed = False
+for k in ("max_context_window", "max_tokens"):
+    if int(s.get(k, 0) or 0) < FLOOR:
+        s[k] = FLOOR
+        changed = True
+if changed:
+    json.dump(d, open(p, "w"), indent=2)
+sys.exit(0 if changed else 1)
+PY
+        then
+            echo "[portal-5]   oMLX settings.json context window raised to 262144 — restarting..."
+            brew services restart jundot/omlx/omlx &>/dev/null || true
+        fi
         if curl -fsS -m 5 "http://127.0.0.1:8085/v1/models" &>/dev/null 2>&1; then
             echo "[portal-5]   ✅ oMLX: running on :8085"
         else
