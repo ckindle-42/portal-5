@@ -75,18 +75,28 @@ depth/effort signal today**, so do NOT try to make the router pick it.
 - Confirm eviction behavior: when the deep variant loads, tier-1 (`qwen3.6:35b-a3b`)
   must be evicted first (`context_limit` for the deep lane at 32K fits once alone).
 
-### 2. `auto-compliance` challenger bench (plan B1 / B4) — cascade-2 WIRED 2026-08-31 (commit d08ab1ff), bench pending
+### 2. `auto-compliance` — PROMOTED to Qwen3.8-27B 2026-08-31 (commit a17a58c3)
 
-**Finding:** `granite-4.1-8b` (incumbent) fabricated a NERC CIP requirement + a
-source URL on a basic lookup; `qwen3.6-35b-a3b` did too; only dense
-`Qwen3.8-27B` correctly refused. So the lane needs to change.
+A 10-question fabrication probe (NERC/HIPAA/GDPR/PCI-DSS/SOC2/NIST/ISO
+specifics + one fake-requirement trap) across granite-8b / nemotron-cascade-2 /
+Qwen3.8-27B through the live `auto-compliance` path:
+- **granite-8b**: fabricated a NERC CIP requirement + fake source URL,
+  degenerated into a repeating "I don't know" loop, invented "133 controls"
+  for ISO 27001:2013 (real: 114). Disqualifying.
+- **cascade-2**: over-hedged (refused to state stable GDPR fine law), thinking
+  leaked as content, truncated on ~half the questions.
+- **Qwen3.8-27B**: strongest, best-cited answers; critically evaluates search
+  results ("not useful, search again"). Promoted (~18 t/s oMLX MTP; ctx32k).
 
-`nemotron-cascade-2:30b-a3b-q4_K_M-ctx32k` downloaded, tool-audited, wired as
-`bench-cascade2-compliance` (eval workspace, search-first anti-fabrication
-prompt). **Run:** the compliance persona-matrix + the 33 `DEFERRED_COMPLIANCE_RUN.txt`
-rows against granite-8b / cascade-2 / Qwen3.8-27B. Decisive metric = fabrication
-rate on framework-lookup questions (does it retrieve via web_search or invent).
-Promote the winner to `auto-compliance` primary.
+**Also fixed:** SearXNG's default engines (brave/startpage/google-cse/ddg) were
+all captcha'd/rate-limited from this IP, so every `web_search` returned empty —
+`_searxng_search` now pins `engines=bing,duckduckgo,google`. This was
+degrading auto-compliance / auto-research / auto-data equally.
+
+**Still open:** the `nemotron-cascade-2` bench (`bench-cascade2-compliance`) — a
+full compliance persona-matrix run could still flip the call; and the 33
+`DEFERRED_COMPLIANCE_RUN.txt` rows should run once on Qwen3.8-27B as the v9
+baseline.
 
 Currently `granite4.1:8b-ctx16k` — weak for multi-framework regulatory work but
 not broken. Bench two challengers on the compliance persona-matrix + the 33
