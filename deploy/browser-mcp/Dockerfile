@@ -9,7 +9,7 @@
 # release. Bump OBSCURA_REF deliberately and re-run the Phase 0 smoke.
 
 # ── Stage 1: build Obscura (render + stealth) at a pinned commit ──────────────
-FROM rust:1.82-bookworm AS obscura-build
+FROM rust:1.90-bookworm AS obscura-build
 ARG OBSCURA_REF=14da23ddc432eaf8de6a14b44037626ce6fd9415
 RUN apt-get update && apt-get install -y --no-install-recommends \
         git cmake clang libclang-dev llvm-dev pkg-config \
