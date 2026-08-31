@@ -520,7 +520,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-# Workspace roster (25 production, 52 eval, 77 total)
+# Workspace roster (25 production, 53 eval, 78 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -557,6 +557,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 - `bench-agentworld`
 - `bench-baronllm-q6k`
 - `bench-cad-prior`
+- `bench-cascade2-compliance`
 - `bench-e2b-pentest`
 - `bench-exec-exploit`
 - `bench-exec-reasoning`
@@ -717,7 +718,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-# Model catalog (244 model ids across 7 backend groups)
+# Model catalog (245 model ids across 7 backend groups)
 
 ## coding (53)
 
@@ -897,7 +898,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `Laguna-XS.2-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
 
-## reasoning (30)
+## reasoning (31)
 
 - `Qwen3.8-27B-oQ4e-mtp`
 - `Tongyi-DeepResearch-30B-A3B-abliterated-4bit`
@@ -922,6 +923,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k`
 - `huihui_ai/tongyi-deepresearch-abliterated`
 - `huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k`
+- `nemotron-cascade-2:30b-a3b-q4_K_M-ctx32k`
 - `phi4-mini-reasoning`
 - `phi4-mini-reasoning:latest-ctx24k`
 - `portal5/qwen3.6-27b-mtp:q8_0-drafted`

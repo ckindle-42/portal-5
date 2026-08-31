@@ -1,11 +1,11 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 244 model ids, 7 backend groups
+title: 245 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: c9e837bdcd89
+  commit: 1cf15ba5d2e2
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1788196574.678595
+updated_at: 1788199251.070226
 ---
 
-# Model catalog (244 model ids across 7 backend groups)
+# Model catalog (245 model ids across 7 backend groups)
 
 ## coding (53)
 
@@ -197,7 +197,7 @@ updated_at: 1788196574.678595
 - `Laguna-XS.2-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
 
-## reasoning (30)
+## reasoning (31)
 
 - `Qwen3.8-27B-oQ4e-mtp`
 - `Tongyi-DeepResearch-30B-A3B-abliterated-4bit`
@@ -222,6 +222,7 @@ updated_at: 1788196574.678595
 - `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k`
 - `huihui_ai/tongyi-deepresearch-abliterated`
 - `huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k`
+- `nemotron-cascade-2:30b-a3b-q4_K_M-ctx32k`
 - `phi4-mini-reasoning`
 - `phi4-mini-reasoning:latest-ctx24k`
 - `portal5/qwen3.6-27b-mtp:q8_0-drafted`

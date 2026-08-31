@@ -1425,6 +1425,16 @@ The `-ctx64k` tag silently capped real opencode agentic sessions well below thei
 
 ---
 
+### `nemotron-cascade-2:30b-a3b-q4_K_M-ctx32k`
+
+`nemotron-cascade-2:30b-a3b-q4_K_M-ctx32k` is the 32K-context derived tag of NVIDIA Nemotron-Cascade-2-30B-A3B (MoE, ~3B active, ~24GB, `shiny-plan`/`bartowski` GGUF via `ollama create`), added 2026-08-31 as the **auto-compliance challenger** (`BENCH_REWIRE_PLAN_V1` B1). `config/backends.yaml` registers it in the `reasoning` group with `supports_tools: true` (Ollama `/api/chat` tool probe clean). `config/portal.yaml` binds it only to the `bench-cascade2-compliance` eval workspace (`PROMOTE_POLICY=confirm`), not to production. Its published IFBench 82.9 / ArenaHard 83.5 lead the class — the instruction-following and structured-document strength that compliance gap-analysis needs. The bench context: `granite-4.1-8b` (the incumbent) fabricated a NERC CIP requirement and a source URL on a basic lookup, and `qwen3.6-35b-a3b` did the same; only dense `Qwen3.8-27B` correctly refused. The bench (compliance persona-matrix + the 33 rows in `tests/uat_adaptive/DEFERRED_COMPLIANCE_RUN.txt`) decides whether cascade-2's instruction-following plus the workspace's `web_search`/`read_pdf` tools produce grounded answers or the same parametric-recall fabrication. `PARAMETER num_ctx 32768` is baked in because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`.
+
+## Why
+
+The compliance lane's incumbent hallucinates regulations — a disqualifying failure for regulatory work — so a challenger is warranted. This entry is bench-only until a passing compliance run promotes it; the decisive comparison is fabrication rate on framework-lookup questions, not raw benchmark scores.
+
+---
+
 ### `huihui_ai/Qwen3.6-abliterated:27b-ctx8k`
 
 `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` is the 8K-context derived tag of the Qwen3.6-abliterated 27B model, registered in `config/backends.yaml` under both the `general` and `creative` groups with `supports_tools: true`. `config/portal.yaml` routes the `auto-general-uncensored` workspace to this tag with an 8192 context limit, giving the uncensored generalist lane its promptable model. The `PARAMETER num_ctx 8192` is baked into the tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`. Full model detail lives in the base `:27b` entry; this tag exists to enforce the general-uncensored lane's context cap as a distinct model id.
