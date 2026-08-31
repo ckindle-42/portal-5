@@ -29,7 +29,7 @@ updated_at: 1783821386.790582
 
 `portal.modules.research.tools`: `web_search_mcp` (:8922, SearXNG),
 `rag_mcp` (:8921), `reranker_mcp` (:8925), `browser_mcp` (:8923,
-Playwright) — all registered under the `research` module in
+Obscura) — all registered under the `research` module in
 `config/portal.yaml` `mcp_fleet:`.
 
 ## Workspaces
