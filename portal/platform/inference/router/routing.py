@@ -379,8 +379,16 @@ _ROUTER_JSON_SCHEMA: dict = {
             "enum": sorted(_VALID_WORKSPACE_IDS),
         },
         "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+        # Required posture of the request, independent of topic. "harmful"
+        # diverts to the standard-posture lane regardless of the workspace
+        # pick (the semantic counterpart to the keyword gate — adaptive UAT
+        # FINDINGS C1/C2). "standard"/"permissive" are informational.
+        "posture": {
+            "type": "string",
+            "enum": ["harmful", "standard", "permissive"],
+        },
     },
-    "required": ["workspace", "confidence"],
+    "required": ["workspace", "confidence", "posture"],
 }
 
 _routing_descriptions: dict[str, str] | None = None
@@ -525,11 +533,12 @@ def _build_router_prompt(user_message: str) -> str:
 
     # Few-shot examples block (cap at 9 examples)
     example_lines = "\n".join(
-        f'Message: "{ex["message"]}"\nWorkspace: {ex["workspace"]}\nConfidence: {ex["confidence"]}'
+        f'Message: "{ex["message"]}"\nWorkspace: {ex["workspace"]}\n'
+        f"Confidence: {ex['confidence']}\nPosture: {ex.get('posture', 'standard')}"
         for ex in (examples or [])[:9]
     )
 
-    return f"""You are an intent router for an AI platform. Classify the user message into exactly one workspace.
+    return f"""You are an intent router for an AI platform. Classify the user message into exactly one workspace, and judge the posture the request requires.
 
 WORKSPACES:
 {desc_lines}
@@ -537,10 +546,15 @@ WORKSPACES:
 EXAMPLES:
 {example_lines}
 
+POSTURE — judge the request's intent, not its topic:
+- "harmful": genuinely harmful intent — targeting or surveilling a specific private individual (doxxing, stalking, accessing someone's account/messages without consent), fraud or deception (fake reviews, forged documents, impersonation, phishing), harassment, blackmail, or covert cheating. Legitimate security research, authorized pentesting, fiction, and a user acting on their OWN accounts/devices are NOT harmful.
+- "permissive": legitimate work that is sensitive or explicit — security/exploit research, authorized offensive testing, uncensored creative writing, adult content.
+- "standard": everything else.
+
 Now classify this message:
 Message: "{user_message}"
 
-Respond ONLY with a JSON object: {{"workspace": "<workspace_id>", "confidence": <0.0-1.0>}}
+Respond ONLY with a JSON object: {{"workspace": "<workspace_id>", "confidence": <0.0-1.0>, "posture": "<harmful|standard|permissive>"}}
 The workspace must be one of the valid IDs listed above."""
 
 
@@ -661,7 +675,7 @@ async def _route_with_llm(messages: list[dict]) -> str | None:
             "keep_alive": -1,  # Keep model warm — int not string (Ollama 0.30+ rejects "-1")
             "options": {
                 "temperature": 0,
-                "num_predict": 40,
+                "num_predict": 64,  # room for the added "posture" field
                 "num_ctx": 2048,
             },
             "format": _ROUTER_JSON_SCHEMA,  # Ollama grammar-enforced JSON
@@ -681,6 +695,25 @@ async def _route_with_llm(messages: list[dict]) -> str | None:
         parsed = json.loads(raw_response)
         workspace = str(parsed.get("workspace", "")).strip()
         confidence = float(parsed.get("confidence", 0.0))
+        posture = str(parsed.get("posture", "")).strip().lower()
+
+        # Harmful-posture diversion — semantic counterpart to the keyword gate
+        # in detect_harmful_intent (adaptive UAT FINDINGS C1/C2). Checked before
+        # the workspace/confidence gates: a harmful request must go to the
+        # standard-posture lane even when the model is unsure which topic
+        # workspace it belongs to.
+        if posture == "harmful":
+            logger.warning(
+                "LLM router: posture=harmful for %r — routing to standard-posture "
+                "lane '%s' instead of '%s'.",
+                last_user_content[:80],
+                _HARMFUL_INTENT_LANE,
+                workspace or "auto",
+            )
+            _router_latency_seconds.labels(outcome="harmful_posture").observe(
+                time.monotonic() - _t0
+            )
+            return _HARMFUL_INTENT_LANE
 
         # Validate workspace ID against allowlist
         if workspace not in _VALID_WORKSPACE_IDS:

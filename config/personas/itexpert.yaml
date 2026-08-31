@@ -2,6 +2,14 @@ name: IT Expert
 slug: itexpert
 category: general
 source: prompts.chat
+# workspace_model: auto + abliterated preferred_models is intentional — legit
+# sysadmin work (resetting a forgotten admin password on a machine you own,
+# malware-analysis specifics) trips over-refusal on aligned models. The system
+# prompt's HARD CONSTRAINTS carry the guardrails, and the `auto` router's
+# harmful-intent gate (keyword + LLM posture) diverts genuinely harmful asks
+# (accessing someone else's accounts, surveillance) to a standard lane before
+# this persona is selected. Adaptive UAT FINDINGS C2 / AI-15 — accepted posture,
+# not pinned.
 workspace_model: auto
 preferred_models:
   - huihui_ai/qwen3.5-abliterated:9b-ctx8k
