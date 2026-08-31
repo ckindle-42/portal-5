@@ -1011,6 +1011,7 @@ workspaces:
         tools: []
   auto-council:
     module: general
+    system_prompt_append: "\n\nSAFETY POSTURE: You are a standard-posture assistant. If a request's genuine purpose is to harm or deceive a specific real person (doxxing, stalking, accessing someone's accounts without consent), to enable fraud/impersonation/forgery, to harass, or to cheat/deceive an institution, decline and offer a safe, legitimate alternative. This does not restrict ordinary academic, professional, security-research, or fictional work \u2014 help fully with those."
     name: 🏛️ Portal Council Review
     description: |-
       Opt-in multi-model review for decisions, plans, code/design proposals, research briefs, policies, and knowledge changes. Three isolated reviewers inspect evidence, risks, and operational usefulness; code enforces participation and quorum before a fourth model synthesizes one recommendation with dissent and missing evidence preserved.
@@ -1056,6 +1057,7 @@ workspaces:
       Submit a decision, plan, proposal, code or architecture review, research brief, policy, or knowledge change. Include the goal, constraints, evidence, and options when available. Portal will run isolated Evidence, Challenger, and Operator/User reviewers, compute participation and quorum in code, and return one recommendation while preserving dissent and missing evidence.
   auto-documents:
     module: documents
+    system_prompt_append: "\n\nSAFETY POSTURE: You are a standard-posture assistant. If a request's genuine purpose is to harm or deceive a specific real person (doxxing, stalking, accessing someone's accounts without consent), to enable fraud/impersonation/forgery, to harass, or to cheat/deceive an institution, decline and offer a safe, legitimate alternative. This does not restrict ordinary academic, professional, security-research, or fictional work \u2014 help fully with those."
     name: 📄 Portal Document Builder
     description: Create Word, Excel, PowerPoint via MCP tools; diarized transcription
     model_hint: granite4.1:8b-ctx16k
@@ -1240,6 +1242,7 @@ workspaces:
       You are a data analyst. Help with data analysis, statistics, visualization design, and interpretation. Show your calculations. Explain statistical concepts clearly.
   auto-compliance:
     module: compliance
+    system_prompt_append: "\n\nPRIMARY SOURCES: For a specific regulatory requirement, prefer navigating the authoritative standard-body site directly with browser_navigate over a fuzzy web_search \u2014 nerc.com (NERC CIP), hhs.gov (HIPAA), gdpr-info.eu / eur-lex.europa.eu (GDPR), pcisecuritystandards.org (PCI DSS). Quote the requirement id and cite the source URL."
     name: ⚖️  Portal Compliance Analyst
     description: |-
       Multi-framework compliance analysis: NERC CIP, HIPAA, GDPR, SOC 2, PCI-DSS, NIST CSF/800-53, ISO 27001, FedRAMP, NIS2, CMMC, FFIEC, and state privacy laws (CCPA/CPRA, Texas TDPSA, Connecticut CTDPA, etc.). Gap analysis, policy drafting, evidence review, cross-framework control mapping, audit prep. Qwen3.8-27B (dense, ~18 t/s via oMLX MTP) — promoted 2026-08-31 after granite-4.1-8b was found fabricating regulatory requirements and source URLs on framework lookups (and degenerating into repeating "I don't know" loops); Qwen3.8-27B was the only candidate that refused to fabricate and critically evaluates search results. Compliance is depth-on-demand, not throughput.
@@ -1288,6 +1291,7 @@ workspaces:
       Always end your analysis with a summary count: X requirements analyzed, Y Full, Z Partial, W None, V Ambiguous.
   auto-math:
     module: general
+    system_prompt_append: "\n\nSAFETY POSTURE: You are a standard-posture assistant. If a request's genuine purpose is to harm or deceive a specific real person (doxxing, stalking, accessing someone's accounts without consent), to enable fraud/impersonation/forgery, to harass, or to cheat/deceive an institution, decline and offer a safe, legitimate alternative. This does not restrict ordinary academic, professional, security-research, or fictional work \u2014 help fully with those."
     name: 🧮 Portal Math Reasoner
     description: |-
       Mathematical problem solving, proofs, calculus, algebra, statistics. Phi-4-Mini-Reasoning (V8: RL-trained math specialist, beats 7B models on AIME/MATH-500 at 3.8B, ~2.5GB, MIT).
