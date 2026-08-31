@@ -1195,6 +1195,16 @@ The `creative` group registration in `config/backends.yaml` supplies the tool fl
 
 ---
 
+### `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx24k`
+
+`fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx24k` is the 24K-context form of the base HauhauCS Q4, added 2026-08-31 as the `auto-security` `pentest` variant `model_hint`. That variant runs with `think: true` — a genuine read→enumerate→execute pentest loop that 35B-A3B stays coherent for even abliterated — and needed context above the 8K tag so the `<think>` chain finishes before the phase sections instead of truncating to empty (`predict_limit: 8192` also caps the chain). `config/backends.yaml` registers it in the `security` group with `supports_tools: true`; the `omlx-security` group aliases it to `Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit` (oMLX serves it at native context, so the workspace `context_limit` applies there directly; the Ollama tag carries the baked `PARAMETER num_ctx 24576`). Needs a lab-exec run to confirm the tool-first + phase-header structure hold with thinking on.
+
+## Why
+
+The redteam/purpleteam variants keep `think: false` (9B abliterated, rigid pipeline output); `pentest` is the one security lane where reasoning earns its cost, and this tag is what gives that chain room. Both the backend entry and the workspace binding are cited because the serving relationship spans them.
+
+---
+
 ### `gemma4:12b-it-qat-ctx8k`
 
 `gemma4:12b-it-qat-ctx8k` is the 8192-token capped variant of `gemma4:12b-it-qat`. `config/backends.yaml` places it in the `vision` group with `supports_tools: true`. `config/portal.yaml` names it as the `auto-audio` workspace `model_hint`, meaning the audio-analysis lane actually serves this capped tag rather than the base model. The bound is embedded via `portal models apply-params` because the completion endpoint discards request-time `options.num_ctx`, so the cap must be encoded in a dedicated id.
