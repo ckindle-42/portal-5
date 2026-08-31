@@ -350,7 +350,7 @@ case "${1:-up}" in
     # Rebuild and restart all Docker images (pipeline + MCP servers)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     cd "$COMPOSE_DIR"
-    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag playwright-mcp mcp-cad-render mcp-proxmox mcp-reranker mcp-binresearch"
+    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag browser-mcp mcp-cad-render mcp-proxmox mcp-reranker mcp-binresearch"
     echo "[portal-5] Rebuilding portal-pipeline..."
     docker compose build portal-pipeline
     echo "[portal-5] Rebuilding MCP images..."
@@ -368,7 +368,7 @@ case "${1:-up}" in
     # Rebuild and restart all MCP containers (e.g. after a docker-compose.yml or Dockerfile.mcp change)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     cd "$COMPOSE_DIR"
-    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag playwright-mcp mcp-cad-render mcp-proxmox mcp-reranker mcp-binresearch"
+    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag browser-mcp mcp-cad-render mcp-proxmox mcp-reranker mcp-binresearch"
     echo "[portal-5] Rebuilding MCP images..."
     docker compose build $MCP_SERVICES
     echo "[portal-5] Building native arm64 PowerShell sandbox image..."
@@ -384,7 +384,7 @@ case "${1:-up}" in
     # Restart all MCP containers without rebuilding (e.g. after a config or env change)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     cd "$COMPOSE_DIR"
-    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag playwright-mcp mcp-cad-render mcp-binresearch"
+    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag browser-mcp mcp-cad-render mcp-binresearch"
     echo "[portal-5] Restarting MCP containers..."
     docker compose restart $MCP_SERVICES
     echo "[portal-5] Done. Check status: ./launch.sh status"

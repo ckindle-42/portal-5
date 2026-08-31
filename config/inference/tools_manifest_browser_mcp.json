@@ -134,5 +134,21 @@
       "properties": {},
       "type": "object"
     }
+  },
+  {
+    "description": "Fetch a URL and return clean Markdown (stateless; web_fetch fallback).",
+    "name": "browser_get_markdown",
+    "parameters": {
+      "properties": {
+        "url": {
+          "description": "Full URL with http/https scheme",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "type": "object"
+    }
   }
 ]

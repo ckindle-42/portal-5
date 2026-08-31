@@ -648,12 +648,12 @@ services:
       start_period: 120s
       retries: 3
 
-  # ── Browser MCP (Playwright) ──────────────────────────────────────────────────
-  playwright-mcp:
+  # ── Browser MCP (Obscura) ──────────────────────────────────────────────────
+  browser-mcp:
     build:
       context: ../..
-      dockerfile: deploy/playwright-mcp/Dockerfile
-    container_name: portal5-playwright
+      dockerfile: deploy/browser-mcp/Dockerfile
+    container_name: portal5-browser
     restart: unless-stopped
     ports:
       - "127.0.0.1:${BROWSER_MCP_HOST_PORT:-8923}:8923"
@@ -662,16 +662,15 @@ services:
       - ${BROWSER_AUDIT_LOG:-/Volumes/data01/portal5_browser_audit.log}:/audit/audit.log:rw
     environment:
       - PLAYWRIGHT_MCP_BLOCKED_ORIGINS=${PLAYWRIGHT_MCP_BLOCKED_ORIGINS:-localhost;127.0.0.1;169.254.169.254;metadata.google.internal}
-      - PLAYWRIGHT_MCP_BROWSER=chromium
+      - BROWSER_STEALTH=${BROWSER_STEALTH:-true}
       - PROFILES_DIR=/profiles
       - AUDIT_LOG_PATH=/audit/audit.log
       - BROWSER_MCP_PORT=8923
-      - BROWSER_HEADLESS=true
       - BROWSER_DOMAIN_RATE_LIMIT=${BROWSER_DOMAIN_RATE_LIMIT:-30}
     deploy:
       resources:
         limits:
-          memory: 3G
+          memory: 1G
           cpus: "2.0"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8923/health"]
