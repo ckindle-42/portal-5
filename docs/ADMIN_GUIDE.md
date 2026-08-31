@@ -531,7 +531,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `auto-bigfix` | general | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` |
 | `auto-cad` | cad | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` |
 | `auto-coding` | coding | `qwen3-coder:30b-a3b-q4_K_M-ctx256k` |
-| `auto-compliance` | compliance | `granite4.1:8b-ctx16k` |
+| `auto-compliance` | compliance | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` |
 | `auto-council` | general | `qwen3.6:27b-q4_K_M-ctx16k` |
 | `auto-creative` | media | `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` |
 | `auto-daily` | general | `gemma4:26b-a4b-it-qat-ctx8k` |
@@ -632,7 +632,7 @@ default.
 | `auto-bigfix` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | yes |
 | `auto-cad` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | yes |
 | `auto-coding` | `qwen3-coder:30b-a3b-q4_K_M-ctx256k` | yes |
-| `auto-compliance` | `granite4.1:8b-ctx16k` | yes |
+| `auto-compliance` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` | yes |
 | `auto-council` | `qwen3.6:27b-q4_K_M-ctx16k` | yes |
 | `auto-creative` | `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` | yes |
 | `auto-daily` | `gemma4:26b-a4b-it-qat-ctx8k` | yes |

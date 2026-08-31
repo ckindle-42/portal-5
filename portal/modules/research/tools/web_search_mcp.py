@@ -115,8 +115,21 @@ async def list_tools(request):
     return JSONResponse(TOOLS_MANIFEST)
 
 
+# SearXNG's `general` category aggregate returns nothing when its default
+# engines (brave / startpage / google-cse / ddg) are all captcha'd / rate-
+# limited from this instance's IP — which was the steady state 2026-08-31.
+# Pin the engines explicitly so a working one (Bing) is always queried; the
+# others are tried too and contribute when they recover. Override via env.
+_SEARXNG_ENGINES = os.environ.get("SEARXNG_ENGINES", "bing,duckduckgo,google")
+
+
 async def _searxng_search(query, num_results=5, time_range="any", category="general"):
-    params = {"q": query, "format": "json", "categories": category}
+    params = {
+        "q": query,
+        "format": "json",
+        "categories": category,
+        "engines": _SEARXNG_ENGINES,
+    }
     if time_range != "any":
         params["time_range"] = time_range
     async with httpx.AsyncClient(timeout=10) as c:

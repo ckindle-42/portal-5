@@ -5,13 +5,13 @@ title: "model bindings \u2014 0 reachability gap(s)"
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 3ebda465a0b1
+  commit: 4793ee38035e
 - type: code
   path: config/portal.yaml
-  commit: 3ebda465a0b1
+  commit: 4793ee38035e
 - type: code
   path: config/personas/
-  commit: 3ebda465a0b1
+  commit: 4793ee38035e
 claims: []
 confidence: high
 tags:
@@ -19,7 +19,7 @@ tags:
 - model-bindings
 - reachability
 created_at: 1784000421.433863
-updated_at: 1788192468.2366679
+updated_at: 1788202430.711605
 ---
 
 # Model bindings (reachability-resolved)
@@ -38,7 +38,7 @@ default.
 | `auto-bigfix` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | yes |
 | `auto-cad` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | yes |
 | `auto-coding` | `qwen3-coder:30b-a3b-q4_K_M-ctx256k` | yes |
-| `auto-compliance` | `granite4.1:8b-ctx16k` | yes |
+| `auto-compliance` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` | yes |
 | `auto-council` | `qwen3.6:27b-q4_K_M-ctx16k` | yes |
 | `auto-creative` | `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` | yes |
 | `auto-daily` | `gemma4:26b-a4b-it-qat-ctx8k` | yes |
