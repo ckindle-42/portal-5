@@ -14,7 +14,12 @@ import os
 from datetime import UTC, datetime
 
 from portal.platform.inference.router.metrics import _router_layer_total
-from portal.platform.inference.router.routing import _detect_workspace, _route_with_llm
+from portal.platform.inference.router.routing import (
+    _HARMFUL_INTENT_LANE,
+    _detect_workspace,
+    _route_with_llm,
+    detect_harmful_intent,
+)
 from portal.platform.inference.router.workspaces import _PERSONA_MAP, WORKSPACES
 
 logger = logging.getLogger(__name__)
@@ -163,6 +168,21 @@ async def _resolve_auto_routing(workspace_id: str, messages: list[dict]) -> str:
     """
     if workspace_id != "auto":
         return workspace_id
+    # Harmful-intent gate (adaptive UAT FINDINGS C1/C2/C3): a genuinely harmful
+    # ask — targeting a private individual, deception/fraud, harassment — must
+    # be handled by a standard-posture lane so it refuses, never by the
+    # abliterated default. Non-harmful `auto` traffic still routes normally
+    # (mostly to abliterated lanes, by design).
+    if detect_harmful_intent(messages):
+        logger.warning(
+            "Auto-routing: harmful-intent gate fired — routing to standard-posture "
+            "lane '%s' instead of the abliterated default.",
+            _HARMFUL_INTENT_LANE,
+        )
+        _router_layer_total.labels(
+            layer="harmful_intent_gate", workspace=_HARMFUL_INTENT_LANE
+        ).inc()
+        return _HARMFUL_INTENT_LANE
     # LLM router first — semantic intent, ~100ms, falls back on timeout/low confidence
     detected = await _route_with_llm(messages)
     if detected:

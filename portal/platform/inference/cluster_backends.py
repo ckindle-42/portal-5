@@ -123,7 +123,7 @@ class Backend:
 
     Instances are constructed by ``BackendRegistry._load_config`` from
     ``config/backends.yaml`` and mutated in-place only by ``_check_one``
-    (``healthy``/``last_check``); treat as immutable elsewhere.
+    (``healthy``/``last_check``/``live_models``); treat as immutable elsewhere.
 
     Attributes:
         id: Stable identifier from YAML; used as the registry dict key.
@@ -166,6 +166,15 @@ class Backend:
     # backend's native model id. Lets a workspace keep one model_hint while
     # engines are swapped underneath.
     aliases: dict[str, str] = field(default_factory=dict)
+    # Models the backend actually serves right now, as reported by its own
+    # model-list endpoint. ``None`` until the first successful probe, or when
+    # the backend type has no such endpoint (Ollama pulls on demand, so its
+    # membership is the static ``models`` list). For ``omlx`` this is the live
+    # ``/v1/models`` set: an oMLX server advertises only its registered models,
+    # which can be a strict subset of what ``backends.yaml`` aliases at it —
+    # without this check a half-migrated oMLX group reports healthy and silently
+    # black-holes every request for an aliased-but-unserved model.
+    live_models: set[str] | None = None
 
     @property
     def chat_url(self) -> str:
@@ -196,12 +205,26 @@ class Backend:
 
         Returns the hint unchanged when served directly, the alias target when
         aliased, or ``None`` when this backend cannot serve the hint.
+
+        When ``live_models`` is known (populated by a successful probe of a
+        backend that publishes its served set, e.g. oMLX ``/v1/models``), a
+        resolved target that is not in that live set yields ``None`` — the
+        backend advertises the model in config but is not actually serving it,
+        so candidate selection must skip it and fall through.
         """
         if not model_hint:
             return None
         if model_hint in self.models:
-            return model_hint
-        return self.aliases.get(model_hint)
+            resolved: str | None = model_hint
+        else:
+            resolved = self.aliases.get(model_hint)
+        if (
+            resolved is not None
+            and self.live_models is not None
+            and resolved not in self.live_models
+        ):
+            return None
+        return resolved
 
 
 class BackendRegistry:
@@ -577,6 +600,37 @@ class BackendRegistry:
         except Exception:
             logger.debug("Memory poller error — skipping this tick", exc_info=True)
 
+    def _update_omlx_live_models(self, backend: Backend, resp: httpx.Response) -> None:
+        """Refresh ``backend.live_models`` from an oMLX ``/v1/models`` response.
+
+        oMLX advertises only its registered models, which may be a strict
+        subset of what ``backends.yaml`` aliases at this backend. Record the
+        live set so ``resolve_model`` skips this backend for anything it is not
+        actually serving, and warn (on change) about the config/runtime gap.
+        """
+        try:
+            data = resp.json().get("data", [])
+            live = {m["id"] for m in data if isinstance(m, dict) and m.get("id")}
+        except Exception:
+            logger.debug("Could not parse oMLX /v1/models for %s", backend.id, exc_info=True)
+            return
+        if not live or live == backend.live_models:
+            return
+        backend.live_models = live
+        declared = set(backend.models) | set(backend.aliases.values())
+        missing = sorted(declared - live)
+        if missing:
+            logger.warning(
+                "oMLX backend %s serves %d model(s) but backends.yaml declares/aliases "
+                "%d not currently served: %s — requests for these fall through to the "
+                "next candidate (usually Ollama). Register them on the oMLX host or "
+                "prune the stale entries.",
+                backend.id,
+                len(live),
+                len(missing),
+                ", ".join(missing),
+            )
+
     async def _check_one(
         self,
         backend: Backend,
@@ -596,6 +650,7 @@ class BackendRegistry:
             client: Shared HTTP client from ``_get_health_client``.
         """
         async with sem:
+            resp = None
             try:
                 resp = await client.get(backend.health_url)
                 ok = resp.status_code == 200
@@ -606,6 +661,8 @@ class BackendRegistry:
 
             if ok:
                 backend.consecutive_failures = 0
+                if backend.type == "omlx" and resp is not None:
+                    self._update_omlx_live_models(backend, resp)
                 if not backend.healthy:
                     backend.healthy = True
                     logger.info("Health check recovered: %s", backend.id)

@@ -54,6 +54,49 @@ class TestOmlxBackendBasics:
         assert be.resolve_model("unknown-model") is None
         assert be.resolve_model("") is None
 
+    def test_resolve_model_skips_unserved_live_model(self):
+        """A half-migrated oMLX group aliases a model the live server does not
+        actually serve — resolve_model must return None so candidate selection
+        falls through instead of black-holing the request."""
+        be = Backend(
+            id="omlx-reasoning",
+            type="omlx",
+            url="http://x",
+            group="reasoning",
+            models=["granite-4.1-30b-4bit", "DeepSeek-R1-4bit"],
+            aliases={"granite4.1:30b-ctx64k": "granite-4.1-30b-4bit"},
+        )
+        # Before any probe: live_models unknown, behave as before.
+        assert be.resolve_model("granite4.1:30b-ctx64k") == "granite-4.1-30b-4bit"
+        # After a probe that only reported a different model:
+        be.live_models = {"Qwen3.8-27B-oQ4e-mtp"}
+        assert be.resolve_model("granite4.1:30b-ctx64k") is None
+        assert be.resolve_model("granite-4.1-30b-4bit") is None
+        # A model that IS live still resolves.
+        be.live_models = {"granite-4.1-30b-4bit"}
+        assert be.resolve_model("granite4.1:30b-ctx64k") == "granite-4.1-30b-4bit"
+
+    def test_update_omlx_live_models_warns_on_gap(self, caplog):
+        import httpx
+
+        reg = BackendRegistry.__new__(BackendRegistry)
+        be = Backend(
+            id="omlx-reasoning",
+            type="omlx",
+            url="http://x",
+            group="reasoning",
+            models=["granite-4.1-30b-4bit"],
+            aliases={"tongyi:ctx64k": "Tongyi-30B-4bit"},
+        )
+        resp = httpx.Response(
+            200, json={"data": [{"id": "Qwen3.8-27B-oQ4e-mtp"}, {"id": "Laguna-XS.2-4bit"}]}
+        )
+        with caplog.at_level("WARNING"):
+            reg._update_omlx_live_models(be, resp)
+        assert be.live_models == {"Qwen3.8-27B-oQ4e-mtp", "Laguna-XS.2-4bit"}
+        assert "granite-4.1-30b-4bit" in caplog.text
+        assert "Tongyi-30B-4bit" in caplog.text
+
 
 class TestOmlxConfigLoad:
     def test_loads_omlx_fields(self, tmp_path):
