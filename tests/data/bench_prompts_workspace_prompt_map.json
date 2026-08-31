@@ -26,7 +26,6 @@
   "bench-agentworld": "coding",
   "bench-baronllm-q6k": "general",
   "bench-cad-prior": "coding",
-  "bench-cascade2-compliance": "reasoning",
   "bench-e2b-pentest": "security",
   "bench-exec-exploit": "security",
   "bench-exec-reasoning": "reasoning",

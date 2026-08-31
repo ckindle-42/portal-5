@@ -33,7 +33,10 @@ from portal.platform.inference.router.state import (
     _save_state,
     _state_save_loop,
 )
-from portal.platform.inference.router.validation import _validate_workspace_hints
+from portal.platform.inference.router.validation import (
+    _validate_workspace_hints,
+    warn_unset_thinking_mode,
+)
 from portal.platform.inference.router.workspaces import WORKSPACES
 
 logger = logging.getLogger(__name__)
@@ -310,6 +313,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     _non_streaming_mod.registry = registry
     _non_streaming_mod._http_client = _http_client
     _validation_mod.registry = registry
+    for _w in warn_unset_thinking_mode():
+        logger.warning("THINK MODE: %s", _w)
     hint_errors = _validate_workspace_hints(registry)
     if hint_errors:
         for e in hint_errors:

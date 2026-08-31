@@ -1425,13 +1425,22 @@ The `-ctx64k` tag silently capped real opencode agentic sessions well below thei
 
 ---
 
-### `nemotron-cascade-2:30b-a3b-q4_K_M-ctx32k`
+### `nemotron-cascade-2:30b-a3b-q4_K_M-ctx32k` — DROPPED
 
-`nemotron-cascade-2:30b-a3b-q4_K_M-ctx32k` is the 32K-context derived tag of NVIDIA Nemotron-Cascade-2-30B-A3B (MoE, ~3B active, ~24GB, `shiny-plan`/`bartowski` GGUF via `ollama create`), added 2026-08-31 as the **auto-compliance challenger** (`BENCH_REWIRE_PLAN_V1` B1). `config/backends.yaml` registers it in the `reasoning` group with `supports_tools: true` (Ollama `/api/chat` tool probe clean). `config/portal.yaml` binds it only to the `bench-cascade2-compliance` eval workspace (`PROMOTE_POLICY=confirm`), not to production. Its published IFBench 82.9 / ArenaHard 83.5 lead the class — the instruction-following and structured-document strength that compliance gap-analysis needs. The bench context: `granite-4.1-8b` (the incumbent) fabricated a NERC CIP requirement and a source URL on a basic lookup, and `qwen3.6-35b-a3b` did the same; only dense `Qwen3.8-27B` correctly refused. The bench (compliance persona-matrix + the 33 rows in `tests/uat_adaptive/DEFERRED_COMPLIANCE_RUN.txt`) decides whether cascade-2's instruction-following plus the workspace's `web_search`/`read_pdf` tools produce grounded answers or the same parametric-recall fabrication. `PARAMETER num_ctx 32768` is baked in because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`.
+**DROPPED 2026-08-31.** Lost the `auto-compliance` challenger evaluation: on a
+10-question framework-lookup probe it produced the *worst* fabrication of the
+three candidates — confident regulatory text with **invented PCI-SSC verbatim
+quotes and fake source URLs** (e.g. a fully specified fake "Requirement 15.7"),
+which is the single most dangerous behavior for a compliance analyst. Removed
+from `config/backends.yaml`; the `bench-cascade2-compliance` workspace and the
+`ollama` tag are deleted. `auto-compliance` runs dense Qwen3.8-27B. History
+retained below.
+
+`nemotron-cascade-2:30b-a3b-q4_K_M-ctx32k` was the 32K-context derived tag of NVIDIA Nemotron-Cascade-2-30B-A3B (MoE, ~3B active, ~24GB, `shiny-plan`/`bartowski` GGUF via `ollama create`), added 2026-08-31 as the **auto-compliance challenger** (`BENCH_REWIRE_PLAN_V1` B1). `config/backends.yaml` registers it in the `reasoning` group with `supports_tools: true` (Ollama `/api/chat` tool probe clean). `config/portal.yaml` binds it only to the `bench-cascade2-compliance` eval workspace (`PROMOTE_POLICY=confirm`), not to production. Its published IFBench 82.9 / ArenaHard 83.5 lead the class — the instruction-following and structured-document strength that compliance gap-analysis needs. The bench context: `granite-4.1-8b` (the incumbent) fabricated a NERC CIP requirement and a source URL on a basic lookup, and `qwen3.6-35b-a3b` did the same; only dense `Qwen3.8-27B` correctly refused. The bench (compliance persona-matrix + the 33 rows in `tests/uat_adaptive/DEFERRED_COMPLIANCE_RUN.txt`) decides whether cascade-2's instruction-following plus the workspace's `web_search`/`read_pdf` tools produce grounded answers or the same parametric-recall fabrication. `PARAMETER num_ctx 32768` is baked in because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`.
 
 ## Why
 
-The compliance lane's incumbent hallucinates regulations — a disqualifying failure for regulatory work — so a challenger is warranted. This entry is bench-only until a passing compliance run promotes it; the decisive comparison is fabrication rate on framework-lookup questions, not raw benchmark scores.
+The compliance lane's incumbent (granite-4.1-8b) hallucinates regulations, so a challenger was warranted — but strong published instruction-following scores (IFBench 82.9 / ArenaHard 83.5) did not translate to grounded compliance answers: cascade-2 fabricated authoritative-looking citations. The decisive comparison was fabrication rate on framework-lookup questions, not benchmark scores, and cascade-2 failed it hardest.
 
 ---
 

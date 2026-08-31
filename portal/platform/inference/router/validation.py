@@ -7,6 +7,7 @@ by the non-streaming + streaming dispatch paths (option injection).
 from __future__ import annotations
 
 import os
+import re
 
 from portal.platform.inference.cluster_backends import BackendRegistry
 from portal.platform.inference.router.workspaces import WORKSPACES
@@ -56,6 +57,50 @@ def _validate_workspace_hints(registry: BackendRegistry) -> list[str]:
                 f"Add it to config/backends.yaml or correct the WORKSPACES hint."
             )
     return errors
+
+
+# Model families whose chat template opens a `<think>` block by default when
+# `enable_thinking` isn't explicitly set (Qwen3.5/3.6/3.8, DeepSeek-R1, GLM-Z1,
+# Magistral, olmo-think). A non-reasoning workspace on one of these that leaves
+# `think` unset will silently reason — and on hard prompts that degenerates
+# into repetition or eats the whole token budget (empty content). Coder
+# variants (qwen3-coder) are instruct-only, not thinking.
+_THINKING_FAMILY_RE = re.compile(
+    r"qwen3\.[568]|qwen3-?next|deepseek-?r1|glm-z1|glm.*think|magistral|olmo.*think|"
+    r"phi4-reasoning|qwopus|aeon",
+    re.IGNORECASE,
+)
+_CODER_HINT_RE = re.compile(r"qwen3-coder|coder-next", re.IGNORECASE)
+
+
+def warn_unset_thinking_mode() -> list[str]:
+    """Workspaces on a thinking-capable model that don't set ``think``.
+
+    Advisory only — returns human-readable strings for ``lifespan`` to log at
+    WARNING. Not a hard failure: the template default may be what the operator
+    wants. See feedback_thinking_model_needs_think_false.
+    """
+    out: list[str] = []
+
+    def _scan(ws_id: str, cfg: dict) -> None:
+        hint = cfg.get("model_hint") or ""
+        if (
+            hint
+            and _THINKING_FAMILY_RE.search(hint)
+            and not _CODER_HINT_RE.search(hint)
+            and cfg.get("think") is None
+        ):
+            out.append(
+                f"workspace={ws_id!r} model_hint={hint!r} is a thinking-capable "
+                f"model but `think` is unset — it will default to the template's "
+                f"behavior (usually ON for Qwen3). Set `think: true|false` explicitly."
+            )
+        for vn, vcfg in (cfg.get("variants") or {}).items():
+            _scan(f"{ws_id}::{vn}", {**cfg, **vcfg})
+
+    for ws_id, cfg in WORKSPACES.items():
+        _scan(ws_id, cfg)
+    return out
 
 
 def _model_supports_tools(model_id: str) -> bool:

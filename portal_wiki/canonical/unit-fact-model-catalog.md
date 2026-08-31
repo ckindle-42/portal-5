@@ -1,11 +1,11 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 246 model ids, 7 backend groups
+title: 244 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 27e8cff76444
+  commit: c1f41f382adf
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1788199966.7438562
+updated_at: 1788207895.019847
 ---
 
-# Model catalog (246 model ids across 7 backend groups)
+# Model catalog (244 model ids across 7 backend groups)
 
 ## coding (53)
 
@@ -89,7 +89,7 @@ updated_at: 1788199966.7438562
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (101)
+## general (100)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `cybersecqwen-4b-toolfix:latest`
@@ -171,7 +171,6 @@ updated_at: 1788199966.7438562
 - `meta-secalign-8b-q4_k_m:latest`
 - `mistral-small3.2:24b`
 - `muse-glimmer:30b-mlx`
-- `nemotron-cascade-2:30b-a3b-q4_K_M-ctx32k`
 - `omnicoder2:9b-q4_k_m`
 - `phi4-mini`
 - `phi4:14b-q8_0`
@@ -198,7 +197,7 @@ updated_at: 1788199966.7438562
 - `Laguna-XS.2-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
 
-## reasoning (31)
+## reasoning (30)
 
 - `Qwen3.8-27B-oQ4e-mtp`
 - `Tongyi-DeepResearch-30B-A3B-abliterated-4bit`
@@ -223,7 +222,6 @@ updated_at: 1788199966.7438562
 - `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k`
 - `huihui_ai/tongyi-deepresearch-abliterated`
 - `huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k`
-- `nemotron-cascade-2:30b-a3b-q4_K_M-ctx32k`
 - `phi4-mini-reasoning`
 - `phi4-mini-reasoning:latest-ctx24k`
 - `portal5/qwen3.6-27b-mtp:q8_0-drafted`
