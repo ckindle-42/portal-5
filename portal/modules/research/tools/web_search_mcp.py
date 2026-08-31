@@ -1,7 +1,7 @@
 """Portal 5 Web Search MCP Server.
 
 Tools:
-- web_search: query SearXNG, return top N results with title/url/snippet
+- web_search: Brave API (or SearXNG) — top N results with title/url/snippet
 - web_fetch: fetch a URL's text content (size-bounded, blocks private/local)
 - news_search: like web_search, biased toward recent news
 
@@ -120,7 +120,7 @@ async def list_tools(request):
 # limited from this instance's IP — which was the steady state 2026-08-31.
 # Pin the engines explicitly so a working one (Bing) is always queried; the
 # others are tried too and contribute when they recover. Override via env.
-_SEARXNG_ENGINES = os.environ.get("SEARXNG_ENGINES", "bing,duckduckgo,google")
+_SEARXNG_ENGINES = os.environ.get("SEARXNG_ENGINES") or "bing,duckduckgo,google"
 
 
 async def _searxng_search(query, num_results=5, time_range="any", category="general"):
@@ -153,7 +153,8 @@ async def _searxng_search(query, num_results=5, time_range="any", category="gene
 
 
 async def _brave_search(query, num_results=5, time_range="any", category="general"):
-    """Brave Search API fallback. Only called when SearXNG returns nothing/errors.
+    """Brave Search API. Primary or fallback per WEB_SEARCH_PRIMARY; no-op
+    without BRAVE_API_KEY.
 
     Maps time_range -> Brave 'freshness' (pd/pw/pm/py). category 'news' uses the
     /news endpoint; everything else uses /web. Returns the same result shape as
@@ -191,13 +192,57 @@ async def _brave_search(query, num_results=5, time_range="any", category="genera
             return []
 
 
+# Which backend leads. SearXNG is free/private but scrape-based: its engines
+# get bot-throttled and then return only site-root / Wikipedia / nav links
+# rather than answer-bearing results (a browser hitting google.com/search
+# hits the SAME degradation — worse, it CAPTCHAs faster — so "use a real
+# browser" does not fix search quality; only a real index API does). Brave's
+# API returns answer-bearing snippets and 2000 free queries/mo is ample for a
+# single user. Default: brave when a key is configured, else searxng.
+# Override with WEB_SEARCH_PRIMARY=searxng|brave. The other backend is the
+# fallback either way.
+WEB_SEARCH_PRIMARY = (
+    os.environ.get("WEB_SEARCH_PRIMARY") or ("brave" if BRAVE_API_KEY else "searxng")
+).lower()
+
+
+def _results_are_weak(results: list) -> bool:
+    """True when a non-empty result set is unlikely to help — every URL points
+    at a site root / nav page, most carry no real snippet, or it is dominated
+    by generic reference pages (Wikipedia). SearXNG's scraped results degrade
+    to this shape when an engine throttles."""
+    if not results:
+        return True
+    n = len(results)
+    rooty = sum(1 for r in results if urlparse(r.get("url", "")).path.strip("/") == "")
+    with_snippet = sum(1 for r in results if len((r.get("snippet") or "").strip()) >= 40)
+    wiki = sum(1 for r in results if "wikipedia.org" in (r.get("url") or ""))
+    return (
+        rooty == n
+        or with_snippet == 0
+        or (n >= 3 and with_snippet < 2)
+        or (n >= 3 and rooty + wiki >= n - 1)
+    )
+
+
 async def _search_with_fallback(query, num_results=5, time_range="any", category="general"):
-    """SearXNG primary; Brave fallback on empty result or error. Brave is only
-    consulted when BRAVE_API_KEY is set and SearXNG yielded nothing."""
-    results = await _searxng_search(query, num_results, time_range, category)
-    if not results and BRAVE_API_KEY:
-        logger.info("SearXNG empty for %r — falling back to Brave", query)
-        results = await _brave_search(query, num_results, time_range, category)
+    """Primary backend (WEB_SEARCH_PRIMARY) then the other one, on an empty OR
+    low-quality result set. Brave requires BRAVE_API_KEY."""
+    brave_first = WEB_SEARCH_PRIMARY == "brave" and BRAVE_API_KEY
+    order = ["brave", "searxng"] if brave_first else ["searxng", "brave"]
+    results: list = []
+    for backend in order:
+        if backend == "brave" and not BRAVE_API_KEY:
+            continue
+        fn = _brave_search if backend == "brave" else _searxng_search
+        candidate = await fn(query, num_results, time_range, category)
+        if not _results_are_weak(candidate):
+            return candidate
+        if candidate and not results:
+            results = candidate  # keep the best weak set as a last resort
+        logger.info(
+            "web_search: %s gave %d weak/empty results for %r", backend, len(candidate), query
+        )
     return results
 
 
