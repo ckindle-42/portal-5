@@ -288,6 +288,10 @@ backends:
     supports_tools: true
   - id: hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest
     supports_tools: true
+  # auto-compliance challenger — bench-cascade2-compliance resolves via the
+  # `general` group (eval-module default). Also declared in `reasoning`.
+  - id: nemotron-cascade-2:30b-a3b-q4_K_M-ctx32k
+    supports_tools: true
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
 - group: coding
