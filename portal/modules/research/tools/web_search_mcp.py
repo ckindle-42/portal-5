@@ -12,7 +12,7 @@ import logging
 import os
 import re
 import time
-from urllib.parse import urlparse
+from urllib.parse import quote_plus, urlparse
 
 import httpx
 from mcp.server import MCPServer
@@ -25,6 +25,40 @@ SEARXNG_URL = os.environ.get("SEARXNG_URL", "http://localhost:8088")
 BRAVE_API_KEY = os.environ.get("BRAVE_API_KEY", "")
 WEB_FETCH_MAX_BYTES = int(os.environ.get("WEB_FETCH_MAX_BYTES", str(2 * 1024 * 1024)))
 WEB_FETCH_TIMEOUT_S = float(os.environ.get("WEB_FETCH_TIMEOUT_S", "15"))
+
+# Obscura-backed browser MCP (TASK_BROWSER_OBSCURA_MIGRATION_V1). Used as a
+# fallback tier for web_fetch (A2) and web_search (A3): the browser passes bot
+# challenges that a plain httpx GET / SERP-scrape cannot. Reachable in-compose.
+BROWSER_MCP_URL = os.environ.get("BROWSER_MCP_URL", "http://portal-browser:8923")
+WEB_FETCH_BROWSER_FALLBACK = os.environ.get("WEB_FETCH_BROWSER_FALLBACK", "true").lower() != "false"
+WEB_SEARCH_BROWSER_TIER = os.environ.get("WEB_SEARCH_BROWSER_TIER", "true").lower() != "false"
+
+
+async def _browser_tool(tool: str, arguments: dict, timeout_s: float = 45.0) -> dict | None:
+    """Call one tool on the Obscura browser MCP. Returns its payload or None."""
+    try:
+        async with httpx.AsyncClient(timeout=timeout_s) as c:
+            r = await c.post(f"{BROWSER_MCP_URL}/tools/{tool}", json={"arguments": arguments})
+        if r.status_code != 200:
+            logger.info("browser MCP %s -> HTTP %s", tool, r.status_code)
+            return None
+        data = r.json()
+        if isinstance(data, dict) and (data.get("error") or data.get("isError")):
+            return None
+        return data
+    except Exception as e:  # network / MCP down — degrade silently to the caller
+        logger.info("browser MCP %s failed: %s", tool, e)
+        return None
+
+
+async def _browser_fetch_markdown(url: str) -> str | None:
+    """A2: fetch a challenged URL as clean Markdown via Obscura (stateless)."""
+    data = await _browser_tool("browser_get_markdown", {"url": url})
+    if data:
+        md = data.get("markdown") or ""
+        return md.strip() or None
+    return None
+
 
 BLOCKED_DOMAINS = {
     "localhost",
@@ -281,8 +315,54 @@ async def _search_with_fallback(query, num_results=5, time_range="any", category
         logger.info(
             "web_search: %s gave %d weak/empty results for %r", backend, len(candidate), query
         )
+
+    # A3: final tier — both API backends returned weak/empty. Render a real SERP
+    # through the Obscura browser (stealth) and scrape it. Only for general search.
+    if WEB_SEARCH_BROWSER_TIER and category == "general" and _results_are_weak(results):
+        browser_results = await _browser_search(query, num_results)
+        if browser_results and not _results_are_weak(browser_results):
+            _cache_put(key, browser_results)
+            return browser_results
+
     _cache_put(key, results)
     return results
+
+
+async def _browser_search(query: str, num_results: int) -> list:
+    """A3: scrape a rendered SERP via the Obscura browser MCP. Returns the
+    standard result shape, or [] on failure."""
+    serp = f"https://duckduckgo.com/html/?q={quote_plus(query)}"
+    nav = await _browser_tool("browser_navigate", {"url": serp}, timeout_s=45.0)
+    if nav is None:
+        return []
+    # Extract result rows from the rendered DOM via browser_evaluate.
+    limit = max(num_results, 1)
+    expr = (
+        f"Array.from(document.querySelectorAll('.result')).slice(0, {limit}).map(r => {{"
+        "const a = r.querySelector('.result__a');"
+        "const s = r.querySelector('.result__snippet');"
+        "return {title: a ? a.textContent.trim() : '',"
+        " url: a ? a.href : '',"
+        " snippet: s ? s.textContent.trim() : ''};"
+        "}).filter(x => x.url)"
+    )
+    ev = await _browser_tool("browser_evaluate", {"expression": expr}, timeout_s=20.0)
+    rows = ev.get("result") if isinstance(ev, dict) else None
+    if not isinstance(rows, list):
+        return []
+    out = []
+    for row in rows[:num_results]:
+        if isinstance(row, dict) and row.get("url"):
+            out.append(
+                {
+                    "title": row.get("title", ""),
+                    "url": row.get("url", ""),
+                    "snippet": row.get("snippet", ""),
+                    "engine": "browser",
+                    "published": "",
+                }
+            )
+    return out
 
 
 @mcp.custom_route("/tools/web_search", methods=["POST"])
@@ -337,12 +417,39 @@ async def web_fetch_endpoint(request):
     if host in BLOCKED_DOMAINS or host.startswith(PRIVATE_PREFIXES):
         return JSONResponse({"error": "private/local URLs blocked"}, status_code=403)
     max_chars = args.get("max_chars", 50000)
+
+    async def _browser_fallback(reason: str):
+        """A2: retry via the Obscura browser MCP (passes bot challenges)."""
+        if not WEB_FETCH_BROWSER_FALLBACK:
+            return None
+        md = await _browser_fetch_markdown(url)
+        if not md:
+            return None
+        truncated = len(md) > max_chars
+        logger.info("web_fetch browser fallback used for %s (%s)", url, reason)
+        return JSONResponse(
+            {
+                "url": url,
+                "status_code": 200,
+                "content_type": "text/markdown",
+                "char_count": len(md),
+                "truncated": truncated,
+                "via": "browser",
+                "text": md[:max_chars] + ("\n\n[...truncated]" if truncated else ""),
+            }
+        )
+
     try:
         async with httpx.AsyncClient(timeout=WEB_FETCH_TIMEOUT_S, follow_redirects=True) as c:
             r = await c.get(url, headers={"User-Agent": "Portal5-Research/1.0"})
             if r.status_code >= 400:
-                return JSONResponse({"error": f"HTTP {r.status_code}", "url": url})
+                fb = await _browser_fallback(f"HTTP {r.status_code}")
+                return fb or JSONResponse({"error": f"HTTP {r.status_code}", "url": url})
             text = _html_to_text(r.content[:WEB_FETCH_MAX_BYTES].decode("utf-8", errors="replace"))
+            if not text.strip():
+                fb = await _browser_fallback("empty body")
+                if fb:
+                    return fb
             truncated = len(text) > max_chars
             return JSONResponse(
                 {
@@ -355,7 +462,8 @@ async def web_fetch_endpoint(request):
                 }
             )
     except Exception as e:
-        return JSONResponse({"error": str(e)[:200], "url": url}, status_code=502)
+        fb = await _browser_fallback(f"exception: {type(e).__name__}")
+        return fb or JSONResponse({"error": str(e)[:200], "url": url}, status_code=502)
 
 
 def main():

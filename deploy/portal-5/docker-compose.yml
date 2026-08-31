@@ -782,6 +782,8 @@ services:
       - BRAVE_API_KEY=${BRAVE_API_KEY:-}
       - WEB_SEARCH_PRIMARY=${WEB_SEARCH_PRIMARY:-}
       - SEARXNG_ENGINES=${SEARXNG_ENGINES:-}
+      # A2/A3 Obscura fallback tiers reach the browser MCP by its compose service name.
+      - BROWSER_MCP_URL=${BROWSER_MCP_URL:-http://browser-mcp:8923}
     command: ["python", "-m", "portal.modules.research.tools.web_search_mcp"]
     depends_on:
       searxng:
