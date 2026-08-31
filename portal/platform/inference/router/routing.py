@@ -90,6 +90,38 @@ _REASONING_KEYWORDS: dict[str, int] = {
 # Compliance keywords — NERC CIP and regulatory intent
 _COMPLIANCE_KEYWORDS: dict[str, int] = _load_data("routing_compliance_keywords")
 
+# Harmful-intent keywords — genuinely harmful asks (targeting a private
+# individual, deception/fraud, harassment) that a STANDARD-posture lane must
+# handle so it refuses, never an abliterated lane. Distinct from
+# redteam/security (authorized offensive work is legitimate). The `auto`
+# router SHOULD default most traffic to abliterated lanes — this gate is the
+# narrow exception. Adaptive UAT FINDINGS C1/C2/C3.
+_HARMFUL_INTENT_KEYWORDS: dict[str, int] = _load_data("routing_harmful_intent_keywords")
+_HARMFUL_INTENT_THRESHOLD: int = int(os.environ.get("HARMFUL_INTENT_THRESHOLD", "3"))
+# Standard-posture lane harmful `auto` requests are routed to. Non-abliterated,
+# tool-light, will refuse a genuinely harmful ask and offer a safe alternative.
+_HARMFUL_INTENT_LANE: str = os.environ.get("HARMFUL_INTENT_LANE", "auto-daily")
+_HARMFUL_INTENT_KW_CACHE: dict[str, int] = {
+    kw.lower(): w for kw, w in _HARMFUL_INTENT_KEYWORDS.items()
+}
+
+
+def detect_harmful_intent(messages: list[dict]) -> bool:
+    """True when the last user message trips the harmful-intent keyword gate.
+
+    Weighted substring scoring over the lowercased last user message, same
+    mechanism as ``_detect_workspace``. Conservative by design: a false
+    positive only means the request is handled by the standard lane instead
+    of an abliterated one, which is cheap; a false negative is the failure
+    mode this gate exists to prevent.
+    """
+    text = _last_user_text(messages, 2000).lower()
+    if not text:
+        return False
+    score = sum(w for kw, w in _HARMFUL_INTENT_KW_CACHE.items() if kw in text)
+    return score >= _HARMFUL_INTENT_THRESHOLD
+
+
 # Mistral/Magistral keywords — structured reasoning with Mistral lineage
 _MISTRAL_KEYWORDS: dict[str, int] = {
     # Strong (3) — explicit Mistral/Magistral requests
