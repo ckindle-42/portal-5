@@ -75,7 +75,18 @@ depth/effort signal today**, so do NOT try to make the router pick it.
 - Confirm eviction behavior: when the deep variant loads, tier-1 (`qwen3.6:35b-a3b`)
   must be evicted first (`context_limit` for the deep lane at 32K fits once alone).
 
-### 2. `auto-compliance` challenger bench (plan B1 / B4)
+### 2. `auto-compliance` challenger bench (plan B1 / B4) — cascade-2 WIRED 2026-08-31 (commit d08ab1ff), bench pending
+
+**Finding:** `granite-4.1-8b` (incumbent) fabricated a NERC CIP requirement + a
+source URL on a basic lookup; `qwen3.6-35b-a3b` did too; only dense
+`Qwen3.8-27B` correctly refused. So the lane needs to change.
+
+`nemotron-cascade-2:30b-a3b-q4_K_M-ctx32k` downloaded, tool-audited, wired as
+`bench-cascade2-compliance` (eval workspace, search-first anti-fabrication
+prompt). **Run:** the compliance persona-matrix + the 33 `DEFERRED_COMPLIANCE_RUN.txt`
+rows against granite-8b / cascade-2 / Qwen3.8-27B. Decisive metric = fabrication
+rate on framework-lookup questions (does it retrieve via web_search or invent).
+Promote the winner to `auto-compliance` primary.
 
 Currently `granite4.1:8b-ctx16k` — weak for multi-framework regulatory work but
 not broken. Bench two challengers on the compliance persona-matrix + the 33

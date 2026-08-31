@@ -44,12 +44,23 @@ work does NOT trip it (verified — `mimikatz`/`kerberoast` route via
 **Remaining for this item:** tune the keyword set against the real C1/C2 corpus
 rows; consider an LLM-layer posture dimension (below) for cases keywords miss.
 
-### 2. LLM-layer posture dimension (not yet done)
+### 2. LLM-layer posture dimension — DONE 2026-08-31 (commit 1cf15ba5)
 
-Extend the Layer-1 intent classifier prompt/output with a posture field
-(`harmful` / `standard` / `permissive`) so semantic harmful intent that dodges
-the keyword set is still diverted. Keyword gate stays as the deterministic
-floor.
+`_ROUTER_JSON_SCHEMA` gained a `posture` enum (harmful/standard/permissive),
+the router prompt got POSTURE guidance + 3 few-shot examples, `num_predict`
+40→64. `_route_with_llm` returns `_HARMFUL_INTENT_LANE` on `posture=harmful`
+before the workspace/confidence gates. The router model (gemma-4-E4B)
+classifies correctly and stays within the 1s budget when warm (~510ms);
+verified live. Keyword gate broadened (~60→~130 phrases) as the cold-start /
+timeout backstop. **Remaining:** the keyword gate still misses some novel
+phrasings between router-timeout windows — acceptable given the LLM layer, but
+worth a periodic keyword top-up from real C1/C2 corpus rows.
+
+### 3-personas. itexpert / techreviewer / webnavigator — DONE 2026-08-31
+
+Documented the intentional abliterated `workspace_model: auto` posture in each
+persona YAML (system-prompt HARD CONSTRAINTS + the router gate are the boundary
+safety) — the AI-15 "accept the posture" path, not pinned.
 
 ### 3. `workspace_model: auto` personas (C2/AI-15) — decide per persona
    - personas whose directive implies standard posture (itexpert, techreviewer,
