@@ -166,7 +166,7 @@
   },
   "routing_examples[19]": {
     "base": "auto-compliance",
-    "served_model": "granite4.1:8b-ctx16k",
+    "served_model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "routing_examples[1]": {
@@ -176,7 +176,7 @@
   },
   "routing_examples[20]": {
     "base": "auto-compliance",
-    "served_model": "granite4.1:8b-ctx16k",
+    "served_model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "routing_examples[21]": {
@@ -401,7 +401,7 @@
   },
   "rr_s21_03_compliance_auto": {
     "base": "auto-compliance",
-    "served_model": "granite4.1:8b-ctx16k",
+    "served_model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "rr_variant_coding_base": {

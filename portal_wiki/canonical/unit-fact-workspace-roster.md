@@ -5,7 +5,7 @@ title: 25 production + 53 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 1cf15ba5d2e2
+  commit: 4793ee38035e
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'
@@ -14,7 +14,7 @@ tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1788199250.78124
+updated_at: 1788202430.496244
 ---
 
 # Workspace roster (25 production, 53 eval, 78 total)
@@ -28,7 +28,7 @@ updated_at: 1788199250.78124
 | `auto-bigfix` | general | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` |
 | `auto-cad` | cad | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` |
 | `auto-coding` | coding | `qwen3-coder:30b-a3b-q4_K_M-ctx256k` |
-| `auto-compliance` | compliance | `granite4.1:8b-ctx16k` |
+| `auto-compliance` | compliance | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` |
 | `auto-council` | general | `qwen3.6:27b-q4_K_M-ctx16k` |
 | `auto-creative` | media | `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` |
 | `auto-daily` | general | `gemma4:26b-a4b-it-qat-ctx8k` |
