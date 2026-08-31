@@ -981,6 +981,11 @@ workspaces:
         top_p: 0.95
         top_k: 20
         min_p: 0.0
+        # keep thinking here (this IS the deep-reasoning lane), but Qwen3.8's
+        # <think> chain can degenerate into verbatim repetition on hard prompts
+        # — repeat_penalty 1.1 breaks the cycle. predict_limit 24576 gives the
+        # chain room to finish rather than truncate to empty content.
+        repeat_penalty: 1.1
         think: true
         emits_reasoning: true
         tools: []
@@ -1219,8 +1224,13 @@ workspaces:
     description: |-
       Multi-framework compliance analysis: NERC CIP, HIPAA, GDPR, SOC 2, PCI-DSS, NIST CSF/800-53, ISO 27001, FedRAMP, NIS2, CMMC, FFIEC, and state privacy laws (CCPA/CPRA, Texas TDPSA, Connecticut CTDPA, etc.). Gap analysis, policy drafting, evidence review, cross-framework control mapping, audit prep. Qwen3.8-27B (dense, ~18 t/s via oMLX MTP) — promoted 2026-08-31 after granite-4.1-8b was found fabricating regulatory requirements and source URLs on framework lookups (and degenerating into repeating "I don't know" loops); Qwen3.8-27B was the only candidate that refused to fabricate and critically evaluates search results. Compliance is depth-on-demand, not throughput.
     # ctx32k baked tag; the omlx-reasoning alias serves Qwen3.8-27B-oQ4e-mtp.
-    # A challenger bench (bench-cascade2-compliance, nemotron-cascade-2) is
-    # still open — see config/TASK_REASONING_GROUP_OVERHAUL_V1.md.
+    # think:false — Qwen3.8's chat template opens `<think>` by default; on hard/
+    # uncertain compliance questions that reasoning degenerates into verbatim
+    # repetition (or eats the whole token budget → empty content). Compliance
+    # is retrieve-then-structure, not open-ended reasoning. repeat_penalty 1.1
+    # as a second guard. Fix verified 2026-08-31: with think:false the model
+    # correctly answers "PCI-DSS requirement 15.7 does not exist" instead of
+    # looping. Same pattern as auto-council / auto-creative.
     model_hint: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
     context_limit: 32768
     predict_limit: 24576
@@ -1228,7 +1238,8 @@ workspaces:
     top_p: 0.95
     top_k: 20
     min_p: 0.0
-    repeat_penalty: 1.0
+    repeat_penalty: 1.1
+    think: false
     emits_reasoning: false
     tools:
     - create_word_document
