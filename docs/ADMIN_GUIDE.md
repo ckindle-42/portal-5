@@ -717,7 +717,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-# Model catalog (243 model ids across 7 backend groups)
+# Model catalog (244 model ids across 7 backend groups)
 
 ## coding (53)
 
@@ -897,9 +897,9 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `Laguna-XS.2-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
 
-## reasoning (29)
+## reasoning (30)
 
-- `DeepSeek-R1-0528-Qwen3-8B-4bit`
+- `Qwen3.8-27B-oQ4e-mtp`
 - `Tongyi-DeepResearch-30B-A3B-abliterated-4bit`
 - `deepseek-r1:32b-q4_k_m`
 - `gpt-oss:20b`
@@ -919,6 +919,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k`
 - `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL`
 - `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k`
+- `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k`
 - `huihui_ai/tongyi-deepresearch-abliterated`
 - `huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k`
 - `phi4-mini-reasoning`
