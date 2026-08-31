@@ -658,6 +658,10 @@ backends:
     supports_tools: true
   - id: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k
     supports_tools: true
+  # ctx24k tag for the auto-security `pentest` variant (think:true — the
+  # <think> chain needs headroom above the 8k tag). 2026-08-31.
+  - id: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx24k
+    supports_tools: true
   - id: huihui_ai/Qwen3.6-abliterated:27b
     supports_tools: true
   - id: huihui_ai/Qwen3.6-abliterated:27b-ctx8k
@@ -865,6 +869,7 @@ backends:
   aliases:
     hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k: VulnLLM-R-7B-4bit
     fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k: Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit
+    fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx24k: Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit
     granite4.1:8b-ctx8k: granite-4.1-8b-mxfp8
     huihui_ai/qwen3.5-abliterated:9b-ctx8k: huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit
     huihui_ai/qwen3.5-abliterated:9b-ctx64k: huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit

@@ -1,11 +1,11 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 244 model ids, 7 backend groups
+title: 245 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: c1f41f382adf
+  commit: 967adec59d32
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1788207895.019847
+updated_at: 1788210095.361729
 ---
 
-# Model catalog (244 model ids across 7 backend groups)
+# Model catalog (245 model ids across 7 backend groups)
 
 ## coding (53)
 
@@ -75,11 +75,12 @@ updated_at: 1788207895.019847
 - `qwen3.6:27b-q4_K_M`
 - `qwen3.6:35b-a3b-q4_K_M`
 
-## creative (11)
+## creative (12)
 
 - `Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit`
 - `dolphin-llama3:8b`
 - `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4`
+- `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx24k`
 - `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k`
 - `hermes3:8b`
 - `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M`

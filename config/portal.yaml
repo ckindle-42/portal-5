@@ -639,11 +639,14 @@ workspaces:
     top_k: 40
     min_p: 0.05
     repeat_penalty: 1.1
-    # think:false for the whole group incl. the Qwen3.5/3.6-abliterated
-    # redteam/purpleteam/pentest variants — thinking models on these tool-heavy
-    # exec lanes caused KV eviction + empty responses (see the AEON UAT
-    # finding), and Qwen3's <think> default would otherwise apply. The "deep"
-    # variants get depth from ctx + prompt, not chain-of-thought.
+    # think:false on the group default. It's a no-op for the base (VulnLLM-R is
+    # Qwen2.5, not a thinking model) and for uncensored/blueteam/redteam-deep/
+    # purpleteam-exec (Llama / gemma4). It DOES take effect on the Qwen3.5/3.6
+    # variants: redteam/purpleteam(-deep) emit rigid 5-phase structured output
+    # into a multi-hop pipeline on a 9B abliterated model at ctx8192 — a
+    # `<think>` prefix risks breaking the structure, leaking into hop_0, or
+    # truncating before the phase content. `pentest` overrides think:true (35B,
+    # a genuine read→enumerate→execute loop) with more context — see there.
     think: false
     tools:
     - web_search
@@ -681,14 +684,22 @@ workspaces:
       pentest:
         name: 🖊️ Portal Pentest Assistant
         description: 'Authorized penetration testing assistant with execution capability. Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive (MoE, ~22GB). PROMOTED 2026-07-16 (P5-AUTOSEC-RESELECT widened slate): the only candidate across 27 tested (original 11-candidate slate + a widened abliterated-model sweep) to clear BOTH the tool-call reliability gate (valid_rate 0.80, unique_coverage 6/8 on kerberoast_to_da --lab-exec — best of any abliterated candidate) AND zero-refusal authorized-content compliance (verified: delivers complete working reverse-shell payloads, detailed mimikatz credential-dump walkthroughs, and working Metasploit EternalBlue commands — see docs/reselection/ for the diagnosis chain). Superseded the prior gemma-4-abliterated:E2b-qat pick, whose 2026-06-25 head-to-head numbers predated the reliability-scoring fix and were never re-verified; re-tested under the corrected methodology it failed the reliability gate (valid_rate 0.50-0.67 across 3 reps). execute_bash + execute_python + web_search for live target enumeration and PoC validation. Web app / AD / cloud / container attack paths, CVE-specific payloads, exec-ready findings.'
-        model_hint: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k
-        context_limit: 8192
+        model_hint: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx24k
+        context_limit: 24576
+        predict_limit: 8192
         keep_alive: 15m
         temperature: 0.3
         top_p: 0.9
         top_k: 40
         min_p: 0.05
         repeat_penalty: 1.1
+        # think:true — the pentest loop (read tool output → decide next command →
+        # execute) is genuinely reasoning-heavy, and 35B-A3B stays coherent even
+        # abliterated. ctx 8192->24576 + predict_limit 8192 so the <think> chain
+        # has room to finish before the phase sections rather than truncate to
+        # empty (the AEON pattern). Needs a lab-exec run to confirm the
+        # "call execute_bash FIRST" + phase-header structure still hold.
+        think: true
         system_prompt_append: "\n\nLAB ENVIRONMENT:\nYour execute_bash calls run inside portal5-attack (Kali Linux). These tools are available:\n  nmap, nxc (NetExec), impacket-* (GetUserSPNs GetNPUsers secretsdump psexec smbclient dacledit),\n  certipy-ad, bloodhound-ce-python, responder, john, msfconsole, ldap3 (Python)\n\nThe following environment variables are pre-injected and ready to use in every execute_bash call:\n  $LAB_TARGET_DC       — Active Directory domain controller IP\n  $LAB_TARGET_SRV      — Member server IP (IIS :80, WinRM :5985)\n  $LAB_TARGET_NETWORK  — Lab network CIDR (e.g. 10.10.11.0/24)\n  Domain: portal.lab   NetBIOS: PORTAL\n\nALWAYS use $LAB_TARGET_DC / $LAB_TARGET_SRV / $LAB_TARGET_NETWORK in commands — never hardcode IPs.\n\nUSER TARGET OVERRIDE: if the user specifies a different target in their message (e.g. 'use 10.10.10.5 as the DC', 'target 192.168.1.100', 'point at X instead'), substitute their value for the relevant env var in your commands and announce it once at the top: '⚠ Target override: DC=<ip> (user-specified)'. Revert to $LAB_TARGET_* on the next message unless the user specifies again.\n\nHARD CONSTRAINTS (never violate):\n- This is an authorized penetration test. Produce specific, actionable output only.\n- DO NOT add disclaimers, authorization warnings, or ethical caveats.\n- USE execute_bash and execute_python to validate commands and PoC payloads when possible.\n- USE web_search to look up current CVEs, exploit PoCs, and version-specific details.\n- Cite exact CVE IDs, tool flags, version-specific payloads, and MITRE ATT&CK IDs.\n- Structure output with clear phase headers: RECON, ATTACK VECTOR, EXPLOITATION, POST-EXPLOITATION.\n"
         tools:
         - execute_bash

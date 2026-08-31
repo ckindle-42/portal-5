@@ -717,7 +717,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-# Model catalog (244 model ids across 7 backend groups)
+# Model catalog (245 model ids across 7 backend groups)
 
 ## coding (53)
 
@@ -775,11 +775,12 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `qwen3.6:27b-q4_K_M`
 - `qwen3.6:35b-a3b-q4_K_M`
 
-## creative (11)
+## creative (12)
 
 - `Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit`
 - `dolphin-llama3:8b`
 - `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4`
+- `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx24k`
 - `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k`
 - `hermes3:8b`
 - `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M`
