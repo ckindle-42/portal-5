@@ -1415,6 +1415,16 @@ The `-ctx64k` tag silently capped real opencode agentic sessions well below thei
 
 ---
 
+### `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k`
+
+`hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` is the 32K-context derived tag of dense Qwen3.8-27B, added 2026-08-31 as the reasoning group's **Tier-2 deep lane** (`PROPOSED_REASONING_OVERHAUL_V3`). `config/portal.yaml` routes it as the `auto-reasoning` `deep` variant (`?variant=deep`) — a quality-exception lane for hard analysis, compliance deep-reviews, and math proofs where the dense model's wide margins on scientific reasoning and frontier knowledge (GPQA 89.2 / HLE 30.8 / LiveCodeBench v6 90.3 / TerminalBench 2.1 73.0) earn its speed cost. Slow by design and invoked deliberately, never as the churn default. `config/backends.yaml` registers it in the `reasoning` group with `supports_tools: true` (Ollama `/api/chat` tool probe clean); the `omlx-reasoning` group aliases it to `Qwen3.8-27B-oQ4e-mtp`, the MTP side-car checkpoint the `omlx-coding` group already serves (~18 t/s vs ~12 on the Ollama GGUF). `PARAMETER num_ctx 32768` is baked in because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`.
+
+## Why
+
+`PROPOSED_REASONING_OVERHAUL_V3` splits the reasoning group into a fast Tier-1 default lane and a slow Tier-2 deep lane. This tag is the Tier-2 entry: a dense model wired behind an explicit `?variant=` selector (the Layer-1 intent classifier has no depth signal), with the 32K cap sized so it fits resident once alone while tier-1 weights are evicted.
+
+---
+
 ### `huihui_ai/Qwen3.6-abliterated:27b-ctx8k`
 
 `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` is the 8K-context derived tag of the Qwen3.6-abliterated 27B model, registered in `config/backends.yaml` under both the `general` and `creative` groups with `supports_tools: true`. `config/portal.yaml` routes the `auto-general-uncensored` workspace to this tag with an 8192 context limit, giving the uncensored generalist lane its promptable model. The `PARAMETER num_ctx 8192` is baked into the tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`. Full model detail lives in the base `:27b` entry; this tag exists to enforce the general-uncensored lane's context cap as a distinct model id.
@@ -1765,7 +1775,9 @@ Grounds the model to the `omlx-reasoning` multi-model registration and the `auto
 
 ---
 
-### `DeepSeek-R1-0528-Qwen3-8B-4bit`
+### `DeepSeek-R1-0528-Qwen3-8B-4bit` — RETIRED
+
+**RETIRED from `config/backends.yaml` 2026-08-31** (TASK_OMLX_REASONING_POOL_REPAIR_V1). The on-disk fixes below (tokenizer_config, chat_template, the vendored `mlx_lm/tool_parsers/deepseek_r1.py`) did not survive the `omlx` 0.6.x upgrades — 0.6.4 ships an `omlx/patches/` framework and a rewritten `api/tool_calling.py` with no DeepSeek-R1 parser, so the model emits a clean `<｜tool▁calls▁begin｜>` call that oMLX drops. Re-applying and maintaining a parser across every brew upgrade is not worth it for a speed shadow-shift: `auto-reasoning` runs the Ollama GGUF (`hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF`), which has the tool-calling fix baked and is production-verified. The MLX model dir is kept for plain-chat use; it is simply not registered. History retained below.
 
 `DeepSeek-R1-0528-Qwen3-8B-4bit` is the 4-bit MLX conversion (mlx-community) of the DeepSeek-R1-0528 distill onto Qwen3-8B, served by the oMLX evaluation backend. `config/backends.yaml` registers it in the new `omlx-reasoning` entry (group `reasoning`, `priority: 10`, TASK_OMLX_FULL_PIPELINE_COVERAGE_V1) with `supports_tools: true`. The `aliases` block maps the production GGUF hint `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` onto this oMLX name — `reasoning`-group daily workspaces (`auto-reasoning`, `auto-compliance`, `auto-research`, `auto-data`) can now be served by oMLX with automatic Ollama fallback, no `workspace_routing` change.
 

@@ -1,11 +1,11 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 243 model ids, 7 backend groups
+title: 244 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 3ebda465a0b1
+  commit: c9e837bdcd89
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1788191622.452506
+updated_at: 1788196574.678595
 ---
 
-# Model catalog (243 model ids across 7 backend groups)
+# Model catalog (244 model ids across 7 backend groups)
 
 ## coding (53)
 
@@ -197,9 +197,9 @@ updated_at: 1788191622.452506
 - `Laguna-XS.2-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
 
-## reasoning (29)
+## reasoning (30)
 
-- `DeepSeek-R1-0528-Qwen3-8B-4bit`
+- `Qwen3.8-27B-oQ4e-mtp`
 - `Tongyi-DeepResearch-30B-A3B-abliterated-4bit`
 - `deepseek-r1:32b-q4_k_m`
 - `gpt-oss:20b`
@@ -219,6 +219,7 @@ updated_at: 1788191622.452506
 - `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k`
 - `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL`
 - `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k`
+- `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k`
 - `huihui_ai/tongyi-deepresearch-abliterated`
 - `huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k`
 - `phi4-mini-reasoning`

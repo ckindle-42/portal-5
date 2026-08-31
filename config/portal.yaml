@@ -962,6 +962,28 @@ workspaces:
     enable_web_search: true
     owui_system_prompt: |-
       You are a deep reasoning AI. Break down complex problems step-by-step. Show your work. Acknowledge uncertainty. Distinguish between facts and inferences.
+    variants:
+      deep:
+        name: 🧠 Portal Deep Reasoner — Deep Lane
+        description: >-
+          Tier-2 quality-exception lane (PROPOSED_REASONING_OVERHAUL_V3): a dense
+          model for hard analysis, compliance deep-reviews, and math proofs where
+          the quality delta earns the speed cost. Qwen3.8-27B (dense, ~18GB, GPQA
+          89.2 / HLE 30.8 / LiveCodeBench v6 90.3 / TerminalBench 2.1 73.0 — beats
+          both A3B MoEs on scientific reasoning and frontier knowledge by wide
+          margins). Slow by design (~18 t/s on oMLX with MTP, ~12 on the Ollama
+          GGUF); invoke deliberately with ?variant=deep, not for throughput work.
+          oMLX serves Qwen3.8-27B-oQ4e-mtp; Ollama GGUF is the fallback.
+        model_hint: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+        context_limit: 32768
+        predict_limit: 24576
+        temperature: 0.6
+        top_p: 0.95
+        top_k: 20
+        min_p: 0.0
+        think: true
+        emits_reasoning: true
+        tools: []
   auto-council:
     module: general
     name: 🏛️ Portal Council Review
