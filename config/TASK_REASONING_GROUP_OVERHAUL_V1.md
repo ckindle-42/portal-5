@@ -77,36 +77,31 @@ depth/effort signal today**, so do NOT try to make the router pick it.
 
 ### 2. `auto-compliance` — PROMOTED to Qwen3.8-27B 2026-08-31 (commit a17a58c3)
 
-A 10-question fabrication probe (NERC/HIPAA/GDPR/PCI-DSS/SOC2/NIST/ISO
-specifics + one fake-requirement trap) across granite-8b / nemotron-cascade-2 /
-Qwen3.8-27B through the live `auto-compliance` path:
-- **granite-8b**: fabricated a NERC CIP requirement + fake source URL,
-  degenerated into a repeating "I don't know" loop, invented "133 controls"
-  for ISO 27001:2013 (real: 114). Disqualifying.
-- **cascade-2**: over-hedged (refused to state stable GDPR fine law), thinking
-  leaked as content, truncated on ~half the questions.
-- **Qwen3.8-27B**: strongest, best-cited answers; critically evaluates search
-  results ("not useful, search again"). Promoted (~18 t/s oMLX MTP; ctx32k).
+Two 10-question fabrication probes (NERC/HIPAA/GDPR/PCI-DSS/SOC2/NIST/ISO
+specifics + a fake-requirement trap) across granite-8b / nemotron-cascade-2 /
+Qwen3.8-27B through the live `auto-compliance` path (v1: 900 tok, no search;
+v2: 3000 tok, search still degraded):
+- **granite-8b**: fabricated a NERC CIP requirement + fake source URL, invented
+  "133 controls" for ISO 27001:2013 (real: 114), and **broke into a 300-line
+  repeating loop** on one question. Disqualifying.
+- **nemotron-cascade-2**: 3 correct, but produced the **worst fabrication** —
+  confident regulatory text with **invented PCI-SSC verbatim quotes and fake
+  source URLs** (a fully-specified fake "Requirement 15.7"). **DROPPED**
+  2026-08-31 — model, backends.yaml entries, `bench-cascade2-compliance`
+  workspace, and `ollama` tag all removed.
+- **Qwen3.8-27B**: most correct answers, most nuanced, critically evaluates
+  search results. **Promoted** (~18 t/s oMLX MTP; ctx32k). Fabricated only on
+  the adversarial trap and then looped — fixed by `think: false` +
+  `repeat_penalty: 1.1` (commit c1f41f38); the `<think>` chain was where it
+  looped.
 
-**Also fixed:** SearXNG's default engines (brave/startpage/google-cse/ddg) were
-all captcha'd/rate-limited from this IP, so every `web_search` returned empty —
-`_searxng_search` now pins `engines=bing,duckduckgo,google`. This was
-degrading auto-compliance / auto-research / auto-data equally.
+**Also fixed:** every SearXNG default engine was captcha'd/rate-limited from
+this IP; `web_search` now Brave-primary (`WEB_SEARCH_PRIMARY`, key in `.env`),
+SearXNG fallback (commit d471b188). Verified: `auto-compliance` now answers
+"93 controls … reduction from 114 in 2013" with real sources.
 
-**Still open:** the `nemotron-cascade-2` bench (`bench-cascade2-compliance`) — a
-full compliance persona-matrix run could still flip the call; and the 33
-`DEFERRED_COMPLIANCE_RUN.txt` rows should run once on Qwen3.8-27B as the v9
-baseline.
-
-Currently `granite4.1:8b-ctx16k` — weak for multi-framework regulatory work but
-not broken. Bench two challengers on the compliance persona-matrix + the 33
-deferred rows (`tests/uat_adaptive/DEFERRED_COMPLIANCE_RUN.txt`):
-- `qwen3.6:35b-a3b` (the new tier-1 primary — free, installed).
-- `nemotron-cascade-2:30b` (~24GB download; IFBench 82.9 / ArenaHard 83.5 class
-  leaders; independently confirmed on llama.cpp). **Download is operator-gated —
-  do not pull without sign-off.** Budget for 30–40 t/s on this M4 Pro, not 45–60.
-- Pass criteria per `BENCH_REWIRE_PLAN_V1.md` B1. Promote the winner to
-  `auto-compliance` primary.
+**Still open:** run the 33 `DEFERRED_COMPLIANCE_RUN.txt` rows once on Qwen3.8-27B
+as the v9 baseline (not for model selection — the probes settled that).
 
 ### 3. Declines + disk reclaim (plan §Declines / AI-13)
 

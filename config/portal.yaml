@@ -639,6 +639,12 @@ workspaces:
     top_k: 40
     min_p: 0.05
     repeat_penalty: 1.1
+    # think:false for the whole group incl. the Qwen3.5/3.6-abliterated
+    # redteam/purpleteam/pentest variants — thinking models on these tool-heavy
+    # exec lanes caused KV eviction + empty responses (see the AEON UAT
+    # finding), and Qwen3's <think> default would otherwise apply. The "deep"
+    # variants get depth from ctx + prompt, not chain-of-thought.
+    think: false
     tools:
     - web_search
     - web_fetch
@@ -956,6 +962,9 @@ workspaces:
     top_p: 0.95
     top_k: 40
     min_p: 0.02
+    # explicit: this is the dedicated reasoning lane. DeepSeek-R1 always
+    # reasons; predict_limit 16384 gives the chain room to finish.
+    think: true
     emits_reasoning: true
     tools: []
     expose_to_owui: true
@@ -1506,29 +1515,6 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
-  bench-cascade2-compliance:
-    module: eval
-    name: 🔬 Bench · Nemotron-Cascade-2-30B (compliance challenger)
-    description: |-
-      Benchmark: nemotron-cascade-2:30b-a3b-q4_K_M-ctx32k (NVIDIA Nemotron-Cascade-2-30B-A3B, MoE 3B active, ~24GB, IFBench 82.9 / ArenaHard 83.5 class leaders; AA Intelligence Index 18). BENCH_REWIRE_PLAN_V1 B1 — auto-compliance challenger vs the granite-4.1-8b incumbent (which fabricated a NERC CIP requirement + a source URL on a basic lookup 2026-08-31) and vs dense Qwen3.8-27B (the one candidate that correctly refused to fabricate). Instrument: the compliance persona-matrix + the 33 deferred rows in tests/uat_adaptive/DEFERRED_COMPLIANCE_RUN.txt. Watch for the same parametric-recall fabrication — the workspace has web_search + read_pdf; the real question is whether the model retrieves or invents. tool-calling audited 2026-08-31 (clean tool_calls). PROMOTE_POLICY=confirm.
-    model_hint: nemotron-cascade-2:30b-a3b-q4_K_M-ctx32k
-    context_limit: 32768
-    predict_limit: 16384
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.6
-    top_p: 0.95
-    repeat_penalty: 1.0
-    tools:
-    - create_word_document
-    - read_pdf
-    - kb_search
-    - kb_list
-    - web_search
-    expose_to_owui: true
-    enable_web_search: true
-    owui_system_prompt: |-
-      You are a multi-framework compliance analyst (NERC CIP, HIPAA, GDPR, SOC 2, PCI-DSS, NIST, ISO 27001, FedRAMP). Cite the exact standard, version, and requirement. Classify compliance as Full / Partial / None / Ambiguous. Do not infer compliance from aspirational language. NEVER state a regulatory requirement or cite a source you are not certain of — search first, and if you cannot verify, say so and name the authoritative source to check.
   bench-gemma4-26b-optiq:
     module: eval
     name: 🔬 Bench · Gemma-4-26B-A4B (OptiQ)
@@ -1793,7 +1779,9 @@ workspaces:
     top_p: 0.95
     repeat_penalty: 1.1
     max_concurrent: 1
-    emits_reasoning: true
+    # code-repair bench — not a reasoning task; think:false to match the coder
+    # peers it benches against and avoid Qwen3's <think> repeat-loop.
+    think: false
     tools: []
     expose_to_owui: false
     enable_web_search: false
@@ -2444,6 +2432,8 @@ workspaces:
     top_p: 0.95
     min_p: 0.01
     repeat_penalty: 1.0
+    # Magistral is reasoning-only (no instruct mode) — keep thinking on.
+    think: true
     tools: []
     expose_to_owui: false
     enable_web_search: false
