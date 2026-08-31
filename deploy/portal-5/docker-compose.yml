@@ -781,6 +781,8 @@ services:
       - MCP_PORT=8922
       - SEARXNG_URL=http://searxng:8080
       - BRAVE_API_KEY=${BRAVE_API_KEY:-}
+      - WEB_SEARCH_PRIMARY=${WEB_SEARCH_PRIMARY:-}
+      - SEARXNG_ENGINES=${SEARXNG_ENGINES:-}
     command: ["python", "-m", "portal.modules.research.tools.web_search_mcp"]
     depends_on:
       searxng:
