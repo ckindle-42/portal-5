@@ -11,6 +11,7 @@ Port: 8922 (RESEARCH_MCP_PORT env override).
 import logging
 import os
 import re
+import time
 from urllib.parse import urlparse
 
 import httpx
@@ -225,9 +226,45 @@ def _results_are_weak(results: list) -> bool:
     )
 
 
+# In-process result cache — a single-user deployment re-runs the same lookups
+# constantly (UAT reruns, common regs, a model refining a query with the same
+# terms). TTL default 6h; every engine has some rate ceiling, so not re-hitting
+# them for a repeat query is the cheapest win. Bounded LRU-ish (oldest evicted).
+_SEARCH_CACHE_TTL_S = int(os.environ.get("WEB_SEARCH_CACHE_TTL_S", str(6 * 3600)))
+_SEARCH_CACHE_MAX = int(os.environ.get("WEB_SEARCH_CACHE_MAX", "512"))
+_search_cache: dict[tuple, tuple[float, list]] = {}
+
+
+def _cache_get(key: tuple) -> list | None:
+    hit = _search_cache.get(key)
+    if hit is None:
+        return None
+    ts, results = hit
+    if time.time() - ts > _SEARCH_CACHE_TTL_S:
+        _search_cache.pop(key, None)
+        return None
+    return results
+
+
+def _cache_put(key: tuple, results: list) -> None:
+    if not results:
+        return  # never cache an empty/failed lookup
+    if len(_search_cache) >= _SEARCH_CACHE_MAX:
+        oldest = min(_search_cache, key=lambda k: _search_cache[k][0])
+        _search_cache.pop(oldest, None)
+    _search_cache[key] = (time.time(), results)
+
+
 async def _search_with_fallback(query, num_results=5, time_range="any", category="general"):
     """Primary backend (WEB_SEARCH_PRIMARY) then the other one, on an empty OR
-    low-quality result set. Brave requires BRAVE_API_KEY."""
+    low-quality result set. Brave requires BRAVE_API_KEY. Cached per
+    (query, num_results, time_range, category)."""
+    key = (query.strip().lower(), num_results, time_range, category)
+    cached = _cache_get(key)
+    if cached is not None:
+        logger.debug("web_search cache hit for %r", query)
+        return cached
+
     brave_first = WEB_SEARCH_PRIMARY == "brave" and BRAVE_API_KEY
     order = ["brave", "searxng"] if brave_first else ["searxng", "brave"]
     results: list = []
@@ -237,12 +274,14 @@ async def _search_with_fallback(query, num_results=5, time_range="any", category
         fn = _brave_search if backend == "brave" else _searxng_search
         candidate = await fn(query, num_results, time_range, category)
         if not _results_are_weak(candidate):
+            _cache_put(key, candidate)
             return candidate
         if candidate and not results:
             results = candidate  # keep the best weak set as a last resort
         logger.info(
             "web_search: %s gave %d weak/empty results for %r", backend, len(candidate), query
         )
+    _cache_put(key, results)
     return results
 
 

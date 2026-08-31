@@ -3,7 +3,16 @@ ordering. No network: _searxng_search / _brave_search are monkeypatched."""
 
 from __future__ import annotations
 
+import pytest
+
 from portal.modules.research.tools import web_search_mcp as m
+
+
+@pytest.fixture(autouse=True)
+def _clear_search_cache():
+    m._search_cache.clear()
+    yield
+    m._search_cache.clear()
 
 
 def _r(url, snippet=""):
@@ -95,3 +104,55 @@ class TestSearchFallbackOrder:
         out = await m._search_with_fallback("q", 4)
         assert out == good
         assert called["brave"] is False
+
+
+class TestSearchCache:
+    def _reset(self, m):
+        m._search_cache.clear()
+
+    async def test_repeat_query_served_from_cache(self, monkeypatch):
+        m.WEB_SEARCH_PRIMARY  # noqa
+        monkeypatch.setattr(m, "WEB_SEARCH_PRIMARY", "searxng")
+        monkeypatch.setattr(m, "BRAVE_API_KEY", "")
+        self._reset(m)
+        calls = {"n": 0}
+        good = [_r("https://x.com/deep", "a substantive snippet long enough to count as real")]
+
+        async def _sx(*a, **k):
+            calls["n"] += 1
+            return list(good)
+
+        monkeypatch.setattr(m, "_searxng_search", _sx)
+        a = await m._search_with_fallback("ISO 27001 controls", 4)
+        b = await m._search_with_fallback("  iso 27001 CONTROLS ", 4)  # normalized key
+        assert a == b == good
+        assert calls["n"] == 1  # second call hit the cache
+
+    async def test_empty_result_not_cached(self, monkeypatch):
+        monkeypatch.setattr(m, "WEB_SEARCH_PRIMARY", "searxng")
+        monkeypatch.setattr(m, "BRAVE_API_KEY", "")
+        self._reset(m)
+        calls = {"n": 0}
+
+        async def _sx(*a, **k):
+            calls["n"] += 1
+            return []
+
+        monkeypatch.setattr(m, "_searxng_search", _sx)
+        await m._search_with_fallback("nothing", 4)
+        await m._search_with_fallback("nothing", 4)
+        assert calls["n"] == 2  # empty never cached
+
+    def test_cache_ttl_expiry(self, monkeypatch):
+        self._reset(m)
+        monkeypatch.setattr(m, "_SEARCH_CACHE_TTL_S", 0)
+        m._cache_put(("q", 4, "any", "general"), [_r("https://x.com/a", "s" * 50)])
+        assert m._cache_get(("q", 4, "any", "general")) is None
+
+    def test_cache_bound_evicts_oldest(self, monkeypatch):
+        self._reset(m)
+        monkeypatch.setattr(m, "_SEARCH_CACHE_MAX", 2)
+        for i in range(3):
+            m._cache_put((f"q{i}", 4, "any", "general"), [_r(f"https://x/{i}", "s" * 50)])
+        assert len(m._search_cache) == 2
+        assert ("q0", 4, "any", "general") not in m._search_cache
