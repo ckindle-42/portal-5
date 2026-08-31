@@ -2,6 +2,12 @@ name: Tech Reviewer
 slug: techreviewer
 category: general
 source: prompts.chat
+# workspace_model: auto + abliterated preferred_models is intentional (candid
+# product criticism without hedging). The system prompt's anti-fabrication HARD
+# CONSTRAINTS carry the guardrails; the `auto` router's harmful-intent gate
+# diverts fraud/deception asks (fake reviews, forged recalls) to a standard
+# lane before this persona is selected. Adaptive UAT FINDINGS C2 / AI-15 —
+# accepted posture, not pinned.
 workspace_model: auto
 preferred_models:
   - huihui_ai/qwen3.5-abliterated:9b-ctx8k

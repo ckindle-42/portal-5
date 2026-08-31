@@ -22,9 +22,9 @@ def _user_messages(text: str) -> list[dict]:
     return [{"role": "user", "content": text}]
 
 
-def _mock_llm_response(workspace: str, confidence: float) -> MagicMock:
+def _mock_llm_response(workspace: str, confidence: float, posture: str = "standard") -> MagicMock:
     """Build a mock httpx response that returns valid JSON from the LLM router."""
-    payload = json.dumps({"workspace": workspace, "confidence": confidence})
+    payload = json.dumps({"workspace": workspace, "confidence": confidence, "posture": posture})
     mock_resp = MagicMock()
     mock_resp.json.return_value = {"response": payload}
     mock_resp.raise_for_status = MagicMock()
@@ -437,3 +437,32 @@ class TestHarmfulIntentGate:
 
         msgs = [{"role": "user", "content": "blackmail extort ruin their reputation"}]
         assert await _resolve_auto_routing("auto-coding", msgs) == "auto-coding"
+
+    async def test_llm_router_harmful_posture_diverts(self):
+        """A harmful posture from the LLM classifier diverts to the standard
+        lane even when the keyword gate misses and the topic pick is confident."""
+        from portal.platform.inference.router import routing as rt
+
+        # topic looks like plain research, but posture=harmful
+        mock_resp = _mock_llm_response("auto-research", 0.97, posture="harmful")
+        with (
+            patch.object(rt, "_http_client") as mock_client,
+            patch.object(rt, "_LLM_ROUTER_ENABLED", True),
+        ):
+            mock_client.post = AsyncMock(return_value=mock_resp)
+            result = await rt._route_with_llm(
+                _user_messages("build a profile of this blogger and where they work")
+            )
+        assert result == rt._HARMFUL_INTENT_LANE
+
+    async def test_llm_router_standard_posture_routes_normally(self):
+        from portal.platform.inference.router import routing as rt
+
+        mock_resp = _mock_llm_response("auto-coding", 0.96, posture="standard")
+        with (
+            patch.object(rt, "_http_client") as mock_client,
+            patch.object(rt, "_LLM_ROUTER_ENABLED", True),
+        ):
+            mock_client.post = AsyncMock(return_value=mock_resp)
+            result = await rt._route_with_llm(_user_messages("write a bubble sort"))
+        assert result == "auto-coding"
