@@ -96,7 +96,9 @@ def warn_unset_thinking_mode() -> list[str]:
                 f"behavior (usually ON for Qwen3). Set `think: true|false` explicitly."
             )
         for vn, vcfg in (cfg.get("variants") or {}).items():
-            _scan(f"{ws_id}::{vn}", {**cfg, **vcfg})
+            merged = {**cfg, **vcfg}
+            merged.pop("variants", None)  # a variant has no nested variants
+            _scan(f"{ws_id}::{vn}", merged)
 
     for ws_id, cfg in WORKSPACES.items():
         _scan(ws_id, cfg)
