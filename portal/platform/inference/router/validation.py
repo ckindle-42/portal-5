@@ -150,6 +150,35 @@ def _resolve_sampling_values(ws_cfg_local: dict) -> dict:
     return resolved
 
 
+# reasoning_effort -> output-token cap. Explicit request-level override of a
+# reasoning lane's fixed predict_limit (A4, TASK_REASONING_GROUP_OVERHAUL_V1 §1).
+# Env-overridable so the three tiers retune without a code change.
+_REASONING_EFFORT_PREDICT: dict[str, int] = {
+    "low": int(os.environ.get("REASONING_EFFORT_LOW", "4096")),
+    "medium": int(os.environ.get("REASONING_EFFORT_MEDIUM", "16384")),
+    "high": int(os.environ.get("REASONING_EFFORT_HIGH", "49152")),
+}
+
+
+def _apply_reasoning_effort(body: dict) -> tuple[int, str] | None:
+    """Pop ``reasoning_effort`` from ``body`` (mutates in place) and, when it is a
+    recognised tier, hard-set ``max_tokens`` to the mapped cap.
+
+    An explicit effort is a user override, so it wins over the workspace's fixed
+    predict_limit (hard assignment, not setdefault). Returns ``(cap, label)`` when
+    applied, else ``None``. Always removes the key so it never reaches the backend.
+    """
+    effort = body.pop("reasoning_effort", None)
+    if not effort:
+        return None
+    label = str(effort).strip().lower()
+    cap = _REASONING_EFFORT_PREDICT.get(label)
+    if cap is None:
+        return None
+    body["max_tokens"] = cap
+    return cap, label
+
+
 def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
     """Add Ollama-specific tuning to the outgoing request body. Returns a copy.
 
@@ -192,9 +221,11 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
     if ctx_limit:
         body["options"].setdefault("num_ctx", ctx_limit)
 
+    # reasoning_effort override wins over the workspace's fixed predict_limit
+    _effort = _apply_reasoning_effort(body)
     # output token cap — map to top-level max_tokens (OpenAI standard)
     predict_limit = ws_cfg_local.get("predict_limit")
-    if predict_limit:
+    if predict_limit and _effort is None:
         body.setdefault("max_tokens", predict_limit)
 
     # keep_alive: workspace override wins; hard assignment (not setdefault) so
@@ -244,9 +275,14 @@ def _inject_omlx_options(body: dict, workspace_id: str = "") -> dict:
     body = dict(body)
     ws_cfg_local = WORKSPACES.get(workspace_id, {}) if workspace_id else {}
 
+    _effort = _apply_reasoning_effort(body)
     predict_limit = ws_cfg_local.get("predict_limit")
-    if predict_limit:
+    if predict_limit and _effort is None:
         body.setdefault("max_tokens", predict_limit)
+    if _effort is not None:
+        _ctk = dict(body.get("chat_template_kwargs") or {})
+        _ctk.setdefault("reasoning_effort", _effort[1])
+        body["chat_template_kwargs"] = _ctk
 
     if body.get("stream", True):
         body.setdefault("stream_options", {})["include_usage"] = True
