@@ -46,7 +46,17 @@ quality delta clearly outweighs losing the DeepSeek lineage and the dedicated
 thinking specialist. If it does not, record the decision and close B3 for this
 slot.
 
-### 1. Tier-2 deep lane — `qwen3.8:27b` as an explicit variant (not a router change)
+### 1. Tier-2 deep lane — DONE 2026-08-31 (commit 648c4480)
+
+`auto-reasoning?variant=deep` → dense Qwen3.8-27B. ctx32k Ollama tag +
+`hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` → `Qwen3.8-27B-oQ4e-mtp` alias
+in `omlx-reasoning` (MTP path). Verified live: routes to the MTP checkpoint,
+base `auto-reasoning` unchanged. B2 was obsolete — the model was already on
+oMLX. **Remaining:** `reasoning_effort` control on the variant; confirm tier-1
+weights evict when the deep lane loads (oMLX EnginePool behavior under memory
+pressure — needs a co-resident test).
+
+### 1-orig. Tier-2 deep lane — `qwen3.8:27b` as an explicit variant (superseded by §1 above)
 
 `PROPOSED_REASONING_OVERHAUL_V3.md` Tier 2 wants a slow-by-design dense lane for
 hard analysis / compliance deep-review / math proofs, invoked on demand, with
