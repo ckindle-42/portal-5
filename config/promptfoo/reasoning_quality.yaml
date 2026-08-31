@@ -12,7 +12,7 @@ providers:
     config:
       temperature: 0
       num_predict: 1024
-  - id: ollama:chat:granite4.1:30b-ctx64k
+  - id: ollama:chat:hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k
     label: auto-data
     config:
       temperature: 0

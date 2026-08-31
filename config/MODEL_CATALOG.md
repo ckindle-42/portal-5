@@ -1405,6 +1405,16 @@ The `-ctx64k` tag silently capped real opencode agentic sessions well below thei
 
 ---
 
+### `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k`
+
+`hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k` is the 32K-context derived tag of the Qwen3.6-35B-A3B MoE, added 2026-08-31 as the `auto-data` primary (`BENCH_REWIRE_PLAN_V1` B3 / `PROPOSED_REASONING_OVERHAUL_V3`). `config/portal.yaml` routes `auto-data` to this tag, replacing `granite4.1:30b-ctx64k`, which drove a ~55GB resident working set and 96-97% memory pressure under the adaptive UAT (FINDINGS D2). `config/backends.yaml` registers it in the `reasoning` group with `supports_tools: true`, verified live via a direct `/api/chat` tool-call probe (clean `tool_calls`, correctly typed arguments). `PARAMETER num_ctx 32768` is baked in via `portal models apply-params` because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`. This MoE (3B active) runs 54.2 t/s measured on the M4 Pro versus 5-12 t/s for the dense 30-32B lane it replaces. `auto-reasoning` deliberately stays on `DeepSeek-R1-0528-Qwen3-8B` (5GB, never thrashed) for reasoning-group lineage diversity. Full model detail lives in the base tag's entry.
+
+## Why
+
+`auto-data` had been running a dense 30B model at 64K context as its churn default, which physically cannot fit alongside other resident models on 64GB unified memory. This tag encodes both the model swap and the 32K context cap that keeps the lane off the deep-lane memory profile; the deep lane (`qwen3.8:27b`, quality-exception, invoked on demand) is tracked separately.
+
+---
+
 ### `huihui_ai/Qwen3.6-abliterated:27b-ctx8k`
 
 `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` is the 8K-context derived tag of the Qwen3.6-abliterated 27B model, registered in `config/backends.yaml` under both the `general` and `creative` groups with `supports_tools: true`. `config/portal.yaml` routes the `auto-general-uncensored` workspace to this tag with an 8192 context limit, giving the uncensored generalist lane its promptable model. The `PARAMETER num_ctx 8192` is baked into the tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`. Full model detail lives in the base `:27b` entry; this tag exists to enforce the general-uncensored lane's context cap as a distinct model id.
