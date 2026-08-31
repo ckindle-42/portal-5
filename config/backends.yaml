@@ -595,6 +595,13 @@ backends:
   # 2026-08-31 (clean tool_calls on the Ollama tag).
   - id: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
     supports_tools: true
+  # auto-compliance challenger (BENCH_REWIRE_PLAN_V1 B1). Nemotron-Cascade-2-30B
+  # (NVIDIA, A3B MoE ~24GB, IFBench 82.9 / ArenaHard 83.5 class leaders — the
+  # instruction-following + structured-document strength compliance needs).
+  # ctx32k baked, tool-calling audited 2026-08-31. Bench-only until a passing
+  # compliance-matrix + deferred-rows run promotes it.
+  - id: nemotron-cascade-2:30b-a3b-q4_K_M-ctx32k
+    supports_tools: true
   - id: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
     supports_tools: false
   # phi4-reasoning:plus-ctx32k intentionally NOT added here — confirmed to
@@ -984,6 +991,8 @@ workspace_routing:
   bench-omnicoder2:
   - general
   bench-qwen38-27b:
+  - general
+  bench-cascade2-compliance:
   - general
   bench-gemma4-26b-optiq:
   - general
