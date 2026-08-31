@@ -943,6 +943,12 @@ workspaces:
     name: 🧠 Portal Deep Reasoner
     description: |-
       Complex analysis, research synthesis, step-by-step reasoning. DeepSeek R1-0528-Qwen3-8B (V8: 31 t/s pipeline, AIME 2024 = Qwen3-235B at 8B, ~5GB. Replaces Qwopus primary which had pull failures). deepseek-r1:32b remains reasoning group fallback for heavy tasks.
+    # Kept on DeepSeek-R1 (2026-08-31): the adaptive UAT memory-thrash finding
+    # (FINDINGS D2) was auto-data's granite4.1:30b-ctx64k specifically — this
+    # 5GB dense-8B lane never thrashed. Kept for reasoning-group lineage
+    # diversity (DeepSeek vs Qwen vs phi vs Aquila across the four lanes) and
+    # as the dedicated thinking specialist. BENCH_REWIRE_PLAN_V1 B3 listed
+    # this slot for qwen3.6:35b-a3b; deferred pending a diversity-aware bench.
     model_hint: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k
     context_limit: 65536
     predict_limit: 16384
@@ -1158,14 +1164,25 @@ workspaces:
     module: research
     name: 📊 Portal Data Analyst
     description: |-
-      Data analysis, statistics, visualization guidance. Granite 4.1 30B (IBM, tool-capable, writes pandas/numpy/matplotlib, executes Python, produces Excel output).
-    model_hint: granite4.1:30b-ctx64k
-    context_limit: 65536
+      Data analysis, statistics, visualization guidance. Qwen3.6-35B-A3B (Alibaba MoE, 35B total / ~3B active, ~23GB, tool-capable, writes pandas/numpy/matplotlib, executes Python, produces Excel output).
+    # Reasoning-group Tier-1 primary (BENCH_REWIRE_PLAN_V1 B3 /
+    # PROPOSED_REASONING_OVERHAUL_V3). Replaces granite4.1:30b-ctx64k, which
+    # drove a ~55GB resident working set → 96-97% memory, emergency evictions
+    # mid-generation, 5x slowdown (adaptive UAT FINDINGS D2). This MoE is
+    # ~23GB / 3B active (54.2 t/s measured vs 5-12 t/s dense) and fits the
+    # fleet at ctx32k. ctx32k baked tag (Ollama /v1 ignores request-time
+    # num_ctx). Sampling: audited Qwen3.6 instruct profile (matches
+    # auto-council; TASK_SAMPLING_PROFILE_AUDIT_V1).
+    model_hint: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k
+    context_limit: 32768
     keep_alive: 10m
-    temperature: 0.4
-    top_p: 0.9
-    top_k: 40
-    min_p: 0.05
+    temperature: 0.7
+    top_p: 0.8
+    top_k: 20
+    min_p: 0.0
+    presence_penalty: 1.5
+    repeat_penalty: 1.0
+    think: false
     tools:
     - execute_python
     - create_excel

@@ -5,13 +5,13 @@ title: "model bindings \u2014 0 reachability gap(s)"
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 2877d1d88890
+  commit: 3ebda465a0b1
 - type: code
   path: config/portal.yaml
-  commit: 2877d1d88890
+  commit: 3ebda465a0b1
 - type: code
   path: config/personas/
-  commit: 2877d1d88890
+  commit: 3ebda465a0b1
 claims: []
 confidence: high
 tags:
@@ -19,7 +19,7 @@ tags:
 - model-bindings
 - reachability
 created_at: 1784000421.433863
-updated_at: 1788046055.986701
+updated_at: 1788192468.2366679
 ---
 
 # Model bindings (reachability-resolved)
@@ -42,7 +42,7 @@ default.
 | `auto-council` | `qwen3.6:27b-q4_K_M-ctx16k` | yes |
 | `auto-creative` | `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` | yes |
 | `auto-daily` | `gemma4:26b-a4b-it-qat-ctx8k` | yes |
-| `auto-data` | `granite4.1:30b-ctx64k` | yes |
+| `auto-data` | `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k` | yes |
 | `auto-documents` | `granite4.1:8b-ctx16k` | yes |
 | `auto-extract-uncensored` | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k` | yes |
 | `auto-general-uncensored` | `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` | yes |
