@@ -79,6 +79,51 @@ def test_no_orphan_catalog_entries() -> None:
     )
 
 
+def _backends_alias_maps() -> list[tuple[str, dict[str, str]]]:
+    """(backend_id, aliases) for every backend that declares an aliases: map."""
+    raw = yaml.safe_load(BACKENDS.read_text()) or {}
+    out = []
+    for backend in raw.get("backends", []):
+        aliases = backend.get("aliases") or {}
+        if aliases:
+            out.append((backend.get("id", "(unknown)"), dict(aliases)))
+    return out
+
+
+def test_omlx_alias_targets_have_catalog_entry() -> None:
+    """Every oMLX alias *target* (the native MLX model name a GGUF hint maps to)
+    must have its own MODEL_CATALOG.md section — otherwise a hint can resolve to a
+    model with no catalog provenance, and the hollow-group check can't reason about it.
+    """
+    catalog_ids = _catalog_model_ids()
+    missing: list[str] = []
+    for bid, aliases in _backends_alias_maps():
+        if "omlx" not in bid:
+            continue
+        for src, target in aliases.items():
+            if target not in catalog_ids:
+                missing.append(f"{bid}: {src!r} -> {target!r}")
+    assert not missing, "oMLX alias target(s) with no MODEL_CATALOG entry:\n" + "\n".join(
+        f"  {m}" for m in sorted(missing)
+    )
+
+
+def test_alias_source_keys_are_known_model_ids() -> None:
+    """Every alias *key* (the GGUF hint operators/personas reference) must be a real
+    backends.yaml model id — a typo'd key silently never matches and the alias is dead.
+    """
+    known = _backends_model_ids()
+    dangling: list[str] = []
+    for bid, aliases in _backends_alias_maps():
+        for src in aliases:
+            if src not in known:
+                dangling.append(f"{bid}: {src!r}")
+    assert not dangling, (
+        "alias source key(s) not present as a backends.yaml model id:\n"
+        + "\n".join(f"  {m}" for m in sorted(dangling))
+    )
+
+
 def test_backends_models_have_no_notes_field() -> None:
     """After M2, no model entry in backends.yaml may have a notes: field (prose lives in catalog)."""
     raw = yaml.safe_load(BACKENDS.read_text()) or {}

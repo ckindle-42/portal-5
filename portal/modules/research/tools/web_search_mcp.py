@@ -240,7 +240,7 @@ def _cache_get(key: tuple) -> list | None:
     if hit is None:
         return None
     ts, results = hit
-    if time.time() - ts > _SEARCH_CACHE_TTL_S:
+    if _SEARCH_CACHE_TTL_S <= 0 or time.time() - ts >= _SEARCH_CACHE_TTL_S:
         _search_cache.pop(key, None)
         return None
     return results
