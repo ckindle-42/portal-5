@@ -1,7 +1,7 @@
 ---
 id: unit-capability-browser
 kind: mixed
-title: "Browser MCP \u2014 Playwright web automation"
+title: "Browser MCP \u2014 Obscura web automation"
 sources:
 - type: code
   path: config/portal.yaml
@@ -20,12 +20,13 @@ created_at: 1788030600.446044
 updated_at: 1788030600.446044
 ---
 
-# Browser MCP — Playwright web automation
+# Browser MCP — Obscura web automation
 
 ## What
 
 The Browser MCP (`portal/modules/research/tools/browser_mcp.py`, port 8923)
-drives a real browser via Playwright. It is IDE-exposed
+drives a real browser via Obscura (a Rust
+headless engine; no Node/Chromium) with built-in stealth. It is IDE-exposed
 (`expose_to_pipeline: false`, `expose_to_ide: true`), so it is an operator's
 web-automation surface rather than a persona-triggerable one.
 
