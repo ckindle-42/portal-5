@@ -1,5 +1,21 @@
 # Task: Repair the oMLX reasoning-pool exposure gap + fix the hollow-group health signal
 
+## STATUS — mostly DONE 2026-08-31 (commits 70064738, 648c4480)
+
+- Health-check fix shipped (`Backend.live_models`, `resolve_model` skips
+  unserved targets, WARN names the gap).
+- oMLX upgraded 0.6.3 → 0.6.4 (latest).
+- 8 MLX builds re-pulled + symlinks re-pointed; 7/8 tool-audit clean and wired.
+  omlx-{reasoning,security,general,creative,coding} hollow WARNs all clear.
+- DeepSeek-R1-0528-Qwen3-8B-4bit RETIRED (no oMLX 0.6.4 tool parser for its
+  format; auto-reasoning stays on the Ollama GGUF).
+- ANE/GPU split tuner run on Qwen3-Coder-30B → GPU-only optimal on this M4 Pro,
+  no settings change.
+
+**Remaining:** decide whether `qwen3.6:35b-a3b` (auto-data primary) should also
+get an oMLX conversion + alias for speed headroom; add a unit test asserting
+every `omlx-*` alias value has a catalog entry.
+
 ## Problem (found 2026-08-31 during adaptive UAT triage)
 
 The oMLX migration was started for the reasoning/general/security groups and
