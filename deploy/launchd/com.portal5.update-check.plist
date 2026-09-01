@@ -4,20 +4,21 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.portal5.obscura-update-check</string>
+    <string>com.portal5.update-check</string>
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
         <string>-lc</string>
-        <string>cd /Users/chris/projects/portal-5 &amp;&amp; set -a &amp;&amp; . ./.env 2&gt;/dev/null; set +a; exec .venv/bin/python scripts/check_obscura_updates.py</string>
+        <string>cd /Users/chris/projects/portal-5 &amp;&amp; set -a &amp;&amp; . ./.env 2&gt;/dev/null; set +a; exec .venv/bin/python scripts/check_updates.py</string>
     </array>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
         <string>/opt/homebrew/bin:/opt/homebrew/sbin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     </dict>
-    <!-- Weekly: Monday 13:07 local. Reports pin drift + GitHub security advisories
-         for h4ckf0r0day/obscura; Pushover push only when actionable. -->
+    <!-- Weekly: Monday 13:07 local. Reports upstream drift + GitHub security
+         advisories for the Obscura pin, Ollama, and oMLX; Pushover push only when
+         a component is behind (high-priority if the gap is security-flagged). -->
     <key>StartCalendarInterval</key>
     <dict>
         <key>Weekday</key>
@@ -30,8 +31,8 @@
     <key>RunAtLoad</key>
     <false/>
     <key>StandardOutPath</key>
-    <string>/Users/chris/.portal5/logs/obscura-update-check.launchd.log</string>
+    <string>/Users/chris/.portal5/logs/update-check.launchd.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/chris/.portal5/logs/obscura-update-check.launchd.log</string>
+    <string>/Users/chris/.portal5/logs/update-check.launchd.log</string>
 </dict>
 </plist>
