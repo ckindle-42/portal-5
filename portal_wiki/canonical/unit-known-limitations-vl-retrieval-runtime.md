@@ -45,6 +45,16 @@ tags:
      would have reverted it. Fixed: the lock was reconciled *to* the venv, and
      `embedding-launchd-wrapper.sh` now runs `uv run --no-sync` behind a
      `uv sync --frozen --check` pre-flight that fails loudly on drift.
+     `TASK_VL_RETRIEVAL_HARDENING_AND_CLOSEOUT_V2` D1 factored that pre-flight
+     into `scripts/lib/venv_preflight.sh` (`_venv_lock_preflight`, now
+     direction-aware — it distinguishes "venv ahead of lock" from "venv behind"
+     and only recommends `uv sync` for the latter) and applied it to every
+     service that shares the fragile MLX runtime: `:8917`, `:8918` (mlx-speech),
+     `:8924` (mlx-transcribe), `:8942` (VL). The pure-Python MCP services
+     (`mitre`/`compliance`/`data`/`wiki`/…) that also resolve from `.venv` are
+     **deliberately not gated** — they carry no MLX/torch dependency, and a hard
+     drift-fail under launchd `KeepAlive` would crash-loop the whole fleet on an
+     unrelated dependency bump.
   3. The old server's rerank seam called the embedding `/embed`. The rewrite
      uses `model.process({"query":…, "documents":[…]})`.
 - **Video is unsupported** on this runtime

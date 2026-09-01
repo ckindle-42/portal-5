@@ -84,14 +84,11 @@ fi
 # the divergence can never again pass unnoticed.
 UV_BIN="${UV_BIN:-${HOME}/.local/bin/uv}"
 
-if ! "$UV_BIN" sync --project "$PORTAL_ROOT" --all-extras --frozen --check >/dev/null 2>&1; then
-    echo "ERROR: project venv does not match uv.lock (dependency drift)." >&2
-    echo "       Refusing to start :8917 against an unknown runtime." >&2
-    echo "       Run 'uv sync --all-extras' (after reviewing the diff) or restore" >&2
-    echo "       a known-good venv from ~/.portal5/backups/." >&2
-    "$UV_BIN" sync --project "$PORTAL_ROOT" --all-extras --frozen --check 2>&1 | tail -40 >&2 || true
-    exit 1
-fi
+# Shared, direction-aware drift gate (D1) — one implementation, also used by
+# :8942/:8918/:8924.
+# shellcheck source=scripts/lib/venv_preflight.sh
+source "$PORTAL_ROOT/scripts/lib/venv_preflight.sh"
+_venv_lock_preflight "embedding :$EMBEDDING_HOST_PORT" || exit 1
 
 exec "$UV_BIN" run --project "$PORTAL_ROOT" --no-sync python3 "$PORTAL_ROOT/scripts/embedding-server-mlx.py" \
     --model "${EMBEDDING_MODEL_ARM_A:-${HOME}/.portal5/models/Qwen3-Embedding-0.6B-mxfp8}" \

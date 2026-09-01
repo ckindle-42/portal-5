@@ -408,6 +408,8 @@ PY
             local SPEECH_SCRIPT="$PORTAL_ROOT/scripts/mlx-speech.py"
             if [ -f "$SPEECH_PID_FILE" ] && kill -0 "$(cat "$SPEECH_PID_FILE")" 2>/dev/null; then
                 echo "[portal-5]   ✅ MLX Speech: running (PID $(cat "$SPEECH_PID_FILE"))"
+            elif [ -f "$SPEECH_SCRIPT" ] && ! _venv_lock_preflight "mlx-speech :${MLX_SPEECH_PORT:-8918}"; then
+                echo "[portal-5]   ⚠️  MLX Speech not started — venv/lock drift (see above)"
             elif [ -f "$SPEECH_SCRIPT" ]; then
                 echo "[portal-5]   MLX Speech installed but not running — starting..."
                 mkdir -p "$HOME/.portal5/logs"
@@ -523,7 +525,9 @@ PY
         _VL_READY_CHECK='import importlib.util as u, sys
 sys.exit(0 if all(u.find_spec(m) for m in
     ("mlx_embeddings.models.qwen3_vl", "torchvision", "fastapi", "uvicorn")) else 1)'
-        if [ -x "$_VL_PY" ] && "$_VL_PY" -c "$_VL_READY_CHECK" &>/dev/null 2>&1; then
+        if ! _venv_lock_preflight "vl-retrieval :$_VL_PORT"; then
+            echo "[portal-5]   ⚠️  VL retrieval server not started — venv/lock drift (see above)"
+        elif [ -x "$_VL_PY" ] && "$_VL_PY" -c "$_VL_READY_CHECK" &>/dev/null 2>&1; then
             _VL_LOG="${HOME}/.portal5/logs/vl-retrieval.log"
             mkdir -p "$(dirname "$_VL_LOG")"
             nohup "$_VL_PY" "$PORTAL_ROOT/scripts/vl-retrieval-server.py" --port "$_VL_PORT" \

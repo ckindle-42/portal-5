@@ -33,6 +33,7 @@ reported as visible debt (see `drift.py`), never silently accepted as covered.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -206,14 +207,12 @@ def _probe_workspaces_exposed(root: Path) -> list[str]:
 
 
 def _probe_launch_commands(root: Path) -> int:
-    import re
 
     src = (root / "launch.sh").read_text(encoding="utf-8")
     return len(set(re.findall(r"^\s+([a-z][a-z0-9-]+)\)", src, re.M)))
 
 
 def _probe_env_vars(root: Path) -> int:
-    import re
 
     src = (root / ".env.example").read_text(encoding="utf-8")
     return len(re.findall(r"^#?\s*([A-Z][A-Z0-9_]{2,})=", src, re.M))
@@ -225,6 +224,33 @@ def _probe_config_files(root: Path) -> int:
 
 def _probe_dockerfiles(root: Path) -> int:
     return len(list(root.glob("Dockerfile*")))
+
+
+def _probe_locked_packages(root: Path) -> list[str]:
+    """Package names present in uv.lock. Binds a unit to a dependency that must
+    stay declared — e.g. `torchvision`, whose absence caused the five-month VL
+    misdiagnosis (unit-capability-rag / unit-known-limitations-vl-retrieval-runtime)."""
+    lock = (root / "uv.lock").read_text(encoding="utf-8")
+    return sorted(set(re.findall(r'^name = "([^"]+)"', lock, re.MULTILINE)))
+
+
+def _probe_rag_retrieval_routes(root: Path) -> list[str]:
+    """The retrieval tool routes registered by rag_multimodal (C4). If ownership
+    of kb_search/kb_ingest/kb_search_all moves back to the text-only rag_mcp
+    handler this list changes."""
+    src = (root / "portal" / "modules" / "research" / "tools" / "rag_multimodal.py").read_text(
+        encoding="utf-8"
+    )
+    m = re.search(r"def register_retrieval_routes\(.*?\n(?:(?:    .*)?\n)+", src)
+    body = m.group(0) if m else ""
+    return sorted(set(re.findall(r'/tools/(kb_\w+)"', body)))
+
+
+def _probe_vl_embedding_dim(root: Path) -> int:
+    """The VL retrieval server's declared embedding dim (VL_EMBEDDING_DIM default)."""
+    src = (root / "scripts" / "vl-retrieval-server.py").read_text(encoding="utf-8")
+    m = re.search(r'VL_EMBEDDING_DIM["\']?,\s*["\'](\d+)["\']', src)
+    return int(m.group(1)) if m else -1
 
 
 PROBES: dict[str, Callable[[Path], Any]] = {
@@ -250,6 +276,9 @@ PROBES: dict[str, Callable[[Path], Any]] = {
     "env.vars": _probe_env_vars,
     "config.files": _probe_config_files,
     "dockerfiles": _probe_dockerfiles,
+    "deps.locked": _probe_locked_packages,
+    "rag.retrieval.routes": _probe_rag_retrieval_routes,
+    "vl.embedding.dim": _probe_vl_embedding_dim,
 }
 
 
