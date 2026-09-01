@@ -508,25 +508,28 @@ PY
     # project .venv. The shared text embedder :8917 and reranker :8925 stay up
     # for memory / the Bully ORG projection.
     #
-    # RUNTIME-BLOCKED: mlx-embeddings 0.1.0 does not recognise the
-    # Qwen3-VL-Embedding architecture (no `model_type`) and there is no
-    # pre-converted MLX build of the 2B on the Hub. The server starts and
-    # /health responds, but /embed and /rerank error until an mlx-embeddings
-    # release with VL support (or an alternative VL runtime) lands — the
-    # inference-runtime re-eval the MCP Fleet Overhaul program deferred. With
-    # no KBs ingested this blocks nothing; kb_search returns a descriptive
-    # honest-BLOCK error rather than crashing. Check `curl :8942/ready`.
+    # Runtime (TASK_VL_RUNTIME_LANDING_V4): mlx-embeddings 0.1.0 ships the
+    # `qwen3_vl` module; the model loads once transformers 5.x's torchvision-
+    # backed `vision` backend is present (torchvision is a declared apple-silicon
+    # dep purely to satisfy that class-level import gate — inference runs on the
+    # PIL path). Readiness is a *version-aware* check: a bare `import
+    # mlx_embeddings` also passes on 0.0.5, which has no VL path, so it is not a
+    # sufficient gate. If the check fails the server still starts and kb_search
+    # returns a plain 503 pointing at /ready rather than crashing.
     _VL_PORT="${VL_PORT:-8942}"
     if ! curl -fsS "http://localhost:${_VL_PORT}/health" &>/dev/null 2>&1; then
         _VL_PY="$PORTAL_ROOT/.venv/bin/python3"
-        if [ -x "$_VL_PY" ] && "$_VL_PY" -c "import mlx_embeddings, fastapi, uvicorn" &>/dev/null 2>&1; then
+        _VL_READY_CHECK='import importlib.util as u, sys
+sys.exit(0 if all(u.find_spec(m) for m in
+    ("mlx_embeddings.models.qwen3_vl", "torchvision", "fastapi", "uvicorn")) else 1)'
+        if [ -x "$_VL_PY" ] && "$_VL_PY" -c "$_VL_READY_CHECK" &>/dev/null 2>&1; then
             _VL_LOG="${HOME}/.portal5/logs/vl-retrieval.log"
             mkdir -p "$(dirname "$_VL_LOG")"
             nohup "$_VL_PY" "$PORTAL_ROOT/scripts/vl-retrieval-server.py" --port "$_VL_PORT" \
                 > "$_VL_LOG" 2>&1 &
             echo "[portal-5]   VL retrieval server starting on :$_VL_PORT (PID $!) — check /ready for model status"
         else
-            echo "[portal-5]   ⚠️  VL retrieval deps missing — RAG multimodal retrieval will honest-BLOCK"
+            echo "[portal-5]   ⚠️  VL retrieval deps missing (need mlx-embeddings>=0.1.0 + torchvision) — RAG multimodal retrieval will 503"
         fi
     fi
 }
