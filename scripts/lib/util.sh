@@ -820,7 +820,7 @@ rows = [
     ('portal5-mcp-whisper',   'MCP Whisper',          ':8915'),
     ('portal5-mcp-sandbox',   'MCP Code Sandbox',     ':8914'),
     ('portal5-mcp-security',  'MCP Security',         ':8919'),
-    ('portal5-playwright',    'MCP Browser (Playwright)', ':8923'),
+    ('portal5-browser',       'MCP Browser (Obscura)',   ':8923'),
     ('portal5-mcp-research',  'MCP Research',         ':8922'),
     ('portal5-mcp-memory',    'MCP Memory',           ':8920'),
     ('portal5-mcp-rag',       'MCP RAG',              ':8921'),
