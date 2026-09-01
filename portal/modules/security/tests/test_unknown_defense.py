@@ -314,9 +314,10 @@ class TestSimilarityReferenceCatalog:
         narrow = _load_wiki_technique_descriptions()
         assert len(broad) > 500  # full MITRE Enterprise catalog, not a curated subset
         # Techniques absent from this project's own answer-key set must still
-        # be covered by the broad catalog.
-        assert "T1078.004" not in narrow
-        assert "T1078.004" in broad
+        # be covered by the broad catalog. T1078.004 moved into the project's
+        # own set (SA5.3 cloud/identity detections, commit ebd89696) so it no
+        # longer serves as an example here; T1537 remains a recorded blue-gap
+        # (needs cloud storage access logs not ingested in the lab).
         assert "T1537" not in narrow
         assert "T1537" in broad
 
@@ -330,6 +331,7 @@ class TestSimilarityReferenceCatalog:
         # Project-specific SIEM detail (exact EventCode discriminators) wins
         # for techniques the project has real detection content for.
         assert "4769" in merged["T1558.003"]
-        # But techniques outside the project's own 30-item set are still
-        # covered, from the broad catalog.
-        assert merged.get("T1078.004", "").startswith("Cloud Accounts")
+        # But techniques outside the project's own answer-key set are still
+        # covered, from the broad catalog (T1537: recorded blue-gap, no
+        # in-lab telemetry, so no project-specific override exists).
+        assert merged.get("T1537", "").startswith("Transfer Data to Cloud Account")
