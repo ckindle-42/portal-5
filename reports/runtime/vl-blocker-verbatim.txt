@@ -1,0 +1,99 @@
+### versions
+Traceback (most recent call last):
+  File "/Users/chris/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/importlib/metadata/__init__.py", line 407, in from_name
+    return next(iter(cls.discover(name=name)))
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import importlib.metadata as m;[print(p,m.version(p)) for p in ('mlx-embeddings','mlx','mlx-vlm','transformers','torch','torchvision')]
+                                            ~~~~~~~~~^^^
+  File "/Users/chris/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/importlib/metadata/__init__.py", line 987, in version
+    return distribution(distribution_name).version
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/chris/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/importlib/metadata/__init__.py", line 960, in distribution
+    return Distribution.from_name(distribution_name)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/chris/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/importlib/metadata/__init__.py", line 409, in from_name
+    raise PackageNotFoundError(name)
+importlib.metadata.PackageNotFoundError: No package metadata was found for torchvision
+mlx-embeddings 0.1.0
+mlx 0.32.0
+mlx-vlm 0.6.13
+transformers 5.15.0
+torch 2.13.0
+### torchvision present?
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import torchvision;print(torchvision.__version__)
+    ^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'torchvision'
+### qwen3_vl module present?
+['base', 'bert', 'colidefics3', 'colqwen2_5', 'gemma3_text', 'lfm2', 'llama_bidirec', 'llama_nemotron_vl', 'modernbert', 'qwen3', 'qwen3_vl', 'siglip', 'xlm_roberta']
+### load traceback (VERBATIM)
+### mlx-community/Qwen3-VL-Embedding-2B-mxfp8
+Fetching 10 files:   0%|          | 0/10 [00:00<?, ?it/s]Fetching 10 files: 100%|██████████| 10/10 [00:00<00:00, 3158.60it/s]
+Traceback (most recent call last):
+  File "/Users/chris/projects/portal-5/.venv/lib/python3.13/site-packages/mlx_embeddings/utils.py", line 315, in load
+    tokenizer = arch.Processor.from_pretrained(model_path, **tokenizer_config)
+  File "/Users/chris/projects/portal-5/.venv/lib/python3.13/site-packages/mlx_embeddings/models/qwen3_vl/processor.py", line 90, in from_pretrained
+    image_processor = AutoImageProcessor.from_pretrained(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/chris/projects/portal-5/.venv/lib/python3.13/site-packages/transformers/utils/import_utils.py", line 2363, in __getattribute__
+    requires_backends(cls, cls._backends)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/Users/chris/projects/portal-5/.venv/lib/python3.13/site-packages/transformers/utils/import_utils.py", line 2349, in requires_backends
+    raise ImportError("".join(failed))
+ImportError: 
+AutoImageProcessor requires the Torchvision library but it was not found in your environment. Check out the instructions on the
+installation page: https://pytorch.org/get-started/locally/ and follow the ones that match your environment.
+Please note that you may need to restart your runtime after installation.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<stdin>", line 6, in <module>
+  File "/Users/chris/projects/portal-5/.venv/lib/python3.13/site-packages/mlx_embeddings/utils.py", line 321, in load
+    raise ValueError(
+        f"Failed to initialize tokenizer or processor: {tokenizer_error}"
+    ) from tokenizer_error
+ValueError: Failed to initialize tokenizer or processor: 
+AutoImageProcessor requires the Torchvision library but it was not found in your environment. Check out the instructions on the
+installation page: https://pytorch.org/get-started/locally/ and follow the ones that match your environment.
+Please note that you may need to restart your runtime after installation.
+
+### Qwen/Qwen3-VL-Embedding-2B
+Fetching 15 files:   0%|          | 0/15 [00:00<?, ?it/s]Fetching 15 files: 100%|██████████| 15/15 [00:00<00:00, 4980.18it/s]
+Traceback (most recent call last):
+  File "/Users/chris/projects/portal-5/.venv/lib/python3.13/site-packages/mlx_embeddings/utils.py", line 315, in load
+    tokenizer = arch.Processor.from_pretrained(model_path, **tokenizer_config)
+  File "/Users/chris/projects/portal-5/.venv/lib/python3.13/site-packages/mlx_embeddings/models/qwen3_vl/processor.py", line 90, in from_pretrained
+    image_processor = AutoImageProcessor.from_pretrained(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/chris/projects/portal-5/.venv/lib/python3.13/site-packages/transformers/utils/import_utils.py", line 2363, in __getattribute__
+    requires_backends(cls, cls._backends)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/Users/chris/projects/portal-5/.venv/lib/python3.13/site-packages/transformers/utils/import_utils.py", line 2349, in requires_backends
+    raise ImportError("".join(failed))
+ImportError: 
+AutoImageProcessor requires the Torchvision library but it was not found in your environment. Check out the instructions on the
+installation page: https://pytorch.org/get-started/locally/ and follow the ones that match your environment.
+Please note that you may need to restart your runtime after installation.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<stdin>", line 6, in <module>
+  File "/Users/chris/projects/portal-5/.venv/lib/python3.13/site-packages/mlx_embeddings/utils.py", line 321, in load
+    raise ValueError(
+        f"Failed to initialize tokenizer or processor: {tokenizer_error}"
+    ) from tokenizer_error
+ValueError: Failed to initialize tokenizer or processor: 
+AutoImageProcessor requires the Torchvision library but it was not found in your environment. Check out the instructions on the
+installation page: https://pytorch.org/get-started/locally/ and follow the ones that match your environment.
+Please note that you may need to restart your runtime after installation.
+
