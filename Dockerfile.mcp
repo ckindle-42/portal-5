@@ -56,10 +56,13 @@ RUN pip install --no-cache-dir \
     "pyannote.audio>=3.1.0"
 
 # Vector storage + retrieval (memory MCP, RAG MCP)
+# pymupdf: RAG multimodal ingest renders PDF pages to images for the Qwen3-VL
+# retrieval server (TASK_RAG_VISUAL_OVERHAUL_V1).
 RUN pip install --no-cache-dir \
     "lancedb>=0.13.0" \
     "pyarrow>=18.0.0" \
     "pypdf>=4.0.0" \
+    "pymupdf>=1.24" \
     "docling>=2.0.0"
 
 # Pre-fetch Docling layout/TableFormer model weights at build time (best-effort).

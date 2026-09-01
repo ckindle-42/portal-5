@@ -151,9 +151,50 @@ async def _extract(text: str) -> dict:
             content = r.json()["message"]["content"]
         m = re.search(r"\{.*\}", content, re.S)
         data = json.loads(m.group(0)) if m else {}
-        return {"entities": data.get("entities", []), "relations": data.get("relations", [])}
+        return {
+            "entities": [_norm_entity(e) for e in data.get("entities", []) or []],
+            "relations": [_norm_relation(r) for r in data.get("relations", []) or []],
+        }
     except Exception:  # extraction is best-effort; the write still succeeds
         return {"entities": [], "relations": []}
+
+
+def _norm_entity(item) -> tuple[str, str]:
+    """Normalise one extracted entity to (name, type). Local models emit either
+    ``["Foo", "asset"]`` or ``{"name": "Foo", "type": "asset"}`` (key names vary)."""
+    if isinstance(item, dict):
+        name = (
+            item.get("name")
+            or item.get("entity")
+            or item.get("id")
+            or next(iter(item.values()), "")
+        )
+        etype = item.get("type") or item.get("etype") or item.get("category") or "concept"
+        return str(name), str(etype)
+    if isinstance(item, (list, tuple)):
+        return (str(item[0]) if item else ""), (str(item[1]) if len(item) > 1 else "concept")
+    return str(item), "concept"
+
+
+def _norm_relation(item) -> tuple[str, str, str]:
+    """Normalise one extracted relation to (src, rel_type, dst). Models emit
+    ``["A", "rel", "B"]`` or ``{"src": "A", "relation": "rel", "dst": "B"}``
+    (key names vary: source/subject/from, relation/predicate/type, target/object/to)."""
+    if isinstance(item, dict):
+        src = item.get("src") or item.get("source") or item.get("subject") or item.get("from") or ""
+        rel = (
+            item.get("relation")
+            or item.get("rel")
+            or item.get("predicate")
+            or item.get("type")
+            or item.get("rel_type")
+            or "related_to"
+        )
+        dst = item.get("dst") or item.get("target") or item.get("object") or item.get("to") or ""
+        return str(src), str(rel), str(dst)
+    if isinstance(item, (list, tuple)) and len(item) >= 3:
+        return str(item[0]), str(item[1]), str(item[2])
+    return "", "", ""
 
 
 async def _upsert_entity(name: str, etype: str = "concept") -> None:
@@ -190,18 +231,16 @@ async def _upsert_entity(name: str, etype: str = "concept") -> None:
 
 async def _ingest_graph(text: str, source_memory_id: str) -> None:
     ex = await _extract(text)
-    for pair in ex["entities"]:
+    for name, etype in ex["entities"]:
         try:
-            await _upsert_entity(pair[0], pair[1] if len(pair) > 1 else "concept")
-        except Exception:
+            await _upsert_entity(name, etype)
+        except Exception:  # noqa: BLE001 — one bad entity must not abort ingestion
             continue
     now = time.time()
     rows = []
-    for rel in ex["relations"]:
-        if len(rel) < 3:
-            continue
+    for src_raw, rel_raw, dst_raw in ex["relations"]:
         try:
-            src, rel_type, dst = _safe(rel[0]), str(rel[1]), _safe(rel[2])
+            src, rel_type, dst = _safe(src_raw), str(rel_raw), _safe(dst_raw)
         except ValueError:
             continue
         await _upsert_entity(src)

@@ -65,7 +65,11 @@ entity built up over time.
 
 ## Migration
 
-The existing flat-vector memories are migrated into the graph in-task
-(`graph_memory.migrate_existing()` re-processes every memory through
-extraction). A pre-migration snapshot of `PORTAL5_LANCE_DIR` is taken for
-operational safety; the design is forward, with no parallel flat path retained.
+Done live: `graph_memory.migrate_existing()` re-processed every existing
+flat-vector memory through extraction and populated the graph tables
+(`memory_entities`, `memory_relations`). A pre-migration snapshot of the
+LanceDB volume was taken for operational safety; the design is forward, with no
+parallel flat path retained. `_norm_entity` / `_norm_relation` make extraction
+robust to the shapes local models actually emit (list `["A","rel","B"]` or dict
+`{"src":…,"relation":…,"dst":…}` with varying key names), so one malformed
+tuple never aborts a migration.

@@ -11,6 +11,16 @@ The mlx-embeddings VL process()/scoring API differs across pinned versions —
 the `_embed_one` / `_score_pair` helpers isolate the version-specific shape so
 only they need adjusting. Downstream needs only: /embed -> vector,
 /rerank -> ordered indices.
+
+RUNTIME NOTE: mlx-embeddings 0.1.0 (the version pinned in `rag` extras) does
+NOT recognise the Qwen3-VL-Embedding architecture — `load()` fails with
+"'NoneType' object has no attribute 'model_type'", and there is no
+pre-converted MLX build of Qwen3-VL-Embedding-2B on the Hub. Bringing this
+server fully online is gated on an mlx-embeddings release with VL support (or
+an alternative VL-embedding runtime / a local MLX conversion of
+Qwen/Qwen3-VL-Embedding-2B) — the inference-runtime re-evaluation the MCP
+Fleet Overhaul program explicitly deferred. Set VL_EMBED_MODEL / VL_RERANK_MODEL
+once a working model exists; the seams above are the only code that changes.
 """
 
 from __future__ import annotations
@@ -24,8 +34,8 @@ import uvicorn
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-EMBED_MODEL = os.environ.get("VL_EMBED_MODEL", "mlx-community/Qwen3-VL-Embedding-2B-4bit")
-RERANK_MODEL = os.environ.get("VL_RERANK_MODEL", "mlx-community/Qwen3-VL-Reranker-2B-4bit")
+EMBED_MODEL = os.environ.get("VL_EMBED_MODEL", "Qwen/Qwen3-VL-Embedding-2B")
+RERANK_MODEL = os.environ.get("VL_RERANK_MODEL", "Qwen/Qwen3-VL-Reranker-2B")
 
 app = FastAPI(title="portal5-vl-retrieval")
 _embed = {"m": None, "p": None}
@@ -93,6 +103,16 @@ class RerankReq(BaseModel):
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "vl-retrieval", "embed_model": EMBED_MODEL}
+
+
+@app.get("/ready")
+def ready():
+    """Whether the embed model actually loads on this runtime (see RUNTIME NOTE)."""
+    try:
+        _load_embed()
+        return {"ready": True, "embed_model": EMBED_MODEL}
+    except Exception as e:  # noqa: BLE001
+        return {"ready": False, "embed_model": EMBED_MODEL, "error": f"{type(e).__name__}: {e}"}
 
 
 @app.post("/embed")
