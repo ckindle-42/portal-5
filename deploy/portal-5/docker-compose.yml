@@ -815,6 +815,9 @@ services:
       - MCP_PORT=8920
       - PORTAL5_LANCE_DIR=/app/data/portal5_lance
       - MLX_EMBEDDING_URL=http://host.docker.internal:8917/v1/embeddings
+      # temporal knowledge-graph memory: entity/relation extraction on write
+      - OLLAMA_CHAT_URL=${OLLAMA_CHAT_URL:-http://host.docker.internal:11434/api/chat}
+      - MEMORY_EXTRACT_MODEL=${MEMORY_EXTRACT_MODEL:-gemma4:e4b-it-q4_K_M}
     command: ["python", "-m", "portal.platform.memory.memory_mcp"]
     volumes:
       - portal5-lance:/app/data/portal5_lance

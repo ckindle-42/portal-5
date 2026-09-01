@@ -1270,6 +1270,9 @@ workspaces:
     - kb_list
     - remember
     - recall
+    - graph_recall
+    - neighbors
+    - entity_timeline
     expose_to_owui: true
     enable_web_search: true
     # Observed narrating an intent to search/verify and then stopping

@@ -232,9 +232,17 @@ surfaces:
   globs:
   - portal/platform/data_loader.py
   unit: unit-platform-storage-config-facade
+- name: file-portal-platform-memory-graph_memory
+  globs:
+  - portal/platform/memory/graph_memory.py
+  unit: unit-capability-memory
 - name: file-portal-platform-memory-memory_mcp
   globs:
   - portal/platform/memory/memory_mcp.py
+  unit: unit-capability-memory
+- name: file-portal-platform-memory-test_graph_memory
+  globs:
+  - portal/platform/memory/test_graph_memory.py
   unit: unit-capability-memory
 - name: file-portal-platform-storage-__init__
   globs:
