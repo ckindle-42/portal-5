@@ -108,6 +108,17 @@ class _FakeHealthResp:
         return self._p
 
 
-async def test_vl_model_id_reads_health(monkeypatch):
+async def test_vl_model_id_reads_health_and_caches(monkeypatch):
     monkeypatch.setattr(rm.httpx, "AsyncClient", _HealthClient)
+    rm._MODEL_ID_CACHE.update(value=None, at=0.0)
+    calls = []
+    orig_get = _HealthClient.get
+
+    async def counting_get(self, url):
+        calls.append(url)
+        return await orig_get(self, url)
+
+    monkeypatch.setattr(_HealthClient, "get", counting_get)
     assert await rm._vl_model_id() == ("model-X", 2048)
+    assert await rm._vl_model_id() == ("model-X", 2048)  # served from cache
+    assert len(calls) == 1  # /health hit once, not per call

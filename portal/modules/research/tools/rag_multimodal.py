@@ -58,19 +58,34 @@ def _meta_path(kb_id: str) -> str:
     return os.path.join(RAG_DIR, f"kb_{kb_id}.meta.json")
 
 
+_MODEL_ID_CACHE: dict = {"value": None, "at": 0.0}
+_MODEL_ID_TTL = float(os.environ.get("VL_MODEL_ID_TTL", "300"))
+
+
 async def _vl_model_id() -> tuple[str, int]:
     """(embed_model, dim) the live VL server is serving. `_vl_embed_batch`
     already guards dim; this catches a same-dim different-model swap (the `-6bit`
     flavour, a re-conversion, a changed VL_EMBED_MODEL default) that stored
-    vectors and live queries would otherwise silently occupy different spaces."""
+    vectors and live queries would otherwise silently occupy different spaces.
+
+    Cached for VL_MODEL_ID_TTL seconds: the model cannot change within a run
+    without a server restart, and `/health` shares the server's single-threaded
+    event loop with `model.process()` — probing it on every kb_search would
+    stall behind an in-flight embed/rerank. `timeout` is generous for the same
+    reason."""
+    now = time.time()
+    if _MODEL_ID_CACHE["value"] and now - _MODEL_ID_CACHE["at"] < _MODEL_ID_TTL:
+        return _MODEL_ID_CACHE["value"]
     try:
-        async with httpx.AsyncClient(timeout=10) as c:
+        async with httpx.AsyncClient(timeout=60) as c:
             r = await c.get(f"{VL_URL}/health")
             r.raise_for_status()
             j = r.json()
-        return str(j.get("embed_model", "?")), int(j.get("embedding_dim", VL_DIM))
+        val = (str(j.get("embed_model", "?")), int(j.get("embedding_dim", VL_DIM)))
     except (httpx.HTTPError, ValueError) as e:
         raise _vl_error(e) from e
+    _MODEL_ID_CACHE.update(value=val, at=now)
+    return val
 
 
 def _read_stamp(kb_id: str) -> dict | None:
