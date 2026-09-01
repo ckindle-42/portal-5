@@ -117,6 +117,28 @@ def _relations():
     return _tables["rel"]
 
 
+def graph_stats() -> dict:
+    """On-demand completeness probe (C2). A silent restore shortfall — the store
+    coming back from a tarball with the `memory` table but not the graph tables
+    (the exact conflation that put T8's 73/216/193 in doubt) — shows here as
+    memories>0 with entities==0 and `graph_intact` False.
+    """
+    db = _conn()
+    names = set(db.table_names())
+    memories = _memory_table().count_rows()
+    entities = _entities().count_rows() if ENTITIES_TABLE in names else 0
+    relations = _relations().count_rows() if RELATIONS_TABLE in names else 0
+    return {
+        "lance_dir": LANCE_DIR,
+        "memories": memories,
+        "entities": entities,
+        "relations": relations,
+        "tables": sorted(names),
+        # a populated memory store with no graph is a restore shortfall
+        "graph_intact": not (memories > 0 and entities == 0),
+    }
+
+
 def _safe(name: str) -> str:
     if not name or not _NAME_RE.match(str(name)):
         raise ValueError(f"invalid entity name: {name!r}")

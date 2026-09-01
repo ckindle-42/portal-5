@@ -91,6 +91,36 @@ def test_migration_runs():
     assert res["migrated"] >= 2
 
 
+def test_graph_stats_detects_restore_shortfall(tmp_path, monkeypatch):
+    """C2: memories present but no graph tables == a restore that lost the
+    entity/relation tables. graph_stats reports graph_intact False, and never
+    creates the missing tables as a side effect."""
+    pytest.importorskip("lancedb")
+    import lancedb
+    import pyarrow as pa
+
+    monkeypatch.setattr(gm, "LANCE_DIR", str(tmp_path))
+    gm._db = None
+    gm._tables.clear()
+    db = lancedb.connect(str(tmp_path))
+    db.create_table(
+        gm.MEMORY_TABLE,
+        schema=pa.schema([pa.field("id", pa.string()), pa.field("text", pa.string())]),
+    ).add([{"id": "a", "text": "orphan memory"}])
+
+    s = gm.graph_stats()
+    assert s["memories"] == 1 and s["entities"] == 0
+    assert s["graph_intact"] is False
+    assert set(db.table_names()) == {gm.MEMORY_TABLE}  # not created as a side effect
+
+
+def test_graph_stats_intact_after_remember():
+    pytest.importorskip("lancedb")
+    _run(gm._remember(_Req({"text": "PLC-21 is governed by CIP-007"})))
+    s = gm.graph_stats()
+    assert s["memories"] >= 1 and s["entities"] >= 1 and s["graph_intact"] is True
+
+
 def test_registration_owns_all_routes():
     calls = []
 

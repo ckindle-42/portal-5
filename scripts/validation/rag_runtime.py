@@ -64,6 +64,28 @@ def check_vl_retrieval_ready() -> tuple[str, str, list[dict]]:
     )
 
 
+@register("memory_graph_intact", "HB. memory graph intact", order=50)
+def check_memory_graph_intact() -> tuple[str, str, list[dict]]:
+    """HB — the memory MCP's store has its graph tables, not just `memory`
+    (C2). A restore that brings back the memory table but not
+    memory_entities/relations shows as stored>0 with entities==0 — the exact
+    shape that made T8's 73/216/193 hard to reconcile. WARN when :8920 is down.
+    """
+    try:
+        with urllib.request.urlopen("http://localhost:8920/health", timeout=5) as r:  # noqa: S310
+            body = json.loads(r.read().decode())
+    except (urllib.error.URLError, TimeoutError, ConnectionError):
+        return "WARN", "memory MCP :8920 not answering (stack down — not a failure)", []
+    g = body.get("graph") or {}
+    stored = body.get("stored", 0)
+    intact = g.get("intact", stored == 0)
+    return (
+        "PASS" if intact else "FAIL",
+        f"stored={stored} entities={g.get('entities')} relations={g.get('relations')} intact={intact}",
+        [],
+    )
+
+
 @register("lance_volume_mounted", "GZ. LanceDB volume mounted", order=48)
 def check_lance_volume_mounted() -> tuple[str, str, list[dict]]:
     """GZ — the configured PORTAL5_LANCE_DIR passes require_lance_dir: if it is
