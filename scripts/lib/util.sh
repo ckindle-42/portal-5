@@ -506,8 +506,16 @@ PY
     # The RAG stack's multimodal embed/rerank backend (text+image joint space).
     # Not an MCP — a FastAPI service (scripts/vl-retrieval-server.py) in the
     # project .venv. The shared text embedder :8917 and reranker :8925 stay up
-    # for memory / the Bully ORG projection. Skipped when the VL model is not
-    # yet pulled (RAG retrieval then honest-BLOCKs with a descriptive error).
+    # for memory / the Bully ORG projection.
+    #
+    # RUNTIME-BLOCKED: mlx-embeddings 0.1.0 does not recognise the
+    # Qwen3-VL-Embedding architecture (no `model_type`) and there is no
+    # pre-converted MLX build of the 2B on the Hub. The server starts and
+    # /health responds, but /embed and /rerank error until an mlx-embeddings
+    # release with VL support (or an alternative VL runtime) lands — the
+    # inference-runtime re-eval the MCP Fleet Overhaul program deferred. With
+    # no KBs ingested this blocks nothing; kb_search returns a descriptive
+    # honest-BLOCK error rather than crashing. Check `curl :8942/ready`.
     _VL_PORT="${VL_PORT:-8942}"
     if ! curl -fsS "http://localhost:${_VL_PORT}/health" &>/dev/null 2>&1; then
         _VL_PY="$PORTAL_ROOT/.venv/bin/python3"
@@ -516,9 +524,9 @@ PY
             mkdir -p "$(dirname "$_VL_LOG")"
             nohup "$_VL_PY" "$PORTAL_ROOT/scripts/vl-retrieval-server.py" --port "$_VL_PORT" \
                 > "$_VL_LOG" 2>&1 &
-            echo "[portal-5]   VL retrieval server starting on :$_VL_PORT (PID $!)"
+            echo "[portal-5]   VL retrieval server starting on :$_VL_PORT (PID $!) — check /ready for model status"
         else
-            echo "[portal-5]   ⚠️  VL retrieval deps/model missing — RAG multimodal retrieval will honest-BLOCK"
+            echo "[portal-5]   ⚠️  VL retrieval deps missing — RAG multimodal retrieval will honest-BLOCK"
         fi
     fi
 }
