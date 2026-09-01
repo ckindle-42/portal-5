@@ -127,14 +127,41 @@ The Qwen3-VL reranker already produces the signal that fixes this
   (RRF had at rank 1) — a relevant-looking page from an OT procedure doc
   outscores the target NERC standard's text chunk. prose r@5 −0.126, MRR −0.041.
 
-The clean answer needs a **gate** on the visual `reranker_prob`: promote a
-visual row over text only when its calibrated prob clears a threshold that a
-"merely relevant" page does not reach. `VL_FUSION_GATE` env knob added to the
-harness; threshold picked from the measured prob distribution
-(`scratchpad/prob_dump.out`), not fitted to the acceptance set.
+### Prob dump — why a `reranker_prob` gate fails, and what works
 
-_(gate sweep + `embed_sim` — drop the reranker, rank the visual arm on the
-Qwen3-VL *embedding* cosine sim already stored at ingest — appended next.)_
+Ran the 21 diagram + 11 prose queries and recorded, per query, the top text
+chunk's cosine sim and the winning visual page's `reranker_prob`:
+
+| | `reranker_prob` (winning visual) | top text cosine |
+|---|---|---|
+| diagram queries (21) | 0.56 – 0.76 | **0.44 – 0.62** |
+| prose queries where a **wrong** visual wins (6) | 0.61 – 0.72 | **0.73 – 0.83** |
+| prose queries where the **right** visual wins (5) | 0.56 – 0.68 | 0.74 – 0.78 |
+
+A gate on `reranker_prob` cannot separate the classes — 0.56–0.76 vs 0.61–0.72
+overlap. **The top text cosine separates them perfectly** (diagram ≤ 0.62,
+prose ≥ 0.73) — it *is* the "is this answerable from prose?" signal.
+
+### text_gate — the fix (τ_text sweep)
+
+Add the reranker prob to the visual arm's score **only when the top text chunk's
+cosine < τ_text**. Sweep:
+
+| τ_text | diagram r@1 | diagram MRR | prose r@1 | prose r@5 | prose MRR |
+|---|---|---|---|---|---|
+| 0.60 | 0.810 | 0.905 | 0.625 | 0.938 | 0.760 |
+| **0.67** | **1.000** | **1.000** | 0.625 | 0.938 | 0.760 |
+| 0.72 | 1.000 | 1.000 | 0.625 | 0.938 | 0.760 |
+
+**τ=0.67 is the answer** — dead-center of the measured 0.62/0.73 gap, plateau to
+0.72. diagram_only recall@1 **0.000 → 1.000**, prose_only recall/MRR
+**byte-identical to RRF** (same 6 misses, which are query-set ground-truth
+ambiguities — the operator OT docs cover the same topics as the NERC standards —
+not fusion failures). Passes the decision rule and the mandatory prose
+counter-test with zero regression. Latency unchanged (~16 s median) — this is a
+fusion-only change. **Landed** in `rag_multimodal._search` as `VL_TEXT_GATE`
+(default 0.67); rejected options `rerank_tiebreak` / `score_aware` (both
+regress prose r@5 −0.126) recorded above.
 
 ## E3 — rerank depth is the latency lever
 
