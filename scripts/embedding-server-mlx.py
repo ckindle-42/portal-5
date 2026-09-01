@@ -6,7 +6,10 @@ Serves an OpenAI-compatible /v1/embeddings endpoint via `mlx_embeddings`
 (GPU-native MLX on Apple Silicon), mirroring the reranker's load/generate
 pattern (portal/modules/research/tools/reranker_mcp.py). Same 0.6B size class
 as the CPU sentence-transformers path it competes with, converted in-house to
-mxfp8:
+mxfp8. The on-disk model at ~/.portal5/models/Qwen3-Embedding-0.6B-mxfp8 is
+genuine MXFP8 (config `{'group_size': 32, 'bits': 8, 'mode': 'mxfp8'}`),
+re-converted under mlx-embeddings 0.1.x — the command below needs a VL-capable
+mlx-embeddings (>=0.1.0); 0.0.x's convert.py has no `--q-mode`:
 
     uv run python -m mlx_embeddings.convert \\
         --hf-path Qwen/Qwen3-Embedding-0.6B \\
