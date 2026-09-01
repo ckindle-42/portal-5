@@ -33,10 +33,17 @@ _SESS_DIR = Path(
 )
 _MAX_ROWS = int(os.environ.get("DATA_MCP_MAX_ROWS", "500"))
 _IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
-# statements that mutate the host / escape the sandbox — blocked outright
-_BLOCKED = re.compile(r"\b(INSTALL|LOAD|ATTACH|COPY|EXPORT|PRAGMA\s+enable_external)\b", re.I)
+# Belt-and-braces denylist for a clean error message. The real guarantee is the
+# query connection below, opened with enable_external_access=false: even a regex
+# bypass cannot open an arbitrary path or re-enable filesystem access.
+_BLOCKED = re.compile(
+    r"\b(INSTALL|LOAD|ATTACH|DETACH|COPY|EXPORT|IMPORT|SET|RESET|PRAGMA|"
+    r"read_csv|read_csv_auto|read_parquet|parquet_scan|read_json|read_json_auto|"
+    r"read_ndjson|read_text|read_blob|glob|sniff_csv)\b",
+    re.I,
+)
 
-_conns: dict = {}  # session_id -> duckdb connection
+_conns: dict = {}  # session_id -> read-only-ish query duckdb connection
 
 
 def _duck():
@@ -54,40 +61,78 @@ def _resolve(path: str) -> Path:
     return p
 
 
-def _conn(session_id: str):
+def _db_path(session_id: str) -> str:
     if not _IDENT.match(session_id):
         raise ValueError(f"bad session id: {session_id!r}")
+    _SESS_DIR.mkdir(parents=True, exist_ok=True)
+    return str(_SESS_DIR / f"{session_id}.duckdb")
+
+
+def _loader_conn(session_id: str):
+    """Short-lived connection WITH filesystem access — used only by attach_source
+    to materialise a source file into a table, then closed."""
+    return _duck().connect(_db_path(session_id))
+
+
+def _conn(session_id: str):
+    """Cached query connection with filesystem access permanently disabled — the
+    sandbox guarantee for run_sql / profile_table / list_session. DuckDB refuses
+    to re-enable external access on a running database, so this cannot be undone
+    from user SQL."""
     if session_id not in _conns:
-        _SESS_DIR.mkdir(parents=True, exist_ok=True)
-        _conns[session_id] = _duck().connect(str(_SESS_DIR / f"{session_id}.duckdb"))
+        _conns[session_id] = _duck().connect(
+            _db_path(session_id), config={"enable_external_access": False}
+        )
     return _conns[session_id]
 
 
 @mcp.tool()
 def attach_source(session_id: str, path: str, table: str) -> dict:
-    """Attach a CSV/Parquet/JSON/xlsx file as a queryable table in a session (read-only view)."""
+    """Attach a CSV/Parquet/JSON/xlsx file as a queryable table in a session.
+
+    The source is read exactly once here, under a confined path, and materialised
+    into a session table. `run_sql` then runs against a connection that has
+    filesystem access permanently disabled, so it can never read the file (or any
+    other path) again.
+    """
     try:
         if not _IDENT.match(table):
             raise ValueError(f"bad table name: {table!r}")
         p = _resolve(path)
-        con = _conn(session_id)
-        ext = p.suffix.lower()
-        # p is a resolved path already confined under _ROOT; DuckDB cannot bind a
-        # prepared parameter inside CREATE VIEW, so the path is quoted inline.
-        lit = "'" + str(p).replace("'", "''") + "'"
-        if ext in (".csv", ".tsv"):
-            con.execute(f"CREATE OR REPLACE VIEW {table} AS SELECT * FROM read_csv_auto({lit})")
-        elif ext in (".parquet", ".pq"):
-            con.execute(f"CREATE OR REPLACE VIEW {table} AS SELECT * FROM read_parquet({lit})")
-        elif ext == ".json":
-            con.execute(f"CREATE OR REPLACE VIEW {table} AS SELECT * FROM read_json_auto({lit})")
-        elif ext in (".xlsx", ".xls"):
-            import pandas as pd  # xlsx via pandas -> duckdb register
+        # drop the sandboxed query connection so the loader can write the file
+        old = _conns.pop(session_id, None)
+        if old is not None:
+            old.close()
+        loader = _loader_conn(session_id)
+        try:
+            ext = p.suffix.lower()
+            # p is resolved + confined under _ROOT; DuckDB cannot bind a prepared
+            # parameter inside CREATE TABLE, so the path is quoted inline.
+            lit = "'" + str(p).replace("'", "''") + "'"
+            if ext in (".csv", ".tsv"):
+                loader.execute(
+                    f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM read_csv_auto({lit})"
+                )
+            elif ext in (".parquet", ".pq"):
+                loader.execute(
+                    f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM read_parquet({lit})"
+                )
+            elif ext == ".json":
+                loader.execute(
+                    f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM read_json_auto({lit})"
+                )
+            elif ext in (".xlsx", ".xls"):
+                import pandas as pd
 
-            con.register(f"_{table}_df", pd.read_excel(p))
-            con.execute(f"CREATE OR REPLACE VIEW {table} AS SELECT * FROM _{table}_df")
-        else:
-            raise ValueError(f"unsupported source type: {ext}")
+                df = pd.read_excel(p)
+                loader.register("_src_df", df)
+                loader.execute(f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM _src_df")
+                loader.unregister("_src_df")
+            else:
+                raise ValueError(f"unsupported source type: {ext}")
+        finally:
+            loader.close()
+        con = _conn(session_id)
         cols = con.execute(f"DESCRIBE {table}").fetchall()
         n = con.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
         return {

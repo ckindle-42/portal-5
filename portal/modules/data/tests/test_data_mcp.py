@@ -12,6 +12,29 @@ def test_sql_blocklist():
     assert "blocked" in out.get("error", "")
 
 
+def test_run_sql_cannot_read_arbitrary_files(tmp_path, monkeypatch):
+    """The core sandbox guarantee: even bypassing the regex, the query
+    connection has filesystem access disabled."""
+    pytest.importorskip("duckdb")
+    monkeypatch.setattr(mod, "_ROOT", tmp_path.resolve())
+    monkeypatch.setattr(mod, "_SESS_DIR", tmp_path / "sess")
+    mod._conns.clear()
+    (tmp_path / "seed.csv").write_text("a\n1\n")
+    mod.attach_source("sec_test", "seed.csv", "t")
+    secret = tmp_path / "secret.txt"
+    secret.write_text("TOP SECRET")
+    # regex denylist catches it first
+    blocked = mod.run_sql("sec_test", f"SELECT * FROM read_text('{secret}')")
+    assert "error" in blocked
+    # and even if the denylist were bypassed, DuckDB itself refuses
+    con = mod._conn("sec_test")
+    with pytest.raises(Exception, match="(?i)external|permission|disabled"):
+        con.execute(f"SELECT content FROM read_blob('{secret}')")
+    with pytest.raises(Exception, match="(?i)external|Cannot enable"):
+        con.execute("SET enable_external_access=true")
+    mod._conns.clear()
+
+
 def test_path_escape_rejected(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "_ROOT", tmp_path.resolve())
     with pytest.raises(ValueError):
