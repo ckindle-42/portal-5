@@ -1,0 +1,114 @@
+{
+  "source": "NERC CIP Reliability Standards (CIP-002 through CIP-014)",
+  "note": "Requirement titles are paraphrased from the enforceable standards; 'related_800_53' is an advisory crosswalk, not an official OLIR. Always verify against the current enforceable version on nerc.com for audit use.",
+  "requirements": {
+    "CIP-002-5.1A R1": {
+      "title": "BES Cyber System Categorization — identify and categorize BES Cyber Systems as high, medium, or low impact",
+      "related_800_53": ["RA-2", "CM-8", "PM-5"]
+    },
+    "CIP-003-8 R1": {
+      "title": "Cyber Security Policies — senior-manager-approved policies covering the CIP-004..CIP-011 topic areas",
+      "related_800_53": ["PM-1", "PL-1"]
+    },
+    "CIP-003-8 R2": {
+      "title": "Low-impact BES Cyber System security plan — awareness, physical access control, electronic access control, incident response, TCA/removable media, vendor electronic remote access",
+      "related_800_53": ["AC-1", "PE-3", "IR-1", "MP-7"]
+    },
+    "CIP-004-7 R2": {
+      "title": "Cyber Security Training — role-based training prior to authorized unescorted physical or authorized electronic access, at least every 15 calendar months",
+      "related_800_53": ["AT-2", "AT-3", "AT-4"]
+    },
+    "CIP-004-7 R3": {
+      "title": "Personnel Risk Assessment — identity confirmation and seven-year criminal history records check prior to granting access, updated every seven years",
+      "related_800_53": ["PS-3"]
+    },
+    "CIP-004-7 R4": {
+      "title": "Access Management Program — authorize, verify quarterly, and review at least every 15 calendar months electronic and unescorted physical access and BES Cyber System Information access",
+      "related_800_53": ["AC-2", "AC-6", "PS-6"]
+    },
+    "CIP-004-7 R5": {
+      "title": "Access Revocation — remove the ability for unescorted physical and Interactive Remote Access within 24 hours of a termination action",
+      "related_800_53": ["AC-2", "PS-4", "PS-5"]
+    },
+    "CIP-005-7 R1": {
+      "title": "Electronic Security Perimeter — all applicable Cyber Assets connected to a routable protocol reside within a defined ESP; inbound and outbound access permissions with a documented reason",
+      "related_800_53": ["AC-4", "SC-7"]
+    },
+    "CIP-005-7 R2": {
+      "title": "Interactive Remote Access Management — Intermediate System, encryption terminating at the Intermediate System, and multi-factor authentication",
+      "related_800_53": ["AC-17", "IA-2"]
+    },
+    "CIP-006-6 R1": {
+      "title": "Physical Security Plan — operational and procedural controls to restrict physical access to the Physical Security Perimeter and the Physical Access Control Systems",
+      "related_800_53": ["PE-2", "PE-3", "PE-6"]
+    },
+    "CIP-007-6 R1": {
+      "title": "Ports and Services — enable only logical network accessible ports that are needed; protect against the use of unnecessary physical input/output ports",
+      "related_800_53": ["CM-7", "AC-19"]
+    },
+    "CIP-007-6 R2": {
+      "title": "Security Patch Management — a patch management process for tracking, evaluating, and installing cyber security patches; evaluate applicability within 35 calendar days of a source's release and, within the next 35 days, apply, create a mitigation plan, or revise an existing plan",
+      "related_800_53": ["SI-2", "RA-5", "CM-3"]
+    },
+    "CIP-007-6 R3": {
+      "title": "Malicious Code Prevention — deploy methods to deter, detect, or prevent malicious code and mitigate the threat of identified malicious code",
+      "related_800_53": ["SI-3"]
+    },
+    "CIP-007-6 R4": {
+      "title": "Security Event Monitoring — log events at the BES Cyber System level or Cyber Asset level for identified events, alert on detected security events, and retain logs for at least 90 consecutive calendar days",
+      "related_800_53": ["AU-2", "AU-6", "AU-11", "SI-4"]
+    },
+    "CIP-007-6 R5": {
+      "title": "System Access Control — enforce authentication of interactive user access, identify and inventory default/generic/shared accounts, technical or procedural password controls, and limit failed authentication attempts or generate alerts",
+      "related_800_53": ["AC-7", "IA-2", "IA-5"]
+    },
+    "CIP-008-6 R1": {
+      "title": "Cyber Security Incident Response Plan — process to identify, classify, and respond to Cyber Security Incidents; roles and responsibilities; incident handling procedures",
+      "related_800_53": ["IR-1", "IR-4", "IR-8"]
+    },
+    "CIP-008-6 R4": {
+      "title": "Reportable Cyber Security Incident and Attempted Compromise notification to the E-ISAC and, if applicable, NCCIC/CISA within defined timeframes",
+      "related_800_53": ["IR-6"]
+    },
+    "CIP-009-6 R1": {
+      "title": "Recovery Plan — conditions for activation, roles and responsibilities, backup and storage of information for recovery, and verification of backup media",
+      "related_800_53": ["CP-2", "CP-9", "CP-10"]
+    },
+    "CIP-010-4 R1": {
+      "title": "Configuration Change Management — develop a baseline configuration; authorize and document changes that deviate from the baseline; update the baseline within 30 calendar days; verify security controls are not adversely affected",
+      "related_800_53": ["CM-2", "CM-3", "CM-4", "CM-6"]
+    },
+    "CIP-010-4 R2": {
+      "title": "Configuration Monitoring — monitor at least once every 35 calendar days for changes to the baseline configuration and investigate detected unauthorized changes",
+      "related_800_53": ["CM-3", "SI-7"]
+    },
+    "CIP-010-4 R3": {
+      "title": "Vulnerability Assessments — a paper or active vulnerability assessment at least once every 15 calendar months and an active assessment prior to adding a new applicable Cyber Asset to a production environment",
+      "related_800_53": ["RA-5", "CA-8"]
+    },
+    "CIP-010-4 R4": {
+      "title": "Transient Cyber Assets and Removable Media — plan(s) to manage authorization, software vulnerability mitigation, and malicious code mitigation for TCAs and removable media",
+      "related_800_53": ["MP-7", "SI-3"]
+    },
+    "CIP-011-3 R1": {
+      "title": "Information Protection — method to identify BES Cyber System Information and procedures for protecting and securely handling it, including storage, transit, and use",
+      "related_800_53": ["MP-2", "MP-4", "SC-8", "SC-28"]
+    },
+    "CIP-011-3 R2": {
+      "title": "BES Cyber Asset Reuse and Disposal — prevent the unauthorized retrieval of BES Cyber System Information prior to reuse or disposal",
+      "related_800_53": ["MP-6"]
+    },
+    "CIP-012-1 R1": {
+      "title": "Communications between Control Centers — protect the confidentiality and integrity of Real-time Assessment and Real-time monitoring data transmitted between Control Centers",
+      "related_800_53": ["SC-8"]
+    },
+    "CIP-013-2 R1": {
+      "title": "Supply Chain Risk Management — one or more documented processes for procuring BES Cyber Systems that address vendor security event notification, coordinated incident response, disclosure of known vulnerabilities, verification of software integrity and authenticity, and vendor remote access controls",
+      "related_800_53": ["SR-3", "SR-5", "SR-6", "SR-11"]
+    },
+    "CIP-014-3 R1": {
+      "title": "Physical Security — risk assessment to identify Transmission stations and substations that, if rendered inoperable or damaged, could result in instability, uncontrolled separation, or Cascading within an Interconnection",
+      "related_800_53": ["RA-3", "PE-18"]
+    }
+  }
+}
