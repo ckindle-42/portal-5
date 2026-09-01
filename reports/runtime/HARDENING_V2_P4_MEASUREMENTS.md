@@ -109,8 +109,65 @@ The Qwen3-VL reranker already produces the signal that fixes this
 
 ### Fusion options
 
-_(rerank_tiebreak / score_aware results appended when the variant runs finish)_
+`scripts/rag_retrieval_eval.py --fusion {rerank_tiebreak,score_aware}` re-runs
+the 37 diagram_only + prose_only queries against the same ingest:
+
+- **rerank_tiebreak** — keep RRF; break a fused-score tie on the visual arm's
+  `reranker_prob` (text rows, which have none, sort after any visual row at the
+  same score). ~5 lines.
+- **score_aware** — the visual arm contributes `RRF + reranker_prob` instead of
+  RRF alone.
+
+Direct single-query check (`rerank_tiebreak`): `syn-pid-01` / `-02` / `-04`
+(P&ID diagram-only) all return the correct figure page at **rank 1**, text
+demoted to rank 2 — the RRF-baseline rank-2 lock is broken.
+
+_(full 37-query recall table + prose counter-test appended when v8 finishes)_
+
+## E3 — rerank depth is the latency lever
+
+Measured on a fresh VL server (`scripts/rag_retrieval_eval.py` component split):
+
+| stage | cost |
+|---|---|
+| query text embed (warm) | ~30 ms |
+| lancedb text/visual vector search (1257 / 480 rows, no ANN index) | 7–9 ms each |
+| **VL rerank, 6 page images** | **12.6 s** |
+| VL rerank, 9 page images | 15.4 s |
+| VL rerank, 15 page images | 26.3 s |
+
+Rerank is ~1.7 s/candidate + ~2 s base — **linear in candidate count, and it is
+the entire query cost**. `_search` reranks `min(limit(top_k*3), top_k*2)` page
+images, so at the production default `top_k=5` it reranks up to 10 → ~18 s/query;
+at `top_k=3`, 6 → ~13 s/query. `VL_RERANK_CHUNK` (2/4/8/16) does not move this —
+the cost is per-image forwards, not chunk overhead (matches the V4 sweep).
+**Recommendation:** the coarse depth (`limit(top_k*3)` feeding the rerank) is the
+knob to lower for latency; recall@5 is unaffected because the RRF/tiebreak fusion
+only needs the right page *in* the reranked set, and the visual embedding recall
+puts it there well within `top_k*3`.
+
+## The VL server degrades over a session — and it is unsupervised
+
+`:8942` served ~200 forwards across the P5 runs and its per-request latency rose
+**~10×** (a warm text embed measured 28 ms early, 6–10 s late; rerank 17 s → 27 s
+on identical inputs). RSS moved only 6.5 → 7.2 GB, so this is **not** memory —
+it is MLX/Metal runtime-state accumulation (root cause not isolated; not thermal
+per `pmset -g therm`). A fresh restart returns it to 28 ms.
+
+`:8942` is a bare `nohup` (util.sh) with **no launchd supervision, no
+KeepAlive, no request-count recycling**. Real-world: a long-lived VL server
+serving RAG becomes progressively unusable. This is a bigger operational gap
+than D1 flagged — it needs supervision **and** a recycle policy (exit after N
+requests, or a scheduled bounce). Recorded for P7 / A4.
+
+Concurrency (A4), measured incidentally: while a rerank is in flight the server's
+single event loop blocks **every** request including `/health` and `/ready` for
+its full 15–27 s. Two overlapping `kb_search` calls: the second returns after
+~2× a single search. The A3 model-id `/health` probe hit this (10 s timeout
+behind a 20 s rerank) and is now cached (1 probe / 5 min) — but the OWUI-side
+timeout must tolerate `N × ~20 s` for N concurrent RAG users, or `_search` needs
+a "busy, retry" bound.
 
 ## P6 — max_pixels / DPI and coarse depth
 
-_(pending)_
+_(pending — the E3 depth curve above is the coarse-depth half)_

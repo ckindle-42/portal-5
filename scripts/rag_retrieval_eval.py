@@ -153,6 +153,31 @@ def _rank_of(results: list[dict], target_file: str, target_page, category: str) 
     return None
 
 
+async def _run_query(rm, kb_id: str, q: dict, top_k: int) -> dict:
+    for attempt in range(4):  # tolerate a VL-server restart mid-run
+        try:
+            results = await _search(rm, kb_id, q["query"], top_k=top_k)
+            break
+        except RuntimeError as e:
+            if attempt == 3 or "unavailable" not in str(e):
+                raise
+            await asyncio.sleep(10)
+    rank = _rank_of(results, q["target_file"], q.get("target_page"), q["category"])
+    row = {
+        "id": q["id"],
+        "category": q["category"],
+        "rank": rank,
+        "hit@1": bool(rank == 1),
+        "hit@5": bool(rank and rank <= 5),
+        "rr": round(1.0 / rank if rank else 0.0, 3),
+        "top": [
+            (r.get("kind"), Path(r.get("source_file", "")).name, r.get("page")) for r in results[:3]
+        ],
+    }
+    print(json.dumps(row))
+    return row
+
+
 async def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("corpus")
@@ -162,6 +187,10 @@ async def main() -> None:
     ap.add_argument("--kb-id", default="ragEval")
     ap.add_argument("--reuse", action="store_true")
     ap.add_argument("--out", default="")
+    ap.add_argument(
+        "--top-k", type=int, default=10, help="search depth; drives coarse limit + rerank width"
+    )
+    ap.add_argument("--categories", default="", help="comma-list to restrict the query set")
     a = ap.parse_args()
 
     os.environ["PORTAL5_LANCE_DIR"] = a.lance_dir
@@ -177,6 +206,9 @@ async def main() -> None:
     _patch_fusion(rm, a.fusion)
 
     qset = yaml.safe_load(Path(a.queries).read_text())["queries"]
+    if a.categories:
+        want = set(a.categories.split(","))
+        qset = [q for q in qset if q["category"] in want]
 
     ingest_info = {"skipped": True}
     if not a.reuse or not (Path(a.lance_dir) / "rag" / f"kb_{a.kb_id}.lance").exists():
@@ -185,34 +217,10 @@ async def main() -> None:
         ingest_info["_ingest_s"] = round(time.time() - t0, 1)
         print("ingest:", json.dumps(ingest_info))
 
+    rows = [await _run_query(rm, a.kb_id, q, a.top_k) for q in qset]
     per_cat: dict[str, list] = {}
-    rows = []
-    for q in qset:
-        for attempt in range(4):  # tolerate a VL-server restart mid-run
-            try:
-                results = await _search(rm, a.kb_id, q["query"], top_k=10)
-                break
-            except RuntimeError as e:
-                if attempt == 3 or "unavailable" not in str(e):
-                    raise
-                await asyncio.sleep(10)
-        rank = _rank_of(results, q["target_file"], q.get("target_page"), q["category"])
-        rr = 1.0 / rank if rank else 0.0
-        row = {
-            "id": q["id"],
-            "category": q["category"],
-            "rank": rank,
-            "hit@1": bool(rank == 1),
-            "hit@5": bool(rank and rank <= 5),
-            "rr": round(rr, 3),
-            "top": [
-                (r.get("kind"), Path(r.get("source_file", "")).name, r.get("page"))
-                for r in results[:3]
-            ],
-        }
-        rows.append(row)
-        per_cat.setdefault(q["category"], []).append(row)
-        print(json.dumps(row))
+    for r in rows:
+        per_cat.setdefault(r["category"], []).append(r)
 
     summary = {}
     for cat, rs in sorted(per_cat.items()):
