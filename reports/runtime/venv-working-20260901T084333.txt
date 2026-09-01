@@ -1,3 +1,9 @@
+# command: uv pip freeze  (hand-patched working venv, pre-reconcile)
+# inputs: V4 P0.1 — working-venv fingerprint; header added retroactively (C3) (HEAD f1d6bf0f)
+# resolved-versions: mlx==0.32.2, mlx-embeddings==0.1.0, mlx-vlm==0.6.17, transformers==5.16.1, torch==2.13.0, torchvision==0.28.0, phonemizer==3.4.0
+# timestamp: 2026-09-01T19:12:41+00:00
+# ---
+
 addict==2.4.0
 aiohappyeyeballs==2.7.1
 aiohttp==3.14.3

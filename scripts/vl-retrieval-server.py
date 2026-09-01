@@ -55,11 +55,15 @@ EMBED_MODEL = os.environ.get("VL_EMBED_MODEL", "mlx-community/Qwen3-VL-Embedding
 RERANK_MODEL = os.environ.get("VL_RERANK_MODEL", "mlx-community/Qwen3-VL-Reranker-2B-mxfp8")
 EMBEDDING_DIM = int(os.environ.get("VL_EMBEDDING_DIM", "2048"))
 RERANK_CHUNK = int(os.environ.get("VL_RERANK_CHUNK", "4"))
-# One VLM forward per item, padded to the longest member — the same memory
-# characteristic that justified RERANK_CHUNK. `_embed_items` sub-chunks each of
-# the text/image batches at this bound, preserving order. Default 8 is
-# provisional (P8 survived 46 page images at 6.2 GB RSS); size from the A5 sweep.
-MAX_BATCH = max(1, int(os.environ.get("VL_MAX_BATCH", "8")))
+# One VLM forward per item, padded to the longest member. `_embed_items`
+# sub-chunks each of the text/image batches at this bound, preserving order.
+# A5 sweep (reports/runtime/HARDENING_V2_P4_MEASUREMENTS.md): 1..48 page images
+# per forward on an M4 Pro 64GB with Ollama holding ~5.4GB — per-item latency
+# flat at ~1.85s, no failure, no OOM at any size. RSS is not a usable pressure
+# signal here (MLX Metal buffers are off-RSS). 24 is well below the tested-clean
+# ceiling and still bounds the pathological case (a 500-page PDF -> 21 forwards
+# of 24, not one 500-wide forward).
+MAX_BATCH = max(1, int(os.environ.get("VL_MAX_BATCH", "24")))
 QUERY_INSTRUCTION = os.environ.get(
     "VL_QUERY_INSTRUCTION", "Given a search query, retrieve relevant passages that answer it."
 )
