@@ -7,6 +7,8 @@
 #
 # Obscura is pinned by commit for supply-chain safety — do NOT track a moving
 # release. Bump OBSCURA_REF deliberately and re-run the Phase 0 smoke.
+# `scripts/check_obscura_updates.py` (weekly launchd job
+# com.portal5.obscura-update-check) reports pin drift + security advisories.
 
 # ── Stage 1: build Obscura (render + stealth) at a pinned commit ──────────────
 FROM rust:1.90-bookworm AS obscura-build

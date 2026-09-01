@@ -40,6 +40,7 @@ python3 scripts/blend_acceptance_results.py        # blend ACCEPTANCE_RESULTS.md
 
 ```bash
 python3 scripts/check_model_bindings.py             # live gate: every model_pin/model_hint/alias/promptfoo-provider resolves to an installed Ollama tag
+python3 scripts/check_obscura_updates.py            # report Obscura pin drift vs upstream + GitHub security advisories (weekly launchd: com.portal5.obscura-update-check)
 python3 scripts/verify_proxmox_mcp.py              # quick Proxmox MCP check (no Docker)
 python3 scripts/spine_census.py                    # wiki granularity census (mirror/surface/orphan)
 python3 scripts/spine_p0_manifest.py               # TASK_BULLY_P0 P0.1 keep/release/archive classification (docs/SPINE_P0_MANIFEST.md)
