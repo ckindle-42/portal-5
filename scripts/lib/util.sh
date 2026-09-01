@@ -456,6 +456,14 @@ PY
     _ensure_native_mcp_service \
         "wiki-mcp" "com.portal5.wiki-mcp" \
         "${WIKI_MCP_PORT:-8931}" "wiki-mcp"
+
+    # ── Vulnintel MCP (host-native, :8934) ───────────────────────────────────
+    # Read-only outbound-HTTPS-only vuln/threat-intel fronting NVD/EPSS/KEV/OSV/
+    # CISA ICSA + a clearnet IOC subset. Host-native (stdlib + httpx only, no
+    # Dockerfile.mcp deps); all API keys optional.
+    _ensure_native_mcp_service \
+        "vulnintel-mcp" "com.portal5.vulnintel-mcp" \
+        "${VULNINTEL_MCP_PORT:-8934}" "vulnintel-mcp"
 }
 
 # ── Teardown helper (shared by 'down' and the pre-start phase of 'up') ────────
@@ -556,6 +564,19 @@ _do_down() {
             echo "[portal-5] Wiki MCP stopped."
         else
             echo "[portal-5] Wiki MCP: not running (nothing to stop)."
+        fi
+
+        # Vulnintel MCP (:8934)
+        if launchctl print "gui/$(id -u)/com.portal5.vulnintel-mcp" &>/dev/null 2>&1; then
+            launchctl bootout "gui/$(id -u)/com.portal5.vulnintel-mcp" 2>/dev/null || true
+            rm -f /tmp/portal-vulnintel-mcp.pid
+            echo "[portal-5] Vulnintel MCP stopped (launchd)."
+        elif [ -f /tmp/portal-vulnintel-mcp.pid ] && kill -0 "$(cat /tmp/portal-vulnintel-mcp.pid)" 2>/dev/null; then
+            kill "$(cat /tmp/portal-vulnintel-mcp.pid)" 2>/dev/null || true
+            rm -f /tmp/portal-vulnintel-mcp.pid
+            echo "[portal-5] Vulnintel MCP stopped."
+        else
+            echo "[portal-5] Vulnintel MCP: not running (nothing to stop)."
         fi
 
         # ARM64 embedding server (:8917)

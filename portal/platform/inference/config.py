@@ -39,6 +39,7 @@ ModuleName = Literal[
     "research",
     "security",
     "video",
+    "vulnintel",
 ]
 
 # ── Schema models ─────────────────────────────────────────────────────────────

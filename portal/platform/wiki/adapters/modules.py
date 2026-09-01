@@ -31,6 +31,7 @@ DEFAULT_ENABLED_MODULES: frozenset[str] = frozenset(
         "research",
         "compliance",
         "image",
+        "vulnintel",
     }
 )
 # Per DESIGN-MODULES-V1: bench/testing apparatus is off by default. `video` is

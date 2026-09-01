@@ -46,6 +46,10 @@ case "$SERVICE" in
         export DETECTIONS_MCP_PORT="${DETECTIONS_MCP_PORT:-8932}"
         exec "$PY" -m portal.modules.security.tools.detections_mcp
         ;;
+    vulnintel-mcp)
+        export VULNINTEL_MCP_PORT="${VULNINTEL_MCP_PORT:-8934}"
+        exec "$PY" -m portal.modules.vulnintel.tools.vulnintel_mcp
+        ;;
     wiki-mcp)
         export OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
         export WIKI_MCP_PORT="${WIKI_MCP_PORT:-8931}"

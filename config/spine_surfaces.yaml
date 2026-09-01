@@ -148,6 +148,14 @@ surfaces:
   globs:
   - portal/modules/security/tools/security_mcp.py
   unit: unit-capability-security
+- name: file-portal-modules-vulnintel-tests-test_vulnintel_mcp
+  globs:
+  - portal/modules/vulnintel/tests/test_vulnintel_mcp.py
+  unit: unit-capability-vulnintel
+- name: file-portal-modules-vulnintel-tools-vulnintel_mcp
+  globs:
+  - portal/modules/vulnintel/tools/vulnintel_mcp.py
+  unit: unit-capability-vulnintel
 - name: file-portal-platform-agent-__init__
   globs:
   - portal/platform/agent/__init__.py
