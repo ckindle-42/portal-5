@@ -39,6 +39,9 @@ _tables: dict = {}
 def _conn():
     global _db
     if _db is None:
+        from portal.platform.lance_guard import require_lance_dir
+
+        require_lance_dir(LANCE_DIR)
         os.makedirs(LANCE_DIR, exist_ok=True)
         _db = lancedb.connect(LANCE_DIR)
     return _db

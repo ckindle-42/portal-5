@@ -13,6 +13,8 @@ sources:
 - type: code
   path: portal/platform/memory/test_graph_memory.py
 - type: code
+  path: portal/platform/lance_guard.py
+- type: code
   path: config/inference/tools_manifest_memory_mcp.json
 claims: []
 confidence: high
@@ -32,6 +34,14 @@ backed by a temporal knowledge graph (`portal/platform/memory/graph_memory.py`).
 `TASK_MEMORY_GRAPH_OVERHAUL_V1` replaced the previous flat-vector store — the
 graph is the memory, not an addition next to it, and the flat top-K recall path
 was deleted. It is pipeline- and IDE-exposed.
+
+The graph's LanceDB directory is `PORTAL5_LANCE_DIR` (default
+`/Volumes/data01/portal5_lance`, an external volume). `portal/platform/lance_guard.py`
+gates `_conn()` on that volume being mounted: writing vectors to an
+unmounted-then-remounted path is worse than refusing to start, so
+`require_lance_dir` raises `LanceStoreUnavailableError` rather than let
+`os.makedirs` create a shadow tree on the boot disk. The RAG stores
+(`rag_mcp.py`, `rag_multimodal.py`) share the same guard.
 
 ## How it's used
 

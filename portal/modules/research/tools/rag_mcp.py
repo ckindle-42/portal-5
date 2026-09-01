@@ -44,6 +44,9 @@ _kb_cache = {}
 def _get_db():
     global _db
     if _db is None:
+        from portal.platform.lance_guard import require_lance_dir
+
+        require_lance_dir(LANCE_DIR)
         os.makedirs(RAG_DIR, exist_ok=True)
         _db = lancedb.connect(RAG_DIR)
     return _db
