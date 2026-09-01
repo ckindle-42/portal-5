@@ -128,10 +128,18 @@ surfaces:
   globs:
   - portal/modules/research/tools/rag_mcp.py
   unit: unit-capability-rag
+- name: file-portal-modules-research-tools-rag_multimodal
+  globs:
+  - portal/modules/research/tools/rag_multimodal.py
+  unit: unit-capability-rag
 - name: file-portal-modules-research-tools-reranker_mcp
   globs:
   - portal/modules/research/tools/reranker_mcp.py
   unit: unit-capability-reranker
+- name: file-portal-modules-research-tools-test_rag_multimodal
+  globs:
+  - portal/modules/research/tools/test_rag_multimodal.py
+  unit: unit-capability-rag
 - name: file-portal-modules-research-tools-web_search_mcp
   globs:
   - portal/modules/research/tools/web_search_mcp.py

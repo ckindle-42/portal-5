@@ -501,6 +501,26 @@ PY
     _ensure_native_mcp_service \
         "netforensics-mcp" "com.portal5.netforensics-mcp" \
         "${NETFORENSICS_MCP_PORT:-8941}" "netforensics-mcp"
+
+    # ── Qwen3-VL retrieval server (host-native, :8942) ─────────────────────
+    # The RAG stack's multimodal embed/rerank backend (text+image joint space).
+    # Not an MCP — a FastAPI service (scripts/vl-retrieval-server.py) in the
+    # project .venv. The shared text embedder :8917 and reranker :8925 stay up
+    # for memory / the Bully ORG projection. Skipped when the VL model is not
+    # yet pulled (RAG retrieval then honest-BLOCKs with a descriptive error).
+    _VL_PORT="${VL_PORT:-8942}"
+    if ! curl -fsS "http://localhost:${_VL_PORT}/health" &>/dev/null 2>&1; then
+        _VL_PY="$PORTAL_ROOT/.venv/bin/python3"
+        if [ -x "$_VL_PY" ] && "$_VL_PY" -c "import mlx_embeddings, fastapi, uvicorn" &>/dev/null 2>&1; then
+            _VL_LOG="${HOME}/.portal5/logs/vl-retrieval.log"
+            mkdir -p "$(dirname "$_VL_LOG")"
+            nohup "$_VL_PY" "$PORTAL_ROOT/scripts/vl-retrieval-server.py" --port "$_VL_PORT" \
+                > "$_VL_LOG" 2>&1 &
+            echo "[portal-5]   VL retrieval server starting on :$_VL_PORT (PID $!)"
+        else
+            echo "[portal-5]   ⚠️  VL retrieval deps/model missing — RAG multimodal retrieval will honest-BLOCK"
+        fi
+    fi
 }
 
 # ── Teardown helper (shared by 'down' and the pre-start phase of 'up') ────────

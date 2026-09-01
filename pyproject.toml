@@ -69,6 +69,9 @@ mcp = [
     # Data & analytics (data module) — DuckDB conversational analytics.
     # Lazy-imported on first tool call; pandas is already a transitive dep.
     "duckdb>=1.1",
+    # Multimodal RAG (research module) — render PDF pages to images for the
+    # Qwen3-VL retrieval server. Lazy-imported during kb_ingest.
+    "pymupdf>=1.24",
 ]
 generation = []
 rag = [

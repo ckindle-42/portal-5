@@ -1,30 +1,28 @@
 """Portal 5 RAG MCP Server.
 
-Multiple knowledge bases (KBs) backed by LanceDB. Each KB:
-- ingested from local directory of .md, .txt, .pdf, .docx files
-- chunked at CHUNK_SIZE chars with CHUNK_OVERLAP overlap
-- embedded via MLX mxbai
-- two-stage retrieval: vector top-50 -> bge reranker top-K
+Multiple knowledge bases (KBs) backed by LanceDB. Retrieval is multimodal
+(TASK_RAG_VISUAL_OVERHAUL_V1): kb_ingest renders PDF pages to images and
+embeds them alongside text chunks with the Qwen3-VL retrieval server, and
+kb_search fuses text + page-image retrieval (RRF) by default. Those routes
+live in rag_multimodal; this server keeps the KB-lifecycle tools
+(kb_list / kb_optimize / kb_versions / kb_restore) and registers the
+multimodal retrieval routes.
 
-Tools: kb_list, kb_search, kb_search_all, kb_ingest.
 Port: 8921 (RAG_MCP_PORT env override).
 """
 
 import asyncio
 import contextlib
-import hashlib
 import logging
 import os
 import re
-import time
-from pathlib import Path
 
-import httpx
 import lancedb
 import pyarrow as pa
 from mcp.server import MCPServer
 from starlette.responses import JSONResponse
 
+from portal.modules.research.tools.rag_multimodal import register_retrieval_routes
 from portal.platform.data_loader import load_data
 
 logger = logging.getLogger(__name__)
@@ -32,12 +30,10 @@ mcp = MCPServer("rag")
 
 LANCE_DIR = os.environ.get("PORTAL5_LANCE_DIR", "/Volumes/data01/portal5_lance")
 RAG_DIR = os.path.join(LANCE_DIR, "rag")
-KB_SOURCES_DIR = os.environ.get("PORTAL5_KB_SOURCES_DIR", "/Volumes/data01/portal5_kb_sources")
-EMBEDDING_URL = os.environ.get("MLX_EMBEDDING_URL", "http://localhost:8917/v1/embeddings")
-# RERANKER_URL: dedicated Qwen3-Reranker-0.6B-mxfp8 MCP on :8925.
-# Falls back gracefully to dense-order if reranker is unavailable.
-RERANK_URL = os.environ.get("RERANKER_URL", "http://localhost:8925")
-EMBEDDING_DIM = 1024
+# Retrieval (embedding + rerank) is now the Qwen3-VL retrieval server — see
+# rag_multimodal. kb_ingest/kb_search/kb_search_all are owned there. The
+# lifecycle tools below (kb_optimize/versions/restore/list) stay here.
+EMBEDDING_DIM = int(os.environ.get("VL_EMBEDDING_DIM", "2048"))
 CHUNK_SIZE = int(os.environ.get("RAG_CHUNK_SIZE", "1000"))
 CHUNK_OVERLAP = int(os.environ.get("RAG_CHUNK_OVERLAP", "150"))
 
@@ -85,33 +81,6 @@ def _list_kbs():
     return sorted([t.replace("kb_", "", 1) for t in _get_db().table_names() if t.startswith("kb_")])
 
 
-async def _embed(text):
-    async with httpx.AsyncClient(timeout=20) as c:
-        r = await c.post(EMBEDDING_URL, json={"input": text})
-        r.raise_for_status()
-        return r.json()["data"][0]["embedding"]
-
-
-async def _embed_batch(texts):
-    async with httpx.AsyncClient(timeout=120) as c:
-        r = await c.post(EMBEDDING_URL, json={"input": texts})
-        r.raise_for_status()
-        return [d["embedding"] for d in r.json()["data"]]
-
-
-async def _rerank(query, docs, top_n):
-    if len(docs) == 0:
-        return []
-    async with httpx.AsyncClient(timeout=30) as c:
-        r = await c.post(RERANK_URL, json={"query": query, "documents": docs, "top_n": top_n})
-        if r.status_code != 200:
-            return [
-                {"index": i, "relevance_score": 0.5, "document": d}
-                for i, d in enumerate(docs[:top_n])
-            ]
-        return r.json()["results"]
-
-
 @mcp.custom_route("/health", methods=["GET"])
 async def health(request):
     try:
@@ -127,23 +96,6 @@ TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_rag_mcp")
 @mcp.custom_route("/tools", methods=["GET"])
 async def list_tools(request):
     return JSONResponse(TOOLS_MANIFEST)
-
-
-def _chunk_text(text, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP):
-    """Sliding-window chunk on character boundaries; respects paragraph breaks where possible."""
-    chunks = []
-    start = 0
-    while start < len(text):
-        end = min(start + chunk_size, len(text))
-        if end < len(text):
-            for delim in ("\n\n", ". ", "\n"):
-                idx = text.rfind(delim, start + chunk_size // 2, end + len(delim))
-                if idx > 0:
-                    end = idx + len(delim)
-                    break
-        chunks.append((start, end, text[start:end]))
-        start = max(end - overlap, start + 1)
-    return chunks
 
 
 _DOCLING_FORMATS = (".pdf", ".docx", ".pptx", ".xlsx", ".html", ".htm", ".epub")
@@ -210,104 +162,6 @@ async def _read_file(path):
             logger.warning("DOCX fallback read failed for %s: %s", path, e)
             return ""
     return ""
-
-
-@mcp.custom_route("/tools/kb_ingest", methods=["POST"])
-async def kb_ingest_endpoint(request):
-    body = await request.json()
-    args = body.get("arguments", {})
-    kb_id = args.get("kb_id", "")
-    source_dir = args.get("source_dir", "")
-    rebuild = args.get("rebuild", False)
-    fts = args.get("fts", False)
-    if not kb_id or not source_dir:
-        return JSONResponse({"error": "kb_id and source_dir are required"}, status_code=400)
-    src = Path(source_dir).expanduser().resolve()
-    if not src.is_dir():
-        return JSONResponse({"error": f"directory not found: {src}"}, status_code=404)
-
-    if rebuild:
-        tname = _kb_table_name(kb_id)
-        try:
-            existing = _get_db().open_table(tname)
-            pre_version = existing.version
-            with contextlib.suppress(Exception):
-                existing.tags.create(f"pre-rebuild-{int(time.time())}", pre_version)
-            # Delete rows instead of dropping the table: the delete is itself a
-            # new version, so the pre-rebuild state stays restorable via
-            # kb_restore. drop_table would destroy the version history.
-            existing.delete("chunk_id IS NOT NULL")
-        except Exception:
-            # Table missing or version-safe path unavailable — fall back to drop.
-            with contextlib.suppress(Exception):
-                _get_db().drop_table(tname)
-
-    table = _kb_table(kb_id, create_if_missing=True)
-
-    files = [
-        f
-        for f in src.rglob("*")
-        if f.is_file()
-        and f.suffix.lower()
-        in (".md", ".txt", ".pdf", ".docx", ".pptx", ".xlsx", ".html", ".htm", ".epub")
-    ]
-    files = files[:5000]
-
-    total_chunks = 0
-    for f in files:
-        text = await _read_file(f)
-        if not text:
-            continue
-        chunks = _chunk_text(text)
-        if not chunks:
-            continue
-        for batch_start in range(0, len(chunks), 16):
-            batch = chunks[batch_start : batch_start + 16]
-            try:
-                vectors = await _embed_batch([c[2] for c in batch])
-            except Exception as e:
-                logger.error("embed batch failed for %s: %s", f, e)
-                continue
-            now = time.time()
-            records = []
-            for i, ((cstart, cend, ctext), vec) in enumerate(zip(batch, vectors, strict=False)):
-                chunk_id = hashlib.sha1(f"{kb_id}|{f}|{batch_start + i}".encode()).hexdigest()
-                records.append(
-                    {
-                        "chunk_id": chunk_id,
-                        "kb_id": kb_id,
-                        "source_file": str(f.relative_to(src)),
-                        "chunk_index": batch_start + i,
-                        "text": ctext,
-                        "vector": vec,
-                        "char_start": cstart,
-                        "char_end": cend,
-                        "ingested_at": now,
-                    }
-                )
-            table.add(records)
-            total_chunks += len(records)
-
-    fts_created = False
-    if fts and total_chunks > 0:
-        try:
-            try:
-                table.create_fts_index("text", use_tantivy=False, replace=True)
-            except TypeError:
-                # use_tantivy kwarg removed in newer lancedb (native is default)
-                table.create_fts_index("text", replace=True)
-            fts_created = True
-        except Exception as e:
-            logger.warning("FTS index creation failed for %s: %s", kb_id, e)
-
-    return JSONResponse(
-        {
-            "kb_id": kb_id,
-            "files_ingested": len(files),
-            "chunks_added": total_chunks,
-            "fts_index": fts_created,
-        }
-    )
 
 
 @mcp.custom_route("/tools/kb_optimize", methods=["POST"])
@@ -408,111 +262,9 @@ async def kb_list_endpoint(request):
     return JSONResponse({"knowledge_bases": kbs})
 
 
-@mcp.custom_route("/tools/kb_search", methods=["POST"])
-async def kb_search_endpoint(request):
-    body = await request.json()
-    args = body.get("arguments", {})
-    kb_id = args.get("kb_id", "")
-    query = args.get("query", "")
-    top_k = min(args.get("top_k", 5), 20)
-    if not kb_id or not query:
-        return JSONResponse({"error": "kb_id and query required"}, status_code=400)
-    table = _kb_table(kb_id)
-    if table is None:
-        return JSONResponse({"error": f"unknown kb_id '{kb_id}'"}, status_code=404)
-
-    query_type = args.get("query_type", "vector")
-    if query_type == "fts":
-        try:
-            candidates = table.search(query, query_type="fts").limit(50).to_list()
-        except Exception as e:
-            return JSONResponse(
-                {"error": f"fts search failed (no FTS index? re-ingest with fts=true): {e}"},
-                status_code=400,
-            )
-    elif query_type == "hybrid":
-        qvec = await _embed(query)
-        try:
-            candidates = (
-                table.search(query_type="hybrid").vector(qvec).text(query).limit(50).to_list()
-            )
-        except Exception as e:
-            return JSONResponse(
-                {"error": f"hybrid search failed (no FTS index? re-ingest with fts=true): {e}"},
-                status_code=400,
-            )
-    else:
-        qvec = await _embed(query)
-        candidates = table.search(qvec).limit(50).to_list()
-    if not candidates:
-        return JSONResponse({"kb_id": kb_id, "query": query, "results": []})
-
-    docs = [c["text"] for c in candidates]
-    reranked = await _rerank(query, docs, top_k)
-    out = []
-    for r in reranked:
-        c = candidates[r["index"]]
-        out.append(
-            {
-                "chunk_id": c["chunk_id"],
-                "source_file": c["source_file"],
-                "chunk_index": c["chunk_index"],
-                "text": c["text"],
-                "rerank_score": round(r["relevance_score"], 4),
-            }
-        )
-    return JSONResponse({"kb_id": kb_id, "query": query, "num_results": len(out), "results": out})
-
-
-@mcp.custom_route("/tools/kb_search_all", methods=["POST"])
-async def kb_search_all_endpoint(request):
-    body = await request.json()
-    args = body.get("arguments", {})
-    query = args.get("query", "")
-    top_k = min(args.get("top_k", 5), 20)
-    if not query:
-        return JSONResponse({"error": "query required"}, status_code=400)
-    kbs = _list_kbs()
-    if not kbs:
-        return JSONResponse({"query": query, "results": []})
-
-    query_type = args.get("query_type", "vector")
-    qvec = await _embed(query)
-    all_candidates = []
-    for kb_id in kbs:
-        t = _kb_table(kb_id)
-        if t is None:
-            continue
-        try:
-            if query_type == "fts":
-                hits = t.search(query, query_type="fts").limit(20).to_list()
-            elif query_type == "hybrid":
-                hits = t.search(query_type="hybrid").vector(qvec).text(query).limit(20).to_list()
-            else:
-                hits = t.search(qvec).limit(20).to_list()
-        except Exception:
-            # KBs without an FTS index fall back to vector search.
-            hits = t.search(qvec).limit(20).to_list()
-        for c in hits:
-            c["_kb_id"] = kb_id
-            all_candidates.append(c)
-    if not all_candidates:
-        return JSONResponse({"query": query, "results": []})
-
-    docs = [c["text"] for c in all_candidates]
-    reranked = await _rerank(query, docs, top_k)
-    out = []
-    for r in reranked:
-        c = all_candidates[r["index"]]
-        out.append(
-            {
-                "kb_id": c["_kb_id"],
-                "source_file": c["source_file"],
-                "text": c["text"],
-                "rerank_score": round(r["relevance_score"], 4),
-            }
-        )
-    return JSONResponse({"query": query, "num_results": len(out), "results": out})
+# kb_ingest / kb_search / kb_search_all are owned by the multimodal
+# implementation — one retrieval path, not two.
+register_retrieval_routes(mcp)
 
 
 def main():
