@@ -29,7 +29,7 @@ from pathlib import Path
 import yaml
 
 
-def _patch_fusion(rm, strategy: str) -> None:
+def _patch_fusion(rm, strategy: str) -> None:  # noqa: C901, PLR0915
     """Replace rag_multimodal._search's fusion with a strategy under test (P5).
 
     rrf              — unchanged: sum of 1/(k+rank), text arm inserted first so a
@@ -66,8 +66,12 @@ def _patch_fusion(rm, strategy: str) -> None:
         rrf: dict = {}
         prob: dict = {}
         payload: dict = {}
+        top_text_sim = 0.0
         if ttbl is not None:
-            for rank, r in enumerate(ttbl.search(qvec).limit(top_k * 3).to_list()):
+            trows = ttbl.search(qvec).limit(top_k * 3).to_list()
+            if trows:
+                top_text_sim = max(0.0, 1.0 - trows[0].get("_distance", 2.0) / 2.0)
+            for rank, r in enumerate(trows):
                 key = ("text", r["chunk_id"])
                 rrf[key] = rrf.get(key, 0.0) + 1.0 / (rrf_k + rank)
                 payload[key] = {
@@ -104,11 +108,12 @@ def _patch_fusion(rm, strategy: str) -> None:
                     "kind": "visual",
                     "reranker_prob": round(float(o["score"]), 5),
                 }
-        return rrf, prob, payload
+        return rrf, prob, payload, top_text_sim
 
     gate = float(os.environ.get("VL_FUSION_GATE", "0.0"))
+    text_gate = float(os.environ.get("VL_TEXT_GATE", "0.67"))
 
-    def _fuse(rrf, prob, top_k):
+    def _fuse(rrf, prob, top_k, top_text_sim):
         if strategy == "rerank_tiebreak":
             # visual wins a tie only if its prob clears the gate (0.0 == always)
             return sorted(
@@ -118,6 +123,15 @@ def _patch_fusion(rm, strategy: str) -> None:
                     -(prob.get(kv[0], -1.0) if prob.get(kv[0], 0.0) >= gate else -1.0),
                 ),
             )[:top_k]
+        if strategy == "text_gate":
+            # only let the visual arm's signal override text when the TEXT arm
+            # has no confident answer (top_text_sim < text_gate). Prose queries
+            # (top_text_sim ~0.75+) keep text first; diagram queries
+            # (top_text_sim ~0.5) let the visual page win. The separating signal
+            # is measured (prob_dump.out), not fitted to the acceptance set.
+            w = 1.0 if top_text_sim < text_gate else 0.0
+            blended = {k: v + (w * prob[k] if k in prob else 0.0) for k, v in rrf.items()}
+            return sorted(blended.items(), key=lambda kv: -kv[1])[:top_k]
         if strategy in ("score_aware", "embed_sim"):
             # blend the visual signal (reranker prob, or embedding sim) into the
             # visual contribution — but only the part above the gate
@@ -135,8 +149,8 @@ def _patch_fusion(rm, strategy: str) -> None:
             arms = await _arms(kb_id, query, top_k)
             if arms is None:
                 return JSONResponse({"error": f"unknown kb_id '{kb_id}'"}, status_code=404)
-            rrf, prob, payload = arms
-            fused = _fuse(rrf, prob, top_k)
+            rrf, prob, payload, top_text_sim = arms
+            fused = _fuse(rrf, prob, top_k, top_text_sim)
             results = [{**payload[k], "fused_score": round(s, 5)} for k, s in fused]
             return JSONResponse(
                 {"kb_id": kb_id, "query": query, "num_results": len(results), "results": results}
@@ -215,7 +229,9 @@ async def main() -> None:
     ap.add_argument("corpus")
     ap.add_argument("queries")
     ap.add_argument(
-        "--fusion", default="rrf", choices=["rrf", "rerank_tiebreak", "score_aware", "embed_sim"]
+        "--fusion",
+        default="rrf",
+        choices=["rrf", "rerank_tiebreak", "score_aware", "embed_sim", "text_gate"],
     )
     ap.add_argument("--lance-dir", default="/tmp/portal5_rag_eval_lance")
     ap.add_argument("--kb-id", default="ragEval")
