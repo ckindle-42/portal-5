@@ -55,6 +55,11 @@ EMBED_MODEL = os.environ.get("VL_EMBED_MODEL", "mlx-community/Qwen3-VL-Embedding
 RERANK_MODEL = os.environ.get("VL_RERANK_MODEL", "mlx-community/Qwen3-VL-Reranker-2B-mxfp8")
 EMBEDDING_DIM = int(os.environ.get("VL_EMBEDDING_DIM", "2048"))
 RERANK_CHUNK = int(os.environ.get("VL_RERANK_CHUNK", "4"))
+# One VLM forward per item, padded to the longest member — the same memory
+# characteristic that justified RERANK_CHUNK. `_embed_items` sub-chunks each of
+# the text/image batches at this bound, preserving order. Default 8 is
+# provisional (P8 survived 46 page images at 6.2 GB RSS); size from the A5 sweep.
+MAX_BATCH = max(1, int(os.environ.get("VL_MAX_BATCH", "8")))
 QUERY_INSTRUCTION = os.environ.get(
     "VL_QUERY_INSTRUCTION", "Given a search query, retrieve relevant passages that answer it."
 )
@@ -185,12 +190,12 @@ async def _embed_items(objs: list[dict]) -> list[list[float]]:
         async with _lock:
             model, proc = _load(_embed, EMBED_MODEL)
             for batch in (text_batch, image_batch):
-                if not batch:
-                    continue
-                _reset_vl_state(model)
-                rows = _mx_rows(model.process([it for _, it in batch], processor=proc))
-                for (orig_i, _), vec in zip(batch, rows, strict=True):
-                    results[orig_i] = vec
+                for start in range(0, len(batch), MAX_BATCH):
+                    sub = batch[start : start + MAX_BATCH]
+                    _reset_vl_state(model)
+                    rows = _mx_rows(model.process([it for _, it in sub], processor=proc))
+                    for (orig_i, _), vec in zip(sub, rows, strict=True):
+                        results[orig_i] = vec
         return [results[i] for i in range(len(objs))]
     finally:
         for p in tempfiles:
@@ -263,6 +268,7 @@ def health():
         "rerank_model": RERANK_MODEL,
         "embedding_dim": EMBEDDING_DIM,
         "rerank_chunk": RERANK_CHUNK,
+        "max_batch": MAX_BATCH,
         "embed_loaded": _embed["model"] is not None,
         "rerank_loaded": _rerank["model"] is not None,
     }

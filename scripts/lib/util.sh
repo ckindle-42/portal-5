@@ -514,8 +514,9 @@ PY
     # dep purely to satisfy that class-level import gate — inference runs on the
     # PIL path). Readiness is a *version-aware* check: a bare `import
     # mlx_embeddings` also passes on 0.0.5, which has no VL path, so it is not a
-    # sufficient gate. If the check fails the server still starts and kb_search
-    # returns a plain 503 pointing at /ready rather than crashing.
+    # sufficient gate. If the check fails the server is NOT started (the `else`
+    # branch below only prints a warning); kb_search then gets connection-refused,
+    # which rag_multimodal maps to the same plain 503 pointing at /ready.
     _VL_PORT="${VL_PORT:-8942}"
     if ! curl -fsS "http://localhost:${_VL_PORT}/health" &>/dev/null 2>&1; then
         _VL_PY="$PORTAL_ROOT/.venv/bin/python3"

@@ -110,7 +110,13 @@ apple-silicon = [
     # mlx-lm>=0.31 required: qwen3_next moved to mlx_vlm in 0.31+; stay current for
     # new model architectures (Laguna SWA, Mamba2, etc.) and thread-local stream fixes.
     "mlx-lm>=0.31.3",
-    "mlx-vlm>=0.6.13",
+    # Floor tracks the installed runtime (0.6.17). mlx-vlm carries the qwen3_vl
+    # attention/rope code the VL retrieval server's `_reset_vl_state` works around.
+    "mlx-vlm>=0.6.17",
+    # mlx (core) is otherwise only a transitive dep. It is load-bearing for the
+    # mxfp8 quant path and the qwen3_vl arch, so it gets an explicit floor that
+    # tracks reality — nothing else stops a `uv sync` from walking it backwards.
+    "mlx>=0.32.2",
     # MLX Speech: unified TTS (Kokoro + Qwen3-TTS + Higgs Audio v2 voice clone) + ASR (Qwen3-ASR) on Apple Silicon
     # 0.4.8 ships mlx_audio.vad (Sortformer diarization) alongside stt.
     # The `<0.5.0` cap is removed: its stated reason (avoid transformers>=5.16)
@@ -122,6 +128,10 @@ apple-silicon = [
     # no pyannote, no HF token). The non-Apple-Silicon fallback is faster-whisper
     # (base deps), which bundles its own CTranslate2 runtime — no mlx-whisper.
     "torch>=2.13.0",
+    # torchaudio floor is deliberately below torch's: the working venv pairs
+    # torchaudio 2.11.0 with torch 2.13.0 (mlx-audio's transcription path does
+    # not exercise the version-coupled C-extension surface). Raise to 2.13.x
+    # only with a verified mlx-audio run behind it.
     "torchaudio>=2.11.0",
     # torchvision: NOT used for inference — preprocessing runs on the PIL path
     # (`Qwen2VLImageProcessorPil`). It is required only to satisfy transformers 5.x's

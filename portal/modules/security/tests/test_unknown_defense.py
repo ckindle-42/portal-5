@@ -320,6 +320,12 @@ class TestSimilarityReferenceCatalog:
         # (needs cloud storage access logs not ingested in the lab).
         assert "T1537" not in narrow
         assert "T1537" in broad
+        # Positive direction (restored, E5): a technique the project HAS real
+        # detection content for must be present in the narrow set too — the
+        # narrow set is the project's own answer key, not a stale subset.
+        assert "T1558.003" in narrow  # Kerberoasting — spl_detections.yaml, EventCode 4769
+        assert "T1558.003" in broad
+        assert "T1078.004" in narrow  # moved in via SA5.3 cloud/identity detections (ebd89696)
 
     def test_merged_reference_prefers_project_specific_detail(self):
         from portal.modules.security.core.blue import (
