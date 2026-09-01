@@ -1,11 +1,11 @@
 ---
 id: unit-fact-tool-registry
 kind: what
-title: 114 MCP tools across 27 servers
+title: 118 MCP tools across 28 servers
 sources:
 - type: code
   path: portal/modules/*/tools/*_mcp.py
-  commit: aa406501b0fd
+  commit: ff8f94550e78
 claims: []
 confidence: high
 tags:
@@ -13,7 +13,7 @@ tags:
 - tools
 - mcp
 created_at: 1784049584.748966
-updated_at: 1788229174.7059069
+updated_at: 1788230465.955094
 ---
 
 # MCP tool registry
@@ -32,6 +32,7 @@ What each MCP server actually registers — `@mcp.tool()` defs, or `@mcp.custom_
 | `fetch` | _(unresolved — server file not found)_ |
 | `filesystem` | _(unresolved — server file not found)_ |
 | `git` | _(unresolved — server file not found)_ |
+| `icsot` | `asset_inventory`, `correlate_advisories`, `dissect_pcap`, `list_ics_protocols` |
 | `memory` | `clear_memories`, `forget`, `list_memories`, `recall`, `remember` |
 | `mflux` | _(unresolved — server file not found)_ |
 | `mitre` | `mitre_data_sources_for_technique`, `mitre_detections_for_technique`, `mitre_technique_lookup`, `mitre_techniques_list` |

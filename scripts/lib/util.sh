@@ -464,6 +464,13 @@ PY
     _ensure_native_mcp_service \
         "vulnintel-mcp" "com.portal5.vulnintel-mcp" \
         "${VULNINTEL_MCP_PORT:-8934}" "vulnintel-mcp"
+
+    # ── ICS/OT MCP (host-native, :8936) ─────────────────────────────────────
+    # Passive read-only ICS protocol dissection (scapy) + ATT&CK-for-ICS
+    # correlation. Host-native — scapy lives in the .venv, not Dockerfile.mcp.
+    _ensure_native_mcp_service \
+        "icsot-mcp" "com.portal5.icsot-mcp" \
+        "${ICSOT_MCP_PORT:-8936}" "icsot-mcp"
 }
 
 # ── Teardown helper (shared by 'down' and the pre-start phase of 'up') ────────
@@ -577,6 +584,19 @@ _do_down() {
             echo "[portal-5] Vulnintel MCP stopped."
         else
             echo "[portal-5] Vulnintel MCP: not running (nothing to stop)."
+        fi
+
+        # ICS/OT MCP (:8936)
+        if launchctl print "gui/$(id -u)/com.portal5.icsot-mcp" &>/dev/null 2>&1; then
+            launchctl bootout "gui/$(id -u)/com.portal5.icsot-mcp" 2>/dev/null || true
+            rm -f /tmp/portal-icsot-mcp.pid
+            echo "[portal-5] ICS/OT MCP stopped (launchd)."
+        elif [ -f /tmp/portal-icsot-mcp.pid ] && kill -0 "$(cat /tmp/portal-icsot-mcp.pid)" 2>/dev/null; then
+            kill "$(cat /tmp/portal-icsot-mcp.pid)" 2>/dev/null || true
+            rm -f /tmp/portal-icsot-mcp.pid
+            echo "[portal-5] ICS/OT MCP stopped."
+        else
+            echo "[portal-5] ICS/OT MCP: not running (nothing to stop)."
         fi
 
         # ARM64 embedding server (:8917)

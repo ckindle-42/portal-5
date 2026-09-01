@@ -56,6 +56,9 @@ mcp = [
     # Audio — transcription
     "faster-whisper>=1.0.0",
     "httpx>=0.26.0",
+    # ICS/OT passive protocol dissection (icsot module) — pure-Python; ships
+    # scapy.contrib.modbus. Lazy-imported on first tool call.
+    "scapy>=2.5.0",
 ]
 generation = []
 rag = [

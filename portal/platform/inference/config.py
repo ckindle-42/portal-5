@@ -37,6 +37,7 @@ ModuleName = Literal[
     "image",
     "media",
     "research",
+    "icsot",
     "security",
     "video",
     "vulnintel",

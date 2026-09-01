@@ -8,6 +8,8 @@ sources:
   section: mcp_fleet
 - type: code
   path: portal/modules/security/tools/mitre_mcp.py
+- type: code
+  path: portal/modules/security/core/siem/mitre_ics_techniques.json
 claims: []
 confidence: high
 tags:
@@ -29,11 +31,21 @@ lookups. It is pipeline- and IDE-exposed, sharing the same launchd wrapper
 
 ## How it's used
 
-`mitre_technique_lookup` returns a technique's name, tactic, platforms, and
-detection availability; `mitre_data_sources_for_technique` maps a technique to
-the telemetry sources and event ids needed to detect it;
-`mitre_detections_for_technique` joins a technique id to the local SPL library;
-`mitre_techniques_list` enumerates techniques, optionally filtered by tactic.
+`mitre_technique_lookup` returns a technique's name, tactic, platforms,
+`matrix` (`enterprise` | `ics`), and detection availability;
+`mitre_data_sources_for_technique` maps a technique to the telemetry sources
+and event ids needed to detect it (Enterprise from the curated Event-ID map,
+ICS straight from the STIX bundle); `mitre_detections_for_technique` joins a
+technique id to the local SPL library; `mitre_techniques_list` enumerates
+techniques, optionally filtered by tactic (matching Enterprise and ICS
+tactic names).
+
+The index carries both matrices: ATT&CK for Enterprise (bench SPL library +
+embedded subset) and the full ATT&CK-for-ICS technique set from MITRE's official
+`ics-attack` STIX bundle, distilled to
+`portal/modules/security/core/siem/mitre_ics_techniques.json` and regenerated
+by `scripts/refresh_mitre_ics_catalog.py`. ICS is loaded eagerly — the catalog
+is small, so there is no lazy-on-first-`T0xxx` path.
 
 ## Why it exists
 
