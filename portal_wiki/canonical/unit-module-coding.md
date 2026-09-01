@@ -8,6 +8,8 @@ sources:
 - type: code
   path: portal/platform/inference/router/preinject.py
 - type: code
+  path: opencode.jsonc
+- type: code
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml
@@ -36,6 +38,16 @@ tools `list_sessions` / `reset_session` — a session persists an interpreter
 between calls so state survives across tool invocations. Default posture: no
 network, `SANDBOX_TIMEOUT` 30s, small memory ceiling; `SANDBOX_LAB_EXEC` swaps
 in the attack-image lab envelope for the `-exec` variants.
+
+`portal-context7` (fleet id `context7`) — the self-hosted upstream
+`@upstash/context7-mcp` (Node), registered under this module as an
+IDE-only stdio server. `resolve-library-id` maps a package name to a
+Context7 library id; `query-docs` fetches current, version-specific
+documentation and code examples for it — live grounding against a library's
+real API for the coding agents in Claude Code / opencode. Not
+pipeline-exposed: Context7 v4 speaks only the MCP protocol at `/mcp`, not the
+portal pipeline's REST `/tools` dialect, so OWUI-side coding workspaces do not
+see these tools yet (an exposure gap, would need a REST shim).
 
 ## Workspaces
 

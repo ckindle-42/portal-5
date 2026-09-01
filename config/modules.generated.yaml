@@ -35,6 +35,7 @@ launched_mcp_ids:
 - browser
 - cad_render
 - compliance
+- context7
 - detection
 - detections
 - docker
