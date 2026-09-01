@@ -58,6 +58,10 @@ case "$SERVICE" in
         export COMPLIANCE_MCP_PORT="${COMPLIANCE_MCP_PORT:-8937}"
         exec "$PY" -m portal.modules.compliance.tools.compliance_mcp
         ;;
+    detection-mcp)
+        export DETECTION_MCP_PORT="${DETECTION_MCP_PORT:-8938}"
+        exec "$PY" -m portal.modules.detection.tools.detection_mcp
+        ;;
     wiki-mcp)
         export OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
         export WIKI_MCP_PORT="${WIKI_MCP_PORT:-8931}"

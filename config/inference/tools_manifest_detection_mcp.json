@@ -1,0 +1,8 @@
+[
+  {"type":"function","function":{"name":"convert_sigma","description":"Convert a Sigma rule to SPL/Lucene/KQL and validate it.","parameters":{"type":"object","properties":{"sigma_yaml":{"type":"string"},"target":{"type":"string","enum":["splunk","elasticsearch","kql"]}},"required":["sigma_yaml"]}}},
+  {"type":"function","function":{"name":"validate_sigma","description":"Structurally validate a Sigma rule without converting.","parameters":{"type":"object","properties":{"sigma_yaml":{"type":"string"}},"required":["sigma_yaml"]}}},
+  {"type":"function","function":{"name":"compile_yara","description":"Compile a YARA rule string; return ok/errors.","parameters":{"type":"object","properties":{"rule_text":{"type":"string"}},"required":["rule_text"]}}},
+  {"type":"function","function":{"name":"scan_yara","description":"Compile a YARA rule and scan a file under the sandbox root.","parameters":{"type":"object","properties":{"rule_text":{"type":"string"},"target_path":{"type":"string"}},"required":["rule_text","target_path"]}}},
+  {"type":"function","function":{"name":"query_splunk","description":"Read-only SPL search against the lab SIEM (subsearches and non-allowlisted pipe commands rejected).","parameters":{"type":"object","properties":{"spl":{"type":"string"},"earliest":{"type":"string"},"latest":{"type":"string"},"max_results":{"type":"integer"}},"required":["spl"]}}},
+  {"type":"function","function":{"name":"query_windows_events","description":"Read-only Windows Security event-log query on the lab DC.","parameters":{"type":"object","properties":{"event_ids":{"type":"array","items":{"type":"integer"}},"max_records":{"type":"integer"}},"required":[]}}}
+]

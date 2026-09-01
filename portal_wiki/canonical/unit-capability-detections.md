@@ -44,6 +44,11 @@ embedding search over prose. Structuring the library as data rather than as a
 RAG index keeps every query exact, and validating SPL locally means a rule can
 be checked before it ever touches a live Splunk instance.
 
+The `detection` module's `detection_mcp` (`unit-capability-detection`, port
+8938) is the complementary half: this MCP is the read-only SPL *library*;
+`detection_mcp` adds Sigma/YARA *conversion* and the promoted live SIEM
+*execution* tools. They are unified by design, not duplicated.
+
 ## Value
 
 The library is mechanically diffable against an analyst's hypothesis, so
