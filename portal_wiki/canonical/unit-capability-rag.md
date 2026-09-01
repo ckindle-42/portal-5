@@ -21,6 +21,18 @@ sources:
 claims:
 - probe: modules.enabled
   contains: research
+# torchvision absent from the lock is the exact regression that carried a wrong
+# VL diagnosis for five months (C4). mlx-embeddings is the qwen3_vl carrier.
+- probe: deps.locked
+  contains: torchvision
+- probe: deps.locked
+  contains: mlx-embeddings
+# retrieval routes must stay owned by rag_multimodal, not the text-only handler.
+- probe: rag.retrieval.routes
+  contains: kb_search
+# the embedding dim figure in the body is the only copy; drift renames the unit.
+- probe: vl.embedding.dim
+  pattern: "embedding dim **{value}**"
 confidence: high
 tags:
 - capability

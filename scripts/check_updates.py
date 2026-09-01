@@ -51,7 +51,7 @@ class Report:
 
     @property
     def actionable(self) -> bool:
-        return self.status == "behind"
+        return self.status in ("behind", "error")
 
 
 def _get(url: str) -> dict | list:
@@ -231,14 +231,35 @@ def check_python_deps() -> Report:
         if r.returncode != 0:
             rep.status = "behind"
             rep.security = True  # a silently-diverged runtime is a standing risk
-            rep.lines.append("VENV/LOCK DRIFT — `uv sync --all-extras` needed:")
-            for ln in (r.stdout + r.stderr).splitlines():
-                if ln.strip().startswith(("+", "-")):
-                    rep.lines.append(f"  {ln.strip()}")
+            diff_lines = [
+                ln.strip()
+                for ln in (r.stdout + r.stderr).splitlines()
+                if ln.strip().startswith(("+", "-", "~"))
+            ]
+            # Direction matters. `uv sync` reconciles the venv TO the lock:
+            #   `-`/`~` (uninstall/downgrade) => the venv is AHEAD of the lock —
+            #   running `uv sync` would DESTROY newer packages (this is exactly
+            #   how the VL runtime was lost). `+` only => venv is behind, safe.
+            venv_ahead = any(ln.startswith(("-", "~")) for ln in diff_lines)
+            if venv_ahead:
+                rep.lines.append(
+                    "VENV/LOCK DRIFT — the venv is AHEAD of uv.lock. Do NOT run "
+                    "`uv sync --all-extras` (it would uninstall/downgrade the "
+                    "packages below). Reconcile the LOCK to the venv (`uv lock`) "
+                    "after reviewing the diff, or restore a known-good venv."
+                )
+            else:
+                rep.lines.append(
+                    "VENV/LOCK DRIFT — the venv is behind uv.lock; "
+                    "`uv sync --all-extras` (after reviewing the diff) will catch it up:"
+                )
+            rep.lines.extend(f"  {ln}" for ln in diff_lines)
         else:
             rep.lines.append("venv matches uv.lock")
     except (OSError, subprocess.SubprocessError) as e:
-        rep.lines.append(f"venv/lock check failed: {e}")
+        rep.status = "error"  # a check that cannot run must not read as healthy
+        rep.security = True
+        rep.lines.append(f"venv/lock check FAILED to run: {e}")
 
     # 2 — lock vs PyPI for the watched set (informational)
     try:
@@ -263,7 +284,7 @@ def check_python_deps() -> Report:
             rep.lines.append(
                 f"  {pkg}: lock {cur} -> PyPI {latest}" + ("  [minor+]" if minor_plus else "")
             )
-            if minor_plus and rep.status != "behind":
+            if minor_plus and rep.status not in ("behind", "error"):
                 rep.status = "behind"
     return rep
 

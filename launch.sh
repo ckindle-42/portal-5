@@ -6,6 +6,8 @@ ENV_FILE="$PORTAL_ROOT/.env"
 
 
 # ── Sourced libraries ─────────────────────────────────────────────────────────
+# shellcheck source=scripts/lib/venv_preflight.sh
+source "$PORTAL_ROOT/scripts/lib/venv_preflight.sh"
 # shellcheck source=scripts/lib/util.sh
 source "$PORTAL_ROOT/scripts/lib/util.sh"
 # shellcheck source=scripts/lib/services.sh

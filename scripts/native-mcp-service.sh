@@ -20,8 +20,15 @@ fi
 export PYTHONPATH="$PORTAL_ROOT${PYTHONPATH:+:$PYTHONPATH}"
 cd "$PORTAL_ROOT"
 
+# shellcheck source=scripts/lib/venv_preflight.sh
+source "$PORTAL_ROOT/scripts/lib/venv_preflight.sh"
+
 case "$SERVICE" in
     mlx-transcribe)
+        # Shares the fragile MLX runtime with :8917/:8918/:8942 — same drift gate
+        # (D1). The pure-Python MCP services below do not depend on that runtime
+        # and are deliberately not gated (see KNOWN_LIMITATIONS.md).
+        _venv_lock_preflight "mlx-transcribe" || exit 1
         # Under launchd the HF cached-file revalidation HEAD requests hang
         # indefinitely; models are pre-warmed by `launch.sh start-transcribe`, so
         # the service serves strictly from cache.
