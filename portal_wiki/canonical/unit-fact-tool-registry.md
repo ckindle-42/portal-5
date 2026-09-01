@@ -1,11 +1,11 @@
 ---
 id: unit-fact-tool-registry
 kind: what
-title: 141 MCP tools across 32 servers
+title: 145 MCP tools across 33 servers
 sources:
 - type: code
   path: portal/modules/*/tools/*_mcp.py
-  commit: 72eb9714da3a
+  commit: 543d468adeee
 claims: []
 confidence: high
 tags:
@@ -13,7 +13,7 @@ tags:
 - tools
 - mcp
 created_at: 1784049584.748966
-updated_at: 1788232840.1671638
+updated_at: 1788233764.885449
 ---
 
 # MCP tool registry
@@ -42,6 +42,7 @@ What each MCP server actually registers — `@mcp.tool()` defs, or `@mcp.custom_
 | `mitre` | `mitre_data_sources_for_technique`, `mitre_detections_for_technique`, `mitre_technique_lookup`, `mitre_techniques_list` |
 | `mlx_transcribe` | _(unresolved — server file not found)_ |
 | `music-minimax` | _(unresolved — server file not found)_ |
+| `netforensics` | `conversations`, `extract_fields`, `protocol_hierarchy`, `recon_scan` |
 | `pipeline` | `explore_repository`, `get_loaded_models`, `get_metrics_summary`, `get_pipeline_status`, `get_workspace_recommendation`, `list_directory`, `list_workspaces`, `read_text_file`, `search_files`, `trigger_backend_warmup`, `write_file` |
 | `proxmox` | `proxmox_clone_vm`, `proxmox_cluster_status`, `proxmox_container_exec`, `proxmox_container_shutdown`, `proxmox_container_start`, `proxmox_container_status`, `proxmox_container_stop`, `proxmox_create_snapshot`, `proxmox_delete_snapshot`, `proxmox_delete_vm`, `proxmox_deploy_ctf_lab`, `proxmox_exec_vm`, `proxmox_find_vm`, `proxmox_list_all_vms`, `proxmox_list_containers`, `proxmox_list_networks`, `proxmox_list_nodes`, `proxmox_list_snapshots`, `proxmox_list_storage`, `proxmox_list_storage_content`, `proxmox_list_tasks`, `proxmox_list_vms`, `proxmox_node_exec`, `proxmox_node_status`, `proxmox_rollback_snapshot`, `proxmox_task_status`, `proxmox_vm_agent_info`, `proxmox_vm_config`, `proxmox_vm_reboot`, `proxmox_vm_reset`, `proxmox_vm_resume`, `proxmox_vm_shutdown`, `proxmox_vm_start`, `proxmox_vm_status`, `proxmox_vm_stop`, `proxmox_vm_suspend` |
 | `rag` | `kb_ingest`, `kb_list`, `kb_optimize`, `kb_restore`, `kb_search`, `kb_search_all`, `kb_versions` |

@@ -1,11 +1,11 @@
 ---
 id: unit-fact-mcp-fleet
 kind: what
-title: 32 MCP fleet servers
+title: 33 MCP fleet servers
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 72eb9714da3a
+  commit: 543d468adeee
   section: mcp_fleet
 claims:
 - probe: mcp.fleet.entries
@@ -15,10 +15,10 @@ tags:
 - fact
 - mcp
 created_at: 1784000421.477582
-updated_at: 1788232840.02067
+updated_at: 1788233764.7394428
 ---
 
-# MCP fleet (32 servers)
+# MCP fleet (33 servers)
 
 | ID | Name | Port |
 |---|---|---|
@@ -54,6 +54,7 @@ updated_at: 1788232840.02067
 | `compliance` | portal-compliance | 8937 |
 | `detection` | portal-detection | 8938 |
 | `data` | portal-data | 8939 |
+| `netforensics` | portal-netforensics | 8941 |
 
 ## Why
 

@@ -66,6 +66,12 @@ case "$SERVICE" in
         export DATA_MCP_PORT="${DATA_MCP_PORT:-8939}"
         exec "$PY" -m portal.modules.data.tools.data_mcp
         ;;
+    netforensics-mcp)
+        export NETFORENSICS_MCP_PORT="${NETFORENSICS_MCP_PORT:-8941}"
+        # tshark ships CLI tools under this path on macOS
+        export PATH="/opt/homebrew/bin:/usr/local/bin:/Applications/Wireshark.app/Contents/MacOS:$PATH"
+        exec "$PY" -m portal.modules.netforensics.tools.netforensics_mcp
+        ;;
     wiki-mcp)
         export OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
         export WIKI_MCP_PORT="${WIKI_MCP_PORT:-8931}"

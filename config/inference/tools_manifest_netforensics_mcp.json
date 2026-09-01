@@ -1,0 +1,6 @@
+[
+  {"type":"function","function":{"name":"protocol_hierarchy","description":"tshark protocol hierarchy for a PCAP; flags ICS ports for the icsot module.","parameters":{"type":"object","properties":{"pcap_path":{"type":"string"}},"required":["pcap_path"]}}},
+  {"type":"function","function":{"name":"extract_fields","description":"Extract chosen tshark fields under a display filter (e.g. dns.qry.name, http.host).","parameters":{"type":"object","properties":{"pcap_path":{"type":"string"},"display_filter":{"type":"string"},"fields":{"type":"array","items":{"type":"string"}}},"required":["pcap_path","display_filter","fields"]}}},
+  {"type":"function","function":{"name":"conversations","description":"tshark conversation statistics (top talkers) for a PCAP.","parameters":{"type":"object","properties":{"pcap_path":{"type":"string"},"kind":{"type":"string","enum":["tcp","udp","ip","eth"]}},"required":["pcap_path"]}}},
+  {"type":"function","function":{"name":"recon_scan","description":"[GATED] Structured nmap scan; off by default, refused outside the authorized lab CIDR.","parameters":{"type":"object","properties":{"target":{"type":"string"},"ports":{"type":"string"}},"required":["target"]}}}
+]

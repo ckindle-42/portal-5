@@ -38,6 +38,7 @@ ModuleName = Literal[
     "general",
     "image",
     "media",
+    "netforensics",
     "research",
     "icsot",
     "security",

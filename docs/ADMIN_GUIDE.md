@@ -678,7 +678,7 @@ Model bindings are the reachability-resolved view of what each workspace `model_
 ### MCP Fleet
 
 <!-- WIKI:GENERATED unit=unit-fact-mcp-fleet -->
-# MCP fleet (32 servers)
+# MCP fleet (33 servers)
 
 | ID | Name | Port |
 |---|---|---|
@@ -714,6 +714,7 @@ Model bindings are the reachability-resolved view of what each workspace `model_
 | `compliance` | portal-compliance | 8937 |
 | `detection` | portal-detection | 8938 |
 | `data` | portal-data | 8939 |
+| `netforensics` | portal-netforensics | 8941 |
 
 ## Why
 

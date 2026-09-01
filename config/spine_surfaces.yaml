@@ -112,6 +112,14 @@ surfaces:
   globs:
   - portal/modules/media/tools/whisper_mcp.py
   unit: unit-HOWTO-12-speech-to-text-asr
+- name: file-portal-modules-netforensics-tests-test_netforensics_mcp
+  globs:
+  - portal/modules/netforensics/tests/test_netforensics_mcp.py
+  unit: unit-capability-netforensics
+- name: file-portal-modules-netforensics-tools-netforensics_mcp
+  globs:
+  - portal/modules/netforensics/tools/netforensics_mcp.py
+  unit: unit-capability-netforensics
 - name: file-portal-modules-research-tools-browser_mcp
   globs:
   - portal/modules/research/tools/browser_mcp.py
