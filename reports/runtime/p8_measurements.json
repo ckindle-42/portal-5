@@ -1,0 +1,238 @@
+{
+  "corpus": [
+    "alarm_summary.pdf",
+    "esp_plant_b.pdf",
+    "nerc_cip_005_7.pdf",
+    "nist_800_82r3_arch_slice.pdf",
+    "reactor_feed.pdf"
+  ],
+  "server_boot_default": {
+    "ready": {
+      "ready": true,
+      "embed_model": "mlx-community/Qwen3-VL-Embedding-2B-mxfp8",
+      "dim": 2048,
+      "expected_dim": 2048,
+      "normalize": true
+    },
+    "warm_s": 3.7,
+    "rss_mb": 3085
+  },
+  "ingest_default": {
+    "kb_id": "p8",
+    "files_ingested": 5,
+    "chunks_added": 100,
+    "pages_added": 46,
+    "fts_index": false,
+    "_ingest_s": 99.4,
+    "_server_rss_mb": 6188
+  },
+  "acceptance": {
+    "diagram_only_reactor": {
+      "top_kind": "text",
+      "top_page": null,
+      "top_source": "reactor_feed.pdf",
+      "pass": false,
+      "all": [
+        [
+          "text",
+          "reactor_feed.pdf",
+          null
+        ],
+        [
+          "visual",
+          "reactor_feed.pdf",
+          1
+        ],
+        [
+          "text",
+          "nist_800_82r3_arch_slice.pdf",
+          null
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          10
+        ],
+        [
+          "text",
+          "nist_800_82r3_arch_slice.pdf",
+          null
+        ]
+      ]
+    },
+    "diagram_only_esp": {
+      "top_kind": "text",
+      "top_source": "nerc_cip_005_7.pdf",
+      "pass": false
+    },
+    "prose_only_witness": {
+      "kinds": [
+        "text",
+        "visual",
+        "text",
+        "visual",
+        "text"
+      ],
+      "top_source": "reactor_feed.pdf",
+      "pass": true
+    },
+    "rrf_fusion_mixed": {
+      "kinds": [
+        "text",
+        "visual"
+      ],
+      "pass": true
+    },
+    "search_all_has_kb_id": {
+      "pass": true,
+      "n": 5
+    }
+  },
+  "server_boot_raised_maxpixels": {
+    "ready": {
+      "ready": true,
+      "embed_model": "mlx-community/Qwen3-VL-Embedding-2B-mxfp8",
+      "dim": 2048,
+      "expected_dim": 2048,
+      "normalize": true
+    },
+    "warm_s": 3.7,
+    "rss_mb": 3084
+  },
+  "measurement_max_pixels": {
+    "default": {
+      "tag": "max_pixels=default(1.84M) dpi=150",
+      "recall_at5": 1.0,
+      "detail": [
+        {
+          "q": "which feed valve fails closed on loss of instrum",
+          "want": "reactor_feed",
+          "hit": true,
+          "top": [
+            "text",
+            "reactor_feed.pdf"
+          ]
+        },
+        {
+          "q": "what inbound firewall rule is allowed into ESP-B",
+          "want": "esp_plant_b",
+          "hit": true,
+          "top": [
+            "text",
+            "nerc_cip_005_7.pdf"
+          ]
+        },
+        {
+          "q": "alarm summary standing unacknowledged alarm and ",
+          "want": "alarm_summary",
+          "hit": true,
+          "top": [
+            "text",
+            "alarm_summary.pdf"
+          ]
+        },
+        {
+          "q": "defense in depth architecture example for a SCAD",
+          "want": "nist_800_82r3",
+          "hit": true,
+          "top": [
+            "text",
+            "nist_800_82r3_arch_slice.pdf"
+          ]
+        }
+      ]
+    },
+    "raised": {
+      "tag": "max_pixels=2662400 (>150dpi render)",
+      "recall_at5": 1.0,
+      "detail": [
+        {
+          "q": "which feed valve fails closed on loss of instrum",
+          "want": "reactor_feed",
+          "hit": true,
+          "top": [
+            "text",
+            "reactor_feed.pdf"
+          ]
+        },
+        {
+          "q": "what inbound firewall rule is allowed into ESP-B",
+          "want": "esp_plant_b",
+          "hit": true,
+          "top": [
+            "text",
+            "nerc_cip_005_7.pdf"
+          ]
+        },
+        {
+          "q": "alarm summary standing unacknowledged alarm and ",
+          "want": "alarm_summary",
+          "hit": true,
+          "top": [
+            "text",
+            "alarm_summary.pdf"
+          ]
+        },
+        {
+          "q": "defense in depth architecture example for a SCAD",
+          "want": "nist_800_82r3",
+          "hit": true,
+          "top": [
+            "text",
+            "nist_800_82r3_arch_slice.pdf"
+          ]
+        }
+      ]
+    },
+    "verdict": "no measurable diagram-recall change at this corpus size"
+  },
+  "measurement_rerank_chunk": {
+    "sweep": [
+      {
+        "chunk": 2,
+        "warm_s": 3.6,
+        "server_rss_mb": 9187,
+        "search_s": [
+          53.44,
+          52.3,
+          52.26
+        ],
+        "search_s_med": 52.3
+      },
+      {
+        "chunk": 4,
+        "warm_s": 2.2,
+        "server_rss_mb": 9866,
+        "search_s": [
+          52.6,
+          52.24,
+          52.2
+        ],
+        "search_s_med": 52.24
+      },
+      {
+        "chunk": 8,
+        "warm_s": 3.6,
+        "server_rss_mb": 6619,
+        "search_s": [
+          53.01,
+          52.32,
+          52.18
+        ],
+        "search_s_med": 52.32
+      },
+      {
+        "chunk": 16,
+        "warm_s": 3.6,
+        "server_rss_mb": 4756,
+        "search_s": [
+          55.36,
+          52.68,
+          52.16
+        ],
+        "search_s_med": 52.68
+      }
+    ],
+    "note": "pick the default below where server_rss_mb rises steeply alongside whatever Ollama holds"
+  }
+}

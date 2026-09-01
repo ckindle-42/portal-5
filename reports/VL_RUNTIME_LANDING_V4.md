@@ -137,14 +137,52 @@ error + `/ready`.
   + watched-package lock-vs-PyPI currency. Weekly launchd job picks it up.
 - Full unit suite: **1136 pass / 5 skip** pre-P6; green after every commit's hook.
 
-## P8 — live acceptance + the two measurements — NOT RUN
+## P8 — live acceptance + the two measurements
 
-Deferred. `kb_ingest` of real NERC/CVE/P&ID PDFs + the diagram-only-query check,
-and the `max_pixels` / `VL_RERANK_CHUNK` sweeps, were not executed in this
-session. The server exposes the knobs (`VL_MAX_PIXELS` etc., `VL_RERANK_CHUNK`);
-`_render_pages` still renders 150-DPI (~2.10M px) pages into the 1.84M-px default
-cap, so a diagram-recall sweep with a raised cap and a coherently-lowered DPI
-remains the first baseline to record. No numeric baselines are asserted anywhere.
+Corpus (5 PDFs): 3 synthetic (`tests/fixtures/p8_corpus/build.py` — diagram
+content only in a page-2 image, never in the prose) + NIST SP 800-82r3
+architecture slice (23 pp, real figures) + NERC CIP-005-7. Ingested via the real
+`rag_multimodal` routes against a live `:8942`. Full data:
+`reports/runtime/p8_measurements.json`.
+
+**Ingest:** 5 files → 100 text chunks + 46 page images in **99 s**; server RSS
+3.1 GB idle → 6.2 GB after ingest. (Required a fix: `rag_mcp._read_file` had no
+working PDF-text backend host-native — `docling`/`pypdf` are Docker-only — so a
+`pymupdf` fallback was added; without it the text side of RRF is dead on the
+host. Pre-existing, not a sync casualty.)
+
+**Acceptance — 3 of 5:**
+
+| check | result |
+|---|---|
+| prose-only query → `kind:"text"` hit from the right file | **pass** |
+| result set is mixed text+visual (RRF fusion alive) | **pass** |
+| `kb_search_all` carries `kb_id` | **pass** |
+| diagram-only query → that visual page at **rank 1** | **fail** — the visual page *is* retrieved (rank 2, correct `page`/`kind`), but a semantically-adjacent page-1 **text** chunk from the same PDF wins the final RRF tiebreak (`1/(60+1)` vs `1/(60+1)`) |
+| ditto for the ESP zone diagram | **fail** — same shape; a CIP-005-7 prose chunk ranks 1 |
+
+The retrieval and labelling work; the **RRF text-vs-visual weighting** needs
+tuning (a modest visual boost, or more coarse-visual depth before rerank) for
+diagram-only queries to top the list. Out of scope for landing the runtime;
+recorded as a follow-up.
+
+**Measurement 1 — `max_pixels`:** diagram-page **recall@5 = 1.0 at both** the
+default cap (1.84 M px) and a raised cap (2.66 M px); the page is always in the
+top 5. `_render_pages` at 150 DPI (~2.10 M px US-Letter) is still above the
+default cap so pages *are* downscaled — but the effect is not visible at this
+corpus size (5 docs) without small-text queries against a much larger set.
+**Verdict: no measurable diagram-recall change here.** The coherent fix (render
+DPI and cap set together) is still worth doing; P8 could not demonstrate the
+payoff at this scale.
+
+**Measurement 2 — `VL_RERANK_CHUNK` (2 / 4 / 8 / 16):** `kb_search` latency is
+**flat at ~52 s** across every chunk size — the cost is query embed + visual
+coarse search + reranking ~15 page images through the 2B VLM, not chunk
+batching. Server RSS was noisy and did **not** show a memory-pressure cliff up
+to chunk 16 (9.2 / 9.9 / 6.6 / 4.8 GB — inversely correlated, i.e. measurement
+noise / GC timing between restarts, not signal). **Default 4 stands** — safe,
+and no benefit shown from raising it. The ~52 s/query visual-rerank cost is the
+real performance characteristic to note.
 
 ## Gate count
 
@@ -154,7 +192,14 @@ lettered check added — the drift gate lives in the pytest unit suite, which th
 
 ## Still open
 
-- **P8** live acceptance + `max_pixels` / `VL_RERANK_CHUNK` measurements.
-- `:8918` / `:8924` were restarted onto the new venv during P5 but are `nohup`
+- **RRF text-vs-visual weighting** — a diagram-only query retrieves the right
+  visual page but a semantically-adjacent text chunk from the same file wins the
+  final tiebreak. Needs a visual RRF boost or more coarse-visual depth. (P8)
+- **Render DPI vs `max_pixels`** — `_render_pages` renders above the default
+  cap; set both coherently. P8 couldn't show the payoff at 5 docs; revisit on a
+  real KB.
+- **`kb_search` latency ~52 s** when the visual side has ~15 candidates
+  (2B-VLM rerank). Acceptable for a KB tool; noted.
+- `:8918` / `:8924` restarted onto the new venv during P5 but are `nohup`
   processes, not launchd-supervised (pre-existing; noted, not fixed).
 - Higgs / Qwen3-TTS functional synth (imports + models OK; not run).
