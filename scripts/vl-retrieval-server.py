@@ -64,6 +64,13 @@ RERANK_CHUNK = int(os.environ.get("VL_RERANK_CHUNK", "4"))
 # ceiling and still bounds the pathological case (a 500-page PDF -> 21 forwards
 # of 24, not one 500-wide forward).
 MAX_BATCH = max(1, int(os.environ.get("VL_MAX_BATCH", "24")))
+# S1 (TASK_VL_RETRIEVAL_HARDENING_AND_CLOSEOUT_V2). MLX's buffer cache is not
+# released back to the OS between requests; on a long-lived server it grows and
+# per-call latency drifts up (ml-explore/mlx#1192, 10-24x throughput loss). Free
+# the cache after every request's model calls, and optionally cap the cache /
+# wired budget at startup. Sized from the S1 stress measurement.
+MX_CLEAR_CACHE = os.environ.get("VL_MX_CLEAR_CACHE", "1") not in ("0", "false", "")
+MX_CACHE_LIMIT_MB = int(os.environ.get("VL_MX_CACHE_LIMIT_MB", "0"))  # 0 == MLX default
 QUERY_INSTRUCTION = os.environ.get(
     "VL_QUERY_INSTRUCTION", "Given a search query, retrieve relevant passages that answer it."
 )
@@ -88,6 +95,10 @@ app = FastAPI(title="portal5-vl-retrieval")
 _lock = asyncio.Lock()
 _embed: dict = {"model": None, "proc": None, "normalize": None}
 _rerank: dict = {"model": None, "proc": None}
+_REQUESTS_SERVED = 0
+# O1: recycle the process after this many model requests so the MLX runtime drift
+# can never compound past one window (0 == never). launchd/keepalive restarts it.
+MAX_REQUESTS = int(os.environ.get("VL_MAX_REQUESTS", "0"))
 
 
 def _resolve_repo(repo: str) -> str:
@@ -178,6 +189,36 @@ def _mx_rows(out) -> list[list[float]]:
     return [r.tolist() if hasattr(r, "tolist") else list(r) for r in out]
 
 
+def _mx_after_request() -> None:
+    """S1/O1: free MLX's buffer cache after each request, count it, and recycle
+    the process past MAX_REQUESTS so runtime drift never compounds."""
+    global _REQUESTS_SERVED
+    _REQUESTS_SERVED += 1
+    if MX_CLEAR_CACHE:
+        import mlx.core as mx
+
+        with contextlib.suppress(Exception):
+            mx.clear_cache()
+    if MAX_REQUESTS and _REQUESTS_SERVED >= MAX_REQUESTS:
+        import sys
+
+        print(f"[vl-retrieval] recycling after {_REQUESTS_SERVED} requests", flush=True)
+        sys.stdout.flush()
+        os._exit(0)  # noqa: SLF001 — a clean supervisor restart is the point
+
+
+def _mx_mem() -> dict:
+    import mlx.core as mx
+
+    with contextlib.suppress(Exception):
+        return {
+            "active_mb": round(mx.get_active_memory() / 1e6),
+            "cache_mb": round(mx.get_cache_memory() / 1e6),
+            "peak_mb": round(mx.get_peak_memory() / 1e6),
+        }
+    return {}
+
+
 async def _embed_items(objs: list[dict]) -> list[list[float]]:
     """Embed a list of transport payloads. Text items and image items are run in
     separate batches (padding is to the longest batch member)."""
@@ -200,6 +241,7 @@ async def _embed_items(objs: list[dict]) -> list[list[float]]:
                     rows = _mx_rows(model.process([it for _, it in sub], processor=proc))
                     for (orig_i, _), vec in zip(sub, rows, strict=True):
                         results[orig_i] = vec
+            _mx_after_request()
         return [results[i] for i in range(len(objs))]
     finally:
         for p in tempfiles:
@@ -236,6 +278,7 @@ async def _score_documents(query: dict, documents: list[dict]) -> list[float]:
                         f"rerank returned {len(chunk_scores)} scores for {len(chunk)} documents"
                     )
                 scores.extend(chunk_scores)
+            _mx_after_request()
         assert len(scores) == len(documents), (len(scores), len(documents))
         return scores
     finally:
@@ -275,6 +318,8 @@ def health():
         "max_batch": MAX_BATCH,
         "embed_loaded": _embed["model"] is not None,
         "rerank_loaded": _rerank["model"] is not None,
+        "requests_served": _REQUESTS_SERVED,
+        "mx_mem": _mx_mem(),
     }
 
 
@@ -338,4 +383,9 @@ if __name__ == "__main__":
     ap.add_argument("--port", type=int, default=int(os.environ.get("VL_PORT", "8942")))
     ap.add_argument("--host", default="0.0.0.0")
     a = ap.parse_args()
+    if MX_CACHE_LIMIT_MB > 0:
+        with contextlib.suppress(Exception):
+            import mlx.core as mx
+
+            mx.set_cache_limit(MX_CACHE_LIMIT_MB * 1024 * 1024)
     uvicorn.run(app, host=a.host, port=a.port)
