@@ -147,6 +147,19 @@ async def _read_file(path):
             logger.warning("Docling read failed for %s, falling back: %s", path, e)
 
     if suffix == ".pdf":
+        # pymupdf first: it is already a hard dep (research extra, used by
+        # rag_multimodal._render_pages) so this fallback works host-native, where
+        # docling and pypdf are not installed (docling ships only in
+        # Dockerfile.mcp). pypdf stays as a second try.
+        try:
+            import pymupdf
+
+            with pymupdf.open(str(path)) as doc:
+                text = "\n\n".join(page.get_text() for page in doc)
+            if text.strip():
+                return text
+        except Exception as e:
+            logger.warning("pymupdf PDF read failed for %s: %s", path, e)
         try:
             from pypdf import PdfReader
 
