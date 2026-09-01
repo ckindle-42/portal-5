@@ -25,16 +25,22 @@ def require_lance_dir(lance_dir: str) -> str:
     real mount, not a stray directory on the boot disk.
     """
     p = Path(lance_dir)
-    if p.is_dir():
-        return lance_dir
     parts = p.parts
+    # A path under /Volumes/<vol> is only valid if <vol> is a real mount. This
+    # is checked FIRST and unconditionally: a previous run that created the tree
+    # on the boot disk (the exact failure this guard exists for) would otherwise
+    # satisfy a `p.is_dir()` short-circuit and the mount check would never run.
     if len(parts) >= 3 and parts[1] == "Volumes":
         volume = Path("/Volumes") / parts[2]
-        if not os.path.ismount(volume) and not volume.is_dir():
+        if not os.path.ismount(volume):
             raise LanceStoreUnavailableError(
-                f"PORTAL5_LANCE_DIR={lance_dir}: volume {volume} is not mounted. "
-                "Mount it (or set PORTAL5_LANCE_DIR to a local path) before starting."
+                f"PORTAL5_LANCE_DIR={lance_dir}: volume {volume} is not mounted "
+                f"(os.path.ismount({volume}) is False). A stray directory on the "
+                "boot disk does not count. Mount the volume (or set "
+                "PORTAL5_LANCE_DIR to a local path) before starting."
             )
+    if p.is_dir():
+        return lance_dir
     parent = p.parent
     if not parent.is_dir():
         raise LanceStoreUnavailableError(

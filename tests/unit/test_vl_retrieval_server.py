@@ -203,6 +203,103 @@ async def test_item_with_neither_text_nor_image_is_rejected(_fake_load):
         await vl._embed_items([{"fps": 1}])
 
 
+async def test_embed_sub_chunks_at_max_batch_preserving_order(_fake_load, monkeypatch):
+    """A1: no process() call carries more than VL_MAX_BATCH items, and the
+    returned vectors stay in request order across sub-chunks."""
+    monkeypatch.setattr(vl, "MAX_BATCH", 2)
+    items = [{"text": f"t{i}"} for i in range(5)]
+    vecs = await vl._embed_items(items)
+    assert len(vecs) == 5
+    batches = [c for c in _fake_load.calls if isinstance(c, list)]
+    assert batches and all(len(b) <= 2 for b in batches)
+    assert sum(len(b) for b in batches) == 5
+
+
+async def test_reset_vl_state_runs_before_every_process_call(_fake_load, monkeypatch):
+    """C5: _reset_vl_state must fire before each process() — one reset per
+    forward pass, text and image batches alike."""
+    monkeypatch.setattr(vl, "MAX_BATCH", 2)
+    seen: list[str] = []
+    real_reset = vl._reset_vl_state
+    monkeypatch.setattr(vl, "_reset_vl_state", lambda m: (seen.append("reset"), real_reset(m))[1])
+    orig_process = _fake_load.process
+
+    def tracking_process(inputs, processor=None):
+        seen.append("process")
+        return orig_process(inputs, processor=processor)
+
+    monkeypatch.setattr(_fake_load, "process", tracking_process)
+    await vl._embed_items([{"text": "a"}, {"text": "b"}, {"text": "c"}, {"image_b64": _PNG_1PX}])
+    # every "process" is immediately preceded by a "reset"
+    assert seen
+    for i, ev in enumerate(seen):
+        if ev == "process":
+            assert seen[i - 1] == "reset", seen
+
+
+async def test_reset_vl_state_prevents_the_rope_cache_crash(monkeypatch):
+    """C5: reproduce the upstream failure shape — two consecutive text-only
+    calls with decreasing sequence length crash when the cached rope state is
+    reused. The server's _reset_vl_state clears it before every call."""
+
+    class RopeCrashModel:
+        class args:  # noqa: N801
+            normalize = True
+
+        def __init__(self):
+            self.lang = type("L", (), {"_position_ids": None, "_rope_deltas": None})()
+            self.calls = []
+
+        @property
+        def language_model(self):
+            return self.lang
+
+        def process(self, inputs, processor=None):
+            items = inputs if isinstance(inputs, list) else [inputs]
+            n = sum(len(it.get("text", "")) for it in items) or 1
+            pid = self.lang._position_ids
+            if pid is not None and pid > n:
+                raise IndexError("Too many indices for array with 2 dimensions")
+            self.lang._position_ids = n
+            self.calls.append(n)
+            return _RowsArray([[0.5, 0.5, 0.5, 0.5] for _ in items])
+
+    model = RopeCrashModel()
+    monkeypatch.setattr(
+        vl,
+        "_load",
+        lambda slot, repo: (
+            (slot.__setitem__("model", model), (model, FakeProcessor()))[1]
+            if slot["model"] is None
+            else (slot["model"], slot["proc"])
+        ),
+    )
+    monkeypatch.setattr(vl, "_mx_rows", lambda out: [list(r) for r in out])
+    vl._embed.update(model=None, proc=None, normalize=None)
+
+    await vl._embed_items([{"text": "a long-ish query string"}])
+    # decreasing length — would reuse a too-long _position_ids without the reset
+    await vl._embed_items([{"text": "hi"}])
+    assert model.calls == [23, 2]
+
+    # and prove the crash is real when the reset is a no-op
+    model2 = RopeCrashModel()
+    monkeypatch.setattr(
+        vl,
+        "_load",
+        lambda slot, repo: (
+            (slot.__setitem__("model", model2), (model2, FakeProcessor()))[1]
+            if slot["model"] is None
+            else (slot["model"], slot["proc"])
+        ),
+    )
+    monkeypatch.setattr(vl, "_reset_vl_state", lambda m: None)
+    vl._embed.update(model=None, proc=None, normalize=None)
+    await vl._embed_items([{"text": "a long-ish query string"}])
+    with pytest.raises(IndexError):
+        await vl._embed_items([{"text": "hi"}])
+
+
 async def test_normalize_flag_read_at_load_no_second_normalization(_fake_load):
     await vl._embed_items([{"text": "a"}])
     assert vl._embed["normalize"] is True

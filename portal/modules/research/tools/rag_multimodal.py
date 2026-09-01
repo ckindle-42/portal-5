@@ -30,6 +30,7 @@ LANCE_DIR = os.environ.get("PORTAL5_LANCE_DIR", "/Volumes/data01/portal5_lance")
 RAG_DIR = os.path.join(LANCE_DIR, "rag")
 VL_URL = os.environ.get("VL_RETRIEVAL_URL", "http://localhost:8942")
 VL_DIM = int(os.environ.get("VL_EMBEDDING_DIM", "2048"))
+VL_EMBED_MAX_ITEMS = max(1, int(os.environ.get("VL_EMBED_MAX_ITEMS", "16")))
 CHUNK_SIZE = int(os.environ.get("RAG_CHUNK_SIZE", "1000"))
 CHUNK_OVERLAP = int(os.environ.get("RAG_CHUNK_OVERLAP", "150"))
 _MAX_PAGES = int(os.environ.get("RAG_MAX_PAGES", "500"))
@@ -125,11 +126,19 @@ async def _vl_embed_batch(items: list[dict]) -> list[list[float]]:
     server-side for is_query items only; chunk/page items carry none."""
     if not items:
         return []
+    # Cap the POST body: a whole document's chunks (or every page image) in one
+    # request is unbounded by construction. Split into <= VL_EMBED_MAX_ITEMS
+    # requests, issued sequentially (the server serialises on one lock anyway),
+    # and concatenate in order. The server also sub-chunks at VL_MAX_BATCH — the
+    # two bounds are independent (request size vs. forward-pass memory).
+    vecs: list[list[float]] = []
     try:
         async with httpx.AsyncClient(timeout=180) as c:
-            r = await c.post(f"{VL_URL}/embed_batch", json={"items": items})
-            r.raise_for_status()
-            vecs = r.json()["embeddings"]
+            for start in range(0, len(items), VL_EMBED_MAX_ITEMS):
+                batch = items[start : start + VL_EMBED_MAX_ITEMS]
+                r = await c.post(f"{VL_URL}/embed_batch", json={"items": batch})
+                r.raise_for_status()
+                vecs.extend(r.json()["embeddings"])
     except httpx.HTTPError as e:
         raise _vl_error(e) from e
     for v in vecs:
