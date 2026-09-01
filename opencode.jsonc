@@ -226,7 +226,7 @@
     },
     "fetch": {
       "type": "local",
-      "command": ["uvx", "mcp-fetch"]
+      "command": ["uvx", "--with", "mcp<2.0.0", "mcp-fetch"]
     },
     "git": {
       "type": "local",
@@ -236,13 +236,10 @@
       "type": "local",
       "command": ["npx", "-y", "mcp-docker-server"]
     },
-    "portal-comfyui": {
-      "type": "remote",
-      "url": "http://localhost:8910/mcp"
-    },
-    "portal-video": {
-      "type": "remote",
-      "url": "http://localhost:8911/mcp"
+    "serena": {
+      "type": "local",
+      "command": ["uvx", "--from", "git+https://github.com/oraios/serena",
+        "serena", "start-mcp-server", "--project", "/Users/chris/projects/portal-5"]
     },
     "portal-music": {
       "type": "remote",
@@ -307,6 +304,10 @@
     "portal-wiki": {
       "type": "remote",
       "url": "http://localhost:8931/mcp"
+    },
+    "portal-binresearch": {
+      "type": "remote",
+      "url": "http://localhost:8930/mcp"
     }
   }
 }
