@@ -1,5 +1,12 @@
-# Portal 5 v7.0.0 — SearXNG configuration
-# Enables JSON output for Open WebUI web search integration
+# Portal 5 v8.0.0 — SearXNG configuration
+# Enables JSON output for Open WebUI web search integration.
+#
+# use_default_settings: true — our keys are MERGED onto the image's shipped
+# defaults (searxng/searxng:latest tracks a rolling monthly tag). Engines listed
+# below by `name` override or add to the default set; everything else stays as
+# the image ships it. When bumping the image, re-run the A6 live check in
+# TASK_A_OBSCURA/web_search notes: `curl :8088/search?q=...&format=json` and
+# confirm `unresponsive_engines` does not contain every general engine.
 
 use_default_settings: true
 
@@ -23,6 +30,19 @@ server:
   secret_key: 6HCmosmGtaE3RN88792PlXNcrFqP0cACyxWCt315Sw
   # (SearXNG reads from settings.yml, NOT from env vars)
 
+# A6: bot-challenge hardening. google / duckduckgo / startpage CAPTCHA this
+# instance's IP within a few queries and then return nothing; a longer timeout
+# and a real UA suffix reduce how fast that happens, and mojeek / wikipedia /
+# wikidata below do not challenge at all so a query never comes back empty.
+outgoing:
+  request_timeout: 6.0
+  max_request_timeout: 15.0
+  useragent_suffix: "Portal5Research"
+  pool_connections: 100
+  pool_maxsize: 20
+  # small jitter between an engine's sub-requests — looks less like a scraper
+  keepalive_expiry: 5.0
+
 ui:
   static_use_hash: true
 
@@ -41,9 +61,36 @@ engines:
   - name: bing
     engine: bing
     categories: general
+  # A6: non-blocking / low-block engines — no CAPTCHA, no API key. Keep a
+  # general result path alive when google/ddg/startpage are all rate-limited.
+  # `brave` (the scrape engine, not braveapi) has been the most reliable here.
+  - name: brave
+    engine: brave
+    shortcut: brv
+    categories: [general, web]
+    disabled: false
+  - name: mojeek
+    engine: mojeek
+    shortcut: mjk
+    categories: [general, web]
+    disabled: false
+  - name: marginalia
+    engine: marginalia
+    shortcut: mar
+    categories: [general]
+    disabled: false
+  - name: wikipedia
+    engine: wikipedia
+    shortcut: wp
+    categories: [general]
+    disabled: false
+  # wikidata omitted — its engine processor fails to init on 2026.x images
+  # ("can't register engines processor"); wikipedia covers the reference need.
   - name: github
     engine: github
     categories: it
-  - name: stackoverflow
-    engine: stackoverflow
+  # SearXNG renamed the StackOverflow engine module to `stackexchange`
+  # (the old `stackoverflow.py` is gone in 2026.x images).
+  - name: stackexchange
+    engine: stackexchange
     categories: it
