@@ -152,10 +152,15 @@ async def list_tools(request):
 
 # SearXNG's `general` category aggregate returns nothing when its default
 # engines (brave / startpage / google-cse / ddg) are all captcha'd / rate-
-# limited from this instance's IP — which was the steady state 2026-08-31.
-# Pin the engines explicitly so a working one (Bing) is always queried; the
-# others are tried too and contribute when they recover. Override via env.
-_SEARXNG_ENGINES = os.environ.get("SEARXNG_ENGINES") or "bing,duckduckgo,google"
+# limited from this instance's IP — the steady state 2026-08-31. Pin the
+# engines explicitly so bing + the A6 non-blockers (mojeek, marginalia,
+# wikipedia — no CAPTCHA, no key, see config/searxng/settings.yml) are always
+# queried; brave/duckduckgo/google are tried too and contribute when they
+# recover. Override via env. SearXNG scrape reliability from this IP is poor
+# regardless — Brave API is the primary search path, this is a fallback.
+_SEARXNG_ENGINES = (
+    os.environ.get("SEARXNG_ENGINES") or "bing,mojeek,marginalia,wikipedia,brave,duckduckgo,google"
+)
 
 
 async def _searxng_search(query, num_results=5, time_range="any", category="general"):
