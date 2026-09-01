@@ -1,47 +1,48 @@
 ---
 id: unit-T1505.003-signature
 kind: mixed
-title: "T1505.003 \u2014 Webshell detection signature"
+title: "T1505.003 \u2014 Webshell \u2014 file-write + subsequent exec correlation"
 sources:
-- type: code
-  path: portal/modules/security/core/siem/spl_detections.yaml
+- type: spl
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1505.003
 - type: mitre
   path: ATT&CK:T1505.003
-- type: code
-  path: portal/modules/security/core/exec_chain.py
+- type: scenario
+  path: exec_chain.py#mbptl_ctf_full_chain
+- type: scenario
+  path: exec_chain.py#meta3_webdav_upload
+- type: scenario
+  path: exec_chain.py#vuln_tomcat_deploy
 claims: []
 confidence: high
 tags:
 - T1505.003
-- signature
 - technique
-- verified-v1
-created_at: 1785503864.922528
-updated_at: 1785503864.922528
+- signature
+created_at: 1788236495.0860538
+updated_at: 1788236495.0860538
 ---
 
-# T1505.003 — Webshell detection signature
+# T1505.003 — Webshell — file-write + subsequent exec correlation
 
-## What This Detection Sees
+## Telemetry Signatures
 
-Webshell persistence is a two-step correlation rather than a single event. The SPL takes web-access requests containing `uploads` and a `.php` extension, then joins them on host to requests that carry `cmd=` — the write followed by the execution. A host that produces both halves is a candidate webshell install.
-
-## SPL Detection
-
+### SPL Detection (siem/spl_detections.yaml)
 ```spl
 index=portal5_lab sourcetype="web:access" "uploads" ".php" | join host [search index=portal5_lab sourcetype="web:access" "cmd="] | stats count by host
 ```
-
-## Expected Signal
-
-PHP file upload followed by command execution via a webshell — the join is the technique's definition, not an afterthought.
 
 ## Exercised By Scenarios
 
 - `mbptl_ctf_full_chain`
 - `meta3_webdav_upload`
-- `mission_vulhub_multi_target`
+- `vuln_tomcat_deploy`
 
-## Why
+## Per-Source Expected Signatures
 
-The unit stays with the executable SPL because the correlation is the signature: upload alone is not persistence and command access alone is not a webshell, but the ordered pair on one host is. Keeping the join verbatim documents the design choice, and the scenario anchors show the webdav and vulhub upload paths that produce the two halves.
+| Source | Expected Signal |
+|--------|----------------|
+| web:access | File-write followed by execution of web-accessible path |
+
+---
+*Unit auto-generated from spl_detections.yaml + SCENARIOS.*

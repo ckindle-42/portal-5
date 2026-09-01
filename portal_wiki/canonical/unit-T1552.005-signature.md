@@ -1,45 +1,43 @@
 ---
 id: unit-T1552.005-signature
 kind: mixed
-title: "T1552.005 \u2014 Cloud-metadata SSRF detection signature"
+title: "T1552.005 \u2014 Cloud-metadata SSRF \u2014 169.254.169.254 access signal\
+  \ [KEY: Cloud metadata endpoint literal from the SPL]"
 sources:
-- type: code
-  path: portal/modules/security/core/siem/spl_detections.yaml
+- type: spl
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1552.005
 - type: mitre
   path: ATT&CK:T1552.005
-- type: code
-  path: portal/modules/security/core/exec_chain.py
+- type: scenario
+  path: exec_chain.py#cloud_breach
 claims: []
 confidence: high
 tags:
 - T1552.005
-- signature
 - technique
-- verified-v1
-created_at: 1785503864.9234078
-updated_at: 1785503864.9234078
+- signature
+created_at: 1788236495.0870268
+updated_at: 1788236495.0870268
 ---
 
-# T1552.005 — Cloud-metadata SSRF detection signature
+# T1552.005 — Cloud-metadata SSRF — 169.254.169.254 access signal [KEY: Cloud metadata endpoint literal from the SPL]
 
-## What This Detection Sees
+## Telemetry Signatures
 
-Cloud-metadata theft is a single-literal signal: HTTP access to the link-local metadata address `169.254.169.254`. The SPL matches that address in web-access traffic and groups by host and raw event, because a server that never should reach the metadata service is either misconfigured or mid-attack.
-
-## SPL Detection
-
+### SPL Detection (siem/spl_detections.yaml)
 ```spl
 index=portal5_lab sourcetype="web:access" "169.254.169.254" | stats count by host, _raw
 ```
-
-## Expected Signal
-
-HTTP requests to the cloud metadata endpoint — one literal, deliberately narrow to keep the false-positive floor low.
 
 ## Exercised By Scenarios
 
 - `cloud_breach`
 
-## Why
+## Per-Source Expected Signatures
 
-Pinned to the executable SPL because the whole signature is the IP literal, and narrowing is the point — the unit documents that the detection intentionally trades coverage breadth for precision by matching only the canonical metadata address.
+| Source | Expected Signal |
+|--------|----------------|
+| (generic) | Activity consistent with T1552.005 |
+
+---
+*Unit auto-generated from spl_detections.yaml + SCENARIOS.*

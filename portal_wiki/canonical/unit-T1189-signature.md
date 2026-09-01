@@ -1,46 +1,46 @@
 ---
 id: unit-T1189-signature
 kind: mixed
-title: "T1189 \u2014 Drive-by compromise detection signature"
+title: "T1189 \u2014 Drive-by compromise \u2014 reflected XSS and malicious redirect\
+  \ indicators [KEY: One of the XSS/redirect literals used by this SPL]"
 sources:
-- type: code
-  path: portal/modules/security/core/siem/spl_detections.yaml
+- type: spl
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1189
 - type: mitre
   path: ATT&CK:T1189
-- type: code
-  path: portal/modules/security/core/exec_chain.py
+- type: scenario
+  path: exec_chain.py#web_reflected_xss
+- type: scenario
+  path: exec_chain.py#web_open_redirect
 claims: []
 confidence: high
 tags:
 - T1189
-- signature
 - technique
-- verified-v1
-created_at: 1785503864.9305542
-updated_at: 1785503864.9305542
+- signature
+created_at: 1788236495.095501
+updated_at: 1788236495.095501
 ---
 
-# T1189 — Drive-by compromise detection signature
+# T1189 — Drive-by compromise — reflected XSS and malicious redirect indicators [KEY: One of the XSS/redirect literals used by this SPL]
 
-## What This Detection Sees
+## Telemetry Signatures
 
-Drive-by compromise is signalled at the edge by the browser-oriented payloads in web requests. The SPL matches reflected XSS markers — script tags in raw and percent-encoded form, onerror and onload handlers, and the javascript scheme — alongside redirect parameters, then groups by host, URI path, and raw event so each request is inspectable.
-
-## SPL Detection
-
+### SPL Detection (siem/spl_detections.yaml)
 ```spl
 index=portal5_lab sourcetype="web:access" ("%3Cscript" OR "<script" OR "onerror=" OR "onload=" OR "javascript:" OR "redirect_url=" OR "Location:") | stats count by host, uri_path, _raw
 ```
-
-## Expected Signal
-
-XSS payloads or redirect parameters in HTTP requests — the percent-encoded script marker matters because proxies often keep the request intact.
 
 ## Exercised By Scenarios
 
 - `web_reflected_xss`
 - `web_open_redirect`
 
-## Why
+## Per-Source Expected Signatures
 
-Pinned to the executable SPL because drive-by indicators are literal payload fragments, and the value of the unit is in which literals were chosen and why — the percent-encoded script tag catches what a naive decoder would hide. The scenario anchors show both the reflected XSS and open-redirect variants the lab reproduces.
+| Source | Expected Signal |
+|--------|----------------|
+| (generic) | Activity consistent with T1189 |
+
+---
+*Unit auto-generated from spl_detections.yaml + SCENARIOS.*

@@ -1,39 +1,37 @@
 ---
 id: unit-T1611-signature
 kind: mixed
-title: "T1611 \u2014 Container escape detection signature"
+title: "T1611 \u2014 Container escape \u2014 host auditd + docker events [KEY: nsenter,\
+  \ mount, /proc/1, or privileged from the SPL]"
 sources:
-- type: code
-  path: portal/modules/security/core/siem/spl_detections.yaml
+- type: spl
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1611
 - type: mitre
   path: ATT&CK:T1611
 claims: []
 confidence: high
 tags:
 - T1611
-- signature
 - technique
-- verified-v1
-created_at: 1785503864.9231381
-updated_at: 1785503864.9231381
+- signature
+created_at: 1788236495.08672
+updated_at: 1788236495.08672
 ---
 
-# T1611 — Container escape detection signature
+# T1611 — Container escape — host auditd + docker events [KEY: nsenter, mount, /proc/1, or privileged from the SPL]
 
-## What This Detection Sees
+## Telemetry Signatures
 
-Container escape is a two-source signal. The SPL matches Linux auditd records for the namespace-escape primitives — `nsenter`, `mount`, and access to the host init process via `/proc/1` — alongside Docker daemon events for privileged containers, grouping by host so escape attempts are attributable.
-
-## SPL Detection
-
+### SPL Detection (siem/spl_detections.yaml)
 ```spl
 index=portal5_lab (sourcetype="linux:auditd" "nsenter" OR "mount" OR "/proc/1") OR (sourcetype="docker:daemon" "privileged") | stats count by host
 ```
 
-## Expected Signal
+## Per-Source Expected Signatures
 
-Container escape indicators: `nsenter`, `mount`, `/proc/1` access, or a privileged container — the escape primitives are the observable, not the escape itself.
+| Source | Expected Signal |
+|--------|----------------|
+| (generic) | Activity consistent with T1611 |
 
-## Why
-
-Pinned to the executable SPL because an escape is only visible through its primitives, and the query fixes exactly which ones count — `nsenter` and `mount` on the audit side, privileged on the daemon side. Keeping those literals verbatim preserves the boundary between this technique and ordinary container operations.
+---
+*Unit auto-generated from spl_detections.yaml + SCENARIOS.*
