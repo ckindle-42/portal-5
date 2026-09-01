@@ -5,7 +5,7 @@ title: tool authorizations for 25 production workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: aa406501b0fd
+  commit: ff8f94550e78
   section: workspaces[].tools
 claims: []
 confidence: high
@@ -14,7 +14,7 @@ tags:
 - tools
 - workspaces
 created_at: 1784049584.703768
-updated_at: 1788229174.6433952
+updated_at: 1788230465.89275
 ---
 
 # Tool authorizations (per-workspace `tools:` whitelist)
@@ -42,8 +42,8 @@ The pipeline strips any tool a workspace does not authorize (metric `portal5_too
 | `auto-nemotron` | general | `web_search`, `web_fetch`, `kb_search`, `kb_list`, `read_pdf`, `read_word_document`, `remember`, `recall` |
 | `auto-reasoning` | general | _(none)_ |
 | `auto-research` | research | `web_search`, `web_fetch`, `news_search`, `kb_search`, `kb_search_all`, `kb_list`, `remember`, `recall` |
-| `auto-security` | security | `web_search`, `web_fetch`, `classify_vulnerability`, `execute_python`, `execute_bash`, `kb_search`, `kb_list`, `lookup_cve`, `get_epss`, `check_kev`, `triage_cve`, `ics_advisories`, `scan_dependencies`, `lookup_ioc` |
-| `auto-spl` | general | `classify_vulnerability`, `kb_search`, `kb_list`, `lookup_cve`, `get_epss`, `check_kev`, `triage_cve`, `ics_advisories`, `scan_dependencies`, `lookup_ioc` |
+| `auto-security` | security | `web_search`, `web_fetch`, `classify_vulnerability`, `execute_python`, `execute_bash`, `kb_search`, `kb_list`, `lookup_cve`, `get_epss`, `check_kev`, `triage_cve`, `ics_advisories`, `scan_dependencies`, `lookup_ioc`, `list_ics_protocols`, `dissect_pcap`, `asset_inventory`, `correlate_advisories` |
+| `auto-spl` | general | `classify_vulnerability`, `kb_search`, `kb_list`, `lookup_cve`, `get_epss`, `check_kev`, `triage_cve`, `ics_advisories`, `scan_dependencies`, `lookup_ioc`, `list_ics_protocols`, `dissect_pcap`, `asset_inventory`, `correlate_advisories` |
 | `auto-uncensored-throwaway` | general | `web_search`, `web_fetch`, `news_search`, `execute_bash`, `execute_python`, `remember`, `recall` |
 | `auto-video` | video | `generate_video`, `animate_image` |
 | `auto-vision` | general | `transcribe_audio`, `generate_image`, `edit_image` |

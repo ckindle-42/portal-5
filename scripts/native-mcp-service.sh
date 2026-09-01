@@ -50,6 +50,10 @@ case "$SERVICE" in
         export VULNINTEL_MCP_PORT="${VULNINTEL_MCP_PORT:-8934}"
         exec "$PY" -m portal.modules.vulnintel.tools.vulnintel_mcp
         ;;
+    icsot-mcp)
+        export ICSOT_MCP_PORT="${ICSOT_MCP_PORT:-8936}"
+        exec "$PY" -m portal.modules.icsot.tools.icsot_mcp
+        ;;
     wiki-mcp)
         export OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
         export WIKI_MCP_PORT="${WIKI_MCP_PORT:-8931}"

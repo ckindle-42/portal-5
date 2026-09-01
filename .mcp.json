@@ -116,6 +116,10 @@
     "portal-vulnintel": {
       "type": "http",
       "url": "http://localhost:8934/mcp"
+    },
+    "portal-icsot": {
+      "type": "http",
+      "url": "http://localhost:8936/mcp"
     }
   }
 }

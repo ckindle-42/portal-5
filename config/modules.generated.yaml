@@ -14,6 +14,8 @@ modules:
     enabled: false
   general:
     enabled: true
+  icsot:
+    enabled: true
   image:
     enabled: true
   media:
@@ -37,6 +39,7 @@ launched_mcp_ids:
 - fetch
 - filesystem
 - git
+- icsot
 - memory
 - mflux
 - mitre

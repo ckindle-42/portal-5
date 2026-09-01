@@ -1,0 +1,6 @@
+[
+  {"type":"function","function":{"name":"list_ics_protocols","description":"Enumerate recognized ICS protocols and dissection tier.","parameters":{"type":"object","properties":{},"required":[]}}},
+  {"type":"function","function":{"name":"dissect_pcap","description":"Passively dissect an ICS PCAP: protocol counts, Modbus function breakdown, conversations, ATT&CK-for-ICS tags.","parameters":{"type":"object","properties":{"pcap_path":{"type":"string"},"max_packets":{"type":"integer"}},"required":["pcap_path"]}}},
+  {"type":"function","function":{"name":"asset_inventory","description":"Derive an ICS asset inventory (hosts, roles, protocols) from a PCAP.","parameters":{"type":"object","properties":{"pcap_path":{"type":"string"},"max_packets":{"type":"integer"}},"required":["pcap_path"]}}},
+  {"type":"function","function":{"name":"correlate_advisories","description":"Cross-reference an observed ICS vendor to recent CISA ICS advisories.","parameters":{"type":"object","properties":{"vendor":{"type":"string"},"days":{"type":"integer"}},"required":["vendor"]}}}
+]

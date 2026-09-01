@@ -1,11 +1,11 @@
 ---
 id: unit-fact-mcp-fleet
 kind: what
-title: 27 MCP fleet servers
+title: 28 MCP fleet servers
 sources:
 - type: code
   path: config/portal.yaml
-  commit: aa406501b0fd
+  commit: ff8f94550e78
   section: mcp_fleet
 claims:
 - probe: mcp.fleet.entries
@@ -15,10 +15,10 @@ tags:
 - fact
 - mcp
 created_at: 1784000421.477582
-updated_at: 1788229174.560481
+updated_at: 1788230465.810535
 ---
 
-# MCP fleet (27 servers)
+# MCP fleet (28 servers)
 
 | ID | Name | Port |
 |---|---|---|
@@ -49,6 +49,7 @@ updated_at: 1788229174.560481
 | `mflux` | portal-mflux | 8933 |
 | `vulnintel` | portal-vulnintel | 8934 |
 | `video_mlx` | portal-video-mlx | 8935 |
+| `icsot` | portal-icsot | 8936 |
 
 ## Why
 

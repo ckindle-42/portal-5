@@ -163,6 +163,7 @@ services:
       - MCP_DETECTIONS_URL=http://host.docker.internal:8932
       - MCP_WIKI_URL=http://host.docker.internal:8931
       - MCP_VULNINTEL_URL=http://host.docker.internal:8934
+      - MCP_ICSOT_URL=http://host.docker.internal:8936
       - TOOL_DISPATCH_TIMEOUT_S=${TOOL_DISPATCH_TIMEOUT_S:-180}
       - TOOL_REGISTRY_REFRESH_S=${TOOL_REGISTRY_REFRESH_S:-300}
     extra_hosts:

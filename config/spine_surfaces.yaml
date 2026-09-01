@@ -52,6 +52,14 @@ surfaces:
   globs:
   - portal/modules/general/tools/__init__.py
   unit: unit-capability-docker
+- name: file-portal-modules-icsot-tests-test_icsot_mcp
+  globs:
+  - portal/modules/icsot/tests/test_icsot_mcp.py
+  unit: unit-capability-icsot
+- name: file-portal-modules-icsot-tools-icsot_mcp
+  globs:
+  - portal/modules/icsot/tools/icsot_mcp.py
+  unit: unit-capability-icsot
 - name: file-portal-modules-media-tools-_admission
   globs:
   - portal/modules/media/tools/_admission.py
