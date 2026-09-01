@@ -270,11 +270,21 @@ async def kb_restore_endpoint(request):
 
 @mcp.custom_route("/tools/kb_list", methods=["POST"])
 async def kb_list_endpoint(request):
+    from portal.modules.research.tools.rag_multimodal import _read_stamp
+
     kbs = []
     for kb_id in _list_kbs():
         t = _kb_table(kb_id)
         if t is not None:
-            kbs.append({"kb_id": kb_id, "chunks": len(t)})
+            stamp = _read_stamp(kb_id) or {}
+            kbs.append(
+                {
+                    "kb_id": kb_id,
+                    "chunks": len(t),
+                    "embed_model": stamp.get("embed_model"),
+                    "vl_dim": stamp.get("vl_dim"),
+                }
+            )
     return JSONResponse({"knowledge_bases": kbs})
 
 

@@ -9,7 +9,7 @@
     }
   },
   {
-    "description": "Search a specific knowledge base. Multimodal by default: fuses text-chunk and rendered-PDF-page retrieval (RRF) via the Qwen3-VL retrieval model. Returns top chunks with source_file, text, rerank_score, and kind (text|visual).",
+    "description": "Search a specific knowledge base. Multimodal by default: fuses text-chunk and rendered-PDF-page retrieval (RRF) via the Qwen3-VL retrieval model. Returns top chunks with source_file, text, fused_score (RRF fusion value), reranker_prob (VL reranker probability, visual rows only), and kind (text|visual).",
     "name": "kb_search",
     "parameters": {
       "properties": {

@@ -31,14 +31,22 @@ def _iso(tmp_path, monkeypatch):
     monkeypatch.setattr(rm, "_PAGES_DIR", tmp_path / "pages")
     rm._db = None
 
-    async def _emb(text=None, image_path=None):
+    async def _emb(text=None, image_path=None, is_query=False):
         return [0.1] * 8
+
+    async def _emb_batch(items):
+        return [[0.1] * 8 for _ in items]
 
     async def _rr(q, cands, n):
         return [{"index": i, "score": 1.0 - i * 0.1} for i in range(len(cands))]
 
+    async def _model_id():
+        return ("fake-vl-model", 8)
+
     monkeypatch.setattr(rm, "_vl_embed", _emb)
+    monkeypatch.setattr(rm, "_vl_embed_batch", _emb_batch)
     monkeypatch.setattr(rm, "_vl_rerank", _rr)
+    monkeypatch.setattr(rm, "_vl_model_id", _model_id)
     # a fake rag_mcp so docling isn't required
     fake = types.ModuleType("portal.modules.research.tools.rag_mcp")
 
@@ -76,7 +84,7 @@ def test_ingest_then_search_contract(tmp_path):
 
     res = json.loads(_run(rm._search(_Req({"kb_id": "kbx", "query": "CIP-007"}))).body)
     assert {"kb_id", "query", "num_results", "results"} <= set(res)
-    assert all("rerank_score" in r and "text" in r for r in res["results"])
+    assert all("fused_score" in r and "text" in r for r in res["results"])
     assert res["results"][0]["kind"] == "text"
 
 
@@ -93,3 +101,22 @@ def test_search_all_contract(tmp_path):
     _run(rm._ingest(_Req({"kb_id": "kba", "source_dir": str(src)})))
     res = json.loads(_run(rm._search_all(_Req({"query": "CIP-007"}))).body)
     assert {"query", "num_results", "results"} <= set(res)
+
+
+def test_ingest_stamps_model_and_search_rejects_a_swap(tmp_path, monkeypatch):
+    """A3: kb_ingest records the embedding model; a later same-dim model swap is
+    caught at kb_search instead of degrading silently."""
+    pytest.importorskip("lancedb")
+    src = tmp_path / "kbsrc"
+    src.mkdir()
+    (src / "d.txt").write_text("x")
+    _run(rm._ingest(_Req({"kb_id": "kbz", "source_dir": str(src)})))
+    assert rm._read_stamp("kbz")["embed_model"] == "fake-vl-model"
+
+    async def _swapped():
+        return ("different-vl-model", 8)
+
+    monkeypatch.setattr(rm, "_vl_model_id", _swapped)
+    out = _run(rm._search(_Req({"kb_id": "kbz", "query": "x"})))
+    body = json.loads(out.body)
+    assert out.status_code == 503 and "different spaces" in body["error"]
