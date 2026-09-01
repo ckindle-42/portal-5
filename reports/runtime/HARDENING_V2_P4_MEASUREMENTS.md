@@ -57,29 +57,59 @@ pressure instrumentation before raising it.
 
 ## P4 — evaluation corpus
 
-`tests/fixtures/rag_eval_corpus/` (committed: builders + query set + manifest;
-the fetched PDFs are not committed). **36 documents:**
+`tests/fixtures/rag_eval_corpus/` (committed: builder + `queries.yaml` +
+`manifest.yaml`; the PDFs are not committed). **35 documents ingested:**
+9 synthetic figure docs (provable prose-absence — the controls), 17 NERC CIP
+standards, a NIST 800-82r3 architecture slice (26 pages, incl. Fig 20/21),
+8 operator OT procedure docs (distractor pressure).
 
-- **9 synthetic** (`build_synthetic.py`) — P&ID, network/ESP, HMI alarm/trend,
-  relay settings, plot-plan legend, locked-valve schedule. Two-page: generic
-  governance prose (page 1) + a single rendered figure (page 2) whose
-  discriminating content — a valve tag, an IP, a setpoint, a legend entry —
-  is **only** on the image. These are the controls: prose-absence is provable.
-- **17 public NERC CIP standards** (CIP-002 … CIP-015) — fetched fresh.
-- **1 NIST SP 800-82r3 architecture slice** (92 pages, SCADA/DCS/PLC +
-  defense-in-depth figures) — fetched fresh.
-- **9 internal OT/CIP procedure documents** — operator-provided, not committed;
-  distractor pressure (prose-heavy, realistic).
+**Query set** (`queries.yaml`, 42 queries): `diagram_only` 21 · `prose_only` 16
+· `mixed` 5. `target_file` on every query; diagram-only synthetic queries also
+carry `target_page` — and a *text* hit on the right file does **not** count as a
+diagram-only hit, the figure page must be returned.
 
-**Query set** (`queries.yaml`, 43 queries):
-`diagram_only` 22 · `prose_only` 16 · `mixed` 5. Each carries `target_file`; the
-diagram-only synthetic queries also carry `target_page` (the figure page), and a
-text hit on the right file does **not** count as a diagram-only hit — the figure
-page must be returned.
+**Ingest cost** (`RAG_MAX_PAGES=25`, `VL_EMBED_MAX_ITEMS=16`, host VL server):
+35 files → 1257 text chunks + 480 page images in **1162 s (~19 min)**. The NERC
+CIP docs dominate chunk count (~30–70 each). Per-query search cost is dominated
+by the visual rerank — `RERANK_CHUNK=4` over ~30 candidates ≈ 8 VLM forwards
+per query, ~15 s/query; the A3 `/health` model-id check adds one round trip.
+42 queries ≈ 20 min. A full re-run of the regression set is ~40 min end to end.
 
 ## P5 — ranking
 
-_(results appended after the fusion sweep completes)_
+### RRF baseline — B1 confirmed, exactly
+
+| category | n | recall@1 | recall@5 | MRR |
+|---|---|---|---|---|
+| diagram_only | 21 | **0.000** | 1.000 | **0.500** |
+| prose_only | 16 | 0.625 | 0.938 | 0.769 |
+| mixed | 5 | 0.600 | 1.000 | 0.800 |
+
+**Every one of the 21 diagram-only queries returns the correct figure page at
+rank exactly 2** — never 1, never 3. MRR is exactly 0.500. That is not "the
+weighting needs tuning"; it is a deterministic artifact of the fusion function.
+
+**Score dict** for `syn-pid-01` ("which control valve is air-to-open and
+fail-closed?" — answer only on `pid_reactor_feed.pdf` p1):
+
+```
+TEXT   arm rank 0 -> RRF contribution 1/(60+0) = 0.016667   (a NIST chunk, wrong doc)
+VISUAL arm rank 0 -> RRF contribution 1/(60+0) = 0.016667   (pid_reactor_feed p1 — CORRECT,
+                                                             reranker_prob 0.6878)
+       (wrong visual pages score 0.41 / 0.31 / 0.30 — the reranker is decisive and right)
+```
+
+The two rank-0 contributions are **identical**. `sorted(scores.items(), key=-v)`
+is stable and the text arm populates the dict first, so the text row wins every
+tie → text at rank 1, the correct figure at rank 2, for all 21. B1's
+insertion-order diagnosis is **confirmed, not refuted** (P0's test: "if
+contributions are not exactly equal, B1 is wrong" — they are exactly equal).
+The Qwen3-VL reranker already produces the signal that fixes this
+(`reranker_prob` 0.688 vs ≤0.41) and `_search` discards it.
+
+### Fusion options
+
+_(rerank_tiebreak / score_aware results appended when the variant runs finish)_
 
 ## P6 — max_pixels / DPI and coarse depth
 
