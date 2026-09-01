@@ -843,8 +843,10 @@ services:
       - MCP_PORT=8921
       - PORTAL5_LANCE_DIR=/app/data/portal5_lance
       - PORTAL5_KB_SOURCES_DIR=/app/data/portal5_kb_sources
-      - MLX_EMBEDDING_URL=http://host.docker.internal:8917/v1/embeddings
-      - RERANKER_URL=http://host.docker.internal:8925
+      # Retrieval is multimodal (Qwen3-VL retrieval server); :8917/:8925 stay
+      # for other subsystems (memory, Bully ORG projection), not RAG retrieval.
+      - VL_RETRIEVAL_URL=${VL_RETRIEVAL_URL:-http://host.docker.internal:8942}
+      - VL_EMBEDDING_DIM=${VL_EMBEDDING_DIM:-2048}
       - RAG_RERANK_ENABLED=${RAG_RERANK_ENABLED:-true}
       - RAG_CANDIDATE_POOL_SIZE=${RAG_CANDIDATE_POOL_SIZE:-20}
     command: ["python", "-m", "portal.modules.research.tools.rag_mcp"]

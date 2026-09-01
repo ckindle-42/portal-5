@@ -9,7 +9,7 @@
     }
   },
   {
-    "description": "Search a specific knowledge base. Returns top relevant chunks with source file and similarity score. Use kb_list first to find available KB IDs. query_type: vector (semantic, default), fts (BM25 keyword \u2014 exact terms/IDs), hybrid (both, RRF-fused). fts/hybrid require the KB to be ingested with fts=true.",
+    "description": "Search a specific knowledge base. Multimodal by default: fuses text-chunk and rendered-PDF-page retrieval (RRF) via the Qwen3-VL retrieval model. Returns top chunks with source_file, text, rerank_score, and kind (text|visual).",
     "name": "kb_search",
     "parameters": {
       "properties": {
@@ -44,7 +44,7 @@
     }
   },
   {
-    "description": "Search across all knowledge bases simultaneously. Useful when the user's question may match multiple KBs. query_type: vector (default), fts, hybrid; KBs without an FTS index transparently fall back to vector.",
+    "description": "Search across all knowledge bases simultaneously (multimodal, RRF-fused). Useful when the user's question could be answered by any KB.",
     "name": "kb_search_all",
     "parameters": {
       "properties": {
@@ -74,7 +74,7 @@
     }
   },
   {
-    "description": "Admin: ingest files from a directory into a knowledge base. Reads .md, .txt, .pdf, .docx, .pptx, .xlsx, .html, .htm, .epub files (Docling-first extraction with pypdf/python-docx fallback). Run via curl or as setup; not typically called from chat.",
+    "description": "Admin: ingest files from a directory into a knowledge base. Text chunks are VL-embedded; PDF pages are additionally rendered to images and embedded in the same pass (multimodal index). Reads .md/.txt/.pdf/.docx/.pptx/.xlsx/.html/.epub.",
     "name": "kb_ingest",
     "parameters": {
       "properties": {
