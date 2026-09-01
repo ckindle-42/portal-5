@@ -136,7 +136,11 @@ apple-silicon = [
     "misaki>=0.1.0",
     "num2words>=0.5.0",
     "spacy>=3.5.0",
-    "phonemizer>=3.2.0",
+    # Floor 3.4.0: 3.3.x's EspeakWrapper has no `set_data_path`, which
+    # misaki.espeak (Kokoro phonemizer path) calls at import — a `uv sync` that
+    # reverts phonemizer to 3.3.0 breaks all Kokoro TTS with
+    # "type object 'EspeakWrapper' has no attribute 'set_data_path'".
+    "phonemizer>=3.4.0",
 ]
 dev = [
     "mcp>=2.0.0,<3.0.0",  # cap receipt: see the `mcp` extra above

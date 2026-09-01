@@ -2678,18 +2678,17 @@ wheels = [
 
 [[package]]
 name = "phonemizer"
-version = "3.3.0"
+version = "3.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
     { name = "dlinfo" },
     { name = "joblib" },
-    { name = "segments" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c4/ff/3574c55a71b42ad6944a5bf0a7d59f0251ea2ba47e51a5c4005e32e9145c/phonemizer-3.3.0.tar.gz", hash = "sha256:5e0c38122effe0b331a24e674aff256874ece169d70a9cf1120337b56f8e3d0c", size = 88564, upload-time = "2024-08-01T14:29:50.299Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/bc/7d/5a96ddb130552f6365a090b5fd12ace803a95a858e3f67258f2ad13dc51f/phonemizer-3.4.0.tar.gz", hash = "sha256:e13231980c50bc671ec0466379ba027260ad9d61929952d8ae9665b3d0f251eb", size = 93535, upload-time = "2026-07-31T15:53:17.329Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b6/23/e8d67c2052e132181c4c9027c2d8ed9e37e8acb27acfc13ed2d0c41ed850/phonemizer-3.3.0-py3-none-any.whl", hash = "sha256:17afaa98691fe73b025dd8d8727b0e67cc376c5e7ee27590853e457fb3f43602", size = 103800, upload-time = "2024-08-01T14:29:47.572Z" },
+    { url = "https://files.pythonhosted.org/packages/37/41/09bafd0ccf4f4ddd1530c9f9d10e75a24056e10e120b9daa97f691fcabc3/phonemizer-3.4.0-py3-none-any.whl", hash = "sha256:5ff1215d0efa3606dd1b92449f6d71b5c1741efcc84c6d40c17bfaf64f6ded5f", size = 108529, upload-time = "2026-07-31T15:53:16.056Z" },
 ]
 
 [[package]]
@@ -2922,7 +2921,7 @@ requires-dist = [
     { name = "num2words", marker = "extra == 'apple-silicon'", specifier = ">=0.5.0" },
     { name = "openpyxl", marker = "extra == 'mcp'", specifier = ">=3.1.0" },
     { name = "pdfplumber", marker = "extra == 'mcp'", specifier = ">=0.11.0" },
-    { name = "phonemizer", marker = "extra == 'apple-silicon'", specifier = ">=3.2.0" },
+    { name = "phonemizer", marker = "extra == 'apple-silicon'", specifier = ">=3.4.0" },
     { name = "prometheus-client", specifier = ">=0.19.0" },
     { name = "promptfoo", marker = "extra == 'dev'", specifier = ">=0.1.4" },
     { name = "pydantic", specifier = ">=2.5.0" },
