@@ -13,6 +13,7 @@ from . import (  # noqa: F401  (imports populate the check registry)
     lab,
     personas,
     platform,
+    rag_runtime,
     security_bench,
     telemetry,
     wiki,
