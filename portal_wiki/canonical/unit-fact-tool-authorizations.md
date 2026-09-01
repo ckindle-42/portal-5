@@ -5,7 +5,7 @@ title: tool authorizations for 25 production workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 89aae78ba58e
+  commit: 72eb9714da3a
   section: workspaces[].tools
 claims: []
 confidence: high
@@ -14,7 +14,7 @@ tags:
 - tools
 - workspaces
 created_at: 1784049584.703768
-updated_at: 1788231916.7767859
+updated_at: 1788232840.103582
 ---
 
 # Tool authorizations (per-workspace `tools:` whitelist)
@@ -32,7 +32,7 @@ The pipeline strips any tool a workspace does not authorize (metric `portal5_too
 | `auto-council` | general | _(none)_ |
 | `auto-creative` | media | _(none)_ |
 | `auto-daily` | general | `web_search`, `web_fetch`, `kb_search`, `kb_list`, `read_pdf`, `read_word_document`, `read_excel`, `create_word_document`, `create_excel`, `create_powerpoint`, `execute_python`, `remember`, `recall`, `minimax_generate`, `minimax_status`, `transcribe_audio` |
-| `auto-data` | research | `execute_python`, `create_excel`, `kb_search` |
+| `auto-data` | research | `execute_python`, `create_excel`, `kb_search`, `attach_source`, `run_sql`, `profile_table`, `list_session` |
 | `auto-documents` | documents | `create_word_document`, `create_excel`, `create_powerpoint`, `read_word_document`, `read_excel`, `read_powerpoint`, `read_pdf`, `transcribe_with_speakers` |
 | `auto-extract-uncensored` | documents | _(none)_ |
 | `auto-general-uncensored` | general | `execute_bash`, `execute_python`, `read_word_document`, `read_pdf`, `remember`, `recall` |

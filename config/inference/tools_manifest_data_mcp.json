@@ -1,0 +1,6 @@
+[
+  {"type":"function","function":{"name":"attach_source","description":"Attach a CSV/Parquet/JSON/xlsx file as a queryable table in a session.","parameters":{"type":"object","properties":{"session_id":{"type":"string"},"path":{"type":"string"},"table":{"type":"string"}},"required":["session_id","path","table"]}}},
+  {"type":"function","function":{"name":"run_sql","description":"Run SQL against the session (mutating/escape statements blocked).","parameters":{"type":"object","properties":{"session_id":{"type":"string"},"sql":{"type":"string"},"max_rows":{"type":"integer"}},"required":["session_id","sql"]}}},
+  {"type":"function","function":{"name":"profile_table","description":"Per-column profile: type, nulls, distinct, min/max/mean.","parameters":{"type":"object","properties":{"session_id":{"type":"string"},"table":{"type":"string"}},"required":["session_id","table"]}}},
+  {"type":"function","function":{"name":"list_session","description":"List tables/views in a session.","parameters":{"type":"object","properties":{"session_id":{"type":"string"}},"required":["session_id"]}}}
+]
