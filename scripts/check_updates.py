@@ -194,7 +194,86 @@ def check_omlx() -> Report:
     return rep
 
 
-CHECKERS = {"obscura": check_obscura, "ollama": check_ollama, "omlx": check_omlx}
+_WATCHED_DEPS = (
+    "mlx",
+    "mlx-embeddings",
+    "mlx-vlm",
+    "mlx-lm",
+    "mlx-audio",
+    "transformers",
+    "torch",
+    "torchvision",
+    "torchaudio",
+    "lancedb",
+    "pymupdf",
+    "phonemizer",
+)
+
+
+def check_python_deps() -> Report:
+    """Two things (TASK_VL_RUNTIME_LANDING_V4 P9.5 / gate BR-sibling):
+    1. the project venv must match uv.lock  -> `status = "behind"` on drift
+       (this is the check that would have caught the VL-runtime destruction);
+    2. watched packages in uv.lock vs PyPI  -> note when a minor+ is available.
+    """
+    rep = Report("python-deps")
+    root = Path(__file__).resolve().parent.parent
+
+    # 1 — venv vs lock (authoritative; a mismatch is actionable)
+    try:
+        r = subprocess.run(
+            ["uv", "sync", "--all-extras", "--frozen", "--check"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=root,
+        )
+        if r.returncode != 0:
+            rep.status = "behind"
+            rep.security = True  # a silently-diverged runtime is a standing risk
+            rep.lines.append("VENV/LOCK DRIFT — `uv sync --all-extras` needed:")
+            for ln in (r.stdout + r.stderr).splitlines():
+                if ln.strip().startswith(("+", "-")):
+                    rep.lines.append(f"  {ln.strip()}")
+        else:
+            rep.lines.append("venv matches uv.lock")
+    except (OSError, subprocess.SubprocessError) as e:
+        rep.lines.append(f"venv/lock check failed: {e}")
+
+    # 2 — lock vs PyPI for the watched set (informational)
+    try:
+        lock = (root / "uv.lock").read_text()
+    except OSError:
+        return rep
+    for pkg in _WATCHED_DEPS:
+        m = re.search(rf'name = "{re.escape(pkg)}"\nversion = "([^"]+)"', lock)
+        if not m:
+            continue
+        cur = m.group(1)
+        try:
+            with urllib.request.urlopen(  # noqa: S310 - fixed pypi.org host
+                f"https://pypi.org/pypi/{pkg}/json", timeout=15
+            ) as resp:
+                latest = json.loads(resp.read().decode())["info"]["version"]
+        except (urllib.error.URLError, KeyError, json.JSONDecodeError):
+            continue
+        if _semver(latest) > _semver(cur):
+            cs, ls = _semver(cur), _semver(latest)
+            minor_plus = ls[:2] > cs[:2]
+            rep.lines.append(
+                f"  {pkg}: lock {cur} -> PyPI {latest}" + ("  [minor+]" if minor_plus else "")
+            )
+            if minor_plus and rep.status != "behind":
+                rep.status = "behind"
+    return rep
+
+
+CHECKERS = {
+    "obscura": check_obscura,
+    "ollama": check_ollama,
+    "omlx": check_omlx,
+    "python-deps": check_python_deps,
+}
 
 
 def _pushover(title: str, message: str, high: bool) -> None:

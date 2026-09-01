@@ -141,6 +141,10 @@ apple-silicon = [
     # reverts phonemizer to 3.3.0 breaks all Kokoro TTS with
     # "type object 'EspeakWrapper' has no attribute 'set_data_path'".
     "phonemizer>=3.4.0",
+    # spaCy English pipeline for misaki's G2P fallback — a GitHub-release wheel,
+    # not on PyPI (URL in [tool.uv.sources]). Declared so `uv sync` keeps it
+    # rather than uninstalling it and silently degrading Kokoro phonemization.
+    "en-core-web-sm",
 ]
 dev = [
     "mcp>=2.0.0,<3.0.0",  # cap receipt: see the `mcp` extra above
@@ -334,3 +338,6 @@ markers = [
 filterwarnings = [
     "ignore::pytest.PytestUnknownMarkWarning",
 ]
+
+[tool.uv.sources]
+en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
