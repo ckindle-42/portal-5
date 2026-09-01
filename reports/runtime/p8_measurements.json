@@ -1,4 +1,10 @@
 {
+  "_evidence": {
+    "command": "tests/fixtures/p8_corpus builder + kb_ingest/kb_search on :8942",
+    "inputs": "V4 P8 \u2014 5-doc max_pixels/RERANK_CHUNK measurements; _evidence added retroactively (C3) (HEAD f1d6bf0f)",
+    "resolved-versions": "mlx==0.32.2, mlx-embeddings==0.1.0, mlx-vlm==0.6.17, transformers==5.16.1, torch==2.13.0, torchvision==0.28.0, phonemizer==3.4.0",
+    "timestamp": "2026-09-01T19:12:41+00:00"
+  },
   "corpus": [
     "alarm_summary.pdf",
     "esp_plant_b.pdf",

@@ -1,0 +1,10 @@
+# command: uv sync --all-extras --frozen --check
+# inputs: project venv vs uv.lock; supersedes the 0-byte V4 capture of this name (HEAD f1d6bf0f)
+# resolved-versions: mlx==0.32.2, mlx-embeddings==0.1.0, mlx-vlm==0.6.17, transformers==5.16.1, torch==2.13.0, torchvision==0.28.0, phonemizer==3.4.0
+# timestamp: 2026-09-01T19:12:41+00:00
+# ---
+
+# exit=0
+Would use project environment at: .venv
+Audited 182 packages in 34ms
+Would make no changes

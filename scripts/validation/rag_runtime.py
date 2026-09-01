@@ -129,3 +129,21 @@ def check_venv_lock_no_drift() -> tuple[str, str, list[dict]]:
         f"drift: {where}; {len(diff)} package(s)",
         [{"name": ln, "status": "FAIL", "detail": ""} for ln in diff[:20]],
     )
+
+
+@register("evidence_headers", "HC. reports/runtime evidence headers", order=51)
+def check_evidence_headers() -> tuple[str, str, list[dict]]:
+    """HC — every evidence file under reports/runtime/ carries the C3 header
+    (command / inputs / resolved-versions / timestamp) and is non-empty. A
+    fingerprint without versions cannot say what it fingerprinted; an empty
+    file proves nothing."""
+    from scripts.lib.evidence_header import check_reports_headers
+
+    bad = check_reports_headers(REPO_ROOT)
+    if not bad:
+        return "PASS", "all reports/runtime evidence files carry a C3 header", []
+    return (
+        "FAIL",
+        f"{len(bad)} evidence file(s) missing a header / zero-byte",
+        [{"name": f, "status": "FAIL", "detail": r} for f, r in bad],
+    )

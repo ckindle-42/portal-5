@@ -1,3 +1,9 @@
+# command: python -c 'from mlx_embeddings import load; load(<qwen3-vl repo>)'
+# inputs: V4 P0.4 — verbatim VL load traceback; header added retroactively (C3) (HEAD f1d6bf0f)
+# resolved-versions: mlx==0.32.2, mlx-embeddings==0.1.0, mlx-vlm==0.6.17, transformers==5.16.1, torch==2.13.0, torchvision==0.28.0, phonemizer==3.4.0
+# timestamp: 2026-09-01T19:12:41+00:00
+# ---
+
 ### versions
 Traceback (most recent call last):
   File "/Users/chris/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/importlib/metadata/__init__.py", line 407, in from_name
@@ -34,7 +40,9 @@ ModuleNotFoundError: No module named 'torchvision'
 ['base', 'bert', 'colidefics3', 'colqwen2_5', 'gemma3_text', 'lfm2', 'llama_bidirec', 'llama_nemotron_vl', 'modernbert', 'qwen3', 'qwen3_vl', 'siglip', 'xlm_roberta']
 ### load traceback (VERBATIM)
 ### mlx-community/Qwen3-VL-Embedding-2B-mxfp8
-Fetching 10 files:   0%|          | 0/10 [00:00<?, ?it/s]Fetching 10 files: 100%|██████████| 10/10 [00:00<00:00, 3158.60it/s]
+
+Fetching 10 files:   0%|          | 0/10 [00:00<?, ?it/s]
+Fetching 10 files: 100%|██████████| 10/10 [00:00<00:00, 3158.60it/s]
 Traceback (most recent call last):
   File "/Users/chris/projects/portal-5/.venv/lib/python3.13/site-packages/mlx_embeddings/utils.py", line 315, in load
     tokenizer = arch.Processor.from_pretrained(model_path, **tokenizer_config)
@@ -66,7 +74,9 @@ installation page: https://pytorch.org/get-started/locally/ and follow the ones 
 Please note that you may need to restart your runtime after installation.
 
 ### Qwen/Qwen3-VL-Embedding-2B
-Fetching 15 files:   0%|          | 0/15 [00:00<?, ?it/s]Fetching 15 files: 100%|██████████| 15/15 [00:00<00:00, 4980.18it/s]
+
+Fetching 15 files:   0%|          | 0/15 [00:00<?, ?it/s]
+Fetching 15 files: 100%|██████████| 15/15 [00:00<00:00, 4980.18it/s]
 Traceback (most recent call last):
   File "/Users/chris/projects/portal-5/.venv/lib/python3.13/site-packages/mlx_embeddings/utils.py", line 315, in load
     tokenizer = arch.Processor.from_pretrained(model_path, **tokenizer_config)
