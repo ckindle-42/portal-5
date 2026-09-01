@@ -188,7 +188,14 @@ async def main() -> None:
     per_cat: dict[str, list] = {}
     rows = []
     for q in qset:
-        results = await _search(rm, a.kb_id, q["query"], top_k=10)
+        for attempt in range(4):  # tolerate a VL-server restart mid-run
+            try:
+                results = await _search(rm, a.kb_id, q["query"], top_k=10)
+                break
+            except RuntimeError as e:
+                if attempt == 3 or "unavailable" not in str(e):
+                    raise
+                await asyncio.sleep(10)
         rank = _rank_of(results, q["target_file"], q.get("target_page"), q["category"])
         rr = 1.0 / rank if rank else 0.0
         row = {
