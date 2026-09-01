@@ -42,7 +42,22 @@ def _stored_count() -> int:
 @mcp.custom_route("/health", methods=["GET"])
 async def health(request):
     try:
-        return JSONResponse({"status": "ok", "service": "memory-mcp", "stored": _stored_count()})
+        from portal.platform.memory.graph_memory import graph_stats
+
+        g = graph_stats()
+        status = "ok" if g["graph_intact"] else "degraded"
+        return JSONResponse(
+            {
+                "status": status,
+                "service": "memory-mcp",
+                "stored": g["memories"],
+                "graph": {
+                    "entities": g["entities"],
+                    "relations": g["relations"],
+                    "intact": g["graph_intact"],
+                },
+            }
+        )
     except Exception as e:  # noqa: BLE001
         return JSONResponse({"status": "degraded", "error": str(e)})
 
