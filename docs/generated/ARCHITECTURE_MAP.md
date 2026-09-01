@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 730 canonical units.*
+*Deterministic projection of 731 canonical units.*
 
 ## Knowledge Layer
 
@@ -208,7 +208,7 @@
 | `unit-capability-filesystem` | mixed | 2 |
 | `unit-capability-git` | mixed | 2 |
 | `unit-capability-icsot` | mixed | 4 |
-| `unit-capability-memory` | mixed | 5 |
+| `unit-capability-memory` | mixed | 6 |
 | `unit-capability-mflux` | mixed | 3 |
 | `unit-capability-mitre` | mixed | 3 |
 | `unit-capability-mlx-transcribe` | mixed | 3 |
@@ -216,7 +216,7 @@
 | `unit-capability-netforensics` | mixed | 4 |
 | `unit-capability-pipeline` | mixed | 3 |
 | `unit-capability-proxmox` | mixed | 3 |
-| `unit-capability-rag` | mixed | 6 |
+| `unit-capability-rag` | mixed | 7 |
 | `unit-capability-reranker` | mixed | 2 |
 | `unit-capability-research` | mixed | 3 |
 | `unit-capability-security` | mixed | 2 |
@@ -338,6 +338,7 @@
 | `unit-known-limitations-tool-preselection-candidate-1b-models-cannot-rank-tools` | what | 6 |
 | `unit-known-limitations-v5-model-visible-corpus-retrieval-coverage` | what | 4 |
 | `unit-known-limitations-v8-catalog-deferred-insufficient-hardware` | what | 2 |
+| `unit-known-limitations-vl-retrieval-runtime` | what | 3 |
 | `unit-lab-setup-all-these-should-succeed-after-setup` | what | 4 |
 | `unit-lab-setup-full-setup-downloads-vulhub-challenge-composes-base-images-model-pulls` | what | 2 |
 | `unit-lab-setup-lab-setup-cold-start-runbook` | what | 3 |
@@ -739,12 +740,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 730 units
+**Total:** 731 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1720 references
+- **code**: 1725 references
 - **config**: 1 references
 - **mitre**: 40 references
 - **scenario**: 54 references
