@@ -185,19 +185,35 @@ knob to lower for latency; recall@5 is unaffected because the RRF/tiebreak fusio
 only needs the right page *in* the reranked set, and the visual embedding recall
 puts it there well within `top_k*3`.
 
-## The VL server degrades over a session — and it is unsupervised
+## S1 — the VL server does NOT degrade over a session (earlier claim retracted)
 
-`:8942` served ~200 forwards across the P5 runs and its per-request latency rose
-**~10×** (a warm text embed measured 28 ms early, 6–10 s late; rerank 17 s → 27 s
-on identical inputs). RSS moved only 6.5 → 7.2 GB, so this is **not** memory —
-it is MLX/Metal runtime-state accumulation (root cause not isolated; not thermal
-per `pmset -g therm`). A fresh restart returns it to 28 ms.
+An earlier draft of this doc reported a "~10× degradation" (warm embed 28 ms →
+6–10 s). **That was a measurement artifact** and is retracted: those slow
+readings were `curl` probes to `/health` or `/embed` issued *while a ~27 s
+rerank was in flight* — the single event loop blocks every request behind the
+in-flight model call (A4), so the probe *inherits* the rerank's latency. It was
+never the server slowing down.
 
-`:8942` is a bare `nohup` (util.sh) with **no launchd supervision, no
-KeepAlive, no request-count recycling**. Real-world: a long-lived VL server
-serving RAG becomes progressively unusable. This is a bigger operational gap
-than D1 flagged — it needs supervision **and** a recycle policy (exit after N
-requests, or a scheduled bounce). Recorded for P7 / A4.
+**S1 stress measurement** (`scratchpad/s1_stress.py`, 70 back-to-back reranks of
+6 page images, nothing else touching `:8942`):
+
+| `VL_MX_CLEAR_CACHE` | first-10 median | last-10 median | drift ratio | MLX cache held |
+|---|---|---|---|---|
+| **0 (off)** | 10.79 s | 10.48 s | **0.97** | 9408 MB (flat) |
+| **1 (on)** | 10.84 s | 10.48 s | **0.97** | **0 MB** (freed each request) |
+
+MLX `active_mb` / `cache_mb` / `peak_mb` were **flat the entire 70-rerank run**
+with clear-cache off. No latency drift, no memory growth. So:
+
+- `mx.clear_cache()` after each request (`VL_MX_CLEAR_CACHE`, staged in
+  `vl-retrieval-server.py`) is **not a latency fix** — there is nothing to fix.
+  Its value is **footprint**: it returns the ~9.4 GB MLX buffer cache to the OS
+  between requests, which matters for coexistence with Ollama (~5.4 GB) + oMLX
+  (~4.5 GB) + Docker on a 64 GB box. Whether it costs re-allocation overhead:
+  the ON run showed **zero** overhead (identical latency, drift, active/peak memory) — so it defaults **on**.
+- `VL_MAX_REQUESTS` self-recycle + launchd supervision (O1) are still worth
+  having as **hygiene / a safety net**, but they are no longer urgent — there is
+  no observed drift to bound.
 
 Concurrency (A4), measured incidentally: while a rerank is in flight the server's
 single event loop blocks **every** request including `/health` and `/ready` for
