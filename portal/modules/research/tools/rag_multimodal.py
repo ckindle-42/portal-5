@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import json
 import os
 import time
 from pathlib import Path
@@ -49,6 +50,51 @@ def _get_db():
         os.makedirs(RAG_DIR, exist_ok=True)
         _db = lancedb.connect(RAG_DIR)
     return _db
+
+
+def _meta_path(kb_id: str) -> str:
+    """Sidecar recording which embedding model produced a KB's vectors (A3).
+    A JSON file next to the LanceDB dir — no vector-table schema change."""
+    return os.path.join(RAG_DIR, f"kb_{kb_id}.meta.json")
+
+
+async def _vl_model_id() -> tuple[str, int]:
+    """(embed_model, dim) the live VL server is serving. `_vl_embed_batch`
+    already guards dim; this catches a same-dim different-model swap (the `-6bit`
+    flavour, a re-conversion, a changed VL_EMBED_MODEL default) that stored
+    vectors and live queries would otherwise silently occupy different spaces."""
+    try:
+        async with httpx.AsyncClient(timeout=10) as c:
+            r = await c.get(f"{VL_URL}/health")
+            r.raise_for_status()
+            j = r.json()
+        return str(j.get("embed_model", "?")), int(j.get("embedding_dim", VL_DIM))
+    except (httpx.HTTPError, ValueError) as e:
+        raise _vl_error(e) from e
+
+
+def _read_stamp(kb_id: str) -> dict | None:
+    try:
+        with open(_meta_path(kb_id)) as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+def _write_stamp(kb_id: str, embed_model: str, dim: int) -> None:
+    with open(_meta_path(kb_id), "w") as fh:
+        json.dump({"embed_model": embed_model, "vl_dim": dim, "stamped_at": time.time()}, fh)
+
+
+def _assert_embedding_space(kb_id: str, live_model: str) -> None:
+    """Raise if the KB was stamped with a different embedding model."""
+    stamp = _read_stamp(kb_id)
+    if stamp and stamp.get("embed_model") not in (None, "?", live_model):
+        raise _VLUnavailableError(
+            f"KB '{kb_id}' was embedded with '{stamp['embed_model']}' but the VL "
+            f"server now serves '{live_model}'. Stored vectors and live queries "
+            f"are in different spaces — re-run rag_multimodal.reindex_all()."
+        )
 
 
 def _tname(kb_id: str) -> str:
@@ -275,6 +321,9 @@ async def _ingest(request):
     if not src.is_dir():
         return JSONResponse({"error": f"directory not found: {src}"}, status_code=404)
     try:
+        live_model, live_dim = await _vl_model_id()
+        if not rebuild:
+            _assert_embedding_space(kb_id, live_model)
         if rebuild:
             db = _get_db()
             for name in (_tname(kb_id), _vname(kb_id)):
@@ -298,6 +347,7 @@ async def _ingest(request):
                 if vtbl is None:
                     vtbl = _visual_table(kb_id, create=True)
                 pages_added += await _ingest_pages(vtbl, kb_id, f, rel)
+        _write_stamp(kb_id, live_model, live_dim)
         return JSONResponse(
             {
                 "kb_id": kb_id,
@@ -317,7 +367,12 @@ async def _search(request):
     """kb_search: default multimodal — RRF fusion of text-chunk and page-image
     retrieval. Contract-preserved: {kb_id, query, top_k}, response
     {kb_id, query, num_results, results:[{chunk_id, source_file, chunk_index,
-    text, rerank_score, kind, page?}]}."""
+    text, fused_score, reranker_prob, kind, page?}]}.
+
+    `fused_score` is the RRF fusion value (was misnamed `rerank_score`).
+    `reranker_prob` is the VL reranker's calibrated sigmoid(yes-no) probability
+    for visual rows and null for text rows — carried through for P5's
+    score-aware fusion work; the fusion itself is still rank-position RRF."""
     args = (await request.json()).get("arguments", {})
     kb_id = args.get("kb_id", "")
     query = args.get("query", "")
@@ -325,13 +380,15 @@ async def _search(request):
     if not kb_id or not query:
         return JSONResponse({"error": "kb_id and query required"}, status_code=400)
     try:
-        qvec = await _vl_embed(text=query, is_query=True)
-        scores: dict = {}
-        payload: dict = {}
         ttbl = _text_table(kb_id)
         vtbl = _visual_table(kb_id)
         if ttbl is None and vtbl is None:
             return JSONResponse({"error": f"unknown kb_id '{kb_id}'"}, status_code=404)
+        live_model, _ = await _vl_model_id()
+        _assert_embedding_space(kb_id, live_model)
+        qvec = await _vl_embed(text=query, is_query=True)
+        scores: dict = {}
+        payload: dict = {}
         if ttbl is not None:
             for rank, r in enumerate(ttbl.search(qvec).limit(top_k * 3).to_list()):
                 key = ("text", r["chunk_id"])
@@ -342,6 +399,7 @@ async def _search(request):
                     "chunk_index": r["chunk_index"],
                     "text": r["text"],
                     "kind": "text",
+                    "reranker_prob": None,
                 }
         if vtbl is not None:
             coarse = vtbl.search(qvec).limit(top_k * 3).to_list()
@@ -358,9 +416,10 @@ async def _search(request):
                     "page": r["page"],
                     "text": f"[page image {r['source_file']} p{r['page']}]",
                     "kind": "visual",
+                    "reranker_prob": round(float(o["score"]), 5),
                 }
         fused = sorted(scores.items(), key=lambda kv: -kv[1])[:top_k]
-        results = [{**payload[k], "rerank_score": round(s, 5)} for k, s in fused]
+        results = [{**payload[k], "fused_score": round(s, 5)} for k, s in fused]
         return JSONResponse(
             {"kb_id": kb_id, "query": query, "num_results": len(results), "results": results}
         )
@@ -371,7 +430,7 @@ async def _search(request):
 async def _search_all(request):
     """kb_search_all: multimodal search across all KBs. Contract-preserved:
     {query, top_k}, response {query, num_results, results:[{kb_id, source_file,
-    text, rerank_score, kind}]}."""
+    text, fused_score, kind}]}."""
     args = (await request.json()).get("arguments", {})
     query = args.get("query", "")
     top_k = min(int(args.get("top_k", 5)), 30)
@@ -391,7 +450,7 @@ async def _search_all(request):
             for r in body.get("results", []):
                 r["kb_id"] = kb_id
                 merged.append(r)
-        merged.sort(key=lambda r: -r.get("rerank_score", 0))
+        merged.sort(key=lambda r: -r.get("fused_score", 0))
         merged = merged[:top_k]
         return JSONResponse({"query": query, "num_results": len(merged), "results": merged})
     except Exception as e:  # noqa: BLE001
@@ -402,6 +461,7 @@ async def reindex_all() -> dict:
     """In-task migration: re-embed every existing KB's text with the VL model
     (the old tables are 1024-d; VL is VL_DIM, so tables are recreated)."""
     db = _get_db()
+    live_model, live_dim = await _vl_model_id()
     done: dict = {}
     for t in [x for x in db.table_names() if x.startswith("kb_") and not x.endswith("_visual")]:
         kb_id = t[3:]
@@ -428,6 +488,7 @@ async def reindex_all() -> dict:
         ]
         if buf:
             new.add(buf)
+        _write_stamp(kb_id, live_model, live_dim)
         done[kb_id] = len(buf)
     return {"reindexed_kbs": done}
 

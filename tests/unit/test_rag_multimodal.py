@@ -57,3 +57,57 @@ async def test_vl_embed_batch_empty_is_noop(monkeypatch):
     _FakeClient.posted = []
     assert await rm._vl_embed_batch([]) == []
     assert _FakeClient.posted == []
+
+
+# ── A3: embedding-model identity stamp ──────────────────────────────────────
+
+
+def test_write_then_read_stamp_roundtrips(tmp_path, monkeypatch):
+    monkeypatch.setattr(rm, "RAG_DIR", str(tmp_path))
+    rm._write_stamp("kb1", "mlx-community/Qwen3-VL-Embedding-2B-mxfp8", 2048)
+    got = rm._read_stamp("kb1")
+    assert got["embed_model"] == "mlx-community/Qwen3-VL-Embedding-2B-mxfp8"
+    assert got["vl_dim"] == 2048
+    assert rm._read_stamp("absent") is None
+
+
+def test_assert_embedding_space_rejects_same_dim_different_model(tmp_path, monkeypatch):
+    monkeypatch.setattr(rm, "RAG_DIR", str(tmp_path))
+    rm._write_stamp("kb1", "model-A-2048", 2048)
+    rm._assert_embedding_space("kb1", "model-A-2048")  # match: fine
+    with pytest.raises(rm._VLUnavailableError, match="different spaces"):
+        rm._assert_embedding_space("kb1", "model-B-2048")
+    # an unstamped KB (legacy) is not blocked
+    rm._assert_embedding_space("kb-legacy", "model-B-2048")
+
+
+class _HealthClient:
+    payload = {"embed_model": "model-X", "embedding_dim": 2048}
+
+    def __init__(self, *a, **k):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *a):
+        pass
+
+    async def get(self, url):
+        return _FakeHealthResp(_HealthClient.payload)
+
+
+class _FakeHealthResp:
+    def __init__(self, p):
+        self._p = p
+
+    def raise_for_status(self):
+        pass
+
+    def json(self):
+        return self._p
+
+
+async def test_vl_model_id_reads_health(monkeypatch):
+    monkeypatch.setattr(rm.httpx, "AsyncClient", _HealthClient)
+    assert await rm._vl_model_id() == ("model-X", 2048)
