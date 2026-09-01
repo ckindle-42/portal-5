@@ -8,6 +8,8 @@ modules:
     enabled: true
   compliance:
     enabled: true
+  data:
+    enabled: true
   detection:
     enabled: true
   documents:
@@ -36,6 +38,7 @@ launched_mcp_ids:
 - cad_render
 - compliance
 - context7
+- data
 - detection
 - detections
 - docker

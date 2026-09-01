@@ -1,11 +1,11 @@
 ---
 id: unit-fact-tool-registry
 kind: what
-title: 137 MCP tools across 31 servers
+title: 141 MCP tools across 32 servers
 sources:
 - type: code
   path: portal/modules/*/tools/*_mcp.py
-  commit: 78646dbcbc9a
+  commit: 72eb9714da3a
 claims: []
 confidence: high
 tags:
@@ -13,7 +13,7 @@ tags:
 - tools
 - mcp
 created_at: 1784049584.748966
-updated_at: 1788232375.451961
+updated_at: 1788232840.1671638
 ---
 
 # MCP tool registry
@@ -27,6 +27,7 @@ What each MCP server actually registers — `@mcp.tool()` defs, or `@mcp.custom_
 | `cad_render` | `convert_cad`, `generate_scad`, `render_mesh`, `render_openscad` |
 | `compliance` | `lookup_control`, `map_frameworks`, `nerc_cip_requirement`, `patch_evidence`, `refresh_catalogs`, `search_controls` |
 | `context7` | `execute_bash`, `execute_nodejs`, `execute_powershell`, `execute_python`, `list_sessions`, `reset_session`, `sandbox_status` |
+| `data` | `attach_source`, `list_session`, `profile_table`, `run_sql` |
 | `detection` | `compile_yara`, `convert_sigma`, `query_splunk`, `query_windows_events`, `scan_yara`, `validate_sigma` |
 | `detections` | `spl_diff_hypothesis`, `spl_explain_detection`, `spl_search_library`, `spl_techniques_covered`, `spl_validate_syntax` |
 | `docker` | _(unresolved — server file not found)_ |

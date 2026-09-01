@@ -486,6 +486,13 @@ PY
     _ensure_native_mcp_service \
         "detection-mcp" "com.portal5.detection-mcp" \
         "${DETECTION_MCP_PORT:-8938}" "detection-mcp"
+
+    # ── Data MCP (host-native, :8939) ──────────────────────────────────────
+    # Sandboxed local DuckDB conversational analytics. Host-native — duckdb
+    # lives in the .venv, not Dockerfile.mcp.
+    _ensure_native_mcp_service \
+        "data-mcp" "com.portal5.data-mcp" \
+        "${DATA_MCP_PORT:-8939}" "data-mcp"
 }
 
 # ── Teardown helper (shared by 'down' and the pre-start phase of 'up') ────────
@@ -638,6 +645,19 @@ _do_down() {
             echo "[portal-5] Detection MCP stopped."
         else
             echo "[portal-5] Detection MCP: not running (nothing to stop)."
+        fi
+
+        # Data MCP (:8939)
+        if launchctl print "gui/$(id -u)/com.portal5.data-mcp" &>/dev/null 2>&1; then
+            launchctl bootout "gui/$(id -u)/com.portal5.data-mcp" 2>/dev/null || true
+            rm -f /tmp/portal-data-mcp.pid
+            echo "[portal-5] Data MCP stopped (launchd)."
+        elif [ -f /tmp/portal-data-mcp.pid ] && kill -0 "$(cat /tmp/portal-data-mcp.pid)" 2>/dev/null; then
+            kill "$(cat /tmp/portal-data-mcp.pid)" 2>/dev/null || true
+            rm -f /tmp/portal-data-mcp.pid
+            echo "[portal-5] Data MCP stopped."
+        else
+            echo "[portal-5] Data MCP: not running (nothing to stop)."
         fi
 
         # ARM64 embedding server (:8917)

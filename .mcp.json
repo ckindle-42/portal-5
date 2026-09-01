@@ -137,6 +137,10 @@
         "--transport",
         "stdio"
       ]
+    },
+    "portal-data": {
+      "type": "http",
+      "url": "http://localhost:8939/mcp"
     }
   }
 }

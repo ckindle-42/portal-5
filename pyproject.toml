@@ -66,6 +66,9 @@ mcp = [
     "pysigma-backend-elasticsearch>=1.1",
     "pysigma-backend-kusto>=1.0",
     "yara-python>=4.5",
+    # Data & analytics (data module) — DuckDB conversational analytics.
+    # Lazy-imported on first tool call; pandas is already a transitive dep.
+    "duckdb>=1.1",
 ]
 generation = []
 rag = [
