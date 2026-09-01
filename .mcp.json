@@ -128,6 +128,15 @@
     "portal-detection": {
       "type": "http",
       "url": "http://localhost:8938/mcp"
+    },
+    "portal-context7": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp",
+        "--transport",
+        "stdio"
+      ]
     }
   }
 }

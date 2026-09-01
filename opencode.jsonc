@@ -241,6 +241,10 @@
       "command": ["uvx", "--from", "git+https://github.com/oraios/serena",
         "serena", "start-mcp-server", "--project", "/Users/chris/projects/portal-5"]
     },
+    "portal-context7": {
+      "type": "local",
+      "command": ["npx", "-y", "@upstash/context7-mcp", "--transport", "stdio"]
+    },
     "portal-music": {
       "type": "remote",
       "url": "http://localhost:8912/mcp"
