@@ -252,6 +252,10 @@ surfaces:
   globs:
   - portal/platform/memory/test_graph_memory.py
   unit: unit-capability-memory
+- name: file-portal-platform-lance_guard
+  globs:
+  - portal/platform/lance_guard.py
+  unit: unit-capability-memory
 - name: file-portal-platform-storage-__init__
   globs:
   - portal/platform/storage/__init__.py
