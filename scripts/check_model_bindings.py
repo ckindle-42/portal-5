@@ -17,10 +17,16 @@ omlx-shadow-shift keys), config/promptfoo/*.yaml providers[*].id.
 Does NOT check `preferred_models`/`suggested_model` — confirmed dead
 metadata, never consumed by the serving path.
 
+A binding resolves if its tag matches an installed Ollama tag (case-insensitively
+— Ollama's own tag lookup is case-folded, so ``:Q4_K_M`` and ``:q4_K_M`` are the
+same model) OR an oMLX-served model id (``:8085/v1/models``) — omlx-* backends and
+oMLX personas pin those and they never appear in Ollama's tag list.
+
 Usage:
     python3 scripts/check_model_bindings.py                # full live gate
     python3 scripts/check_model_bindings.py --check-tag <t> # is <t> safe to delete?
     python3 scripts/check_model_bindings.py --ollama-url http://host:11434
+    python3 scripts/check_model_bindings.py --omlx-url http://host:8085
 
 Exit codes: 0 = all bindings resolve, 1 = at least one orphan found.
 """
@@ -42,6 +48,17 @@ def live_model_tags(ollama_url: str) -> set[str]:
     resp = httpx.get(f"{ollama_url}/api/tags", timeout=10)
     resp.raise_for_status()
     return {m["name"] for m in resp.json().get("models", [])}
+
+
+def live_omlx_models(omlx_url: str) -> set[str]:
+    """oMLX-served model ids (:8085/v1/models). Empty set if oMLX is unreachable —
+    a bench box may run Ollama only, and an omlx-* binding is not an error there."""
+    try:
+        resp = httpx.get(f"{omlx_url}/v1/models", timeout=10)
+        resp.raise_for_status()
+        return {m["id"] for m in resp.json().get("data", [])}
+    except httpx.HTTPError:
+        return set()
 
 
 Binding = tuple[str, str, str]
@@ -110,7 +127,15 @@ def collect_bindings(repo_root: Path = REPO_ROOT) -> list[Binding]:
 
 
 def find_orphans(bindings: list[Binding], live_tags: set[str]) -> list[Binding]:
-    return [(src, field, tag) for src, field, tag in bindings if tag not in live_tags]
+    """A tag resolves if it matches an Ollama tag case-insensitively (Ollama's own
+    lookup is case-folded) or an oMLX model id exactly (case matters there)."""
+    ollama_folded = {t.lower() for t in live_tags}
+    omlx_exact = {t for t in live_tags if "/" not in t and ":" not in t}  # oMLX ids
+    return [
+        (src, field, tag)
+        for src, field, tag in bindings
+        if tag.lower() not in ollama_folded and tag not in omlx_exact
+    ]
 
 
 def main() -> int:
@@ -118,6 +143,7 @@ def main() -> int:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("--ollama-url", default="http://localhost:11434")
+    parser.add_argument("--omlx-url", default="http://localhost:8085")
     parser.add_argument(
         "--check-tag",
         help="Pre-delete check: report which bindings would break if this exact tag were removed.",
@@ -137,13 +163,18 @@ def main() -> int:
         return 0
 
     try:
-        live_tags = live_model_tags(args.ollama_url)
+        ollama_tags = live_model_tags(args.ollama_url)
     except httpx.HTTPError as exc:
         print(f"Cannot reach Ollama at {args.ollama_url}: {exc}", file=sys.stderr)
         return 1
+    omlx_ids = live_omlx_models(args.omlx_url)
+    live_tags = ollama_tags | omlx_ids
 
     orphans = find_orphans(bindings, live_tags)
-    print(f"{len(bindings)} model binding(s) checked against {len(live_tags)} installed tag(s).")
+    print(
+        f"{len(bindings)} model binding(s) checked against {len(ollama_tags)} Ollama tag(s) "
+        f"+ {len(omlx_ids)} oMLX model(s)."
+    )
     if not orphans:
         print("PASS — every binding resolves to an installed model.")
         return 0
