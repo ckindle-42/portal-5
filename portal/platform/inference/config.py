@@ -31,6 +31,7 @@ ModuleName = Literal[
     "cad",
     "coding",
     "compliance",
+    "detection",
     "documents",
     "eval",
     "general",

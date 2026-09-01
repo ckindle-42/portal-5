@@ -124,6 +124,10 @@
     "portal-compliance": {
       "type": "http",
       "url": "http://localhost:8937/mcp"
+    },
+    "portal-detection": {
+      "type": "http",
+      "url": "http://localhost:8938/mcp"
     }
   }
 }

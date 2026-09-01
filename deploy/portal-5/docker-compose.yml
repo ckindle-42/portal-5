@@ -165,6 +165,7 @@ services:
       - MCP_VULNINTEL_URL=http://host.docker.internal:8934
       - MCP_ICSOT_URL=http://host.docker.internal:8936
       - MCP_COMPLIANCE_URL=http://host.docker.internal:8937
+      - MCP_DETECTION_URL=http://host.docker.internal:8938
       - TOOL_DISPATCH_TIMEOUT_S=${TOOL_DISPATCH_TIMEOUT_S:-180}
       - TOOL_REGISTRY_REFRESH_S=${TOOL_REGISTRY_REFRESH_S:-300}
     extra_hosts:

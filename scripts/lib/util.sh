@@ -478,6 +478,14 @@ PY
     _ensure_native_mcp_service \
         "compliance-mcp" "com.portal5.compliance-mcp" \
         "${COMPLIANCE_MCP_PORT:-8937}" "compliance-mcp"
+
+    # ── Detection MCP (host-native, :8938) ─────────────────────────────────
+    # pySigma conversion + YARA + promoted read-only lab-scoped SIEM search.
+    # Host-native — pySigma/yara live in the .venv; the live tools reuse the
+    # security module's SIEM primitives (not packaged into Dockerfile.mcp).
+    _ensure_native_mcp_service \
+        "detection-mcp" "com.portal5.detection-mcp" \
+        "${DETECTION_MCP_PORT:-8938}" "detection-mcp"
 }
 
 # ── Teardown helper (shared by 'down' and the pre-start phase of 'up') ────────
@@ -617,6 +625,19 @@ _do_down() {
             echo "[portal-5] Compliance MCP stopped."
         else
             echo "[portal-5] Compliance MCP: not running (nothing to stop)."
+        fi
+
+        # Detection MCP (:8938)
+        if launchctl print "gui/$(id -u)/com.portal5.detection-mcp" &>/dev/null 2>&1; then
+            launchctl bootout "gui/$(id -u)/com.portal5.detection-mcp" 2>/dev/null || true
+            rm -f /tmp/portal-detection-mcp.pid
+            echo "[portal-5] Detection MCP stopped (launchd)."
+        elif [ -f /tmp/portal-detection-mcp.pid ] && kill -0 "$(cat /tmp/portal-detection-mcp.pid)" 2>/dev/null; then
+            kill "$(cat /tmp/portal-detection-mcp.pid)" 2>/dev/null || true
+            rm -f /tmp/portal-detection-mcp.pid
+            echo "[portal-5] Detection MCP stopped."
+        else
+            echo "[portal-5] Detection MCP: not running (nothing to stop)."
         fi
 
         # ARM64 embedding server (:8917)
