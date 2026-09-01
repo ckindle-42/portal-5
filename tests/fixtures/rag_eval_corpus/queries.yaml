@@ -1,0 +1,100 @@
+# RAG retrieval evaluation query set (TASK_VL_RETRIEVAL_HARDENING_AND_CLOSEOUT_V2 P4).
+# category: diagram_only | prose_only | mixed
+# target_file: source PDF basename as ingested
+# target_page: 0-indexed page whose retrieval counts as a hit; null = any page of the file
+# For diagram_only synthetic docs the discriminating answer is ONLY on the
+# rendered figure (page 1, 0-indexed) — page-1 prose is generic governance text.
+
+queries:
+  # ── diagram-only · synthetic P&ID (small text in figure) ──
+  - {id: syn-pid-01, category: diagram_only, target_file: pid_reactor_feed.pdf, target_page: 1,
+     query: "In the reactor feed loop, which control valve is air-to-open and fail-closed?"}
+  - {id: syn-pid-02, category: diagram_only, target_file: pid_reactor_feed.pdf, target_page: 1,
+     query: "What is the flow controller setpoint on the reactor feed, in gpm?"}
+  - {id: syn-pid-03, category: diagram_only, target_file: pid_reactor_feed.pdf, target_page: 1,
+     query: "Interlock I-3 trips which pump and closes which valve on a level high-high?"}
+  - {id: syn-pid-04, category: diagram_only, target_file: pid_recycle_compressor.pdf, target_page: 1,
+     query: "Which valve is the anti-surge valve on the K-501 recycle compressor?"}
+  - {id: syn-pid-05, category: diagram_only, target_file: pid_recycle_compressor.pdf, target_page: 1,
+     query: "At what pressure ratio does the compressor anti-surge valve open?"}
+  - {id: syn-pid-06, category: diagram_only, target_file: pid_recycle_compressor.pdf, target_page: 1,
+     query: "What is the tag of the check valve downstream of cooler E-506?"}
+  # ── diagram-only · synthetic network / ESP (IPs only on the drawing) ──
+  - {id: syn-net-01, category: diagram_only, target_file: esp_plant_b.pdf, target_page: 1,
+     query: "What is the IP address of PLC-B7 inside ESP-B at Plant B?"}
+  - {id: syn-net-02, category: diagram_only, target_file: esp_plant_b.pdf, target_page: 1,
+     query: "The Plant B firewall allows inbound TCP 502 from which single source address?"}
+  - {id: syn-net-03, category: diagram_only, target_file: control_center_arch.pdf, target_page: 1,
+     query: "In the Purdue reference architecture, what address is assigned to the safety PLC at Level 1?"}
+  - {id: syn-net-04, category: diagram_only, target_file: control_center_arch.pdf, target_page: 1,
+     query: "Which host sits at 172.19.5.30 in the Level 3.5 DMZ?"}
+  - {id: syn-net-05, category: diagram_only, target_file: control_center_arch.pdf, target_page: 1,
+     query: "What device enforces the one-way path from the Level 3 historian to the 3.5 replica?"}
+  # ── diagram-only · synthetic HMI ──
+  - {id: syn-hmi-01, category: diagram_only, target_file: hmi_alarm_summary.pdf, target_page: 1,
+     query: "On the Unit 2 alarm summary, which tag has the bearing temperature high-high alarm?"}
+  - {id: syn-hmi-02, category: diagram_only, target_file: hmi_alarm_summary.pdf, target_page: 1,
+     query: "Which alarm is shelved on the Unit 2 summary and when does the shelve expire?"}
+  - {id: syn-hmi-03, category: diagram_only, target_file: hmi_trend_group.pdf, target_page: 1,
+     query: "In trend group TG-14 for the deaerator, what is the last value of temperature point TT-1403?"}
+  - {id: syn-hmi-04, category: diagram_only, target_file: hmi_trend_group.pdf, target_page: 1,
+     query: "What is the pressure span of PT-1401 on the deaerator trend group?"}
+  # ── diagram-only · synthetic electrical / legend / table ──
+  - {id: syn-ele-01, category: diagram_only, target_file: relay_settings_12l4.pdf, target_page: 1,
+     query: "What is the instantaneous phase overcurrent (50P1) pickup for feeder 12L4?"}
+  - {id: syn-ele-02, category: diagram_only, target_file: relay_settings_12l4.pdf, target_page: 1,
+     query: "Which relay model protects feeder 12L4 and what is its undervoltage (27) pickup?"}
+  - {id: syn-leg-01, category: diagram_only, target_file: plot_plan_legend.pdf, target_page: 1,
+     query: "On the site plot plan legend, what does the symbol ESD-2 mean?"}
+  - {id: syn-leg-02, category: diagram_only, target_file: plot_plan_legend.pdf, target_page: 1,
+     query: "Which legend code marks a gas detector and where is the alternate muster point?"}
+  - {id: syn-tab-01, category: diagram_only, target_file: locked_valve_schedule.pdf, target_page: 1,
+     query: "In the locked-valve schedule, why is LC-241 (nitrogen to the reactor jacket) locked closed?"}
+  - {id: syn-tab-02, category: diagram_only, target_file: locked_valve_schedule.pdf, target_page: 1,
+     query: "Which valve on the locked-valve schedule is car-sealed open on the PSV-410 A inlet?"}
+
+  # ── prose-only · public NERC CIP standards ──
+  - {id: prose-cip-01, category: prose_only, target_file: cip-005-7.pdf, target_page: null,
+     query: "How often must each Electronic Security Perimeter be reviewed under the NERC CIP standards?"}
+  - {id: prose-cip-02, category: prose_only, target_file: cip-005-7.pdf, target_page: null,
+     query: "What are the NERC CIP requirements for interactive remote access and Intermediate Systems?"}
+  - {id: prose-cip-03, category: prose_only, target_file: cip-007-6.pdf, target_page: null,
+     query: "Under NERC CIP-007, what is required for security patch management and evaluation timelines?"}
+  - {id: prose-cip-04, category: prose_only, target_file: cip-007-6.pdf, target_page: null,
+     query: "What ports and services controls does NERC CIP-007 require on Cyber Assets?"}
+  - {id: prose-cip-05, category: prose_only, target_file: cip-008-6.pdf, target_page: null,
+     query: "What must a Cyber Security Incident Response Plan contain under NERC CIP-008?"}
+  - {id: prose-cip-06, category: prose_only, target_file: cip-010-4.pdf, target_page: null,
+     query: "What are the NERC CIP-010 configuration change management and vulnerability assessment requirements?"}
+  - {id: prose-cip-07, category: prose_only, target_file: cip-002-5.1a.pdf, target_page: null,
+     query: "How does NERC CIP-002 categorize BES Cyber Systems as high, medium, or low impact?"}
+  - {id: prose-cip-08, category: prose_only, target_file: cip-004-7.pdf, target_page: null,
+     query: "What personnel risk assessment and training does NERC CIP-004 require before granting access?"}
+  - {id: prose-cip-09, category: prose_only, target_file: cip-009-6.pdf, target_page: null,
+     query: "What recovery plan and backup requirements does NERC CIP-009 impose for BES Cyber Systems?"}
+  - {id: prose-cip-10, category: prose_only, target_file: cip-013-2.pdf, target_page: null,
+     query: "What does NERC CIP-013 require for supply chain cyber security risk management?"}
+  - {id: prose-cip-11, category: prose_only, target_file: cip-014-3.pdf, target_page: null,
+     query: "What physical security requirements does NERC CIP-014 impose on critical transmission stations?"}
+  - {id: prose-cip-12, category: prose_only, target_file: cip-011-3.pdf, target_page: null,
+     query: "What BES Cyber System Information handling does NERC CIP-011 require?"}
+  - {id: prose-cip-13, category: prose_only, target_file: cip-006-6.pdf, target_page: null,
+     query: "What physical access control and monitoring does NERC CIP-006 require for Physical Security Perimeters?"}
+  - {id: prose-cip-14, category: prose_only, target_file: cip-012-2.pdf, target_page: null,
+     query: "What are the NERC CIP-012 requirements for protecting communications between Control Centers?"}
+  - {id: prose-nist-01, category: prose_only, target_file: nist_800_82r3_arch_slice.pdf, target_page: null,
+     query: "How does NIST SP 800-82 describe the differences between IT and OT security constraints and priorities?"}
+  - {id: prose-nist-02, category: prose_only, target_file: nist_800_82r3_arch_slice.pdf, target_page: null,
+     query: "What does NIST 800-82 recommend for applying the Cybersecurity Framework to an OT environment?"}
+
+  # ── mixed ──
+  - {id: mixed-nist-01, category: mixed, target_file: nist_800_82r3_arch_slice.pdf, target_page: 19,
+     query: "Show the NIST 800-82 defense-in-depth reference architecture for a SCADA system with control-center and remote-station zones."}
+  - {id: mixed-nist-02, category: mixed, target_file: nist_800_82r3_arch_slice.pdf, target_page: 19,
+     query: "What does the NIST 800-82 example SCADA system look like, including the serial radio link to remote stations?"}
+  - {id: mixed-cip-01, category: mixed, target_file: cip-014-3.pdf, target_page: null,
+     query: "Illustrate the NERC CIP-014 physical security assessment and third-party review process."}
+  - {id: mixed-syn-01, category: mixed, target_file: esp_plant_b.pdf, target_page: 1,
+     query: "Describe the electronic security perimeter at Plant B and the addresses of the assets inside it."}
+  - {id: mixed-syn-02, category: mixed, target_file: hmi_alarm_summary.pdf, target_page: null,
+     query: "What alarms are standing on Unit 2 and what does the alarm management philosophy say about rationalization?"}
