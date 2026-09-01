@@ -31,6 +31,14 @@ dependencies = [
     "jsonschema>=4.20.0",
 ]
 
+# ── Dependency policy (TASK_VL_RUNTIME_LANDING_V4) ───────────────────────────
+# No upper bounds without a receipt: a `<` constraint needs (a) a linked upstream
+#   issue or a reproducing failure and (b) a sunset version or date. A cap whose
+#   stated reason is no longer true is a bug, not hygiene.
+# Floors track reality: a floor exists to compel movement, not permit stagnation.
+#   When a dependency moves, its floor moves with it.
+# The lock must reproduce the runtime: a hand-patched venv is an outage waiting
+#   for the next `uv sync`. Fix the lock, and keep the drift gate green.
 [project.optional-dependencies]
 channels = [
     "python-telegram-bot>=20.7",
@@ -41,6 +49,9 @@ notifications = [
     "APScheduler>=3.10.0",
 ]
 mcp = [
+    # Cap receipt: MCP SDK v2 is the current major; v3 has no release and no
+    # migration path yet. Sunset: re-evaluate when mcp 3.0.0 ships or 2026-12-31,
+    # whichever is first.
     "mcp>=2.0.0,<3.0.0",
     "requests>=2.31.0",
     # Document generation
@@ -52,7 +63,7 @@ mcp = [
     # Audio — TTS. Cloning is Higgs Audio v2 via mlx-audio (host mlx-speech.py); Kokoro narration via mlx-audio.
     "kokoro-onnx>=0.4.0",
     "soundfile>=0.12.1",
-    "huggingface_hub>=0.20.0",
+    "huggingface_hub>=1.9.1",
     # Audio — transcription
     "faster-whisper>=1.0.0",
     "httpx>=0.26.0",
@@ -71,36 +82,54 @@ mcp = [
     "duckdb>=1.1",
     # Multimodal RAG (research module) — render PDF pages to images for the
     # Qwen3-VL retrieval server. Lazy-imported during kb_ingest.
-    "pymupdf>=1.24",
+    "pymupdf>=1.28.2",
 ]
 generation = []
 rag = [
     # MLX-native embeddings + reranking (Qwen3-Embedding/Reranker family)
     # Replaces sentence-transformers CPU path for Apple Silicon.
-    "mlx-embeddings>=0.0.3",
+    # Floor 0.1.0: first release with the `qwen3_vl` module (multimodal VL
+    # embedding + reranking). 0.0.x has no VL path.
+    "mlx-embeddings>=0.1.0",
+    # transformers 5.x gates `AutoImageProcessor` behind
+    # `@requires(backends=("vision",))` where `vision` == torchvision; the
+    # Qwen3-VL processor in mlx-embeddings imports models/qwen3_vl/processing_*.
+    # Floor 5.16.1: taken deliberately (the working venv had 5.15.0) — the
+    # qwen3_vl backend mapping is byte-identical across 5.14/5.15/5.16, so the
+    # move is safe and keeps the lock current. See torchvision in apple-silicon.
+    "transformers>=5.16.1",
 ]
 bully = [
     # Defensive Bully ORG projection (bully/organ.py) -- embedded local
     # vector store, no server/port (MASTER: "never created by this build:
     # ... a second vector store"; this is a client library, not a service).
-    "lancedb>=0.37.0",
+    "lancedb>=0.37.1",
 ]
 apple-silicon = [
     # MLX dual-server: mlx-lm for text-only models, mlx-vlm for VLM models.
     # mlx-lm>=0.31 required: qwen3_next moved to mlx_vlm in 0.31+; stay current for
     # new model architectures (Laguna SWA, Mamba2, etc.) and thread-local stream fixes.
-    "mlx-lm>=0.31",
-    "mlx-vlm>=0.1.0",
+    "mlx-lm>=0.31.3",
+    "mlx-vlm>=0.6.13",
     # MLX Speech: unified TTS (Kokoro + Qwen3-TTS + Higgs Audio v2 voice clone) + ASR (Qwen3-ASR) on Apple Silicon
-    # 0.4.8 ships mlx_audio.vad (Sortformer diarization) alongside stt; cap below
-    # 0.5 to avoid the transformers>=5.16 transitive bump until it's vetted.
-    "mlx-audio>=0.4.8,<0.5.0",
+    # 0.4.8 ships mlx_audio.vad (Sortformer diarization) alongside stt.
+    # The `<0.5.0` cap is removed: its stated reason (avoid transformers>=5.16)
+    # is void — 5.16.1 is already required by the qwen3_vl path (see `rag`), and
+    # the transformers version is irrelevant to it. Floor is the version P5 verifies.
+    "mlx-audio>=0.4.8",
     # MLX Transcribe: Parakeet-TDT-v3 transcript + Sortformer speaker diarization,
     # merged at word level on Apple Silicon (both native in mlx-audio, ungated —
     # no pyannote, no HF token). The non-Apple-Silicon fallback is faster-whisper
     # (base deps), which bundles its own CTranslate2 runtime — no mlx-whisper.
-    "torch>=2.1.0",
-    "torchaudio>=2.1.0",
+    "torch>=2.13.0",
+    "torchaudio>=2.11.0",
+    # torchvision: NOT used for inference — preprocessing runs on the PIL path
+    # (`Qwen2VLImageProcessorPil`). It is required only to satisfy transformers 5.x's
+    # class-level `@requires(backends=("vision",))` gate on `AutoImageProcessor`,
+    # which the Qwen3-VL processor constructs. Pinned exact: torchvision 0.28.0
+    # requires `torch==2.13.0` (verified on PyPI); a newer torchvision would drag
+    # torch with it and buys nothing (PIL path). Sunset the pin when torch moves.
+    "torchvision==0.28.0",
     # Reference-clip resampling for voice cloning (mlx-speech.py _voice_clone)
     "scipy>=1.10.0",
     # Kokoro TTS phonemizer dependencies (required by mlx-audio Kokoro backend)
@@ -110,7 +139,7 @@ apple-silicon = [
     "phonemizer>=3.2.0",
 ]
 dev = [
-    "mcp>=2.0.0,<3.0.0",
+    "mcp>=2.0.0,<3.0.0",  # cap receipt: see the `mcp` extra above
     "promptfoo>=0.1.4",    # PyPI wrapper around the promptfoo Node CLI (dev-only LLM quality evals)
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
@@ -118,7 +147,7 @@ dev = [
     "pytest-xdist>=3.5.0",
     "ruff>=0.1.0",
     "mypy>=1.7.0",
-    "lancedb>=0.37.0",     # bully/organ.py's ORG projection -- needed to run tests/security/bully/
+    "lancedb>=0.37.1",     # bully/organ.py's ORG projection -- needed to run tests/security/bully/
 ]
 
 [project.scripts]

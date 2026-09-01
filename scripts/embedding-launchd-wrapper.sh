@@ -73,8 +73,27 @@ fi
 # GPU-native via mlx_embeddings on :8917. Runs in the project venv (mlx_embeddings
 # is a project dependency), not the retired CPU venv. uv is not on launchd's PATH,
 # so its absolute path is used.
+#
+# TASK_VL_RUNTIME_LANDING_V4 P1.5 — drift guard.
+# A plain `uv run` re-syncs the venv to uv.lock on every invocation. Between
+# 2026-04 and 2026-09 the venv was hand-patched to a VL-capable mlx-embeddings
+# 0.1.0 / torch 2.13.0 while the lock still resolved 0.0.5 / 2.11.0, so the next
+# restart here would have silently destroyed the working runtime. The lock is now
+# reconciled to the runtime; this wrapper runs with `--no-sync` (never mutate the
+# venv from launchd) and asserts venv==lock up front, failing loudly on drift so
+# the divergence can never again pass unnoticed.
 UV_BIN="${UV_BIN:-${HOME}/.local/bin/uv}"
-exec "$UV_BIN" run --project "$PORTAL_ROOT" python3 "$PORTAL_ROOT/scripts/embedding-server-mlx.py" \
+
+if ! "$UV_BIN" sync --project "$PORTAL_ROOT" --all-extras --frozen --check >/dev/null 2>&1; then
+    echo "ERROR: project venv does not match uv.lock (dependency drift)." >&2
+    echo "       Refusing to start :8917 against an unknown runtime." >&2
+    echo "       Run 'uv sync --all-extras' (after reviewing the diff) or restore" >&2
+    echo "       a known-good venv from ~/.portal5/backups/." >&2
+    "$UV_BIN" sync --project "$PORTAL_ROOT" --all-extras --frozen --check 2>&1 | tail -40 >&2 || true
+    exit 1
+fi
+
+exec "$UV_BIN" run --project "$PORTAL_ROOT" --no-sync python3 "$PORTAL_ROOT/scripts/embedding-server-mlx.py" \
     --model "${EMBEDDING_MODEL_ARM_A:-${HOME}/.portal5/models/Qwen3-Embedding-0.6B-mxfp8}" \
     --port "$EMBEDDING_HOST_PORT" \
     --host 0.0.0.0
