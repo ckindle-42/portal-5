@@ -107,22 +107,34 @@ contributions are not exactly equal, B1 is wrong" — they are exactly equal).
 The Qwen3-VL reranker already produces the signal that fixes this
 (`reranker_prob` 0.688 vs ≤0.41) and `_search` discards it.
 
-### Fusion options
+### Fusion options — measured (37 queries, top_k=3, same ingest)
 
-`scripts/rag_retrieval_eval.py --fusion {rerank_tiebreak,score_aware}` re-runs
-the 37 diagram_only + prose_only queries against the same ingest:
+| fusion | diagram r@1 | diagram MRR | prose r@1 | prose r@5 | prose MRR |
+|---|---|---|---|---|---|
+| **rrf** (baseline) | 0.000 | 0.500 | 0.625 | 0.938 | 0.760 |
+| **rerank_tiebreak** | **1.000** | 1.000 | 0.625 = | 0.812 ↓ | 0.719 ↓ |
+| **score_aware** | **1.000** | 1.000 | 0.625 = | 0.812 ↓ | 0.719 ↓ |
 
-- **rerank_tiebreak** — keep RRF; break a fused-score tie on the visual arm's
-  `reranker_prob` (text rows, which have none, sort after any visual row at the
-  same score). ~5 lines.
-- **score_aware** — the visual arm contributes `RRF + reranker_prob` instead of
-  RRF alone.
+- `rerank_tiebreak` breaks a fused-score tie on the visual arm's `reranker_prob`;
+  `score_aware` adds `reranker_prob` to the visual arm's contribution.
+  **They produce identical output** — when the text and visual arms both sit at
+  RRF rank 0, any positive visual signal promotes the visual row.
+- **Both fix diagram-only completely** (r@1 0.000 → 1.000, all 21 at rank 1) and
+  **hold prose r@1 exactly** (0.625) — so by the task's literal decision rule
+  (diagram → rank 1 **and** prose r@1 unregressed) both **pass**.
+- But it is a **trade, not a clean win**: `rerank_tiebreak`/`score_aware` newly
+  fix `prose-cip-04/05/13` (RRF missed) and newly break `prose-cip-02/03/06/14`
+  (RRF had at rank 1) — a relevant-looking page from an OT procedure doc
+  outscores the target NERC standard's text chunk. prose r@5 −0.126, MRR −0.041.
 
-Direct single-query check (`rerank_tiebreak`): `syn-pid-01` / `-02` / `-04`
-(P&ID diagram-only) all return the correct figure page at **rank 1**, text
-demoted to rank 2 — the RRF-baseline rank-2 lock is broken.
+The clean answer needs a **gate** on the visual `reranker_prob`: promote a
+visual row over text only when its calibrated prob clears a threshold that a
+"merely relevant" page does not reach. `VL_FUSION_GATE` env knob added to the
+harness; threshold picked from the measured prob distribution
+(`scratchpad/prob_dump.out`), not fitted to the acceptance set.
 
-_(full 37-query recall table + prose counter-test appended when v8 finishes)_
+_(gate sweep + `embed_sim` — drop the reranker, rank the visual arm on the
+Qwen3-VL *embedding* cosine sim already stored at ingest — appended next.)_
 
 ## E3 — rerank depth is the latency lever
 

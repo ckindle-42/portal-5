@@ -39,6 +39,11 @@ def _patch_fusion(rm, strategy: str) -> None:
                        same fused score).
     score_aware      — the visual arm contributes reranker_prob directly instead
                        of its rank position; text arm keeps 1/(k+rank).
+    embed_sim        — NO VLM reranker call at all. The visual arm is ordered by
+                       the Qwen3-VL *embedding* cosine similarity (from the
+                       lancedb `_distance`, already computed) and that similarity
+                       is blended in like score_aware. Tests whether the
+                       expensive reranker earns its keep over embedding-sim.
     """
     if strategy == "rrf":
         return
@@ -72,8 +77,20 @@ def _patch_fusion(rm, strategy: str) -> None:
                 }
         if vtbl is not None:
             coarse = vtbl.search(qvec).limit(top_k * 3).to_list()
-            cands = [{"image_path": r["image_path"]} for r in coarse]
-            order = await _rm._vl_rerank(query, cands, min(len(cands), top_k * 2)) if cands else []
+            if strategy == "embed_sim":
+                # no reranker: order by embedding cosine sim (1 - L2^2/2 for unit
+                # vectors == cosine); blend that sim in as the "prob"
+                ordered = sorted(coarse, key=lambda r: r.get("_distance", 9e9))
+                order = [
+                    {"index": i, "score": max(0.0, 1.0 - r.get("_distance", 2.0) / 2.0)}
+                    for i, r in enumerate(ordered)
+                ][: min(len(coarse), top_k * 2)]
+                coarse = ordered
+            else:
+                cands = [{"image_path": r["image_path"]} for r in coarse]
+                order = (
+                    await _rm._vl_rerank(query, cands, min(len(cands), top_k * 2)) if cands else []
+                )
             for rank, o in enumerate(order):
                 r = coarse[o["index"]]
                 key = ("visual", r["chunk_id"])
@@ -89,11 +106,24 @@ def _patch_fusion(rm, strategy: str) -> None:
                 }
         return rrf, prob, payload
 
+    gate = float(os.environ.get("VL_FUSION_GATE", "0.0"))
+
     def _fuse(rrf, prob, top_k):
         if strategy == "rerank_tiebreak":
-            return sorted(rrf.items(), key=lambda kv: (-kv[1], -(prob.get(kv[0], -1.0))))[:top_k]
-        if strategy == "score_aware":
-            blended = {k: v + prob.get(k, 0.0) for k, v in rrf.items()}
+            # visual wins a tie only if its prob clears the gate (0.0 == always)
+            return sorted(
+                rrf.items(),
+                key=lambda kv: (
+                    -kv[1],
+                    -(prob.get(kv[0], -1.0) if prob.get(kv[0], 0.0) >= gate else -1.0),
+                ),
+            )[:top_k]
+        if strategy in ("score_aware", "embed_sim"):
+            # blend the visual signal (reranker prob, or embedding sim) into the
+            # visual contribution — but only the part above the gate
+            blended = {
+                k: v + (max(0.0, prob[k] - gate) if k in prob else 0.0) for k, v in rrf.items()
+            }
             return sorted(blended.items(), key=lambda kv: -kv[1])[:top_k]
         raise ValueError(strategy)
 
@@ -154,6 +184,7 @@ def _rank_of(results: list[dict], target_file: str, target_page, category: str) 
 
 
 async def _run_query(rm, kb_id: str, q: dict, top_k: int) -> dict:
+    t0 = time.time()
     for attempt in range(4):  # tolerate a VL-server restart mid-run
         try:
             results = await _search(rm, kb_id, q["query"], top_k=top_k)
@@ -170,6 +201,7 @@ async def _run_query(rm, kb_id: str, q: dict, top_k: int) -> dict:
         "hit@1": bool(rank == 1),
         "hit@5": bool(rank and rank <= 5),
         "rr": round(1.0 / rank if rank else 0.0, 3),
+        "latency_s": round(time.time() - t0, 2),
         "top": [
             (r.get("kind"), Path(r.get("source_file", "")).name, r.get("page")) for r in results[:3]
         ],
@@ -182,7 +214,9 @@ async def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("corpus")
     ap.add_argument("queries")
-    ap.add_argument("--fusion", default="rrf", choices=["rrf", "rerank_tiebreak", "score_aware"])
+    ap.add_argument(
+        "--fusion", default="rrf", choices=["rrf", "rerank_tiebreak", "score_aware", "embed_sim"]
+    )
     ap.add_argument("--lance-dir", default="/tmp/portal5_rag_eval_lance")
     ap.add_argument("--kb-id", default="ragEval")
     ap.add_argument("--reuse", action="store_true")
@@ -225,11 +259,14 @@ async def main() -> None:
     summary = {}
     for cat, rs in sorted(per_cat.items()):
         n = len(rs)
+        lat = sorted(r.get("latency_s", 0.0) for r in rs)
         summary[cat] = {
             "n": n,
             "recall@1": round(sum(r["hit@1"] for r in rs) / n, 3),
             "recall@5": round(sum(r["hit@5"] for r in rs) / n, 3),
             "mrr": round(sum(r["rr"] for r in rs) / n, 3),
+            "latency_s_median": lat[n // 2],
+            "latency_s_mean": round(sum(lat) / n, 2),
         }
     out = {
         "fusion": a.fusion,
