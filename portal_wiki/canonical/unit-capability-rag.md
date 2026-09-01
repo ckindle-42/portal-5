@@ -63,6 +63,13 @@ separate visual opt-in. `kb_search` is multimodal by default: it retrieves
 text chunks and page images for the query and fuses them with Reciprocal Rank
 Fusion (the visual side is reranked by the VL reranker first), returning
 results in the preserved shape plus a `kind` (`text` | `visual`) and `page`.
+The fusion is **text-gated** (`VL_TEXT_GATE`, default 0.67 cosine): plain RRF
+ties a top text chunk and a top page image at exactly `1/60` and text always
+wins on insertion order, so a diagram-only query never surfaced its figure. The
+VL reranker's calibrated probability is added to the visual arm's score **only
+when the top text chunk's own similarity is below the gate** — i.e. only when
+the query is not answerable from prose. Measured: diagram-only recall@1
+0.00 → 1.00, prose recall unchanged.
 `kb_search_all` does the same across every KB. The tool contracts (args and
 response keys) are unchanged so the ~10 caller workspaces keep working.
 

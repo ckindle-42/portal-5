@@ -122,3 +122,84 @@ async def test_vl_model_id_reads_health_and_caches(monkeypatch):
     assert await rm._vl_model_id() == ("model-X", 2048)
     assert await rm._vl_model_id() == ("model-X", 2048)  # served from cache
     assert len(calls) == 1  # /health hit once, not per call
+
+
+# ── C1: text-gated visual boost (B1 fusion fix) ────────────────────────────
+
+
+class _FakeTable:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def search(self, _qvec):
+        return self
+
+    def limit(self, _n):
+        return self
+
+    def to_list(self):
+        return self._rows
+
+
+def _wire_search(monkeypatch, *, text_distance, rerank_scores):
+    """Patch _search's dependencies so only the fusion is exercised."""
+
+    async def _emb(text=None, image_path=None, is_query=False):
+        return [0.1] * rm.VL_DIM
+
+    async def _model_id():
+        return ("m", rm.VL_DIM)
+
+    async def _rerank(q, cands, n):
+        return [{"index": i, "score": s} for i, s in enumerate(rerank_scores)]
+
+    monkeypatch.setattr(rm, "_vl_embed", _emb)
+    monkeypatch.setattr(rm, "_vl_model_id", _model_id)
+    monkeypatch.setattr(rm, "_assert_embedding_space", lambda *a: None)
+    monkeypatch.setattr(rm, "_vl_rerank", _rerank)
+    monkeypatch.setattr(
+        rm,
+        "_text_table",
+        lambda kb, create=False: _FakeTable(
+            [
+                {
+                    "chunk_id": "t1",
+                    "source_file": "prose.pdf",
+                    "chunk_index": 0,
+                    "text": "x",
+                    "_distance": text_distance,
+                }
+            ]
+        ),
+    )
+    monkeypatch.setattr(
+        rm,
+        "_visual_table",
+        lambda kb, create=False: _FakeTable(
+            [{"chunk_id": "v1", "source_file": "figure.pdf", "page": 1, "image_path": "/x.png"}]
+        ),
+    )
+
+
+async def _run_search(kb="k", query="q"):
+    class _R:
+        async def json(self):
+            return {"arguments": {"kb_id": kb, "query": query, "top_k": 3}}
+
+    import json as _j
+
+    return _j.loads((await rm._search(_R())).body)["results"]
+
+
+async def test_c1_weak_text_promotes_the_figure(monkeypatch):
+    # top text cosine ~0.40 (< VL_TEXT_GATE 0.67) -> visual boost ON
+    _wire_search(monkeypatch, text_distance=1.2, rerank_scores=[0.7])
+    res = await _run_search(query="which valve is fail-closed")
+    assert res[0]["kind"] == "visual" and res[0]["reranker_prob"] == 0.7
+
+
+async def test_c1_strong_text_keeps_text_first(monkeypatch):
+    # top text cosine ~0.85 (>= gate) -> visual boost OFF, RRF tie -> text wins
+    _wire_search(monkeypatch, text_distance=0.3, rerank_scores=[0.7])
+    res = await _run_search(query="how often must an ESP be reviewed")
+    assert res[0]["kind"] == "text"

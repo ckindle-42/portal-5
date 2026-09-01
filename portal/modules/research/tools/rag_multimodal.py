@@ -32,6 +32,15 @@ RAG_DIR = os.path.join(LANCE_DIR, "rag")
 VL_URL = os.environ.get("VL_RETRIEVAL_URL", "http://localhost:8942")
 VL_DIM = int(os.environ.get("VL_EMBEDDING_DIM", "2048"))
 VL_EMBED_MAX_ITEMS = max(1, int(os.environ.get("VL_EMBED_MAX_ITEMS", "24")))
+# B1 fusion fix (TASK_VL_RETRIEVAL_HARDENING_AND_CLOSEOUT_V2 P5). Plain RRF ties
+# a rank-0 text chunk and a rank-0 page image at exactly 1/60 and insertion
+# order (text first) always wins → a diagram-only query never returns its figure
+# page at rank 1. The fix: add the VL reranker's calibrated probability to the
+# visual arm's score, but ONLY when the text arm has no confident answer
+# (top-1 text cosine < VL_TEXT_GATE). Measured on the eval corpus: diagram
+# queries top-text-cos 0.44–0.62, prose queries 0.73–0.83 — 0.67 sits in the
+# gap. Diagram r@1 0.00 → 1.00, prose recall byte-identical to RRF.
+VL_TEXT_GATE = float(os.environ.get("VL_TEXT_GATE", "0.67"))
 CHUNK_SIZE = int(os.environ.get("RAG_CHUNK_SIZE", "1000"))
 CHUNK_OVERLAP = int(os.environ.get("RAG_CHUNK_OVERLAP", "150"))
 _MAX_PAGES = int(os.environ.get("RAG_MAX_PAGES", "500"))
@@ -384,10 +393,10 @@ async def _search(request):
     {kb_id, query, num_results, results:[{chunk_id, source_file, chunk_index,
     text, fused_score, reranker_prob, kind, page?}]}.
 
-    `fused_score` is the RRF fusion value (was misnamed `rerank_score`).
-    `reranker_prob` is the VL reranker's calibrated sigmoid(yes-no) probability
-    for visual rows and null for text rows — carried through for P5's
-    score-aware fusion work; the fusion itself is still rank-position RRF."""
+    `fused_score` is the RRF value plus, on visual rows, the VL reranker's
+    calibrated probability when the text arm has no confident answer (see
+    VL_TEXT_GATE / the B1 fusion fix). `reranker_prob` is that raw probability
+    for visual rows, null for text rows."""
     args = (await request.json()).get("arguments", {})
     kb_id = args.get("kb_id", "")
     query = args.get("query", "")
@@ -404,8 +413,14 @@ async def _search(request):
         qvec = await _vl_embed(text=query, is_query=True)
         scores: dict = {}
         payload: dict = {}
+        top_text_sim = 0.0
         if ttbl is not None:
-            for rank, r in enumerate(ttbl.search(qvec).limit(top_k * 3).to_list()):
+            trows = ttbl.search(qvec).limit(top_k * 3).to_list()
+            if trows:
+                # lancedb `_distance` is L2^2 between the unit query and unit
+                # stored vector == 2*(1-cos); server guarantees normalize=True
+                top_text_sim = max(0.0, 1.0 - trows[0].get("_distance", 2.0) / 2.0)
+            for rank, r in enumerate(trows):
                 key = ("text", r["chunk_id"])
                 scores[key] = scores.get(key, 0.0) + 1.0 / (_RRF_K + rank)
                 payload[key] = {
@@ -420,10 +435,13 @@ async def _search(request):
             coarse = vtbl.search(qvec).limit(top_k * 3).to_list()
             cands = [{"image_path": r["image_path"]} for r in coarse]
             order = await _vl_rerank(query, cands, min(len(cands), top_k * 2)) if cands else []
+            visual_boost = top_text_sim < VL_TEXT_GATE
             for rank, o in enumerate(order):
                 r = coarse[o["index"]]
                 key = ("visual", r["chunk_id"])
                 scores[key] = scores.get(key, 0.0) + 1.0 / (_RRF_K + rank)
+                if visual_boost:
+                    scores[key] += float(o["score"])
                 payload[key] = {
                     "chunk_id": r["chunk_id"],
                     "source_file": r["source_file"],
