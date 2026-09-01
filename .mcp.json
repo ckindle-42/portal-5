@@ -112,6 +112,10 @@
     "portal-binresearch": {
       "type": "http",
       "url": "http://localhost:8930/mcp"
+    },
+    "portal-vulnintel": {
+      "type": "http",
+      "url": "http://localhost:8934/mcp"
     }
   }
 }

@@ -1,0 +1,9 @@
+[
+  {"type":"function","function":{"name":"lookup_cve","description":"Fetch a CVE record from NVD (CVSS, CWEs, references, timeline).","parameters":{"type":"object","properties":{"cve_id":{"type":"string","description":"e.g. CVE-2024-3400"}},"required":["cve_id"]}}},
+  {"type":"function","function":{"name":"get_epss","description":"FIRST EPSS exploitation probability and percentile for a CVE.","parameters":{"type":"object","properties":{"cve_id":{"type":"string"}},"required":["cve_id"]}}},
+  {"type":"function","function":{"name":"check_kev","description":"Whether a CVE is in CISA's Known Exploited Vulnerabilities catalog.","parameters":{"type":"object","properties":{"cve_id":{"type":"string"}},"required":["cve_id"]}}},
+  {"type":"function","function":{"name":"scan_dependencies","description":"Scan {name:version} against OSV.dev for known vulnerabilities.","parameters":{"type":"object","properties":{"ecosystem":{"type":"string","description":"PyPI, npm, Go, Maven, ..."},"packages":{"type":"object","description":"map of package name to version"}},"required":["ecosystem","packages"]}}},
+  {"type":"function","function":{"name":"ics_advisories","description":"Recent CISA ICS advisories (ICSA/ICSMA), optional vendor filter - the OT-specific source.","parameters":{"type":"object","properties":{"vendor":{"type":"string"},"days":{"type":"integer"}},"required":[]}}},
+  {"type":"function","function":{"name":"lookup_ioc","description":"Clearnet IOC enrichment (ThreatFox + GreyNoise) for IP/domain/hash. Private IPs rejected.","parameters":{"type":"object","properties":{"indicator":{"type":"string"}},"required":["indicator"]}}},
+  {"type":"function","function":{"name":"triage_cve","description":"One-call triage: composite risk (KEV hard override) + SSVC-style decision, CIP-007 R2 audited.","parameters":{"type":"object","properties":{"cve_id":{"type":"string"},"depth":{"type":"string","enum":["quick","standard","deep"]}},"required":["cve_id"]}}}
+]

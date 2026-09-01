@@ -24,6 +24,8 @@ modules:
     enabled: true
   video:
     enabled: true
+  vulnintel:
+    enabled: true
 launched_mcp_ids:
 - binresearch
 - browser
@@ -49,5 +51,6 @@ launched_mcp_ids:
 - serena
 - tts
 - video_mlx
+- vulnintel
 - whisper
 - wiki
