@@ -1054,9 +1054,12 @@
   "persona::gemmaresearchanalyst": {
     "category": "research",
     "effective_tools": [
+      "entity_timeline",
+      "graph_recall",
       "kb_list",
       "kb_search",
       "kb_search_all",
+      "neighbors",
       "news_search",
       "recall",
       "remember",
@@ -1392,9 +1395,12 @@
   "persona::paywalledresearcher": {
     "category": "research",
     "effective_tools": [
+      "entity_timeline",
+      "graph_recall",
       "kb_list",
       "kb_search",
       "kb_search_all",
+      "neighbors",
       "news_search",
       "recall",
       "remember",
@@ -1642,9 +1648,12 @@
   "persona::researchanalyst": {
     "category": "data",
     "effective_tools": [
+      "entity_timeline",
+      "graph_recall",
       "kb_list",
       "kb_search",
       "kb_search_all",
+      "neighbors",
       "news_search",
       "recall",
       "remember",
@@ -1851,9 +1860,12 @@
   "persona::supergemma4researcher": {
     "category": "research",
     "effective_tools": [
+      "entity_timeline",
+      "graph_recall",
       "kb_list",
       "kb_search",
       "kb_search_all",
+      "neighbors",
       "news_search",
       "recall",
       "remember",
@@ -2495,9 +2507,12 @@
   },
   "workspace::auto-research": {
     "effective_tools": [
+      "entity_timeline",
+      "graph_recall",
       "kb_list",
       "kb_search",
       "kb_search_all",
+      "neighbors",
       "news_search",
       "recall",
       "remember",

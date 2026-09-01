@@ -23,7 +23,7 @@ updated_at: 1788030600.446044
 # Environment variables — the .env.example families
 
 The operator's runtime configuration lives in `.env`, copied from
-`.env.example` on first `up`; the example file declares 237 env vars, grouped
+`.env.example` on first `up`; the example file declares 239 env vars, grouped
 by what they tune. Every var carries an inline or section comment so a knob is
 never a bare secret.
 

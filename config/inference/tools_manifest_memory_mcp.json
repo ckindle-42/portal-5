@@ -33,12 +33,19 @@
     }
   },
   {
-    "description": "Retrieve memories relevant to a query. Returns top matches by semantic similarity with recency boost. Use at the start of a conversation to prime context.",
+    "description": "Retrieve memories relevant to a query. Graph-aware: vector-seeds memories and entities, expands relations, and returns matches plus connected graph_context (nodes + edges). Use at the start of a conversation to prime context.",
     "name": "recall",
     "parameters": {
       "properties": {
         "category": {
           "type": "string"
+        },
+        "hops": {
+          "default": 2,
+          "description": "graph-expansion depth from the query's seed entities (0-3)",
+          "maximum": 3,
+          "minimum": 0,
+          "type": "integer"
         },
         "query": {
           "type": "string"
@@ -59,6 +66,96 @@
       },
       "required": [
         "query"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Alias for recall (recall is already graph-aware). Retrieve memories plus connected graph context for a query.",
+    "name": "graph_recall",
+    "parameters": {
+      "properties": {
+        "hops": {
+          "default": 2,
+          "maximum": 3,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "query": {
+          "type": "string"
+        },
+        "top_k": {
+          "default": 5,
+          "maximum": 20,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Add an explicit relation (edge) between two named entities in the memory graph.",
+    "name": "link",
+    "parameters": {
+      "properties": {
+        "dst": {
+          "type": "string"
+        },
+        "rel_type": {
+          "default": "related_to",
+          "type": "string"
+        },
+        "src": {
+          "type": "string"
+        },
+        "weight": {
+          "default": 1.0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "src",
+        "dst"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "List the entities connected to a named entity in the memory graph, up to N hops away.",
+    "name": "neighbors",
+    "parameters": {
+      "properties": {
+        "hops": {
+          "default": 1,
+          "maximum": 3,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Return the time-ordered sequence of relations observed for a named entity (how understanding of it evolved).",
+    "name": "entity_timeline",
+    "parameters": {
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
       ],
       "type": "object"
     }
