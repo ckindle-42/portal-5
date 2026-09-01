@@ -5,7 +5,7 @@ title: tool authorizations for 25 production workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: ff8f94550e78
+  commit: a446cb0d1541
   section: workspaces[].tools
 claims: []
 confidence: high
@@ -14,7 +14,7 @@ tags:
 - tools
 - workspaces
 created_at: 1784049584.703768
-updated_at: 1788230465.89275
+updated_at: 1788231340.190573
 ---
 
 # Tool authorizations (per-workspace `tools:` whitelist)
@@ -28,7 +28,7 @@ The pipeline strips any tool a workspace does not authorize (metric `portal5_too
 | `auto-bigfix` | general | `execute_python`, `execute_bash`, `web_search` |
 | `auto-cad` | cad | `execute_python`, `execute_bash`, `sandbox_status`, `read_pdf`, `read_word_document`, `web_search`, `web_fetch`, `remember`, `recall`, `kb_search`, `render_mesh`, `render_openscad`, `convert_cad`, `generate_scad` |
 | `auto-coding` | coding | `execute_python`, `execute_nodejs`, `execute_bash`, `sandbox_status`, `read_word_document`, `read_pdf`, `remember`, `recall` |
-| `auto-compliance` | compliance | `create_word_document`, `read_pdf`, `kb_search`, `kb_list`, `web_search`, `lookup_cve`, `get_epss`, `check_kev`, `triage_cve`, `ics_advisories`, `scan_dependencies` |
+| `auto-compliance` | compliance | `create_word_document`, `read_pdf`, `kb_search`, `kb_list`, `web_search`, `lookup_cve`, `get_epss`, `check_kev`, `triage_cve`, `ics_advisories`, `scan_dependencies`, `lookup_control`, `search_controls`, `nerc_cip_requirement`, `map_frameworks`, `patch_evidence`, `refresh_catalogs` |
 | `auto-council` | general | _(none)_ |
 | `auto-creative` | media | _(none)_ |
 | `auto-daily` | general | `web_search`, `web_fetch`, `kb_search`, `kb_list`, `read_pdf`, `read_word_document`, `read_excel`, `create_word_document`, `create_excel`, `create_powerpoint`, `execute_python`, `remember`, `recall`, `minimax_generate`, `minimax_status`, `transcribe_audio` |

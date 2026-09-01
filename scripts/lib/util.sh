@@ -471,6 +471,13 @@ PY
     _ensure_native_mcp_service \
         "icsot-mcp" "com.portal5.icsot-mcp" \
         "${ICSOT_MCP_PORT:-8936}" "icsot-mcp"
+
+    # ── Compliance MCP (host-native, :8937) ────────────────────────────────
+    # Read-only control-catalog lookup (distilled NIST 800-53 / CSF 2.0 OSCAL)
+    # + CIP-007 R2 patch-evidence bridge into vulnintel. Host-native, stdlib.
+    _ensure_native_mcp_service \
+        "compliance-mcp" "com.portal5.compliance-mcp" \
+        "${COMPLIANCE_MCP_PORT:-8937}" "compliance-mcp"
 }
 
 # ── Teardown helper (shared by 'down' and the pre-start phase of 'up') ────────
@@ -597,6 +604,19 @@ _do_down() {
             echo "[portal-5] ICS/OT MCP stopped."
         else
             echo "[portal-5] ICS/OT MCP: not running (nothing to stop)."
+        fi
+
+        # Compliance MCP (:8937)
+        if launchctl print "gui/$(id -u)/com.portal5.compliance-mcp" &>/dev/null 2>&1; then
+            launchctl bootout "gui/$(id -u)/com.portal5.compliance-mcp" 2>/dev/null || true
+            rm -f /tmp/portal-compliance-mcp.pid
+            echo "[portal-5] Compliance MCP stopped (launchd)."
+        elif [ -f /tmp/portal-compliance-mcp.pid ] && kill -0 "$(cat /tmp/portal-compliance-mcp.pid)" 2>/dev/null; then
+            kill "$(cat /tmp/portal-compliance-mcp.pid)" 2>/dev/null || true
+            rm -f /tmp/portal-compliance-mcp.pid
+            echo "[portal-5] Compliance MCP stopped."
+        else
+            echo "[portal-5] Compliance MCP: not running (nothing to stop)."
         fi
 
         # ARM64 embedding server (:8917)

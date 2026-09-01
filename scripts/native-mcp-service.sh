@@ -54,6 +54,10 @@ case "$SERVICE" in
         export ICSOT_MCP_PORT="${ICSOT_MCP_PORT:-8936}"
         exec "$PY" -m portal.modules.icsot.tools.icsot_mcp
         ;;
+    compliance-mcp)
+        export COMPLIANCE_MCP_PORT="${COMPLIANCE_MCP_PORT:-8937}"
+        exec "$PY" -m portal.modules.compliance.tools.compliance_mcp
+        ;;
     wiki-mcp)
         export OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
         export WIKI_MCP_PORT="${WIKI_MCP_PORT:-8931}"

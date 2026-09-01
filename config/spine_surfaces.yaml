@@ -36,6 +36,14 @@ surfaces:
   globs:
   - portal/modules/compliance/config/__init__.py
   unit: unit-compliance-config-workspace-pointers
+- name: file-portal-modules-compliance-tests-test_compliance_mcp
+  globs:
+  - portal/modules/compliance/tests/test_compliance_mcp.py
+  unit: unit-capability-compliance
+- name: file-portal-modules-compliance-tools-compliance_mcp
+  globs:
+  - portal/modules/compliance/tools/compliance_mcp.py
+  unit: unit-capability-compliance
 - name: file-portal-modules-documents-tools-document_mcp
   globs:
   - portal/modules/documents/tools/document_mcp.py

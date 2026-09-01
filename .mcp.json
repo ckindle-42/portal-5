@@ -120,6 +120,10 @@
     "portal-icsot": {
       "type": "http",
       "url": "http://localhost:8936/mcp"
+    },
+    "portal-compliance": {
+      "type": "http",
+      "url": "http://localhost:8937/mcp"
     }
   }
 }
