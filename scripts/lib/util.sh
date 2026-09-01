@@ -493,6 +493,14 @@ PY
     _ensure_native_mcp_service \
         "data-mcp" "com.portal5.data-mcp" \
         "${DATA_MCP_PORT:-8939}" "data-mcp"
+
+    # ── Network Forensics MCP (host-native, :8941) ─────────────────────────
+    # Passive tshark PCAP analysis + gated lab-scoped nmap recon. Host-native
+    # — shells out to tshark/nmap (brew install wireshark nmap); every tool
+    # degrades gracefully when they are absent.
+    _ensure_native_mcp_service \
+        "netforensics-mcp" "com.portal5.netforensics-mcp" \
+        "${NETFORENSICS_MCP_PORT:-8941}" "netforensics-mcp"
 }
 
 # ── Teardown helper (shared by 'down' and the pre-start phase of 'up') ────────
@@ -658,6 +666,19 @@ _do_down() {
             echo "[portal-5] Data MCP stopped."
         else
             echo "[portal-5] Data MCP: not running (nothing to stop)."
+        fi
+
+        # Network Forensics MCP (:8941)
+        if launchctl print "gui/$(id -u)/com.portal5.netforensics-mcp" &>/dev/null 2>&1; then
+            launchctl bootout "gui/$(id -u)/com.portal5.netforensics-mcp" 2>/dev/null || true
+            rm -f /tmp/portal-netforensics-mcp.pid
+            echo "[portal-5] Network Forensics MCP stopped (launchd)."
+        elif [ -f /tmp/portal-netforensics-mcp.pid ] && kill -0 "$(cat /tmp/portal-netforensics-mcp.pid)" 2>/dev/null; then
+            kill "$(cat /tmp/portal-netforensics-mcp.pid)" 2>/dev/null || true
+            rm -f /tmp/portal-netforensics-mcp.pid
+            echo "[portal-5] Network Forensics MCP stopped."
+        else
+            echo "[portal-5] Network Forensics MCP: not running (nothing to stop)."
         fi
 
         # ARM64 embedding server (:8917)

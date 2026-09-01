@@ -24,6 +24,8 @@ modules:
     enabled: true
   media:
     enabled: true
+  netforensics:
+    enabled: true
   research:
     enabled: true
   security:
@@ -53,6 +55,7 @@ launched_mcp_ids:
 - mitre
 - mlx_transcribe
 - music-minimax
+- netforensics
 - pipeline
 - proxmox
 - rag
