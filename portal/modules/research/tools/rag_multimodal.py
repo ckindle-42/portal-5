@@ -15,7 +15,6 @@ the multimodal behaviour is the new default backing, not a new interface.
 
 from __future__ import annotations
 
-import base64
 import contextlib
 import hashlib
 import os
@@ -106,25 +105,58 @@ def _list_kbs() -> list[str]:
     )
 
 
-async def _vl_embed(text: str | None = None, image_path: str | None = None) -> list[float]:
-    payload: dict = {}
+class _VLUnavailableError(Exception):
+    """The VL retrieval server is not serving a working model (see :8942/ready)."""
+
+
+def _vl_error(exc: Exception) -> _VLUnavailableError:
+    detail = str(exc)
+    if isinstance(exc, httpx.HTTPStatusError):
+        with contextlib.suppress(Exception):
+            detail = exc.response.json().get("error", exc.response.text)
+    return _VLUnavailableError(f"VL retrieval server unavailable: {detail} (check {VL_URL}/ready)")
+
+
+async def _vl_embed_batch(items: list[dict]) -> list[list[float]]:
+    """items: list of {text?, image_path?, is_query?}. Instruction is applied
+    server-side for is_query items only; chunk/page items carry none."""
+    if not items:
+        return []
+    try:
+        async with httpx.AsyncClient(timeout=180) as c:
+            r = await c.post(f"{VL_URL}/embed_batch", json={"items": items})
+            r.raise_for_status()
+            vecs = r.json()["embeddings"]
+    except httpx.HTTPError as e:
+        raise _vl_error(e) from e
+    for v in vecs:
+        if len(v) != VL_DIM:
+            raise _VLUnavailableError(f"VL embedding dim {len(v)} != VL_EMBEDDING_DIM {VL_DIM}")
+    return vecs
+
+
+async def _vl_embed(text: str | None = None, image_path: str | None = None, is_query: bool = False):
+    item: dict = {"is_query": is_query}
     if text:
-        payload["text"] = text
+        item["text"] = text
     if image_path:
-        payload["image_b64"] = base64.b64encode(Path(image_path).read_bytes()).decode()
-    async with httpx.AsyncClient(timeout=60) as c:
-        r = await c.post(f"{VL_URL}/embed", json=payload)
-        r.raise_for_status()
-        return r.json()["embedding"]
+        item["image_path"] = image_path
+    return (await _vl_embed_batch([item]))[0]
 
 
 async def _vl_rerank(query: str, candidates: list, top_n: int) -> list:
-    async with httpx.AsyncClient(timeout=120) as c:
-        r = await c.post(
-            f"{VL_URL}/rerank", json={"query": query, "candidates": candidates, "top_n": top_n}
-        )
-        r.raise_for_status()
-        return r.json()["results"]
+    """candidates: list of {text?, image_path?}. One call; the server chunks it
+    at VL_RERANK_CHUNK. Returns [{index, score}] ordered best-first."""
+    try:
+        async with httpx.AsyncClient(timeout=300) as c:
+            r = await c.post(
+                f"{VL_URL}/rerank",
+                json={"query": {"text": query}, "documents": candidates, "top_n": top_n},
+            )
+            r.raise_for_status()
+            return r.json()["results"]
+    except httpx.HTTPError as e:
+        raise _vl_error(e) from e
 
 
 def _chunk(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list:
@@ -172,42 +204,46 @@ async def _read_text(path: Path) -> str:
 
 async def _ingest_text(ttbl, kb_id: str, f: Path, rel: str) -> int:
     text = await _read_text(f)
-    rows = []
-    for idx, (cs, ce, ct) in enumerate(_chunk(text)):
-        rows.append(
-            {
-                "chunk_id": hashlib.sha1(f"{kb_id}|{f}|{idx}".encode()).hexdigest(),
-                "kb_id": kb_id,
-                "source_file": rel,
-                "chunk_index": idx,
-                "text": ct,
-                "vector": await _vl_embed(text=ct),
-                "char_start": cs,
-                "char_end": ce,
-                "ingested_at": time.time(),
-            }
-        )
-    if rows:
-        ttbl.add(rows)
+    chunks = list(_chunk(text))
+    if not chunks:
+        return 0
+    vecs = await _vl_embed_batch([{"text": ct} for _, _, ct in chunks])
+    rows = [
+        {
+            "chunk_id": hashlib.sha1(f"{kb_id}|{f}|{idx}".encode()).hexdigest(),
+            "kb_id": kb_id,
+            "source_file": rel,
+            "chunk_index": idx,
+            "text": ct,
+            "vector": vec,
+            "char_start": cs,
+            "char_end": ce,
+            "ingested_at": time.time(),
+        }
+        for idx, ((cs, ce, ct), vec) in enumerate(zip(chunks, vecs, strict=True))
+    ]
+    ttbl.add(rows)
     return len(rows)
 
 
 async def _ingest_pages(vtbl, kb_id: str, f: Path, rel: str) -> int:
-    rows = []
-    for page_no, img in _render_pages(str(f), _PAGES_DIR / kb_id):
-        rows.append(
-            {
-                "chunk_id": hashlib.sha1(f"{kb_id}|{f}|p{page_no}".encode()).hexdigest(),
-                "kb_id": kb_id,
-                "source_file": rel,
-                "page": page_no,
-                "image_path": img,
-                "vector": await _vl_embed(image_path=img),
-                "ingested_at": time.time(),
-            }
-        )
-    if rows:
-        vtbl.add(rows)
+    pages = _render_pages(str(f), _PAGES_DIR / kb_id)
+    if not pages:
+        return 0
+    vecs = await _vl_embed_batch([{"image_path": img} for _, img in pages])
+    rows = [
+        {
+            "chunk_id": hashlib.sha1(f"{kb_id}|{f}|p{page_no}".encode()).hexdigest(),
+            "kb_id": kb_id,
+            "source_file": rel,
+            "page": page_no,
+            "image_path": img,
+            "vector": vec,
+            "ingested_at": time.time(),
+        }
+        for (page_no, img), vec in zip(pages, vecs, strict=True)
+    ]
+    vtbl.add(rows)
     return len(rows)
 
 
@@ -259,6 +295,8 @@ async def _ingest(request):
                 "fts_index": False,
             }
         )
+    except _VLUnavailableError as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
     except Exception as e:  # noqa: BLE001
         return JSONResponse({"error": str(e)}, status_code=500)
 
@@ -275,7 +313,7 @@ async def _search(request):
     if not kb_id or not query:
         return JSONResponse({"error": "kb_id and query required"}, status_code=400)
     try:
-        qvec = await _vl_embed(text=query)
+        qvec = await _vl_embed(text=query, is_query=True)
         scores: dict = {}
         payload: dict = {}
         ttbl = _text_table(kb_id)
@@ -295,10 +333,7 @@ async def _search(request):
                 }
         if vtbl is not None:
             coarse = vtbl.search(qvec).limit(top_k * 3).to_list()
-            cands = [
-                {"image_b64": base64.b64encode(Path(r["image_path"]).read_bytes()).decode()}
-                for r in coarse
-            ]
+            cands = [{"image_path": r["image_path"]} for r in coarse]
             order = await _vl_rerank(query, cands, min(len(cands), top_k * 2)) if cands else []
             for rank, o in enumerate(order):
                 r = coarse[o["index"]]
@@ -363,22 +398,22 @@ async def reindex_all() -> dict:
         with contextlib.suppress(Exception):
             db.drop_table(old_name)
         new = _text_table(kb_id, create=True)
-        buf = []
-        for r in rows:
-            if r.get("text"):
-                buf.append(
-                    {
-                        "chunk_id": r.get("chunk_id", hashlib.sha1(r["text"].encode()).hexdigest()),
-                        "kb_id": kb_id,
-                        "source_file": r.get("source_file", ""),
-                        "chunk_index": int(r.get("chunk_index", 0)),
-                        "text": r["text"],
-                        "vector": await _vl_embed(text=r["text"]),
-                        "char_start": int(r.get("char_start", 0)),
-                        "char_end": int(r.get("char_end", 0)),
-                        "ingested_at": r.get("ingested_at", time.time()),
-                    }
-                )
+        keep = [r for r in rows if r.get("text")]
+        vecs = await _vl_embed_batch([{"text": r["text"]} for r in keep])
+        buf = [
+            {
+                "chunk_id": r.get("chunk_id", hashlib.sha1(r["text"].encode()).hexdigest()),
+                "kb_id": kb_id,
+                "source_file": r.get("source_file", ""),
+                "chunk_index": int(r.get("chunk_index", 0)),
+                "text": r["text"],
+                "vector": vec,
+                "char_start": int(r.get("char_start", 0)),
+                "char_end": int(r.get("char_end", 0)),
+                "ingested_at": r.get("ingested_at", time.time()),
+            }
+            for r, vec in zip(keep, vecs, strict=True)
+        ]
         if buf:
             new.add(buf)
         done[kb_id] = len(buf)

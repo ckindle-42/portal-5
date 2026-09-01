@@ -1,147 +1,326 @@
 """Portal 5 — Qwen3-VL retrieval server (embedding + rerank, text & image).
 
-The retrieval model for the RAG stack: one joint text+image space. Replaces the
-RAG stack's use of the text embedder/reranker for *retrieval* (the shared text
-embedder :8917 and reranker :8925 stay up for other subsystems — memory, the
-Bully ORG projection). Lazy-load; sequential-safe.
+One joint text+image space for the RAG stack's *retrieval* path. The shared text
+embedder (:8917) and reranker (:8925) stay up for other subsystems (memory, the
+Bully ORG projection).
 
 Usage: python3 scripts/vl-retrieval-server.py --port 8942
 
-The mlx-embeddings VL process()/scoring API differs across pinned versions —
-the `_embed_one` / `_score_pair` helpers isolate the version-specific shape so
-only they need adjusting. Downstream needs only: /embed -> vector,
-/rerank -> ordered indices.
+Runtime (TASK_VL_RUNTIME_LANDING_V4): served by mlx-embeddings >=0.1.0's
+`qwen3_vl` module. Loads once transformers 5.x's torchvision-backed `vision`
+backend is importable (torchvision is a declared apple-silicon dep purely to
+satisfy that class-level gate on `AutoImageProcessor`; preprocessing itself runs
+on the PIL path — `Qwen2VLImageProcessorPil` — so the torchvision version is
+inert to output). Video is NOT supported on this runtime
+(`_UnsupportedVideoProcessor.__call__` raises).
 
-RUNTIME NOTE: mlx-embeddings 0.1.0 (the version pinned in `rag` extras) does
-NOT recognise the Qwen3-VL-Embedding architecture — `load()` fails with
-"'NoneType' object has no attribute 'model_type'", and there is no
-pre-converted MLX build of Qwen3-VL-Embedding-2B on the Hub. Bringing this
-server fully online is gated on an mlx-embeddings release with VL support (or
-an alternative VL-embedding runtime / a local MLX conversion of
-Qwen/Qwen3-VL-Embedding-2B) — the inference-runtime re-evaluation the MCP
-Fleet Overhaul program explicitly deferred. Set VL_EMBED_MODEL / VL_RERANK_MODEL
-once a working model exists; the seams above are the only code that changes.
+Verified Qwen3-VL API (mlx_embeddings/models/qwen3_vl/{model,processor}.py):
+  * `model.process(list_of_items, processor=p)`      -> embed  -> mx (N, dim)
+  * `model.process({"query":..,"documents":[..]}, p)` -> rerank -> mx (N,)
+  * embedding item keys: instruction, text, image, video, fps, max_frames
+    (NOT image_path / image_b64 — those are transport, mapped to `image` here)
+  * an item with no content is silently embedded as the literal "NULL" — the
+    server rejects such items instead of relying on the library
+  * instruction goes on the QUERY only; documents/chunks fall back to
+    DEFAULT_EMBEDDING_INSTRUCTION (getting this wrong degrades retrieval silently)
+  * pooling is last-non-padding-token; `text_embeds` is already normalized when
+    `model.args.normalize` is True — read it at load, never double-normalize
+  * rerank scores are sigmoid(logit[yes]-logit[no]) in (0,1); 0.5 == undecided
+  * `_prepare_from_conversations` pads to the longest batch member, so text items
+    and image items are embedded in SEPARATE batches
+  * rerank builds one VLM forward per document — chunked at VL_RERANK_CHUNK
+
+No `run_in_executor`: the precedent in mlx-speech.py / reranker_mcp.py exists
+because the executor pattern caused an MPS thread-safety crash. One asyncio.Lock
+serialises every model call.
 """
 
 from __future__ import annotations
 
 import argparse
+import asyncio
 import base64
+import binascii
+import contextlib
 import os
 import tempfile
+from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-EMBED_MODEL = os.environ.get("VL_EMBED_MODEL", "Qwen/Qwen3-VL-Embedding-2B")
-RERANK_MODEL = os.environ.get("VL_RERANK_MODEL", "Qwen/Qwen3-VL-Reranker-2B")
+EMBED_MODEL = os.environ.get("VL_EMBED_MODEL", "mlx-community/Qwen3-VL-Embedding-2B-mxfp8")
+RERANK_MODEL = os.environ.get("VL_RERANK_MODEL", "mlx-community/Qwen3-VL-Reranker-2B-mxfp8")
+EMBEDDING_DIM = int(os.environ.get("VL_EMBEDDING_DIM", "2048"))
+RERANK_CHUNK = int(os.environ.get("VL_RERANK_CHUNK", "4"))
+QUERY_INSTRUCTION = os.environ.get(
+    "VL_QUERY_INSTRUCTION", "Given a search query, retrieve relevant passages that answer it."
+)
+
+# tokenizer_config forwarded into arch.Processor.from_pretrained — pops
+# max_pixels / min_pixels / embedding_max_length / reranking_max_length.
+# _render_pages (rag_multimodal) renders US-Letter at dpi=150 == ~2.10M px, above
+# the default MAX_PIXELS (1800*32*32 == 1.84M) — pages get silently downscaled.
+# Raise the cap here (and lower the render DPI) coherently; measured in P8.
+_TOKENIZER_CONFIG = {
+    k: int(os.environ[e])
+    for k, e in (
+        ("max_pixels", "VL_MAX_PIXELS"),
+        ("min_pixels", "VL_MIN_PIXELS"),
+        ("embedding_max_length", "VL_EMBEDDING_MAX_LENGTH"),
+        ("reranking_max_length", "VL_RERANKING_MAX_LENGTH"),
+    )
+    if os.environ.get(e)
+}
 
 app = FastAPI(title="portal5-vl-retrieval")
-_embed = {"m": None, "p": None}
-_rerank = {"m": None, "p": None}
+_lock = asyncio.Lock()
+_embed: dict = {"model": None, "proc": None, "normalize": None}
+_rerank: dict = {"model": None, "proc": None}
 
 
-def _load_embed():
-    if _embed["m"] is None:
+def _resolve_repo(repo: str) -> str:
+    """mlx_embeddings.load() fetches a restrictive allow_patterns set that omits
+    `chat_template.jinja`, and its download fallback is unreliable — the Qwen3-VL
+    processor then dies with "this processor does not have a chat template".
+    Pull the full snapshot first (a local dir is returned as-is)."""
+    if os.path.isdir(repo):
+        return repo
+    from huggingface_hub import snapshot_download
+
+    return snapshot_download(repo)
+
+
+def _load(slot: dict, repo: str) -> tuple:
+    if slot["model"] is None:
         from mlx_embeddings import load
 
-        _embed["m"], _embed["p"] = load(EMBED_MODEL)
-    return _embed["m"], _embed["p"]
+        slot["model"], slot["proc"] = load(
+            _resolve_repo(repo), tokenizer_config=dict(_TOKENIZER_CONFIG)
+        )
+        if "normalize" in slot:
+            slot["normalize"] = bool(getattr(slot["model"].args, "normalize", True))
+    return slot["model"], slot["proc"]
 
 
-def _load_rerank():
-    if _rerank["m"] is None:
-        from mlx_embeddings import load
-
-        _rerank["m"], _rerank["p"] = load(RERANK_MODEL)
-    return _rerank["m"], _rerank["p"]
-
-
-def _b64_to_path(b64: str) -> str:
+def _decode_b64_to_tempfile(b64: str) -> str:
     fd, path = tempfile.mkstemp(suffix=".png")
-    with os.fdopen(fd, "wb") as fh:
-        fh.write(base64.b64decode(b64))
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(base64.b64decode(b64, validate=True))
+    except (binascii.Error, ValueError):
+        with contextlib.suppress(OSError):
+            os.unlink(path)
+        raise
     return path
 
 
-def _embed_one(model, proc, item: dict) -> list[float]:
-    """Version-isolated embed. `item` has optional 'text'/'instruction'/'image'."""
+def _item_from_transport(obj: dict, *, is_query: bool) -> tuple[dict, list[str]]:
+    """Map a transport payload -> a verified Qwen3-VL item. Returns (item, tempfiles)."""
+    item: dict = {}
+    tempfiles: list[str] = []
+    text = (obj.get("text") or "").strip()
+    if text:
+        item["text"] = text
+    img_path = obj.get("image_path") or obj.get("image")
+    if obj.get("image_b64"):
+        p = _decode_b64_to_tempfile(obj["image_b64"])
+        tempfiles.append(p)
+        item["image"] = p
+    elif img_path:
+        if not Path(img_path).is_file():
+            raise ValueError(f"image not found: {img_path}")
+        item["image"] = img_path
+    if is_query and "instruction" not in item:
+        item["instruction"] = obj.get("instruction") or QUERY_INSTRUCTION
+    if "text" not in item and "image" not in item:
+        raise ValueError("item has neither text nor image")
+    return item, tempfiles
+
+
+def _reset_vl_state(model) -> None:
+    """mlx-embeddings 0.1.0 / mlx-vlm 0.6.17: `compute_qwen3_vl_hidden_states`
+    only clears `language_model._position_ids` / `._rope_deltas` when a call has
+    pixel_values. Two consecutive text-only `process()` calls with different
+    sequence lengths then crash with "Too many indices for array with 2
+    dimensions". Clear the cached rope state before every call. See
+    KNOWN_LIMITATIONS.md (TASK_VL_RUNTIME_LANDING_V4)."""
+    seen = set()
+    for obj in (
+        model,
+        getattr(model, "model", None),
+        getattr(model, "language_model", None),
+        getattr(getattr(model, "model", None), "language_model", None),
+    ):
+        if obj is None or id(obj) in seen:
+            continue
+        seen.add(id(obj))
+        for attr in ("_position_ids", "_rope_deltas"):
+            if hasattr(obj, attr):
+                setattr(obj, attr, None)
+
+
+def _mx_rows(out) -> list[list[float]]:
     import mlx.core as mx
 
-    out = model.process([item], processor=proc)
     mx.eval(out)
-    row = out[0]
-    return row.tolist() if hasattr(row, "tolist") else list(row)
+    return [r.tolist() if hasattr(r, "tolist") else list(r) for r in out]
 
 
-def _score_pair(model, proc, query_item: dict, cand_item: dict) -> float:
-    """Version-isolated relevance score for a (query, candidate) pair."""
-    import mlx.core as mx
-
-    out = model.process([query_item, cand_item], processor=proc)
-    mx.eval(out)
-    a, b = out[0], out[1]
+async def _embed_items(objs: list[dict]) -> list[list[float]]:
+    """Embed a list of transport payloads. Text items and image items are run in
+    separate batches (padding is to the longest batch member)."""
+    prepared: list[tuple[int, dict]] = []
+    tempfiles: list[str] = []
     try:
-        return float((a @ b.T).item())
-    except Exception:  # noqa: BLE001
-        return 0.0
+        for idx, obj in enumerate(objs):
+            item, tf = _item_from_transport(obj, is_query=bool(obj.get("is_query")))
+            tempfiles.extend(tf)
+            prepared.append((idx, item))
+        text_batch = [(i, it) for i, it in prepared if "image" not in it]
+        image_batch = [(i, it) for i, it in prepared if "image" in it]
+        results: dict[int, list[float]] = {}
+        async with _lock:
+            model, proc = _load(_embed, EMBED_MODEL)
+            for batch in (text_batch, image_batch):
+                if not batch:
+                    continue
+                _reset_vl_state(model)
+                rows = _mx_rows(model.process([it for _, it in batch], processor=proc))
+                for (orig_i, _), vec in zip(batch, rows, strict=True):
+                    results[orig_i] = vec
+        return [results[i] for i in range(len(objs))]
+    finally:
+        for p in tempfiles:
+            with contextlib.suppress(OSError):
+                os.unlink(p)
 
 
-class EmbedReq(BaseModel):
-    text: str | None = None
-    image_b64: str | None = None
-    instruction: str | None = "Retrieve documents relevant to the query."
+async def _score_documents(query: dict, documents: list[dict]) -> list[float]:
+    """One process(dict) call per VL_RERANK_CHUNK documents. Each document scores
+    independently, so chunking does not change results."""
+    q_item, q_tf = _item_from_transport(query, is_query=True)
+    tempfiles = list(q_tf)
+    # rerank payload takes `instruction` at the top level, not inside `query`
+    instruction = q_item.pop("instruction", QUERY_INSTRUCTION)
+    scores: list[float] = []
+    try:
+        doc_items: list[dict] = []
+        for obj in documents:
+            it, tf = _item_from_transport(obj, is_query=False)
+            tempfiles.extend(tf)
+            doc_items.append(it)
+        async with _lock:
+            model, proc = _load(_rerank, RERANK_MODEL)
+            for start in range(0, len(doc_items), RERANK_CHUNK):
+                chunk = doc_items[start : start + RERANK_CHUNK]
+                _reset_vl_state(model)
+                out = model.process(
+                    {"instruction": instruction, "query": q_item, "documents": chunk},
+                    processor=proc,
+                )
+                chunk_scores = _flatten_scores(out)
+                if len(chunk_scores) != len(chunk):
+                    raise ValueError(
+                        f"rerank returned {len(chunk_scores)} scores for {len(chunk)} documents"
+                    )
+                scores.extend(chunk_scores)
+        assert len(scores) == len(documents), (len(scores), len(documents))
+        return scores
+    finally:
+        for p in tempfiles:
+            with contextlib.suppress(OSError):
+                os.unlink(p)
+
+
+def _flatten_scores(out) -> list[float]:
+    import mlx.core as mx
+
+    mx.eval(out)
+    flat = out.reshape(-1) if hasattr(out, "reshape") else out
+    return [float(x) for x in (flat.tolist() if hasattr(flat, "tolist") else list(flat))]
+
+
+# ── transport models ────────────────────────────────────────────────────────
+class EmbedBatchReq(BaseModel):
+    items: list[dict]
 
 
 class RerankReq(BaseModel):
-    query: str
-    candidates: list
+    query: str | dict
+    documents: list[dict]
     top_n: int | None = None
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "vl-retrieval", "embed_model": EMBED_MODEL}
+    return {
+        "status": "ok",
+        "service": "vl-retrieval",
+        "embed_model": EMBED_MODEL,
+        "rerank_model": RERANK_MODEL,
+        "embedding_dim": EMBEDDING_DIM,
+        "rerank_chunk": RERANK_CHUNK,
+        "embed_loaded": _embed["model"] is not None,
+        "rerank_loaded": _rerank["model"] is not None,
+    }
 
 
 @app.get("/ready")
-def ready():
-    """Whether the embed model actually loads on this runtime (see RUNTIME NOTE)."""
+async def ready():
     try:
-        _load_embed()
-        return {"ready": True, "embed_model": EMBED_MODEL}
+        async with _lock:
+            _load(_embed, EMBED_MODEL)
+        dim = len((await _embed_items([{"text": "ready probe", "is_query": True}]))[0])
+        ok = dim == EMBEDDING_DIM
+        return JSONResponse(
+            {
+                "ready": ok,
+                "embed_model": EMBED_MODEL,
+                "dim": dim,
+                "expected_dim": EMBEDDING_DIM,
+                "normalize": _embed["normalize"],
+            },
+            status_code=200 if ok else 503,
+        )
     except Exception as e:  # noqa: BLE001
-        return {"ready": False, "embed_model": EMBED_MODEL, "error": f"{type(e).__name__}: {e}"}
+        return JSONResponse(
+            {"ready": False, "embed_model": EMBED_MODEL, "error": f"{type(e).__name__}: {e}"},
+            status_code=503,
+        )
 
 
 @app.post("/embed")
-def embed(req: EmbedReq):
-    model, proc = _load_embed()
-    item: dict = {}
-    if req.text:
-        item["text"] = req.text
-        item["instruction"] = req.instruction
-    if req.image_b64:
-        item["image"] = _b64_to_path(req.image_b64)
-    vec = _embed_one(model, proc, item)
-    return {"embedding": vec, "dim": len(vec)}
+async def embed(req: dict):
+    try:
+        vec = (await _embed_items([{**req, "is_query": bool(req.get("is_query"))}]))[0]
+        return {"embedding": vec, "dim": len(vec)}
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+
+@app.post("/embed_batch")
+async def embed_batch(req: EmbedBatchReq):
+    try:
+        vecs = await _embed_items(req.items)
+        return {"embeddings": vecs, "dim": len(vecs[0]) if vecs else 0, "count": len(vecs)}
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
 
 
 @app.post("/rerank")
-def rerank(req: RerankReq):
-    model, proc = _load_rerank()
-    q = {"instruction": "Retrieve documents relevant to the query.", "text": req.query}
-    scored = []
-    for i, c in enumerate(req.candidates):
-        cand = (
-            {"image": _b64_to_path(c["image_b64"])}
-            if c.get("image_b64")
-            else {"text": c.get("text", "")}
-        )
-        scored.append({"index": i, "score": _score_pair(model, proc, q, cand)})
-    scored.sort(key=lambda s: -s["score"])
-    return {"results": scored[: (req.top_n or len(scored))]}
+async def rerank(req: RerankReq):
+    try:
+        query = req.query if isinstance(req.query, dict) else {"text": req.query}
+        scores = await _score_documents(query, req.documents)
+        order = sorted(range(len(scores)), key=lambda i: -scores[i])
+        if req.top_n:
+            order = order[: req.top_n]
+        return {"results": [{"index": i, "score": scores[i]} for i in order]}
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
 
 
 if __name__ == "__main__":
