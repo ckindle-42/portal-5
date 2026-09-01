@@ -33,13 +33,18 @@ the `auto-data` workspace. It is host-native (stdlib + lazy `duckdb` / pandas).
 
 ## How it's used
 
-`attach_source` mounts a tabular file (`DATA_MCP_ROOT`-confined, default
-`~/AI_Output`) as a DuckDB view in a session; `run_sql` queries the session
-(mutating / sandbox-escape statements blocked, rows capped at `DATA_MCP_MAX_ROWS`);
-`profile_table` gives a per-column profile; `list_session` enumerates the
-session's tables. Each `session_id` maps to its own DuckDB file under
-`DATA_MCP_SESSIONS`, so an analysis accumulates across a conversation —
-scratch tables live in the session DB, never in the source files.
+`attach_source` reads a tabular file (`DATA_MCP_ROOT`-confined, default
+`~/AI_Output`) exactly once through a short-lived loader connection and
+materialises it into a session table; `run_sql` queries the session on a
+cached connection opened with `enable_external_access=false`, so it can never
+open an arbitrary path or re-enable filesystem access (a denylist on
+`read_csv` / `read_parquet` / `read_json` / `read_blob` / `glob` / `SET` /
+`ATTACH` / `COPY` / `INSTALL` sits in front for a clean error). Rows are
+capped at `DATA_MCP_MAX_ROWS`. `profile_table` gives a per-column profile;
+`list_session` enumerates the session's tables. Each `session_id` maps to its
+own DuckDB file under `DATA_MCP_SESSIONS`, so an analysis accumulates across a
+conversation — scratch tables live in the session DB, never in the source
+files.
 
 ## Why it exists
 
