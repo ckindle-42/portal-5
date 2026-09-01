@@ -38,7 +38,7 @@
     },
     {
       "query": "technique signature",
-      "top_hit": "unit-T1003.001-signature"
+      "top_hit": "unit-T1190-signature"
     },
     {
       "query": "image generation",

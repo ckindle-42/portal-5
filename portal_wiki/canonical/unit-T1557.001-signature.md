@@ -1,45 +1,43 @@
 ---
 id: unit-T1557.001-signature
 kind: mixed
-title: "T1557.001 \u2014 LLMNR/NBT-NS poisoning detection signature"
+title: "T1557.001 \u2014 LLMNR/NBT-NS poisoning \u2014 Responder/capture events on\
+  \ Windows network"
 sources:
-- type: code
-  path: portal/modules/security/core/siem/spl_detections.yaml
+- type: spl
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1557.001
 - type: mitre
   path: ATT&CK:T1557.001
-- type: code
-  path: portal/modules/security/core/exec_chain.py
+- type: scenario
+  path: exec_chain.py#relay_to_shell
 claims: []
 confidence: high
 tags:
 - T1557.001
-- signature
 - technique
-- verified-v1
-created_at: 1785503864.931202
-updated_at: 1785503864.931202
+- signature
+created_at: 1788236495.096437
+updated_at: 1788236495.096437
 ---
 
-# T1557.001 — LLMNR/NBT-NS poisoning detection signature
+# T1557.001 — LLMNR/NBT-NS poisoning — Responder/capture events on Windows network
 
-## What This Detection Sees
+## Telemetry Signatures
 
-Name-resolution poisoning is seen on both sides of the attack. The SPL matches Windows events that reference LLMNR or the Responder tool (including service-installation 4697 events) and adds Linux auditd execve for a responder binary, grouping by host and sourcetype so the poisoner and the poisoned are both in view.
-
-## SPL Detection
-
+### SPL Detection (siem/spl_detections.yaml)
 ```spl
 index=portal5_lab (sourcetype="windows:security" (EventCode=4697 OR Message="*LLMNR*" OR Message="*responder*") OR (sourcetype="linux:auditd" exe="*responder*")) | stats count by host, sourcetype
 ```
-
-## Expected Signal
-
-LLMNR or NBT-NS poison activity or Responder execution on the network — the sourcetype split is deliberate because the tool runs on the attacker box while the effects show up on Windows.
 
 ## Exercised By Scenarios
 
 - `relay_to_shell`
 
-## Why
+## Per-Source Expected Signatures
 
-Grounded in the executable SPL because poisoning has two vantage points — the tool's own execution and the victim events it produces — and the query keeps both arms. Pinning that dual-sourcetype shape preserves the unit's ability to see the poisoner even when no victim event fires.
+| Source | Expected Signal |
+|--------|----------------|
+| (generic) | Activity consistent with T1557.001 |
+
+---
+*Unit auto-generated from spl_detections.yaml + SCENARIOS.*

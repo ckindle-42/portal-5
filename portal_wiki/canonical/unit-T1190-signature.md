@@ -1,40 +1,37 @@
 ---
 id: unit-T1190-signature
 kind: mixed
-title: "T1190 \u2014 Web exploit detection signature"
+title: "T1190 \u2014 Web exploit \u2014 access-log signatures (LFI/SQLi/Log4Shell/webshell\
+  \ markers) [KEY: One of the literal exploit markers used by this SPL]"
 sources:
-- type: code
-  path: portal/modules/security/core/siem/spl_detections.yaml
+- type: spl
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1190
 - type: mitre
   path: ATT&CK:T1190
-- type: code
-  path: portal/modules/security/core/exec_chain.py
+- type: scenario
+  path: exec_chain.py#mbptl_ctf_full_chain
+- type: scenario
+  path: exec_chain.py#web_to_root
+- type: scenario
+  path: exec_chain.py#ctf_multi_service
 claims: []
 confidence: high
 tags:
 - T1190
-- signature
 - technique
-- verified-v1
-created_at: 1785503864.9216661
-updated_at: 1785503864.9216661
+- signature
+created_at: 1788236495.0850902
+updated_at: 1788236495.0850902
 ---
 
-# T1190 — Web exploit detection signature
+# T1190 — Web exploit — access-log signatures (LFI/SQLi/Log4Shell/webshell markers) [KEY: One of the literal exploit markers used by this SPL]
 
-## What This Detection Sees
+## Telemetry Signatures
 
-Web-exploit initial access is detected by the payload markers an attacker leaves in access logs. The SPL matches LFI and SQLi probes (passwd, parent-dot, UNION SELECT), Log4Shell's jndi reference, and webshell indicators like `.php` and `cmd=`, grouped by host and source. An IIS variant shifts the lens to status-code and path signatures for Microsoft targets.
-
-## SPL Detection
-
+### SPL Detection (siem/spl_detections.yaml)
 ```spl
 index=portal5_lab sourcetype="web:access" (passwd OR "../" OR "UNION SELECT" OR "${jndi:" OR ".php" OR "cmd=") | stats count by host, source, _raw
 ```
-
-## Expected Signal
-
-HTTP requests with attack payloads in URI or body — the marker set spans four exploit families in one query, from traversal to Log4Shell.
 
 ## Exercised By Scenarios
 
@@ -44,6 +41,12 @@ HTTP requests with attack payloads in URI or body — the marker set spans four 
 - `web_sqli_dump`
 - `web_graphql_introspect`
 
-## Why
+## Per-Source Expected Signatures
 
-The unit follows the executable SPL because the technique is a grab-bag of exploit families and the query is what fixes the marker set — LFI, SQLi, Log4Shell, webshell. Describing "web exploits" without the literal list would leave the unit uncheckable, so the literals and the IIS variant are kept verbatim from the detection library.
+| Source | Expected Signal |
+|--------|----------------|
+| web:access | HTTP requests with attack payloads in URI/body (LFI/SQLi/Log4Shell markers) |
+| windows:security | Process creation (4688) from web server process |
+
+---
+*Unit auto-generated from spl_detections.yaml + SCENARIOS.*

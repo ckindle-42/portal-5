@@ -1,44 +1,36 @@
 ---
 id: unit-T1021.002-signature
 kind: mixed
-title: "T1021.002 \u2014 SMB/Windows Admin Shares detection signature"
+title: "T1021.002 \u2014 SMB/Windows Admin Shares \u2014 remote file copy via SMB"
 sources:
-- type: code
-  path: portal/modules/security/core/siem/spl_detections.yaml
+- type: spl
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1021.002
 - type: mitre
   path: ATT&CK:T1021.002
-- type: code
-  path: portal/modules/security/core/exec_chain.py
+- type: scenario
+  path: exec_chain.py#meta3_smb_exploit
+- type: scenario
+  path: exec_chain.py#meta3_winrm_weakpass
+- type: scenario
+  path: exec_chain.py#meta3_psexec
 claims: []
 confidence: high
 tags:
 - T1021.002
-- signature
 - technique
-- verified-v1
-created_at: 1785503864.926429
-updated_at: 1785503864.926429
+- signature
+created_at: 1788236495.0902798
+updated_at: 1788236495.0902798
 ---
 
-# T1021.002 — SMB/Windows Admin Shares detection signature
+# T1021.002 — SMB/Windows Admin Shares — remote file copy via SMB
 
-## What This Detection Sees
+## Telemetry Signatures
 
-Remote file copy over SMB is observed at the source rather than the target: the primary SPL watches Linux auditd execve records for `smbclient` or `smbget` invocations, which is where an attack host reaches out. A Windows variant flips to the destination side, flagging 5140 share-access events where the `ShareName` is an administrative path and the account is neither anonymous nor a machine account.
-
-## SPL Detection
-
+### SPL Detection (siem/spl_detections.yaml)
 ```spl
 index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a0="smbclient" OR a0="smbget") | stats count by host, a0
 ```
-
-## Expected Signal
-
-SMB share access from an attack host — `smbclient` or `smbget` execve on Linux, or 5140 network-share access to an admin share from a non-system account on Windows.
-
-## Distinguishing From Siblings
-
-The sibling RDP channel is detected through 4624 logon events; this unit instead keys on the share access itself, either from the copying tool or from the 5140 share event on the target.
 
 ## Exercised By Scenarios
 
@@ -47,6 +39,11 @@ The sibling RDP channel is detected through 4624 logon events; this unit instead
 - `meta3_psexec`
 - `mission_meta3_lateral_pivot`
 
-## Why
+## Per-Source Expected Signatures
 
-Pinned to the executable SPL because the source-side Linux auditd query and the destination-side 5140 variant are two different vantage points on the same move, and both are needed to catch SMB lateral movement in the lab. The scenario anchors tie the signature to the psexec and weak-password chains that actually copy files over admin shares.
+| Source | Expected Signal |
+|--------|----------------|
+| (generic) | Activity consistent with T1021.002 |
+
+---
+*Unit auto-generated from spl_detections.yaml + SCENARIOS.*

@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 705 canonical units.*
+*Deterministic projection of 730 canonical units.*
 
 ## Knowledge Layer
 
@@ -87,37 +87,45 @@
 | `unit-SEC_BENCH-verification` | what | 4 |
 | `unit-SEC_BENCH-what-it-is` | what | 19 |
 | `unit-T1003.001-signature` | mixed | 3 |
-| `unit-T1003.003-signature` | mixed | 3 |
+| `unit-T1003.002-signature` | mixed | 3 |
+| `unit-T1003.003-signature` | mixed | 2 |
 | `unit-T1003.006-signature` | mixed | 2 |
 | `unit-T1021.001-signature` | mixed | 3 |
-| `unit-T1021.002-signature` | mixed | 3 |
-| `unit-T1046-signature` | mixed | 3 |
+| `unit-T1021.002-signature` | mixed | 5 |
+| `unit-T1046-signature` | mixed | 5 |
 | `unit-T1047-signature` | mixed | 3 |
-| `unit-T1053.005-signature` | mixed | 3 |
-| `unit-T1059-signature` | mixed | 3 |
-| `unit-T1059.004-signature` | mixed | 3 |
+| `unit-T1053.005-signature` | mixed | 4 |
+| `unit-T1059-signature` | mixed | 5 |
+| `unit-T1059.001-signature` | mixed | 2 |
+| `unit-T1059.004-signature` | mixed | 5 |
 | `unit-T1068-signature` | mixed | 2 |
-| `unit-T1078-signature` | mixed | 3 |
-| `unit-T1083-signature` | mixed | 3 |
+| `unit-T1078-signature` | mixed | 5 |
+| `unit-T1078.004-signature` | mixed | 3 |
+| `unit-T1083-signature` | mixed | 5 |
+| `unit-T1098-signature` | mixed | 2 |
 | `unit-T1110.001-signature` | mixed | 2 |
-| `unit-T1110.003-signature` | mixed | 3 |
-| `unit-T1189-signature` | mixed | 3 |
-| `unit-T1190-signature` | mixed | 3 |
-| `unit-T1203-signature` | mixed | 3 |
+| `unit-T1110.003-signature` | mixed | 5 |
+| `unit-T1189-signature` | mixed | 4 |
+| `unit-T1190-signature` | mixed | 5 |
+| `unit-T1203-signature` | mixed | 4 |
 | `unit-T1210-signature` | mixed | 3 |
-| `unit-T1505.003-signature` | mixed | 3 |
+| `unit-T1505.003-signature` | mixed | 5 |
+| `unit-T1526-signature` | mixed | 2 |
+| `unit-T1530-signature` | mixed | 2 |
+| `unit-T1543.003-signature` | mixed | 2 |
 | `unit-T1548.001-signature` | mixed | 3 |
-| `unit-T1550.002-signature` | mixed | 3 |
-| `unit-T1552-signature` | mixed | 3 |
+| `unit-T1550.002-signature` | mixed | 2 |
+| `unit-T1552-signature` | mixed | 4 |
 | `unit-T1552.005-signature` | mixed | 3 |
 | `unit-T1557-signature` | mixed | 2 |
 | `unit-T1557.001-signature` | mixed | 3 |
-| `unit-T1558.003-signature` | mixed | 3 |
+| `unit-T1558.003-signature` | mixed | 5 |
 | `unit-T1558.004-signature` | mixed | 3 |
-| `unit-T1592-signature` | mixed | 3 |
-| `unit-T1595-signature` | mixed | 3 |
+| `unit-T1592-signature` | mixed | 5 |
+| `unit-T1595-signature` | mixed | 5 |
 | `unit-T1610-signature` | mixed | 2 |
 | `unit-T1611-signature` | mixed | 2 |
+| `unit-T1621-signature` | mixed | 2 |
 | `unit-acceptance-runner` | mixed | 1 |
 | `unit-agent-loop-agent-loop-platform-core` | what | 9 |
 | `unit-agent-loop-consumers` | what | 5 |
@@ -188,6 +196,10 @@
 | `unit-capability-binresearch` | mixed | 3 |
 | `unit-capability-browser` | mixed | 3 |
 | `unit-capability-cad-render` | mixed | 3 |
+| `unit-capability-compliance` | mixed | 4 |
+| `unit-capability-context7` | mixed | 3 |
+| `unit-capability-data` | mixed | 4 |
+| `unit-capability-detection` | mixed | 4 |
 | `unit-capability-detections` | mixed | 2 |
 | `unit-capability-docker` | mixed | 2 |
 | `unit-capability-documents` | mixed | 3 |
@@ -195,20 +207,23 @@
 | `unit-capability-fetch` | mixed | 2 |
 | `unit-capability-filesystem` | mixed | 2 |
 | `unit-capability-git` | mixed | 2 |
-| `unit-capability-memory` | mixed | 3 |
+| `unit-capability-icsot` | mixed | 4 |
+| `unit-capability-memory` | mixed | 5 |
 | `unit-capability-mflux` | mixed | 3 |
-| `unit-capability-mitre` | mixed | 2 |
+| `unit-capability-mitre` | mixed | 3 |
 | `unit-capability-mlx-transcribe` | mixed | 3 |
 | `unit-capability-music-minimax` | mixed | 4 |
+| `unit-capability-netforensics` | mixed | 4 |
 | `unit-capability-pipeline` | mixed | 3 |
 | `unit-capability-proxmox` | mixed | 3 |
-| `unit-capability-rag` | mixed | 3 |
+| `unit-capability-rag` | mixed | 6 |
 | `unit-capability-reranker` | mixed | 2 |
 | `unit-capability-research` | mixed | 3 |
 | `unit-capability-security` | mixed | 2 |
 | `unit-capability-serena` | mixed | 3 |
 | `unit-capability-tts` | mixed | 3 |
 | `unit-capability-video-mlx` | mixed | 3 |
+| `unit-capability-vulnintel` | mixed | 4 |
 | `unit-capability-whisper` | mixed | 3 |
 | `unit-capability-wiki` | mixed | 3 |
 | `unit-channels-dispatcher` | mixed | 1 |
@@ -219,6 +234,11 @@
 | `unit-cluster-scale-stage-1-stage-2-add-a-second-mac-studio` | what | 3 |
 | `unit-cluster-scale-stage-3-vllm-for-70b-models` | what | 2 |
 | `unit-cluster-scale-stage-4-5-specialized-model-groups` | what | 2 |
+| `unit-code-portal` | what | 5 |
+| `unit-code-portal_channels` | what | 4 |
+| `unit-code-portal_wiki` | what | 4 |
+| `unit-code-scripts` | what | 5 |
+| `unit-code-tests` | what | 5 |
 | `unit-compliance-config-workspace-pointers` | mixed | 1 |
 | `unit-compliance-fallback-policy-canonical-baseline` | what | 5 |
 | `unit-compliance-fallback-policy-compliance-fallback-policy` | what | 4 |
@@ -516,16 +536,21 @@
 | `unit-model-catalog-tongyi-deepresearch-30b-a3b-abliterated-4bit` | what | 1 |
 | `unit-model-catalog-vulnllm-r-7b-4bit` | what | 1 |
 | `unit-module-cad` | mixed | 6 |
-| `unit-module-coding` | mixed | 4 |
-| `unit-module-compliance` | mixed | 3 |
+| `unit-module-coding` | mixed | 5 |
+| `unit-module-compliance` | mixed | 4 |
+| `unit-module-data` | mixed | 3 |
+| `unit-module-detection` | mixed | 4 |
 | `unit-module-documents` | mixed | 4 |
 | `unit-module-eval` | mixed | 3 |
 | `unit-module-general` | mixed | 4 |
+| `unit-module-icsot` | mixed | 4 |
 | `unit-module-image` | mixed | 3 |
 | `unit-module-media` | mixed | 7 |
+| `unit-module-netforensics` | mixed | 4 |
 | `unit-module-research` | mixed | 4 |
 | `unit-module-security` | mixed | 5 |
 | `unit-module-video` | mixed | 4 |
+| `unit-module-vulnintel` | mixed | 3 |
 | `unit-p5-roadmap-future-considerations-not-yet-implemented` | what | 5 |
 | `unit-p5-roadmap-p5-fut-004-webhook-based-event-notifications` | what | 2 |
 | `unit-p5-roadmap-p5-fut-006-llm-based-intent-routing` | what | 5 |
@@ -674,7 +699,7 @@
 | `unit-surface-tests-unit` | mixed | 1 |
 | `unit-surface-tool-preselect` | mixed | 2 |
 | `unit-surface-toolpreselect-tests` | mixed | 1 |
-| `unit-surface-uat` | mixed | 1 |
+| `unit-surface-uat` | mixed | 2 |
 | `unit-surface-uat-catalog` | mixed | 1 |
 | `unit-surface-wiki-adapters` | mixed | 1 |
 | `unit-tests-frontend-test-reasoning-display` | what | 1 |
@@ -714,11 +739,13 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 705 units
+**Total:** 730 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1701 references
+- **code**: 1720 references
 - **config**: 1 references
-- **mitre**: 32 references
+- **mitre**: 40 references
+- **scenario**: 54 references
+- **spl**: 40 references

@@ -1,40 +1,36 @@
 ---
 id: unit-T1595-signature
 kind: mixed
-title: "T1595 \u2014 Active scanning detection signature"
+title: "T1595 \u2014 Active scanning \u2014 vulnerability scanning and directory brute-force"
 sources:
-- type: code
-  path: portal/modules/security/core/siem/spl_detections.yaml
+- type: spl
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1595
 - type: mitre
   path: ATT&CK:T1595
-- type: code
-  path: portal/modules/security/core/exec_chain.py
+- type: scenario
+  path: exec_chain.py#web_asset_discovery
+- type: scenario
+  path: exec_chain.py#web_nuclei_scan
+- type: scenario
+  path: exec_chain.py#meta3_full_chain
 claims: []
 confidence: high
 tags:
 - T1595
-- signature
 - technique
-- verified-v1
-created_at: 1785503864.927628
-updated_at: 1785503864.927628
+- signature
+created_at: 1788236495.0915918
+updated_at: 1788236495.0915918
 ---
 
-# T1595 — Active scanning detection signature
+# T1595 — Active scanning — vulnerability scanning and directory brute-force
 
-## What This Detection Sees
+## Telemetry Signatures
 
-Active scanning is a volume signal on the web access log: a host accumulating a high rate of 404s is either brute-forcing paths or running a vulnerability scanner. The SPL counts not-found responses per host and URI path and retains only those above a threshold of ten.
-
-## SPL Detection
-
+### SPL Detection (siem/spl_detections.yaml)
 ```spl
 index=portal5_lab sourcetype="web:access" status=404 | stats count by host, uri_path | where count > 10
 ```
-
-## Expected Signal
-
-A high 404 rate from directory brute-force or vulnerability scanning — the count threshold is the rule, and the not-found status is the raw material.
 
 ## Exercised By Scenarios
 
@@ -42,6 +38,11 @@ A high 404 rate from directory brute-force or vulnerability scanning — the cou
 - `web_nuclei_scan`
 - `meta3_full_chain`
 
-## Why
+## Per-Source Expected Signatures
 
-Pinned to the executable SPL because scanning is defined by volume, and the query's count-and-threshold shape is the whole detection. Restating "active scanning" without the 404 aggregate and the threshold would strip the unit of its only mechanical claim.
+| Source | Expected Signal |
+|--------|----------------|
+| (generic) | Activity consistent with T1595 |
+
+---
+*Unit auto-generated from spl_detections.yaml + SCENARIOS.*

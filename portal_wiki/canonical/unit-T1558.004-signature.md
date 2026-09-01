@@ -1,50 +1,45 @@
 ---
 id: unit-T1558.004-signature
 kind: mixed
-title: "T1558.004 \u2014 AS-REP roasting \u2014 Windows Security Event 4768 with pre-auth\
-  \ disabled (PreAuthType 0)"
+title: "T1558.004 \u2014 AS-REP Roasting \u2014 Windows Security Event 4768 without\
+  \ pre-auth [DISTINGUISH: T1558.004 uses EventCode=4768 (AS-REQ) with PreAuthType=0;\
+  \ T1558.003 uses EventCode=4769 (TGS-REQ) with RC4] [KEY: PreAuthType=0 in 4768\
+  \ events]"
 sources:
-- type: code
-  path: portal/modules/security/core/siem/spl_detections.yaml
+- type: spl
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1558.004
 - type: mitre
   path: ATT&CK:T1558.004
-- type: code
-  path: portal/modules/security/core/exec_chain.py
+- type: scenario
+  path: exec_chain.py#asrep_to_lateral
 claims: []
 confidence: high
 tags:
 - T1558.004
-- signature
 - technique
-- verified-v1
-created_at: 1785503864.9240892
-updated_at: 1785503864.9240892
+- signature
+created_at: 1788236495.087761
+updated_at: 1788236495.087761
 ---
 
-# T1558.004 — AS-REP roasting detection signature
+# T1558.004 — AS-REP Roasting — Windows Security Event 4768 without pre-auth [DISTINGUISH: T1558.004 uses EventCode=4768 (AS-REQ) with PreAuthType=0; T1558.003 uses EventCode=4769 (TGS-REQ) with RC4] [KEY: PreAuthType=0 in 4768 events]
 
-## What This Detection Sees
+## Telemetry Signatures
 
-AS-REP roasting is detected by the absence rather than the presence of a field: Kerberos authentication requests (4768) that arrive with pre-authentication disabled, `PreAuthType` 0. The SPL filters those events and groups by `Account`, flagging accounts that hand out encryptable responses without the timestamp proof.
-
-## SPL Detection
-
+### SPL Detection (siem/spl_detections.yaml)
 ```spl
 index=portal5_lab sourcetype="windows:security" EventCode=4768 PreAuthType=0 | stats count by Account
 ```
-
-## Expected Signal
-
-Kerberos authentication without pre-authentication — the zero preauth type is the vulnerability made visible in the event stream.
-
-## Distinguishing From Siblings
-
-The kerberoasting sibling T1558.003 filters 4769 tickets by RC4; this unit watches 4768 requests for `PreAuthType` 0, so the event-code difference is the discriminator.
 
 ## Exercised By Scenarios
 
 - `asrep_to_lateral`
 
-## Why
+## Per-Source Expected Signatures
 
-Grounded in the executable SPL because this detection is an absence-based filter — `PreAuthType` 0 is a negative condition that prose would inevitably soften. Keeping the exact field and value preserves the precise condition the lab enforces, and the 4768-versus-4769 contrast documents how the sibling pair stays distinct.
+| Source | Expected Signal |
+|--------|----------------|
+| windows:security | Event 4768 without pre-authentication required (AS-REP Roasting) |
+
+---
+*Unit auto-generated from spl_detections.yaml + SCENARIOS.*

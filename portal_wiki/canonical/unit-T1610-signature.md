@@ -1,39 +1,36 @@
 ---
 id: unit-T1610-signature
 kind: mixed
-title: "T1610 \u2014 Container deploy detection signature"
+title: "T1610 \u2014 Container deploy \u2014 docker-daemon events"
 sources:
-- type: code
-  path: portal/modules/security/core/siem/spl_detections.yaml
+- type: spl
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1610
 - type: mitre
   path: ATT&CK:T1610
 claims: []
 confidence: high
 tags:
 - T1610
-- signature
 - technique
-- verified-v1
-created_at: 1785503864.922878
-updated_at: 1785503864.922878
+- signature
+created_at: 1788236495.0864372
+updated_at: 1788236495.0864372
 ---
 
-# T1610 — Container deploy detection signature
+# T1610 — Container deploy — docker-daemon events
 
-## What This Detection Sees
+## Telemetry Signatures
 
-Container deployment is observed at the daemon: Docker daemon events for container creation or start are the deploy signal. The SPL groups by host and `container_name`, so an attacker standing up an auxiliary container is visible as a distinct deployment event rather than an inferred workload.
-
-## SPL Detection
-
+### SPL Detection (siem/spl_detections.yaml)
 ```spl
 index=portal5_lab sourcetype="docker:daemon" (create OR start) | stats count by host, container_name
 ```
 
-## Expected Signal
+## Per-Source Expected Signatures
 
-Container creation or start events from attack activity — daemon-side events are the observability the workload itself cannot provide.
+| Source | Expected Signal |
+|--------|----------------|
+| (generic) | Activity consistent with T1610 |
 
-## Why
-
-Grounded in the executable SPL because container deployment has no file artifact the host would see, so the daemon event stream is the only honest source. The unit documents that choice by pinning the create-or-start filter that the lab actually queries.
+---
+*Unit auto-generated from spl_detections.yaml + SCENARIOS.*
