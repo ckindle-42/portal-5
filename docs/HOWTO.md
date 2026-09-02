@@ -272,21 +272,21 @@ Speech is an audio runtime, not part of the chat inference tier, so it runs outs
 ## 12. Speech-to-Text (ASR)
 
 <!-- WIKI:GENERATED unit=unit-HOWTO-12-speech-to-text-asr -->
-**What:** Transcribe audio files to text — MLX-native ASR and a Docker Whisper fallback.
+**What:** Transcribe audio files to text — MLX-native ASR, with a Docker Whisper fallback for non-Apple-Silicon nodes.
 
-**Activate:** Transcription is available only in workspaces that grant the tools: `transcribe_audio` and `transcribe_with_speakers` appear in `auto-music`, `auto-daily`, `auto-audio`, `auto-vision`, and `auto-documents` (`config/portal.yaml`). It is not enabled in every workspace.
+**Activate:** Pick the **🎙️ Portal Audio Analyst** workspace (`auto-audio`) — it is the transcription home and grants both `transcribe_audio` (plain) and `transcribe_with_speakers` (speaker-labelled). `transcribe_audio` is also granted in `auto-music`, `auto-daily`, and `auto-vision` for lanes that occasionally need a quick transcript (`config/portal.yaml`); it is not enabled everywhere.
 
-**How:** The host-native MLX Transcribe server (`scripts/mlx-transcribe.py`, port 8924, `./launch.sh start-transcribe`) backs both tools on Apple Silicon: `transcribe_audio` is Parakeet-TDT-v3 (transcript + word timestamps), `transcribe_with_speakers` adds Sortformer speaker diarization merged at the word level — see the Diarized Transcription unit. The Docker `mcp-whisper` server (port 8915, `portal/modules/media/tools/whisper_mcp.py`) proxies there first and only falls back to in-Docker faster-whisper (`large-v3-turbo`, no diarization) on non-Apple-Silicon nodes. The workspace prompts tell the model to call the tool with no file argument so the most recently uploaded audio is auto-detected from the shared workspace `uploads/` directory.
+**How:** Drop the audio file in the chat and ask ("transcribe this" / "who said what"). The host-native MLX Transcribe server (`scripts/mlx-transcribe.py`, port 8924, `./launch.sh start-transcribe`) backs both tools on Apple Silicon: `transcribe_audio` is Parakeet-TDT-v3 (transcript + word timestamps), `transcribe_with_speakers` adds Sortformer speaker diarization merged at the word level — see the Diarized Transcription unit. Either tool auto-detects the most recently uploaded file when called with no argument, and **always writes three sidecars** — JSON, Markdown, and Word (`.docx`) — into `~/AI_Output/generated/transcripts/`, returning `md_url` / `docx_url` download links in the response. The Docker `mcp-whisper` server (port 8915, `portal/modules/media/tools/whisper_mcp.py`) proxies to :8924 first and only falls back to in-Docker faster-whisper (`large-v3-turbo`, no diarization) on non-Apple-Silicon nodes.
 
 ## Why
 
-Transcription availability is deliberately workspace-scoped because ASR is not free — each engine loads a model and takes GPU time, so granting it everywhere would add latency to chat lanes that never transcribe. Scoping by workspace tools means audio-heavy lanes (music, audio analysis, documents) carry the capability while general chat stays lean.
+The server emits the Markdown and `.docx` alongside the canonical JSON in the same step as the transcription itself, rather than leaving the Word document to a second model-driven `create_word_document` call. That makes the artifacts deterministic — they exist whether or not the model completes the chat turn — and collapses what used to be a two-workspace, persona-chained flow into one tool call. Transcription stays workspace-scoped because ASR is not free — each engine loads a model and takes GPU time — so the capability rides audio-heavy lanes while general chat stays lean.
 <!-- /WIKI:GENERATED -->
 
 ### Diarized Transcription (Speaker-Labeled Transcripts)
 
 <!-- WIKI:GENERATED unit=unit-HOWTO-diarized-transcription-speaker-labeled-transcripts -->
-**What:** Drop an audio file in an OWUI chat that grants `transcribe_with_speakers` (e.g. `auto-audio`, `auto-documents`), ask "who said what", and get back a transcript with speaker labels (`SPEAKER_00`, `SPEAKER_01`, …). A single-speaker recording simply comes back as one speaker — you don't have to know in advance. Outputs JSON + Markdown to the shared workspace at `~/AI_Output/generated/transcripts/`, served as download URLs on port 8924.
+**What:** Pick the **🎙️ Portal Audio Analyst** workspace (`auto-audio`), drop an audio file, ask "who said what", and get back a transcript with speaker labels (`SPEAKER_00`, `SPEAKER_01`, …). A single-speaker recording simply comes back as one speaker — you don't have to know in advance. Outputs JSON + Markdown + Word (`.docx`) to the shared workspace at `~/AI_Output/generated/transcripts/`, served as download URLs on port 8924.
 
 **Pre-flight:** none. No HuggingFace token, no gated models.
 
@@ -300,7 +300,7 @@ Transcription availability is deliberately workspace-scoped because ASR is not f
 
 ## Why
 
-Two models, not one. If the diarizer is skipped (file past `MLX_DIARIZE_MAX_S`) or fails, you still get the complete Parakeet transcript as one speaker with a `warning` — a joint transcribe-and-diarize model that stops early loses the text too. Word-level assignment keeps a speaker change on a word boundary instead of mid-word. Outputting both canonical JSON and a Markdown sidecar into the shared workspace means the transcript is immediately available to any other service, not just the chat thread that requested it.
+Two models, not one. If the diarizer is skipped (file past `MLX_DIARIZE_MAX_S`) or fails, you still get the complete Parakeet transcript as one speaker with a `warning` — a joint transcribe-and-diarize model that stops early loses the text too. Word-level assignment keeps a speaker change on a word boundary instead of mid-word. Outputting canonical JSON plus Markdown and Word (`.docx`) sidecars in the same step as the transcription — rather than leaving the `.docx` to a second model-driven tool call — means every transcript yields the same three artifacts deterministically, available to any other service and not just the chat thread that requested it.
 <!-- /WIKI:GENERATED -->
 
 ---

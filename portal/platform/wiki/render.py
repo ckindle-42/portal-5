@@ -225,6 +225,33 @@ def render_report(repo_root: Path) -> dict:
     }
 
 
+def _summarize_body(body: str, limit: int = 500) -> str:
+    """One-paragraph plain-text summary of a unit body for a generated projection.
+
+    Unit bodies carry their own structure — ``**What:**`` / ``**How:**`` labels and
+    an embedded ``## Why`` heading — so a raw ``body[:limit]`` slice leaks those
+    headings into the projection and cuts mid-word. Take the first paragraph, drop
+    a leading ``**Label:**`` prefix, strip bold markers, skip Markdown headings,
+    and trim to ``limit`` at a sentence or word boundary.
+    """
+    para = ""
+    for block in body.strip().split("\n\n"):
+        block = block.strip()
+        if block and not block.startswith("#"):
+            para = " ".join(line.strip() for line in block.splitlines())
+            break
+    para = re.sub(r"^\*\*[^*]+:\*\*\s*", "", para)  # drop leading "**What:** " label
+    para = para.replace("**", "")
+    if len(para) <= limit:
+        return para
+    window = para[: limit + 1]
+    cut = max(window.rfind(". "), window.rfind("! "), window.rfind("? "))
+    if cut >= limit // 2:
+        return para[: cut + 1]
+    cut = window.rfind(" ")
+    return (para[:cut] if cut > 0 else para[:limit]).rstrip() + "…"
+
+
 def render_admin_guide(output_dir: Path | None = None) -> Path:
     """Render an admin guide from canonical units."""
     units = load_all()
@@ -247,7 +274,7 @@ def render_admin_guide(output_dir: Path | None = None) -> Path:
         lines.append(f"### {unit.title}")
         lines.append(f"*Source: {unit.sources[0].path if unit.sources else 'unknown'}*")
         lines.append("")
-        lines.append(unit.body[:500])
+        lines.append(_summarize_body(unit.body))
         lines.append("")
 
     # Components from what-units

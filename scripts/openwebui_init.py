@@ -704,14 +704,13 @@ def verify_persona_tool_bindings(client: httpx.Client, token: str) -> None:
     TASK-OWUI-AUDIO-DROP-001: catches a silent failure mode where the YAML
     declares a tool but the OWUI model record doesn't expose it.
     """
-    # Personas that MUST have specific tools bound
-    required_bindings = {
-        "transcriptanalyst": [
-            "transcribe_with_speakers",
-            "create_word_document",
-            "read_word_document",
-        ],
-    }
+    # Personas that MUST have specific tools bound.
+    # (Empty since transcription consolidated onto the auto-audio workspace and
+    # the mlx-transcribe server, which now writes the .md + .docx sidecars itself
+    # — no persona-driven create_word_document chain to keep in sync.)
+    required_bindings: dict[str, list[str]] = {}
+    if not required_bindings:
+        return
 
     try:
         resp = client.get(

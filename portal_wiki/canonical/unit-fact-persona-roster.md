@@ -1,26 +1,26 @@
 ---
 id: unit-fact-persona-roster
 kind: what
-title: 135 personas
+title: 134 personas
 sources:
 - type: code
   path: config/personas/
-  commit: 2c7a5b00c6db
+  commit: d5814a812dbb
 - type: code
   path: config/personas/adversarysimulator.yaml
-  commit: 2c7a5b00c6db
+  commit: d5814a812dbb
 - type: code
   path: config/personas/agenticheavy.yaml
-  commit: 2c7a5b00c6db
+  commit: d5814a812dbb
 - type: code
   path: config/personas/agenticlite.yaml
-  commit: 2c7a5b00c6db
+  commit: d5814a812dbb
 - type: code
   path: config/personas/agentorchestrator.yaml
-  commit: 2c7a5b00c6db
+  commit: d5814a812dbb
 - type: code
   path: config/personas/bench_gemma4_12b.yaml
-  commit: 2c7a5b00c6db
+  commit: d5814a812dbb
 claims:
 - probe: personas.count
   pattern: Persona roster ({value} personas)
@@ -29,10 +29,10 @@ tags:
 - fact
 - personas
 created_at: 1784000421.217775
-updated_at: 1787846125.3705778
+updated_at: 1788390213.6378188
 ---
 
-# Persona roster (135 personas)
+# Persona roster (134 personas)
 
 | Slug | Module | Workspace | Model Pin |
 |---|---|---|---|
@@ -165,7 +165,6 @@ updated_at: 1787846125.3705778
 | `techwriter` | documents | `auto-documents` | — |
 | `terraformwriter` | coding | `auto-coding` | — |
 | `toolcomposer` | general | `tools-specialist` | — |
-| `transcriptanalyst` | documents | `auto-documents` | — |
 | `typescriptengineer` | coding | `auto-coding` | — |
 | `ux-uideveloper` | coding | `auto-coding` | — |
 | `webnavigator` | general | `auto` | — |

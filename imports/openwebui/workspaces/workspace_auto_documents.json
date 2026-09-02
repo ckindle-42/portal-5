@@ -5,8 +5,7 @@
     "description": "📄 Portal Document Builder",
     "profile_image_url": "",
     "toolIds": [
-      "server:mcp:portal_documents",
-      "server:mcp:portal_whisper"
+      "server:mcp:portal_documents"
     ],
     "capabilities": {
       "builtin_tools": false
