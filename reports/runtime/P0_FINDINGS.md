@@ -94,3 +94,11 @@ SA5 / bench / T8-T9 sessions and never declared.
 "Reconcile the lock *to* the venv" (P1) at this scale is a fork, not a mechanical step:
 either promote that closure into `pyproject.toml`, or let `uv sync` remove it (risking
 diarization / whisper-fallback / bench tooling). This needs an operator decision before P1.
+
+> **CORRECTED — `TASK_VL_RETRIEVAL_HARDENING_AND_CLOSEOUT_V2` C1.** `matplotlib`
+> (and `trimesh`, `docling`) are **not** undeclared cruft. They are declared in
+> `Dockerfile.mcp`, where `cad_render` (:8926) and the document converters
+> actually run. A full import-sweep of the reconciled venv shows every "venv-only"
+> module is either Docker-MCP-declared, a `sys.path` local, or a retired path —
+> the drop from the host `pyproject.toml` was correct, there is no host runtime
+> gap. The genuine lock regression is `torchvision` / `mlx-embeddings` (D5).
