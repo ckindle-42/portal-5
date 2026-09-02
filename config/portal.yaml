@@ -384,7 +384,8 @@ workspaces:
       Fast everyday assistant: chat, writing, editing, summarization, planning, light technical help. gemma4:26b-a4b-it-qat primary (Ollama, MoE 4B active, VLM, Apache 2.0, QAT near-BF16). Upgraded from q4_K_M → QAT (V8: +23% TPS, same ~15GB footprint). Daily-driver lane — escalates to specialist workspaces when needed.
     model_hint: gemma4:26b-a4b-it-qat-ctx8k
     inject_memory: true
-    auto_rag: true
+    # auto_rag disabled: TASK_RAG_COMPOSITION_SEAM_V1 P1 [GATE] (c) — the feature
+    # never ran (kb_search dispatched without a kb_id) and the KB set is unsettled.
     memory_writeback: true
     context_limit: 8192
     predict_limit: 4096

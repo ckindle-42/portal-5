@@ -33,7 +33,13 @@ from portal.platform.inference.tool_registry import tool_registry
 logger = logging.getLogger(__name__)
 
 _AUTO_MEMORY_ENABLED = os.environ.get("AUTO_MEMORY_ENABLED", "true").lower() != "false"
-_AUTO_RAG_ENABLED = os.environ.get("AUTO_RAG_ENABLED", "true").lower() != "false"
+# Auto-RAG context injection is OFF by default. TASK_RAG_COMPOSITION_SEAM_V1 P1
+# [GATE] resolved to option (c): the capability never actually ran (kb_search was
+# dispatched without a kb_id and failed silently as a cache miss), and which KB a
+# workspace should draw from is not settled. Re-enabling it requires answering the
+# gate — either a per-workspace auto_rag_kb_id or a deliberate route to
+# kb_search_all — and sending an argument shape _search accepts (kb_id + top_k).
+_AUTO_RAG_ENABLED = os.environ.get("AUTO_RAG_ENABLED", "false").lower() == "true"
 _AUTO_MEMORY_WRITEBACK_ENABLED = (
     os.environ.get("AUTO_MEMORY_WRITEBACK_ENABLED", "true").lower() != "false"
 )
@@ -102,6 +108,25 @@ def _extract_snippets(result: dict[str, Any]) -> list[str]:
     raise ValueError(f"unrecognised tool result shape: keys={sorted(result)[:6]}")
 
 
+def _dispatch_outcome(source: str, result: dict[str, Any], snippets: list[str]) -> str:
+    """Classify an auto-context dispatch for the metric.
+
+    An ``{"error": ...}`` result is a live-contract mismatch or an unreachable
+    tool — NOT an empty KB. Record it as a distinct ``error`` outcome and log it,
+    so a broken contract is visible on the dashboard instead of reading as "the
+    KB had nothing" (the failure mode that hid auto-RAG being dead for months).
+    Auto-context is best-effort, so we do not raise into the request path.
+    """
+    if isinstance(result, dict) and "error" in result:
+        logger.warning(
+            "auto-context: %s dispatch returned an error, not a miss: %s",
+            source,
+            result.get("error"),
+        )
+        return "error"
+    return "hit" if snippets else "miss"
+
+
 def _inject_context_block(body: dict, header: str, items: list[str]) -> dict:
     if not items:
         return body
@@ -145,7 +170,9 @@ async def inject_recalled_memory(workspace_id: str, body: dict, cid: str) -> dic
     _auto_context_latency_seconds.labels(source="memory").observe(
         asyncio.get_event_loop().time() - t0
     )
-    _auto_context_inject_total.labels(source="memory", outcome="hit" if snippets else "miss").inc()
+    _auto_context_inject_total.labels(
+        source="memory", outcome=_dispatch_outcome("memory", result, snippets)
+    ).inc()
     return _inject_context_block(body, "Relevant context from prior sessions:", snippets)
 
 
@@ -158,10 +185,19 @@ async def inject_retrieved_context(workspace_id: str, body: dict, cid: str) -> d
     if not query:
         return body
     t0 = asyncio.get_event_loop().time()
-    result = await _dispatch_bounded("kb_search", {"query": query, "k": _TOP_K}, cid)
+    # kb_search also requires a kb_id — supplied from the workspace once the P1
+    # [GATE] is answered. Until then _AUTO_RAG_ENABLED is false and this path is
+    # unreachable; the param name is corrected to top_k so it is ready to work.
+    kb_id = WORKSPACES.get(workspace_id, {}).get("auto_rag_kb_id")
+    args = {"query": query, "top_k": _TOP_K}
+    if kb_id:
+        args["kb_id"] = kb_id
+    result = await _dispatch_bounded("kb_search", args, cid)
     snippets = _extract_snippets(result)
     _auto_context_latency_seconds.labels(source="rag").observe(asyncio.get_event_loop().time() - t0)
-    _auto_context_inject_total.labels(source="rag", outcome="hit" if snippets else "miss").inc()
+    _auto_context_inject_total.labels(
+        source="rag", outcome=_dispatch_outcome("rag", result, snippets)
+    ).inc()
     return _inject_context_block(body, "Relevant information from the knowledge base:", snippets)
 
 
