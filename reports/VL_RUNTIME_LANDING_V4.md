@@ -166,6 +166,16 @@ tuning (a modest visual boost, or more coarse-visual depth before rerank) for
 diagram-only queries to top the list. Out of scope for landing the runtime;
 recorded as a follow-up.
 
+> **CORRECTED — `TASK_VL_RETRIEVAL_HARDENING_AND_CLOSEOUT_V2` P5.** It is *not* a
+> weighting problem. Plain RRF gives a rank-0 text chunk and a rank-0 page image
+> *exactly* `1/(60+0)` each; `sorted` is stable and the text arm is inserted
+> first, so text wins every tie **by construction** — all 21 eval diagram-only
+> queries at rank exactly 2, MRR exactly 0.500. The fix (`text_gate`, landed in
+> `rag_multimodal._search`): add the reranker's calibrated probability to the
+> visual arm only when the top text chunk's cosine < 0.67 (measured: diagram
+> queries 0.44–0.62, prose 0.73–0.83). diagram recall@1 0.000 → 1.000, prose
+> unchanged. See `reports/VL_RETRIEVAL_HARDENING_V2.md`.
+
 **Measurement 1 — `max_pixels`:** diagram-page **recall@5 = 1.0 at both** the
 default cap (1.84 M px) and a raised cap (2.66 M px); the page is always in the
 top 5. `_render_pages` at 150 DPI (~2.10 M px US-Letter) is still above the
@@ -192,14 +202,26 @@ lettered check added — the drift gate lives in the pytest unit suite, which th
 
 ## Still open
 
+> **RESOLVED — `TASK_VL_RETRIEVAL_HARDENING_AND_CLOSEOUT_V2`.** The first three
+> items below are closed. See `reports/VL_RETRIEVAL_HARDENING_V2.md`.
+
 - **RRF text-vs-visual weighting** — a diagram-only query retrieves the right
   visual page but a semantically-adjacent text chunk from the same file wins the
   final tiebreak. Needs a visual RRF boost or more coarse-visual depth. (P8)
+  **CORRECTED:** not a weighting problem — plain RRF gives both arms exactly
+  `1/(60+0)` and stable `sorted` keeps the text arm (inserted first) on top *by
+  construction*. Fixed by `text_gate` (`VL_TEXT_GATE=0.67`): add the reranker
+  probability to the visual arm only when the top text-chunk cosine < 0.67.
+  diagram-only recall@1 **0.000 → 1.000**, prose byte-identical.
 - **Render DPI vs `max_pixels`** — `_render_pages` renders above the default
   cap; set both coherently. P8 couldn't show the payoff at 5 docs; revisit on a
-  real KB.
+  real KB. **RESOLVED (E2):** swept `VL_MAX_PIXELS` {1.84M, 1.05M, 0.5M} with
+  full re-ingest each — recall identical at every level; keep the 1.84M default.
 - **`kb_search` latency ~52 s** when the visual side has ~15 candidates
-  (2B-VLM rerank). Acceptable for a KB tool; noted.
+  (2B-VLM rerank). Acceptable for a KB tool; noted. **RESOLVED (E3/S3):** the
+  rerank is the whole cost and depth is the only lever — `VL_RERANK_DEPTH=1.5`
+  cuts it to ~14 s with recall unchanged (embedding recall@5 for the visual arm
+  is effectively perfect).
 - `:8918` / `:8924` restarted onto the new venv during P5 but are `nohup`
   processes, not launchd-supervised (pre-existing; noted, not fixed).
 - Higgs / Qwen3-TTS functional synth (imports + models OK; not run).

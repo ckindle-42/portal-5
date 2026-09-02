@@ -96,6 +96,7 @@ _lock = asyncio.Lock()
 _embed: dict = {"model": None, "proc": None, "normalize": None}
 _rerank: dict = {"model": None, "proc": None}
 _REQUESTS_SERVED = 0
+_INFLIGHT = 0  # O2/A4: model calls currently holding or waiting on _lock
 # O1: recycle the process after this many model requests so the MLX runtime drift
 # can never compound past one window (0 == never). launchd/keepalive restarts it.
 MAX_REQUESTS = int(os.environ.get("VL_MAX_REQUESTS", "0"))
@@ -219,6 +220,20 @@ def _mx_mem() -> dict:
     return {}
 
 
+@contextlib.asynccontextmanager
+async def _model_lock():
+    """O2/A4: `_lock` serialises every model call, so concurrent callers form a
+    FIFO queue (measured: N reranks take N x single-call latency, all succeed).
+    Track the depth so `/health` can surface it without touching the MLX runtime."""
+    global _INFLIGHT
+    _INFLIGHT += 1
+    try:
+        async with _lock:
+            yield
+    finally:
+        _INFLIGHT -= 1
+
+
 async def _embed_items(objs: list[dict]) -> list[list[float]]:
     """Embed a list of transport payloads. Text items and image items are run in
     separate batches (padding is to the longest batch member)."""
@@ -232,7 +247,7 @@ async def _embed_items(objs: list[dict]) -> list[list[float]]:
         text_batch = [(i, it) for i, it in prepared if "image" not in it]
         image_batch = [(i, it) for i, it in prepared if "image" in it]
         results: dict[int, list[float]] = {}
-        async with _lock:
+        async with _model_lock():
             model, proc = _load(_embed, EMBED_MODEL)
             for batch in (text_batch, image_batch):
                 for start in range(0, len(batch), MAX_BATCH):
@@ -263,7 +278,7 @@ async def _score_documents(query: dict, documents: list[dict]) -> list[float]:
             it, tf = _item_from_transport(obj, is_query=False)
             tempfiles.extend(tf)
             doc_items.append(it)
-        async with _lock:
+        async with _model_lock():
             model, proc = _load(_rerank, RERANK_MODEL)
             for start in range(0, len(doc_items), RERANK_CHUNK):
                 chunk = doc_items[start : start + RERANK_CHUNK]
@@ -308,6 +323,10 @@ class RerankReq(BaseModel):
 
 @app.get("/health")
 def health():
+    """O2/A4: constant-time, no MLX-runtime call — a model call in flight holds
+    the GIL through `mx.eval`, so anything that touches `mx.*` here (memory
+    counters included) would queue behind it. Liveness must stay cheap. MLX
+    memory moved to `/stats`."""
     return {
         "status": "ok",
         "service": "vl-retrieval",
@@ -319,8 +338,13 @@ def health():
         "embed_loaded": _embed["model"] is not None,
         "rerank_loaded": _rerank["model"] is not None,
         "requests_served": _REQUESTS_SERVED,
-        "mx_mem": _mx_mem(),
+        "inflight": _INFLIGHT,
     }
+
+
+@app.get("/stats")
+def stats():
+    return {"requests_served": _REQUESTS_SERVED, "inflight": _INFLIGHT, "mx_mem": _mx_mem()}
 
 
 @app.get("/ready")

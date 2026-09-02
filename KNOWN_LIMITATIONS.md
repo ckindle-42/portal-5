@@ -51,6 +51,18 @@ Concurrency slots protect the backend from oversubscription but were never desig
 
 ---
 
+### VL Retrieval Server (:8942) — Serial Queue and Liveness Head-of-Line Blocking
+
+- **ID**: P5-VL-RETR-001
+- **Description**: `scripts/vl-retrieval-server.py` serialises every model call behind one `asyncio.Lock` and runs the MLX forward pass inline on the event-loop thread (no `run_in_executor` — the executor pattern caused an MPS thread-safety crash in `mlx-speech.py` / `reranker_mcp.py`, so it is deliberately avoided). Measured (`reports/runtime/HARDENING_V2_P4_MEASUREMENTS.md`, O2): N concurrent `kb_search` reranks form a strict FIFO queue — wall time ≈ N × single-call latency (N=2 → 17 s, N=3 → 28 s, N=5 → 46 s) — and **every request still returns HTTP 200**, nothing is dropped. The cost is that `mx.eval` holds the GIL for the whole multi-second compute, so `/health` and `/ready` block behind an in-flight rerank for its full duration (8–27 s; a `ReadTimeout` is possible at N=5). A launchd/monitor liveness probe with a short timeout can therefore false-negative and trigger a KeepAlive restart mid-rerank.
+- **Mitigation**: `/health` is constant-time and touches no MLX runtime (MLX memory is on `/stats`); it still cannot preempt a GIL-holding eval. Set the launchd `WatchPaths`/health-probe timeout ≥ 60 s. `/health` and `/stats` expose an `inflight` gauge so an operator can see queue depth. This is a single-operator KB tool; the realistic worst case (N=2–3, 17–28 s) is within Open WebUI's tool-call timeout. A dedicated single-worker-thread executor would free the loop without the multi-thread Metal crash, but needs a soak test before shipping — tracked as future work, not landed in closeout.
+
+## Why
+
+The VL retrieval path trades concurrency for MPS stability: one lock, one thread, no executor. That is the right call for a local single-user platform where two simultaneous KB searches are rare and a Metal crash is fatal to the whole server. The measured behaviour — bounded latency, zero dropped requests, only liveness-probe HoL blocking — is acceptable and now documented so the restart-loop failure mode is not mistaken for a bug.
+
+---
+
 ### meta3 (Metasploitable3-Windows) — Scenario Coverage + SPL Precision Gaps
 
 - **ID**: P5-SEC-META3-001

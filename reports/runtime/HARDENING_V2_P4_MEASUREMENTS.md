@@ -267,4 +267,82 @@ and full recall, S0's marginal benefit does not justify a fleet addition now.
 
 ## P6 — max_pixels / DPI (E2)
 
-_(pending — the S3 depth sweep is the coarse-depth half of E3)_
+**Swept `VL_MAX_PIXELS` ∈ {1 843 200, 1 048 576, 524 288} — server restarted per
+level, full re-ingest each (25 pages/doc), 37 queries (21 diagram_only + 16
+prose_only), `top_k=5`, RRF fusion, `mx.clear_cache()` on.**
+
+| max_pixels | diagram r@1 | diagram r@5 | prose r@1 | prose r@5 | lat median | ingest |
+|---|---|---|---|---|---|---|
+| 1.84M (processor default) | 1.000 | 1.000 | 0.625 | 0.938 | 14.1 s | 1061 s |
+| 1.05M | 1.000 | 1.000 | 0.625 | 0.938 | 14.1 s | 1055 s |
+| 0.52M | 1.000 | 1.000 | 0.625 | 0.938 | 14.1 s | 1056 s |
+
+`diag NOT@1` empty at every level. Results **byte-identical** across a 3.5× pixel
+range.
+
+**Reading.** `_render_pages` renders at **150 DPI** → letter pages are **1275×1650
+= 2.10M px**, so the processor's 1.84M default already downscales ~12%. Dropping
+the cap to a quarter of that (0.52M) changed **nothing** — not recall, not
+latency, not ingest time. On Qwen3-VL-2B-mxfp8 on this hardware the vision-tower
+cost for one page over this pixel range is a small fraction of a rerank; the LLM
+forward (query × doc cross-attention) dominates and is ~constant. **max_pixels is
+not a latency lever, and it is not an ingest-cost lever.**
+
+**Decision (E2/P6): keep the 1.84M default and 150 DPI.** There is no measured
+benefit to lowering either, and the eval corpus (synthetic figure docs + NERC
+CIP text) under-represents dense small-text diagrams — P&ID tag bubbles, HMI
+labels — where a downscale to 0.52M *could* drop glyphs below the tokenizer's
+resolution. If a future dense-diagram KB shows a diagram recall regression, the
+lever is **raising** render DPI and max_pixels together, not lowering them. S3
+(`VL_RERANK_DEPTH`) is the latency lever; this knob is left at its safe default.
+
+## O2 / A4 — concurrency + liveness under load (measured)
+
+**N concurrent `/rerank` calls (5 page images each), one warm call first, `/health`
+and `/ready` polled every 0.5 s throughout. VL server restarted clean, `mx.clear_cache()` on.**
+
+| N | wall time | per-call latency | outcomes | `/health` during load | `/ready` during load |
+|---|---|---|---|---|---|
+| 2 | 17.2 s | 8.6 / 12.9 / 17.2 s | 2/2 HTTP 200 | med 8.3 s, max 16.7 s | 17.2 s |
+| 3 | 27.6 s | 27.6 s (all) | 3/3 HTTP 200 | med 13.6 s, max 27.1 s | med 13.6 s, max 27.1 s |
+| 5 | 46.0 s | 46.0 s (all) | 5/5 HTTP 200 | med 7.5 s, max 15.0 s, **1 ReadTimeout** | med 7.5 s, max 15.0 s, **1 ReadTimeout** |
+
+**Reading.**
+1. **The queue is correct.** Concurrent reranks serialize behind the single
+   `asyncio.Lock` — wall ≈ N × single-call latency — and **every request returns
+   200**. Nothing is dropped, no 5xx, no corruption. For a single-operator KB
+   tool the realistic worst case (N=2–3 → 17–28 s) is within OWUI's tool timeout.
+2. **Liveness is the real defect.** `/health` and `/ready` block 8–27 s behind an
+   in-flight rerank, up to a `ReadTimeout`. `mx.eval` holds the GIL for the whole
+   multi-second compute, so even a constant-time sync `/health` in FastAPI's
+   threadpool cannot be scheduled. Slimming `/health` to touch **no** MLX runtime
+   (moved `mx_mem` to `/stats`, added an `inflight` gauge) is still correct — it
+   removes a second source of contention — but does not by itself unblock it
+   (re-measured: identical profile).
+
+**Landed:** `/health` constant-time + `inflight` gauge; `/stats` for MLX memory;
+`_model_lock()` context manager tracks queue depth. **Documented:**
+`KNOWN_LIMITATIONS.md` P5-VL-RETR-001 — set the launchd health-probe timeout
+≥ 60 s so the serial queue never trips a false KeepAlive restart. **Not landed:**
+a dedicated single-worker-thread executor (frees the loop without the multi-thread
+Metal crash the current design avoids) — needs a soak test; future work.
+
+## E4 — audio synthesis closeout (measured)
+
+`scratchpad/e4_audio.py` — one ~15-word sentence through every `:8918` route,
+each output parsed as WAV and asserted non-degenerate (dur > 2 s, RMS > 0.005,
+hard-clip fraction < 2 %, voiced-frame fraction > 15 %).
+
+| route | model | dur | RMS | peak | clip | voiced | gen | verdict |
+|---|---|---|---|---|---|---|---|---|
+| kokoro | `af_heart` | 5.7 s | 0.047 | 0.35 | 0.0 % | 44 % | 2.9 s | PASS |
+| qwen3-tts CustomVoice | `Qwen3-TTS-…-CustomVoice-8bit`, voice `Ryan` + style instruct | 4.8 s | 0.068 | 0.50 | 0.0 % | 41 % | 35.4 s | PASS |
+| qwen3-tts VoiceDesign | `Qwen3-TTS-…-VoiceDesign-8bit`, `design:<desc>` | 7.1 s | 0.079 | 0.67 | 0.0 % | 41 % | 36.6 s | PASS |
+| Higgs v2 voice-clone | `higgs-audio-v2-3B-mlx-q8`, `trainer:chris` (scipy `resample_poly` ref path) | 4.9 s | 0.018 | 0.12 | 0.0 % | 48 % | 85.0 s | PASS |
+
+All four produce valid, non-silent, non-clipped speech of plausible length. The
+Higgs clone is quiet (peak 0.12, RMS 0.018) but clearly voiced (48 % of 20 ms
+frames active) — a level quirk of the q8 clone at this reference, not a
+degenerate/empty output. First-call model loads dominate the Qwen3/Higgs `gen`
+times; the `_tts_lock` semaphore(1) serialises them (concurrent Metal command
+buffers crash on Apple Silicon — pre-existing, intentional).
