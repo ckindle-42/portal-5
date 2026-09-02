@@ -448,6 +448,33 @@ reports both. Even the winners sit at 0.956 EXACT vs 1.000 normalized — the ga
 is the comma in `8,200`. An identifier search over the text arm sees the EXACT
 column, so that is what the pick was made on.
 
+### Why qwen3-vl:4b over glm-ocr, when glm-ocr is smaller and faster
+
+Five models tie at 0.956 EXACT, so accuracy did not decide it. glm-ocr is 1.6 GB
+vs 3.3 GB and 5.8 s vs 7.9 s/page — it wins on both of the stated criteria
+(small, fast) at equal measured recall. That deserved more than the single-page
+impression the first pick rested on, so both were re-run over all 9 figure pages
+with glm-ocr on its **native** `Text Recognition:` contract:
+
+| metric | glm-ocr:Q8_0 | qwen3-vl:4b |
+|---|---|---|
+| duplicate-line ratio | **0.377** | **0.006** |
+| median transcript chars | 417 | 455 |
+| pages describing connectivity | 2/9 | **5/9** |
+
+glm-ocr repeats **37.7 % of its lines** even on its own contract — the clean
+283-char page sampled during the first comparison was the outlier, not the rule.
+Duplicated lines dilute the chunk embedding, which is the entire product of S0,
+and they inflate the stored text without adding retrievable facts. qwen3-vl:4b
+also describes component relationships on 5 of 9 pages ("V-204 Surge Drum is
+connected to FV-101, which is connected to P-201 Feed Pump") where an OCR
+transcriber structurally emits only the literal glyphs.
+
+Recorded because the earlier version of this rationale cited a single page and a
+duplication artifact that turned out to be caused by the wrong prompt. The
+conclusion survived re-measurement; the evidence for it did not, and has been
+replaced.
+
 ### NONE discipline is not a model-selection criterion
 
 Every OCR specialist scored 0/4 on "reply NONE for a body-text page", which would
