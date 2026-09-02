@@ -17,6 +17,7 @@ be asserted with no MLX and no model download. What is pinned here is the
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import importlib.util
 import sys
@@ -328,3 +329,43 @@ async def test_inflight_gauge_tracks_model_lock(_fake_load):
     async with vl._model_lock():
         assert vl._INFLIGHT == 1
     assert vl._INFLIGHT == 0
+
+
+async def test_every_mlx_call_runs_on_one_and_the_same_worker_thread(_fake_load):
+    # O2/A4: the executor is single-worker *by contract* — a multi-worker pool is
+    # what crashed Metal before. Assert the thread identity is stable and is not
+    # the event-loop thread, across embed and rerank, sequential and concurrent.
+    import threading
+
+    seen: set[int] = set()
+    real_reset = vl._reset_vl_state
+    vl_main = threading.get_ident()
+
+    def _spy(model):
+        seen.add(threading.get_ident())
+        return real_reset(model)
+
+    vl._reset_vl_state = _spy
+    try:
+        await vl._embed_items([{"text": "a"}, {"text": "b"}])
+        await vl._score_documents({"text": "q"}, [{"text": "d1"}])
+        await asyncio.gather(
+            vl._embed_items([{"text": "c"}]),
+            vl._embed_items([{"text": "d"}]),
+            vl._score_documents({"text": "q"}, [{"text": "d2"}]),
+        )
+    finally:
+        vl._reset_vl_state = real_reset
+    assert len(seen) == 1, f"MLX work ran on {len(seen)} threads: {seen}"
+    assert vl._mx_pool is None or seen != {vl_main}, "executor enabled but ran on the loop thread"
+
+
+async def test_run_mx_falls_back_to_inline_when_executor_disabled(monkeypatch, _fake_load):
+    # VL_MX_EXECUTOR=0 must still work — it is the documented revert path.
+    import threading
+
+    monkeypatch.setattr(vl, "_mx_pool", None)
+    got = await vl._run_mx(threading.get_ident)
+    assert got == threading.get_ident()
+    vecs = await vl._embed_items([{"text": "a"}])
+    assert len(vecs) == 1

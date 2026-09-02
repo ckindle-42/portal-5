@@ -38,6 +38,26 @@ case "$SERVICE" in
         export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
         exec "$PY" "$PORTAL_ROOT/scripts/mlx-transcribe.py"
         ;;
+    mlx-speech)
+        # Same fragile MLX runtime as :8917/:8924/:8942 — same drift gate (D1).
+        _venv_lock_preflight "mlx-speech" || exit 1
+        # As for mlx-transcribe: under launchd the HF cached-file revalidation
+        # HEAD requests hang, and mlx-audio shells out to ffmpeg on a bare PATH.
+        export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
+        export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+        exec "$PY" "$PORTAL_ROOT/scripts/mlx-speech.py"
+        ;;
+    vl-retrieval)
+        # Same fragile MLX runtime as :8917/:8918/:8924 — same drift gate (D1).
+        # Supervision is load-bearing here, not just hygiene: O1's
+        # VL_MAX_REQUESTS self-exit assumes something restarts the process, and
+        # P5-VL-RETR-001 needs a KeepAlive that tolerates a serial rerank queue.
+        _venv_lock_preflight "vl-retrieval" || exit 1
+        export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
+        export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+        exec "$PY" "$PORTAL_ROOT/scripts/vl-retrieval-server.py" \
+            --port "${VL_PORT:-8942}"
+        ;;
     pipeline-mcp)
         export PIPELINE_URL="${PIPELINE_URL:-http://localhost:9099}"
         export OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"

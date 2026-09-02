@@ -403,21 +403,13 @@ PY
 
     # ── MLX Speech (Apple Silicon native only) ──────────────────────────────
     if [ "$ARCH" = "arm64" ]; then
-        if "$PY" -c "import mlx_audio" &>/dev/null 2>&1; then
-            local SPEECH_PID_FILE="/tmp/portal-mlx-speech.pid"
-            local SPEECH_SCRIPT="$PORTAL_ROOT/scripts/mlx-speech.py"
-            if [ -f "$SPEECH_PID_FILE" ] && kill -0 "$(cat "$SPEECH_PID_FILE")" 2>/dev/null; then
-                echo "[portal-5]   ✅ MLX Speech: running (PID $(cat "$SPEECH_PID_FILE"))"
-            elif [ -f "$SPEECH_SCRIPT" ] && ! _venv_lock_preflight "mlx-speech :${MLX_SPEECH_PORT:-8918}"; then
-                echo "[portal-5]   ⚠️  MLX Speech not started — venv/lock drift (see above)"
-            elif [ -f "$SPEECH_SCRIPT" ]; then
-                echo "[portal-5]   MLX Speech installed but not running — starting..."
-                mkdir -p "$HOME/.portal5/logs"
-                nohup "$PY" "$SPEECH_SCRIPT" \
-                    >> "$HOME/.portal5/logs/mlx-speech.log" 2>&1 &
-                echo $! > "$SPEECH_PID_FILE"
-                echo "[portal-5]   ✅ MLX Speech started on :${MLX_SPEECH_PORT:-8918}"
-            fi
+        if "$PY" -c "import mlx_audio" &>/dev/null 2>&1 &&
+            [ -f "$PORTAL_ROOT/scripts/mlx-speech.py" ]; then
+            # launchd-supervised like :8924 — the wrapper runs the same drift
+            # pre-flight, so the gate is not lost by moving off the bare nohup.
+            _ensure_native_mcp_service \
+                "mlx-speech" "com.portal5.mlx-speech" \
+                "${MLX_SPEECH_PORT:-8918}" "mlx-speech"
         fi
     fi
 
@@ -525,14 +517,13 @@ PY
         _VL_READY_CHECK='import importlib.util as u, sys
 sys.exit(0 if all(u.find_spec(m) for m in
     ("mlx_embeddings.models.qwen3_vl", "torchvision", "fastapi", "uvicorn")) else 1)'
-        if ! _venv_lock_preflight "vl-retrieval :$_VL_PORT"; then
-            echo "[portal-5]   ⚠️  VL retrieval server not started — venv/lock drift (see above)"
-        elif [ -x "$_VL_PY" ] && "$_VL_PY" -c "$_VL_READY_CHECK" &>/dev/null 2>&1; then
-            _VL_LOG="${HOME}/.portal5/logs/vl-retrieval.log"
-            mkdir -p "$(dirname "$_VL_LOG")"
-            nohup "$_VL_PY" "$PORTAL_ROOT/scripts/vl-retrieval-server.py" --port "$_VL_PORT" \
-                > "$_VL_LOG" 2>&1 &
-            echo "[portal-5]   VL retrieval server starting on :$_VL_PORT (PID $!) — check /ready for model status"
+        if [ -x "$_VL_PY" ] && "$_VL_PY" -c "$_VL_READY_CHECK" &>/dev/null 2>&1; then
+            # launchd-supervised: O1's VL_MAX_REQUESTS self-exit assumes a
+            # supervisor restarts the process, and the wrapper re-runs the same
+            # drift pre-flight the inline branch used to run here.
+            _ensure_native_mcp_service \
+                "vl-retrieval" "com.portal5.vl-retrieval" \
+                "$_VL_PORT" "vl-retrieval"
         else
             echo "[portal-5]   ⚠️  VL retrieval deps missing (need mlx-embeddings>=0.1.0 + torchvision) — RAG multimodal retrieval will 503"
         fi
@@ -565,13 +556,31 @@ _do_down() {
         launchctl stop com.portal5.acestep-server 2>/dev/null || true
         echo "[portal-5] Music backends stopped (MiniMax, ACE proxy, ACE engine)."
 
-        # MLX Speech (:8918)
-        if [ -f /tmp/portal-mlx-speech.pid ] && kill -0 "$(cat /tmp/portal-mlx-speech.pid)" 2>/dev/null; then
+        # MLX Speech (:8918) — launchd-supervised; the pid-file branch is the
+        # pre-supervision fallback for a host that still has one lying around.
+        if launchctl print "gui/$(id -u)/com.portal5.mlx-speech" &>/dev/null 2>&1; then
+            launchctl bootout "gui/$(id -u)/com.portal5.mlx-speech" 2>/dev/null || true
+            rm -f /tmp/portal-mlx-speech.pid
+            echo "[portal-5] MLX Speech stopped (launchd)."
+        elif [ -f /tmp/portal-mlx-speech.pid ] && kill -0 "$(cat /tmp/portal-mlx-speech.pid)" 2>/dev/null; then
             kill "$(cat /tmp/portal-mlx-speech.pid)" 2>/dev/null || true
             rm -f /tmp/portal-mlx-speech.pid
             echo "[portal-5] MLX Speech stopped."
         else
             echo "[portal-5] MLX Speech: not running (nothing to stop)."
+        fi
+
+        # VL retrieval (:8942) — launchd-supervised; KeepAlive must be torn down
+        # or it restarts the server the moment we kill it.
+        if launchctl print "gui/$(id -u)/com.portal5.vl-retrieval" &>/dev/null 2>&1; then
+            launchctl bootout "gui/$(id -u)/com.portal5.vl-retrieval" 2>/dev/null || true
+            rm -f /tmp/portal-vl-retrieval.pid
+            echo "[portal-5] VL retrieval stopped (launchd)."
+        elif pgrep -f "scripts/vl-retrieval-server.py" >/dev/null 2>&1; then
+            pkill -f "scripts/vl-retrieval-server.py" 2>/dev/null || true
+            echo "[portal-5] VL retrieval stopped."
+        else
+            echo "[portal-5] VL retrieval: not running (nothing to stop)."
         fi
 
         # MLX Transcribe (:8924)
