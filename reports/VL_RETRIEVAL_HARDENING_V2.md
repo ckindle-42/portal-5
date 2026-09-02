@@ -17,7 +17,7 @@
 | **A1** embedding unbatched-limited | `VL_MAX_BATCH` (server, sub-chunks each text/image batch, order-preserved) + `VL_EMBED_MAX_ITEMS` (client, caps the POST body). Independent bounds. |
 | **A2** `require_lance_dir` passes on its own failure case | mount check made first + unconditional; a bare `/Volumes/<vol>` dir no longer passes. `tests/unit/test_lance_guard.py` reproduces the stray-tree-on-unmounted-volume state. |
 | **A3** nothing records which model embedded a KB | per-KB `kb_<id>.meta.json` stamp (embed_model, vl_dim); `kb_search` refuses (503 → `reindex_all`) on a same-dim model swap; `kb_list` surfaces it; legacy unstamped KBs not blocked. The model-id probe is cached 5 min (it shares the server's blocked event loop). |
-| **A4** serialized inference + long query = silent queue | **measured (O2)**: concurrent `kb_search` reranks form a strict FIFO queue — wall ≈ N × single-call latency (N=2 → 17 s, N=3 → 28 s, N=5 → 46 s) — and **every request returns 200**, nothing dropped. `mx.eval` holds the GIL for the whole compute, so `/health` / `/ready` block 8–27 s behind an in-flight rerank (a `ReadTimeout` at N=5). Landed: `/health` constant-time (no MLX call) + `inflight` gauge, `/stats` for MLX memory. Documented: `KNOWN_LIMITATIONS.md` P5-VL-RETR-001 (set launchd health-probe timeout ≥ 60 s). A single-worker executor is the real loop-freeing fix but needs a soak test — future work. |
+| **A4** serialized inference + long query = silent queue | **measured (O2)**: concurrent `kb_search` reranks form a strict FIFO queue — wall ≈ N × single-call latency (N=2 → 17 s, N=3 → 28 s, N=5 → 46 s) — and **every request returns 200**, nothing dropped. `mx.eval` holds the GIL for the whole compute, so `/health` / `/ready` block 8–27 s behind an in-flight rerank (a `ReadTimeout` at N=5). Landed: `/health` constant-time (no MLX call) + `inflight` gauge, `/stats` for MLX memory. **Then fixed properly**: all MLX work moved to a single persistent worker thread (`_mx_pool`, `max_workers=1`). The precedent that banned `run_in_executor` was a *multi-worker* pool; one worker keeps the Metal serialisation and frees the loop. Soak: 49 requests / 330 s mixed load, 0 failures, no crash, **/health p95 8.3 s → 4 ms**. `VL_MX_EXECUTOR=0` reverts. |
 | **A5** measure before sizing A1 | swept 1..48 page images/forward: per-item latency flat ~1.85 s, no failure, no OOM. `ps rss` is not a usable signal (MLX Metal buffers off-RSS). `VL_MAX_BATCH` = 24. |
 
 ## Theme B — the capability was not delivered
@@ -47,9 +47,22 @@ measured gap; plateau to 0.72). Landed in `rag_multimodal._search`. diagram r@1
 **0.000 → 1.000**, prose recall **byte-identical to RRF**.
 
 **B2 — sparse text arm**: not pursued. `text_gate` resolves the prose side
-without it, and the prose misses that remain are query-set ground-truth
-ambiguities (operator OT docs cover the same topics as the NERC standards), not
-fusion failures.
+without it. The remaining prose misses were then triaged individually rather
+than waved off as "ambiguity": two were genuine instrument defects (the operator
+procedure implementing a NERC standard answers the question as well as the
+standard does — now `also_accept` in `queries.yaml`), one was a version
+collision the query failed to disambiguate (cip-012-1 vs -2 — the query was
+*tightened* to name the revision, not widened to excuse the retriever), and
+three are real misses left red so they keep measuring something.
+
+**Corrected query set, re-measured end to end** (`--top-k 5`, 37 queries):
+
+| category | before | after |
+|---|---|---|
+| diagram_only r@1 | 1.000 | **1.000** (no regression) |
+| prose_only r@1 | 0.625 | **0.812** |
+| prose_only r@5 | 0.938 | **1.000** |
+| prose_only MRR | 0.760 | **0.896** |
 
 ## Theme C — verification methods that leaked
 
@@ -87,7 +100,7 @@ fusion failures.
 |---|---|---|
 | **S1** `mx.clear_cache()` per request | 0 latency cost, drift ratio 0.97 with and without; frees the ~9.4 GB MLX buffer cache | default on |
 | **S3** rerank depth | see E3 | `VL_RERANK_DEPTH=1.5` |
-| **S0** transcribe figures at ingest | only Ollama VL model is qwen3-vl:32b, >3 min/page → ~24 h ingest — **shelved** | dormant behind `RAG_TRANSCRIBE_FIGURES` |
+| **S0** transcribe figures at ingest | **unshelved.** The "only qwen3-vl:32b, >3min/page, ~24h" verdict was wrong twice over — 32b was never the only option, and the Ollama-only constraint was a prototype artifact (mlx-vlm 0.6.17 runs PaddleOCR-VL/dots.ocr natively). 16-model, 5-round bake-off on ground-truth fact recall: **qwen3-vl:4b = 0.956 EXACT at 7.9s/page → 64 min for a 480-page KB**, not 24 h. Page selection is deterministic (`_figure_pages`, PyMuPDF text-layer length), not model self-abstention. | wired, off by default behind `RAG_TRANSCRIBE_FIGURES` |
 | **O1** `:8942` recycle | `VL_MAX_REQUESTS` self-exit + `requests_served` in `/health`, MLX memory on `/stats`. Hygiene — the "10× session degradation" claim was **retracted**, it was a measurement artifact (probing while a rerank held the event loop). | committed |
 | **O2** concurrency | measured N=2/3/5 — serial FIFO queue, 0 dropped requests; the defect is `/health` HoL blocking (GIL held through `mx.eval`). `/health` slimmed to constant-time + `inflight` gauge, `/stats` added, `_model_lock()` tracks depth. Limitation documented (P5-VL-RETR-001). | committed |
 
@@ -99,9 +112,10 @@ fusion failures.
   blocking under concurrent load (frees the event loop without the multi-thread
   Metal crash the current one-lock design avoids). Needs a soak test before
   shipping; documented as P5-VL-RETR-001. Not landed in closeout.
-- **S0** — transcribe figure pages at ingest — needs a 7B-class VL model in the
-  fleet (only Ollama VL model is qwen3-vl:32b, >3 min/page). Dormant behind
-  `RAG_TRANSCRIBE_FIGURES`.
+- **S0** — resolved: viable and wired (see above). Left off by default because
+  `text_gate` already gives diagram recall@1 = 1.000, so S0 buys query latency,
+  not recall — turn it on when ingest-time cost is preferable to per-query
+  rerank cost.
 - The prose-only query-set ground-truth ambiguities (6 of 16) — a query-set
   refinement, not a retrieval bug.
 

@@ -182,12 +182,18 @@ async def _search(rm, kb_id: str, query: str, top_k: int = 10) -> list[dict]:
     return body["results"]
 
 
-def _rank_of(results: list[dict], target_file: str, target_page, category: str) -> int | None:
-    """1-indexed rank of the first result matching the target. For diagram_only
-    with a target_page, a text hit on the right file does NOT count — the figure
-    page must come back."""
+def _rank_of(results: list[dict], targets: list[str], target_page, category: str) -> int | None:
+    """1-indexed rank of the first result matching any accepted target. For
+    diagram_only with a target_page, a text hit on the right file does NOT
+    count — the figure page must come back.
+
+    `targets` is `target_file` plus any `also_accept` entries. `also_accept` is
+    ONLY for a query a second document genuinely answers (a NERC standard and
+    the operator procedure that implements it both state the same requirement) —
+    never to launder a wrong retrieval into a hit. Each use is justified inline
+    in queries.yaml."""
     for i, r in enumerate(results, 1):
-        if Path(r.get("source_file", "")).name != target_file:
+        if Path(r.get("source_file", "")).name not in targets:
             continue
         if category == "diagram_only" and target_page is not None:
             if r.get("kind") == "visual" and r.get("page") == target_page:
@@ -207,7 +213,8 @@ async def _run_query(rm, kb_id: str, q: dict, top_k: int) -> dict:
             if attempt == 3 or "unavailable" not in str(e):
                 raise
             await asyncio.sleep(10)
-    rank = _rank_of(results, q["target_file"], q.get("target_page"), q["category"])
+    targets = [q["target_file"], *q.get("also_accept", [])]
+    rank = _rank_of(results, targets, q.get("target_page"), q["category"])
     row = {
         "id": q["id"],
         "category": q["category"],
