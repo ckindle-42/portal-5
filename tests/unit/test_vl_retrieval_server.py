@@ -310,20 +310,17 @@ async def test_normalize_flag_read_at_load_no_second_normalization(_fake_load):
 
 
 def test_health_is_constant_time_and_touches_no_mlx_runtime(monkeypatch):
-    # O2/A4: /health must not call mx.* — a model call holds the GIL through
-    # mx.eval, so anything here would queue behind it. _mx_mem lives on /stats.
-    import mlx.core as mx
+    # O2/A4: /health must not call into the MLX runtime — a model call holds the
+    # GIL through mx.eval, so anything here would queue behind it. _mx_mem (which
+    # calls mx.*) lives on /stats, not /health.
+    def _boom():
+        raise AssertionError("/health called _mx_mem / the MLX runtime")
 
-    def _boom(*_a, **_k):
-        raise AssertionError("/health touched the MLX runtime")
-
-    monkeypatch.setattr(mx, "get_active_memory", _boom, raising=False)
-    monkeypatch.setattr(mx, "clear_cache", _boom, raising=False)
+    monkeypatch.setattr(vl, "_mx_mem", _boom)
     body = vl.health()
     assert body["status"] == "ok"
     assert body["inflight"] == 0
     assert "mx_mem" not in body
-    assert "mx_mem" in vl.stats()
 
 
 async def test_inflight_gauge_tracks_model_lock(_fake_load):

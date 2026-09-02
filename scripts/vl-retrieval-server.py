@@ -196,9 +196,9 @@ def _mx_after_request() -> None:
     global _REQUESTS_SERVED
     _REQUESTS_SERVED += 1
     if MX_CLEAR_CACHE:
-        import mlx.core as mx
-
         with contextlib.suppress(Exception):
+            import mlx.core as mx
+
             mx.clear_cache()
     if MAX_REQUESTS and _REQUESTS_SERVED >= MAX_REQUESTS:
         import sys
@@ -209,9 +209,9 @@ def _mx_after_request() -> None:
 
 
 def _mx_mem() -> dict:
-    import mlx.core as mx
-
     with contextlib.suppress(Exception):
+        import mlx.core as mx
+
         return {
             "active_mb": round(mx.get_active_memory() / 1e6),
             "cache_mb": round(mx.get_cache_memory() / 1e6),
