@@ -742,3 +742,7 @@ Answer quality, multi-document retrieval, table retrieval, long-document
 behaviour, and conversational use — **none are measured.** The τ number should
 not be read as evidence the system is fit for the compliance use case; it is
 evidence about one fusion knob under one unrepresentative query distribution.
+
+**Scoped for follow-up:** `docs/RAG_COMPLIANCE_QA_REALIGNMENT_V1.md`
+rewrites the corpus, query set and metric around the stated use case, re-runs the
+two provisional rejections against it, and re-derives τ last.
