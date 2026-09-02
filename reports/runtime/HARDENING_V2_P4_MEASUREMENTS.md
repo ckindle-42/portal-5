@@ -346,3 +346,28 @@ frames active) — a level quirk of the q8 clone at this reference, not a
 degenerate/empty output. First-call model loads dominate the Qwen3/Higgs `gen`
 times; the `_tts_lock` semaphore(1) serialises them (concurrent Metal command
 buffers crash on Apple Silicon — pre-existing, intentional).
+
+## O2 follow-up — single-worker MLX executor (soak-verified, landed)
+
+The O2 measurement above left the liveness gap open on the grounds that
+`run_in_executor` had previously crashed Metal. That precedent was a
+**multi-worker** pool. A pool of exactly one persistent worker keeps every
+`mx.*` call on one thread, in order — the same serialisation the inline path
+gave the Metal stream — while taking the GIL-holding `mx.eval` off the event
+loop. Landed as `_mx_pool` / `_run_mx`, reverting via `VL_MX_EXECUTOR=0`.
+
+**Soak** (`scratchpad/vl_soak.py`, 12 rounds of one solo rerank + a concurrent
+rerank/embed/rerank burst, `/health` polled every 250 ms throughout):
+
+| | inline (before) | single-worker executor (after) |
+|---|---|---|
+| `/health` under load | med 8.3 s · max 27 s · ReadTimeouts | **med 2 ms · p95 4 ms · max 31 ms** |
+| `/health` probes / errors | — | 1301 / **0** |
+| model requests served | — | 49 / **0 failures** |
+| Metal crash | (the risk being avoided) | **none** over 330 s mixed load |
+| MLX memory after | — | active 5177 MB · cache 0 · peak 7212 MB (stable) |
+
+**Verdict: PASS — shipped.** Rerank throughput is unchanged (still one GPU
+stream, still FIFO); what changed is that the supervisor and any monitor can now
+tell "busy" from "hung". `KNOWN_LIMITATIONS.md` P5-VL-RETR-001 updated: the
+liveness half is resolved, the serial queue remains as an intended GPU bound.

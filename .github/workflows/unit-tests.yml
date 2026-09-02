@@ -35,7 +35,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           # doc_ledger.py's freshness check (test_spine_gates.py::check_doc_currency)
           # resolves each doc's last_reconciled_commit via `git cat-file -e <sha>^{commit}`
@@ -46,7 +46,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -61,7 +61,7 @@ jobs:
 
       - name: Upload coverage on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: pytest-output
           path: .pytest_cache/

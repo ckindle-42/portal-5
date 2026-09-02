@@ -30,9 +30,15 @@ Verified Qwen3-VL API (mlx_embeddings/models/qwen3_vl/{model,processor}.py):
     and image items are embedded in SEPARATE batches
   * rerank builds one VLM forward per document — chunked at VL_RERANK_CHUNK
 
-No `run_in_executor`: the precedent in mlx-speech.py / reranker_mcp.py exists
-because the executor pattern caused an MPS thread-safety crash. One asyncio.Lock
-serialises every model call.
+Threading (TASK_VL_RETRIEVAL_HARDENING_AND_CLOSEOUT_V2, O2/A4): one asyncio.Lock
+serialises every model call AND every MLX touch runs on a single persistent
+worker thread (`_mx_pool`, max_workers=1) via `_run_mx`. The precedent that
+banned `run_in_executor` here (mlx-speech.py / reranker_mcp.py) was a
+*multi-worker* pool — concurrent Metal command-buffer encoding is what crashes
+AGXG16XFamilyCommandBuffer. One worker keeps the same serialisation the inline
+path had while freeing the event loop, which otherwise held the GIL through
+`mx.eval` and blocked /health and /ready for the length of a rerank (measured
+8-27 s). Set `VL_MX_EXECUTOR=0` to revert to the inline path.
 """
 
 from __future__ import annotations
@@ -41,6 +47,7 @@ import argparse
 import asyncio
 import base64
 import binascii
+import concurrent.futures
 import contextlib
 import os
 import tempfile
@@ -97,6 +104,33 @@ _embed: dict = {"model": None, "proc": None, "normalize": None}
 _rerank: dict = {"model": None, "proc": None}
 _REQUESTS_SERVED = 0
 _INFLIGHT = 0  # O2/A4: model calls currently holding or waiting on _lock
+
+# O2/A4: ONE persistent worker thread for every MLX touch. The precedent that
+# banned `run_in_executor` here was a *multi-worker* pool — concurrent Metal
+# command-buffer encoding is what crashes AGXG16XFamilyCommandBuffer. With
+# max_workers=1 every mx call still happens on exactly one thread, in order, so
+# the Metal stream sees the same serialisation it did inline; what changes is
+# that the event loop is no longer the thread holding the GIL through mx.eval,
+# so /health and /ready answer during a rerank. `_lock` is kept: it guards the
+# lazy `_load()` state and preserves FIFO fairness across callers.
+# `VL_MX_EXECUTOR=0` reverts to the inline path without a code change.
+MX_EXECUTOR = os.environ.get("VL_MX_EXECUTOR", "1") not in ("0", "false", "")
+_mx_pool: concurrent.futures.ThreadPoolExecutor | None = (
+    concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="vl-mlx")
+    if MX_EXECUTOR
+    else None
+)
+
+
+async def _run_mx(fn, *args):
+    """Run one MLX unit of work. On the single-worker pool when enabled, inline
+    otherwise. Never call this with two units that must not interleave — the
+    caller holds `_lock` for that."""
+    if _mx_pool is None:
+        return fn(*args)
+    return await asyncio.get_running_loop().run_in_executor(_mx_pool, fn, *args)
+
+
 # O1: recycle the process after this many model requests so the MLX runtime drift
 # can never compound past one window (0 == never). launchd/keepalive restarts it.
 MAX_REQUESTS = int(os.environ.get("VL_MAX_REQUESTS", "0"))
@@ -246,8 +280,9 @@ async def _embed_items(objs: list[dict]) -> list[list[float]]:
             prepared.append((idx, item))
         text_batch = [(i, it) for i, it in prepared if "image" not in it]
         image_batch = [(i, it) for i, it in prepared if "image" in it]
-        results: dict[int, list[float]] = {}
-        async with _model_lock():
+
+        def _work() -> dict[int, list[float]]:
+            out: dict[int, list[float]] = {}
             model, proc = _load(_embed, EMBED_MODEL)
             for batch in (text_batch, image_batch):
                 for start in range(0, len(batch), MAX_BATCH):
@@ -255,8 +290,12 @@ async def _embed_items(objs: list[dict]) -> list[list[float]]:
                     _reset_vl_state(model)
                     rows = _mx_rows(model.process([it for _, it in sub], processor=proc))
                     for (orig_i, _), vec in zip(sub, rows, strict=True):
-                        results[orig_i] = vec
+                        out[orig_i] = vec
             _mx_after_request()
+            return out
+
+        async with _model_lock():
+            results = await _run_mx(_work)
         return [results[i] for i in range(len(objs))]
     finally:
         for p in tempfiles:
@@ -271,14 +310,15 @@ async def _score_documents(query: dict, documents: list[dict]) -> list[float]:
     tempfiles = list(q_tf)
     # rerank payload takes `instruction` at the top level, not inside `query`
     instruction = q_item.pop("instruction", QUERY_INSTRUCTION)
-    scores: list[float] = []
     try:
         doc_items: list[dict] = []
         for obj in documents:
             it, tf = _item_from_transport(obj, is_query=False)
             tempfiles.extend(tf)
             doc_items.append(it)
-        async with _model_lock():
+
+        def _work() -> list[float]:
+            acc: list[float] = []
             model, proc = _load(_rerank, RERANK_MODEL)
             for start in range(0, len(doc_items), RERANK_CHUNK):
                 chunk = doc_items[start : start + RERANK_CHUNK]
@@ -292,8 +332,12 @@ async def _score_documents(query: dict, documents: list[dict]) -> list[float]:
                     raise ValueError(
                         f"rerank returned {len(chunk_scores)} scores for {len(chunk)} documents"
                     )
-                scores.extend(chunk_scores)
+                acc.extend(chunk_scores)
             _mx_after_request()
+            return acc
+
+        async with _model_lock():
+            scores = await _run_mx(_work)
         assert len(scores) == len(documents), (len(scores), len(documents))
         return scores
     finally:
@@ -350,8 +394,9 @@ def stats():
 @app.get("/ready")
 async def ready():
     try:
-        async with _lock:
-            _load(_embed, EMBED_MODEL)
+        async with _model_lock():
+            # the model must be *created* on the same thread that will run it
+            await _run_mx(_load, _embed, EMBED_MODEL)
         dim = len((await _embed_items([{"text": "ready probe", "is_query": True}]))[0])
         ok = dim == EMBEDDING_DIM
         return JSONResponse(

@@ -43,7 +43,7 @@ jobs:
     timeout-minutes: 120
     continue-on-error: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Pre-flight
         run: |
@@ -83,7 +83,7 @@ jobs:
 
       - name: Upload sweep result
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: persona-matrix-${{ steps.params.outputs.workspace }}-${{ github.run_id }}
           path: ${{ steps.params.outputs.out }}
