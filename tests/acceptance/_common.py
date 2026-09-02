@@ -747,7 +747,6 @@ WORKSPACE_PROMPTS = {
 
 # Persona test prompts and expected signals
 PERSONA_PROMPTS_EXCLUDED: set[str] = {
-    "transcriptanalyst",  # audio-attachment driven; tested via S8/S9 flow
     # Compliance personas — tested via S10c fixture (compliance_scenarios.yaml)
     "cippolicywriter",
     "complianceanalyst",

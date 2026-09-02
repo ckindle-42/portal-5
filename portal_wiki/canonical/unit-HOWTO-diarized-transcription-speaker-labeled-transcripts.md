@@ -17,7 +17,7 @@ created_at: 1783195000.848667
 updated_at: 1787931459.0
 ---
 
-**What:** Drop an audio file in an OWUI chat that grants `transcribe_with_speakers` (e.g. `auto-audio`, `auto-documents`), ask "who said what", and get back a transcript with speaker labels (`SPEAKER_00`, `SPEAKER_01`, …). A single-speaker recording simply comes back as one speaker — you don't have to know in advance. Outputs JSON + Markdown to the shared workspace at `~/AI_Output/generated/transcripts/`, served as download URLs on port 8924.
+**What:** Pick the **🎙️ Portal Audio Analyst** workspace (`auto-audio`), drop an audio file, ask "who said what", and get back a transcript with speaker labels (`SPEAKER_00`, `SPEAKER_01`, …). A single-speaker recording simply comes back as one speaker — you don't have to know in advance. Outputs JSON + Markdown + Word (`.docx`) to the shared workspace at `~/AI_Output/generated/transcripts/`, served as download URLs on port 8924.
 
 **Pre-flight:** none. No HuggingFace token, no gated models.
 
@@ -31,4 +31,4 @@ updated_at: 1787931459.0
 
 ## Why
 
-Two models, not one. If the diarizer is skipped (file past `MLX_DIARIZE_MAX_S`) or fails, you still get the complete Parakeet transcript as one speaker with a `warning` — a joint transcribe-and-diarize model that stops early loses the text too. Word-level assignment keeps a speaker change on a word boundary instead of mid-word. Outputting both canonical JSON and a Markdown sidecar into the shared workspace means the transcript is immediately available to any other service, not just the chat thread that requested it.
+Two models, not one. If the diarizer is skipped (file past `MLX_DIARIZE_MAX_S`) or fails, you still get the complete Parakeet transcript as one speaker with a `warning` — a joint transcribe-and-diarize model that stops early loses the text too. Word-level assignment keeps a speaker change on a word boundary instead of mid-word. Outputting canonical JSON plus Markdown and Word (`.docx`) sidecars in the same step as the transcription — rather than leaving the `.docx` to a second model-driven tool call — means every transcript yields the same three artifacts deterministically, available to any other service and not just the chat thread that requested it.

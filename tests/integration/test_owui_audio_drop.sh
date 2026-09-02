@@ -44,9 +44,9 @@ else
     'curl -sf -H "Authorization: Bearer ${OWUI_API_KEY}" http://localhost:8080/api/v1/configs/tool_servers | jq -e ".[] | select(.info.id == \"portal_mlx_transcribe\")"'
 
   echo
-  echo "3. Persona tool binding"
-  check "transcriptanalyst persona present in /api/models" \
-    'curl -sf -H "Authorization: Bearer ${OWUI_API_KEY}" http://localhost:8080/api/models | jq -e "..|.id? // empty | select(. == \"transcriptanalyst\")"'
+  echo "3. Transcription workspace"
+  check "auto-audio workspace present in /api/models" \
+    'curl -sf -H "Authorization: Bearer ${OWUI_API_KEY}" http://localhost:8080/api/models | jq -e "..|.id? // empty | select(. == \"auto-audio\")"'
 fi
 
 echo

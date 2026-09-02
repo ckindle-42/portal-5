@@ -9,7 +9,9 @@ Host-native transcription server for Apple Silicon.
   "who spoke when". A monologue → one speaker; a conversation → labels per turn.
   If diarization fails or the file is very long, the transcript still comes back
   (single-speaker) rather than truncating. No HuggingFace token required.
-- Output: JSON canonical + Markdown sidecar in workspace generated/transcripts/
+- Output: every transcription (plain or diarized) writes three sidecars into the
+  workspace generated/transcripts/ directory — JSON (canonical), Markdown, and
+  Word (.docx). The .docx is skipped only if python-docx is unavailable.
 
 Runs on the host (not Docker) — same pattern as mlx-proxy.py and mlx-speech.py.
 Open WebUI / Pipeline connects via host.docker.internal:8924.
@@ -21,7 +23,7 @@ Usage:
 
 Files reachable:
 - OWUI uploads: ${AI_OUTPUT_DIR}/uploads/<file_id> (resolved via workspace helper)
-- Outputs:      ${AI_OUTPUT_DIR}/generated/transcripts/transcript_<uuid>.{json,md}
+- Outputs:      ${AI_OUTPUT_DIR}/generated/transcripts/transcript_<uuid>.{json,md,docx}
 """
 
 from __future__ import annotations
@@ -402,25 +404,97 @@ def _diarized_transcribe(audio_path: str, num_speakers: int | None, language: st
     return out
 
 
-def _format_markdown(merged: list[dict], meta: dict, source_name: str = "audio") -> str:
-    """Render merged segments as speaker-labeled markdown."""
+def _format_markdown(segments: list[dict], meta: dict, source_name: str = "audio") -> str:
+    """Render transcript segments as markdown. Speaker labels are emitted when a
+    segment carries a ``speaker`` key (diarized path); otherwise it is a plain
+    timestamped transcript."""
     lines = [
         f"# Transcript: {source_name}",
         "",
         f"- **Duration**: {meta['duration']:.1f}s",
         f"- **Language**: {meta['language']}",
-        f"- **Speakers**: {meta['speaker_count']}",
+    ]
+    if meta.get("speaker_count") is not None:
+        lines.append(f"- **Speakers**: {meta['speaker_count']}")
+    lines += [
         f"- **Generated**: {time.strftime('%Y-%m-%d %H:%M:%S')}",
         "",
         "---",
         "",
     ]
-    for seg in merged:
+    for seg in segments:
         ts = f"[{int(seg['start']) // 60:02d}:{int(seg['start']) % 60:02d}]"
-        lines.append(f"**{seg['speaker']}** {ts}")
+        lines.append(f"**{seg['speaker']}** {ts}" if seg.get("speaker") else ts)
         lines.append(seg["text"])
         lines.append("")
     return "\n".join(lines)
+
+
+def _write_docx(segments: list[dict], meta: dict, source_name: str, path: Path) -> bool:
+    """Write the transcript as a Word document. Returns False and writes nothing
+    if python-docx is unavailable — the JSON and Markdown sidecars still stand."""
+    try:
+        from docx import Document
+        from docx.shared import Pt
+    except ImportError:
+        logger.warning("python-docx not installed — skipping .docx sidecar")
+        return False
+
+    doc = Document()
+    doc.add_heading(f"Transcript: {source_name}", level=1)
+    meta_bits = [f"Duration: {meta['duration']:.1f}s", f"Language: {meta['language']}"]
+    if meta.get("speaker_count") is not None:
+        meta_bits.append(f"Speakers: {meta['speaker_count']}")
+    meta_bits.append(f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    doc.add_paragraph().add_run("  ·  ".join(meta_bits)).italic = True
+
+    for seg in segments:
+        ts = f"[{int(seg['start']) // 60:02d}:{int(seg['start']) % 60:02d}]"
+        para = doc.add_paragraph()
+        label = para.add_run((f"{seg['speaker']} {ts}" if seg.get("speaker") else ts) + "  ")
+        label.bold = True
+        label.font.size = Pt(9)
+        para.add_run(seg["text"])
+
+    doc.save(str(path))
+    return True
+
+
+def _persist_transcript(segments: list[dict], meta: dict, source_name: str) -> dict:
+    """Write JSON + Markdown + Word sidecars into the shared workspace and return
+    the paths, download URLs and rendered markdown. Both the plain and the
+    diarized paths route through here so every transcript yields the same three
+    artifacts."""
+    out_dir = get_generated_dir("transcripts")
+    uid = uuid.uuid4().hex[:12]
+    json_path = out_dir / f"transcript_{uid}.json"
+    md_path = out_dir / f"transcript_{uid}.md"
+    docx_path = out_dir / f"transcript_{uid}.docx"
+
+    json_path.write_text(
+        json.dumps({**meta, "segments": segments, "source": source_name}, indent=2)
+    )
+    markdown = _format_markdown(segments, meta, source_name)
+    md_path.write_text(markdown)
+    docx_written = _write_docx(segments, meta, source_name, docx_path)
+
+    result = {
+        **meta,
+        "segments": segments,
+        "markdown": markdown,
+        "json_path": str(json_path),
+        "md_path": str(md_path),
+        "json_url": f"http://host.docker.internal:{PORT}/files/{json_path.name}",
+        "md_url": f"http://host.docker.internal:{PORT}/files/{md_path.name}",
+    }
+    if docx_written:
+        result["docx_path"] = str(docx_path)
+        result["docx_url"] = f"http://host.docker.internal:{PORT}/files/{docx_path.name}"
+    else:
+        result["warning"] = (
+            f"{meta.get('warning', '')} (.docx sidecar skipped: python-docx unavailable)".strip()
+        )
+    return result
 
 
 def _run_pipeline(
@@ -433,16 +507,13 @@ def _run_pipeline(
     t0 = time.time()
     diarized = _diarized_transcribe(audio_path, num_speakers, language)
     total_s = round(time.time() - t0, 2)
-
-    merged = diarized["segments"]
-    speaker_count = diarized["speaker_count"]
     diarize_s = diarized.get("diarize_s", 0.0)
 
     meta = {
         "text": diarized["text"],
         "language": diarized["language"],
         "duration": diarized["duration"],
-        "speaker_count": speaker_count,
+        "speaker_count": diarized["speaker_count"],
         "timing": {
             "transcribe_s": round(total_s - diarize_s, 2),
             "diarize_s": diarize_s,
@@ -451,28 +522,25 @@ def _run_pipeline(
     }
     if diarized.get("warning"):
         meta["warning"] = diarized["warning"]
+    return _persist_transcript(diarized["segments"], meta, source_name)
 
-    # Persist via workspace helper
-    out_dir = get_generated_dir("transcripts")
-    uid = uuid.uuid4().hex[:12]
-    json_path = out_dir / f"transcript_{uid}.json"
-    md_path = out_dir / f"transcript_{uid}.md"
 
-    full_payload = {**meta, "segments": merged, "source": source_name}
-    json_path.write_text(json.dumps(full_payload, indent=2))
-    markdown = _format_markdown(merged, meta, source_name)
-    md_path.write_text(markdown)
-
-    result = {
-        **meta,
-        "segments": merged,
-        "markdown": markdown,
-        "json_path": str(json_path),
-        "md_path": str(md_path),
-        "json_url": f"http://host.docker.internal:{PORT}/files/{json_path.name}",
-        "md_url": f"http://host.docker.internal:{PORT}/files/{md_path.name}",
+def _run_plain_pipeline(
+    audio_path: str,
+    language: str | None,
+    source_name: str = "audio",
+) -> dict:
+    """Synchronous plain pipeline (Parakeet, no diarization). Persists the same
+    three sidecars as the diarized path. Caller wraps in asyncio.to_thread."""
+    t0 = time.time()
+    tr = _transcribe(audio_path, language)
+    meta = {
+        "text": tr["text"],
+        "language": tr["language"],
+        "duration": tr["duration"],
+        "timing": {"transcribe_s": round(time.time() - t0, 2)},
     }
-    return result
+    return _persist_transcript(tr["segments"], meta, source_name)
 
 
 _AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".webm", ".aac", ".mp4"}
@@ -597,7 +665,9 @@ async def invoke_tool(tool_name: str, request: Request) -> JSONResponse:
             return JSONResponse({"error": source_name})
         async with _pipeline_lock:
             try:
-                result = await asyncio.to_thread(_transcribe, str(path), language)
+                result = await asyncio.to_thread(
+                    _run_plain_pipeline, str(path), language, source_name
+                )
                 result["engine"] = "parakeet-tdt-v3"
                 return JSONResponse(result)
             except Exception as e:
@@ -616,8 +686,9 @@ async def list_tools() -> JSONResponse:
                     "name": "transcribe_audio",
                     "description": (
                         "Fast, accurate transcription (Parakeet-TDT-v3, word-level timestamps, "
-                        "no speaker labels). Call with no arguments to auto-detect the most "
-                        "recently uploaded audio file."
+                        "no speaker labels). Writes JSON + Markdown + Word (.docx) sidecars and "
+                        "returns their download URLs. Call with no arguments to auto-detect the "
+                        "most recently uploaded audio file."
                     ),
                     "parameters": {
                         "type": "object",
@@ -641,8 +712,9 @@ async def list_tools() -> JSONResponse:
                         "(Parakeet) plus speaker turns (Sortformer diarization), merged at the "
                         "word level. A monologue comes back as one speaker; a conversation gets "
                         "SPEAKER_00/SPEAKER_01/... per turn. Up to 4 speakers, no HuggingFace "
-                        "token. Call with no arguments to auto-detect the most recently uploaded "
-                        "audio file."
+                        "token. Writes JSON + Markdown + Word (.docx) sidecars and returns their "
+                        "download URLs. Call with no arguments to auto-detect the most recently "
+                        "uploaded audio file."
                     ),
                     "parameters": {
                         "type": "object",
@@ -735,6 +807,10 @@ async def transcribe_audio(file: str = "", language: str | None = None) -> dict:
     """
     Fast transcription (Parakeet-TDT-v3, word-level timestamps, no speaker labels).
 
+    Saves JSON + Markdown + Word (.docx) sidecars to the workspace
+    generated/transcripts/ directory; the full markdown and the download URLs
+    (json_url, md_url, docx_url) are in the response.
+
     Args:
         file: Audio reference. Omit to auto-detect the most recent upload; otherwise an
               OWUI file ID, a filename in uploads/, or an absolute host path.
@@ -745,7 +821,7 @@ async def transcribe_audio(file: str = "", language: str | None = None) -> dict:
         return {"error": source_name}
     async with _pipeline_lock:
         try:
-            result = await asyncio.to_thread(_transcribe, str(path), language)
+            result = await asyncio.to_thread(_run_plain_pipeline, str(path), language, source_name)
             result["engine"] = "parakeet-tdt-v3"
             result["source"] = source_name
             return result
@@ -769,8 +845,8 @@ async def transcribe_with_speakers(
     diarization is skipped (very long file) or fails, the transcript still comes
     back as a single speaker with a ``warning`` — it never truncates.
 
-    Saves JSON + Markdown to the workspace generated/transcripts/ directory; the
-    full markdown is included in the response.
+    Saves JSON + Markdown + Word (.docx) to the workspace generated/transcripts/
+    directory; the full markdown and all three download URLs are in the response.
 
     Args:
         file: Audio file reference. Omit (or leave empty) to auto-detect the
@@ -788,8 +864,8 @@ async def transcribe_with_speakers(
           - language, duration, speaker_count
           - segments: list of {start, end, speaker, text}
           - markdown: full speaker-labeled markdown content (ready to display)
-          - json_path, md_path: workspace file paths
-          - json_url, md_url: download URLs (port :8924)
+          - json_path, md_path, docx_path: workspace file paths
+          - json_url, md_url, docx_url: download URLs (port :8924)
           - timing: {transcribe_s, diarize_s, total_s}
           - engine: "parakeet+sortformer"
           - warning: present only if diarization was skipped or failed

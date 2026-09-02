@@ -24,10 +24,10 @@
         "critical": true,
         "keywords": [
           "/files/",
-          "/workspace/generated/documents/",
-          "download_url"
+          "docx_url",
+          "download"
         ],
-        "label": "Response references a .docx artifact (create_word_document ran)",
+        "label": "Response references the auto-generated .docx (docx_url)",
         "type": "any_of"
       },
       {
@@ -49,11 +49,11 @@
     "force_unload_before": true,
     "id": "TR-01",
     "media_kind": "voice",
-    "model_slug": "transcriptanalyst",
-    "name": "Transcript Analyst \u2014 Diarize + Word Doc (Golden Path)",
+    "model_slug": "auto-audio",
+    "name": "Portal Audio Analyst — Diarize + auto Word Doc (Golden Path)",
     "pre_stage_audio": true,
-    "prompt": "I just uploaded an audio file. Please transcribe it with 2 speakers, then create a Word document from the result titled 'Two-Speaker Transcript'.",
-    "section": "auto-documents",
+    "prompt": "I just uploaded an audio file. Please transcribe it with 2 speakers and give me the download links.",
+    "section": "auto-audio",
     "skip_if": [
       "no_two_speaker_audio_fixture",
       "no_transcribe_server"

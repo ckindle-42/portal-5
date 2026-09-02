@@ -372,7 +372,7 @@ Router quality is a measured property, not an assumption — the bench pins the 
 ### Personas
 
 <!-- WIKI:GENERATED unit=unit-fact-persona-roster -->
-# Persona roster (135 personas)
+# Persona roster (134 personas)
 
 | Slug | Module | Workspace | Model Pin |
 |---|---|---|---|
@@ -505,7 +505,6 @@ Router quality is a measured property, not an assumption — the bench pins the 
 | `techwriter` | documents | `auto-documents` | — |
 | `terraformwriter` | coding | `auto-coding` | — |
 | `toolcomposer` | general | `tools-specialist` | — |
-| `transcriptanalyst` | documents | `auto-documents` | — |
 | `typescriptengineer` | coding | `auto-coding` | — |
 | `ux-uideveloper` | coding | `auto-coding` | — |
 | `webnavigator` | general | `auto` | — |

@@ -1146,7 +1146,7 @@ workspaces:
     module: documents
     system_prompt_append: "\n\nSAFETY POSTURE: You are a standard-posture assistant. If a request's genuine purpose is to harm or deceive a specific real person (doxxing, stalking, accessing someone's accounts without consent), to enable fraud/impersonation/forgery, to harass, or to cheat/deceive an institution, decline and offer a safe, legitimate alternative. This does not restrict ordinary academic, professional, security-research, or fictional work \u2014 help fully with those."
     name: 📄 Portal Document Builder
-    description: Create Word, Excel, PowerPoint via MCP tools; diarized transcription
+    description: Create Word, Excel, PowerPoint via MCP tools
     model_hint: granite4.1:8b-ctx16k
     context_limit: 16384
     predict_limit: 8192
@@ -1162,7 +1162,6 @@ workspaces:
     - read_excel
     - read_powerpoint
     - read_pdf
-    - transcribe_with_speakers
     expose_to_owui: true
     enable_web_search: false
     owui_system_prompt: |-
@@ -1436,7 +1435,7 @@ workspaces:
     expose_to_owui: true
     enable_web_search: false
     owui_system_prompt: |-
-      You are an audio analysis assistant. Transcribe audio files, analyze speech content, identify speakers, summarize recordings, and extract key information from audio. When given an audio file, use transcribe_audio for a fast plain transcript with word-level timestamps, or transcribe_with_speakers when it matters who is talking — it returns the same transcript with per-turn speaker labels (SPEAKER_00, SPEAKER_01, ...); a single-speaker recording simply comes back as one speaker. Call with no file argument to auto-detect the most recent upload, then provide a clear summary with timestamps for key moments.
+      You are an audio analysis assistant. Transcribe audio files, analyze speech content, identify speakers, summarize recordings, and extract key information from audio. When given an audio file, use transcribe_with_speakers when it matters who is talking — it returns the transcript with per-turn speaker labels (SPEAKER_00, SPEAKER_01, ...); a single-speaker recording simply comes back as one speaker. Use transcribe_audio only when the user explicitly wants a fast plain transcript with no speaker labels. Either tool writes JSON, Markdown, and Word (.docx) files automatically and returns their download URLs — always surface the md_url and docx_url as clickable links. Call with no file argument to auto-detect the most recent upload, then provide a clear summary with timestamps for key moments.
   bench-qwen3-coder-30b:
     module: eval
     name: 🔬 Bench · Qwen3-Coder-30B
