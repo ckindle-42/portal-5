@@ -19,6 +19,7 @@ import contextlib
 import hashlib
 import json
 import os
+import re
 import time
 from pathlib import Path
 
@@ -38,13 +39,77 @@ VL_EMBED_MAX_ITEMS = max(1, int(os.environ.get("VL_EMBED_MAX_ITEMS", "24")))
 # page at rank 1. The fix: add the VL reranker's calibrated probability to the
 # visual arm's score, but ONLY when the text arm has no confident answer
 # (top-1 text cosine < VL_TEXT_GATE). Measured on the eval corpus: diagram
-# queries top-text-cos 0.44–0.62, prose queries 0.73–0.83 — 0.67 sits in the
-# gap. Diagram r@1 0.00 → 1.00, prose recall byte-identical to RRF.
-VL_TEXT_GATE = float(os.environ.get("VL_TEXT_GATE", "0.67"))
+# queries top-text-cos 0.44–0.62, prose queries 0.71–0.82 under the PyMuPDF
+# text arm. Diagram r@1 0.00 → 1.00, prose recall byte-identical to RRF.
+#
+# τ RE-FITTED to 0.75 after docling replaced the PyMuPDF fallback. The gate
+# itself is sound — proven at both endpoints on the docling index: τ=0.00 (never
+# fires) reproduces B1 exactly (dia r@1 0.000, MRR 0.500), and τ=1.01 (always
+# boosts) costs prose r@1 0.875 → 0.688. Both halves are load-bearing.
+#
+# What actually moved is the SEPARABILITY of the feature the gate reads. Top-1
+# text cosine over the 37 eval queries:
+#   PyMuPDF  diagram max 0.6164 | prose min 0.7142  → GAP 0.098, 0 misclassified
+#   docling  diagram max 0.7684 | prose min 0.6962  → OVERLAP 0.072, floor 3
+# docling extracts the figure captions and table cells PyMuPDF dropped, which
+# lifts diagram-page text cosines into the prose band (4 diagram + 10 prose
+# queries now share it). 0.67 was not a well-chosen constant, it was a constant
+# inside a perfectly separable feature — so it looked robust until the feature
+# stopped separating. No absolute τ can be perfect on docling; 3 errors is the
+# information floor and 0.75 sits on it.
+#
+# 0.72 is the knee ON THE STACK THAT SHIPS. The first sweep put it at 0.75, but
+# that sweep ran on an UNLOCKABLE venv: an ad-hoc `pip install docling` had
+# pulled docling 2.124 and silently downgraded transformers 5.16.1 -> 5.8.1
+# under the VL server. docling >= 2.100 caps transformers < 5.9.0, so 2.99.0 is
+# the ceiling that resolves against the pin. Re-ingested and re-swept there:
+#   dl299    τ 0.67 dia 0.714 | 0.70 dia 0.810 | 0.72 dia 0.952 | 0.75 dia 0.952
+#            prose flat 0.812 through 0.72, then falls to 0.750 at 0.75
+# So 0.75 is strictly dominated on the shipping stack — same diagram recall,
+# -0.062 prose r@1. Diagram saturates a notch earlier than the old venv showed.
+#   PyMuPDF  τ 0.75 == τ 0.67, byte-identical (dia 1.000, prose 0.812/1.000/0.896);
+#            0.72 is inside that same flat band, so the cross-extraction check holds.
+# Prose r@5 is 0.938 at EVERY τ here, 0.67 included — that one lost query is an
+# ingest/embedding property of this index, not a fusion effect. Do not read it
+# as gate over-boosting.
+# Tested and rejected: τ as a fixed PERCENTILE of each KB's own top-1 cosine
+# distribution (self-calibrating, so extraction changes could not invalidate it).
+# The two working thresholds do not share a percentile — 0.67 fires at p56.8 on
+# PyMuPDF, 0.72 at p67.6 on docling — so there is no percentile to store.
+VL_TEXT_GATE = float(os.environ.get("VL_TEXT_GATE", "0.72"))
+# `absolute` = the cosine threshold above. `relative` = the top text hit's margin
+# over the median of its own candidate pool; the idea was a scale-free feature
+# that survives an extraction change. MEASURED AND REJECTED as a default: it is
+# dominated on both axes at every margin tried, because the margin is
+# ANTI-correlated with need. Diagram queries have the LARGER margin on docling
+# (median 0.117 vs prose 0.055) — a diagram page's one transcribed caption
+# stands clear of an otherwise irrelevant pool, which is exactly the shape the
+# feature reads as "the text arm has this covered". Kept for A/B only.
+VL_TEXT_GATE_MODE = os.environ.get("VL_TEXT_GATE_MODE", "absolute")
+VL_TEXT_MARGIN = float(os.environ.get("VL_TEXT_MARGIN", "0.08"))
 # S3: rerank `VL_RERANK_DEPTH * top_k` page images (default 2). The reranker is
 # ~1.7s per page image and is the whole query cost; the coarse `top_k*3` set was
 # reranking 50% more candidates than the response uses.
 VL_RERANK_DEPTH = float(os.environ.get("VL_RERANK_DEPTH", "1.5"))
+# Fusion strategy. `text_gate` is the default (see VL_TEXT_GATE above).
+#
+# `unified` was proposed as the structural fix for B1 — retrieve candidates from
+# both arms and score them in ONE cross-encoder pass, so nothing depends on an
+# absolute threshold. MEASURED AND REJECTED: diagram r@1 0.619 at both text
+# depths, against text_gate's 0.714 (τ=0.67) / 0.952 (τ=0.72). The premise was
+# my own misreading — I cited one live probe (correct text chunk 0.766, correct
+# page image 0.554) as proof of "one comparable probability space" when it
+# actually shows the reranker's TEXT-MODALITY BIAS: the image that WAS the answer
+# scored below the text chunk. Scoring both arms in that space hands every tie to
+# text, which is the B1 failure again with a cross-encoder in front of it.
+#
+# `rrf` is plain RRF, kept as the B1 control and for a deployment that cannot
+# afford to rerank at all.
+FUSION = os.environ.get("VL_FUSION", "text_gate")
+# Candidate depth for the TEXT arm under `unified`, as a multiple of top_k. The
+# RRF path used top_k*3; matching it keeps the comparison about scoring rather
+# than about how many candidates each strategy got to see.
+UNIFIED_TEXT_DEPTH = float(os.environ.get("VL_UNIFIED_TEXT_DEPTH", "3"))
 # S0: transcribe each rendered FIGURE page with a vision LLM at ingest and add
 # the transcript to the TEXT arm. Moves the figure-reading cost from every query
 # (the ~1.7s/page reranker) to once per page, and only for the pages that need
@@ -287,7 +352,21 @@ async def _vl_rerank(query: str, candidates: list, top_n: int) -> list:
         raise _vl_error(e) from e
 
 
-def _chunk(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list:
+# Boundaries that mean something in a standards/procedure corpus. Ordered
+# strongest-first; all are matched at line start on the PyMuPDF text layer (the
+# host venv has no docling, so there are no markdown headings to lean on).
+_SECTION_BOUNDARY = re.compile(
+    r"(?m)^[ \t]*(?:"
+    r"#{1,6}[ \t]+"  # markdown heading, when docling IS available
+    r"|R\d+(?:\.\d+)*\.?[ \t]"  # NERC requirement: R1. / R1.2.
+    r"|[A-Z]\.[ \t]+(?=[A-Z])"  # lettered section: "A. Introduction"
+    r"|\d+\.\d+(?:\.\d+)*\.?[ \t]"  # numbered part: 4.1 / 4.1.1
+    r"|(?:Attachment|Appendix|Table|Requirement)[ \t]+\w"
+    r")"
+)
+
+
+def _chunk_fixed(text: str, size: int, overlap: int) -> list:
     out, i = [], 0
     while i < len(text):
         seg = text[i : i + size]
@@ -295,6 +374,57 @@ def _chunk(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> l
             out.append((i, i + len(seg), seg))
         i += max(1, size - overlap)
     return out
+
+
+def _chunk_structured(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list:
+    """Split on document structure, then pack — instead of slicing blind.
+
+    Fixed-width slicing cuts mid-requirement and needs an overlap purely to heal
+    the cuts it made. Splitting on real boundaries (requirement / section /
+    numbered part) means a chunk is a whole unit, so the overlap is only needed
+    for the rare unit that is itself larger than `size`."""
+    marks = [m.start() for m in _SECTION_BOUNDARY.finditer(text)]
+    if len(marks) < 2:  # nothing to go on — fixed slicing is the honest fallback
+        return _chunk_fixed(text, size, overlap)
+    bounds = sorted({0, *marks, len(text)})
+    units = [(bounds[i], bounds[i + 1]) for i in range(len(bounds) - 1)]
+
+    out: list = []
+    cs = ce = None
+    for s, e in units:
+        if e - s > size:  # an oversized unit still has to be sliced
+            if cs is not None:
+                out.append((cs, ce, text[cs:ce]))
+                cs = ce = None
+            for a, b, seg in _chunk_fixed(text[s:e], size, overlap):
+                out.append((s + a, s + b, seg))
+            continue
+        if cs is None:
+            cs, ce = s, e
+        elif e - cs <= size:
+            ce = e  # pack adjacent units up to the budget
+        else:
+            out.append((cs, ce, text[cs:ce]))
+            cs, ce = s, e
+    if cs is not None:
+        out.append((cs, ce, text[cs:ce]))
+    return [(a, b, t) for a, b, t in out if t.strip()]
+
+
+# `fixed` is blind character slicing; `structure` splits on requirement/section
+# boundaries. Default is `fixed` because structure LOST when measured against a
+# docling-extracted corpus: prose recall@1 0.875 -> 0.750 (2356 chunks vs 2138).
+# Splitting on my own regex boundaries fragments groupings docling's layout model
+# already got right — the structure chunker was solving a problem that only
+# existed while extraction was falling back to raw PyMuPDF text. Kept available
+# for a corpus with no usable extractor.
+CHUNK_STRATEGY = os.environ.get("RAG_CHUNK_STRATEGY", "fixed")
+
+
+def _chunk(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list:
+    if CHUNK_STRATEGY == "fixed":
+        return _chunk_fixed(text, size, overlap)
+    return _chunk_structured(text, size, overlap)
 
 
 def _render_pages(pdf_path: str, out_dir: Path, dpi: int = 150) -> list:
@@ -524,6 +654,82 @@ async def _ingest(request):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+def _text_arm_is_unconfident(top_text_sim: float, text_margin: float) -> bool:
+    """Should the visual arm be promoted? i.e. does the text arm lack an answer.
+
+    `absolute` is the cosine threshold (VL_TEXT_GATE, default 0.72).
+    `relative` compares the top text hit to the SPREAD of its own candidate pool.
+    The premise was that a text arm holding the answer has one chunk standing
+    clear of the pack, making the feature scale-free and immune to the silent
+    failure the absolute gate hit (dia r@1 1.000 -> 0.714 when docling replaced
+    PyMuPDF). Measured: the premise is backwards. Diagram queries carry the
+    LARGER margin (median 0.117 vs prose 0.055) — a figure page's one transcribed
+    caption stands clear of an otherwise irrelevant pool. Dominated at every
+    margin tried; kept for A/B, not a default."""
+    if VL_TEXT_GATE_MODE == "relative":
+        return text_margin < VL_TEXT_MARGIN
+    return top_text_sim < VL_TEXT_GATE
+
+
+async def _search_unified(ttbl, vtbl, query: str, qvec, top_k: int) -> list:
+    """One cross-encoder pass over a mixed text+image candidate pool.
+
+    Both arms contribute CANDIDATES only — their embedding ranks are used to
+    shortlist, never to score. The reranker then scores every candidate, text and
+    image alike, in one comparable probability space, and the final order is just
+    that score. This is why it cannot regress the way `text_gate` did: nothing in
+    the ranking depends on an absolute threshold or on how rich the text arm
+    happens to be."""
+    # Text and visual get INDEPENDENT candidate depths. The first cut of this
+    # used VL_RERANK_DEPTH for both, which silently halved the text pool the RRF
+    # path had been using (top_k*3) and cost recall upstream of any scoring.
+    vdepth = max(1, round(VL_RERANK_DEPTH * top_k))
+    tdepth = max(1, round(UNIFIED_TEXT_DEPTH * top_k))
+    cands: list[dict] = []
+    meta: list[dict] = []
+
+    if ttbl is not None:
+        for r in ttbl.search(qvec).limit(tdepth).to_list():
+            cands.append({"text": r["text"]})
+            meta.append(
+                {
+                    "chunk_id": r["chunk_id"],
+                    "source_file": r["source_file"],
+                    "chunk_index": r["chunk_index"],
+                    "text": r["text"],
+                    "kind": "text",
+                }
+            )
+    if vtbl is not None:
+        for r in vtbl.search(qvec).limit(vdepth).to_list():
+            cands.append({"image_path": r["image_path"]})
+            meta.append(
+                {
+                    "chunk_id": r["chunk_id"],
+                    "source_file": r["source_file"],
+                    "chunk_index": r["page"],
+                    "page": r["page"],
+                    "text": f"[page image {r['source_file']} p{r['page']}]",
+                    "kind": "visual",
+                }
+            )
+    if not cands:
+        return []
+
+    order = await _vl_rerank(query, cands, min(len(cands), top_k))
+    # The server returns these sorted, but the ranking is the whole product here
+    # — sort explicitly rather than depend on a remote service's ordering.
+    order = sorted(order, key=lambda o: -float(o["score"]))
+    out = []
+    for o in order[:top_k]:
+        m = dict(meta[o["index"]])
+        prob = round(float(o["score"]), 5)
+        m["reranker_prob"] = prob
+        m["fused_score"] = prob
+        out.append(m)
+    return out
+
+
 async def _search(request):
     """kb_search: default multimodal — RRF fusion of text-chunk and page-image
     retrieval. Contract-preserved: {kb_id, query, top_k}, response
@@ -548,15 +754,32 @@ async def _search(request):
         live_model, _ = await _vl_model_id()
         _assert_embedding_space(kb_id, live_model)
         qvec = await _vl_embed(text=query, is_query=True)
+
+        if FUSION == "unified":
+            results = await _search_unified(ttbl, vtbl, query, qvec, top_k)
+            return JSONResponse(
+                {
+                    "kb_id": kb_id,
+                    "query": query,
+                    "num_results": len(results),
+                    "results": results,
+                }
+            )
+
         scores: dict = {}
         payload: dict = {}
         top_text_sim = 0.0
+        text_margin = 0.0
         if ttbl is not None:
             trows = ttbl.search(qvec).limit(top_k * 3).to_list()
             if trows:
                 # lancedb `_distance` is L2^2 between the unit query and unit
                 # stored vector == 2*(1-cos); server guarantees normalize=True
                 top_text_sim = max(0.0, 1.0 - trows[0].get("_distance", 2.0) / 2.0)
+            if len(trows) >= 3:
+                sims = [max(0.0, 1.0 - t.get("_distance", 2.0) / 2.0) for t in trows]
+                _med = sorted(sims)[len(sims) // 2]
+                text_margin = sims[0] - _med
             for rank, r in enumerate(trows):
                 key = ("text", r["chunk_id"])
                 scores[key] = scores.get(key, 0.0) + 1.0 / (_RRF_K + rank)
@@ -579,7 +802,10 @@ async def _search(request):
             coarse = vtbl.search(qvec).limit(depth).to_list()
             cands = [{"image_path": r["image_path"]} for r in coarse]
             order = await _vl_rerank(query, cands, min(len(cands), top_k * 2)) if cands else []
-            visual_boost = top_text_sim < VL_TEXT_GATE
+            # Gate the visual boost on whether the text arm has a confident
+            # answer. See VL_TEXT_GATE for the τ re-fit (0.67 -> 0.75) and why
+            # `relative` lost.
+            visual_boost = _text_arm_is_unconfident(top_text_sim, text_margin)
             for rank, o in enumerate(order):
                 r = coarse[o["index"]]
                 key = ("visual", r["chunk_id"])

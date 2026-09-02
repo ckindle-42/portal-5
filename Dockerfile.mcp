@@ -58,12 +58,20 @@ RUN pip install --no-cache-dir \
 # Vector storage + retrieval (memory MCP, RAG MCP)
 # pymupdf: RAG multimodal ingest renders PDF pages to images for the Qwen3-VL
 # retrieval server (TASK_RAG_VISUAL_OVERHAUL_V1).
+# docling is PINNED, not floored. tau (VL_TEXT_GATE) is fitted to this
+# extractor's output, so the container and the host venv must extract
+# identically — otherwise the container silently runs a tau that was never
+# measured against what it produces (P9,
+# reports/runtime/HARDENING_V2_P4_MEASUREMENTS.md). 2.99.0 is what the host lock
+# resolves to: docling >= 2.100 pulls docling-core[chunking], which caps
+# transformers < 5.9.0 against the >= 5.16.1 the VL retrieval server needs.
+# Moving this means re-running the P9 retrieval eval and re-deriving tau.
 RUN pip install --no-cache-dir \
     "lancedb>=0.13.0" \
     "pyarrow>=18.0.0" \
     "pypdf>=4.0.0" \
     "pymupdf>=1.24" \
-    "docling>=2.0.0"
+    "docling==2.99.0"
 
 # Pre-fetch Docling layout/TableFormer model weights at build time (best-effort).
 RUN docling-tools models download \

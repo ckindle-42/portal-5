@@ -98,6 +98,23 @@ rag = [
     # qwen3_vl backend mapping is byte-identical across 5.14/5.15/5.16, so the
     # move is safe and keeps the lock current. See torchvision in apple-silicon.
     "transformers>=5.16.1",
+    # Declared here, not just in Dockerfile.mcp, so a host-side ingest/eval
+    # reproduces the container's extraction path. Without it the RAG module falls
+    # back to raw PyMuPDF text — no table structure, no reading-order correction,
+    # ~45% of each document lost — and every host measurement describes a pipeline
+    # production never runs. That gap silently cost diagram recall@1 1.000 -> 0.714
+    # (P9, reports/runtime/HARDENING_V2_P4_MEASUREMENTS.md).
+    #
+    # 2.99.0 is a CEILING as much as a floor, and it is transformers that sets it:
+    # docling >= 2.100 pulls docling-core[chunking], which caps
+    # transformers < 5.9.0, against the >= 5.16.1 pinned above for the qwen3_vl
+    # backend mapping. `pip install docling` into this venv resolves that conflict
+    # by silently downgrading transformers to 5.8.1 — under the VL retrieval
+    # server, which runs from this same .venv. Keep them locked together; if
+    # docling must move past 2.99, the transformers pin has to be re-decided
+    # first and the P9 retrieval eval re-run, because extraction output is
+    # version-coupled and tau is fitted to it.
+    "docling>=2.99.0",
 ]
 bully = [
     # Defensive Bully ORG projection (bully/organ.py) -- embedded local

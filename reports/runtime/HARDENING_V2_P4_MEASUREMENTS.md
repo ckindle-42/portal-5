@@ -485,3 +485,260 @@ deterministically (`RAG_FIGURE_PAGE_MAX_TEXT`, default 200 chars). A page with a
 rich text layer is by definition already covered by its prose chunks. This
 removes NONE discipline from selection entirely and cuts ingest cost further on a
 text-heavy corpus, since most pages never reach the model at all.
+
+## P9 — docling extraction invalidated τ, and what that proved about the gate
+
+### The trigger
+
+Every host-side text-arm measurement above ran on the **PyMuPDF fallback**, not
+docling — `Dockerfile.mcp:66` declares docling but the host venv never had it.
+PyMuPDF drops ~45% of each document, including every table. Adding `docling` to
+the `rag` extra and re-ingesting changed the text arm underneath a threshold that
+had been fitted to the degraded version, and diagram recall@1 fell **1.000 →
+0.714 silently** — no error, no log line, only the eval caught it.
+
+### 4-cell extraction × chunking matrix (τ=0.67, 37 queries)
+
+| text arm | chunker | chunks | dia r@1 | prose r@1 | prose r@5 | prose MRR | ingest |
+|---|---|---|---|---|---|---|---|
+| PyMuPDF | fixed | 1257 | 1.000 | 0.812 | 1.000 | 0.896 | 1090 s |
+| docling | fixed | 2138 | 0.714 | **0.875** | 1.000 | **0.919** | 1556 s |
+| docling | structure | 2356 | 0.714 | 0.750 | 1.000 | 0.859 | 1569 s |
+
+docling is the better text arm (prose r@1 +0.063, MRR +0.023) and costs +43%
+ingest. Structure-aware chunking is **rejected** — splitting on my own
+`#{1,6}\s` / numbered-clause regex fragments the groupings docling's layout model
+already produced, −0.125 prose r@1 for +218 chunks.
+
+### Is `text_gate` even the right design? — endpoint test
+
+Every prior comparison judged alternatives *against* text_gate, never text_gate
+against nothing. Both endpoints, docling index:
+
+| τ | dia r@1 | dia MRR | prose r@1 | prose MRR | what it is |
+|---|---|---|---|---|---|
+| 0.00 | 0.000 | 0.500 | 0.875 | 0.919 | gate never fires ≡ plain RRF |
+| 1.01 | 1.000 | 1.000 | 0.688 | 0.825 | gate always fires ≡ unconditional boost |
+
+τ=0.00 reproduces **B1 exactly**, so the boost is load-bearing. τ=1.01 costs
+prose r@1 −0.187, so the *conditionality* is load-bearing. The design survives
+both; only its constant was wrong.
+
+### τ sweep, docling index
+
+| τ | dia r@1 | dia MRR | prose r@1 | prose r@5 | prose MRR |
+|---|---|---|---|---|---|
+| 0.67 (shipped) | 0.714 | 0.857 | 0.875 | 1.000 | 0.919 |
+| 0.72 | 0.857 | 0.929 | 0.875 | 1.000 | 0.919 |
+| **0.75** | **0.952** | **0.976** | **0.875** | **1.000** | **0.919** |
+| 0.78 | 1.000 | 1.000 | 0.750 | 1.000 | 0.856 |
+| 0.84 | 1.000 | 1.000 | 0.688 | 1.000 | 0.825 |
+
+Prose is flat through 0.75 and breaks at 0.78. **τ=0.75 buys +0.238 diagram
+recall over shipped for zero prose cost**; 0.78's last +0.048 costs 0.125 prose.
+
+**Cross-extraction check** (a τ valid on one extractor only is the same trap in a
+new number): τ=0.75 on the **PyMuPDF** index gives dia 1.000/1.000, prose
+0.812/1.000/0.896 — byte-identical to τ=0.67 there. Stable on both paths.
+
+### Why 0.67 looked robust and wasn't — separability, not calibration
+
+Top-1 text cosine over the 37 eval queries:
+
+| index | diagram max | prose min | separation | best achievable τ |
+|---|---|---|---|---|
+| PyMuPDF | 0.6164 | 0.7142 | **gap 0.098** | any τ∈[0.617, 0.714] → **0 errors** |
+| docling | 0.7684 | 0.6962 | **overlap 0.072** | τ=0.723 → **3 errors (floor)** |
+
+0.67 was not a well-chosen constant — it was a constant sitting inside a
+*perfectly separable* feature, which is why it read as robust. docling recovers
+the figure captions and table cells PyMuPDF dropped, lifting diagram-page text
+cosines into the prose band: **4 diagram + 10 prose queries now share it.** No
+absolute τ can be perfect on docling; 3 misclassifications is the information
+floor, and τ=0.75 (1 diagram + 2 prose misses) is on it.
+
+**Rejected: τ as a per-KB percentile.** If both working thresholds were the same
+percentile of their own KB's top-1 distribution, the gate could self-calibrate at
+ingest and no extraction change could invalidate it. Measured: 0.67 fires at
+**p56.8** on PyMuPDF, 0.75 at **p73.0** on docling. Not the same percentile —
+there is nothing to store. Absolute τ stays, with the eval as the guard.
+
+### Rejected alternatives — recorded so they are not re-proposed
+
+| option | result | why it lost |
+|---|---|---|
+| structure-aware chunking | prose r@1 0.875 → 0.750 | fragments docling's own layout groupings |
+| `unified` cross-encoder fusion | dia r@1 0.619 (both text depths) | premise was my misreading — see below |
+| `relative` (margin) gate | dominated on both axes, every margin | margin is anti-correlated with need |
+| τ as per-KB percentile | p56.8 vs p73.0 | thresholds share no percentile |
+
+**`unified`** was justified by one live probe — correct text chunk 0.766, correct
+page image 0.554, wrong text chunk 0.293 — which I cited as proof of "one
+comparable probability space". It shows the opposite: the image that *was* the
+answer scored below the text chunk. That is **text-modality bias**, so scoring
+both arms in that space hands every tie to text — B1 again, with a cross-encoder
+in front of it.
+
+**`relative`** assumed a confident text arm has one chunk standing clear of the
+pack. Backwards: diagram queries carry the *larger* margin on docling (median
+0.117 vs prose 0.055), because a figure page's single transcribed caption stands
+clear of an otherwise irrelevant pool — exactly the shape the feature reads as
+"text has this covered".
+
+### Landed
+
+`docling>=2.0.0` in the `rag` extra; `VL_TEXT_GATE` default **0.67 → 0.75**;
+`CHUNK_STRATEGY` (default `fixed`), `VL_FUSION` (default `text_gate`) and
+`VL_TEXT_GATE_MODE` (default `absolute`) retained as A/B switches with their
+losing measurements recorded at the definition site.
+
+### P9 addendum — docling's version is pinned by `transformers`, and the eval was re-run to prove τ survives it
+
+Declaring docling exposed a real constraint conflict, found only because the
+dependency-drift test refused the venv:
+
+- `docling >= 2.100` pulls `docling-core[chunking]`, which caps `transformers < 5.9.0`.
+- `pyproject` pins `transformers >= 5.16.1` for the qwen3_vl backend mapping.
+- The VL retrieval server (`:8942`) runs from **that same `.venv`**.
+
+An ad-hoc `pip install docling` resolves the conflict the worst possible way: it
+silently downgrades **transformers 5.16.1 → 5.8.1** underneath the running VL
+server. That is what the venv was in when the τ sweep above was measured
+(docling 2.124.0 / transformers 5.8.1) — an unlocked state that cannot ship.
+
+**2.99.0 is the ceiling** that resolves against the pinned transformers (2.100,
+2.110, 2.124 all conflict). `uv sync --all-extras` restored transformers 5.16.1,
+the VL server was restarted on it, and the corpus was **re-ingested from scratch**
+on docling 2.99.0 to confirm τ was not an artifact of the unlockable version.
+**It was.** Both `pyproject` (`>=2.99.0`) and `Dockerfile.mcp` (`==2.99.0`, pinned —
+container and host must extract identically or the container runs a τ never
+measured against its own output) now name it, with the constraint recorded at
+both sites.
+
+
+### P9 final — τ re-swept on the shipping stack; **0.72**, and two corrections
+
+Re-ingest on docling 2.99.0 + transformers 5.16.1 (35 files, 2132 chunks, 1289 s
+— against 2138 chunks / 1556 s on the unlockable 2.124 venv), then the full
+sweep on that index:
+
+| τ | dia r@1 | dia MRR | prose r@1 | prose r@5 | prose MRR |
+|---|---|---|---|---|---|
+| 0.67 | 0.714 | 0.857 | 0.812 | 0.938 | 0.865 |
+| 0.70 | 0.810 | 0.905 | 0.812 | 0.938 | 0.865 |
+| **0.72** | **0.952** | **0.976** | **0.812** | **0.938** | **0.865** |
+| 0.75 | 0.952 | 0.976 | 0.750 | 0.938 | 0.833 |
+
+**τ=0.72 is the knee and 0.75 is strictly dominated** — identical diagram recall,
+−0.062 prose r@1. Diagram saturates one notch earlier here than the 2.124 venv
+showed. Shipped default is **0.72**.
+
+**Correction 1 — the first τ answer was fitted on an unshippable venv.** The
+0.75 result above stands only for docling 2.124 / transformers 5.8.1, a
+combination that cannot be locked. Every number in the preceding τ sweep carries
+that caveat. The lesson is the same one P9 already documents, applied to itself:
+a constant fitted on an environment nobody can reproduce is not a result.
+
+**Correction 2 — the reranker-shift hypothesis is withdrawn.** When prose r@5
+first fell 1.000 → 0.938 on the re-ingest, it was attributed to the reranker's
+probabilities shifting under transformers 5.16.1 and over-boosting the visual
+arm. The sweep refutes that: **prose r@5 is 0.938 at every τ, 0.67 included.** A
+gate effect cannot be flat in the gate's own parameter. That lost query is an
+ingest/embedding property of this index, unrelated to fusion. The supporting
+observation — that text-arm cosines are essentially unchanged between the two
+indexes (diagram median 0.6079 → 0.6036, prose median 0.7557 → 0.7557, diagram
+max identical at 0.7684) — remains correct; only the inference drawn from it
+was wrong.
+
+**Cross-extraction check still holds**: τ=0.72 sits inside the flat band on the
+PyMuPDF index where τ=0.67 and τ=0.75 are byte-identical (dia 1.000, prose
+0.812/1.000/0.896).
+
+## P10 — stepping back: the eval does not represent the use case, and two rejections were made on the wrong evidence
+
+The target use case is **NERC CIP standards + the operator's own policies and
+procedures, asked about individually and against each other, as a conversation.**
+Re-reading the measurement programme against that goal rather than against
+itself surfaces problems that no amount of τ tuning addresses.
+
+### 1. The query set is weighted to the wrong document type
+
+21 of 37 scored queries are `diagram_only`, and **every one of them targets a
+synthetic 2-page document I generated** (P&IDs, HMI screenshots, relay settings,
+plot plans). The real corpus is 26 documents: 16 NERC CIP standards, 9 OT
+policies, 1 NIST slice — overwhelmingly prose and **tables**. So 57% of the eval
+measures a document class that is essentially absent from the actual corpus,
+while `VL_TEXT_GATE` exists precisely to trade prose recall for diagram recall.
+τ has been fitted on a distribution that does not match production.
+
+### 2. The metric cannot express the central question
+
+`_rank_of` scores a hit when **one** `target_file` appears at rank ≤ k. But
+"does our procedure satisfy CIP-007-6 R2?" needs the standard **and** the
+policy retrieved together. A result returning five chunks from the standard and
+nothing from the policy scores **1.000** and is useless. Nothing measures or
+enforces source diversity. The `also_accept` fields added earlier to
+`prose-cip-01` / `prose-cip-05` were treating this as query-set ambiguity when
+it is actually the signature of a multi-document task the metric cannot see.
+
+### 3. `prose-cip-07` — the most representative query in the set — is the worst result
+
+> *"How does NERC CIP-002 categorize BES Cyber Systems as high, medium, or low impact?"*
+
+This is the archetypal compliance question, and its answer lives in **CIP-002
+Attachment 1**, a table. Results by configuration:
+
+| configuration | rank of `cip-002-5.1a.pdf` |
+|---|---|
+| structure-aware chunking (docling) | **1** |
+| `unified` fusion, text depth 3 | **1** |
+| early builds | 3 |
+| fixed chunking (docling 2.124) | 5 |
+| **fixed chunking, shipping stack (dl299)** | **not in top 5** |
+
+It is **not an extraction failure**: `cip-002-5.1a.pdf` contributes 121 chunks,
+23 mention "Attachment 1", and "High/Medium/Low Impact Rating" each appear in 3.
+The content is indexed and the query uses near-verbatim terminology. It loses to
+`cip-007-6` (system security management) and `cip-009-6` (recovery plans), which
+are topically wrong. This is a chunking/embedding failure, and it has been
+**silently degrading across builds** — rank 3 → 5 → absent — invisible because
+aggregate prose r@5 stayed 1.000 until the final run.
+
+### 4. Both rejected options are the ones that fix it
+
+Structure-aware chunking was rejected on aggregate prose r@1 (0.875 → 0.750);
+`unified` fusion was rejected on aggregate diagram r@1 (0.619 vs 0.714). **Both
+put `prose-cip-07` at rank 1.** The rejections were made on an aggregate
+dominated by synthetic diagram queries, and were never checked per-query against
+the compliance-representative ones. Those verdicts should be treated as
+**provisional and re-run against a corrected query set**, not as settled.
+
+### 5. Untested against the stated requirement
+
+- **"PDFs varying in length"** — every eval ran `RAG_MAX_PAGES=25`. That caps the
+  **visual arm only** (`_render_pages`); the text arm always extracted in full,
+  so the prose numbers are sound. But 10 of 26 real documents exceed 25 pages
+  (cip-003-8 is 59, cip-007-6 is 51), so page images for their later pages were
+  never built and the visual arm has never been exercised at production scale or
+  cost. Default is 500; that path is unmeasured.
+- **"conversations about said documents"** — `kb_search` is single-shot and
+  stateless. There is no query rewriting, no follow-up/ellipsis resolution, no
+  turn context. **Zero** of the 37 queries are follow-ups. This is not a tuning
+  gap, it is an absent capability.
+- **Tables** are docling's main justification and are **unmeasured** — there is
+  not one query targeting a real CIP requirement or applicability table. The one
+  query that implicitly needs a table (`prose-cip-07`) is the one that fails.
+
+### What is actually established
+
+- `text_gate`'s **design** is sound: both endpoints are load-bearing (τ=0.00 reproduces B1; τ=1.01 costs prose 0.187). That result does not depend on query-set weighting.
+- **τ=0.72 is the knee of the sweep as measured** — but the sweep's diagram half is synthetic, so τ is fitted to a weighting that production will not reproduce.
+- docling is the better text arm and is now correctly pinned host- and container-side.
+- The single-worker executor, launchd supervision, and S0 model selection are independent of all of the above and stand.
+
+### What is not established
+
+Answer quality, multi-document retrieval, table retrieval, long-document
+behaviour, and conversational use — **none are measured.** The τ number should
+not be read as evidence the system is fit for the compliance use case; it is
+evidence about one fusion knob under one unrepresentative query distribution.

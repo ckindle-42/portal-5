@@ -111,7 +111,7 @@ def _patch_fusion(rm, strategy: str) -> None:  # noqa: C901, PLR0915
         return rrf, prob, payload, top_text_sim
 
     gate = float(os.environ.get("VL_FUSION_GATE", "0.0"))
-    text_gate = float(os.environ.get("VL_TEXT_GATE", "0.67"))
+    text_gate = float(os.environ.get("VL_TEXT_GATE", "0.72"))
 
     def _fuse(rrf, prob, top_k, top_text_sim):
         if strategy == "rerank_tiebreak":
