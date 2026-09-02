@@ -108,10 +108,10 @@ three are real misses left red so they keep measuring something.
 
 ## Still open / honest-BLOCKED
 
-- **VL server single-worker executor** — the correct fix for `/health` HoL
-  blocking under concurrent load (frees the event loop without the multi-thread
-  Metal crash the current one-lock design avoids). Needs a soak test before
-  shipping; documented as P5-VL-RETR-001. Not landed in closeout.
+- **VL server single-worker executor** — LANDED after closeout (`471220e3`).
+  Soak-verified: 49 requests / 330 s, 0 failures, no Metal crash, `/health` p95
+  8–27 s → 4 ms. P5-VL-RETR-001's liveness half is resolved; the throughput
+  half is a GPU bound, not a bug.
 - **S0** — resolved: viable and wired (see above). Left off by default because
   `text_gate` already gives diagram recall@1 = 1.000, so S0 buys query latency,
   not recall — turn it on when ingest-time cost is preferable to per-query
@@ -121,7 +121,7 @@ three are real misses left red so they keep measuring something.
 
 ## Done means
 
-- diagram-only queries return the right visual page at rank 1 with prose-only unregressed, on a 36-doc / 42-query corpus — **yes** (`text_gate` τ=0.67).
+- diagram-only queries return the right visual page at rank 1 with prose-only unregressed, on a 36-doc / 42-query corpus — **yes** (`text_gate`), but τ **re-fitted 0.67 → 0.72** after docling replaced the PyMuPDF fallback (P9 below).
 - embed and rerank both bounded and the bounds measured — **yes** (A1/A5, S3).
 - the lance guard fails on an unmounted volume with a stray tree present — **yes** (A2 + test).
 - a KB knows which model embedded it — **yes** (A3).
@@ -136,3 +136,35 @@ three are real misses left red so they keep measuring something.
 - audio synthesis proven end to end on all four `:8918` routes — **yes** (E4).
 - concurrency behaviour measured and the liveness gap documented — **yes** (O2 /
   A4 → P5-VL-RETR-001).
+
+
+## P9 addendum — the extraction path was wrong the whole time, and τ with it
+
+Everything above the P9 section of `reports/runtime/HARDENING_V2_P4_MEASUREMENTS.md`
+was measured against the **raw-PyMuPDF fallback**, not docling. `Dockerfile.mcp:66`
+declares docling — the container was always right — but the host venv never had
+it, so every host-side text-arm number came from an extraction that drops ~45% of
+each document including all table structure. `docling>=2.0.0` is now declared in
+the `rag` extra so the host reproduces the container.
+
+Re-measuring on the corrected text arm:
+
+- docling is the better text arm: prose r@1 0.812 → **0.875**, MRR 0.896 → **0.919**, at +43% ingest.
+- τ=0.67 stopped firing and diagram r@1 fell **1.000 → 0.714, silently**.
+- **τ re-fitted to 0.72**: diagram r@1 **0.952**, prose flat at 0.812/0.938/0.865 (0.75 is strictly dominated — same diagram, −0.062 prose). Verified stable on the PyMuPDF index too, where τ=0.67/0.72/0.75 are byte-identical.
+- The first answer was 0.75, fitted on a venv that cannot be locked: `pip install docling` had pulled 2.124 and silently downgraded **transformers 5.16.1 → 5.8.1** under the VL server. docling >= 2.100 caps transformers < 5.9.0, so **2.99.0 is the ceiling**; the corpus was re-ingested and re-swept there, and the knee moved to 0.72.
+- The `text_gate` **design is validated**, not merely re-tuned: τ=0.00 (never fires) reproduces B1 exactly (dia r@1 0.000), τ=1.01 (always fires) costs prose r@1 −0.187. Both halves earn their keep.
+- Root cause is **separability, not calibration**: under PyMuPDF the diagram and prose top-1 cosine populations were cleanly separated (gap 0.098, any τ in the gap gives 0 errors); docling lifts diagram cosines into the prose band (overlap 0.072), so no absolute τ can be perfect and 3/37 is the floor. 0.67 was a constant inside a perfectly separable feature, which is why it looked robust.
+
+Four alternatives measured and **rejected** — structure-aware chunking (−0.125
+prose r@1), `unified` cross-encoder fusion (dia 0.619; its justifying probe
+actually showed reranker text-modality bias), the `relative` margin gate
+(anti-correlated with need), and τ-as-per-KB-percentile (p56.8 vs p73.0 — no
+shared percentile to store). All retained as A/B switches with their losing
+numbers recorded at the definition site.
+
+Guarded by unit tests that pin τ against the measured diagram p75 and prose
+break, plus P5-VL-RETR-002 documenting the invalidation mode and the manual
+re-run requirement. `Dockerfile.mcp` pins `docling==2.99.0` so the container
+cannot drift onto an extractor τ was never measured against — this needs
+`./launch.sh rebuild` before any container-side RAG testing.

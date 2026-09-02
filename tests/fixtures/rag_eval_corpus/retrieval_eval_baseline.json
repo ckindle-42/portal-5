@@ -1,0 +1,129 @@
+{
+  "_what_this_is": [
+    "The retrieval eval is the ONLY thing that can detect the VL_TEXT_GATE failure",
+    "mode, and it cannot run in CI: it needs the MLX VL server on Apple Silicon,",
+    "~21 min of ingest, and the operator's private compliance PDFs (not committed).",
+    "So this file records the last hand-run result together with a FINGERPRINT of",
+    "the inputs it was valid for. A unit test asserts the currently declared inputs",
+    "still match. That does not re-derive recall -- it makes the eval's staleness",
+    "impossible to miss, which is the actual defect: tau did not change when",
+    "diagram recall@1 fell 1.000 -> 0.714. The DATA changed underneath it."
+  ],
+  "task": "TASK_VL_RETRIEVAL_HARDENING_AND_CLOSEOUT_V2 / P9",
+  "report": "reports/runtime/HARDENING_V2_P4_MEASUREMENTS.md",
+  "run_date": "2026-09-02",
+  "fingerprint": {
+    "_note": "Declared pins, not the installed venv -- tests/unit/test_dependency_drift.py already asserts venv == uv.lock, so the two together cover the live environment while this stays runnable on a CI box with no rag extra.",
+    "pyproject_pins": {
+      "docling": ">=2.99.0",
+      "transformers": ">=5.16.1"
+    },
+    "dockerfile_mcp_pins": {
+      "docling": "==2.99.0"
+    },
+    "embed_model": "mlx-community/Qwen3-VL-Embedding-2B-mxfp8",
+    "rerank_model": "mlx-community/Qwen3-VL-Reranker-2B-mxfp8",
+    "embedding_dim": 2048,
+    "chunk_strategy": "fixed",
+    "fusion": "text_gate",
+    "gate_mode": "absolute"
+  },
+  "corpus": {
+    "docs": 35,
+    "chunks": 2132,
+    "page_images": 480,
+    "ingest_s": 1289,
+    "queries_scored": 37,
+    "note": "operator's private NERC CIP + OT policy PDFs; NOT committed"
+  },
+  "chosen_tau": 0.72,
+  "tau_sweep": [
+    {
+      "tau": 0.67,
+      "diagram_r1": 0.714,
+      "diagram_mrr": 0.857,
+      "prose_r1": 0.812,
+      "prose_r5": 0.938,
+      "prose_mrr": 0.865
+    },
+    {
+      "tau": 0.7,
+      "diagram_r1": 0.81,
+      "diagram_mrr": 0.905,
+      "prose_r1": 0.812,
+      "prose_r5": 0.938,
+      "prose_mrr": 0.865
+    },
+    {
+      "tau": 0.72,
+      "diagram_r1": 0.952,
+      "diagram_mrr": 0.976,
+      "prose_r1": 0.812,
+      "prose_r5": 0.938,
+      "prose_mrr": 0.865
+    },
+    {
+      "tau": 0.75,
+      "diagram_r1": 0.952,
+      "diagram_mrr": 0.976,
+      "prose_r1": 0.75,
+      "prose_r5": 0.938,
+      "prose_mrr": 0.833
+    }
+  ],
+  "endpoint_tests": {
+    "_note": "Both halves of the gate proven load-bearing on the docling index.",
+    "never_fires_tau_0.00": {
+      "diagram_r1": 0.0,
+      "diagram_mrr": 0.5,
+      "prose_r1": 0.875
+    },
+    "always_fires_tau_1.01": {
+      "diagram_r1": 1.0,
+      "diagram_mrr": 1.0,
+      "prose_r1": 0.688
+    }
+  },
+  "scope_and_validity": {
+    "_read_this_before_trusting_chosen_tau": [
+      "chosen_tau is the knee of the sweep AS MEASURED, on a query set that does not",
+      "represent the target use case (NERC CIP standards + operator policies, asked",
+      "about individually and against each other, conversationally). See P10 in the",
+      "report. Do not read it as evidence the system is fit for that use case."
+    ],
+    "query_set_bias": "21 of 37 scored queries are diagram_only and ALL target synthetic 2-page documents; the real corpus is 26 prose/table documents. VL_TEXT_GATE trades prose recall for diagram recall, so tau is fitted to a weighting production will not reproduce.",
+    "metric_limitation": "scores a hit when ONE target_file ranks <= k. Compliance questions need the standard AND the policy together; source diversity is neither measured nor enforced.",
+    "known_bad_query": {
+      "id": "prose-cip-07",
+      "query": "How does NERC CIP-002 categorize BES Cyber Systems as high, medium, or low impact?",
+      "status": "NOT in top 5 on the shipping configuration, at every tau",
+      "not_an_extraction_failure": "cip-002-5.1a contributes 121 chunks; 23 mention 'Attachment 1'; High/Medium/Low Impact Rating each appear in 3",
+      "rank_by_config": {
+        "structure_chunking": 1,
+        "unified_fusion_depth3": 1,
+        "early_builds": 3,
+        "fixed_docling_2124": 5,
+        "fixed_shipping_dl299": null
+      },
+      "implication": "the two options rejected on AGGREGATE score are the two that fix the most use-case-representative query; those rejections are PROVISIONAL"
+    },
+    "unmeasured": [
+      "answer quality",
+      "multi-document retrieval",
+      "table retrieval",
+      "documents beyond RAG_MAX_PAGES=25 in the VISUAL arm (text arm always full)",
+      "conversational / follow-up queries (kb_search is single-shot and stateless)"
+    ]
+  },
+  "rejected_provisionally": {
+    "_note": "rejected on aggregate metrics from a biased query set; re-run before treating as settled",
+    "structure_aware_chunking": {
+      "aggregate_prose_r1": "0.875 -> 0.750",
+      "but": "prose-cip-07 rank 1"
+    },
+    "unified_fusion": {
+      "aggregate_diagram_r1": "0.619 vs 0.714",
+      "but": "prose-cip-07 rank 1 at text depth 3"
+    }
+  }
+}
