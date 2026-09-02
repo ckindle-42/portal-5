@@ -254,11 +254,16 @@ goes **~27 s → ~14 s**, diagram-only recall@1 **0.00 → 1.00**, prose unchang
 ## S0 — transcribe figure pages at ingest (prototype, dormant)
 
 `RAG_TRANSCRIBE_FIGURES=1` adds an ingest pass: each rendered page → vision LLM
-(`qwen3-vl:32b-ctx8k` on Ollama) → structured transcript of every tag / address
-/ setpoint / connection → embedded into the **text** arm. Moves the
-figure-reading cost from every query to once per page. Committed off by default;
-measured next — the question is whether the text arm alone then hits diagram
-r@1 = 1.0 (which would let the query-time visual rerank shrink further or drop).
+→ structured transcript of every tag / address / setpoint / connection →
+embedded into the **text** arm. Moves the figure-reading cost from every query
+to once per page.
+
+**Not viable with the current fleet.** The only vision model in Ollama is
+`qwen3-vl:32b` (21 GB); measured at **>3 min for a single page** — a 480-page
+corpus would be a ~24 h ingest. S0 is committed **dormant** and stays that way
+until a 7B-class VL model (e.g. `qwen2.5-vl:7b`, `llava`, `moondream`) joins the
+fleet, at which point re-run this measurement. With C1 + S3 already at ~9–14 s
+and full recall, S0's marginal benefit does not justify a fleet addition now.
 
 ## P6 — max_pixels / DPI (E2)
 
