@@ -45,12 +45,39 @@ VL_TEXT_GATE = float(os.environ.get("VL_TEXT_GATE", "0.67"))
 # ~1.7s per page image and is the whole query cost; the coarse `top_k*3` set was
 # reranking 50% more candidates than the response uses.
 VL_RERANK_DEPTH = float(os.environ.get("VL_RERANK_DEPTH", "1.5"))
-# S0: transcribe each rendered page with a vision LLM at ingest and add the
-# transcript to the TEXT arm. Moves the figure-reading cost from every query
-# (the ~1.7s/page reranker) to once per page. Off by default — it needs a
-# vision model and lengthens ingest. Prototype: RAG_TRANSCRIBE_FIGURES=1.
+# S0: transcribe each rendered FIGURE page with a vision LLM at ingest and add
+# the transcript to the TEXT arm. Moves the figure-reading cost from every query
+# (the ~1.7s/page reranker) to once per page, and only for the pages that need
+# it (see `_figure_pages`).
+#
+# Model chosen by a 5-round, 16-model bake-off across 6 lineages and both
+# runtimes (Ollama + MLX), scored on ground-truth fact recall — the 45
+# identifiers the corpus builder actually draws, reported both normalized and as
+# EXACT string match (the normalized score alone hides a lost hyphen, and
+# "LT 204" is useless to an identifier search). Numbers:
+# reports/runtime/HARDENING_V2_P4_MEASUREMENTS.md.
+#
+# Round 5 is the only fair round: /api/chat (every one of these models ships a
+# 13-char `{{ .Prompt }}` Ollama template, so /api/generate fed them raw strings
+# with no chat markers), each model's documented prompt contract, and each
+# model's own baked sampling. Five models tie at 0.956 EXACT / 1.000 normalized:
+# qwen3-vl 2b/4b/8b, glm-ocr, Nanonets-OCR2-3B.
+#
+# qwen3-vl:4b is the pick on transcript quality at equal accuracy: zero duplicate
+# lines on every page tested (qwen3-vl:2b repeats its list on some pages) and it
+# extracts ~2x more detail on dense pages (763 vs 353 chars on the locked-valve
+# schedule). It also describes CONNECTIVITY, which an OCR model structurally
+# cannot. Runs on Ollama, so S0 adds no new service.
+#
+# If ingest wall-clock matters more than transcript richness, set
+# RAG_TRANSCRIBE_MODEL=qwen3-vl:2b-instruct-q4_K_M — measured IDENTICAL 0.956
+# EXACT recall at 5.1s/page vs 7.9s (41 min vs 64 min for a 480-page KB) and
+# 1.9GB vs 3.3GB resident.
+#
+# Still off by default: text_gate already achieves diagram recall@1 = 1.000, so
+# S0 buys query latency, not recall.
 TRANSCRIBE_FIGURES = os.environ.get("RAG_TRANSCRIBE_FIGURES", "0") not in ("0", "false", "")
-TRANSCRIBE_MODEL = os.environ.get("RAG_TRANSCRIBE_MODEL", "qwen3-vl:32b-ctx8k")
+TRANSCRIBE_MODEL = os.environ.get("RAG_TRANSCRIBE_MODEL", "qwen3-vl:4b-instruct-q4_K_M")
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 _TRANSCRIBE_PROMPT = (
     "This is a page from an engineering / compliance document. Transcribe every "
@@ -282,8 +309,32 @@ def _render_pages(pdf_path: str, out_dir: Path, dpi: int = 150) -> list:
         p = out_dir / f"{Path(pdf_path).stem}_p{i:04d}.png"
         page.get_pixmap(dpi=dpi).save(str(p))
         pages.append((i, str(p)))
+        _PAGE_TEXT_LEN[str(p)] = len(page.get_text().strip())
     doc.close()
     return pages
+
+
+# S0: how much extractable text a rendered page had. A page whose text layer is
+# already rich is, by definition, covered by the prose chunks — transcribing it
+# would duplicate the text arm. Populated by `_render_pages`, consumed by
+# `_figure_pages`.
+_PAGE_TEXT_LEN: dict[str, int] = {}
+# Below this many characters of extractable text, a page is treated as a figure.
+FIGURE_PAGE_MAX_TEXT = int(os.environ.get("RAG_FIGURE_PAGE_MAX_TEXT", "200"))
+
+
+def _figure_pages(pages: list) -> list:
+    """S0: the subset of pages worth transcribing.
+
+    Deterministic, not model-judgement. The obvious design — prompt the vision
+    model to answer NONE on a body-text page — was measured and does not hold:
+    the strongest transcribers are OCR models that transcribe *everything*
+    (glm-ocr, Nanonets-OCR2, minicpm-v4.5 all scored 0/4 on NONE discipline).
+    Trusting self-abstention would duplicate every prose page into the text arm.
+    PyMuPDF already tells us the text-layer length for free during render, so
+    the filter is exact and costs nothing — and it makes NONE discipline
+    irrelevant to model selection."""
+    return [(pn, img) for pn, img in pages if _PAGE_TEXT_LEN.get(img, 0) < FIGURE_PAGE_MAX_TEXT]
 
 
 async def _read_text(path: Path) -> str:
@@ -341,7 +392,16 @@ async def _transcribe_page(img_path: str) -> str:
                     "prompt": _TRANSCRIBE_PROMPT,
                     "images": [b64],
                     "stream": False,
-                    "options": {"temperature": 0.0},
+                    # temperature 0.0 (greedy) is a known repetition-loop
+                    # trigger on VL models — measured: it drove granite-vision
+                    # to 147s/page and deepseek-ocr to 33k-char dumps, both of
+                    # which recovered under repeat_penalty. num_predict bounds
+                    # the worst case so one bad page cannot stall an ingest.
+                    "options": {
+                        "temperature": 0.1,
+                        "repeat_penalty": 1.1,
+                        "num_predict": 1200,
+                    },
                 },
             )
             r.raise_for_status()
@@ -352,8 +412,13 @@ async def _transcribe_page(img_path: str) -> str:
 
 
 async def _ingest_page_transcripts(ttbl, kb_id: str, f: Path, rel: str, pages: list) -> int:
-    """S0: transcribe each page and add non-empty transcripts to the text arm."""
-    transcripts = [(pn, await _transcribe_page(img)) for pn, img in pages]
+    """S0: transcribe the figure pages and add non-empty transcripts to the text
+    arm. Only pages whose text layer is sparse are sent to the model — see
+    `_figure_pages`; on a text-heavy corpus this is most of the ingest saving."""
+    figures = _figure_pages(pages)
+    if not figures:
+        return 0
+    transcripts = [(pn, await _transcribe_page(img)) for pn, img in figures]
     keep = [(pn, t) for pn, t in transcripts if t]
     if not keep:
         return 0

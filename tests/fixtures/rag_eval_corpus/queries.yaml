@@ -54,7 +54,11 @@ queries:
      query: "Which valve on the locked-valve schedule is car-sealed open on the PSV-410 A inlet?"}
 
   # ── prose-only · public NERC CIP standards ──
+  # also_accept: the operator's own ESP procedure restates the CIP-005 review
+  # cadence verbatim, so returning it is a correct answer to "how often", not a
+  # miss. Scoring it wrong was an instrument defect, not a retrieval defect.
   - {id: prose-cip-01, category: prose_only, target_file: cip-005-7.pdf, target_page: null,
+     also_accept: [OT_Electronic_Security_Perimeters_V10.pdf],
      query: "How often must each Electronic Security Perimeter be reviewed under the NERC CIP standards?"}
   - {id: prose-cip-02, category: prose_only, target_file: cip-005-7.pdf, target_page: null,
      query: "What are the NERC CIP requirements for interactive remote access and Intermediate Systems?"}
@@ -62,7 +66,10 @@ queries:
      query: "Under NERC CIP-007, what is required for security patch management and evaluation timelines?"}
   - {id: prose-cip-04, category: prose_only, target_file: cip-007-6.pdf, target_page: null,
      query: "What ports and services controls does NERC CIP-007 require on Cyber Assets?"}
+  # also_accept: the operator's incident-response plan document literally *is* a
+  # Cyber Security Incident Response Plan and enumerates its required contents.
   - {id: prose-cip-05, category: prose_only, target_file: cip-008-6.pdf, target_page: null,
+     also_accept: [OT_Security_Incident_Response_V14.pdf],
      query: "What must a Cyber Security Incident Response Plan contain under NERC CIP-008?"}
   - {id: prose-cip-06, category: prose_only, target_file: cip-010-4.pdf, target_page: null,
      query: "What are the NERC CIP-010 configuration change management and vulnerability assessment requirements?"}
@@ -80,8 +87,12 @@ queries:
      query: "What BES Cyber System Information handling does NERC CIP-011 require?"}
   - {id: prose-cip-13, category: prose_only, target_file: cip-006-6.pdf, target_page: null,
      query: "What physical access control and monitoring does NERC CIP-006 require for Physical Security Perimeters?"}
+  # Tightened, not widened: the corpus holds both cip-012-1 and cip-012-2, and
+  # the old wording ("the NERC CIP-012 requirements") was answered correctly by
+  # either. In compliance the version is the whole point, so the query now names
+  # it — the retriever must distinguish the revisions rather than be excused.
   - {id: prose-cip-14, category: prose_only, target_file: cip-012-2.pdf, target_page: null,
-     query: "What are the NERC CIP-012 requirements for protecting communications between Control Centers?"}
+     query: "What are the requirements of NERC CIP-012-2 specifically (not CIP-012-1) for protecting communications between Control Centers?"}
   - {id: prose-nist-01, category: prose_only, target_file: nist_800_82r3_arch_slice.pdf, target_page: null,
      query: "How does NIST SP 800-82 describe the differences between IT and OT security constraints and priorities?"}
   - {id: prose-nist-02, category: prose_only, target_file: nist_800_82r3_arch_slice.pdf, target_page: null,

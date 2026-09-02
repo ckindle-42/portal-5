@@ -371,3 +371,90 @@ rerank/embed/rerank burst, `/health` polled every 250 ms throughout):
 stream, still FIFO); what changed is that the supervisor and any monitor can now
 tell "busy" from "hung". `KNOWN_LIMITATIONS.md` P5-VL-RETR-001 updated: the
 liveness half is resolved, the serial queue remains as an intended GPU bound.
+
+## S0 revisited — 16-model, 4-round transcription bake-off (model chosen on evidence)
+
+The V2 closeout shelved S0 as "not viable: the only Ollama VL model is
+qwen3-vl:32b at >3 min/page (~24 h ingest)". Both halves of that were wrong —
+`qwen3-vl:32b` was never the only option, and the constraint that S0 must run on
+Ollama was an artifact of the prototype's `/api/generate` call, not architecture.
+This host already runs five MLX services (`:8917/:8918/:8924/:8933/:8942`), and
+`mlx-vlm` 0.6.17 ships native `paddleocr_vl`, `dots_ocr`, `got`, `florence2` and
+`internvl_chat` architectures.
+
+**Metric: ground-truth fact recall.** The synthetic figure builder
+(`tests/fixtures/rag_eval_corpus/README.md`) returns, per figure, the exact
+identifiers it draws — 45 facts over 9 pages. A transcript is scored on how many
+it reproduces. Not a regex proxy, not a vibe.
+
+| model | lineage | runtime | size | EXACT | norm | s/page | 480-pg |
+|---|---|---|---|---|---|---|---|
+| **qwen3-vl:4b-instruct-q4_K_M** | Alibaba | Ollama | 3.3 GB | **0.956** | 1.000 | 7.9 | 64 min |
+| qwen3-vl:2b-instruct-q4_K_M | Alibaba | Ollama | 1.9 GB | **0.956** | 1.000 | **5.1** | **41 min** |
+| glm-ocr:Q8_0 | Zhipu | Ollama | 1.6 GB | **0.956** | 1.000 | 5.8 | 46 min |
+| Nanonets-OCR2-3B | Nanonets | Ollama | 2.8 GB | **0.956** | 1.000 | 9.8 | 78 min |
+| qwen3-vl:8b-instruct-q4_K_M | Alibaba | Ollama | 6.1 GB | **0.956** | 1.000 | 12.9 | 104 min |
+| minicpm-v4.5:Q4_K_M | OpenBMB | Ollama | 6.1 GB | 0.911 | 0.956 | 8.2 | 66 min |
+| deepseek-ocr | DeepSeek | Ollama | 6.7 GB | 0.800 | 0.844 | **3.2** | 26 min |
+| gemma4:e2b-it-qat | Google | Ollama | 4.3 GB | 0.356 | 0.400 | 9.5 | 76 min |
+| granite3.2-vision:2b | IBM | Ollama | 2.4 GB | 0.111 | 0.111 | 34.5 | 276 min |
+| gemma4:e4b-it-qat | Google | Ollama | 6.1 GB | 0.089 | 0.111 | 15.8 | 127 min |
+| dots.ocr-GGUF:Q8_0 | rednote | Ollama | 3.2 GB | 0.000 | 0.000 | 13.2 | 105 min |
+
+MLX runtime (separate round, generic prompt — see caveat below):
+PaddleOCR-VL-8bit (0.9B) 0.978 norm @ 5.0s/page · Nanonets-OCR2-3B-8bit 1.000 @
+8.5s · dots.ocr-4bit 0.422 @ 11.7s.
+
+### Rounds 1-4 were partly measuring the harness. Three defects, all mine.
+
+1. **`/api/generate` on a `{{ .Prompt }}` template.** Every model here — qwen3-vl,
+   gemma4, glm-ocr, deepseek-ocr included — ships a 13-character Ollama template.
+   On `/api/generate` that feeds the raw string in with **no chat markers at
+   all**, so every instruct model was run un-templated. `/api/chat` lets the
+   engine apply real chat formatting.
+2. **Invented prompts for the specialists.** Each has a documented contract:
+   glm-ocr `"Text Recognition:"`, deepseek-ocr
+   `"<image>\n<|grounding|>Convert the document to markdown."`, PaddleOCR-VL
+   `"OCR:"`, Nanonets its own long instruction, dots.ocr a layout-JSON prompt.
+3. **Forced `temperature=0.0` over baked defaults.** qwen3-vl ships
+   temp=1/top_k=20/top_p=0.95, gemma4 temp=1/top_k=64/top_p=0.95. Greedy decoding
+   is also a classic repetition-loop trigger — DeepSeek-OCR's own reference
+   inference ships an NGram logit processor (ngram_size=30, window_size=90)
+   purely to suppress it.
+
+**What the fair round overturned:**
+
+| model | rounds 1-2 (broken harness) | round 5 (fair) |
+|---|---|---|
+| qwen3-vl:2b | **0.000** — "too small to resolve figures" | **0.956 EXACT @ 5.1s** — ties the 8B |
+| deepseek-ocr | 0.000, 49s/page, 23-33k-char dumps | **0.800 EXACT @ 3.2s** — fastest tested |
+| granite3.2-vision | 0.200, 147s/page | 0.111, 34.5s — verdict survives, latency was config |
+| glm-ocr | "duplicates blocks, mangles LT-204" | **clean 283 chars, hyphens intact** — my prompt's fault |
+
+The qwen3-vl:2b and deepseek-ocr reversals are the important ones: both were
+written off on numbers produced by an un-templated, temperature-zero harness. The
+gemma4 and granite verdicts survived correction, so those stand — but they stand
+on evidence now rather than on a broken instrument.
+
+**Caveat, recorded not hidden:** the MLX round (PaddleOCR-VL, dots.ocr, Nanonets)
+still used the generic prose prompt, so PaddleOCR-VL's 0.978 @ 5.0s/page is
+*understated* — its documented contract is `"OCR:"`. It was already the fastest
+and smallest thing measured, and is the first candidate to revisit if ingest
+wall-clock ever becomes the binding constraint.
+
+**EXACT vs normalized.** The original metric normalized away whitespace and
+commas, so it scored `"LT 204"` as a hit for `LT-204`. Every table above now
+reports both. Even the winners sit at 0.956 EXACT vs 1.000 normalized — the gap
+is the comma in `8,200`. An identifier search over the text arm sees the EXACT
+column, so that is what the pick was made on.
+
+### NONE discipline is not a model-selection criterion
+
+Every OCR specialist scored 0/4 on "reply NONE for a body-text page", which would
+have disqualified them. That was the wrong question: it asks an LLM to decide
+something the file format already answers. PyMuPDF reports each page's text-layer
+length for free during render, so `_figure_pages()` selects transcription targets
+deterministically (`RAG_FIGURE_PAGE_MAX_TEXT`, default 200 chars). A page with a
+rich text layer is by definition already covered by its prose chunks. This
+removes NONE discipline from selection entirely and cuts ingest cost further on a
+text-heavy corpus, since most pages never reach the model at all.
