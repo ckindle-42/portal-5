@@ -41,6 +41,25 @@ VL_EMBED_MAX_ITEMS = max(1, int(os.environ.get("VL_EMBED_MAX_ITEMS", "24")))
 # queries top-text-cos 0.44–0.62, prose queries 0.73–0.83 — 0.67 sits in the
 # gap. Diagram r@1 0.00 → 1.00, prose recall byte-identical to RRF.
 VL_TEXT_GATE = float(os.environ.get("VL_TEXT_GATE", "0.67"))
+# S3: rerank `VL_RERANK_DEPTH * top_k` page images (default 2). The reranker is
+# ~1.7s per page image and is the whole query cost; the coarse `top_k*3` set was
+# reranking 50% more candidates than the response uses.
+VL_RERANK_DEPTH = float(os.environ.get("VL_RERANK_DEPTH", "1.5"))
+# S0: transcribe each rendered page with a vision LLM at ingest and add the
+# transcript to the TEXT arm. Moves the figure-reading cost from every query
+# (the ~1.7s/page reranker) to once per page. Off by default — it needs a
+# vision model and lengthens ingest. Prototype: RAG_TRANSCRIBE_FIGURES=1.
+TRANSCRIBE_FIGURES = os.environ.get("RAG_TRANSCRIBE_FIGURES", "0") not in ("0", "false", "")
+TRANSCRIBE_MODEL = os.environ.get("RAG_TRANSCRIBE_MODEL", "qwen3-vl:32b-ctx8k")
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
+_TRANSCRIBE_PROMPT = (
+    "This is a page from an engineering / compliance document. Transcribe every "
+    "piece of information visible in any figure, diagram, table, or screenshot on "
+    "the page: equipment tags, instrument numbers, IP addresses, setpoints, valve "
+    "states, alarm labels, legend entries, and how components connect. Write it as "
+    "plain prose and lists — reproduce the exact identifiers and values. If the "
+    "page is only body text, reply with the single word NONE."
+)
 CHUNK_SIZE = int(os.environ.get("RAG_CHUNK_SIZE", "1000"))
 CHUNK_OVERLAP = int(os.environ.get("RAG_CHUNK_OVERLAP", "150"))
 _MAX_PAGES = int(os.environ.get("RAG_MAX_PAGES", "500"))
@@ -308,10 +327,59 @@ async def _ingest_text(ttbl, kb_id: str, f: Path, rel: str) -> int:
     return len(rows)
 
 
-async def _ingest_pages(vtbl, kb_id: str, f: Path, rel: str) -> int:
+async def _transcribe_page(img_path: str) -> str:
+    """S0: vision-LLM transcript of one rendered page ("" if body-text-only)."""
+    import base64 as _b64
+
+    b64 = _b64.b64encode(Path(img_path).read_bytes()).decode()
+    try:
+        async with httpx.AsyncClient(timeout=180) as c:
+            r = await c.post(
+                f"{OLLAMA_URL}/api/generate",
+                json={
+                    "model": TRANSCRIBE_MODEL,
+                    "prompt": _TRANSCRIBE_PROMPT,
+                    "images": [b64],
+                    "stream": False,
+                    "options": {"temperature": 0.0},
+                },
+            )
+            r.raise_for_status()
+            out = (r.json().get("response") or "").strip()
+    except httpx.HTTPError:
+        return ""
+    return "" if out.upper().startswith("NONE") or len(out) < 20 else out
+
+
+async def _ingest_page_transcripts(ttbl, kb_id: str, f: Path, rel: str, pages: list) -> int:
+    """S0: transcribe each page and add non-empty transcripts to the text arm."""
+    transcripts = [(pn, await _transcribe_page(img)) for pn, img in pages]
+    keep = [(pn, t) for pn, t in transcripts if t]
+    if not keep:
+        return 0
+    vecs = await _vl_embed_batch([{"text": t} for _, t in keep])
+    rows = [
+        {
+            "chunk_id": hashlib.sha1(f"{kb_id}|{f}|figtext|p{pn}".encode()).hexdigest(),
+            "kb_id": kb_id,
+            "source_file": rel,
+            "chunk_index": -1000 - pn,  # marks a figure transcript, not a prose chunk
+            "text": f"[figure transcript, {rel} p{pn}]\n{t}",
+            "vector": vec,
+            "char_start": 0,
+            "char_end": len(t),
+            "ingested_at": time.time(),
+        }
+        for (pn, t), vec in zip(keep, vecs, strict=True)
+    ]
+    ttbl.add(rows)
+    return len(rows)
+
+
+async def _ingest_pages(vtbl, kb_id: str, f: Path, rel: str) -> tuple[int, list]:
     pages = _render_pages(str(f), _PAGES_DIR / kb_id)
     if not pages:
-        return 0
+        return 0, []
     vecs = await _vl_embed_batch([{"image_path": img} for _, img in pages])
     rows = [
         {
@@ -326,7 +394,7 @@ async def _ingest_pages(vtbl, kb_id: str, f: Path, rel: str) -> int:
         for (page_no, img), vec in zip(pages, vecs, strict=True)
     ]
     vtbl.add(rows)
-    return len(rows)
+    return len(rows), pages
 
 
 # ── Routes (contract-preserving, multimodal-backed) ─────────────────────────
@@ -363,14 +431,17 @@ async def _ingest(request):
             and f.suffix.lower()
             in (".md", ".txt", ".pdf", ".docx", ".pptx", ".xlsx", ".html", ".htm", ".epub")
         ][:5000]
-        chunks_added = pages_added = 0
+        chunks_added = pages_added = figtext_added = 0
         for f in files:
             rel = str(f.relative_to(src))
             chunks_added += await _ingest_text(ttbl, kb_id, f, rel)
             if f.suffix.lower() == ".pdf":
                 if vtbl is None:
                     vtbl = _visual_table(kb_id, create=True)
-                pages_added += await _ingest_pages(vtbl, kb_id, f, rel)
+                n_pages, pages = await _ingest_pages(vtbl, kb_id, f, rel)
+                pages_added += n_pages
+                if TRANSCRIBE_FIGURES and pages:
+                    figtext_added += await _ingest_page_transcripts(ttbl, kb_id, f, rel, pages)
         _write_stamp(kb_id, live_model, live_dim)
         return JSONResponse(
             {
@@ -378,6 +449,7 @@ async def _ingest(request):
                 "files_ingested": len(files),
                 "chunks_added": chunks_added,
                 "pages_added": pages_added,
+                "figtext_added": figtext_added,
                 "fts_index": False,
             }
         )
@@ -432,7 +504,14 @@ async def _search(request):
                     "reranker_prob": None,
                 }
         if vtbl is not None:
-            coarse = vtbl.search(qvec).limit(top_k * 3).to_list()
+            # S3: rerank depth is the entire query cost (~1.7s/page image,
+            # linear). The visual embedding recall is high — the target page is
+            # in the top few of the cosine ranking — so reranking `VL_RERANK_DEPTH
+            # * top_k` candidates rather than the `top_k*3` coarse set cuts
+            # latency at no measured recall cost. Sweep 3/2/1.5/1: recall
+            # identical at every depth (26.4s -> 8.8s); 1.5 keeps a margin.
+            depth = max(1, round(VL_RERANK_DEPTH * top_k))
+            coarse = vtbl.search(qvec).limit(depth).to_list()
             cands = [{"image_path": r["image_path"]} for r in coarse]
             order = await _vl_rerank(query, cands, min(len(cands), top_k * 2)) if cands else []
             visual_boost = top_text_sim < VL_TEXT_GATE

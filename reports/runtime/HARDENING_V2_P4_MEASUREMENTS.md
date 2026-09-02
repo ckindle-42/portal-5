@@ -223,6 +223,43 @@ behind a 20 s rerank) and is now cached (1 probe / 5 min) — but the OWUI-side
 timeout must tolerate `N × ~20 s` for N concurrent RAG users, or `_search` needs
 a "busy, retry" bound.
 
-## P6 — max_pixels / DPI and coarse depth
+## S3 — rerank depth: the real latency lever (measured)
 
-_(pending — the E3 depth curve above is the coarse-depth half)_
+`_search` reranked `limit(top_k*3)` = 15 page images at `top_k=5` but the
+response only uses `top_k*2` = 10. `VL_RERANK_DEPTH` (multiplier of `top_k`)
+sweep, C1 fusion, 37 queries, `top_k=5`, same ingest:
+
+| `VL_RERANK_DEPTH` | reranks | diagram r@1 | diagram r@5 | prose r@1 | prose r@5 | latency median |
+|---|---|---|---|---|---|---|
+| 3 (old default) | 15 | 1.000 | 1.000 | 0.625 | 0.938 | **26.4 s** |
+| 2 | 10 | 1.000 | 1.000 | 0.625 | 0.938 | 17.5 s |
+| **1.5 (new default)** | ~8 | 1.000 | 1.000 | 0.625 | 0.938 | **13.9 s** |
+| 1 | 5 | 1.000 | 1.000 | 0.625 | 0.938 | 8.8 s |
+
+**Recall is byte-identical at every depth** — the Qwen3-VL *embedding* recall@5
+for the visual arm is effectively perfect (target page always in the cosine
+top-5), so the reranker only reorders those. Reranking 15 was pure waste.
+
+**Landed:** `VL_RERANK_DEPTH` default **1.5** → **26.4 s → 13.9 s (−47 %)** at
+zero measured recall cost, with headroom above `top_k` in case a much larger KB
+has weaker visual embedding recall@5. `VL_RERANK_DEPTH=1` (−67 %, 8.8 s) is
+measured clean and available for latency-critical setups.
+
+## S1/S3 combined — real-world `kb_search` latency
+
+C1 (fusion, no speed cost) + S1 (`clear_cache`, no speed cost, −9.4 GB
+footprint) + S3 (`VL_RERANK_DEPTH=1.5`): a `kb_search` on a KB with page images
+goes **~27 s → ~14 s**, diagram-only recall@1 **0.00 → 1.00**, prose unchanged.
+
+## S0 — transcribe figure pages at ingest (prototype, dormant)
+
+`RAG_TRANSCRIBE_FIGURES=1` adds an ingest pass: each rendered page → vision LLM
+(`qwen3-vl:32b-ctx8k` on Ollama) → structured transcript of every tag / address
+/ setpoint / connection → embedded into the **text** arm. Moves the
+figure-reading cost from every query to once per page. Committed off by default;
+measured next — the question is whether the text arm alone then hits diagram
+r@1 = 1.0 (which would let the query-time visual rerank shrink further or drop).
+
+## P6 — max_pixels / DPI (E2)
+
+_(pending — the S3 depth sweep is the coarse-depth half of E3)_
