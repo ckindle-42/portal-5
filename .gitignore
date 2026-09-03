@@ -122,3 +122,4 @@ portal_wiki/provenance_ledger.jsonl
 
 # Runtime supervisor state — regenerates every run, not source.
 /supervisor_log.json
+portal/modules/compliance/data/cip_pdfs/

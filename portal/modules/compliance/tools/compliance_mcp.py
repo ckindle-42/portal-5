@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import urllib.request
 from pathlib import Path
 
@@ -119,24 +120,38 @@ def search_controls(keyword: str, framework: str = "nist_800_53", top_k: int = 1
 
 @mcp.tool()
 def nerc_cip_requirement(req_id: str) -> dict:
-    """Look up a NERC CIP requirement (e.g. 'CIP-007-6 R2') with related 800-53 controls."""
+    """Look up a NERC CIP requirement at Part granularity from the bitemporal
+    register (e.g. 'CIP-007-6 R2 Part 2.2', or 'CIP-007-6 R2' to roll up every
+    Part). Answers carry verbatim text, lifecycle_state and validity dates."""
     try:
         reqs = _catalog("nerc_cip_map").get("requirements", {})
-        want = req_id.strip().upper()
-        # tolerate 'CIP-007-6R2' / 'CIP-007-6 R2' / lowercase 'r'
-        norm = {k.upper().replace(" ", ""): k for k in reqs}
-        key = norm.get(want.replace(" ", ""))
-        if not key:
+        want = re.sub(r"\s+", "", req_id.strip()).upper()
+        norm = {re.sub(r"\s+", "", k).upper(): k for k in reqs}
+        key = norm.get(want)
+        if key:  # exact Part or exact R-level node
+            return {"req_id": key, "found": True, "granularity": "exact", **reqs[key]}
+        # prefix roll-up: 'CIP-007-6 R2' -> every 'CIP-007-6 R2 Part 2.x'
+        pfx = want
+        hits = {k: v for k, v in reqs.items() if re.sub(r"\s+", "", k).upper().startswith(pfx)}
+        if hits:
             return {
                 "req_id": req_id,
-                "found": False,
-                "note": "not in map; known ids: " + ", ".join(sorted(reqs)),
+                "found": True,
+                "granularity": "rollup",
+                "standard": next(iter(hits.values())).get("standard"),
+                "lifecycle_state": next(iter(hits.values())).get("lifecycle_state"),
+                "parts": [
+                    {"id": k, "part": v.get("part"), "verbatim_text": v.get("verbatim_text")}
+                    for k, v in sorted(hits.items())
+                ],
+                "source": "NERC CIP Reliability Standards (verbatim register)",
             }
         return {
-            "req_id": key,
-            "found": True,
-            "source": "NERC CIP Reliability Standards",
-            **reqs[key],
+            "req_id": req_id,
+            "found": False,
+            "note": "not in register; ids look like 'CIP-007-6 R2 Part 2.2'. "
+            "Standards covered: "
+            + ", ".join(sorted({v.get("standard", "") for v in reqs.values()})),
         }
     except Exception as e:  # noqa: BLE001
         return {"error": str(e)}
