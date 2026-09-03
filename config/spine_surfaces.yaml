@@ -264,13 +264,29 @@ surfaces:
   globs:
   - portal/platform/retrieval/chunking.py
   unit: unit-platform-retrieval
+- name: file-portal-platform-retrieval-embedding
+  globs:
+  - portal/platform/retrieval/embedding.py
+  unit: unit-platform-retrieval
 - name: file-portal-platform-retrieval-extraction
   globs:
   - portal/platform/retrieval/extraction.py
   unit: unit-platform-retrieval
+- name: file-portal-platform-retrieval-fusion
+  globs:
+  - portal/platform/retrieval/fusion.py
+  unit: unit-platform-retrieval
 - name: file-portal-platform-retrieval-pages
   globs:
   - portal/platform/retrieval/pages.py
+  unit: unit-platform-retrieval
+- name: file-portal-platform-retrieval-pipeline
+  globs:
+  - portal/platform/retrieval/pipeline.py
+  unit: unit-platform-retrieval
+- name: file-portal-platform-retrieval-store
+  globs:
+  - portal/platform/retrieval/store.py
   unit: unit-platform-retrieval
 - name: file-portal-platform-storage-__init__
   globs:
