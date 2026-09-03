@@ -63,8 +63,8 @@ class Composition:
     vname: Callable[[str], str]
     list_kbs: Callable[[], list[str]]
     read_stamp: Callable[[str], dict | None]
-    write_stamp: Callable[[str, str, int], None]
-    assert_embedding_space: Callable[[str, str], None]
+    write_stamp: Callable[..., None]
+    assert_embedding_space: Callable[..., None]
     # embedding service
     vl_model_id: Callable[[], Awaitable[tuple[str, int]]]
     vl_embed: Callable[..., Awaitable[list]]
@@ -168,7 +168,7 @@ async def ingest_document(comp: Composition, kb_id: str, source_dir: Path, rebui
 
     live_model, live_dim = await comp.vl_model_id()
     if not rebuild:
-        comp.assert_embedding_space(kb_id, live_model)
+        comp.assert_embedding_space(kb_id, live_model, comp.stage_set or None)
     if rebuild:
         db = comp.get_db()
         for name in (comp.tname(kb_id), comp.vname(kb_id)):
@@ -191,7 +191,7 @@ async def ingest_document(comp: Composition, kb_id: str, source_dir: Path, rebui
             pages_added += n_pages
             if comp.transcribe_figures and pages:
                 figtext_added += await _ingest_page_transcripts(comp, ttbl, kb_id, f, rel, pages)
-    comp.write_stamp(kb_id, live_model, live_dim)
+    comp.write_stamp(kb_id, live_model, live_dim, comp.stage_set or None)
     return {
         "kb_id": kb_id,
         "files_ingested": len(files),
@@ -212,7 +212,7 @@ async def search(comp: Composition, kb_id: str, query: str, top_k: int) -> dict:
     if ttbl is None and vtbl is None:
         raise UnknownKBError(kb_id)
     live_model, _ = await comp.vl_model_id()
-    comp.assert_embedding_space(kb_id, live_model)
+    comp.assert_embedding_space(kb_id, live_model, comp.stage_set or None)
     qvec = await comp.vl_embed(text=query, is_query=True)
     results = await _fusion.fuse(comp.fusion_mode, ttbl, vtbl, query, qvec, top_k, comp.vl_rerank)
     return {"kb_id": kb_id, "query": query, "num_results": len(results), "results": results}
@@ -265,6 +265,6 @@ async def reindex(comp: Composition) -> dict:
         ]
         if buf:
             new.add(buf)
-        comp.write_stamp(kb_id, live_model, live_dim)
+        comp.write_stamp(kb_id, live_model, live_dim, comp.stage_set or None)
         done[kb_id] = len(buf)
     return {"reindexed_kbs": done}
