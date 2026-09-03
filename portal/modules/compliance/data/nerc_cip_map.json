@@ -27,6 +27,356 @@
       "valid_to": null,
       "related_800_53": []
     },
+    "CIP-003-8 R1 Part 1.1.1": {
+      "standard": "CIP-003-8",
+      "requirement": "R1",
+      "part": "1.1.1",
+      "verbatim_text": "Personnel and training (CIP-004)",
+      "lifecycle_state": "RETIRED",
+      "valid_from": "2020-01-01",
+      "valid_to": "2024-04-01",
+      "related_800_53": []
+    },
+    "CIP-003-8 R1 Part 1.1.2": {
+      "standard": "CIP-003-8",
+      "requirement": "R1",
+      "part": "1.1.2",
+      "verbatim_text": "Electronic Security Perimeters (CIP-005) including Interactive Remote Access",
+      "lifecycle_state": "RETIRED",
+      "valid_from": "2020-01-01",
+      "valid_to": "2024-04-01",
+      "related_800_53": []
+    },
+    "CIP-003-8 R1 Part 1.1.3": {
+      "standard": "CIP-003-8",
+      "requirement": "R1",
+      "part": "1.1.3",
+      "verbatim_text": "Physical security of BES Cyber Systems (CIP-006)",
+      "lifecycle_state": "RETIRED",
+      "valid_from": "2020-01-01",
+      "valid_to": "2024-04-01",
+      "related_800_53": []
+    },
+    "CIP-003-8 R1 Part 1.1.4": {
+      "standard": "CIP-003-8",
+      "requirement": "R1",
+      "part": "1.1.4",
+      "verbatim_text": "System security management (CIP-007)",
+      "lifecycle_state": "RETIRED",
+      "valid_from": "2020-01-01",
+      "valid_to": "2024-04-01",
+      "related_800_53": []
+    },
+    "CIP-003-8 R1 Part 1.1.5": {
+      "standard": "CIP-003-8",
+      "requirement": "R1",
+      "part": "1.1.5",
+      "verbatim_text": "Incident reporting and response planning (CIP-008)",
+      "lifecycle_state": "RETIRED",
+      "valid_from": "2020-01-01",
+      "valid_to": "2024-04-01",
+      "related_800_53": []
+    },
+    "CIP-003-8 R1 Part 1.1.6": {
+      "standard": "CIP-003-8",
+      "requirement": "R1",
+      "part": "1.1.6",
+      "verbatim_text": "Recovery plans for BES Cyber Systems (CIP-009)",
+      "lifecycle_state": "RETIRED",
+      "valid_from": "2020-01-01",
+      "valid_to": "2024-04-01",
+      "related_800_53": []
+    },
+    "CIP-003-8 R1 Part 1.1.7": {
+      "standard": "CIP-003-8",
+      "requirement": "R1",
+      "part": "1.1.7",
+      "verbatim_text": "Configuration change management and vulnerability assessments (CIP- 010)",
+      "lifecycle_state": "RETIRED",
+      "valid_from": "2020-01-01",
+      "valid_to": "2024-04-01",
+      "related_800_53": []
+    },
+    "CIP-003-8 R1 Part 1.1.8": {
+      "standard": "CIP-003-8",
+      "requirement": "R1",
+      "part": "1.1.8",
+      "verbatim_text": "Information protection (CIP-011); and",
+      "lifecycle_state": "RETIRED",
+      "valid_from": "2020-01-01",
+      "valid_to": "2024-04-01",
+      "related_800_53": []
+    },
+    "CIP-003-8 R1 Part 1.1.9": {
+      "standard": "CIP-003-8",
+      "requirement": "R1",
+      "part": "1.1.9",
+      "verbatim_text": "Declaring and responding to CIP Exceptional Circumstances. 1.2. For its assets identified in CIP-002 containing low impact BES Cyber Systems, if any:",
+      "lifecycle_state": "RETIRED",
+      "valid_from": "2020-01-01",
+      "valid_to": "2024-04-01",
+      "related_800_53": []
+    },
+    "CIP-003-8 R1 Part 1.2.1": {
+      "standard": "CIP-003-8",
+      "requirement": "R1",
+      "part": "1.2.1",
+      "verbatim_text": "Cyber security awareness",
+      "lifecycle_state": "RETIRED",
+      "valid_from": "2020-01-01",
+      "valid_to": "2024-04-01",
+      "related_800_53": []
+    },
+    "CIP-003-8 R1 Part 1.2.2": {
+      "standard": "CIP-003-8",
+      "requirement": "R1",
+      "part": "1.2.2",
+      "verbatim_text": "Physical security controls",
+      "lifecycle_state": "RETIRED",
+      "valid_from": "2020-01-01",
+      "valid_to": "2024-04-01",
+      "related_800_53": []
+    },
+    "CIP-003-8 R1 Part 1.2.3": {
+      "standard": "CIP-003-8",
+      "requirement": "R1",
+      "part": "1.2.3",
+      "verbatim_text": "Electronic access controls",
+      "lifecycle_state": "RETIRED",
+      "valid_from": "2020-01-01",
+      "valid_to": "2024-04-01",
+      "related_800_53": []
+    },
+    "CIP-003-8 R1 Part 1.2.4": {
+      "standard": "CIP-003-8",
+      "requirement": "R1",
+      "part": "1.2.4",
+      "verbatim_text": "Cyber Security Incident response",
+      "lifecycle_state": "RETIRED",
+      "valid_from": "2020-01-01",
+      "valid_to": "2024-04-01",
+      "related_800_53": []
+    },
+    "CIP-003-8 R1 Part 1.2.5": {
+      "standard": "CIP-003-8",
+      "requirement": "R1",
+      "part": "1.2.5",
+      "verbatim_text": "Transient Cyber Assets and Removable Media malicious code risk mitigation; and",
+      "lifecycle_state": "RETIRED",
+      "valid_from": "2020-01-01",
+      "valid_to": "2024-04-01",
+      "related_800_53": []
+    },
+    "CIP-003-8 R1 Part 1.2.6": {
+      "standard": "CIP-003-8",
+      "requirement": "R1",
+      "part": "1.2.6",
+      "verbatim_text": "Declaring and responding to CIP Exceptional Circumstances.",
+      "lifecycle_state": "RETIRED",
+      "valid_from": "2020-01-01",
+      "valid_to": "2024-04-01",
+      "related_800_53": []
+    },
+    "CIP-003-8 R1": {
+      "standard": "CIP-003-8",
+      "requirement": "R1",
+      "part": "",
+      "verbatim_text": "Each Responsible Entity shall review and obtain CIP Senior Manager approval at least once every 15 calendar months for one or more documented cyber security policies that collectively address the following topics:",
+      "lifecycle_state": "RETIRED",
+      "valid_from": "2020-01-01",
+      "valid_to": "2024-04-01",
+      "related_800_53": []
+    },
+    "CIP-003-8 R2": {
+      "standard": "CIP-003-8",
+      "requirement": "R2",
+      "part": "",
+      "verbatim_text": "Each Responsible Entity with at least one asset identified in CIP-002 containing low impact BES Cyber Systems shall implement one or more documented cyber security plan(s) for its low impact BES Cyber Systems that include the sections in Attachment 1.",
+      "lifecycle_state": "RETIRED",
+      "valid_from": "2020-01-01",
+      "valid_to": "2024-04-01",
+      "related_800_53": []
+    },
+    "CIP-003-8 R3": {
+      "standard": "CIP-003-8",
+      "requirement": "R3",
+      "part": "",
+      "verbatim_text": "Each Responsible Entity shall identify a CIP Senior Manager by name and document any change within 30 calendar days of the change.",
+      "lifecycle_state": "RETIRED",
+      "valid_from": "2020-01-01",
+      "valid_to": "2024-04-01",
+      "related_800_53": []
+    },
+    "CIP-003-8 R4": {
+      "standard": "CIP-003-8",
+      "requirement": "R4",
+      "part": "",
+      "verbatim_text": "The Responsible Entity shall implement a documented process to delegate authority, unless no delegations are used. Where allowed by the CIP Standards, the CIP Senior Manager may delegate authority for specific actions to a delegate or delegates. These delegations shall be documented, including the name or title of the delegate, the specific actions delegated, and the date of the delegation; approved by the CIP Senior Manager; and updated within 30 days of any change to the delegation. Delegation changes do not need to be reinstated with a change to the delegator.",
+      "lifecycle_state": "RETIRED",
+      "valid_from": "2020-01-01",
+      "valid_to": "2024-04-01",
+      "related_800_53": []
+    },
+    "CIP-003-9 R1 Part 1.1.1": {
+      "standard": "CIP-003-9",
+      "requirement": "R1",
+      "part": "1.1.1",
+      "verbatim_text": "Personnel and training (CIP‐004)",
+      "lifecycle_state": "EFFECTIVE",
+      "valid_from": "2024-04-01",
+      "valid_to": null,
+      "related_800_53": []
+    },
+    "CIP-003-9 R1 Part 1.1.2": {
+      "standard": "CIP-003-9",
+      "requirement": "R1",
+      "part": "1.1.2",
+      "verbatim_text": "Electronic Security Perimeters (CIP‐005) including Interactive Remote Access",
+      "lifecycle_state": "EFFECTIVE",
+      "valid_from": "2024-04-01",
+      "valid_to": null,
+      "related_800_53": []
+    },
+    "CIP-003-9 R1 Part 1.1.3": {
+      "standard": "CIP-003-9",
+      "requirement": "R1",
+      "part": "1.1.3",
+      "verbatim_text": "Physical security of BES Cyber Systems (CIP‐006)",
+      "lifecycle_state": "EFFECTIVE",
+      "valid_from": "2024-04-01",
+      "valid_to": null,
+      "related_800_53": []
+    },
+    "CIP-003-9 R1 Part 1.1.4": {
+      "standard": "CIP-003-9",
+      "requirement": "R1",
+      "part": "1.1.4",
+      "verbatim_text": "System security management (CIP‐007)",
+      "lifecycle_state": "EFFECTIVE",
+      "valid_from": "2024-04-01",
+      "valid_to": null,
+      "related_800_53": []
+    },
+    "CIP-003-9 R1 Part 1.1.5": {
+      "standard": "CIP-003-9",
+      "requirement": "R1",
+      "part": "1.1.5",
+      "verbatim_text": "Incident reporting and response planning (CIP‐008)",
+      "lifecycle_state": "EFFECTIVE",
+      "valid_from": "2024-04-01",
+      "valid_to": null,
+      "related_800_53": []
+    },
+    "CIP-003-9 R1 Part 1.1.6": {
+      "standard": "CIP-003-9",
+      "requirement": "R1",
+      "part": "1.1.6",
+      "verbatim_text": "Recovery plans for BES Cyber Systems (CIP‐009)",
+      "lifecycle_state": "EFFECTIVE",
+      "valid_from": "2024-04-01",
+      "valid_to": null,
+      "related_800_53": []
+    },
+    "CIP-003-9 R1 Part 1.1.7": {
+      "standard": "CIP-003-9",
+      "requirement": "R1",
+      "part": "1.1.7",
+      "verbatim_text": "Configuration change management and vulnerability assessments (CIP‐ 010)",
+      "lifecycle_state": "EFFECTIVE",
+      "valid_from": "2024-04-01",
+      "valid_to": null,
+      "related_800_53": []
+    },
+    "CIP-003-9 R1 Part 1.1.8": {
+      "standard": "CIP-003-9",
+      "requirement": "R1",
+      "part": "1.1.8",
+      "verbatim_text": "Information protection (CIP‐011); and",
+      "lifecycle_state": "EFFECTIVE",
+      "valid_from": "2024-04-01",
+      "valid_to": null,
+      "related_800_53": []
+    },
+    "CIP-003-9 R1 Part 1.1.9": {
+      "standard": "CIP-003-9",
+      "requirement": "R1",
+      "part": "1.1.9",
+      "verbatim_text": "Declaring and responding to CIP Exceptional Circumstances. 1.2. For its assets identified in CIP‐002 containing low impact BES Cyber Systems, if any:",
+      "lifecycle_state": "EFFECTIVE",
+      "valid_from": "2024-04-01",
+      "valid_to": null,
+      "related_800_53": []
+    },
+    "CIP-003-9 R1 Part 1.2.1": {
+      "standard": "CIP-003-9",
+      "requirement": "R1",
+      "part": "1.2.1",
+      "verbatim_text": "Cyber security awareness",
+      "lifecycle_state": "EFFECTIVE",
+      "valid_from": "2024-04-01",
+      "valid_to": null,
+      "related_800_53": []
+    },
+    "CIP-003-9 R1 Part 1.2.2": {
+      "standard": "CIP-003-9",
+      "requirement": "R1",
+      "part": "1.2.2",
+      "verbatim_text": "Physical security controls",
+      "lifecycle_state": "EFFECTIVE",
+      "valid_from": "2024-04-01",
+      "valid_to": null,
+      "related_800_53": []
+    },
+    "CIP-003-9 R1 Part 1.2.3": {
+      "standard": "CIP-003-9",
+      "requirement": "R1",
+      "part": "1.2.3",
+      "verbatim_text": "Electronic access controls",
+      "lifecycle_state": "EFFECTIVE",
+      "valid_from": "2024-04-01",
+      "valid_to": null,
+      "related_800_53": []
+    },
+    "CIP-003-9 R1 Part 1.2.4": {
+      "standard": "CIP-003-9",
+      "requirement": "R1",
+      "part": "1.2.4",
+      "verbatim_text": "Cyber Security Incident response",
+      "lifecycle_state": "EFFECTIVE",
+      "valid_from": "2024-04-01",
+      "valid_to": null,
+      "related_800_53": []
+    },
+    "CIP-003-9 R1 Part 1.2.5": {
+      "standard": "CIP-003-9",
+      "requirement": "R1",
+      "part": "1.2.5",
+      "verbatim_text": "Transient Cyber Assets and Removable Media malicious code risk mitigation",
+      "lifecycle_state": "EFFECTIVE",
+      "valid_from": "2024-04-01",
+      "valid_to": null,
+      "related_800_53": []
+    },
+    "CIP-003-9 R1 Part 1.2.6": {
+      "standard": "CIP-003-9",
+      "requirement": "R1",
+      "part": "1.2.6",
+      "verbatim_text": "Vendor electronic remote access security controls; and",
+      "lifecycle_state": "EFFECTIVE",
+      "valid_from": "2024-04-01",
+      "valid_to": null,
+      "related_800_53": []
+    },
+    "CIP-003-9 R1 Part 1.2.7": {
+      "standard": "CIP-003-9",
+      "requirement": "R1",
+      "part": "1.2.7",
+      "verbatim_text": "Declaring and responding to CIP Exceptional Circumstances.",
+      "lifecycle_state": "EFFECTIVE",
+      "valid_from": "2024-04-01",
+      "valid_to": null,
+      "related_800_53": []
+    },
     "CIP-003-9 R1": {
       "standard": "CIP-003-9",
       "requirement": "R1",

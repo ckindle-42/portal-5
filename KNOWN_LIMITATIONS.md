@@ -179,6 +179,45 @@ follow-on.
 
 ---
 
+<!-- WIKI:GENERATED unit=unit-known-limitations-compliance-implicit-change-recall -->
+### CIP change pipeline — implicit-change detection recall ceiling
+
+- **ID**: T4-COMPLIANCE-CHANGE-001
+- **Status**: OPEN (documented). Phase 3 verification publishes false-negative
+  and unmatched counts separately and does not assume the implementation plan is
+  exhaustive; the rollup states the recall figure plainly.
+- **Description**: The change pipeline
+  ([[unit-compliance-change-pipeline]]) detects a Part-level change only where it
+  is visible **in the register** — the verbatim requirement text, applicable-systems
+  column, measure text or VRF differs between two versions, or a Part id
+  appears/disappears. Two classes escape it:
+  1. **Attachment / prose obligations.** A new Attachment 1 section — e.g.
+     CIP-003-9's Section 6 vendor electronic remote access program — is not a
+     register Part, so the diff cannot raise it. This is the T3 extraction
+     shortfall (`T3-COMPLIANCE-REG-001` item 2) inherited here.
+  2. **Implicit change with no textual delta.** Wording whose *meaning* shifted
+     through a defined-term redefinition, a moved cross-reference, or an
+     implementation-plan clarification, with the Part text itself unchanged.
+     Comparable published work on versioned-document QA reports ~60% recall on
+     this class; the pipeline is bounded by the same ceiling and is **not**
+     measured as exhaustive.
+- **Verified transition**: `CIP-003-8 → CIP-003-9` — the diff catches the new
+  1.2.6 (Vendor electronic remote access) and the 1.2.6→1.2.7 renumber; it
+  misses Attachment 1 Section 6 (class 1 above), a known false negative recorded
+  in `reports/compliance/CHANGE_PIPELINE_V1.md`.
+
+## Why
+
+Stating this ceiling is the difference between a tool an SME can calibrate
+against and one they will eventually trust past its evidence. The failure mode
+this whole subsystem exists to prevent is a silently stale policy; a diff engine
+that over-claims its own completeness reintroduces exactly that risk one level up.
+Nobody should read a clean diff as proof that nothing material changed — only
+that nothing changed in the register's extracted surface.
+<!-- /WIKI:GENERATED -->
+
+---
+
 ### meta3 (Metasploitable3-Windows) — Scenario Coverage + SPL Precision Gaps
 
 - **ID**: P5-SEC-META3-001

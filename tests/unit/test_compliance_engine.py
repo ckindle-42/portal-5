@@ -23,7 +23,10 @@ reg = Register.load()
 # ── Phase 2: temporal filter ────────────────────────────────────────────────
 def test_effective_filter_excludes_not_yet_and_retired():
     today = effective_parts(reg, "2026-09-03")
-    assert len(today) == len(reg.nodes)  # every held version is currently effective
+    # the RETIRED CIP-003-8 (kept for the T4 diff) is excluded
+    assert len(today) < len(reg.nodes)
+    assert not any(n.standard == "CIP-003-8" for n in today)
+    assert any(n.standard == "CIP-003-9" for n in today)
     # CIP-012-2 is effective 2025-07-01 — not enforceable on 2024-01-01
     early = {n.id for n in effective_parts(reg, "2024-01-01")}
     assert not any(i.startswith("CIP-012-2") for i in early)
@@ -184,7 +187,12 @@ def test_coverage_nothing_found_is_a_substantive_gap():
 
 def test_approved_mapping_short_circuits_and_is_authoritative(tmp_path):
     store = MappingStore(tmp_path / "m.json")
-    node_id = next(n.id for n in effective_parts(reg, "2026-09-03") if n.granularity == "part")
+    node_id = next(
+        n.id
+        for n in effective_parts(reg, "2026-09-03")
+        if n.granularity == "part"
+        and not (n.standard.startswith("CIP-003") and n.requirement == "R1")
+    )
     mp = store.propose(node_id, "POL", "§1", "FULL")
     store.approve(mp.id, "sme")
 

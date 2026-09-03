@@ -44,6 +44,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/applicability.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-change_pipeline
+  globs:
+  - portal/modules/compliance/core/change_pipeline.py
+  unit: unit-compliance-change-pipeline
 - name: file-portal-modules-compliance-core-cip_extract
   globs:
   - portal/modules/compliance/core/cip_extract.py
@@ -72,6 +76,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/planted.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-register_diff
+  globs:
+  - portal/modules/compliance/core/register_diff.py
+  unit: unit-compliance-change-pipeline
 - name: file-portal-modules-compliance-core-tiers
   globs:
   - portal/modules/compliance/core/tiers.py
