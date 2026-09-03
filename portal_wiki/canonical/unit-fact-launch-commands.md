@@ -22,7 +22,7 @@ updated_at: 1788030600.446044
 
 # Operator commands — the launch.sh surface
 
-The operator's command surface is `./launch.sh <subcommand>` — 64 subcommands
+The operator's command surface is `./launch.sh <subcommand>` — 65 subcommands
 as of the current usage string, grouped below by what they act on.
 
 ## Lifecycle
@@ -48,6 +48,8 @@ as of the current usage string, grouped below by what they act on.
   `apply-mtp-drafts` — model acquisition, update checks, local GGUF import,
   and ctx-tagged variant creation.
 - `promptfoo` — LLM quality evals by area.
+- `coder-reap288` — free RAM, warm-load the heavy REAP-288 IDE model into
+  oMLX, and open opencode pointed straight at it (stack stays down).
 
 ## Media installs (image / video / music)
 

@@ -27,6 +27,31 @@ python3 scripts/security_corpus_report.py          # combined red-corpus readine
 python3 scripts/security_replay_verify.py          # verify live captures replay into Splunk
 ```
 
+## IDE / coding
+
+```bash
+./launch.sh coder-reap288                   # stop stack, evict Ollama, warm-load REAP-288 into oMLX,
+                                            # open opencode pointed straight at :8085 (--auto). Stack stays DOWN.
+./launch.sh coder-reap288 --warm-only       # steps 1-3 only; prints the opencode command
+./launch.sh coder-reap288 --no-down         # skip the stack-down (already down / you manage it)
+./launch.sh coder-reap288 --raise-metal-cap # sudo-bump iogpu.wired_limit_mb to 60GB for the session
+# when finished:  ./launch.sh up
+```
+
+REAP-288 (~40.6GB oMLX admission gate, ~39GB resident) cannot be admitted while
+the full Portal stack + Ollama are loaded (~10GB reclaimable then). This script
+frees the RAM and runs opencode directly against oMLX — the Portal pipeline /
+MCP layer is not involved, opencode uses its own built-in tools. For the
+Portal-integrated lane (`portal/codingreap288` persona → `auto-coding` variant
+`reap288`) the pipeline must be rebuilt and RAM must be spare — fragile, see
+`config/personas/codingreap288.yaml`.
+
+**Prefill ceiling (64GB M4 Pro):** with the model at ~39GB resident, only ~17GB
+is left under the 56GB Metal cap. Short/medium prompts are fine; full agentic
+sessions that pull ~18-20K tokens of repo context hit oMLX's prefill memory
+guard (~52-53GB peak). `--raise-metal-cap` buys a little headroom; heavy
+repo-wide work is still better on the `laguna` default.
+
 ## Dashboards and results
 
 ```bash
