@@ -33,6 +33,10 @@ claims:
 # the embedding dim figure in the body is the only copy; drift renames the unit.
 - probe: vl.embedding.dim
   pattern: "embedding dim **{value}**"
+# SEAM V1: rag_multimodal must stay a composition of portal.platform.retrieval,
+# not re-absorb the substrate. Fails the census if it stops composing.
+- probe: retrieval.compositions
+  contains: portal/modules/research/tools/rag_multimodal.py
 confidence: high
 tags:
 - capability
@@ -63,7 +67,7 @@ separate visual opt-in. `kb_search` is multimodal by default: it retrieves
 text chunks and page images for the query and fuses them with Reciprocal Rank
 Fusion (the visual side is reranked by the VL reranker first), returning
 results in the preserved shape plus a `kind` (`text` | `visual`) and `page`.
-The fusion is **text-gated** (`VL_TEXT_GATE`, default 0.67 cosine): plain RRF
+The fusion is **text-gated** (`VL_TEXT_GATE`, default 0.72 cosine): plain RRF
 ties a top text chunk and a top page image at exactly `1/60` and text always
 wins on insertion order, so a diagram-only query never surfaced its figure. The
 VL reranker's calibrated probability is added to the visual arm's score **only
@@ -72,6 +76,27 @@ the query is not answerable from prose. Measured: diagram-only recall@1
 0.00 → 1.00, prose recall unchanged.
 `kb_search_all` does the same across every KB. The tool contracts (args and
 response keys) are unchanged so the ~10 caller workspaces keep working.
+
+## Composition seam
+
+TASK_RAG_COMPOSITION_SEAM_V1 extracted the retrieval substrate — chunking, page
+rendering, extraction, the VL client, the LanceDB store, fusion, and the
+pipeline entry points — into the shared stage library
+`portal.platform.retrieval` (see `unit-platform-retrieval`). `rag_multimodal` is
+now one *composition* of those stages: `_composition()` wires them and the four
+route handlers keep the HTTP concern. Behaviour is byte-identical to pre-seam
+HEAD — proven at function level and end-to-end on a live KB
+(`reports/retrieval/composition_parity.md`). The compliance engine is a second
+composition with its own `compliance_*` tables.
+
+Each KB's meta stamp records the **stage set** (chunker, chunk size/overlap,
+figure-page policy, transcription, fusion mode) as well as the embedding model;
+`kb_search` rejects a KB whose stamped stage set differs from the running
+composition (validate check `HD` reports a half-migrated fleet). Substrate
+*behaviour* changes — figure-scoped visual index, the docling chunker, a BM25
+arm, `contextualize` — are a **separate per-KB migration**
+(`TASK_RAG_SUBSTRATE_MIGRATION`), not a config flag, because each requires a
+re-ingest.
 
 ## Why it exists
 
