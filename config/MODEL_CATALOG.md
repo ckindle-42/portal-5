@@ -1971,6 +1971,8 @@ Probed on this host 2026-09-02: the 40.57GB admission estimate will not pass co-
 
 Landed as an isolated bench candidate on the shadow-shift oMLX-coding path so it can be evaluated without touching production coding traffic. The REAP provenance (512→288 expert pruning of a 180B-class MoE — card: 125B main + 51B n-gram table) and the memory picture — 39GB loaded only with the SSD-offload setting, but a 40.57GB admission gate that needs a quiet host — are what a future session needs before trying to bench it. The decode speed and tool-call result are recorded as measured results from the quiet-host probe, not config facts.
 
+**IDE-lane wiring (2026-09-02):** also exposed to the opencode / Pi harness picker as the `codingreap288` persona → `auto-coding` variant `reap288` (agentic mode, IDE tool set). Explicit pick only, `ide_expose: true`, **not exposed to OWUI** (`expose_to_owui` stays off for this variant). Because opencode routes through the Docker pipeline (`:9099`), and the model can't be *admitted* while the stack is up, the usable workflow is: warm it once during a quiet window (`./launch.sh down`, evict the loaded Ollama model, one request to `:8085`, `./launch.sh up`), after which it stays oMLX-resident and serves opencode at ~24–29 tok/s warm until an oMLX model swap evicts it.
+
 ---
 
 ### `hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M`

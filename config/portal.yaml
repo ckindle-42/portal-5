@@ -653,6 +653,35 @@ workspaces:
         - kb_list
         mode: agentic
         guardrail: default
+      reap288:
+        name: 🧪 Portal Agentic Coder (REAP-288, heavy — IDE only)
+        description: 'IDE-lane agentic coder direct to Qwen3.8-Flash-Next-REAP-288-MLX-4bit (oMLX, MLX 4-bit, REAP expert-pruned 512->288 of the 180B-class Qwen3.8-Flash-Next MoE, top-10 routing, 262K native ctx). Thinking model. Explicit pick only — NEVER an auto-* default (TASK_OMLX_QWEN38FN_REAP288_BRINGUP_V1 operator verdict): 39GB resident with qwen4_ple_ssd_offload:true, plus a ~40.6GB oMLX admission gate that cannot be met while the Portal Docker stack + Ollama are loaded (~13-25GB reclaimable then). WORKFLOW: warm it during a quiet window (./launch.sh down + evict the loaded Ollama model, one request to :8085, restore) — once resident it serves opencode/Pi at ~24-29 tok/s warm even with the full stack up, until an oMLX model swap evicts it. oMLX-only, no Ollama/GGUF fallback. Not exposed to OWUI. Use for lineage/quality comparison against the laguna default in the IDE loop.'
+        model_hint: Qwen3.8-Flash-Next-REAP-288-MLX-4bit
+        context_limit: 131072
+        max_concurrent: 1
+        keep_alive: 30m
+        temperature: 0.6
+        top_p: 0.95
+        top_k: 20
+        repeat_penalty: 1.05
+        emits_reasoning: true
+        system_prompt_append: "\n\nAGENTIC CODING LOOP — follow this pattern every turn:\n1. EXPLORE: call explore_repository('what you need to find') first.\n   It returns exact file paths and line numbers — use these, do not guess paths.\n2. READ: call read_text_file(path=...) to read those specific files before editing.\n   NEVER use execute_bash cat/head/tail to read project files —\n   execute_bash runs inside an isolated Docker container with NO access to the\n   host filesystem. read_text_file/list_directory/search_files are the only way\n   to read project files.\n3. PLAN: state the minimal change needed and which files are affected\n4. EDIT: call write_file(path=..., content=...) — do not rewrite whole files\n5. VERIFY: run tests or linters with execute_bash after every change\n   (pytest tests/unit/ -q; ruff check <file>)\n6. REPORT: state what changed, what passed, and what remains\n\nTOOL ROUTING:\n- read_text_file, write_file, search_files, list_directory:\n  host-native pipeline tools — call these directly by name for ALL file I/O\n- execute_bash / execute_python / execute_nodejs:\n  isolated sandbox container — use ONLY for running code, tests, and linters\n\nHARD CONSTRAINTS:\n- Never hardcode model names, backend URLs, or credentials\n- Never modify Open WebUI source — use extension points only\n- Never commit .env or add cloud dependencies\n- Run pytest before declaring a fix complete\n- Keep portal.platform.inference lean — no ML framework imports"
+        tools:
+        - explore_repository
+        - read_text_file
+        - list_directory
+        - search_files
+        - write_file
+        - execute_bash
+        - execute_python
+        - execute_nodejs
+        - sandbox_status
+        - read_word_document
+        - read_pdf
+        - remember
+        - recall
+        mode: agentic
+        guardrail: default
   auto-spl:
     module: general
     name: 🔍 Portal SPL Engineer

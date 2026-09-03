@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 731 canonical units.*
+*Deterministic projection of 733 canonical units.*
 
 ## Knowledge Layer
 
@@ -519,6 +519,7 @@
 | `unit-model-catalog-qwen3-6-35b-a3b-hauhaucs-aggressive-4bit` | what | 1 |
 | `unit-model-catalog-qwen3-6-35b-a3b-q4-k-m` | what | 2 |
 | `unit-model-catalog-qwen3-8-27b-oq4e-mtp` | what | 1 |
+| `unit-model-catalog-qwen3-8-flash-next-reap-288-mlx-4bit` | what | 1 |
 | `unit-model-catalog-qwen3-coder-30b-a3b-instruct-4bit` | what | 1 |
 | `unit-model-catalog-qwen3-coder-30b-a3b-q4-k-m` | what | 2 |
 | `unit-model-catalog-qwen3-coder-30b-a3b-q4-k-m-ctx16k` | what | 2 |
@@ -579,6 +580,7 @@
 | `unit-persona-matrix-ci-persona-matrix-ci-operations` | what | 2 |
 | `unit-persona-matrix-ci-pipeline-shape` | what | 3 |
 | `unit-persona-matrix-ci-regression-triage-workflow` | what | 5 |
+| `unit-platform-retrieval` | mixed | 7 |
 | `unit-platform-storage-config-facade` | mixed | 2 |
 | `unit-portal-conftest` | mixed | 1 |
 | `unit-portal-mcp-namespace` | mixed | 1 |
@@ -740,12 +742,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 731 units
+**Total:** 733 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1725 references
+- **code**: 1733 references
 - **config**: 1 references
 - **mitre**: 40 references
 - **scenario**: 54 references
