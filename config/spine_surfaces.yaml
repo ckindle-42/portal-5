@@ -48,6 +48,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/cip_register.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-tiers
+  globs:
+  - portal/modules/compliance/core/tiers.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-tests-test_compliance_mcp
   globs:
   - portal/modules/compliance/tests/test_compliance_mcp.py

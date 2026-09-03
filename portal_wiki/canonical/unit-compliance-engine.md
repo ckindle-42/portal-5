@@ -10,9 +10,13 @@ sources:
 - type: code
   path: portal/modules/compliance/core/cip_register.py
 - type: code
+  path: portal/modules/compliance/core/tiers.py
+- type: code
   path: portal/modules/compliance/data/nerc_cip_register.json
 - type: code
   path: tests/unit/test_cip_register.py
+- type: code
+  path: tests/unit/test_compliance_tiers.py
 claims: []
 confidence: high
 tags:
@@ -65,6 +69,18 @@ the enforceable ones (CIP-003-9, CIP-012-2). `nerc_cip_map.json` is now a
 
 `nerc_cip_requirement()` keeps its signature and answers at Part granularity
 (exact Part, or an R-level rollup of every Part).
+
+## Authority tiers and COMPLIANCE_CONFLICT (Phase 3)
+
+`core/tiers.py` — Tier 0 standard · Tier 1 implementation plans / RSAWs /
+compliance guidance / FERC orders · Tier 2 policy · Tier 3 procedure · Tier 4
+evidence; an unrecognised document class is Tier 4 so it can never silently
+override a standard. `detect_conflicts` compares spans of *different* tiers: a
+quantitative disagreement (*15 calendar months* vs *18 months*) or a deontic one
+(*shall* vs *should*) emits `COMPLIANCE_CONFLICT` carrying both spans, both
+tiers, both citations — **never reconciled, never averaged, lower tier never
+wins**. It is a code rule with its own test (`test_compliance_tiers.py`), not a
+prompt instruction.
 
 ## Why
 
