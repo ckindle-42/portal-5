@@ -36,21 +36,33 @@ def get_db():
     return _db
 
 
-def meta_path(kb_id: str) -> str:
-    """Sidecar recording which embedding model produced a KB's vectors (A3).
+# SEAM V1 P7: a second composition (compliance) reuses this stage with its own
+# table prefix, so its tables and stamps never collide with `kb_*`. Everything is
+# keyed off `prefix`; the default keeps the general RAG unchanged.
+DEFAULT_PREFIX = "kb_"
+
+
+def meta_path(kb_id: str, prefix: str = DEFAULT_PREFIX) -> str:
+    """Sidecar recording which embedding model + stage set produced a KB's index.
     A JSON file next to the LanceDB dir — no vector-table schema change."""
-    return os.path.join(RAG_DIR, f"kb_{kb_id}.meta.json")
+    return os.path.join(RAG_DIR, f"{prefix}{kb_id}.meta.json")
 
 
-def read_stamp(kb_id: str) -> dict | None:
+def read_stamp(kb_id: str, prefix: str = DEFAULT_PREFIX) -> dict | None:
     try:
-        with open(meta_path(kb_id)) as fh:
+        with open(meta_path(kb_id, prefix)) as fh:
             return json.load(fh)
     except (OSError, ValueError):
         return None
 
 
-def write_stamp(kb_id: str, embed_model: str, dim: int, stage_set: dict | None = None) -> None:
+def write_stamp(
+    kb_id: str,
+    embed_model: str,
+    dim: int,
+    stage_set: dict | None = None,
+    prefix: str = DEFAULT_PREFIX,
+) -> None:
     """Record which embedding model AND which stage set produced a KB's index.
 
     SEAM V1 P6: the stage set (chunker, chunk size/overlap, figure-page policy,
@@ -62,14 +74,19 @@ def write_stamp(kb_id: str, embed_model: str, dim: int, stage_set: dict | None =
     payload: dict = {"embed_model": embed_model, "vl_dim": dim, "stamped_at": time.time()}
     if stage_set is not None:
         payload["stage_set"] = stage_set
-    with open(meta_path(kb_id), "w") as fh:
+    with open(meta_path(kb_id, prefix), "w") as fh:
         json.dump(payload, fh)
 
 
-def assert_embedding_space(kb_id: str, live_model: str, stage_set: dict | None = None) -> None:
+def assert_embedding_space(
+    kb_id: str,
+    live_model: str,
+    stage_set: dict | None = None,
+    prefix: str = DEFAULT_PREFIX,
+) -> None:
     """Raise if the KB was stamped with a different embedding model or, when a
     ``stage_set`` is supplied and the KB carries one, a different stage set."""
-    stamp = read_stamp(kb_id)
+    stamp = read_stamp(kb_id, prefix)
     if not stamp:
         return
     if stamp.get("embed_model") not in (None, "?", live_model):
@@ -92,17 +109,17 @@ def assert_embedding_space(kb_id: str, live_model: str, stage_set: dict | None =
         )
 
 
-def tname(kb_id: str) -> str:
-    return f"kb_{kb_id}"
+def tname(kb_id: str, prefix: str = DEFAULT_PREFIX) -> str:
+    return f"{prefix}{kb_id}"
 
 
-def vname(kb_id: str) -> str:
-    return f"kb_{kb_id}_visual"
+def vname(kb_id: str, prefix: str = DEFAULT_PREFIX) -> str:
+    return f"{prefix}{kb_id}_visual"
 
 
-def text_table(kb_id: str, create: bool = False):
+def text_table(kb_id: str, create: bool = False, prefix: str = DEFAULT_PREFIX):
     db = get_db()
-    name = tname(kb_id)
+    name = tname(kb_id, prefix)
     if name in db.table_names():
         return db.open_table(name)
     if not create:
@@ -123,9 +140,9 @@ def text_table(kb_id: str, create: bool = False):
     return db.create_table(name, schema=schema)
 
 
-def visual_table(kb_id: str, create: bool = False):
+def visual_table(kb_id: str, create: bool = False, prefix: str = DEFAULT_PREFIX):
     db = get_db()
-    name = vname(kb_id)
+    name = vname(kb_id, prefix)
     if name in db.table_names():
         return db.open_table(name)
     if not create:
@@ -144,7 +161,8 @@ def visual_table(kb_id: str, create: bool = False):
     return db.create_table(name, schema=schema)
 
 
-def list_kbs() -> list[str]:
+def list_kbs(prefix: str = DEFAULT_PREFIX) -> list[str]:
+    n = len(prefix)
     return sorted(
-        t[3:] for t in get_db().table_names() if t.startswith("kb_") and not t.endswith("_visual")
+        t[n:] for t in get_db().table_names() if t.startswith(prefix) and not t.endswith("_visual")
     )

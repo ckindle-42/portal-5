@@ -19,6 +19,8 @@ sources:
   path: portal/platform/retrieval/fusion.py
 - type: code
   path: portal/platform/retrieval/pipeline.py
+- type: code
+  path: portal/modules/compliance/tools/compliance_retrieval.py
 claims: []
 confidence: high
 tags:
@@ -88,9 +90,17 @@ Service-touching (Phase 3):
   function level (the P2 parity harness) and end-to-end on a live KB
   (`reports/retrieval/composition_parity.md`, P4). The transitional aliases and
   the legacy-body fixture were removed in P5 once both parities were green.
-- The compliance retrieval composition (Phase 7) — its own routes, its own
-  tables namespaced away from `kb_*`, so a compliance re-ingest can never
-  invalidate another consumer's index.
+- `portal.modules.compliance.tools.compliance_retrieval` (Phase 7) — a second
+  composition of the same stages, bound to the `compliance_` table prefix and
+  its own `compliance_*.meta.json` stamps, on routes `compliance_ingest` /
+  `compliance_search` on the compliance MCP. No compliance semantics yet
+  (`TASK_COMPLIANCE_ENGINE` lands on this scaffold). Acceptance: the same corpus
+  through both compositions returns equivalent results while writing to disjoint
+  tables, and a `rebuild` through the compliance composition leaves every `kb_*`
+  table and stamp byte-identical
+  (`tests/unit/test_compliance_retrieval_seam.py`). The `store` stage carries a
+  `prefix` parameter (default `kb_`) to make this possible; nothing else in the
+  library needed a change.
 
 ## Not here
 
