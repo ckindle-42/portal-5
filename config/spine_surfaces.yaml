@@ -56,6 +56,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/coverage.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-currency
+  globs:
+  - portal/modules/compliance/core/currency.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-engine
   globs:
   - portal/modules/compliance/core/engine.py
@@ -63,6 +67,10 @@ surfaces:
 - name: file-portal-modules-compliance-core-mapping_store
   globs:
   - portal/modules/compliance/core/mapping_store.py
+  unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-planted
+  globs:
+  - portal/modules/compliance/core/planted.py
   unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-tiers
   globs:

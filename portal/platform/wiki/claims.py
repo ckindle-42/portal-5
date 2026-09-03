@@ -281,6 +281,23 @@ def _probe_retrieval_compositions(root: Path) -> list[str]:
     return sorted(hits)
 
 
+def _probe_compliance_register(root: Path) -> list[str]:
+    """The NERC CIP standards carried in the bitemporal register (T3). A nominal
+    ``modules.enabled contains: compliance`` probe passed while the register was
+    a 27-entry paraphrased map on superseded versions; this lists the actual
+    standard ids in the built register JSON."""
+    import json as _json
+
+    p = root / "portal" / "modules" / "compliance" / "data" / "nerc_cip_register.json"
+    if not p.is_file():
+        return []
+    try:
+        d = _json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    return sorted({n.get("standard", "") for n in d.get("nodes", []) if n.get("standard")})
+
+
 PROBES: dict[str, Callable[[Path], Any]] = {
     "workspaces.total": _probe_workspaces_total,
     "workspaces.bench": _probe_workspaces_bench,
@@ -309,6 +326,7 @@ PROBES: dict[str, Callable[[Path], Any]] = {
     "vl.embedding.dim": _probe_vl_embedding_dim,
     "retrieval.stages": _probe_retrieval_stages,
     "retrieval.compositions": _probe_retrieval_compositions,
+    "compliance.register": _probe_compliance_register,
 }
 
 
