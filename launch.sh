@@ -332,6 +332,13 @@ case "${1:-up}" in
     _do_down
     ;;
 
+  coder-reap288)
+    # Stop the stack, free RAM, warm-load the REAP-288 heavy IDE model into
+    # oMLX, and open opencode pointed straight at :8085. Stack stays down —
+    # run './launch.sh up' when done. See scripts/coder-reap288.sh --help.
+    exec bash "$PORTAL_ROOT/scripts/coder-reap288.sh" "${@:2}"
+    ;;
+
   backup)
     _launch_backup "$@"
     ;;
@@ -648,7 +655,7 @@ PYEOF
 
 
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|sync-config|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-music-minimax|install-mflux|start-mflux|stop-mflux|pull-mflux-models|install-video-mlx|start-video-mlx|stop-video-mlx|pull-video-mlx-models|install-music-ace|stop-music-ace|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|apply-mtp-drafts|build-lab-attack|build-binresearch]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|sync-config|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-music-minimax|install-mflux|start-mflux|stop-mflux|pull-mflux-models|install-video-mlx|start-video-mlx|stop-video-mlx|pull-video-mlx-models|install-music-ace|stop-music-ace|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|apply-mtp-drafts|build-lab-attack|build-binresearch|coder-reap288]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -694,6 +701,7 @@ PYEOF
     echo "  test                  Run end-to-end smoke tests against the live stack"
     echo "  promptfoo [area]      Run LLM quality evals (coding|daily|reasoning|security|document|media|strategic|all)"
     echo "  down                  Stop all services (data preserved)"
+    echo "  coder-reap288         Stop stack, free RAM, warm-load REAP-288 into oMLX, open opencode direct (stack stays down)"
     echo "  clean                 Stop + wipe Open WebUI data (Ollama models preserved)"
     echo "  clean-all             Stop + wipe everything including Ollama models"
     echo "  sync-config           Regenerate derived artifacts from config/portal.yaml"

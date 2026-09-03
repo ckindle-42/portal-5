@@ -655,9 +655,9 @@ workspaces:
         guardrail: default
       reap288:
         name: 🧪 Portal Agentic Coder (REAP-288, heavy — IDE only)
-        description: 'IDE-lane agentic coder direct to Qwen3.8-Flash-Next-REAP-288-MLX-4bit (oMLX, MLX 4-bit, REAP expert-pruned 512->288 of the 180B-class Qwen3.8-Flash-Next MoE, top-10 routing, 262K native ctx). Thinking model. Explicit pick only — NEVER an auto-* default (TASK_OMLX_QWEN38FN_REAP288_BRINGUP_V1 operator verdict): 39GB resident with qwen4_ple_ssd_offload:true, plus a ~40.6GB oMLX admission gate that cannot be met while the Portal Docker stack + Ollama are loaded (~13-25GB reclaimable then). WORKFLOW: warm it during a quiet window (./launch.sh down + evict the loaded Ollama model, one request to :8085, restore) — once resident it serves opencode/Pi at ~24-29 tok/s warm even with the full stack up, until an oMLX model swap evicts it. oMLX-only, no Ollama/GGUF fallback. Not exposed to OWUI. Use for lineage/quality comparison against the laguna default in the IDE loop.'
+        description: 'IDE-lane agentic coder direct to Qwen3.8-Flash-Next-REAP-288-MLX-4bit (oMLX, MLX 4-bit, REAP expert-pruned 512->288 of the 180B-class Qwen3.8-Flash-Next MoE, top-10 routing, 262K native ctx). Thinking model. Explicit pick only — NEVER an auto-* default / never OWUI (TASK_OMLX_QWEN38FN_REAP288_BRINGUP_V1 operator verdict). ~39GB resident with qwen4_ple_ssd_offload:true; a ~40.6GB oMLX admission gate cannot be met with the full Portal stack up (~10GB reclaimable then). RELIABLE PATH: `./launch.sh coder-reap288` — stops the stack, frees RAM, warm-loads the model, opens opencode straight against oMLX :8085 (not this pipeline path). Warm decode ~24-29 tok/s. Prefill ceiling: ~39GB resident leaves ~17GB under the 56GB Metal cap, so full agentic turns (~18-20K token repo context) trip oMLX''s prefill guard — bounded-context coding only; heavy repo-wide work stays on the laguna default. oMLX-only, no Ollama/GGUF fallback.'
         model_hint: Qwen3.8-Flash-Next-REAP-288-MLX-4bit
-        context_limit: 131072
+        context_limit: 32768
         max_concurrent: 1
         keep_alive: 30m
         temperature: 0.6
