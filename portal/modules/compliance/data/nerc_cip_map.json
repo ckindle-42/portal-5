@@ -391,7 +391,7 @@
       "standard": "CIP-003-9",
       "requirement": "R2",
       "part": "",
-      "verbatim_text": "Each Responsible Entity with at least one asset identified in CIP‐002 containing low impact BES Cyber Systems shall implement one or more documented cyber security CIP‐003‐9 ‐ Cyber Security — Security Management Controls 5 plan(s) for its low impact BES Cyber Systems that include the sections in Attachment 1.",
+      "verbatim_text": "Each Responsible Entity with at least one asset identified in CIP‐002 containing low impact BES Cyber Systems shall implement one or more documented cyber security plan(s) for its low impact BES Cyber Systems that include the sections in Attachment 1.",
       "lifecycle_state": "EFFECTIVE",
       "valid_from": "2024-04-01",
       "valid_to": null,
