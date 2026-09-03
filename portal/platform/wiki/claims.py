@@ -335,6 +335,33 @@ def _probe_compliance_register(root: Path) -> list[str]:
     return sorted({n.get("standard", "") for n in d.get("nodes", []) if n.get("standard")})
 
 
+def _probe_compliance_completeness(root: Path) -> list[str]:
+    """Register **completeness**, not just presence (TASK_CIP_REGISTER_COMPLETENESS_V1).
+    Binds the wiki claim to the document-derived completeness metric: a
+    regression that drops Parts, or reverts to an extractor-supplied
+    denominator, flips one of these tokens and fails the drift census."""
+    import json as _json
+
+    p = root / "portal" / "modules" / "compliance" / "data" / "nerc_cip_register.json"
+    if not p.is_file():
+        return []
+    try:
+        rep = _json.loads(p.read_text(encoding="utf-8")).get("extraction_report", {})
+    except (OSError, ValueError):
+        return []
+    comp = rep.get("completeness", {})
+    srcs = comp.get("denominator_source_by_standard", {})
+    self_derived = any("extractor" in v for v in srcs.values())
+    return sorted(
+        [
+            f"incomplete_standards:{len(comp.get('incomplete_standards', ['?']))}",
+            f"completeness_holes:{comp.get('n_missing', -1)}",
+            f"denominator_self_derived:{self_derived}",
+            f"fidelity_failed:{rep.get('fidelity', {}).get('n_fidelity_failed', -1)}",
+        ]
+    )
+
+
 PROBES: dict[str, Callable[[Path], Any]] = {
     "workspaces.total": _probe_workspaces_total,
     "workspaces.bench": _probe_workspaces_bench,
@@ -364,6 +391,7 @@ PROBES: dict[str, Callable[[Path], Any]] = {
     "retrieval.stages": _probe_retrieval_stages,
     "retrieval.compositions": _probe_retrieval_compositions,
     "compliance.register": _probe_compliance_register,
+    "compliance.completeness": _probe_compliance_completeness,
     "compliance.change_types": _probe_compliance_change_types,
     "retrieval.stage_set": _probe_retrieval_stage_set,
 }

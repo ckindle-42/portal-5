@@ -9,7 +9,13 @@ sources:
   path: portal/modules/compliance/core/currency.py
 - type: code
   path: portal/modules/compliance/data/nerc_cip_register.json
-claims: []
+claims:
+- probe: compliance.completeness
+  contains: "completeness_holes:0"
+- probe: compliance.completeness
+  contains: "denominator_self_derived:False"
+- probe: compliance.completeness
+  contains: "fidelity_failed:0"
 confidence: high
 tags:
 - docs
@@ -19,8 +25,8 @@ tags:
 ### CIP register — version divergence, Attachment-part shortfall, newer versions published
 
 - **ID**: T3-COMPLIANCE-REG-001
-- **Status**: OPEN (documented). The engine flags all three below rather than
-  serving stale data silently; closing them is future work.
+- **Status**: items 1 and 2 RESOLVED; item 3 OPEN (documented). The engine
+  flags what remains rather than serving stale data silently.
 - **Description**:
   1. **Register vs the old map (RESOLVED 2026-09-03).** The pre-existing
      `nerc_cip_map.json` was 27 R-level entries with *paraphrased* titles, no
@@ -31,12 +37,20 @@ tags:
      because there were two disagreeing sources of truth and no test comparing
      them. Fixed: the register is now derived, verbatim, Part-level, on the
      enforceable versions; `nerc_cip_map.json` is a generated view of it.
-  2. **Attachment / prose parts not extracted.** CIP-002, CIP-003, CIP-012,
-     CIP-013 carry their obligations in Attachment 1 or prose sub-sections, not
-     the `Table R<n>` format the extractor reads. The register has R-level
-     verbatim text for these (15 requirements) but **0 of their ~20 Attachment
-     parts**. A coverage matrix over these standards is R-level only. CIP-014's
-     R3 lead-in is fragmented in the PDF text and is missed.
+  2. **Attachment / prose parts not extracted (RESOLVED 2026-09-03,
+     TASK_CIP_REGISTER_COMPLETENESS_V1).** CIP-002/003/012/013/014 carry
+     obligations in Attachment 1 or a colon-terminated prose list, not the
+     `Table R<n>` the extractor read. The register held R-level text for these
+     and **0 Parts**, yet `n_missing` reported **0** — because it was a fidelity
+     round-trip over the extractor's own output, not a completeness check
+     (**the denominator was the numerator**). Fixed: `_prose_list_parts` +
+     `_cip002_attachment1` + `_cip003_attachment1` (register 152 → 254 nodes,
+     130 → 232 Parts); `assess_completeness` is a separate, document-derived
+     metric (colon-lead-in with no children; the document naming its own
+     children; numbering gaps) that never derives its denominator from the
+     extractor. `denominator_source` per standard is asserted never
+     `"extractor"`. **General lesson: a completeness metric computed by
+     iterating what you found is a fidelity metric.**
   3. **Newer versions are already published.** The Phase 8 currency probe
      (`nerc_cip_currency`) finds that **12 of 13** held standards have a newer
      version PDF live on nerc.com (CIP-002-7, CIP-003-10, CIP-004-8, …,
