@@ -58,16 +58,19 @@ _TABLE_CAP_RE = re.compile(r"Table\s+R(\d+)\s*[–-]\s*([A-Za-z][A-Za-z /,&-]+?)
 # spans a page break; it is not part of the obligation text.
 _RUNHDR_RE = re.compile(
     r"\s*CIP[-‐]\d{3}[-‐][\w.]+\s*[-‐–—]\s*Cyber Security\s*"
-    r"[-‐–—]\s*[A-Z][A-Za-z ]+?\s+\d+(?:\s+of\s+\d+)?\s*"
+    r"[-‐–—]\s*[A-Z][A-Za-z ]+?\s+(?:Page\s+)?\d+(?:\s+of\s+\d+)?\s*"
 )
+# page / attachment markers pymupdf splices into a string across a page break
+_PAGE_MARK_RE = re.compile(r"\s*(?:Attachment\s+\d+\s+\d+|Page\s+\d+\s+of\s+\d+)\s*")
 
 
 def _norm(s: str) -> str:
     """Collapse PDF whitespace + normalise the bullet glyph, and strip a spliced
-    running header. Verbatim content, reflowed — the words and their order are
-    exactly the source's."""
+    running header / page marker. Verbatim content, reflowed — the words and
+    their order are exactly the source's."""
     s = s.replace(_BULLET, "- ").replace("\xa0", " ")
     s = _RUNHDR_RE.sub(" ", s)
+    s = _PAGE_MARK_RE.sub(" ", s)
     return re.sub(r"\s+", " ", s).strip()
 
 
@@ -305,6 +308,67 @@ def _cip002_attachment1(standard: str, version: str, full: str, pdf: Path) -> li
     return out
 
 
+# CIP-003 Attachment 1 — the low-impact cyber security plan sections R2 requires
+# ("Section 1. Cyber Security Awareness: …"). Section 6 (vendor electronic remote
+# access) is new in CIP-003-9 and is the T4-documented diff false negative.
+_CIP003_ATT_SEC_RE = re.compile(r"(?m)^[ \t]*Section[ \t]+(\d+)\.[ \t]+([^\n:]+):[ \t]*")
+
+
+def _cip003_attachment1(standard: str, version: str, full: str, pdf: Path) -> list[RequirementPart]:
+    i = full.find("Required Sections for Cyber Security Plan")
+    if i < 0:
+        return []
+    j = full.find("Attachment 2", i)
+    region = full[i : j if j > i else len(full)]
+    secs = list(_CIP003_ATT_SEC_RE.finditer(region))
+    out: list[RequirementPart] = []
+    for k, sm in enumerate(secs):
+        n = sm.group(1)
+        title = _norm(sm.group(2))
+        end = secs[k + 1].start() if k + 1 < len(secs) else len(region)
+        seg = region[sm.start() : end]
+        # the section node's verbatim text is its lead-in only — up to the first
+        # numbered sub-item, or the whole section when it has none. A section-
+        # sized blob otherwise accumulates hyphen re-encodings across a version
+        # bump and the diff misreads them as substantive.
+        first_item = _PROSE_ITEM_RE.search(seg)
+        body = _norm(seg[: first_item.start()] if first_item else seg)
+        out.append(
+            RequirementPart(
+                standard=standard,
+                version=version,
+                requirement="Attachment 1",
+                part=n,
+                verbatim_text=body,
+                measure_text="",
+                applicable_systems="assets containing low impact BES Cyber Systems",
+                table_name=f"Required Sections for Cyber Security Plan(s) — {title}",
+                vrf="Lower",
+                time_horizon="Operations Planning",
+                source_pdf=pdf.name,
+                source_pages=[],
+            )
+        )
+        for pid, sub in _prose_items(seg, int(n)):
+            out.append(
+                RequirementPart(
+                    standard=standard,
+                    version=version,
+                    requirement="Attachment 1",
+                    part=pid,
+                    verbatim_text=sub,
+                    measure_text="",
+                    applicable_systems="assets containing low impact BES Cyber Systems",
+                    table_name=f"Required Sections for Cyber Security Plan(s) — {title}",
+                    vrf="Lower",
+                    time_horizon="Operations Planning",
+                    source_pdf=pdf.name,
+                    source_pages=[],
+                )
+            )
+    return out
+
+
 def _table_parts(page, pi, standard, version, leadins, pdf, seen) -> list[RequirementPart]:
     """Every recognised `Table R<n>` row on one page."""
     out: list[RequirementPart] = []
@@ -345,7 +409,9 @@ def _table_parts(page, pi, standard, version, leadins, pdf, seen) -> list[Requir
     return out
 
 
-def extract_standard(pdf_path: str | Path) -> tuple[list[RequirementPart], dict]:
+def extract_standard(  # noqa: PLR0912 - one pass over table + prose + attachment + R-level, sequential by design
+    pdf_path: str | Path,
+) -> tuple[list[RequirementPart], dict]:
     """Return (parts, meta). ``meta`` carries per-requirement R->parts counts and
     the requirements with no parts table (extracted at R granularity)."""
     import pymupdf
@@ -383,6 +449,10 @@ def extract_standard(pdf_path: str | Path) -> tuple[list[RequirementPart], dict]
     # CIP-002 Attachment 1 — the impact-rating criteria the whole suite gates on.
     if standard == "CIP-002":
         parts.extend(_cip002_attachment1(standard, version, full, pdf))
+    # CIP-003 Attachment 1 — the low-impact plan sections R2 requires (incl. the
+    # -9 Section 6 vendor-remote-access program, the T4 diff false negative).
+    if standard == "CIP-003":
+        parts.extend(_cip003_attachment1(standard, version, full, pdf))
 
     # R-level bookkeeping: which requirements produced obligation-bearing parts.
     parts_by_req: dict[str, list[str]] = {}

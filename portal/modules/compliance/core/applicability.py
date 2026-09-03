@@ -120,9 +120,10 @@ def gate_presentation() -> dict:
                 "choices": list(IMPACT_RATINGS),
                 "high": "includes every High Impact Part (CIP-004..011 core obligations).",
                 "medium": "includes Medium Impact Parts; several are further gated by ERC.",
-                "low": "CIP-003 Attachment 1 sections 1-5. The register does not yet "
-                "carry these Parts (Phase 1 shortfall), so selecting `low` alone "
-                "cannot be gated by the current register.",
+                "low": "CIP-003 Attachment 1 sections 1-6 (Section 6 vendor "
+                "electronic remote access is CIP-003-9). These are now in the "
+                "register (TASK_CIP_REGISTER_COMPLETENESS_V1 §1.4 / P4), so a "
+                "`low`-only entity gates on them directly.",
             },
             "associated_present": {
                 "choices": list(ASSOCIATED_TYPES),

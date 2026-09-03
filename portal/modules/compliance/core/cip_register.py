@@ -159,18 +159,22 @@ _STANDARDS = [
     "cip-013-2",
     "cip-014-3",
 ]
+# Superseded versions kept only for the T4 change pipeline (CIP-003-8 -> -9).
+# Not "current", so not in _STANDARDS; the build picks them up from the PDF dir.
+_ARCHIVED_STANDARDS = ["cip-003-8"]
 
 
 def fetch_pdfs(dest: str | Path) -> tuple[list[str], list[str]]:
-    """Download the 13 current CIP standard PDFs. Public record; not committed
-    (the register JSON is the committed artifact). Returns (ok, failed)."""
+    """Download the current CIP standard PDFs plus the archived versions the T4
+    diff needs. Public record; not committed (the register JSON is the committed
+    artifact). Returns (ok, failed)."""
     import urllib.error
     import urllib.request
 
     d = Path(dest)
     d.mkdir(parents=True, exist_ok=True)
     ok, failed = [], []
-    for s in _STANDARDS:
+    for s in (*_STANDARDS, *_ARCHIVED_STANDARDS):
         out = d / f"{s}.pdf"
         if out.exists() and out.stat().st_size > 50_000:
             ok.append(s)
@@ -393,7 +397,9 @@ if __name__ == "__main__":
             if sys.argv[1] == "fetch":
                 sys.exit(1)
         if sys.argv[1] == "fetch":
-            print(f"fetched {len(okp)}/13 CIP PDFs to {src}")
+            print(
+                f"fetched {len(okp)}/{len(_STANDARDS) + len(_ARCHIVED_STANDARDS)} CIP PDFs to {src}"
+            )
             sys.exit(0)
         r = build_register(src)
         write_register(r)
