@@ -42,7 +42,7 @@ def test_every_register_span_resolves_byte_identically():
     # re-verify a sample against the source is a Tier-1 job; here assert the
     # committed register's own report is internally honest
     rep = reg.extraction_report
-    assert rep["n_verbatim_verified"] == rep["n_nodes"]
+    assert rep["fidelity"]["n_fidelity_verified"] == rep["n_nodes"]
 
 
 # ── Tier 2: the planted corpus ─────────────────────────────────────────────

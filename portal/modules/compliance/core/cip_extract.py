@@ -6,10 +6,14 @@ bullet glyph `` normalised to `- `); a summarised requirement cannot support
 the gap-quoting the persona contract demands, and every citation built on it is
 unverifiable.
 
-**Verified, not trusted.** ``verify_parts`` re-locates every extracted verbatim
-string in the raw page text; a Part that does not round-trip is reported
-``missing`` so a hole is visible as a hole rather than producing a false
-"no gap".
+**Two independent checks, never conflated.** ``verify_fidelity`` re-locates
+every *extracted* verbatim string in the raw page text — a Part that does not
+round-trip was mangled in extraction. ``assess_completeness`` asks the opposite
+question — does the register hold every Part the *document* says exists — using
+document-derived signals (a colon-terminated lead-in with no children; the
+document naming its own children; numbering gaps), never the extractor's own
+output. A completeness metric computed by iterating what you found is a fidelity
+metric; this module keeps the two numbers apart.
 
 Structure this relies on (regular for CIP-004/005/006/007/008/009/010/011):
 
@@ -31,7 +35,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 _BULLET = ""
-_PART_RE = re.compile(r"^\d+\.\d+$")
+# Part ids are two or more dot-separated integers: "1.1", "1.10", and the
+# three-level leaves "1.2.6" (CIP-003-9 R1) and "2.1.1" (CIP-014 R2). A bare
+# integer ("1", "2") is a section header, never a Part.
+_PART_RE = re.compile(r"^\d+(?:\.\d+)+$")
 _STANDARD_RE = re.compile(r"^(CIP-\d{3})-([\w.]+)\b")
 _R_LEADIN_RE = re.compile(
     r"\bR(\d+)\.\s+((?:Each|The|Responsible)\b.+?\bshall\b.+?)"
@@ -268,23 +275,175 @@ def extract_standard(pdf_path: str | Path) -> tuple[list[RequirementPart], dict]
     return parts, meta
 
 
-def verify_parts(pdf_path: str | Path, parts: list[RequirementPart]) -> dict:
-    """Round-trip every extracted verbatim string back against the raw page text.
-    Returns found / verified / missing, per requirement."""
+def verify_fidelity(pdf_path: str | Path, parts: list[RequirementPart]) -> dict:
+    """**Fidelity, not completeness.** Round-trip every *extracted* verbatim
+    string back against the raw page text; a string that does not re-locate was
+    mangled in extraction. This iterates ``parts``, so a requirement that was
+    never extracted cannot appear here — that is what ``assess_completeness``
+    is for. No field in this dict is named ``missing``."""
     import pymupdf
 
     with pymupdf.open(str(pdf_path)) as d:
         norm_pages = [_norm(p.get_text()) for p in d]
     blob = " ".join(norm_pages)
 
-    verified, missing = [], []
+    verified, failed = [], []
     for p in parts:
         # part-less R lead-ins are matched a little more loosely (80 chars)
         probe = p.verbatim_text[: 80 if not p.part else 120]
-        (verified if probe and probe in blob else missing).append(p.full_id)
+        (verified if probe and probe in blob else failed).append(p.full_id)
     return {
-        "n_total": len(parts),
-        "n_verified": len(verified),
-        "n_missing": len(missing),
-        "missing": missing,
+        "n_extracted": len(parts),
+        "n_fidelity_verified": len(verified),
+        "n_fidelity_failed": len(failed),
+        "fidelity_failed": failed,
+    }
+
+
+# ── completeness (independent of what the extractor produced) ────────────────
+# Signal 1 — a requirement lead-in that ends in a colon is declaring that a list
+# of children follows. If none were extracted, that is a hole the document itself
+# announces. Zero external index, zero false positives on the shipped standards.
+_COLON_LEADIN_RE = re.compile(r":\s*$")
+
+# Signal 2 — the document naming its own children. "for purposes of parts 1.1
+# through 1.3", "Parts 1.1, 1.2, and 1.3", "Criteria 1.1 to 1.4 and 2.1 to 2.11",
+# "parts 2.1.1, 2.1.2, and 2.1.3".
+_SELFREF_RANGE_RE = re.compile(
+    r"\b(?:part|parts|criterion|criteria|section|sections)\s+"
+    r"(\d+(?:\.\d+)+)\s+(?:through|to|[-–])\s+(\d+(?:\.\d+)+)",
+    re.I,
+)
+_SELFREF_LIST_RE = re.compile(
+    r"\b(?:part|parts|criterion|criteria)\s+"
+    r"((?:\d+(?:\.\d+)+)(?:\s*,\s*(?:and\s+)?\d+(?:\.\d+)+)+(?:\s*,?\s*and\s+\d+(?:\.\d+)+)?)",
+    re.I,
+)
+
+
+def _expand_range(lo: str, hi: str) -> list[str]:
+    """`1.1`..`1.3` -> [1.1, 1.2, 1.3]; `2.1` .. `2.11` -> 2.1..2.11. Only
+    expands when the ids share a prefix and differ in the last component."""
+    a, b = lo.split("."), hi.split(".")
+    if len(a) != len(b) or a[:-1] != b[:-1]:
+        return [lo, hi]
+    try:
+        first, last = int(a[-1]), int(b[-1])
+    except ValueError:
+        return [lo, hi]
+    if not 0 <= last - first < 40:
+        return [lo, hi]
+    return [".".join(a[:-1] + [str(i)]) for i in range(first, last + 1)]
+
+
+def _self_referenced_ids(text: str, req_num: str) -> set[str]:
+    """Child ids the text names for requirement ``req_num`` (e.g. "1")."""
+    out: set[str] = set()
+    for m in _SELFREF_RANGE_RE.finditer(text):
+        out.update(_expand_range(m.group(1), m.group(2)))
+    for m in _SELFREF_LIST_RE.finditer(text):
+        out.update(re.findall(r"\d+(?:\.\d+)+", m.group(1)))
+    return {i for i in out if i.split(".")[0] == req_num}
+
+
+def assess_completeness(parts: list[RequirementPart]) -> dict:
+    """**Completeness, not fidelity.** Does the register hold every Part the
+    *document* says exists? Three document-derived signals, strongest first:
+
+    1. colon-terminated requirement lead-in with zero extracted children;
+    2. the document naming its own children ("parts 1.1 through 1.3");
+    3. numbering contiguity — extracted 1.1, 1.2, 1.4 means 1.3 is missing.
+
+    ``denominator_source`` per requirement names which signal set the expected
+    count. It is **never** ``"extractor"`` — the bug this function exists to
+    close is a denominator the extractor supplies to itself. Every signal reads
+    the document's own verbatim text (the lead-in strings are extracted verbatim
+    from the PDF), so no re-parse of the PDF is needed here.
+    """
+    by_req: dict[str, list[RequirementPart]] = {}
+    leadin_by_req: dict[str, RequirementPart] = {}
+    for p in parts:
+        if p.part:
+            by_req.setdefault(p.requirement, []).append(p)
+        else:
+            leadin_by_req.setdefault(p.requirement, p)
+
+    reqs = sorted(set(by_req) | set(leadin_by_req), key=lambda r: int(r[1:]))
+    incomplete: list[dict] = []
+    sources: set[str] = set()
+
+    def _captured(pid: str, ex: set[str]) -> bool:
+        # captured if the id itself or any dotted ancestor is an extracted node —
+        # "1.1.5" lives inside Part "1.1"'s verbatim text.
+        bits = pid.split(".")
+        return any(".".join(bits[:i]) in ex for i in range(2, len(bits) + 1))
+
+    for req in reqs:
+        req_num = req[1:]
+        extracted = sorted(p.part for p in by_req.get(req, []))
+        ex_set = set(extracted)
+        lead = leadin_by_req.get(req)
+        lead_text = lead.verbatim_text if lead else ""
+
+        colon = bool(lead) and not extracted and bool(_COLON_LEADIN_RE.search(lead_text))
+        expected = _self_referenced_ids(
+            lead_text or " ".join(p.verbatim_text for p in by_req.get(req, [])), req_num
+        )
+        selfref_missing = sorted(i for i in expected if not _captured(i, ex_set))
+
+        contiguity_missing: list[str] = []
+        leaves = [e for e in extracted if e.count(".") == 1]
+        if len(leaves) >= 2:
+            nums = sorted(int(e.split(".")[1]) for e in leaves)
+            contiguity_missing = [
+                f"{req_num}.{i}" for i in range(nums[0], nums[-1]) if i not in nums
+            ]
+
+        if colon:
+            incomplete.append(
+                {
+                    "requirement": req,
+                    "signal": "colon-lead-in",
+                    "detail": f"lead-in ends ':' — '{lead_text[-70:]}' — zero children extracted",
+                    "missing": sorted(expected) or ["<unenumerated list>"],
+                    "extracted": extracted,
+                }
+            )
+            sources.add("document:colon-lead-in")
+        elif selfref_missing:
+            incomplete.append(
+                {
+                    "requirement": req,
+                    "signal": "self-reference",
+                    "detail": f"document names {selfref_missing} with no extracted node or parent",
+                    "missing": selfref_missing,
+                    "extracted": extracted,
+                }
+            )
+            sources.add("document:self-reference")
+        elif contiguity_missing:
+            incomplete.append(
+                {
+                    "requirement": req,
+                    "signal": "contiguity",
+                    "detail": f"gap in numbering: extracted {extracted}, missing {contiguity_missing}",
+                    "missing": contiguity_missing,
+                    "extracted": extracted,
+                }
+            )
+            sources.add("document:contiguity")
+        elif extracted:
+            sources.add("document:enumerated-list")
+        elif lead and not _COLON_LEADIN_RE.search(lead_text):
+            sources.add("document:requirement-level")  # period-terminated: genuinely part-less
+        else:
+            sources.add("document:enumerated-list")
+
+    return {
+        "n_requirements": len(reqs),
+        "n_parts_extracted": sum(len(v) for v in by_req.values()),
+        "incomplete_requirements": incomplete,
+        "n_missing": sum(len(r["missing"]) for r in incomplete),
+        "complete": not incomplete,
+        "denominator_source": "+".join(sorted(sources)) if sources else "document:none",
     }

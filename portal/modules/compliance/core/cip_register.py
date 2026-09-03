@@ -22,7 +22,11 @@ import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from portal.modules.compliance.core.cip_extract import extract_standard, verify_parts
+from portal.modules.compliance.core.cip_extract import (
+    assess_completeness,
+    extract_standard,
+    verify_fidelity,
+)
 
 _DATA = Path(__file__).resolve().parent.parent / "data"
 REGISTER_PATH = _DATA / "nerc_cip_register.json"
@@ -108,11 +112,15 @@ class Register:
     edges: list[dict] = field(default_factory=list)
     extraction_report: dict = field(default_factory=dict)
     lifecycle_source: str = _LIFECYCLE_SOURCE
-    built_at: float = 0.0
+    built_at: str = ""  # ISO-8601 UTC — an auditable artifact carries a real header
+    source_pdfs: dict = field(default_factory=dict)  # {"cip-007-6.pdf": "<sha256[:12]>"}
+    extractor_commit: str = ""  # git HEAD of cip_extract.py at build time
 
     def to_json(self) -> dict:
         return {
             "built_at": self.built_at,
+            "extractor_commit": self.extractor_commit,
+            "source_pdfs": self.source_pdfs,
             "lifecycle_source": self.lifecycle_source,
             "extraction_report": self.extraction_report,
             "nodes": [asdict(n) for n in self.nodes],
@@ -127,7 +135,9 @@ class Register:
             edges=d.get("edges", []),
             extraction_report=d.get("extraction_report", {}),
             lifecycle_source=d.get("lifecycle_source", _LIFECYCLE_SOURCE),
-            built_at=d.get("built_at", 0.0),
+            built_at=d.get("built_at", ""),
+            source_pdfs=d.get("source_pdfs", {}),
+            extractor_commit=d.get("extractor_commit", ""),
         )
 
 
@@ -175,17 +185,57 @@ def fetch_pdfs(dest: str | Path) -> tuple[list[str], list[str]]:
     return ok, failed
 
 
+def _extractor_commit() -> str:
+    import subprocess
+
+    src = Path(__file__).with_name("cip_extract.py")
+    try:
+        out = subprocess.run(
+            ["git", "log", "-1", "--format=%H", "--", str(src)],
+            capture_output=True,
+            text=True,
+            cwd=src.parent,
+            timeout=10,
+            check=False,
+        )
+        sha = (out.stdout.strip() or "unknown")[:12]
+        dirty = subprocess.run(
+            ["git", "status", "--porcelain", "--", str(src)],
+            capture_output=True,
+            text=True,
+            cwd=src.parent,
+            timeout=10,
+            check=False,
+        )
+        return sha + ("-dirty" if dirty.stdout.strip() else "")
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+
+
 def build_register(pdf_dir: str | Path) -> Register:
-    """Extract every downloaded standard, verify verbatim, attach lifecycle,
-    derive cross-reference edges. Deterministic given the same PDFs."""
+    """Extract every downloaded standard, check fidelity AND completeness, attach
+    lifecycle, derive cross-reference edges. Deterministic given the same PDFs
+    apart from the ``built_at`` header."""
+    import datetime
+    import hashlib
+
     pdf_dir = Path(pdf_dir)
-    reg = Register(built_at=0.0)  # deterministic artifact
+    src_pdfs = {
+        p.name: hashlib.sha256(p.read_bytes()).hexdigest()[:12]
+        for p in sorted(pdf_dir.glob("cip-*.pdf"))
+    }
+    reg = Register(
+        built_at=datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds"),
+        source_pdfs=src_pdfs,
+        extractor_commit=_extractor_commit(),
+    )
     report: dict = {}
-    now = 0.0  # deterministic artifact; the live store stamps real recorded_at
+    now = 0.0  # deterministic per-node stamp; the live store stamps real recorded_at
 
     for pdf in sorted(pdf_dir.glob("cip-*.pdf")):
         parts, meta = extract_standard(pdf)
-        v = verify_parts(pdf, parts)
+        fid = verify_fidelity(pdf, parts)
+        comp = assess_completeness(parts)
         std = meta["standard"]  # "CIP-007"
         ver = meta["version"]
         full = f"{std}-{ver}"
@@ -193,11 +243,10 @@ def build_register(pdf_dir: str | Path) -> Register:
         report[full] = {
             "requirements": meta["requirements"],
             "n_parts": meta["n_parts"],
-            "n_verified": v["n_verified"],
-            "n_missing": v["n_missing"],
-            "missing": v["missing"],
             "partless_requirements": meta["partless_requirements"],
             "lifecycle": life,
+            "fidelity": fid,
+            "completeness": comp,
         }
         for p in parts:
             node_id = p.full_id
@@ -260,7 +309,25 @@ def build_register(pdf_dir: str | Path) -> Register:
         "n_nodes": len(reg.nodes),
         "n_parts": sum(1 for n in reg.nodes if n.granularity == "part"),
         "n_requirement_level": sum(1 for n in reg.nodes if n.granularity == "requirement"),
-        "n_verbatim_verified": sum(r["n_verified"] for r in report.values()),
+        "fidelity": {
+            "n_extracted": sum(r["fidelity"]["n_extracted"] for r in report.values()),
+            "n_fidelity_verified": sum(
+                r["fidelity"]["n_fidelity_verified"] for r in report.values()
+            ),
+            "n_fidelity_failed": sum(r["fidelity"]["n_fidelity_failed"] for r in report.values()),
+            "fidelity_failed": sorted(
+                fid for r in report.values() for fid in r["fidelity"]["fidelity_failed"]
+            ),
+        },
+        "completeness": {
+            "n_missing": sum(r["completeness"]["n_missing"] for r in report.values()),
+            "incomplete_standards": sorted(
+                std for std, r in report.items() if not r["completeness"]["complete"]
+            ),
+            "denominator_source_by_standard": {
+                std: r["completeness"]["denominator_source"] for std, r in report.items()
+            },
+        },
         "per_standard": report,
     }
     return reg
@@ -334,10 +401,17 @@ if __name__ == "__main__":
         rep = r.extraction_report
         print(
             f"register: {rep['n_nodes']} nodes ({rep['n_parts']} parts, "
-            f"{rep['n_requirement_level']} R-level), {rep['n_verbatim_verified']} verbatim-verified"
+            f"{rep['n_requirement_level']} R-level), "
+            f"{rep['fidelity']['n_fidelity_verified']}/{rep['fidelity']['n_extracted']} fidelity-verified, "
+            f"{rep['completeness']['n_missing']} completeness holes"
         )
         for std, s in rep["per_standard"].items():
+            c = s["completeness"]
+            holes = ",".join(
+                i["requirement"] + ":" + i["signal"] for i in c["incomplete_requirements"]
+            )
             print(
                 f"  {std:<14} R={len(s['requirements']):2d} parts={s['n_parts']:3d} "
-                f"missing={s['n_missing']} partless={s['partless_requirements']}"
+                f"fidelity_fail={s['fidelity']['n_fidelity_failed']} "
+                f"holes=[{holes}] src={c['denominator_source']}"
             )

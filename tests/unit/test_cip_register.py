@@ -20,10 +20,21 @@ def test_register_is_nonempty_and_all_verbatim_verified():
     rep = reg.extraction_report
     assert rep["n_nodes"] == len(reg.nodes) >= 110
     assert rep["n_parts"] >= 95
-    # every row that was extracted round-tripped against its source PDF text
-    assert rep["n_verbatim_verified"] == rep["n_nodes"]
-    for std, s in rep["per_standard"].items():
-        assert s["n_missing"] == 0, f"{std}: {s['missing']}"
+    # fidelity: every row that was extracted round-tripped against its source PDF
+    fid = rep["fidelity"]
+    assert fid["n_fidelity_verified"] == fid["n_extracted"] == rep["n_nodes"]
+    assert fid["n_fidelity_failed"] == 0, fid["fidelity_failed"]
+
+
+def test_completeness_denominator_is_never_self_derived():
+    """The degenerate-denominator guard: a completeness metric whose denominator
+    comes from the extractor's own output is a fidelity metric wearing a
+    completeness label (TASK_CIP_REGISTER_COMPLETENESS_V1 §1.1)."""
+    srcs = reg.extraction_report["completeness"]["denominator_source_by_standard"]
+    assert srcs, "completeness report absent"
+    for std, src in srcs.items():
+        assert "extractor" not in src, f"{std}: denominator_source={src!r}"
+        assert src.startswith("document:"), f"{std}: {src!r}"
 
 
 def test_version_divergences_resolved_to_the_enforceable_version():
