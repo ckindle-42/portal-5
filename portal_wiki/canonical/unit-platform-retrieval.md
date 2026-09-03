@@ -63,8 +63,13 @@ Service-touching (Phase 3):
 - `embedding` — the Qwen3-VL retrieval-server client (`vl_embed` / `vl_embed_batch`
   / `vl_rerank` / `vl_model_id`), the request-size cap, the `_MODEL_ID_CACHE` TTL,
   the dim guard, and `VLUnavailableError`.
-- `store` — LanceDB table open/create, the KB list, and the embedding-model stamp
-  sidecar (`read_stamp` / `write_stamp` / `assert_embedding_space`).
+- `store` — LanceDB table open/create, the KB list, and the model + stage-set
+  stamp sidecar (`read_stamp` / `write_stamp` / `assert_embedding_space`). The
+  stamp records the embedding model AND the stage set (chunker, chunk
+  size/overlap, figure-page policy, transcription, fusion mode); `search`
+  rejects a KB whose stamped stage set differs from the running composition
+  (503, same class as a model swap), and validate check `HD` reports a
+  half-migrated fleet.
 - `fusion` — `rrf_fuse` (RRF text/visual with the gated visual boost),
   `search_unified` (one cross-encoder pass), and `fuse` dispatch on the mode.
   `VL_TEXT_GATE` τ=0.72 and the mode constants live here.
@@ -92,7 +97,7 @@ Service-touching (Phase 3):
 Substrate *behaviour* changes — visual-index scope, the docling chunker, BM25,
 `contextualize` — are a separate per-KB migration (`TASK_RAG_SUBSTRATE_MIGRATION`)
 with per-consumer evaluation, because each one requires a re-ingest and changes
-ranking. Phase 6 stamps the stage set into each KB's metadata so that migration
+ranking. The stage set is stamped into each KB's metadata (P6) so that migration
 is caught by the same machinery that already catches an embedding-model swap.
 
 One safety rule crosses the seam: `contextualize` (heading path into embedded

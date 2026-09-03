@@ -147,3 +147,60 @@ def check_evidence_headers() -> tuple[str, str, list[dict]]:
         f"{len(bad)} evidence file(s) missing a header / zero-byte",
         [{"name": f, "status": "FAIL", "detail": r} for f, r in bad],
     )
+
+
+@register("kb_stage_set_stamp", "HD. KB stage-set stamps current", order=52)
+def check_kb_stage_set_stamp() -> tuple[str, str, list[dict]]:
+    """HD — every KB's meta stamp carries a ``stage_set`` matching the running
+    rag_multimodal composition (SEAM V1 P6). A KB indexed under a different
+    chunker / figure policy / fusion mode is a stale index against the shipped
+    substrate — TASK_RAG_SUBSTRATE_MIGRATION migrates them one at a time, and a
+    half-migrated fleet must be visible, not silent. WARN when the LanceDB
+    volume is not mounted (that is "stack down"); a KB with no ``stage_set`` key
+    predates the stamp and is reported as WARN, not FAIL.
+    """
+    from portal.platform.lance_guard import LanceStoreUnavailableError, require_lance_dir
+
+    lance_dir = os.environ.get("PORTAL5_LANCE_DIR", "/Volumes/data01/portal5_lance")
+    try:
+        require_lance_dir(lance_dir)
+    except LanceStoreUnavailableError:
+        return "WARN", "LanceDB volume not mounted — stage-set stamps not checked", []
+
+    try:
+        from portal.modules.research.tools import rag_multimodal as rm
+        from portal.platform.retrieval import store
+    except ImportError as e:
+        return "WARN", f"retrieval stack not importable: {e}", []
+
+    running = rm._stage_set()
+    try:
+        kbs = store.list_kbs()
+    except Exception as e:  # noqa: BLE001
+        return "WARN", f"could not enumerate KBs: {e}", []
+    if not kbs:
+        return "PASS", "no KBs ingested", []
+
+    stale, unstamped = [], []
+    for kb_id in kbs:
+        stamp = store.read_stamp(kb_id) or {}
+        ss = stamp.get("stage_set")
+        if ss is None:
+            unstamped.append(kb_id)
+        elif ss != running:
+            changed = sorted(k for k in set(ss) | set(running) if ss.get(k) != running.get(k))
+            stale.append((kb_id, ",".join(changed)))
+
+    subs = [{"name": kb, "status": "FAIL", "detail": f"stage_set differs: {c}"} for kb, c in stale]
+    subs += [
+        {"name": kb, "status": "WARN", "detail": "no stage_set — predates P6"} for kb in unstamped
+    ]
+    if stale:
+        return "FAIL", f"{len(stale)} KB(s) indexed under a stale stage set", subs
+    if unstamped:
+        return (
+            "WARN",
+            f"{len(unstamped)} KB(s) predate the stage-set stamp — re-ingest to stamp",
+            subs,
+        )
+    return "PASS", f"all {len(kbs)} KB stamp(s) match the running stage set", []

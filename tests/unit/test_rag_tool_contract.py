@@ -28,6 +28,7 @@ import pytest
 rm = importlib.import_module("portal.modules.research.tools.rag_multimodal")
 _store = importlib.import_module("portal.platform.retrieval.store")
 _embedding = importlib.import_module("portal.platform.retrieval.embedding")
+_chunking = importlib.import_module("portal.platform.retrieval.chunking")
 from portal.platform.inference.router import context_inject  # noqa: E402
 
 
@@ -162,6 +163,30 @@ def test_caller_arg_shapes_are_accepted(_kb, tmp_path, tool, args):
     handler = rm._search if tool == "kb_search" else rm._search_all
     out = _run(handler(_Req(args)))
     assert out.status_code == 200, json.loads(out.body)
+
+
+def test_kb_ingest_stamps_the_stage_set(_kb):
+    """P6: the stamp carries the running composition's stage set."""
+    stamp = _store.read_stamp("kbc")
+    assert stamp["stage_set"] == rm._stage_set()
+    assert set(stamp["stage_set"]) == {
+        "chunk_strategy",
+        "chunk_size",
+        "chunk_overlap",
+        "figure_page_max_text",
+        "transcribe_figures",
+        "fusion_mode",
+    }
+
+
+def test_kb_search_rejects_a_stage_set_change(_kb, monkeypatch):
+    """P6: a chunker change after ingest is caught at search — same class of
+    error as an embedding-model swap — instead of serving a stale index."""
+    monkeypatch.setattr(_chunking, "CHUNK_STRATEGY", "structured")
+    out = _run(rm._search(_Req({"kb_id": "kbc", "query": "CIP-007", "top_k": 4})))
+    body = json.loads(out.body)
+    assert out.status_code == 503
+    assert "stage set" in body["error"] and "chunk_strategy" in body["error"]
 
 
 def test_injector_sends_an_accepted_shape():
