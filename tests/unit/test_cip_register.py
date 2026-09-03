@@ -8,6 +8,8 @@ exactly.
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from portal.modules.compliance.core.cip_register import Register
@@ -101,18 +103,77 @@ def test_cross_reference_edges_point_at_real_standards():
         assert e["dst"] in known, e
 
 
-@pytest.mark.parametrize(
-    "standard,min_parts",
-    [
-        ("CIP-004-7", 19),
-        ("CIP-005-7", 12),
-        ("CIP-006-6", 13),
-        ("CIP-007-6", 20),
-        ("CIP-009-6", 10),
-        ("CIP-010-4", 11),
-        ("CIP-011-3", 4),
-    ],
-)
-def test_regular_table_standards_fully_extracted(standard, min_parts):
+def test_no_standard_reports_a_completeness_hole():
+    """The §1.3 signal as a permanent guard, at the report level: a standard the
+    completeness metric flags as incomplete is a hole the *document itself*
+    announced and the extractor did not fill. Fails loudly the moment one
+    reappears — unlike the trivially-true `assert n_missing == 0` it replaces."""
+    comp = reg.extraction_report["completeness"]
+    assert comp["n_missing"] == 0, comp["incomplete_standards"]
+    assert comp["incomplete_standards"] == []
+
+
+def test_no_requirement_has_a_colon_lead_in_with_zero_children():
+    """§1.3 directly on the register nodes: an R-level node whose verbatim text
+    ends in ':' is declaring a list follows; that requirement must carry Parts."""
+    part_reqs = {(n.standard, n.requirement) for n in reg.nodes if n.part}
+    offenders = [
+        n.id
+        for n in reg.nodes
+        if not n.part
+        and re.fullmatch(r"R\d+", n.requirement)  # the signal is about requirements
+        and n.verbatim_text.rstrip().endswith(":")
+        and (n.standard, n.requirement) not in part_reqs
+    ]
+    assert not offenders, offenders
+
+
+def test_cip002_attachment1_criteria_are_present_and_addressable():
+    """The bright-line impact-rating criteria that the whole CIP suite gates on
+    (TASK §1.4). Each criterion is its own verbatim node."""
+    att = {
+        n.id: n
+        for n in reg.nodes
+        if n.standard == "CIP-002-5.1a" and "Attachment 1" in n.requirement
+    }
+    crit = {n.part for n in att.values() if n.part}
+    assert {"1.1", "1.2", "1.3", "1.4"} <= crit  # High
+    assert {"2.1", "2.2", "2.3"} <= crit  # Medium
+    assert {"3.1", "3.6"} <= crit  # Low
+    assert any("impact rating criteria" in n.table_name.lower() for n in att.values())
+    # R1 Parts 1.1-1.3 landed too
+    r1 = {n.part for n in reg.nodes if n.id.startswith("CIP-002-5.1a R1 Part")}
+    assert r1 == {"1.1", "1.2", "1.3"}
+
+
+# Expected minimum Part counts for ALL 14 standards. Table-shaped standards use
+# the T3 hardcoded floor; the prose standards use the count P1/P2's completeness
+# signals establish from the document. A standard that falls short must xfail
+# with a recorded reason, never be dropped from the list.
+_PART_FLOORS = {
+    "CIP-002-5.1a": 28,  # R1 1.1-1.3, R2 2.1-2.2, Attachment 1 criteria (23)
+    "CIP-003-8": 15,  # R1 policy-topic leaves
+    "CIP-003-9": 16,  # R1 policy-topic leaves (+1.2.6 vendor remote access)
+    "CIP-004-7": 19,
+    "CIP-005-7": 12,
+    "CIP-006-6": 13,
+    "CIP-007-6": 20,
+    "CIP-008-6": 10,
+    "CIP-009-6": 10,
+    "CIP-010-4": 11,
+    "CIP-011-3": 4,
+    "CIP-012-2": 5,  # R1 1.1-1.5
+    "CIP-013-2": 8,  # R1 1.1, 1.2, 1.2.1-1.2.6
+    "CIP-014-3": 17,  # R1 1.1-1.2, R2 2.1-2.4, R4 4.1-4.3, R5 5.1-5.4, R6 6.1-6.4
+}
+_PART_XFAIL: dict[str, str] = {
+    # standard -> reason. Empty: every standard currently meets its floor.
+}
+
+
+@pytest.mark.parametrize("standard", sorted(_PART_FLOORS))
+def test_every_standard_meets_its_part_floor(standard):
+    if standard in _PART_XFAIL:
+        pytest.xfail(_PART_XFAIL[standard])
     got = sum(1 for n in reg.nodes if n.standard == standard and n.granularity == "part")
-    assert got >= min_parts, f"{standard}: {got}"
+    assert got >= _PART_FLOORS[standard], f"{standard}: {got} < {_PART_FLOORS[standard]}"
