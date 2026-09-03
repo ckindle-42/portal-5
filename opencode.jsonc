@@ -133,6 +133,17 @@
           "attachment": true,
           "reasoning": true
         },
+        // Heavy, explicit-pick only — NEVER a default. 180B-class REAP-pruned
+        // MoE (288/512 experts), 39GB oMLX-resident with SSD PLE streaming.
+        // Needs a quiet-host warmup (./launch.sh down + evict Ollama, one
+        // request, restore) before it will admit; then serves ~24-29 t/s
+        // warm with the stack up until an oMLX model swap evicts it. Not in
+        // OWUI. See config/personas/codingreap288.yaml.
+        "codingreap288": {
+          "name": "Portal · REAP-288 Coder (heavy, IDE only — warm before use)",
+          "attachment": true,
+          "reasoning": true
+        },
 
         // ── Security ──────────────────────────────────────────────────────────
         "auto-security": {

@@ -372,7 +372,7 @@ Router quality is a measured property, not an assumption — the bench pins the 
 ### Personas
 
 <!-- WIKI:GENERATED unit=unit-fact-persona-roster -->
-# Persona roster (134 personas)
+# Persona roster (135 personas)
 
 | Slug | Module | Workspace | Model Pin |
 |---|---|---|---|
@@ -416,6 +416,7 @@ Router quality is a measured property, not an assumption — the bench pins the 
 | `codereviewer` | coding | `auto-coding` | — |
 | `codescreenshotreader` | general | `auto-vision` | — |
 | `codingagentic` | coding | `auto-coding` | — |
+| `codingreap288` | coding | `auto-coding` | — |
 | `codinguncensored` | coding | `auto-coding` | — |
 | `codinguncensoredagentic` | coding | `auto-coding` | — |
 | `complianceanalyst` | compliance | `auto-compliance` | — |

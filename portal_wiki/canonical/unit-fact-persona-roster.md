@@ -1,26 +1,26 @@
 ---
 id: unit-fact-persona-roster
 kind: what
-title: 134 personas
+title: 135 personas
 sources:
 - type: code
   path: config/personas/
-  commit: d5814a812dbb
+  commit: a393be0deed9
 - type: code
   path: config/personas/adversarysimulator.yaml
-  commit: d5814a812dbb
+  commit: a393be0deed9
 - type: code
   path: config/personas/agenticheavy.yaml
-  commit: d5814a812dbb
+  commit: a393be0deed9
 - type: code
   path: config/personas/agenticlite.yaml
-  commit: d5814a812dbb
+  commit: a393be0deed9
 - type: code
   path: config/personas/agentorchestrator.yaml
-  commit: d5814a812dbb
+  commit: a393be0deed9
 - type: code
   path: config/personas/bench_gemma4_12b.yaml
-  commit: d5814a812dbb
+  commit: a393be0deed9
 claims:
 - probe: personas.count
   pattern: Persona roster ({value} personas)
@@ -29,10 +29,10 @@ tags:
 - fact
 - personas
 created_at: 1784000421.217775
-updated_at: 1788390213.6378188
+updated_at: 1788397074.885537
 ---
 
-# Persona roster (134 personas)
+# Persona roster (135 personas)
 
 | Slug | Module | Workspace | Model Pin |
 |---|---|---|---|
@@ -76,6 +76,7 @@ updated_at: 1788390213.6378188
 | `codereviewer` | coding | `auto-coding` | — |
 | `codescreenshotreader` | general | `auto-vision` | — |
 | `codingagentic` | coding | `auto-coding` | — |
+| `codingreap288` | coding | `auto-coding` | — |
 | `codinguncensored` | coding | `auto-coding` | — |
 | `codinguncensoredagentic` | coding | `auto-coding` | — |
 | `complianceanalyst` | compliance | `auto-compliance` | — |
