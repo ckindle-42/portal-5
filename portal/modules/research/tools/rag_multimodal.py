@@ -19,7 +19,6 @@ import contextlib
 import hashlib
 import json
 import os
-import re
 import time
 from pathlib import Path
 
@@ -27,6 +26,10 @@ import httpx
 import lancedb
 import pyarrow as pa
 from starlette.responses import JSONResponse
+
+from portal.platform.retrieval import chunking as _chunking
+from portal.platform.retrieval import extraction as _extraction
+from portal.platform.retrieval import pages as _pages
 
 LANCE_DIR = os.environ.get("PORTAL5_LANCE_DIR", "/Volumes/data01/portal5_lance")
 RAG_DIR = os.path.join(LANCE_DIR, "rag")
@@ -152,9 +155,11 @@ _TRANSCRIBE_PROMPT = (
     "plain prose and lists — reproduce the exact identifiers and values. If the "
     "page is only body text, reply with the single word NONE."
 )
-CHUNK_SIZE = int(os.environ.get("RAG_CHUNK_SIZE", "1000"))
-CHUNK_OVERLAP = int(os.environ.get("RAG_CHUNK_OVERLAP", "150"))
-_MAX_PAGES = int(os.environ.get("RAG_MAX_PAGES", "500"))
+# Chunk / page stages live in the shared retrieval library (SEAM V1 P2). These
+# module-level names are thin aliases kept for existing references and tests.
+CHUNK_SIZE = _chunking.CHUNK_SIZE
+CHUNK_OVERLAP = _chunking.CHUNK_OVERLAP
+_MAX_PAGES = _pages.MAX_PAGES
 _PAGES_DIR = Path(os.environ.get("RAG_PAGES_DIR", os.path.join(LANCE_DIR, "rag_pages")))
 _RRF_K = 60
 
@@ -352,136 +357,22 @@ async def _vl_rerank(query: str, candidates: list, top_n: int) -> list:
         raise _vl_error(e) from e
 
 
-# Boundaries that mean something in a standards/procedure corpus. Ordered
-# strongest-first; all are matched at line start on the PyMuPDF text layer (the
-# host venv has no docling, so there are no markdown headings to lean on).
-_SECTION_BOUNDARY = re.compile(
-    r"(?m)^[ \t]*(?:"
-    r"#{1,6}[ \t]+"  # markdown heading, when docling IS available
-    r"|R\d+(?:\.\d+)*\.?[ \t]"  # NERC requirement: R1. / R1.2.
-    r"|[A-Z]\.[ \t]+(?=[A-Z])"  # lettered section: "A. Introduction"
-    r"|\d+\.\d+(?:\.\d+)*\.?[ \t]"  # numbered part: 4.1 / 4.1.1
-    r"|(?:Attachment|Appendix|Table|Requirement)[ \t]+\w"
-    r")"
-)
+# SEAM V1 P2: the chunk / page / extraction stages moved to
+# portal.platform.retrieval. These are thin aliases so existing references,
+# tests, and the per-KB profile probe continue to resolve unchanged. The rope
+# is cut in P5.
+_SECTION_BOUNDARY = _chunking.SECTION_BOUNDARY
+_chunk_fixed = _chunking.chunk_fixed
+_chunk_structured = _chunking.chunk_structured
+_chunk = _chunking.chunk
+CHUNK_STRATEGY = _chunking.CHUNK_STRATEGY
 
+_render_pages = _pages.render_pages
+_figure_pages = _pages.figure_pages
+_PAGE_TEXT_LEN = _pages._PAGE_TEXT_LEN
+FIGURE_PAGE_MAX_TEXT = _pages.FIGURE_PAGE_MAX_TEXT
 
-def _chunk_fixed(text: str, size: int, overlap: int) -> list:
-    out, i = [], 0
-    while i < len(text):
-        seg = text[i : i + size]
-        if seg.strip():
-            out.append((i, i + len(seg), seg))
-        i += max(1, size - overlap)
-    return out
-
-
-def _chunk_structured(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list:
-    """Split on document structure, then pack — instead of slicing blind.
-
-    Fixed-width slicing cuts mid-requirement and needs an overlap purely to heal
-    the cuts it made. Splitting on real boundaries (requirement / section /
-    numbered part) means a chunk is a whole unit, so the overlap is only needed
-    for the rare unit that is itself larger than `size`."""
-    marks = [m.start() for m in _SECTION_BOUNDARY.finditer(text)]
-    if len(marks) < 2:  # nothing to go on — fixed slicing is the honest fallback
-        return _chunk_fixed(text, size, overlap)
-    bounds = sorted({0, *marks, len(text)})
-    units = [(bounds[i], bounds[i + 1]) for i in range(len(bounds) - 1)]
-
-    out: list = []
-    cs = ce = None
-    for s, e in units:
-        if e - s > size:  # an oversized unit still has to be sliced
-            if cs is not None:
-                out.append((cs, ce, text[cs:ce]))
-                cs = ce = None
-            for a, b, seg in _chunk_fixed(text[s:e], size, overlap):
-                out.append((s + a, s + b, seg))
-            continue
-        if cs is None:
-            cs, ce = s, e
-        elif e - cs <= size:
-            ce = e  # pack adjacent units up to the budget
-        else:
-            out.append((cs, ce, text[cs:ce]))
-            cs, ce = s, e
-    if cs is not None:
-        out.append((cs, ce, text[cs:ce]))
-    return [(a, b, t) for a, b, t in out if t.strip()]
-
-
-# `fixed` is blind character slicing; `structure` splits on requirement/section
-# boundaries. Default is `fixed` because structure LOST when measured against a
-# docling-extracted corpus: prose recall@1 0.875 -> 0.750 (2356 chunks vs 2138).
-# Splitting on my own regex boundaries fragments groupings docling's layout model
-# already got right — the structure chunker was solving a problem that only
-# existed while extraction was falling back to raw PyMuPDF text. Kept available
-# for a corpus with no usable extractor.
-CHUNK_STRATEGY = os.environ.get("RAG_CHUNK_STRATEGY", "fixed")
-
-
-def _chunk(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list:
-    if CHUNK_STRATEGY == "fixed":
-        return _chunk_fixed(text, size, overlap)
-    return _chunk_structured(text, size, overlap)
-
-
-def _render_pages(pdf_path: str, out_dir: Path, dpi: int = 150) -> list:
-    import pymupdf
-
-    out_dir.mkdir(parents=True, exist_ok=True)
-    pages = []
-    doc = pymupdf.open(pdf_path)
-    for i, page in enumerate(doc):
-        if i >= _MAX_PAGES:
-            break
-        p = out_dir / f"{Path(pdf_path).stem}_p{i:04d}.png"
-        page.get_pixmap(dpi=dpi).save(str(p))
-        pages.append((i, str(p)))
-        _PAGE_TEXT_LEN[str(p)] = len(page.get_text().strip())
-    doc.close()
-    return pages
-
-
-# S0: how much extractable text a rendered page had. A page whose text layer is
-# already rich is, by definition, covered by the prose chunks — transcribing it
-# would duplicate the text arm. Populated by `_render_pages`, consumed by
-# `_figure_pages`.
-_PAGE_TEXT_LEN: dict[str, int] = {}
-# Below this many characters of extractable text, a page is treated as a figure.
-FIGURE_PAGE_MAX_TEXT = int(os.environ.get("RAG_FIGURE_PAGE_MAX_TEXT", "200"))
-
-
-def _figure_pages(pages: list) -> list:
-    """S0: the subset of pages worth transcribing.
-
-    Deterministic, not model-judgement. The obvious design — prompt the vision
-    model to answer NONE on a body-text page — was measured and does not hold:
-    the strongest transcribers are OCR models that transcribe *everything*
-    (glm-ocr, Nanonets-OCR2, minicpm-v4.5 all scored 0/4 on NONE discipline).
-    Trusting self-abstention would duplicate every prose page into the text arm.
-    PyMuPDF already tells us the text-layer length for free during render, so
-    the filter is exact and costs nothing — and it makes NONE discipline
-    irrelevant to model selection."""
-    return [(pn, img) for pn, img in pages if _PAGE_TEXT_LEN.get(img, 0) < FIGURE_PAGE_MAX_TEXT]
-
-
-async def _read_text(path: Path) -> str:
-    """Reuse rag_mcp's docling extraction; fall back to plain read for text."""
-    from portal.modules.research.tools import rag_mcp
-
-    reader = getattr(rag_mcp, "_read_file", None)
-    if reader is not None:
-        with contextlib.suppress(Exception):
-            return await reader(path)
-    conv = getattr(rag_mcp, "_docling_convert", None)
-    if conv is not None:
-        with contextlib.suppress(Exception):
-            return conv(path)
-    if path.suffix.lower() in (".txt", ".md"):
-        return path.read_text(errors="ignore")
-    return ""
+_read_text = _extraction.read_text
 
 
 async def _ingest_text(ttbl, kb_id: str, f: Path, rel: str) -> int:
