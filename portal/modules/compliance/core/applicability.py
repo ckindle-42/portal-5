@@ -14,10 +14,12 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-# Dimensions derived from the register's `applicable_systems` column (Phase 1):
-# impact ratings {High, Medium} appear on the extracted Parts; Low-Impact
-# obligations live in CIP-003 Attachment 1 (the documented Phase 1 shortfall) so
-# `low` is a declared dimension the register cannot yet gate on its own.
+# Dimensions derived from the register's `applicable_systems` column: impact
+# ratings {High, Medium} appear on the extracted Parts, and the bright-line
+# criteria that *define* High/Medium/Low now live in the register as CIP-002
+# Attachment 1 nodes (TASK_CIP_REGISTER_COMPLETENESS_V1 §1.4). CIP-003
+# Attachment 1's low-impact *plan sections* (1–5) are still not extracted, so a
+# `low`-only entity's specific obligations remain out of register scope.
 IMPACT_RATINGS = ("high", "medium", "low")
 ASSOCIATED_TYPES = ("bcs", "eacms", "pacs", "pca")
 

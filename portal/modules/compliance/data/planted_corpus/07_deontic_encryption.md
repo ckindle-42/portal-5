@@ -1,4 +1,4 @@
-<!-- PLANT {"doc_id":"OT-POL-012","doc_class":"policy","targets":"CIP-012-2 R1","control_class":"deontic","expected_coverage":"NONE","expected_signal":"COMPLIANCE_CONFLICT"} -->
+<!-- PLANT {"doc_id":"OT-POL-012","doc_class":"policy","targets":"CIP-012-2 R1 Part 1.1","control_class":"deontic","expected_coverage":"NONE","expected_signal":"COMPLIANCE_CONFLICT"} -->
 # OT-POL-012 Communications Security Policy
 
 ## 6.1

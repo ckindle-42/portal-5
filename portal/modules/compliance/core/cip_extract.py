@@ -36,8 +36,8 @@ from pathlib import Path
 
 _BULLET = ""
 # Part ids are two or more dot-separated integers: "1.1", "1.10", and the
-# three-level leaves "1.2.6" (CIP-003-9 R1) and "2.1.1" (CIP-014 R2). A bare
-# integer ("1", "2") is a section header, never a Part.
+# three-level leaves "1.2.6" (CIP-003-9 R1, CIP-013-2 R1). A bare integer
+# ("1", "2") is a section header, never a Part.
 _PART_RE = re.compile(r"^\d+(?:\.\d+)+$")
 _STANDARD_RE = re.compile(r"^(CIP-\d{3})-([\w.]+)\b")
 _R_LEADIN_RE = re.compile(
@@ -125,30 +125,100 @@ def _cells(row: list) -> list[str]:
     return [c.strip() for c in row if c and c.strip()]
 
 
-# CIP-003 R1 carries its obligations as a nested numbered list of policy topics
-# (1.1.1 .. 1.1.9, 1.2.1 .. 1.2.7) rather than a Table R<n>. This is the one
-# case where the leaf items are the unit of change (T4 targets CIP-003-8 -> -9,
-# where 1.2.6 changed meaning and 1.2.7 was added).
-_CIP003_LEAF_RE = re.compile(
-    r"(?m)^\s*(1\.[12]\.\d+)\.\s+(.+?)(?=^\s*1\.[12]\.\d+\.|\bM1\.|\Z)", re.S
+# ── prose numbered lists (CIP-002/003/012/013/014) ──────────────────────────
+# Several standards lay a requirement's Parts out as a colon-terminated lead-in
+# followed by a numbered list ("R1. … for purposes of parts 1.1 through 1.3: …
+# 1.1. Identify … 1.2. Identify …") rather than a `Table R<n>`. One general
+# extractor covers them; CIP-003 R1 keeps a thin wrapper (see `_cip003_r1_parts`).
+_PROSE_ITEM_RE = re.compile(
+    r"(?ms)^[ \t]*(\d+(?:\.\d+)+)\.?[ \t]*\r?\n?[ \t]*(\S.*?)"
+    r"(?=^[ \t]*\d+(?:\.\d+)+\.?[ \t\r\n]|^[ \t]*M\d+\.[ \t]|^[ \t]*R\d+\.[ \t]|\Z)"
 )
 
 
-def _cip003_r1_leaves(full_text: str) -> list[tuple[str, str]]:
-    """[(part_id, verbatim_topic)] for CIP-003 R1's policy-topic list."""
+def _requirement_block(full: str, n: int) -> str:
+    """The text of requirement R<n> — from its lead-in to its measure M<n>. The
+    numbered list lives here; neither the Compliance section's own `1.1.`
+    numbering nor the VSL table's `R1.` cells do, so the search is bounded to the
+    'Requirements and Measures' section and anchored on the R<n> that is actually
+    followed by a `shall`."""
+    body_start = re.search(r"Requirements and Measures", full)
+    hay = full[body_start.end() :] if body_start else full
+    end = re.search(r"(?m)^[ \tC]*\.?\s*Compliance\s*$|\bViolation Severity Level", hay)
+    if end:
+        hay = hay[: end.start()]
+    cand = None
+    for m in re.finditer(rf"(?m)^[ \t]*R{n}\.[ \t\r\n]", hay):
+        window = _norm(hay[m.start() : m.start() + 400])
+        if re.search(r"\bshall\b|\bdeveloped\b|\breview\b", window, re.I):
+            cand = m.start()
+            break
+    if cand is None:
+        return ""
+    me = re.search(rf"(?m)^[ \t]*M{n}\.[ \t\r\n]", hay[cand:])
+    return hay[cand : cand + me.start()] if me else hay[cand : cand + 8000]
+
+
+def _prose_items(block: str, req_num: int) -> list[tuple[str, str]]:
+    """[(part_id, verbatim_body)] for every numbered item under requirement
+    ``req_num`` in ``block``. Items nested deeper are returned too — the register
+    is Part-granular and a deeper leaf is still addressable."""
+    out: list[tuple[str, str]] = []
+    for m in _PROSE_ITEM_RE.finditer(block):
+        pid = m.group(1)
+        if pid.split(".")[0] != str(req_num):
+            continue
+        body = _norm(m.group(2))
+        if body:
+            out.append((pid, body))
+    return out
+
+
+def _prose_list_parts(
+    standard: str,
+    version: str,
+    req: str,
+    lead: tuple[str, str, str],
+    full: str,
+    pdf: Path,
+) -> list[RequirementPart]:
+    """Parts of a colon-terminated prose requirement (CIP-002 R1/R2, CIP-012 R1,
+    CIP-013 R1, CIP-014 R4/R5/R6)."""
+    n = int(req[1:])
     out = []
-    for m in _CIP003_LEAF_RE.finditer(full_text):
-        topic = _norm(m.group(2))
-        # trim a trailing '(CIP-004);' style xref-only tail but keep it in text
-        out.append((m.group(1), topic.rstrip(" ;")))
+    for pid, body in _prose_items(_requirement_block(full, n), n):
+        out.append(
+            RequirementPart(
+                standard=standard,
+                version=version,
+                requirement=req,
+                part=pid,
+                verbatim_text=body,
+                measure_text="",
+                applicable_systems="",
+                table_name="",
+                vrf=lead[1],
+                time_horizon=lead[2],
+                source_pdf=pdf.name,
+                source_pages=[],
+            )
+        )
     return out
 
 
 def _cip003_r1_parts(
     standard: str, version: str, lead: tuple[str, str, str], full: str, pdf: Path
 ) -> list[RequirementPart]:
+    """CIP-003 R1's policy-topic list. Bespoke for two reasons the general prose
+    path does not cover: (1) only the leaves (1.1.1 … 1.2.7) are obligation-
+    bearing — the 1.1 / 1.2 level is applicability scoping, not a topic; (2) each
+    leaf's `applicable_systems` is derived from which sub-list it sits in (high +
+    medium vs. low impact). Uses `_prose_items` for the raw grab, then filters
+    and enriches."""
     parts = []
-    for pid, topic in _cip003_r1_leaves(full):
+    for pid, topic in _prose_items(_requirement_block(full, 1), 1):
+        if pid.count(".") != 2:  # keep leaves only; drop the 1.1 / 1.2 scoping level
+            continue
         impacts = (
             "high impact and medium impact BES Cyber Systems"
             if pid.startswith("1.1.")
@@ -160,7 +230,7 @@ def _cip003_r1_parts(
                 version=version,
                 requirement="R1",
                 part=pid,
-                verbatim_text=topic,
+                verbatim_text=topic.rstrip(" ;"),
                 measure_text="",
                 applicable_systems=impacts,
                 table_name="Cyber Security Policies",
@@ -171,6 +241,68 @@ def _cip003_r1_parts(
             )
         )
     return parts
+
+
+# ── CIP-002 Attachment 1 — Impact Rating Criteria ───────────────────────────
+_ATT1_SECTION_RE = re.compile(
+    r"(?m)^[ \t]*([123])\.[ \t]+((?:High|Medium|Low) Impact Rating[^\n]*)"
+)
+
+
+def _cip002_attachment1(standard: str, version: str, full: str, pdf: Path) -> list[RequirementPart]:
+    """The bright-line criteria (1.1–1.4 High, 2.x Medium, 3.x Low) that *define*
+    the impact ratings the whole CIP suite gates on. Not a compliance
+    requirement in itself, but the authoritative source for the register's
+    applicability dimension (TASK §1.4)."""
+    i = full.find("Attachment 1")
+    if i < 0:
+        return []
+    j = full.find("Appendix 1", i)
+    region = full[i : j if j > i else len(full)]
+    secs = list(_ATT1_SECTION_RE.finditer(region))
+    out: list[RequirementPart] = []
+    for k, sm in enumerate(secs):
+        tier = _norm(sm.group(2))  # "High Impact Rating (H)"
+        end = secs[k + 1].start() if k + 1 < len(secs) else len(region)
+        seg = region[sm.end() : end]
+        lead_m = re.match(r"\s*(.+?:)\s*\n", seg)
+        section_leadin = _norm(lead_m.group(1)) if lead_m else ""
+        # section parent node — verbatim text is the section lead-in sentence
+        # (a real sentence from the PDF), falling back to the tier heading.
+        out.append(
+            RequirementPart(
+                standard=standard,
+                version=version,
+                requirement=f"Attachment 1 Section {sm.group(1)}",
+                part="",
+                verbatim_text=section_leadin or tier,
+                measure_text="",
+                applicable_systems=tier,
+                table_name="Impact Rating Criteria",
+                vrf="",
+                time_horizon="",
+                source_pdf=pdf.name,
+                source_pages=[],
+            )
+        )
+        for pid, body in _prose_items(seg, int(sm.group(1))):
+            out.append(
+                RequirementPart(
+                    standard=standard,
+                    version=version,
+                    requirement="Attachment 1",
+                    part=pid,
+                    verbatim_text=body,
+                    measure_text="",
+                    applicable_systems=f"{tier} — {section_leadin}".rstrip(" —"),
+                    table_name="Impact Rating Criteria",
+                    vrf="",
+                    time_horizon="",
+                    source_pdf=pdf.name,
+                    source_pages=[],
+                )
+            )
+    return out
 
 
 def _table_parts(page, pi, standard, version, leadins, pdf, seen) -> list[RequirementPart]:
@@ -228,26 +360,48 @@ def extract_standard(pdf_path: str | Path) -> tuple[list[RequirementPart], dict]
         for pi, page in enumerate(d):
             parts.extend(_table_parts(page, pi, standard, version, leadins, pdf, seen))
 
-    # CIP-003 R1 policy-topic leaves (the one non-table case with leaf Parts).
-    # The R1 *statement* still carries the 15-calendar-month review obligation, so
-    # R1 is emitted at R-level AND its topic leaves as Parts.
+    # CIP-003 R1 policy-topic leaves (bespoke: leaves-only + impact enrichment).
     if standard == "CIP-003" and not any(p.requirement == "R1" and p.part for p in parts):
         parts.extend(
             _cip003_r1_parts(standard, version, leadins.get("R1", ("", "", "")), full, pdf)
         )
         seen.update((standard, p.part) for p in parts if p.requirement == "R1")
 
-    # requirements that have a lead-in but produced no obligation-bearing parts
-    # (part-less R, an unrecognised table, or CIP-003 R1 whose parts are topics)
+    # General prose numbered lists — any requirement the table pass left part-less
+    # whose lead-in ends in ':' (it is declaring that a list follows).
+    table_reqs = {p.requirement for p in parts if p.part}
+    for req, (lead, vrf, th) in leadins.items():
+        if req in table_reqs or (standard == "CIP-003" and req == "R1"):
+            continue
+        # a colon lead-in *declares* a list; a period lead-in may still carry one
+        # (CIP-014 R6). Run the extractor either way — the block is bounded, so a
+        # dry requirement simply yields nothing.
+        prose = _prose_list_parts(standard, version, req, (lead, vrf, th), full, pdf)
+        parts.extend(prose)
+        seen.update((standard, p.part) for p in prose)
+
+    # CIP-002 Attachment 1 — the impact-rating criteria the whole suite gates on.
+    if standard == "CIP-002":
+        parts.extend(_cip002_attachment1(standard, version, full, pdf))
+
+    # R-level bookkeeping: which requirements produced obligation-bearing parts.
     parts_by_req: dict[str, list[str]] = {}
     for p in parts:
+        if not re.fullmatch(r"R\d+", p.requirement):
+            continue  # Attachment nodes are not requirement-numbered
         if p.standard.startswith("CIP-003") and p.requirement == "R1":
             continue  # topic leaves don't count as covering R1
-        parts_by_req.setdefault(p.requirement, []).append(p.part)
+        if p.part:
+            parts_by_req.setdefault(p.requirement, []).append(p.part)
     partless = []
     for req, (lead, vrf, th) in leadins.items():
-        if req not in parts_by_req:
-            partless.append(req)
+        has_parts = req in parts_by_req
+        colon = lead.rstrip().endswith(":")
+        # emit an R-level node when the requirement is genuinely part-less OR
+        # when a colon lead-in needs its parent retained above its new Parts.
+        if not has_parts or colon or (standard == "CIP-003" and req == "R1"):
+            if not has_parts:
+                partless.append(req)
             parts.append(
                 RequirementPart(
                     standard=standard,
@@ -363,6 +517,8 @@ def assess_completeness(parts: list[RequirementPart]) -> dict:
     by_req: dict[str, list[RequirementPart]] = {}
     leadin_by_req: dict[str, RequirementPart] = {}
     for p in parts:
+        if not re.fullmatch(r"R\d+", p.requirement):
+            continue  # completeness is assessed per numbered requirement only
         if p.part:
             by_req.setdefault(p.requirement, []).append(p)
         else:
