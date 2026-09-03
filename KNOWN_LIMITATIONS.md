@@ -140,8 +140,8 @@ a regression.
 ### CIP register — version divergence, Attachment-part shortfall, newer versions published
 
 - **ID**: T3-COMPLIANCE-REG-001
-- **Status**: OPEN (documented). The engine flags all three below rather than
-  serving stale data silently; closing them is future work.
+- **Status**: items 1 and 2 RESOLVED; item 3 OPEN (documented). The engine
+  flags what remains rather than serving stale data silently.
 - **Description**:
   1. **Register vs the old map (RESOLVED 2026-09-03).** The pre-existing
      `nerc_cip_map.json` was 27 R-level entries with *paraphrased* titles, no
@@ -152,12 +152,20 @@ a regression.
      because there were two disagreeing sources of truth and no test comparing
      them. Fixed: the register is now derived, verbatim, Part-level, on the
      enforceable versions; `nerc_cip_map.json` is a generated view of it.
-  2. **Attachment / prose parts not extracted.** CIP-002, CIP-003, CIP-012,
-     CIP-013 carry their obligations in Attachment 1 or prose sub-sections, not
-     the `Table R<n>` format the extractor reads. The register has R-level
-     verbatim text for these (15 requirements) but **0 of their ~20 Attachment
-     parts**. A coverage matrix over these standards is R-level only. CIP-014's
-     R3 lead-in is fragmented in the PDF text and is missed.
+  2. **Attachment / prose parts not extracted (RESOLVED 2026-09-03,
+     TASK_CIP_REGISTER_COMPLETENESS_V1).** CIP-002/003/012/013/014 carry
+     obligations in Attachment 1 or a colon-terminated prose list, not the
+     `Table R<n>` the extractor read. The register held R-level text for these
+     and **0 Parts**, yet `n_missing` reported **0** — because it was a fidelity
+     round-trip over the extractor's own output, not a completeness check
+     (**the denominator was the numerator**). Fixed: `_prose_list_parts` +
+     `_cip002_attachment1` + `_cip003_attachment1` (register 152 → 254 nodes,
+     130 → 232 Parts); `assess_completeness` is a separate, document-derived
+     metric (colon-lead-in with no children; the document naming its own
+     children; numbering gaps) that never derives its denominator from the
+     extractor. `denominator_source` per standard is asserted never
+     `"extractor"`. **General lesson: a completeness metric computed by
+     iterating what you found is a fidelity metric.**
   3. **Newer versions are already published.** The Phase 8 currency probe
      (`nerc_cip_currency`) finds that **12 of 13** held standards have a newer
      version PDF live on nerc.com (CIP-002-7, CIP-003-10, CIP-004-8, …,
@@ -190,21 +198,24 @@ follow-on.
   ([[unit-compliance-change-pipeline]]) detects a Part-level change only where it
   is visible **in the register** — the verbatim requirement text, applicable-systems
   column, measure text or VRF differs between two versions, or a Part id
-  appears/disappears. Two classes escape it:
-  1. **Attachment / prose obligations.** A new Attachment 1 section — e.g.
-     CIP-003-9's Section 6 vendor electronic remote access program — is not a
-     register Part, so the diff cannot raise it. This is the T3 extraction
-     shortfall (`T3-COMPLIANCE-REG-001` item 2) inherited here.
+  appears/disappears. One class escapes it:
+  1. ~~**Attachment / prose obligations.**~~ **RESOLVED 2026-09-03**
+     (TASK_CIP_REGISTER_COMPLETENESS_V1). Attachment 1 sections and prose
+     part-lists are now register Parts, so a new section like CIP-003-9's
+     Section 6 (vendor electronic remote access) is raised as `PART_ADDED`.
+     `T3-COMPLIANCE-REG-001` item 2 is closed; diff-false-negatives vs the T4
+     ground truth: 1 → 0.
   2. **Implicit change with no textual delta.** Wording whose *meaning* shifted
      through a defined-term redefinition, a moved cross-reference, or an
      implementation-plan clarification, with the Part text itself unchanged.
      Comparable published work on versioned-document QA reports ~60% recall on
      this class; the pipeline is bounded by the same ceiling and is **not**
      measured as exhaustive.
-- **Verified transition**: `CIP-003-8 → CIP-003-9` — the diff catches the new
-  1.2.6 (Vendor electronic remote access) and the 1.2.6→1.2.7 renumber; it
-  misses Attachment 1 Section 6 (class 1 above), a known false negative recorded
-  in `reports/compliance/CHANGE_PIPELINE_V1.md`.
+- **Verified transition**: `CIP-003-8 → CIP-003-9` (re-run P4) — 22 rows,
+  6 substantive: the new 1.2.6 wording, the 1.2.6→1.2.7 renumber, **and
+  Attachment 1 Section 6 + 6.1–6.3 as `PART_ADDED`**. See
+  `reports/compliance/REGISTER_COMPLETENESS_V1.md` (supersedes the
+  `CHANGE_PIPELINE_V1.md` figures).
 
 ## Why
 

@@ -9,6 +9,13 @@ generated: 2026-09-03
 
 # Compliance engine V1 — rollup
 
+> **Superseded in part (2026-09-03):** the register counts (152 nodes / 99–130
+> Parts), the "0 `n_missing`" claim, coverage-matrix gap counts and "8/8 control
+> classes" below predate `TASK_CIP_REGISTER_COMPLETENESS_V1`, which found the
+> register materially incomplete and its `n_missing` a fidelity round-trip.
+> Corrected: 254 nodes / 232 Parts, a document-derived completeness metric
+> (0 holes), 11 control classes. See `reports/compliance/REGISTER_COMPLETENESS_V1.md`.
+
 A version-aware, Part-granular compliance reasoning engine — a **second
 composition** of the retrieval stage library (`compliance_*` tables only; no
 `kb_*` table touched). Not a RAG chatbot: temporal validity filters before

@@ -91,15 +91,21 @@ requirements).
 
 ## Verified transition
 
-`CIP-003-8 → CIP-003-9`: 13 diff rows — **1 `RENUMBERED`** (1.2.6→1.2.7,
-shift-insert), **2 substantive `LANGUAGE_CHANGED`** (new 1.2.6 "Vendor
-electronic remote access security controls"; R2 lead-in), **10 cosmetic**
-(U+2010 hyphen re-encoding on the 1.1.x topic list + a moved `; and`
-conjunction). The new vendor-remote-access **Attachment 1 Section 6** is a known
-false negative — Attachment content is the documented T3 Phase 1 extraction
-shortfall, not a diff-engine defect. See
+`CIP-003-8 → CIP-003-9` (re-run on the completeness-corrected register,
+TASK_CIP_REGISTER_COMPLETENESS_V1 P4 — original T4 numbers superseded, see
+`reports/compliance/REGISTER_COMPLETENESS_V1.md`): **22 diff rows, 6
+substantive, 16 cosmetic**. Substantive: `RENUMBERED` 1.2.6→1.2.7 (shift-insert);
+`LANGUAGE_CHANGED substantive` R1 1.2.6 ("Vendor electronic remote access
+security controls" replaces "CIP Exceptional Circumstances"); and **`PART_ADDED`
+× 4 — Attachment 1 Section 6 + 6.1–6.3**, the vendor-remote-access program. The
+T4-documented Attachment-1 Section 6 false negative is **resolved**: Attachment
+content is now in the register (`_cip003_attachment1`), so the diff raises it.
+Diff-false-negatives vs the T4 ground truth: 1 → 0. See
 [[unit-known-limitations-compliance-implicit-change-recall]] and
 [[unit-compliance-engine]].
+
+*(Original T4 record: 13 rows, 2 substantive, 11 cosmetic, Section 6 a
+false negative — kept as a correction, not deleted.)*
 
 ## Why
 

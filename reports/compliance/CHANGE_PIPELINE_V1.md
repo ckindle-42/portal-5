@@ -3,6 +3,14 @@
 `TASK_COMPLIANCE_CHANGE_PIPELINE_V1` (program `PROGRAM_RETRIEVAL_AND_COMPLIANCE_V1`
 track T4). Built on T3's register, mapping store, and coverage matrix.
 
+> **Superseded in part (2026-09-03):** the `CIP-003-8 → CIP-003-9` diff numbers
+> below (Phase 1 / Phase 3) were measured against an incomplete register.
+> `TASK_CIP_REGISTER_COMPLETENESS_V1` P4 re-ran the diff on the corrected
+> register: **22 rows, 6 substantive, 16 cosmetic**; the "Attachment 1 Section 6
+> false negative" is **resolved** (raised as `PART_ADDED`). See
+> `reports/compliance/REGISTER_COMPLETENESS_V1.md`. The originals are kept below
+> as a correction, not deleted.
+
 **Status:** delivered. `CIP-003-8 → CIP-003-9` produces a typed Part-level diff;
 every affected mapping has its validity closed with a `NEEDS_REVIEW` successor
 that does not inherit a verdict; prospective analysis is temporally segregated;

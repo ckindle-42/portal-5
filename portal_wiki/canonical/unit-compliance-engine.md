@@ -44,6 +44,12 @@ claims:
   contains: CIP-003-9
 - probe: compliance.register
   contains: CIP-012-2
+- probe: compliance.completeness
+  contains: "completeness_holes:0"
+- probe: compliance.completeness
+  contains: "denominator_self_derived:False"
+- probe: compliance.completeness
+  contains: "incomplete_standards:0"
 - probe: retrieval.compositions
   contains: portal/modules/compliance/tools/compliance_retrieval.py
 confidence: high
@@ -75,9 +81,15 @@ independent of ingest. `graph_memory`'s observation-time schema (`first_seen` /
 
 `cip_extract.extract_standard` pulls every `Table R<n>` row verbatim from the
 NERC CIP standard PDFs (line breaks reflowed, the PDF bullet glyph normalised —
-the words and their order are exactly the source's); `verify_parts` round-trips
-every extracted string back against the raw page text so a hole is visible as a
-hole. `cip_register.build_register` attaches lifecycle + validity from a
+the words and their order are exactly the source's), and — since
+TASK_CIP_REGISTER_COMPLETENESS_V1 — also `_prose_list_parts` /
+`_cip002_attachment1` / `_cip003_attachment1` for colon-terminated prose lists
+and Attachment 1 criteria. Two independent checks, never conflated:
+`verify_fidelity` round-trips every *extracted* string against the raw text;
+`assess_completeness` asks the opposite question from **document-derived**
+signals (a colon lead-in with no children; the document naming its own children;
+numbering gaps) and never takes its denominator from the extractor's own output.
+`cip_register.build_register` attaches lifecycle + validity from a
 public-record effective-date table and derives `HAS_REQUIREMENT`,
 `CROSS_REFERENCES`, `SUPERSEDES` / `SUPERSEDED_BY` edges.
 
@@ -88,12 +100,13 @@ record). Rebuild: `python -m portal.modules.compliance.core.cip_register build`.
 
 The old `nerc_cip_map.json` was 27 R-level entries with paraphrased titles and
 no requirement text, on the superseded CIP-003-8 / CIP-012-1. The register is
-**45 requirements, 99 verbatim Parts** across 8 regular-table standards
-(CIP-004/005/006/007/008/009/010/011) plus R-level verbatim for CIP-002 / -003 /
--012 / -013 / -014, whose obligations live in prose or an Attachment — those
-Attachment parts are the documented Phase 1 shortfall. Versions are resolved to
-the enforceable ones (CIP-003-9, CIP-012-2). `nerc_cip_map.json` is now a
-*derived* view of the register.
+**254 nodes, 232 verbatim Parts** across all 14 standard versions — the 8
+regular-table standards plus the prose-list / Attachment-1 obligations of
+CIP-002 / -003 / -012 / -013 / -014 that the table-only extractor missed
+(TASK_CIP_REGISTER_COMPLETENESS_V1: register 152 → 254; the completeness metric
+now reports **0** document-declared holes, `denominator_source` never
+`"extractor"`). Versions are resolved to the enforceable ones (CIP-003-9,
+CIP-012-2). `nerc_cip_map.json` is now a *derived* view of the register.
 
 `nerc_cip_requirement()` keeps its signature and answers at Part granularity
 (exact Part, or an R-level rollup of every Part).
@@ -137,13 +150,16 @@ prompt instruction.
 ## Verification + currency (Phases 7, 8)
 
 - `core/planted.py` + `data/planted_corpus/` — synthetic policies/procedures
-  written against the **public** NERC PDFs, one per control class (covered, hole,
-  aspirational, lexical, applicability, temporal, tier_conflict, deontic). Each
-  declares its target Part and expected coverage in a `<!-- PLANT -->` header.
-  The scorer's headline is **Full-Gap recall** (a missed gap destroys trust);
-  false-covered and false-gap are separate, never averaged; citation resolution
-  must be 1.000. `test_compliance_planted.py` — all eight classes pass, recall
-  1.0, citation 1.0.
+  written against the **public** NERC PDFs, one per control class — all 11
+  (covered, hole, aspirational, lexical, applicability, temporal, tier_conflict,
+  deontic, future_effective, implicit_change, cross_reference; the last three
+  added by TASK_CIP_REGISTER_COMPLETENESS_V1 P5). Each declares its target Part
+  and expected coverage in a `<!-- PLANT -->` header. The scorer's headline is
+  **Full-Gap recall** (a missed gap destroys trust); false-covered and false-gap
+  are separate, never averaged; citation resolution must be 1.000.
+  `test_compliance_planted.py` — recall 1.0 over the 4 planted holes on real
+  Parts, citation 1.0; the bitemporal / xref classes are checked by mechanism,
+  per-control, not folded into the aggregate.
 - `core/currency.py` — per-standard: our held version, whether a newer version
   PDF is published on nerc.com, and an explicit *verify the enforcement date*
   (the PDFs defer it to a separate Implementation Plan). `honest-BLOCKED` when
