@@ -1,0 +1,3782 @@
+{
+ "built_at": 0.0,
+ "lifecycle_source": "nerc.com/pa/Stand — FERC-approved enforcement dates (public record)",
+ "extraction_report": {
+  "n_standards": 13,
+  "n_nodes": 117,
+  "n_parts": 99,
+  "n_requirement_level": 18,
+  "n_verbatim_verified": 117,
+  "per_standard": {
+   "CIP-002-5.1a": {
+    "requirements": [
+     "R1",
+     "R2"
+    ],
+    "n_parts": 0,
+    "n_verified": 2,
+    "n_missing": 0,
+    "missing": [],
+    "partless_requirements": [
+     "R1",
+     "R2"
+    ],
+    "lifecycle": {
+     "state": "EFFECTIVE",
+     "valid_from": "2016-07-01",
+     "valid_to": null
+    }
+   },
+   "CIP-003-9": {
+    "requirements": [
+     "R1",
+     "R2",
+     "R3",
+     "R4"
+    ],
+    "n_parts": 0,
+    "n_verified": 4,
+    "n_missing": 0,
+    "missing": [],
+    "partless_requirements": [
+     "R1",
+     "R2",
+     "R3",
+     "R4"
+    ],
+    "lifecycle": {
+     "state": "EFFECTIVE",
+     "valid_from": "2024-04-01",
+     "valid_to": null,
+     "supersedes": "CIP-003-8"
+    }
+   },
+   "CIP-004-7": {
+    "requirements": [
+     "R1",
+     "R2",
+     "R3",
+     "R4",
+     "R5",
+     "R6"
+    ],
+    "n_parts": 19,
+    "n_verified": 19,
+    "n_missing": 0,
+    "missing": [],
+    "partless_requirements": [],
+    "lifecycle": {
+     "state": "EFFECTIVE",
+     "valid_from": "2024-04-01",
+     "valid_to": null
+    }
+   },
+   "CIP-005-7": {
+    "requirements": [
+     "R1",
+     "R2",
+     "R3"
+    ],
+    "n_parts": 12,
+    "n_verified": 12,
+    "n_missing": 0,
+    "missing": [],
+    "partless_requirements": [],
+    "lifecycle": {
+     "state": "EFFECTIVE",
+     "valid_from": "2024-04-01",
+     "valid_to": null
+    }
+   },
+   "CIP-006-6": {
+    "requirements": [
+     "R1",
+     "R2",
+     "R3"
+    ],
+    "n_parts": 13,
+    "n_verified": 14,
+    "n_missing": 0,
+    "missing": [],
+    "partless_requirements": [
+     "R3"
+    ],
+    "lifecycle": {
+     "state": "EFFECTIVE",
+     "valid_from": "2017-07-01",
+     "valid_to": null
+    }
+   },
+   "CIP-007-6": {
+    "requirements": [
+     "R1",
+     "R2",
+     "R3",
+     "R4",
+     "R5"
+    ],
+    "n_parts": 20,
+    "n_verified": 20,
+    "n_missing": 0,
+    "missing": [],
+    "partless_requirements": [],
+    "lifecycle": {
+     "state": "EFFECTIVE",
+     "valid_from": "2016-07-01",
+     "valid_to": null
+    }
+   },
+   "CIP-008-6": {
+    "requirements": [
+     "R1",
+     "R2",
+     "R3",
+     "R4"
+    ],
+    "n_parts": 10,
+    "n_verified": 11,
+    "n_missing": 0,
+    "missing": [],
+    "partless_requirements": [
+     "R3"
+    ],
+    "lifecycle": {
+     "state": "EFFECTIVE",
+     "valid_from": "2021-01-01",
+     "valid_to": null
+    }
+   },
+   "CIP-009-6": {
+    "requirements": [
+     "R1",
+     "R2",
+     "R3"
+    ],
+    "n_parts": 10,
+    "n_verified": 10,
+    "n_missing": 0,
+    "missing": [],
+    "partless_requirements": [],
+    "lifecycle": {
+     "state": "EFFECTIVE",
+     "valid_from": "2016-07-01",
+     "valid_to": null
+    }
+   },
+   "CIP-010-4": {
+    "requirements": [
+     "R1",
+     "R2",
+     "R3",
+     "R4"
+    ],
+    "n_parts": 11,
+    "n_verified": 12,
+    "n_missing": 0,
+    "missing": [],
+    "partless_requirements": [
+     "R4"
+    ],
+    "lifecycle": {
+     "state": "EFFECTIVE",
+     "valid_from": "2024-04-01",
+     "valid_to": null
+    }
+   },
+   "CIP-011-3": {
+    "requirements": [
+     "R1",
+     "R2"
+    ],
+    "n_parts": 4,
+    "n_verified": 4,
+    "n_missing": 0,
+    "missing": [],
+    "partless_requirements": [],
+    "lifecycle": {
+     "state": "EFFECTIVE",
+     "valid_from": "2024-04-01",
+     "valid_to": null
+    }
+   },
+   "CIP-012-2": {
+    "requirements": [
+     "R1"
+    ],
+    "n_parts": 0,
+    "n_verified": 1,
+    "n_missing": 0,
+    "missing": [],
+    "partless_requirements": [
+     "R1"
+    ],
+    "lifecycle": {
+     "state": "EFFECTIVE",
+     "valid_from": "2025-07-01",
+     "valid_to": null,
+     "supersedes": "CIP-012-1"
+    }
+   },
+   "CIP-013-2": {
+    "requirements": [
+     "R1",
+     "R2",
+     "R3"
+    ],
+    "n_parts": 0,
+    "n_verified": 3,
+    "n_missing": 0,
+    "missing": [],
+    "partless_requirements": [
+     "R1",
+     "R2",
+     "R3"
+    ],
+    "lifecycle": {
+     "state": "EFFECTIVE",
+     "valid_from": "2024-04-01",
+     "valid_to": null
+    }
+   },
+   "CIP-014-3": {
+    "requirements": [
+     "R1",
+     "R2",
+     "R4",
+     "R5",
+     "R6"
+    ],
+    "n_parts": 0,
+    "n_verified": 5,
+    "n_missing": 0,
+    "missing": [],
+    "partless_requirements": [
+     "R1",
+     "R2",
+     "R4",
+     "R5",
+     "R6"
+    ],
+    "lifecycle": {
+     "state": "EFFECTIVE",
+     "valid_from": "2022-01-01",
+     "valid_to": null
+    }
+   }
+  }
+ },
+ "nodes": [
+  {
+   "id": "CIP-002-5.1a R1",
+   "standard": "CIP-002-5.1a",
+   "version": "5.1a",
+   "requirement": "R1",
+   "part": "",
+   "verbatim_text": "Each Responsible Entity shall implement a process that considers each of the following assets for purposes of parts 1.1 through 1.3:",
+   "measure_text": "",
+   "applicable_systems": "",
+   "table_name": "",
+   "vrf": "High",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-002-5.1a.pdf",
+   "source_pages": [],
+   "recorded_at": 0.0,
+   "granularity": "requirement"
+  },
+  {
+   "id": "CIP-002-5.1a R2",
+   "standard": "CIP-002-5.1a",
+   "version": "5.1a",
+   "requirement": "R2",
+   "part": "",
+   "verbatim_text": "The Responsible Entity shall:",
+   "measure_text": "",
+   "applicable_systems": "",
+   "table_name": "",
+   "vrf": "Lower",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-002-5.1a.pdf",
+   "source_pages": [],
+   "recorded_at": 0.0,
+   "granularity": "requirement"
+  },
+  {
+   "id": "CIP-003-9 R1",
+   "standard": "CIP-003-9",
+   "version": "9",
+   "requirement": "R1",
+   "part": "",
+   "verbatim_text": "Each Responsible Entity shall review and obtain CIP Senior Manager approval at least once every 15 calendar months for one or more documented cyber security policies that collectively address the following topics:",
+   "measure_text": "",
+   "applicable_systems": "",
+   "table_name": "",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": "CIP-003-8",
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-003-9.pdf",
+   "source_pages": [],
+   "recorded_at": 0.0,
+   "granularity": "requirement"
+  },
+  {
+   "id": "CIP-003-9 R2",
+   "standard": "CIP-003-9",
+   "version": "9",
+   "requirement": "R2",
+   "part": "",
+   "verbatim_text": "Each Responsible Entity with at least one asset identified in CIP‐002 containing low impact BES Cyber Systems shall implement one or more documented cyber security CIP‐003‐9 ‐ Cyber Security — Security Management Controls 5 plan(s) for its low impact BES Cyber Systems that include the sections in Attachment 1.",
+   "measure_text": "",
+   "applicable_systems": "",
+   "table_name": "",
+   "vrf": "Lower",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": "CIP-003-8",
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-003-9.pdf",
+   "source_pages": [],
+   "recorded_at": 0.0,
+   "granularity": "requirement"
+  },
+  {
+   "id": "CIP-003-9 R3",
+   "standard": "CIP-003-9",
+   "version": "9",
+   "requirement": "R3",
+   "part": "",
+   "verbatim_text": "Each Responsible Entity shall identify a CIP Senior Manager by name and document any change within 30 calendar days of the change.",
+   "measure_text": "",
+   "applicable_systems": "",
+   "table_name": "",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": "CIP-003-8",
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-003-9.pdf",
+   "source_pages": [],
+   "recorded_at": 0.0,
+   "granularity": "requirement"
+  },
+  {
+   "id": "CIP-003-9 R4",
+   "standard": "CIP-003-9",
+   "version": "9",
+   "requirement": "R4",
+   "part": "",
+   "verbatim_text": "The Responsible Entity shall implement a documented process to delegate authority, unless no delegations are used. Where allowed by the CIP Standards, the CIP Senior Manager may delegate authority for specific actions to a delegate or delegates. These delegations shall be documented, including the name or title of the delegate, the specific actions delegated, and the date of the delegation; approved by the CIP Senior Manager; and updated within 30 days of any change to the delegation. Delegation changes do not need to be reinstated with a change to the delegator.",
+   "measure_text": "",
+   "applicable_systems": "",
+   "table_name": "",
+   "vrf": "Lower",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": "CIP-003-8",
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-003-9.pdf",
+   "source_pages": [],
+   "recorded_at": 0.0,
+   "granularity": "requirement"
+  },
+  {
+   "id": "CIP-004-7 R1 Part 1.1",
+   "standard": "CIP-004-7",
+   "version": "7",
+   "requirement": "R1",
+   "part": "1.1",
+   "verbatim_text": "Security awareness that, at least once each calendar quarter, reinforces cyber security practices (which may include associated physical security practices) for the Responsible Entity’s personnel who have authorized electronic or authorized unescorted physical access to BES Cyber Systems.",
+   "measure_text": "An example of evidence may include, but is not limited to, documentation that the quarterly reinforcement has been provided. Examples of evidence of reinforcement may include, but are not limited to, dated copies of information used to reinforce security awareness, as well as evidence of distribution, such as: • direct communications (for example, e-mails, memos, computer-based training); or • indirect communications (for example, posters, intranet, or brochures); or • management support and reinforcement (for example, presentations or meetings).",
+   "applicable_systems": "High Impact BES Cyber Systems Medium Impact BES Cyber Systems",
+   "table_name": "Security Awareness Program",
+   "vrf": "Lower",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-004-7.pdf",
+   "source_pages": [
+    5
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-004-7 R2 Part 2.1",
+   "standard": "CIP-004-7",
+   "version": "7",
+   "requirement": "R2",
+   "part": "2.1",
+   "verbatim_text": "Training content on: 2.1.1. Cyber security policies; 2.1.2. Physical access controls; 2.1.3. Electronic access controls; 2.1.4. The visitor control program; 2.1.5. Handling of BES Cyber System Information and its storage; 2.1.6. Identification of a Cyber Security Incident and initial notifications in accordance with the entity’s incident response plan; 2.1.7. Recovery plans for BES Cyber Systems; 2.1.8. Response to Cyber Security Incidents; and 2.1.9. Cyber security risks associated with a BES Cyber System’s electronic interconnectivity and interoperability with other Cyber Assets, including",
+   "measure_text": "Examples of evidence may include, but are not limited to, training material such as power point presentations, instructor notes, student notes, handouts, or other training materials.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Cyber Security Training Program",
+   "vrf": "Lower",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-004-7.pdf",
+   "source_pages": [
+    6
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-004-7 R2 Part 2.2",
+   "standard": "CIP-004-7",
+   "version": "7",
+   "requirement": "R2",
+   "part": "2.2",
+   "verbatim_text": "Require completion of the training specified in Part 2.1 prior to granting authorized electronic access and authorized unescorted physical access to applicable Cyber Assets, except during CIP Exceptional Circumstances.",
+   "measure_text": "Examples of evidence may include, but are not limited to, training records and documentation of when CIP Exceptional Circumstances were invoked.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Cyber Security Training Program",
+   "vrf": "Lower",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-004-7.pdf",
+   "source_pages": [
+    7
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-004-7 R2 Part 2.3",
+   "standard": "CIP-004-7",
+   "version": "7",
+   "requirement": "R2",
+   "part": "2.3",
+   "verbatim_text": "Require completion of the training specified in Part 2.1 at least once every 15 calendar months.",
+   "measure_text": "Examples of evidence may include, but are not limited to, dated individual training records.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Cyber Security Training Program",
+   "vrf": "Lower",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-004-7.pdf",
+   "source_pages": [
+    7
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-004-7 R3 Part 3.1",
+   "standard": "CIP-004-7",
+   "version": "7",
+   "requirement": "R3",
+   "part": "3.1",
+   "verbatim_text": "Process to confirm identity.",
+   "measure_text": "An example of evidence may include, but is not limited to, documentation of the Responsible Entity’s process to confirm identity.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Personnel Risk Assessment Program",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-004-7.pdf",
+   "source_pages": [
+    8
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-004-7 R3 Part 3.2",
+   "standard": "CIP-004-7",
+   "version": "7",
+   "requirement": "R3",
+   "part": "3.2",
+   "verbatim_text": "Process to perform a seven year criminal history records check as part of each personnel risk assessment that includes: 3.2.1. current residence, regardless of duration; and 3.2.2. other locations where, during the seven years immediately prior to the date of the criminal history records check, the subject has resided",
+   "measure_text": "An example of evidence may include, but is not limited to, documentation of the Responsible Entity’s process to perform a seven year criminal history records check.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; and",
+   "table_name": "Personnel Risk Assessment Program",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-004-7.pdf",
+   "source_pages": [
+    8
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-004-7 R3 Part 3.3",
+   "standard": "CIP-004-7",
+   "version": "7",
+   "requirement": "R3",
+   "part": "3.3",
+   "verbatim_text": "Criteria or process to evaluate criminal history records checks for authorizing access.",
+   "measure_text": "An example of evidence may include, but is not limited to, documentation of the Responsible Entity’s process to evaluate criminal history records checks.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Personnel Risk Assessment Program",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-004-7.pdf",
+   "source_pages": [
+    9
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-004-7 R3 Part 3.4",
+   "standard": "CIP-004-7",
+   "version": "7",
+   "requirement": "R3",
+   "part": "3.4",
+   "verbatim_text": "Criteria or process for verifying that personnel risk assessments performed for contractors or service vendors are conducted according to Parts 3.1 through 3.3.",
+   "measure_text": "An example of evidence may include, but is not limited to, documentation of the Responsible Entity’s criteria or process for verifying contractors or service vendors personnel risk assessments.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; and",
+   "table_name": "Personnel Risk Assessment Program",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-004-7.pdf",
+   "source_pages": [
+    9
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-004-7 R3 Part 3.5",
+   "standard": "CIP-004-7",
+   "version": "7",
+   "requirement": "R3",
+   "part": "3.5",
+   "verbatim_text": "Process to ensure that individuals with authorized electronic or authorized unescorted physical access have had a personnel risk assessment completed according to Parts 3.1 to 3.4 within the last seven years.",
+   "measure_text": "An example of evidence may include, but is not limited to, documentation of the Responsible Entity’s process for ensuring that individuals with authorized electronic or authorized unescorted physical access have had a personnel risk assessment completed within the last seven years.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Personnel Risk Assessment Program",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-004-7.pdf",
+   "source_pages": [
+    10
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-004-7 R4 Part 4.1",
+   "standard": "CIP-004-7",
+   "version": "7",
+   "requirement": "R4",
+   "part": "4.1",
+   "verbatim_text": "Process to authorize based on need, as determined by the Responsible Entity, except for CIP Exceptional Circumstances: 4.1.1. Electronic access; and 4.1.2. Unescorted physical access into a Physical Security Perimeter",
+   "measure_text": "An example of evidence may include, but is not limited to, dated documentation of the process to authorize electronic access, and unescorted physical access in a Physical Security Perimeter.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Access Management Program",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-004-7.pdf",
+   "source_pages": [
+    11
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-004-7 R4 Part 4.2",
+   "standard": "CIP-004-7",
+   "version": "7",
+   "requirement": "R4",
+   "part": "4.2",
+   "verbatim_text": "Verify at least once each calendar quarter that individuals with active electronic access or unescorted physical access have authorization records.",
+   "measure_text": "Examples of evidence may include, but are not limited to: • Dated documentation of the verification between the system generated list of individuals who have been authorized for access (i.e., workflow database) and a system generated list of personnel who have access (i.e., user account listing), or Dated documentation of the",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Access Management Program",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-004-7.pdf",
+   "source_pages": [
+    11
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-004-7 R4 Part 4.3",
+   "standard": "CIP-004-7",
+   "version": "7",
+   "requirement": "R4",
+   "part": "4.3",
+   "verbatim_text": "For electronic access, verify at least once every 15 calendar months that all user accounts, user account groups, or user role categories, and their specific, associated privileges are correct and are those that the Responsible Entity determines are necessary.",
+   "measure_text": "An example of evidence may include, but is not limited to, documentation of the review that includes all of the following: 1. A dated listing of all accounts/account groups or roles within the system; 2. A summary description of privileges associated with each group or role; 3. Accounts assigned to the group or role; and Dated evidence showing verification of the privileges for the group are authorized and appropriate to the work function performed by people assigned to each account.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Access Management Program",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-004-7.pdf",
+   "source_pages": [
+    12
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-004-7 R5 Part 5.1",
+   "standard": "CIP-004-7",
+   "version": "7",
+   "requirement": "R5",
+   "part": "5.1",
+   "verbatim_text": "A process to initiate removal of an individual’s ability for unescorted physical access and Interactive Remote Access upon a termination action, and complete the removals within 24 hours of the termination action (Removal of the ability for access may be different than deletion, disabling, revocation, or removal of all access rights).",
+   "measure_text": "An example of evidence may include, but is not limited to, documentation of all of the following: 1. Dated workflow or sign-off form verifying access removal associated with the termination action; and Logs or other demonstration showing such persons no longer have access.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Access Revocation",
+   "vrf": "Medium",
+   "time_horizon": "Same Day Operations and Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-004-7.pdf",
+   "source_pages": [
+    13
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-004-7 R5 Part 5.2",
+   "standard": "CIP-004-7",
+   "version": "7",
+   "requirement": "R5",
+   "part": "5.2",
+   "verbatim_text": "For reassignments or transfers, revoke the individual’s authorized electronic access to individual accounts and authorized unescorted physical access that the Responsible Entity determines are not necessary by the end of the next calendar day following the date that the Responsible Entity determines that the individual no longer requires retention of that access.",
+   "measure_text": "An example of evidence may include, but is not limited to, documentation of all of the following: 1. Dated workflow or sign-off form showing a review of logical and physical access; and Logs or other demonstration showing such persons no longer have access that the Responsible Entity determines is not necessary.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Access Revocation",
+   "vrf": "Medium",
+   "time_horizon": "Same Day Operations and Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-004-7.pdf",
+   "source_pages": [
+    13
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-004-7 R5 Part 5.3",
+   "standard": "CIP-004-7",
+   "version": "7",
+   "requirement": "R5",
+   "part": "5.3",
+   "verbatim_text": "For termination actions, revoke the individual’s non-shared user accounts",
+   "measure_text": "An example of evidence may include, but is not limited to, workflow or sign-",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated:",
+   "table_name": "Access Revocation",
+   "vrf": "Medium",
+   "time_horizon": "Same Day Operations and Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-004-7.pdf",
+   "source_pages": [
+    13
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-004-7 R5 Part 5.4",
+   "standard": "CIP-004-7",
+   "version": "7",
+   "requirement": "R5",
+   "part": "5.4",
+   "verbatim_text": "For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action. For reassignments or transfers, change passwords for shared account(s) known to the user within 30 calendar days following the date that the Responsible Entity determines that the individual no longer requires retention of that access. If the Responsible Entity determines and documents that extenuating operating circumstances require a longer time period, change the password(s) within 10 calendar days following the end of the operating circumstances.",
+   "measure_text": "Examples of evidence may include, but are not limited to: • Workflow or sign-off form showing password reset within 30 calendar days of the termination; • Workflow or sign-off form showing password reset within 30 calendar days of the reassignments or transfers; or Documentation of the extenuating operating circumstance and workflow or sign-off form showing password reset within 10 calendar days following the end of the operating circumstance.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: • EACMS",
+   "table_name": "Access Revocation",
+   "vrf": "Medium",
+   "time_horizon": "Same Day Operations and Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-004-7.pdf",
+   "source_pages": [
+    14
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-004-7 R6 Part 6.1",
+   "standard": "CIP-004-7",
+   "version": "7",
+   "requirement": "R6",
+   "part": "6.1",
+   "verbatim_text": "Prior to provisioning, authorize (unless already authorized according to Part 4.1.) based on need, as determined by the Responsible Entity, except for CIP Exceptional Circumstances: 6.1.1. Provisioned electronic access to electronic BCSI; and 6.1.2. Provisioned physical access to physical BCSI.",
+   "measure_text": "Examples of evidence may include, but are not limited to, individual records or lists that include who is authorized, the date of the authorization, and the justification of business need for the provisioned access.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Access Management for BES Cyber System Information",
+   "vrf": "Medium",
+   "time_horizon": "Same Day Operations and Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-004-7.pdf",
+   "source_pages": [
+    15
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-004-7 R6 Part 6.2",
+   "standard": "CIP-004-7",
+   "version": "7",
+   "requirement": "R6",
+   "part": "6.2",
+   "verbatim_text": "Verify at least once every 15 calendar months that all individuals with provisioned access to BCSI: 6.2.1. have an authorization record; and 6.2.2. still need the provisioned access to perform their current work functions, as determined by the Responsible Entity.",
+   "measure_text": "Examples of evidence may include, but are not limited to, the documentation of the review that includes all of the following: • List of authorized individuals; • List of individuals who have been provisioned access; • Verification that provisioned access is appropriate based on need; and • Documented reconciliation actions, if any.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Access Management for BES Cyber System Information",
+   "vrf": "Medium",
+   "time_horizon": "Same Day Operations and Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-004-7.pdf",
+   "source_pages": [
+    16
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-004-7 R6 Part 6.3",
+   "standard": "CIP-004-7",
+   "version": "7",
+   "requirement": "R6",
+   "part": "6.3",
+   "verbatim_text": "For termination actions, remove the individual’s ability to use provisioned access to BCSI (unless already revoked according to Part 5.1) by the end of the next calendar day following the effective date of the termination action.",
+   "measure_text": "Examples of dated evidence may include, but are not limited to, access revocation records associated with the terminations and dated within the next calendar day of the termination action.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Access Management for BES Cyber System Information",
+   "vrf": "Medium",
+   "time_horizon": "Same Day Operations and Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-004-7.pdf",
+   "source_pages": [
+    16
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-005-7 R1 Part 1.1",
+   "standard": "CIP-005-7",
+   "version": "7",
+   "requirement": "R1",
+   "part": "1.1",
+   "verbatim_text": "All applicable Cyber Assets connected to a network via a routable protocol shall reside within a defined ESP.",
+   "measure_text": "An example of evidence may include, but is not limited to, a list of all ESPs with all uniquely identifiable applicable Cyber Assets connected via a routable protocol within each ESP.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: • PCA Medium Impact BES Cyber Systems and their associated: • PCA",
+   "table_name": "Electronic Security Perimeter",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-005-7.pdf",
+   "source_pages": [
+    6
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-005-7 R1 Part 1.2",
+   "standard": "CIP-005-7",
+   "version": "7",
+   "requirement": "R1",
+   "part": "1.2",
+   "verbatim_text": "All External Routable Connectivity must be through an identified Electronic Access Point (EAP).",
+   "measure_text": "An example of evidence may include, but is not limited to, network diagrams showing all external routable communication paths and the identified EAPs.",
+   "applicable_systems": "High Impact BES Cyber Systems with External Routable Connectivity and their associated: • PCA Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: • PCA",
+   "table_name": "Electronic Security Perimeter",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-005-7.pdf",
+   "source_pages": [
+    6
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-005-7 R1 Part 1.3",
+   "standard": "CIP-005-7",
+   "version": "7",
+   "requirement": "R1",
+   "part": "1.3",
+   "verbatim_text": "Require inbound and outbound access permissions, including the reason for granting access, and deny all other access by default.",
+   "measure_text": "An example of evidence may include, but is not limited to, a list of rules (firewall, access control lists, etc.) that demonstrate that only permitted access is allowed and that each access rule has a documented reason.",
+   "applicable_systems": "Electronic Access Points for High Impact BES Cyber Systems Electronic Access Points for Medium Impact BES Cyber Systems",
+   "table_name": "Electronic Security Perimeter",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-005-7.pdf",
+   "source_pages": [
+    6
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-005-7 R1 Part 1.4",
+   "standard": "CIP-005-7",
+   "version": "7",
+   "requirement": "R1",
+   "part": "1.4",
+   "verbatim_text": "Where technically feasible, perform authentication when establishing Dial-up Connectivity with applicable Cyber Assets.",
+   "measure_text": "An example of evidence may include, but is not limited to, a documented process that describes how the Responsible Entity is providing authenticated access through each dial-up connection.",
+   "applicable_systems": "High Impact BES Cyber Systems with Dial- up Connectivity and their associated: • PCA Medium Impact BES Cyber Systems with Dial-up Connectivity and their associated: • PCA",
+   "table_name": "Electronic Security Perimeter",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-005-7.pdf",
+   "source_pages": [
+    7
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-005-7 R1 Part 1.5",
+   "standard": "CIP-005-7",
+   "version": "7",
+   "requirement": "R1",
+   "part": "1.5",
+   "verbatim_text": "Have one or more methods for detecting known or suspected malicious communications for both inbound and outbound communications.",
+   "measure_text": "An example of evidence may include, but is not limited to, documentation that malicious communications detection methods (e.g. intrusion detection system, application layer firewall, etc.) are implemented.",
+   "applicable_systems": "Electronic Access Points for High Impact BES Cyber Systems Electronic Access Points for Medium Impact BES Cyber Systems at Control Centers",
+   "table_name": "Electronic Security Perimeter",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-005-7.pdf",
+   "source_pages": [
+    7
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-005-7 R2 Part 2.1",
+   "standard": "CIP-005-7",
+   "version": "7",
+   "requirement": "R2",
+   "part": "2.1",
+   "verbatim_text": "For all Interactive Remote Access, utilize an Intermediate System such that the Cyber Asset initiating Interactive Remote Access does not directly access an applicable Cyber Asset.",
+   "measure_text": "Examples of evidence may include, but are not limited to, network diagrams or architecture documents.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: • PCA Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: • PCA",
+   "table_name": "Remote Access Management",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-005-7.pdf",
+   "source_pages": [
+    8
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-005-7 R2 Part 2.2",
+   "standard": "CIP-005-7",
+   "version": "7",
+   "requirement": "R2",
+   "part": "2.2",
+   "verbatim_text": "For all Interactive Remote Access sessions, utilize encryption that terminates at an Intermediate System.",
+   "measure_text": "An example of evidence may include, but is not limited to, architecture documents detailing where encryption initiates and terminates.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: • PCA Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: • PCA",
+   "table_name": "Remote Access Management",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-005-7.pdf",
+   "source_pages": [
+    8
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-005-7 R2 Part 2.3",
+   "standard": "CIP-005-7",
+   "version": "7",
+   "requirement": "R2",
+   "part": "2.3",
+   "verbatim_text": "Require multi-factor authentication for all Interactive Remote Access sessions.",
+   "measure_text": "An example of evidence may include, but is not limited to, architecture documents detailing the authentication factors used. Examples of authenticators may include, but are not limited to, • Something the individual knows such as passwords or PINs. This does not include User ID; • Something the individual has such as tokens, digital certificates, or smart cards; or • Something the individual is such as fingerprints, iris scans, or other biometric characteristics.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: • PCA Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: • PCA",
+   "table_name": "Remote Access Management",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-005-7.pdf",
+   "source_pages": [
+    9
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-005-7 R2 Part 2.4",
+   "standard": "CIP-005-7",
+   "version": "7",
+   "requirement": "R2",
+   "part": "2.4",
+   "verbatim_text": "Have one or more methods for determining active vendor remote access sessions (including Interactive Remote Access and system-to-system remote access).",
+   "measure_text": "Examples of evidence may include, but are not limited to, documentation of the methods used to determine active vendor remote access (including Interactive Remote Access and system- to-system remote access), such as: • Methods for accessing logged or monitoring information to determine active vendor remote access sessions; • Methods for monitoring activity (e.g. connection tables or rule hit counters in a firewall, or user activity monitoring) or open ports (e.g. netstat or related commands to display currently active ports) to determine active system to system remote access sessions; or • Methods that control vendor initiation of remote access such as vendors calling and requesting a second factor in order to initiate remote access.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: • PCA Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: • PCA",
+   "table_name": "Remote Access Management",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-005-7.pdf",
+   "source_pages": [
+    10
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-005-7 R2 Part 2.5",
+   "standard": "CIP-005-7",
+   "version": "7",
+   "requirement": "R2",
+   "part": "2.5",
+   "verbatim_text": "Have one or more method(s) to disable active vendor remote access (including Interactive Remote Access and system- to-system remote access).",
+   "measure_text": "Examples of evidence may include, but are not limited to, documentation of the methods(s) used to disable active vendor remote access (including Interactive Remote Access and system-to-system remote access), such as: • Methods to disable vendor remote access at the applicable Electronic Access Point for system- to-system remote access; or • Methods to disable vendor Interactive Remote Access at the applicable Intermediate System.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: • PCA Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: • PCA",
+   "table_name": "Remote Access Management",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-005-7.pdf",
+   "source_pages": [
+    11
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-005-7 R3 Part 3.1",
+   "standard": "CIP-005-7",
+   "version": "7",
+   "requirement": "R3",
+   "part": "3.1",
+   "verbatim_text": "Have one or more method(s) to determine authenticated vendor- initiated remote connections.",
+   "measure_text": "Examples of evidence may include, but are not limited to, documentation of the methods used to determine authenticated vendor-initiated remote connections, such as: • Methods for accessing logged or monitoring information to determine authenticated vendor- initiated remote connections.",
+   "applicable_systems": "EACMS and PACS associated with High Impact BES Cyber Systems EACMS and PACS associated with Medium Impact BES Cyber Systems with External Routable Connectivity",
+   "table_name": "Vendor Remote Access Management for EACMS and PACS",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-005-7.pdf",
+   "source_pages": [
+    12
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-005-7 R3 Part 3.2",
+   "standard": "CIP-005-7",
+   "version": "7",
+   "requirement": "R3",
+   "part": "3.2",
+   "verbatim_text": "Have one or more method(s) to terminate authenticated vendor-initiated remote connections and control the ability to reconnect.",
+   "measure_text": "Examples of evidence may include, but are not limited to, documentation of the methods(s) used to terminate authenticated vendor-initiated remote connections to applicable systems. Examples include terminating an active vendor-initiated shell/process/session or dropping an active vendor-initiated connection in a firewall. Methods to control the ability to reconnect, if necessary, could be: disabling an Active Directory account; disabling a security token; restricting IP addresses from vendor sources in a firewall; or physically disconnecting a network cable to prevent a reconnection.",
+   "applicable_systems": "EACMS and PACS associated with High Impact BES Cyber Systems EACMS and PACS associated with Medium Impact BES Cyber Systems with External Routable Connectivity",
+   "table_name": "Vendor Remote Access Management for EACMS and PACS",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-005-7.pdf",
+   "source_pages": [
+    12
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-006-6 R1 Part 1.1",
+   "standard": "CIP-006-6",
+   "version": "6",
+   "requirement": "R1",
+   "part": "1.1",
+   "verbatim_text": "Define operational or procedural controls to restrict physical access.",
+   "measure_text": "An example of evidence may include, but is not limited to, documentation that operational or procedural controls exist.",
+   "applicable_systems": "Medium Impact BES Cyber Systems without External Routable Connectivity Physical Access Control Systems (PACS) associated with: - High Impact BES Cyber Systems, or - Medium Impact BES Cyber Systems with External Routable Connectivity",
+   "table_name": "Physical Security Pl an",
+   "vrf": "Medium",
+   "time_horizon": "Long Term Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2017-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-006-6.pdf",
+   "source_pages": [
+    6
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-006-6 R1 Part 1.2",
+   "standard": "CIP-006-6",
+   "version": "6",
+   "requirement": "R1",
+   "part": "1.2",
+   "verbatim_text": "Utilize at least one physical access control to allow unescorted physical access into each applicable Physical Security Perimeter to only those individuals who have authorized unescorted physical access.",
+   "measure_text": "An example of evidence may include, but is not limited to, language in the physical security plan that describes each Physical Security Perimeter and how unescorted physical access is controlled by one or more different methods and proof that unescorted physical access is restricted to only authorized individuals, such as a list of authorized individuals accompanied by access logs.",
+   "applicable_systems": "Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; and 2. PCA",
+   "table_name": "Physical Security Pl an",
+   "vrf": "Medium",
+   "time_horizon": "Long Term Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2017-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-006-6.pdf",
+   "source_pages": [
+    6
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-006-6 R1 Part 1.3",
+   "standard": "CIP-006-6",
+   "version": "6",
+   "requirement": "R1",
+   "part": "1.3",
+   "verbatim_text": "Where technically feasible, utilize two or more different physical access controls (this does not require two completely independent physical access control systems) to collectively allow unescorted physical access into Physical Security Perimeters to only those individuals who have authorized unescorted physical access.",
+   "measure_text": "An example of evidence may include, but is not limited to, language in the physical security plan that describes the Physical Security Perimeters and how unescorted physical access is controlled by two or more different methods and proof that unescorted physical access is restricted to only authorized individuals, such as a list of authorized individuals accompanied by access logs.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PCA",
+   "table_name": "Physical Security Pl an",
+   "vrf": "Medium",
+   "time_horizon": "Long Term Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2017-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-006-6.pdf",
+   "source_pages": [
+    7
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-006-6 R1 Part 1.4",
+   "standard": "CIP-006-6",
+   "version": "6",
+   "requirement": "R1",
+   "part": "1.4",
+   "verbatim_text": "Monitor for unauthorized access through a physical access point into a Physical Security Perimeter.",
+   "measure_text": "An example of evidence may include, but is not limited to, documentation of controls that monitor for unauthorized access through a physical access point into a Physical Security Perimeter.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PCA Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; and 2. PCA",
+   "table_name": "Physical Security Pl an",
+   "vrf": "Medium",
+   "time_horizon": "Long Term Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2017-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-006-6.pdf",
+   "source_pages": [
+    7
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-006-6 R1 Part 1.5",
+   "standard": "CIP-006-6",
+   "version": "6",
+   "requirement": "R1",
+   "part": "1.5",
+   "verbatim_text": "Issue an alarm or alert in response to detected unauthorized access through a physical access point into a Physical Security Perimeter to the personnel identified in the BES Cyber Security Incident response plan within 15 minutes of detection.",
+   "measure_text": "An example of evidence may include, but is not limited to, language in the physical security plan that describes the issuance of an alarm or alert in response to unauthorized access through a physical access control into a Physical Security Perimeter and additional evidence that the alarm or alert was issued and communicated as identified in the BES Cyber Security Incident Response Plan, such as manual or electronic alarm or alert logs, cell phone or pager logs, or other evidence that documents that the alarm or alert was generated and communicated.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PCA Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; and 2. PCA",
+   "table_name": "Physical Security Pl an",
+   "vrf": "Medium",
+   "time_horizon": "Long Term Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2017-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-006-6.pdf",
+   "source_pages": [
+    8
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-006-6 R1 Part 1.6",
+   "standard": "CIP-006-6",
+   "version": "6",
+   "requirement": "R1",
+   "part": "1.6",
+   "verbatim_text": "Monitor each Physical Access Control System for unauthorized physical access to a Physical Access Control System.",
+   "measure_text": "An example of evidence may include, but is not limited to, documentation of controls that monitor for unauthorized physical access to a PACS.",
+   "applicable_systems": "Physical Access Control Systems (PACS) associated with: - High Impact BES Cyber Systems, or - Medium Impact BES Cyber Systems with External Routable Connectivity",
+   "table_name": "Physical Security Pl an",
+   "vrf": "Medium",
+   "time_horizon": "Long Term Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2017-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-006-6.pdf",
+   "source_pages": [
+    8
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-006-6 R1 Part 1.7",
+   "standard": "CIP-006-6",
+   "version": "6",
+   "requirement": "R1",
+   "part": "1.7",
+   "verbatim_text": "Issue an alarm or alert in response to detected unauthorized physical access to a Physical Access Control System to the personnel identified in the BES Cyber Security Incident response plan within 15 minutes of the detection.",
+   "measure_text": "An example of evidence may include, but is not limited to, language in the physical security plan that describes the issuance of an alarm or alert in response to unauthorized physical access to Physical Access Control Systems and additional evidence that the alarm or alerts was issued and communicated as identified in the BES Cyber Security Incident Response Plan, such as alarm or alert logs, cell phone or pager logs, or other evidence that the alarm or alert was generated and communicated.",
+   "applicable_systems": "Physical Access Control Systems (PACS) associated with: - High Impact BES Cyber Systems, or - Medium Impact BES Cyber Systems with External Routable Connectivity",
+   "table_name": "Physical Security Pl an",
+   "vrf": "Medium",
+   "time_horizon": "Long Term Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2017-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-006-6.pdf",
+   "source_pages": [
+    9
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-006-6 R1 Part 1.8",
+   "standard": "CIP-006-6",
+   "version": "6",
+   "requirement": "R1",
+   "part": "1.8",
+   "verbatim_text": "Log (through automated means or by personnel who control entry) entry of each individual with authorized unescorted physical access into each Physical Security Perimeter, with information to identify the individual and date and time of entry.",
+   "measure_text": "An example of evidence may include, but is not limited to, language in the physical security plan that describes logging and recording of physical entry into each Physical Security Perimeter and additional evidence to demonstrate that this logging has been implemented, such as logs of physical access into Physical Security Perimeters that show the individual and the date and time of entry into Physical Security Perimeter.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PCA Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; and 2. PCA",
+   "table_name": "Physical Security Pl an",
+   "vrf": "Medium",
+   "time_horizon": "Long Term Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2017-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-006-6.pdf",
+   "source_pages": [
+    9
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-006-6 R1 Part 1.9",
+   "standard": "CIP-006-6",
+   "version": "6",
+   "requirement": "R1",
+   "part": "1.9",
+   "verbatim_text": "Retain physical access logs of entry of individuals with authorized unescorted physical access into each Physical Security Perimeter for at least ninety calendar days.",
+   "measure_text": "An example of evidence may include, but is not limited to, dated documentation such as logs of physical access into Physical Security Perimeters that show the date and time of entry into Physical Security Perimeter.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PCA Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; and 2. PCA",
+   "table_name": "Physical Security Pl an",
+   "vrf": "Medium",
+   "time_horizon": "Long Term Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2017-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-006-6.pdf",
+   "source_pages": [
+    9
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-006-6 R1 Part 1.10",
+   "standard": "CIP-006-6",
+   "version": "6",
+   "requirement": "R1",
+   "part": "1.10",
+   "verbatim_text": "Restrict physical access to cabling and other nonprogrammable communication components used for connection between applicable Cyber Assets within the same Electronic Security Perimeter in those instances when such cabling and components are located outside of a Physical Security Perimeter. Where physical access restrictions to such cabling and components are not implemented, the Responsible Entity shall document and implement one or more of the following: - encryption of data that transits such cabling and components; or - monitoring the status of the communication link composed of such cabling and components and issuing an alarm or alert in response to detected communication failures to the personnel identified in the BES Cyber Security Incident response plan within 15 minutes of detection; or - an equally effective logical protection.",
+   "measure_text": "An example of evidence may include, but is not limited to, records of the Responsible Entity’s implementation of the physical access restrictions (e.g., cabling and components secured through conduit or secured cable trays) encryption, monitoring, or equally effective logical protections.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: - PCA Medium Impact BES Cyber Systems at Control Centers and their associated: - PCA",
+   "table_name": "Physical Security Pl an",
+   "vrf": "Medium",
+   "time_horizon": "Long Term Planning and Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2017-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-006-6.pdf",
+   "source_pages": [
+    10
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-006-6 R2 Part 2.1",
+   "standard": "CIP-006-6",
+   "version": "6",
+   "requirement": "R2",
+   "part": "2.1",
+   "verbatim_text": "Require continuous escorted access of visitors (individuals who are provided access but are not authorized for unescorted physical access) within each Physical Security Perimeter, except during CIP Exceptional Circumstances.",
+   "measure_text": "An example of evidence may include, but is not limited to, language in a visitor control program that requires continuous escorted access of visitors within Physical Security Perimeters and additional evidence to demonstrate that the process was implemented, such as visitor logs.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PCA Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; and 2. PCA",
+   "table_name": "Visitor Control Program",
+   "vrf": "Medium",
+   "time_horizon": "Same Day Operations.",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2017-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-006-6.pdf",
+   "source_pages": [
+    11
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-006-6 R2 Part 2.2",
+   "standard": "CIP-006-6",
+   "version": "6",
+   "requirement": "R2",
+   "part": "2.2",
+   "verbatim_text": "Require manual or automated logging of visitor entry into and exit from the Physical Security Perimeter that includes date and time of the initial entry and last exit, the visitor’s name, and the name of an individual point of contact responsible for the visitor, except during CIP Exceptional Circumstances.",
+   "measure_text": "An example of evidence may include, but is not limited to, language in a visitor control program that requires continuous escorted access of visitors within Physical Security Perimeters and additional evidence to demonstrate that the process was implemented, such as dated visitor logs that include the required information.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PCA Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; and 2. PCA",
+   "table_name": "Visitor Control Program",
+   "vrf": "Medium",
+   "time_horizon": "Same Day Operations.",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2017-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-006-6.pdf",
+   "source_pages": [
+    11
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-006-6 R2 Part 2.3",
+   "standard": "CIP-006-6",
+   "version": "6",
+   "requirement": "R2",
+   "part": "2.3",
+   "verbatim_text": "Retain visitor logs for at least ninety calendar days.",
+   "measure_text": "An example of evidence may include, but is not limited to, documentation showing logs have been retained for at least ninety calendar days.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PCA Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; and 2. PCA",
+   "table_name": "Visitor Control Program",
+   "vrf": "Medium",
+   "time_horizon": "Same Day Operations.",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2017-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-006-6.pdf",
+   "source_pages": [
+    12
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-006-6 R3",
+   "standard": "CIP-006-6",
+   "version": "6",
+   "requirement": "R3",
+   "part": "",
+   "verbatim_text": "Each Responsible Entity shall implement one or more documented Physical Access Control System maintenance and testing program(s) that collectively include each of the applicable requirement parts in CIP‐006‐6 Table R3 – Maintenance and Testing Program.",
+   "measure_text": "",
+   "applicable_systems": "",
+   "table_name": "",
+   "vrf": "Medium",
+   "time_horizon": "Long Term Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2017-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-006-6.pdf",
+   "source_pages": [],
+   "recorded_at": 0.0,
+   "granularity": "requirement"
+  },
+  {
+   "id": "CIP-007-6 R1 Part 1.1",
+   "standard": "CIP-007-6",
+   "version": "6",
+   "requirement": "R1",
+   "part": "1.1",
+   "verbatim_text": "Where technically feasible, enable only logical network accessible ports that have been determined to be needed by the Responsible Entity, including port ranges or services where needed to handle dynamic ports. If a device has no provision for disabling or restricting logical ports on the device then those ports that are open are deemed needed.",
+   "measure_text": "Examples of evidence may include, but are not limited to: - Documentation of the need for all enabled ports on all applicable Cyber Assets and Electronic Access Points, individually or by group. - Listings of the listening ports on the Cyber Assets, individually or by group, from either the device configuration files, command output (such as netstat), or network scans of open ports; or - Configuration files of host- based firewalls or other device level mechanisms that only allow needed ports and deny all others.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "Ports and Services",
+   "vrf": "Medium",
+   "time_horizon": "Same Day Operations.",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-007-6.pdf",
+   "source_pages": [
+    7
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-007-6 R1 Part 1.2",
+   "standard": "CIP-007-6",
+   "version": "6",
+   "requirement": "R1",
+   "part": "1.2",
+   "verbatim_text": "Protect against the use of unnecessary physical input/output ports used for network connectivity, console commands, or Removable Media.",
+   "measure_text": "An example of evidence may include, but is not limited to, documentation showing types of protection of physical input/output ports, either logically through system configuration or physically using a port lock or signage.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. PCA; and 2. Nonprogrammable communication components located inside both a PSP and an ESP. Medium Impact BES Cyber Systems at Control Centers and their associated: 1. PCA; and 2. Nonprogrammable communication components located inside both a PSP and an ESP.",
+   "table_name": "Ports and Services",
+   "vrf": "Medium",
+   "time_horizon": "Same Day Operations.",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-007-6.pdf",
+   "source_pages": [
+    8
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-007-6 R2 Part 2.1",
+   "standard": "CIP-007-6",
+   "version": "6",
+   "requirement": "R2",
+   "part": "2.1",
+   "verbatim_text": "A patch management process for tracking, evaluating, and installing cyber security patches for applicable Cyber Assets. The tracking portion shall include the identification of a source or sources that the Responsible Entity tracks for the release of cyber security patches for applicable Cyber Assets that are updateable and for which a patching source exists.",
+   "measure_text": "An example of evidence may include, but is not limited to, documentation of a patch management process and documentation or lists of sources that are monitored, whether on an individual BES Cyber System or Cyber Asset basis.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "Security Patch Management",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-007-6.pdf",
+   "source_pages": [
+    9
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-007-6 R2 Part 2.2",
+   "standard": "CIP-007-6",
+   "version": "6",
+   "requirement": "R2",
+   "part": "2.2",
+   "verbatim_text": "At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.1.",
+   "measure_text": "An example of evidence may include, but is not limited to, an evaluation conducted by, referenced by, or on behalf of a Responsible Entity of security-related patches released by the documented sources at least once every 35 calendar days.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "Security Patch Management",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-007-6.pdf",
+   "source_pages": [
+    10
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-007-6 R2 Part 2.3",
+   "standard": "CIP-007-6",
+   "version": "6",
+   "requirement": "R2",
+   "part": "2.3",
+   "verbatim_text": "For applicable patches identified in Part 2.2, within 35 calendar days of the evaluation completion, take one of the following actions: - Apply the applicable patches; or - Create a dated mitigation plan; or - Revise an existing mitigation plan. Mitigation plans shall include the Responsible Entity’s planned actions to mitigate the vulnerabilities addressed by each security patch and a timeframe to complete these mitigations.",
+   "measure_text": "Examples of evidence may include, but are not limited to: - Records of the installation of the patch (e.g., exports from automated patch management tools that provide installation date, verification of BES Cyber System Component software revision, or registry exports that show software has been installed); or - A dated plan showing when and how the vulnerability will be addressed, to include documentation of the actions to be taken by the Responsible Entity to mitigate the vulnerabilities addressed by the security patch and a timeframe for the completion of these mitigations.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "Security Patch Management",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-007-6.pdf",
+   "source_pages": [
+    11
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-007-6 R2 Part 2.4",
+   "standard": "CIP-007-6",
+   "version": "6",
+   "requirement": "R2",
+   "part": "2.4",
+   "verbatim_text": "For each mitigation plan created or revised in Part 2.3, implement the plan within the timeframe specified in the plan, unless a revision to the plan or an extension to the timeframe specified in Part 2.3 is approved by the CIP Senior Manager or delegate.",
+   "measure_text": "An example of evidence may include, but is not limited to, records of implementation of mitigations.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "Security Patch Management",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-007-6.pdf",
+   "source_pages": [
+    12
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-007-6 R3 Part 3.1",
+   "standard": "CIP-007-6",
+   "version": "6",
+   "requirement": "R3",
+   "part": "3.1",
+   "verbatim_text": "Deploy method(s) to deter, detect, or prevent malicious code.",
+   "measure_text": "An example of evidence may include, but is not limited to, records of the Responsible Entity’s performance of these processes (e.g., through traditional antivirus, system hardening, policies, etc.).",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "Malicious Code Prevention",
+   "vrf": "Medium",
+   "time_horizon": "Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-007-6.pdf",
+   "source_pages": [
+    13
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-007-6 R3 Part 3.2",
+   "standard": "CIP-007-6",
+   "version": "6",
+   "requirement": "R3",
+   "part": "3.2",
+   "verbatim_text": "Mitigate the threat of detected malicious code.",
+   "measure_text": "Examples of evidence may include, but are not limited to: - Records of response processes for malicious code detection - Records of the performance of these processes when malicious code is detected.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "Malicious Code Prevention",
+   "vrf": "Medium",
+   "time_horizon": "Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-007-6.pdf",
+   "source_pages": [
+    14
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-007-6 R3 Part 3.3",
+   "standard": "CIP-007-6",
+   "version": "6",
+   "requirement": "R3",
+   "part": "3.3",
+   "verbatim_text": "For those methods identified in Part 3.1 that use signatures or patterns, have a process for the update of the signatures or patterns. The process must address testing and installing the signatures or patterns.",
+   "measure_text": "An example of evidence may include, but is not limited to, documentation showing the process used for the update of signatures or patterns.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "Malicious Code Prevention",
+   "vrf": "Medium",
+   "time_horizon": "Same Day Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-007-6.pdf",
+   "source_pages": [
+    14
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-007-6 R4 Part 4.1",
+   "standard": "CIP-007-6",
+   "version": "6",
+   "requirement": "R4",
+   "part": "4.1",
+   "verbatim_text": "Log events at the BES Cyber System level (per BES Cyber System capability) or at the Cyber Asset level (per Cyber Asset capability) for identification of, and after-the-fact investigations of, Cyber Security Incidents that includes, as a minimum, each of the following types of events: 4.1.1. Detected successful login attempts; 4.1.2. Detected failed access attempts and failed login attempts; 4.1.3. Detected malicious code.",
+   "measure_text": "Examples of evidence may include, but are not limited to, a paper or system generated listing of event types for which the BES Cyber System is capable of detecting and, for generated events, is configured to log. This listing must include the required types of events.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "Security Event Monitoring",
+   "vrf": "Medium",
+   "time_horizon": "Same Day Operations and Operations Assessment.",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-007-6.pdf",
+   "source_pages": [
+    15
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-007-6 R4 Part 4.2",
+   "standard": "CIP-007-6",
+   "version": "6",
+   "requirement": "R4",
+   "part": "4.2",
+   "verbatim_text": "Generate alerts for security events that the Responsible Entity determines necessitates an alert, that includes, as a minimum, each of the following types of events (per Cyber Asset or BES Cyber System capability): 4.2.1. Detected malicious code from Part 4.1; and 4.2.2. Detected failure of Part 4.1 event logging.",
+   "measure_text": "Examples of evidence may include, but are not limited to, paper or system- generated listing of security events that the Responsible Entity determined necessitate alerts, including paper or system generated list showing how alerts are configured.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "Security Event Monitoring",
+   "vrf": "Medium",
+   "time_horizon": "Same Day Operations and Operations Assessment.",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-007-6.pdf",
+   "source_pages": [
+    16
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-007-6 R4 Part 4.3",
+   "standard": "CIP-007-6",
+   "version": "6",
+   "requirement": "R4",
+   "part": "4.3",
+   "verbatim_text": "Where technically feasible, retain applicable event logs identified in Part 4.1 for at least the last 90 consecutive calendar days except under CIP Exceptional Circumstances.",
+   "measure_text": "Examples of evidence may include, but are not limited to, documentation of the event log retention process and paper or system generated reports showing log retention configuration set at 90 days or greater.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems at Control Centers and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "Security Event Monitoring",
+   "vrf": "Medium",
+   "time_horizon": "Same Day Operations and Operations Assessment.",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-007-6.pdf",
+   "source_pages": [
+    17
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-007-6 R4 Part 4.4",
+   "standard": "CIP-007-6",
+   "version": "6",
+   "requirement": "R4",
+   "part": "4.4",
+   "verbatim_text": "Review a summarization or sampling of logged events as determined by the Responsible Entity at intervals no greater than 15 calendar days to identify undetected Cyber Security Incidents.",
+   "measure_text": "Examples of evidence may include, but are not limited to, documentation describing the review, any findings from the review (if any), and dated documentation showing the review occurred.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PCA",
+   "table_name": "Security Event Monitoring",
+   "vrf": "Medium",
+   "time_horizon": "Same Day Operations and Operations Assessment.",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-007-6.pdf",
+   "source_pages": [
+    17
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-007-6 R5 Part 5.1",
+   "standard": "CIP-007-6",
+   "version": "6",
+   "requirement": "R5",
+   "part": "5.1",
+   "verbatim_text": "Have a method(s) to enforce authentication of interactive user access, where technically feasible.",
+   "measure_text": "An example of evidence may include, but is not limited to, documentation describing how access is authenticated.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems at Control Centers and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "System Access Control",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-007-6.pdf",
+   "source_pages": [
+    19
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-007-6 R5 Part 5.2",
+   "standard": "CIP-007-6",
+   "version": "6",
+   "requirement": "R5",
+   "part": "5.2",
+   "verbatim_text": "Identify and inventory all known enabled default or other generic account types, either by system, by groups of systems, by location, or by system type(s).",
+   "measure_text": "An example of evidence may include, but is not limited to, a listing of accounts by account types showing the enabled or generic account types in use for the BES Cyber System.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "System Access Control",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-007-6.pdf",
+   "source_pages": [
+    20
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-007-6 R5 Part 5.3",
+   "standard": "CIP-007-6",
+   "version": "6",
+   "requirement": "R5",
+   "part": "5.3",
+   "verbatim_text": "Identify individuals who have authorized access to shared accounts.",
+   "measure_text": "An example of evidence may include, but is not limited to, listing of shared accounts and the individuals who have authorized access to each shared account.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "System Access Control",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-007-6.pdf",
+   "source_pages": [
+    21
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-007-6 R5 Part 5.4",
+   "standard": "CIP-007-6",
+   "version": "6",
+   "requirement": "R5",
+   "part": "5.4",
+   "verbatim_text": "Change known default passwords, per Cyber Asset capability",
+   "measure_text": "Examples of evidence may include, but are not limited to: - Records of a procedure that passwords are changed when new devices are in production; or - Documentation in system manuals or other vendor documents showing default vendor passwords were generated pseudo-randomly and are thereby unique to the device.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "System Access Control",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-007-6.pdf",
+   "source_pages": [
+    22
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-007-6 R5 Part 5.5",
+   "standard": "CIP-007-6",
+   "version": "6",
+   "requirement": "R5",
+   "part": "5.5",
+   "verbatim_text": "For password-only authentication for interactive user access, either technically or procedurally enforce the following password parameters: 5.5.1. Password length that is, at least, the lesser of eight characters or the maximum length supported by the Cyber Asset; and 5.5.2. Minimum password complexity that is the lesser of three or more different types of characters (e.g., uppercase alphabetic, lowercase alphabetic, numeric, non- alphanumeric) or the maximum complexity supported by the Cyber Asset.",
+   "measure_text": "Examples of evidence may include, but are not limited to: - System-generated reports or screen-shots of the system- enforced password parameters, including length and complexity; or - Attestations that include a reference to the documented procedures that were followed.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "System Access Control",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-007-6.pdf",
+   "source_pages": [
+    23
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-007-6 R5 Part 5.6",
+   "standard": "CIP-007-6",
+   "version": "6",
+   "requirement": "R5",
+   "part": "5.6",
+   "verbatim_text": "Where technically feasible, for password-only authentication for interactive user access, either technically or procedurally enforce password changes or an obligation to change the password at least once every 15 calendar months.",
+   "measure_text": "Examples of evidence may include, but are not limited to: - System-generated reports or screen-shots of the system- enforced periodicity of changing passwords; or - Attestations that include a reference to the documented procedures that were followed.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "System Access Control",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-007-6.pdf",
+   "source_pages": [
+    24
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-007-6 R5 Part 5.7",
+   "standard": "CIP-007-6",
+   "version": "6",
+   "requirement": "R5",
+   "part": "5.7",
+   "verbatim_text": "Where technically feasible, either: - Limit the number of unsuccessful authentication attempts; or - Generate alerts after a threshold of unsuccessful authentication attempts.",
+   "measure_text": "Examples of evidence may include, but are not limited to: - Documentation of the account- lockout parameters; or - Rules in the alerting configuration showing how the system notified individuals after a determined number of unsuccessful login attempts.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems at Control Centers and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "System Access Control",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-007-6.pdf",
+   "source_pages": [
+    25
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-008-6 R1 Part 1.1",
+   "standard": "CIP-008-6",
+   "version": "6",
+   "requirement": "R1",
+   "part": "1.1",
+   "verbatim_text": "One or more processes to identify, classify, and respond to Cyber Security Incidents.",
+   "measure_text": "An example of evidence may include, but is not limited to, dated documentation of Cyber Security Incident response plan(s) that include the process(es) to identify, classify, and respond to Cyber Security Incidents.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: • EACMS Medium Impact BES Cyber Systems and their associated: • EACMS",
+   "table_name": "Cyber Security Incident Response Plan Specifications",
+   "vrf": "Lower",
+   "time_horizon": "Long Term Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2021-01-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-008-6.pdf",
+   "source_pages": [
+    5
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-008-6 R1 Part 1.2",
+   "standard": "CIP-008-6",
+   "version": "6",
+   "requirement": "R1",
+   "part": "1.2",
+   "verbatim_text": "One or more processes: 1.2.1 That include criteria to evaluate and define attempts to compromise; 1.2.2 To determine if an identified Cyber Security Incident is: • A Reportable Cyber Security Incident; or • An attempt to compromise, as determined by applying the criteria from Part 1.2.1, one or more systems identified in the “Applicable Systems” column for this Part; and 1.2.3 To provide notification per Requirement R4.",
+   "measure_text": "Examples of evidence may include, but are not limited to, dated documentation of Cyber Security Incident response plan(s) that provide guidance or thresholds for determining which Cyber Security Incidents are also Reportable Cyber Security Incidents or a Cyber Security Incident that is determined to be an attempt to compromise a system identified in the “Applicable Systems” column including justification for attempt determination criteria and documented processes for notification.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: • EACMS Medium Impact BES Cyber Systems and their associated: • EACMS",
+   "table_name": "Cyber Security Incident Response Plan Specifications",
+   "vrf": "Lower",
+   "time_horizon": "Long Term Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2021-01-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-008-6.pdf",
+   "source_pages": [
+    5
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-008-6 R1 Part 1.3",
+   "standard": "CIP-008-6",
+   "version": "6",
+   "requirement": "R1",
+   "part": "1.3",
+   "verbatim_text": "The roles and responsibilities of Cyber Security Incident response groups or individuals.",
+   "measure_text": "An example of evidence may include, but is not limited to, dated Cyber Security Incident response process(es) or procedure(s) that define roles and responsibilities (e.g., monitoring, reporting, initiating, documenting, etc.) of Cyber Security Incident response groups or individuals.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: • EACMS Medium Impact BES Cyber Systems and their associated: • EACMS",
+   "table_name": "Cyber Security Incident Response Plan Specifications",
+   "vrf": "Lower",
+   "time_horizon": "Long Term Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2021-01-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-008-6.pdf",
+   "source_pages": [
+    6
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-008-6 R1 Part 1.4",
+   "standard": "CIP-008-6",
+   "version": "6",
+   "requirement": "R1",
+   "part": "1.4",
+   "verbatim_text": "Incident handling procedures for Cyber Security Incidents.",
+   "measure_text": "An example of evidence may include, but is not limited to, dated Cyber Security Incident response process(es) or procedure(s) that address incident handling (e.g., containment, eradication, recovery/incident resolution).",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: • EACMS Medium Impact BES Cyber Systems and their associated: • EACMS",
+   "table_name": "Cyber Security Incident Response Plan Specifications",
+   "vrf": "Lower",
+   "time_horizon": "Long Term Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2021-01-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-008-6.pdf",
+   "source_pages": [
+    6
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-008-6 R2 Part 2.1",
+   "standard": "CIP-008-6",
+   "version": "6",
+   "requirement": "R2",
+   "part": "2.1",
+   "verbatim_text": "Test each Cyber Security Incident response plan(s) at least once every 15 calendar months: • By responding to an actual Reportable Cyber Security Incident; • With a paper drill or tabletop exercise of a Reportable Cyber Security Incident; or • With an operational exercise of a Reportable Cyber Security Incident.",
+   "measure_text": "Examples of evidence may include, but are not limited to, dated evidence of a lessons-learned report that includes a summary of the test or a compilation of notes, logs, and communication resulting from the test. Types of exercises may include discussion or operations based exercises.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: • EACMS Medium Impact BES Cyber Systems and their associated: • EACMS",
+   "table_name": "Cyber Security Incident Response Plan Implementation and Testing",
+   "vrf": "Lower",
+   "time_horizon": "Operations Planning and Real-Time Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2021-01-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-008-6.pdf",
+   "source_pages": [
+    7
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-008-6 R2 Part 2.2",
+   "standard": "CIP-008-6",
+   "version": "6",
+   "requirement": "R2",
+   "part": "2.2",
+   "verbatim_text": "Use the Cyber Security Incident response plan(s) under Requirement R1 when responding to a Reportable Cyber Security Incident, responding to a Cyber Security Incident that attempted to compromise a system identified in the “Applicable Systems” column for this Part, or performing an exercise of a Reportable Cyber Security Incident. Document deviations from the plan(s) taken during the response to the incident or exercise.",
+   "measure_text": "Examples of evidence may include, but are not limited to, incident reports, logs, and notes that were kept during the incident response process, and follow-up documentation that describes deviations taken from the plan during the incident response or exercise.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: • EACMS Medium Impact BES Cyber Systems and their associated: • EACMS",
+   "table_name": "Cyber Security Incident Response Plan Implementation and Testing",
+   "vrf": "Lower",
+   "time_horizon": "Operations Planning and Real-Time Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2021-01-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-008-6.pdf",
+   "source_pages": [
+    7
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-008-6 R2 Part 2.3",
+   "standard": "CIP-008-6",
+   "version": "6",
+   "requirement": "R2",
+   "part": "2.3",
+   "verbatim_text": "Retain records related to Reportable Cyber Security Incidents and Cyber Security Incidents that attempted to compromise a system identified in the “Applicable Systems” column for this Part as per the Cyber Security Incident response plan(s) under Requirement R1.",
+   "measure_text": "An example of evidence may include, but is not limited to, dated documentation, such as security logs, police reports, emails, response forms or checklists, forensic analysis results, restoration records, and post-incident review notes related to Reportable Cyber Security Incidents and a Cyber Security Incident that is determined to be an attempt to compromise a system identified in the “Applicable Systems” column.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: • EACMS Medium Impact BES Cyber Systems and their associated: • EACMS",
+   "table_name": "Cyber Security Incident Response Plan Implementation and Testing",
+   "vrf": "Lower",
+   "time_horizon": "Operations Planning and Real-Time Operations",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2021-01-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-008-6.pdf",
+   "source_pages": [
+    8
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-008-6 R4 Part 4.1",
+   "standard": "CIP-008-6",
+   "version": "6",
+   "requirement": "R4",
+   "part": "4.1",
+   "verbatim_text": "Initial notifications and updates shall include the following attributes, at a minimum, to the extent known: 4.1.1 The functional impact; 4.1.2 The attack vector used; and 4.1.3 The level of intrusion that was achieved or attempted.",
+   "measure_text": "Examples of evidence may include, but are not limited to, dated documentation of initial notifications and updates to the E-ISAC and NCCIC.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: • EACMS Medium Impact BES Cyber Systems and their associated: • EACMS",
+   "table_name": "Notifications and Reporting for Cyber Security Incidents",
+   "vrf": "Lower",
+   "time_horizon": "Operations Assessment",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2021-01-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-008-6.pdf",
+   "source_pages": [
+    11
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-008-6 R4 Part 4.2",
+   "standard": "CIP-008-6",
+   "version": "6",
+   "requirement": "R4",
+   "part": "4.2",
+   "verbatim_text": "After the Responsible Entity’s determination made pursuant to documented process(es) in Requirement R1, Part 1.2, provide initial notification within the following timelines: • One hour after the determination of a Reportable Cyber Security Incident. • By the end of the next calendar day after determination that a Cyber Security Incident was an attempt to compromise a system identified in the “Applicable Systems” column for this Part.",
+   "measure_text": "Examples of evidence may include, but are not limited to, dated documentation of notices to the E- ISAC and NCCIC.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: • EACMS Medium Impact BES Cyber Systems and their associated: • EACMS",
+   "table_name": "Notifications and Reporting for Cyber Security Incidents",
+   "vrf": "Lower",
+   "time_horizon": "Operations Assessment",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2021-01-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-008-6.pdf",
+   "source_pages": [
+    12
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-008-6 R4 Part 4.3",
+   "standard": "CIP-008-6",
+   "version": "6",
+   "requirement": "R4",
+   "part": "4.3",
+   "verbatim_text": "Provide updates, if any, within 7 calendar days of determination of new or changed attribute information required in Part 4.1.",
+   "measure_text": "Examples of evidence may include, but are not limited to, dated documentation of submissions to the E-ISAC and NCCIC.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: • EACMS Medium Impact BES Cyber Systems and their associated: • EACMS",
+   "table_name": "Notifications and Reporting for Cyber Security Incidents",
+   "vrf": "Lower",
+   "time_horizon": "Operations Assessment",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2021-01-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-008-6.pdf",
+   "source_pages": [
+    12
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-008-6 R3",
+   "standard": "CIP-008-6",
+   "version": "6",
+   "requirement": "R3",
+   "part": "",
+   "verbatim_text": "Each Responsible Entity shall maintain each of its Cyber Security Incident response plans according to each of the applicable requirement parts in CIP-008-6 Table R3 – Cyber Security Incident Response Plan Review, Update, and Communication.",
+   "measure_text": "",
+   "applicable_systems": "",
+   "table_name": "",
+   "vrf": "Lower",
+   "time_horizon": "Operations Assessment",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2021-01-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-008-6.pdf",
+   "source_pages": [],
+   "recorded_at": 0.0,
+   "granularity": "requirement"
+  },
+  {
+   "id": "CIP-009-6 R1 Part 1.1",
+   "standard": "CIP-009-6",
+   "version": "6",
+   "requirement": "R1",
+   "part": "1.1",
+   "verbatim_text": "Conditions for activation of the recovery plan(s).",
+   "measure_text": "An example of evidence may include, but is not limited to, one or more plans that include language identifying conditions for activation of the recovery plan(s).",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Recovery Plan Specifications",
+   "vrf": "Medium",
+   "time_horizon": "Long Term Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-009-6.pdf",
+   "source_pages": [
+    5
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-009-6 R1 Part 1.2",
+   "standard": "CIP-009-6",
+   "version": "6",
+   "requirement": "R1",
+   "part": "1.2",
+   "verbatim_text": "Roles and responsibilities of responders.",
+   "measure_text": "An example of evidence may include, but is not limited to, one or more recovery plans that include language identifying the roles and responsibilities of responders.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Recovery Plan Specifications",
+   "vrf": "Medium",
+   "time_horizon": "Long Term Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-009-6.pdf",
+   "source_pages": [
+    5
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-009-6 R1 Part 1.3",
+   "standard": "CIP-009-6",
+   "version": "6",
+   "requirement": "R1",
+   "part": "1.3",
+   "verbatim_text": "One or more processes for the backup and storage of information required to recover BES Cyber System functionality.",
+   "measure_text": "An example of evidence may include, but is not limited to, documentation of specific processes for the backup and storage of information required to recover BES Cyber System functionality.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Recovery Plan Specifications",
+   "vrf": "Medium",
+   "time_horizon": "Long Term Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-009-6.pdf",
+   "source_pages": [
+    6
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-009-6 R1 Part 1.4",
+   "standard": "CIP-009-6",
+   "version": "6",
+   "requirement": "R1",
+   "part": "1.4",
+   "verbatim_text": "One or more processes to verify the successful completion of the backup processes in Part 1.3 and to address any backup failures.",
+   "measure_text": "An example of evidence may include, but is not limited to, logs, workflow or other documentation confirming that the backup process completed successfully and backup failures, if any, were addressed.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems at Control Centers and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Recovery Plan Specifications",
+   "vrf": "Medium",
+   "time_horizon": "Long Term Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-009-6.pdf",
+   "source_pages": [
+    6
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-009-6 R1 Part 1.5",
+   "standard": "CIP-009-6",
+   "version": "6",
+   "requirement": "R1",
+   "part": "1.5",
+   "verbatim_text": "One or more processes to preserve data, per Cyber Asset capability, for determining the cause of a Cyber Security Incident that triggers activation of the recovery plan(s). Data preservation should not impede or restrict recovery.",
+   "measure_text": "An example of evidence may include, but is not limited to, procedures to preserve data, such as preserving a corrupted drive or making a data mirror of the system before proceeding with recovery.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Recovery Plan Specifications",
+   "vrf": "Medium",
+   "time_horizon": "Long Term Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-009-6.pdf",
+   "source_pages": [
+    6
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-009-6 R2 Part 2.1",
+   "standard": "CIP-009-6",
+   "version": "6",
+   "requirement": "R2",
+   "part": "2.1",
+   "verbatim_text": "Test each of the recovery plans referenced in Requirement R1 at least once every 15 calendar months: • By recovering from an actual incident; • With a paper drill or tabletop exercise; or • With an operational exercise.",
+   "measure_text": "An example of evidence may include, but is not limited to, dated evidence of a test (by recovering from an actual incident, with a paper drill or tabletop exercise, or with an operational exercise) of the recovery plan at least once every 15 calendar months. For the paper drill or full operational exercise, evidence may include meeting notices, minutes, or other records of exercise findings.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems at Control Centers and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Recovery Plan Implementation and Testing",
+   "vrf": "Lower",
+   "time_horizon": "Operations Planning and Real-time Operations.",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-009-6.pdf",
+   "source_pages": [
+    7
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-009-6 R2 Part 2.2",
+   "standard": "CIP-009-6",
+   "version": "6",
+   "requirement": "R2",
+   "part": "2.2",
+   "verbatim_text": "Test a representative sample of information used to recover BES Cyber System functionality at least once every 15 calendar months to ensure that the information is useable and is compatible with current configurations. An actual recovery that incorporates the information used to recover BES Cyber System functionality substitutes for this test.",
+   "measure_text": "An example of evidence may include, but is not limited to, operational logs or test results with criteria for testing the usability (e.g. sample tape load, browsing tape contents) and compatibility with current system configurations (e.g. manual or automated comparison checkpoints between backup media contents and current configuration).",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems at Control Centers and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Recovery Plan Implementation and Testing",
+   "vrf": "Lower",
+   "time_horizon": "Operations Planning and Real-time Operations.",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-009-6.pdf",
+   "source_pages": [
+    7
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-009-6 R2 Part 2.3",
+   "standard": "CIP-009-6",
+   "version": "6",
+   "requirement": "R2",
+   "part": "2.3",
+   "verbatim_text": "Test each of the recovery plans referenced in Requirement R1 at least once every 36 calendar months through an operational exercise of the recovery plans in an environment representative of the production environment. An actual recovery response may substitute for an operational exercise.",
+   "measure_text": "Examples of evidence may include, but are not limited to, dated documentation of: • An operational exercise at least once every 36 calendar months between exercises, that demonstrates recovery in a representative environment; or • An actual recovery response that occurred within the 36 calendar month timeframe that exercised the recovery plans.",
+   "applicable_systems": "High Impact BES Cyber Systems",
+   "table_name": "Recovery Plan Implementation and Testing",
+   "vrf": "Lower",
+   "time_horizon": "Operations Planning and Real-time Operations.",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-009-6.pdf",
+   "source_pages": [
+    8
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-009-6 R3 Part 3.1",
+   "standard": "CIP-009-6",
+   "version": "6",
+   "requirement": "R3",
+   "part": "3.1",
+   "verbatim_text": "No later than 90 calendar days after completion of a recovery plan test or actual recovery: 3.1.1. Document any lessons learned associated with a recovery plan test or actual recovery or document the absence of any lessons learned; 3.1.2. Update the recovery plan based on any documented lessons learned associated with the plan; and 3.1.3. Notify each person or group with a defined role in the recovery plan of the updates to the recovery plan based on any documented lessons learned.",
+   "measure_text": "An example of evidence may include, but is not limited to, all of the following: 1. Dated documentation of identified deficiencies or lessons learned for each recovery plan test or actual incident recovery or dated documentation stating there were no lessons learned; 2. Dated and revised recovery plan showing any changes based on the lessons learned; and 3. Evidence of plan update distribution including, but not limited to: • Emails; • USPS or other mail service; • Electronic distribution system; or • Training sign-in sheets.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems at Control Centers and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Recovery Plan Review, Update and Communication",
+   "vrf": "Lower",
+   "time_horizon": "Operations Assessment",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-009-6.pdf",
+   "source_pages": [
+    9
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-009-6 R3 Part 3.2",
+   "standard": "CIP-009-6",
+   "version": "6",
+   "requirement": "R3",
+   "part": "3.2",
+   "verbatim_text": "No later than 60 calendar days after a change to the roles or responsibilities, responders, or technology that the Responsible Entity determines would impact the ability to execute the recovery plan: 3.2.1. Update the recovery plan; and 3.2.2. Notify each person or group with a defined role in the recovery plan of the updates.",
+   "measure_text": "An example of evidence may include, but is not limited to, all of the following: 1. Dated and revised recovery plan with changes to the roles or responsibilities, responders, or technology; and 2. Evidence of plan update distribution including, but not limited to: • Emails; • USPS or other mail service; • Electronic distribution system; or • Training sign-in sheets.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems at Control Centers and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Recovery Plan Review, Update and Communication",
+   "vrf": "Lower",
+   "time_horizon": "Operations Assessment",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2016-07-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-009-6.pdf",
+   "source_pages": [
+    10
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-010-4 R1 Part 1.1",
+   "standard": "CIP-010-4",
+   "version": "4",
+   "requirement": "R1",
+   "part": "1.1",
+   "verbatim_text": "Develop a baseline configuration, individually or by group, which shall include the following items: 1.1.1. Operating system(s) (including version) or firmware where no independent operating system exists; 1.1.2. Any commercially available or open-source application software (including version) intentionally installed; 1.1.3. Any custom software installed; 1.1.4. Any logical network accessible ports; and 1.1.5. Any security patches applied.",
+   "measure_text": "Examples of evidence may include, but are not limited to: • A spreadsheet identifying the required items of the baseline configuration for each Cyber Asset, individually or by group; or • A record in an asset management system that identifies the required items of the baseline configuration for each Cyber Asset, individually or by group.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "Configuration Change Management",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-010-4.pdf",
+   "source_pages": [
+    6
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-010-4 R1 Part 1.2",
+   "standard": "CIP-010-4",
+   "version": "4",
+   "requirement": "R1",
+   "part": "1.2",
+   "verbatim_text": "Authorize and document changes that deviate from the existing baseline configuration.",
+   "measure_text": "Examples of evidence may include, but are not limited to: • A change request record and associated electronic authorization (performed by the individual or group with the authority to authorize the change) in a change management",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems and their associated:",
+   "table_name": "Configuration Change Management",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-010-4.pdf",
+   "source_pages": [
+    6
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-010-4 R1 Part 1.3",
+   "standard": "CIP-010-4",
+   "version": "4",
+   "requirement": "R1",
+   "part": "1.3",
+   "verbatim_text": "For a change that deviates from the existing baseline configuration, update the baseline configuration as necessary within 30 calendar days of completing the change.",
+   "measure_text": "An example of evidence may include, but is not limited to, updated baseline documentation with a date that is within 30 calendar days of the date of the completion of the change.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "Configuration Change Management",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-010-4.pdf",
+   "source_pages": [
+    7
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-010-4 R1 Part 1.4",
+   "standard": "CIP-010-4",
+   "version": "4",
+   "requirement": "R1",
+   "part": "1.4",
+   "verbatim_text": "For a change that deviates from the existing baseline configuration: 1.4.1. Prior to the change, determine required cyber security controls in CIP-005 and CIP-007 that could be impacted by the change; 1.4.2. Following the change, verify that required cyber security controls determined in 1.4.1 are not adversely affected; and 1.4.3. Document the results of the verification.",
+   "measure_text": "An example of evidence may include, but is not limited to, a list of cyber security controls verified or tested along with the dated test results.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "Configuration Change Management",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-010-4.pdf",
+   "source_pages": [
+    7
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-010-4 R1 Part 1.5",
+   "standard": "CIP-010-4",
+   "version": "4",
+   "requirement": "R1",
+   "part": "1.5",
+   "verbatim_text": "Where technically feasible, for each change that deviates from the existing baseline configuration: 1.5.1. Prior to implementing any change in the production environment,",
+   "measure_text": "An example of evidence may include, but is not limited to, a list of cyber security controls tested along with successful test results and a list of differences between the production and test environments with",
+   "applicable_systems": "High Impact BES Cyber Systems",
+   "table_name": "Configuration Change Management",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-010-4.pdf",
+   "source_pages": [
+    7
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-010-4 R1 Part 1.6",
+   "standard": "CIP-010-4",
+   "version": "4",
+   "requirement": "R1",
+   "part": "1.6",
+   "verbatim_text": "Prior to a change that deviates from the existing baseline configuration associated with baseline items in Parts 1.1.1, 1.1.2, and 1.1.5, and when the method to do so is available to the Responsible Entity from the software source: 1.6.1. Verify the identity of the software source; and 1.6.2. Verify the integrity of the software obtained from the software source.",
+   "measure_text": "An example of evidence may include, but is not limited to a change request record that demonstrates the verification of identity of the software source and integrity of the software was performed prior to the baseline change or a process which documents the mechanisms in place that would automatically ensure the identity of the software source and integrity of the software.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Note: Implementation does not require the Responsible Entity to renegotiate or abrogate existing contracts (including amendments to master agreements and purchase orders). Additionally, the",
+   "table_name": "Configuration Change Management",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-010-4.pdf",
+   "source_pages": [
+    8
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-010-4 R2 Part 2.1",
+   "standard": "CIP-010-4",
+   "version": "4",
+   "requirement": "R2",
+   "part": "2.1",
+   "verbatim_text": "Monitor at least once every 35 calendar days for changes to the baseline configuration (as described in Requirement R1, Part 1.1). Document and investigate detected unauthorized changes.",
+   "measure_text": "An example of evidence may include, but is not limited to, logs from a system that is monitoring the configuration along with records of investigation for any unauthorized changes that were detected.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PCA",
+   "table_name": "Configuration Monitoring",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-010-4.pdf",
+   "source_pages": [
+    10
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-010-4 R3 Part 3.1",
+   "standard": "CIP-010-4",
+   "version": "4",
+   "requirement": "R3",
+   "part": "3.1",
+   "verbatim_text": "At least once every 15 calendar months, conduct a paper or active vulnerability assessment.",
+   "measure_text": "Examples of evidence may include, but are not limited to: • A document listing the date of the assessment (performed at least once every 15 calendar months), the controls assessed for each BES Cyber System along with the method of assessment; or • A document listing the date of the assessment and the output of any tools used to perform the assessment.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "Vulnerability Assessments",
+   "vrf": "Medium",
+   "time_horizon": "Long-term Planning and Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-010-4.pdf",
+   "source_pages": [
+    11
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-010-4 R3 Part 3.2",
+   "standard": "CIP-010-4",
+   "version": "4",
+   "requirement": "R3",
+   "part": "3.2",
+   "verbatim_text": "Where technically feasible, at least once every 36 calendar months: 3.2.1 Perform an active vulnerability assessment in a test environment, or perform an active vulnerability assessment in a production environment where the test is performed in a manner that minimizes adverse effects, that models the baseline configuration of the BES Cyber System in a production environment; and 3.2.2 Document the results of the testing and, if a test environment was used, the differences between the test environment and the production environment, including a description of the measures used to account for any differences in operation between the test and production environments.",
+   "measure_text": "An example of evidence may include, but is not limited to, a document listing the date of the assessment (performed at least once every 36 calendar months), the output of the tools used to perform the assessment, and a list of differences between the production and test environments with descriptions of how any differences were accounted for in conducting the assessment.",
+   "applicable_systems": "High Impact BES Cyber Systems",
+   "table_name": "Vulnerability Assessments",
+   "vrf": "Medium",
+   "time_horizon": "Long-term Planning and Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-010-4.pdf",
+   "source_pages": [
+    12
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-010-4 R3 Part 3.3",
+   "standard": "CIP-010-4",
+   "version": "4",
+   "requirement": "R3",
+   "part": "3.3",
+   "verbatim_text": "Prior to adding a new applicable Cyber Asset to a production environment, perform an active vulnerability assessment of the new Cyber Asset, except for CIP Exceptional Circumstances and like replacements of the same type of Cyber Asset with a baseline configuration that models an existing baseline configuration of the previous or other existing Cyber Asset.",
+   "measure_text": "An example of evidence may include, but is not limited to, a document listing the date of the assessment (performed prior to the commissioning of the new Cyber Asset) and the output of any tools used to perform the assessment.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PCA",
+   "table_name": "Vulnerability Assessments",
+   "vrf": "Medium",
+   "time_horizon": "Long-term Planning and Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-010-4.pdf",
+   "source_pages": [
+    13
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-010-4 R3 Part 3.4",
+   "standard": "CIP-010-4",
+   "version": "4",
+   "requirement": "R3",
+   "part": "3.4",
+   "verbatim_text": "Document the results of the assessments conducted according to Parts 3.1, 3.2, and 3.3 and the action plan to remediate or mitigate vulnerabilities identified in the assessments including the planned date of completing the action plan and the execution status of any remediation or mitigation action items.",
+   "measure_text": "An example of evidence may include, but is not limited to, a document listing the results or the review or assessment, a list of action items, documented proposed dates of completion for the action plan, and records of the status of the action items (such as minutes of a status meeting, updates in a work order system, or a spreadsheet tracking the action items).",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "Vulnerability Assessments",
+   "vrf": "Medium",
+   "time_horizon": "Long-term Planning and Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-010-4.pdf",
+   "source_pages": [
+    13
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-010-4 R4",
+   "standard": "CIP-010-4",
+   "version": "4",
+   "requirement": "R4",
+   "part": "",
+   "verbatim_text": "Each Responsible Entity, for its high impact and medium impact BES Cyber Systems and associated Protected Cyber Assets, shall implement, except under CIP Exceptional Circumstances, one or more documented plan(s) for Transient Cyber Assets and Removable Media that include the sections in Attachment 1.",
+   "measure_text": "",
+   "applicable_systems": "",
+   "table_name": "",
+   "vrf": "Medium",
+   "time_horizon": "Long-term Planning and Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-010-4.pdf",
+   "source_pages": [],
+   "recorded_at": 0.0,
+   "granularity": "requirement"
+  },
+  {
+   "id": "CIP-011-3 R1 Part 1.1",
+   "standard": "CIP-011-3",
+   "version": "3",
+   "requirement": "R1",
+   "part": "1.1",
+   "verbatim_text": "Method(s) to identify BCSI.",
+   "measure_text": "Examples of acceptable evidence may include, but are not limited to, the following: • Documented method(s) to identify BCSI from the entity’s information protection program; or • Indications on information (e.g., labels or classification) that identify BCSI as designated in the entity’s information protection program; or • Training materials that provide personnel with sufficient knowledge to identify BCSI; or • Storage locations identified for housing BCSI in the entity’s information protection program.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Information Protection Program",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-011-3.pdf",
+   "source_pages": [
+    5
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-011-3 R1 Part 1.2",
+   "standard": "CIP-011-3",
+   "version": "3",
+   "requirement": "R1",
+   "part": "1.2",
+   "verbatim_text": "Method(s) to protect and securely handle BCSI to mitigate risks of compromising confidentiality.",
+   "measure_text": "Examples of evidence for on-premise BCSI may include, but are not limited to, the following: • Procedures for protecting and securely handling, which include topics such as storage, security during transit, and use of BCSI; or • Records indicating that BCSI is handled in a manner consistent with the entity’s documented procedure(s). Examples of evidence for off-premise BCSI may include, but are not limited to, the following: • Implementation of electronic technical method(s) to protect electronic BCSI (e.g., data masking, encryption, hashing, tokenization, cipher, electronic key management); or • Implementation of physical technical method(s) to protect physical BCSI (e.g., physical lock and key management, physical badge management, biometrics, alarm system); or",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS Medium Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS",
+   "table_name": "Information Protection Program",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-011-3.pdf",
+   "source_pages": [
+    6
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-011-3 R2 Part 2.1",
+   "standard": "CIP-011-3",
+   "version": "3",
+   "requirement": "R2",
+   "part": "2.1",
+   "verbatim_text": "Prior to the release for reuse of applicable Cyber Assets that contain BCSI (except for reuse within other systems identified in the “Applicable Systems” column), the Responsible Entity shall take action to prevent the unauthorized retrieval of BCSI from the Cyber Asset data storage media.",
+   "measure_text": "Examples of acceptable evidence may include, but are not limited to, the following: • Records tracking sanitization actions taken to prevent unauthorized retrieval of BCSI such as clearing, purging, or destroying; or • Records tracking actions such as encrypting, retaining in the Physical Security Perimeter or other methods used to prevent unauthorized retrieval of BCSI.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "BES Cyber Asset Reuse and Disposal",
+   "vrf": "Lower",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-011-3.pdf",
+   "source_pages": [
+    8
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-011-3 R2 Part 2.2",
+   "standard": "CIP-011-3",
+   "version": "3",
+   "requirement": "R2",
+   "part": "2.2",
+   "verbatim_text": "Prior to the disposal of applicable Cyber Assets that contain BCSI, the Responsible Entity shall take action to prevent the unauthorized retrieval of BCSI from the Cyber Asset or destroy the data storage media.",
+   "measure_text": "Examples of acceptable evidence may include, but are not limited to, the following: • Records that indicate that data storage media was destroyed prior to the disposal of an applicable Cyber Asset; or • Records of actions taken to prevent unauthorized retrieval of BCSI prior to the disposal of an applicable Cyber Asset.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA Medium Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS; and 3. PCA",
+   "table_name": "BES Cyber Asset Reuse and Disposal",
+   "vrf": "Lower",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-011-3.pdf",
+   "source_pages": [
+    9
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-012-2 R1",
+   "standard": "CIP-012-2",
+   "version": "2",
+   "requirement": "R1",
+   "part": "",
+   "verbatim_text": "The Responsible Entity shall implement, except under CIP Exceptional Circumstances, one or more documented plan(s) to mitigate the risks posed by unauthorized disclosure, unauthorized modification, and loss of availability, of data used in Real-time Assessment and Real-time monitoring while such data is being transmitted between any applicable Control Centers. The Responsible Entity is not required to include oral communications in its plan. The plan shall include:",
+   "measure_text": "",
+   "applicable_systems": "",
+   "table_name": "",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2025-07-01",
+   "valid_to": null,
+   "supersedes": "CIP-012-1",
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-012-2.pdf",
+   "source_pages": [],
+   "recorded_at": 0.0,
+   "granularity": "requirement"
+  },
+  {
+   "id": "CIP-013-2 R1",
+   "standard": "CIP-013-2",
+   "version": "2",
+   "requirement": "R1",
+   "part": "",
+   "verbatim_text": "Each Responsible Entity shall develop one or more documented supply chain cyber security risk management plan(s) for high and medium impact BES Cyber Systems and their associated Electronic Access Control or Monitoring Systems (EACMS) and Physical Access Control Systems (PACS). The plan(s) shall include:",
+   "measure_text": "",
+   "applicable_systems": "",
+   "table_name": "",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-013-2.pdf",
+   "source_pages": [],
+   "recorded_at": 0.0,
+   "granularity": "requirement"
+  },
+  {
+   "id": "CIP-013-2 R2",
+   "standard": "CIP-013-2",
+   "version": "2",
+   "requirement": "R2",
+   "part": "",
+   "verbatim_text": "Each Responsible Entity shall implement its supply chain cyber security risk management plan(s) specified in Requirement R1.",
+   "measure_text": "",
+   "applicable_systems": "",
+   "table_name": "",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-013-2.pdf",
+   "source_pages": [],
+   "recorded_at": 0.0,
+   "granularity": "requirement"
+  },
+  {
+   "id": "CIP-013-2 R3",
+   "standard": "CIP-013-2",
+   "version": "2",
+   "requirement": "R3",
+   "part": "",
+   "verbatim_text": "Each Responsible Entity shall review and obtain CIP Senior Manager or delegate approval of its supply chain cyber security risk management plan(s) specified in Requirement R1 at least once every 15 calendar months.",
+   "measure_text": "",
+   "applicable_systems": "",
+   "table_name": "",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2024-04-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-013-2.pdf",
+   "source_pages": [],
+   "recorded_at": 0.0,
+   "granularity": "requirement"
+  },
+  {
+   "id": "CIP-014-3 R1",
+   "standard": "CIP-014-3",
+   "version": "3",
+   "requirement": "R1",
+   "part": "",
+   "verbatim_text": "Each Transmission Owner shall perform an initial risk assessment and subsequent risk assessments of its Transmission stations and Transmission substations (existing and planned to be in service within 24 months) that meet the criteria specified in Applicability Section 4.1.1. The initial and subsequent risk assessments shall consist of a transmission analysis or transmission analyses designed to identify the Transmission station(s) and Transmission substation(s) that if rendered inoperable or damaged could result in instability, uncontrolled separation, or Cascading within an Interconnection.",
+   "measure_text": "",
+   "applicable_systems": "",
+   "table_name": "",
+   "vrf": "High",
+   "time_horizon": "Long-term Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2022-01-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-014-3.pdf",
+   "source_pages": [],
+   "recorded_at": 0.0,
+   "granularity": "requirement"
+  },
+  {
+   "id": "CIP-014-3 R2",
+   "standard": "CIP-014-3",
+   "version": "3",
+   "requirement": "R2",
+   "part": "",
+   "verbatim_text": "Each Transmission Owner shall have an unaffiliated third party verify the risk assessment performed under Requirement R1. The verification may occur concurrent with or after the risk assessment performed under Requirement R1.",
+   "measure_text": "",
+   "applicable_systems": "",
+   "table_name": "",
+   "vrf": "Medium",
+   "time_horizon": "Long-term Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2022-01-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-014-3.pdf",
+   "source_pages": [],
+   "recorded_at": 0.0,
+   "granularity": "requirement"
+  },
+  {
+   "id": "CIP-014-3 R4",
+   "standard": "CIP-014-3",
+   "version": "3",
+   "requirement": "R4",
+   "part": "",
+   "verbatim_text": "Each Transmission Owner that identified a Transmission station, Transmission substation, or a primary control center in Requirement R1 and verified according to Requirement R2, and each Transmission Operator notified by a Transmission Owner according to Requirement R3, shall conduct an evaluation of the potential threats and vulnerabilities of a physical attack to each of their respective Transmission station(s), Transmission substation(s), and primary control center(s) identified in Requirement R1 and verified according to Requirement R2. The evaluation shall consider the following:",
+   "measure_text": "",
+   "applicable_systems": "",
+   "table_name": "",
+   "vrf": "Medium",
+   "time_horizon": "Operations Planning, Long-term Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2022-01-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-014-3.pdf",
+   "source_pages": [],
+   "recorded_at": 0.0,
+   "granularity": "requirement"
+  },
+  {
+   "id": "CIP-014-3 R5",
+   "standard": "CIP-014-3",
+   "version": "3",
+   "requirement": "R5",
+   "part": "",
+   "verbatim_text": "Each Transmission Owner that identified a Transmission station, Transmission substation, or primary control center in Requirement R1 and verified according to Requirement R2, and each Transmission Operator notified by a Transmission Owner according to Requirement R3, shall develop and implement a documented physical security plan(s) that covers their respective Transmission station(s), Transmission substation(s), and primary control center(s). The physical security plan(s) shall be CIP-014-3 — Physical Security Page 6 of 36 developed within 120 calendar days following the completion of Requirement R2 and executed according to the timeline specified in the physical security plan(s). The physical security plan(s) shall include the following attributes:",
+   "measure_text": "",
+   "applicable_systems": "",
+   "table_name": "",
+   "vrf": "High",
+   "time_horizon": "Long-term Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2022-01-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-014-3.pdf",
+   "source_pages": [],
+   "recorded_at": 0.0,
+   "granularity": "requirement"
+  },
+  {
+   "id": "CIP-014-3 R6",
+   "standard": "CIP-014-3",
+   "version": "3",
+   "requirement": "R6",
+   "part": "",
+   "verbatim_text": "Each Transmission Owner that identified a Transmission station, Transmission substation, or primary control center in Requirement R1 and verified according to Requirement R2, and each Transmission Operator notified by a Transmission Owner according to Requirement R3, shall have an unaffiliated third party review the evaluation performed under Requirement R4 and the security plan(s) developed under Requirement R5. The review may occur concurrently with or after completion of the evaluation performed under Requirement R4 and the security plan development under Requirement R5.",
+   "measure_text": "",
+   "applicable_systems": "",
+   "table_name": "",
+   "vrf": "Medium",
+   "time_horizon": "Long-term Planning",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2022-01-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-014-3.pdf",
+   "source_pages": [],
+   "recorded_at": 0.0,
+   "granularity": "requirement"
+  }
+ ],
+ "edges": [
+  {
+   "src": "CIP-002-5.1a",
+   "dst": "CIP-002-5.1a R1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-002-5.1a",
+   "dst": "CIP-002-5.1a R2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-003-9",
+   "dst": "CIP-003-9 R1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-003-9",
+   "dst": "CIP-003-9 R2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-003-9",
+   "dst": "CIP-003-9 R3",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-003-9",
+   "dst": "CIP-003-9 R4",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-003-9",
+   "dst": "CIP-003-8",
+   "rel": "SUPERSEDES",
+   "valid_from": "2024-04-01"
+  },
+  {
+   "src": "CIP-003-8",
+   "dst": "CIP-003-9",
+   "rel": "SUPERSEDED_BY",
+   "valid_to": "2024-04-01"
+  },
+  {
+   "src": "CIP-004-7",
+   "dst": "CIP-004-7 R1 Part 1.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-004-7",
+   "dst": "CIP-004-7 R2 Part 2.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-004-7",
+   "dst": "CIP-004-7 R2 Part 2.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-004-7",
+   "dst": "CIP-004-7 R2 Part 2.3",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-004-7",
+   "dst": "CIP-004-7 R3 Part 3.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-004-7",
+   "dst": "CIP-004-7 R3 Part 3.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-004-7",
+   "dst": "CIP-004-7 R3 Part 3.3",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-004-7",
+   "dst": "CIP-004-7 R3 Part 3.4",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-004-7",
+   "dst": "CIP-004-7 R3 Part 3.5",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-004-7",
+   "dst": "CIP-004-7 R4 Part 4.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-004-7",
+   "dst": "CIP-004-7 R4 Part 4.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-004-7",
+   "dst": "CIP-004-7 R4 Part 4.3",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-004-7",
+   "dst": "CIP-004-7 R5 Part 5.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-004-7",
+   "dst": "CIP-004-7 R5 Part 5.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-004-7",
+   "dst": "CIP-004-7 R5 Part 5.3",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-004-7",
+   "dst": "CIP-004-7 R5 Part 5.4",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-004-7",
+   "dst": "CIP-004-7 R6 Part 6.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-004-7",
+   "dst": "CIP-004-7 R6 Part 6.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-004-7",
+   "dst": "CIP-004-7 R6 Part 6.3",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-005-7",
+   "dst": "CIP-005-7 R1 Part 1.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-005-7",
+   "dst": "CIP-005-7 R1 Part 1.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-005-7",
+   "dst": "CIP-005-7 R1 Part 1.3",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-005-7",
+   "dst": "CIP-005-7 R1 Part 1.4",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-005-7",
+   "dst": "CIP-005-7 R1 Part 1.5",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-005-7",
+   "dst": "CIP-005-7 R2 Part 2.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-005-7",
+   "dst": "CIP-005-7 R2 Part 2.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-005-7",
+   "dst": "CIP-005-7 R2 Part 2.3",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-005-7",
+   "dst": "CIP-005-7 R2 Part 2.4",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-005-7",
+   "dst": "CIP-005-7 R2 Part 2.5",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-005-7",
+   "dst": "CIP-005-7 R3 Part 3.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-005-7",
+   "dst": "CIP-005-7 R3 Part 3.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-006-6",
+   "dst": "CIP-006-6 R1 Part 1.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-006-6",
+   "dst": "CIP-006-6 R1 Part 1.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-006-6",
+   "dst": "CIP-006-6 R1 Part 1.3",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-006-6",
+   "dst": "CIP-006-6 R1 Part 1.4",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-006-6",
+   "dst": "CIP-006-6 R1 Part 1.5",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-006-6",
+   "dst": "CIP-006-6 R1 Part 1.6",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-006-6",
+   "dst": "CIP-006-6 R1 Part 1.7",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-006-6",
+   "dst": "CIP-006-6 R1 Part 1.8",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-006-6",
+   "dst": "CIP-006-6 R1 Part 1.9",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-006-6",
+   "dst": "CIP-006-6 R1 Part 1.10",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-006-6",
+   "dst": "CIP-006-6 R2 Part 2.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-006-6",
+   "dst": "CIP-006-6 R2 Part 2.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-006-6",
+   "dst": "CIP-006-6 R2 Part 2.3",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-006-6",
+   "dst": "CIP-006-6 R3",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-007-6",
+   "dst": "CIP-007-6 R1 Part 1.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-007-6",
+   "dst": "CIP-007-6 R1 Part 1.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-007-6",
+   "dst": "CIP-007-6 R2 Part 2.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-007-6",
+   "dst": "CIP-007-6 R2 Part 2.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-007-6",
+   "dst": "CIP-007-6 R2 Part 2.3",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-007-6",
+   "dst": "CIP-007-6 R2 Part 2.4",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-007-6",
+   "dst": "CIP-007-6 R3 Part 3.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-007-6",
+   "dst": "CIP-007-6 R3 Part 3.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-007-6",
+   "dst": "CIP-007-6 R3 Part 3.3",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-007-6",
+   "dst": "CIP-007-6 R4 Part 4.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-007-6",
+   "dst": "CIP-007-6 R4 Part 4.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-007-6",
+   "dst": "CIP-007-6 R4 Part 4.3",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-007-6",
+   "dst": "CIP-007-6 R4 Part 4.4",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-007-6",
+   "dst": "CIP-007-6 R5 Part 5.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-007-6",
+   "dst": "CIP-007-6 R5 Part 5.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-007-6",
+   "dst": "CIP-007-6 R5 Part 5.3",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-007-6",
+   "dst": "CIP-007-6 R5 Part 5.4",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-007-6",
+   "dst": "CIP-007-6 R5 Part 5.5",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-007-6",
+   "dst": "CIP-007-6 R5 Part 5.6",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-007-6",
+   "dst": "CIP-007-6 R5 Part 5.7",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-008-6",
+   "dst": "CIP-008-6 R1 Part 1.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-008-6",
+   "dst": "CIP-008-6 R1 Part 1.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-008-6",
+   "dst": "CIP-008-6 R1 Part 1.3",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-008-6",
+   "dst": "CIP-008-6 R1 Part 1.4",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-008-6",
+   "dst": "CIP-008-6 R2 Part 2.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-008-6",
+   "dst": "CIP-008-6 R2 Part 2.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-008-6",
+   "dst": "CIP-008-6 R2 Part 2.3",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-008-6",
+   "dst": "CIP-008-6 R4 Part 4.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-008-6",
+   "dst": "CIP-008-6 R4 Part 4.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-008-6",
+   "dst": "CIP-008-6 R4 Part 4.3",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-008-6",
+   "dst": "CIP-008-6 R3",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-009-6",
+   "dst": "CIP-009-6 R1 Part 1.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-009-6",
+   "dst": "CIP-009-6 R1 Part 1.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-009-6",
+   "dst": "CIP-009-6 R1 Part 1.3",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-009-6",
+   "dst": "CIP-009-6 R1 Part 1.4",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-009-6",
+   "dst": "CIP-009-6 R1 Part 1.5",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-009-6",
+   "dst": "CIP-009-6 R2 Part 2.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-009-6",
+   "dst": "CIP-009-6 R2 Part 2.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-009-6",
+   "dst": "CIP-009-6 R2 Part 2.3",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-009-6",
+   "dst": "CIP-009-6 R3 Part 3.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-009-6",
+   "dst": "CIP-009-6 R3 Part 3.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-010-4",
+   "dst": "CIP-010-4 R1 Part 1.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-010-4",
+   "dst": "CIP-010-4 R1 Part 1.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-010-4",
+   "dst": "CIP-010-4 R1 Part 1.3",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-010-4",
+   "dst": "CIP-010-4 R1 Part 1.4",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-010-4 R1 Part 1.4",
+   "dst": "CIP-005",
+   "rel": "CROSS_REFERENCES",
+   "valid_from": "2024-04-01"
+  },
+  {
+   "src": "CIP-010-4 R1 Part 1.4",
+   "dst": "CIP-007",
+   "rel": "CROSS_REFERENCES",
+   "valid_from": "2024-04-01"
+  },
+  {
+   "src": "CIP-010-4",
+   "dst": "CIP-010-4 R1 Part 1.5",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-010-4",
+   "dst": "CIP-010-4 R1 Part 1.6",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-010-4",
+   "dst": "CIP-010-4 R2 Part 2.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-010-4",
+   "dst": "CIP-010-4 R3 Part 3.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-010-4",
+   "dst": "CIP-010-4 R3 Part 3.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-010-4",
+   "dst": "CIP-010-4 R3 Part 3.3",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-010-4",
+   "dst": "CIP-010-4 R3 Part 3.4",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-010-4",
+   "dst": "CIP-010-4 R4",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-011-3",
+   "dst": "CIP-011-3 R1 Part 1.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-011-3",
+   "dst": "CIP-011-3 R1 Part 1.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-011-3",
+   "dst": "CIP-011-3 R2 Part 2.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-011-3",
+   "dst": "CIP-011-3 R2 Part 2.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-012-2",
+   "dst": "CIP-012-2 R1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-012-2",
+   "dst": "CIP-012-1",
+   "rel": "SUPERSEDES",
+   "valid_from": "2025-07-01"
+  },
+  {
+   "src": "CIP-012-1",
+   "dst": "CIP-012-2",
+   "rel": "SUPERSEDED_BY",
+   "valid_to": "2025-07-01"
+  },
+  {
+   "src": "CIP-013-2",
+   "dst": "CIP-013-2 R1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-013-2",
+   "dst": "CIP-013-2 R2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-013-2",
+   "dst": "CIP-013-2 R3",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-014-3",
+   "dst": "CIP-014-3 R1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-014-3",
+   "dst": "CIP-014-3 R2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-014-3",
+   "dst": "CIP-014-3 R4",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-014-3",
+   "dst": "CIP-014-3 R5",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-014-3",
+   "dst": "CIP-014-3 R6",
+   "rel": "HAS_REQUIREMENT"
+  }
+ ]
+}

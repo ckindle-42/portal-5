@@ -27,11 +27,20 @@ def test_search_controls_returns_citable_ids():
 
 
 def test_nerc_cip_requirement_lookup():
-    for variant in ("CIP-007-6 R2", "CIP-007-6R2", "cip-007-6 r2"):
+    # exact Part -> verbatim text, lifecycle, validity
+    for variant in ("CIP-007-6 R2 Part 2.2", "cip-007-6r2part2.2", "CIP-007-6 R2 PART 2.2"):
         out = mod.nerc_cip_requirement(variant)
         assert out["found"], variant
-        assert "35 calendar days" in out["title"]
-        assert "SI-2" in out["related_800_53"]
+        assert out["granularity"] == "exact"
+        assert "35 calendar days" in out["verbatim_text"]
+        assert out["lifecycle_state"] == "EFFECTIVE"
+        assert out["valid_from"] == "2016-07-01"
+    # R-level -> rollup of every Part
+    roll = mod.nerc_cip_requirement("CIP-007-6 R2")
+    assert roll["found"] and roll["granularity"] == "rollup"
+    assert {p["part"] for p in roll["parts"]} == {"2.1", "2.2", "2.3", "2.4"}
+    # unknown
+    assert not mod.nerc_cip_requirement("CIP-999-1 R1")["found"]
 
 
 def test_map_frameworks_both_directions():
