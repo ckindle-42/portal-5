@@ -3,8 +3,8 @@
 Table open/create, the KB list, and the model + stage-set stamp sidecar
 (``meta_path`` / ``read_stamp`` / ``write_stamp`` / ``assert_embedding_space``).
 ``require_lance_dir`` (``lance_guard``) still runs first on connect. The
-compliance composition (P7) points ``RAG_DIR`` at its own directory so its
-tables never collide with ``kb_*``.
+compliance composition (P7) passes ``prefix="compliance_"`` so its tables and
+stamps never collide with ``kb_*``.
 """
 
 from __future__ import annotations

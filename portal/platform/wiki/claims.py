@@ -253,6 +253,34 @@ def _probe_vl_embedding_dim(root: Path) -> int:
     return int(m.group(1)) if m else -1
 
 
+def _probe_retrieval_stages(root: Path) -> list[str]:
+    """The stage modules of portal.platform.retrieval (SEAM V1). A nominal
+    ``modules.enabled contains: research`` probe passed while the subsystem
+    carried a wrong diagnosis for five months; this one lists the actual stage
+    files, so a deleted or unimported stage fails the census loudly."""
+    d = root / "portal" / "platform" / "retrieval"
+    if not d.is_dir():
+        return []
+    return sorted(p.stem for p in d.glob("*.py") if p.stem != "__init__")
+
+
+def _probe_retrieval_compositions(root: Path) -> list[str]:
+    """Every module that builds a portal.platform.retrieval Composition — the
+    seam's whole point is that there is more than one and they share nothing but
+    the stage library."""
+    hits = []
+    for p in (root / "portal").rglob("*.py"):
+        if p.parent.name in ("retrieval", "wiki") or "tests" in p.parts:
+            continue
+        try:
+            t = p.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        if "retrieval import pipeline" in t and "pipeline.Composition(" in t:
+            hits.append(p.relative_to(root).as_posix())
+    return sorted(hits)
+
+
 PROBES: dict[str, Callable[[Path], Any]] = {
     "workspaces.total": _probe_workspaces_total,
     "workspaces.bench": _probe_workspaces_bench,
@@ -279,6 +307,8 @@ PROBES: dict[str, Callable[[Path], Any]] = {
     "deps.locked": _probe_locked_packages,
     "rag.retrieval.routes": _probe_rag_retrieval_routes,
     "vl.embedding.dim": _probe_vl_embedding_dim,
+    "retrieval.stages": _probe_retrieval_stages,
+    "retrieval.compositions": _probe_retrieval_compositions,
 }
 
 

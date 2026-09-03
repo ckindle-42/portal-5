@@ -21,7 +21,22 @@ sources:
   path: portal/platform/retrieval/pipeline.py
 - type: code
   path: portal/modules/compliance/tools/compliance_retrieval.py
-claims: []
+claims:
+# O9: real bindings, not a nominal `modules.enabled` probe. Each stage file and
+# each composition is named — a deleted stage or a consumer that stops composing
+# fails the drift census (BS) loudly.
+- probe: retrieval.stages
+  contains: pipeline
+- probe: retrieval.stages
+  contains: fusion
+- probe: retrieval.stages
+  contains: store
+- probe: retrieval.stages
+  contains: embedding
+- probe: retrieval.compositions
+  contains: portal/modules/research/tools/rag_multimodal.py
+- probe: retrieval.compositions
+  contains: portal/modules/compliance/tools/compliance_retrieval.py
 confidence: high
 tags:
 - authored-v1
