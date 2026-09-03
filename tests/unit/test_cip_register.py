@@ -27,11 +27,20 @@ def test_register_is_nonempty_and_all_verbatim_verified():
 
 
 def test_version_divergences_resolved_to_the_enforceable_version():
-    """CIP-003-8 / CIP-012-1 (the pre-existing map) are superseded; the register
-    carries -9 / -2 and records the supersession."""
-    standards = {n.standard for n in reg.nodes}
-    assert "CIP-003-9" in standards and "CIP-003-8" not in standards
-    assert "CIP-012-2" in standards and "CIP-012-1" not in standards
+    """The enforceable version is EFFECTIVE; the superseded version (CIP-003-8,
+    downloaded for the T4 change pipeline) is present but RETIRED and excluded
+    from a 'today' query. CIP-012-1 was never downloaded."""
+    from portal.modules.compliance.core.engine import effective_parts
+
+    by_std = {}
+    for n in reg.nodes:
+        by_std.setdefault(n.standard, n.lifecycle_state)
+    assert by_std["CIP-003-9"] == "EFFECTIVE"
+    assert by_std.get("CIP-003-8") == "RETIRED"
+    assert by_std["CIP-012-2"] == "EFFECTIVE" and "CIP-012-1" not in by_std
+    eff = {n.standard for n in effective_parts(reg, "2026-09-03")}
+    assert "CIP-003-8" not in eff and "CIP-003-9" in eff
+
     sup = {(e["src"], e["dst"]) for e in reg.edges if e["rel"] == "SUPERSEDES"}
     assert ("CIP-003-9", "CIP-003-8") in sup
     assert ("CIP-012-2", "CIP-012-1") in sup

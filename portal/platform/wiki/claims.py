@@ -281,6 +281,23 @@ def _probe_retrieval_compositions(root: Path) -> list[str]:
     return sorted(hits)
 
 
+def _probe_compliance_change_types(root: Path) -> list[str]:
+    """The typed change vocabulary of the register-diff engine (T4). Binds the
+    wiki claim to ``register_diff.CHANGE_TYPES`` so renaming or deleting the
+    module fails the census rather than leaving a stale doc."""
+    p = root / "portal" / "modules" / "compliance" / "core" / "register_diff.py"
+    if not p.is_file():
+        return []
+    try:
+        t = p.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return []
+    m = re.search(r"CHANGE_TYPES\s*=\s*\(([^)]*)\)", t, re.S)
+    if not m:
+        return []
+    return sorted(re.findall(r'"([A-Z_]+)"', m.group(1)))
+
+
 def _probe_compliance_register(root: Path) -> list[str]:
     """The NERC CIP standards carried in the bitemporal register (T3). A nominal
     ``modules.enabled contains: compliance`` probe passed while the register was
@@ -327,6 +344,7 @@ PROBES: dict[str, Callable[[Path], Any]] = {
     "retrieval.stages": _probe_retrieval_stages,
     "retrieval.compositions": _probe_retrieval_compositions,
     "compliance.register": _probe_compliance_register,
+    "compliance.change_types": _probe_compliance_change_types,
 }
 
 

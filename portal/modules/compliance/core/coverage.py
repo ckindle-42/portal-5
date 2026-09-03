@@ -110,6 +110,19 @@ class CoverageMatrix:
         }
 
 
+def _skip_node(node, has_parts: set) -> bool:
+    """An R-level node is skipped when its R has obligation-bearing Parts (they
+    carry the judgement); a CIP-003 R1 topic-leaf Part is skipped because it is a
+    policy topic label, not an obligation (R1 stays the unit of coverage)."""
+    if node.granularity == "requirement":
+        return (node.standard, node.requirement) in has_parts
+    return (
+        node.granularity == "part"
+        and node.standard.startswith("CIP-003")
+        and node.requirement == "R1"
+    )
+
+
 def coverage_matrix(
     reg: Register,
     scope: AssetScope,
@@ -128,13 +141,19 @@ def coverage_matrix(
     store = store or MappingStore()
     m = CoverageMatrix(effective_on=effective_on, scope_declared=True)
     nodes = effective_parts(reg, effective_on)
-    # skip an R-level node only when the same R has extracted Parts (then the
-    # Parts carry the judgement); an R with no Parts (CIP-012, CIP-013, ...) is
-    # itself the unit of coverage.
-    has_parts = {(n.standard, n.requirement) for n in nodes if n.granularity == "part"}
+    # skip an R-level node only when the same R has extracted Parts that are
+    # themselves obligations (then the Parts carry the judgement). CIP-003 R1's
+    # "parts" are policy *topics*, not sub-requirements — its 15-calendar-month
+    # obligation is R-level, so R1 stays the unit of coverage.
+    has_parts = {
+        (n.standard, n.requirement)
+        for n in nodes
+        if n.granularity == "part"
+        and not (n.standard.startswith("CIP-003") and n.requirement == "R1")
+    }
 
     for node in nodes:
-        if node.granularity == "requirement" and (node.standard, node.requirement) in has_parts:
+        if _skip_node(node, has_parts):
             continue
         applies, reason = applicable(node.applicable_systems, scope)
         cell = CoverageCell(requirement_id=node.id, applies=applies, applicability_reason=reason)

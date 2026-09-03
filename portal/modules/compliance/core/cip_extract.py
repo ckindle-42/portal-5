@@ -46,10 +46,21 @@ _R_LEADIN_ALT_RE = re.compile(
 _TABLE_CAP_RE = re.compile(r"Table\s+R(\d+)\s*[–-]\s*([A-Za-z][A-Za-z /,&-]+?)(?:\.|\n|$)")
 
 
+# NERC running header, e.g. "CIP-003-9 - Cyber Security - Security Management
+# Controls 5". pymupdf occasionally splices it into a requirement string that
+# spans a page break; it is not part of the obligation text.
+_RUNHDR_RE = re.compile(
+    r"\s*CIP[-‐]\d{3}[-‐][\w.]+\s*[-‐–—]\s*Cyber Security\s*"
+    r"[-‐–—]\s*[A-Z][A-Za-z ]+?\s+\d+(?:\s+of\s+\d+)?\s*"
+)
+
+
 def _norm(s: str) -> str:
-    """Collapse PDF whitespace + normalise the bullet glyph. Verbatim content,
-    reflowed — the words and their order are exactly the source's."""
+    """Collapse PDF whitespace + normalise the bullet glyph, and strip a spliced
+    running header. Verbatim content, reflowed — the words and their order are
+    exactly the source's."""
     s = s.replace(_BULLET, "- ").replace("\xa0", " ")
+    s = _RUNHDR_RE.sub(" ", s)
     return re.sub(r"\s+", " ", s).strip()
 
 
@@ -107,6 +118,94 @@ def _cells(row: list) -> list[str]:
     return [c.strip() for c in row if c and c.strip()]
 
 
+# CIP-003 R1 carries its obligations as a nested numbered list of policy topics
+# (1.1.1 .. 1.1.9, 1.2.1 .. 1.2.7) rather than a Table R<n>. This is the one
+# case where the leaf items are the unit of change (T4 targets CIP-003-8 -> -9,
+# where 1.2.6 changed meaning and 1.2.7 was added).
+_CIP003_LEAF_RE = re.compile(
+    r"(?m)^\s*(1\.[12]\.\d+)\.\s+(.+?)(?=^\s*1\.[12]\.\d+\.|\bM1\.|\Z)", re.S
+)
+
+
+def _cip003_r1_leaves(full_text: str) -> list[tuple[str, str]]:
+    """[(part_id, verbatim_topic)] for CIP-003 R1's policy-topic list."""
+    out = []
+    for m in _CIP003_LEAF_RE.finditer(full_text):
+        topic = _norm(m.group(2))
+        # trim a trailing '(CIP-004);' style xref-only tail but keep it in text
+        out.append((m.group(1), topic.rstrip(" ;")))
+    return out
+
+
+def _cip003_r1_parts(
+    standard: str, version: str, lead: tuple[str, str, str], full: str, pdf: Path
+) -> list[RequirementPart]:
+    parts = []
+    for pid, topic in _cip003_r1_leaves(full):
+        impacts = (
+            "high impact and medium impact BES Cyber Systems"
+            if pid.startswith("1.1.")
+            else "assets identified in CIP-002 containing low impact BES Cyber Systems"
+        )
+        parts.append(
+            RequirementPart(
+                standard=standard,
+                version=version,
+                requirement="R1",
+                part=pid,
+                verbatim_text=topic,
+                measure_text="",
+                applicable_systems=impacts,
+                table_name="Cyber Security Policies",
+                vrf=lead[1] or "Medium",
+                time_horizon=lead[2] or "Operations Planning",
+                source_pdf=pdf.name,
+                source_pages=[],
+            )
+        )
+    return parts
+
+
+def _table_parts(page, pi, standard, version, leadins, pdf, seen) -> list[RequirementPart]:
+    """Every recognised `Table R<n>` row on one page."""
+    out: list[RequirementPart] = []
+    for tab in page.find_tables().tables:
+        rows = tab.extract()
+        if len(rows) < 2:
+            continue
+        header = " ".join(_cells(rows[1]))
+        if "Applicable Systems" not in header or "Requirements" not in header:
+            continue
+        cm = _TABLE_CAP_RE.search(" ".join(_cells(rows[0])))
+        if not cm:
+            continue
+        req = f"R{cm.group(1)}"
+        table_name = _norm(cm.group(2))
+        lead = leadins.get(req, ("", "", ""))
+        for r in rows[2:]:
+            cc = _cells(r)
+            if len(cc) < 3 or not _PART_RE.match(cc[0]) or (standard, cc[0]) in seen:
+                continue
+            seen.add((standard, cc[0]))
+            out.append(
+                RequirementPart(
+                    standard=standard,
+                    version=version,
+                    requirement=req,
+                    part=cc[0],
+                    verbatim_text=_norm(cc[2] if len(cc) >= 4 else cc[1]),
+                    measure_text=_norm(cc[3] if len(cc) >= 4 else (cc[2] if len(cc) > 2 else "")),
+                    applicable_systems=_norm(cc[1]) if len(cc) >= 4 else "",
+                    table_name=table_name,
+                    vrf=lead[1],
+                    time_horizon=lead[2],
+                    source_pdf=pdf.name,
+                    source_pages=[pi + 1],
+                )
+            )
+    return out
+
+
 def extract_standard(pdf_path: str | Path) -> tuple[list[RequirementPart], dict]:
     """Return (parts, meta). ``meta`` carries per-requirement R->parts counts and
     the requirements with no parts table (extracted at R granularity)."""
@@ -115,58 +214,28 @@ def extract_standard(pdf_path: str | Path) -> tuple[list[RequirementPart], dict]
     pdf = Path(pdf_path)
     standard, version = _standard_and_version(pdf)
     with pymupdf.open(str(pdf)) as d:
-        pages = [p.get_text() for p in d]
-        full = "\n".join(pages)
+        full = "\n".join(p.get_text() for p in d)
         leadins = _leadins(full)
         parts: list[RequirementPart] = []
         seen: set[tuple[str, str]] = set()
         for pi, page in enumerate(d):
-            for tab in page.find_tables().tables:
-                rows = tab.extract()
-                if len(rows) < 2:
-                    continue
-                header = " ".join(_cells(rows[1]))
-                if "Applicable Systems" not in header or "Requirements" not in header:
-                    continue
-                cap = " ".join(_cells(rows[0]))
-                cm = _TABLE_CAP_RE.search(cap)
-                if not cm:
-                    continue
-                req = f"R{cm.group(1)}"
-                table_name = _norm(cm.group(2))
-                lead = leadins.get(req, ("", "", ""))
-                for r in rows[2:]:
-                    cc = _cells(r)
-                    if len(cc) < 3 or not _PART_RE.match(cc[0]):
-                        continue
-                    key = (standard, cc[0])
-                    if key in seen:
-                        continue
-                    seen.add(key)
-                    appsys = _norm(cc[1]) if len(cc) >= 4 else ""
-                    reqtext = _norm(cc[2] if len(cc) >= 4 else cc[1])
-                    meastext = _norm(cc[3] if len(cc) >= 4 else (cc[2] if len(cc) > 2 else ""))
-                    parts.append(
-                        RequirementPart(
-                            standard=standard,
-                            version=version,
-                            requirement=req,
-                            part=cc[0],
-                            verbatim_text=reqtext,
-                            measure_text=meastext,
-                            applicable_systems=appsys,
-                            table_name=table_name,
-                            vrf=lead[1],
-                            time_horizon=lead[2],
-                            source_pdf=pdf.name,
-                            source_pages=[pi + 1],
-                        )
-                    )
+            parts.extend(_table_parts(page, pi, standard, version, leadins, pdf, seen))
 
-    # requirements that have a lead-in but produced no parts (part-less R, or a
-    # table layout this extractor did not recognise)
+    # CIP-003 R1 policy-topic leaves (the one non-table case with leaf Parts).
+    # The R1 *statement* still carries the 15-calendar-month review obligation, so
+    # R1 is emitted at R-level AND its topic leaves as Parts.
+    if standard == "CIP-003" and not any(p.requirement == "R1" and p.part for p in parts):
+        parts.extend(
+            _cip003_r1_parts(standard, version, leadins.get("R1", ("", "", "")), full, pdf)
+        )
+        seen.update((standard, p.part) for p in parts if p.requirement == "R1")
+
+    # requirements that have a lead-in but produced no obligation-bearing parts
+    # (part-less R, an unrecognised table, or CIP-003 R1 whose parts are topics)
     parts_by_req: dict[str, list[str]] = {}
     for p in parts:
+        if p.standard.startswith("CIP-003") and p.requirement == "R1":
+            continue  # topic leaves don't count as covering R1
         parts_by_req.setdefault(p.requirement, []).append(p.part)
     partless = []
     for req, (lead, vrf, th) in leadins.items():
