@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 734 canonical units.*
+*Deterministic projection of 736 canonical units.*
 
 ## Knowledge Layer
 
@@ -240,6 +240,7 @@
 | `unit-code-scripts` | what | 5 |
 | `unit-code-tests` | what | 5 |
 | `unit-compliance-config-workspace-pointers` | mixed | 1 |
+| `unit-compliance-engine` | mixed | 16 |
 | `unit-compliance-fallback-policy-canonical-baseline` | what | 5 |
 | `unit-compliance-fallback-policy-compliance-fallback-policy` | what | 4 |
 | `unit-compliance-fallback-policy-full-sweep` | what | 3 |
@@ -299,6 +300,7 @@
 | `unit-known-limitations-auto-rag-silent-miss` | what | 3 |
 | `unit-known-limitations-baronllm-text-only-tool-output-auto-security-mcp-tools-non-functional` | what | 6 |
 | `unit-known-limitations-cadquery-and-build123d-unusable-on-linux-arm64` | what | 4 |
+| `unit-known-limitations-cip-register-behind-published-versions` | what | 3 |
 | `unit-known-limitations-code-sandbox-requires-privileged-container` | what | 2 |
 | `unit-known-limitations-devstral-24b-runtime-vram-footprint-25-7-gb` | what | 3 |
 | `unit-known-limitations-diarized-transcription-task-transcribe-001` | what | 3 |
@@ -743,12 +745,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 734 units
+**Total:** 736 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1738 references
+- **code**: 1757 references
 - **config**: 1 references
 - **mitre**: 40 references
 - **scenario**: 54 references
