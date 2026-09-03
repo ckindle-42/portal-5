@@ -87,6 +87,7 @@ _KB_SEARCH_RESULT_KEYS = {
     "fused_score",
     "reranker_prob",
     "kind",
+    "content_available",  # P2/O3
 }
 _KB_INGEST_KEYS = {"kb_id", "files_ingested", "chunks_added", "pages_added", "fts_index"}
 _KB_SEARCH_ALL_KEYS = {"query", "num_results", "results"}
@@ -117,8 +118,15 @@ def test_kb_search_response_contract(_kb):
     for r in res["results"]:
         assert set(r) >= _KB_SEARCH_RESULT_KEYS, sorted(r)
         assert r["kind"] in ("text", "visual")
+        if r["kind"] == "text":
+            # O2: locators present (absent, not guessed, is allowed for page)
+            assert "char_start" in r and "char_end" in r and "page" in r
+            assert r["content_available"] is True
         if r["kind"] == "visual":
-            assert "page" in r
+            # O3: a pointer, never a placeholder masquerading as content
+            assert "page" in r and r["content_available"] is False
+            assert r["text"] is None and "locator" in r
+            assert not str(r.get("text")).startswith("[page image")
 
 
 def test_kb_ingest_response_contract(_kb):

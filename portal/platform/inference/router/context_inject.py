@@ -97,6 +97,12 @@ def _extract_snippets(result: dict[str, Any]) -> list[str]:
                 if isinstance(it, str):
                     out.append(it)
                 elif isinstance(it, dict):
+                    # O3: a page-image hit carries no readable content — it is a
+                    # pointer, not a snippet. Injecting "[page image f.pdf p3]"
+                    # (the old placeholder) taught the model nothing and looked
+                    # like grounding. Skip anything explicitly content-unavailable.
+                    if it.get("content_available") is False:
+                        continue
                     txt = it.get("text") or it.get("content") or it.get("snippet")
                     if txt:
                         out.append(str(txt))

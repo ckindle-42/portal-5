@@ -34,6 +34,52 @@ UNIFIED_TEXT_DEPTH = float(os.environ.get("VL_UNIFIED_TEXT_DEPTH", "3"))
 
 RerankFn = Callable[[str, list, int], Awaitable[list]]
 
+# SUBSTRATE_MIGRATION_V1 P2 — locator payload.
+#
+# O2: text hits carry `char_start`/`char_end` (stored at ingest) and, once the
+# docling chunker lands (P3.2), `page`. Emit what the row actually has; `page` is
+# `None` until the chunker supplies it — an absent field, never a guessed one.
+#
+# O3: a page-image hit has no extractable text. The placeholder string
+# `"[page image f.pdf p3]"` used to be shipped in `text`, and the router's
+# `_extract_snippets` injected it into the model's context as if it were content.
+# Now `text` is `None`, `content_available` is `False`, and `locator` +
+# `pointer_note` say what the row points at — the consumer decides whether to
+# render the page, not the retriever pretending it already read it.
+
+_PTR_NOTE = (
+    "page-image match with no extractable text — enable figure transcription "
+    "(S0) to make this page's content searchable and readable"
+)
+
+
+def _text_payload(r: dict) -> dict:
+    return {
+        "chunk_id": r["chunk_id"],
+        "source_file": r["source_file"],
+        "chunk_index": r["chunk_index"],
+        "text": r["text"],
+        "kind": "text",
+        "content_available": True,
+        "page": r["page"] if r.get("page") not in (None, 0) else None,
+        "char_start": int(r["char_start"]) if r.get("char_start") is not None else None,
+        "char_end": int(r["char_end"]) if r.get("char_end") is not None else None,
+    }
+
+
+def _visual_payload(r: dict) -> dict:
+    return {
+        "chunk_id": r["chunk_id"],
+        "source_file": r["source_file"],
+        "chunk_index": r["page"],
+        "page": r["page"],
+        "kind": "visual",
+        "text": None,
+        "content_available": False,
+        "locator": {"source_file": r["source_file"], "page": r["page"]},
+        "pointer_note": _PTR_NOTE,
+    }
+
 
 def text_arm_is_unconfident(top_text_sim: float, text_margin: float) -> bool:
     """Should the visual arm be promoted? i.e. does the text arm lack an answer.
@@ -72,28 +118,11 @@ async def search_unified(ttbl, vtbl, query: str, qvec, top_k: int, vl_rerank: Re
     if ttbl is not None:
         for r in ttbl.search(qvec).limit(tdepth).to_list():
             cands.append({"text": r["text"]})
-            meta.append(
-                {
-                    "chunk_id": r["chunk_id"],
-                    "source_file": r["source_file"],
-                    "chunk_index": r["chunk_index"],
-                    "text": r["text"],
-                    "kind": "text",
-                }
-            )
+            meta.append({**_text_payload(r), "reranker_prob": None})
     if vtbl is not None:
         for r in vtbl.search(qvec).limit(vdepth).to_list():
             cands.append({"image_path": r["image_path"]})
-            meta.append(
-                {
-                    "chunk_id": r["chunk_id"],
-                    "source_file": r["source_file"],
-                    "chunk_index": r["page"],
-                    "page": r["page"],
-                    "text": f"[page image {r['source_file']} p{r['page']}]",
-                    "kind": "visual",
-                }
-            )
+            meta.append({**_visual_payload(r), "reranker_prob": None})
     if not cands:
         return []
 
@@ -132,14 +161,7 @@ async def rrf_fuse(ttbl, vtbl, query: str, qvec, top_k: int, vl_rerank: RerankFn
         for rank, r in enumerate(trows):
             key = ("text", r["chunk_id"])
             scores[key] = scores.get(key, 0.0) + 1.0 / (RRF_K + rank)
-            payload[key] = {
-                "chunk_id": r["chunk_id"],
-                "source_file": r["source_file"],
-                "chunk_index": r["chunk_index"],
-                "text": r["text"],
-                "kind": "text",
-                "reranker_prob": None,
-            }
+            payload[key] = {**_text_payload(r), "reranker_prob": None}
     if vtbl is not None:
         # S3: rerank depth is the entire query cost (~1.7s/page image,
         # linear). The visual embedding recall is high — the target page is
@@ -161,15 +183,7 @@ async def rrf_fuse(ttbl, vtbl, query: str, qvec, top_k: int, vl_rerank: RerankFn
             scores[key] = scores.get(key, 0.0) + 1.0 / (RRF_K + rank)
             if visual_boost:
                 scores[key] += float(o["score"])
-            payload[key] = {
-                "chunk_id": r["chunk_id"],
-                "source_file": r["source_file"],
-                "chunk_index": r["page"],
-                "page": r["page"],
-                "text": f"[page image {r['source_file']} p{r['page']}]",
-                "kind": "visual",
-                "reranker_prob": round(float(o["score"]), 5),
-            }
+            payload[key] = {**_visual_payload(r), "reranker_prob": round(float(o["score"]), 5)}
     fused = sorted(scores.items(), key=lambda kv: -kv[1])[:top_k]
     return [{**payload[k], "fused_score": round(s, 5)} for k, s in fused]
 

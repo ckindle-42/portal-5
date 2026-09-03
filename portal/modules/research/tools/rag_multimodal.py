@@ -171,14 +171,23 @@ async def _ingest(request):
 
 async def _search(request):
     """kb_search: default multimodal — RRF fusion of text-chunk and page-image
-    retrieval. Contract-preserved: {kb_id, query, top_k}, response
-    {kb_id, query, num_results, results:[{chunk_id, source_file, chunk_index,
-    text, fused_score, reranker_prob, kind, page?}]}.
+    retrieval. Request {kb_id, query, top_k}, response {kb_id, query,
+    num_results, results:[...]}.
+
+    Each result row (SUBSTRATE_MIGRATION_V1 P2):
+      text rows   — chunk_id, source_file, chunk_index, text, kind="text",
+                    content_available=True, char_start, char_end, page
+                    (page is null until the docling chunker lands — absent,
+                    never fabricated), fused_score, reranker_prob=null.
+      visual rows — chunk_id, source_file, chunk_index, page, kind="visual",
+                    text=null, content_available=False, locator={source_file,
+                    page}, pointer_note, fused_score, reranker_prob (the VL
+                    reranker probability). A visual row is a pointer the model
+                    cannot read; the router's context injector skips it.
 
     `fused_score` is the RRF value plus, on visual rows, the VL reranker's
     calibrated probability when the text arm has no confident answer (see
-    VL_TEXT_GATE / the B1 fusion fix). `reranker_prob` is that raw probability
-    for visual rows, null for text rows."""
+    VL_TEXT_GATE / the B1 fusion fix)."""
     args = (await request.json()).get("arguments", {})
     kb_id = args.get("kb_id", "")
     query = args.get("query", "")
