@@ -28,6 +28,10 @@ from pathlib import Path
 
 import yaml
 
+from portal.platform.retrieval import embedding as _embedding
+from portal.platform.retrieval import fusion as _fusion
+from portal.platform.retrieval import store as _store
+
 
 def _patch_fusion(rm, strategy: str) -> None:  # noqa: C901, PLR0915
     """Replace rag_multimodal._search's fusion with a strategy under test (P5).
@@ -50,19 +54,17 @@ def _patch_fusion(rm, strategy: str) -> None:  # noqa: C901, PLR0915
 
     from starlette.responses import JSONResponse
 
-    import portal.modules.research.tools.rag_multimodal as _rm
-
-    rrf_k = _rm._RRF_K
+    rrf_k = _fusion.RRF_K
 
     async def _arms(kb_id, query, top_k):
         """(rrf, prob, payload) — the per-key RRF weight, the visual reranker
         probability, and the display row, collected the same way the real
         `_search` does before it fuses."""
-        ttbl, vtbl = _rm._text_table(kb_id), _rm._visual_table(kb_id)
+        ttbl, vtbl = _store.text_table(kb_id), _store.visual_table(kb_id)
         if ttbl is None and vtbl is None:
             return None
-        _rm._assert_embedding_space(kb_id, (await _rm._vl_model_id())[0])
-        qvec = await _rm._vl_embed(text=query, is_query=True)
+        _store.assert_embedding_space(kb_id, (await _embedding.vl_model_id())[0])
+        qvec = await _embedding.vl_embed(text=query, is_query=True)
         rrf: dict = {}
         prob: dict = {}
         payload: dict = {}
@@ -93,7 +95,9 @@ def _patch_fusion(rm, strategy: str) -> None:  # noqa: C901, PLR0915
             else:
                 cands = [{"image_path": r["image_path"]} for r in coarse]
                 order = (
-                    await _rm._vl_rerank(query, cands, min(len(cands), top_k * 2)) if cands else []
+                    await _embedding.vl_rerank(query, cands, min(len(cands), top_k * 2))
+                    if cands
+                    else []
                 )
             for rank, o in enumerate(order):
                 r = coarse[o["index"]]
@@ -250,16 +254,16 @@ async def main() -> None:
     ap.add_argument("--categories", default="", help="comma-list to restrict the query set")
     a = ap.parse_args()
 
-    os.environ["PORTAL5_LANCE_DIR"] = a.lance_dir
     os.environ.setdefault("VL_RETRIEVAL_URL", "http://localhost:8942")
     Path(a.lance_dir).mkdir(parents=True, exist_ok=True)
 
     import portal.modules.research.tools.rag_multimodal as rm
-    from portal.platform.retrieval import store as _store
 
-    # SEAM V1 P3: the LanceDB dir now comes from the PORTAL5_LANCE_DIR env var
-    # set above, read by portal.platform.retrieval.store at import. Reset the
-    # connection cache and keep _PAGES_DIR (the composition still reads it here).
+    # SEAM V1: point the shared store stage at the scratch dir (it read the env
+    # var at import, before argv was parsed), reset the connection cache, and set
+    # this composition's rendered-page dir.
+    _store.LANCE_DIR = a.lance_dir
+    _store.RAG_DIR = os.path.join(a.lance_dir, "rag")
     _store._db = None
     rm._PAGES_DIR = Path(a.lance_dir) / "rag_pages"
     _patch_fusion(rm, a.fusion)

@@ -27,11 +27,10 @@ def _run(c):
 
 @pytest.fixture(autouse=True)
 def _iso(tmp_path, monkeypatch):
-    # SEAM V1 P3: the store + VL client are their own modules now; patch there.
+    # SEAM V1: the store + VL client are the stage library; patch them there.
     monkeypatch.setattr(_store, "LANCE_DIR", str(tmp_path / "lance"))
     monkeypatch.setattr(_store, "RAG_DIR", str(tmp_path / "lance" / "rag"))
     monkeypatch.setattr(_embedding, "VL_DIM", 8)
-    monkeypatch.setattr(rm, "VL_DIM", 8)
     monkeypatch.setattr(rm, "_PAGES_DIR", tmp_path / "pages")
     _store._db = None
 
@@ -47,10 +46,10 @@ def _iso(tmp_path, monkeypatch):
     async def _model_id():
         return ("fake-vl-model", 8)
 
-    monkeypatch.setattr(rm, "_vl_embed", _emb)
-    monkeypatch.setattr(rm, "_vl_embed_batch", _emb_batch)
-    monkeypatch.setattr(rm, "_vl_rerank", _rr)
-    monkeypatch.setattr(rm, "_vl_model_id", _model_id)
+    monkeypatch.setattr(_embedding, "vl_embed", _emb)
+    monkeypatch.setattr(_embedding, "vl_embed_batch", _emb_batch)
+    monkeypatch.setattr(_embedding, "vl_rerank", _rr)
+    monkeypatch.setattr(_embedding, "vl_model_id", _model_id)
     # a fake rag_mcp so docling isn't required
     fake = types.ModuleType("portal.modules.research.tools.rag_mcp")
 
@@ -115,12 +114,12 @@ def test_ingest_stamps_model_and_search_rejects_a_swap(tmp_path, monkeypatch):
     src.mkdir()
     (src / "d.txt").write_text("x")
     _run(rm._ingest(_Req({"kb_id": "kbz", "source_dir": str(src)})))
-    assert rm._read_stamp("kbz")["embed_model"] == "fake-vl-model"
+    assert _store.read_stamp("kbz")["embed_model"] == "fake-vl-model"
 
     async def _swapped():
         return ("different-vl-model", 8)
 
-    monkeypatch.setattr(rm, "_vl_model_id", _swapped)
+    monkeypatch.setattr(_embedding, "vl_model_id", _swapped)
     out = _run(rm._search(_Req({"kb_id": "kbz", "query": "x"})))
     body = json.loads(out.body)
     assert out.status_code == 503 and "different spaces" in body["error"]

@@ -15,7 +15,7 @@ the multimodal behaviour is the new default backing, not a new interface.
 TASK_RAG_COMPOSITION_SEAM_V1: the retrieval substrate — chunking, page
 rendering, extraction, the VL client, the LanceDB store, and fusion — lives in
 `portal.platform.retrieval`. This module is one *composition* of those stages
-(`_COMPOSITION`), byte-identical to its pre-seam behaviour, plus the route
+(`_composition()`), byte-identical to its pre-seam behaviour, plus the route
 handlers and the S0 figure-transcription step. The compliance engine is a
 second composition. Substrate *behaviour* changes are a separate per-KB
 migration — see `unit-platform-retrieval`.
@@ -37,57 +37,13 @@ from portal.platform.retrieval import pages as _pages
 from portal.platform.retrieval import pipeline as _pipeline
 from portal.platform.retrieval import store as _store
 
-# ── Thin aliases over the stage library ────────────────────────────────────────
-# Kept so existing references, tests, and the per-KB profile probe resolve
-# unchanged through the transition. `scripts/rag_retrieval_eval.py` also reaches
-# in through these. The rope is cut in P5.
-LANCE_DIR = _store.LANCE_DIR
-RAG_DIR = _store.RAG_DIR
-VL_URL = _embedding.VL_URL
-VL_DIM = _embedding.VL_DIM
-VL_EMBED_MAX_ITEMS = _embedding.VL_EMBED_MAX_ITEMS
-VL_TEXT_GATE = _fusion.VL_TEXT_GATE
-VL_TEXT_GATE_MODE = _fusion.VL_TEXT_GATE_MODE
-VL_TEXT_MARGIN = _fusion.VL_TEXT_MARGIN
-VL_RERANK_DEPTH = _fusion.VL_RERANK_DEPTH
-FUSION = _fusion.FUSION
-UNIFIED_TEXT_DEPTH = _fusion.UNIFIED_TEXT_DEPTH
-CHUNK_SIZE = _chunking.CHUNK_SIZE
-CHUNK_OVERLAP = _chunking.CHUNK_OVERLAP
-CHUNK_STRATEGY = _chunking.CHUNK_STRATEGY
-FIGURE_PAGE_MAX_TEXT = _pages.FIGURE_PAGE_MAX_TEXT
-_MAX_PAGES = _pages.MAX_PAGES
-_RRF_K = _fusion.RRF_K
-_PAGES_DIR = Path(os.environ.get("RAG_PAGES_DIR", os.path.join(LANCE_DIR, "rag_pages")))
+# This module's own rendered-page directory (the stage library takes it as a
+# parameter — pages.MAX_PAGES / FIGURE_PAGE_MAX_TEXT and the chunk / fusion
+# tuning constants live in the library, not here).
+_PAGES_DIR = Path(os.environ.get("RAG_PAGES_DIR", os.path.join(_store.LANCE_DIR, "rag_pages")))
 
-_SECTION_BOUNDARY = _chunking.SECTION_BOUNDARY
-_chunk_fixed = _chunking.chunk_fixed
-_chunk_structured = _chunking.chunk_structured
-_chunk = _chunking.chunk
-_render_pages = _pages.render_pages
-_figure_pages = _pages.figure_pages
-_PAGE_TEXT_LEN = _pages._PAGE_TEXT_LEN
-_read_text = _extraction.read_text
-
+# Re-exported for callers that still refer to the exception by this name.
 _VLUnavailableError = _embedding.VLUnavailableError
-_vl_error = _embedding.vl_error
-_vl_model_id = _embedding.vl_model_id
-_vl_embed_batch = _embedding.vl_embed_batch
-_vl_embed = _embedding.vl_embed
-_vl_rerank = _embedding.vl_rerank
-_text_arm_is_unconfident = _fusion.text_arm_is_unconfident
-_search_unified = _fusion.search_unified
-
-_get_db = _store.get_db
-_meta_path = _store.meta_path
-_read_stamp = _store.read_stamp
-_write_stamp = _store.write_stamp
-_assert_embedding_space = _store.assert_embedding_space
-_tname = _store.tname
-_vname = _store.vname
-_text_table = _store.text_table
-_visual_table = _store.visual_table
-_list_kbs = _store.list_kbs
 
 # ── S0: figure-page transcription (Ollama vision LLM at ingest) ────────────────
 # Model chosen by a 5-round, 16-model bake-off across 6 lineages and both
@@ -147,42 +103,43 @@ async def _transcribe_page(img_path: str) -> str:
 # that catches an embedding-model swap.
 def _stage_set() -> dict:
     return {
-        "chunk_strategy": CHUNK_STRATEGY,
-        "chunk_size": CHUNK_SIZE,
-        "chunk_overlap": CHUNK_OVERLAP,
-        "figure_page_max_text": FIGURE_PAGE_MAX_TEXT,
+        "chunk_strategy": _chunking.CHUNK_STRATEGY,
+        "chunk_size": _chunking.CHUNK_SIZE,
+        "chunk_overlap": _chunking.CHUNK_OVERLAP,
+        "figure_page_max_text": _pages.FIGURE_PAGE_MAX_TEXT,
         "transcribe_figures": TRANSCRIBE_FIGURES,
-        "fusion_mode": FUSION,
+        "fusion_mode": _fusion.FUSION,
     }
 
 
 def _composition() -> _pipeline.Composition:
-    """Built per call, from this module's own names, so a test that patches an
-    alias (``rm._vl_embed``, ``rm._text_table``, ``rm._PAGES_DIR``, ...) or a
-    stage constant is honoured exactly as it was before the seam."""
+    """This module's wiring of the stage library — built per call so a test that
+    patches a stage function (``embedding.vl_embed``, ``store.text_table``, …) or
+    a stage constant is honoured. Attribute access, not a bound snapshot, is what
+    makes that work."""
     return _pipeline.Composition(
         name="rag_multimodal",
-        get_db=_get_db,
-        text_table=_text_table,
-        visual_table=_visual_table,
-        tname=_tname,
-        vname=_vname,
-        list_kbs=_list_kbs,
-        read_stamp=_read_stamp,
-        write_stamp=_write_stamp,
-        assert_embedding_space=_assert_embedding_space,
-        vl_model_id=_vl_model_id,
-        vl_embed=_vl_embed,
-        vl_embed_batch=_vl_embed_batch,
-        vl_rerank=_vl_rerank,
-        unavailable_error=_VLUnavailableError,
-        chunk=_chunk,
-        read_text=_read_text,
-        render_pages=_render_pages,
-        figure_pages=_figure_pages,
+        get_db=_store.get_db,
+        text_table=_store.text_table,
+        visual_table=_store.visual_table,
+        tname=_store.tname,
+        vname=_store.vname,
+        list_kbs=_store.list_kbs,
+        read_stamp=_store.read_stamp,
+        write_stamp=_store.write_stamp,
+        assert_embedding_space=_store.assert_embedding_space,
+        vl_model_id=_embedding.vl_model_id,
+        vl_embed=_embedding.vl_embed,
+        vl_embed_batch=_embedding.vl_embed_batch,
+        vl_rerank=_embedding.vl_rerank,
+        unavailable_error=_embedding.VLUnavailableError,
+        chunk=_chunking.chunk,
+        read_text=_extraction.read_text,
+        render_pages=_pages.render_pages,
+        figure_pages=_pages.figure_pages,
         transcribe_page=_transcribe_page,
         pages_dir=_PAGES_DIR,
-        fusion_mode=FUSION,
+        fusion_mode=_fusion.FUSION,
         transcribe_figures=TRANSCRIBE_FIGURES,
         stage_set=_stage_set(),
     )

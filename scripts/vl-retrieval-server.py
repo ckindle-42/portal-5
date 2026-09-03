@@ -84,7 +84,7 @@ QUERY_INSTRUCTION = os.environ.get(
 
 # tokenizer_config forwarded into arch.Processor.from_pretrained — pops
 # max_pixels / min_pixels / embedding_max_length / reranking_max_length.
-# _render_pages (rag_multimodal) renders US-Letter at dpi=150 == ~2.10M px, above
+# retrieval.pages.render_pages renders US-Letter at dpi=150 == ~2.10M px, above
 # the default MAX_PIXELS (1800*32*32 == 1.84M) — pages get silently downscaled.
 # Raise the cap here (and lower the render DPI) coherently; measured in P8.
 _TOKENIZER_CONFIG = {

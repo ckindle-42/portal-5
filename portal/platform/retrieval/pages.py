@@ -3,8 +3,8 @@
 
 ``render_pages`` is the only impure part (it shells to pymupdf and writes PNGs);
 ``figure_pages`` is pure over the ``_PAGE_TEXT_LEN`` map ``render_pages``
-populates. Byte-identical to the pre-move bodies — see
-``tests/unit/test_retrieval_stage_parity.py``.
+populates. Byte-identical to the pre-move bodies (SEAM V1 P4 live-KB parity,
+`reports/retrieval/composition_parity.md`).
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-MAX_PAGES = int(os.environ.get("RAGMAX_PAGES", "500"))
+MAX_PAGES = int(os.environ.get("RAG_MAX_PAGES", "500"))
 
 # S0: how much extractable text a rendered page had. A page whose text layer is
 # already rich is, by definition, covered by the prose chunks — transcribing it
