@@ -280,10 +280,11 @@ def build_register(pdf_dir: str | Path) -> Register:
                 )
             )
             reg.edges.append({"src": full, "dst": node_id, "rel": "HAS_REQUIREMENT"})
-            for ref in sorted(
-                set(_XREF_RE.findall(p.verbatim_text + " " + p.measure_text))
-                - {full, std, f"{std}-"}
-            ):
+            # normalise U+2010/U+2011 dashes ("CIP‐004") before the xref scan
+            xref_text = (p.verbatim_text + " " + p.measure_text).translate(
+                {0x2010: "-", 0x2011: "-", 0x2012: "-", 0x2013: "-"}
+            )
+            for ref in sorted(set(_XREF_RE.findall(xref_text)) - {full, std, f"{std}-"}):
                 if ref in (std, full):
                     continue
                 reg.edges.append(
