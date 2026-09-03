@@ -2,7 +2,7 @@
 
 # Portal 5 Admin Guide
 
-*Deterministic projection of 734 canonical units.*
+*Deterministic projection of 736 canonical units.*
 
 ## Architecture Overview
 
@@ -60,7 +60,7 @@ Every `auto` request goes through two layers in routing.py. Layer 1 `_route_with
 
 - **10 security canonical variants**: 1 source(s)
 - **135 personas**: 6 source(s)
-- **137 MCP tools across 33 servers**: 1 source(s)
+- **138 MCP tools across 33 servers**: 1 source(s)
 - **246 model ids, 7 backend groups**: 1 source(s)
 - **25 production + 53 eval workspaces**: 1 source(s)
 - **33 MCP fleet servers**: 1 source(s)
@@ -75,4 +75,4 @@ Every `auto` request goes through two layers in routing.py. Layer 1 `_route_with
 - **AGENT_LOOP — Record path (writing enabled, CI-gated)**: 2 source(s)
 
 ---
-*734 knowledge units referenced.*
+*736 knowledge units referenced.*
