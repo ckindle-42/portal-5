@@ -1636,6 +1636,23 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
+  bench-qwen38-flash-next-reap288:
+    module: eval
+    name: 🔬 Bench · Qwen3.8-Flash-Next-REAP-288 (oMLX, MLX 4-bit)
+    description: |-
+      Benchmark: sh0wie/Qwen3.8-Flash-Next-REAP-288-MLX-4bit (Sept 2026, REAP expert-pruned 512->288 of Qwen/Qwen3.8-Flash-Next, qwen4_exp MoE, 48 layers, top-10 routing, 262K ctx). MLX affine 4-bit, ~73.5GB on disk. Measured footprint on this host (2026-09-02, corrects the source plan's 39/68GB estimates): ~77GB full-resident; ~40.6GB with qwen4_ple_ssd_offload (PLE 32GB n-gram table stays on SSD, oMLX >=0.6.4 mmap path). REQUIRES qwen4_ple_ssd_offload:true in ~/.omlx/model_settings.json. Model card claims 91.5% HumanEval (vs 93.9% stock Q4) and ~26-29 tok/s decode on a 48GB M4 Pro -- vendor-reported, not reproduced here. oMLX-only, no Ollama/GGUF fallback. PROMOTE_POLICY=confirm -- candidate only, auto-coding's primary is unchanged. Added 2026-09-02 (TASK_OMLX_QWEN38FN_REAP288_BRINGUP_V1). Phase 5 live probe (load + tool-call, sets supports_tools) is BLOCKED on this 64GB host while the Portal Docker stack is up (~40.6GB needed vs ~25GB reclaimable); bench runs require a quiet host.
+    model_hint: Qwen3.8-Flash-Next-REAP-288-MLX-4bit
+    predict_limit: 16384
+    temperature: 0.2
+    top_p: 0.95
+    repeat_penalty: 1.1
+    max_concurrent: 1
+    # code-repair bench — not a reasoning task; think:false to match the coder
+    # peers it benches against.
+    think: false
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
   bench-gemma4-26b-optiq:
     module: eval
     name: 🔬 Bench · Gemma-4-26B-A4B (OptiQ)

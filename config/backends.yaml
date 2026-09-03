@@ -746,6 +746,37 @@ backends:
   # probe (clean tool_calls, correctly typed arguments).
   - id: Qwen3.8-27B-4bit
     supports_tools: true
+  # sh0wie/Qwen3.8-Flash-Next-REAP-288-MLX-4bit added 2026-09-02
+  # (TASK_OMLX_QWEN38FN_REAP288_BRINGUP_V1). REAP expert pruning 512->288
+  # (reap_prune.source_experts 512 -> kept_experts 288, per config.json) of
+  # Qwen/Qwen3.8-Flash-Next -- qwen4_exp arch, 48 layers, num_experts_per_tok
+  # 10, 262144 native ctx. MLX affine 4-bit (backbone gs64, PLE n-gram table
+  # gs32). Bench-only candidate on the shadow-shift oMLX-coding path; the
+  # bench-qwen38-flash-next-reap288 workspace in config/portal.yaml carries
+  # the model_hint. auto-coding's own routing is byte-unchanged.
+  #
+  # MEMORY (measured 2026-09-02, not the source plan's 39/68GB estimates):
+  #   - full-resident footprint ~77GB (qwen4_exp_residency_estimate:
+  #     resident_bytes 77.2GB; checkpoint 73.5GB on disk, PLE n-gram table
+  #     32.0GB of that).
+  #   - with qwen4_ple_ssd_offload the PLE table stays on SSD and oMLX's
+  #     runtime admission size drops to ~40.6GB (mmap PLE path, oMLX
+  #     >=0.6.4 only). This model REQUIRES `qwen4_ple_ssd_offload: true`
+  #     in ~/.omlx/model_settings.json (host config, not in this repo) --
+  #     oMLX otherwise auto-forces the offload only when the memory ceiling
+  #     is already >=45GB, so it just refuses (HTTP 507) below that.
+  #   - even at ~40.6GB it will not load co-resident with the full Portal
+  #     Docker stack + Ollama on this 64GB host (~25GB reclaimable then).
+  #     Bench runs require a quiet host (stack down / Ollama evicted).
+  #
+  # No GGUF/Ollama fallback exists for this checkpoint, so this hint is
+  # oMLX-only, same pattern as the Qwen3.8-27B-4bit DFlash2 entry above.
+  # supports_tools is UNPROBED: the Phase 5 /v1/chat/completions tool-call
+  # probe is blocked by the host-memory ceiling above, not measured false.
+  # Left false (conservative -- no tool routing) until a quiet-host probe
+  # closes it; do not read this as an audited negative.
+  - id: Qwen3.8-Flash-Next-REAP-288-MLX-4bit
+    supports_tools: false  # UNPROBED (load blocked by host memory) — not an audited false
   priority: 10
   aliases:
     qwen3-coder:30b-a3b-q4_K_M-ctx256k: Qwen3-Coder-30B-A3B-Instruct-4bit
@@ -989,6 +1020,8 @@ workspace_routing:
   bench-omnicoder2:
   - general
   bench-qwen38-27b:
+  - general
+  bench-qwen38-flash-next-reap288:
   - general
   bench-gemma4-26b-optiq:
   - general

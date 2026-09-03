@@ -519,7 +519,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-# Workspace roster (25 production, 52 eval, 77 total)
+# Workspace roster (25 production, 53 eval, 78 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -602,6 +602,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 - `bench-qwen36-cad`
 - `bench-qwen36-hauhaucs`
 - `bench-qwen38-27b`
+- `bench-qwen38-flash-next-reap288`
 - `bench-supergemma4-sec`
 - `bench-vulnllm-r-7b`
 - `bench-vulnllm-r7b`
@@ -723,14 +724,15 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-# Model catalog (245 model ids across 7 backend groups)
+# Model catalog (246 model ids across 7 backend groups)
 
-## coding (53)
+## coding (54)
 
 - `Laguna-XS.2-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
 - `Qwen3.8-27B-4bit`
 - `Qwen3.8-27B-oQ4e-mtp`
+- `Qwen3.8-Flash-Next-REAP-288-MLX-4bit`
 - `devstral-small-2`
 - `devstral-small-2:latest-ctx8k`
 - `devstral:24b`

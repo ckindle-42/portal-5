@@ -1961,6 +1961,18 @@ Both bugs looked identical from the outside ("nothing happens on large prompts")
 
 ---
 
+### `Qwen3.8-Flash-Next-REAP-288-MLX-4bit`
+
+`Qwen3.8-Flash-Next-REAP-288-MLX-4bit` (`sh0wie/Qwen3.8-Flash-Next-REAP-288-MLX-4bit` on Hugging Face) is a REAP expert-pruned (arXiv:2510.13999, Lasby et al.) MLX affine 4-bit conversion of `Qwen/Qwen3.8-Flash-Next` — a 180B-class MoE with ~6B active params/token and top-10 routing, pruned from 512 to 288 experts. Backbone quantized at group size 64, the PLE (per-layer-embedding) n-gram table at group size 32. Added 2026-09-02 (`TASK_OMLX_QWEN38FN_REAP288_BRINGUP_V1`) as a **bench-only** candidate on the existing oMLX-coding serving path, wired to the `bench-qwen38-flash-next-reap288` workspace in `config/portal.yaml` (`PROMOTE_POLICY=confirm`). `config/backends.yaml` registers it in the `omlx-coding` group (`coding`, `priority: 10`); there is no GGUF/Ollama fallback for this checkpoint, so the hint is oMLX-only, same pattern as the `Qwen3.8-27B-4bit` DFlash2 entry above. Requires oMLX ≥ 0.6.4 **and** `qwen4_ple_ssd_offload: true` in `~/.omlx/model_settings.json` (host config, not in this repo): with it oMLX keeps the ~32GB PLE n-gram table on SSD (mmap row-gather) and its runtime admission size drops from ~77GB full-resident to ~40.6GB. Without it oMLX auto-forces the offload only when the memory ceiling is already ≥45GB and otherwise refuses the load (HTTP 507). On-disk footprint ~73.5GB. `auto-coding`'s production routing is unchanged by this addition; promotion to a production default is a gated operator decision requiring head-to-head evidence against the Laguna-XS.2 primary.
+
+Measured on this host 2026-09-02 (corrects the source plan's ~39GB / ~68GB estimates): `qwen4_exp_residency_estimate` → 77.2GB resident, 32.0GB PLE table, 73.5GB checkpoint; oMLX runtime admission size with the offload setting ~40.6GB. Even at ~40.6GB the model will not load co-resident with the full Portal Docker stack + Ollama on this 64GB host (~25GB reclaimable then), so the Phase 5 load + tool-call probe is **deferred to a quiet-host window** (stack down / Ollama evicted). `supports_tools` is therefore **unprobed — left `false` conservatively, not an audited negative.** Vendor-reported, not reproduced here: 91.5% HumanEval (vs 93.9% stock Q4), ~26–29 tok/s decode on a 48GB M4 Pro.
+
+## Why
+
+Landed as an isolated bench candidate on the shadow-shift oMLX-coding path so it can be evaluated without touching production coding traffic. The REAP provenance (512→288 expert pruning of a much larger MoE) and the corrected memory picture — ~40.6GB only with the SSD-offload setting, and only on a quiet host — are what a future session needs before trying to bench it. The tool-call capability is deliberately left unverified rather than guessed: the load probe never ran.
+
+---
+
 ### `hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M`
 
 The bare (undecorated) pull tag for the model documented below as `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k`. Registered in `config/backends.yaml`'s `general` group (in addition to `coding`'s ctx256k derived tag) 2026-08-27 as the `bench-hauhaucs-coder` bench workspace's `model_hint` and as one variant backend of `auto-uncensored-throwaway` — the bench_repair coding-correctness run (2026-08-26/27, `tests/benchmarks/results/BENCH_REPAIR_MOE_CODERS_20260826.md`) ran against this exact bare tag, so it is kept registered for provenance even though the bare tag defaults to Ollama's 32768 context cap (too small for real opencode/agentic use — see the ctx256k entry below). `auto-uncensored-throwaway`'s primary `model_hint` uses the ctx256k tag instead; this bare id remains only for the bench workspace and as a documented alternate.
