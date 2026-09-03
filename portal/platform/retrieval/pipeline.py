@@ -81,6 +81,7 @@ class Composition:
     pages_dir: Path
     fusion_mode: str = "text_gate"
     transcribe_figures: bool = False
+    table_prefix: str = "kb_"
     file_suffixes: tuple[str, ...] = _DEFAULT_SUFFIXES
     stage_set: dict = field(default_factory=dict)
 
@@ -241,8 +242,11 @@ async def reindex(comp: Composition) -> dict:
     db = comp.get_db()
     live_model, live_dim = await comp.vl_model_id()
     done: dict = {}
-    for t in [x for x in db.table_names() if x.startswith("kb_") and not x.endswith("_visual")]:
-        kb_id = t[3:]
+    plen = len(comp.table_prefix)
+    for t in [
+        x for x in db.table_names() if x.startswith(comp.table_prefix) and not x.endswith("_visual")
+    ]:
+        kb_id = t[plen:]
         rows = db.open_table(t).search().limit(1_000_000).to_list()
         with contextlib.suppress(Exception):
             db.drop_table(t)

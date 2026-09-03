@@ -44,6 +44,10 @@ surfaces:
   globs:
   - portal/modules/compliance/tools/compliance_mcp.py
   unit: unit-capability-compliance
+- name: file-portal-modules-compliance-tools-compliance_retrieval
+  globs:
+  - portal/modules/compliance/tools/compliance_retrieval.py
+  unit: unit-platform-retrieval
 - name: file-portal-modules-data-tests-test_data_mcp
   globs:
   - portal/modules/data/tests/test_data_mcp.py

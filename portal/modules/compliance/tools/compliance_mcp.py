@@ -29,6 +29,20 @@ mcp = MCPServer(
     "patch-evidence bridge into vulnintel. Every control carries an id + source for citation.",
 )
 
+# TASK_RAG_COMPOSITION_SEAM_V1 P7: the compliance retrieval composition. Its
+# routes are registered here, before the generic /tools/{tool_name} handler, so
+# they resolve first. Defensive import — the retrieval stack (lancedb/pyarrow)
+# ships in Dockerfile.mcp; a host without the research extra keeps the catalog
+# tools working without it.
+try:
+    from portal.modules.compliance.tools.compliance_retrieval import (
+        register_compliance_retrieval_routes,
+    )
+
+    register_compliance_retrieval_routes(mcp)
+except ImportError as _e:  # pragma: no cover - depends on optional deps
+    logger.warning("compliance retrieval routes unavailable: %s", _e)
+
 _DATA = Path(__file__).resolve().parent.parent / "data"
 _cache: dict = {}
 
