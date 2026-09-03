@@ -85,6 +85,25 @@ mcp = [
     "pymupdf>=1.28.2",
 ]
 generation = []
+cad = [
+    # CAD render MCP (portal/modules/cad/). These are the pip-installable half of
+    # what Dockerfile.mcp installs for the module; cadquery/build123d/ocp are
+    # conda-forge-only (osx-arm64 / linux-aarch64) and live in an isolated
+    # micromamba env, not here — see Dockerfile.mcp and portal/modules/cad/PLATFORM.md.
+    #
+    # matplotlib is NOT optional decoration: cad_render_mcp.py's _render_mesh()
+    # falls back to a pure-CPU matplotlib 3D trisurf when the trimesh/pyrender GL
+    # path raises (no GL context) — it is imported inside the function body at the
+    # exact moment the GL path has already failed, so a missing matplotlib turns a
+    # recoverable render into an ImportError. Declared here so a host-side CAD run
+    # or an import sweep reproduces the container, and so a grep for "matplotlib"
+    # finds it as a real dependency.
+    "trimesh[easy]>=4.0.0",
+    "pyrender>=0.1.45",
+    "matplotlib>=3.8.0",
+    "numpy-stl>=3.0.0",
+    "jsonschema>=4.20.0",
+]
 rag = [
     # MLX-native embeddings + reranking (Qwen3-Embedding/Reranker family)
     # Replaces sentence-transformers CPU path for Apple Silicon.
