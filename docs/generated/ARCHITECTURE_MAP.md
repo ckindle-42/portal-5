@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 733 canonical units.*
+*Deterministic projection of 734 canonical units.*
 
 ## Knowledge Layer
 
@@ -296,6 +296,7 @@
 | `unit-known-limitations-antares-gate-e1-gated-download` | what | 1 |
 | `unit-known-limitations-asteroids-bench-score-variance-is-the-benchmark-s-purpose` | what | 3 |
 | `unit-known-limitations-auto-math-workspace-reasoning-block-support` | what | 1 |
+| `unit-known-limitations-auto-rag-silent-miss` | what | 3 |
 | `unit-known-limitations-baronllm-text-only-tool-output-auto-security-mcp-tools-non-functional` | what | 6 |
 | `unit-known-limitations-cadquery-and-build123d-unusable-on-linux-arm64` | what | 4 |
 | `unit-known-limitations-code-sandbox-requires-privileged-container` | what | 2 |
@@ -580,7 +581,7 @@
 | `unit-persona-matrix-ci-persona-matrix-ci-operations` | what | 2 |
 | `unit-persona-matrix-ci-pipeline-shape` | what | 3 |
 | `unit-persona-matrix-ci-regression-triage-workflow` | what | 5 |
-| `unit-platform-retrieval` | mixed | 7 |
+| `unit-platform-retrieval` | mixed | 9 |
 | `unit-platform-storage-config-facade` | mixed | 2 |
 | `unit-portal-conftest` | mixed | 1 |
 | `unit-portal-mcp-namespace` | mixed | 1 |
@@ -742,12 +743,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 733 units
+**Total:** 734 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1733 references
+- **code**: 1738 references
 - **config**: 1 references
 - **mitre**: 40 references
 - **scenario**: 54 references
