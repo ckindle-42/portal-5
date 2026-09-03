@@ -9,6 +9,8 @@ import types
 import pytest
 
 rm = importlib.import_module("portal.modules.research.tools.rag_multimodal")
+_store = importlib.import_module("portal.platform.retrieval.store")
+_embedding = importlib.import_module("portal.platform.retrieval.embedding")
 
 
 class _Req:
@@ -25,11 +27,13 @@ def _run(c):
 
 @pytest.fixture(autouse=True)
 def _iso(tmp_path, monkeypatch):
-    monkeypatch.setattr(rm, "LANCE_DIR", str(tmp_path / "lance"))
-    monkeypatch.setattr(rm, "RAG_DIR", str(tmp_path / "lance" / "rag"))
+    # SEAM V1 P3: the store + VL client are their own modules now; patch there.
+    monkeypatch.setattr(_store, "LANCE_DIR", str(tmp_path / "lance"))
+    monkeypatch.setattr(_store, "RAG_DIR", str(tmp_path / "lance" / "rag"))
+    monkeypatch.setattr(_embedding, "VL_DIM", 8)
     monkeypatch.setattr(rm, "VL_DIM", 8)
     monkeypatch.setattr(rm, "_PAGES_DIR", tmp_path / "pages")
-    rm._db = None
+    _store._db = None
 
     async def _emb(text=None, image_path=None, is_query=False):
         return [0.1] * 8

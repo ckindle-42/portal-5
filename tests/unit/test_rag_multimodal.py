@@ -16,6 +16,11 @@ rm = pytest.importorskip(
     "portal.modules.research.tools.rag_multimodal",
     reason="lancedb/pyarrow/httpx not importable",
 )
+# SEAM V1 P3: the VL client + the LanceDB store are their own modules. Tests that
+# exercise those internals patch them there; the `rm.*` aliases are for the
+# composition, which reads them by name.
+_embedding = pytest.importorskip("portal.platform.retrieval.embedding")
+_store = pytest.importorskip("portal.platform.retrieval.store")
 
 
 class _FakeResp:
@@ -48,7 +53,7 @@ class _FakeClient:
 
 
 async def test_vl_embed_batch_caps_request_size(monkeypatch):
-    monkeypatch.setattr(rm, "VL_EMBED_MAX_ITEMS", 4)
+    monkeypatch.setattr(_embedding, "VL_EMBED_MAX_ITEMS", 4)
     monkeypatch.setattr(rm.httpx, "AsyncClient", _FakeClient)
     _FakeClient.posted = []
     vecs = await rm._vl_embed_batch([{"text": f"t{i}"} for i in range(10)])
@@ -67,7 +72,7 @@ async def test_vl_embed_batch_empty_is_noop(monkeypatch):
 
 
 def test_write_then_read_stamp_roundtrips(tmp_path, monkeypatch):
-    monkeypatch.setattr(rm, "RAG_DIR", str(tmp_path))
+    monkeypatch.setattr(_store, "RAG_DIR", str(tmp_path))
     rm._write_stamp("kb1", "mlx-community/Qwen3-VL-Embedding-2B-mxfp8", 2048)
     got = rm._read_stamp("kb1")
     assert got["embed_model"] == "mlx-community/Qwen3-VL-Embedding-2B-mxfp8"
@@ -76,7 +81,7 @@ def test_write_then_read_stamp_roundtrips(tmp_path, monkeypatch):
 
 
 def test_assert_embedding_space_rejects_same_dim_different_model(tmp_path, monkeypatch):
-    monkeypatch.setattr(rm, "RAG_DIR", str(tmp_path))
+    monkeypatch.setattr(_store, "RAG_DIR", str(tmp_path))
     rm._write_stamp("kb1", "model-A-2048", 2048)
     rm._assert_embedding_space("kb1", "model-A-2048")  # match: fine
     with pytest.raises(rm._VLUnavailableError, match="different spaces"):
@@ -114,7 +119,7 @@ class _FakeHealthResp:
 
 async def test_vl_model_id_reads_health_and_caches(monkeypatch):
     monkeypatch.setattr(rm.httpx, "AsyncClient", _HealthClient)
-    rm._MODEL_ID_CACHE.update(value=None, at=0.0)
+    _embedding._MODEL_ID_CACHE.update(value=None, at=0.0)
     calls = []
     orig_get = _HealthClient.get
 

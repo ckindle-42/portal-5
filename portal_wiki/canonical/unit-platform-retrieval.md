@@ -12,6 +12,14 @@ sources:
 - type: code
   path: portal/platform/retrieval/extraction.py
 - type: code
+  path: portal/platform/retrieval/embedding.py
+- type: code
+  path: portal/platform/retrieval/store.py
+- type: code
+  path: portal/platform/retrieval/fusion.py
+- type: code
+  path: portal/platform/retrieval/pipeline.py
+- type: code
   path: tests/fixtures/__init__.py
 - type: code
   path: tests/fixtures/retrieval_legacy.py
@@ -43,7 +51,10 @@ needs different *stages* (temporal filtering before ranking, tier precedence,
 enumeration over a register). Those are not knobs on `_search`. So: one
 primitive, two compositions.
 
-## Stages (Phase 2 — pure, no services)
+## Stages
+
+Pure (Phase 2 — no services, byte-identical parity in
+`tests/unit/test_retrieval_stage_parity.py`):
 
 - `chunking` — `chunk_fixed`, `chunk_structured`, `chunk` (strategy dispatch),
   `SECTION_BOUNDARY`, and the `CHUNK_SIZE` / `CHUNK_OVERLAP` / `CHUNK_STRATEGY`
@@ -54,8 +65,21 @@ primitive, two compositions.
   worth transcribing).
 - `extraction` — `read_text`, delegating to `rag_mcp`'s docling-first chain.
 
-Service-touching stages (embedding, store, fusion, pipeline) are extracted in
-Phase 3.
+Service-touching (Phase 3):
+
+- `embedding` — the Qwen3-VL retrieval-server client (`vl_embed` / `vl_embed_batch`
+  / `vl_rerank` / `vl_model_id`), the request-size cap, the `_MODEL_ID_CACHE` TTL,
+  the dim guard, and `VLUnavailableError`.
+- `store` — LanceDB table open/create, the KB list, and the embedding-model stamp
+  sidecar (`read_stamp` / `write_stamp` / `assert_embedding_space`).
+- `fusion` — `rrf_fuse` (RRF text/visual with the gated visual boost),
+  `search_unified` (one cross-encoder pass), and `fuse` dispatch on the mode.
+  `VL_TEXT_GATE` τ=0.72 and the mode constants live here.
+- `pipeline` — the `Composition` dataclass and the four entry points
+  `ingest_document` / `search` / `search_all` / `reindex`, free functions over a
+  composition. The HTTP concern (JSONResponse, 503/500/404 mapping) stays in the
+  route handlers; `UnknownKBError` is raised where `_search` returned an in-body
+  404.
 
 ## Compositions
 

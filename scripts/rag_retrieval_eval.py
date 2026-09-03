@@ -255,11 +255,13 @@ async def main() -> None:
     Path(a.lance_dir).mkdir(parents=True, exist_ok=True)
 
     import portal.modules.research.tools.rag_multimodal as rm
+    from portal.platform.retrieval import store as _store
 
-    rm.LANCE_DIR = a.lance_dir
-    rm.RAG_DIR = os.path.join(a.lance_dir, "rag")
+    # SEAM V1 P3: the LanceDB dir now comes from the PORTAL5_LANCE_DIR env var
+    # set above, read by portal.platform.retrieval.store at import. Reset the
+    # connection cache and keep _PAGES_DIR (the composition still reads it here).
+    _store._db = None
     rm._PAGES_DIR = Path(a.lance_dir) / "rag_pages"
-    rm._db = None
     _patch_fusion(rm, a.fusion)
 
     qset = yaml.safe_load(Path(a.queries).read_text())["queries"]
