@@ -72,6 +72,7 @@
   "bench-qwen36-cad": "coding",
   "bench-qwen36-hauhaucs": "creative",
   "bench-qwen38-27b": "coding",
+  "bench-qwen38-flash-next-reap288": "coding",
   "bench-supergemma4-sec": "security",
   "bench-vulnllm-r-7b": "general",
   "bench-vulnllm-r7b": "security",

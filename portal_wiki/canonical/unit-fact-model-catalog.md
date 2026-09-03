@@ -1,11 +1,11 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 245 model ids, 7 backend groups
+title: 246 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 967adec59d32
+  commit: 58f011ec50a1
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -14,17 +14,18 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1788210095.361729
+updated_at: 1788392508.552188
 ---
 
-# Model catalog (245 model ids across 7 backend groups)
+# Model catalog (246 model ids across 7 backend groups)
 
-## coding (53)
+## coding (54)
 
 - `Laguna-XS.2-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
 - `Qwen3.8-27B-4bit`
 - `Qwen3.8-27B-oQ4e-mtp`
+- `Qwen3.8-Flash-Next-REAP-288-MLX-4bit`
 - `devstral-small-2`
 - `devstral-small-2:latest-ctx8k`
 - `devstral:24b`
