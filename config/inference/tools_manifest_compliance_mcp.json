@@ -1,8 +1,138 @@
 [
-  {"type":"function","function":{"name":"lookup_control","description":"Authoritative text for a control id (e.g. AC-2 in NIST 800-53, PR.AA-05 in CSF 2.0).","parameters":{"type":"object","properties":{"control_id":{"type":"string"},"framework":{"type":"string","enum":["nist_800_53","csf_2_0"]}},"required":["control_id"]}}},
-  {"type":"function","function":{"name":"search_controls","description":"Keyword search across control titles/statements; returns citable ids.","parameters":{"type":"object","properties":{"keyword":{"type":"string"},"framework":{"type":"string","enum":["nist_800_53","csf_2_0"]},"top_k":{"type":"integer"}},"required":["keyword"]}}},
-  {"type":"function","function":{"name":"nerc_cip_requirement","description":"NERC CIP requirement lookup (e.g. 'CIP-007-6 R2') with related 800-53 controls.","parameters":{"type":"object","properties":{"req_id":{"type":"string"}},"required":["req_id"]}}},
-  {"type":"function","function":{"name":"map_frameworks","description":"Cross-framework mapping for a control id via the bundled OLIR-style crosswalk seed.","parameters":{"type":"object","properties":{"control_id":{"type":"string"},"from_fw":{"type":"string"},"to_fw":{"type":"string"}},"required":["control_id"]}}},
-  {"type":"function","function":{"name":"patch_evidence","description":"CIP-007-6 R2 patch-evaluation record for a CVE (uses vulnintel triage).","parameters":{"type":"object","properties":{"cve_id":{"type":"string"}},"required":["cve_id"]}}},
-  {"type":"function","function":{"name":"refresh_catalogs","description":"Re-pull the authoritative OSCAL catalogs (NIST 800-53 Rev5, CSF 2.0) into the local data dir.","parameters":{"type":"object","properties":{},"required":[]}}}
+  {
+    "type": "function",
+    "function": {
+      "name": "lookup_control",
+      "description": "Authoritative text for a control id (e.g. AC-2 in NIST 800-53, PR.AA-05 in CSF 2.0).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "control_id": {
+            "type": "string"
+          },
+          "framework": {
+            "type": "string",
+            "enum": [
+              "nist_800_53",
+              "csf_2_0"
+            ]
+          }
+        },
+        "required": [
+          "control_id"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "search_controls",
+      "description": "Keyword search across control titles/statements; returns citable ids.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "keyword": {
+            "type": "string"
+          },
+          "framework": {
+            "type": "string",
+            "enum": [
+              "nist_800_53",
+              "csf_2_0"
+            ]
+          },
+          "top_k": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "keyword"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "nerc_cip_requirement",
+      "description": "NERC CIP requirement lookup (e.g. 'CIP-007-6 R2') with related 800-53 controls.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "req_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "req_id"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "nerc_cip_currency",
+      "description": "Per-standard NERC CIP currency: held version, whether a newer version PDF is published on nerc.com, and an explicit 'verify the enforcement date'. Currency is never inferred; honest-BLOCKED when nerc.com is unreachable.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "map_frameworks",
+      "description": "Cross-framework mapping for a control id via the bundled OLIR-style crosswalk seed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "control_id": {
+            "type": "string"
+          },
+          "from_fw": {
+            "type": "string"
+          },
+          "to_fw": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "control_id"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "patch_evidence",
+      "description": "CIP-007-6 R2 patch-evaluation record for a CVE (uses vulnintel triage).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cve_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "cve_id"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "refresh_catalogs",
+      "description": "Re-pull the authoritative OSCAL catalogs (NIST 800-53 Rev5, CSF 2.0) into the local data dir.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    }
+  }
 ]

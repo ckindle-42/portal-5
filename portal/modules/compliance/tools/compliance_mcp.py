@@ -310,12 +310,29 @@ def refresh_catalogs() -> dict:
     return {"data_dir": str(_DATA), "results": results, "catalogs_present": present}
 
 
+@mcp.tool()
+def nerc_cip_currency() -> dict:
+    """Per-standard currency: our held version, whether a newer version PDF is
+    published on nerc.com, and an explicit 'verify the enforcement date' — the
+    standard PDFs defer their effective date to a separate Implementation Plan,
+    so currency is never inferred. honest-BLOCKED when nerc.com is unreachable."""
+    try:
+        from portal.modules.compliance.core.currency import nerc_currency as _cur
+
+        return _cur()
+    except ImportError as e:
+        return {"status": "honest-BLOCKED", "reason": f"register not importable: {e}"}
+    except Exception as e:  # noqa: BLE001
+        return {"status": "honest-BLOCKED", "reason": str(e)}
+
+
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_compliance_mcp")
 
 _DISPATCH = {
     "lookup_control": lookup_control,
     "search_controls": search_controls,
     "nerc_cip_requirement": nerc_cip_requirement,
+    "nerc_cip_currency": nerc_cip_currency,
     "map_frameworks": map_frameworks,
     "patch_evidence": patch_evidence,
     "refresh_catalogs": refresh_catalogs,

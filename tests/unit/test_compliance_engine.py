@@ -135,25 +135,25 @@ def test_coverage_requires_a_declared_scope():
         coverage_matrix(reg, AssetScope(), "2026-09-03", lambda n, side: [])
 
 
-def test_coverage_matrix_examined_and_resolved_are_separate_numbers():
-    """The Bully's GP: examined != substantively_resolved. A proposer that
-    returns nothing locatable leaves cells NEEDS_REVIEW (examined, not resolved)."""
+def test_coverage_matrix_examined_and_resolved_are_separate_numbers(tmp_path):
+    """The Bully's GP: examined and substantively_resolved are DIFFERENT numbers
+    and must not collapse. An approved-mapping row marked NEEDS_REVIEW is
+    examined (it was enumerated) but NOT substantively resolved."""
+    base = coverage_matrix(reg, _SCOPE, "2026-09-03", lambda n, side: []).summary()
+    assert base["examined"] == base["substantively_resolved"]  # every gap is resolved
 
-    def propose_lexical_only(node, side):
-        # names the requirement but nothing re-locates -> not coverage
-        return [
-            {
-                "document_id": "POL",
-                "section_id": f"{side}-1",
-                "span": "see policy",
-                "locatable": False,
-            }
-        ]
+    store = MappingStore(tmp_path / "m.json")
+    review_ids = [
+        c.requirement_id
+        for c in coverage_matrix(reg, _SCOPE, "2026-09-03", lambda n, side: []).cells
+        if c.applies
+    ][:5]
+    for pid in review_ids:
+        mp = store.propose(pid, "POL", "§x", "NEEDS_REVIEW")
+        store.approve(mp.id, "sme")
 
-    mx = coverage_matrix(reg, _SCOPE, "2026-09-03", propose_lexical_only)
-    s = mx.summary()
-    assert s["examined"] > s["substantively_resolved"], s
-    assert s["substantively_resolved"] == 0
+    s = coverage_matrix(reg, _SCOPE, "2026-09-03", lambda n, side: [], store).summary()
+    assert s["examined"] - s["substantively_resolved"] == 5, s
 
 
 def test_coverage_full_needs_a_locatable_span_from_both_sides():

@@ -20,6 +20,10 @@ sources:
 - type: code
   path: portal/modules/compliance/core/coverage.py
 - type: code
+  path: portal/modules/compliance/core/planted.py
+- type: code
+  path: portal/modules/compliance/core/currency.py
+- type: code
   path: portal/modules/compliance/data/nerc_cip_register.json
 - type: code
   path: tests/unit/test_cip_register.py
@@ -27,7 +31,21 @@ sources:
   path: tests/unit/test_compliance_tiers.py
 - type: code
   path: tests/unit/test_compliance_engine.py
-claims: []
+- type: code
+  path: tests/unit/test_compliance_planted.py
+- type: code
+  path: tests/unit/test_compliance_currency.py
+claims:
+# O9: real bindings. Each fails the drift census if the subsystem regresses —
+# not a `modules.enabled contains: compliance` check.
+- probe: compliance.register
+  contains: CIP-007-6
+- probe: compliance.register
+  contains: CIP-003-9
+- probe: compliance.register
+  contains: CIP-012-2
+- probe: retrieval.compositions
+  contains: portal/modules/compliance/tools/compliance_retrieval.py
 confidence: high
 tags:
 - compliance
@@ -115,6 +133,22 @@ prompt instruction.
   needs a locatable span from **both** the policy and procedure side. The
   summary reports **examined** apart from **substantively resolved** (Bully gate
   GP) — `test_compliance_engine.py` fails if they collapse.
+
+## Verification + currency (Phases 7, 8)
+
+- `core/planted.py` + `data/planted_corpus/` — synthetic policies/procedures
+  written against the **public** NERC PDFs, one per control class (covered, hole,
+  aspirational, lexical, applicability, temporal, tier_conflict, deontic). Each
+  declares its target Part and expected coverage in a `<!-- PLANT -->` header.
+  The scorer's headline is **Full-Gap recall** (a missed gap destroys trust);
+  false-covered and false-gap are separate, never averaged; citation resolution
+  must be 1.000. `test_compliance_planted.py` — all eight classes pass, recall
+  1.0, citation 1.0.
+- `core/currency.py` — per-standard: our held version, whether a newer version
+  PDF is published on nerc.com, and an explicit *verify the enforcement date*
+  (the PDFs defer it to a separate Implementation Plan). `honest-BLOCKED` when
+  nerc.com is unreachable; **currency is never inferred.** Exposed as the
+  `nerc_cip_currency` MCP tool.
 
 ## Why
 

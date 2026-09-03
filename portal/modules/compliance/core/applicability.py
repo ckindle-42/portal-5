@@ -81,7 +81,8 @@ def applicable(part_applicable_systems: str, scope: AssetScope) -> tuple[bool, s
     if not scope.is_declared:
         return False, "asset scope undeclared — gate not satisfied"
     a = parse_applicable_systems(part_applicable_systems)
-    if a["impacts"].isdisjoint(scope.impact_present):
+    shared_impact = a["impacts"] & scope.impact_present
+    if not shared_impact:
         return (
             False,
             f"Part scoped to {sorted(a['impacts'])}; entity has {sorted(scope.impact_present)}",
@@ -92,10 +93,16 @@ def applicable(part_applicable_systems: str, scope: AssetScope) -> tuple[bool, s
         and a["associated"].isdisjoint(scope.associated_present | {"bcs"})
     ):
         return False, f"Part scoped to associated {sorted(a['associated'])}; entity has none"
-    if a["requires_erc"] and not scope.has_erc:
-        return False, "Part requires External Routable Connectivity; entity declares none"
-    if a["at_control_center"] and not scope.has_control_center:
-        return False, "Part scoped to Control Centers; entity declares none"
+    # ERC / Control-Center qualifiers gate the MEDIUM path only. An entity with
+    # any High Impact system is in scope for a High+Medium part regardless.
+    medium_only = shared_impact == {"medium"}
+    if medium_only and a["requires_erc"] and not scope.has_erc:
+        return (
+            False,
+            "Part (Medium path) requires External Routable Connectivity; entity declares none",
+        )
+    if medium_only and a["at_control_center"] and not scope.has_control_center:
+        return False, "Part (Medium path) scoped to Control Centers; entity declares none"
     return True, "in scope"
 
 
