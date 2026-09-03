@@ -755,28 +755,51 @@ backends:
   # bench-qwen38-flash-next-reap288 workspace in config/portal.yaml carries
   # the model_hint. auto-coding's own routing is byte-unchanged.
   #
-  # MEMORY (measured 2026-09-02, not the source plan's 39/68GB estimates):
-  #   - full-resident footprint ~77GB (qwen4_exp_residency_estimate:
-  #     resident_bytes 77.2GB; checkpoint 73.5GB on disk, PLE n-gram table
-  #     32.0GB of that).
-  #   - with qwen4_ple_ssd_offload the PLE table stays on SSD and oMLX's
-  #     runtime admission size drops to ~40.6GB (mmap PLE path, oMLX
-  #     >=0.6.4 only). This model REQUIRES `qwen4_ple_ssd_offload: true`
-  #     in ~/.omlx/model_settings.json (host config, not in this repo) --
-  #     oMLX otherwise auto-forces the offload only when the memory ceiling
-  #     is already >=45GB, so it just refuses (HTTP 507) below that.
-  #   - even at ~40.6GB it will not load co-resident with the full Portal
-  #     Docker stack + Ollama on this 64GB host (~25GB reclaimable then).
-  #     Bench runs require a quiet host (stack down / Ollama evicted).
+  # OPERATOR VERDICT 2026-09-02: this MUST NOT become an auto-coding /
+  # auto-* default -- too heavy (39GB loaded + a 40.57GB admission gate
+  # that needs a quiet host). Bench / restricted manual use only, and only
+  # if it proves out against Laguna-XS.2 in the bench lane.
   #
-  # No GGUF/Ollama fallback exists for this checkpoint, so this hint is
-  # oMLX-only, same pattern as the Qwen3.8-27B-4bit DFlash2 entry above.
-  # supports_tools is UNPROBED: the Phase 5 /v1/chat/completions tool-call
-  # probe is blocked by the host-memory ceiling above, not measured false.
-  # Left false (conservative -- no tool routing) until a quiet-host probe
-  # closes it; do not read this as an audited negative.
+  # MEMORY (measured 2026-09-02 -- the model card's own numbers held):
+  #   - card: 68GB disk / 68GB resident non-streamed / "39 GB streamed".
+  #     Our load: 39.13GB actual resident with PLE SSD-offload (matches the
+  #     card's 39GB and the source plan's ~39GB estimate). du -sh = 70GB;
+  #     config checkpoint_bytes 73.5GB; PLE n-gram table 32GB of that.
+  #   - REQUIRES `qwen4_ple_ssd_offload: true` in ~/.omlx/model_settings.json
+  #     (host config, not in this repo). With it oMLX logs "Qwen4-Exp PLE
+  #     mode: mmap" and the loaded footprint is 39.13GB. oMLX's *admission*
+  #     estimate is higher and padded: 40.57GB with the setting, 71.87GB
+  #     without -- and qwen4_exp_residency_estimate.resident_bytes reports a
+  #     conservative 77GB. Without the setting oMLX only auto-forces the
+  #     offload when the memory ceiling is already >=45GB and otherwise
+  #     refuses (HTTP 507, "Model (71.87GB) does not fit").
+  #   - the 40.57GB admission check will not pass co-resident with the full
+  #     Portal Docker stack + Ollama on this 64GB host (~25GB reclaimable).
+  #     Bench runs require a quiet host: `./launch.sh down` + evict the
+  #     loaded Ollama model raises reclaimable to ~41GB, enough to admit.
+  #
+  # PROBED 2026-09-02 on a quiet host (stack down): first load ~22s.
+  # DECODE (warm, sustained, 256-300 token gens): ~23-29 tok/s on this
+  # M4 Pro via the streamed-PLE path -- in line with the card's ~28 tok/s
+  # (which is stock mlx-vlm with the table RESIDENT; the card explicitly
+  # does not separately benchmark oMLX's streamed path). Earlier cold
+  # readings of 6-11 tok/s were a measurement artifact: 16/94-token gens
+  # immediately after the 22s load. Settings are NOT the bottleneck.
+  # - model_type_override: "llm" does NOT work -- qwen4_exp only runs
+  #   through oMLX's VLM engine (batched/LLM engine: "Model type qwen4_exp
+  #   not supported"). VLM engine is the only path.
+  # - no mtp.*/draft tensors in this checkpoint, so no speculative decode.
+  # - /Volumes/data01 (where the PLE table streams from) is an external
+  #   Thunderbolt PCIe SSD, ~3GB/s seq read -- adequate NVMe, not the cap.
+  # Thinking model: reasoning goes to the response's reasoning_content
+  # field, not content.
+  # No GGUF/Ollama fallback, so this hint is oMLX-only (same pattern as the
+  # Qwen3.8-27B-4bit DFlash2 entry above). supports_tools:true verified via
+  # a direct /v1/chat/completions tool-call probe: clean tool_calls block,
+  # name get_weather, arguments {"location": "Little Rock, AR"} correctly
+  # typed, finish_reason tool_calls.
   - id: Qwen3.8-Flash-Next-REAP-288-MLX-4bit
-    supports_tools: false  # UNPROBED (load blocked by host memory) — not an audited false
+    supports_tools: true
   priority: 10
   aliases:
     qwen3-coder:30b-a3b-q4_K_M-ctx256k: Qwen3-Coder-30B-A3B-Instruct-4bit
