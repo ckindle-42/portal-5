@@ -12,11 +12,21 @@ sources:
 - type: code
   path: portal/modules/compliance/core/tiers.py
 - type: code
+  path: portal/modules/compliance/core/engine.py
+- type: code
+  path: portal/modules/compliance/core/applicability.py
+- type: code
+  path: portal/modules/compliance/core/mapping_store.py
+- type: code
+  path: portal/modules/compliance/core/coverage.py
+- type: code
   path: portal/modules/compliance/data/nerc_cip_register.json
 - type: code
   path: tests/unit/test_cip_register.py
 - type: code
   path: tests/unit/test_compliance_tiers.py
+- type: code
+  path: tests/unit/test_compliance_engine.py
 claims: []
 confidence: high
 tags:
@@ -81,6 +91,30 @@ quantitative disagreement (*15 calendar months* vs *18 months*) or a deontic one
 tiers, both citations — **never reconciled, never averaged, lower tier never
 wins**. It is a code rule with its own test (`test_compliance_tiers.py`), not a
 prompt instruction.
+
+## Temporal filter + routing + coverage (Phases 2, 4-6)
+
+- `core/engine.py` — `effective_parts(reg, date)` is a **predicate**, not a
+  score: a node reaches a "today" query only if `EFFECTIVE` and
+  `valid_from <= date < valid_to`. `future_effective_parts` is the "what's
+  coming" set, visible before its enforcement date. `classify_intent` is **one**
+  keyword-scored call (four paths — today / change / gaps / freeform), not an
+  agent swarm — 8192 tokens in, ~52 s per search.
+- `core/mapping_store.py` — the system `propose()`s `requirement -> document`;
+  an SME `approve()`s. Approved rows short-circuit retrieval and win over model
+  judgement; a corrected coverage token is recorded as an override, and the
+  **SME override rate** is the trust signal. Approved rows accumulate as the
+  labelled eval set. The operator's mappings never leave their machine.
+- `core/applicability.py` — the `[GATE]`. Dimensions (`impact_present`,
+  `associated_present`, `has_erc`, `has_control_center`) are derived from the
+  register's `applicable_systems` column. `AssetScope` is **operator input** —
+  `coverage_matrix` raises without a declared one. `gate_presentation()` reports
+  the schema and what each choice includes/excludes; it never infers a scope.
+- `core/coverage.py` — enumerate applicable `EFFECTIVE` Parts; approved mappings
+  short-circuit; classify policy / procedure / evidence **separately**. A `FULL`
+  needs a locatable span from **both** the policy and procedure side. The
+  summary reports **examined** apart from **substantively resolved** (Bully gate
+  GP) — `test_compliance_engine.py` fails if they collapse.
 
 ## Why
 

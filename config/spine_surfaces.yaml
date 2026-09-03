@@ -40,6 +40,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/__init__.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-applicability
+  globs:
+  - portal/modules/compliance/core/applicability.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-cip_extract
   globs:
   - portal/modules/compliance/core/cip_extract.py
@@ -47,6 +51,18 @@ surfaces:
 - name: file-portal-modules-compliance-core-cip_register
   globs:
   - portal/modules/compliance/core/cip_register.py
+  unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-coverage
+  globs:
+  - portal/modules/compliance/core/coverage.py
+  unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-engine
+  globs:
+  - portal/modules/compliance/core/engine.py
+  unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-mapping_store
+  globs:
+  - portal/modules/compliance/core/mapping_store.py
   unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-tiers
   globs:
