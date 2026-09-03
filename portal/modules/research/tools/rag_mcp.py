@@ -125,6 +125,14 @@ def _docling_convert(path):
     return result.document.export_to_markdown()
 
 
+def _docling_document(path):
+    """Blocking Docling conversion -> the ``DoclingDocument`` itself (not the
+    markdown string). SUBSTRATE_MIGRATION_V1 P3.2: the retrieval chunker needs
+    ``prov.page_no`` and heading structure, both discarded by
+    ``export_to_markdown``. Module-level so tests can patch it."""
+    return _get_docling_converter().convert(str(path)).document
+
+
 async def _read_file(path):
     """Extract text via Docling (preferred) with pypdf/python-docx fallback.
 

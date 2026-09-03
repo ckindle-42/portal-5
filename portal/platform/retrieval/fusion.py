@@ -16,8 +16,21 @@ from collections.abc import Awaitable, Callable
 
 RRF_K = 60
 
-# See rag_multimodal's original block for the full τ history. τ RE-FITTED to 0.72
-# on the shipping stack (docling 2.99.0 pin); 0.75 is strictly dominated there.
+# SUBSTRATE_MIGRATION_V1 P3.3 (O4). The BM25 arm's weight in the text-side RRF.
+# 0.0 == dense only (pre-P3.3). A lexical arm makes "mentions the identifier"
+# look like a match, and these corpora are full of identifiers, so the decoy
+# queries in the eval set must exist before this is raised above 0.
+BM25_WEIGHT = float(os.environ.get("RAG_BM25_WEIGHT", "0.0"))
+
+# τ = 0.72 is the knee ON THE FIXED CHUNKER'S text-similarity distribution,
+# measured on an index that also double-indexed every prose page (O7). Its
+# *range* does not transfer: SUBSTRATE_MIGRATION_V1 swept 0.72 / 0.80 / 0.86 /
+# 0.92 on the figure-scoped docling index and found that raising τ to close the
+# diagram gap collapses prose (0.80 -> prose r@1 0.50). Its shipped *value*,
+# 0.72, still holds the prose lane on a docling KB (r@1 0.938, -> 1.000 with the
+# BM25 arm); the diagram-lane loss at 0.72 is a synthetic-corpus artifact. See
+# reports/retrieval/SUBSTRATE_MIGRATION_V1.md; `unified` was tested and loses to
+# text_gate+BM25 because search_unified has no BM25 arm.
 VL_TEXT_GATE = float(os.environ.get("VL_TEXT_GATE", "0.72"))
 # `absolute` = the cosine threshold above. `relative` = the top text hit's margin
 # over the median of its own candidate pool. MEASURED AND REJECTED as a default:
@@ -140,6 +153,15 @@ async def search_unified(ttbl, vtbl, query: str, qvec, top_k: int, vl_rerank: Re
     return out
 
 
+def _bm25_rows(ttbl, query: str, limit: int) -> list:
+    """BM25 (full-text) hits for the text arm. Returns [] if the table has no
+    FTS index or the query has no lexical content — the dense arm stands alone."""
+    try:
+        return ttbl.search(query, query_type="fts").limit(limit).to_list()
+    except Exception:  # noqa: BLE001 — no fts index / empty query / backend quirk
+        return []
+
+
 async def rrf_fuse(ttbl, vtbl, query: str, qvec, top_k: int, vl_rerank: RerankFn) -> list:
     """Text-chunk RRF + page-image rerank, fused, with the gated visual boost.
 
@@ -162,6 +184,11 @@ async def rrf_fuse(ttbl, vtbl, query: str, qvec, top_k: int, vl_rerank: RerankFn
             key = ("text", r["chunk_id"])
             scores[key] = scores.get(key, 0.0) + 1.0 / (RRF_K + rank)
             payload[key] = {**_text_payload(r), "reranker_prob": None}
+        if BM25_WEIGHT > 0.0:
+            for rank, r in enumerate(_bm25_rows(ttbl, query, top_k * 3)):
+                key = ("text", r["chunk_id"])
+                scores[key] = scores.get(key, 0.0) + BM25_WEIGHT * (1.0 / (RRF_K + rank))
+                payload.setdefault(key, {**_text_payload(r), "reranker_prob": None})
     if vtbl is not None:
         # S3: rerank depth is the entire query cost (~1.7s/page image,
         # linear). The visual embedding recall is high — the target page is
@@ -173,9 +200,9 @@ async def rrf_fuse(ttbl, vtbl, query: str, qvec, top_k: int, vl_rerank: RerankFn
         coarse = vtbl.search(qvec).limit(depth).to_list()
         cands = [{"image_path": r["image_path"]} for r in coarse]
         order = await vl_rerank(query, cands, min(len(cands), top_k * 2)) if cands else []
-        # Gate the visual boost on whether the text arm has a confident
-        # answer. See VL_TEXT_GATE for the τ re-fit (0.67 -> 0.75) and why
-        # `relative` lost.
+        # Gate the visual boost on whether the text arm has a confident answer.
+        # See VL_TEXT_GATE: τ = 0.72 holds the prose lane on a docling KB but its
+        # range does not transfer (raising it collapses prose).
         visual_boost = text_arm_is_unconfident(top_text_sim, text_margin)
         for rank, o in enumerate(order):
             r = coarse[o["index"]]

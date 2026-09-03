@@ -134,6 +134,10 @@ def text_table(kb_id: str, create: bool = False, prefix: str = DEFAULT_PREFIX):
             pa.field("vector", pa.list_(pa.float32(), _embedding.VL_DIM)),
             pa.field("char_start", pa.int64()),
             pa.field("char_end", pa.int64()),
+            # SUBSTRATE_MIGRATION_V1 P3.2: the docling chunker carries these onto
+            # the row; the fixed/structured chunkers leave page = -1, headings "".
+            pa.field("page", pa.int64()),
+            pa.field("headings", pa.string()),
             pa.field("ingested_at", pa.float64()),
         ]
     )

@@ -52,6 +52,12 @@ _VLUnavailableError = _embedding.VLUnavailableError
 # by default: text_gate already achieves diagram recall@1 = 1.000, so S0 buys
 # query latency, not recall.
 TRANSCRIBE_FIGURES = os.environ.get("RAG_TRANSCRIBE_FIGURES", "0") not in ("0", "false", "")
+# SUBSTRATE_MIGRATION_V1 P3. contextualize (P3.4/O6) defaults OFF and MUST stay
+# off for any KB a security-module path can read — heading text carries technique
+# names and scenario family, and the Bully's grading wall requires lineage never
+# reach the cousin engine. `scripts/validation/rag_runtime.py` enforces it.
+CONTEXTUALIZE = os.environ.get("RAG_CONTEXTUALIZE", "0") not in ("0", "false", "")
+FTS_INDEX = os.environ.get("RAG_FTS", "0") not in ("0", "false", "")
 TRANSCRIBE_MODEL = os.environ.get("RAG_TRANSCRIBE_MODEL", "qwen3-vl:4b-instruct-q4_K_M")
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 _TRANSCRIBE_PROMPT = (
@@ -102,13 +108,22 @@ async def _transcribe_page(img_path: str) -> str:
 # changed chunker / figure policy / fusion mode is caught by the same machinery
 # that catches an embedding-model swap.
 def _stage_set() -> dict:
+    # Only stages that BUILD the index belong here — a mismatch means the stored
+    # vectors/tables no longer match the running config and the KB must be
+    # re-ingested. `fusion_mode` was dropped (SUBSTRATE_MIGRATION_V1 P3): fusion
+    # runs at search time over the same index, so an operator can A/B fusion
+    # modes (or the τ re-decision can compare `text_gate` vs `unified`) on one
+    # ingested KB without a re-ingest.
     return {
         "chunk_strategy": _chunking.CHUNK_STRATEGY,
         "chunk_size": _chunking.CHUNK_SIZE,
         "chunk_overlap": _chunking.CHUNK_OVERLAP,
         "figure_page_max_text": _pages.FIGURE_PAGE_MAX_TEXT,
         "transcribe_figures": TRANSCRIBE_FIGURES,
-        "fusion_mode": _fusion.FUSION,
+        # SUBSTRATE_MIGRATION_V1 P3 — each invalidates the index it changed
+        "visual_scope": _pages.VISUAL_SCOPE,
+        "contextualize": CONTEXTUALIZE,
+        "fts": FTS_INDEX,
     }
 
 
@@ -135,12 +150,18 @@ def _composition() -> _pipeline.Composition:
         unavailable_error=_embedding.VLUnavailableError,
         chunk=_chunking.chunk,
         read_text=_extraction.read_text,
+        read_document=(
+            _extraction.read_document if _chunking.CHUNK_STRATEGY == "docling" else None
+        ),
         render_pages=_pages.render_pages,
         figure_pages=_pages.figure_pages,
         transcribe_page=_transcribe_page,
         pages_dir=_PAGES_DIR,
         fusion_mode=_fusion.FUSION,
         transcribe_figures=TRANSCRIBE_FIGURES,
+        visual_scope=_pages.VISUAL_SCOPE,
+        contextualize=CONTEXTUALIZE,
+        fts=FTS_INDEX,
         stage_set=_stage_set(),
     )
 

@@ -22,6 +22,13 @@ _PAGE_TEXT_LEN: dict[str, int] = {}
 # Below this many characters of extractable text, a page is treated as a figure.
 FIGURE_PAGE_MAX_TEXT = int(os.environ.get("RAG_FIGURE_PAGE_MAX_TEXT", "200"))
 
+# SUBSTRATE_MIGRATION_V1 P3.1 (O7). "all" — index every rendered page in the
+# visual arm (the pre-P3.1 behaviour: a prose page is then indexed twice, once
+# as text chunks and once as a page image, and searched with the same qvec —
+# the collision VL_TEXT_GATE exists to referee). "figures" — index only the
+# pages `figure_pages` keeps, so a prose page lives in the text arm only.
+VISUAL_SCOPE = os.environ.get("RAG_VISUAL_SCOPE", "all")
+
 
 def render_pages(pdf_path: str, out_dir: Path, dpi: int = 150) -> list:
     import pymupdf

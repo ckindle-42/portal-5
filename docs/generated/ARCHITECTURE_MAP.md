@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 738 canonical units.*
+*Deterministic projection of 740 canonical units.*
 
 ## Knowledge Layer
 
@@ -216,7 +216,7 @@
 | `unit-capability-netforensics` | mixed | 4 |
 | `unit-capability-pipeline` | mixed | 3 |
 | `unit-capability-proxmox` | mixed | 3 |
-| `unit-capability-rag` | mixed | 7 |
+| `unit-capability-rag` | mixed | 8 |
 | `unit-capability-reranker` | mixed | 2 |
 | `unit-capability-research` | mixed | 3 |
 | `unit-capability-security` | mixed | 2 |
@@ -344,6 +344,7 @@
 | `unit-known-limitations-v5-model-visible-corpus-retrieval-coverage` | what | 4 |
 | `unit-known-limitations-v8-catalog-deferred-insufficient-hardware` | what | 2 |
 | `unit-known-limitations-vl-retrieval-runtime` | what | 3 |
+| `unit-known-limitations-vl-text-gate-tuned-against-manufactured-collision` | what | 1 |
 | `unit-lab-setup-all-these-should-succeed-after-setup` | what | 4 |
 | `unit-lab-setup-full-setup-downloads-vulhub-challenge-composes-base-images-model-pulls` | what | 2 |
 | `unit-lab-setup-lab-setup-cold-start-runbook` | what | 3 |
@@ -586,6 +587,7 @@
 | `unit-persona-matrix-ci-pipeline-shape` | what | 3 |
 | `unit-persona-matrix-ci-regression-triage-workflow` | what | 5 |
 | `unit-platform-retrieval` | mixed | 9 |
+| `unit-platform-retrieval-substrate-migration` | mixed | 4 |
 | `unit-platform-storage-config-facade` | mixed | 2 |
 | `unit-portal-conftest` | mixed | 1 |
 | `unit-portal-mcp-namespace` | mixed | 1 |
@@ -747,12 +749,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 738 units
+**Total:** 740 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1763 references
+- **code**: 1769 references
 - **config**: 1 references
 - **mitre**: 40 references
 - **scenario**: 54 references

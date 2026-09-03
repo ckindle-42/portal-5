@@ -46,7 +46,11 @@ def _stage_set() -> dict:
         "chunk_overlap": _chunking.CHUNK_OVERLAP,
         "figure_page_max_text": _pages.FIGURE_PAGE_MAX_TEXT,
         "transcribe_figures": False,
-        "fusion_mode": _fusion.FUSION,
+        # fusion_mode dropped — search-time, not an index-building stage
+        # (SUBSTRATE_MIGRATION_V1 P3).
+        "visual_scope": _pages.VISUAL_SCOPE,
+        "contextualize": False,
+        "fts": False,
     }
 
 

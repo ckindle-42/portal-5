@@ -1,0 +1,236 @@
+{
+  "fusion": "rrf",
+  "corpus": "/private/tmp/claude-501/-Users-chris-projects-portal-5/8239b487-8683-48ee-83cd-d7646d851c76/scratchpad/rag_corpus",
+  "n_docs": null,
+  "ingest": {
+    "skipped": true
+  },
+  "summary": {
+    "diagram_only": {
+      "n": 2,
+      "recall@1": 1.0,
+      "recall@5": 1.0,
+      "mrr": 1.0,
+      "latency_s_median": 26.56,
+      "latency_s_mean": 26.48
+    },
+    "prose_only": {
+      "n": 6,
+      "recall@1": 1.0,
+      "recall@5": 1.0,
+      "mrr": 1.0,
+      "latency_s_median": 26.59,
+      "latency_s_mean": 26.52
+    }
+  },
+  "rows": [
+    {
+      "id": "lex-01",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.21,
+      "top": [
+        [
+          "text",
+          "cip-010-4.pdf",
+          9
+        ],
+        [
+          "text",
+          "cip-010-4.pdf",
+          1
+        ],
+        [
+          "text",
+          "cip-010-4.pdf",
+          23
+        ]
+      ]
+    },
+    {
+      "id": "lex-02",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.35,
+      "top": [
+        [
+          "text",
+          "cip-012-2.pdf",
+          1
+        ],
+        [
+          "text",
+          "cip-012-2.pdf",
+          2
+        ],
+        [
+          "text",
+          "cip-012-2.pdf",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "lex-03",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.75,
+      "top": [
+        [
+          "text",
+          "cip-007-6.pdf",
+          11
+        ],
+        [
+          "text",
+          "cip-007-6.pdf",
+          29
+        ],
+        [
+          "text",
+          "cip-007-6.pdf",
+          9
+        ]
+      ]
+    },
+    {
+      "id": "lex-04",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.56,
+      "top": [
+        [
+          "visual",
+          "pid_reactor_feed.pdf",
+          1
+        ],
+        [
+          "visual",
+          "locked_valve_schedule.pdf",
+          1
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          9
+        ]
+      ]
+    },
+    {
+      "id": "lex-05",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.59,
+      "top": [
+        [
+          "text",
+          "cip-005-7.pdf",
+          6
+        ],
+        [
+          "text",
+          "cip-005-7.pdf",
+          1
+        ],
+        [
+          "text",
+          "cip-005-7.pdf",
+          6
+        ]
+      ]
+    },
+    {
+      "id": "lex-06",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.46,
+      "top": [
+        [
+          "text",
+          "cip-003-9.pdf",
+          8
+        ],
+        [
+          "text",
+          "cip-003-9.pdf",
+          4
+        ],
+        [
+          "text",
+          "cip-003-9.pdf",
+          9
+        ]
+      ]
+    },
+    {
+      "id": "lex-07",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.78,
+      "top": [
+        [
+          "text",
+          "cip-009-6.pdf",
+          5
+        ],
+        [
+          "text",
+          "cip-009-6.pdf",
+          6
+        ],
+        [
+          "text",
+          "cip-009-6.pdf",
+          10
+        ]
+      ]
+    },
+    {
+      "id": "lex-08",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.39,
+      "top": [
+        [
+          "visual",
+          "esp_plant_b.pdf",
+          1
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          77
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          76
+        ]
+      ]
+    }
+  ]
+}
