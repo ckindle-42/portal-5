@@ -1,0 +1,31 @@
+# Lexical-decoy query set — SUBSTRATE_MIGRATION_V1 P3.3 (O4).
+#
+# A BM25 arm makes "the document mentions this identifier" look like a match,
+# and these corpora are built of identifiers: every NERC CIP standard cross-
+# references the others by number, and the synthetic OT drawings carry tags and
+# addresses that also appear in prose. This set exists BEFORE the sparse arm
+# ships so its false-positive behaviour is measured, not discovered in
+# production. Each query names an identifier whose lexical twin is a real
+# distractor in the corpus; the target is the document that actually answers it.
+#
+# Score exactly like queries.yaml (scripts/rag_retrieval_eval.py). Report BM25's
+# marginal contribution and its decoy false-positive rate SEPARATELY — never
+# averaged into the main recall number.
+
+queries:
+  - {id: lex-01, category: prose_only, target_file: cip-010-4.pdf, target_page: null,
+     query: "What does NERC CIP-010-4 itself require for configuration monitoring and change detection — not what other CIP standards say about CIP-010?"}
+  - {id: lex-02, category: prose_only, target_file: cip-012-2.pdf, target_page: null,
+     query: "The requirements text of CIP-012-2 for protecting real-time assessment and monitoring data between Control Centers."}
+  - {id: lex-03, category: prose_only, target_file: cip-007-6.pdf, target_page: null,
+     query: "Under NERC CIP-007-6 Requirement R2, what is the deadline to apply a security patch or create a mitigation plan after evaluation?"}
+  - {id: lex-04, category: diagram_only, target_file: pid_reactor_feed.pdf, target_page: 1,
+     query: "The valve tagged FV-101 that is air-to-open and fail-closed on the reactor feed line."}
+  - {id: lex-05, category: prose_only, target_file: cip-005-7.pdf, target_page: null,
+     query: "How frequently must an Electronic Security Perimeter be reviewed according to the NERC CIP standard that governs it?"}
+  - {id: lex-06, category: prose_only, target_file: cip-003-9.pdf, target_page: null,
+     query: "Which requirement sets the 15 calendar month review-and-approval cycle for documented cyber security policies?"}
+  - {id: lex-07, category: prose_only, target_file: cip-009-6.pdf, target_page: null,
+     query: "The NERC CIP-009-6 recovery plan requirements for BES Cyber Systems, not the CIP-009 references that appear in CIP-010 or CIP-011."}
+  - {id: lex-08, category: diagram_only, target_file: esp_plant_b.pdf, target_page: 1,
+     query: "The IP address of PLC-B7 in rack 0 slot 2 inside the Plant B electronic security perimeter."}

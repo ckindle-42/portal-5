@@ -264,6 +264,26 @@ def _probe_retrieval_stages(root: Path) -> list[str]:
     return sorted(p.stem for p in d.glob("*.py") if p.stem != "__init__")
 
 
+def _probe_retrieval_stage_set(root: Path) -> list[str]:
+    """The keys of ``rag_multimodal._stage_set()`` — the knobs stamped into every
+    KB at ingest (SEAM V1 P6, SUBSTRATE_MIGRATION_V1 P3). O9: a nominal
+    ``modules.enabled contains: research`` probe passed while the subsystem
+    carried a wrong diagnosis for five months; this binds the wiki claim to the
+    actual stamped stage set, so adding or dropping a stage knob without
+    updating the doc fails the census."""
+    p = root / "portal" / "modules" / "research" / "tools" / "rag_multimodal.py"
+    if not p.is_file():
+        return []
+    try:
+        t = p.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return []
+    m = re.search(r"def _stage_set\(\)[^{]*?return \{(.*?)\n    \}", t, re.S)
+    if not m:
+        return []
+    return sorted(re.findall(r'"([a-z_]+)":', m.group(1)))
+
+
 def _probe_retrieval_compositions(root: Path) -> list[str]:
     """Every module that builds a portal.platform.retrieval Composition — the
     seam's whole point is that there is more than one and they share nothing but
@@ -345,6 +365,7 @@ PROBES: dict[str, Callable[[Path], Any]] = {
     "retrieval.compositions": _probe_retrieval_compositions,
     "compliance.register": _probe_compliance_register,
     "compliance.change_types": _probe_compliance_change_types,
+    "retrieval.stage_set": _probe_retrieval_stage_set,
 }
 
 

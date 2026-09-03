@@ -18,9 +18,24 @@ sources:
   path: config/inference/tools_manifest_rag_mcp.json
 - type: code
   path: portal/platform/lance_guard.py
+- type: code
+  path: scripts/validation/rag_runtime.py
 claims:
+# O9 (SUBSTRATE_MIGRATION_V1 P4): the nominal `modules.enabled contains: research`
+# probe passed while this subsystem carried a wrong VL diagnosis for five months.
+# These bind the claim to the live substrate instead.
 - probe: modules.enabled
   contains: research
+- probe: retrieval.stages
+  contains: fusion
+- probe: retrieval.stages
+  contains: chunking
+- probe: retrieval.stage_set
+  contains: visual_scope
+- probe: retrieval.stage_set
+  contains: contextualize
+- probe: retrieval.stage_set
+  contains: fts
 # torchvision absent from the lock is the exact regression that carried a wrong
 # VL diagnosis for five months (C4). mlx-embeddings is the qwen3_vl carrier.
 - probe: deps.locked

@@ -1,0 +1,1134 @@
+{
+  "fusion": "rrf",
+  "corpus": "/private/tmp/claude-501/-Users-chris-projects-portal-5/8239b487-8683-48ee-83cd-d7646d851c76/scratchpad/rag_corpus",
+  "n_docs": 23,
+  "ingest": {
+    "kb_id": "ragEval",
+    "files_ingested": 23,
+    "chunks_added": 1628,
+    "pages_added": 16,
+    "figtext_added": 0,
+    "fts_index": false,
+    "_ingest_s": 359.7
+  },
+  "summary": {
+    "diagram_only": {
+      "n": 21,
+      "recall@1": 0.952,
+      "recall@5": 1.0,
+      "mrr": 0.976,
+      "latency_s_median": 26.52,
+      "latency_s_mean": 26.53
+    },
+    "mixed": {
+      "n": 5,
+      "recall@1": 1.0,
+      "recall@5": 1.0,
+      "mrr": 1.0,
+      "latency_s_median": 26.56,
+      "latency_s_mean": 26.6
+    },
+    "prose_only": {
+      "n": 16,
+      "recall@1": 0.812,
+      "recall@5": 0.938,
+      "mrr": 0.865,
+      "latency_s_median": 26.64,
+      "latency_s_mean": 26.75
+    }
+  },
+  "rows": [
+    {
+      "id": "syn-pid-01",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.18,
+      "top": [
+        [
+          "visual",
+          "pid_reactor_feed.pdf",
+          1
+        ],
+        [
+          "visual",
+          "locked_valve_schedule.pdf",
+          1
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          12
+        ]
+      ]
+    },
+    {
+      "id": "syn-pid-02",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.37,
+      "top": [
+        [
+          "visual",
+          "pid_reactor_feed.pdf",
+          1
+        ],
+        [
+          "visual",
+          "locked_valve_schedule.pdf",
+          1
+        ],
+        [
+          "visual",
+          "hmi_alarm_summary.pdf",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "syn-pid-03",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.41,
+      "top": [
+        [
+          "visual",
+          "pid_reactor_feed.pdf",
+          1
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          9
+        ],
+        [
+          "visual",
+          "hmi_alarm_summary.pdf",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "syn-pid-04",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.39,
+      "top": [
+        [
+          "visual",
+          "pid_recycle_compressor.pdf",
+          1
+        ],
+        [
+          "visual",
+          "hmi_alarm_summary.pdf",
+          1
+        ],
+        [
+          "visual",
+          "locked_valve_schedule.pdf",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "syn-pid-05",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.35,
+      "top": [
+        [
+          "visual",
+          "pid_recycle_compressor.pdf",
+          1
+        ],
+        [
+          "visual",
+          "relay_settings_12l4.pdf",
+          1
+        ],
+        [
+          "visual",
+          "hmi_alarm_summary.pdf",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "syn-pid-06",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.42,
+      "top": [
+        [
+          "visual",
+          "pid_recycle_compressor.pdf",
+          1
+        ],
+        [
+          "visual",
+          "locked_valve_schedule.pdf",
+          1
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          9
+        ]
+      ]
+    },
+    {
+      "id": "syn-net-01",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.41,
+      "top": [
+        [
+          "visual",
+          "esp_plant_b.pdf",
+          1
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          76
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          77
+        ]
+      ]
+    },
+    {
+      "id": "syn-net-02",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.45,
+      "top": [
+        [
+          "visual",
+          "esp_plant_b.pdf",
+          1
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          77
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          76
+        ]
+      ]
+    },
+    {
+      "id": "syn-net-03",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.44,
+      "top": [
+        [
+          "visual",
+          "control_center_arch.pdf",
+          1
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          77
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          76
+        ]
+      ]
+    },
+    {
+      "id": "syn-net-04",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.53,
+      "top": [
+        [
+          "visual",
+          "control_center_arch.pdf",
+          1
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          77
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          9
+        ]
+      ]
+    },
+    {
+      "id": "syn-net-05",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.46,
+      "top": [
+        [
+          "visual",
+          "control_center_arch.pdf",
+          1
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          77
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          9
+        ]
+      ]
+    },
+    {
+      "id": "syn-hmi-01",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.74,
+      "top": [
+        [
+          "visual",
+          "hmi_alarm_summary.pdf",
+          1
+        ],
+        [
+          "visual",
+          "plot_plan_legend.pdf",
+          1
+        ],
+        [
+          "visual",
+          "hmi_trend_group.pdf",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "syn-hmi-02",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.66,
+      "top": [
+        [
+          "visual",
+          "hmi_alarm_summary.pdf",
+          1
+        ],
+        [
+          "visual",
+          "hmi_trend_group.pdf",
+          1
+        ],
+        [
+          "visual",
+          "cip-014-3.pdf",
+          32
+        ]
+      ]
+    },
+    {
+      "id": "syn-hmi-03",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.76,
+      "top": [
+        [
+          "visual",
+          "hmi_trend_group.pdf",
+          1
+        ],
+        [
+          "visual",
+          "hmi_alarm_summary.pdf",
+          1
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          76
+        ]
+      ]
+    },
+    {
+      "id": "syn-hmi-04",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.67,
+      "top": [
+        [
+          "visual",
+          "hmi_trend_group.pdf",
+          1
+        ],
+        [
+          "visual",
+          "relay_settings_12l4.pdf",
+          1
+        ],
+        [
+          "visual",
+          "hmi_alarm_summary.pdf",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "syn-ele-01",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.52,
+      "top": [
+        [
+          "visual",
+          "relay_settings_12l4.pdf",
+          1
+        ],
+        [
+          "visual",
+          "pid_reactor_feed.pdf",
+          1
+        ],
+        [
+          "visual",
+          "hmi_alarm_summary.pdf",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "syn-ele-02",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.73,
+      "top": [
+        [
+          "visual",
+          "relay_settings_12l4.pdf",
+          1
+        ],
+        [
+          "visual",
+          "control_center_arch.pdf",
+          1
+        ],
+        [
+          "visual",
+          "hmi_alarm_summary.pdf",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "syn-leg-01",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.66,
+      "top": [
+        [
+          "visual",
+          "plot_plan_legend.pdf",
+          1
+        ],
+        [
+          "visual",
+          "pid_recycle_compressor.pdf",
+          1
+        ],
+        [
+          "visual",
+          "locked_valve_schedule.pdf",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "syn-leg-02",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.57,
+      "top": [
+        [
+          "visual",
+          "plot_plan_legend.pdf",
+          1
+        ],
+        [
+          "visual",
+          "hmi_alarm_summary.pdf",
+          1
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          15
+        ]
+      ]
+    },
+    {
+      "id": "syn-tab-01",
+      "category": "diagram_only",
+      "rank": 2,
+      "hit@1": false,
+      "hit@5": true,
+      "rr": 0.5,
+      "latency_s": 26.69,
+      "top": [
+        [
+          "text",
+          "locked_valve_schedule.pdf",
+          -1
+        ],
+        [
+          "visual",
+          "locked_valve_schedule.pdf",
+          1
+        ],
+        [
+          "text",
+          "locked_valve_schedule.pdf",
+          -1
+        ]
+      ]
+    },
+    {
+      "id": "syn-tab-02",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.64,
+      "top": [
+        [
+          "visual",
+          "locked_valve_schedule.pdf",
+          1
+        ],
+        [
+          "visual",
+          "hmi_trend_group.pdf",
+          1
+        ],
+        [
+          "visual",
+          "hmi_alarm_summary.pdf",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-01",
+      "category": "prose_only",
+      "rank": null,
+      "hit@1": false,
+      "hit@5": false,
+      "rr": 0.0,
+      "latency_s": 26.6,
+      "top": [
+        [
+          "visual",
+          "cip-014-3.pdf",
+          32
+        ],
+        [
+          "visual",
+          "esp_plant_b.pdf",
+          1
+        ],
+        [
+          "visual",
+          "cip-002-5.1a.pdf",
+          12
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-02",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.71,
+      "top": [
+        [
+          "text",
+          "cip-005-7.pdf",
+          -1
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          77
+        ],
+        [
+          "text",
+          "cip-005-7.pdf",
+          -1
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-03",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.72,
+      "top": [
+        [
+          "text",
+          "cip-007-6.pdf",
+          -1
+        ],
+        [
+          "visual",
+          "cip-014-3.pdf",
+          32
+        ],
+        [
+          "text",
+          "cip-007-6.pdf",
+          -1
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-04",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 27.23,
+      "top": [
+        [
+          "text",
+          "cip-007-6.pdf",
+          -1
+        ],
+        [
+          "visual",
+          "cip-002-5.1a.pdf",
+          12
+        ],
+        [
+          "text",
+          "cip-007-6.pdf",
+          -1
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-05",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 27.13,
+      "top": [
+        [
+          "text",
+          "cip-008-6.pdf",
+          -1
+        ],
+        [
+          "visual",
+          "cip-002-5.1a.pdf",
+          12
+        ],
+        [
+          "text",
+          "cip-008-6.pdf",
+          -1
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-06",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.83,
+      "top": [
+        [
+          "text",
+          "cip-010-4.pdf",
+          -1
+        ],
+        [
+          "visual",
+          "cip-014-3.pdf",
+          32
+        ],
+        [
+          "text",
+          "cip-010-4.pdf",
+          -1
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-07",
+      "category": "prose_only",
+      "rank": 2,
+      "hit@1": false,
+      "hit@5": true,
+      "rr": 0.5,
+      "latency_s": 27.32,
+      "top": [
+        [
+          "text",
+          "cip-007-6.pdf",
+          -1
+        ],
+        [
+          "visual",
+          "cip-002-5.1a.pdf",
+          12
+        ],
+        [
+          "text",
+          "cip-009-6.pdf",
+          -1
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-08",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.61,
+      "top": [
+        [
+          "text",
+          "cip-004-7.pdf",
+          -1
+        ],
+        [
+          "visual",
+          "cip-014-3.pdf",
+          32
+        ],
+        [
+          "text",
+          "cip-004-7.pdf",
+          -1
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-09",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.48,
+      "top": [
+        [
+          "text",
+          "cip-009-6.pdf",
+          -1
+        ],
+        [
+          "visual",
+          "cip-002-5.1a.pdf",
+          12
+        ],
+        [
+          "text",
+          "cip-009-6.pdf",
+          -1
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-10",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.63,
+      "top": [
+        [
+          "text",
+          "cip-013-2.pdf",
+          -1
+        ],
+        [
+          "visual",
+          "cip-014-3.pdf",
+          32
+        ],
+        [
+          "text",
+          "nist_800_82r3_arch_slice.pdf",
+          -1
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-11",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.62,
+      "top": [
+        [
+          "text",
+          "cip-014-3.pdf",
+          -1
+        ],
+        [
+          "visual",
+          "cip-014-3.pdf",
+          32
+        ],
+        [
+          "text",
+          "cip-014-3.pdf",
+          -1
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-12",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.57,
+      "top": [
+        [
+          "text",
+          "cip-011-3.pdf",
+          -1
+        ],
+        [
+          "visual",
+          "cip-002-5.1a.pdf",
+          12
+        ],
+        [
+          "text",
+          "cip-010-4.pdf",
+          -1
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-13",
+      "category": "prose_only",
+      "rank": 3,
+      "hit@1": false,
+      "hit@5": true,
+      "rr": 0.333,
+      "latency_s": 26.51,
+      "top": [
+        [
+          "text",
+          "nist_800_82r3_arch_slice.pdf",
+          -1
+        ],
+        [
+          "visual",
+          "cip-014-3.pdf",
+          32
+        ],
+        [
+          "text",
+          "cip-006-6.pdf",
+          -1
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-14",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.73,
+      "top": [
+        [
+          "text",
+          "cip-012-2.pdf",
+          -1
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          9
+        ],
+        [
+          "text",
+          "cip-011-3.pdf",
+          -1
+        ]
+      ]
+    },
+    {
+      "id": "prose-nist-01",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.61,
+      "top": [
+        [
+          "text",
+          "nist_800_82r3_arch_slice.pdf",
+          -1
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          77
+        ],
+        [
+          "text",
+          "nist_800_82r3_arch_slice.pdf",
+          -1
+        ]
+      ]
+    },
+    {
+      "id": "prose-nist-02",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.64,
+      "top": [
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          15
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          77
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          76
+        ]
+      ]
+    },
+    {
+      "id": "mixed-nist-01",
+      "category": "mixed",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.6,
+      "top": [
+        [
+          "text",
+          "nist_800_82r3_arch_slice.pdf",
+          -1
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          77
+        ],
+        [
+          "text",
+          "nist_800_82r3_arch_slice.pdf",
+          -1
+        ]
+      ]
+    },
+    {
+      "id": "mixed-nist-02",
+      "category": "mixed",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.75,
+      "top": [
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          9
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          12
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          76
+        ]
+      ]
+    },
+    {
+      "id": "mixed-cip-01",
+      "category": "mixed",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.56,
+      "top": [
+        [
+          "text",
+          "cip-014-3.pdf",
+          -1
+        ],
+        [
+          "visual",
+          "cip-014-3.pdf",
+          32
+        ],
+        [
+          "text",
+          "cip-014-3.pdf",
+          -1
+        ]
+      ]
+    },
+    {
+      "id": "mixed-syn-01",
+      "category": "mixed",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.55,
+      "top": [
+        [
+          "visual",
+          "esp_plant_b.pdf",
+          1
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          77
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          76
+        ]
+      ]
+    },
+    {
+      "id": "mixed-syn-02",
+      "category": "mixed",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 26.55,
+      "top": [
+        [
+          "visual",
+          "hmi_alarm_summary.pdf",
+          1
+        ],
+        [
+          "visual",
+          "plot_plan_legend.pdf",
+          1
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          9
+        ]
+      ]
+    }
+  ]
+}

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import urllib.error
 import urllib.request
@@ -204,3 +205,53 @@ def check_kb_stage_set_stamp() -> tuple[str, str, list[dict]]:
             subs,
         )
     return "PASS", f"all {len(kbs)} KB stamp(s) match the running stage set", []
+
+
+# SUBSTRATE_MIGRATION_V1 P3.4 (O6). A KB reachable from a discovery or
+# corroboration path must never have `contextualize` enabled: the heading path
+# it prepends to the embedded text carries technique names and scenario family,
+# and the Bully's grading wall requires that lineage never reach the cousin
+# engine (discovery_bench.py:120, measurement.py:200). Enabling it there would
+# inject lineage into the retrieval surface, quietly, and look like a win.
+_SECURITY_KB_RE = re.compile(
+    r"(?:^|[_-])(?:sec|security|bully|attack|detect|detection|mitre|"
+    r"purple|purpleteam|redteam|pentest|htb|corpus|hunt|scenario)(?:$|[_-])",
+    re.I,
+)
+
+
+@register("contextualize_security_gate", "HE. contextualize off on security KBs", order=53)
+def check_contextualize_not_on_security_kb() -> tuple[str, str, list[dict]]:
+    """HE — no KB whose id names a security / discovery / corroboration path has
+    ``contextualize: true`` in its stamped stage set. Seeded-violation covered by
+    ``tests/unit/test_retrieval_contextualize_gate.py`` in the style of the
+    Bully's gate GP."""
+    from portal.platform.lance_guard import LanceStoreUnavailableError, require_lance_dir
+
+    lance_dir = os.environ.get("PORTAL5_LANCE_DIR", "/Volumes/data01/portal5_lance")
+    try:
+        require_lance_dir(lance_dir)
+    except LanceStoreUnavailableError:
+        return "WARN", "LanceDB volume not mounted — contextualize gate not checked", []
+    try:
+        from portal.platform.retrieval import store
+    except ImportError as e:
+        return "WARN", f"retrieval stack not importable: {e}", []
+    try:
+        kbs = store.list_kbs()
+    except Exception as e:  # noqa: BLE001
+        return "WARN", f"could not enumerate KBs: {e}", []
+
+    violations = [
+        {"name": kb, "status": "FAIL", "detail": "security-readable KB has contextualize:true"}
+        for kb in kbs
+        if _SECURITY_KB_RE.search(kb)
+        and (store.read_stamp(kb) or {}).get("stage_set", {}).get("contextualize") is True
+    ]
+    if violations:
+        return (
+            "FAIL",
+            f"{len(violations)} security-readable KB(s) with contextualize enabled",
+            violations,
+        )
+    return "PASS", "no security-readable KB has contextualize enabled", []

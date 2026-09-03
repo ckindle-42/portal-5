@@ -72,7 +72,7 @@ class Composition:
     vl_rerank: Callable[[str, list, int], Awaitable[list]]
     unavailable_error: type[BaseException]
     # content stages
-    chunk: Callable[[str], list]
+    chunk: Callable[..., list]
     read_text: Callable[[Path], Awaitable[str]]
     render_pages: Callable[..., list]
     figure_pages: Callable[[list], list]
@@ -84,15 +84,29 @@ class Composition:
     table_prefix: str = "kb_"
     file_suffixes: tuple[str, ...] = _DEFAULT_SUFFIXES
     stage_set: dict = field(default_factory=dict)
+    # SUBSTRATE_MIGRATION_V1 P3 — stages that each invalidate an index:
+    read_document: Callable[[Path], Awaitable[tuple]] | None = None  # P3.2
+    visual_scope: str = "all"  # P3.1 — "all" | "figures"
+    contextualize: bool = False  # P3.4 — embed heading path + text
+    fts: bool = False  # P3.3 — BM25 sparse arm
 
 
 # ── ingest ────────────────────────────────────────────────────────────────────
 async def _ingest_text(comp: Composition, ttbl, kb_id: str, f: Path, rel: str) -> int:
-    text = await comp.read_text(f)
-    chunks = list(comp.chunk(text))
+    doc = None
+    if comp.read_document is not None:
+        text, doc = await comp.read_document(f)
+    else:
+        text = await comp.read_text(f)
+    chunks = list(comp.chunk(text, doc))
     if not chunks:
         return 0
-    vecs = await comp.vl_embed_batch([{"text": ct} for _, _, ct in chunks])
+    # P3.4 (O6): what gets embedded may include the heading path; what is stored
+    # and returned is always the raw chunk text.
+    embed_texts = [
+        f"{hd}\n\n{ct}" if (comp.contextualize and hd) else ct for _, _, ct, _, hd in chunks
+    ]
+    vecs = await comp.vl_embed_batch([{"text": t} for t in embed_texts])
     rows = [
         {
             "chunk_id": hashlib.sha1(f"{kb_id}|{f}|{idx}".encode()).hexdigest(),
@@ -103,9 +117,11 @@ async def _ingest_text(comp: Composition, ttbl, kb_id: str, f: Path, rel: str) -
             "vector": vec,
             "char_start": cs,
             "char_end": ce,
+            "page": pg,
+            "headings": hd,
             "ingested_at": time.time(),
         }
-        for idx, ((cs, ce, ct), vec) in enumerate(zip(chunks, vecs, strict=True))
+        for idx, ((cs, ce, ct, pg, hd), vec) in enumerate(zip(chunks, vecs, strict=True))
     ]
     ttbl.add(rows)
     return len(rows)
@@ -115,7 +131,13 @@ async def _ingest_pages(comp: Composition, vtbl, kb_id: str, f: Path, rel: str) 
     pages = comp.render_pages(str(f), comp.pages_dir / kb_id)
     if not pages:
         return 0, []
-    vecs = await comp.vl_embed_batch([{"image_path": img} for _, img in pages])
+    # P3.1 (O7): under "figures" scope only the figure pages are VL-embedded into
+    # the visual arm — a prose page then lives in the text arm alone. The full
+    # rendered list is still returned so the S0 transcript pass sees every page.
+    to_index = comp.figure_pages(pages) if comp.visual_scope == "figures" else pages
+    if not to_index:
+        return 0, pages
+    vecs = await comp.vl_embed_batch([{"image_path": img} for _, img in to_index])
     rows = [
         {
             "chunk_id": hashlib.sha1(f"{kb_id}|{f}|p{page_no}".encode()).hexdigest(),
@@ -126,7 +148,7 @@ async def _ingest_pages(comp: Composition, vtbl, kb_id: str, f: Path, rel: str) 
             "vector": vec,
             "ingested_at": time.time(),
         }
-        for (page_no, img), vec in zip(pages, vecs, strict=True)
+        for (page_no, img), vec in zip(to_index, vecs, strict=True)
     ]
     vtbl.add(rows)
     return len(rows), pages
@@ -174,8 +196,11 @@ async def ingest_document(comp: Composition, kb_id: str, source_dir: Path, rebui
         db = comp.get_db()
         for name in (comp.tname(kb_id), comp.vname(kb_id)):
             if name in db.table_names():
+                # drop, not delete-rows: a stage change (P3) can change the
+                # table schema (the docling chunker adds page / headings), and
+                # `.add()` into a stale schema fails. A rebuild is a fresh table.
                 with contextlib.suppress(Exception):
-                    db.open_table(name).delete("chunk_id IS NOT NULL")
+                    db.drop_table(name)
     ttbl = comp.text_table(kb_id, create=True)
     vtbl = None
     files = [
@@ -192,6 +217,14 @@ async def ingest_document(comp: Composition, kb_id: str, source_dir: Path, rebui
             pages_added += n_pages
             if comp.transcribe_figures and pages:
                 figtext_added += await _ingest_page_transcripts(comp, ttbl, kb_id, f, rel, pages)
+    # P3.3 (O4): build the BM25 sparse index over the text arm, once, after the
+    # rows are in. `fts_index` in the response reflects reality now — it was
+    # hardcoded False while `create_fts_index` was never called.
+    fts_built = False
+    if comp.fts and chunks_added:
+        with contextlib.suppress(Exception):
+            ttbl.create_fts_index("text", replace=True)
+            fts_built = True
     comp.write_stamp(kb_id, live_model, live_dim, comp.stage_set or None)
     return {
         "kb_id": kb_id,
@@ -199,7 +232,7 @@ async def ingest_document(comp: Composition, kb_id: str, source_dir: Path, rebui
         "chunks_added": chunks_added,
         "pages_added": pages_added,
         "figtext_added": figtext_added,
-        "fts_index": False,
+        "fts_index": fts_built,
     }
 
 
@@ -263,6 +296,8 @@ async def reindex(comp: Composition) -> dict:
                 "vector": vec,
                 "char_start": int(r.get("char_start", 0)),
                 "char_end": int(r.get("char_end", 0)),
+                "page": int(r.get("page", -1)),
+                "headings": r.get("headings", ""),
                 "ingested_at": r.get("ingested_at", time.time()),
             }
             for r, vec in zip(keep, vecs, strict=True)

@@ -183,8 +183,12 @@ def test_kb_ingest_stamps_the_stage_set(_kb):
         "chunk_overlap",
         "figure_page_max_text",
         "transcribe_figures",
-        "fusion_mode",
+        "visual_scope",  # P3.1
+        "contextualize",  # P3.4
+        "fts",  # P3.3
     }
+    # fusion_mode is NOT stamped — it is a search-time knob, not an index stage
+    assert "fusion_mode" not in stamp["stage_set"]
 
 
 def test_kb_search_rejects_a_stage_set_change(_kb, monkeypatch):
