@@ -148,7 +148,7 @@ async def _read_file(path):
 
     if suffix == ".pdf":
         # pymupdf first: it is already a hard dep (research extra, used by
-        # rag_multimodal._render_pages) so this fallback works host-native, where
+        # portal.platform.retrieval.pages.render_pages) so this fallback works host-native, where
         # docling and pypdf are not installed (docling ships only in
         # Dockerfile.mcp). pypdf stays as a second try.
         try:

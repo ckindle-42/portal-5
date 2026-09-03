@@ -21,6 +21,8 @@ rm = pytest.importorskip(
 # composition, which reads them by name.
 _embedding = pytest.importorskip("portal.platform.retrieval.embedding")
 _store = pytest.importorskip("portal.platform.retrieval.store")
+_chunking = pytest.importorskip("portal.platform.retrieval.chunking")
+_fusion = pytest.importorskip("portal.platform.retrieval.fusion")
 
 
 class _FakeResp:
@@ -31,7 +33,7 @@ class _FakeResp:
         pass
 
     def json(self):
-        return {"embeddings": [[0.1] * rm.VL_DIM for _ in range(self._n)]}
+        return {"embeddings": [[0.1] * _embedding.VL_DIM for _ in range(self._n)]}
 
 
 class _FakeClient:
@@ -56,7 +58,7 @@ async def test_vl_embed_batch_caps_request_size(monkeypatch):
     monkeypatch.setattr(_embedding, "VL_EMBED_MAX_ITEMS", 4)
     monkeypatch.setattr(rm.httpx, "AsyncClient", _FakeClient)
     _FakeClient.posted = []
-    vecs = await rm._vl_embed_batch([{"text": f"t{i}"} for i in range(10)])
+    vecs = await _embedding.vl_embed_batch([{"text": f"t{i}"} for i in range(10)])
     assert len(vecs) == 10
     assert _FakeClient.posted == [4, 4, 2]  # 3 requests, none over the cap, order kept
 
@@ -64,7 +66,7 @@ async def test_vl_embed_batch_caps_request_size(monkeypatch):
 async def test_vl_embed_batch_empty_is_noop(monkeypatch):
     monkeypatch.setattr(rm.httpx, "AsyncClient", _FakeClient)
     _FakeClient.posted = []
-    assert await rm._vl_embed_batch([]) == []
+    assert await _embedding.vl_embed_batch([]) == []
     assert _FakeClient.posted == []
 
 
@@ -73,21 +75,21 @@ async def test_vl_embed_batch_empty_is_noop(monkeypatch):
 
 def test_write_then_read_stamp_roundtrips(tmp_path, monkeypatch):
     monkeypatch.setattr(_store, "RAG_DIR", str(tmp_path))
-    rm._write_stamp("kb1", "mlx-community/Qwen3-VL-Embedding-2B-mxfp8", 2048)
-    got = rm._read_stamp("kb1")
+    _store.write_stamp("kb1", "mlx-community/Qwen3-VL-Embedding-2B-mxfp8", 2048)
+    got = _store.read_stamp("kb1")
     assert got["embed_model"] == "mlx-community/Qwen3-VL-Embedding-2B-mxfp8"
     assert got["vl_dim"] == 2048
-    assert rm._read_stamp("absent") is None
+    assert _store.read_stamp("absent") is None
 
 
 def test_assert_embedding_space_rejects_same_dim_different_model(tmp_path, monkeypatch):
     monkeypatch.setattr(_store, "RAG_DIR", str(tmp_path))
-    rm._write_stamp("kb1", "model-A-2048", 2048)
-    rm._assert_embedding_space("kb1", "model-A-2048")  # match: fine
-    with pytest.raises(rm._VLUnavailableError, match="different spaces"):
-        rm._assert_embedding_space("kb1", "model-B-2048")
+    _store.write_stamp("kb1", "model-A-2048", 2048)
+    _store.assert_embedding_space("kb1", "model-A-2048")  # match: fine
+    with pytest.raises(_embedding.VLUnavailableError, match="different spaces"):
+        _store.assert_embedding_space("kb1", "model-B-2048")
     # an unstamped KB (legacy) is not blocked
-    rm._assert_embedding_space("kb-legacy", "model-B-2048")
+    _store.assert_embedding_space("kb-legacy", "model-B-2048")
 
 
 class _HealthClient:
@@ -128,8 +130,8 @@ async def test_vl_model_id_reads_health_and_caches(monkeypatch):
         return await orig_get(self, url)
 
     monkeypatch.setattr(_HealthClient, "get", counting_get)
-    assert await rm._vl_model_id() == ("model-X", 2048)
-    assert await rm._vl_model_id() == ("model-X", 2048)  # served from cache
+    assert await _embedding.vl_model_id() == ("model-X", 2048)
+    assert await _embedding.vl_model_id() == ("model-X", 2048)  # served from cache
     assert len(calls) == 1  # /health hit once, not per call
 
 
@@ -154,21 +156,21 @@ def _wire_search(monkeypatch, *, text_distance, rerank_scores):
     """Patch _search's dependencies so only the fusion is exercised."""
 
     async def _emb(text=None, image_path=None, is_query=False):
-        return [0.1] * rm.VL_DIM
+        return [0.1] * _embedding.VL_DIM
 
     async def _model_id():
-        return ("m", rm.VL_DIM)
+        return ("m", _embedding.VL_DIM)
 
     async def _rerank(q, cands, n):
         return [{"index": i, "score": s} for i, s in enumerate(rerank_scores)]
 
-    monkeypatch.setattr(rm, "_vl_embed", _emb)
-    monkeypatch.setattr(rm, "_vl_model_id", _model_id)
-    monkeypatch.setattr(rm, "_assert_embedding_space", lambda *a: None)
-    monkeypatch.setattr(rm, "_vl_rerank", _rerank)
+    monkeypatch.setattr(_embedding, "vl_embed", _emb)
+    monkeypatch.setattr(_embedding, "vl_model_id", _model_id)
+    monkeypatch.setattr(_store, "assert_embedding_space", lambda *a: None)
+    monkeypatch.setattr(_embedding, "vl_rerank", _rerank)
     monkeypatch.setattr(
-        rm,
-        "_text_table",
+        _store,
+        "text_table",
         lambda kb, create=False: _FakeTable(
             [
                 {
@@ -182,8 +184,8 @@ def _wire_search(monkeypatch, *, text_distance, rerank_scores):
         ),
     )
     monkeypatch.setattr(
-        rm,
-        "_visual_table",
+        _store,
+        "visual_table",
         lambda kb, create=False: _FakeTable(
             [{"chunk_id": "v1", "source_file": "figure.pdf", "page": 1, "image_path": "/x.png"}]
         ),
@@ -204,7 +206,7 @@ async def test_c1_weak_text_promotes_the_figure(monkeypatch):
     # top text cosine ~0.40 (< VL_TEXT_GATE 0.72) -> visual boost ON.
     # Pinned explicitly: `unified` and `rrf` are selectable and neither uses the
     # gate, so the strategy under test must be named rather than inherited.
-    monkeypatch.setattr(rm, "FUSION", "text_gate")
+    monkeypatch.setattr(_fusion, "FUSION", "text_gate")
     _wire_search(monkeypatch, text_distance=1.2, rerank_scores=[0.7])
     res = await _run_search(query="which valve is fail-closed")
     assert res[0]["kind"] == "visual" and res[0]["reranker_prob"] == 0.7
@@ -212,7 +214,7 @@ async def test_c1_weak_text_promotes_the_figure(monkeypatch):
 
 async def test_c1_strong_text_keeps_text_first(monkeypatch):
     # top text cosine ~0.85 (>= gate) -> visual boost OFF, RRF tie -> text wins
-    monkeypatch.setattr(rm, "FUSION", "text_gate")
+    monkeypatch.setattr(_fusion, "FUSION", "text_gate")
     _wire_search(monkeypatch, text_distance=0.3, rerank_scores=[0.7])
     res = await _run_search(query="how often must an ESP be reviewed")
     assert res[0]["kind"] == "text"
@@ -222,7 +224,7 @@ async def test_unified_ranks_purely_on_the_shared_reranker_score(monkeypatch):
     """The structural fix for B1: with one comparable scoring pass there is no
     tie to break, so the winner is whichever candidate the cross-encoder scored
     highest — regardless of which arm it came from or how rich the text arm is."""
-    monkeypatch.setattr(rm, "FUSION", "unified")
+    monkeypatch.setattr(_fusion, "FUSION", "unified")
     # text candidate is index 0, visual is index 1; give the VISUAL the higher score
     _wire_search(monkeypatch, text_distance=0.3, rerank_scores=[0.30, 0.88])
     res = await _run_search(query="which valve is fail-closed")
@@ -236,7 +238,7 @@ async def test_unified_is_immune_to_text_arm_richness(monkeypatch):
     measured on the eval corpus it scores diagram r@1 0.619 against text_gate's
     0.952, because the shared reranker space is text-biased. Retained as an A/B
     switch, and this test pins the property it does have."""
-    monkeypatch.setattr(rm, "FUSION", "unified")
+    monkeypatch.setattr(_fusion, "FUSION", "unified")
     for text_distance in (1.2, 0.3):  # weak text arm, then rich text arm
         _wire_search(monkeypatch, text_distance=text_distance, rerank_scores=[0.30, 0.88])
         res = await _run_search(query="which valve is fail-closed")
@@ -315,10 +317,10 @@ def test_retrieval_eval_baseline_still_matches_the_configured_pipeline():
     ).read_text()
 
     for name, live, recorded in (
-        ("RAG_CHUNK_STRATEGY", rm.CHUNK_STRATEGY, fp["chunk_strategy"]),
-        ("VL_FUSION", rm.FUSION, fp["fusion"]),
-        ("VL_TEXT_GATE_MODE", rm.VL_TEXT_GATE_MODE, fp["gate_mode"]),
-        ("VL_EMBEDDING_DIM", rm.VL_DIM, fp["embedding_dim"]),
+        ("RAG_CHUNK_STRATEGY", _chunking.CHUNK_STRATEGY, fp["chunk_strategy"]),
+        ("VL_FUSION", _fusion.FUSION, fp["fusion"]),
+        ("VL_TEXT_GATE_MODE", _fusion.VL_TEXT_GATE_MODE, fp["gate_mode"]),
+        ("VL_EMBEDDING_DIM", _embedding.VL_DIM, fp["embedding_dim"]),
     ):
         assert live == recorded, (
             f"{name} is {live!r}; the retrieval eval that fitted tau ran with "
@@ -347,7 +349,7 @@ def test_shipped_tau_is_the_knee_of_the_recorded_sweep():
         key=lambda r: r["tau"],
     )
     assert knee["tau"] == _BASELINE["chosen_tau"], "recorded chosen_tau is not the sweep's knee"
-    shipped_tau = rm.VL_TEXT_GATE
+    shipped_tau = _fusion.VL_TEXT_GATE
     assert shipped_tau == pytest.approx(knee["tau"]), (
         f"VL_TEXT_GATE={shipped_tau} but the recorded sweep's knee is "
         f"{knee['tau']} (diagram r@1 {knee['diagram_r1']}, prose r@1 "
@@ -374,5 +376,5 @@ def test_relative_gate_mode_is_not_the_default():
     """`relative` is measurably dominated (the margin is anti-correlated with
     need: diagram queries carry the LARGER margin, 0.117 vs prose 0.055). It
     stays selectable for A/B; it must not become the shipped behaviour."""
-    assert rm.VL_TEXT_GATE_MODE == "absolute"
-    assert rm.FUSION == "text_gate"
+    assert _fusion.VL_TEXT_GATE_MODE == "absolute"
+    assert _fusion.FUSION == "text_gate"

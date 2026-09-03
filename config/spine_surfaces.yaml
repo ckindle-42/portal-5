@@ -380,18 +380,10 @@ surfaces:
   globs:
   - scripts/_archive/analyze_bench_v5.py
   unit: unit-archive-v5-ladder-analysis
-- name: file-tests-fixtures-__init__
-  globs:
-  - tests/fixtures/__init__.py
-  unit: unit-platform-retrieval
 - name: file-tests-fixtures-capability_context-sample_module
   globs:
   - tests/fixtures/capability_context/sample_module.py
   unit: unit-fixture-capability-context-sample
-- name: file-tests-fixtures-retrieval_legacy
-  globs:
-  - tests/fixtures/retrieval_legacy.py
-  unit: unit-platform-retrieval
 - name: file-tests-frontend-test_reasoning_display
   globs:
   - tests/frontend/test_reasoning_display.py

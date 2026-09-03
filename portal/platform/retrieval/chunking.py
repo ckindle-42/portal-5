@@ -1,7 +1,7 @@
 """Text chunking stage — moved verbatim from ``rag_multimodal`` (SEAM V1 P2).
 
 Pure functions: no services, no models. Byte-identical to the pre-move bodies —
-see ``tests/unit/test_retrieval_stage_parity.py``. The leading underscore is
+see `reports/retrieval/composition_parity.md` (P4). The leading underscore is
 dropped where a function becomes library API; ``rag_multimodal`` keeps thin
 aliases for the transition.
 """

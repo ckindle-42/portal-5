@@ -19,12 +19,6 @@ sources:
   path: portal/platform/retrieval/fusion.py
 - type: code
   path: portal/platform/retrieval/pipeline.py
-- type: code
-  path: tests/fixtures/__init__.py
-- type: code
-  path: tests/fixtures/retrieval_legacy.py
-- type: code
-  path: tests/unit/test_retrieval_stage_parity.py
 claims: []
 confidence: high
 tags:
@@ -53,8 +47,7 @@ primitive, two compositions.
 
 ## Stages
 
-Pure (Phase 2 — no services, byte-identical parity in
-`tests/unit/test_retrieval_stage_parity.py`):
+Pure (Phase 2 — no services):
 
 - `chunking` — `chunk_fixed`, `chunk_structured`, `chunk` (strategy dispatch),
   `SECTION_BOUNDARY`, and the `CHUNK_SIZE` / `CHUNK_OVERLAP` / `CHUNK_STRATEGY`
@@ -83,21 +76,16 @@ Service-touching (Phase 3):
 
 ## Compositions
 
-- `portal.modules.research.tools.rag_multimodal` — the `kb_*` tools. Keeps thin
-  aliases (`_chunk_fixed`, `_SECTION_BOUNDARY`, `_render_pages`, `_read_text`,
-  …) for the transition; behaviour is byte-identical to pre-seam HEAD, proven
-  by `tests/unit/test_retrieval_stage_parity.py` (function-level) and the
-  Phase 4 end-to-end live-KB parity report.
+- `portal.modules.research.tools.rag_multimodal` — the `kb_*` tools. ~260 lines:
+  `_transcribe_page` (S0), a per-call `_composition()` that wires the stages, and
+  the four route handlers (which keep the HTTP concern — JSONResponse, the
+  503/500/404 mapping). Behaviour is byte-identical to pre-seam HEAD, proven at
+  function level (the P2 parity harness) and end-to-end on a live KB
+  (`reports/retrieval/composition_parity.md`, P4). The transitional aliases and
+  the legacy-body fixture were removed in P5 once both parities were green.
 - The compliance retrieval composition (Phase 7) — its own routes, its own
   tables namespaced away from `kb_*`, so a compliance re-ingest can never
   invalidate another consumer's index.
-
-## Transitional
-
-`tests/fixtures/retrieval_legacy.py` holds the pre-move stage bodies verbatim
-(from commit `3de59b6c`) for the parity test to diff against. Both it and
-`tests/unit/test_retrieval_stage_parity.py` are deleted in Phase 5 once the
-Phase 4 end-to-end parity has also passed.
 
 ## Not here
 

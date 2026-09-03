@@ -48,7 +48,6 @@ def _iso(tmp_path, monkeypatch):
     monkeypatch.setattr(_store, "LANCE_DIR", str(tmp_path / "lance"))
     monkeypatch.setattr(_store, "RAG_DIR", str(tmp_path / "lance" / "rag"))
     monkeypatch.setattr(_embedding, "VL_DIM", 8)
-    monkeypatch.setattr(rm, "VL_DIM", 8)
     monkeypatch.setattr(rm, "_PAGES_DIR", tmp_path / "pages")
     _store._db = None
 
@@ -64,10 +63,10 @@ def _iso(tmp_path, monkeypatch):
     async def _model_id():
         return ("fake-vl-model", 8)
 
-    monkeypatch.setattr(rm, "_vl_embed", _emb)
-    monkeypatch.setattr(rm, "_vl_embed_batch", _emb_batch)
-    monkeypatch.setattr(rm, "_vl_rerank", _rr)
-    monkeypatch.setattr(rm, "_vl_model_id", _model_id)
+    monkeypatch.setattr(_embedding, "vl_embed", _emb)
+    monkeypatch.setattr(_embedding, "vl_embed_batch", _emb_batch)
+    monkeypatch.setattr(_embedding, "vl_rerank", _rr)
+    monkeypatch.setattr(_embedding, "vl_model_id", _model_id)
     fake = types.ModuleType("portal.modules.research.tools.rag_mcp")
 
     async def _read_file(p):
