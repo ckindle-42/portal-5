@@ -362,6 +362,51 @@ def _probe_compliance_completeness(root: Path) -> list[str]:
     )
 
 
+def _probe_compliance_workspace_tools(root: Path) -> list[str]:
+    """TASK_COMPLIANCE_ENGINE_LANDING_V1 P7: a tool that is registered but
+    unreachable from the persona is an engine that does not exist — six prior
+    tasks improved correctness while this stayed broken and no test caught it,
+    because every test called the library directly. Cross-checks THREE
+    independent sources of truth for every compliance-specific name in the
+    ``auto-compliance`` workspace's ``tools:`` list: it must also appear in the
+    MCP's discovery manifest (what a model sees exists) AND in
+    ``compliance_mcp._DISPATCH`` (what a POST actually reaches) — a probe that
+    passes while the engine is unroutable is the exact failure this task fixes.
+    """
+    portal_yaml = root / "config" / "portal.yaml"
+    manifest_json = root / "config" / "inference" / "tools_manifest_compliance_mcp.json"
+    mcp_py = root / "portal" / "modules" / "compliance" / "tools" / "compliance_mcp.py"
+    if not (portal_yaml.is_file() and manifest_json.is_file() and mcp_py.is_file()):
+        return ["source_missing"]
+
+    y = portal_yaml.read_text(encoding="utf-8")
+    m = re.search(r"(?m)^  auto-compliance:\n(.*?)(?=^  [a-zA-Z0-9_-]+:\n|\Z)", y, re.S)
+    if not m:
+        return ["workspace_missing"]
+    tm = re.search(r"(?ms)^    tools:\n((?:    - .*\n)+)", m.group(1))
+    workspace_tools = set(re.findall(r"^    - (\S+)", tm.group(1), re.M)) if tm else set()
+    compliance_names = {t for t in workspace_tools if t.startswith(("compliance_", "nerc_cip"))}
+
+    manifest = {
+        f["function"]["name"] for f in json.loads(manifest_json.read_text(encoding="utf-8"))
+    }
+    dispatch_block = re.search(
+        r"_DISPATCH\s*=\s*\{(.*?)\n\}", mcp_py.read_text(encoding="utf-8"), re.S
+    )
+    dispatch = (
+        set(re.findall(r'"([a-z_0-9]+)":', dispatch_block.group(1))) if dispatch_block else set()
+    )
+
+    unreachable = sorted(
+        name for name in compliance_names if name not in manifest or name not in dispatch
+    )
+    return (
+        [f"unreachable:{n}" for n in unreachable]
+        if unreachable
+        else [f"all_reachable:{len(compliance_names)}"]
+    )
+
+
 PROBES: dict[str, Callable[[Path], Any]] = {
     "workspaces.total": _probe_workspaces_total,
     "workspaces.bench": _probe_workspaces_bench,
@@ -393,6 +438,7 @@ PROBES: dict[str, Callable[[Path], Any]] = {
     "compliance.register": _probe_compliance_register,
     "compliance.completeness": _probe_compliance_completeness,
     "compliance.change_types": _probe_compliance_change_types,
+    "compliance.workspace_tools": _probe_compliance_workspace_tools,
     "retrieval.stage_set": _probe_retrieval_stage_set,
 }
 

@@ -1,6 +1,6 @@
 {
- "built_at": "2026-09-03T17:20:32+00:00",
- "extractor_commit": "ee28423f6be8",
+ "built_at": "2026-09-04T13:32:14+00:00",
+ "extractor_commit": "ee28423f6be8-dirty",
  "source_pdfs": {
   "cip-002-5.1a.pdf": "747e1ac250b9",
   "cip-003-8.pdf": "ceff7112505d",
@@ -69,8 +69,8 @@
      "fidelity_failed": []
     },
     "completeness": {
-     "n_requirements": 2,
-     "n_parts_extracted": 5,
+     "n_requirements": 3,
+     "n_parts_extracted": 28,
      "incomplete_requirements": [],
      "n_missing": 0,
      "complete": true,
@@ -104,8 +104,8 @@
      "fidelity_failed": []
     },
     "completeness": {
-     "n_requirements": 4,
-     "n_parts_extracted": 15,
+     "n_requirements": 5,
+     "n_parts_extracted": 35,
      "incomplete_requirements": [],
      "n_missing": 0,
      "complete": true,
@@ -139,8 +139,8 @@
      "fidelity_failed": []
     },
     "completeness": {
-     "n_requirements": 4,
-     "n_parts_extracted": 16,
+     "n_requirements": 5,
+     "n_parts_extracted": 40,
      "incomplete_requirements": [],
      "n_missing": 0,
      "complete": true,

@@ -19,8 +19,8 @@ tags:
 - T1003.002
 - technique
 - signature
-created_at: 1788236495.093725
-updated_at: 1788236495.093725
+created_at: 1788561801.153468
+updated_at: 1788561801.153468
 ---
 
 # T1003.002 — SAM dump — remote Security Account Manager hash extraction via RemoteRegistry [DISTINGUISH: T1003.002 = local SAM hive on a non-DC host via RemoteRegistry; T1003.001 = local LSASS memory access; T1003.003 = NTDS.dit extraction on the DC; T1003.006 = remote AD replication] [KEY: ServiceName="Remote Registry" State=running, or IPC$ winreg pipe access]

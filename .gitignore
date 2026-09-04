@@ -123,3 +123,8 @@ portal_wiki/provenance_ledger.jsonl
 # Runtime supervisor state — regenerates every run, not source.
 /supervisor_log.json
 portal/modules/compliance/data/cip_pdfs/
+# TASK_COMPLIANCE_ENGINE_LANDING_V1: operator-identifying artifacts (mapping
+# proposals and the document layer/tier sidecar name the operator's internal
+# documents by filename) — never committed, same discipline as the PDFs above.
+portal/modules/compliance/data/compliance_mappings.json
+portal/modules/compliance/data/compliance_document_layers.json

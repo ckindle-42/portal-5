@@ -22,8 +22,8 @@ tags:
 - T1558.003
 - technique
 - signature
-created_at: 1788236495.0873458
-updated_at: 1788236495.0873458
+created_at: 1788561801.1474812
+updated_at: 1788561801.1474812
 ---
 
 # T1558.003 — Kerberoasting — Windows Security Event 4769 with RC4 encryption [DISTINGUISH: T1558.003 uses EventCode=4769 (TGS-REQ) with RC4; T1558.004 uses EventCode=4768 (AS-REQ) with no preauth] [KEY: TicketEncryptionType=0x17 in 4769 events]

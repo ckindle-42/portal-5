@@ -22,6 +22,9 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from portal.modules.compliance.core.text_signals import is_aspirational as _is_aspirational
+from portal.modules.compliance.core.text_signals import keywords as _keywords
+
 CORPUS_DIR = Path(__file__).resolve().parents[1] / "data" / "planted_corpus"
 
 CONTROL_CLASSES = (
@@ -87,60 +90,9 @@ def load_corpus(corpus_dir: Path | str = CORPUS_DIR) -> list[PlantedDoc]:
 
 
 # ── deterministic proposer over the planted corpus ──────────────────────────
-_STOP = {
-    "the",
-    "a",
-    "an",
-    "of",
-    "to",
-    "for",
-    "and",
-    "or",
-    "in",
-    "on",
-    "at",
-    "by",
-    "with",
-    "is",
-    "are",
-    "be",
-    "shall",
-    "must",
-    "each",
-    "entity",
-    "that",
-    "this",
-    "as",
-    "from",
-    "within",
-    "its",
-    "it",
-    "applicable",
-    "responsible",
-    "processes",
-    "process",
-    "include",
-    "documented",
-}
-
-
-def _keywords(text: str) -> set[str]:
-    return {w for w in re.findall(r"[a-z0-9-]{4,}", text.lower()) if w not in _STOP}
-
-
-_ASPIRATIONAL_RE = re.compile(
-    r"\b(strive to|strives to|endeavor to|endeavors to|as appropriate|where feasible|"
-    r"where practical|best effort|encouraged to|periodic(?:ally)?|from time to time)\b",
-    re.I,
-)
-
-
-def _is_aspirational(body: str) -> bool:
-    """Aspirational language with no numeric commitment — names an intent, not an
-    auditable obligation. `"we strive to review periodically"` vs a 15-day rule."""
-    return bool(_ASPIRATIONAL_RE.search(body)) and not re.search(
-        r"\b\d+\s+(calendar |business )?(day|days|month|months|hour|hours|year|years)\b", body, re.I
-    )
+# _keywords / _is_aspirational moved to text_signals.py (TASK_COMPLIANCE_ENGINE_
+# LANDING_V1 P2) so the real retrieval proposer shares the same substantive-
+# overlap check instead of a drifting copy.
 
 
 def make_proposer(corpus: list[PlantedDoc], *, threshold: int = 3):

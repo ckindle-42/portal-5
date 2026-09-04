@@ -24,6 +24,16 @@ sources:
 - type: code
   path: portal/modules/compliance/core/currency.py
 - type: code
+  path: portal/modules/compliance/core/review_queue.py
+- type: code
+  path: portal/modules/compliance/core/ingest.py
+- type: code
+  path: portal/modules/compliance/core/propose.py
+- type: code
+  path: portal/modules/compliance/core/scope_derive.py
+- type: code
+  path: portal/modules/compliance/core/text_signals.py
+- type: code
   path: portal/modules/compliance/data/nerc_cip_register.json
 - type: code
   path: tests/unit/test_cip_register.py

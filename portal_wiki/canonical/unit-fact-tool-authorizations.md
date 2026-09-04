@@ -5,7 +5,7 @@ title: tool authorizations for 25 production workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: d5814a812dbb
+  commit: d590d405021e
   section: workspaces[].tools
 claims: []
 confidence: high
@@ -14,7 +14,7 @@ tags:
 - tools
 - workspaces
 created_at: 1784049584.703768
-updated_at: 1788390214.0502222
+updated_at: 1788529231.322431
 ---
 
 # Tool authorizations (per-workspace `tools:` whitelist)
@@ -28,7 +28,7 @@ The pipeline strips any tool a workspace does not authorize (metric `portal5_too
 | `auto-bigfix` | general | `execute_python`, `execute_bash`, `web_search` |
 | `auto-cad` | cad | `execute_python`, `execute_bash`, `sandbox_status`, `read_pdf`, `read_word_document`, `web_search`, `web_fetch`, `remember`!, `recall`!, `kb_search`!, `render_mesh`, `render_openscad`, `convert_cad`, `generate_scad` |
 | `auto-coding` | coding | `execute_python`, `execute_nodejs`, `execute_bash`, `sandbox_status`, `read_word_document`, `read_pdf`, `remember`!, `recall`! |
-| `auto-compliance` | compliance | `create_word_document`, `read_pdf`, `kb_search`!, `kb_list`, `web_search`, `lookup_cve`, `get_epss`, `check_kev`, `triage_cve`, `ics_advisories`, `scan_dependencies`, `lookup_control`, `search_controls`, `nerc_cip_requirement`, `map_frameworks`, `patch_evidence`, `refresh_catalogs` |
+| `auto-compliance` | compliance | `create_word_document`, `read_pdf`, `kb_search`!, `kb_list`, `web_search`, `lookup_cve`, `get_epss`, `check_kev`, `triage_cve`, `ics_advisories`, `scan_dependencies`, `lookup_control`, `search_controls`, `nerc_cip_requirement`, `nerc_cip_currency`, `map_frameworks`, `patch_evidence`, `refresh_catalogs`, `compliance_ingest`!, `compliance_search`!, `compliance_gaps`, `compliance_orphans`, `compliance_change_impact`, `compliance_mappings`, `compliance_scope`, `compliance_route`, `compliance_review_list`, `compliance_review_decide` |
 | `auto-council` | general | _(none)_ |
 | `auto-creative` | media | _(none)_ |
 | `auto-daily` | general | `web_search`, `web_fetch`, `kb_search`!, `kb_list`, `read_pdf`, `read_word_document`, `read_excel`, `create_word_document`, `create_excel`, `create_powerpoint`, `execute_python`, `remember`!, `recall`!, `minimax_generate`, `minimax_status`, `transcribe_audio` |

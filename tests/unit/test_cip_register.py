@@ -121,7 +121,7 @@ def test_no_requirement_has_a_colon_lead_in_with_zero_children():
         n.id
         for n in reg.nodes
         if not n.part
-        and re.fullmatch(r"R\d+", n.requirement)  # the signal is about requirements
+        and re.fullmatch(r"R\d+|Attachment \d+", n.requirement)  # requirements + attachments
         and n.verbatim_text.rstrip().endswith(":")
         and (n.standard, n.requirement) not in part_reqs
     ]

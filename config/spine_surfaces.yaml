@@ -68,6 +68,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/engine.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-ingest
+  globs:
+  - portal/modules/compliance/core/ingest.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-mapping_store
   globs:
   - portal/modules/compliance/core/mapping_store.py
@@ -76,10 +80,26 @@ surfaces:
   globs:
   - portal/modules/compliance/core/planted.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-propose
+  globs:
+  - portal/modules/compliance/core/propose.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-register_diff
   globs:
   - portal/modules/compliance/core/register_diff.py
   unit: unit-compliance-change-pipeline
+- name: file-portal-modules-compliance-core-review_queue
+  globs:
+  - portal/modules/compliance/core/review_queue.py
+  unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-scope_derive
+  globs:
+  - portal/modules/compliance/core/scope_derive.py
+  unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-text_signals
+  globs:
+  - portal/modules/compliance/core/text_signals.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-tiers
   globs:
   - portal/modules/compliance/core/tiers.py
@@ -95,7 +115,7 @@ surfaces:
 - name: file-portal-modules-compliance-tools-compliance_retrieval
   globs:
   - portal/modules/compliance/tools/compliance_retrieval.py
-  unit: unit-platform-retrieval
+  unit: unit-known-limitations-compliance-engine-had-no-route
 - name: file-portal-modules-data-tests-test_data_mcp
   globs:
   - portal/modules/data/tests/test_data_mcp.py

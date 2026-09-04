@@ -9,6 +9,10 @@ Port: 8937 (COMPLIANCE_MCP_PORT or MCP_PORT env override).
 
 from __future__ import annotations
 
+import asyncio
+import dataclasses
+import datetime
+import functools
 import json
 import logging
 import os
@@ -326,6 +330,331 @@ def nerc_cip_currency() -> dict:
         return {"status": "honest-BLOCKED", "reason": str(e)}
 
 
+# ── TASK_COMPLIANCE_ENGINE_LANDING_V1 P2: route the engine ──────────────────
+# Everything below wraps a core module that previously had no route and no
+# tool — coverage.py, engine.py, mapping_store.py, applicability.py,
+# review_queue.py. `engine.route()` had never dispatched (see the task's
+# discovery). Every function here must ALSO be added to a workspace's
+# `tools:` list in config/portal.yaml — being reachable at this REST surface
+# is necessary but not sufficient (Do Not: "stop at MCP registration").
+
+
+def compliance_ingest(
+    source_dir: str, kb_id: str = "operator_corpus", rebuild: bool = False
+) -> dict:
+    """Sync dispatch wrapper — see ``compliance_retrieval.ingest_folder`` (the
+    async ``/tools/compliance_ingest`` custom route calls the same function).
+    Kept in ``_DISPATCH`` so this tool is generic-POST-dispatchable AND
+    manifest-listed, closing the exact gap this task exists to fix."""
+    import asyncio
+
+    from portal.modules.compliance.core.ingest import ingest_folder
+
+    try:
+        return asyncio.run(ingest_folder(source_dir, kb_id, rebuild))
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
+
+
+def compliance_search(kb_id: str, query: str, top_k: int = 5) -> dict:
+    """Sync dispatch wrapper over ``compliance_retrieval.search`` — free-form
+    retrieval over the ingested compliance corpus."""
+    import asyncio
+
+    from portal.modules.compliance.tools.compliance_retrieval import search as _search
+
+    try:
+        return asyncio.run(_search(kb_id, query, top_k))
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
+
+
+_SPAN_EXCERPT_CHARS = 180  # P0 (O11): a full-candidate row blew the 8192-token
+# input budget ~2x over on a single standard (measured: 20-row CIP-007-6 result
+# = ~59.8k chars / ~15k tokens against context_limit 32768 - predict_limit
+# 24576 = 8192). The compact row below carries one representative citation per
+# side (the first locatable span — a `verbose=True` call gets every candidate).
+
+
+def _compact_citation(spans: list[dict]) -> dict | None:
+    locatable = [s for s in spans if s.get("locatable")]
+    chosen = locatable[0] if locatable else None
+    if not chosen:
+        return None
+    return {
+        "document": chosen["document_id"],
+        "section": chosen["section_id"],
+        "span": chosen["span"][:_SPAN_EXCERPT_CHARS],
+    }
+
+
+@mcp.tool()
+def compliance_gaps(
+    standard: str = "",
+    requirement: str = "",
+    effective_on: str = "",
+    kb_id: str = "operator_corpus",
+    max_rows: int = 25,
+    verbose: bool = False,
+) -> dict:
+    """Coverage matrix: where the operator's ingested corpus does/doesn't cover
+    each applicable NERC CIP Part. ``standard``/``requirement`` filter the rows
+    (e.g. standard='CIP-007-6') and ``max_rows`` caps them — the default row
+    shape (one representative citation per side, ``verbose=False``) is scoped
+    to fit the compliance workspace's ~8192-token input budget; ``verbose=True``
+    returns every retrieved candidate span, for review/debugging, not for the
+    live workspace. Every row derived from an open review-queue item names it."""
+    try:
+        from portal.modules.compliance.core import coverage as _coverage
+        from portal.modules.compliance.core import review_queue as rq
+        from portal.modules.compliance.core.cip_register import Register
+        from portal.modules.compliance.core.mapping_store import MappingStore
+        from portal.modules.compliance.core.propose import make_real_proposer
+        from portal.modules.compliance.core.scope_derive import derive_scope
+
+        reg = Register.load()
+        # A `standard` filter scopes the COMPUTATION, not just the returned
+        # rows — coverage_matrix used to run the whole ~193-node register even
+        # for a single-standard call (386 VL round-trips for a 20-Part ask),
+        # which is most of why a scoped call was ever slow. Register is a
+        # plain nodes/edges dataclass — the same pre-filter pattern
+        # compliance_change_impact already uses for old/new.
+        if standard:
+            reg = Register(
+                nodes=[n for n in reg.nodes if n.standard.startswith(standard)], edges=reg.edges
+            )
+        if requirement:  # same reasoning — verified live at 792s for one Part on an unfiltered reg
+            reg = Register(nodes=[n for n in reg.nodes if requirement in n.id], edges=reg.edges)
+        scope, scope_meta = derive_scope(kb_id)
+        if not scope.is_declared:
+            return {
+                "status": "honest-BLOCKED",
+                "reason": scope_meta.get("reason"),
+                "settling_document": scope_meta.get("settling_document"),
+            }
+        store = MappingStore()
+        rq.sync_proposed_mappings(store)
+        eff = effective_on or datetime.date.today().isoformat()
+        matrix = _coverage.coverage_matrix(reg, scope, eff, make_real_proposer(kb_id), store)
+        open_tiers = {i.subject_id: i.id for i in rq.open_items(kind="document_tier")}
+
+        matching = [
+            c
+            for c in matrix.cells
+            if c.applies
+            and (not standard or c.requirement_id.startswith(standard))
+            and (not requirement or requirement in c.requirement_id)
+        ]
+        rows = []
+        for c in matching[:max_rows]:
+            if verbose:
+                d = c.to_dict()
+                d["policy_spans"] = c.policy_spans
+                d["procedure_spans"] = c.procedure_spans
+                d["evidence_spans"] = c.evidence_spans
+                d["COMPLIANCE_CONFLICT"] = c.conflicts
+                rows.append(d)
+                continue
+            all_spans = c.policy_spans + c.procedure_spans + c.evidence_spans
+            resting_on = sorted(
+                {open_tiers[s["document_id"]] for s in all_spans if s["document_id"] in open_tiers}
+                | {s["queue_item_id"] for s in all_spans if s.get("queue_item_id")}
+            )
+            if c.from_approved_mapping:
+                resting_on.append(f"{scope_meta.get('queue_item_id', '')}(approved-mapping-scope)")
+            rows.append(
+                {
+                    "requirement_id": c.requirement_id,
+                    "coverage": c.coverage,
+                    "policy_citation": _compact_citation(c.policy_spans),
+                    "procedure_citation": _compact_citation(c.procedure_spans),
+                    "gap_quote": (
+                        reg_node.verbatim_text[:_SPAN_EXCERPT_CHARS]
+                        if c.coverage in ("PARTIAL", "NONE")
+                        and (
+                            reg_node := next(
+                                (n for n in reg.nodes if n.id == c.requirement_id), None
+                            )
+                        )
+                        else None
+                    ),
+                    "COMPLIANCE_CONFLICT": c.conflicts,
+                    "from_approved_mapping": c.from_approved_mapping,
+                    "open_queue_items": resting_on,
+                }
+            )
+
+        return {
+            "effective_on": eff,
+            "scope": {
+                "impact_present": sorted(scope.impact_present),
+                "associated_present": sorted(scope.associated_present),
+                **scope_meta,
+            },
+            "summary": matrix.summary(),
+            "n_matching": len(matching),
+            "n_rows_returned": len(rows),
+            "truncated": len(matching) > max_rows,
+            "rows": rows,
+        }
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
+
+
+@mcp.tool()
+def compliance_orphans(kb_id: str = "operator_corpus", effective_on: str = "") -> dict:
+    """Ingested policy/procedure sections mapping to no requirement — dead
+    weight, or evidence the register is incomplete."""
+    try:
+        from portal.modules.compliance.core import coverage as _coverage
+        from portal.modules.compliance.core.cip_register import Register
+        from portal.modules.compliance.core.mapping_store import MappingStore
+        from portal.modules.compliance.core.propose import make_real_proposer
+        from portal.modules.compliance.core.scope_derive import derive_scope
+        from portal.platform.retrieval import store as _store
+
+        reg = Register.load()
+        scope, scope_meta = derive_scope(kb_id)
+        if not scope.is_declared:
+            return {"status": "honest-BLOCKED", "reason": scope_meta.get("reason")}
+        eff = effective_on or datetime.date.today().isoformat()
+        matrix = _coverage.coverage_matrix(
+            reg, scope, eff, make_real_proposer(kb_id), MappingStore()
+        )
+        ttbl = _store.text_table(kb_id, create=False, prefix="compliance_")
+        all_sections = set()
+        if ttbl is not None:
+            for row in ttbl.to_pandas().to_dict("records"):
+                all_sections.add(f"{row['source_file']} #chunk{row['chunk_index']} p{row['page']}")
+        orphans = _coverage.orphan_policy_spans(matrix.cells, all_sections)
+        return {"effective_on": eff, "n_orphans": len(orphans), "orphan_sections": sorted(orphans)}
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
+
+
+@mcp.tool()
+def compliance_change_impact(
+    old_standard: str, new_standard: str, kb_id: str = "operator_corpus"
+) -> dict:
+    """Impact of a standard-version transition (e.g. old_standard='CIP-003-8',
+    new_standard='CIP-003-9') on the operator's mapped sections — which prior
+    verdicts are now unverified, gated on applicability."""
+    try:
+        from portal.modules.compliance.core.change_pipeline import impact_report
+        from portal.modules.compliance.core.cip_register import Register
+        from portal.modules.compliance.core.mapping_store import MappingStore
+        from portal.modules.compliance.core.scope_derive import derive_scope
+
+        reg = Register.load()
+        scope, scope_meta = derive_scope(kb_id)
+        if not scope.is_declared:
+            return {"status": "honest-BLOCKED", "reason": scope_meta.get("reason")}
+        base = old_standard.rsplit("-", 1)[0]
+        old = Register(nodes=[n for n in reg.nodes if n.standard == old_standard], edges=reg.edges)
+        new = Register(nodes=[n for n in reg.nodes if n.standard == new_standard], edges=reg.edges)
+        if not old.nodes or not new.nodes:
+            return {"error": f"standard not both in register: {old_standard} -> {new_standard}"}
+        return impact_report(old, new, base, scope, MappingStore())
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
+
+
+@mcp.tool()
+def compliance_mappings(requirement_id: str = "", approved_only: bool = False) -> dict:
+    """List/filter the mapping store (requirement -> internal document/section).
+    Every approved or corrected mapping is a labelled example — the SME
+    override rate is the trust signal."""
+    try:
+        from portal.modules.compliance.core.mapping_store import MappingStore
+
+        store = MappingStore()
+        rows = store.all_for(requirement_id) if requirement_id else list(store._rows)  # noqa: SLF001
+        if approved_only:
+            rows = [m for m in rows if m.is_approved]
+        return {
+            "count": len(rows),
+            "mappings": [dataclasses.asdict(m) for m in rows],
+            "override_rate": store.override_rate(),
+        }
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
+
+
+@mcp.tool()
+def compliance_scope(kb_id: str = "operator_corpus") -> dict:
+    """The asset applicability scope derived from the operator's own ingested
+    corpus, with its citing evidence. Queued (`applicability_scope`) rather
+    than asked for — see compliance_review_list/decide to confirm it."""
+    try:
+        from portal.modules.compliance.core.scope_derive import derive_scope
+
+        scope, meta = derive_scope(kb_id)
+        return {
+            "impact_present": sorted(scope.impact_present),
+            "associated_present": sorted(scope.associated_present),
+            "has_erc": scope.has_erc,
+            "has_control_center": scope.has_control_center,
+            "declared_by": scope.declared_by,
+            "is_declared": scope.is_declared,
+            **meta,
+        }
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
+
+
+@mcp.tool()
+def compliance_route(query: str, effective_on: str = "") -> dict:
+    """Route a free-form compliance question to its intent (today / change /
+    gaps / freeform) and the node set that path operates on."""
+    try:
+        from portal.modules.compliance.core.cip_register import Register
+        from portal.modules.compliance.core.engine import route as _route
+
+        reg = Register.load()
+        eff = effective_on or datetime.date.today().isoformat()
+        return _route(query, reg, eff)
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
+
+
+@mcp.tool()
+def compliance_review_list(kind: str = "", status: str = "OPEN") -> dict:
+    """The review queue: open (default) or filtered judgements the system
+    proceeded on with its best evidence-backed answer — never a blocker."""
+    try:
+        from portal.modules.compliance.core import review_queue as rq
+
+        items = rq.list_items(kind=kind or None, status=status or None)
+        return {"count": len(items), "items": [dataclasses.asdict(i) for i in items]}
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
+
+
+@mcp.tool()
+def compliance_review_decide(
+    item_id: str, decision: str, decided_by: str, corrected_value: dict | None = None
+) -> dict:
+    """Confirm or reject one open queue item. Reversible: writes a NEW row
+    superseding the prior one via prior_item_id; nothing is overwritten. A
+    confirmed mapping_proposal is approved in the mapping store directly — no
+    parallel proposal path."""
+    try:
+        from portal.modules.compliance.core import review_queue as rq
+        from portal.modules.compliance.core.mapping_store import MappingStore
+
+        new_item = rq.decide(item_id, decision, decided_by, corrected_value)
+        if new_item.kind == "mapping_proposal" and decision == "CONFIRMED":
+            try:
+                MappingStore().approve(
+                    new_item.subject_id, decided_by, new_item.proposed_value.get("coverage")
+                )
+            except KeyError:
+                pass
+        return dataclasses.asdict(new_item)
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
+
+
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_compliance_mcp")
 
 _DISPATCH = {
@@ -336,6 +665,16 @@ _DISPATCH = {
     "map_frameworks": map_frameworks,
     "patch_evidence": patch_evidence,
     "refresh_catalogs": refresh_catalogs,
+    "compliance_ingest": compliance_ingest,
+    "compliance_search": compliance_search,
+    "compliance_gaps": compliance_gaps,
+    "compliance_orphans": compliance_orphans,
+    "compliance_change_impact": compliance_change_impact,
+    "compliance_mappings": compliance_mappings,
+    "compliance_scope": compliance_scope,
+    "compliance_route": compliance_route,
+    "compliance_review_list": compliance_review_list,
+    "compliance_review_decide": compliance_review_decide,
 }
 
 
@@ -366,7 +705,17 @@ async def invoke_tool(request):
         body = {}
     args = body.get("arguments", body) if isinstance(body, dict) else {}
     try:
-        return JSONResponse(fn(**args))
+        # A sync tool handler called directly here (no `await` in between)
+        # blocks this process's ENTIRE event loop until it returns — verified
+        # live: a 13-minute compliance_gaps call made this server's own
+        # /health and every other tool (lookup_control, a pure dict lookup)
+        # time out for its whole duration. run_in_executor moves the blocking
+        # call off the loop so concurrent requests (including this server's
+        # own health check) keep being served while a slow tool runs.
+        result = await asyncio.get_running_loop().run_in_executor(
+            None, functools.partial(fn, **args)
+        )
+        return JSONResponse(result)
     except TypeError as e:
         return JSONResponse({"error": f"bad params: {e}"}, status_code=400)
 

@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 740 canonical units.*
+*Deterministic projection of 743 canonical units.*
 
 ## Knowledge Layer
 
@@ -241,7 +241,7 @@
 | `unit-code-tests` | what | 5 |
 | `unit-compliance-change-pipeline` | mixed | 3 |
 | `unit-compliance-config-workspace-pointers` | mixed | 1 |
-| `unit-compliance-engine` | mixed | 16 |
+| `unit-compliance-engine` | mixed | 21 |
 | `unit-compliance-fallback-policy-canonical-baseline` | what | 5 |
 | `unit-compliance-fallback-policy-compliance-fallback-policy` | what | 4 |
 | `unit-compliance-fallback-policy-full-sweep` | what | 3 |
@@ -303,7 +303,10 @@
 | `unit-known-limitations-cadquery-and-build123d-unusable-on-linux-arm64` | what | 4 |
 | `unit-known-limitations-cip-register-behind-published-versions` | what | 3 |
 | `unit-known-limitations-code-sandbox-requires-privileged-container` | what | 2 |
+| `unit-known-limitations-compliance-engine-had-no-route` | what | 3 |
 | `unit-known-limitations-compliance-implicit-change-recall` | what | 3 |
+| `unit-known-limitations-compliance-review-queue-not-a-gate` | what | 2 |
+| `unit-known-limitations-compliance-scope-was-gated-on-data-the-corpus-already-answers` | what | 2 |
 | `unit-known-limitations-devstral-24b-runtime-vram-footprint-25-7-gb` | what | 3 |
 | `unit-known-limitations-diarized-transcription-task-transcribe-001` | what | 3 |
 | `unit-known-limitations-emergent-objective-loop-curated-capability-tool-names-vs-live-dispatch-whitelist` | what | 8 |
@@ -749,12 +752,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 740 units
+**Total:** 743 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1769 references
+- **code**: 1781 references
 - **config**: 1 references
 - **mitre**: 40 references
 - **scenario**: 54 references

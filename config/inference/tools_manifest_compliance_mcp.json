@@ -134,5 +134,237 @@
         "required": []
       }
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "compliance_ingest",
+      "description": "Ingest a folder of the operator's policy AND procedure PDFs into the compliance corpus in one pass. Idempotent, re-runnable. Derives and queues layer (policy/procedure/evidence) and authority tier per document from its own title/filename/document-control block; reports a layer census (zero procedures means no coverage cell can reach FULL).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source_dir": {
+            "type": "string"
+          },
+          "kb_id": {
+            "type": "string"
+          },
+          "rebuild": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "source_dir"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "compliance_search",
+      "description": "Free-form retrieval over the ingested compliance corpus (kb_id, query, top_k).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "kb_id": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "top_k": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kb_id",
+          "query"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "compliance_gaps",
+      "description": "Coverage matrix: where the operator's ingested corpus does/doesn't cover each applicable NERC CIP Part, at the derived asset scope. FULL requires a located span from both a policy and a procedure. Filter by standard/requirement id prefix for pagination. Every row derived from an open review-queue item names it; COMPLIANCE_CONFLICT surfaces as its own field.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "standard": {
+            "type": "string"
+          },
+          "requirement": {
+            "type": "string"
+          },
+          "effective_on": {
+            "type": "string"
+          },
+          "kb_id": {
+            "type": "string"
+          },
+          "max_rows": {
+            "type": "integer"
+          },
+          "verbose": {
+            "type": "boolean"
+          }
+        },
+        "required": []
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "compliance_orphans",
+      "description": "Ingested policy/procedure sections mapping to no requirement in the coverage matrix \u2014 dead weight, or evidence the requirement register is incomplete.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "kb_id": {
+            "type": "string"
+          },
+          "effective_on": {
+            "type": "string"
+          }
+        },
+        "required": []
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "compliance_change_impact",
+      "description": "Impact of a standard-version transition (e.g. old_standard='CIP-003-8', new_standard='CIP-003-9') on the operator's mapped sections \u2014 which prior coverage verdicts are now unverified, gated on applicability.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "old_standard": {
+            "type": "string"
+          },
+          "new_standard": {
+            "type": "string"
+          },
+          "kb_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "old_standard",
+          "new_standard"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "compliance_mappings",
+      "description": "List/filter the mapping store (requirement -> internal document/section), and the SME override rate (the trust signal).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "requirement_id": {
+            "type": "string"
+          },
+          "approved_only": {
+            "type": "boolean"
+          }
+        },
+        "required": []
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "compliance_scope",
+      "description": "The asset applicability scope derived from the operator's own ingested corpus, with citing evidence \u2014 queued rather than asked for.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "kb_id": {
+            "type": "string"
+          }
+        },
+        "required": []
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "compliance_route",
+      "description": "Route a free-form compliance question to its intent (today / change / gaps / freeform) and the register node set that path operates on.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "effective_on": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "compliance_review_list",
+      "description": "The review queue: open (default) or filtered judgements the system proceeded on without blocking \u2014 applicability scope, document tiers, mapping proposals, conflicts, low-confidence extractions.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": []
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "compliance_review_decide",
+      "description": "Confirm or reject one open review-queue item. Reversible: writes a new row superseding the prior one; nothing is overwritten. Confirming a mapping_proposal approves it in the mapping store directly.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "item_id": {
+            "type": "string"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "CONFIRMED",
+              "REJECTED"
+            ]
+          },
+          "decided_by": {
+            "type": "string"
+          },
+          "corrected_value": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "item_id",
+          "decision",
+          "decided_by"
+        ]
+      }
+    }
   }
 ]

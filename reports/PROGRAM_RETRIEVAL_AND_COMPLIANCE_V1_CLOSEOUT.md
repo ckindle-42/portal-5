@@ -2,7 +2,8 @@
 
 Tracked completion record for the review-cycle program whose working doc lives at
 `coding_task/PROGRAM_RETRIEVAL_AND_COMPLIANCE_V1.md` (git-ignored operator area).
-Closed 2026-09-03.
+Closed 2026-09-03; **finishing task T5 `TASK_COMPLIANCE_ENGINE_LANDING_V1` landed
+2026-09-04** — see below.
 
 ## All four tracks landed on `main`
 
@@ -27,7 +28,81 @@ Closed 2026-09-03.
 | O8 auto-RAG contract broken | **FIXED** T1 P1 — default off (gate answered), correct `top_k`+`kb_id`, error ≠ miss. |
 | O9 nominal `claims:` probe | **FIXED** T1/T3/T4/T2 — real bindings: `retrieval.stages`, `retrieval.stage_set`, `retrieval.compositions`, `compliance.register`, `compliance.change_types`. |
 | O10 `check_updates` drift advice | **VERIFIED ALREADY FIXED** at HEAD (`TASK_VL_RETRIEVAL_HARDENING_AND_CLOSEOUT_V2 D1`) — direction-aware, refuses `uv sync` when venv is ahead, `except` sets status. |
-| O11 compliance context split 8192/24576 | **NOT DIRECTLY ADDRESSED** — the engine is deterministic keyword-routed (`classify_intent`/`route`), not dependent on a large in-context prompt; a measurement against a real conversational multi-doc compliance prompt is a follow-up (§ below), not a blocker. |
+| O11 compliance context split 8192/24576 | **FIXED T5** — measured directly: a 20-row single-standard `compliance_gaps` result ran ~1.8x over the 8192-token input budget. `compliance_gaps`'s default row shape now returns one representative citation per side instead of every candidate, plus `max_rows` pagination. |
+
+## T5 `TASK_COMPLIANCE_ENGINE_LANDING_V1` — connected, real-corpus run
+
+The finishing task. Six tasks (T1–T4 + the completeness correction) improved
+the engine while it stayed unroutable: `engine.route()` had never dispatched,
+and none of `coverage.py`/`mapping_store.py`/`applicability.py`/`tiers.py` had
+a tool or a route. Every green number to this point came from tests calling
+the library directly.
+
+- **Routed**: 8 new MCP tools (`compliance_gaps`, `_orphans`, `_change_impact`,
+  `_mappings`, `_scope`, `_route`, `_review_list`, `_review_decide`) plus
+  `compliance_ingest`/`compliance_search` upgraded from unwired custom routes
+  to discoverable, dispatchable tools — all in the manifest, `_DISPATCH`, and
+  the `⚖ Portal Compliance Analyst` workspace's `tools:` list. New guard
+  (`compliance.workspace_tools` probe) fails the drift census the moment any
+  one of the three drops a tool.
+- **Real `propose()`** (`propose.py`) retrieves from the ingested corpus and
+  classifies spans by ingest-time layer; a document with no layer record is
+  queued live, never dropped.
+- **Real ingest** (`ingest.py`) derives layer/tier from title/filename/
+  document-control signals, queues every derivation, reports a layer census.
+- **Real scope derivation** (`scope_derive.py`) replaces the T3 `[GATE]` —
+  `AssetScope` is now parsed from the ingested corpus's own applicability
+  language, not asked for.
+- **Review queue** (`review_queue.py`, LanceDB) replaces four would-be gates —
+  open items never block, every output names the item it rests on, decisions
+  are reversible via `prior_item_id`/`SUPERSEDED`, wired into `mapping_store`'s
+  existing proposal mechanism.
+- **P5**: CIP-002's 28 Attachment 1 criteria are now completeness-checked (was
+  5 of 28); 0 holes.
+- **The real run** — 13 of the operator's 68 PDFs (CIP-007 + CIP-003 folders,
+  a deliberately limited proof-of-mechanism scope, not the full corpus):
+  646 chunks / 190 pages ingested. Layer census: CIP-007 alone is 0 policy /
+  10 procedure — the operator's one governing "CIP Cyber Security Policy"
+  lives in the CIP-003 folder, not per-standard, a real finding about how this
+  operator organizes documents. Real `compliance_gaps` on CIP-007-6: **2 FULL**
+  (R5 Parts 5.4/5.5, citing a real policy chunk AND a real procedure chunk),
+  17 PARTIAL, real citations resolving to real chunks/pages. Whole-matrix
+  (193 examined parts, all 14 standards): 48 FULL / 69 PARTIAL / 76 NONE. A
+  real `COMPLIANCE_CONFLICT` surfaced (CIP-007-6 R5 Part 5.6, standard's "15
+  calendar months" vs a procedure's "30 calendar days") — reviewed and found
+  to be a **false positive**: the keyword/duration-overlap heuristic paired an
+  unrelated access-revocation clause with the password-rotation obligation.
+  Precision at this layer needs a real reranker pass before production trust,
+  not lexical overlap alone — recorded as the open item for the next
+  iteration, not smoothed over.
+- **O11 closed**: measured, not estimated. A 20-row single-standard
+  `compliance_gaps` result (full candidate spans) is ~59.8k chars / ~15k
+  tokens against the workspace's 8192-token input budget — **~1.8x over**.
+  Fixed: default row shape now carries one representative citation per side
+  (`verbose=True` still available for full candidate review), `max_rows`
+  pagination added.
+- **Live P0 trace, driven through the real OWUI pipeline** (not a library
+  call): "Where are our CIP-007 gaps?" against `auto-compliance` — the model
+  called `web_search` twice, never `compliance_gaps`, because the persona's
+  `owui_system_prompt` predates these tools. Fixed the prompt to direct
+  internal-posture questions at the `compliance_*` tools first; the fix is
+  landed in `config/portal.yaml` but not yet re-verified against a fresh
+  container image.
+- **Bugs found only by running against real (non-planted) PDFs**: a
+  `NoneType.lower()` crash in `propose.py` on a chunk with `text: None`
+  (fixed); a filter-injection path in `review_queue.decide()` flagged by an
+  automated review — `item_id` reaches a string-interpolated LanceDB `delete`
+  from an MCP tool taking arbitrary input (fixed with an id-shape guard,
+  verified a `' OR '1'='1` payload is rejected).
+- **Pre-existing, unrelated**: rebuilding the pipeline image (required — P2's
+  workspace `tools:` change is baked in at build time) exposed that
+  `bench-qwen38-flash-next-reap288`'s `model_hint` fails `backends.yaml`
+  validation, crash-looping the pipeline under `STRICT_HINT_VALIDATION=true`
+  (the `.env` default) independent of anything in this task. Running with
+  that flag relaxed for now; needs the model added to `backends.yaml` or the
+  workspace removed before strict validation can be restored.
+- See `KNOWN_LIMITATIONS.md` `T5-COMPLIANCE-LANDING-001/002/003` for the three
+  process lessons this task closes out.
 
 ## Void conclusions (§4) — re-decided on the compliance eval corpus
 

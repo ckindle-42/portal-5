@@ -570,6 +570,28 @@ def _self_referenced_ids(text: str, req_num: str) -> set[str]:
     return {i for i in out if i.split(".")[0] == req_num}
 
 
+def _contiguity_missing(req_num: str, is_attachment: bool, leaves: list[str]) -> list[str]:
+    """Numbering-gap signal, per independent top-level group when the
+    requirement is an Attachment section (P5: "widen the contiguity signal to
+    attachment sections" — a flat 1.1..N.M run across CIP-002's three impact
+    tiers would otherwise read tier boundaries as gaps)."""
+    if is_attachment:
+        groups: dict[str, list[int]] = {}
+        for e in leaves:
+            top, sub = e.split(".", 1)
+            groups.setdefault(top, []).append(int(sub))
+        missing = []
+        for top, nums in sorted(groups.items()):
+            if len(nums) >= 2:
+                nums = sorted(nums)
+                missing.extend(f"{top}.{i}" for i in range(nums[0], nums[-1]) if i not in nums)
+        return missing
+    if len(leaves) >= 2:
+        nums = sorted(int(e.split(".")[1]) for e in leaves)
+        return [f"{req_num}.{i}" for i in range(nums[0], nums[-1]) if i not in nums]
+    return []
+
+
 def assess_completeness(parts: list[RequirementPart]) -> dict:
     """**Completeness, not fidelity.** Does the register hold every Part the
     *document* says exists? Three document-derived signals, strongest first:
@@ -587,14 +609,24 @@ def assess_completeness(parts: list[RequirementPart]) -> dict:
     by_req: dict[str, list[RequirementPart]] = {}
     leadin_by_req: dict[str, RequirementPart] = {}
     for p in parts:
-        if not re.fullmatch(r"R\d+", p.requirement):
-            continue  # completeness is assessed per numbered requirement only
+        # TASK_COMPLIANCE_ENGINE_LANDING_V1 P5: numbered requirements AND
+        # Attachment sections both carry document-declared child lists (CIP-002
+        # Attachment 1's 23 impact-rating criteria, CIP-003 Attachment 1's plan
+        # sections) — skipping "Attachment \d+" left them extracted but never
+        # completeness-checked (CIP-002 showed n_parts: 28 against
+        # n_parts_extracted: 5; a criterion missing mid-range read as complete).
+        if not re.fullmatch(r"R\d+|Attachment \d+", p.requirement):
+            continue  # completeness is assessed per numbered requirement/attachment only
         if p.part:
             by_req.setdefault(p.requirement, []).append(p)
         else:
             leadin_by_req.setdefault(p.requirement, p)
 
-    reqs = sorted(set(by_req) | set(leadin_by_req), key=lambda r: int(r[1:]))
+    def _req_sort_key(r: str) -> tuple[int, int]:
+        m = re.match(r"(?:R|Attachment )(\d+)", r)
+        return (0 if r.startswith("R") else 1, int(m.group(1)) if m else 0)
+
+    reqs = sorted(set(by_req) | set(leadin_by_req), key=_req_sort_key)
     incomplete: list[dict] = []
     sources: set[str] = set()
 
@@ -605,25 +637,30 @@ def assess_completeness(parts: list[RequirementPart]) -> dict:
         return any(".".join(bits[:i]) in ex for i in range(2, len(bits) + 1))
 
     for req in reqs:
-        req_num = req[1:]
+        is_attachment = req.startswith("Attachment")
+        req_num = req.split(" ", 1)[1] if is_attachment else req[1:]
         extracted = sorted(p.part for p in by_req.get(req, []))
         ex_set = set(extracted)
         lead = leadin_by_req.get(req)
         lead_text = lead.verbatim_text if lead else ""
 
         colon = bool(lead) and not extracted and bool(_COLON_LEADIN_RE.search(lead_text))
-        expected = _self_referenced_ids(
-            lead_text or " ".join(p.verbatim_text for p in by_req.get(req, [])), req_num
+        # self-reference assumes a child id's first dotted component equals the
+        # requirement number ("R2" -> "2.x") — true for R-level requirements,
+        # not for an Attachment bucket whose children span independent
+        # top-level groups (CIP-002's High/Medium/Low tiers 1.x/2.x/3.x under
+        # one "Attachment 1"). The contiguity signal below covers that case.
+        expected = (
+            set()
+            if is_attachment
+            else _self_referenced_ids(
+                lead_text or " ".join(p.verbatim_text for p in by_req.get(req, [])), req_num
+            )
         )
         selfref_missing = sorted(i for i in expected if not _captured(i, ex_set))
 
-        contiguity_missing: list[str] = []
         leaves = [e for e in extracted if e.count(".") == 1]
-        if len(leaves) >= 2:
-            nums = sorted(int(e.split(".")[1]) for e in leaves)
-            contiguity_missing = [
-                f"{req_num}.{i}" for i in range(nums[0], nums[-1]) if i not in nums
-            ]
+        contiguity_missing = _contiguity_missing(req_num, is_attachment, leaves)
 
         if colon:
             incomplete.append(
