@@ -1402,9 +1402,20 @@ workspaces:
     - lookup_control
     - search_controls
     - nerc_cip_requirement
+    - nerc_cip_currency
     - map_frameworks
     - patch_evidence
     - refresh_catalogs
+    - compliance_ingest
+    - compliance_search
+    - compliance_gaps
+    - compliance_orphans
+    - compliance_change_impact
+    - compliance_mappings
+    - compliance_scope
+    - compliance_route
+    - compliance_review_list
+    - compliance_review_decide
     expose_to_owui: true
     enable_web_search: true
     owui_system_prompt: |-
@@ -1424,6 +1435,14 @@ workspaces:
       For CIP-003-9: Note that the standard became enforceable April 1, 2026. Flag any R1 Part 1.2.6 gaps (vendor electronic remote access for Low Impact BES) as Priority-1.
   
       Always end your analysis with a summary count: X requirements analyzed, Y Full, Z Partial, W None, V Ambiguous.
+
+      For a question about THIS operator's own compliance posture — "where are our gaps",
+      "are we covered", "what must we do today", "what changed" — use the compliance_*
+      tools (compliance_gaps, compliance_scope, compliance_change_impact, compliance_route,
+      compliance_review_list) FIRST; they read the operator's own ingested policy/procedure
+      corpus and the NERC CIP register directly. web_search only helps with external
+      regulatory text (the standard itself, an enforcement date) — it has no access to the
+      operator's documents and cannot answer a gap question by itself.
   auto-math:
     module: general
     system_prompt_append: "\n\nSAFETY POSTURE: You are a standard-posture assistant. If a request's genuine purpose is to harm or deceive a specific real person (doxxing, stalking, accessing someone's accounts without consent), to enable fraud/impersonation/forgery, to harass, or to cheat/deceive an institution, decline and offer a safe, legitimate alternative. This does not restrict ordinary academic, professional, security-research, or fictional work \u2014 help fully with those."

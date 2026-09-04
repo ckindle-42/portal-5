@@ -1219,3 +1219,142 @@ re-evaluating.
 <!-- /WIKI:GENERATED -->
 
 ---
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-compliance-engine-had-no-route -->
+### An engine with no route is an engine that does not exist (RESOLVED)
+
+- **ID**: T5-COMPLIANCE-LANDING-001
+- **Status**: RESOLVED `TASK_COMPLIANCE_ENGINE_LANDING_V1`. Six prior tasks
+  (T1–T4 plus the completeness correction) improved `coverage.py`,
+  `mapping_store.py`, `applicability.py`, `tiers.py`, and `engine.py` while
+  none of them had a route or a tool. `engine.route()` had never dispatched at
+  HEAD, and the `⚖ Portal Compliance Analyst` workspace's `tools:` list
+  contained none of the compliance-specific tools — not `compliance_ingest`,
+  not `compliance_search`, not even the pre-existing `nerc_cip_currency`.
+- **Description**: Every green number up to this task came from tests calling
+  the library directly (`Register.load()`, `coverage_matrix()`,
+  `make_proposer()` over the planted corpus). No test exercised the MCP
+  surface a model actually sees, so no test caught the gap — the module was
+  correct and completely unreachable at the same time. `compliance_mcp.py`
+  now carries 8 new `@mcp.tool()` functions (`compliance_gaps`,
+  `compliance_orphans`, `compliance_change_impact`, `compliance_mappings`,
+  `compliance_scope`, `compliance_route`, `compliance_review_list`,
+  `compliance_review_decide`), plus `compliance_ingest`/`compliance_search`
+  (pre-existing custom routes, previously absent from the discovery manifest
+  entirely — reachable by direct POST but invisible to the tool-registry's
+  `GET /tools` discovery, so no model could ever have called them). All are
+  in `config/inference/tools_manifest_compliance_mcp.json`, `_DISPATCH`, AND
+  the workspace's `tools:` list — being reachable at the REST surface is
+  necessary but not sufficient; the workspace's `tools:` list is what the
+  model sees.
+- **Guard**: `compliance.workspace_tools` (`portal/platform/wiki/claims.py`)
+  cross-checks all three — the workspace list, the discovery manifest, and
+  `_DISPATCH` — for every `compliance_*`/`nerc_cip*` tool name, and reports
+  `unreachable:<name>` the moment any one of the three drops it. Verified to
+  actually fail: removing one dispatch entry flips the probe from
+  `all_reachable:12` to `unreachable:compliance_scope`.
+
+## Why
+
+A probe that only checks a tool exists somewhere in the codebase would have
+passed for six tasks straight while the workspace's model never saw it — that
+is the exact failure this task exists to fix, so the guard has to bind all
+three layers (manifest, dispatch, workspace list) at once, not just one of
+them. Recording it here — with the negative-test evidence that the probe
+actually flips red — is what keeps a future refactor from quietly re-severing
+one of the three links and having every existing test stay green.
+<!-- /WIKI:GENERATED -->
+
+---
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-compliance-scope-was-gated-on-data-the-corpus-already-answers -->
+### Do not gate on a question the data answers (RESOLVED)
+
+- **ID**: T5-COMPLIANCE-LANDING-002
+- **Status**: RESOLVED `TASK_COMPLIANCE_ENGINE_LANDING_V1` Phase 4.
+  `applicability.py`'s own docstring asserted: *"Asset scope is operator
+  input. Which BES Cyber Systems exist and at what impact rating is not
+  derivable from any document in the corpus."* That claim held across four
+  prior tasks (`[GATE]` in T3, carried forward through T4 and the
+  completeness correction) and was false the moment the operator's own CIP
+  policies entered the corpus: CIP-002 R1 *requires* the entity to identify
+  and categorize its BES Cyber Systems, and every CIP policy states its
+  applicability in exactly the language `parse_applicable_systems` was
+  already written to read. `AssetScope.declared_by` existed in the dataclass
+  from T3 onward — nobody had populated it.
+- **Description**: `scope_derive.derive_scope()` now unions impact ratings
+  and associated-system types across every ingested span containing an
+  explicit impact-rating statement, populates `declared_by="derived:corpus"`,
+  and files an `applicability_scope` review-queue item with the citing
+  evidence (25 spans max, confidence weighted by evidence count). Verified
+  live against the operator's real CIP-007 + CIP-003 corpus: 143 citing spans
+  produced `impact_present={high, medium, low}` with full evidence, no
+  operator prompt required.
+- **What stayed a genuine judgement call, not a gate**: `has_erc` and
+  `has_control_center` default to the inclusive `True` (matching
+  `AssetScope()`'s own default) rather than being derived from a negative
+  search — deriving a *false* (excluding a scope dimension) from the mere
+  absence of a corroborating span would reproduce the exact false-exclusion
+  risk this phase was written to prevent, just moved one level down. The
+  queue item names this explicitly so an operator can correct it.
+
+## Why
+
+The applicability gate was carried forward unexamined across three follow-on
+tasks because "operator input" reads as a reasonable, conservative default —
+it is the same shape as a genuine gate, so nothing forced a re-check. The
+lesson generalizes past this one field: **before declaring something operator
+input, check whether the operator's own documents already answer it.** A gate
+that never gets re-examined is functionally a permanent block, and this one
+sat behind four tasks despite the parser to close it having existed the whole
+time.
+<!-- /WIKI:GENERATED -->
+
+---
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-compliance-review-queue-not-a-gate -->
+### A queue is not a gate
+
+- **ID**: T5-COMPLIANCE-LANDING-003
+- **Status**: LANDED `TASK_COMPLIANCE_ENGINE_LANDING_V1` Phase 1, live-verified
+  Phase 6. Replaces the pattern of four would-be `[GATE]`s (asset scope,
+  document tier, mapping approval, tier conflict) that would otherwise have
+  blocked execution on an operator answer.
+- **Description**: `review_queue.py` is LanceDB-backed
+  (`compliance_review_queue`), five kinds (`applicability_scope`,
+  `document_tier`, `compliance_conflict`, `mapping_proposal`,
+  `low_confidence_extraction`), four statuses
+  (`OPEN`/`CONFIRMED`/`REJECTED`/`SUPERSEDED`). Two rules make it a queue and
+  not a gate: (1) an OPEN item never blocks — `compliance_gaps` runs on the
+  derived scope and derived tiers regardless of whether anything is
+  confirmed; (2) every output resting on an open item names the item id
+  (`open_queue_items` on a `compliance_gaps` row, `scope.queue_item_id` on
+  every response). A decision is reversible: `decide()` writes a **new** row
+  with `prior_item_id` pointing at the one it closes; the prior row's status
+  flips to `SUPERSEDED` in place — its value is never rewritten, mirroring
+  `mapping_store`'s `valid_to` closure discipline. `sync_proposed_mappings()`
+  wires `mapping_store`'s existing `approved_by == ""` proposals into the
+  queue rather than building a second path, per the task's explicit
+  anti-pattern.
+- **Verified against a real security-review finding, not just a design
+  review**: an automated review during this task flagged that `decide()`'s
+  `item_id` reached a string-interpolated LanceDB filter
+  (`tbl.delete(f"id = '{item_id}'")`) from `compliance_review_decide`, an MCP
+  tool taking arbitrary caller input — a real filter-injection path, not a
+  theoretical one. Fixed with an id-shape guard (`_ID_RE`) before the
+  f-string; verified a `' OR '1'='1` payload is rejected with `ValueError`
+  rather than reaching the filter.
+
+## Why
+
+A gate stops the system until a person answers; a queue lets the system keep
+answering with its best evidence while the person catches up on their own
+schedule — the difference is not cosmetic; it is what actually got this
+program shipped after four tasks stalled on gates. The reversibility
+discipline (append, never overwrite) is what makes "proceed anyway" honest
+rather than reckless: every derived answer is traceable to exactly which
+judgement it rested on, and correcting that judgement later does not erase
+the record of what the system said before the correction.
+<!-- /WIKI:GENERATED -->
+
+---

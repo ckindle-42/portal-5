@@ -1,9 +1,9 @@
 # Recorded complexity budget — written by scripts/complexity_report.py --write-budget.
 # Values are ceilings. Re-baseline after intentional code growth; lower them when complexity falls.
-committed_blob_bytes: 10536376
-data_lines: 9013
-god_funcs: 345
-god_lines: 45170
+committed_blob_bytes: 10536383
+data_lines: 9014
+god_funcs: 347
+god_lines: 45400
 identical_pairs: 0
-prose: 39745
+prose: 40074
 unwired_scripts: 5

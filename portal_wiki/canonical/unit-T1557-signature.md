@@ -18,8 +18,8 @@ tags:
 - T1557
 - technique
 - signature
-created_at: 1788236495.092685
-updated_at: 1788236495.092685
+created_at: 1788561801.1525419
+updated_at: 1788561801.1525419
 ---
 
 # T1557 — Adversary-in-the-middle — correlated NTLM network logon and privileged-share access across multiple Windows targets [DISTINGUISH: T1557 requires multi-target correlation with privileged-share access; T1557.001 requires name-resolution poison/Responder evidence; T1550.002 is NTLM authentication without the relay correlation] [KEY: NTLM LogonType 3 plus ADMIN$/C$ access from the same source/account across more than one target]

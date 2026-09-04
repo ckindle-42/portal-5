@@ -14,8 +14,8 @@ tags:
 - T1621
 - technique
 - signature
-created_at: 1788236495.0982661
-updated_at: 1788236495.0982661
+created_at: 1788561801.15693
+updated_at: 1788561801.15693
 ---
 
 # T1621 — Multi-factor authentication request abuse — repeated failed Okta MFA events [KEY: Okta MFA authentication failures repeated for one actor/source]

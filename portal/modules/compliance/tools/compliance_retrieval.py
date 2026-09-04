@@ -86,16 +86,23 @@ def _composition() -> _pipeline.Composition:
     )
 
 
+async def search(kb_id: str, query: str, top_k: int = 5) -> dict:
+    """Plain-arg entry point — the HTTP concern (request parsing, status codes)
+    stays in ``_search`` below; ``compliance_mcp``'s sync dispatch wrapper calls
+    this directly (pipeline.py's own separation, P3)."""
+    return await _pipeline.search(_composition(), kb_id, query, min(int(top_k), 20))
+
+
 async def _search(request):
     """compliance_search: same behaviour as kb_search, over the compliance_* tables."""
     args = (await request.json()).get("arguments", {})
     kb_id = args.get("kb_id", "")
     query = args.get("query", "")
-    top_k = min(int(args.get("top_k", 5)), 20)
+    top_k = args.get("top_k", 5)
     if not kb_id or not query:
         return JSONResponse({"error": "kb_id and query required"}, status_code=400)
     try:
-        return JSONResponse(await _pipeline.search(_composition(), kb_id, query, top_k))
+        return JSONResponse(await search(kb_id, query, top_k))
     except _pipeline.UnknownKBError as e:
         return JSONResponse({"error": str(e)}, status_code=404)
     except Exception as e:  # noqa: BLE001
@@ -103,18 +110,22 @@ async def _search(request):
 
 
 async def _ingest(request):
-    """compliance_ingest: same behaviour as kb_ingest, over the compliance_* tables."""
+    """compliance_ingest: ingest a folder of policy AND procedure PDFs in one
+    pass over the compliance_* tables — TASK_COMPLIANCE_ENGINE_LANDING_V1 P3.
+    Beyond kb_ingest's chunk/embed, this derives layer (policy/procedure/
+    evidence) and authority tier per document from its own self-description,
+    queues every derivation (``document_tier``), and reports the layer census
+    — a census with zero procedures means no coverage cell can reach FULL."""
+    from portal.modules.compliance.core.ingest import ingest_folder
+
     args = (await request.json()).get("arguments", {})
-    kb_id = args.get("kb_id", "")
+    kb_id = args.get("kb_id", "operator_corpus")
     source_dir = args.get("source_dir", "")
     rebuild = args.get("rebuild", False)
-    if not kb_id or not source_dir:
-        return JSONResponse({"error": "kb_id and source_dir are required"}, status_code=400)
-    src = Path(source_dir).expanduser().resolve()
-    if not src.is_dir():
-        return JSONResponse({"error": f"directory not found: {src}"}, status_code=404)
+    if not source_dir:
+        return JSONResponse({"error": "source_dir is required"}, status_code=400)
     try:
-        return JSONResponse(await _pipeline.ingest_document(_composition(), kb_id, src, rebuild))
+        return JSONResponse(await ingest_folder(source_dir, kb_id, rebuild))
     except _embedding.VLUnavailableError as e:
         return JSONResponse({"error": str(e)}, status_code=503)
     except Exception as e:  # noqa: BLE001
