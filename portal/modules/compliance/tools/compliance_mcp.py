@@ -646,14 +646,29 @@ def compliance_review_decide(
         from portal.modules.compliance.core.mapping_store import MappingStore
 
         new_item = rq.decide(item_id, decision, decided_by, corrected_value)
-        if new_item.kind == "mapping_proposal" and decision == "CONFIRMED":
+        mapping_error = None
+        if new_item.kind == "mapping_proposal":
+            store = MappingStore()
             try:
-                MappingStore().approve(
-                    new_item.subject_id, decided_by, new_item.proposed_value.get("coverage")
-                )
-            except KeyError:
-                pass
-        return dataclasses.asdict(new_item)
+                if decision == "CONFIRMED":
+                    store.approve(
+                        new_item.subject_id, decided_by, new_item.proposed_value.get("coverage")
+                    )
+                elif decision == "REJECTED":
+                    # F09: a rejection must actually revoke a previously
+                    # approved mapping, not merely record a review event that
+                    # the effective coverage never sees.
+                    store.revoke(new_item.subject_id, decided_by)
+            except KeyError as exc:
+                # a missing mapping target is an ERROR, never silent success
+                # (F09) — the review decision itself still stands (recorded
+                # above), but the caller must be told the mapping-side effect
+                # did not happen.
+                mapping_error = f"mapping target not found: {exc}"
+        result = dataclasses.asdict(new_item)
+        if mapping_error:
+            result["mapping_error"] = mapping_error
+        return result
     except Exception as e:  # noqa: BLE001
         return {"error": str(e)}
 

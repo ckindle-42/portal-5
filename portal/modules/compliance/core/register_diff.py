@@ -53,20 +53,41 @@ _MODAL_RE = re.compile(r"\b(shall|must|will|should|may|strive to|endeavor to)\b"
 _MANDATORY = {"shall", "must", "will"}
 
 
-_LIST_GLUE_RE = re.compile(r"(?:[;,.]?\s*\b(?:and|or)\b)?\s*[;,.]?\s*$", re.I)
+_TRAILING_GLUE_RE = re.compile(r"[;,.]?\s*[;,.]?\s*$")
+_TRAILING_CONNECTOR_RE = re.compile(r"[;,.]?\s*\b(and|or)\b\s*[;,.]?\s*$", re.I)
 
 
 def _casefold(s: str) -> str:
     return re.sub(r"[\s\W_]+", " ", s.lower()).strip()
 
 
+def _trailing_connector(s: str) -> str | None:
+    """The list connector (``and``/``or``) trailing this span, if any."""
+    m = _TRAILING_CONNECTOR_RE.search(s.strip())
+    return m.group(1).lower() if m else None
+
+
+def _strip_trailing_glue(s: str) -> str:
+    """Drop a trailing connector/punctuation ONLY — never used to decide
+    whether the connector itself changed (see ``_cosmetic_equal``)."""
+    stripped = _TRAILING_CONNECTOR_RE.sub("", s.strip())
+    return _TRAILING_GLUE_RE.sub("", stripped)
+
+
 def _cosmetic_equal(a: str, b: str) -> bool:
-    """Equal once whitespace, punctuation and case are neutralised — and once a
-    trailing list conjunction is dropped. NERC renumbers a nested topic list by
-    moving the ``; and`` glue between items (the last item loses it, the new
-    penultimate item gains it); that glue is not an obligation change."""
-    na = _casefold(_LIST_GLUE_RE.sub("", a.strip()))
-    nb = _casefold(_LIST_GLUE_RE.sub("", b.strip()))
+    """Equal once whitespace, punctuation and case are neutralised, and once a
+    trailing list conjunction is dropped. NERC renumbers a nested topic list
+    by moving the ``; and`` glue between items (the last item loses it, a new
+    penultimate item gains it) — a connector APPEARING or DISAPPEARING alone
+    is that ordinary glue shift, still cosmetic. A genuine swap between "and"
+    and "or" on the SAME item — both sides carrying a connector that differs
+    (F06) — is never cosmetic: it changes the obligation from conjunctive to
+    disjunctive (or vice versa)."""
+    ca, cb = _trailing_connector(a), _trailing_connector(b)
+    if ca and cb and ca != cb:
+        return False
+    na = _casefold(_strip_trailing_glue(a.strip()))
+    nb = _casefold(_strip_trailing_glue(b.strip()))
     return na == nb
 
 
@@ -119,6 +140,30 @@ def _classify_language(old: RegisterNode, new: RegisterNode) -> DiffRow:
         return DiffRow(
             "LANGUAGE_CHANGED", sub_type="cosmetic", detail="punctuation/whitespace only", **base
         )
+    old_conn, new_conn = (
+        _trailing_connector(old.verbatim_text),
+        _trailing_connector(new.verbatim_text),
+    )
+    if (
+        old_conn
+        and new_conn
+        and old_conn != new_conn
+        and _casefold(_strip_trailing_glue(old.verbatim_text))
+        == _casefold(_strip_trailing_glue(new.verbatim_text))
+    ):
+        # F06: an AND<->OR swap (or a connector appearing/disappearing) on an
+        # OTHERWISE-unchanged list item is a pure logic change, never
+        # cosmetic — it flips the obligation between conjunctive and
+        # disjunctive. Scoped to the SAME item text so an unrelated full
+        # rewrite that merely happens to also end in "and"/"or" is not
+        # mislabelled "logic" instead of "substantive".
+        return DiffRow(
+            "LANGUAGE_CHANGED",
+            sub_type="logic",
+            detail=f"list connector changed: {old_conn or 'none'} -> {new_conn or 'none'} "
+            "(alters the obligation's AND/OR structure)",
+            **base,
+        )
     do, dn = _durations(old.verbatim_text), _durations(new.verbatim_text)
     if do != dn and (do or dn):
         return DiffRow(
@@ -141,11 +186,28 @@ def _classify_language(old: RegisterNode, new: RegisterNode) -> DiffRow:
     )
 
 
-def diff_standard(old: Register, new: Register, standard_base: str) -> list[DiffRow]:  # noqa: PLR0912 - one coherent pass over 8 change types + shift-insert
+def diff_standard(old: Register, new: Register, standard_base: str) -> list[DiffRow]:  # noqa: PLR0912, C901 - one coherent pass over 8 change types + shift-insert + operand validation
     """Typed Part-level diff between the ``standard_base`` (e.g. ``CIP-003``)
     nodes of two register states. ``standard_base`` matches the versioned
     ``standard`` prefix, so ``CIP-003`` picks up ``CIP-003-8`` in ``old`` and
     ``CIP-003-9`` in ``new``."""
+    # F06 / P1.6: explicitly validate one old revision and one new revision;
+    # reject mixed-version operands rather than silently keying by
+    # (requirement, part) across whatever versions happen to be present.
+    o_versions = {n.standard for n in old.nodes if n.standard.startswith(standard_base)}
+    n_versions = {n.standard for n in new.nodes if n.standard.startswith(standard_base)}
+    if len(o_versions) > 1:
+        raise ValueError(
+            f"diff_standard: mixed old-side revisions of {standard_base}: {sorted(o_versions)}"
+        )
+    if len(n_versions) > 1:
+        raise ValueError(
+            f"diff_standard: mixed new-side revisions of {standard_base}: {sorted(n_versions)}"
+        )
+    if not o_versions or not n_versions:
+        missing = "old" if not o_versions else "new"
+        raise ValueError(f"diff_standard: no {missing}-side nodes found for {standard_base}")
+
     o = {(n.requirement, n.part): n for n in old.nodes if n.standard.startswith(standard_base)}
     n = {(n.requirement, n.part): n for n in new.nodes if n.standard.startswith(standard_base)}
     rows: list[DiffRow] = []

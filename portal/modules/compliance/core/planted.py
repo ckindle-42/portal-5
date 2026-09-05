@@ -128,10 +128,25 @@ def make_proposer(corpus: list[PlantedDoc], *, threshold: int = 3):
 
 
 # ── scorer ─────────────────────────────────────────────────────────────────
+_SIDE_FIELD = {
+    "policy": "policy_spans",
+    "procedure": "procedure_spans",
+    "evidence": "evidence_spans",
+}
+
+# "temporal" plants a span that DOES substantively restate the obligation
+# (it should qualify at the anchor/relevance layer) but cites a SUPERSEDED
+# standard id — a different, separately-tested mechanism (cell.stale_citations)
+# is what disqualifies it as CURRENT coverage, not the anchor/relevance layer.
+# expected_coverage=="NONE" for this class describes the citation-staleness
+# outcome, not "the text never qualified".
+_CITATION_STALE_CLASSES = {"temporal"}
+
+
 @dataclass
 class PlantedScore:
     n_controls: int
-    full_gap_recall: float  # headline
+    qualified_signal_recall: float  # headline (P1 replaces the old full_gap_recall)
     false_covered: int
     false_gap: int
     citation_resolution: float  # must be 1.000
@@ -140,7 +155,7 @@ class PlantedScore:
     def to_dict(self) -> dict:
         return {
             "n_controls": self.n_controls,
-            "full_gap_recall": round(self.full_gap_recall, 3),
+            "qualified_signal_recall": round(self.qualified_signal_recall, 3),
             "false_covered": self.false_covered,
             "false_gap": self.false_gap,
             "citation_resolution": round(self.citation_resolution, 3),
@@ -149,12 +164,30 @@ class PlantedScore:
 
 
 def score(corpus: list[PlantedDoc], matrix_cells: list) -> PlantedScore:
-    """Compare the coverage matrix against each planted doc's declared truth."""
+    """Compare the coverage matrix against each planted doc's declared truth.
+
+    TASK_COMPLIANCE_REASONING_V2 P1: the automated classifier can no longer
+    certify a ``FULL``/``NONE`` compliance VERDICT from textual presence or
+    absence alone (F03) — obligation-atom comparison is P5 work. Every
+    planted control now resolves ``UNRESOLVED``/``NEEDS_REVIEW`` regardless of
+    ``expected_coverage``. What this suite still verifies mechanically is the
+    signal a future P5 assessment will consume: did the retrieval/anchor/
+    relevance layer correctly qualify (or correctly reject) THIS document's
+    own span for its target Part — ``qualified_signal_recall`` replaces the
+    old ``full_gap_recall`` as the headline for that reason. It is a
+    retrieval-quality measure, not a compliance determination.
+
+    ``false_covered``/``false_gap`` keep their original meaning and are now
+    hard invariants rather than headline metrics: the classifier structurally
+    cannot emit FULL/PARTIAL from automated candidates (false_covered), nor
+    NONE from empty/unqualified ones (false_gap) — both must read 0, and a
+    nonzero value here means the P1 protections regressed.
+    """
     cell_by_req: dict[str, object] = {}
     for c in matrix_cells:
         cell_by_req.setdefault(c.requirement_id, c)
 
-    holes_expected = holes_found = 0
+    signal_expected = signal_correct = 0
     false_covered = false_gap = 0
     cite_total = cite_ok = 0
     per: list[dict] = []
@@ -163,40 +196,53 @@ def score(corpus: list[PlantedDoc], matrix_cells: list) -> PlantedScore:
         cell = cell_by_req.get(d.targets)
         got = cell.coverage if cell else "MISSING_FROM_MATRIX"
         exp = d.expected_coverage
-        ok = got == exp
+        expect_qualified = exp in ("FULL", "PARTIAL") or d.control_class in _CITATION_STALE_CLASSES
+        own_spans = (
+            [
+                s
+                for s in getattr(cell, _SIDE_FIELD.get(d.doc_class, "policy_spans"), [])
+                if s.get("document_id") == d.doc_id
+            ]
+            if cell
+            else []
+        )
+        actually_qualified = any(s.get("locatable") for s in own_spans)
 
-        if exp == "NONE":
-            holes_expected += 1
-            if got == "NONE":
-                holes_found += 1
-            elif got in ("FULL", "PARTIAL"):
-                false_covered += 1
-        elif exp in ("FULL", "PARTIAL") and got == "NONE":
+        signal_expected += 1
+        signal_ok = actually_qualified == expect_qualified
+        if signal_ok:
+            signal_correct += 1
+
+        if not expect_qualified and got in ("FULL", "PARTIAL"):
+            false_covered += 1
+        if expect_qualified and got == "NONE":
             false_gap += 1
 
-        # citation resolution: every locatable span cell cites a section that
-        # exists in the corpus
         if cell:
-            for s in cell.policy_spans + cell.procedure_spans + cell.evidence_spans:
+            for s in own_spans:
                 if not s.get("locatable"):
                     continue
                 cite_total += 1
-                cite_ok += int(any(s["section_id"] in pd.sections for pd in corpus))
+                cite_ok += int(
+                    any(s["section_id"] in pd.sections for pd in corpus if pd.doc_id == d.doc_id)
+                )
 
         per.append(
             {
                 "doc": d.doc_id,
                 "control_class": d.control_class,
                 "targets": d.targets,
-                "expected": exp,
-                "got": got,
-                "pass": ok,
+                "expected_coverage_legacy": exp,
+                "expected_qualified_signal": expect_qualified,
+                "actually_qualified_signal": actually_qualified,
+                "got_coverage": got,
+                "pass": signal_ok,
             }
         )
 
     return PlantedScore(
         n_controls=len(corpus),
-        full_gap_recall=(holes_found / holes_expected) if holes_expected else 1.0,
+        qualified_signal_recall=(signal_correct / signal_expected) if signal_expected else 1.0,
         false_covered=false_covered,
         false_gap=false_gap,
         citation_resolution=(cite_ok / cite_total) if cite_total else 1.0,

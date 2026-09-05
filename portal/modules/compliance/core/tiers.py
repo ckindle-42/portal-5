@@ -66,86 +66,155 @@ _QUANT_RE = re.compile(
 )
 # normative modal — a deontic conflict (a *shall* against a *should*/silence)
 _MODAL_RE = re.compile(r"\b(shall|must|will|should|may|strive to|endeavor to)\b", re.I)
-_UNIT_DAYS = {
-    "day": 1,
-    "days": 1,
-    "week": 7,
-    "weeks": 7,
-    "month": 30,
-    "months": 30,
-    "year": 365,
-    "years": 365,
-    "hour": 1 / 24,
-    "hours": 1 / 24,
-}
 
 
-def _quant_claims(text: str) -> list[tuple[float, str]]:
-    """[(value_in_days, verbatim)] for every numeric-duration claim in a span."""
+def _quant_claims(text: str) -> list[tuple[int, str, str | None, str]]:
+    """[(value, unit, qualifier, verbatim)] for every numeric-duration claim.
+
+    F05: values are NOT converted to a common day count. "1 calendar month",
+    "30 calendar days" and "30 business days" are three different quantities
+    wearing similar-looking numbers, not the same duration — a calendar month
+    is not exactly 30 days, and a business-day count is not a calendar-day
+    count. Only claims sharing the same ``(unit, qualifier)`` are numerically
+    comparable; anything else is a comparison uncertainty (see
+    ``detect_conflicts``), never a silent equivalence or a false conflict."""
     out = []
     for m in _QUANT_RE.finditer(text):
         n = int(m.group(1))
-        unit = m.group(3).lower()
-        out.append((n * _UNIT_DAYS[unit], m.group(0)))
+        qualifier = (m.group(2) or "").lower() or None
+        unit = m.group(3).lower().rstrip("s")
+        out.append((n, unit, qualifier, m.group(0)))
     return out
+
+
+_RESOLUTION_TEXT = {
+    "quantitative": (
+        "NOT reconciled — the higher-tier claim governs the regulatory/policy "
+        "floor. A stricter lower-tier commitment may be an intentional internal "
+        "choice, not an error; SME review determines intentionality "
+        "(TASK_COMPLIANCE_REASONING_V2 §7.2) rather than this rule."
+    ),
+    "deontic": (
+        "NOT reconciled — the higher-tier obligation is mandatory regardless of "
+        "how the lower-tier document phrases it; the lower-tier document should "
+        "be reviewed to confirm it does not weaken a mandatory obligation."
+    ),
+    "same_tier_disagreement": (
+        "NOT reconciled — two same-tier documents disagree about the same "
+        "obligation; tier alone cannot decide which governs. SME review required "
+        "to determine which is correct, or whether both are independently valid "
+        "for different populations."
+    ),
+    "comparison_uncertainty": (
+        "Abstained — the compared claims use different units/qualifiers with no "
+        "reviewed conversion rule (a calendar month is not a fixed day count; a "
+        "business-day count is not a calendar-day count). Neither equality nor "
+        "conflict is asserted."
+    ),
+}
 
 
 @dataclass
 class ComplianceConflict:
-    kind: str  # "quantitative" | "deontic"
+    kind: str  # "quantitative" | "deontic" | "same_tier_disagreement" | "comparison_uncertainty"
     obligation: str  # a short label for what the spans disagree about
     higher: Span
     lower: Span
     detail: str
+    same_tier: bool = False
 
     def to_dict(self) -> dict:
         return {
-            "signal": "COMPLIANCE_CONFLICT",
+            "signal": "COMPLIANCE_CONFLICT"
+            if self.kind != "comparison_uncertainty"
+            else "COMPARISON_UNCERTAINTY",
             "kind": self.kind,
             "obligation": self.obligation,
             "detail": self.detail,
-            "higher_authority": {
+            "same_tier": self.same_tier,
+            ("span_a" if self.same_tier else "higher_authority"): {
                 "tier": self.higher.tier,
                 "tier_name": TIER_NAMES.get(self.higher.tier, "?"),
                 "citation": self.higher.citation,
                 "text": self.higher.text,
             },
-            "lower_authority": {
+            ("span_b" if self.same_tier else "lower_authority"): {
                 "tier": self.lower.tier,
                 "tier_name": TIER_NAMES.get(self.lower.tier, "?"),
                 "citation": self.lower.citation,
                 "text": self.lower.text,
             },
-            "resolution": "NOT reconciled — the higher-tier claim governs; the "
-            "lower-tier document must be corrected.",
+            "resolution": _RESOLUTION_TEXT[self.kind],
         }
 
 
 def detect_conflicts(spans: list[Span], obligation: str = "") -> list[ComplianceConflict]:
-    """Pairwise across spans of DIFFERENT tiers. Same-tier disagreement is not a
-    tier conflict (it is a data-quality issue for one tier to resolve)."""
+    """Pairwise across every pair of spans, including same tier (F05: "Support
+    same-tier disagreement detection, scoped to equivalent obligations" — the
+    caller is expected to have already scoped ``spans`` to one obligation, e.g.
+    coverage.py's topic-overlap filter). Same-tier disagreement is reported as
+    its own kind, never silently skipped and never as a cross-tier authority
+    ruling."""
     conflicts: list[ComplianceConflict] = []
     for i, a in enumerate(spans):
         for b in spans[i + 1 :]:
-            if a.tier == b.tier:
-                continue
-            hi, lo = (a, b) if a.tier < b.tier else (b, a)
+            same_tier = a.tier == b.tier
+            hi, lo = (a, b) if a.tier <= b.tier else (b, a)
 
-            qa = {round(v, 3) for v, _ in _quant_claims(hi.text)}
-            qb = {round(v, 3) for v, _ in _quant_claims(lo.text)}
-            if qa and qb and qa.isdisjoint(qb):
-                ta = ", ".join(t for _, t in _quant_claims(hi.text))
-                tb = ", ".join(t for _, t in _quant_claims(lo.text))
-                conflicts.append(
-                    ComplianceConflict(
-                        kind="quantitative",
-                        obligation=obligation or "duration",
-                        higher=hi,
-                        lower=lo,
-                        detail=f"{hi.citation} says [{ta}]; {lo.citation} says [{tb}]",
+            qa = _quant_claims(hi.text)
+            qb = _quant_claims(lo.text)
+            if qa and qb:
+                # Only "business" genuinely changes the count (a business-day
+                # calendar skips weekends/holidays); an unstated qualifier is
+                # the ordinary calendar reading, same as an explicit
+                # "calendar" — "18 months" and "15 calendar months" are the
+                # same kind of quantity and ARE comparable. Different UNITS
+                # (day vs month vs year) remain never converted (F05).
+                keyed_a = {
+                    (unit, "business" if qual == "business" else "calendar"): value
+                    for value, unit, qual, _ in qa
+                }
+                keyed_b = {
+                    (unit, "business" if qual == "business" else "calendar"): value
+                    for value, unit, qual, _ in qb
+                }
+                shared = keyed_a.keys() & keyed_b.keys()
+                disagreeing = {k for k in shared if keyed_a[k] != keyed_b[k]}
+                if disagreeing:
+                    ta = ", ".join(t for _, _, _, t in qa)
+                    tb = ", ".join(t for _, _, _, t in qb)
+                    conflicts.append(
+                        ComplianceConflict(
+                            kind="same_tier_disagreement" if same_tier else "quantitative",
+                            obligation=obligation or "duration",
+                            higher=hi,
+                            lower=lo,
+                            detail=f"{hi.citation} says [{ta}]; {lo.citation} says [{tb}]",
+                            same_tier=same_tier,
+                        )
                     )
-                )
-                continue
+                    continue
+                if not shared:
+                    # different (unit, qualifier) pairs on each side — no
+                    # reviewed conversion rule exists (F05). Abstain rather
+                    # than silently treat them as equal or as a conflict.
+                    ta = ", ".join(t for _, _, _, t in qa)
+                    tb = ", ".join(t for _, _, _, t in qb)
+                    conflicts.append(
+                        ComplianceConflict(
+                            kind="comparison_uncertainty",
+                            obligation=obligation or "duration",
+                            higher=hi,
+                            lower=lo,
+                            detail=f"{hi.citation} says [{ta}]; {lo.citation} says [{tb}] "
+                            "— incomparable units/qualifiers",
+                            same_tier=same_tier,
+                        )
+                    )
+                    continue
+
+            if same_tier:
+                continue  # deontic phrasing differences alone are not a same-tier finding here
 
             ma = {m.group(1).lower() for m in _MODAL_RE.finditer(hi.text)}
             mb = {m.group(1).lower() for m in _MODAL_RE.finditer(lo.text)}

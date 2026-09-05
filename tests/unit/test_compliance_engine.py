@@ -140,10 +140,14 @@ def test_coverage_requires_a_declared_scope():
 
 def test_coverage_matrix_examined_and_resolved_are_separate_numbers(tmp_path):
     """The Bully's GP: examined and substantively_resolved are DIFFERENT numbers
-    and must not collapse. An approved-mapping row marked NEEDS_REVIEW is
-    examined (it was enumerated) but NOT substantively resolved."""
+    and must not collapse. P1 (F03): a candidate-free Part is UNRESOLVED, not a
+    substantively-resolved gap — the two numbers must diverge even with zero
+    approved mappings, which is the exact unsafe collapse F03 named. An
+    approved mapping whose own recorded coverage is FULL and whose endpoint
+    resolves in the corpus IS substantively resolved; NEEDS_REVIEW never is."""
     base = coverage_matrix(reg, _SCOPE, "2026-09-03", lambda n, side: []).summary()
-    assert base["examined"] == base["substantively_resolved"]  # every gap is resolved
+    assert base["examined"] > 0
+    assert base["substantively_resolved"] == 0  # nothing is auto-resolved absent P5
 
     store = MappingStore(tmp_path / "m.json")
     review_ids = [
@@ -151,15 +155,23 @@ def test_coverage_matrix_examined_and_resolved_are_separate_numbers(tmp_path):
         for c in coverage_matrix(reg, _SCOPE, "2026-09-03", lambda n, side: []).cells
         if c.applies
     ][:5]
+    sidecar = {"POL": {}}
     for pid in review_ids:
-        mp = store.propose(pid, "POL", "§x", "NEEDS_REVIEW")
+        mp = store.propose(pid, "POL", "§x", "FULL")
         store.approve(mp.id, "sme")
 
-    s = coverage_matrix(reg, _SCOPE, "2026-09-03", lambda n, side: [], store).summary()
-    assert s["examined"] - s["substantively_resolved"] == 5, s
+    s = coverage_matrix(
+        reg, _SCOPE, "2026-09-03", lambda n, side: [], store, document_sidecar=sidecar
+    ).summary()
+    assert s["substantively_resolved"] == 5, s
 
 
 def test_coverage_full_needs_a_locatable_span_from_both_sides():
+    """P1/F03: a qualified span on BOTH sides is no longer certified as FULL —
+    full obligation-atom comparison is P5 work. The automated path now reports
+    UNRESOLVED with a note that textual presence was found, never a resolved
+    positive verdict."""
+
     def propose_both(node, side):
         if side in ("policy", "procedure"):
             return [
@@ -174,18 +186,27 @@ def test_coverage_full_needs_a_locatable_span_from_both_sides():
 
     mx = coverage_matrix(reg, _SCOPE, "2026-09-03", propose_both)
     cov = {c.requirement_id: c.coverage for c in mx.cells if c.applies}
-    assert cov and all(v == "FULL" for v in cov.values())
+    assert cov and all(v == "UNRESOLVED" for v in cov.values())
+    assert all(not c.substantively_resolved for c in mx.cells if c.applies)
 
 
-def test_coverage_nothing_found_is_a_substantive_gap():
+def test_coverage_nothing_found_is_not_a_resolved_gap():
+    """P1/F03: empty candidates no longer resolve to a confirmed NONE gap —
+    absence is not proven by an empty top-k. Every applicable cell is
+    UNRESOLVED and unresolved, and the matrix never claims a confirmed gap."""
     mx = coverage_matrix(reg, _SCOPE, "2026-09-03", lambda n, side: [])
     s = mx.summary()
-    assert s["coverage_breakdown"]["NONE"] == s["examined"] > 0
-    assert s["substantively_resolved"] == s["examined"]  # a gap is resolved
-    assert len(s["full_gaps"]) == s["examined"]
+    assert s["coverage_breakdown"]["UNRESOLVED"] == s["examined"] > 0
+    assert s["coverage_breakdown"]["NONE"] == 0
+    assert s["substantively_resolved"] == 0
+    assert len(s["unresolved_items"]) == s["examined"]
+    assert s["confirmed_gaps_none"] == []
 
 
-def test_approved_mapping_short_circuits_and_is_authoritative(tmp_path):
+def test_approved_mapping_requires_resolved_endpoint_and_agreement(tmp_path):
+    """P1/F04: an approved mapping is authoritative over MODEL judgement, but
+    only once its endpoint resolves in the ingested corpus and every approved
+    mapping for the Part agrees — it is never a lookup-order shortcut."""
     store = MappingStore(tmp_path / "m.json")
     node_id = next(
         n.id
@@ -197,8 +218,35 @@ def test_approved_mapping_short_circuits_and_is_authoritative(tmp_path):
     store.approve(mp.id, "sme")
 
     def propose_says_none(node, side):
-        return []  # model would say NONE
+        return []  # model would say unresolved
 
-    mx = coverage_matrix(reg, _SCOPE, "2026-09-03", propose_says_none, store)
+    # endpoint NOT in the corpus sidecar -> stale/unavailable, never FULL
+    mx_unresolved = coverage_matrix(
+        reg, _SCOPE, "2026-09-03", propose_says_none, store, document_sidecar={}
+    )
+    cell = next(c for c in mx_unresolved.cells if c.requirement_id == node_id)
+    assert cell.from_approved_mapping and cell.coverage == "UNRESOLVED"
+    assert not cell.substantively_resolved
+
+    # endpoint resolves -> the single, unanimous approved decision wins
+    mx = coverage_matrix(
+        reg, _SCOPE, "2026-09-03", propose_says_none, store, document_sidecar={"POL": {}}
+    )
     cell = next(c for c in mx.cells if c.requirement_id == node_id)
-    assert cell.from_approved_mapping and cell.coverage == "FULL"  # approved row wins
+    assert cell.from_approved_mapping and cell.coverage == "FULL"
+    assert cell.approved_mapping_ids == [mp.id]
+
+    # a second, CONTRADICTING approved mapping -> neither wins by lookup order
+    mp2 = store.propose(node_id, "POL2", "§2", "NONE")
+    store.approve(mp2.id, "sme2")
+    mx2 = coverage_matrix(
+        reg,
+        _SCOPE,
+        "2026-09-03",
+        propose_says_none,
+        store,
+        document_sidecar={"POL": {}, "POL2": {}},
+    )
+    cell2 = next(c for c in mx2.cells if c.requirement_id == node_id)
+    assert cell2.coverage == "NEEDS_REVIEW"
+    assert not cell2.substantively_resolved

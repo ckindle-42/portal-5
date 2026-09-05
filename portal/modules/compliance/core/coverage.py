@@ -15,13 +15,14 @@ can locate** in the cited document.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from portal.modules.compliance.core.applicability import AssetScope, applicable
 from portal.modules.compliance.core.cip_register import Register, RegisterNode
 from portal.modules.compliance.core.engine import effective_parts
-from portal.modules.compliance.core.mapping_store import MappingStore
+from portal.modules.compliance.core.mapping_store import Mapping, MappingStore
 from portal.modules.compliance.core.text_signals import keywords
 from portal.modules.compliance.core.tiers import ComplianceConflict, Span, detect_conflicts
 
@@ -46,7 +47,13 @@ def _shares_topic(conflict: ComplianceConflict) -> bool:
     )
 
 
-_COVERAGE = ("FULL", "PARTIAL", "NONE", "NOT_APPLICABLE", "NEEDS_REVIEW")
+# FULL/PARTIAL/NONE remain valid values for a human-approved mapping's own
+# recorded verdict (an authenticated SME decision), and legacy fixtures — but
+# `_classify` (the automated proposer-based path) can no longer produce them
+# on its own (P1.2/F03): full obligation-atom comparison is P5 work. Until
+# then the automated path reports UNRESOLVED, never a resolved FULL or a
+# resolved NONE from either textual presence or from empty candidates.
+_COVERAGE = ("FULL", "PARTIAL", "NONE", "NOT_APPLICABLE", "NEEDS_REVIEW", "UNRESOLVED")
 
 # what a proposer returns per side: [{"document_id", "section_id", "span",
 # "locatable": bool}]  — `locatable` is True only when a deterministic checker
@@ -72,6 +79,7 @@ class CoverageCell:
     evidence_spans: list[dict] = field(default_factory=list)
     coverage: str = "NEEDS_REVIEW"
     from_approved_mapping: bool = False
+    approved_mapping_ids: list[str] = field(default_factory=list)
     substantively_resolved: bool = False
     conflicts: list[dict] = field(default_factory=list)
     stale_citations: list[str] = field(default_factory=list)
@@ -85,6 +93,7 @@ class CoverageCell:
             "applicability_reason": self.applicability_reason,
             "coverage": self.coverage,
             "from_approved_mapping": self.from_approved_mapping,
+            "approved_mapping_ids": self.approved_mapping_ids,
             "substantively_resolved": self.substantively_resolved,
             "policy": [s.get("section_id") for s in self.policy_spans],
             "procedure": [s.get("section_id") for s in self.procedure_spans],
@@ -96,27 +105,61 @@ class CoverageCell:
         }
 
 
-def _locatable(spans: list[dict]) -> list[dict]:
-    return [s for s in spans if s.get("locatable")]
+def _qualified(spans: list[dict]) -> list[dict]:
+    """A span whose source location is verified AND whose relevance is
+    confidently established (P1.1) — never certified by a relevance score
+    alone. Falls back to the legacy ``locatable`` field for pre-P1 fixtures
+    that only set that single flag."""
+    out = []
+    for s in spans:
+        if "anchor_verified" in s or "relevant" in s:
+            if s.get("anchor_verified") and s.get("relevant"):
+                out.append(s)
+        elif s.get("locatable"):
+            out.append(s)
+    return out
 
 
-def _classify(policy: list[dict], procedure: list[dict], evidence: list[dict]) -> tuple[str, bool]:
-    """(coverage token, substantively_resolved). FULL needs a locatable span from
-    BOTH the policy and the procedure side."""
-    p_loc, q_loc, e_loc = _locatable(policy), _locatable(procedure), _locatable(evidence)
-    if p_loc and q_loc:
-        return "FULL", True
+# kept as a thin alias — some callers/tests still reference the old name.
+_locatable = _qualified
+
+
+def _classify(
+    policy: list[dict], procedure: list[dict], evidence: list[dict]
+) -> tuple[str, bool, str]:
+    """(coverage token, substantively_resolved, note).
+
+    P1.2 (F03): full obligation-atom comparison (actor/action/object/
+    population/trigger/deadline/condition/exception — see P5) is not yet
+    implemented. This classifier therefore can no longer certify a resolved
+    ``FULL`` from textual presence on both sides, nor a resolved ``NONE`` from
+    empty/unqualified candidates — both were unsafe verdicts observed live.
+    Every automated path reports ``UNRESOLVED`` with the reason a human (or a
+    future P5 assessment) needs; queued items still surface as
+    ``NEEDS_REVIEW``. Nothing here is "substantively resolved" until P5 exists.
+    """
+    p_q, q_q, e_q = _qualified(policy), _qualified(procedure), _qualified(evidence)
     if any(s.get("queue_item_id") for s in policy + procedure + evidence):
-        return "NEEDS_REVIEW", False
-    if p_loc or q_loc:
-        return "PARTIAL", True
-    if e_loc:
-        return "PARTIAL", True  # evidence without policy/procedure text — still substantive
-    # candidates were proposed but none substantiated the obligation (a lexical
-    # hit, aspirational language, or an off-topic doc) — that is a gap, not an
-    # open question. Uncertain relevance was handled above; retrieval failures
-    # are handled by _propose_cell before classification.
-    return "NONE", True
+        return (
+            "NEEDS_REVIEW",
+            False,
+            "one or more candidates are queued for review (low-confidence extraction "
+            "or unresolved document tier) — see the review queue",
+        )
+    if p_q or q_q or e_q:
+        return (
+            "UNRESOLVED",
+            False,
+            "qualified textual presence found (see policy/procedure/evidence spans); "
+            "obligation-level comparison against actor/action/trigger/condition is not "
+            "yet implemented (P5) — this is NOT a supported-alignment determination",
+        )
+    return (
+        "UNRESOLVED",
+        False,
+        "no qualified candidates retrieved for this Part — absence is NOT proven; "
+        "corpus/search completeness has not been established for this obligation",
+    )
 
 
 @dataclass
@@ -139,7 +182,17 @@ class CoverageMatrix:
             "substantively_resolved": len(resolved),
             "not_applicable": sum(1 for c in self.cells if not c.applies),
             "coverage_breakdown": by_cov,
-            "full_gaps": [c.requirement_id for c in applicable_cells if c.coverage == "NONE"],
+            # P1.2/F03: NONE is no longer a resolved-absence verdict the
+            # automated path can produce from empty/unqualified candidates —
+            # it can now only come from a human-approved mapping's own
+            # recorded decision. "full_gaps" would have implied confirmed
+            # absence; report the honestly-unresolved set instead.
+            "unresolved_items": [
+                c.requirement_id for c in applicable_cells if c.coverage == "UNRESOLVED"
+            ],
+            "confirmed_gaps_none": [
+                c.requirement_id for c in applicable_cells if c.coverage == "NONE"
+            ],
             "from_approved_mappings": sum(1 for c in applicable_cells if c.from_approved_mapping),
         }
 
@@ -169,16 +222,65 @@ def _propose_cell(cell: CoverageCell, node: RegisterNode, propose: ProposeFn) ->
     return True
 
 
+def _mapping_endpoint_resolves(mapping: Mapping, sidecar: dict) -> bool:
+    """Deterministic endpoint check (P1.3/F04): a mapping is only trustworthy
+    if the document it names is actually present in the current ingested
+    corpus. Approving a relationship to a document that was later removed, or
+    that never existed, must not silently keep supplying a positive verdict."""
+    return mapping.internal_document_id in sidecar
+
+
+def _apply_approved_mappings(cell: CoverageCell, approved: list[Mapping], sidecar: dict) -> None:
+    """P1.3/F04: an approved mapping is authoritative over MODEL judgement,
+    but it is not a bypass of assessment by lookup order. Collect ALL
+    applicable approved mappings (not just the first), verify each endpoint
+    still resolves in the ingested corpus, and surface — rather than silently
+    pick a winner from — contradictory approved decisions."""
+    cell.from_approved_mapping = True
+    cell.approved_mapping_ids = [m.id for m in approved]
+    unresolved = [m for m in approved if not _mapping_endpoint_resolves(m, sidecar)]
+    coverages = {m.coverage for m in approved}
+    if unresolved:
+        cell.coverage = "UNRESOLVED"
+        cell.substantively_resolved = False
+        cell.note = (
+            f"{len(unresolved)} of {len(approved)} approved mapping(s) reference a "
+            "document/section not found in the current ingested corpus (stale or "
+            "unavailable source) — "
+            + "; ".join(f"{m.id}: {m.internal_document_id}" for m in unresolved)
+        )
+        return
+    if len(coverages) > 1:
+        cell.coverage = "NEEDS_REVIEW"
+        cell.substantively_resolved = False
+        cell.note = (
+            f"{len(approved)} approved mappings disagree on coverage {sorted(coverages)} — "
+            "contradictory decisions require SME reconciliation, not lookup order"
+        )
+        return
+    cell.coverage = next(iter(coverages))
+    cell.substantively_resolved = cell.coverage != "NEEDS_REVIEW"
+    approvers = sorted({m.approved_by for m in approved if m.approved_by})
+    cell.note = (
+        f"{len(approved)} approved mapping(s) by {', '.join(approvers) or 'unknown'}; "
+        "all endpoints resolved and agree"
+    )
+
+
 def coverage_matrix(
     reg: Register,
     scope: AssetScope,
     effective_on: str,
     propose: ProposeFn,
     store: MappingStore | None = None,
+    document_sidecar: dict | None = None,
 ) -> CoverageMatrix:
     """Enumerate applicable EFFECTIVE parts and classify each. ``propose(node,
     side)`` with side in {"policy","procedure","evidence"} returns candidate
-    spans; approved mappings in ``store`` short-circuit the proposal."""
+    spans; approved mappings in ``store`` are authoritative over model
+    judgement but must resolve and agree (see ``_apply_approved_mappings``).
+    ``document_sidecar`` defaults to the real ingest sidecar; tests may pass
+    an explicit dict."""
     if not scope.is_declared:
         raise ValueError(
             "coverage_matrix requires a declared AssetScope — an ungated matrix "
@@ -211,10 +313,11 @@ def coverage_matrix(
 
         approved = store.approved_for(node.id, effective_on)
         if approved:
-            cell.from_approved_mapping = True
-            cell.coverage = approved[0].coverage  # authoritative over model judgement
-            cell.substantively_resolved = cell.coverage != "NEEDS_REVIEW"
-            cell.note = f"approved mapping {approved[0].id} by {approved[0].approved_by}"
+            if document_sidecar is None:
+                from portal.modules.compliance.core.ingest import read_sidecar
+
+                document_sidecar = read_sidecar()
+            _apply_approved_mappings(cell, approved, document_sidecar)
             m.cells.append(cell)
             continue
 
@@ -240,34 +343,39 @@ def coverage_matrix(
             c.to_dict() for c in detect_conflicts(spans, obligation=node.id) if _shares_topic(c)
         ]
 
-        # stale citation: a span that cites a superseded version of this standard
+        # stale citation: a span that cites a superseded version of this
+        # standard by its EXACT identifier (F10) — a substring/prefix match
+        # let a citation of the CURRENT id (e.g. "CIP-003-9") be flagged
+        # stale merely because it shared the family prefix with a superseded
+        # id ("CIP-003-8" -> prefix "CIP-003"). A stale REFERENCE (the text
+        # cites an old id) is also distinct from a stale IMPLEMENTATION
+        # (the text describes outdated behavior); this check only detects
+        # the former.
         superseded = {
             e["dst"] for e in reg.edges if e["rel"] == "SUPERSEDES" and e["src"] == node.standard
         }
         cell.stale_citations = [
-            f"{s['section_id']} cites {old} (superseded)"
+            f"{s['section_id']} cites {old} (superseded reference, not necessarily an obsolete implementation)"
             for s in cell.policy_spans + cell.procedure_spans
             for old in superseded
-            if old in s["span"] or old.rsplit("-", 1)[0] in s["span"]
+            if re.search(rf"(?<![\w-]){re.escape(old)}(?![\w-])", s["span"])
         ]
 
-        cell.coverage, cell.substantively_resolved = _classify(
+        cell.coverage, cell.substantively_resolved, classify_note = _classify(
             cell.policy_spans, cell.procedure_spans, cell.evidence_spans
         )
-        # a span that only satisfies the requirement by citing a retired version
-        # is not coverage of the current one
-        if cell.stale_citations and cell.coverage in ("FULL", "PARTIAL"):
-            cell.coverage = "NONE"
-            cell.note = "only match cites a superseded version"
-        # a mandatory requirement whose only support is non-binding language is
-        # a gap — the deontic conflict is the finding, not a PARTIAL.
-        if (
-            cell.coverage in ("FULL", "PARTIAL")
-            and any(c["kind"] == "deontic" for c in cell.conflicts)
-            and not _locatable(cell.evidence_spans)
-        ):
-            cell.coverage = "NONE"
-            cell.note = "only support is non-binding (deontic conflict)"
+        cell.note = classify_note
+        if cell.stale_citations:
+            cell.note += f"; also cites a superseded standard id: {cell.stale_citations}"
+        # P1.7: an unresolved conflict must affect the final assessment, not
+        # hide behind a positive branch — `_classify` can no longer return a
+        # positive verdict at all while conflicts are outstanding, but keep
+        # this explicit so a future P5 assessment cannot silently reintroduce
+        # the same shortcut.
+        if cell.conflicts and cell.coverage not in ("NEEDS_REVIEW", "UNRESOLVED", "NOT_APPLICABLE"):
+            cell.coverage = "NEEDS_REVIEW"
+            cell.substantively_resolved = False
+            cell.note += "; unresolved COMPLIANCE_CONFLICT blocks a positive determination"
         m.cells.append(cell)
 
     return m

@@ -61,13 +61,18 @@ def test_planted_corpus_covers_the_control_classes():
     assert set(CONTROL_CLASSES) == classes  # all 11 present, one doc each minimum
 
 
-def test_full_gap_recall_is_1_and_no_false_covered():
+def test_qualified_signal_recall_is_1_and_no_false_covered():
+    """P1 (TASK_COMPLIANCE_REASONING_V2): the classifier no longer certifies a
+    FULL/NONE verdict from candidates alone, so the headline shifts from
+    "did the matrix land on the right coverage token" to "did the retrieval/
+    anchor/relevance layer correctly qualify (or reject) each planted span" —
+    the exact signal a future P5 obligation-atom comparison will consume."""
     mx = coverage_matrix(reg, _SCOPE, "2026-09-03", make_proposer(corpus))
     s = score(_matrix_corpus, mx.cells).to_dict()
-    # HEADLINE — a missed gap is what destroys trust. Denominator: the planted
-    # holes on register Parts that exist (hole / aspirational / lexical / deontic).
-    assert s["full_gap_recall"] == 1.0, s["per_control"]
-    # reported separately, never averaged
+    assert s["qualified_signal_recall"] == 1.0, s["per_control"]
+    # hard invariants, reported separately, never averaged: the automated
+    # classifier must structurally be unable to certify FULL/PARTIAL (F03) or
+    # a resolved NONE from empty/unqualified candidates.
     assert s["false_covered"] == 0
     assert s["false_gap"] == 0
     # must be 1.000
@@ -97,7 +102,11 @@ def test_future_effective_control_is_prospective_not_a_today_obligation():
 
 def test_implicit_change_control_forces_review_not_verdict_carry_forward():
     """§1.8: a Part whose text changed CIP-003-8 -> -9 with no renumber. A
-    mapping approved against the old text must land NEEDS_REVIEW."""
+    mapping approved against the old text must land NEEDS_REVIEW. The
+    changed Part may classify as any non-cosmetic LANGUAGE_CHANGED sub_type
+    (substantive, modality, logic, timeline) — P1 added new sub_types that
+    correctly split out what "substantive" used to lump together; what
+    matters here is that it is NOT "cosmetic"."""
     from portal.modules.compliance.core.register_diff import diff_standard
 
     doc = next(d for d in corpus if d.control_class == "implicit_change")
@@ -107,7 +116,7 @@ def test_implicit_change_control_forces_review_not_verdict_carry_forward():
     changed = {
         r.part_id_new
         for r in rows
-        if r.change_type == "LANGUAGE_CHANGED" and r.sub_type == "substantive"
+        if r.change_type == "LANGUAGE_CHANGED" and r.sub_type != "cosmetic"
     }
     assert doc.targets in changed
 
@@ -136,16 +145,22 @@ def test_temporal_stale_citation_is_flagged_and_not_counted_as_coverage():
     mx = coverage_matrix(reg, _SCOPE, "2026-09-03", make_proposer(corpus))
     stale = [c for c in mx.cells if c.stale_citations]
     assert stale
-    assert all(c.coverage == "NONE" for c in stale)
+    # P1: the automated classifier no longer certifies ANY positive verdict
+    # (FULL/PARTIAL) — a stale citation must never be counted as coverage,
+    # which now holds structurally rather than via an explicit demotion.
+    assert all(c.coverage not in ("FULL", "PARTIAL") for c in stale)
 
 
 def test_examined_and_substantively_resolved_do_not_collapse():
-    """The Bully GP degenerate-fixture guard: a proposer that never substantiates
-    leaves the two numbers apart is NOT this case — here everything resolves, so
-    the guard is that a *lexical-only* proposer keeps examined > 0 while every
-    cell is still a substantive result (a gap)."""
+    """The Bully GP degenerate-fixture guard, updated for P1 (F03): a proposer
+    that returns zero candidates for every Part must NOT resolve those Parts
+    as a confirmed gap — "no candidates" is unresolved, not proven absence.
+    ``examined`` and ``substantively_resolved`` must stay apart here (0
+    resolved out of N examined) rather than collapsing together, which is the
+    exact unsafe shortcut F03 named."""
     mx = coverage_matrix(reg, _SCOPE, "2026-09-03", lambda n, side: [])
     s = mx.summary()
     assert s["examined"] > 0
-    assert s["substantively_resolved"] == s["examined"]  # all gaps, all resolved
-    assert len(s["full_gaps"]) == s["examined"]
+    assert s["substantively_resolved"] == 0
+    assert len(s["unresolved_items"]) == s["examined"]
+    assert s["confirmed_gaps_none"] == []
