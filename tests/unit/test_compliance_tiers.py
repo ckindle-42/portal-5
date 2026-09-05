@@ -48,10 +48,23 @@ def test_quantitative_cross_tier_conflict_is_emitted_not_reconciled():
     assert "16" not in c["detail"] and "16.5" not in c["detail"]
 
 
-def test_same_tier_disagreement_is_not_a_tier_conflict():
+def test_same_tier_disagreement_is_detected_but_not_a_tier_ruling():
+    """P1.5 (F05): same-tier disagreement is no longer silently skipped — two
+    same-tier documents disagreeing about the same obligation is a real
+    finding SME review must see. It must never read as a cross-tier authority
+    ruling (no "higher_authority"/"lower_authority" framing, no tier winning)."""
     a = Span("review every 15 calendar months", tier=2, citation="POL-A")
     b = Span("review every 18 months", tier=2, citation="POL-B")
-    assert detect_conflicts([a, b]) == []
+    conflicts = detect_conflicts([a, b])
+    assert len(conflicts) == 1
+    c = conflicts[0]
+    assert c.kind == "same_tier_disagreement"
+    assert c.same_tier is True
+    d = c.to_dict()
+    assert d["signal"] == "COMPLIANCE_CONFLICT"
+    assert "higher_authority" not in d and "lower_authority" not in d
+    assert "span_a" in d and "span_b" in d
+    assert "NOT reconciled" in d["resolution"]
 
 
 def test_deontic_conflict_shall_vs_should():
@@ -60,6 +73,23 @@ def test_deontic_conflict_shall_vs_should():
     conflicts = detect_conflicts([std, pol])
     assert len(conflicts) == 1 and conflicts[0].kind == "deontic"
     assert conflicts[0].higher.citation == "CIP-012-2 R1"
+
+
+def test_incomparable_units_abstain_never_silently_equal_or_conflicting():
+    """P1.5/F05: "1 calendar month", "30 calendar days" and "30 business days"
+    are three different quantities, not the same number under different
+    spellings — no reviewed conversion rule exists, so the correct result is
+    an explicit comparison_uncertainty, never a silent equivalence (the F05
+    bug) and never a false quantitative conflict."""
+    std = Span("perform the review within 1 calendar month", tier=0, citation="STD")
+    proc = Span("perform the review within 30 business days", tier=3, citation="PROC")
+    conflicts = detect_conflicts([std, proc])
+    assert len(conflicts) == 1
+    c = conflicts[0]
+    assert c.kind == "comparison_uncertainty"
+    d = c.to_dict()
+    assert d["signal"] == "COMPARISON_UNCERTAINTY"
+    assert "no reviewed conversion rule" in d["resolution"]
 
 
 def test_matching_durations_across_tiers_are_not_a_conflict():

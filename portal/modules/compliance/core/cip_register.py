@@ -243,7 +243,10 @@ def build_register(pdf_dir: str | Path) -> Register:
         std = meta["standard"]  # "CIP-007"
         ver = meta["version"]
         full = f"{std}-{ver}"
-        life = _LIFECYCLE.get(full, {"state": "EFFECTIVE", "valid_from": None, "valid_to": None})
+        # F02: an unrecognized standard/version has an UNKNOWN lifecycle, never
+        # a default EFFECTIVE — a version this register has no dated record
+        # for must not be silently answered as currently required.
+        life = _LIFECYCLE.get(full, {"state": "UNKNOWN", "valid_from": None, "valid_to": None})
         report[full] = {
             "requirements": meta["requirements"],
             "n_parts": meta["n_parts"],

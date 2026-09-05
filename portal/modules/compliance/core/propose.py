@@ -144,10 +144,23 @@ def _filter_candidates(
     return out
 
 
-def _resolve_locatability(candidate: dict, score: float, node, side: str) -> tuple[bool, str]:
+def _verify_anchor(candidate: dict) -> bool:
+    """Literal source-location verification (P1.1): the quoted ``span`` is a
+    verbatim substring of the retrieved chunk ``text``. This is the ONLY thing
+    "anchor verified" means — it says nothing about relevance. Previously a
+    rerank RELEVANCE score alone decided the field named ``locatable``; that
+    conflated "this text is about the right topic" with "this citation
+    actually points at real text", which let a confidently-scored but
+    unverified span certify a source location."""
+    span, text = candidate.get("span") or "", candidate.get("text") or ""
+    return bool(span) and span in text
+
+
+def _resolve_relevance(candidate: dict, score: float, node, side: str) -> tuple[bool, str]:
     """Stages 2+3: a confident rerank score decides; the ambiguous middle band
     is queued (`low_confidence_extraction`) rather than guessed. Returns
-    (locatable, queue_item_id)."""
+    (relevant, queue_item_id) — RELEVANCE only (renamed from
+    ``_resolve_locatability``; see ``_verify_anchor`` for anchor proof)."""
     if score >= RERANK_THRESHOLD_HIGH:
         return not is_aspirational(candidate["text"]), ""
     if score < RERANK_THRESHOLD_LOW:
@@ -307,13 +320,18 @@ def make_real_proposer(kb_id: str = "operator_corpus", top_k: int = 15):
 
         out = []
         for i, c in enumerate(candidates):
-            locatable, queue_item_id = _resolve_locatability(c, scores[i], node, c["layer"])
+            relevant, queue_item_id = _resolve_relevance(c, scores[i], node, c["layer"])
+            anchor_verified = _verify_anchor(c)
             out.append(
                 {
                     "document_id": c["document_id"],
                     "section_id": c["section_id"],
                     "span": c["span"],
-                    "locatable": locatable,
+                    "anchor_verified": anchor_verified,
+                    "relevant": relevant,
+                    # legacy compatibility field only — never the field consumers
+                    # should read to certify a source anchor (see coverage.py).
+                    "locatable": anchor_verified and relevant,
                     "queue_item_id": queue_item_id,
                     "rerank_score": scores[i],
                     "layer": c["layer"],

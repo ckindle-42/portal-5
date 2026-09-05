@@ -111,6 +111,19 @@ class MappingStore:
         self._save()
         return m
 
+    def revoke(self, mapping_id: str, sme: str) -> Mapping:
+        """Reverse a prior approval (F09/P1.3): a later rejection/reversal must
+        actually revoke a previously-approved mapping, not just record a
+        review-queue decision that the effective mapping never sees. Clearing
+        ``approved_by`` immediately removes this row from ``approved_for`` —
+        the row itself is kept (never deleted) so its history is auditable."""
+        m = self._by_id(mapping_id)
+        m.approved_by = ""
+        m.approved_date = ""
+        m.source = "revoked"
+        self._save()
+        return m
+
     def _by_id(self, mapping_id: str) -> Mapping:
         for m in self._rows:
             if m.id == mapping_id:
