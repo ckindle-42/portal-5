@@ -74,15 +74,68 @@ file/test owner. None are marked "already repaired with evidence" from before
 this task — all twelve were independently reproduced or inspected fresh
 against `9006ae6c`.
 
+## P2 status (added after this report's initial P0/P1 version)
+
+P2 ("Introduce the canonical versioned compliance store") is now implemented
+as a genuine SQLite-backed repository, NOT a full population of every design
+entity family:
+
+- `core/temporal.py`, `core/provenance.py`, `core/models.py`: bitemporal
+  interval helpers, content-hash identity, and typed row dataclasses.
+- `core/migrations/`: a forward-only, whole-batch-transactional migration
+  runner (`apply_migrations`) plus the full DDL for every entity family in
+  design §4 — including families P2 does not populate yet (`obligation_atoms`,
+  `internal_controls`, `claims`/`findings`, `policy_decisions`/
+  `change_scenarios`/`work_items`, `entity_profiles`/`scope_revisions`), so P3-P7
+  add ROWS, not another migration to invent the table.
+- `core/repository.py`: the transactional access layer — WAL + `PRAGMA
+  foreign_keys=ON` per connection, a process-local write lock, content-hash
+  document revisions (idempotent on identical bytes, a new revision on
+  replacement bytes at the same alias path with old anchors still resolving),
+  relationship assertions with a hard proposal/effective status split
+  (governed reads default to `status='approved'`), optimistic-concurrency
+  review decisions (`ConcurrencyError` on a stale `expected_version`), a
+  durable outbox, catalog snapshots, and `status_as_known()` — recorded-time
+  replay reconstructed from the append-only `review_events` log, not from the
+  mutated current row.
+- `core/migrate_legacy.py`: imports the existing JSON register (as unverified
+  effectivity assertions — never silently "verified" by the migration
+  itself), the mapping store (as relationship assertions tagged
+  `imported_legacy_unverified`, distinct from an authenticated P7 decision),
+  and real document bytes under an operator corpus directory (content-hashed,
+  no filename-date guessing). All three are independently idempotent and
+  support `dry_run`.
+
+**P2 exit criteria verified by test** (`tests/unit/test_compliance_repository.py`,
+`tests/unit/test_compliance_migrate_legacy.py`, 21 tests):
+migration roundtrip (fresh DB reaches `CURRENT_SCHEMA_VERSION` in order),
+repeat-run idempotence, crash-mid-migration leaves the prior version
+un-half-upgraded and a subsequent call resumes cleanly, broken-reference
+rejection (both for relationship endpoints and source sections), same-path
+new revision with the old revision still resolving, decision concurrency
+(a stale `expected_version` is rejected, never silently overwritten), and
+as-known replay (a query "as of" a timestamp before/after a decision reflects
+what was known then, not the current mutated state).
+
+**What P2 explicitly does NOT do**: it does not yet WIRE `coverage.py`,
+`propose.py`, or `compliance_mcp.py` to read/write through this repository —
+those modules still use the pre-existing JSON `MappingStore`/`Register`/
+LanceDB `review_queue`. Reconciling P1's engine with this new store (so the
+engine actually reads from `Repository` instead of the JSON files) is P3-P7
+integration work, not yet done. `PostgreSQL` (the multi-host alternative this
+design names) was not evaluated because no multi-host deployment was
+discovered in this environment.
+
 ## Honest scope statement (read before treating this as a closeout)
 
-This report and its companion `REASONING_V2_REUSE_DECISIONS.md` close **P0 and
-P0-R only**, and this session additionally completed **P1** (the dangerous
-verdict/selection-behavior corrections). **P2 through P9 — the versioned
-bitemporal store, OSCAL/Utopia-pattern persistence, obligation-atom extraction,
+This report and its companion `REASONING_V2_REUSE_DECISIONS.md` close **P0**
+(P0-R was not started — see that file), and this session completed **P1**
+(dangerous verdict/selection corrections) and **P2** (the canonical store,
+described above). **P3 through P9 — governed catalog/obligation extraction,
 hybrid traceability, the comparison/assessment engine, change propagation,
-authenticated review workflow, the 30-case acceptance matrix, the live-corpus
-P8-L rerun, and the SME packet — are NOT implemented in this session.** The
-module's engineering status is **ENGINEERING_INCOMPLETE**, not
-`ENGINEERING_COMPLETE_READY_FOR_SME_REVIEW`. See the task's final chat summary
-for the exact remaining-phase breakdown and rationale.
+authenticated review workflow wired to real identity, the 30-case acceptance
+matrix, the live-corpus P8-L rerun, and the SME packet — are NOT implemented
+in this session.** Critically, the new P2 store is not yet the thing the
+engine actually reads from — that wiring is P3-P7 work. The module's
+engineering status is **ENGINEERING_INCOMPLETE**, not
+`ENGINEERING_COMPLETE_READY_FOR_SME_REVIEW`.
