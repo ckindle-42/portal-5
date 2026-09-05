@@ -128,3 +128,10 @@ portal/modules/compliance/data/cip_pdfs/
 # documents by filename) — never committed, same discipline as the PDFs above.
 portal/modules/compliance/data/compliance_mappings.json
 portal/modules/compliance/data/compliance_document_layers.json
+# TASK_COMPLIANCE_REASONING_V2 P2: the canonical versioned store — names the
+# operator's private documents, sections and mapping decisions. Its schema
+# lives in core/repository.py / core/migrations/; only the schema is source.
+portal/modules/compliance/data/compliance_store.db
+portal/modules/compliance/data/compliance_store.db-wal
+portal/modules/compliance/data/compliance_store.db-shm
+portal/modules/compliance/data/private/

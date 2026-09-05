@@ -76,6 +76,22 @@ surfaces:
   globs:
   - portal/modules/compliance/core/mapping_store.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-migrate_legacy
+  globs:
+  - portal/modules/compliance/core/migrate_legacy.py
+  unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-migrations-__init__
+  globs:
+  - portal/modules/compliance/core/migrations/__init__.py
+  unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-migrations-schema
+  globs:
+  - portal/modules/compliance/core/migrations/schema.py
+  unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-models
+  globs:
+  - portal/modules/compliance/core/models.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-planted
   globs:
   - portal/modules/compliance/core/planted.py
@@ -84,10 +100,18 @@ surfaces:
   globs:
   - portal/modules/compliance/core/propose.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-provenance
+  globs:
+  - portal/modules/compliance/core/provenance.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-register_diff
   globs:
   - portal/modules/compliance/core/register_diff.py
   unit: unit-compliance-change-pipeline
+- name: file-portal-modules-compliance-core-repository
+  globs:
+  - portal/modules/compliance/core/repository.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-review_queue
   globs:
   - portal/modules/compliance/core/review_queue.py
@@ -95,6 +119,10 @@ surfaces:
 - name: file-portal-modules-compliance-core-scope_derive
   globs:
   - portal/modules/compliance/core/scope_derive.py
+  unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-temporal
+  globs:
+  - portal/modules/compliance/core/temporal.py
   unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-text_signals
   globs:

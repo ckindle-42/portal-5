@@ -34,6 +34,20 @@ sources:
 - type: code
   path: portal/modules/compliance/core/text_signals.py
 - type: code
+  path: portal/modules/compliance/core/temporal.py
+- type: code
+  path: portal/modules/compliance/core/provenance.py
+- type: code
+  path: portal/modules/compliance/core/models.py
+- type: code
+  path: portal/modules/compliance/core/repository.py
+- type: code
+  path: portal/modules/compliance/core/migrate_legacy.py
+- type: code
+  path: portal/modules/compliance/core/migrations/__init__.py
+- type: code
+  path: portal/modules/compliance/core/migrations/schema.py
+- type: code
   path: portal/modules/compliance/data/nerc_cip_register.json
 - type: code
   path: tests/unit/test_cip_register.py
@@ -45,6 +59,12 @@ sources:
   path: tests/unit/test_compliance_planted.py
 - type: code
   path: tests/unit/test_compliance_currency.py
+- type: code
+  path: tests/unit/test_compliance_reasoning_v2_regressions.py
+- type: code
+  path: tests/unit/test_compliance_repository.py
+- type: code
+  path: tests/unit/test_compliance_migrate_legacy.py
 claims:
 # O9: real bindings. Each fails the drift census if the subsystem regresses —
 # not a `modules.enabled contains: compliance` check.
