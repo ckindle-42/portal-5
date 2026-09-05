@@ -443,5 +443,40 @@
         }
       }
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "compliance_scenario",
+      "description": "An isolated before/after scenario for a proposed patch to one targeted requirement/Part, never written to any persisted document or the mapping store. Compares whether the candidate/qualification layer sees evidence for the obligation before vs. after the proposed text. Does not produce a compliance verdict or a full implementation plan.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "target_node_id": {
+            "type": "string"
+          },
+          "patch_text": {
+            "type": "string"
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "planned_effective_date": {
+            "type": "string"
+          },
+          "kb_id": {
+            "type": "string"
+          },
+          "effective_on": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_node_id",
+          "patch_text",
+          "rationale"
+        ]
+      }
+    }
   }
 ]

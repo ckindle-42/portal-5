@@ -563,6 +563,53 @@ def compliance_change_impact(
 
 
 @mcp.tool()
+def compliance_scenario(
+    target_node_id: str,
+    patch_text: str,
+    rationale: str,
+    planned_effective_date: str = "",
+    kb_id: str = "operator_corpus",
+    effective_on: str = "",
+) -> dict:
+    """Design §9's "How should we implement a proposed change while
+    maintaining compliance?" (Q12) — an isolated before/after scenario for a
+    proposed patch to ONE targeted requirement/Part, never written to any
+    persisted document or the mapping store. Compares whether the candidate/
+    qualification layer sees evidence for the obligation before vs. after
+    the proposed text, using the SAME rule the live engine already applies.
+
+    This does NOT produce a documented-alignment verdict (P5's obligation-
+    atom comparison engine is not implemented) or the full ordered
+    implementation plan (owner/training/rollback) — see the result's own
+    "note" field. Drafts stay unapproved; nothing here publishes a change."""
+    try:
+        import datetime
+
+        from portal.modules.compliance.core.cip_register import Register
+        from portal.modules.compliance.core.mapping_store import MappingStore
+        from portal.modules.compliance.core.propose import make_real_proposer
+        from portal.modules.compliance.core.scenarios import evaluate_scenario, new_scenario
+        from portal.modules.compliance.core.scope_derive import derive_scope
+
+        as_of = effective_on or datetime.date.today().isoformat()
+        reg = Register.load()
+        scope, scope_meta = derive_scope(kb_id)
+        if not scope.is_declared:
+            return {"status": "honest-BLOCKED", "reason": scope_meta.get("reason")}
+        scenario = new_scenario(
+            target_node_id,
+            patch_text,
+            rationale,
+            planned_effective_date=planned_effective_date or None,
+        )
+        return evaluate_scenario(
+            scenario, reg, scope, as_of, make_real_proposer(kb_id), MappingStore()
+        )
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
+
+
+@mcp.tool()
 def compliance_prospective(effective_on: str = "", kb_id: str = "operator_corpus") -> dict:
     """Design §9's "What requires review when a new/revised standard takes
     effect?" (Q11) — future-effective register content as of ``effective_on``
@@ -832,6 +879,7 @@ _DISPATCH = {
     "compliance_sources": compliance_sources,
     "compliance_trace": compliance_trace,
     "compliance_prospective": compliance_prospective,
+    "compliance_scenario": compliance_scenario,
 }
 
 

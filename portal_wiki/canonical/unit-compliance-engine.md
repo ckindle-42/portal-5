@@ -40,6 +40,8 @@ sources:
 - type: code
   path: portal/modules/compliance/core/constraints.py
 - type: code
+  path: portal/modules/compliance/core/scenarios.py
+- type: code
   path: portal/modules/compliance/core/temporal.py
 - type: code
   path: portal/modules/compliance/core/provenance.py
@@ -81,6 +83,8 @@ sources:
   path: tests/unit/test_compliance_sources.py
 - type: code
   path: tests/unit/test_compliance_prospective.py
+- type: code
+  path: tests/unit/test_compliance_scenarios.py
 - type: code
   path: tests/unit/test_compliance_comparison.py
 - type: code
