@@ -754,6 +754,34 @@ def compliance_sources(revision_id: str = "", alias_path: str = "") -> dict:
         return {"error": str(e)}
 
 
+@mcp.tool()
+def compliance_trace(
+    start_ref: str,
+    direction: str = "both",
+    max_depth: int = 3,
+    include_proposed: bool = False,
+) -> dict:
+    """Bidirectional relationship traversal from a requirement/document/
+    control reference (design §9's ``compliance_trace`` operation) — the
+    second MCP operation wired to the P2 canonical repository. Returns typed
+    sourced paths with edge status, and discloses depth-limited nodes and any
+    work-budget-truncated frontier rather than silently presenting a partial
+    traversal as complete. ``include_proposed`` widens beyond the governed
+    approved-only surface for candidate-discovery use, never the default."""
+    try:
+        from portal.modules.compliance.core.repository import Repository
+
+        repo = Repository()
+        statuses = ("approved", "proposed") if include_proposed else ("approved",)
+        return repo.traverse_relationships(
+            start_ref, direction=direction, statuses=statuses, max_depth=max_depth
+        )
+    except ValueError as e:
+        return {"error": str(e)}
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
+
+
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_compliance_mcp")
 
 _DISPATCH = {
@@ -775,6 +803,7 @@ _DISPATCH = {
     "compliance_review_list": compliance_review_list,
     "compliance_review_decide": compliance_review_decide,
     "compliance_sources": compliance_sources,
+    "compliance_trace": compliance_trace,
 }
 
 

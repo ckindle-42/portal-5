@@ -93,3 +93,57 @@ def test_missing_source_file_is_unverifiable_not_a_false_pass(tmp_path, monkeypa
 
     result = compliance_sources(revision_id=rev.revision_id)
     assert "unverifiable" in result["revisions"][0]["integrity"]
+
+
+# ── compliance_trace ─────────────────────────────────────────────────────
+def test_trace_finds_approved_edges_forward(tmp_path, monkeypatch):
+    repo = _repo(tmp_path, monkeypatch)
+    from portal.modules.compliance.core.models import RelationshipAssertion
+
+    proposed = repo.propose_relationship(
+        RelationshipAssertion(
+            assertion_id="",
+            relation_type="IMPLEMENTS",
+            src_ref="CIP-007-6 R2",
+            src_revision_id=None,
+            dst_ref="POL §1",
+            dst_revision_id=None,
+            scope="",
+        )
+    )
+    repo.decide_relationship(proposed.assertion_id, "CONFIRMED", "sme", expected_version=1)
+
+    from portal.modules.compliance.tools.compliance_mcp import compliance_trace
+
+    result = compliance_trace("CIP-007-6 R2", direction="forward")
+    assert result["n_edges"] == 1
+    assert result["edges"][0]["to"] == "POL §1"
+
+
+def test_trace_invalid_direction_is_a_clear_error(tmp_path, monkeypatch):
+    _repo(tmp_path, monkeypatch)
+    from portal.modules.compliance.tools.compliance_mcp import compliance_trace
+
+    result = compliance_trace("REQ-1", direction="sideways")
+    assert "error" in result
+
+
+def test_trace_excludes_proposed_edges_unless_widened(tmp_path, monkeypatch):
+    repo = _repo(tmp_path, monkeypatch)
+    from portal.modules.compliance.core.models import RelationshipAssertion
+
+    repo.propose_relationship(
+        RelationshipAssertion(
+            assertion_id="",
+            relation_type="IMPLEMENTS",
+            src_ref="REQ-1",
+            src_revision_id=None,
+            dst_ref="POL §1",
+            dst_revision_id=None,
+            scope="",
+        )
+    )
+    from portal.modules.compliance.tools.compliance_mcp import compliance_trace
+
+    assert compliance_trace("REQ-1")["n_edges"] == 0
+    assert compliance_trace("REQ-1", include_proposed=True)["n_edges"] == 1

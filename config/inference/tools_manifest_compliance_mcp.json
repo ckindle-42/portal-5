@@ -389,5 +389,38 @@
         }
       }
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "compliance_trace",
+      "description": "Bidirectional relationship traversal from a requirement/document/control reference in the canonical compliance store — forward, reverse, or both directions, cycle-safe and depth/work-budget bounded. Discloses depth-limited nodes and any truncated frontier explicitly rather than presenting a partial traversal as complete.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "start_ref": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "forward",
+              "reverse",
+              "both"
+            ]
+          },
+          "max_depth": {
+            "type": "integer"
+          },
+          "include_proposed": {
+            "type": "boolean",
+            "description": "Widen beyond the governed approved-only edge surface to include proposed relationships — candidate-discovery use only."
+          }
+        },
+        "required": [
+          "start_ref"
+        ]
+      }
+    }
   }
 ]
