@@ -60,6 +60,14 @@ surfaces:
   globs:
   - portal/modules/compliance/core/cip_register.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-comparison
+  globs:
+  - portal/modules/compliance/core/comparison.py
+  unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-constraints
+  globs:
+  - portal/modules/compliance/core/constraints.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-coverage
   globs:
   - portal/modules/compliance/core/coverage.py
