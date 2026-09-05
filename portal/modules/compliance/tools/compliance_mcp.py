@@ -694,6 +694,66 @@ def compliance_review_decide(
         return {"error": str(e)}
 
 
+@mcp.tool()
+def compliance_sources(revision_id: str = "", alias_path: str = "") -> dict:
+    """Exact permitted source context for an immutable document revision
+    (design §9's "What documents... connect" / P7's `compliance_sources`
+    operation) — the first operation wired to the P2 canonical repository
+    rather than the legacy JSON stores. Pass ``revision_id`` for an exact
+    historical anchor, or ``alias_path`` for the CURRENT/every revision ever
+    ingested at that path (every prior revision stays listed and resolvable
+    — a same-path replacement never erases history, P2's core invariant).
+
+    Integrity: when the file still exists on disk at its recorded
+    ``alias_path``, its bytes are re-hashed now and compared against the
+    revision's own content-hash identity — this can positively detect
+    silent drift at the source (the file changed without a new ingested
+    revision being recorded), which a stored hash alone cannot."""
+    try:
+        from portal.modules.compliance.core.provenance import content_hash
+        from portal.modules.compliance.core.repository import Repository
+
+        repo = Repository()
+        if revision_id:
+            rev = repo.get_revision(revision_id)
+            revisions = [rev] if rev else []
+        elif alias_path:
+            revisions = repo.revisions_for_alias(alias_path)
+        else:
+            return {"error": "must supply revision_id or alias_path"}
+        if not revisions:
+            return {
+                "found": False,
+                "reason": "no matching revision in the canonical store",
+                "note": "this store is populated by core.migrate_legacy; an unmigrated "
+                "corpus will have no rows here yet",
+            }
+
+        out = []
+        for rev in revisions:
+            entry = dataclasses.asdict(rev)
+            live_path = Path(rev.alias_path)
+            if live_path.is_file():
+                live_hash = content_hash(live_path.read_bytes())
+                entry["integrity"] = "verified" if live_hash == rev.revision_id else "DRIFTED"
+                if live_hash != rev.revision_id:
+                    entry["drift_detail"] = (
+                        f"the file at {rev.alias_path} no longer matches this recorded "
+                        f"revision's hash — it changed without a new revision being ingested"
+                    )
+            else:
+                entry["integrity"] = "unverifiable — source file not found on disk"
+            out.append(entry)
+        return {
+            "found": True,
+            "revisions": out,
+            "current_revision_id": revisions[-1].revision_id,  # most recently ingested
+            "n_historical_revisions": len(revisions) - 1,
+        }
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
+
+
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_compliance_mcp")
 
 _DISPATCH = {
@@ -714,6 +774,7 @@ _DISPATCH = {
     "compliance_route": compliance_route,
     "compliance_review_list": compliance_review_list,
     "compliance_review_decide": compliance_review_decide,
+    "compliance_sources": compliance_sources,
 }
 
 

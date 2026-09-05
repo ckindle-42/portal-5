@@ -371,5 +371,23 @@
         ]
       }
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "compliance_sources",
+      "description": "Exact permitted source context for an immutable document revision from the canonical compliance store — pass revision_id for an exact historical anchor, or alias_path for every revision ever ingested at that path. Verifies the source file's current bytes still match the recorded revision hash (drift detection).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "revision_id": {
+            "type": "string"
+          },
+          "alias_path": {
+            "type": "string"
+          }
+        }
+      }
+    }
   }
 ]
