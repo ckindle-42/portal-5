@@ -233,3 +233,71 @@ The module's engineering status is **ENGINEERING_INCOMPLETE**, not
 what has landed removes specific, real, dangerous defects and lays real
 (tested, but unwired-to-production) foundations for several later phases.
 It does not constitute a working end-to-end compliance reasoning system.
+
+## P8-L: real live-stack verification (partial, not the full closeout)
+
+After the above was committed, the live local stack (already running:
+Ollama, portal-pipeline, the compliance MCP service, 12/12 backends healthy)
+was used for real — this is genuine P8-L work, not simulated:
+
+- Restarted `com.portal5.compliance-mcp` (launchd) and `portal5-pipeline`
+  (Docker) to load all the session's code; verified `/health`/`/ready`.
+- Ran the real folder ingestion (`ingest_folder`) against
+  `coding_task/v9_compliance/LSPG-CIP/` for real: 68 files, 2,915 chunks, 864
+  pages, through the live Docling/embedding stack (~35 min of real
+  extraction). Ran the real P2 migration (`migrate_legacy`) against this
+  same live data: 254 register nodes/279 edges snapshotted, 254 requirement
+  nodes + 254 unverified effectivity assertions imported, 68 real documents
+  imported as content-hashed revisions.
+- Exercised `compliance_gaps`, `compliance_change_impact`, `compliance_scope`,
+  `compliance_sources`, and the authenticated `compliance_review_decide` live
+  through the real MCP tool surface against this real data (not mocks, not
+  synthetic fixtures) — see the task's final chat summary for verbatim
+  examples. Confirmed live and correct: F03 (no automated FULL/PARTIAL
+  verdict — every real Part came back UNRESOLVED or NEEDS_REVIEW), F05
+  (a real deontic COMPLIANCE_CONFLICT on CIP-003-9 Attachment 1 Parts 1-2,
+  and real comparison_uncertainty abstentions on CIP-007-6 R2 Part 2.2's
+  35-calendar-day patch cadence against an unrelated 15/36-calendar-month
+  vulnerability-assessment passage picked up by retrieval), F10 (exact-id
+  stale-citation matching correctly flagged a real CIP-003-8 reference
+  without false-flagging current CIP-003-9 citations), F02's
+  `discover_new_families()` (found a real candidate `CIP-015` PDF and
+  real candidate newer-revision PDFs for nearly every held standard on the
+  live nerc.com — manually verified one, `cip-007-7.pdf`: genuinely
+  reachable, but its own embedded metadata still says `CIP-007-6`, which is
+  exactly why this is documented as a discovery signal requiring human
+  verification, never proof), and P7's authenticated review-decide (real
+  `decided_by` recorded as the verified principal, a caller-supplied label
+  correctly demoted to audit-only `caller_label`).
+- This live exercise found and fixed two real defects not caught by any
+  mocked unit test (see the P8-L commit): a stale docstring/note in
+  `scope_derive.py` contradicting its own actual (correct) behavior, and
+  `compliance_sources`'s integrity check being unconditionally
+  "unverifiable" in the real deployment because `import_document_directory`
+  stored a directory-relative path where a live check needs a real
+  resolvable one.
+- **One finding was NOT resolved**: the live `auto-compliance` persona,
+  called through the real `portal-pipeline` `/v1/chat/completions` endpoint
+  with `nerc_cip_requirement` available and clearly described, still chose
+  `browser_navigate`/`web_search` over it for a canonical Q01-style prompt
+  ("what does CIP-007-6 R2 Part 2.2 require right now") across five repeated
+  attempts, even after fixing the persona's `system_prompt_append` (the field
+  the Pipeline actually injects for direct API calls — `owui_system_prompt`
+  only affects OWUI's own preset UI and was a dead end for this path) and
+  strengthening the tool's manifest description. The root cause of the
+  original defect (an explicit, wrong "prefer browser_navigate to nerc.com"
+  instruction) is confirmed and fixed; the model's residual preference for
+  browser/web tools over the local register on this exact phrasing is a
+  live, reproducible, **still-open** finding — disposition
+  `QUALIFIED_REAL_RESULT`, not `POSITIVE_REAL_VALIDATION`, for Q01's routing
+  specifically. Root-causing this further (tool ordering, a possible
+  tool-count/context-budget effect, or the base model's own tool-choice
+  bias) was not completed in this session.
+- **Still not done**: a full run of all twelve Q01-Q12 variants end-to-end
+  through the live persona route with inspected traces, the complete
+  standard-by-standard sweep across all 14 held standards, the formal
+  `--mode live-closeout` manifest/receipts harness described in P8-L §L1
+  (not built — the live verification above used direct tool/API calls and
+  ad hoc private receipts under `portal/modules/compliance/data/private/`
+  instead of that harness), and the SME packet. The engineering status
+  remains **ENGINEERING_INCOMPLETE**.
