@@ -72,17 +72,21 @@ filenames) are at
 | Q04 | `compliance_gaps` | `Q04_gaps.json` + `Q04_raw1.json` (live chat) | Real scope resolution (`impact_present`, `associated_present`), zero confirmed FULL/PARTIAL/NONE gaps for CIP-007-6 in this corpus | **POSITIVE_REAL_VALIDATION** |
 | Q05/Q06 | `compliance_change_impact` | `Q05_Q06_change_impact.json` | Real CIP-003-8→9 diff: 22 rows, 6 substantive / 16 cosmetic, by real change type | **POSITIVE_REAL_VALIDATION** |
 | Q07 | `compliance_draft_revisions` | `Q07_draft_revisions.json` | `mode: specification_only` — correctly refuses to author binding policy text; 0 specifications because no mapping has been approved yet (honest-empty, consistent with Q02) | **QUALIFIED_REAL_RESULT** |
-| Q08 | *(none)* | — | No dedicated tool exists. `constraints.py`/`comparison.py` primitives are unit-tested but not wired to a callable operator question. `tests/acceptance/test_compliance_reasoning_v2_questions.py::test_q08_*` is `xfail(strict=True)` so this gap fails loudly if silently "fixed" by an unrelated change without updating this record. | **NOT_BUILT** |
-| Q09 | *(none)* | — | Same as Q08 — no dedicated tool. `xfail(strict=True)`. | **NOT_BUILT** |
+| Q08 | `compliance_intentionality` | inline (see below) | Real comparison for CIP-007-6 R2 Part 2.2: internal "21 calendar days" vs governing "35 calendar days" correctly classified `MORE_RESTRICTIVE` (max_interval, F05/P5.3 comparator direction); intentionality honestly reported `unknown` since no `control_id`/`policy_decisions` row was supplied — never inferred from the comparison alone | **POSITIVE_REAL_VALIDATION** |
+| Q09 | `compliance_flexibility` | inline (see below) | Real detection against CIP-004-7 R1 Part 1.1: found the sourced "...which may include associated physical security practices..." clause verbatim, cue-word only, with an explicit non-recommendation caveat | **POSITIVE_REAL_VALIDATION** |
 | Q10 | `compliance_trace` | `Q10_trace.json` | `n_edges: 0` — the canonical repository's typed entity tables (`systems`, `roles`, `evidence_specs`, `entity_profiles`, `internal_controls`, `activities`) are schema-complete (P2 migrations) but **zero rows populated**; only document/relationship traversal is live | **QUALIFIED_REAL_RESULT** (schema built, not populated) |
 | Q11 | `compliance_prospective` | `Q11_prospective.json` | `n_future_effective: 0` — honestly reports no known future-effective content in the register (consistent with `nerc_cip_currency`'s live finding of unabsorbed newer PDFs on nerc.com) | **QUALIFIED_REAL_RESULT** |
 | Q12 | `compliance_scenario` | `Q12_scenario.json` | Real before/after coverage assessment for a synthetic 21-day tightening of CIP-007-6 R2 Part 2.2, isolated to the one target node (F05's fix applied) | **POSITIVE_REAL_VALIDATION** |
 
-All twelve questions have *some* live route reachable through the
-`⚖️ Portal Compliance Analyst` workspace's tool list — this was the P8
-exit criterion and it holds. Two (Q08/Q09) reach a `NOT_BUILT` tool, not a
-wrong answer — the distinction matters and is preserved by the `xfail`
-gate above rather than by prose alone.
+All twelve questions have a live route reachable through the
+`⚖️ Portal Compliance Analyst` workspace's tool list, and all twelve
+produce real, corpus-backed output (some honestly empty pending SME
+mapping approval — see below, never fabricated). Q08/Q09 (`compliance_intentionality`,
+`compliance_flexibility`) were the two design questions with no tool at
+initial P9 close; they were built as a same-session follow-up (cue-word/
+comparator-direction tools over the already-tested `constraints.py`
+primitives, not full semantic obligation modeling — see their docstrings
+for the exact scope) and are now live-verified above.
 
 ## Q01–Q12 implementation and test references
 
@@ -94,8 +98,8 @@ gate above rather than by prose alone.
 | Q04 | `coverage.py::coverage_matrix`, `tiers.py::detect_conflicts` | `test_compliance_engine.py`, `test_compliance_tiers.py` |
 | Q05/Q06 | `register_diff.py::diff_standard`, `compliance_mcp.py::compliance_change_impact` | `test_compliance_reasoning_v2_regressions.py` (F07, F08 cases) |
 | Q07 | `scenarios.py`, `compliance_mcp.py::compliance_draft_revisions`, change_pipeline `draft_revisions`/`impact_report` | `test_compliance_draft_revisions.py` |
-| Q08 | *(none — see disposition table)* | `test_compliance_reasoning_v2_questions.py::test_q08_*` (xfail) |
-| Q09 | *(none — see disposition table)* | `test_compliance_reasoning_v2_questions.py::test_q09_*` (xfail) |
+| Q08 | `constraints.py::infer_constraint_kind`, `intentionality.py::assess_intentionality`, `repository.py::record_policy_decision`/`get_policy_decisions`, `compliance_mcp.py::compliance_intentionality` | `test_compliance_intentionality.py`, `test_compliance_repository.py::test_policy_decision_round_trip` |
+| Q09 | `intentionality.py::find_flexibility`, `compliance_mcp.py::compliance_flexibility` | `test_compliance_intentionality.py` |
 | Q10 | `repository.py::traverse_relationships`, `compliance_mcp.py::compliance_trace` | `test_compliance_repository.py` |
 | Q11 | `compliance_mcp.py::compliance_prospective`, `currency.py` | `test_compliance_prospective.py`, `test_compliance_currency.py` |
 | Q12 | `scenarios.py::evaluate_scenario`, `comparison.py`, `constraints.py`, `compliance_mcp.py::compliance_scenario` | `test_compliance_scenarios.py`, `test_compliance_comparison.py`, `test_compliance_constraints.py` |
@@ -183,10 +187,17 @@ guards against).
   data** (never the real 625-item production queue): propose → approve →
   `approved_for()` returns the row → revoke → `approved_for()` returns
   empty. Receipt: `portal/modules/compliance/data/private/receipts_2026-09-05/review_ui_isolated_demo.json`.
-- No rollback of `compliance_store.db` itself was required or exercised
-  this task (`Repository.backup_to()`/`restore_from()` are unit-tested,
-  not live-exercised against the real store — noted as an unresolved
-  production prerequisite below).
+- `Repository.backup_to()`/`restore_from()` were exercised live against
+  the real `compliance_store.db` (not a test fixture): backup created,
+  restored to a fresh path, `source_documents` row count verified
+  identical (68) between live and restored copies.
+- `record_policy_decision()`/`get_policy_decisions()` (new this session,
+  backing Q08's `control_id` intentionality lookup) were round-trip
+  tested against a real `internal_controls` row: propose a decision,
+  read it back, confirm the rationale matches. No real decision exists in
+  the live corpus yet (no `internal_controls` rows populated — see D3 in
+  the SME packet), so Q08 against real data correctly reports
+  `intentionality.status: "unknown"`.
 
 ## Unresolved production prerequisites
 
@@ -199,17 +210,16 @@ guards against).
 2. No SME has approved any mapping in this environment — Q02/Q03/Q07/Q11's
    "empty" answers are correct-but-unhelpful until a real review pass
    happens. See `SME_REVIEW_START_HERE.md`.
-3. Q08 (intentional-strictness) and Q09 (unused-flexibility) have no
-   dedicated MCP tool — `xfail(strict=True)` in the acceptance suite until
-   built.
-4. `Repository.backup_to()`/`restore_from()` have never been exercised
-   against the live `compliance_store.db` in this environment.
-5. The formal `--mode live-closeout` manifest/receipts CLI harness
+3. No `internal_controls` row exists in this environment, so Q08's
+   `control_id` intentionality lookup has nothing real to find yet
+   (mechanism is built and tested; population is a genuine data-entry
+   prerequisite, same class of gap as item 2 — see D3 in the SME packet).
+4. The formal `--mode live-closeout` manifest/receipts CLI harness
    described in design §L1 was not built; this task's live verification
    used direct MCP/API calls with receipts saved to
    `portal/modules/compliance/data/private/receipts_2026-09-05/` as a
    pragmatic substitute.
-6. `nerc_cip_currency` disclosed at least one unabsorbed newer standard
+5. `nerc_cip_currency` disclosed at least one unabsorbed newer standard
    PDF on nerc.com not yet reflected in the register.
 
 ## Final verification commands and results
@@ -219,7 +229,7 @@ uv run pytest tests/unit/ -q                                       # PASS (see g
 uv run ruff check .                                                 # PASS
 uv run ruff format --check .                                        # PASS
 uv run pytest tests/acceptance/test_compliance_reasoning_v2_questions.py -q
-                                                                      # 9 passed, 2 xfailed (Q08/Q09) — LIVE STACK REQUIRED
+                                                                      # 11 passed — LIVE STACK REQUIRED
 ```
 
 `uv run mypy portal/`, the full `bash scripts/ci_local.sh`, and
@@ -232,12 +242,13 @@ document — re-run before the next push per CLAUDE.md Rule 10.
 
 **ENGINEERING_COMPLETE_WITH_DISCLOSED_GAPS.** All F01–F12 fixed and
 unit-tested. All twelve design-§9 questions reach a live, real-corpus
-route (Q08/Q09 correctly reach `NOT_BUILT`, not a wrong answer). The
-14-standard/193-obligation sweep proves F03's core safety property at
-real scale. The disclosed gaps above — legacy-store/canonical-store
-wiring split, zero approved SME mappings, Q08/Q09, no live backup/restore
-exercise, no formal closeout harness — are the genuine remaining work,
-not hidden behind this record. **Working entry point**: OWUI at the
+route and produce real output (11 tests passing live, no mocks, no
+xfails). The 14-standard/193-obligation sweep proves F03's core safety
+property at real scale; `backup_to`/`restore_from` were exercised live
+against the real store. The disclosed gaps above — legacy-store/canonical-store
+wiring split, zero approved SME mappings, zero populated `internal_controls`
+rows, no formal closeout harness — are the genuine remaining work, not
+hidden behind this record. **Working entry point**: OWUI at the
 configured host port, workspace `⚖️ Portal Compliance Analyst`
 (`auto-compliance`), or direct MCP calls to `http://localhost:8937/tools/<name>`.
 **SME start-here**: `portal/modules/compliance/data/private/SME_REVIEW_START_HERE.md`

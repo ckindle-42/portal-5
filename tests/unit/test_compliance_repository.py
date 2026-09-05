@@ -356,6 +356,25 @@ def test_traversal_only_sees_approved_edges_by_default(repo):
 
 
 # ── backup / restore ─────────────────────────────────────────────────────
+def test_policy_decision_round_trip(repo):
+    repo.upsert_source_document(SourceDocument("DOC-1", "T", "i", "policy", "US"))
+    rev = repo.add_document_revision("DOC-1", "policy.pdf", b"policy text")
+    repo._conn.execute(
+        "INSERT INTO internal_controls(control_id, revision_id, title) VALUES (?,?,?)",
+        ("CTRL-1", rev.revision_id, "Patch evaluation cadence"),
+    )
+    repo._conn.commit()
+
+    assert repo.get_policy_decisions("CTRL-1") == []
+    decision_id = repo.record_policy_decision(
+        "CTRL-1", rationale="tightened for insurance requirement", owner="security-team"
+    )
+    decisions = repo.get_policy_decisions("CTRL-1")
+    assert len(decisions) == 1
+    assert decisions[0]["decision_id"] == decision_id
+    assert decisions[0]["rationale"] == "tightened for insurance requirement"
+
+
 def test_backup_and_restore_roundtrip(repo, tmp_path):
     repo.upsert_source_document(SourceDocument("DOC-1", "T", "i", "policy", "US"))
     repo.add_document_revision("DOC-1", "policy.pdf", b"text")

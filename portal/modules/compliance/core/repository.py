@@ -574,5 +574,49 @@ class Repository:
             )
         return snap
 
+    # ── policy decisions (Q08 intentionality record) ───────────────────
+    def record_policy_decision(
+        self,
+        control_id: str,
+        rationale: str,
+        owner: str = "",
+        approving_authority: str = "",
+        review_date: str | None = None,
+        org_id: str = "default",
+    ) -> str:
+        decision_id = _new_id()
+        with self._lock, self._conn:
+            self._conn.execute(
+                "INSERT INTO policy_decisions(decision_id, control_id, rationale, owner,"
+                " approving_authority, review_date, org_id) VALUES (?,?,?,?,?,?,?)",
+                (
+                    decision_id,
+                    control_id,
+                    rationale,
+                    owner,
+                    approving_authority,
+                    review_date,
+                    org_id,
+                ),
+            )
+        return decision_id
+
+    def get_policy_decisions(self, control_id: str) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT decision_id, control_id, rationale, owner, approving_authority,"
+            " review_date, org_id FROM policy_decisions WHERE control_id = ?",
+            (control_id,),
+        ).fetchall()
+        cols = (
+            "decision_id",
+            "control_id",
+            "rationale",
+            "owner",
+            "approving_authority",
+            "review_date",
+            "org_id",
+        )
+        return [dict(zip(cols, row, strict=True)) for row in rows]
+
     def as_dict(self, obj) -> dict:
         return asdict(obj)

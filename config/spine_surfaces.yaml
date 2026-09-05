@@ -84,6 +84,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/ingest.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-intentionality
+  globs:
+  - portal/modules/compliance/core/intentionality.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-mapping_store
   globs:
   - portal/modules/compliance/core/mapping_store.py

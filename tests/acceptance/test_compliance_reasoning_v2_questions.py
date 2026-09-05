@@ -10,11 +10,10 @@ reason — never silently mocked to a green result. Run with the stack up:
 
     uv run pytest tests/acceptance/test_compliance_reasoning_v2_questions.py -q
 
-Q08 and Q09 (intentional-strictness and flexibility-gap analysis) have no
-dedicated MCP tool as of this task's close — see
-``reports/compliance/REASONING_V2_ACCEPTANCE.md`` — so they are marked
-xfail(strict=True) rather than skipped, so a future tool landing without
-updating this file fails loudly instead of staying silently green.
+Q08 (``compliance_intentionality``) and Q09 (``compliance_flexibility``)
+are cue-word-level tools, not full semantic obligation modeling — see
+``reports/compliance/REASONING_V2_ACCEPTANCE.md`` for the documented
+scope limits.
 """
 
 from __future__ import annotations
@@ -102,23 +101,25 @@ def test_q07_what_changes_would_improve_alignment():
     assert "specifications" in result
 
 
-@pytest.mark.xfail(
-    reason="Q08 (intentional-strictness classification) has no dedicated MCP "
-    "tool yet — deterministic primitives exist in constraints.py/comparison.py "
-    "but are not wired to a callable operation. See REASONING_V2_ACCEPTANCE.md.",
-    strict=True,
-)
 def test_q08_internal_rules_more_restrictive_and_intentional():
-    _call("compliance_intentionality", {"requirement_id": _REAL_PART})
+    result = _call(
+        "compliance_intentionality",
+        {
+            "requirement_id": _REAL_PART,
+            "internal_text": "We evaluate security patches at least once every 21 calendar days.",
+        },
+    )
+    assert result["comparisons"][0]["result"] == "MORE_RESTRICTIVE"
+    # F-safety: no control_id supplied means intent must be reported
+    # unknown, never inferred from the comparison alone.
+    assert result["intentionality"]["status"] == "unknown"
 
 
-@pytest.mark.xfail(
-    reason="Q09 (unused regulatory flexibility) has no dedicated MCP tool yet. "
-    "See REASONING_V2_ACCEPTANCE.md.",
-    strict=True,
-)
 def test_q09_where_does_regulation_permit_flexibility_we_do_not_use():
-    _call("compliance_flexibility", {"requirement_id": _REAL_PART})
+    # CIP-004-7 R1 Part 1.1 has a real, sourced "may include" clause.
+    result = _call("compliance_flexibility", {"requirement_id": "CIP-004-7 R1 Part 1.1"})
+    assert len(result["candidate_alternatives"]) >= 1
+    assert "may" in result["candidate_alternatives"][0].lower()
 
 
 def test_q10_connected_documents_controls_evidence_systems_roles():
