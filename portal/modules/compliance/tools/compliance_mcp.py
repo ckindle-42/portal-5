@@ -466,6 +466,9 @@ def compliance_gaps(
                 {
                     "requirement_id": c.requirement_id,
                     "coverage": c.coverage,
+                    "substantively_resolved": c.substantively_resolved,
+                    "retrieval_errors": c.retrieval_errors,
+                    "note": c.note,
                     "policy_citation": _compact_citation(c.policy_spans),
                     "procedure_citation": _compact_citation(c.procedure_spans),
                     "gap_quote": (
