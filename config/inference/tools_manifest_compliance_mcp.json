@@ -338,7 +338,7 @@
     "type": "function",
     "function": {
       "name": "compliance_review_decide",
-      "description": "Confirm or reject one open review-queue item. Reversible: writes a new row superseding the prior one; nothing is overwritten. Confirming a mapping_proposal approves it in the mapping store directly.",
+      "description": "Confirm or reject one open review-queue item. Reversible: writes a new row superseding the prior one; nothing is overwritten. Confirming a mapping_proposal approves it in the mapping store directly. Requires an operator-issued reviewer_token; decided_by is caller-supplied context only and is NOT what gets recorded as the deciding principal.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -357,12 +357,17 @@
           },
           "corrected_value": {
             "type": "object"
+          },
+          "reviewer_token": {
+            "type": "string",
+            "description": "Operator-issued token identifying the authenticated reviewer. Without a valid token the decision is rejected (status: UNAUTHENTICATED) — this tool cannot record a review decision on the LLM's own authority."
           }
         },
         "required": [
           "item_id",
           "decision",
-          "decided_by"
+          "decided_by",
+          "reviewer_token"
         ]
       }
     }

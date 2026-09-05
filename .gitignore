@@ -135,3 +135,5 @@ portal/modules/compliance/data/compliance_store.db
 portal/modules/compliance/data/compliance_store.db-wal
 portal/modules/compliance/data/compliance_store.db-shm
 portal/modules/compliance/data/private/
+# P7/F09: operator-issued reviewer tokens — a secret, never committed.
+portal/modules/compliance/data/compliance_reviewers.json

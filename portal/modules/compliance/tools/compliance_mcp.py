@@ -635,17 +635,37 @@ def compliance_review_list(kind: str = "", status: str = "OPEN") -> dict:
 
 @mcp.tool()
 def compliance_review_decide(
-    item_id: str, decision: str, decided_by: str, corrected_value: dict | None = None
+    item_id: str,
+    decision: str,
+    decided_by: str,
+    corrected_value: dict | None = None,
+    reviewer_token: str = "",
 ) -> dict:
     """Confirm or reject one open queue item. Reversible: writes a NEW row
     superseding the prior one via prior_item_id; nothing is overwritten. A
     confirmed mapping_proposal is approved in the mapping store directly — no
-    parallel proposal path."""
+    parallel proposal path.
+
+    ``reviewer_token`` is required (P7/F09): authority is never taken from
+    the caller-supplied ``decided_by`` string, which a model can set to
+    anything. The token must match an operator-configured entry in
+    ``core.auth.REVIEWERS_PATH``; the recorded ``decided_by`` is the verified
+    principal's name, not the caller's ``decided_by`` argument (kept only as
+    ``caller_label`` for audit)."""
+    from portal.modules.compliance.core.auth import UnauthenticatedReviewError, verify_reviewer
+
+    try:
+        verified_by = verify_reviewer(reviewer_token)
+    except UnauthenticatedReviewError as exc:
+        return {"error": str(exc), "status": "UNAUTHENTICATED"}
+
     try:
         from portal.modules.compliance.core import review_queue as rq
         from portal.modules.compliance.core.mapping_store import MappingStore
 
-        new_item = rq.decide(item_id, decision, decided_by, corrected_value)
+        caller_label = decided_by
+        new_item = rq.decide(item_id, decision, verified_by, corrected_value)
+        decided_by = verified_by
         mapping_error = None
         if new_item.kind == "mapping_proposal":
             store = MappingStore()
@@ -666,6 +686,7 @@ def compliance_review_decide(
                 # did not happen.
                 mapping_error = f"mapping target not found: {exc}"
         result = dataclasses.asdict(new_item)
+        result["caller_label"] = caller_label  # audit only — never authoritative
         if mapping_error:
             result["mapping_error"] = mapping_error
         return result

@@ -44,6 +44,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/applicability.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-auth
+  globs:
+  - portal/modules/compliance/core/auth.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-change_pipeline
   globs:
   - portal/modules/compliance/core/change_pipeline.py
