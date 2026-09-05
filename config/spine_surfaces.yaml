@@ -128,6 +128,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/review_queue.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-scenarios
+  globs:
+  - portal/modules/compliance/core/scenarios.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-scope_derive
   globs:
   - portal/modules/compliance/core/scope_derive.py

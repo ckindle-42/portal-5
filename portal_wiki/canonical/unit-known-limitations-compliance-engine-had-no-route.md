@@ -11,7 +11,7 @@ sources:
   path: config/portal.yaml
 claims:
 - probe: compliance.workspace_tools
-  contains: "all_reachable:15"
+  contains: "all_reachable:16"
 confidence: high
 tags:
 - docs
