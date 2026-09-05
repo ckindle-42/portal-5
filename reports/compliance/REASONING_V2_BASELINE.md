@@ -117,25 +117,119 @@ new revision with the old revision still resolving, decision concurrency
 as-known replay (a query "as of" a timestamp before/after a decision reflects
 what was known then, not the current mutated state).
 
-**What P2 explicitly does NOT do**: it does not yet WIRE `coverage.py`,
-`propose.py`, or `compliance_mcp.py` to read/write through this repository —
-those modules still use the pre-existing JSON `MappingStore`/`Register`/
-LanceDB `review_queue`. Reconciling P1's engine with this new store (so the
-engine actually reads from `Repository` instead of the JSON files) is P3-P7
-integration work, not yet done. `PostgreSQL` (the multi-host alternative this
-design names) was not evaluated because no multi-host deployment was
-discovered in this environment.
+**What P2 explicitly does NOT do**: it does not yet WIRE `coverage.py` or
+`propose.py` to read/write through this repository — those modules still use
+the pre-existing JSON `MappingStore`/`Register`. `compliance_mcp.py` now has
+TWO operations reading from the repository (`compliance_sources`,
+`compliance_trace` — see P4/P7 below), but the main gap-analysis/mapping path
+(`compliance_gaps`, `compliance_mappings`) does not. `PostgreSQL` (the
+multi-host alternative this design names) was not evaluated because no
+multi-host deployment was discovered in this environment.
+
+## P3 slices landed (not full P3)
+
+Two of P3's named defects (F02, F07) got bounded, additive fixes; the large
+P3 items — verified official-index catalog ingestion, requirement-hierarchy/
+obligation-atom parsing with AND/OR/exception structure, independent
+completeness manifests, and per-jurisdiction phased effectivity — are **NOT
+implemented**.
+
+- **F07 (`core/applicability.py`, `core/scope_derive.py`):** a new
+  `applicability_state()` returns a real four-state result (APPLIES/
+  DOES_NOT_APPLY/UNKNOWN/CONFLICTED); a corpus-derived scope is now
+  `AssetScope.is_confirmed == False` and reports UNKNOWN rather than being
+  promotable to an approved determination; a blank Part cell is UNKNOWN, not
+  defaulted to high+medium. The pre-existing two-state `applicable()` —
+  the function `coverage_matrix` actually gates on — is **deliberately left
+  behaviorally unchanged** (its docstring explains why: wiring the live gate
+  onto four-state confirmation checking without a corresponding UNKNOWN-aware
+  cell type in `coverage.py` would trade one F07 shortcut for another).
+  Wiring the live gate onto the four-state result is P5/P7 integration work.
+- **F02, second half (`core/currency.py`):** `_next_versions` now also
+  probes a decimal/errata candidate (not just the next two integer versions),
+  and a new `discover_new_families()` probes beyond the highest held family
+  number. Both are PDF-reachability discovery signals only — not a verified
+  official index, which is the actual P3.1/P3.6 catalog-ingestion work.
+
+## P4 slice landed (not full P4)
+
+`Repository.traverse_relationships()` + the `compliance_trace` MCP tool:
+forward/reverse/both-direction, cycle-safe, depth- and work-budget-bounded
+graph traversal over the P2 store's `relationship_assertions`, with typed
+edges (status, citations, validity) and explicit `depth_limited_nodes`/
+`unexplored_frontier` disclosure. Verifies the exact P4 exit criterion named
+in the design doc ("a cross-standard control is found in both directions").
+**NOT implemented**: the retrieval-arm changes (P4.4/P4.5 — threading
+temporal/access predicates through lexical/vector search before ranking,
+enabling FTS, cross-standard eligibility beyond the existing folder-hint
+logic) and anchor validation against immutable revision text (P4.7) — those
+require the live retrieval stack and are unattempted.
+
+## P5 slice landed (not full P5)
+
+`core/comparison.py` (`evaluate_expression` — ALL_OF/ANY_OF/AT_LEAST_N over
+already-classified per-atom statuses) and `core/constraints.py`
+(`compare_constraint` — real comparator direction: a shorter maximum
+interval is stricter, a shorter minimum retention is weaker). Both are
+deterministic logic that does not itself require obligation-atom extraction
+or LLM calls. **NOT implemented**: the actual field-level obligation-vs-
+implementation comparison that produces the per-atom SUPPORTED/CONTRADICTED/
+UNRESOLVED classification these two modules consume (design §6.2's "compare
+actor, action, object, population, trigger...") — that requires either P3's
+obligation-atom extraction or bounded LLM calls with preserved model/prompt/
+rule versions (design §6.3), neither attempted. `core/assessment.py` (the
+result-dimension combiner) is also not implemented. So while these two
+modules are real and tested, nothing in the live `coverage_matrix` path
+calls them yet — they are unwired foundations for a real P5 assessment
+engine, not a working end-to-end comparison.
+
+## P7 slices landed (not full P7)
+
+- **F09, authenticated identity (`core/auth.py`):** `compliance_review_decide`
+  now requires an operator-issued `reviewer_token` (configured out-of-band,
+  gitignored); the recorded `decided_by` is the verified principal, never
+  caller-supplied text. No platform-wide user-identity propagation through
+  MCP tool calls was built (would require modifying the Pipeline/MCP request
+  plumbing across the whole platform — out of scope, in tension with "MCP
+  Servers Are Independent Services").
+- **`compliance_sources`:** exact permitted source context from the P2 store,
+  with file-drift integrity checking.
+- **`compliance_trace`:** see P4 above.
+- **NOT implemented**: `compliance_requirement`, `compliance_analyze`,
+  `compliance_compare`, `compliance_impact`, `compliance_scenario`
+  (design §9's remaining six operations); the review-decision path still
+  writes to the legacy JSON `MappingStore`/LanceDB `review_queue`, not the P2
+  repository's `relationship_assertions`/`review_events`; async analysis
+  jobs (start/status/result/cancel) do not exist.
 
 ## Honest scope statement (read before treating this as a closeout)
 
 This report and its companion `REASONING_V2_REUSE_DECISIONS.md` close **P0**
-(P0-R was not started — see that file), and this session completed **P1**
-(dangerous verdict/selection corrections) and **P2** (the canonical store,
-described above). **P3 through P9 — governed catalog/obligation extraction,
-hybrid traceability, the comparison/assessment engine, change propagation,
-authenticated review workflow wired to real identity, the 30-case acceptance
-matrix, the live-corpus P8-L rerun, and the SME packet — are NOT implemented
-in this session.** Critically, the new P2 store is not yet the thing the
-engine actually reads from — that wiring is P3-P7 work. The module's
-engineering status is **ENGINEERING_INCOMPLETE**, not
-`ENGINEERING_COMPLETE_READY_FOR_SME_REVIEW`.
+(P0-R was not started — see that file). This session landed **P1** in full
+(the seven dangerous-verdict corrections) and **P2** in full (the canonical
+store's schema/repository/migration, described above), plus **bounded,
+additive slices of P3, P4, P5, and P7** described above — each real, tested,
+and independently valuable, but none of those four phases is complete.
+
+**What is still entirely unimplemented:** the bulk of P3 (verified catalog
+ingestion, obligation-atom/AND-OR extraction, completeness manifests, phased
+effectivity), the bulk of P4 (retrieval-arm predicate threading, anchor
+validation), the bulk of P5 (the actual field-level comparison engine and
+result-dimension assessment), P6 in full (change propagation, scenarios,
+draft patches), the bulk of P7 (the six remaining operator operations,
+review-decision writes through the P2 store, async jobs), P8 in full (the
+30-case acceptance matrix, and critically **P8-L's mandatory live-corpus
+rerun against the real LSPG-CIP documents — never attempted**), and P9 in
+full (the SME packet, final documentation reconciliation).
+
+No live retrieval, no live LLM calls, and no reingestion of the real operator
+corpus happened in this session. Every test in every commit above runs
+against synthetic/mocked fixtures. The twelve operator questions in design
+§9 have NOT been exercised end-to-end through the actual workspace/persona
+route for a single one of them.
+
+The module's engineering status is **ENGINEERING_INCOMPLETE**, not
+`ENGINEERING_COMPLETE_READY_FOR_SME_REVIEW`, and is not close to that bar —
+what has landed removes specific, real, dangerous defects and lays real
+(tested, but unwired-to-production) foundations for several later phases.
+It does not constitute a working end-to-end compliance reasoning system.
