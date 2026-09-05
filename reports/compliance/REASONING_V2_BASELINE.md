@@ -276,28 +276,55 @@ was used for real — this is genuine P8-L work, not simulated:
   "unverifiable" in the real deployment because `import_document_directory`
   stored a directory-relative path where a live check needs a real
   resolvable one.
-- **One finding was NOT resolved**: the live `auto-compliance` persona,
-  called through the real `portal-pipeline` `/v1/chat/completions` endpoint
-  with `nerc_cip_requirement` available and clearly described, still chose
-  `browser_navigate`/`web_search` over it for a canonical Q01-style prompt
-  ("what does CIP-007-6 R2 Part 2.2 require right now") across five repeated
-  attempts, even after fixing the persona's `system_prompt_append` (the field
-  the Pipeline actually injects for direct API calls — `owui_system_prompt`
-  only affects OWUI's own preset UI and was a dead end for this path) and
-  strengthening the tool's manifest description. The root cause of the
-  original defect (an explicit, wrong "prefer browser_navigate to nerc.com"
-  instruction) is confirmed and fixed; the model's residual preference for
-  browser/web tools over the local register on this exact phrasing is a
-  live, reproducible, **still-open** finding — disposition
-  `QUALIFIED_REAL_RESULT`, not `POSITIVE_REAL_VALIDATION`, for Q01's routing
-  specifically. Root-causing this further (tool ordering, a possible
-  tool-count/context-budget effect, or the base model's own tool-choice
-  bias) was not completed in this session.
-- **Still not done**: a full run of all twelve Q01-Q12 variants end-to-end
-  through the live persona route with inspected traces, the complete
-  standard-by-standard sweep across all 14 held standards, the formal
-  `--mode live-closeout` manifest/receipts harness described in P8-L §L1
-  (not built — the live verification above used direct tool/API calls and
-  ad hoc private receipts under `portal/modules/compliance/data/private/`
-  instead of that harness), and the SME packet. The engineering status
-  remains **ENGINEERING_INCOMPLETE**.
+- **The Q01 routing finding was root-caused and fixed.** Tracing why the
+  fixed instructions still didn't change the model's tool choice led to the
+  real bug: `ToolRegistry._discover_one()` assumed every MCP's `/tools`
+  endpoint returns the flat shape (`{"name", "description", "parameters"}`);
+  the compliance MCP's manifest uses the OpenAI-wrapped shape
+  (`{"type": "function", "function": {"name": ...}}`), so `tdef.get("name")`
+  was `None` for every one of its ~30 tools and silently dropped ALL of
+  them from the registry. This is why forcing `tool_choice=required` for
+  `nerc_cip_requirement` produced an empty schema and a narrated pseudo-call
+  instead of a real tool call. Fixed by unwrapping either shape in
+  discovery; live tool count went from 79 to 123 (several other servers
+  shared this manifest convention and were equally invisible). Also added a
+  `_select_explicit_required_tool` forcing rule for CIP-ID-naming
+  "require/say/state/mean/text" prompts — this does not depend on the
+  model's own judgment. **Live-verified after rebuilding and redeploying the
+  pipeline image**: "What does CIP-007-6 R2 Part 2.2 actually require right
+  now?" now returns a complete, correct answer with the exact verbatim
+  register text, correct lifecycle dates, and related 800-53 controls,
+  through the real deployed workspace. Disposition: `POSITIVE_REAL_VALIDATION`
+  for Q01.
+- **All twelve operator questions now have a live MCP route.** Added
+  `compliance_prospective` (Q11), `compliance_scenario` (Q12), and
+  `compliance_draft_revisions` (Q07) — the three operations that had zero
+  route before this session's P8-L work. Live-verified each against the
+  real corpus: `compliance_prospective` honestly reports zero known
+  future-effective content (a real `QUALIFIED_REAL_RESULT`, consistent with
+  `nerc_cip_currency`'s live finding that newer PDFs exist on nerc.com but
+  are not yet in the register); `compliance_scenario` correctly injected a
+  real proposed patch for CIP-007-6 R2 Part 2.2 and the F05 comparison logic
+  applied uniformly to it; `compliance_draft_revisions` against the real
+  CIP-003-8→9 transition honestly reports zero sections (no mapping has been
+  approved yet in this environment). Q08/Q09 (intentional strictness,
+  flexibility) still lack a DEDICATED tool — their underlying deterministic
+  primitives (`constraints.py`, `comparison.py`) exist and are unit-tested,
+  but nothing routes a live question to them yet.
+- **Ran the full P8-L standard sweep**: all 14 held standards, 193
+  obligations examined against the real corpus. Zero `FULL`, zero
+  `PARTIAL`, zero `NONE` verdicts anywhere — the exact safety property P1
+  exists to guarantee, now confirmed at full real-corpus scale, not just
+  spot checks. Raw per-standard receipts are private
+  (`portal/modules/compliance/data/private/`, gitignored).
+- **Still not done**: the formal `--mode live-closeout` manifest/receipts
+  harness described in P8-L §L1 (the live verification above used direct
+  tool/API calls and ad hoc private receipts instead of that harness); a
+  dedicated Q08/Q09 tool; P5's actual field-level obligation-vs-implementation
+  comparison (the qualification-only signal this session's tools use is not
+  a documented-alignment verdict); P6's full ordered implementation-plan
+  generator; and the SME packet (see `SME_REVIEW_START_HERE.md`, written
+  separately). The engineering status is **ENGINEERING_INCOMPLETE** for
+  those items, while the twelve-operation routing and the safety properties
+  (F01-F10, F02's discovery) are now live-verified rather than merely unit
+  tested.
