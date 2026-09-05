@@ -13,6 +13,67 @@ from portal.platform.inference.tool_registry import (
 )
 
 
+class TestOpenAIWrappedToolShape:
+    """TASK_COMPLIANCE_REASONING_V2 P8-L live finding: the compliance MCP's
+    /tools endpoint returns OpenAI-wrapped entries
+    ({"type": "function", "function": {"name": ..., ...}}) while every other
+    server returns the flat shape ({"name": ..., ...}) discovery expects —
+    tdef.get("name") silently returned None for every one of them, so no
+    compliance tool was EVER in the registry despite the server answering
+    200 with real tools. Verified live: get_openai_tools(["nerc_cip_requirement"])
+    returned [] even immediately after a forced refresh against the real
+    running compliance-mcp service."""
+
+    @pytest.mark.asyncio
+    async def test_openai_wrapped_tools_are_discovered_not_silently_dropped(self):
+        tr = ToolRegistry()
+        tr._last_refresh = 0
+        mock_client = MagicMock()
+
+        async def mock_get(url):
+            resp = MagicMock()
+            resp.status_code = 200
+            resp.json.return_value = {
+                "tools": [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "nerc_cip_requirement",
+                            "description": "desc",
+                            "parameters": {"type": "object", "properties": {}},
+                        },
+                    }
+                ]
+            }
+            return resp
+
+        mock_client.get = mock_get
+        with patch.object(tr, "_client", return_value=mock_client):
+            await tr.refresh(force=True)
+
+        assert tr.get("nerc_cip_requirement") is not None
+        assert tr.get_openai_tools(["nerc_cip_requirement"])
+
+    @pytest.mark.asyncio
+    async def test_flat_shape_still_works_unchanged(self):
+        """The pre-existing, more common convention must be unaffected."""
+        tr = ToolRegistry()
+        tr._last_refresh = 0
+        mock_client = MagicMock()
+
+        async def mock_get(url):
+            resp = MagicMock()
+            resp.status_code = 200
+            resp.json.return_value = [{"name": "flat_tool", "description": "d"}]
+            return resp
+
+        mock_client.get = mock_get
+        with patch.object(tr, "_client", return_value=mock_client):
+            await tr.refresh(force=True)
+
+        assert tr.get("flat_tool") is not None
+
+
 class TestRefreshCarryForward:
     """TR1: Preserve tools of failed servers during refresh."""
 

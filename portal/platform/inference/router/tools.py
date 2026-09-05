@@ -24,6 +24,19 @@ logger = logging.getLogger(__name__)
 
 _CREATE_ACTION_RE = re.compile(r"\b(?:build|create|generate|make|produce|save)\b")
 _RUN_ACTION_RE = re.compile(r"\b(?:execute|run)\b")
+# TASK_COMPLIANCE_REASONING_V2 P8-L live finding: with the full compliance
+# tool set offered under tool_choice=auto, the deployed model repeatedly
+# chose browser_navigate/web_search over nerc_cip_requirement for an exact
+# "what does CIP-XXX-Y RZ require" question even after its description and
+# the persona's system_prompt_append were both corrected to prefer it —
+# fixing the instructions did not change the model's own tool-choice
+# judgment. Forcing tool_choice=required with a single-tool schema (the same
+# mechanism already used for create_word_document/execute_python below) does
+# not depend on that judgment.
+_CIP_ID_RE = re.compile(r"\bcip-\d{3}(?:-\d+(?:\.\d+\w*)?)?\b")
+_REQUIREMENT_LOOKUP_RE = re.compile(
+    r"\b(require|requires|requirement|requirements|say|says|state|states|mean|means|text|verbatim)\b"
+)
 
 
 def _last_user_content(messages: list[dict]) -> str:
@@ -58,6 +71,10 @@ def _select_explicit_required_tool(messages: list[dict], effective_tools: set[st
         return None
 
     candidates: list[tuple[str, bool]] = [
+        (
+            "nerc_cip_requirement",
+            bool(_CIP_ID_RE.search(text)) and bool(_REQUIREMENT_LOOKUP_RE.search(text)),
+        ),
         (
             "create_powerpoint",
             bool(_CREATE_ACTION_RE.search(text))
