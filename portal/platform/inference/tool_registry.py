@@ -202,7 +202,17 @@ class ToolRegistry:
                     succeeded_servers.add(server_id)
                     payload = r.json()
                     tools = payload if isinstance(payload, list) else payload.get("tools", [])
-                    for tdef in tools:
+                    for raw in tools:
+                        # Most `/tools` manifests are flat
+                        # ({"name", "description", "parameters"}); at least
+                        # one server's (compliance) uses the OpenAI-wrapped
+                        # shape ({"type": "function", "function": {...}}).
+                        # Unwrap so this one server's convention doesn't
+                        # silently drop every one of its tools from
+                        # discovery (found live, P8-L: get_openai_tools(
+                        # ["nerc_cip_requirement"]) returned [] even though
+                        # the server's /tools endpoint listed it).
+                        tdef = raw["function"] if isinstance(raw.get("function"), dict) else raw
                         name = tdef.get("name")
                         if not name:
                             continue

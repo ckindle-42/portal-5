@@ -1510,6 +1510,54 @@ class TestExplicitRequiredToolSelection:
             is None
         )
 
+    @pytest.mark.parametrize(
+        "prompt",
+        [
+            "What does CIP-007-6 R2 Part 2.2 actually require right now, as of today?",
+            "What does CIP-003-9 Attachment 1 Part 6 say?",
+            "What is the exact text of CIP-002-5.1a R1?",
+        ],
+    )
+    def test_forces_nerc_cip_requirement_over_web_search_for_a_named_standard(self, prompt):
+        """TASK_COMPLIANCE_REASONING_V2 P8-L live finding: with the full tool
+        set under tool_choice=auto, the deployed model repeatedly chose
+        browser_navigate/web_search over nerc_cip_requirement for exactly
+        this phrasing even after its description and the persona's
+        system_prompt were both corrected. Forcing the tool via this
+        mechanism does not depend on the model's own judgment."""
+        from portal.platform.inference.router_pipe import _select_explicit_required_tool
+
+        available = {"nerc_cip_requirement", "web_search", "browser_navigate", "compliance_gaps"}
+        assert (
+            _select_explicit_required_tool([{"role": "user", "content": prompt}], available)
+            == "nerc_cip_requirement"
+        )
+
+    def test_does_not_force_nerc_cip_requirement_without_the_tool_available(self):
+        from portal.platform.inference.router_pipe import _select_explicit_required_tool
+
+        assert (
+            _select_explicit_required_tool(
+                [{"role": "user", "content": "What does CIP-007-6 R2 require?"}],
+                {"web_search"},
+            )
+            is None
+        )
+
+    def test_does_not_force_nerc_cip_requirement_for_a_mapping_question(self):
+        """A CIP id alone, with no "require/say/mean/text" cue, is not
+        confident enough to force a single-tool schema — e.g. a mapping or
+        gap question naming a standard should keep the full tool set."""
+        from portal.platform.inference.router_pipe import _select_explicit_required_tool
+
+        assert (
+            _select_explicit_required_tool(
+                [{"role": "user", "content": "Which of our procedures map to CIP-007-6 R2?"}],
+                {"nerc_cip_requirement", "compliance_mappings"},
+            )
+            is None
+        )
+
 
 class TestPersonasHaveToolFields:
     """Verify M2+M3 persona YAMLs have correct tool fields."""
