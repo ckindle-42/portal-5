@@ -92,6 +92,8 @@ sources:
 - type: code
   path: tests/unit/test_compliance_intentionality.py
 - type: code
+  path: tests/unit/test_compliance_mapping_store_consolidation.py
+- type: code
   path: tests/unit/test_compliance_comparison.py
 - type: code
   path: tests/unit/test_compliance_constraints.py
@@ -196,6 +198,15 @@ prompt instruction.
   judgement; a corrected coverage token is recorded as an override, and the
   **SME override rate** is the trust signal. Approved rows accumulate as the
   labelled eval set. The operator's mappings never leave their machine.
+  TASK_COMPLIANCE_STORE_CONSOLIDATION_V1: `MappingStore` is now a facade over
+  the P2 canonical `Repository` (schema migration 5 added
+  `coverage`/`proposed_coverage`/`confidence` to `relationship_assertions`) —
+  a coverage mapping IS the same edge `compliance_trace` traverses, not a
+  second JSON-backed data model. `MappingStore()`'s default path now equals
+  `Repository()`'s default (`compliance_store.db`), so approving a mapping
+  and traversing it via `compliance_trace` see the identical row. Every
+  public method's signature is unchanged (`Mapping` stays a plain dataclass);
+  only the storage backend moved.
 - `core/applicability.py` — the `[GATE]`. Dimensions (`impact_present`,
   `associated_present`, `has_erc`, `has_control_center`) are derived from the
   register's `applicable_systems` column. `AssetScope` is **operator input** —

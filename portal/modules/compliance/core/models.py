@@ -108,6 +108,12 @@ class RelationshipAssertion:
     decided_at: str | None = None
     version: int = 1  # optimistic concurrency token
     org_id: str = "default"
+    # migration 5 (TASK_COMPLIANCE_STORE_CONSOLIDATION_V1): a requirement<->
+    # document edge's coverage verdict. Empty string for edges that carry no
+    # coverage judgement (e.g. a pure CROSS_REFERENCES structural edge).
+    coverage: str = ""  # FULL | PARTIAL | NONE | NOT_APPLICABLE | NEEDS_REVIEW | ""
+    proposed_coverage: str = ""  # what the system proposed — feeds the SME override rate
+    confidence: float = 0.0
 
 
 @dataclass

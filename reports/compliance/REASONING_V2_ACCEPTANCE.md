@@ -143,33 +143,38 @@ guards against).
   is honestly *not* claiming to have accounted for (currency ≠
   future-effectivity; they are two different questions and this task
   keeps them separate per design).
-- The P2 canonical store (`compliance_store.db`) has `source_documents`,
-  `document_revisions` (68 rows each — the full real corpus, migrated),
-  `requirement_nodes` (254), `standard_revisions` (14), and
-  `effectivity_assertions` (254) populated. `relationship_assertions`,
-  `obligation_atoms`, `obligation_expressions`, `claims`,
-  `internal_controls`, `entity_profiles`, `systems`, `roles`,
-  `evidence_specs`, `activities`, `asset_groups`, `findings`,
-  `work_items`, `policy_decisions`, `authority_assertions`,
-  `scope_revisions`, `corpus_snapshots`, and `index_manifests` are **all
-  zero rows**. Only `compliance_sources` and `compliance_trace` read the
-  canonical store live; every other operator tool (`compliance_gaps`,
-  `compliance_mappings`, `compliance_route`, `compliance_scenario`,
-  `compliance_draft_revisions`, `compliance_prospective`) still reads the
-  pre-existing in-memory `Register`/`MappingStore` JSON path. **This is the
-  single largest unresolved architectural gap**: P2 built and
-  ingested-tested the bitemporal store this task specified, but P3–P7's
-  operator tools were not migrated to read/write through it — they were
-  built (correctly, per the design's own tool signatures) against the
-  faster-to-wire legacy stores. A future task should either migrate the
-  remaining tools onto `Repository`, or explicitly declare the legacy
-  JSON stores the production path and demote the unused canonical tables.
-- Q02/Q03/Q07/Q11's "honest-empty" results above are a direct symptom of
-  this: `compliance_mappings` reports `count: 0` because no SME has
-  approved a mapping in `compliance_mappings.json`/`compliance_store.db`
-  in this environment — not because the corpus lacks implementing
-  documents. A real SME review pass (the SME packet below) is a genuine,
-  not cosmetic, prerequisite to a non-empty Q02/Q07 answer.
+- **RESOLVED this session** (`TASK_COMPLIANCE_STORE_CONSOLIDATION_V1`): the
+  legacy `MappingStore` JSON store and the P2 canonical `Repository` are no
+  longer two disagreeing sources of truth. Schema migration 5 added
+  `coverage`/`proposed_coverage`/`confidence` columns to
+  `relationship_assertions`; `MappingStore` was rewritten as a facade over
+  `Repository` (same public `Mapping` dataclass and method signatures — zero
+  changes needed in `coverage.py`, `compliance_mcp.py`'s calling
+  convention, or any of the 105 pre-existing tests exercising those call
+  sites). `MappingStore()`'s default path now equals `Repository()`'s
+  default (`compliance_store.db`), so `compliance_mappings`,
+  `compliance_gaps`, `compliance_route`, `compliance_scenario`, and
+  `compliance_draft_revisions` — every mapping-consuming tool — now read
+  and write the SAME rows `compliance_sources`/`compliance_trace` already
+  traversed. Live-verified: proposing and approving a real mapping through
+  `MappingStore` made it appear, with matching `assertion_id`, in both
+  `compliance_mappings` and `compliance_trace`'s output in the same call
+  session; revoking it (F09) removed it from both immediately. The
+  14-standard/193-obligation sweep was re-run against the migrated live
+  store afterward — same result, 0 FULL/PARTIAL/NONE, confirming the
+  migration didn't regress F03's safety property. A latent, previously-
+  untested bug was fixed in the process: `decide_relationship`'s
+  `CORRECTED` branch wrote the coverage-override value into the `status`
+  column (which only accepts proposed/approved/rejected/revoked/stale) —
+  any real coverage string would have raised a CHECK-constraint error the
+  first time this path was actually exercised with live data.
+- Q02/Q03/Q07/Q11's "honest-empty" results above are NOT a wiring gap —
+  `compliance_mappings` reports `count: 0` because no SME has approved a
+  mapping in this environment yet, verified against the single, now-
+  consolidated store. A real SME review pass (the SME packet below) is a
+  genuine, not cosmetic, prerequisite to a non-empty Q02/Q07 answer, and —
+  per the fix above — that approval will now be immediately visible to
+  every tool, not just the one that recorded it.
 - Applicability: `AssetScope` is operator-declared, unchanged this task;
   the live sweep used the queue-declared scope (`impact_present: [high,
   low, medium]`, `associated_present: [bcs, eacms, pacs, pca]`) recorded
@@ -201,15 +206,16 @@ guards against).
 
 ## Unresolved production prerequisites
 
-1. Migrate `compliance_gaps`, `compliance_mappings`, `compliance_route`,
-   `compliance_scenario`, `compliance_draft_revisions`,
-   `compliance_prospective` onto the P2 `Repository` (currently only
-   `compliance_sources`/`compliance_trace` are wired) — or explicitly
-   retire the unused canonical tables. This is the honest, load-bearing
-   gap in this task's close.
+1. ~~Migrate `compliance_gaps`/`compliance_mappings`/`compliance_route`/
+   `compliance_scenario`/`compliance_draft_revisions`/`compliance_prospective`
+   onto the P2 `Repository`~~ — **RESOLVED** (`TASK_COMPLIANCE_STORE_CONSOLIDATION_V1`,
+   same session): `MappingStore` is now a `Repository` facade; every
+   mapping-consuming tool reads/writes the one canonical store. Live-verified.
 2. No SME has approved any mapping in this environment — Q02/Q03/Q07/Q11's
    "empty" answers are correct-but-unhelpful until a real review pass
-   happens. See `SME_REVIEW_START_HERE.md`.
+   happens. See `SME_REVIEW_START_HERE.md`. (Now that item 1 is fixed, one
+   real approval is immediately visible everywhere — nothing further to
+   build, only the human decision itself remains.)
 3. No `internal_controls` row exists in this environment, so Q08's
    `control_id` intentionality lookup has nothing real to find yet
    (mechanism is built and tested; population is a genuine data-entry
@@ -221,6 +227,10 @@ guards against).
    pragmatic substitute.
 5. `nerc_cip_currency` disclosed at least one unabsorbed newer standard
    PDF on nerc.com not yet reflected in the register.
+6. ~~Re-exercise `backup_to()`/`restore_from()` against schema v5~~ —
+   **RESOLVED**: re-run live post-migration, restored copy confirmed at
+   schema_version 5 with all 68 `source_documents` and the new 22-column
+   `relationship_assertions` table intact.
 
 ## Final verification commands and results
 
@@ -244,10 +254,15 @@ document — re-run before the next push per CLAUDE.md Rule 10.
 unit-tested. All twelve design-§9 questions reach a live, real-corpus
 route and produce real output (11 tests passing live, no mocks, no
 xfails). The 14-standard/193-obligation sweep proves F03's core safety
-property at real scale; `backup_to`/`restore_from` were exercised live
-against the real store. The disclosed gaps above — legacy-store/canonical-store
-wiring split, zero approved SME mappings, zero populated `internal_controls`
-rows, no formal closeout harness — are the genuine remaining work, not
+property at real scale, re-confirmed identical after the store
+consolidation; `backup_to`/`restore_from` were exercised live against the
+real store at its current schema version (5). The legacy-store/canonical-
+store wiring split — the single largest gap in the prior version of this
+record — is now RESOLVED: one canonical store, no divergent approval
+truth. The disclosed gaps above — zero approved SME mappings, zero
+populated `internal_controls` rows, no formal closeout harness — are the
+genuine remaining work, requiring human review decisions rather than more
+code, not
 hidden behind this record. **Working entry point**: OWUI at the
 configured host port, workspace `⚖️ Portal Compliance Analyst`
 (`auto-compliance`), or direct MCP calls to `http://localhost:8937/tools/<name>`.

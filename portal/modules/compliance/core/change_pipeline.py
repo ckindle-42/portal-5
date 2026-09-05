@@ -132,7 +132,7 @@ def expire_mappings(store: MappingStore, rows: list[DiffRow], supersession_date:
     for m in list(store._rows):
         if m.requirement_id not in affected_parts or not m.is_approved:
             continue
-        m.valid_to = supersession_date
+        store.close_validity(m.id, supersession_date)
         expired.append(m.id)
         new_id = affected_parts[m.requirement_id]
         if new_id:
@@ -143,11 +143,9 @@ def expire_mappings(store: MappingStore, rows: list[DiffRow], supersession_date:
                 "NEEDS_REVIEW",  # verdict NOT inherited
                 relationship=m.relationship,
                 valid_from=supersession_date,
+                source="successor_of_expired",
             )
-            succ.confidence = 0.0
-            succ.source = "successor_of_expired"
             successors.append(succ.id)
-    store._save()
     return {
         "supersession_date": supersession_date,
         "n_expired": len(expired),
