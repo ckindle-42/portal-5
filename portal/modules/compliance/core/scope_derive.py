@@ -72,8 +72,13 @@ def derive_scope(kb_id: str = "operator_corpus") -> tuple[AssetScope, dict]:
     scope = AssetScope(
         impact_present=impacts,
         associated_present=associated or {"bcs"},
-        has_erc=True,  # inclusive default (§4.3) — absence of evidence never excludes
-        has_control_center=True,
+        # P3/F07: unconfirmed, not an inclusive-True default — `has_erc=True`
+        # here previously meant "assume ERC present," which is a positive
+        # claim about the entity's network, not "absence of evidence never
+        # excludes." Unconfirmed is honestly unknown (see
+        # `AssetScope.is_confirmed` / `applicability_state`).
+        has_erc=None,
+        has_control_center=None,
         declared_by="derived:corpus",
         declared_at=time.strftime("%Y-%m-%d"),
     )

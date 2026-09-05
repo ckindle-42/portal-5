@@ -65,6 +65,8 @@ sources:
   path: tests/unit/test_compliance_repository.py
 - type: code
   path: tests/unit/test_compliance_migrate_legacy.py
+- type: code
+  path: tests/unit/test_compliance_applicability.py
 claims:
 # O9: real bindings. Each fails the drift census if the subsystem regresses —
 # not a `modules.enabled contains: compliance` check.
