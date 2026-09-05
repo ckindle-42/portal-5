@@ -253,6 +253,9 @@ max-complexity = 15
 "tests/unit/test_document_mcp.py" = ["F401"]
 "tests/unit/test_pipeline.py" = ["E402"]
 "tests/unit/test_proxmox_mcp.py" = ["SIM117"]
+# case IDs (A01..A30) are the pytest identifiers the closeout verifier and
+# `pytest -k A17` select on — matching the V2 P8 table's own naming, not a style choice.
+"tests/unit/test_compliance_v3_matrices.py" = ["N802", "C408"]
 "tests/acceptance/s04_documents.py" = ["B007"]
 "portal/modules/security/core/rescore_run.py" = ["B007", "B905", "C90", "PLR0912", "PLR0915"]
 "portal/modules/security/core/bully/correlation.py" = ["C90", "PLR0912"]

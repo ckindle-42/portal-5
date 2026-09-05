@@ -12,13 +12,65 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sqlite3
+import subprocess
+import sys
 import time
 import urllib.request
 from pathlib import Path
 from unittest.mock import patch
 
 from dotenv import load_dotenv
+
+_MATRIX_FILE = "tests/unit/test_compliance_v3_matrices.py"
+
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+_MATRIX_RUN_CACHE: dict[str, object] = {}
+
+
+def _run_full_matrix() -> list:
+    """Actually run the whole matrix module once via subprocess and return
+    its parsed junit testcases — never a hardcoded literal (V11/V12 must
+    reflect a real run, cached so the two ledger fields share one execution)."""
+    import tempfile
+
+    from defusedxml.ElementTree import parse as parse_xml
+
+    if "testcases" in _MATRIX_RUN_CACHE:
+        return _MATRIX_RUN_CACHE["testcases"]
+    with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as tmp:
+        report_path = Path(tmp.name)
+    try:
+        subprocess.run(
+            [sys.executable, "-m", "pytest", _MATRIX_FILE, "-q", f"--junit-xml={report_path}"],
+            capture_output=True,
+            text=True,
+            cwd=_REPO_ROOT,
+        )
+        testcases = list(parse_xml(report_path).getroot().iter("testcase"))
+    finally:
+        report_path.unlink(missing_ok=True)
+    _MATRIX_RUN_CACHE["testcases"] = testcases
+    return testcases
+
+
+def _matrix_result(name_regex: str) -> dict:
+    pattern = re.compile(name_regex)
+    matched = [tc for tc in _run_full_matrix() if pattern.search(tc.get("name", ""))]
+    passed = sum(1 for tc in matched if tc.find("failure") is None and tc.find("error") is None)
+    return {"passed": passed, "total": len(matched)}
+
+
+def _a_matrix_result() -> dict:
+    return _matrix_result(r"^test_A\d{2}_")
+
+
+def _q_matrix_result() -> dict:
+    return _matrix_result(r"^test_q01_q12_three_variants\[")
 
 
 def parse_args():
@@ -311,8 +363,8 @@ def _run_live_closeout(args) -> int:  # noqa: C901, PLR0915
         "accepted_claims": len(rows),
         "anchors_resolved": resolved_count,
         "anchor_resolution_rate": resolved_count / len(source_rows) if source_rows else 0.0,
-        "a_matrix": {"passed": 30, "total": 30},
-        "q_matrix": {"passed": 36, "total": 36},
+        "a_matrix": _a_matrix_result(),
+        "q_matrix": _q_matrix_result(),
         "runtime_call_counts": counters,
         "standards": len(by_standard),
         "question_traces": len(traces),

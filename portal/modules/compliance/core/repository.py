@@ -522,18 +522,28 @@ class Repository:
             )
 
     def list_relationship_assertions(
-        self, *, ref: str | None = None, statuses: tuple[str, ...] = ("approved",)
+        self,
+        *,
+        ref: str | None = None,
+        statuses: tuple[str, ...] = ("approved",),
+        org_id: str | None = None,
     ) -> list[RelationshipAssertion]:
         """Governed reads default to ``statuses=("approved",)`` — a caller
         must explicitly widen this to see proposals/rejections (design §4:
         "Normal governed reads must be unable to include proposed/rejected
-        rows by forgetting a status filter")."""
+        rows by forgetting a status filter"). ``org_id``, when given, is a
+        bound-parameter equality filter (P6.4/A28) — a caller scoped to one
+        org never sees another org's edges, even when both reference the
+        same ``ref``."""
         placeholders = ",".join("?" for _ in statuses)
         sql = f"SELECT * FROM relationship_assertions WHERE status IN ({placeholders})"
         params: list = list(statuses)
         if ref is not None:
             sql += " AND (src_ref = ? OR dst_ref = ?)"
             params += [ref, ref]
+        if org_id is not None:
+            sql += " AND org_id = ?"
+            params.append(org_id)
         with self._lock:
             rows = self._conn.execute(sql, params).fetchall()
             return [self._row_to_relationship(r) for r in rows]
@@ -650,6 +660,7 @@ class Repository:
         statuses: tuple[str, ...] = ("approved",),
         max_depth: int = 3,
         max_edges: int = 500,
+        org_id: str | None = None,
     ) -> dict:
         """Forward/reverse/both-direction traversal from ``start_ref``,
         cycle-safe (each node expands at most once) and bounded by both
@@ -674,7 +685,7 @@ class Repository:
             if depth >= max_depth:
                 depth_limited.add(ref)
                 continue
-            for rel in self.list_relationship_assertions(ref=ref, statuses=statuses):
+            for rel in self.list_relationship_assertions(ref=ref, statuses=statuses, org_id=org_id):
                 if len(edges_out) >= max_edges:
                     truncated = True
                     break
@@ -725,6 +736,7 @@ class Repository:
             "truncated": truncated,
             "depth_limited_nodes": sorted(depth_limited),
             "unexplored_frontier": sorted({r for r, _ in frontier}) if truncated else [],
+            "org_scope": org_id,
         }
 
     # ── as-known replay (recorded-time history) ─────────────────────────
