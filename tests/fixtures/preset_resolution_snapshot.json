@@ -470,6 +470,7 @@
     "effective_tools": [
       "check_kev",
       "compliance_change_impact",
+      "compliance_draft_revisions",
       "compliance_gaps",
       "compliance_ingest",
       "compliance_mappings",
@@ -579,6 +580,7 @@
     "effective_tools": [
       "check_kev",
       "compliance_change_impact",
+      "compliance_draft_revisions",
       "compliance_gaps",
       "compliance_ingest",
       "compliance_mappings",
@@ -967,6 +969,7 @@
     "effective_tools": [
       "check_kev",
       "compliance_change_impact",
+      "compliance_draft_revisions",
       "compliance_gaps",
       "compliance_ingest",
       "compliance_mappings",
@@ -1202,6 +1205,7 @@
     "effective_tools": [
       "check_kev",
       "compliance_change_impact",
+      "compliance_draft_revisions",
       "compliance_gaps",
       "compliance_ingest",
       "compliance_mappings",
@@ -1388,6 +1392,7 @@
     "effective_tools": [
       "check_kev",
       "compliance_change_impact",
+      "compliance_draft_revisions",
       "compliance_gaps",
       "compliance_ingest",
       "compliance_mappings",
@@ -1492,6 +1497,7 @@
     "effective_tools": [
       "check_kev",
       "compliance_change_impact",
+      "compliance_draft_revisions",
       "compliance_gaps",
       "compliance_ingest",
       "compliance_mappings",
@@ -1804,6 +1810,7 @@
     "effective_tools": [
       "check_kev",
       "compliance_change_impact",
+      "compliance_draft_revisions",
       "compliance_gaps",
       "compliance_ingest",
       "compliance_mappings",
@@ -2305,6 +2312,7 @@
     "effective_tools": [
       "check_kev",
       "compliance_change_impact",
+      "compliance_draft_revisions",
       "compliance_gaps",
       "compliance_ingest",
       "compliance_mappings",

@@ -86,6 +86,8 @@ sources:
 - type: code
   path: tests/unit/test_compliance_scenarios.py
 - type: code
+  path: tests/unit/test_compliance_draft_revisions.py
+- type: code
   path: tests/unit/test_compliance_comparison.py
 - type: code
   path: tests/unit/test_compliance_constraints.py
