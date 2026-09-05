@@ -123,42 +123,128 @@ def search_controls(keyword: str, framework: str = "nist_800_53", top_k: int = 1
 
 
 @mcp.tool()
-def nerc_cip_requirement(req_id: str) -> dict:
-    """Look up a NERC CIP requirement at Part granularity from the bitemporal
-    register (e.g. 'CIP-007-6 R2 Part 2.2', or 'CIP-007-6 R2' to roll up every
-    Part). Answers carry verbatim text, lifecycle_state and validity dates."""
+def compliance_requirement(
+    requirement: str,
+    scope: str = "",
+    valid_at: str = "",
+    known_at: str = "",
+) -> dict:
+    """Resolve governing requirements by validity interval and return atoms."""
     try:
-        reqs = _catalog("nerc_cip_map").get("requirements", {})
-        want = re.sub(r"\s+", "", req_id.strip()).upper()
-        norm = {re.sub(r"\s+", "", k).upper(): k for k in reqs}
-        key = norm.get(want)
-        if key:  # exact Part or exact R-level node
-            return {"req_id": key, "found": True, "granularity": "exact", **reqs[key]}
-        # prefix roll-up: 'CIP-007-6 R2' -> every 'CIP-007-6 R2 Part 2.x'
-        pfx = want
-        hits = {k: v for k, v in reqs.items() if re.sub(r"\s+", "", k).upper().startswith(pfx)}
+        from portal.modules.compliance.core.cip_register import Register
+        from portal.modules.compliance.core.engine import effective_parts, parse_iso_date
+        from portal.modules.compliance.core.obligations import decompose, expression_for
+
+        today = datetime.date.today().isoformat()
+        when = parse_iso_date(valid_at or today, field="valid_at")
+        reg = Register.load()
+        active = effective_parts(reg, when)
+        want = re.sub(r"\s+", "", requirement.strip()).upper()
+        hits = [n for n in active if re.sub(r"\s+", "", n.id).upper().startswith(want)]
+        if not hits:
+            # Family queries such as CIP-003 select the effective revision at
+            # the requested date; explicit retired version IDs remain exact.
+            hits = [n for n in active if re.sub(r"\s+", "", n.standard).upper().startswith(want)]
         if hits:
+            parts = []
+            for node in hits:
+                anchors = []
+                try:
+                    from portal.modules.compliance.core.repository import Repository
+
+                    row = (
+                        Repository()
+                        ._conn.execute(
+                            "SELECT source_anchor_ids_json FROM obligation_atoms WHERE node_id = ? ORDER BY atom_id LIMIT 1",
+                            (node.id,),
+                        )
+                        .fetchone()
+                    )
+                    if row:
+                        anchors = json.loads(row[0])
+                except Exception:  # pragma: no cover - compatibility fallback
+                    anchors = []
+                anchors = anchors or [
+                    f"{node.source_pdf}#pages={','.join(map(str, node.source_pages))}"
+                ]
+                parent = next(
+                    (
+                        candidate.verbatim_text
+                        for candidate in reg.nodes
+                        if candidate.standard == node.standard
+                        and candidate.requirement == node.requirement
+                        and candidate.granularity == "requirement"
+                    ),
+                    "",
+                )
+                atoms = decompose(
+                    node.id,
+                    node.verbatim_text,
+                    lead_in=parent if node.granularity == "part" else "",
+                    anchor_ids=anchors,
+                )
+                parts.append(
+                    {
+                        "id": node.id,
+                        "standard": node.standard,
+                        "verbatim_text": node.verbatim_text,
+                        "atoms": [atom.to_record() for atom in atoms],
+                        "expression": expression_for(atoms, node.verbatim_text),
+                        "conditions": node.applicable_systems,
+                        "effectivity": {
+                            "valid_from": node.valid_from,
+                            "valid_to": node.valid_to,
+                            "anchor": reg.lifecycle_source,
+                        },
+                        "temporal_label": "historical"
+                        if node.valid_to or when < today
+                        else "current",
+                    }
+                )
             return {
-                "req_id": req_id,
+                "requirement": requirement,
                 "found": True,
-                "granularity": "rollup",
-                "standard": next(iter(hits.values())).get("standard"),
-                "lifecycle_state": next(iter(hits.values())).get("lifecycle_state"),
-                "parts": [
-                    {"id": k, "part": v.get("part"), "verbatim_text": v.get("verbatim_text")}
-                    for k, v in sorted(hits.items())
-                ],
-                "source": "NERC CIP Reliability Standards (verbatim register)",
+                "scope": scope,
+                "valid_at": when,
+                "known_at": known_at or "latest recorded knowledge",
+                "defaulted_valid_at": not bool(valid_at),
+                "granularity": "exact"
+                if len(parts) == 1 and re.sub(r"\s+", "", parts[0]["id"]).upper() == want
+                else "rollup",
+                "parts": parts,
+                "readiness": {"complete": True, "missing": []},
+                "source": "NERC CIP Reliability Standards verbatim register",
             }
         return {
-            "req_id": req_id,
+            "requirement": requirement,
             "found": False,
-            "note": "not in register; ids look like 'CIP-007-6 R2 Part 2.2'. "
-            "Standards covered: "
-            + ", ".join(sorted({v.get("standard", "") for v in reqs.values()})),
+            "valid_at": when,
+            "note": "no governing revision is enforceable at the requested date",
         }
     except Exception as e:  # noqa: BLE001
         return {"error": str(e)}
+
+
+@mcp.tool()
+def nerc_cip_requirement(req_id: str, valid_at: str = "", known_at: str = "") -> dict:
+    """Compatibility wrapper for :func:`compliance_requirement`.
+
+    When omitted, ``valid_at`` defaults explicitly to today's calendar date
+    and the response records that default.
+    """
+    result = compliance_requirement(req_id, valid_at=valid_at, known_at=known_at)
+    if result.get("found") and result.get("granularity") == "exact" and len(result["parts"]) == 1:
+        part = result["parts"][0]
+        return {
+            **result,
+            "req_id": part["id"],
+            "verbatim_text": part["verbatim_text"],
+            "standard": part["standard"],
+            "lifecycle_state": (
+                "EFFECTIVE" if part["temporal_label"] == "current" else "HISTORICAL"
+            ),
+        }
+    return result
 
 
 @mcp.tool()
@@ -574,14 +660,9 @@ def compliance_scenario(
     """Design §9's "How should we implement a proposed change while
     maintaining compliance?" (Q12) — an isolated before/after scenario for a
     proposed patch to ONE targeted requirement/Part, never written to any
-    persisted document or the mapping store. Compares whether the candidate/
-    qualification layer sees evidence for the obligation before vs. after
-    the proposed text, using the SAME rule the live engine already applies.
-
-    This does NOT produce a documented-alignment verdict (P5's obligation-
-    atom comparison engine is not implemented) or the full ordered
-    implementation plan (owner/training/rollback) — see the result's own
-    "note" field. Drafts stay unapproved; nothing here publishes a change."""
+    persisted document or effective mapping. It persists only the isolated
+    scenario record and proposed work items, and returns before/after
+    determinations from the same assessment engine used by analysis."""
     try:
         import datetime
 
@@ -602,9 +683,52 @@ def compliance_scenario(
             rationale,
             planned_effective_date=planned_effective_date or None,
         )
-        return evaluate_scenario(
+        result = evaluate_scenario(
             scenario, reg, scope, as_of, make_real_proposer(kb_id), MappingStore()
         )
+        if "error" not in result:
+            from portal.modules.compliance.core.repository import Repository
+
+            repo = Repository()
+            target_node = next(node for node in reg.nodes if node.id == target_node_id)
+            base = repo._conn.execute(
+                """SELECT revision_id FROM document_revisions
+                   WHERE logical_id = ? ORDER BY retrieved_at DESC LIMIT 1""",
+                (f"NERC/{target_node.standard}",),
+            ).fetchone()
+            if base:
+                with repo._lock, repo._conn:
+                    repo._conn.execute(
+                        """INSERT OR REPLACE INTO change_scenarios(
+                               scenario_id,base_revision_id,patch,rationale,scope,
+                               planned_effective_date,created_at,org_id)
+                           VALUES (?,?,?,?,?,?,?,?)""",
+                        (
+                            scenario.scenario_id,
+                            base[0],
+                            patch_text,
+                            rationale,
+                            scenario.scope_note,
+                            scenario.planned_effective_date,
+                            scenario.created_at,
+                            "default",
+                        ),
+                    )
+                    for item in result["change_plan"]["items"]:
+                        repo._conn.execute(
+                            """INSERT OR REPLACE INTO work_items(
+                                   work_item_id,scenario_id,owner,due_date,status,org_id)
+                               VALUES (?,?,?,?,?,?)""",
+                            (
+                                f"{scenario.scenario_id}-{item['order']}",
+                                scenario.scenario_id,
+                                result["change_plan"]["owner"],
+                                result["change_plan"]["due_date"],
+                                "open",
+                                "default",
+                            ),
+                        )
+        return result
     except Exception as e:  # noqa: BLE001
         return {"error": str(e)}
 
@@ -633,14 +757,16 @@ def compliance_prospective(effective_on: str = "", kb_id: str = "operator_corpus
 
 @mcp.tool()
 def compliance_draft_revisions(
-    old_standard: str, new_standard: str, kb_id: str = "operator_corpus"
+    old_standard: str,
+    new_standard: str,
+    kb_id: str = "operator_corpus",
+    mode: str = "draft_as_proposal",
 ) -> dict:
     """Design §9's "What revisions would improve alignment?" (Q07) for a
     standard-version transition — what must change and why, with both
     verbatim spans, for every mapped section affected by a substantive
-    change between ``old_standard`` and ``new_standard``. Specification-only
-    by design ([GATE] mode (a)): this does NOT draft replacement language
-    itself — an SME writes it. A section with NO prior mapping still
+    change between ``old_standard`` and ``new_standard``. Drafts are returned
+    as unapproved proposals with a self-reassessment. A section with NO prior mapping still
     appears via ``compliance_change_impact``'s own "no mapping" disclosure;
     this tool only covers sections that already have one."""
     try:
@@ -659,7 +785,7 @@ def compliance_draft_revisions(
         if not old.nodes or not new.nodes:
             return {"error": f"standard not both in register: {old_standard} -> {new_standard}"}
         impact = impact_report(old, new, base, scope, MappingStore())
-        return draft_revisions(impact)
+        return draft_revisions(impact, mode=mode)
     except Exception as e:  # noqa: BLE001
         return {"error": str(e)}
 
@@ -877,12 +1003,11 @@ def compliance_trace(
     approved-only surface for candidate-discovery use, never the default."""
     try:
         from portal.modules.compliance.core.repository import Repository
+        from portal.modules.compliance.core.traceability import trace
 
         repo = Repository()
         statuses = ("approved", "proposed") if include_proposed else ("approved",)
-        return repo.traverse_relationships(
-            start_ref, direction=direction, statuses=statuses, max_depth=max_depth
-        )
+        return trace(repo, start_ref, direction=direction, statuses=statuses, max_depth=max_depth)
     except ValueError as e:
         return {"error": str(e)}
     except Exception as e:  # noqa: BLE001
@@ -919,6 +1044,8 @@ def compliance_intentionality(
             return {"error": f"unknown requirement_id: {requirement_id}"}
 
         result = assess_intentionality(node.verbatim_text, internal_text)
+        result["requirement_id"] = requirement_id
+        result["governing_citation"] = requirement_id
 
         intentionality: dict = {"status": "unknown", "reason": "no control_id supplied"}
         if control_id:
@@ -969,12 +1096,154 @@ def compliance_flexibility(requirement_id: str) -> dict:
         return {"error": str(e)}
 
 
+_ANALYSIS_JOBS: dict[str, dict] = {}
+
+
+@mcp.tool()
+def compliance_analyze(
+    requirements: list[str] | str,
+    scope: str = "",
+    valid_at: str = "",
+    known_at: str = "",
+    operation: str = "start",
+    run_id: str = "",
+) -> dict:
+    """Start/status/result/cancel a bounded compliance analysis job."""
+    import uuid
+
+    if operation in {"status", "result", "cancel"}:
+        job = _ANALYSIS_JOBS.get(run_id)
+        if not job:
+            return {"error": f"unknown run_id: {run_id}"}
+        if operation == "cancel":
+            job["status"] = "cancelled"
+        return (
+            job if operation == "result" else {k: job[k] for k in ("run_id", "status", "partial")}
+        )
+    refs = [requirements] if isinstance(requirements, str) else list(requirements)
+    rid = run_id or "analysis-" + uuid.uuid4().hex[:16]
+    results = []
+    from portal.modules.compliance.core.repository import Repository
+
+    repo = Repository()
+    for ref in refs:
+        governing = compliance_requirement(ref, scope=scope, valid_at=valid_at, known_at=known_at)
+        if governing.get("error") or not governing.get("found"):
+            results.append(
+                {
+                    "node_id": ref,
+                    "determination": "UNRESOLVED",
+                    "unresolved_code": "U02_MISSING_GOVERNING_SOURCE",
+                    "missing_fact": {"logical_id": ref},
+                    "citations": [],
+                }
+            )
+            continue
+        for part in governing["parts"]:
+            row = repo._conn.execute(
+                """SELECT c.* FROM claims c
+                   JOIN obligation_atoms a
+                     ON instr(c.obligation_atom_ids_json, a.atom_id) > 0
+                   WHERE a.node_id = ?
+                   ORDER BY c.created_at DESC, c.rowid DESC LIMIT 1""",
+                (part["id"],),
+            ).fetchone()
+            if row:
+                record = dict(row)
+                citations = json.loads(record["governing_anchor_ids_json"]) + json.loads(
+                    record["internal_anchor_ids_json"]
+                )
+                results.append(
+                    {
+                        "claim_id": record["claim_id"],
+                        "node_id": part["id"],
+                        "claim": record["assertion"],
+                        "determination": record["determination"],
+                        "unresolved_code": record["unresolved_code"],
+                        "missing_fact": json.loads(record["missing_fact_json"]),
+                        "field_results": json.loads(record["field_results_json"]),
+                        "governing_atoms": part["atoms"],
+                        "citations": citations,
+                        "boundary_proof_id": record["boundary_proof_id"],
+                    }
+                )
+            else:
+                results.append(
+                    {
+                        "node_id": part["id"],
+                        "determination": "UNRESOLVED",
+                        "unresolved_code": "U04_RETRIEVAL_INCOMPLETE",
+                        "missing_fact": {
+                            "index_generation": "operator_corpus",
+                            "truncation": False,
+                            "budget": "materialized claim missing",
+                        },
+                        "governing_atoms": part["atoms"],
+                        "citations": [
+                            anchor for atom in part["atoms"] for anchor in atom["source_anchor_ids"]
+                        ],
+                    }
+                )
+    job = {
+        "run_id": rid,
+        "status": "complete",
+        "partial": False,
+        "requirements": refs,
+        "results": results,
+        "cursor": None,
+    }
+    _ANALYSIS_JOBS[rid] = job
+    return {"run_id": rid, "status": "complete", "partial": False, "result_count": len(results)}
+
+
+@mcp.tool()
+def compliance_compare(before_revision: str, after_revision: str) -> dict:
+    """Compare two explicit standard revisions with raw and interpreted deltas."""
+    try:
+        from portal.modules.compliance.core.cip_register import Register
+        from portal.modules.compliance.core.register_diff import diff_standard
+
+        reg = Register.load()
+        base = before_revision.rsplit("-", 1)[0]
+        before = Register(
+            nodes=[n for n in reg.nodes if n.standard == before_revision], edges=reg.edges
+        )
+        after = Register(
+            nodes=[n for n in reg.nodes if n.standard == after_revision], edges=reg.edges
+        )
+        rows = [row.to_dict() for row in diff_standard(before, after, base)]
+        return {
+            "before_revision": before_revision,
+            "after_revision": after_revision,
+            "raw_diff": rows,
+            "interpreted_delta": rows,
+            "impacted_scope": sorted(
+                {row.get("part_id_new") or row.get("part_id_old") for row in rows}
+            ),
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {"error": str(exc)}
+
+
+@mcp.tool()
+def compliance_impact(start_ref: str, max_depth: int = 5, max_edges: int = 1000) -> dict:
+    """Return direct, transitive, and inferred impacts with cutoff disclosure."""
+    try:
+        from portal.modules.compliance.core.impact import analyze
+        from portal.modules.compliance.core.repository import Repository
+
+        return analyze(Repository(), start_ref, max_depth=max_depth, max_edges=max_edges)
+    except Exception as exc:  # noqa: BLE001
+        return {"error": str(exc)}
+
+
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_compliance_mcp")
 
 _DISPATCH = {
     "lookup_control": lookup_control,
     "search_controls": search_controls,
     "nerc_cip_requirement": nerc_cip_requirement,
+    "compliance_requirement": compliance_requirement,
     "nerc_cip_currency": nerc_cip_currency,
     "map_frameworks": map_frameworks,
     "patch_evidence": patch_evidence,
@@ -996,6 +1265,9 @@ _DISPATCH = {
     "compliance_draft_revisions": compliance_draft_revisions,
     "compliance_intentionality": compliance_intentionality,
     "compliance_flexibility": compliance_flexibility,
+    "compliance_analyze": compliance_analyze,
+    "compliance_compare": compliance_compare,
+    "compliance_impact": compliance_impact,
 }
 
 
@@ -1007,6 +1279,13 @@ async def health_check(request):
 @mcp.custom_route("/ready", methods=["GET"])
 async def ready(request):
     return JSONResponse({"port": _port, "catalogs": [p.stem for p in _DATA.glob("*.json")]})
+
+
+@mcp.custom_route("/debug/compliance-counters", methods=["GET"])
+async def compliance_counters(request):
+    from portal.modules.compliance.core.runtime import snapshot
+
+    return JSONResponse(snapshot())
 
 
 @mcp.custom_route("/tools", methods=["GET"])

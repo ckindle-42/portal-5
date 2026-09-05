@@ -26,6 +26,11 @@ from collections import deque
 from dataclasses import asdict
 from pathlib import Path
 
+from portal.modules.compliance.core.determination import (
+    AtomResult,
+    FieldResult,
+    RequirementResult,
+)
 from portal.modules.compliance.core.migrations import apply_migrations, get_schema_version
 from portal.modules.compliance.core.models import (
     CatalogSnapshot,
@@ -247,6 +252,188 @@ class Repository:
                     section.org_id,
                 ),
             )
+
+    def add_source_span(
+        self,
+        span_id: str,
+        section_id: str,
+        char_start: int,
+        char_end: int,
+        text_sha256: str,
+        *,
+        org_id: str = "default",
+    ) -> None:
+        """Persist an immutable offset anchor after validating its bounds."""
+        if char_start < 0 or char_end <= char_start:
+            raise ValueError("source span requires 0 <= char_start < char_end")
+        with self._lock, self._conn:
+            if not self._conn.execute(
+                "SELECT 1 FROM source_sections WHERE section_id = ?", (section_id,)
+            ).fetchone():
+                raise BrokenReferenceError(
+                    f"source_spans.section_id {section_id!r} does not resolve"
+                )
+            self._conn.execute(
+                """INSERT INTO source_spans(span_id, section_id, char_start, char_end,
+                       text_sha256, org_id) VALUES (?,?,?,?,?,?)
+                   ON CONFLICT(span_id) DO NOTHING""",
+                (span_id, section_id, char_start, char_end, text_sha256, org_id),
+            )
+
+    # ── V3 determinations and exhaustive-search receipts ───────────────
+    def record_boundary_proof(
+        self,
+        *,
+        subject_ref: str,
+        query_set: list[str],
+        index_generation: str,
+        manifest_hash: str,
+        eligible_document_count: int,
+        candidates_retrieved: list[dict] | None = None,
+        candidates_rejected: list[dict] | None = None,
+        truncation_flags: list[str] | None = None,
+        budget_ceilings: dict | None = None,
+        boundary_proof_id: str = "",
+        org_id: str = "default",
+    ) -> str:
+        if not query_set or not index_generation:
+            raise ValueError("a boundary proof requires its actual query set and index generation")
+        proof_id = boundary_proof_id or _new_id()
+        with self._lock, self._conn:
+            self._conn.execute(
+                """INSERT INTO corpus_boundary_proofs(
+                       boundary_proof_id, subject_ref, query_set_json, index_generation,
+                       manifest_hash, eligible_document_count, candidates_retrieved_json,
+                       candidates_rejected_json, truncation_flags_json, budget_ceilings_json,
+                       created_at, org_id)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                   ON CONFLICT(boundary_proof_id) DO NOTHING""",
+                (
+                    proof_id,
+                    subject_ref,
+                    json.dumps(query_set),
+                    index_generation,
+                    manifest_hash,
+                    eligible_document_count,
+                    json.dumps(candidates_retrieved or []),
+                    json.dumps(candidates_rejected or []),
+                    json.dumps(truncation_flags or []),
+                    json.dumps(budget_ceilings or {}),
+                    now_iso(),
+                    org_id,
+                ),
+            )
+        return proof_id
+
+    def record_analysis_run(
+        self, context: dict, *, run_id: str = "", org_id: str = "default"
+    ) -> str:
+        run_id = run_id or _new_id()
+        with self._lock, self._conn:
+            self._conn.execute(
+                "INSERT INTO analysis_runs(run_id, context_json, created_at, org_id) VALUES (?,?,?,?)",
+                (run_id, json.dumps(context), now_iso(), org_id),
+            )
+        return run_id
+
+    def record_claim(
+        self,
+        result: AtomResult | RequirementResult | dict,
+        *,
+        run_id: str,
+        assertion: str = "",
+        claim_id: str = "",
+        review_status: str = "proposed",
+        org_id: str = "default",
+    ) -> str:
+        """Validate through the P1 dataclasses before touching SQL (C1-C4)."""
+        if isinstance(result, dict):
+            payload = dict(result)
+            payload["field_results"] = [
+                item if isinstance(item, FieldResult) else FieldResult(**item)
+                for item in payload.get("field_results", [])
+            ]
+            result = AtomResult(**payload)
+        if isinstance(result, RequirementResult):
+            atoms = result.atom_results
+            governing = sorted({a for atom in atoms for a in atom.governing_anchor_ids})
+            internal = sorted({a for atom in atoms for a in atom.internal_anchor_ids})
+            counter = sorted({a for atom in atoms for a in atom.counterevidence_anchor_ids})
+            field_results = [asdict(f) for atom in atoms for f in atom.field_results]
+            atom_ids = [atom.atom_id for atom in atoms]
+            unresolved_code = result.unresolved_code
+            missing_fact = result.missing_fact
+            boundary_proof_id = next(
+                (a.boundary_proof_id for a in atoms if a.boundary_proof_id), ""
+            )
+            determination = result.determination
+            rationale = "; ".join(a.rationale for a in atoms if a.rationale)
+        elif isinstance(result, AtomResult):
+            # Reconstructing executes __post_init__ even if a caller managed to
+            # mutate an already-created dataclass after construction.
+            payload = asdict(result)
+            payload["field_results"] = [FieldResult(**item) for item in payload["field_results"]]
+            result = AtomResult(**payload)
+            governing = result.governing_anchor_ids
+            internal = result.internal_anchor_ids
+            counter = result.counterevidence_anchor_ids
+            field_results = [asdict(f) for f in result.field_results]
+            atom_ids = [result.atom_id]
+            unresolved_code = result.unresolved_code
+            missing_fact = result.missing_fact
+            boundary_proof_id = result.boundary_proof_id
+            determination = result.determination
+            rationale = result.rationale
+        else:
+            raise TypeError(
+                "result must be AtomResult, RequirementResult, or an AtomResult mapping"
+            )
+        claim_id = claim_id or _new_id()
+        with self._lock, self._conn:
+            self._conn.execute(
+                """INSERT INTO claims(
+                       claim_id, run_id, obligation_atom_ids_json, claim_kind, review_status,
+                       assertion, rationale, governing_anchor_ids_json, internal_anchor_ids_json,
+                       counterevidence_anchor_ids_json, created_at, org_id, determination,
+                       unresolved_code, missing_fact_json, field_results_json, boundary_proof_id)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    claim_id,
+                    run_id,
+                    json.dumps(atom_ids),
+                    "requirement_determination",
+                    review_status,
+                    assertion,
+                    rationale,
+                    json.dumps(governing),
+                    json.dumps(internal),
+                    json.dumps(counter),
+                    now_iso(),
+                    org_id,
+                    determination,
+                    unresolved_code,
+                    json.dumps(missing_fact),
+                    json.dumps(field_results),
+                    boundary_proof_id,
+                ),
+            )
+            evidence = [(a, "supporting") for a in governing + internal]
+            evidence += [(a, "contradicting") for a in counter]
+            self._conn.executemany(
+                "INSERT INTO claim_evidence(claim_id, anchor_id, role) VALUES (?,?,?)",
+                [(claim_id, anchor, role) for anchor, role in evidence],
+            )
+            finding_kind = {
+                "ABSENT": "GAP_ABSENT",
+                "PARTIAL": "GAP_PARTIAL",
+                "CONTRADICTED": "CONTRADICTION",
+            }.get(determination)
+            if finding_kind:
+                self._conn.execute(
+                    "INSERT INTO findings(finding_id, claim_id, finding_kind, org_id) VALUES (?,?,?,?)",
+                    (_new_id(), claim_id, finding_kind, org_id),
+                )
+        return claim_id
 
     # ── relationship assertions: proposal vs effective ──────────────────
     def propose_relationship(self, rel: RelationshipAssertion) -> RelationshipAssertion:

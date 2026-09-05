@@ -56,12 +56,14 @@ def test_scenario_shows_qualification_change_when_patch_adds_evidence():
         "TEST-1 R1 Part 1.1", "We now do the thing exactly as required.", "closes an identified gap"
     )
     result = evaluate_scenario(scenario, reg, _SCOPE, "2026-09-05", lambda n, side: [])
-    assert result["before"]["coverage"] == "UNRESOLVED"
-    assert "no qualified candidates" in result["before"]["note"]
-    assert result["after"]["coverage"] == "UNRESOLVED"
-    assert "qualified textual presence found" in result["after"]["note"]
-    assert result["qualification_changed"] is False  # both UNRESOLVED — token itself didn't move
-    assert "P5's obligation-atom comparison" in result["note"]
+    assert result["before"]["determination"] == "ABSENT"
+    assert result["before"]["atom_results"][0]["boundary_proof_id"].startswith("boundary-")
+    assert result["after"]["determination"] == "SUPPORTED"
+    assert result["after"]["atom_results"][0]["internal_anchor_ids"] == [
+        "scenario:TEST-1 R1 Part 1.1"
+    ]
+    assert result["determination_changed"] is True
+    assert "Isolated deterministic assessment" in result["note"]
 
 
 def test_scenario_does_not_affect_other_parts():
@@ -77,8 +79,8 @@ def test_scenario_does_not_affect_other_parts():
 
     result = evaluate_scenario(scenario, reg, _SCOPE, "2026-09-05", real_propose)
     # only the target node is in the sub-register the evaluator builds
-    assert result["before"]["requirement_id"] == "TEST-1 R1 Part 1.1"
-    assert result["after"]["requirement_id"] == "TEST-1 R1 Part 1.1"
+    assert result["before"]["node_id"] == "TEST-1 R1 Part 1.1"
+    assert result["after"]["node_id"] == "TEST-1 R1 Part 1.1"
 
 
 def test_new_scenario_generates_a_stable_id():
@@ -86,3 +88,33 @@ def test_new_scenario_generates_a_stable_id():
     s2 = new_scenario("X", "patch", "reason")
     assert s1.scenario_id != s2.scenario_id
     assert len(s1.scenario_id) == 12
+
+
+def test_scenario_detects_a_weakening_replacement():
+    node = _node(
+        verbatim_text="The Responsible Entity shall evaluate patches within 35 calendar days."
+    )
+    reg = Register(nodes=[node])
+    scenario = new_scenario(
+        node.id,
+        "The Responsible Entity shall evaluate patches within 60 calendar days.",
+        "deliberate weakening fixture",
+    )
+
+    def supported_before(current, side):
+        if side != "procedure":
+            return []
+        return [
+            {
+                "section_id": "internal-before",
+                "span": "The Responsible Entity shall evaluate patches within 35 calendar days.",
+                "anchor_verified": True,
+                "relevant": True,
+            }
+        ]
+
+    result = evaluate_scenario(scenario, reg, _SCOPE, "2026-09-05", supported_before)
+    assert result["before"]["determination"] == "SUPPORTED"
+    assert result["after"]["determination"] == "CONTRADICTED"
+    assert result["weakening"] is True
+    assert result["affected_obligation"] == node.id

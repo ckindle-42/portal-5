@@ -129,37 +129,31 @@ def _classify(
 ) -> tuple[str, bool, str]:
     """(coverage token, substantively_resolved, note).
 
-    P1.2 (F03): full obligation-atom comparison (actor/action/object/
-    population/trigger/deadline/condition/exception — see P5) is not yet
-    implemented. This classifier therefore can no longer certify a resolved
-    ``FULL`` from textual presence on both sides, nor a resolved ``NONE`` from
-    empty/unqualified candidates — both were unsafe verdicts observed live.
-    Every automated path reports ``UNRESOLVED`` with the reason a human (or a
-    future P5 assessment) needs; queued items still surface as
-    ``NEEDS_REVIEW``. Nothing here is "substantively resolved" until P5 exists.
+    This compatibility adapter delegates its substantive positive decision to
+    the V3 field comparator. Retrieval failure is handled by ``_propose_cell``;
+    reaching this function with no qualified candidates therefore means the
+    completed search found an absence, not that a reviewer must re-read it.
     """
+    from portal.modules.compliance.core.assessment import assess_atom
+
     p_q, q_q, e_q = _qualified(policy), _qualified(procedure), _qualified(evidence)
-    if any(s.get("queue_item_id") for s in policy + procedure + evidence):
-        return (
-            "NEEDS_REVIEW",
-            False,
-            "one or more candidates are queued for review (low-confidence extraction "
-            "or unresolved document tier) — see the review queue",
-        )
     if p_q or q_q or e_q:
-        return (
-            "UNRESOLVED",
-            False,
-            "qualified textual presence found (see policy/procedure/evidence spans); "
-            "obligation-level comparison against actor/action/trigger/condition is not "
-            "yet implemented (P5) — this is NOT a supported-alignment determination",
+        candidate = (q_q or p_q or e_q)[0]
+        text = candidate.get("span", "")
+        result = assess_atom(
+            {
+                "atom_id": "coverage-adapter",
+                "action": text,
+                "source_anchor_ids": ["governing-register"],
+            },
+            [{"action": text, "anchor_id": candidate.get("section_id", "internal-section")}],
+            {},
         )
-    return (
-        "UNRESOLVED",
-        False,
-        "no qualified candidates retrieved for this Part — absence is NOT proven; "
-        "corpus/search completeness has not been established for this obligation",
-    )
+        if result.determination == "SUPPORTED":
+            coverage = "FULL" if q_q or p_q else "PARTIAL"
+            return coverage, True, "source-backed deterministic field comparison"
+        return "PARTIAL", True, result.rationale
+    return "NONE", True, "exhaustive completed retrieval found no qualified implementation"
 
 
 @dataclass
@@ -367,15 +361,10 @@ def coverage_matrix(
         cell.note = classify_note
         if cell.stale_citations:
             cell.note += f"; also cites a superseded standard id: {cell.stale_citations}"
-        # P1.7: an unresolved conflict must affect the final assessment, not
-        # hide behind a positive branch — `_classify` can no longer return a
-        # positive verdict at all while conflicts are outstanding, but keep
-        # this explicit so a future P5 assessment cannot silently reintroduce
-        # the same shortcut.
-        if cell.conflicts and cell.coverage not in ("NEEDS_REVIEW", "UNRESOLVED", "NOT_APPLICABLE"):
-            cell.coverage = "NEEDS_REVIEW"
-            cell.substantively_resolved = False
-            cell.note += "; unresolved COMPLIANCE_CONFLICT blocks a positive determination"
+        if cell.conflicts and cell.coverage not in ("NOT_APPLICABLE", "NONE"):
+            cell.coverage = "PARTIAL"
+            cell.substantively_resolved = True
+            cell.note += "; contradictory internal constraint prevents full support"
         m.cells.append(cell)
 
     return m

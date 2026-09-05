@@ -107,8 +107,11 @@ def _resolve_meta(source_file: str, sidecar: dict, queued: set[str]) -> dict:
 def _filter_candidates(
     hits: list[dict], sidecar: dict, target_std: str, queued: set[str]
 ) -> list[dict]:
-    """Standard-folder filter (stage 1: exact match) over the raw retrieval
-    hits. NOT layer-filtered here — ``node.verbatim_text`` is the same query
+    """Eligibility filter over raw retrieval hits.
+
+    A document's folder-derived standard is a ranking hint only.  Cross-standard
+    procedures are common and must remain eligible; atom comparison rejects
+    irrelevant boilerplate on its merits. NOT layer-filtered here — ``node.verbatim_text`` is the same query
     for policy/procedure/evidence, so one search result set is filtered by
     standard, reranked once, and split by layer per side by the caller
     (``propose``'s cache) instead of repeating the search+rerank 3x per Part.
@@ -129,9 +132,6 @@ def _filter_candidates(
             continue  # a page pointer cannot substantiate a quoted text span
         source_file = hit.get("source_file", "")
         meta = _resolve_meta(source_file, sidecar, queued)
-        standard_hint = meta.get("standard_hint")
-        if meta["layer"] != "policy" and standard_hint and standard_hint != target_std:
-            continue  # filed under a DIFFERENT standard's folder — not this Part's evidence
         out.append(
             {
                 "document_id": source_file,
@@ -139,6 +139,8 @@ def _filter_candidates(
                 "span": text[:400],
                 "text": text,
                 "layer": meta["layer"],
+                "standard_hint": meta.get("standard_hint"),
+                "folder_rank_prior": 1.0 if meta.get("standard_hint") == target_std else 0.0,
             }
         )
     return out

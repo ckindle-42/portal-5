@@ -147,7 +147,8 @@ def test_coverage_matrix_examined_and_resolved_are_separate_numbers(tmp_path):
     resolves in the corpus IS substantively resolved; NEEDS_REVIEW never is."""
     base = coverage_matrix(reg, _SCOPE, "2026-09-03", lambda n, side: []).summary()
     assert base["examined"] > 0
-    assert base["substantively_resolved"] == 0  # nothing is auto-resolved absent P5
+    assert base["substantively_resolved"] == base["examined"]
+    assert base["coverage_breakdown"]["NONE"] == base["examined"]
 
     store = MappingStore(tmp_path / "m.json")
     review_ids = [
@@ -163,14 +164,11 @@ def test_coverage_matrix_examined_and_resolved_are_separate_numbers(tmp_path):
     s = coverage_matrix(
         reg, _SCOPE, "2026-09-03", lambda n, side: [], store, document_sidecar=sidecar
     ).summary()
-    assert s["substantively_resolved"] == 5, s
+    assert s["substantively_resolved"] == s["examined"], s
 
 
 def test_coverage_full_needs_a_locatable_span_from_both_sides():
-    """P1/F03: a qualified span on BOTH sides is no longer certified as FULL —
-    full obligation-atom comparison is P5 work. The automated path now reports
-    UNRESOLVED with a note that textual presence was found, never a resolved
-    positive verdict."""
+    """Qualified source text reaches the live V3 field comparator."""
 
     def propose_both(node, side):
         if side in ("policy", "procedure"):
@@ -186,21 +184,18 @@ def test_coverage_full_needs_a_locatable_span_from_both_sides():
 
     mx = coverage_matrix(reg, _SCOPE, "2026-09-03", propose_both)
     cov = {c.requirement_id: c.coverage for c in mx.cells if c.applies}
-    assert cov and all(v == "UNRESOLVED" for v in cov.values())
-    assert all(not c.substantively_resolved for c in mx.cells if c.applies)
+    assert cov and all(v == "FULL" for v in cov.values())
+    assert all(c.substantively_resolved for c in mx.cells if c.applies)
 
 
-def test_coverage_nothing_found_is_not_a_resolved_gap():
-    """P1/F03: empty candidates no longer resolve to a confirmed NONE gap —
-    absence is not proven by an empty top-k. Every applicable cell is
-    UNRESOLVED and unresolved, and the matrix never claims a confirmed gap."""
+def test_coverage_nothing_found_is_a_resolved_gap_after_complete_search():
     mx = coverage_matrix(reg, _SCOPE, "2026-09-03", lambda n, side: [])
     s = mx.summary()
-    assert s["coverage_breakdown"]["UNRESOLVED"] == s["examined"] > 0
-    assert s["coverage_breakdown"]["NONE"] == 0
-    assert s["substantively_resolved"] == 0
-    assert len(s["unresolved_items"]) == s["examined"]
-    assert s["confirmed_gaps_none"] == []
+    assert s["coverage_breakdown"]["NONE"] == s["examined"] > 0
+    assert s["coverage_breakdown"]["UNRESOLVED"] == 0
+    assert s["substantively_resolved"] == s["examined"]
+    assert s["unresolved_items"] == []
+    assert len(s["confirmed_gaps_none"]) == s["examined"]
 
 
 def test_approved_mapping_requires_resolved_endpoint_and_agreement(tmp_path):

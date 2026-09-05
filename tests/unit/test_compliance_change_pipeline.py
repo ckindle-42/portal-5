@@ -8,8 +8,6 @@ beside it, never averaged.
 
 from __future__ import annotations
 
-import pytest
-
 from portal.modules.compliance.core.applicability import AssetScope
 from portal.modules.compliance.core.change_pipeline import (
     draft_revisions,
@@ -198,12 +196,11 @@ def test_impact_report_examined_and_resolved_are_separate_numbers():
     assert ir["examined"] >= ir["substantively_resolved"]
 
 
-# ── Phase 6 gate ─────────────────────────────────────────────────────────
-def test_draft_revisions_is_specification_only_by_default():
+# ── Phase 6 proposal workflow ───────────────────────────────────────────
+def test_draft_revisions_is_proposal_by_default():
     ir = impact_report(_OLD, _NEW, "CIP-003", _SCOPE)
     dr = draft_revisions(ir)
-    assert dr["mode"] == "specification_only"
-    assert all(s["drafted_replacement"] is None for s in dr["specifications"])
-    assert "report to operator" in dr["recommendation"]
-    with pytest.raises(NotImplementedError, match="operator's"):
-        draft_revisions(ir, mode="draft_as_proposal")
+    assert dr["mode"] == "draft_as_proposal"
+    assert all(s["drafted_replacement"] for s in dr["specifications"])
+    assert all(s["reassessment"]["closes_own_gap"] for s in dr["specifications"])
+    assert dr["review_decision_kind"] == "S03_ACCEPT_PROPOSED_REDLINE"

@@ -546,5 +546,37 @@
         ]
       }
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "compliance_requirement",
+      "description": "Resolve current, historical, or future governing NERC CIP text by validity interval and return decomposed atoms with exact source anchors.",
+      "parameters": {"type": "object", "properties": {"requirement": {"type": "string"}, "scope": {"type": "string"}, "valid_at": {"type": "string"}, "known_at": {"type": "string"}}, "required": ["requirement", "valid_at"]}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "compliance_analyze",
+      "description": "Start, inspect, retrieve, or cancel a bounded compliance analysis job.",
+      "parameters": {"type": "object", "properties": {"requirements": {"oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}]}, "scope": {"type": "string"}, "valid_at": {"type": "string"}, "known_at": {"type": "string"}, "operation": {"type": "string"}, "run_id": {"type": "string"}}, "required": ["requirements", "valid_at"]}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "compliance_compare",
+      "description": "Compare explicit standard revisions and return raw and interpreted deltas with impacted scope.",
+      "parameters": {"type": "object", "properties": {"before_revision": {"type": "string"}, "after_revision": {"type": "string"}}, "required": ["before_revision", "after_revision"]}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "compliance_impact",
+      "description": "Traverse direct and transitive change impacts from a requirement, document, control, or scenario reference.",
+      "parameters": {"type": "object", "properties": {"start_ref": {"type": "string"}, "max_depth": {"type": "integer"}, "max_edges": {"type": "integer"}}, "required": ["start_ref"]}
+    }
   }
 ]

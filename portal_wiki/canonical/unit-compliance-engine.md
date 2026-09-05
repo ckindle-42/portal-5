@@ -40,6 +40,26 @@ sources:
 - type: code
   path: portal/modules/compliance/core/constraints.py
 - type: code
+  path: portal/modules/compliance/core/determination.py
+- type: code
+  path: portal/modules/compliance/core/obligations.py
+- type: code
+  path: portal/modules/compliance/core/authority.py
+- type: code
+  path: portal/modules/compliance/core/internal_model.py
+- type: code
+  path: portal/modules/compliance/core/boundary.py
+- type: code
+  path: portal/modules/compliance/core/assessment.py
+- type: code
+  path: portal/modules/compliance/core/traceability.py
+- type: code
+  path: portal/modules/compliance/core/impact.py
+- type: code
+  path: portal/modules/compliance/core/change_plan.py
+- type: code
+  path: portal/modules/compliance/core/runtime.py
+- type: code
   path: portal/modules/compliance/core/scenarios.py
 - type: code
   path: portal/modules/compliance/core/intentionality.py
@@ -97,6 +117,12 @@ sources:
   path: tests/unit/test_compliance_comparison.py
 - type: code
   path: tests/unit/test_compliance_constraints.py
+- type: code
+  path: tests/unit/test_compliance_v3_contract.py
+- type: code
+  path: tests/unit/test_compliance_v3_matrices.py
+- type: code
+  path: scripts/materialize_compliance_v3.py
 claims:
 # O9: real bindings. Each fails the drift census if the subsystem regresses —
 # not a `modules.enabled contains: compliance` check.
@@ -125,6 +151,18 @@ tags:
 library — its own routes, its own `compliance_*` tables, its own pipeline
 stages. It changes no shared retrieval behaviour and invalidates no other
 consumer's index.
+
+## V3 source-backed determination layer
+
+The live path now decomposes governing and internal text into the same typed
+field vocabulary and evaluates it through `assessment.assess_atom` and
+`assessment.assess_requirement`. `SUPPORTED` and `CONTRADICTED` require source
+anchors on both sides. A completed empty retrieval is `ABSENT` only with a
+persisted corpus-boundary receipt; truncated retrieval is
+`U04_RETRIEVAL_INCOMPLETE`. Mapping approval is an attestation overlay and is
+not read by the determination engine. Compound atoms run through the reviewed
+`comparison.evaluate_expression` evaluator, while deadlines and retention use
+direction-aware constraints.
 
 ## Not a RAG chatbot
 

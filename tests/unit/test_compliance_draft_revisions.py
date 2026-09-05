@@ -31,7 +31,7 @@ def test_undeclared_scope_is_honest_blocked(monkeypatch):
     assert result["status"] == "honest-BLOCKED"
 
 
-def test_specification_only_mode_by_default(monkeypatch):
+def test_draft_as_proposal_mode_by_default(monkeypatch):
     from portal.modules.compliance.core.cip_register import Register, RegisterNode
     from portal.modules.compliance.tools.compliance_mcp import compliance_draft_revisions
 
@@ -73,5 +73,5 @@ def test_specification_only_mode_by_default(monkeypatch):
     )
 
     result = compliance_draft_revisions("TEST-1", "TEST-2")
-    assert result["mode"] == "specification_only"
-    assert all(s["drafted_replacement"] is None for s in result["specifications"])
+    assert result["mode"] == "draft_as_proposal"
+    assert all(s["drafted_replacement"] for s in result["specifications"])

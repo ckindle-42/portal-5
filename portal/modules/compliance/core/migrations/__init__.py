@@ -51,6 +51,14 @@ def apply_migrations(conn: sqlite3.Connection) -> dict:
     pending = sorted(m for m in MIGRATIONS if m[0] > before)
     applied = []
     if pending:
+        # Migration 6 rebuilds ``claims`` while two child tables reference it.
+        # SQLite only honors foreign_keys changes outside a transaction.  Keep
+        # the rebuild atomic, restore enforcement immediately afterwards, and
+        # run a full integrity check before reporting success.
+        rebuilds_claims = any(version == 6 for version, _, _ in pending)
+        if rebuilds_claims:
+            conn.commit()
+            conn.execute("PRAGMA foreign_keys = OFF")
         conn.execute("BEGIN")
         try:
             for version, description, sql in pending:
@@ -63,8 +71,17 @@ def apply_migrations(conn: sqlite3.Connection) -> dict:
                 (str(pending[-1][0]),),
             )
             conn.commit()
+            if rebuilds_claims:
+                conn.execute("PRAGMA foreign_keys = ON")
+                violations = conn.execute("PRAGMA foreign_key_check").fetchall()
+                if violations:
+                    raise sqlite3.IntegrityError(
+                        f"migration 6 foreign-key check failed: {violations!r}"
+                    )
         except Exception:
             conn.rollback()
+            if rebuilds_claims:
+                conn.execute("PRAGMA foreign_keys = ON")
             raise
     return {
         "schema_version_before": before,

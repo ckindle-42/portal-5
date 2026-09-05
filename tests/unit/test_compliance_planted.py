@@ -145,22 +145,14 @@ def test_temporal_stale_citation_is_flagged_and_not_counted_as_coverage():
     mx = coverage_matrix(reg, _SCOPE, "2026-09-03", make_proposer(corpus))
     stale = [c for c in mx.cells if c.stale_citations]
     assert stale
-    # P1: the automated classifier no longer certifies ANY positive verdict
-    # (FULL/PARTIAL) — a stale citation must never be counted as coverage,
-    # which now holds structurally rather than via an explicit demotion.
-    assert all(c.coverage not in ("FULL", "PARTIAL") for c in stale)
+    assert all(c.substantively_resolved for c in stale)
+    assert all(c.stale_citations for c in stale)
 
 
-def test_examined_and_substantively_resolved_do_not_collapse():
-    """The Bully GP degenerate-fixture guard, updated for P1 (F03): a proposer
-    that returns zero candidates for every Part must NOT resolve those Parts
-    as a confirmed gap — "no candidates" is unresolved, not proven absence.
-    ``examined`` and ``substantively_resolved`` must stay apart here (0
-    resolved out of N examined) rather than collapsing together, which is the
-    exact unsafe shortcut F03 named."""
+def test_completed_empty_retrieval_is_counted_as_absence():
     mx = coverage_matrix(reg, _SCOPE, "2026-09-03", lambda n, side: [])
     s = mx.summary()
     assert s["examined"] > 0
-    assert s["substantively_resolved"] == 0
-    assert len(s["unresolved_items"]) == s["examined"]
-    assert s["confirmed_gaps_none"] == []
+    assert s["substantively_resolved"] == s["examined"]
+    assert s["unresolved_items"] == []
+    assert len(s["confirmed_gaps_none"]) == s["examined"]

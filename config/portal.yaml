@@ -1402,6 +1402,7 @@ workspaces:
     - lookup_control
     - search_controls
     - nerc_cip_requirement
+    - compliance_requirement
     - nerc_cip_currency
     - map_frameworks
     - patch_evidence
@@ -1423,6 +1424,9 @@ workspaces:
     - compliance_draft_revisions
     - compliance_intentionality
     - compliance_flexibility
+    - compliance_analyze
+    - compliance_compare
+    - compliance_impact
     expose_to_owui: true
     enable_web_search: true
     owui_system_prompt: |-
