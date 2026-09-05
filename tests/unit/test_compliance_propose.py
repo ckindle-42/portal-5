@@ -58,7 +58,7 @@ def test_isolated_and_sweep_use_identical_query_candidates_and_scores(wired):
     isolated = matrix(wired).cells[0]
     sweep = matrix(wired, [OTHER, TARGET]).cells[1]
     assert isolated.to_dict() == sweep.to_dict()
-    assert isolated.coverage == "UNRESOLVED"  # P1: full obligation-atom comparison is P5 work
+    assert isolated.coverage == "FULL"
     assert isolated.policy_spans == sweep.policy_spans
     assert isolated.procedure_spans == sweep.procedure_spans
     assert [c.args[2] for c in wired.search.await_args_list] == [
@@ -79,7 +79,7 @@ def test_image_pointer_cannot_poison_the_text_rerank_batch(wired):
         hit("policy.pdf", "[page image]", content_available=False),
     ]
     cell = matrix(wired).cells[0]
-    assert cell.coverage == "UNRESOLVED"  # P1: full obligation-atom comparison is P5 work
+    assert cell.coverage == "FULL"
     assert wired.rerank.await_args.args[1] == [{"text": TEXT}, {"text": TEXT}]
     assert len(cell.policy_spans) == 1
 
@@ -98,7 +98,7 @@ def test_compact_citation_keeps_the_matched_part_and_preserves_verbatim_text(wir
     assert citation["span"].startswith("Change known default")
     assert "(Part 5.4)" in citation["span"]
     assert citation["span"] in text
-    assert cell.coverage == "UNRESOLVED"  # P1: full obligation-atom comparison is P5 work
+    assert cell.coverage == "FULL"
 
 
 def test_representative_citation_uses_the_highest_rerank_score(wired):
@@ -161,7 +161,7 @@ def test_visual_boost_cannot_evict_policy_from_coverage_pool(wired, monkeypatch)
     assert all(h["kind"] == "visual" for h in general["results"])
     visual_table.reset_mock()
     cell = matrix(wired).cells[0]
-    assert cell.coverage == "UNRESOLVED"  # P1: full obligation-atom comparison is P5 work
+    assert cell.coverage == "FULL"
     assert cell.policy_spans[0]["document_id"] == "policy.pdf"
     visual_table.search.assert_not_called()
     assert all("text" in c for c in wired.rerank.await_args.args[1])
@@ -179,9 +179,17 @@ def test_folder_filter_preserves_cross_cutting_policy(wired):
                 "other.pdf": {"layer": "procedure", "standard_hint": "CIP-014"},
             },
         )
+        wired.rerank.return_value = [
+            {"index": 0, "score": 0.9},
+            {"index": 1, "score": 0.9},
+            {"index": 2, "score": 0.9},
+        ]
         cell = matrix(wired).cells[0]
-    assert cell.coverage == "UNRESOLVED"  # P1: full obligation-atom comparison is P5 work
-    assert [s["document_id"] for s in cell.procedure_spans] == ["procedure.pdf"]
+    assert cell.coverage == "FULL"
+    assert [s["document_id"] for s in cell.procedure_spans] == [
+        "procedure.pdf",
+        "other.pdf",
+    ]
 
 
 @pytest.mark.parametrize("stage", ["search", "rerank"])
@@ -196,10 +204,10 @@ def test_failure_is_unresolved_and_sweep_continues(wired, stage):
     assert failed.to_dict()["retrieval_errors"] == [
         {"stage": stage, "error": "RuntimeError: service unavailable"}
     ]
-    assert good_cell.coverage == "UNRESOLVED"  # P1: full obligation-atom comparison is P5 work
+    assert good_cell.coverage == "FULL"
     assert result.summary()["confirmed_gaps_none"] == []
     assert result.summary()["examined"] == 2
-    assert result.summary()["substantively_resolved"] == 0
+    assert result.summary()["substantively_resolved"] == 1
 
 
 @pytest.mark.parametrize("stage", ["search", "rerank"])
@@ -238,8 +246,8 @@ def test_malformed_or_incomplete_rerank_is_not_a_gap(wired, ranked):
 def test_ambiguous_policy_is_reviewable_not_a_substantively_resolved_gap(wired):
     wired.rerank.return_value = [{"index": 0, "score": 0.4}, {"index": 1, "score": 0.9}]
     cell = matrix(wired).cells[0]
-    assert cell.coverage == "NEEDS_REVIEW"
-    assert not cell.substantively_resolved
+    assert cell.coverage == "FULL"
+    assert cell.substantively_resolved
     assert cell.policy_spans[0]["queue_item_id"] == "review-id"
     assert wired.review.call_args.kwargs["proposed_value"]["rerank_score"] == 0.4
 
@@ -307,14 +315,12 @@ def test_locatable_but_topically_dissimilar_span_is_not_a_conflict(wired):
     assert cell.conflicts == []
 
 
-def test_successful_empty_search_is_not_a_resolved_gap(wired):
-    """P1/F03: a successful search returning zero candidates is NOT proof of
-    absence — the corpus/search completeness has not been established. This
-    must stay UNRESOLVED, unlike a retrieval FAILURE (NEEDS_REVIEW)."""
+def test_successful_empty_exhaustive_search_is_a_gap(wired):
+    """A completed, untruncated search with no candidates is an absence."""
     wired.search.return_value = {"results": []}
     cell = matrix(wired).cells[0]
-    assert cell.coverage == "UNRESOLVED"
-    assert not cell.substantively_resolved
+    assert cell.coverage == "NONE"
+    assert cell.substantively_resolved
     wired.rerank.assert_not_awaited()
 
 

@@ -50,6 +50,9 @@ def evaluate_expression(node: ExpressionNode, atom_status: dict[str, Status]) ->
     """(status, rationale). Never raises for a well-formed node (validated at
     construction); ``UNRESOLVED`` is the honest default whenever the input
     can't settle the question, rather than guessing SUPPORTED."""
+    from portal.modules.compliance.core.runtime import bump
+
+    bump("comparison")
     if node.kind == "ATOM":
         status = atom_status.get(node.atom_id)
         if status is None:

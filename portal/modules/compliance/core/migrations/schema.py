@@ -385,4 +385,65 @@ MIGRATIONS: list[tuple[int, str, str]] = [
         ALTER TABLE relationship_assertions ADD COLUMN confidence REAL NOT NULL DEFAULT 0.0;
         """,
     ),
+    (
+        6,
+        "reasoning v3: determination contract and corpus boundary proofs",
+        """
+        CREATE TABLE corpus_boundary_proofs (
+            boundary_proof_id TEXT PRIMARY KEY,
+            subject_ref TEXT NOT NULL,
+            query_set_json TEXT NOT NULL,
+            index_generation TEXT NOT NULL,
+            manifest_hash TEXT NOT NULL,
+            eligible_document_count INTEGER NOT NULL,
+            candidates_retrieved_json TEXT NOT NULL DEFAULT '[]',
+            candidates_rejected_json TEXT NOT NULL DEFAULT '[]',
+            truncation_flags_json TEXT NOT NULL DEFAULT '[]',
+            budget_ceilings_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            org_id TEXT NOT NULL DEFAULT 'default',
+            CHECK (length(trim(query_set_json)) > 2),
+            CHECK (length(trim(index_generation)) > 0)
+        );
+
+        CREATE TABLE claims_v3 (
+            claim_id       TEXT PRIMARY KEY,
+            run_id         TEXT NOT NULL REFERENCES analysis_runs(run_id),
+            obligation_atom_ids_json TEXT NOT NULL DEFAULT '[]',
+            claim_kind     TEXT NOT NULL DEFAULT '',
+            review_status  TEXT NOT NULL DEFAULT 'proposed',
+            assertion      TEXT NOT NULL DEFAULT '',
+            rationale      TEXT NOT NULL DEFAULT '',
+            governing_anchor_ids_json TEXT NOT NULL DEFAULT '[]',
+            internal_anchor_ids_json TEXT NOT NULL DEFAULT '[]',
+            counterevidence_anchor_ids_json TEXT NOT NULL DEFAULT '[]',
+            created_at     TEXT NOT NULL,
+            org_id         TEXT NOT NULL DEFAULT 'default',
+            determination TEXT NOT NULL DEFAULT 'UNRESOLVED'
+                CHECK (determination IN ('SUPPORTED','PARTIAL','CONTRADICTED','ABSENT','UNRESOLVED')),
+            unresolved_code TEXT NOT NULL DEFAULT '',
+            missing_fact_json TEXT NOT NULL DEFAULT '{}',
+            field_results_json TEXT NOT NULL DEFAULT '[]',
+            boundary_proof_id TEXT NOT NULL DEFAULT '',
+            CHECK (determination <> 'UNRESOLVED' OR unresolved_code <> ''),
+            CHECK (determination <> 'ABSENT' OR boundary_proof_id <> '')
+        );
+
+        INSERT INTO claims_v3 (
+            claim_id, run_id, obligation_atom_ids_json, claim_kind, review_status,
+            assertion, rationale, governing_anchor_ids_json, internal_anchor_ids_json,
+            counterevidence_anchor_ids_json, created_at, org_id, determination,
+            unresolved_code, missing_fact_json, field_results_json, boundary_proof_id
+        )
+        SELECT claim_id, run_id, obligation_atom_ids_json, claim_kind, review_status,
+            assertion, rationale, governing_anchor_ids_json, internal_anchor_ids_json,
+            counterevidence_anchor_ids_json, created_at, org_id, 'UNRESOLVED',
+            'U03_EXTRACTION_FAILED',
+            '{"legacy_claim":"determination was not recorded before schema v6"}', '[]', ''
+        FROM claims;
+
+        DROP TABLE claims;
+        ALTER TABLE claims_v3 RENAME TO claims;
+        """,
+    ),
 ]

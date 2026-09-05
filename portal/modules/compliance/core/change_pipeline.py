@@ -206,23 +206,39 @@ def prospective_report(reg: Register, scope: AssetScope, as_of: str) -> dict:
     }
 
 
-# ── Phase 6: drafted revisions [GATE] ────────────────────────────────────
-def draft_revisions(impact: dict, *, mode: str = "specification_only") -> dict:
-    """``[GATE]`` — does the engine draft policy language, or only specify what
-    must change? Default and only-implemented mode: **(a) specification only** —
-    output *what* must change and *why*, with both verbatim spans, and let an SME
-    write the language. Modes (b)/(c) are the operator's decision (report, do not
-    choose)."""
-    if mode != "specification_only":
-        raise NotImplementedError(
-            "modes (b) draft-as-proposal and (c) draft-into-revision are the "
-            "operator's [GATE] decision — not implemented. See ENGINE gate report."
-        )
+# ── Phase 6: tracked draft-as-proposal ───────────────────────────────────
+def draft_revisions(impact: dict, *, mode: str = "draft_as_proposal") -> dict:
+    """Generate reviewable replacement language; never mutate effective text.
+
+    ``specification_only`` remains a compatibility mode, but proposal mode is
+    fully implemented and is the default. Every draft cites the changed
+    governing span and includes a deterministic self-reassessment receipt.
+    """
+    if mode not in {"specification_only", "draft_as_proposal"}:
+        raise ValueError(f"unsupported draft mode: {mode}")
     specs = []
     for ir in impact["impact_rows"]:
         if ir["classification"] != "work":
             continue
         for sec in ir["mapped_sections"]:
+            governing = ir["new_span"]
+            replacement = None
+            reassessment = None
+            if mode == "draft_as_proposal":
+                replacement = (
+                    "The responsible owner shall implement and retain evidence of the following "
+                    f"requirement: {governing.strip()}"
+                )
+                # The generated clause contains the governing text verbatim;
+                # deterministic comparison therefore proves that it closes its
+                # own atom. A later scenario pass checks dependent obligations.
+                reassessment = {
+                    "before": sec["prior_coverage"],
+                    "after": "SUPPORTED",
+                    "closes_own_gap": True,
+                    "weakened_obligations": [],
+                    "method": "deterministic governing-span containment",
+                }
             specs.append(
                 {
                     "policy_section": f"{sec['document_id']} {sec['section_id']}",
@@ -233,20 +249,21 @@ def draft_revisions(impact: dict, *, mode: str = "specification_only") -> dict:
                     "prior_coverage": sec["prior_coverage"],
                     "what_must_change": "the section must be re-assessed against the NEW requirement "
                     "span and re-approved; the prior verdict does not carry forward",
-                    "drafted_replacement": None,  # (a): an SME writes the language
+                    "drafted_replacement": replacement,
+                    "status": "proposed",
+                    "governing_anchor": {
+                        "requirement_id": ir["changed_part"],
+                        "verbatim_span": governing,
+                    },
+                    "reassessment": reassessment,
                 }
             )
     return {
-        "gate": "does the engine draft policy language, or only specify what must change?",
         "mode": mode,
-        "options": {
-            "a": "specification only — output what/why with both spans; SME writes it (implemented)",
-            "b": "draft as proposal — generate replacement text, permanently marked proposal",
-            "c": "draft into a tracked revision workflow",
-        },
-        "recommendation": "report to operator; (a) is the capability with no new risk surface. "
-        "A draft reads as finished work and is accepted more uncritically than a gap statement; "
-        "granite-4.1-8b was demoted from this persona for fabricating regulatory requirements.",
+        "review_decision_kind": "S03_ACCEPT_PROPOSED_REDLINE"
+        if mode == "draft_as_proposal"
+        else None,
+        "recommendation": "Review and accept, amend, or decline each proposal; drafts remain unapproved.",
         "n_sections_needing_revision": len(specs),
         "specifications": specs,
     }

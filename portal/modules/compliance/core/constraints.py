@@ -37,6 +37,8 @@ class Quantity:
 
 
 _MAX_INTERVAL_CUES = (
+    "within",
+    "no later than",
     "at least once every",
     "review",
     "evaluate",
@@ -81,6 +83,9 @@ def compare_constraint(kind: str, governing: Quantity, internal: Quantity) -> tu
       value is MORE restrictive; a SMALLER one is LESS_RESTRICTIVE.
 
     Different units/qualifiers (F05) are never converted — INCOMPARABLE."""
+    from portal.modules.compliance.core.runtime import bump
+
+    bump("constraints")
     if kind not in CONSTRAINT_KINDS:
         raise ValueError(f"kind must be one of {CONSTRAINT_KINDS}, got {kind!r}")
     if governing.key != internal.key:

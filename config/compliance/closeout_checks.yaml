@@ -1,0 +1,29 @@
+checks:
+  - {id: V01, name: determination contract enforced in code}
+  - {id: V02, name: determination contract enforced in the store}
+  - {id: V03, name: no unconditional abstention path}
+  - {id: V04, name: domain tables are populated}
+  - {id: V05, name: no dead primitives}
+  - {id: V06, name: anchors re-resolve}
+  - {id: V07, name: absence is proven}
+  - {id: V08, name: determinations are not approval-gated}
+  - {id: V09, name: cross-standard retrieval}
+  - {id: V10, name: temporal resolution on the requirement route}
+  - {id: V11, name: A-matrix complete}
+  - {id: V12, name: Q-matrix complete}
+  - {id: V13, name: no key-presence-only assertions}
+  - {id: V14, name: live suite does not skip}
+  - {id: V15, name: draft-as-proposal implemented}
+  - {id: V16, name: weakening variant detected}
+  - {id: V17, name: twelve routed traces exist}
+  - {id: V18, name: full sweep completed}
+  - {id: V19, name: determination rate floor}
+  - {id: V20, name: unresolved discipline}
+  - {id: V21, name: SME queue discipline}
+  - {id: V22, name: migration and restore proven}
+  - {id: V23, name: review lifecycle proven}
+  - {id: V24, name: replay determinism}
+  - {id: V25, name: runtime is real and current}
+  - {id: V26, name: docs current}
+  - {id: V27, name: fingerprints fresh}
+  - {id: V28, name: gate ladder green}

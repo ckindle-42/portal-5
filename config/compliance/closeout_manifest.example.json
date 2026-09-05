@@ -1,0 +1,21 @@
+{
+  "org_id": "example-org",
+  "kb_id": "operator_corpus",
+  "corpus_directory": "/absolute/private/path/to/operator-corpus",
+  "source_catalog": "portal/modules/compliance/data/nerc_cip_register.json",
+  "valid_at": "2026-09-05",
+  "known_at": "2026-09-05T00:00:00Z",
+  "base_url": "http://localhost:8937",
+  "workspace_id": "auto-compliance",
+  "sample_requirement": "CIP-007-6 R2 Part 2.2",
+  "authentication": "existing runtime mechanism; no credentials embedded",
+  "expected": {
+    "standards": 13,
+    "documents": 68
+  },
+  "stage_limits": {
+    "max_edges": 1000,
+    "max_depth": 5
+  },
+  "frozen_assertion_set": "TASK_COMPLIANCE_REASONING_V3"
+}

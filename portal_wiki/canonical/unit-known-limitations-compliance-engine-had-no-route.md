@@ -11,7 +11,7 @@ sources:
   path: config/portal.yaml
 claims:
 - probe: compliance.workspace_tools
-  contains: "all_reachable:19"
+  contains: "all_reachable:23"
 confidence: high
 tags:
 - docs
@@ -43,6 +43,13 @@ tags:
   the workspace's `tools:` list — being reachable at the REST surface is
   necessary but not sufficient; the workspace's `tools:` list is what the
   model sees.
+- **V3 update (2026-09-05)**: `compliance_requirement`,
+  `compliance_analyze`, `compliance_compare`, and `compliance_impact` are now
+  registered through the same three layers. The earlier V2 limitations that
+  forced determinate questions to `UNRESOLVED` and kept redline generation
+  behind a `NotImplementedError` gate are closed by the source-backed
+  assessment and draft-as-proposal paths. Remaining SME review is limited to
+  the closed decision-kind enum; it is not a prerequisite for computation.
 - **Guard**: `compliance.workspace_tools` (`portal/platform/wiki/claims.py`)
   cross-checks all three — the workspace list, the discovery manifest, and
   `_DISPATCH` — for every `compliance_*`/`nerc_cip*` tool name, and reports

@@ -44,14 +44,30 @@ surfaces:
   globs:
   - portal/modules/compliance/core/applicability.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-assessment
+  globs:
+  - portal/modules/compliance/core/assessment.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-auth
   globs:
   - portal/modules/compliance/core/auth.py
+  unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-authority
+  globs:
+  - portal/modules/compliance/core/authority.py
+  unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-boundary
+  globs:
+  - portal/modules/compliance/core/boundary.py
   unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-change_pipeline
   globs:
   - portal/modules/compliance/core/change_pipeline.py
   unit: unit-compliance-change-pipeline
+- name: file-portal-modules-compliance-core-change_plan
+  globs:
+  - portal/modules/compliance/core/change_plan.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-cip_extract
   globs:
   - portal/modules/compliance/core/cip_extract.py
@@ -76,9 +92,17 @@ surfaces:
   globs:
   - portal/modules/compliance/core/currency.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-determination
+  globs:
+  - portal/modules/compliance/core/determination.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-engine
   globs:
   - portal/modules/compliance/core/engine.py
+  unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-impact
+  globs:
+  - portal/modules/compliance/core/impact.py
   unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-ingest
   globs:
@@ -87,6 +111,10 @@ surfaces:
 - name: file-portal-modules-compliance-core-intentionality
   globs:
   - portal/modules/compliance/core/intentionality.py
+  unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-internal_model
+  globs:
+  - portal/modules/compliance/core/internal_model.py
   unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-mapping_store
   globs:
@@ -107,6 +135,10 @@ surfaces:
 - name: file-portal-modules-compliance-core-models
   globs:
   - portal/modules/compliance/core/models.py
+  unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-obligations
+  globs:
+  - portal/modules/compliance/core/obligations.py
   unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-planted
   globs:
@@ -132,6 +164,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/review_queue.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-runtime
+  globs:
+  - portal/modules/compliance/core/runtime.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-scenarios
   globs:
   - portal/modules/compliance/core/scenarios.py
@@ -151,6 +187,10 @@ surfaces:
 - name: file-portal-modules-compliance-core-tiers
   globs:
   - portal/modules/compliance/core/tiers.py
+  unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-traceability
+  globs:
+  - portal/modules/compliance/core/traceability.py
   unit: unit-compliance-engine
 - name: file-portal-modules-compliance-tests-test_compliance_mcp
   globs:

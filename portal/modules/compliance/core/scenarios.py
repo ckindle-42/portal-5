@@ -23,9 +23,13 @@ import uuid
 from dataclasses import dataclass, field
 
 from portal.modules.compliance.core.applicability import AssetScope
+from portal.modules.compliance.core.assessment import assess_requirement, serialize
+from portal.modules.compliance.core.boundary import BoundarySearch, build_queries
+from portal.modules.compliance.core.change_plan import build as build_change_plan
 from portal.modules.compliance.core.cip_register import Register
-from portal.modules.compliance.core.coverage import ProposeFn, coverage_matrix
+from portal.modules.compliance.core.coverage import ProposeFn, _qualified
 from portal.modules.compliance.core.mapping_store import MappingStore
+from portal.modules.compliance.core.obligations import decompose
 from portal.modules.compliance.core.temporal import now_iso
 
 
@@ -73,27 +77,40 @@ def evaluate_scenario(
     real_propose: ProposeFn,
     mapping_store: MappingStore | None = None,
 ) -> dict:
-    """Before/after comparison for one targeted obligation. Returns both
-    cells' full dict form plus an explicit ``qualification_changed`` flag —
-    the one thing this deterministic evaluator can honestly claim. A caller
-    wanting a full documented-alignment verdict still needs P5's comparison
-    engine, not yet implemented; this never fabricates one."""
+    """Return isolated before/after determinations and a change package."""
     target_reg = Register(
         nodes=[n for n in reg.nodes if n.id == scenario.target_node_id], edges=reg.edges
     )
     if not target_reg.nodes:
         return {"error": f"target_node_id not found in register: {scenario.target_node_id}"}
 
-    before_mx = coverage_matrix(target_reg, scope, effective_on, real_propose, mapping_store)
-    after_mx = coverage_matrix(
-        target_reg,
-        scope,
-        effective_on,
-        _patched_propose(real_propose, scenario.target_node_id, scenario.patch_text),
-        mapping_store,
+    node = target_reg.nodes[0]
+    atom = decompose(node.id, node.verbatim_text, anchor_ids=[node.id])[0].to_record()
+    atom_id = atom["atom_id"]
+    model = {"node_id": node.id, "atoms": [atom], "expression_id": f"expr:{node.id}"}
+    raw_before = []
+    for side in ("policy", "procedure", "evidence"):
+        raw_before.extend(_qualified(real_propose(node, side)))
+    before_candidates = []
+    for index, row in enumerate(raw_before):
+        parsed = decompose(f"candidate:{index}", row.get("span", ""))[0].to_record()
+        parsed["anchor_id"] = row.get("section_id", "")
+        before_candidates.append(parsed)
+    proposed = decompose("scenario-proposal", scenario.patch_text)[0].to_record()
+    proposed["anchor_id"] = f"scenario:{node.id}"
+    # A patch is replacement text for the targeted section, not an additive
+    # supplement. Keeping the old assertion would make weakening impossible
+    # to detect because the still-present old text would continue to satisfy it.
+    after_candidates = [proposed]
+    boundary = BoundarySearch(
+        node.id, build_queries(node.id, atom), "live-proposer", "runtime", len(raw_before)
     )
-    before_cell = before_mx.cells[0].to_dict() if before_mx.cells else None
-    after_cell = after_mx.cells[0].to_dict() if after_mx.cells else None
+    context = {"valid_at": effective_on, "applicability": "APPLIES", "boundary": boundary}
+    before_result = assess_requirement(
+        model, {**context, "candidates": {atom_id: before_candidates}}
+    )
+    after_result = assess_requirement(model, {**context, "candidates": {atom_id: after_candidates}})
+    before_cell, after_cell = serialize(before_result), serialize(after_result)
 
     return {
         "scenario_id": scenario.scenario_id,
@@ -102,13 +119,13 @@ def evaluate_scenario(
         "planned_effective_date": scenario.planned_effective_date,
         "before": before_cell,
         "after": after_cell,
-        "qualification_changed": bool(before_cell)
-        and bool(after_cell)
-        and before_cell["coverage"] != after_cell["coverage"],
-        "note": "This compares QUALIFICATION signal only (does the candidate layer see "
-        "evidence for this obligation) — never a documented-alignment verdict, which "
-        "requires P5's obligation-atom comparison engine (not implemented). A patch "
-        "that changes qualification still requires SME review before it means anything.",
+        "determination_changed": before_result.determination != after_result.determination,
+        "qualification_changed": before_result.determination != after_result.determination,
+        "weakening": before_result.determination == "SUPPORTED"
+        and after_result.determination != "SUPPORTED",
+        "affected_obligation": node.id,
+        "change_plan": build_change_plan({"target_node_id": node.id}),
+        "note": "Isolated deterministic assessment; proposed text is not written to the effective graph.",
     }
 
 
