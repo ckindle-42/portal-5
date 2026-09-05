@@ -36,6 +36,36 @@ class Quantity:
         return (self.unit, self.normalized_qualifier)
 
 
+_MAX_INTERVAL_CUES = (
+    "at least once every",
+    "review",
+    "evaluate",
+    "assess",
+    "patch",
+    "audit",
+    "test",
+)
+_MIN_RETENTION_CUES = ("retain", "retention", "keep", "preserve", "maintain records")
+
+
+def infer_constraint_kind(text: str) -> str | None:
+    """Heuristic-only kind inference from surrounding text cues (Q08/Q09).
+
+    This is NOT semantic understanding — it is a cue-word lookup over the
+    same span text ``tiers._quant_claims`` already scanned, used only to
+    pick which comparator direction ``compare_constraint`` should apply.
+    Returns ``None`` (never guesses) when no cue matches, so the caller
+    must report the kind as undetermined rather than silently defaulting
+    to one direction — a wrong default here would flip
+    MORE_RESTRICTIVE/LESS_RESTRICTIVE."""
+    lowered = text.lower()
+    if any(cue in lowered for cue in _MIN_RETENTION_CUES):
+        return "min_retention"
+    if any(cue in lowered for cue in _MAX_INTERVAL_CUES):
+        return "max_interval"
+    return None
+
+
 def compare_constraint(kind: str, governing: Quantity, internal: Quantity) -> tuple[str, str]:
     """(result, reason). ``kind`` selects the comparator direction:
 

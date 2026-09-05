@@ -42,6 +42,8 @@ sources:
 - type: code
   path: portal/modules/compliance/core/scenarios.py
 - type: code
+  path: portal/modules/compliance/core/intentionality.py
+- type: code
   path: portal/modules/compliance/core/temporal.py
 - type: code
   path: portal/modules/compliance/core/provenance.py
@@ -87,6 +89,8 @@ sources:
   path: tests/unit/test_compliance_scenarios.py
 - type: code
   path: tests/unit/test_compliance_draft_revisions.py
+- type: code
+  path: tests/unit/test_compliance_intentionality.py
 - type: code
   path: tests/unit/test_compliance_comparison.py
 - type: code

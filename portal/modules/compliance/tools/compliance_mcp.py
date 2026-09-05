@@ -889,6 +889,86 @@ def compliance_trace(
         return {"error": str(e)}
 
 
+@mcp.tool()
+def compliance_intentionality(
+    requirement_id: str,
+    internal_text: str,
+    control_id: str = "",
+) -> dict:
+    """Are our internal rules more restrictive than the standard, and is
+    that intentional? (design §9 Q08). Compares every quantitative claim
+    in ``internal_text`` (paste the relevant procedure/policy span) against
+    the governing requirement's verbatim text using the direction-aware
+    comparator (F05/P5.3 — a shorter max_interval is stricter, a longer
+    min_retention is stricter, never the reverse; different units/qualifiers
+    are never converted). Never calls a stricter internal practice a
+    violation, and never treats "stricter" as license to loosen it.
+
+    Pass ``control_id`` (a real row in the ``internal_controls`` table) to
+    also check for a recorded ``policy_decisions`` entry — this is the only
+    way to actually know intent was deliberate rather than incidental. With
+    no ``control_id`` match, intentionality is honestly reported
+    ``unknown``, never inferred from the comparison alone."""
+    try:
+        from portal.modules.compliance.core.cip_register import Register
+        from portal.modules.compliance.core.intentionality import assess_intentionality
+
+        reg = Register.load()
+        node = next((n for n in reg.nodes if n.id == requirement_id), None)
+        if node is None:
+            return {"error": f"unknown requirement_id: {requirement_id}"}
+
+        result = assess_intentionality(node.verbatim_text, internal_text)
+
+        intentionality: dict = {"status": "unknown", "reason": "no control_id supplied"}
+        if control_id:
+            try:
+                from portal.modules.compliance.core.repository import Repository
+
+                decisions = Repository().get_policy_decisions(control_id)
+            except Exception as e:  # noqa: BLE001
+                decisions = []
+                intentionality = {"status": "unknown", "reason": f"lookup failed: {e}"}
+            else:
+                if decisions:
+                    intentionality = {"status": "documented", "decisions": decisions}
+                else:
+                    intentionality = {
+                        "status": "unknown",
+                        "reason": f"no policy_decisions row for control_id {control_id!r}",
+                    }
+        result["intentionality"] = intentionality
+        return result
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
+
+
+@mcp.tool()
+def compliance_flexibility(requirement_id: str) -> dict:
+    """Where does the regulation permit flexibility we do not use? (design
+    §9 Q09). Scans the governing requirement's verbatim text for explicit
+    permissive-alternative cues ("may", "alternatively", "at its
+    discretion") and returns each matching sentence verbatim, sourced to
+    the requirement. Cue-word detection only — NOT semantic obligation
+    modeling, and NEVER a recommendation: an SME must confirm any
+    candidate's conditions before adopting it, and a forbidden/conditional
+    alternative must not be read as an unconditional one (design
+    anti-shortcut list)."""
+    try:
+        from portal.modules.compliance.core.cip_register import Register
+        from portal.modules.compliance.core.intentionality import find_flexibility
+
+        reg = Register.load()
+        node = next((n for n in reg.nodes if n.id == requirement_id), None)
+        if node is None:
+            return {"error": f"unknown requirement_id: {requirement_id}"}
+        result = find_flexibility(node.verbatim_text)
+        result["requirement_id"] = requirement_id
+        return result
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
+
+
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_compliance_mcp")
 
 _DISPATCH = {
@@ -914,6 +994,8 @@ _DISPATCH = {
     "compliance_prospective": compliance_prospective,
     "compliance_scenario": compliance_scenario,
     "compliance_draft_revisions": compliance_draft_revisions,
+    "compliance_intentionality": compliance_intentionality,
+    "compliance_flexibility": compliance_flexibility,
 }
 
 

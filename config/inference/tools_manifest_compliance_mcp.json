@@ -503,5 +503,48 @@
         ]
       }
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "compliance_intentionality",
+      "description": "Are our internal rules more restrictive than the standard for this requirement, and is that intentional? Compares every numeric duration claim in the supplied internal procedure/policy text against the governing requirement's verbatim text using the correct comparator direction (a shorter review interval is stricter; a longer retention period is stricter). Pass control_id (a real internal_controls row) to also check for a recorded policy_decisions entry — without a match, intentionality is reported unknown, never inferred. Never calls a stricter internal practice a violation.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "requirement_id": {
+            "type": "string"
+          },
+          "internal_text": {
+            "type": "string"
+          },
+          "control_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "requirement_id",
+          "internal_text"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "compliance_flexibility",
+      "description": "Where does this requirement's governing text permit flexibility we may not be using? Scans the verbatim requirement text for explicit permissive-alternative cues (\"may\", \"alternatively\", \"at its discretion\") and returns each matching sentence verbatim. Cue-word detection only, never a recommendation to relax a control — an SME must confirm any candidate's conditions before adoption.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "requirement_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "requirement_id"
+        ]
+      }
+    }
   }
 ]

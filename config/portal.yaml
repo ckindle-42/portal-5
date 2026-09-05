@@ -1421,6 +1421,8 @@ workspaces:
     - compliance_prospective
     - compliance_scenario
     - compliance_draft_revisions
+    - compliance_intentionality
+    - compliance_flexibility
     expose_to_owui: true
     enable_web_search: true
     owui_system_prompt: |-
