@@ -34,6 +34,8 @@ sources:
 - type: code
   path: portal/modules/compliance/core/text_signals.py
 - type: code
+  path: portal/modules/compliance/core/auth.py
+- type: code
   path: portal/modules/compliance/core/temporal.py
 - type: code
   path: portal/modules/compliance/core/provenance.py
@@ -67,6 +69,10 @@ sources:
   path: tests/unit/test_compliance_migrate_legacy.py
 - type: code
   path: tests/unit/test_compliance_applicability.py
+- type: code
+  path: tests/unit/test_compliance_auth.py
+- type: code
+  path: tests/unit/test_compliance_review_decide_auth.py
 claims:
 # O9: real bindings. Each fails the drift census if the subsystem regresses —
 # not a `modules.enabled contains: compliance` check.
