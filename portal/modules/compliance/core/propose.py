@@ -14,10 +14,19 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import hashlib
+import json
+import logging
+import math
+import re
+from dataclasses import replace
 
 from portal.modules.compliance.core import review_queue as rq
+from portal.modules.compliance.core.coverage import ProposalError
 from portal.modules.compliance.core.ingest import derive_tier, read_sidecar
-from portal.modules.compliance.core.text_signals import is_aspirational, keywords
+from portal.modules.compliance.core.text_signals import is_aspirational
+
+logger = logging.getLogger(__name__)
 
 
 def _standard_base(standard: str) -> str:
@@ -33,14 +42,11 @@ def _run(coro, timeout: float | None = None):
     case of already being inside one by running in a fresh thread.
 
     ``timeout`` bounds a single call independent of the client's own timeout —
-    ``embedding.vl_rerank`` hardcodes a 300s httpx timeout shared with the RAG
-    composition, generous by design there, but a `compliance_gaps` matrix over
-    ~200 Parts cannot afford one hung candidate stalling the whole run for
-    5 minutes (observed live: the VL server's ``/rerank`` occasionally hangs on
-    a specific payload with no error, no log line — a real, reproducible
-    server-side issue, not a client bug). ``asyncio.TimeoutError`` here is
-    caught by the caller the same as any other reranker failure — degrade to
-    the keyword-overlap fallback, don't block."""
+    ``embedding.vl_rerank`` uses a 300s httpx timeout shared with the RAG
+    composition. Bound the coverage call separately so a busy or unavailable
+    service cannot stall each Part for five minutes. ``asyncio.TimeoutError`` is
+    caught by the caller and reported as unresolved retrieval, never as a
+    different coverage classifier."""
 
     async def _bounded():
         return await asyncio.wait_for(coro, timeout) if timeout else await coro
@@ -66,9 +72,9 @@ RERANK_THRESHOLD_HIGH = 0.5
 RERANK_THRESHOLD_LOW = 0.25
 
 # Bounds one rerank call independent of embedding.vl_rerank's own 300s httpx
-# timeout (see _run's docstring) — one hung candidate degrades to keyword
-# overlap for that Part instead of stalling a ~200-Part matrix for 5 minutes.
+# timeout (see _run's docstring). A failure leaves the Part NEEDS_REVIEW.
 RERANK_CALL_TIMEOUT_S = 20.0
+SEARCH_CALL_TIMEOUT_S = 60.0
 
 
 def _resolve_meta(source_file: str, sidecar: dict, queued: set[str]) -> dict:
@@ -118,12 +124,14 @@ def _filter_candidates(
     that is exactly right for procedures and exactly wrong for policy."""
     out = []
     for hit in hits:
+        text = hit.get("text") or ""
+        if hit.get("content_available") is False or not text.strip():
+            continue  # a page pointer cannot substantiate a quoted text span
         source_file = hit.get("source_file", "")
         meta = _resolve_meta(source_file, sidecar, queued)
         standard_hint = meta.get("standard_hint")
         if meta["layer"] != "policy" and standard_hint and standard_hint != target_std:
             continue  # filed under a DIFFERENT standard's folder — not this Part's evidence
-        text = hit.get("text") or ""  # a chunk row can carry text=None, not just a missing key
         out.append(
             {
                 "document_id": source_file,
@@ -161,7 +169,40 @@ def _resolve_locatability(candidate: dict, score: float, node, side: str) -> tup
     return False, item.id
 
 
-def make_real_proposer(kb_id: str = "operator_corpus", top_k: int = 15, overlap_threshold: int = 2):
+def _validated_scores(ranked: list[dict], count: int) -> dict[int, float]:
+    """Missing, duplicate, or invalid scores are failures, not irrelevant hits."""
+    scores = {}
+    for row in ranked:
+        index, score = row["index"], float(row["score"])
+        if (
+            type(index) is not int
+            or not 0 <= index < count
+            or index in scores
+            or not math.isfinite(score)
+            or not 0 <= score <= 1
+        ):
+            raise ValueError("invalid or duplicate rerank score")
+        scores[index] = score
+    if len(scores) != count:
+        raise ValueError(f"rerank returned {len(scores)} scores for {count} candidates")
+    return scores
+
+
+def _quote_span(text: str, requirement: str) -> str:
+    """Keep an exact requirement restatement visible in compact citations.
+
+    The real policy/procedure chunks contain several Parts. Blindly quoting
+    their first 400 (then 180) characters hid Part 5.4 even when the full chunk
+    restated it verbatim. Match across extraction whitespace, but return an
+    unchanged slice of the stored text. This does not decide relevance.
+    """
+    pattern = r"\s+".join(re.escape(word) for word in requirement.split())
+    match = re.search(pattern, text, re.I) if pattern else None
+    start = match.start() if match else 0
+    return text[start : start + 400]
+
+
+def make_real_proposer(kb_id: str = "operator_corpus", top_k: int = 15):
     """A ``propose(node, side)`` over the real ingested corpus. Documents with
     no ingest-time layer record are given a live best-guess tier (queued, not
     dropped) so a stale sidecar never silences a real span.
@@ -187,9 +228,14 @@ def make_real_proposer(kb_id: str = "operator_corpus", top_k: int = 15, overlap_
     cross-encoder the retrieval fusion already uses for the visual arm
     (``vl_rerank``); a three-stage decision (``_resolve_locatability``) turns
     the score into ``locatable`` — confident either way, or queued as
-    ``low_confidence_extraction`` in the ambiguous middle. Falls back to the
-    keyword overlap only when the reranker itself is unreachable — degraded,
-    not silently wrong.
+    ``low_confidence_extraction`` in the ambiguous middle. Retrieval errors
+    raise ``ProposalError`` so the matrix reports NEEDS_REVIEW. A timeout must
+    never switch to keyword matching and invent coverage or gaps.
+
+    Coverage requires quoted text, so this composition searches the text arm
+    only. Image-only pointers cannot prove a span and must not crowd text out
+    of the top-k pool or be submitted to the reranker as empty strings. General
+    ``compliance_search`` remains multimodal.
 
     **One search + one rerank per Part, not per side.** ``coverage_matrix``
     calls ``propose(node, side)`` three times (policy/procedure/evidence) per
@@ -204,20 +250,43 @@ def make_real_proposer(kb_id: str = "operator_corpus", top_k: int = 15, overlap_
 
     _queued_this_process: set[str] = set()  # avoid re-queuing the same file every call
     _resolved_cache: dict[str, list[dict]] = {}  # node.id -> every resolved candidate, all layers
-
-    def _keyword_locatable(text: str, req_kw: set[str]) -> bool:
-        return len(req_kw & keywords(text)) >= overlap_threshold and not is_aspirational(text)
+    comp = replace(_cr._composition(), visual_table=lambda _kb_id: None)
 
     def _resolve_all_layers(node) -> list[dict]:
         sidecar = read_sidecar()
         target_std = _standard_base(node.standard)
         try:
-            result = _run(_pipeline.search(_cr._composition(), kb_id, node.verbatim_text, top_k))
-        except Exception:  # noqa: BLE001 - VL unavailable / unknown kb -> no candidates, not a crash
-            return []
+            result = _run(
+                _pipeline.search(comp, kb_id, node.verbatim_text, top_k),
+                timeout=SEARCH_CALL_TIMEOUT_S,
+            )
+        except Exception as exc:  # noqa: BLE001 — surfaced on the affected cell
+            logger.warning("compliance search failed for %s: %s", node.id, exc)
+            raise ProposalError("search", f"{type(exc).__name__}: {exc}") from exc
 
         candidates = _filter_candidates(
             result.get("results", []), sidecar, target_std, _queued_this_process
+        )
+        for candidate in candidates:
+            candidate["span"] = _quote_span(candidate["text"], node.verbatim_text)
+        logger.info(
+            "compliance candidates %s",
+            json.dumps(
+                {
+                    "requirement_id": node.id,
+                    "kb_id": kb_id,
+                    "query_sha256": hashlib.sha256(node.verbatim_text.encode()).hexdigest(),
+                    "hits": [
+                        {
+                            "document": h.get("source_file"),
+                            "chunk": h.get("chunk_index"),
+                            "kind": h.get("kind"),
+                        }
+                        for h in result.get("results", [])
+                    ],
+                    "candidates": [c["section_id"] for c in candidates],
+                }
+            ),
         )
         if not candidates:
             return []
@@ -231,19 +300,14 @@ def make_real_proposer(kb_id: str = "operator_corpus", top_k: int = 15, overlap_
                 ),
                 timeout=RERANK_CALL_TIMEOUT_S,
             )
-            scores: dict[int, float] | None = {r["index"]: float(r["score"]) for r in ranked}
-        except Exception:  # noqa: BLE001 - reranker unreachable/hung/timed out: degrade, don't block
-            scores = None
+            scores = _validated_scores(ranked, len(candidates))
+        except Exception as exc:  # noqa: BLE001 — surfaced on the affected cell
+            logger.warning("compliance rerank failed for %s: %s", node.id, exc)
+            raise ProposalError("rerank", f"{type(exc).__name__}: {exc}") from exc
 
-        req_kw = keywords(node.verbatim_text)
         out = []
         for i, c in enumerate(candidates):
-            if scores is not None:
-                locatable, queue_item_id = _resolve_locatability(
-                    c, scores.get(i, 0.0), node, c["layer"]
-                )
-            else:
-                locatable, queue_item_id = _keyword_locatable(c["text"], req_kw), ""
+            locatable, queue_item_id = _resolve_locatability(c, scores[i], node, c["layer"])
             out.append(
                 {
                     "document_id": c["document_id"],
@@ -251,10 +315,11 @@ def make_real_proposer(kb_id: str = "operator_corpus", top_k: int = 15, overlap_
                     "span": c["span"],
                     "locatable": locatable,
                     "queue_item_id": queue_item_id,
+                    "rerank_score": scores[i],
                     "layer": c["layer"],
                 }
             )
-        return out
+        return sorted(out, key=lambda candidate: -candidate["rerank_score"])
 
     def propose(node, side: str) -> list[dict]:
         if node.id not in _resolved_cache:

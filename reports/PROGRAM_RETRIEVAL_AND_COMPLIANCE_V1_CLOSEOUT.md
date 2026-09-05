@@ -32,6 +32,27 @@ Closed 2026-09-03; **finishing task T5 `TASK_COMPLIANCE_ENGINE_LANDING_V1` lande
 
 ## T5 `TASK_COMPLIANCE_ENGINE_LANDING_V1` — connected, real-corpus run
 
+**Reliability follow-up, 2026-09-04:** the original real-run numbers below are
+historical. Host traces found that image-only hits poisoned every classification
+rerank batch, silently activating keyword fallback. Coverage now retrieves
+text spans, surfaces failures as unresolved, and uses successful validated
+rerank scores. Two repeated 20-Part CIP-007-6 sweeps completed in ~59 seconds
+each with identical matrices and zero retrieval errors; Part 5.4 was FULL in
+both sweeps and both surrounding isolated checks. This verifies repeatability,
+not SME approval of the model's labels. Evidence and the limits of the historical
+diagnosis: [reliability investigation](compliance/ENGINE_LANDING_V1_RELIABILITY_ISSUE.md).
+
+**Full-corpus ingest, 2026-09-04:** all 68 operator PDFs (13 standard folders)
+ingested — 2,915 chunks, layer census 2 policy / 61 procedure / 5 evidence.
+`compliance_gaps` run per standard, zero `retrieval_errors` across ~190 Parts
+examined. CIP-007-6 rose to 18 FULL / 1 PARTIAL / 1 NONE (from 0 FULL / 20
+PARTIAL pre-fix). A second false-`COMPLIANCE_CONFLICT` pattern was found and
+partially fixed (topically-unrelated spans, verified) but not fully closed (a
+same-broad-topic-different-specific-obligation case remains, needs real
+semantic matching, not a keyword heuristic) — both documented in the
+reliability report, which also flags CIP-006-6's 14/14 FULL as unreviewed and
+worth sampling before trusting.
+
 The finishing task. Six tasks (T1–T4 + the completeness correction) improved
 the engine while it stayed unroutable: `engine.route()` had never dispatched,
 and none of `coverage.py`/`mapping_store.py`/`applicability.py`/`tiers.py` had
