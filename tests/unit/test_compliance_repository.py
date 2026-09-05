@@ -375,6 +375,61 @@ def test_policy_decision_round_trip(repo):
     assert decisions[0]["rationale"] == "tightened for insurance requirement"
 
 
+def test_corrected_decision_writes_coverage_not_status(repo):
+    """Regression: decide_relationship's CORRECTED branch used to write
+    corrected_coverage into the STATUS column (which only accepts
+    proposed/approved/rejected/revoked/stale) instead of the new coverage
+    column — any real coverage string would violate the CHECK constraint."""
+    rel = RelationshipAssertion(
+        assertion_id="",
+        relation_type="IMPLEMENTS",
+        src_ref="CIP-007-6 R2 Part 2.2",
+        src_revision_id=None,
+        dst_ref="DOC::S1",
+        dst_revision_id=None,
+        scope="",
+        coverage="FULL",
+        proposed_coverage="FULL",
+    )
+    saved = repo.propose_relationship(rel)
+    updated = repo.decide_relationship(
+        saved.assertion_id,
+        "CORRECTED",
+        "sme",
+        expected_version=saved.version,
+        corrected_coverage="PARTIAL",
+    )
+    assert updated.status == "approved"
+    assert updated.coverage == "PARTIAL"
+    assert updated.review_state == "CORRECTED"
+
+
+def test_close_relationship_validity_leaves_approval_untouched(repo):
+    rel = RelationshipAssertion(
+        assertion_id="",
+        relation_type="IMPLEMENTS",
+        src_ref="CIP-003-8 R1 Part 1.2.6",
+        src_revision_id=None,
+        dst_ref="DOC::S1",
+        dst_revision_id=None,
+        scope="",
+        coverage="FULL",
+        proposed_coverage="FULL",
+    )
+    saved = repo.propose_relationship(rel)
+    approved = repo.decide_relationship(
+        saved.assertion_id, "CONFIRMED", "sme", expected_version=saved.version
+    )
+    closed = repo.close_relationship_validity(approved.assertion_id, "2024-04-01")
+    assert closed.valid_to == "2024-04-01"
+    assert closed.status == "approved"  # unchanged — a standard supersession, not an SME rejection
+
+
+def test_close_relationship_validity_missing_id_raises_keyerror(repo):
+    with pytest.raises(KeyError):
+        repo.close_relationship_validity("does-not-exist", "2024-04-01")
+
+
 def test_backup_and_restore_roundtrip(repo, tmp_path):
     repo.upsert_source_document(SourceDocument("DOC-1", "T", "i", "policy", "US"))
     repo.add_document_revision("DOC-1", "policy.pdf", b"text")

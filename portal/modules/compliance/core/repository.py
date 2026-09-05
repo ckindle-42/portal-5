@@ -270,8 +270,9 @@ class Repository:
                 """INSERT INTO relationship_assertions(assertion_id, relation_type, src_ref,
                        src_revision_id, dst_ref, dst_revision_id, scope, citations_json, status,
                        review_state, valid_from, valid_to, recorded_from, recorded_to, rationale,
-                       decided_by, decided_at, version, org_id)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                       decided_by, decided_at, version, org_id, coverage, proposed_coverage,
+                       confidence)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     rel.assertion_id,
                     rel.relation_type,
@@ -292,6 +293,9 @@ class Repository:
                     rel.decided_at,
                     rel.version,
                     rel.org_id,
+                    rel.coverage,
+                    rel.proposed_coverage,
+                    rel.confidence,
                 ),
             )
             self._write_outbox_unlocked("relationship_proposed", {"assertion_id": rel.assertion_id})
@@ -308,6 +312,27 @@ class Repository:
                 "SELECT * FROM relationship_assertions WHERE assertion_id = ?", (assertion_id,)
             ).fetchone()
             return self._row_to_relationship(row) if row else None
+
+    def close_relationship_validity(
+        self, assertion_id: str, valid_to: str
+    ) -> RelationshipAssertion:
+        """Close ``valid_to`` on an approved relationship because the
+        STANDARD superseded it, not because an SME reviewed and rejected it
+        — no review event, no status change (an expired-but-was-correct-at-
+        the-time mapping stays ``approved`` for historical `as_known`
+        replay). Raises ``KeyError`` if the assertion does not exist."""
+        with self._lock, self._conn:
+            cur = self._conn.execute(
+                "UPDATE relationship_assertions SET valid_to = ? WHERE assertion_id = ?",
+                (valid_to, assertion_id),
+            )
+            if cur.rowcount == 0:
+                raise KeyError(assertion_id)
+            return self._row_to_relationship(
+                self._conn.execute(
+                    "SELECT * FROM relationship_assertions WHERE assertion_id = ?", (assertion_id,)
+                ).fetchone()
+            )
 
     def list_relationship_assertions(
         self, *, ref: str | None = None, statuses: tuple[str, ...] = ("approved",)
@@ -355,18 +380,37 @@ class Repository:
                     f"assertion {assertion_id} is at version {current.version}, "
                     f"expected {expected_version} — re-read and retry"
                 )
+            # CORRECTED approves the edge (like CONFIRMED) but ALSO records a
+            # different coverage than what was proposed — corrected_coverage
+            # is a coverage value, never a status; writing it into the status
+            # column would violate that column's CHECK constraint the moment
+            # a real coverage string (e.g. "PARTIAL") reached it.
             new_status = {
                 "CONFIRMED": "approved",
-                "CORRECTED": corrected_coverage or current.status,
+                "CORRECTED": "approved",
                 "REJECTED": "rejected",
                 "REVOKED": "revoked",
             }[decision]
+            new_coverage = (
+                corrected_coverage
+                if decision == "CORRECTED" and corrected_coverage
+                else current.coverage
+            )
             now = now_iso()
             cur = self._conn.execute(
                 """UPDATE relationship_assertions
-                   SET status = ?, review_state = ?, decided_by = ?, decided_at = ?, version = version + 1
+                   SET status = ?, review_state = ?, decided_by = ?, decided_at = ?,
+                       coverage = ?, version = version + 1
                    WHERE assertion_id = ? AND version = ?""",
-                (new_status, decision, decided_by, now, assertion_id, expected_version),
+                (
+                    new_status,
+                    decision,
+                    decided_by,
+                    now,
+                    new_coverage,
+                    assertion_id,
+                    expected_version,
+                ),
             )
             if cur.rowcount == 0:
                 # the version-scoped WHERE matched nothing: someone else's

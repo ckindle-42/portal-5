@@ -151,7 +151,22 @@ def import_mapping_store(
     ``imported_legacy_unverified`` — it is authoritative for legacy-compat
     reads, but was never an authenticated P7 decision and must not be
     displayed as one. A rejected/unapproved (proposed) mapping stays
-    ``proposed``. Idempotent: keyed on the legacy mapping's own ``id``."""
+    ``proposed``. Idempotent: keyed on the legacy mapping's own ``id``.
+
+    Since TASK_COMPLIANCE_STORE_CONSOLIDATION_V1, ``MappingStore`` is itself
+    Repository-backed — this function now exists ONLY to import a genuinely
+    separate legacy JSON-era store into ``repo``. Calling it with a
+    ``mapping_store`` pointed at the SAME underlying file as ``repo`` would
+    read every live mapping back out and re-insert it as a second
+    ``legacy:``-prefixed copy of itself; refuse that rather than silently
+    duplicating every row."""
+    if Path(mapping_store.path).resolve() == Path(repo.path).resolve():
+        return {
+            "dry_run": dry_run,
+            "imported": 0,
+            "already_imported": 0,
+            "skipped_reason": "mapping_store and repo are the same store — nothing to import",
+        }
     n_imported = n_skipped = 0
     for m in mapping_store._rows:  # noqa: SLF001 - read-only snapshot of the legacy store
         legacy_key = f"legacy:{m.id}"

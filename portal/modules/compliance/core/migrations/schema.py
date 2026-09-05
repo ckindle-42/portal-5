@@ -370,4 +370,19 @@ MIGRATIONS: list[tuple[int, str, str]] = [
         );
         """,
     ),
+    (
+        5,
+        "coverage-bearing relationships (mapping_store consolidation onto Repository)",
+        """
+        -- TASK_COMPLIANCE_STORE_CONSOLIDATION_V1: mapping_store.py's
+        -- requirement->document coverage judgement (FULL/PARTIAL/NONE/...)
+        -- is a property of a relationship_assertions row, not a separate
+        -- data model — a requirement<->document edge with a coverage
+        -- verdict IS the same edge compliance_trace already traverses.
+        -- Nullable/defaulted so every pre-existing row is unaffected.
+        ALTER TABLE relationship_assertions ADD COLUMN coverage TEXT NOT NULL DEFAULT '';
+        ALTER TABLE relationship_assertions ADD COLUMN proposed_coverage TEXT NOT NULL DEFAULT '';
+        ALTER TABLE relationship_assertions ADD COLUMN confidence REAL NOT NULL DEFAULT 0.0;
+        """,
+    ),
 ]
