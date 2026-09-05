@@ -22,6 +22,7 @@ import shutil
 import sqlite3
 import threading
 import uuid
+from collections import deque
 from dataclasses import asdict
 from pathlib import Path
 
@@ -396,6 +397,92 @@ class Repository:
                     "SELECT * FROM relationship_assertions WHERE assertion_id = ?", (assertion_id,)
                 ).fetchone()
             )
+
+    # ── bidirectional traversal (P4) ────────────────────────────────────
+    def traverse_relationships(
+        self,
+        start_ref: str,
+        *,
+        direction: str = "both",
+        statuses: tuple[str, ...] = ("approved",),
+        max_depth: int = 3,
+        max_edges: int = 500,
+    ) -> dict:
+        """Forward/reverse/both-direction traversal from ``start_ref``,
+        cycle-safe (each node expands at most once) and bounded by both
+        ``max_depth`` and a ``max_edges`` work budget. Returns typed edges
+        with status/citations/validity, plus ``depth_limited_nodes`` and
+        ``unexplored_frontier`` — a truncated or depth-capped traversal is
+        disclosed explicitly, never silently presented as complete (design
+        §4: "detect cycles, bound depth/work, and disclose unexplored
+        frontiers"). ``statuses`` defaults to the governed (approved-only)
+        surface, same as ``list_relationship_assertions``."""
+        if direction not in ("forward", "reverse", "both"):
+            raise ValueError(f"direction must be forward/reverse/both, got {direction!r}")
+        visited = {start_ref}
+        seen_assertions: set[str] = set()
+        frontier: deque[tuple[str, int]] = deque([(start_ref, 0)])
+        edges_out: list[dict] = []
+        depth_limited: set[str] = set()
+        truncated = False
+
+        while frontier:
+            ref, depth = frontier.popleft()
+            if depth >= max_depth:
+                depth_limited.add(ref)
+                continue
+            for rel in self.list_relationship_assertions(ref=ref, statuses=statuses):
+                if len(edges_out) >= max_edges:
+                    truncated = True
+                    break
+                if direction in ("forward", "both") and rel.src_ref == ref:
+                    other, edge_direction = rel.dst_ref, "forward"
+                elif direction in ("reverse", "both") and rel.dst_ref == ref:
+                    other, edge_direction = rel.src_ref, "reverse"
+                else:
+                    continue
+                if rel.assertion_id in seen_assertions:
+                    # a "both"-direction BFS reaches the SAME edge again from
+                    # its other endpoint (e.g. after visiting POL §1, REQ-1's
+                    # edge to it looks like a "reverse" discovery from POL
+                    # §1's side) — that is not new information, so it does
+                    # not count against the edge/work budget either.
+                    if other not in visited:
+                        visited.add(other)
+                        frontier.append((other, depth + 1))
+                    continue
+                seen_assertions.add(rel.assertion_id)
+                edges_out.append(
+                    {
+                        "assertion_id": rel.assertion_id,
+                        "relation_type": rel.relation_type,
+                        "direction": edge_direction,
+                        "from": ref,
+                        "to": other,
+                        "status": rel.status,
+                        "citations": rel.citations,
+                        "valid_from": rel.valid_from,
+                        "valid_to": rel.valid_to,
+                        "decided_at": rel.decided_at,
+                    }
+                )
+                if other not in visited:
+                    visited.add(other)
+                    frontier.append((other, depth + 1))
+            if truncated:
+                break
+
+        return {
+            "start_ref": start_ref,
+            "direction": direction,
+            "max_depth": max_depth,
+            "nodes_visited": sorted(visited),
+            "edges": edges_out,
+            "n_edges": len(edges_out),
+            "truncated": truncated,
+            "depth_limited_nodes": sorted(depth_limited),
+            "unexplored_frontier": sorted({r for r, _ in frontier}) if truncated else [],
+        }
 
     # ── as-known replay (recorded-time history) ─────────────────────────
     def status_as_known(self, assertion_id: str, known_at: str) -> str:

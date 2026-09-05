@@ -259,6 +259,102 @@ def test_as_known_replay_reflects_history_not_current_state(repo):
     assert repo.status_as_known(proposed.assertion_id, now_iso()) == "revoked"
 
 
+# ── bidirectional traversal (P4) ─────────────────────────────────────────
+def _approve(repo, src_ref, dst_ref, relation_type="IMPLEMENTS"):
+    proposed = repo.propose_relationship(
+        RelationshipAssertion(
+            assertion_id="",
+            relation_type=relation_type,
+            src_ref=src_ref,
+            src_revision_id=None,
+            dst_ref=dst_ref,
+            dst_revision_id=None,
+            scope="",
+        )
+    )
+    return repo.decide_relationship(proposed.assertion_id, "CONFIRMED", "sme", expected_version=1)
+
+
+def test_traversal_finds_a_chain_forward_and_reverse(repo):
+    _approve(repo, "CIP-007-6 R2", "POL-A §1")
+    _approve(repo, "POL-A §1", "PROC-B §2")
+
+    fwd = repo.traverse_relationships("CIP-007-6 R2", direction="forward")
+    assert {e["to"] for e in fwd["edges"]} >= {"POL-A §1", "PROC-B §2"}
+
+    rev = repo.traverse_relationships("PROC-B §2", direction="reverse")
+    assert {e["to"] for e in rev["edges"]} >= {"POL-A §1", "CIP-007-6 R2"}
+
+
+def test_cross_standard_control_is_found_in_both_directions(repo):
+    """P4 exit criterion, verbatim: "a cross-standard control is found in
+    both directions" — a control filed under one standard's folder still
+    resolves as an edge from a DIFFERENT standard querying either way."""
+    _approve(repo, "CIP-007-6 R2 Part 2.2", "SHARED-PROC §1")
+    _approve(repo, "CIP-005-7 R1 Part 1.3", "SHARED-PROC §1")
+
+    from_007 = repo.traverse_relationships("CIP-007-6 R2 Part 2.2", direction="forward")
+    assert "SHARED-PROC §1" in {e["to"] for e in from_007["edges"]}
+    reverse_from_shared = repo.traverse_relationships("SHARED-PROC §1", direction="reverse")
+    assert {e["to"] for e in reverse_from_shared["edges"]} == {
+        "CIP-007-6 R2 Part 2.2",
+        "CIP-005-7 R1 Part 1.3",
+    }
+
+
+def test_traversal_handles_cycles_without_looping_forever(repo):
+    _approve(repo, "A", "B")
+    _approve(repo, "B", "C")
+    _approve(repo, "C", "A")  # closes the cycle
+
+    result = repo.traverse_relationships("A", direction="forward", max_depth=10)
+    assert result["truncated"] is False
+    assert set(result["nodes_visited"]) == {"A", "B", "C"}
+    # the closing edge C->A is still reported even though A is already visited
+    assert any(e["from"] == "C" and e["to"] == "A" for e in result["edges"])
+
+
+def test_depth_limit_is_disclosed_not_silently_truncated(repo):
+    _approve(repo, "N0", "N1")
+    _approve(repo, "N1", "N2")
+    _approve(repo, "N2", "N3")
+
+    result = repo.traverse_relationships("N0", direction="forward", max_depth=1)
+    assert "N1" in result["depth_limited_nodes"]
+    assert "N2" not in result["nodes_visited"]  # unreached — depth-limited before expanding N1
+    assert result["nodes_visited"] == ["N0", "N1"]
+
+
+def test_work_budget_truncation_discloses_unexplored_frontier(repo):
+    for i in range(5):
+        _approve(repo, "HUB", f"LEAF-{i}")
+
+    result = repo.traverse_relationships("HUB", direction="forward", max_edges=2)
+    assert result["truncated"] is True
+    assert result["n_edges"] == 2
+    assert result["unexplored_frontier"] != []
+
+
+def test_traversal_only_sees_approved_edges_by_default(repo):
+    repo.propose_relationship(
+        RelationshipAssertion(
+            assertion_id="",
+            relation_type="IMPLEMENTS",
+            src_ref="REQ-1",
+            src_revision_id=None,
+            dst_ref="POL §1",
+            dst_revision_id=None,
+            scope="",
+        )
+    )
+    result = repo.traverse_relationships("REQ-1", direction="forward")
+    assert result["edges"] == []
+    result_all = repo.traverse_relationships(
+        "REQ-1", direction="forward", statuses=("approved", "proposed")
+    )
+    assert len(result_all["edges"]) == 1
+
+
 # ── backup / restore ─────────────────────────────────────────────────────
 def test_backup_and_restore_roundtrip(repo, tmp_path):
     repo.upsert_source_document(SourceDocument("DOC-1", "T", "i", "policy", "US"))
