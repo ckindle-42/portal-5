@@ -210,6 +210,18 @@ class Repository:
             ).fetchall()
             return [DocumentRevision(**dict(r)) for r in rows]
 
+    def revisions_for_logical_id(self, logical_id: str) -> list[DocumentRevision]:
+        """Every revision under this stable logical id, oldest first — the
+        human-facing identity (e.g. a source-dir-relative path), distinct
+        from ``alias_path`` which is stored as a real resolvable filesystem
+        path for live integrity checking."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM document_revisions WHERE logical_id = ? ORDER BY retrieved_at",
+                (logical_id,),
+            ).fetchall()
+            return [DocumentRevision(**dict(r)) for r in rows]
+
     def add_source_section(self, section: SourceSection) -> None:
         with self._lock, self._conn:
             if not self._conn.execute(

@@ -84,6 +84,29 @@ def test_alias_path_lookup_returns_every_historical_revision(tmp_path, monkeypat
     assert result["n_historical_revisions"] == 1
 
 
+def test_logical_id_lookup_finds_a_revision_stored_under_a_different_alias_path(
+    tmp_path, monkeypatch
+):
+    """The exact live gap found during P8-L verification: import_document_directory
+    stores a source-dir-relative logical_id alongside a real resolvable
+    absolute alias_path — a caller who naturally knows the relative name
+    (what an operator or another tool would call it) must still be able to
+    look it up, not just the raw filesystem path."""
+    repo = _repo(tmp_path, monkeypatch)
+    corpus_file = tmp_path / "policy.pdf"
+    corpus_file.write_bytes(b"text")
+    repo.upsert_source_document(
+        SourceDocument("CIP-007/policy.pdf", "Policy", "op", "policy", "US")
+    )
+    repo.add_document_revision("CIP-007/policy.pdf", str(corpus_file), b"text")
+
+    from portal.modules.compliance.tools.compliance_mcp import compliance_sources
+
+    result = compliance_sources(logical_id="CIP-007/policy.pdf")
+    assert result["found"] is True
+    assert result["revisions"][0]["integrity"] == "verified"
+
+
 def test_missing_source_file_is_unverifiable_not_a_false_pass(tmp_path, monkeypatch):
     repo = _repo(tmp_path, monkeypatch)
     repo.upsert_source_document(SourceDocument("gone.pdf", "T", "op", "policy", "US"))

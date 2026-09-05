@@ -695,14 +695,17 @@ def compliance_review_decide(
 
 
 @mcp.tool()
-def compliance_sources(revision_id: str = "", alias_path: str = "") -> dict:
+def compliance_sources(revision_id: str = "", alias_path: str = "", logical_id: str = "") -> dict:
     """Exact permitted source context for an immutable document revision
     (design §9's "What documents... connect" / P7's `compliance_sources`
     operation) — the first operation wired to the P2 canonical repository
     rather than the legacy JSON stores. Pass ``revision_id`` for an exact
-    historical anchor, or ``alias_path`` for the CURRENT/every revision ever
-    ingested at that path (every prior revision stays listed and resolvable
-    — a same-path replacement never erases history, P2's core invariant).
+    historical anchor; ``logical_id`` for the human-facing, source-dir-
+    relative identity (e.g. "CIP-007/Some Procedure.pdf" — what an operator
+    or another tool would naturally name it); or ``alias_path`` for the
+    literal resolvable filesystem path a revision was ingested from. Any
+    match returns the CURRENT/every revision ever recorded under that key —
+    a same-path replacement never erases history, P2's core invariant.
 
     Integrity: when the file still exists on disk at its recorded
     ``alias_path``, its bytes are re-hashed now and compared against the
@@ -717,10 +720,12 @@ def compliance_sources(revision_id: str = "", alias_path: str = "") -> dict:
         if revision_id:
             rev = repo.get_revision(revision_id)
             revisions = [rev] if rev else []
+        elif logical_id:
+            revisions = repo.revisions_for_logical_id(logical_id)
         elif alias_path:
             revisions = repo.revisions_for_alias(alias_path)
         else:
-            return {"error": "must supply revision_id or alias_path"}
+            return {"error": "must supply revision_id, logical_id, or alias_path"}
         if not revisions:
             return {
                 "found": False,
