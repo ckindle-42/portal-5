@@ -123,14 +123,21 @@ def test_mapping_import_is_idempotent(tmp_path):
 def test_document_directory_import_hashes_real_bytes_no_filename_date_guess(tmp_path):
     corpus = tmp_path / "corpus"
     corpus.mkdir()
-    (corpus / "policy_2024.pdf").write_bytes(b"%PDF-1.4 fake policy content")
+    f = corpus / "policy_2024.pdf"
+    f.write_bytes(b"%PDF-1.4 fake policy content")
     repo = Repository(tmp_path / "s.db")
     report = import_document_directory(repo, corpus)
     assert report["files_seen"] == 1 and report["new_revisions"] == 1
-    revs = repo.revisions_for_alias("policy_2024.pdf")
+    # logical_id is the source-dir-relative, human-facing name...
+    revs = repo.revisions_for_logical_id("policy_2024.pdf")
     assert len(revs) == 1
     # no filename-date guessing — "2024" in the name must not become a date
     assert revs[0].authored_date is None and revs[0].effective_date is None
+    # ...while alias_path is the real resolvable filesystem path, so a live
+    # integrity check (compliance_sources) can actually open the file again
+    # regardless of the caller's current working directory (P8-L live finding).
+    assert revs[0].alias_path == str(f)
+    assert repo.revisions_for_alias(str(f)) == revs
     repo.close()
 
 
@@ -148,5 +155,5 @@ def test_document_directory_reimport_is_idempotent_and_detects_replacement(tmp_p
     f.write_bytes(b"version two")  # replacement bytes at the same path
     r3 = import_document_directory(repo, corpus)
     assert r3["new_revisions"] == 1
-    assert len(repo.revisions_for_alias("policy.pdf")) == 2  # both revisions kept
+    assert len(repo.revisions_for_alias(str(f))) == 2  # both revisions kept
     repo.close()

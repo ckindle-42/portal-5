@@ -11,9 +11,10 @@ Weighting: an explicit applicability statement is strong evidence; the absence
 of a corroborating CIP-005/CIP-007 procedure is weak negative evidence and must
 **never**, by itself, exclude an impact rating (a missing procedure is exactly
 what the coverage matrix exists to surface — using it to narrow scope hides the
-gap instead of reporting it). ``has_erc`` / ``has_control_center`` therefore
-default to the inclusive ``True`` (the same default ``AssetScope()`` carries)
-unless the caller has independent evidence to override.
+gap instead of reporting it). ``has_erc`` / ``has_control_center`` are
+UNCONFIRMED (``None``) here (P3/F07) — the corpus was not searched for a
+negative declaration, so this is honestly unknown, not a positive claim the
+entity has ERC/Control-Center systems.
 """
 
 from __future__ import annotations
@@ -98,6 +99,7 @@ def derive_scope(kb_id: str = "operator_corpus") -> tuple[AssetScope, dict]:
         "declared": True,
         "queue_item_id": item.id,
         "n_citing_spans": len(evidence),
-        "note": "has_erc/has_control_center default True (inclusive) — the corpus was not "
-        "searched for a negative declaration; confirm or correct via compliance_review_decide",
+        "note": "has_erc/has_control_center are UNCONFIRMED (unknown) — this is a "
+        "corpus-derived CANDIDATE (AssetScope.is_confirmed is False), not an approved "
+        "declaration; confirm or correct via compliance_review_decide",
     }

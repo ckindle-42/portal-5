@@ -188,9 +188,15 @@ def import_document_directory(
     repo: Repository, source_dir: str | Path, *, dry_run: bool = False
 ) -> dict:
     """Requirement 4. Real bytes under ``source_dir`` become immutable
-    document revisions keyed by content hash; the relative path is the
-    initial logical id (an alias in spirit — a later phase may merge logical
-    ids across a rename without touching revision identity). No filename-date
+    document revisions keyed by content hash. ``logical_id`` is the
+    source-dir-relative path — stable, human-readable, and portable across a
+    corpus move — while ``alias_path`` is stored as the real resolved
+    absolute path, because that is what a LIVE integrity check
+    (``compliance_sources``: does the file on disk still match this
+    revision's hash?) must be able to open regardless of the caller's
+    current working directory. A relative alias_path silently made every
+    live drift check report "unverifiable" no matter what (found live during
+    P8-L verification against the real LSPG-CIP corpus). No filename-date
     guessing: every date field stays ``None``, queued for review by a later
     phase, not invented here."""
     src = Path(source_dir).expanduser().resolve()
@@ -201,18 +207,19 @@ def import_document_directory(
     hashes: dict[str, str] = {}
     for f in files:
         rel_path = str(f.relative_to(src))
+        abs_path = str(f)
         data = f.read_bytes()
         h = content_hash(data)
         hashes[rel_path] = h
         if dry_run:
             continue
-        prior = repo.revisions_for_alias(rel_path)
+        prior = repo.revisions_for_alias(abs_path)
         repo.upsert_source_document(
             SourceDocument(
                 logical_id=rel_path, title=f.stem, issuer="", source_kind="unknown", jurisdiction=""
             )
         )
-        rev = repo.add_document_revision(rel_path, rel_path, data)
+        rev = repo.add_document_revision(rel_path, abs_path, data)
         if any(r.revision_id == rev.revision_id for r in prior):
             n_existing += 1
         else:

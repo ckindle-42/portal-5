@@ -56,7 +56,7 @@
     "type": "function",
     "function": {
       "name": "nerc_cip_requirement",
-      "description": "NERC CIP requirement lookup (e.g. 'CIP-007-6 R2') with related 800-53 controls.",
+      "description": "AUTHORITATIVE, LOCAL lookup of exact verbatim NERC CIP requirement/Part text from the maintained bitemporal register (e.g. 'CIP-007-6 R2 Part 2.2', or 'CIP-007-6 R2' for every Part). Use this FIRST for ANY question asking what a specific CIP standard/requirement/Part currently, historically, or in the future requires — it resolves lifecycle/validity dates deterministically and returns the exact verbatim text with related 800-53 controls. Prefer this over web_search or browser tools for CIP standard text: an external fetch cannot verify effective-date selection or exact revision the way this can, and a generic search result is not a substitute for the maintained register.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -376,11 +376,14 @@
     "type": "function",
     "function": {
       "name": "compliance_sources",
-      "description": "Exact permitted source context for an immutable document revision from the canonical compliance store — pass revision_id for an exact historical anchor, or alias_path for every revision ever ingested at that path. Verifies the source file's current bytes still match the recorded revision hash (drift detection).",
+      "description": "Exact permitted source context for an immutable document revision from the canonical compliance store — pass revision_id for an exact historical anchor, logical_id for the human-facing source-dir-relative name (e.g. 'CIP-007/Some Procedure.pdf'), or alias_path for the literal filesystem path. Verifies the source file's current bytes still match the recorded revision hash (drift detection).",
       "parameters": {
         "type": "object",
         "properties": {
           "revision_id": {
+            "type": "string"
+          },
+          "logical_id": {
             "type": "string"
           },
           "alias_path": {
