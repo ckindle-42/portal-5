@@ -37,12 +37,47 @@ def _pdf_exists(name: str) -> bool | None:
 
 
 def _next_versions(std_ver: str) -> list[str]:
-    """Candidate newer file stems for 'CIP-007-6' -> ['cip-007-7', 'cip-007-8']."""
+    """Candidate newer file stems for 'CIP-007-6'. F02's second half: the
+    prior version of this function checked only the next TWO INTEGER
+    versions — it could never discover a decimal/errata revision of the SAME
+    major version (the design doc's real example: CIP-006-7.1). Includes
+    both integer bumps and a decimal errata candidate for each."""
     m = re.match(r"(CIP-\d{3})-(\d+)(?:\.\d+\w*)?$", std_ver, re.I)
     if not m:
         return []
     base, v = m.group(1).lower(), int(m.group(2))
-    return [f"{base}-{v + 1}", f"{base}-{v + 2}"]
+    return [
+        f"{base}-{v}.1",
+        f"{base}-{v + 1}",
+        f"{base}-{v + 1}.1",
+        f"{base}-{v + 2}",
+    ]
+
+
+def _held_family_numbers(standards: list[str]) -> set[int]:
+    out = set()
+    for s in standards:
+        m = re.match(r"CIP-(\d{3})-", s, re.I)
+        if m:
+            out.add(int(m.group(1)))
+    return out
+
+
+def discover_new_families(standards: list[str], *, probe_ahead: int = 3) -> list[str]:
+    """Probe for entirely new CIP-0XX families beyond the highest held family
+    number (F02: "the held register's zero future nodes does not demonstrate
+    that no future obligations exist" — the same is true for whole new
+    families like the design doc's real CIP-015 example). PDF reachability
+    is a discovery SIGNAL only, never proof of a complete catalog — a real
+    verified official index is P3 work this function does not replace."""
+    held = _held_family_numbers(standards)
+    if not held:
+        return []
+    found = []
+    for n in range(max(held) + 1, max(held) + 1 + probe_ahead):
+        if _pdf_exists(f"cip-{n:03d}-1"):
+            found.append(f"CIP-{n:03d}")
+    return found
 
 
 def nerc_currency(reg: Register | None = None) -> dict:
@@ -87,6 +122,7 @@ def nerc_currency(reg: Register | None = None) -> dict:
                 ),
             }
         )
+    new_families = discover_new_families(standards)
     return {
         "status": "ok",
         "source": "nerc.com/globalassets/standards/reliability-standards/cip/ (PDF reachability)",
@@ -96,4 +132,10 @@ def nerc_currency(reg: Register | None = None) -> dict:
         "n_standards": len(per),
         "n_with_newer_version": sum(1 for p in per if p["newer_version_pdf_reachable"]),
         "per_standard": per,
+        "new_families_discovered": new_families,
+        "new_family_discovery_note": (
+            f"probed CIP-{max(_held_family_numbers(standards)) + 1:03d} through "
+            f"CIP-{max(_held_family_numbers(standards)) + 3:03d} for reachability beyond "
+            "the highest held family — a signal only, not a verified official index (P3)"
+        ),
     }
