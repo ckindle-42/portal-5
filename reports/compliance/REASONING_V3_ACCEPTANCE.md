@@ -4,11 +4,12 @@ Regenerated at the final snapshot. Every fingerprint, count, and citation below
 was captured from the live run named in this document, not copied forward from
 `REASONING_V2_ACCEPTANCE.md` or `REASONING_V3_DISCOVERY.md`.
 
-**Terminal status: `ENGINEERING_INCOMPLETE`** — failing checks: **V27, V28**.
-
-V27 fails only because this document, at the moment it names its own run,
-becomes true (a hand-checkable self-reference the verifier confirms after the
-fact); V28 fails for a real reason recorded below and is **not** waived.
+**Terminal status: `ENGINEERING_INCOMPLETE` on the mechanical verifier
+(27/28); accepted by the operator 2026-09-05 as sufficient to close this
+task**, with the one failing check (`V28`) tracked as a separate follow-up:
+`coding_task/TASK_MYPY_STRICT_BASELINE_REMEDIATION_V1.md`. V28 was not waived
+by editing the check or the ladder — it genuinely fails today, for reasons
+unrelated to compliance reasoning, recorded below and in that follow-up task.
 
 ## Final snapshot
 
@@ -135,7 +136,10 @@ this task authorizes. **This is reported as `ENGINEERING_INCOMPLETE` on V28
 rather than silently narrowing the ladder to make it pass**, per the
 prohibited-shortcuts list ("moving an implementation defect... to obtain a
 clean exit" — the inverse failure mode, quietly dropping an inconvenient step,
-is equally prohibited).
+is equally prohibited). Tracked separately as
+`coding_task/TASK_MYPY_STRICT_BASELINE_REMEDIATION_V1.md`, with a full
+module/error-class breakdown of the 4,819-error current state and the
+5,469-error pre-task baseline.
 
 ## D0.1–D0.12 dispositions
 
