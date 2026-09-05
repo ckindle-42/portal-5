@@ -80,6 +80,8 @@ sources:
 - type: code
   path: tests/unit/test_compliance_sources.py
 - type: code
+  path: tests/unit/test_compliance_prospective.py
+- type: code
   path: tests/unit/test_compliance_comparison.py
 - type: code
   path: tests/unit/test_compliance_constraints.py

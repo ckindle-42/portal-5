@@ -425,5 +425,23 @@
         ]
       }
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "compliance_prospective",
+      "description": "What requires review when a new/revised NERC CIP standard takes effect — future-effective register content as of effective_on (default today), explicitly segregated from what is required today. Every row is marked prospective and must never be read as a current obligation.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "effective_on": {
+            "type": "string"
+          },
+          "kb_id": {
+            "type": "string"
+          }
+        }
+      }
+    }
   }
 ]
