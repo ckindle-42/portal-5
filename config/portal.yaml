@@ -1418,6 +1418,7 @@ workspaces:
     - compliance_review_decide
     - compliance_sources
     - compliance_trace
+    - compliance_prospective
     expose_to_owui: true
     enable_web_search: true
     owui_system_prompt: |-

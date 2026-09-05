@@ -563,6 +563,28 @@ def compliance_change_impact(
 
 
 @mcp.tool()
+def compliance_prospective(effective_on: str = "", kb_id: str = "operator_corpus") -> dict:
+    """Design §9's "What requires review when a new/revised standard takes
+    effect?" (Q11) — future-effective register content as of ``effective_on``
+    (default: today), explicitly segregated from "what must we do today".
+    Every row is marked ``prospective: true`` and MUST NOT be read as a
+    current obligation."""
+    try:
+        import datetime
+
+        from portal.modules.compliance.core.change_pipeline import prospective_report
+        from portal.modules.compliance.core.cip_register import Register
+        from portal.modules.compliance.core.scope_derive import derive_scope
+
+        as_of = effective_on or datetime.date.today().isoformat()
+        reg = Register.load()
+        scope, _ = derive_scope(kb_id)
+        return prospective_report(reg, scope, as_of)
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
+
+
+@mcp.tool()
 def compliance_mappings(requirement_id: str = "", approved_only: bool = False) -> dict:
     """List/filter the mapping store (requirement -> internal document/section).
     Every approved or corrected mapping is a labelled example — the SME
@@ -809,6 +831,7 @@ _DISPATCH = {
     "compliance_review_decide": compliance_review_decide,
     "compliance_sources": compliance_sources,
     "compliance_trace": compliance_trace,
+    "compliance_prospective": compliance_prospective,
 }
 
 
