@@ -478,5 +478,30 @@
         ]
       }
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "compliance_draft_revisions",
+      "description": "What revisions would improve alignment for a standard-version transition (e.g. old_standard='CIP-003-8', new_standard='CIP-003-9') — what must change and why, with both verbatim spans, for every mapped section affected by a substantive change. Specification only: does not draft replacement language itself.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "old_standard": {
+            "type": "string"
+          },
+          "new_standard": {
+            "type": "string"
+          },
+          "kb_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "old_standard",
+          "new_standard"
+        ]
+      }
+    }
   }
 ]

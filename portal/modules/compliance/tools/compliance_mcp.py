@@ -632,6 +632,39 @@ def compliance_prospective(effective_on: str = "", kb_id: str = "operator_corpus
 
 
 @mcp.tool()
+def compliance_draft_revisions(
+    old_standard: str, new_standard: str, kb_id: str = "operator_corpus"
+) -> dict:
+    """Design §9's "What revisions would improve alignment?" (Q07) for a
+    standard-version transition — what must change and why, with both
+    verbatim spans, for every mapped section affected by a substantive
+    change between ``old_standard`` and ``new_standard``. Specification-only
+    by design ([GATE] mode (a)): this does NOT draft replacement language
+    itself — an SME writes it. A section with NO prior mapping still
+    appears via ``compliance_change_impact``'s own "no mapping" disclosure;
+    this tool only covers sections that already have one."""
+    try:
+        from portal.modules.compliance.core.change_pipeline import draft_revisions, impact_report
+        from portal.modules.compliance.core.cip_register import Register
+        from portal.modules.compliance.core.mapping_store import MappingStore
+        from portal.modules.compliance.core.scope_derive import derive_scope
+
+        reg = Register.load()
+        scope, scope_meta = derive_scope(kb_id)
+        if not scope.is_declared:
+            return {"status": "honest-BLOCKED", "reason": scope_meta.get("reason")}
+        base = old_standard.rsplit("-", 1)[0]
+        old = Register(nodes=[n for n in reg.nodes if n.standard == old_standard], edges=reg.edges)
+        new = Register(nodes=[n for n in reg.nodes if n.standard == new_standard], edges=reg.edges)
+        if not old.nodes or not new.nodes:
+            return {"error": f"standard not both in register: {old_standard} -> {new_standard}"}
+        impact = impact_report(old, new, base, scope, MappingStore())
+        return draft_revisions(impact)
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
+
+
+@mcp.tool()
 def compliance_mappings(requirement_id: str = "", approved_only: bool = False) -> dict:
     """List/filter the mapping store (requirement -> internal document/section).
     Every approved or corrected mapping is a labelled example — the SME
@@ -880,6 +913,7 @@ _DISPATCH = {
     "compliance_trace": compliance_trace,
     "compliance_prospective": compliance_prospective,
     "compliance_scenario": compliance_scenario,
+    "compliance_draft_revisions": compliance_draft_revisions,
 }
 
 
