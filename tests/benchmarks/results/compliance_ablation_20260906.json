@@ -1,0 +1,980 @@
+{
+  "n_cases": 30,
+  "seats": [
+    "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k"
+  ],
+  "arms": {
+    "full": {
+      "arm": "full",
+      "F2": 0.7738,
+      "confusion": {
+        "tp": 13,
+        "fp": 3,
+        "fn": 4,
+        "tn": 10
+      },
+      "per_case": [
+        {
+          "id": "P6J-01",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-02",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-03",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-04",
+          "gold": "SUPPORTED",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-05",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-06",
+          "gold": "ABSENT",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-07",
+          "gold": "SUPPORTED",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-08",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-09",
+          "gold": "ABSTAIN",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-10",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-11",
+          "gold": "ABSENT",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-12",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-13",
+          "gold": "SUPPORTED",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-14",
+          "gold": "PARTIAL",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-15",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-16",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-17",
+          "gold": "CONTRADICTED",
+          "pred": "ERR:'CIP-003-9 R1 Part 1.2.6' is not an actor_cu in the policy graph"
+        },
+        {
+          "id": "P6J-18",
+          "gold": "CONTRADICTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-19",
+          "gold": "PARTIAL",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-20",
+          "gold": "ABSENT",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-21",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-22",
+          "gold": "PARTIAL",
+          "pred": "PARTIAL"
+        },
+        {
+          "id": "P6J-23",
+          "gold": "SUPPORTED",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-24",
+          "gold": "ABSTAIN",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-25",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-26",
+          "gold": "SUPPORTED",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-27",
+          "gold": "ABSENT",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-28",
+          "gold": "ABSTAIN",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-29",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-30",
+          "gold": "ABSTAIN",
+          "pred": "PARTIAL"
+        }
+      ]
+    },
+    "no_typing": {
+      "arm": "no_typing",
+      "F2": 0.8235,
+      "confusion": {
+        "tp": 14,
+        "fp": 3,
+        "fn": 3,
+        "tn": 10
+      },
+      "per_case": [
+        {
+          "id": "P6J-01",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-02",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-03",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-04",
+          "gold": "SUPPORTED",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-05",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-06",
+          "gold": "ABSENT",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-07",
+          "gold": "SUPPORTED",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-08",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-09",
+          "gold": "ABSTAIN",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-10",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-11",
+          "gold": "ABSENT",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-12",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-13",
+          "gold": "SUPPORTED",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-14",
+          "gold": "PARTIAL",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-15",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-16",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-17",
+          "gold": "CONTRADICTED",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-18",
+          "gold": "CONTRADICTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-19",
+          "gold": "PARTIAL",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-20",
+          "gold": "ABSENT",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-21",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-22",
+          "gold": "PARTIAL",
+          "pred": "PARTIAL"
+        },
+        {
+          "id": "P6J-23",
+          "gold": "SUPPORTED",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-24",
+          "gold": "ABSTAIN",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-25",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-26",
+          "gold": "SUPPORTED",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-27",
+          "gold": "ABSENT",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-28",
+          "gold": "ABSTAIN",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-29",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-30",
+          "gold": "ABSTAIN",
+          "pred": "PARTIAL"
+        }
+      ]
+    },
+    "no_organization_graph": {
+      "arm": "no_organization_graph",
+      "F2": 0.8025,
+      "confusion": {
+        "tp": 13,
+        "fp": 0,
+        "fn": 4,
+        "tn": 13
+      },
+      "per_case": [
+        {
+          "id": "P6J-01",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-02",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-03",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-04",
+          "gold": "SUPPORTED",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-05",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-06",
+          "gold": "ABSENT",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-07",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-08",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-09",
+          "gold": "ABSTAIN",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-10",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-11",
+          "gold": "ABSENT",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-12",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-13",
+          "gold": "SUPPORTED",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-14",
+          "gold": "PARTIAL",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-15",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-16",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-17",
+          "gold": "CONTRADICTED",
+          "pred": "ERR:'CIP-003-9 R1 Part 1.2.6' is not an actor_cu in the policy graph"
+        },
+        {
+          "id": "P6J-18",
+          "gold": "CONTRADICTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-19",
+          "gold": "PARTIAL",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-20",
+          "gold": "ABSENT",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-21",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-22",
+          "gold": "PARTIAL",
+          "pred": "PARTIAL"
+        },
+        {
+          "id": "P6J-23",
+          "gold": "SUPPORTED",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-24",
+          "gold": "ABSTAIN",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-25",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-26",
+          "gold": "SUPPORTED",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-27",
+          "gold": "ABSENT",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-28",
+          "gold": "ABSTAIN",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-29",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-30",
+          "gold": "ABSTAIN",
+          "pred": "ESCALATE"
+        }
+      ]
+    },
+    "no_vocabulary_bridge": {
+      "arm": "no_vocabulary_bridge",
+      "F2": 0.7738,
+      "confusion": {
+        "tp": 13,
+        "fp": 3,
+        "fn": 4,
+        "tn": 10
+      },
+      "per_case": [
+        {
+          "id": "P6J-01",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-02",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-03",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-04",
+          "gold": "SUPPORTED",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-05",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-06",
+          "gold": "ABSENT",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-07",
+          "gold": "SUPPORTED",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-08",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-09",
+          "gold": "ABSTAIN",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-10",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-11",
+          "gold": "ABSENT",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-12",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-13",
+          "gold": "SUPPORTED",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-14",
+          "gold": "PARTIAL",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-15",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-16",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-17",
+          "gold": "CONTRADICTED",
+          "pred": "ERR:'CIP-003-9 R1 Part 1.2.6' is not an actor_cu in the policy graph"
+        },
+        {
+          "id": "P6J-18",
+          "gold": "CONTRADICTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-19",
+          "gold": "PARTIAL",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-20",
+          "gold": "ABSENT",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-21",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-22",
+          "gold": "PARTIAL",
+          "pred": "PARTIAL"
+        },
+        {
+          "id": "P6J-23",
+          "gold": "SUPPORTED",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-24",
+          "gold": "ABSTAIN",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-25",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-26",
+          "gold": "SUPPORTED",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-27",
+          "gold": "ABSENT",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-28",
+          "gold": "ABSTAIN",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-29",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-30",
+          "gold": "ABSTAIN",
+          "pred": "PARTIAL"
+        }
+      ]
+    },
+    "no_reference_traversal": {
+      "arm": "no_reference_traversal",
+      "F2": 0.7738,
+      "confusion": {
+        "tp": 13,
+        "fp": 3,
+        "fn": 4,
+        "tn": 10
+      },
+      "per_case": [
+        {
+          "id": "P6J-01",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-02",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-03",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-04",
+          "gold": "SUPPORTED",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-05",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-06",
+          "gold": "ABSENT",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-07",
+          "gold": "SUPPORTED",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-08",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-09",
+          "gold": "ABSTAIN",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-10",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-11",
+          "gold": "ABSENT",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-12",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-13",
+          "gold": "SUPPORTED",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-14",
+          "gold": "PARTIAL",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-15",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-16",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-17",
+          "gold": "CONTRADICTED",
+          "pred": "ERR:'CIP-003-9 R1 Part 1.2.6' is not an actor_cu in the policy graph"
+        },
+        {
+          "id": "P6J-18",
+          "gold": "CONTRADICTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-19",
+          "gold": "PARTIAL",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-20",
+          "gold": "ABSENT",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-21",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-22",
+          "gold": "PARTIAL",
+          "pred": "PARTIAL"
+        },
+        {
+          "id": "P6J-23",
+          "gold": "SUPPORTED",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-24",
+          "gold": "ABSTAIN",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-25",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-26",
+          "gold": "SUPPORTED",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-27",
+          "gold": "ABSENT",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-28",
+          "gold": "ABSTAIN",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-29",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-30",
+          "gold": "ABSTAIN",
+          "pred": "PARTIAL"
+        }
+      ]
+    },
+    "single_seat": {
+      "arm": "single_seat",
+      "F2": 0.7738,
+      "confusion": {
+        "tp": 13,
+        "fp": 3,
+        "fn": 4,
+        "tn": 10
+      },
+      "per_case": [
+        {
+          "id": "P6J-01",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-02",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-03",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-04",
+          "gold": "SUPPORTED",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-05",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-06",
+          "gold": "ABSENT",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-07",
+          "gold": "SUPPORTED",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-08",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-09",
+          "gold": "ABSTAIN",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-10",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-11",
+          "gold": "ABSENT",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-12",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-13",
+          "gold": "SUPPORTED",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-14",
+          "gold": "PARTIAL",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-15",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-16",
+          "gold": "SUPPORTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-17",
+          "gold": "CONTRADICTED",
+          "pred": "ERR:'CIP-003-9 R1 Part 1.2.6' is not an actor_cu in the policy graph"
+        },
+        {
+          "id": "P6J-18",
+          "gold": "CONTRADICTED",
+          "pred": "SUPPORTED"
+        },
+        {
+          "id": "P6J-19",
+          "gold": "PARTIAL",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-20",
+          "gold": "ABSENT",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-21",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-22",
+          "gold": "PARTIAL",
+          "pred": "PARTIAL"
+        },
+        {
+          "id": "P6J-23",
+          "gold": "SUPPORTED",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-24",
+          "gold": "ABSTAIN",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-25",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-26",
+          "gold": "SUPPORTED",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-27",
+          "gold": "ABSENT",
+          "pred": "ABSENT"
+        },
+        {
+          "id": "P6J-28",
+          "gold": "ABSTAIN",
+          "pred": "ESCALATE"
+        },
+        {
+          "id": "P6J-29",
+          "gold": "CONTRADICTED",
+          "pred": "CONTRADICTED"
+        },
+        {
+          "id": "P6J-30",
+          "gold": "ABSTAIN",
+          "pred": "PARTIAL"
+        }
+      ]
+    }
+  }
+}
