@@ -50,6 +50,8 @@ sources:
 - type: code
   path: portal/modules/compliance/core/vocabulary_bridge.py
 - type: code
+  path: portal/modules/compliance/core/gate.py
+- type: code
   path: portal/modules/compliance/core/authority.py
 - type: code
   path: portal/modules/compliance/core/internal_model.py
