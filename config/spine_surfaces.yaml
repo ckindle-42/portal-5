@@ -156,6 +156,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/org_graph.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-planner
+  globs:
+  - portal/modules/compliance/core/planner.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-planted
   globs:
   - portal/modules/compliance/core/planted.py
