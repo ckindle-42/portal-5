@@ -1137,12 +1137,23 @@ def compliance_analyze(
     refs = [requirements] if isinstance(requirements, str) else list(requirements)
     rid = run_id or "analysis-" + uuid.uuid4().hex[:16]
     results = []
-    from portal.modules.compliance.core.repository import Repository
 
-    repo = Repository()
+    # V6: assess LIVE through the gate + council. The pre-V6 cached `claims`
+    # SELECT is deleted — a determination is produced now, not read back.
+    from portal.modules.compliance.core.applicability import parse_scope_declaration
+    from portal.modules.compliance.core.operations import judge
+    from portal.modules.compliance.core.policy_graph import build_policy_graph
+    from portal.modules.compliance.core.runtime_config import load_org_commitments, seat_roster
+
+    graph = build_policy_graph()
+    actor_ids = {n.id for n in graph.nodes if n.node_type == "actor_cu"}
+    asset_scope = parse_scope_declaration(scope)
+    seats = seat_roster()
+    org_commitments = load_org_commitments()
+
     for ref in refs:
-        governing = compliance_requirement(ref, scope=scope, valid_at=valid_at, known_at=known_at)
-        if governing.get("error") or not governing.get("found"):
+        parts = sorted(i for i in actor_ids if i == ref or i.startswith(ref + " "))
+        if not parts:
             results.append(
                 {
                     "node_id": ref,
@@ -1153,51 +1164,27 @@ def compliance_analyze(
                 }
             )
             continue
-        for part in governing["parts"]:
-            row = repo._conn.execute(
-                """SELECT c.* FROM claims c
-                   JOIN obligation_atoms a
-                     ON instr(c.obligation_atom_ids_json, a.atom_id) > 0
-                   WHERE a.node_id = ?
-                   ORDER BY c.created_at DESC, c.rowid DESC LIMIT 1""",
-                (part["id"],),
-            ).fetchone()
-            if row:
-                record = dict(row)
-                citations = json.loads(record["governing_anchor_ids_json"]) + json.loads(
-                    record["internal_anchor_ids_json"]
-                )
-                results.append(
-                    {
-                        "claim_id": record["claim_id"],
-                        "node_id": part["id"],
-                        "claim": record["assertion"],
-                        "determination": record["determination"],
-                        "unresolved_code": record["unresolved_code"],
-                        "missing_fact": json.loads(record["missing_fact_json"]),
-                        "field_results": json.loads(record["field_results_json"]),
-                        "governing_atoms": part["atoms"],
-                        "citations": citations,
-                        "boundary_proof_id": record["boundary_proof_id"],
-                    }
-                )
-            else:
-                results.append(
-                    {
-                        "node_id": part["id"],
-                        "determination": "UNRESOLVED",
-                        "unresolved_code": "U04_RETRIEVAL_INCOMPLETE",
-                        "missing_fact": {
-                            "index_generation": "operator_corpus",
-                            "truncation": False,
-                            "budget": "materialized claim missing",
-                        },
-                        "governing_atoms": part["atoms"],
-                        "citations": [
-                            anchor for atom in part["atoms"] for anchor in atom["source_anchor_ids"]
-                        ],
-                    }
-                )
+        for pid in parts:
+            det = judge(
+                pid,
+                scope=asset_scope,
+                org_commitments=org_commitments,
+                seats=seats,
+                policy_graph=graph,
+            )
+            results.append(
+                {
+                    "node_id": pid,
+                    "determination": det.determination,
+                    "finding_type": det.finding_type,
+                    "citations": det.citations,
+                    "council_votes": det.council_votes,
+                    "dissent": det.dissent,
+                    "sme_decision_kind": det.sme_decision_kind,
+                    "gate_gated_out": det.gate_gated_out,
+                    "rationale": det.rationale,
+                }
+            )
     job = {
         "run_id": rid,
         "status": "complete",

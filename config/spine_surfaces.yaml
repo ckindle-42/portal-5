@@ -192,6 +192,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/runtime.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-runtime_config
+  globs:
+  - portal/modules/compliance/core/runtime_config.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-scenarios
   globs:
   - portal/modules/compliance/core/scenarios.py
