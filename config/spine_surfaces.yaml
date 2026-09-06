@@ -200,6 +200,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/traceability.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-vocabulary_bridge
+  globs:
+  - portal/modules/compliance/core/vocabulary_bridge.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-tests-test_compliance_mcp
   globs:
   - portal/modules/compliance/tests/test_compliance_mcp.py

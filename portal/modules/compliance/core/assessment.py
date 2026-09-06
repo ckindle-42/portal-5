@@ -25,6 +25,19 @@ _QUANTITY = re.compile(
     re.I,
 )
 
+_VOCAB_CACHE: list[Any] = []
+
+
+def _actor_alignment(internal_actor: str, governing_actor: str) -> Any:
+    """Actor alignment through the recorded hypernym-proposal chain (P3) — the
+    principled replacement for the old role-word regex. No org name or role
+    literal lives in this module (Y07)."""
+    from portal.modules.compliance.core.vocabulary_bridge import align_actor, derive_vocabulary
+
+    if not _VOCAB_CACHE:
+        _VOCAB_CACHE.append(derive_vocabulary())
+    return align_actor(internal_actor, governing_actor, _VOCAB_CACHE[0])
+
 
 def _value(item: dict[str, Any], field: str) -> str:
     if field == "condition":
@@ -82,16 +95,10 @@ def _compare(
     source_text = str(candidate.get("source_text", ""))
     if field == "modality" and candidate.get("binding_effect") == "internally_mandatory":
         return "SUPPORTED", "binding_effect", "controlled procedure text is internally mandatory"
-    if (
-        field == "actor"
-        and re.search(r"\b(LSPG|SME|OT|Security|Manager|Owner)\b", source_text, re.I)
-        and re.search(r"\b(Responsible Entity|Each Responsible Entity)\b", governing, re.I)
-    ):
-        return (
-            "SUPPORTED",
-            "entity_alias",
-            "internal role is assigned within the responsible entity",
-        )
+    if field == "actor":
+        alignment = _actor_alignment(internal or source_text, governing)
+        if alignment.aligned:
+            return "SUPPORTED", "vocabulary_bridge", alignment.note
     if not internal:
         left, context = _norm(governing), _norm(source_text)
         if left and len(left & context) / len(left) >= 0.6:
