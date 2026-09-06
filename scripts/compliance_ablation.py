@@ -90,21 +90,34 @@ def _run_arm(arm: str, cases: list[dict], seats: list[dict[str, str]]) -> dict:
     per_case = []
     for c in cases:
         ref = c["governing_ref"]
-        com = (
-            []
+        cand = (
+            None
             if c["candidate_text"] is None
-            else [
-                {
-                    "commitment_id": f"probe:{c['id']}",
-                    "document_id": "probe",
-                    "standard_folder": "" if arm == "no_organization_graph" else ref.split(" ")[0],
-                    "actor": "OT Security Team",
-                    "text": c["candidate_text"],
-                }
-            ]
+            else {
+                "commitment_id": f"probe:{c['id']}",
+                "document_id": "probe",
+                # base standard, matching ingest.derive_standard_hint's
+                # "CIP-007" folder convention (not the versioned "CIP-007-6")
+                "standard_folder": "-".join(ref.split("-")[:2]),
+                "actor": "OT Security Team",
+                "text": c["candidate_text"],
+            }
         )
+        # no_organization_graph: the structured filter is bypassed — the
+        # candidate reaches the council only via the retrieval backstop.
+        if arm == "no_organization_graph":
+            com, hits = [], ([cand] if cand else [])
+        else:
+            com, hits = ([cand] if cand else []), None
         try:
-            d = judge(ref, scope=scope, org_commitments=com, seats=arm_seats, policy_graph=g)
+            d = judge(
+                ref,
+                scope=scope,
+                org_commitments=com,
+                seats=arm_seats,
+                policy_graph=g,
+                retrieval_hits=hits,
+            )
             pred = d.determination
         except Exception as e:  # noqa: BLE001
             pred = f"ERR:{e}"
