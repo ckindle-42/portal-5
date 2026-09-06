@@ -144,6 +144,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/planted.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-policy_graph
+  globs:
+  - portal/modules/compliance/core/policy_graph.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-propose
   globs:
   - portal/modules/compliance/core/propose.py
