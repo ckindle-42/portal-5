@@ -13,10 +13,13 @@ from __future__ import annotations
 import importlib
 import logging
 import os
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Any, cast
 
 from mcp.server import MCPServer
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
 
@@ -28,6 +31,15 @@ mcp = MCPServer(
     "validation, YARA compile/scan under a sandboxed root, and read-only lab-scoped live "
     "SIEM search (query_splunk / query_windows_events) promoted from the blue-eval harness.",
 )
+
+# MCPServer.custom_route() has no return annotation upstream (mcp SDK), so mypy
+# sees its decorator result as Any and flags every routed handler with
+# untyped-decorator. Bind the concrete decorator type once so handlers keep
+# their annotations.
+_route: Callable[
+    ...,
+    Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+] = mcp.custom_route
 
 _YARA_ROOT = Path(
     os.environ.get("DETECTION_YARA_ROOT", os.path.expanduser("~/AI_Output"))
@@ -42,7 +54,7 @@ _BACKENDS = {
 
 
 @mcp.tool()
-def convert_sigma(sigma_yaml: str, target: str = "splunk") -> dict:
+def convert_sigma(sigma_yaml: str, target: str = "splunk") -> dict[str, Any]:
     """Convert a Sigma rule (YAML string) to a target backend query and validate it.
 
     target: 'splunk' (SPL) | 'elasticsearch' (Lucene) | 'kql' (Kusto/KQL).
@@ -67,7 +79,7 @@ def convert_sigma(sigma_yaml: str, target: str = "splunk") -> dict:
 
 
 @mcp.tool()
-def validate_sigma(sigma_yaml: str) -> dict:
+def validate_sigma(sigma_yaml: str) -> dict[str, Any]:
     """Validate a Sigma rule structurally (parse + pySigma) without converting."""
     try:
         from sigma.collection import SigmaCollection
@@ -83,7 +95,7 @@ def validate_sigma(sigma_yaml: str) -> dict:
 
 
 @mcp.tool()
-def compile_yara(rule_text: str) -> dict:
+def compile_yara(rule_text: str) -> dict[str, Any]:
     """Compile a YARA rule string; return ok/errors (no scan)."""
     try:
         import yara
@@ -95,7 +107,7 @@ def compile_yara(rule_text: str) -> dict:
 
 
 @mcp.tool()
-def scan_yara(rule_text: str, target_path: str) -> dict:
+def scan_yara(rule_text: str, target_path: str) -> dict[str, Any]:
     """Compile a YARA rule and scan a file under the sandboxed root; return matches."""
     try:
         import yara
@@ -123,7 +135,7 @@ def scan_yara(rule_text: str, target_path: str) -> dict:
 @mcp.tool()
 def query_splunk(
     spl: str, earliest: str = "-24h", latest: str = "now", max_results: int = 100
-) -> dict:
+) -> dict[str, Any]:
     """Run a read-only SPL search against the lab SIEM.
 
     Promoted from the blue-eval harness — reuses SplunkBackend's REST connection
@@ -161,25 +173,35 @@ def query_splunk(
 
 
 @mcp.tool()
-def query_windows_events(event_ids: list | None = None, max_records: int = 50) -> dict:
+def query_windows_events(
+    event_ids: list[int] | None = None, max_records: int = 50
+) -> dict[str, Any]:
     """Read-only Windows Security event-log query on the lab DC.
 
     Promoted from the blue-eval harness — reuses the lab exec primitive
     (`_lab_mcp_call`) and DC credentials; issues a single Get-WinEvent read.
     """
     try:
-        from portal.modules.security.core._data import (
-            _LAB_ADMIN_PASS,
-            _LAB_DC,
-            _LAB_EXEC_AVAILABLE,
-            _lab_mcp_call,
-        )
+        # portal.modules.security.core._data binds the LAB_* coordinates and
+        # the `_lab_mcp_call` exec primitive inside a try/except ImportError
+        # (bench_lab_exec is only importable when the lab env is up), so mypy
+        # treats them as conditionally-defined and not statically importable.
+        # Access them defensively via the module — identical runtime result,
+        # since _data always binds them (real import or synthetic fallback).
+        from portal.modules.security.core import _data as _lab_data
         from portal.modules.security.core.siem.collect import (
             strip_nxc_line_prefix,
             unwrap_mcp_stdout,
         )
 
-        if not (_LAB_EXEC_AVAILABLE and _LAB_DC):
+        lab_exec_available = cast(bool, getattr(_lab_data, "_LAB_EXEC_AVAILABLE", False))
+        lab_dc = cast(str, getattr(_lab_data, "_LAB_DC", ""))
+        lab_admin_pass = cast(str, getattr(_lab_data, "_LAB_ADMIN_PASS", ""))
+        lab_mcp_call = cast(
+            Callable[..., dict[str, Any]], getattr(_lab_data, "_lab_mcp_call", None)
+        )
+
+        if not (lab_exec_available and lab_dc):
             return {"error": "lab DC exec not available; requires the lab reachable"}
         ids = ",".join(str(int(e)) for e in (event_ids or [4624, 4625, 4688, 4768, 4769]))
         cap = max(1, min(int(max_records), 200))
@@ -187,18 +209,18 @@ def query_windows_events(event_ids: list | None = None, max_records: int = 50) -
             f"Get-WinEvent -FilterHashtable @{{LogName='Security';Id={ids}}} "
             f"-MaxEvents {cap} | Format-List Id,TimeCreated,Message"
         )
-        code = f"nxc winrm {_LAB_DC} -u administrator -p '{_LAB_ADMIN_PASS}' -X \"{ps}\" 2>&1"
-        r = _lab_mcp_call(code, timeout=90)
+        code = f"nxc winrm {lab_dc} -u administrator -p '{lab_admin_pass}' -X \"{ps}\" 2>&1"
+        r = lab_mcp_call(code, timeout=90)
         raw = strip_nxc_line_prefix(unwrap_mcp_stdout(r.get("output", "")))
         text = "\n".join(ln for ln in raw.splitlines() if not ln.lstrip().startswith("[*]"))[:16000]
-        return {"dc": _LAB_DC, "event_ids": ids, "max_records": cap, "events": text}
+        return {"dc": lab_dc, "event_ids": ids, "max_records": cap, "events": text}
     except Exception as e:  # noqa: BLE001
         return {"error": f"live DC unavailable ({e}); requires the lab reachable"}
 
 
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_detection_mcp")
 
-_DISPATCH = {
+_DISPATCH: dict[str, Any] = {
     "convert_sigma": convert_sigma,
     "validate_sigma": validate_sigma,
     "compile_yara": compile_yara,
@@ -208,14 +230,14 @@ _DISPATCH = {
 }
 
 
-@mcp.custom_route("/health", methods=["GET"])
-async def health_check(request):
+@_route("/health", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "detection-mcp", "port": _port})
 
 
-@mcp.custom_route("/ready", methods=["GET"])
-async def ready(request):
-    caps = {}
+@_route("/ready", methods=["GET"])
+async def ready(request: Request) -> JSONResponse:
+    caps: dict[str, bool] = {}
     for name, mod in (("pysigma", "sigma.collection"), ("yara", "yara")):
         try:
             importlib.import_module(mod)
@@ -225,13 +247,13 @@ async def ready(request):
     return JSONResponse({"port": _port, "capabilities": caps})
 
 
-@mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request):
+@_route("/tools", methods=["GET"])
+async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
-@mcp.custom_route("/tools/{tool_name}", methods=["POST"])
-async def invoke_tool(request):
+@_route("/tools/{tool_name}", methods=["POST"])
+async def invoke_tool(request: Request) -> JSONResponse:
     name = request.path_params.get("tool_name", "")
     fn = _DISPATCH.get(name)
     if fn is None:

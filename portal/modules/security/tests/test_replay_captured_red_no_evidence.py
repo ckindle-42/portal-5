@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tests" / "benchmarks"))
@@ -24,10 +25,10 @@ from portal.modules.security.core.blue import run_purple_tests
 
 
 class TestReplayCapturedRedNoEvidence:
-    def test_no_crash_when_no_evidence_exists(self):
+    def test_no_crash_when_no_evidence_exists(self) -> None:
         """A scenario name guaranteed to have no capture/evidence on disk must
         return honest UNAVAILABLE results, never raise."""
-        scenario = {
+        scenario: dict[str, Any] = {
             "name": "test_scenario_definitely_has_no_captured_evidence_xyz",
             "detect_ground_truth": ["T9999.999"],
             "persistence_technique": "",
@@ -52,8 +53,8 @@ class TestReplayCapturedRedNoEvidence:
         assert rec["match_grade"] == "NONE"
         assert rec["telemetry_collection_error"] == "NO_REPLAYABLE_EPISODE"
 
-    def test_multiple_blue_models_each_get_a_record(self):
-        scenario = {
+    def test_multiple_blue_models_each_get_a_record(self) -> None:
+        scenario: dict[str, Any] = {
             "name": "test_scenario_definitely_has_no_captured_evidence_xyz",
             "detect_ground_truth": ["T9999.999"],
             "persistence_technique": "",
@@ -74,8 +75,8 @@ class TestReplayCapturedRedNoEvidence:
         assert {r["blue_model"] for r in results} == {"blue-a", "blue-b"}
         assert all(r["capability_verdict"] == "UNAVAILABLE" for r in results)
 
-    def test_unavailable_never_masquerades_as_proven(self):
-        scenario = {
+    def test_unavailable_never_masquerades_as_proven(self) -> None:
+        scenario: dict[str, Any] = {
             "name": "test_scenario_definitely_has_no_captured_evidence_xyz",
             "detect_ground_truth": ["T9999.999"],
             "persistence_technique": "",

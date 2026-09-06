@@ -3,10 +3,12 @@ portal.modules.general.config: a name-based pointer into config/portal.yaml
 (the single source of truth), not a duplicate store.
 """
 
+from typing import Any
+
 COMPLIANCE_WORKSPACE_IDS: tuple[str, ...] = ("auto-compliance",)
 
 
-def compliance_workspaces() -> dict[str, dict]:
+def compliance_workspaces() -> dict[str, dict[str, Any]]:
     """The compliance module's workspace entries, straight from portal.yaml."""
     from portal.platform.storage import load_portal_config
 

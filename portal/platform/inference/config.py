@@ -406,7 +406,9 @@ def get_workspace_dict(config: PortalConfig) -> dict[str, dict[str, Any]]:
             continue
         # model_dump excludes None fields; this mirrors the original literal
         # where absent fields were simply not present (not None).
-        raw = spec.model_dump(exclude_none=True, exclude=_OWUI_ONLY_FIELDS | _INTERNAL_ONLY_FIELDS)
+        raw = spec.model_dump(
+            exclude_none=True, exclude=set(_OWUI_ONLY_FIELDS | _INTERNAL_ONLY_FIELDS)
+        )
         # Ensure tools is always present (original literal always had it)
         if "tools" not in raw:
             raw["tools"] = []

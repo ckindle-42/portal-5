@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from typing import Any
+
+import pytest
+
 from portal.modules.security.core import blue_orchestrate as bo
 from portal.modules.security.core.agentic_blue_eval import Episode
 
@@ -15,13 +19,13 @@ def _episode(telemetry: dict[str, list[str]]) -> Episode:
     )
 
 
-def test_build_tool_request_defaults_prefer_broad_true():
+def test_build_tool_request_defaults_prefer_broad_true() -> None:
     req = bo.build_tool_request("investigate suspicious kerberos activity")
     assert req.prefer_broad is True
     assert req.spec == "investigate suspicious kerberos activity"
 
 
-def test_dry_run_narrow_empty_broadens_and_tags_live_broad_fallback():
+def test_dry_run_narrow_empty_broadens_and_tags_live_broad_fallback() -> None:
     ep = _episode({"windows:security": ["EventCode=4768 some AS-REP event"]})
     req = bo.build_tool_request("look for anything unusual")
     result = bo.run_tool_model(req, tool_model="unused", episode=ep, dry_run=True)
@@ -30,7 +34,7 @@ def test_dry_run_narrow_empty_broadens_and_tags_live_broad_fallback():
     assert "Representative records:" in result.raw_summary
 
 
-def test_dry_run_prefer_broad_false_stays_empty():
+def test_dry_run_prefer_broad_false_stays_empty() -> None:
     ep = _episode({})
     req = bo.ToolRequest(spec="look for anything", window="", prefer_broad=False)
     result = bo.run_tool_model(req, tool_model="unused", episode=ep, dry_run=True)
@@ -38,17 +42,25 @@ def test_dry_run_prefer_broad_false_stays_empty():
     assert result.rows == []
 
 
-def test_dry_run_no_telemetry_at_all_stays_empty_even_with_broaden():
+def test_dry_run_no_telemetry_at_all_stays_empty_even_with_broaden() -> None:
     ep = _episode({})
     req = bo.build_tool_request("look for anything unusual")
     result = bo.run_tool_model(req, tool_model="unused", episode=ep, dry_run=True)
     assert result.provenance == "empty"
 
 
-def test_live_tool_call_dispatches_and_returns_matched_exact(monkeypatch):
+def test_live_tool_call_dispatches_and_returns_matched_exact(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     ep = _episode({"windows:security": ["EventCode=4768 AS-REP roasting event for user svc-web"]})
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         return {
             "tool_calls": [
                 {
@@ -69,10 +81,16 @@ def test_live_tool_call_dispatches_and_returns_matched_exact(monkeypatch):
     assert "AS-REP" in result.rows[0]["result"] or "4768" in result.rows[0]["result"]
 
 
-def test_live_tool_call_ignores_non_retrieval_tool_calls(monkeypatch):
+def test_live_tool_call_ignores_non_retrieval_tool_calls(monkeypatch: pytest.MonkeyPatch) -> None:
     ep = _episode({"windows:security": ["EventCode=4768 event"]})
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         return {
             "tool_calls": [
                 {
@@ -93,7 +111,9 @@ def test_live_tool_call_ignores_non_retrieval_tool_calls(monkeypatch):
     assert result.provenance == "live-broad-fallback"
 
 
-def test_targeted_miss_broadens_to_model_visible_raw_evidence(monkeypatch):
+def test_targeted_miss_broadens_to_model_visible_raw_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """A non-empty 'No matching' notice is not evidence and must broaden.
 
     The V5 corpus audit found 11/12 affected raw episodes contained their
@@ -109,7 +129,13 @@ def test_targeted_miss_broadens_to_model_visible_raw_evidence(monkeypatch):
         }
     )
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         return {
             "tool_calls": [
                 {
@@ -132,7 +158,7 @@ def test_targeted_miss_broadens_to_model_visible_raw_evidence(monkeypatch):
     assert "No matching Windows events" not in result.raw_summary
 
 
-def test_broad_preview_is_bounded_and_label_blind():
+def test_broad_preview_is_bounded_and_label_blind() -> None:
     events = [f"EventCode=4688 sequence={i} command=whoami" for i in range(20)]
     preview = bo._broad_retrieval_preview(_episode({"windows:security": events}))
     assert "20 events:" in preview
@@ -140,13 +166,21 @@ def test_broad_preview_is_bounded_and_label_blind():
     assert "T1558.004" not in preview
 
 
-def test_live_tool_call_with_string_encoded_arguments_does_not_crash(monkeypatch):
+def test_live_tool_call_with_string_encoded_arguments_does_not_crash(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Regression: granite4.1:8b-ctx8k, live end-to-end (Slice 7), returned
     tool-call `arguments` as a JSON-encoded string instead of a dict,
     crashing _query_real_telemetry's `.values()` call downstream."""
     ep = _episode({"windows:security": ["EventCode=4768 AS-REP roasting event for svc-web"]})
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         return {
             "tool_calls": [
                 {
@@ -165,7 +199,7 @@ def test_live_tool_call_with_string_encoded_arguments_does_not_crash(monkeypatch
     assert result.rows[0]["args"] == {"event_ids": [4768]}
 
 
-def test_list_valued_event_ids_actually_narrow_the_query(monkeypatch):
+def test_list_valued_event_ids_actually_narrow_the_query(monkeypatch: pytest.MonkeyPatch) -> None:
     """Regression: query_windows_events's OWN tool schema types event_ids as
     an array of integers, but _query_real_telemetry's keyword extraction only
     scans string-valued query_args — a well-formed structured call therefore
@@ -181,7 +215,13 @@ def test_list_valued_event_ids_actually_narrow_the_query(monkeypatch):
         }
     )
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         return {
             "tool_calls": [
                 {"function": {"name": "query_windows_events", "arguments": {"event_ids": [4769]}}}
@@ -196,7 +236,7 @@ def test_list_valued_event_ids_actually_narrow_the_query(monkeypatch):
     assert "4624" not in result.rows[0]["result"]  # narrowed, not the generic broad summary
 
 
-def test_stringify_query_args_flattens_lists_and_numbers():
+def test_stringify_query_args_flattens_lists_and_numbers() -> None:
     assert bo._stringify_query_args({"event_ids": [4769, 4776]}) == {"event_ids": "4769 4776"}
     assert bo._stringify_query_args({"n": 5}) == {"n": "5"}
     assert bo._stringify_query_args({"spl_query": "already a string"}) == {
@@ -204,7 +244,7 @@ def test_stringify_query_args_flattens_lists_and_numbers():
     }
 
 
-def test_freetext_narrow_finds_matching_lines_without_eventcode():
+def test_freetext_narrow_finds_matching_lines_without_eventcode() -> None:
     """Regression: _query_real_telemetry's own keyword extraction is
     Windows-EventCode/technique-ID-centric only — a free-text filter like
     'Tomcat manager interface access' never narrows web/ftp/other log types
@@ -225,12 +265,14 @@ def test_freetext_narrow_finds_matching_lines_without_eventcode():
     assert "unrelated logon event" not in narrowed
 
 
-def test_freetext_narrow_returns_none_when_nothing_matches():
+def test_freetext_narrow_returns_none_when_nothing_matches() -> None:
     ep = _episode({"windows:security": ["EventCode=4624 unrelated logon event"]})
     assert bo._freetext_narrow({"filter": "kerberos ticket roasting"}, ep) is None
 
 
-def test_dispatch_tool_call_falls_back_to_freetext_when_broad_summary(monkeypatch):
+def test_dispatch_tool_call_falls_back_to_freetext_when_broad_summary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     ep = _episode(
         {
             "web:access": [
@@ -244,14 +286,14 @@ def test_dispatch_tool_call_falls_back_to_freetext_when_broad_summary(monkeypatc
     assert "unrelated" not in result
 
 
-def test_retrieval_tool_schemas_excludes_report_detection():
+def test_retrieval_tool_schemas_excludes_report_detection() -> None:
     schemas = bo._retrieval_tool_schemas()
     names = {s["function"]["name"] for s in schemas}
     assert "report_detection" not in names
     assert names == set(bo._RETRIEVAL_TOOL_NAMES)
 
 
-def test_verdict_prompts_treat_authorized_dual_use_as_counter_evidence():
+def test_verdict_prompts_treat_authorized_dual_use_as_counter_evidence() -> None:
     policy = bo._VERDICT_GROUNDING_POLICY
     assert "dual-use primitive" in policy
     assert "change tickets" in policy

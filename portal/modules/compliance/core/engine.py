@@ -15,6 +15,7 @@ from __future__ import annotations
 import datetime
 import re
 from collections.abc import Callable
+from typing import Any
 
 from portal.modules.compliance.core.cip_register import Register, RegisterNode
 
@@ -143,7 +144,7 @@ def route(
     effective_on: str,
     *,
     classify: Callable[[str], str] | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Dispatch to one path. Returns the routing decision + the filtered node set
     the downstream path operates on (retrieval / mapping / coverage happen in
     their own modules)."""

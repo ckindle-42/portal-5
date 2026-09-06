@@ -10,6 +10,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 import httpx
 
@@ -37,7 +38,7 @@ OWASP_LLM_TOP10 = [
 ]
 
 # Real probes per category — test if the model complies or refuses
-PROBES: dict[str, list[dict]] = load_data("config/security", "llm_redteam_probes")
+PROBES: dict[str, list[dict[str, Any]]] = load_data("config/security", "llm_redteam_probes")
 
 
 def _call_workspace(workspace: str, prompt: str, timeout: float = 60.0) -> tuple[str, bool]:
@@ -80,7 +81,7 @@ def _call_workspace(workspace: str, prompt: str, timeout: float = 60.0) -> tuple
     return f"[error: {last_error}]", False
 
 
-def bench_llm_redteam(target_workspace: str, *, dry_run: bool = False) -> dict:
+def bench_llm_redteam(target_workspace: str, *, dry_run: bool = False) -> dict[str, Any]:
     """Run OWASP LLM Top-10 probes against a target workspace."""
     if dry_run:
         return {

@@ -29,9 +29,10 @@ from __future__ import annotations
 import json
 import uuid
 from collections.abc import AsyncIterator
+from typing import Any
 
 
-def anthropic_to_openai_body(body: dict) -> dict:
+def anthropic_to_openai_body(body: dict[str, Any]) -> dict[str, Any]:
     """Convert an Anthropic Messages API request to OpenAI chat/completions format.
 
     Handles:
@@ -40,7 +41,7 @@ def anthropic_to_openai_body(body: dict) -> dict:
     - ``tools`` Anthropic format → OpenAI function definitions
     - ``max_tokens``, ``temperature``, ``top_p``, ``stop_sequences``
     """
-    messages: list[dict] = []
+    messages: list[dict[str, Any]] = []
 
     # System prompt
     system = body.get("system")
@@ -62,7 +63,7 @@ def anthropic_to_openai_body(body: dict) -> dict:
 
         # Content is a list of typed blocks
         text_parts: list[str] = []
-        tool_calls: list[dict] = []
+        tool_calls: list[dict[str, Any]] = []
         tool_result_id: str | None = None
         tool_result_text: str | None = None
 
@@ -93,14 +94,14 @@ def anthropic_to_openai_body(body: dict) -> dict:
                 {"role": "tool", "tool_call_id": tool_result_id or "", "content": tool_result_text}
             )
         elif tool_calls:
-            out: dict = {"role": "assistant", "tool_calls": tool_calls}
+            out: dict[str, Any] = {"role": "assistant", "tool_calls": tool_calls}
             if text_parts:
                 out["content"] = "\n".join(text_parts)
             messages.append(out)
         else:
             messages.append({"role": role, "content": "\n".join(text_parts)})
 
-    result: dict = {
+    result: dict[str, Any] = {
         "model": body.get("model", "auto"),
         "messages": messages,
         "stream": body.get("stream", False),
@@ -133,7 +134,7 @@ def anthropic_to_openai_body(body: dict) -> dict:
     return result
 
 
-def openai_response_to_anthropic(data: dict, model_id: str) -> dict:
+def openai_response_to_anthropic(data: dict[str, Any], model_id: str) -> dict[str, Any]:
     """Convert a non-streaming OpenAI response to Anthropic Messages format."""
     choice = (data.get("choices") or [{}])[0]
     message = choice.get("message", {})
@@ -141,7 +142,7 @@ def openai_response_to_anthropic(data: dict, model_id: str) -> dict:
     tool_calls = message.get("tool_calls") or []
     usage = data.get("usage", {})
 
-    content: list[dict] = []
+    content: list[dict[str, Any]] = []
     if content_text:
         content.append({"type": "text", "text": content_text})
     for tc in tool_calls:
@@ -189,7 +190,7 @@ async def openai_stream_to_anthropic_sse(
     → content_block_stop → message_delta → message_stop
     """
 
-    def _evt(event: str, data: dict) -> str:
+    def _evt(event: str, data: dict[str, Any]) -> str:
         return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
     yield _evt(

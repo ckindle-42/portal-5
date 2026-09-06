@@ -7,7 +7,9 @@ import asyncio
 import contextlib
 import logging
 import os
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Any, cast
 
 import httpx
 
@@ -18,7 +20,7 @@ from portal.platform.mcp_host.workspace import get_generated_dir
 logger = logging.getLogger(__name__)
 
 
-async def _attach_transcript_urls(res: dict) -> dict:
+async def _attach_transcript_urls(res: dict[str, Any]) -> dict[str, Any]:
     """Publish the transcript files the host wrote so the user gets download links.
 
     The host returns absolute paths on its own filesystem; the same files are
@@ -42,7 +44,7 @@ async def _attach_transcript_urls(res: dict) -> dict:
 MLX_TRANSCRIBE_URL = os.getenv("MLX_TRANSCRIBE_URL", "http://host.docker.internal:8924").rstrip("/")
 
 
-async def _try_host(tool_name: str, arguments: dict) -> dict | None:
+async def _try_host(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any] | None:
     """Proxy to the host MLX transcribe server; return None if unreachable so the
     caller can fall back to the in-Docker faster-whisper path."""
     url = f"{MLX_TRANSCRIBE_URL}/tools/{tool_name}"
@@ -54,25 +56,36 @@ async def _try_host(tool_name: str, arguments: dict) -> dict | None:
         ) as c:
             r = await c.post(url, json={"arguments": arguments})
             if r.status_code == 200:
-                return r.json()
+                return cast(dict[str, Any], r.json())
             return {"error": f"host transcribe server {r.status_code}: {r.text[:200]}"}
     except Exception:
         return None  # host unreachable → caller uses Docker fallback
 
 
 from mcp.server import MCPServer
-from starlette.responses import JSONResponse
+from starlette.datastructures import UploadFile
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 mcp = MCPServer("whisper-transcription")
 
+# MCPServer.custom_route() has no return annotation upstream (mcp SDK), so mypy
+# sees its decorator result as Any and flags every routed handler with
+# untyped-decorator. Bind the concrete decorator type once so handlers keep
+# their annotations.
+_route: Callable[
+    ...,
+    Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+] = mcp.custom_route
 
-@mcp.custom_route("/health", methods=["GET"])
-async def health_check(request):
+
+@_route("/health", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "whisper-mcp"})
 
 
-@mcp.custom_route("/v1/audio/transcriptions", methods=["POST"])
-async def openai_audio_transcriptions(request):
+@_route("/v1/audio/transcriptions", methods=["POST"])
+async def openai_audio_transcriptions(request: Request) -> JSONResponse:
     """OpenAI-compatible STT endpoint.
 
     Open WebUI sends multipart/form-data with 'file' field containing audio.
@@ -86,6 +99,8 @@ async def openai_audio_transcriptions(request):
         audio_file = form.get("file")
         if audio_file is None:
             return JSONResponse({"error": "No file provided"}, status_code=400)
+        # form.get returns str | UploadFile; the handler only accepts uploads.
+        audio_file = cast(UploadFile, audio_file)
 
         # Save uploaded audio to a temp file
         contents = await audio_file.read()
@@ -119,11 +134,9 @@ async def openai_audio_transcriptions(request):
     return JSONResponse({"text": text})
 
 
-@mcp.custom_route("/v1/models", methods=["GET"])
-async def openai_models(request):
+@_route("/v1/models", methods=["GET"])
+async def openai_models(request: Request) -> JSONResponse:
     """OpenAI-compatible models list for STT model selection."""
-    from starlette.responses import JSONResponse
-
     return JSONResponse(
         {"object": "list", "data": [{"id": "whisper-1", "object": "model", "owned_by": "portal-5"}]}
     )
@@ -133,13 +146,13 @@ async def openai_models(request):
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_whisper_mcp")
 
 
-@mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request):
+@_route("/tools", methods=["GET"])
+async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
-@mcp.custom_route("/tools/{tool_name}", methods=["POST"])
-async def invoke_tool(request):
+@_route("/tools/{tool_name}", methods=["POST"])
+async def invoke_tool(request: Request) -> JSONResponse:
     """REST dispatch endpoint used by portal-pipeline tool_registry."""
     tool_name = request.path_params["tool_name"]
     try:
@@ -175,20 +188,23 @@ async def invoke_tool(request):
 # Docker fallback only (non-Apple-Silicon nodes). Primary is the host MLX server
 # (Parakeet + Sortformer) via MLX_TRANSCRIBE_URL. 'base' was a real accuracy floor.
 WHISPER_MODEL_SIZE = os.getenv("WHISPER_MODEL", "large-v3-turbo")
-_model = None
+_model: Any | None = None
 
 
-def get_model():
+def get_model() -> Any:
     global _model
     if _model is None:
-        from faster_whisper import WhisperModel
+        # faster-whisper ships no py.typed marker (stubless C-extension wrapper)
+        from faster_whisper import WhisperModel  # type: ignore[import-untyped]
 
         _model = WhisperModel(WHISPER_MODEL_SIZE, device="auto", compute_type="auto")
     return _model
 
 
 @mcp.tool()
-async def transcribe_audio(file_path: str | None = None, language: str | None = None) -> dict:
+async def transcribe_audio(
+    file_path: str | None = None, language: str | None = None
+) -> dict[str, Any]:
     """
     Transcribe an audio file using Whisper.
 
@@ -200,7 +216,7 @@ async def transcribe_audio(file_path: str | None = None, language: str | None = 
     Returns:
         dict with 'text' (full transcript) and 'segments' (timestamped segments)
     """
-    host_args: dict = {}
+    host_args: dict[str, Any] = {}
     if file_path is not None:
         host_args["file"] = file_path
     if language is not None:
@@ -265,7 +281,7 @@ async def transcribe_with_speakers(
     file: str = "",
     num_speakers: int | None = None,
     language: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """
     Transcribe an audio file and label who is speaking.
 
@@ -287,7 +303,7 @@ async def transcribe_with_speakers(
         dict with text, language, duration, speaker_count, segments, markdown,
         json_path, md_path, timing, engine; ``warning`` if diarization was skipped.
     """
-    host_args: dict = {"file": file}
+    host_args: dict[str, Any] = {"file": file}
     if num_speakers is not None:
         host_args["num_speakers"] = num_speakers
     if language is not None:

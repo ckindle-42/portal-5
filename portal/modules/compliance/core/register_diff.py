@@ -28,6 +28,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from difflib import SequenceMatcher
+from typing import Any
 
 from portal.modules.compliance.core.cip_register import Register, RegisterNode
 
@@ -115,7 +116,7 @@ class DiffRow:
     confidence: float = 1.0
     detail: str = ""
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "change_type": self.change_type,
             "sub_type": self.sub_type,
@@ -130,7 +131,7 @@ class DiffRow:
 
 
 def _classify_language(old: RegisterNode, new: RegisterNode) -> DiffRow:
-    base = {
+    base: dict[str, Any] = {
         "part_id_old": old.id,
         "part_id_new": new.id,
         "old_span": old.verbatim_text,
@@ -277,7 +278,7 @@ def diff_standard(old: Register, new: Register, standard_base: str) -> list[Diff
     only_new = {k: v for k, v in n.items() if k not in o}
 
     # renumber detection before add/remove
-    paired_new: set = set()
+    paired_new: set[tuple[str, str]] = set()
     for _ko, vo in sorted(only_old.items()):
         best_k, best_r = None, 0.0
         for kn, vn in only_new.items():
@@ -346,7 +347,7 @@ def diff_standard(old: Register, new: Register, standard_base: str) -> list[Diff
     return rows
 
 
-def diff_summary(rows: list[DiffRow]) -> dict:
+def diff_summary(rows: list[DiffRow]) -> dict[str, Any]:
     from collections import Counter
 
     by_type = Counter(r.change_type for r in rows)

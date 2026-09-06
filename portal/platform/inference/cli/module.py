@@ -12,6 +12,8 @@ the wiki's now-current state.
 
 from __future__ import annotations
 
+from typing import Any
+
 import typer
 
 from ._apps import module_app
@@ -100,7 +102,7 @@ def module_disable(
     _set_module_state(name, False, actor, yes)
 
 
-def load_persona_map_safe() -> dict:
+def load_persona_map_safe() -> dict[str, Any]:
     """load_persona_map() with the default personas dir — thin wrapper so
     module_list/module_status don't each repeat the import."""
     from portal.platform.inference.config import load_persona_map

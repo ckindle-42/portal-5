@@ -23,8 +23,12 @@ from __future__ import annotations
 
 import os
 import subprocess
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
+
+from portal.platform.wiki.schema import KnowledgeUnit
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -37,7 +41,7 @@ _EXCLUDED_PATH_PARTS = frozenset({"__pycache__", "results", "node_modules"})
 _gate_passing_cache: dict[tuple[Path, frozenset[str]], frozenset[str]] = {}
 
 
-def _gate_passing_ids(units, repo_root: Path) -> frozenset[str]:
+def _gate_passing_ids(units: Sequence[KnowledgeUnit], repo_root: Path) -> frozenset[str]:
     """Unit ids that pass the authored-quality gate, cached per unit-set."""
     key = (repo_root, frozenset(u.id for u in units))
     if key in _gate_passing_cache:
@@ -115,7 +119,9 @@ def _normalize_source_path(raw: str) -> str:
     return raw.split("#", 1)[0].strip().strip('"').strip("'")
 
 
-def covered_surfaces(units, repo_root: Path | None = None) -> frozenset[str]:
+def covered_surfaces(
+    units: Sequence[KnowledgeUnit], repo_root: Path | None = None
+) -> frozenset[str]:
     """Repo-relative paths cited by at least one non-aggregate, gate-passing unit.
 
     A citation counts as coverage only when the citing unit passes `quality.assess`
@@ -135,7 +141,7 @@ def covered_surfaces(units, repo_root: Path | None = None) -> frozenset[str]:
     return frozenset(covered)
 
 
-def _cited_paths_of(unit, repo_root: Path) -> set[str]:
+def _cited_paths_of(unit: KnowledgeUnit, repo_root: Path) -> set[str]:
     """Repo-relative paths a single unit cites (globs expanded)."""
     out: set[str] = set()
     for source in unit.sources:
@@ -154,7 +160,10 @@ def _cited_paths_of(unit, repo_root: Path) -> set[str]:
     return out
 
 
-def gate_failing_coverage_units(repo_root: Path | None = None, units=None) -> tuple[str, ...]:
+def gate_failing_coverage_units(
+    repo_root: Path | None = None,
+    units: Sequence[KnowledgeUnit] | None = None,
+) -> tuple[str, ...]:
     """Units that fail the quality gate yet are the only citation for a surface.
 
     A unit that fails `quality.assess` cannot carry coverage — but a failing unit
@@ -195,7 +204,10 @@ def gate_failing_coverage_units(repo_root: Path | None = None, units=None) -> tu
     return tuple(sorted(offenders))
 
 
-def compute_coverage(repo_root: Path | None = None, units=None) -> CoverageReport:
+def compute_coverage(
+    repo_root: Path | None = None,
+    units: Sequence[KnowledgeUnit] | None = None,
+) -> CoverageReport:
     """Measure code-surface coverage. Loads all canonical units when not supplied.
 
     A surface is covered only when a *gate-passing* non-aggregate unit cites it —
@@ -250,7 +262,7 @@ def _matches_pattern(path: str, pattern: str) -> bool:
     return path == pattern
 
 
-def load_surface_manifest(repo_root: Path | None = None) -> list[dict]:
+def load_surface_manifest(repo_root: Path | None = None) -> list[dict[str, Any]]:
     """Read `config/spine_surfaces.yaml`: [{name, globs, unit}, ...]."""
     root = repo_root or _REPO_ROOT
     path = root / "config" / "spine_surfaces.yaml"
@@ -273,7 +285,7 @@ def load_surface_manifest(repo_root: Path | None = None) -> list[dict]:
 
 
 def surface_manifest_uncovered(
-    repo_root: Path | None = None, units=None
+    repo_root: Path | None = None, units: Sequence[KnowledgeUnit] | None = None
 ) -> tuple[list[str], list[str]]:
     """The R3 two-part gate, read-only.
 
@@ -321,7 +333,9 @@ def surface_manifest_uncovered(
     return part1, part2
 
 
-def generate_surface_manifest(repo_root: Path | None = None, units=None) -> list[dict]:
+def generate_surface_manifest(
+    repo_root: Path | None = None, units: Sequence[KnowledgeUnit] | None = None
+) -> list[dict[str, Any]]:
     """Emit the manifest from R2's landed boundaries — never hand-write it.
 
     The `unit-surface-*` units' globs become the consolidated surface entries.
@@ -351,7 +365,7 @@ def generate_surface_manifest(repo_root: Path | None = None, units=None) -> list
                 return uid
         return citing.get(path, [None])[0] or "unit-code-missing"
 
-    surfaces: list[dict] = []
+    surfaces: list[dict[str, Any]] = []
     covered: set[str] = set()
 
     # 1. Consolidated surface units carry their own globs.
@@ -388,7 +402,9 @@ def generate_surface_manifest(repo_root: Path | None = None, units=None) -> list
     return sorted(surfaces, key=lambda s: s["name"])
 
 
-def write_surface_manifest(repo_root: Path | None = None, units=None) -> list[dict]:
+def write_surface_manifest(
+    repo_root: Path | None = None, units: Sequence[KnowledgeUnit] | None = None
+) -> list[dict[str, Any]]:
     """Regenerate `config/spine_surfaces.yaml` from the live unit set."""
     import yaml
 

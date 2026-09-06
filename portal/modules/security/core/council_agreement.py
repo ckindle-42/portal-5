@@ -24,21 +24,27 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import partial
 
 from portal.platform.inference.router.council import CouncilOpinion, aggregate_opinions
 
-from .analyst_verdict import SectionOutput
+from .analyst_verdict import AnalystVerdict, SectionOutput
 
 
 @dataclass
 class AgreementResult:
-    verdict: str  # CONFIRMED | ANOMALOUS_UNCLASSIFIED | RULED_OUT
+    verdict: AnalystVerdict  # CONFIRMED | ANOMALOUS_UNCLASSIFIED | RULED_OUT
     technique_ids: list[str] = field(default_factory=list)
     agreement: float = 0.0  # top technique's member-vote fraction
-    dissent: dict = field(default_factory=dict)  # technique -> vote count (for audit)
+    dissent: dict[str, int] = field(default_factory=dict)  # technique -> vote count (for audit)
     needs_arbiter: bool = False
     similar_to: list[str] = field(default_factory=list)
     rationale: str = ""
+
+
+def _supports_candidate(member: SectionOutput, *, candidate: str) -> bool:
+    """True when a member's technique_ids name the candidate technique."""
+    return candidate in member.technique_ids
 
 
 def _platform_opinions(
@@ -106,7 +112,7 @@ def compute_agreement(
         technique: aggregate_opinions(
             _platform_opinions(
                 members,
-                supports=lambda member, candidate=technique: candidate in set(member.technique_ids),
+                supports=partial(_supports_candidate, candidate=technique),
             ),
             minimum_participation=min_participation,
             quorum=quorum,

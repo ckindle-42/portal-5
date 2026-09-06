@@ -12,6 +12,7 @@ import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import httpx
 
@@ -35,7 +36,7 @@ SPLUNK_PW = os.environ.get("LAB_SPLUNK_PASSWORD", "")
 SPLUNK_INDEX = os.environ.get("LAB_SPLUNK_INDEX", "portal5_lab")
 
 
-def poll_alerts(max_alerts: int = 10, since_minutes: int = 5) -> list[dict]:
+def poll_alerts(max_alerts: int = 10, since_minutes: int = 5) -> list[dict[str, Any]]:
     """Poll Splunk for recent high-severity alerts via SPL."""
     spl = (
         f"search index={SPLUNK_INDEX} earliest=-{since_minutes}m "
@@ -60,7 +61,7 @@ def poll_alerts(max_alerts: int = 10, since_minutes: int = 5) -> list[dict]:
         return []
 
 
-def enrich_alert(alert: dict) -> dict:
+def enrich_alert(alert: dict[str, Any]) -> dict[str, Any]:
     """Enrich a single alert through the pipeline -> auto-security (blueteam variant)."""
     alert_text = json.dumps(alert, indent=2)[:2000]
     prompt = (
@@ -94,7 +95,7 @@ def enrich_alert(alert: dict) -> dict:
         return {"alert": alert, "triage": f"[enrichment error: {e}]", "enriched": False}
 
 
-def report_triage(results: list[dict], output_dir: str | Path | None = None) -> Path:
+def report_triage(results: list[dict[str, Any]], output_dir: str | Path | None = None) -> Path:
     """Write triage results to local store (no external DB)."""
     out_dir = Path(output_dir or os.environ.get("LAB_TRIAGE_DIR", "/tmp/blue_triage"))
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -109,9 +110,9 @@ def run_triage_loop(
     max_cycles: int = 1,
     since_minutes: int = 5,
     dry_run: bool = False,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Poll -> enrich -> report loop.  One cycle by default (CLI mode)."""
-    all_results = []
+    all_results: list[dict[str, Any]] = []
     for _cycle in range(max_cycles):
         alerts = poll_alerts(since_minutes=since_minutes)
         if not alerts:

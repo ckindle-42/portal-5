@@ -17,7 +17,7 @@ def backoff_delay_s(attempt: int) -> float:
     """Bounded exponential backoff: `min(MAX_DELAY_S, BASE_DELAY_S * 2**attempt)`."""
     if attempt < 0:
         raise ValueError("attempt must be >= 0")
-    return min(MAX_DELAY_S, BASE_DELAY_S * (2**attempt))
+    return min(MAX_DELAY_S, BASE_DELAY_S * (2.0**attempt))
 
 
 def should_dead_letter(attempts: int) -> bool:

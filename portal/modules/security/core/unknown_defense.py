@@ -62,7 +62,7 @@ class SimilarityResult:
     confidence: float = 0.0
     detail: str = ""
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "grade": self.grade,
             "matched_technique": self.matched_technique,
@@ -171,7 +171,7 @@ class InvestigationIntake:
     episode_id: str = ""
     created_at: float = 0.0
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "intake_id": self.intake_id,
             "source": self.source,
@@ -242,7 +242,7 @@ class BaselineProfile:
     sample_count: int = 0
     created_at: float = 0.0
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "profile_id": self.profile_id,
             "host": self.host,
@@ -258,7 +258,7 @@ class BaselineProfile:
 def generate_baseline(
     host: str,
     sourcetype: str,
-    benign_events: list[dict],
+    benign_events: list[dict[str, Any]],
 ) -> BaselineProfile:
     """Generate a baseline profile from benign traffic.
 
@@ -303,7 +303,7 @@ class AnomalyResult:
     deviant_features: list[str] = field(default_factory=list)
     detail: str = ""
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "score": self.score,
             "flagged": self.flagged,
@@ -378,10 +378,10 @@ class InvestigationOutcome:
     classification: str  # "variant" | "new_technique" | "benign"
     technique_id: str = ""  # if variant or new
     description: str = ""
-    write_back_unit: dict | None = None  # unit to write back to wiki
+    write_back_unit: dict[str, Any] | None = None  # unit to write back to wiki
     baseline_update: bool = False  # if benign, update baseline
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "outcome_id": self.outcome_id,
             "classification": self.classification,
@@ -394,7 +394,7 @@ class InvestigationOutcome:
 
 def resolve_unknown(
     intake: InvestigationIntake,
-    investigation_findings: list[dict],
+    investigation_findings: list[dict[str, Any]],
 ) -> InvestigationOutcome:
     """Resolve an unknown from investigation findings.
 
@@ -463,7 +463,7 @@ class ExpandedPurpleResult:
     anomaly_score: float = 0.0
     detail: str = ""
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "outcome": self.outcome,
             "technique_id": self.technique_id,

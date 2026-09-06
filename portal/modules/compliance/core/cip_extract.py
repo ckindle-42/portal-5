@@ -33,6 +33,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 _BULLET = ""
 # Part ids are two or more dot-separated integers: "1.1", "1.10", and the
@@ -99,7 +100,7 @@ def _standard_and_version(pdf: Path) -> tuple[str, str]:
     """From the running header 'CIP-007-6 — Cyber Security ...'."""
     import pymupdf
 
-    with pymupdf.open(str(pdf)) as d:
+    with pymupdf.open(str(pdf)) as d:  # type: ignore[no-untyped-call]  # pymupdf open() is untyped
         head = d[0].get_text()[:400] + d[min(2, len(d) - 1)].get_text()[:400]
     m = _STANDARD_RE.search(head.replace("\n", " ").strip())
     if m:
@@ -124,7 +125,7 @@ def _leadins(full_text: str) -> dict[str, tuple[str, str, str]]:
     return dict(sorted(out.items(), key=lambda kv: int(kv[0][1:])))
 
 
-def _cells(row: list) -> list[str]:
+def _cells(row: list[str]) -> list[str]:
     return [c.strip() for c in row if c and c.strip()]
 
 
@@ -369,7 +370,15 @@ def _cip003_attachment1(standard: str, version: str, full: str, pdf: Path) -> li
     return out
 
 
-def _table_parts(page, pi, standard, version, leadins, pdf, seen) -> list[RequirementPart]:
+def _table_parts(
+    page: Any,
+    pi: int,
+    standard: str,
+    version: str,
+    leadins: dict[str, tuple[str, str, str]],
+    pdf: Path,
+    seen: set[tuple[str, str]],
+) -> list[RequirementPart]:
     """Every recognised `Table R<n>` row on one page."""
     out: list[RequirementPart] = []
     for tab in page.find_tables().tables:
@@ -411,14 +420,14 @@ def _table_parts(page, pi, standard, version, leadins, pdf, seen) -> list[Requir
 
 def extract_standard(  # noqa: PLR0912 - one pass over table + prose + attachment + R-level, sequential by design
     pdf_path: str | Path,
-) -> tuple[list[RequirementPart], dict]:
+) -> tuple[list[RequirementPart], dict[str, Any]]:
     """Return (parts, meta). ``meta`` carries per-requirement R->parts counts and
     the requirements with no parts table (extracted at R granularity)."""
     import pymupdf
 
     pdf = Path(pdf_path)
     standard, version = _standard_and_version(pdf)
-    with pymupdf.open(str(pdf)) as d:
+    with pymupdf.open(str(pdf)) as d:  # type: ignore[no-untyped-call]  # pymupdf open() is untyped
         full = "\n".join(p.get_text() for p in d)
         leadins = _leadins(full)
         parts: list[RequirementPart] = []
@@ -499,7 +508,7 @@ def extract_standard(  # noqa: PLR0912 - one pass over table + prose + attachmen
     return parts, meta
 
 
-def verify_fidelity(pdf_path: str | Path, parts: list[RequirementPart]) -> dict:
+def verify_fidelity(pdf_path: str | Path, parts: list[RequirementPart]) -> dict[str, Any]:
     """**Fidelity, not completeness.** Round-trip every *extracted* verbatim
     string back against the raw page text; a string that does not re-locate was
     mangled in extraction. This iterates ``parts``, so a requirement that was
@@ -507,11 +516,12 @@ def verify_fidelity(pdf_path: str | Path, parts: list[RequirementPart]) -> dict:
     is for. No field in this dict is named ``missing``."""
     import pymupdf
 
-    with pymupdf.open(str(pdf_path)) as d:
+    with pymupdf.open(str(pdf_path)) as d:  # type: ignore[no-untyped-call]  # pymupdf open() is untyped
         norm_pages = [_norm(p.get_text()) for p in d]
     blob = " ".join(norm_pages)
 
-    verified, failed = [], []
+    verified: list[str] = []
+    failed: list[str] = []
     for p in parts:
         # part-less R lead-ins are matched a little more loosely (80 chars)
         probe = p.verbatim_text[: 80 if not p.part else 120]
@@ -580,7 +590,7 @@ def _contiguity_missing(req_num: str, is_attachment: bool, leaves: list[str]) ->
         for e in leaves:
             top, sub = e.split(".", 1)
             groups.setdefault(top, []).append(int(sub))
-        missing = []
+        missing: list[str] = []
         for top, nums in sorted(groups.items()):
             if len(nums) >= 2:
                 nums = sorted(nums)
@@ -592,7 +602,7 @@ def _contiguity_missing(req_num: str, is_attachment: bool, leaves: list[str]) ->
     return []
 
 
-def assess_completeness(parts: list[RequirementPart]) -> dict:
+def assess_completeness(parts: list[RequirementPart]) -> dict[str, Any]:
     """**Completeness, not fidelity.** Does the register hold every Part the
     *document* says exists? Three document-derived signals, strongest first:
 
@@ -627,7 +637,7 @@ def assess_completeness(parts: list[RequirementPart]) -> dict:
         return (0 if r.startswith("R") else 1, int(m.group(1)) if m else 0)
 
     reqs = sorted(set(by_req) | set(leadin_by_req), key=_req_sort_key)
-    incomplete: list[dict] = []
+    incomplete: list[dict[str, Any]] = []
     sources: set[str] = set()
 
     def _captured(pid: str, ex: set[str]) -> bool:

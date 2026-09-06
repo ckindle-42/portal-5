@@ -21,6 +21,9 @@ import re
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
+from typing import Any
+
+from portal.modules.compliance.core.mapping_store import MappingStore
 
 _ID_RE = re.compile(r"[0-9a-f]{12}")  # matches uuid.uuid4().hex[:12] below
 
@@ -40,8 +43,8 @@ _TABLE = "review_queue"  # -> "compliance_review_queue" via the store prefix
 class ReviewItem:
     kind: str
     subject_id: str
-    proposed_value: dict
-    evidence: list[dict] = field(default_factory=list)
+    proposed_value: dict[str, Any]
+    evidence: list[dict[str, Any]] = field(default_factory=list)
     confidence: float = 0.0
     status: str = "OPEN"
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
@@ -50,22 +53,22 @@ class ReviewItem:
     prior_item_id: str = ""
     created_at: float = field(default_factory=time.time)
 
-    def to_row(self) -> dict:
+    def to_row(self) -> dict[str, Any]:
         d = asdict(self)
         d["proposed_value"] = json.dumps(d["proposed_value"], sort_keys=True)
         d["evidence"] = json.dumps(d["evidence"], sort_keys=True)
         return d
 
     @classmethod
-    def from_row(cls, row: dict) -> ReviewItem:
+    def from_row(cls, row: dict[str, Any]) -> ReviewItem:
         r = dict(row)
         r["proposed_value"] = json.loads(r.get("proposed_value") or "{}")
         r["evidence"] = json.loads(r.get("evidence") or "[]")
         return cls(**{k: v for k, v in r.items() if k in cls.__dataclass_fields__})
 
 
-def _schema():
-    import pyarrow as pa
+def _schema() -> Any:
+    import pyarrow as pa  # type: ignore[import-untyped]  # pyarrow ships no stubs/py.typed
 
     return pa.schema(
         [
@@ -84,7 +87,7 @@ def _schema():
     )
 
 
-def _table(create: bool = True):
+def _table(create: bool = True) -> Any:
     from portal.platform.retrieval import store as _store
 
     db = _store.get_db()
@@ -99,8 +102,8 @@ def _table(create: bool = True):
 def propose(
     kind: str,
     subject_id: str,
-    proposed_value: dict,
-    evidence: list[dict] | None = None,
+    proposed_value: dict[str, Any],
+    evidence: list[dict[str, Any]] | None = None,
     confidence: float = 0.0,
 ) -> ReviewItem:
     """File an OPEN item. Never raises on a low confidence — a low-confidence
@@ -147,7 +150,10 @@ def open_items(kind: str | None = None) -> list[ReviewItem]:
 
 
 def decide(
-    item_id: str, decision: str, decided_by: str, corrected_value: dict | None = None
+    item_id: str,
+    decision: str,
+    decided_by: str,
+    corrected_value: dict[str, Any] | None = None,
 ) -> ReviewItem:
     """Confirm or reject an OPEN item. Writes a NEW row (the decision) with
     ``prior_item_id`` pointing at the item just closed; the prior row's own
@@ -182,7 +188,7 @@ def decide(
     return new_item
 
 
-def sync_proposed_mappings(store) -> int:
+def sync_proposed_mappings(store: MappingStore) -> int:
     """Wire ``mapping_store``'s unapproved proposals (``approved_by == ""``)
     into the queue rather than a parallel proposal path (anti-pattern list).
     Idempotent: skips a mapping that already has an OPEN ``mapping_proposal``

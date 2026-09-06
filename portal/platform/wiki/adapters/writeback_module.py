@@ -10,6 +10,7 @@ modules.enabled_modules() always reads current truth with no replay step.
 from __future__ import annotations
 
 import re
+from typing import Any
 
 
 def module_state_change(
@@ -19,7 +20,7 @@ def module_state_change(
     actor: str,
     *,
     auto_confirm: bool = False,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """Propose flipping module <name>'s enabled state.
 
     Args:

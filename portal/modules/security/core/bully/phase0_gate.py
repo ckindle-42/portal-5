@@ -35,6 +35,13 @@ def evaluate_phase0_gate(
         and "action_sequence" not in record
         for record in advisory_records
     )
+    required_non_telemetry = {
+        source_id: plane.catalog.get(source_id) for source_id in _REQUIRED_NON_TELEMETRY
+    }
+    non_telemetry_connected = all(
+        profile is not None and profile.record_count > 0
+        for profile in required_non_telemetry.values()
+    )
     census = census_payload.get("census") or {}
     census_sources = {source.get("source_id") for source in census.get("sources", ())}
     base_gate = plane.gate()
@@ -57,9 +64,7 @@ def evaluate_phase0_gate(
         and all(profile.volume and profile.quality and profile.access for profile in profiles),
         "complete_query_audit": source_ids <= audited_ids,
         "non_telemetry_sources_connected": source_ids >= _REQUIRED_NON_TELEMETRY
-        and all(
-            plane.catalog.get(source_id).record_count > 0 for source_id in _REQUIRED_NON_TELEMETRY
-        ),
+        and non_telemetry_connected,
         "advisories_sparse_signatures": advisory_sparse,
         "census_published": source_ids == census_sources and bool(census.get("blind_spots")),
     }

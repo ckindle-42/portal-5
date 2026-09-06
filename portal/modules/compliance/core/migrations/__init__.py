@@ -10,6 +10,7 @@ already-recorded version (idempotent re-run).
 from __future__ import annotations
 
 import sqlite3
+from typing import Any
 
 from portal.modules.compliance.core.migrations.schema import MIGRATIONS
 
@@ -37,7 +38,7 @@ def _statements(sql: str) -> list[str]:
     return [s.strip() for s in sql.split(";") if s.strip()]
 
 
-def apply_migrations(conn: sqlite3.Connection) -> dict:
+def apply_migrations(conn: sqlite3.Connection) -> dict[str, Any]:
     """Apply pending migrations inside ONE transaction — either every
     pending migration applies and the version is bumped once at the end, or
     a failure partway through leaves the store exactly as it was before this

@@ -6,8 +6,10 @@ Each bench scored on ground truth (emulated firmware, known CVE, config extracti
 
 from __future__ import annotations
 
+from typing import Any
 
-def bench_firmware_extract(firmware_path: str, *, dry_run: bool = False) -> dict:
+
+def bench_firmware_extract(firmware_path: str, *, dry_run: bool = False) -> dict[str, Any]:
     """Firmware extraction + analysis (OWASP FSTM 9-stage).
 
     Reference: /tmp/reverse-skill/skills/firmware-pentest/SKILL.md (345 lines)
@@ -29,7 +31,7 @@ def bench_firmware_extract(firmware_path: str, *, dry_run: bool = False) -> dict
     }
 
 
-def bench_binary_re(binary_path: str, *, dry_run: bool = False) -> dict:
+def bench_binary_re(binary_path: str, *, dry_run: bool = False) -> dict[str, Any]:
     """Binary RE: triage, disasm reasoning, vuln-spotting, ROP.
 
     Reference: /tmp/reverse-skill/skills/binary-diff/SKILL.md (245 lines)
@@ -46,7 +48,7 @@ def bench_binary_re(binary_path: str, *, dry_run: bool = False) -> dict:
     return {"status": "requires_live_target", "reason": "binary + known patch pair required"}
 
 
-def bench_malware_analysis(sample_path: str, *, dry_run: bool = False) -> dict:
+def bench_malware_analysis(sample_path: str, *, dry_run: bool = False) -> dict[str, Any]:
     """Malware triage: static analysis → dynamic sandbox → config extraction → IOC.
 
     Reference: /tmp/reverse-skill/skills/malware-analysis/SKILL.md (207 lines)
@@ -63,7 +65,7 @@ def bench_malware_analysis(sample_path: str, *, dry_run: bool = False) -> dict:
     return {"status": "requires_live_target", "reason": "malware sample + sandbox required"}
 
 
-def bench_patch_diff(vuln_path: str, patched_path: str, *, dry_run: bool = False) -> dict:
+def bench_patch_diff(vuln_path: str, patched_path: str, *, dry_run: bool = False) -> dict[str, Any]:
     """N-day patch-diff: diff vendor patch → locate fix → derive vuln.
 
     Reference: /tmp/reverse-skill/skills/patch-diff-exploit/SKILL.md
@@ -80,7 +82,7 @@ def bench_patch_diff(vuln_path: str, patched_path: str, *, dry_run: bool = False
     return {"status": "requires_live_target", "reason": "patch pair required"}
 
 
-def bench_edr_bypass(target_binary: str, *, dry_run: bool = False) -> dict:
+def bench_edr_bypass(target_binary: str, *, dry_run: bool = False) -> dict[str, Any]:
     """EDR bypass RE: ETW/AMSI/hook-table/syscall analysis.
 
     Reference: /tmp/reverse-skill/skills/edr-bypass-re/SKILL.md
@@ -98,7 +100,7 @@ def bench_edr_bypass(target_binary: str, *, dry_run: bool = False) -> dict:
     }
 
 
-def bench_apk_reverse(apk_path: str, *, dry_run: bool = False) -> dict:
+def bench_apk_reverse(apk_path: str, *, dry_run: bool = False) -> dict[str, Any]:
     """APK reverse: decompile → manifest analysis → hook strategy.
 
     Reference: /tmp/reverse-skill/skills/apk-reverse/SKILL.md
@@ -113,7 +115,7 @@ def bench_apk_reverse(apk_path: str, *, dry_run: bool = False) -> dict:
     return {"status": "requires_live_target", "reason": "APK file required"}
 
 
-def discipline_coverage() -> dict[str, dict]:
+def discipline_coverage() -> dict[str, dict[str, Any]]:
     """Per-discipline coverage report for bench readiness."""
     return {
         "web_auth": {"status": "ready", "probes": 52, "oracles": "ptai_*"},

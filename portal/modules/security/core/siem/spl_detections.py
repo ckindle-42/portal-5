@@ -8,15 +8,16 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Any, cast
 
 import yaml
 
 _YAML_PATH = Path(__file__).parent / "spl_detections.yaml"
-_cache: dict | None = None
+_cache: dict[str, Any] | None = None
 _SOURCETYPE_CLAUSE = re.compile(r"\bsourcetype\s*=\s*[\"']([^\"']+)[\"']", re.IGNORECASE)
 
 
-def _load() -> dict:
+def _load() -> dict[str, Any]:
     global _cache
     if _cache is None:
         _cache = yaml.safe_load(_YAML_PATH.read_text()) or {} if _YAML_PATH.exists() else {}
@@ -48,9 +49,9 @@ def spl_for(technique_id: str, source: str = "") -> str | None:
         variants = entry.get("spl_variants", [])
         for variant in variants:
             if variant.get("source") == source:
-                return variant.get("spl", "")
+                return cast(str, variant.get("spl", ""))
 
-    return entry.get("spl", "")
+    return cast(str, entry.get("spl", ""))
 
 
 def spl_for_source(technique_id: str, source: str) -> str | None:
@@ -93,7 +94,7 @@ def validated_detection_sourcetypes() -> frozenset[str]:
     return frozenset(sorted(sources))
 
 
-def spl_variants_for(technique_id: str) -> list[dict]:
+def spl_variants_for(technique_id: str) -> list[dict[str, Any]]:
     """Return all SPL variants for a technique.
 
     Returns list of {source, spl, expected_signal} dicts.
@@ -103,7 +104,7 @@ def spl_variants_for(technique_id: str) -> list[dict]:
     entry = data.get(technique_id)
     if not entry or not isinstance(entry, dict):
         return []
-    return entry.get("spl_variants", [])
+    return cast(list[dict[str, Any]], entry.get("spl_variants", []))
 
 
 def techniques_covered() -> list[str]:
@@ -141,7 +142,7 @@ def technique_reference() -> dict[str, str]:
     return result
 
 
-def technique_signature_full(technique_id: str) -> dict:
+def technique_signature_full(technique_id: str) -> dict[str, Any]:
     """Return full technique info including distinguishing features.
 
     Returns dict with: description, expected_signal, spl, distinguishing_features.

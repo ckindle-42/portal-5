@@ -5,17 +5,18 @@ from __future__ import annotations
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 from ..telemetry import IMPORTED_OBSERVED_TRUST_TIER
 from . import signatures as sig_mod
 from .contracts import CousinAssessment, Decomposition
+from .signatures import BehaviorSignature
 
 ALGORITHM_VERSION = "cousin-v1"
 
 # Missing dimensions contribute no distance or confidence weight; weights are
 # never renormalized (I-6 failure semantics).
-_WEIGHTS = {
+_WEIGHTS: dict[str, float] = {
     "behavior": 0.30,
     "telemetry": 0.20,
     "semantic": 0.25,
@@ -24,7 +25,7 @@ _WEIGHTS = {
 }
 
 MIN_CONFIDENCE_FOR_CLASSIFICATION = 0.6
-DEFAULT_THRESHOLDS = {
+DEFAULT_THRESHOLDS: dict[str, float] = {
     "same_max_distance": 0.05,
     "similar_max_distance": 0.40,
     "new_max_distance": 0.85,
@@ -32,7 +33,11 @@ DEFAULT_THRESHOLDS = {
 THRESHOLDS_VERSION = "bully-cousin-thresholds-v1"
 
 
-def build_signature(episode_view: dict, telemetry_view: dict | None = None, **kwargs):
+def build_signature(
+    episode_view: dict[str, Any],
+    telemetry_view: dict[str, Any] | None = None,
+    **kwargs: Any,
+) -> BehaviorSignature:
     """Thin re-export -- I-6 lists `build_signature` on the cousin engine;
     the actual construction lives in signatures.py (P1.5 build order)."""
     return sig_mod.build_signature(episode_view, telemetry_view, **kwargs)
@@ -52,14 +57,14 @@ class CandidateSetReceipt:
 
 
 def candidate_set(
-    signature,
+    signature: BehaviorSignature,
     *,
-    semantic_candidates: list[tuple[dict, float]] | None = None,
-    attack_neighbors: list[dict] | None = None,
-    family_members: list[dict] | None = None,
-    event_graph_motifs: list[dict] | None = None,
-    behavior_spine_neighbors: list[dict] | None = None,
-    health: dict | None = None,
+    semantic_candidates: list[tuple[dict[str, Any], float]] | None = None,
+    attack_neighbors: list[dict[str, Any]] | None = None,
+    family_members: list[dict[str, Any]] | None = None,
+    event_graph_motifs: list[dict[str, Any]] | None = None,
+    behavior_spine_neighbors: list[dict[str, Any]] | None = None,
+    health: dict[str, Any] | None = None,
 ) -> CandidateSetReceipt:
     """Union the injected candidate sources into one receipt.
 
@@ -109,19 +114,31 @@ def candidate_set(
     )
 
 
-def _records_only(results: list[tuple[dict, float]]) -> list[dict]:
+def _records_only(results: list[tuple[dict[str, Any], float]]) -> list[dict[str, Any]]:
     return [record for record, _distance in results]
 
 
-def _dedupe_records(records: list[dict]) -> list[dict]:
-    deduped: dict[str, dict] = {}
+def _dedupe_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    deduped: dict[str, dict[str, Any]] = {}
     for record in records:
         key = str(record.get("record_id") or record.get("signature_id") or id(record))
         deduped.setdefault(key, record)
     return list(deduped.values())
 
 
-def candidate_axis_queries(signature) -> tuple[str, ...]:
+class _KnnSnapshot(Protocol):
+    """Minimal read-only retrieval surface used by the cousin axes.
+
+    Satisfied structurally by ``Organ`` (live) and the calibration/discovery
+    snapshot fixtures (read-only) -- whichever the caller injects.
+    """
+
+    def knn(
+        self, query: str, k: int, filters: dict[str, Any] | None = None
+    ) -> list[tuple[dict[str, Any], float]]: ...
+
+
+def candidate_axis_queries(signature: BehaviorSignature) -> tuple[str, ...]:
     queries = [sig_mod.semantic_query(signature)]
     family = sig_mod.signature_family(signature)
     if family:
@@ -133,7 +150,9 @@ def candidate_axis_queries(signature) -> tuple[str, ...]:
     return tuple(queries)
 
 
-def retrieve_candidate_axes(signature, snapshot, *, k: int = 8) -> CandidateSetReceipt:
+def retrieve_candidate_axes(
+    signature: BehaviorSignature, snapshot: _KnnSnapshot, *, k: int = 8
+) -> CandidateSetReceipt:
     """Query and wire all four retrieval axes into a candidate receipt.
 
     Family uses indexed metadata. ATT&CK and event-graph axes use focused
@@ -147,7 +166,7 @@ def retrieve_candidate_axes(signature, snapshot, *, k: int = 8) -> CandidateSetR
     # not payload tokens, so a cross-vocabulary cousin (zero shared literal
     # tokens with its anchor) is still in the candidate set.
     subject_spine = set(getattr(signature, "behavior_spine", ()) or ())
-    spine_pool: list[dict] = []
+    spine_pool: list[dict[str, Any]] = []
     if subject_spine:
         motif = sig_mod.behavior_spine_motif(signature)
         for record, _distance in snapshot.knn(f"behavior spine: {motif}", k=k):
@@ -156,7 +175,7 @@ def retrieve_candidate_axes(signature, snapshot, *, k: int = 8) -> CandidateSetR
                 spine_pool.append(record)
 
     family = sig_mod.signature_family(signature)
-    family_results = []
+    family_results: list[tuple[dict[str, Any], float]] = []
     if family:
         family_query = f"scenario family: {family}"
         try:
@@ -171,7 +190,7 @@ def retrieve_candidate_axes(signature, snapshot, *, k: int = 8) -> CandidateSetR
             ]
 
     subject_attack = set(sig_mod.attack_ids(signature))
-    attack_pool: list[dict] = []
+    attack_pool: list[dict[str, Any]] = []
     for technique_id in sorted(subject_attack):
         for record, _distance in snapshot.knn(f"ATT&CK technique: {technique_id}", k=k):
             record_attack = {
@@ -229,7 +248,7 @@ def _response_axis(coverage: CoverageView) -> str:
 # ── structural distance decomposition ────────────────────────────────────────
 
 
-def _jaccard_distance(a: set, b: set) -> float | None:
+def _jaccard_distance(a: set[Any], b: set[Any]) -> float | None:
     if not a and not b:
         return None
     union = a | b
@@ -238,7 +257,7 @@ def _jaccard_distance(a: set, b: set) -> float | None:
     return 1.0 - (len(a & b) / len(union))
 
 
-def _flatten(d: dict) -> set[str]:
+def _flatten(d: dict[str, Any]) -> set[str]:
     """Flatten a shallow dict to a comparable set of `key=value` tokens,
     exploding list-valued fields element-wise so overlap is measured per
     element (e.g. `{"sourcetype": ["wmi", "smb"]}` -> `{"sourcetype=wmi",
@@ -257,7 +276,10 @@ def _flatten(d: dict) -> set[str]:
 
 
 def _decompose(
-    subject: Any, reference: dict, *, semantic_distance: float | None
+    subject: BehaviorSignature,
+    reference: dict[str, Any],
+    *,
+    semantic_distance: float | None,
 ) -> dict[str, float | None]:
     declared_presence = getattr(subject, "present_dimensions", None)
     reference_presence = reference.get("present_dimensions")
@@ -354,7 +376,7 @@ def _weighted_composite(
 
 
 def evaluate_vetoes(
-    subject: Any, reference: dict, discriminators: list[str] | None = None
+    subject: BehaviorSignature, reference: dict[str, Any], discriminators: list[str] | None = None
 ) -> list[dict[str, Any]]:
     """A discriminator contradiction downgrades SAME regardless of embedding
     proximity (C5 CLAIM 4). `discriminators` are field names looked up in
@@ -377,7 +399,11 @@ def evaluate_vetoes(
 
 
 def _classify_relationship(
-    composite: float, confidence: float, nonsemantic_channels: int, vetoed: bool, thresholds: dict
+    composite: float,
+    confidence: float,
+    nonsemantic_channels: int,
+    vetoed: bool,
+    thresholds: dict[str, float],
 ) -> str:
     if confidence < MIN_CONFIDENCE_FOR_CLASSIFICATION:
         return "ANOMALOUS_UNCLASSIFIED"
@@ -428,7 +454,9 @@ def product_band(relationship: str, response: str) -> str:
     )
 
 
-def _empty_assessment(signature, candidates: CandidateSetReceipt, response: str):
+def _empty_assessment(
+    signature: BehaviorSignature, candidates: CandidateSetReceipt, response: str
+) -> CousinAssessment:
     return CousinAssessment(
         assessment_id=f"ca-{uuid.uuid4().hex[:12]}",
         subject_signature_id=signature.signature_id,
@@ -453,12 +481,12 @@ def _empty_assessment(signature, candidates: CandidateSetReceipt, response: str)
 
 
 def grade(
-    signature,
+    signature: BehaviorSignature,
     candidates: CandidateSetReceipt,
     coverage: CoverageView,
     *,
     discriminators: list[str] | None = None,
-    thresholds: dict | None = None,
+    thresholds: dict[str, float] | None = None,
     weights: dict[str, float] | None = None,
 ) -> CousinAssessment:
     """DEPRECATED (R.4, 2026-08-20): no longer on the orchestrator's grade
@@ -476,9 +504,11 @@ def grade(
     if not candidates.candidates:
         return _empty_assessment(signature, candidates, response)
 
-    scored = []
+    scored: list[
+        tuple[float, float, int, dict[str, float | None], dict[str, Any], dict[str, Any]]
+    ] = []
     for candidate in candidates.candidates:
-        record = candidate["record"]
+        record: dict[str, Any] = candidate["record"]
         decomp = _decompose(signature, record, semantic_distance=candidate.get("semantic_distance"))
         composite, confidence, nonsemantic = _weighted_composite(decomp, weights)
         scored.append((composite, confidence, nonsemantic, decomp, record, candidate))
@@ -489,7 +519,7 @@ def grade(
     relationship = _classify_relationship(
         composite, confidence, nonsemantic, bool(vetoes), thresholds
     )
-    trust_adjustment = None
+    trust_adjustment: str | None = None
     exact_signature_match = best_record.get("field_signature") == getattr(
         signature, "canonical_fingerprint", None
     )
@@ -531,7 +561,7 @@ def grade(
 
 
 def explain(
-    assessment: CousinAssessment, *, reference_record: dict | None = None
+    assessment: CousinAssessment, *, reference_record: dict[str, Any] | None = None
 ) -> dict[str, Any]:
     """Feature-overlap citations for the assessment's nearest reference,
     reusing `unknown_defense.compute_similarity` as the explanation layer
@@ -565,7 +595,9 @@ def explain(
 
 
 def dual_run_shadow(
-    observed_features: dict, wiki_descriptions: dict, composite_relationship: str
+    observed_features: dict[str, Any],
+    wiki_descriptions: dict[str, Any],
+    composite_relationship: str,
 ) -> dict[str, Any]:
     """I-22: legacy `unknown_defense` grade and BR-COUSIN grade both run
     during shadow; disagreements are recorded, never silently resolved by

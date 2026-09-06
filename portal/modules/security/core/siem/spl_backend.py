@@ -10,6 +10,8 @@ import hashlib
 import json
 import os
 import time
+from collections.abc import Iterator
+from typing import Any
 
 import httpx
 
@@ -40,7 +42,7 @@ _EPISODE_PIPE_COMMANDS = frozenset(
 )
 
 
-def _iter_json_objects(text: str):
+def _iter_json_objects(text: str) -> Iterator[Any]:
     """Yield each top-level JSON object from a Splunk export response body.
 
     The export endpoint emits one JSON object per result, but a raw event
@@ -74,13 +76,13 @@ class SplunkBackend:
 
     name = "splunk"
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.url = os.environ.get("LAB_SPLUNK_URL", "https://portal5-lab-splunk:8089")
         self.user = os.environ.get("LAB_SPLUNK_USER", "admin")
         self.pw = os.environ.get("LAB_SPLUNK_PASSWORD", "")
         self.index = os.environ.get("LAB_SPLUNK_INDEX", "portal5_lab")
 
-    def _run_search(self, search: str, earliest: str, latest: str) -> list[dict]:
+    def _run_search(self, search: str, earliest: str, latest: str) -> list[dict[str, Any]]:
         """POST one SPL search to the export endpoint and parse hits into rows.
 
         Shared by the exact technique-SPL query and the broad discovery
@@ -108,7 +110,7 @@ class SplunkBackend:
         )
         r.raise_for_status()
 
-        rows = []
+        rows: list[dict[str, Any]] = []
         for obj in _iter_json_objects(r.text):
             if "result" not in obj:
                 continue
@@ -131,7 +133,7 @@ class SplunkBackend:
             rows.append({"_time": _time, "host": host, "raw": line, "fields": fields})
         return rows
 
-    def query(self, technique_id: str, window: dict) -> dict:
+    def query(self, technique_id: str, window: dict[str, Any]) -> dict[str, Any]:
         """Run the SPL for technique_id via /services/search/jobs/export (oneshot, json).
 
         This legacy technique-specific method never performs a broad fallback.
@@ -162,7 +164,7 @@ class SplunkBackend:
         qid_src = f"{spl or ''}{earliest}{latest}{technique_id}"
         query_id = hashlib.sha256(qid_src.encode()).hexdigest()[:12]
 
-        rows: list[dict] = []
+        rows: list[dict[str, Any]] = []
         error: str | None = None
         if spl:
             search = (
@@ -192,12 +194,12 @@ class SplunkBackend:
 
     def query_episode(
         self,
-        window: dict,
+        window: dict[str, Any],
         *,
         episode_id: str,
         host: str | None = None,
         limit: int = 500,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Return one unlabeled, episode-scoped telemetry haystack.
 
         Ground-truth technique IDs are intentionally absent from this API.
@@ -238,7 +240,7 @@ class SplunkBackend:
 
     def query_episode_ids(
         self,
-        window: dict,
+        window: dict[str, Any],
         *,
         episode_ids: set[str] | frozenset[str],
     ) -> dict[str, int]:
@@ -268,11 +270,11 @@ class SplunkBackend:
     def query_freeform(
         self,
         spl: str,
-        window: dict,
+        window: dict[str, Any],
         *,
         episode_id: str,
         host: str | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Execute blue's requested SPL inside an immutable episode scope."""
         earliest = window.get("earliest", "-15m")
         latest = window.get("latest", "now")

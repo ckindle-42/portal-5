@@ -34,11 +34,11 @@ class NotebookEntry:
     case_id: str
     agent_id: str  # which agent wrote this (A1-A5 or "analyst")
     entry_type: str  # "hypothesis", "finding", "annotation", "scratch", "decision"
-    content: dict  # the actual content
+    content: dict[str, Any]  # the actual content
     created_at: float = 0.0
     superseded_by: str = ""  # if this entry was revised
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -89,7 +89,7 @@ class CaseNotebook:
         case_id: str,
         agent_id: str,
         entry_type: str,
-        content: dict,
+        content: dict[str, Any],
     ) -> NotebookEntry:
         """Write a new entry to the notebook."""
         entry = NotebookEntry(

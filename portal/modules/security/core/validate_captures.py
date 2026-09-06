@@ -13,19 +13,23 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Any, cast
 
 from portal.modules.security.core.siem.capture_enrichment import validate_capture_signals
 from portal.modules.security.core.siem.capture_store import list_captures
 
 
-def _load_latest_capture(scenario: str) -> dict | None:
+def _load_latest_capture(scenario: str) -> dict[str, list[str]] | None:
     """Load the newest capture file for a scenario. Returns telemetry dict or None."""
     caps = list_captures(scenario)
     if not caps:
         return None
     try:
         data = json.loads(caps[0].read_text())
-        return data.get("telemetry", {})
+        telemetry = data.get("telemetry", {}) if isinstance(data, dict) else None
+        if not isinstance(telemetry, dict):
+            return None
+        return cast(dict[str, list[str]], telemetry)
     except Exception:
         return None
 
@@ -41,7 +45,7 @@ def _classify(coverage: float, has_capture: bool) -> str:
     return "INVALID"
 
 
-def validate_all(*, scenario: str | None = None) -> dict:
+def validate_all(*, scenario: str | None = None) -> dict[str, Any]:
     """Validate captures for all (or one) scenario.
 
     Returns:
@@ -51,17 +55,18 @@ def validate_all(*, scenario: str | None = None) -> dict:
 
     targets = {scenario: SCENARIOS[scenario]} if scenario else SCENARIOS
 
-    valid, partial, invalid, missing = [], [], [], []
-    details: dict[str, dict] = {}
+    valid: list[str] = []
+    partial: list[str] = []
+    invalid: list[str] = []
+    missing: list[str] = []
+    details: dict[str, dict[str, Any]] = {}
 
     for name, sc in sorted(targets.items()):
         gt = sc.get("detect_ground_truth", [])
         telemetry = _load_latest_capture(name)
-        has_capture = telemetry is not None and any(telemetry.values())
-
-        if not has_capture:
+        if telemetry is None or not any(telemetry.values()):
             cls = "MISSING"
-            info = {
+            info: dict[str, Any] = {
                 "classification": cls,
                 "coverage": 0.0,
                 "found": [],

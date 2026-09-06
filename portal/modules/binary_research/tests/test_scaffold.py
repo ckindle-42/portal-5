@@ -3,27 +3,29 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from portal.modules.binary_research.harness import scaffold as s
 from portal.modules.binary_research.harness.llm import LLMConfig
 
 
-def test_parse_json_plain():
+def test_parse_json_plain() -> None:
     assert s._parse_json('{"done": true}', {}) == {"done": True}
 
 
-def test_parse_json_fenced():
+def test_parse_json_fenced() -> None:
     assert s._parse_json('```json\n{"goal":"x"}\n```', {}) == {"goal": "x"}
 
 
-def test_parse_json_embedded():
+def test_parse_json_embedded() -> None:
     assert s._parse_json('here: {"goal":"y"} done', {}).get("goal") == "y"
 
 
-def test_parse_json_garbage_returns_default():
+def test_parse_json_garbage_returns_default() -> None:
     assert s._parse_json("not json", {"goal": "d"}) == {"goal": "d"}
 
 
-def test_start_writes_opening_question(tmp_path: Path):
+def test_start_writes_opening_question(tmp_path: Path) -> None:
     out = s.start(tmp_path)
     assert out["state"] == "asking"
     assert out["question"]  # opening question set
@@ -31,7 +33,9 @@ def test_start_writes_opening_question(tmp_path: Path):
     assert st["opening_asked"] is True
 
 
-def test_answer_asks_next_when_model_wants_more(tmp_path: Path, monkeypatch):
+def test_answer_asks_next_when_model_wants_more(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     s.start(tmp_path)
     monkeypatch.setattr(
         s, "_next_step", lambda cfg, turns: {"done": False, "next_question": "Which arch?"}
@@ -43,7 +47,7 @@ def test_answer_asks_next_when_model_wants_more(tmp_path: Path, monkeypatch):
     assert st["turns"][0]["a"] == "a firmware blob"
 
 
-def test_answer_scaffolds_when_model_done(tmp_path: Path, monkeypatch):
+def test_answer_scaffolds_when_model_done(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     s.start(tmp_path)
     plan = {
         "goal": "Reconstruct payload",
@@ -62,7 +66,7 @@ def test_answer_scaffolds_when_model_done(tmp_path: Path, monkeypatch):
     assert st["scaffold_written"] is True
 
 
-def test_answer_forces_done_after_max(tmp_path: Path, monkeypatch):
+def test_answer_forces_done_after_max(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     s.start(tmp_path)
     # Model always wants more, but the cap forces a scaffold.
     monkeypatch.setattr(
@@ -74,7 +78,7 @@ def test_answer_forces_done_after_max(tmp_path: Path, monkeypatch):
     assert out["state"] == "ready"
 
 
-def test_apply_plan_writes_structure(tmp_path: Path):
+def test_apply_plan_writes_structure(tmp_path: Path) -> None:
     plan = s.ScaffoldPlan(
         goal="G",
         hypotheses=["h1"],

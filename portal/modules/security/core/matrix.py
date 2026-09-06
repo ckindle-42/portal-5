@@ -10,8 +10,10 @@ import logging
 import os
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from portal.platform.data_loader import load_data
 
@@ -58,12 +60,12 @@ class RunResult:
 
     unit_id: str
     status: str  # "verified" | "rejected" | "indeterminate" | "error" | "dry_run"
-    oracle_verdict: dict | None = None
+    oracle_verdict: dict[str, Any] | None = None
     lab_output: str = ""
     elapsed_s: float = 0.0
     error: str = ""
-    blue_result: dict | None = None
-    purple_result: dict | None = None
+    blue_result: dict[str, Any] | None = None
+    purple_result: dict[str, Any] | None = None
 
 
 # ── Domain classification ─────────────────────────────────────────────────────
@@ -114,7 +116,9 @@ def _expand_vulhub_globs(patterns: list[str], vulhub_root: str | Path | None = N
     return sorted(resolved)
 
 
-def _resolve_challenge_class(cls: dict, vulhub_root: str | Path | None = None) -> list[str]:
+def _resolve_challenge_class(
+    cls: dict[str, Any], vulhub_root: str | Path | None = None
+) -> list[str]:
     """Resolve a challenge class to its list of vulhub target paths (on the host)."""
     vulhub_patterns = cls.get("vulhub", [])
     if not vulhub_patterns:
@@ -150,7 +154,7 @@ def build_run_matrix(
 
     # Load challenge classes
     cc_path = _PROJECT_ROOT / "config" / "challenge_classes.yaml"
-    challenge_classes: list[dict] = []
+    challenge_classes: list[dict[str, Any]] = []
     if cc_path.exists():
         cc_data = yaml.safe_load(cc_path.read_text())
         challenge_classes = cc_data.get("classes", [])
@@ -248,7 +252,7 @@ def build_run_matrix(
     return units
 
 
-def _infer_target(prompt_key: str, exec_seq: list | dict) -> str:
+def _infer_target(prompt_key: str, exec_seq: list[dict[str, Any]] | dict[str, Any]) -> str:
     """Infer the target spec from a scenario's exec sequence hints."""
     if isinstance(exec_seq, dict):
         exec_seq = exec_seq.get("steps", [])
@@ -279,7 +283,7 @@ def run_matrix(
     lab_exec: bool = False,
     max_concurrent: int = 3,
     purple: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     """Execute the run matrix: spin → run → score → teardown per unit.
 
     Respects dry_run (plan only) and _LAB_EXEC_AVAILABLE (synthetic → indeterminate).
@@ -380,7 +384,7 @@ def _execute_unit(unit: RunUnit, *, lab_exec: bool, purple: bool) -> RunResult:
                 telemetry_error = f"TELEMETRY_COLLECTION_FAILED: {exc}"
 
         # 3. Score with the named oracle
-        oracle_verdict = None
+        oracle_verdict: dict[str, Any] | None = None
         if lab_output == DISPATCH_NOT_RUN or not lab_output.strip():
             # No dispatch path (tier-3) or empty evidence — never let this reach an oracle;
             # the governing rule is no path emits verified without real host output.
@@ -391,7 +395,7 @@ def _execute_unit(unit: RunUnit, *, lab_exec: bool, purple: bool) -> RunResult:
             }
         elif unit.oracle and unit.oracle in ORACLES:
             finding = {"oracle": unit.oracle}
-            observations = {}
+            observations: dict[str, Any] = {}
             verdict = verify_finding(finding, lab_output, observations, required=2)
             oracle_verdict = {
                 "oracle": verdict.oracle,
@@ -415,8 +419,8 @@ def _execute_unit(unit: RunUnit, *, lab_exec: bool, purple: bool) -> RunResult:
             oracle_verdict = {"oracle": unit.oracle, "reason": "oracle not in registry"}
 
         # 4. Blue/purple (if requested and telemetry available)
-        blue_result = None
-        purple_result = None
+        blue_result: dict[str, Any] | None = None
+        purple_result: dict[str, Any] | None = None
         if purple and unit.has_telemetry and unit.technique_ids:
             blue_result = _run_blue_on_unit(unit, lab_output, lab_exec=lab_exec)
             if blue_result and status == "verified":
@@ -446,7 +450,7 @@ def _execute_unit(unit: RunUnit, *, lab_exec: bool, purple: bool) -> RunResult:
         )
 
 
-def _spin_target(target_spec: str, *, lab_exec: bool) -> dict:
+def _spin_target(target_spec: str, *, lab_exec: bool) -> dict[str, Any]:
     """Spin up a target container. Returns {ok, error}."""
     try:
         from scripts.lab_targets import cmd_up
@@ -457,7 +461,7 @@ def _spin_target(target_spec: str, *, lab_exec: bool) -> dict:
         return {"ok": False, "error": str(exc)}
 
 
-def _teardown_target(target_spec: str, *, lab_exec: bool) -> dict:
+def _teardown_target(target_spec: str, *, lab_exec: bool) -> dict[str, Any]:
     """Tear down a target container."""
     try:
         from scripts.lab_targets import cmd_down
@@ -481,7 +485,7 @@ try:
         _phase_vulhub_tomcat,
     )
 
-    _PHASE_MAP: dict[str, object] = {
+    _PHASE_MAP: dict[str, Callable[..., dict[str, Any]]] = {
         "kerberoasting": _phase_kerberoast,
         "asrep_roasting": _phase_asrep,
         "log4shell_rce": _phase_vulhub_log4shell,
@@ -493,7 +497,7 @@ except ImportError:
     _PHASE_MAP = {}
 
 
-def _phase_result_to_evidence(result: dict) -> str:
+def _phase_result_to_evidence(result: dict[str, Any]) -> str:
     """Proven phases return {ok, output, detail,...}; the oracle scores the real output text.
     Return output plus detail so the named-proof markers the phase produced stay visible."""
     return f"{result.get('output', '')}\n[phase-detail] {result.get('detail', '')}".strip()
@@ -518,7 +522,7 @@ def _lab_env_vars() -> dict[str, str]:
         return {}
 
 
-def _resolve_env(hint: str, runtime_env: dict | None = None) -> str:
+def _resolve_env(hint: str, runtime_env: dict[str, Any] | None = None) -> str:
     """Substitute known lab env vars ($LAB_TARGET_DC etc.) into a tool_hint.
 
     Also substitutes $TARGET_HOST and $TARGET_PORT from runtime_env (the
@@ -541,10 +545,12 @@ def _resolve_env(hint: str, runtime_env: dict | None = None) -> str:
     return resolved
 
 
-def _dispatch_exec_sequence(unit: RunUnit, seq: list, *, lab_exec: bool) -> str:
+def _dispatch_exec_sequence(unit: RunUnit, seq: list[dict[str, Any]], *, lab_exec: bool) -> str:
     """Execute each step's real tool_hint via _mcp_call; accumulate REAL output for the oracle.
     No fabricated success markers — dry-run and step-failure both yield honest evidence."""
-    from bench_lab_exec import _mcp_call  # sandbox attack-host transport, returns {ok,output}
+    from bench_lab_exec import (  # sandbox attack-host transport, returns {ok,output}
+        _mcp_call,
+    )
 
     transcript: list[str] = []
     for step in seq:
@@ -583,7 +589,7 @@ def _run_against_target(unit: RunUnit, *, lab_exec: bool) -> str:
     return DISPATCH_NOT_RUN
 
 
-def _run_blue_on_unit(unit: RunUnit, lab_output: str, *, lab_exec: bool) -> dict:
+def _run_blue_on_unit(unit: RunUnit, lab_output: str, *, lab_exec: bool) -> dict[str, Any]:
     """Run blue detection on a unit's output."""
     from .blue import _fetch_blue_telemetry
 
@@ -601,7 +607,7 @@ def _run_blue_on_unit(unit: RunUnit, lab_output: str, *, lab_exec: bool) -> dict
     }
 
 
-def _score_purple_on_unit(unit: RunUnit, blue_result: dict) -> dict:
+def _score_purple_on_unit(unit: RunUnit, blue_result: dict[str, Any]) -> dict[str, Any]:
     """Score purple convergence for a unit."""
     has_real = blue_result.get("has_real_telemetry", False)
     if not has_real:
@@ -622,7 +628,9 @@ def _score_purple_on_unit(unit: RunUnit, blue_result: dict) -> dict:
 # ── Aggregation ───────────────────────────────────────────────────────────────
 
 
-def _aggregate_results(results: list[RunResult], elapsed: float, total_units: int) -> dict:
+def _aggregate_results(
+    results: list[RunResult], elapsed: float, total_units: int
+) -> dict[str, Any]:
     """Aggregate run results into a summary dict."""
     verified = sum(1 for r in results if r.status == "verified")
     rejected = sum(1 for r in results if r.status == "rejected")
@@ -646,13 +654,13 @@ def _aggregate_results(results: list[RunResult], elapsed: float, total_units: in
 # ── Coverage report ───────────────────────────────────────────────────────────
 
 
-def build_coverage_report(units: list[RunUnit], results: list[RunResult]) -> dict:
+def build_coverage_report(units: list[RunUnit], results: list[RunResult]) -> dict[str, Any]:
     """Build a per-class/scenario coverage report.
 
     Shows: how many containers resolved, how many ran, how many VERIFIED.
     """
-    by_class: dict[str, dict] = {}
-    by_scenario: dict[str, dict] = {}
+    by_class: dict[str, dict[str, int]] = {}
+    by_scenario: dict[str, dict[str, Any]] = {}
 
     for unit, result in zip(units, results, strict=False):
         # By challenge class

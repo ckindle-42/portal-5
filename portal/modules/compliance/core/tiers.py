@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from typing import Any
 
 TIER_NAMES = {
     0: "standard",
@@ -123,7 +124,7 @@ class ComplianceConflict:
     detail: str
     same_tier: bool = False
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "signal": "COMPLIANCE_CONFLICT"
             if self.kind != "comparison_uncertainty"
@@ -239,7 +240,7 @@ class TieredAnswer:
     spans: list[Span] = field(default_factory=list)
     conflicts: list[ComplianceConflict] = field(default_factory=list)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "spans": [
                 {"tier": s.tier, "tier_name": TIER_NAMES.get(s.tier, "?"), "citation": s.citation}

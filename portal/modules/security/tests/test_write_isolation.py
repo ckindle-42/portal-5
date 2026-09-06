@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from portal.modules.security.core import field_journal, loop
 
 
-def test_journal_and_checkpoint_writes_use_test_sandbox(isolated_security_writes):
+def test_journal_and_checkpoint_writes_use_test_sandbox(
+    isolated_security_writes: dict[str, Path],
+) -> None:
     journal_path = field_journal.write_entry(
         {
             "ts": "2026-07-29T00:00:00Z",

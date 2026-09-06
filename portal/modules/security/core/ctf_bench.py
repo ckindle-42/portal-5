@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any, cast
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[4]
 if str(_PROJECT_ROOT) not in sys.path:
@@ -27,11 +29,11 @@ KNOWN_FLAGS = [
 ]
 
 
-def _get_mcp_call():
+def _get_mcp_call() -> Callable[..., dict[str, Any]] | None:
     try:
-        from tests.benchmarks.bench_lab_exec import _mcp_call
+        from bench_lab_exec import _mcp_call
 
-        return _mcp_call
+        return cast(Callable[..., dict[str, Any]], _mcp_call)
     except ImportError:
         return None
 
@@ -41,7 +43,7 @@ def flag_oracle(flag_candidate: str, expected_flag: str) -> bool:
     return flag_candidate.strip() == expected_flag.strip()
 
 
-def bench_ctf(challenge_dir: str, *, dry_run: bool = False) -> dict:
+def bench_ctf(challenge_dir: str, *, dry_run: bool = False) -> dict[str, Any]:
     """Run CTF challenges against the MBPTL lab and score on flag capture."""
     if dry_run:
         return {"status": "dry_run", "challenge": challenge_dir, "expects": "flag{...} capture"}

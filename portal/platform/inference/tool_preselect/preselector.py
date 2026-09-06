@@ -12,6 +12,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass
+from typing import Any
 
 import httpx
 
@@ -70,7 +71,7 @@ async def preselect(
     effective_tools: set[str],
     user_turn_content: str,
     workspace_id: str,
-    workspace_config: dict,
+    workspace_config: dict[str, Any],
     ollama_url: str = "http://localhost:11434",
 ) -> tuple[set[str], PreselectOutcome]:
     """Narrow ``effective_tools`` to the query-relevant subset.

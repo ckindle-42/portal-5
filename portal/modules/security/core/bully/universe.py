@@ -275,14 +275,14 @@ def invent_source_shape(rng: random.Random, index: int) -> SourceShape:
     )
 
 
-def _place(record: dict, shape: SourceShape, field_name: str, value: Any) -> None:
+def _place(record: dict[str, Any], shape: SourceShape, field_name: str, value: Any) -> None:
     if shape.nesting and shape.container and field_name != shape.time_field:
         record.setdefault(shape.container, {})[field_name] = value
     else:
         record[field_name] = value
 
 
-def _extract(record: dict, shape: SourceShape, field_name: str) -> Any:
+def _extract(record: dict[str, Any], shape: SourceShape, field_name: str) -> Any:
     if shape.nesting and shape.container and field_name != shape.time_field:
         return record.get(shape.container, {}).get(field_name)
     return record.get(field_name)

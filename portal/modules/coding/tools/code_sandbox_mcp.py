@@ -12,24 +12,38 @@ Requires: Docker running, SANDBOX_ENABLED=true in config
 Start with: python -m mcp.execution.code_sandbox_mcp
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import os
 import shutil
 import uuid
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Any
 
 from mcp.server import MCPServer
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
 from portal.platform.mcp_host.owui_files import publish_file_sync
 
 mcp = MCPServer("code-sandbox")
 
+# MCPServer.custom_route() has no return annotation upstream (mcp SDK), so mypy
+# sees its decorator result as Any and flags every routed handler with
+# untyped-decorator. Bind the concrete decorator type once so handlers keep
+# their annotations.
+_route: Callable[
+    ...,
+    Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+] = mcp.custom_route
 
-@mcp.custom_route("/health", methods=["GET"])
-async def health_check(request):
+
+@_route("/health", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
     return JSONResponse(
         {
             "status": "ok",
@@ -45,8 +59,8 @@ async def health_check(request):
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_code_sandbox_mcp")
 
 
-@mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request):
+@_route("/tools", methods=["GET"])
+async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
@@ -141,7 +155,7 @@ PS_IMAGE = os.getenv("SANDBOX_PS_IMAGE", "portal5-pwsh:latest")
 DOCKER_HOST = os.environ.get("DOCKER_HOST", "")
 
 
-def _get_docker_env() -> dict:
+def _get_docker_env() -> dict[str, str]:
     """Get environment for docker commands, including DOCKER_HOST if set."""
     env = os.environ.copy()
     if DOCKER_HOST:
@@ -184,12 +198,12 @@ def _directory_size(path: Path) -> int:
     return sum(f.stat().st_size for f in path.rglob("*") if f.is_file())
 
 
-def _publish_artifacts(out_dir: Path) -> list[dict]:
+def _publish_artifacts(out_dir: Path) -> list[dict[str, Any]]:
     """Publish files sandboxed code wrote to /out."""
     if not out_dir.is_dir():
         return []
     files = sorted(f for f in out_dir.rglob("*") if f.is_file())
-    artifacts: list[dict] = []
+    artifacts: list[dict[str, Any]] = []
     for artifact in files[:SANDBOX_ARTIFACT_MAX_FILES]:
         relative_name = str(artifact.relative_to(out_dir))
         try:
@@ -215,7 +229,7 @@ def _publish_artifacts(out_dir: Path) -> list[dict]:
     return artifacts
 
 
-def _list_sessions() -> list[dict]:
+def _list_sessions() -> list[dict[str, Any]]:
     if not SANDBOX_SESSIONS_DIR.is_dir():
         return []
     return [
@@ -225,7 +239,7 @@ def _list_sessions() -> list[dict]:
     ]
 
 
-def _reset_session(session_id: str) -> dict:
+def _reset_session(session_id: str) -> dict[str, Any]:
     safe = _safe_session_id(session_id)
     d = SANDBOX_SESSIONS_DIR / safe
     if d.is_dir():
@@ -233,7 +247,9 @@ def _reset_session(session_id: str) -> dict:
     return {"session_id": safe, "reset": True}
 
 
-async def _install_packages(sess: Path, image: str, kind: str, packages: list[str]) -> dict:
+async def _install_packages(
+    sess: Path, image: str, kind: str, packages: list[str]
+) -> dict[str, Any]:
     """Install validated packages into a persistent session directory."""
     if not SANDBOX_PIP_INSTALL_ENABLED:
         return {"error": "Persistent package installation is disabled"}
@@ -294,7 +310,7 @@ async def _run_in_docker(
     timeout: int,
     extra_args: list[str] | None = None,
     session_id: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Run code in a Docker container with isolation constraints."""
     run_id = uuid.uuid4().hex[:8]
     work_dir = SANDBOX_DIR / run_id
@@ -511,7 +527,7 @@ async def execute_python(
     timeout: int = DEFAULT_TIMEOUT,
     session_id: str | None = None,
     packages: list[str] | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """
     Execute Python code in an isolated Docker sandbox.
 
@@ -542,7 +558,7 @@ async def execute_python(
             "error_type": "session_required",
             "error": "packages requires session_id",
         }
-    install = None
+    install: dict[str, Any] | None = None
     if packages:
         install = await _install_packages(_session_dir(session_id or ""), image, "python", packages)
         if install.get("error"):
@@ -565,7 +581,7 @@ async def execute_nodejs(
     timeout: int = DEFAULT_TIMEOUT,
     session_id: str | None = None,
     packages: list[str] | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """
     Execute JavaScript/Node.js code in an isolated Docker sandbox.
 
@@ -588,7 +604,7 @@ async def execute_nodejs(
             "error_type": "session_required",
             "error": "packages requires session_id",
         }
-    install = None
+    install: dict[str, Any] | None = None
     if packages:
         install = await _install_packages(
             _session_dir(session_id or ""), NODE_IMAGE, "node", packages
@@ -612,7 +628,7 @@ async def execute_bash(
     code: str,
     timeout: int = DEFAULT_TIMEOUT,
     session_id: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """
     Execute a Bash script in an isolated Docker sandbox.
 
@@ -644,13 +660,13 @@ async def execute_bash(
 
 
 @mcp.tool()
-def list_sessions() -> list[dict]:
+def list_sessions() -> list[dict[str, Any]]:
     """List persistent code-interpreter sessions and their disk usage."""
     return _list_sessions()
 
 
 @mcp.tool()
-def reset_session(session_id: str) -> dict:
+def reset_session(session_id: str) -> dict[str, Any]:
     """Delete one persistent code-interpreter session."""
     return _reset_session(session_id)
 
@@ -659,7 +675,7 @@ def reset_session(session_id: str) -> dict:
 async def execute_powershell(
     code: str,
     timeout: int = 60,
-) -> dict:
+) -> dict[str, Any]:
     """
     Execute a PowerShell script in an isolated Docker sandbox (pwsh on Ubuntu arm64).
 
@@ -689,7 +705,7 @@ async def execute_powershell(
 
 
 @mcp.tool()
-async def sandbox_status() -> dict:
+async def sandbox_status() -> dict[str, Any]:
     """Check sandbox availability (Docker daemon and image availability)."""
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -738,8 +754,8 @@ async def sandbox_status() -> dict:
 # ---------------------------------------------------------------------------
 
 
-@mcp.custom_route("/tools/execute_python", methods=["POST"])
-async def execute_python_endpoint(request):
+@_route("/tools/execute_python", methods=["POST"])
+async def execute_python_endpoint(request: Request) -> JSONResponse:
     body = await request.json()
     args = body.get("arguments", {})
     code = args.get("code", "")
@@ -755,8 +771,8 @@ async def execute_python_endpoint(request):
     return JSONResponse(result)
 
 
-@mcp.custom_route("/tools/execute_nodejs", methods=["POST"])
-async def execute_nodejs_endpoint(request):
+@_route("/tools/execute_nodejs", methods=["POST"])
+async def execute_nodejs_endpoint(request: Request) -> JSONResponse:
     body = await request.json()
     args = body.get("arguments", {})
     code = args.get("code", "")
@@ -772,8 +788,8 @@ async def execute_nodejs_endpoint(request):
     return JSONResponse(result)
 
 
-@mcp.custom_route("/tools/execute_bash", methods=["POST"])
-async def execute_bash_endpoint(request):
+@_route("/tools/execute_bash", methods=["POST"])
+async def execute_bash_endpoint(request: Request) -> JSONResponse:
     body = await request.json()
     args = body.get("arguments", {})
     # Accept the MCP schema and the legacy GLM argument name.
@@ -804,8 +820,8 @@ async def execute_bash_endpoint(request):
     return JSONResponse(result)
 
 
-@mcp.custom_route("/tools/execute_powershell", methods=["POST"])
-async def execute_powershell_endpoint(request):
+@_route("/tools/execute_powershell", methods=["POST"])
+async def execute_powershell_endpoint(request: Request) -> JSONResponse:
     body = await request.json()
     args = body.get("arguments", {})
     code = args.get("code", "")
@@ -816,19 +832,19 @@ async def execute_powershell_endpoint(request):
     return JSONResponse(result)
 
 
-@mcp.custom_route("/tools/sandbox_status", methods=["POST"])
-async def sandbox_status_endpoint(request):
+@_route("/tools/sandbox_status", methods=["POST"])
+async def sandbox_status_endpoint(request: Request) -> JSONResponse:
     result = await sandbox_status()
     return JSONResponse(result)
 
 
-@mcp.custom_route("/tools/list_sessions", methods=["POST"])
-async def list_sessions_endpoint(request):
+@_route("/tools/list_sessions", methods=["POST"])
+async def list_sessions_endpoint(request: Request) -> JSONResponse:
     return JSONResponse(list_sessions())
 
 
-@mcp.custom_route("/tools/reset_session", methods=["POST"])
-async def reset_session_endpoint(request):
+@_route("/tools/reset_session", methods=["POST"])
+async def reset_session_endpoint(request: Request) -> JSONResponse:
     body = await request.json()
     args = body.get("arguments", {})
     if not args.get("session_id"):

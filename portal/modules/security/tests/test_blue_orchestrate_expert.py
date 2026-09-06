@@ -3,19 +3,31 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
+from typing import Any
+
+import pytest
 
 from portal.modules.security.core import blue_orchestrate as bo
 
 
-def _fake_call_model(content: str):
-    def _fn(model, messages, tools=None, max_tokens=2000, extra_options=None):
+def _fake_call_model(content: str) -> Callable[..., dict[str, Any]]:
+    def _fn(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         assert tools is None  # expert never gets tools (fed, no-tools)
         return {"content": content}
 
     return _fn
 
 
-def test_supports_tools_false_expert_id_is_accepted(monkeypatch):
+def test_supports_tools_false_expert_id_is_accepted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Nothing in run_expert_model checks backends.yaml supports_tools — this
     is the require_tools=False path that makes a supports_tools:false model
     usable at all."""
@@ -47,7 +59,9 @@ def test_supports_tools_false_expert_id_is_accepted(monkeypatch):
     assert out.section == "expert"
 
 
-def test_confirmed_failing_cite_or_drop_downgrades_to_anomalous(monkeypatch):
+def test_confirmed_failing_cite_or_drop_downgrades_to_anomalous(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     content = json.dumps(
         {
             "verdict": "CONFIRMED",
@@ -80,7 +94,9 @@ def test_confirmed_failing_cite_or_drop_downgrades_to_anomalous(monkeypatch):
     assert out.ungrounded_claims == ["T1499"]
 
 
-def test_confirmed_with_grounded_evidence_survives_cite_or_drop(monkeypatch):
+def test_confirmed_with_grounded_evidence_survives_cite_or_drop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """A CONFIRMED claim survives cite_or_drop when its OWN cited evidence
     is actually grounded in real telemetry. The gate is label-blind
     (2026-07-23) — grounded evidence is the bar, for correct and incorrect
@@ -111,7 +127,7 @@ def test_confirmed_with_grounded_evidence_survives_cite_or_drop(monkeypatch):
     assert out.technique_ids == ["T1558.004"]
 
 
-def test_expert_request_more_round_trips(monkeypatch):
+def test_expert_request_more_round_trips(monkeypatch: pytest.MonkeyPatch) -> None:
     content = json.dumps(
         {
             "verdict": None,
@@ -130,7 +146,9 @@ def test_expert_request_more_round_trips(monkeypatch):
     assert out.section == "expert"
 
 
-def test_ruled_out_is_a_valid_conclusion_without_citation_check(monkeypatch):
+def test_ruled_out_is_a_valid_conclusion_without_citation_check(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     content = json.dumps(
         {
             "verdict": "RULED_OUT",
@@ -147,8 +165,8 @@ def test_ruled_out_is_a_valid_conclusion_without_citation_check(monkeypatch):
     assert out.verdict == "RULED_OUT"
 
 
-def test_dry_run_never_calls_model(monkeypatch):
-    def _boom(*a, **kw):
+def test_dry_run_never_calls_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _boom(*args: Any, **kwargs: Any) -> None:
         raise AssertionError("dry_run must not call the model")
 
     monkeypatch.setattr(bo, "_call_model", _boom)
@@ -156,14 +174,16 @@ def test_dry_run_never_calls_model(monkeypatch):
     assert out.wants_more()
 
 
-def test_unparseable_output_becomes_request_more(monkeypatch):
+def test_unparseable_output_becomes_request_more(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(bo, "_call_model", _fake_call_model("hmm, unclear, not sure honestly"))
     out = bo.run_expert_model("ctx", expert_model="m")
     assert out.wants_more()
     assert out.verdict is None
 
 
-def test_confirmed_with_malformed_technique_id_downgrades_to_anomalous(monkeypatch):
+def test_confirmed_with_malformed_technique_id_downgrades_to_anomalous(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Regression: found live 2026-07-18 — a literal 'T....' slipped through
     as a CONFIRMED technique_id. CONFIRMED claims a specific known match, so
     a claim that doesn't even parse as a real MITRE ID doesn't hold up —
@@ -194,7 +214,9 @@ def test_confirmed_with_malformed_technique_id_downgrades_to_anomalous(monkeypat
     assert "did not parse as real MITRE IDs" in out.reasoning
 
 
-def test_anomalous_unclassified_never_requires_a_valid_technique_id(monkeypatch):
+def test_anomalous_unclassified_never_requires_a_valid_technique_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """I8: novelty is a legitimate outcome. A SIMILAR/novel finding is never
     required to name a real, resolvable technique ID — only CONFIRMED is."""
     content = json.dumps(
@@ -214,7 +236,7 @@ def test_anomalous_unclassified_never_requires_a_valid_technique_id(monkeypatch)
     assert out.technique_ids == ["unknown-novel-pattern"]
 
 
-def test_format_for_expert_carries_hunter_hypothesis():
+def test_format_for_expert_carries_hunter_hypothesis() -> None:
     from portal.modules.security.core.analyst_verdict import SectionOutput
 
     hunter_out = SectionOutput(

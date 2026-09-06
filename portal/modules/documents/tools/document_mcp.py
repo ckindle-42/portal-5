@@ -7,31 +7,49 @@ Requires: pip install python-docx python-pptx openpyxl
 Start with: python -m mcp.documents.document_mcp
 """
 
+from __future__ import annotations
+
 import ipaddress
 import json
 import logging
 import os
 import socket
 import uuid
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urlparse
 from xml.etree import ElementTree
 
 from mcp.server import MCPServer
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
 from portal.platform.mcp_host.owui_files import publish_file_sync
 
+if TYPE_CHECKING:
+    from docx.document import Document
+    from docx.text.paragraph import Paragraph
+
 port = int(os.getenv("DOCUMENTS_MCP_PORT", "8913"))
 mcp = MCPServer("document-tools")
+
+# MCPServer.custom_route() has no return annotation upstream (mcp SDK), so mypy
+# sees its decorator result as Any and flags every routed handler with
+# untyped-decorator. Bind the concrete decorator type once so handlers keep
+# their annotations.
+_route: Callable[
+    ...,
+    Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+] = mcp.custom_route
 
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "data/generated"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 TEMPLATES_DIR = Path(__file__).resolve().parents[4] / "config" / "documents" / "templates"
 
 
-def _published(output_path: Path, noun: str) -> dict:
+def _published(output_path: Path, noun: str) -> dict[str, Any]:
     """Publish a freshly generated file through Open WebUI and shape the tool result."""
     pub = publish_file_sync(output_path)
     if "error" in pub:
@@ -45,7 +63,7 @@ def _published(output_path: Path, noun: str) -> dict:
     }
 
 
-def _with_optional_pdf(result: dict, output_path: Path, also_pdf: bool) -> dict:
+def _with_optional_pdf(result: dict[str, Any], output_path: Path, also_pdf: bool) -> dict[str, Any]:
     if not also_pdf or not result.get("success"):
         return result
     pdf = export_pdf(str(output_path))
@@ -56,17 +74,17 @@ def _with_optional_pdf(result: dict, output_path: Path, also_pdf: bool) -> dict:
     return result
 
 
-def _load_template(template: str | None) -> dict:
+def _load_template(template: str | None) -> dict[str, Any]:
     if not template:
         return {}
     safe = "".join(c for c in template if c.isalnum() or c in ("-", "_"))
     path = TEMPLATES_DIR / f"{safe}.json"
     if not safe or not path.is_file():
         raise ValueError(f"Unknown document template: {template}")
-    return json.loads(path.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
 
 
-def _add_hyperlink(paragraph, text: str, url: str):
+def _add_hyperlink(paragraph: Paragraph, text: str, url: str) -> None:
     from docx.oxml import OxmlElement
     from docx.oxml.ns import qn
 
@@ -88,7 +106,7 @@ def _add_hyperlink(paragraph, text: str, url: str):
     paragraph._p.append(hyperlink)
 
 
-def _render_inline(paragraph, node) -> None:
+def _render_inline(paragraph: Paragraph, node: ElementTree.Element) -> None:
     if node.text:
         paragraph.add_run(node.text)
     for child in node:
@@ -105,7 +123,7 @@ def _render_inline(paragraph, node) -> None:
             paragraph.add_run(child.tail)
 
 
-def _render_markdown(doc, content: str) -> None:
+def _render_markdown(doc: Document, content: str) -> None:
     import markdown
     from docx.enum.text import WD_ALIGN_PARAGRAPH
     from docx.oxml import OxmlElement
@@ -115,7 +133,7 @@ def _render_markdown(doc, content: str) -> None:
     html = markdown.markdown(content, extensions=["extra", "sane_lists"])
     root = ElementTree.fromstring(f"<root>{html}</root>")
 
-    def render_list(node, level: int = 0, ordered: bool = False) -> None:
+    def render_list(node: ElementTree.Element, level: int = 0, ordered: bool = False) -> None:
         for item in node.findall("li"):
             para = doc.add_paragraph(style="List Number" if ordered else "List Bullet")
             para.paragraph_format.left_indent = Pt(18 * level)
@@ -194,8 +212,8 @@ def _resolve_image(source: str) -> Path:
     return resolved
 
 
-@mcp.custom_route("/health", methods=["GET"])
-async def health_check(request):
+@_route("/health", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "documents-mcp"})
 
 
@@ -203,13 +221,13 @@ async def health_check(request):
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_document_mcp")
 
 
-@mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request):
+@_route("/tools", methods=["GET"])
+async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
-@mcp.custom_route("/tools/{tool_name}", methods=["POST"])
-async def invoke_tool(request):
+@_route("/tools/{tool_name}", methods=["POST"])
+async def invoke_tool(request: Request) -> JSONResponse:
     """REST dispatch endpoint used by portal-pipeline tool_registry."""
     tool_name = request.path_params.get("tool_name", "")
     try:
@@ -246,10 +264,10 @@ def create_word_document(
     title: str,
     content: str,
     author: str = "Portal AI",
-    images: list[dict] | None = None,
+    images: list[dict[str, Any]] | None = None,
     template: str | None = None,
     also_pdf: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     """
     Create a Word (.docx) document from a title and markdown-style content.
 
@@ -331,11 +349,11 @@ def create_word_document(
 @mcp.tool()
 def create_powerpoint(
     title: str,
-    slides: list[dict],
+    slides: list[dict[str, Any]],
     author: str = "Portal AI",
     template: str | None = None,
     also_pdf: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     """
     Create a PowerPoint (.pptx) presentation.
 
@@ -405,10 +423,12 @@ def create_powerpoint(
                     "line": XL_CHART_TYPE.LINE,
                     "pie": XL_CHART_TYPE.PIE,
                 }
-                chart_data = CategoryChartData()
+                chart_data = CategoryChartData()  # type: ignore[no-untyped-call]  # python-pptx untyped upstream
                 chart_data.categories = chart_spec.get("categories", [])
                 for series in chart_spec.get("series", []):
-                    chart_data.add_series(series.get("name", ""), series.get("values", []))
+                    chart_data.add_series(  # type: ignore[no-untyped-call]  # python-pptx untyped upstream
+                        series.get("name", ""), series.get("values", [])
+                    )
                 graphic_frame = slide.shapes.add_chart(
                     chart_types.get(
                         str(chart_spec.get("type", "bar")).lower(), XL_CHART_TYPE.COLUMN_CLUSTERED
@@ -434,7 +454,9 @@ def create_powerpoint(
                     )
 
             if theme.get("accent_color") and slide.shapes.title:
-                color = RGBColor.from_string(theme["accent_color"].lstrip("#"))
+                color = RGBColor.from_string(  # type: ignore[no-untyped-call]  # python-pptx untyped upstream
+                    theme["accent_color"].lstrip("#")
+                )
                 for paragraph in slide.shapes.title.text_frame.paragraphs:
                     for run in paragraph.runs:
                         run.font.color.rgb = color
@@ -452,12 +474,12 @@ def create_powerpoint(
 @mcp.tool()
 def create_excel(
     title: str,
-    data: list | None = None,
-    sheets: list[dict] | None = None,
+    data: list[Any] | None = None,
+    sheets: list[dict[str, Any]] | None = None,
     sheet_name: str = "Sheet1",
-    charts: list[dict] | None = None,
+    charts: list[dict[str, Any]] | None = None,
     also_pdf: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     """
     Create an Excel (.xlsx) spreadsheet.
 
@@ -564,7 +586,7 @@ def create_excel(
 def convert_document(
     source_path: str,
     target_format: str,
-) -> dict:
+) -> dict[str, Any]:
     """Copy a document to a new format name.
 
     Note: True format conversion (e.g., .docx to .pdf) requires LibreOffice
@@ -657,7 +679,7 @@ def convert_document(
 
 
 @mcp.tool()
-def export_pdf(source_path: str) -> dict:
+def export_pdf(source_path: str) -> dict[str, Any]:
     """Export a generated Office document to PDF using host LibreOffice.
 
     Returns a clear error when LibreOffice is unavailable; it never renames or
@@ -671,13 +693,13 @@ def prepare_embed_image(
     image_url: str,
     caption: str = "",
     width_in: float = 6.0,
-) -> dict:
+) -> dict[str, Any]:
     """Build an image spec accepted by Word documents and PowerPoint slides."""
     return {"source": image_url, "caption": caption, "width_in": width_in}
 
 
 @mcp.tool()
-def list_generated_files() -> list[dict]:
+def list_generated_files() -> list[dict[str, Any]]:
     """List recently generated documents in the output directory."""
     files = []
     for f in sorted(OUTPUT_DIR.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True)[:20]:
@@ -697,7 +719,7 @@ def list_generated_files() -> list[dict]:
 def read_word_document(
     file_path: str,
     include_tables: bool = True,
-) -> dict:
+) -> dict[str, Any]:
     """Extract text content and structure from an existing Word (.docx) file.
 
     Returns headings, paragraphs, and table data.
@@ -725,7 +747,7 @@ def read_word_document(
 
     try:
         doc = _Document(str(src))
-        blocks: list[dict] = []
+        blocks: list[dict[str, Any]] = []
         for para in doc.paragraphs:
             text = para.text.strip()
             if not text:
@@ -733,7 +755,7 @@ def read_word_document(
             style = para.style.name if para.style else "Normal"
             blocks.append({"type": style, "text": text})
 
-        result: dict = {
+        result: dict[str, Any] = {
             "success": True,
             "filename": src.name,
             "author": doc.core_properties.author or "",
@@ -761,7 +783,7 @@ def read_word_document(
 def read_excel(
     file_path: str,
     max_rows: int = 500,
-) -> dict:
+) -> dict[str, Any]:
     """Extract data from an existing Excel (.xlsx) spreadsheet.
 
     Returns sheet names and row data for each sheet.
@@ -789,7 +811,7 @@ def read_excel(
         sheets_data = []
         for sheet_name in wb.sheetnames:
             ws = wb[sheet_name]
-            rows: list[list] = []
+            rows: list[list[str]] = []
             for i, row in enumerate(ws.iter_rows(values_only=True)):
                 if max_rows and i >= max_rows:
                     break
@@ -818,7 +840,7 @@ def read_excel(
 @mcp.tool()
 def read_powerpoint(
     file_path: str,
-) -> dict:
+) -> dict[str, Any]:
     """Extract text and speaker notes from an existing PowerPoint (.pptx) file.
 
     Returns slide titles, content blocks, and notes.
@@ -892,7 +914,7 @@ def read_pdf(
     file_path: str,
     max_pages: int = 50,
     include_tables: bool = True,
-) -> dict:
+) -> dict[str, Any]:
     """Extract text content from an existing PDF file page by page.
 
     Also extracts tables when present. Requires pdfplumber.
@@ -929,7 +951,7 @@ def read_pdf(
             for i in range(limit):
                 page = pdf.pages[i]
                 text = (page.extract_text() or "").strip()
-                page_dict: dict = {
+                page_dict: dict[str, Any] = {
                     "page_number": i + 1,
                     "text": text,
                     "char_count": len(text),

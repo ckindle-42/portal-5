@@ -15,8 +15,9 @@ import logging
 import uuid
 from contextvars import ContextVar
 
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
+from starlette.responses import Response
 from starlette.types import ASGIApp
 
 _correlation_id: ContextVar[str] = ContextVar("correlation_id", default="")
@@ -41,7 +42,7 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: ASGIApp) -> None:
         super().__init__(app)
 
-    async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         cid = (
             request.headers.get(_HEADER) or request.headers.get(_ALT_HEADER) or new_correlation_id()
         )

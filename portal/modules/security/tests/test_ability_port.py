@@ -11,78 +11,78 @@ from portal.modules.security.core.oracles import ORACLES
 
 
 class TestSSTIDetect:
-    def test_eval_marker_true(self):
+    def test_eval_marker_true(self) -> None:
         assert ssti_detect(200, {}, "result: 49", "result: ") is True
 
-    def test_clean_baseline_false(self):
+    def test_clean_baseline_false(self) -> None:
         assert ssti_detect(200, {}, "result: 49", "result: 49") is False
 
-    def test_jinja2_traceback_true(self):
+    def test_jinja2_traceback_true(self) -> None:
         assert (
             ssti_detect(200, {}, "jinja2.exceptions.TemplateSyntaxError: unexpected '}'", "ok")
             is True
         )
 
-    def test_no_body_false(self):
+    def test_no_body_false(self) -> None:
         assert ssti_detect(200, {}, "", "") is False
 
 
 class TestSQLiDetect:
-    def test_mysql_error_true(self):
+    def test_mysql_error_true(self) -> None:
         assert sqli_detect(200, {}, "You have an error in your SQL syntax", "ok") is True
 
-    def test_baseline_false(self):
+    def test_baseline_false(self) -> None:
         body = "You have an error in your SQL syntax"
         assert sqli_detect(200, {}, body, body) is False
 
-    def test_union_leak_true(self):
+    def test_union_leak_true(self) -> None:
         assert sqli_detect(200, {}, '{"name":"2"}', '{"name":"1"}') is True
 
-    def test_empty_body_false(self):
+    def test_empty_body_false(self) -> None:
         assert sqli_detect(200, {}, "", "") is False
 
 
 class TestPortedOraclesViaRegistry:
     @classmethod
-    def setup_class(cls):
+    def setup_class(cls) -> None:
         register_ported_oracles()
 
-    def test_all_ptai_oracles_registered(self):
+    def test_all_ptai_oracles_registered(self) -> None:
         from portal.modules.security.core.ability_port import PROBE_DEFS
 
         ptai = [k for k in ORACLES if k.startswith("ptai_")]
         expected = len([p for p in PROBE_DEFS if p[3] is not None])
         assert len(ptai) >= expected, f"expected >= {expected}, got {len(ptai)}: {sorted(ptai)}"
 
-    def test_ssti_oracle_check(self):
+    def test_ssti_oracle_check(self) -> None:
         o = ORACLES["ptai_ssti"]
         assert o.check({"status": 200, "baseline": ""}, "result: 49", {}) is True
 
-    def test_sqli_oracle_check(self):
+    def test_sqli_oracle_check(self) -> None:
         o = ORACLES["ptai_sqli"]
         assert o.check({}, "You have an error in your SQL syntax", {}) is True
 
-    def test_xss_oracle_check(self):
+    def test_xss_oracle_check(self) -> None:
         o = ORACLES["ptai_xss"]
         assert o.check({"baseline": ""}, "<script>alert('ptai')</script>", {}) is True
 
-    def test_path_traversal_oracle_check(self):
+    def test_path_traversal_oracle_check(self) -> None:
         o = ORACLES["ptai_path_traversal"]
         assert o.check({"baseline": ""}, "root:x:0:0:root:/root:/bin/bash", {}) is True
 
-    def test_nosql_oracle_check(self):
+    def test_nosql_oracle_check(self) -> None:
         o = ORACLES["ptai_nosql"]
         assert o.check({"baseline": ""}, '{"token":"abc123","role":"admin"}', {}) is True
 
-    def test_graphql_oracle_check(self):
+    def test_graphql_oracle_check(self) -> None:
         o = ORACLES["ptai_graphql"]
         assert o.check({"baseline": ""}, '{"__schema":{"queryType":{"name":"Query"}}}', {}) is True
 
-    def test_proto_pollution_oracle_check(self):
+    def test_proto_pollution_oracle_check(self) -> None:
         o = ORACLES["ptai_proto_pollution"]
         assert o.check({"baseline": ""}, '{"status":"yes-via-proto"}', {}) is True
 
-    def test_idor_oracle_check(self):
+    def test_idor_oracle_check(self) -> None:
         o = ORACLES["ptai_idor_auth"]
         assert (
             o.check(
@@ -95,7 +95,7 @@ class TestPortedOraclesViaRegistry:
 
 
 class TestAntiStub:
-    def test_module_has_detect_logic(self):
+    def test_module_has_detect_logic(self) -> None:
         """Module has real detect functions (named or lambda) — no detect_sig stubs."""
         src = open("portal/modules/security/core/ability_port.py").read()
         assert "detect_sig" not in src, "detect_sig stub field must not exist"
@@ -103,7 +103,7 @@ class TestAntiStub:
         assert "def ssti_detect" in src
         assert "def sqli_detect" in src
 
-    def test_oracles_registered_match_probe_defs(self):
+    def test_oracles_registered_match_probe_defs(self) -> None:
         from portal.modules.security.core.ability_port import PROBE_DEFS
 
         register_ported_oracles()

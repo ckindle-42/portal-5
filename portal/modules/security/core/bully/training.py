@@ -47,7 +47,7 @@ import hashlib
 import os
 import shutil
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -56,7 +56,7 @@ from . import config as bully_config
 from .contracts import DecisionEvent, new_id
 from .store import Store
 
-SubprocessRunner = Callable[..., subprocess.CompletedProcess]
+SubprocessRunner = Callable[..., subprocess.CompletedProcess[str]]
 
 
 class TrainingError(RuntimeError):
@@ -121,7 +121,10 @@ def _active_conflict_reason(
 
 
 def _preflight_disk(
-    *, min_free_gb: float = 5.0, path: Path | None = None, disk_usage_fn=None
+    *,
+    min_free_gb: float = 5.0,
+    path: Path | None = None,
+    disk_usage_fn: Callable[[str], Any] | None = None,
 ) -> None:
     disk_usage_fn = disk_usage_fn or shutil.disk_usage
     path = path or bully_config.hunt_dir()
@@ -141,8 +144,8 @@ def exclusive_resource_lock(
     lock_path: Path | None = None,
     process_lister: Callable[[], list[str]] | None = None,
     min_free_gb: float = 5.0,
-    disk_usage_fn=None,
-):
+    disk_usage_fn: Callable[[str], Any] | None = None,
+) -> Iterator[None]:
     """The `[GATE]`-adjacent preflight (not an operator gate itself, but the
     hard refusal MASTER SS5/P6.4 requires): raises `TrainingBlockedError`
     -- never silently proceeds -- if a hunt or a bench/training process is
@@ -213,25 +216,25 @@ def check_toolchain(*, toolchain_root: Path | None = None) -> dict[str, str]:
         )
 
     return {
-        "mlx_lm_lora": lora_bin,
-        "mlx_lm_fuse": fuse_bin,
-        "llama_quantize": quantize_bin,
+        "mlx_lm_lora": str(lora_bin),
+        "mlx_lm_fuse": str(fuse_bin),
+        "llama_quantize": str(quantize_bin),
         "convert_hf_to_gguf": str(convert_script),
         "convert_python": str(convert_python),
-        "ollama": ollama_bin,
+        "ollama": str(ollama_bin),
     }
 
 
 # ── subprocess steps (each: build cmd, run, raise on non-zero) ────────────
 
 
-def _default_runner(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
+def _default_runner(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, capture_output=True, text=True, check=False, **kwargs)
 
 
 def _run_step(
-    runner: SubprocessRunner, cmd: list[str], *, step: str, **kwargs
-) -> subprocess.CompletedProcess:
+    runner: SubprocessRunner, cmd: list[str], *, step: str, **kwargs: Any
+) -> subprocess.CompletedProcess[str]:
     result = runner(cmd, **kwargs)
     if result.returncode != 0:
         stderr = (result.stderr or "")[-2000:]
@@ -242,7 +245,7 @@ def _run_step(
 
 
 def _lora_train(
-    toolchain: dict,
+    toolchain: dict[str, Any],
     *,
     base_model: str,
     data_dir: Path,
@@ -275,7 +278,7 @@ def _lora_train(
 
 
 def _fuse(
-    toolchain: dict,
+    toolchain: dict[str, Any],
     *,
     base_model: str,
     adapter_path: Path,
@@ -295,7 +298,7 @@ def _fuse(
 
 
 def _convert_gguf(
-    toolchain: dict, *, fused_dir: Path, out_path: Path, runner: SubprocessRunner
+    toolchain: dict[str, Any], *, fused_dir: Path, out_path: Path, runner: SubprocessRunner
 ) -> None:
     cmd = [
         toolchain["convert_python"],
@@ -310,14 +313,19 @@ def _convert_gguf(
 
 
 def _quantize(
-    toolchain: dict, *, f16_path: Path, out_path: Path, quant: str, runner: SubprocessRunner
+    toolchain: dict[str, Any],
+    *,
+    f16_path: Path,
+    out_path: Path,
+    quant: str,
+    runner: SubprocessRunner,
 ) -> None:
     cmd = [toolchain["llama_quantize"], str(f16_path), str(out_path), quant]
     _run_step(runner, cmd, step="llama-quantize")
 
 
 def _ollama_create(
-    toolchain: dict, *, model_tag: str, gguf_path: Path, runner: SubprocessRunner
+    toolchain: dict[str, Any], *, model_tag: str, gguf_path: Path, runner: SubprocessRunner
 ) -> None:
     """Mirrors `cli/models.py:cmd_models_import_gguf`'s mechanism (a
     temporary Modelfile + `ollama create`) rather than importing that typer
@@ -448,7 +456,7 @@ def _append_pending_verdict_entry(
 # ── run() -- I-17 ────────────────────────────────────────────────────────
 
 
-def _record(store: Store, *, subject_id: str, rationale: str, data: dict) -> None:
+def _record(store: Store, *, subject_id: str, rationale: str, data: dict[str, Any]) -> None:
     store.record_decision(
         DecisionEvent(
             event_id=new_id("de"),
@@ -479,9 +487,9 @@ def run(
     toolchain: dict[str, str] | None = None,
     runner: SubprocessRunner | None = None,
     process_lister: Callable[[], list[str]] | None = None,
-    intake_eval_fn: Callable[[str], dict] | None = None,
+    intake_eval_fn: Callable[[str], dict[str, Any]] | None = None,
     incumbent_delta_pt: float | None = None,
-    canary_eval_fn: Callable[[str], dict] | None = None,
+    canary_eval_fn: Callable[[str], dict[str, Any]] | None = None,
     artifacts_root: Path | None = None,
     toolchain_root: Path | None = None,
     pending_verdicts_path: Path | None = None,
@@ -678,7 +686,7 @@ def serve(
     model_tag: str,
     *,
     operator_actor: str,
-    canary_eval_fn: Callable[[str], dict] | None = None,
+    canary_eval_fn: Callable[[str], dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """`[GATE]` role-alias canary -> atomic promotion, confirm-only. Order
     matters (I-17 STEPS): the canary runs *before* the alias is ever

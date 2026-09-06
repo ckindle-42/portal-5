@@ -11,6 +11,7 @@ import hashlib
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
+from typing import Any
 
 from portal.platform.data_loader import load_data
 
@@ -69,7 +70,7 @@ class Episode:
         """
         return derive_verdict(self)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """JSON-safe dict for embedding in result records."""
         return asdict(self)
 
@@ -99,7 +100,7 @@ class DetectionCorrelation:
     target_match: bool = False
     # Provenance
     query_id: str = ""
-    time_bounds: dict = field(default_factory=dict)
+    time_bounds: dict[str, Any] = field(default_factory=dict)
     evidence_refs: list[str] = field(default_factory=list)
     # Human-readable rationale for the reason code
     reason: str = ""

@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from typing import Any
+
+import pytest
+
 from portal.modules.security.core.blue import (
     _fetch_blue_telemetry,
     _score_purple,
@@ -17,7 +21,7 @@ from portal.modules.security.core.oracles import ORACLES
 class TestLinuxWebTelemetry:
     """Linux/web targets produce real telemetry for blue detection."""
 
-    def test_web_exploit_access_log_signal(self):
+    def test_web_exploit_access_log_signal(self) -> None:
         """A web-exploit unit with a matching access-log signal → blue detects."""
         # Simulate a web unit with T1190 technique
         unit = RunUnit(
@@ -35,7 +39,7 @@ class TestLinuxWebTelemetry:
         assert unit.has_telemetry is True
         assert "T1190" in unit.technique_ids
 
-    def test_no_signal_miss(self):
+    def test_no_signal_miss(self) -> None:
         """No signal → blue misses."""
         unit = RunUnit(
             id="test-no-signal",
@@ -51,7 +55,7 @@ class TestLinuxWebTelemetry:
         assert unit.has_telemetry is False
         assert len(unit.technique_ids) == 0
 
-    def test_hardened_twin_false_positive_flag(self):
+    def test_hardened_twin_false_positive_flag(self) -> None:
         """A signal on the hardened twin → false-positive flag."""
         # The hardened-twin contract: a finding must vanish on the patched twin
         # This test verifies the structure exists for FP detection
@@ -76,7 +80,7 @@ class TestLinuxWebTelemetry:
 class TestSyntheticFallbackGate:
     """Validation-integrity gate: synthetic-fallback → indeterminate, never PASS."""
 
-    def test_synthetic_fallback_never_pass(self, monkeypatch):
+    def test_synthetic_fallback_never_pass(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """A synthetic-sourced result MUST score indeterminate, never PASS."""
         monkeypatch.setattr("portal.modules.security.core.matrix._LAB_EXEC_AVAILABLE", False)
         units = [
@@ -98,14 +102,14 @@ class TestSyntheticFallbackGate:
             assert r.status == "indeterminate"
             assert r.status != "verified"
 
-    def test_blue_synthetic_source_tagged(self):
+    def test_blue_synthetic_source_tagged(self) -> None:
         """Blue telemetry from non-live source is tagged as synthetic."""
         # _fetch_blue_telemetry in non-lab mode returns source=synthetic
         telemetry = _fetch_blue_telemetry(["T1558.003"], query_live=False, dry_run=False)
         for _tid, data in telemetry.items():
             assert data["source"] in ("synthetic", "synthetic-fallback")
 
-    def test_purple_with_synthetic_blue_is_indeterminate(self):
+    def test_purple_with_synthetic_blue_is_indeterminate(self) -> None:
         """Purple scoring with synthetic blue source → indeterminate."""
         unit = RunUnit(
             id="test-purple-synth",
@@ -131,7 +135,7 @@ class TestSyntheticFallbackGate:
 class TestPurpleWebConvergence:
     """Purple on a web class requires red-landed AND blue-detected AND sane evasion_delta."""
 
-    def test_purple_requires_red_and_blue(self):
+    def test_purple_requires_red_and_blue(self) -> None:
         """Purple composite requires both red landed and blue detected."""
         red_result = {
             "lab_success": True,
@@ -156,7 +160,7 @@ class TestPurpleWebConvergence:
         assert "model_competence_score" in purple
         assert purple["model_competence_score"] > 0.0
 
-    def test_purple_zero_when_blue_misses(self):
+    def test_purple_zero_when_blue_misses(self) -> None:
         """Purple composite drops when blue detects nothing."""
         red_result = {
             "lab_success": True,
@@ -184,11 +188,11 @@ class TestPurpleWebConvergence:
 class TestTelemetryBackendPluggable:
     """Telemetry backend is pluggable (proves Splunk adapter will drop in)."""
 
-    def test_fake_backend_protocol(self):
+    def test_fake_backend_protocol(self) -> None:
         """A fake backend implementing the protocol is swapped in transparently."""
 
         class FakeBackend:
-            def query(self, technique_id: str, window: dict) -> dict:
+            def query(self, technique_id: str, window: dict[str, Any]) -> dict[str, Any]:
                 return {
                     "signals": [{"event": "fake", "technique": technique_id}],
                     "source": "fake-siem",
@@ -201,7 +205,7 @@ class TestTelemetryBackendPluggable:
         assert result["matched"] is True
         assert len(result["signals"]) == 1
 
-    def test_canonical_protocol_importable(self):
+    def test_canonical_protocol_importable(self) -> None:
         """TelemetryBackend protocol is importable from telemetry module."""
         from portal.modules.security.core.telemetry import TelemetryBackend
 
@@ -211,7 +215,7 @@ class TestTelemetryBackendPluggable:
 class TestADBluePathUnchanged:
     """AD blue path is unchanged (regression guard)."""
 
-    def test_fetch_blue_telemetry_ad_techniques(self):
+    def test_fetch_blue_telemetry_ad_techniques(self) -> None:
         """AD technique IDs still return telemetry fixtures."""
         telemetry = _fetch_blue_telemetry(
             ["T1558.003", "T1003.006"], query_live=False, dry_run=False
@@ -233,13 +237,19 @@ class TestQueryLiveDecoupledFromLabExec:
     decouples "should blue query the real backend" from "did red just run
     live" so a replay can query genuinely-indexed data."""
 
-    def test_query_live_true_queries_splunk_backend(self, monkeypatch):
+    def test_query_live_true_queries_splunk_backend(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from portal.modules.security.core import blue as blue_mod
 
-        calls = []
+        calls: list[tuple[dict[str, Any], str, str | None]] = []
 
         class _FakeSplunk:
-            def query_episode(self, window, *, episode_id, host=None):
+            def query_episode(
+                self,
+                window: dict[str, Any],
+                *,
+                episode_id: str,
+                host: str | None = None,
+            ) -> dict[str, Any]:
                 calls.append((window, episode_id, host))
                 return {
                     "rows": [
@@ -268,13 +278,21 @@ class TestQueryLiveDecoupledFromLabExec:
         assert set(telemetry) == {"windows:security"}
         assert telemetry["windows:security"]["source"] == "observed"
 
-    def test_query_live_false_never_queries_backend_even_if_lab_exec_available(self, monkeypatch):
+    def test_query_live_false_never_queries_backend_even_if_lab_exec_available(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         from portal.modules.security.core import blue as blue_mod
 
-        calls = []
+        calls: list[tuple[dict[str, Any], str, str | None]] = []
 
         class _FakeSplunk:
-            def query_episode(self, window, *, episode_id, host=None):
+            def query_episode(
+                self,
+                window: dict[str, Any],
+                *,
+                episode_id: str,
+                host: str | None = None,
+            ) -> dict[str, Any]:
                 calls.append((window, episode_id, host))
                 return {"rows": [], "source": "empty"}
 
@@ -285,15 +303,19 @@ class TestQueryLiveDecoupledFromLabExec:
         assert not calls
         assert telemetry["T1558.003"]["source"] == "synthetic"
 
-    def test_run_purple_tests_passes_query_live_true_on_replay(self, monkeypatch):
+    def test_run_purple_tests_passes_query_live_true_on_replay(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """run_purple_tests(replay_captured_red=True) must pass query_live=True
         to _run_blue_chain_test even though lab_exec=False."""
         from portal.modules.security.core import blue as blue_mod
         from portal.modules.security.core._config import BenchConfig
 
-        captured_kwargs = {}
+        captured_kwargs: dict[str, Any] = {}
 
-        def _fake_run_blue_chain_test(model, scenario, **kwargs):
+        def _fake_run_blue_chain_test(
+            model: str, scenario: dict[str, Any], **kwargs: Any
+        ) -> dict[str, Any]:
             captured_kwargs.update(kwargs)
             return {
                 "model": model,
@@ -358,12 +380,16 @@ class TestBlueModeNotClobberedByQueryProvenance:
     through --purple silently fell back to "scripted" regardless of what
     was actually requested."""
 
-    def test_hybrid_mode_selects_hybrid_prompt_even_when_query_live(self, monkeypatch):
+    def test_hybrid_mode_selects_hybrid_prompt_even_when_query_live(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         from portal.modules.security.core import blue as blue_mod
 
         seen_system_prompts: list[str] = []
 
-        def _fake_stream_chain_turn(url, headers, body, **kwargs):
+        def _fake_stream_chain_turn(
+            url: str, headers: dict[str, Any], body: dict[str, Any], **kwargs: Any
+        ) -> dict[str, Any]:
             seen_system_prompts.append(body["messages"][0]["content"])
             return {"content": "no tools here", "tool_calls": []}
 
@@ -392,12 +418,16 @@ class TestBlueModeNotClobberedByQueryProvenance:
         assert seen_system_prompts, "model must have been called at least once"
         assert seen_system_prompts[0] == blue_mod._BLUE_SYSTEM_PROMPT_HYBRID
 
-    def test_discovery_mode_selects_discovery_prompt_when_not_query_live(self, monkeypatch):
+    def test_discovery_mode_selects_discovery_prompt_when_not_query_live(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         from portal.modules.security.core import blue as blue_mod
 
         seen_system_prompts: list[str] = []
 
-        def _fake_stream_chain_turn(url, headers, body, **kwargs):
+        def _fake_stream_chain_turn(
+            url: str, headers: dict[str, Any], body: dict[str, Any], **kwargs: Any
+        ) -> dict[str, Any]:
             seen_system_prompts.append(body["messages"][0]["content"])
             return {"content": "no tools here", "tool_calls": []}
 

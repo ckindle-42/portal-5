@@ -37,7 +37,7 @@ def load_source_contract(path: Path = CONFIG_PATH) -> dict[str, Any]:
     return contract
 
 
-def _load_capture(path: Path) -> dict | None:
+def _load_capture(path: Path) -> dict[str, Any] | None:
     try:
         data = json.loads(path.read_text())
     except (OSError, json.JSONDecodeError):

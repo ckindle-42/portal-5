@@ -21,10 +21,13 @@ import os
 import re
 import subprocess  # noqa: S404 — openscad invocation is argument-controlled, no shell
 import uuid
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Any, cast
 
 from mcp.server import MCPServer
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 from portal.modules.cad.tools.capabilities import cad_capabilities
 from portal.modules.cad.tools.mesh_validator import validate_mesh
@@ -37,6 +40,13 @@ logger = logging.getLogger(__name__)
 
 port = int(os.getenv("CAD_RENDER_MCP_PORT", "8926"))
 mcp = MCPServer("cad-render")
+
+# mcp.custom_route() has no return annotation upstream — bind the concrete
+# decorator type once so routed handlers keep their annotations.
+_route: Callable[
+    ...,
+    Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+] = mcp.custom_route
 
 
 async def _publish_url(p: Path) -> str:
@@ -89,7 +99,7 @@ def _render_mesh_to_png(mesh_path: Path, png_path: Path, resolution: int = 1024)
     pure-CPU matplotlib triangle render. Returns a short note on which path was used."""
     import trimesh
 
-    scene = trimesh.load(str(mesh_path), force="scene")
+    scene = cast("trimesh.Scene", trimesh.load(str(mesh_path), force="scene"))
     # Attempt GL offscreen via trimesh.Scene.save_image (uses pyglet/pyrender +
     # whatever PYOPENGL_PLATFORM points at; osmesa/egl in headless containers).
     try:
@@ -105,9 +115,11 @@ def _render_mesh_to_png(mesh_path: Path, png_path: Path, resolution: int = 1024)
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+    from mpl_toolkits.mplot3d.art3d import (  # type: ignore[import-untyped]  # mpl_toolkits ships no py.typed
+        Poly3DCollection,
+    )
 
-    geom = trimesh.load(str(mesh_path), force="mesh")
+    geom = cast("trimesh.Trimesh", trimesh.load(str(mesh_path), force="mesh"))
     fig = plt.figure(figsize=(resolution / 100, resolution / 100), dpi=100)
     ax = fig.add_subplot(111, projection="3d")
     tris = geom.vertices[geom.faces]
@@ -163,36 +175,37 @@ def _maybe_review(png_path: Path, prompt: str) -> str | None:
             r = client.post(f"{PIPELINE_URL}/v1/chat/completions", json=payload)
             r.raise_for_status()
             data = r.json()
-            return data["choices"][0]["message"]["content"]
+            content = data["choices"][0]["message"]["content"]
+            return cast("str", content)
     except Exception as e:  # noqa: BLE001 — review is best-effort, never fails the render
         logger.warning("Review loop failed (%s); returning render without critique", e)
         return None
 
 
 # ── HTTP routes (mirror music_mcp conventions) ──────────────────────────────
-@mcp.custom_route("/health", methods=["GET"])
-async def health_check(request):
+@_route("/health", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "cad-render-mcp"})
 
 
-@mcp.custom_route("/capabilities", methods=["GET"])
-async def capabilities_route(request):
+@_route("/capabilities", methods=["GET"])
+async def capabilities_route(request: Request) -> JSONResponse:
     return JSONResponse(cad_capabilities())
 
 
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_cad_render_mcp")
 
 
-@mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request):
+@_route("/tools", methods=["GET"])
+async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
 # ── POST /tools/<name> — pipeline dispatch endpoints ─────────────────────────
 
 
-@mcp.custom_route("/tools/render_mesh", methods=["POST"])
-async def render_mesh_endpoint(request):
+@_route("/tools/render_mesh", methods=["POST"])
+async def render_mesh_endpoint(request: Request) -> JSONResponse:
     body = await request.json()
     args = body.get("arguments", {})
     result = await render_mesh(
@@ -204,8 +217,8 @@ async def render_mesh_endpoint(request):
     return JSONResponse(result)
 
 
-@mcp.custom_route("/tools/render_openscad", methods=["POST"])
-async def render_openscad_endpoint(request):
+@_route("/tools/render_openscad", methods=["POST"])
+async def render_openscad_endpoint(request: Request) -> JSONResponse:
     body = await request.json()
     args = body.get("arguments", {})
     result = await render_openscad(
@@ -215,8 +228,8 @@ async def render_openscad_endpoint(request):
     return JSONResponse(result)
 
 
-@mcp.custom_route("/tools/convert_cad", methods=["POST"])
-async def convert_cad_endpoint(request):
+@_route("/tools/convert_cad", methods=["POST"])
+async def convert_cad_endpoint(request: Request) -> JSONResponse:
     body = await request.json()
     args = body.get("arguments", {})
     result = await convert_cad(
@@ -230,7 +243,7 @@ async def convert_cad_endpoint(request):
 @mcp.tool()
 async def render_mesh(
     mesh_path: str, resolution: int = 1024, review: bool = False, prompt: str = ""
-) -> dict:
+) -> dict[str, Any]:
     """Render a mesh to PNG (headless) and report bounding-box dimensions."""
     import trimesh
 
@@ -243,8 +256,8 @@ async def render_mesh(
     out_png = _out_dir() / out_name
     note = _render_mesh_to_png(src, out_png, resolution=resolution)
 
-    geom = trimesh.load(str(src), force="mesh")
-    extents = getattr(geom, "extents", None)
+    geom = cast("trimesh.Trimesh", trimesh.load(str(src), force="mesh"))
+    extents = geom.extents
     dims = (
         {"x": float(extents[0]), "y": float(extents[1]), "z": float(extents[2])}
         if extents is not None
@@ -252,7 +265,7 @@ async def render_mesh(
     )
     validation = validate_mesh(src)
 
-    result = {
+    result: dict[str, Any] = {
         "png_path": str(out_png),
         "png_url": await _publish_url(out_png),
         "bounding_box": dims,
@@ -290,7 +303,7 @@ def _compile_scad(
 
 
 @mcp.tool()
-async def render_openscad(code: str, resolution: int = 1024) -> dict:
+async def render_openscad(code: str, resolution: int = 1024) -> dict[str, Any]:
     """Render OpenSCAD source to PNG.
 
     Strategy: openscad headless can produce STL without a display; PNG requires GL.
@@ -323,7 +336,7 @@ async def render_openscad(code: str, resolution: int = 1024) -> dict:
 
 
 @mcp.tool()
-async def convert_cad(input_path: str, to_format: str) -> dict:
+async def convert_cad(input_path: str, to_format: str) -> dict[str, Any]:
     """Convert a model between mesh formats. STEP read is best-effort."""
     import trimesh
 
@@ -340,7 +353,9 @@ async def convert_cad(input_path: str, to_format: str) -> dict:
                 "sandbox instead, or install the conda-forge OCP layer (see PLATFORM.md)."
             }
         try:
-            from build123d import import_step  # type: ignore
+            from build123d import (  # type: ignore[import-not-found]  # conda-only OCP layer
+                import_step,
+            )
 
             shape = import_step(str(src))
             mesh = shape.tessellate(0.1)
@@ -350,7 +365,7 @@ async def convert_cad(input_path: str, to_format: str) -> dict:
                 "error": f"STEP read requires build123d/OCP and failed: {e}. Export STL from the sandbox instead."
             }
     else:
-        geom = trimesh.load(str(src), force="mesh")
+        geom = cast("trimesh.Trimesh", trimesh.load(str(src), force="mesh"))
 
     out_name = f"{src.stem}_{uuid.uuid4().hex[:6]}.{to_format}"
     out_path = _out_dir() / out_name
@@ -361,9 +376,9 @@ async def convert_cad(input_path: str, to_format: str) -> dict:
 # ── self-correcting feedback loop (TASK_CAD_MODULE_OVERHAUL_V1 Phase 4) ─────
 
 
-def classify_openscad_error(stderr: str, timed_out: bool = False) -> dict:
+def classify_openscad_error(stderr: str, timed_out: bool = False) -> dict[str, Any]:
     """Categorize openscad stderr into actionable buckets with a fix hint."""
-    cats = {
+    cats: dict[str, bool] = {
         "syntax_error": bool(re.search(r"syntax error|parse error|expected", stderr, re.I)),
         "undefined_variable": bool(re.search(r"undefined|unknown variable", stderr, re.I)),
         "empty_geometry": bool(
@@ -372,11 +387,11 @@ def classify_openscad_error(stderr: str, timed_out: bool = False) -> dict:
         "non_manifold": bool(re.search(r"non.?manifold|self.?intersect", stderr, re.I)),
         "timeout": timed_out,
     }
-    active = {k: v for k, v in cats.items() if v}
+    active: dict[str, bool] = {k: v for k, v in cats.items() if v}
     return {"raw": (stderr or "")[:800], "categories": active, "suggestion": _suggest_fix(active)}
 
 
-def _suggest_fix(active: dict) -> str:
+def _suggest_fix(active: dict[str, bool]) -> str:
     if "timeout" in active:
         return "Render timed out — the CSG tree may be too deep/expensive; simplify or reduce $fn."
     if "undefined_variable" in active:
@@ -392,7 +407,7 @@ def _suggest_fix(active: dict) -> str:
     return "Unclassified openscad failure; inspect 'raw' for detail."
 
 
-def _auto_repair(geometry: dict, err: dict) -> dict | None:
+def _auto_repair(geometry: dict[str, Any], err: dict[str, Any]) -> dict[str, Any] | None:
     """Deterministic, safe repairs only — never mutates design intent.
     Returns a repaired geometry dict, or None if this error needs the model's judgment."""
     cats = err.get("categories", {})
@@ -403,7 +418,7 @@ def _auto_repair(geometry: dict, err: dict) -> dict | None:
     return None  # syntax/undefined_variable/non_manifold/empty_geometry need model judgment
 
 
-def _auto_repair_geometry(geometry: dict) -> dict | None:
+def _auto_repair_geometry(geometry: dict[str, Any]) -> dict[str, Any] | None:
     repaired = copy.deepcopy(geometry)
     changed = False
     aliases = {
@@ -428,7 +443,7 @@ def _auto_repair_geometry(geometry: dict) -> dict | None:
 
     features = repaired.get("features")
     if isinstance(features, list):
-        normalized: dict[str, list] = {}
+        normalized: dict[str, list[dict[str, Any]]] = {}
         for feature in features:
             if (
                 not isinstance(feature, dict)
@@ -446,7 +461,7 @@ def _auto_repair_geometry(geometry: dict) -> dict | None:
     return repaired if changed else None
 
 
-def _auto_repair_mesh(geometry: dict, mv: dict) -> dict | None:
+def _auto_repair_mesh(geometry: dict[str, Any], mv: dict[str, Any]) -> dict[str, Any] | None:
     """Deterministic repairs for a validated-but-flawed mesh. None => surface to the model."""
     problems = mv.get("problems", [])
     if problems == ["degenerate_faces"] and not geometry.get("_fn_override"):
@@ -458,24 +473,27 @@ def _auto_repair_mesh(geometry: dict, mv: dict) -> dict | None:
     return None
 
 
-def _metadata_warnings(geometry: dict, validation: dict) -> list[dict]:
+def _metadata_warnings(
+    geometry: dict[str, Any], validation: dict[str, Any]
+) -> list[dict[str, Any]]:
     metadata = geometry.get("metadata") or {}
     label = " ".join(str(metadata.get(key, "")) for key in ("part_name", "description")).lower()
     bbox = validation.get("bounding_box") or {}
     dims = [bbox.get(axis) for axis in ("x", "y", "z")]
-    if (
-        "plate" in label
-        and all(isinstance(value, (int, float)) and value > 0 for value in dims)
-        and max(dims) / min(dims) <= 2
-    ):
-        return [
-            {
-                "code": "plate_aspect_ratio",
-                "measured_ratio": max(dims) / min(dims),
-                "limit_ratio": 2.0,
-                "detail": "metadata calls this a plate, but all three extents are within 2×; verify height is the intended Z thickness",
-            }
-        ]
+    if "plate" in label:
+        values: list[float] = []
+        for value in dims:
+            if isinstance(value, (int, float)) and value > 0:
+                values.append(float(value))
+        if len(values) == 3 and max(values) / min(values) <= 2:
+            return [
+                {
+                    "code": "plate_aspect_ratio",
+                    "measured_ratio": max(values) / min(values),
+                    "limit_ratio": 2.0,
+                    "detail": "metadata calls this a plate, but all three extents are within 2×; verify height is the intended Z thickness",
+                }
+            ]
     return []
 
 
@@ -485,10 +503,10 @@ async def _generated_result(
     scad: str,
     scad_path: Path,
     stl_path: Path,
-    validation: dict,
-    retry_log: list[dict],
+    validation: dict[str, Any],
+    retry_log: list[dict[str, Any]],
     resolution: int,
-) -> dict:
+) -> dict[str, Any]:
     png_name = f"gen_{uid}_{attempt}.png"
     png_path = _out_dir() / png_name
     note = _render_mesh_to_png(stl_path, png_path, resolution=resolution)
@@ -509,7 +527,9 @@ async def _generated_result(
 
 
 @mcp.tool()
-async def generate_scad(geometry: dict, resolution: int = 1024, max_retries: int = 2) -> dict:
+async def generate_scad(
+    geometry: dict[str, Any], resolution: int = 1024, max_retries: int = 2
+) -> dict[str, Any]:
     """Generate a parametric part from a constrained Tier-A/B JSON geometry description.
 
     One call: validate JSON -> emit SCAD (scad_emitter.py owns all coordinate-frame
@@ -518,7 +538,7 @@ async def generate_scad(geometry: dict, resolution: int = 1024, max_retries: int
     max_retries, the model should read `validation`/`problems`/`retry_log` and
     issue a corrected call (Layer 2) — see auto-cad's system_prompt_append.
     """
-    retry_log: list[dict] = []
+    retry_log: list[dict[str, Any]] = []
     attempt = 0
     fn_override = FN_DEFAULT
     uid = uuid.uuid4().hex[:8]
@@ -596,8 +616,8 @@ async def generate_scad(geometry: dict, resolution: int = 1024, max_retries: int
     }
 
 
-@mcp.custom_route("/tools/generate_scad", methods=["POST"])
-async def generate_scad_endpoint(request):
+@_route("/tools/generate_scad", methods=["POST"])
+async def generate_scad_endpoint(request: Request) -> JSONResponse:
     body = await request.json()
     args = body.get("arguments", {})
     result = await generate_scad(

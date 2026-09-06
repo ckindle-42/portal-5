@@ -1,18 +1,21 @@
 """Acceptance: sandbox guard, attach+query+profile roundtrip, blocked statements."""
 
 import importlib
+from pathlib import Path
 
 import pytest
 
 mod = importlib.import_module("portal.modules.data.tools.data_mcp")
 
 
-def test_sql_blocklist():
+def test_sql_blocklist() -> None:
     out = mod.run_sql("s1", "INSTALL httpfs;")
     assert "blocked" in out.get("error", "")
 
 
-def test_run_sql_cannot_read_arbitrary_files(tmp_path, monkeypatch):
+def test_run_sql_cannot_read_arbitrary_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """The core sandbox guarantee: even bypassing the regex, the query
     connection has filesystem access disabled."""
     pytest.importorskip("duckdb")
@@ -35,18 +38,18 @@ def test_run_sql_cannot_read_arbitrary_files(tmp_path, monkeypatch):
     mod._conns.clear()
 
 
-def test_path_escape_rejected(tmp_path, monkeypatch):
+def test_path_escape_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(mod, "_ROOT", tmp_path.resolve())
     with pytest.raises(ValueError):
         mod._resolve("../../etc/passwd")
 
 
-def test_bad_session_id_rejected():
+def test_bad_session_id_rejected() -> None:
     with pytest.raises(ValueError):
         mod._conn("../evil")
 
 
-def test_attach_query_profile(tmp_path, monkeypatch):
+def test_attach_query_profile(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     pytest.importorskip("duckdb")
     monkeypatch.setattr(mod, "_ROOT", tmp_path.resolve())
     monkeypatch.setattr(mod, "_SESS_DIR", tmp_path / "sess")
@@ -64,5 +67,5 @@ def test_attach_query_profile(tmp_path, monkeypatch):
     mod._conns.clear()
 
 
-def test_tools_manifest_matches_dispatch():
+def test_tools_manifest_matches_dispatch() -> None:
     assert {t["function"]["name"] for t in mod.TOOLS_MANIFEST} == set(mod._DISPATCH)

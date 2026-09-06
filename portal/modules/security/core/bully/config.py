@@ -12,7 +12,7 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 
@@ -54,7 +54,7 @@ def load_heart_config(path: Path | None = None) -> dict[str, Any]:
     return _load_yaml(path or _HEART_YAML)
 
 
-def resolve_role_model(role: str, *, hunt_config: dict[str, Any] | None = None) -> str | list[str]:
+def resolve_role_model(role: str, *, hunt_config: dict[str, Any] | None = None) -> str:
     """Resolve a bully model *role* (e.g. ``"tool"``, ``"reasoning"``,
     ``"expert"``) to a concrete Ollama model tag, via the workspace named in
     ``hunt.yaml::models.workspace`` (default ``blueteam-orchestrated``, which
@@ -91,7 +91,7 @@ def resolve_role_model(role: str, *, hunt_config: dict[str, Any] | None = None) 
             f"workspace/variant {workspace_id!r} referenced by hunt.yaml::models not found in "
             f"portal.yaml, or has no {field!r} configured for role {role!r}"
         )
-    return value
+    return cast(str, value)
 
 
 def _lookup_workspace_field(portal_cfg: Any, workspace_id: str, field: str) -> Any:

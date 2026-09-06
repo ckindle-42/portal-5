@@ -16,7 +16,7 @@ def _blob(tele: dict[str, list[str]]) -> str:
 
 
 class TestReconstructAttackTelemetry:
-    def test_payload_is_retained_without_manufacturing_sensor_shapes(self):
+    def test_payload_is_retained_without_manufacturing_sensor_shapes(self) -> None:
         calls = [
             {
                 "name": "execute_bash",
@@ -33,13 +33,13 @@ class TestReconstructAttackTelemetry:
         assert row["evidence_origin"] == "transcript_counterfactual"
         assert row["claimed_target"] == "10.10.11.50"
 
-    def test_command_does_not_become_ids_waf_or_syslog_evidence(self):
+    def test_command_does_not_become_ids_waf_or_syslog_evidence(self) -> None:
         calls = [{"name": "execute_bash", "args": {"cmd": "some-obscure-tool --do-a-thing"}}]
         tele = reconstruct_attack_telemetry(calls, target_host="t")
         assert not ({"ids:alert", "web:access", "linux:syslog"} & set(tele))
         assert "some-obscure-tool" in _blob(tele)
 
-    def test_dispatch_failure_is_preserved_not_promoted(self):
+    def test_dispatch_failure_is_preserved_not_promoted(self) -> None:
         calls = [
             {
                 "name": "execute_bash",
@@ -54,7 +54,7 @@ class TestReconstructAttackTelemetry:
         assert row["dispatch_ok"] is False
         assert "status" not in row
 
-    def test_empty_and_blank_commands_ignored(self):
+    def test_empty_and_blank_commands_ignored(self) -> None:
         assert reconstruct_attack_telemetry([]) == {}
         assert reconstruct_attack_telemetry([{"name": "x", "args": {}}]) == {}
         assert reconstruct_attack_telemetry([{"name": "x", "args": {"cmd": "  "}}]) == {}

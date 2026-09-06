@@ -26,7 +26,7 @@ class Budget:
     max_repeat_same_call: int = 3
     _turns: int = field(default=0, init=False)
     _tool_calls: int = field(default=0, init=False)
-    _call_tracker: Counter = field(default_factory=Counter, init=False)
+    _call_tracker: Counter[tuple[str, int]] = field(default_factory=Counter, init=False)
 
     def ok(self) -> bool:
         return self._turns < self.max_turns and self._tool_calls < self.max_tool_calls
@@ -103,7 +103,7 @@ def run(
 ) -> LoopResult:
     trace = TraceLog(job_dir)
     tool_schemas = get_schemas()
-    transcript: list[dict] = [
+    transcript: list[dict[str, Any]] = [
         {
             "role": "system",
             "content": _build_system_prompt(skill_text, snapshot(job_dir), base_prompt),

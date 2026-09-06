@@ -7,21 +7,25 @@ alongside the gate itself; see docs/LAB_REACHABILITY_DIAGNOSTIC_2026-06-30.md fo
 from __future__ import annotations
 
 import json
+from pathlib import Path
+from typing import Any
+
+import pytest
 
 from portal.modules.security.core import lab as lab_mod
 
 
-def test_gate_skips_when_lab_exec_unavailable(monkeypatch):
+def test_gate_skips_when_lab_exec_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(lab_mod, "_LAB_EXEC_AVAILABLE", False)
     assert lab_mod.verify_lab_targets_reachable() is True
 
 
-def test_gate_skips_on_dry_run(monkeypatch):
+def test_gate_skips_on_dry_run(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(lab_mod, "_LAB_EXEC_AVAILABLE", True)
     assert lab_mod.verify_lab_targets_reachable(dry_run=True) is True
 
 
-def _sandbox_envelope(stdout: str) -> dict:
+def _sandbox_envelope(stdout: str) -> dict[str, Any]:
     """The REAL _lab_mcp_call/_mcp_call contract: output is a JSON-wrapped envelope
     ({"success","stdout","stderr","exit_code","timed_out"}), never bare text. A prior
     version of this test mocked bare text ({"output": "REACHABLE"}), which let
@@ -35,23 +39,23 @@ def _sandbox_envelope(stdout: str) -> dict:
     }
 
 
-def test_gate_passes_when_both_reachable(monkeypatch):
+def test_gate_passes_when_both_reachable(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(lab_mod, "_LAB_EXEC_AVAILABLE", True)
     monkeypatch.setattr(lab_mod, "_lab_mcp_call", lambda *a, **k: _sandbox_envelope("REACHABLE"))
     assert lab_mod.verify_lab_targets_reachable() is True
 
 
-def test_gate_fails_when_both_unreachable(monkeypatch):
+def test_gate_fails_when_both_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(lab_mod, "_LAB_EXEC_AVAILABLE", True)
     monkeypatch.setattr(lab_mod, "_lab_mcp_call", lambda *a, **k: _sandbox_envelope("UNREACHABLE"))
     assert lab_mod.verify_lab_targets_reachable() is False
 
 
-def test_gate_warns_but_passes_on_partial_reachability(monkeypatch):
+def test_gate_warns_but_passes_on_partial_reachability(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(lab_mod, "_LAB_EXEC_AVAILABLE", True)
-    calls = {"n": 0}
+    calls: dict[str, int] = {"n": 0}
 
-    def _fake_call(*_a, **_k):
+    def _fake_call(*_a: object, **_k: object) -> dict[str, Any]:
         calls["n"] += 1
         return _sandbox_envelope("REACHABLE" if calls["n"] == 1 else "UNREACHABLE")
 
@@ -59,17 +63,19 @@ def test_gate_warns_but_passes_on_partial_reachability(monkeypatch):
     assert lab_mod.verify_lab_targets_reachable() is True
 
 
-def test_gate_handles_mcp_call_exception(monkeypatch):
+def test_gate_handles_mcp_call_exception(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(lab_mod, "_LAB_EXEC_AVAILABLE", True)
 
-    def _raise(*_a, **_k):
+    def _raise(*_a: object, **_k: object) -> None:
         raise RuntimeError("sandbox unreachable")
 
     monkeypatch.setattr(lab_mod, "_lab_mcp_call", _raise)
     assert lab_mod.verify_lab_targets_reachable() is False
 
 
-def test_lab_dispatch_writes_raw_log_when_env_set(monkeypatch, tmp_path):
+def test_lab_dispatch_writes_raw_log_when_env_set(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     log_path = tmp_path / "raw.jsonl"
     monkeypatch.setenv("BENCH_LAB_RAW_LOG", str(log_path))
     monkeypatch.setattr(
@@ -84,7 +90,9 @@ def test_lab_dispatch_writes_raw_log_when_env_set(monkeypatch, tmp_path):
     assert entry["raw_output"] == "OK: synthetic"
 
 
-def test_lab_dispatch_no_log_when_env_unset(monkeypatch, tmp_path):
+def test_lab_dispatch_no_log_when_env_unset(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     monkeypatch.delenv("BENCH_LAB_RAW_LOG", raising=False)
     monkeypatch.setattr(
         lab_mod, "_lab_dispatch_inner", lambda fn, args, dry_run=False: "OK: synthetic"
@@ -94,7 +102,7 @@ def test_lab_dispatch_no_log_when_env_unset(monkeypatch, tmp_path):
     assert result == "OK: synthetic"
 
 
-def test_lab_dispatch_log_failure_does_not_raise(monkeypatch):
+def test_lab_dispatch_log_failure_does_not_raise(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("BENCH_LAB_RAW_LOG", "/nonexistent-dir-xyz/raw.jsonl")
     monkeypatch.setattr(
         lab_mod, "_lab_dispatch_inner", lambda fn, args, dry_run=False: "OK: synthetic"

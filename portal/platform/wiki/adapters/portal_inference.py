@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -59,7 +59,7 @@ class PortalInference(InferenceBackend):
             )
             r.raise_for_status()
             data = r.json()
-            return data.get("response", "")
+            return cast(str, data.get("response", ""))
         except Exception as e:
             logger.warning("Ollama generate failed: %s", e)
             return f"[inference error: {e}]"

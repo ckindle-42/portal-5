@@ -19,10 +19,13 @@ import json
 import logging
 import math
 import re
+from collections.abc import Awaitable
 from dataclasses import replace
+from typing import Any, cast
 
 from portal.modules.compliance.core import review_queue as rq
-from portal.modules.compliance.core.coverage import ProposalError
+from portal.modules.compliance.core.cip_register import RegisterNode
+from portal.modules.compliance.core.coverage import ProposalError, ProposeFn
 from portal.modules.compliance.core.ingest import derive_tier, read_sidecar
 from portal.modules.compliance.core.text_signals import is_aspirational
 
@@ -36,7 +39,7 @@ def _standard_base(standard: str) -> str:
     return "-".join(bits[:2]) if len(bits) >= 2 else standard
 
 
-def _run(coro, timeout: float | None = None):
+def _run(coro: Awaitable[Any], timeout: float | None = None) -> Any:
     """Run an async call from sync code. MCP tool functions are plain sync
     callables with no event loop of their own; guard the (untested-in-practice)
     case of already being inside one by running in a fresh thread.
@@ -48,7 +51,7 @@ def _run(coro, timeout: float | None = None):
     caught by the caller and reported as unresolved retrieval, never as a
     different coverage classifier."""
 
-    async def _bounded():
+    async def _bounded() -> Any:
         return await asyncio.wait_for(coro, timeout) if timeout else await coro
 
     try:
@@ -77,12 +80,12 @@ RERANK_CALL_TIMEOUT_S = 20.0
 SEARCH_CALL_TIMEOUT_S = 60.0
 
 
-def _resolve_meta(source_file: str, sidecar: dict, queued: set[str]) -> dict:
+def _resolve_meta(source_file: str, sidecar: dict[str, Any], queued: set[str]) -> dict[str, Any]:
     """The sidecar record for a hit's document, or a live best-guess (queued,
     never dropped) when ingest never recorded one."""
     meta = sidecar.get(source_file)
     if meta is not None:
-        return meta
+        return cast("dict[str, Any]", meta)
     derived = derive_tier(source_file)
     derived["standard_hint"] = None  # no ingest-time folder on record to read
     if source_file not in queued:
@@ -105,8 +108,11 @@ def _resolve_meta(source_file: str, sidecar: dict, queued: set[str]) -> dict:
 
 
 def _filter_candidates(
-    hits: list[dict], sidecar: dict, target_std: str, queued: set[str]
-) -> list[dict]:
+    hits: list[dict[str, Any]],
+    sidecar: dict[str, Any],
+    target_std: str,
+    queued: set[str],
+) -> list[dict[str, Any]]:
     """Eligibility filter over raw retrieval hits.
 
     A document's folder-derived standard is a ranking hint only.  Cross-standard
@@ -146,7 +152,7 @@ def _filter_candidates(
     return out
 
 
-def _verify_anchor(candidate: dict) -> bool:
+def _verify_anchor(candidate: dict[str, Any]) -> bool:
     """Literal source-location verification (P1.1): the quoted ``span`` is a
     verbatim substring of the retrieved chunk ``text``. This is the ONLY thing
     "anchor verified" means — it says nothing about relevance. Previously a
@@ -158,7 +164,9 @@ def _verify_anchor(candidate: dict) -> bool:
     return bool(span) and span in text
 
 
-def _resolve_relevance(candidate: dict, score: float, node, side: str) -> tuple[bool, str]:
+def _resolve_relevance(
+    candidate: dict[str, Any], score: float, node: RegisterNode, side: str
+) -> tuple[bool, str]:
     """Stages 2+3: a confident rerank score decides; the ambiguous middle band
     is queued (`low_confidence_extraction`) rather than guessed. Returns
     (relevant, queue_item_id) — RELEVANCE only (renamed from
@@ -184,7 +192,7 @@ def _resolve_relevance(candidate: dict, score: float, node, side: str) -> tuple[
     return False, item.id
 
 
-def _validated_scores(ranked: list[dict], count: int) -> dict[int, float]:
+def _validated_scores(ranked: list[dict[str, Any]], count: int) -> dict[int, float]:
     """Missing, duplicate, or invalid scores are failures, not irrelevant hits."""
     scores = {}
     for row in ranked:
@@ -217,7 +225,7 @@ def _quote_span(text: str, requirement: str) -> str:
     return text[start : start + 400]
 
 
-def make_real_proposer(kb_id: str = "operator_corpus", top_k: int = 15):
+def make_real_proposer(kb_id: str = "operator_corpus", top_k: int = 15) -> ProposeFn:
     """A ``propose(node, side)`` over the real ingested corpus. Documents with
     no ingest-time layer record are given a live best-guess tier (queued, not
     dropped) so a stale sidecar never silences a real span.
@@ -264,10 +272,12 @@ def make_real_proposer(kb_id: str = "operator_corpus", top_k: int = 15):
     from portal.platform.retrieval import pipeline as _pipeline
 
     _queued_this_process: set[str] = set()  # avoid re-queuing the same file every call
-    _resolved_cache: dict[str, list[dict]] = {}  # node.id -> every resolved candidate, all layers
+    _resolved_cache: dict[
+        str, list[dict[str, Any]]
+    ] = {}  # node.id -> every resolved candidate, all layers
     comp = replace(_cr._composition(), visual_table=lambda _kb_id: None)
 
-    def _resolve_all_layers(node) -> list[dict]:
+    def _resolve_all_layers(node: RegisterNode) -> list[dict[str, Any]]:
         sidecar = read_sidecar()
         target_std = _standard_base(node.standard)
         try:
@@ -341,7 +351,7 @@ def make_real_proposer(kb_id: str = "operator_corpus", top_k: int = 15):
             )
         return sorted(out, key=lambda candidate: -candidate["rerank_score"])
 
-    def propose(node, side: str) -> list[dict]:
+    def propose(node: RegisterNode, side: str) -> list[dict[str, Any]]:
         if node.id not in _resolved_cache:
             _resolved_cache[node.id] = _resolve_all_layers(node)
         return [

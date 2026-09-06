@@ -22,22 +22,25 @@ import json
 import time
 import uuid
 from collections.abc import Callable
+from typing import Any
 
 from .contracts import DecisionEvent, SOCDeliveryReceipt, new_id
 from .store import Store
 
-PublishFn = Callable[[dict], dict]
-PollFn = Callable[..., list[dict]]
-EnrichFn = Callable[[dict], dict]
+PublishFn = Callable[[dict[str, Any]], dict[str, Any]]
+PollFn = Callable[..., list[dict[str, Any]]]
+EnrichFn = Callable[[dict[str, Any]], dict[str, Any]]
 
 
-def _content_hash(payload: dict) -> str:
+def _content_hash(payload: dict[str, Any]) -> str:
     return hashlib.sha256(
         json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
     ).hexdigest()
 
 
-def build_redacted_envelope(candidate_row: dict, *, correlation_key: str) -> dict:
+def build_redacted_envelope(
+    candidate_row: dict[str, Any], *, correlation_key: str
+) -> dict[str, Any]:
     """Redacted finding envelope (I-7a INPUT): identifying fields only,
     secrets excluded -- no evidence bytes, no raw model output, no
     credentials. `correlation_key` is stable per candidate+alert_version so
@@ -53,11 +56,11 @@ def build_redacted_envelope(candidate_row: dict, *, correlation_key: str) -> dic
     }
 
 
-def correlation_key_for(candidate_row: dict) -> str:
+def correlation_key_for(candidate_row: dict[str, Any]) -> str:
     return f"bully-{candidate_row.get('candidate_id')}-v{candidate_row.get('alert_version')}"
 
 
-def _default_producer_publish(envelope: dict) -> dict:
+def _default_producer_publish(envelope: dict[str, Any]) -> dict[str, Any]:
     from ..siem.hec_ship import ship_batch
 
     return ship_batch(
@@ -68,19 +71,21 @@ def _default_producer_publish(envelope: dict) -> dict:
     )
 
 
-def _default_consumer_poll(*, since_minutes: int = 5) -> list[dict]:
+def _default_consumer_poll(*, since_minutes: int = 5) -> list[dict[str, Any]]:
     from ..siem.blue_triage import poll_alerts
 
     return poll_alerts(since_minutes=since_minutes)
 
 
-def _default_consumer_enrich(alert: dict) -> dict:
+def _default_consumer_enrich(alert: dict[str, Any]) -> dict[str, Any]:
     from ..siem.blue_triage import enrich_alert
 
     return enrich_alert(alert)
 
 
-def _find_matching_alert(alerts: list[dict], correlation_key: str) -> dict | None:
+def _find_matching_alert(
+    alerts: list[dict[str, Any]], correlation_key: str
+) -> dict[str, Any] | None:
     for alert in alerts:
         if str(alert.get("correlation_key", "")) == correlation_key:
             return alert
@@ -88,7 +93,13 @@ def _find_matching_alert(alerts: list[dict], correlation_key: str) -> dict | Non
 
 
 def _record(
-    store: Store, *, hunt_id, actor: str, subject_id: str, rationale: str, data: dict
+    store: Store,
+    *,
+    hunt_id: str | None,
+    actor: str,
+    subject_id: str,
+    rationale: str,
+    data: dict[str, Any],
 ) -> None:
     store.record_decision(
         DecisionEvent(
@@ -105,7 +116,7 @@ def _record(
 
 
 def deliver(
-    candidate_row: dict,
+    candidate_row: dict[str, Any],
     *,
     store: Store,
     destination: str = "lab-siem",
@@ -143,9 +154,9 @@ def deliver(
         producer_ack = False
 
     consumer_query_ran = False
-    consumer_triage_report: dict | None = None
+    consumer_triage_report: dict[str, Any] | None = None
     content_hash_match = False
-    matched_alert: dict | None = None
+    matched_alert: dict[str, Any] | None = None
     if producer_ack:
         try:
             alerts = consumer_poll()

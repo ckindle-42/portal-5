@@ -76,15 +76,15 @@ class ConcernError(StoreError):
     """Raised on a stale/duplicate concern-verdict recording attempt (X.2)."""
 
 
-def _row_to_dict(row: sqlite3.Row) -> dict:
+def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
     return dict(row) if row is not None else None
 
 
-def _json(value) -> str:
+def _json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, default=str)
 
 
-def _loads(value: str | None, default):
+def _loads(value: str | None, default: Any) -> Any:
     if value is None:
         return default
     return json.loads(value)
@@ -108,7 +108,7 @@ class Store:
     def __enter__(self) -> Store:
         return self
 
-    def __exit__(self, *exc) -> None:
+    def __exit__(self, *exc: object) -> None:
         self.close()
 
     # ── migrations ───────────────────────────────────────────────────────
@@ -194,8 +194,8 @@ class Store:
         neighborhood_scope: str,
         authorization_ref: str,
         config_version: str,
-        role_snapshot: dict,
-        budgets: dict,
+        role_snapshot: dict[str, Any],
+        budgets: dict[str, Any],
     ) -> None:
         now = time.time()
         with self._tx() as cur:
@@ -224,7 +224,7 @@ class Store:
                 ),
             )
 
-    def hunt_get(self, hunt_id: str) -> dict | None:
+    def hunt_get(self, hunt_id: str) -> dict[str, Any] | None:
         row = self._conn.execute("SELECT * FROM hunts WHERE hunt_id=?", (hunt_id,)).fetchone()
         return _row_to_dict(row)
 
@@ -416,7 +416,7 @@ class Store:
         self,
         subject: str,
         kind: str,
-        evidence: dict,
+        evidence: dict[str, Any],
         *,
         hunt_id: str | None = None,
         trust_tier: str = "SUSPECT",
@@ -546,7 +546,7 @@ class Store:
                 ),
             )
 
-    def signature_get(self, signature_id: str) -> dict | None:
+    def signature_get(self, signature_id: str) -> dict[str, Any] | None:
         row = self._conn.execute(
             "SELECT * FROM behavior_signatures WHERE signature_id=?", (signature_id,)
         ).fetchone()
@@ -594,13 +594,13 @@ class Store:
                 ),
             )
 
-    def cousin_assessment_get(self, assessment_id: str) -> dict | None:
+    def cousin_assessment_get(self, assessment_id: str) -> dict[str, Any] | None:
         row = self._conn.execute(
             "SELECT * FROM cousin_assessments WHERE assessment_id=?", (assessment_id,)
         ).fetchone()
         return _row_to_dict(row)
 
-    def scoreboard_records_for_hunt(self, hunt_id: str) -> list[dict]:
+    def scoreboard_records_for_hunt(self, hunt_id: str) -> list[dict[str, Any]]:
         """Assemble `scoreboard.py`-ready records for a hunt (P4.2): every
         `grade`-kind decision event's cousin assessment, left-joined with
         that hunt's candidate state (the latest candidate row for the
@@ -613,7 +613,7 @@ class Store:
             "ORDER BY recorded_at ASC",
             (hunt_id,),
         ).fetchall()
-        out: list[dict] = []
+        out: list[dict[str, Any]] = []
         for ev in grade_events:
             assessment = self.cousin_assessment_get(ev["subject_id"])
             if assessment is None:
@@ -657,7 +657,7 @@ class Store:
             ).fetchone()
         return int(row["n"])
 
-    def plateau_trials_for_neighborhood(self, neighborhood: str) -> list[dict]:
+    def plateau_trials_for_neighborhood(self, neighborhood: str) -> list[dict[str, Any]]:
         """Assemble `plateau.py`-ready trial facts (P4.4): one trial per
         hunt scoped to this `neighborhood_scope` (this build runs exactly
         one iteration per hunt, so a hunt IS a trial). `valid=False`
@@ -673,7 +673,7 @@ class Store:
             "WHERE neighborhood_scope=? ORDER BY started_at ASC",
             (neighborhood,),
         ).fetchall()
-        out: list[dict] = []
+        out: list[dict[str, Any]] = []
         for h in hunts:
             hunt_id = h["hunt_id"]
             promoted = self._conn.execute(
@@ -832,7 +832,7 @@ class Store:
         source_hash: str,
         operation: str,
         required_for_closure: bool,
-        payload: dict,
+        payload: dict[str, Any],
     ) -> str:
         # Idempotent: (record_type, record_id, record_version, projection_version)
         # is the natural key (DATA_MODEL SS1.10). A re-drive with the same key
@@ -843,7 +843,7 @@ class Store:
             (record_type, record_id, record_version, projection_version),
         ).fetchone()
         if existing is not None:
-            return existing["outbox_id"]
+            return str(existing["outbox_id"])
         outbox_id = f"ob-{uuid.uuid4().hex[:12]}"
         with self._tx() as cur:
             cur.execute(
@@ -872,7 +872,7 @@ class Store:
             )
         return outbox_id
 
-    def outbox_lease(self, limit: int = 10) -> list[dict]:
+    def outbox_lease(self, limit: int = 10) -> list[dict[str, Any]]:
         now = time.time()
         with self._tx() as cur:
             rows = cur.execute(
@@ -927,7 +927,9 @@ class Store:
                     (attempts, error, outbox.next_attempt_at(time.time(), attempts), outbox_id),
                 )
 
-    def outbox_required_dead_letters(self, hunt_id_prefix: str | None = None) -> list[dict]:
+    def outbox_required_dead_letters(
+        self, hunt_id_prefix: str | None = None
+    ) -> list[dict[str, Any]]:
         """A required dead letter blocks hunt closure (DATA_MODEL SS1.10)."""
         rows = self._conn.execute(
             "SELECT * FROM index_outbox WHERE status='dead_letter' AND required_for_closure=1"
@@ -945,7 +947,7 @@ class Store:
         manifest_id: str,
         episode_id: str | None,
         required_types: list[str],
-        items: list[dict],
+        items: list[dict[str, Any]],
         completeness: float,
         reasons: list[str],
     ) -> None:
@@ -999,7 +1001,7 @@ class Store:
                     ),
                 )
 
-    def evidence_items_for_manifest(self, manifest_id: str) -> list[dict]:
+    def evidence_items_for_manifest(self, manifest_id: str) -> list[dict[str, Any]]:
         rows = self._conn.execute(
             "SELECT * FROM evidence_items WHERE manifest_id=?", (manifest_id,)
         ).fetchall()
@@ -1040,7 +1042,7 @@ class Store:
                 ),
             )
 
-    def candidate_get(self, candidate_id: str) -> dict | None:
+    def candidate_get(self, candidate_id: str) -> dict[str, Any] | None:
         row = self._conn.execute(
             "SELECT * FROM candidates WHERE candidate_id=?", (candidate_id,)
         ).fetchone()
@@ -1137,7 +1139,7 @@ class Store:
             raise IllegalBinTransitionError(
                 f"stale expected_version={expected_version} for candidate {candidate_id}"
             )
-        new_alert_version = row["alert_version"] + 1
+        new_alert_version = int(row["alert_version"]) + 1
         with self._tx() as cur:
             cur.execute(
                 "UPDATE candidates SET alert_version=?, evidence_manifest_id=?, "
@@ -1161,10 +1163,10 @@ class Store:
         attempt: int,
         outcome: str,
         validator_version: str,
-        inputs: dict,
-        evidence: dict,
-        checks: list,
-        reasons: list,
+        inputs: dict[str, Any],
+        evidence: dict[str, Any],
+        checks: list[Any],
+        reasons: list[str],
     ) -> None:
         with self._tx() as cur:
             cur.execute(
@@ -1189,7 +1191,7 @@ class Store:
 
     def gate_results_for_candidate(
         self, candidate_id: str, *, alert_version: int | None = None
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         if alert_version is None:
             rows = self._conn.execute(
                 "SELECT * FROM gate_results WHERE candidate_id=? ORDER BY created_at ASC",
@@ -1220,7 +1222,7 @@ class Store:
         candidate_id: str,
         evidence_manifest_id: str | None,
         evidence_manifest_hash: str,
-        roster_snapshot: dict,
+        roster_snapshot: dict[str, Any],
         materiality_version: str,
         unresolved: bool,
         review_valid: bool,
@@ -1261,10 +1263,10 @@ class Store:
         recommendation: str,
         confidence: float,
         error: str,
-        findings: list,
+        findings: list[dict[str, Any]],
         strongest_objection: str,
-        missing_evidence: list,
-        conditions_to_change: list,
+        missing_evidence: list[str],
+        conditions_to_change: list[str],
     ) -> None:
         with self._tx() as cur:
             cur.execute(
@@ -1301,8 +1303,8 @@ class Store:
         category: str,
         material: bool,
         claim: str,
-        evidence_citations: list,
-        missing_proof_citations: list,
+        evidence_citations: list[str],
+        missing_proof_citations: list[str],
         status: str = "open",
     ) -> None:
         with self._tx() as cur:
@@ -1325,7 +1327,7 @@ class Store:
                 ),
             )
 
-    def objection_get(self, objection_id: str) -> dict | None:
+    def objection_get(self, objection_id: str) -> dict[str, Any] | None:
         row = self._conn.execute(
             "SELECT * FROM objections WHERE objection_id=?", (objection_id,)
         ).fetchone()
@@ -1337,25 +1339,25 @@ class Store:
                 "UPDATE objections SET status=? WHERE objection_id=?", (status, objection_id)
             )
 
-    def objections_for_packet(self, packet_id: str) -> list[dict]:
+    def objections_for_packet(self, packet_id: str) -> list[dict[str, Any]]:
         rows = self._conn.execute(
             "SELECT * FROM objections WHERE packet_id=?", (packet_id,)
         ).fetchall()
         return [_row_to_dict(r) for r in rows]
 
-    def council_packet_get(self, packet_id: str) -> dict | None:
+    def council_packet_get(self, packet_id: str) -> dict[str, Any] | None:
         row = self._conn.execute(
             "SELECT * FROM council_packets WHERE packet_id=?", (packet_id,)
         ).fetchone()
         return _row_to_dict(row)
 
-    def council_opinions_for_packet(self, packet_id: str) -> list[dict]:
+    def council_opinions_for_packet(self, packet_id: str) -> list[dict[str, Any]]:
         rows = self._conn.execute(
             "SELECT * FROM council_opinions WHERE packet_id=?", (packet_id,)
         ).fetchall()
         return [_row_to_dict(r) for r in rows]
 
-    def rebuttals_for_objection(self, objection_id: str) -> list[dict]:
+    def rebuttals_for_objection(self, objection_id: str) -> list[dict[str, Any]]:
         rows = self._conn.execute(
             "SELECT * FROM rebuttals WHERE objection_id=?", (objection_id,)
         ).fetchall()
@@ -1391,7 +1393,7 @@ class Store:
         objection_id: str,
         author: str,
         claim: str,
-        evidence_citations: list,
+        evidence_citations: list[str],
         requested_review: str | None,
         re_review_result: str | None,
     ) -> None:
@@ -1424,13 +1426,13 @@ class Store:
                 (queue_id, item_kind, item_id, hunt_id, "pending", time.time(), None, None, None),
             )
 
-    def promotion_get(self, queue_id: str) -> dict | None:
+    def promotion_get(self, queue_id: str) -> dict[str, Any] | None:
         row = self._conn.execute(
             "SELECT * FROM promotion_queue WHERE queue_id=?", (queue_id,)
         ).fetchone()
         return _row_to_dict(row)
 
-    def promotion_list(self, *, state: str | None = None) -> list[dict]:
+    def promotion_list(self, *, state: str | None = None) -> list[dict[str, Any]]:
         if state is None:
             rows = self._conn.execute(
                 "SELECT * FROM promotion_queue ORDER BY enqueued_at ASC"
@@ -1546,7 +1548,7 @@ class Store:
         payload_hash: str,
         producer_ack: bool,
         consumer_query_ran: bool,
-        consumer_triage_report: dict | None,
+        consumer_triage_report: dict[str, Any] | None,
         priority: str | None,
         latency_s: float | None,
         content_hash_match: bool,
@@ -1578,13 +1580,13 @@ class Store:
                 ),
             )
 
-    def soc_delivery_get(self, delivery_id: str) -> dict | None:
+    def soc_delivery_get(self, delivery_id: str) -> dict[str, Any] | None:
         row = self._conn.execute(
             "SELECT * FROM soc_deliveries WHERE delivery_id=?", (delivery_id,)
         ).fetchone()
         return _row_to_dict(row)
 
-    def soc_deliveries_for_candidate(self, candidate_id: str) -> list[dict]:
+    def soc_deliveries_for_candidate(self, candidate_id: str) -> list[dict[str, Any]]:
         rows = self._conn.execute(
             "SELECT * FROM soc_deliveries WHERE candidate_id=? ORDER BY created_at ASC",
             (candidate_id,),
@@ -1643,7 +1645,7 @@ class Store:
                 ),
             )
 
-    def mutation_plan_get(self, plan_id: str) -> dict | None:
+    def mutation_plan_get(self, plan_id: str) -> dict[str, Any] | None:
         row = self._conn.execute(
             "SELECT * FROM mutation_plans WHERE plan_id=?", (plan_id,)
         ).fetchone()
@@ -1651,7 +1653,7 @@ class Store:
 
     # ── drift baselines / flags (P3.2, I-9) ──────────────────────────────
 
-    def detection_baseline_get(self, baseline_key: str) -> dict | None:
+    def detection_baseline_get(self, baseline_key: str) -> dict[str, Any] | None:
         row = self._conn.execute(
             "SELECT * FROM detection_baselines WHERE baseline_key=?", (baseline_key,)
         ).fetchone()
@@ -1661,15 +1663,15 @@ class Store:
         d["window"] = _loads(d["window"], [])
         return d
 
-    def detection_baselines_get_many(self, baseline_keys: list[str]) -> dict[str, dict]:
-        out: dict[str, dict] = {}
+    def detection_baselines_get_many(self, baseline_keys: list[str]) -> dict[str, dict[str, Any]]:
+        out: dict[str, dict[str, Any]] = {}
         for key in baseline_keys:
             baseline = self.detection_baseline_get(key)
             if baseline is not None:
                 out[key] = baseline
         return out
 
-    def detection_baseline_upsert(self, baseline: dict) -> None:
+    def detection_baseline_upsert(self, baseline: dict[str, Any]) -> None:
         """Persist a `drift_engine.update`-returned baseline dict (DATA_MODEL
         SS1.8). `baseline_key` already encodes `(detection_id,
         policy_version)`, so a version change lands on a distinct row (the
@@ -1719,7 +1721,7 @@ class Store:
                 ),
             )
 
-    def drift_flags_for_detection(self, detection_id: str) -> list[dict]:
+    def drift_flags_for_detection(self, detection_id: str) -> list[dict[str, Any]]:
         rows = self._conn.execute(
             "SELECT * FROM drift_flags WHERE detection_id=? ORDER BY created_at ASC",
             (detection_id,),
@@ -1749,7 +1751,7 @@ class Store:
                 ),
             )
 
-    def cost_ledger_for_hunt(self, hunt_id: str) -> list[dict]:
+    def cost_ledger_for_hunt(self, hunt_id: str) -> list[dict[str, Any]]:
         rows = self._conn.execute(
             "SELECT * FROM cost_ledger WHERE hunt_id=? ORDER BY created_at ASC", (hunt_id,)
         ).fetchall()
@@ -1761,7 +1763,7 @@ class Store:
             out.append(d)
         return out
 
-    def cost_ledger(self) -> list[dict]:
+    def cost_ledger(self) -> list[dict[str, Any]]:
         """Read cross-hunt cost history for later ROI target selection."""
         rows = self._conn.execute(
             "SELECT * FROM cost_ledger ORDER BY created_at, record_id"
@@ -1808,7 +1810,7 @@ class Store:
                 ),
             )
 
-    def plateau_latest_for_neighborhood(self, neighborhood: str) -> dict | None:
+    def plateau_latest_for_neighborhood(self, neighborhood: str) -> dict[str, Any] | None:
         row = self._conn.execute(
             "SELECT * FROM plateaus WHERE neighborhood=? ORDER BY created_at DESC LIMIT 1",
             (neighborhood,),
@@ -1829,7 +1831,7 @@ class Store:
         candidate_id: str,
         hunt_id: str | None,
         family: str,
-        package: dict,
+        package: dict[str, Any],
         content_hash: str,
         owner: str | None = None,
         expiry: float | None = None,
@@ -1879,7 +1881,7 @@ class Store:
             )
         return version
 
-    def detection_proposal_get(self, proposal_id: str) -> dict | None:
+    def detection_proposal_get(self, proposal_id: str) -> dict[str, Any] | None:
         row = self._conn.execute(
             "SELECT * FROM detection_proposals WHERE proposal_id=?", (proposal_id,)
         ).fetchone()
@@ -1889,7 +1891,7 @@ class Store:
             d["proof_legs"] = _loads(d["proof_legs_json"], {})
         return d
 
-    def detection_proposal_latest_for_candidate(self, candidate_id: str) -> dict | None:
+    def detection_proposal_latest_for_candidate(self, candidate_id: str) -> dict[str, Any] | None:
         row = self._conn.execute(
             "SELECT * FROM detection_proposals WHERE candidate_id=? ORDER BY version DESC LIMIT 1",
             (candidate_id,),
@@ -1907,7 +1909,7 @@ class Store:
         fires_on_attack: bool,
         quiet_on_benign: bool,
         no_regression: bool,
-        proof_legs: dict,
+        proof_legs: dict[str, Any],
         regression_recipe_name: str | None = None,
     ) -> None:
         with self._tx() as cur:
@@ -1981,7 +1983,7 @@ class Store:
             (proposal_id, spl_commit_ref),
         ).fetchone()
         if existing is not None:
-            return existing["deployment_id"]
+            return str(existing["deployment_id"])
         if not deployed_by.startswith("operator:"):
             raise OperatorActorRequiredError(
                 f"actor {deployed_by!r} is not an operator; deployment_put requires "
@@ -2002,7 +2004,7 @@ class Store:
             )
         return deployment_id
 
-    def deployment_get(self, deployment_id: str) -> dict | None:
+    def deployment_get(self, deployment_id: str) -> dict[str, Any] | None:
         row = self._conn.execute(
             "SELECT * FROM deployments WHERE deployment_id=?", (deployment_id,)
         ).fetchone()
@@ -2024,7 +2026,7 @@ class Store:
                 (validation_id, deployment_id, int(passed), noise_estimate, detail, time.time()),
             )
 
-    def replay_validations_for_deployment(self, deployment_id: str) -> list[dict]:
+    def replay_validations_for_deployment(self, deployment_id: str) -> list[dict[str, Any]]:
         rows = self._conn.execute(
             "SELECT * FROM replay_validations WHERE deployment_id=? ORDER BY validated_at ASC",
             (deployment_id,),
@@ -2039,7 +2041,7 @@ class Store:
         playbook_id: str,
         scenario_class: str,
         content_hash: str,
-        instruction_set: dict,
+        instruction_set: dict[str, Any],
         source_hunts: list[str],
         supersedes: str | None = None,
     ) -> int:
@@ -2073,7 +2075,7 @@ class Store:
             )
         return version
 
-    def playbook_get(self, playbook_id: str) -> dict | None:
+    def playbook_get(self, playbook_id: str) -> dict[str, Any] | None:
         row = self._conn.execute(
             "SELECT * FROM playbooks WHERE playbook_id=?", (playbook_id,)
         ).fetchone()
@@ -2083,7 +2085,7 @@ class Store:
             d["source_hunts"] = _loads(d["source_hunts_json"], [])
         return d
 
-    def playbook_active_for_class(self, scenario_class: str) -> dict | None:
+    def playbook_active_for_class(self, scenario_class: str) -> dict[str, Any] | None:
         row = self._conn.execute(
             "SELECT * FROM playbooks WHERE scenario_class=? AND status='active'",
             (scenario_class,),
@@ -2099,8 +2101,8 @@ class Store:
         playbook_id: str,
         status: str,
         *,
-        replay_results: dict | None = None,
-        canary_results: dict | None = None,
+        replay_results: dict[str, Any] | None = None,
+        canary_results: dict[str, Any] | None = None,
         revert_cause: str | None = None,
         activated_by: str | None = None,
     ) -> None:
@@ -2169,7 +2171,7 @@ class Store:
         role: str,
         input_text: str,
         output_text: str,
-        provenance: dict,
+        provenance: dict[str, Any],
         group_family: str | None,
         group_campaign: str | None,
         group_time: str | None,
@@ -2212,7 +2214,7 @@ class Store:
 
     def training_examples_for_role(
         self, role: str, *, include_quarantined: bool = False
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         if include_quarantined:
             rows = self._conn.execute(
                 "SELECT * FROM training_examples WHERE role=?", (role,)
@@ -2229,11 +2231,11 @@ class Store:
         *,
         dataset_version: str,
         role: str,
-        window: dict,
-        counts: dict,
-        split_manifest: dict,
-        dedup_leakage_report: dict,
-        replay_mix_sources: list,
+        window: dict[str, Any],
+        counts: dict[str, Any],
+        split_manifest: dict[str, Any],
+        dedup_leakage_report: dict[str, Any],
+        replay_mix_sources: list[str],
         manifest_path: str | None,
     ) -> bool:
         """Content-keyed: inserting a `dataset_version` that already exists
@@ -2265,7 +2267,7 @@ class Store:
             )
         return True
 
-    def dataset_version_get(self, dataset_version: str) -> dict | None:
+    def dataset_version_get(self, dataset_version: str) -> dict[str, Any] | None:
         row = self._conn.execute(
             "SELECT * FROM dataset_versions WHERE dataset_version=?", (dataset_version,)
         ).fetchone()
@@ -2276,7 +2278,7 @@ class Store:
             d["replay_mix_sources"] = _loads(d["replay_mix_sources_json"], [])
         return d
 
-    def last_trained_dataset_for_role(self, role: str) -> dict | None:
+    def last_trained_dataset_for_role(self, role: str) -> dict[str, Any] | None:
         """Return the immutable dataset behind the role's latest TRAIN attempt."""
         row = self._conn.execute(
             "SELECT dv.dataset_version FROM dataset_versions AS dv "
@@ -2319,10 +2321,10 @@ class Store:
         base_digest: str | None,
         dataset_version: str,
         seed: int,
-        hyperparams: dict,
-        toolchain_versions: dict,
+        hyperparams: dict[str, Any],
+        toolchain_versions: dict[str, Any],
         acceptance_policy_version: str,
-        provenance: dict,
+        provenance: dict[str, Any],
     ) -> None:
         with self._tx() as cur:
             cur.execute(
@@ -2346,7 +2348,7 @@ class Store:
                 ),
             )
 
-    def trained_model_get(self, model_tag: str) -> dict | None:
+    def trained_model_get(self, model_tag: str) -> dict[str, Any] | None:
         row = self._conn.execute(
             "SELECT * FROM trained_models WHERE model_tag=?", (model_tag,)
         ).fetchone()
@@ -2364,9 +2366,9 @@ class Store:
         *,
         gguf_path: str | None = None,
         gguf_hash: str | None = None,
-        acceptance_report: dict | None = None,
-        intake_report: dict | None = None,
-        canary_report: dict | None = None,
+        acceptance_report: dict[str, Any] | None = None,
+        intake_report: dict[str, Any] | None = None,
+        canary_report: dict[str, Any] | None = None,
     ) -> None:
         with self._tx() as cur:
             cur.execute(
@@ -2404,7 +2406,7 @@ class Store:
             if cur.rowcount != 1:
                 raise StoreError(f"no such trained_model: {model_tag}")
 
-    def model_alias_get(self, role: str) -> dict | None:
+    def model_alias_get(self, role: str) -> dict[str, Any] | None:
         row = self._conn.execute("SELECT * FROM model_aliases WHERE role=?", (role,)).fetchone()
         return _row_to_dict(row)
 
@@ -2477,7 +2479,7 @@ class Store:
                     time.time(),
                 ),
             )
-        return target
+        return str(target)
 
     # ── roster_records (ROSTER, P6.5/I-19) ────────────────────────────────
 
@@ -2486,7 +2488,7 @@ class Store:
         *,
         record_id: str,
         seat_id: str,
-        window: dict,
+        window: dict[str, Any],
         independence_family: str | None,
         capability_suite_version: str | None,
         citation_validity: float | None,
@@ -2494,10 +2496,10 @@ class Store:
         objection_recall: float | None,
         cousin_call_correctness: float | None,
         abstention_quality: float | None,
-        latency_cost: dict,
+        latency_cost: dict[str, Any],
         eligibility: str,
         advisory_weight: float,
-        rationale: dict,
+        rationale: dict[str, Any],
         content_key: str,
     ) -> str | None:
         """Content-keyed idempotency (I-19): re-running `recompute` for the
@@ -2538,7 +2540,7 @@ class Store:
             )
         return record_id
 
-    def roster_record_get(self, record_id: str) -> dict | None:
+    def roster_record_get(self, record_id: str) -> dict[str, Any] | None:
         row = self._conn.execute(
             "SELECT * FROM roster_records WHERE record_id=?", (record_id,)
         ).fetchone()
@@ -2549,7 +2551,7 @@ class Store:
             d["rationale"] = _loads(d["rationale_json"], {})
         return d
 
-    def roster_active_for_seat(self, seat_id: str) -> dict | None:
+    def roster_active_for_seat(self, seat_id: str) -> dict[str, Any] | None:
         row = self._conn.execute(
             "SELECT * FROM roster_records WHERE seat_id=? AND state='active'", (seat_id,)
         ).fetchone()
@@ -2560,7 +2562,7 @@ class Store:
             d["rationale"] = _loads(d["rationale_json"], {})
         return d
 
-    def roster_active_all(self) -> list[dict]:
+    def roster_active_all(self) -> list[dict[str, Any]]:
         rows = self._conn.execute("SELECT * FROM roster_records WHERE state='active'").fetchall()
         out = []
         for row in rows:
@@ -2693,12 +2695,15 @@ class Store:
             )
             if cur.rowcount != 1:
                 raise ConcernError(f"concurrent modification of concern {concern_id}")
-        return self.concern_get(concern_id)
+        updated = self.concern_get(concern_id)
+        if updated is None:  # pragma: no cover -- the row was just verified + updated above
+            raise ConcernError(f"concern {concern_id} disappeared during verdict recording")
+        return updated
 
     # ── doctor (integrity check) ─────────────────────────────────────────
 
-    def doctor(self) -> dict:
-        report: dict = {"ok": True, "issues": []}
+    def doctor(self) -> dict[str, Any]:
+        report: dict[str, Any] = {"ok": True, "issues": []}
         hunt_ids = [None] + [
             r["hunt_id"] for r in self._conn.execute("SELECT DISTINCT hunt_id FROM hunts")
         ]

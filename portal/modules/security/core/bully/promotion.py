@@ -32,7 +32,13 @@ from collections.abc import Callable
 from typing import Any
 
 from . import evidence as evidence_mod
-from .contracts import BinOutcome, DecisionEvent, new_id
+from .contracts import (
+    BinOutcome,
+    CouncilRecord,
+    DecisionEvent,
+    SOCDeliveryReceipt,
+    new_id,
+)
 from .store import Store
 
 GATE_POLICY_VERSION = "bin-gates-v1"
@@ -109,7 +115,7 @@ def _record(
     kind: str,
     subject_id: str,
     rationale: str,
-    data: dict,
+    data: dict[str, Any],
 ) -> None:
     store.record_decision(
         DecisionEvent(
@@ -128,7 +134,7 @@ def _record(
 # ── G-1: approved scope / mutation class / tool allowlist / budgets ────────
 
 
-def _default_g_minus_1(candidate_row: dict, gate_input: dict) -> dict:
+def _default_g_minus_1(candidate_row: dict[str, Any], gate_input: dict[str, Any]) -> dict[str, Any]:
     """Fail-closed: G-1 passes only if the caller supplied an explicit,
     already-approved scope record (this is the "recorded pre-creation"
     authorization -- promotion.py never invents approval)."""
@@ -146,7 +152,9 @@ def _default_g_minus_1(candidate_row: dict, gate_input: dict) -> dict:
 # ── G0: observed-origin evidence + complete manifest + healthy telemetry ──
 
 
-def _default_g0(candidate_row: dict, gate_input: dict, *, store: Store) -> dict:
+def _default_g0(
+    candidate_row: dict[str, Any], gate_input: dict[str, Any], *, store: Store
+) -> dict[str, Any]:
     manifest_id = candidate_row.get("evidence_manifest_id")
     if not manifest_id:
         return {"outcome": "blocked", "reasons": ["no evidence manifest attached to candidate"]}
@@ -182,7 +190,7 @@ def _default_g0(candidate_row: dict, gate_input: dict, *, store: Store) -> dict:
 
 def replay_and_build_g1a_input(
     capture_path: str, *, draft_spl: str, has_spl_hit: bool, within_window: bool, target_match: bool
-) -> dict:
+) -> dict[str, Any]:
     """Real G1a evidence gathering: confirms the capture actually replays
     (indexed-confirmed) before handing the caller's SPL-execution booleans
     on to `_default_g1a_static` -- the *production* wiring path
@@ -210,7 +218,7 @@ def replay_and_build_g1a_input(
     }
 
 
-def check_g1a_static(gate_input: dict) -> dict:
+def check_g1a_static(gate_input: dict[str, Any]) -> dict[str, Any]:
     """Public wrapper over the G1a decision logic for callers outside the
     bin state machine (`growth_loop.prove_draft`'s fresh-positive leg) that
     want the same real reproduction check without going through
@@ -218,18 +226,22 @@ def check_g1a_static(gate_input: dict) -> dict:
     return _default_g1a_static({}, gate_input)
 
 
-def check_g1b_dynamic(gate_input: dict) -> dict:
+def check_g1b_dynamic(gate_input: dict[str, Any]) -> dict[str, Any]:
     """Public wrapper over the G1b decision logic, same rationale as
     `check_g1a_static`."""
     return _default_g1b_dynamic({}, gate_input)
 
 
-def check_g2(gate_input: dict, *, cousin_assessment: dict | None = None) -> dict:
+def check_g2(
+    gate_input: dict[str, Any], *, cousin_assessment: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """Public wrapper for the G2 benign/counter-evidence decision."""
     return _default_g2({}, gate_input, cousin_assessment=cousin_assessment)
 
 
-def _default_g1a_static(candidate_row: dict, gate_input: dict) -> dict:
+def _default_g1a_static(
+    candidate_row: dict[str, Any], gate_input: dict[str, Any]
+) -> dict[str, Any]:
     """Check the candidate's draft SPL fires within window on the right
     target against already-gathered replay evidence -- mirrors
     `episode.derive_detection_status` semantics (I-7 "G1a static"). Consumes
@@ -261,7 +273,9 @@ def _default_g1a_static(candidate_row: dict, gate_input: dict) -> dict:
 # ── G1b: dynamic re-execution reproduction ─────────────────────────────────
 
 
-def _default_g1b_dynamic(candidate_row: dict, gate_input: dict) -> dict:
+def _default_g1b_dynamic(
+    candidate_row: dict[str, Any], gate_input: dict[str, Any]
+) -> dict[str, Any]:
     """Re-execution reproduces the behavior chain via `capture_recipes`
     where a recipe exists, else a directed Red re-run within MUT budget;
     2-of-3 policy for nondeterministic targets (I-7 "G1b dynamic")."""
@@ -295,7 +309,12 @@ def _default_g1b_dynamic(candidate_row: dict, gate_input: dict) -> dict:
 # ── G2: matched controls + benign zero-fire + verdict-contract evidence ────
 
 
-def _default_g2(candidate_row: dict, gate_input: dict, *, cousin_assessment: dict | None) -> dict:
+def _default_g2(
+    candidate_row: dict[str, Any],
+    gate_input: dict[str, Any],
+    *,
+    cousin_assessment: dict[str, Any] | None,
+) -> dict[str, Any]:
     """Benign-corpus zero-fire + verdict-contract counter-evidence (I-7
     "G2"). The verdict-contract leg is a structural check that the
     cousin-engine's own discriminator-contradiction evaluation
@@ -334,19 +353,19 @@ def _default_g2(candidate_row: dict, gate_input: dict, *, cousin_assessment: dic
 
 # ── process() ────────────────────────────────────────────────────────────
 
-GateFn = Callable[..., dict]
+GateFn = Callable[..., dict[str, Any]]
 
 
 def _dispatch_gate(
     store: Store,
     gate_id: str,
-    cur: dict,
-    gate_inputs: dict[str, dict],
+    cur: dict[str, Any],
+    gate_inputs: dict[str, dict[str, Any]],
     *,
-    cousin_assessment: dict | None,
-    council_review: Callable[[dict, dict], Any] | None,
-    soc_deliver: Callable[[dict], Any] | None,
-) -> dict:
+    cousin_assessment: dict[str, Any] | None,
+    council_review: Callable[[dict[str, Any], dict[str, Any]], Any] | None,
+    soc_deliver: Callable[[dict[str, Any]], Any] | None,
+) -> dict[str, Any]:
     """One gate's real check, dispatched by id. Split out of `process` to
     keep it under the repo's complexity budget; the dispatch itself is pure
     routing, no decision logic lives here."""
@@ -368,7 +387,12 @@ def _dispatch_gate(
 
 
 def _handle_blocked(
-    store: Store, candidate_id: str, cur: dict, gate_id: str, result: dict, actor: str
+    store: Store,
+    candidate_id: str,
+    cur: dict[str, Any],
+    gate_id: str,
+    result: dict[str, Any],
+    actor: str,
 ) -> BinOutcome:
     store.candidate_advance(
         candidate_id,
@@ -390,7 +414,12 @@ def _handle_blocked(
 
 
 def _handle_escalate(
-    store: Store, candidate_id: str, cur: dict, gate_id: str, result: dict, actor: str
+    store: Store,
+    candidate_id: str,
+    cur: dict[str, Any],
+    gate_id: str,
+    result: dict[str, Any],
+    actor: str,
 ) -> BinOutcome:
     store.candidate_advance(
         candidate_id,
@@ -420,7 +449,12 @@ def _handle_escalate(
 
 
 def _handle_fail(
-    store: Store, candidate_id: str, cur: dict, gate_id: str, result: dict, actor: str
+    store: Store,
+    candidate_id: str,
+    cur: dict[str, Any],
+    gate_id: str,
+    result: dict[str, Any],
+    actor: str,
 ) -> BinOutcome:
     if result.get("escalate"):
         return _handle_escalate(store, candidate_id, cur, gate_id, result, actor)
@@ -452,10 +486,10 @@ def process(
     candidate_id: str,
     *,
     actor: str = "system:promotion",
-    gate_inputs: dict[str, dict] | None = None,
-    cousin_assessment: dict | None = None,
-    council_review: Callable[[dict, dict], Any] | None = None,
-    soc_deliver: Callable[[dict], Any] | None = None,
+    gate_inputs: dict[str, dict[str, Any]] | None = None,
+    cousin_assessment: dict[str, Any] | None = None,
+    council_review: Callable[[dict[str, Any], dict[str, Any]], Any] | None = None,
+    soc_deliver: Callable[[dict[str, Any]], Any] | None = None,
     validator_version: str = GATE_POLICY_VERSION,
 ) -> BinOutcome:
     """Drive a candidate through G-1 -> G0 -> G1a -> G1b -> G2 -> HEART(G5)
@@ -492,6 +526,8 @@ def process(
 
     for gate_id, next_state in _GATE_SEQUENCE:
         cur = store.candidate_get(candidate_id)
+        if cur is None:  # pragma: no cover -- candidate vanished mid-chain
+            raise ValueError(f"no such candidate: {candidate_id}")
         already_passed = any(
             g["gate_id"] == gate_id and g["outcome"] == "pass"
             for g in store.gate_results_for_candidate(candidate_id, alert_version=alert_version)
@@ -542,6 +578,8 @@ def process(
     # All seven gates passed -- queue for operator confirmation (never
     # auto-promote).
     final_row = store.candidate_get(candidate_id)
+    if final_row is None:  # pragma: no cover -- candidate vanished mid-chain
+        raise ValueError(f"no such candidate: {candidate_id}")
     store.candidate_advance(
         candidate_id, "AWAITING_OPERATOR", expected_version=final_row["version"]
     )
@@ -580,7 +618,11 @@ def replace_gate_results(outcome: BinOutcome, gate_outcomes: dict[str, str]) -> 
     return replace(outcome, gate_results=dict(gate_outcomes))
 
 
-def _run_heart(candidate_row: dict, *, council_review) -> dict:
+def _run_heart(
+    candidate_row: dict[str, Any],
+    *,
+    council_review: Callable[[dict[str, Any], dict[str, Any]], CouncilRecord] | None,
+) -> dict[str, Any]:
     """HEART's clearance persisted as gate_id='G5'. `council_review` is
     `adversary.review` (injected so promotion.py never imports adversary.py
     at module scope and vice versa isn't required -- kept as a parameter
@@ -606,7 +648,11 @@ def _run_heart(candidate_row: dict, *, council_review) -> dict:
     return {"outcome": "pass", "reasons": [], "evidence": {"packet_id": record.packet_id}}
 
 
-def _run_g3(candidate_row: dict, *, soc_deliver) -> dict:
+def _run_g3(
+    candidate_row: dict[str, Any],
+    *,
+    soc_deliver: Callable[[dict[str, Any]], SOCDeliveryReceipt] | None,
+) -> dict[str, Any]:
     if soc_deliver is None:
         raise GateInfrastructureError("no soc_deliver callable supplied for G3")
     receipt = soc_deliver(candidate_row)
@@ -629,7 +675,9 @@ def _run_g3(candidate_row: dict, *, soc_deliver) -> dict:
 # ── promote() / kill() ──────────────────────────────────────────────────
 
 
-def promote(store: Store, candidate_id: str, *, operator_actor: str, note: str = "") -> dict:
+def promote(
+    store: Store, candidate_id: str, *, operator_actor: str, note: str = ""
+) -> dict[str, Any]:
     """I-7 `promote(candidate_id, operator_actor, note) -> Promotion`.
     Operator-only; DB-enforced (candidates trigger requires the full gate
     chain, and this function itself refuses a non-operator actor before

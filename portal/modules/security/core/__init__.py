@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import time
+from typing import Any
 
 import httpx
 
@@ -34,7 +35,7 @@ def _idle_timeout(workspace: str) -> float:
     return PER_WORKSPACE_TIMEOUT.get(workspace, min(REQUEST_TIMEOUT, 120.0))
 
 
-def call_pipeline(workspace: str, prompt: str, **kwargs) -> tuple[str, float]:
+def call_pipeline(workspace: str, prompt: str, **kwargs: Any) -> tuple[str, float]:
     """Call a pipeline workspace and return (response_text, elapsed_seconds).
 
     Streams the response (stream=true) and applies a per-chunk idle timeout
@@ -88,7 +89,9 @@ def call_pipeline(workspace: str, prompt: str, **kwargs) -> tuple[str, float]:
     return f"[error: {last_exc}]", time.monotonic() - t0
 
 
-def call_pipeline_exec(workspace: str, prompt: str, **kwargs) -> tuple[str, list, float]:
+def call_pipeline_exec(
+    workspace: str, prompt: str, **kwargs: Any
+) -> tuple[str, list[dict[str, Any]], float]:
     """Call a pipeline workspace with tools enabled, return (content, tool_calls, elapsed).
 
     Sends exec_audit=true — the pipeline dispatches tool calls itself and emits
@@ -104,7 +107,7 @@ def call_pipeline_exec(workspace: str, prompt: str, **kwargs) -> tuple[str, list
     for candidate in _candidate_urls():
         try:
             parts: list[str] = []
-            tool_calls: list[dict] = []
+            tool_calls: list[dict[str, Any]] = []
             timeout = httpx.Timeout(idle_timeout, connect=5.0, write=10.0, pool=10.0)
             with httpx.stream(
                 "POST",
@@ -156,7 +159,7 @@ def call_pipeline_exec(workspace: str, prompt: str, **kwargs) -> tuple[str, list
     return f"[error: {last_exc}]", [], time.monotonic() - t0
 
 
-def call_theory_direct(model: str, prompt: str, **kwargs) -> tuple[str, float]:
+def call_theory_direct(model: str, prompt: str, **kwargs: Any) -> tuple[str, float]:
     """Call Ollama directly for theory scoring, return (content, elapsed)."""
     import os
 
@@ -200,7 +203,7 @@ from ._data import (  # noqa: F401, E402
     REQUEST_TIMEOUT,
     RESULTS_DIR,
 )
-from .cli import main  # noqa: F401, E402
+from .cli import main as main  # noqa: F401, E402
 from .scoring import (  # noqa: F401, E402
     score_execution,
     score_handoff_quality,

@@ -23,10 +23,13 @@ shift by ``0.25 * (d - incumbent_reference)`` relative to the frozen values.
 from __future__ import annotations
 
 import math
+from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
 from typing import Any
 
 from . import cousin_engine
+
+Vector = Sequence[float]
 
 # Frozen thresholds calibrated on the incumbent (harrier, symmetric) space.
 FROZEN_THRESHOLDS = dict(cousin_engine.DEFAULT_THRESHOLDS)
@@ -59,8 +62,8 @@ def _p95(values: list[float]) -> float:
 
 def measure_distances(
     *,
-    embed_fn,
-    query_embed_fn=None,
+    embed_fn: Callable[[list[str]], Sequence[Vector]],
+    query_embed_fn: Callable[[list[str]], Sequence[Vector]] | None = None,
     texts: list[str],
     near_pairs: list[tuple[int, int]] | None = None,
     far_pairs: list[tuple[int, int]] | None = None,

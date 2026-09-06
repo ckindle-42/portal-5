@@ -10,11 +10,14 @@ hermetic (no network), so tests never require a live pipeline.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from . import rank
 
-ModelTurn = Callable[[Any, dict, list, list], dict | None]
+ModelTurn = Callable[
+    [Any, dict[str, Any], list[dict[str, Any]], list[Any]],
+    dict[str, Any] | None,
+]
 
 _NO_APPLICABLE: dict[str, Any] = {
     "action": None,
@@ -29,20 +32,21 @@ _NO_APPLICABLE: dict[str, Any] = {
 }
 
 
-def _attempted_actions(history: list[dict]) -> set[str]:
+def _attempted_actions(history: list[dict[str, Any]]) -> set[str]:
     """Read action ids from both platform-loop and direct decision histories."""
     attempted: set[str] = set()
     for entry in history:
         if not isinstance(entry, dict):
             continue
-        decision = entry.get("decision") if isinstance(entry.get("decision"), dict) else entry
+        raw = entry.get("decision")
+        decision = cast(dict[str, Any], raw) if isinstance(raw, dict) else entry
         action = decision.get("action") or decision.get("tool")
         if isinstance(action, str) and action:
             attempted.add(action)
     return attempted
 
 
-def _select_capability(candidates: list[Any], history: list[dict]) -> tuple[Any, str]:
+def _select_capability(candidates: list[Any], history: list[dict[str, Any]]) -> tuple[Any, str]:
     """Choose capability progression before ranking tools within that capability."""
     attempted = _attempted_actions(history)
     unattempted = [cap for cap in candidates if cap.id not in attempted]
@@ -71,11 +75,11 @@ def _select_capability(candidates: list[Any], history: list[dict]) -> tuple[Any,
 def decide_next_action(
     goal: Any,
     observations: dict[str, Any],
-    history: list[dict],
+    history: list[dict[str, Any]],
     *,
     provider: Any,
     model_turn: ModelTurn | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """One decide step. Retrieves grounded candidates via `provider.query`
     (narrowed by goal.intent first, then observations+domain alone), then
     chooses one next action. The model turn is quality-only and never
@@ -90,7 +94,7 @@ def decide_next_action(
     if not candidates:
         return dict(_NO_APPLICABLE)
 
-    decision = None
+    decision: dict[str, Any] | None = None
     if model_turn is not None:
         decision = model_turn(goal, observations, history, candidates)
 
@@ -103,8 +107,8 @@ def decide_next_action(
 def _decide_via_deterministic_fallback(
     observations: dict[str, Any],
     candidates: list[Any],
-    history: list[dict],
-) -> dict:
+    history: list[dict[str, Any]],
+) -> dict[str, Any]:
     top, progression_reason = _select_capability(candidates, history)
     available_tools = sorted(top.tools)
     if not available_tools:

@@ -194,7 +194,7 @@ def resolve_entities(
     # link ACROSS kinds (user<->ip, user<->host, host<->ip); same-kind co-occurrence
     # (two IPs, two users) is peers or delegation, never an alias -- linking it
     # fabricates identity and is the classic false-stitch.
-    def _kind(v):
+    def _kind(v: str) -> str:
         return identity_core(v)[0]
 
     for pair in cooccur:

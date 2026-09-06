@@ -16,10 +16,12 @@ Port: 8920 (MEMORY_MCP_PORT env override).
 
 import logging
 import os
+from collections.abc import Awaitable, Callable
 
 import lancedb
 from mcp.server import MCPServer
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
 from portal.platform.memory.graph_memory import (
@@ -31,6 +33,15 @@ from portal.platform.memory.graph_memory import (
 logger = logging.getLogger(__name__)
 mcp = MCPServer("memory")
 
+# MCPServer.custom_route() has no return annotation upstream (mcp SDK), so mypy
+# sees its decorator result as Any and flags every routed handler with
+# untyped-decorator. Bind the concrete decorator type once so handlers keep
+# their annotations.
+_route: Callable[
+    ...,
+    Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+] = mcp.custom_route
+
 
 def _stored_count() -> int:
     db = lancedb.connect(LANCE_DIR)
@@ -39,8 +50,8 @@ def _stored_count() -> int:
     return len(db.open_table(MEMORY_TABLE))
 
 
-@mcp.custom_route("/health", methods=["GET"])
-async def health(request):
+@_route("/health", methods=["GET"])
+async def health(request: Request) -> JSONResponse:
     try:
         from portal.platform.memory.graph_memory import graph_stats
 
@@ -65,8 +76,8 @@ async def health(request):
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_memory_mcp")
 
 
-@mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request):
+@_route("/tools", methods=["GET"])
+async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse(TOOLS_MANIFEST)
 
 
@@ -74,7 +85,7 @@ async def list_tools(request):
 register_memory_routes(mcp)
 
 
-def main():
+def main() -> None:
     port = int(os.environ.get("MEMORY_MCP_PORT", "8920"))
     mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
 

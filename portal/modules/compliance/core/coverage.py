@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 from portal.modules.compliance.core.applicability import AssetScope, applicable
 from portal.modules.compliance.core.cip_register import Register, RegisterNode
@@ -58,7 +59,7 @@ _COVERAGE = ("FULL", "PARTIAL", "NONE", "NOT_APPLICABLE", "NEEDS_REVIEW", "UNRES
 # what a proposer returns per side: [{"document_id", "section_id", "span",
 # "locatable": bool}]  — `locatable` is True only when a deterministic checker
 # re-found `span` verbatim in the cited document.
-ProposeFn = Callable[[RegisterNode, str], list[dict]]
+ProposeFn = Callable[[RegisterNode, str], list[dict[str, Any]]]
 
 
 class ProposalError(RuntimeError):
@@ -74,19 +75,19 @@ class CoverageCell:
     requirement_id: str
     applies: bool
     applicability_reason: str
-    policy_spans: list[dict] = field(default_factory=list)
-    procedure_spans: list[dict] = field(default_factory=list)
-    evidence_spans: list[dict] = field(default_factory=list)
+    policy_spans: list[dict[str, Any]] = field(default_factory=list)
+    procedure_spans: list[dict[str, Any]] = field(default_factory=list)
+    evidence_spans: list[dict[str, Any]] = field(default_factory=list)
     coverage: str = "NEEDS_REVIEW"
     from_approved_mapping: bool = False
     approved_mapping_ids: list[str] = field(default_factory=list)
     substantively_resolved: bool = False
-    conflicts: list[dict] = field(default_factory=list)
+    conflicts: list[dict[str, Any]] = field(default_factory=list)
     stale_citations: list[str] = field(default_factory=list)
     note: str = ""
-    retrieval_errors: list[dict] = field(default_factory=list)
+    retrieval_errors: list[dict[str, Any]] = field(default_factory=list)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "requirement_id": self.requirement_id,
             "applies": self.applies,
@@ -105,7 +106,7 @@ class CoverageCell:
         }
 
 
-def _qualified(spans: list[dict]) -> list[dict]:
+def _qualified(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """A span whose source location is verified AND whose relevance is
     confidently established (P1.1) — never certified by a relevance score
     alone. Falls back to the legacy ``locatable`` field for pre-P1 fixtures
@@ -125,7 +126,9 @@ _locatable = _qualified
 
 
 def _classify(
-    policy: list[dict], procedure: list[dict], evidence: list[dict]
+    policy: list[dict[str, Any]],
+    procedure: list[dict[str, Any]],
+    evidence: list[dict[str, Any]],
 ) -> tuple[str, bool, str]:
     """(coverage token, substantively_resolved, note).
 
@@ -162,7 +165,7 @@ class CoverageMatrix:
     scope_declared: bool
     cells: list[CoverageCell] = field(default_factory=list)
 
-    def summary(self) -> dict:
+    def summary(self) -> dict[str, Any]:
         applicable_cells = [c for c in self.cells if c.applies]
         resolved = [c for c in applicable_cells if c.substantively_resolved]
         by_cov: dict[str, int] = dict.fromkeys(_COVERAGE, 0)
@@ -191,7 +194,7 @@ class CoverageMatrix:
         }
 
 
-def _skip_node(node, has_parts: set) -> bool:
+def _skip_node(node: RegisterNode, has_parts: set[tuple[str, str]]) -> bool:
     """An R-level node is skipped when its R has obligation-bearing Parts (they
     carry the judgement); a CIP-003 R1 topic-leaf Part is skipped because it is a
     policy topic label, not an obligation (R1 stays the unit of coverage)."""
@@ -216,7 +219,7 @@ def _propose_cell(cell: CoverageCell, node: RegisterNode, propose: ProposeFn) ->
     return True
 
 
-def _mapping_endpoint_resolves(mapping: Mapping, sidecar: dict) -> bool:
+def _mapping_endpoint_resolves(mapping: Mapping, sidecar: dict[str, Any]) -> bool:
     """Deterministic endpoint check (P1.3/F04): a mapping is only trustworthy
     if the document it names is actually present in the current ingested
     corpus. Approving a relationship to a document that was later removed, or
@@ -224,7 +227,9 @@ def _mapping_endpoint_resolves(mapping: Mapping, sidecar: dict) -> bool:
     return mapping.internal_document_id in sidecar
 
 
-def _apply_approved_mappings(cell: CoverageCell, approved: list[Mapping], sidecar: dict) -> None:
+def _apply_approved_mappings(
+    cell: CoverageCell, approved: list[Mapping], sidecar: dict[str, Any]
+) -> None:
     """P1.3/F04: an approved mapping is authoritative over MODEL judgement,
     but it is not a bypass of assessment by lookup order. Collect ALL
     applicable approved mappings (not just the first), verify each endpoint
@@ -267,7 +272,7 @@ def coverage_matrix(
     effective_on: str,
     propose: ProposeFn,
     store: MappingStore | None = None,
-    document_sidecar: dict | None = None,
+    document_sidecar: dict[str, Any] | None = None,
 ) -> CoverageMatrix:
     """Enumerate applicable EFFECTIVE parts and classify each. ``propose(node,
     side)`` with side in {"policy","procedure","evidence"} returns candidate

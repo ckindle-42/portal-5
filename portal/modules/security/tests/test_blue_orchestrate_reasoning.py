@@ -3,19 +3,32 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
+from typing import Any
+
+import pytest
 
 from portal.modules.security.core import blue_orchestrate as bo
+from portal.modules.security.core.analyst_verdict import SectionOutput
 
 
-def _fake_call_model(content: str):
-    def _fn(model, messages, tools=None, max_tokens=2000, extra_options=None):
+def _fake_call_model(content: str) -> Callable[..., dict[str, Any]]:
+    def _fn(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         assert tools is None  # Hunter requests data, it doesn't fetch (tools off)
         return {"content": content}
 
     return _fn
 
 
-def test_similar_grade_yields_similar_to_and_steers_anomalous(monkeypatch):
+def test_similar_grade_yields_similar_to_and_steers_anomalous(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     content = json.dumps(
         {
             "technique_ids": ["T1558.099"],
@@ -34,7 +47,7 @@ def test_similar_grade_yields_similar_to_and_steers_anomalous(monkeypatch):
     assert out.section == "reasoning"
 
 
-def test_think_wrapped_hypothesis_parses(monkeypatch):
+def test_think_wrapped_hypothesis_parses(monkeypatch: pytest.MonkeyPatch) -> None:
     content = (
         "<think>let me consider the evidence carefully, checking each event...</think>"
         + json.dumps(
@@ -55,7 +68,9 @@ def test_think_wrapped_hypothesis_parses(monkeypatch):
     assert "<think>" not in out.raw or out.raw == content  # raw keeps original; parse strips
 
 
-def test_insufficient_evidence_emits_request_more_not_a_guess(monkeypatch):
+def test_insufficient_evidence_emits_request_more_not_a_guess(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     content = json.dumps(
         {
             "technique_ids": [],
@@ -73,7 +88,9 @@ def test_insufficient_evidence_emits_request_more_not_a_guess(monkeypatch):
     assert "dc01" in out.request_more
 
 
-def test_unparseable_free_text_falls_back_to_request_more_never_guesses(monkeypatch):
+def test_unparseable_free_text_falls_back_to_request_more_never_guesses(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         bo,
         "_call_model",
@@ -85,8 +102,8 @@ def test_unparseable_free_text_falls_back_to_request_more_never_guesses(monkeypa
     assert not out.technique_ids
 
 
-def test_dry_run_never_calls_model(monkeypatch):
-    def _boom(*a, **kw):
+def test_dry_run_never_calls_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _boom(*a: object, **kw: object) -> None:
         raise AssertionError("dry_run must not call the model")
 
     monkeypatch.setattr(bo, "_call_model", _boom)
@@ -94,12 +111,12 @@ def test_dry_run_never_calls_model(monkeypatch):
     assert out.wants_more()
 
 
-def test_strip_think_tags_removes_scratchpad():
+def test_strip_think_tags_removes_scratchpad() -> None:
     text = "<think>internal musing</think>final answer here"
     assert bo._strip_think_tags(text) == "final answer here"
 
 
-def test_format_for_reasoning_uses_open_discovery_prompt_no_checklist():
+def test_format_for_reasoning_uses_open_discovery_prompt_no_checklist() -> None:
     from portal.modules.security.core.blue import _BLUE_SYSTEM_PROMPT_DISCOVERY
 
     ctx = bo.format_for_reasoning([], "an alert fired")
@@ -108,7 +125,7 @@ def test_format_for_reasoning_uses_open_discovery_prompt_no_checklist():
     assert "Step 1" not in ctx and "you MUST follow" not in ctx
 
 
-def test_run_similarity_similar_grade_carries_named_technique():
+def test_run_similarity_similar_grade_carries_named_technique() -> None:
     features = {"tactic": "credential-access", "process_names": ["klist", "tgtdeleg"]}
     wiki = {"T1558.003": "kerberoast service ticket request tgtdeleg klist unusual"}
     out = bo.run_similarity(features, wiki_descriptions=wiki)
@@ -117,7 +134,7 @@ def test_run_similarity_similar_grade_carries_named_technique():
         assert out["similar_to"] == ["T1558.003"]
 
 
-def test_run_similarity_no_overlap_returns_none_grade():
+def test_run_similarity_no_overlap_returns_none_grade() -> None:
     out = bo.run_similarity(
         {"tactic": "zzz"}, wiki_descriptions={"T9999": "totally unrelated text"}
     )
@@ -134,7 +151,9 @@ def test_run_similarity_no_overlap_returns_none_grade():
 # computation, rather than trusting whatever the model claimed.
 
 
-def test_ground_similarity_overrides_unverified_self_report_with_grounded_grade(monkeypatch):
+def test_ground_similarity_overrides_unverified_self_report_with_grounded_grade(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         bo,
         "_wiki_technique_descriptions_cache",
@@ -149,7 +168,7 @@ def test_ground_similarity_overrides_unverified_self_report_with_grounded_grade(
     ]
     # Model self-reported EXACT/NONE with no similar_to at all — should be
     # overridden by the grounded SIMILAR/EXACT computation from real overlap.
-    out = bo.SectionOutput(
+    out = SectionOutput(
         verdict="ANOMALOUS_UNCLASSIFIED",
         technique_ids=[],
         match_grade="NONE",
@@ -165,7 +184,9 @@ def test_ground_similarity_overrides_unverified_self_report_with_grounded_grade(
     assert grounded.section == "reasoning"
 
 
-def test_ground_similarity_corrects_a_claimed_similarity_that_does_not_hold_up(monkeypatch):
+def test_ground_similarity_corrects_a_claimed_similarity_that_does_not_hold_up(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """The model claims SIMILAR to a specific technique, but the actual
     gathered telemetry has zero overlap with any wiki description — the
     unverified claim must not stand (never-invent extended to similarity)."""
@@ -177,7 +198,7 @@ def test_ground_similarity_corrects_a_claimed_similarity_that_does_not_hold_up(m
     tool_results = [
         bo.ToolResult(query="q1", provenance="empty", raw_summary="no matching events found")
     ]
-    out = bo.SectionOutput(
+    out = SectionOutput(
         verdict="ANOMALOUS_UNCLASSIFIED",
         match_grade="SIMILAR",
         similar_to=["T1558.003"],
@@ -188,23 +209,23 @@ def test_ground_similarity_corrects_a_claimed_similarity_that_does_not_hold_up(m
     assert grounded.similar_to == []
 
 
-def test_ground_similarity_skips_when_no_tool_results_gathered_yet():
+def test_ground_similarity_skips_when_no_tool_results_gathered_yet() -> None:
     """Nothing retrieved yet — not enough to ground against either way, so
     leave the (still-provisional) self-report alone rather than force NONE."""
-    out = bo.SectionOutput(verdict=None, match_grade="SIMILAR", similar_to=["T1558.003"])
+    out = SectionOutput(verdict=None, match_grade="SIMILAR", similar_to=["T1558.003"])
     grounded = bo._ground_similarity(out, [])
     assert grounded is out
 
 
-def test_ground_similarity_skips_when_wiki_not_seeded(monkeypatch):
+def test_ground_similarity_skips_when_wiki_not_seeded(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(bo, "_wiki_technique_descriptions_cache", {})
     tool_results = [bo.ToolResult(query="q1", provenance="matched-exact", raw_summary="anything")]
-    out = bo.SectionOutput(match_grade="SIMILAR", similar_to=["T1558.003"])
+    out = SectionOutput(match_grade="SIMILAR", similar_to=["T1558.003"])
     grounded = bo._ground_similarity(out, tool_results)
     assert grounded is out
 
 
-def test_format_new_evidence_renders_only_the_given_results_not_a_full_pile():
+def test_format_new_evidence_renders_only_the_given_results_not_a_full_pile() -> None:
     """Regression: the delta renderer must not re-render trigger/discovery
     framing (that's already in the Hunter's conversation history) — only
     the new evidence itself, keeping context growth linear across rounds."""
@@ -217,25 +238,31 @@ def test_format_new_evidence_renders_only_the_given_results_not_a_full_pile():
     assert _BLUE_SYSTEM_PROMPT_DISCOVERY not in ctx
 
 
-def test_format_new_evidence_empty_list_still_produces_valid_prompt():
+def test_format_new_evidence_empty_list_still_produces_valid_prompt() -> None:
     ctx = bo.format_new_evidence([])
     assert "no new telemetry" in ctx.lower()
 
 
-def test_run_reasoning_model_passes_history_into_messages(monkeypatch):
+def test_run_reasoning_model_passes_history_into_messages(monkeypatch: pytest.MonkeyPatch) -> None:
     """Regression: found live 2026-07-18 — run_reasoning_model rebuilt a
     fresh system+user pair every call with zero memory of its own prior
     turns, so every hunt-loop round was a cold re-derivation instead of
     genuine iterative refinement. `history` must be threaded into the
     actual message list sent to the model."""
-    seen_messages = []
+    seen_messages: list[dict[str, Any]] = []
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         seen_messages.extend(messages)
         return {"content": json.dumps({"request_more": "still need X", "technique_ids": []})}
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
-    prior_history = [
+    prior_history: list[dict[str, str]] = [
         {"role": "user", "content": "round 1 context"},
         {"role": "assistant", "content": "round 1 reply"},
     ]
@@ -246,12 +273,18 @@ def test_run_reasoning_model_passes_history_into_messages(monkeypatch):
     assert seen_messages[3] == {"role": "user", "content": "round 2 context"}
 
 
-def test_run_reasoning_model_without_history_is_unchanged(monkeypatch):
+def test_run_reasoning_model_without_history_is_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
     """Backward compat: omitting `history` (existing callers, isolated
     probes) must produce the same single-turn message shape as before."""
-    seen_messages = []
+    seen_messages: list[dict[str, Any]] = []
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         seen_messages.extend(messages)
         return {"content": json.dumps({"request_more": "x", "technique_ids": []})}
 
@@ -262,7 +295,7 @@ def test_run_reasoning_model_without_history_is_unchanged(monkeypatch):
     assert seen_messages[1] == {"role": "user", "content": "ctx"}
 
 
-def test_bias_tool_schemas_narrows_to_windows_events_on_event_id_mention():
+def test_bias_tool_schemas_narrows_to_windows_events_on_event_id_mention() -> None:
     """Regression: found live 2026-07-18 — a Hunter request naming Event ID
     4769 by name still let the tool model pick query_network_traffic, a
     plausible-sounding but wrong tool, returning a useless generic summary
@@ -278,7 +311,7 @@ def test_bias_tool_schemas_narrows_to_windows_events_on_event_id_mention():
     assert [t["function"]["name"] for t in narrowed] == ["query_windows_events"]
 
 
-def test_bias_tool_schemas_unbiased_request_keeps_all_tools():
+def test_bias_tool_schemas_unbiased_request_keeps_all_tools() -> None:
     tools = [
         {"function": {"name": "query_splunk"}},
         {"function": {"name": "query_web_logs"}},
@@ -287,7 +320,7 @@ def test_bias_tool_schemas_unbiased_request_keeps_all_tools():
     assert unchanged == tools
 
 
-def test_bias_tool_schemas_falls_back_when_windows_tool_not_offered():
+def test_bias_tool_schemas_falls_back_when_windows_tool_not_offered() -> None:
     tools = [{"function": {"name": "query_splunk"}}]
     result = bo._bias_tool_schemas("Event ID 4769", tools)
     assert result == tools

@@ -45,18 +45,18 @@ def _red_loop_source() -> str:
     return inspect.getsource(blue_modes.run_chain_models)
 
 
-def test_all_scenarios_loop_starts_and_stops_network_capture():
+def test_all_scenarios_loop_starts_and_stops_network_capture() -> None:
     src = _red_loop_source()
     assert "start_network_capture(episode_id" in src
     assert "stop_network_capture(network_capture)" in src
 
 
-def test_all_scenarios_loop_uses_new_episode_id():
+def test_all_scenarios_loop_uses_new_episode_id() -> None:
     src = _red_loop_source()
     assert "new_episode_id(sc[" in src
 
 
-def test_collect_and_ship_receives_episode_and_pcap_evidence():
+def test_collect_and_ship_receives_episode_and_pcap_evidence() -> None:
     """The telemetry-collection call in the red-only loop must actually pass
     through what start_network_capture produced -- having the capture start/
     stop without wiring its output into collection would be the same class

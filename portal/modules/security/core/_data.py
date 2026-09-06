@@ -34,65 +34,61 @@ _BENCH_DIR = str(Path(__file__).resolve().parents[4] / "tests" / "benchmarks")
 if _BENCH_DIR not in sys.path:
     sys.path.insert(0, _BENCH_DIR)
 
+
 # Optional lab exec import — only available when SANDBOX_LAB_EXEC=true + lab env is up
+def _load_lab_hosts_config() -> dict[str, str]:
+    """config/lab_targets.yaml's `lab_hosts:` block — single source of truth.
+    Returns {} on any failure so the literals below remain a last-resort
+    default, never a silent hard dependency."""
+    try:
+        import yaml
+
+        cfg_path = Path(__file__).resolve().parents[4] / "config" / "lab_targets.yaml"
+        doc = yaml.safe_load(cfg_path.read_text())
+        hosts = (doc or {}).get("lab_hosts") or {}
+        return {k: str(v) for k, v in hosts.items()}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
 try:
     from bench_lab_exec import (
-        ADMIN_PASS as _LAB_ADMIN_PASS,
+        ADMIN_PASS,
+        DC,
+        DOMAIN,
+        LAB_META3,
+        SRV,
+        SVC_BACKUP_PASS,
+        WEB,
+        _mcp_call,
     )
     from bench_lab_exec import (
-        DC as _LAB_DC,
-    )
-    from bench_lab_exec import (
-        DOMAIN as _LAB_DOMAIN,
-    )
-    from bench_lab_exec import (
-        LAB_META3 as _LAB_META3,
-    )
-    from bench_lab_exec import (
-        SRV as _LAB_SRV,
-    )
-    from bench_lab_exec import (
-        SVC_BACKUP_PASS as _LAB_SVC_PASS,
-    )
-    from bench_lab_exec import (
-        WEB as _LAB_WEB,
-    )
-    from bench_lab_exec import (  # type: ignore[import]
-        _mcp_call as _lab_mcp_call,
-    )
-    from bench_lab_exec import (
-        _proxmox_mcp_call,
+        _proxmox_mcp_call as _bench_proxmox_call,
     )
 
     _LAB_EXEC_AVAILABLE = True
+    _LAB_DC: str = DC
+    _LAB_SRV: str = SRV
+    _LAB_WEB: str = WEB
+    _LAB_META3: str = LAB_META3
+    _LAB_DOMAIN: str = DOMAIN
+    _LAB_ADMIN_PASS: str = ADMIN_PASS
+    _LAB_SVC_PASS: str = SVC_BACKUP_PASS
+    _lab_mcp_call = _mcp_call
+    _proxmox_mcp_call = _bench_proxmox_call
 except ImportError as _exc:
     _log.debug("bench_lab_exec not available (%s) — using synthetic defaults", _exc)
     _LAB_EXEC_AVAILABLE = False
-
-    def _load_lab_hosts_config() -> dict[str, str]:
-        """config/lab_targets.yaml's `lab_hosts:` block — single source of truth.
-        Returns {} on any failure so the literals below remain a last-resort
-        default, never a silent hard dependency."""
-        try:
-            import yaml
-
-            cfg_path = Path(__file__).resolve().parents[4] / "config" / "lab_targets.yaml"
-            doc = yaml.safe_load(cfg_path.read_text())
-            hosts = (doc or {}).get("lab_hosts") or {}
-            return {k: str(v) for k, v in hosts.items()}
-        except Exception:  # noqa: BLE001
-            return {}
-
     _lab_hosts_cfg = _load_lab_hosts_config()
-    _LAB_DC: str = _lab_hosts_cfg.get("dc", "10.10.11.21")
-    _LAB_SRV: str = _lab_hosts_cfg.get("srv", "10.10.11.33")
-    _LAB_WEB: str = _lab_hosts_cfg.get("web", "10.10.11.50")
-    _LAB_META3: str = _lab_hosts_cfg.get("meta3", "10.10.11.13")
-    _LAB_DOMAIN: str = _lab_hosts_cfg.get("domain", "portal.lab")
-    _LAB_ADMIN_PASS: str = "LabAdmin1!"
-    _LAB_SVC_PASS: str = "Backup123!"
-    _lab_mcp_call = None  # type: ignore[assignment]
-    _proxmox_mcp_call = None  # type: ignore[assignment]
+    _LAB_DC = _lab_hosts_cfg.get("dc", "10.10.11.21")
+    _LAB_SRV = _lab_hosts_cfg.get("srv", "10.10.11.33")
+    _LAB_WEB = _lab_hosts_cfg.get("web", "10.10.11.50")
+    _LAB_META3 = _lab_hosts_cfg.get("meta3", "10.10.11.13")
+    _LAB_DOMAIN = _lab_hosts_cfg.get("domain", "portal.lab")
+    _LAB_ADMIN_PASS = "LabAdmin1!"
+    _LAB_SVC_PASS = "Backup123!"
+    _lab_mcp_call = None
+    _proxmox_mcp_call = None
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[4]
 if str(_PROJECT_ROOT) not in sys.path:
@@ -100,10 +96,12 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 
 try:
-    from tests.benchmarks.bench.notify import _send_bench_notification
+    from tests.benchmarks.bench.notify import (
+        _send_bench_notification as _send_bench_notification,
+    )
 except ImportError:
 
-    def _send_bench_notification(message: str, title: str = "Portal 5 Bench") -> None:  # type: ignore[misc]
+    def _send_bench_notification(message: str, title: str = "Portal 5 Bench") -> None:
         pass
 
 
@@ -171,7 +169,9 @@ def _load_workspace_model_hints() -> dict[str, str]:
                     _WORKSPACE_TO_MODEL_HINT[ws_id] = hint
         except Exception:
             pass
-    return _WORKSPACE_TO_MODEL_HINT
+    ws_hint = _WORKSPACE_TO_MODEL_HINT
+    assert ws_hint is not None
+    return ws_hint
 
 
 def resolve_pipeline_model(model: str) -> str:
@@ -255,7 +255,7 @@ _LAB_CLEAN_SNAPSHOT = _env("LAB_CLEAN_SNAPSHOT", "baseline-ad")
 _LAB_PROBE_BEFORE = _env("LAB_PROBE_BEFORE").lower() == "true"
 
 # ── Blue active response tools (deployed via sandbox MCP to lab) ──────────────
-_BLUE_ACTIVE_TOOLS: list[dict] = load_data("config/security", "_data_blue_active_tools")
+_BLUE_ACTIVE_TOOLS: list[dict[str, Any]] = load_data("config/security", "_data_blue_active_tools")
 
 # ── Lab service probe map ─────────────────────────────────────────────────────
 # Service → (port, probe command, output keyword expected if service exists)
@@ -304,7 +304,7 @@ PROMPTS: dict[str, dict[str, Any]] = load_data("config/security", "prompts")  # 
 # either (a) keyword found in tool call arguments [method match] OR (b) output_keyword
 # found in sandbox output [result match]. This implements result-based scoring:
 # the objective achieved is what counts, not the path taken.
-EXEC_SEQUENCES: dict[str, list[dict]] = load_data("config/security", "exec_sequences")  # noqa: E501
+EXEC_SEQUENCES: dict[str, list[dict[str, Any]]] = load_data("config/security", "exec_sequences")  # noqa: E501
 
 
 # Merge exec_sequences into PROMPTS entries at import time

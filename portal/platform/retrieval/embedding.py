@@ -12,6 +12,7 @@ from __future__ import annotations
 import contextlib
 import os
 import time
+from typing import Any, cast
 
 import httpx
 
@@ -19,7 +20,7 @@ VL_URL = os.environ.get("VL_RETRIEVAL_URL", "http://localhost:8942")
 VL_DIM = int(os.environ.get("VL_EMBEDDING_DIM", "2048"))
 VL_EMBED_MAX_ITEMS = max(1, int(os.environ.get("VL_EMBED_MAX_ITEMS", "24")))
 
-_MODEL_ID_CACHE: dict = {"value": None, "at": 0.0}
+_MODEL_ID_CACHE: dict[str, Any] = {"value": None, "at": 0.0}
 _MODEL_ID_TTL = float(os.environ.get("VL_MODEL_ID_TTL", "300"))
 
 
@@ -48,7 +49,7 @@ async def vl_model_id() -> tuple[str, int]:
     reason."""
     now = time.time()
     if _MODEL_ID_CACHE["value"] and now - _MODEL_ID_CACHE["at"] < _MODEL_ID_TTL:
-        return _MODEL_ID_CACHE["value"]
+        return cast(tuple[str, int], _MODEL_ID_CACHE["value"])
     try:
         async with httpx.AsyncClient(timeout=60) as c:
             r = await c.get(f"{VL_URL}/health")
@@ -61,7 +62,7 @@ async def vl_model_id() -> tuple[str, int]:
     return val
 
 
-async def vl_embed_batch(items: list[dict]) -> list[list[float]]:
+async def vl_embed_batch(items: list[dict[str, Any]]) -> list[list[float]]:
     """items: list of {text?, image_path?, is_query?}. Instruction is applied
     server-side for is_query items only; chunk/page items carry none."""
     if not items:
@@ -87,8 +88,10 @@ async def vl_embed_batch(items: list[dict]) -> list[list[float]]:
     return vecs
 
 
-async def vl_embed(text: str | None = None, image_path: str | None = None, is_query: bool = False):
-    item: dict = {"is_query": is_query}
+async def vl_embed(
+    text: str | None = None, image_path: str | None = None, is_query: bool = False
+) -> list[float]:
+    item: dict[str, Any] = {"is_query": is_query}
     if text:
         item["text"] = text
     if image_path:
@@ -96,7 +99,9 @@ async def vl_embed(text: str | None = None, image_path: str | None = None, is_qu
     return (await vl_embed_batch([item]))[0]
 
 
-async def vl_rerank(query: str, candidates: list, top_n: int) -> list:
+async def vl_rerank(
+    query: str, candidates: list[dict[str, Any]], top_n: int
+) -> list[dict[str, Any]]:
     """candidates: list of {text?, image_path?}. One call; the server chunks it
     at VL_RERANK_CHUNK. Returns [{index, score}] ordered best-first."""
     try:
@@ -106,6 +111,6 @@ async def vl_rerank(query: str, candidates: list, top_n: int) -> list:
                 json={"query": {"text": query}, "documents": candidates, "top_n": top_n},
             )
             r.raise_for_status()
-            return r.json()["results"]
+            return cast(list[dict[str, Any]], r.json()["results"])
     except httpx.HTTPError as e:
         raise vl_error(e) from e

@@ -5,8 +5,10 @@ Monkeypatches must target bench_security.intake (the module where the
 functions are actually defined) rather than the chain re-export shim.
 """
 
+import pytest
 
-def test_run_candidate_intake_dry_run():
+
+def test_run_candidate_intake_dry_run() -> None:
     from portal.modules.security.core.chain import run_candidate_intake
 
     results = run_candidate_intake(["fake/model-a", "fake/model-b"], dry_run=True)
@@ -15,7 +17,7 @@ def test_run_candidate_intake_dry_run():
     assert all(r["skip_reason"] is None for r in results)
 
 
-def test_run_candidate_intake_pull_fail(monkeypatch):
+def test_run_candidate_intake_pull_fail(monkeypatch: pytest.MonkeyPatch) -> None:
     from portal.modules.security.core import intake as _intake
     from portal.modules.security.core.chain import run_candidate_intake
 
@@ -27,7 +29,7 @@ def test_run_candidate_intake_pull_fail(monkeypatch):
     assert "pull failed" in results[0]["skip_reason"]
 
 
-def test_run_candidate_intake_tps_below_floor(monkeypatch):
+def test_run_candidate_intake_tps_below_floor(monkeypatch: pytest.MonkeyPatch) -> None:
     from portal.modules.security.core import intake as _intake
     from portal.modules.security.core.chain import run_candidate_intake
 
@@ -51,7 +53,7 @@ def test_run_candidate_intake_tps_below_floor(monkeypatch):
     assert "below floor" in results[0]["skip_reason"]
 
 
-def test_run_candidate_intake_tool_fail(monkeypatch):
+def test_run_candidate_intake_tool_fail(monkeypatch: pytest.MonkeyPatch) -> None:
     from portal.modules.security.core import intake as _intake
     from portal.modules.security.core.chain import run_candidate_intake
 
@@ -80,7 +82,7 @@ def test_run_candidate_intake_tool_fail(monkeypatch):
     assert "tool probe" in results[0]["skip_reason"]
 
 
-def test_run_candidate_intake_all_pass(monkeypatch):
+def test_run_candidate_intake_all_pass(monkeypatch: pytest.MonkeyPatch) -> None:
     from portal.modules.security.core import intake as _intake
     from portal.modules.security.core.chain import run_candidate_intake
 
@@ -109,13 +111,13 @@ def test_run_candidate_intake_all_pass(monkeypatch):
     assert all(r["skip_reason"] is None for r in results)
 
 
-def test_tps_floor_constant():
+def test_tps_floor_constant() -> None:
     from portal.modules.security.core.chain import TPS_FLOOR
 
     assert TPS_FLOOR == 20.0
 
 
-def test_pull_timeout_constant():
+def test_pull_timeout_constant() -> None:
     from portal.modules.security.core.chain import PULL_TIMEOUT_S
 
     assert PULL_TIMEOUT_S == 900.0

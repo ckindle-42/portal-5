@@ -31,7 +31,7 @@ from portal.modules.security.core.investigation.agents import (
 class TestDataStructures:
     """Hypothesis, Finding, InvestigationState have correct shapes."""
 
-    def test_hypothesis_to_dict(self):
+    def test_hypothesis_to_dict(self) -> None:
         h = Hypothesis(
             hypothesis_id="hyp-001",
             technique_ids=["T1558.003"],
@@ -44,7 +44,7 @@ class TestDataStructures:
         assert d["hypothesis_id"] == "hyp-001"
         json.dumps(d)
 
-    def test_finding_to_dict(self):
+    def test_finding_to_dict(self) -> None:
         f = Finding(
             finding_id="find-001",
             hypothesis_id="hyp-001",
@@ -57,13 +57,13 @@ class TestDataStructures:
         assert d["finding_id"] == "find-001"
         json.dumps(d)
 
-    def test_investigation_state_to_dict(self):
+    def test_investigation_state_to_dict(self) -> None:
         state = InvestigationState(case_id="case-001", alert_text="test alert")
         d = state.to_dict()
         assert d["case_id"] == "case-001"
         json.dumps(d)
 
-    def test_agent_result_to_dict(self):
+    def test_agent_result_to_dict(self) -> None:
         r = AgentResult(agent_id="A1", action="plan", output={"test": True})
         d = r.to_dict()
         assert d["agent_id"] == "A1"
@@ -76,13 +76,13 @@ class TestDataStructures:
 class TestInvestigationGraph:
     """Investigation graph orchestrates A1-A5."""
 
-    def test_graph_creation(self):
+    def test_graph_creation(self) -> None:
         state = InvestigationState(case_id="case-001")
         graph = InvestigationGraph(state=state)
         assert graph.state.case_id == "case-001"
         assert graph.history == []
 
-    def test_planner_runs(self):
+    def test_planner_runs(self) -> None:
         state = InvestigationState(case_id="case-001")
         graph = InvestigationGraph(state=state)
         result = graph.run_planner("Suspicious Kerberos activity")
@@ -90,7 +90,7 @@ class TestInvestigationGraph:
         assert result.action == "plan"
         assert len(graph.history) == 1
 
-    def test_evidence_acquirer_runs(self):
+    def test_evidence_acquirer_runs(self) -> None:
         state = InvestigationState(
             case_id="case-001",
             hypotheses=[Hypothesis(hyp_id, ["T1190"], "test") for hyp_id in ["hyp-001"]],
@@ -100,13 +100,13 @@ class TestInvestigationGraph:
         assert result.agent_id == "A2"
         assert state.budget_remaining == 99
 
-    def test_analyst_runs(self):
+    def test_analyst_runs(self) -> None:
         state = InvestigationState(case_id="case-001")
         graph = InvestigationGraph(state=state)
         result = graph.run_analyst([])
         assert result.agent_id == "A3"
 
-    def test_challenger_runs(self):
+    def test_challenger_runs(self) -> None:
         state = InvestigationState(case_id="case-001")
         graph = InvestigationGraph(state=state)
         result = graph.run_challenger([])
@@ -114,14 +114,14 @@ class TestInvestigationGraph:
         assert result.output["verdict"] == "accept"
         assert state.debate_rounds == 1
 
-    def test_reporter_runs(self):
+    def test_reporter_runs(self) -> None:
         state = InvestigationState(case_id="case-001")
         graph = InvestigationGraph(state=state)
         result = graph.run_reporter([])
         assert result.agent_id == "A5"
         assert result.output["all_citations_valid"] is True
 
-    def test_reporter_flags_unsubstantiated(self):
+    def test_reporter_flags_unsubstantiated(self) -> None:
         f = Finding(
             finding_id="f-001",
             hypothesis_id="h-001",
@@ -143,7 +143,7 @@ class TestInvestigationGraph:
 class TestFullPipeline:
     """Full investigation pipeline: A1 → A2 → A3 → A4 → A5."""
 
-    def test_full_pipeline_completes(self):
+    def test_full_pipeline_completes(self) -> None:
         state = InvestigationState(
             case_id="case-001",
             hypotheses=[
@@ -160,7 +160,7 @@ class TestFullPipeline:
         assert result["status"] == "completed"
         assert len(graph.history) >= 5  # at least A1-A5
 
-    def test_challenger_always_runs(self):
+    def test_challenger_always_runs(self) -> None:
         """No path bypasses A4."""
         state = InvestigationState(case_id="case-001")
         graph = InvestigationGraph(state=state)
@@ -168,7 +168,7 @@ class TestFullPipeline:
         agent_ids = [h.agent_id for h in graph.history]
         assert "A4" in agent_ids
 
-    def test_budget_decrements(self):
+    def test_budget_decrements(self) -> None:
         state = InvestigationState(
             case_id="case-001",
             hypotheses=[Hypothesis(f"hyp-{i}", ["T1190"], f"test {i}") for i in range(5)],
@@ -186,7 +186,7 @@ class TestFullPipeline:
 class TestChallengerChecklist:
     """A4 runs an explicit checklist, not free-form disagreement."""
 
-    def test_checklist_has_four_items(self):
+    def test_checklist_has_four_items(self) -> None:
         state = InvestigationState(case_id="case-001")
         graph = InvestigationGraph(state=state)
         result = graph.run_challenger([])
@@ -196,7 +196,7 @@ class TestChallengerChecklist:
         assert "evidence_quality" in checklist
         assert "independent_severity" in checklist
 
-    def test_checklist_default_pass(self):
+    def test_checklist_default_pass(self) -> None:
         state = InvestigationState(case_id="case-001")
         graph = InvestigationGraph(state=state)
         result = graph.run_challenger([])

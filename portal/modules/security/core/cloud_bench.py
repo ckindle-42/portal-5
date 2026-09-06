@@ -3,8 +3,10 @@
 Portal has no cloud lane — yet cloud is where most real environments live.
 """
 
+from typing import Any
 
-def bench_cloud_scan(target: str, *, dry_run: bool = False) -> dict:
+
+def bench_cloud_scan(target: str, *, dry_run: bool = False) -> dict[str, Any]:
     """Run a cloud security scan against a target."""
     if dry_run:
         return {"status": "dry_run", "target": target, "tools": ["awscli", "kubectl", "trivy"]}

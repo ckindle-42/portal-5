@@ -11,6 +11,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from typing import Any, cast
 
 import httpx
 
@@ -45,7 +46,10 @@ def _call_pipeline(
                 },
                 timeout=timeout,
             )
-            return r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+            return cast(
+                str,
+                r.json().get("choices", [{}])[0].get("message", {}).get("content", ""),
+            )
         except Exception:
             continue
     return "[error: pipeline unreachable]"
@@ -63,7 +67,7 @@ def _resolve_ws_variant(raw: str) -> tuple[str, str | None]:
     return _unpack_synthetic_workspace(raw)
 
 
-def validate_usecase(usecase: dict, *, dry_run: bool = False) -> dict:
+def validate_usecase(usecase: dict[str, Any], *, dry_run: bool = False) -> dict[str, Any]:
     """Run a validation use-case against vulnerable + hardened twin.
 
     usecase keys:

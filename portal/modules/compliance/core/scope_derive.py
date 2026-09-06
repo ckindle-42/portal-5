@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import re
 import time
+from typing import Any
 
 from portal.modules.compliance.core import review_queue as rq
 from portal.modules.compliance.core.applicability import AssetScope, parse_applicable_systems
@@ -29,7 +30,7 @@ _SETTLING_DOC = "the entity's CIP-002 R1 BES Cyber System identification and cat
 _IMPACT_CUE = re.compile(r"\b(high|medium|low)\s+impact\b", re.I)
 
 
-def derive_scope(kb_id: str = "operator_corpus") -> tuple[AssetScope, dict]:
+def derive_scope(kb_id: str = "operator_corpus") -> tuple[AssetScope, dict[str, Any]]:
     """Union declared impact ratings and associated types across every
     ingested span that names an impact-rating applicability statement.
     Honest failure: if the corpus does not declare scope, names the document
@@ -46,7 +47,7 @@ def derive_scope(kb_id: str = "operator_corpus") -> tuple[AssetScope, dict]:
 
     impacts: set[str] = set()
     associated: set[str] = set()
-    evidence: list[dict] = []
+    evidence: list[dict[str, Any]] = []
     for row in ttbl.to_pandas().to_dict("records"):
         text = row.get("text", "") or ""
         if not _IMPACT_CUE.search(text):

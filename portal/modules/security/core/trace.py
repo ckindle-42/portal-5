@@ -6,7 +6,7 @@ existing shapes — consumers can migrate at their own pace.
 
 from __future__ import annotations
 
-from typing import Literal, NotRequired, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict
 
 
 class SecurityRunTrace(TypedDict, total=False):
@@ -31,7 +31,7 @@ class SecurityRunTrace(TypedDict, total=False):
     correlation_summary: NotRequired[dict[str, str]]  # {technique_id: reason_code}
 
     # Reason-code lifecycle (purple only)
-    reason_code_transitions: NotRequired[list[dict]]
+    reason_code_transitions: NotRequired[list[dict[str, Any]]]
 
 
 def make_trace(
@@ -41,8 +41,8 @@ def make_trace(
     model: str,
     duration_s: float,
     _calls: dict[str, int],
-    **kwargs,
-) -> dict:
+    **kwargs: Any,
+) -> dict[str, Any]:
     """Build a trace dict conforming to SecurityRunTrace.
 
     Extra kwargs allowed (schema is additive).

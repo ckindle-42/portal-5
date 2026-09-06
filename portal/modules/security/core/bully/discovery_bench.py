@@ -20,11 +20,13 @@ import hashlib
 import json
 import random
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from . import cousin_engine, signatures
+from .contracts import CousinAssessment
 from .cousin_calibration_bench import (
     MAX_DEGENERATE_RETRIEVAL_RATE,
     ReadOnlyKnnSnapshot,
@@ -82,9 +84,9 @@ def analyst_snapshot_specimens(snapshot: dict[str, Any]) -> list[dict[str, Any]]
     """Extract the distinct specimens from an ANALYST_CORPUS snapshot
     (deduplicated on canonical text) for the discovery lane (SA5.7)."""
     if "distinct_specimens" in snapshot and isinstance(snapshot.get("distinct_specimens"), list):
-        return snapshot["distinct_specimens"]
+        return cast(list[dict[str, Any]], snapshot["distinct_specimens"])
     if isinstance(snapshot.get("specimens"), list):
-        return snapshot["specimens"]
+        return cast(list[dict[str, Any]], snapshot["specimens"])
     raise ValueError("unsupported analyst snapshot shape: no distinct_specimens/specimens")
 
 
@@ -215,7 +217,7 @@ def grade_real_pair(
     assessment = cousin_engine.grade(signature, candidates, coverage)
 
     candidate_records = [item["record"] for item in candidates.candidates]
-    selected = next(
+    selected: dict[str, Any] = next(
         (r for r in candidate_records if _record_id(r) == assessment.reference_signature_id), {}
     )
     reference_specimen = index_by_id.get(assessment.reference_signature_id or "")
@@ -294,7 +296,7 @@ def run_real_pairs(
 
 def classify_identity_failure(
     probe: dict[str, Any],
-    assessment: cousin_engine.CousinAssessment,
+    assessment: CousinAssessment,
     *,
     same_max_distance: float,
     canonical_text_by_id: dict[str, str],
@@ -786,7 +788,7 @@ def run_discovery_bench(
     output_dir: Path | None = None,
     thresholds: dict[str, float] | None = None,
     canonical_text_by_id: dict[str, str] | None = None,
-    probe_selector=real_probe_specimens,
+    probe_selector: Callable[[dict[str, Any]], list[dict[str, Any]]] = real_probe_specimens,
     identity_gate: str = "hard",
     knn_batch_size: int = 32,
     max_probes: int | None = None,

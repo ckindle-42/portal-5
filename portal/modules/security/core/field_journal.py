@@ -25,7 +25,7 @@ def _sorted_entries() -> list[Path]:
     )
 
 
-def write_entry(entry: dict) -> Path:
+def write_entry(entry: dict[str, Any]) -> Path:
     """Write an engagement journal entry.
 
     Entry schema (record only observed facts):
@@ -62,7 +62,7 @@ def rebuild_index() -> Path:
     JOURNAL_DIR.mkdir(parents=True, exist_ok=True)
     entries = _sorted_entries()
     by_category: dict[str, list[str]] = {}
-    all_pitfalls: list[dict] = []
+    all_pitfalls: list[dict[str, Any]] = []
     outcomes = {"goal_met": 0, "partial": 0, "failed": 0}
 
     for p in entries:
@@ -92,14 +92,16 @@ def rebuild_index() -> Path:
     return out_path
 
 
-def recall(scenario_category: str, keywords: list[str] | None = None, limit: int = 5) -> list[dict]:
+def recall(
+    scenario_category: str, keywords: list[str] | None = None, limit: int = 5
+) -> list[dict[str, Any]]:
     """Return prior entries matching category/keywords, most-relevant first.
 
     Relevance = number of keyword matches across the entry.
     """
     if keywords is None:
         keywords = []
-    scored: list[tuple[int, dict]] = []
+    scored: list[tuple[int, dict[str, Any]]] = []
     for p in _sorted_entries():
         try:
             data = json.loads(p.read_text())
@@ -116,8 +118,8 @@ def recall(scenario_category: str, keywords: list[str] | None = None, limit: int
 
 
 def record_engagement(
-    chain_result: dict,
-    scenario: dict | None = None,
+    chain_result: dict[str, Any],
+    scenario: dict[str, Any] | None = None,
     engagement_id: str = "",
 ) -> Path | None:
     """Map a completed exec-chain/loop result into the entry schema and write it.
@@ -150,9 +152,9 @@ def record_engagement(
         return None
 
 
-def _extract_exec_chain(chain_result: dict) -> list[dict]:
+def _extract_exec_chain(chain_result: dict[str, Any]) -> list[dict[str, Any]]:
     """Extract tool-call + observation pairs from a chain result."""
-    chain: list[dict] = []
+    chain: list[dict[str, Any]] = []
     for tc in chain_result.get("tools_called", []):
         if isinstance(tc, str):
             chain.append({"step": tc, "tool": tc})
@@ -168,9 +170,9 @@ def _extract_exec_chain(chain_result: dict) -> list[dict]:
     return chain
 
 
-def _extract_pitfalls(chain_result: dict) -> list[dict]:
+def _extract_pitfalls(chain_result: dict[str, Any]) -> list[dict[str, Any]]:
     """Extract failure/pitfall patterns from a chain result."""
-    pitfalls: list[dict] = []
+    pitfalls: list[dict[str, Any]] = []
     errors = chain_result.get("errors", [])
     for err in errors:
         pitfalls.append(
@@ -183,9 +185,9 @@ def _extract_pitfalls(chain_result: dict) -> list[dict]:
     return pitfalls
 
 
-def _extract_reusable(chain_result: dict) -> list[dict]:
+def _extract_reusable(chain_result: dict[str, Any]) -> list[dict[str, Any]]:
     """Extract reusable patterns from successful steps."""
-    reusable: list[dict] = []
+    reusable: list[dict[str, Any]] = []
     for tc in chain_result.get("successful_tools", chain_result.get("tools_called", [])):
         snippet = ""
         if isinstance(tc, dict):
@@ -200,7 +202,7 @@ def _extract_reusable(chain_result: dict) -> list[dict]:
     return reusable[:10]
 
 
-def _derive_outcome(chain_result: dict) -> str:
+def _derive_outcome(chain_result: dict[str, Any]) -> str:
     """Derive outcome from chain result signals."""
     if chain_result.get("compromise_confirmed") or chain_result.get("verified"):
         return "goal_met"

@@ -22,9 +22,9 @@ class LoopResult:
     outcome: str  # completed | blocked | budget_exhausted | invalid_goal | flagged_for_human
     iterations: int
     observations: dict[str, Any]
-    trajectory: list[dict] = field(default_factory=list)
+    trajectory: list[dict[str, Any]] = field(default_factory=list)
     reason: str = ""
-    flagged: list[dict] = field(default_factory=list)
+    flagged: list[dict[str, Any]] = field(default_factory=list)
 
 
 def run_loop(
@@ -46,8 +46,8 @@ def run_loop(
         )
 
     obs: dict[str, Any] = dict(observations or {})
-    history: list[dict] = []
-    flagged: list[dict] = []
+    history: list[dict[str, Any]] = []
+    flagged: list[dict[str, Any]] = []
     budget = goal.budget
     max_iters = int(budget.get("max_iterations", 0))
     max_wall = float(budget.get("max_wall_clock_sec", 0))
@@ -89,7 +89,7 @@ def run_loop(
     return LoopResult("budget_exhausted", i, obs, history, "max_iterations reached", flagged)
 
 
-def _stop_satisfied(stop_when: list[dict] | None, observations: dict[str, Any]) -> bool:
+def _stop_satisfied(stop_when: list[dict[str, Any]] | None, observations: dict[str, Any]) -> bool:
     if not stop_when:
         return False
     for cond in stop_when:

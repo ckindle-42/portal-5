@@ -9,6 +9,7 @@ PROVEN — the same rule episode.py enforces per-run, lifted to the trajectory.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from portal.modules.security.core.objective_oracles import OBJECTIVE_CLASS_ORACLE
 from portal.modules.security.core.oracles import ORACLES
@@ -38,7 +39,7 @@ class TrajectoryVerdict:
     steps: list[StepRecord] = field(default_factory=list)
 
 
-def _objective_reached(objective_class: str, observations: dict) -> bool:
+def _objective_reached(objective_class: str, observations: dict[str, Any]) -> bool:
     """Path-independent: verified only by an objective-state oracle vs lab state."""
     oracle_id = OBJECTIVE_CLASS_ORACLE.get(objective_class)
     if oracle_id is None:
@@ -52,7 +53,7 @@ def _objective_reached(objective_class: str, observations: dict) -> bool:
 def score_trajectory(
     objective_class: str,
     steps: list[StepRecord],
-    final_observations: dict,
+    final_observations: dict[str, Any],
 ) -> TrajectoryVerdict:
     """Deterministic trajectory verdict.
 

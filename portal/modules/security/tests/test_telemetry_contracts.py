@@ -35,16 +35,16 @@ from portal.modules.security.core.telemetry import (
 class TestProtocolUnification:
     """Only ONE canonical TelemetryBackend protocol exists."""
 
-    def test_telemetry_module_has_protocol(self):
+    def test_telemetry_module_has_protocol(self) -> None:
         assert hasattr(TelemetryBackend, "query")
 
-    def test_blue_backends_satisfy_protocol(self):
+    def test_blue_backends_satisfy_protocol(self) -> None:
         from portal.modules.security.core.blue import SplunkBackend, WinEventBackend
 
         assert isinstance(WinEventBackend(), TelemetryBackend)
         assert isinstance(SplunkBackend(), TelemetryBackend)
 
-    def test_blue_does_not_define_own_protocol(self):
+    def test_blue_does_not_define_own_protocol(self) -> None:
         """blue.py should import TelemetryBackend from telemetry, not define its own."""
         import inspect
 
@@ -56,7 +56,7 @@ class TestProtocolUnification:
             "blue.py still defines its own TelemetryBackend Protocol"
         )
 
-    def test_matrix_does_not_define_own_protocol(self):
+    def test_matrix_does_not_define_own_protocol(self) -> None:
         """matrix.py should import TelemetryBackend from telemetry, not define its own."""
         import inspect
 
@@ -67,7 +67,7 @@ class TestProtocolUnification:
             "matrix.py still defines its own TelemetryBackend"
         )
 
-    def test_only_one_telemetry_backend_class_in_bench_security(self):
+    def test_only_one_telemetry_backend_class_in_bench_security(self) -> None:
         """There should be exactly one TelemetryBackend class definition across
         all .py files in bench_security/."""
         import inspect
@@ -88,14 +88,14 @@ class TestProtocolUnification:
 class TestTelemetryContract:
     """Contract describes a telemetry source."""
 
-    def test_contract_has_required_fields(self):
+    def test_contract_has_required_fields(self) -> None:
         c = CONTRACT_SPLUNK_WEB
         assert c.id == "splunk-web"
         assert c.platform == "splunk"
         assert c.channel == "web:access"
         assert c.backend_name == "splunk"
 
-    def test_contract_to_dict_is_json_safe(self):
+    def test_contract_to_dict_is_json_safe(self) -> None:
         import json
 
         d = CONTRACT_SPLUNK_WEB.to_dict()
@@ -103,27 +103,27 @@ class TestTelemetryContract:
         assert "id" in d
         assert "platform" in d
 
-    def test_winevent_ad_contract(self):
+    def test_winevent_ad_contract(self) -> None:
         c = CONTRACT_WINEVENT_AD
         assert c.platform == "winevent"
         assert c.signal.get("event_codes")  # non-empty
 
-    def test_wazuh_contract_exists(self):
+    def test_wazuh_contract_exists(self) -> None:
         c = CONTRACT_WAZUH
         assert c.platform == "wazuh"
 
-    def test_contract_registry_has_all_three(self):
+    def test_contract_registry_has_all_three(self) -> None:
         assert len(CONTRACTS) == 3
         assert "splunk-web" in CONTRACTS
         assert "winevent-ad" in CONTRACTS
         assert "wazuh-alerts" in CONTRACTS
 
-    def test_get_contract_by_id(self):
+    def test_get_contract_by_id(self) -> None:
         c = get_contract("splunk-web")
         assert c is not None
         assert c.id == "splunk-web"
 
-    def test_get_contract_returns_none_for_unknown(self):
+    def test_get_contract_returns_none_for_unknown(self) -> None:
         assert get_contract("nonexistent") is None
 
 
@@ -133,17 +133,17 @@ class TestTelemetryContract:
 class TestContractDispatch:
     """contract_for_technique routes to the right contract by target."""
 
-    def test_ad_targets_get_winevent_contract(self):
+    def test_ad_targets_get_winevent_contract(self) -> None:
         for target in ["dc01", "srv01", "lab-dc01", "meta3", "lab-srv01"]:
             c = contract_for_technique("T1558.003", target)
             assert c.id == "winevent-ad", f"{target} should get winevent-ad"
 
-    def test_web_targets_get_splunk_contract(self):
+    def test_web_targets_get_splunk_contract(self) -> None:
         for target in ["vulhub", "10.10.11.50", "mbptl", "web-host"]:
             c = contract_for_technique("T1190", target)
             assert c.id == "splunk-web", f"{target} should get splunk-web"
 
-    def test_no_target_defaults_to_splunk(self):
+    def test_no_target_defaults_to_splunk(self) -> None:
         c = contract_for_technique("T1190", None)
         assert c.id == "splunk-web"
 
@@ -154,7 +154,7 @@ class TestContractDispatch:
 class TestTelemetryHealth:
     """TelemetryHealth pre-check: dead source → reason code, not silent skip."""
 
-    def test_healthy_source_returns_observed(self):
+    def test_healthy_source_returns_observed(self) -> None:
         backend = MagicMock(spec=TelemetryBackend)
         backend.name = "test"
         backend.query.return_value = {
@@ -167,7 +167,7 @@ class TestTelemetryHealth:
         assert result.reason_code == "TELEMETRY_OBSERVED"
         assert result.contract_id == "splunk-web"
 
-    def test_empty_telemetry_returns_not_configured(self):
+    def test_empty_telemetry_returns_not_configured(self) -> None:
         backend = MagicMock(spec=TelemetryBackend)
         backend.name = "test"
         backend.query.return_value = {
@@ -179,7 +179,7 @@ class TestTelemetryHealth:
         assert result.healthy is False
         assert result.reason_code == "TELEMETRY_NOT_CONFIGURED"
 
-    def test_synthetic_fallback_returns_not_configured(self):
+    def test_synthetic_fallback_returns_not_configured(self) -> None:
         backend = MagicMock(spec=TelemetryBackend)
         backend.name = "test"
         backend.query.return_value = {
@@ -191,7 +191,7 @@ class TestTelemetryHealth:
         assert result.healthy is False
         assert result.reason_code == "TELEMETRY_NOT_CONFIGURED"
 
-    def test_backend_exception_returns_collection_failed(self):
+    def test_backend_exception_returns_collection_failed(self) -> None:
         backend = MagicMock(spec=TelemetryBackend)
         backend.name = "test"
         backend.query.side_effect = ConnectionError("splunk unreachable")
@@ -200,7 +200,7 @@ class TestTelemetryHealth:
         assert result.reason_code == "TELEMETRY_COLLECTION_FAILED"
         assert "backend.query raised" in result.detail
 
-    def test_health_result_to_dict(self):
+    def test_health_result_to_dict(self) -> None:
         backend = MagicMock(spec=TelemetryBackend)
         backend.name = "test"
         backend.query.return_value = {"telemetry": "data", "source": "live", "backend": "test"}
@@ -213,7 +213,7 @@ class TestTelemetryHealth:
 
         json.dumps(d)  # JSON-safe
 
-    def test_health_result_has_timestamp(self):
+    def test_health_result_has_timestamp(self) -> None:
         backend = MagicMock(spec=TelemetryBackend)
         backend.name = "test"
         backend.query.return_value = {"telemetry": "data", "source": "live", "backend": "test"}

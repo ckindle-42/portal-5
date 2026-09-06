@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import time
 from collections.abc import Callable, Mapping
-from typing import Any
+from typing import Any, cast
 from urllib.request import Request, urlopen
 
 from .connectors import QUERY_IN_PLACE_MODE, NativeQuery, QueryIntent, QueryResult
@@ -18,7 +18,7 @@ CISA_KEV_LICENCE = "CISA KEV public feed"
 def fetch_cisa_kev(url: str = CISA_KEV_URL) -> dict[str, Any]:
     request = Request(url, headers={"User-Agent": "portal5-bully-sa7/1.0"})
     with urlopen(request, timeout=30) as response:  # noqa: S310 - URL is an explicit feed input
-        return json.loads(response.read().decode("utf-8"))
+        return cast(dict[str, Any], json.loads(response.read().decode("utf-8")))
 
 
 def _advisory_record(

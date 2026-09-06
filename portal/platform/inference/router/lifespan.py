@@ -13,6 +13,7 @@ import os
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
 import httpx
 from fastapi import FastAPI
@@ -46,8 +47,8 @@ _startup_time = time.time()
 # Mutable module-level singletons — set by lifespan, used by routes
 _http_client: httpx.AsyncClient | None = None
 registry: BackendRegistry | None = None
-_health_task: asyncio.Task | None = None
-_state_save_task: asyncio.Task | None = None
+_health_task: asyncio.Task[Any] | None = None
+_state_save_task: asyncio.Task[Any] | None = None
 _notification_dispatcher = None  # type annotation deferred to TYPE_CHECKING
 _notification_scheduler = None
 

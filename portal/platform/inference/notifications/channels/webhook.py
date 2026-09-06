@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -43,7 +43,7 @@ class WebhookChannel(NotificationChannel):
                 logger.warning("WebhookChannel: WEBHOOK_HEADERS is not valid JSON — ignoring")
         return headers
 
-    async def _post(self, body: dict) -> None:
+    async def _post(self, body: dict[str, Any]) -> None:
         headers = self._get_headers()
         timeout = 10.0
         if self._client is not None:

@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
+
+import pytest
 
 from portal.modules.security.core._config import BenchConfig
 
 
-def test_replay_never_ships_counterfactual_transcript(tmp_path, monkeypatch):
+def test_replay_never_ships_counterfactual_transcript(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from portal.modules.security.core.siem import capture_store
 
     monkeypatch.setattr(capture_store, "CAPTURE_DIR", tmp_path)
@@ -23,13 +28,14 @@ def test_replay_never_ships_counterfactual_transcript(tmp_path, monkeypatch):
         counterfactual_telemetry={"transcript:command": ['{"command":"curl /answer-key-payload"}']},
         episode_id="ep-plane-test",
     )
+    assert path is not None
     saved = json.loads(Path(path).read_text())
     saved["validity"].update({"checked": True, "valid": True, "coverage": 1.0})
     Path(path).write_text(json.dumps(saved))
 
     shipped: list[tuple[str, list[str]]] = []
 
-    def _ship(events, *, sourcetype, **kwargs):
+    def _ship(events: list[str], *, sourcetype: str, **kwargs: Any) -> dict[str, Any]:
         shipped.append((sourcetype, events))
         return {"ok": True}
 
@@ -46,7 +52,7 @@ def test_replay_never_ships_counterfactual_transcript(tmp_path, monkeypatch):
     assert shipped == [("web:access", ["GET /observed HTTP/1.1 200"])]
 
 
-def test_legacy_unscoped_capture_is_not_replayable(tmp_path):
+def test_legacy_unscoped_capture_is_not_replayable(tmp_path: Path) -> None:
     from portal.modules.security.core.siem.capture_store import replay_capture
 
     path = tmp_path / "legacy.json"
@@ -64,7 +70,7 @@ def test_legacy_unscoped_capture_is_not_replayable(tmp_path):
     assert result["error"] == "LEGACY_CAPTURE_UNSCOPED"
 
 
-def test_hollow_episode_scoped_capture_is_not_replayable(tmp_path):
+def test_hollow_episode_scoped_capture_is_not_replayable(tmp_path: Path) -> None:
     from portal.modules.security.core.siem.capture_store import replay_capture
 
     path = tmp_path / "hollow.json"
@@ -85,7 +91,7 @@ def test_hollow_episode_scoped_capture_is_not_replayable(tmp_path):
     assert result["error"] == "CAPTURE_GROUND_TRUTH_INVALID"
 
 
-def test_known_scenario_revalidates_stale_stored_validity(tmp_path):
+def test_known_scenario_revalidates_stale_stored_validity(tmp_path: Path) -> None:
     from portal.modules.security.core.siem.capture_store import replay_capture
 
     path = tmp_path / "stale-validity.json"
@@ -106,7 +112,9 @@ def test_known_scenario_revalidates_stale_stored_validity(tmp_path):
     assert result["error"] == "CAPTURE_GROUND_TRUTH_INVALID"
 
 
-def test_replay_normalizes_stale_target_metadata(tmp_path, monkeypatch):
+def test_replay_normalizes_stale_target_metadata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from portal.modules.security.core.exec_chain import SCENARIOS
     from portal.modules.security.core.siem.capture_store import replay_capture
 
@@ -134,7 +142,7 @@ def test_replay_normalizes_stale_target_metadata(tmp_path, monkeypatch):
     )
     shipped_hosts: list[str] = []
 
-    def _ship(events, *, host, **kwargs):
+    def _ship(events: list[str], *, host: str, **kwargs: Any) -> dict[str, Any]:
         shipped_hosts.append(host)
         return {"ok": True}
 
@@ -150,7 +158,7 @@ def test_replay_normalizes_stale_target_metadata(tmp_path, monkeypatch):
     assert result["integrity_warnings"] == ["STALE_TARGET_METADATA:10.10.11.10->10.10.11.13"]
 
 
-def test_hec_indexes_origin_and_episode_fields():
+def test_hec_indexes_origin_and_episode_fields() -> None:
     from portal.modules.security.core.siem.hec_ship import ship
 
     result = ship(
@@ -167,7 +175,9 @@ def test_hec_indexes_origin_and_episode_fields():
     }
 
 
-def test_episode_query_recovers_origin_from_hec_source(monkeypatch):
+def test_episode_query_recovers_origin_from_hec_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from portal.modules.security.core.siem.spl_backend import SplunkBackend
 
     backend = SplunkBackend()
@@ -188,13 +198,15 @@ def test_episode_query_recovers_origin_from_hec_source(monkeypatch):
     assert result["origins"] == ["observed_packet"]
 
 
-def test_freeform_query_cannot_escape_episode_scope(monkeypatch):
+def test_freeform_query_cannot_escape_episode_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from portal.modules.security.core.siem.spl_backend import SplunkBackend
 
     backend = SplunkBackend()
     called = False
 
-    def _search(*args):
+    def _search(*args: Any) -> list[dict[str, Any]]:
         nonlocal called
         called = True
         return []
@@ -210,7 +222,9 @@ def test_freeform_query_cannot_escape_episode_scope(monkeypatch):
     assert called is False
 
 
-def test_bad_blue_query_is_a_grounded_miss_not_na(monkeypatch):
+def test_bad_blue_query_is_a_grounded_miss_not_na(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from portal.modules.security.core import blue
 
     monkeypatch.setattr(
@@ -255,7 +269,9 @@ def test_bad_blue_query_is_a_grounded_miss_not_na(monkeypatch):
     assert result["capability_verdict"] == "FAILED"
 
 
-def test_each_red_model_gets_an_isolated_blue_episode(monkeypatch):
+def test_each_red_model_gets_an_isolated_blue_episode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from portal.modules.security.core import blue, chain
 
     seen_blue: list[tuple[str, str]] = []
@@ -272,7 +288,7 @@ def test_each_red_model_gets_an_isolated_blue_episode(monkeypatch):
         },
     )
 
-    def _blue(model, scenario, **kwargs):
+    def _blue(model: str, scenario: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
         seen_blue.append((model, kwargs["episode_id"]))
         return {
             "model": model,
@@ -302,7 +318,7 @@ def test_each_red_model_gets_an_isolated_blue_episode(monkeypatch):
         },
     )
 
-    scenario = {
+    scenario: dict[str, Any] = {
         "name": "isolation-test",
         "detect_ground_truth": ["T1190"],
         "persistence_technique": "",

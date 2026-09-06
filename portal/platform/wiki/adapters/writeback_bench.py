@@ -5,6 +5,8 @@ Candidate-eval / multi-seat bench results write back as cited model-knowledge un
 
 from __future__ import annotations
 
+from typing import Any
+
 
 def writeback_bench_result(
     model: str,
@@ -14,7 +16,7 @@ def writeback_bench_result(
     result_path: str = "",
     *,
     auto_confirm: bool = False,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """Write a bench result back to the wiki as a cited model-knowledge unit.
 
     Args:

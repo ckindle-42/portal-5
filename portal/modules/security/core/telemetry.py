@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 # Evidence origin is a truth claim, not presentation metadata.  Only origins in
 # OBSERVED_EVIDENCE_ORIGINS may support production-adjacent detection credit.
@@ -77,7 +77,7 @@ class TelemetryBackend(Protocol):
 
     name: str
 
-    def query(self, technique_id: str, window: dict) -> dict:
+    def query(self, technique_id: str, window: dict[str, Any]) -> dict[str, Any]:
         """Query telemetry for a technique within a time window.
 
         Returns:
@@ -107,11 +107,11 @@ class TelemetryContract:
     backend_name: str  # matches TelemetryBackend.name
 
     # What the source needs to produce data
-    requirements: dict = field(default_factory=dict)
+    requirements: dict[str, Any] = field(default_factory=dict)
     # e.g. {"audit_policy": "ProcessCreation", "sourcetype": "web:access"}
 
     # What events/fields the detection library expects from this source
-    signal: dict = field(default_factory=dict)
+    signal: dict[str, Any] = field(default_factory=dict)
     # e.g. {"event_codes": [4688], "required_fields": ["EventCode", "NewProcessName"]}
 
     # Health check parameters
@@ -125,7 +125,7 @@ class TelemetryContract:
     # Provenance
     schema_version: int = 1
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """JSON-safe dict for embedding in evidence records."""
         return {
             "id": self.id,
@@ -152,7 +152,7 @@ class TelemetryHealthResult:
     checked_at: float = 0.0
     detail: str = ""
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "contract_id": self.contract_id,
             "healthy": self.healthy,
@@ -166,7 +166,7 @@ class TelemetryHealthResult:
 def check_source_health(
     contract: TelemetryContract,
     backend: TelemetryBackend,
-    window: dict | None = None,
+    window: dict[str, Any] | None = None,
 ) -> TelemetryHealthResult:
     """Pre-check that a telemetry source is actually flowing BEFORE a
     detection runs.

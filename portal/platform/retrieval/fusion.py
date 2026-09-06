@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Awaitable, Callable
+from typing import Any, cast
 
 RRF_K = 60
 
@@ -45,7 +46,7 @@ FUSION = os.environ.get("VL_FUSION", "text_gate")
 # Candidate depth for the TEXT arm under `unified`, as a multiple of top_k.
 UNIFIED_TEXT_DEPTH = float(os.environ.get("VL_UNIFIED_TEXT_DEPTH", "3"))
 
-RerankFn = Callable[[str, list, int], Awaitable[list]]
+RerankFn = Callable[[str, list[dict[str, Any]], int], Awaitable[list[dict[str, Any]]]]
 
 # SUBSTRATE_MIGRATION_V1 P2 — locator payload.
 #
@@ -66,7 +67,7 @@ _PTR_NOTE = (
 )
 
 
-def _text_payload(r: dict) -> dict:
+def _text_payload(r: dict[str, Any]) -> dict[str, Any]:
     return {
         "chunk_id": r["chunk_id"],
         "source_file": r["source_file"],
@@ -80,7 +81,7 @@ def _text_payload(r: dict) -> dict:
     }
 
 
-def _visual_payload(r: dict) -> dict:
+def _visual_payload(r: dict[str, Any]) -> dict[str, Any]:
     return {
         "chunk_id": r["chunk_id"],
         "source_file": r["source_file"],
@@ -111,7 +112,14 @@ def text_arm_is_unconfident(top_text_sim: float, text_margin: float) -> bool:
     return top_text_sim < VL_TEXT_GATE
 
 
-async def search_unified(ttbl, vtbl, query: str, qvec, top_k: int, vl_rerank: RerankFn) -> list:
+async def search_unified(
+    ttbl: Any,
+    vtbl: Any,
+    query: str,
+    qvec: list[float],
+    top_k: int,
+    vl_rerank: RerankFn,
+) -> list[dict[str, Any]]:
     """One cross-encoder pass over a mixed text+image candidate pool.
 
     Both arms contribute CANDIDATES only — their embedding ranks are used to
@@ -125,8 +133,8 @@ async def search_unified(ttbl, vtbl, query: str, qvec, top_k: int, vl_rerank: Re
     # path had been using (top_k*3) and cost recall upstream of any scoring.
     vdepth = max(1, round(VL_RERANK_DEPTH * top_k))
     tdepth = max(1, round(UNIFIED_TEXT_DEPTH * top_k))
-    cands: list[dict] = []
-    meta: list[dict] = []
+    cands: list[dict[str, Any]] = []
+    meta: list[dict[str, Any]] = []
 
     if ttbl is not None:
         for r in ttbl.search(qvec).limit(tdepth).to_list():
@@ -143,7 +151,7 @@ async def search_unified(ttbl, vtbl, query: str, qvec, top_k: int, vl_rerank: Re
     # The server returns these sorted, but the ranking is the whole product here
     # — sort explicitly rather than depend on a remote service's ordering.
     order = sorted(order, key=lambda o: -float(o["score"]))
-    out = []
+    out: list[dict[str, Any]] = []
     for o in order[:top_k]:
         m = dict(meta[o["index"]])
         prob = round(float(o["score"]), 5)
@@ -153,21 +161,31 @@ async def search_unified(ttbl, vtbl, query: str, qvec, top_k: int, vl_rerank: Re
     return out
 
 
-def _bm25_rows(ttbl, query: str, limit: int) -> list:
+def _bm25_rows(ttbl: Any, query: str, limit: int) -> list[dict[str, Any]]:
     """BM25 (full-text) hits for the text arm. Returns [] if the table has no
     FTS index or the query has no lexical content — the dense arm stands alone."""
     try:
-        return ttbl.search(query, query_type="fts").limit(limit).to_list()
+        return cast(
+            list[dict[str, Any]],
+            ttbl.search(query, query_type="fts").limit(limit).to_list(),
+        )
     except Exception:  # noqa: BLE001 — no fts index / empty query / backend quirk
         return []
 
 
-async def rrf_fuse(ttbl, vtbl, query: str, qvec, top_k: int, vl_rerank: RerankFn) -> list:
+async def rrf_fuse(
+    ttbl: Any,
+    vtbl: Any,
+    query: str,
+    qvec: list[float],
+    top_k: int,
+    vl_rerank: RerankFn,
+) -> list[dict[str, Any]]:
     """Text-chunk RRF + page-image rerank, fused, with the gated visual boost.
 
     Extracted verbatim from ``_search``'s non-``unified`` body."""
-    scores: dict = {}
-    payload: dict = {}
+    scores: dict[tuple[str, str], float] = {}
+    payload: dict[tuple[str, str], dict[str, Any]] = {}
     top_text_sim = 0.0
     text_margin = 0.0
     if ttbl is not None:
@@ -217,13 +235,13 @@ async def rrf_fuse(ttbl, vtbl, query: str, qvec, top_k: int, vl_rerank: RerankFn
 
 async def fuse(
     fusion_mode: str,
-    ttbl,
-    vtbl,
+    ttbl: Any,
+    vtbl: Any,
     query: str,
-    qvec,
+    qvec: list[float],
     top_k: int,
     vl_rerank: RerankFn,
-) -> list:
+) -> list[dict[str, Any]]:
     """Dispatch on the composition's fusion mode. ``rrf`` and ``text_gate`` share
     ``rrf_fuse`` — the difference is only whether ``text_arm_is_unconfident``
     ever fires, which ``VL_TEXT_GATE`` / ``VL_TEXT_GATE_MODE`` already control."""

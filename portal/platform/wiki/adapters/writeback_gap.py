@@ -6,6 +6,8 @@ updates the relevant wiki unit's coverage status.
 
 from __future__ import annotations
 
+from typing import Any
+
 
 def writeback_gap_resolution(
     technique_id: str,
@@ -13,7 +15,7 @@ def writeback_gap_resolution(
     episode_id: str = "",
     *,
     auto_confirm: bool = False,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """Write a gap resolution back to the wiki as an updated unit.
 
     Args:

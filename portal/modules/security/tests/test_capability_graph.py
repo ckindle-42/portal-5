@@ -37,18 +37,18 @@ from portal.modules.security.core.capability_graph import (
 class TestEntities:
     """Procedure, Detection, Gap have stable IDs and correct shapes."""
 
-    def test_procedure_is_hashable(self):
+    def test_procedure_is_hashable(self) -> None:
         p = Procedure("proc-test", "test", frozenset({"T1190"}))
         assert p.procedure_id == "proc-test"
         assert hash(p) is not None  # hashable
 
-    def test_detection_fields(self):
+    def test_detection_fields(self) -> None:
         d = Detection("det-T1190", "T1190", spl="search ...", description="web exploit")
         assert d.detection_id == "det-T1190"
         assert d.technique_id == "T1190"
         assert d.status == "active"
 
-    def test_gap_to_dict(self):
+    def test_gap_to_dict(self) -> None:
         g = Gap(
             gap_id="gap-test",
             procedure_id="proc-test",
@@ -73,7 +73,7 @@ class TestEntities:
 class TestGapClassification:
     """Gap classification is pure code over reason codes."""
 
-    def test_covered_when_red_landed_and_detected(self):
+    def test_covered_when_red_landed_and_detected(self) -> None:
         assert (
             classify_gap(
                 red_status="RED_LANDED",
@@ -83,7 +83,7 @@ class TestGapClassification:
             == "COVERED"
         )
 
-    def test_red_only_when_landed_no_detection(self):
+    def test_red_only_when_landed_no_detection(self) -> None:
         assert (
             classify_gap(
                 red_status="RED_LANDED",
@@ -93,7 +93,7 @@ class TestGapClassification:
             == "RED_ONLY"
         )
 
-    def test_red_only_when_detection_missing(self):
+    def test_red_only_when_detection_missing(self) -> None:
         assert (
             classify_gap(
                 red_status="RED_LANDED",
@@ -103,7 +103,7 @@ class TestGapClassification:
             == "RED_ONLY"
         )
 
-    def test_blue_only_when_detection_exists_but_not_exercised(self):
+    def test_blue_only_when_detection_exists_but_not_exercised(self) -> None:
         assert (
             classify_gap(
                 red_status="RED_NOT_RUN",
@@ -113,7 +113,7 @@ class TestGapClassification:
             == "BLUE_ONLY"
         )
 
-    def test_neither_when_no_red_no_detection(self):
+    def test_neither_when_no_red_no_detection(self) -> None:
         assert (
             classify_gap(
                 red_status="RED_NOT_RUN",
@@ -123,7 +123,7 @@ class TestGapClassification:
             == "NEITHER"
         )
 
-    def test_blocked_when_telemetry_failed(self):
+    def test_blocked_when_telemetry_failed(self) -> None:
         assert (
             classify_gap(
                 red_status="RED_LANDED",
@@ -133,7 +133,7 @@ class TestGapClassification:
             == "BLOCKED"
         )
 
-    def test_blocked_when_telemetry_not_indexed(self):
+    def test_blocked_when_telemetry_not_indexed(self) -> None:
         assert (
             classify_gap(
                 red_status="RED_LANDED",
@@ -143,7 +143,7 @@ class TestGapClassification:
             == "BLOCKED"
         )
 
-    def test_blocked_when_telemetry_not_configured(self):
+    def test_blocked_when_telemetry_not_configured(self) -> None:
         assert (
             classify_gap(
                 red_status="RED_LANDED",
@@ -153,7 +153,7 @@ class TestGapClassification:
             == "BLOCKED"
         )
 
-    def test_blocked_when_synthetic(self):
+    def test_blocked_when_synthetic(self) -> None:
         assert (
             classify_gap(
                 red_status="RED_LANDED",
@@ -164,7 +164,7 @@ class TestGapClassification:
             == "BLOCKED"
         )
 
-    def test_neither_when_red_failed(self):
+    def test_neither_when_red_failed(self) -> None:
         assert (
             classify_gap(
                 red_status="RED_EXECUTION_FAILED",
@@ -174,7 +174,7 @@ class TestGapClassification:
             == "NEITHER"
         )
 
-    def test_synthetic_never_covered(self):
+    def test_synthetic_never_covered(self) -> None:
         """HEADLINE: synthetic telemetry NEVER yields COVERED."""
         result = classify_gap(
             red_status="RED_LANDED",
@@ -185,7 +185,7 @@ class TestGapClassification:
         assert result != "COVERED", "Synthetic must NEVER yield COVERED"
         assert result == "BLOCKED"
 
-    def test_indeterminate_never_covered(self):
+    def test_indeterminate_never_covered(self) -> None:
         """Telemetry failure never yields COVERED."""
         for tel_status in ("TELEMETRY_COLLECTION_FAILED", "TELEMETRY_NOT_INDEXED"):
             result = classify_gap(
@@ -202,7 +202,7 @@ class TestGapClassification:
 class TestBuildGap:
     """build_gap creates correct Gap from procedure + episode data."""
 
-    def test_build_gap_with_episode(self):
+    def test_build_gap_with_episode(self) -> None:
         proc = Procedure("proc-test", "test", frozenset({"T1190"}))
         episode_data = {
             "red_status": "RED_LANDED",
@@ -217,7 +217,7 @@ class TestBuildGap:
         assert gap.technique_id == "T1190"
         assert "RED_LANDED" in gap.reason_codes
 
-    def test_build_gap_without_episode(self):
+    def test_build_gap_without_episode(self) -> None:
         proc = Procedure("proc-test", "test", frozenset({"T1190"}))
         gap = build_gap(proc, "T1190", None)
         assert gap.summary == "NEITHER"
@@ -230,7 +230,7 @@ class TestBuildGap:
 class TestCapabilityGraph:
     """Capability graph stores and queries procedures, detections, gaps."""
 
-    def test_add_and_query(self):
+    def test_add_and_query(self) -> None:
         graph = CapabilityGraph()
         proc = Procedure("proc-a", "scenario_a", frozenset({"T1190", "T1059"}))
         det = Detection("det-T1190", "T1190")
@@ -242,7 +242,7 @@ class TestCapabilityGraph:
         assert graph.techniques_exercised() == {"T1190", "T1059"}
         assert graph.techniques_detected() == {"T1190"}
 
-    def test_coverage_gaps_filter(self):
+    def test_coverage_gaps_filter(self) -> None:
         graph = CapabilityGraph()
         proc = Procedure("proc-a", "s", frozenset({"T1190"}))
         graph.add_procedure(proc)
@@ -253,7 +253,7 @@ class TestCapabilityGraph:
         assert len(gaps) == 1
         assert gaps[0].summary == "RED_ONLY"
 
-    def test_summary_counts(self):
+    def test_summary_counts(self) -> None:
         graph = CapabilityGraph()
         graph.add_gap(Gap("g1", "p", "T1", {}, "COVERED", []))
         graph.add_gap(Gap("g2", "p", "T2", {}, "RED_ONLY", []))
@@ -266,7 +266,7 @@ class TestCapabilityGraph:
         assert counts["BLOCKED"] == 1
         assert counts["NEITHER"] == 0
 
-    def test_to_dict_is_json_safe(self):
+    def test_to_dict_is_json_safe(self) -> None:
         graph = CapabilityGraph()
         graph.add_procedure(Procedure("p", "s", frozenset({"T1"})))
         d = graph.to_dict()
@@ -279,30 +279,30 @@ class TestCapabilityGraph:
 class TestGraphSeeding:
     """Graph seeds from existing SCENARIOS + spl_detections."""
 
-    def test_seed_graph_creates_procedures(self):
+    def test_seed_graph_creates_procedures(self) -> None:
         graph = seed_graph_from_assets()
         assert len(graph.procedures) > 0
         # Should have at least 50 scenarios
         assert len(graph.procedures) >= 50
 
-    def test_seed_graph_creates_detections(self):
+    def test_seed_graph_creates_detections(self) -> None:
         graph = seed_graph_from_assets()
         assert len(graph.detections) >= 29
 
-    def test_seed_graph_creates_gaps(self):
+    def test_seed_graph_creates_gaps(self) -> None:
         graph = seed_graph_from_assets()
         assert len(graph.gaps) > 0
         # All initial gaps should be NEITHER (no episodes yet)
         for gap in graph.gaps.values():
             assert gap.summary == "NEITHER"
 
-    def test_seed_graph_techniques_exercised(self):
+    def test_seed_graph_techniques_exercised(self) -> None:
         graph = seed_graph_from_assets()
         techniques = graph.techniques_exercised()
         assert "T1190" in techniques
         assert "T1558.003" in techniques
 
-    def test_seed_graph_techniques_detected(self):
+    def test_seed_graph_techniques_detected(self) -> None:
         graph = seed_graph_from_assets()
         detected = graph.techniques_detected()
         assert "T1190" in detected
@@ -315,7 +315,7 @@ class TestGraphSeeding:
 class TestGraphUpdate:
     """Graph updates correctly from episode outcomes."""
 
-    def test_update_marks_covered(self):
+    def test_update_marks_covered(self) -> None:
         graph = seed_graph_from_assets()
         episode = {
             "scenario": "web_sqli_dump",
@@ -331,7 +331,7 @@ class TestGraphUpdate:
         assert gap_id in graph.gaps
         assert graph.gaps[gap_id].summary == "COVERED"
 
-    def test_update_marks_red_only(self):
+    def test_update_marks_red_only(self) -> None:
         graph = seed_graph_from_assets()
         episode = {
             "scenario": "web_sqli_dump",
@@ -345,7 +345,7 @@ class TestGraphUpdate:
         gap_id = "gap-proc-web_sqli_dump-T1190"
         assert graph.gaps[gap_id].summary == "RED_ONLY"
 
-    def test_update_ignores_unknown_scenario(self):
+    def test_update_ignores_unknown_scenario(self) -> None:
         graph = seed_graph_from_assets()
         gap_count_before = len(graph.gaps)
         episode = {"scenario": "nonexistent_scenario"}
@@ -359,7 +359,7 @@ class TestGraphUpdate:
 class TestCoverageMap:
     """Coverage map artifacts validate."""
 
-    def test_coverage_json_structure(self):
+    def test_coverage_json_structure(self) -> None:
         graph = seed_graph_from_assets()
         cov = generate_coverage_json(graph)
         assert "per_technique" in cov
@@ -367,7 +367,7 @@ class TestCoverageMap:
         assert "summary" in cov
         assert cov["technique_count"] > 0
 
-    def test_coverage_json_tiers(self):
+    def test_coverage_json_tiers(self) -> None:
         graph = seed_graph_from_assets()
         cov = generate_coverage_json(graph)
         tiers = cov["tiers"]
@@ -377,12 +377,12 @@ class TestCoverageMap:
         assert 0 <= tiers["exercised_pct"] <= 100
         assert 0 <= tiers["detected_pct"] <= 100
 
-    def test_coverage_json_is_json_safe(self):
+    def test_coverage_json_is_json_safe(self) -> None:
         graph = seed_graph_from_assets()
         cov = generate_coverage_json(graph)
         json.dumps(cov)
 
-    def test_navigator_layer_structure(self):
+    def test_navigator_layer_structure(self) -> None:
         graph = seed_graph_from_assets()
         layer = generate_navigator_layer(graph)
         assert layer["name"] == "Portal 5 Capability Coverage"
@@ -390,14 +390,14 @@ class TestCoverageMap:
         assert len(layer["techniques"]) > 0
         json.dumps(layer)
 
-    def test_markdown_heatmap_not_empty(self):
+    def test_markdown_heatmap_not_empty(self) -> None:
         graph = seed_graph_from_assets()
         md = generate_markdown_heatmap(graph)
         assert "Capability Coverage Heatmap" in md
         assert "T1190" in md
         assert "COVERED" in md or "NEITHER" in md
 
-    def test_per_technique_has_four_bars(self):
+    def test_per_technique_has_four_bars(self) -> None:
         graph = seed_graph_from_assets()
         cov = generate_coverage_json(graph)
         for tid, info in cov["per_technique"].items():

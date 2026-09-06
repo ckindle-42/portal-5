@@ -21,12 +21,13 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
+from typing import Any
 
 from portal.modules.compliance.core.applicability import AssetScope
 from portal.modules.compliance.core.assessment import assess_requirement, serialize
 from portal.modules.compliance.core.boundary import BoundarySearch, build_queries
 from portal.modules.compliance.core.change_plan import build as build_change_plan
-from portal.modules.compliance.core.cip_register import Register
+from portal.modules.compliance.core.cip_register import Register, RegisterNode
 from portal.modules.compliance.core.coverage import ProposeFn, _qualified
 from portal.modules.compliance.core.mapping_store import MappingStore
 from portal.modules.compliance.core.obligations import decompose
@@ -50,7 +51,7 @@ def _patched_propose(real_propose: ProposeFn, target_node_id: str, patch_text: s
     procedure side — never written to any store, never affecting any other
     Part's evaluation."""
 
-    def wrapped(node, side: str) -> list[dict]:
+    def wrapped(node: RegisterNode, side: str) -> list[dict[str, Any]]:
         candidates = list(real_propose(node, side))
         if node.id == target_node_id and side == "procedure":
             candidates.append(
@@ -76,7 +77,7 @@ def evaluate_scenario(
     effective_on: str,
     real_propose: ProposeFn,
     mapping_store: MappingStore | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Return isolated before/after determinations and a change package."""
     target_reg = Register(
         nodes=[n for n in reg.nodes if n.id == scenario.target_node_id], edges=reg.edges

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import datetime
 import uuid
+from typing import Any
 
 
-def build(change_package: dict, *, owner: str = "", due_date: str = "") -> dict:
+def build(change_package: dict[str, Any], *, owner: str = "", due_date: str = "") -> dict[str, Any]:
     from portal.modules.compliance.core.runtime import bump
 
     bump("change_plan")

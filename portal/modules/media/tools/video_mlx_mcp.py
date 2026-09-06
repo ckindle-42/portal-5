@@ -16,10 +16,13 @@ from __future__ import annotations
 import asyncio
 import os
 import uuid
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Any
 
 from mcp.server import MCPServer
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 from portal.modules.media.tools._admission import admit
 from portal.platform.data_loader import load_data
@@ -29,6 +32,15 @@ from portal.platform.mcp_host.workspace import get_generated_dir
 
 port = int(os.getenv("VIDEO_MLX_MCP_PORT", "8935"))
 mcp = MCPServer("video-mlx-generation")
+
+# MCPServer.custom_route() has no return annotation upstream (mcp SDK), so mypy
+# sees its decorator result as Any and flags every routed handler with
+# untyped-decorator. Bind the concrete decorator type once so handlers keep
+# their annotations.
+_route: Callable[
+    ...,
+    Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+] = mcp.custom_route
 
 VIDEO_MLX_BIN = os.environ.get("VIDEO_MLX_BIN", "ltx-2-mlx")
 VIDEO_MLX_DEFAULT_MODEL = os.environ.get("VIDEO_MLX_DEFAULT_MODEL", "ltx-2.3-q4")
@@ -55,8 +67,8 @@ def _round_frames(frames: int) -> int:
     return ((frames - 1) // 8) * 8 + 1
 
 
-@mcp.custom_route("/health", methods=["GET"])
-async def health_check(request):
+@_route("/health", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
     return JSONResponse(
         {"status": "ok", "service": "video-mlx-generation", "models": sorted(VIDEO_MLX_MODELS)}
     )
@@ -65,8 +77,8 @@ async def health_check(request):
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_video_mlx_mcp")
 
 
-@mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request):
+@_route("/tools", methods=["GET"])
+async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
@@ -101,7 +113,7 @@ async def _generate(
     seed: int,
     fps: int,
     image_path: Path | None = None,
-) -> dict:
+) -> dict[str, Any]:
     out = get_generated_dir("videos") / f"ltx_{uuid.uuid4().hex[:8]}.mp4"
     cmd = [
         VIDEO_MLX_BIN,
@@ -163,7 +175,7 @@ async def generate_video(
     height: int = 480,
     seed: int = 42,
     fps: int = 24,
-) -> dict:
+) -> dict[str, Any]:
     """Generate a short video clip (with audio) from a text prompt using LTX-2.3."""
     if not prompt:
         return {"success": False, "error": "prompt is required"}
@@ -183,7 +195,7 @@ async def animate_image(
     height: int = 480,
     seed: int = 42,
     fps: int = 24,
-) -> dict:
+) -> dict[str, Any]:
     """Animate a still image into a short clip (image-to-video) using LTX-2.3.
 
     `image_url` is a public http(s) URL or an already-uploaded workspace file name.
@@ -202,19 +214,19 @@ async def animate_image(
     )
 
 
-@mcp.custom_route("/tools/generate_video", methods=["POST"])
-async def generate_video_endpoint(request):
+@_route("/tools/generate_video", methods=["POST"])
+async def generate_video_endpoint(request: Request) -> JSONResponse:
     a = (await request.json()).get("arguments", {})
     return JSONResponse(await generate_video(**a))
 
 
-@mcp.custom_route("/tools/animate_image", methods=["POST"])
-async def animate_image_endpoint(request):
+@_route("/tools/animate_image", methods=["POST"])
+async def animate_image_endpoint(request: Request) -> JSONResponse:
     a = (await request.json()).get("arguments", {})
     return JSONResponse(await animate_image(**a))
 
 
-def main():
+def main() -> None:
     mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
 
 

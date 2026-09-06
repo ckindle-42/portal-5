@@ -9,19 +9,21 @@ import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any, cast
 
 from .._data import _LAB_EXEC_AVAILABLE, EXEC_SEQUENCES, PROMPTS, RESULTS_DIR
 from ..blue import _run_evasion_purple, run_purple_tests
-from ..chain import (
+from ..cli import _parse_barrier_tools_arg, _parse_budgets_arg
+from ..exec_chain import (
     _WEB_SEARCH_CHAIN_TOOL,
     SCENARIOS,
-    TPS_FLOOR,
     _prepare_scenario,
+    _run_chain_test,
     _run_multimodel_chain,
     run_chain_tests,
 )
-from ..chain import run_candidate_intake as _run_candidate_intake_chain
-from ..cli import _parse_barrier_tools_arg, _parse_budgets_arg
+from ..intake import TPS_FLOOR
+from ..intake import run_candidate_intake as _run_candidate_intake_chain
 from ..lab import (
     print_lab_probe_report,
     probe_lab_services,
@@ -63,7 +65,7 @@ def _write_checkpoint(run: BenchRun) -> None:
         )
 
 
-def run_blue_mode_orchestrated(args) -> int:
+def run_blue_mode_orchestrated(args: Any) -> int:
     # ── Standalone: --blue-mode orchestrated ─────────────────────────────────
     # BUILD_PROGRAM_SEC_BLUE_ORCHESTRATION_V2 Slice 7. Not a --purple prompt
     # variant (I5: no auto-security prod routing touched) — runs the
@@ -84,10 +86,11 @@ def run_blue_mode_orchestrated(args) -> int:
         print(f"  ERROR: no captured episode found for scenario '{args.scenario}'")
         return 1
 
+    auto_security_ws = load_portal_config().workspaces.get("auto-security")
     default_variant = (
-        load_portal_config()
-        .workspaces.get("auto-security")
-        .variants.get("blueteam-orchestrated", {})
+        auto_security_ws.variants.get("blueteam-orchestrated", {})
+        if auto_security_ws is not None
+        else {}
     )
     tool_model = args.tool_model or default_variant.get("tool_model")
     reasoning_model = args.reasoning_model or default_variant.get("reasoning_model")
@@ -174,7 +177,7 @@ def run_blue_mode_orchestrated(args) -> int:
     return 0
 
 
-def run_blue_mode_orchestrated_2section(args) -> int:
+def run_blue_mode_orchestrated_2section(args: Any) -> int:
     # ── Standalone: --blue-mode orchestrated-2section (Slice 8 ablation) ─────
     # design §6.1's "V1 shape" — tool + merged reasoning/expert, one model
     # hunts and concludes itself. Same standalone contract as 'orchestrated'
@@ -255,7 +258,7 @@ def run_blue_mode_orchestrated_2section(args) -> int:
     return 0
 
 
-def run_blue_mode_council(args) -> int:
+def run_blue_mode_council(args: Any) -> int:
     # ── Standalone: --blue-mode council (GATE-D ablation Part II-A) ──────────
     # TASK-SEC-GATED-ABLATION-TO-COUNCIL-V1. Same standalone contract as
     # 'orchestrated'/'orchestrated-2section' above (not a --purple prompt
@@ -278,8 +281,11 @@ def run_blue_mode_council(args) -> int:
         print(f"  ERROR: no captured episode found for scenario '{args.scenario}'")
         return 1
 
+    auto_security_ws = load_portal_config().workspaces.get("auto-security")
     default_variant = (
-        load_portal_config().workspaces.get("auto-security").variants.get("blueteam-council", {})
+        auto_security_ws.variants.get("blueteam-council", {})
+        if auto_security_ws is not None
+        else {}
     )
     tool_model = args.tool_model or default_variant.get("tool_model")
     council_models_raw = args.council_models or default_variant.get("council_models")
@@ -379,7 +385,7 @@ def run_blue_mode_council(args) -> int:
     return 0
 
 
-def run_blue_mode_multichain(args) -> int:
+def run_blue_mode_multichain(args: Any) -> int:
     # ── Standalone: --blue-mode multichain (multi-model multi-chain analyst) ──
     # N FULLY INDEPENDENT investigative chains — each its own tool+reasoning+
     # expert hunt with its own hypothesis/evidence pulls — consolidated into an
@@ -400,8 +406,11 @@ def run_blue_mode_multichain(args) -> int:
         print(f"  ERROR: no captured episode found for scenario '{args.scenario}'")
         return 1
 
+    auto_security_ws = load_portal_config().workspaces.get("auto-security")
     default_variant = (
-        load_portal_config().workspaces.get("auto-security").variants.get("blueteam-council", {})
+        auto_security_ws.variants.get("blueteam-council", {})
+        if auto_security_ws is not None
+        else {}
     )
     tool_model = args.tool_model or default_variant.get("tool_model")
     chain_models_raw = args.chain_analyst_models or default_variant.get("council_models")
@@ -516,7 +525,7 @@ def run_blue_mode_multichain(args) -> int:
     return 0
 
 
-def run_rescore(args) -> int:
+def run_rescore(args: Any) -> int:
     # ── Rescore mode: re-derive scores from saved data ────────────────────
     _rescore_file = Path(args.rescore)
     if not _rescore_file.exists():
@@ -571,14 +580,16 @@ def run_rescore(args) -> int:
     return 0
 
 
-def _collect_retry_failed(args, _retry_failed_prompts, _retry_failed_scenarios) -> dict | None:
+def _collect_retry_failed(
+    args: Any, _retry_failed_prompts: set[str], _retry_failed_scenarios: set[str]
+) -> dict[str, Any] | None:
     """Retry mode: find failures from previous run, re-run only those (C3 Tier B)."""
     if args.retry_failed:
         _retry_path = Path(args.retry_failed)
         if not _retry_path.exists():
             print(f"ERROR: retry file not found: {_retry_path}")
             return None
-        _retry_data = json.loads(_retry_path.read_text())
+        _retry_data = cast(dict[str, Any], json.loads(_retry_path.read_text()))
         # Find failed chain tests (depth < max_depth, or stalled). chain_tests entries
         # from --chain-models --all-scenarios runs carry a "scenario" tag (not
         # "prompts_failed" — that field belongs to a different result shape and was
@@ -632,7 +643,7 @@ def _collect_retry_failed(args, _retry_failed_prompts, _retry_failed_scenarios) 
     return {}
 
 
-def run_candidate_intake(args) -> bool:
+def run_candidate_intake(args: Any) -> bool:
     """Candidate intake: pull → TPS gate → audit-tools → queue (C3 Tier B)."""
     if args.candidate_intake:
         intake_results = _run_candidate_intake_chain(
@@ -652,7 +663,7 @@ def run_candidate_intake(args) -> bool:
     return False
 
 
-def run_any_chain(args, _any_chain, _enabled_prompts) -> str:
+def run_any_chain(args: Any, _any_chain: bool, _enabled_prompts: set[str]) -> str:
     """Shared lab setup: probe + snapshot (C3 Tier B)."""
     _snapshot_name = ""
     if _any_chain:
@@ -750,7 +761,14 @@ def run_any_chain(args, _any_chain, _enabled_prompts) -> str:
     return _snapshot_name
 
 
-def run_retry_data(args, _retry_data, chain_results, results, ts, output_data) -> dict:
+def run_retry_data(
+    args: Any,
+    _retry_data: dict[str, Any],
+    chain_results: list[dict[str, Any]],
+    results: list[dict[str, Any]],
+    ts: str,
+    output_data: dict[str, Any],
+) -> dict[str, Any]:
     """Merge mode: replace only the entries this retry re-ran (C3 Tier B)."""
     if _retry_data:
         # Merge mode: start from the previous run, replace only the entries this
@@ -758,7 +776,7 @@ def run_retry_data(args, _retry_data, chain_results, results, ts, output_data) -
         # prompt_key for results), and keep everything else from the original file
         # untouched — a chain-only retry must not silently drop old blue/purple/
         # matrix_results data it never re-ran.
-        def _ct_key(ct: dict) -> tuple:
+        def _ct_key(ct: dict[str, Any]) -> tuple[Any, Any]:
             return (ct.get("scenario"), ct.get("model"))
 
         retried_ct_keys = {_ct_key(r) for r in chain_results}
@@ -809,11 +827,12 @@ def run_chain_models(run: BenchRun) -> None:
         # --retry-scenarios silently select zero scenarios unless --all-scenarios was
         # ALSO passed by hand (found live 2026-07-02: a targeted retry ran to completion
         # having dispatched nothing, because this defaulted to [scenario] instead).
-        scenarios_to_run = (
-            list(SCENARIOS.values())
-            if (run.args.all_scenarios or run._retry_failed_scenarios)
-            else [run.scenario]
-        )
+        if run.args.all_scenarios or run._retry_failed_scenarios:
+            scenarios_to_run: list[dict[str, Any]] = list(SCENARIOS.values())
+        elif run.scenario is not None:
+            scenarios_to_run = [run.scenario]
+        else:
+            scenarios_to_run = []
         if run._retry_failed_scenarios:
             scenarios_to_run = [
                 sc for sc in scenarios_to_run if sc["name"] in run._retry_failed_scenarios
@@ -822,7 +841,7 @@ def run_chain_models(run: BenchRun) -> None:
                 f"  Retry: restricting to {len(scenarios_to_run)} failed scenario(s): "
                 f"{sorted(s['name'] for s in scenarios_to_run)}"
             )
-        all_scenario_results: dict[str, list[dict]] = {}
+        all_scenario_results: dict[str, list[dict[str, Any]]] = {}
 
         for sc in scenarios_to_run:
             print(f"\n── Scenario: {sc['name']} ──")
@@ -970,7 +989,7 @@ def run_chain_models(run: BenchRun) -> None:
 
         # Compute per-model averages across scenarios when --all-scenarios
         if run.args.all_scenarios and not run.args.dry_run:
-            by_model: dict[str, list[dict]] = {}
+            by_model: dict[str, list[dict[str, Any]]] = {}
             for _sc_name, sc_res in all_scenario_results.items():
                 for r in sc_res:
                     by_model.setdefault(r["model"], []).append(r)
@@ -1027,9 +1046,12 @@ def run_purple(run: BenchRun) -> None:
                 "or --replay-captured-red"
             )
         else:
-            _purple_scenarios = (
-                list(SCENARIOS.values()) if run.args.all_scenarios else [run.scenario]
-            )
+            if run.args.all_scenarios:
+                _purple_scenarios: list[dict[str, Any]] = list(SCENARIOS.values())
+            elif run.scenario is not None:
+                _purple_scenarios = [run.scenario]
+            else:
+                _purple_scenarios = []
             if run._retry_failed_scenarios:
                 _purple_scenarios = [
                     sc for sc in _purple_scenarios if sc["name"] in run._retry_failed_scenarios
@@ -1102,7 +1124,11 @@ def run_evasion(run: BenchRun) -> None:
     if run.args.evasion:
         if not run.args.chain_models or not run.args.blue_models:
             print("  ERROR: --evasion requires both --chain-models and --blue-models")
+        elif run.scenario is None:
+            print("  ERROR: no scenario selected for --evasion")
         else:
+            if run.evasion_results is None:
+                run.evasion_results = []
             for rm in run.args.chain_models:
                 for bm in run.args.blue_models:
                     run.evasion_results.append(
@@ -1125,8 +1151,10 @@ def run_false_positive_test(run: BenchRun) -> None:
         from ..lab import CLEAN_TRAFFIC_PROMPTS, dispatch_lab_tool
 
         print("\n── False Positive Test (benign traffic → blue defender) ──\n")
+        if run.false_positive_results is None:
+            run.false_positive_results = []
         for bm in run.args.blue_models:
-            fp_verdicts: list[dict] = []
+            fp_verdicts: list[dict[str, Any]] = []
             for ct in CLEAN_TRAFFIC_PROMPTS:
                 exec_result = dispatch_lab_tool("execute_bash", {"cmd": ct["command"]})
                 benign_output = exec_result.get("output", "")[:500]
@@ -1182,10 +1210,14 @@ def run_defense_efficacy(run: BenchRun) -> None:
         and not run.args.dry_run
     ):
         from ..blue import _run_blue_chain_test
-        from ..chain import _run_chain_test
         from ..lab import verify_defense
 
         print("\n── Defense Efficacy Test (red → blue → red) ──\n")
+        if run.defense_efficacy_results is None:
+            run.defense_efficacy_results = []
+        if run.scenario is None:
+            print("  ERROR: no scenario selected for --defense-efficacy")
+            return
         for rm in run.args.chain_models:
             for bm in run.args.blue_models:
                 print(f"  Round 1: red={rm[:30]} ...")
@@ -1193,7 +1225,7 @@ def run_defense_efficacy(run: BenchRun) -> None:
                 print(f"  Blue defends: {bm[:30]} ...")
                 blue_r = _run_blue_chain_test(bm, run.scenario, lab_exec=run.args.lab_exec)
                 # Verify blue's defensive actions actually took effect
-                defense_verifications: list[dict] = []
+                defense_verifications: list[dict[str, Any]] = []
                 for reported in blue_r.get("reported", []):
                     tid = reported.get("technique_id", "")
                     if tid:
@@ -1221,7 +1253,7 @@ def run_defense_efficacy(run: BenchRun) -> None:
                 print(f"  {eff_tag}: depth {r1_depth} → {r2_depth} (Δ={r1_depth - r2_depth})")
 
 
-def run_skip_workspace_bench(run: BenchRun) -> list:
+def run_skip_workspace_bench(run: BenchRun) -> list[dict[str, Any]]:
     """Chain-only workspace bench: bypass theory/exec passes, run chains directly (C3 Tier C-3)."""
     _cp = run.args.prompts if run.args.prompts else [k for k in EXEC_SEQUENCES if k in PROMPTS]
     # Apply probe-lab auto-filter when prompts were not explicitly listed
@@ -1244,7 +1276,7 @@ def run_skip_workspace_bench(run: BenchRun) -> list:
     )
 
 
-def run_workspace_bench(run: BenchRun) -> list:
+def run_workspace_bench(run: BenchRun) -> list[dict[str, Any]]:
     """Pipeline workspace text-quality bench (C3 Tier C-3)."""
     _explicit_prompts = run.args.prompts is not None
     filtered_prompts = run.args.prompts if _explicit_prompts else list(PROMPTS.keys())
@@ -1287,9 +1319,9 @@ def run_workspace_bench(run: BenchRun) -> list:
     )
 
 
-def run_expansion_steps(run: BenchRun) -> dict:
+def run_expansion_steps(run: BenchRun) -> dict[str, Any]:
     """Security expansion steps (oracles/CTF/redteam/validation/journal) — C3 Tier C-3."""
-    expansion_steps: dict[str, dict] = {}
+    expansion_steps: dict[str, Any] = {}
     if (
         run.args.full_expanded
         or run.args.verify_findings
@@ -1410,38 +1442,41 @@ def run_matrix(run: BenchRun) -> None:
             else None
         )
 
-        run.matrix_units = build_run_matrix(
+        units = build_run_matrix(
             scenarios=True,
             classes=run.args.matrix_all or bool(class_filter),
             domains=domains,
         )
+        run.matrix_units = units
 
         # Filter to specific classes if requested
         if class_filter:
-            run.matrix_units = [
+            units = [
                 u
-                for u in run.matrix_units
+                for u in units
                 if u.kind == "scenario" or (u.kind == "class" and u.challenge_class in class_filter)
             ]
+            run.matrix_units = units
 
-        print(f"  Units resolved: {len(run.matrix_units)}")
-        print(f"  Scenarios: {sum(1 for u in run.matrix_units if u.kind == 'scenario')}")
-        print(f"  Class containers: {sum(1 for u in run.matrix_units if u.kind == 'class')}")
+        print(f"  Units resolved: {len(units)}")
+        print(f"  Scenarios: {sum(1 for u in units if u.kind == 'scenario')}")
+        print(f"  Class containers: {sum(1 for u in units if u.kind == 'class')}")
 
-        run.matrix_results = _run_matrix(
-            run.matrix_units,
+        matrix_result = _run_matrix(
+            units,
             dry_run=run.args.dry_run,
             lab_exec=run.args.lab_exec,
             max_concurrent=run.args.max_concurrent,
             purple=run.args.purple,
         )
+        run.matrix_results = matrix_result
 
-        print(f"\n  Verified: {run.matrix_results['verified']}")
-        print(f"  Rejected: {run.matrix_results['rejected']}")
-        print(f"  Indeterminate: {run.matrix_results['indeterminate']}")
-        print(f"  Errors: {run.matrix_results['errors']}")
-        if run.matrix_results["verified"] + run.matrix_results["rejected"] > 0:
-            print(f"  Pass rate: {run.matrix_results['pass_rate']:.1%}")
+        print(f"\n  Verified: {matrix_result['verified']}")
+        print(f"  Rejected: {matrix_result['rejected']}")
+        print(f"  Indeterminate: {matrix_result['indeterminate']}")
+        print(f"  Errors: {matrix_result['errors']}")
+        if matrix_result["verified"] + matrix_result["rejected"] > 0:
+            print(f"  Pass rate: {matrix_result['pass_rate']:.1%}")
 
 
 def run_matrix_coverage(run: BenchRun) -> None:
@@ -1449,7 +1484,7 @@ def run_matrix_coverage(run: BenchRun) -> None:
     if run.args.matrix_coverage and run.matrix_units:
         from ..matrix import build_coverage_report
 
-        results_for_coverage = run.matrix_results.get("results", [])
+        results_for_coverage = (run.matrix_results or {}).get("results", [])
         coverage = build_coverage_report(run.matrix_units, results_for_coverage)
         print("\n── Matrix Coverage Report ──")
         print(

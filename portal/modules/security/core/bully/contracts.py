@@ -17,7 +17,7 @@ import json
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 # ── Closed enums (DATA_MODEL / INTERFACES) ──────────────────────────────────
 
@@ -376,7 +376,8 @@ class _DTOMixin:
     schema_version: ClassVar[int] = 1
 
     def to_dict(self) -> dict[str, Any]:
-        d = asdict(self)  # type: ignore[call-overload]
+        # ignore: asdict() overloads need a concrete dataclass, self is a mixin
+        d = cast(dict[str, Any], asdict(self))  # type: ignore[call-overload]
         d["_schema_version"] = self.schema_version
         return d
 

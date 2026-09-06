@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any
+
+import pytest
+
 from portal.modules.security.core import blue_orchestrate as bo
 from portal.modules.security.core.agentic_blue_eval import Episode
+from portal.modules.security.core.analyst_verdict import SectionOutput
 
 
 def _episode() -> Episode:
@@ -23,11 +29,17 @@ def _sections() -> list[bo.SectionSpec]:
     ]
 
 
-def _fake_call_model_sequence(responses):
+def _fake_call_model_sequence(responses: list[dict[str, Any]]) -> Callable[..., dict[str, Any]]:
     """responses: list of dicts, popped in order, one per _call_model call."""
     calls = {"i": 0}
 
-    def _fn(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def _fn(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         idx = calls["i"]
         calls["i"] += 1
         return responses[idx]
@@ -35,7 +47,9 @@ def _fake_call_model_sequence(responses):
     return _fn
 
 
-def test_hunter_sees_own_history_and_only_new_evidence_across_rounds(monkeypatch):
+def test_hunter_sees_own_history_and_only_new_evidence_across_rounds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Regression: found live 2026-07-18 — the Hunter rebuilt a fresh
     system+user pair every hunt-loop round, re-rendering the WHOLE
     accumulated evidence pile with zero memory of its own prior turns.
@@ -45,9 +59,15 @@ def test_hunter_sees_own_history_and_only_new_evidence_across_rounds(monkeypatch
     telemetry + trigger again."""
     import json
 
-    calls = []
+    calls: list[dict[str, Any]] = []
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         calls.append({"model": model, "messages": messages})
         if model == "reasoning-model" and len(calls) == 1:
             return {"content": json.dumps({"request_more": "need event 4769", "technique_ids": []})}
@@ -80,7 +100,13 @@ def test_hunter_sees_own_history_and_only_new_evidence_across_rounds(monkeypatch
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(
             query=req.spec, provenance="matched-exact", raw_summary="EventCode=4769 detail"
         )
@@ -113,7 +139,9 @@ def test_hunter_sees_own_history_and_only_new_evidence_across_rounds(monkeypatch
     assert _BLUE_SYSTEM_PROMPT_DISCOVERY not in round2_new_turn
 
 
-def test_request_more_tool_reasoning_expert_confirmed_terminates_confirmed(monkeypatch):
+def test_request_more_tool_reasoning_expert_confirmed_terminates_confirmed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     import json
 
     hunter_request_more = json.dumps(
@@ -158,7 +186,13 @@ def test_request_more_tool_reasoning_expert_confirmed_terminates_confirmed(monke
     # run_tool_model directly to avoid needing a 4th fake response slot.
     monkeypatch.setattr(bo, "_call_model", _fake_call_model_sequence(responses))
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(
             query=req.spec,
             provenance="matched-exact",
@@ -176,7 +210,9 @@ def test_request_more_tool_reasoning_expert_confirmed_terminates_confirmed(monke
     assert tool_trace["content"] == "EventCode=4768 AS-REP event for svc-web"
 
 
-def test_expert_receives_hunters_own_multi_round_history_not_just_final_summary(monkeypatch):
+def test_expert_receives_hunters_own_multi_round_history_not_just_final_summary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Regression: found live 2026-07-20 (GATE-D validation). The Expert
     previously only saw reasoning_out's terminal evidence/reasoning fields —
     a one-shot compressed restatement — with the Hunter's actual multi-round
@@ -220,7 +256,13 @@ def test_expert_receives_hunters_own_multi_round_history_not_just_final_summary(
     )
     expert_context: dict[str, str] = {}
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if model == "expert-model":
             expert_context["ctx"] = messages[-1]["content"]
             return {"content": expert_confirmed}
@@ -230,7 +272,13 @@ def test_expert_receives_hunters_own_multi_round_history_not_just_final_summary(
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(
             query=req.spec,
             provenance="matched-exact",
@@ -247,7 +295,9 @@ def test_expert_receives_hunters_own_multi_round_history_not_just_final_summary(
     assert "first pass found nothing conclusive" in expert_context["ctx"]
 
 
-def test_never_concluding_pipeline_hits_max_rounds_unresolved(monkeypatch):
+def test_never_concluding_pipeline_hits_max_rounds_unresolved(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     import json
 
     always_wants_more = json.dumps(
@@ -262,18 +312,28 @@ def test_never_concluding_pipeline_hits_max_rounds_unresolved(monkeypatch):
     )
     monkeypatch.setattr(bo, "_call_model", lambda *a, **kw: {"content": always_wants_more})
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
 
     result = bo.run_blue_orchestration(_episode(), sections=_sections(), max_rounds=4)
-    assert result.verdict == "UNRESOLVED"
-    assert result.verdict != "ANOMALOUS_UNCLASSIFIED"
+    is_unresolved = result.verdict == "UNRESOLVED"
+    is_anomalous = result.verdict == "ANOMALOUS_UNCLASSIFIED"
+    assert is_unresolved
+    assert not is_anomalous
     assert result.rounds >= 4
 
 
-def test_similar_variant_hunt_flows_to_anomalous_unclassified(monkeypatch):
+def test_similar_variant_hunt_flows_to_anomalous_unclassified(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     import json
 
     hunter_similar = json.dumps(
@@ -304,7 +364,7 @@ def test_similar_variant_hunt_flows_to_anomalous_unclassified(monkeypatch):
     assert result.similar_to == ["T1558.003"]
 
 
-def test_wall_clock_backstop_fires_independently(monkeypatch):
+def test_wall_clock_backstop_fires_independently(monkeypatch: pytest.MonkeyPatch) -> None:
     import json
     import time
 
@@ -319,13 +379,19 @@ def test_wall_clock_backstop_fires_independently(monkeypatch):
         }
     )
 
-    def slow_call_model(*a, **kw):
+    def slow_call_model(*args: Any, **kwargs: Any) -> dict[str, Any]:
         time.sleep(0.05)
         return {"content": always_wants_more}
 
     monkeypatch.setattr(bo, "_call_model", slow_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -337,12 +403,18 @@ def test_wall_clock_backstop_fires_independently(monkeypatch):
     assert result.rounds < 1000  # backstop fired well before the round cap
 
 
-def test_sections_list_order_is_honored_model_swap_works(monkeypatch):
+def test_sections_list_order_is_honored_model_swap_works(monkeypatch: pytest.MonkeyPatch) -> None:
     import json
 
     seen_models = []
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         seen_models.append(model)
         # Same payload serves both roles: the Hunter parser only reads
         # technique_ids/evidence/reasoning/match_grade/similar_to/request_more
@@ -374,7 +446,7 @@ def test_sections_list_order_is_honored_model_swap_works(monkeypatch):
     assert "custom-expert-model" in seen_models
 
 
-def test_missing_role_in_sections_raises():
+def test_missing_role_in_sections_raises() -> None:
     incomplete = [
         bo.SectionSpec(role="tool", model="m"),
         bo.SectionSpec(role="reasoning", model="m"),
@@ -392,7 +464,9 @@ def _two_sections() -> list[bo.SectionSpec]:
     ]
 
 
-def test_two_section_ablation_arm_confirms_without_a_separate_expert(monkeypatch):
+def test_two_section_ablation_arm_confirms_without_a_separate_expert(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Slice 8 (GATE-D ablation): the 2-section 'V1 shape' arm — tool + merged
     reasoning/expert — lets one model both hunt and conclude. Only 'tool' and
     'merged' sections should appear in the trace; no 'reasoning'/'expert'."""
@@ -400,7 +474,13 @@ def test_two_section_ablation_arm_confirms_without_a_separate_expert(monkeypatch
 
     calls = []
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         calls.append(model)
         # The merged model is called at the START of each round, before that
         # round's own tool call — round 0 has no gathered evidence yet, so it
@@ -423,7 +503,13 @@ def test_two_section_ablation_arm_confirms_without_a_separate_expert(monkeypatch
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(
             query=req.spec,
             provenance="matched-exact",
@@ -447,7 +533,9 @@ def test_two_section_ablation_arm_confirms_without_a_separate_expert(monkeypatch
     assert "tool-model" not in calls  # tool section is dry-run-free here (no _call_model)
 
 
-def test_two_section_ablation_arm_requests_more_then_confirms(monkeypatch):
+def test_two_section_ablation_arm_requests_more_then_confirms(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     import json
 
     responses = [
@@ -480,7 +568,13 @@ def test_two_section_ablation_arm_requests_more_then_confirms(monkeypatch):
     ]
     monkeypatch.setattr(bo, "_call_model", _fake_call_model_sequence(responses))
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(
             query=req.spec, provenance="matched-exact", raw_summary="EventCode=4769 detail"
         )
@@ -493,7 +587,9 @@ def test_two_section_ablation_arm_requests_more_then_confirms(monkeypatch):
     assert sections_in_trace == ["merged", "tool", "merged"]
 
 
-def test_two_section_never_concluding_hits_max_rounds_unresolved(monkeypatch):
+def test_two_section_never_concluding_hits_max_rounds_unresolved(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     import json
 
     always_wants_more = json.dumps(
@@ -509,7 +605,13 @@ def test_two_section_never_concluding_hits_max_rounds_unresolved(monkeypatch):
     )
     monkeypatch.setattr(bo, "_call_model", lambda *a, **kw: {"content": always_wants_more})
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -519,7 +621,7 @@ def test_two_section_never_concluding_hits_max_rounds_unresolved(monkeypatch):
     assert result.rounds >= 4
 
 
-def test_sections_shape_neither_two_nor_three_raises():
+def test_sections_shape_neither_two_nor_three_raises() -> None:
     bad = [bo.SectionSpec(role="tool", model="m"), bo.SectionSpec(role="oracle", model="m")]
     import pytest
 
@@ -527,13 +629,13 @@ def test_sections_shape_neither_two_nor_three_raises():
         bo.run_blue_orchestration(_episode(), sections=bad, max_rounds=1)
 
 
-def test_ground_hunter_evidence_downgrades_ungrounded_citation():
+def test_ground_hunter_evidence_downgrades_ungrounded_citation() -> None:
     """Regression: found live 2026-07-18 — given a weak/mismatched tool
     result, the Hunter still claimed EXACT match and cited specific details
     (account names, encryption types) never actually present in what was
     retrieved. The Expert correctly refused to confirm it, but only after a
     full round was burned. Catch it one round earlier."""
-    hunter_out = bo.SectionOutput(
+    hunter_out = SectionOutput(
         verdict="CONFIRMED",
         technique_ids=["T1558.099"],
         evidence=["sAMAccountName svc_account$ RC4_HMAC_MD5 Invoke-Kerberoast"],
@@ -550,8 +652,8 @@ def test_ground_hunter_evidence_downgrades_ungrounded_citation():
     assert "T1558.099" in out.request_more
 
 
-def test_ground_hunter_evidence_passes_grounded_citation_through():
-    hunter_out = bo.SectionOutput(
+def test_ground_hunter_evidence_passes_grounded_citation_through() -> None:
+    hunter_out = SectionOutput(
         verdict="CONFIRMED",
         technique_ids=["T1558.004"],
         evidence=["EventCode=4768 AS-REP event for svc-web"],
@@ -569,10 +671,10 @@ def test_ground_hunter_evidence_passes_grounded_citation_through():
     assert out is hunter_out
 
 
-def test_ground_hunter_evidence_skips_when_nothing_gathered_yet():
+def test_ground_hunter_evidence_skips_when_nothing_gathered_yet() -> None:
     """A hypothesis formed before any tool round has run isn't the
     mismatched-evidence failure mode this guards against — pass through."""
-    hunter_out = bo.SectionOutput(
+    hunter_out = SectionOutput(
         verdict="ANOMALOUS_UNCLASSIFIED",
         technique_ids=["T1558.099"],
         evidence=["odd ticket pattern"],
@@ -584,13 +686,15 @@ def test_ground_hunter_evidence_skips_when_nothing_gathered_yet():
     assert out is hunter_out
 
 
-def test_ground_hunter_evidence_passes_through_when_wants_more_already():
-    hunter_out = bo.SectionOutput(request_more="need more data", section="reasoning")
+def test_ground_hunter_evidence_passes_through_when_wants_more_already() -> None:
+    hunter_out = SectionOutput(request_more="need more data", section="reasoning")
     out = bo._ground_hunter_evidence(hunter_out, [bo.ToolResult(query="q", raw_summary="x")])
     assert out is hunter_out
 
 
-def test_hunter_stall_hands_off_to_expert_instead_of_running_out_the_clock(monkeypatch):
+def test_hunter_stall_hands_off_to_expert_instead_of_running_out_the_clock(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Regression: found live 2026-07-18, meta3_tomcat_manager — the Hunter's
     output contract has no way to say "search exhausted, nothing here"; it
     can only propose a hypothesis or request_more, so a genuinely exhausted
@@ -624,7 +728,13 @@ def test_hunter_stall_hands_off_to_expert_instead_of_running_out_the_clock(monke
 
     calls = []
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         calls.append(model)
         if model == "expert-model":
             return {"content": expert_ruled_out}
@@ -632,7 +742,13 @@ def test_hunter_stall_hands_off_to_expert_instead_of_running_out_the_clock(monke
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -645,7 +761,9 @@ def test_hunter_stall_hands_off_to_expert_instead_of_running_out_the_clock(monke
     assert "expert-model" in calls
 
 
-def test_stall_handoff_under_default_budget_tells_expert_no_more_evidence_possible(monkeypatch):
+def test_stall_handoff_under_default_budget_tells_expert_no_more_evidence_possible(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Regression: found live 2026-07-20 (GATE-D validation). Under the
     *default* budget (max_rounds=6, stall_cap=3), a stall-triggered Expert
     hand-off always lands with 0 rounds left afterward — the old note
@@ -680,7 +798,13 @@ def test_stall_handoff_under_default_budget_tells_expert_no_more_evidence_possib
     )
     expert_context: dict[str, str] = {}
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if model == "expert-model":
             expert_context["ctx"] = messages[-1]["content"]
             return {"content": expert_ruled_out}
@@ -688,7 +812,13 @@ def test_stall_handoff_under_default_budget_tells_expert_no_more_evidence_possib
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -700,7 +830,9 @@ def test_stall_handoff_under_default_budget_tells_expert_no_more_evidence_possib
     assert "you may still request" not in expert_context["ctx"].lower()
 
 
-def test_expert_gets_one_retry_before_unresolved_when_it_ignores_final_round_note(monkeypatch):
+def test_expert_gets_one_retry_before_unresolved_when_it_ignores_final_round_note(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Regression: found live 2026-07-20 (GATE-D validation) live-testing the
     fix above — even after being told plainly "this is the final round, you
     MUST render a verdict," the Expert model sometimes still returns
@@ -748,7 +880,13 @@ def test_expert_gets_one_retry_before_unresolved_when_it_ignores_final_round_not
     expert_call_count = {"n": 0}
     retry_ctx: dict[str, str] = {}
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if model == "expert-model":
             expert_call_count["n"] += 1
             if expert_call_count["n"] == 1:
@@ -759,7 +897,13 @@ def test_expert_gets_one_retry_before_unresolved_when_it_ignores_final_round_not
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -774,7 +918,9 @@ def test_expert_gets_one_retry_before_unresolved_when_it_ignores_final_round_not
     assert result.rounds <= 6
 
 
-def test_capture_expert_handoff_resume_matches_live_run_and_skips_rerun(monkeypatch):
+def test_capture_expert_handoff_resume_matches_live_run_and_skips_rerun(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """capture_expert_handoff + resume_from_handoff must (a) produce the same
     verdict a full run_blue_orchestration call would for the same models, and
     (b) never re-invoke the tool/reasoning models on resume — the whole point
@@ -785,7 +931,13 @@ def test_capture_expert_handoff_resume_matches_live_run_and_skips_rerun(monkeypa
     call_log: list[str] = []
     reasoning_calls = {"n": 0}
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         call_log.append(model)
         if model == "reasoning-model":
             reasoning_calls["n"] += 1
@@ -822,7 +974,13 @@ def test_capture_expert_handoff_resume_matches_live_run_and_skips_rerun(monkeypa
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         call_log.append(tool_model)
         return bo.ToolResult(
             query=req.spec,
@@ -857,13 +1015,19 @@ def test_capture_expert_handoff_resume_matches_live_run_and_skips_rerun(monkeypa
     assert call_log == ["expert-candidate-a", "expert-candidate-b"]
 
 
-def test_expert_handoff_round_trips_through_json(monkeypatch):
+def test_expert_handoff_round_trips_through_json(monkeypatch: pytest.MonkeyPatch) -> None:
     """ExpertHandoff must survive to_dict/from_dict — this is what makes a
     capture durable across separate script invocations, not just usable
     within one Python process."""
     import json
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         return {
             "content": json.dumps(
                 {
@@ -879,7 +1043,13 @@ def test_expert_handoff_round_trips_through_json(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(query=req.spec, provenance="matched-exact", raw_summary="unused")
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -899,7 +1069,9 @@ def test_expert_handoff_round_trips_through_json(monkeypatch):
     assert round_tripped.rounds == handoff.rounds
 
 
-def test_capture_hunter_handoff_resume_matches_live_run_and_skips_rerun(monkeypatch):
+def test_capture_hunter_handoff_resume_matches_live_run_and_skips_rerun(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """capture_hunter_handoff + resume_hunter_from_handoff must (a) produce
     the same Hunter output a live run would for the round that determines
     hand-off, and (b) never re-invoke the tool model on resume — same
@@ -908,7 +1080,13 @@ def test_capture_hunter_handoff_resume_matches_live_run_and_skips_rerun(monkeypa
 
     call_log: list[str] = []
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         call_log.append(model)
         if model == "reasoning-model" and call_log.count("reasoning-model") == 1:
             return {"content": json.dumps({"request_more": "need event 4769", "technique_ids": []})}
@@ -941,7 +1119,13 @@ def test_capture_hunter_handoff_resume_matches_live_run_and_skips_rerun(monkeypa
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         call_log.append(tool_model)
         return bo.ToolResult(
             query=req.spec, provenance="matched-exact", raw_summary="EventCode=4769 detail"
@@ -974,17 +1158,29 @@ def test_capture_hunter_handoff_resume_matches_live_run_and_skips_rerun(monkeypa
     assert call_log == ["candidate-a", "candidate-b"]
 
 
-def test_hunter_handoff_round_trips_through_json(monkeypatch):
+def test_hunter_handoff_round_trips_through_json(monkeypatch: pytest.MonkeyPatch) -> None:
     """HunterHandoff must survive to_dict/from_dict for the same durability
     reason ExpertHandoff does."""
     import json
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         return {"content": json.dumps({"request_more": "need more", "technique_ids": []})}
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(query=req.spec, provenance="matched-exact", raw_summary="unused")
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -1004,7 +1200,7 @@ def test_hunter_handoff_round_trips_through_json(monkeypatch):
     assert round_tripped.rounds == handoff.rounds
 
 
-def test_council_dispatch_unanimous_confirmed(monkeypatch):
+def test_council_dispatch_unanimous_confirmed(monkeypatch: pytest.MonkeyPatch) -> None:
     """run_blue_orchestration with a multi-model reasoning roster must route
     to _run_council, gather evidence once (shared hand-off), then have every
     council member conclude from that same evidence -- unanimous CONFIRMED
@@ -1014,7 +1210,13 @@ def test_council_dispatch_unanimous_confirmed(monkeypatch):
     calls = []
     lead_hunter_calls = {"n": 0}
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         calls.append(model)
         if model == "lead-hunter" and messages[0]["content"] != bo._EXPERT_SYSTEM_PROMPT:
             lead_hunter_calls["n"] += 1
@@ -1051,7 +1253,13 @@ def test_council_dispatch_unanimous_confirmed(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(
             query=req.spec,
             provenance="matched-exact",
@@ -1077,10 +1285,16 @@ def test_council_dispatch_unanimous_confirmed(monkeypatch):
     assert agreement_entry["agreement"] == 1.0
 
 
-def test_council_non_voting_members_counted_against_quorum(monkeypatch):
+def test_council_non_voting_members_counted_against_quorum(monkeypatch: pytest.MonkeyPatch) -> None:
     hunter_calls = {"n": 0}
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         is_expert_turn = messages[0]["content"] == bo._EXPERT_SYSTEM_PROMPT
         if not is_expert_turn:
             hunter_calls["n"] += 1
@@ -1093,7 +1307,13 @@ def test_council_non_voting_members_counted_against_quorum(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_tool(req, *, tool_model, episode, dry_run=False):
+    def fake_tool(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(
             query=req.spec,
             provenance="matched-exact",
@@ -1115,10 +1335,16 @@ def test_council_non_voting_members_counted_against_quorum(monkeypatch):
     assert participation[0]["participation"] == round(1 / 3, 3)
 
 
-def test_council_aggregate_sibling_misattribution_demoted(monkeypatch):
+def test_council_aggregate_sibling_misattribution_demoted(monkeypatch: pytest.MonkeyPatch) -> None:
     hunter_calls = {"n": 0}
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         hunter_calls["n"] += 1
         if hunter_calls["n"] == 1:
             return {"content": _always_wants_more_json()}
@@ -1126,7 +1352,13 @@ def test_council_aggregate_sibling_misattribution_demoted(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_tool(req, *, tool_model, episode, dry_run=False):
+    def fake_tool(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(
             query=req.spec,
             provenance="matched-exact",
@@ -1135,8 +1367,8 @@ def test_council_aggregate_sibling_misattribution_demoted(monkeypatch):
 
     monkeypatch.setattr(bo, "run_tool_model", fake_tool)
 
-    def fake_member(*args, **kwargs):
-        return bo.SectionOutput(
+    def fake_member(*args: Any, **kwargs: Any) -> SectionOutput:
+        return SectionOutput(
             verdict="CONFIRMED",
             technique_ids=["T1558.003"],
             evidence=["EventCode=4768 PreAuthType=0 Account=svc-web"],
@@ -1158,12 +1390,18 @@ def test_council_aggregate_sibling_misattribution_demoted(monkeypatch):
     assert "misattribution" in result.reasoning
 
 
-def test_council_split_with_arbiter_breaks_tie(monkeypatch):
+def test_council_split_with_arbiter_breaks_tie(monkeypatch: pytest.MonkeyPatch) -> None:
     """3-way split (no quorum) must route to the fed arbiter, which -- when
     it renders its own conclusion -- supersedes the split verdict."""
     import json
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if model == "lead-hunter":
             return {
                 "content": json.dumps(
@@ -1203,7 +1441,13 @@ def test_council_split_with_arbiter_breaks_tie(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(
             query=req.spec, provenance="matched-exact", raw_summary="EventCode=4624"
         )
@@ -1227,7 +1471,9 @@ def test_council_split_with_arbiter_breaks_tie(monkeypatch):
     assert result.verdict == "ANOMALOUS_UNCLASSIFIED"
 
 
-def test_council_budget_starve_still_reaches_non_voting_members(monkeypatch):
+def test_council_budget_starve_still_reaches_non_voting_members(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """V4B routes a starved lead hunt into a final council handoff.
 
     If every member still declines, the council escalates honestly rather
@@ -1235,13 +1481,25 @@ def test_council_budget_starve_still_reaches_non_voting_members(monkeypatch):
     """
     import json
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         # Hunter always wants more, forever -- never triggers hand-off.
         return {"content": json.dumps({"request_more": "still need more", "technique_ids": []})}
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -1258,14 +1516,22 @@ def test_council_budget_starve_still_reaches_non_voting_members(monkeypatch):
     assert len([t for t in result.trace if t.get("section") == "council_member"]) == 2
 
 
-def test_three_section_and_two_section_unaffected_by_council_dispatch(monkeypatch):
+def test_three_section_and_two_section_unaffected_by_council_dispatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """I7: adding council dispatch must not change _run_three_section's or
     _run_two_section's own behavior for their existing single-model callers."""
     import json
 
     seen_models: set[str] = set()
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         # Each role's own FIRST call happens before that round's tool call
         # has run, so it must request more rather than confirm against no
         # evidence — matches _cite_or_drop's grounding requirement.
@@ -1288,7 +1554,13 @@ def test_three_section_and_two_section_unaffected_by_council_dispatch(monkeypatc
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(
             query=req.spec,
             provenance="matched-exact",
@@ -1324,14 +1596,22 @@ def _multichain_episode() -> Episode:
     )
 
 
-def test_multichain_independent_convergence_is_auto_confirm(monkeypatch):
+def test_multichain_independent_convergence_is_auto_confirm(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """N independent chains that each hunt their own way and converge on the
     same technique consolidate to AUTO_CONFIRM. Each chain is a FULL
     tool+reasoning+expert investigation (its own tool queries), not a shared-
     pool voter — the trace carries per-chain tags and a consolidation entry."""
     import json
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         # Round 0 has no gathered telemetry yet — a confirm there would
         # (correctly) fail the citation gate, so each chain's hunter first
         # requests evidence, then every reasoning/expert model concludes
@@ -1358,7 +1638,13 @@ def test_multichain_independent_convergence_is_auto_confirm(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(
             query="windows:security EventCode 4768 query",
             provenance="matched-exact",
@@ -1384,7 +1670,7 @@ def test_multichain_independent_convergence_is_auto_confirm(monkeypatch):
     assert chains_seen == {"chain-a", "chain-b", "chain-c"}
 
 
-def test_multichain_divergent_chains_escalate_to_human(monkeypatch):
+def test_multichain_divergent_chains_escalate_to_human(monkeypatch: pytest.MonkeyPatch) -> None:
     """Independent chains that each surface a DIFFERENT technique consolidate
     to ESCALATE ('a human needs to look at this'), never a forced confirm."""
     import json
@@ -1396,7 +1682,13 @@ def test_multichain_divergent_chains_escalate_to_human(monkeypatch):
         "chain-c": "T1021.002",
     }
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         tech = per_model.get(model, "T1558.004")
         return {
             "content": json.dumps(
@@ -1414,7 +1706,13 @@ def test_multichain_divergent_chains_escalate_to_human(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(
             query="q", provenance="matched-exact", raw_summary="some real evidence"
         )
@@ -1436,14 +1734,20 @@ def test_multichain_divergent_chains_escalate_to_human(monkeypatch):
     assert consolidation["escalation_reason"]
 
 
-def test_multichain_does_not_alter_existing_arms(monkeypatch):
+def test_multichain_does_not_alter_existing_arms(monkeypatch: pytest.MonkeyPatch) -> None:
     """I7: run_multichain_orchestration composes run_blue_orchestration but must
     not change 3-section / 2-section / council behaviour for their callers."""
     import json
 
     seen: set[str] = set()
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if model not in seen:
             seen.add(model)
             return {"content": json.dumps({"request_more": "need telemetry"})}
@@ -1463,7 +1767,13 @@ def test_multichain_does_not_alter_existing_arms(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(
             query="q",
             provenance="matched-exact",
@@ -1486,11 +1796,17 @@ def _sections_with_mentor() -> list[bo.SectionSpec]:
     return _sections() + [bo.SectionSpec(role="mentor", model="mentor-model")]
 
 
-def test_mentor_absent_reproduces_v2_behavior(monkeypatch):
+def test_mentor_absent_reproduces_v2_behavior(monkeypatch: pytest.MonkeyPatch) -> None:
     """I7: no mentor role in sections -> V2 behavior byte-for-byte."""
     import json
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if model == "reasoning-model":
             return {"content": json.dumps({"request_more": "need more", "technique_ids": []})}
         if model == "expert-model":
@@ -1511,7 +1827,13 @@ def test_mentor_absent_reproduces_v2_behavior(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(query=req.spec, provenance="matched", raw_summary="EventCode=4768")
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -1521,7 +1843,7 @@ def test_mentor_absent_reproduces_v2_behavior(monkeypatch):
     assert not any(t.get("section") == "mentor" for t in result.trace)
 
 
-def test_mentor_fires_at_second_no_hypothesis_round(monkeypatch):
+def test_mentor_fires_at_second_no_hypothesis_round(monkeypatch: pytest.MonkeyPatch) -> None:
     import json
 
     always_wants_more = json.dumps(
@@ -1547,7 +1869,13 @@ def test_mentor_fires_at_second_no_hypothesis_round(monkeypatch):
     )
     mentor_calls = {"n": 0}
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if model == "expert-model":
             return {"content": expert_ruled_out}
         if model == "mentor-model":
@@ -1557,7 +1885,13 @@ def test_mentor_fires_at_second_no_hypothesis_round(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -1567,7 +1901,7 @@ def test_mentor_fires_at_second_no_hypothesis_round(monkeypatch):
     assert any(t.get("section") == "mentor" for t in result.trace)
 
 
-def test_mentor_block_appears_in_next_hunter_context(monkeypatch):
+def test_mentor_block_appears_in_next_hunter_context(monkeypatch: pytest.MonkeyPatch) -> None:
     import json
 
     always_wants_more = json.dumps(
@@ -1593,7 +1927,13 @@ def test_mentor_block_appears_in_next_hunter_context(monkeypatch):
     )
     reasoning_contexts = []
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if model == "reasoning-model":
             reasoning_contexts.append(messages[-1]["content"])
             return {"content": always_wants_more}
@@ -1605,7 +1945,13 @@ def test_mentor_block_appears_in_next_hunter_context(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -1616,7 +1962,7 @@ def test_mentor_block_appears_in_next_hunter_context(monkeypatch):
     )
 
 
-def test_mentor_max_invocations_is_two_per_hunt(monkeypatch):
+def test_mentor_max_invocations_is_two_per_hunt(monkeypatch: pytest.MonkeyPatch) -> None:
     import json
 
     always_wants_more = json.dumps(
@@ -1642,7 +1988,13 @@ def test_mentor_max_invocations_is_two_per_hunt(monkeypatch):
     )
     mentor_calls = {"n": 0}
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if model == "expert-model":
             return {"content": expert_ruled_out}
         if model == "mentor-model":
@@ -1652,7 +2004,13 @@ def test_mentor_max_invocations_is_two_per_hunt(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -1661,7 +2019,7 @@ def test_mentor_max_invocations_is_two_per_hunt(monkeypatch):
     assert mentor_calls["n"] == bo._MENTOR_MAX_INVOCATIONS
 
 
-def test_broken_mentor_response_falls_back_cleanly(monkeypatch):
+def test_broken_mentor_response_falls_back_cleanly(monkeypatch: pytest.MonkeyPatch) -> None:
     import json
 
     always_wants_more = json.dumps(
@@ -1686,7 +2044,13 @@ def test_broken_mentor_response_falls_back_cleanly(monkeypatch):
         }
     )
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if model == "expert-model":
             return {"content": expert_ruled_out}
         if model == "mentor-model":
@@ -1695,7 +2059,13 @@ def test_broken_mentor_response_falls_back_cleanly(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -1706,14 +2076,14 @@ def test_broken_mentor_response_falls_back_cleanly(monkeypatch):
     assert not mentor_entries
 
 
-def test_mentor_prompt_scan_forbids_prescriptive_tokens():
-    from scripts.validate_system import check_mentor_discipline
+def test_mentor_prompt_scan_forbids_prescriptive_tokens() -> None:
+    from scripts.validation.blue_orchestration import check_mentor_discipline
 
     status, detail, _subs = check_mentor_discipline()
     assert status == "PASS", detail
 
 
-def test_council_lead_hunter_uses_mentor_when_configured(monkeypatch):
+def test_council_lead_hunter_uses_mentor_when_configured(monkeypatch: pytest.MonkeyPatch) -> None:
     import json
 
     always_wants_more = json.dumps(
@@ -1728,7 +2098,13 @@ def test_council_lead_hunter_uses_mentor_when_configured(monkeypatch):
     )
     mentor_calls = {"n": 0}
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if model == "mentor-model":
             mentor_calls["n"] += 1
             return {"content": "<mentor_analysis>observed pattern; gap; reframe</mentor_analysis>"}
@@ -1750,7 +2126,13 @@ def test_council_lead_hunter_uses_mentor_when_configured(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -1815,16 +2197,28 @@ def _ruled_out_json() -> str:
     )
 
 
-def _empty_tool_fake(req, *, tool_model, episode, dry_run=False):
+def _empty_tool_fake(
+    req: bo.ToolRequest,
+    *,
+    tool_model: str,
+    episode: Episode,
+    dry_run: bool = False,
+) -> bo.ToolResult:
     return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
 
 
-def test_max_rounds_alone_reproduces_v2_behavior(monkeypatch):
+def test_max_rounds_alone_reproduces_v2_behavior(monkeypatch: pytest.MonkeyPatch) -> None:
     """B1 — the hardest constraint: max_rounds=N alone (no budgets=) must be
     byte-for-byte identical to V2 across three-section, two-section, and
     council arms."""
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if model in ("expert-model", "council-a", "council-b"):
             return {"content": _ruled_out_json()}
         return {"content": _always_wants_more_json()}
@@ -1866,8 +2260,16 @@ def test_max_rounds_alone_reproduces_v2_behavior(monkeypatch):
     assert council_v2.trace == council_v3.trace
 
 
-def test_budgets_hunter_key_overrides_max_rounds_for_hunter_only(monkeypatch):
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+def test_budgets_hunter_key_overrides_max_rounds_for_hunter_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if model == "expert-model":
             return {"content": _ruled_out_json()}
         return {"content": _always_wants_more_json()}
@@ -1884,10 +2286,16 @@ def test_budgets_hunter_key_overrides_max_rounds_for_hunter_only(monkeypatch):
     assert any(t.get("section") == "expert" for t in result.trace)
 
 
-def test_budget_starve_forces_expert_turn_not_unresolved(monkeypatch):
+def test_budget_starve_forces_expert_turn_not_unresolved(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[str] = []
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         calls.append(model)
         if model == "expert-model":
             return {"content": _ruled_out_json()}
@@ -1904,15 +2312,27 @@ def test_budget_starve_forces_expert_turn_not_unresolved(monkeypatch):
     assert any(t.get("section") == "expert" for t in result.trace)
 
 
-def test_budget_starve_expert_can_still_confirm(monkeypatch):
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+def test_budget_starve_expert_can_still_confirm(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if model == "expert-model":
             return {"content": _confirmed_json()}
         return {"content": _always_wants_more_json()}
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_tool(req, *, tool_model, episode, dry_run=False):
+    def fake_tool(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(
             query=req.spec,
             provenance="matched-exact",
@@ -1927,10 +2347,16 @@ def test_budget_starve_expert_can_still_confirm(monkeypatch):
     assert result.technique_ids == ["T1558.004"]
 
 
-def test_budget_starve_expert_declining_still_unresolved(monkeypatch):
+def test_budget_starve_expert_declining_still_unresolved(monkeypatch: pytest.MonkeyPatch) -> None:
     expert_calls = {"n": 0}
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if model == "expert-model":
             expert_calls["n"] += 1
         return {"content": _always_wants_more_json()}
@@ -1945,8 +2371,14 @@ def test_budget_starve_expert_declining_still_unresolved(monkeypatch):
     assert any(t.get("section") == "expert" for t in result.trace)
 
 
-def test_budget_starve_honors_capture_only(monkeypatch):
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+def test_budget_starve_honors_capture_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         return {"content": _always_wants_more_json()}
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
@@ -1981,8 +2413,16 @@ def _always_wants_more_with_hypothesis_json() -> str:
     )
 
 
-def test_budgets_partial_override_falls_back_for_unnamed_roles(monkeypatch):
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+def test_budgets_partial_override_falls_back_for_unnamed_roles(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         return {"content": _always_wants_more_with_hypothesis_json()}
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
@@ -2006,15 +2446,27 @@ def test_budgets_partial_override_falls_back_for_unnamed_roles(monkeypatch):
     assert three_result.rounds > two_result.rounds
 
 
-def test_budgets_none_and_max_rounds_only_is_v2_identical(monkeypatch):
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+def test_budgets_none_and_max_rounds_only_is_v2_identical(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if model == "expert-model":
             return {"content": _confirmed_json()}
         return {"content": _always_wants_more_json()}
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(
             query=req.spec, provenance="matched-exact", raw_summary="EventCode=4768"
         )
@@ -2026,8 +2478,14 @@ def test_budgets_none_and_max_rounds_only_is_v2_identical(monkeypatch):
     assert v2.trace == v3b.trace
 
 
-def test_council_uses_hunter_budget_for_shared_lead_hunt(monkeypatch):
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+def test_council_uses_hunter_budget_for_shared_lead_hunt(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if model in ("council-a", "council-b"):
             return {"content": _ruled_out_json()}
         return {"content": _always_wants_more_json()}
@@ -2047,8 +2505,14 @@ def test_council_uses_hunter_budget_for_shared_lead_hunt(monkeypatch):
     assert len(hunter_rounds) <= 2
 
 
-def test_multichain_forwards_budgets_to_each_chain(monkeypatch):
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+def test_multichain_forwards_budgets_to_each_chain(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         return {"content": _ruled_out_json()}
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
@@ -2066,8 +2530,14 @@ def test_multichain_forwards_budgets_to_each_chain(monkeypatch):
     assert budgets == {"hunter": 4}  # not aliased/mutated by any chain
 
 
-def test_budgets_dict_is_not_mutated_by_orchestration(monkeypatch):
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+def test_budgets_dict_is_not_mutated_by_orchestration(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if model == "expert-model":
             return {"content": _ruled_out_json()}
         return {"content": _always_wants_more_json()}
@@ -2084,10 +2554,16 @@ def test_budgets_dict_is_not_mutated_by_orchestration(monkeypatch):
 # ── V3C: Barrier tools ───────────────────────────────────────────────────
 
 
-def test_barrier_tools_disabled_reproduces_v2_json_path(monkeypatch):
+def test_barrier_tools_disabled_reproduces_v2_json_path(monkeypatch: pytest.MonkeyPatch) -> None:
     """I7: use_barrier_tools defaults False everywhere -> V2 JSON path."""
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         assert tools is None
         if model == "expert-model":
             return {"content": _confirmed_json()}
@@ -2095,7 +2571,13 @@ def test_barrier_tools_disabled_reproduces_v2_json_path(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(
             query=req.spec, provenance="matched-exact", raw_summary="EventCode=4768"
         )
@@ -2106,12 +2588,18 @@ def test_barrier_tools_disabled_reproduces_v2_json_path(monkeypatch):
     assert result.verdict == "CONFIRMED"
 
 
-def _barrier_msg(name: str, arguments: dict) -> dict:
+def _barrier_msg(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     return {"tool_calls": [{"function": {"name": name, "arguments": arguments}}]}
 
 
-def test_emit_verdict_confirmed_path(monkeypatch):
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+def test_emit_verdict_confirmed_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         assert tools == bo._BARRIER_TOOL_SCHEMAS
         return _barrier_msg(
             "emit_verdict",
@@ -2144,8 +2632,16 @@ def test_emit_verdict_confirmed_path(monkeypatch):
     assert out.evidence
 
 
-def test_escalate_anomalous_is_first_class_not_demoted_confirmed(monkeypatch):
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+def test_escalate_anomalous_is_first_class_not_demoted_confirmed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         return _barrier_msg(
             "escalate_anomalous",
             {
@@ -2165,8 +2661,16 @@ def test_escalate_anomalous_is_first_class_not_demoted_confirmed(monkeypatch):
     assert out.technique_ids == []
 
 
-def test_request_more_barrier_tool_matches_v2_request_more_semantics(monkeypatch):
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+def test_request_more_barrier_tool_matches_v2_request_more_semantics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         return _barrier_msg("request_more", {"what": "EventCode 4769"})
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
@@ -2178,8 +2682,14 @@ def test_request_more_barrier_tool_matches_v2_request_more_semantics(monkeypatch
     assert out.request_more == "EventCode 4769"
 
 
-def test_json_fallback_when_no_tool_call_emitted(monkeypatch):
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+def test_json_fallback_when_no_tool_call_emitted(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         return {"content": _confirmed_json()}
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
@@ -2200,8 +2710,14 @@ def test_json_fallback_when_no_tool_call_emitted(monkeypatch):
     assert out.verdict == "CONFIRMED"
 
 
-def test_malformed_toolcall_args_falls_back_to_json_scrape(monkeypatch):
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+def test_malformed_toolcall_args_falls_back_to_json_scrape(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         msg = _barrier_msg("emit_verdict", {"verdict": "MAYBE"})
         msg["content"] = _ruled_out_json()
         return msg
@@ -2214,14 +2730,20 @@ def test_malformed_toolcall_args_falls_back_to_json_scrape(monkeypatch):
     assert out.verdict == "RULED_OUT"
 
 
-def test_council_members_use_barrier_tools_when_configured(monkeypatch):
+def test_council_members_use_barrier_tools_when_configured(monkeypatch: pytest.MonkeyPatch) -> None:
     """The lead-hunter phase (run_reasoning_model, discovery system prompt)
     and the member-vote phase (run_expert_model, expert system prompt) are
     distinguished by system prompt, not by model name — council-a plays
     BOTH the lead hunter and a member here, and must gather evidence in the
     first role before concluding in the second."""
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         is_expert_turn = messages[0]["content"] == bo._EXPERT_SYSTEM_PROMPT
         if not is_expert_turn:
             # Lead-hunter turn: gather one round of evidence, then hand off.
@@ -2246,7 +2768,13 @@ def test_council_members_use_barrier_tools_when_configured(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+    def fake_run_tool_model(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(
             query=req.spec, provenance="matched-exact", raw_summary="EventCode=4768"
         )
@@ -2266,8 +2794,14 @@ def test_council_members_use_barrier_tools_when_configured(monkeypatch):
     assert verdicts["council-b"] == "ANOMALOUS_UNCLASSIFIED"
 
 
-def test_confirmed_via_barrier_tool_still_cite_or_drops(monkeypatch):
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+def test_confirmed_via_barrier_tool_still_cite_or_drops(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         return _barrier_msg(
             "emit_verdict",
             {
@@ -2298,10 +2832,18 @@ def test_confirmed_via_barrier_tool_still_cite_or_drops(monkeypatch):
     assert out.ungrounded_claims == ["T1558.004"]
 
 
-def test_confirmed_sibling_misattribution_demoted_to_anomalous(monkeypatch):
+def test_confirmed_sibling_misattribution_demoted_to_anomalous(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     hunter_calls = {"n": 0}
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if model == "reasoning-model":
             hunter_calls["n"] += 1
             if hunter_calls["n"] == 1:
@@ -2321,7 +2863,13 @@ def test_confirmed_sibling_misattribution_demoted_to_anomalous(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_tool(req, *, tool_model, episode, dry_run=False):
+    def fake_tool(
+        req: bo.ToolRequest,
+        *,
+        tool_model: str,
+        episode: Episode,
+        dry_run: bool = False,
+    ) -> bo.ToolResult:
         return bo.ToolResult(
             query=req.spec,
             provenance="matched-exact",
@@ -2341,8 +2889,14 @@ def test_confirmed_sibling_misattribution_demoted_to_anomalous(monkeypatch):
     assert "misattribution" in result.reasoning
 
 
-def test_correct_confirmed_survives_discriminator_gate(monkeypatch):
-    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+def test_correct_confirmed_survives_discriminator_gate(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_call_model(
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 2000,
+        extra_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         return _barrier_msg(
             "emit_verdict",
             {
@@ -2372,7 +2926,7 @@ def test_correct_confirmed_survives_discriminator_gate(monkeypatch):
     assert out.technique_ids == ["T1558.004"]
 
 
-def test_barrier_tool_schemas_shape_static():
+def test_barrier_tool_schemas_shape_static() -> None:
     names = [t["function"]["name"] for t in bo._BARRIER_TOOL_SCHEMAS]
     assert set(names) == {"emit_verdict", "escalate_anomalous", "request_more"}
     emit = next(t for t in bo._BARRIER_TOOL_SCHEMAS if t["function"]["name"] == "emit_verdict")
@@ -2385,14 +2939,15 @@ def test_barrier_tool_schemas_shape_static():
 # ── Council-unfit model warning ─────────────────────────────────────────
 
 
-def test_council_unfit_model_warns_but_does_not_block(capsys):
-    result = bo._warn_if_council_unfit_models(["granite4.1:30b", *bo._COUNCIL_UNFIT_MODELS])
+def test_council_unfit_model_warns_but_does_not_block(capsys: pytest.CaptureFixture[str]) -> None:
+    result = None
+    bo._warn_if_council_unfit_models(["granite4.1:30b", *bo._COUNCIL_UNFIT_MODELS])
     captured = capsys.readouterr()
     assert "council-unfit" in captured.err
     assert result is None  # advisory warning; caller's roster is not rejected
 
 
-def test_council_fit_roster_produces_no_warning(capsys):
+def test_council_fit_roster_produces_no_warning(capsys: pytest.CaptureFixture[str]) -> None:
     bo._warn_if_council_unfit_models(["granite4.1:30b", "candidate-fit:latest"])
     captured = capsys.readouterr()
     assert captured.err == ""

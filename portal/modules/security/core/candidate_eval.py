@@ -12,6 +12,7 @@ import argparse
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any, cast
 
 import yaml
 
@@ -82,8 +83,8 @@ def _get_incumbent_model(slot: str) -> str:
         return ""
     ws_cfg = data.get("workspaces", {}).get(workspace, {})
     if variant is None:
-        return ws_cfg.get("model_hint", "")
-    return ws_cfg.get("variants", {}).get(variant, {}).get("model_hint", "")
+        return cast(str, ws_cfg.get("model_hint", ""))
+    return cast(str, ws_cfg.get("variants", {}).get(variant, {}).get("model_hint", ""))
 
 
 def _resolve_incumbent(slot: str, explicit: str | None) -> str:
@@ -108,15 +109,17 @@ def _build_step_models(slot: str, candidate: str, incumbent: str) -> dict[str, s
     return step_models
 
 
-def _compute_delta(candidate_results: list[dict], incumbent_results: list[dict]) -> list[dict]:
+def _compute_delta(
+    candidate_results: list[dict[str, Any]], incumbent_results: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
     """Compute per-scenario and aggregate deltas (candidate - incumbent).
 
     Returns a list of delta dicts, one per scenario + one aggregate.
     """
-    deltas: list[dict] = []
+    deltas: list[dict[str, Any]] = []
 
     # Index incumbent results by scenario
-    inc_by_sc: dict[str, dict] = {}
+    inc_by_sc: dict[str, dict[str, Any]] = {}
     for r in incumbent_results:
         sc = r.get("scenario", "")
         inc_by_sc[sc] = r
@@ -165,7 +168,7 @@ def _compute_delta(candidate_results: list[dict], incumbent_results: list[dict])
     return deltas
 
 
-def _load_incumbent_results(path: Path, incumbent: str) -> list[dict]:
+def _load_incumbent_results(path: Path, incumbent: str) -> list[dict[str, Any]]:
     """Load a previously captured incumbent arm for reuse across candidates."""
     data = json.loads(path.read_text())
     captured_incumbent = data.get("incumbent")
@@ -194,7 +197,7 @@ def _add_incumbent_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _print_verdict(deltas: list[dict], slot: str) -> None:
+def _print_verdict(deltas: list[dict[str, Any]], slot: str) -> None:
     """Print a one-line verdict respecting confirm-policy."""
     agg = [d for d in deltas if d.get("scenario") == "__aggregate__"]
     if not agg:
@@ -323,7 +326,8 @@ def candidate_eval_main(argv: list[str] | None = None) -> int:
     print(f"  step_models: {step_models}")
 
     # ── Step 3: Run scenarios ────────────────────────────────────────────────
-    from .exec_chain import CHAIN_TOOLS_BASE, BenchConfig
+    from ._config import BenchConfig
+    from .exec_chain import CHAIN_TOOLS_BASE
 
     cfg = BenchConfig(chain_tools=list(CHAIN_TOOLS_BASE))
 
@@ -342,7 +346,7 @@ def candidate_eval_main(argv: list[str] | None = None) -> int:
     print(f"\n  [3/4] Running {len(scenarios)} scenario(s) ...")
 
     # Run candidate
-    candidate_results: list[dict] = []
+    candidate_results: list[dict[str, Any]] = []
     for sc in scenarios:
         gate = _prepare_scenario(sc, cfg, dry_run=args.dry_run, lab_exec=args.lab_exec)
         if not gate.get("ready"):
@@ -380,7 +384,7 @@ def candidate_eval_main(argv: list[str] | None = None) -> int:
             candidate_results.append(result)
 
     # Run the real incumbent baseline (skip only for dry-run).
-    incumbent_results: list[dict] = []
+    incumbent_results: list[dict[str, Any]] = []
     incumbent_results_source = "none"
     if args.incumbent_results:
         try:

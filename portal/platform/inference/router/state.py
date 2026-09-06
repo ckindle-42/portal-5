@@ -14,6 +14,7 @@ import logging
 import os
 from contextlib import suppress
 from pathlib import Path
+from typing import Any
 
 import portal.platform.inference.router.metrics as _metrics_mod
 from portal.platform.inference.router.metrics import (
@@ -133,13 +134,13 @@ def _save_state() -> None:
             fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
             try:
                 # Read existing state (may have been written by another worker)
-                existing: dict = {}
+                existing: dict[str, Any] = {}
                 if _STATE_FILE.exists():
                     with suppress(json.JSONDecodeError, OSError):
                         existing = json.loads(_STATE_FILE.read_text())
 
                 # Merge: sum accumulators, max for peak
-                merged = {
+                merged: dict[str, Any] = {
                     "request_count": dict(existing.get("request_count", {})),
                     "total_response_time_ms": float(existing.get("total_response_time_ms", 0.0))
                     + _metrics_mod._total_response_time_ms,

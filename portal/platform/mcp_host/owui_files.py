@@ -38,7 +38,7 @@ def _public_base() -> str:
     return (os.getenv("PORTAL_PUBLIC_URL") or _owui_url()).rstrip("/")
 
 
-def _upload(path: Path) -> dict:
+def _upload(path: Path) -> dict[str, str]:
     """Upload one file to Open WebUI. Returns {"id","filename","url"} or {"error"}."""
     api_key = os.getenv("OWUI_API_KEY", "")
     if not api_key:
@@ -65,7 +65,7 @@ def _upload(path: Path) -> dict:
     }
 
 
-def publish_file_sync(path: Path | str) -> dict:
+def publish_file_sync(path: Path | str) -> dict[str, str]:
     """Publish a generated file from synchronous tool code.
 
     Returns ``{"id", "filename", "url"}`` on success, ``{"error": "..."}`` otherwise.
@@ -73,6 +73,6 @@ def publish_file_sync(path: Path | str) -> dict:
     return _upload(Path(path))
 
 
-async def publish_file(path: Path | str) -> dict:
+async def publish_file(path: Path | str) -> dict[str, str]:
     """Publish a generated file from async tool code. See ``publish_file_sync``."""
     return await asyncio.to_thread(_upload, Path(path))

@@ -97,8 +97,7 @@ def seed_code(dry_run: bool = False) -> list[KnowledgeUnit]:
         unit_id = f"unit-code-{subsystem}"
         file_list = []
         for f in files[:20]:  # cap at 20 files per unit
-            rel = str(f.relative_to(_REPO_ROOT))
-            file_list.append(f"- `{rel}`")
+            file_list.append(f"- `{f.relative_to(_REPO_ROOT)}`")
 
         body = f"# {subsystem} subsystem\n\n"
         body += f"**Files:** {len(files)}\n\n"

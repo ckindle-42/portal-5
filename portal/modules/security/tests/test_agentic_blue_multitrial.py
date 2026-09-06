@@ -5,6 +5,8 @@ All tests use only in-memory data; no network, no Docker, no lab.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from portal.modules.security.core._sweep_driver import (
@@ -17,20 +19,20 @@ from portal.modules.security.core._sweep_driver import (
 
 
 class TestClassifyCell:
-    def test_all_pass_is_reliable(self):
+    def test_all_pass_is_reliable(self) -> None:
         assert _classify_cell(3, 3) == "reliable"
 
-    def test_none_pass_is_incapable(self):
+    def test_none_pass_is_incapable(self) -> None:
         assert _classify_cell(0, 3) == "incapable"
 
-    def test_partial_is_unreliable(self):
+    def test_partial_is_unreliable(self) -> None:
         assert _classify_cell(1, 3) == "unreliable"
         assert _classify_cell(2, 3) == "unreliable"
 
-    def test_single_trial_pass(self):
+    def test_single_trial_pass(self) -> None:
         assert _classify_cell(1, 1) == "reliable"
 
-    def test_single_trial_fail(self):
+    def test_single_trial_fail(self) -> None:
         assert _classify_cell(0, 1) == "incapable"
 
 
@@ -38,27 +40,27 @@ class TestClassifyCell:
 
 
 class TestMeanStdev:
-    def test_empty(self):
+    def test_empty(self) -> None:
         mean, std = _mean_stdev([])
         assert mean == 0.0
         assert std == 0.0
 
-    def test_single_value(self):
+    def test_single_value(self) -> None:
         mean, std = _mean_stdev([0.5])
         assert mean == 0.5
         assert std == 0.0
 
-    def test_identical_values(self):
+    def test_identical_values(self) -> None:
         mean, std = _mean_stdev([0.3, 0.3, 0.3])
         assert mean == pytest.approx(0.3)
         assert std == 0.0
 
-    def test_varied_values(self):
+    def test_varied_values(self) -> None:
         mean, std = _mean_stdev([0.0, 0.5, 1.0])
         assert mean == pytest.approx(0.5)
         assert std > 0.0
 
-    def test_known_stdev(self):
+    def test_known_stdev(self) -> None:
         # Values: [0, 1], mean=0.5, variance=0.25, stdev=0.5
         mean, std = _mean_stdev([0.0, 1.0])
         assert mean == pytest.approx(0.5)
@@ -68,7 +70,9 @@ class TestMeanStdev:
 # ── _aggregate_trials ────────────────────────────────────────────────────────
 
 
-def _make_trial(arm: str, exact_recall: float, parent_recall: float, tactic_recall: float) -> dict:
+def _make_trial(
+    arm: str, exact_recall: float, parent_recall: float, tactic_recall: float
+) -> dict[str, Any]:
     """Helper to build a minimal trial result dict."""
     return {
         "arms": {
@@ -85,7 +89,7 @@ def _make_trial(arm: str, exact_recall: float, parent_recall: float, tactic_reca
 
 
 class TestAggregateTrials:
-    def test_single_trial(self):
+    def test_single_trial(self) -> None:
         """Single trial aggregation."""
         trials = [_make_trial("harness", 0.0, 1.0, 1.0)]
         result = _aggregate_trials(trials)
@@ -96,7 +100,7 @@ class TestAggregateTrials:
         assert ts["exact"]["classification"] == "incapable"
         assert ts["parent"]["classification"] == "reliable"
 
-    def test_three_trials_all_pass(self):
+    def test_three_trials_all_pass(self) -> None:
         """All 3 trials pass at parent tier → reliable."""
         trials = [
             _make_trial("harness", 0.0, 1.0, 1.0),
@@ -110,7 +114,7 @@ class TestAggregateTrials:
         assert ts["parent"]["classification"] == "reliable"
         assert ts["exact"]["classification"] == "incapable"
 
-    def test_three_trials_partial_pass(self):
+    def test_three_trials_partial_pass(self) -> None:
         """1/3 trials pass at exact tier → unreliable."""
         trials = [
             _make_trial("harness", 1.0, 1.0, 1.0),
@@ -123,7 +127,7 @@ class TestAggregateTrials:
         assert ts["exact"]["pass_rate"] == pytest.approx(0.333, abs=0.01)
         assert ts["exact"]["classification"] == "unreliable"
 
-    def test_mean_recall(self):
+    def test_mean_recall(self) -> None:
         """Mean recall computed correctly."""
         trials = [
             _make_trial("harness", 0.0, 0.5, 1.0),
@@ -135,7 +139,7 @@ class TestAggregateTrials:
         assert ts["parent"]["mean_recall"] == pytest.approx(0.5, abs=0.01)
         assert ts["tactic"]["mean_recall"] == pytest.approx(0.833, abs=0.01)
 
-    def test_stdev_computed(self):
+    def test_stdev_computed(self) -> None:
         """Stdev is computed for varied recall values."""
         trials = [
             _make_trial("harness", 0.0, 0.0, 0.0),
@@ -145,7 +149,7 @@ class TestAggregateTrials:
         ts = result["harness"]["tiered_summary"]
         assert ts["parent"]["stdev_recall"] == pytest.approx(0.5, abs=0.01)
 
-    def test_per_trial_values(self):
+    def test_per_trial_values(self) -> None:
         """Per-trial values are recorded."""
         trials = [
             _make_trial("harness", 0.0, 0.5, 1.0),
@@ -156,7 +160,7 @@ class TestAggregateTrials:
         assert ts["exact"]["per_trial"] == [0.0, 1.0]
         assert ts["parent"]["per_trial"] == [0.5, 1.0]
 
-    def test_multiple_arms(self):
+    def test_multiple_arms(self) -> None:
         """Multiple arms aggregated independently."""
         trials = [
             {
@@ -184,17 +188,17 @@ class TestAggregateTrials:
         assert result["raw"]["tiered_summary"]["parent"]["classification"] == "incapable"
         assert result["harness"]["tiered_summary"]["parent"]["classification"] == "reliable"
 
-    def test_empty_trials(self):
+    def test_empty_trials(self) -> None:
         """Empty trial list returns empty dict."""
         assert _aggregate_trials([]) == {}
 
-    def test_trials_count_recorded(self):
+    def test_trials_count_recorded(self) -> None:
         """Trial count is recorded in output."""
         trials = [_make_trial("harness", 0.0, 1.0, 1.0)] * 5
         result = _aggregate_trials(trials)
         assert result["harness"]["trials"] == 5
 
-    def test_last_trial_preserved(self):
+    def test_last_trial_preserved(self) -> None:
         """Last trial detail is preserved for inspection."""
         trials = [
             _make_trial("harness", 0.0, 0.0, 0.0),

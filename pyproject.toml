@@ -202,6 +202,11 @@ dev = [
     "ruff>=0.1.0",
     "mypy>=1.7.0",
     "lancedb>=0.37.1",     # bully/organ.py's ORG projection -- needed to run tests/security/bully/
+    # pandas is a hard runtime requirement of the LanceDB-backed retrieval store
+    # (pyarrow's pandas shim converts arrow tables on read) but only arrived in
+    # dev/CI transitively. Without it the dev/CI unit suite (compliance review
+    # queue, rag retrieval seams) fails deterministically under Python 3.12.
+    "pandas>=2.0.0",
 ]
 
 [project.scripts]
@@ -214,6 +219,14 @@ packages = ["portal_channels", "portal_mcp", "portal", "portal_wiki"]
 [tool.ruff]
 target-version = "py312"
 line-length = 100
+
+[tool.ruff.format]
+# Fixture READMEs under tests/fixtures/ embed Python code fences that ruff's
+# markdown formatting (still experimental upstream; full support needs preview
+# mode) wants to reformat. They are corpus data, not project docs — keep their
+# bytes stable and the repo off the experimental formatter
+# (TASK_MYPY_STRICT_BASELINE_REMEDIATION_V1, Problem 2).
+exclude = ["tests/fixtures/**/*.md"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM", "C90", "PLR0912", "PLR0915"]
@@ -367,13 +380,31 @@ max-complexity = 15
 "tests/uat/runner.py" = ["C90", "PLR0912", "PLR0915"]
 
 [tool.mypy]
-python_version = "3.10"
+# python_version must track the real toolchain: ruff target-version is py312
+# and scripts/ci_local.sh builds a Python 3.12 venv. The previous 3.10 floor
+# manufactured a false debt class (e.g. datetime.UTC, added in 3.11) that
+# production code already ships — mypy flagged 33+ files for code that runs
+# fine on every runtime this repo actually uses.
+python_version = "3.12"
 strict = true
 warn_return_any = true
 warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
-module = "scipy.*"
+module = [
+    "scipy.*",
+    "pandas.*",
+    "scapy",
+    "scapy.*",
+    "markdown",
+    "openpyxl",
+    "openpyxl.*",
+    "yara",
+    # Runtime-only benchmark harness helper: _data.py inserts tests/benchmarks on
+    # sys.path and imports `bench_lab_exec` bare under try/except; it lives
+    # outside the strict-checked portal tree (mypy can't resolve it).
+    "bench_lab_exec",
+]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

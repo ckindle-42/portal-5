@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
+from typing import Any
 
 from .evidence import EvidenceRecord, EvidenceStore, new_evidence_id
 
@@ -30,12 +31,12 @@ class InvestigationScenario:
     name: str
     description: str
     alert_text: str  # the initial alert that triggers the investigation
-    evidence: list[dict]  # pre-seeded evidence records
-    expected_findings: list[dict]  # what the investigation should conclude
-    adversarial: dict = field(default_factory=dict)
+    evidence: list[dict[str, Any]]  # pre-seeded evidence records
+    expected_findings: list[dict[str, Any]]  # what the investigation should conclude
+    adversarial: dict[str, Any] = field(default_factory=dict)
     # {planted_contradictions: [], missing_evidence_traps: []}
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "scenario_id": self.scenario_id,
             "name": self.name,
@@ -56,15 +57,15 @@ class InvestigationResult:
 
     scenario_id: str
     agent_type: str  # "single_agent_baseline" | "multi_agent"
-    findings: list[dict] = field(default_factory=list)
+    findings: list[dict[str, Any]] = field(default_factory=list)
     evidence_used: list[str] = field(default_factory=list)  # evidence IDs referenced
-    hypotheses: list[dict] = field(default_factory=list)
-    metrics: dict = field(default_factory=dict)
+    hypotheses: list[dict[str, Any]] = field(default_factory=list)
+    metrics: dict[str, Any] = field(default_factory=dict)
     # {hallucination_rate, contradiction_detection_rate, evidence_completeness}
     elapsed_s: float = 0.0
     errors: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "scenario_id": self.scenario_id,
             "agent_type": self.agent_type,
@@ -81,7 +82,7 @@ class InvestigationResult:
 
 
 def compute_hallucination_rate(
-    findings: list[dict],
+    findings: list[dict[str, Any]],
     evidence_store: EvidenceStore,
 ) -> float:
     """Compute the fraction of findings that cite non-existent evidence.
@@ -108,8 +109,8 @@ def compute_hallucination_rate(
 
 
 def compute_contradiction_detection_rate(
-    findings: list[dict],
-    expected_contradictions: list[dict],
+    findings: list[dict[str, Any]],
+    expected_contradictions: list[dict[str, Any]],
 ) -> float:
     """Compute the fraction of planted contradictions that were detected.
 
@@ -133,8 +134,8 @@ def compute_contradiction_detection_rate(
 
 
 def compute_evidence_completeness(
-    findings: list[dict],
-    expected_findings: list[dict],
+    findings: list[dict[str, Any]],
+    expected_findings: list[dict[str, Any]],
 ) -> float:
     """Compute the fraction of expected findings that were produced.
 
@@ -302,9 +303,9 @@ class BenchmarkResult:
 
     scenarios_run: int = 0
     results: list[InvestigationResult] = field(default_factory=list)
-    aggregate_metrics: dict = field(default_factory=dict)
+    aggregate_metrics: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "scenarios_run": self.scenarios_run,
             "results": [r.to_dict() for r in self.results],
@@ -476,7 +477,7 @@ def run_multi_agent(
 
 def run_comparison(
     scenarios: list[InvestigationScenario] | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Run baseline vs multi-agent comparison.
 
     Returns dict with both results and the comparison verdict.

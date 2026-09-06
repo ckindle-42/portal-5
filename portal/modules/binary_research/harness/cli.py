@@ -24,7 +24,9 @@ import json
 import logging
 import shutil
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any, cast
 
 import yaml
 
@@ -53,21 +55,23 @@ MODEL_MENU = [
 DEFAULT_NUM_CTX = 262144
 
 
-def _load_config(path: Path | None) -> dict:
+def _load_config(path: Path | None) -> dict[str, Any]:
     if path and path.exists():
-        return yaml.safe_load(path.read_text()) or {}
+        loaded = yaml.safe_load(path.read_text())
+        return cast(dict[str, Any], loaded) if isinstance(loaded, dict) else {}
     for candidate in [Path("config.yaml"), Path("brh_config.yaml")]:
         if candidate.exists():
-            return yaml.safe_load(candidate.read_text()) or {}
+            loaded = yaml.safe_load(candidate.read_text())
+            return cast(dict[str, Any], loaded) if isinstance(loaded, dict) else {}
     return {}
 
 
-def _resolve_model(cli_model: str | None, cfg: dict) -> str:
+def _resolve_model(cli_model: str | None, cfg: dict[str, Any]) -> str:
     if cli_model:
         return cli_model
     pinned = cfg.get("llm", {}).get("model")
     if pinned:
-        return pinned
+        return cast(str, pinned)
     if sys.stdin.isatty() and sys.stdout.isatty():
         print("Select a model for the analysis loop:")
         for i, (_tag, desc) in enumerate(MODEL_MENU, 1):
@@ -83,7 +87,7 @@ def _resolve_model(cli_model: str | None, cfg: dict) -> str:
     return DEFAULT_MODEL
 
 
-def _llm_config(cfg: dict, model: str) -> LLMConfig:
+def _llm_config(cfg: dict[str, Any], model: str) -> LLMConfig:
     llm = cfg.get("llm", {})
     extra = dict(llm.get("extra_body", {}))
     extra.setdefault("num_ctx", DEFAULT_NUM_CTX)
@@ -98,29 +102,31 @@ def _llm_config(cfg: dict, model: str) -> LLMConfig:
     )
 
 
-def _scaffold_llm_config(cfg: dict) -> LLMConfig:
+def _scaffold_llm_config(cfg: dict[str, Any]) -> LLMConfig:
     sc = cfg.get("scaffold", {})
     return _llm_config(cfg, sc.get("model", SCAFFOLD_MODEL))
 
 
-def _policy(cfg: dict, project_dir: Path) -> Policy:
+def _policy(cfg: dict[str, Any], project_dir: Path) -> Policy:
     pol = cfg.get("policy", {})
     deny = pol.get("deny_command_substrings")
+    deny_factory = cast(
+        "Callable[[], list[str]]",
+        Policy.__dataclass_fields__["deny_command_substrings"].default_factory,
+    )
     return Policy(
         job_root=project_dir,
         allow_network=pol.get("allow_network", False),
         allow_execution_of_artifacts=pol.get("allow_execution_of_artifacts", False),
         allow_host_exec=pol.get("allow_host_exec", False),
-        deny_command_substrings=deny
-        if deny is not None
-        else Policy.__dataclass_fields__["deny_command_substrings"].default_factory(),
+        deny_command_substrings=deny if deny is not None else deny_factory(),
         extra_allowed_roots=[Path(p) for p in pol.get("extra_allowed_roots", [])],
         tool_output_chars=pol.get("tool_output_chars", 24_000),
         tool_timeout_sec=pol.get("tool_timeout_sec", 120),
     )
 
 
-def _budget(cfg: dict) -> Budget:
+def _budget(cfg: dict[str, Any]) -> Budget:
     b = cfg.get("budget", {})
     return Budget(
         max_turns=b.get("max_turns", 80),
@@ -129,7 +135,7 @@ def _budget(cfg: dict) -> Budget:
     )
 
 
-def _skill(cfg: dict, module_dir: Path) -> str:
+def _skill(cfg: dict[str, Any], module_dir: Path) -> str:
     sp = cfg.get("skill_path")
     if sp and Path(sp).exists():
         return Path(sp).read_text()
@@ -137,7 +143,7 @@ def _skill(cfg: dict, module_dir: Path) -> str:
     return default.read_text() if default.exists() else ""
 
 
-def _emit(obj: dict, as_json: bool) -> None:
+def _emit(obj: dict[str, Any], as_json: bool) -> None:
     if as_json:
         print(json.dumps(obj))
         return
@@ -186,7 +192,7 @@ def cmd_init(args: argparse.Namespace) -> int:
 
 def cmd_status(args: argparse.Namespace) -> int:
     project_dir = resolve_project(args.project)
-    st = {
+    st: dict[str, Any] = {
         "project": str(project_dir),
         "initialized": is_initialized(project_dir),
         "intake_state": scaffold_mod.status(project_dir).get("state"),
@@ -394,4 +400,4 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
     )
-    return args.func(args)
+    return cast(int, args.func(args))

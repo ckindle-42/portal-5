@@ -8,10 +8,13 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Awaitable, Callable
+from typing import Any, cast
 
 import torch
 from mcp.server import MCPServer
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 from portal.modules.security.core.perception import (
@@ -27,11 +30,25 @@ _MODEL_NAME = "CIRCL/vulnerability-severity-classification-roberta-base"
 _LABELS = ["low", "medium", "high", "critical"]
 
 # Lazy-loaded globals (loaded on first tool call, not import time)
-_tokenizer = None
-_model = None
+_tokenizer: Any = None
+_model: Any = None
 
 
-def _ensure_model():
+class _TypedMCPServer(MCPServer):
+    def custom_route(
+        self,
+        path: str,
+        methods: list[str],
+        name: str | None = None,
+        include_in_schema: bool = True,
+    ) -> Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]]:
+        return cast(
+            Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+            super().custom_route(path, methods, name=name, include_in_schema=include_in_schema),
+        )
+
+
+def _ensure_model() -> None:
     """Load the VLAI model on first use. Downloads from HuggingFace if not cached."""
     global _tokenizer, _model
     if _model is not None:
@@ -46,7 +63,7 @@ def _ensure_model():
 # ── MCP Server Setup ─────────────────────────────────────────────────────────
 _port = int(os.environ.get("SECURITY_MCP_PORT") or os.environ.get("MCP_PORT", "8919"))
 
-mcp = MCPServer(
+mcp = _TypedMCPServer(
     "Portal Security Tools",
     instructions="Vulnerability severity classification and security analysis tools",
 )
@@ -106,7 +123,7 @@ TOOLS_MANIFEST = [
 
 # ── Readiness endpoint ───────────────────────────────────────────────────────
 @mcp.custom_route("/ready", methods=["GET"])
-async def ready(request):
+async def ready(request: Request) -> JSONResponse:
     return JSONResponse(
         {
             "model_loaded": _model is not None,
@@ -117,24 +134,24 @@ async def ready(request):
 
 
 @mcp.custom_route("/health", methods=["GET"])
-async def health_check(request):
+async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "security-mcp", "port": _port})
 
 
 @mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request):
+async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
 @mcp.custom_route("/tools/{tool_name}", methods=["POST"])
-async def invoke_tool(request):
+async def invoke_tool(request: Request) -> JSONResponse:
     """REST dispatch endpoint used by portal-pipeline tool_registry."""
     tool_name = request.path_params.get("tool_name", "")
     try:
-        body = await request.json()
+        body: dict[str, Any] = await request.json()
     except Exception:
         body = {}
-    arguments = body.get("arguments", body)
+    arguments: Any = body.get("arguments", body)
     if tool_name == "classify_vulnerability":
         try:
             result = classify_vulnerability(**arguments)
@@ -159,7 +176,7 @@ async def invoke_tool(request):
 
 
 @mcp.tool()
-def classify_vulnerability(description: str) -> dict:
+def classify_vulnerability(description: str) -> dict[str, Any]:
     """Classify a vulnerability description into severity level (low/medium/high/critical).
 
     Uses CIRCL's VLAI model (RoBERTa-base, 82% accuracy, trained on 600K+ CVEs).
@@ -171,23 +188,25 @@ def classify_vulnerability(description: str) -> dict:
                      Works best with CVE-style descriptions (1-3 sentences).
     """
     _ensure_model()
+    tokenizer = _tokenizer
+    model = _model
 
-    inputs = _tokenizer(
+    inputs = tokenizer(
         description, return_tensors="pt", truncation=True, padding=True, max_length=512
     )
 
     with torch.no_grad():
-        outputs = _model(**inputs)
+        outputs = model(**inputs)
         probabilities = torch.nn.functional.softmax(outputs.logits, dim=-1)
 
-    predicted_idx = torch.argmax(probabilities, dim=-1).item()
-    confidence = probabilities[0][predicted_idx].item()
+    predicted_idx = int(torch.argmax(probabilities, dim=-1).item())
+    confidence = float(probabilities[0][predicted_idx].item())
 
     return {
         "severity": _LABELS[predicted_idx],
         "confidence": round(confidence, 4),
         "probabilities": {
-            label: round(prob.item(), 4)
+            label: round(float(prob.item()), 4)
             for label, prob in zip(_LABELS, probabilities[0], strict=True)
         },
         "model": _MODEL_NAME,
@@ -195,7 +214,7 @@ def classify_vulnerability(description: str) -> dict:
 
 
 @mcp.tool()
-def lab_perception(hosts: list[str]) -> dict:
+def lab_perception(hosts: list[str]) -> dict[str, Any]:
     """Bounded live-state enumerator for the RBP lab (DESIGN_EMERGENT_LAB_AGENT_V2 Δ1).
 
     Returns a live observation delta (services, reachability, changed hosts)

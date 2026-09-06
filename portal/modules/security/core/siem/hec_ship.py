@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from typing import Any
 
 import httpx
 
@@ -17,7 +18,7 @@ INDEX = os.environ.get("LAB_SPLUNK_INDEX", "portal5_lab")
 
 
 def ship(
-    event: dict | str,
+    event: dict[str, Any] | str,
     *,
     sourcetype: str,
     host: str,
@@ -28,7 +29,7 @@ def ship(
     evidence_origin: str | None = None,
     evidence_provenance: str | None = None,
     episode_id: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Post one event to HEC. Returns {'ok': bool, 'code': int|None, 'dry_run'?: True}.
 
     event_time overrides the HEC 'time' field (epoch seconds) — pass the real
@@ -71,7 +72,7 @@ def ship(
 
 
 def ship_batch(
-    events: list[dict | str],
+    events: list[dict[str, Any] | str],
     *,
     sourcetype: str,
     host: str,
@@ -82,7 +83,7 @@ def ship_batch(
     evidence_origin: str | None = None,
     evidence_provenance: str | None = None,
     episode_id: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Batch to /services/collector/event (newline-concatenated event objects).
 
     ``event_time`` overrides the HEC 'time' field (epoch seconds) for every
@@ -102,7 +103,7 @@ def ship_batch(
     else:
         stamps = [event_time if event_time is not None else time.time()] * len(events)
 
-    def _envelope(e: dict | str, stamp: float) -> dict:
+    def _envelope(e: dict[str, Any] | str, stamp: float) -> dict[str, Any]:
         envelope = {
             "time": stamp,
             "host": host,

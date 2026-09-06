@@ -17,6 +17,7 @@ import json
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import Any
 
 from .schema import KnowledgeUnit, SourceRef
 from .store import load_unit, save_unit
@@ -60,7 +61,7 @@ class ProposedUnit:
     unit_id: str  # the target unit ID when confirmed
     kind: str
     title: str
-    sources: list[dict]  # serialized SourceRef dicts
+    sources: list[dict[str, Any]]  # serialized SourceRef dicts
     body: str
     tags: list[str] = field(default_factory=list)
     proposed_by: str = ""  # which loop/agent proposed this
@@ -71,12 +72,12 @@ class ProposedUnit:
     # unit even when the new sources are not a superset of its current ones —
     # explicit operator/loop intent required to degrade provenance on confirm.
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 def propose_unit(
-    candidate: dict,
+    candidate: dict[str, Any],
     *,
     proposed_by: str = "",
     auto_confirm: bool = False,

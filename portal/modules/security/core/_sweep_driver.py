@@ -48,6 +48,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from threading import Lock
+from typing import Any
 
 from portal.modules.security.core.agentic_blue_eval import run_eval
 
@@ -71,7 +72,7 @@ def _get_workers() -> int:
     return int(os.environ.get("SWEEP_WORKERS", "4"))
 
 
-def _run_cell(scenario: str, model: str, arms: list[str], trials: int) -> dict:
+def _run_cell(scenario: str, model: str, arms: list[str], trials: int) -> dict[str, Any]:
     """Run a single cell (scenario × model) with all its trials.
 
     Each trial runs the eval with the specified arms. Trials are serial
@@ -98,7 +99,7 @@ def _run_cell(scenario: str, model: str, arms: list[str], trials: int) -> dict:
     }
 
 
-def _checkpoint_result(record: dict, results: list[dict]) -> None:
+def _checkpoint_result(record: dict[str, Any], results: list[dict[str, Any]]) -> None:
     """Write a single cell result to the checkpoint file (thread-safe).
 
     Updates the in-memory results list AND writes to disk so interrupted
@@ -140,7 +141,7 @@ def _mean_stdev(values: list[float]) -> tuple[float, float]:
     return mean, math.sqrt(variance)
 
 
-def _aggregate_trials(trial_results: list[dict]) -> dict:
+def _aggregate_trials(trial_results: list[dict[str, Any]]) -> dict[str, Any]:
     """Aggregate N trial results into pass@k, mean±stdev, and tiered scores.
 
     Each trial_result is a run_eval() output dict with 'arms' keyed by arm name.
@@ -152,7 +153,7 @@ def _aggregate_trials(trial_results: list[dict]) -> dict:
     # Collect arm names from first trial
     arm_names = list(trial_results[0].get("arms", {}).keys())
 
-    aggregated: dict[str, dict] = {}
+    aggregated: dict[str, dict[str, Any]] = {}
     for arm in arm_names:
         arm_trials = []
         for tr in trial_results:
@@ -238,7 +239,7 @@ def _aggregate_trials(trial_results: list[dict]) -> dict:
     return aggregated
 
 
-def _compute_arm_deltas(results: list[dict]) -> dict[str, dict]:
+def _compute_arm_deltas(results: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """Compute per-model arm-vs-arm deltas across all scenarios.
 
     For each model, aggregates mean_recall per tier across scenarios,
@@ -249,12 +250,12 @@ def _compute_arm_deltas(results: list[dict]) -> dict[str, dict]:
     recall lists (for bootstrap CI).
     """
     # Group results by model
-    by_model: dict[str, list[dict]] = {}
+    by_model: dict[str, list[dict[str, Any]]] = {}
     for r in results:
         model = r.get("model", "")
         by_model.setdefault(model, []).append(r)
 
-    deltas: dict[str, dict] = {}
+    deltas: dict[str, dict[str, Any]] = {}
     for model, model_results in by_model.items():
         # Collect per-scenario mean_recall for each arm+tier
         arm_tier_vals: dict[str, dict[str, list[float]]] = {}
@@ -267,7 +268,7 @@ def _compute_arm_deltas(results: list[dict]) -> dict[str, dict]:
                     arm_tier_vals[arm_name][tier].append(ts.get(tier, {}).get("mean_recall", 0.0))
 
         # Compute averages
-        model_tiers: dict[str, dict] = {}
+        model_tiers: dict[str, dict[str, Any]] = {}
         for tier in ["exact", "parent", "tactic"]:
             raw_vals = arm_tier_vals.get("raw", {}).get(tier, [0.0])
             tools_vals = arm_tier_vals.get("tools", {}).get(tier, [0.0])
@@ -346,7 +347,7 @@ def _verdict_from_ci(ci_lower: float, ci_upper: float) -> str:
     return "INCONCLUSIVE"
 
 
-def _write_back_winning_config(results: list[dict]) -> str | None:
+def _write_back_winning_config(results: list[dict[str, Any]]) -> str | None:
     """M5: Write arm-vs-arm delta report with confidence intervals as a cited wiki unit.
 
     Reports per-model harness−raw / harness−tools deltas per tier with 95% bootstrap CI.
@@ -369,7 +370,7 @@ def _write_back_winning_config(results: list[dict]) -> str | None:
     best_harness_model = ""
 
     # Track verdicts
-    verdicts: dict[str, dict[str, dict]] = {}
+    verdicts: dict[str, dict[str, dict[str, Any]]] = {}
 
     body_lines = [
         "# Agentic Blue Eval — Arm-vs-Arm Delta Report (with Confidence Intervals)",
@@ -586,14 +587,16 @@ def _backup_existing_checkpoint(path: Path) -> Path | None:
     return bak_path
 
 
-def _warn_if_unrelated_checkpoint(existing_results: list[dict], models: list[str]) -> None:
+def _warn_if_unrelated_checkpoint(
+    existing_results: list[dict[str, Any]], models: list[str]
+) -> None:
     """Loud warning if an existing checkpoint's models share nothing with
     this run's models — the strongest available signal that OUT_PATH is
     about to mix two unrelated sweeps (the exact failure mode that lost
     the original devstral raw-vs-harness gate data on 2026-07-11)."""
     if not existing_results:
         return
-    existing_models = {r.get("model") for r in existing_results}
+    existing_models = {m for r in existing_results if (m := r.get("model"))}
     if existing_models and not (existing_models & set(models)):
         print(
             "WARNING: existing checkpoint has ZERO model overlap with this run "
@@ -700,7 +703,7 @@ def main() -> None:
     _backup_existing_checkpoint(OUT_PATH)
 
     # Load existing results (supports incremental runs + checkpointing)
-    results: list[dict] = []
+    results: list[dict[str, Any]] = []
     if OUT_PATH.exists():
         results = json.loads(OUT_PATH.read_text())
     _warn_if_unrelated_checkpoint(results, models)

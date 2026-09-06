@@ -7,7 +7,10 @@ HTTP layer so nothing touches a real Ollama instance.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from unittest.mock import patch
+
+import pytest
 
 from portal.modules.security.core.drift_gate import (
     CANARY_PROBES,
@@ -22,7 +25,7 @@ from portal.modules.security.core.drift_gate import (
 
 
 class TestMetricDrift:
-    def test_clear_regression_flagged(self):
+    def test_clear_regression_flagged(self) -> None:
         d = _metric_drift(
             "blue_f1",
             candidate_values=[0.5, 0.48],
@@ -32,7 +35,7 @@ class TestMetricDrift:
         assert d.delta is not None
         assert d.delta < 0
 
-    def test_within_noise_is_ok(self):
+    def test_within_noise_is_ok(self) -> None:
         d = _metric_drift(
             "blue_f1",
             candidate_values=[0.79, 0.785],
@@ -41,15 +44,15 @@ class TestMetricDrift:
         assert d.status in ("OK", "DRIFT-WARN")
         assert d.status != "DRIFT-REGRESSION"
 
-    def test_fewer_than_three_baseline_runs_is_insufficient(self):
+    def test_fewer_than_three_baseline_runs_is_insufficient(self) -> None:
         d = _metric_drift("blue_f1", candidate_values=[0.5], baseline_run_values=[[0.8], [0.79]])
         assert d.status == "INSUFFICIENT-BASELINE"
 
-    def test_no_baseline_at_all_is_insufficient(self):
+    def test_no_baseline_at_all_is_insufficient(self) -> None:
         d = _metric_drift("blue_f1", candidate_values=[0.5], baseline_run_values=[])
         assert d.status == "INSUFFICIENT-BASELINE"
 
-    def test_improvement_is_ok_not_regression(self):
+    def test_improvement_is_ok_not_regression(self) -> None:
         d = _metric_drift(
             "blue_f1",
             candidate_values=[0.95, 0.96],
@@ -57,7 +60,7 @@ class TestMetricDrift:
         )
         assert d.status == "OK"
 
-    def test_per_metric_isolation(self):
+    def test_per_metric_isolation(self) -> None:
         """A drop in one metric must not be conflated with another metric's
         drift status — drift_check reports per-metric, not an aggregate."""
         blue_f1_regression = _metric_drift(
@@ -75,7 +78,7 @@ class TestMetricDrift:
 
 
 class TestDriftCheckIntegration:
-    def test_drift_check_runs_against_real_results(self):
+    def test_drift_check_runs_against_real_results(self) -> None:
         """Smoke test against whatever result files actually exist on disk —
         must not crash, and must never emit a status outside the known set."""
         report = drift_check(window=5)
@@ -85,16 +88,16 @@ class TestDriftCheckIntegration:
             for m in pair["metrics"]:
                 assert m["status"] in valid_statuses
 
-    def test_render_markdown_handles_empty(self):
+    def test_render_markdown_handles_empty(self) -> None:
         md = render_drift_markdown({"generated_at": "x", "window": 5, "pairs": []})
         assert "no purple-test series" in md
 
-    def test_render_markdown_has_table_header(self):
+    def test_render_markdown_has_table_header(self) -> None:
         report = drift_check(window=5)
         md = render_drift_markdown(report)
         assert "| scenario |" in md
 
-    def test_drift_is_a_flag_never_mutates_anything(self):
+    def test_drift_is_a_flag_never_mutates_anything(self) -> None:
         """drift_check is read-only over results/ — running it twice must
         produce structurally identical pair/metric keys (no side effects)."""
         r1 = drift_check(window=5)
@@ -103,12 +106,12 @@ class TestDriftCheckIntegration:
 
 
 class TestModelCanary:
-    def test_probe_suite_nonempty_and_well_formed(self):
+    def test_probe_suite_nonempty_and_well_formed(self) -> None:
         assert len(CANARY_PROBES) >= 10
         for probe in CANARY_PROBES:
             assert "id" in probe and "prompt" in probe and "expect_any" in probe
 
-    def test_run_canary_probe_mocked(self, monkeypatch):
+    def test_run_canary_probe_mocked(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("DRIFT_DIRECT_OLLAMA", "true")
         with patch("httpx.post") as mock_post:
             mock_post.return_value.raise_for_status = lambda: None
@@ -121,7 +124,9 @@ class TestModelCanary:
         assert result["total"] == len(CANARY_PROBES)
         assert result["pass_count"] >= 1
 
-    def test_run_canary_probe_mocked_pipeline_default(self, monkeypatch):
+    def test_run_canary_probe_mocked_pipeline_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.delenv("DRIFT_DIRECT_OLLAMA", raising=False)
         with patch("httpx.post") as mock_post:
             mock_post.return_value.raise_for_status = lambda: None
@@ -140,7 +145,7 @@ class TestModelCanary:
         called_url = mock_post.call_args.args[0]
         assert "/v1/chat/completions" in called_url
 
-    def test_flipped_probe_detected(self, tmp_path, monkeypatch):
+    def test_flipped_probe_detected(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("DRIFT_DIRECT_OLLAMA", "true")
         model = "canary-test-model"
         with patch(
@@ -163,7 +168,9 @@ class TestModelCanary:
         assert result["status"] in ("LOW", "MEDIUM", "HIGH")
         assert len(result["flipped"]) > 0
 
-    def test_identical_behavior_is_none(self, tmp_path, monkeypatch):
+    def test_identical_behavior_is_none(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setenv("DRIFT_DIRECT_OLLAMA", "true")
         model = "canary-stable-model"
         fixed_content = "T1558.003 CVE-2021-44228 A03 T1611 T1047 CVE-2017-0144 A10 T1557.001 T1550.002 T1558.004 T1558.001"
@@ -182,7 +189,7 @@ class TestModelCanary:
         assert result["status"] == "NONE"
         assert result["flipped"] == []
 
-    def test_no_baseline_reports_no_baseline_status(self, tmp_path):
+    def test_no_baseline_reports_no_baseline_status(self, tmp_path: Path) -> None:
         with patch(
             "portal.modules.security.core.drift_gate._canary_baseline_path",
             return_value=tmp_path / "does-not-exist.json",
@@ -190,20 +197,20 @@ class TestModelCanary:
             result = check_model_canary("never-baselined-model")
         assert result["status"] == "NO-BASELINE"
 
-    def test_baseline_path_is_filesystem_safe(self):
+    def test_baseline_path_is_filesystem_safe(self) -> None:
         path = _canary_baseline_path("hf.co/org/model:Q4_K_M")
         assert "/" not in path.name
         assert ":" not in path.name
 
 
 class TestDriftCLI:
-    def test_drift_check_cli_runs(self):
+    def test_drift_check_cli_runs(self) -> None:
         from portal.modules.security.core.drift_cli import drift_check_main
 
         code = drift_check_main(["--window", "5", "--json"])
         assert code == 0
 
-    def test_drift_check_json_is_parseable(self, capsys):
+    def test_drift_check_json_is_parseable(self, capsys: pytest.CaptureFixture[str]) -> None:
         from portal.modules.security.core.drift_cli import drift_check_main
 
         drift_check_main(["--window", "5", "--json"])

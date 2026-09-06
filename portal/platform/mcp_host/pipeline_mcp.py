@@ -17,11 +17,12 @@ import logging
 import os
 import pathlib
 import re
-from typing import Any
+from collections.abc import Awaitable, Callable
+from typing import Any, cast
 
 import httpx
 from mcp.server import MCPServer
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
 
@@ -41,7 +42,31 @@ _FASTCONTEXT_MODEL = "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M"
 _FASTCONTEXT_MAX_TURNS = 6
 _FASTCONTEXT_TOOLS = load_data("config/inference", "pipeline_mcp_fastcontext_tools")
 
-mcp = MCPServer("portal-pipeline")
+
+class _PipelineMCPServer(MCPServer):
+    """MCPServer whose ``custom_route`` carries the concrete decorator type.
+
+    The SDK's ``custom_route()`` has no return annotation upstream, so mypy
+    sees the decorator as untyped and flags every routed handler with
+    untyped-decorator. Subclassing to add the annotation keeps the literal
+    ``@mcp.custom_route(...)`` decorators that tests/unit/test_pipeline_mcp_rest.py
+    parity-checks (a rename to a typed alias would silently drop those routes).
+    """
+
+    def custom_route(
+        self,
+        path: str,
+        methods: list[str],
+        name: str | None = None,
+        include_in_schema: bool = True,
+    ) -> Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]]:
+        return cast(
+            Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+            super().custom_route(path, methods, name=name, include_in_schema=include_in_schema),
+        )
+
+
+mcp = _PipelineMCPServer("portal-pipeline")
 
 
 def _pipeline_headers() -> dict[str, str]:

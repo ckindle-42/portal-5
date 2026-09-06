@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
 
-def analyze(repo, start_ref: str, *, max_depth: int = 5, max_edges: int = 1000) -> dict:
+if TYPE_CHECKING:
+    from portal.modules.compliance.core.repository import Repository
+
+
+def analyze(
+    repo: Repository, start_ref: str, *, max_depth: int = 5, max_edges: int = 1000
+) -> dict[str, Any]:
     from portal.modules.compliance.core.runtime import bump
 
     bump("impact")

@@ -40,7 +40,7 @@ async def run_cell(
     client: httpx.AsyncClient,
     persona: dict[str, Any],
     model: dict[str, Any],
-    scenarios: list,
+    scenarios: list[Any],
 ) -> dict[str, Any]:
     persona_slug = persona["slug"]
     system = persona.get("system_prompt", "")
@@ -115,15 +115,14 @@ async def run_cell(
 # ── Sweep orchestrator ────────────────────────────────────────────────────
 
 
-async def run_sweep(args) -> dict[str, Any]:
+async def run_sweep(args: Any) -> dict[str, Any]:
     cfg = load_backends_yaml()
 
     workspace_id = args.workspace
-    ca_module, cf_module, persona_categories = _load_workspace_modules(workspace_id)
+    _, cf_module, persona_categories = _load_workspace_modules(workspace_id)
 
-    # Driver-wide aliases so the rest of run_sweep doesn't change.
-    global ca, cf
-    ca = ca_module
+    # Driver-wide alias so the rest of run_sweep doesn't change.
+    global cf
     cf = cf_module
 
     # If the registry entry pins specific persona slugs (V2 capability survey),

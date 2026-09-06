@@ -14,10 +14,13 @@ import logging
 import os
 import shutil
 import subprocess
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Any
 
 from mcp.server import MCPServer
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
 
@@ -29,6 +32,15 @@ mcp = MCPServer(
     "field extraction) with an ICS hand-off to the icsot module, plus a gated, "
     "lab-CIDR-restricted structured nmap recon surface that is off by default.",
 )
+
+# MCPServer.custom_route() has no return annotation upstream (mcp SDK), so mypy
+# sees its decorator result as Any and flags every routed handler with
+# untyped-decorator. Bind the concrete decorator type once so handlers keep
+# their annotations.
+_route: Callable[
+    ...,
+    Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+] = mcp.custom_route
 
 _ROOT = Path(os.environ.get("NETFORENSICS_ROOT", os.path.expanduser("~/AI_Output"))).resolve()
 _RECON_ENABLED = os.environ.get("NETFORENSICS_RECON_ENABLED", "0") == "1"
@@ -62,7 +74,7 @@ def _tshark() -> str:
     return exe
 
 
-def _target_in_lab(target: str, cidr) -> str | None:
+def _target_in_lab(target: str, cidr: ipaddress.IPv4Network | ipaddress.IPv6Network) -> str | None:
     """Return a refusal reason if any token in `target` is outside `cidr`, else None."""
     for host in target.replace(",", " ").split():
         try:
@@ -74,13 +86,17 @@ def _target_in_lab(target: str, cidr) -> str | None:
                 net = ipaddress.ip_network(host, strict=False)
             except ValueError:
                 return f"unparseable target: {host!r}"
-            if not net.subnet_of(cidr):
-                return f"{host} outside authorized lab {cidr}"
+            if isinstance(cidr, ipaddress.IPv4Network):
+                if not (isinstance(net, ipaddress.IPv4Network) and net.subnet_of(cidr)):
+                    return f"{host} outside authorized lab {cidr}"
+            else:
+                if not (isinstance(net, ipaddress.IPv6Network) and net.subnet_of(cidr)):
+                    return f"{host} outside authorized lab {cidr}"
     return None
 
 
 @mcp.tool()
-def protocol_hierarchy(pcap_path: str) -> dict:
+def protocol_hierarchy(pcap_path: str) -> dict[str, Any]:
     """tshark protocol hierarchy (-qz io,phs) for a PCAP; flags ICS ports for icsot."""
     try:
         p = _resolve(pcap_path)
@@ -115,7 +131,7 @@ def protocol_hierarchy(pcap_path: str) -> dict:
 
 
 @mcp.tool()
-def extract_fields(pcap_path: str, display_filter: str, fields: list) -> dict:
+def extract_fields(pcap_path: str, display_filter: str, fields: list[str]) -> dict[str, Any]:
     """Extract chosen tshark fields under a display filter (e.g. dns.qry.name, http.host)."""
     try:
         p = _resolve(pcap_path)
@@ -136,7 +152,7 @@ def extract_fields(pcap_path: str, display_filter: str, fields: list) -> dict:
 
 
 @mcp.tool()
-def conversations(pcap_path: str, kind: str = "tcp") -> dict:
+def conversations(pcap_path: str, kind: str = "tcp") -> dict[str, Any]:
     """tshark conversation statistics (-qz conv,<kind>) — top talkers."""
     try:
         if kind not in ("tcp", "udp", "ip", "eth"):
@@ -154,7 +170,7 @@ def conversations(pcap_path: str, kind: str = "tcp") -> dict:
 
 
 @mcp.tool()
-def recon_scan(target: str, ports: str = "top-1000") -> dict:
+def recon_scan(target: str, ports: str = "top-1000") -> dict[str, Any]:
     """[GATED] Structured nmap scan. Refused unless recon is enabled AND target is in the lab CIDR."""
     try:
         if not _RECON_ENABLED:
@@ -185,7 +201,7 @@ def recon_scan(target: str, ports: str = "top-1000") -> dict:
 
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_netforensics_mcp")
 
-_DISPATCH = {
+_DISPATCH: dict[str, Any] = {
     "protocol_hierarchy": protocol_hierarchy,
     "extract_fields": extract_fields,
     "conversations": conversations,
@@ -193,13 +209,13 @@ _DISPATCH = {
 }
 
 
-@mcp.custom_route("/health", methods=["GET"])
-async def health_check(request):
+@_route("/health", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "netforensics-mcp", "port": _port})
 
 
-@mcp.custom_route("/ready", methods=["GET"])
-async def ready(request):
+@_route("/ready", methods=["GET"])
+async def ready(request: Request) -> JSONResponse:
     return JSONResponse(
         {
             "port": _port,
@@ -210,13 +226,13 @@ async def ready(request):
     )
 
 
-@mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request):
+@_route("/tools", methods=["GET"])
+async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
-@mcp.custom_route("/tools/{tool_name}", methods=["POST"])
-async def invoke_tool(request):
+@_route("/tools/{tool_name}", methods=["POST"])
+async def invoke_tool(request: Request) -> JSONResponse:
     name = request.path_params.get("tool_name", "")
     fn = _DISPATCH.get(name)
     if fn is None:

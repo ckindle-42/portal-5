@@ -13,6 +13,7 @@ import json
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import httpx
 
@@ -82,7 +83,7 @@ async def _audit_tool_support(
     backend_type: str,
     model_id: str,
     timeout: float = REQUEST_TIMEOUT,
-) -> dict:
+) -> dict[str, Any]:
     """Send AUDIT_PROMPT with AUDIT_TOOL_DEFINITION attached and classify the response.
 
     Returns: {outcome, http_status, detail, elapsed_s}
@@ -141,7 +142,7 @@ async def _audit_tool_support(
         }
 
 
-async def run_audit_tools(args) -> dict:
+async def run_audit_tools(args: Any) -> dict[str, Any]:
     """Audit-tools sweep: per-(model, backend), verify tool-call support empirically."""
     cfg = load_backends_yaml()
     workspace_id = args.workspace

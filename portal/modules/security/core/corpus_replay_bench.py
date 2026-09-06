@@ -46,6 +46,7 @@ import sys
 import time
 from pathlib import Path
 from threading import Lock
+from typing import Any, cast
 
 from portal.modules.security.core.agentic_blue_eval import Episode, score_findings_tiered
 from portal.modules.security.core.blue_orchestrate import (
@@ -118,10 +119,12 @@ def _promotion_recall(verdict: str | None, technique_ids: list[str], expected: s
     """Confirm-only recall used by the production-promotion close-out."""
     scoreable_ids = set(technique_ids) if verdict == "CONFIRMED" else set()
     scoring = score_findings_tiered(scoreable_ids, {expected})
-    return scoring["overall"]["recall"]
+    return float(scoring["overall"]["recall"])
 
 
-def _council_participation_summary(results: list[dict]) -> dict[str, dict[str, float | int]]:
+def _council_participation_summary(
+    results: list[dict[str, Any]],
+) -> dict[str, dict[str, float | int]]:
     """Summarize conclusive council votes per model from persisted traces."""
     totals: dict[str, int] = {}
     votes: dict[str, int] = {}
@@ -149,12 +152,12 @@ def _council_participation_summary(results: list[dict]) -> dict[str, dict[str, f
     }
 
 
-def _load_spl_detections() -> dict:
+def _load_spl_detections() -> dict[str, Any]:
     import yaml
 
     spl_path = Path(__file__).resolve().parent / "siem" / "spl_detections.yaml"
     with spl_path.open(encoding="utf-8") as f:
-        return yaml.safe_load(f)
+        return cast(dict[str, Any], yaml.safe_load(f))
 
 
 def _corpus_episode(technique_id: str, sourcetype: str) -> Episode | None:
@@ -232,13 +235,15 @@ def discover_curated_techniques() -> dict[str, str]:
     return found
 
 
-def _load_checkpoint(path: Path) -> list[dict]:
+def _load_checkpoint(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
-    return json.loads(path.read_text())
+    return cast(list[dict[str, Any]], json.loads(path.read_text()))
 
 
-def _backup_and_checkpoint(record: dict, results: list[dict], path: Path) -> None:
+def _backup_and_checkpoint(
+    record: dict[str, Any], results: list[dict[str, Any]], path: Path
+) -> None:
     """Thread-safe incremental write. Backs up the existing checkpoint file
     before the FIRST write of a run (not on every cell) — matches the
     Checkpoint Backup Discipline: never clear/overwrite a multi-hour
@@ -264,7 +269,7 @@ def _run_cell(
     mentor: bool,
     budgets: dict[str, int] | None,
     barrier_roles: set[str],
-) -> dict:
+) -> dict[str, Any]:
     episode = _corpus_episode(technique_id, sourcetype)
     if episode is None:
         return {
@@ -339,7 +344,7 @@ def _run_cell(
     }
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser(description="Corpus-replay V3 validation bench")
     parser.add_argument("--resume", metavar="PATH", help="Resume from an existing checkpoint")
     parser.add_argument(
@@ -391,7 +396,7 @@ def main() -> None:
     else:
         technique_subset = list(CURATED_TECHNIQUES.keys())
 
-    cells: list[dict] = []
+    cells: list[dict[str, Any]] = []
     for tid in technique_subset:
         sourcetype = CURATED_TECHNIQUES.get(tid)
         if not sourcetype:
@@ -499,6 +504,7 @@ def main() -> None:
                 f"({summary['rate']:.1%}); non-votes={summary['non_votes']}"
             )
     print(f"\nDone. {len(results)} cells checkpointed at {out_path}")
+    return 0
 
 
 if __name__ == "__main__":

@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tests" / "benchmarks"))
@@ -29,33 +30,33 @@ from portal.modules.security.core.compliance_report import (
 )
 
 
-def _write_results(tmp_path, purple_tests):
+def _write_results(tmp_path: Path, purple_tests: list[dict[str, Any]]) -> Path:
     path = tmp_path / "results.json"
     path.write_text(json.dumps({"purple_tests": purple_tests}))
     return path
 
 
 class TestLoadPurpleResults:
-    def test_missing_file_returns_empty(self, tmp_path):
+    def test_missing_file_returns_empty(self, tmp_path: Path) -> None:
         assert load_purple_results(tmp_path / "does_not_exist.json") == []
 
-    def test_malformed_json_returns_empty(self, tmp_path):
+    def test_malformed_json_returns_empty(self, tmp_path: Path) -> None:
         path = tmp_path / "bad.json"
         path.write_text("{not valid json")
         assert load_purple_results(path) == []
 
-    def test_purple_tests_key(self, tmp_path):
+    def test_purple_tests_key(self, tmp_path: Path) -> None:
         path = _write_results(tmp_path, [{"scenario": "x"}])
         assert load_purple_results(path) == [{"scenario": "x"}]
 
-    def test_results_key_fallback(self, tmp_path):
+    def test_results_key_fallback(self, tmp_path: Path) -> None:
         path = tmp_path / "results.json"
         path.write_text(json.dumps({"results": [{"scenario": "y"}]}))
         assert load_purple_results(path) == [{"scenario": "y"}]
 
 
 class TestSyntheticNeverDetected:
-    def test_synthetic_fallback_not_detected_even_if_proven(self):
+    def test_synthetic_fallback_not_detected_even_if_proven(self) -> None:
         """Defense in depth: even if capability_verdict says PROVEN, a
         synthetic-fallback result must never count as really detected."""
         rec = {
@@ -64,14 +65,14 @@ class TestSyntheticNeverDetected:
         }
         assert _is_really_detected(rec) is False
 
-    def test_episode_used_synthetic_not_detected(self):
+    def test_episode_used_synthetic_not_detected(self) -> None:
         rec = {
             "capability_verdict": "PROVEN",
             "episode": {"used_synthetic": True},
         }
         assert _is_really_detected(rec) is False
 
-    def test_real_proven_is_detected(self):
+    def test_real_proven_is_detected(self) -> None:
         rec = {
             "capability_verdict": "PROVEN",
             "blue_used_synthetic_fallback": False,
@@ -79,23 +80,23 @@ class TestSyntheticNeverDetected:
         }
         assert _is_really_detected(rec) is True
 
-    def test_indeterminate_not_detected(self):
+    def test_indeterminate_not_detected(self) -> None:
         rec = {"capability_verdict": "INDETERMINATE"}
         assert _is_really_detected(rec) is False
 
 
 class TestReportData:
-    def test_insufficient_data_when_no_results(self, tmp_path):
+    def test_insufficient_data_when_no_results(self, tmp_path: Path) -> None:
         data = build_report_data(tmp_path / "missing.json")
         assert data["insufficient_data"] is True
         assert data["findings"] == []
 
-    def test_insufficient_data_when_empty_results(self, tmp_path):
+    def test_insufficient_data_when_empty_results(self, tmp_path: Path) -> None:
         path = _write_results(tmp_path, [])
         data = build_report_data(path)
         assert data["insufficient_data"] is True
 
-    def test_verdict_distribution_counts(self, tmp_path):
+    def test_verdict_distribution_counts(self, tmp_path: Path) -> None:
         path = _write_results(
             tmp_path,
             [
@@ -113,7 +114,7 @@ class TestReportData:
         assert data["verdict_distribution"]["FAILED"] == 1
         assert data["verdict_distribution"]["INDETERMINATE"] == 1
 
-    def test_gap_technique_appears_as_gap_not_hidden(self, tmp_path):
+    def test_gap_technique_appears_as_gap_not_hidden(self, tmp_path: Path) -> None:
         """A technique with no confirmed detection is a GAP finding, never
         silently omitted from the findings list."""
         path = _write_results(
@@ -139,7 +140,7 @@ class TestReportData:
         # as a GAP (synthetic telemetry, no real confirmation), not omitted.
         assert "T1558.003" in gap_tids
 
-    def test_framework_rollup_denominator_is_mapped_techniques_only(self, tmp_path):
+    def test_framework_rollup_denominator_is_mapped_techniques_only(self, tmp_path: Path) -> None:
         path = _write_results(tmp_path, [])
         data = build_report_data(path)
         # With no results, framework_rollup still reflects the static
@@ -150,7 +151,7 @@ class TestReportData:
             assert 0.0 <= entry["detected_pct"] <= 100.0
             assert entry["detected_count"] <= entry["mapped_count"]
 
-    def test_every_provenance_claim_has_source_or_is_coverage_ref(self, tmp_path):
+    def test_every_provenance_claim_has_source_or_is_coverage_ref(self, tmp_path: Path) -> None:
         path = _write_results(
             tmp_path,
             [
@@ -170,7 +171,7 @@ class TestReportData:
 
 
 class TestGeneratedFiles:
-    def test_md_and_html_carry_generated_marker(self, tmp_path):
+    def test_md_and_html_carry_generated_marker(self, tmp_path: Path) -> None:
         results_path = _write_results(
             tmp_path,
             [
@@ -188,13 +189,13 @@ class TestGeneratedFiles:
         assert "GENERATED FROM" in md_content
         assert "GENERATED FROM" in html_content  # HTML wraps the same marked markdown
 
-    def test_pdf_format_honestly_reports_unavailable(self, tmp_path):
+    def test_pdf_format_honestly_reports_unavailable(self, tmp_path: Path) -> None:
         results_path = _write_results(tmp_path, [])
         out_dir = tmp_path / "reports"
         written = generate_report(results_path, ["pdf"], output_dir=out_dir)
         assert "SKIPPED" in written["pdf"]
 
-    def test_insufficient_data_report_says_so(self, tmp_path):
+    def test_insufficient_data_report_says_so(self, tmp_path: Path) -> None:
         out_dir = tmp_path / "reports"
         written = generate_report(tmp_path / "missing.json", ["md"], output_dir=out_dir)
         content = Path(written["md"]).read_text()

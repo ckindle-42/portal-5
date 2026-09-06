@@ -9,6 +9,8 @@ Verifies:
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from portal.modules.security.core.exec_chain import (
@@ -48,23 +50,23 @@ class TestWebScenarioStructure:
     """Each web scenario must have valid structure."""
 
     @pytest.mark.parametrize("name", _WEB_SCENARIO_NAMES)
-    def test_scenario_exists(self, name: str):
+    def test_scenario_exists(self, name: str) -> None:
         assert name in SCENARIOS, f"Scenario '{name}' missing from SCENARIOS"
 
     @pytest.mark.parametrize("name", _WEB_SCENARIO_NAMES)
-    def test_uses_execute_bash(self, name: str):
+    def test_uses_execute_bash(self, name: str) -> None:
         scenario = SCENARIOS[name]
         assert "execute_bash" in scenario["red_order"], (
             f"Scenario '{name}' does not use execute_bash"
         )
 
     @pytest.mark.parametrize("name", _WEB_SCENARIO_NAMES)
-    def test_has_detect_ground_truth(self, name: str):
+    def test_has_detect_ground_truth(self, name: str) -> None:
         scenario = SCENARIOS[name]
         assert scenario.get("detect_ground_truth"), f"Scenario '{name}' has no detect_ground_truth"
 
     @pytest.mark.parametrize("name", _WEB_SCENARIO_NAMES)
-    def test_red_prompt_contains_kali_command(self, name: str):
+    def test_red_prompt_contains_kali_command(self, name: str) -> None:
         """Every scenario's red_prompt must mention a real Kali tool or command."""
         scenario = SCENARIOS[name]
         prompt = scenario["red_prompt"].lower()
@@ -83,7 +85,7 @@ class TestWebScenarioStructure:
         assert has_indicator, f"Scenario '{name}' red_prompt contains no Kali tool reference"
 
     @pytest.mark.parametrize("name", _WEB_SCENARIO_NAMES)
-    def test_targets_lxc_112(self, name: str):
+    def test_targets_lxc_112(self, name: str) -> None:
         """All web scenarios must target LXC 112 via $TARGET_HOST variable."""
         scenario = SCENARIOS[name]
         # De-hardcoded: uses $TARGET_HOST variable, not literal IP
@@ -98,10 +100,10 @@ class TestWebScenarioStructure:
 class TestCoverageCrediting:
     """Steps achieved via execute_bash get coverage credit (parity with wrappers)."""
 
-    def test_exploit_via_bash_gets_credit(self):
+    def test_exploit_via_bash_gets_credit(self) -> None:
         """A step in chain_expected_order achieved via execute_bash with real
         success output should be credited — parity with calling exploit_service."""
-        obs: dict = {}
+        obs: dict[str, Any] = {}
         accumulate_observations(
             "execute_bash",
             "Shell obtained: root@10.10.11.50 — session 1 opened",
@@ -109,9 +111,9 @@ class TestCoverageCrediting:
         )
         assert obs.get("compromise_confirmed") is True
 
-    def test_nmap_via_bash_gets_credit(self):
+    def test_nmap_via_bash_gets_credit(self) -> None:
         """Port scan via execute_bash should populate open_ports."""
-        obs: dict = {}
+        obs: dict[str, Any] = {}
         accumulate_observations(
             "execute_bash",
             "22/tcp open ssh\n80/tcp open http\n445/tcp open smb",
@@ -121,9 +123,9 @@ class TestCoverageCrediting:
         assert 80 in obs.get("open_ports", [])
         assert 445 in obs.get("open_ports", [])
 
-    def test_sqlmap_via_bash_gets_credit(self):
+    def test_sqlmap_via_bash_gets_credit(self) -> None:
         """SQL dump via execute_bash should set data_extracted."""
-        obs: dict = {}
+        obs: dict[str, Any] = {}
         accumulate_observations(
             "execute_bash",
             "Database: webapp\nTable: users\n[5 rows dumped]",
@@ -131,7 +133,7 @@ class TestCoverageCrediting:
         )
         assert obs.get("data_extracted") is True
 
-    def test_bash_signal_mapping_covers_expected_steps(self):
+    def test_bash_signal_mapping_covers_expected_steps(self) -> None:
         """_BASH_TECHNIQUE_SIGNALS covers the key chain steps."""
         expected_steps = {
             "run_nmap_scan",
@@ -156,28 +158,28 @@ class TestCoverageCrediting:
 class TestNoCreditWithoutOutput:
     """Coverage credit must NOT be given for bare execute_bash calls."""
 
-    def test_empty_bash_gives_no_compromise(self):
-        obs: dict = {}
+    def test_empty_bash_gives_no_compromise(self) -> None:
+        obs: dict[str, Any] = {}
         accumulate_observations("execute_bash", "", obs)
         assert "compromise_confirmed" not in obs
 
-    def test_error_bash_gives_no_compromise(self):
-        obs: dict = {}
+    def test_error_bash_gives_no_compromise(self) -> None:
+        obs: dict[str, Any] = {}
         accumulate_observations("execute_bash", "command not found: sqlmap", obs)
         assert "compromise_confirmed" not in obs
 
-    def test_empty_bash_gives_no_ports(self):
-        obs: dict = {}
+    def test_empty_bash_gives_no_ports(self) -> None:
+        obs: dict[str, Any] = {}
         accumulate_observations("execute_bash", "", obs)
         assert "open_ports" not in obs
 
-    def test_empty_bash_gives_no_cve(self):
-        obs: dict = {}
+    def test_empty_bash_gives_no_cve(self) -> None:
+        obs: dict[str, Any] = {}
         accumulate_observations("execute_bash", "", obs)
         assert "confirmed_cve" not in obs
 
-    def test_empty_bash_gives_no_data(self):
-        obs: dict = {}
+    def test_empty_bash_gives_no_data(self) -> None:
+        obs: dict[str, Any] = {}
         accumulate_observations("execute_bash", "", obs)
         assert "data_extracted" not in obs
 
@@ -188,7 +190,7 @@ class TestNoCreditWithoutOutput:
 class TestNoProliferation:
     """No new exec tools beyond execute_bash/execute_python."""
 
-    def test_only_two_new_tools_added(self):
+    def test_only_two_new_tools_added(self) -> None:
         original_wrappers = {
             "start_lab_target",
             "run_nmap_scan",
@@ -210,7 +212,7 @@ class TestNoProliferation:
             f"Unexpected new tools: {new_tools - {'execute_bash', 'execute_python'}}"
         )
 
-    def test_inline_tools_unchanged(self):
+    def test_inline_tools_unchanged(self) -> None:
         """INLINE_TOOLS should still only have execute_bash, execute_python, web_search."""
         names = {t["function"]["name"] for t in INLINE_TOOLS}
         assert names == {"execute_bash", "execute_python", "web_search"}

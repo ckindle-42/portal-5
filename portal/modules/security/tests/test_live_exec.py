@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 import pytest
 
 from portal.modules.security.core.matrix import (
@@ -19,15 +21,15 @@ from portal.modules.security.core.matrix import (
 
 
 @pytest.fixture(autouse=True)
-def _no_real_ssh(monkeypatch):
+def _no_real_ssh(monkeypatch: pytest.MonkeyPatch) -> None:
     """Never make a real ssh call in the unit suite; tests override per-case."""
     monkeypatch.setattr(
         "scripts.lab_host._host_exec", lambda cmd, timeout=20: {"ok": True, "output": ""}
     )
 
 
-def _unit(**kwargs) -> RunUnit:
-    base = {
+def _unit(**kwargs: Any) -> RunUnit:
+    base: dict[str, Any] = {
         "id": "u1",
         "kind": "scenario",
         "target_spec": "lab-vulhub",
@@ -45,7 +47,7 @@ def _unit(**kwargs) -> RunUnit:
 
 
 class TestFalseVerifiedGuard:
-    def test_dispatch_not_run_is_never_verified(self):
+    def test_dispatch_not_run_is_never_verified(self) -> None:
         """A scenario_key with no phase and no exec_sequence -> DISPATCH_NOT_RUN -> indeterminate,
         never verified, regardless of which oracle is named."""
         unit = _unit(scenario_key="totally_unknown_scenario_key")
@@ -54,8 +56,9 @@ class TestFalseVerifiedGuard:
         assert result.status == "indeterminate"
         assert result.status != "verified"
 
-    def test_dispatch_not_run_never_verified_for_every_registered_oracle(self):
-        """Sweep every oracle id — DISPATCH_NOT_RUN must never slip through as verified for any of them."""
+    def test_dispatch_not_run_never_verified_for_every_registered_oracle(self) -> None:
+        """Sweep every oracle id — DISPATCH_NOT_RUN must never slip through
+        as verified for any of them."""
         from portal.modules.security.core.oracles import ORACLES
 
         for oracle_id in ORACLES:
@@ -63,14 +66,14 @@ class TestFalseVerifiedGuard:
             result = _execute_unit(unit, lab_exec=False, purple=False)
             assert result.status != "verified", f"oracle {oracle_id} let DISPATCH_NOT_RUN verify"
 
-    def test_dry_run_halt_transcript_never_verified(self, monkeypatch):
+    def test_dry_run_halt_transcript_never_verified(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """A dry-run tier-2 transcript (lab_exec=False) must never accidentally satisfy an
         oracle's default markers and score verified."""
         unit = _unit(scenario_key="redis_to_rce", oracle="rce_shell")
         result = _execute_unit(unit, lab_exec=False, purple=False)
         assert result.status != "verified"
 
-    def test_failed_step_halt_never_verified(self, monkeypatch):
+    def test_failed_step_halt_never_verified(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """A tier-2 (exec_sequence, not tier-1 phase) sequence where a required step fails
         halts and must never verify."""
         monkeypatch.setattr(
@@ -88,10 +91,10 @@ class TestFalseVerifiedGuard:
 
 
 class TestHostResolution:
-    def test_expand_vulhub_globs_calls_host_exec(self, monkeypatch):
-        calls = []
+    def test_expand_vulhub_globs_calls_host_exec(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        calls: list[str] = []
 
-        def _fake(cmd, timeout=20):
+        def _fake(cmd: str, timeout: int = 20) -> dict[str, Any]:
             calls.append(cmd)
             return {"ok": True, "output": ""}
 
@@ -107,10 +110,12 @@ class TestHostResolution:
 
 
 class TestSpinUpDown:
-    def test_cmd_up_issues_docker_compose_via_host_exec(self, monkeypatch):
-        calls = []
+    def test_cmd_up_issues_docker_compose_via_host_exec(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        calls: list[str] = []
 
-        def _fake(cmd, timeout=30):
+        def _fake(cmd: str, timeout: int = 30) -> dict[str, Any]:
             calls.append(cmd)
             if "test -f" in cmd:
                 return {"ok": True, "output": "EXISTS"}
@@ -133,10 +138,12 @@ class TestSpinUpDown:
         assert result["status"] != "placeholder"
         assert any("docker compose" in c and "up -d" in c for c in calls)
 
-    def test_cmd_down_issues_docker_compose_down_via_host_exec(self, monkeypatch):
-        calls = []
+    def test_cmd_down_issues_docker_compose_down_via_host_exec(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        calls: list[str] = []
 
-        def _fake(cmd, timeout=30):
+        def _fake(cmd: str, timeout: int = 30) -> dict[str, Any]:
             calls.append(cmd)
             return {"ok": True, "output": "Stopped"}
 
@@ -153,7 +160,7 @@ class TestSpinUpDown:
 
 
 class TestTier1Routing:
-    def test_known_scenario_keys_route_to_phase_map(self):
+    def test_known_scenario_keys_route_to_phase_map(self) -> None:
         for key in (
             "kerberoasting",
             "asrep_roasting",
@@ -164,16 +171,17 @@ class TestTier1Routing:
         ):
             assert key in _PHASE_MAP, f"{key} should be a tier-1 phase"
 
-    def test_excluded_keys_not_in_phase_map(self):
+    def test_excluded_keys_not_in_phase_map(self) -> None:
         """dcsync/meta3_compromise/srv01_local_privesc/mbptl_full_chain are not PROMPTS keys,
-        so no scenario-derived unit can ever carry them — must not be mapped (task Instruction #1)."""
+        so no scenario-derived unit can ever carry them — must not be mapped (task
+        Instruction #1)."""
         for key in ("dcsync", "meta3_compromise", "srv01_local_privesc", "mbptl_full_chain"):
             assert key not in _PHASE_MAP
 
-    def test_tier1_dispatch_calls_the_mapped_phase(self, monkeypatch):
-        called = {}
+    def test_tier1_dispatch_calls_the_mapped_phase(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        called: dict[str, bool] = {}
 
-        def _fake_phase(dry_run):
+        def _fake_phase(dry_run: bool) -> dict[str, Any]:
             called["dry_run"] = dry_run
             return {"ok": True, "output": "uid=0(root) gid=0(root)", "detail": "shell obtained"}
 
@@ -188,12 +196,16 @@ class TestTier1Routing:
 
 
 class TestTier2Dispatch:
-    def test_dry_run_produces_transcript_without_real_calls(self, monkeypatch):
-        called = []
-        monkeypatch.setattr(
-            "bench_lab_exec._mcp_call",
-            lambda *a, **k: called.append(1) or {"ok": True, "output": ""},
-        )
+    def test_dry_run_produces_transcript_without_real_calls(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        called: list[int] = []
+
+        def _fake_mcp(*args: Any, **kwargs: Any) -> dict[str, Any]:
+            called.append(1)
+            return {"ok": True, "output": ""}
+
+        monkeypatch.setattr("bench_lab_exec._mcp_call", _fake_mcp)
         seq = [
             {"step": "exploit", "tool": "execute_bash", "tool_hint": "curl $LAB_TARGET_WEB:6379"},
         ]
@@ -202,10 +214,10 @@ class TestTier2Dispatch:
         assert "[dry-run]" in out
         assert not called, "dry-run must not call _mcp_call"
 
-    def test_lab_exec_halts_on_failed_required_step(self, monkeypatch):
-        calls = []
+    def test_lab_exec_halts_on_failed_required_step(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        calls: list[str] = []
 
-        def _fake_mcp(cmd, timeout=120):
+        def _fake_mcp(cmd: str, timeout: int = 120) -> dict[str, Any]:
             calls.append(cmd)
             if len(calls) == 1:
                 return {"ok": True, "output": "step1 ok"}
@@ -222,11 +234,12 @@ class TestTier2Dispatch:
         assert len(calls) == 2, "must halt after the failed required step, never reach step3"
         assert "dispatch-halt" in out
 
-    def test_non_dict_steps_skipped_without_crash(self):
+    def test_non_dict_steps_skipped_without_crash(self) -> None:
         """EXEC_SEQUENCES['chain_inherits'] is a list of plain strings, not step dicts —
         defensive guard against a future scenario_key alias colliding with it."""
         unit = _unit(scenario_key="redis_to_rce")
-        out = _dispatch_exec_sequence(unit, ["kerberoasting", "asrep_roasting"], lab_exec=False)
+        non_dict_steps = cast("list[dict[str, Any]]", ["kerberoasting", "asrep_roasting"])
+        out = _dispatch_exec_sequence(unit, non_dict_steps, lab_exec=False)
         assert out == ""
 
 
@@ -234,16 +247,16 @@ class TestTier2Dispatch:
 
 
 class TestResolveEnv:
-    def test_substitutes_known_var(self, monkeypatch):
+    def test_substitutes_known_var(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr("bench_lab_exec.WEB", "10.10.11.50")
         assert "10.10.11.50" in _resolve_env("curl http://$LAB_TARGET_WEB:6379")
 
-    def test_unset_var_left_literal(self, monkeypatch):
+    def test_unset_var_left_literal(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr("bench_lab_exec.DC", "")
         out = _resolve_env("nxc smb $LAB_TARGET_DC -u a")
         assert "$LAB_TARGET_DC" in out
 
-    def test_unknown_var_left_literal(self):
+    def test_unknown_var_left_literal(self) -> None:
         out = _resolve_env("echo $LAB_NETWORK/24")
         assert "$LAB_NETWORK" in out
 
@@ -252,7 +265,9 @@ class TestResolveEnv:
 
 
 class TestNoHostEnvIndeterminate:
-    def test_class_with_zero_resolved_envs_is_indeterminate(self, monkeypatch):
+    def test_class_with_zero_resolved_envs_is_indeterminate(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setattr(
             "scripts.lab_host._host_exec", lambda cmd, timeout=20: {"ok": True, "output": ""}
         )
@@ -261,7 +276,7 @@ class TestNoHostEnvIndeterminate:
         paths = _resolve_challenge_class({"vulhub": ["nonexistent_category/*"]}, "/opt/vulhub")
         assert paths == []
 
-    def test_no_oracle_heuristic_unit_is_indeterminate(self):
+    def test_no_oracle_heuristic_unit_is_indeterminate(self) -> None:
         """The 10 no-oracle blue prompts still score indeterminate (heuristic, not verified)."""
         unit = _unit(scenario_key="redis_to_rce", oracle=None, scoring="heuristic")
         result = _execute_unit(unit, lab_exec=False, purple=False)

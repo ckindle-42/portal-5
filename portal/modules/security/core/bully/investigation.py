@@ -39,7 +39,7 @@ class InvestigationResult:
     evidence: tuple[str, ...] = field(default_factory=tuple)
 
 
-def _render_playbook_directive(instruction_set: dict) -> str:
+def _render_playbook_directive(instruction_set: dict[str, Any]) -> str:
     """Render a learned playbook's instruction_set (PLAY, I-16) into a short
     directive string. Only the fields DATA_MODEL SS1.15 documents
     (`recall priorities, deciding discriminators, common kills, ... stop
@@ -61,7 +61,7 @@ def _render_playbook_directive(instruction_set: dict) -> str:
     return "; ".join(parts)
 
 
-def _apply_playbook_context(episode: Any, playbook: dict | None) -> Any:
+def _apply_playbook_context(episode: Any, playbook: dict[str, Any] | None) -> Any:
     """PLAY injection point (I-16 CONSUMER: LOOP -- 'injection into the
     investigation context'). Absence is neutral: with no active playbook
     for the hunt's scenario_class, the original `episode` is returned
@@ -95,7 +95,7 @@ def _to_acceptance_episode(episode: Any) -> Any:
     if hasattr(episode, "techniques") and hasattr(episode, "telemetry"):
         return episode
     from ..agentic_blue_eval import Episode as AcceptanceEpisode
-    from ..chain import SCENARIOS
+    from ..exec_chain import SCENARIOS
 
     scenario = SCENARIOS.get(episode.scenario) or {}
     telemetry: dict[str, list[str]] = {}
@@ -125,7 +125,7 @@ def run_arm(
     max_rounds: int = DEFAULT_MAX_ROUNDS,
     wall_clock_s: float | None = None,
     dry_run: bool = False,
-    playbook: dict | None = None,
+    playbook: dict[str, Any] | None = None,
 ) -> InvestigationResult:
     """Run the investigation arm over a live Episode and apply the
     grounding gates to its own output before returning.

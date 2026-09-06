@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Any
 
 # Ensure bench_security is importable
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tests" / "benchmarks"))
@@ -34,7 +35,7 @@ from portal.modules.security.core.episode import (
 class TestEpisodePrimitive:
     """Episode dataclass is the immutable correlation substrate."""
 
-    def test_new_episode_id_format(self):
+    def test_new_episode_id_format(self) -> None:
         ep_id = new_episode_id("kerberoast_to_da")
         assert ep_id.startswith("ep-")
         assert "kerberoast_to_da" in ep_id
@@ -42,7 +43,7 @@ class TestEpisodePrimitive:
         ep_id2 = new_episode_id("kerberoast_to_da")
         assert ep_id != ep_id2
 
-    def test_episode_dataclass_defaults(self):
+    def test_episode_dataclass_defaults(self) -> None:
         ep = Episode(
             episode_id="ep-test-001",
             scenario="test_scenario",
@@ -56,7 +57,7 @@ class TestEpisodePrimitive:
         assert ep.used_synthetic is False
         assert ep.evidence_refs == []
 
-    def test_episode_to_dict_roundtrip(self):
+    def test_episode_to_dict_roundtrip(self) -> None:
         ep = Episode(
             episode_id="ep-test-002",
             scenario="web_to_root",
@@ -79,7 +80,7 @@ class TestEpisodePrimitive:
 
         json.dumps(d)  # should not raise
 
-    def test_episode_verdict_delegates_to_derive_verdict(self):
+    def test_episode_verdict_delegates_to_derive_verdict(self) -> None:
         ep = Episode(
             episode_id="ep-test-003",
             scenario="test",
@@ -100,26 +101,26 @@ class TestEpisodePrimitive:
 class TestReasonCodes:
     """Reason codes cover all axes the design requires."""
 
-    def test_all_axes_present(self):
+    def test_all_axes_present(self) -> None:
         assert set(REASON_CODES.keys()) == {"red", "telemetry", "detection", "response"}
 
-    def test_red_codes(self):
+    def test_red_codes(self) -> None:
         assert "RED_LANDED" in REASON_CODES["red"]
         assert "RED_EXECUTION_FAILED" in REASON_CODES["red"]
         assert "RED_NOT_RUN" in REASON_CODES["red"]
 
-    def test_telemetry_codes(self):
+    def test_telemetry_codes(self) -> None:
         assert "TELEMETRY_OBSERVED" in REASON_CODES["telemetry"]
         assert "TELEMETRY_COLLECTION_FAILED" in REASON_CODES["telemetry"]
         assert "TELEMETRY_NOT_INDEXED" in REASON_CODES["telemetry"]
 
-    def test_detection_codes(self):
+    def test_detection_codes(self) -> None:
         assert "DETECTION_CONFIRMED" in REASON_CODES["detection"]
         assert "DETECTION_NO_HIT" in REASON_CODES["detection"]
         assert "DETECTION_HIT_UNATTRIBUTED" in REASON_CODES["detection"]
         assert "DETECTION_MISSING" in REASON_CODES["detection"]
 
-    def test_capability_verdicts(self):
+    def test_capability_verdicts(self) -> None:
         assert set(CAPABILITY_VERDICTS) == {"PROVEN", "FAILED", "INDETERMINATE", "UNAVAILABLE"}
 
 
@@ -132,7 +133,7 @@ class TestDeriveVerdict:
     Truth plane — code decides, never a model.
     """
 
-    def test_synthetic_never_proven_even_with_spl_hit(self):
+    def test_synthetic_never_proven_even_with_spl_hit(self) -> None:
         """HEADLINE: synthetic telemetry NEVER yields PROVEN.
 
         Even if SPL returned rows and red landed, synthetic data means we
@@ -152,7 +153,7 @@ class TestDeriveVerdict:
         assert verdict != "PROVEN", "Synthetic telemetry must NEVER yield PROVEN"
         assert verdict == "INDETERMINATE"
 
-    def test_synthetic_never_proven_regardless_of_detection_status(self):
+    def test_synthetic_never_proven_regardless_of_detection_status(self) -> None:
         """used_synthetic=True always yields INDETERMINATE, even if detection_status
         were incorrectly set to DETECTION_CONFIRMED."""
         for det_status in REASON_CODES["detection"]:
@@ -169,7 +170,7 @@ class TestDeriveVerdict:
             verdict = derive_verdict(ep)
             assert verdict != "PROVEN", f"Synthetic + {det_status} must NOT be PROVEN"
 
-    def test_red_landed_and_detection_confirmed_is_proven(self):
+    def test_red_landed_and_detection_confirmed_is_proven(self) -> None:
         """Real hit + red landed + real telemetry → PROVEN."""
         ep = Episode(
             episode_id="ep-proven-001",
@@ -183,7 +184,7 @@ class TestDeriveVerdict:
         )
         assert derive_verdict(ep) == "PROVEN"
 
-    def test_red_landed_no_hit_is_failed(self):
+    def test_red_landed_no_hit_is_failed(self) -> None:
         """Red landed but blue didn't detect → FAILED (red-only gap)."""
         ep = Episode(
             episode_id="ep-failed-001",
@@ -197,7 +198,7 @@ class TestDeriveVerdict:
         )
         assert derive_verdict(ep) == "FAILED"
 
-    def test_red_landed_detection_missing_is_failed(self):
+    def test_red_landed_detection_missing_is_failed(self) -> None:
         """Red landed but no detection rule exists → FAILED."""
         ep = Episode(
             episode_id="ep-failed-002",
@@ -211,7 +212,7 @@ class TestDeriveVerdict:
         )
         assert derive_verdict(ep) == "FAILED"
 
-    def test_unavailable_when_red_not_run(self):
+    def test_unavailable_when_red_not_run(self) -> None:
         ep = Episode(
             episode_id="ep-unavail-001",
             scenario="test",
@@ -221,7 +222,7 @@ class TestDeriveVerdict:
         )
         assert derive_verdict(ep) == "UNAVAILABLE"
 
-    def test_unavailable_when_no_scenario(self):
+    def test_unavailable_when_no_scenario(self) -> None:
         ep = Episode(
             episode_id="ep-unavail-002",
             scenario="test",
@@ -231,7 +232,7 @@ class TestDeriveVerdict:
         )
         assert derive_verdict(ep) == "UNAVAILABLE"
 
-    def test_unavailable_when_target_unavailable(self):
+    def test_unavailable_when_target_unavailable(self) -> None:
         ep = Episode(
             episode_id="ep-unavail-003",
             scenario="test",
@@ -241,7 +242,7 @@ class TestDeriveVerdict:
         )
         assert derive_verdict(ep) == "UNAVAILABLE"
 
-    def test_indeterminate_when_telemetry_failed(self):
+    def test_indeterminate_when_telemetry_failed(self) -> None:
         """Telemetry collection failure → INDETERMINATE (can't prove or disprove)."""
         ep = Episode(
             episode_id="ep-indet-001",
@@ -255,7 +256,7 @@ class TestDeriveVerdict:
         )
         assert derive_verdict(ep) == "INDETERMINATE"
 
-    def test_indeterminate_when_telemetry_not_indexed(self):
+    def test_indeterminate_when_telemetry_not_indexed(self) -> None:
         ep = Episode(
             episode_id="ep-indet-002",
             scenario="test",
@@ -268,7 +269,7 @@ class TestDeriveVerdict:
         )
         assert derive_verdict(ep) == "INDETERMINATE"
 
-    def test_indeterminate_on_ambiguous_states(self):
+    def test_indeterminate_on_ambiguous_states(self) -> None:
         """Various ambiguous states → INDETERMINATE, not a false PROVEN/FAILED."""
         ambiguous_combos = [
             ("RED_EXECUTION_FAILED", "TELEMETRY_OBSERVED", "DETECTION_NO_HIT"),
@@ -297,7 +298,7 @@ class TestDeriveVerdict:
 class TestDeriveDetectionStatus:
     """Pure code classification of detection outcome."""
 
-    def test_real_hit_in_window_target_match_is_confirmed(self):
+    def test_real_hit_in_window_target_match_is_confirmed(self) -> None:
         assert (
             derive_detection_status(
                 has_spl_hit=True,
@@ -309,7 +310,7 @@ class TestDeriveDetectionStatus:
             == "DETECTION_CONFIRMED"
         )
 
-    def test_synthetic_hit_is_unattributed(self):
+    def test_synthetic_hit_is_unattributed(self) -> None:
         assert (
             derive_detection_status(
                 has_spl_hit=True,
@@ -321,7 +322,7 @@ class TestDeriveDetectionStatus:
             == "DETECTION_HIT_UNATTRIBUTED"
         )
 
-    def test_out_of_window_hit_is_unattributed(self):
+    def test_out_of_window_hit_is_unattributed(self) -> None:
         assert (
             derive_detection_status(
                 has_spl_hit=True,
@@ -333,7 +334,7 @@ class TestDeriveDetectionStatus:
             == "DETECTION_HIT_UNATTRIBUTED"
         )
 
-    def test_wrong_target_hit_is_unattributed(self):
+    def test_wrong_target_hit_is_unattributed(self) -> None:
         assert (
             derive_detection_status(
                 has_spl_hit=True,
@@ -345,7 +346,7 @@ class TestDeriveDetectionStatus:
             == "DETECTION_HIT_UNATTRIBUTED"
         )
 
-    def test_no_hit_with_rule_is_no_hit(self):
+    def test_no_hit_with_rule_is_no_hit(self) -> None:
         assert (
             derive_detection_status(
                 has_spl_hit=False,
@@ -357,7 +358,7 @@ class TestDeriveDetectionStatus:
             == "DETECTION_NO_HIT"
         )
 
-    def test_no_detection_rule_is_missing(self):
+    def test_no_detection_rule_is_missing(self) -> None:
         assert (
             derive_detection_status(
                 has_spl_hit=False,
@@ -377,7 +378,11 @@ class TestScorePurpleEpisode:
     """Integration tests: _score_purple produces an episode + verdict."""
 
     @staticmethod
-    def _make_red_result(mode="lab-exec", lab_success=True, order_accuracy=0.8):
+    def _make_red_result(
+        mode: str = "lab-exec",
+        lab_success: bool | None = True,
+        order_accuracy: float = 0.8,
+    ) -> dict[str, Any]:
         return {
             "model": "test-red",
             "mode": mode,
@@ -389,11 +394,11 @@ class TestScorePurpleEpisode:
 
     @staticmethod
     def _make_blue_result(
-        detected=None,
-        f1=0.7,
-        synthetic_fallback=False,
-        telemetry_source=None,
-    ):
+        detected: list[str] | None = None,
+        f1: float = 0.7,
+        synthetic_fallback: bool = False,
+        telemetry_source: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         sources = telemetry_source or {}
         origins = {
             key: (
@@ -419,7 +424,11 @@ class TestScorePurpleEpisode:
         }
 
     @staticmethod
-    def _make_scenario(name="test", ground_truth=None, persistence=""):
+    def _make_scenario(
+        name: str = "test",
+        ground_truth: list[str] | None = None,
+        persistence: str = "",
+    ) -> dict[str, Any]:
         return {
             "name": name,
             "detect_ground_truth": ground_truth if ground_truth is not None else ["T1190"],
@@ -427,7 +436,7 @@ class TestScorePurpleEpisode:
             "target_host": "10.0.1.30",
         }
 
-    def test_purple_record_has_episode_and_verdict(self):
+    def test_purple_record_has_episode_and_verdict(self) -> None:
         from portal.modules.security.core.blue import _score_purple
 
         rec = _score_purple(
@@ -443,7 +452,7 @@ class TestScorePurpleEpisode:
         assert ep["scenario"] == "test"
         assert ep["target_host"] == "10.0.1.30"
 
-    def test_synthetic_never_proven_in_score_purple(self):
+    def test_synthetic_never_proven_in_score_purple(self) -> None:
         """HEADLINE: _score_purple with synthetic fallback never yields PROVEN."""
         from portal.modules.security.core.blue import _score_purple
 
@@ -461,7 +470,7 @@ class TestScorePurpleEpisode:
         )
         assert rec["episode"]["used_synthetic"] is True
 
-    def test_coverage_not_credited_to_composite_when_telemetry_synthetic(self):
+    def test_coverage_not_credited_to_composite_when_telemetry_synthetic(self) -> None:
         """Hop 4 (evidence-chain fix, 2026-07-22): detection_coverage against
         synthetic-only telemetry is vacuous and must NOT lift
         model_competence_score. Two runs identical except telemetry realness —
@@ -494,7 +503,7 @@ class TestScorePurpleEpisode:
         assert live["model_competence_score"] is not None
         assert synth["model_competence_score"] is None
 
-    def test_real_hit_red_landed_is_proven(self):
+    def test_real_hit_red_landed_is_proven(self) -> None:
         from portal.modules.security.core.blue import _score_purple
 
         rec = _score_purple(
@@ -510,7 +519,7 @@ class TestScorePurpleEpisode:
         assert rec["episode"]["detection_status"] == "DETECTION_CONFIRMED"
         assert rec["episode"]["telemetry_status"] == "TELEMETRY_OBSERVED"
 
-    def test_red_landed_no_detection_is_failed(self):
+    def test_red_landed_no_detection_is_failed(self) -> None:
         from portal.modules.security.core.blue import _score_purple
 
         rec = _score_purple(
@@ -525,7 +534,7 @@ class TestScorePurpleEpisode:
         assert rec["capability_verdict"] == "FAILED"
         assert rec["episode"]["detection_status"] == "DETECTION_NO_HIT"
 
-    def test_red_failed_is_indeterminate(self):
+    def test_red_failed_is_indeterminate(self) -> None:
         from portal.modules.security.core.blue import _score_purple
 
         rec = _score_purple(
@@ -536,7 +545,7 @@ class TestScorePurpleEpisode:
         assert rec["capability_verdict"] == "INDETERMINATE"
         assert rec["episode"]["red_status"] == "RED_EXECUTION_FAILED"
 
-    def test_red_not_run_is_unavailable(self):
+    def test_red_not_run_is_unavailable(self) -> None:
         from portal.modules.security.core.blue import _score_purple
 
         rec = _score_purple(
@@ -547,7 +556,7 @@ class TestScorePurpleEpisode:
         assert rec["capability_verdict"] == "UNAVAILABLE"
         assert rec["episode"]["red_status"] == "RED_NOT_RUN"
 
-    def test_model_competence_score_avoids_duplicate_axes(self):
+    def test_model_competence_score_avoids_duplicate_axes(self) -> None:
         from portal.modules.security.core.blue import _score_purple
 
         rec = _score_purple(
@@ -561,7 +570,7 @@ class TestScorePurpleEpisode:
         )
         assert rec["model_competence_score"] == 1.0
 
-    def test_truth_competence_independence(self):
+    def test_truth_competence_independence(self) -> None:
         """A joint competence score is N/A when no live episode was run."""
         from portal.modules.security.core.blue import _score_purple
 
@@ -574,7 +583,7 @@ class TestScorePurpleEpisode:
         assert rec["capability_verdict"] == "UNAVAILABLE"
         assert rec["model_competence_score"] is None
 
-    def test_purple_composite_key_removed(self):
+    def test_purple_composite_key_removed(self) -> None:
         """The old purple_composite key no longer appears in new records."""
         from portal.modules.security.core.blue import _score_purple
 
@@ -585,7 +594,7 @@ class TestScorePurpleEpisode:
         )
         assert "purple_composite" not in rec
 
-    def test_scripted_blue_is_assisted_diagnostic_not_capability_score(self):
+    def test_scripted_blue_is_assisted_diagnostic_not_capability_score(self) -> None:
         from portal.modules.security.core.blue import _score_purple
 
         blue = self._make_blue_result(
@@ -604,7 +613,7 @@ class TestScorePurpleEpisode:
         assert rec["detection_coverage"] is None
         assert rec["capability_verdict"] == "INDETERMINATE"
 
-    def test_detection_missing_when_no_ground_truth(self):
+    def test_detection_missing_when_no_ground_truth(self) -> None:
         """No detection rule for the scenario → DETECTION_MISSING."""
         from portal.modules.security.core.blue import _score_purple
 
@@ -627,7 +636,11 @@ class TestScorePurpleEpisode:
 
 class TestGroundTruthScopedToRedDepth:
     @staticmethod
-    def _make_red_result(chain_depth=None, max_depth=None, lab_success=True):
+    def _make_red_result(
+        chain_depth: int | None = None,
+        max_depth: int | None = None,
+        lab_success: bool = True,
+    ) -> dict[str, Any]:
         return {
             "model": "test-red",
             "mode": "lab-exec",
@@ -640,7 +653,10 @@ class TestGroundTruthScopedToRedDepth:
         }
 
     @staticmethod
-    def _make_blue_result(detected=None, telemetry_source=None):
+    def _make_blue_result(
+        detected: list[str] | None = None,
+        telemetry_source: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         sources = telemetry_source or {}
         return {
             "model": "test-blue",
@@ -655,7 +671,7 @@ class TestGroundTruthScopedToRedDepth:
         }
 
     @staticmethod
-    def _make_scenario(ground_truth):
+    def _make_scenario(ground_truth: list[str]) -> dict[str, Any]:
         return {
             "name": "test",
             "detect_ground_truth": ground_truth,
@@ -663,7 +679,7 @@ class TestGroundTruthScopedToRedDepth:
             "target_host": "10.0.1.30",
         }
 
-    def test_full_completion_scores_against_full_ground_truth(self):
+    def test_full_completion_scores_against_full_ground_truth(self) -> None:
         from portal.modules.security.core.blue import _score_purple
 
         rec = _score_purple(
@@ -678,7 +694,7 @@ class TestGroundTruthScopedToRedDepth:
         assert rec["ground_truth_unchecked"] == []
         assert rec["ground_truth_in_scope"] == ["T1003.006", "T1053.005", "T1558.003"]
 
-    def test_partial_completion_shrinks_ground_truth_scope(self):
+    def test_partial_completion_shrinks_ground_truth_scope(self) -> None:
         """Red only reached 1/3 of the chain -- only the first ground-truth
         technique (in declared order) is in scope; the rest are unchecked,
         not counted as blue false negatives."""
@@ -693,7 +709,7 @@ class TestGroundTruthScopedToRedDepth:
         assert rec["ground_truth_in_scope"] == ["T1558.003"]
         assert rec["ground_truth_unchecked"] == ["T1003.006", "T1053.005"]
 
-    def test_partial_completion_does_not_penalize_blue_for_unreached_techniques(self):
+    def test_partial_completion_does_not_penalize_blue_for_unreached_techniques(self) -> None:
         """Blue correctly detected everything red actually did (the one
         in-scope technique) -- coverage should be 1.0, not penalized for
         the two techniques red's chain never reached."""
@@ -706,7 +722,7 @@ class TestGroundTruthScopedToRedDepth:
         )
         assert rec["detection_coverage"] == 1.0
 
-    def test_missing_depth_fields_falls_back_to_full_ground_truth(self):
+    def test_missing_depth_fields_falls_back_to_full_ground_truth(self) -> None:
         """Backward compatible: red_result without chain_depth/max_depth
         (e.g. theory-mode, or older callers) scores against the full list,
         same as before this fix."""
@@ -730,7 +746,7 @@ class TestGroundTruthScopedToRedDepth:
 class TestTelemetryFailureReasonCode:
     """Telemetry failure emits a reason code, not silent pass."""
 
-    def test_telemetry_error_sets_collection_failed(self):
+    def test_telemetry_error_sets_collection_failed(self) -> None:
         """When collect_and_ship_scenario_telemetry returns an error string,
         the episode's telemetry_status should be TELEMETRY_COLLECTION_FAILED."""
         from portal.modules.security.core.blue import _score_purple
@@ -754,7 +770,7 @@ class TestTelemetryFailureReasonCode:
         assert rec["episode"]["telemetry_status"] == "TELEMETRY_COLLECTION_FAILED"
         assert rec["capability_verdict"] == "INDETERMINATE"
 
-    def test_telemetry_not_indexed_sets_correct_code(self):
+    def test_telemetry_not_indexed_sets_correct_code(self) -> None:
         from portal.modules.security.core.blue import _score_purple
 
         rec = _score_purple(
@@ -774,7 +790,7 @@ class TestTelemetryFailureReasonCode:
         assert rec["episode"]["telemetry_status"] == "TELEMETRY_NOT_INDEXED"
         assert rec["capability_verdict"] == "INDETERMINATE"
 
-    def test_no_silent_pass_in_matrix(self):
+    def test_no_silent_pass_in_matrix(self) -> None:
         """matrix.py no longer has bare 'except: pass' in telemetry path.
 
         The fix (commit 105ac97) replaced it with a reason-code string.
@@ -794,7 +810,11 @@ class TestTelemetryFailureReasonCode:
         )
 
     @staticmethod
-    def _make_red_result(mode="lab-exec", lab_success=True, order_accuracy=0.8):
+    def _make_red_result(
+        mode: str = "lab-exec",
+        lab_success: bool | None = True,
+        order_accuracy: float = 0.8,
+    ) -> dict[str, Any]:
         return {
             "model": "test-red",
             "mode": mode,
@@ -803,7 +823,11 @@ class TestTelemetryFailureReasonCode:
         }
 
     @staticmethod
-    def _make_blue_result(detected=None, f1=0.0, telemetry_source=None):
+    def _make_blue_result(
+        detected: list[str] | None = None,
+        f1: float = 0.0,
+        telemetry_source: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         return {
             "model": "test-blue",
             "score": {"f1": f1, "recall": f1, "precision": f1, "detected": detected or []},
@@ -815,7 +839,10 @@ class TestTelemetryFailureReasonCode:
         }
 
     @staticmethod
-    def _make_scenario(name="test", ground_truth=None):
+    def _make_scenario(
+        name: str = "test",
+        ground_truth: list[str] | None = None,
+    ) -> dict[str, Any]:
         return {
             "name": name,
             "detect_ground_truth": ground_truth if ground_truth is not None else ["T1190"],

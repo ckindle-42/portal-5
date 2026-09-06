@@ -14,6 +14,7 @@ document span, and owns looking up any recorded intentionality decision.
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from portal.modules.compliance.core.constraints import (
     Quantity,
@@ -29,7 +30,7 @@ _ALTERNATIVE_RE = re.compile(
 )
 
 
-def assess_intentionality(governing_text: str, internal_text: str) -> dict:
+def assess_intentionality(governing_text: str, internal_text: str) -> dict[str, Any]:
     """Compare every quantitative claim in ``internal_text`` against the
     matching-kind claim in ``governing_text``. Direction-aware via
     ``compare_constraint`` (F05/P5.3) — a shorter internal max_interval is
@@ -42,7 +43,7 @@ def assess_intentionality(governing_text: str, internal_text: str) -> dict:
     has no access to ``policy_decisions``; the caller attaches that."""
     governing_claims = _quant_claims(governing_text)
     internal_claims = _quant_claims(internal_text)
-    comparisons: list[dict] = []
+    comparisons: list[dict[str, Any]] = []
     for value, unit, qualifier, verbatim in internal_claims:
         kind = infer_constraint_kind(verbatim) or infer_constraint_kind(internal_text)
         internal_q = Quantity(value=value, unit=unit, qualifier=qualifier)
@@ -92,7 +93,7 @@ def assess_intentionality(governing_text: str, internal_text: str) -> dict:
     }
 
 
-def find_flexibility(governing_text: str) -> dict:
+def find_flexibility(governing_text: str) -> dict[str, Any]:
     """Sourced-alternative detection (Q09) — cue-word only, NOT semantic
     obligation modeling. Finds sentences in ``governing_text`` carrying an
     explicit permissive-alternative marker ("may", "alternatively", "at

@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import os
 from datetime import UTC, datetime
+from typing import Any
 
 from portal.platform.inference.router.metrics import _router_layer_total
 from portal.platform.inference.router.routing import (
@@ -159,7 +160,7 @@ def _resolve_model_override(workspace_id: str, model_param: str | None) -> str:
     return synthetic_id
 
 
-async def _resolve_auto_routing(workspace_id: str, messages: list[dict]) -> str:
+async def _resolve_auto_routing(workspace_id: str, messages: list[dict[str, Any]]) -> str:
     """Run LLM-based and keyword-based auto-routing when workspace_id is 'auto'.
 
     When workspace_id is not 'auto', returns it unchanged. Otherwise attempts
@@ -202,7 +203,7 @@ async def _resolve_auto_routing(workspace_id: str, messages: list[dict]) -> str:
     return workspace_id
 
 
-def _resolve_vision_fallback(workspace_id: str, body: dict) -> tuple[str, dict]:
+def _resolve_vision_fallback(workspace_id: str, body: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     """Reroute auto-vision text-only requests to auto-reasoning with vision context.
 
     Vision-language models return empty content when no image is provided. Detect
@@ -241,7 +242,7 @@ def _resolve_vision_fallback(workspace_id: str, body: dict) -> tuple[str, dict]:
     return workspace_id, body
 
 
-def _inject_temporal_context(workspace_id: str, body: dict) -> dict:
+def _inject_temporal_context(workspace_id: str, body: dict[str, Any]) -> dict[str, Any]:
     """Inject today's date and search-first instructions for web-tool-enabled workspaces.
 
     Gated by RESEARCH_DATE_INJECTION (env, default on) and the workspace declaring a
@@ -286,7 +287,7 @@ def _inject_temporal_context(workspace_id: str, body: dict) -> dict:
     }
 
 
-def _inject_system_prompt_append(workspace_id: str, body: dict) -> dict:
+def _inject_system_prompt_append(workspace_id: str, body: dict[str, Any]) -> dict[str, Any]:
     """Append workspace-level system_prompt_append to the system message.
 
     If the workspace defines system_prompt_append, appends it to an existing system
@@ -310,7 +311,7 @@ def _inject_system_prompt_append(workspace_id: str, body: dict) -> dict:
     }
 
 
-def _inject_attached_files(body: dict) -> dict:
+def _inject_attached_files(body: dict[str, Any]) -> dict[str, Any]:
     """Inject OWUI file attachments as notes in the last user message.
 
     OWUI sends uploaded files in body["files"] but does not include them in the

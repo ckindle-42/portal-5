@@ -11,26 +11,38 @@ never includes a model on _COUNCIL_UNFIT_MODELS.
 from __future__ import annotations
 
 import json
+from pathlib import Path
+from typing import Any
+
+import pytest
 
 from portal.modules.security.core import corpus_replay_bench as crb
-from portal.modules.security.core.blue_orchestrate import _COUNCIL_UNFIT_MODELS
+from portal.modules.security.core.agentic_blue_eval import Episode
+from portal.modules.security.core.blue_orchestrate import (
+    _COUNCIL_UNFIT_MODELS,
+    ToolRequest,
+    ToolResult,
+)
+from portal.modules.security.core.siem.spl_backend import SplunkBackend
 
 
-def _fake_row(raw: str) -> dict:
+def _fake_row(raw: str) -> dict[str, Any]:
     return {"_time": 0.0, "host": "", "raw": raw, "fields": {"_raw": raw}}
 
 
 class TestCorpusEpisode:
-    def test_returns_none_when_no_corpus_rows(self, monkeypatch):
+    def test_returns_none_when_no_corpus_rows(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(
-            crb.SplunkBackend, "_run_search", lambda self, search, earliest, latest: []
+            SplunkBackend,
+            "_run_search",
+            lambda self, search, earliest, latest: [],
         )
         assert crb._corpus_episode("T1558.004", "windows:security") is None
 
-    def test_builds_episode_from_real_row_shape(self, monkeypatch):
+    def test_builds_episode_from_real_row_shape(self, monkeypatch: pytest.MonkeyPatch) -> None:
         rows = [_fake_row("EventCode=4768 Account=hacker2 PreAuthType=0")]
         monkeypatch.setattr(
-            crb.SplunkBackend, "_run_search", lambda self, search, earliest, latest: rows
+            SplunkBackend, "_run_search", lambda self, search, earliest, latest: rows
         )
         episode = crb._corpus_episode("T1558.004", "windows:security")
         assert episode is not None
@@ -43,14 +55,18 @@ class TestCorpusEpisode:
         assert "1558" not in episode.scenario
         assert episode.target_host == "lab-corpus-splunk"
 
-    def test_returns_none_when_rows_have_no_raw_field(self, monkeypatch):
+    def test_returns_none_when_rows_have_no_raw_field(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         rows = [{"_time": 0.0, "host": "", "raw": "{}", "fields": {}}]
         monkeypatch.setattr(
-            crb.SplunkBackend, "_run_search", lambda self, search, earliest, latest: rows
+            SplunkBackend, "_run_search", lambda self, search, earliest, latest: rows
         )
         assert crb._corpus_episode("T1558.004", "windows:security") is None
 
-    def test_preserves_label_blind_correlation_aggregate(self, monkeypatch):
+    def test_preserves_label_blind_correlation_aggregate(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         raw_rows = [_fake_row("EventCode=4625 Account=user-a IpAddress=10.0.0.5")]
         aggregate_rows = [
             {
@@ -61,10 +77,12 @@ class TestCorpusEpisode:
             }
         ]
 
-        def fake_search(self, search, earliest, latest):
+        def fake_search(
+            self: SplunkBackend, search: str, earliest: str, latest: str
+        ) -> list[dict[str, Any]]:
             return aggregate_rows if "| stats " in search else raw_rows
 
-        monkeypatch.setattr(crb.SplunkBackend, "_run_search", fake_search)
+        monkeypatch.setattr(SplunkBackend, "_run_search", fake_search)
         episode = crb._corpus_episode("T1110.003", "windows:security")
         assert episode is not None
         assert episode.telemetry["windows:security"] == [
@@ -75,20 +93,20 @@ class TestCorpusEpisode:
 
 
 class TestCheckpointBackupDiscipline:
-    def test_no_checkpoint_loads_empty(self, tmp_path):
+    def test_no_checkpoint_loads_empty(self, tmp_path: Path) -> None:
         assert crb._load_checkpoint(tmp_path / "missing.json") == []
 
-    def test_checkpoint_roundtrips(self, tmp_path):
+    def test_checkpoint_roundtrips(self, tmp_path: Path) -> None:
         path = tmp_path / "checkpoint.json"
-        results: list[dict] = []
+        results: list[dict[str, Any]] = []
         record = {"label": "asrep", "mode": "orchestrated", "model_arm": "strong_full_v3"}
         crb._backup_and_checkpoint(record, results, path)
         assert path.exists()
         assert json.loads(path.read_text()) == [record]
 
-    def test_same_cell_key_overwrites_not_duplicates(self, tmp_path):
+    def test_same_cell_key_overwrites_not_duplicates(self, tmp_path: Path) -> None:
         path = tmp_path / "checkpoint.json"
-        results: list[dict] = []
+        results: list[dict[str, Any]] = []
         first = {"label": "a", "mode": "orchestrated", "model_arm": "x", "verdict": "UNRESOLVED"}
         second = {"label": "a", "mode": "orchestrated", "model_arm": "x", "verdict": "CONFIRMED"}
         crb._backup_and_checkpoint(first, results, path)
@@ -97,9 +115,9 @@ class TestCheckpointBackupDiscipline:
         assert len(saved) == 1
         assert saved[0]["verdict"] == "CONFIRMED"
 
-    def test_different_cell_keys_both_kept(self, tmp_path):
+    def test_different_cell_keys_both_kept(self, tmp_path: Path) -> None:
         path = tmp_path / "checkpoint.json"
-        results: list[dict] = []
+        results: list[dict[str, Any]] = []
         crb._backup_and_checkpoint(
             {"label": "a", "mode": "orchestrated", "model_arm": "x"}, results, path
         )
@@ -109,7 +127,7 @@ class TestCheckpointBackupDiscipline:
         saved = json.loads(path.read_text())
         assert len(saved) == 2
 
-    def test_resume_backs_up_existing_checkpoint_before_any_new_write(self, tmp_path):
+    def test_resume_backs_up_existing_checkpoint_before_any_new_write(self, tmp_path: Path) -> None:
         """Checkpoint Backup Discipline (CLAUDE.md): never clear/overwrite a
         multi-hour checkpoint without a timestamped .bak first. main() backs
         up on load whenever prior results exist -- verified structurally
@@ -131,25 +149,25 @@ class TestCheckpointBackupDiscipline:
 
 
 class TestCouncilRosterExcludesUnfitModels:
-    def test_council_models_never_includes_a_known_unfit_model(self):
+    def test_council_models_never_includes_a_known_unfit_model(self) -> None:
         assert not (set(crb.COUNCIL_MODELS) & _COUNCIL_UNFIT_MODELS)
 
-    def test_curated_techniques_is_nonempty_and_maps_to_valid_sourcetypes(self):
+    def test_curated_techniques_is_nonempty_and_maps_to_valid_sourcetypes(self) -> None:
         assert crb.CURATED_TECHNIQUES
         valid_sourcetypes = {"windows:security", "web:access", "linux:auditd"}
         assert set(crb.CURATED_TECHNIQUES.values()) <= valid_sourcetypes
 
-    def test_weak_t1557_cell_is_not_curated(self):
+    def test_weak_t1557_cell_is_not_curated(self) -> None:
         """A corpus cell containing only EventCode 4624 is not AiTM proof."""
         assert "T1557" not in crb.CURATED_TECHNIQUES
 
-    def test_cogito_is_tracked_from_v4_participation_evidence(self):
+    def test_cogito_is_tracked_from_v4_participation_evidence(self) -> None:
         assert "cogito:32b" in _COUNCIL_UNFIT_MODELS
 
 
 class TestCouncilParticipationSummary:
-    def test_counts_voters_and_non_voters_per_model(self):
-        results = [
+    def test_counts_voters_and_non_voters_per_model(self) -> None:
+        results: list[dict[str, Any]] = [
             {
                 "status": "done",
                 "mode": "council",
@@ -199,12 +217,12 @@ class TestCouncilParticipationSummary:
 
 
 class TestRunCellWiring:
-    def test_promotion_recall_requires_confirmed_verdict(self):
+    def test_promotion_recall_requires_confirmed_verdict(self) -> None:
         assert crb._promotion_recall("RULED_OUT", ["T1053.005"], "T1053.005") == 0.0
         assert crb._promotion_recall("ANOMALOUS_UNCLASSIFIED", ["T1053.005"], "T1053.005") == 0.0
         assert crb._promotion_recall("CONFIRMED", ["T1053.005"], "T1053.005") == 1.0
 
-    def test_scoring_is_confirm_only(self, monkeypatch):
+    def test_scoring_is_confirm_only(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """RULED_OUT payload IDs are stale/audit data, not recall hits."""
         from portal.modules.security.core.agentic_blue_eval import Episode
         from portal.modules.security.core.blue_orchestrate import OrchestrationResult
@@ -242,24 +260,32 @@ class TestRunCellWiring:
         assert record["technique_ids"] == ["T1053.005"]
         assert record["scoring_recall"] == 0.0
 
-    def test_orchestrated_cell_wires_mentor_budgets_barrier_tools(self, monkeypatch):
+    def test_orchestrated_cell_wires_mentor_budgets_barrier_tools(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Live-functional (mocked models): confirms _run_cell actually builds
         a SectionSpec list with mentor + budgets + barrier tools engaged, and
         that run_blue_orchestration receives them -- not just that the
         function returns without raising."""
         import portal.modules.security.core.blue_orchestrate as bo
 
-        captured: dict = {}
+        captured: dict[str, Any] = {}
         orig_run_blue_orchestration = bo.run_blue_orchestration
 
-        def spy(*args, **kwargs):
+        def spy(*args: Any, **kwargs: Any) -> Any:
             captured["sections"] = kwargs.get("sections")
             captured["budgets"] = kwargs.get("budgets")
             return orig_run_blue_orchestration(*args, **kwargs)
 
         monkeypatch.setattr(crb, "run_blue_orchestration", spy)
 
-        def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        def fake_call_model(
+            model: str,
+            messages: list[dict[str, Any]],
+            tools: list[dict[str, Any]] | None = None,
+            max_tokens: int = 2000,
+            extra_options: dict[str, Any] | None = None,
+        ) -> dict[str, Any]:
             return {
                 "content": (
                     '{"verdict": "RULED_OUT", "technique_ids": [], "evidence": [], '
@@ -270,7 +296,13 @@ class TestRunCellWiring:
 
         monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-        def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+        def fake_run_tool_model(
+            req: ToolRequest,
+            *,
+            tool_model: str,
+            episode: Episode,
+            dry_run: bool = False,
+        ) -> ToolResult:
             return bo.ToolResult(query=req.spec, provenance="matched-exact", raw_summary="")
 
         monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -311,7 +343,7 @@ class TestRunCellWiring:
         assert reasoning_spec.use_barrier_tools is True
         assert expert_spec.use_barrier_tools is True
 
-    def test_skips_cleanly_when_corpus_has_no_data(self, monkeypatch):
+    def test_skips_cleanly_when_corpus_has_no_data(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(crb, "_corpus_episode", lambda tid, st: None)
         record = crb._run_cell(
             label="test",

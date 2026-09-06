@@ -54,7 +54,7 @@ def _expand_env(val: Any) -> Any:
         the original is not mutated.
     """
 
-    def _replace(m: re.Match) -> str:
+    def _replace(m: re.Match[str]) -> str:
         """Regex substitution callback: resolve ``${VAR}`` or ``${VAR:-default}``."""
         var, _, default = m.group(1).partition(":-")
         return os.environ.get(var, default)
@@ -155,7 +155,7 @@ class Backend:
     consecutive_failures: int = field(default=0)
     # Per-model metadata from dict-form entries in `models:`; empty for
     # bare-string (legacy) entries, which default to supports_tools=False.
-    ollama_metadata: list[dict] = field(default_factory=list)
+    ollama_metadata: list[dict[str, Any]] = field(default_factory=list)
     # Optional explicit health-probe path override (`health_path:` in YAML).
     # Wins over the type-derived default in `health_url`.
     health_path: str | None = None
@@ -323,7 +323,7 @@ class BackendRegistry:
         for be in cfg.get("backends", []):
             # Accept `models: [str]` OR `models: [dict]`; dict entries populate
             # ollama_metadata, strings leave it empty.
-            ollama_meta: list[dict] = []
+            ollama_meta: list[dict[str, Any]] = []
             raw_models = be.get("models", [])
             flat_models = []
             for m in raw_models:
@@ -570,7 +570,8 @@ class BackendRegistry:
             return_exceptions=True,
         )
         self._refresh_healthy_cache()  # update cache after all checks complete
-        healthy_count = len(self._cached_healthy)
+        cached_healthy = self._cached_healthy or []
+        healthy_count = len(cached_healthy)
         if healthy_count != self._last_healthy_count:
             self._last_healthy_count = healthy_count
             logger.info("Health check complete: %d/%d healthy", healthy_count, len(self._backends))
@@ -686,7 +687,7 @@ class BackendRegistry:
 
     async def start_health_loop(
         self,
-        on_health_check: Callable | None = None,
+        on_health_check: Callable[[BackendRegistry], Any] | None = None,
     ) -> None:
         """Long-running task: health-check every ``_health_check_interval`` seconds.
 

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
+from typing import Any, TypeVar, overload
 
 from portal.platform.inference.config import (
     PersonaSpec,
@@ -27,13 +27,13 @@ logger = logging.getLogger(__name__)
 
 # ── Persona map (for tool whitelist resolution) ─────────────────────────────
 # Loaded at import time; keys are persona slugs, values are PersonaSpec instances.
-_PERSONA_MAP: dict[str, PersonaSpec] = {}  # type: ignore[assignment]
+_PERSONA_MAP: dict[str, PersonaSpec] = {}
 
 
 def _load_persona_map() -> None:
     """Populate ``_PERSONA_MAP`` from the typed PersonaSpec loader."""
     global _PERSONA_MAP
-    _PERSONA_MAP.update(load_persona_map())  # type: ignore[arg-type]
+    _PERSONA_MAP.update(load_persona_map())
 
 
 _load_persona_map()
@@ -61,7 +61,7 @@ _load_persona_map()
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-class _WorkspaceCatalog(dict):
+class _WorkspaceCatalog(dict[str, dict[str, Any]]):
     """dict that hides synthetic ``"<base>::<variant>"`` entries from
     iteration/len/keys/items/values.
 
@@ -69,22 +69,49 @@ class _WorkspaceCatalog(dict):
     synthetic key so ``WORKSPACES.get(id, {})`` picks them up transparently,
     while iteration-shaped views (lifespan hint validation, metrics workspace
     count, keyword-classifier id list) only see the real catalog.
+
+    Synthetic keys are stored in a side dict (never in the base storage) so
+    the inherited ``keys``/``items``/``values``/``len``/``__iter__`` — which
+    only see the real catalog by construction — need no type-fighting
+    overrides. Reads (``get``/``__getitem__``/``__contains__``) consult both.
     """
 
-    def __iter__(self):
-        return (k for k in super().__iter__() if "::" not in k)
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._synthetic: dict[str, dict[str, Any]] = {}
 
-    def keys(self):  # noqa: D102
-        return (k for k in super().keys() if "::" not in k)  # noqa: SIM118
+    def __setitem__(self, key: str, value: dict[str, Any]) -> None:
+        if "::" in key:
+            self._synthetic[key] = value
+        else:
+            super().__setitem__(key, value)
 
-    def items(self):  # noqa: D102
-        return ((k, v) for k, v in super().items() if "::" not in k)
+    def __getitem__(self, key: str) -> dict[str, Any]:
+        if "::" in key:
+            return self._synthetic[key]
+        return super().__getitem__(key)
 
-    def values(self):  # noqa: D102
-        return (v for k, v in self.items())
+    def __contains__(self, key: object) -> bool:
+        if isinstance(key, str) and "::" in key:
+            return key in self._synthetic
+        return super().__contains__(key)
 
-    def __len__(self):
-        return sum(1 for _ in self.__iter__())
+    @overload
+    def get(self, key: str, default: None = None, /) -> dict[str, Any] | None: ...
+
+    @overload
+    def get(self, key: str, default: dict[str, Any], /) -> dict[str, Any]: ...
+
+    @overload
+    def get(self, key: str, default: _T, /) -> dict[str, Any] | _T: ...
+
+    def get(self, key: str, default: Any = None) -> Any:
+        if "::" in key:
+            return self._synthetic.get(key, default)
+        return super().get(key, default)
+
+
+_T = TypeVar("_T")
 
 
 WORKSPACES: dict[str, dict[str, Any]] = _WorkspaceCatalog(get_workspace_dict(load_portal_config()))
@@ -108,10 +135,11 @@ def _workspace_tools(workspace_id: str) -> list[str]:
     Returns:
         Tool names from the workspace's ``tools`` field, or ``[]``.
     """
-    return WORKSPACES.get(workspace_id, {}).get("tools", [])
+    raw = WORKSPACES.get(workspace_id, {}).get("tools", [])
+    return list(raw) if isinstance(raw, list) else []
 
 
-def _resolve_persona_tools(persona: PersonaSpec | dict, workspace_id: str) -> list[str]:
+def _resolve_persona_tools(persona: PersonaSpec | dict[str, Any], workspace_id: str) -> list[str]:
     """Resolve the effective tool list for one persona × workspace pair.
 
     Delegates to ``config.resolve_preset_tools``; accepts both ``PersonaSpec``
@@ -132,7 +160,7 @@ def _resolve_persona_tools(persona: PersonaSpec | dict, workspace_id: str) -> li
     return sorted(effective - deny)
 
 
-def _resolve_persona_tool_choice(persona: PersonaSpec | dict) -> str | None:
+def _resolve_persona_tool_choice(persona: PersonaSpec | dict[str, Any]) -> str | None:
     """Return a persona's ``tool_choice`` override, or ``None`` to inherit the
     request default ("auto"). Accepts both ``PersonaSpec`` and legacy ``dict``.
     """

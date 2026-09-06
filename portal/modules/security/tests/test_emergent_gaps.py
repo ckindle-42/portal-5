@@ -7,7 +7,7 @@ from portal.modules.security.core.emergent_gaps import feed_emergent_gaps, gaps_
 from portal.modules.security.core.trajectory_score import StepRecord, TrajectoryVerdict
 
 
-def _v(steps):
+def _v(steps: list[StepRecord]) -> TrajectoryVerdict:
     return TrajectoryVerdict(
         objective_class="da_equivalent",
         verdict="FAILED",
@@ -18,7 +18,7 @@ def _v(steps):
     )
 
 
-def test_landed_undetected_becomes_red_only_gap():
+def test_landed_undetected_becomes_red_only_gap() -> None:
     steps = [StepRecord("s1", "kerberoast", "RED_LANDED", "DETECTION_NO_HIT")]
     gaps = gaps_from_trajectory(_v(steps), trajectory_id="t1")
     assert len(gaps) == 1
@@ -26,17 +26,17 @@ def test_landed_undetected_becomes_red_only_gap():
     assert gaps[0].axes["detection"] == "DETECTION_NO_HIT"
 
 
-def test_detected_step_yields_no_gap():
+def test_detected_step_yields_no_gap() -> None:
     steps = [StepRecord("s1", "kerberoast", "RED_LANDED", "DETECTION_CONFIRMED")]
     assert gaps_from_trajectory(_v(steps), trajectory_id="t1") == []
 
 
-def test_synthetic_miss_excluded():
+def test_synthetic_miss_excluded() -> None:
     steps = [StepRecord("s1", "kerberoast", "RED_LANDED", "DETECTION_MISSING", used_synthetic=True)]
     assert gaps_from_trajectory(_v(steps), trajectory_id="t1") == []
 
 
-def test_gap_ids_unique_per_step():
+def test_gap_ids_unique_per_step() -> None:
     steps = [
         StepRecord("s1", "capA", "RED_LANDED", "DETECTION_NO_HIT"),
         StepRecord("s2", "capB", "RED_LANDED", "DETECTION_MISSING"),
@@ -45,7 +45,7 @@ def test_gap_ids_unique_per_step():
     assert len({g.gap_id for g in gaps}) == 2
 
 
-def test_feed_emergent_gaps_persists_first_class_graph_rows():
+def test_feed_emergent_gaps_persists_first_class_graph_rows() -> None:
     """The retained historical adapter populates the graph read path."""
     graph = CapabilityGraph()
     steps = [StepRecord("s1", "kerberoast", "RED_LANDED", "DETECTION_NO_HIT")]

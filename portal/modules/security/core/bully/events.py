@@ -10,13 +10,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+from typing import Any
 
 from .contracts import DecisionEvent
 
 GENESIS_HASH = "0" * 64
 
 
-def _canonical_payload(event: DecisionEvent) -> dict:
+def _canonical_payload(event: DecisionEvent) -> dict[str, Any]:
     """The fields that participate in the hash -- excludes the hash fields
     themselves and `recorded_at` (server-assigned, not part of the event's
     own content)."""

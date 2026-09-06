@@ -28,7 +28,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass, field
 
-from .analyst_verdict import SectionOutput
+from .analyst_verdict import AnalystVerdict, SectionOutput
 
 # Operator decisions — what the analyst tells the SOC to DO, distinct from the
 # per-chain analyst verdicts (CONFIRMED / ANOMALOUS_UNCLASSIFIED / RULED_OUT).
@@ -75,7 +75,9 @@ class ChainResult:
 @dataclass
 class ConsolidationResult:
     decision: str  # one of DECISIONS
-    verdict: str  # CONFIRMED | ANOMALOUS_UNCLASSIFIED | RULED_OUT (top-line, for scoring)
+    verdict: (
+        AnalystVerdict  # CONFIRMED | ANOMALOUS_UNCLASSIFIED | RULED_OUT (top-line, for scoring)
+    )
     # ── Two SEPARATE channels (known-bad detection vs. unknown-surfacing) ──
     # a single run can populate BOTH: confirm one thing AND flag another.
     confirmed_techniques: list[str] = field(default_factory=list)  # known-bad, auto-confirm channel
@@ -85,7 +87,7 @@ class ConsolidationResult:
         default_factory=list
     )  # == confirmed_techniques (compat/scoring)
     agreement: float = 0.0  # top technique's independent-chain-vote fraction
-    dissent: dict = field(default_factory=dict)  # technique -> chain-vote count
+    dissent: dict[str, int] = field(default_factory=dict)  # technique -> chain-vote count
     similar_to: list[str] = field(default_factory=list)  # == review_leads (compat)
     evidence_diversity: int = 0  # distinct telemetry sourcetypes covered across chains
     escalation_reason: str = ""
@@ -138,7 +140,7 @@ def consolidate(chains: list[ChainResult], *, quorum: float = 0.5) -> Consolidat
         )
 
     n = len(concluders)
-    votes: Counter = Counter()
+    votes: Counter[str] = Counter()
     for c in concluders:
         for t in set(c.technique_ids):
             votes[t] += 1
@@ -181,7 +183,7 @@ def consolidate(chains: list[ChainResult], *, quorum: float = 0.5) -> Consolidat
 
     # Top-line verdict for downstream scoring: CONFIRMED if a known-bad landed
     # (even alongside review leads — the confirm is real), else ANOMALOUS.
-    verdict = "CONFIRMED" if confirmed else "ANOMALOUS_UNCLASSIFIED"
+    verdict: AnalystVerdict = "CONFIRMED" if confirmed else "ANOMALOUS_UNCLASSIFIED"
 
     escalation_reason = ""
     if review:

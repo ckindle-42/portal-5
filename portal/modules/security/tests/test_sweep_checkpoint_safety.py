@@ -13,6 +13,9 @@ All tests use tmp_path fixtures; no network, no Docker.
 from __future__ import annotations
 
 import json
+from pathlib import Path
+
+import pytest
 
 from portal.modules.security.core._sweep_driver import (
     _backup_existing_checkpoint,
@@ -21,11 +24,11 @@ from portal.modules.security.core._sweep_driver import (
 
 
 class TestBackupExistingCheckpoint:
-    def test_no_file_returns_none(self, tmp_path):
+    def test_no_file_returns_none(self, tmp_path: Path) -> None:
         path = tmp_path / "sweep.json"
         assert _backup_existing_checkpoint(path) is None
 
-    def test_existing_file_gets_backed_up(self, tmp_path):
+    def test_existing_file_gets_backed_up(self, tmp_path: Path) -> None:
         path = tmp_path / "sweep.json"
         path.write_text(json.dumps([{"scenario": "s", "model": "m"}]))
 
@@ -38,7 +41,7 @@ class TestBackupExistingCheckpoint:
         # Original is untouched (still there, still readable)
         assert path.exists()
 
-    def test_backup_is_a_real_copy_not_a_move(self, tmp_path):
+    def test_backup_is_a_real_copy_not_a_move(self, tmp_path: Path) -> None:
         path = tmp_path / "sweep.json"
         original_content = json.dumps([{"a": 1}])
         path.write_text(original_content)
@@ -49,7 +52,9 @@ class TestBackupExistingCheckpoint:
         # this is a backup, not a rename/move.
         assert path.read_text() == original_content
 
-    def test_two_backups_of_same_path_dont_collide(self, tmp_path, monkeypatch):
+    def test_two_backups_of_same_path_dont_collide(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         path = tmp_path / "sweep.json"
         path.write_text("{}")
 
@@ -69,16 +74,16 @@ class TestBackupExistingCheckpoint:
 
 
 class TestWarnIfUnrelatedCheckpoint:
-    def test_empty_results_no_warning(self, capsys):
+    def test_empty_results_no_warning(self, capsys: pytest.CaptureFixture[str]) -> None:
         _warn_if_unrelated_checkpoint([], ["devstral:24b"])
         assert "WARNING" not in capsys.readouterr().out
 
-    def test_overlapping_models_no_warning(self, capsys):
+    def test_overlapping_models_no_warning(self, capsys: pytest.CaptureFixture[str]) -> None:
         existing = [{"scenario": "s1", "model": "devstral:24b"}]
         _warn_if_unrelated_checkpoint(existing, ["devstral:24b", "granite4.1:8b"])
         assert "WARNING" not in capsys.readouterr().out
 
-    def test_zero_overlap_warns(self, capsys):
+    def test_zero_overlap_warns(self, capsys: pytest.CaptureFixture[str]) -> None:
         existing = [{"scenario": "s1", "model": "some-other-model:9b"}]
         _warn_if_unrelated_checkpoint(existing, ["devstral:24b"])
         out = capsys.readouterr().out

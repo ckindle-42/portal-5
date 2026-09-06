@@ -7,7 +7,9 @@ the autonomy loop has a bounded program.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -16,7 +18,7 @@ PLAYBOOKS_DIR = (
 )
 
 
-def load_playbook(path: str) -> dict:
+def load_playbook(path: str) -> dict[str, Any]:
     """Parse and validate a playbook YAML file. Raises on bad schema."""
     p = Path(path)
     # Only prepend PLAYBOOKS_DIR for bare filenames, not relative paths
@@ -28,10 +30,10 @@ def load_playbook(path: str) -> dict:
     problems = validate_playbook(data)
     if problems:
         raise ValueError(f"playbook validation failed: {', '.join(problems)}")
-    return data
+    return data if isinstance(data, dict) else {}
 
 
-def validate_playbook(pb: dict) -> list[str]:
+def validate_playbook(pb: dict[str, Any]) -> list[str]:
     """Return [] if valid; else list of validation problems."""
     problems: list[str] = []
     if not isinstance(pb, dict):
@@ -84,20 +86,23 @@ def validate_playbook(pb: dict) -> list[str]:
     return problems
 
 
-def resolve_phases(pb: dict, observations: dict) -> list[dict]:
+def resolve_phases(pb: dict[str, Any], observations: dict[str, Any]) -> list[dict[str, Any]]:
     """Return phases whose depends_on are satisfied and conditions evaluate true.
 
     Returns only the first ready tier — phases whose dependencies are already
     met by the provided observations context. The caller is expected to mark
     completed phases and re-call resolve_phases to get the next tier.
     """
+    eval_cond: Callable[[dict[str, Any], dict[str, Any]], bool] | None
     try:
         from portal.modules.security.core.scoring import evaluate_condition
+
+        eval_cond = evaluate_condition
     except ImportError:
-        evaluate_condition = None
+        eval_cond = None
 
     phases = pb.get("phases", [])
-    ready: list[dict] = []
+    ready: list[dict[str, Any]] = []
 
     for phase in phases:
         deps = phase.get("depends_on", []) or []
@@ -105,8 +110,8 @@ def resolve_phases(pb: dict, observations: dict) -> list[dict]:
             # Check condition
             cond = phase.get("condition")
             if cond:
-                if isinstance(cond, dict) and evaluate_condition:
-                    if not evaluate_condition(cond, observations):
+                if isinstance(cond, dict) and eval_cond:
+                    if not eval_cond(cond, observations):
                         continue
                 elif isinstance(cond, str) and not _eval_finding_expr(cond, observations):
                     continue
@@ -115,7 +120,7 @@ def resolve_phases(pb: dict, observations: dict) -> list[dict]:
     return ready
 
 
-def _eval_finding_expr(expr: str, observations: dict) -> bool:
+def _eval_finding_expr(expr: str, observations: dict[str, Any]) -> bool:
     """Basic expression evaluator for has_finding(field=..., equals=...).
 
     Safe — no eval(); parses a whitelisted grammar. Supports 'or' and 'and'.
@@ -137,9 +142,9 @@ def _eval_finding_expr(expr: str, observations: dict) -> bool:
     return False
 
 
-def list_playbooks() -> list[dict]:
+def list_playbooks() -> list[dict[str, Any]]:
     """List installed playbooks with name, version, description."""
-    results = []
+    results: list[dict[str, Any]] = []
     if not PLAYBOOKS_DIR.exists():
         return results
     for p in sorted(PLAYBOOKS_DIR.glob("*.yaml")):

@@ -27,6 +27,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from portal.platform.wiki.schema import KnowledgeUnit
+
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
 _ARCHIVE_INDEX = "INDEX.md"
@@ -98,7 +100,7 @@ def _archive_index_path(repo_root: Path) -> Path:
     return _get_archive_dir() / _ARCHIVE_INDEX
 
 
-def check_archivable(unit, repo_root: Path | None = None) -> list[str]:
+def check_archivable(unit: KnowledgeUnit, repo_root: Path | None = None) -> list[str]:
     """Every precondition that would make archiving this unit unsafe.
 
     Returns a list of refusal reasons; empty means archiving is allowed.
@@ -149,7 +151,9 @@ def check_archivable(unit, repo_root: Path | None = None) -> list[str]:
     return refusals
 
 
-def verify_superseded(unit, survivor_id: str, repo_root: Path | None = None) -> str | None:
+def verify_superseded(
+    unit: KnowledgeUnit, survivor_id: str, repo_root: Path | None = None
+) -> str | None:
     """The `--superseded-by` override: the survivor must exist and the code paths
     the archived unit cited must remain covered by the live store (the named
     survivor plus other live units). Returns None on success, else the refusal.

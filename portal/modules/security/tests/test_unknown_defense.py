@@ -38,7 +38,7 @@ from portal.modules.security.core.unknown_defense import (
 class TestSimilarityTier:
     """U1: Graded match (EXACT/SIMILAR/NONE) from wiki descriptions."""
 
-    def test_exact_match(self):
+    def test_exact_match(self) -> None:
         wiki = {"T1558.003": "Kerberoasting Windows Security Event 4769 RC4 encryption ticket"}
         observed = {
             "tactic": "credential-access",
@@ -58,7 +58,7 @@ class TestSimilarityTier:
         assert result.matched_technique == "T1558.003"
         assert result.confidence > 0
 
-    def test_similar_match(self):
+    def test_similar_match(self) -> None:
         wiki = {"T1558.003": "Kerberoasting Windows Security Event 4769 RC4 encryption"}
         observed = {"keywords": ["Kerberos", "Windows", "Security", "encryption", "ticket"]}
         result = compute_similarity(observed, wiki)
@@ -68,17 +68,17 @@ class TestSimilarityTier:
             MatchGrade.NONE,
         )  # heuristic — may vary
 
-    def test_no_match(self):
+    def test_no_match(self) -> None:
         wiki = {"T1558.003": "Kerberoasting Windows Security Event 4769 RC4 encryption"}
         observed = {"keywords": ["completely", "unrelated", "content"]}
         result = compute_similarity(observed, wiki)
         assert result.grade == MatchGrade.NONE
 
-    def test_empty_wiki(self):
+    def test_empty_wiki(self) -> None:
         result = compute_similarity({"keywords": ["test"]}, {})
         assert result.grade == MatchGrade.NONE
 
-    def test_punctuated_description_still_matches_separate_words(self):
+    def test_punctuated_description_still_matches_separate_words(self) -> None:
         """Found live 2026-07-20 (GATE-D ablation): a description like
         "sh/bash/python" or "credential-access" used to tokenize via naive
         .lower().split() into one glued blob that could never match "bash"
@@ -91,7 +91,7 @@ class TestSimilarityTier:
         assert result.grade in (MatchGrade.SIMILAR, MatchGrade.EXACT)
         assert "bash" in result.overlapping_features
 
-    def test_real_telemetry_sized_blob_is_not_diluted_by_jaccard(self):
+    def test_real_telemetry_sized_blob_is_not_diluted_by_jaccard(self) -> None:
         """Found live 2026-07-20 (GATE-D ablation), independent of the
         tokenization bug above: real telemetry is a large blob of mostly
         irrelevant structured field names compared against a short
@@ -114,7 +114,7 @@ class TestSimilarityTier:
             f"expected a real match to survive noise, got {result.grade} (score={result.confidence})"
         )
 
-    def test_similarity_result_to_dict(self):
+    def test_similarity_result_to_dict(self) -> None:
         import json
 
         r = SimilarityResult(grade=MatchGrade.SIMILAR, matched_technique="T1190", confidence=0.3)
@@ -127,7 +127,7 @@ class TestSimilarityTier:
 class TestInvestigationBridge:
     """U2: Route SIMILAR flags to investigation."""
 
-    def test_similar_routes_to_investigation(self):
+    def test_similar_routes_to_investigation(self) -> None:
         sim = SimilarityResult(
             grade=MatchGrade.SIMILAR,
             matched_technique="T1558.003",
@@ -138,12 +138,12 @@ class TestInvestigationBridge:
         assert "T1558.003" in intake.alert_text
         assert intake.similarity is not None
 
-    def test_anomaly_routes_to_investigation(self):
+    def test_anomaly_routes_to_investigation(self) -> None:
         intake = route_to_investigation(anomaly_score=0.85, episode_id="ep-002")
         assert intake.source == "anomaly"
         assert "0.85" in intake.alert_text
 
-    def test_intake_to_dict(self):
+    def test_intake_to_dict(self) -> None:
         import json
 
         intake = route_to_investigation(anomaly_score=0.5)
@@ -156,7 +156,7 @@ class TestInvestigationBridge:
 class TestBaselineGeneration:
     """U3: Model normal behavior."""
 
-    def test_generate_baseline(self):
+    def test_generate_baseline(self) -> None:
         events = [
             {"NewProcessName": "C:\\Windows\\System32\\svchost.exe", "EventCode": "4688"},
             {"NewProcessName": "C:\\Windows\\System32\\svchost.exe", "EventCode": "4688"},
@@ -167,7 +167,7 @@ class TestBaselineGeneration:
         assert profile.normal_processes["C:\\Windows\\System32\\svchost.exe"] > 0.5
         assert profile.profile_id == "baseline-dc01-windows:security"
 
-    def test_baseline_to_dict(self):
+    def test_baseline_to_dict(self) -> None:
         import json
 
         profile = BaselineProfile("b-test", "host", "src", sample_count=10)
@@ -180,7 +180,7 @@ class TestBaselineGeneration:
 class TestAnomalyScoring:
     """U4: Statistical deviation from baseline."""
 
-    def test_normal_not_anomalous(self):
+    def test_normal_not_anomalous(self) -> None:
         baseline = BaselineProfile(
             "b-test",
             "dc01",
@@ -195,7 +195,7 @@ class TestAnomalyScoring:
         assert not result.flagged
         assert result.score < 0.7
 
-    def test_novel_process_anomalous(self):
+    def test_novel_process_anomalous(self) -> None:
         baseline = BaselineProfile(
             "b-test",
             "dc01",
@@ -210,12 +210,12 @@ class TestAnomalyScoring:
         assert result.score > 0.5
         assert any("mystery" in f for f in result.deviant_features)
 
-    def test_insufficient_baseline(self):
+    def test_insufficient_baseline(self) -> None:
         baseline = BaselineProfile("b-test", "host", "src", sample_count=5)
         result = score_anomaly({"test": True}, baseline)
         assert not result.flagged
 
-    def test_anomaly_result_to_dict(self):
+    def test_anomaly_result_to_dict(self) -> None:
         import json
 
         r = AnomalyResult(score=0.8, flagged=True, deviant_features=["novel_process:x"])
@@ -228,7 +228,7 @@ class TestAnomalyScoring:
 class TestResolveUnknown:
     """U5: Three honest outcomes — variant / new_technique / benign."""
 
-    def test_variant_resolution(self):
+    def test_variant_resolution(self) -> None:
         intake = route_to_investigation(
             similarity=SimilarityResult(grade=MatchGrade.SIMILAR, matched_technique="T1558.003"),
             episode_id="ep-001",
@@ -241,7 +241,7 @@ class TestResolveUnknown:
         assert outcome.technique_id == "T1558.003"
         assert outcome.write_back_unit is not None
 
-    def test_benign_resolution(self):
+    def test_benign_resolution(self) -> None:
         intake = route_to_investigation(anomaly_score=0.5, episode_id="ep-002")
         findings = [
             {"description": "No technique match found", "technique_ids": []}
@@ -250,7 +250,7 @@ class TestResolveUnknown:
         assert outcome.classification == "benign"
         assert outcome.baseline_update is True
 
-    def test_outcome_to_dict(self):
+    def test_outcome_to_dict(self) -> None:
         import json
 
         o = InvestigationOutcome("o-1", "variant", "T1190", "test")
@@ -263,33 +263,33 @@ class TestResolveUnknown:
 class TestPurpleOutcomeExpansion:
     """U6: confirmed / variant-flagged / anomaly-flagged / missed."""
 
-    def test_confirmed_outcome(self):
+    def test_confirmed_outcome(self) -> None:
         result = score_expanded_purple(
             red_landed=True, match_grade=MatchGrade.EXACT, detection_confirmed=True
         )
         assert result.outcome == PurpleOutcome.CONFIRMED
 
-    def test_variant_flagged_outcome(self):
+    def test_variant_flagged_outcome(self) -> None:
         result = score_expanded_purple(red_landed=True, match_grade=MatchGrade.SIMILAR)
         assert result.outcome == PurpleOutcome.VARIANT_FLAGGED
 
-    def test_anomaly_flagged_outcome(self):
+    def test_anomaly_flagged_outcome(self) -> None:
         result = score_expanded_purple(
             red_landed=True, match_grade=MatchGrade.NONE, anomaly_score=0.9
         )
         assert result.outcome == PurpleOutcome.ANOMALY_FLAGGED
 
-    def test_missed_outcome(self):
+    def test_missed_outcome(self) -> None:
         result = score_expanded_purple(
             red_landed=True, match_grade=MatchGrade.NONE, anomaly_score=0.1
         )
         assert result.outcome == PurpleOutcome.MISSED
 
-    def test_red_not_landed(self):
+    def test_red_not_landed(self) -> None:
         result = score_expanded_purple(red_landed=False, match_grade=MatchGrade.NONE)
         assert result.outcome == PurpleOutcome.MISSED
 
-    def test_expanded_result_to_dict(self):
+    def test_expanded_result_to_dict(self) -> None:
         import json
 
         r = ExpandedPurpleResult(outcome=PurpleOutcome.CONFIRMED, technique_id="T1190")
@@ -304,7 +304,7 @@ class TestSimilarityReferenceCatalog:
     exec_chain.py#SCENARIOS, covering 27/29 of the ablation corpus's own
     ground-truth techniques — near-circular novelty grounding)."""
 
-    def test_mitre_catalog_is_broad_not_just_project_techniques(self):
+    def test_mitre_catalog_is_broad_not_just_project_techniques(self) -> None:
         from portal.modules.security.core.blue import (
             _load_mitre_attack_catalog,
             _load_wiki_technique_descriptions,
@@ -327,7 +327,7 @@ class TestSimilarityReferenceCatalog:
         assert "T1558.003" in broad
         assert "T1078.004" in narrow  # moved in via SA5.3 cloud/identity detections (ebd89696)
 
-    def test_merged_reference_prefers_project_specific_detail(self):
+    def test_merged_reference_prefers_project_specific_detail(self) -> None:
         from portal.modules.security.core.blue import (
             _load_similarity_reference_descriptions,
         )

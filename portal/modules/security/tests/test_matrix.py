@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import glob
 import re
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -21,13 +23,13 @@ from portal.modules.security.core.matrix import (
 from portal.modules.security.core.oracles import ORACLES
 
 
-def _fake_host_exec_factory(local_root: Path):
+def _fake_host_exec_factory(local_root: Path) -> Callable[[str, int], dict[str, Any]]:
     """Simulate the remote `_host_exec` glob-and-check-compose command against a LOCAL
     fixture tree — production code (_expand_vulhub_globs) always resolves via _host_exec
     against the live host; this fixture only stands in for what the real host would return.
     """
 
-    def _fake_host_exec(cmd: str, timeout: int = 20) -> dict:
+    def _fake_host_exec(cmd: str, timeout: int = 20) -> dict[str, Any]:
         m = re.search(r"for d in (\S+)/; do", cmd)
         if not m:
             return {"ok": True, "output": ""}
@@ -42,7 +44,7 @@ def _fake_host_exec_factory(local_root: Path):
 
 
 @pytest.fixture(autouse=True)
-def _no_real_ssh(monkeypatch):
+def _no_real_ssh(monkeypatch: pytest.MonkeyPatch) -> None:
     """Default: no vulhub envs resolve on the (unmocked) host — never make a real ssh call
     in the unit suite. Tests that need fixture matches override with _fake_host_exec_factory.
     """
@@ -54,7 +56,7 @@ def _no_real_ssh(monkeypatch):
 class TestBuildRunMatrix:
     """build_run_matrix expands scenarios + classes into run units."""
 
-    def test_build_scenarios_only(self, tmp_path):
+    def test_build_scenarios_only(self, tmp_path: Path) -> None:
         """Scenarios mode produces one unit per scenario."""
         units = build_run_matrix(scenarios=True, classes=False, vulhub_root=tmp_path)
         # Should have one unit per PROMPTS entry
@@ -63,14 +65,16 @@ class TestBuildRunMatrix:
         assert len(units) == len(PROMPTS)
         assert all(u.kind == "scenario" for u in units)
 
-    def test_build_classes_only(self, tmp_path):
+    def test_build_classes_only(self, tmp_path: Path) -> None:
         """Classes mode produces units from challenge_classes.yaml."""
         units = build_run_matrix(scenarios=False, classes=True, vulhub_root=tmp_path)
         # Without a vulhub clone, no vulhub paths resolve
         # but purpose_built dirs still produce units
         assert isinstance(units, list)
 
-    def test_build_with_fixture_vulhub_tree(self, tmp_path, monkeypatch):
+    def test_build_with_fixture_vulhub_tree(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Glob expansion against a fixture vulhub tree (simulating the live host) creates
         multiple units."""
         # Create fixture vulhub directories standing in for what LXC 112 would report
@@ -100,7 +104,7 @@ class TestBuildRunMatrix:
         for u in deser_units:
             assert u.oracle == "rce_shell"
 
-    def test_every_scenario_has_oracle_or_explicit_null(self):
+    def test_every_scenario_has_oracle_or_explicit_null(self) -> None:
         """Every scenario resolves to a bound oracle or explicit oracle: None."""
         from portal.modules.security.core._data import PROMPTS
 
@@ -112,7 +116,7 @@ class TestBuildRunMatrix:
                 assert isinstance(oracle, str), f"scenario {key}: oracle must be str or None"
                 assert oracle in ORACLES, f"scenario {key}: oracle '{oracle}' not in ORACLES"
 
-    def test_every_scenario_resolves_to_unit(self):
+    def test_every_scenario_resolves_to_unit(self) -> None:
         """Every scenario produces at least one run unit."""
         units = build_run_matrix(scenarios=True, classes=False)
         scenario_keys = {u.scenario_key for u in units}
@@ -121,7 +125,7 @@ class TestBuildRunMatrix:
         for key in PROMPTS:
             assert key in scenario_keys, f"scenario {key} not in matrix"
 
-    def test_domain_filter(self, tmp_path):
+    def test_domain_filter(self, tmp_path: Path) -> None:
         """Domain filter limits units to matching domains."""
         units_web = build_run_matrix(scenarios=True, classes=False, domains=["web"])
         units_ad = build_run_matrix(scenarios=True, classes=False, domains=["ad"])
@@ -136,7 +140,7 @@ class TestBuildRunMatrix:
 class TestRunMatrix:
     """run_matrix plans/executes spin→run→score→teardown."""
 
-    def test_dry_run_plans_all_units(self, tmp_path):
+    def test_dry_run_plans_all_units(self, tmp_path: Path) -> None:
         """Dry run produces dry_run results for every unit."""
         units = build_run_matrix(scenarios=True, classes=False, vulhub_root=tmp_path)
         result = run_matrix(units, dry_run=True)
@@ -145,7 +149,9 @@ class TestRunMatrix:
         assert result["verified"] == 0
         assert result["rejected"] == 0
 
-    def test_lab_exec_unavailable_indeterminate(self, tmp_path, monkeypatch):
+    def test_lab_exec_unavailable_indeterminate(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """When _LAB_EXEC_AVAILABLE is False, verdicts are indeterminate."""
         monkeypatch.setattr("portal.modules.security.core.matrix._LAB_EXEC_AVAILABLE", False)
         units = build_run_matrix(scenarios=True, classes=False, vulhub_root=tmp_path)
@@ -153,7 +159,7 @@ class TestRunMatrix:
         assert result["indeterminate"] == len(units)
         assert result["verified"] == 0
 
-    def test_max_concurrent_respected(self, tmp_path):
+    def test_max_concurrent_respected(self, tmp_path: Path) -> None:
         """Max concurrent is recorded in the plan."""
         units = build_run_matrix(scenarios=True, classes=False, vulhub_root=tmp_path)
         result = run_matrix(units, dry_run=True, max_concurrent=2)
@@ -164,7 +170,7 @@ class TestRunMatrix:
 class TestClassOracleBinding:
     """Every challenge-class oracle is registered."""
 
-    def test_class_oracles_registered(self):
+    def test_class_oracles_registered(self) -> None:
         """Every oracle referenced by challenge_classes.yaml is in ORACLES."""
         import yaml
 
@@ -179,22 +185,22 @@ class TestClassOracleBinding:
 
 
 class TestDomainClassification:
-    def test_web_keywords(self):
+    def test_web_keywords(self) -> None:
         assert _classify_domain("sqli_manual") == "web"
         assert _classify_domain("lfi_to_rce") == "web"
         assert _classify_domain("tomcat_manager") == "web"
 
-    def test_ad_keywords(self):
+    def test_ad_keywords(self) -> None:
         assert _classify_domain("kerberoasting") == "ad"
         assert _classify_domain("ad_dcsync_golden_ticket") == "ad"
         assert _classify_domain("smb_enum_relay") == "ad"
 
-    def test_linux_keywords(self):
+    def test_linux_keywords(self) -> None:
         assert _classify_domain("linux_privesc") == "linux"
         assert _classify_domain("cron_privesc") == "linux"
         assert _classify_domain("nfs_privesc_chain") == "linux"
 
-    def test_unknown_is_mixed(self):
+    def test_unknown_is_mixed(self) -> None:
         assert _classify_domain("phishing_campaign") == "mixed"
 
 
@@ -202,7 +208,7 @@ class TestVulhubGlobExpansion:
     """_expand_vulhub_globs always resolves via _host_exec against the live host — never
     a local glob. These tests mock _host_exec with a fixture tree standing in for LXC 112."""
 
-    def test_expands_glob_patterns(self, tmp_path, monkeypatch):
+    def test_expands_glob_patterns(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Glob patterns expand to matching directories with docker-compose.yml."""
         for p in ["fastjson/CVE-2022-xxx", "fastjson/CVE-2023-yyy"]:
             d = tmp_path / p
@@ -218,7 +224,9 @@ class TestVulhubGlobExpansion:
         assert "fastjson/CVE-2023-yyy" in result
         assert "fastjson/incomplete" not in result
 
-    def test_expansion_calls_host_exec_not_local_glob(self, tmp_path, monkeypatch):
+    def test_expansion_calls_host_exec_not_local_glob(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Regression guard: resolution must go through _host_exec (the host), never a
         local filesystem glob — this is the wrong-machine bug the task fixes."""
         # Local fixture tree exists on disk, but _host_exec is mocked to report nothing —
@@ -227,9 +235,9 @@ class TestVulhubGlobExpansion:
         d.mkdir(parents=True)
         (d / "docker-compose.yml").write_text("version: '3'\n")
 
-        calls = []
+        calls: list[str] = []
 
-        def _tracking_empty(cmd: str, timeout: int = 20) -> dict:
+        def _tracking_empty(cmd: str, timeout: int = 20) -> dict[str, Any]:
             calls.append(cmd)
             return {"ok": True, "output": ""}
 
@@ -238,28 +246,28 @@ class TestVulhubGlobExpansion:
         assert calls, "_expand_vulhub_globs must call _host_exec"
         assert result == [], "must not fall back to local glob when host reports no matches"
 
-    def test_empty_patterns_returns_empty(self, tmp_path):
+    def test_empty_patterns_returns_empty(self, tmp_path: Path) -> None:
         assert _expand_vulhub_globs([], tmp_path) == []
 
-    def test_nonexistent_pattern_returns_empty(self, tmp_path):
+    def test_nonexistent_pattern_returns_empty(self, tmp_path: Path) -> None:
         assert _expand_vulhub_globs(["nonexistent/*"], tmp_path) == []
 
 
 class TestInferTarget:
-    def test_dc_hint(self):
+    def test_dc_hint(self) -> None:
         steps = [{"tool_hint": "nxc smb $LAB_TARGET_DC -u '' -p ''"}]
         assert _infer_target("kerberoasting", steps) == "dc01"
 
-    def test_web_hint(self):
+    def test_web_hint(self) -> None:
         steps = [{"tool_hint": "curl http://$LAB_TARGET_WEB:8080/"}]
         assert _infer_target("lfi_to_rce", steps) == "lab-vulhub"
 
-    def test_fallback(self):
+    def test_fallback(self) -> None:
         assert _infer_target("unknown_scenario", []) == "lab-vulhub"
 
 
 class TestCoverageReport:
-    def test_coverage_report_structure(self):
+    def test_coverage_report_structure(self) -> None:
         units = [
             RunUnit(
                 id="u1",
@@ -295,13 +303,13 @@ class TestCoverageReport:
 
 
 class TestTelemetryBackend:
-    def test_canonical_telemetry_protocol_importable(self):
+    def test_canonical_telemetry_protocol_importable(self) -> None:
         """TelemetryBackend protocol is importable from canonical telemetry module."""
         from portal.modules.security.core.telemetry import TelemetryBackend
 
         assert hasattr(TelemetryBackend, "query")
 
-    def test_matrix_imports_canonical_protocol(self):
+    def test_matrix_imports_canonical_protocol(self) -> None:
         """matrix.py imports TelemetryBackend from telemetry module, not its own."""
         import inspect
 

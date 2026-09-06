@@ -16,12 +16,18 @@ import logging
 import os
 import re
 import time
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from mcp.server import MCPServer
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
+
+if TYPE_CHECKING:
+    import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +38,15 @@ mcp = MCPServer(
     "CISA KEV, OSV.dev, CISA ICS advisories, and a clearnet IOC subset. Composite risk "
     "score with a CISA-KEV hard override.",
 )
+
+# MCPServer.custom_route() has no return annotation upstream (mcp SDK), so mypy
+# sees its decorator result as Any and flags every routed handler with
+# untyped-decorator. Bind the concrete decorator type once so handlers keep
+# their annotations.
+_route: Callable[
+    ...,
+    Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+] = mcp.custom_route
 
 # ── Config ───────────────────────────────────────────────────────────────────
 _NVD = "https://services.nvd.nist.gov/rest/json/cves/2.0"
@@ -48,11 +63,11 @@ _TIMEOUT = float(os.environ.get("VULNINTEL_HTTP_TIMEOUT", "20"))
 _CVE_RE = re.compile(r"^CVE-\d{4}-\d{4,}$", re.I)
 
 # lazy singletons
-_client = None
-_kev_cache: dict = {"ts": 0.0, "ids": None}
+_client: httpx.Client | None = None
+_kev_cache: dict[str, Any] = {"ts": 0.0, "ids": None}
 
 
-def _http():
+def _http() -> httpx.Client:
     global _client
     if _client is None:
         import httpx
@@ -61,7 +76,9 @@ def _http():
     return _client
 
 
-def _audit(tool: str, params: dict, dt: float, status: str, cache_hit: bool = False) -> None:
+def _audit(
+    tool: str, params: dict[str, Any], dt: float, status: str, cache_hit: bool = False
+) -> None:
     try:
         _AUDIT.parent.mkdir(parents=True, exist_ok=True)
         redacted = {
@@ -99,8 +116,9 @@ def _reject_private_ip(ip: str) -> None:
 
 
 def _kev_ids() -> set[str]:
-    if _kev_cache["ids"] is not None and (time.time() - _kev_cache["ts"]) < 3600:
-        return _kev_cache["ids"]
+    cached_ids = _kev_cache["ids"]
+    if isinstance(cached_ids, set) and (time.time() - _kev_cache["ts"]) < 3600:
+        return cached_ids
     data = _http().get(_KEV).json()
     ids = {v["cveID"].upper() for v in data.get("vulnerabilities", [])}
     _kev_cache.update(ts=time.time(), ids=ids)
@@ -109,7 +127,7 @@ def _kev_ids() -> set[str]:
 
 # ── Tools ────────────────────────────────────────────────────────────────────
 @mcp.tool()
-def lookup_cve(cve_id: str) -> dict:
+def lookup_cve(cve_id: str) -> dict[str, Any]:
     """Fetch a CVE record from NVD: CVSS vector/score, CWEs, references, timeline.
 
     Args:
@@ -159,7 +177,7 @@ def lookup_cve(cve_id: str) -> dict:
 
 
 @mcp.tool()
-def get_epss(cve_id: str) -> dict:
+def get_epss(cve_id: str) -> dict[str, Any]:
     """FIRST EPSS exploitation probability (0-1) and percentile for a CVE."""
     t0 = time.time()
     try:
@@ -184,7 +202,7 @@ def get_epss(cve_id: str) -> dict:
 
 
 @mcp.tool()
-def check_kev(cve_id: str) -> dict:
+def check_kev(cve_id: str) -> dict[str, Any]:
     """Is this CVE in CISA's Known Exploited Vulnerabilities catalog?"""
     t0 = time.time()
     try:
@@ -198,10 +216,10 @@ def check_kev(cve_id: str) -> dict:
 
 
 @mcp.tool()
-def scan_dependencies(ecosystem: str, packages: dict) -> dict:
+def scan_dependencies(ecosystem: str, packages: dict[str, Any]) -> dict[str, Any]:
     """OSV.dev scan of {name: version} for known vulns. ecosystem e.g. 'PyPI','npm','Go'."""
     t0 = time.time()
-    findings = {}
+    findings: dict[str, list[dict[str, Any]]] = {}
     try:
         for name, version in packages.items():
             body = {"package": {"ecosystem": ecosystem, "name": name}, "version": str(version)}
@@ -235,7 +253,7 @@ def scan_dependencies(ecosystem: str, packages: dict) -> dict:
 
 
 @mcp.tool()
-def ics_advisories(vendor: str = "", days: int = 30) -> dict:
+def ics_advisories(vendor: str = "", days: int = 30) -> dict[str, Any]:
     """Recent CISA ICS advisories (ICSA/ICSMA), optionally filtered by vendor keyword.
 
     The OT-specific source the generic IT-CVE tooling misses. Read-only feed pull.
@@ -274,13 +292,13 @@ def ics_advisories(vendor: str = "", days: int = 30) -> dict:
 
 
 @mcp.tool()
-def lookup_ioc(indicator: str) -> dict:
+def lookup_ioc(indicator: str) -> dict[str, Any]:
     """Clearnet IOC enrichment for an IP/domain/hash via abuse.ch ThreatFox (+ GreyNoise for IPs).
 
     Private/reserved IPs are rejected before any lookup.
     """
     t0 = time.time()
-    result = {"indicator": indicator, "sources": {}}
+    result: dict[str, Any] = {"indicator": indicator, "sources": {}}
     try:
         is_ip = False
         try:
@@ -306,14 +324,14 @@ def lookup_ioc(indicator: str) -> dict:
         return {"indicator": indicator, "error": str(e)}
 
 
-def _cvss_base(cvss: dict | None) -> float:
+def _cvss_base(cvss: dict[str, Any] | None) -> float:
     if not cvss:
         return 0.0
     return float(cvss.get("baseScore", 0.0))
 
 
 @mcp.tool()
-def triage_cve(cve_id: str, depth: str = "standard") -> dict:
+def triage_cve(cve_id: str, depth: str = "standard") -> dict[str, Any]:
     """One-call triage: NVD + EPSS + KEV -> composite risk (KEV hard override) + SSVC-style decision.
 
     Sized for NERC CIP-007-6 R2 patch-evaluation evidence — every fan-out call is audited.
@@ -377,7 +395,7 @@ def triage_cve(cve_id: str, depth: str = "standard") -> dict:
 # ── REST surface (portal-pipeline tool_registry) ─────────────────────────────
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_vulnintel_mcp")
 
-_DISPATCH = {
+_DISPATCH: dict[str, Any] = {
     "lookup_cve": lookup_cve,
     "get_epss": get_epss,
     "check_kev": check_kev,
@@ -388,23 +406,23 @@ _DISPATCH = {
 }
 
 
-@mcp.custom_route("/health", methods=["GET"])
-async def health_check(request):
+@_route("/health", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "vulnintel-mcp", "port": _port})
 
 
-@mcp.custom_route("/ready", methods=["GET"])
-async def ready(request):
+@_route("/ready", methods=["GET"])
+async def ready(request: Request) -> JSONResponse:
     return JSONResponse({"port": _port, "audit_log": str(_AUDIT)})
 
 
-@mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request):
+@_route("/tools", methods=["GET"])
+async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
-@mcp.custom_route("/tools/{tool_name}", methods=["POST"])
-async def invoke_tool(request):
+@_route("/tools/{tool_name}", methods=["POST"])
+async def invoke_tool(request: Request) -> JSONResponse:
     name = request.path_params.get("tool_name", "")
     fn = _DISPATCH.get(name)
     if fn is None:

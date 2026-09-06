@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
 MAX_PAGES = int(os.environ.get("RAG_MAX_PAGES", "500"))
 
@@ -30,12 +31,15 @@ FIGURE_PAGE_MAX_TEXT = int(os.environ.get("RAG_FIGURE_PAGE_MAX_TEXT", "200"))
 VISUAL_SCOPE = os.environ.get("RAG_VISUAL_SCOPE", "all")
 
 
-def render_pages(pdf_path: str, out_dir: Path, dpi: int = 150) -> list:
+def render_pages(pdf_path: str, out_dir: Path, dpi: int = 150) -> list[tuple[int, str]]:
     import pymupdf
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    pages = []
-    doc = pymupdf.open(pdf_path)
+    pages: list[tuple[int, str]] = []
+    # pymupdf.open is the Document class itself (open = Document), whose __init__
+    # is untyped and lacks a recognised __iter__ — treat the handle as untyped
+    # and duck-type the Page objects it yields.
+    doc: Any = pymupdf.open(pdf_path)  # type: ignore[no-untyped-call]
     for i, page in enumerate(doc):
         if i >= MAX_PAGES:
             break
@@ -47,7 +51,7 @@ def render_pages(pdf_path: str, out_dir: Path, dpi: int = 150) -> list:
     return pages
 
 
-def figure_pages(pages: list) -> list:
+def figure_pages(pages: list[tuple[int, str]]) -> list[tuple[int, str]]:
     """S0: the subset of pages worth transcribing.
 
     Deterministic, not model-judgement. The obvious design — prompt the vision

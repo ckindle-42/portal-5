@@ -18,6 +18,7 @@ import json
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import Any
 
 _LEDGER_PATH: Path | None = None
 
@@ -59,7 +60,7 @@ class LedgerEntry:
     library_version: str = ""
     event: str = ""  # "purple_run" | "write_back" — what produced this entry
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 

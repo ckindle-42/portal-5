@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import json
 import time
+from pathlib import Path
+
+import pytest
 
 from portal.modules.security.core import loop
 from portal.modules.security.core.loop import (
@@ -28,7 +31,7 @@ def _fresh_state(eng_id: str = "test-eng") -> EngagementState:
 
 
 class TestLoopNotifyEvents:
-    def test_event_types_defined(self):
+    def test_event_types_defined(self) -> None:
         from portal.platform.inference.notifications.events import EventType
 
         assert EventType.ENGAGEMENT_ESCALATED.value == "engagement_escalated"
@@ -36,7 +39,7 @@ class TestLoopNotifyEvents:
         assert EventType.ENGAGEMENT_COMPLETE.value == "engagement_complete"
         assert EventType.VALIDATION_ALERT.value == "validation_alert"
 
-    def test_event_types_formatted_in_slack_and_telegram_and_pushover(self):
+    def test_event_types_formatted_in_slack_and_telegram_and_pushover(self) -> None:
         from portal.platform.inference.notifications.events import AlertEvent, EventType
 
         for et in (
@@ -55,7 +58,9 @@ class TestLoopNotifyFiring:
     """Assert _notify is invoked at the right stop points with a monkeypatched
     fake — no real dispatcher/channel is exercised."""
 
-    def test_escalation_fires_engagement_escalated_with_resume_cmd(self, monkeypatch):
+    def test_escalation_fires_engagement_escalated_with_resume_cmd(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         fired = []
         monkeypatch.setattr(
             loop,
@@ -75,7 +80,9 @@ class TestLoopNotifyFiring:
         assert event_type == "ENGAGEMENT_ESCALATED"
         assert resume_cmd == "python3 -m portal.modules.security.core loop resume test-eng"
 
-    def test_out_of_scope_step_target_escalates_and_notifies(self, monkeypatch):
+    def test_out_of_scope_step_target_escalates_and_notifies(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Regression: _check_escalate's out_of_scope_action trigger previously
         did an exact list-membership check against state.escalations, but the
         step-execution path only ever appends the suffixed
@@ -95,7 +102,7 @@ class TestLoopNotifyFiring:
         assert report["stop_reason"] == "escalated:out_of_scope_action"
         assert fired == ["ENGAGEMENT_ESCALATED"]
 
-    def test_hard_cap_fires_engagement_stuck(self, monkeypatch):
+    def test_hard_cap_fires_engagement_stuck(self, monkeypatch: pytest.MonkeyPatch) -> None:
         fired = []
         monkeypatch.setattr(loop, "_notify", lambda et, msg, **kw: fired.append(et))
         state = _fresh_state()
@@ -103,7 +110,9 @@ class TestLoopNotifyFiring:
         assert report["stop_reason"] == "hard_cap"
         assert fired == ["ENGAGEMENT_STUCK"]
 
-    def test_no_runnable_phase_fires_engagement_stuck(self, monkeypatch):
+    def test_no_runnable_phase_fires_engagement_stuck(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         fired = []
         monkeypatch.setattr(loop, "_notify", lambda et, msg, **kw: fired.append(et))
         pb = {
@@ -116,7 +125,7 @@ class TestLoopNotifyFiring:
         assert report["stop_reason"] == "no_runnable_phase"
         assert fired == ["ENGAGEMENT_STUCK"]
 
-    def test_goal_met_no_notify_by_default(self, monkeypatch):
+    def test_goal_met_no_notify_by_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
         fired = []
         monkeypatch.setattr(loop, "_notify", lambda et, msg, **kw: fired.append(et))
         pb = {
@@ -129,7 +138,7 @@ class TestLoopNotifyFiring:
         assert report["stop_reason"] == "goal_met"
         assert fired == []
 
-    def test_goal_met_notifies_when_opted_in(self, monkeypatch):
+    def test_goal_met_notifies_when_opted_in(self, monkeypatch: pytest.MonkeyPatch) -> None:
         fired = []
         monkeypatch.setattr(loop, "_notify", lambda et, msg, **kw: fired.append(et))
         pb = {
@@ -142,10 +151,10 @@ class TestLoopNotifyFiring:
         assert report["stop_reason"] == "goal_met"
         assert fired == ["ENGAGEMENT_COMPLETE"]
 
-    def test_notify_failure_is_swallowed(self, monkeypatch):
+    def test_notify_failure_is_swallowed(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """A real _notify failure must never abort the engagement."""
 
-        def _boom(*a, **kw):
+        def _boom(*args: object, **kwargs: object) -> None:
             raise RuntimeError("dispatcher exploded")
 
         monkeypatch.setattr(loop, "_get_shared_dispatcher", _boom)
@@ -154,7 +163,7 @@ class TestLoopNotifyFiring:
         # Calling the REAL _notify (not monkeypatched away) must not raise.
         loop._notify("ENGAGEMENT_STUCK", "test", engagement_id=state.engagement_id)
 
-    def test_notifications_disabled_is_a_noop(self, monkeypatch):
+    def test_notifications_disabled_is_a_noop(self, monkeypatch: pytest.MonkeyPatch) -> None:
         calls = []
         monkeypatch.setattr(loop, "_loop_notify_enabled", lambda: False)
         monkeypatch.setattr(
@@ -165,7 +174,9 @@ class TestLoopNotifyFiring:
 
 
 class TestCheckpointResume:
-    def test_checkpoint_writes_and_roundtrips(self, monkeypatch, tmp_path):
+    def test_checkpoint_writes_and_roundtrips(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         monkeypatch.setattr("portal.modules.security.core.loop.CHECKPOINT_DIR", tmp_path)
         state = EngagementState(
             engagement_id="test-eng-001",
@@ -181,6 +192,6 @@ class TestCheckpointResume:
         assert data["checkpoint_reason"] == "test_pause"
         assert "methodology_version" in data
 
-    def test_resume_not_found(self):
+    def test_resume_not_found(self) -> None:
         result = resume_engagement("nonexistent-checkpoint-id")
         assert result["status"] == "error"

@@ -35,23 +35,23 @@ from portal.modules.security.core.response_loop import (
 class TestResponsePlaybook:
     """Response playbook drafts use existing primitives, not free-generation."""
 
-    def test_propose_playbook(self):
+    def test_propose_playbook(self) -> None:
         playbook = propose_response_playbook("T1190", "web_sqli_dump")
         assert playbook.technique_id == "T1190"
         assert playbook.status == "draft"
         assert len(playbook.actions) > 0
 
-    def test_playbook_actions_from_primitives(self):
+    def test_playbook_actions_from_primitives(self) -> None:
         playbook = propose_response_playbook("T1190", "test")
         for action in playbook.actions:
             assert action["action"] in RESPONSE_PRIMITIVES
 
-    def test_playbook_for_credential_theft(self):
+    def test_playbook_for_credential_theft(self) -> None:
         playbook = propose_response_playbook("T1003.006", "kerberoast_to_da")
         action_names = [a["action"] for a in playbook.actions]
         assert "revoke_tgt" in action_names or "reset_password" in action_names
 
-    def test_playbook_to_dict(self):
+    def test_playbook_to_dict(self) -> None:
         playbook = propose_response_playbook("T1190", "test")
         d = playbook.to_dict()
         json.dumps(d)
@@ -63,13 +63,13 @@ class TestResponsePlaybook:
 class TestResponseEffectiveness:
     """Effectiveness check is deterministic."""
 
-    def test_effective_response(self):
+    def test_effective_response(self) -> None:
         playbook = propose_response_playbook("T1190", "test")
         result = check_response_effectiveness(playbook, red_can_continue=False)
         assert result["effective"] is True
         assert result["tested"] is True
 
-    def test_ineffective_response(self):
+    def test_ineffective_response(self) -> None:
         playbook = propose_response_playbook("T1190", "test")
         result = check_response_effectiveness(playbook, red_can_continue=True)
         assert result["effective"] is False
@@ -81,12 +81,12 @@ class TestResponseEffectiveness:
 class TestReverseGrowthLoop:
     """BLUE_ONLY gap → draft red scenario."""
 
-    def test_propose_red_scenario(self):
+    def test_propose_red_scenario(self) -> None:
         draft = propose_red_scenario("T1190", "Web exploit detection")
         assert draft.technique_id == "T1190"
         assert draft.status == "draft"
 
-    def test_red_scenario_draft_to_dict(self):
+    def test_red_scenario_draft_to_dict(self) -> None:
         draft = propose_red_scenario("T1190")
         d = draft.to_dict()
         json.dumps(d)
@@ -98,7 +98,7 @@ class TestReverseGrowthLoop:
 class TestThreatIntake:
     """Threat intake maps new threats against capability graph."""
 
-    def test_map_threat_with_gaps(self):
+    def test_map_threat_with_gaps(self) -> None:
         graph = seed_graph_from_assets()
         intake = map_threat_to_gaps(
             graph,
@@ -111,7 +111,7 @@ class TestThreatIntake:
         # T1190 has a scenario and a detection, so no gaps
         # (unless we pick a technique without one)
 
-    def test_map_threat_without_detection(self):
+    def test_map_threat_without_detection(self) -> None:
         graph = seed_graph_from_assets()
         intake = map_threat_to_gaps(
             graph,
@@ -122,7 +122,7 @@ class TestThreatIntake:
         assert len(intake.gaps_identified) > 0
         assert any(g["gap_type"] == "detection" for g in intake.gaps_identified)
 
-    def test_map_threat_without_scenario(self):
+    def test_map_threat_without_scenario(self) -> None:
         graph = seed_graph_from_assets()
         # Pick a technique that's in detections but not in any scenario
         intake = map_threat_to_gaps(
@@ -134,7 +134,7 @@ class TestThreatIntake:
         # Should identify exercise gap if T1610 isn't in any scenario
         assert intake.threat_id == "new-technique"
 
-    def test_intake_to_dict(self):
+    def test_intake_to_dict(self) -> None:
         graph = seed_graph_from_assets()
         intake = map_threat_to_gaps(graph, "test", "cve", ["T1190"])
         d = intake.to_dict()
@@ -147,7 +147,7 @@ class TestThreatIntake:
 class TestResponseLoopRunner:
     """Response loop runner finds gaps and proposes playbooks/drafts."""
 
-    def test_run_response_loop(self):
+    def test_run_response_loop(self) -> None:
         graph = seed_graph_from_assets()
         # Mark some gaps as COVERED with RESPONSE_MISSING
         for gap in list(graph.gaps.values())[:5]:
@@ -158,7 +158,7 @@ class TestResponseLoopRunner:
         assert result.response_gaps_found >= 1
         assert result.playbooks_proposed >= 1
 
-    def test_run_response_loop_finds_reverse_gaps(self):
+    def test_run_response_loop_finds_reverse_gaps(self) -> None:
         graph = seed_graph_from_assets()
         # Mark some gaps as BLUE_ONLY
         for gap in list(graph.gaps.values())[:3]:
@@ -168,7 +168,7 @@ class TestResponseLoopRunner:
         assert result.reverse_gaps_found >= 1
         assert result.red_drafts_proposed >= 1
 
-    def test_response_loop_result_to_dict(self):
+    def test_response_loop_result_to_dict(self) -> None:
         graph = seed_graph_from_assets()
         result = run_response_loop(graph)
         d = result.to_dict()

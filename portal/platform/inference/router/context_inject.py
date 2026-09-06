@@ -63,10 +63,10 @@ _WRITEBACK_MARKERS = (
 )
 
 # Keep fire-and-forget write-back tasks referenced so they are not GC'd mid-flight.
-_writeback_tasks: set[asyncio.Task] = set()
+_writeback_tasks: set[asyncio.Task[Any]] = set()
 
 
-def _last_user_text(messages: list[dict], limit: int) -> str:
+def _last_user_text(messages: list[dict[str, Any]], limit: int) -> str:
     for m in reversed(messages or []):
         if m.get("role") == "user":
             c = m.get("content")
@@ -133,7 +133,7 @@ def _dispatch_outcome(source: str, result: dict[str, Any], snippets: list[str]) 
     return "hit" if snippets else "miss"
 
 
-def _inject_context_block(body: dict, header: str, items: list[str]) -> dict:
+def _inject_context_block(body: dict[str, Any], header: str, items: list[str]) -> dict[str, Any]:
     if not items:
         return body
     block = header + "\n" + "\n".join(f"- {s}" for s in items if s)
@@ -148,7 +148,7 @@ def _inject_context_block(body: dict, header: str, items: list[str]) -> dict:
     return {**body, "messages": messages}
 
 
-async def _dispatch_bounded(tool: str, args: dict, cid: str) -> dict[str, Any]:
+async def _dispatch_bounded(tool: str, args: dict[str, Any], cid: str) -> dict[str, Any]:
     try:
         return await asyncio.wait_for(
             tool_registry.dispatch(tool, args, request_id=cid),
@@ -162,7 +162,9 @@ async def _dispatch_bounded(tool: str, args: dict, cid: str) -> dict[str, Any]:
         return {"error": str(e)}
 
 
-async def inject_recalled_memory(workspace_id: str, body: dict, cid: str) -> dict:
+async def inject_recalled_memory(
+    workspace_id: str, body: dict[str, Any], cid: str
+) -> dict[str, Any]:
     if not _AUTO_MEMORY_ENABLED:
         return body
     if not WORKSPACES.get(workspace_id, {}).get("inject_memory", False):
@@ -182,7 +184,9 @@ async def inject_recalled_memory(workspace_id: str, body: dict, cid: str) -> dic
     return _inject_context_block(body, "Relevant context from prior sessions:", snippets)
 
 
-async def inject_retrieved_context(workspace_id: str, body: dict, cid: str) -> dict:
+async def inject_retrieved_context(
+    workspace_id: str, body: dict[str, Any], cid: str
+) -> dict[str, Any]:
     if not _AUTO_RAG_ENABLED:
         return body
     if not WORKSPACES.get(workspace_id, {}).get("auto_rag", False):
@@ -207,7 +211,7 @@ async def inject_retrieved_context(workspace_id: str, body: dict, cid: str) -> d
     return _inject_context_block(body, "Relevant information from the knowledge base:", snippets)
 
 
-def _salient_user_text(messages: list[dict], workspace_id: str) -> str | None:
+def _salient_user_text(messages: list[dict[str, Any]], workspace_id: str) -> str | None:
     """The user text worth persisting, or None. High-precision by default."""
     text = _last_user_text(messages, 2000)
     if not text:
@@ -220,7 +224,7 @@ def _salient_user_text(messages: list[dict], workspace_id: str) -> str | None:
     return None
 
 
-async def writeback_memory(workspace_id: str, messages: list[dict], cid: str) -> None:
+async def writeback_memory(workspace_id: str, messages: list[dict[str, Any]], cid: str) -> None:
     """Persist a salient user statement via the remember tool. Never raises."""
     if not _AUTO_MEMORY_WRITEBACK_ENABLED:
         return
@@ -242,7 +246,7 @@ async def writeback_memory(workspace_id: str, messages: list[dict], cid: str) ->
     _auto_context_inject_total.labels(source="writeback", outcome=outcome).inc()
 
 
-def schedule_writeback(workspace_id: str, messages: list[dict], cid: str) -> None:
+def schedule_writeback(workspace_id: str, messages: list[dict[str, Any]], cid: str) -> None:
     """Kick off write-back without blocking the response path (fire-and-forget)."""
     if not _AUTO_MEMORY_WRITEBACK_ENABLED:
         return

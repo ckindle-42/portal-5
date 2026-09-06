@@ -2,11 +2,22 @@
 
 from __future__ import annotations
 
-from portal.modules.security.core.analyst_verdict import SectionOutput
+import pytest
+
+from portal.modules.security.core.analyst_verdict import AnalystVerdict, SectionOutput
 from portal.modules.security.core.council_agreement import compute_agreement, to_section_output
+from portal.platform.inference.router.council import (
+    CouncilAggregate,
+    CouncilOpinion,
+    aggregate_opinions,
+)
 
 
-def _member(verdict, technique_ids=None, similar_to=None):
+def _member(
+    verdict: AnalystVerdict,
+    technique_ids: list[str] | None = None,
+    similar_to: list[str] | None = None,
+) -> SectionOutput:
     return SectionOutput(
         verdict=verdict,
         technique_ids=technique_ids or [],
@@ -15,7 +26,7 @@ def _member(verdict, technique_ids=None, similar_to=None):
     )
 
 
-def test_unanimous_confirmed():
+def test_unanimous_confirmed() -> None:
     members = [
         _member("CONFIRMED", ["T1078"]),
         _member("CONFIRMED", ["T1078"]),
@@ -28,7 +39,7 @@ def test_unanimous_confirmed():
     assert not r.needs_arbiter
 
 
-def test_quorum_met_subset_still_confirmed_with_correct_agreement():
+def test_quorum_met_subset_still_confirmed_with_correct_agreement() -> None:
     # 2 of 3 vote T1078 (>= 0.5 quorum); the 3rd votes something else entirely.
     members = [
         _member("CONFIRMED", ["T1078"]),
@@ -42,7 +53,7 @@ def test_quorum_met_subset_still_confirmed_with_correct_agreement():
     assert r.dissent == {"T1078": 2, "T1055": 1}
 
 
-def test_split_no_quorum_becomes_anomalous_unclassified_with_similar_to_union():
+def test_split_no_quorum_becomes_anomalous_unclassified_with_similar_to_union() -> None:
     # 3 concluders, 3 different techniques -> nobody reaches 0.5 quorum.
     members = [
         _member("CONFIRMED", ["T1078"], similar_to=["T1078.002"]),
@@ -57,7 +68,7 @@ def test_split_no_quorum_becomes_anomalous_unclassified_with_similar_to_union():
     assert set(r.dissent) == {"T1078", "T1055", "T1548"}
 
 
-def test_unanimous_benign_ruled_out():
+def test_unanimous_benign_ruled_out() -> None:
     members = [
         _member("RULED_OUT"),
         _member("RULED_OUT"),
@@ -69,7 +80,7 @@ def test_unanimous_benign_ruled_out():
     assert not r.needs_arbiter
 
 
-def test_no_member_concludes_escalates_never_benign():
+def test_no_member_concludes_escalates_never_benign() -> None:
     """2026-07-23 design review: no member concluding is a budget/convergence
     FAILURE — it previously returned RULED_OUT, telling the SOC 'all clear'
     because the investigation never completed (the exact bug multichain's
@@ -86,7 +97,7 @@ def test_no_member_concludes_escalates_never_benign():
     assert "no member reached a conclusion" in r.rationale
 
 
-def test_one_of_two_members_non_voter_does_not_auto_quorum():
+def test_one_of_two_members_non_voter_does_not_auto_quorum() -> None:
     members = [
         _member("CONFIRMED", ["T1558.003"]),
         SectionOutput(verdict=None, request_more="still confused", section="expert"),
@@ -98,7 +109,7 @@ def test_one_of_two_members_non_voter_does_not_auto_quorum():
     assert r.agreement != 1.0
 
 
-def test_participation_below_floor_escalates():
+def test_participation_below_floor_escalates() -> None:
     members = [
         _member("CONFIRMED", ["T1558.003"]),
         SectionOutput(verdict=None, request_more="need more", section="expert"),
@@ -111,7 +122,7 @@ def test_participation_below_floor_escalates():
     assert "participation 1/3 below floor" in r.rationale
 
 
-def test_stricter_participation_floor_escalates_one_of_two():
+def test_stricter_participation_floor_escalates_one_of_two() -> None:
     members = [
         _member("CONFIRMED", ["T1558.003"]),
         SectionOutput(verdict=None, request_more="still confused", section="expert"),
@@ -121,7 +132,7 @@ def test_stricter_participation_floor_escalates_one_of_two():
     assert r.needs_arbiter is True
 
 
-def test_full_participation_unchanged_by_v4c():
+def test_full_participation_unchanged_by_v4c() -> None:
     members = [
         _member("CONFIRMED", ["T1078"]),
         _member("CONFIRMED", ["T1078"]),
@@ -134,7 +145,7 @@ def test_full_participation_unchanged_by_v4c():
     assert r.dissent == {"T1078": 2, "T1055": 1}
 
 
-def test_quorum_denominator_is_roster_not_concluders():
+def test_quorum_denominator_is_roster_not_concluders() -> None:
     members = [
         _member("CONFIRMED", ["T1078"]),
         _member("CONFIRMED", ["T1055"]),
@@ -145,7 +156,7 @@ def test_quorum_denominator_is_roster_not_concluders():
     assert r.agreement == round(1 / 3, 3)
 
 
-def test_mixed_benign_and_anomalous_without_technique_votes():
+def test_mixed_benign_and_anomalous_without_technique_votes() -> None:
     members = [
         _member("RULED_OUT"),
         _member("ANOMALOUS_UNCLASSIFIED", similar_to=["T1548.002"]),
@@ -156,7 +167,7 @@ def test_mixed_benign_and_anomalous_without_technique_votes():
     assert r.similar_to == ["T1548.002"]
 
 
-def test_confirmed_carries_technique_ids_for_downstream_cite_or_drop_gate():
+def test_confirmed_carries_technique_ids_for_downstream_cite_or_drop_gate() -> None:
     members = [_member("CONFIRMED", ["T1078", "T1055"]), _member("CONFIRMED", ["T1078", "T1055"])]
     r = compute_agreement(members)
     so = to_section_output(r)
@@ -165,7 +176,7 @@ def test_confirmed_carries_technique_ids_for_downstream_cite_or_drop_gate():
     assert so.section == "agreement"
 
 
-def test_anomalous_unclassified_section_output_carries_match_grade_similar():
+def test_anomalous_unclassified_section_output_carries_match_grade_similar() -> None:
     members = [
         _member("CONFIRMED", ["T1078"], similar_to=["T1078.002"]),
         _member("CONFIRMED", ["T1055"], similar_to=["T1055.001"]),
@@ -178,14 +189,14 @@ def test_anomalous_unclassified_section_output_carries_match_grade_similar():
     assert so.similar_to
 
 
-def test_ruled_out_section_output_has_none_match_grade():
+def test_ruled_out_section_output_has_none_match_grade() -> None:
     r = compute_agreement([_member("RULED_OUT"), _member("RULED_OUT")])
     so = to_section_output(r)
     assert so.verdict == "RULED_OUT"
     assert so.match_grade == "NONE"
 
 
-def test_custom_quorum_threshold():
+def test_custom_quorum_threshold() -> None:
     # 1 of 3 (0.333) fails a 0.5 quorum but would pass a 0.3 quorum.
     members = [
         _member("CONFIRMED", ["T1078"]),
@@ -199,14 +210,21 @@ def test_custom_quorum_threshold():
     assert set(r_loose.technique_ids) == {"T1078", "T1055", "T1548"}
 
 
-def test_security_quorum_delegates_to_platform_aggregate(monkeypatch):
+def test_security_quorum_delegates_to_platform_aggregate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """P1: compatibility translation must use the sole quorum implementation."""
     import portal.modules.security.core.council_agreement as agreement_mod
 
-    real_aggregate = agreement_mod.aggregate_opinions
-    calls = []
+    real_aggregate = aggregate_opinions
+    calls: list[tuple[int, float, float]] = []
 
-    def recording_aggregate(opinions, *, minimum_participation, quorum):
+    def recording_aggregate(
+        opinions: list[CouncilOpinion],
+        *,
+        minimum_participation: float,
+        quorum: float,
+    ) -> CouncilAggregate:
         calls.append((len(opinions), minimum_participation, quorum))
         return real_aggregate(
             opinions,

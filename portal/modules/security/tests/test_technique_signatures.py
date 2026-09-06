@@ -13,26 +13,26 @@ from portal.modules.security.core.siem.spl_detections import (
 
 
 class TestTechniqueSignatureFull:
-    def test_kerberoast_has_distinguishing_features(self):
+    def test_kerberoast_has_distinguishing_features(self) -> None:
         full = technique_signature_full("T1558.003")
         assert full["description"] != ""
         diff = full.get("distinguishing_features", {})
         assert diff.get("event_code") == 4769
         assert diff.get("sibling_diff") != ""
 
-    def test_asrep_has_distinguishing_features(self):
+    def test_asrep_has_distinguishing_features(self) -> None:
         full = technique_signature_full("T1558.004")
         diff = full.get("distinguishing_features", {})
         assert diff.get("event_code") == 4768
         assert diff.get("preauth") == "PreAuthType=0 (disabled)"
 
-    def test_dcsync_has_distinguishing_features(self):
+    def test_dcsync_has_distinguishing_features(self) -> None:
         full = technique_signature_full("T1003.006")
         diff = full.get("distinguishing_features", {})
         assert diff.get("event_code") == 4662
         assert "replication" in diff.get("sibling_diff", "").lower()
 
-    def test_sibling_diff_differentiates(self):
+    def test_sibling_diff_differentiates(self) -> None:
         """The sibling_diff for T1558.003 and T1558.004 should be complementary."""
         k3 = technique_signature_full("T1558.003")
         k4 = technique_signature_full("T1558.004")
@@ -45,7 +45,7 @@ class TestTechniqueSignatureFull:
         assert "4769" in diff3
         assert "4768" in diff4
 
-    def test_technique_reference_includes_distinguishing_info(self):
+    def test_technique_reference_includes_distinguishing_info(self) -> None:
         """technique_reference() should embed distinguishing features in description."""
         ref = technique_reference()
         # T1558.003 should have [DISTINGUISH: ...] in its description
@@ -54,11 +54,11 @@ class TestTechniqueSignatureFull:
         # T1558.004 should also
         assert "[DISTINGUISH:" in ref.get("T1558.004", "")
 
-    def test_unknown_technique_returns_empty(self):
+    def test_unknown_technique_returns_empty(self) -> None:
         full = technique_signature_full("T9999.999")
         assert full == {}
 
-    def test_password_spray_distinguishing(self):
+    def test_password_spray_distinguishing(self) -> None:
         full = technique_signature_full("T1110.003")
         diff = full.get("distinguishing_features", {})
         assert "many accounts" in diff.get("sibling_diff", "").lower()

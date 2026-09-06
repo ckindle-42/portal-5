@@ -45,12 +45,15 @@ import threading
 import time
 import uuid
 from collections import defaultdict, deque
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Any, cast
 from urllib.parse import urlparse
 
 import httpx
 from mcp.server import MCPServer
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
 
@@ -112,7 +115,7 @@ if AUDIT_LOG_PATH.parent.exists() or True:
     _audit_logger.addHandler(_audit_handler)
 
 
-def _redact_args(tool: str, args: dict) -> dict:
+def _redact_args(tool: str, args: dict[str, Any]) -> dict[str, Any]:
     redacted = dict(args)
     if tool == "browser_fill":
         text = redacted.get("text", "")
@@ -123,8 +126,13 @@ def _redact_args(tool: str, args: dict) -> dict:
 
 
 def _audit_log(
-    persona: str, profile: str, tool: str, args: dict, result_status: str, duration_ms: float
-):
+    persona: str,
+    profile: str,
+    tool: str,
+    args: dict[str, Any],
+    result_status: str,
+    duration_ms: float,
+) -> None:
     entry = {
         "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "request_id": str(uuid.uuid4())[:8],
@@ -143,7 +151,7 @@ def _audit_log(
 
 # ── Per-domain rate limiting ─────────────────────────────────────────────
 
-_domain_calls: dict[str, deque] = defaultdict(deque)
+_domain_calls: dict[str, Any] = defaultdict(deque)
 _rate_lock = threading.Lock()
 
 
@@ -161,11 +169,11 @@ def _check_domain_rate(host: str) -> tuple[bool, str]:
 
 # ── Anomaly detection ────────────────────────────────────────────────────
 
-_recent_actions: deque = deque(maxlen=20)
+_recent_actions: deque[dict[str, Any]] = deque(maxlen=20)
 _anomaly_lock = threading.Lock()
 
 
-def _check_anomaly(persona: str, profile: str, tool: str, args: dict) -> str | None:
+def _check_anomaly(persona: str, profile: str, tool: str, args: dict[str, Any]) -> str | None:
     with _anomaly_lock:
         now = time.time()
         _recent_actions.append(
@@ -245,7 +253,7 @@ class ObscuraClient:
     def __init__(self, profile: str = "_isolated"):
         self.profile = profile
         self.port = _obscura_port_for(profile)
-        self.proc: subprocess.Popen | None = None
+        self.proc: subprocess.Popen[bytes] | None = None
         self._req_id = 0
         self._initialized = False
         self._lock = asyncio.Lock()
@@ -253,7 +261,7 @@ class ObscuraClient:
         self._http = httpx.AsyncClient(timeout=125)
         self._endpoint = f"http://127.0.0.1:{self.port}/mcp"
 
-    async def start(self):
+    async def start(self) -> None:
         if self.proc is not None and self.proc.poll() is None:
             return
         cmd = [OBSCURA_BIN, "mcp", "--http", "--port", str(self.port)]
@@ -275,7 +283,7 @@ class ObscuraClient:
         # Wait for the HTTP MCP endpoint to accept the initialize handshake.
         await self._await_ready()
 
-    async def _await_ready(self, attempts: int = 40):
+    async def _await_ready(self, attempts: int = 40) -> None:
         for _ in range(attempts):
             try:
                 await self._rpc(
@@ -294,7 +302,9 @@ class ObscuraClient:
                 await asyncio.sleep(0.25)
         raise RuntimeError(f"Obscura MCP for profile={self.profile} did not become ready")
 
-    async def _rpc(self, method: str, params: dict, _skip_init_guard: bool = False) -> dict:
+    async def _rpc(
+        self, method: str, params: dict[str, Any], _skip_init_guard: bool = False
+    ) -> dict[str, Any]:
         self._req_id += 1
         payload = {"jsonrpc": "2.0", "id": self._req_id, "method": method, "params": params}
         r = await self._http.post(
@@ -306,16 +316,16 @@ class ObscuraClient:
         data = r.json()
         if "error" in data:
             raise RuntimeError(f"Obscura MCP error: {data['error']}")
-        return data.get("result", {})
+        return cast("dict[str, Any]", data.get("result", {}))
 
-    async def _notify(self, method: str, params: dict | None = None) -> None:
+    async def _notify(self, method: str, params: dict[str, Any] | None = None) -> None:
         await self._http.post(
             self._endpoint,
             json={"jsonrpc": "2.0", "method": method, "params": params or {}},
             headers={"content-type": "application/json", "accept": "application/json"},
         )
 
-    async def request(self, tool_name: str, args: dict) -> dict:
+    async def request(self, tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
         """Call an Obscura MCP tool and return its unwrapped content payload."""
         async with self._lock:
             await self.start()
@@ -326,7 +336,7 @@ class ObscuraClient:
             self._last_used = time.time()
             return _unwrap_mcp_content(result)
 
-    async def close(self):
+    async def close(self) -> None:
         try:
             await self._http.aclose()
         except Exception:
@@ -341,7 +351,7 @@ class ObscuraClient:
         self._initialized = False
 
 
-def _unwrap_mcp_content(result: dict) -> dict:
+def _unwrap_mcp_content(result: dict[str, Any]) -> dict[str, Any]:
     """Flatten an MCP ``tools/call`` result envelope to a plain payload.
 
     Tool output lives in ``result.content[]``; text parts are frequently
@@ -354,10 +364,10 @@ def _unwrap_mcp_content(result: dict) -> dict:
     texts = [p.get("text", "") for p in parts if isinstance(p, dict) and p.get("type") == "text"]
     if len(texts) == 1:
         try:
-            return json.loads(texts[0])
+            return cast("dict[str, Any]", json.loads(texts[0]))
         except (json.JSONDecodeError, TypeError):
             return {"text": texts[0], "isError": bool(result.get("isError"))}
-    payload: dict = {"content": parts}
+    payload: dict[str, Any] = {"content": parts}
     if result.get("isError"):
         payload["isError"] = True
     return payload
@@ -403,7 +413,7 @@ async def _get_client(profile: str) -> ObscuraClient:
         return client
 
 
-async def _idle_reaper():
+async def _idle_reaper() -> None:
     while True:
         await asyncio.sleep(60)
         now = time.time()
@@ -422,12 +432,12 @@ async def _idle_reaper():
 
 async def _execute_tool(
     tool_name: str,
-    args: dict,
+    args: dict[str, Any],
     persona: str = "",
     allowed_domains: list[str] | None = None,
     blocked_domains: list[str] | None = None,
     force_credential_fill: bool = False,
-) -> tuple[dict, int]:
+) -> tuple[dict[str, Any], int]:
     """Common security + dispatch path for all browser tools. Returns (result, http_status)."""
     profile = args.get("profile", "_isolated")
     t0 = time.monotonic()
@@ -487,13 +497,20 @@ mcp = MCPServer(
     instructions="Playwright browser automation: navigate, click, fill forms, screenshot, and inspect page content.",
 )
 
+# mcp.custom_route() has no return annotation upstream — bind the concrete
+# decorator type once so routed handlers keep their annotations.
+_route: Callable[
+    ...,
+    Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+] = mcp.custom_route
+
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_browser_mcp")
 
 # ── Custom routes (health + pipeline REST compat + admin) ────────────────
 
 
-@mcp.custom_route("/health", methods=["GET"])
-async def health(request):
+@_route("/health", methods=["GET"])
+async def health(request: Request) -> JSONResponse:
     return JSONResponse(
         {
             "status": "ok",
@@ -504,13 +521,13 @@ async def health(request):
     )
 
 
-@mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request):
+@_route("/tools", methods=["GET"])
+async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse(TOOLS_MANIFEST)
 
 
-@mcp.custom_route("/tools/{tool_name}", methods=["POST"])
-async def invoke_tool(request):
+@_route("/tools/{tool_name}", methods=["POST"])
+async def invoke_tool(request: Request) -> JSONResponse:
     """REST dispatch used by portal-pipeline tool_registry."""
     tool_name = request.path_params.get("tool_name", "")
     try:
@@ -553,8 +570,8 @@ async def invoke_tool(request):
     return JSONResponse(result, status_code=status_code)
 
 
-@mcp.custom_route("/admin/browser_create_profile", methods=["POST"])
-async def admin_create_profile(request):
+@_route("/admin/browser_create_profile", methods=["POST"])
+async def admin_create_profile(request: Request) -> JSONResponse:
     body = await request.json()
     name = body.get("arguments", {}).get("name", "")
     if not re.match(r"^[a-z0-9_]+$", name):
@@ -574,8 +591,8 @@ async def admin_create_profile(request):
     )
 
 
-@mcp.custom_route("/admin/browser_login_session", methods=["POST"])
-async def admin_login_session(request):
+@_route("/admin/browser_login_session", methods=["POST"])
+async def admin_login_session(request: Request) -> JSONResponse:
     body = await request.json()
     args = body.get("arguments", {})
     profile = args.get("profile", "")
@@ -608,8 +625,8 @@ async def admin_login_session(request):
     )
 
 
-@mcp.custom_route("/admin/browser_delete_profile", methods=["POST"])
-async def admin_delete_profile(request):
+@_route("/admin/browser_delete_profile", methods=["POST"])
+async def admin_delete_profile(request: Request) -> JSONResponse:
     body = await request.json()
     args = body.get("arguments", {})
     name = args.get("name", "")
@@ -630,7 +647,7 @@ async def browser_navigate(
     url: str,
     profile: str = "_isolated",
     wait_for: str = "",
-) -> dict:
+) -> dict[str, Any]:
     """Navigate to a URL in a browser tab. Returns the page accessibility tree.
 
     Args:
@@ -646,7 +663,7 @@ async def browser_navigate(
 
 
 @mcp.tool()
-async def browser_snapshot(profile: str = "_isolated") -> dict:
+async def browser_snapshot(profile: str = "_isolated") -> dict[str, Any]:
     """Return the current page's accessibility tree (structured DOM data).
 
     Args:
@@ -657,7 +674,7 @@ async def browser_snapshot(profile: str = "_isolated") -> dict:
 
 
 @mcp.tool()
-async def browser_click(element_ref: str, profile: str = "_isolated") -> dict:
+async def browser_click(element_ref: str, profile: str = "_isolated") -> dict[str, Any]:
     """Click an element identified by its accessibility ref.
 
     Args:
@@ -671,7 +688,7 @@ async def browser_click(element_ref: str, profile: str = "_isolated") -> dict:
 
 
 @mcp.tool()
-async def browser_fill(element_ref: str, text: str, profile: str = "_isolated") -> dict:
+async def browser_fill(element_ref: str, text: str, profile: str = "_isolated") -> dict[str, Any]:
     """Type text into a form field. Sensitive fields are redacted in audit logs.
 
     Args:
@@ -686,7 +703,7 @@ async def browser_fill(element_ref: str, text: str, profile: str = "_isolated") 
 
 
 @mcp.tool()
-async def browser_screenshot(profile: str = "_isolated", full_page: bool = False) -> dict:
+async def browser_screenshot(profile: str = "_isolated", full_page: bool = False) -> dict[str, Any]:
     """Capture a PNG screenshot of the current page. Returns base64-encoded image.
 
     Args:
@@ -700,7 +717,7 @@ async def browser_screenshot(profile: str = "_isolated", full_page: bool = False
 
 
 @mcp.tool()
-async def browser_evaluate(expression: str, profile: str = "_isolated") -> dict:
+async def browser_evaluate(expression: str, profile: str = "_isolated") -> dict[str, Any]:
     """Execute a JavaScript expression in the current page context.
 
     Args:
@@ -714,7 +731,7 @@ async def browser_evaluate(expression: str, profile: str = "_isolated") -> dict:
 
 
 @mcp.tool()
-async def browser_close(profile: str = "_isolated") -> dict:
+async def browser_close(profile: str = "_isolated") -> dict[str, Any]:
     """Close the browser session for a profile and release its memory.
 
     Args:
@@ -729,7 +746,7 @@ async def browser_close(profile: str = "_isolated") -> dict:
 
 
 @mcp.tool()
-async def browser_list_profiles() -> dict:
+async def browser_list_profiles() -> dict[str, Any]:
     """List the named browser profiles available on this host."""
     profiles = sorted([p.name for p in PROFILES_DIR.iterdir() if p.is_dir()])
     return {"profiles": profiles}

@@ -44,6 +44,8 @@ from . import (
     series_cousin,
 )
 from .contracts import CousinAssessment, Decomposition
+from .cousin_engine import CandidateSetReceipt, CoverageView
+from .signatures import BehaviorSignature
 
 ALGORITHM_VERSION = "loop-grader-v1"
 
@@ -274,7 +276,9 @@ def _levelled_features_from_dicts(raw: list[dict[str, Any]] | None) -> list[pyra
     return [pyramid.LeveledFeature(**f) for f in (raw or [])]
 
 
-def _best_candidate(candidates) -> tuple[dict[str, Any] | None, float | None]:
+def _best_candidate(
+    candidates: CandidateSetReceipt,
+) -> tuple[dict[str, Any] | None, float | None]:
     """Pick the best candidate for grading: prefer a behaviour-spine match
     (R.3's retrieval axis), then the closest semantic distance."""
     pool = list(candidates.candidates)
@@ -291,7 +295,11 @@ def _best_candidate(candidates) -> tuple[dict[str, Any] | None, float | None]:
     return None, None
 
 
-def build_cousin_assessment(signature, candidates, coverage) -> CousinAssessment:
+def build_cousin_assessment(
+    signature: BehaviorSignature,
+    candidates: CandidateSetReceipt,
+    coverage: CoverageView,
+) -> CousinAssessment:
     """R.4: the orchestrator's grade path. Builds the full loop `CousinAssessment`
     DTO from a pyramid-levelled `grade_for_loop` decision -- this is what
     `orchestrator._analyzing` calls in place of `cousin_engine.grade`, with no
@@ -346,7 +354,7 @@ def build_cousin_assessment(signature, candidates, coverage) -> CousinAssessment
 
 
 def build_cousin_assessment_from_series(
-    signature,
+    signature: BehaviorSignature,
     observed: series_cousin.BehaviouralSeries,
     known_library: list[series_cousin.BehaviouralSeries],
     *,

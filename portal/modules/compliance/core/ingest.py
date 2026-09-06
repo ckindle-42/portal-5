@@ -16,6 +16,7 @@ import json
 import os
 import re
 from pathlib import Path
+from typing import Any, cast
 
 from portal.modules.compliance.core import review_queue as rq
 from portal.modules.compliance.core.tiers import classify_tier
@@ -31,11 +32,11 @@ LAYER_SIDECAR = Path(
 # evidence (a record). A blank line separates prefix checks (checked against
 # the filename only) from title/header word checks (checked against filename,
 # then falling back to the document's own first-page text at a discount).
-_PREFIX_SIGNALS: list[tuple[re.Pattern, str, float]] = [
+_PREFIX_SIGNALS: list[tuple[re.Pattern[str], str, float]] = [
     (re.compile(r"OT-POL-", re.I), "policy", 0.95),
     (re.compile(r"OT-PROC-", re.I), "procedure", 0.95),
 ]
-_WORD_SIGNALS: list[tuple[re.Pattern, str, float]] = [
+_WORD_SIGNALS: list[tuple[re.Pattern[str], str, float]] = [
     (re.compile(r"\bwork instruction\b", re.I), "procedure", 0.9),
     (re.compile(r"\bwi\b", re.I), "procedure", 0.85),  # "OT Vulnerability Management WI v1.pdf"
     (re.compile(r"\bprocedure\b", re.I), "procedure", 0.9),
@@ -50,7 +51,7 @@ _WORD_SIGNALS: list[tuple[re.Pattern, str, float]] = [
 ]
 
 
-def derive_tier(filename: str, first_page_text: str = "") -> dict:
+def derive_tier(filename: str, first_page_text: str = "") -> dict[str, Any]:
     """(layer, authority_tier, confidence, evidence) from the document's own
     self-description. A document with no signal is not dropped — it is
     returned at low confidence with a best guess (``procedure``, the most
@@ -90,14 +91,14 @@ def derive_tier(filename: str, first_page_text: str = "") -> dict:
     }
 
 
-def read_sidecar(path: Path | str = LAYER_SIDECAR) -> dict:
+def read_sidecar(path: Path | str = LAYER_SIDECAR) -> dict[str, Any]:
     p = Path(path)
     if p.exists():
-        return json.loads(p.read_text(encoding="utf-8"))
+        return cast("dict[str, Any]", json.loads(p.read_text(encoding="utf-8")))
     return {}
 
 
-def write_sidecar(data: dict, path: Path | str = LAYER_SIDECAR) -> None:
+def write_sidecar(data: dict[str, Any], path: Path | str = LAYER_SIDECAR) -> None:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(data, indent=1, sort_keys=True), encoding="utf-8")
@@ -122,7 +123,7 @@ def derive_standard_hint(file_path: Path) -> str | None:
 
 async def ingest_folder(
     source_dir: str, kb_id: str = "operator_corpus", rebuild: bool = False
-) -> dict:
+) -> dict[str, Any]:
     """Ingest every PDF under ``source_dir`` into the ``compliance_*``
     composition; derive and queue layer/tier for each; report the layer
     census. ``kb_*`` tables are never touched (compliance_retrieval's own
@@ -142,7 +143,7 @@ async def ingest_folder(
     # re-ingest would make the queue unworkable, not more honest.
     already_open = {i.subject_id for i in rq.open_items(kind="document_tier")}
     census: dict[str, int] = {"policy": 0, "procedure": 0, "evidence": 0}
-    queue_items: list[dict] = []
+    queue_items: list[dict[str, Any]] = []
 
     for f in pdfs:
         rel = str(f.relative_to(src))
@@ -180,7 +181,7 @@ async def ingest_folder(
     # — see _DEFAULT_SUFFIXES), not only PDFs; the layer/tier derivation above
     # only concerns PDFs (the operator's real corpus), so this call always
     # runs regardless of whether any PDF was found in this pass.
-    ingest_result: dict = {"files_ingested": 0, "chunks_added": 0, "pages_added": 0}
+    ingest_result: dict[str, Any] = {"files_ingested": 0, "chunks_added": 0, "pages_added": 0}
     ingest_error = None
     try:
         ingest_result = await _pipeline.ingest_document(_cr._composition(), kb_id, src, rebuild)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -51,7 +52,7 @@ def _model_exists_in_ollama(model_name: str, ollama_cmd: str) -> bool:
     return False
 
 
-def _fmt_size(size: int) -> str:
+def _fmt_size(size: float) -> str:
     """Format bytes into human-readable size."""
     for unit in ("B", "K", "M", "G", "T"):
         if size < 1024:
@@ -62,13 +63,12 @@ def _fmt_size(size: int) -> str:
 
 def _resolve_model_name(raw: str) -> str:
     """Resolve ${VAR:-default} env var references in model names."""
-    import re as _re
 
-    def _repl(m):
+    def _repl(m: re.Match[str]) -> str:
         var, default = m.group(1), m.group(2)
         return os.environ.get(var, default)
 
-    return _re.sub(r"\$\{(\w+):-([^}]+)\}", _repl, raw)
+    return re.sub(r"\$\{(\w+):-([^}]+)\}", _repl, raw)
 
 
 # ── Cross-reference workspace ↔ model registry ────────────────────────────────

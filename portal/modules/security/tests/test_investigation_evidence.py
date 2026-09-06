@@ -32,13 +32,13 @@ from portal.modules.security.core.investigation.evidence import (
 class TestEvidenceRecord:
     """Evidence record schema — immutable, source-authority-aware."""
 
-    def test_new_evidence_id_format(self):
+    def test_new_evidence_id_format(self) -> None:
         eid = new_evidence_id()
         assert eid.startswith("ev-")
         eid2 = new_evidence_id()
         assert eid != eid2
 
-    def test_evidence_record_creation(self):
+    def test_evidence_record_creation(self) -> None:
         record = EvidenceRecord(
             evidence_id="ev-test-001",
             episode_id="ep-test-001",
@@ -69,7 +69,7 @@ class TestEvidenceRecord:
         assert record.evidence_id == "ev-test-001"
         assert record.kind == "siem_hit"
 
-    def test_evidence_to_dict_json_safe(self):
+    def test_evidence_to_dict_json_safe(self) -> None:
         record = EvidenceRecord(
             evidence_id="ev-test-002",
             episode_id="ep-test-002",
@@ -89,7 +89,7 @@ class TestEvidenceRecord:
         d = record.to_dict()
         json.dumps(d)  # JSON-safe
 
-    def test_source_authority_classification(self):
+    def test_source_authority_classification(self) -> None:
         assert classify_source_authority("splunk") == "authoritative_live"
         assert classify_source_authority("mitre") == "authoritative_structured"
         assert classify_source_authority("virustotal") == "external_unverified"
@@ -102,7 +102,7 @@ class TestEvidenceRecord:
 class TestEvidenceStore:
     """Evidence store — query by ID, hypothesis, kind."""
 
-    def test_add_and_get(self):
+    def test_add_and_get(self) -> None:
         store = EvidenceStore()
         record = EvidenceRecord(
             evidence_id="ev-001",
@@ -121,7 +121,7 @@ class TestEvidenceStore:
         assert store.get("ev-001") is not None
         assert store.count() == 1
 
-    def test_for_hypothesis(self):
+    def test_for_hypothesis(self) -> None:
         store = EvidenceStore()
         for i in range(3):
             store.add(
@@ -146,7 +146,7 @@ class TestEvidenceStore:
         assert len(store.supporting("hyp-001")) == 2
         assert len(store.contradicting("hyp-001")) == 0
 
-    def test_by_kind(self):
+    def test_by_kind(self) -> None:
         store = EvidenceStore()
         store.add(
             EvidenceRecord(
@@ -188,7 +188,7 @@ class TestEvidenceStore:
 class TestCaseNotebook:
     """Case notebook — SQLite-backed investigation memory."""
 
-    def test_write_and_read(self):
+    def test_write_and_read(self) -> None:
         with CaseNotebook(":memory:") as nb:
             entry = nb.write("case-001", "A1", "hypothesis", {"text": "Kerberoasting detected"})
             assert entry.entry_id.startswith("nb-case-001-")
@@ -196,7 +196,7 @@ class TestCaseNotebook:
             assert read_back is not None
             assert read_back.content["text"] == "Kerberoasting detected"
 
-    def test_read_case(self):
+    def test_read_case(self) -> None:
         with CaseNotebook(":memory:") as nb:
             nb.write("case-001", "A1", "hypothesis", {"text": "h1"})
             nb.write("case-001", "A2", "finding", {"text": "f1"})
@@ -206,7 +206,7 @@ class TestCaseNotebook:
             assert len(nb.read_case("case-001", "hypothesis")) == 1
             assert len(nb.read_case("case-002")) == 1
 
-    def test_supersede(self):
+    def test_supersede(self) -> None:
         with CaseNotebook(":memory:") as nb:
             old = nb.write("case-001", "A3", "finding", {"text": "initial finding"})
             new = nb.write("case-001", "A3", "finding", {"text": "revised finding"})
@@ -216,7 +216,7 @@ class TestCaseNotebook:
             assert read_old is not None
             assert read_old.superseded_by == new.entry_id
 
-    def test_count(self):
+    def test_count(self) -> None:
         with CaseNotebook(":memory:") as nb:
             assert nb.count() == 0
             nb.write("case-001", "A1", "hypothesis", {})
@@ -225,7 +225,7 @@ class TestCaseNotebook:
             assert nb.count("case-001") == 2
             assert nb.count("case-002") == 0
 
-    def test_context_manager(self):
+    def test_context_manager(self) -> None:
         with CaseNotebook(":memory:") as nb:
             nb.write("case-001", "A1", "test", {"x": 1})
             assert nb.count() == 1
@@ -237,7 +237,7 @@ class TestCaseNotebook:
 class TestMemoryKindSeparation:
     """Seven memory kinds are kept separate."""
 
-    def test_evidence_store_is_separate_from_notebook(self):
+    def test_evidence_store_is_separate_from_notebook(self) -> None:
         """Evidence (kind 3) is separate from case notebook (kind 2)."""
         store = EvidenceStore()
         with CaseNotebook(":memory:") as nb:

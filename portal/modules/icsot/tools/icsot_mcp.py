@@ -12,9 +12,12 @@ from __future__ import annotations
 import logging
 import os
 from collections import defaultdict
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from mcp.server import MCPServer
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
 
@@ -27,6 +30,15 @@ mcp = MCPServer(
     "port/header identification for DNP3/S7comm/EtherNet-IP/BACnet), ICS asset inventory "
     "from captured traffic, and MITRE ATT&CK-for-ICS correlation. Never transmits ICS frames.",
 )
+
+# MCPServer.custom_route() has no return annotation upstream (mcp SDK), so mypy
+# sees its decorator result as Any and flags every routed handler with
+# untyped-decorator. Bind the concrete decorator type once so handlers keep
+# their annotations.
+_route: Callable[
+    ...,
+    Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+] = mcp.custom_route
 
 # Well-known ICS ports -> (protocol, dissection tier). "full" = structured
 # dissector; "identify" = port/header identification with extension hook.
@@ -54,7 +66,7 @@ _ICS_BEHAVIOR_TTP = {
 }
 
 
-def _scapy():
+def _scapy() -> tuple[Any, Any]:
     import scapy.all as s
     from scapy.contrib import modbus
 
@@ -73,7 +85,7 @@ def _modbus_ttp_for_fc(fc: int) -> tuple[str, str] | None:
 
 
 @mcp.tool()
-def list_ics_protocols() -> dict:
+def list_ics_protocols() -> dict[str, Any]:
     """Enumerate the ICS protocols this server recognizes and the dissection tier for each."""
     return {
         "protocols": [
@@ -83,7 +95,7 @@ def list_ics_protocols() -> dict:
 
 
 @mcp.tool()
-def dissect_pcap(pcap_path: str, max_packets: int = 5000) -> dict:
+def dissect_pcap(pcap_path: str, max_packets: int = 5000) -> dict[str, Any]:
     """Passively dissect an ICS PCAP.
 
     Returns per-protocol packet counts, a Modbus function-code breakdown,
@@ -104,10 +116,10 @@ def dissect_pcap(pcap_path: str, max_packets: int = 5000) -> dict:
     except Exception as e:  # noqa: BLE001
         return {"error": f"scapy read failed: {e}"}
 
-    proto_counts: dict = defaultdict(int)
-    modbus_funcs: dict = defaultdict(int)
-    endpoints: dict = defaultdict(int)
-    ttps: set = set()
+    proto_counts: defaultdict[str, int] = defaultdict(int)
+    modbus_funcs: defaultdict[int, int] = defaultdict(int)
+    endpoints: defaultdict[str, int] = defaultdict(int)
+    ttps: set[tuple[str, str]] = set()
     n = 0
     for pkt in pkts:
         if n >= max_packets:
@@ -149,7 +161,7 @@ def dissect_pcap(pcap_path: str, max_packets: int = 5000) -> dict:
 
 
 @mcp.tool()
-def asset_inventory(pcap_path: str, max_packets: int = 5000) -> dict:
+def asset_inventory(pcap_path: str, max_packets: int = 5000) -> dict[str, Any]:
     """Derive an ICS asset inventory (hosts, roles, protocols seen) from a PCAP.
 
     Heuristic role inference: a host that answers on an ICS port is a likely
@@ -165,7 +177,9 @@ def asset_inventory(pcap_path: str, max_packets: int = 5000) -> dict:
         return {"error": f"pcap not found: {pcap_path}"}
     except Exception as e:  # noqa: BLE001
         return {"error": f"scapy read failed: {e}"}
-    assets: dict = defaultdict(lambda: {"protocols": set(), "role_hints": set()})
+    assets: defaultdict[str, dict[str, set[str]]] = defaultdict(
+        lambda: {"protocols": set(), "role_hints": set()}
+    )
     n = 0
     for pkt in pkts:
         if n >= max_packets:
@@ -200,7 +214,7 @@ def asset_inventory(pcap_path: str, max_packets: int = 5000) -> dict:
 
 
 @mcp.tool()
-def correlate_advisories(vendor: str, days: int = 90) -> dict:
+def correlate_advisories(vendor: str, days: int = 90) -> dict[str, Any]:
     """Cross-reference an observed ICS vendor to recent CISA ICS advisories (via vulnintel)."""
     try:
         from portal.modules.vulnintel.tools.vulnintel_mcp import ics_advisories  # T1 dependency
@@ -212,7 +226,7 @@ def correlate_advisories(vendor: str, days: int = 90) -> dict:
 
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_icsot_mcp")
 
-_DISPATCH = {
+_DISPATCH: dict[str, Any] = {
     "list_ics_protocols": list_ics_protocols,
     "dissect_pcap": dissect_pcap,
     "asset_inventory": asset_inventory,
@@ -220,13 +234,13 @@ _DISPATCH = {
 }
 
 
-@mcp.custom_route("/health", methods=["GET"])
-async def health_check(request):
+@_route("/health", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "icsot-mcp", "port": _port})
 
 
-@mcp.custom_route("/ready", methods=["GET"])
-async def ready(request):
+@_route("/ready", methods=["GET"])
+async def ready(request: Request) -> JSONResponse:
     ok = True
     try:
         _scapy()
@@ -235,13 +249,13 @@ async def ready(request):
     return JSONResponse({"port": _port, "scapy_available": ok})
 
 
-@mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request):
+@_route("/tools", methods=["GET"])
+async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
-@mcp.custom_route("/tools/{tool_name}", methods=["POST"])
-async def invoke_tool(request):
+@_route("/tools/{tool_name}", methods=["POST"])
+async def invoke_tool(request: Request) -> JSONResponse:
     name = request.path_params.get("tool_name", "")
     fn = _DISPATCH.get(name)
     if fn is None:

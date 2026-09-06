@@ -70,8 +70,9 @@ def _get_workspace_concurrency_limit(workspace_id: str) -> int:
     if env_key in os.environ:
         return int(os.environ[env_key])
     ws = WORKSPACES.get(workspace_id, {})
-    if "max_concurrent" in ws:
-        return ws["max_concurrent"]
+    max_concurrent = ws.get("max_concurrent")
+    if isinstance(max_concurrent, int):
+        return max_concurrent
     return int(os.environ.get("PORTAL5_DEFAULT_WORKSPACE_CONCURRENCY", "5"))
 
 

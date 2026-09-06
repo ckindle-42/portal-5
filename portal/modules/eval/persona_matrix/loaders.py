@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 
@@ -14,12 +14,15 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 
 def load_backends_yaml() -> dict[str, Any]:
     with open(REPO_ROOT / "config" / "backends.yaml") as f:
-        return yaml.safe_load(f)
+        return cast(dict[str, Any], yaml.safe_load(f))
 
 
 def chain_for_workspace(cfg: dict[str, Any], workspace_id: str) -> list[str]:
     """Return the list of backend group names for a workspace, in chain order."""
-    return cfg.get("workspace_routing", {}).get(workspace_id, ["general"])
+    return cast(
+        list[str],
+        cfg.get("workspace_routing", {}).get(workspace_id, ["general"]),
+    )
 
 
 def models_in_group(cfg: dict[str, Any], group: str) -> list[dict[str, Any]]:

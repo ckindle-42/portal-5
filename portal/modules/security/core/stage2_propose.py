@@ -55,7 +55,7 @@ def weak_oracle_ids(oracles: dict[str, Any]) -> list[str]:
     return sorted(oid for oid, o in oracles.items() if o.tier in WEAK_TIERS)
 
 
-def generate_proposal(oracle_id: str, oracle: Any) -> dict:
+def generate_proposal(oracle_id: str, oracle: Any) -> dict[str, Any]:
     """One bounded proposal for oracle_id: promote tier, strengthen check IF it's a stub.
 
     Bounded = touches only this oracle's check + tier. Never a multi-oracle change.
@@ -113,7 +113,7 @@ def _complete_all_scenarios_files() -> list[Path]:
     return sorted(candidates, key=_run_timestamp_key, reverse=True)
 
 
-def load_chain_data() -> dict:
+def load_chain_data() -> dict[str, Any]:
     """Load the newest all_scenarios:true chain-test result. {} if none exist."""
     files = _complete_all_scenarios_files()
     if not files:
@@ -149,7 +149,7 @@ _ORACLE_EVIDENCE_FIELDS = (
 )
 
 
-def _extract_finding_from_chain_entry(entry: dict) -> dict | None:
+def _extract_finding_from_chain_entry(entry: dict[str, Any]) -> dict[str, Any] | None:
     """Try to build an oracle-checkable `finding` dict from a chain_tests entry.
 
     Returns None if the entry carries none of the evidence fields any oracle's
@@ -172,11 +172,11 @@ class Proof:
     evidence_detail: str = ""
     entries_examined: int = 0
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
-def prove_proposal(oracle_id: str, oracle: Any, chain_data: dict) -> Proof:
+def prove_proposal(oracle_id: str, oracle: Any, chain_data: dict[str, Any]) -> Proof:
     """Phase 2 — the heart. Run oracle.check() against real chain-test entries.
 
     Positive test: entries with lab_success True for this oracle's technique must
@@ -248,14 +248,14 @@ def prove_proposal(oracle_id: str, oracle: Any, chain_data: dict) -> Proof:
 # ── Phase 3: proposal-quality evaluator ────────────────────────────────────
 
 
-def _oracle_still_weak(oracle_id: str, index: dict) -> bool:
+def _oracle_still_weak(oracle_id: str, index: dict[str, Any]) -> bool:
     """Recompute (don't assume) whether oracle_id is in the live Stage 1 weakness view."""
     oracles = index.get("oracles", {}).get("oracles", {})
     odata = oracles.get(oracle_id)
     return bool(odata) and odata.get("tier") in WEAK_TIERS
 
 
-def _fitness_delta_if_promoted(oracle_id: str, index: dict) -> dict:
+def _fitness_delta_if_promoted(oracle_id: str, index: dict[str, Any]) -> dict[str, Any]:
     """Recompute the Stage 1 weakness score before/after promoting oracle_id to stable.
 
     Uses the real self_index.rank_weaknesses — never assumes the delta.
@@ -275,7 +275,9 @@ def _fitness_delta_if_promoted(oracle_id: str, index: dict) -> dict:
     return {"before": before_score, "after": after_score, "delta": before_score - after_score}
 
 
-def goal_eval(proposal: dict, proof: dict, index: dict | None = None) -> dict:
+def goal_eval(
+    proposal: dict[str, Any], proof: dict[str, Any], index: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """Score a proposal transparently. Deterministic — same inputs, same output.
 
     Criteria (all must hold for promotable=True):
@@ -379,7 +381,7 @@ def goal_eval(proposal: dict, proof: dict, index: dict | None = None) -> dict:
     }
 
 
-def classify_outcome(eval_result: dict, proof: dict) -> str:
+def classify_outcome(eval_result: dict[str, Any], proof: dict[str, Any]) -> str:
     """The tri-state operator-facing outcome string for one oracle's proposal."""
     if eval_result["promotable"]:
         return "promotable"
@@ -469,17 +471,17 @@ class Stage2Report:
     generated_at: str
     source_file: str
     total_weak_oracles: int
-    promotable: list[dict] = field(default_factory=list)
-    not_promotable: list[dict] = field(default_factory=list)
+    promotable: list[dict[str, Any]] = field(default_factory=list)
+    not_promotable: list[dict[str, Any]] = field(default_factory=list)
     fitness_before: int = 0
     fitness_after: int = 0
     fitness_delta: int = 0
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
-def run_stage2(index: dict | None = None) -> Stage2Report:
+def run_stage2(index: dict[str, Any] | None = None) -> Stage2Report:
     """Orchestrate Phases 1-3 for all 46 weak oracles. Read-only — writes nothing."""
     from .oracles import ORACLES
 
@@ -491,8 +493,8 @@ def run_stage2(index: dict | None = None) -> Stage2Report:
     chain_data = load_chain_data()
     weak_ids = weak_oracle_ids(ORACLES)
 
-    promotable: list[dict] = []
-    not_promotable: list[dict] = []
+    promotable: list[dict[str, Any]] = []
+    not_promotable: list[dict[str, Any]] = []
     fitness_before_total = 0
     fitness_after_total = 0
 
@@ -596,7 +598,7 @@ def write_report(report: Stage2Report, out_dir: Path = STAGE2_DIR) -> None:
 # ── Operator-gated batch apply — NEVER called automatically ───────────────
 
 
-def apply_batch(report: Stage2Report, out_dir: Path = STAGE2_DIR) -> dict:
+def apply_batch(report: Stage2Report, out_dir: Path = STAGE2_DIR) -> dict[str, Any]:
     """Apply staged promotable diffs in one batch. ONLY called via --apply on the CLI.
 
     Never call this from an automated/CI/loop code path — see module docstring.
@@ -620,7 +622,11 @@ def apply_batch(report: Stage2Report, out_dir: Path = STAGE2_DIR) -> dict:
         if new_lines is None:
             skipped.append(oid)
             continue
-        path, _text = _locate_oracle_definition(oid)
+        located = _locate_oracle_definition(oid)
+        if located is None:
+            skipped.append(oid)
+            continue
+        path, _text = located
         path.write_text("".join(new_lines))
         applied.append(oid)
     return {"applied": applied, "skipped": skipped}

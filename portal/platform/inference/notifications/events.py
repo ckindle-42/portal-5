@@ -4,6 +4,7 @@ import html as _html
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
+from typing import Any
 
 
 class EventType(Enum):
@@ -38,7 +39,7 @@ class AlertEvent:
     backend_id: str | None = None
     workspace: str | None = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def format_slack(self) -> str:
         """Format for Slack notification."""

@@ -5,6 +5,8 @@ All tests use only in-memory data; no network, no Docker, no lab.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from portal.modules.security.core._sweep_driver import _compute_arm_deltas
@@ -23,10 +25,10 @@ def _make_result(
     tactic_tools: float = 0.0,
     tactic_harness: float = 0.0,
     trials: int = 3,
-) -> dict:
+) -> dict[str, Any]:
     """Build a minimal sweep result dict for testing."""
 
-    def _arm(erm, prm, trm):
+    def _arm(erm: float, prm: float, trm: float) -> dict[str, Any]:
         return {
             "tiered_summary": {
                 "exact": {
@@ -60,7 +62,7 @@ def _make_result(
 
 
 class TestComputeArmDeltas:
-    def test_single_model_single_scenario(self):
+    def test_single_model_single_scenario(self) -> None:
         results = [
             _make_result(
                 "kerberoast",
@@ -80,25 +82,25 @@ class TestComputeArmDeltas:
         assert g["parent"]["delta_raw"] == pytest.approx(0.222, abs=0.001)
         assert g["tactic"]["delta_raw"] == pytest.approx(0.111, abs=0.001)
 
-    def test_harness_minus_raw_positive(self):
+    def test_harness_minus_raw_positive(self) -> None:
         """Harness > raw → positive delta."""
         results = [_make_result("s1", "m1", exact_harness=0.5, exact_raw=0.1)]
         deltas = _compute_arm_deltas(results)
         assert deltas["m1"]["exact"]["delta_raw"] == pytest.approx(0.4, abs=0.001)
 
-    def test_harness_minus_raw_negative(self):
+    def test_harness_minus_raw_negative(self) -> None:
         """Harness < raw → negative delta (red flag)."""
         results = [_make_result("s1", "m1", exact_harness=0.1, exact_raw=0.5)]
         deltas = _compute_arm_deltas(results)
         assert deltas["m1"]["exact"]["delta_raw"] == pytest.approx(-0.4, abs=0.001)
 
-    def test_harness_minus_tools(self):
+    def test_harness_minus_tools(self) -> None:
         """Harness vs tools delta computed correctly."""
         results = [_make_result("s1", "m1", exact_harness=0.6, exact_tools=0.2)]
         deltas = _compute_arm_deltas(results)
         assert deltas["m1"]["exact"]["delta_tools"] == pytest.approx(0.4, abs=0.001)
 
-    def test_averages_across_scenarios(self):
+    def test_averages_across_scenarios(self) -> None:
         """Multiple scenarios are averaged."""
         results = [
             _make_result("s1", "m1", exact_harness=0.6, exact_raw=0.2),
@@ -112,7 +114,7 @@ class TestComputeArmDeltas:
         assert deltas["m1"]["exact"]["raw"] == pytest.approx(0.1, abs=0.001)
         assert deltas["m1"]["exact"]["delta_raw"] == pytest.approx(0.4, abs=0.001)
 
-    def test_multiple_models(self):
+    def test_multiple_models(self) -> None:
         """Each model computed independently."""
         results = [
             _make_result("s1", "m1", exact_harness=0.5, exact_raw=0.1),
@@ -122,10 +124,10 @@ class TestComputeArmDeltas:
         assert deltas["m1"]["exact"]["delta_raw"] == pytest.approx(0.4, abs=0.001)
         assert deltas["m2"]["exact"]["delta_raw"] == pytest.approx(0.0, abs=0.001)
 
-    def test_empty_results(self):
+    def test_empty_results(self) -> None:
         assert _compute_arm_deltas([]) == {}
 
-    def test_all_tiers_computed(self):
+    def test_all_tiers_computed(self) -> None:
         """All three tiers have deltas computed."""
         results = [
             _make_result(
@@ -144,7 +146,7 @@ class TestComputeArmDeltas:
         assert deltas["m1"]["parent"]["delta_raw"] == pytest.approx(0.4, abs=0.001)
         assert deltas["m1"]["tactic"]["delta_raw"] == pytest.approx(0.4, abs=0.001)
 
-    def test_seat_config_from_harness_only(self):
+    def test_seat_config_from_harness_only(self) -> None:
         """Seat config selection must use harness arm, not raw."""
         results = [
             _make_result(
@@ -175,7 +177,7 @@ class TestComputeArmDeltas:
         # The delta is negative → red flag
         assert deltas["m1"]["exact"]["delta_raw"] < 0
 
-    def test_red_flag_negative_delta(self):
+    def test_red_flag_negative_delta(self) -> None:
         """Negative delta is detectable as a red flag."""
         results = [_make_result("s1", "m1", exact_harness=0.1, exact_raw=0.5)]
         deltas = _compute_arm_deltas(results)

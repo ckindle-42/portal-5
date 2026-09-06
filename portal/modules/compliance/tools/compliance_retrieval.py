@@ -17,7 +17,9 @@ from __future__ import annotations
 import functools
 import os
 from pathlib import Path
+from typing import Any
 
+from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from portal.platform.retrieval import chunking as _chunking
@@ -39,7 +41,7 @@ async def _no_transcribe(_img_path: str) -> str:
     return ""
 
 
-def _stage_set() -> dict:
+def _stage_set() -> dict[str, Any]:
     return {
         "chunk_strategy": _chunking.CHUNK_STRATEGY,
         "chunk_size": _chunking.CHUNK_SIZE,
@@ -56,7 +58,7 @@ def _stage_set() -> dict:
 
 def _composition() -> _pipeline.Composition:
     """Same stages as ``rag_multimodal``, bound to the ``compliance_`` prefix."""
-    pfx = {"prefix": _PREFIX}
+    pfx: dict[str, Any] = {"prefix": _PREFIX}
     return _pipeline.Composition(
         name="compliance_retrieval",
         get_db=_store.get_db,
@@ -86,14 +88,14 @@ def _composition() -> _pipeline.Composition:
     )
 
 
-async def search(kb_id: str, query: str, top_k: int = 5) -> dict:
+async def search(kb_id: str, query: str, top_k: int = 5) -> dict[str, Any]:
     """Plain-arg entry point — the HTTP concern (request parsing, status codes)
     stays in ``_search`` below; ``compliance_mcp``'s sync dispatch wrapper calls
     this directly (pipeline.py's own separation, P3)."""
     return await _pipeline.search(_composition(), kb_id, query, min(int(top_k), 20))
 
 
-async def _search(request):
+async def _search(request: Request) -> JSONResponse:
     """compliance_search: same behaviour as kb_search, over the compliance_* tables."""
     args = (await request.json()).get("arguments", {})
     kb_id = args.get("kb_id", "")
@@ -109,7 +111,7 @@ async def _search(request):
         return JSONResponse({"error": str(e)}, status_code=503)
 
 
-async def _ingest(request):
+async def _ingest(request: Request) -> JSONResponse:
     """compliance_ingest: ingest a folder of policy AND procedure PDFs in one
     pass over the compliance_* tables — TASK_COMPLIANCE_ENGINE_LANDING_V1 P3.
     Beyond kb_ingest's chunk/embed, this derives layer (policy/procedure/
@@ -132,7 +134,7 @@ async def _ingest(request):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
-def register_compliance_retrieval_routes(mcp) -> None:
+def register_compliance_retrieval_routes(mcp: Any) -> None:
     """Own the compliance_* retrieval routes on the compliance MCP."""
     mcp.custom_route("/tools/compliance_ingest", methods=["POST"])(_ingest)
     mcp.custom_route("/tools/compliance_search", methods=["POST"])(_search)

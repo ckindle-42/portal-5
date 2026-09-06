@@ -37,7 +37,7 @@ _VERDICT_ORDER = ["PROVEN", "FAILED", "INDETERMINATE", "UNAVAILABLE"]
 # ── Loading grounded inputs ───────────────────────────────────────────────────
 
 
-def load_purple_results(path: str | Path) -> list[dict]:
+def load_purple_results(path: str | Path) -> list[dict[str, Any]]:
     """Load purple test results from a results file.
 
     Accepts either the `purple_tests` key (e2e_system_*.json, sec_full_purple_*.json)
@@ -55,7 +55,7 @@ def load_purple_results(path: str | Path) -> list[dict]:
     return d.get("purple_tests") or d.get("results") or []
 
 
-def _is_really_detected(rec: dict) -> bool:
+def _is_really_detected(rec: dict[str, Any]) -> bool:
     """Independent re-check: synthetic-fallback NEVER counts as detected here,
     regardless of what capability_verdict says upstream. Defense in depth for
     the report layer specifically (a presentation bug must not able to launder
@@ -68,7 +68,7 @@ def _is_really_detected(rec: dict) -> bool:
     return rec.get("capability_verdict") == "PROVEN"
 
 
-def _compliance_map() -> dict[str, dict]:
+def _compliance_map() -> dict[str, dict[str, Any]]:
     """tid -> {matrix, compliance_mapping} from spl_detections.yaml (Phase 1)."""
     try:
         import yaml
@@ -162,7 +162,7 @@ def build_report_data(
         if v.get("detection") == "CONFIRMED" and tid in really_detected_tids
     }
 
-    framework_rollup: dict[str, dict] = {}
+    framework_rollup: dict[str, dict[str, Any]] = {}
     for tid, mapping in compliance.items():
         for m in mapping.get("compliance_mapping", []):
             fw = m.get("framework")
@@ -192,8 +192,8 @@ def build_report_data(
         entry["detected_pct"] = round(detected / mapped * 100, 1) if mapped else 0.0
 
     # ── Findings: per-technique, GAP if not PROVEN, never glossed ───────────
-    findings: list[dict] = []
-    provenance: list[dict] = []
+    findings: list[dict[str, Any]] = []
+    provenance: list[dict[str, Any]] = []
     for tid, cov in sorted(coverage["per_technique"].items()):
         mapping = compliance.get(tid, {"matrix": ["enterprise"], "compliance_mapping": []})
         is_gap = cov.get("detection") != "CONFIRMED"
@@ -241,7 +241,7 @@ def build_report_data(
 # ── Rendering (Markdown + HTML) ──────────────────────────────────────────────
 
 
-def _render_markdown(data: dict) -> str:
+def _render_markdown(data: dict[str, Any]) -> str:
     lines = [
         "<!-- GENERATED FROM grounded results + coverage map — do not hand-edit, "
         "re-run `python3 -m bench_security compliance-report` -->",
@@ -333,7 +333,7 @@ def _render_markdown(data: dict) -> str:
     return "\n".join(lines)
 
 
-def _render_html(data: dict, markdown: str) -> str:
+def _render_html(data: dict[str, Any], markdown: str) -> str:
     """Minimal HTML wrapper around the same markdown-derived content — cheap,
     render-from-source, no separate data path to drift from the .md."""
     import html

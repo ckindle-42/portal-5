@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+from typing import Any
+
+import pytest
 
 from portal.modules.security.core import benign_corpus_bench as bench
 from portal.modules.security.core import notify_scoreboard as ns
 
 
-def _attack(verdict: str = "CONFIRMED") -> dict:
+def _attack(verdict: str = "CONFIRMED") -> dict[str, Any]:
     return {
         "label": "attack",
         "status": "done",
@@ -21,7 +25,7 @@ def _attack(verdict: str = "CONFIRMED") -> dict:
     }
 
 
-def _benign(label: str, verdict: str) -> dict:
+def _benign(label: str, verdict: str) -> dict[str, Any]:
     return {
         "label": label,
         "status": "done",
@@ -95,7 +99,9 @@ def test_expansion_includes_plausibly_confusable_routine_activity() -> None:
     assert "nsenter" in text  # Kubernetes CSI reconciliation
 
 
-def test_targeted_rerun_replaces_only_selected_retained_cell(tmp_path, monkeypatch) -> None:
+def test_targeted_rerun_replaces_only_selected_retained_cell(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     checkpoint = tmp_path / "benign.json"
     checkpoint.write_text(
         json.dumps(

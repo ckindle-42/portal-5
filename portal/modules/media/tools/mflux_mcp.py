@@ -15,10 +15,13 @@ from __future__ import annotations
 import asyncio
 import os
 import uuid
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Any
 
 from mcp.server import MCPServer
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 from portal.modules.media.tools._admission import admit
 from portal.platform.data_loader import load_data
@@ -28,6 +31,15 @@ from portal.platform.mcp_host.workspace import get_generated_dir
 
 port = int(os.getenv("MFLUX_MCP_PORT", "8933"))
 mcp = MCPServer("mflux-generation")
+
+# MCPServer.custom_route() has no return annotation upstream (mcp SDK), so mypy
+# sees its decorator result as Any and flags every routed handler with
+# untyped-decorator. Bind the concrete decorator type once so handlers keep
+# their annotations.
+_route: Callable[
+    ...,
+    Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+] = mcp.custom_route
 
 # mflux 0.19+ ships a separate entry-point binary per model family — routing a
 # non-FLUX.1 model through the base `mflux-generate` silently falls back to the
@@ -87,8 +99,8 @@ def _media_model_key(model: str | None) -> str:
     return f"mflux:{model or MFLUX_DEFAULT_MODEL}"
 
 
-@mcp.custom_route("/health", methods=["GET"])
-async def health_check(request):
+@_route("/health", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
     return JSONResponse(
         {"status": "ok", "service": "mflux-generation", "models": sorted(MFLUX_MODELS)}
     )
@@ -97,8 +109,8 @@ async def health_check(request):
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_mflux_mcp")
 
 
-@mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request):
+@_route("/tools", methods=["GET"])
+async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
@@ -135,7 +147,7 @@ async def _generate(
     height: int,
     image_path: Path | None = None,
     strength: float | None = None,
-) -> dict:
+) -> dict[str, Any]:
     out = get_generated_dir("images") / f"mflux_{uuid.uuid4().hex[:8]}.png"
     cli_model = MFLUX_MODELS.get(model, model)
     bin_ = MFLUX_MODEL_BIN.get(model, MFLUX_BIN)
@@ -197,7 +209,7 @@ async def generate_image(
     height: int = 1024,
     steps: int | None = None,
     seed: int = 1,
-) -> dict:
+) -> dict[str, Any]:
     """Generate an image from a text prompt using MLX-native FLUX (MFLUX)."""
     if not prompt:
         return {"success": False, "error": "prompt is required"}
@@ -224,7 +236,7 @@ async def edit_image(
     height: int = 1024,
     steps: int | None = None,
     seed: int = 1,
-) -> dict:
+) -> dict[str, Any]:
     """Edit an existing image by instruction (qwen-image-edit) or img2img.
 
     `image_url` is a public http(s) URL or an already-uploaded workspace file name.
@@ -250,19 +262,19 @@ async def edit_image(
     )
 
 
-@mcp.custom_route("/tools/generate_image", methods=["POST"])
-async def generate_image_endpoint(request):
+@_route("/tools/generate_image", methods=["POST"])
+async def generate_image_endpoint(request: Request) -> JSONResponse:
     a = (await request.json()).get("arguments", {})
     return JSONResponse(await generate_image(**a))
 
 
-@mcp.custom_route("/tools/edit_image", methods=["POST"])
-async def edit_image_endpoint(request):
+@_route("/tools/edit_image", methods=["POST"])
+async def edit_image_endpoint(request: Request) -> JSONResponse:
     a = (await request.json()).get("arguments", {})
     return JSONResponse(await edit_image(**a))
 
 
-def main():
+def main() -> None:
     mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
 
 

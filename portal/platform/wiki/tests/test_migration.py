@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import textwrap
+from pathlib import Path
 
 from portal.platform.wiki.migration import (
     doc_is_migrated,
@@ -17,7 +18,7 @@ from portal.platform.wiki.migration import (
 
 
 class TestStripManagedRegions:
-    def test_removes_v2_reasoned_fences(self):
+    def test_removes_v2_reasoned_fences(self) -> None:
         text = textwrap.dedent("""\
             # Title
             <!-- WIKI:HUMAN-OWNED reason="design rationale" -->
@@ -29,7 +30,7 @@ class TestStripManagedRegions:
         assert "human prose" not in result
         assert "trailing" in result
 
-    def test_removes_v1_fences(self):
+    def test_removes_v1_fences(self) -> None:
         text = textwrap.dedent("""\
             # Title
             <!-- WIKI:HUMAN-OWNED -->
@@ -41,7 +42,7 @@ class TestStripManagedRegions:
         assert "old fence" not in result
         assert "trailing" in result
 
-    def test_removes_generated_blocks(self):
+    def test_removes_generated_blocks(self) -> None:
         text = textwrap.dedent("""\
             <!-- WIKI:GENERATED unit=test-unit -->
             generated content
@@ -50,7 +51,7 @@ class TestStripManagedRegions:
         result = strip_managed_regions(text)
         assert "generated content" not in result
 
-    def test_empty_input(self):
+    def test_empty_input(self) -> None:
         assert strip_managed_regions("") == ""
 
 
@@ -58,7 +59,7 @@ class TestStripManagedRegions:
 
 
 class TestSubstantiveRemainder:
-    def test_fully_migrated_doc_has_empty_remainder(self):
+    def test_fully_migrated_doc_has_empty_remainder(self) -> None:
         text = textwrap.dedent("""\
             # Title
 
@@ -72,7 +73,7 @@ class TestSubstantiveRemainder:
         """)
         assert substantive_remainder(text) == ""
 
-    def test_unmigrated_facts_detected(self):
+    def test_unmigrated_facts_detected(self) -> None:
         text = textwrap.dedent("""\
             # Title
 
@@ -81,7 +82,7 @@ class TestSubstantiveRemainder:
         remainder = substantive_remainder(text)
         assert "hand-written prose" in remainder
 
-    def test_ignores_bare_headings(self):
+    def test_ignores_bare_headings(self) -> None:
         text = textwrap.dedent("""\
             # Title
 
@@ -93,7 +94,7 @@ class TestSubstantiveRemainder:
         """)
         assert substantive_remainder(text) == ""
 
-    def test_detects_unmigrated_table_data(self):
+    def test_detects_unmigrated_table_data(self) -> None:
         text = textwrap.dedent("""\
             # Title
 
@@ -112,7 +113,7 @@ class TestSubstantiveRemainder:
 
 
 class TestGeneratedBlockCount:
-    def test_counts_blocks(self):
+    def test_counts_blocks(self) -> None:
         text = textwrap.dedent("""\
             <!-- WIKI:GENERATED unit=a -->
             body a
@@ -124,7 +125,7 @@ class TestGeneratedBlockCount:
         """)
         assert generated_block_count(text) == 2
 
-    def test_zero_blocks(self):
+    def test_zero_blocks(self) -> None:
         assert generated_block_count("just plain text") == 0
 
 
@@ -132,7 +133,7 @@ class TestGeneratedBlockCount:
 
 
 class TestFencedHumanLines:
-    def test_counts_substantive_lines_in_fence(self):
+    def test_counts_substantive_lines_in_fence(self) -> None:
         text = textwrap.dedent("""\
             <!-- WIKI:HUMAN-OWNED reason="test" -->
             Line one of real content.
@@ -142,7 +143,7 @@ class TestFencedHumanLines:
         """)
         assert fenced_human_lines(text) == 2
 
-    def test_ignores_inert_lines(self):
+    def test_ignores_inert_lines(self) -> None:
         text = textwrap.dedent("""\
             <!-- WIKI:HUMAN-OWNED reason="test" -->
             Real content.
@@ -154,7 +155,7 @@ class TestFencedHumanLines:
         # "Real content." is 1 substantive line; heading is inert
         assert fenced_human_lines(text) == 1
 
-    def test_handles_v1_fences(self):
+    def test_handles_v1_fences(self) -> None:
         text = textwrap.dedent("""\
             <!-- WIKI:HUMAN-OWNED -->
             Old fence content.
@@ -167,12 +168,12 @@ class TestFencedHumanLines:
 
 
 class TestHumanOwnedReasons:
-    def test_extracts_reason(self):
+    def test_extracts_reason(self) -> None:
         text = '<!-- WIKI:HUMAN-OWNED reason="design rationale" -->'
         reasons = human_owned_reasons(text)
         assert reasons == ["design rationale"]
 
-    def test_missing_reason_from_v1_fence(self):
+    def test_missing_reason_from_v1_fence(self) -> None:
         text = textwrap.dedent("""\
             <!-- WIKI:HUMAN-OWNED -->
             content
@@ -181,7 +182,7 @@ class TestHumanOwnedReasons:
         reasons = human_owned_reasons(text)
         assert "[MISSING]" in reasons
 
-    def test_multiple_fences(self):
+    def test_multiple_fences(self) -> None:
         text = textwrap.dedent("""\
             <!-- WIKI:HUMAN-OWNED reason="first" -->
             content
@@ -200,7 +201,7 @@ class TestHumanOwnedReasons:
 
 
 class TestDocIsMigratedV2:
-    def test_v1_fence_everything_not_migrated(self, tmp_path):
+    def test_v1_fence_everything_not_migrated(self, tmp_path: Path) -> None:
         """Regression: V1 wrapped entire doc in one mega-fence. Must be False."""
         doc = tmp_path / "README.md"
         doc.write_text(
@@ -216,7 +217,7 @@ class TestDocIsMigratedV2:
         )
         assert doc_is_migrated(doc) is False
 
-    def test_real_generated_block_with_small_fence_is_migrated(self, tmp_path):
+    def test_real_generated_block_with_small_fence_is_migrated(self, tmp_path: Path) -> None:
         doc = tmp_path / "real.md"
         doc.write_text(
             textwrap.dedent("""\
@@ -236,7 +237,7 @@ class TestDocIsMigratedV2:
         # ratio = 1/(3+1) = 0.25 < 0.40 → True
         assert doc_is_migrated(doc) is True
 
-    def test_fence_without_reason_not_migrated(self, tmp_path):
+    def test_fence_without_reason_not_migrated(self, tmp_path: Path) -> None:
         doc = tmp_path / "bad.md"
         doc.write_text(
             textwrap.dedent("""\
@@ -253,7 +254,7 @@ class TestDocIsMigratedV2:
         )
         assert doc_is_migrated(doc) is False
 
-    def test_no_generated_blocks_not_migrated(self, tmp_path):
+    def test_no_generated_blocks_not_migrated(self, tmp_path: Path) -> None:
         doc = tmp_path / "nogen.md"
         doc.write_text(
             textwrap.dedent("""\
@@ -266,7 +267,7 @@ class TestDocIsMigratedV2:
         )
         assert doc_is_migrated(doc) is False
 
-    def test_ratio_boundary_at_max(self, tmp_path):
+    def test_ratio_boundary_at_max(self, tmp_path: Path) -> None:
         """Doc with human ratio exactly at HUMAN_FENCE_MAX should pass."""
         # 2 gen lines + 2 human lines = ratio 0.50 > 0.40
         doc = tmp_path / "ratio.md"
@@ -289,7 +290,7 @@ class TestDocIsMigratedV2:
         # ratio = 3/(2+3) = 0.60 > 0.40 → False
         assert doc_is_migrated(doc) is False
 
-    def test_ratio_within_bound(self, tmp_path):
+    def test_ratio_within_bound(self, tmp_path: Path) -> None:
         doc = tmp_path / "ok.md"
         doc.write_text(
             textwrap.dedent("""\
@@ -311,7 +312,7 @@ class TestDocIsMigratedV2:
         # ratio = 1/(5+1) = 0.167 < 0.40 → True
         assert doc_is_migrated(doc) is True
 
-    def test_unmigrated_content_detected(self, tmp_path):
+    def test_unmigrated_content_detected(self, tmp_path: Path) -> None:
         doc = tmp_path / "partial.md"
         doc.write_text(
             textwrap.dedent("""\

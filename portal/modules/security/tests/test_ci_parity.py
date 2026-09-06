@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 class TestCiParity:
-    def test_pythonpath_config_present(self):
+    def test_pythonpath_config_present(self) -> None:
         """pyproject.toml has pythonpath including tests/benchmarks."""
         import tomllib
 
@@ -17,7 +17,7 @@ class TestCiParity:
         assert "tests/benchmarks" in pp, f"pythonpath missing tests/benchmarks: {pp}"
         assert "." in pp, f"pythonpath missing '.': {pp}"
 
-    def test_conftest_sets_lab_defaults(self):
+    def test_conftest_sets_lab_defaults(self) -> None:
         """The conftest.py that actually applies here (portal/conftest.py —
         pytest's conftest discovery is directory-hierarchy based, so
         tests/conftest.py does not apply to portal/modules/*/tests/) sets
@@ -28,7 +28,7 @@ class TestCiParity:
         assert "SANDBOX_LAB_EXEC" in conftest, "conftest must set SANDBOX_LAB_EXEC"
         assert "setdefault" in conftest, "conftest must use setdefault for .env override"
 
-    def test_bench_imports_without_pythonpath(self):
+    def test_bench_imports_without_pythonpath(self) -> None:
         """Representative bench import succeeds via pyproject.toml pythonpath."""
         # Verify pyproject.toml pythonpath config is correct (pytest injects it at collection)
         import tomllib
@@ -44,13 +44,13 @@ class TestCiParity:
 
         assert matrix is not None
 
-    def test_ci_local_sh_exists_and_executable(self):
+    def test_ci_local_sh_exists_and_executable(self) -> None:
         """scripts/ci_local.sh exists and is executable."""
         ci_sh = Path(__file__).parents[4] / "scripts" / "ci_local.sh"
         assert ci_sh.exists(), f"{ci_sh} does not exist"
         assert os.access(ci_sh, os.X_OK), f"{ci_sh} is not executable"
 
-    def test_ci_local_sh_mirrors_workflow(self):
+    def test_ci_local_sh_mirrors_workflow(self) -> None:
         """ci_local.sh mirrors the CI workflow's key commands."""
         ci_sh = (Path(__file__).parents[4] / "scripts" / "ci_local.sh").read_text()
         assert "pip install -e" in ci_sh, "ci_local.sh must run editable install"

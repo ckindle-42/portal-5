@@ -14,6 +14,7 @@ import json
 import re
 import shlex
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -69,12 +70,12 @@ class TestBlueScorableGuard:
     """Every new scenario must carry detect_ground_truth — no red-only scenarios."""
 
     @pytest.mark.parametrize("name", _ALL_NEW_SCENARIOS)
-    def test_has_detect_ground_truth(self, name: str):
+    def test_has_detect_ground_truth(self, name: str) -> None:
         assert name in SCENARIOS, f"Scenario '{name}' missing from SCENARIOS"
         gt = SCENARIOS[name].get("detect_ground_truth")
         assert gt, f"Scenario '{name}' has empty detect_ground_truth — red-only, not allowed"
 
-    def test_no_red_only_scenarios_anywhere(self):
+    def test_no_red_only_scenarios_anywhere(self) -> None:
         """Comprehensive check: every scenario in SCENARIOS has detect_ground_truth."""
         bad = [k for k, v in SCENARIOS.items() if not v.get("detect_ground_truth")]
         assert not bad, f"Red-only scenarios (no detect_ground_truth): {bad}"
@@ -87,18 +88,18 @@ class TestMeta3Scenarios:
     """meta3 scenarios must be well-formed and target the meta3 host."""
 
     @pytest.mark.parametrize("name", _META3_SCENARIOS)
-    def test_scenario_exists(self, name: str):
+    def test_scenario_exists(self, name: str) -> None:
         assert name in SCENARIOS, f"meta3 scenario '{name}' missing"
 
     @pytest.mark.parametrize("name", _META3_SCENARIOS)
-    def test_uses_execute_bash(self, name: str):
+    def test_uses_execute_bash(self, name: str) -> None:
         scenario = SCENARIOS[name]
         assert "execute_bash" in scenario["red_order"], (
             f"meta3 scenario '{name}' does not use execute_bash"
         )
 
     @pytest.mark.parametrize("name", _META3_SCENARIOS)
-    def test_targets_meta3(self, name: str):
+    def test_targets_meta3(self, name: str) -> None:
         scenario = SCENARIOS[name]
         prompt = scenario["red_prompt"]
         # De-hardcoded: uses $TARGET_HOST variable, not literal IP
@@ -107,13 +108,13 @@ class TestMeta3Scenarios:
         )
 
     @pytest.mark.parametrize("name", _META3_SCENARIOS)
-    def test_has_ground_truth(self, name: str):
+    def test_has_ground_truth(self, name: str) -> None:
         gt = SCENARIOS[name].get("detect_ground_truth")
         assert gt and len(gt) >= 1, (
             f"meta3 scenario '{name}' needs at least 1 technique in detect_ground_truth"
         )
 
-    def test_catalog_has_no_linux_only_payloads(self):
+    def test_catalog_has_no_linux_only_payloads(self) -> None:
         """The Win2k8 catalog must not retain Metasploitable2/Linux payloads."""
         prompts = "\n".join(
             str(scenario["red_prompt"])
@@ -123,17 +124,17 @@ class TestMeta3Scenarios:
         for invalid in ("port 6200", "udf.so", "/etc/passwd", "/etc/shadow"):
             assert invalid not in prompts, f"Linux-only meta3 payload remains: {invalid}"
 
-    def test_documented_windows_surface_coverage(self):
+    def test_documented_windows_surface_coverage(self) -> None:
         assert {
             "meta3_phpmyadmin_rce",
             "meta3_rails_console_rce",
             "meta3_rdp_standard_auth",
         }.issubset(SCENARIOS)
 
-    def test_rdp_technique_has_detection(self):
+    def test_rdp_technique_has_detection(self) -> None:
         assert "T1021.001" in techniques_covered()
 
-    def test_new_surface_steps_use_installed_sandbox_tools(self):
+    def test_new_surface_steps_use_installed_sandbox_tools(self) -> None:
         """The attack image contract includes canonical modules and RDP."""
         ftp = SCENARIOS["meta3_ftp_backdoor"]["red_prompt"]
         phpmyadmin = SCENARIOS["meta3_phpmyadmin_rce"]["red_prompt"]
@@ -148,7 +149,7 @@ class TestMeta3Scenarios:
             assert "$LAB_META3_USER" in prompt
             assert "$LAB_META3_PASS" in prompt
 
-    def test_attack_image_installs_required_meta3_tools(self):
+    def test_attack_image_installs_required_meta3_tools(self) -> None:
         dockerfile = (Path(__file__).resolve().parents[4] / "Dockerfile.attack").read_text()
         assert "metasploit-framework" in dockerfile
         assert "command -v msfconsole" in dockerfile
@@ -160,9 +161,11 @@ class TestLabExerciseImageContract:
     """Executable exercises and the attack image are one enforced contract."""
 
     @staticmethod
-    def _contract() -> dict:
+    def _contract() -> dict[str, Any]:
         root = Path(__file__).resolve().parents[4]
-        return json.loads((root / "config" / "attack_image_contract.json").read_text())
+        data = json.loads((root / "config" / "attack_image_contract.json").read_text())
+        assert isinstance(data, dict)
+        return data
 
     @staticmethod
     def _exec_command_heads() -> set[str]:
@@ -201,17 +204,17 @@ class TestLabExerciseImageContract:
                     expect_command = False
         return heads
 
-    def test_contract_is_lab_exercise_only(self):
+    def test_contract_is_lab_exercise_only(self) -> None:
         assert self._contract()["mode"] == "lab-exercise"
         for theory_only in ("cron_privesc", "container_escape", "kernel_exploit_chain"):
             assert theory_only not in EXEC_SEQUENCES
 
-    def test_all_executable_sequence_command_heads_are_declared(self):
+    def test_all_executable_sequence_command_heads_are_declared(self) -> None:
         shell_syntax = {"echo", "export", "false", "null", "sleep", "true", "web_search"}
         undeclared = self._exec_command_heads() - set(self._contract()["tools"]) - shell_syntax
         assert not undeclared, f"lab commands absent from image contract: {sorted(undeclared)}"
 
-    def test_scenario_entry_commands_are_declared(self):
+    def test_scenario_entry_commands_are_declared(self) -> None:
         command_heads = {
             command.rsplit("/", 1)[-1]
             for scenario in SCENARIOS.values()
@@ -221,7 +224,7 @@ class TestLabExerciseImageContract:
         undeclared = command_heads - set(self._contract()["tools"]) - shell_syntax
         assert not undeclared, f"scenario commands absent from image contract: {sorted(undeclared)}"
 
-    def test_previously_missing_tools_are_hard_requirements(self):
+    def test_previously_missing_tools_are_hard_requirements(self) -> None:
         required = {
             "cadaver",
             "davtest",
@@ -233,7 +236,7 @@ class TestLabExerciseImageContract:
         }
         assert required.issubset(self._contract()["tools"])
 
-    def test_stale_target_mismatches_cannot_return_to_execution(self):
+    def test_stale_target_mismatches_cannot_return_to_execution(self) -> None:
         corpus = "\n".join(
             step.get("tool_hint", "")
             for sequence in EXEC_SEQUENCES.values()
@@ -258,18 +261,18 @@ class TestVulhubExpansionScenarios:
     """Vulhub scenarios must be well-formed and target 10.10.11.50."""
 
     @pytest.mark.parametrize("name", _VULHUB_EXPANSION_SCENARIOS)
-    def test_scenario_exists(self, name: str):
+    def test_scenario_exists(self, name: str) -> None:
         assert name in SCENARIOS, f"Vulhub scenario '{name}' missing"
 
     @pytest.mark.parametrize("name", _VULHUB_EXPANSION_SCENARIOS)
-    def test_uses_execute_bash(self, name: str):
+    def test_uses_execute_bash(self, name: str) -> None:
         scenario = SCENARIOS[name]
         assert "execute_bash" in scenario["red_order"], (
             f"Vulhub scenario '{name}' does not use execute_bash"
         )
 
     @pytest.mark.parametrize("name", _VULHUB_EXPANSION_SCENARIOS)
-    def test_targets_vulhub(self, name: str):
+    def test_targets_vulhub(self, name: str) -> None:
         scenario = SCENARIOS[name]
         prompt = scenario["red_prompt"]
         # De-hardcoded: uses $TARGET_HOST variable, not literal IP
@@ -278,12 +281,12 @@ class TestVulhubExpansionScenarios:
         )
 
     @pytest.mark.parametrize("name", _VULHUB_EXPANSION_SCENARIOS)
-    def test_has_ground_truth(self, name: str):
+    def test_has_ground_truth(self, name: str) -> None:
         gt = SCENARIOS[name].get("detect_ground_truth")
         assert gt and len(gt) >= 1, f"Vulhub scenario '{name}' needs at least 1 technique"
 
     @pytest.mark.parametrize("name", _VULHUB_EXPANSION_SCENARIOS)
-    def test_red_prompt_contains_kali_tool(self, name: str):
+    def test_red_prompt_contains_kali_tool(self, name: str) -> None:
         scenario = SCENARIOS[name]
         prompt = scenario["red_prompt"].lower()
         kali_indicators = [
@@ -307,14 +310,14 @@ class TestVulhubExpansionScenarios:
         has = any(ind in prompt for ind in kali_indicators)
         assert has, f"Scenario '{name}' red_prompt has no Kali tool reference"
 
-    def test_struts_command_proof_uses_live_tested_payload_contract(self):
+    def test_struts_command_proof_uses_live_tested_payload_contract(self) -> None:
         prompt = SCENARIOS["vuln_struts2_rce"]["red_prompt"]
         assert "getExcludedPackageNames().clear()" in prompt
         assert "getExcludedPropertyNames" not in prompt
         assert "X-Cmd-Output" in prompt
         assert "uid/gid output" in prompt
 
-    def test_documentation_assisted_exploits_retain_an_execution_turn(self):
+    def test_documentation_assisted_exploits_retain_an_execution_turn(self) -> None:
         for name, scenario in SCENARIOS.items():
             if "check its README.md" not in scenario["red_prompt"]:
                 continue
@@ -329,7 +332,7 @@ class TestVulhubExpansionScenarios:
 class TestSPLDetectionCoverage:
     """New techniques must have SPL detections or be logged as blue-gaps."""
 
-    def test_all_new_techniques_have_spl(self):
+    def test_all_new_techniques_have_spl(self) -> None:
         """Every technique used in new scenarios should have an SPL entry."""
         new_techniques: set[str] = set()
         for name in _ALL_NEW_SCENARIOS:
@@ -348,7 +351,7 @@ class TestSPLDetectionCoverage:
             f"Add SPL entries or record as known gaps."
         )
 
-    def test_spl_detections_valid_yaml(self):
+    def test_spl_detections_valid_yaml(self) -> None:
         """spl_detections.yaml must be valid YAML with required fields."""
         yaml_path = (
             Path(__file__).resolve().parents[4]
@@ -368,16 +371,16 @@ class TestSPLDetectionCoverage:
 class TestCoverageCount:
     """Verify scenario counts and coverage targets."""
 
-    def test_total_scenario_count(self):
+    def test_total_scenario_count(self) -> None:
         """The expanded scenario catalog remains broad."""
         assert len(SCENARIOS) >= 70, f"Expected >=70 scenarios, got {len(SCENARIOS)}"
 
-    def test_meta3_no_longer_zero(self):
+    def test_meta3_no_longer_zero(self) -> None:
         """All 24 reconciled Windows scenarios are present."""
         meta3_count = sum(1 for k in SCENARIOS if k.startswith("meta3_"))
         assert meta3_count >= 24, f"meta3 has {meta3_count} scenarios, expected >=24"
 
-    def test_vulhub_breadth(self):
+    def test_vulhub_breadth(self) -> None:
         """Vulhub scenarios should cover >=30 categories."""
         vuln_count = sum(1 for k in SCENARIOS if k.startswith("vuln_"))
         assert vuln_count >= 30, f"Vulhub has {vuln_count} scenarios, expected >=30"

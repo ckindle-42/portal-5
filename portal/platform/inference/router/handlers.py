@@ -100,7 +100,7 @@ _mp_registry_cache: Any = None
 _mp_registry_dir_cache: str | None = None
 
 
-async def health() -> dict:
+async def health() -> dict[str, Any]:
     """GET /health — fast unauthenticated liveness probe.
 
     Used by Open WebUI's "test connection" button, Docker healthchecks, and
@@ -124,7 +124,7 @@ async def health() -> dict:
     }
 
 
-async def health_all():
+async def health_all() -> dict[str, Any]:
     """GET /health/all — aggregate diagnostic check across the full stack.
 
     Probes the pipeline, Ollama, and every MCP in ``tool_registry.MCP_SERVERS``
@@ -137,7 +137,7 @@ async def health_all():
     """
     from portal.platform.inference.tool_registry import MCP_SERVERS
 
-    async def _probe(url: str, path: str) -> dict:
+    async def _probe(url: str, path: str) -> dict[str, Any]:
         try:
             r = await _health_client.get(f"{url}{path}")
             return (
@@ -164,7 +164,7 @@ async def health_all():
 PORTAL5_ADMIN_KEY = os.environ.get("PORTAL5_ADMIN_KEY", os.environ.get("PIPELINE_API_KEY", ""))
 
 
-async def admin_refresh_tools(authorization: str | None = Header(None)):
+async def admin_refresh_tools(authorization: str | None = Header(None)) -> dict[str, Any]:
     """POST /admin/refresh-tools — force a tool-registry refresh.
 
     Operator escape hatch to pick up MCP changes without waiting for the next
@@ -181,7 +181,7 @@ async def admin_refresh_tools(authorization: str | None = Header(None)):
     return {"refreshed": True, "tools_registered": n, "names": tool_registry.list_tool_names()}
 
 
-async def test_notifications(authorization: str | None = Header(None)) -> dict:
+async def test_notifications(authorization: str | None = Header(None)) -> dict[str, Any]:
     """POST /notifications/test — fire a test alert and summary; report status.
 
     Sanity-check for notification configuration: dispatches one AlertEvent
@@ -206,7 +206,7 @@ async def test_notifications(authorization: str | None = Header(None)) -> dict:
 
     from portal.platform.inference.notifications.events import AlertEvent, EventType, SummaryEvent
 
-    results: dict[str, str] = {}
+    results: dict[str, Any] = {}
 
     # Fire a test alert
     alert = AlertEvent(
@@ -317,7 +317,7 @@ async def metrics() -> PlainTextResponse:
             from prometheus_client import multiprocess
 
             _mp_registry_cache = _CollectorRegistry()
-            multiprocess.MultiProcessCollector(_mp_registry_cache)
+            multiprocess.MultiProcessCollector(_mp_registry_cache)  # type: ignore[no-untyped-call]  # prometheus_client stub lacks __init__ annotation
             _mp_registry_dir_cache = mp_dir
         prometheus_output = generate_latest(_mp_registry_cache).decode("utf-8")
     else:
@@ -325,7 +325,7 @@ async def metrics() -> PlainTextResponse:
     return PlainTextResponse("\n".join(lines) + "\n" + prometheus_output)
 
 
-async def list_models(authorization: str | None = Header(None)) -> dict:
+async def list_models(authorization: str | None = Header(None)) -> dict[str, Any]:
     """GET /v1/models — OpenAI-compatible model catalogue.
 
     One entry per ``WORKSPACES`` key, plus one entry per IDE-curated persona
@@ -397,7 +397,7 @@ async def list_models(authorization: str | None = Header(None)) -> dict:
     return {"object": "list", "data": models}
 
 
-async def list_backends_endpoint(authorization: str | None = Header(None)) -> dict:
+async def list_backends_endpoint(authorization: str | None = Header(None)) -> dict[str, Any]:
     """GET /v1/backends — diagnostic view of every registered backend.
 
     Returns ``{id, type, group, url, models, healthy, last_check}`` per
@@ -660,6 +660,10 @@ async def _dispatch_non_streaming(
                     import json as _json
 
                     primary_data = _json.loads(primary_data)
+                elif isinstance(primary_data, memoryview):
+                    import json as _json
+
+                    primary_data = _json.loads(primary_data.tobytes())
                 primary_text = str(
                     primary_data.get("choices", [{}])[0].get("message", {}).get("content", "")
                 )
@@ -864,7 +868,7 @@ async def anthropic_messages(
         async def _generate() -> AsyncIterator[str]:
             async with (
                 httpx.AsyncClient(
-                    transport=httpx.ASGITransport(app=_app),  # type: ignore[arg-type]
+                    transport=httpx.ASGITransport(app=_app),
                     base_url="http://portal-local",
                     timeout=httpx.Timeout(300.0),
                 ) as client,
@@ -884,7 +888,7 @@ async def anthropic_messages(
 
     # Non-streaming
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=_app),  # type: ignore[arg-type]
+        transport=httpx.ASGITransport(app=_app),
         base_url="http://portal-local",
         timeout=httpx.Timeout(300.0),
     ) as client:

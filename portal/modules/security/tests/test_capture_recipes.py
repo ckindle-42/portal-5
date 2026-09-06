@@ -24,7 +24,7 @@ REQUEST_ONLY_EVIDENCE = load_data(
 
 
 @pytest.mark.parametrize("scenario", sorted(CAPTURE_RECIPES))
-def test_recipe_has_positive_and_request_only_negative_control(scenario):
+def test_recipe_has_positive_and_request_only_negative_control(scenario: str) -> None:
     positive = validate_capture_signals(scenario, {"network:packet": [SAMPLE_EVIDENCE[scenario]]})
     assert positive["valid"], positive
     assert not positive["unchecked"], positive
@@ -35,7 +35,7 @@ def test_recipe_has_positive_and_request_only_negative_control(scenario):
     assert not negative["valid"], negative
 
 
-def test_recipes_resolve_runtime_placeholders_and_use_image_contract_tools():
+def test_recipes_resolve_runtime_placeholders_and_use_image_contract_tools() -> None:
     contract_path = Path(__file__).resolve().parents[4] / "config" / "attack_image_contract.json"
     tools = set(json.loads(contract_path.read_text())["tools"])
     assert {"curl", "date", "grep", "php", "python3", "redis-cli", "sleep"}.issubset(tools)
@@ -53,7 +53,7 @@ def test_recipes_resolve_runtime_placeholders_and_use_image_contract_tools():
             assert "$TARGET_PORT" not in rendered_host
 
 
-def test_corrected_rce_ground_truth_is_unique_and_matches_observed_behavior():
+def test_corrected_rce_ground_truth_is_unique_and_matches_observed_behavior() -> None:
     assert SCENARIOS["vuln_django_sqli"]["detect_ground_truth"] == ["T1190"]
     assert SCENARIOS["vuln_tomcat_deploy"]["detect_ground_truth"] == [
         "T1190",

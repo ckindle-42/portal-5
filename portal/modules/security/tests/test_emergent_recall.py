@@ -36,7 +36,7 @@ def _graph_with_one_detected_technique() -> CapabilityGraph:
     return graph
 
 
-def test_corpus_recall_matches_hand_derived_expectation():
+def test_corpus_recall_matches_hand_derived_expectation() -> None:
     graph = _graph_with_one_detected_technique()
     # An emergent corpus of 4 techniques, only 1 of which has a detection.
     corpus = {"T1110", "T1595", "T1078", "T1021"}
@@ -49,7 +49,7 @@ def test_corpus_recall_matches_hand_derived_expectation():
     assert metric["recall_pct"] == 25.0  # 1/4, hand-derived
 
 
-def test_corpus_recall_differs_from_default_scenario_recall():
+def test_corpus_recall_differs_from_default_scenario_recall() -> None:
     graph = _graph_with_one_detected_technique()
 
     from portal.modules.security.core.capability_graph import generate_coverage_json
@@ -64,7 +64,7 @@ def test_corpus_recall_differs_from_default_scenario_recall():
     assert default_coverage["tiers"]["detected_pct"] != corpus_metric["recall_pct"]
 
 
-def test_empty_corpus_is_zero_not_a_crash():
+def test_empty_corpus_is_zero_not_a_crash() -> None:
     graph = _graph_with_one_detected_technique()
     metric = emergent_recall_metric(graph, set())
     assert metric["corpus_size"] == 0

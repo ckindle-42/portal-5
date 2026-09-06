@@ -564,7 +564,7 @@ class SourceCatalog:
             profile.to_dict()
             for profile in sorted(self._profiles.values(), key=lambda x: x.source_id)
         ]
-        blind_spots = []
+        blind_spots: list[str] = []
         for profile in self._profiles.values():
             blind_spots.extend(
                 f"{profile.source_id}:missing:{capability}"

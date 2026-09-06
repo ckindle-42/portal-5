@@ -8,8 +8,10 @@ oob (7 via oast_callback). Zero heuristic guesses.
 from __future__ import annotations
 
 import json as _json
+from collections.abc import Callable
+from typing import Any
 
-from .oracles import Oracle, register_oracle
+from .oracles import Oracle, OracleCheckFn, register_oracle
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Batch 1 — marker-based web detectors (highest value, real ground truth)
@@ -21,7 +23,9 @@ _WIN_BOOTLOADER = "[boot loader]"
 _WIN_INI = "[fonts]"
 
 
-def pathtraversal_detect(status, headers, body, baseline, payload=""):
+def pathtraversal_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if not body:
         return False
     if _PASSWD_SIGN in body and _PASSWD_SIGN not in baseline:
@@ -42,7 +46,9 @@ _XSS_MARKERS = (
 )
 
 
-def xss_detect(status, headers, body, baseline, payload=""):
+def xss_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if status == 0 or not body:
         return False
     return any(m in body and m not in baseline for m in _XSS_MARKERS)
@@ -66,7 +72,9 @@ _DOS_BODY_MARKERS = (
 )
 
 
-def deserialization_detect(status, headers, body, baseline, payload=""):
+def deserialization_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if not body:
         return False
     bl = baseline or ""
@@ -77,7 +85,9 @@ def deserialization_detect(status, headers, body, baseline, payload=""):
 _IDOR_ERROR_MARKERS = ("forbidden", "unauthorized", "access denied", "not allowed")
 
 
-def idor_detect(status, headers, body, baseline, payload=""):
+def idor_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if status != 200 or not body:
         return False
     body_lc = body.lower()
@@ -85,7 +95,9 @@ def idor_detect(status, headers, body, baseline, payload=""):
 
 
 # ── NoSQL injection (ptai web/nosql_fuzz.py) ───────────────────────────
-def nosql_detect(status, headers, body, baseline, payload=""):
+def nosql_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if status != 200 or not body:
         return False
     if '"token"' in body or '"authentication"' in body:
@@ -110,7 +122,9 @@ _TRACE_MARKERS = (
 )
 
 
-def forcederror_detect(status, headers, body, baseline, payload=""):
+def forcederror_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if not body:
         return False
     return any(m in body and m not in (baseline or "") for m in _TRACE_MARKERS)
@@ -121,7 +135,9 @@ def forcederror_detect(status, headers, body, baseline, payload=""):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def hidden_discovery_detect(status, headers, body, baseline, payload=""):
+def hidden_discovery_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     return status == 200 and bool(body) and body != baseline
 
 
@@ -138,13 +154,17 @@ _API_SENSITIVE = (
 )
 
 
-def api_discovery_detect(status, headers, body, baseline, payload=""):
+def api_discovery_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if status not in (200, 401, 403):
         return False
     return any(m in (payload or "") or m in body.lower() for m in _API_SENSITIVE)
 
 
-def sourcemap_detect(status, headers, body, baseline, payload=""):
+def sourcemap_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     return (
         status == 200
         and ('"sources":' in body or '"mappings":' in body)
@@ -152,7 +172,9 @@ def sourcemap_detect(status, headers, body, baseline, payload=""):
     )
 
 
-def cors_detect(status, headers, body, baseline, payload=""):
+def cors_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if not headers:
         return False
     acao = next((v for k, v in headers.items() if k.lower() == "access-control-allow-origin"), "")
@@ -167,7 +189,9 @@ def cors_detect(status, headers, body, baseline, payload=""):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def cookie_prefix_detect(status, headers, body, baseline, payload=""):
+def cookie_prefix_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if not headers:
         return False
     sc = " ".join(v for k, v in headers.items() if k.lower() == "set-cookie")
@@ -176,7 +200,9 @@ def cookie_prefix_detect(status, headers, body, baseline, payload=""):
     return "__Secure-" in sc and "secure" not in sc.lower()
 
 
-def open_redirect_detect(status, headers, body, baseline, payload=""):
+def open_redirect_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if status not in (301, 302, 303, 307, 308) or not headers:
         return False
     loc = next((v for k, v in headers.items() if k.lower() == "location"), "")
@@ -186,7 +212,9 @@ def open_redirect_detect(status, headers, body, baseline, payload=""):
 _SAML_SUCCESS = ("Welcome admin", "dashboard", "SAMLResponse accepted")
 
 
-def saml_xsw_detect(status, headers, body, baseline, payload=""):
+def saml_xsw_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if not body:
         return False
     loc = " ".join(v for k, v in (headers or {}).items() if k.lower() == "location")
@@ -202,7 +230,7 @@ def saml_xsw_detect(status, headers, body, baseline, payload=""):
 _MISSING = object()
 
 
-def _walk_for_field(blob, key):
+def _walk_for_field(blob: Any, key: str) -> Any:
     if isinstance(blob, dict):
         if key in blob:
             return blob[key]
@@ -218,7 +246,7 @@ def _walk_for_field(blob, key):
     return _MISSING
 
 
-def _is_elevated(expected, observed):
+def _is_elevated(expected: Any, observed: Any) -> bool:
     if observed is _MISSING or observed is None:
         return False
     if isinstance(expected, bool):
@@ -233,7 +261,9 @@ def _is_elevated(expected, observed):
     return str(observed).lower() == str(expected).lower()
 
 
-def mass_assignment_detect(status, headers, body, baseline, payload=""):
+def mass_assignment_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if status not in (200, 201) or not body:
         return False
     try:
@@ -250,7 +280,9 @@ def mass_assignment_detect(status, headers, body, baseline, payload=""):
     return False
 
 
-def business_logic_detect(status, headers, body, baseline, payload=""):
+def business_logic_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     case = (payload or "").strip().lower()
     b = (body or "").lower()
     if case in ("empty_registration", "out_of_range_rating"):
@@ -262,7 +294,9 @@ def business_logic_detect(status, headers, body, baseline, payload=""):
     return status in (200, 201) and ("deluxe" in b or ('"quantity":-' in b.replace(" ", "")))
 
 
-def type_confusion_detect(status, headers, body, baseline, payload=""):
+def type_confusion_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if status not in (200, 201) or not body:
         return False
     return bool(payload) and payload in body and payload not in (baseline or "")
@@ -271,7 +305,9 @@ def type_confusion_detect(status, headers, body, baseline, payload=""):
 _ATTACKER_HOST = "ptai-host-canary.example"
 
 
-def host_header_detect(status, headers, body, baseline, payload=""):
+def host_header_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if body and _ATTACKER_HOST in body:
         return True
     return any(_ATTACKER_HOST in str(v) for v in (headers or {}).values())
@@ -280,7 +316,9 @@ def host_header_detect(status, headers, body, baseline, payload=""):
 _PWRESET_SUCCESS = ("user", "success", "token", "authentication")
 
 
-def password_reset_detect(status, headers, body, baseline, payload=""):
+def password_reset_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if status != 200 or not body:
         return False
     lowered = body.lower()
@@ -290,14 +328,16 @@ def password_reset_detect(status, headers, body, baseline, payload=""):
 _HIGHRISK_PREFIXES = ("/admin", "/api/admin", "/api/internal", "/api/secrets", "/actuator")
 
 
-def _is_shell_or_empty(body):
+def _is_shell_or_empty(body: str) -> bool:
     if not body:
         return True
     stripped = body.lstrip().lower()
     return bool(stripped.startswith("<") and len(body) <= 800)
 
 
-def trusted_header_detect(status, headers, body, baseline, payload=""):
+def trusted_header_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     path = payload or ""
     if not any(path.startswith(p) for p in _HIGHRISK_PREFIXES):
         return False
@@ -309,7 +349,16 @@ def trusted_header_detect(status, headers, body, baseline, payload=""):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def wcd_detect(status, headers, body, baseline, payload="", *, anon_body=None, victim_body=None):
+def wcd_detect(
+    status: int,
+    headers: dict[str, str] | None,
+    body: str,
+    baseline: str,
+    payload: str = "",
+    *,
+    anon_body: str | None = None,
+    victim_body: str | None = None,
+) -> bool:
     a = anon_body if anon_body is not None else baseline
     v = victim_body if victim_body is not None else body
     if not a or not v or len(a) < 512:
@@ -318,24 +367,54 @@ def wcd_detect(status, headers, body, baseline, payload="", *, anon_body=None, v
 
 
 def captcha_replay_detect(
-    status, headers, body, baseline, payload="", *, first_status=None, second_status=None
-):
+    status: int,
+    headers: dict[str, str] | None,
+    body: str,
+    baseline: str,
+    payload: str = "",
+    *,
+    first_status: int | None = None,
+    second_status: int | None = None,
+) -> bool:
     return first_status == 201 and second_status == 201
 
 
 def oauth_pkce_detect(
-    status, headers, body, baseline, payload="", *, baseline_status=None, mutated_status=None
-):
+    status: int,
+    headers: dict[str, str] | None,
+    body: str,
+    baseline: str,
+    payload: str = "",
+    *,
+    baseline_status: int | None = None,
+    mutated_status: int | None = None,
+) -> bool:
     return baseline_status in (200, 302) and mutated_status in (200, 302)
 
 
-def race_condition_detect(status, headers, body, baseline, payload="", *, accepted_2xx=None):
+def race_condition_detect(
+    status: int,
+    headers: dict[str, str] | None,
+    body: str,
+    baseline: str,
+    payload: str = "",
+    *,
+    accepted_2xx: int | None = None,
+) -> bool:
     if accepted_2xx is None:
         return False
     return accepted_2xx > 1
 
 
-def smuggling_detect(status, headers, body, baseline, payload="", *, marker_echoed=None):
+def smuggling_detect(
+    status: int,
+    headers: dict[str, str] | None,
+    body: str,
+    baseline: str,
+    payload: str = "",
+    *,
+    marker_echoed: bool | None = None,
+) -> bool:
     if marker_echoed is None:
         return bool(payload) and payload in (body or "") and payload not in (baseline or "")
     return bool(marker_echoed)
@@ -355,7 +434,9 @@ _PROTO_CANARY = "yes-via-proto"
 _CTOR_CANARY = "yes-via-ctor"
 
 
-def prototype_pollution_detect(status, headers, body, baseline, payload=""):
+def prototype_pollution_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if not body:
         return False
     return (_PROTO_CANARY in body or _CTOR_CANARY in body) and (
@@ -363,7 +444,9 @@ def prototype_pollution_detect(status, headers, body, baseline, payload=""):
     )
 
 
-def cve_poc_detect(status, headers, body, baseline, payload=""):
+def cve_poc_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if not body:
         return False
     lc = body.lower()
@@ -378,7 +461,9 @@ def cve_poc_detect(status, headers, body, baseline, payload=""):
 _SSTI_PARTIAL = ("{{49}}", "${49}", "<%=49%>", "#{49}")
 
 
-def ssti_polyglot_detect(status, headers, body, baseline, payload=""):
+def ssti_polyglot_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if status == 0 or not body:
         return False
     if "49" in body and "49" not in (baseline or ""):
@@ -389,13 +474,17 @@ def ssti_polyglot_detect(status, headers, body, baseline, payload=""):
 SSTI_EVAL_MARKERS = ("49", "7777777", "343")
 
 
-def ssti_stored_detect(status, headers, body, baseline, payload=""):
+def ssti_stored_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if not body:
         return False
     return any(m in body and m not in (baseline or "") for m in SSTI_EVAL_MARKERS)
 
 
-def reflected_xss_detect(status, headers, body, baseline, payload=""):
+def reflected_xss_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if status == 0 or not body or not payload:
         return False
     ctype = ""
@@ -409,7 +498,15 @@ def reflected_xss_detect(status, headers, body, baseline, payload=""):
 _NEXTJS_HIGH_MARKERS = ("node_versions", "process.env", '"v8"', "child_process")
 
 
-def nextjs_detect(status, headers, body, baseline, payload="", *, elapsed_s=None):
+def nextjs_detect(
+    status: int,
+    headers: dict[str, str] | None,
+    body: str,
+    baseline: str,
+    payload: str = "",
+    *,
+    elapsed_s: float | None = None,
+) -> bool:
     if status == 0:
         return False
     if elapsed_s is not None and elapsed_s > 5.0:
@@ -433,7 +530,9 @@ _API_SENSITIVE_MARKERS = (
 )
 
 
-def api_path_discovery_detect(status, headers, body, baseline, payload=""):
+def api_path_discovery_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if status in (401, 403):
         return True
     if status == 200 and body:
@@ -444,13 +543,17 @@ def api_path_discovery_detect(status, headers, body, baseline, payload=""):
 _LEAK_MARKERS = ('"token"', '"jwt"', '"access_token"', '"authentication"')
 
 
-def leaked_credentials_detect(status, headers, body, baseline, payload=""):
+def leaked_credentials_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if status != 200 or not body:
         return False
     return any(m in body.lower() for m in _LEAK_MARKERS)
 
 
-def coupon_forging_detect(status, headers, body, baseline, payload=""):
+def coupon_forging_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if status != 200 or not body:
         return False
     lc = body.lower()
@@ -463,20 +566,26 @@ def coupon_forging_detect(status, headers, body, baseline, payload=""):
     )
 
 
-def file_upload_detect(status, headers, body, baseline, payload=""):
+def file_upload_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if status not in (200, 201) or not body:
         return False
     lc = body.lower()
     return "uploaded" in lc or "success" in lc or '"filename"' in lc or "location" in lc
 
 
-def graphql_detect(status, headers, body, baseline, payload=""):
+def graphql_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if status != 200 or not body:
         return False
     return "__schema" in body or ('"data"' in body and '"types"' in body)
 
 
-def cookie_prefix_bypass_detect(status, headers, body, baseline, payload=""):
+def cookie_prefix_bypass_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if not headers:
         return False
     sc = " ".join(v for k, v in headers.items() if k.lower() == "set-cookie")
@@ -494,7 +603,9 @@ _SECURITY_HEADERS = (
 )
 
 
-def response_headers_detect(status, headers, body, baseline, payload=""):
+def response_headers_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if status == 0 or not headers:
         return False
     present = {k.lower() for k in headers}
@@ -502,7 +613,9 @@ def response_headers_detect(status, headers, body, baseline, payload=""):
     return len(missing) >= 1
 
 
-def idor_authenticated_detect(status, headers, body, baseline, payload=""):
+def idor_authenticated_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if status != 200 or not body:
         return False
     ctype = ""
@@ -511,7 +624,9 @@ def idor_authenticated_detect(status, headers, body, baseline, payload=""):
     return "json" in ctype and body != baseline and ('"id"' in body or '"email"' in body)
 
 
-def idor_sequential_detect(status, headers, body, baseline, payload=""):
+def idor_sequential_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if status != 200 or not body:
         return False
     return body != baseline and ('"id"' in body or '"email"' in body or '"order"' in body.lower())
@@ -529,13 +644,17 @@ _SECRET_KEYWORDS = (
 )
 
 
-def asset_secrets_detect(status, headers, body, baseline, payload=""):
+def asset_secrets_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if status != 200 or not body:
         return False
     return any(k in body.lower() for k in _SECRET_KEYWORDS)
 
 
-def exif_metadata_detect(status, headers, body, baseline, payload=""):
+def exif_metadata_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if status != 200 or not body:
         return False
     lc = body.lower()
@@ -546,14 +665,18 @@ _WEB3_SANDBOX = ("solidity", "compile", "solc")
 _WEB3_MINT = ("minted", "tokenid")
 
 
-def web3_detect(status, headers, body, baseline, payload=""):
+def web3_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if status != 200 or not body:
         return False
     lc = body.lower()
     return any(m in lc for m in _WEB3_SANDBOX) or any(m in lc for m in _WEB3_MINT)
 
 
-def ai_recon_detect(status, headers, body, baseline, payload=""):
+def ai_recon_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if status != 200 or not body:
         return False
     lc = body.lower()
@@ -562,7 +685,9 @@ def ai_recon_detect(status, headers, body, baseline, payload=""):
     )
 
 
-def privesc_patch_detect(status, headers, body, baseline, payload=""):
+def privesc_patch_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if status not in (200, 204) or not body:
         return False
     nospace = body.lower().replace(" ", "")
@@ -583,7 +708,9 @@ _SESSION_COOKIE_MARKERS = (
 _LOGIN_PATH_FRAGMENTS = ("/login", "/signin", "/sign_in", "/auth", "/sessions/new")
 
 
-def sqli_login_bypass_detect(status, headers, body, baseline, payload=""):
+def sqli_login_bypass_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     hdrs = headers or {}
     if body:
         lc = body.lower()
@@ -624,7 +751,9 @@ SQL_ERROR_MARKERS = (
 _UNION_LEAK_MARKERS = ('"name":"2"', '"name":"1"')
 
 
-def ssti_detect(status, headers, body, baseline, payload=""):
+def ssti_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if status == 0 or not body:
         return False
     if any(m in body and m not in baseline for m in SSTI_EVAL_MARKERS):
@@ -633,7 +762,9 @@ def ssti_detect(status, headers, body, baseline, payload=""):
     return any(m.lower() in bl and m.lower() not in bs for m in SSTI_ERROR_MARKERS)
 
 
-def sqli_detect(status, headers, body, baseline, payload=""):
+def sqli_detect(
+    status: int, headers: dict[str, str] | None, body: str, baseline: str, payload: str = ""
+) -> bool:
     if not body:
         return False
     bl, bs = body.lower(), baseline.lower() if baseline else ""
@@ -647,7 +778,7 @@ def sqli_detect(status, headers, body, baseline, payload=""):
 # Oracle registration — every probe mapped with correct tier
 # ═══════════════════════════════════════════════════════════════════════════
 
-PROBE_DEFS = [
+PROBE_DEFS: list[tuple[str, str, str, ProbeDetector | None, str]] = [
     # experimental tier — single-response marker/echo detectors
     (
         "ptai_path_traversal",
@@ -973,8 +1104,11 @@ PROBE_DEFS = [
 PROBE_DEFS = [(id, kind, honesty, detect, tier) for (id, kind, honesty, detect, tier) in PROBE_DEFS]
 
 
-def _oracle_check(detect_fn):
-    def check(finding, lab_output, observations):
+ProbeDetector = Callable[..., bool]
+
+
+def _oracle_check(detect_fn: ProbeDetector) -> OracleCheckFn:
+    def check(finding: dict[str, Any], lab_output: str, observations: dict[str, Any]) -> bool:
         kwargs = {k.replace("_", ""): v for k, v in finding.items() if k.startswith("_")}
         return detect_fn(
             finding.get("status", 200),
@@ -988,7 +1122,7 @@ def _oracle_check(detect_fn):
     return check
 
 
-def register_ported_oracles():
+def register_ported_oracles() -> None:
     for id, kind, honesty, detect_fn, tier in PROBE_DEFS:
         if detect_fn is None:
             continue  # oob probes bind via oast_callback, not here
@@ -999,14 +1133,14 @@ def register_ported_oracles():
         )
 
 
-def probe_fidelity_split() -> dict:
-    tiers = {"experimental": 0, "differential": 0, "oob": 0}
+def probe_fidelity_split() -> dict[str, int]:
+    tiers: dict[str, int] = {"experimental": 0, "differential": 0, "oob": 0}
     for _, _, _, _, tier in PROBE_DEFS:
         tiers[tier] = tiers.get(tier, 0) + 1
     return tiers
 
 
-def ability_coverage() -> dict:
+def ability_coverage() -> dict[str, int]:
     from .oracles import ORACLES
 
     ptai = [k for k in ORACLES if k.startswith("ptai_")]

@@ -34,10 +34,12 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
+
+from portal.platform.wiki.schema import KnowledgeUnit
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -48,10 +50,11 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 # here — this gate must hold in CI on a bare clone.
 
 
-def _load_portal_yaml(root: Path) -> dict:
+def _load_portal_yaml(root: Path) -> dict[str, Any]:
     import yaml
 
-    return yaml.safe_load((root / "config" / "portal.yaml").read_text(encoding="utf-8")) or {}
+    data = yaml.safe_load((root / "config" / "portal.yaml").read_text(encoding="utf-8")) or {}
+    return cast(dict[str, Any], data)
 
 
 def _workspace_names(root: Path) -> list[str]:
@@ -86,7 +89,7 @@ def _probe_workspaces_functional(root: Path) -> int:
     return _probe_workspaces_total(root) - _probe_workspaces_bench(root)
 
 
-def _fleet(root: Path) -> list[dict]:
+def _fleet(root: Path) -> list[dict[str, Any]]:
     return [e for e in (_load_portal_yaml(root).get("mcp_fleet") or []) if isinstance(e, dict)]
 
 
@@ -148,7 +151,7 @@ def _probe_generated_blocks(root: Path) -> int:
     return total
 
 
-def _backend_entries(root: Path) -> list[dict]:
+def _backend_entries(root: Path) -> list[dict[str, Any]]:
     import yaml
 
     data = yaml.safe_load((root / "config" / "backends.yaml").read_text(encoding="utf-8")) or {}
@@ -174,7 +177,7 @@ def _probe_backend_types(root: Path) -> list[str]:
     return sorted({str(e["type"]) for e in _backend_entries(root) if e.get("type")})
 
 
-def _modules_generated(root: Path) -> dict:
+def _modules_generated(root: Path) -> dict[str, bool]:
     import yaml
 
     data = (
@@ -391,7 +394,11 @@ def _probe_compliance_workspace_tools(root: Path) -> list[str]:
         f["function"]["name"] for f in json.loads(manifest_json.read_text(encoding="utf-8"))
     }
     dispatch_block = re.search(
-        r"_DISPATCH\s*=\s*\{(.*?)\n\}", mcp_py.read_text(encoding="utf-8"), re.S
+        # tolerate an optional `: dict[str, Callable[..., Any]]` annotation
+        # between the name and the `=` (mypy-strict style)
+        r"_DISPATCH\s*(?::\s*[^=\n]+)?=\s*\{(.*?)\n\}",
+        mcp_py.read_text(encoding="utf-8"),
+        re.S,
     )
     dispatch = (
         set(re.findall(r'"([a-z_0-9]+)":', dispatch_block.group(1))) if dispatch_block else set()
@@ -487,7 +494,10 @@ class ClaimViolation:
         )
 
 
-def evaluate_claims(units=None, repo_root: Path | None = None) -> list[ClaimViolation]:
+def evaluate_claims(
+    units: Sequence[KnowledgeUnit] | None = None,
+    repo_root: Path | None = None,
+) -> list[ClaimViolation]:
     """Check every declared claim on every unit against its live probe.
 
     Supported operators:
@@ -557,7 +567,7 @@ def evaluate_claims(units=None, repo_root: Path | None = None) -> list[ClaimViol
     return violations
 
 
-def claim_count(units=None) -> int:
+def claim_count(units: Sequence[KnowledgeUnit] | None = None) -> int:
     """How many claims are declared across the store — the coverage numerator."""
     if units is None:
         from portal.platform.wiki.store import load_all
@@ -566,7 +576,7 @@ def claim_count(units=None) -> int:
     return sum(len(getattr(u, "claims", None) or []) for u in units)
 
 
-def fact_unit_ids(units=None) -> set[str]:
+def fact_unit_ids(units: Sequence[KnowledgeUnit] | None = None) -> set[str]:
     """KEEP-FACT set (P0 A2/A4): units with `claims` plus `unit-fact-*`. The
     only set AW's generated-block-currency check governs post-P0."""
     if units is None:

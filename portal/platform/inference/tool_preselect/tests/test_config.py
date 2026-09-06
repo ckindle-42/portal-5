@@ -15,80 +15,81 @@ from portal.platform.inference.tool_preselect.config import (
 
 
 class TestGlobalFlag:
-    def test_default_off(self):
+    def test_default_off(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
             assert global_preselect_enabled() is False
 
-    def test_explicit_on(self):
+    def test_explicit_on(self) -> None:
         with patch.dict(os.environ, {"PORTAL5_TOOL_PRESELECT": "1"}):
             assert global_preselect_enabled() is True
 
-    def test_explicit_off(self):
+    def test_explicit_off(self) -> None:
         with patch.dict(os.environ, {"PORTAL5_TOOL_PRESELECT": "0"}):
             assert global_preselect_enabled() is False
 
 
 class TestPreselectModel:
-    def test_default_model(self):
+    def test_default_model(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
             assert "MiniCPM5" in preselect_model()
 
-    def test_env_override(self):
+    def test_env_override(self) -> None:
         with patch.dict(os.environ, {"PORTAL5_TOOL_PRESELECT_MODEL": "custom:tag"}):
             assert preselect_model() == "custom:tag"
 
 
 class TestDefaultK:
-    def test_bypass_at_low_count(self):
+    def test_bypass_at_low_count(self) -> None:
         assert default_k(5) == 0
         assert default_k(3) == 0
 
-    def test_mid_range_default_5(self):
+    def test_mid_range_default_5(self) -> None:
         assert default_k(6) == 5
         assert default_k(15) == 5
 
-    def test_high_range_scales(self):
+    def test_high_range_scales(self) -> None:
         assert default_k(16) == min(8, 7)  # ceil(16*0.4) = 7
         assert default_k(30) == 8  # ceil(30*0.4) = 12, capped at 8
 
 
 class TestResolveWorkspaceConfig:
-    def test_no_block_returns_none(self):
+    def test_no_block_returns_none(self) -> None:
         assert resolve_workspace_config({}, 10) is None
 
-    def test_not_enabled_returns_none(self):
+    def test_not_enabled_returns_none(self) -> None:
         assert resolve_workspace_config({"tool_preselect": {"enabled": False}}, 10) is None
 
-    def test_enabled_uses_default_k(self):
+    def test_enabled_uses_default_k(self) -> None:
         result = resolve_workspace_config({"tool_preselect": {"enabled": True}}, 10)
         assert result is not None
         assert result.k == 5
         assert result.confidence_floor == 0.5
 
-    def test_enabled_with_overrides(self):
+    def test_enabled_with_overrides(self) -> None:
         result = resolve_workspace_config(
             {"tool_preselect": {"enabled": True, "k": 3, "confidence_floor": 0.7}}, 10
         )
+        assert result is not None
         assert result.k == 3
         assert result.confidence_floor == 0.7
 
 
 class TestIsPreselectEnabled:
-    def test_global_off_disables_regardless_of_workspace(self):
+    def test_global_off_disables_regardless_of_workspace(self) -> None:
         with patch.dict(os.environ, {"PORTAL5_TOOL_PRESELECT": "0"}):
             cfg = {"tool_preselect": {"enabled": True}, "tools": list(range(10))}
             assert is_preselect_enabled("ws", cfg) is False
 
-    def test_global_on_but_no_workspace_optin(self):
+    def test_global_on_but_no_workspace_optin(self) -> None:
         with patch.dict(os.environ, {"PORTAL5_TOOL_PRESELECT": "1"}):
             assert is_preselect_enabled("ws", {}) is False
 
-    def test_both_on_enables(self):
+    def test_both_on_enables(self) -> None:
         with patch.dict(os.environ, {"PORTAL5_TOOL_PRESELECT": "1"}):
             cfg = {"tool_preselect": {"enabled": True}, "tools": list(range(10))}
             assert is_preselect_enabled("ws-both-on", cfg) is True
 
-    def test_auto_disabled_workspace_returns_false(self):
+    def test_auto_disabled_workspace_returns_false(self) -> None:
         from portal.platform.inference.tool_preselect import state
 
         state.reset("ws-autodisabled")

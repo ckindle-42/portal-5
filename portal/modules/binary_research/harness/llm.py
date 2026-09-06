@@ -34,8 +34,8 @@ class ToolCall:
 class LLMResponse:
     content: str | None = None
     tool_calls: list[ToolCall] = field(default_factory=list)
-    raw: dict = field(default_factory=dict)
-    usage: dict = field(default_factory=dict)
+    raw: dict[str, Any] = field(default_factory=dict)
+    usage: dict[str, Any] = field(default_factory=dict)
 
     @property
     def has_tool_calls(self) -> bool:
@@ -43,7 +43,9 @@ class LLMResponse:
 
 
 def complete(
-    config: LLMConfig, messages: list[dict], tools: list[dict] | None = None
+    config: LLMConfig,
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]] | None = None,
 ) -> LLMResponse:
     url = f"{config.base_url.rstrip('/')}/chat/completions"
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {config.api_key}"}

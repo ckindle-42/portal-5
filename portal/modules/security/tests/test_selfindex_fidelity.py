@@ -12,6 +12,10 @@ from __future__ import annotations
 
 import json
 import subprocess
+from pathlib import Path
+from typing import Any
+
+import pytest
 
 from portal.modules.security.core.scoring import classify_effort_tier
 from portal.modules.security.core.self_index import (
@@ -25,7 +29,13 @@ from portal.modules.security.core.self_index import (
 )
 
 
-def _chain_entry(*, lab_success=False, refused=False, unique_coverage=0.0, scenario="s") -> dict:
+def _chain_entry(
+    *,
+    lab_success: bool = False,
+    refused: bool = False,
+    unique_coverage: float = 0.0,
+    scenario: str = "s",
+) -> dict[str, Any]:
     return {
         "scenario": scenario,
         "lab_success": lab_success,
@@ -35,13 +45,13 @@ def _chain_entry(*, lab_success=False, refused=False, unique_coverage=0.0, scena
 
 
 class _FakeCompletedProcess:
-    def __init__(self, returncode, stdout):
+    def __init__(self, returncode: int, stdout: str) -> None:
         self.returncode = returncode
         self.stdout = stdout
 
 
 class TestCoverageFromChain:
-    def test_counts_resolved_and_verified_strictly_from_lab_success(self):
+    def test_counts_resolved_and_verified_strictly_from_lab_success(self) -> None:
         entries = [_chain_entry(lab_success=True) for _ in range(20)] + [
             _chain_entry(lab_success=False, refused=True),
             _chain_entry(lab_success=False, refused=False, unique_coverage=0.7),
@@ -49,6 +59,7 @@ class TestCoverageFromChain:
             _chain_entry(lab_success=False, refused=False, unique_coverage=0.0),
         ]
         cov = _coverage_from_chain({"chain_tests": entries})
+        assert cov is not None
 
         assert cov["resolved"] == 24
         assert cov["verified"] == 20
@@ -65,20 +76,21 @@ class TestCoverageFromChain:
         assert cov["tier_tally"] == expected_tally
         assert cov["tier_tally"]["verified_success"] == 20
 
-    def test_none_when_no_chain_tests(self):
+    def test_none_when_no_chain_tests(self) -> None:
         assert _coverage_from_chain({"chain_tests": []}) is None
         assert _coverage_from_chain({}) is None
 
-    def test_never_fabricates_verified_from_partial_success(self):
+    def test_never_fabricates_verified_from_partial_success(self) -> None:
         """unique_coverage alone (honest_partial) must never count toward verified."""
         entries = [_chain_entry(lab_success=False, unique_coverage=0.9) for _ in range(5)]
         cov = _coverage_from_chain({"chain_tests": entries})
+        assert cov is not None
         assert cov["verified"] == 0
         assert cov["tier_tally"]["honest_partial"] == 5
 
 
 class TestCoverageFromMatrix:
-    def test_extracts_flat_matrix_fields(self):
+    def test_extracts_flat_matrix_fields(self) -> None:
         data = {
             "matrix_results": {
                 "total_units": 10,
@@ -89,17 +101,20 @@ class TestCoverageFromMatrix:
             }
         }
         cov = _coverage_from_matrix(data)
+        assert cov is not None
         assert cov["resolved"] == 10
         assert cov["verified"] == 3
 
-    def test_none_when_matrix_empty_or_zero(self):
+    def test_none_when_matrix_empty_or_zero(self) -> None:
         assert _coverage_from_matrix({"matrix_results": {}}) is None
         assert _coverage_from_matrix({"matrix_results": {"total_units": 0}}) is None
         assert _coverage_from_matrix({}) is None
 
 
 class TestReadCoverageSelection:
-    def test_picks_newest_real_coverage_across_both_dirs_and_schemas(self, monkeypatch, tmp_path):
+    def test_picks_newest_real_coverage_across_both_dirs_and_schemas(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         results_dir = tmp_path / "results"
         extra_dir = tmp_path / "extra_results"
         results_dir.mkdir()
@@ -129,7 +144,9 @@ class TestReadCoverageSelection:
         assert cov["total_units"] == 24
         assert cov["verified"] == 20
 
-    def test_stale_when_only_empty_files_present(self, monkeypatch, tmp_path):
+    def test_stale_when_only_empty_files_present(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         results_dir = tmp_path / "results"
         extra_dir = tmp_path / "extra_results"
         results_dir.mkdir()
@@ -144,7 +161,9 @@ class TestReadCoverageSelection:
 
 
 class TestValidatorJsonParsing:
-    def test_parses_multiline_pretty_printed_json_with_preamble(self, monkeypatch):
+    def test_parses_multiline_pretty_printed_json_with_preamble(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Reproduces the real bug shape: non-JSON preamble text + indent=2 JSON block."""
         payload = {
             "elapsed_ms": 100,
@@ -162,7 +181,9 @@ class TestValidatorJsonParsing:
         assert data["passes"] == 20
         assert data["fails"] == 4
 
-    def test_nonzero_returncode_is_not_treated_as_absent(self, monkeypatch):
+    def test_nonzero_returncode_is_not_treated_as_absent(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """validate_system.py exits 1 whenever fails > 0 — that's real signal, not a crash."""
         payload = {"elapsed_ms": 1, "passes": 1, "fails": 1, "warns": 0, "skips": 0, "results": []}
         monkeypatch.setattr(
@@ -174,14 +195,14 @@ class TestValidatorJsonParsing:
         assert health["status"] == "present"
         assert health["fails"] == 1
 
-    def test_empty_stdout_is_honestly_absent(self, monkeypatch):
+    def test_empty_stdout_is_honestly_absent(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(subprocess, "run", lambda *a, **kw: _FakeCompletedProcess(1, ""))
         assert _run_validator_json() is None
         health = _read_validator_health()
         assert health["status"] == "absent"
         assert health["passes"] == 0
 
-    def test_unparseable_stdout_is_honestly_absent(self, monkeypatch):
+    def test_unparseable_stdout_is_honestly_absent(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(
             subprocess, "run", lambda *a, **kw: _FakeCompletedProcess(1, "not json at all")
         )
@@ -189,11 +210,11 @@ class TestValidatorJsonParsing:
 
 
 class TestAntiRecursionGuard:
-    def test_nested_env_var_still_passed(self, monkeypatch):
+    def test_nested_env_var_still_passed(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Guards commit 605845d's fork bug: the nested-run env var must still be set."""
-        captured = {}
+        captured: dict[str, Any] = {}
 
-        def _fake_run(*args, **kwargs):
+        def _fake_run(*args: Any, **kwargs: Any) -> _FakeCompletedProcess:
             captured.update(kwargs)
             return _FakeCompletedProcess(0, json.dumps({"passes": 1, "fails": 0, "results": []}))
 
@@ -203,7 +224,9 @@ class TestAntiRecursionGuard:
 
 
 class TestReadOnlyGuarantee:
-    def test_no_writes_outside_report(self, monkeypatch, tmp_path):
+    def test_no_writes_outside_report(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         empty = tmp_path / "empty_no_writes"
         empty.mkdir()
         monkeypatch.setattr("portal.modules.security.core.self_index._RESULTS_DIR", empty)

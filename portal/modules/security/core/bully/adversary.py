@@ -99,10 +99,10 @@ def _classify_category(text: str) -> str | None:
     return None
 
 
-CallModelFn = Callable[..., dict]
+CallModelFn = Callable[..., dict[str, Any]]
 
 
-def _default_call_model(model: str, messages: list[dict]) -> dict:
+def _default_call_model(model: str, messages: list[dict[str, Any]]) -> dict[str, Any]:
     from ..agentic_blue_eval import _call_model
 
     return _call_model(model, messages, max_tokens=1200)
@@ -118,7 +118,7 @@ _REVIEW_SYSTEM_PROMPT = (
 )
 
 
-def _render_packet(candidate_row: dict, context: dict) -> str:
+def _render_packet(candidate_row: dict[str, Any], context: dict[str, Any]) -> str:
     lines = [
         f"candidate_id: {candidate_row.get('candidate_id')}",
         f"current_state: {candidate_row.get('current_state')}",
@@ -130,7 +130,11 @@ def _render_packet(candidate_row: dict, context: dict) -> str:
 
 
 def _run_seat(
-    seat: dict[str, str], candidate_row: dict, context: dict, *, call_model: CallModelFn
+    seat: dict[str, str],
+    candidate_row: dict[str, Any],
+    context: dict[str, Any],
+    *,
+    call_model: CallModelFn,
 ) -> CouncilOpinionRecord:
     packet_text = _render_packet(candidate_row, context)
     try:
@@ -171,7 +175,14 @@ def _run_seat(
 
 
 def _record_event(
-    store: Store, *, hunt_id, actor: str, kind: str, subject_id: str, rationale: str, data: dict
+    store: Store,
+    *,
+    hunt_id: str | None,
+    actor: str,
+    kind: str,
+    subject_id: str,
+    rationale: str,
+    data: dict[str, Any],
 ) -> None:
     store.record_decision(
         DecisionEvent(
@@ -188,8 +199,8 @@ def _record_event(
 
 
 def review(
-    candidate_row: dict,
-    context: dict | None = None,
+    candidate_row: dict[str, Any],
+    context: dict[str, Any] | None = None,
     *,
     store: Store,
     hunt_config: dict[str, Any] | None = None,

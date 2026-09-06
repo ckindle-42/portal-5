@@ -8,13 +8,15 @@ is folded into the delta as ground truth.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from portal.modules.security.core.objective_executor import SecurityExecutor
 from portal.modules.security.core.perception import LabPerception, OutOfScopeError
 
 
-def _decision(**overrides) -> dict:
+def _decision(**overrides: Any) -> dict[str, Any]:
     base = {
         "action": "run_nmap_scan",
         "tool": "run_nmap_scan",
@@ -30,10 +32,10 @@ def _decision(**overrides) -> dict:
     return base
 
 
-def test_execute_dispatches_real_tool(monkeypatch):
-    calls = []
+def test_execute_dispatches_real_tool(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[str, dict[str, Any], bool]] = []
 
-    def fake_dispatch(fn_name, fn_args, dry_run=False):
+    def fake_dispatch(fn_name: str, fn_args: dict[str, Any], dry_run: bool = False) -> str:
         calls.append((fn_name, fn_args, dry_run))
         return "OK: scan complete"
 
@@ -57,12 +59,16 @@ def test_execute_dispatches_real_tool(monkeypatch):
         "nxc",
     ],
 )
-def test_execute_dispatches_only_allowlisted_read_only_binary(monkeypatch, selected_tool):
-    calls = []
-    monkeypatch.setattr(
-        "portal.modules.security.core.lab.lab_dispatch",
-        lambda name, args, dry_run=False: calls.append((name, args, dry_run)) or "OK",
-    )
+def test_execute_dispatches_only_allowlisted_read_only_binary(
+    monkeypatch: pytest.MonkeyPatch, selected_tool: str
+) -> None:
+    calls: list[tuple[str, dict[str, Any], bool]] = []
+
+    def fake_dispatch(fn_name: str, fn_args: dict[str, Any], dry_run: bool = False) -> str:
+        calls.append((fn_name, fn_args, dry_run))
+        return "OK"
+
+    monkeypatch.setattr("portal.modules.security.core.lab.lab_dispatch", fake_dispatch)
 
     result = SecurityExecutor().execute(
         _decision(action="ldap_probe", tool=selected_tool),
@@ -86,12 +92,16 @@ def test_execute_dispatches_only_allowlisted_read_only_binary(monkeypatch, selec
         "metasploit",
     ],
 )
-def test_execute_non_allowlisted_binary_retains_capability_fallback(monkeypatch, selected_tool):
-    calls = []
-    monkeypatch.setattr(
-        "portal.modules.security.core.lab.lab_dispatch",
-        lambda name, args, dry_run=False: calls.append((name, args, dry_run)) or "UP",
-    )
+def test_execute_non_allowlisted_binary_retains_capability_fallback(
+    monkeypatch: pytest.MonkeyPatch, selected_tool: str
+) -> None:
+    calls: list[tuple[str, dict[str, Any], bool]] = []
+
+    def fake_dispatch(fn_name: str, fn_args: dict[str, Any], dry_run: bool = False) -> str:
+        calls.append((fn_name, fn_args, dry_run))
+        return "UP"
+
+    monkeypatch.setattr("portal.modules.security.core.lab.lab_dispatch", fake_dispatch)
 
     result = SecurityExecutor().execute(
         _decision(action="smb_probe", tool=selected_tool),
@@ -103,12 +113,14 @@ def test_execute_non_allowlisted_binary_retains_capability_fallback(monkeypatch,
     assert result["observation_delta"]["last_tool"] == "smb_probe"
 
 
-def test_scope_guard_fires_before_dispatch(monkeypatch):
-    calls = []
-    monkeypatch.setattr(
-        "portal.modules.security.core.lab.lab_dispatch",
-        lambda *a, **k: calls.append(a) or "unreachable",
-    )
+def test_scope_guard_fires_before_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[str, dict[str, Any], bool]] = []
+
+    def fake_dispatch(fn_name: str, fn_args: dict[str, Any], dry_run: bool = False) -> str:
+        calls.append((fn_name, fn_args, dry_run))
+        return "unreachable"
+
+    monkeypatch.setattr("portal.modules.security.core.lab.lab_dispatch", fake_dispatch)
 
     ex = SecurityExecutor()
     decision = _decision(args={"target": "8.8.8.8"})
@@ -117,11 +129,13 @@ def test_scope_guard_fires_before_dispatch(monkeypatch):
     assert calls == []  # guard fires before any dispatch leaves the box
 
 
-def test_observation_delta_never_carries_predicted_delta(monkeypatch):
-    monkeypatch.setattr(
-        "portal.modules.security.core.lab.lab_dispatch",
-        lambda *a, **k: "OK",
-    )
+def test_observation_delta_never_carries_predicted_delta(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_dispatch(fn_name: str, fn_args: dict[str, Any], dry_run: bool = False) -> str:
+        return "OK"
+
+    monkeypatch.setattr("portal.modules.security.core.lab.lab_dispatch", fake_dispatch)
     ex = SecurityExecutor()
     decision = _decision(expected_observation_delta={"technique_attempted": "should_never_appear"})
     result = ex.execute(decision, {"observations": {}, "history": []})
@@ -130,19 +144,21 @@ def test_observation_delta_never_carries_predicted_delta(monkeypatch):
     assert "should_never_appear" not in str(result["observation_delta"])
 
 
-def test_oracle_result_from_real_verify_finding(monkeypatch):
-    monkeypatch.setattr(
-        "portal.modules.security.core.lab.lab_dispatch",
-        lambda *a, **k: "reflected payload in response",
-    )
+def test_oracle_result_from_real_verify_finding(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_dispatch(fn_name: str, fn_args: dict[str, Any], dry_run: bool = False) -> str:
+        return "reflected payload in response"
+
+    monkeypatch.setattr("portal.modules.security.core.lab.lab_dispatch", fake_dispatch)
 
     class _FakeVerdict:
         verified = True
 
-    monkeypatch.setattr(
-        "portal.modules.security.core.oracles.verify_finding",
-        lambda finding, lab_output, observations: _FakeVerdict(),
-    )
+    def fake_verify(
+        finding: dict[str, Any], lab_output: str, observations: dict[str, Any]
+    ) -> _FakeVerdict:
+        return _FakeVerdict()
+
+    monkeypatch.setattr("portal.modules.security.core.oracles.verify_finding", fake_verify)
 
     ex = SecurityExecutor()
     decision = _decision(expected_oracle="reflection")
@@ -152,11 +168,13 @@ def test_oracle_result_from_real_verify_finding(monkeypatch):
     assert result["observation_delta"]["oracle:reflection"] is True
 
 
-def test_perception_folded_into_delta_as_ground_truth(monkeypatch):
-    monkeypatch.setattr(
-        "portal.modules.security.core.lab.lab_dispatch",
-        lambda *a, **k: "OK",
-    )
+def test_perception_folded_into_delta_as_ground_truth(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_dispatch(fn_name: str, fn_args: dict[str, Any], dry_run: bool = False) -> str:
+        return "OK"
+
+    monkeypatch.setattr("portal.modules.security.core.lab.lab_dispatch", fake_dispatch)
     perception = LabPerception(
         prober=lambda hosts: {
             "services": [{"host": hosts[0], "up": True}],

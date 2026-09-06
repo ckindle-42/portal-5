@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import os
 import subprocess
+from typing import Any, cast
 
 from .policy import Policy
 from .re_client import REClient, REClientError
 
 
-def _tool_schemas() -> list[dict]:
+def _tool_schemas() -> list[dict[str, Any]]:
     return [
         {
             "type": "function",
@@ -212,13 +213,18 @@ def tool_bash(
     return _bash_container(policy, command, re_client, project)
 
 
-_DISPATCH = {"read": tool_read, "write": tool_write, "edit": tool_edit, "bash": tool_bash}
+_DISPATCH: dict[str, Any] = {
+    "read": tool_read,
+    "write": tool_write,
+    "edit": tool_edit,
+    "bash": tool_bash,
+}
 
 
 def run_tool(
     policy: Policy,
     name: str,
-    arguments: dict,
+    arguments: dict[str, Any],
     *,
     re_client: REClient | None = None,
     project: str = "",
@@ -228,8 +234,8 @@ def run_tool(
         return f"ERROR: unknown tool {name!r}. Available: {sorted(_DISPATCH)}"
     if name == "bash":
         return tool_bash(policy, re_client=re_client, project=project, **arguments)
-    return fn(policy, **arguments)
+    return cast(str, fn(policy, **arguments))
 
 
-def get_schemas() -> list[dict]:
+def get_schemas() -> list[dict[str, Any]]:
     return _tool_schemas()

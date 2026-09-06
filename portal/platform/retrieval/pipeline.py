@@ -62,20 +62,20 @@ class Composition:
     tname: Callable[[str], str]
     vname: Callable[[str], str]
     list_kbs: Callable[[], list[str]]
-    read_stamp: Callable[[str], dict | None]
+    read_stamp: Callable[[str], dict[str, Any] | None]
     write_stamp: Callable[..., None]
     assert_embedding_space: Callable[..., None]
     # embedding service
     vl_model_id: Callable[[], Awaitable[tuple[str, int]]]
-    vl_embed: Callable[..., Awaitable[list]]
-    vl_embed_batch: Callable[[list], Awaitable[list]]
-    vl_rerank: Callable[[str, list, int], Awaitable[list]]
+    vl_embed: Callable[..., Awaitable[list[float]]]
+    vl_embed_batch: Callable[[list[dict[str, Any]]], Awaitable[list[list[float]]]]
+    vl_rerank: Callable[..., Awaitable[list[dict[str, Any]]]]
     unavailable_error: type[BaseException]
     # content stages
-    chunk: Callable[..., list]
+    chunk: Callable[..., list[tuple[int, int, str, int, str]]]
     read_text: Callable[[Path], Awaitable[str]]
-    render_pages: Callable[..., list]
-    figure_pages: Callable[[list], list]
+    render_pages: Callable[..., list[tuple[int, str]]]
+    figure_pages: Callable[..., list[tuple[int, str]]]
     transcribe_page: Callable[[str], Awaitable[str]]
     # config
     pages_dir: Path
@@ -83,16 +83,16 @@ class Composition:
     transcribe_figures: bool = False
     table_prefix: str = "kb_"
     file_suffixes: tuple[str, ...] = _DEFAULT_SUFFIXES
-    stage_set: dict = field(default_factory=dict)
+    stage_set: dict[str, Any] = field(default_factory=dict)
     # SUBSTRATE_MIGRATION_V1 P3 — stages that each invalidate an index:
-    read_document: Callable[[Path], Awaitable[tuple]] | None = None  # P3.2
+    read_document: Callable[[Path], Awaitable[tuple[str, Any | None]]] | None = None  # P3.2
     visual_scope: str = "all"  # P3.1 — "all" | "figures"
     contextualize: bool = False  # P3.4 — embed heading path + text
     fts: bool = False  # P3.3 — BM25 sparse arm
 
 
 # ── ingest ────────────────────────────────────────────────────────────────────
-async def _ingest_text(comp: Composition, ttbl, kb_id: str, f: Path, rel: str) -> int:
+async def _ingest_text(comp: Composition, ttbl: Any, kb_id: str, f: Path, rel: str) -> int:
     doc = None
     if comp.read_document is not None:
         text, doc = await comp.read_document(f)
@@ -127,7 +127,9 @@ async def _ingest_text(comp: Composition, ttbl, kb_id: str, f: Path, rel: str) -
     return len(rows)
 
 
-async def _ingest_pages(comp: Composition, vtbl, kb_id: str, f: Path, rel: str) -> tuple[int, list]:
+async def _ingest_pages(
+    comp: Composition, vtbl: Any, kb_id: str, f: Path, rel: str
+) -> tuple[int, list[tuple[int, str]]]:
     pages = comp.render_pages(str(f), comp.pages_dir / kb_id)
     if not pages:
         return 0, []
@@ -155,7 +157,7 @@ async def _ingest_pages(comp: Composition, vtbl, kb_id: str, f: Path, rel: str) 
 
 
 async def _ingest_page_transcripts(
-    comp: Composition, ttbl, kb_id: str, f: Path, rel: str, pages: list
+    comp: Composition, ttbl: Any, kb_id: str, f: Path, rel: str, pages: list[tuple[int, str]]
 ) -> int:
     figures = comp.figure_pages(pages)
     if not figures:
@@ -183,7 +185,9 @@ async def _ingest_page_transcripts(
     return len(rows)
 
 
-async def ingest_document(comp: Composition, kb_id: str, source_dir: Path, rebuild: bool) -> dict:
+async def ingest_document(
+    comp: Composition, kb_id: str, source_dir: Path, rebuild: bool
+) -> dict[str, Any]:
     """Text chunks + rendered PDF pages (+ figure transcripts) in one pass.
     Returns the kb_ingest response dict; raises ``comp.unavailable_error`` or
     any other exception for the handler to map."""
@@ -202,7 +206,7 @@ async def ingest_document(comp: Composition, kb_id: str, source_dir: Path, rebui
                 with contextlib.suppress(Exception):
                     db.drop_table(name)
     ttbl = comp.text_table(kb_id, create=True)
-    vtbl = None
+    vtbl: Any = None
     files = [
         f for f in source_dir.rglob("*") if f.is_file() and f.suffix.lower() in comp.file_suffixes
     ][:5000]
@@ -237,7 +241,7 @@ async def ingest_document(comp: Composition, kb_id: str, source_dir: Path, rebui
 
 
 # ── search ────────────────────────────────────────────────────────────────────
-async def search(comp: Composition, kb_id: str, query: str, top_k: int) -> dict:
+async def search(comp: Composition, kb_id: str, query: str, top_k: int) -> dict[str, Any]:
     """RRF (or unified) fusion of text-chunk and page-image retrieval. Returns
     the kb_search response dict; raises ``UnknownKBError`` for a missing table and
     propagates VL errors."""
@@ -252,8 +256,8 @@ async def search(comp: Composition, kb_id: str, query: str, top_k: int) -> dict:
     return {"kb_id": kb_id, "query": query, "num_results": len(results), "results": results}
 
 
-async def search_all(comp: Composition, query: str, top_k: int) -> dict:
-    merged: list = []
+async def search_all(comp: Composition, query: str, top_k: int) -> dict[str, Any]:
+    merged: list[dict[str, Any]] = []
     for kb_id in comp.list_kbs():
         try:
             body = await search(comp, kb_id, query, max(top_k, 3))
@@ -268,13 +272,13 @@ async def search_all(comp: Composition, query: str, top_k: int) -> dict:
 
 
 # ── reindex ───────────────────────────────────────────────────────────────────
-async def reindex(comp: Composition) -> dict:
+async def reindex(comp: Composition) -> dict[str, Any]:
     """Re-embed every existing KB's text with the current VL model."""
     import contextlib
 
     db = comp.get_db()
     live_model, live_dim = await comp.vl_model_id()
-    done: dict = {}
+    done: dict[str, int] = {}
     plen = len(comp.table_prefix)
     for t in [
         x for x in db.table_names() if x.startswith(comp.table_prefix) and not x.endswith("_visual")

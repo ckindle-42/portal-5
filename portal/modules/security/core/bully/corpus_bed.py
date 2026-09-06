@@ -151,7 +151,12 @@ def resolve_indexes(*, include_bots: bool = True, extra: tuple[str, ...] = ()) -
         out.extend(BOTS_INDEXES)
     out.extend(extra)
     seen: set[str] = set()
-    return tuple(i for i in out if not (i in seen or seen.add(i)))
+    deduped: list[str] = []
+    for index in out:
+        if index not in seen:
+            seen.add(index)
+            deduped.append(index)
+    return tuple(deduped)
 
 
 def assess_bed(

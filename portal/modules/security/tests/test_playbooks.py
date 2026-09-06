@@ -11,7 +11,7 @@ from portal.modules.security.core.playbooks import (
 
 
 class TestValidatePlaybook:
-    def test_valid_playbook_passes(self):
+    def test_valid_playbook_passes(self) -> None:
         pb = {
             "name": "test",
             "version": 1,
@@ -30,7 +30,7 @@ class TestValidatePlaybook:
         problems = validate_playbook(pb)
         assert problems == []
 
-    def test_missing_scope_rejected(self):
+    def test_missing_scope_rejected(self) -> None:
         pb = {
             "budget": {"max_iterations": 1, "max_wall_clock_sec": 60, "max_lab_actions": 1},
             "stop_conditions": [{"field": "x", "equals": True}],
@@ -39,7 +39,7 @@ class TestValidatePlaybook:
         problems = validate_playbook(pb)
         assert "missing required top-level key: scope" in problems
 
-    def test_missing_budget_rejected(self):
+    def test_missing_budget_rejected(self) -> None:
         pb = {
             "scope": {"targets": ["10.0.0.1"]},
             "stop_conditions": [{"field": "x", "equals": True}],
@@ -48,7 +48,7 @@ class TestValidatePlaybook:
         problems = validate_playbook(pb)
         assert "missing required top-level key: budget" in problems
 
-    def test_missing_stop_conditions_rejected(self):
+    def test_missing_stop_conditions_rejected(self) -> None:
         pb = {
             "scope": {"targets": ["10.0.0.1"]},
             "budget": {"max_iterations": 1, "max_wall_clock_sec": 60, "max_lab_actions": 1},
@@ -57,7 +57,7 @@ class TestValidatePlaybook:
         problems = validate_playbook(pb)
         assert any("stop_conditions" in p for p in problems)
 
-    def test_empty_scopes_targets_rejected(self):
+    def test_empty_scopes_targets_rejected(self) -> None:
         pb = {
             "scope": {"targets": []},
             "budget": {"max_iterations": 1, "max_wall_clock_sec": 60, "max_lab_actions": 1},
@@ -67,7 +67,7 @@ class TestValidatePlaybook:
         problems = validate_playbook(pb)
         assert any("targets" in p for p in problems)
 
-    def test_starter_playbooks_validate(self):
+    def test_starter_playbooks_validate(self) -> None:
         for info in list_playbooks():
             pb = load_playbook(info["file"])
             problems = validate_playbook(pb)
@@ -75,7 +75,7 @@ class TestValidatePlaybook:
 
 
 class TestResolvePhases:
-    def test_dependency_gating(self):
+    def test_dependency_gating(self) -> None:
         pb = {
             "name": "test",
             "version": 1,

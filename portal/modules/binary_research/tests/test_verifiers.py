@@ -23,24 +23,24 @@ def job(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def test_discover(job: Path):
+def test_discover(job: Path) -> None:
     assert len(discover_verifiers(job)) == 2
 
 
-def test_partial(job: Path):
+def test_partial(job: Path) -> None:
     v = run_all(job)
     assert v.partial_pass and v.label == "PARTIAL PASS"
 
 
-def test_all_pass():
+def test_all_pass() -> None:
     v = Verdict([VerifierResult("a", True, "", 0), VerifierResult("b", True, "", 0)])
     assert v.all_pass and v.label == "ALL PASS"
 
 
-def test_all_fail():
+def test_all_fail() -> None:
     v = Verdict([VerifierResult("a", False, "", 1)])
     assert v.all_fail and v.label == "ALL FAIL"
 
 
-def test_none():
+def test_none() -> None:
     assert Verdict([]).no_verifiers

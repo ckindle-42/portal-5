@@ -9,6 +9,8 @@ from __future__ import annotations
 import importlib
 import sys
 from pathlib import Path
+from types import ModuleType
+from typing import Any
 
 from portal.platform.data_loader import load_data
 
@@ -26,7 +28,7 @@ _TUPLE_KEYS = (
     "models_explicit",
     "models_reference_only",
 )
-WORKSPACE_REGISTRY = {
+WORKSPACE_REGISTRY: dict[str, dict[str, Any]] = {
     k: {ik: (tuple(iv) if ik in _TUPLE_KEYS else iv) for ik, iv in v.items()}
     for k, v in load_data("config/inference", "persona_matrix_workspace_registry").items()
 }
@@ -39,7 +41,9 @@ cf = importlib.import_module("tests.lib.compliance_fixtures")
 
 
 # Re-export _load_workspace_modules (now defined here since it references WORKSPACE_REGISTRY)
-def _load_workspace_modules(workspace_id: str):
+def _load_workspace_modules(
+    workspace_id: str,
+) -> tuple[ModuleType, ModuleType, Any]:
     """Resolve (assertions, fixtures) modules for a workspace."""
     cfg = WORKSPACE_REGISTRY.get(workspace_id)
     if not cfg:
@@ -48,8 +52,8 @@ def _load_workspace_modules(workspace_id: str):
             f"Known: {list(WORKSPACE_REGISTRY.keys())}"
         )
     return (
-        importlib.import_module(cfg["assertions_module"]),
-        importlib.import_module(cfg["fixtures_module"]),
+        importlib.import_module(str(cfg["assertions_module"])),
+        importlib.import_module(str(cfg["fixtures_module"])),
         cfg["persona_categories"],
     )
 
@@ -73,7 +77,7 @@ EVICT_BACKOFF_S = 5.0
 # response, not whether the model picks the right arguments.
 # See TASK_TOOL_SUPPORT_AUDIT_V1 §A14.
 
-AUDIT_TOOL_DEFINITION = {
+AUDIT_TOOL_DEFINITION: dict[str, Any] = {
     "type": "function",
     "function": {
         "name": "get_current_time",

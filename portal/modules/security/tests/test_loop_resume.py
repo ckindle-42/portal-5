@@ -8,9 +8,12 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
 
+from portal.modules.security.core import field_journal as journal
 from portal.modules.security.core import loop
 from portal.modules.security.core.loop import (
     EngagementState,
@@ -20,13 +23,13 @@ from portal.modules.security.core.loop import (
 
 
 @pytest.fixture(autouse=True)
-def _isolated_checkpoint_dir(monkeypatch, tmp_path):
+def _isolated_checkpoint_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[Path]:
     monkeypatch.setattr(loop, "CHECKPOINT_DIR", tmp_path)
     yield tmp_path
 
 
 class TestCheckpointRoundtrip:
-    def test_observations_and_completed_phases_intact(self, tmp_path):
+    def test_observations_and_completed_phases_intact(self, tmp_path: Path) -> None:
         state = EngagementState(
             engagement_id="resume-eng-1",
             playbook_name="test-playbook",
@@ -47,7 +50,9 @@ class TestCheckpointRoundtrip:
         assert loaded.iterations == 4
         assert loaded.lab_actions == 9
 
-    def test_resume_does_not_reset_iteration_or_lab_action_counts(self, monkeypatch, tmp_path):
+    def test_resume_does_not_reset_iteration_or_lab_action_counts(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         """A resumed engagement must not get a fresh budget — iterations/
         lab_actions already spent must carry over, so a resume near the cap
         stops immediately rather than getting a full new budget."""
@@ -70,7 +75,7 @@ class TestCheckpointRoundtrip:
             "phases": [{"id": "p1", "steps": [{"target": "10.10.11.50"}]}],
         }
         monkeypatch.setattr(loop, "load_playbook", lambda _path: pb)
-        monkeypatch.setattr(loop.journal, "recall", lambda **kw: [])
+        monkeypatch.setattr(journal, "recall", lambda **kw: [])
 
         report = resume_engagement("resume-eng-2")
         # max_iterations=1 — a fresh state would run exactly one phase; a
@@ -79,7 +84,9 @@ class TestCheckpointRoundtrip:
         # ARE the checkpointed ones, not reset to some other default.
         assert report["iterations"] >= 1
 
-    def test_resume_preserves_a_standing_out_of_scope_escalation(self, monkeypatch, tmp_path):
+    def test_resume_preserves_a_standing_out_of_scope_escalation(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         """Resume must not re-authorize an out-of-scope action: a checkpoint
         saved with a standing out_of_scope_action escalation must escalate
         again immediately on resume, not silently proceed."""
@@ -100,17 +107,19 @@ class TestCheckpointRoundtrip:
             "phases": [{"id": "p1", "steps": [{"target": "10.10.99.99"}]}],
         }
         monkeypatch.setattr(loop, "load_playbook", lambda _path: pb)
-        monkeypatch.setattr(loop.journal, "recall", lambda **kw: [])
+        monkeypatch.setattr(journal, "recall", lambda **kw: [])
         monkeypatch.setattr(loop, "_notify", lambda *a, **kw: None)
 
         report = resume_engagement("resume-eng-3")
         assert report["stop_reason"] == "escalated:out_of_scope_action"
 
-    def test_resume_not_found_returns_error(self):
+    def test_resume_not_found_returns_error(self) -> None:
         result = resume_engagement("does-not-exist-anywhere")
         assert result["status"] == "error"
 
-    def test_resume_dry_run_returns_plan_not_execution(self, monkeypatch, tmp_path):
+    def test_resume_dry_run_returns_plan_not_execution(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         state = EngagementState(
             engagement_id="resume-eng-4",
             playbook_name="test-playbook",
@@ -126,7 +135,7 @@ class TestCheckpointRoundtrip:
             "phases": [{"id": "p1", "steps": []}],
         }
         monkeypatch.setattr(loop, "load_playbook", lambda _path: pb)
-        monkeypatch.setattr(loop.journal, "recall", lambda **kw: [])
+        monkeypatch.setattr(journal, "recall", lambda **kw: [])
 
         report = resume_engagement("resume-eng-4", dry_run=True)
         assert report["status"] == "dry_run"

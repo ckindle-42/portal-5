@@ -18,6 +18,7 @@ import math
 import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
+from typing import Any
 
 ATTRIBUTION_SCHEMA_VERSION = 2
 
@@ -83,7 +84,7 @@ def classify(
     verdict: str,
     technique_ids: list[str],
     ground_truth: set[str],
-    trace: list[dict],
+    trace: list[dict[str, Any]],
     match_grade: str = "NONE",
     similar_to: list[str] | None = None,
     grounding_verified: bool = True,
@@ -109,7 +110,7 @@ def classify(
     halluc = [t for t in technique_ids if t not in ground_truth]
     similar_to = similar_to or []
     observation = _trace_evidence_observation(trace, ground_truth)
-    common = {
+    common: dict[str, Any] = {
         "ground_truth": sorted(ground_truth),
         "completion_state": "UNRESOLVED" if verdict == "UNRESOLVED" else "CONCLUDED",
         "retrieval_state": observation.retrieval_state,
@@ -286,7 +287,9 @@ def _text_mentions_any(text: str, techniques: set[str]) -> bool:
     return False
 
 
-def _trace_evidence_observation(trace: list[dict], techniques: set[str]) -> EvidenceObservation:
+def _trace_evidence_observation(
+    trace: list[dict[str, Any]], techniques: set[str]
+) -> EvidenceObservation:
     """Observe retrieval and Hunter citation separately.
 
     Only persisted tool payload is evidence of retrieval.  Model-authored
@@ -295,7 +298,7 @@ def _trace_evidence_observation(trace: list[dict], techniques: set[str]) -> Evid
     stores only provenance/query is UNOBSERVABLE and must not be rescored into
     a causal build decision.
     """
-    tool_entries: list[dict] = []
+    tool_entries: list[dict[str, Any]] = []
     tool_payloads: list[str] = []
     hunter_citations: list[str] = []
     hunter_sections_seen = False
@@ -347,7 +350,7 @@ def _trace_evidence_observation(trace: list[dict], techniques: set[str]) -> Evid
     return EvidenceObservation(retrieval_state, citation_state, tuple(sorted(sources)))
 
 
-def _trace_mentions_any(trace: list[dict], techniques: set[str]) -> bool:
+def _trace_mentions_any(trace: list[dict[str, Any]], techniques: set[str]) -> bool:
     """Compatibility helper: true only for a GT marker in captured tool data."""
     return _trace_evidence_observation(trace, techniques).retrieval_state == RETRIEVAL_SUPPORT
 
@@ -359,17 +362,17 @@ class ArmSummary:
     hits: int = 0
     novelty: int = 0
     real_recall: float = 0.0  # (hits + novelty) / n
-    miss_hist: dict = field(default_factory=dict)  # MISS_CLASS -> fraction of misses
-    miss_counts: dict = field(default_factory=dict)
+    miss_hist: dict[str, float] = field(default_factory=dict)  # MISS_CLASS -> fraction
+    miss_counts: dict[str, int] = field(default_factory=dict)
     miss_n: int = 0
-    scenario_miss_counts: dict = field(default_factory=dict)
+    scenario_miss_counts: dict[str, int] = field(default_factory=dict)
     scenario_miss_n: int = 0
     hallucination_rate: float = 0.0  # HALLUCINATION / n
     nonconv_rate: float = 0.0  # NON_CONVERGENCE / n
     false_positive_rate: float = 0.0
     attribution_unknown_rate: float = 0.0
-    retrieval_state_hist: dict = field(default_factory=dict)
-    secondary_failure_hist: dict = field(default_factory=dict)
+    retrieval_state_hist: dict[str, float] = field(default_factory=dict)
+    secondary_failure_hist: dict[str, float] = field(default_factory=dict)
 
 
 def summarize(arm: str, outcomes: list[ArmScenarioOutcome]) -> ArmSummary:
@@ -381,7 +384,7 @@ def summarize(arm: str, outcomes: list[ArmScenarioOutcome]) -> ArmSummary:
     m = len(misses) or 1
     counts = {c: sum(o.outcome == c for o in misses) for c in MISS_CLASSES}
     hist = {c: round(counts[c] / m, 3) for c in MISS_CLASSES}
-    by_scenario: dict[str, Counter] = defaultdict(Counter)
+    by_scenario: dict[str, Counter[str]] = defaultdict(Counter)
     for outcome in misses:
         by_scenario[outcome.scenario][outcome.outcome] += 1
     scenario_counts = dict.fromkeys(MISS_CLASSES, 0)
@@ -432,7 +435,7 @@ MIN_LIVE_AUDIT_N = 30
 MIN_ORACLE_AUDIT_N = 20
 
 
-def _instrument_validation_error(decision: dict) -> str | None:
+def _instrument_validation_error(decision: dict[str, Any]) -> str | None:
     validation = decision.get("instrument_validation") or {}
     if validation.get("schema_version") != ATTRIBUTION_SCHEMA_VERSION:
         return "attribution schema is unvalidated or stale"
@@ -501,7 +504,9 @@ def _stable_dominant(
     return stable, fraction, lower, reason
 
 
-def decide_route(decision: dict, *, nonconv_progress_frac: float | None = None) -> tuple[str, str]:
+def decide_route(
+    decision: dict[str, Any], *, nonconv_progress_frac: float | None = None
+) -> tuple[str, str]:
     """Convert one validated decision artifact into a build route.
 
     Missing validation, unobservable attribution, or threshold instability

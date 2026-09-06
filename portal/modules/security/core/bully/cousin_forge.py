@@ -77,7 +77,7 @@ def _apply_evasion(
             telemetry[sourcetype] = _replace(events, str(token), replacement)
 
 
-def _reorder(telemetry: dict[str, list[Any]], view: dict[str, Any], params: dict) -> None:
+def _reorder(telemetry: dict[str, list[Any]], view: dict[str, Any], params: dict[str, Any]) -> None:
     actions = list(view.get("action_sequence") or [])
     requested = params.get("order")
     reordered = (
@@ -93,7 +93,9 @@ def _reorder(telemetry: dict[str, list[Any]], view: dict[str, Any], params: dict
         telemetry[sourcetype] = list(reversed(events))
 
 
-def _substitute(telemetry: dict[str, list[Any]], view: dict[str, Any], params: dict) -> None:
+def _substitute(
+    telemetry: dict[str, list[Any]], view: dict[str, Any], params: dict[str, Any]
+) -> None:
     source, target = str(params.get("from") or ""), str(params.get("to") or "")
     if not source or not target:
         return
@@ -104,7 +106,9 @@ def _substitute(telemetry: dict[str, list[Any]], view: dict[str, Any], params: d
         telemetry[sourcetype] = _replace(events, source, target)
 
 
-def _vary_parameter(telemetry: dict[str, list[Any]], view: dict[str, Any], params: dict) -> None:
+def _vary_parameter(
+    telemetry: dict[str, list[Any]], view: dict[str, Any], params: dict[str, Any]
+) -> None:
     placeholder = str(params.get("placeholder") or "")
     value = params.get("value")
     if not placeholder or value is None:
@@ -116,7 +120,9 @@ def _vary_parameter(telemetry: dict[str, list[Any]], view: dict[str, Any], param
         telemetry[sourcetype] = _replace(events, placeholder, str(value))
 
 
-def _off_script(_telemetry: dict[str, list[Any]], view: dict[str, Any], params: dict) -> None:
+def _off_script(
+    _telemetry: dict[str, list[Any]], view: dict[str, Any], params: dict[str, Any]
+) -> None:
     additions = list(params.get("technique_ids") or [])
     if params.get("technique_id"):
         additions.append(str(params["technique_id"]))
@@ -144,7 +150,9 @@ def _apply_operator(
         apply(telemetry, view, operator.params)
 
 
-def _clean_engine_view(specimen_id: str, parent: dict[str, Any], view: dict[str, Any]) -> dict:
+def _clean_engine_view(
+    specimen_id: str, parent: dict[str, Any], view: dict[str, Any]
+) -> dict[str, Any]:
     visible_features = _features(view)
     return {
         "episode_view": {
@@ -169,8 +177,10 @@ class ForgedSpecimen:
     replay_receipt: dict[str, Any]
 
 
-def _mutate(parent: dict[str, Any], operators: tuple[MutationOperatorSpec, ...]):
-    raw = copy.deepcopy(parent.get("telemetry") or {})
+def _mutate(
+    parent: dict[str, Any], operators: tuple[MutationOperatorSpec, ...]
+) -> tuple[dict[str, list[Any]], dict[str, Any], list[dict[str, Any]], float]:
+    raw: dict[str, list[Any]] = copy.deepcopy(parent.get("telemetry") or {})
     view = _features(parent.get("telemetry_view") or parent)
     differences: list[dict[str, Any]] = []
     moved_ops: list[MutationOperatorSpec] = []
