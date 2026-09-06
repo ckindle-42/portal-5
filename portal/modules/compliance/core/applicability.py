@@ -200,6 +200,26 @@ def applicable(part_applicable_systems: str, scope: AssetScope) -> tuple[bool, s
     return True, "in scope"
 
 
+def parse_scope_declaration(text: str) -> AssetScope:
+    """Parse a free-text operator scope declaration into an ``AssetScope``.
+
+    Accepts phrases like ``"high and medium impact; EACMS, PACS, PCA; ERC;
+    control centers"``. An empty or unrecognised string yields an undeclared
+    scope (``UNKNOWN`` gate state) — never a default-inclusion."""
+    t = (text or "").lower()
+    if not t.strip():
+        return AssetScope()
+    impacts = {r for r in IMPACT_RATINGS if r in t}
+    assoc = {a for a in ASSOCIATED_TYPES if a in t}
+    return AssetScope(
+        impact_present=impacts,
+        associated_present=assoc,
+        has_erc=("erc" in t or "external routable" in t) or None,
+        has_control_center=("control center" in t or "control centre" in t) or None,
+        declared_by="operator:scope-declaration" if impacts else "",
+    )
+
+
 def gate_presentation() -> dict[str, Any]:
     """``[GATE]`` 1 — the schema, the dimensions, and what each choice
     includes/excludes. Report; do not choose."""
