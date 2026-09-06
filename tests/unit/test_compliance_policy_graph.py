@@ -8,6 +8,7 @@ from portal.modules.compliance.core.cip_register import Register, RegisterNode
 from portal.modules.compliance.core.policy_graph import (
     build_policy_graph,
     classify_node,
+    resolve_references,
 )
 
 _MODAL_TERMS = ("shall", "must", "may not", "required to")
@@ -98,6 +99,61 @@ def test_classify_node_pure_premise_definition():
     )
     kind, rule, _ = classify_node(n, None)
     assert kind == "premise"
+
+
+def test_resolve_references_direct():
+    reg = Register.load()
+    ids = {n.id for n in reg.nodes}
+    node = next(n for n in reg.nodes if n.id == "CIP-002-5.1a R2 Part 2.1")
+    edges = resolve_references(node, reg, ids)
+    dsts = {e["dst"] for e in edges}
+    assert "CIP-002-5.1a R1" in dsts  # "Requirement R1"
+    assert any(e["resolution"] == "unresolved_relative" for e in edges)  # "its parts"
+
+
+def test_reference_edges_resolve_or_are_worklisted(graph):
+    reg_ids = {n.id for n in graph.nodes}
+    reg_stds = {n.standard for n in graph.nodes}
+    refs = [e for e in graph.edges if e["rel"] == "REFERS_TO"]
+    assert len(refs) >= 90
+    groupish = {"requirement_group", "part_group", "standard_stem"}
+    worklist = {
+        "unresolved_relative",
+        "unresolved_section",
+        "unresolved_part",
+        "unresolved_requirement",
+        "table_not_a_node",
+    }
+    for e in refs:
+        if e["resolution"] in worklist:
+            assert e["dst"] == "" or e["resolution"] == "table_not_a_node"
+            continue
+        assert e["dst"], e
+        assert e["dst"] in reg_ids or e["dst"] in reg_stds or e["resolution"] in groupish, e
+
+
+def test_reference_spans_reresolve_verbatim(graph):
+    by_id = {n.id: n.verbatim_text for n in graph.nodes}
+    for e in graph.edges:
+        if e["rel"] == "REFERS_TO" and e["surface_text"]:
+            src = by_id[e["src"]]
+            assert src[e["char_start"] : e["char_end"]] == e["surface_text"], e
+
+
+def test_cip002_r1_part_points_at_its_attachment_criteria(graph):
+    by_src = {}
+    for e in graph.edges:
+        if e["rel"] == "REFERS_TO":
+            by_src.setdefault(e["src"], []).append(e["dst"])
+    assert "CIP-002-5.1a Attachment 1 Section 1" in by_src.get("CIP-002-5.1a R1 Part 1.1", [])
+
+
+def test_cross_standard_reference_resolves_to_effective_version(graph):
+    # CIP-003-9 R1 Part 1.1.1 mentions "(CIP-004)" — must resolve to CIP-004-7.
+    edge = next(
+        e for e in graph.edges if e["src"] == "CIP-003-9 R1 Part 1.1.1" and e["rel"] == "REFERS_TO"
+    )
+    assert edge["dst"] == "CIP-004-7"
 
 
 def test_classify_node_explicit_modal_is_actor_cu():
