@@ -100,6 +100,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/engine.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-gate
+  globs:
+  - portal/modules/compliance/core/gate.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-impact
   globs:
   - portal/modules/compliance/core/impact.py
