@@ -380,6 +380,8 @@ def run_case(model: str, case: dict, baked: dict | None = None) -> dict:
     return {
         "id": case["id"],
         "raw": content[:2000],
+        "raw_full": content,  # untruncated — for offline re-scoring
+        "request": payload,  # the exact request sent — reproduces the call
         "parsed": obj,
         "prompt_tokens": pc,
         "eval_tokens": ec,
@@ -392,14 +394,44 @@ _MODEL_BUDGET_S = 2400  # a model that cannot finish 30 cases in 40 min is a
 # capability/thinking-mode failure — record what ran and move on
 
 
-def run_model(model: str, cases: list[dict]) -> dict:
+def _debug_line(case: dict, prefs: set[str], run: dict, score: dict) -> dict:
+    """One fully self-contained record per case — the request, the untruncated
+    raw response, the parse, the per-field score, the gold, the packet
+    allowlist. `rescore_debug_dir` replays these without touching a model."""
+    return {
+        "id": case["id"],
+        "category": case["category"],
+        "gold_label": case["gold_label"],
+        "gold_finding_type": case.get("gold_finding_type"),
+        "gold_citation": case["gold_citation"],
+        "must_not_flag": bool(case.get("must_not_flag")),
+        "packet_std_allowlist": sorted(prefs),
+        "request": run.get("request"),
+        "raw_response": run.get("raw_full", run.get("raw", "")),
+        "parsed": run.get("parsed"),
+        "error": run.get("error"),
+        "prompt_tokens": run.get("prompt_tokens"),
+        "tps": run.get("tps"),
+        "wall_s": run.get("wall_s"),
+        "score": score,
+    }
+
+
+def run_model(model: str, cases: list[dict], *, debug_dir: Path | None = None) -> dict:
     pf = preflight(model)
     print(
         f"  preflight: {pf['verdict']}  json_ok={pf.get('json_ok')} "
         f"think_leak={pf.get('think_leak')} system_honored={pf.get('system_honored')} "
-        f"ctx_baked={pf.get('num_ctx_baked')} params={pf.get('baked_params')}"
+        f"ctx_baked={pf.get('num_ctx_baked')} params={pf.get('baked_params')}",
+        flush=True,
     )
     baked = pf.get("baked_params", {})
+    dbg = None
+    if debug_dir is not None:
+        debug_dir.mkdir(parents=True, exist_ok=True)
+        slug = re.sub(r"[^A-Za-z0-9._-]+", "_", model)[:120]
+        dbg = (debug_dir / f"{slug}.debug.jsonl").open("w")
+        dbg.write(json.dumps({"_meta": "preflight", "model": model, **pf}) + "\n")
     packet_refs_by_case = []
     for c in cases:
         blob = " ".join([c["governing_ref"], c["governing_text"], *c.get("premises", [])])
@@ -408,19 +440,35 @@ def run_model(model: str, cases: list[dict]) -> dict:
     t_start = time.monotonic()
     for case, prefs in zip(cases, packet_refs_by_case, strict=True):
         if time.monotonic() - t_start > _MODEL_BUDGET_S:
-            runs.append({"id": case["id"], "error": "model budget exceeded — skipped"})
-            scored.append(score_case(case, None, prefs))
-            print(f"  {case['id']:8} SKIPPED (model over {_MODEL_BUDGET_S}s budget)")
+            run = {"id": case["id"], "error": "model budget exceeded — skipped"}
+            sc = score_case(case, None, prefs)
+            runs.append(run)
+            scored.append(sc)
+            if dbg:
+                dbg.write(json.dumps(_debug_line(case, prefs, run, sc)) + "\n")
+            print(f"  {case['id']:8} SKIPPED (model over {_MODEL_BUDGET_S}s budget)", flush=True)
             continue
         run = run_case(model, case, baked)
+        sc = score_case(case, run.get("parsed"), prefs)
         runs.append(run)
-        scored.append(score_case(case, run.get("parsed"), prefs))
+        scored.append(sc)
+        if dbg:
+            dbg.write(json.dumps(_debug_line(case, prefs, run, sc)) + "\n")
+            dbg.flush()
         print(
             f"  {case['id']:8} gold={case['gold_label']:12} "
-            f"pred={(scored[-1].get('pred') or 'ERR'):12} "
-            f"{'ok' if scored[-1].get('correct') else '  '} "
-            f"{run.get('tps') or '-'}tps"
+            f"pred={(sc.get('pred') or 'ERR'):12} "
+            f"{'ok' if sc.get('correct') else '  '} "
+            f"cite={'y' if sc.get('citation_ok') else 'n'} "
+            f"{run.get('tps') or '-'}tps",
+            flush=True,
         )
+    if dbg:
+        dbg.close()
+    # keep the results JSON small — the debug JSONL holds the full payloads
+    for r in runs:
+        r.pop("raw_full", None)
+        r.pop("request", None)
     unload(model)
     agg = aggregate(scored, cases)
     prompt_toks = [r["prompt_tokens"] for r in runs if r.get("prompt_tokens")]
@@ -435,44 +483,60 @@ def run_model(model: str, cases: list[dict]) -> dict:
     return {"model": model, "preflight": pf, "aggregate": agg, "runs": runs, "case_scores": scored}
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--models", nargs="*", default=[])
-    ap.add_argument("--seats-file", type=Path)
-    args = ap.parse_args()
-    models = list(args.models)
-    if args.seats_file:
-        models += [
-            ln.strip()
-            for ln in args.seats_file.read_text().splitlines()
-            if ln.strip() and not ln.startswith("#")
-        ]
-    if not models:
-        ap.error("no models given (--models or --seats-file)")
+def rescore_debug_dir(debug_dir: Path) -> list[dict]:
+    """Re-score every seat from its saved ``.debug.jsonl`` WITHOUT touching a
+    model. Use after a scorer change or bug fix — the raw responses are kept
+    verbatim, so the F2 numbers can be regenerated in seconds."""
     cases = load_cases()
-    assert len(cases) == 30, f"probe has {len(cases)} cases, expected 30"
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    ts = _dt.datetime.now(_dt.UTC).strftime("%Y%m%dT%H%M%SZ")
-    out = RESULTS_DIR / f"judgment_probe_v6_{ts}.json"
-    results = []
-    for m in models:
-        print(f"\n=== {m} ===")
-        results.append(run_model(m, cases))
-        # incremental write — a later hang never loses the models already done
-        out.write_text(
-            json.dumps(
+    by_id = {c["id"]: c for c in cases}
+    out = []
+    for f in sorted(debug_dir.glob("*.debug.jsonl")):
+        lines = [json.loads(x) for x in f.read_text().splitlines() if x.strip()]
+        pf = next((x for x in lines if x.get("_meta") == "preflight"), {})
+        rows = [x for x in lines if x.get("_meta") != "preflight"]
+        scored, runs, ordered_cases = [], [], []
+        for row in rows:
+            c = by_id.get(row["id"])
+            if not c:
+                continue
+            prefs = set(row.get("packet_std_allowlist", []))
+            obj = parse_output(row.get("raw_response", "")) if not row.get("error") else None
+            sc = score_case(c, obj, prefs)
+            scored.append(sc)
+            runs.append(
                 {
-                    "probe": "judgment_probe_v6",
-                    "probe_sha": _probe_sha(),
-                    "utc": ts,
-                    "hardware": _hw(),
-                    "n_cases": len(cases),
-                    "models": results,
-                    "complete": False,
-                },
-                indent=2,
+                    "id": row["id"],
+                    "parsed": obj,
+                    "tps": row.get("tps"),
+                    "prompt_tokens": row.get("prompt_tokens"),
+                    "error": row.get("error"),
+                }
             )
+            ordered_cases.append(c)
+        agg = aggregate(scored, ordered_cases)
+        tpss = sorted(r["tps"] for r in runs if r.get("tps"))
+        ptoks = sorted(r["prompt_tokens"] for r in runs if r.get("prompt_tokens"))
+        agg["median_tps"] = tpss[len(tpss) // 2] if tpss else None
+        agg["median_prompt_tokens"] = ptoks[len(ptoks) // 2] if ptoks else None
+        agg["max_prompt_tokens"] = max(ptoks) if ptoks else None
+        agg["errors"] = sum(1 for r in runs if r.get("error"))
+        agg["config_unverified"] = pf.get("verdict", "OK") != "OK"
+        out.append(
+            {
+                "model": pf.get("model", f.stem),
+                "preflight": pf,
+                "aggregate": agg,
+                "runs": runs,
+                "case_scores": scored,
+                "rescored": True,
+            }
         )
+    return out
+
+
+def _write_results(
+    out: Path, ts: str, cases: list[dict], results: list[dict], complete: bool
+) -> None:
     out.write_text(
         json.dumps(
             {
@@ -482,11 +546,156 @@ def main() -> None:
                 "hardware": _hw(),
                 "n_cases": len(cases),
                 "models": results,
+                "complete": complete,
             },
             indent=2,
         )
     )
+
+
+def _notify(event_type: str, message: str, metadata: dict | None = None) -> None:
+    """Best-effort push to the enabled channels (Slack/Telegram/Pushover/…),
+    gated on NOTIFICATIONS_ENABLED — same pattern as tests/uat/notify.py."""
+    import os
+
+    with contextlib.suppress(Exception):
+        from dotenv import load_dotenv
+
+        load_dotenv(REPO_ROOT / ".env")
+    if os.environ.get("NOTIFICATIONS_ENABLED", "false").lower() not in ("true", "1", "yes"):
+        return
+    with contextlib.suppress(Exception):
+        import asyncio
+
+        from portal.platform.inference.notifications.channels.pushover import PushoverChannel
+        from portal.platform.inference.notifications.channels.slack import SlackChannel
+        from portal.platform.inference.notifications.channels.telegram import TelegramChannel
+        from portal.platform.inference.notifications.dispatcher import NotificationDispatcher
+        from portal.platform.inference.notifications.events import AlertEvent, EventType
+
+        d = NotificationDispatcher()
+        for ch in (SlackChannel, TelegramChannel, PushoverChannel):
+            d.add_channel(ch())
+        asyncio.run(
+            d.dispatch(
+                AlertEvent(
+                    type=EventType(event_type),
+                    message=message,
+                    workspace="compliance-seat-sweep",
+                    metadata=metadata or {},
+                )
+            )
+        )
+
+
+def _seat_summary(r: dict) -> str:
+    a = r["aggregate"]
+    flag = "  [CONFIG_UNVERIFIED]" if a.get("config_unverified") else ""
+    return (
+        f"{r['model']}{flag}\n"
+        f"  F2 {a['F2_violation']}  F1 {a['F1_violation']}  MCC {a['MCC_violation']}  "
+        f"acc {a['exact_accuracy']}\n"
+        f"  schema {a['schema_valid_rate']}  citation {a['citation_ok_rate']}  "
+        f"abstain-recall {a.get('abstain_recall')}\n"
+        f"  false-supported {a['false_supported_count']}  must-not-flag-FP "
+        f"{a['must_not_flag_fp_count']}  errors {a.get('errors', 0)}\n"
+        f"  median {a.get('median_tps')} tps @ {a.get('max_prompt_tokens')} prompt tokens"
+    )
+
+
+def _per_case_table(r: dict) -> str:
+    rows = []
+    for cs in r.get("case_scores", []):
+        mark = "ok" if cs.get("correct") else "  "
+        rows.append(f"  {mark} gold={cs.get('pred', '?')}")
+    return "\n".join(
+        f"  {'ok' if cs.get('correct') else 'XX'}  pred={cs.get('pred') or 'ERR':13} "
+        f"cite={'y' if cs.get('citation_ok') else 'n'} "
+        f"{'<fSUP>' if cs.get('false_supported') else ''}"
+        for cs in r.get("case_scores", [])
+    )
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--models", nargs="*", default=[])
+    ap.add_argument("--seats-file", type=Path)
+    ap.add_argument("--debug-dir", type=Path, help="write a full per-case .debug.jsonl per seat")
+    ap.add_argument("--rescore", type=Path, help="re-score a debug dir; no model calls")
+    ap.add_argument(
+        "--notify", action="store_true", help="push start/per-seat/done to enabled channels"
+    )
+    args = ap.parse_args()
+
+    cases = load_cases()
+    assert len(cases) == 30, f"probe has {len(cases)} cases, expected 30"
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    ts = _dt.datetime.now(_dt.UTC).strftime("%Y%m%dT%H%M%SZ")
+
+    if args.rescore:
+        results = rescore_debug_dir(args.rescore)
+        out = RESULTS_DIR / f"judgment_probe_v6_rescored_{ts}.json"
+        _write_results(out, ts, cases, results, complete=True)
+        _print_table(results)
+        print(f"\nre-scored {len(results)} seat(s) from {args.rescore} -> {out}")
+        return
+
+    models = list(args.models)
+    if args.seats_file:
+        models += [
+            ln.strip()
+            for ln in args.seats_file.read_text().splitlines()
+            if ln.strip() and not ln.startswith("#")
+        ]
+    if not models:
+        ap.error("no models given (--models or --seats-file)")
+
+    debug_dir = args.debug_dir
+    out = RESULTS_DIR / f"judgment_probe_v6_{ts}.json"
+    if args.notify:
+        _notify(
+            "test_start",
+            f"compliance seat sweep started — {len(models)} seat(s), {len(cases)} cases\n"
+            f"results: {out.name}   debug: {debug_dir or '(none)'}",
+            {"seats": models, "cases": len(cases)},
+        )
+    results = []
+    for i, m in enumerate(models, 1):
+        print(f"\n=== [{i}/{len(models)}] {m} ===", flush=True)
+        t0 = time.monotonic()
+        results.append(run_model(m, cases, debug_dir=debug_dir))
+        _write_results(out, ts, cases, results, complete=False)
+        elapsed = round(time.monotonic() - t0)
+        summary = _seat_summary(results[-1])
+        print(summary, flush=True)
+        if args.notify:
+            extra = ""
+            if i == 1:
+                extra = (
+                    "\n\n— baseline: this is what a working seat looks like; "
+                    "later seats compare against this —\n" + _per_case_table(results[-1])
+                )
+            _notify(
+                "test_summary",
+                f"seat [{i}/{len(models)}] done in {elapsed}s\n{summary}{extra}",
+                {"seat": m, "index": i, "f2": results[-1]["aggregate"]["F2_violation"]},
+            )
+    _write_results(out, ts, cases, results, complete=True)
+    _print_table(results)
+    if args.notify:
+        ranked = sorted(results, key=lambda r: -r["aggregate"]["F2_violation"])
+        best = ranked[0]
+        _notify(
+            "test_end",
+            f"compliance seat sweep complete — {len(results)} seat(s)\n"
+            f"best F2: {best['model']} @ {best['aggregate']['F2_violation']}\n"
+            f"{out}",
+            {"best_seat": best["model"], "best_f2": best["aggregate"]["F2_violation"]},
+        )
     print(f"\nwrote {out}")
+
+
+def _print_table(results: list[dict]) -> None:
     print(
         f"\n{'model':52} {'F2':>6} {'F1':>6} {'MCC':>6} {'acc':>6} {'sch':>5} "
         f"{'cite':>5} {'abst':>5} {'fSUP':>5} {'MNF':>4} {'tps':>6} {'ptok':>6}"
