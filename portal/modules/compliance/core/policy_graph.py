@@ -570,13 +570,16 @@ def decompose_actor_cu(
             "char_start": qm.start(),
             "char_end": qm.end(),
         }
-    constraint_start = (
+    c_start = (
         subject["char_end"] if not subject["implied"] and subject["char_end"] > 0 else body_start
     )
+    raw = text[c_start:]
+    c_start += len(raw) - len(raw.lstrip())
+    c_end = len(text) - (len(raw) - len(raw.rstrip()))
     constraint = {
-        "text": text[constraint_start:].strip(),
-        "char_start": constraint_start,
-        "char_end": len(text),
+        "text": text[c_start:c_end],
+        "char_start": c_start,
+        "char_end": c_end,
         "quantity": quantity,
     }
 

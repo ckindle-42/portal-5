@@ -204,7 +204,7 @@ def test_actor_cu_decomposition_has_spanned_fields(graph):
             }
         for c in cu["condition"]:
             assert c["kind"] in {"exception", "conditional", "scope"}
-            assert t[c["char_start"] : c["char_end"]].strip() == c["text"]
+            assert t[c["char_start"] : c["char_end"]] == c["text"]
 
 
 def test_known_quantities_parse_with_correct_direction(graph):
