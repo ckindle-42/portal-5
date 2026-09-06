@@ -27,3 +27,138 @@ checks:
   - {id: V26, name: docs current}
   - {id: V27, name: fingerprints fresh}
   - {id: V28, name: gate ladder green}
+  - id: Y01
+    name: three node types
+    assert: every policy-graph node is typed premise, meta_cu or actor_cu; only
+      actor_cu nodes receive determinations; meta_cu nodes gate and are never
+      reported as standalone findings; premises never create an obligation
+  - id: Y02
+    name: per-field spans
+    assert: every actor_cu carries a char_span for each populated field and every
+      span re-resolves verbatim against its immutable revision
+  - id: Y03
+    name: cross-references are edges
+    assert: the 45 Parts carrying in-text cross-references resolve to REFERS_TO
+      edges; reference closure is computed by traversal, not retrieval
+  - id: Y04
+    name: exception override
+    assert: a CU judged unmet triggers a separate override call over its reference
+      closure; a planted exception overturns the finding and is cited
+  - id: Y05
+    name: the organization graph exists
+    assert: commitments, controls, roles, systems, activities and evidence specs are
+      extracted from document text with resolving anchors; no row is a path-derived
+      template or a constant string
+  - id: Y06
+    name: symmetric extraction discipline
+    assert: internal fidelity round-trip is 100% on written commitments and internal
+      completeness derives its denominator from document-declared structure
+  - id: Y07
+    name: vocabulary bridge
+    assert: actor alignment resolves through recorded hypernym proposals marked
+      STRONG when premise-supported; assessment.py contains no organization name or
+      role-word literal
+  - id: Y08
+    name: the gate runs before the council
+    assert: no model call receives un-pre-analyzed input; applicability, actor
+      alignment, reference closure and constraint arithmetic are computed first
+  - id: Y09
+    name: listwise judgment
+    assert: the council judges a CU plan in one call per anchor, not one call per
+      atom; the packet is structured JSON; inference from silence is forbidden in
+      the contract and tested
+  - id: Y10
+    name: four finding types
+    assert: GAP, CONTRADICTION, OUTDATED_LANGUAGE and WEAK_MAPPING are each produced
+      by their own detector; OUTDATED_LANGUAGE is deterministic against version and
+      glossary lineage
+  - id: Y11
+    name: change taxonomy
+    assert: every diff row carries a type from the taxonomy; DEFINITION_CHANGE with
+      unchanged Part text still invalidates dependent determinations; RENUMBER_ONLY
+      and EDITORIAL_ONLY create no review work
+  - id: Y12
+    name: Q05 is a bitemporal join
+    assert: the baseline date comes from the internal document's own control block
+      and is quoted; review-overdue is distinguished from substantively misaligned
+  - id: Y13
+    name: permission structure modeled
+    assert: the 19 Parts with permission language enumerate their branches with
+      selection conditions; the branch our commitment satisfies is recorded; an
+      unavailable alternative is returned as unavailable with its blocking condition
+  - id: Y14
+    name: intent is never inferred
+    assert: Q08 returns intent only from a cited policy_decisions row or
+      U07_INTENT_UNKNOWN; a LESS_RESTRICTIVE internal rule is reported as a
+      violation, not a virtue
+  - id: Y15
+    name: propose re-verifies
+    assert: every generated redline is re-judged by the same gate and council; a
+      proposal that does not close its target CU is reported as not closing it; a
+      weakening variant is detected and names the weakened obligation
+  - id: Y16
+    name: Q12 produces a case file
+    assert: the change package contains source, interpretation, applicability
+      decision, before/after determinations, affected artifacts, owners or named
+      owner gaps, training, transition, verification, rollback and pending approval
+  - id: Y17
+    name: twelve questions, thirty-six variants
+    assert: each question has complete, counterexample and uncertainty variants
+      asserting determination and citation IDs; all pass through the deployed route
+  - id: Y18
+    name: the plan is the trace
+    assert: every routed answer records its operation plan and the evidence at each
+      step; no answer is composed from an operation that did not run
+  - id: Y19
+    name: graph fidelity is calibrated
+    assert: cycle-consistency over 5 iterations for both graphs sits above the
+      delta=0.10 noise-injection score on the same measure
+  - id: Y20
+    name: F2 primary
+    assert: judgment quality is reported as F2 with F1 and MCC secondary, per
+      finding type with denominators; no averaged compliance score is published
+  - id: Y21
+    name: adjudicated error ceilings
+    assert: a fresh stratified 40-row sample yields false-gap <= 10% and zero
+      unresolved false-supported, with each error classified as extraction, bridge,
+      gate or judgment and carrying a regression
+  - id: Y22
+    name: ablation
+    assert: full, no-typing, no-organization-graph, no-bridge, no-reference-traversal
+      and single-seat arms are each measured with F2 delta reported
+  - id: Y23
+    name: prompt sensitivity
+    assert: the judge prompt is paraphrased into semantically equivalent variants and
+      the F2 range is reported
+  - id: Y24
+    name: fleet capability measured
+    assert: per-seat F2, abstention, JSON validity, citation-violation rate and
+      throughput are measured on this hardware and reported; a shortfall is stated
+      with numbers rather than absorbed
+  - id: Y25
+    name: substrate repaired
+    assert: compliance chunks carry heading path and page; the compliance BM25 index
+      returns an exact requirement-ID match; prose-cip-07 is rank 1; no other
+      consumer's index or recall moved
+  - id: Y26
+    name: probe authored before candidates pulled
+    assert: the 30-case probe and its labels are committed at an earlier commit than
+      any new model pull recorded in the run log
+  - id: Y27
+    name: seats qualified on seat properties
+    assert: every selected seat has measured schema-adherence, citation-violation,
+      abstention-honesty, context-headroom-at-real-packet-size, thinking-mode
+      control, F2 and throughput; no seat was selected on leaderboard position
+  - id: Y28
+    name: context baked and preflighted
+    assert: every seat tag carries a baked -ctxNk at or above the measured packet
+      size and records ctx_validated from a direct /api/chat preflight; no seat
+      verdict rests on an unvalidated context
+  - id: Y29
+    name: roster decision is evidenced and diverse
+    assert: selected and rejected candidates are reported with measured evidence;
+      seats span at least three model families or the diversity shortfall is stated
+  - id: Y30
+    name: catalog changes are additive and bounded
+    assert: no catalog entry was removed; new pulls are within the declared cap; no
+      candidate was added to the general bench backlog by this task
