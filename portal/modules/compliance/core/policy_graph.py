@@ -117,6 +117,9 @@ class PolicyNode:
     # meta_cu nodes only: the parsed applicability predicate the gate evaluates
     # against declared scope before any actor-CU under it is judged.
     scope_predicate: dict[str, Any] = field(default_factory=dict)
+    # actor_cu nodes only: the per-field compliance-unit decomposition with a
+    # char span for each populated field (task §1.3).
+    cu: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -467,6 +470,133 @@ def synthesize_meta_cus(graph: PolicyGraph) -> None:
     graph.typing_report["gates_edges"] = sum(1 for e in graph.edges if e["rel"] == "GATES")
 
 
+# ── per-field CU decomposition (task §1.3) ─────────────────────────────────
+# {subject, constraint, condition, context} with a char span for each
+# populated field, so every downstream citation resolves at the field level.
+
+_ROLE = re.compile(
+    r"(Each |The )?(Responsible Entit(?:y|ies)|Transmission Owner|Transmission "
+    r"Operator|Generator Operator|Reliability Coordinator|CIP Senior Manager|"
+    r"Distribution Provider|Planning Coordinator|Balancing Authority)",
+    re.I,
+)
+_SECTION_LEAD = re.compile(r"^\s*Section \d+\.[^:]*:\s*")
+_QUANTITY_SPAN = re.compile(
+    r"(?P<lead>at least once (?:every|each)|no less than|within|no later than|"
+    r"at intervals no greater than|once every|every)\s+"
+    r"(?P<value>\d+)\s+(?:(?P<qual>calendar|business)\s+)?"
+    r"(?P<unit>minute|hour|day|week|month|year)s?",
+    re.I,
+)
+_COND_CUES = (
+    ("exception", r"\b(unless|except(?:\s+(?:as|during|under|for))?)\b"),
+    ("conditional", r"\b(if any|if needed|if there are|if,? |when |in the event)\b"),
+    (
+        "scope",
+        r"\b(For (?:each|all|any|reassignments|termination|electronic|"
+        r"password|Transient|Removable)|Where technically feasible|Where allowed)\b",
+    ),
+)
+_COND_RE = re.compile("|".join(f"(?P<{k}>{v})" for k, v in _COND_CUES), re.I)
+
+
+def _span(text: str, sub: str, start: int = 0) -> tuple[int, int]:
+    i = text.find(sub, start)
+    return (i, i + len(sub)) if i >= 0 else (-1, -1)
+
+
+def decompose_actor_cu(
+    node: RegisterNode, refers_to: list[str], gated_by: list[str]
+) -> dict[str, Any]:
+    """Deterministic {subject, constraint, condition, context} decomposition
+    with per-field char spans into ``node.verbatim_text``."""
+    text = node.verbatim_text
+    lead = _SECTION_LEAD.match(text)
+    body_start = lead.end() if lead else 0
+
+    # subject
+    rm = _ROLE.search(text, body_start)
+    if rm:
+        subject = {
+            "text": rm.group(0).strip(),
+            "char_start": rm.start(),
+            "char_end": rm.end(),
+            "implied": False,
+        }
+    else:
+        subject = {
+            "text": "Responsible Entity",
+            "char_start": -1,
+            "char_end": -1,
+            "implied": True,
+        }
+
+    # condition / exception clauses
+    conditions: list[dict[str, Any]] = []
+    for cm in _COND_RE.finditer(text, body_start):
+        kind = cm.lastgroup
+        # clause runs to the next sentence break
+        tail = re.search(r"[.;]", text[cm.start() :])
+        end = cm.start() + (tail.end() if tail else len(text) - cm.start())
+        conditions.append(
+            {
+                "kind": kind,
+                "text": text[cm.start() : end].strip(),
+                "char_start": cm.start(),
+                "char_end": end,
+            }
+        )
+
+    # constraint: quantity + direction, and the residual clause span
+    quantity = None
+    qm = _QUANTITY_SPAN.search(text)
+    if qm:
+        lead_l = qm.group("lead").lower()
+        direction = (
+            "max_interval"
+            if lead_l in ("at least once every", "at least once each", "once every", "every")
+            else "max_elapsed"
+            if lead_l in ("within", "no later than", "at intervals no greater than")
+            else "min_interval"
+            if lead_l == "no less than"
+            else "interval"
+        )
+        quantity = {
+            "value": int(qm.group("value")),
+            "unit": qm.group("unit").lower(),
+            "qualifier": (qm.group("qual") or "").lower() or None,
+            "direction": direction,
+            "text": qm.group(0),
+            "char_start": qm.start(),
+            "char_end": qm.end(),
+        }
+    constraint_start = (
+        subject["char_end"] if not subject["implied"] and subject["char_end"] > 0 else body_start
+    )
+    constraint = {
+        "text": text[constraint_start:].strip(),
+        "char_start": constraint_start,
+        "char_end": len(text),
+        "quantity": quantity,
+    }
+
+    context = {
+        "applicable_systems": node.applicable_systems,
+        "table_name": node.table_name,
+        "time_horizon": node.time_horizon,
+        "vrf": node.vrf,
+        "evidence_guidance": node.measure_text,
+        "refers_to": sorted(set(refers_to)),
+        "gated_by": sorted(set(gated_by)),
+    }
+    return {
+        "subject": subject,
+        "constraint": constraint,
+        "condition": conditions,
+        "context": context,
+    }
+
+
 def build_policy_graph(register: Register | None = None) -> PolicyGraph:
     import hashlib
 
@@ -512,6 +642,23 @@ def build_policy_graph(register: Register | None = None) -> PolicyGraph:
         "refers_to_by_resolution": dict(sorted(ref_res.items(), key=lambda kv: -kv[1])),
     }
     synthesize_meta_cus(graph)
+
+    # per-field CU decomposition for every actor-CU (after meta-CU synthesis so
+    # gated_by is populated).
+    refs_by_src: dict[str, list[str]] = {}
+    for e in graph.edges:
+        if e["rel"] == "REFERS_TO" and e["dst"]:
+            refs_by_src.setdefault(e["src"], []).append(e["dst"])
+    n_decomposed = 0
+    for pn in graph.nodes:
+        if pn.node_type != "actor_cu":
+            continue
+        pn.cu = decompose_actor_cu(by_id[pn.id], refs_by_src.get(pn.id, []), pn.gated_by)
+        n_decomposed += 1
+    graph.typing_report["actor_cus_decomposed"] = n_decomposed
+    graph.typing_report["actor_cus_with_quantity"] = sum(
+        1 for pn in graph.nodes if pn.cu.get("constraint", {}).get("quantity")
+    )
     return graph
 
 
