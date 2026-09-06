@@ -84,6 +84,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/constraints.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-council
+  globs:
+  - portal/modules/compliance/core/council.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-coverage
   globs:
   - portal/modules/compliance/core/coverage.py
