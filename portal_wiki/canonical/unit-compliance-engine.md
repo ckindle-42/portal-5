@@ -46,6 +46,8 @@ sources:
 - type: code
   path: portal/modules/compliance/core/policy_graph.py
 - type: code
+  path: portal/modules/compliance/core/org_graph.py
+- type: code
   path: portal/modules/compliance/core/authority.py
 - type: code
   path: portal/modules/compliance/core/internal_model.py
