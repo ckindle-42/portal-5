@@ -52,6 +52,8 @@ sources:
 - type: code
   path: portal/modules/compliance/core/gate.py
 - type: code
+  path: portal/modules/compliance/core/council.py
+- type: code
   path: portal/modules/compliance/core/authority.py
 - type: code
   path: portal/modules/compliance/core/internal_model.py
