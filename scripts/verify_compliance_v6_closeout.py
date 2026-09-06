@@ -86,11 +86,34 @@ CODE_CHECKS: dict[str, tuple[str, str]] = {
     ),
 }
 
+
+def _y19_fidelity() -> tuple[str, str]:
+    """Y19: run the fidelity harness; the clean mean must exceed the delta=0.10
+    noise-injection score for both graphs."""
+    r = subprocess.run(
+        ["uv", "run", "python", "scripts/compliance_graph_fidelity.py", "--json"],
+        capture_output=True,
+        text=True,
+        cwd=REPO,
+        timeout=300,
+        check=False,
+    )
+    try:
+        d = json.loads(r.stdout)
+    except json.JSONDecodeError:
+        return "PENDING", "fidelity harness did not return JSON"
+    pv, ov = d.get("policy_verdict", "?"), d.get("org_verdict", "?")
+    pm = d.get("policy", {}).get("clean_mean")
+    om = (d.get("org") or {}).get("clean_mean")
+    if pv == "PASS" and ov in ("PASS", "SKIP (graph not built)"):
+        return "PASS", f"policy {pm} > d0.10 {d['policy']['noise'].get('0.10')}; org {om}"
+    return "FAIL", f"policy {pv} / org {ov}"
+
+
 PENDING_CHECKS: dict[str, tuple[str, str]] = {
     "Y12": ("Q05 bitemporal join", "needs a live Q05 route trace over the org graph control block"),
     "Y13": ("permission structure", "needs Q09 route over the 19 permission Parts"),
     "Y16": ("Q12 case file", "needs a live Q12 route producing the full change package"),
-    "Y19": ("graph fidelity calibrated", "P8: cycle-consistency + noise injection"),
     "Y20": ("F2 primary", f"P8: {RESULTS}/judgment_probe_v6_*.json + adjudication"),
     "Y21": ("adjudicated error ceilings", "P8: stratified 40-row adjudication to convergence"),
     "Y22": ("ablation", "P8: 6-arm F2 delta table"),
@@ -139,6 +162,8 @@ def main() -> None:
         ok, detail = _pytest(node)
         results[cid] = {"name": name, "status": "PASS" if ok else "FAIL", "detail": detail}
 
+    results["Y19"] = dict(zip(("status", "detail"), _y19_fidelity(), strict=True))
+    results["Y19"]["name"] = "graph fidelity is calibrated"
     results["Y26"] = dict(zip(("status", "detail"), _git_probe_before_pulls(), strict=True))
     results["Y26"]["name"] = "probe authored before candidates pulled"
     results["Y30"] = dict(zip(("status", "detail"), _y30_additive(), strict=True))
