@@ -48,6 +48,8 @@ sources:
 - type: code
   path: portal/modules/compliance/core/org_graph.py
 - type: code
+  path: portal/modules/compliance/core/vocabulary_bridge.py
+- type: code
   path: portal/modules/compliance/core/authority.py
 - type: code
   path: portal/modules/compliance/core/internal_model.py
