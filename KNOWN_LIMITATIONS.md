@@ -83,6 +83,49 @@ An absolute threshold is the wrong shape for this job and is shipped anyway, bec
 
 ---
 
+### Compliance V6 — the machinery is built and unit-verified; the measurement gates are pending a live run
+
+- **ID**: V6-COMPLIANCE-MEASUREMENT-PENDING
+- **Status**: OPEN. `TASK_COMPLIANCE_REASONING_V6` landed the full architecture
+  — typed policy graph, organization graph, vocabulary bridge, the no-model
+  gate, the sealed listwise council with exception override, the six
+  operations, the planner, live `compliance_analyze`, the docling+BM25
+  substrate — with 60+ new unit/acceptance tests and the code-verifiable
+  closeout checks green (`scripts/verify_compliance_v6_closeout.py`:
+  17 PASS / 0 FAIL / 13 PENDING).
+- **What is not yet measured**: the 13 PENDING checks are the ones that need a
+  live model roster and cannot run in CI —
+  - **Y20/Y21** F2 per finding type + a fresh stratified 40-row adjudication
+    against source docs to the false-gap ≤ 10% / zero-false-supported ceiling;
+  - **Y22** the six-arm ablation (full / no-typing / no-org-graph / no-bridge /
+    no-reference-traversal / single-seat) F2-delta table;
+  - **Y23** the judge-prompt paraphrase F2 range;
+  - **Y24/Y27/Y28/Y29** the D0-M per-seat qualification — F2, abstention
+    honesty, JSON validity, citation-violation rate, context headroom at real
+    packet size, thinking-mode control, `ctx_validated` preflight — and the
+    roster decision;
+  - **Y25** the `prose-cip-07` rank-1 confirmation after a live re-ingest on
+    the new docling+BM25 compliance composition;
+  - **Y12/Y13/Y16** the Q05 / Q09 / Q12 live-route acceptance variants.
+- **Why it is not simply done**: each needs an uninterrupted GPU-bound sweep
+  and the operator's private LSPG corpus; the D0 judgment probe
+  (`tests/compliance_probe/judgment_probe_v6.jsonl`, 30 cases, committed before
+  any model pull) and `bench_judgment_probe_v6.py` are the instrument, and the
+  fidelity harness (`scripts/compliance_graph_fidelity.py`) already passes Y19
+  (policy clean 0.86 > δ0.10 0.81; org 0.93 > 0.88). The prior art warns a
+  24–30B local seat may not carry the judgment step at acceptable recall — that
+  is exactly what the pending sweep decides, and if it falls short the finding
+  is reported with numbers, not absorbed.
+
+## Why
+
+The architecture is the part that is hard to get right and it is done and
+guarded; the measurement is the part that is slow, not uncertain. Splitting
+them lets the code land and be reviewed now while the sweep runs, rather than
+holding a correct build hostage to a multi-hour eval.
+
+---
+
 <!-- WIKI:GENERATED unit=unit-known-limitations-auto-rag-silent-miss -->
 ### Auto-RAG context injection never ran, and failed as a cache miss (RESOLVED)
 

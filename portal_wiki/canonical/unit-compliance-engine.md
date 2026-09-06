@@ -304,3 +304,62 @@ retired version must not be retrievable for a "what must we do today" question.
 The register replaces a 27-entry map that was both paraphrased and pinned to
 superseded versions — two disagreeing sources of truth that the persona was
 instructed to treat as authoritative.
+
+## V6 — graph-analyze-then-judge (TASK_COMPLIANCE_REASONING_V6)
+
+The V3 assessment path was retrieve-then-token-match. V6 makes the graph an
+active reasoning scaffold (GraphCompliance, arXiv:2510.26309): structural
+lookups are reliable traversal, the model is reserved for semantic judgment on
+a pre-analyzed problem.
+
+- `core/policy_graph.py` — augments the register in place (cip_register.py and
+  cip_extract.py untouched). Every one of the 254 nodes is typed **premise**
+  (57), **meta_cu** (37 synthesized from `applicable_systems`, with a parsed
+  scope predicate), or **actor_cu** (197) by a deterministic evidence-emitting
+  ruleset. Only actor-CUs receive determinations; meta-CUs gate; premises never
+  create an obligation. 112 `REFERS_TO` edges (76 resolved to a traversable
+  endpoint, incl. cross-standard version resolution; 36 on a deferred
+  relative-reference worklist) each carry a char span that re-resolves verbatim.
+  Every actor-CU is decomposed into `{subject, constraint, condition, context}`
+  with a per-field span; 44 carry a parsed quantity with direction
+  (max_interval / max_elapsed / min_interval).
+- `core/org_graph.py` — the second register: the operator's commitments,
+  controls, roles, systems, activities and evidence specs extracted from the
+  LSPG PDFs with the `cip_extract` discipline mirrored — verbatim spans that
+  round-trip (fidelity 1.0), a completeness denominator from document-declared
+  section headings, control-block dates read from the document not the filename.
+  The persisted graph holds operator text and is **not** committed.
+- `core/vocabulary_bridge.py` — hypernym proposals replace the hardcoded
+  role-word regex in `assessment._compare`. Each proposal is STRONG
+  (premise-supported) or WEAK, keeps its supporting fragment, and
+  `align_actor()` returns a recorded chain. `assessment.py` holds no org-name
+  or role literal.
+- `core/gate.py` — **no model call.** Applicability first (a DOES_NOT_APPLY CU
+  is gated out, never scored ABSENT), then actor alignment, reference/exception
+  closure by traversal, constraint arithmetic, and a candidate plan by
+  structured filter with a retrieval backstop whose surplus is reported.
+  `GateResult.to_council_packet()` is the structured JSON the council consumes.
+- `core/council.py` — V4 mechanics (sealed packets, cite-or-drop, quorum in
+  code, dissent as `S04`) plus **listwise** judgment (one call per anchor) and a
+  **separate exception-override call** over the reference closure when a
+  decision is unmet. `INSUFFICIENT` is the honest return and never a vote.
+- `core/operations.py` — the six primitives (`resolve`, `trace`, `judge`,
+  `diff`, `norms`, `propose`); `judge` always runs the gate before the council;
+  `propose` always re-judges its own output.
+- `core/planner.py` — a question maps to an operation plan (the twelve §4
+  compositions), executed step by step, each recording its evidence; the plan
+  is the trace.
+- `tools/compliance_analyze` now assesses **live** through this pipeline; the
+  pre-V6 cached `claims` SELECT is deleted.
+- `core/runtime_config.py` — the council seat roster (config or the D0-M
+  defaults) and the org-graph commitment loader.
+- `scripts/compliance_graph_fidelity.py` — fidelity without gold labels:
+  four sub-scores calibrated by noise injection at δ ∈ {0.01…0.20}. The clean
+  mean must exceed the δ=0.10 score (policy 0.86 > 0.81; org 0.93 > 0.88).
+- Retrieval substrate (`tools/compliance_retrieval.py`): the compliance
+  composition **only** forces docling chunking (heading path + page) and the
+  BM25 sparse arm; the global `CHUNK_STRATEGY` and every other consumer are
+  untouched.
+
+Closeout checks Y01–Y30 live in `config/compliance/closeout_checks.yaml`;
+`scripts/verify_compliance_v6_closeout.py` runs the code-verifiable ones.
