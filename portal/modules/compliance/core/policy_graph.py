@@ -114,6 +114,9 @@ class PolicyNode:
     applicable_systems: str
     gated_by: list[str] = field(default_factory=list)  # meta_cu ids that gate this actor_cu
     depends_on: list[str] = field(default_factory=list)  # premise ids this node reads
+    # meta_cu nodes only: the parsed applicability predicate the gate evaluates
+    # against declared scope before any actor-CU under it is judged.
+    scope_predicate: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -395,6 +398,75 @@ def _resolve_one(
     return "", "unknown"
 
 
+# ── applicability meta-CU synthesis (task §1.2) ────────────────────────────
+# `applicable_systems` is a covered-systems scope predicate. It becomes a
+# meta-CU evaluated FIRST — an out-of-scope Part is gated out, never scored
+# ABSENT. One meta-CU per distinct predicate string; every actor-CU carrying
+# that string is GATED_BY it.
+
+_IMPACT = (("high", "High Impact"), ("medium", "Medium Impact"), ("low", "low impact"))
+_ASSOC = ("EACMS", "PACS", "PCA", "PCAs")
+_QUALIFIERS = (
+    ("external_routable_connectivity", r"External Routable Connectivity"),
+    ("control_centers", r"Control Centers?"),
+    ("dial_up", r"Dial[-\s]?up Connectivity"),
+    ("shared_cyber_infrastructure", r"Shared Cyber Infrastructure"),
+)
+
+
+def _parse_scope(applicable_systems: str) -> dict[str, Any]:
+    t = applicable_systems
+    impacts = sorted({key for key, needle in _IMPACT if needle.lower() in t.lower()})
+    assoc = sorted({a.rstrip("s") for a in _ASSOC if re.search(rf"\b{a}\b", t)})
+    quals = sorted({key for key, pat in _QUALIFIERS if re.search(pat, t, re.I)})
+    return {
+        "impact_ratings": impacts,
+        "associated_asset_types": assoc,
+        "qualifiers": quals,
+        "verbatim": t,
+    }
+
+
+def _meta_id(standard: str, applicable_systems: str) -> str:
+    import hashlib
+
+    h = hashlib.sha256(applicable_systems.encode()).hexdigest()[:8]
+    return f"{standard} META applicable_systems {h}"
+
+
+def synthesize_meta_cus(graph: PolicyGraph) -> None:
+    """Add one meta_cu node per distinct ``applicable_systems`` predicate and a
+    GATES edge to every actor-CU that declares it. Mutates ``graph`` in place."""
+    seen: dict[str, PolicyNode] = {}
+    for n in list(graph.nodes):
+        if n.node_type != "actor_cu" or not n.applicable_systems:
+            continue
+        mid = _meta_id(n.standard, n.applicable_systems)
+        meta = seen.get(mid)
+        if meta is None:
+            meta = PolicyNode(
+                id=mid,
+                node_type="meta_cu",
+                typing_rule="synthesized_from_applicable_systems",
+                typing_evidence=n.applicable_systems[:120],
+                standard=n.standard,
+                requirement="",
+                part="",
+                verbatim_text=n.applicable_systems,
+                applicable_systems=n.applicable_systems,
+                scope_predicate=_parse_scope(n.applicable_systems),
+            )
+            seen[mid] = meta
+            graph.nodes.append(meta)
+        n.gated_by.append(mid)
+        graph.edges.append({"src": mid, "dst": n.id, "rel": "GATES"})
+    graph.typing_report["by_type"]["meta_cu"] = sum(
+        1 for n in graph.nodes if n.node_type == "meta_cu"
+    )
+    graph.typing_report["n_nodes"] = len(graph.nodes)
+    graph.typing_report["gates_edges"] = sum(1 for e in graph.edges if e["rel"] == "GATES")
+
+
 def build_policy_graph(register: Register | None = None) -> PolicyGraph:
     import hashlib
 
@@ -439,6 +511,7 @@ def build_policy_graph(register: Register | None = None) -> PolicyGraph:
         "refers_to_src_nodes": len({e["src"] for e in refers_to}),
         "refers_to_by_resolution": dict(sorted(ref_res.items(), key=lambda kv: -kv[1])),
     }
+    synthesize_meta_cus(graph)
     return graph
 
 

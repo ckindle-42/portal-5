@@ -20,10 +20,37 @@ def graph():
 
 
 def test_every_node_is_typed(graph):
-    assert len(graph.nodes) == len(Register.load().nodes)
+    reg_n = len(Register.load().nodes)
+    register_derived = [
+        n for n in graph.nodes if n.typing_rule != "synthesized_from_applicable_systems"
+    ]
+    assert len(register_derived) == reg_n
     valid = {"premise", "meta_cu", "actor_cu"}
     assert all(n.node_type in valid for n in graph.nodes)
     assert all(n.typing_rule and n.typing_evidence for n in graph.nodes)
+
+
+def test_meta_cus_gate_actor_cus_and_are_never_bare_register_nodes(graph):
+    metas = [n for n in graph.nodes if n.node_type == "meta_cu"]
+    assert metas and all(n.typing_rule == "synthesized_from_applicable_systems" for n in metas)
+    # every synthesized meta-CU carries a parsed predicate and gates >=1 actor-CU
+    gated = {e["dst"] for e in graph.edges if e["rel"] == "GATES"}
+    gators = {e["src"] for e in graph.edges if e["rel"] == "GATES"}
+    assert gators == {n.id for n in metas}
+    by_id = {n.id: n for n in graph.nodes}
+    for m in metas:
+        assert m.scope_predicate.get("impact_ratings") is not None
+    for dst in gated:
+        assert by_id[dst].node_type == "actor_cu"
+        assert any(m.startswith(dst.split(" ")[0]) for m in by_id[dst].gated_by)
+
+
+def test_only_actor_cus_would_receive_determinations(graph):
+    # Y01: premises and meta-CUs must be excluded from the judged set.
+    judged = [n for n in graph.nodes if n.node_type == "actor_cu"]
+    not_judged = [n for n in graph.nodes if n.node_type != "actor_cu"]
+    assert len(judged) == 197
+    assert all(n.node_type in {"premise", "meta_cu"} for n in not_judged)
 
 
 def test_typing_is_deterministic():
