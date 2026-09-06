@@ -40,6 +40,9 @@ _UNIT_ALIASES = {
     "month": "month",
     "year": "year",
 }
+# a council packet must fit the smallest seat's context — real gate output
+# otherwise reaches ~16k tokens with 100+ loosely-matched candidates
+_MAX_STRUCTURED_CANDIDATES = 15
 
 
 @dataclass
@@ -162,12 +165,19 @@ def run_gate(
         for w in (cu.get("constraint", {}).get("text", "") + " " + node.verbatim_text).split()
         if len(w) > 3
     }
+    scored: list[tuple[int, dict[str, Any]]] = []
     for c in org_commitments:
         folder_ok = c.get("standard_folder", "") in ("", std)
         overlap = len({t for t in cu_terms if t in c.get("text", "").lower()})
         term_hit = bool(cu_terms & {w.lower() for w in c.get("text", "").split()} & strong_terms)
         if folder_ok and (overlap >= 3 or term_hit):
-            structured.append(c)
+            scored.append((overlap + (2 if term_hit else 0), c))
+    # rank by overlap and cap — a council packet must stay inside the seat's
+    # context (real gate packets otherwise reach ~16k tokens with 100+
+    # loosely-matched candidates); the surplus below the cap is disclosed.
+    scored.sort(key=lambda t: -t[0])
+    structured = [c for _, c in scored[:_MAX_STRUCTURED_CANDIDATES]]
+    dropped_for_budget = len(scored) - len(structured)
 
     structured_ids = {c["commitment_id"] for c in structured}
     backstop = []
@@ -203,6 +213,11 @@ def run_gate(
         notes.append(
             f"{len(backstop)} retrieval-backstop candidate(s) not found by the structured "
             "filter — surplus reported for investigation, not silently unioned (task §P4)"
+        )
+    if dropped_for_budget:
+        notes.append(
+            f"{dropped_for_budget} lower-ranked structured candidate(s) held below the "
+            f"{_MAX_STRUCTURED_CANDIDATES}-candidate packet cap — disclosed, not silently dropped"
         )
     return GateResult(
         actor_cu_id=actor_cu_id,
