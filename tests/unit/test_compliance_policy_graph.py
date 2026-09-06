@@ -183,6 +183,51 @@ def test_cross_standard_reference_resolves_to_effective_version(graph):
     assert edge["dst"] == "CIP-004-7"
 
 
+def test_actor_cu_decomposition_has_spanned_fields(graph):
+    acus = [n for n in graph.nodes if n.node_type == "actor_cu"]
+    assert all(n.cu for n in acus)
+    for n in acus:
+        cu = n.cu
+        assert set(cu) == {"subject", "constraint", "condition", "context"}
+        t = n.verbatim_text
+        s = cu["subject"]
+        if not s["implied"]:
+            assert t[s["char_start"] : s["char_end"]] == s["text"]
+        q = cu["constraint"].get("quantity")
+        if q:
+            assert t[q["char_start"] : q["char_end"]] == q["text"]
+            assert q["direction"] in {
+                "max_interval",
+                "max_elapsed",
+                "min_interval",
+                "interval",
+            }
+        for c in cu["condition"]:
+            assert c["kind"] in {"exception", "conditional", "scope"}
+            assert t[c["char_start"] : c["char_end"]].strip() == c["text"]
+
+
+def test_known_quantities_parse_with_correct_direction(graph):
+    by_id = {n.id: n for n in graph.nodes}
+    q = by_id["CIP-007-6 R2 Part 2.2"].cu["constraint"]["quantity"]
+    assert (q["value"], q["unit"], q["qualifier"], q["direction"]) == (
+        35,
+        "day",
+        "calendar",
+        "max_interval",
+    )
+    q2 = by_id["CIP-010-4 R1 Part 1.3"].cu["constraint"]["quantity"]
+    assert (q2["value"], q2["unit"], q2["direction"]) == (30, "day", "max_elapsed")
+
+
+def test_cu_context_carries_scope_and_refs(graph):
+    by_id = {n.id: n for n in graph.nodes}
+    ctx = by_id["CIP-007-6 R2 Part 2.2"].cu["context"]
+    assert ctx["applicable_systems"]
+    assert ctx["gated_by"]  # gated by its applicable_systems meta-CU
+    assert "CIP-007-6 R2 Part 2.1" in ctx["refers_to"]  # "identified in Part 2.1"
+
+
 def test_classify_node_explicit_modal_is_actor_cu():
     n = RegisterNode(
         id="X R1 Part 1.1",
