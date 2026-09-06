@@ -148,6 +148,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/obligations.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-operations
+  globs:
+  - portal/modules/compliance/core/operations.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-org_graph
   globs:
   - portal/modules/compliance/core/org_graph.py
