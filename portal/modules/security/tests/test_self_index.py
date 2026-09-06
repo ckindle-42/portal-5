@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -12,7 +13,7 @@ import pytest
 
 
 @pytest.fixture
-def sample_validator_json() -> dict:
+def sample_validator_json() -> dict[str, Any]:
     return {
         "passes": 23,
         "fails": 1,
@@ -38,11 +39,11 @@ def sample_validator_json() -> dict:
 
 
 @pytest.fixture
-def sample_journal_entries(tmp_path) -> Path:
+def sample_journal_entries(tmp_path: Path) -> Path:
     """Create sample journal entries in a tmp_path."""
     journal_dir = tmp_path / "field_journal"
     journal_dir.mkdir()
-    entries = [
+    entries: list[dict[str, Any]] = [
         {
             "engagement_id": "test-001",
             "ts": "2026-07-01T00:00:00Z",
@@ -93,7 +94,12 @@ def sample_journal_entries(tmp_path) -> Path:
 
 
 class TestBuildSelfIndex:
-    def test_reads_validator_health(self, sample_validator_json, monkeypatch, tmp_path):
+    def test_reads_validator_health(
+        self,
+        sample_validator_json: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
         """Validator health returns structured view with checks."""
         monkeypatch.setattr(subprocess, "run", lambda *a, **kw: _fake_run(sample_validator_json))
         from portal.modules.security.core.self_index import _read_validator_health
@@ -105,7 +111,7 @@ class TestBuildSelfIndex:
         assert "A. python imports" in health["checks"]
         assert health["checks"]["B. pipeline assembles"]["status"] == "FAIL"
 
-    def test_reads_oracle_fidelity_registry(self, monkeypatch):
+    def test_reads_oracle_fidelity_registry(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Oracle fidelity reads the ORACLES registry directly — always present."""
         from portal.modules.security.core.self_index import _read_oracle_fidelity
 
@@ -118,7 +124,9 @@ class TestBuildSelfIndex:
             assert "tier" in odata
             assert "kind" in odata
 
-    def test_coverage_stale_when_no_results(self, monkeypatch, tmp_path):
+    def test_coverage_stale_when_no_results(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         """Coverage reports stale when no recent bench results exist."""
         from portal.modules.security.core.self_index import _read_coverage
 
@@ -135,7 +143,7 @@ class TestBuildSelfIndex:
         coverage = _read_coverage()
         assert coverage["status"] in ("stale", "absent")
 
-    def test_discipline_breadth_present(self):
+    def test_discipline_breadth_present(self) -> None:
         """Discipline breadth reads from PROMPTS — always present."""
         from portal.modules.security.core.self_index import _read_discipline_breadth
 
@@ -146,7 +154,9 @@ class TestBuildSelfIndex:
             assert "red" in ddata
             assert "blue" in ddata
 
-    def test_journal_absent_when_no_entries(self, monkeypatch, tmp_path):
+    def test_journal_absent_when_no_entries(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         """Journal returns absent when no entries exist."""
         from portal.modules.security.core.self_index import _read_journal_summary
 
@@ -157,7 +167,9 @@ class TestBuildSelfIndex:
         assert journal["status"] == "absent"
         assert journal["total_entries"] == 0
 
-    def test_journal_reads_index(self, sample_journal_entries, monkeypatch):
+    def test_journal_reads_index(
+        self, sample_journal_entries: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Journal summary reads from _index.json when present."""
         from portal.modules.security.core.self_index import _read_journal_summary
 
@@ -169,7 +181,9 @@ class TestBuildSelfIndex:
         assert journal["total_entries"] == 2
         assert journal["by_category"]["ad"] == 2
 
-    def test_journal_reads_entries_without_index(self, sample_journal_entries, monkeypatch):
+    def test_journal_reads_entries_without_index(
+        self, sample_journal_entries: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Journal summary reads raw entries when _index.json is missing."""
         from portal.modules.security.core.self_index import _read_journal_summary
 
@@ -182,7 +196,7 @@ class TestBuildSelfIndex:
         assert journal["status"] == "stale"
         assert journal["total_entries"] == 2
 
-    def test_build_self_index_structure(self):
+    def test_build_self_index_structure(self) -> None:
         """Full build_self_index returns all five top-level keys."""
         from portal.modules.security.core.self_index import build_self_index
 
@@ -198,7 +212,9 @@ class TestBuildSelfIndex:
         assert "generated_at" in index
         assert isinstance(index["generated_at"], str)
 
-    def test_read_only_no_writes_outside_report(self, monkeypatch, tmp_path):
+    def test_read_only_no_writes_outside_report(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         """build_self_index performs no filesystem writes (read-only guarantee)."""
         from portal.modules.security.core.self_index import (
             _SELF_DIR,
@@ -238,7 +254,7 @@ class TestBuildSelfIndex:
 
 class TestRankWeaknesses:
     @pytest.fixture
-    def sample_index(self) -> dict:
+    def sample_index(self) -> dict[str, Any]:
         return {
             "validator": {
                 "status": "present",
@@ -338,7 +354,7 @@ class TestRankWeaknesses:
             },
         }
 
-    def test_ranking_includes_failing_checks(self, sample_index):
+    def test_ranking_includes_failing_checks(self, sample_index: dict[str, Any]) -> None:
         from portal.modules.security.core.self_index import rank_weaknesses
 
         weaknesses = rank_weaknesses(sample_index)
@@ -346,7 +362,7 @@ class TestRankWeaknesses:
         assert len(failing) == 2
         assert failing[0]["score"] == 30
 
-    def test_ranking_includes_heuristic_oracles(self, sample_index):
+    def test_ranking_includes_heuristic_oracles(self, sample_index: dict[str, Any]) -> None:
         from portal.modules.security.core.self_index import rank_weaknesses
 
         weaknesses = rank_weaknesses(sample_index)
@@ -360,7 +376,7 @@ class TestRankWeaknesses:
         assert oob[0]["score"] == 20  # oracle_oob
         assert exp[0]["score"] == 10  # oracle_experimental
 
-    def test_ranking_includes_zero_verified_classes(self, sample_index):
+    def test_ranking_includes_zero_verified_classes(self, sample_index: dict[str, Any]) -> None:
         from portal.modules.security.core.self_index import rank_weaknesses
 
         weaknesses = rank_weaknesses(sample_index)
@@ -369,7 +385,7 @@ class TestRankWeaknesses:
         assert zero_verified[0]["area"] == "class:sqli"
         assert zero_verified[0]["score"] == 25
 
-    def test_ranking_includes_red_machines(self, sample_index):
+    def test_ranking_includes_red_machines(self, sample_index: dict[str, Any]) -> None:
         from portal.modules.security.core.self_index import rank_weaknesses
 
         weaknesses = rank_weaknesses(sample_index)
@@ -378,7 +394,7 @@ class TestRankWeaknesses:
         assert red_machines[0]["area"] == "class:xss"
         assert red_machines[0]["score"] == 25
 
-    def test_ranking_includes_discipline_gaps(self, sample_index):
+    def test_ranking_includes_discipline_gaps(self, sample_index: dict[str, Any]) -> None:
         from portal.modules.security.core.self_index import rank_weaknesses
 
         weaknesses = rank_weaknesses(sample_index)
@@ -389,7 +405,9 @@ class TestRankWeaknesses:
         assert len(absent) == 1
         assert absent[0]["area"] == "discipline:cloud"
 
-    def test_ranking_includes_recurring_journal_failures(self, sample_index):
+    def test_ranking_includes_recurring_journal_failures(
+        self, sample_index: dict[str, Any]
+    ) -> None:
         from portal.modules.security.core.self_index import rank_weaknesses
 
         weaknesses = rank_weaknesses(sample_index)
@@ -398,7 +416,7 @@ class TestRankWeaknesses:
         assert journal_weak[0]["score"] == 10
         assert "network timeout" in journal_weak[0]["evidence"]
 
-    def test_ranking_includes_heuristic_only_scenarios(self, sample_index):
+    def test_ranking_includes_heuristic_only_scenarios(self, sample_index: dict[str, Any]) -> None:
         from portal.modules.security.core.self_index import rank_weaknesses
 
         weaknesses = rank_weaknesses(sample_index)
@@ -407,14 +425,14 @@ class TestRankWeaknesses:
         assert heuristic_scenarios[0]["area"] == "scenario:web_test"
         assert heuristic_scenarios[0]["score"] == 15
 
-    def test_ranking_deterministic_ordering(self, sample_index):
+    def test_ranking_deterministic_ordering(self, sample_index: dict[str, Any]) -> None:
         from portal.modules.security.core.self_index import rank_weaknesses
 
         w1 = rank_weaknesses(sample_index)
         w2 = rank_weaknesses(sample_index)
         assert w1 == w2
 
-    def test_ranking_score_formula_inspectable(self, sample_index):
+    def test_ranking_score_formula_inspectable(self, sample_index: dict[str, Any]) -> None:
         from portal.modules.security.core.self_index import rank_weaknesses
 
         weaknesses = rank_weaknesses(sample_index)
@@ -427,7 +445,9 @@ class TestRankWeaknesses:
             # Score must come from the documented _SCORE_RULES
             assert isinstance(w["score"], int)
 
-    def test_absent_signals_marked_not_fabricated(self, monkeypatch, tmp_path):
+    def test_absent_signals_marked_not_fabricated(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         """When signals are absent, they are marked as such — no invented counts."""
         from portal.modules.security.core.self_index import build_self_index, rank_weaknesses
 
@@ -472,16 +492,16 @@ class TestRankWeaknesses:
 
 
 class _FakeCompletedProcess:
-    def __init__(self, returncode, stdout):
+    def __init__(self, returncode: int, stdout: str) -> None:
         self.returncode = returncode
         self.stdout = stdout
 
 
-def _fake_run(data: dict):
+def _fake_run(data: dict[str, Any]) -> _FakeCompletedProcess:
     return _FakeCompletedProcess(0, json.dumps(data))
 
 
-def _fake_run_validator():
+def _fake_run_validator() -> _FakeCompletedProcess:
     return _FakeCompletedProcess(
         0,
         json.dumps(

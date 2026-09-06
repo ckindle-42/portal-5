@@ -7,6 +7,10 @@ marked promotable, no matter what a (necessarily fake, since untested) proof cla
 from __future__ import annotations
 
 import copy
+from pathlib import Path
+from typing import Any
+
+import pytest
 
 from portal.modules.security.core.stage2_propose import (
     Proof,
@@ -21,13 +25,15 @@ from portal.modules.security.core.stage2_propose import (
 
 
 class _FakeOracle:
-    def __init__(self, tier="experimental", kind="unit_test_kind"):
+    def __init__(self, tier: str = "experimental", kind: str = "unit_test_kind") -> None:
         self.tier = tier
         self.kind = kind
         self.honesty_claim = "proves a unit-test fact, not anything real"
 
 
-def _proven_proof(oracle_id="fake_oracle", source="sec_bench_fake.json") -> dict:
+def _proven_proof(
+    oracle_id: str = "fake_oracle", source: str = "sec_bench_fake.json"
+) -> dict[str, Any]:
     return Proof(
         oracle_id=oracle_id,
         source_file=source,
@@ -41,11 +47,11 @@ def _proven_proof(oracle_id="fake_oracle", source="sec_bench_fake.json") -> dict
     ).as_dict()
 
 
-def _insufficient_proof(oracle_id="fake_oracle") -> dict:
+def _insufficient_proof(oracle_id: str = "fake_oracle") -> dict[str, Any]:
     return Proof(oracle_id=oracle_id, source_file="", insufficient_evidence=True).as_dict()
 
 
-def _false_positive_proof(oracle_id="fake_oracle") -> dict:
+def _false_positive_proof(oracle_id: str = "fake_oracle") -> dict[str, Any]:
     return Proof(
         oracle_id=oracle_id,
         source_file="sec_bench_fake.json",
@@ -58,7 +64,7 @@ def _false_positive_proof(oracle_id="fake_oracle") -> dict:
     ).as_dict()
 
 
-def _sample_index(oracle_id="fake_oracle", tier="experimental") -> dict:
+def _sample_index(oracle_id: str = "fake_oracle", tier: str = "experimental") -> dict[str, Any]:
     return {
         "oracles": {
             "oracles": {
@@ -72,7 +78,7 @@ def _sample_index(oracle_id="fake_oracle", tier="experimental") -> dict:
 
 
 class TestFalsePromotionGuard:
-    def test_hollow_flag_flip_never_promotable(self):
+    def test_hollow_flag_flip_never_promotable(self) -> None:
         """A proposal that only flips tier with no real check strengthening → not promotable,
         EVEN IF proof (falsely) claims a clean positive+negative pass — the diff itself never
         touched the check, so a stub can never be promoted by evidence alone."""
@@ -94,7 +100,7 @@ class TestFalsePromotionGuard:
         assert proven_result["evidence"]["hollow"] is False
         assert proven_result["promotable"] is True
 
-    def test_hollow_can_never_be_marked_promotable_directly(self):
+    def test_hollow_can_never_be_marked_promotable_directly(self) -> None:
         """Construct the exact hollow shape (diff_touches_check False, proven False) and assert
         goal_eval's own hollow flag makes promotable impossible."""
         proposal = {
@@ -119,7 +125,7 @@ class TestFalsePromotionGuard:
 
 
 class TestProvenPromotion:
-    def test_clean_positive_and_negative_proof_is_promotable(self):
+    def test_clean_positive_and_negative_proof_is_promotable(self) -> None:
         proposal = {
             "oracle_id": "fake_oracle",
             "scope": ["fake_oracle"],
@@ -131,7 +137,7 @@ class TestProvenPromotion:
         assert result["promotable"] is True
         assert result["reasons"] == []
 
-    def test_false_positive_on_negative_entry_blocks_promotion(self):
+    def test_false_positive_on_negative_entry_blocks_promotion(self) -> None:
         proposal = {
             "oracle_id": "fake_oracle",
             "scope": ["fake_oracle"],
@@ -143,7 +149,7 @@ class TestProvenPromotion:
         assert result["promotable"] is False
         assert any("false positive" in r for r in result["reasons"])
 
-    def test_insufficient_evidence_is_not_a_forced_pass_or_fail(self):
+    def test_insufficient_evidence_is_not_a_forced_pass_or_fail(self) -> None:
         proposal = {
             "oracle_id": "fake_oracle",
             "scope": ["fake_oracle"],
@@ -161,7 +167,7 @@ class TestProvenPromotion:
 
 
 class TestDeterminism:
-    def test_goal_eval_deterministic(self):
+    def test_goal_eval_deterministic(self) -> None:
         proposal = {
             "oracle_id": "fake_oracle",
             "scope": ["fake_oracle"],
@@ -174,7 +180,7 @@ class TestDeterminism:
         r2 = goal_eval(proposal, copy.deepcopy(proof), index=copy.deepcopy(index))
         assert r1 == r2
 
-    def test_fitness_delta_uses_real_rank_weaknesses(self):
+    def test_fitness_delta_uses_real_rank_weaknesses(self) -> None:
         """The fitness-delta recompute must call the real self_index.rank_weaknesses,
         not an assumed/hardcoded value."""
         from portal.modules.security.core.self_index import rank_weaknesses
@@ -195,7 +201,7 @@ class TestDeterminism:
 
 
 class TestWeakOracleIds:
-    def test_weak_oracle_ids_matches_stage1_weakness_view(self):
+    def test_weak_oracle_ids_matches_stage1_weakness_view(self) -> None:
         """The live ORACLES registry has exactly 45 experimental + 5 differential = 50 weak.
 
         45 experimental = 41 pre-existing + 4 terminal-state objective oracles
@@ -218,7 +224,9 @@ class TestWeakOracleIds:
 
 
 class TestGateHolds:
-    def test_propose_without_apply_writes_nothing_to_oracle_source(self, tmp_path, monkeypatch):
+    def test_propose_without_apply_writes_nothing_to_oracle_source(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Running propose (no --apply) must never touch oracles.py or ability_port.py."""
         from portal.modules.security.core import stage2_propose as s2
 
@@ -233,7 +241,9 @@ class TestGateHolds:
         assert s2._ABILITY_PORT_PY.read_text() == ability_before
         assert (out_dir / "stage2_report.json").exists()
 
-    def test_apply_batch_is_never_invoked_by_run_stage2_or_write_report(self, tmp_path):
+    def test_apply_batch_is_never_invoked_by_run_stage2_or_write_report(
+        self, tmp_path: Path
+    ) -> None:
         """apply_batch is a distinct function the propose pipeline never calls internally —
         only stage2_propose_main(apply=True) (i.e. an explicit operator --apply) may call it."""
         import inspect
@@ -245,7 +255,7 @@ class TestGateHolds:
         assert "apply_batch" not in run_stage2_src
         assert "apply_batch" not in write_report_src
 
-    def test_apply_batch_applies_only_when_promotable_and_diff_staged(self, tmp_path):
+    def test_apply_batch_applies_only_when_promotable_and_diff_staged(self, tmp_path: Path) -> None:
         """Sanity check of apply_batch mechanics against a scratch copy — not the real source."""
         from portal.modules.security.core.stage2_propose import Stage2Report
 
@@ -269,7 +279,9 @@ class TestGateHolds:
 
 
 class TestValidatorRecursionGuard:
-    def test_check_stage2_propose_integrity_skips_when_nested(self, monkeypatch):
+    def test_check_stage2_propose_integrity_skips_when_nested(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """check AB calls run_stage2() -> build_self_index() -> shells out to
         validate_system.py --json, which runs check AB again. Without a guard this
         forks unboundedly (the exact bug check Y already had to guard against —
@@ -277,11 +289,11 @@ class TestValidatorRecursionGuard:
         subprocess is spawned in the nested case."""
         import subprocess
 
-        import scripts.validate_system as vs
+        import scripts.validation.security_bench as vs
 
         monkeypatch.setenv("PORTAL5_SELF_INDEX_NESTED", "1")
 
-        def _fail_if_called(*_a, **_kw):
+        def _fail_if_called(*_a: object, **_kw: object) -> None:
             raise AssertionError("subprocess.run must not be called when nested")
 
         monkeypatch.setattr(subprocess, "run", _fail_if_called)

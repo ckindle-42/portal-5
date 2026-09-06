@@ -140,7 +140,7 @@ def with_inferred_trust(item: EvidenceItemRef) -> EvidenceItemRef:
 # ── Episode adapter (I-2) ────────────────────────────────────────────────────
 
 
-def adapt_episode(episode: Any) -> dict:
+def adapt_episode(episode: Any) -> dict[str, Any]:
     """Project the truth-plane Episode into the summary SUB/ORG persist.
 
     `episode` is `episode.py::Episode` (unchanged) -- duck-typed here on
@@ -275,7 +275,7 @@ def episode_verdict_is_blocked(episode: Any) -> bool:
 # ── Shadow ingestion (I-22) ──────────────────────────────────────────────────
 
 
-def shadow_ingest(episode: Any, *, flag: str) -> dict | None:
+def shadow_ingest(episode: Any, *, flag: str) -> dict[str, Any] | None:
     """Feature-flagged shadow observation to the bully Episode adapter.
 
     With `flag == "off"` this is a pure no-op returning None -- the existing

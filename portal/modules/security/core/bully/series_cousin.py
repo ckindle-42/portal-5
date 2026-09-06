@@ -157,7 +157,7 @@ def _align(
     if m == 0 or n == 0:
         return 0.0, ()
     dp = [[0.0] * (n + 1) for _ in range(m + 1)]
-    back = [[None] * (n + 1) for _ in range(m + 1)]
+    back: list[list[tuple[str, str | None] | None]] = [[None] * (n + 1) for _ in range(m + 1)]
     best = 0.0
     best_ij = (0, 0)
     for i in range(1, m + 1):
@@ -185,10 +185,13 @@ def _align(
     # trace back the aligned matched classes
     aligned: list[str] = []
     i, j = best_ij
-    while i > 0 and j > 0 and back[i][j] is not None:
-        direction, move = back[i][j]
+    while i > 0 and j > 0:
+        step = back[i][j]
+        if step is None:
+            break
+        direction, move_kind = step
         if direction == "diag":
-            if move == "match":
+            if move_kind == "match":
                 aligned.append(observed[i - 1])
             i, j = i - 1, j - 1
         elif direction == "up":

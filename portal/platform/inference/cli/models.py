@@ -435,7 +435,7 @@ def cmd_models_apply_mtp_drafts() -> None:
     if result.returncode != 0:
         typer.echo(f"  Pulling draft model {mtp_draft} ...")
         pull_cmd = ollama_cmd.split() + ["pull", mtp_draft]
-        result = subprocess.run(pull_cmd, check=False)
+        result = subprocess.run(pull_cmd, check=False, text=True)
         if result.returncode != 0:
             typer.echo(f"  FAIL — could not pull {mtp_draft}", err=True)
             raise typer.Exit(code=1)

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any, Protocol
 
 import httpx
 from starlette.responses import JSONResponse
@@ -37,13 +38,21 @@ from portal.platform.retrieval import pages as _pages
 from portal.platform.retrieval import pipeline as _pipeline
 from portal.platform.retrieval import store as _store
 
+
+class _JsonRequest(Protocol):
+    """Minimal request surface the retrieval handlers read (their ``.json()``)."""
+
+    async def json(self) -> Any: ...
+
+
 # This module's own rendered-page directory (the stage library takes it as a
 # parameter — pages.MAX_PAGES / FIGURE_PAGE_MAX_TEXT and the chunk / fusion
 # tuning constants live in the library, not here).
 _PAGES_DIR = Path(os.environ.get("RAG_PAGES_DIR", os.path.join(_store.LANCE_DIR, "rag_pages")))
 
-# Re-exported for callers that still refer to the exception by this name.
+# Re-exported for callers that still refer to these by this module's names.
 _VLUnavailableError = _embedding.VLUnavailableError
+_read_stamp = _store.read_stamp
 
 # ── S0: figure-page transcription (Ollama vision LLM at ingest) ────────────────
 # Model chosen by a 5-round, 16-model bake-off across 6 lineages and both
@@ -107,7 +116,7 @@ async def _transcribe_page(img_path: str) -> str:
 # The stage set is stamped into each KB at ingest (P6): a stale index against a
 # changed chunker / figure policy / fusion mode is caught by the same machinery
 # that catches an embedding-model swap.
-def _stage_set() -> dict:
+def _stage_set() -> dict[str, Any]:
     # Only stages that BUILD the index belong here — a mismatch means the stored
     # vectors/tables no longer match the running config and the KB must be
     # re-ingested. `fusion_mode` was dropped (SUBSTRATE_MIGRATION_V1 P3): fusion
@@ -167,7 +176,7 @@ def _composition() -> _pipeline.Composition:
 
 
 # ── Routes (contract-preserving, multimodal-backed) ───────────────────────────
-async def _ingest(request):
+async def _ingest(request: _JsonRequest) -> JSONResponse:
     """kb_ingest: ingest a source directory. Text chunks (VL-embedded) + rendered
     PDF pages (VL-embedded) in one pass. Contract-preserved:
     args {kb_id, source_dir, rebuild, fts}, response
@@ -190,7 +199,7 @@ async def _ingest(request):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
-async def _search(request):
+async def _search(request: _JsonRequest) -> JSONResponse:
     """kb_search: default multimodal — RRF fusion of text-chunk and page-image
     retrieval. Request {kb_id, query, top_k}, response {kb_id, query,
     num_results, results:[...]}.
@@ -224,7 +233,7 @@ async def _search(request):
         return JSONResponse({"error": str(e)}, status_code=503)
 
 
-async def _search_all(request):
+async def _search_all(request: _JsonRequest) -> JSONResponse:
     """kb_search_all: multimodal search across all KBs. Contract-preserved:
     {query, top_k}, response {query, num_results, results:[{kb_id, source_file,
     text, fused_score, kind}]}."""
@@ -240,13 +249,13 @@ async def _search_all(request):
         return JSONResponse({"error": str(e)}, status_code=503)
 
 
-async def reindex_all() -> dict:
+async def reindex_all() -> dict[str, Any]:
     """In-task migration: re-embed every existing KB's text with the VL model
     (the old tables are 1024-d; VL is VL_DIM, so tables are recreated)."""
     return await _pipeline.reindex(_composition())
 
 
-def register_retrieval_routes(mcp) -> None:
+def register_retrieval_routes(mcp: Any) -> None:
     """Own the kb_* retrieval routes with the multimodal implementation."""
     mcp.custom_route("/tools/kb_ingest", methods=["POST"])(_ingest)
     mcp.custom_route("/tools/kb_search", methods=["POST"])(_search)

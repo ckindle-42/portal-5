@@ -7,6 +7,11 @@ route-validation manifest. Sentinel ATTRIBTEST_V2.
 
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Any
+
+import pytest
+
 from portal.modules.security.eval.ablation_attribution import (
     ATTRIBUTION_SCHEMA_VERSION,
     MISS_CLASSES,
@@ -18,7 +23,7 @@ from portal.modules.security.eval.ablation_attribution import (
 )
 
 
-def _valid_instrument_validation():
+def _valid_instrument_validation() -> dict[str, Any]:
     return {
         "schema_version": ATTRIBUTION_SCHEMA_VERSION,
         "scorer_frozen": True,
@@ -36,13 +41,13 @@ def _valid_instrument_validation():
 
 def _decision(
     *,
-    best_arm="3section",
-    miss_hist,
-    real_recall=0.5,
-    other_real_recall=0.1,
-    error_rate=0.0,
-    honest_blocked=False,
-):
+    best_arm: str = "3section",
+    miss_hist: dict[str, float],
+    real_recall: float = 0.5,
+    other_real_recall: float = 0.1,
+    error_rate: float = 0.0,
+    honest_blocked: bool = False,
+) -> dict[str, Any]:
     """Minimal crafted ABLATION_DECISION.json-shaped dict for decide_route tests."""
     arm_summary = {
         "arm": best_arm,
@@ -75,7 +80,7 @@ def _decision(
     }
 
 
-def test_hit_when_grounded_true_positive_present():
+def test_hit_when_grounded_true_positive_present() -> None:
     out = classify(
         arm="3section",
         scenario="s1",
@@ -89,7 +94,7 @@ def test_hit_when_grounded_true_positive_present():
     assert out.hallucinated == 1
 
 
-def test_gt_identifier_is_not_a_hit_without_confirmed_verified_grounding():
+def test_gt_identifier_is_not_a_hit_without_confirmed_verified_grounding() -> None:
     out = classify(
         arm="3section",
         scenario="ungrounded",
@@ -102,7 +107,7 @@ def test_gt_identifier_is_not_a_hit_without_confirmed_verified_grounding():
     assert "UNVERIFIED_GROUNDING" in out.secondary_failures
 
 
-def test_legacy_record_cannot_claim_hit_after_grounding_gate_changed():
+def test_legacy_record_cannot_claim_hit_after_grounding_gate_changed() -> None:
     out = classify(
         arm="3section",
         scenario="legacy-hit",
@@ -115,7 +120,7 @@ def test_legacy_record_cannot_claim_hit_after_grounding_gate_changed():
     assert out.outcome == "ATTRIBUTION_UNKNOWN"
 
 
-def test_novelty_when_anomalous_with_grounded_similar_neighbour():
+def test_novelty_when_anomalous_with_grounded_similar_neighbour() -> None:
     out = classify(
         arm="3section",
         scenario="s2",
@@ -130,7 +135,7 @@ def test_novelty_when_anomalous_with_grounded_similar_neighbour():
     assert out.detail == "T1558.003"
 
 
-def test_not_novelty_when_similar_neighbour_not_in_ground_truth():
+def test_not_novelty_when_similar_neighbour_not_in_ground_truth() -> None:
     """SIMILAR match to something outside GT is not a scored novelty win —
     falls through to the miss taxonomy instead."""
     out = classify(
@@ -146,7 +151,7 @@ def test_not_novelty_when_similar_neighbour_not_in_ground_truth():
     assert out.outcome == "ATTRIBUTION_UNKNOWN"
 
 
-def test_non_convergence_on_unresolved():
+def test_non_convergence_on_unresolved() -> None:
     out = classify(
         arm="1section",
         scenario="s3",
@@ -158,7 +163,7 @@ def test_non_convergence_on_unresolved():
     assert out.outcome == "NON_CONVERGENCE"
 
 
-def test_retrieval_miss_retains_hallucination_as_secondary_failure():
+def test_retrieval_miss_retains_hallucination_as_secondary_failure() -> None:
     out = classify(
         arm="1section",
         scenario="s4",
@@ -172,7 +177,7 @@ def test_retrieval_miss_retains_hallucination_as_secondary_failure():
     assert out.secondary_failures == ["HALLUCINATION"]
 
 
-def test_single_section_hallucination_when_gt_evidence_was_available():
+def test_single_section_hallucination_when_gt_evidence_was_available() -> None:
     out = classify(
         arm="1section",
         scenario="hallucination",
@@ -185,7 +190,7 @@ def test_single_section_hallucination_when_gt_evidence_was_available():
     assert out.hallucinated == 1
 
 
-def test_handoff_loss_when_wrong_conclusion_but_trace_saw_gt():
+def test_handoff_loss_when_wrong_conclusion_but_trace_saw_gt() -> None:
     """Same wrong verdict as the hallucination case, but a section's own
     CITED evidence list (not free-text reasoning/hypothesis prose) actually
     surfaced the GT technique — found-but-not-confirmed."""
@@ -214,7 +219,7 @@ def test_handoff_loss_when_wrong_conclusion_but_trace_saw_gt():
     assert out.hallucinated == 1
 
 
-def test_handoff_loss_when_ruled_out_but_trace_saw_gt():
+def test_handoff_loss_when_ruled_out_but_trace_saw_gt() -> None:
     """No hallucinated techniques at all (e.g. RULED_OUT with empty
     technique_ids) but a section's own CITED evidence surfaced GT and it was
     dropped/deemed benign."""
@@ -243,7 +248,7 @@ def test_handoff_loss_when_ruled_out_but_trace_saw_gt():
     assert out.hallucinated == 0
 
 
-def test_hunter_miss_when_real_retrieval_is_topically_unrelated_to_ground_truth():
+def test_hunter_miss_when_real_retrieval_is_topically_unrelated_to_ground_truth() -> None:
     """A real (`matched-exact`) tool retrieval that never mentions the ground
     truth technique's ID/parent-number/known marker anywhere in the trace is
     NOT evidence the hunter "saw" that ground truth — it's evidence of
@@ -273,7 +278,7 @@ def test_hunter_miss_when_real_retrieval_is_topically_unrelated_to_ground_truth(
     assert out.outcome == "HUNTER_MISS"
 
 
-def test_hunter_miss_when_only_empty_or_synthetic_provenance():
+def test_hunter_miss_when_only_empty_or_synthetic_provenance() -> None:
     """Tool rounds exist but every one came back empty or synthetic-fallback
     (no real match, known or novel) — genuinely no evidence was surfaced."""
     out = classify(
@@ -290,7 +295,7 @@ def test_hunter_miss_when_only_empty_or_synthetic_provenance():
     assert out.outcome == "HUNTER_MISS"
 
 
-def test_hunter_miss_when_gt_never_surfaced_anywhere():
+def test_hunter_miss_when_gt_never_surfaced_anywhere() -> None:
     out = classify(
         arm="1section",
         scenario="s7",
@@ -302,7 +307,7 @@ def test_hunter_miss_when_gt_never_surfaced_anywhere():
     assert out.outcome == "HUNTER_MISS"
 
 
-def test_attention_loss_when_tool_found_gt_but_hunter_did_not_cite_it():
+def test_attention_loss_when_tool_found_gt_but_hunter_did_not_cite_it() -> None:
     out = classify(
         arm="3section",
         scenario="attention",
@@ -324,7 +329,7 @@ def test_attention_loss_when_tool_found_gt_but_hunter_did_not_cite_it():
     assert out.outcome == "ATTENTION_LOSS"
 
 
-def test_model_authored_evidence_without_tool_payload_is_unobservable():
+def test_model_authored_evidence_without_tool_payload_is_unobservable() -> None:
     out = classify(
         arm="3section",
         scenario="legacy",
@@ -346,7 +351,7 @@ def test_model_authored_evidence_without_tool_payload_is_unobservable():
     assert out.outcome == "ATTRIBUTION_UNKNOWN"
 
 
-def test_bare_parent_number_does_not_match_unrelated_payload():
+def test_bare_parent_number_does_not_match_unrelated_payload() -> None:
     out = classify(
         arm="1section",
         scenario="substring",
@@ -358,7 +363,7 @@ def test_bare_parent_number_does_not_match_unrelated_payload():
     assert out.outcome == "HUNTER_MISS"
 
 
-def test_bare_event_number_is_not_evidence_without_event_field_context():
+def test_bare_event_number_is_not_evidence_without_event_field_context() -> None:
     out = classify(
         arm="1section",
         scenario="event-substring",
@@ -370,7 +375,7 @@ def test_bare_event_number_is_not_evidence_without_event_field_context():
     assert out.outcome == "HUNTER_MISS"
 
 
-def test_summarize_histogram_sums_to_one_over_misses():
+def test_summarize_histogram_sums_to_one_over_misses() -> None:
     outcomes = [
         ArmScenarioOutcome("3section", "a", "HIT"),
         ArmScenarioOutcome("3section", "b", "NOVELTY"),
@@ -392,14 +397,14 @@ def test_summarize_histogram_sums_to_one_over_misses():
     assert summary.nonconv_rate == round(1 / 7, 3)
 
 
-def test_summarize_empty_outcomes_does_not_divide_by_zero():
+def test_summarize_empty_outcomes_does_not_divide_by_zero() -> None:
     summary = summarize("3section", [])
     assert summary.n == 0
     assert summary.real_recall == 0.0
     assert all(v == 0.0 for v in summary.miss_hist.values())
 
 
-def test_summarize_clusters_repeated_trials_by_scenario_for_routing():
+def test_summarize_clusters_repeated_trials_by_scenario_for_routing() -> None:
     outcomes = [
         *[ArmScenarioOutcome("3section", "same", "HUNTER_MISS") for _ in range(20)],
         ArmScenarioOutcome("3section", "other-a", "HANDOFF_LOSS"),
@@ -412,7 +417,7 @@ def test_summarize_clusters_repeated_trials_by_scenario_for_routing():
     assert summary.scenario_miss_n == 3
 
 
-def test_all_outcomes_reachable():
+def test_all_outcomes_reachable() -> None:
     """The primary label includes explicit attention and observability states."""
     assert set(OUTCOMES) == {
         "HIT",
@@ -429,7 +434,7 @@ def test_all_outcomes_reachable():
 # ── Phase 3: decide_route ────────────────────────────────────────────────────
 
 
-def test_route_blocked_on_honest_blocked_flag():
+def test_route_blocked_on_honest_blocked_flag() -> None:
     decision = _decision(
         miss_hist={
             "HUNTER_MISS": 0.5,
@@ -443,7 +448,7 @@ def test_route_blocked_on_honest_blocked_flag():
     assert route == "BLOCKED"
 
 
-def test_route_blocked_on_high_error_rate():
+def test_route_blocked_on_high_error_rate() -> None:
     decision = _decision(
         miss_hist={
             "HUNTER_MISS": 0.5,
@@ -457,7 +462,7 @@ def test_route_blocked_on_high_error_rate():
     assert route == "BLOCKED"
 
 
-def test_route_blocked_on_degenerate_low_recall_no_dominant_class():
+def test_route_blocked_on_degenerate_low_recall_no_dominant_class() -> None:
     decision = _decision(
         miss_hist={
             "HUNTER_MISS": 0.3,
@@ -472,7 +477,7 @@ def test_route_blocked_on_degenerate_low_recall_no_dominant_class():
     assert route == "BLOCKED"
 
 
-def test_route_retrieval_first_when_hunter_miss_dominates():
+def test_route_retrieval_first_when_hunter_miss_dominates() -> None:
     decision = _decision(
         miss_hist={
             "HUNTER_MISS": 0.6,
@@ -486,7 +491,7 @@ def test_route_retrieval_first_when_hunter_miss_dominates():
     assert "oracle audit" in reason
 
 
-def test_route_budget_first_when_nonconvergence_dominates_with_progress():
+def test_route_budget_first_when_nonconvergence_dominates_with_progress() -> None:
     decision = _decision(
         miss_hist={
             "HUNTER_MISS": 0.1,
@@ -500,7 +505,7 @@ def test_route_budget_first_when_nonconvergence_dominates_with_progress():
     assert "loop cut off" in reason
 
 
-def test_route_council_when_nonconvergence_dominates_without_progress():
+def test_route_council_when_nonconvergence_dominates_without_progress() -> None:
     """Same dominant miss class as the BUDGET_FIRST case, but the trace shows
     no real progress before the budget ran out. That is not evidence for a
     rounds fix or Council, so the route must abstain."""
@@ -516,7 +521,7 @@ def test_route_council_when_nonconvergence_dominates_without_progress():
     assert route == "INDETERMINATE"
 
 
-def test_route_council_default_when_hallucination_or_handoff_dominates():
+def test_route_council_default_when_hallucination_or_handoff_dominates() -> None:
     decision = _decision(
         miss_hist={
             "HUNTER_MISS": 0.1,
@@ -530,7 +535,7 @@ def test_route_council_default_when_hallucination_or_handoff_dominates():
     assert "downstream conclusion failures" in reason
 
 
-def test_route_priority_blocked_wins_over_retrieval_first():
+def test_route_priority_blocked_wins_over_retrieval_first() -> None:
     """Rule order matters (I10): honest_blocked short-circuits before the
     miss-class rules are ever consulted, even if HUNTER_MISS looks dominant."""
     decision = _decision(
@@ -546,7 +551,7 @@ def test_route_priority_blocked_wins_over_retrieval_first():
     assert route == "BLOCKED"
 
 
-def test_route_indeterminate_without_independent_instrument_validation():
+def test_route_indeterminate_without_independent_instrument_validation() -> None:
     decision = _decision(
         miss_hist={
             "HUNTER_MISS": 0.7,
@@ -562,7 +567,7 @@ def test_route_indeterminate_without_independent_instrument_validation():
     assert route == "INDETERMINATE"
 
 
-def test_route_indeterminate_at_hand_set_threshold_cliff():
+def test_route_indeterminate_at_hand_set_threshold_cliff() -> None:
     decision = _decision(
         miss_hist={
             "HUNTER_MISS": 0.41,
@@ -578,7 +583,7 @@ def test_route_indeterminate_at_hand_set_threshold_cliff():
     assert "unstable" in reason
 
 
-def test_route_indeterminate_when_tool_payload_is_often_unobservable():
+def test_route_indeterminate_when_tool_payload_is_often_unobservable() -> None:
     decision = _decision(
         miss_hist={
             "HUNTER_MISS": 0.7,
@@ -594,7 +599,9 @@ def test_route_indeterminate_when_tool_payload_is_often_unobservable():
     assert route == "INDETERMINATE"
 
 
-def test_driver_marks_unvalidated_rescore_exploratory(tmp_path, monkeypatch):
+def test_driver_marks_unvalidated_rescore_exploratory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from portal.modules.security.eval import blue_orchestration_ablation as driver
 
     monkeypatch.setattr(driver, "RESULTS_DIR", tmp_path)

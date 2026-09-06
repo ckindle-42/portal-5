@@ -7,9 +7,14 @@ the safety property.
 
 from __future__ import annotations
 
+import argparse
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .goal import EngagementGoal
 
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
 DOCS_DIR = Path(__file__).resolve().parents[4] / "docs"
@@ -77,7 +82,7 @@ def goal_main(argv: list[str] | None = None) -> int:
     return 1
 
 
-def _cmd_plan(args) -> int:
+def _cmd_plan(args: argparse.Namespace) -> int:
     from .goal import EngagementGoal
     from .loop import run_goal_engagement
 
@@ -99,9 +104,10 @@ def _cmd_plan(args) -> int:
 
     ts = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
     target_tag = (targets[0] if targets else "notarget").replace("/", "_").replace(".", "-")
-    out_path = DOCS_DIR / f"GOAL_PLAN_{target_tag}_{ts}.md"
+    out_path: Path | None = DOCS_DIR / f"GOAL_PLAN_{target_tag}_{ts}.md"
     try:
-        out_path.write_text(_render_plan_markdown(goal, report))
+        if out_path is not None:
+            out_path.write_text(_render_plan_markdown(goal, report))
     except OSError:
         out_path = None
 
@@ -114,7 +120,7 @@ def _cmd_plan(args) -> int:
     return 0 if report.get("status") != "rejected" else 1
 
 
-def _render_plan_markdown(goal, report: dict) -> str:
+def _render_plan_markdown(goal: EngagementGoal, report: dict[str, Any]) -> str:
     lines = [
         f"# Goal Plan — {goal.intent}",
         "",
@@ -141,7 +147,7 @@ def _render_plan_markdown(goal, report: dict) -> str:
     return "\n".join(lines)
 
 
-def _cmd_eval(args) -> int:
+def _cmd_eval(args: argparse.Namespace) -> int:
     from .goal_eval import eval_proposals
 
     result = eval_proposals(workspace=args.workspace, role=args.role)
@@ -161,7 +167,7 @@ def _cmd_eval(args) -> int:
     return 0
 
 
-def _cmd_replay(args) -> int:
+def _cmd_replay(args: argparse.Namespace) -> int:
     path = Path(args.plan_path)
     if not path.exists():
         print(f"ERROR: plan file not found: {path}")
@@ -174,7 +180,7 @@ def _cmd_replay(args) -> int:
     return 0
 
 
-def _cmd_emergent(args) -> int:
+def _cmd_emergent(args: argparse.Namespace) -> int:
     """PORTAL_EMERGENT-gated live objective run (Slice 1.3, I7). Flag-off is
     inert — this prints the disabled status and exits 0, it never builds a
     goal or touches the lab.

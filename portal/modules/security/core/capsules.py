@@ -17,24 +17,24 @@ from .oracles import OracleVerdict, verify_finding
 CAPSULES_DIR = Path(__file__).resolve().parent / "results" / "capsules"
 
 
-def _capsule_body(capsule: dict) -> str:
+def _capsule_body(capsule: dict[str, Any]) -> bytes:
     """Return the deterministically-serialised body for hashing (excludes timestamps + integrity)."""
     exclude = {"integrity_sha256", "created_at", "scored_at"}
     d = {k: v for k, v in capsule.items() if k not in exclude}
     return json.dumps(d, sort_keys=True, default=str).encode()
 
 
-def compute_integrity(capsule: dict) -> str:
+def compute_integrity(capsule: dict[str, Any]) -> str:
     """Compute integrity_sha256 over the capsule body."""
     return hashlib.sha256(_capsule_body(capsule)).hexdigest()
 
 
 def build_capsule(
-    finding: dict,
+    finding: dict[str, Any],
     verdict: OracleVerdict,
-    replay: dict | None = None,
+    replay: dict[str, Any] | None = None,
     engagement: str = "",
-) -> dict:
+) -> dict[str, Any]:
     """Build a proof capsule in ptai's schema.
 
     Args:
@@ -84,7 +84,7 @@ def build_capsule(
     try:
         from tests.benchmarks.capability_lib import stamp_result_meta
 
-        capsule = stamp_result_meta(capsule)  # type: ignore[assignment]
+        capsule = stamp_result_meta(capsule)
     except ImportError:
         pass
 
@@ -102,7 +102,7 @@ def build_capsule(
     return capsule
 
 
-def replay_capsule(capsule: dict, dry_run: bool = False) -> OracleVerdict:
+def replay_capsule(capsule: dict[str, Any], dry_run: bool = False) -> OracleVerdict:
     """Verify integrity_sha256, then re-execute the verification recipe.
 
     A tampered capsule (integrity mismatch) is rejected immediately.
@@ -159,14 +159,14 @@ def replay_capsule(capsule: dict, dry_run: bool = False) -> OracleVerdict:
     )
 
 
-def list_capsules(engagement: str = "") -> list[dict]:
+def list_capsules(engagement: str = "") -> list[dict[str, Any]]:
     """List capsule paths and their basic metadata for an engagement (or all)."""
     base = CAPSULES_DIR
     if engagement:
         base = base / engagement
     if not base.exists():
         return []
-    results: list[dict] = []
+    results: list[dict[str, Any]] = []
     for p in sorted(base.rglob("*.json")):
         try:
             data = json.loads(p.read_text())

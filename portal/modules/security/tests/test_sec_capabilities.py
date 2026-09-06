@@ -4,13 +4,13 @@ from __future__ import annotations
 
 
 class TestCTFBench:
-    def test_flag_oracle_matches(self):
+    def test_flag_oracle_matches(self) -> None:
         from portal.modules.security.core.ctf_bench import flag_oracle
 
         assert flag_oracle("flag{correct}", "flag{correct}") is True
         assert flag_oracle("wrong", "flag{correct}") is False
 
-    def test_dry_run_plans(self):
+    def test_dry_run_plans(self) -> None:
         from portal.modules.security.core.ctf_bench import bench_ctf
 
         result = bench_ctf("/tmp/challenge", dry_run=True)
@@ -18,7 +18,7 @@ class TestCTFBench:
 
 
 class TestDecisionEngine:
-    def test_select_tools_with_observations(self):
+    def test_select_tools_with_observations(self) -> None:
         from portal.modules.security.core.decision_engine import select_tools
 
         result = select_tools(
@@ -27,7 +27,7 @@ class TestDecisionEngine:
         )
         assert len(result) > 0
 
-    def test_select_tools_empty_observations(self):
+    def test_select_tools_empty_observations(self) -> None:
         from portal.modules.security.core.decision_engine import select_tools
 
         result = select_tools({}, ["run_nmap_scan", "check_cve"])
@@ -35,7 +35,7 @@ class TestDecisionEngine:
 
 
 class TestLLMRedTeam:
-    def test_dry_run_plans(self):
+    def test_dry_run_plans(self) -> None:
         from portal.modules.security.core.llm_redteam import bench_llm_redteam
 
         result = bench_llm_redteam("auto-security", dry_run=True)
@@ -43,7 +43,7 @@ class TestLLMRedTeam:
 
 
 class TestBenchIntegration:
-    def test_full_expanded_runs(self):
+    def test_full_expanded_runs(self) -> None:
         from portal.modules.security.core.bench_integration import run_full_expanded_bench
 
         result = run_full_expanded_bench(dry_run=True)
@@ -52,7 +52,7 @@ class TestBenchIntegration:
 
 
 class TestFirmwareRE:
-    def test_dry_run_plans(self):
+    def test_dry_run_plans(self) -> None:
         from portal.modules.security.core.re_firmware import bench_firmware_extract
 
         result = bench_firmware_extract("/tmp/fw.bin", dry_run=True)

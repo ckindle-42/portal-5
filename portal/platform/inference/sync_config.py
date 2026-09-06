@@ -38,6 +38,10 @@ REPO: Path = Path(__file__).resolve().parents[3]
 _uwt_spec = importlib.util.spec_from_file_location(
     "update_workspace_tools", REPO / "scripts" / "update_workspace_tools.py"
 )
+if _uwt_spec is None or _uwt_spec.loader is None:
+    raise ImportError(
+        "sync-config requires scripts/update_workspace_tools.py (missing or unloadable)"
+    )
 _uwt = importlib.util.module_from_spec(_uwt_spec)
 _uwt_spec.loader.exec_module(_uwt)
 compute_tool_ids = _uwt.compute_tool_ids

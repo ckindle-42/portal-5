@@ -49,7 +49,7 @@ def _wilson_upper_bound(successes: int, n: int, z: float = Z_95) -> float:
     if n == 0:
         return 1.0  # no evidence yet -- can't claim yield is low
     p = successes / n
-    margin = z * ((p * (1 - p) / n) ** 0.5)
+    margin = z * float((p * (1 - p) / n) ** 0.5)
     return min(1.0, max(0.0, p + margin))
 
 
@@ -94,6 +94,11 @@ def evaluate(
     if override is not None and (not override.get("reason") or override.get("expiry") is None):
         raise ValueError("[GATE] plateau override requires a reason and an expiry")
 
+    # `PlateauDecision.hunt_id` is a plain `str`. A pure-module invocation
+    # (unit benches) may omit the hunt context entirely; bind "" there so the
+    # decision never serializes a None into a str field. The orchestrator
+    # always passes a real hunt_id.
+    hunt_id = hunt_id if hunt_id is not None else ""
     now = time_now() if now is None else now
 
     neighborhood_valid = [
@@ -150,7 +155,12 @@ def evaluate(
 
     exhausted = promotions == 0 and marginal_gain < 1 and yield_upper_bound < plateau_yield_bound
 
-    override_active = override is not None and now < override["expiry"]
+    if override is not None and now < override["expiry"]:
+        override_active = True
+        active_override: dict[str, Any] | None = override
+    else:
+        override_active = False
+        active_override = None
 
     if exhausted and not override_active:
         decision = "PLATEAU"
@@ -162,12 +172,13 @@ def evaluate(
     else:
         decision = "CONTINUE"
         action = "continue"
-        note = (
-            f"override active until {override['expiry']}: {override['reason']}"
-            if exhausted and override_active
-            else f"not exhausted: promotions={promotions}, marginal_gain={marginal_gain}, "
-            f"yield_upper_bound={yield_upper_bound:.4f}"
-        )
+        if exhausted and active_override is not None:
+            note = f"override active until {active_override['expiry']}: {active_override['reason']}"
+        else:
+            note = (
+                f"not exhausted: promotions={promotions}, marginal_gain={marginal_gain}, "
+                f"yield_upper_bound={yield_upper_bound:.4f}"
+            )
 
     return PlateauDecision(
         plateau_id=f"plt-{uuid.uuid4().hex[:12]}",
@@ -184,8 +195,8 @@ def evaluate(
         note=note,
         reset_trigger=reset_trigger,
         reset_version=reset_version,
-        override=override if override_active else None,
-        expiry=override.get("expiry") if override_active else None,
+        override=active_override,
+        expiry=active_override.get("expiry") if active_override is not None else None,
     )
 
 

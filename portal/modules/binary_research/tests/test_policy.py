@@ -13,41 +13,41 @@ def policy(tmp_path: Path) -> Policy:
 
 
 class TestPaths:
-    def test_within_root(self, policy: Policy, tmp_path: Path):
+    def test_within_root(self, policy: Policy, tmp_path: Path) -> None:
         (tmp_path / "artifacts").mkdir()
         assert policy.resolve_path("artifacts") == (tmp_path / "artifacts").resolve()
 
-    def test_reject_escape(self, policy: Policy):
+    def test_reject_escape(self, policy: Policy) -> None:
         with pytest.raises(PermissionError):
             policy.resolve_path("../../etc/passwd")
 
 
 class TestBash:
-    def test_deny_rm(self, policy: Policy):
+    def test_deny_rm(self, policy: Policy) -> None:
         assert "DENIED" in (policy.check_bash("rm -rf / x") or "")
 
-    def test_deny_network(self, policy: Policy):
+    def test_deny_network(self, policy: Policy) -> None:
         assert "allow_network" in (policy.check_bash("curl http://x") or "")
 
-    def test_allow_safe(self, policy: Policy):
+    def test_allow_safe(self, policy: Policy) -> None:
         assert policy.check_bash("readelf -a artifacts/x") is None
 
-    def test_network_when_enabled(self, tmp_path: Path):
+    def test_network_when_enabled(self, tmp_path: Path) -> None:
         assert Policy(job_root=tmp_path, allow_network=True).check_bash("curl http://x") is None
 
 
 class TestHostGate:
-    def test_default_off(self, policy: Policy):
+    def test_default_off(self, policy: Policy) -> None:
         assert policy.allow_host_exec is False
 
-    def test_on(self, tmp_path: Path):
+    def test_on(self, tmp_path: Path) -> None:
         assert Policy(job_root=tmp_path, allow_host_exec=True).allow_host_exec is True
 
 
 class TestTruncate:
-    def test_short(self, policy: Policy):
+    def test_short(self, policy: Policy) -> None:
         assert policy.truncate("hi") == "hi"
 
-    def test_long(self, tmp_path: Path):
+    def test_long(self, tmp_path: Path) -> None:
         out = Policy(job_root=tmp_path, tool_output_chars=100).truncate("x" * 500)
         assert "TRUNCATED" in out and len(out) < 500

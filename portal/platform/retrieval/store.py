@@ -12,9 +12,10 @@ from __future__ import annotations
 import json
 import os
 import time
+from typing import Any, cast
 
 import lancedb
-import pyarrow as pa
+import pyarrow as pa  # type: ignore[import-untyped]  # pyarrow ships no stubs/py.typed
 
 from portal.platform.retrieval import embedding as _embedding
 from portal.platform.retrieval.embedding import VLUnavailableError
@@ -22,10 +23,10 @@ from portal.platform.retrieval.embedding import VLUnavailableError
 LANCE_DIR = os.environ.get("PORTAL5_LANCE_DIR", "/Volumes/data01/portal5_lance")
 RAG_DIR = os.path.join(LANCE_DIR, "rag")
 
-_db = None
+_db: Any = None
 
 
-def get_db():
+def get_db() -> Any:
     global _db
     if _db is None:
         from portal.platform.lance_guard import require_lance_dir
@@ -48,10 +49,10 @@ def meta_path(kb_id: str, prefix: str = DEFAULT_PREFIX) -> str:
     return os.path.join(RAG_DIR, f"{prefix}{kb_id}.meta.json")
 
 
-def read_stamp(kb_id: str, prefix: str = DEFAULT_PREFIX) -> dict | None:
+def read_stamp(kb_id: str, prefix: str = DEFAULT_PREFIX) -> dict[str, Any] | None:
     try:
         with open(meta_path(kb_id, prefix)) as fh:
-            return json.load(fh)
+            return cast(dict[str, Any], json.load(fh))
     except (OSError, ValueError):
         return None
 
@@ -60,7 +61,7 @@ def write_stamp(
     kb_id: str,
     embed_model: str,
     dim: int,
-    stage_set: dict | None = None,
+    stage_set: dict[str, Any] | None = None,
     prefix: str = DEFAULT_PREFIX,
 ) -> None:
     """Record which embedding model AND which stage set produced a KB's index.
@@ -71,7 +72,7 @@ def write_stamp(
     caught by the same machinery, not a new one. A KB with no ``stage_set`` key
     predates the stamp and is not blocked (same grandfathering as ``embed_model``).
     """
-    payload: dict = {"embed_model": embed_model, "vl_dim": dim, "stamped_at": time.time()}
+    payload: dict[str, Any] = {"embed_model": embed_model, "vl_dim": dim, "stamped_at": time.time()}
     if stage_set is not None:
         payload["stage_set"] = stage_set
     with open(meta_path(kb_id, prefix), "w") as fh:
@@ -81,7 +82,7 @@ def write_stamp(
 def assert_embedding_space(
     kb_id: str,
     live_model: str,
-    stage_set: dict | None = None,
+    stage_set: dict[str, Any] | None = None,
     prefix: str = DEFAULT_PREFIX,
 ) -> None:
     """Raise if the KB was stamped with a different embedding model or, when a
@@ -117,7 +118,7 @@ def vname(kb_id: str, prefix: str = DEFAULT_PREFIX) -> str:
     return f"{prefix}{kb_id}_visual"
 
 
-def text_table(kb_id: str, create: bool = False, prefix: str = DEFAULT_PREFIX):
+def text_table(kb_id: str, create: bool = False, prefix: str = DEFAULT_PREFIX) -> Any:
     db = get_db()
     name = tname(kb_id, prefix)
     if name in db.table_names():
@@ -144,7 +145,7 @@ def text_table(kb_id: str, create: bool = False, prefix: str = DEFAULT_PREFIX):
     return db.create_table(name, schema=schema)
 
 
-def visual_table(kb_id: str, create: bool = False, prefix: str = DEFAULT_PREFIX):
+def visual_table(kb_id: str, create: bool = False, prefix: str = DEFAULT_PREFIX) -> Any:
     db = get_db()
     name = vname(kb_id, prefix)
     if name in db.table_names():

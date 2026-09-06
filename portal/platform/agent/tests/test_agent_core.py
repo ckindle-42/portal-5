@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 from portal.platform.agent import (
     Goal,
@@ -22,11 +24,18 @@ class FakeCap:
 
 
 class FakeProvider:
-    def __init__(self, caps):
+    def __init__(self, caps: list[FakeCap]) -> None:
         self._caps = caps
-        self.calls = []
+        self.calls: list[dict[str, Any]] = []
 
-    def query(self, observations, *, domain=None, goal=None, limit=8):
+    def query(
+        self,
+        observations: dict[str, Any],
+        *,
+        domain: str | None = None,
+        goal: str | None = None,
+        limit: int = 8,
+    ) -> list[FakeCap]:
         self.calls.append({"domain": domain, "goal": goal})
         return list(self._caps)
 
@@ -34,18 +43,18 @@ class FakeProvider:
 class ScriptedExecutor:
     """Reveals open_ports on step 0, then flips `owned` true on step 1."""
 
-    def __init__(self):
-        self.n = 0
+    def __init__(self) -> None:
+        self.n: int = 0
 
-    def execute(self, decision, state):
+    def execute(self, decision: dict[str, Any], state: dict[str, Any]) -> dict[str, Any]:
         self.n += 1
         if self.n == 1:
             return {"observation_delta": {"open_ports": [445]}, "oracle_result": None, "raw": {}}
         return {"observation_delta": {"owned": True}, "oracle_result": True, "raw": {}}
 
 
-def _goal(**kw):
-    base = {
+def _goal(**kw: Any) -> Goal:
+    base: dict[str, Any] = {
         "intent": "poke the box",
         "scope": {"targets": ["10.10.11.5"]},
         "budget": {"max_iterations": 5, "max_wall_clock_sec": 0, "max_lab_actions": 5},
@@ -56,13 +65,13 @@ def _goal(**kw):
     return Goal(**base)
 
 
-def test_validate_goal_rejects_unbounded():
+def test_validate_goal_rejects_unbounded() -> None:
     assert "scope.targets is empty or missing" in validate_goal(Goal(intent="x"))
     assert any("budget" in p for p in validate_goal(Goal(intent="x", scope={"targets": ["a"]})))
     assert validate_goal(_goal()) == []
 
 
-def test_decide_is_grounded_and_deterministic():
+def test_decide_is_grounded_and_deterministic() -> None:
     prov = FakeProvider([FakeCap("cap.a", ["exploit_smb"]), FakeCap("cap.b", ["check_ldap"])])
     d = decide_next_action(_goal(), {}, [], provider=prov)
     assert d["outcome"] == "proposed"
@@ -72,19 +81,19 @@ def test_decide_is_grounded_and_deterministic():
     assert prov.calls[0]["goal"] == "poke the box"
 
 
-def test_decide_declines_when_no_candidates():
+def test_decide_declines_when_no_candidates() -> None:
     d = decide_next_action(_goal(), {}, [], provider=FakeProvider([]))
     assert d["outcome"] == "no_applicable_capability"
     assert d["action"] is None
 
 
-def test_model_turn_is_never_load_bearing():
+def test_model_turn_is_never_load_bearing() -> None:
     prov = FakeProvider([FakeCap("cap.a", ["exploit_smb"])])
     d = decide_next_action(_goal(), {}, [], provider=prov, model_turn=lambda *a: None)
     assert d["outcome"] == "proposed"  # fell through to deterministic ranker
 
 
-def test_deterministic_fallback_starts_with_reconnaissance():
+def test_deterministic_fallback_starts_with_reconnaissance() -> None:
     prov = FakeProvider(
         [
             FakeCap("exploit", [], oracle="owned", phase="exploit"),
@@ -98,7 +107,7 @@ def test_deterministic_fallback_starts_with_reconnaissance():
     assert decision["tool"] == "nmap"
 
 
-def test_deterministic_fallback_progresses_to_oracle_after_recon():
+def test_deterministic_fallback_progresses_to_oracle_after_recon() -> None:
     prov = FakeProvider(
         [
             FakeCap("smb_probe", ["nmap"], phase="recon"),
@@ -125,7 +134,7 @@ def test_deterministic_fallback_progresses_to_oracle_after_recon():
     assert decision["expected_oracle"] == "domain_admin"
 
 
-def test_deterministic_fallback_understands_direct_decision_history():
+def test_deterministic_fallback_understands_direct_decision_history() -> None:
     prov = FakeProvider(
         [
             FakeCap("first", ["scan"]),
@@ -144,7 +153,7 @@ def test_deterministic_fallback_understands_direct_decision_history():
     assert decision["tool"] == "check"
 
 
-def test_loop_completes_on_stop_condition():
+def test_loop_completes_on_stop_condition() -> None:
     prov = FakeProvider([FakeCap("cap.a", ["exploit_smb"])])
     res = run_loop(_goal(), provider=prov, executor=ScriptedExecutor())
     assert res.outcome == "completed"
@@ -152,16 +161,16 @@ def test_loop_completes_on_stop_condition():
     assert res.iterations >= 1
 
 
-def test_loop_honest_blocked_not_faked_green():
+def test_loop_honest_blocked_not_faked_green() -> None:
     res = run_loop(_goal(), provider=FakeProvider([]), executor=ScriptedExecutor())
     assert res.outcome == "blocked"  # no applicable capability -> clean stop
 
 
-def test_loop_respects_iteration_budget():
+def test_loop_respects_iteration_budget() -> None:
     prov = FakeProvider([FakeCap("cap.a", ["scan"])])
 
     class Noop:
-        def execute(self, d, s):
+        def execute(self, decision: dict[str, Any], state: dict[str, Any]) -> dict[str, Any]:
             return {"observation_delta": {}, "oracle_result": None, "raw": {}}
 
     res = run_loop(
@@ -173,11 +182,11 @@ def test_loop_respects_iteration_budget():
     assert res.iterations == 2
 
 
-def test_loop_flags_low_confidence():
+def test_loop_flags_low_confidence() -> None:
     prov = FakeProvider([FakeCap("cap.a", [])])  # no tools -> confidence 0.5
 
     class Noop:
-        def execute(self, d, s):
+        def execute(self, decision: dict[str, Any], state: dict[str, Any]) -> dict[str, Any]:
             return {"observation_delta": {}, "raw": {}}
 
     res = run_loop(_goal(), provider=prov, executor=Noop(), confidence_floor=0.9)
@@ -185,17 +194,17 @@ def test_loop_flags_low_confidence():
     assert res.flagged
 
 
-def test_invalid_goal_short_circuits():
+def test_invalid_goal_short_circuits() -> None:
     res = run_loop(Goal(intent="x"), provider=FakeProvider([]), executor=ScriptedExecutor())
     assert res.outcome == "invalid_goal"
 
 
-def test_select_tools_initial_coverage():
+def test_select_tools_initial_coverage() -> None:
     cands = select_tools({}, ["a", "b", "c", "d"])
     assert [c.name for c in cands] == ["a", "b", "c"]
 
 
-def test_writeback_is_hermetic(tmp_path):
+def test_writeback_is_hermetic(tmp_path: Path) -> None:
     from portal.platform.agent import writeback
     from portal.platform.wiki.writeback import list_proposed, reset_proposed_dir, set_proposed_dir
 

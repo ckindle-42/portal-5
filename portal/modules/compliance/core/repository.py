@@ -25,6 +25,7 @@ import uuid
 from collections import deque
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any
 
 from portal.modules.compliance.core.determination import (
     AtomResult,
@@ -90,7 +91,7 @@ class Repository:
         self._conn.close()
 
     # ── migrations ───────────────────────────────────────────────────────
-    def migrate(self) -> dict:
+    def migrate(self) -> dict[str, Any]:
         with self._lock:
             return apply_migrations(self._conn)
 
@@ -144,7 +145,7 @@ class Repository:
         content: bytes,
         *,
         binding_effect: str = "unknown",
-        **dates,
+        **dates: Any,
     ) -> DocumentRevision:
         """Idempotent on identical bytes (same ``revision_id`` — content
         hash — is a no-op re-insert); replacement bytes at the SAME
@@ -289,10 +290,10 @@ class Repository:
         index_generation: str,
         manifest_hash: str,
         eligible_document_count: int,
-        candidates_retrieved: list[dict] | None = None,
-        candidates_rejected: list[dict] | None = None,
+        candidates_retrieved: list[dict[str, Any]] | None = None,
+        candidates_rejected: list[dict[str, Any]] | None = None,
         truncation_flags: list[str] | None = None,
-        budget_ceilings: dict | None = None,
+        budget_ceilings: dict[str, Any] | None = None,
         boundary_proof_id: str = "",
         org_id: str = "default",
     ) -> str:
@@ -326,7 +327,7 @@ class Repository:
         return proof_id
 
     def record_analysis_run(
-        self, context: dict, *, run_id: str = "", org_id: str = "default"
+        self, context: dict[str, Any], *, run_id: str = "", org_id: str = "default"
     ) -> str:
         run_id = run_id or _new_id()
         with self._lock, self._conn:
@@ -338,7 +339,7 @@ class Repository:
 
     def record_claim(
         self,
-        result: AtomResult | RequirementResult | dict,
+        result: AtomResult | RequirementResult | dict[str, Any],
         *,
         run_id: str,
         assertion: str = "",
@@ -537,7 +538,7 @@ class Repository:
         same ``ref``."""
         placeholders = ",".join("?" for _ in statuses)
         sql = f"SELECT * FROM relationship_assertions WHERE status IN ({placeholders})"
-        params: list = list(statuses)
+        params: list[str] = list(statuses)
         if ref is not None:
             sql += " AND (src_ref = ? OR dst_ref = ?)"
             params += [ref, ref]
@@ -556,7 +557,7 @@ class Repository:
         *,
         expected_version: int,
         rationale: str = "",
-        evidence: list[dict] | None = None,
+        evidence: list[dict[str, Any]] | None = None,
         corrected_coverage: str | None = None,
     ) -> RelationshipAssertion:
         """Atomically apply a review decision: update the assertion, record
@@ -661,7 +662,7 @@ class Repository:
         max_depth: int = 3,
         max_edges: int = 500,
         org_id: str | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Forward/reverse/both-direction traversal from ``start_ref``,
         cycle-safe (each node expands at most once) and bounded by both
         ``max_depth`` and a ``max_edges`` work budget. Returns typed edges
@@ -676,7 +677,7 @@ class Repository:
         visited = {start_ref}
         seen_assertions: set[str] = set()
         frontier: deque[tuple[str, int]] = deque([(start_ref, 0)])
-        edges_out: list[dict] = []
+        edges_out: list[dict[str, Any]] = []
         depth_limited: set[str] = set()
         truncated = False
 
@@ -767,7 +768,7 @@ class Repository:
         return status
 
     # ── outbox ───────────────────────────────────────────────────────────
-    def _write_outbox_unlocked(self, event_type: str, payload: dict) -> None:
+    def _write_outbox_unlocked(self, event_type: str, payload: dict[str, Any]) -> None:
         self._conn.execute(
             "INSERT INTO outbox_events(event_type, payload_json, created_at) VALUES (?,?,?)",
             (event_type, json.dumps(payload), now_iso()),
@@ -799,7 +800,9 @@ class Repository:
             return events
 
     # ── catalog snapshots ────────────────────────────────────────────────
-    def record_catalog_snapshot(self, counts: dict, hashes: dict) -> CatalogSnapshot:
+    def record_catalog_snapshot(
+        self, counts: dict[str, Any], hashes: dict[str, Any]
+    ) -> CatalogSnapshot:
         snap = CatalogSnapshot(
             snapshot_id=_new_id(), taken_at=now_iso(), counts=counts, hashes=hashes
         )
@@ -844,7 +847,7 @@ class Repository:
             )
         return decision_id
 
-    def get_policy_decisions(self, control_id: str) -> list[dict]:
+    def get_policy_decisions(self, control_id: str) -> list[dict[str, Any]]:
         rows = self._conn.execute(
             "SELECT decision_id, control_id, rationale, owner, approving_authority,"
             " review_date, org_id FROM policy_decisions WHERE control_id = ?",
@@ -861,5 +864,5 @@ class Repository:
         )
         return [dict(zip(cols, row, strict=True)) for row in rows]
 
-    def as_dict(self, obj) -> dict:
+    def as_dict(self, obj: Any) -> dict[str, Any]:
         return asdict(obj)

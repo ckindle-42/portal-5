@@ -31,10 +31,10 @@ from portal.modules.security.core.investigation.evidence import EvidenceRecord
 class TestAdversarialScenarios:
     """Adversarial test scenarios are well-formed."""
 
-    def test_scenarios_exist(self):
+    def test_scenarios_exist(self) -> None:
         assert len(ADVERSARIAL_SCENARIOS) >= 2
 
-    def test_scenario_has_required_fields(self):
+    def test_scenario_has_required_fields(self) -> None:
         for sc in ADVERSARIAL_SCENARIOS:
             assert sc.scenario_id
             assert sc.name
@@ -42,11 +42,11 @@ class TestAdversarialScenarios:
             assert sc.expected_findings
             assert isinstance(sc.evidence, list)
 
-    def test_scenario_has_adversarial_content(self):
+    def test_scenario_has_adversarial_content(self) -> None:
         for sc in ADVERSARIAL_SCENARIOS:
             assert sc.adversarial, f"{sc.scenario_id} missing adversarial content"
 
-    def test_scenario_to_dict(self):
+    def test_scenario_to_dict(self) -> None:
         import json
 
         for sc in ADVERSARIAL_SCENARIOS:
@@ -60,7 +60,7 @@ class TestAdversarialScenarios:
 class TestMetrics:
     """Metrics computation is deterministic and correct."""
 
-    def test_hallucination_rate_zero_when_all_cited(self):
+    def test_hallucination_rate_zero_when_all_cited(self) -> None:
         store = EvidenceStore()
         store.add(
             EvidenceRecord(
@@ -80,12 +80,12 @@ class TestMetrics:
         findings = [{"evidence_refs": ["ev-001"], "text": "found"}]
         assert compute_hallucination_rate(findings, store) == 0.0
 
-    def test_hallucination_rate_one_when_no_evidence(self):
+    def test_hallucination_rate_one_when_no_evidence(self) -> None:
         store = EvidenceStore()
         findings = [{"evidence_refs": [], "text": "found"}]
         assert compute_hallucination_rate(findings, store) == 1.0
 
-    def test_hallucination_rate_partial(self):
+    def test_hallucination_rate_partial(self) -> None:
         store = EvidenceStore()
         store.add(
             EvidenceRecord(
@@ -109,25 +109,25 @@ class TestMetrics:
         rate = compute_hallucination_rate(findings, store)
         assert rate == 0.5
 
-    def test_contradiction_detection_rate_zero_when_missed(self):
+    def test_contradiction_detection_rate_zero_when_missed(self) -> None:
         findings = [{"text": "found", "contradictions": []}]
         contradictions = [{"id": "c-001", "description": "wrong technique"}]
         assert compute_contradiction_detection_rate(findings, contradictions) == 0.0
 
-    def test_contradiction_detection_rate_one_when_detected(self):
+    def test_contradiction_detection_rate_one_when_detected(self) -> None:
         findings = [{"text": "found", "contradictions": ["c-001"], "notes": ""}]
         contradictions = [{"id": "c-001", "description": "wrong technique"}]
         assert compute_contradiction_detection_rate(findings, contradictions) == 1.0
 
-    def test_contradiction_detection_rate_no_contradictions(self):
+    def test_contradiction_detection_rate_no_contradictions(self) -> None:
         assert compute_contradiction_detection_rate([], []) == 1.0
 
-    def test_evidence_completeness_zero_when_missed(self):
+    def test_evidence_completeness_zero_when_missed(self) -> None:
         findings = [{"text": "found", "technique_ids": []}]
         expected = [{"technique_id": "T1190", "description": "web exploit"}]
         assert compute_evidence_completeness(findings, expected) == 0.0
 
-    def test_evidence_completeness_one_when_found(self):
+    def test_evidence_completeness_one_when_found(self) -> None:
         findings = [{"text": "found", "technique_ids": ["T1190"]}]
         expected = [{"technique_id": "T1190", "description": "web exploit"}]
         assert compute_evidence_completeness(findings, expected) == 1.0
@@ -139,19 +139,19 @@ class TestMetrics:
 class TestSingleAgentBaseline:
     """Single-agent baseline runs on all scenarios."""
 
-    def test_baseline_runs_on_all_scenarios(self):
+    def test_baseline_runs_on_all_scenarios(self) -> None:
         for sc in ADVERSARIAL_SCENARIOS:
             result = run_single_agent_baseline(sc)
             assert result.scenario_id == sc.scenario_id
             assert result.agent_type == "single_agent_baseline"
             assert "hallucination_rate" in result.metrics
 
-    def test_baseline_preserves_evidence(self):
+    def test_baseline_preserves_evidence(self) -> None:
         sc = ADVERSARIAL_SCENARIOS[0]
         result = run_single_agent_baseline(sc)
         assert len(result.evidence_used) == len(sc.evidence)
 
-    def test_baseline_result_to_dict(self):
+    def test_baseline_result_to_dict(self) -> None:
         import json
 
         result = run_single_agent_baseline(ADVERSARIAL_SCENARIOS[0])
@@ -164,13 +164,13 @@ class TestSingleAgentBaseline:
 class TestBenchmarkRunner:
     """Benchmark runner produces aggregate metrics."""
 
-    def test_run_benchmark(self):
+    def test_run_benchmark(self) -> None:
         bench = run_benchmark()
         assert bench.scenarios_run == len(ADVERSARIAL_SCENARIOS)
         assert len(bench.results) == bench.scenarios_run
         assert "avg_hallucination_rate" in bench.aggregate_metrics
 
-    def test_aggregate_metrics_range(self):
+    def test_aggregate_metrics_range(self) -> None:
         bench = run_benchmark()
         for key in (
             "avg_hallucination_rate",
@@ -180,7 +180,7 @@ class TestBenchmarkRunner:
             val = bench.aggregate_metrics[key]
             assert 0.0 <= val <= 1.0, f"{key} = {val} out of range"
 
-    def test_benchmark_to_dict(self):
+    def test_benchmark_to_dict(self) -> None:
         import json
 
         bench = run_benchmark()

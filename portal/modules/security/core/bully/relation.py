@@ -27,6 +27,8 @@ from typing import Any
 from . import cousin_engine, degeneracy
 from . import signatures as sig_mod
 from .anchors import AnchorLibrary
+from .contracts import CousinAssessment
+from .signatures import BehaviorSignature
 
 MIN_ANCHOR_COVERAGE = 3
 _AXES = tuple(cousin_engine._WEIGHTS)
@@ -94,7 +96,7 @@ def capability_weights(capabilities: dict[str, bool] | None) -> dict[str, float]
 
 
 def _uncertainty_reasons(
-    assessment,
+    assessment: CousinAssessment,
     *,
     capabilities: dict[str, bool] | None,
     anchor_count: int,
@@ -143,7 +145,7 @@ class Relation:
 NOTABILITY_MIN_CHANNELS = 3
 
 
-def _is_notable_novelty(assessment) -> bool:
+def _is_notable_novelty(assessment: CousinAssessment) -> bool:
     return (
         assessment.relationship == "DIFFERENT"
         and assessment.nonsemantic_channels >= NOTABILITY_MIN_CHANNELS
@@ -151,7 +153,7 @@ def _is_notable_novelty(assessment) -> bool:
     )
 
 
-def _distance_profile(assessment) -> dict[str, Any]:
+def _distance_profile(assessment: CousinAssessment) -> dict[str, Any]:
     distances = [d for _, d in assessment.nearest_knowns]
     return {
         "composite": assessment.composite,
@@ -163,7 +165,7 @@ def _distance_profile(assessment) -> dict[str, Any]:
 
 
 def relate(
-    signature,
+    signature: BehaviorSignature,
     anchor_library: AnchorLibrary,
     *,
     capabilities: dict[str, bool] | None = None,
@@ -238,7 +240,7 @@ def relate(
 
 def build_signature_from_neighbourhood(
     episode_view: dict[str, Any], telemetry_view: dict[str, Any] | None = None
-):
+) -> BehaviorSignature:
     """Thin pass-through so callers of this module don't need a separate
     import of `signatures.build_signature` for the common case."""
     return sig_mod.build_signature(episode_view, telemetry_view)

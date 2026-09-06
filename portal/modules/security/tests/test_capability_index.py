@@ -30,41 +30,41 @@ from portal.modules.security.core.oracles import ORACLES
 
 
 class TestToolInventory:
-    def test_catalog_loads(self):
+    def test_catalog_loads(self) -> None:
         tools = load_tool_catalog()
         assert len(tools) > 0
         for t in tools:
             assert "name" in t
             assert "phase" in t
 
-    def test_tools_for_service(self):
+    def test_tools_for_service(self) -> None:
         smb_tools = tools_for_service("smb")
         assert any(t["name"] == "nxc" for t in smb_tools)
 
-    def test_tools_for_phase(self):
+    def test_tools_for_phase(self) -> None:
         recon_tools = tools_for_phase("recon")
         assert all(t["phase"] == "recon" for t in recon_tools)
 
-    def test_verify_tools_present_dry_run_is_all_unknown(self):
+    def test_verify_tools_present_dry_run_is_all_unknown(self) -> None:
         presence = verify_tools_present(dry_run=True)
         assert presence
         assert all(v is None for v in presence.values())
 
 
 class TestBuildIndex:
-    def test_returns_capabilities(self):
+    def test_returns_capabilities(self) -> None:
         caps = build_index()
         assert len(caps) > 0
         assert all(isinstance(c, Capability) for c in caps)
 
-    def test_sources_present(self):
+    def test_sources_present(self) -> None:
         caps = build_index()
         sources = {c.source for c in caps}
         assert "service_probe" in sources
         assert "challenge_class" in sources
         assert "lab_target" in sources
 
-    def test_no_orphan_tool_references(self):
+    def test_no_orphan_tool_references(self) -> None:
         """Every capability's tools must resolve to a real catalog entry."""
         catalog_names = {t["name"] for t in load_tool_catalog()}
         caps = build_index()
@@ -72,44 +72,44 @@ class TestBuildIndex:
             for tool in cap.tools:
                 assert tool in catalog_names, f"{cap.id} references unknown tool {tool!r}"
 
-    def test_no_orphan_oracle_references(self):
+    def test_no_orphan_oracle_references(self) -> None:
         """Every capability's oracle (when set) must resolve to a registered oracle."""
         caps = build_index()
         for cap in caps:
             if cap.oracle is not None:
                 assert cap.oracle in ORACLES, f"{cap.id} references unknown oracle {cap.oracle!r}"
 
-    def test_every_capability_has_a_source(self):
+    def test_every_capability_has_a_source(self) -> None:
         caps = build_index()
         assert all(c.source and c.source != "unknown" for c in caps)
 
-    def test_is_cached(self):
+    def test_is_cached(self) -> None:
         assert build_index() is build_index()
 
 
 class TestQuery:
-    def test_phase_filter(self):
+    def test_phase_filter(self) -> None:
         results = query({}, phase="recon", limit=100)
         assert all(c.phase == "recon" for c in results)
 
-    def test_domain_filter(self):
+    def test_domain_filter(self) -> None:
         results = query({}, domain="ad", limit=100)
         assert all(c.domain == "ad" for c in results)
 
-    def test_applies_when_matches_observations(self):
+    def test_applies_when_matches_observations(self) -> None:
         results = query({"open_ports": [445]}, limit=100)
         assert any(c.id == "smb_probe" for c in results)
 
-    def test_applies_when_excludes_non_matching(self):
+    def test_applies_when_excludes_non_matching(self) -> None:
         results = query({"open_ports": [9999]}, phase="recon", limit=100)
         assert not any(c.id == "smb_probe" for c in results)
 
-    def test_empty_applies_when_always_matches(self):
+    def test_empty_applies_when_always_matches(self) -> None:
         # challenge_class-derived capabilities have applies_when={} — always applicable
         results = query({}, domain="ad", limit=100)
         assert any(c.source == "challenge_class" for c in results)
 
-    def test_live_dispatchable_query_retires_unbound_capability_sources(self):
+    def test_live_dispatchable_query_retires_unbound_capability_sources(self) -> None:
         results = query(
             {"open_ports": [389, 445]},
             domain="ad",
@@ -127,7 +127,7 @@ class TestQuery:
             "smb-enumeration",
         } & {c.id for c in results}
 
-    def test_live_dispatchable_query_keeps_semantic_probe_without_declared_tool(self):
+    def test_live_dispatchable_query_keeps_semantic_probe_without_declared_tool(self) -> None:
         results = query(
             {"open_ports": [445]},
             domain="ad",
@@ -139,40 +139,40 @@ class TestQuery:
         assert meta3_probe.tools == []
         assert meta3_probe.source == "service_probe"
 
-    def test_goal_filter_substring(self):
+    def test_goal_filter_substring(self) -> None:
         results = query({}, goal="kerberos", limit=100)
         assert len(results) > 0
         assert all("kerberos" in c.id.lower() or "kerberos" in c.technique.lower() for c in results)
 
-    def test_limit_respected(self):
+    def test_limit_respected(self) -> None:
         results = query({}, limit=3)
         assert len(results) <= 3
 
-    def test_returns_capability_instances(self):
+    def test_returns_capability_instances(self) -> None:
         results = query({}, limit=5)
         assert all(isinstance(c, Capability) for c in results)
 
 
 class TestRender:
-    def test_render_capabilities_nonempty(self):
+    def test_render_capabilities_nonempty(self) -> None:
         caps = build_index()[:3]
         text = render_capabilities(caps)
         assert caps[0].id in text
 
-    def test_render_capabilities_empty(self):
+    def test_render_capabilities_empty(self) -> None:
         assert "no capabilities" in render_capabilities([]).lower()
 
-    def test_render_tool_arsenal_nonempty(self):
+    def test_render_tool_arsenal_nonempty(self) -> None:
         text = render_tool_arsenal()
         assert "nmap" in text
 
-    def test_render_tool_arsenal_service_filter(self):
+    def test_render_tool_arsenal_service_filter(self) -> None:
         text = render_tool_arsenal(service="smb")
         assert "nxc" in text
 
 
 class TestCapabilityCLI:
-    def _run(self, *args: str) -> subprocess.CompletedProcess:
+    def _run(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [sys.executable, "-m", "portal.modules.security.core", "capability", *args],
             capture_output=True,
@@ -180,22 +180,22 @@ class TestCapabilityCLI:
             timeout=30,
         )
 
-    def test_list_json(self):
+    def test_list_json(self) -> None:
         result = self._run("list", "--phase", "recon", "--json")
         assert result.returncode == 0
         assert result.stdout.strip().startswith("[")
 
-    def test_query_json(self):
+    def test_query_json(self) -> None:
         result = self._run("query", "--observations", '{"open_ports": [445]}', "--json")
         assert result.returncode == 0
         assert "smb_probe" in result.stdout
 
-    def test_tools(self):
+    def test_tools(self) -> None:
         result = self._run("tools", "--service", "smb")
         assert result.returncode == 0
         assert "nxc" in result.stdout
 
-    def test_arsenal(self):
+    def test_arsenal(self) -> None:
         result = self._run("arsenal", "--phase", "recon")
         assert result.returncode == 0
         assert "nmap" in result.stdout

@@ -12,14 +12,24 @@ import logging
 import os
 import re
 import time
+from collections.abc import Awaitable, Callable
+from typing import Any, cast
 from urllib.parse import quote_plus, urlparse
 
 import httpx
 from mcp.server import MCPServer
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 logger = logging.getLogger(__name__)
 mcp = MCPServer("research")
+
+# mcp.custom_route() has no return annotation upstream — bind the concrete
+# decorator type once so routed handlers keep their annotations.
+_route: Callable[
+    ...,
+    Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+] = mcp.custom_route
 
 SEARXNG_URL = os.environ.get("SEARXNG_URL", "http://localhost:8088")
 BRAVE_API_KEY = os.environ.get("BRAVE_API_KEY", "")
@@ -34,7 +44,9 @@ WEB_FETCH_BROWSER_FALLBACK = os.environ.get("WEB_FETCH_BROWSER_FALLBACK", "true"
 WEB_SEARCH_BROWSER_TIER = os.environ.get("WEB_SEARCH_BROWSER_TIER", "true").lower() != "false"
 
 
-async def _browser_tool(tool: str, arguments: dict, timeout_s: float = 45.0) -> dict | None:
+async def _browser_tool(
+    tool: str, arguments: dict[str, Any], timeout_s: float = 45.0
+) -> dict[str, Any] | None:
     """Call one tool on the Obscura browser MCP. Returns its payload or None."""
     try:
         async with httpx.AsyncClient(timeout=timeout_s) as c:
@@ -45,7 +57,7 @@ async def _browser_tool(tool: str, arguments: dict, timeout_s: float = 45.0) -> 
         data = r.json()
         if isinstance(data, dict) and (data.get("error") or data.get("isError")):
             return None
-        return data
+        return cast("dict[str, Any] | None", data)
     except Exception as e:  # network / MCP down — degrade silently to the caller
         logger.info("browser MCP %s failed: %s", tool, e)
         return None
@@ -56,7 +68,8 @@ async def _browser_fetch_markdown(url: str) -> str | None:
     data = await _browser_tool("browser_get_markdown", {"url": url})
     if data:
         md = data.get("markdown") or ""
-        return md.strip() or None
+        if isinstance(md, str) and md.strip():
+            return md.strip()
     return None
 
 
@@ -89,8 +102,8 @@ PRIVATE_PREFIXES = (
 )
 
 
-@mcp.custom_route("/health", methods=["GET"])
-async def health(request):
+@_route("/health", methods=["GET"])
+async def health(request: Request) -> JSONResponse:
     return JSONResponse(
         {
             "status": "ok",
@@ -145,8 +158,8 @@ TOOLS_MANIFEST = [
 ]
 
 
-@mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request):
+@_route("/tools", methods=["GET"])
+async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse(TOOLS_MANIFEST)
 
 
@@ -163,7 +176,12 @@ _SEARXNG_ENGINES = (
 )
 
 
-async def _searxng_search(query, num_results=5, time_range="any", category="general"):
+async def _searxng_search(
+    query: str,
+    num_results: int = 5,
+    time_range: str = "any",
+    category: str = "general",
+) -> list[dict[str, Any]]:
     params = {
         "q": query,
         "format": "json",
@@ -192,7 +210,12 @@ async def _searxng_search(query, num_results=5, time_range="any", category="gene
             return []
 
 
-async def _brave_search(query, num_results=5, time_range="any", category="general"):
+async def _brave_search(
+    query: str,
+    num_results: int = 5,
+    time_range: str = "any",
+    category: str = "general",
+) -> list[dict[str, Any]]:
     """Brave Search API. Primary or fallback per WEB_SEARCH_PRIMARY; no-op
     without BRAVE_API_KEY.
 
@@ -205,7 +228,7 @@ async def _brave_search(query, num_results=5, time_range="any", category="genera
     freshness = {"day": "pd", "week": "pw", "month": "pm", "year": "py"}.get(time_range)
     endpoint = "news" if category == "news" else "web"
     url = f"https://api.search.brave.com/res/v1/{endpoint}/search"
-    params = {"q": query, "count": min(max(num_results, 1), 20)}
+    params: dict[str, str | int] = {"q": query, "count": min(max(num_results, 1), 20)}
     if freshness:
         params["freshness"] = freshness
     headers = {"X-Subscription-Token": BRAVE_API_KEY, "Accept": "application/json"}
@@ -246,7 +269,7 @@ WEB_SEARCH_PRIMARY = (
 ).lower()
 
 
-def _results_are_weak(results: list) -> bool:
+def _results_are_weak(results: list[dict[str, Any]]) -> bool:
     """True when a non-empty result set is unlikely to help — every URL points
     at a site root / nav page, most carry no real snippet, or it is dominated
     by generic reference pages (Wikipedia). SearXNG's scraped results degrade
@@ -271,10 +294,11 @@ def _results_are_weak(results: list) -> bool:
 # them for a repeat query is the cheapest win. Bounded LRU-ish (oldest evicted).
 _SEARCH_CACHE_TTL_S = int(os.environ.get("WEB_SEARCH_CACHE_TTL_S", str(6 * 3600)))
 _SEARCH_CACHE_MAX = int(os.environ.get("WEB_SEARCH_CACHE_MAX", "512"))
-_search_cache: dict[tuple, tuple[float, list]] = {}
+_CacheKey = tuple[str, int, str, str]
+_search_cache: dict[_CacheKey, tuple[float, list[dict[str, Any]]]] = {}
 
 
-def _cache_get(key: tuple) -> list | None:
+def _cache_get(key: _CacheKey) -> list[dict[str, Any]] | None:
     hit = _search_cache.get(key)
     if hit is None:
         return None
@@ -285,7 +309,7 @@ def _cache_get(key: tuple) -> list | None:
     return results
 
 
-def _cache_put(key: tuple, results: list) -> None:
+def _cache_put(key: _CacheKey, results: list[dict[str, Any]]) -> None:
     if not results:
         return  # never cache an empty/failed lookup
     if len(_search_cache) >= _SEARCH_CACHE_MAX:
@@ -294,11 +318,16 @@ def _cache_put(key: tuple, results: list) -> None:
     _search_cache[key] = (time.time(), results)
 
 
-async def _search_with_fallback(query, num_results=5, time_range="any", category="general"):
+async def _search_with_fallback(
+    query: str,
+    num_results: int = 5,
+    time_range: str = "any",
+    category: str = "general",
+) -> list[dict[str, Any]]:
     """Primary backend (WEB_SEARCH_PRIMARY) then the other one, on an empty OR
     low-quality result set. Brave requires BRAVE_API_KEY. Cached per
     (query, num_results, time_range, category)."""
-    key = (query.strip().lower(), num_results, time_range, category)
+    key: _CacheKey = (query.strip().lower(), num_results, time_range, category)
     cached = _cache_get(key)
     if cached is not None:
         logger.debug("web_search cache hit for %r", query)
@@ -306,7 +335,7 @@ async def _search_with_fallback(query, num_results=5, time_range="any", category
 
     brave_first = WEB_SEARCH_PRIMARY == "brave" and BRAVE_API_KEY
     order = ["brave", "searxng"] if brave_first else ["searxng", "brave"]
-    results: list = []
+    results: list[dict[str, Any]] = []
     for backend in order:
         if backend == "brave" and not BRAVE_API_KEY:
             continue
@@ -333,7 +362,7 @@ async def _search_with_fallback(query, num_results=5, time_range="any", category
     return results
 
 
-async def _browser_search(query: str, num_results: int) -> list:
+async def _browser_search(query: str, num_results: int) -> list[dict[str, Any]]:
     """A3: scrape a rendered SERP via the Obscura browser MCP. Returns the
     standard result shape, or [] on failure."""
     serp = f"https://duckduckgo.com/html/?q={quote_plus(query)}"
@@ -355,7 +384,7 @@ async def _browser_search(query: str, num_results: int) -> list:
     rows = ev.get("result") if isinstance(ev, dict) else None
     if not isinstance(rows, list):
         return []
-    out = []
+    out: list[dict[str, Any]] = []
     for row in rows[:num_results]:
         if isinstance(row, dict) and row.get("url"):
             out.append(
@@ -370,8 +399,8 @@ async def _browser_search(query: str, num_results: int) -> list:
     return out
 
 
-@mcp.custom_route("/tools/web_search", methods=["POST"])
-async def web_search_endpoint(request):
+@_route("/tools/web_search", methods=["POST"])
+async def web_search_endpoint(request: Request) -> JSONResponse:
     body = await request.json()
     args = body.get("arguments", {})
     if not args.get("query"):
@@ -383,8 +412,8 @@ async def web_search_endpoint(request):
     return JSONResponse({"query": args["query"], "num_results": len(results), "results": results})
 
 
-@mcp.custom_route("/tools/news_search", methods=["POST"])
-async def news_search_endpoint(request):
+@_route("/tools/news_search", methods=["POST"])
+async def news_search_endpoint(request: Request) -> JSONResponse:
     body = await request.json()
     args = body.get("arguments", {})
     if not args.get("query"):
@@ -402,14 +431,14 @@ _SCRIPT = re.compile(r"<(script|style)[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL
 _CHROME = re.compile(r"<(nav|header|footer|aside|form)\b[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL)
 
 
-def _html_to_text(html):
+def _html_to_text(html: str) -> str:
     # Drop scripts/styles, then obvious page chrome, then remaining tags.
     stripped = _CHROME.sub(" ", _SCRIPT.sub("", html))
     return _WS.sub(" ", _HTML_TAG.sub(" ", stripped)).strip()
 
 
-@mcp.custom_route("/tools/web_fetch", methods=["POST"])
-async def web_fetch_endpoint(request):
+@_route("/tools/web_fetch", methods=["POST"])
+async def web_fetch_endpoint(request: Request) -> JSONResponse:
     body = await request.json()
     args = body.get("arguments", {})
     url = args.get("url", "")
@@ -423,7 +452,7 @@ async def web_fetch_endpoint(request):
         return JSONResponse({"error": "private/local URLs blocked"}, status_code=403)
     max_chars = args.get("max_chars", 50000)
 
-    async def _browser_fallback(reason: str):
+    async def _browser_fallback(reason: str) -> JSONResponse | None:
         """A2: retry via the Obscura browser MCP (passes bot challenges)."""
         if not WEB_FETCH_BROWSER_FALLBACK:
             return None
@@ -471,7 +500,7 @@ async def web_fetch_endpoint(request):
         return fb or JSONResponse({"error": str(e)[:200], "url": url}, status_code=502)
 
 
-def main():
+def main() -> None:
     port = int(os.environ.get("RESEARCH_MCP_PORT", "8922"))
     mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
 

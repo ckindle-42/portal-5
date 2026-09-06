@@ -15,7 +15,7 @@ import os
 import re
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -85,7 +85,7 @@ class WinEventBackend:
 
     name = "winrm-winevent"
 
-    def query(self, technique_id: str, window: dict) -> dict:
+    def query(self, technique_id: str, window: dict[str, Any]) -> dict[str, Any]:
         fx = _TELEMETRY_FIXTURES.get(technique_id)
         if not fx:
             return {"telemetry": "", "source": "synthetic-fallback", "backend": self.name}
@@ -184,9 +184,9 @@ _TECHNIQUE_NAMES: dict[str, str] = {
     "T1110.003": "Password spray (failed logins — EventID 4625/4771)",
 }
 
-BLUE_TOOLS: list[dict] = _load_data("blue_blue_tools")
+BLUE_TOOLS: list[dict[str, Any]] = _load_data("blue_blue_tools")
 
-_TELEMETRY_FIXTURES: dict[str, dict] = _load_data("blue_telemetry_fixtures")
+_TELEMETRY_FIXTURES: dict[str, dict[str, Any]] = _load_data("blue_telemetry_fixtures")
 
 
 def _build_blue_initial_prompt() -> str:
@@ -331,7 +331,7 @@ _BLUE_INVESTIGATE_MAX_STEPS = 20
 _TOOL_CALL_TAG_RE = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
 
 
-def _extract_tool_calls_from_content(msg: dict) -> list[dict]:
+def _extract_tool_calls_from_content(msg: dict[str, Any]) -> list[dict[str, Any]]:
     """Fallback tool-call extraction for models whose Modelfile template emits
     ``<tool_call>{...}</tool_call>`` as plain text content instead of Ollama's
     structured ``message.tool_calls`` array (found 2026-07-05,
@@ -344,7 +344,7 @@ def _extract_tool_calls_from_content(msg: dict) -> list[dict]:
     content = msg.get("content") or ""
     if not content or "<tool_call>" not in content:
         return []
-    out = []
+    out: list[dict[str, Any]] = []
     for match in _TOOL_CALL_TAG_RE.finditer(content):
         try:
             call = json.loads(match.group(1))
@@ -361,11 +361,11 @@ def _extract_tool_calls_from_content(msg: dict) -> list[dict]:
 
 
 def _run_blue_defender(
-    attack_chain_results: list[dict],
+    attack_chain_results: list[dict[str, Any]],
     prompt_key: str,
     blue_model: str,
     dry_run: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     """Run a blue team defender model over the completed attack chain.
 
     The defender receives the full attack chain as context (all tool calls made,
@@ -499,13 +499,13 @@ def _run_blue_defender(
 
 
 def _run_blue_turn(
-    tool_calls: list[dict],
+    tool_calls: list[dict[str, Any]],
     red_model: str,
     blue_model: str,
     ollama_url: str,
     prompt_key: str = "",
-    lab_outputs: list[dict] | None = None,
-) -> dict:
+    lab_outputs: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """Blue defender: agentic multi-turn investigation of a red team turn.
 
     Unified path — blue gets search tools and runs a bounded investigate-loop
@@ -547,7 +547,7 @@ def _run_blue_turn(
 
     # Agentic loop: always give blue search tools, let it investigate
     _blue_investigate_budget = 5
-    messages: list[dict] = [
+    messages: list[dict[str, Any]] = [
         {"role": "system", "content": _BLUE_SYSTEM_PROMPT},
         {"role": "user", "content": blue_prompt},
     ]
@@ -555,8 +555,8 @@ def _run_blue_turn(
     if _LAB_EXEC_AVAILABLE:
         tools.extend(_BLUE_ACTIVE_TOOLS)
 
-    reported: list[dict] = []
-    containments: list[dict] = []
+    reported: list[dict[str, Any]] = []
+    containments: list[dict[str, Any]] = []
     stall_counter = 0
     _max_stall_steps = 4  # matches exec_chain.py's cfg.max_stall_steps default
 
@@ -673,7 +673,7 @@ def _run_blue_turn(
     detected = bool(content.strip()) and not explicitly_missed and quality_score >= 0.30
 
     # Dispatch blue containment tools if lab-exec
-    blue_active_results: list[dict] = []
+    blue_active_results: list[dict[str, Any]] = []
     if _LAB_EXEC_AVAILABLE:
         for btc in containments:
             br = dispatch_blue_response("recommend_containment", btc)
@@ -704,11 +704,11 @@ def _fetch_blue_telemetry(
     technique_ids: list[str],
     query_live: bool,
     dry_run: bool,
-    window: dict | None = None,
+    window: dict[str, Any] | None = None,
     *,
     episode_id: str | None = None,
     target_host: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Return an unlabeled episode inventory or explicitly synthetic fixtures.
 
     In live mode the ground-truth ``technique_ids`` argument is ignored.  New
@@ -829,11 +829,11 @@ def _evidence_is_grounded(
 
 
 def _cite_or_drop(
-    reported: list[dict],
-    telemetry: dict[str, dict],
+    reported: list[dict[str, Any]],
+    telemetry: dict[str, dict[str, Any]],
     *,
     context_text: str = "",
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Drop reported techniques with no supporting telemetry evidence.
 
     Phase B: never-invent applied to blue's own output.  A reported technique
@@ -877,7 +877,7 @@ def _cite_or_drop(
     # Build a set of all telemetry text for matching
     all_telemetry_text = " ".join(v.get("telemetry", "") for v in telemetry.values()).lower()
 
-    kept = []
+    kept: list[dict[str, Any]] = []
     for detection in reported:
         tid = detection.get("technique_id", "").strip().upper()
         if not tid:
@@ -1004,14 +1004,14 @@ def _parent_collapse_precision_note(
 
 def _run_blue_chain_test(
     model: str,
-    scenario: dict,
+    scenario: dict[str, Any],
     dry_run: bool = False,
     lab_exec: bool = False,
     scenario_start: float | None = None,
     query_live: bool | None = None,
     mode: str = "discovery",
     episode_id: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Drive a blue-team model to detect the techniques a red scenario executed.
 
     `mode` selects the investigation prompt: "scripted" (default, mandatory
@@ -1075,7 +1075,7 @@ def _run_blue_chain_test(
         )
     )
 
-    def _observed_query_origins(query_result: dict) -> list[str]:
+    def _observed_query_origins(query_result: dict[str, Any]) -> list[str]:
         origins: set[str] = set()
         for row in query_result.get("rows", []):
             fields = row.get("fields", {})
@@ -1086,8 +1086,8 @@ def _run_blue_chain_test(
                 origins.add(source.split(":", 1)[1])
         return sorted(origins)
 
-    reported: list[dict] = []
-    containments: list[dict] = []
+    reported: list[dict[str, Any]] = []
+    containments: list[dict[str, Any]] = []
     error = None
     stall_counter = 0
     _max_stall_steps = 4  # matches exec_chain.py's cfg.max_stall_steps default
@@ -1102,7 +1102,7 @@ def _run_blue_chain_test(
         "hybrid": (_BLUE_SYSTEM_PROMPT_HYBRID, BLUE_INITIAL_PROMPT_HYBRID),
     }
     _sys_prompt, _initial_prompt = _prompt_pairs.get(mode, _prompt_pairs["scripted"])
-    messages: list[dict] = [
+    messages: list[dict[str, Any]] = [
         {"role": "system", "content": _sys_prompt},
         {"role": "user", "content": _initial_prompt},
     ]
@@ -1340,8 +1340,11 @@ def _run_blue_chain_test(
 
 
 def run_blue_chain_tests(
-    models: list[str], scenario: dict, dry_run: bool = False, lab_exec: bool = False
-) -> list[dict]:
+    models: list[str],
+    scenario: dict[str, Any],
+    dry_run: bool = False,
+    lab_exec: bool = False,
+) -> list[dict[str, Any]]:
     mode_label = "lab-exec" if lab_exec else "synthetic"
     print(f"\n── Blue Detection Chain [{mode_label}] scenario={scenario['name']} ──\n")
     return [_run_blue_chain_test(m, scenario, dry_run=dry_run, lab_exec=lab_exec) for m in models]
@@ -1398,7 +1401,7 @@ def _load_mitre_attack_catalog() -> dict[str, str]:
     project's 30 curated/detected techniques) is that reference.
     """
     try:
-        return json.loads(_MITRE_ATTACK_CATALOG_PATH.read_text())
+        return cast(dict[str, str], json.loads(_MITRE_ATTACK_CATALOG_PATH.read_text()))
     except (OSError, json.JSONDecodeError):
         return {}
 
@@ -1417,7 +1420,7 @@ def _load_similarity_reference_descriptions() -> dict[str, str]:
     return merged
 
 
-def _observed_features_from_blue(blue_result: dict) -> dict[str, Any]:
+def _observed_features_from_blue(blue_result: dict[str, Any]) -> dict[str, Any]:
     """Build U1's observed_features from what blue actually saw this episode —
     the raw telemetry text plus what blue itself reported, not the ground truth
     (grading against ground truth would trivially inflate the similarity match)."""
@@ -1447,7 +1450,9 @@ def _load_baseline_profile(host: str | None) -> BaselineProfile | None:
         return None
 
 
-def _run_unknown_defense(blue_result: dict, scenario: dict, episode_id: str) -> dict:
+def _run_unknown_defense(
+    blue_result: dict[str, Any], scenario: dict[str, Any], episode_id: str
+) -> dict[str, Any]:
     """Wire U1 (similarity) + U3/U4 (anomaly, if a baseline exists) + U2/U5
     (investigation bridge on SIMILAR/anomaly) into the purple scoring path.
 
@@ -1516,7 +1521,9 @@ def _run_unknown_defense(blue_result: dict, scenario: dict, episode_id: str) -> 
 # ── Purple scoring (red ↔ blue) ───────────────────────────────────────────────
 
 
-def _score_purple(red_result: dict, blue_result: dict, scenario: dict) -> dict:
+def _score_purple(
+    red_result: dict[str, Any], blue_result: dict[str, Any], scenario: dict[str, Any]
+) -> dict[str, Any]:
     """Score the red→blue interaction on a single shared scenario episode.
 
     - detection_coverage: of the techniques red was EXPECTED to execute in this
@@ -1708,12 +1715,12 @@ def _score_purple(red_result: dict, blue_result: dict, scenario: dict) -> dict:
 
 
 def collect_and_ship_scenario_telemetry(
-    scenario: dict,
+    scenario: dict[str, Any],
     scenario_start: float,
     *,
     lab_exec: bool = False,
     dry_run: bool = False,
-    red_tool_calls: list[dict] | None = None,
+    red_tool_calls: list[dict[str, Any]] | None = None,
     episode_id: str | None = None,
     network_telemetry: dict[str, list[str]] | None = None,
     observed_telemetry: dict[str, list[str]] | None = None,
@@ -1912,7 +1919,7 @@ def collect_and_ship_scenario_telemetry(
     return capture_path, indexed_confirmed, telemetry_error
 
 
-def load_latest_red_capture(scenario_name: str) -> tuple[dict | None, str | None]:
+def load_latest_red_capture(scenario_name: str) -> tuple[dict[str, Any] | None, str | None]:
     """Load the newest replayable red evidence/capture pair.
 
     A pair is replayable only when both artifacts share a schema-v2 episode id
@@ -1921,7 +1928,7 @@ def load_latest_red_capture(scenario_name: str) -> tuple[dict | None, str | None
     """
     from .siem.capture_store import capture_replay_issues, list_captures, list_evidence
 
-    red_by_episode: dict[str, dict] = {}
+    red_by_episode: dict[str, dict[str, Any]] = {}
     for path in list_evidence("red", scenario_name):
         with contextlib.suppress(OSError, json.JSONDecodeError):
             data = json.loads(path.read_text())
@@ -1941,13 +1948,13 @@ def load_latest_red_capture(scenario_name: str) -> tuple[dict | None, str | None
 def run_purple_tests(
     red_models: list[str],
     blue_models: list[str],
-    scenario: dict,
+    scenario: dict[str, Any],
     cfg: BenchConfig,
     dry_run: bool = False,
     lab_exec: bool = False,
     replay_captured_red: bool = False,
     blue_mode: str = "discovery",
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Run one isolated evidence episode per red model.
 
     Red models never share a collection window, episode identifier, telemetry
@@ -1957,8 +1964,8 @@ def run_purple_tests(
     from .chain import _run_chain_test
 
     print(f"\n── Purple Tests scenario={scenario['name']} ──\n")
-    results: list[dict] = []
-    episode_runs: list[dict] = []
+    results: list[dict[str, Any]] = []
+    episode_runs: list[dict[str, Any]] = []
 
     if replay_captured_red:
         cached_red, capture_path = load_latest_red_capture(scenario["name"])
@@ -2044,7 +2051,7 @@ def run_purple_tests(
             if dry_run:
                 continue
 
-            capture_path: str | None = None
+            capture_path = None
             indexed_confirmed: bool | None = None
             telemetry_error = ""
             pcap_path = network_capture.local_pcap_path if network_capture else None
@@ -2182,7 +2189,7 @@ def run_purple_tests(
 # ── Evasion loop (TASK_SECCHAIN_V3_PURPLE_EVASION_V1) ────────────────────────
 
 
-def _build_evasion_feedback(blue_result: dict, scenario: dict) -> str:
+def _build_evasion_feedback(blue_result: dict[str, Any], scenario: dict[str, Any]) -> str:
     """Build a detection feedback message for the red model in round 2+.
 
     Tells red which MITRE techniques were detected (and via what event IDs) so the
@@ -2217,12 +2224,12 @@ def _build_evasion_feedback(blue_result: dict, scenario: dict) -> str:
 def _run_evasion_purple(
     red_model: str,
     blue_model: str,
-    scenario: dict,
+    scenario: dict[str, Any],
     cfg: BenchConfig,
     rounds: int = 2,
     dry_run: bool = False,
     lab_exec: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     """Adaptive red→blue evasion test.
 
     Round 1: Red runs the chain → Blue detects → record detections + pivot grade.
@@ -2247,7 +2254,7 @@ def _run_evasion_purple(
 
     cfg.set_scenario(scenario["red_order"], scenario["red_prompt"])
 
-    round_results: list[dict] = []
+    round_results: list[dict[str, Any]] = []
     evasion_context = ""
 
     for rnd in range(rounds):

@@ -14,6 +14,7 @@ established never-fabricate as a hard rule here.
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from portal.platform.data_loader import load_data
 
@@ -60,7 +61,7 @@ SCENARIO_SIGNAL_PATTERNS: dict[str, dict[str, list[str]]] = load_data(
 )
 
 
-def validate_capture_signals(scenario: str, telemetry: dict[str, list[str]]) -> dict:
+def validate_capture_signals(scenario: str, telemetry: dict[str, list[str]]) -> dict[str, Any]:
     """Validate that a capture has TECHNIQUE-SPECIFIC signals for its ground
     truth techniques.
 

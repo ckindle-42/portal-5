@@ -21,6 +21,7 @@ import json
 import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import Any
 
 from portal.modules.compliance.core.cip_extract import (
     assess_completeness,
@@ -37,7 +38,7 @@ DERIVED_MAP_PATH = _DATA / "nerc_cip_map.json"
 # themselves defer to a separate Implementation Plan, so these are maintained
 # here with an explicit source and re-checked by the Phase 8 currency probe
 # (`honest-BLOCKED` when nerc.com is unreachable — never inferred).
-_LIFECYCLE: dict[str, dict] = {
+_LIFECYCLE: dict[str, dict[str, Any]] = {
     "CIP-002-5.1a": {"state": "EFFECTIVE", "valid_from": "2016-07-01", "valid_to": None},
     "CIP-003-8": {
         "state": "RETIRED",
@@ -109,14 +110,14 @@ class RegisterNode:
 @dataclass
 class Register:
     nodes: list[RegisterNode] = field(default_factory=list)
-    edges: list[dict] = field(default_factory=list)
-    extraction_report: dict = field(default_factory=dict)
+    edges: list[dict[str, Any]] = field(default_factory=list)
+    extraction_report: dict[str, Any] = field(default_factory=dict)
     lifecycle_source: str = _LIFECYCLE_SOURCE
     built_at: str = ""  # ISO-8601 UTC — an auditable artifact carries a real header
-    source_pdfs: dict = field(default_factory=dict)  # {"cip-007-6.pdf": "<sha256[:12]>"}
+    source_pdfs: dict[str, str] = field(default_factory=dict)  # {"cip-007-6.pdf": "<sha256[:12]>"}
     extractor_commit: str = ""  # git HEAD of cip_extract.py at build time
 
-    def to_json(self) -> dict:
+    def to_json(self) -> dict[str, Any]:
         return {
             "built_at": self.built_at,
             "extractor_commit": self.extractor_commit,
@@ -233,7 +234,7 @@ def build_register(pdf_dir: str | Path) -> Register:
         source_pdfs=src_pdfs,
         extractor_commit=_extractor_commit(),
     )
-    report: dict = {}
+    report: dict[str, Any] = {}
     now = 0.0  # deterministic per-node stamp; the live store stamps real recorded_at
 
     for pdf in sorted(pdf_dir.glob("cip-*.pdf")):
@@ -345,7 +346,7 @@ def write_register(reg: Register, path: Path | str = REGISTER_PATH) -> None:
     Path(path).write_text(json.dumps(reg.to_json(), indent=1, ensure_ascii=False), encoding="utf-8")
 
 
-def derive_crosswalk(reg: Register, path: Path | str = DERIVED_MAP_PATH) -> dict:
+def derive_crosswalk(reg: Register, path: Path | str = DERIVED_MAP_PATH) -> dict[str, Any]:
     """Rebuild nerc_cip_map.json as a *derived* view: one entry per register
     node, carrying the verbatim text and (where the pre-existing seed had one)
     the advisory 800-53 crosswalk. The seed's superseded versions (CIP-003-8,
@@ -364,7 +365,7 @@ def derive_crosswalk(reg: Register, path: Path | str = DERIVED_MAP_PATH) -> dict
                 "related_800_53", []
             )
 
-    out: dict[str, dict] = {}
+    out: dict[str, dict[str, Any]] = {}
     for n in reg.nodes:
         out[n.id] = {
             "standard": n.standard,

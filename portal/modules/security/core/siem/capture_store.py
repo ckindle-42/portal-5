@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
+from typing import Any
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[5]
 CAPTURE_DIR = _PROJECT_ROOT / "portal" / "modules" / "security" / "core" / "results" / "captures"
@@ -24,7 +25,7 @@ LIVE_CAPTURE_ORIGIN = "live:portal:red"
 ANSWER_KEY_VISIBILITY = "scorer_only"
 
 
-def canonical_target_host(data: dict) -> str:
+def canonical_target_host(data: dict[str, Any]) -> str:
     """Resolve stale capture metadata through the current scenario catalog."""
     scenario = str(data.get("scenario") or "")
     try:
@@ -36,7 +37,7 @@ def canonical_target_host(data: dict) -> str:
     return str(configured or data.get("target_host") or "")
 
 
-def capture_replay_warnings(data: dict) -> list[str]:
+def capture_replay_warnings(data: dict[str, Any]) -> list[str]:
     stored = str(data.get("target_host") or "")
     canonical = canonical_target_host(data)
     if stored and canonical and stored != canonical:
@@ -44,7 +45,7 @@ def capture_replay_warnings(data: dict) -> list[str]:
     return []
 
 
-def capture_ground_truth_status(data: dict) -> dict:
+def capture_ground_truth_status(data: dict[str, Any]) -> dict[str, Any]:
     """Revalidate immutable telemetry against the current scenario contract.
 
     Stored validity is an audit record of the validator that existed when the
@@ -66,7 +67,7 @@ def capture_ground_truth_status(data: dict) -> dict:
     return dict(data.get("validity") or {})
 
 
-def capture_replay_issues(data: dict, *, require_pcap: bool = False) -> list[str]:
+def capture_replay_issues(data: dict[str, Any], *, require_pcap: bool = False) -> list[str]:
     """Return integrity failures that make a saved red capture unsafe to replay.
 
     Replay is a scoring input, so merely having non-empty telemetry is not
@@ -135,7 +136,7 @@ def save_capture(
     path = CAPTURE_DIR / f"{scenario}_{ts}{episode_suffix}.json"
 
     # ── ground-truth gate ──────────────────────────────────────────────
-    validity = {
+    validity: dict[str, Any] = {
         "checked": False,
         "valid": False,
         "coverage": 0.0,
@@ -202,7 +203,7 @@ def list_captures(scenario: str | None = None) -> list[Path]:
     return sorted(CAPTURE_DIR.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True)
 
 
-def save_evidence(kind: str, scenario: str, payload: dict) -> str:
+def save_evidence(kind: str, scenario: str, payload: dict[str, Any]) -> str:
     """Persist an arbitrary red/blue/purple evidence payload to disk (results/captures/<kind>/).
 
     Unlike save_capture (blue-telemetry-specific, skips empty payloads), this
@@ -236,7 +237,7 @@ def replay_capture(
     timeout_s: int = 30,
     event_time: float | None = None,
     confirm_index: bool = True,
-) -> dict:
+) -> dict[str, Any]:
     """Re-ship a saved capture to Splunk and confirm it indexed.
 
     By default (event_time=None) this is the "reload with updated timestamps"

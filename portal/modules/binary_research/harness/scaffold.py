@@ -13,6 +13,7 @@ import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, cast
 
 from . import llm as llm_mod
 from .llm import LLMConfig
@@ -39,14 +40,14 @@ class ScaffoldPlan:
     goal: str
     hypotheses: list[str]
     checks: list[str]
-    verifiers: list[dict]
+    verifiers: list[dict[str, Any]]
 
 
 def _state_path(project_dir: Path) -> Path:
     return project_dir / ".brh" / "intake.json"
 
 
-def _default_state() -> dict:
+def _default_state() -> dict[str, Any]:
     return {
         "state": "asking",
         "turns": [],
@@ -56,23 +57,23 @@ def _default_state() -> dict:
     }
 
 
-def load_state(project_dir: Path) -> dict:
+def load_state(project_dir: Path) -> dict[str, Any]:
     p = _state_path(project_dir)
     if p.exists():
         try:
-            return json.loads(p.read_text())
+            return cast(dict[str, Any], json.loads(p.read_text()))
         except json.JSONDecodeError:
             return _default_state()
     return _default_state()
 
 
-def _save(project_dir: Path, st: dict) -> None:
+def _save(project_dir: Path, st: dict[str, Any]) -> None:
     p = _state_path(project_dir)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(st, indent=2))
 
 
-def _parse_json(text: str | None, default):
+def _parse_json(text: str | None, default: dict[str, Any]) -> dict[str, Any]:
     if not text:
         return default
     t = text.strip()
@@ -80,26 +81,26 @@ def _parse_json(text: str | None, default):
         t = t.split("```", 2)[1] if "```" in t else t
         t = t.removeprefix("json").strip()
     try:
-        return json.loads(t)
+        return cast(dict[str, Any], json.loads(t))
     except json.JSONDecodeError:
         start = t.find("{")
         end = t.rfind("}")
         if start != -1 and end != -1:
             try:
-                return json.loads(t[start : end + 1])
+                return cast(dict[str, Any], json.loads(t[start : end + 1]))
             except json.JSONDecodeError:
                 return default
         return default
 
 
-def _fallback_goal(turns: list[dict]) -> str:
+def _fallback_goal(turns: list[dict[str, Any]]) -> str:
     for t in turns:
         if t.get("a"):
             return f"Reconstruct how the artifacts work. Operator note: {t['a']}"
     return "Reconstruct how the artifacts in artifacts/ work. Do not execute them."
 
 
-def start(project_dir: Path) -> dict:
+def start(project_dir: Path) -> dict[str, Any]:
     """Begin (or resume) the intake session. Returns the current turn state."""
     init_project(project_dir)
     st = load_state(project_dir)
@@ -110,7 +111,7 @@ def start(project_dir: Path) -> dict:
     return {"state": st["state"], "question": st["pending_question"]}
 
 
-def _next_step(config: LLMConfig, turns: list[dict]) -> dict:
+def _next_step(config: LLMConfig, turns: list[dict[str, Any]]) -> dict[str, Any]:
     qa = "\n".join(f"Q: {t['q']}\nA: {t['a']}" for t in turns)
     raw = None
     try:
@@ -123,7 +124,7 @@ def _next_step(config: LLMConfig, turns: list[dict]) -> dict:
     return _parse_json(raw, default={}) or {}
 
 
-def answer(config: LLMConfig, project_dir: Path, text: str) -> dict:
+def answer(config: LLMConfig, project_dir: Path, text: str) -> dict[str, Any]:
     """Record an answer, then either emit the next question or write the scaffold."""
     st = load_state(project_dir)
     if not st["opening_asked"] or st["pending_question"] is None:
@@ -161,7 +162,7 @@ def answer(config: LLMConfig, project_dir: Path, text: str) -> dict:
     }
 
 
-def status(project_dir: Path) -> dict:
+def status(project_dir: Path) -> dict[str, Any]:
     return load_state(project_dir)
 
 

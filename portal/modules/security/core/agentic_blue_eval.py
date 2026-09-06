@@ -23,6 +23,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from portal.platform.data_loader import load_data
 
@@ -37,7 +38,7 @@ _DIRECT_OLLAMA = os.environ.get("CHAIN_DIRECT_OLLAMA", "").lower() == "true"
 _PIPELINE_API_KEY = ""
 
 
-def emergent_recall_metric(graph, corpus_technique_ids: set[str]) -> dict:
+def emergent_recall_metric(graph: Any, corpus_technique_ids: set[str]) -> dict[str, Any]:
     """The blue honesty metric (D4, DESIGN_EMERGENT_LAB_AGENT_V2 Δ4): detection
     recall against emergent behaviour, not scenario-signature match.
 
@@ -114,7 +115,7 @@ class QueryTraceEntry:
 
     step: int
     tool_name: str
-    query_args: dict
+    query_args: dict[str, Any]
     broad: bool  # True if query got summary (no/weak keywords), False if got records
     result_chars: int
     saw_attack_events: bool  # True if result contained any ground-truth technique keywords
@@ -155,7 +156,7 @@ def load_episode(scenario: str) -> Episode | None:
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
-    data: dict | None = None
+    data: dict[str, Any] | None = None
     for capture in captures:
         try:
             candidate = json.loads(capture.read_text())
@@ -184,7 +185,7 @@ def load_episode(scenario: str) -> Episode | None:
     )
 
 
-def _find_balanced_json_objects(text: str) -> list[dict]:
+def _find_balanced_json_objects(text: str) -> list[dict[str, Any]]:
     """Extract every top-level {...} JSON object from text via brace counting.
 
     Regex can't reliably match arbitrarily-nested JSON (an "arguments"
@@ -192,7 +193,7 @@ def _find_balanced_json_objects(text: str) -> list[dict]:
     correctly and is wrapper-agnostic -- it doesn't care what tag, markdown
     fence, or nothing at all surrounds the JSON.
     """
-    objs: list[dict] = []
+    objs: list[dict[str, Any]] = []
     depth = 0
     start: int | None = None
     for i, ch in enumerate(text):
@@ -215,7 +216,7 @@ def _find_balanced_json_objects(text: str) -> list[dict]:
     return objs
 
 
-def normalize_tool_calls(msg: dict) -> dict:
+def normalize_tool_calls(msg: dict[str, Any]) -> dict[str, Any]:
     """Recover tool calls a model emitted in a nonstandard/inconsistent wrapper.
 
     Ollama only parses tool calls wrapped in the exact tag its chat template
@@ -240,7 +241,7 @@ def normalize_tool_calls(msg: dict) -> dict:
     if msg.get("tool_calls"):
         return msg
     content = msg.get("content", "") or ""
-    calls = []
+    calls: list[dict[str, Any]] = []
     for obj in _find_balanced_json_objects(content):
         name = obj.get("name")
         args = obj.get("arguments")
@@ -256,11 +257,11 @@ def normalize_tool_calls(msg: dict) -> dict:
 
 def _call_model(
     model: str,
-    messages: list[dict],
-    tools: list[dict] | None = None,
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]] | None = None,
     max_tokens: int = 2000,
-    extra_options: dict | None = None,
-) -> dict:
+    extra_options: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Call a model through the pipeline (or direct Ollama if CHAIN_DIRECT_OLLAMA=true).
 
     P5-EMERGENT-003 (same class of fix as exec_chain.py's `_stream_chain_turn`
@@ -287,7 +288,7 @@ def _call_model(
         options = {"num_predict": max_tokens}
         if extra_options:
             options.update(extra_options)
-        body: dict = {
+        body: dict[str, Any] = {
             "model": model,
             "messages": messages,
             "options": options,
@@ -422,7 +423,7 @@ def _tactic_for(technique_id: str) -> str:
     return _load_tactic_map().get(technique_id, "")
 
 
-def score_findings_tiered(detected: set[str], ground_truth: set[str]) -> dict[str, dict]:
+def score_findings_tiered(detected: set[str], ground_truth: set[str]) -> dict[str, dict[str, Any]]:
     """Score findings at three tiers: exact, parent, tactic.
 
     A finding credits the HIGHEST tier it satisfies:
@@ -477,7 +478,7 @@ def score_findings_tiered(detected: set[str], ground_truth: set[str]) -> dict[st
     all_tps = exact_tps | parent_tps | tactic_tps
     all_gt_covered = gt_covered_exact | gt_covered_parent | gt_covered_tactic
 
-    def _tier_scores(tps: set[str], gt_covered: set[str], tier_name: str) -> dict:
+    def _tier_scores(tps: set[str], gt_covered: set[str], tier_name: str) -> dict[str, Any]:
         fps = detected - all_tps if tier_name == "tactic" else set()
         if tier_name == "exact":
             fps = detected - exact_tps - parent_tps - tactic_tps
@@ -530,7 +531,7 @@ def score_analyst_outcome(
     ground_truth: set[str],
     *,
     ungrounded_claims: set[str] | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Score an analyst outcome that has TWO channels: autonomously CONFIRMED
     known-bad techniques, and review leads escalated for human eyes.
 
@@ -648,7 +649,7 @@ def score_analyst_outcome(
 
 # ── Search tools (always available to blue) ─────────────────────────────────
 
-_SEARCH_TOOLS: list[dict] = load_data("config/security", "agentic_blue_eval_search_tools")
+_SEARCH_TOOLS: list[dict[str, Any]] = load_data("config/security", "agentic_blue_eval_search_tools")
 
 # ── Grounding tools (arm C only — the actual harness) ────────────────────────
 #
@@ -659,10 +660,12 @@ _SEARCH_TOOLS: list[dict] = load_data("config/security", "agentic_blue_eval_sear
 # and similarity-tier heuristic (unknown_defense.compute_similarity) blue.py's
 # real chain-test path already uses — this eval just wasn't wired to them.
 
-_GROUNDING_TOOLS: list[dict] = load_data("config/security", "agentic_blue_eval_grounding_tools")
+_GROUNDING_TOOLS: list[dict[str, Any]] = load_data(
+    "config/security", "agentic_blue_eval_grounding_tools"
+)
 
 
-def _dispatch_grounding_tool(name: str, args: dict) -> str | None:
+def _dispatch_grounding_tool(name: str, args: dict[str, Any]) -> str | None:
     """Answer a grounding-tool call from Portal's own detection library.
 
     Returns None if ``name`` isn't a grounding tool, so callers can fall
@@ -696,14 +699,14 @@ def _dispatch_grounding_tool(name: str, args: dict) -> str | None:
         # instead of one unmatchable token (verified against test_unknown_defense.py's
         # calling convention).
         keywords = [w for w in re.split(r"[^a-zA-Z0-9]+", evidence.lower()) if w]
-        result = compute_similarity({"keywords": keywords}, ref)
-        if result.grade == MatchGrade.NONE:
-            return f"No similar technique found. {result.detail}"
+        sim = compute_similarity({"keywords": keywords}, ref)
+        if sim.grade == MatchGrade.NONE:
+            return f"No similar technique found. {sim.detail}"
         return (
-            f"Best match: {result.matched_technique} (grade={result.grade}, "
-            f"confidence={result.confidence:.2f}). Overlapping terms: "
-            f"{', '.join(result.overlapping_features)}. "
-            f"Signature: {ref.get(result.matched_technique, '')}"
+            f"Best match: {sim.matched_technique} (grade={sim.grade}, "
+            f"confidence={sim.confidence:.2f}). Overlapping terms: "
+            f"{', '.join(sim.overlapping_features)}. "
+            f"Signature: {ref.get(sim.matched_technique, '')}"
         )
     return None
 
@@ -791,7 +794,7 @@ def _run_arm_raw(model: str, episode: Episode) -> ArmResult:
     return result
 
 
-def _extract_query_keywords(query_args: dict) -> list[str]:
+def _extract_query_keywords(query_args: dict[str, Any]) -> list[str]:
     """Extract filter keywords from tool query args (same logic as _query_real_telemetry)."""
     import re
 
@@ -832,7 +835,9 @@ def _summarize_telemetry(episode: Episode) -> str:
     return f"{total} events: " + "; ".join(parts)
 
 
-def _query_real_telemetry(name: str, episode: Episode, query_args: dict | None = None) -> str:
+def _query_real_telemetry(
+    name: str, episode: Episode, query_args: dict[str, Any] | None = None
+) -> str:
     """Answer a search-tool call with the episode's actual captured telemetry.
 
     Broad queries (no/weak keywords) return a SUMMARY — counts and facets,
@@ -888,7 +893,7 @@ def _query_real_telemetry(name: str, episode: Episode, query_args: dict | None =
     return f"Tool '{name}' executed."
 
 
-def _compact_old_tool_results(messages: list[dict], keep_recent: int = 2) -> None:
+def _compact_old_tool_results(messages: list[dict[str, Any]], keep_recent: int = 2) -> None:
     """Replace older tool results with short references to prevent context bloat.
 
     Keeps the most recent `keep_recent` tool results in full. Older ones are
@@ -1125,7 +1130,7 @@ def run_eval(
     scenario: str,
     model: str = "granite4.1:8b-ctx8k",
     arms: list[str] | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Run the agentic blue eval on a captured episode.
 
     Args:
@@ -1157,7 +1162,7 @@ def run_eval(
 
     # Score per-tactic recall (M1: three-tier scoring — exact/parent/tactic)
     ground_truth = set(episode.techniques)
-    scores: dict[str, dict] = {}
+    scores: dict[str, dict[str, Any]] = {}
     for arm_name, arm_result in results.items():
         detected = arm_result.detected_techniques
         true_positives = detected & ground_truth

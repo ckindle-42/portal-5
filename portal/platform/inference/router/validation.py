@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import re
+from typing import Any
 
 from portal.platform.inference.cluster_backends import BackendRegistry
 from portal.platform.inference.router.workspaces import WORKSPACES
@@ -82,7 +83,7 @@ def warn_unset_thinking_mode() -> list[str]:
     """
     out: list[str] = []
 
-    def _scan(ws_id: str, cfg: dict) -> None:
+    def _scan(ws_id: str, cfg: dict[str, Any]) -> None:
         hint = cfg.get("model_hint") or ""
         if (
             hint
@@ -134,11 +135,11 @@ _SAMPLING_KEYS = (
 )
 
 
-def _resolve_sampling_values(ws_cfg_local: dict) -> dict:
+def _resolve_sampling_values(ws_cfg_local: dict[str, Any]) -> dict[str, Any]:
     """think_profiles wins over flat sampling fields when `think` is set."""
     think_profiles = ws_cfg_local.get("think_profiles")
     ws_think = ws_cfg_local.get("think")
-    profile: dict = {}
+    profile: dict[str, Any] = {}
     if think_profiles and ws_think is not None:
         profile = think_profiles.get("thinking" if ws_think else "instruct") or {}
 
@@ -160,7 +161,7 @@ _REASONING_EFFORT_PREDICT: dict[str, int] = {
 }
 
 
-def _apply_reasoning_effort(body: dict) -> tuple[int, str] | None:
+def _apply_reasoning_effort(body: dict[str, Any]) -> tuple[int, str] | None:
     """Pop ``reasoning_effort`` from ``body`` (mutates in place) and, when it is a
     recognised tier, hard-set ``max_tokens`` to the mapped cap.
 
@@ -179,7 +180,7 @@ def _apply_reasoning_effort(body: dict) -> tuple[int, str] | None:
     return cap, label
 
 
-def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
+def _inject_ollama_options(body: dict[str, Any], workspace_id: str = "") -> dict[str, Any]:
     """Add Ollama-specific tuning to the outgoing request body. Returns a copy.
 
     Only called for ``type == "ollama"`` backends — vLLM doesn't recognise
@@ -266,7 +267,7 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
     return body
 
 
-def _inject_omlx_options(body: dict, workspace_id: str = "") -> dict:
+def _inject_omlx_options(body: dict[str, Any], workspace_id: str = "") -> dict[str, Any]:
     """Per-request injection for ``type == "omlx"`` backends. Verified live
     (2026-08-15): oMLX wires top_k/min_p/presence_penalty/seed, but names
     repeat_penalty "repetition_penalty" and has no bare think (mapped to

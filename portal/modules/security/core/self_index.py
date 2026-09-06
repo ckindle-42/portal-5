@@ -14,6 +14,7 @@ import re
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any, cast
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[4]
 _SELF_DIR = Path(__file__).resolve().parent
@@ -50,7 +51,7 @@ def _run_timestamp_key(p: Path) -> str:
 # ── Phase 1: signal readers ───────────────────────────────────────────────────
 
 
-def _run_validator_json() -> dict | None:
+def _run_validator_json() -> dict[str, Any] | None:
     """Run validate_system.py --json and return parsed output, or None on failure."""
     validator_path = _PROJECT_ROOT / "scripts" / "validate_system.py"
     if not validator_path.exists():
@@ -81,15 +82,17 @@ def _run_validator_json() -> dict | None:
         text = result.stdout
         for i in reversed([idx for idx, ch in enumerate(text) if ch == "{"]):
             try:
-                return json.loads(text[i:])
+                parsed = json.loads(text[i:])
             except json.JSONDecodeError:
                 continue
+            if isinstance(parsed, dict):
+                return cast(dict[str, Any], parsed)
         return None
     except (subprocess.TimeoutExpired, subprocess.SubprocessError, json.JSONDecodeError):
         return None
 
 
-def _read_validator_health() -> dict:
+def _read_validator_health() -> dict[str, Any]:
     """26 check pass/fail from validate_system.py."""
     data = _run_validator_json()
     if not data:
@@ -113,9 +116,9 @@ def _read_validator_health() -> dict:
     }
 
 
-def _read_oracle_fidelity() -> dict:
+def _read_oracle_fidelity() -> dict[str, Any]:
     """Per-oracle tier, verified-rate from registry + results."""
-    oracles: dict[str, dict] = {}
+    oracles: dict[str, Any] = {}
     try:
         from .oracles import ORACLES  # noqa: N811
 
@@ -177,7 +180,7 @@ def _complete_result_files() -> list[Path]:
     return sorted(files, key=_run_timestamp_key, reverse=True)
 
 
-def _coverage_from_matrix(data: dict) -> dict | None:
+def _coverage_from_matrix(data: dict[str, Any]) -> dict[str, Any] | None:
     """Matrix-format coverage: data['matrix_results'] with total_units/verified/rejected/..."""
     mr = data.get("matrix_results", {})
     if not mr or mr.get("total_units", 0) <= 0:
@@ -192,7 +195,7 @@ def _coverage_from_matrix(data: dict) -> dict | None:
     }
 
 
-def _coverage_from_chain(data: dict) -> dict | None:
+def _coverage_from_chain(data: dict[str, Any]) -> dict[str, Any] | None:
     """Chain-test-format coverage: data['chain_tests'] entries with lab_success/unique_coverage.
 
     Counts verified strictly from lab_success is True (never fabricated) and buckets every
@@ -223,7 +226,7 @@ def _coverage_from_chain(data: dict) -> dict | None:
     }
 
 
-def _read_coverage() -> dict:
+def _read_coverage() -> dict[str, Any]:
     """Coverage: per-discipline/class resolved/ran/verified from results or theory."""
     for rf in _complete_result_files():
         try:
@@ -242,7 +245,7 @@ def _read_coverage() -> dict:
     return {"status": "absent", "total_units": 0, "verified": 0, "rejected": 0, "indeterminate": 0}
 
 
-def _build_theoretical_coverage() -> dict | None:
+def _build_theoretical_coverage() -> dict[str, Any] | None:
     """Build theoretical coverage from challenge_classes.yaml + PROMPTS."""
     try:
         import yaml
@@ -258,7 +261,7 @@ def _build_theoretical_coverage() -> dict | None:
         cc_data = yaml.safe_load(cc_path.read_text())
         challenge_classes = cc_data.get("classes", [])
 
-    by_class: dict[str, dict] = {}
+    by_class: dict[str, Any] = {}
     for cls in challenge_classes:
         cid = cls.get("id", "")
         vulhub = cls.get("vulhub", [])
@@ -276,7 +279,7 @@ def _build_theoretical_coverage() -> dict | None:
             "domain": domain,
         }
 
-    by_domain: dict[str, dict] = {}
+    by_domain: dict[str, Any] = {}
     for _cid, stats in by_class.items():
         d = stats.get("domain", "mixed")
         entry = by_domain.setdefault(d, {"resolved": 0, "ran": 0, "verified": 0})
@@ -308,7 +311,7 @@ def _build_theoretical_coverage() -> dict | None:
     }
 
 
-def _read_discipline_breadth() -> dict:
+def _read_discipline_breadth() -> dict[str, Any]:
     """Per-discipline (web/AD/RE/cloud/…) depth + red/blue/purple coverage."""
     try:
         from ._data import PROMPTS
@@ -316,7 +319,7 @@ def _read_discipline_breadth() -> dict:
     except ImportError:
         return {"status": "absent", "disciplines": {}}
 
-    disciplines: dict[str, dict] = {}
+    disciplines: dict[str, Any] = {}
     for label, _keywords in _DOMAIN_KEYWORDS.items():
         disciplines[label] = {"scenario_count": 0, "red": False, "blue": False, "purple": False}
 
@@ -360,7 +363,7 @@ def _read_discipline_breadth() -> dict:
     return {"status": "present", "blue_available": blue_available, "disciplines": disciplines}
 
 
-def _read_journal_summary() -> dict:
+def _read_journal_summary() -> dict[str, Any]:
     """Prior-run outcomes, recurring failures from field_journal."""
     index_path = _JOURNAL_DIR / "_index.json"
     if index_path.exists():
@@ -384,7 +387,7 @@ def _read_journal_summary() -> dict:
     if entries:
         by_category: dict[str, int] = {}
         outcomes = {"goal_met": 0, "partial": 0, "failed": 0}
-        all_pitfalls: list[dict] = []
+        all_pitfalls: list[dict[str, Any]] = []
         for p in entries:
             try:
                 e = json.loads(p.read_text())
@@ -420,7 +423,7 @@ def _read_journal_summary() -> dict:
 # ── Phase 1: build self-index ─────────────────────────────────────────────────
 
 
-def build_self_index() -> dict:
+def build_self_index() -> dict[str, Any]:
     """Aggregate the system's own state from existing signals. READ-ONLY.
     Returns a structured weakness view — never modifies anything."""
     return {
@@ -461,10 +464,10 @@ def _oracle_tier_score(tier: str) -> int:
     return tier_map.get(tier, 0)
 
 
-def rank_weaknesses(index: dict) -> list[dict]:
+def rank_weaknesses(index: dict[str, Any]) -> list[dict[str, Any]]:
     """Rank the system's weak spots by a transparent, inspectable score. READ-ONLY.
     Each entry: {area, kind, evidence, score, why}. No proposals — just the ranked view."""
-    weaknesses: list[dict] = []
+    weaknesses: list[dict[str, Any]] = []
 
     # 1. Failing validator checks
     validator = index.get("validator", {})
@@ -584,7 +587,7 @@ def rank_weaknesses(index: dict) -> list[dict]:
     # 7. Recurring journal failures
     journal = index.get("journal", {})
     top_pitfalls = journal.get("top_pitfalls", [])
-    recurring = {}
+    recurring: dict[str, int] = {}
     for pit in top_pitfalls:
         problem = pit.get("problem", "")
         if problem:
@@ -609,7 +612,7 @@ def rank_weaknesses(index: dict) -> list[dict]:
 # ── Phase 3: CLI + report ─────────────────────────────────────────────────────
 
 
-def print_self_index(index: dict, weaknesses: list[dict]) -> None:
+def print_self_index(index: dict[str, Any], weaknesses: list[dict[str, Any]]) -> None:
     """Print the human-readable self-view + weakness ranking."""
     print("Portal 5 — Self-Legibility Index")
     print("=" * 60)

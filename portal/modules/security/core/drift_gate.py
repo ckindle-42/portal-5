@@ -65,7 +65,7 @@ class MetricDrift:
     n_baseline: int = 0
     method: str = ""
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "metric": self.metric,
             "status": self.status,
@@ -86,7 +86,7 @@ class PairDrift:
     candidate_ts: str
     metrics: list[MetricDrift] = field(default_factory=list)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "scenario": self.scenario,
             "blue_model": self.blue_model,
@@ -95,9 +95,9 @@ class PairDrift:
         }
 
 
-def _load_purple_runs() -> list[tuple[str, dict]]:
+def _load_purple_runs() -> list[tuple[str, dict[str, Any]]]:
     """All complete sec_*.json results containing purple_tests, newest first."""
-    runs = []
+    runs: list[tuple[str, dict[str, Any]]] = []
     for p in _complete_result_files():
         try:
             data = json.loads(p.read_text())
@@ -109,7 +109,7 @@ def _load_purple_runs() -> list[tuple[str, dict]]:
     return runs
 
 
-def _known_pairs(runs: list[tuple[str, dict]]) -> set[tuple[str, str]]:
+def _known_pairs(runs: list[tuple[str, dict[str, Any]]]) -> set[tuple[str, str]]:
     pairs = set()
     for _ts, data in runs:
         for pt in data.get("purple_tests", []):
@@ -120,7 +120,9 @@ def _known_pairs(runs: list[tuple[str, dict]]) -> set[tuple[str, str]]:
     return pairs
 
 
-def _values_for_run(data: dict, scenario: str, blue_model: str, metric: str) -> list[float]:
+def _values_for_run(
+    data: dict[str, Any], scenario: str, blue_model: str, metric: str
+) -> list[float]:
     return [
         pt[metric]
         for pt in data.get("purple_tests", [])
@@ -180,7 +182,7 @@ def _metric_drift(
     )
 
 
-def drift_check(window: int = DEFAULT_WINDOW) -> dict:
+def drift_check(window: int = DEFAULT_WINDOW) -> dict[str, Any]:
     """Run the drift gate over the latest results for every (scenario,
     blue_model) pair seen. Returns {generated_at, window, pairs: [...]}.
     """
@@ -218,7 +220,7 @@ def drift_check(window: int = DEFAULT_WINDOW) -> dict:
     }
 
 
-def render_drift_markdown(report: dict) -> str:
+def render_drift_markdown(report: dict[str, Any]) -> str:
     lines = [
         f"# Drift Report — window={report['window']}",
         f"Generated: {report['generated_at']}",
@@ -245,7 +247,7 @@ def render_drift_markdown(report: dict) -> str:
 CANARY_PROBES: list[dict[str, Any]] = load_data("config/security", "drift_gate_canary_probes")
 
 
-def _run_single_probe(model: str, probe: dict, ollama_url: str) -> dict:
+def _run_single_probe(model: str, probe: dict[str, Any], ollama_url: str) -> dict[str, Any]:
     import os
 
     import httpx
@@ -298,7 +300,7 @@ def _run_single_probe(model: str, probe: dict, ollama_url: str) -> dict:
     return {"id": probe["id"], "ok": True, "response": content[:300], "passed": passed}
 
 
-def run_canary_probe(model: str, *, ollama_url: str = "http://localhost:11434") -> dict:
+def run_canary_probe(model: str, *, ollama_url: str = "http://localhost:11434") -> dict[str, Any]:
     """Run the fixed canary probe suite against `model`. Cheap + deterministic
     (temperature=0) — this is a canary, not a full bench."""
     from datetime import UTC, datetime
@@ -318,7 +320,9 @@ def _canary_baseline_path(model: str) -> Path:
     return CANARY_DIR / f"{safe}.json"
 
 
-def save_canary_baseline(model: str, *, ollama_url: str = "http://localhost:11434") -> dict:
+def save_canary_baseline(
+    model: str, *, ollama_url: str = "http://localhost:11434"
+) -> dict[str, Any]:
     snapshot = run_canary_probe(model, ollama_url=ollama_url)
     baseline_path = _canary_baseline_path(model)
     baseline_path.parent.mkdir(parents=True, exist_ok=True)
@@ -326,7 +330,7 @@ def save_canary_baseline(model: str, *, ollama_url: str = "http://localhost:1143
     return snapshot
 
 
-def check_model_canary(model: str, *, ollama_url: str = "http://localhost:11434") -> dict:
+def check_model_canary(model: str, *, ollama_url: str = "http://localhost:11434") -> dict[str, Any]:
     """Diff a fresh canary run vs the saved baseline for `model`.
 
     Returns {status: NO-BASELINE|NONE|LOW|MEDIUM|HIGH, flipped: [...], baseline_ts, candidate_ts}.

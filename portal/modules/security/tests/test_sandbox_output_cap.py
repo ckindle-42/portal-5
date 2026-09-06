@@ -16,14 +16,14 @@ from portal.modules.security.core.lab import (
 )
 
 
-def test_short_output_passes_through_unchanged():
+def test_short_output_passes_through_unchanged() -> None:
     raw = json.dumps({"success": True, "stdout": "hello world", "stderr": "", "exit_code": 0})
     ok, text = parse_sandbox_output(raw)
     assert ok is True
     assert text == "hello world"
 
 
-def test_oversized_single_line_output_is_capped():
+def test_oversized_single_line_output_is_capped() -> None:
     huge = "a" * (_RED_TOOL_OUTPUT_CAP + 50_000)
     raw = json.dumps({"success": True, "stdout": huge, "stderr": "", "exit_code": 0})
     ok, text = parse_sandbox_output(raw)
@@ -33,7 +33,7 @@ def test_oversized_single_line_output_is_capped():
     assert "bytes truncated" in text
 
 
-def test_oversized_non_json_output_is_also_capped():
+def test_oversized_non_json_output_is_also_capped() -> None:
     huge = "b" * (_RED_TOOL_OUTPUT_CAP + 1000)
     ok, text = parse_sandbox_output(huge)
     assert ok is True

@@ -25,7 +25,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -368,7 +368,7 @@ class ToolRegistry:
                 tool.healthy = True
                 tool.consecutive_failures = 0
                 tool.next_retry_at = 0.0
-                return r.json()
+                return cast(dict[str, Any], r.json())
             else:
                 tool.consecutive_failures += 1
                 tool.healthy = False

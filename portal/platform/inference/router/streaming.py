@@ -37,6 +37,7 @@ from typing import TYPE_CHECKING, Any
 import httpx
 from fastapi import HTTPException
 
+from portal.platform.inference.config import PersonaSpec
 from portal.platform.inference.router.correlation import (
     get_correlation_id as _corr_id,
 )
@@ -88,7 +89,12 @@ _SHOW_ROUTING_STATUS: bool = os.environ.get("SHOW_ROUTING_STATUS", "false").lowe
 # ── SSE helpers ───────────────────────────────────────────────────────────────
 
 
-def _json_completion_to_sse(data: dict, workspace_id: str) -> Iterator[bytes]:
+def _as_bytes(body: bytes | memoryview[int]) -> bytes:
+    """Normalise a response body that may be bytes or memoryview for json.loads."""
+    return body.tobytes() if isinstance(body, memoryview) else body
+
+
+def _json_completion_to_sse(data: dict[str, Any], workspace_id: str) -> Iterator[bytes]:
     """Yield OpenAI completion JSON as SSE frames: role, content (with
     reasoning->content promotion when content empty), tool_calls, done,
     and [DONE] marker.
@@ -117,7 +123,7 @@ def _json_completion_to_sse(data: dict, workspace_id: str) -> Iterator[bytes]:
 
 async def _stream_with_tool_loop(
     backend_url: str,
-    body: dict,
+    body: dict[str, Any],
     slot: RequestSlot,
     workspace_id: str,
     model: str,
@@ -158,7 +164,9 @@ async def _stream_with_tool_loop(
         slot.release()
 
 
-def _accumulate_tool_calls(tc_deltas: list[dict], tool_calls_buf: list[dict]) -> None:
+def _accumulate_tool_calls(
+    tc_deltas: list[dict[str, Any]], tool_calls_buf: list[dict[str, Any]]
+) -> None:
     """Accumulate streamed tool_call deltas into tool_calls_buf in place."""
     for tc_delta in tc_deltas:
         idx = tc_delta.get("index", 0)
@@ -183,9 +191,9 @@ def _accumulate_tool_calls(tc_deltas: list[dict], tool_calls_buf: list[dict]) ->
 
 def _apply_reasoning_rewrite(
     line: str,
-    delta: dict,
-    choice: dict,
-    obj: dict,
+    delta: dict[str, Any],
+    choice: dict[str, Any],
+    obj: dict[str, Any],
     thinking_off: bool,
     hop: int,
     think_content_buf: list[str],
@@ -245,21 +253,21 @@ def _apply_reasoning_rewrite(
 
 
 async def _dispatch_hop_tool_calls(
-    all_tool_calls: list[dict],
+    all_tool_calls: list[dict[str, Any]],
     effective_tools: set[str],
     workspace_id: str,
     persona: str,
     request_id: str,
     hop: int,
     max_hops: int,
-) -> tuple[dict, list[dict]]:
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Dispatch all tool calls for one hop in parallel.
 
     Returns (assistant_msg, dispatch_results) where assistant_msg is ready to
     append to the message list and dispatch_results is the list of tool result
     messages (one per tool call).
     """
-    dispatch_results: list[dict] = list(
+    dispatch_results: list[dict[str, Any]] = list(
         await asyncio.gather(
             *[
                 _dispatch_tool_call(tc, effective_tools, workspace_id, persona, request_id)
@@ -284,7 +292,7 @@ async def _dispatch_hop_tool_calls(
 
 async def _stream_with_tool_loop_impl(
     backend_url: str,
-    body: dict,
+    body: dict[str, Any],
     workspace_id: str,
     model: str,
     persona: str,
@@ -364,14 +372,14 @@ async def _stream_with_tool_loop_impl(
     current_body = dict(body)
     _exec_audit: bool = bool(body.get("exec_audit"))
     _exec_audit_calls: list[
-        dict
+        dict[str, Any]
     ] = []  # accumulates tool calls across all hops when exec_audit=true
 
     while hop < MAX_TOOL_HOPS:
         hop += 1
 
         # Accumulators for this iteration
-        tool_calls_buf: list[dict] = []
+        tool_calls_buf: list[dict[str, Any]] = []
         finish_reason: str | None = None
         _content_emitted: bool = False  # any non-think content reached client
         _think_content_buf: list[str] = []  # reasoning fallback if content is empty
@@ -703,7 +711,7 @@ async def _stream_with_tool_loop_impl(
 
 async def _stream_with_preamble(
     url: str,
-    body: dict,
+    body: dict[str, Any],
     slot: RequestSlot,
     workspace_id: str = "unknown",
     model: str = "unknown",
@@ -745,7 +753,7 @@ async def _stream_with_preamble(
     ts = int(time.time())
     request_id = f"chatcmpl-p5-{ts}"
 
-    def _make_chunk(delta: dict) -> bytes:
+    def _make_chunk(delta: dict[str, Any]) -> bytes:
         """Serialise a single OpenAI-compatible SSE chunk."""
         payload = {
             "id": request_id,
@@ -776,7 +784,7 @@ async def _stream_with_preamble(
 
 async def _stream_from_backend_guarded(
     url: str,
-    body: dict,
+    body: dict[str, Any],
     workspace_id: str = "unknown",
     model: str = "unknown",
     start_time: float | None = None,
@@ -1052,11 +1060,11 @@ def _collect_text(chunk: bytes, parts: list[str]) -> None:
 
 async def _stream_with_chain(
     url: str,
-    body: dict,
+    body: dict[str, Any],
     slot: RequestSlot,
     workspace_id: str = "unknown",
     primary_model: str = "unknown",
-    chain: list[dict] | None = None,
+    chain: list[dict[str, Any]] | None = None,
     start_time: float | None = None,
     persona: str = "unknown",
 ) -> AsyncIterator[bytes]:
@@ -1085,7 +1093,7 @@ async def _stream_with_chain(
     ts = int(time.time())
     request_id = f"chatcmpl-p5-{ts}"
 
-    def _make_chunk(delta: dict) -> bytes:
+    def _make_chunk(delta: dict[str, Any]) -> bytes:
         payload = {
             "id": request_id,
             "object": "chat.completion.chunk",
@@ -1151,7 +1159,7 @@ async def _stream_with_chain(
                 from portal.platform.inference.tool_registry import tool_registry  # noqa: PLC0415
 
                 await tool_registry.refresh()
-                tools_array = tool_registry.get_openai_tools(set(hop_tools))
+                tools_array = tool_registry.get_openai_tools(hop_tools)
                 hop_body = {
                     **{k: v for k, v in body.items() if k not in ("tools", "tool_choice")},
                     "model": hop_model,
@@ -1233,7 +1241,7 @@ async def _stream_with_chain(
 
 async def _stream_with_secondary_chain(
     url: str,
-    body: dict,
+    body: dict[str, Any],
     slot: RequestSlot,
     workspace_id: str = "unknown",
     model: str = "unknown",
@@ -1259,7 +1267,7 @@ async def _stream_with_secondary_chain(
         "3. Hunting query (SPL or KQL — label which platform).\n"
         "4. Atomic test command (optional) to validate the detection fires in a lab."
     )
-    chain: list[dict] = []
+    chain: list[dict[str, Any]] = []
     if secondary_model:
         chain.append(
             {
@@ -1420,7 +1428,7 @@ async def _build_streaming_request(
         backend_body = _inject_omlx_options(backend_body, workspace_id)
 
     # Resolve effective tool list for this request (M2)
-    persona_data = _PERSONA_MAP.get(persona, {})
+    persona_data: PersonaSpec | dict[str, Any] = _PERSONA_MAP.get(persona, {})
     effective_tools = _resolve_persona_tools(persona_data, workspace_id)
     # Per-model supports_tools lookup for both backend types — see
     # TASK_TOOL_SUPPORT_AUDIT_V1 §A4. The previous Ollama-default-true
@@ -1671,7 +1679,7 @@ async def _stream_with_fallback(
                 persona=persona,
             )
         if result is not None:
-            data = json.loads(result.body)
+            data = json.loads(_as_bytes(result.body))
             for frame in _json_completion_to_sse(data, workspace_id):
                 yield frame
             return
@@ -1693,7 +1701,7 @@ async def _stream_with_fallback(
                     persona=persona,
                 )
                 if result is not None:
-                    data = json.loads(result.body)
+                    data = json.loads(_as_bytes(result.body))
                     for frame in _json_completion_to_sse(data, workspace_id):
                         yield frame
                     return

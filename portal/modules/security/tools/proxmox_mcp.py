@@ -16,20 +16,34 @@ import logging
 import os
 import shlex
 import urllib.parse
-from typing import Any
+from collections.abc import Awaitable, Callable
+from typing import Any, cast
 
 import httpx
 
-try:
-    # Portal's pinned MCP v2 SDK exports MCPServer directly. Newer upstream
-    # releases expose the same decorator/run surface as FastMCP instead.
-    from mcp.server import MCPServer
-except ImportError:  # pragma: no cover - depends on installed MCP SDK generation
-    from mcp.server.fastmcp import FastMCP as MCPServer
-from starlette.responses import JSONResponse
+# Portal's pinned MCP v2 SDK exports MCPServer directly (no fastmcp submodule).
+from mcp.server import MCPServer
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
-mcp = MCPServer("proxmox")
 logger = logging.getLogger(__name__)
+
+
+class _TypedMCPServer(MCPServer):
+    def custom_route(
+        self,
+        path: str,
+        methods: list[str],
+        name: str | None = None,
+        include_in_schema: bool = True,
+    ) -> Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]]:
+        return cast(
+            Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+            super().custom_route(path, methods, name=name, include_in_schema=include_in_schema),
+        )
+
+
+mcp = _TypedMCPServer("proxmox")
 
 # ── Config ────────────────────────────────────────────────────────────────────
 PROXMOX_URL = os.getenv("PROXMOX_URL", "https://10.0.0.203:8006").rstrip("/")
@@ -67,9 +81,11 @@ async def _post(client: httpx.AsyncClient, path: str, **body: Any) -> Any:
 
 
 async def _delete(client: httpx.AsyncClient, path: str, **body: Any) -> Any:
-    r = await client.delete(
-        f"{API_BASE}{path}", json={k: v for k, v in body.items() if v is not None} or None
-    )
+    payload = {k: v for k, v in body.items() if v is not None}
+    if payload:
+        r = await client.request("DELETE", f"{API_BASE}{path}", json=payload)
+    else:
+        r = await client.delete(f"{API_BASE}{path}")
     r.raise_for_status()
     return r.json().get("data")
 
@@ -82,7 +98,7 @@ async def _resolve_node(client: httpx.AsyncClient, node: str | None) -> str:
     nodes = await _get(client, "/nodes")
     if not nodes:
         raise ValueError("No Proxmox nodes found")
-    return nodes[0]["node"]
+    return cast(str, nodes[0]["node"])
 
 
 async def _find_vm_node(client: httpx.AsyncClient, vmid: int) -> str:
@@ -90,18 +106,18 @@ async def _find_vm_node(client: httpx.AsyncClient, vmid: int) -> str:
     resources = await _get(client, "/cluster/resources", type="vm")
     for r in resources or []:
         if r.get("vmid") == vmid:
-            return r["node"]
+            return cast(str, r["node"])
     raise ValueError(f"VM/CT {vmid} not found on any node")
 
 
-async def _wait_task(client: httpx.AsyncClient, node: str, upid: str) -> dict:
+async def _wait_task(client: httpx.AsyncClient, node: str, upid: str) -> dict[str, Any]:
     """Poll a task UPID until stopped or timeout."""
     encoded = urllib.parse.quote(upid, safe="")
     deadline = asyncio.get_event_loop().time() + PROXMOX_TASK_TIMEOUT
     while asyncio.get_event_loop().time() < deadline:
         data = await _get(client, f"/nodes/{node}/tasks/{encoded}/status")
         if (data or {}).get("status") == "stopped":
-            return data
+            return cast(dict[str, Any], data)
         await asyncio.sleep(2)
     return {
         "status": "timeout",
@@ -110,11 +126,11 @@ async def _wait_task(client: httpx.AsyncClient, node: str, upid: str) -> dict:
     }
 
 
-def _ok(data: Any) -> dict:
+def _ok(data: Any) -> dict[str, Any]:
     return {"success": True, "data": data}
 
 
-def _err(exc: Exception) -> dict:
+def _err(exc: Exception) -> dict[str, Any]:
     return {"success": False, "error": str(exc)}
 
 
@@ -122,7 +138,7 @@ def _err(exc: Exception) -> dict:
 
 
 @mcp.custom_route("/health", methods=["GET"])
-async def health_check(request):
+async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "proxmox-mcp"})
 
 
@@ -132,7 +148,7 @@ async def health_check(request):
 
 
 @mcp.tool()
-async def proxmox_list_nodes() -> dict:
+async def proxmox_list_nodes() -> dict[str, Any]:
     """List all Proxmox nodes with online/offline status and resource summary."""
     async with _client() as c:
         try:
@@ -142,7 +158,7 @@ async def proxmox_list_nodes() -> dict:
 
 
 @mcp.tool()
-async def proxmox_node_status(node: str = "") -> dict:
+async def proxmox_node_status(node: str = "") -> dict[str, Any]:
     """
     Get detailed resource usage for a node: CPU, memory, storage, uptime.
 
@@ -158,7 +174,7 @@ async def proxmox_node_status(node: str = "") -> dict:
 
 
 @mcp.tool()
-async def proxmox_cluster_status() -> dict:
+async def proxmox_cluster_status() -> dict[str, Any]:
     """Get overall cluster quorum status and node membership."""
     async with _client() as c:
         try:
@@ -173,7 +189,7 @@ async def proxmox_cluster_status() -> dict:
 
 
 @mcp.tool()
-async def proxmox_list_vms(node: str = "") -> dict:
+async def proxmox_list_vms(node: str = "") -> dict[str, Any]:
     """
     List all QEMU VMs on a node with vmid, name, status, CPU, and memory.
 
@@ -189,7 +205,7 @@ async def proxmox_list_vms(node: str = "") -> dict:
 
 
 @mcp.tool()
-async def proxmox_vm_status(vmid: int, node: str = "") -> dict:
+async def proxmox_vm_status(vmid: int, node: str = "") -> dict[str, Any]:
     """
     Get current runtime status for a VM: power state, CPU/memory usage, uptime.
 
@@ -206,7 +222,7 @@ async def proxmox_vm_status(vmid: int, node: str = "") -> dict:
 
 
 @mcp.tool()
-async def proxmox_vm_config(vmid: int, node: str = "") -> dict:
+async def proxmox_vm_config(vmid: int, node: str = "") -> dict[str, Any]:
     """
     Get the full configuration of a VM (hardware, boot order, network, etc.).
 
@@ -223,7 +239,7 @@ async def proxmox_vm_config(vmid: int, node: str = "") -> dict:
 
 
 @mcp.tool()
-async def proxmox_vm_start(vmid: int, node: str = "", wait: bool = True) -> dict:
+async def proxmox_vm_start(vmid: int, node: str = "", wait: bool = True) -> dict[str, Any]:
     """
     Start a stopped or suspended VM.
 
@@ -247,7 +263,7 @@ async def proxmox_vm_start(vmid: int, node: str = "", wait: bool = True) -> dict
 @mcp.tool()
 async def proxmox_vm_shutdown(
     vmid: int, node: str = "", timeout: int = 60, wait: bool = True
-) -> dict:
+) -> dict[str, Any]:
     """
     Gracefully shut down a VM (ACPI power-off signal).
 
@@ -270,7 +286,7 @@ async def proxmox_vm_shutdown(
 
 
 @mcp.tool()
-async def proxmox_vm_stop(vmid: int, node: str = "", wait: bool = True) -> dict:
+async def proxmox_vm_stop(vmid: int, node: str = "", wait: bool = True) -> dict[str, Any]:
     """
     Force-stop a VM (equivalent to pulling the power plug).
 
@@ -292,7 +308,7 @@ async def proxmox_vm_stop(vmid: int, node: str = "", wait: bool = True) -> dict:
 
 
 @mcp.tool()
-async def proxmox_vm_reset(vmid: int, node: str = "", wait: bool = True) -> dict:
+async def proxmox_vm_reset(vmid: int, node: str = "", wait: bool = True) -> dict[str, Any]:
     """
     Hard-reset a VM (cold reboot without guest notification).
 
@@ -316,7 +332,7 @@ async def proxmox_vm_reset(vmid: int, node: str = "", wait: bool = True) -> dict
 @mcp.tool()
 async def proxmox_vm_reboot(
     vmid: int, node: str = "", timeout: int = 60, wait: bool = True
-) -> dict:
+) -> dict[str, Any]:
     """
     Gracefully reboot a VM via ACPI.
 
@@ -339,7 +355,7 @@ async def proxmox_vm_reboot(
 
 
 @mcp.tool()
-async def proxmox_vm_suspend(vmid: int, node: str = "", wait: bool = True) -> dict:
+async def proxmox_vm_suspend(vmid: int, node: str = "", wait: bool = True) -> dict[str, Any]:
     """
     Suspend (pause) a running VM.
 
@@ -361,7 +377,7 @@ async def proxmox_vm_suspend(vmid: int, node: str = "", wait: bool = True) -> di
 
 
 @mcp.tool()
-async def proxmox_vm_resume(vmid: int, node: str = "", wait: bool = True) -> dict:
+async def proxmox_vm_resume(vmid: int, node: str = "", wait: bool = True) -> dict[str, Any]:
     """
     Resume a suspended VM.
 
@@ -390,7 +406,7 @@ async def proxmox_clone_vm(
     node: str = "",
     full: bool = True,
     wait: bool = True,
-) -> dict:
+) -> dict[str, Any]:
     """
     Clone a VM (full clone by default — independent disk copy).
 
@@ -423,7 +439,7 @@ async def proxmox_clone_vm(
 @mcp.tool()
 async def proxmox_delete_vm(
     vmid: int, node: str = "", purge: bool = True, wait: bool = True
-) -> dict:
+) -> dict[str, Any]:
     """
     Delete a VM and (by default) purge its disk images and backups.
 
@@ -454,7 +470,7 @@ async def proxmox_delete_vm(
 
 
 @mcp.tool()
-async def proxmox_list_snapshots(vmid: int, node: str = "") -> dict:
+async def proxmox_list_snapshots(vmid: int, node: str = "") -> dict[str, Any]:
     """
     List all snapshots for a VM, including creation time and description.
 
@@ -478,7 +494,7 @@ async def proxmox_create_snapshot(
     vmstate: bool = False,
     node: str = "",
     wait: bool = True,
-) -> dict:
+) -> dict[str, Any]:
     """
     Create a snapshot of a VM.
 
@@ -514,7 +530,7 @@ async def proxmox_rollback_snapshot(
     snapname: str,
     node: str = "",
     wait: bool = True,
-) -> dict:
+) -> dict[str, Any]:
     """
     Roll back a VM to a named snapshot (destructive — current state is lost).
 
@@ -542,7 +558,7 @@ async def proxmox_delete_snapshot(
     snapname: str,
     node: str = "",
     wait: bool = True,
-) -> dict:
+) -> dict[str, Any]:
     """
     Delete a named snapshot from a VM.
 
@@ -575,7 +591,7 @@ async def proxmox_exec_vm(
     command: list[str],
     node: str = "",
     poll_timeout: int = 30,
-) -> dict:
+) -> dict[str, Any]:
     """
     Execute a command inside a VM via the QEMU guest agent.
     Requires: qemu-guest-agent installed and running inside the VM.
@@ -617,7 +633,7 @@ async def proxmox_exec_vm(
 
 
 @mcp.tool()
-async def proxmox_vm_agent_info(vmid: int, node: str = "") -> dict:
+async def proxmox_vm_agent_info(vmid: int, node: str = "") -> dict[str, Any]:
     """
     Get guest agent info (OS, hostname, network interfaces) from inside the VM.
     Requires qemu-guest-agent installed in the guest.
@@ -642,7 +658,7 @@ async def proxmox_vm_agent_info(vmid: int, node: str = "") -> dict:
 
 
 @mcp.tool()
-async def proxmox_list_containers(node: str = "") -> dict:
+async def proxmox_list_containers(node: str = "") -> dict[str, Any]:
     """
     List all LXC containers on a node with status, CPU, and memory.
 
@@ -658,7 +674,7 @@ async def proxmox_list_containers(node: str = "") -> dict:
 
 
 @mcp.tool()
-async def proxmox_container_status(vmid: int, node: str = "") -> dict:
+async def proxmox_container_status(vmid: int, node: str = "") -> dict[str, Any]:
     """
     Get current runtime status for an LXC container.
 
@@ -675,7 +691,7 @@ async def proxmox_container_status(vmid: int, node: str = "") -> dict:
 
 
 @mcp.tool()
-async def proxmox_container_start(vmid: int, node: str = "", wait: bool = True) -> dict:
+async def proxmox_container_start(vmid: int, node: str = "", wait: bool = True) -> dict[str, Any]:
     """Start an LXC container."""
     async with _client() as c:
         try:
@@ -690,7 +706,7 @@ async def proxmox_container_start(vmid: int, node: str = "", wait: bool = True) 
 
 
 @mcp.tool()
-async def proxmox_container_stop(vmid: int, node: str = "", wait: bool = True) -> dict:
+async def proxmox_container_stop(vmid: int, node: str = "", wait: bool = True) -> dict[str, Any]:
     """Force-stop an LXC container."""
     async with _client() as c:
         try:
@@ -707,7 +723,7 @@ async def proxmox_container_stop(vmid: int, node: str = "", wait: bool = True) -
 @mcp.tool()
 async def proxmox_container_shutdown(
     vmid: int, node: str = "", timeout: int = 60, wait: bool = True
-) -> dict:
+) -> dict[str, Any]:
     """Gracefully shut down an LXC container."""
     async with _client() as c:
         try:
@@ -724,7 +740,7 @@ async def proxmox_container_shutdown(
 @mcp.tool()
 async def proxmox_container_exec(
     vmid: int, command: str, node: str = "", timeout: int = 60
-) -> dict:
+) -> dict[str, Any]:
     """
     Execute a shell command inside an LXC container via SSH + pct exec on the Proxmox host.
     Requires PROXMOX_SSH_HOST (auto-derived from PROXMOX_URL) and optionally PROXMOX_SSH_KEY.
@@ -750,7 +766,7 @@ async def proxmox_container_exec(
 
 
 @mcp.tool()
-async def proxmox_list_storage(node: str = "") -> dict:
+async def proxmox_list_storage(node: str = "") -> dict[str, Any]:
     """
     List all storage pools on a node with type, usage, and availability.
 
@@ -766,7 +782,7 @@ async def proxmox_list_storage(node: str = "") -> dict:
 
 
 @mcp.tool()
-async def proxmox_list_storage_content(node: str = "", storage: str = "local") -> dict:
+async def proxmox_list_storage_content(node: str = "", storage: str = "local") -> dict[str, Any]:
     """
     List content (disk images, ISOs, backups) in a storage pool.
 
@@ -788,7 +804,7 @@ async def proxmox_list_storage_content(node: str = "", storage: str = "local") -
 
 
 @mcp.tool()
-async def proxmox_list_networks(node: str = "") -> dict:
+async def proxmox_list_networks(node: str = "") -> dict[str, Any]:
     """
     List all network interfaces and bridges configured on a node.
 
@@ -809,7 +825,7 @@ async def proxmox_list_networks(node: str = "") -> dict:
 
 
 @mcp.tool()
-async def proxmox_task_status(upid: str, node: str = "") -> dict:
+async def proxmox_task_status(upid: str, node: str = "") -> dict[str, Any]:
     """
     Get the current status of an async Proxmox task by UPID.
 
@@ -827,7 +843,7 @@ async def proxmox_task_status(upid: str, node: str = "") -> dict:
 
 
 @mcp.tool()
-async def proxmox_list_tasks(node: str = "", vmid: int = 0, limit: int = 50) -> dict:
+async def proxmox_list_tasks(node: str = "", vmid: int = 0, limit: int = 50) -> dict[str, Any]:
     """
     List recent tasks on a node, optionally filtered by VM ID.
 
@@ -853,7 +869,7 @@ async def proxmox_list_tasks(node: str = "", vmid: int = 0, limit: int = 50) -> 
 
 
 @mcp.tool()
-async def proxmox_list_all_vms() -> dict:
+async def proxmox_list_all_vms() -> dict[str, Any]:
     """
     List every VM and container across all nodes in the cluster.
     Returns vmid, name, status, node, type (qemu/lxc), CPU, memory.
@@ -866,7 +882,7 @@ async def proxmox_list_all_vms() -> dict:
 
 
 @mcp.tool()
-async def proxmox_find_vm(name: str) -> dict:
+async def proxmox_find_vm(name: str) -> dict[str, Any]:
     """
     Find a VM or container by name (partial match, case-insensitive) across all nodes.
 
@@ -896,7 +912,7 @@ _CTF_LAB_GIT_ALLOWLIST = {
 }
 
 
-async def _ssh_exec(command: str, timeout: int = 60) -> dict:
+async def _ssh_exec(command: str, timeout: int = 60) -> dict[str, Any]:
     """Run a command on the Proxmox host via SSH. Returns {ok, stdout, stderr, returncode}."""
     if not PROXMOX_SSH_HOST:
         return {"ok": False, "error": "PROXMOX_SSH_HOST not set"}
@@ -934,7 +950,7 @@ async def _ssh_exec(command: str, timeout: int = 60) -> dict:
 
 
 @mcp.tool()
-async def proxmox_node_exec(command: str, timeout: int = 60) -> dict:
+async def proxmox_node_exec(command: str, timeout: int = 60) -> dict[str, Any]:
     """
     Execute a shell command on the Proxmox host itself via SSH.
     Useful for: pct exec, docker operations, host-level diagnostics.
@@ -954,7 +970,7 @@ async def proxmox_deploy_ctf_lab(
     node: str = "",
     git_url: str = "https://github.com/bayufedra/MBPTL",
     deploy_dir: str = "/opt/ctf-labs",
-) -> dict:
+) -> dict[str, Any]:
     """
     Deploy a Docker-based CTF lab inside an LXC container with Docker installed.
     Clones the lab repo and runs docker compose up -d.
@@ -1052,7 +1068,7 @@ TOOLS_MANIFEST = [
 
 
 @mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request):
+async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 

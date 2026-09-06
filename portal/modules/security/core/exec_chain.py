@@ -131,7 +131,7 @@ _CHAIN_ROLES = [
 
 OLLAMA_URL = "http://localhost:11434"
 
-AUDIT_TOOL: dict = {
+AUDIT_TOOL: dict[str, Any] = {
     "type": "function",
     "function": {
         "name": "get_current_time",
@@ -140,7 +140,7 @@ AUDIT_TOOL: dict = {
     },
 }
 
-CHAIN_TOOLS_BASE: list[dict] = _load_data("exec_chain_chain_tools_base")
+CHAIN_TOOLS_BASE: list[dict[str, Any]] = _load_data("exec_chain_chain_tools_base")
 
 # Synthetic tool results returned at each chain step.
 _CHAIN_STEP_RESULTS: dict[str, str] = _load_data("exec_chain_chain_step_results")
@@ -175,7 +175,7 @@ _DYNAMIC_CVE_DB: dict[str, str] = {
     "nfs-utils 1.3": "CVE-2014-0208",  # NFS privilege escalation
 }
 
-_WEB_SEARCH_CHAIN_TOOL: dict = {
+_WEB_SEARCH_CHAIN_TOOL: dict[str, Any] = {
     "type": "function",
     "function": {
         "name": "web_search",
@@ -218,7 +218,7 @@ CHAIN_INITIAL_PROMPT_DEFAULT = (
 # host-wide Linux audit facility required by the available command-execution
 # signal. They retain T1190/T1189, which web and packet captures can prove.
 # Windows meta3 scenarios retain T1059 because EventCode=4688 is available.
-SCENARIOS: dict[str, dict] = {
+SCENARIOS: dict[str, dict[str, Any]] = {
     "kerberoast_to_da": {
         "name": "kerberoast_to_da",
         "target_host": _LAB_DC,
@@ -2179,7 +2179,7 @@ SCENARIOS: dict[str, dict] = {
 # Scored on: objective achieved (compromise_confirmed, data_extracted, flags),
 # unique techniques used, and coverage breadth.
 
-_MISSION_SCENARIOS: dict[str, dict] = {
+_MISSION_SCENARIOS: dict[str, dict[str, Any]] = {
     "mission_meta3_recon_exploit": {
         "name": "mission_meta3_recon_exploit",
         "target_host": _LAB_META3,
@@ -2388,7 +2388,7 @@ _BASH_TECHNIQUE_SIGNALS: dict[str, str] = {
 # Previously defined inline inside _run_exec_chain; never changes so it is
 # safe to hoist to module scope.
 
-INLINE_TOOLS: list[dict] = _load_data("exec_chain_inline_tools")
+INLINE_TOOLS: list[dict[str, Any]] = _load_data("exec_chain_inline_tools")
 
 
 # ── Synthetic tool result ─────────────────────────────────────────────────────
@@ -2419,7 +2419,7 @@ def _synthetic_web_search(query: str, dynamic_cve_db: dict[str, str]) -> str:
     )
 
 
-def _synthetic_tool_result(fn_name: str, fn_args: dict, cfg: BenchConfig) -> str:
+def _synthetic_tool_result(fn_name: str, fn_args: dict[str, Any], cfg: BenchConfig) -> str:
     """Return a synthetic tool result, with conditional logic for check_cve."""
     if fn_name == "run_nmap_scan" and cfg.judgment_mode:
         base = _CHAIN_STEP_RESULTS["run_nmap_scan"]
@@ -2457,24 +2457,24 @@ def _synthetic_tool_result(fn_name: str, fn_args: dict, cfg: BenchConfig) -> str
 
 
 def _run_blue_turn(
-    tool_calls: list[dict],
+    tool_calls: list[dict[str, Any]],
     red_model: str,
     blue_model: str,
     ollama_url: str,
     prompt_key: str = "",
-    lab_outputs: list[dict] | None = None,
-) -> dict:
+    lab_outputs: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     from .blue import _run_blue_turn as _blue_turn_impl
 
     return _blue_turn_impl(tool_calls, red_model, blue_model, ollama_url, prompt_key, lab_outputs)
 
 
 def _run_blue_defender(
-    attack_chain_results: list[dict],
+    attack_chain_results: list[dict[str, Any]],
     prompt_key: str,
     blue_model: str,
     dry_run: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     from .blue import _run_blue_defender as _blue_defender_impl
 
     return _blue_defender_impl(attack_chain_results, prompt_key, blue_model, dry_run)
@@ -2484,11 +2484,11 @@ def _run_blue_defender(
 
 
 def _assign_steps(
-    seq: list[dict],
+    seq: list[dict[str, Any]],
     chain_models: list[str],
     use_dag: bool,
-    step_dag: dict,
-) -> dict[str, list[dict]]:
+    step_dag: dict[str, list[str]],
+) -> dict[str, list[dict[str, Any]]]:
     """Assign exec_sequence steps to chain models (round-robin or DAG-based).
 
     Args:
@@ -2500,7 +2500,7 @@ def _assign_steps(
     Returns:
         Mapping of model → list of assigned step dicts.
     """
-    step_assignments: dict[str, list[dict]] = {m: [] for m in chain_models}
+    step_assignments: dict[str, list[dict[str, Any]]] = {m: [] for m in chain_models}
     if use_dag:
         groups = dag_parallel_groups(step_dag)
         for g_idx, group in enumerate(groups):
@@ -2528,9 +2528,9 @@ def _is_pipeline_model(m: str) -> bool:
 
 
 def _call_via_pipeline(
-    msgs: list[dict],
+    msgs: list[dict[str, Any]],
     workspace: str,
-) -> tuple[list[str], list[dict], list[dict]]:
+) -> tuple[list[str], list[dict[str, Any]], list[dict[str, Any]]]:
     """Call the pipeline for one exec-chain turn.
 
     Sends exec_audit=true so the pipeline emits a bench_trace SSE event
@@ -2544,8 +2544,8 @@ def _call_via_pipeline(
     managed by the pipeline.
     """
     _parts: list[str] = []
-    _tool_calls: list[dict] = []
-    _lab_outputs: list[dict] = []
+    _tool_calls: list[dict[str, Any]] = []
+    _lab_outputs: list[dict[str, Any]] = []
 
     headers: dict[str, str] = {"Content-Type": "application/json"}
     if PIPELINE_API_KEY:
@@ -2627,22 +2627,22 @@ def _call_via_pipeline(
 def _run_model_turn(
     model: str,
     model_idx: int,
-    steps: list[dict],
+    steps: list[dict[str, Any]],
     round_num: int,
     chain_rounds: int,
-    shared_context: list[dict],
-    accumulated_tool_calls: list[dict],
-    lab_observations: dict,
-    blue_turns: list[dict],
-    all_stealth_results: list[dict],
-    results: list[dict],
+    shared_context: list[dict[str, Any]],
+    accumulated_tool_calls: list[dict[str, Any]],
+    lab_observations: dict[str, Any],
+    blue_turns: list[dict[str, Any]],
+    all_stealth_results: list[dict[str, Any]],
+    results: list[dict[str, Any]],
     cfg: BenchConfig,
-    meta: dict,
+    meta: dict[str, Any],
     prompt_key: str,
     dry_run: bool,
     lab_exec: bool,
     blue_defender_model: str | None,
-) -> dict:
+) -> dict[str, Any]:
     """Run one model's turn in the multi-model exec chain.
 
     Mutates *shared_context*, *accumulated_tool_calls*, *lab_observations*,
@@ -2742,15 +2742,15 @@ def _run_model_turn(
     t0 = time.monotonic()
 
     def _call_chain_model(
-        msgs: list[dict],
-    ) -> tuple[list[str], list[dict]]:
+        msgs: list[dict[str, Any]],
+    ) -> tuple[list[str], list[dict[str, Any]]]:
         """Call model with streaming; fall back to non-streaming if tool_calls absent.
 
         Thinking models (Qwable, Qwen3-thinking) don't emit tool_calls in
         streaming deltas — they appear only in the final non-streaming message.
         """
         _parts: list[str] = []
-        _tcbufs: dict[int, dict] = {}
+        _tcbufs: dict[int, dict[str, Any]] = {}
         with (
             httpx.Client(timeout=httpx.Timeout(REQUEST_TIMEOUT, connect=5.0)) as _client,
             _client.stream(
@@ -2787,7 +2787,7 @@ def _run_model_turn(
                         _tcbufs[_idx]["args_raw"] += _fn.get("arguments", "")
                 except Exception:
                     pass
-        _tcs: list[dict] = []
+        _tcs: list[dict[str, Any]] = []
         for _idx in sorted(_tcbufs):
             _buf = _tcbufs[_idx]
             try:
@@ -2835,8 +2835,8 @@ def _run_model_turn(
         return _parts, _tcs
 
     def _call_chain_model_timed(
-        msgs: list[dict],
-    ) -> tuple[list[str], list[dict]]:
+        msgs: list[dict[str, Any]],
+    ) -> tuple[list[str], list[dict[str, Any]]]:
         """Run _call_chain_model with a hard wall-clock timeout.
 
         Thinking models can generate thousands of reasoning tokens at low
@@ -2854,7 +2854,7 @@ def _run_model_turn(
     try:
         # ── Dispatch: pipeline (workspace slug) or direct Ollama ──────
         _is_pipeline_mode = _is_pipeline_model(model)
-        pipeline_lab_outputs: list[dict] = []
+        pipeline_lab_outputs: list[dict[str, Any]] = []
 
         if _is_pipeline_mode:
             # Pipeline handles tool dispatch internally; exec_audit returns
@@ -2867,7 +2867,7 @@ def _run_model_turn(
         else:
             parts, tool_calls_this = _call_chain_model_timed(messages)
 
-        def _has_meaningful_args(tcs: list[dict]) -> bool:
+        def _has_meaningful_args(tcs: list[dict[str, Any]]) -> bool:
             return any(any(str(v).strip() for v in tc.get("arguments", {}).values()) for tc in tcs)
 
         retried = False
@@ -2904,7 +2904,7 @@ def _run_model_turn(
         sub_meta = {**meta, "exec_sequence": assigned}
         content = "".join(parts)
 
-        lab_outputs: list[dict] = []
+        lab_outputs: list[dict[str, Any]] = []
         if _is_pipeline_mode and pipeline_lab_outputs:
             # Pipeline already executed the tools — outputs are in exec_audit.
             lab_outputs = pipeline_lab_outputs
@@ -2925,7 +2925,7 @@ def _run_model_turn(
             # Accumulate observations from tool results for condition evaluation
             for _lo in lab_outputs:
                 accumulate_observations(_lo["tool"], _lo.get("output", ""), lab_observations)
-            _stealth_results: list[dict] = []
+            _stealth_results: list[dict[str, Any]] = []
             if lab_exec and _LAB_EXEC_AVAILABLE:
                 for s in assigned:
                     if s.get("stealth_event_ids"):
@@ -3027,8 +3027,8 @@ _SUCCESS_MARKERS = (
 
 
 def classify_scenario_result(
-    lab_observations: dict,
-    gate_result: dict | None = None,
+    lab_observations: dict[str, Any],
+    gate_result: dict[str, Any] | None = None,
     tools_called: list[str] | None = None,
 ) -> str:
     """3-state classifier: target-unreachable / red-success / red-fail.
@@ -3069,13 +3069,13 @@ def classify_scenario_result(
 
 
 def _prepare_scenario(
-    scenario: dict,
+    scenario: dict[str, Any],
     cfg: BenchConfig,
     *,
     dry_run: bool = False,
     lab_exec: bool = False,
     allow_heal: bool | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Run the readiness gate, then set the scenario on cfg with resolved host/port.
 
     Returns the gate result dict: {ready, healed, host, port, reason}.
@@ -3110,7 +3110,7 @@ def _prepare_scenario(
             "reason": f"gate-unavailable: {exc}",
         }
 
-    runtime_env: dict = {}
+    runtime_env: dict[str, Any] = {}
     if gate.get("host"):
         runtime_env["TARGET_HOST"] = gate["host"]
         _vmid = _HOST_TO_VMID.get(gate["host"])
@@ -3162,7 +3162,7 @@ def _run_exec_chain(
     blue_defender_model: str | None = None,
     chain_rounds: int = 1,
     lab_exec: bool = False,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Multi-model execution chain for a single prompt.
 
     Each model in the chain handles a subset of the exec_sequence steps,
@@ -3202,13 +3202,13 @@ def _run_exec_chain(
     # A3: delegate to _assign_steps
     step_assignments = _assign_steps(seq, chain_models, use_dag, step_dag)
 
-    results: list[dict] = []
-    all_stealth_results: list[dict] = []
-    shared_context: list[dict] = [{"role": "user", "content": start_prompt}]
-    accumulated_tool_calls: list[dict] = []
-    accumulated_lab_outputs: list[dict] = []
-    lab_observations: dict = {}
-    blue_turns: list[dict] = []
+    results: list[dict[str, Any]] = []
+    all_stealth_results: list[dict[str, Any]] = []
+    shared_context: list[dict[str, Any]] = [{"role": "user", "content": start_prompt}]
+    accumulated_tool_calls: list[dict[str, Any]] = []
+    accumulated_lab_outputs: list[dict[str, Any]] = []
+    lab_observations: dict[str, Any] = {}
+    blue_turns: list[dict[str, Any]] = []
 
     for round_num in range(max(chain_rounds, 1)):
         for model_idx, model in enumerate(chain_models):
@@ -3266,7 +3266,7 @@ def _run_exec_chain(
     inline_mitre_ids = sorted(set(all_inline_mitre))
 
     # Build per-step timing from per-model results for speed scoring
-    _step_times: list[dict] = []
+    _step_times: list[dict[str, Any]] = []
     for r in results:
         if r.get("_blue_defender"):
             continue
@@ -3302,7 +3302,7 @@ def _run_exec_chain(
         r["chain_stealth_score"] = stealth_agg["stealth_score"]
         r["chain_stealth_condition_met"] = stealth_agg["condition_met"]
 
-    blue_result: dict = {}
+    blue_result: dict[str, Any] = {}
     if blue_defender_model and not dry_run:
         blue_result = _run_blue_defender(results, prompt_key, blue_defender_model, dry_run=dry_run)
         for r in results:
@@ -3359,7 +3359,7 @@ _CHAIN_NUDGE_TIMEOUT = (
 )
 
 
-def _next_expected_index(tools_called: list, expected_order: list) -> int:
+def _next_expected_index(tools_called: list[str], expected_order: list[str]) -> int:
     """How many expected_order steps tools_called has actually satisfied, by
     greedy in-order alignment -- NOT a raw call count. Found live 2026-07-24:
     ctf_multi_service's escalated nudge told the model to call `webshell_exec`
@@ -3378,7 +3378,7 @@ def _next_expected_index(tools_called: list, expected_order: list) -> int:
 
 
 def _escalated_nudge(
-    base: str, stall_counter: int, expected_order: list, matched_position: int
+    base: str, stall_counter: int, expected_order: list[str], matched_position: int
 ) -> str:
     """On repeated consecutive failures at the same decision point, a static
     repeated nudge gives the model no new information. On the 2nd+ consecutive
@@ -3409,7 +3409,9 @@ class _ChainTurnStalledError(Exception):
     """Raised when a streamed chain-test turn produces no data for the idle window."""
 
 
-def _accumulate_chain_tool_calls(tc_deltas: list[dict], tool_calls_buf: list[dict]) -> None:
+def _accumulate_chain_tool_calls(
+    tc_deltas: list[dict[str, Any]], tool_calls_buf: list[dict[str, Any]]
+) -> None:
     """Accumulate streamed tool_call deltas by index — mirrors
     portal.platform.inference.router.streaming._accumulate_tool_calls so both
     the pipeline's own hop logic and this chain-test client parse the same
@@ -3435,12 +3437,12 @@ def _accumulate_chain_tool_calls(tc_deltas: list[dict], tool_calls_buf: list[dic
 def _stream_chain_turn(
     url: str,
     headers: dict[str, str],
-    payload: dict,
+    payload: dict[str, Any],
     *,
     is_pipeline_mode: bool,
     idle_timeout_s: float,
     connect_timeout_s: float = 10.0,
-) -> dict:
+) -> dict[str, Any]:
     """One chain-test turn, streamed and idle-timeout-gated instead of a
     single blocking full-response read.
 
@@ -3462,7 +3464,7 @@ def _stream_chain_turn(
     payload = dict(payload, stream=True)
     timeout = httpx.Timeout(idle_timeout_s, connect=connect_timeout_s, write=connect_timeout_s)
     content_parts: list[str] = []
-    tool_calls: list[dict] = []
+    tool_calls: list[dict[str, Any]] = []
     role = "assistant"
     got_any_chunk = False
     served_model = ""
@@ -3567,7 +3569,7 @@ def _run_chain_test(
     dry_run: bool = False,
     lab_exec: bool = False,
     evasion_context: str = "",
-) -> dict:
+) -> dict[str, Any]:
     """Multi-turn tool call chain test against a direct Ollama model."""
     mode = "lab-exec" if (lab_exec and _LAB_EXEC_AVAILABLE) else "synthetic"
     print(f"  chain-test [{mode}]  {model} ...", end="", flush=True)
@@ -3581,16 +3583,16 @@ def _run_chain_test(
         if evasion_context
         else cfg.chain_initial_prompt
     ) + _CHAIN_TOOL_FORCE_CONSTRAINT
-    messages: list[dict] = [{"role": "user", "content": initial_content}]
+    messages: list[dict[str, Any]] = [{"role": "user", "content": initial_content}]
     chain_depth = 0
     tools_called: list[str] = []
-    tools_called_args: list[dict] = []
-    lab_observations: dict = {}
+    tools_called_args: list[dict[str, Any]] = []
+    lab_observations: dict[str, Any] = {}
     refused = False
     stalled = False
     error = None
     timeout_steps: list[int] = []
-    scope_discipline: dict | None = None
+    scope_discipline: dict[str, Any] | None = None
     required_set = set(cfg.chain_expected_order)
     last_required_hit = 0
     stall_counter = 0
@@ -3903,7 +3905,7 @@ def _run_chain_test(
 
 def run_chain_tests(
     models: list[str], cfg: BenchConfig, dry_run: bool = False, lab_exec: bool = False
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     mode_label = "lab-exec" if lab_exec else "synthetic"
     print(f"\n── Tool Call Chain Tests [{mode_label}] (Ollama direct) ──\n")
     return [_run_chain_test(m, cfg, dry_run=dry_run, lab_exec=lab_exec) for m in models]
@@ -3932,7 +3934,7 @@ def _run_multimodel_chain(
     dry_run: bool = False,
     lab_exec: bool = False,
     evasion_context: str = "",
-) -> dict:
+) -> dict[str, Any]:
     """Drive the chain with different Ollama models for different step groups."""
     mode = "lab-exec" if (lab_exec and _LAB_EXEC_AVAILABLE) else "synthetic"
     assigned = {
@@ -3961,11 +3963,11 @@ def _run_multimodel_chain(
         if evasion_context
         else cfg.chain_initial_prompt
     ) + _CHAIN_TOOL_FORCE_CONSTRAINT
-    messages: list[dict] = [{"role": "user", "content": initial_content}]
+    messages: list[dict[str, Any]] = [{"role": "user", "content": initial_content}]
     chain_depth = 0
     tools_called: list[str] = []
-    tools_called_args: list[dict] = []
-    lab_observations: dict = {}
+    tools_called_args: list[dict[str, Any]] = []
+    lab_observations: dict[str, Any] = {}
     refused = False
     stalled = False
     error = None

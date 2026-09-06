@@ -8,17 +8,17 @@ import os
 import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 try:
-    from apscheduler.schedulers.asyncio import AsyncIOScheduler
-    from apscheduler.triggers.cron import CronTrigger
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler  # type: ignore[import-untyped]
+    from apscheduler.triggers.cron import CronTrigger  # type: ignore[import-untyped]
 
     APSCHEDULER_AVAILABLE = True
 except ImportError:
     APSCHEDULER_AVAILABLE = False
-    AsyncIOScheduler = None  # type: ignore[assignment, misc]
-    CronTrigger = None  # type: ignore[assignment, misc]
+    AsyncIOScheduler = None
+    CronTrigger = None
 
 if TYPE_CHECKING:
     from portal.platform.inference.cluster_backends import BackendRegistry
@@ -52,10 +52,10 @@ def _load_aggregated_state() -> dict[str, Any]:
     merged together, so the daily summary must read from it.
     """
     try:
-        from portal.platform.inference.router_pipe import _STATE_FILE
+        from portal.platform.inference.router.state import _STATE_FILE
 
         if _STATE_FILE.exists():
-            return json.loads(_STATE_FILE.read_text())
+            return cast(dict[str, Any], json.loads(_STATE_FILE.read_text()))
     except (json.JSONDecodeError, OSError, ImportError):
         pass
     return {}
@@ -87,7 +87,7 @@ def _load_snapshot() -> dict[str, Any]:
     """Load previous-day metrics snapshot from disk."""
     try:
         if _SNAPSHOT_FILE.exists():
-            return json.loads(_SNAPSHOT_FILE.read_text())
+            return cast(dict[str, Any], json.loads(_SNAPSHOT_FILE.read_text()))
     except (json.JSONDecodeError, OSError):
         pass
     return {}
@@ -209,8 +209,8 @@ class NotificationScheduler:
             )
 
     def stop(self) -> None:
-        if self._scheduler is not None and self._scheduler.running:  # type: ignore[union-attr]
-            self._scheduler.shutdown(wait=False)  # type: ignore[union-attr]
+        if self._scheduler is not None and self._scheduler.running:
+            self._scheduler.shutdown(wait=False)
             logger.info("NotificationScheduler: stopped")
 
     async def _send_daily_summary(self) -> None:
@@ -358,8 +358,8 @@ class NotificationScheduler:
             # Extended metrics
             requests_by_model=daily_by_model,
             avg_tokens_per_second=avg_tps,
-            total_input_tokens=daily_inp,
-            total_output_tokens=daily_out,
+            total_input_tokens=int(daily_inp),
+            total_output_tokens=int(daily_out),
             avg_response_time_ms=avg_response_ms,
             # Error metrics
             errors_by_type=daily_by_error,

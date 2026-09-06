@@ -11,21 +11,22 @@ from __future__ import annotations
 import json
 from functools import lru_cache
 from pathlib import Path
+from typing import Any, cast
 
 CONFIG_PATH = Path(__file__).resolve().parents[4] / "config/inference/cad_printability.json"
 
 
 @lru_cache(maxsize=1)
-def printability_limits() -> dict:
-    return json.loads(CONFIG_PATH.read_text())
+def printability_limits() -> dict[str, Any]:
+    return cast("dict[str, Any]", json.loads(CONFIG_PATH.read_text()))
 
 
-def check_printability(mesh, limits: dict | None = None) -> list[dict]:
+def check_printability(mesh: Any, limits: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     import numpy as np
     import trimesh
 
     cfg = limits or printability_limits()
-    warnings: list[dict] = []
+    warnings: list[dict[str, Any]] = []
     extents = np.asarray(mesh.extents, dtype=float)
     nozzle = float(cfg["nozzle_diameter_mm"])
     minimum = nozzle * float(cfg["minimum_feature_nozzles"])
@@ -34,7 +35,7 @@ def check_printability(mesh, limits: dict | None = None) -> list[dict]:
         try:
             sample_count = min(len(mesh.faces), 512)
             indices = np.linspace(0, len(mesh.faces) - 1, sample_count, dtype=int)
-            local = trimesh.proximity.thickness(
+            local = trimesh.proximity.thickness(  # type: ignore[no-untyped-call]  # trimesh function unannotated
                 mesh,
                 np.asarray(mesh.triangles_center)[indices],
                 normals=np.asarray(mesh.face_normals)[indices],
@@ -92,11 +93,11 @@ def check_printability(mesh, limits: dict | None = None) -> list[dict]:
     return warnings
 
 
-def validate_mesh(stl_path: Path, limits: dict | None = None) -> dict:
+def validate_mesh(stl_path: Path, limits: dict[str, Any] | None = None) -> dict[str, Any]:
     """Load `stl_path` and report watertightness, volume, bbox, and problems[]."""
     import trimesh
 
-    mesh = trimesh.load(str(stl_path), force="mesh")
+    mesh = cast("trimesh.Trimesh", trimesh.load(str(stl_path), force="mesh"))
     extents = getattr(mesh, "extents", None)
     watertight = bool(mesh.is_watertight)
 

@@ -120,7 +120,10 @@ def inject_cousins(
     for cousin in cousins:
         sourcetypes = cousin.target_sourcetypes or ("corpus:cousin",)
         spine = _cousin_spine(cousin)
-        events_by_sourcetype: dict[str, list[dict[str, Any]]] = {}
+        # ship_batch accepts event objects OR pre-rendered lines; this lane
+        # only ever ships dict events, so bind the container to the union the
+        # sibling transport declares (list is invariant in mypy).
+        events_by_sourcetype: dict[str, list[dict[str, Any] | str]] = {}
         for i in range(len(spine)):
             st = (
                 sourcetypes[i % len(sourcetypes)]

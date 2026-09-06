@@ -11,17 +11,35 @@ from __future__ import annotations
 import logging
 import os
 import sys
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Any, cast
 
 from mcp.server import MCPServer
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 logger = logging.getLogger(__name__)
+
+
+class _TypedMCPServer(MCPServer):
+    def custom_route(
+        self,
+        path: str,
+        methods: list[str],
+        name: str | None = None,
+        include_in_schema: bool = True,
+    ) -> Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]]:
+        return cast(
+            Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+            super().custom_route(path, methods, name=name, include_in_schema=include_in_schema),
+        )
+
 
 # ── MCP Server Setup ─────────────────────────────────────────────────────────
 _port = int(os.environ.get("DETECTIONS_MCP_PORT") or os.environ.get("MCP_PORT", "8932"))
 
-mcp = MCPServer(
+mcp = _TypedMCPServer(
     "Portal SPL Detection Tools",
     instructions="Queryable SPL detection library: search, validate, explain, "
     "and diff detections against hypotheses. Structured, not RAG.",
@@ -107,12 +125,12 @@ TOOLS_MANIFEST = [
 
 
 @mcp.custom_route("/health", methods=["GET"])
-async def health_check(request):
+async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "detections-mcp", "port": _port})
 
 
 @mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request):
+async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
@@ -120,7 +138,7 @@ async def list_tools(request):
 
 
 @mcp.tool()
-def spl_search_library(query: str, top_k: int = 10) -> dict:
+def spl_search_library(query: str, top_k: int = 10) -> dict[str, Any]:
     """Search the SPL detection library by keyword or technique ID.
 
     Args:
@@ -135,7 +153,7 @@ def spl_search_library(query: str, top_k: int = 10) -> dict:
 
     ref = technique_reference()
     query_upper = query.strip().upper()
-    results = []
+    results: list[dict[str, Any]] = []
 
     for tid, desc in ref.items():
         # Match by technique ID or keyword in description
@@ -173,7 +191,7 @@ def spl_search_library(query: str, top_k: int = 10) -> dict:
 
 
 @mcp.tool()
-def spl_validate_syntax(spl: str) -> dict:
+def spl_validate_syntax(spl: str) -> dict[str, Any]:
     """Validate SPL syntax locally (no live Splunk call needed).
 
     Args:
@@ -210,7 +228,7 @@ def spl_validate_syntax(spl: str) -> dict:
 
 
 @mcp.tool()
-def spl_explain_detection(technique_id: str) -> dict:
+def spl_explain_detection(technique_id: str) -> dict[str, Any]:
     """Explain a detection: logic, mappings, expected signal.
 
     Args:
@@ -239,7 +257,7 @@ def spl_explain_detection(technique_id: str) -> dict:
 
 
 @mcp.tool()
-def spl_techniques_covered() -> dict:
+def spl_techniques_covered() -> dict[str, Any]:
     """List all technique IDs with SPL detections.
 
     Returns:
@@ -256,7 +274,7 @@ def spl_techniques_covered() -> dict:
 
 
 @mcp.tool()
-def spl_diff_hypothesis(technique_id: str, observed_signal: str) -> dict:
+def spl_diff_hypothesis(technique_id: str, observed_signal: str) -> dict[str, Any]:
     """Compare an SPL detection's expected signal against what was observed.
 
     Finds matches, misses, and unexpected findings.

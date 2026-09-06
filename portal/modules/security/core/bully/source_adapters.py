@@ -332,7 +332,7 @@ class DocumentSourceAdapter:
 
     def adapt(self, records: Iterable[Record], source_meta: Mapping[str, Any]) -> dict[str, Any]:
         documents = [record for record in records if isinstance(record, (str, Mapping))]
-        artifacts = []
+        artifacts: list[str] = []
         mappings = []
         for record in documents:
             if isinstance(record, Mapping):

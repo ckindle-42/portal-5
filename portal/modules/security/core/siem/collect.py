@@ -16,6 +16,7 @@ import os
 import re
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 from portal.platform.data_loader import load_data
 
@@ -46,7 +47,7 @@ def unwrap_mcp_stdout(raw: str) -> str:
     except (json.JSONDecodeError, TypeError):
         return raw
     if isinstance(obj, dict) and "stdout" in obj:
-        return obj["stdout"]
+        return cast(str, obj["stdout"])
     return raw
 
 
@@ -105,17 +106,17 @@ def _normalize_windows_security_events(raw_text: str) -> list[str]:
     return lines
 
 
-def _get_mcp_call():
+def _get_mcp_call() -> Any:
     """Lazy import _mcp_call to avoid circular imports."""
     try:
-        from tests.benchmarks.bench_lab_exec import _mcp_call
+        from bench_lab_exec import _mcp_call
 
         return _mcp_call
     except ImportError:
         return None
 
 
-def enable_meta3_audit_policies(target_ip: str) -> dict:
+def enable_meta3_audit_policies(target_ip: str) -> dict[str, Any]:
     """Enable process creation auditing and command-line logging on Meta3.
 
     Meta3 (Metasploitable3-Windows) has process creation auditing OFF by default.
@@ -183,7 +184,7 @@ def enable_meta3_audit_policies(target_ip: str) -> dict:
 
 
 def reconstruct_attack_telemetry(
-    tool_calls: list[dict], *, target_host: str | None = None
+    tool_calls: list[dict[str, Any]], *, target_host: str | None = None
 ) -> dict[str, list[str]]:
     """Serialize red's command ledger as counterfactual evidence.
 
@@ -201,7 +202,8 @@ def reconstruct_attack_telemetry(
         cmd = args.get("cmd") or args.get("code") or args.get("command") or ""
         if not isinstance(cmd, str) or not cmd.strip():
             continue
-        dispatch = tc.get("dispatch") if isinstance(tc.get("dispatch"), dict) else {}
+        raw_dispatch = tc.get("dispatch")
+        dispatch: dict[str, Any] = raw_dispatch if isinstance(raw_dispatch, dict) else {}
         dispatch_ok = dispatch.get("ok", tc.get("dispatch_ok"))
         dispatch_elapsed = dispatch.get("elapsed_s", tc.get("dispatch_elapsed_s"))
         entries.append(
@@ -229,7 +231,7 @@ def collect_target(
     dry_run: bool = False,
     target_port: int | None = None,
     lxc_id: str | None = None,
-) -> dict:
+) -> dict[str, list[str]]:
     """Return {sourcetype: [lines]} scraped from the target/compose host since scenario start.
 
     kind: 'web' (vulhub/containers) | 'linux' (hosts) | 'windows' (AD).
@@ -263,10 +265,10 @@ def collect_target(
         # Use the correct LXC for collection (default: vulhub 112, MBPTL: 300)
         _target_lxc = lxc_id or "112"
 
-        def _exec_fn(cmd: str, timeout: int = 30) -> dict:
+        def _exec_fn(cmd: str, timeout: int = 30) -> dict[str, Any]:
             return _host_exec_lxc(cmd, lxc_id=_target_lxc, timeout=timeout)
 
-        def _host_exec_script(script: str, timeout: int) -> dict:
+        def _host_exec_script(script: str, timeout: int) -> dict[str, Any]:
             b64 = base64.b64encode(script.encode()).decode()
             return _exec_fn(f'sh -c "echo {b64} | base64 -d | sh"', timeout=timeout)
 

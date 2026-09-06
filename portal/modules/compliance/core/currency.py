@@ -16,6 +16,7 @@ from __future__ import annotations
 import re
 import urllib.error
 import urllib.request
+from typing import Any
 
 from portal.modules.compliance.core.cip_register import _NERC_BASE, Register
 
@@ -29,7 +30,8 @@ def _pdf_exists(name: str) -> bool | None:
             f"{_NERC_BASE}/{name}.pdf", method="HEAD", headers={"User-Agent": "portal5"}
         )
         with urllib.request.urlopen(req, timeout=_TIMEOUT) as r:  # noqa: S310 - fixed host
-            return 200 <= r.status < 300
+            status: int = r.status
+            return 200 <= status < 300
     except urllib.error.HTTPError as e:
         return e.code != 404 and e.code < 500
     except (urllib.error.URLError, TimeoutError, ConnectionError):
@@ -80,7 +82,7 @@ def discover_new_families(standards: list[str], *, probe_ahead: int = 3) -> list
     return found
 
 
-def nerc_currency(reg: Register | None = None) -> dict:
+def nerc_currency(reg: Register | None = None) -> dict[str, Any]:
     """Per-standard currency report. Never infers an enforcement date."""
     reg = reg or Register.load()
     standards = sorted({n.standard for n in reg.nodes})
@@ -95,7 +97,7 @@ def nerc_currency(reg: Register | None = None) -> dict:
             "held_standards": standards,
         }
 
-    per: list[dict] = []
+    per: list[dict[str, Any]] = []
     for std in standards:
         newer = None
         for cand in _next_versions(std):

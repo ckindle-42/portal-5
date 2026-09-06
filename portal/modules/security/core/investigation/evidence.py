@@ -15,6 +15,7 @@ import time
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from enum import Enum
+from typing import Any
 
 
 class SourceAuthority(str, Enum):  # noqa: UP042
@@ -65,15 +66,15 @@ class EvidenceRecord:
     episode_id: str  # links to Episode (from Phase 0+1)
     case_id: str  # links to investigation case (may be empty for pure R/B/P runs)
     kind: str  # EvidenceKind value
-    source: dict  # {system, tool_invocation: {tool, arguments, trace_id}}
-    timestamp: dict  # {collected_at, event_time}
-    artifact: dict  # {identifiers: [], content_ref, content_hash, parse_schema_version}
+    source: dict[str, Any]  # {system, tool_invocation: {tool, arguments, trace_id}}
+    timestamp: dict[str, Any]  # {collected_at, event_time}
+    artifact: dict[str, Any]  # {identifiers: [], content_ref, content_hash, parse_schema_version}
     supports: list[str]  # hypothesis IDs this evidence supports
     contradicts: list[str]  # hypothesis IDs this evidence weakens
-    confidence: dict  # {source_authority, parse_confidence}
-    provenance: dict  # {collected_by_agent, chain_of_custody: []}
+    confidence: dict[str, Any]  # {source_authority, parse_confidence}
+    provenance: dict[str, Any]  # {collected_by_agent, chain_of_custody: []}
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """JSON-safe dict for storage."""
         return asdict(self)
 
@@ -153,7 +154,7 @@ class EvidenceStore:
     def count(self) -> int:
         return len(self._records)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "count": self.count(),
             "records": {k: v.to_dict() for k, v in self._records.items()},

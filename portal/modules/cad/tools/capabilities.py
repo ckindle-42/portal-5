@@ -54,7 +54,7 @@ def _cuda_available() -> bool:
 
 
 @functools.lru_cache(maxsize=1)
-def cad_capabilities() -> dict:
+def cad_capabilities() -> dict[str, bool | str]:
     """What CAD backends are actually available right now, on this process.
 
     Never hardcodes a platform → capability mapping. Always re-probe (the cache
@@ -63,7 +63,7 @@ def cad_capabilities() -> dict:
     """
     _ensure_conda_env_on_path()
 
-    caps = {
+    caps: dict[str, bool | str] = {
         "openscad": shutil.which("openscad") is not None,
         "trimesh": _has("trimesh"),
         "cadquery": _has("cadquery"),

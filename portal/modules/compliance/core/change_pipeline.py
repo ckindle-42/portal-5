@@ -10,29 +10,30 @@ to move.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from portal.modules.compliance.core.applicability import AssetScope, applicable
-from portal.modules.compliance.core.cip_register import Register
+from portal.modules.compliance.core.cip_register import Register, RegisterNode
 from portal.modules.compliance.core.mapping_store import MappingStore
 from portal.modules.compliance.core.register_diff import DiffRow, diff_standard, diff_summary
 
 
-def _node_by_id(reg: Register, node_id: str):
+def _node_by_id(reg: Register, node_id: str) -> RegisterNode | None:
     return next((n for n in reg.nodes if n.id == node_id), None)
 
 
 # ── Phase 2: impact traversal ──────────────────────────────────────────────
 @dataclass
 class ImpactRow:
-    diff: dict
+    diff: dict[str, Any]
     changed_part: str
     applies: bool
     applicability_reason: str
-    mapped_sections: list[dict] = field(default_factory=list)
+    mapped_sections: list[dict[str, Any]] = field(default_factory=list)
     prior_verdicts_now_unverified: list[str] = field(default_factory=list)
     classification: str = "work"  # "work" | "informational"
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "changed_part": self.changed_part,
             "change_type": self.diff["change_type"],
@@ -52,7 +53,7 @@ def impact_report(
     standard_base: str,
     scope: AssetScope,
     store: MappingStore | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """For each substantive diff row: traverse the mapping store to the policy /
     procedure sections that implemented the affected Part, note the prior
     coverage verdict (now unverified), and gate on applicability — a change to a
@@ -117,7 +118,9 @@ def impact_report(
 
 
 # ── Phase 4: mapping validity + coverage invalidation ─────────────────────
-def expire_mappings(store: MappingStore, rows: list[DiffRow], supersession_date: str) -> dict:
+def expire_mappings(
+    store: MappingStore, rows: list[DiffRow], supersession_date: str
+) -> dict[str, Any]:
     """For every mapping whose target Part is superseded or language-changed by
     the transition: close its ``valid_to`` and create the successor mapping as
     ``NEEDS_REVIEW`` — **never carrying the prior verdict forward.**"""
@@ -156,7 +159,7 @@ def expire_mappings(store: MappingStore, rows: list[DiffRow], supersession_date:
     }
 
 
-def coverage_delta_for_transition(before: dict, after: dict) -> dict:
+def coverage_delta_for_transition(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
     """Compare two coverage-matrix summaries for the affected subset and report
     which cells moved (FULL -> PARTIAL, FULL -> NONE, ...)."""
     b = {c["requirement_id"]: c["coverage"] for c in before.get("cells", [])}
@@ -170,7 +173,7 @@ def coverage_delta_for_transition(before: dict, after: dict) -> dict:
 
 
 # ── Phase 5: prospective analysis ─────────────────────────────────────────
-def prospective_report(reg: Register, scope: AssetScope, as_of: str) -> dict:
+def prospective_report(reg: Register, scope: AssetScope, as_of: str) -> dict[str, Any]:
     """*"What must we prepare for, and by when."* Future-effective content is
     tagged and MUST NOT be returned by a "today" query — that segregation is the
     caller's contract; here every row is explicitly marked prospective."""
@@ -207,7 +210,7 @@ def prospective_report(reg: Register, scope: AssetScope, as_of: str) -> dict:
 
 
 # ── Phase 6: tracked draft-as-proposal ───────────────────────────────────
-def draft_revisions(impact: dict, *, mode: str = "draft_as_proposal") -> dict:
+def draft_revisions(impact: dict[str, Any], *, mode: str = "draft_as_proposal") -> dict[str, Any]:
     """Generate reviewable replacement language; never mutate effective text.
 
     ``specification_only`` remains a compatibility mode, but proposal mode is

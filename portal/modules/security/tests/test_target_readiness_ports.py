@@ -12,7 +12,8 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from typing import Any, Literal
+from unittest.mock import MagicMock, patch
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[4]
 if str(_PROJECT_ROOT) not in sys.path:
@@ -31,7 +32,7 @@ def _make_scenario(
     target_host: str | None = "10.10.11.50",
     vulhub_env: str | None = "fastjson/1.2.47-rce",
     red_prompt: str = "Test at $TARGET_HOST:$TARGET_PORT",
-) -> dict:
+) -> dict[str, Any]:
     return {
         "name": key,
         "target_host": target_host,
@@ -59,10 +60,10 @@ class TestPublishedPort:
         )
         return f'{{"Publishers":[{publishers}]}}\n'
 
-    def test_single_port_waits_for_http_readiness(self):
+    def test_single_port_waits_for_http_readiness(self) -> None:
         from scripts.lab_targets import _published_port
 
-        def fake_host_exec(cmd, timeout=15):
+        def fake_host_exec(cmd: str, timeout: int = 15) -> dict[str, Any]:
             if "ps --format json" in cmd:
                 return {"ok": True, "output": self._ps_json_output([8090])}
             assert "curl" in cmd and ":8090/" in cmd
@@ -71,10 +72,10 @@ class TestPublishedPort:
         with patch("scripts.lab_targets._host_exec", side_effect=fake_host_exec):
             assert _published_port("/opt/vulhub/x/docker-compose.yml") == 8090
 
-    def test_prefers_http_responsive_port_over_first_listed(self):
+    def test_prefers_http_responsive_port_over_first_listed(self) -> None:
         from scripts.lab_targets import _published_port
 
-        def fake_host_exec(cmd, timeout=15):
+        def fake_host_exec(cmd: str, timeout: int = 15) -> dict[str, Any]:
             if "ps --format json" in cmd:
                 return {"ok": True, "output": self._ps_json_output([5005, 8983])}
             if "curl" in cmd and ":5005/" in cmd:
@@ -86,12 +87,12 @@ class TestPublishedPort:
         with patch("scripts.lab_targets._host_exec", side_effect=fake_host_exec):
             assert _published_port("/opt/vulhub/log4j/CVE-2021-44228/docker-compose.yml") == 8983
 
-    def test_falls_back_to_first_port_when_nothing_answers_http(self):
+    def test_falls_back_to_first_port_when_nothing_answers_http(self) -> None:
         """Non-HTTP services (redis, mysql) must still resolve — TCP-only
         candidates with no HTTP response fall back to the first one found."""
         from scripts.lab_targets import _published_port
 
-        def fake_host_exec(cmd, timeout=15):
+        def fake_host_exec(cmd: str, timeout: int = 15) -> dict[str, Any]:
             if "ps --format json" in cmd:
                 return {"ok": True, "output": self._ps_json_output([6379, 16379])}
             return {"ok": True, "output": "000"}
@@ -102,10 +103,10 @@ class TestPublishedPort:
         ):
             assert _published_port("/opt/vulhub/redis/docker-compose.yml") == 6379
 
-    def test_scenario_owned_container_port_avoids_auxiliary_listener(self):
+    def test_scenario_owned_container_port_avoids_auxiliary_listener(self) -> None:
         from scripts.lab_targets import _published_port
 
-        def fake_host_exec(cmd, timeout=15):
+        def fake_host_exec(cmd: str, timeout: int = 15) -> dict[str, Any]:
             if "config --services" in cmd:
                 return {"ok": True, "output": "web\n"}
             if "port web 8081" in cmd:
@@ -123,10 +124,10 @@ class TestPublishedPort:
                 == 8086
             )
 
-    def test_scenario_owned_binary_port_does_not_require_http(self):
+    def test_scenario_owned_binary_port_does_not_require_http(self) -> None:
         from scripts.lab_targets import _published_port
 
-        def fake_host_exec(cmd, timeout=15):
+        def fake_host_exec(cmd: str, timeout: int = 15) -> dict[str, Any]:
             if "config --services" in cmd:
                 return {"ok": True, "output": "redis\n"}
             if "port redis 6379" in cmd:
@@ -143,10 +144,10 @@ class TestPublishedPort:
                 == 6382
             )
 
-    def test_unpublished_matching_port_does_not_mask_published_service(self):
+    def test_unpublished_matching_port_does_not_mask_published_service(self) -> None:
         from scripts.lab_targets import _published_port
 
-        def fake_host_exec(cmd, timeout=15):
+        def fake_host_exec(cmd: str, timeout: int = 15) -> dict[str, Any]:
             if "config --services" in cmd:
                 return {"ok": True, "output": "zookeeper\nprovider\n"}
             if "port zookeeper 8080" in cmd:
@@ -166,7 +167,7 @@ class TestPublishedPort:
                 == 8086
             )
 
-    def test_retries_across_a_wait_window_before_falling_back(self):
+    def test_retries_across_a_wait_window_before_falling_back(self) -> None:
         """Regression: called immediately after `docker compose up -d`
         returns, before the app has actually finished starting — a JVM's
         debug port opens well before its HTTP layer does (Solr's Jetty on
@@ -178,7 +179,7 @@ class TestPublishedPort:
 
         calls = {"n": 0}
 
-        def fake_host_exec(cmd, timeout=15):
+        def fake_host_exec(cmd: str, timeout: int = 15) -> dict[str, Any]:
             calls["n"] += 1
             # First two full sweeps (2 ports each = 4 calls) see nothing up;
             # the real app port answers starting on the third sweep.
@@ -198,7 +199,7 @@ class TestPublishedPort:
 class TestEnsureTargetReady:
     """Gate verifies→heals→re-verify using existing primitives only."""
 
-    def test_no_external_target_returns_ready(self):
+    def test_no_external_target_returns_ready(self) -> None:
         """Scenario with target_host=None → always ready, no cmd_up."""
         from scripts.lab_targets import ensure_target_ready
 
@@ -212,7 +213,7 @@ class TestEnsureTargetReady:
 
     @patch("scripts.lab_targets._wait_reachable", return_value=True)
     @patch("scripts.lab_targets._published_port", return_value=8090)
-    def test_already_up_no_cmd_up(self, mock_port, mock_wait):
+    def test_already_up_no_cmd_up(self, mock_port: MagicMock, mock_wait: MagicMock) -> None:
         """Target already up → return immediately, no cmd_up called."""
         from scripts.lab_targets import ensure_target_ready
 
@@ -226,7 +227,9 @@ class TestEnsureTargetReady:
     @patch("scripts.lab_targets._wait_reachable")
     @patch("scripts.lab_targets._published_port")
     @patch("scripts.lab_targets.cmd_up")
-    def test_down_target_healed_via_cmd_up(self, mock_up, mock_port, mock_wait):
+    def test_down_target_healed_via_cmd_up(
+        self, mock_up: MagicMock, mock_port: MagicMock, mock_wait: MagicMock
+    ) -> None:
         """Target down → cmd_up called → healed on re-verify."""
         from scripts.lab_targets import ensure_target_ready
 
@@ -247,7 +250,9 @@ class TestEnsureTargetReady:
     @patch("scripts.lab_targets._wait_reachable", return_value=False)
     @patch("scripts.lab_targets._published_port", return_value=None)
     @patch("scripts.lab_targets.cmd_up")
-    def test_heal_fails_returns_unrecoverable(self, mock_up, mock_port, mock_wait):
+    def test_heal_fails_returns_unrecoverable(
+        self, mock_up: MagicMock, mock_port: MagicMock, mock_wait: MagicMock
+    ) -> None:
         """All retries fail → target-unrecoverable."""
         from scripts.lab_targets import ensure_target_ready
 
@@ -265,8 +270,12 @@ class TestEnsureTargetReady:
     @patch("scripts.lab_targets._ensure_meta3_phpmyadmin_service", return_value=True)
     @patch("scripts.lab_targets._probe_any_reachable_port", return_value=None)
     def test_phpmyadmin_version_mismatch_is_persistently_repaired(
-        self, mock_probe, mock_repair, mock_http, mock_poll
-    ):
+        self,
+        mock_probe: MagicMock,
+        mock_repair: MagicMock,
+        mock_http: MagicMock,
+        mock_poll: MagicMock,
+    ) -> None:
         from scripts.lab_targets import ensure_target_ready
 
         scenario = _make_scenario(
@@ -290,8 +299,12 @@ class TestEnsureTargetReady:
     @patch("scripts.lab_targets._ensure_meta3_rails_service", return_value=True)
     @patch("scripts.lab_targets._probe_any_reachable_port", return_value=None)
     def test_rails_port_requires_the_expected_web_console_service(
-        self, mock_probe, mock_repair, mock_http, mock_poll
-    ):
+        self,
+        mock_probe: MagicMock,
+        mock_repair: MagicMock,
+        mock_http: MagicMock,
+        mock_poll: MagicMock,
+    ) -> None:
         from scripts.lab_targets import ensure_target_ready
 
         scenario = _make_scenario(
@@ -319,7 +332,7 @@ class TestEnsureTargetReady:
 class TestPortInjection:
     """$TARGET_PORT resolves to the container's REAL published port."""
 
-    def test_resolve_env_injects_target_host_and_port(self):
+    def test_resolve_env_injects_target_host_and_port(self) -> None:
         """_resolve_env substitutes $TARGET_HOST and $TARGET_PORT from runtime_env."""
         from portal.modules.security.core.matrix import _resolve_env
 
@@ -327,7 +340,7 @@ class TestPortInjection:
         result = _resolve_env(hint, runtime_env={"TARGET_HOST": "10.0.0.1", "TARGET_PORT": "8090"})
         assert result == "curl http://10.0.0.1:8090/api"
 
-    def test_resolve_env_without_runtime_env(self):
+    def test_resolve_env_without_runtime_env(self) -> None:
         """_resolve_env without runtime_env leaves $TARGET_* literal."""
         from portal.modules.security.core.matrix import _resolve_env
 
@@ -336,7 +349,7 @@ class TestPortInjection:
         assert "$TARGET_HOST" in result
         assert "$TARGET_PORT" in result
 
-    def test_set_scenario_substitutes_port(self):
+    def test_set_scenario_substitutes_port(self) -> None:
         """BenchConfig.set_scenario substitutes $TARGET_HOST:$TARGET_PORT."""
         from portal.modules.security.core._config import BenchConfig
 
@@ -350,7 +363,7 @@ class TestPortInjection:
         assert "$TARGET_HOST" not in cfg.chain_initial_prompt
         assert "$TARGET_PORT" not in cfg.chain_initial_prompt
 
-    def test_fastjson_scenario_gets_real_port(self):
+    def test_fastjson_scenario_gets_real_port(self) -> None:
         """A fastjson scenario whose container publishes 8090 → prompt has :8090."""
         from portal.modules.security.core._config import BenchConfig
 
@@ -370,7 +383,7 @@ class TestPortInjection:
 class TestDehardcoding:
     """No scenario prompt still contains a hardcoded :PORT literal for external targets."""
 
-    def test_no_hardcoded_external_target_ports(self):
+    def test_no_hardcoded_external_target_ports(self) -> None:
         """All scenarios with target_host should use $TARGET_HOST:$TARGET_PORT, not literals."""
         import re
 
@@ -393,7 +406,7 @@ class TestDehardcoding:
 
         assert bad == [], f"Scenarios still hardcoding target host:port: {bad}"
 
-    def test_all_target_scenarios_have_metadata(self):
+    def test_all_target_scenarios_have_metadata(self) -> None:
         """Every scenario with a real target should have target_host and vulhub_env keys."""
         from portal.modules.security.core.exec_chain import SCENARIOS
 
@@ -408,7 +421,7 @@ class TestDehardcoding:
 class TestClassifier:
     """3-state classifier: target-down→indeterminate, up+markers→red-success, up+no-markers→red-fail."""
 
-    def test_target_down_is_indeterminate(self):
+    def test_target_down_is_indeterminate(self) -> None:
         from portal.modules.security.core.exec_chain import classify_scenario_result
 
         result = classify_scenario_result(
@@ -418,7 +431,7 @@ class TestClassifier:
         )
         assert result == "indeterminate"
 
-    def test_target_up_with_markers_is_red_success(self):
+    def test_target_up_with_markers_is_red_success(self) -> None:
         from portal.modules.security.core.exec_chain import classify_scenario_result
 
         result = classify_scenario_result(
@@ -428,7 +441,7 @@ class TestClassifier:
         )
         assert result == "red_success"
 
-    def test_target_up_no_markers_is_red_fail(self):
+    def test_target_up_no_markers_is_red_fail(self) -> None:
         from portal.modules.security.core.exec_chain import classify_scenario_result
 
         result = classify_scenario_result(
@@ -438,7 +451,7 @@ class TestClassifier:
         )
         assert result == "red_fail"
 
-    def test_no_tools_called_is_indeterminate(self):
+    def test_no_tools_called_is_indeterminate(self) -> None:
         """Model refused or stalled → indeterminate, not red-fail."""
         from portal.modules.security.core.exec_chain import classify_scenario_result
 
@@ -449,7 +462,7 @@ class TestClassifier:
         )
         assert result == "indeterminate"
 
-    def test_reachable_target_no_portscan_is_red_fail_not_indeterminate(self):
+    def test_reachable_target_no_portscan_is_red_fail_not_indeterminate(self) -> None:
         """A reachable target (gate ready) that red attacked WITHOUT running a
         port scan (open_ports stays empty) is an honest red_fail — red tried a
         live target and didn't confirm the exploit landed — NOT indeterminate.
@@ -467,16 +480,17 @@ class TestClassifier:
         )
         assert result == "red_fail"
 
-    def test_down_target_never_red_fail(self):
+    def test_down_target_never_red_fail(self) -> None:
         """Core invariant: a down target can NEVER be scored as red-fail."""
         from portal.modules.security.core.exec_chain import classify_scenario_result
 
         # Various "down" scenarios
-        for obs in [
+        obs_cases: list[dict[str, Any]] = [
             {"open_ports": []},
             {"open_ports": [], "compromise_confirmed": False},
             {},
-        ]:
+        ]
+        for obs in obs_cases:
             result = classify_scenario_result(
                 obs,
                 gate_result={"ready": False},
@@ -484,7 +498,7 @@ class TestClassifier:
             )
             assert result != "red_fail", f"Down target scored red-fail: obs={obs}"
 
-    def test_data_extracted_is_red_success(self):
+    def test_data_extracted_is_red_success(self) -> None:
         from portal.modules.security.core.exec_chain import classify_scenario_result
 
         result = classify_scenario_result(
@@ -501,7 +515,7 @@ class TestRunLoopIntegration:
     """Gate is called before dispatch; unrecoverable → indeterminate."""
 
     @patch("scripts.lab_targets.ensure_target_ready")
-    def test_prepare_scenario_calls_gate(self, mock_gate):
+    def test_prepare_scenario_calls_gate(self, mock_gate: MagicMock) -> None:
         from portal.modules.security.core._config import BenchConfig
         from portal.modules.security.core.exec_chain import _prepare_scenario
 
@@ -521,7 +535,7 @@ class TestRunLoopIntegration:
         mock_gate.assert_called_once()
 
     @patch("scripts.lab_targets.ensure_target_ready")
-    def test_prepare_scenario_unrecoverable(self, mock_gate):
+    def test_prepare_scenario_unrecoverable(self, mock_gate: MagicMock) -> None:
         """Unrecoverable target → gate returns not ready."""
         from portal.modules.security.core._config import BenchConfig
         from portal.modules.security.core.exec_chain import _prepare_scenario
@@ -540,7 +554,7 @@ class TestRunLoopIntegration:
         assert result["ready"] is False
 
     @patch("scripts.lab_targets.ensure_target_ready")
-    def test_prepare_scenario_default_heal_matches_lab_exec(self, mock_gate):
+    def test_prepare_scenario_default_heal_matches_lab_exec(self, mock_gate: MagicMock) -> None:
         """Backward compat: allow_heal defaults to lab_exec when not passed."""
         from portal.modules.security.core._config import BenchConfig
         from portal.modules.security.core.exec_chain import _prepare_scenario
@@ -557,7 +571,7 @@ class TestRunLoopIntegration:
         assert mock_gate.call_args.kwargs["dry_run"] is False  # lab_exec -> real heal
 
     @patch("scripts.lab_targets.ensure_target_ready")
-    def test_prepare_scenario_allow_heal_overrides_lab_exec(self, mock_gate):
+    def test_prepare_scenario_allow_heal_overrides_lab_exec(self, mock_gate: MagicMock) -> None:
         """Found live 2026-07-05: --replay-captured-red --purple (lab_exec=False)
         must still be able to opt into real healing via allow_heal=True — this
         is what lets a crashed VM or a torn-down vulhub container come back up
@@ -577,7 +591,7 @@ class TestRunLoopIntegration:
         assert mock_gate.call_args.kwargs["dry_run"] is True  # heal explicitly suppressed
 
     @patch("scripts.lab_targets.ensure_target_ready")
-    def test_prepare_scenario_injects_port_into_prompt(self, mock_gate):
+    def test_prepare_scenario_injects_port_into_prompt(self, mock_gate: MagicMock) -> None:
         """Gate's real port is injected into the prompt via set_scenario."""
         from portal.modules.security.core._config import BenchConfig
         from portal.modules.security.core.exec_chain import _prepare_scenario
@@ -609,22 +623,22 @@ class TestDeclaredTargetPortPriority:
     service a given scenario actually needs, and FTP happened to come up
     first during the VM's cold boot sequence."""
 
-    def test_probe_any_reachable_port_uses_declared_ports_when_given(self):
+    def test_probe_any_reachable_port_uses_declared_ports_when_given(self) -> None:
         from scripts.lab_targets import _probe_any_reachable_port
 
         calls = []
 
         class FakeSocket:
-            def __init__(self, addr, timeout):
+            def __init__(self, addr: tuple[str, int], timeout: Any) -> None:
                 host, port = addr
                 calls.append(port)
                 if port != 9200:
                     raise OSError("refused")
 
-            def __enter__(self):
+            def __enter__(self) -> FakeSocket:
                 return self
 
-            def __exit__(self, *a):
+            def __exit__(self, *exc_info: Any) -> Literal[False]:
                 return False
 
         with patch("socket.create_connection", side_effect=FakeSocket):
@@ -632,7 +646,7 @@ class TestDeclaredTargetPortPriority:
         assert port == 9200
         assert calls == [9200], "must only probe the declared port, not the static list"
 
-    def test_ensure_target_ready_passes_declared_target_port_to_probe(self):
+    def test_ensure_target_ready_passes_declared_target_port_to_probe(self) -> None:
         """A scenario with target_port set must reach _probe_any_reachable_port
         with exactly that port as the candidate list, on a static host (no
         vulhub_env)."""
@@ -654,7 +668,7 @@ class TestDeclaredTargetPortPriority:
         mock_probe.assert_called_once_with("10.10.11.13", [9200])
         assert result["port"] == 9200
 
-    def test_ensure_target_ready_without_target_port_uses_generic_list(self):
+    def test_ensure_target_ready_without_target_port_uses_generic_list(self) -> None:
         """Backward compat: a scenario with no target_port still falls back to
         the generic any-reachable-port probe (ports=None)."""
         from scripts.lab_targets import ensure_target_ready
@@ -671,7 +685,7 @@ class TestDeclaredTargetPortPriority:
 
         mock_probe.assert_called_once_with("10.10.11.13", None)
 
-    def test_vulhub_env_scenario_ignores_declared_target_port(self):
+    def test_vulhub_env_scenario_ignores_declared_target_port(self) -> None:
         """target_port is only meaningful for the static-host path -- a
         vulhub_env scenario always resolves its real port via cmd_up's own
         docker-compose port publish, never the static probe list."""
@@ -696,7 +710,7 @@ class TestDeclaredTargetPortPriority:
 class TestExistingPrimitives:
     """ensure_target_ready uses ONLY existing lab-control primitives."""
 
-    def test_gate_imports_only_existing_functions(self):
+    def test_gate_imports_only_existing_functions(self) -> None:
         """The gate function should only call cmd_up, _published_port, _wait_reachable."""
         import inspect
 

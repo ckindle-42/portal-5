@@ -11,6 +11,7 @@ import json
 import logging
 import re
 import time
+from typing import Any
 
 from portal.platform.inference.router.metrics import (
     _tool_call_duration,
@@ -39,7 +40,7 @@ _REQUIREMENT_LOOKUP_RE = re.compile(
 )
 
 
-def _last_user_content(messages: list[dict]) -> str:
+def _last_user_content(messages: list[dict[str, Any]]) -> str:
     """Return the last user turn as plain text, including multimodal text parts."""
     for message in reversed(messages):
         if message.get("role") != "user":
@@ -57,7 +58,9 @@ def _last_user_content(messages: list[dict]) -> str:
     return ""
 
 
-def _select_explicit_required_tool(messages: list[dict], effective_tools: set[str]) -> str | None:
+def _select_explicit_required_tool(
+    messages: list[dict[str, Any]], effective_tools: set[str]
+) -> str | None:
     """Select one allow-listed tool when the user explicitly requires its side effect.
 
     A single-tool schema plus ``tool_choice=required`` avoids the model failure
@@ -117,12 +120,12 @@ def _select_explicit_required_tool(messages: list[dict], effective_tools: set[st
 
 
 async def _dispatch_tool_call(
-    tool_call: dict,
+    tool_call: dict[str, Any],
     effective_tools: set[str],
     workspace_id: str,
     persona: str,
     request_id: str,
-) -> dict:
+) -> dict[str, Any]:
     """Whitelist-check and dispatch one model-emitted tool call.
 
     The single chokepoint between the model's ``tool_calls`` array and

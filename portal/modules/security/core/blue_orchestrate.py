@@ -18,7 +18,7 @@ import json
 import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .agentic_blue_eval import (
     Episode,
@@ -27,7 +27,7 @@ from .agentic_blue_eval import (
     _query_real_telemetry,
     _summarize_telemetry,
 )
-from .analyst_verdict import SectionOutput
+from .analyst_verdict import AnalystVerdict, SectionOutput
 from .blue import (
     _BLUE_SYSTEM_PROMPT_DISCOVERY,
     _cite_or_drop,
@@ -103,7 +103,7 @@ _VERDICT_GROUNDING_POLICY = (
 )
 
 
-def _retrieval_tool_schemas() -> list[dict]:
+def _retrieval_tool_schemas() -> list[dict[str, Any]]:
     from .agentic_blue_eval import _SEARCH_TOOLS
 
     return [t for t in _SEARCH_TOOLS if t.get("function", {}).get("name") in _RETRIEVAL_TOOL_NAMES]
@@ -128,7 +128,7 @@ _BARRIER_TOOLS_ENABLED_ADDENDUM = (
 )
 
 
-def _parse_barrier_toolcall(msg: dict) -> SectionOutput | None:
+def _parse_barrier_toolcall(msg: dict[str, Any]) -> SectionOutput | None:
     """Convert a barrier tool_call into a SectionOutput.
 
     Returns None when no barrier tool was called (caller falls back to
@@ -147,6 +147,7 @@ def _parse_barrier_toolcall(msg: dict) -> SectionOutput | None:
             verdict = str(args.get("verdict") or "").upper()
             if verdict not in ("CONFIRMED", "RULED_OUT"):
                 continue  # malformed — try next tool_call or fall through
+            verdict = cast(AnalystVerdict, verdict)
             technique_ids = [str(t) for t in (args.get("technique_ids") or []) if t]
             match_grade = str(args.get("match_grade") or "NONE").upper()
             if match_grade not in ("EXACT", "NONE"):
@@ -192,7 +193,7 @@ def _record_barrier_fallback(role: str, reason: str) -> None:
 try:
     from prometheus_client import Counter as _PromCounter
 
-    _BARRIER_FALLBACK_COUNTER = _PromCounter(
+    _BARRIER_FALLBACK_COUNTER: Any = _PromCounter(
         "portal5_barrier_toolcall_fallback_total",
         "Barrier tool-call verdict emission fell back to JSON scrape (V3C)",
         ["role", "reason"],
@@ -200,7 +201,7 @@ try:
 except Exception:  # pragma: no cover - prometheus_client always present in this repo's env
 
     class _NoopCounter:
-        def labels(self, **_kwargs):
+        def labels(self, **_kwargs: Any) -> _NoopCounter:
             return self
 
         def inc(self) -> None:
@@ -212,7 +213,7 @@ except Exception:  # pragma: no cover - prometheus_client always present in this
 @dataclass
 class ToolResult:
     query: str
-    rows: list[dict] = field(default_factory=list)
+    rows: list[dict[str, Any]] = field(default_factory=list)
     provenance: str = (
         "matched-exact"  # matched-exact | live-broad-fallback | synthetic-fallback | empty
     )
@@ -265,7 +266,7 @@ def _build_trigger(episode: Episode) -> str:
     )
 
 
-def _coerce_tool_args(raw: Any) -> dict:
+def _coerce_tool_args(raw: Any) -> dict[str, Any]:
     """Ollama's native tool-call arguments are usually already a dict, but a
     live probe against granite4.1:8b-ctx8k (Slice 7 end-to-end run) found it
     can return `arguments` as a JSON-encoded string instead — crashing
@@ -283,7 +284,7 @@ def _coerce_tool_args(raw: Any) -> dict:
     return {}
 
 
-def _stringify_query_args(args: dict) -> dict:
+def _stringify_query_args(args: dict[str, Any]) -> dict[str, Any]:
     """Flatten list/int-valued args to strings before _query_real_telemetry.
 
     Live-verified root cause (Slice 8 pre-screen, 2026-07-17): every Hunter
@@ -299,7 +300,7 @@ def _stringify_query_args(args: dict) -> dict:
     _query_real_telemetry itself is I7-protected (additive-only); this
     normalizes the args shape at the call site instead.
     """
-    out: dict = {}
+    out: dict[str, Any] = {}
     for k, v in args.items():
         if isinstance(v, list):
             out[k] = " ".join(str(x) for x in v)
@@ -382,7 +383,7 @@ _FREETEXT_STOPWORDS = frozenset(
 )
 
 
-def _freetext_narrow(args: dict, episode: Episode) -> str | None:
+def _freetext_narrow(args: dict[str, Any], episode: Episode) -> str | None:
     """Fallback narrowing for tool-call args with no literal EventCode/
     technique-ID pattern (query_web_logs/query_network_traffic/query_splunk
     calls framed as free text, e.g. filter="Tomcat manager interface").
@@ -448,7 +449,7 @@ def _retrieval_result_has_evidence(result: str) -> bool:
     return bool(text) and _NO_MATCH_RE.fullmatch(text) is None
 
 
-def _dispatch_tool_call(name: str, args: dict, episode: Episode) -> str:
+def _dispatch_tool_call(name: str, args: dict[str, Any], episode: Episode) -> str:
     """Answer one tool call against the episode's captured telemetry.
 
     Thin wrapper over agentic_blue_eval._query_real_telemetry (reused, not
@@ -473,7 +474,7 @@ _WINDOWS_EVENT_HINT_RE = re.compile(
 )
 
 
-def _bias_tool_schemas(req_spec: str, tools: list[dict]) -> list[dict]:
+def _bias_tool_schemas(req_spec: str, tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Narrow the offered tool schemas to query_windows_events when the
     request unambiguously names a Windows Security EventCode/Event ID.
 
@@ -515,7 +516,8 @@ def run_tool_model(
     ]
     if dry_run:
         # No live model call — used by hermetic tests / --dry-run CLI paths.
-        rows, empty = [], True
+        rows: list[dict[str, Any]] = []
+        empty = True
     else:
         msg = _call_model(tool_model, messages, tools=tools)
         tool_calls = msg.get("tool_calls") or []
@@ -663,9 +665,9 @@ def run_reasoning_model(
     context: str,
     *,
     reasoning_model: str,
-    history: list[dict] | None = None,
+    history: list[dict[str, Any]] | None = None,
     dry_run: bool = False,
-    extra_options: dict | None = None,
+    extra_options: dict[str, Any] | None = None,
     use_barrier_tools: bool = False,
 ) -> SectionOutput:
     """Call a generalist reasoner (tools off) to hunt: form hypotheses, decide
@@ -751,7 +753,7 @@ def run_reasoning_model(
     # marks it non-terminal; the orchestrator does not score this verdict.
     proposed_verdict = "ANOMALOUS_UNCLASSIFIED" if match_grade == "SIMILAR" else "CONFIRMED"
     return SectionOutput(
-        verdict=proposed_verdict,
+        verdict=cast(AnalystVerdict, proposed_verdict),
         technique_ids=technique_ids,
         evidence=[str(e) for e in (parsed.get("evidence") or [])],
         reasoning=str(parsed.get("reasoning") or ""),
@@ -790,7 +792,7 @@ def format_for_expert(
     reasoning_out: SectionOutput,
     results: list[ToolResult],
     trigger: str,
-    hunter_history: list[dict] | None = None,
+    hunter_history: list[dict[str, Any]] | None = None,
 ) -> str:
     """A focused 'here is what the hunt found; render your expert judgment'
     prompt — distinct from the open hunt prompt (the expert is fed, not
@@ -838,19 +840,19 @@ def format_for_expert(
     )
 
 
-def _combined_telemetry_text(results: list[ToolResult]) -> dict[str, dict]:
+def _combined_telemetry_text(results: list[ToolResult]) -> dict[str, dict[str, Any]]:
     combined = "\n".join(r.raw_summary for r in results)
     return {"gathered": {"telemetry": combined, "source": "tool-section"}}
 
 
-def _telemetry_blob(telemetry: dict[str, dict]) -> str:
+def _telemetry_blob(telemetry: dict[str, dict[str, Any]]) -> str:
     return " ".join(str(value.get("telemetry", "")) for value in telemetry.values())
 
 
 def _grounded_discriminator_contradictions(
     technique_ids: list[str],
     kept_ids: set[str],
-    telemetry: dict[str, dict],
+    telemetry: dict[str, dict[str, Any]],
 ) -> list[str]:
     """Return grounded claims contradicted by a sibling discriminator."""
     all_telemetry_text = _telemetry_blob(telemetry)
@@ -1084,7 +1086,7 @@ def _finalize_expert_verdict(
             )
 
     return SectionOutput(
-        verdict=verdict,
+        verdict=cast(AnalystVerdict, verdict),
         technique_ids=technique_ids,
         evidence=evidence,
         reasoning=reasoning,
@@ -1103,7 +1105,7 @@ def run_expert_model(
     tool_results: list[ToolResult] | None = None,
     hunter_similar_to: list[str] | None = None,
     dry_run: bool = False,
-    extra_options: dict | None = None,
+    extra_options: dict[str, Any] | None = None,
     use_barrier_tools: bool = False,
 ) -> SectionOutput:
     """Call the fed, no-tools domain-expert model for the conclusive verdict.
@@ -1261,13 +1263,13 @@ _MENTOR_BLOCK_RE = re.compile(r"<mentor_analysis>.*?</mentor_analysis>", re.DOTA
 
 
 def run_mentor_model(
-    hunter_history: list[dict],
+    hunter_history: list[dict[str, Any]],
     tool_results: list[ToolResult],
     trigger: str,
     *,
     mentor_model: str,
     dry_run: bool = False,
-    extra_options: dict | None = None,
+    extra_options: dict[str, Any] | None = None,
 ) -> str:
     """Invoke the mentor on the current stalled hunt state. Returns the raw
     <mentor_analysis>...</mentor_analysis> block (or empty string on dry_run
@@ -1373,7 +1375,7 @@ def run_merged_model(
     merged_model: str,
     context_text: str = "",
     tool_results: list[ToolResult] | None = None,
-    history: list[dict] | None = None,
+    history: list[dict[str, Any]] | None = None,
     dry_run: bool = False,
 ) -> SectionOutput:
     """Call one generalist model to both hunt and render the conclusive
@@ -1504,13 +1506,13 @@ class OrchestrationResult:
     (I1) — this module never computes it.
     """
 
-    verdict: str = "UNRESOLVED"
+    verdict: AnalystVerdict = "UNRESOLVED"
     technique_ids: list[str] = field(default_factory=list)
     evidence: list[str] = field(default_factory=list)
     reasoning: str = ""
     match_grade: str = "NONE"
     similar_to: list[str] = field(default_factory=list)
-    trace: list[dict] = field(default_factory=list)
+    trace: list[dict[str, Any]] = field(default_factory=list)
     rounds: int = 0
     elapsed_s: float = 0.0
     capability_verdict: str | None = None
@@ -1615,15 +1617,18 @@ def run_blue_orchestration(
             wall_clock_s=wall_clock_s,
             dry_run=dry_run,
         )
-    return _run_three_section(
-        episode,
-        models=models,
-        max_rounds=max_rounds,
-        budgets=budgets,
-        barrier_tools=barrier_by_role,
-        wall_clock_s=wall_clock_s,
-        check_additional=check_additional,
-        dry_run=dry_run,
+    return cast(
+        OrchestrationResult,
+        _run_three_section(
+            episode,
+            models=models,
+            max_rounds=max_rounds,
+            budgets=budgets,
+            barrier_tools=barrier_by_role,
+            wall_clock_s=wall_clock_s,
+            check_additional=check_additional,
+            dry_run=dry_run,
+        ),
     )
 
 
@@ -1652,12 +1657,12 @@ class ExpertHandoff:
     hunter_similar_to: list[str]
     tool_results: list[ToolResult]
     ground_truth: list[str]  # audit/scoring record only — never fed to the gates (2026-07-23)
-    trace: list[dict]
+    trace: list[dict[str, Any]]
     told_expert_final_round: bool
     rounds: int
     trigger: str = ""  # the trigger shown to the sections — excluded from citation grounding
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "ectx": self.ectx,
             "hunter_similar_to": self.hunter_similar_to,
@@ -1670,12 +1675,14 @@ class ExpertHandoff:
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> ExpertHandoff:
+    def from_dict(cls, d: dict[str, Any]) -> ExpertHandoff:
         return cls(
-            ectx=d["ectx"],
-            hunter_similar_to=list(d.get("hunter_similar_to") or []),
-            tool_results=[ToolResult(**tr) for tr in d.get("tool_results") or []],
-            ground_truth=list(d.get("ground_truth") or []),
+            ectx=str(d["ectx"]),
+            hunter_similar_to=[str(t) for t in (d.get("hunter_similar_to") or [])],
+            tool_results=[
+                ToolResult(**cast(dict[str, Any], tr)) for tr in (d.get("tool_results") or [])
+            ],
+            ground_truth=[str(t) for t in (d.get("ground_truth") or [])],
             trace=list(d.get("trace") or []),
             told_expert_final_round=bool(d.get("told_expert_final_round")),
             rounds=int(d.get("rounds", 0)),
@@ -1693,9 +1700,9 @@ def _run_expert_section(
     told_expert_final_round: bool,
     rounds: int,
     dry_run: bool,
-    extra_options: dict | None = None,
+    extra_options: dict[str, Any] | None = None,
     use_barrier_tools: bool = False,
-) -> tuple[SectionOutput, list[dict]]:
+) -> tuple[SectionOutput, list[dict[str, Any]]]:
     """Call the Expert once, with the retry-not-fabricate nudge if this was
     flagged as the final round — the shared logic behind both a live
     ``_run_three_section`` call and a captured-handoff replay. Returns
@@ -1717,7 +1724,7 @@ def _run_expert_section(
     )
     expert_out = _ground_similarity(expert_out, tool_results)
 
-    trace_entries: list[dict] = []
+    trace_entries: list[dict[str, Any]] = []
 
     # Retry-not-fabricate (same "same retry budget" discipline as
     # blue._run_blue_turn's P5-SCORING-BIAS-001): if we already told the
@@ -1806,7 +1813,7 @@ def capture_expert_handoff(
         dry_run=dry_run,
         _capture_only=True,
     )
-    return result
+    return cast("ExpertHandoff | OrchestrationResult", result)
 
 
 def resume_from_handoff(
@@ -1814,7 +1821,7 @@ def resume_from_handoff(
     expert_model: str,
     *,
     dry_run: bool = False,
-    extra_options: dict | None = None,
+    extra_options: dict[str, Any] | None = None,
 ) -> OrchestrationResult:
     """Replay just the Expert call (+ its one retry) against a captured
     hand-off, without re-running the tool+reasoning rounds. See
@@ -1841,7 +1848,7 @@ def resume_from_handoff(
     rounds = handoff.rounds + 1
     if expert_out.is_conclusion():
         return OrchestrationResult(
-            verdict=expert_out.verdict,
+            verdict=cast(AnalystVerdict, expert_out.verdict),
             technique_ids=expert_out.technique_ids,
             evidence=expert_out.evidence,
             reasoning=expert_out.reasoning,
@@ -1875,14 +1882,14 @@ class HunterHandoff:
     """
 
     ctx: str
-    hunter_history: list[dict]
+    hunter_history: list[dict[str, Any]]
     tool_results: list[ToolResult]
     ground_truth: list[str]  # audit/scoring record only — never fed to the gates (2026-07-23)
-    trace: list[dict]
+    trace: list[dict[str, Any]]
     rounds: int
     trigger: str = ""  # the trigger shown to the sections — excluded from citation grounding
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "ctx": self.ctx,
             "hunter_history": self.hunter_history,
@@ -1894,12 +1901,14 @@ class HunterHandoff:
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> HunterHandoff:
+    def from_dict(cls, d: dict[str, Any]) -> HunterHandoff:
         return cls(
-            ctx=d["ctx"],
-            hunter_history=[dict(m) for m in d.get("hunter_history") or []],
-            tool_results=[ToolResult(**tr) for tr in d.get("tool_results") or []],
-            ground_truth=list(d.get("ground_truth") or []),
+            ctx=str(d["ctx"]),
+            hunter_history=[cast(dict[str, Any], m) for m in (d.get("hunter_history") or [])],
+            tool_results=[
+                ToolResult(**cast(dict[str, Any], tr)) for tr in (d.get("tool_results") or [])
+            ],
+            ground_truth=[str(t) for t in (d.get("ground_truth") or [])],
             trace=list(d.get("trace") or []),
             rounds=int(d.get("rounds", 0)),
             trigger=str(d.get("trigger") or ""),
@@ -1923,15 +1932,18 @@ def capture_hunter_handoff(
     supplied to ``resume_hunter_from_handoff``. ``models["expert"]`` is
     unused entirely (any placeholder is fine).
     """
-    return _run_three_section(
-        episode,
-        models=models,
-        max_rounds=max_rounds,
-        budgets=budgets,
-        wall_clock_s=wall_clock_s,
-        check_additional=False,
-        dry_run=dry_run,
-        _capture_hunter_only=True,
+    return cast(
+        "HunterHandoff | OrchestrationResult",
+        _run_three_section(
+            episode,
+            models=models,
+            max_rounds=max_rounds,
+            budgets=budgets,
+            wall_clock_s=wall_clock_s,
+            check_additional=False,
+            dry_run=dry_run,
+            _capture_hunter_only=True,
+        ),
     )
 
 
@@ -1940,7 +1952,7 @@ def resume_hunter_from_handoff(
     reasoning_model: str,
     *,
     dry_run: bool = False,
-    extra_options: dict | None = None,
+    extra_options: dict[str, Any] | None = None,
 ) -> SectionOutput:
     """Replay just the Hunter's final call against a captured hand-off,
     without re-running the tool/earlier-reasoning rounds. Returns the
@@ -1990,7 +2002,7 @@ def _run_three_section(
     trigger = _build_trigger(episode)
 
     tool_results: list[ToolResult] = []
-    trace: list[dict] = []
+    trace: list[dict[str, Any]] = []
     rounds = 0
     started = _time.monotonic()
     hunter_out: SectionOutput | None = None
@@ -2004,7 +2016,7 @@ def _run_three_section(
     # (not the whole accumulated pile), and the history itself is capped to
     # the most recent _hunter_history_cap_pairs turn-pairs as a defensive
     # backstop beyond whatever max_rounds already bounds it to.
-    hunter_history: list[dict] = []
+    hunter_history: list[dict[str, Any]] = []
     new_since_last_hunt: list[ToolResult] = []
     _hunter_history_cap_pairs = 6
     _hunter_history_turn_cap_chars = 3000
@@ -2081,7 +2093,7 @@ def _run_three_section(
         hunter: SectionOutput,
     ) -> tuple[
         SectionOutput | None,
-        list[dict],
+        list[dict[str, Any]],
         ExpertHandoff | HunterHandoff | None,
     ]:
         """V4B/U1: conclude from gathered evidence after Hunter starvation."""
@@ -2325,7 +2337,7 @@ def _run_three_section(
 
     if expert_out is not None and expert_out.is_conclusion():
         result = OrchestrationResult(
-            verdict=expert_out.verdict,
+            verdict=cast(AnalystVerdict, expert_out.verdict),
             technique_ids=expert_out.technique_ids,
             evidence=expert_out.evidence,
             reasoning=expert_out.reasoning,
@@ -2374,12 +2386,12 @@ def _run_two_section(
     trigger = _build_trigger(episode)
 
     tool_results: list[ToolResult] = []
-    trace: list[dict] = []
+    trace: list[dict[str, Any]] = []
     rounds = 0
     started = _time.monotonic()
     merged_out: SectionOutput | None = None
 
-    merged_history: list[dict] = []
+    merged_history: list[dict[str, Any]] = []
     new_since_last_turn: list[ToolResult] = []
     _merged_history_cap_pairs = 6
     _merged_history_turn_cap_chars = 3000
@@ -2462,7 +2474,7 @@ def _run_two_section(
 
     if merged_out is not None and merged_out.is_conclusion():
         return OrchestrationResult(
-            verdict=merged_out.verdict,
+            verdict=cast(AnalystVerdict, merged_out.verdict),
             technique_ids=merged_out.technique_ids,
             evidence=merged_out.evidence,
             reasoning=merged_out.reasoning,
@@ -2679,7 +2691,7 @@ def _run_council(
             # The arbiter was specifically asked to break the tie, not just
             # re-vote — its own conclusion supersedes the split verdict.
             agreement = AgreementResult(
-                verdict=arbiter_out.verdict,
+                verdict=cast(AnalystVerdict, arbiter_out.verdict),
                 technique_ids=arbiter_out.technique_ids,
                 agreement=agreement.agreement,
                 dissent=agreement.dissent,
@@ -2756,7 +2768,7 @@ def _run_council(
     )
 
     return OrchestrationResult(
-        verdict=final_out.verdict,
+        verdict=cast(AnalystVerdict, final_out.verdict),
         technique_ids=final_out.technique_ids,
         evidence=final_out.evidence,
         reasoning=final_out.reasoning,
@@ -2769,7 +2781,7 @@ def _run_council(
     )
 
 
-def _sources_from_trace(trace: list[dict], available_sources: list[str]) -> list[str]:
+def _sources_from_trace(trace: list[dict[str, Any]], available_sources: list[str]) -> list[str]:
     """Which real telemetry sourcetypes a chain actually queried while hunting
     — matched from its own tool-request text against the episode's real
     sources (`episode.telemetry` keys). Best-effort signal for evidence
@@ -2841,7 +2853,7 @@ def run_multichain_orchestration(
     started = _time.monotonic()
     available_sources = list(episode.telemetry.keys())
     chains: list[ChainResult] = []
-    trace: list[dict] = []
+    trace: list[dict[str, Any]] = []
     total_rounds = 0
 
     for cm in chain_models:
@@ -2891,7 +2903,7 @@ def run_multichain_orchestration(
     )
 
     return OrchestrationResult(
-        verdict=final_out.verdict,
+        verdict=cast(AnalystVerdict, final_out.verdict),
         technique_ids=final_out.technique_ids,
         evidence=final_out.evidence,
         reasoning=final_out.reasoning,

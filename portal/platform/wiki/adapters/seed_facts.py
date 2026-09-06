@@ -18,7 +18,9 @@ instead of by audit.
 from __future__ import annotations
 
 import subprocess
+from collections.abc import Iterable
 from pathlib import Path
+from typing import Any, cast
 
 import yaml
 
@@ -42,12 +44,12 @@ def _get_current_commit() -> str:
         return "unknown"
 
 
-def _load_yaml(path: Path) -> dict:
+def _load_yaml(path: Path) -> dict[str, Any]:
     with open(path) as fh:
-        return yaml.safe_load(fh)
+        return cast(dict[str, Any], yaml.safe_load(fh))
 
 
-def _group_models(backends_cfg: dict) -> dict[str, set[str]]:
+def _group_models(backends_cfg: dict[str, Any]) -> dict[str, set[str]]:
     """backend group name (e.g. "reasoning") -> set of model ids it declares.
 
     Multiple backend entries can share one group name (P5-FUT-013 B2: an
@@ -60,9 +62,8 @@ def _group_models(backends_cfg: dict) -> dict[str, set[str]]:
     groups: dict[str, set[str]] = {}
     for be in backends_cfg.get("backends", []):
         name = be.get("group") or (be.get("id") or be.get("name") or "").replace("ollama-", "")
-        groups.setdefault(name, set()).update(
-            m.get("id") if isinstance(m, dict) else m for m in be.get("models", [])
-        )
+        model_ids = (m.get("id") if isinstance(m, dict) else m for m in be.get("models", []))
+        groups.setdefault(name, set()).update(cast(Iterable[str], model_ids))
     return groups
 
 
@@ -78,7 +79,7 @@ def _make_unit(
     tags: list[str],
     confidence: str = "high",
     why: str = "",
-    claims: list[dict] | None = None,
+    claims: list[dict[str, Any]] | None = None,
 ) -> KnowledgeUnit:
     """Construct a fact-unit that only changes on disk when its BODY changes.
 
@@ -454,7 +455,7 @@ def derive_model_catalog(commit: str, save: bool = True) -> KnowledgeUnit:
     return unit
 
 
-def _tool_names_in_file(path) -> list[str]:
+def _tool_names_in_file(path: Path) -> list[str]:
     """Tool names registered in one MCP server file.
 
     Two registration patterns are in use across the fleet: `@mcp.tool()` immediately

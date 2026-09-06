@@ -66,7 +66,6 @@ def _parse_barrier_tools_arg(raw: str | None) -> set[str]:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Portal 5 Security Model Benchmark")
-    parser = argparse.ArgumentParser(description="Portal 5 Security Model Benchmark")
     parser.add_argument(
         "--workspaces",
         nargs="+",
@@ -650,7 +649,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _dispatch_standalone(args) -> int | None:
+def _dispatch_standalone(args: argparse.Namespace) -> int | None:
     """Early-return modes (listings, blue-mode runners, probe-lab, rescore).
 
     Returns an exit code for handled modes, or ``None`` when no standalone
@@ -706,15 +705,16 @@ def _dispatch_standalone(args) -> int | None:
     return None
 
 
-def _build_run(args) -> BenchRun | None:
+def _build_run(args: argparse.Namespace) -> BenchRun | None:
     """Assemble the BenchRun run-state; None means main() should return early."""
     # ── Retry mode: find failures from previous run, re-run only those ────
-    _retry_data: dict = {}
     _retry_failed_prompts: set[str] = set()
     _retry_failed_scenarios: set[str] = set()
     from .commands.blue_modes import _collect_retry_failed
 
-    _retry_data = _collect_retry_failed(args, _retry_failed_prompts, _retry_failed_scenarios)
+    _retry_data: dict[str, Any] | None = _collect_retry_failed(
+        args, _retry_failed_prompts, _retry_failed_scenarios
+    )
     if _retry_data is None:
         return None
 
@@ -768,10 +768,10 @@ def _build_run(args) -> BenchRun | None:
     if run_candidate_intake(args):
         return None
     t0_bench = time.monotonic()
-    audit_results: list[dict] = []
-    chain_results: list[dict] = []
-    refusal_results: list[dict] = []
-    evasion_results: list[dict] = []
+    audit_results: list[dict[str, Any]] = []
+    chain_results: list[dict[str, Any]] = []
+    refusal_results: list[dict[str, Any]] = []
+    evasion_results: list[dict[str, Any]] = []
 
     # Initialize BenchConfig
     cfg = BenchConfig(chain_tools=list(CHAIN_TOOLS_BASE))
@@ -781,9 +781,9 @@ def _build_run(args) -> BenchRun | None:
         audit_results = run_audit_tools(args.chain_models, dry_run=args.dry_run)
 
     scenario = SCENARIOS[args.scenario]
-    blue_results: list[dict] = []
-    purple_results: list[dict] = []
-    scenario_averages: list[dict] = []
+    blue_results: list[dict[str, Any]] = []
+    purple_results: list[dict[str, Any]] = []
+    scenario_averages: list[dict[str, Any]] = []
 
     # Parse --step-models assignments (multi-model chain)
     _step_models: dict[str, str] = {}
@@ -794,7 +794,7 @@ def _build_run(args) -> BenchRun | None:
                 k, _, v = pair.partition("=")
                 _step_models[k.strip()] = v.strip()
 
-    multimodel_results: list[dict] = []
+    multimodel_results: list[dict[str, Any]] = []
 
     # ── Shared lab setup: probe + snapshot (runs for both --chain-models and --exec-chain-models) ──
     _snapshot_name = ""
@@ -890,6 +890,8 @@ def _run_steps(run: BenchRun) -> None:
 
     # Step 2b: blue detection chain
     if run.args.blue_models and not run.args.purple:
+        if run.scenario is None:
+            raise SystemExit("blue detection chain requires a --scenario")
         run.blue_results = run_blue_chain_tests(
             run.args.blue_models, run.scenario, dry_run=run.args.dry_run, lab_exec=run.args.lab_exec
         )
@@ -984,7 +986,12 @@ def _write_output(run: BenchRun) -> None:
     from .commands.blue_modes import run_retry_data
 
     output_data = run_retry_data(
-        run.args, run._retry_data, run.chain_results, run.results, run.ts, output_data
+        run.args,
+        run._retry_data,
+        run.chain_results or [],
+        run.results or [],
+        run.ts,
+        output_data,
     )
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -996,7 +1003,8 @@ def _write_output(run: BenchRun) -> None:
 
     # Summary notification
     by_ws: dict[str, list[dict[str, Any]]] = {}
-    for r in run.results:
+    results_for_summary = run.results or []
+    for r in results_for_summary:
         if r["status"] == "ok":
             by_ws.setdefault(r["workspace"], []).append(r)
     lines = []
@@ -1016,7 +1024,7 @@ def _write_output(run: BenchRun) -> None:
             )
     elapsed = time.monotonic() - run._t0_bench
     _send_bench_notification(
-        f"{len(by_ws)} workspaces  {len(run.results)} results  {len(run.chain_results)} chain  {elapsed / 60:.1f}min\n\n"
+        f"{len(by_ws)} workspaces  {len(results_for_summary)} results  {len(run.chain_results)} chain  {elapsed / 60:.1f}min\n\n"
         + "\n".join(lines),
         title="🔐 Security Bench — DONE",
     )

@@ -10,9 +10,9 @@ from __future__ import annotations
 import gzip
 import json
 import os
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .connectors import (
     ConnectorCredentials,
@@ -148,13 +148,16 @@ def lab_splunk_connector(
         from ..siem.spl_backend import SplunkBackend
 
         backend = SplunkBackend()
-    resolved_index = index or getattr(
-        backend, "index", os.environ.get("LAB_SPLUNK_INDEX", "portal5_lab")
+    resolved_index = index or str(
+        getattr(backend, "index", None) or os.environ.get("LAB_SPLUNK_INDEX") or "portal5_lab"
     )
     connector = SplunkQueryInPlaceConnector(backend, source_id=source_id, index=resolved_index)
     secret = os.environ.get("LAB_SPLUNK_PASSWORD")
     credentials = ConnectorCredentials("env:LAB_SPLUNK_PASSWORD") if secret else None
-    return CredentialedConnector(connector, credentials)
+    # CredentialedConnector's mode/source_id are read-only properties, so it is
+    # not structurally a settable-attribute SourceConnector; the wrapper exposes
+    # the same read/translate surface at runtime, hence the cast.
+    return cast(SourceConnector, CredentialedConnector(connector, credentials))
 
 
 def connect_lab_splunk(
@@ -241,6 +244,7 @@ def _records_from_path(path: Path) -> Iterator[Any]:
                     except json.JSONDecodeError:
                         yield line.rstrip("\n")
         return
+    opener: Callable[..., Any]
     if path.suffix == ".gz" or ".json.gz" in "".join(suffixes):
         opener = gzip.open
     elif path.suffix == ".json":

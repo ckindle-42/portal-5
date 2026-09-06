@@ -16,11 +16,15 @@ import contextlib
 import logging
 import os
 import re
+from collections.abc import Awaitable, Callable
+from pathlib import Path
+from typing import Any
 
 import lancedb
-import pyarrow as pa
+import pyarrow as pa  # type: ignore[import-untyped]  # pyarrow ships no py.typed
 from mcp.server import MCPServer
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 from portal.modules.research.tools.rag_multimodal import register_retrieval_routes
 from portal.platform.data_loader import load_data
@@ -37,11 +41,11 @@ EMBEDDING_DIM = int(os.environ.get("VL_EMBEDDING_DIM", "2048"))
 CHUNK_SIZE = int(os.environ.get("RAG_CHUNK_SIZE", "1000"))
 CHUNK_OVERLAP = int(os.environ.get("RAG_CHUNK_OVERLAP", "150"))
 
-_db = None
-_kb_cache = {}
+_db: Any = None
+_kb_cache: dict[str, Any] = {}
 
 
-def _get_db():
+def _get_db() -> Any:
     global _db
     if _db is None:
         from portal.platform.lance_guard import require_lance_dir
@@ -52,11 +56,11 @@ def _get_db():
     return _db
 
 
-def _kb_table_name(kb_id):
+def _kb_table_name(kb_id: str) -> str:
     return f"kb_{re.sub(r'[^a-z0-9_]', '_', kb_id.lower())}"
 
 
-def _kb_table(kb_id, create_if_missing=False):
+def _kb_table(kb_id: str, create_if_missing: bool = False) -> Any:
     name = _kb_table_name(kb_id)
     db = _get_db()
     if name in db.table_names():
@@ -79,13 +83,19 @@ def _kb_table(kb_id, create_if_missing=False):
     return db.create_table(name, schema=schema)
 
 
-def _list_kbs():
+def _list_kbs() -> list[str]:
     """List all KBs by table prefix."""
     return sorted([t.replace("kb_", "", 1) for t in _get_db().table_names() if t.startswith("kb_")])
 
 
-@mcp.custom_route("/health", methods=["GET"])
-async def health(request):
+_route: Callable[
+    ...,
+    Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+] = mcp.custom_route
+
+
+@_route("/health", methods=["GET"])
+async def health(request: Request) -> JSONResponse:
     try:
         kbs = _list_kbs()
         return JSONResponse({"status": "ok", "service": "rag-mcp", "knowledge_bases": kbs})
@@ -96,16 +106,16 @@ async def health(request):
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_rag_mcp")
 
 
-@mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request):
+@_route("/tools", methods=["GET"])
+async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse(TOOLS_MANIFEST)
 
 
 _DOCLING_FORMATS = (".pdf", ".docx", ".pptx", ".xlsx", ".html", ".htm", ".epub")
-_docling_converter = None
+_docling_converter: Any = None
 
 
-def _get_docling_converter():
+def _get_docling_converter() -> Any:
     """Lazily build and cache a Docling DocumentConverter (expensive to init)."""
     global _docling_converter
     if _docling_converter is None:
@@ -115,17 +125,17 @@ def _get_docling_converter():
     return _docling_converter
 
 
-def _docling_convert(path):
+def _docling_convert(path: Path) -> str:
     """Blocking Docling conversion -> markdown. Raises on any failure.
 
     Kept as a module-level indirection so unit tests can patch it without
     installing docling on the host (docling ships only in Dockerfile.mcp).
     """
     result = _get_docling_converter().convert(str(path))
-    return result.document.export_to_markdown()
+    return str(result.document.export_to_markdown())
 
 
-def _docling_document(path):
+def _docling_document(path: Path) -> Any:
     """Blocking Docling conversion -> the ``DoclingDocument`` itself (not the
     markdown string). SUBSTRATE_MIGRATION_V1 P3.2: the retrieval chunker needs
     ``prov.page_no`` and heading structure, both discarded by
@@ -133,7 +143,7 @@ def _docling_document(path):
     return _get_docling_converter().convert(str(path)).document
 
 
-async def _read_file(path):
+async def _read_file(path: Path) -> str:
     """Extract text via Docling (preferred) with pypdf/python-docx fallback.
 
     Docling adds table extraction, layout preservation, and reading-order
@@ -162,14 +172,16 @@ async def _read_file(path):
         try:
             import pymupdf
 
-            with pymupdf.open(str(path)) as doc:
+            with pymupdf.open(str(path)) as doc:  # type: ignore[no-untyped-call]  # pymupdf open() is untyped
                 text = "\n\n".join(page.get_text() for page in doc)
             if text.strip():
                 return text
         except Exception as e:
             logger.warning("pymupdf PDF read failed for %s: %s", path, e)
         try:
-            from pypdf import PdfReader
+            from pypdf import (  # type: ignore[import-not-found]  # Docker-only dep
+                PdfReader,
+            )
 
             r = PdfReader(str(path))
             return "\n\n".join(p.extract_text() or "" for p in r.pages)
@@ -188,8 +200,8 @@ async def _read_file(path):
     return ""
 
 
-@mcp.custom_route("/tools/kb_optimize", methods=["POST"])
-async def kb_optimize_endpoint(request):
+@_route("/tools/kb_optimize", methods=["POST"])
+async def kb_optimize_endpoint(request: Request) -> JSONResponse:
     body = await request.json()
     args = body.get("arguments", {})
     kb_id = args.get("kb_id", "")
@@ -232,8 +244,8 @@ async def kb_optimize_endpoint(request):
     )
 
 
-@mcp.custom_route("/tools/kb_versions", methods=["POST"])
-async def kb_versions_endpoint(request):
+@_route("/tools/kb_versions", methods=["POST"])
+async def kb_versions_endpoint(request: Request) -> JSONResponse:
     body = await request.json()
     args = body.get("arguments", {})
     kb_id = args.get("kb_id", "")
@@ -256,8 +268,8 @@ async def kb_versions_endpoint(request):
     )
 
 
-@mcp.custom_route("/tools/kb_restore", methods=["POST"])
-async def kb_restore_endpoint(request):
+@_route("/tools/kb_restore", methods=["POST"])
+async def kb_restore_endpoint(request: Request) -> JSONResponse:
     body = await request.json()
     args = body.get("arguments", {})
     kb_id = args.get("kb_id", "")
@@ -276,8 +288,8 @@ async def kb_restore_endpoint(request):
     )
 
 
-@mcp.custom_route("/tools/kb_list", methods=["POST"])
-async def kb_list_endpoint(request):
+@_route("/tools/kb_list", methods=["POST"])
+async def kb_list_endpoint(request: Request) -> JSONResponse:
     from portal.modules.research.tools.rag_multimodal import _read_stamp
 
     kbs = []
@@ -301,7 +313,7 @@ async def kb_list_endpoint(request):
 register_retrieval_routes(mcp)
 
 
-def main():
+def main() -> None:
     port = int(os.environ.get("RAG_MCP_PORT", "8921"))
     mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
 

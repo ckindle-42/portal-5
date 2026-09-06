@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+
+import pytest
 
 from portal.modules.security.core import corpus_coverage as coverage
 
 
-def _valid_capture(tmp_path, scenario: str):
+def _valid_capture(tmp_path: Path, scenario: str) -> Path:
     pcap = tmp_path / f"{scenario}.pcap"
     pcap.write_bytes(b"pcap")
     capture = tmp_path / f"{scenario}_capture.json"
@@ -32,7 +35,9 @@ def _valid_capture(tmp_path, scenario: str):
     return capture
 
 
-def test_external_techniques_never_substitute_for_live_scenario_proof(tmp_path, monkeypatch):
+def test_external_techniques_never_substitute_for_live_scenario_proof(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     capture = _valid_capture(tmp_path, "vuln_shellshock_rce")
     monkeypatch.setattr(
         coverage,
@@ -51,7 +56,9 @@ def test_external_techniques_never_substitute_for_live_scenario_proof(tmp_path, 
     assert report["ready_for_detection_design"] is True
 
 
-def test_declared_external_inventory_cannot_pass_live_validation_gate(tmp_path, monkeypatch):
+def test_declared_external_inventory_cannot_pass_live_validation_gate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     capture = _valid_capture(tmp_path, "vuln_shellshock_rce")
     monkeypatch.setattr(
         coverage,
@@ -63,7 +70,9 @@ def test_declared_external_inventory_cannot_pass_live_validation_gate(tmp_path, 
     assert report["ready_for_blue_purple_validation"] is False
 
 
-def test_empty_external_probe_cannot_pass_readiness_gate(tmp_path, monkeypatch):
+def test_empty_external_probe_cannot_pass_readiness_gate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     capture = _valid_capture(tmp_path, "vuln_shellshock_rce")
     monkeypatch.setattr(
         coverage,
@@ -77,7 +86,9 @@ def test_empty_external_probe_cannot_pass_readiness_gate(tmp_path, monkeypatch):
     assert report["ready_for_detection_design"] is False
 
 
-def test_hollow_newest_capture_does_not_hide_older_valid_capture(tmp_path, monkeypatch):
+def test_hollow_newest_capture_does_not_hide_older_valid_capture(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     valid = _valid_capture(tmp_path, "vuln_shellshock_rce")
     hollow = tmp_path / "vuln_shellshock_rce_newer.json"
     hollow.write_text(
@@ -104,14 +115,16 @@ def test_hollow_newest_capture_does_not_hide_older_valid_capture(tmp_path, monke
     assert status["valid_capture"] == str(valid)
 
 
-def test_source_contract_keeps_theory_out_of_capture_modes():
+def test_source_contract_keeps_theory_out_of_capture_modes() -> None:
     contract = coverage.load_source_contract()
     assert contract["answer_key_visibility"] == "scorer_only"
     assert all(source["data_mode"] != "theory" for source in contract["sources"].values())
     assert contract["gates"]["allow_external_scenario_substitution"] is False
 
 
-def test_agentic_blue_loader_uses_valid_capture_not_newest_hollow(tmp_path, monkeypatch):
+def test_agentic_blue_loader_uses_valid_capture_not_newest_hollow(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from portal.modules.security.core import agentic_blue_eval
     from portal.modules.security.core.exec_chain import SCENARIOS
 
@@ -141,7 +154,9 @@ def test_agentic_blue_loader_uses_valid_capture_not_newest_hollow(tmp_path, monk
     assert episode.techniques == ["T1190", "T1059"]
 
 
-def test_report_identifies_catalog_as_lab_exercises(tmp_path, monkeypatch):
+def test_report_identifies_catalog_as_lab_exercises(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     capture = _valid_capture(tmp_path, "vuln_shellshock_rce")
     monkeypatch.setattr(
         coverage,
@@ -154,7 +169,9 @@ def test_report_identifies_catalog_as_lab_exercises(tmp_path, monkeypatch):
     assert report["scenario_coverage"]["data_mode"] == "lab-exercise"
 
 
-def test_theory_and_unbacked_scenarios_do_not_inflate_lab_denominator(tmp_path, monkeypatch):
+def test_theory_and_unbacked_scenarios_do_not_inflate_lab_denominator(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(coverage, "list_captures", lambda scenario=None: [])
     report = coverage.build_coverage_report(
         external_techniques={"T1190"}, external_validation="live-probed"

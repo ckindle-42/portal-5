@@ -24,7 +24,7 @@ from portal.modules.security.core.blue import _cite_or_drop
 class TestCiteOrDrop:
     """Cite-or-drop: never-invent applied to blue's own output."""
 
-    def test_keeps_technique_with_grounded_evidence(self):
+    def test_keeps_technique_with_grounded_evidence(self) -> None:
         """A technique whose cited evidence is actually grounded in real
         telemetry is kept."""
         reported = [{"technique_id": "T1558.003", "evidence": "EventCode=4769 seen"}]
@@ -33,7 +33,7 @@ class TestCiteOrDrop:
         assert len(result) == 1
         assert result[0]["technique_id"] == "T1558.003"
 
-    def test_drops_correctly_labeled_technique_with_fabricated_evidence(self):
+    def test_drops_correctly_labeled_technique_with_fabricated_evidence(self) -> None:
         """A CORE regression test: a technique whose OWN cited evidence is
         fabricated (never appears in real telemetry) must be dropped — the
         label being the corpus's right answer buys it nothing, because the
@@ -61,7 +61,7 @@ class TestCiteOrDrop:
         result = _cite_or_drop(reported, telemetry)
         assert result == []
 
-    def test_drops_hallucinated_technique(self):
+    def test_drops_hallucinated_technique(self) -> None:
         """Technique with no evidence is dropped (FP control)."""
         reported = [
             {"technique_id": "T1558.003", "evidence": "EventCode=4769 seen"},  # grounded
@@ -72,7 +72,7 @@ class TestCiteOrDrop:
         assert len(result) == 1
         assert result[0]["technique_id"] == "T1558.003"
 
-    def test_keeps_technique_with_telemetry_match(self):
+    def test_keeps_technique_with_telemetry_match(self) -> None:
         """Technique ID present in telemetry text is kept (this path doesn't
         require a per-detection evidence field — it checks the technique ID
         itself against the whole telemetry blob)."""
@@ -81,7 +81,7 @@ class TestCiteOrDrop:
         result = _cite_or_drop(reported, telemetry)
         assert len(result) == 1
 
-    def test_keeps_technique_with_event_id_match(self):
+    def test_keeps_technique_with_event_id_match(self) -> None:
         """Technique with matching event ID in telemetry is kept."""
         reported = [{"technique_id": "T1558.003"}]
         telemetry = {
@@ -90,7 +90,7 @@ class TestCiteOrDrop:
         result = _cite_or_drop(reported, telemetry)
         assert len(result) == 1
 
-    def test_drops_multiple_hallucinations(self):
+    def test_drops_multiple_hallucinations(self) -> None:
         """Multiple hallucinated techniques are all dropped."""
         reported = [
             {"technique_id": "T1558.003", "evidence": "EventCode=4769 seen"},  # grounded
@@ -103,18 +103,18 @@ class TestCiteOrDrop:
         assert len(result) == 1
         assert result[0]["technique_id"] == "T1558.003"
 
-    def test_empty_reported(self):
+    def test_empty_reported(self) -> None:
         """Empty reported list returns empty."""
         assert _cite_or_drop([], {}) == []
 
-    def test_keeps_technique_with_parent_id_in_telemetry(self):
+    def test_keeps_technique_with_parent_id_in_telemetry(self) -> None:
         """Technique with parent ID in telemetry is kept."""
         reported = [{"technique_id": "T1558.003"}]
         telemetry = {"T1558.003": {"telemetry": "Some T1558 Kerberos data", "source": "live"}}
         result = _cite_or_drop(reported, telemetry)
         assert len(result) == 1
 
-    def test_dcsync_event_id_match(self):
+    def test_dcsync_event_id_match(self) -> None:
         """DCSync (T1003.006) kept when its own cited evidence names the
         4662 event that's actually present in telemetry."""
         reported = [{"technique_id": "T1003.006", "evidence": "EventCode=4662 replication seen"}]
@@ -124,7 +124,7 @@ class TestCiteOrDrop:
         result = _cite_or_drop(reported, telemetry)
         assert len(result) == 1
 
-    def test_trigger_supplied_tokens_do_not_count_as_citations(self):
+    def test_trigger_supplied_tokens_do_not_count_as_citations(self) -> None:
         """2026-07-23 design review: the trigger hands the model the target
         host and scenario name. Evidence whose only 'grounded' tokens are
         those trigger-echoed values is not a citation — the model was GIVEN
@@ -153,7 +153,7 @@ class TestCiteOrDrop:
         # (wrongly) ground it — this is exactly the hole being closed.
         assert len(_cite_or_drop(reported, telemetry)) == 1
 
-    def test_grounded_evidence_survives_context_exclusion(self):
+    def test_grounded_evidence_survives_context_exclusion(self) -> None:
         """Context exclusion only removes trigger-echoed tokens — a claim
         citing a real, retrieved value still grounds normally."""
         trigger = "An alert was triggered on webserver01 (scenario: kerberoast)."

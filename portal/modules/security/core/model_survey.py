@@ -28,6 +28,7 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
+from typing import Any, Literal
 
 import yaml
 
@@ -91,7 +92,7 @@ def _extract_ctx(model_id: str) -> int | None:
     return int(m.group(1)) * 1024
 
 
-def load_catalog(path: Path = BACKENDS_YAML) -> list[dict]:
+def load_catalog(path: Path = BACKENDS_YAML) -> list[dict[str, Any]]:
     """Flatten config/backends.yaml into a deduped list of {id, groups, supports_tools}.
 
     The same model id can appear under multiple groups (general/coding/security/
@@ -99,7 +100,7 @@ def load_catalog(path: Path = BACKENDS_YAML) -> list[dict]:
     the ranked survey doesn't repeat the same model 3x.
     """
     data = yaml.safe_load(path.read_text())
-    by_id: dict[str, dict] = {}
+    by_id: dict[str, dict[str, Any]] = {}
     for backend in data.get("backends", []):
         group = backend.get("group", "?")
         for model in backend.get("models", []) or []:
@@ -164,7 +165,7 @@ def _fuzzy_benched(model_id: str, benched: set[str]) -> bool:
     return any(b in (model_id, norm) or norm.startswith(b) or b.startswith(norm) for b in benched)
 
 
-def score_model(entry: dict) -> dict:
+def score_model(entry: dict[str, Any]) -> dict[str, Any]:
     """Score one catalog entry for reasoning-first blue fit.
 
     Returns entry augmented with: size_b, ctx_hint, reasoning_signal,
@@ -233,7 +234,7 @@ def score_model(entry: dict) -> dict:
     return entry
 
 
-def survey_catalog(path: Path = BACKENDS_YAML) -> list[dict]:
+def survey_catalog(path: Path = BACKENDS_YAML) -> list[dict[str, Any]]:
     """Score+rank the full catalog, flag un-benched-but-promising candidates."""
     catalog = load_catalog(path)
     benched = _already_benched_models()
@@ -247,7 +248,7 @@ def survey_catalog(path: Path = BACKENDS_YAML) -> list[dict]:
     return scored
 
 
-def print_catalog_survey(scored: list[dict], limit: int | None = None) -> None:
+def print_catalog_survey(scored: list[dict[str, Any]], limit: int | None = None) -> None:
     total = len(scored)
     benched_n = sum(1 for e in scored if e["already_benched"])
     gap = [e for e in scored if e["gap_candidate"]]
@@ -270,7 +271,7 @@ def print_catalog_survey(scored: list[dict], limit: int | None = None) -> None:
 DEFAULT_HF_TAGS = ["reasoning", "thinking", "code"]
 
 
-def _catalog_hf_ids(catalog: list[dict]) -> set[str]:
+def _catalog_hf_ids(catalog: list[dict[str, Any]]) -> set[str]:
     """Extract the bare HF repo id (org/name) from hf.co/... catalog entries."""
     ids = set()
     for e in catalog:
@@ -286,8 +287,10 @@ def hf_search(
     tags: list[str] | None = None,
     gguf_only: bool = True,
     limit: int = 30,
-    sort: str = "downloads",
-) -> list[dict]:
+    sort: Literal["created_at", "downloads", "last_modified", "likes", "trending_score"] = (
+        "downloads"
+    ),
+) -> list[dict[str, Any]]:
     """Search the public HF Hub for reasoning-first GGUF candidates.
 
     Uses huggingface_hub.HfApi.list_models — public queries need no token.
@@ -308,7 +311,7 @@ def hf_search(
     catalog = load_catalog()
     existing_hf_ids = _catalog_hf_ids(catalog)
 
-    seen: dict[str, dict] = {}
+    seen: dict[str, dict[str, Any]] = {}
     for tag in tags:
         try:
             models = api.list_models(
@@ -344,7 +347,7 @@ def hf_search(
     return candidates
 
 
-def print_hf_survey(candidates: list[dict], limit: int | None = 20) -> None:
+def print_hf_survey(candidates: list[dict[str, Any]], limit: int | None = 20) -> None:
     print(f"HF search: {len(candidates)} new candidates not already in catalog")
     print()
     rows = candidates[:limit] if limit else candidates
@@ -372,9 +375,9 @@ TRUSTED_QUANTIZERS = {"bartowski", "mradermacher", "unsloth", "huihui-ai", "huih
 SEED_CANDIDATES = load_data("config/security", "model_survey_seed_candidates")
 
 
-def resolve_seed_candidates() -> list[dict]:
+def resolve_seed_candidates() -> list[dict[str, Any]]:
     """Attach trust classification + a pull-ready ollama tag to each seed candidate."""
-    out = []
+    out: list[dict[str, Any]] = []
     for c in SEED_CANDIDATES:
         c = dict(c)
         local_name = c.get("local_ollama_name")
@@ -397,7 +400,7 @@ def resolve_seed_candidates() -> list[dict]:
     return out
 
 
-def print_seed_survey(resolved: list[dict]) -> None:
+def print_seed_survey(resolved: list[dict[str, Any]]) -> None:
     pullable = [c for c in resolved if c["ollama_tag"]]
     blocked = [c for c in resolved if c["resolved_id"] and not c["ollama_tag"]]
     dropped = [c for c in resolved if not c["resolved_id"]]
@@ -425,7 +428,7 @@ def print_seed_survey(resolved: list[dict]) -> None:
 
 
 def write_discovery_wiki_unit(
-    ranking: list[dict],
+    ranking: list[dict[str, Any]],
     devstral_bar: float = 0.421,
     sweep_path: str = "/tmp/agentic_blue_sweep.json",
 ) -> str | None:
@@ -502,8 +505,8 @@ def write_discovery_wiki_unit(
     return proposed.unit_id
 
 
-def _parse_args(argv: list[str]) -> dict:
-    opts = {
+def _parse_args(argv: list[str]) -> dict[str, Any]:
+    opts: dict[str, Any] = {
         "catalog": "--catalog" in argv,
         "hf_search": "--hf-search" in argv,
         "seed": "--seed" in argv,

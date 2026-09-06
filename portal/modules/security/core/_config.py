@@ -8,6 +8,7 @@ need these values receive ``cfg: BenchConfig`` instead of reading globals.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -21,7 +22,7 @@ class BenchConfig:
     # sequence). Names a lab_observations key (e.g. "compromise_confirmed",
     # "data_extracted") that, once truthy, ends the turn loop early.
     chain_mission_objective: str | None = None
-    gate_result: dict | None = None  # readiness gate result for current scenario
+    gate_result: dict[str, Any] | None = None  # readiness gate result for current scenario
 
     # ── Mode flags (set once from CLI args) ────────────────────────────────
     dynamic_cve_mode: bool = False
@@ -44,13 +45,13 @@ class BenchConfig:
     chain_num_ctx: int = 32768
 
     # ── Mutable tool list (appended to in dynamic-CVE mode) ────────────────
-    chain_tools: list[dict] = field(default_factory=list)
+    chain_tools: list[dict[str, Any]] = field(default_factory=list)
 
     def set_scenario(
         self,
         red_order: list[str],
         red_prompt: str,
-        runtime_env: dict | None = None,
+        runtime_env: dict[str, Any] | None = None,
         mission_objective: str | None = None,
     ) -> None:
         """Swap scenario context — replaces global mutation.

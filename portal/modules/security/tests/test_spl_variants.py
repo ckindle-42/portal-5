@@ -25,7 +25,7 @@ from portal.modules.security.core.siem.spl_detections import (
 class TestSPLVariants:
     """OS-aware SPL variants for cross-platform detection."""
 
-    def test_spl_for_with_source_selects_variant(self):
+    def test_spl_for_with_source_selects_variant(self) -> None:
         _invalidate_cache()
         # T1059 should have a windows:security variant
         spl_linux = spl_for("T1059", source="linux:auditd")
@@ -36,20 +36,20 @@ class TestSPLVariants:
         assert "windows:security" in spl_win
         assert spl_linux != spl_win  # different variants
 
-    def test_spl_for_without_source_returns_default(self):
+    def test_spl_for_without_source_returns_default(self) -> None:
         _invalidate_cache()
         spl = spl_for("T1059")
         assert spl is not None
         assert "linux:auditd" in spl  # default is Linux
 
-    def test_spl_for_backward_compat(self):
+    def test_spl_for_backward_compat(self) -> None:
         _invalidate_cache()
         # T1558.003 has no variants — should still work
         spl = spl_for("T1558.003")
         assert spl is not None
         assert "4769" in spl
 
-    def test_spl_variants_for(self):
+    def test_spl_variants_for(self) -> None:
         _invalidate_cache()
         variants = spl_variants_for("T1059")
         assert len(variants) == 2
@@ -57,12 +57,12 @@ class TestSPLVariants:
         assert "linux:auditd" in sources
         assert "windows:security" in sources
 
-    def test_spl_variants_for_no_variants(self):
+    def test_spl_variants_for_no_variants(self) -> None:
         _invalidate_cache()
         variants = spl_variants_for("T1558.003")
         assert variants == []
 
-    def test_affected_techniques_have_windows_variants(self):
+    def test_affected_techniques_have_windows_variants(self) -> None:
         """T1059, T1548.001, T1068, T1210, T1021.002 should have Windows variants."""
         _invalidate_cache()
         affected = ["T1059", "T1548.001", "T1068", "T1210", "T1021.002"]
@@ -71,14 +71,14 @@ class TestSPLVariants:
             sources = [v["source"] for v in variants]
             assert "windows:security" in sources, f"{tid} missing windows:security variant"
 
-    def test_t1190_has_iis_variant(self):
+    def test_t1190_has_iis_variant(self) -> None:
         """T1190 should have a web:access:iis variant for meta3."""
         _invalidate_cache()
         variants = spl_variants_for("T1190")
         sources = [v["source"] for v in variants]
         assert "web:access:iis" in sources, "T1190 missing IIS variant"
 
-    def test_t1557_requires_correlated_windows_evidence(self):
+    def test_t1557_requires_correlated_windows_evidence(self) -> None:
         """Successful network-logon volume alone cannot establish AiTM."""
         _invalidate_cache()
         spl = spl_for("T1557", source="windows:security")
@@ -90,13 +90,13 @@ class TestSPLVariants:
         assert "target_count>1" in spl
         assert "where count > 5" not in spl
 
-    def test_techniques_covered_unchanged(self):
+    def test_techniques_covered_unchanged(self) -> None:
         """Adding variants doesn't change the technique count."""
         _invalidate_cache()
         covered = techniques_covered()
         assert len(covered) >= 29
 
-    def test_variant_spl_is_valid_string(self):
+    def test_variant_spl_is_valid_string(self) -> None:
         """Every variant's SPL is a non-empty string."""
         _invalidate_cache()
         for tid in techniques_covered():

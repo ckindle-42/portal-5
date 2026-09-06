@@ -17,13 +17,25 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from mcp.server import MCPServer
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 logger = logging.getLogger(__name__)
 
 mcp = MCPServer("binresearch")
+
+# MCPServer.custom_route() has no return annotation upstream (mcp SDK), so mypy
+# sees its decorator result as Any and flags every routed handler with
+# untyped-decorator. Bind the concrete decorator type once so handlers keep
+# their annotations.
+_route: Callable[
+    ...,
+    Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+] = mcp.custom_route
 
 BINRESEARCH_IMAGE = os.getenv("BINRESEARCH_IMAGE", "portal5-binresearch:latest")
 BINRESEARCH_MEMORY = os.getenv("BINRESEARCH_MEMORY", "4g")
@@ -60,7 +72,7 @@ _DECLARED_TOOLS = [
 _DECLARED_PYLIBS = ["lief", "capstone", "pefile", "macholib", "ropper", "tlsh"]
 
 
-def _docker_env() -> dict:
+def _docker_env() -> dict[str, str]:
     env = os.environ.copy()
     if DOCKER_HOST:
         env["DOCKER_HOST"] = DOCKER_HOST
@@ -76,17 +88,17 @@ def _safe_project(name: str) -> str:
     return name
 
 
-@mcp.custom_route("/health", methods=["GET"])
-async def health(request):
+@_route("/health", methods=["GET"])
+async def health(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "binresearch-mcp", "image": BINRESEARCH_IMAGE})
 
 
-@mcp.custom_route("/ready", methods=["GET"])
-async def ready(request):
+@_route("/ready", methods=["GET"])
+async def ready(request: Request) -> JSONResponse:
     return JSONResponse({"ready": True})
 
 
-async def _docker_run(inner: list[str], timeout: int, project: str | None) -> dict:
+async def _docker_run(inner: list[str], timeout: int, project: str | None) -> dict[str, Any]:
     """Run one command in the RE container. project mounts <root>/<project> rw."""
     run_args = [
         "docker",
@@ -130,7 +142,9 @@ async def _docker_run(inner: list[str], timeout: int, project: str | None) -> di
 
 
 @mcp.tool()
-async def re_exec(command: str, project: str = "", timeout: int = BINRESEARCH_TIMEOUT) -> dict:
+async def re_exec(
+    command: str, project: str = "", timeout: int = BINRESEARCH_TIMEOUT
+) -> dict[str, Any]:
     """Run a shell command inside the RE toolchain container against a project."""
     try:
         p = _safe_project(project)
@@ -141,7 +155,9 @@ async def re_exec(command: str, project: str = "", timeout: int = BINRESEARCH_TI
 
 
 @mcp.tool()
-async def re_python(code: str, project: str = "", timeout: int = BINRESEARCH_TIMEOUT) -> dict:
+async def re_python(
+    code: str, project: str = "", timeout: int = BINRESEARCH_TIMEOUT
+) -> dict[str, Any]:
     """Run Python inside the RE container (LIEF/capstone/pefile available)."""
     try:
         p = _safe_project(project)
@@ -152,7 +168,7 @@ async def re_python(code: str, project: str = "", timeout: int = BINRESEARCH_TIM
 
 
 @mcp.tool()
-async def re_tools() -> dict:
+async def re_tools() -> dict[str, Any]:
     """Verify the declared toolchain is present inside the container."""
     check = "; ".join(
         [f"command -v {t} >/dev/null && echo '{t}:yes' || echo '{t}:no'" for t in _DECLARED_TOOLS]
@@ -171,8 +187,8 @@ async def re_tools() -> dict:
     return {"image": BINRESEARCH_IMAGE, "present": present, "missing": missing}
 
 
-@mcp.custom_route("/tools/re_exec", methods=["POST"])
-async def re_exec_endpoint(request):
+@_route("/tools/re_exec", methods=["POST"])
+async def re_exec_endpoint(request: Request) -> JSONResponse:
     args = (await request.json()).get("arguments", {})
     command = args.get("command", "")
     if not command:
@@ -186,8 +202,8 @@ async def re_exec_endpoint(request):
     )
 
 
-@mcp.custom_route("/tools/re_python", methods=["POST"])
-async def re_python_endpoint(request):
+@_route("/tools/re_python", methods=["POST"])
+async def re_python_endpoint(request: Request) -> JSONResponse:
     args = (await request.json()).get("arguments", {})
     code = args.get("code", "")
     if not code:
@@ -201,8 +217,8 @@ async def re_python_endpoint(request):
     )
 
 
-@mcp.custom_route("/tools/re_tools", methods=["POST"])
-async def re_tools_endpoint(request):
+@_route("/tools/re_tools", methods=["POST"])
+async def re_tools_endpoint(request: Request) -> JSONResponse:
     return JSONResponse(await re_tools())
 
 

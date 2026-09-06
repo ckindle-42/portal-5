@@ -26,7 +26,10 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from typing import Any
 
+from portal.modules.compliance.core.cip_register import Register
+from portal.modules.compliance.core.mapping_store import MappingStore
 from portal.modules.compliance.core.models import (
     RelationshipAssertion,
     SourceDocument,
@@ -36,7 +39,7 @@ from portal.modules.compliance.core.repository import Repository
 from portal.modules.compliance.core.temporal import now_iso
 
 
-def _register_fingerprint(register) -> dict[str, object]:
+def _register_fingerprint(register: Register) -> dict[str, object]:
     return {
         "n_nodes": len(register.nodes),
         "n_edges": len(register.edges),
@@ -46,7 +49,7 @@ def _register_fingerprint(register) -> dict[str, object]:
     }
 
 
-def _mapping_store_fingerprint(store) -> dict[str, object]:
+def _mapping_store_fingerprint(store: MappingStore) -> dict[str, object]:
     rows = [m.__dict__ for m in store._rows]  # noqa: SLF001 - snapshot only, never mutated
     return {
         "n_mappings": len(rows),
@@ -59,14 +62,14 @@ def _mapping_store_fingerprint(store) -> dict[str, object]:
 def snapshot_legacy_sources(
     repo: Repository,
     *,
-    register=None,
-    mapping_store=None,
+    register: Register | None = None,
+    mapping_store: MappingStore | None = None,
     sidecar: dict[str, object] | None = None,
 ) -> object:
     """Requirement 1: record counts/hashes of the JSON sources BEFORE
     importing, without mutating them. Returns the catalog snapshot."""
-    counts: dict = {}
-    hashes: dict = {}
+    counts: dict[str, Any] = {}
+    hashes: dict[str, Any] = {}
     if register is not None:
         fp = _register_fingerprint(register)
         counts["register_nodes"] = fp["n_nodes"]
@@ -82,7 +85,9 @@ def snapshot_legacy_sources(
     return repo.record_catalog_snapshot(counts, hashes)
 
 
-def import_register(repo: Repository, register, *, dry_run: bool = False) -> dict[str, object]:
+def import_register(
+    repo: Repository, register: Register, *, dry_run: bool = False
+) -> dict[str, object]:
     """Requirement 2. Every node's stored dates import as an UNVERIFIED
     effectivity assertion — the P1 fix already stopped treating an unknown
     date as effective; this migration does not silently upgrade a legacy
@@ -144,7 +149,7 @@ def import_register(repo: Repository, register, *, dry_run: bool = False) -> dic
 
 
 def import_mapping_store(
-    repo: Repository, mapping_store, *, dry_run: bool = False
+    repo: Repository, mapping_store: MappingStore, *, dry_run: bool = False
 ) -> dict[str, object]:
     """Requirement 3. An approved legacy mapping becomes an ``approved``
     relationship_assertion whose ``review_state`` names it
@@ -201,7 +206,7 @@ def import_mapping_store(
 
 def import_document_directory(
     repo: Repository, source_dir: str | Path, *, dry_run: bool = False
-) -> dict:
+) -> dict[str, Any]:
     """Requirement 4. Real bytes under ``source_dir`` become immutable
     document revisions keyed by content hash. ``logical_id`` is the
     source-dir-relative path — stable, human-readable, and portable across a

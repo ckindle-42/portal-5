@@ -11,6 +11,8 @@ no model touches the verdict.
 
 from __future__ import annotations
 
+from typing import Any
+
 from portal.modules.security.core.oracles import Oracle, register_oracle
 
 # ── Terminal-state classes ───────────────────────────────────────────────────
@@ -18,7 +20,9 @@ from portal.modules.security.core.oracles import Oracle, register_oracle
 # assumed). Checks are deterministic and side-effect free.
 
 
-def _has_da_equivalent(finding: dict, lab_output: str, observations: dict) -> bool:
+def _has_da_equivalent(
+    finding: dict[str, Any], lab_output: str, observations: dict[str, Any]
+) -> bool:
     """A session/credential with domain-admin-equivalent rights exists on the DC."""
     sessions = observations.get("sessions", [])
     return any(
@@ -29,19 +33,23 @@ def _has_da_equivalent(finding: dict, lab_output: str, observations: dict) -> bo
     )
 
 
-def _has_host_foothold(finding: dict, lab_output: str, observations: dict) -> bool:
+def _has_host_foothold(
+    finding: dict[str, Any], lab_output: str, observations: dict[str, Any]
+) -> bool:
     """An interactive/exec-capable session exists on any in-lab host."""
     sessions = observations.get("sessions", [])
     return any(s.get("exec_capable") is True and s.get("verified") is True for s in sessions)
 
 
-def _has_credential(finding: dict, lab_output: str, observations: dict) -> bool:
+def _has_credential(finding: dict[str, Any], lab_output: str, observations: dict[str, Any]) -> bool:
     """At least one validated credential (not merely captured) is held."""
     creds = observations.get("credentials", [])
     return any(c.get("validated") is True for c in creds)
 
 
-def _has_data_access(finding: dict, lab_output: str, observations: dict) -> bool:
+def _has_data_access(
+    finding: dict[str, Any], lab_output: str, observations: dict[str, Any]
+) -> bool:
     """Read access to a target-designated sensitive artifact is proven."""
     artifacts = observations.get("data_access", [])
     return any(a.get("read_confirmed") is True for a in artifacts)

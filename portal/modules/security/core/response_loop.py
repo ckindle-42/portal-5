@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
+from typing import Any
 
 from .capability_graph import CapabilityGraph, CoverageSummary
 
@@ -29,14 +30,14 @@ class ResponsePlaybook:
     playbook_id: str  # resp-<technique_id>-<scenario>
     technique_id: str
     scenario: str
-    actions: list[dict]  # [{action: str, target: str, parameters: dict}]
+    actions: list[dict[str, Any]]  # [{action: str, target: str, parameters: dict}]
     status: str = "draft"  # "draft" | "proven" | "confirmed" | "rejected"
-    effectiveness: dict = field(default_factory=dict)
+    effectiveness: dict[str, Any] = field(default_factory=dict)
     # {tested: bool, red_can_continue: bool, detail: str}
-    provenance: dict = field(default_factory=dict)
+    provenance: dict[str, Any] = field(default_factory=dict)
     created_from_gap: str = ""
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "playbook_id": self.playbook_id,
             "technique_id": self.technique_id,
@@ -128,7 +129,7 @@ def propose_response_playbook(
 def check_response_effectiveness(
     playbook: ResponsePlaybook,
     red_can_continue: bool,
-) -> dict:
+) -> dict[str, Any]:
     """Check if a response playbook effectively stops the attacker.
 
     Deterministic: did the response change target state so red can no
@@ -160,7 +161,7 @@ class RedScenarioDraft:
     suggested_tools: list[str] = field(default_factory=list)
     status: str = "draft"
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "draft_id": self.draft_id,
             "technique_id": self.technique_id,
@@ -196,11 +197,11 @@ class ThreatIntake:
     threat_id: str  # e.g. "CVE-2024-1234" or "T1190-new-variant"
     threat_type: str  # "cve" | "technique" | "report"
     mapped_techniques: list[str] = field(default_factory=list)
-    gaps_identified: list[dict] = field(default_factory=list)
+    gaps_identified: list[dict[str, Any]] = field(default_factory=list)
     # [{technique_id, gap_type: "exercise"|"detection"|"response", current_status}]
     summary: str = ""
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "threat_id": self.threat_id,
             "threat_type": self.threat_type,
@@ -275,7 +276,7 @@ class ResponseLoopResult:
     red_drafts: list[RedScenarioDraft] = field(default_factory=list)
     summary: str = ""
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "response_gaps_found": self.response_gaps_found,
             "playbooks_proposed": self.playbooks_proposed,

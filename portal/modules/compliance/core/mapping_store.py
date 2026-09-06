@@ -27,6 +27,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from portal.modules.compliance.core.models import RelationshipAssertion
 from portal.modules.compliance.core.repository import Repository
@@ -231,7 +232,7 @@ class MappingStore:
         ]
 
     # ── trust signal ─────────────────────────────────────────────────────────
-    def override_rate(self) -> dict:
+    def override_rate(self) -> dict[str, Any]:
         rows = self._rows
         approved = [m for m in rows if m.is_approved]
         overrides = [m for m in approved if m.source == "sme_correction"]

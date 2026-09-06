@@ -5,7 +5,7 @@ title: tool authorizations for 25 production workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: c8fbc5e77e43
+  commit: fefaec85ceea
   section: workspaces[].tools
 claims: []
 confidence: high
@@ -14,7 +14,7 @@ tags:
 - tools
 - workspaces
 created_at: 1784049584.703768
-updated_at: 1788642224.524266
+updated_at: 1788654099.196948
 ---
 
 # Tool authorizations (per-workspace `tools:` whitelist)
@@ -25,13 +25,13 @@ The pipeline strips any tool a workspace does not authorize (metric `portal5_too
 |---|---|---|
 | `auto` | general | _(none)_ |
 | `auto-audio` | media | `transcribe_audio`, `transcribe_with_speakers` |
-| `auto-bigfix` | general | `execute_python`, `execute_bash`, `web_search` |
-| `auto-cad` | cad | `execute_python`, `execute_bash`, `sandbox_status`, `read_pdf`, `read_word_document`, `web_search`, `web_fetch`, `remember`!, `recall`!, `kb_search`!, `render_mesh`, `render_openscad`, `convert_cad`, `generate_scad` |
+| `auto-bigfix` | general | `execute_python`, `execute_bash`, `web_search`! |
+| `auto-cad` | cad | `execute_python`, `execute_bash`, `sandbox_status`, `read_pdf`, `read_word_document`, `web_search`!, `web_fetch`!, `remember`!, `recall`!, `kb_search`!, `render_mesh`, `render_openscad`, `convert_cad`, `generate_scad` |
 | `auto-coding` | coding | `execute_python`, `execute_nodejs`, `execute_bash`, `sandbox_status`, `read_word_document`, `read_pdf`, `remember`!, `recall`! |
-| `auto-compliance` | compliance | `create_word_document`, `read_pdf`, `kb_search`!, `kb_list`, `web_search`, `lookup_cve`, `get_epss`, `check_kev`, `triage_cve`, `ics_advisories`, `scan_dependencies`, `lookup_control`, `search_controls`, `nerc_cip_requirement`, `compliance_requirement`, `nerc_cip_currency`, `map_frameworks`, `patch_evidence`, `refresh_catalogs`, `compliance_ingest`!, `compliance_search`!, `compliance_gaps`, `compliance_orphans`, `compliance_change_impact`, `compliance_mappings`, `compliance_scope`, `compliance_route`, `compliance_review_list`, `compliance_review_decide`, `compliance_sources`, `compliance_trace`, `compliance_prospective`, `compliance_scenario`, `compliance_draft_revisions`, `compliance_intentionality`, `compliance_flexibility`, `compliance_analyze`, `compliance_compare`, `compliance_impact` |
+| `auto-compliance` | compliance | `create_word_document`, `read_pdf`, `kb_search`!, `kb_list`!, `web_search`!, `lookup_cve`, `get_epss`, `check_kev`, `triage_cve`, `ics_advisories`, `scan_dependencies`, `lookup_control`, `search_controls`, `nerc_cip_requirement`, `compliance_requirement`, `nerc_cip_currency`, `map_frameworks`, `patch_evidence`, `refresh_catalogs`, `compliance_ingest`!, `compliance_search`!, `compliance_gaps`, `compliance_orphans`, `compliance_change_impact`, `compliance_mappings`, `compliance_scope`, `compliance_route`, `compliance_review_list`, `compliance_review_decide`, `compliance_sources`, `compliance_trace`, `compliance_prospective`, `compliance_scenario`, `compliance_draft_revisions`, `compliance_intentionality`, `compliance_flexibility`, `compliance_analyze`, `compliance_compare`, `compliance_impact` |
 | `auto-council` | general | _(none)_ |
 | `auto-creative` | media | _(none)_ |
-| `auto-daily` | general | `web_search`, `web_fetch`, `kb_search`!, `kb_list`, `read_pdf`, `read_word_document`, `read_excel`, `create_word_document`, `create_excel`, `create_powerpoint`, `execute_python`, `remember`!, `recall`!, `minimax_generate`, `minimax_status`, `transcribe_audio` |
+| `auto-daily` | general | `web_search`!, `web_fetch`!, `kb_search`!, `kb_list`!, `read_pdf`, `read_word_document`, `read_excel`, `create_word_document`, `create_excel`, `create_powerpoint`, `execute_python`, `remember`!, `recall`!, `minimax_generate`, `minimax_status`, `transcribe_audio` |
 | `auto-data` | research | `execute_python`, `create_excel`, `kb_search`!, `attach_source`, `run_sql`, `profile_table`, `list_session` |
 | `auto-documents` | documents | `create_word_document`, `create_excel`, `create_powerpoint`, `read_word_document`, `read_excel`, `read_powerpoint`, `read_pdf` |
 | `auto-extract-uncensored` | documents | _(none)_ |
@@ -39,12 +39,12 @@ The pipeline strips any tool a workspace does not authorize (metric `portal5_too
 | `auto-image` | image | `generate_image`, `edit_image` |
 | `auto-math` | general | _(none)_ |
 | `auto-music` | media | `minimax_generate`, `minimax_status`, `minimax_models`, `speak`, `transcribe_audio`, `clone_voice`, `register_voice`, `list_voices` |
-| `auto-nemotron` | general | `web_search`, `web_fetch`, `kb_search`!, `kb_list`, `read_pdf`, `read_word_document`, `remember`!, `recall`! |
+| `auto-nemotron` | general | `web_search`!, `web_fetch`!, `kb_search`!, `kb_list`!, `read_pdf`, `read_word_document`, `remember`!, `recall`! |
 | `auto-reasoning` | general | _(none)_ |
-| `auto-research` | research | `web_search`, `web_fetch`, `news_search`, `kb_search`!, `kb_search_all`!, `kb_list`, `remember`!, `recall`!, `graph_recall`!, `neighbors`!, `entity_timeline`! |
-| `auto-security` | security | `web_search`, `web_fetch`, `classify_vulnerability`, `execute_python`, `execute_bash`, `kb_search`!, `kb_list`, `lookup_cve`, `get_epss`, `check_kev`, `triage_cve`, `ics_advisories`, `scan_dependencies`, `lookup_ioc`, `list_ics_protocols`, `dissect_pcap`, `asset_inventory`, `correlate_advisories` |
-| `auto-spl` | general | `classify_vulnerability`, `kb_search`!, `kb_list`, `lookup_cve`, `get_epss`, `check_kev`, `triage_cve`, `ics_advisories`, `scan_dependencies`, `lookup_ioc`, `list_ics_protocols`, `dissect_pcap`, `asset_inventory`, `correlate_advisories`, `convert_sigma`, `validate_sigma`, `compile_yara`, `scan_yara`, `query_splunk`, `query_windows_events`, `protocol_hierarchy`, `extract_fields`, `conversations` |
-| `auto-uncensored-throwaway` | general | `web_search`, `web_fetch`, `news_search`, `execute_bash`, `execute_python`, `remember`!, `recall`! |
+| `auto-research` | research | `web_search`!, `web_fetch`!, `news_search`!, `kb_search`!, `kb_search_all`!, `kb_list`!, `remember`!, `recall`!, `graph_recall`!, `neighbors`!, `entity_timeline`! |
+| `auto-security` | security | `web_search`!, `web_fetch`!, `classify_vulnerability`, `execute_python`, `execute_bash`, `kb_search`!, `kb_list`!, `lookup_cve`, `get_epss`, `check_kev`, `triage_cve`, `ics_advisories`, `scan_dependencies`, `lookup_ioc`, `list_ics_protocols`, `dissect_pcap`, `asset_inventory`, `correlate_advisories` |
+| `auto-spl` | general | `classify_vulnerability`, `kb_search`!, `kb_list`!, `lookup_cve`, `get_epss`, `check_kev`, `triage_cve`, `ics_advisories`, `scan_dependencies`, `lookup_ioc`, `list_ics_protocols`, `dissect_pcap`, `asset_inventory`, `correlate_advisories`, `convert_sigma`, `validate_sigma`, `compile_yara`, `scan_yara`, `query_splunk`, `query_windows_events`, `protocol_hierarchy`, `extract_fields`, `conversations` |
+| `auto-uncensored-throwaway` | general | `web_search`!, `web_fetch`!, `news_search`!, `execute_bash`, `execute_python`, `remember`!, `recall`! |
 | `auto-video` | video | `generate_video`, `animate_image` |
 | `auto-vision` | general | `transcribe_audio`, `generate_image`, `edit_image` |
 | `tools-specialist` | general | `execute_python`, `remember`!, `recall`! |

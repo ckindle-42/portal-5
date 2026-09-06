@@ -9,59 +9,59 @@ from portal.platform.inference.tool_preselect.parser import (
 
 
 class TestParseRankedIndices:
-    def test_plain_newline_numbers(self):
+    def test_plain_newline_numbers(self) -> None:
         assert parse_ranked_indices("1\n2\n3", valid_max=5) == [1, 2, 3]
 
-    def test_trailing_period(self):
+    def test_trailing_period(self) -> None:
         assert parse_ranked_indices("1.\n2.\n3.", valid_max=5) == [1, 2, 3]
 
-    def test_parens_wrapped(self):
+    def test_parens_wrapped(self) -> None:
         assert parse_ranked_indices("(1)\n(2)\n(3)", valid_max=5) == [1, 2, 3]
 
-    def test_trailing_paren(self):
+    def test_trailing_paren(self) -> None:
         assert parse_ranked_indices("1)\n2)\n3)", valid_max=5) == [1, 2, 3]
 
-    def test_number_with_tool_name_appended(self):
+    def test_number_with_tool_name_appended(self) -> None:
         assert parse_ranked_indices("1. run_bash\n2. web_search", valid_max=5) == [1, 2]
 
-    def test_comma_separated(self):
+    def test_comma_separated(self) -> None:
         assert parse_ranked_indices("1, 2, 3", valid_max=5) == [1, 2, 3]
 
-    def test_comma_and_newline_mixed(self):
+    def test_comma_and_newline_mixed(self) -> None:
         assert parse_ranked_indices("1, 2\n3", valid_max=5) == [1, 2, 3]
 
-    def test_preamble_and_postamble(self):
+    def test_preamble_and_postamble(self) -> None:
         text = "Here are the 3 most relevant tools:\n1. web_search\n2. read_file\n3. write_file\nThanks!"
         assert parse_ranked_indices(text, valid_max=5) == [1, 2, 3]
 
-    def test_out_of_range_discarded(self):
+    def test_out_of_range_discarded(self) -> None:
         assert parse_ranked_indices("1\n2\n99", valid_max=5) == [1, 2]
 
-    def test_zero_discarded(self):
+    def test_zero_discarded(self) -> None:
         assert parse_ranked_indices("0\n1\n2", valid_max=5) == [1, 2]
 
-    def test_duplicates_discarded_first_occurrence_order(self):
+    def test_duplicates_discarded_first_occurrence_order(self) -> None:
         assert parse_ranked_indices("1\n2\n1\n3\n2", valid_max=5) == [1, 2, 3]
 
-    def test_empty_input(self):
+    def test_empty_input(self) -> None:
         assert parse_ranked_indices("", valid_max=5) == []
 
-    def test_no_numbers_present(self):
+    def test_no_numbers_present(self) -> None:
         assert parse_ranked_indices("I cannot help with that request.", valid_max=5) == []
 
-    def test_no_false_positive_inside_identifier(self):
+    def test_no_false_positive_inside_identifier(self) -> None:
         # "bash2" should not yield a spurious index 2
         assert parse_ranked_indices("run_bash2 seems relevant", valid_max=5) == []
 
 
 class TestIndicesToToolNames:
-    def test_maps_in_order(self):
+    def test_maps_in_order(self) -> None:
         names = ["web_search", "read_file", "write_file"]
         assert indices_to_tool_names([2, 1], names) == ["read_file", "web_search"]
 
-    def test_out_of_range_indices_dropped(self):
+    def test_out_of_range_indices_dropped(self) -> None:
         names = ["web_search", "read_file"]
         assert indices_to_tool_names([1, 99, 2], names) == ["web_search", "read_file"]
 
-    def test_empty_indices(self):
+    def test_empty_indices(self) -> None:
         assert indices_to_tool_names([], ["a", "b"]) == []

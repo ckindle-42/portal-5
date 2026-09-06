@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 
@@ -25,7 +25,7 @@ _CATALOG_PATH = _REPO_ROOT / "config" / "tool_catalog.yaml"
 def load_tool_catalog() -> list[dict[str, Any]]:
     """Parse config/tool_catalog.yaml. Cached — the file doesn't change at runtime."""
     data = yaml.safe_load(_CATALOG_PATH.read_text(encoding="utf-8")) or {}
-    return data.get("tools", [])
+    return cast(list[dict[str, Any]], data.get("tools", []))
 
 
 def tools_for_service(service: str) -> list[dict[str, Any]]:
@@ -49,14 +49,14 @@ def verify_tools_present(dry_run: bool = True) -> dict[str, bool | None]:
     if dry_run:
         return dict.fromkeys(names, None)
 
-    from portal.modules.security.core._data import _lab_mcp_call
+    from portal.modules.security.core import _data
 
     # One batched command: for each tool, print "NAME:FOUND" or "NAME:MISSING".
     checks = "; ".join(
         f'command -v {name} >/dev/null 2>&1 && echo "{name}:FOUND" || echo "{name}:MISSING"'
         for name in names
     )
-    result = _lab_mcp_call(checks, timeout=60, dry_run=False)
+    result = _data._lab_mcp_call(checks, timeout=60, dry_run=False)
     presence: dict[str, bool | None] = dict.fromkeys(names, None)
     if not result.get("ok"):
         return presence

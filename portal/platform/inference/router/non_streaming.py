@@ -16,6 +16,7 @@ from typing import Any
 import httpx
 from fastapi.responses import JSONResponse
 
+from portal.platform.inference.config import PersonaSpec
 from portal.platform.inference.router.metrics import _hint_fallback_total
 from portal.platform.inference.router.power import _record_usage
 from portal.platform.inference.router.tools import (
@@ -43,12 +44,12 @@ logger = logging.getLogger(__name__)
 
 async def _run_non_streaming_chain(
     primary_text: str,
-    chain: list[dict],
+    chain: list[dict[str, Any]],
     backend: Any,
-    body: dict,
+    body: dict[str, Any],
     workspace_id: str,
     start_time: float,
-    primary_data: dict,
+    primary_data: dict[str, Any],
     primary_model: str,
 ) -> JSONResponse:
     """Run the N additional hops for a non-streaming chain request.
@@ -86,9 +87,7 @@ async def _run_non_streaming_chain(
 
         hop_parts: list[str] = []
         try:
-            async with _http_client.stream(  # type: ignore[union-attr]
-                "POST", backend.chat_url, json=hop_body
-            ) as resp:
+            async with _http_client.stream("POST", backend.chat_url, json=hop_body) as resp:
                 resp.raise_for_status()
                 async for line in resp.aiter_lines():
                     if not line.startswith("data: ") or line == "data: [DONE]":
@@ -131,7 +130,7 @@ async def _run_non_streaming_chain(
 
 
 def _apply_non_stream_response(
-    data: dict,
+    data: dict[str, Any],
     backend: Any,
     workspace_id: str,
     target_model: str,
@@ -175,7 +174,7 @@ def _apply_non_stream_response(
 
 async def _try_non_streaming(
     backend: Any,
-    body: dict,
+    body: dict[str, Any],
     workspace_id: str,
     start_time: float,
     *,
@@ -317,7 +316,7 @@ async def _try_non_streaming(
     # _try_non_streaming is used as a fallback after a streaming attempt fails
     # (empty streaming chunks indicate a streaming/non-streaming shape
     # mismatch), so the tool schemas aren't silently dropped in the fallback.
-    _persona_data = _PERSONA_MAP.get(persona, {}) if persona else {}
+    _persona_data: PersonaSpec | dict[str, Any] = _PERSONA_MAP.get(persona, {}) if persona else {}
     _ns_tools = _resolve_persona_tools(_persona_data, workspace_id)
     if _ns_tools and _model_supports_tools(target_model):
         from portal.platform.inference.tool_registry import tool_registry  # noqa: PLC0415
@@ -386,12 +385,10 @@ async def _try_non_streaming(
                 t.get("function", {}).get("name", "?") for t in req_body.get("tools", [])
             ]
             logger.info("NON-STREAM tools: %s", _tool_names)
-            resp = await _http_client.post(  # type: ignore[union-attr]
-                backend.chat_url, json=req_body, timeout=_timeout_obj
-            )
+            resp = await _http_client.post(backend.chat_url, json=req_body, timeout=_timeout_obj)
             resp.raise_for_status()
             data = resp.json()
-            _resp_tc = []
+            _resp_tc: list[dict[str, Any]] = []
             for _c in data.get("choices") or []:
                 _resp_tc.extend((_c.get("message") or {}).get("tool_calls") or [])
             _resp_content = ""
@@ -408,7 +405,7 @@ async def _try_non_streaming(
             # and call the model once more for synthesis. This handles OWUI's second
             # non-streaming request (which it always sends when workspace tools are enabled)
             # so that the committed DB response contains the recalled content, not a stub.
-            _ns_tool_calls: list[dict] = []
+            _ns_tool_calls: list[dict[str, Any]] = []
             for _c in data.get("choices") or []:
                 _ns_tool_calls.extend((_c.get("message") or {}).get("tool_calls") or [])
 
@@ -445,7 +442,7 @@ async def _try_non_streaming(
                     "tools": None,
                     "tool_choice": None,
                 }
-                _synth_resp = await _http_client.post(  # type: ignore[union-attr]
+                _synth_resp = await _http_client.post(
                     backend.chat_url, json=_synth_body, timeout=_timeout_obj
                 )
                 _synth_resp.raise_for_status()

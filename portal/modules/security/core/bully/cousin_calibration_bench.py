@@ -193,7 +193,9 @@ class CalibrationReport:
 
 
 class ReadOnlyKnnSnapshot(Protocol):
-    def knn(self, query: str, k: int, filters: dict[str, Any] | None = None): ...
+    def knn(
+        self, query: str, k: int, filters: dict[str, Any] | None = None
+    ) -> list[tuple[dict[str, Any], float]]: ...
 
     def stats(self) -> dict[str, Any]: ...
 
@@ -264,7 +266,7 @@ def construction_distance(
 
 def _operator(parent: CalibrationParent, name: str) -> MutationOperatorSpec:
     order = list(parent.reference_scenario["red_order"])
-    params_by_name = {
+    params_by_name: dict[str, dict[str, Any]] = {
         "REORDER_STEPS": {"order": list(reversed(order))},
         "VARY_PARAMETER": {"placeholder": "$TARGET_HOST", "value": "lab-alias.local"},
         "INJECT_EVASION_DIRECTIVE": {
@@ -467,7 +469,7 @@ def grade_blind(child: CalibrationVariant, snapshot: ReadOnlyKnnSnapshot) -> Bli
         raise RuntimeError("read-only calibration snapshot changed while grading a child")
     metadata = _candidate_metadata(candidates)
     candidate_records = [item["record"] for item in candidates.candidates]
-    selected = next(
+    selected: dict[str, Any] = next(
         (
             record
             for record in candidate_records
@@ -736,6 +738,8 @@ def run_bench(snapshot: ReadOnlyKnnSnapshot, output_dir: Path) -> CalibrationRep
 
 def load_specimen_corpus(path: Path) -> dict[str, Any]:
     corpus = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(corpus, dict):
+        raise ValueError("not a JSON-object SPECIMEN_CORPUS artifact")
     if corpus.get("schema") not in {"SPECIMEN_CORPUS_V1", "SPECIMEN_CORPUS_V2"}:
         raise ValueError("not a supported SPECIMEN_CORPUS artifact")
     observed_hash = hashlib.sha256(_canonical(corpus.get("specimens") or []).encode()).hexdigest()
@@ -749,7 +753,9 @@ def specimen_source_class(specimen: dict[str, Any]) -> str:
     if specimen.get("source_class"):
         return str(specimen["source_class"])
     shape = specimen.get("engine_view", {}).get("telemetry_view", {}).get("telemetry_shape", {})
-    sources = shape.get("sourcetypes") or ()
+    # `sourcetypes` is a raw JSON value -- bind as Any, not the empty-tuple
+    # fallback's literal type, before inspecting its length.
+    sources: Any = shape.get("sourcetypes") or ()
     return str(sources[0]) if len(sources) == 1 else ""
 
 
@@ -791,7 +797,7 @@ def grade_corpus_blind(
     )
     assessment = cousin_engine.grade(signature, candidates, coverage)
     metadata = _candidate_metadata(candidates)
-    selected = next(
+    selected: dict[str, Any] = next(
         (
             item["record"]
             for item in candidates.candidates

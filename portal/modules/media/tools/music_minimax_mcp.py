@@ -10,11 +10,13 @@ import sys
 import time
 import uuid
 import wave
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
 from mcp.server import MCPServer
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 from portal.modules.media.tools._admission import admit
 from portal.platform.data_loader import load_data
@@ -22,6 +24,16 @@ from portal.platform.mcp_host.owui_files import publish_file_sync
 
 port = int(os.getenv("MUSIC_MINIMAX_MCP_PORT", "8912"))
 mcp = MCPServer("music-minimax")
+
+# MCPServer.custom_route() has no return annotation upstream (mcp SDK), so mypy
+# sees its decorator result as Any and flags every routed handler with
+# untyped-decorator. Bind the concrete decorator type once so handlers keep
+# their annotations.
+_route: Callable[
+    ...,
+    Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+] = mcp.custom_route
+
 logger = logging.getLogger(__name__)
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "data/generated"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -32,21 +44,21 @@ MAX_MUSIC_FILES = int(os.getenv("MAX_MUSIC_FILES", "20"))
 MAX_JOB_RECORDS = 50
 
 
-@mcp.custom_route("/health", methods=["GET"])
-async def health_check(request):
+@_route("/health", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "music-minimax-mcp"})
 
 
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_music_minimax_mcp")
 
 
-@mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request):
+@_route("/tools", methods=["GET"])
+async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
-@mcp.custom_route("/tools/minimax_generate", methods=["POST"])
-async def minimax_generate_endpoint(request):
+@_route("/tools/minimax_generate", methods=["POST"])
+async def minimax_generate_endpoint(request: Request) -> JSONResponse:
     args = (await request.json()).get("arguments", {})
     return JSONResponse(
         await minimax_generate(
@@ -59,14 +71,14 @@ async def minimax_generate_endpoint(request):
     )
 
 
-@mcp.custom_route("/tools/minimax_status", methods=["POST"])
-async def minimax_status_endpoint(request):
+@_route("/tools/minimax_status", methods=["POST"])
+async def minimax_status_endpoint(request: Request) -> JSONResponse:
     args = (await request.json()).get("arguments", {})
     return JSONResponse(await minimax_status(job_id=args.get("job_id", "")))
 
 
-@mcp.custom_route("/tools/minimax_models", methods=["POST"])
-async def minimax_models_endpoint(request):
+@_route("/tools/minimax_models", methods=["POST"])
+async def minimax_models_endpoint(request: Request) -> JSONResponse:
     return JSONResponse(await minimax_models())
 
 
@@ -171,12 +183,12 @@ async def _run_job(
 
 def _generate_sync(
     job_id: str, prompt: str, lyrics: str, seconds: float, steps: int, seed: int, progress: Any
-) -> dict:
+) -> dict[str, Any]:
     try:
         import numpy as np
 
         pipeline = _load_pipeline()
-        from minimax_mlx_model import SAMPLE_RATE  # type: ignore[import-not-found]
+        from minimax_mlx_model import SAMPLE_RATE
 
         audio = pipeline.generate(prompt.strip(), lyrics.strip(), seconds, steps, seed, progress)
         safe_name = "".join(c if c.isalnum() or c == "_" else "_" for c in prompt[:40]).strip("_")
@@ -215,7 +227,7 @@ async def minimax_generate(
     seconds: float = 60.0,
     steps: int = 30,
     seed: int | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Start a MiniMax full-song job; poll minimax_status with the returned job_id."""
     seconds = max(10.0, min(300.0, float(seconds)))
     steps = max(1, min(30, int(steps)))
@@ -243,7 +255,7 @@ async def minimax_generate(
 
 
 @mcp.tool()
-async def minimax_status(job_id: str) -> dict:
+async def minimax_status(job_id: str) -> dict[str, Any]:
     """Check a MiniMax generation job."""
     job = _JOBS.get(job_id)
     return (
@@ -254,7 +266,7 @@ async def minimax_status(job_id: str) -> dict:
 
 
 @mcp.tool()
-async def minimax_models() -> dict:
+async def minimax_models() -> dict[str, Any]:
     """List MiniMax capabilities and availability."""
     available, err = _check_minimax()
     return {

@@ -15,24 +15,24 @@ from portal.modules.security.core.loop import (
 
 
 class TestScopeGuard:
-    def test_in_scope_allowed(self):
+    def test_in_scope_allowed(self) -> None:
         assert enforce_scope("10.10.11.21", {"targets": ["10.10.11.21"]}) is True
 
-    def test_out_of_scope_refused(self):
+    def test_out_of_scope_refused(self) -> None:
         assert enforce_scope("10.10.11.99", {"targets": ["10.10.11.21"]}) is False
 
-    def test_empty_scope_allows(self):
+    def test_empty_scope_allows(self) -> None:
         assert enforce_scope("any", {}) is True
 
 
 class TestBudgetCheck:
-    def test_iterations_exceeded(self):
+    def test_iterations_exceeded(self) -> None:
         pb = {"budget": {"max_iterations": 5, "max_wall_clock_sec": 99999, "max_lab_actions": 999}}
         state = EngagementState("test", "pb", started_at=0)
         state.iterations = 6
         assert _check_budget(state, pb) is not None
 
-    def test_hard_cap_enforced(self):
+    def test_hard_cap_enforced(self) -> None:
         pb = {
             "budget": {"max_iterations": 100, "max_wall_clock_sec": 99999, "max_lab_actions": 999}
         }
@@ -42,17 +42,17 @@ class TestBudgetCheck:
 
 
 class TestStopCheck:
-    def test_stop_condition_met(self):
+    def test_stop_condition_met(self) -> None:
         pb = {"stop_conditions": [{"field": "compromise_confirmed", "equals": True}]}
         assert _check_stop(pb, {"compromise_confirmed": True}) is True
 
-    def test_stop_condition_not_met(self):
+    def test_stop_condition_not_met(self) -> None:
         pb = {"stop_conditions": [{"field": "compromise_confirmed", "equals": True}]}
         assert _check_stop(pb, {"other": True}) is False
 
 
 class TestEscalateCheck:
-    def test_out_of_scope_escalation(self):
+    def test_out_of_scope_escalation(self) -> None:
         pb = {"escalate_when": ["out_of_scope_action"]}
         state = EngagementState("test", "pb")
         state.escalations.append("out_of_scope_action")
@@ -60,11 +60,11 @@ class TestEscalateCheck:
 
 
 class TestRunEngagement:
-    def test_invalid_playbook_rejected(self):
+    def test_invalid_playbook_rejected(self) -> None:
         with pytest.raises(FileNotFoundError):
             run_engagement("nonexistent.yaml", dry_run=True)
 
-    def test_valid_playbook_dry_runs(self):
+    def test_valid_playbook_dry_runs(self) -> None:
         result = run_engagement("playbooks/security/internal-ad-pentest.yaml", dry_run=True)
         assert result["status"] == "dry_run"
         assert result["playbook"] == "internal-ad-pentest"

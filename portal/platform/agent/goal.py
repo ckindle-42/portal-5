@@ -8,6 +8,7 @@ without scope or budget is invalid.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 _REQUIRED_BUDGET_KEYS = ("max_iterations", "max_wall_clock_sec", "max_lab_actions")
 
@@ -15,9 +16,9 @@ _REQUIRED_BUDGET_KEYS = ("max_iterations", "max_wall_clock_sec", "max_lab_action
 @dataclass
 class Goal:
     intent: str
-    scope: dict = field(default_factory=dict)
-    budget: dict = field(default_factory=dict)
-    stop_when: list[dict] | None = None
+    scope: dict[str, Any] = field(default_factory=dict)
+    budget: dict[str, Any] = field(default_factory=dict)
+    stop_when: list[dict[str, Any]] | None = None
     domain_hint: str | None = None
 
 

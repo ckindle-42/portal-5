@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 
 def drift_check_main(argv: list[str] | None = None) -> int:
@@ -56,7 +57,9 @@ def drift_check_main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _propose_drift_writeback(regressions: list[tuple[str, str, dict]], report: dict) -> None:
+def _propose_drift_writeback(
+    regressions: list[tuple[str, str, dict[str, Any]]], report: dict[str, Any]
+) -> None:
     """A confirmed DRIFT-REGRESSION becomes a cited wiki proposal. Propose only
     — confirm-gated (PROMOTE_POLICY: confirm-only), never auto_confirm."""
     try:

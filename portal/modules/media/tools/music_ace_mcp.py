@@ -5,12 +5,14 @@ from __future__ import annotations
 import json
 import logging
 import os
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
 import httpx
 from mcp.server import MCPServer
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 from portal.modules.media.tools._admission import admit
 from portal.platform.data_loader import load_data
@@ -18,6 +20,16 @@ from portal.platform.mcp_host.owui_files import publish_file
 
 port = int(os.getenv("MUSIC_ACE_MCP_PORT", "8933"))
 mcp = MCPServer("music-ace")
+
+# MCPServer.custom_route() has no return annotation upstream (mcp SDK), so mypy
+# sees its decorator result as Any and flags every routed handler with
+# untyped-decorator. Bind the concrete decorator type once so handlers keep
+# their annotations.
+_route: Callable[
+    ...,
+    Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+] = mcp.custom_route
+
 ACESTEP_URL = os.getenv("ACESTEP_URL", "http://127.0.0.1:8001").rstrip("/")
 logger = logging.getLogger(__name__)
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "data/generated"))
@@ -25,32 +37,32 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 MAX_MUSIC_FILES = int(os.getenv("MAX_MUSIC_FILES", "20"))
 
 
-@mcp.custom_route("/health", methods=["GET"])
-async def health_check(request):
+@_route("/health", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "music-ace-mcp"})
 
 
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_music_ace_mcp")
 
 
-@mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request):
+@_route("/tools", methods=["GET"])
+async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
-@mcp.custom_route("/tools/ace_generate", methods=["POST"])
-async def ace_generate_endpoint(request):
+@_route("/tools/ace_generate", methods=["POST"])
+async def ace_generate_endpoint(request: Request) -> JSONResponse:
     return JSONResponse(await ace_generate(**(await request.json()).get("arguments", {})))
 
 
-@mcp.custom_route("/tools/ace_status", methods=["POST"])
-async def ace_status_endpoint(request):
+@_route("/tools/ace_status", methods=["POST"])
+async def ace_status_endpoint(request: Request) -> JSONResponse:
     args = (await request.json()).get("arguments", {})
     return JSONResponse(await ace_status(job_id=args.get("job_id", "")))
 
 
-@mcp.custom_route("/tools/ace_models", methods=["POST"])
-async def ace_models_endpoint(request):
+@_route("/tools/ace_models", methods=["POST"])
+async def ace_models_endpoint(request: Request) -> JSONResponse:
     return JSONResponse(await ace_models())
 
 
@@ -78,7 +90,7 @@ async def ace_generate(
     model: str = "acestep-v15-sft",
     steps: int = 30,
     audio_format: str = "wav",
-) -> dict:
+) -> dict[str, Any]:
     """Start an ACE-Step song generation or edit job; poll ace_status.
 
     audio_format defaults to "wav" (lossless) rather than the ACE-Step
@@ -156,7 +168,7 @@ async def ace_generate(
 
 
 @mcp.tool()
-async def ace_status(job_id: str) -> dict:
+async def ace_status(job_id: str) -> dict[str, Any]:
     """Check an ACE-Step generation job and copy completed audio locally."""
     try:
         async with httpx.AsyncClient(base_url=ACESTEP_URL, timeout=15.0) as client:
@@ -228,7 +240,7 @@ async def ace_status(job_id: str) -> dict:
 
 
 @mcp.tool()
-async def ace_models() -> dict:
+async def ace_models() -> dict[str, Any]:
     """List models loaded by the ACE-Step server."""
     try:
         async with httpx.AsyncClient(base_url=ACESTEP_URL, timeout=10.0) as client:

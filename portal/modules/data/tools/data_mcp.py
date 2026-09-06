@@ -11,10 +11,13 @@ from __future__ import annotations
 import logging
 import os
 import re
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Any
 
 from mcp.server import MCPServer
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
 
@@ -26,6 +29,15 @@ mcp = MCPServer(
     "CSV/Parquet/JSON/xlsx under a data root, run SQL, profile columns, and persist a "
     "named session across calls. No external network; mutating/escape statements blocked.",
 )
+
+# MCPServer.custom_route() has no return annotation upstream (mcp SDK), so mypy
+# sees its decorator result as Any and flags every routed handler with
+# untyped-decorator. Bind the concrete decorator type once so handlers keep
+# their annotations.
+_route: Callable[
+    ...,
+    Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+] = mcp.custom_route
 
 _ROOT = Path(os.environ.get("DATA_MCP_ROOT", os.path.expanduser("~/AI_Output"))).resolve()
 _SESS_DIR = Path(
@@ -43,10 +55,10 @@ _BLOCKED = re.compile(
     re.I,
 )
 
-_conns: dict = {}  # session_id -> read-only-ish query duckdb connection
+_conns: dict[str, Any] = {}  # session_id -> read-only-ish query duckdb connection
 
 
-def _duck():
+def _duck() -> Any:
     import duckdb
 
     return duckdb
@@ -68,13 +80,13 @@ def _db_path(session_id: str) -> str:
     return str(_SESS_DIR / f"{session_id}.duckdb")
 
 
-def _loader_conn(session_id: str):
+def _loader_conn(session_id: str) -> Any:
     """Short-lived connection WITH filesystem access — used only by attach_source
     to materialise a source file into a table, then closed."""
     return _duck().connect(_db_path(session_id))
 
 
-def _conn(session_id: str):
+def _conn(session_id: str) -> Any:
     """Cached query connection with filesystem access permanently disabled — the
     sandbox guarantee for run_sql / profile_table / list_session. DuckDB refuses
     to re-enable external access on a running database, so this cannot be undone
@@ -87,7 +99,7 @@ def _conn(session_id: str):
 
 
 @mcp.tool()
-def attach_source(session_id: str, path: str, table: str) -> dict:
+def attach_source(session_id: str, path: str, table: str) -> dict[str, Any]:
     """Attach a CSV/Parquet/JSON/xlsx file as a queryable table in a session.
 
     The source is read exactly once here, under a confined path, and materialised
@@ -146,7 +158,7 @@ def attach_source(session_id: str, path: str, table: str) -> dict:
 
 
 @mcp.tool()
-def run_sql(session_id: str, sql: str, max_rows: int = _MAX_ROWS) -> dict:
+def run_sql(session_id: str, sql: str, max_rows: int = _MAX_ROWS) -> dict[str, Any]:
     """Run a SQL query against the session. Mutating/escape statements are blocked."""
     try:
         if _BLOCKED.search(sql):
@@ -170,7 +182,7 @@ def run_sql(session_id: str, sql: str, max_rows: int = _MAX_ROWS) -> dict:
 
 
 @mcp.tool()
-def profile_table(session_id: str, table: str) -> dict:
+def profile_table(session_id: str, table: str) -> dict[str, Any]:
     """Per-column profile: type, null count, distinct count, min/max/mean for numerics."""
     try:
         if not _IDENT.match(table):
@@ -194,7 +206,7 @@ def profile_table(session_id: str, table: str) -> dict:
 
 
 @mcp.tool()
-def list_session(session_id: str) -> dict:
+def list_session(session_id: str) -> dict[str, Any]:
     """List tables/views currently in a session."""
     try:
         con = _conn(session_id)
@@ -206,7 +218,7 @@ def list_session(session_id: str) -> dict:
 
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_data_mcp")
 
-_DISPATCH = {
+_DISPATCH: dict[str, Any] = {
     "attach_source": attach_source,
     "run_sql": run_sql,
     "profile_table": profile_table,
@@ -214,13 +226,13 @@ _DISPATCH = {
 }
 
 
-@mcp.custom_route("/health", methods=["GET"])
-async def health_check(request):
+@_route("/health", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "data-mcp", "port": _port})
 
 
-@mcp.custom_route("/ready", methods=["GET"])
-async def ready(request):
+@_route("/ready", methods=["GET"])
+async def ready(request: Request) -> JSONResponse:
     ok = True
     try:
         _duck()
@@ -229,13 +241,13 @@ async def ready(request):
     return JSONResponse({"port": _port, "duckdb": ok, "root": str(_ROOT)})
 
 
-@mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request):
+@_route("/tools", methods=["GET"])
+async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
-@mcp.custom_route("/tools/{tool_name}", methods=["POST"])
-async def invoke_tool(request):
+@_route("/tools/{tool_name}", methods=["POST"])
+async def invoke_tool(request: Request) -> JSONResponse:
     name = request.path_params.get("tool_name", "")
     fn = _DISPATCH.get(name)
     if fn is None:

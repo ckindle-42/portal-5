@@ -27,17 +27,17 @@ from portal.modules.security.core.exec_chain import _STEP_GROUPS, SCENARIOS
 class TestCandidateEvalScenarios:
     """CANDIDATE_EVAL_SCENARIOS must be valid and representative."""
 
-    def test_all_scenarios_exist(self):
+    def test_all_scenarios_exist(self) -> None:
         for name in CANDIDATE_EVAL_SCENARIOS:
             assert name in SCENARIOS, f"Scenario '{name}' not in SCENARIOS"
 
-    def test_count_is_reasonable(self):
+    def test_count_is_reasonable(self) -> None:
         """Should be ~5-6 scenarios — not too few, not the full set."""
         assert 4 <= len(CANDIDATE_EVAL_SCENARIOS) <= 10, (
             f"Expected 4-10 eval scenarios, got {len(CANDIDATE_EVAL_SCENARIOS)}"
         )
 
-    def test_spans_disciplines(self):
+    def test_spans_disciplines(self) -> None:
         """Should cover AD, web, host, multi-service at minimum."""
         scenarios = set(CANDIDATE_EVAL_SCENARIOS)
         has_ad = any("kerberoast" in s or "ad_" in s for s in scenarios)
@@ -54,7 +54,7 @@ class TestCandidateEvalScenarios:
 class TestBuildStepModels:
     """_build_step_models must pin incumbents correctly."""
 
-    def test_exploit_slot_pins_others(self):
+    def test_exploit_slot_pins_others(self) -> None:
         """exploit slot: candidate in exploit group, incumbent elsewhere."""
         sm = _build_step_models("exploit", "cand-model", "inc-model")
         assert sm["exploit"] == "cand-model"
@@ -63,22 +63,22 @@ class TestBuildStepModels:
         for _tool in _STEP_GROUPS.get("planning", set()):
             assert sm.get("planning", sm["default"]) == "inc-model"
 
-    def test_recon_slot(self):
+    def test_recon_slot(self) -> None:
         sm = _build_step_models("recon", "cand", "inc")
         assert sm["planning"] == "cand"
         assert sm["default"] == "inc"
 
-    def test_post_slot(self):
+    def test_post_slot(self) -> None:
         sm = _build_step_models("post", "cand", "inc")
         assert sm["default"] == "inc"
         for group in ["persist", "move", "exfil", "cleanup"]:
             assert sm[group] == "cand"
 
-    def test_solo_all_candidate(self):
+    def test_solo_all_candidate(self) -> None:
         sm = _build_step_models("solo", "cand", "inc")
         assert sm == {"default": "cand"}
 
-    def test_solo_ignores_incumbent(self):
+    def test_solo_ignores_incumbent(self) -> None:
         sm = _build_step_models("solo", "cand", "whatever")
         assert sm == {"default": "cand"}
 
@@ -89,7 +89,7 @@ class TestBuildStepModels:
 class TestComputeDelta:
     """_compute_delta must produce correct per-scenario and aggregate deltas."""
 
-    def test_basic_delta(self):
+    def test_basic_delta(self) -> None:
         cand = [
             {
                 "scenario": "s1",
@@ -124,7 +124,7 @@ class TestComputeDelta:
         assert d["chain_depth_delta"] == 2
         assert d["lab_success_delta"] == 1
 
-    def test_aggregate_delta(self):
+    def test_aggregate_delta(self) -> None:
         cand = [
             {
                 "scenario": "s1",
@@ -174,7 +174,7 @@ class TestComputeDelta:
         # lab_success: +1 + -1 = 0
         assert a["lab_success_delta"] == 0
 
-    def test_empty_results(self):
+    def test_empty_results(self) -> None:
         deltas = _compute_delta([], [])
         assert deltas == []
 
@@ -185,10 +185,10 @@ class TestComputeDelta:
 class TestIsolation:
     """Candidate results must be isolated from the self-index baseline."""
 
-    def test_candidates_dir_is_under_results(self):
+    def test_candidates_dir_is_under_results(self) -> None:
         assert str(CANDIDATES_DIR).endswith("results/candidates")
 
-    def test_self_index_does_not_recurse(self):
+    def test_self_index_does_not_recurse(self) -> None:
         """self_index._complete_result_files uses non-recursive glob — safe."""
         from portal.modules.security.core.self_index import _complete_result_files
 
@@ -205,7 +205,7 @@ class TestIsolation:
 class TestNoAutoPromote:
     """candidate-eval must never modify fleet config."""
 
-    def test_module_does_not_import_config_writer(self):
+    def test_module_does_not_import_config_writer(self) -> None:
         """candidate_eval.py should not import any config-writing functions."""
         import inspect
 

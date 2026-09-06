@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Any
 
 from portal.platform.wiki.migration import doc_is_migrated
 from portal.platform.wiki.store import load_all, load_unit
@@ -160,7 +161,7 @@ def check_generated_blocks_current(
     return drifted
 
 
-def render_report(repo_root: Path) -> dict:
+def render_report(repo_root: Path) -> dict[str, Any]:
     """Migration progress report over the doc surface.
 
     Returns {migrated: [...], unmigrated: [...], gamed: [...], blocks_total: int,

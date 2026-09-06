@@ -21,8 +21,9 @@ import hashlib
 import json
 import time
 import uuid
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -42,8 +43,11 @@ _SINGLE_EMBED_INPUT_LENGTH = 2_000
 
 
 def _embedding_batches(
-    values: list[str], *, batch_size: int, single_input_length: int = _SINGLE_EMBED_INPUT_LENGTH
-):
+    values: list[str],
+    *,
+    batch_size: int,
+    single_input_length: int = _SINGLE_EMBED_INPUT_LENGTH,
+) -> Iterator[list[str]]:
     """Pack normal inputs together while isolating unusually expensive inputs."""
     pending: list[str] = []
     for value in values:
@@ -172,7 +176,7 @@ class Organ:
             vectors = [item["embedding"] for item in items]
         if not vectors:
             raise OrganUnavailable("embed service returned no vectors")
-        return vectors
+        return cast(list[list[float]], vectors)
 
     def _embed_query(self, texts: list[str]) -> list[list[float]]:
         """Query-form embedding for knn (SA3.3): EmbeddingGemma's asymmetric
@@ -198,9 +202,9 @@ class Organ:
             vectors = [item["embedding"] for item in items]
         if not vectors:
             raise OrganUnavailable("embed service returned no vectors")
-        return vectors
+        return cast(list[list[float]], vectors)
 
-    def _table(self):
+    def _table(self) -> Any:
         if TABLE_NAME in self._db.list_tables().tables:
             return self._db.open_table(TABLE_NAME)
         return None
@@ -334,7 +338,7 @@ class Organ:
     # ── recall (mandatory pre-hunt) ──────────────────────────────────────
 
     def recall(
-        self, *, hunt_id: str, query: str, k: int = 8, filters: dict | None = None
+        self, *, hunt_id: str, query: str, k: int = 8, filters: dict[str, Any] | None = None
     ) -> RecallReceipt:
         """Mandatory pre-hunt recall (I-4). Persisted even when empty/degraded.
 

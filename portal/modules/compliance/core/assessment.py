@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import asdict
+from typing import Any, cast
 
 from portal.modules.compliance.core.boundary import BoundarySearch, persist
-from portal.modules.compliance.core.comparison import ExpressionNode, evaluate_expression
+from portal.modules.compliance.core.comparison import ExpressionNode, Status, evaluate_expression
 from portal.modules.compliance.core.constraints import (
     Quantity,
     compare_constraint,
@@ -25,7 +26,7 @@ _QUANTITY = re.compile(
 )
 
 
-def _value(item, field: str) -> str:
+def _value(item: dict[str, Any], field: str) -> str:
     if field == "condition":
         item = item.get("conditions", item.get("conditions_json", item.get(field, "")))
     elif field == "exception":
@@ -73,7 +74,9 @@ def _norm(value: str) -> set[str]:
     }
 
 
-def _compare(field: str, governing: str, internal: str, candidate: dict) -> tuple[str, str, str]:
+def _compare(
+    field: str, governing: str, internal: str, candidate: dict[str, Any]
+) -> tuple[str, str, str]:
     if not governing:
         return "SUPPORTED", "not_constrained", "governing atom does not constrain this field"
     source_text = str(candidate.get("source_text", ""))
@@ -125,7 +128,9 @@ def _compare(field: str, governing: str, internal: str, candidate: dict) -> tupl
     return "ABSENT", "token_entailment", "candidate does not address the governing field"
 
 
-def assess_atom(atom: dict, candidates: list[dict], ctx: dict) -> AtomResult:
+def assess_atom(
+    atom: dict[str, Any], candidates: list[dict[str, Any]], ctx: dict[str, Any]
+) -> AtomResult:
     """Compare one atom. Approval state is intentionally not an input (C3)."""
     from portal.modules.compliance.core.runtime import bump
 
@@ -265,7 +270,7 @@ def assess_atom(atom: dict, candidates: list[dict], ctx: dict) -> AtomResult:
     )
 
 
-def _expression(payload: dict) -> ExpressionNode:
+def _expression(payload: dict[str, Any]) -> ExpressionNode:
     return ExpressionNode(
         kind=payload["kind"],
         atom_id=payload.get("atom_id", ""),
@@ -274,7 +279,7 @@ def _expression(payload: dict) -> ExpressionNode:
     )
 
 
-def assess_requirement(node: dict, ctx: dict) -> RequirementResult:
+def assess_requirement(node: dict[str, Any], ctx: dict[str, Any]) -> RequirementResult:
     from portal.modules.compliance.core.runtime import bump
 
     bump("assessment")
@@ -296,7 +301,9 @@ def assess_requirement(node: dict, ctx: dict) -> RequirementResult:
         "children": [{"kind": "ATOM", "atom_id": a["atom_id"]} for a in atoms],
     }
     # Required live call into the reviewed boolean evaluator (C5).
-    evaluate_expression(_expression(expression), statuses)  # roll-up below preserves ABSENT/PARTIAL
+    # Roll-up below preserves ABSENT/PARTIAL; the folded set only ever contains
+    # SUPPORTED/CONTRADICTED/UNRESOLVED, which is what the evaluator accepts.
+    evaluate_expression(_expression(expression), cast(dict[str, Status], statuses))
     determinations = [r.determination for r in results]
     if any(value == "UNRESOLVED" for value in determinations):
         unresolved = next(r for r in results if r.determination == "UNRESOLVED")
@@ -323,5 +330,5 @@ def assess_requirement(node: dict, ctx: dict) -> RequirementResult:
     )
 
 
-def serialize(result: RequirementResult) -> dict:
+def serialize(result: RequirementResult) -> dict[str, Any]:
     return asdict(result)

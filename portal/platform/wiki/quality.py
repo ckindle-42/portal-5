@@ -37,8 +37,12 @@ instrument, then measure.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
+
+from portal.platform.wiki.schema import KnowledgeUnit
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -155,7 +159,7 @@ def reset_universe() -> None:
     _UNIVERSE = None
 
 
-def _cited_code_paths(unit) -> list[str]:
+def _cited_code_paths(unit: KnowledgeUnit) -> list[str]:
     out = []
     for src in unit.sources:
         raw = (src.path or "").split("#", 1)[0].strip()
@@ -164,7 +168,7 @@ def _cited_code_paths(unit) -> list[str]:
     return out
 
 
-def check_grounding(unit, repo_root: Path | None = None) -> QualityIssue | None:
+def check_grounding(unit: KnowledgeUnit, repo_root: Path | None = None) -> QualityIssue | None:
     """Backticked identifiers must exist somewhere in the repo, or look external."""
     spans = [x.strip() for x in _CODE_SPAN_RE.findall(_FENCE_RE.sub(" ", unit.body))]
     idents = [x for x in spans if _IDENT_RE.match(x)]
@@ -184,7 +188,7 @@ def check_grounding(unit, repo_root: Path | None = None) -> QualityIssue | None:
     return None
 
 
-def check_substance(unit, repo_root: Path | None = None) -> QualityIssue | None:
+def check_substance(unit: KnowledgeUnit, repo_root: Path | None = None) -> QualityIssue | None:
     """Prose floor, plus proof the unit says more than the AST already does.
 
     The word floor applies to every live unit. The tag distinction was retired in
@@ -224,7 +228,7 @@ def check_substance(unit, repo_root: Path | None = None) -> QualityIssue | None:
     return None
 
 
-def check_structure(unit) -> QualityIssue | None:
+def check_structure(unit: KnowledgeUnit) -> QualityIssue | None:
     """A `## Why` section with real content — the part no projection can supply.
 
     Applies to every live unit. The tag distinction was retired in
@@ -249,7 +253,7 @@ _QUANTITY_RE = re.compile(
 )
 
 
-def check_claim_binding(unit) -> QualityIssue | None:
+def check_claim_binding(unit: KnowledgeUnit) -> QualityIssue | None:
     """A stated live quantity must be bound to a probe, not typed once and forgotten.
 
     This is the "grounded in facts" requirement made mechanical. `BS` already
@@ -282,7 +286,7 @@ def _shingles(words: list[str], k: int = 5) -> set[str]:
     return {" ".join(lowered[i : i + k]) for i in range(max(0, len(lowered) - k + 1))}
 
 
-def check_distinctness(units) -> list[QualityIssue]:
+def check_distinctness(units: Sequence[KnowledgeUnit]) -> list[QualityIssue]:
     """Flag near-duplicate prose across units — template filler at scale."""
     prepared = []
     for unit in units:
@@ -309,17 +313,18 @@ def check_distinctness(units) -> list[QualityIssue]:
     return issues
 
 
-def assess(units, repo_root: Path | None = None) -> QualityReport:
+def assess(units: Sequence[KnowledgeUnit], repo_root: Path | None = None) -> QualityReport:
     """Run every check. A unit with no issues is coverage; one with issues is not."""
     root = repo_root or _REPO_ROOT
     issues: list[QualityIssue] = []
+    probes: tuple[Callable[[KnowledgeUnit], QualityIssue | None], ...] = (
+        lambda u: check_grounding(u, root),
+        lambda u: check_substance(u, root),
+        lambda u: check_structure(u),
+        lambda u: check_claim_binding(u),
+    )
     for unit in units:
-        for probe in (
-            lambda u: check_grounding(u, root),
-            lambda u: check_substance(u, root),
-            lambda u: check_structure(u),
-            lambda u: check_claim_binding(u),
-        ):
+        for probe in probes:
             issue = probe(unit)
             if issue is not None:
                 issues.append(issue)
@@ -336,7 +341,7 @@ def assess(units, repo_root: Path | None = None) -> QualityReport:
     )
 
 
-def calibrate(repo_root: Path | None = None) -> dict:
+def calibrate(repo_root: Path | None = None) -> dict[str, Any]:
     """Run the gate against the pre-existing authored corpus.
 
     The instrument is validated before it is trusted: if this reports a high

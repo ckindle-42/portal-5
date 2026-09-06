@@ -128,8 +128,9 @@ class IterableIngestConnector:
 
     def read(self, intent: QueryIntent) -> QueryResult:
         started = time.time()
+        factory = self.record_factory or (lambda: self.records)
         selected: list[Any] = []
-        for record in self.record_factory():
+        for record in factory():
             selected.append(record)
             if intent.limit is not None and len(selected) >= intent.limit:
                 break
@@ -165,6 +166,7 @@ class QueryInPlaceConnector:
 
     def translate(self, intent: QueryIntent) -> NativeQuery:
         language = self.language.lower()
+        expression: str | dict[str, Any]
         if language == "spl":
             expression = f'search purpose="{intent.purpose}"' + (
                 f" earliest={intent.start} latest={intent.end}"

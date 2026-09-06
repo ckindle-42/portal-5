@@ -13,10 +13,12 @@ import os
 import re
 import time
 import uuid
+from typing import Any, cast
 
 import httpx
 import lancedb
-import pyarrow as pa
+import pyarrow as pa  # type: ignore[import-untyped]  # pyarrow ships no stubs/py.typed
+from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 LANCE_DIR = os.environ.get("PORTAL5_LANCE_DIR", "/Volumes/data01/portal5_lance")
@@ -32,11 +34,11 @@ EXTRACT_MODEL = os.environ.get("MEMORY_EXTRACT_MODEL", "gemma4:e4b-it-q4_K_M")
 _MAX_NODES = int(os.environ.get("MEMORY_GRAPH_MAX_NODES", "200"))
 _NAME_RE = re.compile(r"^[^'\"\\]{1,200}$")
 
-_db = None
-_tables: dict = {}
+_db: Any = None
+_tables: dict[str, Any] = {}
 
 
-def _conn():
+def _conn() -> Any:
     global _db
     if _db is None:
         from portal.platform.lance_guard import require_lance_dir
@@ -47,7 +49,7 @@ def _conn():
     return _db
 
 
-def _memory_table():
+def _memory_table() -> Any:
     if "mem" not in _tables:
         db = _conn()
         schema = pa.schema(
@@ -71,7 +73,7 @@ def _memory_table():
     return _tables["mem"]
 
 
-def _entities():
+def _entities() -> Any:
     if "ent" not in _tables:
         db = _conn()
         schema = pa.schema(
@@ -94,7 +96,7 @@ def _entities():
     return _tables["ent"]
 
 
-def _relations():
+def _relations() -> Any:
     if "rel" not in _tables:
         db = _conn()
         schema = pa.schema(
@@ -117,7 +119,7 @@ def _relations():
     return _tables["rel"]
 
 
-def graph_stats() -> dict:
+def graph_stats() -> dict[str, Any]:
     """On-demand completeness probe (C2). A silent restore shortfall — the store
     coming back from a tarball with the `memory` table but not the graph tables
     (the exact conflation that put T8's 73/216/193 in doubt) — shows here as
@@ -149,10 +151,10 @@ async def _embed(text: str) -> list[float]:
     async with httpx.AsyncClient(timeout=10) as c:
         r = await c.post(EMBEDDING_URL, json={"input": text})
         r.raise_for_status()
-        return r.json()["data"][0]["embedding"]
+        return cast(list[float], r.json()["data"][0]["embedding"])
 
 
-async def _extract(text: str) -> dict:
+async def _extract(text: str) -> dict[str, Any]:
     """Extract entities + relations from text via the local model. Returns
     ``{"entities":[[name,type],...], "relations":[[src,rel,dst],...]}``. Failures
     are non-fatal — the memory still stores; extraction quality is worked live."""
@@ -184,7 +186,7 @@ async def _extract(text: str) -> dict:
         return {"entities": [], "relations": []}
 
 
-def _norm_entity(item) -> tuple[str, str]:
+def _norm_entity(item: Any) -> tuple[str, str]:
     """Normalise one extracted entity to (name, type). Local models emit either
     ``["Foo", "asset"]`` or ``{"name": "Foo", "type": "asset"}`` (key names vary)."""
     if isinstance(item, dict):
@@ -201,7 +203,7 @@ def _norm_entity(item) -> tuple[str, str]:
     return str(item), "concept"
 
 
-def _norm_relation(item) -> tuple[str, str, str]:
+def _norm_relation(item: Any) -> tuple[str, str, str]:
     """Normalise one extracted relation to (src, rel_type, dst). Models emit
     ``["A", "rel", "B"]`` or ``{"src": "A", "relation": "rel", "dst": "B"}``
     (key names vary: source/subject/from, relation/predicate/type, target/object/to)."""
@@ -262,7 +264,7 @@ async def _ingest_graph(text: str, source_memory_id: str) -> None:
         except Exception:  # noqa: BLE001 — one bad entity must not abort ingestion
             continue
     now = time.time()
-    rows = []
+    rows: list[dict[str, Any]] = []
     for src_raw, rel_raw, dst_raw in ex["relations"]:
         try:
             src, rel_type, dst = _safe(src_raw), str(rel_raw), _safe(dst_raw)
@@ -286,9 +288,9 @@ async def _ingest_graph(text: str, source_memory_id: str) -> None:
         _relations().add(rows)
 
 
-def _rels_for(names: set[str]) -> list[dict]:
+def _rels_for(names: set[str]) -> list[dict[str, Any]]:
     tbl = _relations()
-    out = {}
+    out: dict[str, Any] = {}
     for name in names:
         try:
             n = _safe(name)
@@ -305,7 +307,7 @@ def _rels_for(names: set[str]) -> list[dict]:
 
 
 # ── Endpoint handlers (replace the flat-vector versions) ─────────────────────
-async def _remember(request):
+async def _remember(request: Request) -> JSONResponse:
     args = (await request.json()).get("arguments", {})
     text = (args.get("text") or "").strip()
     if not text:
@@ -338,7 +340,7 @@ async def _remember(request):
     return JSONResponse({"id": mid, "stored": True, "category": category, "graph_updated": True})
 
 
-async def _recall(request):
+async def _recall(request: Request) -> JSONResponse:
     """Graph-aware recall: vector-seed memories + entities, expand relations,
     return memories with connected context. Replaces flat top-K."""
     args = (await request.json()).get("arguments", {})
@@ -405,7 +407,7 @@ async def _recall(request):
     )
 
 
-async def _forget(request):
+async def _forget(request: Request) -> JSONResponse:
     args = (await request.json()).get("arguments", {})
     mid = args.get("id", "")
     if not mid:
@@ -418,7 +420,7 @@ async def _forget(request):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
-async def _list_memories(request):
+async def _list_memories(request: Request) -> JSONResponse:
     args = (await request.json()).get("arguments", {})
     category = args.get("category")
     tags = args.get("tags", [])
@@ -445,7 +447,7 @@ async def _list_memories(request):
     )
 
 
-async def _clear_memories(request):
+async def _clear_memories(request: Request) -> JSONResponse:
     args = (await request.json()).get("arguments", {})
     if args.get("confirm_token") != "YES_DELETE_ALL":
         return JSONResponse({"error": "confirm_token must be 'YES_DELETE_ALL'"}, status_code=400)
@@ -455,7 +457,7 @@ async def _clear_memories(request):
 
 
 # ── New graph tools ──────────────────────────────────────────────────────────
-async def _link(request):
+async def _link(request: Request) -> JSONResponse:
     args = (await request.json()).get("arguments", {})
     try:
         src, dst = _safe(args["src"]), _safe(args["dst"])
@@ -483,7 +485,7 @@ async def _link(request):
         return JSONResponse({"error": str(e)}, status_code=400)
 
 
-async def _neighbors(request):
+async def _neighbors(request: Request) -> JSONResponse:
     args = (await request.json()).get("arguments", {})
     try:
         start = _safe(args["name"])
@@ -508,7 +510,7 @@ async def _neighbors(request):
         return JSONResponse({"error": f"missing arg: {e}"}, status_code=400)
 
 
-async def _entity_timeline(request):
+async def _entity_timeline(request: Request) -> JSONResponse:
     args = (await request.json()).get("arguments", {})
     try:
         name = _safe(args["name"])
@@ -540,7 +542,7 @@ async def _entity_timeline(request):
         return JSONResponse({"error": f"missing arg: {e}"}, status_code=400)
 
 
-async def migrate_existing() -> dict:
+async def migrate_existing() -> dict[str, Any]:
     """One-way, in-task migration: process every existing memory into the graph."""
     rows = _memory_table().search().where(f"user_id = '{DEFAULT_USER}'").limit(100000).to_list()
     done = 0
@@ -550,7 +552,7 @@ async def migrate_existing() -> dict:
     return {"migrated": done}
 
 
-def register_memory_routes(mcp) -> None:
+def register_memory_routes(mcp: Any) -> None:
     """Register ALL memory endpoints (replacements + graph tools) on the server."""
     mcp.custom_route("/tools/remember", methods=["POST"])(_remember)
     mcp.custom_route("/tools/recall", methods=["POST"])(_recall)

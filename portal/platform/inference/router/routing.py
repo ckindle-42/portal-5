@@ -106,7 +106,7 @@ _HARMFUL_INTENT_KW_CACHE: dict[str, int] = {
 }
 
 
-def detect_harmful_intent(messages: list[dict]) -> bool:
+def detect_harmful_intent(messages: list[dict[str, Any]]) -> bool:
     """True when the last user message trips the harmful-intent keyword gate.
 
     Weighted substring scoring over the lowercased last user message, same
@@ -371,7 +371,7 @@ _VALID_WORKSPACE_IDS: frozenset[str] = frozenset(
 # JSON schema enforced by Ollama grammar decoding — derived from WORKSPACES.
 # One source of truth: adding a workspace to WORKSPACES automatically
 # makes it available to the LLM router. No parallel list to maintain.
-_ROUTER_JSON_SCHEMA: dict = {
+_ROUTER_JSON_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
         "workspace": {
@@ -392,7 +392,7 @@ _ROUTER_JSON_SCHEMA: dict = {
 }
 
 _routing_descriptions: dict[str, str] | None = None
-_routing_examples: list[dict] | None = None
+_routing_examples: list[dict[str, Any]] | None = None
 
 
 def _resolve_routing_config_dir() -> Path:
@@ -426,7 +426,7 @@ def _resolve_routing_config_dir() -> Path:
     return docker_dir
 
 
-def _load_routing_config() -> tuple[dict[str, str], list[dict]]:
+def _load_routing_config() -> tuple[dict[str, str], list[dict[str, Any]]]:
     """Load LLM-router descriptions and few-shot examples (cached after first call).
 
     Resolves ``config/routing_descriptions.json`` and
@@ -596,7 +596,7 @@ def _infer_variant(base: str, message: str) -> str:
     return f"{base}::{winner}"
 
 
-async def _route_with_llm(messages: list[dict]) -> str | None:
+async def _route_with_llm(messages: list[dict[str, Any]]) -> str | None:
     """Layer 1 of auto-routing — LLM intent classifier with grammar-enforced JSON.
 
     Sends the user's last message to the router model via Ollama
@@ -765,7 +765,7 @@ async def _route_with_llm(messages: list[dict]) -> str | None:
         return None
 
 
-def _detect_workspace(messages: list[dict]) -> str | None:
+def _detect_workspace(messages: list[dict[str, Any]]) -> str | None:
     """Layer 2 of auto-routing — weighted keyword scoring fallback.
 
     Used when the LLM router (``_route_with_llm``) returns ``None``

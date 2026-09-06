@@ -21,6 +21,7 @@ import re
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
 from pathlib import Path
+from typing import Any
 
 from portal.modules.security.core.siem.spl_detections import technique_signature_full
 
@@ -92,7 +93,7 @@ def spl_field_value_discriminators(spl: str) -> list[str]:
     return found
 
 
-def technique_discriminators(technique_id: str) -> dict:
+def technique_discriminators(technique_id: str) -> dict[str, Any]:
     """Select read-only discriminator data from the production SPL library."""
     signature = technique_signature_full(str(technique_id or "").strip().upper())
     features = signature.get("distinguishing_features") or {}
@@ -122,7 +123,7 @@ def evidence_presence(
     return (PRESENT, matched) if matched else (ABSENT, [])
 
 
-def model_visible_telemetry(cell: dict) -> tuple[str, bool]:
+def model_visible_telemetry(cell: dict[str, Any]) -> tuple[str, bool]:
     """Return only retriever results persisted in the cell trace.
 
     Queries, model prose, scenario names, expected labels, and any broader
@@ -147,7 +148,7 @@ def _attribution(verdict: str, exact_hit: bool, oracle: str) -> str:
     return UNSCORABLE_BY_ORACLE
 
 
-def attribute_cell(cell: dict) -> dict:
+def attribute_cell(cell: dict[str, Any]) -> dict[str, Any]:
     """Attribute one completed, labeled corpus-replay cell."""
     expected = str(cell.get("technique_expected") or "").strip().upper()
     verdict = str(cell.get("verdict") or "").strip().upper()
@@ -185,7 +186,7 @@ def attribute_cell(cell: dict) -> dict:
     }
 
 
-def attribute_cells(cells: Iterable[dict]) -> list[dict]:
+def attribute_cells(cells: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     """Attribute all completed cells in stable input order."""
     return [
         attribute_cell(cell)
@@ -194,7 +195,7 @@ def attribute_cells(cells: Iterable[dict]) -> list[dict]:
     ]
 
 
-def _rollup(rows: Iterable[dict]) -> dict[str, int]:
+def _rollup(rows: Iterable[dict[str, Any]]) -> dict[str, int]:
     counts = Counter(row["attribution"] for row in rows)
     return {
         "A_evidence_present_misses": (counts[EVIDENCE_PRESENT_MISS] + counts[FALSE_NEGATIVE]),
@@ -208,9 +209,9 @@ def _rollup(rows: Iterable[dict]) -> dict[str, int]:
     }
 
 
-def build_result(cells: list[dict], checkpoint: Path) -> dict:
+def build_result(cells: list[dict[str, Any]], checkpoint: Path) -> dict[str, Any]:
     rows = attribute_cells(cells)
-    by_arm: dict[str, list[dict]] = defaultdict(list)
+    by_arm: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
         by_arm[str(row["model_arm"])].append(row)
     return {
@@ -230,7 +231,7 @@ def build_result(cells: list[dict], checkpoint: Path) -> dict:
     }
 
 
-def render_markdown(result: dict) -> str:
+def render_markdown(result: dict[str, Any]) -> str:
     lines = [
         "# Blue Orchestration V5A Attribution — 2026-07-25",
         "",

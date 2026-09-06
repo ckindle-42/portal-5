@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import re
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,9 @@ def extract_think_inner(text: str) -> str:
     return m.group(1).strip() if m else ""
 
 
-def normalize_think_message(msg: dict, *, workspace_id: str = "", backend_id: str = "") -> None:
+def normalize_think_message(
+    msg: dict[str, Any], *, workspace_id: str = "", backend_id: str = ""
+) -> None:
     """Promote reasoning fields to ``content`` on a completed non-streaming message.
 
     Mutates *msg* in place. Priority order:

@@ -41,9 +41,10 @@ import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from portal.modules.security.core._data import RESULTS_DIR
-from portal.modules.security.core.agentic_blue_eval import load_episode
+from portal.modules.security.core.agentic_blue_eval import Episode, load_episode
 from portal.modules.security.core.blue import _run_blue_chain_test
 from portal.modules.security.core.blue_orchestrate import SectionSpec, run_blue_orchestration
 from portal.modules.security.core.exec_chain import SCENARIOS
@@ -57,6 +58,7 @@ from portal.modules.security.eval.ablation_attribution import (
     MAX_ATTRIBUTION_UNKNOWN,
     SPLIT_MARGIN,
     ArmScenarioOutcome,
+    ArmSummary,
     classify,
     decide_route,
     summarize,
@@ -84,7 +86,7 @@ ARMS = ["1section", "2section", "3section"]
 DEFAULT_OUT = Path("ABLATION_DECISION.json")
 
 
-def _pending_instrument_validation() -> dict:
+def _pending_instrument_validation() -> dict[str, Any]:
     """Fail-closed validation state for exploratory runs and old rescores."""
     return {
         "schema_version": ATTRIBUTION_SCHEMA_VERSION,
@@ -101,7 +103,7 @@ def _pending_instrument_validation() -> dict:
     }
 
 
-def _load_validation_manifest(path: str) -> dict:
+def _load_validation_manifest(path: str) -> dict[str, Any]:
     if not path:
         return _pending_instrument_validation()
     manifest_path = Path(path)
@@ -133,12 +135,12 @@ def _raw_path_for(out_path: Path) -> Path:
     return out_path.with_suffix(".raw.jsonl")
 
 
-def _append_raw(path: Path, record: dict) -> None:
+def _append_raw(path: Path, record: dict[str, Any]) -> None:
     with path.open("a") as f:
         f.write(json.dumps(record, default=str) + "\n")
 
 
-def _load_raw(path: Path) -> list[dict]:
+def _load_raw(path: Path) -> list[dict[str, Any]]:
     records = []
     for line in path.read_text().splitlines():
         line = line.strip()
@@ -147,7 +149,9 @@ def _load_raw(path: Path) -> list[dict]:
     return records
 
 
-def _run_1section_raw(scenario_name: str, ground_truth: list[str], reps: int) -> list[dict]:
+def _run_1section_raw(
+    scenario_name: str, ground_truth: list[str], reps: int
+) -> list[dict[str, Any]]:
     """Gather raw (arm, scenario) reps for the 1-section arm — no classification."""
     sc = SCENARIOS[scenario_name]
     records = []
@@ -195,10 +199,10 @@ def _run_1section_raw(scenario_name: str, ground_truth: list[str], reps: int) ->
 
 
 def _run_orchestrated_raw(
-    arm: str, scenario_name: str, episode, ground_truth: list[str], reps: int
-) -> list[dict]:
+    arm: str, scenario_name: str, episode: Episode, ground_truth: list[str], reps: int
+) -> list[dict[str, Any]]:
     """Gather raw (arm, scenario) reps for the 2/3-section/council arms — no classification."""
-    extra_kwargs: dict = {}
+    extra_kwargs: dict[str, Any] = {}
     if arm == "2section":
         sections = [
             SectionSpec(role="tool", model=TOOL_MODEL, needs_tools=True),
@@ -248,7 +252,7 @@ def _run_orchestrated_raw(
     return records
 
 
-def _classify_raw_record(record: dict) -> ArmScenarioOutcome | None:
+def _classify_raw_record(record: dict[str, Any]) -> ArmScenarioOutcome | None:
     """Apply the CURRENT classify() to one raw record. None if it errored."""
     if record.get("error") is not None:
         return None
@@ -265,7 +269,7 @@ def _classify_raw_record(record: dict) -> ArmScenarioOutcome | None:
     )
 
 
-def _outcome_to_dict(o: ArmScenarioOutcome) -> dict:
+def _outcome_to_dict(o: ArmScenarioOutcome) -> dict[str, Any]:
     return {
         "arm": o.arm,
         "scenario": o.scenario,
@@ -282,7 +286,7 @@ def _outcome_to_dict(o: ArmScenarioOutcome) -> dict:
     }
 
 
-def _summary_to_dict(s) -> dict:
+def _summary_to_dict(s: ArmSummary) -> dict[str, Any]:
     return {
         "arm": s.arm,
         "n": s.n,
@@ -303,7 +307,7 @@ def _summary_to_dict(s) -> dict:
     }
 
 
-def _decide_honest_blocked(error_rate: float, arms: dict) -> tuple[bool, str | None]:
+def _decide_honest_blocked(error_rate: float, arms: dict[str, Any]) -> tuple[bool, str | None]:
     if error_rate > DEGEN_ERR:
         return True, f"error_rate {error_rate:.3f} > {DEGEN_ERR} — instrument or run is degenerate"
     all_low = all(a["real_recall"] < DEGEN_RECALL for a in arms.values())
@@ -319,7 +323,7 @@ def _decide_honest_blocked(error_rate: float, arms: dict) -> tuple[bool, str | N
     return False, None
 
 
-def _write_report(path: Path, decision: dict) -> None:
+def _write_report(path: Path, decision: dict[str, Any]) -> None:
     lines = [
         f"# Blue-Orchestration Ablation Report ({decision['generated_at']})",
         "",
@@ -361,12 +365,12 @@ def _write_report(path: Path, decision: dict) -> None:
 
 
 def _build_decision(
-    all_records: list[dict],
+    all_records: list[dict[str, Any]],
     reps: int,
     corpus_n: int,
     out_path: Path,
-    instrument_validation: dict | None = None,
-) -> dict:
+    instrument_validation: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Classify every raw record with the CURRENT classify() and build the
     decision dict + report. No live calls — pure reclassification."""
     attempted = len(all_records)
@@ -378,7 +382,7 @@ def _build_decision(
         # best_multi_arm/split_proven below — those stay 1/2/3section-only (I7).
         present_arms.append("council")
 
-    arms_summary: dict[str, dict] = {}
+    arms_summary: dict[str, dict[str, Any]] = {}
     for arm in present_arms:
         arm_outcomes = [
             o
@@ -440,7 +444,10 @@ def _build_decision(
 
 
 def _rescore(
-    raw_path: Path, out_path: Path, reps: int, instrument_validation: dict | None = None
+    raw_path: Path,
+    out_path: Path,
+    reps: int,
+    instrument_validation: dict[str, Any] | None = None,
 ) -> int:
     """Reclassify every raw record on disk with the CURRENT classify() logic.
     No Ollama/pipeline calls — pure, fast, replayable scoring."""
@@ -516,7 +523,7 @@ def main() -> int:
 
     raw_path = _raw_path_for(out_path)
     _backup_existing(raw_path)
-    all_records: list[dict] = []
+    all_records: list[dict[str, Any]] = []
     if raw_path.exists():
         all_records = _load_raw(raw_path)
         print(f"Resuming from raw checkpoint: {len(all_records)} records already recorded")
@@ -547,7 +554,8 @@ def main() -> int:
                     print(f"    ERROR: {rec['error'][:150]}")
                 else:
                     outcome = _classify_raw_record(rec)
-                    print(f"    -> {outcome.outcome}")
+                    if outcome is not None:
+                        print(f"    -> {outcome.outcome}")
 
     wall_s = round(time.monotonic() - t0, 1)
     print(f"\nAblation corpus run complete in {wall_s}s ({wall_s / 60:.1f}min)")

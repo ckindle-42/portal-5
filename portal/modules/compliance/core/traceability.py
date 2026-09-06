@@ -2,23 +2,28 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from portal.modules.compliance.core.repository import Repository
+
 
 def trace(
-    repo,
+    repo: Repository,
     start_ref: str,
     *,
     direction: str = "both",
-    statuses=("approved",),
+    statuses: tuple[str, ...] = ("approved",),
     max_depth: int = 3,
     max_edges: int = 500,
-) -> dict:
+) -> dict[str, Any]:
     from portal.modules.compliance.core.runtime import bump
 
     bump("traceability")
     result = repo.traverse_relationships(
         start_ref,
         direction=direction,
-        statuses=tuple(statuses),
+        statuses=statuses,
         max_depth=max_depth,
         max_edges=max_edges,
     )

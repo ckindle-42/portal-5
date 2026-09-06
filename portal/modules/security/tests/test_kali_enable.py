@@ -10,6 +10,7 @@ Verifies:
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -27,15 +28,15 @@ from portal.modules.security.core.scoring import accumulate_observations
 class TestChainToolsBaseExposesKali:
     """CHAIN_TOOLS_BASE must include execute_bash and execute_python."""
 
-    def test_execute_bash_in_chain_tools(self):
+    def test_execute_bash_in_chain_tools(self) -> None:
         names = [t.get("function", {}).get("name") for t in CHAIN_TOOLS_BASE]
         assert "execute_bash" in names, "execute_bash missing from CHAIN_TOOLS_BASE"
 
-    def test_execute_python_in_chain_tools(self):
+    def test_execute_python_in_chain_tools(self) -> None:
         names = [t.get("function", {}).get("name") for t in CHAIN_TOOLS_BASE]
         assert "execute_python" in names, "execute_python missing from CHAIN_TOOLS_BASE"
 
-    def test_schema_matches_inline_tools(self):
+    def test_schema_matches_inline_tools(self) -> None:
         """execute_bash/execute_python schema in CHAIN_TOOLS_BASE must match INLINE_TOOLS."""
         inline_map = {t["function"]["name"]: t for t in INLINE_TOOLS}
         chain_map = {t["function"]["name"]: t for t in CHAIN_TOOLS_BASE}
@@ -45,7 +46,7 @@ class TestChainToolsBaseExposesKali:
                 f"{name} schema in CHAIN_TOOLS_BASE differs from INLINE_TOOLS"
             )
 
-    def test_wrappers_still_present(self):
+    def test_wrappers_still_present(self) -> None:
         """All 13 original wrappers must remain (additive, not replacement)."""
         names = {t.get("function", {}).get("name") for t in CHAIN_TOOLS_BASE}
         wrappers = {
@@ -66,7 +67,7 @@ class TestChainToolsBaseExposesKali:
         missing = wrappers - names
         assert not missing, f"Wrappers removed from CHAIN_TOOLS_BASE: {missing}"
 
-    def test_no_tool_proliferation(self):
+    def test_no_tool_proliferation(self) -> None:
         """No new exec tools beyond execute_bash/execute_python were added."""
         bash_python = {"execute_bash", "execute_python"}
         original_wrappers = {
@@ -95,7 +96,7 @@ class TestChainToolsBaseExposesKali:
 class TestLabDispatchRouting:
     """lab_dispatch must route execute_bash/execute_python to real Kali."""
 
-    def test_execute_bash_dispatches_to_mcp(self):
+    def test_execute_bash_dispatches_to_mcp(self) -> None:
         with patch(
             "portal.modules.security.core.lab._lab_mcp_call",
             return_value={"ok": True, "output": "uid=0(root)", "elapsed_s": 0.5},
@@ -106,7 +107,7 @@ class TestLabDispatchRouting:
             mock_call.assert_called_once()
             assert "uid=0" in result
 
-    def test_execute_python_dispatches_to_mcp(self):
+    def test_execute_python_dispatches_to_mcp(self) -> None:
         with patch(
             "portal.modules.security.core.lab._lab_mcp_call",
             return_value={"ok": True, "output": "42", "elapsed_s": 0.3},
@@ -117,13 +118,13 @@ class TestLabDispatchRouting:
             mock_call.assert_called_once()
             assert "42" in result
 
-    def test_execute_bash_dry_run(self):
+    def test_execute_bash_dry_run(self) -> None:
         from portal.modules.security.core.lab import lab_dispatch
 
         result = lab_dispatch("execute_bash", {"cmd": "nmap -sV 10.10.11.50"}, dry_run=True)
         assert "[DRY-RUN]" in result
 
-    def test_nmap_alias_dispatches_same_as_run_nmap_scan(self):
+    def test_nmap_alias_dispatches_same_as_run_nmap_scan(self) -> None:
         """P5-EMERGENT-001: "nmap" is the real Kali binary name the capability
         library declares (smb_probe/winrm_probe/ldap_probe/kerberos_probe) —
         it must reach the same live dispatch as run_nmap_scan, not fall
@@ -139,7 +140,7 @@ class TestLabDispatchRouting:
         assert "synthetic" not in result
         assert "22/tcp open" in result
 
-    def test_impacket_getuserspns_alias_dispatches_same_as_exploit_service(self):
+    def test_impacket_getuserspns_alias_dispatches_same_as_exploit_service(self) -> None:
         """P5-EMERGENT-001: "impacket-GetUserSPNs" is the real Kali binary
         name the capability library declares (ldap_probe/kerberos_probe) —
         must reach the same live dispatch as exploit_service (Kerberoast)."""
@@ -164,8 +165,8 @@ class TestLabDispatchRouting:
         ],
     )
     def test_read_only_emergent_aliases_dispatch_verified_commands(
-        self, tool_name, expected_command
-    ):
+        self, tool_name: str, expected_command: str
+    ) -> None:
         from portal.modules.security.core.lab import lab_dispatch
 
         with patch(
@@ -183,7 +184,7 @@ class TestLabDispatchRouting:
         assert "synthetic" not in result
         assert "verified read-only output" in result
 
-    def test_getnpusers_alias_is_bounded_to_known_lab_accounts(self):
+    def test_getnpusers_alias_is_bounded_to_known_lab_accounts(self) -> None:
         from portal.modules.security.core.lab import lab_dispatch
 
         with patch(
@@ -201,7 +202,7 @@ class TestLabDispatchRouting:
         assert "-no-pass" in command
         assert "-dc-ip 10.10.11.21" in command
 
-    def test_execute_python_dry_run(self):
+    def test_execute_python_dry_run(self) -> None:
         from portal.modules.security.core.lab import lab_dispatch
 
         result = lab_dispatch(
@@ -209,13 +210,13 @@ class TestLabDispatchRouting:
         )
         assert "[DRY-RUN]" in result
 
-    def test_execute_bash_empty_cmd(self):
+    def test_execute_bash_empty_cmd(self) -> None:
         from portal.modules.security.core.lab import lab_dispatch
 
         result = lab_dispatch("execute_bash", {"cmd": ""}, dry_run=False)
         assert "empty" in result.lower()
 
-    def test_execute_python_empty_code(self):
+    def test_execute_python_empty_code(self) -> None:
         from portal.modules.security.core.lab import lab_dispatch
 
         result = lab_dispatch("execute_python", {"code": ""}, dry_run=False)
@@ -228,8 +229,8 @@ class TestLabDispatchRouting:
 class TestAccumulateObservationsBash:
     """accumulate_observations must extract markers from execute_bash output."""
 
-    def test_compromise_from_shell_marker(self):
-        obs: dict = {}
+    def test_compromise_from_shell_marker(self) -> None:
+        obs: dict[str, Any] = {}
         accumulate_observations(
             "execute_bash",
             "Shell obtained: root@10.10.11.50 — session 1 opened",
@@ -237,8 +238,8 @@ class TestAccumulateObservationsBash:
         )
         assert obs.get("compromise_confirmed") is True
 
-    def test_compromise_from_uid(self):
-        obs: dict = {}
+    def test_compromise_from_uid(self) -> None:
+        obs: dict[str, Any] = {}
         accumulate_observations(
             "execute_bash",
             "uid=0(root) gid=0(root) groups=0(root)",
@@ -246,8 +247,8 @@ class TestAccumulateObservationsBash:
         )
         assert obs.get("compromise_confirmed") is True
 
-    def test_compromise_from_kerberoast(self):
-        obs: dict = {}
+    def test_compromise_from_kerberoast(self) -> None:
+        obs: dict[str, Any] = {}
         accumulate_observations(
             "execute_bash",
             "$krb5tgs$23$*svc_sql$CORP.LOCAL$a]b]c]d",
@@ -255,8 +256,8 @@ class TestAccumulateObservationsBash:
         )
         assert obs.get("compromise_confirmed") is True
 
-    def test_open_ports_from_nmap_output(self):
-        obs: dict = {}
+    def test_open_ports_from_nmap_output(self) -> None:
+        obs: dict[str, Any] = {}
         accumulate_observations(
             "execute_bash",
             "22/tcp open ssh\n80/tcp open http\n443/tcp open ssl/http",
@@ -264,8 +265,8 @@ class TestAccumulateObservationsBash:
         )
         assert obs.get("open_ports") == [22, 80, 443]
 
-    def test_cve_confirmation(self):
-        obs: dict = {}
+    def test_cve_confirmation(self) -> None:
+        obs: dict[str, Any] = {}
         accumulate_observations(
             "execute_bash",
             "VULNERABLE: CVE-2021-44228 (Log4Shell)",
@@ -273,8 +274,8 @@ class TestAccumulateObservationsBash:
         )
         assert obs.get("confirmed_cve") is True
 
-    def test_data_extracted_from_dump(self):
-        obs: dict = {}
+    def test_data_extracted_from_dump(self) -> None:
+        obs: dict[str, Any] = {}
         accumulate_observations(
             "execute_bash",
             "Database: webapp\nTable: users\ndumped 5 rows",
@@ -283,8 +284,8 @@ class TestAccumulateObservationsBash:
         assert obs.get("data_extracted") is True
         assert obs.get("compromise_confirmed") is True
 
-    def test_flag_extraction(self):
-        obs: dict = {}
+    def test_flag_extraction(self) -> None:
+        obs: dict[str, Any] = {}
         accumulate_observations(
             "execute_bash",
             "MBPTL-N{abc123def456}",
@@ -292,17 +293,17 @@ class TestAccumulateObservationsBash:
         )
         assert obs.get("compromise_confirmed") is True
 
-    def test_no_credit_for_empty_output(self):
+    def test_no_credit_for_empty_output(self) -> None:
         """Bare call with no successful output gives no credit."""
-        obs: dict = {}
+        obs: dict[str, Any] = {}
         accumulate_observations("execute_bash", "", obs)
         assert "compromise_confirmed" not in obs
         assert "open_ports" not in obs
         assert "confirmed_cve" not in obs
 
-    def test_no_credit_for_error_output(self):
+    def test_no_credit_for_error_output(self) -> None:
         """Error output gives no compromise credit."""
-        obs: dict = {}
+        obs: dict[str, Any] = {}
         accumulate_observations(
             "execute_bash",
             "bash: sqlmap: command not found",
@@ -310,9 +311,9 @@ class TestAccumulateObservationsBash:
         )
         assert "compromise_confirmed" not in obs
 
-    def test_python_markers(self):
+    def test_python_markers(self) -> None:
         """execute_python output also gets parsed."""
-        obs: dict = {}
+        obs: dict[str, Any] = {}
         accumulate_observations(
             "execute_python",
             "uid=0(root) gid=0(root) groups=0(root)",
@@ -327,7 +328,7 @@ class TestAccumulateObservationsBash:
 class TestHonestyGuard:
     """Coverage credit requires real observation, not bare tool call."""
 
-    def test_bash_technique_signals_all_have_observations(self):
+    def test_bash_technique_signals_all_have_observations(self) -> None:
         """Every entry in _BASH_TECHNIQUE_SIGNALS maps to a real obs key."""
         valid_keys = {
             "open_ports",
@@ -338,9 +339,9 @@ class TestHonestyGuard:
         for step, signal in _BASH_TECHNIQUE_SIGNALS.items():
             assert signal in valid_keys, f"{step} maps to unknown signal '{signal}'"
 
-    def test_no_credit_without_output(self):
+    def test_no_credit_without_output(self) -> None:
         """A bare execute_bash call with empty output gives zero coverage."""
-        obs: dict = {}
+        obs: dict[str, Any] = {}
         accumulate_observations("execute_bash", "", obs)
         # No signal should be set
         for signal in _BASH_TECHNIQUE_SIGNALS.values():

@@ -5,6 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from portal.modules.compliance.core.repository import Repository
 
 
 @dataclass(frozen=True)
@@ -14,10 +18,10 @@ class BoundarySearch:
     index_generation: str
     manifest_hash: str
     eligible_document_count: int
-    retrieved: list[dict] = field(default_factory=list)
-    rejected: list[dict] = field(default_factory=list)
+    retrieved: list[dict[str, Any]] = field(default_factory=list)
+    rejected: list[dict[str, Any]] = field(default_factory=list)
     truncation_flags: list[str] = field(default_factory=list)
-    budget_ceilings: dict = field(default_factory=dict)
+    budget_ceilings: dict[str, Any] = field(default_factory=dict)
 
     @property
     def exhaustive(self) -> bool:
@@ -30,7 +34,7 @@ class BoundarySearch:
         body = json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":"))
         return "boundary-" + hashlib.sha256(body.encode()).hexdigest()[:20]
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "subject_ref": self.subject_ref,
             "query_set": self.queries,
@@ -45,7 +49,7 @@ class BoundarySearch:
 
 
 def build_queries(
-    requirement_id: str, atom: dict, definitions: dict[str, str] | None = None
+    requirement_id: str, atom: dict[str, Any], definitions: dict[str, str] | None = None
 ) -> list[str]:
     """Build and retain every query family required by P4."""
     from portal.modules.compliance.core.runtime import bump
@@ -62,7 +66,7 @@ def build_queries(
     return list(dict.fromkeys(q for q in queries if q.strip()))
 
 
-def persist(repo, search: BoundarySearch) -> str:
+def persist(repo: Repository, search: BoundarySearch) -> str:
     from portal.modules.compliance.core.runtime import bump
 
     bump("boundary")

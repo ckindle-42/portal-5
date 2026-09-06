@@ -50,10 +50,10 @@ class _SecurityCapabilityProvider:
 def _decide_via_model(
     goal: EngagementGoal,
     observations: dict[str, Any],
-    history: list[dict],
+    history: list[dict[str, Any]],
     candidates: list[Capability],
     workspace: str,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """Best-effort model decide turn. Any failure returns None so the caller
     falls back to the deterministic ranker — never load-bearing for correctness.
     """
@@ -85,10 +85,10 @@ def _decide_via_model(
 def decide_next_action(
     goal: EngagementGoal,
     observations: dict[str, Any],
-    history: list[dict],
+    history: list[dict[str, Any]],
     *,
     workspace: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """One decide step, grounded in security's capability index. Delegates the
     control flow to the platform decide-turn; supplies the security provider and
     (when a workspace is available) the security model turn.

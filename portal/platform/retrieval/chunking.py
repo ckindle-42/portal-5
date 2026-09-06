@@ -38,8 +38,9 @@ SECTION_BOUNDARY = re.compile(
 )
 
 
-def chunk_fixed(text: str, size: int, overlap: int) -> list:
-    out, i = [], 0
+def chunk_fixed(text: str, size: int, overlap: int) -> list[tuple[int, int, str]]:
+    out: list[tuple[int, int, str]] = []
+    i = 0
     while i < len(text):
         seg = text[i : i + size]
         if seg.strip():
@@ -48,7 +49,9 @@ def chunk_fixed(text: str, size: int, overlap: int) -> list:
     return out
 
 
-def chunk_structured(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list:
+def chunk_structured(
+    text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP
+) -> list[tuple[int, int, str]]:
     """Split on document structure, then pack — instead of slicing blind.
 
     Fixed-width slicing cuts mid-requirement and needs an overlap purely to heal
@@ -61,43 +64,54 @@ def chunk_structured(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVE
     bounds = sorted({0, *marks, len(text)})
     units = [(bounds[i], bounds[i + 1]) for i in range(len(bounds) - 1)]
 
-    out: list = []
-    cs = ce = None
+    out: list[tuple[int, int, str]] = []
+    cs = 0
+    ce = 0
+    open_chunk = False
     for s, e in units:
         if e - s > size:  # an oversized unit still has to be sliced
-            if cs is not None:
+            if open_chunk:
                 out.append((cs, ce, text[cs:ce]))
-                cs = ce = None
+                open_chunk = False
             for a, b, seg in chunk_fixed(text[s:e], size, overlap):
                 out.append((s + a, s + b, seg))
             continue
-        if cs is None:
+        if not open_chunk:
             cs, ce = s, e
+            open_chunk = True
         elif e - cs <= size:
             ce = e  # pack adjacent units up to the budget
         else:
             out.append((cs, ce, text[cs:ce]))
             cs, ce = s, e
-    if cs is not None:
+    if open_chunk:
         out.append((cs, ce, text[cs:ce]))
     return [(a, b, t) for a, b, t in out if t.strip()]
 
 
-_chunker = None
+_chunker: Any = None
 
 
-def _hybrid_chunker():
+def _hybrid_chunker() -> Any:
     global _chunker
     if _chunker is None:
-        from docling.chunking import HybridChunker
+        # docling.chunking re-exports HybridChunker from docling_core but its
+        # __init__ has no __all__, so mypy treats the name as un-exported.
+        from docling.chunking import HybridChunker  # type: ignore[attr-defined]
 
-        _chunker = HybridChunker(
-            tokenizer=DOCLING_TOKENIZER, max_tokens=DOCLING_MAX_TOKENS, merge_peers=True
+        # docling_core's HybridChunker is a pydantic model whose typed fields
+        # expose only `tokenizer: BaseTokenizer`, but its model_validator
+        # `_patch` accepts the legacy string tokenizer name + `max_tokens` at
+        # runtime. The library's typing lags the accepted input.
+        _chunker = HybridChunker(  # type: ignore[call-arg]
+            tokenizer=DOCLING_TOKENIZER,  # type: ignore[arg-type]
+            max_tokens=DOCLING_MAX_TOKENS,
+            merge_peers=True,
         )
     return _chunker
 
 
-def chunk_docling(doc: Any, markdown: str = "") -> list:
+def chunk_docling(doc: Any, markdown: str = "") -> list[tuple[int, int, str, int, str]]:
     """SUBSTRATE_MIGRATION_V1 P3.2 (O5). Chunk the ``DoclingDocument`` with the
     layout-aware ``HybridChunker`` instead of regexing section boundaries over a
     markdown export. Each chunk carries the docling ``prov.page_no`` (1-indexed)
@@ -107,7 +121,7 @@ def chunk_docling(doc: Any, markdown: str = "") -> list:
     offsets are located in ``markdown`` best-effort (O2's locator field); a chunk
     whose text is reflowed past a literal match reports ``(0, len(text))``."""
     hc = _hybrid_chunker()
-    out: list = []
+    out: list[tuple[int, int, str, int, str]] = []
     for ch in hc.chunk(dl_doc=doc):
         text = ch.text
         if not text or not text.strip():
@@ -137,7 +151,7 @@ def chunk_docling(doc: Any, markdown: str = "") -> list:
 CHUNK_STRATEGY = os.environ.get("RAG_CHUNK_STRATEGY", "fixed")
 
 
-def _to5(rows: list) -> list:
+def _to5(rows: list[tuple[int, int, str]]) -> list[tuple[int, int, str, int, str]]:
     """Normalise a 3-tuple chunk list to the 5-tuple contract (page -1, no
     headings) so ``fixed`` / ``structured`` rows shape like ``docling`` rows."""
     return [(cs, ce, t, -1, "") for cs, ce, t in rows]
@@ -148,7 +162,7 @@ def chunk(
     doc: Any | None = None,
     size: int = CHUNK_SIZE,
     overlap: int = CHUNK_OVERLAP,
-) -> list:
+) -> list[tuple[int, int, str, int, str]]:
     """5-tuples ``(char_start, char_end, text, page, headings)``. ``doc`` is the
     optional ``DoclingDocument`` — required only for ``CHUNK_STRATEGY=docling``,
     which falls back to ``fixed`` when it is absent."""

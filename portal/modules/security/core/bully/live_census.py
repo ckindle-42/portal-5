@@ -54,10 +54,10 @@ def build_live_plane(
         register_coverage_source(plane, path=coverage_path)
     if store_path.is_file():
         # The connector is intentionally query-in-place, so retain the
-        # read-only Store handle until all live profiling is complete.
+        # read-only Store handle until all live profiling is complete. The
+        # `store` local keeps the handle alive for the whole of this build.
         store = Store(store_path)
         register_case_history_source(plane, store, sample_limit=sample_limit)
-        plane._live_store = store
     indexed = plane.connectors.get("lab-splunk")
     if indexed is not None:
         register_asset_identity_source(

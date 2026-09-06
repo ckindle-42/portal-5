@@ -9,12 +9,14 @@ blocks a loop.
 
 from __future__ import annotations
 
+from typing import Any
+
 
 def record_outcome(
     *,
     title: str,
     body: str,
-    sources: list[dict],
+    sources: list[dict[str, Any]],
     tags: list[str] | None = None,
     proposed_by: str = "agent-loop",
     kind: str = "mixed",

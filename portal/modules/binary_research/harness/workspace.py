@@ -15,6 +15,7 @@ import json
 import os
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 _WORKSPACE_DIRS = ["artifacts", "verifiers", "02_evidence"]
 _WORKSPACE_FILES = [
@@ -105,7 +106,7 @@ class TraceLog:
     def __init__(self, project_dir: Path):
         self._path = project_dir / "trace.jsonl"
 
-    def log(self, event_type: str, data: dict) -> None:
+    def log(self, event_type: str, data: dict[str, Any]) -> None:
         entry = {"ts": datetime.now(UTC).isoformat(), "type": event_type, **data}
         with self._path.open("a") as f:
             f.write(json.dumps(entry, default=str) + "\n")

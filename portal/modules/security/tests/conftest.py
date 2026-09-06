@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 
 @pytest.fixture(autouse=True)
-def isolated_security_writes(tmp_path, monkeypatch):
+def isolated_security_writes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
     """Redirect journals and engagement checkpoints for every security test."""
     journal_dir = tmp_path / "field_journal"
     checkpoint_dir = tmp_path / "checkpoints"

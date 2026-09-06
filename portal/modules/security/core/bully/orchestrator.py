@@ -36,10 +36,22 @@ from . import playbooks as playbooks_mod
 from . import scoreboard as scoreboard_mod
 from . import signatures as signatures_mod
 from . import targeting as targeting_mod
-from .contracts import DecisionEvent, DecisionImpact, MutationPlan, new_id
+from .contracts import (
+    CousinAssessment,
+    DecisionEvent,
+    DecisionImpact,
+    DriftFlag,
+    HuntContext,
+    MutationPlan,
+    RecallReceipt,
+    TargetDecision,
+    new_id,
+)
 from .cousin_engine import CoverageView, retrieve_candidate_axes
+from .investigation import InvestigationResult
 from .organ import Organ, OrganUnavailable
-from .store import IllegalTransitionError, Store
+from .signatures import BehaviorSignature
+from .store import IllegalTransitionError, Store, StoreError
 
 
 class HonestBlockedError(RuntimeError):
@@ -62,6 +74,15 @@ class OperatorRequiredError(RuntimeError):
 LabDriver = Callable[..., Any]  # (target_cell, *, dry_run) -> live Episode
 
 
+def _hunt_version(store: Store, hunt_id: str) -> int:
+    """The hunts row's `version` for a compare-and-swap advance. A missing
+    row is a wiring error surfaced as StoreError, not a None-subscript."""
+    row = store.hunt_get(hunt_id)
+    if row is None:
+        raise StoreError(f"no such hunt: {hunt_id}")
+    return int(row["version"])
+
+
 def _resolve_live_investigation_models(store: Store) -> dict[str, str]:
     """Resolve config models, then apply only operator-served TRAIN aliases."""
     models = bully_config.resolve_investigation_models()
@@ -80,7 +101,7 @@ def _require_operator(actor: str) -> None:
         )
 
 
-def _default_lab_driver(target_cell: dict, *, dry_run: bool) -> Any:
+def _default_lab_driver(target_cell: dict[str, Any], *, dry_run: bool) -> Any:
     """Real driver: unchanged `exec_chain._prepare_scenario` + `_run_chain_test`
     -> `blue.collect_and_ship_scenario_telemetry` -> `episode.Episode`.
 
@@ -91,9 +112,8 @@ def _default_lab_driver(target_cell: dict, *, dry_run: bool) -> Any:
     from .. import episode as episode_mod
     from .._config import BenchConfig
     from ..blue import _run_blue_chain_test, collect_and_ship_scenario_telemetry
-    from ..chain import CHAIN_TOOLS_BASE, SCENARIOS
     from ..episode import derive_detection_status
-    from ..exec_chain import _prepare_scenario, _run_chain_test
+    from ..exec_chain import CHAIN_TOOLS_BASE, SCENARIOS, _prepare_scenario, _run_chain_test
 
     scenario_name = target_cell.get("scenario") or next(iter(SCENARIOS))
     scenario = SCENARIOS[scenario_name]
@@ -115,7 +135,8 @@ def _default_lab_driver(target_cell: dict, *, dry_run: bool) -> Any:
     if not gate.get("ready", False):
         raise HonestBlockedError(f"scenario {scenario_name!r} not ready: {gate.get('reason')}")
 
-    model = target_cell.get("model") or bully_config.resolve_role_model("tool")
+    resolved_model = target_cell.get("model") or bully_config.resolve_role_model("tool")
+    model = resolved_model if isinstance(resolved_model, str) else str(resolved_model)
     scenario_start = time.time()
     chain_result = _run_chain_test(model, cfg, dry_run=dry_run, lab_exec=lab_exec)
 
@@ -178,7 +199,7 @@ def _record(
     kind: str,
     subject_id: str,
     rationale: str,
-    data: dict,
+    data: dict[str, Any],
 ) -> None:
     store.record_decision(
         DecisionEvent(
@@ -194,7 +215,14 @@ def _record(
     )
 
 
-def _do_recall(store: Store, organ: Organ, *, hunt_id: str, neighborhood: str, context) -> Any:
+def _do_recall(
+    store: Store,
+    organ: Organ,
+    *,
+    hunt_id: str,
+    neighborhood: str,
+    context: HuntContext,
+) -> Any:
     """RECALL_READY -- mandatory pre-hunt recall (I-4/C3). No code path
     reaches TARGETED without a persisted RecallReceipt: if organ.recall
     raises, the iteration is honestly BLOCKED right here, before any
@@ -205,9 +233,7 @@ def _do_recall(store: Store, organ: Organ, *, hunt_id: str, neighborhood: str, c
             hunt_id=hunt_id, query=f"{neighborhood} {context.neighborhood_scope}"
         )
     except OrganUnavailable as exc:
-        store.hunt_advance_stage(
-            hunt_id, "BLOCKED", expected_version=store.hunt_get(hunt_id)["version"]
-        )
+        store.hunt_advance_stage(hunt_id, "BLOCKED", expected_version=_hunt_version(store, hunt_id))
         _record(
             store,
             hunt_id=hunt_id,
@@ -230,10 +256,10 @@ def _do_target(
     store: Store,
     *,
     hunt_id: str,
-    context: Any,
-    recall_receipt: Any,
-    target_cell: dict,
-) -> dict:
+    context: HuntContext,
+    recall_receipt: RecallReceipt,
+    target_cell: dict[str, Any],
+) -> dict[str, Any]:
     """TARGETED (P4.3, replacing the P1 stub) -- real TGT selection over
     coverage cells + known-state (SUB), the just-persisted RecallReceipt
     (ORG), and this hunt's own cost ledger (I-13). Fail-closed: an honest
@@ -253,7 +279,7 @@ def _do_target(
     elsewhere (never pre-flighted) still declines `MISSING_COST` exactly
     as I-11 requires.
     """
-    from ..chain import SCENARIOS
+    from ..exec_chain import SCENARIOS
 
     if not store.cost_ledger_for_hunt(hunt_id):
         preflight = costing.build_record(
@@ -315,7 +341,7 @@ def _do_target(
         ),
     }
 
-    def _projection(value) -> dict[str, Any]:
+    def _projection(value: TargetDecision) -> dict[str, Any]:
         return {
             "status": value.status,
             "selected_cell_id": value.selected_cell_id,
@@ -376,9 +402,7 @@ def _do_target(
     )
 
     if decision.status != "selected":
-        store.hunt_advance_stage(
-            hunt_id, "BLOCKED", expected_version=store.hunt_get(hunt_id)["version"]
-        )
+        store.hunt_advance_stage(hunt_id, "BLOCKED", expected_version=_hunt_version(store, hunt_id))
         raise HonestBlockedError(f"hunt {hunt_id}: targeting {decision.status}, no target selected")
 
     chosen = next(c for c in cells if c["cell_id"] == decision.selected_cell_id)
@@ -397,9 +421,9 @@ def _do_mutate(
     *,
     hunt_id: str,
     actor: str,
-    target_cell: dict,
+    target_cell: dict[str, Any],
     mutation_plan: MutationPlan | None,
-) -> dict:
+) -> dict[str, Any]:
     """MUTATION_READY (P3.1, replacing the P1 stub) -- compile a
     `MutationPlan` into a scenario overlay via `mutation.validate_and_compile`
     and stash it on `target_cell` for the lab driver. Fail-closed: a
@@ -411,7 +435,7 @@ def _do_mutate(
     reference scenario unchanged) so every iteration goes through the same
     validated/compiled/recorded path, never an implicit bypass.
     """
-    from ..chain import SCENARIOS
+    from ..exec_chain import SCENARIOS
 
     hunt_config = bully_config.load_hunt_config()
     scenario_name = target_cell.get("scenario") or next(iter(SCENARIOS))
@@ -437,9 +461,7 @@ def _do_mutate(
             rejection_reason_code=exc.reason_code,
             rejection_detail=str(exc),
         )
-        store.hunt_advance_stage(
-            hunt_id, "BLOCKED", expected_version=store.hunt_get(hunt_id)["version"]
-        )
+        store.hunt_advance_stage(hunt_id, "BLOCKED", expected_version=_hunt_version(store, hunt_id))
         _record(
             store,
             hunt_id=hunt_id,
@@ -475,7 +497,7 @@ def _do_mutate(
     return {**target_cell, "scenario": scenario_name, "mutation_overlay": overlay.to_dict()}
 
 
-def _do_drift(store: Store, *, hunt_id: str, episode_view: dict) -> list:
+def _do_drift(store: Store, *, hunt_id: str, episode_view: dict[str, Any]) -> list[DriftFlag]:
     """ANALYZING (continued) -- BR-DRIFT temporal-cousin classification
     (P3.2, I-9), run after the cousin grade.
 
@@ -494,11 +516,15 @@ def _do_drift(store: Store, *, hunt_id: str, episode_view: dict) -> list:
         "TELEMETRY_COLLECTION_FAILED",
         "TELEMETRY_NOT_INDEXED",
     )
-    completeness = {
-        "TELEMETRY_OBSERVED": 1.0,
-        "TELEMETRY_NOT_INDEXED": 0.4,
-        "TELEMETRY_COLLECTION_FAILED": 0.0,
-    }.get(telemetry_status, 0.9)
+    completeness = (
+        {
+            "TELEMETRY_OBSERVED": 1.0,
+            "TELEMETRY_NOT_INDEXED": 0.4,
+            "TELEMETRY_COLLECTION_FAILED": 0.0,
+        }.get(telemetry_status)
+        if isinstance(telemetry_status, str)
+        else 0.9
+    )
     sample = {
         "detection_id": detection_id,
         "fired": detection_status == "DETECTION_CONFIRMED",
@@ -656,11 +682,11 @@ def _do_analyze(
     *,
     hunt_id: str,
     iteration_id: str,
-    episode_view: dict,
+    episode_view: dict[str, Any],
     episode: Any,
-    investigation_arm: Callable,
+    investigation_arm: Callable[..., Any],
     dry_run: bool,
-):
+) -> tuple[InvestigationResult, CousinAssessment, BehaviorSignature]:
     """ANALYZING -- investigation arm -> signature -> cousin grade."""
     models = _resolve_live_investigation_models(store)
     # PLAY (P6.3, I-16 CONSUMER: LOOP): inject the active playbook for this
@@ -746,7 +772,7 @@ def run_hunt_iteration(
     hunt_id: str,
     actor: str,
     neighborhood: str,
-    target_cell: dict | None = None,
+    target_cell: dict[str, Any] | None = None,
     lab_driver: LabDriver | None = None,
     investigation_arm: Callable[..., Any] | None = None,
     mutation_plan: MutationPlan | None = None,
@@ -770,8 +796,7 @@ def run_hunt_iteration(
     target_cell = target_cell or {}
 
     def _stage(target: str) -> None:
-        row = store.hunt_get(hunt_id)
-        store.hunt_advance_stage(hunt_id, target, expected_version=row["version"])
+        store.hunt_advance_stage(hunt_id, target, expected_version=_hunt_version(store, hunt_id))
 
     _stage("AUTHORIZED")
     _record(
@@ -817,9 +842,7 @@ def run_hunt_iteration(
     try:
         episode = lab_driver(target_cell, dry_run=dry_run)
     except HonestBlockedError:
-        store.hunt_advance_stage(
-            hunt_id, "BLOCKED", expected_version=store.hunt_get(hunt_id)["version"]
-        )
+        store.hunt_advance_stage(hunt_id, "BLOCKED", expected_version=_hunt_version(store, hunt_id))
         raise
 
     episode_view = evidence_mod.adapt_episode(episode)
@@ -834,9 +857,7 @@ def run_hunt_iteration(
         data=episode_view,
     )
     if evidence_mod.episode_verdict_is_blocked(episode):
-        store.hunt_advance_stage(
-            hunt_id, "BLOCKED", expected_version=store.hunt_get(hunt_id)["version"]
-        )
+        store.hunt_advance_stage(hunt_id, "BLOCKED", expected_version=_hunt_version(store, hunt_id))
         _record(
             store,
             hunt_id=hunt_id,
@@ -911,9 +932,7 @@ def run_hunt_iteration(
     if dead_letters:
         # A required dead letter blocks hunt closure (DATA_MODEL SS1.10) --
         # this is a failed iteration, never a silently-closed one.
-        store.hunt_advance_stage(
-            hunt_id, "BLOCKED", expected_version=store.hunt_get(hunt_id)["version"]
-        )
+        store.hunt_advance_stage(hunt_id, "BLOCKED", expected_version=_hunt_version(store, hunt_id))
         raise HonestBlockedError(
             f"hunt {hunt_id}: {len(dead_letters)} required outbox dead letter(s) block closure"
         )
@@ -961,7 +980,7 @@ def run_hunt(
     actor: str,
     store: Store | None = None,
     organ: Organ | None = None,
-    target_cell: dict | None = None,
+    target_cell: dict[str, Any] | None = None,
     lab_driver: LabDriver | None = None,
     investigation_arm: Callable[..., Any] | None = None,
 ) -> dict[str, Any]:

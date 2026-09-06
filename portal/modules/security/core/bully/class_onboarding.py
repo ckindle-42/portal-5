@@ -184,7 +184,9 @@ def _source(record: dict[str, Any]) -> str:
     value = shape.get("source_class")
     if value:
         return str(value)
-    sources = shape.get("sourcetypes") or ()
+    # `sourcetypes` is a raw JSON value (list or None) -- bind as Any, not the
+    # empty-tuple fallback's literal type, before inspecting its length.
+    sources: Any = shape.get("sourcetypes") or ()
     return str(sources[0]) if len(sources) == 1 else ""
 
 

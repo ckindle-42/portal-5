@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -28,6 +29,9 @@ class OracleVerdict:
     required: int  # N required (default 2)
 
 
+OracleCheckFn = Callable[[dict[str, Any], str, dict[str, Any]], bool]
+
+
 class Oracle:
     """A named, deterministic verifier of a specific finding class."""
 
@@ -35,6 +39,7 @@ class Oracle:
     kind: str  # oracle_kind
     honesty_claim: str  # fixed — "proves X, not that Y"
     tier: str  # "stable" counts; "experimental" excluded until bench-gated
+    _check_fn: OracleCheckFn | None
 
     def __init__(
         self,
@@ -42,17 +47,17 @@ class Oracle:
         kind: str,
         honesty_claim: str,
         tier: str = "stable",
-        check: Callable | None = None,
-    ):
+        check: OracleCheckFn | None = None,
+    ) -> None:
         self.id = id
         self.kind = kind
         self.honesty_claim = honesty_claim
         self.tier = tier
         self._check_fn = check
 
-    def check(self, finding: dict, lab_output: str, observations: dict) -> bool:
+    def check(self, finding: dict[str, Any], lab_output: str, observations: dict[str, Any]) -> bool:
         """Return True if the oracle confirms this finding against the evidence."""
-        if self._check_fn:
+        if self._check_fn is not None:
             return self._check_fn(finding, lab_output, observations)
         raise NotImplementedError("subclasses must implement check()")
 
@@ -61,92 +66,92 @@ class Oracle:
 
 
 class _ReflectionOracle(Oracle):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             id="reflection",
             kind="unescaped_reflection",
             honesty_claim="proves unescaped reflection, not that XSS executes",
         )
 
-    def check(self, finding, lab_output, observations):
+    def check(self, finding: dict[str, Any], lab_output: str, observations: dict[str, Any]) -> bool:
         payload = finding.get("payload", "")
         return bool(payload) and payload in lab_output
 
 
 class _SQLiBooleanOracle(Oracle):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             id="sqli_boolean",
             kind="boolean_differential",
             honesty_claim="proves boolean SQL differential, not data exfiltration",
         )
 
-    def check(self, finding, lab_output, observations):
+    def check(self, finding: dict[str, Any], lab_output: str, observations: dict[str, Any]) -> bool:
         diffs = finding.get("differentials", [])
         return len(diffs) >= 2 and any(d in lab_output for d in diffs)
 
 
 class _SQLiErrorOracle(Oracle):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             id="sqli_error",
             kind="sql_error_signature",
             honesty_claim="proves SQL error signature, not data exfiltration",
         )
 
-    def check(self, finding, lab_output, observations):
+    def check(self, finding: dict[str, Any], lab_output: str, observations: dict[str, Any]) -> bool:
         sigs = finding.get("error_signatures", ["sql syntax", "mysql_fetch", "unclosed quotation"])
         return any(s.lower() in lab_output.lower() for s in sigs)
 
 
 class _OpenRedirectOracle(Oracle):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             id="open_redirect",
             kind="unvalidated_redirect",
             honesty_claim="proves an open redirect, not arbitrary code execution",
         )
 
-    def check(self, finding, lab_output, observations):
+    def check(self, finding: dict[str, Any], lab_output: str, observations: dict[str, Any]) -> bool:
         redirect_host = finding.get("redirect_host", "")
         return bool(redirect_host) and redirect_host in lab_output
 
 
 class _RCEShellOracle(Oracle):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             id="rce_shell",
             kind="command_execution",
             honesty_claim="proves command execution (shell marker), not full compromise",
         )
 
-    def check(self, finding, lab_output, observations):
+    def check(self, finding: dict[str, Any], lab_output: str, observations: dict[str, Any]) -> bool:
         markers = finding.get("success_indicators", ["uid=", "shell obtained"])
         return any(m.lower() in lab_output.lower() for m in markers)
 
 
 class _CVEConfirmedOracle(Oracle):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             id="cve_confirmed",
             kind="cve_signature_match",
             honesty_claim="proves CVE version+PoC signature matches, not exploitability",
         )
 
-    def check(self, finding, lab_output, observations):
+    def check(self, finding: dict[str, Any], lab_output: str, observations: dict[str, Any]) -> bool:
         cve_id = finding.get("cve_id", "")
         return bool(cve_id) and cve_id in lab_output
 
 
 class _LFIConfirmOracle(Oracle):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             id="lfi_confirm",
             kind="file_inclusion",
             honesty_claim="proves file inclusion (planted-file contents), not code execution",
         )
 
-    def check(self, finding, lab_output, observations):
+    def check(self, finding: dict[str, Any], lab_output: str, observations: dict[str, Any]) -> bool:
         markers = finding.get(
             "success_indicators",
             ["root:x:0:0", "phpinfo", "passwd"],
@@ -155,7 +160,7 @@ class _LFIConfirmOracle(Oracle):
 
 
 class _OASTCallbackOracle(Oracle):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             id="oast_callback",
             kind="out_of_band_interaction",
@@ -163,20 +168,20 @@ class _OASTCallbackOracle(Oracle):
             tier="experimental",  # stub — Gap 4 fills the collaborator
         )
 
-    def check(self, finding, lab_output, observations):
+    def check(self, finding: dict[str, Any], lab_output: str, observations: dict[str, Any]) -> bool:
         callback = finding.get("callback_id", "")
         return bool(callback) and callback in lab_output
 
 
 class _CredentialTheftOracle(Oracle):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             id="credential_theft",
             kind="hash_capture",
             honesty_claim="proves credential material (ticket/hash) was captured, not cracked or used for access",
         )
 
-    def check(self, finding, lab_output, observations):
+    def check(self, finding: dict[str, Any], lab_output: str, observations: dict[str, Any]) -> bool:
         markers = finding.get(
             "success_indicators",
             ["$krb5tgs$", "$krb5asrep$", "$NTLM$", "hashcat", "krb5tgs", "krb5asrep"],
@@ -210,9 +215,9 @@ def register_oracle(oracle: Oracle) -> None:
 
 
 def verify_finding(
-    finding: dict,
+    finding: dict[str, Any],
     lab_output: str,
-    observations: dict,
+    observations: dict[str, Any],
     required: int = 2,
 ) -> OracleVerdict:
     """Run the named oracle for finding['oracle'] required times; VERIFIED only if N/N.

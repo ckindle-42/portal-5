@@ -15,7 +15,7 @@ report zero gaps against a real corpus.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
 # ── determinations ──────────────────────────────────────────────────────────
 # SUPPORTED     internal text satisfies the atom; anchors on both sides resolve
@@ -119,7 +119,7 @@ class AtomResult:
     internal_anchor_ids: list[str] = field(default_factory=list)
     counterevidence_anchor_ids: list[str] = field(default_factory=list)
     unresolved_code: str = ""
-    missing_fact: dict = field(default_factory=dict)
+    missing_fact: dict[str, Any] = field(default_factory=dict)
     boundary_proof_id: str = ""  # required for ABSENT — see P4
     rationale: str = ""
 
@@ -161,7 +161,7 @@ class RequirementResult:
     known_at: str = ""
     applicability: str = ""  # APPLIES | NOT_APPLICABLE | UNKNOWN | CONFLICTED
     unresolved_code: str = ""
-    missing_fact: dict = field(default_factory=dict)
+    missing_fact: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.determination not in DETERMINATIONS:

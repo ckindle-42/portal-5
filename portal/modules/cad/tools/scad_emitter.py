@@ -23,9 +23,9 @@ import math
 import operator
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict, cast
 
-from jsonschema import Draft7Validator
+from jsonschema import Draft7Validator  # type: ignore[import-untyped]  # no py.typed marker
 
 FN_DEFAULT = 48
 EPSILON = 0.5  # mm — coincident-face overshoot so subtract/union never leaves a knife-edge
@@ -39,9 +39,22 @@ class EmitError(Exception):
         super().__init__(message)
 
 
+class _FaceFrame(TypedDict):
+    """Global-xyz frame of one box face: origin corner, u/v unit axes, the
+    OpenSCAD rotations that point a +Z cylinder into/out of the part, and the
+    inward unit normal."""
+
+    corner: tuple[float, float, float]
+    u_vec: tuple[float, float, float]
+    v_vec: tuple[float, float, float]
+    inward_rotate: tuple[float, float, float]
+    outward_rotate: tuple[float, float, float]
+    inward_normal: tuple[float, float, float]
+
+
 # ── restricted arithmetic evaluator (no eval()) ─────────────────────────────
 
-_BINOPS = {
+_BINOPS: dict[type[ast.operator], Any] = {
     ast.Add: operator.add,
     ast.Sub: operator.sub,
     ast.Mult: operator.mul,
@@ -49,7 +62,7 @@ _BINOPS = {
     ast.Pow: operator.pow,
     ast.Mod: operator.mod,
 }
-_UNARYOPS = {ast.UAdd: operator.pos, ast.USub: operator.neg}
+_UNARYOPS: dict[type[ast.unaryop], Any] = {ast.UAdd: operator.pos, ast.USub: operator.neg}
 
 
 def _eval_ast(node: ast.AST, names: dict[str, float]) -> float:
@@ -66,9 +79,11 @@ def _eval_ast(node: ast.AST, names: dict[str, float]) -> float:
             )
         return names[node.id]
     if isinstance(node, ast.BinOp) and type(node.op) in _BINOPS:
-        return _BINOPS[type(node.op)](_eval_ast(node.left, names), _eval_ast(node.right, names))
+        value = _BINOPS[type(node.op)](_eval_ast(node.left, names), _eval_ast(node.right, names))
+        return cast("float", value)
     if isinstance(node, ast.UnaryOp) and type(node.op) in _UNARYOPS:
-        return _UNARYOPS[type(node.op)](_eval_ast(node.operand, names))
+        value = _UNARYOPS[type(node.op)](_eval_ast(node.operand, names))
+        return cast("float", value)
     raise EmitError(f"disallowed expression node: {type(node).__name__}")
 
 
@@ -131,8 +146,8 @@ SCHEMA_PATH = Path(__file__).resolve().parents[4] / "config/inference/cad_geomet
 
 
 @lru_cache(maxsize=1)
-def geometry_schema() -> dict:
-    schema = json.loads(SCHEMA_PATH.read_text())
+def geometry_schema() -> dict[str, Any]:
+    schema = cast("dict[str, Any]", json.loads(SCHEMA_PATH.read_text()))
     Draft7Validator.check_schema(schema)
     return schema
 
@@ -173,7 +188,7 @@ def _format_schema_error(error: Any) -> str:
     return f"{location}: {error.message}"
 
 
-def validate_geometry(geometry: dict) -> list[str]:
+def validate_geometry(geometry: dict[str, Any]) -> list[str]:
     """Validate against the canonical JSON Schema and return actionable errors."""
     public_geometry = (
         {k: v for k, v in geometry.items() if not k.startswith("_")}
@@ -198,14 +213,14 @@ def _face_uv_dims(face: str, width: float, depth: float, height: float) -> tuple
     return depth, height  # left, right
 
 
-def _face_frame(face: str, width: float, depth: float, height: float) -> dict:
+def _face_frame(face: str, width: float, depth: float, height: float) -> _FaceFrame:
     """corner: global xyz of this face's (u=0, v=0) point.
     u_vec/v_vec: unit vectors (in global xyz) for the face's local u/v axes.
     inward_rotate/outward_rotate: OpenSCAD rotate([...]) that points a +Z-axis
     cylinder into the part / out of the part from this face.
     inward_normal: unit vector pointing from the face into the part interior.
     """
-    frames = {
+    frames: dict[str, _FaceFrame] = {
         "top": {
             "corner": (0, 0, height),
             "u_vec": (1, 0, 0),
@@ -268,7 +283,7 @@ def _anchor_uv(
     return offset_x, offset_y  # corner / edge: measured from the (0,0) face corner
 
 
-def _face_point(frame: dict, u: float, v: float) -> tuple[float, float, float]:
+def _face_point(frame: _FaceFrame, u: float, v: float) -> tuple[float, float, float]:
     cx, cy, cz = frame["corner"]
     ux, uy, uz = frame["u_vec"]
     vx, vy, vz = frame["v_vec"]
@@ -289,8 +304,12 @@ def _vec(v: tuple[float, float, float]) -> str:
 
 
 def _expand_pattern(
-    geometry: dict, params: dict, width: float, depth: float, height: float
-) -> dict:
+    geometry: dict[str, Any],
+    params: dict[str, float],
+    width: float,
+    depth: float,
+    height: float,
+) -> dict[str, Any]:
     pattern = geometry.get("pattern")
     if not pattern:
         return geometry
@@ -308,7 +327,7 @@ def _expand_pattern(
     oy = resolve_value(template["offset_y"], params)
     u0, v0 = _anchor_uv(offset_from, ox, oy, u_dim, v_dim)
 
-    new_items: list[dict] = []
+    new_items: list[dict[str, Any]] = []
     if pattern["type"] == "linear":
         spacing = resolve_value(pattern.get("spacing", 0), params)
         for i in range(count):
@@ -341,7 +360,9 @@ def _expand_pattern(
 # ── feature emitters ─────────────────────────────────────────────────────────
 
 
-def _emit_hole(item: dict, params: dict, width: float, depth: float, height: float) -> str:
+def _emit_hole(
+    item: dict[str, Any], params: dict[str, float], width: float, depth: float, height: float
+) -> str:
     face = item["face"]
     frame = _face_frame(face, width, depth, height)
     u_dim, v_dim = _face_uv_dims(face, width, depth, height)
@@ -401,7 +422,9 @@ def _emit_hole(item: dict, params: dict, width: float, depth: float, height: flo
     return cuts[0] if len(cuts) == 1 else "union() { " + " ".join(cuts) + " }"
 
 
-def _emit_standoff(item: dict, params: dict, width: float, depth: float, height: float) -> str:
+def _emit_standoff(
+    item: dict[str, Any], params: dict[str, float], width: float, depth: float, height: float
+) -> str:
     face = item["face"]
     frame = _face_frame(face, width, depth, height)
     u_dim, v_dim = _face_uv_dims(face, width, depth, height)
@@ -432,7 +455,9 @@ def _emit_standoff(item: dict, params: dict, width: float, depth: float, height:
     return f"{boss};"
 
 
-def _emit_pocket(item: dict, params: dict, width: float, depth: float, height: float) -> str:
+def _emit_pocket(
+    item: dict[str, Any], params: dict[str, float], width: float, depth: float, height: float
+) -> str:
     face = item["face"]
     u_dim, v_dim = _face_uv_dims(face, width, depth, height)
     w = resolve_value(item["width"], params)
@@ -463,7 +488,9 @@ def _emit_pocket(item: dict, params: dict, width: float, depth: float, height: f
     return f"translate({_vec(origin)}) cube({_vec(size)});"
 
 
-def _emit_rib(item: dict, params: dict, width: float, depth: float, height: float) -> str:
+def _emit_rib(
+    item: dict[str, Any], params: dict[str, float], width: float, depth: float, height: float
+) -> str:
     """Simplified: a full-span reinforcement wall of `thickness` protruding
     `height` outward from the face, centered on the anchor's u position."""
     face = item["face"]
@@ -479,6 +506,8 @@ def _emit_rib(item: dict, params: dict, width: float, depth: float, height: floa
     )
     u0 -= thickness / 2
 
+    origin: tuple[float, float, float]
+    size: tuple[float, float, float]
     if face == "top":
         origin, size = (u0, 0, height - EPSILON), (thickness, v_dim, h + EPSILON)
     elif face == "bottom":
@@ -535,8 +564,12 @@ def _box_edge_envelope(
     return f"hull() {{ {slices} }}"
 
 
-def _emit_base(geometry: dict, params: dict) -> tuple[str, float, float, float]:
+def _emit_base(
+    geometry: dict[str, Any], params: dict[str, float]
+) -> tuple[str, float, float, float]:
     base = geometry.get("base")
+    if not isinstance(base, dict):
+        raise EmitError("missing 'base' geometry block")
     dims = base["dimensions"]
     if base["type"] == "box":
         width = resolve_value(dims["width"], params)
@@ -609,7 +642,12 @@ def _shell_cavity(
 
 
 def _collect_additive(
-    geometry: dict, params: dict, base_solid: str, w: float, d: float, h: float
+    geometry: dict[str, Any],
+    params: dict[str, float],
+    base_solid: str,
+    w: float,
+    d: float,
+    h: float,
 ) -> list[str]:
     additive = [base_solid]
     for standoff in geometry.get("standoffs") or []:
@@ -619,7 +657,9 @@ def _collect_additive(
     return additive
 
 
-def _collect_subtractive(geometry: dict, params: dict, w: float, d: float, h: float) -> list[str]:
+def _collect_subtractive(
+    geometry: dict[str, Any], params: dict[str, float], w: float, d: float, h: float
+) -> list[str]:
     subtractive: list[str] = []
     shell = geometry.get("shell")
     if shell:
@@ -678,7 +718,7 @@ def _compose_body(
     return body
 
 
-def emit_scad(geometry: dict, fn: int = FN_DEFAULT) -> str:
+def emit_scad(geometry: dict[str, Any], fn: int = FN_DEFAULT) -> str:
     """Validate + resolve + build parametric OpenSCAD source. Deterministic:
     the same geometry JSON + fn always produces the same SCAD string.
 
@@ -743,7 +783,7 @@ _BOOLEANS = {"union", "difference", "intersection"}
 _EXTRUDES = {"linear_extrude", "rotate_extrude"}
 
 
-def _emit_csg_node(node: dict, params: dict) -> str:
+def _emit_csg_node(node: dict[str, Any], params: dict[str, float]) -> str:
     op = node.get("op")
     if op == "box":
         dims = node["dimensions"]
@@ -763,7 +803,10 @@ def _emit_csg_node(node: dict, params: dict) -> str:
         child = node.get("child")
         if child is None:
             raise EmitError(f"'{op}' requires a 'child' node")
-        vec = tuple(resolve_value(v, params) for v in node.get("vector", [0, 0, 0]))
+        vec: tuple[float, float, float] = cast(
+            "tuple[float, float, float]",
+            tuple(resolve_value(v, params) for v in node.get("vector", [0, 0, 0])),
+        )
         inner = _emit_csg_node(child, params)
         if op == "scale":
             return f"scale({_vec(vec)}) {inner}"

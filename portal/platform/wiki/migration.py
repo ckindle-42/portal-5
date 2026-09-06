@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 import subprocess
 from pathlib import Path
+from typing import Any
 
 # ── Fence constants ──
 
@@ -248,7 +249,7 @@ def discover_unmigrated_docs(
     repo_root: Path,
     *,
     exclude: tuple[str, ...] = ("CLAUDE.md",),
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Walk the doc surface and return docs that are NOT fully migrated.
 
     Returns [{path, substantive_lines, priority}] for each un-migrated doc,
@@ -279,7 +280,7 @@ def discover_unmigrated_docs(
         "KNOWN_LIMITATIONS.md": 15,
     }
 
-    results: list[dict] = []
+    results: list[dict[str, Any]] = []
     for rel in all_rel:
         if rel in exclude:
             continue

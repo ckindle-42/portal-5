@@ -19,6 +19,12 @@ import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from portal.platform.inference.notifications import NotificationDispatcher
+
+    from .goal import EngagementGoal
 
 from . import field_journal as journal
 from . import oracles as oracle_mod
@@ -40,16 +46,16 @@ HARD_MAX_LAB_ACTIONS = 200
 class EngagementState:
     engagement_id: str
     playbook_name: str
-    observations: dict = field(default_factory=dict)
+    observations: dict[str, Any] = field(default_factory=dict)
     completed_phases: list[str] = field(default_factory=list)
-    findings: list[dict] = field(default_factory=list)
+    findings: list[dict[str, Any]] = field(default_factory=list)
     iterations: int = 0
     lab_actions: int = 0
     started_at: float = 0.0
     escalations: list[str] = field(default_factory=list)
     capsules: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "engagement_id": self.engagement_id,
             "playbook_name": self.playbook_name,
@@ -64,7 +70,7 @@ class EngagementState:
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> EngagementState:
+    def from_dict(cls, d: dict[str, Any]) -> EngagementState:
         return cls(
             engagement_id=d.get("engagement_id", ""),
             playbook_name=d.get("playbook_name", ""),
@@ -82,7 +88,7 @@ class EngagementState:
 # ── Scope guard ──────────────────────────────────────────────────────────────
 
 
-def enforce_scope(action_target: str, pb_scope: dict) -> bool:
+def enforce_scope(action_target: str, pb_scope: dict[str, Any]) -> bool:
     """Return True if action_target is within the playbook's declared scope."""
     targets = pb_scope.get("targets", []) if pb_scope else []
     if not targets:
@@ -93,7 +99,7 @@ def enforce_scope(action_target: str, pb_scope: dict) -> bool:
 # ── Budget + stop + escalate checks ──────────────────────────────────────────
 
 
-def _check_budget(state: EngagementState, pb: dict) -> str | None:
+def _check_budget(state: EngagementState, pb: dict[str, Any]) -> str | None:
     """Return stop reason if budget exceeded, else None."""
     budget = pb.get("budget", {})
     wall_elapsed = time.monotonic() - state.started_at
@@ -123,7 +129,7 @@ def _check_budget(state: EngagementState, pb: dict) -> str | None:
     return None
 
 
-def _check_stop(pb: dict, observations: dict) -> bool:
+def _check_stop(pb: dict[str, Any], observations: dict[str, Any]) -> bool:
     """Return True if any stop_condition is met."""
     for cond in pb.get("stop_conditions", []):
         field = cond.get("field", "")
@@ -133,7 +139,7 @@ def _check_stop(pb: dict, observations: dict) -> bool:
     return False
 
 
-def _check_escalate(state: EngagementState, pb: dict) -> str | None:
+def _check_escalate(state: EngagementState, pb: dict[str, Any]) -> str | None:
     """Return escalation reason if any escalation trigger fires, else None."""
     escalate = pb.get("escalate_when", [])
     for trigger in escalate:
@@ -161,11 +167,12 @@ def _count_recent_failures(state: EngagementState) -> int:
 
 def _oracle_rejection_rate(state: EngagementState) -> float:
     """Fraction of oracle checks that were rejected."""
-    total = sum(f.get("oracle_attempts", 0) for f in state.findings)
+    total = sum(float(f.get("oracle_attempts", 0)) for f in state.findings)
     if total == 0:
         return 0.0
     rejected = sum(
-        f.get("oracle_attempts", 0) - f.get("oracle_successes", 0) for f in state.findings
+        float(f.get("oracle_attempts", 0)) - float(f.get("oracle_successes", 0))
+        for f in state.findings
     )
     return rejected / total
 
@@ -181,7 +188,7 @@ def run_engagement(
     workspace: str | None = None,
     auto_continue_safe: bool = False,
     notify_on_success: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     """Run a playbook to a stop condition. Returns an engagement report."""
     pb = load_playbook(playbook_path)
     problems = validate_playbook(pb)
@@ -222,14 +229,14 @@ def run_engagement(
 # shared dispatcher. Non-fatal by construction: a notify failure must never
 # abort or fail the engagement.
 
-_shared_dispatcher = None  # built once per process
+_shared_dispatcher: NotificationDispatcher | None = None  # built once per process
 
 
 def _loop_notify_enabled() -> bool:
     return os.environ.get("LOOP_NOTIFY_ENABLED", "true").lower() in ("true", "1", "yes")
 
 
-def _get_shared_dispatcher():
+def _get_shared_dispatcher() -> NotificationDispatcher:
     global _shared_dispatcher
     if _shared_dispatcher is not None:
         return _shared_dispatcher
@@ -299,14 +306,14 @@ def _notify(
 
 
 def _run_loop(
-    pb: dict,
+    pb: dict[str, Any],
     state: EngagementState,
-    prior: list[dict],
+    prior: list[dict[str, Any]],
     lab_exec: bool,
     workspace: str | None,
     auto_continue_safe: bool,
     notify_on_success: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     """Execute the engagement loop (real execution)."""
     while True:
         # Budget check
@@ -399,7 +406,7 @@ def _run_loop(
         state.iterations += 1
 
 
-def _execute_step_real(state: EngagementState, step: dict, pb: dict) -> None:
+def _execute_step_real(state: EngagementState, step: dict[str, Any], pb: dict[str, Any]) -> None:
     """Execute a single step against the real lab (placeholder for multi-model runner)."""
     from .lab import lab_dispatch
 
@@ -429,9 +436,11 @@ def _execute_step_real(state: EngagementState, step: dict, pb: dict) -> None:
         )
 
 
-def _dry_run_report(pb: dict, state: EngagementState, prior: list[dict]) -> dict:
+def _dry_run_report(
+    pb: dict[str, Any], state: EngagementState, prior: list[dict[str, Any]]
+) -> dict[str, Any]:
     """Build a dry-run engagement plan."""
-    phases_plan = []
+    phases_plan: list[dict[str, Any]] = []
     for phase in pb.get("phases", []):
         phases_plan.append(
             {
@@ -454,9 +463,11 @@ def _dry_run_report(pb: dict, state: EngagementState, prior: list[dict]) -> dict
     }
 
 
-def _build_report(state: EngagementState, pb: dict, prior: list[dict], stop_reason: str) -> dict:
+def _build_report(
+    state: EngagementState, pb: dict[str, Any], prior: list[dict[str, Any]], stop_reason: str
+) -> dict[str, Any]:
     """Build the final engagement report and write journal + capsules."""
-    report = {
+    report: dict[str, Any] = {
         "status": "completed",
         "engagement_id": state.engagement_id,
         "playbook": state.playbook_name,
@@ -519,12 +530,12 @@ def _write_checkpoint(state: EngagementState, reason: str) -> Path:
 
 
 def run_goal_engagement(
-    goal,
+    goal: EngagementGoal,
     *,
     dry_run: bool = True,
     workspace: str | None = None,
     max_steps: int | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Open-ended loop: perceive -> capability.query -> decide_next_action ->
     (DRY-RUN: record proposed action, simulate its expected_observation_delta)
     -> repeat until a stop condition / budget / hard cap / escalation /
@@ -559,9 +570,9 @@ def run_goal_engagement(
     max_lab_actions = min(budget.get("max_lab_actions", HARD_MAX_LAB_ACTIONS), HARD_MAX_LAB_ACTIONS)
 
     started_at = time.monotonic()
-    observations: dict = {}
-    history: list[dict] = []
-    plan: list[dict] = []
+    observations: dict[str, Any] = {}
+    history: list[dict[str, Any]] = []
+    plan: list[dict[str, Any]] = []
     escalations: list[str] = []
     iterations = 0
     lab_actions = 0
@@ -640,7 +651,7 @@ def run_goal_engagement(
     return report
 
 
-def _check_goal_stop(stop_when: list[dict], observations: dict) -> bool:
+def _check_goal_stop(stop_when: list[dict[str, Any]], observations: dict[str, Any]) -> bool:
     for cond in stop_when:
         field_name = cond.get("field", "")
         expected = cond.get("equals")
@@ -655,7 +666,7 @@ def resume_engagement(
     lab_exec: bool = False,
     dry_run: bool = False,
     notify_on_success: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     """Load a checkpoint and continue the engagement from where it stopped.
 
     Resume does NOT reset budget/hard-cap accounting (state.iterations,

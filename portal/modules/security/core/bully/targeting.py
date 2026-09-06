@@ -93,7 +93,8 @@ def _posterior(cell: dict[str, Any], subject: str, known_state: list[dict[str, A
             continue
         if ks.get("trust_tier") not in ("VALIDATED", "OPERATOR_CONFIRMED"):
             continue
-        factor = _POSTERIOR_ADJUSTMENTS.get(ks.get("kind"))
+        kind = ks.get("kind")
+        factor = _POSTERIOR_ADJUSTMENTS.get(kind) if isinstance(kind, str) else None
         if factor is not None:
             adjustment = factor  # last matching validated entry wins -- never compounded
     return round(max(0.0, min(1.0, base * adjustment)), 4)
@@ -132,7 +133,9 @@ def select(
 
     cells = list(getattr(context, "open_cells", None) or [])
     known_state = list(getattr(context, "known_state_view", None) or [])
-    hunt_id = getattr(context, "hunt_id", None)
+    # TGT decisions always carry a hunt context; a missing attribute is a
+    # wiring error, bound as "" so no `None` ever lands in the str field.
+    hunt_id = str(getattr(context, "hunt_id", "") or "")
     config_version = getattr(context, "config_version", "unknown")
 
     declined: list[DeclinedCell] = []
@@ -146,7 +149,7 @@ def select(
         if reason is None:
             survivors.append(cell)
             continue
-        if cell_id == override_cell_id:
+        if cell_id == override_cell_id and override is not None:
             if reason in _UNOVERRIDABLE_HARD_GATES:
                 raise OverrideRejectedError(
                     f"[GATE] override cannot bypass hard gate {reason} for cell {cell_id!r}"

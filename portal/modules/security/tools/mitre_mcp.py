@@ -11,17 +11,35 @@ from __future__ import annotations
 import json
 import logging
 import os
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Any, cast
 
 from mcp.server import MCPServer
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 logger = logging.getLogger(__name__)
+
+
+class _TypedMCPServer(MCPServer):
+    def custom_route(
+        self,
+        path: str,
+        methods: list[str],
+        name: str | None = None,
+        include_in_schema: bool = True,
+    ) -> Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]]:
+        return cast(
+            Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+            super().custom_route(path, methods, name=name, include_in_schema=include_in_schema),
+        )
+
 
 # ── MCP Server Setup ─────────────────────────────────────────────────────────
 _port = int(os.environ.get("MITRE_MCP_PORT") or os.environ.get("MCP_PORT", "8929"))
 
-mcp = MCPServer(
+mcp = _TypedMCPServer(
     "Portal MITRE ATT&CK Tools",
     instructions="Deterministic MITRE ATT&CK, D3FEND, and CWE lookup tools. "
     "Structured data, not RAG — query by technique ID, get precise results.",
@@ -32,9 +50,9 @@ mcp = MCPServer(
 # For now, use the local spl_detections.yaml + embedded technique metadata
 # as the backing store. Full STIX bundle loading is a follow-up.
 
-_TECHNIQUE_DB: dict[str, dict] = {}
+_TECHNIQUE_DB: dict[str, dict[str, Any]] = {}
 _DATA_SOURCES: dict[str, list[str]] = {}
-_MITIGATIONS: dict[str, list[dict]] = {}
+_MITIGATIONS: dict[str, list[dict[str, Any]]] = {}
 _LOADED = False
 
 
@@ -322,12 +340,12 @@ TOOLS_MANIFEST = [
 
 
 @mcp.custom_route("/health", methods=["GET"])
-async def health_check(request):
+async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "mitre-mcp", "port": _port})
 
 
 @mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request):
+async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
@@ -335,7 +353,7 @@ async def list_tools(request):
 
 
 @mcp.tool()
-def mitre_technique_lookup(technique_id: str) -> dict:
+def mitre_technique_lookup(technique_id: str) -> dict[str, Any]:
     """Look up a MITRE ATT&CK technique by ID.
 
     Returns name, tactic, platforms, detection availability, and local SPL
@@ -365,7 +383,7 @@ def mitre_technique_lookup(technique_id: str) -> dict:
 
 
 @mcp.tool()
-def mitre_data_sources_for_technique(technique_id: str) -> dict:
+def mitre_data_sources_for_technique(technique_id: str) -> dict[str, Any]:
     """List data sources needed to detect a technique.
 
     Maps technique → required telemetry sources (Event IDs, log types, etc.)
@@ -428,7 +446,7 @@ def mitre_data_sources_for_technique(technique_id: str) -> dict:
 
 
 @mcp.tool()
-def mitre_detections_for_technique(technique_id: str) -> dict:
+def mitre_detections_for_technique(technique_id: str) -> dict[str, Any]:
     """List local SPL detections for a technique.
 
     Joins ATT&CK technique ID to our local detection library
@@ -461,7 +479,7 @@ def mitre_detections_for_technique(technique_id: str) -> dict:
 
 
 @mcp.tool()
-def mitre_techniques_list(tactic: str = "") -> dict:
+def mitre_techniques_list(tactic: str = "") -> dict[str, Any]:
     """List all known ATT&CK techniques with their metadata.
 
     Args:
@@ -471,7 +489,7 @@ def mitre_techniques_list(tactic: str = "") -> dict:
         dict with list of techniques.
     """
     _ensure_loaded()
-    techniques = []
+    techniques: list[dict[str, Any]] = []
     for tid, entry in sorted(_TECHNIQUE_DB.items()):
         if tactic and tactic not in ({entry.get("tactic", "")} | set(entry.get("tactics", []))):
             continue

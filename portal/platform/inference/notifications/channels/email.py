@@ -8,7 +8,7 @@ import re
 import ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 try:
     import aiosmtplib
@@ -55,7 +55,7 @@ class EmailChannel(NotificationChannel):
         user = os.environ.get("SMTP_USER", "")
         password = os.environ.get("SMTP_PASSWORD", "")
 
-        kwargs: dict = {"hostname": host, "port": port}
+        kwargs: dict[str, Any] = {"hostname": host, "port": port}
         if port == 465:
             kwargs["security_context"] = ssl.create_default_context()
             kwargs["username"] = user

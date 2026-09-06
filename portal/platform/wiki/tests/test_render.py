@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import textwrap
+from pathlib import Path
 
 from portal.platform.wiki.render import (
     _find_unit_ids_outside_human_owned,
@@ -11,7 +12,7 @@ from portal.platform.wiki.render import (
 
 
 class TestHumanOwnedAwareness:
-    def test_markers_outside_human_owned_detected(self):
+    def test_markers_outside_human_owned_detected(self) -> None:
         text = textwrap.dedent("""\
             <!-- WIKI:GENERATED unit=alpha -->
             body
@@ -19,7 +20,7 @@ class TestHumanOwnedAwareness:
         """)
         assert _find_unit_ids_outside_human_owned(text) == ["alpha"]
 
-    def test_markers_inside_human_owned_excluded(self):
+    def test_markers_inside_human_owned_excluded(self) -> None:
         text = textwrap.dedent("""\
             <!-- WIKI:HUMAN-OWNED -->
             <!-- WIKI:GENERATED unit=alpha -->
@@ -29,7 +30,7 @@ class TestHumanOwnedAwareness:
         """)
         assert _find_unit_ids_outside_human_owned(text) == []
 
-    def test_mixed_markers(self):
+    def test_mixed_markers(self) -> None:
         text = textwrap.dedent("""\
             <!-- WIKI:GENERATED unit=outside -->
             body
@@ -43,10 +44,10 @@ class TestHumanOwnedAwareness:
         """)
         assert _find_unit_ids_outside_human_owned(text) == ["outside"]
 
-    def test_no_markers(self):
+    def test_no_markers(self) -> None:
         assert _find_unit_ids_outside_human_owned("just plain text") == []
 
-    def test_multiple_outside(self):
+    def test_multiple_outside(self) -> None:
         text = textwrap.dedent("""\
             <!-- WIKI:GENERATED unit=a -->
             body
@@ -60,7 +61,7 @@ class TestHumanOwnedAwareness:
 
 
 class TestRenderReport:
-    def test_report_structure(self, tmp_path):
+    def test_report_structure(self, tmp_path: Path) -> None:
         """render_report returns correct keys and types."""
         # Create a minimal doc surface by writing a TIER1_DOCS entry
         doc = tmp_path / "README.md"
@@ -72,7 +73,7 @@ class TestRenderReport:
         assert "coverage_pct" in report
         assert isinstance(report["coverage_pct"], float)
 
-    def test_migrated_doc_detected(self, tmp_path):
+    def test_migrated_doc_detected(self, tmp_path: Path) -> None:
         doc = tmp_path / "README.md"
         doc.write_text(
             textwrap.dedent("""\
@@ -86,7 +87,7 @@ class TestRenderReport:
         report = render_report(tmp_path)
         assert "README.md" in report["migrated"]
 
-    def test_unmigrated_doc_detected(self, tmp_path):
+    def test_unmigrated_doc_detected(self, tmp_path: Path) -> None:
         doc = tmp_path / "README.md"
         doc.write_text(
             textwrap.dedent("""\
@@ -98,7 +99,7 @@ class TestRenderReport:
         report = render_report(tmp_path)
         assert "README.md" in report["unmigrated"]
 
-    def test_blocks_counted(self, tmp_path):
+    def test_blocks_counted(self, tmp_path: Path) -> None:
         doc = tmp_path / "README.md"
         doc.write_text(
             textwrap.dedent("""\
@@ -114,7 +115,7 @@ class TestRenderReport:
         report = render_report(tmp_path)
         assert report["blocks_total"] == 2
 
-    def test_coverage_pct_calculation(self, tmp_path):
+    def test_coverage_pct_calculation(self, tmp_path: Path) -> None:
         # One migrated, one unmigrated
         (tmp_path / "README.md").write_text(
             textwrap.dedent("""\

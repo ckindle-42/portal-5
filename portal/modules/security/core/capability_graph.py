@@ -225,10 +225,10 @@ class CapabilityGraph:
             counts[gap.summary] = counts.get(gap.summary, 0) + 1
         return counts
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """JSON-safe dict."""
 
-        def _proc_dict(p: Procedure) -> dict:
+        def _proc_dict(p: Procedure) -> dict[str, Any]:
             return {
                 "procedure_id": p.procedure_id,
                 "scenario": p.scenario,
@@ -288,7 +288,7 @@ def seed_graph_from_assets() -> CapabilityGraph:
     return graph
 
 
-def update_graph_from_episode(graph: CapabilityGraph, episode: dict) -> None:
+def update_graph_from_episode(graph: CapabilityGraph, episode: dict[str, Any]) -> None:
     """Update the capability graph with an episode outcome.
 
     Finds the matching procedure by scenario name, then updates gaps for each
@@ -318,7 +318,9 @@ def update_graph_from_episode(graph: CapabilityGraph, episode: dict) -> None:
 # ── Coverage map artifacts ───────────────────────────────────────────────────
 
 
-def generate_coverage_json(graph: CapabilityGraph, *, corpus: set[str] | None = None) -> dict:
+def generate_coverage_json(
+    graph: CapabilityGraph, *, corpus: set[str] | None = None
+) -> dict[str, Any]:
     """Generate a structured coverage map as JSON.
 
     Per-technique four-bar status (Exercise / Telemetry / Detection / Response)
@@ -336,7 +338,7 @@ def generate_coverage_json(graph: CapabilityGraph, *, corpus: set[str] | None = 
         if corpus is not None
         else (graph.techniques_exercised() | graph.techniques_detected())
     )
-    per_technique: dict[str, dict] = {}
+    per_technique: dict[str, dict[str, Any]] = {}
 
     for tid in sorted(techniques):
         # Find all gaps for this technique
@@ -420,7 +422,9 @@ def _load_technique_matrix() -> dict[str, list[str]]:
     return {tid: v.get("matrix", ["enterprise"]) for tid, v in raw.items() if isinstance(v, dict)}
 
 
-def generate_navigator_layer(graph: CapabilityGraph, domain: str = "enterprise-attack") -> dict:
+def generate_navigator_layer(
+    graph: CapabilityGraph, domain: str = "enterprise-attack"
+) -> dict[str, Any]:
     """Generate an ATT&CK Navigator layer JSON for visualization, for ONE domain.
 
     Color coding:
@@ -450,7 +454,7 @@ def generate_navigator_layer(graph: CapabilityGraph, domain: str = "enterprise-a
     techniques = {
         tid for tid in techniques if matrix_key in technique_matrix.get(tid, ["enterprise"])
     }
-    scores: list[dict] = []
+    scores: list[dict[str, Any]] = []
 
     for tid in sorted(techniques):
         tid_gaps = [g for g in graph.gaps.values() if g.technique_id == tid]
@@ -485,7 +489,7 @@ def generate_navigator_layer(graph: CapabilityGraph, domain: str = "enterprise-a
     }
 
 
-def generate_navigator_layers(graph: CapabilityGraph) -> dict[str, dict]:
+def generate_navigator_layers(graph: CapabilityGraph) -> dict[str, dict[str, Any]]:
     """Generate BOTH domain layers — {"enterprise-attack": ..., "ics-attack": ...}.
 
     The ICS layer is legitimately empty today (0/30 detections currently carry

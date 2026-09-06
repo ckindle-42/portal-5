@@ -5,13 +5,15 @@ Closed investigation cases write challenger-passed findings back as cited units.
 
 from __future__ import annotations
 
+from typing import Any
+
 
 def writeback_investigation_findings(
     case_id: str,
-    findings: list[dict],
+    findings: list[dict[str, Any]],
     *,
     auto_confirm: bool = False,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Write confirmed investigation findings back to the wiki.
 
     Only A4-Challenger-passed findings write back (never unvalidated ones).

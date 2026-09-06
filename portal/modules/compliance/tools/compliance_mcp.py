@@ -18,10 +18,13 @@ import logging
 import os
 import re
 import urllib.request
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Any, cast
 
 from mcp.server import MCPServer
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
 
@@ -49,7 +52,7 @@ except ImportError as _e:  # pragma: no cover - depends on optional deps
     logger.warning("compliance retrieval routes unavailable: %s", _e)
 
 _DATA = Path(__file__).resolve().parent.parent / "data"
-_cache: dict = {}
+_cache: dict[str, Any] = {}
 
 # distilled from usnistgov/oscal-content by scripts/refresh_compliance_catalogs.py
 _OSCAL_800_53 = (
@@ -66,20 +69,21 @@ _FRAMEWORKS = {
 }
 
 
-def _catalog(name: str) -> dict:
+def _catalog(name: str) -> dict[str, Any]:
     if name not in _cache:
         p = _DATA / f"{name}.json"
-        _cache[name] = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
-    return _cache[name]
+        loaded = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+        _cache[name] = loaded if isinstance(loaded, dict) else {}
+    return cast("dict[str, Any]", _cache[name])
 
 
-def _controls(framework: str) -> dict:
+def _controls(framework: str) -> dict[str, Any]:
     fname = _FRAMEWORKS.get(framework, (framework, framework))[0]
-    return _catalog(fname).get("controls", {})
+    return cast("dict[str, Any]", _catalog(fname).get("controls", {}))
 
 
 @mcp.tool()
-def lookup_control(control_id: str, framework: str = "nist_800_53") -> dict:
+def lookup_control(control_id: str, framework: str = "nist_800_53") -> dict[str, Any]:
     """Return the authoritative text for a control id (e.g. 'AC-2' in NIST 800-53, 'PR.AA-05' in CSF 2.0)."""
     try:
         if framework not in _FRAMEWORKS:
@@ -100,7 +104,9 @@ def lookup_control(control_id: str, framework: str = "nist_800_53") -> dict:
 
 
 @mcp.tool()
-def search_controls(keyword: str, framework: str = "nist_800_53", top_k: int = 10) -> dict:
+def search_controls(
+    keyword: str, framework: str = "nist_800_53", top_k: int = 10
+) -> dict[str, Any]:
     """Keyword search across control titles/statements; returns citable ids."""
     try:
         if framework not in _FRAMEWORKS:
@@ -128,7 +134,7 @@ def compliance_requirement(
     scope: str = "",
     valid_at: str = "",
     known_at: str = "",
-) -> dict:
+) -> dict[str, Any]:
     """Resolve governing requirements by validity interval and return atoms."""
     try:
         from portal.modules.compliance.core.cip_register import Register
@@ -146,7 +152,7 @@ def compliance_requirement(
             # the requested date; explicit retired version IDs remain exact.
             hits = [n for n in active if re.sub(r"\s+", "", n.standard).upper().startswith(want)]
         if hits:
-            parts = []
+            parts: list[dict[str, Any]] = []
             for node in hits:
                 anchors = []
                 try:
@@ -226,7 +232,7 @@ def compliance_requirement(
 
 
 @mcp.tool()
-def nerc_cip_requirement(req_id: str, valid_at: str = "", known_at: str = "") -> dict:
+def nerc_cip_requirement(req_id: str, valid_at: str = "", known_at: str = "") -> dict[str, Any]:
     """Compatibility wrapper for :func:`compliance_requirement`.
 
     When omitted, ``valid_at`` defaults explicitly to today's calendar date
@@ -240,6 +246,8 @@ def nerc_cip_requirement(req_id: str, valid_at: str = "", known_at: str = "") ->
             "req_id": part["id"],
             "verbatim_text": part["verbatim_text"],
             "standard": part["standard"],
+            # legacy flat surface kept by this compatibility wrapper
+            "valid_from": part["effectivity"]["valid_from"],
             "lifecycle_state": (
                 "EFFECTIVE" if part["temporal_label"] == "current" else "HISTORICAL"
             ),
@@ -248,7 +256,9 @@ def nerc_cip_requirement(req_id: str, valid_at: str = "", known_at: str = "") ->
 
 
 @mcp.tool()
-def map_frameworks(control_id: str, from_fw: str = "csf_2_0", to_fw: str = "nist_800_53") -> dict:
+def map_frameworks(
+    control_id: str, from_fw: str = "csf_2_0", to_fw: str = "nist_800_53"
+) -> dict[str, Any]:
     """Cross-framework mapping for a control id (via the bundled OLIR-style crosswalk seed).
 
     Handles both directions: csf_2_0 -> nist_800_53 is a direct lookup;
@@ -280,7 +290,7 @@ def map_frameworks(control_id: str, from_fw: str = "csf_2_0", to_fw: str = "nist
 
 
 @mcp.tool()
-def patch_evidence(cve_id: str) -> dict:
+def patch_evidence(cve_id: str) -> dict[str, Any]:
     """CIP-007-6 R2 patch-evaluation record for a CVE (uses vulnintel triage)."""
     try:
         from portal.modules.vulnintel.tools.vulnintel_mcp import triage_cve  # T1 dependency
@@ -308,24 +318,24 @@ def patch_evidence(cve_id: str) -> dict:
         return {"error": f"vulnintel unavailable ({e}); ensure T1 landed"}
 
 
-def _distil_800_53(raw: dict) -> dict:
-    def prose(parts):
-        out = []
+def _distil_800_53(raw: dict[str, Any]) -> dict[str, Any]:
+    def prose(parts: list[dict[str, Any]] | None) -> list[str]:
+        out: list[str] = []
         for p in parts or []:
             if p.get("prose"):
                 out.append(p["prose"].strip())
             out.extend(prose(p.get("parts")))
         return out
 
-    def stmt(c):
+    def stmt(c: dict[str, Any]) -> str:
         for part in c.get("parts", []):
             if part.get("name") == "statement":
                 return " ".join(prose([part])).strip()
         return ""
 
-    flat: dict = {}
+    flat: dict[str, Any] = {}
 
-    def walk(controls, family):
+    def walk(controls: list[dict[str, Any]], family: str) -> None:
         for c in controls:
             flat[c.get("id", "").upper()] = {
                 "title": c.get("title", ""),
@@ -340,18 +350,18 @@ def _distil_800_53(raw: dict) -> dict:
     return flat
 
 
-def _distil_csf(raw: dict) -> dict:
-    def prose(parts):
-        out = []
+def _distil_csf(raw: dict[str, Any]) -> dict[str, Any]:
+    def prose(parts: list[dict[str, Any]] | None) -> list[str]:
+        out: list[str] = []
         for p in parts or []:
             if p.get("prose"):
                 out.append(p["prose"].strip())
             out.extend(prose(p.get("parts")))
         return out
 
-    flat: dict = {}
+    flat: dict[str, Any] = {}
 
-    def walk(controls, fn):
+    def walk(controls: list[dict[str, Any]], fn: str) -> None:
         for c in controls:
             flat[c.get("id", "").upper()] = {
                 "title": c.get("title", ""),
@@ -369,7 +379,7 @@ def _distil_csf(raw: dict) -> dict:
 
 
 @mcp.tool()
-def refresh_catalogs() -> dict:
+def refresh_catalogs() -> dict[str, Any]:
     """Re-pull the authoritative OSCAL catalogs (NIST 800-53 Rev5, CSF 2.0) into the local data dir.
 
     Network operation. honest-BLOCKED on failure — never fabricates control text.
@@ -401,7 +411,7 @@ def refresh_catalogs() -> dict:
 
 
 @mcp.tool()
-def nerc_cip_currency() -> dict:
+def nerc_cip_currency() -> dict[str, Any]:
     """Per-standard currency: our held version, whether a newer version PDF is
     published on nerc.com, and an explicit 'verify the enforcement date' — the
     standard PDFs defer their effective date to a separate Implementation Plan,
@@ -427,7 +437,7 @@ def nerc_cip_currency() -> dict:
 
 def compliance_ingest(
     source_dir: str, kb_id: str = "operator_corpus", rebuild: bool = False
-) -> dict:
+) -> dict[str, Any]:
     """Sync dispatch wrapper — see ``compliance_retrieval.ingest_folder`` (the
     async ``/tools/compliance_ingest`` custom route calls the same function).
     Kept in ``_DISPATCH`` so this tool is generic-POST-dispatchable AND
@@ -442,7 +452,7 @@ def compliance_ingest(
         return {"error": str(e)}
 
 
-def compliance_search(kb_id: str, query: str, top_k: int = 5) -> dict:
+def compliance_search(kb_id: str, query: str, top_k: int = 5) -> dict[str, Any]:
     """Sync dispatch wrapper over ``compliance_retrieval.search`` — free-form
     retrieval over the ingested compliance corpus."""
     import asyncio
@@ -462,7 +472,7 @@ _SPAN_EXCERPT_CHARS = 180  # P0 (O11): a full-candidate row blew the 8192-token
 # side (the first locatable span — a `verbose=True` call gets every candidate).
 
 
-def _compact_citation(spans: list[dict]) -> dict | None:
+def _compact_citation(spans: list[dict[str, Any]]) -> dict[str, Any] | None:
     locatable = [s for s in spans if s.get("locatable")]
     chosen = locatable[0] if locatable else None
     if not chosen:
@@ -482,7 +492,7 @@ def compliance_gaps(
     kb_id: str = "operator_corpus",
     max_rows: int = 25,
     verbose: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     """Coverage matrix: where the operator's ingested corpus does/doesn't cover
     each applicable NERC CIP Part. ``standard``/``requirement`` filter the rows
     (e.g. standard='CIP-007-6') and ``max_rows`` caps them — the default row
@@ -591,7 +601,7 @@ def compliance_gaps(
 
 
 @mcp.tool()
-def compliance_orphans(kb_id: str = "operator_corpus", effective_on: str = "") -> dict:
+def compliance_orphans(kb_id: str = "operator_corpus", effective_on: str = "") -> dict[str, Any]:
     """Ingested policy/procedure sections mapping to no requirement — dead
     weight, or evidence the register is incomplete."""
     try:
@@ -624,7 +634,7 @@ def compliance_orphans(kb_id: str = "operator_corpus", effective_on: str = "") -
 @mcp.tool()
 def compliance_change_impact(
     old_standard: str, new_standard: str, kb_id: str = "operator_corpus"
-) -> dict:
+) -> dict[str, Any]:
     """Impact of a standard-version transition (e.g. old_standard='CIP-003-8',
     new_standard='CIP-003-9') on the operator's mapped sections — which prior
     verdicts are now unverified, gated on applicability."""
@@ -656,7 +666,7 @@ def compliance_scenario(
     planned_effective_date: str = "",
     kb_id: str = "operator_corpus",
     effective_on: str = "",
-) -> dict:
+) -> dict[str, Any]:
     """Design §9's "How should we implement a proposed change while
     maintaining compliance?" (Q12) — an isolated before/after scenario for a
     proposed patch to ONE targeted requirement/Part, never written to any
@@ -734,7 +744,9 @@ def compliance_scenario(
 
 
 @mcp.tool()
-def compliance_prospective(effective_on: str = "", kb_id: str = "operator_corpus") -> dict:
+def compliance_prospective(
+    effective_on: str = "", kb_id: str = "operator_corpus"
+) -> dict[str, Any]:
     """Design §9's "What requires review when a new/revised standard takes
     effect?" (Q11) — future-effective register content as of ``effective_on``
     (default: today), explicitly segregated from "what must we do today".
@@ -761,7 +773,7 @@ def compliance_draft_revisions(
     new_standard: str,
     kb_id: str = "operator_corpus",
     mode: str = "draft_as_proposal",
-) -> dict:
+) -> dict[str, Any]:
     """Design §9's "What revisions would improve alignment?" (Q07) for a
     standard-version transition — what must change and why, with both
     verbatim spans, for every mapped section affected by a substantive
@@ -791,7 +803,7 @@ def compliance_draft_revisions(
 
 
 @mcp.tool()
-def compliance_mappings(requirement_id: str = "", approved_only: bool = False) -> dict:
+def compliance_mappings(requirement_id: str = "", approved_only: bool = False) -> dict[str, Any]:
     """List/filter the mapping store (requirement -> internal document/section).
     Every approved or corrected mapping is a labelled example — the SME
     override rate is the trust signal."""
@@ -812,7 +824,7 @@ def compliance_mappings(requirement_id: str = "", approved_only: bool = False) -
 
 
 @mcp.tool()
-def compliance_scope(kb_id: str = "operator_corpus") -> dict:
+def compliance_scope(kb_id: str = "operator_corpus") -> dict[str, Any]:
     """The asset applicability scope derived from the operator's own ingested
     corpus, with its citing evidence. Queued (`applicability_scope`) rather
     than asked for — see compliance_review_list/decide to confirm it."""
@@ -834,7 +846,7 @@ def compliance_scope(kb_id: str = "operator_corpus") -> dict:
 
 
 @mcp.tool()
-def compliance_route(query: str, effective_on: str = "") -> dict:
+def compliance_route(query: str, effective_on: str = "") -> dict[str, Any]:
     """Route a free-form compliance question to its intent (today / change /
     gaps / freeform) and the node set that path operates on."""
     try:
@@ -849,7 +861,7 @@ def compliance_route(query: str, effective_on: str = "") -> dict:
 
 
 @mcp.tool()
-def compliance_review_list(kind: str = "", status: str = "OPEN") -> dict:
+def compliance_review_list(kind: str = "", status: str = "OPEN") -> dict[str, Any]:
     """The review queue: open (default) or filtered judgements the system
     proceeded on with its best evidence-backed answer — never a blocker."""
     try:
@@ -866,9 +878,9 @@ def compliance_review_decide(
     item_id: str,
     decision: str,
     decided_by: str,
-    corrected_value: dict | None = None,
+    corrected_value: dict[str, Any] | None = None,
     reviewer_token: str = "",
-) -> dict:
+) -> dict[str, Any]:
     """Confirm or reject one open queue item. Reversible: writes a NEW row
     superseding the prior one via prior_item_id; nothing is overwritten. A
     confirmed mapping_proposal is approved in the mapping store directly — no
@@ -923,7 +935,9 @@ def compliance_review_decide(
 
 
 @mcp.tool()
-def compliance_sources(revision_id: str = "", alias_path: str = "", logical_id: str = "") -> dict:
+def compliance_sources(
+    revision_id: str = "", alias_path: str = "", logical_id: str = ""
+) -> dict[str, Any]:
     """Exact permitted source context for an immutable document revision
     (design §9's "What documents... connect" / P7's `compliance_sources`
     operation) — the first operation wired to the P2 canonical repository
@@ -993,7 +1007,7 @@ def compliance_trace(
     direction: str = "both",
     max_depth: int = 3,
     include_proposed: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     """Bidirectional relationship traversal from a requirement/document/
     control reference (design §9's ``compliance_trace`` operation) — the
     second MCP operation wired to the P2 canonical repository. Returns typed
@@ -1019,7 +1033,7 @@ def compliance_intentionality(
     requirement_id: str,
     internal_text: str,
     control_id: str = "",
-) -> dict:
+) -> dict[str, Any]:
     """Are our internal rules more restrictive than the standard, and is
     that intentional? (design §9 Q08). Compares every quantitative claim
     in ``internal_text`` (paste the relevant procedure/policy span) against
@@ -1047,7 +1061,7 @@ def compliance_intentionality(
         result["requirement_id"] = requirement_id
         result["governing_citation"] = requirement_id
 
-        intentionality: dict = {"status": "unknown", "reason": "no control_id supplied"}
+        intentionality: dict[str, Any] = {"status": "unknown", "reason": "no control_id supplied"}
         if control_id:
             try:
                 from portal.modules.compliance.core.repository import Repository
@@ -1071,7 +1085,7 @@ def compliance_intentionality(
 
 
 @mcp.tool()
-def compliance_flexibility(requirement_id: str) -> dict:
+def compliance_flexibility(requirement_id: str) -> dict[str, Any]:
     """Where does the regulation permit flexibility we do not use? (design
     §9 Q09). Scans the governing requirement's verbatim text for explicit
     permissive-alternative cues ("may", "alternatively", "at its
@@ -1096,7 +1110,7 @@ def compliance_flexibility(requirement_id: str) -> dict:
         return {"error": str(e)}
 
 
-_ANALYSIS_JOBS: dict[str, dict] = {}
+_ANALYSIS_JOBS: dict[str, dict[str, Any]] = {}
 
 
 @mcp.tool()
@@ -1107,7 +1121,7 @@ def compliance_analyze(
     known_at: str = "",
     operation: str = "start",
     run_id: str = "",
-) -> dict:
+) -> dict[str, Any]:
     """Start/status/result/cancel a bounded compliance analysis job."""
     import uuid
 
@@ -1197,7 +1211,7 @@ def compliance_analyze(
 
 
 @mcp.tool()
-def compliance_compare(before_revision: str, after_revision: str) -> dict:
+def compliance_compare(before_revision: str, after_revision: str) -> dict[str, Any]:
     """Compare two explicit standard revisions with raw and interpreted deltas."""
     try:
         from portal.modules.compliance.core.cip_register import Register
@@ -1226,7 +1240,7 @@ def compliance_compare(before_revision: str, after_revision: str) -> dict:
 
 
 @mcp.tool()
-def compliance_impact(start_ref: str, max_depth: int = 5, max_edges: int = 1000) -> dict:
+def compliance_impact(start_ref: str, max_depth: int = 5, max_edges: int = 1000) -> dict[str, Any]:
     """Return direct, transitive, and inferred impacts with cutoff disclosure."""
     try:
         from portal.modules.compliance.core.impact import analyze
@@ -1239,7 +1253,14 @@ def compliance_impact(start_ref: str, max_depth: int = 5, max_edges: int = 1000)
 
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_compliance_mcp")
 
-_DISPATCH = {
+# mcp.custom_route() has no return annotation upstream — bind the concrete
+# decorator type once so routed handlers keep their annotations.
+_route: Callable[
+    ...,
+    Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+] = mcp.custom_route
+
+_DISPATCH: dict[str, Callable[..., Any]] = {
     "lookup_control": lookup_control,
     "search_controls": search_controls,
     "nerc_cip_requirement": nerc_cip_requirement,
@@ -1271,30 +1292,30 @@ _DISPATCH = {
 }
 
 
-@mcp.custom_route("/health", methods=["GET"])
-async def health_check(request):
+@_route("/health", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "compliance-mcp", "port": _port})
 
 
-@mcp.custom_route("/ready", methods=["GET"])
-async def ready(request):
+@_route("/ready", methods=["GET"])
+async def ready(request: Request) -> JSONResponse:
     return JSONResponse({"port": _port, "catalogs": [p.stem for p in _DATA.glob("*.json")]})
 
 
-@mcp.custom_route("/debug/compliance-counters", methods=["GET"])
-async def compliance_counters(request):
+@_route("/debug/compliance-counters", methods=["GET"])
+async def compliance_counters(request: Request) -> JSONResponse:
     from portal.modules.compliance.core.runtime import snapshot
 
     return JSONResponse(snapshot())
 
 
-@mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request):
+@_route("/tools", methods=["GET"])
+async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
-@mcp.custom_route("/tools/{tool_name}", methods=["POST"])
-async def invoke_tool(request):
+@_route("/tools/{tool_name}", methods=["POST"])
+async def invoke_tool(request: Request) -> JSONResponse:
     name = request.path_params.get("tool_name", "")
     fn = _DISPATCH.get(name)
     if fn is None:

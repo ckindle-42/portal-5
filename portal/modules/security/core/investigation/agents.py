@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
+from typing import Any
 
 # ── Agent roles ──────────────────────────────────────────────────────────────
 
@@ -44,7 +45,7 @@ class Hypothesis:
     evidence_refs: list[str] = field(default_factory=list)
     parent_id: str = ""  # for hypothesis trees
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "hypothesis_id": self.hypothesis_id,
             "technique_ids": self.technique_ids,
@@ -66,11 +67,11 @@ class Finding:
     description: str
     evidence_refs: list[str]
     confidence: float
-    timeline: list[dict] = field(default_factory=list)
+    timeline: list[dict[str, Any]] = field(default_factory=list)
     contradictions: list[str] = field(default_factory=list)
     unsubstantiated: bool = False
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "finding_id": self.finding_id,
             "hypothesis_id": self.hypothesis_id,
@@ -93,13 +94,13 @@ class InvestigationState:
     hypotheses: list[Hypothesis] = field(default_factory=list)
     findings: list[Finding] = field(default_factory=list)
     evidence_ids: list[str] = field(default_factory=list)
-    agent_scratch: dict = field(default_factory=dict)  # per-agent scratch
+    agent_scratch: dict[str, Any] = field(default_factory=dict)  # per-agent scratch
     debate_rounds: int = 0
     max_debate_rounds: int = 3
     budget_remaining: int = 100  # tool call budget
     status: str = "active"  # "active" | "completed" | "budget_exhausted"
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "case_id": self.case_id,
             "alert_text": self.alert_text,
@@ -121,11 +122,11 @@ class AgentResult:
 
     agent_id: str  # "A1"-"A5"
     action: str  # what the agent did
-    output: dict  # agent-specific output
-    tool_calls: list[dict] = field(default_factory=list)
+    output: dict[str, Any]  # agent-specific output
+    tool_calls: list[dict[str, Any]] = field(default_factory=list)
     elapsed_s: float = 0.0
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "agent_id": self.agent_id,
             "action": self.action,
@@ -259,7 +260,7 @@ class InvestigationGraph:
         self.history.append(result)
         return result
 
-    def run_investigation(self, alert_text: str) -> dict:
+    def run_investigation(self, alert_text: str) -> dict[str, Any]:
         """Run the full investigation pipeline: A1 → A2 → A3 → A4 → A5.
 
         Returns the final state with all agent outputs.

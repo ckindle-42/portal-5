@@ -19,9 +19,13 @@ false-covered and false-gap separately (never averaged); citation resolution
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
+from portal.modules.compliance.core.cip_register import RegisterNode
+from portal.modules.compliance.core.coverage import CoverageCell
 from portal.modules.compliance.core.text_signals import is_aspirational as _is_aspirational
 from portal.modules.compliance.core.text_signals import keywords as _keywords
 
@@ -95,13 +99,15 @@ def load_corpus(corpus_dir: Path | str = CORPUS_DIR) -> list[PlantedDoc]:
 # overlap check instead of a drifting copy.
 
 
-def make_proposer(corpus: list[PlantedDoc], *, threshold: int = 3):
+def make_proposer(
+    corpus: list[PlantedDoc], *, threshold: int = 3
+) -> Callable[[RegisterNode, str], list[dict[str, Any]]]:
     """A ``propose(node, side)`` that keyword-matches planted docs of the right
     class to a register node, and marks a span ``locatable`` when the section
     body substantively overlaps the requirement (not just names it)."""
     by_side = {"policy": "policy", "procedure": "procedure", "evidence": "evidence"}
 
-    def propose(node, side: str) -> list[dict]:
+    def propose(node: RegisterNode, side: str) -> list[dict[str, Any]]:
         want_class = by_side[side]
         hits = []
         req_kw = _keywords(node.verbatim_text)
@@ -150,9 +156,9 @@ class PlantedScore:
     false_covered: int
     false_gap: int
     citation_resolution: float  # must be 1.000
-    per_control: list[dict]
+    per_control: list[dict[str, Any]]
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "n_controls": self.n_controls,
             "qualified_signal_recall": round(self.qualified_signal_recall, 3),
@@ -163,7 +169,7 @@ class PlantedScore:
         }
 
 
-def score(corpus: list[PlantedDoc], matrix_cells: list) -> PlantedScore:
+def score(corpus: list[PlantedDoc], matrix_cells: list[CoverageCell]) -> PlantedScore:
     """Compare the coverage matrix against each planted doc's declared truth.
 
     TASK_COMPLIANCE_REASONING_V2 P1: the automated classifier can no longer
@@ -183,14 +189,14 @@ def score(corpus: list[PlantedDoc], matrix_cells: list) -> PlantedScore:
     NONE from empty/unqualified ones (false_gap) — both must read 0, and a
     nonzero value here means the P1 protections regressed.
     """
-    cell_by_req: dict[str, object] = {}
+    cell_by_req: dict[str, CoverageCell] = {}
     for c in matrix_cells:
         cell_by_req.setdefault(c.requirement_id, c)
 
     signal_expected = signal_correct = 0
     false_covered = false_gap = 0
     cite_total = cite_ok = 0
-    per: list[dict] = []
+    per: list[dict[str, Any]] = []
 
     for d in corpus:
         cell = cell_by_req.get(d.targets)

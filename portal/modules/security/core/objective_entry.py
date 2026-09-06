@@ -61,7 +61,9 @@ def derive_max_iterations(objective_class: str, graph: Any = None) -> int:
     return min(derived, HARD_MAX_ITERATIONS)
 
 
-def _step_progressed(obs_before: dict, obs_after: dict, step_result: dict) -> bool:
+def _step_progressed(
+    obs_before: dict[str, Any], obs_after: dict[str, Any], step_result: dict[str, Any]
+) -> bool:
     """Progress means the observed state actually changed, or the oracle
     advanced — never just "the executor returned a non-empty delta" (the
     Executor always attaches bookkeeping keys like last_tool/last_target,
@@ -88,8 +90,8 @@ def run_with_no_progress_halt(
     from portal.platform.agent.loop import LoopResult, run_loop
 
     obs = dict(observations or {})
-    trajectory: list[dict] = []
-    flagged: list[dict] = []
+    trajectory: list[dict[str, Any]] = []
+    flagged: list[dict[str, Any]] = []
     max_iters = int(goal.budget.get("max_iterations", 0))
     stagnant = 0
     iterations = 0
@@ -150,7 +152,7 @@ def run_emergent_engagement(
     executor: Any = None,
     perception: Any = None,
     no_progress_k: int = _DEFAULT_NO_PROGRESS_K,
-) -> dict:
+) -> dict[str, Any]:
     """PORTAL_EMERGENT-gated top-level entry (I7).
 
     Flag-off => inert, existing paths unchanged (no goal built, nothing runs).

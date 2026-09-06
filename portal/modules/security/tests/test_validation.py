@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import pytest
+
 from portal.modules.security.core.validation import validate_usecase
 
 
 class TestValidateUsecase:
-    def test_dry_run_plans_usecase(self):
+    def test_dry_run_plans_usecase(self) -> None:
         usecase = {
             "name": "test-usecase",
             "target": "10.10.11.50",
@@ -19,7 +21,7 @@ class TestValidateUsecase:
         assert result["status"] == "dry_run"
         assert result["usecase"] == "test-usecase"
 
-    def test_no_lab_exec_indeterminate(self, monkeypatch):
+    def test_no_lab_exec_indeterminate(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr("portal.modules.security.core.validation._LAB_EXEC_AVAILABLE", False)
         result = validate_usecase({"name": "test"})
         assert result["status"] == "indeterminate"

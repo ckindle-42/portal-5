@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
+from typing import Any
 
 from portal.platform.wiki.audit import audit_units
 from portal.platform.wiki.schema import KnowledgeUnit
@@ -51,7 +52,7 @@ def check_staleness(
     current_commit: str,
     repo_root: Path | None = None,
     regenerated_units: list[KnowledgeUnit] | None = None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Compare machine-derived unit bodies with exact current derivations.
 
     Advancing HEAD alone does not make an authored canonical unit stale.
@@ -64,7 +65,7 @@ def check_staleness(
     if regenerated_units is None:
         regenerated_units = _regenerate_derived_units(current_commit)
     fresh_by_id = {unit.id: unit for unit in regenerated_units}
-    stale: list[dict] = []
+    stale: list[dict[str, Any]] = []
     for fresh in fresh_by_id.values():
         stored = units.get(fresh.id)
         if stored is None or stored.body.strip() != fresh.body.strip():
@@ -114,7 +115,7 @@ def update_what_units(current_commit: str, dry_run: bool = False) -> list[Knowle
     return updated
 
 
-def wiki_status(current_commit: str, repo_root: Path | None = None) -> dict:
+def wiki_status(current_commit: str, repo_root: Path | None = None) -> dict[str, Any]:
     """Report wiki status: unit count, staleness, freshness."""
     if repo_root is None:
         repo_root = Path(__file__).resolve().parents[3]

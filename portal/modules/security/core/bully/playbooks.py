@@ -51,7 +51,7 @@ class PlaybookError(RuntimeError):
     """Raised on an illegal PLAY lifecycle transition."""
 
 
-def validate_instruction_set(instruction_set: dict) -> list[str]:
+def validate_instruction_set(instruction_set: dict[str, Any]) -> list[str]:
     """Mirrors the red-side `playbooks.validate_playbook`'s shape (a list of
     problems, empty == valid) without importing that module -- PLAY's
     container is a JSON instruction_set, not a YAML engagement file, so the
@@ -70,7 +70,13 @@ def validate_instruction_set(instruction_set: dict) -> list[str]:
 
 
 def _record(
-    store: Store, *, hunt_id: str | None, actor: str, subject_id: str, rationale: str, data: dict
+    store: Store,
+    *,
+    hunt_id: str | None,
+    actor: str,
+    subject_id: str,
+    rationale: str,
+    data: dict[str, Any],
 ) -> None:
     store.record_decision(
         DecisionEvent(

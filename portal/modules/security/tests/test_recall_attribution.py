@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import inspect
+from typing import Any
 
 from portal.modules.security.core import recall_attribution as ra
 
@@ -13,7 +14,7 @@ def _cell(
     verdict: str = "RULED_OUT",
     reported: list[str] | None = None,
     telemetry: str = "",
-) -> dict:
+) -> dict[str, Any]:
     return {
         "label": "synthetic",
         "technique_expected": expected,
@@ -28,26 +29,26 @@ def _cell(
 
 
 class TestEvidenceOracle:
-    def test_present_for_own_declared_discriminator(self):
+    def test_present_for_own_declared_discriminator(self) -> None:
         result = ra.attribute_cell(_cell(telemetry="EventCode=4768 Account=user PreAuthType=0"))
         assert result["oracle_result"] == ra.PRESENT
         assert result["matched_discriminators"] == ["PreAuthType=0"]
 
-    def test_absent_when_only_sibling_discriminator_is_present(self):
+    def test_absent_when_only_sibling_discriminator_is_present(self) -> None:
         result = ra.attribute_cell(_cell(telemetry="EventCode=4769 TicketEncryptionType=0x17"))
         assert result["oracle_result"] == ra.ABSENT
 
-    def test_indeterminate_without_machine_checkable_discriminator(self):
+    def test_indeterminate_without_machine_checkable_discriminator(self) -> None:
         result = ra.attribute_cell(_cell(expected="T1610", telemetry="container event"))
         assert result["oracle_result"] == ra.INDETERMINATE
         assert result["oracle_reason"] == "no_declared_discriminator"
 
-    def test_spl_field_value_fallback_is_read_from_detection(self):
+    def test_spl_field_value_fallback_is_read_from_detection(self) -> None:
         info = ra.technique_discriminators("T1053.005")
         assert info["source"] == "spl_field_value_clauses"
         assert "EventCode=4698" in info["tokens"]
 
-    def test_r1_spl_derived_literal_coverage(self):
+    def test_r1_spl_derived_literal_coverage(self) -> None:
         cases = {
             "T1190": "GET /index.php?cmd=whoami",
             "T1611": "exe=nsenter target=/proc/1/ns/mnt",
@@ -61,7 +62,7 @@ class TestEvidenceOracle:
             assert info["source"] == "declared_discriminator_tokens"
             assert ra.evidence_presence(telemetry, info["tokens"])[0] == ra.PRESENT
 
-    def test_presence_function_is_label_blind(self):
+    def test_presence_function_is_label_blind(self) -> None:
         assert list(inspect.signature(ra.evidence_presence).parameters) == [
             "telemetry",
             "technique_discriminators",
@@ -69,48 +70,48 @@ class TestEvidenceOracle:
 
 
 class TestAttributionTruthTable:
-    def test_true_positive(self):
+    def test_true_positive(self) -> None:
         result = ra.attribute_cell(
             _cell(verdict="CONFIRMED", reported=["T1558.004"], telemetry="PreAuthType=0")
         )
         assert result["attribution"] == ra.TRUE_POSITIVE
 
-    def test_misattribution(self):
+    def test_misattribution(self) -> None:
         result = ra.attribute_cell(
             _cell(verdict="CONFIRMED", reported=["T1558.003"], telemetry="PreAuthType=0")
         )
         assert result["attribution"] == ra.MISATTRIBUTION
 
-    def test_evidence_present_miss(self):
+    def test_evidence_present_miss(self) -> None:
         result = ra.attribute_cell(
             _cell(verdict="ANOMALOUS_UNCLASSIFIED", telemetry="PreAuthType=0")
         )
         assert result["attribution"] == ra.EVIDENCE_PRESENT_MISS
 
-    def test_honest_anomaly(self):
+    def test_honest_anomaly(self) -> None:
         result = ra.attribute_cell(
             _cell(verdict="ANOMALOUS_UNCLASSIFIED", telemetry="TicketEncryptionType=0x17")
         )
         assert result["attribution"] == ra.HONEST_ANOMALY
 
-    def test_false_negative(self):
+    def test_false_negative(self) -> None:
         result = ra.attribute_cell(_cell(verdict="RULED_OUT", telemetry="PreAuthType=0"))
         assert result["attribution"] == ra.FALSE_NEGATIVE
 
-    def test_honest_negative(self):
+    def test_honest_negative(self) -> None:
         result = ra.attribute_cell(
             _cell(verdict="RULED_OUT", telemetry="TicketEncryptionType=0x17")
         )
         assert result["attribution"] == ra.HONEST_NEGATIVE
 
-    def test_unscorable_by_oracle(self):
+    def test_unscorable_by_oracle(self) -> None:
         result = ra.attribute_cell(
             _cell(expected="T1610", verdict="RULED_OUT", telemetry="generic container event")
         )
         assert result["attribution"] == ra.UNSCORABLE_BY_ORACLE
 
 
-def test_oracle_uses_cell_trace_not_broader_corpus_data():
+def test_oracle_uses_cell_trace_not_broader_corpus_data() -> None:
     cell = _cell(verdict="RULED_OUT", telemetry="TicketEncryptionType=0x17")
     cell["broader_corpus_telemetry"] = "PreAuthType=0"
     result = ra.attribute_cell(cell)
@@ -118,7 +119,7 @@ def test_oracle_uses_cell_trace_not_broader_corpus_data():
     assert result["attribution"] == ra.HONEST_NEGATIVE
 
 
-def test_missing_model_visible_capture_is_indeterminate_not_absent():
+def test_missing_model_visible_capture_is_indeterminate_not_absent() -> None:
     cell = _cell()
     cell["trace"] = [{"section": "reasoning", "raw": "PreAuthType=0"}]
     result = ra.attribute_cell(cell)
@@ -126,6 +127,6 @@ def test_missing_model_visible_capture_is_indeterminate_not_absent():
     assert result["oracle_reason"] == "model_visible_telemetry_not_captured"
 
 
-def test_deterministic_for_same_input():
+def test_deterministic_for_same_input() -> None:
     cell = _cell(verdict="ANOMALOUS_UNCLASSIFIED", telemetry="PreAuthType=0")
     assert ra.attribute_cell(cell) == ra.attribute_cell(cell)

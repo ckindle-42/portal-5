@@ -2,7 +2,7 @@
 
 import logging
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -24,7 +24,7 @@ class PushoverChannel(NotificationChannel):
         user = os.environ.get("PUSHOVER_USER_KEY", "")
         return bool(token and user)
 
-    async def _post(self, data: dict) -> None:
+    async def _post(self, data: dict[str, Any]) -> None:
         if self._client is not None:
             resp = await self._client.post(
                 "https://api.pushover.net/1/messages.json",

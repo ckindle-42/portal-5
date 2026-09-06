@@ -23,7 +23,7 @@ def _mock_response(text: str) -> MagicMock:
 
 class TestBypassPaths:
     @pytest.mark.asyncio
-    async def test_not_opted_in_bypasses(self):
+    async def test_not_opted_in_bypasses(self) -> None:
         subset, outcome = await preselect(
             effective_tools=_TOOLS_8,
             user_turn_content="test",
@@ -34,7 +34,7 @@ class TestBypassPaths:
         assert outcome.reason == "bypass_disabled"
 
     @pytest.mark.asyncio
-    async def test_disabled_flag_bypasses(self):
+    async def test_disabled_flag_bypasses(self) -> None:
         subset, outcome = await preselect(
             effective_tools=_TOOLS_8,
             user_turn_content="test",
@@ -45,7 +45,7 @@ class TestBypassPaths:
         assert outcome.reason == "bypass_disabled"
 
     @pytest.mark.asyncio
-    async def test_low_tool_count_bypasses(self):
+    async def test_low_tool_count_bypasses(self) -> None:
         subset, outcome = await preselect(
             effective_tools={"a", "b", "c"},
             user_turn_content="test",
@@ -58,7 +58,7 @@ class TestBypassPaths:
 
 class TestOllamaOutcomes:
     @pytest.mark.asyncio
-    async def test_ok_path_returns_topk_subset(self):
+    async def test_ok_path_returns_topk_subset(self) -> None:
         with patch(
             "portal.platform.inference.tool_preselect.preselector._client",
             new_callable=MagicMock,
@@ -80,7 +80,7 @@ class TestOllamaOutcomes:
             assert subset.issubset(_TOOLS_8)
 
     @pytest.mark.asyncio
-    async def test_payload_caps_num_ctx(self):
+    async def test_payload_caps_num_ctx(self) -> None:
         """P5-ROUTER-EVICTION-001: keep_alive='5m' with no num_ctx still lets
         Ollama default to the model's full context x OLLAMA_NUM_PARALLEL
         slots for the keep_alive window, which can evict other pinned
@@ -107,7 +107,7 @@ class TestOllamaOutcomes:
             assert "num_ctx" in kwargs["json"]["options"]
 
     @pytest.mark.asyncio
-    async def test_timeout_falls_back(self):
+    async def test_timeout_falls_back(self) -> None:
         with patch(
             "portal.platform.inference.tool_preselect.preselector._client",
             new_callable=MagicMock,
@@ -128,7 +128,7 @@ class TestOllamaOutcomes:
             assert outcome.reason == "fallback_timeout"
 
     @pytest.mark.asyncio
-    async def test_connection_error_falls_back(self):
+    async def test_connection_error_falls_back(self) -> None:
         with patch(
             "portal.platform.inference.tool_preselect.preselector._client",
             new_callable=MagicMock,
@@ -149,7 +149,7 @@ class TestOllamaOutcomes:
             assert outcome.reason == "fallback_timeout"
 
     @pytest.mark.asyncio
-    async def test_unparseable_output_falls_back(self):
+    async def test_unparseable_output_falls_back(self) -> None:
         with patch(
             "portal.platform.inference.tool_preselect.preselector._client",
             new_callable=MagicMock,
@@ -170,7 +170,7 @@ class TestOllamaOutcomes:
             assert outcome.reason == "fallback_parse"
 
     @pytest.mark.asyncio
-    async def test_low_confidence_falls_back(self):
+    async def test_low_confidence_falls_back(self) -> None:
         with patch(
             "portal.platform.inference.tool_preselect.preselector._client",
             new_callable=MagicMock,
@@ -192,7 +192,7 @@ class TestOllamaOutcomes:
             assert outcome.reason == "fallback_lowconf"
 
     @pytest.mark.asyncio
-    async def test_unexpected_exception_never_raises(self):
+    async def test_unexpected_exception_never_raises(self) -> None:
         with patch(
             "portal.platform.inference.tool_preselect.preselector._client",
             new_callable=MagicMock,

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ..matrix import RunUnit
 
 
 @dataclass
@@ -15,25 +18,27 @@ class BenchRun:
     cfg: Any
     ts: str
     checkpoint_path: Path | None
-    chain_results: list[dict]
-    blue_results: list[dict]
-    purple_results: list[dict]
-    scenario: str | None
-    scenario_averages: list[dict]
-    multimodel_results: list[dict]
+    chain_results: list[dict[str, Any]]
+    blue_results: list[dict[str, Any]]
+    purple_results: list[dict[str, Any]]
+    scenario: dict[str, Any] | None
+    scenario_averages: list[dict[str, Any]]
+    multimodel_results: list[dict[str, Any]]
     _step_models: dict[str, str]
     _enabled_prompts: set[str]
     _target_prompts: set[str]
-    results: list[dict] | None
-    evasion_results: list[dict] | None
-    false_positive_results: list[dict] | None
-    defense_efficacy_results: list[dict] | None
-    expansion_steps: dict[str, dict] | None
-    matrix_results: dict | None
-    matrix_units: list[dict] | None
+    results: list[dict[str, Any]] | None
+    evasion_results: list[dict[str, Any]] | None
+    false_positive_results: list[dict[str, Any]] | None
+    defense_efficacy_results: list[dict[str, Any]] | None
+    expansion_steps: dict[str, dict[str, Any]] | None
+    matrix_results: dict[str, Any] | None
+    matrix_units: list[RunUnit] | None
     _snapshot_name: str
-    refusal_results: list[dict]
-    _audit_results: list[dict]
-    _retry_data: dict
+    refusal_results: list[dict[str, Any]]
+    _audit_results: list[dict[str, Any]]
+    _retry_data: dict[str, Any]
     _out_path: Path
     _t0_bench: float
+    _retry_failed_prompts: set[str] = field(default_factory=set)
+    _retry_failed_scenarios: set[str] = field(default_factory=set)

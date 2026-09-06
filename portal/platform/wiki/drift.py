@@ -25,7 +25,11 @@ from __future__ import annotations
 
 import re
 import subprocess
+from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
+
+from portal.platform.wiki.schema import KnowledgeUnit
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -56,7 +60,7 @@ _PATH_RE = re.compile(
 _LOOKS_TRUNCATED = re.compile(r"[_\-.]$")
 
 
-def _git(root: Path, *args: str, input: str | None = None) -> subprocess.CompletedProcess:
+def _git(root: Path, *args: str, input: str | None = None) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["git", *args],
         cwd=root,
@@ -190,7 +194,9 @@ _NUMERIC_CLAIM_RE = re.compile(
 )
 
 
-def undeclared_numeric_claims(units=None) -> dict[str, list[str]]:
+def undeclared_numeric_claims(
+    units: Sequence[KnowledgeUnit] | None = None,
+) -> dict[str, list[str]]:
     """Units whose body states a countable quantity but declare no claim.
 
     Visible debt, never a hard gate: the pattern is a heuristic and a fuzzy
@@ -219,7 +225,7 @@ def undeclared_numeric_claims(units=None) -> dict[str, list[str]]:
     return out
 
 
-def census(repo_root: Path | None = None) -> dict:
+def census(repo_root: Path | None = None) -> dict[str, Any]:
     """Full drift census. Read-only; writes nothing."""
     from portal.platform.wiki.claims import claim_count, evaluate_claims, probe_all
     from portal.platform.wiki.render import render_report

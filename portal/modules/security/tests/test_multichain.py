@@ -23,7 +23,14 @@ from portal.modules.security.core.multichain import (
 )
 
 
-def _c(model, verdict, techs=None, similar=None, sources=None, ungrounded=None):
+def _c(
+    model: str,
+    verdict: str,
+    techs: list[str] | None = None,
+    similar: list[str] | None = None,
+    sources: list[str] | None = None,
+    ungrounded: list[str] | None = None,
+) -> ChainResult:
     return ChainResult(
         model=model,
         verdict=verdict,
@@ -35,7 +42,7 @@ def _c(model, verdict, techs=None, similar=None, sources=None, ungrounded=None):
 
 
 class TestConsolidate:
-    def test_independent_convergence_is_auto_confirm(self):
+    def test_independent_convergence_is_auto_confirm(self) -> None:
         """>= quorum of independent chains reaching the same known technique is
         the strong KNOWN-BAD signal — auto-confirm."""
         chains = [
@@ -48,7 +55,7 @@ class TestConsolidate:
         assert res.verdict == "CONFIRMED"
         assert res.technique_ids == ["T1190"]
 
-    def test_divergent_signal_is_escalate_not_confirm(self):
+    def test_divergent_signal_is_escalate_not_confirm(self) -> None:
         """Independent chains each surfaced a DIFFERENT technique — real signal,
         no convergence. This is the strong ESCALATE ('needs human'), never a
         forced confirm or a silent dismiss."""
@@ -64,7 +71,7 @@ class TestConsolidate:
         # near-miss neighbours carried forward for the human
         assert "T1505.003" in res.similar_to
 
-    def test_all_independent_ruled_out_is_dismiss(self):
+    def test_all_independent_ruled_out_is_dismiss(self) -> None:
         chains = [
             _c("m1", "RULED_OUT", sources=["web:access"]),
             _c("m2", "RULED_OUT", sources=["ids:alert"]),
@@ -74,7 +81,7 @@ class TestConsolidate:
         assert res.verdict == "RULED_OUT"
         assert res.agreement == 1.0
 
-    def test_no_conclusions_escalates_not_dismisses(self):
+    def test_no_conclusions_escalates_not_dismisses(self) -> None:
         """If no chain converged within budget, the investigation is
         incomplete — a live analyst can't be handed 'all clear'. Escalate."""
         chains = [_c("m1", "UNRESOLVED"), _c("m2", "UNRESOLVED")]
@@ -82,7 +89,7 @@ class TestConsolidate:
         assert res.decision == "ESCALATE"
         assert "did not complete" in res.rationale
 
-    def test_mixed_benign_and_anomalous_escalates(self):
+    def test_mixed_benign_and_anomalous_escalates(self) -> None:
         """One chain uneasy (anomalous, no technique), others benign — a shared
         unease with no concrete claim escalates rather than silently dismissing."""
         chains = [
@@ -92,7 +99,7 @@ class TestConsolidate:
         res = consolidate(chains)
         assert res.decision == "ESCALATE"
 
-    def test_evidence_diversity_counts_distinct_sources_across_chains(self):
+    def test_evidence_diversity_counts_distinct_sources_across_chains(self) -> None:
         """The coverage win: consolidation reports how much of the telemetry
         surface the independent chains collectively touched — the structural
         answer to a single lead investigator's tunnel vision (HUNTER_MISS)."""
@@ -104,7 +111,7 @@ class TestConsolidate:
         res = consolidate(chains)
         assert res.evidence_diversity == 3  # web:access, ids:alert, windows:security
 
-    def test_quorum_threshold_respected(self):
+    def test_quorum_threshold_respected(self) -> None:
         """A 2/3 vote on T1190 clears quorum 0.5 (confirmed) but not 0.7. The
         lone dissenting T1059 finding is a review lead, never silently dropped:
         at 0.5 -> CONFIRM_AND_ESCALATE (confirm T1190, review T1059); at 0.7 ->
@@ -120,7 +127,7 @@ class TestConsolidate:
         assert r50.review_leads == ["T1059"]
         assert consolidate(chains, quorum=0.7).decision == "ESCALATE"
 
-    def test_unanimous_known_bad_is_pure_auto_confirm(self):
+    def test_unanimous_known_bad_is_pure_auto_confirm(self) -> None:
         """No dissent, no near-miss leads -> a clean AUTO_CONFIRM with an empty
         review channel."""
         chains = [
@@ -132,7 +139,7 @@ class TestConsolidate:
         assert res.confirmed_techniques == ["T1190"]
         assert res.review_leads == []
 
-    def test_confirm_and_escalate_carries_both_channels(self):
+    def test_confirm_and_escalate_carries_both_channels(self) -> None:
         """The headline separation: a run that confirms a known bad AND surfaces
         an unknown near-miss reports BOTH — the unknown is never dropped just
         because a different technique auto-confirmed (dimensions 1-3 fix)."""
@@ -150,14 +157,14 @@ class TestConsolidate:
         assert so.similar_to == ["T1505.003"]  # unknown channel, preserved
         assert so.match_grade == "SIMILAR"
 
-    def test_confirmed_carries_technique_to_section_output(self):
+    def test_confirmed_carries_technique_to_section_output(self) -> None:
         res = consolidate([_c("m1", "CONFIRMED", ["T1190"]), _c("m2", "CONFIRMED", ["T1190"])])
         so = to_section_output(res)
         assert so.verdict == "CONFIRMED"
         assert so.technique_ids == ["T1190"]
         assert so.section == "consolidation"
 
-    def test_ungrounded_claims_never_vote_and_never_become_review_leads(self):
+    def test_ungrounded_claims_never_vote_and_never_become_review_leads(self) -> None:
         """2026-07-23 design review (laundering fix): a chain whose CONFIRMED
         failed its citation gate arrives as ANOMALOUS with the failed IDs in
         ungrounded_claims. Those IDs must not vote toward quorum, must not
@@ -179,7 +186,7 @@ class TestConsolidate:
         assert "T1543" not in so.similar_to
         assert so.ungrounded_claims == ["T1543"]
 
-    def test_chain_with_only_ungrounded_claims_escalates_as_unnamed_unease(self):
+    def test_chain_with_only_ungrounded_claims_escalates_as_unnamed_unease(self) -> None:
         """A lone chain whose entire output was a demoted fabrication has
         nothing credited — but its ANOMALOUS verdict still escalates as
         unnamed unease rather than being dismissed."""
@@ -192,7 +199,7 @@ class TestConsolidate:
         assert res.review_leads == []
         assert res.ungrounded_claims == ["T1499"]
 
-    def test_escalate_section_output_carries_similar_as_grade(self):
+    def test_escalate_section_output_carries_similar_as_grade(self) -> None:
         res = consolidate(
             [
                 _c("m1", "CONFIRMED", ["T1190"]),

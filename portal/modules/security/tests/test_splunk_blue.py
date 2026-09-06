@@ -8,8 +8,12 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[4]
 if str(_PROJECT_ROOT) not in sys.path:
@@ -22,19 +26,19 @@ if str(_PROJECT_ROOT) not in sys.path:
 class TestTelemetryBackendProtocol:
     """Prove the protocol is satisfied by all backends."""
 
-    def test_winrm_backend_satisfies_protocol(self):
+    def test_winrm_backend_satisfies_protocol(self) -> None:
         from portal.modules.security.core.blue import WinEventBackend
         from portal.modules.security.core.telemetry import TelemetryBackend
 
         assert isinstance(WinEventBackend(), TelemetryBackend)
 
-    def test_splunk_backend_satisfies_protocol(self):
+    def test_splunk_backend_satisfies_protocol(self) -> None:
         from portal.modules.security.core.blue import SplunkBackend
         from portal.modules.security.core.telemetry import TelemetryBackend
 
         assert isinstance(SplunkBackend(), TelemetryBackend)
 
-    def test_contract_for_technique_returns_winevent_for_ad_targets(self):
+    def test_contract_for_technique_returns_winevent_for_ad_targets(self) -> None:
         from portal.modules.security.core.telemetry import (
             CONTRACT_WINEVENT_AD,
             contract_for_technique,
@@ -44,7 +48,7 @@ class TestTelemetryBackendProtocol:
             contract = contract_for_technique("T1558.003", target)
             assert contract.id == CONTRACT_WINEVENT_AD.id, f"{target} should use winevent-ad"
 
-    def test_contract_for_technique_returns_splunk_for_web_targets(self):
+    def test_contract_for_technique_returns_splunk_for_web_targets(self) -> None:
         from portal.modules.security.core.telemetry import (
             CONTRACT_SPLUNK_WEB,
             contract_for_technique,
@@ -58,7 +62,7 @@ class TestTelemetryBackendProtocol:
 class TestWinEventBackend:
     """WinEventBackend behavior — synthetic fallback when no lab."""
 
-    def test_synthetic_fallback_without_lab(self):
+    def test_synthetic_fallback_without_lab(self) -> None:
         from portal.modules.security.core.blue import WinEventBackend
 
         backend = WinEventBackend()
@@ -67,7 +71,7 @@ class TestWinEventBackend:
         assert result["backend"] == "winrm-winevent"
         assert "telemetry" in result
 
-    def test_unknown_technique_returns_empty(self):
+    def test_unknown_technique_returns_empty(self) -> None:
         from portal.modules.security.core.blue import WinEventBackend
 
         backend = WinEventBackend()
@@ -79,7 +83,7 @@ class TestWinEventBackend:
 class TestSplunkBackend:
     """SplunkBackend — synthetic-fallback when Splunk unreachable."""
 
-    def test_synthetic_fallback_when_no_splunk(self):
+    def test_synthetic_fallback_when_no_splunk(self) -> None:
         from portal.modules.security.core.blue import SplunkBackend
 
         backend = SplunkBackend()
@@ -88,7 +92,7 @@ class TestSplunkBackend:
         assert result["source"] == "synthetic-fallback"
         assert result["backend"] == "splunk"
 
-    def test_unknown_technique_returns_synthetic_fallback(self):
+    def test_unknown_technique_returns_synthetic_fallback(self) -> None:
         from portal.modules.security.core.blue import SplunkBackend
 
         backend = SplunkBackend()
@@ -102,7 +106,7 @@ class TestSplunkBackend:
 class TestHecShip:
     """hec_ship.py — dry-run envelope construction, no network."""
 
-    def test_ship_dry_run(self):
+    def test_ship_dry_run(self) -> None:
         from portal.modules.security.core.siem.hec_ship import ship
 
         result = ship(
@@ -118,15 +122,19 @@ class TestHecShip:
         assert result["envelope"]["host"] == "vulhub"
         assert result["envelope"]["index"] == "portal5_lab"
 
-    def test_ship_batch_dry_run(self):
+    def test_ship_batch_dry_run(self) -> None:
         from portal.modules.security.core.siem.hec_ship import ship_batch
 
-        events = [{"raw": "line1"}, {"raw": "line2"}, {"raw": "line3"}]
+        events: list[dict[str, Any] | str] = [
+            {"raw": "line1"},
+            {"raw": "line2"},
+            {"raw": "line3"},
+        ]
         result = ship_batch(events, sourcetype="linux:auditd", host="dc01", dry_run=True)
         assert result["ok"] is True
         assert result["count"] == 3
 
-    def test_ship_builds_valid_envelope(self):
+    def test_ship_builds_valid_envelope(self) -> None:
         from portal.modules.security.core.siem.hec_ship import ship
 
         result = ship(
@@ -150,14 +158,14 @@ class TestHecShip:
 class TestSplDetections:
     """spl_detections.yaml — parses and covers matrix techniques."""
 
-    def test_yaml_parses(self):
+    def test_yaml_parses(self) -> None:
         from portal.modules.security.core.siem.spl_detections import _load
 
         data = _load()
         assert isinstance(data, dict)
         assert len(data) > 0
 
-    def test_every_technique_has_spl(self):
+    def test_every_technique_has_spl(self) -> None:
         from portal.modules.security.core.siem.spl_detections import spl_for
 
         required = [
@@ -179,14 +187,14 @@ class TestSplDetections:
             assert isinstance(spl, str)
             assert len(spl) > 10
 
-    def test_techniques_covered(self):
+    def test_techniques_covered(self) -> None:
         from portal.modules.security.core.siem.spl_detections import techniques_covered
 
         covered = techniques_covered()
         assert len(covered) >= 11
         assert "T1190" in covered
 
-    def test_technique_reference_returns_descriptions(self):
+    def test_technique_reference_returns_descriptions(self) -> None:
         from portal.modules.security.core.siem.spl_detections import technique_reference
 
         ref = technique_reference()
@@ -203,13 +211,13 @@ class TestBlueInitialPrompt:
     tool-fixed CyberSecQwen-4B both reported the wrong MITRE ID on correct,
     live Kerberoasting/DCSync telemetry with no reference material in prompt)."""
 
-    def test_prompt_includes_technique_reference(self):
+    def test_prompt_includes_technique_reference(self) -> None:
         from portal.modules.security.core.blue import BLUE_INITIAL_PROMPT
 
         assert "T1558.003" in BLUE_INITIAL_PROMPT
         assert "Kerberoasting" in BLUE_INITIAL_PROMPT
 
-    def test_build_blue_initial_prompt_falls_back_without_reference(self):
+    def test_build_blue_initial_prompt_falls_back_without_reference(self) -> None:
         from portal.modules.security.core.blue import _build_blue_initial_prompt
 
         with patch(
@@ -227,43 +235,43 @@ class TestBlueInitialPrompt:
 class TestCollect:
     """collect.py — dry-run returns expected structure."""
 
-    def test_collect_dry_run(self):
+    def test_collect_dry_run(self) -> None:
         from portal.modules.security.core.siem.collect import collect_target
 
         result = collect_target("10.10.11.50", "web", since_epoch=0, dry_run=True)
         assert "web:access" in result
         assert len(result["web:access"]) > 0
 
-    def test_collect_returns_dict(self):
+    def test_collect_returns_dict(self) -> None:
         from portal.modules.security.core.siem.collect import collect_target
 
         result = collect_target("10.10.11.21", "windows", since_epoch=0, dry_run=True)
         assert isinstance(result, dict)
 
-    def test_unwrap_mcp_stdout_extracts_stdout_field(self):
+    def test_unwrap_mcp_stdout_extracts_stdout_field(self) -> None:
         from portal.modules.security.core.siem.collect import unwrap_mcp_stdout
 
         raw = json.dumps({"success": True, "stdout": "line1\nline2", "stderr": ""})
         assert unwrap_mcp_stdout(raw) == "line1\nline2"
 
-    def test_unwrap_mcp_stdout_passes_through_plain_text(self):
+    def test_unwrap_mcp_stdout_passes_through_plain_text(self) -> None:
         from portal.modules.security.core.siem.collect import unwrap_mcp_stdout
 
         assert unwrap_mcp_stdout("not json at all") == "not json at all"
 
-    def test_unwrap_mcp_stdout_passes_through_json_without_stdout_key(self):
+    def test_unwrap_mcp_stdout_passes_through_json_without_stdout_key(self) -> None:
         from portal.modules.security.core.siem.collect import unwrap_mcp_stdout
 
         raw = json.dumps({"foo": "bar"})
         assert unwrap_mcp_stdout(raw) == raw
 
-    def test_strip_nxc_line_prefix(self):
+    def test_strip_nxc_line_prefix(self) -> None:
         from portal.modules.security.core.siem.collect import strip_nxc_line_prefix
 
         raw = "WINRM                    10.10.11.21     5985   WIN-MVQO0PT39IO  Id          : 4769"
         assert strip_nxc_line_prefix(raw) == "Id          : 4769"
 
-    def test_normalize_windows_security_events_kerberoasting(self):
+    def test_normalize_windows_security_events_kerberoasting(self) -> None:
         from portal.modules.security.core.siem.collect import (
             _normalize_windows_security_events,
         )
@@ -286,7 +294,7 @@ class TestCollect:
         assert "ServiceName=svc_mssql" in lines[0]
         assert "Account=arya.stark@PORTAL.LAB" in lines[0]
 
-    def test_normalize_windows_security_events_strips_nxc_prefix(self):
+    def test_normalize_windows_security_events_strips_nxc_prefix(self) -> None:
         from portal.modules.security.core.siem.collect import (
             _normalize_windows_security_events,
         )
@@ -302,7 +310,7 @@ class TestCollect:
         assert len(lines) == 1
         assert lines[0] == "EventCode=4698 TaskName=\\Backdoor Account=arya.stark"
 
-    def test_normalize_windows_security_events_unknown_code_keeps_bare_eventcode(self):
+    def test_normalize_windows_security_events_unknown_code_keeps_bare_eventcode(self) -> None:
         from portal.modules.security.core.siem.collect import (
             _normalize_windows_security_events,
         )
@@ -311,7 +319,7 @@ class TestCollect:
         lines = _normalize_windows_security_events(raw)
         assert lines == ["EventCode=9999"]
 
-    def test_normalize_windows_security_events_process_creation(self):
+    def test_normalize_windows_security_events_process_creation(self) -> None:
         from portal.modules.security.core.siem.collect import (
             _normalize_windows_security_events,
         )
@@ -335,7 +343,7 @@ class TestCollect:
         )
         assert "Account=vagrant" in lines[0]
 
-    def test_normalize_windows_security_events_empty_cmdline_field_not_garbled(self):
+    def test_normalize_windows_security_events_empty_cmdline_field_not_garbled(self) -> None:
         """Regression: real Windows 4688 events append a long explanatory
         footer after the actual field values, starting with "Token Elevation
         Type indicates the type of token that was...". The old
@@ -369,7 +377,7 @@ class TestCollect:
             in lines[0]
         )
 
-    def test_normalize_windows_security_events_real_cmdline_still_extracted(self):
+    def test_normalize_windows_security_events_real_cmdline_still_extracted(self) -> None:
         """The fix must not regress the case where auditing IS enabled and a
         real command line follows the label on the same line."""
         from portal.modules.security.core.siem.collect import (
@@ -385,7 +393,9 @@ class TestCollect:
         lines = _normalize_windows_security_events(raw)
         assert "CommandLine=powershell.exe -enc SGVsbG8=" in lines[0]
 
-    def test_normalize_windows_security_events_process_name_with_spaces_not_truncated(self):
+    def test_normalize_windows_security_events_process_name_with_spaces_not_truncated(
+        self,
+    ) -> None:
         """Regression: NewProcessName/TaskName used `(\\S+)` — a real process
         path containing spaces (e.g. "C:\\Program Files\\...") got truncated
         at the first space instead of capturing the full value. Found live
@@ -411,12 +421,14 @@ class TestCollect:
 class TestMeta3Collect:
     """collect.py's kind="meta3" branch — IIS/FTP log + process-creation collection."""
 
-    def _mock_mcp_call_factory(self, iis_text, ftp_text, winevent_text):
+    def _mock_mcp_call_factory(
+        self, iis_text: str, ftp_text: str, winevent_text: str
+    ) -> Callable[[str, int], dict[str, Any]]:
         """Build a fake mcp_call that returns nxc-shaped, JSON-wrapped, prefixed
         output depending on which PowerShell command was sent — matching the
         real sandbox MCP + nxc output shape found live 2026-07-04."""
 
-        def _wrap(content: str) -> dict:
+        def _wrap(content: str) -> dict[str, Any]:
             nxc_prefix = "WINRM                    10.10.11.10     5985   VAGRANT-2008R2  "
             body = "\n".join(
                 f"{nxc_prefix}{line}" if line.strip() else line for line in content.splitlines()
@@ -429,7 +441,7 @@ class TestMeta3Collect:
             stdout = noise + body
             return {"ok": True, "output": json.dumps({"success": True, "stdout": stdout})}
 
-        def _mcp_call(code: str, timeout: int = 90):
+        def _mcp_call(code: str, timeout: int = 90) -> dict[str, Any]:
             # The actual PowerShell script travels as a base64 -EncodedCommand
             # blob (see _winrm_ps in collect.py) — decode it to dispatch by
             # content instead of substring-matching the outer nxc command line.
@@ -448,7 +460,7 @@ class TestMeta3Collect:
 
         return _mcp_call
 
-    def test_collect_meta3_returns_time_bounded_windows_events_only(self):
+    def test_collect_meta3_returns_time_bounded_windows_events_only(self) -> None:
         from portal.modules.security.core.siem import collect as collect_mod
 
         iis_text = (
@@ -474,7 +486,7 @@ class TestMeta3Collect:
         assert "EventCode=4688" in result["windows:security"][0]
         assert "NewProcessName=C:\\Windows\\System32\\cmd.exe" in result["windows:security"][0]
 
-    def test_collect_meta3_no_mcp_call_returns_empty(self):
+    def test_collect_meta3_no_mcp_call_returns_empty(self) -> None:
         from portal.modules.security.core.siem import collect as collect_mod
 
         with patch.object(collect_mod, "_get_mcp_call", return_value=None):
@@ -483,10 +495,10 @@ class TestMeta3Collect:
             )
         assert result == {}
 
-    def test_collect_meta3_empty_output_omits_sourcetype(self):
+    def test_collect_meta3_empty_output_omits_sourcetype(self) -> None:
         from portal.modules.security.core.siem import collect as collect_mod
 
-        def _mcp_call(code: str, timeout: int = 90):
+        def _mcp_call(code: str, timeout: int = 90) -> dict[str, Any]:
             return {"ok": True, "output": json.dumps({"success": True, "stdout": ""})}
 
         with patch.object(collect_mod, "_get_mcp_call", return_value=_mcp_call):
@@ -495,7 +507,7 @@ class TestMeta3Collect:
             )
         assert result == {}
 
-    def test_collect_meta3_does_not_tail_unbounded_tomcat_history(self):
+    def test_collect_meta3_does_not_tail_unbounded_tomcat_history(self) -> None:
         from portal.modules.security.core.siem import collect as collect_mod
 
         tomcat_text = (
@@ -503,7 +515,7 @@ class TestMeta3Collect:
             'HTTP/1.1" 200 -\n'
         )
 
-        def _mcp_call(code: str, timeout: int = 90):
+        def _mcp_call(code: str, timeout: int = 90) -> dict[str, Any]:
             import base64
             import re
 
@@ -522,12 +534,12 @@ class TestMeta3Collect:
             )
         assert "web:access" not in result
 
-    def test_collect_meta3_never_requests_flat_file_tails(self):
+    def test_collect_meta3_never_requests_flat_file_tails(self) -> None:
         from portal.modules.security.core.siem import collect as collect_mod
 
         seen_scripts: list[str] = []
 
-        def _mcp_call(code: str, timeout: int = 90):
+        def _mcp_call(code: str, timeout: int = 90) -> dict[str, Any]:
             import base64
             import re
 
@@ -549,7 +561,7 @@ class TestMeta3Collect:
 class TestIndexWait:
     """index_wait.py — timeout returns False (honest, never false PASS)."""
 
-    def test_wait_indexed_timeout_returns_false(self):
+    def test_wait_indexed_timeout_returns_false(self) -> None:
         from portal.modules.security.core.siem.index_wait import wait_indexed
 
         # Must mock httpx — this previously "passed" only because .env lacked
@@ -577,14 +589,14 @@ class TestIndexWait:
 class TestBlueTriage:
     """blue_triage.py — dry-run one synthetic alert end-to-end."""
 
-    def test_poll_alerts_returns_list(self):
+    def test_poll_alerts_returns_list(self) -> None:
         from portal.modules.security.core.siem.blue_triage import poll_alerts
 
         # With unreachable Splunk, should return empty list
         result = poll_alerts(max_alerts=1, since_minutes=1)
         assert isinstance(result, list)
 
-    def test_report_triage_writes_file(self, tmp_path):
+    def test_report_triage_writes_file(self, tmp_path: Path) -> None:
         from portal.modules.security.core.siem.blue_triage import report_triage
 
         results = [{"alert": {"test": True}, "triage": "P4", "enriched": True}]
@@ -593,7 +605,7 @@ class TestBlueTriage:
         data = json.loads(path.read_text())
         assert len(data) == 1
 
-    def test_enrich_alert_handles_unreachable_pipeline(self):
+    def test_enrich_alert_handles_unreachable_pipeline(self) -> None:
         from portal.modules.security.core.siem.blue_triage import enrich_alert
 
         result = enrich_alert({"EventCode": 4769, "host": "dc01"})
@@ -608,7 +620,7 @@ class TestBlueTriage:
 class TestTalonRemoved:
     """No reference to ghcr.io/taylorwalton/talon should remain."""
 
-    def test_no_talon_image_in_compose_lab(self):
+    def test_no_talon_image_in_compose_lab(self) -> None:
         lab_file = _PROJECT_ROOT / "deploy" / "portal-5" / "docker-compose.lab.yml"
         if lab_file.exists():
             content = lab_file.read_text()
@@ -616,7 +628,7 @@ class TestTalonRemoved:
                 "Dead Talon image ref still in docker-compose.lab.yml"
             )
 
-    def test_no_talon_port_in_env_example(self):
+    def test_no_talon_port_in_env_example(self) -> None:
         env_file = _PROJECT_ROOT / ".env.example"
         if env_file.exists():
             content = env_file.read_text()
@@ -635,7 +647,7 @@ class TestTalonRemoved:
 class TestMatrixTelemetryWiring:
     """Verify _execute_unit calls collect→ship→wait_indexed on the blue path."""
 
-    def test_execute_unit_calls_telemetry_collection(self):
+    def test_execute_unit_calls_telemetry_collection(self) -> None:
         """When purple=True and unit has telemetry, collect_target should be called."""
         from portal.modules.security.core.matrix import RunUnit, _execute_unit
 
@@ -679,7 +691,9 @@ class TestMatrixTelemetryWiring:
 class TestCaptureStore:
     """save_capture/replay_capture — durable raw evidence, independent of Splunk retention."""
 
-    def test_save_capture_writes_file(self, tmp_path, monkeypatch):
+    def test_save_capture_writes_file(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         from portal.modules.security.core.siem import capture_store
 
         monkeypatch.setattr(capture_store, "CAPTURE_DIR", tmp_path)
@@ -692,15 +706,17 @@ class TestCaptureStore:
             telemetry_origins={"web:access": "observed_target_log"},
             episode_id="ep-replay-test",
         )
+        assert path is not None
         saved = json.loads(Path(path).read_text())
         saved["validity"].update({"checked": True, "valid": True, "coverage": 1.0})
         Path(path).write_text(json.dumps(saved))
-        assert path is not None
         saved = json.loads(Path(path).read_text())
         assert saved["scenario"] == "web_sqli_dump"
         assert saved["telemetry"]["web:access"] == ["GET /?id=1 UNION SELECT 200"]
 
-    def test_save_capture_returns_none_for_empty_telemetry(self, tmp_path, monkeypatch):
+    def test_save_capture_returns_none_for_empty_telemetry(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         from portal.modules.security.core.siem import capture_store
 
         monkeypatch.setattr(capture_store, "CAPTURE_DIR", tmp_path)
@@ -709,7 +725,9 @@ class TestCaptureStore:
         )
         assert path is None
 
-    def test_list_captures_filters_by_scenario(self, tmp_path, monkeypatch):
+    def test_list_captures_filters_by_scenario(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         from portal.modules.security.core.siem import capture_store
 
         monkeypatch.setattr(capture_store, "CAPTURE_DIR", tmp_path)
@@ -730,7 +748,9 @@ class TestCaptureStore:
         assert len(capture_store.list_captures()) == 2
         assert len(capture_store.list_captures(scenario="scenario_a")) == 1
 
-    def test_replay_capture_reships_and_confirms(self, tmp_path, monkeypatch):
+    def test_replay_capture_reships_and_confirms(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         from portal.modules.security.core.siem import capture_store
 
         monkeypatch.setattr(capture_store, "CAPTURE_DIR", tmp_path)
@@ -759,13 +779,16 @@ class TestCaptureStore:
                 return_value=True,
             ),
         ):
+            assert path is not None
             result = capture_store.replay_capture(path)
         assert result["ok"] is True
         assert result["shipped"] == 1
         assert result["indexed_confirmed"] is True
         assert result["scenario"] == "vuln_struts2_rce"
 
-    def test_replay_capture_dry_run_skips_indexed_check(self, tmp_path, monkeypatch):
+    def test_replay_capture_dry_run_skips_indexed_check(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         from portal.modules.security.core.siem import capture_store
 
         monkeypatch.setattr(capture_store, "CAPTURE_DIR", tmp_path)
@@ -778,6 +801,7 @@ class TestCaptureStore:
             telemetry_origins={"web:access": "observed_target_log"},
             episode_id="ep-replay-dry",
         )
+        assert path is not None
         saved = json.loads(Path(path).read_text())
         saved["validity"].update({"checked": True, "valid": True, "coverage": 1.0})
         Path(path).write_text(json.dumps(saved))
@@ -785,5 +809,6 @@ class TestCaptureStore:
             "portal.modules.security.core.siem.hec_ship.ship_batch",
             return_value={"ok": True, "dry_run": True, "count": 1},
         ):
+            assert path is not None
             result = capture_store.replay_capture(path, dry_run=True)
         assert result["indexed_confirmed"] is None

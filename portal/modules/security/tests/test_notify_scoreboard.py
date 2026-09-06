@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from portal.modules.security.core import notify_scoreboard as ns
 from portal.modules.security.core import recall_attribution as ra
 
@@ -13,7 +15,7 @@ def _cell(
     reported: list[str] | None = None,
     oracle: str = ra.PRESENT,
     match_grade: str | None = "SIMILAR",
-) -> dict:
+) -> dict[str, Any]:
     cell = {
         "label": expected.lower(),
         "technique_expected": expected,
@@ -28,7 +30,7 @@ def _cell(
     return cell
 
 
-def test_axis_1_anomaly_is_a_full_catch_and_ruled_out_is_not():
+def test_axis_1_anomaly_is_a_full_catch_and_ruled_out_is_not() -> None:
     result = ns.score_arm(
         [
             _cell(verdict="ANOMALOUS_UNCLASSIFIED"),
@@ -40,7 +42,7 @@ def test_axis_1_anomaly_is_a_full_catch_and_ruled_out_is_not():
     assert axis["fair"] == {"notified": 1, "eligible": 2, "rate": 0.5}
 
 
-def test_fair_denominator_excludes_absent_and_present_silence_is_real_miss():
+def test_fair_denominator_excludes_absent_and_present_silence_is_real_miss() -> None:
     result = ns.score_arm(
         [
             _cell(expected="T1558.003", verdict="RULED_OUT", oracle=ra.ABSENT),
@@ -54,7 +56,7 @@ def test_fair_denominator_excludes_absent_and_present_silence_is_real_miss():
     assert axis["real_misses_by_technique"] == [{"technique": "T1558.004", "verdict": "RULED_OUT"}]
 
 
-def test_axis_2_required_ordering_and_notification_classes():
+def test_axis_2_required_ordering_and_notification_classes() -> None:
     cells = [
         _cell(verdict="CONFIRMED", reported=["T1558.004"]),
         _cell(expected="T1558.003", verdict="CONFIRMED", reported=["T1053.005"]),
@@ -69,7 +71,7 @@ def test_axis_2_required_ordering_and_notification_classes():
     assert axis["confirmed_wrong"] == 1
 
 
-def test_axis_3_is_conditional_on_catches_and_silence_is_not_a_zero():
+def test_axis_3_is_conditional_on_catches_and_silence_is_not_a_zero() -> None:
     result = ns.score_arm(
         [
             _cell(verdict="CONFIRMED", reported=["T1558.004"]),
@@ -89,7 +91,7 @@ def test_axis_3_is_conditional_on_catches_and_silence_is_not_a_zero():
     assert axis["silent_cells_excluded"] == 1
 
 
-def test_all_attack_corpus_reports_benign_precision_as_unmeasurable():
+def test_all_attack_corpus_reports_benign_precision_as_unmeasurable() -> None:
     gap = ns.score_arm([_cell(verdict="ANOMALOUS_UNCLASSIFIED")])["measurement_gaps"][
         "notification_precision_on_benign_activity"
     ]
@@ -98,14 +100,14 @@ def test_all_attack_corpus_reports_benign_precision_as_unmeasurable():
     assert "no benign cells" in gap["reason"]
 
 
-def test_missing_historical_match_grade_is_unknown_not_inferred():
+def test_missing_historical_match_grade_is_unknown_not_inferred() -> None:
     axis = ns.score_arm([_cell(verdict="CONFIRMED", reported=["T1558.004"], match_grade=None)])[
         "axis_3_mapping_quality_given_catch"
     ]
     assert axis["match_grades"] == {"UNKNOWN": 1}
 
 
-def test_deterministic_for_same_input():
+def test_deterministic_for_same_input() -> None:
     cells = [
         _cell(verdict="ANOMALOUS_UNCLASSIFIED", oracle=ra.INDETERMINATE),
         _cell(expected="T1558.003", verdict="RULED_OUT", oracle=ra.ABSENT),

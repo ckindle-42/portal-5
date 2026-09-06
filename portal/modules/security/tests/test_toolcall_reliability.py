@@ -1,14 +1,16 @@
+from typing import Any
+
 from portal.modules.security.core.toolcall_reliability import aggregate, classify_turn, gate
 
-SCHEMAS = {"run_nmap_scan": {}, "execute_bash": {}}
+SCHEMAS: dict[str, dict[str, Any]] = {"run_nmap_scan": {}, "execute_bash": {}}
 
 
-def test_valid_call():
+def test_valid_call() -> None:
     tc = [{"function": {"name": "run_nmap_scan", "arguments": '{"target":"10.10.11.21"}'}}]
     assert classify_turn("", tc, SCHEMAS) == "TOOL_CALL_VALID"
 
 
-def test_malformed_args_garbled_json():
+def test_malformed_args_garbled_json() -> None:
     # VulnLLM signature: parsed a call but arguments are garbled non-JSON
     tc = [
         {"function": {"name": "run_nmap_scan", "arguments": "target= the DC vmid=110 run scan now"}}
@@ -16,33 +18,33 @@ def test_malformed_args_garbled_json():
     assert classify_turn("", tc, SCHEMAS) == "TOOL_CALL_MALFORMED"
 
 
-def test_unknown_tool_is_malformed():
+def test_unknown_tool_is_malformed() -> None:
     tc = [{"function": {"name": "hallucinated_tool", "arguments": "{}"}}]
     assert classify_turn("", tc, SCHEMAS) == "TOOL_CALL_MALFORMED"
 
 
-def test_prose_attempted_call_is_malformed():
+def test_prose_attempted_call_is_malformed() -> None:
     txt = 'I will call the tool: {"name": "run_nmap_scan", but I am unsure of arguments'
     assert classify_turn(txt, None, SCHEMAS) == "TOOL_CALL_MALFORMED"
 
 
-def test_spiral_after_bad_turn():
+def test_spiral_after_bad_turn() -> None:
     txt = "I apologize, my previous tool call was malformed. Let me correct myself."
     assert classify_turn(txt, None, SCHEMAS, prev_class="TOOL_CALL_MALFORMED") == "SPIRAL"
 
 
-def test_clean_prose_not_spiral():
+def test_clean_prose_not_spiral() -> None:
     assert (
         classify_turn("The DC is at 10.10.11.21. Next I will scan it.", None, SCHEMAS)
         == "PROSE_ONLY"
     )
 
 
-def test_refusal():
+def test_refusal() -> None:
     assert classify_turn("I can't help with that.", None, SCHEMAS) == "REFUSAL"
 
 
-def test_vulnllm_profile_fails_gate():
+def test_vulnllm_profile_fails_gate() -> None:
     # malformed -> spiral -> spiral -> malformed: the observed VulnLLM run shape
     classes = ["TOOL_CALL_MALFORMED", "SPIRAL", "SPIRAL", "TOOL_CALL_MALFORMED", "PROSE_ONLY"]
     m = aggregate("VulnLLM-R-7B", classes)
@@ -51,14 +53,14 @@ def test_vulnllm_profile_fails_gate():
     assert m.valid_rate == 0.0
 
 
-def test_clean_caller_passes_gate():
+def test_clean_caller_passes_gate() -> None:
     classes = ["TOOL_CALL_VALID"] * 8 + ["PROSE_ONLY"]
     m = aggregate("granite4.1:8b", classes)
     ok, reason = gate(m)
     assert ok is True and m.valid_rate == 1.0
 
 
-def test_recovery_detected():
+def test_recovery_detected() -> None:
     classes = ["TOOL_CALL_MALFORMED", "TOOL_CALL_VALID"]
     m = aggregate("x", classes)
     assert m.recovery_rate == 1.0 and m.recoveries == 1
@@ -74,7 +76,7 @@ def test_recovery_detected():
 # never regress back to role="tool" or the old weak one-liner text.
 
 
-def test_chain_nudges_restate_hard_constraint_not_generic_oneliner():
+def test_chain_nudges_restate_hard_constraint_not_generic_oneliner() -> None:
     from portal.modules.security.core import exec_chain
 
     for nudge in (exec_chain._CHAIN_NUDGE_NO_TOOL_CALL, exec_chain._CHAIN_NUDGE_TIMEOUT):
@@ -85,7 +87,7 @@ def test_chain_nudges_restate_hard_constraint_not_generic_oneliner():
         assert "continue with the next engagement step" not in nudge.lower()
 
 
-def test_chain_retry_messages_use_user_role_not_tool_role():
+def test_chain_retry_messages_use_user_role_not_tool_role() -> None:
     import inspect
 
     from portal.modules.security.core import exec_chain
@@ -111,7 +113,7 @@ def test_chain_retry_messages_use_user_role_not_tool_role():
     assert "step timed out — continue with next engagement step" not in src
 
 
-def test_next_expected_index_ignores_over_calls_of_a_repeatable_tool():
+def test_next_expected_index_ignores_over_calls_of_a_repeatable_tool() -> None:
     """Found live 2026-07-24 (ctf_multi_service): expected_order budgets 2x
     web_request before run_sqlmap, but the model called web_request 4 times
     first. A raw len(tools_called) index would land on expected_order[4]
@@ -137,7 +139,7 @@ def test_next_expected_index_ignores_over_calls_of_a_repeatable_tool():
     assert _next_expected_index(["web_request"], []) == 0
 
 
-def test_escalated_nudge_names_next_expected_tool_on_repeat_failure():
+def test_escalated_nudge_names_next_expected_tool_on_repeat_failure() -> None:
     from portal.modules.security.core.exec_chain import _escalated_nudge
 
     order = ["start_lab_target", "run_nmap_scan", "exploit_service", "establish_persistence"]

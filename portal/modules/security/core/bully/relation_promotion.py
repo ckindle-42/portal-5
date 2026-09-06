@@ -23,7 +23,7 @@ from typing import Any
 
 from ..telemetry import SENSOR_DERIVED
 from . import promotion
-from .contracts import CousinAssessment
+from .contracts import BinOutcome, CousinAssessment
 from .store import Store
 
 
@@ -37,11 +37,11 @@ def submit_relation_claim(
     origin: str = SENSOR_DERIVED,
     trust_tier: str = "",
     synthetic: bool = False,
-    gate_inputs: dict[str, dict],
+    gate_inputs: dict[str, dict[str, Any]],
     actor: str = "system:promotion",
     council_review: Any = None,
     soc_deliver: Any = None,
-) -> promotion.BinOutcome:
+) -> BinOutcome:
     """Record `relation`'s underlying assessment + evidence and drive the
     resulting candidate through the unchanged bin gate sequence. The
     candidate's fate is decided by `gate_inputs` (the claim's evidence),

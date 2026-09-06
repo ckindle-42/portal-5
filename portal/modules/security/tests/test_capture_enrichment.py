@@ -29,7 +29,7 @@ from portal.modules.security.core.siem.capture_enrichment import validate_captur
 from portal.modules.security.core.siem.network_capture import _decode_http_stream
 
 
-def test_gzip_http_response_is_decoded_for_capture_validation():
+def test_gzip_http_response_is_decoded_for_capture_validation() -> None:
     body = b'{"result":{"data":["uid=0(root) gid=0(root) groups=0(root)\\n"]}}'
     compressed = gzip.compress(body)
     stream = (
@@ -42,7 +42,7 @@ def test_gzip_http_response_is_decoded_for_capture_validation():
 
 
 class TestValidateCaptureSignals:
-    def test_finds_technique_with_specific_signal(self):
+    def test_finds_technique_with_specific_signal(self) -> None:
         """Real, technique-specific EventCode/field content -> found."""
         telemetry = {
             "windows:security": [
@@ -53,7 +53,7 @@ class TestValidateCaptureSignals:
         assert "T1110.003" in result["found"]
         assert "T1110.003" not in result["missing"]
 
-    def test_generic_noise_words_alone_do_not_credit_a_technique(self):
+    def test_generic_noise_words_alone_do_not_credit_a_technique(self) -> None:
         """The core regression: a capture with only generic failure/error
         vocabulary (no technique-specific signal) must NOT credit ANY ground
         truth technique — this mirrors the real meta3_ssh_brute capture that
@@ -74,7 +74,7 @@ class TestValidateCaptureSignals:
         assert result["coverage"] == 0.0
         assert result["valid"] is False
 
-    def test_technique_without_expected_signals_entry_is_unchecked(self):
+    def test_technique_without_expected_signals_entry_is_unchecked(self) -> None:
         """A GT technique with no EXPECTED_SIGNALS entry (e.g. T1078.004,
         Cloud Accounts) must be `unchecked`, never silently `found` (the old
         bug) and never unfairly counted as `missing` either."""
@@ -84,7 +84,7 @@ class TestValidateCaptureSignals:
         assert "T1078.004" not in result["found"]
         assert "T1078.004" not in result["missing"]
 
-    def test_coverage_excludes_unchecked_techniques(self):
+    def test_coverage_excludes_unchecked_techniques(self) -> None:
         """coverage is computed over the checkable subset only — an
         all-unchecked ground truth (no signal table coverage at all) must
         not silently read as coverage=1.0 (falsely "fully valid") or divide
@@ -97,7 +97,7 @@ class TestValidateCaptureSignals:
         assert result["missing"] == []
         assert len(result["unchecked"]) == 3  # T1552.005, T1078.004, T1537
 
-    def test_partial_signal_yields_partial_coverage_not_full_credit(self):
+    def test_partial_signal_yields_partial_coverage_not_full_credit(self) -> None:
         """One of three checkable techniques present -> coverage reflects
         exactly that fraction, not rounded up to full via the old fallback.
         Uses T1110.003's REAL EXPECTED_SIGNALS example line verbatim — safe
@@ -119,14 +119,14 @@ class TestValidateCaptureSignals:
         assert result["coverage"] == round(1 / 3, 3)
         assert result["valid"] is False
 
-    def test_unknown_scenario_returns_empty_unchecked_result(self):
+    def test_unknown_scenario_returns_empty_unchecked_result(self) -> None:
         result = validate_capture_signals("not_a_real_scenario", {})
         assert result["valid"] is False
         assert result["coverage"] == 0.0
         assert result["found"] == []
         assert result["unchecked"] == []
 
-    def test_stray_generic_token_from_a_different_technique_does_not_false_match(self):
+    def test_stray_generic_token_from_a_different_technique_does_not_false_match(self) -> None:
         """Regression: found live 2026-07-23 on the first scenario of the
         post-fix recapture run (kerberoast_to_da). A real capture had ONLY
         genuine Kerberoasting evidence (T1558.003, EventCode=4769 with
@@ -162,7 +162,7 @@ class TestValidateCaptureSignals:
         assert set(result["missing"]) == {"T1003.006", "T1053.005"}
         assert result["valid"] is False
 
-    def test_meta3_rails_reflected_windows_identity_proves_execution(self):
+    def test_meta3_rails_reflected_windows_identity_proves_execution(self) -> None:
         telemetry = {
             "network:packet": [
                 "PUT /__web_console/repl_sessions/abc HTTP/1.1",
@@ -173,7 +173,7 @@ class TestValidateCaptureSignals:
         assert result["valid"] is True
         assert result["found"] == ["T1190", "T1059"]
 
-    def test_phpmyadmin_requires_login_exploit_and_reflected_identity(self):
+    def test_phpmyadmin_requires_login_exploit_and_reflected_identity(self) -> None:
         telemetry = {
             "network:packet": [
                 "POST /phpmyadmin/index.php HTTP/1.1",
@@ -186,7 +186,7 @@ class TestValidateCaptureSignals:
         assert result["valid"] is True
         assert result["found"] == ["T1190", "T1078", "T1059"]
 
-    def test_rdp_requires_protocol_traffic_and_correlated_successful_logon(self):
+    def test_rdp_requires_protocol_traffic_and_correlated_successful_logon(self) -> None:
         telemetry = {
             "windows:security": [
                 "EventCode=4624 LogonType=3 Account=vagrant IpAddress=- LogonProcessName=NtLmSsp"
@@ -198,14 +198,14 @@ class TestValidateCaptureSignals:
         assert result["found"] == ["T1021.001", "T1078"]
         assert result["unchecked"] == []
 
-    def test_rdp_does_not_credit_open_port_without_successful_logon(self):
+    def test_rdp_does_not_credit_open_port_without_successful_logon(self) -> None:
         telemetry = {
             "network:packet": ["IP 172.17.0.2.39582 > 10.10.11.13.3389: Flags [S], length 0"]
         }
         result = validate_capture_signals("meta3_rdp_standard_auth", telemetry)
         assert "T1021.001" in result["missing"]
 
-    def test_struts_requires_exploit_payload_and_correlated_command_proof(self):
+    def test_struts_requires_exploit_payload_and_correlated_command_proof(self) -> None:
         telemetry = {
             "web:access": [
                 "content type header is %{(#ognlUtil.getExcludedPackageNames().clear())}",
@@ -228,6 +228,8 @@ class TestValidateCaptureSignals:
             {"red:tool": ["X-Cmd-Output: uid=0(root) gid=0(root) groups=0(root)"]},
         ],
     )
-    def test_struts_does_not_credit_partial_or_detection_only_evidence(self, telemetry):
+    def test_struts_does_not_credit_partial_or_detection_only_evidence(
+        self, telemetry: dict[str, list[str]]
+    ) -> None:
         result = validate_capture_signals("vuln_struts2_rce", telemetry)
         assert "T1190" in result["missing"]

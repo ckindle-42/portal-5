@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from typing import Any
 
 # Dimensions derived from the register's `applicable_systems` column: impact
 # ratings {High, Medium} appear on the extracted Parts, and the bright-line
@@ -69,7 +70,7 @@ class AssetScope:
         return self.is_declared and not self.declared_by.startswith("derived:")
 
 
-def parse_applicable_systems(text: str) -> dict:
+def parse_applicable_systems(text: str) -> dict[str, Any]:
     """Structured applicability of one register Part, from its verbatim
     `applicable_systems` cell. ``impacts_unknown`` is True when the cell
     named no impact rating at all — the legacy ``impacts`` field still
@@ -199,7 +200,7 @@ def applicable(part_applicable_systems: str, scope: AssetScope) -> tuple[bool, s
     return True, "in scope"
 
 
-def gate_presentation() -> dict:
+def gate_presentation() -> dict[str, Any]:
     """``[GATE]`` 1 — the schema, the dimensions, and what each choice
     includes/excludes. Report; do not choose."""
     return {

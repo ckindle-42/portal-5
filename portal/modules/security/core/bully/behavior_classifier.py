@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import math
 from collections import Counter, defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -83,7 +84,7 @@ class LearnedBehaviorClassifier:
         exp_scores = {c: math.exp(s - max_score) for c, s in scores.items()}
         total = sum(exp_scores.values())
         probs = {c: v / total for c, v in exp_scores.items()}
-        best_cls = max(probs, key=probs.get)
+        best_cls = max(probs, key=lambda c: probs[c])
         return best_cls, probs[best_cls]
 
     def __call__(self, verb: str) -> str:
@@ -199,7 +200,7 @@ class CoverageReport:
 
 
 def output_distribution(
-    classifier: LearnedBehaviorClassifier | Any, real_verbs: list[str]
+    classifier: Callable[[str], str], real_verbs: list[str]
 ) -> tuple[dict[str, int], float, float]:
     """Per-class output distribution and Shannon entropy (bits) of
     `classifier` over `real_verbs` -- the run's own real captured verbs, not

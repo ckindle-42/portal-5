@@ -2,7 +2,7 @@
 
 import logging
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -23,7 +23,7 @@ class SlackChannel(NotificationChannel):
         webhook = os.environ.get("SLACK_ALERT_WEBHOOK_URL", "")
         return bool(webhook and webhook != "false")
 
-    async def _post(self, payload: dict) -> None:
+    async def _post(self, payload: dict[str, Any]) -> None:
         if self._client is not None:
             resp = await self._client.post(
                 os.environ["SLACK_ALERT_WEBHOOK_URL"],

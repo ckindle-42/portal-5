@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+
+import pytest
 
 from portal.modules.security.core.field_journal import (
     rebuild_index,
@@ -13,7 +16,7 @@ from portal.modules.security.core.field_journal import (
 
 
 class TestWriteEntry:
-    def test_write_and_rebuild(self, monkeypatch, tmp_path):
+    def test_write_and_rebuild(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         monkeypatch.setattr("portal.modules.security.core.field_journal.JOURNAL_DIR", tmp_path)
         entry = {
             "engagement_id": "test-001",
@@ -34,7 +37,7 @@ class TestWriteEntry:
         assert index["total_entries"] == 1
         assert index["outcomes"]["goal_met"] == 1
 
-    def test_entries_stamped(self, monkeypatch, tmp_path):
+    def test_entries_stamped(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         monkeypatch.setattr("portal.modules.security.core.field_journal.JOURNAL_DIR", tmp_path)
         entry = {
             "engagement_id": "test-002",
@@ -55,7 +58,9 @@ class TestWriteEntry:
 
 
 class TestRecall:
-    def test_recall_matches_category_and_keywords(self, monkeypatch, tmp_path):
+    def test_recall_matches_category_and_keywords(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         monkeypatch.setattr("portal.modules.security.core.field_journal.JOURNAL_DIR", tmp_path)
         e1 = {
             "engagement_id": "r1",
@@ -97,7 +102,9 @@ class TestRecall:
 
 
 class TestRecordEngagement:
-    def test_malformed_chain_does_not_raise(self, monkeypatch, tmp_path):
+    def test_malformed_chain_does_not_raise(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         monkeypatch.setattr("portal.modules.security.core.field_journal.JOURNAL_DIR", tmp_path)
         # Should not raise — empty chain is handled gracefully
         record_engagement({})

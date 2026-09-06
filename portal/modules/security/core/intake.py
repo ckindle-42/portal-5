@@ -6,6 +6,8 @@ everything from this module.
 
 from __future__ import annotations
 
+from typing import Any
+
 import httpx
 
 from .exec_chain import OLLAMA_URL
@@ -20,7 +22,7 @@ PULL_TIMEOUT_S = 900.0  # large models on slow connections need headroom
 # ── Pull helper ───────────────────────────────────────────────────────────────
 
 
-def _pull_model(model: str, ollama_url: str = OLLAMA_URL) -> dict:
+def _pull_model(model: str, ollama_url: str = OLLAMA_URL) -> dict[str, Any]:
     """Pull a model via Ollama /api/pull with streaming progress."""
     import json as _j
 
@@ -59,7 +61,7 @@ def _tps_warmup(
     ollama_url: str = OLLAMA_URL,
     tokens: int = 200,
     tps_floor: float = TPS_FLOOR,
-) -> dict:
+) -> dict[str, Any]:
     """Single-run TPS probe with a security-relevant prompt."""
     import json as _j2
     import time as _t
@@ -130,7 +132,7 @@ def run_candidate_intake(
     dry_run: bool = False,
     skip_pull: bool = False,
     tps_floor: float = TPS_FLOOR,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Full intake pipeline: pull → TPS probe → audit-tools → queue verdict.
 
     Gate order:
@@ -142,10 +144,10 @@ def run_candidate_intake(
       model, pulled, tps, below_floor, tool_outcome, queued, skip_reason
     """
     print("\n── Candidate Intake Pipeline ──\n")
-    results: list[dict] = []
+    results: list[dict[str, Any]] = []
 
     for model in models:
-        rec: dict = {
+        rec: dict[str, Any] = {
             "model": model,
             "pulled": False,
             "tps": 0.0,

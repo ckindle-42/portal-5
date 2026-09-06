@@ -17,6 +17,7 @@ independent services, zero cross-imports from platform internals).
 from __future__ import annotations
 
 import os
+from typing import Any
 
 MEDIA_MODEL_MEMORY_GB: dict[str, float] = {
     # Measured live: MiniMax-Music3-MLX 60s/30-step, vm_stat sampled peak working set.
@@ -111,7 +112,7 @@ def estimate_job_gb(model_key: str) -> tuple[float, bool]:
     return MEMORY_UNKNOWN_DEFAULT_GB, False
 
 
-async def admit(model_key: str) -> dict | None:
+async def admit(model_key: str) -> dict[str, Any] | None:
     """Returns None if the job is admitted, or a structured error dict if refused.
 
     Fails open (returns None / admits) when free memory can't be measured — an

@@ -19,6 +19,13 @@ under this package but not implemented until their own phase lands.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .organ import Organ
+    from .store import Store
+
 __all__ = [
     "__version__",
     "run_hunt",
@@ -27,7 +34,18 @@ __all__ = [
 __version__ = "0.1.0"
 
 
-def run_hunt(*args: object, **kwargs: object) -> object:
+def run_hunt(
+    *,
+    neighborhood: str = "auto",
+    budget_class: str = "default",
+    dry_run: bool = False,
+    actor: str,
+    store: Store | None = None,
+    organ: Organ | None = None,
+    target_cell: dict[str, Any] | None = None,
+    lab_driver: Callable[..., Any] | None = None,
+    investigation_arm: Callable[..., Any] | None = None,
+) -> dict[str, Any]:
     """Public entry point for starting/resuming a hunt (I-3).
 
     Thin re-export over ``orchestrator.py`` -- the only module that
@@ -37,4 +55,14 @@ def run_hunt(*args: object, **kwargs: object) -> object:
     """
     from .orchestrator import run_hunt as _run_hunt
 
-    return _run_hunt(*args, **kwargs)
+    return _run_hunt(
+        neighborhood=neighborhood,
+        budget_class=budget_class,
+        dry_run=dry_run,
+        actor=actor,
+        store=store,
+        organ=organ,
+        target_cell=target_cell,
+        lab_driver=lab_driver,
+        investigation_arm=investigation_arm,
+    )

@@ -11,12 +11,14 @@ any runtime is built.
 
 from __future__ import annotations
 
+from typing import Any
+
 from .capability.index import build_index
 from .goal import EngagementGoal
 from .goal_decide import decide_next_action
 
 
-def _default_seed_targets() -> list[dict]:
+def _default_seed_targets() -> list[dict[str, Any]]:
     """~10-12 lab targets spanning domains, derived from the real capability
     index (never invented) — each carries the observations a recon pass
     would produce and the technique we expect a sane plan to reach for."""
@@ -63,8 +65,11 @@ def _default_seed_targets() -> list[dict]:
 
 
 def eval_proposals(
-    targets: list[dict] | None = None, *, workspace: str | None = None, role: str = "red"
-) -> dict:
+    targets: list[dict[str, Any]] | None = None,
+    *,
+    workspace: str | None = None,
+    role: str = "red",
+) -> dict[str, Any]:
     """For each seeded target, run goal planning (single decide step, dry-run
     reasoning) and score the proposal against sane heuristics:
       - relevance: the proposed action's applies_when actually matched the target's observations

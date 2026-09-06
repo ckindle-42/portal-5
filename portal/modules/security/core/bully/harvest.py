@@ -53,9 +53,11 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Any
 
 from . import config as bully_config
+from .contracts import DecisionEvent
 from .store import Store
 
 # ── kind -> role mapping (A1) ───────────────────────────────────────────
@@ -199,7 +201,7 @@ def surface_refinement_readiness(
     return queue_id
 
 
-def _example_input_text(event) -> str:
+def _example_input_text(event: DecisionEvent) -> str:
     """The 'input' half of the pair: what the model saw when it made this
     call. Reconstructed from the recorded rationale + a stable projection
     of `event.data` (never raw model output -- that's `output_text`)."""
@@ -211,15 +213,16 @@ def _example_input_text(event) -> str:
     )
 
 
-def _example_output_text(event) -> str:
+def _example_output_text(event: DecisionEvent) -> str:
     return event.rationale
 
 
-def _trust_tier(event) -> str | None:
-    return event.data.get("trust_tier")
+def _trust_tier(event: DecisionEvent) -> str | None:
+    tier = event.data.get("trust_tier")
+    return tier if isinstance(tier, str) else None
 
 
-def _group_tags(event) -> tuple[str | None, str | None, str | None]:
+def _group_tags(event: DecisionEvent) -> tuple[str | None, str | None, str | None]:
     """(family, campaign, time) group tags (DATA_MODEL SS1.16). `family` is
     the first technique id if present; `time` buckets by day so the split
     manifest's time-group leakage check has something coarse to key on."""
@@ -239,7 +242,12 @@ def _group_tags(event) -> tuple[str | None, str | None, str | None]:
     return family, campaign, day_bucket
 
 
-def _quarantine_reason(event, *, seen_input_hashes: set[str], input_text: str) -> str | None:
+def _quarantine_reason(
+    event: DecisionEvent,
+    *,
+    seen_input_hashes: set[str],
+    input_text: str,
+) -> str | None:
     if event.hunt_id is None:
         return "missing_provenance"
     trust_tier = _trust_tier(event)
@@ -341,7 +349,7 @@ def build_dataset(
     window: dict[str, Any],
     *,
     min_size: int = _MIN_ROLE_SIZE_DEFAULT,
-    corpus_root=None,
+    corpus_root: Path | None = None,
 ) -> dict[str, Any]:
     """I-15 `build_dataset(role, window) -> DatasetRef`. Returns a dict
     (`built`, `dataset_version`, `counts`, ...) rather than raising on a

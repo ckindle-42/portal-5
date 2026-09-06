@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import contextlib
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 async def read_text(path: Path) -> str:
@@ -22,11 +22,11 @@ async def read_text(path: Path) -> str:
     reader = getattr(rag_mcp, "_read_file", None)
     if reader is not None:
         with contextlib.suppress(Exception):
-            return await reader(path)
+            return cast(str, await reader(path))
     conv = getattr(rag_mcp, "_docling_convert", None)
     if conv is not None:
         with contextlib.suppress(Exception):
-            return conv(path)
+            return cast(str, conv(path))
     if path.suffix.lower() in (".txt", ".md"):
         return path.read_text(errors="ignore")
     return ""

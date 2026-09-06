@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Callable
 from functools import partial
 from pathlib import Path
 from typing import Any
@@ -22,9 +23,7 @@ from .._data import (
     PROMPTS,
     REQUEST_TIMEOUT,
 )
-from ..chain import (
-    _run_exec_chain,
-)
+from ..exec_chain import _run_exec_chain
 from ..scoring import (
     score_execution,
     score_response,
@@ -153,7 +152,7 @@ def _dispatch_phase1(
     dry_run: bool,
     results: list[dict[str, Any]],
     chain_pending: list[tuple[int, str]],
-    process_one: Any,
+    process_one: Callable[[str, str, str, bool], tuple[dict[str, Any] | None, list[str]]],
 ) -> None:
     """Phase 1: Theory + Exec pipeline passes (parallel-capable).
 
@@ -250,9 +249,9 @@ def _process_one(
 
     # ── Theory pass (forced prose for execution workspaces) ───────────
     theory_content, theory_elapsed, status, error = "", 0.0, "ok", None
-    theory_scores: dict = {}
+    theory_scores: dict[str, Any] = {}
     try:
-        request_overrides: dict = {}
+        request_overrides: dict[str, Any] = {}
         if is_exec_ws:
             # portal_no_tools strips tools from the request entirely before
             # it reaches Ollama — tool_choice=none alone leaves tool definitions
@@ -331,7 +330,7 @@ def _process_one(
         error = str(exc)
 
     # ── Execution pass (execution workspaces only) ────────────────────
-    exec_scores: dict = {}
+    exec_scores: dict[str, Any] = {}
     exec_elapsed = 0.0
     if exec_eval and is_exec_ws and meta.get("exec_sequence") and status == "ok":
         try:
@@ -456,7 +455,7 @@ def _prewarm_chain_models(ollama_url: str, need_warm: list[str], already_warm: s
             if _is_slug
             else f"{ollama_url}/v1/chat/completions"
         )
-        _warm_headers: dict = {}
+        _warm_headers: dict[str, str] = {}
         if _is_slug and PIPELINE_API_KEY:
             _warm_headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"
         try:
@@ -477,7 +476,7 @@ def _prewarm_chain_models(ollama_url: str, need_warm: list[str], already_warm: s
             print(f" WARN({_we})")
 
 
-def _print_chain_summary(chain_results: list[dict]) -> None:
+def _print_chain_summary(chain_results: list[dict[str, Any]]) -> None:
     """Print the per-prompt chain summary: composite + interleaved red/blue detail."""
     _ar2 = [_r for _r in chain_results if not _r.get("_blue_defender")]
     _be2 = next((_r for _r in chain_results if _r.get("_blue_defender")), None)
@@ -498,7 +497,7 @@ def _print_chain_summary(chain_results: list[dict]) -> None:
         # Build a lookup of blue turns keyed by round+model so we can
         # interleave blue responses with red tool calls in the display
         _blue_turns_data = _be2.get("blue_turns", []) if _be2 else []
-        _bt_lookup: dict[str, dict] = {}
+        _bt_lookup: dict[str, dict[str, Any]] = {}
         for _bt in _blue_turns_data:
             _key = f"{_bt.get('round', 1)}:{_bt.get('after_model', '')}"
             _bt_lookup[_key] = _bt
@@ -583,7 +582,7 @@ def _run_chain_batch(
     for _ridx, _pkey in chain_pending:
         _meta = PROMPTS[_pkey]
         print(f"  chain {_pkey} ...", end="", flush=True)
-        _chain_results: list[dict] = []
+        _chain_results: list[dict[str, Any]] = []
         try:
             _chain_results = _run_exec_chain(
                 _pkey,
@@ -774,7 +773,7 @@ def _print_summary(results: list[dict[str, Any]]) -> None:
     print("═" * 72)
 
 
-def _print_intake_summary(results: list) -> None:
+def _print_intake_summary(results: list[dict[str, Any]]) -> None:
     """Print intake results and emit a ready-to-run bench command for queued models."""
     queued = [r for r in results if r.get("queued")]
     skipped = [r for r in results if not r.get("queued")]

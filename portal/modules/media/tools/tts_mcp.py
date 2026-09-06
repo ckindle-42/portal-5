@@ -18,10 +18,13 @@ import logging
 import os
 import re
 import secrets
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Any, cast
 
 import httpx
 from mcp.server import MCPServer
+from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
@@ -36,12 +39,21 @@ logger = logging.getLogger(__name__)
 port = int(os.getenv("TTS_MCP_PORT", "8916"))
 mcp = MCPServer("tts-generation")
 
+# MCPServer.custom_route() has no return annotation upstream (mcp SDK), so mypy
+# sees its decorator result as Any and flags every routed handler with
+# untyped-decorator. Bind the concrete decorator type once so handlers keep
+# their annotations.
+_route: Callable[
+    ...,
+    Callable[[Callable[..., Awaitable[Response]]], Callable[..., Awaitable[Response]]],
+] = mcp.custom_route
+
 SPEECH_URL = os.getenv("MLX_SPEECH_URL", "http://host.docker.internal:8918").rstrip("/")
 HTTP_TIMEOUT = float(os.getenv("TTS_PROXY_TIMEOUT", "120"))
 _AUDIO_EXTS = (".wav", ".flac", ".ogg", ".mp3", ".m4a", ".aac", ".webm", ".aiff", ".aif")
 
 
-async def _save_speech(content: bytes, voice: str) -> dict:
+async def _save_speech(content: bytes, voice: str) -> dict[str, Any]:
     """Write the WAV locally and publish it through Open WebUI.
 
     Returns the publish result — ``{"id", "filename", "url"}`` or ``{"error"}``.
@@ -76,10 +88,12 @@ def _resolve_reference(reference_audio: str) -> Path | None:
     return max(cands, key=lambda p: p.stat().st_mtime) if cands else None
 
 
-async def _post_register(name: str, ref: Path | None, raw: str, reference_text: str) -> dict:
+async def _post_register(
+    name: str, ref: Path | None, raw: str, reference_text: str
+) -> dict[str, Any]:
     """POST a profile registration to the host — audio bytes if we resolved a
     readable file, else the raw path string for the host to resolve."""
-    payload: dict = {"name": name, "reference_text": reference_text}
+    payload: dict[str, Any] = {"name": name, "reference_text": reference_text}
     if ref is not None:
         payload["reference_audio_b64"] = base64.b64encode(ref.read_bytes()).decode()
         payload["reference_audio_name"] = ref.name
@@ -88,12 +102,12 @@ async def _post_register(name: str, ref: Path | None, raw: str, reference_text: 
     try:
         async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
             r = await client.post(f"{SPEECH_URL}/v1/voices", json=payload)
-            return r.json()
+            return cast(dict[str, Any], r.json())
     except Exception as e:
         return {"error": f"host speech server unreachable at {SPEECH_URL}: {e}"}
 
 
-async def _speech_speak(text: str, voice: str) -> dict:
+async def _speech_speak(text: str, voice: str) -> dict[str, Any]:
     """POST /v1/audio/speech; the endpoint returns raw WAV on success, JSON on error."""
     url = f"{SPEECH_URL}/v1/audio/speech"
     try:
@@ -117,12 +131,12 @@ async def _speech_speak(text: str, voice: str) -> dict:
             "message": f"Spoke {len(text)} chars with '{voice}'. [Download audio]({url})",
         }
     if r.headers.get("content-type", "").startswith("application/json"):
-        return r.json()
+        return cast(dict[str, Any], r.json())
     return {"error": f"speech server {r.status_code}: {r.text[:200]}"}
 
 
-@mcp.custom_route("/health", methods=["GET"])
-async def health_check(request):
+@_route("/health", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
     reachable, detail = False, ""
     try:
         async with httpx.AsyncClient(timeout=5) as client:
@@ -142,8 +156,8 @@ async def health_check(request):
     )
 
 
-@mcp.custom_route("/v1/audio/speech", methods=["POST"])
-async def openai_audio_speech(request):
+@_route("/v1/audio/speech", methods=["POST"])
+async def openai_audio_speech(request: Request) -> Response:
     """OpenAI-compatible TTS — proxies to the host mlx-speech.py server (:8918)."""
     try:
         body = await request.json()
@@ -178,8 +192,8 @@ async def openai_audio_speech(request):
     return JSONResponse(payload, status_code=r.status_code if r.status_code >= 400 else 503)
 
 
-@mcp.custom_route("/v1/models", methods=["GET"])
-async def openai_models(request):
+@_route("/v1/models", methods=["GET"])
+async def openai_models(request: Request) -> JSONResponse:
     """OpenAI-compatible models list — proxies to the host mlx-speech.py server (:8918)."""
     try:
         async with httpx.AsyncClient(timeout=10) as client:
@@ -194,27 +208,27 @@ async def openai_models(request):
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_tts_mcp")
 
 
-@mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request):
+@_route("/tools", methods=["GET"])
+async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
-@mcp.custom_route("/tools/speak", methods=["POST"])
-async def speak_endpoint(request):
+@_route("/tools/speak", methods=["POST"])
+async def speak_endpoint(request: Request) -> JSONResponse:
     a = (await request.json()).get("arguments", {})
     return JSONResponse(await speak(text=a.get("text", ""), voice=a.get("voice", "af_heart")))
 
 
-@mcp.custom_route("/tools/clone_voice", methods=["POST"])
-async def clone_voice_endpoint(request):
+@_route("/tools/clone_voice", methods=["POST"])
+async def clone_voice_endpoint(request: Request) -> JSONResponse:
     a = (await request.json()).get("arguments", {})
     return JSONResponse(
         await clone_voice(reference_audio=a.get("reference_audio", ""), text=a.get("text", ""))
     )
 
 
-@mcp.custom_route("/tools/register_voice", methods=["POST"])
-async def register_voice_endpoint(request):
+@_route("/tools/register_voice", methods=["POST"])
+async def register_voice_endpoint(request: Request) -> JSONResponse:
     a = (await request.json()).get("arguments", {})
     return JSONResponse(
         await register_voice(
@@ -225,13 +239,13 @@ async def register_voice_endpoint(request):
     )
 
 
-@mcp.custom_route("/tools/list_voices", methods=["POST"])
-async def list_voices_endpoint(request):
+@_route("/tools/list_voices", methods=["POST"])
+async def list_voices_endpoint(request: Request) -> JSONResponse:
     return JSONResponse(await list_voices())
 
 
 @mcp.tool()
-async def speak(text: str, voice: str = "af_heart") -> dict:
+async def speak(text: str, voice: str = "af_heart") -> dict[str, Any]:
     """
     Convert text to speech via the host MLX speech server. Returns a download_url
     for the generated .wav — surface it to the user as the Markdown link in `message`.
@@ -247,7 +261,7 @@ async def speak(text: str, voice: str = "af_heart") -> dict:
 
 
 @mcp.tool()
-async def clone_voice(reference_audio: str = "", text: str = "") -> dict:
+async def clone_voice(reference_audio: str = "", text: str = "") -> dict[str, Any]:
     """
     Speak text in a voice cloned from a reference clip (one-off, not persisted).
     For a recurring trainer voice, use register_voice once, then speak(voice="trainer:<name>").
@@ -279,7 +293,9 @@ async def clone_voice(reference_audio: str = "", text: str = "") -> dict:
 
 
 @mcp.tool()
-async def register_voice(name: str, reference_audio: str = "", reference_text: str = "") -> dict:
+async def register_voice(
+    name: str, reference_audio: str = "", reference_text: str = ""
+) -> dict[str, Any]:
     """
     Register a persisted trainer-voice profile so training sessions can be narrated in that
     voice. Register once; then speak(voice="trainer:<name>") in any later session.
@@ -300,7 +316,7 @@ async def register_voice(name: str, reference_audio: str = "", reference_text: s
 
 
 @mcp.tool()
-async def list_voices() -> dict:
+async def list_voices() -> dict[str, Any]:
     """List built-in voices and registered trainer-voice profiles."""
     try:
         async with httpx.AsyncClient(timeout=10) as client:

@@ -34,13 +34,15 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Callable
+from typing import Any
 
 from . import config as bully_config
 from . import evidence as evidence_mod
 from .contracts import DecisionEvent, HandoffPackage, new_id
 from .store import Store
 
-CallModelFn = Callable[..., dict]
+CallModelFn = Callable[..., dict[str, Any]]
+ReplayCaptureFn = Callable[..., dict[str, Any]]
 
 
 class HandoffInfrastructureError(RuntimeError):
@@ -49,7 +51,7 @@ class HandoffInfrastructureError(RuntimeError):
     gate that ran and legitimately failed (MASTER SS8)."""
 
 
-def _default_call_model(model: str, messages: list[dict]) -> dict:
+def _default_call_model(model: str, messages: list[dict[str, Any]]) -> dict[str, Any]:
     from ..agentic_blue_eval import _call_model
 
     return _call_model(model, messages, max_tokens=1400)
@@ -63,7 +65,7 @@ def _record(
     kind: str,
     subject_id: str,
     rationale: str,
-    data: dict,
+    data: dict[str, Any],
 ) -> None:
     store.record_decision(
         DecisionEvent(
@@ -93,7 +95,9 @@ _DRAFT_SYSTEM_PROMPT = (
 )
 
 
-def _render_draft_context(technique_id: str, signature: dict, discriminators: dict) -> str:
+def _render_draft_context(
+    technique_id: str, signature: dict[str, Any], discriminators: dict[str, Any]
+) -> str:
     lines = [
         f"technique_id: {technique_id}",
         f"reference_spl: {discriminators.get('spl', '')}",
@@ -107,11 +111,11 @@ def _render_draft_context(technique_id: str, signature: dict, discriminators: di
 
 def draft_generalization(
     technique_id: str,
-    signature: dict,
-    discriminators: dict,
+    signature: dict[str, Any],
+    discriminators: dict[str, Any],
     *,
     call_model: CallModelFn | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Model drafts the SPL/Sigma generalization from the cousin's
     discriminators (I-14). A model failure is an honest degrade to the
     library's existing SPL, never a fabricated new detection -- the caller's
@@ -203,15 +207,21 @@ def validate_spl_syntax(spl: str) -> tuple[bool, list[str]]:
 # ── proof leg 1: fires-on-attack (capture_recipes replay) ─────────────────
 
 
-def gather_fires_on_attack(capture_path: str, spl: str, *, replay_capture_fn=None) -> dict:
+def gather_fires_on_attack(
+    capture_path: str, spl: str, *, replay_capture_fn: ReplayCaptureFn | None = None
+) -> dict[str, Any]:
     """Real: replays the capture (`siem.capture_store.replay_capture` by
     default, injectable for tests) and dry-executes the drafted SPL against
     its telemetry -- mirrors `promotion.replay_and_build_g1a_input`."""
     from pathlib import Path
 
-    replay_fn = replay_capture_fn
-    if replay_fn is None:
-        from ..siem.capture_store import replay_capture as replay_fn
+    replay_fn: ReplayCaptureFn
+    if replay_capture_fn is not None:
+        replay_fn = replay_capture_fn
+    else:
+        from ..siem.capture_store import replay_capture
+
+        replay_fn = replay_capture
     try:
         replay = replay_fn(capture_path)
     except Exception as exc:  # infra failure, not a leg failure
@@ -230,7 +240,7 @@ def gather_fires_on_attack(capture_path: str, spl: str, *, replay_capture_fn=Non
     }
 
 
-def check_fires_on_attack(evidence: dict) -> dict:
+def check_fires_on_attack(evidence: dict[str, Any]) -> dict[str, Any]:
     if "replay" not in evidence:
         return {"outcome": "blocked", "reasons": ["no fires-on-attack replay evidence supplied"]}
     if not evidence.get("syntax_ok", False):
@@ -253,7 +263,7 @@ def check_fires_on_attack(evidence: dict) -> dict:
 # ── proof leg 2: quiet-on-benign (benign corpus) ───────────────────────────
 
 
-def gather_quiet_on_benign(spl: str, *, benign_events: list[str] | None = None) -> dict:
+def gather_quiet_on_benign(spl: str, *, benign_events: list[str] | None = None) -> dict[str, Any]:
     """Real: checks the drafted SPL's discriminator tokens against the
     benign corpus (`benign_corpus_bench.BENIGN_CELLS` by default -- local
     fixture data, no network needed to read it; injectable for tests)."""
@@ -265,7 +275,7 @@ def gather_quiet_on_benign(spl: str, *, benign_events: list[str] | None = None) 
     return {"benign_hits": hits, "benign_sample_size": len(benign_events)}
 
 
-def check_quiet_on_benign(evidence: dict) -> dict:
+def check_quiet_on_benign(evidence: dict[str, Any]) -> dict[str, Any]:
     if "benign_hits" not in evidence:
         return {"outcome": "blocked", "reasons": ["no benign-corpus evidence supplied"]}
     if evidence.get("benign_sample_size", 0) == 0:
@@ -287,7 +297,7 @@ def check_quiet_on_benign(evidence: dict) -> dict:
 # ── proof leg 3: no-regression (BQ/AZ validate_system lanes) ──────────────
 
 
-def gather_no_regression() -> dict:
+def gather_no_regression() -> dict[str, Any]:
     """Real: runs the BQ (benign alert-fatigue semantics) and AZ (detection
     recall vs emergent corpus) `validate_system.py` lanes MASTER SS4 holds
     green at every commit -- the concrete 'no-regression via BQ/AZ lanes'
@@ -302,7 +312,7 @@ def gather_no_regression() -> dict:
     return {"bq": bq_status, "bq_detail": bq_detail, "az": az_status, "az_detail": az_detail}
 
 
-def check_no_regression(evidence: dict) -> dict:
+def check_no_regression(evidence: dict[str, Any]) -> dict[str, Any]:
     if "bq" not in evidence or "az" not in evidence:
         return {"outcome": "blocked", "reasons": ["no BQ/AZ lane evidence supplied"]}
     if evidence["bq"] != "PASS" or evidence["az"] != "PASS":
@@ -320,12 +330,12 @@ def _run_proof_legs(
     *,
     draft_spl: str,
     capture_path: str | None,
-    replay_capture_fn,
+    replay_capture_fn: ReplayCaptureFn | None,
     benign_events: list[str] | None,
-    fires_on_attack_evidence: dict | None,
-    quiet_on_benign_evidence: dict | None,
-    no_regression_evidence: dict | None,
-) -> dict[str, dict]:
+    fires_on_attack_evidence: dict[str, Any] | None,
+    quiet_on_benign_evidence: dict[str, Any] | None,
+    no_regression_evidence: dict[str, Any] | None,
+) -> dict[str, dict[str, Any]]:
     """Gather + decide all three detection-proof legs. Split out of
     `build_package` to keep it under the repo's complexity budget (mirrors
     `promotion._dispatch_gate`'s split rationale: pure routing/sequencing,
@@ -362,18 +372,18 @@ def _run_proof_legs(
 def _assemble_package(
     *,
     candidate_id: str,
-    row: dict,
+    row: dict[str, Any],
     technique_id: str,
-    discriminators: dict,
-    spl_variants: list[dict],
-    draft: dict,
-    assessment: dict | None,
-    gate_results: list[dict],
+    discriminators: dict[str, Any],
+    spl_variants: list[dict[str, Any]],
+    draft: dict[str, Any],
+    assessment: dict[str, Any] | None,
+    gate_results: list[dict[str, Any]],
     recipe_name: str,
-    proof_legs: dict,
+    proof_legs: dict[str, dict[str, Any]],
     owner: str,
     expiry: float | None,
-) -> dict:
+) -> dict[str, Any]:
     """Assemble the 11-part package dict (DESIGN SS23). Split out of
     `build_package` for the same complexity-budget reason as
     `_run_proof_legs`."""
@@ -436,11 +446,11 @@ def build_package(
     capture_path: str | None = None,
     recipe_name: str | None = None,
     benign_events: list[str] | None = None,
-    replay_capture_fn=None,
+    replay_capture_fn: ReplayCaptureFn | None = None,
     call_model: CallModelFn | None = None,
-    fires_on_attack_evidence: dict | None = None,
-    quiet_on_benign_evidence: dict | None = None,
-    no_regression_evidence: dict | None = None,
+    fires_on_attack_evidence: dict[str, Any] | None = None,
+    quiet_on_benign_evidence: dict[str, Any] | None = None,
+    no_regression_evidence: dict[str, Any] | None = None,
 ) -> HandoffPackage:
     """I-14 `build_package(candidate_id) -> HandoffPackage`. The candidate
     must already be PROMOTED (BIN+HEART live, MASTER phase-dependency
@@ -587,7 +597,7 @@ def deploy(
     operator_actor: str,
     spl_commit_ref: str,
     receipt_hash: str,
-) -> dict:
+) -> dict[str, Any]:
     """The `spl_detections.yaml` change itself is an operator commit through
     the repo's normal pre-push validation (BQ/AZ green) -- this records the
     *receipt* of that already-made commit (I-14 operator boundary). Refuses
@@ -629,11 +639,17 @@ def deploy(
 
 
 def _passed_replay(
-    store: Store, proposal: dict, deployment_id: str, validation_id: str, detail: str
-):
+    store: Store,
+    proposal: dict[str, Any],
+    deployment_id: str,
+    validation_id: str,
+    detail: str,
+) -> tuple[bool, str]:
     store.detection_proposal_set_status(proposal["proposal_id"], "replay-validated")
     candidate = store.candidate_get(proposal["candidate_id"])
-    evidence_rows = store.evidence_items_for_manifest(candidate.get("evidence_manifest_id") or "")
+    evidence_rows = store.evidence_items_for_manifest(
+        (candidate or {}).get("evidence_manifest_id") or ""
+    )
     refs = [
         evidence_mod.EvidenceItemRef(
             evidence_id=row["evidence_id"],
@@ -664,7 +680,9 @@ def _passed_replay(
     return True, f"post-deploy replay passed -- cell {proposal['family']} now KNOWN_COVERED"
 
 
-def _failed_replay(store: Store, proposal: dict, detail: str) -> tuple[dict, str]:
+def _failed_replay(
+    store: Store, proposal: dict[str, Any], detail: str
+) -> tuple[dict[str, Any], str]:
     store.detection_proposal_set_status(proposal["proposal_id"], "replay-failed")
     rationale = "post-deploy replay failed -- cell stays uncovered"
     return {
@@ -685,11 +703,13 @@ def record_replay(
     passed: bool,
     noise_estimate: float | None = None,
     detail: str = "",
-) -> dict:
+) -> dict[str, Any]:
     deployment = store.deployment_get(deployment_id)
     if deployment is None:
         raise ValueError(f"no such deployment: {deployment_id}")
     proposal = store.detection_proposal_get(deployment["proposal_id"])
+    if proposal is None:
+        raise ValueError(f"no such detection_proposal: {deployment['proposal_id']}")
     validation_id = new_id("val")
     store.replay_validation_put(
         validation_id=validation_id,
@@ -702,7 +722,7 @@ def record_replay(
         production_credit, rationale = _passed_replay(
             store, proposal, deployment_id, validation_id, detail
         )
-        org_record = None
+        org_record: dict[str, Any] | None = None
     else:
         org_record, rationale = _failed_replay(store, proposal, detail)
         production_credit = False
@@ -715,17 +735,22 @@ def record_replay(
         rationale=rationale,
         data={"deployment_id": deployment_id, "passed": passed, "detail": detail},
     )
+    latest = store.detection_proposal_get(proposal["proposal_id"])
+    if latest is None:
+        raise ValueError(f"no such detection_proposal: {proposal['proposal_id']}")
     return {
         "proposal_id": proposal["proposal_id"],
         "validation_id": validation_id,
         "passed": passed,
-        "status": store.detection_proposal_get(proposal["proposal_id"])["status"],
+        "status": latest["status"],
         "org_record": org_record,
         "production_credit": production_credit,
     }
 
 
-def reject(store: Store, proposal_id: str, *, operator_actor: str, rationale: str) -> dict:
+def reject(
+    store: Store, proposal_id: str, *, operator_actor: str, rationale: str
+) -> dict[str, Any]:
     """Operator reject -> DISPROVED-equivalent for a proposal; rationale is
     mandatory (DB-enforced, `trg_detection_proposal_reject_requires_
     rationale`) and the disposition is ORG-indexed as negative learning

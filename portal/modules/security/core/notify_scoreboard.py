@@ -14,6 +14,7 @@ import json
 from collections import Counter, defaultdict
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
 from portal.modules.security.core import recall_attribution as ra
 from portal.modules.security.core.agentic_blue_eval import score_findings_tiered
@@ -47,7 +48,7 @@ def _rate(numerator: int, denominator: int) -> float | None:
     return round(numerator / denominator, 3) if denominator else None
 
 
-def join_oracle(cells: Iterable[dict]) -> list[dict]:
+def join_oracle(cells: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     """Attach the existing V5A oracle result without reimplementing it."""
     joined = []
     for cell in cells:
@@ -60,7 +61,7 @@ def join_oracle(cells: Iterable[dict]) -> list[dict]:
     return joined
 
 
-def _trustworthiness_class(cell: dict) -> str | None:
+def _trustworthiness_class(cell: dict[str, Any]) -> str | None:
     verdict = str(cell.get("verdict") or "").upper()
     expected = str(cell.get("technique_expected") or "").upper()
     reported = {str(item).upper() for item in (cell.get("technique_ids") or [])}
@@ -73,7 +74,7 @@ def _trustworthiness_class(cell: dict) -> str | None:
     return None
 
 
-def _mapping_category(cell: dict) -> str | None:
+def _mapping_category(cell: dict[str, Any]) -> str | None:
     """Classify mapping quality only for caught cells."""
     verdict = str(cell.get("verdict") or "").upper()
     if verdict not in NOTIFY_VERDICTS:
@@ -93,7 +94,7 @@ def _mapping_category(cell: dict) -> str | None:
     return INCORRECT
 
 
-def score_cell(cell: dict) -> dict:
+def score_cell(cell: dict[str, Any]) -> dict[str, Any]:
     """Return deterministic per-cell scoreboard classifications."""
     if "oracle_result" not in cell:
         raise ValueError("cell is missing oracle_result; call join_oracle first")
@@ -135,7 +136,7 @@ def score_cell(cell: dict) -> dict:
     }
 
 
-def score_arm(cells: Iterable[dict]) -> dict:
+def score_arm(cells: Iterable[dict[str, Any]]) -> dict[str, Any]:
     """Compute attack quality plus the alert-fatigue axis when negatives exist."""
     scored = [score_cell(cell) for cell in cells]
     attack_cells = [cell for cell in scored if cell["cell_kind"] == "attack"]
@@ -248,10 +249,12 @@ def score_arm(cells: Iterable[dict]) -> dict:
     }
 
 
-def build_run(cells: Iterable[dict], *, source: str, source_sha256: str) -> dict:
+def build_run(
+    cells: Iterable[dict[str, Any]], *, source: str, source_sha256: str
+) -> dict[str, Any]:
     """Build per-arm scores from already oracle-joined cells."""
     rows = list(cells)
-    by_arm: dict[str, list[dict]] = defaultdict(list)
+    by_arm: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for cell in rows:
         by_arm[str(cell.get("model_arm") or "")].append(cell)
     return {
@@ -261,9 +264,9 @@ def build_run(cells: Iterable[dict], *, source: str, source_sha256: str) -> dict
     }
 
 
-def build_result(inputs: Iterable[tuple[str, Path]]) -> dict:
+def build_result(inputs: Iterable[tuple[str, Path]]) -> dict[str, Any]:
     """Load named checkpoints or V5A attribution JSON and score every arm."""
-    runs = {}
+    runs: dict[str, Any] = {}
     for name, path in inputs:
         payload = json.loads(path.read_text())
         if isinstance(payload, list):
@@ -302,13 +305,13 @@ def build_result(inputs: Iterable[tuple[str, Path]]) -> dict:
     }
 
 
-def _fraction(metric: dict) -> str:
+def _fraction(metric: dict[str, Any]) -> str:
     rate = metric["rate"]
     rendered_rate = "n/a" if rate is None else f"{rate * 100:.1f}%"
     return f"{metric['notified']}/{metric['eligible']} ({rendered_rate})"
 
 
-def render_markdown(result: dict) -> str:
+def render_markdown(result: dict[str, Any]) -> str:
     """Render the close-out report from a scoreboard result."""
     lines = [
         "# Blue Orchestration V6 Hunt-and-Notify Scoreboard — 2026-07-25",

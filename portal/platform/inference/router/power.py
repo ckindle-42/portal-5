@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import time
+from typing import Any
 
 import portal.platform.inference.router.state as _state_mod
 from portal.platform.inference.router.metrics import (
@@ -36,7 +37,7 @@ _POWERMETRICS_SOCKET = "/tmp/portal5-powermetrics.sock"
 ELECTRICITY_RATE_USD_PER_KWH = float(os.environ.get("ELECTRICITY_RATE_USD_PER_KWH", "0.15"))
 
 
-async def _power_polling_loop():
+async def _power_polling_loop() -> None:
     """Background task: poll the host powermetrics daemon every 10s; update gauges.
 
     The pipeline doesn't shell out to ``powermetrics`` (no root in the
@@ -82,7 +83,7 @@ async def _power_polling_loop():
 
 
 def _record_usage(
-    model: str, workspace: str, data: dict, elapsed_seconds: float | None = None
+    model: str, workspace: str, data: dict[str, Any], elapsed_seconds: float | None = None
 ) -> None:
     """Extract token counts and TPS from a backend response dict; record to metrics.
 

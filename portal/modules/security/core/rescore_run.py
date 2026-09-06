@@ -23,6 +23,7 @@ import copy
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Correction table — (prompt_key, step, model_substring)
@@ -47,7 +48,7 @@ def _model_matches(model_id: str, substring: str) -> bool:
     return substring.lower() in model_id.lower()
 
 
-def _rescore_entry(entry: dict) -> tuple[dict, list[str]]:
+def _rescore_entry(entry: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     """Return a corrected copy of a chain entry and a list of changes made."""
     entry = copy.deepcopy(entry)
     changes: list[str] = []
@@ -56,7 +57,7 @@ def _rescore_entry(entry: dict) -> tuple[dict, list[str]]:
     sm: list[str] = entry.get("steps_missed", [])
 
     # Propagate corrections into exec_scores if present
-    es: dict = entry.get("exec_scores", {})
+    es: dict[str, Any] = entry.get("exec_scores", {})
     es_rh: list[str] = es.get("result_hits", [])
 
     steps_hit: list[str] = entry.get("steps_hit", [])
@@ -94,7 +95,7 @@ def _rescore_entry(entry: dict) -> tuple[dict, list[str]]:
     return entry, changes
 
 
-def _compute_step_coverage(exec_chain: list[dict]) -> tuple[int, int]:
+def _compute_step_coverage(exec_chain: list[dict[str, Any]]) -> tuple[int, int]:
     """Return (hits, total) across all chain entries."""
     hits = 0
     total = 0
@@ -108,7 +109,7 @@ def _compute_step_coverage(exec_chain: list[dict]) -> tuple[int, int]:
     return hits, total
 
 
-def rescore(data: dict) -> tuple[dict, list[str]]:
+def rescore(data: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     """Apply false-positive corrections and return corrected data + log lines."""
     data = copy.deepcopy(data)
     log: list[str] = []
@@ -125,7 +126,7 @@ def rescore(data: dict) -> tuple[dict, list[str]]:
 
     for result in data.get("results", []):
         pk = result.get("prompt_key", "")
-        ec: list[dict] = result.get("exec_chain", [])
+        ec: list[dict[str, Any]] = result.get("exec_chain", [])
         if not ec:
             continue
 
@@ -251,10 +252,10 @@ def main() -> None:
 
     # --- Print summary ---
     print("\n=== Summary ===")
-    o_pct = orig_hits / orig_total * 100 if orig_total else 0
-    n_pct = new_hits / new_total * 100 if new_total else 0
-    print(f"  Raw step coverage:      {orig_hits}/{orig_total} ({o_pct:.1f}%)")
-    print(f"  Corrected step coverage:{new_hits}/{new_total} ({n_pct:.1f}%)")
+    raw_orig_pct = orig_hits / orig_total * 100 if orig_total else 0
+    raw_new_pct = new_hits / new_total * 100 if new_total else 0
+    print(f"  Raw step coverage:      {orig_hits}/{orig_total} ({raw_orig_pct:.1f}%)")
+    print(f"  Corrected step coverage:{new_hits}/{new_total} ({raw_new_pct:.1f}%)")
     delta = orig_hits - new_hits
     if delta > 0:
         print(f"  False positives removed: {delta} step(s)")

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from typing import Any
 
 DEFAULT_PRESELECT_MODEL = "hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M"
 
@@ -49,7 +50,7 @@ def default_k(total_tools: int) -> int:
 
 
 def resolve_workspace_config(
-    workspace_config: dict, total_tools: int
+    workspace_config: dict[str, Any], total_tools: int
 ) -> WorkspacePreselectConfig | None:
     """Resolve a workspace's ``tool_preselect:`` block.
 
@@ -64,7 +65,7 @@ def resolve_workspace_config(
     return WorkspacePreselectConfig(enabled=True, k=k, confidence_floor=confidence_floor)
 
 
-def is_preselect_enabled(workspace_id: str, workspace_config: dict) -> bool:
+def is_preselect_enabled(workspace_id: str, workspace_config: dict[str, Any]) -> bool:
     """True only when both the global flag AND the workspace opt-in are set,
     AND the workspace hasn't been runtime auto-disabled (§5.2)."""
     if not global_preselect_enabled():

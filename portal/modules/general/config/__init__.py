@@ -6,10 +6,12 @@ tag yet, so this is a name-based pointer to the real config, not a
 duplicate of it):
 """
 
+from typing import Any
+
 GENERAL_WORKSPACE_IDS: tuple[str, ...] = ("auto-daily", "auto-general-uncensored")
 
 
-def general_workspaces() -> dict[str, dict]:
+def general_workspaces() -> dict[str, dict[str, Any]]:
     """The general module's workspace entries, straight from portal.yaml —
     no separate config store, this reads the single source of truth."""
     from portal.platform.storage import load_portal_config

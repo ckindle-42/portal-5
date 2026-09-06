@@ -6,12 +6,17 @@ import asyncio
 import logging
 import os
 from collections import defaultdict
-from typing import TYPE_CHECKING
+from collections.abc import Coroutine
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from portal.platform.inference.cluster_backends import BackendRegistry
     from portal.platform.inference.notifications.channels import NotificationChannel
-    from portal.platform.inference.notifications.events import AlertEvent, SummaryEvent
+    from portal.platform.inference.notifications.events import (
+        AlertEvent,
+        EventType,
+        SummaryEvent,
+    )
 else:
     from portal.platform.inference.notifications.events import AlertEvent, EventType
 
@@ -46,7 +51,7 @@ class NotificationDispatcher:
         self._channels.append(channel)
         logger.info("Notification channel registered: %s", channel.name)
 
-    def _schedule(self, coro) -> None:
+    def _schedule(self, coro: Coroutine[Any, Any, None]) -> None:
         """Schedule a coroutine — prefer background task, fall back to sync execution.
 
         `asyncio.ensure_future(coro)` does NOT raise when there is no running

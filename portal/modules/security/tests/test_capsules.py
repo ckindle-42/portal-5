@@ -11,7 +11,7 @@ from portal.modules.security.core.oracles import OracleVerdict
 
 
 class TestCapsuleBuild:
-    def test_build_capsule_round_trips_dry_run(self):
+    def test_build_capsule_round_trips_dry_run(self) -> None:
         finding = {
             "id": "F-001",
             "title": "Reflected XSS in search",
@@ -41,7 +41,7 @@ class TestCapsuleBuild:
         assert result.oracle == "reflection"
         assert "DRY-RUN" in result.evidence
 
-    def test_capsule_carries_methodology_stamp(self):
+    def test_capsule_carries_methodology_stamp(self) -> None:
         finding = {
             "id": "F-002",
             "oracle": "reflection",
@@ -61,7 +61,7 @@ class TestCapsuleBuild:
         assert "methodology_version" in capsule
         assert capsule["methodology_version"] == "v2-capability"
 
-    def test_tampered_capsule_rejected(self):
+    def test_tampered_capsule_rejected(self) -> None:
         finding = {"id": "F-003", "oracle": "reflection", "title": "t", "target": "t"}
         verdict = OracleVerdict(
             oracle="reflection",
@@ -79,7 +79,7 @@ class TestCapsuleBuild:
         assert result.verified is False
         assert "integrity hash mismatch" in result.evidence
 
-    def test_integrity_computation_is_deterministic(self):
+    def test_integrity_computation_is_deterministic(self) -> None:
         finding = {"id": "F-004", "oracle": "reflection", "title": "t", "target": "t"}
         verdict = OracleVerdict(
             oracle="reflection",
@@ -96,6 +96,6 @@ class TestCapsuleBuild:
 
 
 class TestListCapsules:
-    def test_list_returns_empty_for_nonexistent(self):
+    def test_list_returns_empty_for_nonexistent(self) -> None:
         result = list_capsules("nonexistent_engagement_xyz")
         assert isinstance(result, list)

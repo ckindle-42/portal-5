@@ -15,6 +15,7 @@ logic that will fill these in.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 # ── source documents / revisions / sections / spans ─────────────────────────
 
@@ -96,7 +97,7 @@ class RelationshipAssertion:
     dst_ref: str
     dst_revision_id: str | None
     scope: str
-    citations: list[dict] = field(default_factory=list)
+    citations: list[dict[str, Any]] = field(default_factory=list)
     status: str = "proposed"  # proposed | approved | rejected | revoked | stale
     review_state: str = "proposed"
     valid_from: str | None = None
@@ -129,7 +130,7 @@ class ReviewEvent:
     decision: str  # CONFIRMED | CORRECTED | REJECTED | REVOKED
     decided_by: str
     rationale: str = ""
-    evidence: list[dict] = field(default_factory=list)
+    evidence: list[dict[str, Any]] = field(default_factory=list)
     created_at: str = ""
     prior_event_id: str = ""
     org_id: str = "default"
@@ -143,7 +144,7 @@ class OutboxEvent:
 
     event_id: int
     event_type: str
-    payload: dict
+    payload: dict[str, Any]
     created_at: str
     published_at: str | None = None
 
@@ -152,6 +153,6 @@ class OutboxEvent:
 class CatalogSnapshot:
     snapshot_id: str
     taken_at: str
-    counts: dict
-    hashes: dict
+    counts: dict[str, Any]
+    hashes: dict[str, Any]
     org_id: str = "default"

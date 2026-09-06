@@ -2,26 +2,28 @@
 
 from pathlib import Path
 
+import pytest
+
 from portal.modules.binary_research.harness import workspace as w
 
 
-def test_root_from_env(monkeypatch, tmp_path: Path):
+def test_root_from_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("BINRESEARCH_PROJECTS_ROOT", str(tmp_path))
     assert w.projects_root() == tmp_path
 
 
-def test_resolve_name_under_root(monkeypatch, tmp_path: Path):
+def test_resolve_name_under_root(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("BINRESEARCH_PROJECTS_ROOT", str(tmp_path))
     assert w.resolve_project("demo") == (tmp_path / "demo").resolve()
 
 
-def test_resolve_path(tmp_path: Path):
+def test_resolve_path(tmp_path: Path) -> None:
     d = tmp_path / "explicit"
     d.mkdir()
     assert w.resolve_project(str(d)) == d.resolve()
 
 
-def test_init_and_detect(tmp_path: Path):
+def test_init_and_detect(tmp_path: Path) -> None:
     p = tmp_path / "p"
     w.init_project(p)
     assert w.is_initialized(p)
@@ -30,7 +32,7 @@ def test_init_and_detect(tmp_path: Path):
         assert (p / f).exists()
 
 
-def test_cwd_autodetect(monkeypatch, tmp_path: Path):
+def test_cwd_autodetect(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     p = tmp_path / "proj"
     w.init_project(p)
     sub = p / "artifacts"
@@ -38,7 +40,7 @@ def test_cwd_autodetect(monkeypatch, tmp_path: Path):
     assert w.resolve_project(None) == p.resolve()
 
 
-def test_has_artifacts_and_count(tmp_path: Path):
+def test_has_artifacts_and_count(tmp_path: Path) -> None:
     p = tmp_path / "p"
     w.init_project(p)
     assert not w.has_artifacts(p)

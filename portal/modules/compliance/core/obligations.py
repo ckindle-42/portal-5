@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 from dataclasses import dataclass, field
+from typing import Any
 
 _MODAL = re.compile(r"\b(shall not|must not|shall|must|may not|required to)\b", re.I)
 _CADENCE = re.compile(
@@ -30,7 +31,7 @@ class ObligationAtom:
     source_anchor_ids: list[str] = field(default_factory=list)
     interpretation_status: str = "accepted"
 
-    def to_record(self) -> dict:
+    def to_record(self) -> dict[str, Any]:
         return self.__dict__.copy()
 
 
@@ -62,8 +63,8 @@ def decompose(
         ]
     actor = source[: modal.start()].strip(" ,:;")
     remainder = source[modal.end() :].strip(" ,:;")
-    condition = []
-    exception = []
+    condition: list[str] = []
+    exception: list[str] = []
     for cue, target in (
         (" if ", condition),
         (" when ", condition),
@@ -76,7 +77,8 @@ def decompose(
     action_words = remainder.split()
     action = " ".join(action_words[: min(4, len(action_words))])
     obj = " ".join(action_words[min(4, len(action_words)) :])
-    cadence = _CADENCE.search(source).group(0) if _CADENCE.search(source) else ""
+    cadence_match = _CADENCE.search(source)
+    cadence = cadence_match.group(0) if cadence_match else ""
     atom_id = f"atom-{hashlib.sha256((node_id + source).encode()).hexdigest()[:16]}"
     return [
         ObligationAtom(
@@ -97,7 +99,7 @@ def decompose(
     ]
 
 
-def expression_for(atoms: list[ObligationAtom], text: str) -> dict:
+def expression_for(atoms: list[ObligationAtom], text: str) -> dict[str, Any]:
     kind = (
         "ANY_OF"
         if re.search(r"\b(or|either)\b", text, re.I) and not re.search(r"\band\b", text, re.I)
