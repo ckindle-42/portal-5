@@ -205,11 +205,26 @@ def aggregate(rows: list[dict], cases: list[dict]) -> dict:
     mcc_d = math.sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
     mcc = ((tp * tn) - (fp * fn)) / mcc_d if mcc_d else 0.0
     n = len(cases)
+
+    # violation-class accuracy: did the seat get the met / unmet / abstain call
+    # right, ignoring WHICH unmet flavour? This is what a human-in-the-loop gate
+    # needs and it is robust to PARTIAL-vs-CONTRADICTED label ambiguity.
+    def _cls(label: str) -> str:
+        if label in ("ABSTAIN", "INSUFFICIENT"):
+            return "ABSTAIN"
+        return "UNMET" if label in _VIOLATION_LABELS else "SATISFIED"
+
+    vclass_ok = sum(
+        1
+        for c, r in zip(cases, rows, strict=True)
+        if r.get("schema_ok") and _cls(c["gold_label"]) == _cls(r.get("pred") or "?")
+    )
     schema_ok = sum(1 for r in rows if r.get("schema_ok"))
     abst = [r for c, r in zip(cases, rows, strict=True) if c["category"] == "ABSTAIN"]
     complete = [(c, r) for c, r in zip(cases, rows, strict=True) if c["packet_complete"]]
     return {
         "n": n,
+        "violation_class_accuracy": round(vclass_ok / n, 4),
         "exact_accuracy": round(sum(1 for r in rows if r.get("correct")) / n, 4),
         "F2_violation": round(prf(tp, fp, fn, 2.0), 4),
         "F1_violation": round(prf(tp, fp, fn, 1.0), 4),
@@ -521,6 +536,7 @@ def rescore_debug_dir(debug_dir: Path) -> list[dict]:
         agg["max_prompt_tokens"] = max(ptoks) if ptoks else None
         agg["errors"] = sum(1 for r in runs if r.get("error"))
         agg["config_unverified"] = pf.get("verdict", "OK") != "OK"
+        agg["broken"] = bool(runs) and all(r.get("error") for r in runs)
         out.append(
             {
                 "model": pf.get("model", f.stem),
@@ -594,7 +610,7 @@ def _seat_summary(r: dict) -> str:
     return (
         f"{r['model']}{flag}\n"
         f"  F2 {a['F2_violation']}  F1 {a['F1_violation']}  MCC {a['MCC_violation']}  "
-        f"acc {a['exact_accuracy']}\n"
+        f"viol-class-acc {a.get('violation_class_accuracy')}  exact-acc {a['exact_accuracy']}\n"
         f"  schema {a['schema_valid_rate']}  citation {a['citation_ok_rate']}  "
         f"abstain-recall {a.get('abstain_recall')}\n"
         f"  false-supported {a['false_supported_count']}  must-not-flag-FP "
@@ -697,17 +713,18 @@ def main() -> None:
 
 def _print_table(results: list[dict]) -> None:
     print(
-        f"\n{'model':52} {'F2':>6} {'F1':>6} {'MCC':>6} {'acc':>6} {'sch':>5} "
-        f"{'cite':>5} {'abst':>5} {'fSUP':>5} {'MNF':>4} {'tps':>6} {'ptok':>6}"
+        f"\n{'model':52} {'F2':>6} {'F1':>6} {'MCC':>6} {'vca':>5} {'exa':>5} {'sch':>5} "
+        f"{'cite':>5} {'abst':>5} {'fSUP':>5} {'MNF':>4} {'err':>4} {'tps':>6} {'ptok':>6}"
     )
     for r in results:
         a = r["aggregate"]
         print(
             f"{r['model'][:52]:52} {a['F2_violation']:6.3f} {a['F1_violation']:6.3f} "
-            f"{a['MCC_violation']:6.3f} {a['exact_accuracy']:6.3f} "
+            f"{a['MCC_violation']:6.3f} {a.get('violation_class_accuracy', 0):5.2f} "
+            f"{a['exact_accuracy']:5.2f} "
             f"{a['schema_valid_rate']:5.2f} {a['citation_ok_rate']:5.2f} "
             f"{(a['abstain_recall'] or 0):5.2f} {a['false_supported_count']:5d} "
-            f"{a['must_not_flag_fp_count']:4d} {(a['median_tps'] or 0):6.1f} "
+            f"{a['must_not_flag_fp_count']:4d} {a.get('errors', 0):4d} {(a['median_tps'] or 0):6.1f} "
             f"{(a['max_prompt_tokens'] or 0):6d}"
         )
 
