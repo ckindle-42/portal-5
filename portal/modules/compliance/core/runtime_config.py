@@ -27,19 +27,20 @@ _DEFAULT_ORG_GRAPH = (
     / "org_graph.json"
 )
 
-# D0-M-qualified default roster — three families, sized to co-reside on 64 GB
-# with the Docker stack. Overridden by config/compliance/council.yaml.
+# D0-M-qualified default roster — the fallback when config/compliance/council.yaml
+# is absent. Selected from the 12-seat judgment-probe sweep (2026-09-06): three
+# families, F2 {0.952, 0.843, 0.802} on violation detection, all vca >= 0.87.
 _DEFAULT_SEATS: list[dict[str, str]] = [
-    {"id": "granite", "label": "IBM Granite 4.2 30B", "model": "granite4.2:30b-q4_K_M"},
     {
-        "id": "qwen",
-        "label": "Qwen3.8 27B",
+        "id": "qwen38",
+        "label": "Qwen3.8 27B (unsloth Q4_K_M, 32k)",
         "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
     },
+    {"id": "granite41", "label": "IBM Granite 4.1 30B (16k)", "model": "granite4.1:30b-ctx16k"},
     {
-        "id": "glm",
-        "label": "GLM-4.7-Flash-REAP 23B",
-        "model": "hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k",
+        "id": "mistral",
+        "label": "Mistral Small 3.2 24B (Q4_K_M)",
+        "model": "mistral-small3.2:24b-instruct-2506-q4_K_M",
     },
 ]
 

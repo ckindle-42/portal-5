@@ -1,0 +1,27 @@
+# Compliance review council roster (TASK_COMPLIANCE_REASONING_V6 D0-M).
+#
+# Selected from the 12-seat judgment-probe sweep
+# (tests/benchmarks/results/judgment_probe_v6_*.json, run 2026-09-06):
+# three families, F2 {0.952, 0.843, 0.802} on violation detection, all with
+# violation-class accuracy >= 0.87, abstain-recall 1.00, schema 1.00.
+#
+# quorum is computed in code (ceil(quorum * roster)); 0.66 of 3 -> 2 seats
+# must agree or the determination escalates to S04_INTERPRETATION_DISPUTE.
+quorum: 0.66
+seats:
+  - id: qwen38
+    label: "Qwen3.8 27B (unsloth Q4_K_M, 32k)"
+    model: "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
+  - id: granite41
+    label: "IBM Granite 4.1 30B (16k)"
+    model: "granite4.1:30b-ctx16k"
+  - id: mistral
+    label: "Mistral Small 3.2 24B (Q4_K_M)"
+    model: "mistral-small3.2:24b-instruct-2506-q4_K_M"
+
+# Rejected candidates, with evidence (do not re-add without a fresh sweep):
+#   hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF   F2 0.40 — REAP pruning degrades reasoning
+#   NVIDIA-Nemotron-3.5-Lightning-30B-A3B           abstain-recall 0.25, ctx8k
+#   granite4.2:3b-q8_0 / granite4.2:8b-q8_0         system_honored=False (template), weak
+#   phi4:14b-q4_K_M                                 broken install (llama-server abort trap)
+#   granite4.2:30b-q4_K_M                           F2 0.70 — below granite4.1:30b
