@@ -16,6 +16,15 @@ from __future__ import annotations
 
 import functools
 import os
+
+# The compliance composition forces docling chunking so every chunk carries a
+# heading path and page (an operator answer must cite section + page), and
+# enables the BM25 sparse arm so an exact requirement ID resolves lexically
+# even when it is out-of-distribution for the dense embedder
+# (TASK_COMPLIANCE_REASONING_V6 P1 / Y25). Both are set ONLY on this
+# composition — the module-global CHUNK_STRATEGY and every other consumer's
+# index are untouched.
+_COMPLIANCE_CHUNK_STRATEGY = "docling"
 from pathlib import Path
 from typing import Any
 
@@ -43,7 +52,6 @@ async def _no_transcribe(_img_path: str) -> str:
 
 def _stage_set() -> dict[str, Any]:
     return {
-        "chunk_strategy": _chunking.CHUNK_STRATEGY,
         "chunk_size": _chunking.CHUNK_SIZE,
         "chunk_overlap": _chunking.CHUNK_OVERLAP,
         "figure_page_max_text": _pages.FIGURE_PAGE_MAX_TEXT,
@@ -52,7 +60,8 @@ def _stage_set() -> dict[str, Any]:
         # (SUBSTRATE_MIGRATION_V1 P3).
         "visual_scope": _pages.VISUAL_SCOPE,
         "contextualize": False,
-        "fts": False,
+        "chunk_strategy": _COMPLIANCE_CHUNK_STRATEGY,
+        "fts": True,
     }
 
 
@@ -75,7 +84,7 @@ def _composition() -> _pipeline.Composition:
         vl_embed_batch=_embedding.vl_embed_batch,
         vl_rerank=_embedding.vl_rerank,
         unavailable_error=_embedding.VLUnavailableError,
-        chunk=_chunking.chunk,
+        chunk=functools.partial(_chunking.chunk, strategy=_COMPLIANCE_CHUNK_STRATEGY),
         read_text=_extraction.read_text,
         render_pages=_pages.render_pages,
         figure_pages=_pages.figure_pages,
@@ -84,6 +93,8 @@ def _composition() -> _pipeline.Composition:
         fusion_mode=_fusion.FUSION,
         transcribe_figures=False,
         table_prefix=_PREFIX,
+        contextualize=True,  # embed heading path + text so a section cite resolves
+        fts=True,  # BM25 sparse arm — an exact requirement ID has a lexical path
         stage_set=_stage_set(),
     )
 

@@ -162,17 +162,23 @@ def chunk(
     doc: Any | None = None,
     size: int = CHUNK_SIZE,
     overlap: int = CHUNK_OVERLAP,
+    *,
+    strategy: str | None = None,
 ) -> list[tuple[int, int, str, int, str]]:
     """5-tuples ``(char_start, char_end, text, page, headings)``. ``doc`` is the
-    optional ``DoclingDocument`` — required only for ``CHUNK_STRATEGY=docling``,
-    which falls back to ``fixed`` when it is absent."""
-    if CHUNK_STRATEGY == "docling":
+    optional ``DoclingDocument`` — required only for ``strategy="docling"``,
+    which falls back to ``fixed`` when it is absent. ``strategy`` overrides the
+    module default ``CHUNK_STRATEGY`` for one composition without touching the
+    global (the compliance composition forces ``docling`` this way — its
+    chunks must carry heading path and page)."""
+    strategy = strategy or CHUNK_STRATEGY
+    if strategy == "docling":
         if doc is not None:
             try:
                 return chunk_docling(doc, text)
             except Exception:  # noqa: BLE001 — a chunker failure degrades, doesn't crash ingest
                 pass
         return _to5(chunk_fixed(text, size, overlap))
-    if CHUNK_STRATEGY == "fixed":
+    if strategy == "fixed":
         return _to5(chunk_fixed(text, size, overlap))
     return _to5(chunk_structured(text, size, overlap))
