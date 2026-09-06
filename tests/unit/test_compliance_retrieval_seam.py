@@ -133,3 +133,21 @@ def test_compliance_rebuild_leaves_kb_tables_byte_identical(_corpus):
 
     assert _stable(_rows("kb_x")) == before
     assert _store.read_stamp("x", prefix="kb_") == before_stamp
+
+
+def test_compliance_composition_forces_docling_chunking_and_bm25():
+    """P1 / Y25: the compliance composition — and ONLY it — carries docling
+    chunking (heading path + page) and the BM25 sparse arm. The module-global
+    CHUNK_STRATEGY and rag_multimodal's composition are untouched."""
+    comp = cr._composition()
+    assert comp.fts is True
+    assert comp.contextualize is True
+    assert comp.stage_set["chunk_strategy"] == "docling"
+    assert comp.stage_set["fts"] is True
+    # rag_multimodal stays on the global default
+    rag_comp = rm._composition() if hasattr(rm, "_composition") else None
+    if rag_comp is not None:
+        assert rag_comp.fts is False or rag_comp.stage_set.get("fts") in (False, None)
+    # the global is not flipped
+    _chunking = importlib.import_module("portal.platform.retrieval.chunking")
+    assert _chunking.CHUNK_STRATEGY == "fixed"
