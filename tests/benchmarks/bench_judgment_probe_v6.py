@@ -240,7 +240,116 @@ def unload(model: str) -> None:
         urllib.request.urlopen(req, timeout=20).read()
 
 
-def run_case(model: str, case: dict) -> dict:
+_SAMPLING_KEYS = ("temperature", "top_p", "top_k", "min_p", "repeat_penalty", "num_ctx")
+
+
+def _post(path: str, payload: dict, timeout: int = 120) -> dict:
+    req = urllib.request.Request(
+        f"{OLLAMA_URL}{path}",
+        data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as r:  # noqa: S310 - fixed localhost
+        return json.load(r)
+
+
+def preflight(model: str) -> dict:
+    """Verify the seat is usable before scoring it (Y28 + the operator's note
+    that chat templates / sampling settings are often wrong out of the box):
+
+    - capture the modelfile's baked sampling params + context length
+    - a strict-JSON round-trip: is the output one parseable object?
+    - a thinking-leak check: does raw output contain <think>?
+    - a system-honored check: does a system instruction override a naive read
+      of the user message?
+
+    Returns the baked options to use for scoring and a verdict; a seat that
+    fails preflight is still scored but every number is flagged config_unverified.
+    """
+    out: dict = {"model": model}
+    with contextlib.suppress(Exception):
+        show = _post("/api/show", {"model": model}, timeout=60)
+        params = {}
+        for line in (show.get("parameters") or "").splitlines():
+            k, _, v = line.strip().partition(" ")
+            if k in _SAMPLING_KEYS:
+                with contextlib.suppress(ValueError):
+                    params[k] = float(v) if "." in v else int(v)
+        out["baked_params"] = params
+        out["template_sha"] = _sha(show.get("template", ""))
+        out["num_ctx_baked"] = params.get("num_ctx")
+
+    opts = {"temperature": 0.0, "num_predict": 200}
+    try:
+        r1 = _post(
+            "/api/chat",
+            {
+                "model": model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": 'Reply with exactly {"ok": true} and nothing else.',
+                    },
+                    {"role": "user", "content": "go"},
+                ],
+                "stream": False,
+                "format": "json",
+                "think": False,
+                "options": opts,
+            },
+        )
+        raw = (r1.get("message") or {}).get("content", "") or ""
+        out["json_ok"] = parse_output(raw) is not None or _is_json(raw)
+        out["think_leak"] = "<think>" in raw.lower()
+    except Exception as e:  # noqa: BLE001
+        out["json_ok"] = False
+        out["error"] = str(e)
+
+    try:
+        r2 = _post(
+            "/api/chat",
+            {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": "Always answer the single word: BLUE."},
+                    {"role": "user", "content": "What colour is grass? Answer in one word."},
+                ],
+                "stream": False,
+                "think": False,
+                "options": {"temperature": 0.0, "num_predict": 20},
+            },
+        )
+        out["system_honored"] = (
+            "blue" in ((r2.get("message") or {}).get("content", "") or "").lower()
+        )
+    except Exception:  # noqa: BLE001
+        out["system_honored"] = None
+
+    out["verdict"] = (
+        "OK" if (out.get("json_ok") and not out.get("think_leak")) else "CONFIG_UNVERIFIED"
+    )
+    unload(model)
+    return out
+
+
+def _sha(s: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(s.encode()).hexdigest()[:12]
+
+
+def _is_json(s: str) -> bool:
+    with contextlib.suppress(json.JSONDecodeError):
+        json.loads(s.strip())
+        return True
+    return False
+
+
+def run_case(model: str, case: dict, baked: dict | None = None) -> dict:
+    # the model's own baked sampling params (from /api/show), with a
+    # deterministic temperature and a fixed predict budget for the task
+    opts = {k: v for k, v in (baked or {}).items() if k != "num_ctx"}
+    opts.update({"temperature": 0.0, "num_predict": 700})
     payload = {
         "model": model,
         "messages": [
@@ -249,9 +358,9 @@ def run_case(model: str, case: dict) -> dict:
         ],
         "stream": False,
         "format": "json",
-        "think": False,  # Qwen3/DeepSeek templates open <think> by default and
-        # loop or truncate on a strict-JSON task unless reasoning is suppressed
-        "options": {"temperature": 0.0, "num_predict": 700},
+        "think": False,  # Qwen3/DeepSeek/GLM-Z1 templates open <think> by default
+        # and loop or truncate on a strict-JSON task unless reasoning is suppressed
+        "options": opts,
     }
     req = urllib.request.Request(
         f"{OLLAMA_URL}/api/chat",
@@ -284,6 +393,13 @@ _MODEL_BUDGET_S = 2400  # a model that cannot finish 30 cases in 40 min is a
 
 
 def run_model(model: str, cases: list[dict]) -> dict:
+    pf = preflight(model)
+    print(
+        f"  preflight: {pf['verdict']}  json_ok={pf.get('json_ok')} "
+        f"think_leak={pf.get('think_leak')} system_honored={pf.get('system_honored')} "
+        f"ctx_baked={pf.get('num_ctx_baked')} params={pf.get('baked_params')}"
+    )
+    baked = pf.get("baked_params", {})
     packet_refs_by_case = []
     for c in cases:
         blob = " ".join([c["governing_ref"], c["governing_text"], *c.get("premises", [])])
@@ -296,7 +412,7 @@ def run_model(model: str, cases: list[dict]) -> dict:
             scored.append(score_case(case, None, prefs))
             print(f"  {case['id']:8} SKIPPED (model over {_MODEL_BUDGET_S}s budget)")
             continue
-        run = run_case(model, case)
+        run = run_case(model, case, baked)
         runs.append(run)
         scored.append(score_case(case, run.get("parsed"), prefs))
         print(
@@ -315,7 +431,8 @@ def run_model(model: str, cases: list[dict]) -> dict:
     agg["max_prompt_tokens"] = max(prompt_toks) if prompt_toks else None
     agg["median_tps"] = sorted(tpss)[len(tpss) // 2] if tpss else None
     agg["errors"] = sum(1 for r in runs if r.get("error"))
-    return {"model": model, "aggregate": agg, "runs": runs, "case_scores": scored}
+    agg["config_unverified"] = pf["verdict"] != "OK"
+    return {"model": model, "preflight": pf, "aggregate": agg, "runs": runs, "case_scores": scored}
 
 
 def main() -> None:
