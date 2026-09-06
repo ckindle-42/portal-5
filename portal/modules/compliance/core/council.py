@@ -180,7 +180,13 @@ def _ollama_seat(model: str, system: str, user: str) -> str:
         "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
         "stream": False,
         "format": "json",
-        "options": {"temperature": 0.0, "num_predict": 700},
+        # Qwen3 / DeepSeek / GLM-Z1 / Granite-thinking templates open <think> by
+        # default; on a strict-JSON task that either leaks into the content or
+        # eats the predict budget before the closing brace, and the seat drops
+        # to "no JSON object". Suppress it — a seat that needs delimited
+        # reasoning is disqualified at D0-M anyway.
+        "think": False,
+        "options": {"temperature": 0.0, "num_predict": 900},
     }
     req = urllib.request.Request(
         "http://localhost:11434/api/chat",
