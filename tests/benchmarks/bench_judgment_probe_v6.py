@@ -249,6 +249,8 @@ def run_case(model: str, case: dict) -> dict:
         ],
         "stream": False,
         "format": "json",
+        "think": False,  # Qwen3/DeepSeek templates open <think> by default and
+        # loop or truncate on a strict-JSON task unless reasoning is suppressed
         "options": {"temperature": 0.0, "num_predict": 700},
     }
     req = urllib.request.Request(
@@ -277,13 +279,23 @@ def run_case(model: str, case: dict) -> dict:
     }
 
 
+_MODEL_BUDGET_S = 2400  # a model that cannot finish 30 cases in 40 min is a
+# capability/thinking-mode failure — record what ran and move on
+
+
 def run_model(model: str, cases: list[dict]) -> dict:
     packet_refs_by_case = []
     for c in cases:
         blob = " ".join([c["governing_ref"], c["governing_text"], *c.get("premises", [])])
         packet_refs_by_case.append(std_nums(blob))
     runs, scored = [], []
+    t_start = time.monotonic()
     for case, prefs in zip(cases, packet_refs_by_case, strict=True):
+        if time.monotonic() - t_start > _MODEL_BUDGET_S:
+            runs.append({"id": case["id"], "error": "model budget exceeded — skipped"})
+            scored.append(score_case(case, None, prefs))
+            print(f"  {case['id']:8} SKIPPED (model over {_MODEL_BUDGET_S}s budget)")
+            continue
         run = run_case(model, case)
         runs.append(run)
         scored.append(score_case(case, run.get("parsed"), prefs))
@@ -324,11 +336,26 @@ def main() -> None:
     assert len(cases) == 30, f"probe has {len(cases)} cases, expected 30"
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     ts = _dt.datetime.now(_dt.UTC).strftime("%Y%m%dT%H%M%SZ")
+    out = RESULTS_DIR / f"judgment_probe_v6_{ts}.json"
     results = []
     for m in models:
         print(f"\n=== {m} ===")
         results.append(run_model(m, cases))
-    out = RESULTS_DIR / f"judgment_probe_v6_{ts}.json"
+        # incremental write — a later hang never loses the models already done
+        out.write_text(
+            json.dumps(
+                {
+                    "probe": "judgment_probe_v6",
+                    "probe_sha": _probe_sha(),
+                    "utc": ts,
+                    "hardware": _hw(),
+                    "n_cases": len(cases),
+                    "models": results,
+                    "complete": False,
+                },
+                indent=2,
+            )
+        )
     out.write_text(
         json.dumps(
             {
