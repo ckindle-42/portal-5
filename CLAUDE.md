@@ -89,7 +89,7 @@ See `KNOWN_LIMITATIONS.md` before adding tasks or filing issues — some items a
 
 ## Reference Docs
 
-`config/backends.yaml` · `config/personas/` · `docs/HOWTO.md` (speech, transcription) · `docs/MCP_DEV_TOOLING.md` · `docs/CLUSTER_SCALE.md` · `docs/ADMIN_GUIDE.md` · `docs/ALERTS.md` · `config/PENDING_MODEL_VERDICTS.md` (bench-evaluated models awaiting a promote/decline decision — regenerate via `scripts/model_cleanup_audit.py`, `- [x]` lines persist across reruns).
+`config/backends.yaml` · `config/personas/` · `docs/HOWTO.md` (speech, transcription) · `docs/MCP_DEV_TOOLING.md` · `docs/CLUSTER_SCALE.md` · `docs/ADMIN_GUIDE.md` · `docs/ALERTS.md` · `docs/TASK_WORKSPACE_FITNESS_EVAL_V1.md (governing: real-use workspace fitness evaluation; removals HELD until it completes) · docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md` (authoritative final disposition register — every model identity is INTEGRATED, RETAINED_FOR_PURPOSE, or REMOVED_CLOSED; no pending category exists; `scripts/model_cleanup_audit.py` reports dispositions + cleanup exceptions from `docs/MODEL_FLEET_CLOSEOUT_20260906.tasks.json`).
 
 ## Portal Wiki — Canonical Knowledge Layer
 

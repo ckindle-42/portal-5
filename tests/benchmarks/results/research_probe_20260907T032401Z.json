@@ -1,0 +1,601 @@
+{
+  "generated_at": "20260907T032401Z",
+  "candidate": "huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k",
+  "incumbent": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M",
+  "qset_path": "tests/benchmarks/fixtures/research_eval_qset.jsonl",
+  "candidate_summary": {
+    "n": 10,
+    "factuality_pass": 4,
+    "factuality_partial": 1,
+    "factuality_fail": 5,
+    "factuality_pass_rate": 0.4,
+    "avg_synthesis_1_5": 2.1,
+    "avg_citation_grounding": 0.0,
+    "avg_latency_s": 44.9,
+    "errors": 1
+  },
+  "incumbent_summary": {
+    "n": 10,
+    "factuality_pass": 8,
+    "factuality_partial": 0,
+    "factuality_fail": 2,
+    "factuality_pass_rate": 0.8,
+    "avg_synthesis_1_5": 4.5,
+    "avg_citation_grounding": 0.2,
+    "avg_latency_s": 57.4,
+    "errors": 0
+  },
+  "verdict": "INCUMBENT_WINS",
+  "candidate_results": [
+    {
+      "qid": "rq01",
+      "question": "What was the final crewed launch vehicle NASA selected for the Artemis III lunar landing, and which company built the human landing system?",
+      "checkable": "Space Launch System (SLS) for launch; SpaceX Starship HLS (Human Landing System) for the lunar lander.",
+      "final_answer": "",
+      "hops_used": 0,
+      "tool_calls": [],
+      "searched_or_fetched": [],
+      "citation_grounding": 0.0,
+      "factuality": "FAIL",
+      "synthesis_1_5": 1,
+      "error": "ReadTimeout: timed out",
+      "latency_s": 300.0
+    },
+    {
+      "qid": "rq02",
+      "question": "As of the most recent public data, what is the approximate current population of Japan, and is it growing or shrinking?",
+      "checkable": "Approximately 123-124 million as of recent years; population has been shrinking/declining for over a decade.",
+      "final_answer": "We need to answer: approximate current population of Japan, and whether it's growing or shrinking, based on most recent public data. We'll need to fetch recent data. Likely the most recent public data is from the Japanese Statistics Bureau, maybe 2023 or 2024 estimates. Could also be UN World Population prospects. We'll need to search.\n\nWe need to use the provided tools: search, web_fetch. We'll do a search for \"Japan population 2023\", \"Japan population 2024\", \"Japan population growth shrinking\". We'll use the search function with multiple queries.\n\nLet's call the search function with queries: \n- \"Japan population 2023\"\n- \"Japan population 2024\"\n- \"Japan population growth rate 2023\"\n- \"Japan population 2024 estimate\"\n- \"Japan population 2025 projection\"\n- \"Japan population shrinking or growing 2023\"\n\nWe'll then need to fetch the top results. We'll need to parse the search results. The search tool returns top 10 results for each query. We'll need to inspect the output.\n\nAfter that, we need to extract the approximate current population (maybe around 125-126 million). We'll need to confirm if it's growing or shrinking: According to recent data, Japan's population peaked around 2020 at about 126 million and has been declining slightly, with a negative growth rate of about -0.2% per year. In 2023, the population might be around 125.5 million, and in 2024 maybe 125.8 million. Also, the UN World Population Prospects 2022 might have a projection: 125.8 million in 2023, 126.0 million in 2024, and a slight growth until 2025, but overall it's expected to be stable or slightly growing. We need to check.\n\nWe'll need to fetch the actual numbers. Let's start with the search.\n",
+      "hops_used": 0,
+      "tool_calls": [],
+      "searched_or_fetched": [],
+      "citation_grounding": 0.0,
+      "factuality": "FAIL",
+      "synthesis_1_5": 1,
+      "error": null,
+      "latency_s": 18.1
+    },
+    {
+      "qid": "rq03",
+      "question": "What is the name of the current(most recent) Federal Reserve Chair, and when does their term expire?",
+      "checkable": "Jerome Powell; term as Chair runs through May 2026 (confirmed 2022, four-year term).",
+      "final_answer": "The user asks: \"What is the name of the current (most recent) Federal Reserve Chair, and when does their term expire?\" We need to provide the name of the current Fed Chair and the term expiration date.\n\nAs of now (2025), the current Fed Chair is Jerome Powell. He was appointed in February 2018, and his term as Fed Chair expires in... Let's recall: The Fed Chair serves a 4-year term, but can be reappointed. Jerome Powell's term started on February 5, 2018. He was initially appointed for a four-year term, so his term would expire on February 5, 2022. However, he was reappointed by President Biden and confirmed by the Senate in 2022, and his term may be set to expire on... Actually, the Fed Chair's term is a 4-year term, but the term expiration is the date when the current term ends. Let's verify.\n\nWe need to find the most recent Fed Chair and when their term expires. The current Fed Chair is Jerome Powell. His term expires on... Let's search.\n",
+      "hops_used": 0,
+      "tool_calls": [],
+      "searched_or_fetched": [],
+      "citation_grounding": 0.0,
+      "factuality": "FAIL",
+      "synthesis_1_5": 1,
+      "error": null,
+      "latency_s": 7.1
+    },
+    {
+      "qid": "rq04",
+      "question": "What programming language is Rust primarily designed to compete with/replace for systems programming, and who originally created Rust?",
+      "checkable": "Positioned as a safer alternative to C/C++; originally created by Graydon Hoare at Mozilla.",
+      "final_answer": "The user asks: \"What programming language is Rust primarily designed to compete with/replace for systems programming, and who originally created Rust?\" So we need to answer: Rust is primarily designed to compete with C and C++ for systems programming, and originally created by Graydon Hoare (or maybe also by Mozilla team). Let's verify. We'll search.\n",
+      "hops_used": 0,
+      "tool_calls": [],
+      "searched_or_fetched": [],
+      "citation_grounding": 0.0,
+      "factuality": "PASS",
+      "synthesis_1_5": 2,
+      "error": null,
+      "latency_s": 4.4
+    },
+    {
+      "qid": "rq05",
+      "question": "What is the tallest building in the world as of recent record, and in which city is it located?",
+      "checkable": "Burj Khalifa, Dubai, UAE (828m) remains the tallest completed building as of recent record.",
+      "final_answer": "{\"name\": \"search\", \"arguments\": {\"query\":[\"List of tallest buildings Burj Khalifa height\", \"Jeddah Tower height 2023\", \"Merdeka 118 height 2023\"]}}\n</tool_call>",
+      "hops_used": 5,
+      "tool_calls": [
+        {
+          "name": "web_search",
+          "args": {
+            "query": [
+              "tallest building in the world 2023",
+              "Burj Khalifa current height",
+              "Jeddah Tower progress 2023",
+              "Merdeka 118 height and completion"
+            ]
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": [
+              "https://en.m.wikipedia.org/wiki/List_of_tallest_buildings",
+              "https://www.skyscrapercenter.com/buildings"
+            ],
+            "goal": "Extract current tallest building data and compare heights of Burj Khalifa, Jeddah Tower, and Merdeka 118"
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": [
+              "https://en.wikipedia.org/wiki/List_of_tallest_buildings",
+              "https://www.skyscrapercenter.com/buildings"
+            ],
+            "goal": "Extract current tallest building data and compare heights of Burj Khalifa, Jeddah Tower, and Merdeka 118"
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "goal": "Extract current tallest building data and compare heights of Burj Khalifa, Jeddah Tower, and Merdeka 118",
+            "url": [
+              "https://en.wikipedia.org/wiki/List_of_tallest_buildings",
+              "https://www.skyscrapercenter.com/buildings"
+            ]
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "goal": "Extract current tallest building data and compare heights of Burj Khalifa, Jeddah Tower, and Merdeka 118",
+            "url": [
+              "https://en.wikipedia.org/wiki/List_of_tallest_buildings",
+              "https://www.skyscrapercenter.com/buildings"
+            ]
+          }
+        }
+      ],
+      "searched_or_fetched": [
+        "[\"tallest building in the world 2023\", \"Burj Khalifa current height\", \"Jeddah Tower progress 2023\", \"Merdeka 118 height and completion\"]",
+        "[\"https://en.m.wikipedia.org/wiki/List_of_tallest_buildings\", \"https://www.skyscrapercenter.com/buildings\"]",
+        "[\"https://en.wikipedia.org/wiki/List_of_tallest_buildings\", \"https://www.skyscrapercenter.com/buildings\"]",
+        "[\"https://en.wikipedia.org/wiki/List_of_tallest_buildings\", \"https://www.skyscrapercenter.com/buildings\"]",
+        "[\"https://en.wikipedia.org/wiki/List_of_tallest_buildings\", \"https://www.skyscrapercenter.com/buildings\"]"
+      ],
+      "citation_grounding": 0.0,
+      "factuality": "FAIL",
+      "synthesis_1_5": 1,
+      "error": null,
+      "latency_s": 69.3
+    },
+    {
+      "qid": "rq06",
+      "question": "Which company developed the GPT model family, and what is the name of their most recent flagship API-accessible model line as of 2026?",
+      "checkable": "OpenAI developed GPT; flagship lines include GPT-5.x/GPT-5.2-class models as of 2026 (accept any well-sourced 2026-era GPT-5.x naming).",
+      "final_answer": "We need to answer: Which company developed the GPT model family, and what is the name of their most recent flagship API-accessible model line as of 2026?\n\nWe need to identify the company that developed GPT model family (likely OpenAI). And the most recent flagship API-accessible model line as of 2026. As of 2026, likely the most recent flagship model line is \"GPT-4 Turbo\"? Or \"GPT-4o\"? Or \"GPT-5\"? Let's think.\n\nOpenAI has released GPT-3, GPT-3.5, GPT-4, GPT-4 Turbo. In 2023, GPT-4 Turbo was introduced. In 2024, they might have introduced GPT-4.5? Or \"GPT-4.5\" or \"GPT-4 Turbo 2024\"? As of 2026, maybe they have \"GPT-5\" or \"GPT-4.5\"? Let's search.\n\nWe need to search for \"OpenAI GPT model family\" and \"most recent flagship API-accessible model line as of 2026\". Use web search.\n",
+      "hops_used": 0,
+      "tool_calls": [],
+      "searched_or_fetched": [],
+      "citation_grounding": 0.0,
+      "factuality": "FAIL",
+      "synthesis_1_5": 1,
+      "error": null,
+      "latency_s": 8.4
+    },
+    {
+      "qid": "rq07",
+      "question": "What is the boiling point of water at standard atmospheric pressure (sea level), in Celsius, and how does altitude affect it?",
+      "checkable": "100\u00b0C at sea level (1 atm); boiling point decreases with increasing altitude due to lower atmospheric pressure.",
+      "final_answer": "The boiling point of water at standard atmospheric pressure (100 kPa at sea level) is **100\u00b0C (212\u00b0F)**. \n\n### Effect of Altitude on Boiling Point:\nAs altitude increases, atmospheric pressure decreases, which lowers the boiling point of water. This occurs because reduced pressure requires less energy for water molecules to escape into the vapor phase. \n\n- **Rule of thumb**: For every 152 meters (\u2248500 feet) increase in elevation, the boiling point decreases by ~1\u00b0C.\n- **Examples**:\n  - At 1,520 meters (5,000 feet), water boils at ~95\u00b0C (203\u00b0F).\n  - At 3,050 meters (10,000 feet), it boils at ~90\u00b0C (194\u00b0F).\n\nThis relationship is critical for cooking, brewing, and industrial processes at high altitudes. \n\nSources: Wikipedia, Chemistry LibreTexts, Merriam-Webster.",
+      "hops_used": 2,
+      "tool_calls": [
+        {
+          "name": "web_search",
+          "args": {
+            "query": [
+              "boiling point of water at standard atmospheric pressure",
+              "effect of altitude on boiling point of water"
+            ]
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": [
+              "https://en.wikipedia.org/wiki/Boiling_point"
+            ],
+            "goal": "Extract the boiling point of water at standard atmospheric pressure and the effect of altitude on it."
+          }
+        }
+      ],
+      "searched_or_fetched": [
+        "[\"boiling point of water at standard atmospheric pressure\", \"effect of altitude on boiling point of water\"]",
+        "[\"https://en.wikipedia.org/wiki/Boiling_point\"]"
+      ],
+      "citation_grounding": 0.0,
+      "factuality": "PASS",
+      "synthesis_1_5": 5,
+      "error": null,
+      "latency_s": 23.2
+    },
+    {
+      "qid": "rq08",
+      "question": "What treaty or agreement is commonly cited as the primary international framework for limiting global greenhouse gas emissions post-2015, and what temperature target does it set?",
+      "checkable": "Paris Agreement (2015); aims to limit global warming to well below 2\u00b0C, pursuing efforts to limit to 1.5\u00b0C above pre-industrial levels.",
+      "final_answer": "Okay, the user asks: \"What treaty or agreement is commonly cited as the primary international framework for limiting global greenhouse gas emissions post-2015, and what temperature target does it set?\" They want the name of the treaty or agreement that is commonly cited as the primary international framework for limiting GHG emissions post-2015, and the temperature target it sets.\n\nWe need to answer: The primary international framework is the \"Paris Agreement\" (adopted in 2015, part of UNFCCC). It sets a temperature target: limit global warming to \"well below 2\u00b0C\" above pre-industrial levels, and pursue efforts to limit it to 1.5\u00b0C. So the answer: The Paris Agreement, with a target of limiting global temperature increase to \"well below 2\u00b0C\" and \"pursuing 1.5\u00b0C\" relative to pre-industrial levels.\n\nBut we should verify with sources. Let's search.\n",
+      "hops_used": 0,
+      "tool_calls": [],
+      "searched_or_fetched": [],
+      "citation_grounding": 0.0,
+      "factuality": "PASS",
+      "synthesis_1_5": 5,
+      "error": null,
+      "latency_s": 6.7
+    },
+    {
+      "qid": "rq09",
+      "question": "Who is the current Secretary-General of the United Nations, and what is their nationality?",
+      "checkable": "Ant\u00f3nio Guterres, Portuguese (term began Jan 2017, re-elected for second term through 2026).",
+      "final_answer": "The user asks: \"Who is the current Secretary-General of the United Nations, and what is their nationality?\" This is a straightforward question. We need to identify the current UN Secretary-General and their nationality.\n\nAs of 2025, the current Secretary-General is Ant\u00f3nio Guterres, who is Portuguese. He has been Secretary-General since January 1, 2017, and his nationality is Portuguese.\n\nWe should verify with a reliable source. We can search for \"current UN Secretary-General\" and \"Ant\u00f3nio Guterres nationality\".\n\nWe'll use the web search function to retrieve up-to-date info.\n",
+      "hops_used": 0,
+      "tool_calls": [],
+      "searched_or_fetched": [],
+      "citation_grounding": 0.0,
+      "factuality": "PASS",
+      "synthesis_1_5": 3,
+      "error": null,
+      "latency_s": 4.7
+    },
+    {
+      "qid": "rq10",
+      "question": "What vulnerability class does CVE identifiers typically track, and which organization maintains the official CVE database?",
+      "checkable": "CVEs track publicly disclosed cybersecurity vulnerabilities/exposures; the CVE Program is maintained/sponsored by MITRE Corporation (funded by CISA/DHS).",
+      "final_answer": "The user asks: \"What vulnerability class does CVE identifiers typically track, and which organization maintains the official CVE database?\" They want the vulnerability class that CVE identifiers typically track, and the organization that maintains the official CVE database.\n\nWe need to answer: CVE identifiers typically track Common Vulnerabilities and Exposures (CVE) which is a vulnerability class? Or they track \"vulnerabilities\" as a class. But perhaps they want \"Common Vulnerabilities and Exposures (CVE)\" as the class. Actually CVE is a list of vulnerabilities. The vulnerability class is \"Common Vulnerabilities and Exposures (CVE)\", but maybe they refer to \"CVE identifiers typically track vulnerabilities (i.e., they are a vulnerability class)\". But the question: \"What vulnerability class does CVE identifiers typically track, and which organization maintains the official CVE database?\" Possibly answer: CVE identifiers track the \"Common Vulnerabilities and Exposures (CVE)\" class, and the organization is \"MITRE Corporation\". However, the official CVE database is maintained by MITRE, but also the \"CVE Numbering Authority (CNA)\" and \"CVE Editorial Board\". But the official CVE database is maintained by MITRE, and the \"CVE\" is the vulnerability class. Let's search.\n",
+      "hops_used": 0,
+      "tool_calls": [],
+      "searched_or_fetched": [],
+      "citation_grounding": 0.0,
+      "factuality": "PARTIAL",
+      "synthesis_1_5": 1,
+      "error": null,
+      "latency_s": 7.2
+    }
+  ],
+  "incumbent_results": [
+    {
+      "qid": "rq01",
+      "question": "What was the final crewed launch vehicle NASA selected for the Artemis III lunar landing, and which company built the human landing system?",
+      "checkable": "Space Launch System (SLS) for launch; SpaceX Starship HLS (Human Landing System) for the lunar lander.",
+      "final_answer": "<tool_call>\n\n<function=web_fetch>\n<parameter=url>\nhttps://www.nasa.gov/news-release/nasa-selects-spacex-to-land-next-americans-on-the-moon/\n</parameter>\n</function>\n</tool_call>",
+      "hops_used": 5,
+      "tool_calls": [
+        {
+          "name": "web_search",
+          "args": {
+            "query": "NASA selected final crewed launch vehicle Artemis III lunar landing human landing system company built",
+            "num_results": 5
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": "https://www.nasa.gov/mission/artemis-iii/"
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "NASA selected launch vehicle for Artemis III lunar landing SLS Blue Origin human landing system",
+            "num_results": 10
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "\"final crewed launch vehicle\" \"Artemis III\" NASA selected",
+            "num_results": 10
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": "https://www.nasa.gov/reference/human-landing-systems-2/"
+          }
+        }
+      ],
+      "searched_or_fetched": [
+        "NASA selected final crewed launch vehicle Artemis III lunar landing human landing system company built",
+        "https://www.nasa.gov/mission/artemis-iii/",
+        "NASA selected launch vehicle for Artemis III lunar landing SLS Blue Origin human landing system",
+        "\"final crewed launch vehicle\" \"Artemis III\" NASA selected",
+        "https://www.nasa.gov/reference/human-landing-systems-2/"
+      ],
+      "citation_grounding": 1.0,
+      "factuality": "FAIL",
+      "synthesis_1_5": 1,
+      "error": null,
+      "latency_s": 78.9
+    },
+    {
+      "qid": "rq02",
+      "question": "As of the most recent public data, what is the approximate current population of Japan, and is it growing or shrinking?",
+      "checkable": "Approximately 123-124 million as of recent years; population has been shrinking/declining for over a decade.",
+      "final_answer": "As of the most recent public data I found, Japan\u2019s population is **about 123.05 million people** as of **October 1, 2025**.\n\nAccording to Japan\u2019s **Statistics Bureau** \u2014 a primary official source \u2014 the total population of Japan as of October 1, 2025 was **123.05 million**. The same source indicates the population is **shrinking**: Japan\u2019s population has been declining for many years, with births continuing to fall below deaths.\n\nFor comparison, Worldometer\u2019s 2026 estimate \u2014 a secondary source using UN data \u2014 puts Japan\u2019s 2026 population at about **122.43 million**, also showing a decline of roughly **0.55%** year over year.\n\n**Bottom line:** Japan\u2019s population is approximately **123 million** and is **shrinking**.",
+      "hops_used": 5,
+      "tool_calls": [
+        {
+          "name": "web_search",
+          "args": {
+            "query": "Japan Statistics Bureau population estimates latest 2026 population Japan current",
+            "num_results": 5
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": "https://www.stat.go.jp/english/data/jinsui/2.html"
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "site:stat.go.jp/english/data/jinsui Population Estimates Monthly Report Japan 2025 October 1 2025 population",
+            "num_results": 10
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": "https://www.stat.go.jp/english/data/jinsui/tsuki/index.htm"
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": "https://www.worldometers.info/world-population/japan-population/"
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "Japan population 2025 2026 official Statistics Bureau October 1 2025 population estimates",
+            "num_results": 10
+          }
+        }
+      ],
+      "searched_or_fetched": [
+        "Japan Statistics Bureau population estimates latest 2026 population Japan current",
+        "https://www.stat.go.jp/english/data/jinsui/2.html",
+        "site:stat.go.jp/english/data/jinsui Population Estimates Monthly Report Japan 2025 October 1 2025 population",
+        "https://www.stat.go.jp/english/data/jinsui/tsuki/index.htm",
+        "https://www.worldometers.info/world-population/japan-population/",
+        "Japan population 2025 2026 official Statistics Bureau October 1 2025 population estimates"
+      ],
+      "citation_grounding": 0.0,
+      "factuality": "PASS",
+      "synthesis_1_5": 5,
+      "error": null,
+      "latency_s": 47.0
+    },
+    {
+      "qid": "rq03",
+      "question": "What is the name of the current(most recent) Federal Reserve Chair, and when does their term expire?",
+      "checkable": "Jerome Powell; term as Chair runs through May 2026 (confirmed 2022, four-year term).",
+      "final_answer": "The current (most recent) Federal Reserve Chair is **Kevin M. Warsh**.\n\nHis term as Fed Chair expires on **May 21, 2030**.\n\nSource: Federal Reserve Board biography and press release, which state that Kevin Warsh took office as chairman on **May 22, 2026**, and that his chair term ends **May 21, 2030**.",
+      "hops_used": 3,
+      "tool_calls": [
+        {
+          "name": "web_search",
+          "args": {
+            "query": "Federal Reserve Chair Jerome Powell term expires May 27 2026 official",
+            "num_results": 5
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "site:federalreserve.gov Warsh Chair Federal Reserve May 22 2026 term ends May 21 2030",
+            "num_results": 10
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": "https://www.federalreserve.gov/aboutthefed/bios/board/warsh.htm"
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": "https://www.federalreserve.gov/newsevents/pressreleases/other20260522a.htm"
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": "https://www.congress.gov/crs-product/R48233"
+          }
+        }
+      ],
+      "searched_or_fetched": [
+        "Federal Reserve Chair Jerome Powell term expires May 27 2026 official",
+        "site:federalreserve.gov Warsh Chair Federal Reserve May 22 2026 term ends May 21 2030",
+        "https://www.federalreserve.gov/aboutthefed/bios/board/warsh.htm",
+        "https://www.federalreserve.gov/newsevents/pressreleases/other20260522a.htm",
+        "https://www.congress.gov/crs-product/R48233"
+      ],
+      "citation_grounding": 0.0,
+      "factuality": "FAIL",
+      "synthesis_1_5": 4,
+      "error": null,
+      "latency_s": 30.5
+    },
+    {
+      "qid": "rq04",
+      "question": "What programming language is Rust primarily designed to compete with/replace for systems programming, and who originally created Rust?",
+      "checkable": "Positioned as a safer alternative to C/C++; originally created by Graydon Hoare at Mozilla.",
+      "final_answer": "Rust was primarily designed to compete with **C++** as a safe systems-programming language.\n\nIt was originally created by **Graydon Hoare**, who began Rust as a personal project while working at Mozilla.",
+      "hops_used": 1,
+      "tool_calls": [
+        {
+          "name": "web_search",
+          "args": {
+            "query": "Rust designed to compete with C++ replace for systems programming creator Graydon Hoare",
+            "num_results": 5
+          }
+        }
+      ],
+      "searched_or_fetched": [
+        "Rust designed to compete with C++ replace for systems programming creator Graydon Hoare"
+      ],
+      "citation_grounding": 0.0,
+      "factuality": "PASS",
+      "synthesis_1_5": 5,
+      "error": null,
+      "latency_s": 7.0
+    },
+    {
+      "qid": "rq05",
+      "question": "What is the tallest building in the world as of recent record, and in which city is it located?",
+      "checkable": "Burj Khalifa, Dubai, UAE (828m) remains the tallest completed building as of recent record.",
+      "final_answer": "The tallest building in the world as of the most recent records is the Burj Khalifa, which is located in Dubai, United Arab Emirates. It stands at a height of 828 meters (2,717 feet), and has held the title of the world's tallest building since its completion in 2010.",
+      "hops_used": 0,
+      "tool_calls": [],
+      "searched_or_fetched": [],
+      "citation_grounding": 0.0,
+      "factuality": "PASS",
+      "synthesis_1_5": 5,
+      "error": null,
+      "latency_s": 1.8
+    },
+    {
+      "qid": "rq06",
+      "question": "Which company developed the GPT model family, and what is the name of their most recent flagship API-accessible model line as of 2026?",
+      "checkable": "OpenAI developed GPT; flagship lines include GPT-5.x/GPT-5.2-class models as of 2026 (accept any well-sourced 2026-era GPT-5.x naming).",
+      "final_answer": "OpenAI developed the GPT model family.\n\nThe latest confirmed API-accessible flagship as of the current date in 2026 is **GPT-5.5 / GPT-5.5 Pro**, which OpenAI said became available in the API on **Apr 24, 2026**.\n\nIf you meant the newest announced line rather than the latest confirmed current one, it\u2019s **GPT-5.6 Sol**. Some of the GPT-5.6 Sol results I found are future-dated relative to the system date, so I can\u2019t verify them as current.\n\n**Primary sources:** OpenAI\u2019s release notes and API docs  \n**Secondary sources:** Brave/OpenRouter search snippets\n\n- OpenAI release notes: https://help.openai.com/en/articles/9624314-model-release-notes  \n- OpenAI API docs: https://developers.openai.com/api/docs/models  \n- OpenAI GPT-5.5 page: https://openai.com/index/introducing-gpt-5-5/",
+      "hops_used": 5,
+      "tool_calls": [
+        {
+          "name": "web_search",
+          "args": {
+            "query": "OpenAI GPT model family developed by company GPT-5 API 2026 flagship model line",
+            "num_results": 5
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "site:openai.com/index GPT-5.2 OpenAI flagship model API 2026",
+            "num_results": 10
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": "https://openai.com/index/introducing-gpt-5-5/"
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": "https://openai.com/index/gpt-5-6/"
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": "https://help.openai.com/en/articles/9624314-model-release-notes"
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "OpenAI API models GPT-5.6 Sol API model name 2026",
+            "num_results": 10
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": "https://developers.openai.com/api/docs/models"
+          }
+        }
+      ],
+      "searched_or_fetched": [
+        "OpenAI GPT model family developed by company GPT-5 API 2026 flagship model line",
+        "site:openai.com/index GPT-5.2 OpenAI flagship model API 2026",
+        "https://openai.com/index/introducing-gpt-5-5/",
+        "https://openai.com/index/gpt-5-6/",
+        "https://help.openai.com/en/articles/9624314-model-release-notes",
+        "OpenAI API models GPT-5.6 Sol API model name 2026",
+        "https://developers.openai.com/api/docs/models"
+      ],
+      "citation_grounding": 1.0,
+      "factuality": "PASS",
+      "synthesis_1_5": 5,
+      "error": null,
+      "latency_s": 385.7
+    },
+    {
+      "qid": "rq07",
+      "question": "What is the boiling point of water at standard atmospheric pressure (sea level), in Celsius, and how does altitude affect it?",
+      "checkable": "100\u00b0C at sea level (1 atm); boiling point decreases with increasing altitude due to lower atmospheric pressure.",
+      "final_answer": "At standard atmospheric pressure at sea level \u2014 1 atm or 101.325 kPa \u2014 water boils at **100\u00b0C**.\n\nAltitude affects the boiling point because **air pressure decreases as altitude increases**. With lower pressure, water molecules need less thermal energy to escape into vapor, so **water boils at a lower temperature at higher elevations**.\n\nApproximate rule of thumb:\n\n- Boiling point drops by about **1\u00b0C for every 285 meters** of elevation gain  \n  or about **0.5\u00b0C for every 1,000 feet**\n- Examples:\n  - Sea level: **100\u00b0C**\n  - 1,500 m / ~5,000 ft: about **95\u00b0C**\n  - 3,000 m / ~10,000 ft: about **90\u00b0C**\n\nThis is why cooking times often need to be longer at high altitude, especially for boiling foods like pasta or eggs.",
+      "hops_used": 0,
+      "tool_calls": [],
+      "searched_or_fetched": [],
+      "citation_grounding": 0.0,
+      "factuality": "PASS",
+      "synthesis_1_5": 5,
+      "error": null,
+      "latency_s": 9.2
+    },
+    {
+      "qid": "rq08",
+      "question": "What treaty or agreement is commonly cited as the primary international framework for limiting global greenhouse gas emissions post-2015, and what temperature target does it set?",
+      "checkable": "Paris Agreement (2015); aims to limit global warming to well below 2\u00b0C, pursuing efforts to limit to 1.5\u00b0C above pre-industrial levels.",
+      "final_answer": "The **Paris Agreement** is commonly cited as the primary international framework for limiting global greenhouse gas emissions after 2015.\n\nIt sets the temperature goal of keeping the increase in global average temperature to **well below 2\u00b0C above pre-industrial levels**, while pursuing efforts to limit the increase to **1.5\u00b0C**.",
+      "hops_used": 0,
+      "tool_calls": [],
+      "searched_or_fetched": [],
+      "citation_grounding": 0.0,
+      "factuality": "PASS",
+      "synthesis_1_5": 5,
+      "error": null,
+      "latency_s": 4.4
+    },
+    {
+      "qid": "rq09",
+      "question": "Who is the current Secretary-General of the United Nations, and what is their nationality?",
+      "checkable": "Ant\u00f3nio Guterres, Portuguese (term began Jan 2017, re-elected for second term through 2026).",
+      "final_answer": "The current Secretary-General of the United Nations is Ant\u00f3nio Guterres, and his nationality is Portuguese.\n\nIf you need additional context about his tenure or role, feel free to ask.",
+      "hops_used": 0,
+      "tool_calls": [],
+      "searched_or_fetched": [],
+      "citation_grounding": 0.0,
+      "factuality": "PASS",
+      "synthesis_1_5": 5,
+      "error": null,
+      "latency_s": 1.0
+    },
+    {
+      "qid": "rq10",
+      "question": "What vulnerability class does CVE identifiers typically track, and which organization maintains the official CVE database?",
+      "checkable": "CVEs track publicly disclosed cybersecurity vulnerabilities/exposures; the CVE Program is maintained/sponsored by MITRE Corporation (funded by CISA/DHS).",
+      "final_answer": "CVE identifiers typically track **publicly disclosed cybersecurity vulnerabilities and exposures**\u2014for example, software or firmware security flaws that have been assigned a unique CVE ID.\n\nThe official CVE database is maintained by **MITRE**, through the **CVE Program**.\n\nA related official source is the **National Vulnerability Database (NVD)** run by NIST, which enriches and mirrors CVE data, but the official CVE list/database is MITRE\u2019s.",
+      "hops_used": 1,
+      "tool_calls": [
+        {
+          "name": "web_search",
+          "args": {
+            "query": "CVE vulnerability class what does CVE track official CVE database maintained by MITRE",
+            "num_results": 5
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "CVE Program official database maintained by MITRE CVE identifiers track vulnerabilities",
+            "num_results": 5
+          }
+        }
+      ],
+      "searched_or_fetched": [
+        "CVE vulnerability class what does CVE track official CVE database maintained by MITRE",
+        "CVE Program official database maintained by MITRE CVE identifiers track vulnerabilities"
+      ],
+      "citation_grounding": 0.0,
+      "factuality": "PASS",
+      "synthesis_1_5": 5,
+      "error": null,
+      "latency_s": 8.8
+    }
+  ]
+}

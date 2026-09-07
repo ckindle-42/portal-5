@@ -1,0 +1,111 @@
+++ date -u +%FT%TZ
++ echo '===== BATCH research (54 challenges, 14 spaces) START 2026-08-31T14:46:02Z ====='
+===== BATCH research (54 challenges, 14 spaces) START 2026-08-31T14:46:02Z =====
++ python3 tests/portal5_uat_driver.py --adaptive --adaptive-space auto-data --adaptive-space persona:dashboardarchitect --adaptive-space persona:databasearchitect --adaptive-space persona:datascientist --adaptive-space persona:factchecker --adaptive-space persona:gemmaresearchanalyst --adaptive-space persona:kbnavigator --adaptive-space persona:machinelearningengineer --adaptive-space persona:marketanalyst --adaptive-space persona:paywalledresearcher --adaptive-space persona:researchanalyst --adaptive-space persona:statistician --adaptive-space persona:supergemma4researcher --adaptive-space persona:webresearcher --append
+
+Portal 5 UAT Driver
+OWUI: http://localhost:8080  |  User: admin@portal.local
+Results: tests/UAT_RESULTS_ADAPTIVE.md
+
+  [freshness] Checking Docker image freshness against git HEAD...
+  [freshness]   portal-pipeline: current (lag=-4477s)
+  [freshness]   mcp-services: current (lag=-82143s)
+  [freshness] All images are current.
+Adaptive UAT: 63 challenge(s) selected
+  Chat archival: conversations run in root → UAT/2026-08-31 on completion (or interrupt)
+  Corpus: tests/uat_corpus/uat_20260831T144604Z.jsonl
+  Logged in to Open WebUI
+
+  [monitor] Memory monitor started (poll every 20.0s)
+  [crash-watcher] Started — watching DiagnosticReports for crashes
+  Unloading all Ollama models ...
+  Unloading Ollama model: hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k
+  [verify] Ollama still has 1 model(s) loaded — retrying eviction (1/3)
+  Unloading all Ollama models ...
+  Unloading Ollama model: hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k
+  [verify] Ollama still has 1 model(s) loaded — retrying eviction (2/3)
+  Unloading all Ollama models ...
+  Unloading Ollama model: hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k
+[01/63] AUAT-auto-data-boundary 📊 Portal Data Analyst — boundary
+  [AUAT-auto-data-boundary] waiting for model to start… (0s elapsed)
+  [AUAT-auto-data-boundary] model streaming started (0s elapsed)
+  [monitor] CRITICAL: Memory at 97% — emergency eviction
+  Unloading all Ollama models ...
+  Unloading Ollama model: granite4.1:30b-ctx64k
+  [monitor] ABORT RISK: Memory still 96% after eviction — manual intervention may be needed
+  [monitor] CRITICAL: Memory at 96% — emergency eviction
+  Unloading all Ollama models ...
+  Unloading Ollama model: granite4.1:30b-ctx64k
+  [monitor] ABORT RISK: Memory still 96% after eviction — manual intervention may be needed
+  [monitor] CRITICAL: Memory at 96% — emergency eviction
+  Unloading all Ollama models ...
+  Unloading Ollama model: granite4.1:30b-ctx64k
+  [monitor] CRITICAL: Memory at 97% — emergency eviction
+  Unloading all Ollama models ...
+  Unloading Ollama model: granite4.1:30b-ctx64k
+  [monitor] ABORT RISK: Memory still 96% after eviction — manual intervention may be needed
+  [monitor] CRITICAL: Memory at 97% — emergency eviction
+  Unloading all Ollama models ...
+  Unloading Ollama model: granite4.1:30b-ctx64k
+  [monitor] CRITICAL: Memory at 96% — emergency eviction
+  Unloading all Ollama models ...
+  Unloading Ollama model: granite4.1:30b-ctx64k
+  [monitor] ABORT RISK: Memory still 96% after eviction — manual intervention may be needed
+  [monitor] CRITICAL: Memory at 96% — emergency eviction
+  Unloading all Ollama models ...
+  Unloading Ollama model: granite4.1:30b-ctx64k
+  [AUAT-auto-data-boundary] stream complete (stop button gone) (414s elapsed)
+  [⚠ WARN] AUAT-auto-data-boundary 📊 Portal Data Analyst — boundary (2/3=66%) (418.1s) [→auto-data]
+[02/63] AUAT-auto-data-breadth 📊 Portal Data Analyst — breadth
+  [AUAT-auto-data-breadth] waiting for model to start… (0s elapsed)
+  [AUAT-auto-data-breadth] model streaming started (0s elapsed)
+  [monitor] CRITICAL: Memory at 97% — emergency eviction
+  Unloading all Ollama models ...
+  Unloading Ollama model: granite4.1:30b-ctx64k
+  [monitor] ABORT RISK: Memory still 96% after eviction — manual intervention may be needed
+  [monitor] CRITICAL: Memory at 96% — emergency eviction
+  Unloading all Ollama models ...
+  Unloading Ollama model: granite4.1:30b-ctx64k
+  [monitor] ABORT RISK: Memory still 96% after eviction — manual intervention may be needed
+  [monitor] CRITICAL: Memory at 97% — emergency eviction
+  Unloading all Ollama models ...
+  Unloading Ollama model: granite4.1:30b-ctx64k
+  [monitor] ABORT RISK: Memory still 96% after eviction — manual intervention may be needed
+  [monitor] CRITICAL: Memory at 96% — emergency eviction
+  Unloading all Ollama models ...
+  Unloading Ollama model: granite4.1:30b-ctx64k
+  [monitor] ABORT RISK: Memory still 96% after eviction — manual intervention may be needed
+  [monitor] CRITICAL: Memory at 96% — emergency eviction
+  Unloading all Ollama models ...
+  Unloading Ollama model: granite4.1:30b-ctx64k
+  [monitor] ABORT RISK: Memory still 97% after eviction — manual intervention may be needed
+  [AUAT-auto-data-breadth] stream complete (stop button gone) (283s elapsed)
+  [✓ PASS] AUAT-auto-data-breadth 📊 Portal Data Analyst — breadth (2/2=100%) (287.4s) [→auto-data]
+  [mem] Post-test memory at 96% (same model) — evicting to clear KV cache residuals
+  Unloading all Ollama models ...
+  Unloading Ollama model: granite4.1:30b-ctx64k
+[03/63] AUAT-auto-data-depth 📊 Portal Data Analyst — depth
+  [AUAT-auto-data-depth] waiting for model to start… (0s elapsed)
+  [AUAT-auto-data-depth] model streaming started (0s elapsed)
+  [monitor] CRITICAL: Memory at 97% — emergency eviction
+  Unloading all Ollama models ...
+  Unloading Ollama model: granite4.1:30b-ctx64k
+  Unloading all Ollama models ...
+  Unloading Ollama model: granite4.1:30b-ctx64k
+  [monitor] ABORT RISK: Memory still 97% after eviction — manual intervention may be needed
+  [monitor] CRITICAL: Memory at 97% — emergency eviction
+  Unloading all Ollama models ...
+  Unloading Ollama model: granite4.1:30b-ctx64k
+  [monitor] ABORT RISK: Memory still 96% after eviction — manual intervention may be needed
+  [monitor] CRITICAL: Memory at 97% — emergency eviction
+  Unloading all Ollama models ...
+  Unloading Ollama model: granite4.1:30b-ctx64k
+  [monitor] ABORT RISK: Memory still 97% after eviction — manual intervention may be needed
+  [AUAT-auto-data-depth] stream complete (stop button gone) (252s elapsed)
+  [✗ FAIL] AUAT-auto-data-depth 📊 Portal Data Analyst — depth (1/2=50%) (256.4s) [→auto-data]
+[04/63] AUAT-auto-data-edge 📊 Portal Data Analyst — edge
+  [AUAT-auto-data-edge] waiting for model to start… (0s elapsed)
+  [AUAT-auto-data-edge] model streaming started (0s elapsed)
+  [monitor] CRITICAL: Memory at 97% — emergency eviction
+  Unloading all Ollama models ...
+  Unloading Ollama model: granite4.1:30b-ctx64k

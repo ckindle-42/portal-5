@@ -1,0 +1,41 @@
+# WFE workload map — which workspaces/suites/arms the evaluation session runs.
+# home        : the lane this workspace serves (primary fitness measurement)
+# discovery   : adjacent suites for cross-lane "works better at something else" search
+# arms        : home incumbent first, then contenders/use-probe models
+workloads:
+  auto-coding:
+    home: coding
+    discovery: [compliance_agentic]
+    arms:
+      incumbent: qwen3-coder:30b-a3b-q4_K_M-ctx256k
+      challengers: [kat-coder-v2.5-dev:Q4_K_M, orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M, glm-4.7-flash:Q4_K_M-ctx64k]
+  tools-specialist:
+    home: coding
+    discovery: [research]
+    arms:
+      incumbent: granite4.1:8b-ctx8k
+      challengers: [gemma4:e4b-it-qat, gemma4:e2b-it-qat, gemma4:e4b-it-q4_K_M]
+  auto-research:
+    home: research
+    discovery: [compliance_agentic]
+    arms:
+      incumbent: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k
+      challengers: [command-r:35b-08-2024-q4_K_M, granite4.2:30b-q4_K_M]
+  auto-documents:
+    home: research
+    discovery: []
+    arms:
+      incumbent: granite4.1:8b-ctx16k
+      challengers: [command-r:35b-08-2024-q4_K_M]
+  auto-general-uncensored:
+    home: creative
+    discovery: [research]
+    arms:
+      incumbent: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M
+      challengers: [orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M, huihui_ai/Qwen3.6-abliterated:27b-ctx8k, qwen36-fable-fusion-711:Q4_K_M]
+  auto-compliance:
+    home: compliance_agentic
+    discovery: [research]
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+      challengers: [granite4.2:30b-q4_K_M, gpt-oss:20b]

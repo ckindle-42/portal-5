@@ -1,0 +1,117 @@
+# Model card ground-truth registry — WFE Phase 0 research artifact
+#
+# Purpose: the settings auditor can only verify config-vs-config consistency.
+# This file is the config-vs-MODEL layer: what the card/manufacturer recommends
+# vs what our tags actually bake. Entries are keyed by model FAMILY (apply to
+# all tags whose name contains the family key, most-specific tag key wins).
+#
+# Field contract (per entry):
+#   recommended_sampling : card's preferred inference settings (exact values)
+#   max_context          : the context window the model actually supports (card)
+#   tools                : card-claimed native tool/function support
+#   template_source      : where a KNOWN-GOOD chat template comes from, when the
+#                          stock Ollama template is suspect
+#   known_good_template_sha : sha256[:12] of a template captured from a run that
+#                          PASSED behavioral probes (system-honored + JSON + no
+#                          think-leak) on this machine — the diff target
+#   behavioral_quirks    : failure modes proven in testing (not folklore)
+#   verified             : true only when source URL + date are recorded below
+#   harness_policy       : how the WFE harness must drive this family —
+#       think: 'default' | 'true' | 'false'  (api endpoint only; v1 has no knob)
+#       format_json_safe: bool               (false = format:json corrupts output)
+#       notes: known harness conflicts proven in testing
+#
+# HONESTY RULE: an entry without a source URL is research debt, not ground
+# truth. The auditor reports coverage of this file as WFE-0.6 progress.
+#
+# HARNESS RULE: every thinking-capable family needs harness_policy.think set
+# before WFE runs it (qwen3*, deepseek-r1, glm z1, phi4-reasoning...). The
+# runner refuses 'default' silently — it resolves policy and records the
+# resolved dimensions in every result row. Sept-6/7 bench results were
+# collected via /api/chat NON-streaming with think:false where the probe
+# hardcoded it — an instrument caveat when comparing against production
+# /v1 serving.
+
+models:
+  # ---- session-VERIFIED entries (behavioral evidence from 2026-09-07 runs) ----
+
+  gpt-oss:
+    status: verified-behavioral
+    harness_policy:
+      think: "true"
+      format_json_safe: false
+      notes: "PROVEN (3-arm diagnostic): api think:false + format:json returns empty/degenerate content. Harness must use native settings; strict-JSON tasks need the full council system prompt."
+    behavioral_quirks:
+      - "harmony format BREAKS under API 'format':'json' + think:false — returns empty/degenerate content (3-arm diagnostic, judgment 0.000 artifact). Use native settings; think:true works; strict-JSON tasks need the full council system prompt (abbreviated prompts degraded abstention)."
+    verified: behavioral-only
+    source: tests/benchmarks/results/judgment_probe_v6_gptoss_native_20260907T043151Z.json
+    recommended_sampling: {pending_research: true}
+    max_context: {pending_research: true}
+    tools: {pending_research: true}
+
+  granite-4.2:
+    status: verified-behavioral
+    behavioral_quirks:
+      - "4.2:8b-q8_0 and 4.2:3b-q8_0: system_honored=False across TWO independent runs (Sept-6 + Sept-7) while 4.2:30b honors with the SAME template_sha (f0ba43f79b3c) — quant-level instruction-following failure, not a template bug."
+      - "4.2:30b-q4_K_M honored system and scored F2 0.6962 vs 4.1:30b 0.8434 on identical instrument — real gap, parameters standardized (temp 0)."
+    verified: behavioral-only
+    source: tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json
+    recommended_sampling: {pending_research: true}   # stock ships temp 1.0 / top_p 0.95 — card recommendation TBD
+    max_context: {pending_research: true}
+
+  glm-4.7-flash:
+    status: partially-verified
+    behavioral_quirks:
+      - "base tag ships NO num_ctx (Ollama default) while the glm_coder persona promises 128K — derived -ctx64k tag required (created 2026-09-07)."
+      - "REAP-ctx64k tag bakes stop token '<|user|>' — derived tags of this family should inherit stop handling review."
+    max_context: 131072
+    verified: partial
+    source: config/MODEL_CATALOG.md (glm-4.7-flash:Q4_K_M-ctx64k entry)
+    recommended_sampling: {pending_research: true}
+
+  nemotron-3.5-lightning:
+    status: wiring-verified
+    behavioral_quirks:
+      - "CASE-SENSITIVE TAG: installed spelling is ':q4_K_M-ctx8k' (lowercase q) — every config reference must use the installed case (three personas had silent 404s)."
+      - "rejected for compliance council: abstain-recall 0.25 (Sept-6 sweep) — lane-specific, not global."
+    verified: wiring-only
+    recommended_sampling: {pending_research: true}
+    max_context: {pending_research: true}
+
+  # ---- families owing Phase-0.6 card research (registry coverage debt) ----
+  # Each needs: card URL, recommended sampling, max context, tools claim,
+  # template review. Fill from the model card, then flip verified: true.
+  qwen3:
+    status: research-debt
+  qwen3.5:
+    status: research-debt
+  qwen3.6:
+    status: research-debt
+  qwen3.8:
+    status: research-debt
+  gemma4:
+    status: research-debt
+  granite-4.1:
+    status: research-debt
+  phi4:
+    status: research-debt
+  mistral-small:
+    status: research-debt
+  command-r:
+    status: research-debt
+  deepseek-r1:
+    status: research-debt
+  llama:
+    status: research-debt
+  lfm2:
+    status: research-debt
+  nex-n2:
+    status: research-debt
+  vulnllm:
+    status: research-debt
+  kat-coder:
+    status: research-debt
+  hermes:
+    status: research-debt
+  tongyi:
+    status: research-debt

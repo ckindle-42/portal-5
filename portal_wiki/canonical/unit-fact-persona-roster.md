@@ -5,22 +5,22 @@ title: 135 personas
 sources:
 - type: code
   path: config/personas/
-  commit: a393be0deed9
+  commit: 32af15ccf52a
 - type: code
   path: config/personas/adversarysimulator.yaml
-  commit: a393be0deed9
+  commit: 32af15ccf52a
 - type: code
   path: config/personas/agenticheavy.yaml
-  commit: a393be0deed9
+  commit: 32af15ccf52a
 - type: code
   path: config/personas/agenticlite.yaml
-  commit: a393be0deed9
+  commit: 32af15ccf52a
 - type: code
   path: config/personas/agentorchestrator.yaml
-  commit: a393be0deed9
+  commit: 32af15ccf52a
 - type: code
   path: config/personas/bench_gemma4_12b.yaml
-  commit: a393be0deed9
+  commit: 32af15ccf52a
 claims:
 - probe: personas.count
   pattern: Persona roster ({value} personas)
@@ -29,7 +29,7 @@ tags:
 - fact
 - personas
 created_at: 1784000421.217775
-updated_at: 1788397074.885537
+updated_at: 1788791061.98191
 ---
 
 # Persona roster (135 personas)
@@ -110,7 +110,7 @@ updated_at: 1788397074.885537
 | `gemma_vision` | general | `auto-vision` | `gemma4:31b-it-qat-ctx8k` |
 | `gemmaresearchanalyst` | research | `auto-research` | — |
 | `githubexpert` | coding | `auto-coding` | — |
-| `glm-coder` | coding | `auto-coding` | `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k` |
+| `glm-coder` | coding | `auto-coding` | `glm-4.7-flash:Q4_K_M-ctx64k` |
 | `glm-thinker` | general | `auto-reasoning` | `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k` |
 | `goengineer` | coding | `auto-coding` | — |
 | `gptossanalyst` | general | `auto-reasoning` | — |

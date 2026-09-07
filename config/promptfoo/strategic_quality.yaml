@@ -5,14 +5,14 @@ providers:
   # auto-mistral provider removed (BUILD_PROGRAM_COLLAPSE_V1.md Phase 7 —
   # auto-mistral was a model-tied workspace deleted outright, folded into
   # auto-coding with no preserved variant slot to quality-test separately).
-  - id: ollama:chat:portal5/xyz-aquila-mini:q4_k_m-ctx16k
+  - id: ollama:chat:hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M
     label: auto-research
     config:
       temperature: 0
       num_predict: 2048
 defaultTest:
   options:
-    provider: ollama:chat:gemma4:26b-a4b-it-qat
+    provider: ollama:chat:gemma4:26b-a4b-it-qat-ctx8k
   assert:
     - type: not-contains
       value: "as an AI language model"

@@ -1,0 +1,90 @@
+{
+  "results": [
+    {
+      "model": "qwen3-vl:8b-instruct-q4_K_M",
+      "skipped": false,
+      "avg_tps": 78.16,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "red",
+          "tps": 84.62384700008462,
+          "wall_s": 8.654575207969174
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 58.22246805042066,
+          "wall_s": 4.370943791989703
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": true,
+          "response_preview": "3",
+          "tps": 84.78887569950822,
+          "wall_s": 4.109796791977715
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "green",
+          "tps": 85.02316881350168,
+          "wall_s": 4.121516666025855
+        }
+      ]
+    },
+    {
+      "model": "qwen3-vl:32b-ctx8k",
+      "skipped": false,
+      "avg_tps": 11.94,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "red",
+          "tps": 12.015611282959386,
+          "wall_s": 40.17933750001248
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 11.829846046383553,
+          "wall_s": 19.657363749982323
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": true,
+          "response_preview": "3",
+          "tps": 11.87062153066954,
+          "wall_s": 18.917551750026178
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "green",
+          "tps": 12.033591453870018,
+          "wall_s": 16.436168082989752
+        }
+      ]
+    }
+  ]
+}

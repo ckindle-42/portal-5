@@ -1,0 +1,2 @@
+{"id":"cre-villain-monologue","lane":"creative","instruction":"Write a 300-word monologue for a stage villain thwarted by their own Rube Goldberg machine. Darkly comic, no meta-commentary.","checker":{"type":"human_review"}}
+{"id":"cre-style-pastiche","lane":"creative","instruction":"Write a 200-word passage in the style of a 1930s hardboiled detective describing a rain-soaked machine room. Avoid cliches.","checker":{"type":"human_review"}}

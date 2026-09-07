@@ -1,11 +1,11 @@
 ---
 id: unit-fact-workspace-roster
 kind: what
-title: 25 production + 53 eval workspaces
+title: 25 production + 56 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 3de59b6c4ea5
+  commit: 32af15ccf52a
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1788392706.002791
+updated_at: 1788791792.023228
 ---
 
-# Workspace roster (25 production, 53 eval, 78 total)
+# Workspace roster (25 production, 56 eval, 81 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -35,13 +35,13 @@ updated_at: 1788392706.002791
 | `auto-data` | research | `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k` |
 | `auto-documents` | documents | `granite4.1:8b-ctx16k` |
 | `auto-extract-uncensored` | documents | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k` |
-| `auto-general-uncensored` | general | `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` |
+| `auto-general-uncensored` | general | `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M` |
 | `auto-image` | image | `granite4.1:8b-ctx16k` |
 | `auto-math` | general | `phi4-mini-reasoning:latest-ctx24k` |
 | `auto-music` | media | `lfm2.5:8b-ctx8k` |
-| `auto-nemotron` | general | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx8k` |
+| `auto-nemotron` | general | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k` |
 | `auto-reasoning` | general | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` |
-| `auto-research` | research | `portal5/xyz-aquila-mini:q4_k_m-ctx16k` |
+| `auto-research` | research | `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k` |
 | `auto-security` | security | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` |
 | `auto-spl` | general | `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k` |
 | `auto-uncensored-throwaway` | general | `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k` |
@@ -70,12 +70,14 @@ updated_at: 1788392706.002791
 - `bench-gemma4-e4b-qat`
 - `bench-gemma4-heretic-coder`
 - `bench-glm`
+- `bench-glm-reap`
 - `bench-granite41-30b`
 - `bench-granite41-8b`
 - `bench-hauhaucs-coder`
 - `bench-hermes3`
 - `bench-huihui-qwen36-27b`
 - `bench-huihui-qwen36-35b-a3b`
+- `bench-kat-coder`
 - `bench-laguna`
 - `bench-lfm25-8b`
 - `bench-lfm25-8b-uncensored`
@@ -86,6 +88,7 @@ updated_at: 1788392706.002791
 - `bench-nex-n2-mini`
 - `bench-north-mini-code`
 - `bench-omnicoder2`
+- `bench-orcarouter-q38`
 - `bench-ornith-35b`
 - `bench-ornith15-coder`
 - `bench-qwable-35b`
