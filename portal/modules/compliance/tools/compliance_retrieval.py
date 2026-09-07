@@ -58,8 +58,11 @@ def _stage_set() -> dict[str, Any]:
         "transcribe_figures": False,
         # fusion_mode dropped — search-time, not an index-building stage
         # (SUBSTRATE_MIGRATION_V1 P3).
-        "visual_scope": _pages.VISUAL_SCOPE,
-        "contextualize": False,
+        # compliance answers live in prose and tables, never diagrams — index
+        # only real embedded figures, not full-page renders, so a text-less
+        # page image can never outrank a prose answer (prose-cip-07 / Y25).
+        "visual_scope": "figures",
+        "contextualize": True,
         "chunk_strategy": _COMPLIANCE_CHUNK_STRATEGY,
         "fts": True,
     }
@@ -93,6 +96,7 @@ def _composition() -> _pipeline.Composition:
         fusion_mode=_fusion.FUSION,
         transcribe_figures=False,
         table_prefix=_PREFIX,
+        visual_scope="figures",  # prose/table corpus — no full-page-image chunks
         contextualize=True,  # embed heading path + text so a section cite resolves
         fts=True,  # BM25 sparse arm — an exact requirement ID has a lexical path
         stage_set=_stage_set(),
