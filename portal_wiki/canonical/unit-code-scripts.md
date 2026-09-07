@@ -1,35 +1,35 @@
 ---
 id: unit-code-scripts
 kind: what
-title: scripts subsystem (107 files)
+title: scripts subsystem (114 files)
 sources:
 - type: code
   path: scripts/_archive/analyze_bench_v5.py
-  commit: 838019f00e5a
+  commit: df369f2ea513
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py
-  commit: 838019f00e5a
+  commit: df369f2ea513
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-watchdog.py
-  commit: 838019f00e5a
+  commit: df369f2ea513
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/smoke_test_mlx.py
-  commit: 838019f00e5a
+  commit: df369f2ea513
 - type: code
   path: scripts/alias_census.py
-  commit: 838019f00e5a
+  commit: df369f2ea513
 claims: []
 confidence: high
 tags:
 - code
 - scripts
-created_at: 1788561801.020555
-updated_at: 1788561801.020555
+created_at: 1788800246.339481
+updated_at: 1788800246.339481
 ---
 
 # scripts subsystem
 
-**Files:** 107
+**Files:** 114
 
 - `scripts/_archive/analyze_bench_v5.py`
 - `scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py`
@@ -51,4 +51,4 @@ updated_at: 1788561801.020555
 - `scripts/bully_investigation_run_i6.py`
 - `scripts/bully_loop_milestone_run.py`
 - `scripts/bully_relate_run.py`
-- ... and 87 more
+- ... and 94 more

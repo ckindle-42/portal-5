@@ -14,8 +14,8 @@ tags:
 - DCSync
 - credential-access
 - enriched
-created_at: 1788561801.1585112
-updated_at: 1788561801.1585112
+created_at: 1788800246.434686
+updated_at: 1788800246.434686
 ---
 
 # T1003.006 — DCSync Detection Signature
