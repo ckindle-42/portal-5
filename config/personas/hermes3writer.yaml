@@ -4,10 +4,9 @@ category: writing
 workspace_model: auto-creative
 preferred_models:
   - fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k
-  - dolphin-llama3:8b
   - hermes3:8b
 module: media
-# Routes to: Dolphin3.0-Llama3.1-8B-8bit (was MLX, retired 3a0c58e) or dolphin-llama3:8b / hermes3:8b (Ollama creative pool)
+# Routes to: hermes3:8b / fredrezones55 HauhauCS ctx8k (Ollama creative pool; dolphin-llama3:8b retired, fleet closeout 2026-09-07)
 # hermes3:8b: NousResearch, trained for long-form narrative coherence and character consistency
 system_prompt: |
   You are a narrative fiction specialist with deep expertise in long-form storytelling,

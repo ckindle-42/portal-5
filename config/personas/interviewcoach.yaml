@@ -4,7 +4,6 @@ category: general
 workspace_model: auto-creative
 preferred_models:
   - fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k
-  - dolphin-llama3:8b
   - hermes3:8b
 module: media
 system_prompt: |

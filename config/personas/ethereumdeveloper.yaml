@@ -68,7 +68,7 @@ tools_deny:
 workspace:
   enabled: true
   description: Ethereum Developer — security-first Solidity development and DeFi design
-  suggested_model: qwen3-coder-next:30b-q5
+  suggested_model: qwen3-coder-next:latest-ctx64k
 tags:
   - ethereum
   - solidity

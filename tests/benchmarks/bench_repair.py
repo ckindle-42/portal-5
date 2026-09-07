@@ -25,7 +25,6 @@ from tests.benchmarks.bench_repair import (  # noqa: E402,F401
     REPAIR_N,
     REPAIR_TEMPLATE,
     TARGETS,
-    TEMPERATURE,
     compute_gsha,
     evict_all,
     load_corpus,

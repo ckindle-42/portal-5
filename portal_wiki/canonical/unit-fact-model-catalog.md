@@ -1,11 +1,11 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 246 model ids, 7 backend groups
+title: 253 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 58f011ec50a1
+  commit: 32af15ccf52a
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -14,12 +14,12 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1788392508.552188
+updated_at: 1788791792.328119
 ---
 
-# Model catalog (246 model ids across 7 backend groups)
+# Model catalog (253 model ids across 7 backend groups)
 
-## coding (54)
+## coding (56)
 
 - `Laguna-XS.2-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
@@ -30,6 +30,7 @@ updated_at: 1788392508.552188
 - `devstral-small-2:latest-ctx8k`
 - `devstral:24b`
 - `glm-4.7-flash:Q4_K_M`
+- `glm-4.7-flash:Q4_K_M-ctx64k`
 - `gpt-oss:20b`
 - `hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M`
 - `hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M`
@@ -45,6 +46,7 @@ updated_at: 1788392508.552188
 - `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M-ctx64k`
 - `hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M`
 - `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M`
+- `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k`
 - `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL`
 - `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k`
 - `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL`
@@ -91,7 +93,7 @@ updated_at: 1788392508.552188
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (100)
+## general (105)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `cybersecqwen-4b-toolfix:latest`
@@ -110,6 +112,7 @@ updated_at: 1788392508.552188
 - `gemma4:e4b-it-q4_K_M`
 - `gemma4:e4b-it-qat`
 - `glm-4.7-flash:Q4_K_M`
+- `glm-4.7-flash:Q4_K_M-ctx64k`
 - `gpt-oss:20b`
 - `granite4.1:30b`
 - `granite4.1:30b-ctx16k`
@@ -131,7 +134,7 @@ updated_at: 1788392508.552188
 - `hf.co/Nguuma/security-slm-unsloth-1.5b:latest`
 - `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF`
 - `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest`
-- `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx8k`
+- `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k`
 - `hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M`
 - `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf`
 - `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M`
@@ -141,6 +144,7 @@ updated_at: 1788392508.552188
 - `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M`
 - `hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M`
 - `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M`
+- `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k`
 - `hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M`
 - `hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M`
 - `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M`
@@ -148,6 +152,7 @@ updated_at: 1788392508.552188
 - `hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M-ctx16k`
 - `hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf`
 - `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M`
+- `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k`
 - `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL`
 - `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k`
 - `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0`
@@ -165,6 +170,7 @@ updated_at: 1788392508.552188
 - `huihui_ai/qwen3.5-abliterated:9b`
 - `huihui_ai/qwen3.5-abliterated:9b-ctx64k`
 - `huihui_ai/qwen3.5-abliterated:9b-ctx8k`
+- `kat-coder-v2.5-dev:Q4_K_M`
 - `laguna-xs.2:Q4_K_M`
 - `lfm2.5:8b`
 - `lfm2.5:8b-ctx8k`
@@ -174,6 +180,7 @@ updated_at: 1788392508.552188
 - `mistral-small3.2:24b`
 - `muse-glimmer:30b-mlx`
 - `omnicoder2:9b-q4_k_m`
+- `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M`
 - `phi4-mini`
 - `phi4:14b-q8_0`
 - `portal5/deepwen-3.6:q4.5-moq`

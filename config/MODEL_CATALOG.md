@@ -277,6 +277,10 @@ Both the `general` and `vision` group registrations in `config/backends.yaml` as
 
 `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M` is the mradermacher Q4_K_M (~20GB, MoE 3B active) of the huihui-ai abliteration of Qwen3.6-35B-A3B — a speed play leveraging 3B active parameters for fast decode. `config/backends.yaml` registers it in the `general` group only, with `supports_tools: false`. `config/portal.yaml` selects it as the `model_hint` for `bench-huihui-qwen36-35b-a3b`, whose description retains the vanch007 origin (the deleted HF repo this moved from; mradermacher hosts the same base as a confirmed Q4_K_M) and frames the lane as a speed comparison against `bench-huihui-qwen36-27b`. The model is bench-only; no production workspace pins it.
 
+### `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k`
+
+`hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k` is the 8K-context derived tag (baked `PARAMETER num_ctx 8192` via apply-params). PROMOTED 2026-09-07 (fleet closeout): it is the `auto-general-uncensored` workspace `model_hint` on lane-instrument data — refusal-preservation 1.0 / 0% over-refusal vs the prior incumbent `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` at 0.75 / 33%, at 4.3x throughput (55.6 vs 12.9 t/s), with the cross-domain judgment tradeoff (exact 0.87 vs 0.90) recorded (`refusal_preservation_probe_20260907T025849Z.json`, `judgment_probe_v6_20260907T034934Z.json`). `config/backends.yaml` registers it in `general` with `supports_tools: false`, matching the base tag.
+
 ## Why
 
 The doc body asserted the vanch007→mradermacher rehost; `config/portal.yaml`'s `bench-huihui-qwen36-35b-a3b` description still carries the vanch007 label while the `model_hint` uses the mradermacher id, corroborating the move. Re-grounding pins the `general`-group registration and `supports_tools: false` in `config/backends.yaml` and the bench-lane framing in `config/portal.yaml`. The 3B-active speed-play rationale and repo-history are kept because the bench description records them.
@@ -463,6 +467,22 @@ The dual `general`/`coding` registration with `supports_tools: true` in both gro
 ### `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M`
 
 `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M` is a ~22GB imatrix quant of a 35B-total / 3B-active MoE post-trained on Qwen3.5-35B-A3B-Base, multimodal with image and text input. `config/backends.yaml` registers it twice with conflicting flags: the `general` group sets `supports_tools: false` while the `coding` group sets `supports_tools: true`, so tool support is asserted only in the agentic-coding lane, not as a global property. `config/portal.yaml` binds it to the `bench-nex-n2-mini` workspace `model_hint` with a Terminal-Bench 2.1 score of 60.7 and PROMOTE_POLICY=confirm. The flag split is the config's way of being conservative outside the coding lane.
+
+### `kat-coder-v2.5-dev:Q4_K_M`
+
+`kat-coder-v2.5-dev:Q4_K_M` is a dense code-specialist quant (~19.9 GiB) registered in the `general` backend group with `supports_tools: true`. Fleet closeout 2026-09-07: it sits in the WFE USE-PROBE tier — the repair-loop exam measured 82% one-shot / 100% +1-repair with 7x field speed (below the pre-registered 43/50 stop rule on bare codegen, but its in-tool-loop profile was never tested). Binds to the `bench-kat-coder` workspace. Disposition after its real-work assignment: INTEGRATE as fast-repair lane or remove per stop rule.
+
+### `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M`
+
+`orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M` is a dense uncensored Qwen3.8-27B quant (~16.5 GiB) registered with `supports_tools: true`. Fleet closeout 2026-09-07: RETAINED_FOR_PURPOSE — verified uncensored-coding specialist (repair exam 100%/100%, refusal 1.0/0%, judgment parity 0.952/0.90); manual/bench-only via `bench-orcarouter-q38` until optionally wired as an uncensored-coding variant. omnicoder2-9b's small-lane variant is not displaced.
+
+### `glm-4.7-flash:Q4_K_M-ctx64k`
+
+`glm-4.7-flash:Q4_K_M-ctx64k` is the 64K-context derived tag (baked `PARAMETER num_ctx 65536`, weights shared with the base tag — 0 extra bytes) created 2026-09-07 when the fleet closeout flipped the `glm-coder` persona pin off REAP-23B per its recorded promotion policy. The persona's system prompt promises a 128K window; the base `glm-4.7-flash:Q4_K_M` tag ships no baked `num_ctx`, so the pin would have silently collapsed to the Ollama default — caught by settings review, not by the short-prompt exam that motivated the flip. Registered in `general` (`supports_tools: false`) and `coding` (`true`) to match the base tag.
+
+### `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k`
+
+`hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k` is the 16K-context derived tag (baked `PARAMETER num_ctx 16384` via apply-params — Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`). PROMOTED 2026-09-07 (fleet closeout): it is the `auto-research` workspace `model_hint` after winning the research-task probe head-to-head twice on the same instrument (factuality 0.9/0.8, synthesis 5.0/4.5, vs incumbent xyz-aquila-mini 0.3 and tongyi-deepresearch 0.4 — `tests/benchmarks/results/research_probe_20260907T030136Z.json` + `research_probe_20260907T032401Z.json`). `config/backends.yaml` registers it in `general` (`supports_tools: false`) and `coding` (`true`), inheriting the base tag's conservative split; the research lane does not rely on tool calls.
 
 ## Why
 
@@ -1764,7 +1784,7 @@ Grounding anchors the model to its oMLX registration, the alias reaching it from
 
 ---
 
-### `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx8k`
+### `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k`
 
 `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx8k` is the Q4_K_M GGUF quant of NVIDIA's Nemotron 3.5 Lightning 30B-A3B MoE model, served by Ollama, with `PARAMETER num_ctx 8192` baked into the tag via `./launch.sh apply-model-params` (required because Ollama's `/v1/chat/completions` — what the pipeline uses — ignores request-time `options.num_ctx`; see the parallel `qwen3-coder:...-ctx16k` pattern). Added 2026-08-14 as the fallback tier for the new `auto-nemotron` workspace (`config/portal.yaml`), pinned as its `model_hint`. `config/backends.yaml` registers it in `ollama-general` (group `general`) with `supports_tools: true`, live-audited via a direct `/api/chat` tool-call probe (clean `tool_calls`, correctly typed arguments). The `omlx-general` entry's `aliases` block maps this hint onto `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp` (see that unit), so oMLX serves the workspace by default at `priority: 10` with this GGUF as the automatic fallback when oMLX is unhealthy. Measured standalone on Ollama: 52.9-53.1 tok/s steady-state, versus 70.0-70.3 tok/s on the oMLX+MTP path — kept as the production fallback deliberately, matching the dual-backend pattern used across every other oMLX-shadowed group in this fleet, rather than going oMLX-only given oMLX is running a dev prerelease (0.6.0.dev1) for this rollout.
 

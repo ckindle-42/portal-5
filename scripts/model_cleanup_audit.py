@@ -440,10 +440,97 @@ def render_report(categorized: dict[str, list[dict]]) -> str:
     return "\n".join(lines)
 
 
+REGISTER_TASKS = REPO_ROOT / "docs" / "MODEL_FLEET_CLOSEOUT_20260906.tasks.json"
+POINTER_PATH = REPO_ROOT / "config" / "PENDING_MODEL_VERDICTS.md"
+
+
+def _load_register() -> dict[str, str] | None:
+    """Final dispositions from the fleet closeout register (authoritative).
+
+    When present, the audit reports explicit final dispositions and true
+    unresolved task exceptions — it never regenerates a "pending" category
+    (the pre-closeout behavior), because an open-ended pending ledger is
+    exactly what the closeout retired. Returns None when the register is
+    absent so the legacy path still works on historical checkouts."""
+    if not REGISTER_TASKS.exists():
+        return None
+    data = json.loads(REGISTER_TASKS.read_text(encoding="utf-8"))
+    disp: dict[str, str] = {}
+    for item in data.get("items", []):
+        ident = item.get("exact_identity")
+        state = item.get("final_disposition")
+        if ident and state:
+            disp[ident] = state
+    for extra in data.get("extra_identities", []):
+        ident = extra.get("identity")
+        state = extra.get("final_disposition")
+        if ident and state:
+            disp[ident] = state
+    # oMLX-tree entries never appear in /api/tags; exclude from drift checks
+    for item in data.get("items", []):
+        if item.get("kind") == "omlx_entry":
+            disp.pop(item.get("exact_identity"), None)
+    return disp
+
+
+def _canon(tag: str) -> str:
+    t = tag[len("registry.ollama.ai/") :] if tag.startswith("registry.ollama.ai/") else tag
+    return t[len("library/") :] if t.startswith("library/") else t
+
+
+def render_disposition_report(disp: dict[str, str], on_disk: list[dict]) -> str:
+    disk_tags = {_canon(m.get("name", "")) for m in on_disk}
+    counts: dict[str, int] = {}
+    for state in disp.values():
+        counts[state] = counts.get(state, 0) + 1
+    removed_on_disk = sorted(t for t in disk_tags if disp.get(t) == "REMOVED_CLOSED")
+    integrated_absent = sorted(
+        t for t, s in disp.items() if s == "INTEGRATED" and t not in disk_tags
+    )
+    lines = [
+        "# Model disposition report (fleet closeout register)",
+        "",
+        f"Source: `{REGISTER_TASKS.relative_to(REPO_ROOT)}` — terminal dispositions only.",
+        "This audit does NOT regenerate a pending ledger.",
+        "",
+        "| Disposition | Count |",
+        "|---|---:|",
+    ]
+    for state in ("INTEGRATED", "RETAINED_FOR_PURPOSE", "REMOVED_CLOSED"):
+        lines.append(f"| {state} | {counts.get(state, 0)} |")
+    lines += [
+        "",
+        f"## True cleanup exceptions — REMOVED_CLOSED still on disk ({len(removed_on_disk)})",
+        "",
+    ]
+    lines += [f"- `{t}`" for t in removed_on_disk] or ["(none — removals verified absent)"]
+    lines += [
+        "",
+        f"## Config drift — INTEGRATED but absent from store ({len(integrated_absent)})",
+        "",
+    ]
+    lines += [f"- `{t}`" for t in integrated_absent] or ["(none)"]
+    return "\n".join(lines) + "\n"
+
+
 def main() -> int:
     print("Fetching on-disk Ollama models...")
     on_disk = fetch_on_disk()
     print(f"  {len(on_disk)} models on disk")
+
+    disp = _load_register()
+    if disp is not None:
+        report = render_disposition_report(disp, on_disk)
+        out_path = REPO_ROOT / "reports" / "model_cleanup_audit.md"
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(report)
+        print(report)
+        print(f"Wrote {out_path}")
+        print(
+            "Ledger retired: config/PENDING_MODEL_VERDICTS.md is a historical pointer; "
+            "dispositions come from the fleet closeout register."
+        )
+        return 0
 
     prod_bases = production_bases()
     bench_by_base = bench_workspaces_by_base()

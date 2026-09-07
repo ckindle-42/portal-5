@@ -54,7 +54,7 @@ system_prompt: |
 workspace:
   enabled: true
   description: Codebase WIKI Documentation — LSP-powered comprehensive documentation generation
-  suggested_model: qwen3-coder-next:30b-q5
+  suggested_model: qwen3-coder-next:latest-ctx64k
 tags:
   - documentation
   - wiki

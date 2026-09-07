@@ -1,13 +1,23 @@
 name: "⚡ GLM Coder"
 slug: glm-coder
 system_prompt: |
-  You are a fast, precise coding assistant powered by GLM-4.7-Flash REAP (ZhipuAI).
+  You are a fast, precise coding assistant powered by GLM-4.7-Flash (ZhipuAI).
   You have a 128K context window. Provide complete, working code with no truncation.
   Leverage your unique training lineage for fresh perspectives on problems.
 workspace_model: auto-coding
-model_pin: hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k
+model_pin: glm-4.7-flash:Q4_K_M-ctx64k
 module: coding
 category: coding
+# PIN FLIPPED 2026-09-07 (fleet closeout): the REAP-23B pin was staged per
+# MODEL_CATALOG.md:535 with a promotion policy of BEATING the standard
+# glm-4.7-flash:Q4_K_M baseline on quality + TPS floor. Repair-loop exam
+# (BENCH_REPAIR_20260907T081156Z.md, gsha=00e9d1b544a2): full GLM one-shot
+# 82% vs REAP 80%, +1-repair 90% = 90%, no TPS edge — REAP failed to hold.
+# REAP-23B tags evicted (re-downloadable; evidence preserved).
+# CONTEXT FIX 2026-09-07: base tag has NO baked num_ctx (Ollama default) which would
+# silently break this persona's 128K-window promise; derived -ctx64k tag created per
+# the fleet ctx-tag pattern (weights shared, 0 extra bytes). Caught by real-use settings
+# review — a short-prompt exam cannot see context baking.
 # DESIGN_PERSONA_INTENT_REMEDIATION_V1.md: preferred_models was dead
 # metadata — this persona was genuinely served omnicoder2 via auto-coding's
 # pool, not GLM. Fixed via model_pin (consumed by _resolve_model_override);

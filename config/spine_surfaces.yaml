@@ -604,6 +604,14 @@ surfaces:
   globs:
   - tests/unit/router/test_correlation.py
   unit: unit-router-test-correlation
+- name: file-tests-wfe-runner
+  globs:
+  - tests/wfe/runner.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-settings_audit
+  globs:
+  - tests/wfe/settings_audit.py
+  unit: unit-wfe-workspace-fitness
 - name: unit-surface-acceptance
   globs:
   - tests/acceptance/*.py

@@ -51,7 +51,7 @@ system_prompt: |
 workspace:
   enabled: true
   description: GitHub Expert — Git workflows, Actions, and repository management
-  suggested_model: qwen3-coder-next:30b-q5
+  suggested_model: qwen3-coder-next:latest-ctx64k
 tags:
   - git
   - github
