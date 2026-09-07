@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 743 canonical units.*
+*Deterministic projection of 744 canonical units.*
 
 ## Knowledge Layer
 
@@ -241,7 +241,7 @@
 | `unit-code-tests` | what | 5 |
 | `unit-compliance-change-pipeline` | mixed | 3 |
 | `unit-compliance-config-workspace-pointers` | mixed | 1 |
-| `unit-compliance-engine` | mixed | 21 |
+| `unit-compliance-engine` | mixed | 68 |
 | `unit-compliance-fallback-policy-canonical-baseline` | what | 5 |
 | `unit-compliance-fallback-policy-compliance-fallback-policy` | what | 4 |
 | `unit-compliance-fallback-policy-full-sweep` | what | 3 |
@@ -739,6 +739,7 @@
 | `unit-user-guide-tools-mcp-servers` | what | 7 |
 | `unit-user-guide-uploading-documents` | what | 2 |
 | `unit-user-guide-workspaces` | what | 3 |
+| `unit-wfe-workspace-fitness` | mixed | 3 |
 | `unit-wiki-adapter-modules` | mixed | 1 |
 | `unit-wiki-audit` | mixed | 1 |
 | `unit-wiki-interfaces` | mixed | 1 |
@@ -752,13 +753,14 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 743 units
+**Total:** 744 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1781 references
+- **code**: 1830 references
 - **config**: 1 references
+- **doc**: 1 references
 - **mitre**: 40 references
 - **scenario**: 54 references
 - **spl**: 40 references

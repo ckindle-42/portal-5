@@ -12,6 +12,8 @@ sources:
 - type: code
   path: config/complexity_budget.yaml
 - type: code
+  path: config/model_card_expectations.yaml
+- type: code
   path: config/spine_surfaces.yaml
 - type: code
   path: config/lab_targets.yaml
@@ -59,6 +61,10 @@ never be edited by hand.
 - `complexity_budget.yaml` — recorded complexity ceilings, written by
   `scripts/complexity_report.py --write-budget`; re-baselined after
   intentional code growth.
+- `model_card_expectations.yaml` — model ground-truth registry for the WFE
+  settings auditor (card-recommended sampling, max context, template
+  known-good hashes, harness think policy); research debt is tracked in
+  the file itself and reported as `card_research_debt` findings.
 
 ## Why
 
