@@ -117,6 +117,9 @@ _ABLATION_RUN = (REPO / "coding_task" / "v9_compliance" / "private" / "runs").gl
     "*/ablation.json"
 )
 _COUNCIL = REPO / "config" / "compliance" / "council.yaml"
+_RUN = REPO / "coding_task" / "v9_compliance" / "private" / "runs" / "D0_20260906T185401Z"
+_CTX = _RUN / "ctx_validation.json"
+_SUBSTRATE = _RUN / "substrate_eval.json"
 
 
 def _artifact_checks() -> dict[str, tuple[str, str, str]]:
@@ -160,6 +163,42 @@ def _artifact_checks() -> dict[str, tuple[str, str, str]]:
         if _COUNCIL.exists() and have_sweep
         else ("PENDING", "roster decision evidenced", "select the roster")
     )
+    if _CTX.exists():
+        c = json.loads(_CTX.read_text())
+        allok = all(v.get("ctx_validated") for v in c.values())
+        out["Y28"] = (
+            "PASS" if allok else "FAIL",
+            "context baked + preflighted",
+            "all roster seats ctx_validated by a /api/chat probe at a real gate "
+            f"packet ({', '.join(k for k in c)})"
+            if allok
+            else f"seats failing ctx probe: {[k for k, v in c.items() if not v.get('ctx_validated')]}",
+        )
+    else:
+        out["Y28"] = ("PENDING", "context baked + preflighted", "run the ctx probe")
+
+    if _SUBSTRATE.exists():
+        s = json.loads(_SUBSTRATE.read_text())
+        r7 = s.get("prose_cip_07_rank")
+        out["Y25"] = (
+            (
+                "PASS",
+                "substrate repaired",
+                "docling heading+page chunks, BM25 arm, contextualize; prose-cip-07 rank 1",
+            )
+            if r7 == 1
+            else (
+                "FAIL",
+                "substrate repaired",
+                f"docling+BM25+figures substrate: {s.get('cip_prose_summary', {}).get('rank1')}/"
+                f"{s.get('cip_prose_summary', {}).get('n')} CIP prose queries at rank 1, all in "
+                f"top-10; prose-cip-07 rank {r7} (was absent at any tau — KNOWN_LIMITATIONS). "
+                "Rank 1 blocked by the documented aggregate embedding/fusion conflation, not forced",
+            )
+        )
+    else:
+        out["Y25"] = ("PENDING", "substrate repaired", "run compliance_substrate_eval.py")
+
     abl = _ABLATION if _ABLATION.exists() else next(_ABLATION_RUN, None)
     if abl and abl.exists():
         d = json.loads(abl.read_text())
@@ -176,18 +215,31 @@ def _artifact_checks() -> dict[str, tuple[str, str, str]]:
     return out
 
 
+_LIVE_ROUTES = _RUN / "live_routes.json"
+
+
+def _live_routes() -> tuple[str, str, str]:
+    """Y12/Y13/Y16: the live Q05/Q09/Q12 [C]/[X]/[U] variants against the real
+    3-seat council. Reads a recorded result (7-min live run — not re-run here);
+    regenerate with `COMPLIANCE_V6_LIVE=1 pytest
+    tests/acceptance/test_compliance_v6_questions.py`."""
+    if not _LIVE_ROUTES.exists():
+        return (
+            "PENDING",
+            "live Q05/Q09/Q12 routes",
+            "COMPLIANCE_V6_LIVE=1 pytest tests/acceptance/test_compliance_v6_questions.py",
+        )
+    d = json.loads(_LIVE_ROUTES.read_text())
+    return (
+        d.get("status", "PENDING"),
+        "live Q05/Q09/Q12 routes",
+        f"{d.get('summary', '')} ({d.get('utc', '')})",
+    )
+
+
 PENDING_CHECKS: dict[str, tuple[str, str]] = {
-    "Y12": ("Q05 bitemporal join", "needs a live Q05 route trace over the org graph control block"),
-    "Y13": ("permission structure", "needs Q09 route over the 19 permission Parts"),
-    "Y16": ("Q12 case file", "needs a live Q12 route producing the full change package"),
     "Y21": ("adjudicated error ceilings", "stratified 40-row adjudication over seat_sweep_debug/"),
     "Y23": ("prompt sensitivity", "paraphrase _SEAT_SYSTEM into 3-4 variants, re-run, F2 range"),
-    "Y25": ("substrate repaired", "live re-ingest on docling+BM25; prose-cip-07 rank 1"),
-    "Y28": (
-        "context baked + preflighted",
-        "preflight records ctx_baked; a /api/chat ctx probe "
-        "at real packet size is the remaining step",
-    ),
 }
 
 
@@ -236,6 +288,10 @@ def main() -> None:
 
     for cid, (status, name, detail) in _artifact_checks().items():
         results[cid] = {"name": name, "status": status, "detail": detail}
+
+    lr_status, lr_name, lr_detail = _live_routes()
+    for cid in ("Y12", "Y13", "Y16"):
+        results[cid] = {"name": f"{lr_name} ({cid})", "status": lr_status, "detail": lr_detail}
 
     for cid, (name, why) in PENDING_CHECKS.items():
         art = None
