@@ -714,3 +714,63 @@ class TestSandboxRepoAccess:
     def test_file_list_of_empty_sandbox_shows_the_repo(self, tmp_path):
         out = Sandbox(tmp_path).file_list(".")
         assert "pyproject.toml" in out
+
+
+class TestUnreachableIsNotAModelFailure:
+    """Sibling of the repo-tool bug: a harness limitation must not be recorded
+    as a model verdict."""
+
+    def test_requires_network_task_offline_is_blocked_not_failed(self, tmp_path, monkeypatch):
+        from tests.wfe import runner as rn
+
+        monkeypatch.setattr(rn, "network_ok", lambda *a, **k: False)
+        sb = rn.Sandbox(tmp_path)
+        task = {
+            "id": "res-x",
+            "requires_network": True,
+            "instruction": "fetch something",
+            "checkers": [{"type": "cited_answer", "patterns": ["x"]}],
+        }
+        out = rn.run_task("m", "sys", task, sb, max_turns=3, budget_s=60, use_tools=True)
+        assert out["outcome"] == Outcome.BLOCKED.value
+        assert out["tool_calls"] == 0
+
+    def test_blocked_is_an_instrument_outcome_excluded_from_rates(self):
+        assert Outcome.BLOCKED in INSTRUMENT_OUTCOMES
+        assert Outcome.BLOCKED not in MODEL_QUALITY_OUTCOMES
+
+    def test_network_ok_is_cached(self, monkeypatch):
+        from tests.wfe import runner as rn
+
+        calls = []
+        monkeypatch.setattr(rn, "_NETWORK_OK", None)
+        monkeypatch.setattr(rn.urllib.request, "urlopen", lambda *a, **k: calls.append(1) or _Ctx())
+        rn.network_ok()
+        rn.network_ok()
+        assert len(calls) == 1
+
+
+class _Ctx:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+class TestToolOutputRetentionForRescore:
+    def test_tool_call_log_keeps_full_output_for_offline_leak_detection(self, tmp_path):
+        """A leaked answer key past char 300 of a tool output must be catchable
+        on --rescore, not only on the live run."""
+        from tests.wfe.runner import _execute_calls
+
+        sb = Sandbox(tmp_path)
+        long_leak = "x" * 500 + " gold_label=CONTRADICTED"
+        sb.file_write("packet.txt", long_leak)
+        tool_log: list = []
+        msgs: list = []
+        calls = [
+            {"id": "c1", "function": {"name": "file_read", "arguments": '{"path": "packet.txt"}'}}
+        ]
+        _execute_calls(calls, 0, sb, tool_log, msgs)
+        assert "gold_label=CONTRADICTED" in str(tool_log[0]["output"])

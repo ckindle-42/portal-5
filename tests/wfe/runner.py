@@ -67,6 +67,24 @@ class StreamStalledError(RuntimeError):
     work in its lane), never to the harness."""
 
 
+_NETWORK_OK: bool | None = None
+
+
+def network_ok(probe: str = "https://raw.githubusercontent.com") -> bool:
+    """One cached reachability probe for the public internet. A `requires_network`
+    task on a machine with no outbound route is a BLOCKED instrument outcome, not
+    a model FAIL — without this check http_get errors on every call and a
+    fetch-grounded checker scores the model 0 for the harness's problem."""
+    global _NETWORK_OK
+    if _NETWORK_OK is None:
+        try:
+            urllib.request.urlopen(probe, timeout=5)
+            _NETWORK_OK = True
+        except Exception:
+            _NETWORK_OK = False
+    return _NETWORK_OK
+
+
 def _fn(name: str, desc: str, props: dict, required: list[str] | None = None) -> dict:
     return {
         "type": "function",
@@ -905,6 +923,25 @@ def run_task(
     tool_surface: list[str] | None = None,
 ) -> dict:
     """Run one fitness task to completion, then apply its checkers."""
+    if task.get("requires_network") and not network_ok():
+        # The harness has no outbound network, so http_get would fail on every
+        # call and a fetch-grounded checker would score the model 0. That is an
+        # instrument limitation, not a model verdict — BLOCKED, excluded from
+        # every rate. The previous version ran the task and recorded a FAIL.
+        return {
+            "outcome": Outcome.BLOCKED.value,
+            "notes": "requires_network but the harness has no outbound network",
+            "evidence": {},
+            "turns": 0,
+            "tool_calls": 0,
+            "tool_errors": 0,
+            "finish_reason": None,
+            "economics": Economics().__dict__,
+            "final_text": "",
+            "final_text_head": "",
+            "transcript": [],
+            "tool_call_log": [],
+        }
     for seed_path, seed_body in (task.get("seed") or {}).items():
         sandbox.file_write(seed_path, seed_body)
 
@@ -1013,7 +1050,12 @@ def run_task(
         "final_text": final_text,
         "final_text_head": final_text[:600],
         "transcript": transcript,
-        "tool_call_log": [{**c, "output": str(c.get("output", ""))[:300]} for c in tool_log],
+        # Full tool output (already capped at 4000 in _execute_calls). The
+        # previous re-truncation to 300 meant an offline --rescore of the
+        # contamination checker (forbid_in_tool_output) saw far less than the
+        # live run did, so a leaked answer key past char 300 was caught live but
+        # not on re-grade.
+        "tool_call_log": tool_log,
     }
 
 
