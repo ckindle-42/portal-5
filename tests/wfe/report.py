@@ -243,7 +243,11 @@ def build(campaign_dir: Path, allow_mixed: bool = False, only_arm: str | None = 
             for m in blocked
         ],
         "preflight": {
-            k: {"verdict": v.get("verdict"), "findings": v.get("findings", [])}
+            k: {
+                "verdict": v.get("verdict"),
+                "findings": v.get("findings", []),
+                "notes": v.get("notes", []),
+            }
             for k, v in preflights.items()
         },
         "review": {
@@ -369,6 +373,14 @@ def _sec_instrument(a, rep) -> None:
         a("")
         for k in rev:
             a(f"- `{k}` — {'; '.join(rep['preflight'][k]['findings'])}")
+        a("")
+    noted = [(k, v["notes"]) for k, v in rep["preflight"].items() if v.get("notes")]
+    if noted:
+        a("Preflight notes (informational — did not block the arm):")
+        a("")
+        for k, notes in noted:
+            for n in notes:
+                a(f"- `{k}` — {n}")
         a("")
     if rep["not_run"]:
         a(f"{len(rep['not_run'])} matrix rows did not produce a result:")
