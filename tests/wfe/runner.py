@@ -57,7 +57,12 @@ HARNESS_DEFAULTS = {"endpoint": "v1", "stream": False, "think": "default", "form
 #: request on the wire and watches for a STALL — no bytes for STALL_S — rather
 #: than a total-time cap. Real progress (tokens arriving) resets the clock and is
 #: logged so a human tailing a multi-day sweep can see the model is alive.
-STALL_S = int(os.environ.get("WFE_STALL_S", "300"))
+#:
+#: 600s is sized for the worst case in the fleet: a 70+GB model doing prompt-eval
+#: over a 256k-token context before its first output token, on a machine that is
+#: swapping. The single-call hard ceiling is still the task's remaining --budget-s
+#: (default 1800s), so a genuinely wedged backend cannot run forever.
+STALL_S = int(os.environ.get("WFE_STALL_S", "600"))
 _PROGRESS_EVERY_S = 30
 
 
@@ -177,14 +182,15 @@ class Sandbox:
         return f.read_text(errors="ignore")[:20000]
 
     def file_list(self, path: str = ".") -> str:
+        # No empty-sandbox -> repo-root fallback: a code task's sandbox is
+        # legitimately empty, and dumping the whole repo tree into the context
+        # (hundreds of entries) is noise the model then has to reason past. A
+        # research task lists a real repo subpath (`file_list('docs')`), which
+        # _resolve reaches, or uses repo_search.
         d = self._resolve(path)
-        # A bare, empty sandbox root is useless to a research task — show the
-        # repository's top level instead so the model can navigate it.
-        if d is not None and d == self.root and self.allow_repo_read and not any(d.iterdir()):
-            return "\n".join(sorted(p.name for p in REPO.iterdir() if not p.name.startswith(".")))
         if d is None or not d.is_dir():
             return f"ERROR: cannot list {path}"
-        if d == REPO:  # never rglob the whole repo — top level only
+        if d == REPO or REPO in d.parents:  # never rglob deep into the repo
             return "\n".join(sorted(p.name for p in d.iterdir() if not p.name.startswith(".")))
         return "\n".join(str(x.relative_to(d)) for x in sorted(d.rglob("*"))[:200])
 
@@ -459,7 +465,7 @@ def _parse_stream_api(lines) -> dict:
 
 
 def _parse_stream_v1(lines) -> dict:
-    content, tool_parts, finish, usage = [], {}, None, {}
+    content, reasoning, tool_parts, finish, usage = [], [], {}, None, {}
     for line in lines:
         line = line.strip()
         if not line.startswith("data:"):
@@ -475,6 +481,13 @@ def _parse_stream_v1(lines) -> dict:
         delta = choice.get("delta") or {}
         if delta.get("content"):
             content.append(delta["content"])
+        # Reasoning models (granite4.x, deepseek-r1, ...) stream <think> content
+        # in a separate field on /v1. Capturing it is the difference between a
+        # debug record that shows "reasoned for 4096 tokens and never answered"
+        # and one that shows an inexplicable empty response.
+        r = delta.get("reasoning_content") or delta.get("reasoning")
+        if r:
+            reasoning.append(r)
         for tc in delta.get("tool_calls") or []:
             idx = tc.get("index", 0) or 0
             slot = tool_parts.setdefault(
@@ -485,7 +498,10 @@ def _parse_stream_v1(lines) -> dict:
             fn = tc.get("function", {}) or {}
             slot["function"]["name"] += fn.get("name") or ""
             slot["function"]["arguments"] += fn.get("arguments") or ""
-    return {"message": _mk_msg(content, tool_parts), "finish_reason": finish, "usage": usage}
+    msg = _mk_msg(content, tool_parts)
+    if reasoning:
+        msg["reasoning"] = "".join(reasoning)
+    return {"message": msg, "finish_reason": finish, "usage": usage}
 
 
 def _build_payload(
@@ -928,6 +944,122 @@ def _empty_result(outcome: Outcome, notes: str) -> dict:
     }
 
 
+class _Loop:
+    """Mutable state threaded through the turn loop, kept out of run_task's
+    branch/statement count."""
+
+    def __init__(self, model, task, sandbox, schemas, harness, sampling, use_tools):
+        self.model, self.task, self.sandbox = model, task, sandbox
+        self.schemas, self.harness, self.sampling = schemas, harness, sampling
+        self.use_tools = use_tools
+        self.messages = [
+            {"role": "system", "content": ""},
+            {"role": "user", "content": task["instruction"]},
+        ]
+        self.transcript: list = []
+        self.tool_log: list = []
+        self.assistant_texts: list = []
+        self.econ = Economics()
+        self.final_text = ""
+        self.finish_reason: str | None = None
+        self.outcome_override: Outcome | None = None
+        self.tool_errors = 0
+
+    def _record(self, turn: int, content: str, calls: list) -> None:
+        self.transcript.append(
+            {
+                "turn": turn,
+                "content": content[:2000],
+                "tool_calls": [
+                    {
+                        "name": (c.get("function") or {}).get("name"),
+                        "args_raw": str((c.get("function") or {}).get("arguments"))[:500],
+                    }
+                    for c in calls
+                ],
+            }
+        )
+        if content:
+            self.assistant_texts.append(content)
+
+    def step(self, turn: int, remaining: int) -> bool:
+        """One turn. Returns True to continue the loop, False to stop."""
+        try:
+            resp = chat(
+                self.model,
+                self.messages,
+                tools=self.use_tools,
+                harness=self.harness,
+                sampling=self.sampling,
+                timeout=remaining,
+                tool_schemas=self.schemas if self.use_tools else None,
+            )
+        except Exception as e:
+            stalled = isinstance(e, StreamStalledError | TimeoutError)
+            self.outcome_override = Outcome.BUDGET_EXHAUSTED if stalled else Outcome.HARNESS_ERROR
+            key = "stalled" if stalled else "harness_error"
+            self.transcript.append({"turn": turn, key: f"{type(e).__name__}: {e}"})
+            return False
+
+        self.econ.merge(resp["economics"])
+        self.finish_reason = resp.get("finish_reason") or self.finish_reason
+        msg = resp.get("message") or {}
+        content, calls = msg.get("content") or "", msg.get("tool_calls") or []
+        reasoning = msg.get("reasoning") or ""
+        self._record(turn, content, calls)
+        if reasoning:
+            self.transcript[-1]["reasoning_chars"] = len(reasoning)
+
+        if calls:
+            self.messages.append({"role": "assistant", "content": content, "tool_calls": calls})
+            self.tool_errors += _execute_calls(
+                calls, turn, self.sandbox, self.tool_log, self.messages
+            )
+            return True
+
+        self.final_text = content
+        if not content:
+            # Empty content, no tool call: the model has nothing more to add.
+            # Appending an empty assistant turn and looping stacks consecutive
+            # assistant messages, and /v1 rejects that with HTTP 400 on the next
+            # request — which surfaced running granite4.2 (verbose reasoning,
+            # invisible on /v1, so `content` came back empty turn after turn).
+            self.transcript[-1]["empty_response"] = True
+            if reasoning:
+                # The model spent its whole output budget inside <think> and
+                # never emitted an answer — a truncation, not a wrong answer.
+                self.finish_reason = self.finish_reason or "length"
+            return False
+        self.messages.append({"role": "assistant", "content": content})
+        sig = self.task.get("completion_signal")
+        if sig and re.search(sig, content, re.I):
+            return False
+        return bool(self.task.get("agentic"))
+
+
+def _run_turns(lp: _Loop, max_turns: int, budget_s: int) -> None:
+    t0 = time.monotonic()
+    for turn in range(max_turns):
+        remaining = budget_s - (time.monotonic() - t0)
+        if remaining <= 5:
+            lp.outcome_override = Outcome.BUDGET_EXHAUSTED
+            break
+        if not lp.step(turn, int(remaining)):
+            break
+    else:
+        # Every turn ran without breaking — an agentic task that kept calling
+        # tools and never delivered an answer: a turn-budget exhaustion (the
+        # model did not finish), not a wrong answer against an empty string.
+        if not lp.final_text:
+            lp.outcome_override = lp.outcome_override or Outcome.BUDGET_EXHAUSTED
+            lp.transcript.append(
+                {"turn": max_turns, "exhausted_turns": f"no final answer in {max_turns} turns"}
+            )
+    lp.econ.wall_s = round(time.monotonic() - t0, 1)
+    if not lp.final_text and lp.assistant_texts:
+        lp.final_text = lp.assistant_texts[-1]
+
+
 def run_task(
     model: str,
     system_prompt: str,
@@ -942,117 +1074,33 @@ def run_task(
 ) -> dict:
     """Run one fitness task to completion, then apply its checkers."""
     if task.get("requires_network") and not network_ok():
-        # No outbound network here: http_get would fail on every call and a
+        # No outbound network: http_get would fail on every call and a
         # fetch-grounded checker would score the model 0 for the instrument's
-        # gap. BLOCKED, excluded from every rate — not the FAIL the previous
-        # version recorded.
+        # gap. BLOCKED, excluded from every rate — not a model FAIL.
         return _empty_result(
             Outcome.BLOCKED, "requires_network but the harness has no outbound network"
         )
     for seed_path, seed_body in (task.get("seed") or {}).items():
         sandbox.file_write(seed_path, seed_body)
-
     schemas = (
         [t for t in TOOL_SCHEMAS if t["function"]["name"] in tool_surface]
         if tool_surface
         else TOOL_SCHEMAS
     )
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": task["instruction"]},
-    ]
-    transcript: list = []
-    tool_log: list = []
-    assistant_texts: list = []
-    econ = Economics()
-    t0 = time.monotonic()
-    final_text = ""
-    finish_reason = None
-    outcome_override = None
-    tool_errors = 0
-
-    for turn in range(max_turns):
-        remaining = budget_s - (time.monotonic() - t0)
-        if remaining <= 5:
-            outcome_override = Outcome.BUDGET_EXHAUSTED
-            break
-        try:
-            resp = chat(
-                model,
-                messages,
-                tools=use_tools,
-                harness=harness,
-                sampling=sampling,
-                timeout=int(remaining),
-                tool_schemas=schemas if use_tools else None,
-            )
-        except Exception as e:
-            # A stall (backend accepted the request then went quiet) is the
-            # model's problem — a real fitness verdict, too slow for its lane —
-            # so it is BUDGET_EXHAUSTED, never HARNESS_ERROR.
-            stalled = isinstance(e, StreamStalledError | TimeoutError)
-            outcome_override = Outcome.BUDGET_EXHAUSTED if stalled else Outcome.HARNESS_ERROR
-            key = "stalled" if stalled else "harness_error"
-            transcript.append({"turn": turn, key: f"{type(e).__name__}: {e}"})
-            break
-
-        econ.merge(resp["economics"])
-        finish_reason = resp.get("finish_reason") or finish_reason
-        msg = resp.get("message") or {}
-        content = msg.get("content") or ""
-        calls = msg.get("tool_calls") or []
-        transcript.append(
-            {
-                "turn": turn,
-                "content": content[:2000],
-                "tool_calls": [
-                    {
-                        "name": (c.get("function") or {}).get("name"),
-                        "args_raw": str((c.get("function") or {}).get("arguments"))[:500],
-                    }
-                    for c in calls
-                ],
-            }
-        )
-        if content:
-            assistant_texts.append(content)
-
-        if calls:
-            messages.append({"role": "assistant", "content": content, "tool_calls": calls})
-            tool_errors += _execute_calls(calls, turn, sandbox, tool_log, messages)
-            continue
-
-        final_text = content
-        messages.append({"role": "assistant", "content": content})
-        if task.get("completion_signal") and re.search(task["completion_signal"], content, re.I):
-            break
-        if not task.get("agentic"):
-            break
-    else:
-        # The loop ran every turn without breaking — an agentic task that kept
-        # calling tools and never delivered an answer. That is a turn-budget
-        # exhaustion (the model didn't get to finish), not a wrong answer, so
-        # it is BUDGET_EXHAUSTED, not a content FAIL against an empty string.
-        if not final_text:
-            outcome_override = outcome_override or Outcome.BUDGET_EXHAUSTED
-            transcript.append(
-                {"turn": max_turns, "exhausted_turns": f"no final answer in {max_turns} turns"}
-            )
-
-    econ.wall_s = round(time.monotonic() - t0, 1)
-    if not final_text and assistant_texts:
-        final_text = assistant_texts[-1]
+    lp = _Loop(model, task, sandbox, schemas, harness, sampling, use_tools)
+    lp.messages[0]["content"] = system_prompt
+    _run_turns(lp, max_turns, budget_s)
     return _finalize_run(
         task,
-        final_text,
-        assistant_texts,
-        tool_log,
+        lp.final_text,
+        lp.assistant_texts,
+        lp.tool_log,
         sandbox,
-        finish_reason,
-        transcript,
-        outcome_override,
-        tool_errors,
-        econ,
+        lp.finish_reason,
+        lp.transcript,
+        lp.outcome_override,
+        lp.tool_errors,
+        lp.econ,
     )
 
 
@@ -1154,8 +1202,8 @@ def _parse_args(argv=None):
     ap.add_argument("--system-prompt-file")
     ap.add_argument("--suite")
     ap.add_argument("--sandbox", default="/tmp/wfe/run")
-    ap.add_argument("--max-turns", type=int, default=8)
-    ap.add_argument("--budget-s", type=int, default=600)
+    ap.add_argument("--max-turns", type=int, default=12)
+    ap.add_argument("--budget-s", type=int, default=1200)
     ap.add_argument("--repeat", type=int, default=0)
     ap.add_argument("--temperature", type=float)
     ap.add_argument("--seed", type=int)

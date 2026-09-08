@@ -20,8 +20,8 @@ CAMPAIGN_ID="${1:?usage: wfe_campaign.sh <campaign_id> [extra args...]}"
 shift || true
 
 REPEATS="${REPEATS:-3}"
-BUDGET_S="${BUDGET_S:-900}"
-MAX_TURNS="${MAX_TURNS:-10}"
+BUDGET_S="${BUDGET_S:-1800}"
+MAX_TURNS="${MAX_TURNS:-16}"
 DEBUG_DIR="${DEBUG_DIR:-tests/wfe/results/campaigns/${CAMPAIGN_ID}/debug}"
 LOG_DIR="${LOG_DIR:-/tmp/wfe_${CAMPAIGN_ID}}"
 PROGRESS_LOG="${LOG_DIR}/progress.log"

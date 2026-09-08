@@ -390,3 +390,39 @@ def test_agentic_task_that_never_answers_is_budget_exhausted_not_a_wrong_answer(
         )
     assert out["outcome"] == Outcome.BUDGET_EXHAUSTED.value
     assert "turns" in json.dumps(out["transcript"])
+
+
+def test_empty_response_breaks_instead_of_stacking_assistant_messages(tmp_path):
+    """granite4.2 (verbose reasoning, invisible on /v1) returned empty content
+    turn after turn; run_task appended an empty assistant message each time and
+    /v1 rejected the piled-up consecutive assistant turns with HTTP 400. An
+    empty, tool-less response must end the loop, not extend it."""
+    from unittest.mock import patch
+
+    from tests.wfe import runner as rn
+
+    calls = []
+
+    def fake_chat(*a, **k):
+        calls.append(1)
+        return {
+            "message": {"content": "", "tool_calls": []},
+            "finish_reason": "length",
+            "economics": rn.Economics(),
+            "harness_caveats": [],
+            "resolved_think": "default",
+        }
+
+    task = {
+        "id": "e",
+        "agentic": True,
+        "instruction": "do it",
+        "checkers": [{"type": "answer_contains", "patterns": ["x"]}],
+    }
+    with patch.object(rn, "chat", side_effect=fake_chat):
+        out = rn.run_task(
+            "m", "sys", task, rn.Sandbox(tmp_path), max_turns=8, budget_s=120, use_tools=True
+        )
+    assert len(calls) == 1, "empty response should end the loop, not keep calling"
+    assert out["outcome"] in (Outcome.FAIL.value, Outcome.REFUSED.value, Outcome.TRUNCATED.value)
+    assert any(t.get("empty_response") for t in out["transcript"])
