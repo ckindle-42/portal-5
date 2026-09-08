@@ -357,3 +357,36 @@ def test_compliance_suite_carries_no_answer_key():
             blob = json.dumps(task.get("seed") or {}) + task["instruction"]
             for tok in ("gold_label", "gold_finding_type", "gold_citation"):
                 assert tok not in blob, f"{name}:{task['id']} leaks {tok} to the model"
+
+
+def test_agentic_task_that_never_answers_is_budget_exhausted_not_a_wrong_answer(tmp_path):
+    """Sibling of the reachability audit: a model that burns every turn on tool
+    calls and never delivers an answer ran out of TURN budget — it must not be
+    graded FAIL against an empty string as if it had answered wrongly."""
+    import json
+    from unittest.mock import patch
+
+    from tests.wfe import runner as rn
+
+    task = {
+        "id": "loop",
+        "agentic": True,
+        "instruction": "research forever",
+        "checkers": [{"type": "answer_contains", "patterns": ["never appears"]}],
+    }
+    fake = {
+        "message": {
+            "content": "",
+            "tool_calls": [{"id": "c", "function": {"name": "file_list", "arguments": "{}"}}],
+        },
+        "finish_reason": "tool_calls",
+        "economics": rn.Economics(),
+        "harness_caveats": [],
+        "resolved_think": "default",
+    }
+    with patch.object(rn, "chat", return_value=fake):
+        out = rn.run_task(
+            "m", "sys", task, rn.Sandbox(tmp_path), max_turns=3, budget_s=120, use_tools=True
+        )
+    assert out["outcome"] == Outcome.BUDGET_EXHAUSTED.value
+    assert "turns" in json.dumps(out["transcript"])
