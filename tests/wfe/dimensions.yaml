@@ -1,0 +1,41 @@
+# WFE holistic dimension contract, mirrored from
+# docs/TASK_WORKSPACE_FITNESS_EVAL_V1.md so report.py can state coverage
+# mechanically instead of the operator holding it in their head.
+#
+# status: BUILT   = an instrument exists AND this campaign exercises it
+#         PARTIAL = instrument exists but coverage is incomplete
+#         PENDING = no instrument yet
+rule: >-
+  A disposition that depends on a dimension this campaign did not exercise is
+  provisional until that dimension's instrument exists and has run for the
+  models in question. This is what "proper testing before fold/purpose/removed"
+  means operationally.
+dimensions:
+  - {id: 1,  name: "Settings/design/intent audit",                 status: BUILT}
+  - {id: 2,  name: "Card ground truth (sampling/ctx/tools/template)", status: PARTIAL}
+  - {id: 3,  name: "Think/stream/endpoint/tool-contract fidelity",  status: BUILT}
+  - {id: 4,  name: "Real-work tool loops in-lane",                  status: BUILT}
+  - {id: 5,  name: "Cross-lane discovery",                          status: BUILT}
+  - {id: 6,  name: "Lineage diversity",                             status: PARTIAL}
+  - {id: 7,  name: "Memory co-residency / live swap",               status: PENDING}
+  - {id: 8,  name: "Production-sampling fitness (n>=3 at lane temp)", status: PARTIAL}
+  - {id: 9,  name: "Effective context (graded needle fills)",       status: PENDING}
+  - {id: 10, name: "Prompt-eval latency at fill (TTFT)",            status: PENDING}
+  - {id: 11, name: "Multi-turn accumulation (10-20 turns)",         status: PARTIAL}
+  - {id: 12, name: "Memory/RAG tool fidelity (remember->recall)",   status: PENDING}
+  - {id: 13, name: "Tool-error recovery injection",                 status: PENDING}
+  - {id: 14, name: "Tool discipline / no confabulated success",     status: PARTIAL}
+  - {id: 15, name: "Truncation & schema conformance",               status: PARTIAL}
+  - {id: 16, name: "Fake-citation detection (fetch-grounded)",      status: BUILT}
+  - {id: 17, name: "Prompt-injection robustness",                   status: PENDING}
+  - {id: 18, name: "Over-compliance placement risk",                status: PENDING}
+  - {id: 19, name: "Contamination control (private task bank)",     status: PARTIAL}
+  - {id: 20, name: "Checker soundness (unit tests FOR checkers)",   status: BUILT}
+  - {id: 21, name: "Suite calibration & statistical power",         status: BUILT}
+  - {id: 22, name: "Environment fingerprint gate",                  status: BUILT}
+  - {id: 23, name: "Standing canary suite post-swap",               status: PENDING}
+  - {id: 24, name: "Token economics (cost per completed task)",     status: BUILT}
+  - {id: 25, name: "Cold-start & concurrency under real loading",   status: PARTIAL}
+  - {id: 26, name: "Multimodal through the pipeline",               status: PENDING}
+  - {id: 27, name: "Checker gameability (adversarial fixtures)",    status: BUILT}
+  - {id: 28, name: "Harness determinism (persona/seed/sampling pinned)", status: BUILT}

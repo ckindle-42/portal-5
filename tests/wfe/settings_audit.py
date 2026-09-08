@@ -21,19 +21,38 @@ from pathlib import Path
 
 import yaml
 
+from tests.wfe.runner import card_entry as _card_entry_matched
+
 REPO = Path(__file__).resolve().parents[2]
 OLLAMA = "http://localhost:11434"
 EXPECTATIONS_PATH = REPO / "config" / "model_card_expectations.yaml"
 
+#: Maximum baked temperature per lane. The previous table covered 6 of 81
+#: workspaces: 56 carry module 'eval', 12 'general', and the media/documents/
+#: video/image/cad singletons had no policy at all, so 75 workspaces received no
+#: sampling check whatsoever.
 LANE_SAMPLING = {
-    "compliance": {"temperature": 0.3},
-    "math": {"temperature": 0.3},
-    "data": {"temperature": 0.4},
-    "security": {"temperature": 0.4},
-    "coding": {"temperature": 0.5},
-    "reasoning": {"temperature": 0.5},
-    "research": {"temperature": 0.5},
+    "compliance": {"temperature": 0.3, "deterministic": True},
+    "math": {"temperature": 0.3, "deterministic": True},
+    "data": {"temperature": 0.4, "deterministic": True},
+    "security": {"temperature": 0.4, "deterministic": True},
+    "documents": {"temperature": 0.4, "deterministic": True},
+    "eval": {"temperature": 0.4, "deterministic": True},
+    "coding": {"temperature": 0.5, "deterministic": False},
+    "reasoning": {"temperature": 0.5, "deterministic": False},
+    "research": {"temperature": 0.5, "deterministic": False},
+    "cad": {"temperature": 0.5, "deterministic": False},
+    "general": {"temperature": 0.8, "deterministic": False},
+    "media": {"temperature": 0.8, "deterministic": False},
+    "image": {"temperature": 0.8, "deterministic": False},
+    "video": {"temperature": 0.8, "deterministic": False},
 }
+
+
+def ctx_from_tag(tag: str) -> int | None:
+    """Parse the -ctxNk naming convention into a token count."""
+    m = re.search(r"-ctx(\d+)k$", tag)
+    return int(m.group(1)) * 1024 if m else None
 
 
 def _post(path: str, payload: dict, timeout: int = 60) -> dict:
@@ -79,6 +98,89 @@ def _v(
     )
 
 
+def _audit_context(ws_id, ws, hint, bp, tags, violations) -> None:
+    declared_ctx = ws.get("context_limit")
+    baked_ctx = bp.get("num_ctx")
+    tag_ctx = ctx_from_tag(hint)
+
+    # The previous audit SKIPPED this whole block for any hint matching
+    # -ctx\d+k$, i.e. it trusted the tag name for exactly the 31 tags whose
+    # names assert a window. The glm-4.7-flash regression was a tag whose NAME
+    # promised 128K and whose weights did not. The name is now a claim to verify,
+    # not a reason to stop looking.
+    if tag_ctx is not None and hint in tags:
+        if not baked_ctx:
+            _v(
+                violations,
+                ws_id,
+                "ctx_tag_unbacked",
+                f"{hint} advertises {tag_ctx} tokens in its tag but bakes NO num_ctx "
+                f"(/v1 ignores request-time options.num_ctx — the window is Ollama's default)",
+                "FAIL",
+            )
+        elif baked_ctx != tag_ctx:
+            _v(
+                violations,
+                ws_id,
+                "ctx_tag_mismatch",
+                f"{hint} advertises {tag_ctx} tokens in its tag but bakes num_ctx={baked_ctx}",
+                "FAIL",
+            )
+    if declared_ctx and hint in tags:
+        effective = baked_ctx or (tag_ctx if baked_ctx else None)
+        if not effective:
+            _v(
+                violations,
+                ws_id,
+                "ctx_not_baked",
+                f"context_limit={declared_ctx} declared but {hint} bakes no num_ctx "
+                f"(the served window is Ollama's default, not {declared_ctx})",
+                "FAIL",
+            )
+        elif effective < declared_ctx:
+            _v(
+                violations,
+                ws_id,
+                "ctx_below_declared",
+                f"effective num_ctx={effective} < context_limit={declared_ctx}",
+                "FAIL",
+            )
+
+
+def _audit_sampling(ws_id, ws, hint, bp, tags, violations) -> None:
+    policy = LANE_SAMPLING.get(str(ws.get("module", "")).lower())
+    if policy and hint in tags:
+        baked_temp = bp.get("temperature")
+        if baked_temp is None and policy["deterministic"]:
+            # Absent is NOT compliant: with no baked temperature the tag serves
+            # at Ollama's 0.7 default. The previous audit only fired when a
+            # temperature was present and hot, so this case passed silently.
+            _v(
+                violations,
+                ws_id,
+                "sampling_unset",
+                f"{ws.get('module')} lane requires <= {policy['temperature']} but {hint} bakes NO "
+                f"temperature — it serves at the Ollama default",
+                "FAIL",
+            )
+        elif baked_temp is not None and baked_temp > policy["temperature"]:
+            _v(
+                violations,
+                ws_id,
+                "sampling_hot",
+                f"{ws.get('module')} lane but baked temperature={baked_temp} > {policy['temperature']} "
+                f"(lane policy applies at the TAG level)",
+                "FAIL" if policy["deterministic"] else "WARN",
+            )
+    elif hint in tags and ws.get("module"):
+        _v(
+            violations,
+            ws_id,
+            "lane_no_policy",
+            f"module '{ws.get('module')}' has no LANE_SAMPLING entry — sampling unchecked",
+        )
+
+
 def _audit_workspace(
     ws_id: str,
     ws: dict,
@@ -107,36 +209,8 @@ def _audit_workspace(
         )
 
     bp = baked_params(hint) if hint in tags else {}
-    declared_ctx = ws.get("context_limit")
-    if declared_ctx and not re.search(r"-ctx\d+k$", hint):
-        baked_ctx = bp.get("num_ctx")
-        if not baked_ctx:
-            _v(
-                violations,
-                ws_id,
-                "ctx_not_baked",
-                f"context_limit={declared_ctx} declared but {hint} bakes no num_ctx "
-                f"(/v1 ignores request-time options.num_ctx — window silently {baked_ctx or 'default'})",
-                "FAIL",
-            )
-        elif baked_ctx < declared_ctx:
-            _v(
-                violations,
-                ws_id,
-                "ctx_below_declared",
-                f"baked num_ctx={baked_ctx} < context_limit={declared_ctx}",
-                "FAIL",
-            )
-
-    policy = LANE_SAMPLING.get(str(ws.get("module", "")).lower())
-    if policy and bp.get("temperature") is not None and bp["temperature"] > policy["temperature"]:
-        _v(
-            violations,
-            ws_id,
-            "sampling_hot",
-            f"{ws.get('module')} lane but baked temperature={bp['temperature']} > {policy['temperature']} "
-            f"(deterministic lanes need low temp at the TAG level)",
-        )
+    _audit_context(ws_id, ws, hint, bp, tags, violations)
+    _audit_sampling(ws_id, ws, hint, bp, tags, violations)
 
     ws_tools = ws.get("tools") or []
     if ws_tools and tool_flags.get(hint) is False:
@@ -207,14 +281,14 @@ def _load_expectations() -> dict:
 
 
 def _expectations_for(tag: str, registry: dict) -> tuple[str, dict] | None:
-    tl = tag.lower()
-    tag_key = tl.rsplit(":", 1)[0] if ":" in tl else tl
-    if tag_key in registry:
-        return tag_key, registry[tag_key]
-    for key, entry in registry.items():
-        if key.lower() in tl:
-            return key, entry
-    return None
+    """Longest-match-wins over separator-normalised keys, shared with the runner.
+
+    The previous first-substring-wins scan resolved 28 of 81 production hints to
+    the generic 'qwen3' entry — shadowing the specific qwen3.5/3.6/3.8 records —
+    and matched NOTHING for granite, because registry keys are hyphenated
+    ('granite-4.1') while installed tags are not ('granite4.1'). Dimensions 2
+    and 3 were inert for most of the fleet as a result."""
+    return _card_entry_matched(tag, registry)
 
 
 def _template_sha(tag: str) -> str | None:
@@ -258,7 +332,15 @@ def _card_check(tag: str, bp: dict, registry: dict, violations: list[dict], wher
     else:
         for k, want in (rec or {}).items():
             got = bp.get(k)
-            if got is not None and abs(float(got) - float(want)) > 1e-6:
+            if got is None:
+                _v(
+                    violations,
+                    where,
+                    "sampling_absent_vs_card",
+                    f"{tag} bakes no {k} but the card recommends {k}={want} — the served "
+                    f"value is Ollama's default, not the card's",
+                )
+            elif abs(float(got) - float(want)) > 1e-6:
                 _v(
                     violations,
                     where,
@@ -363,8 +445,11 @@ def run_audit(behavioral: bool = False) -> dict:
                 tool_flags[m["id"]] = bool(m.get("supports_tools"))
 
     tags = installed_tags(backends)
-    council = yaml.safe_load((REPO / "config/compliance/council.yaml").read_text())
-    seats = {s.get("id"): s.get("model") for s in council.get("seats", [])}
+    council_path = REPO / "config/compliance/council.yaml"
+    seats: dict = {}
+    if council_path.exists():
+        council = yaml.safe_load(council_path.read_text()) or {}
+        seats = {s.get("id"): s.get("model") for s in council.get("seats", [])}
 
     violations: list[dict] = []
     checked = 0
