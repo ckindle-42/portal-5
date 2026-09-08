@@ -37,6 +37,7 @@
 #   ./scripts/wfe_sweep_unattended.sh                           # foreground
 #   ./scripts/wfe_sweep_unattended.sh wfe_deep --detach         # named campaign
 #   ./scripts/wfe_sweep_unattended.sh --check                   # preconditions only
+#   ./scripts/wfe_sweep_unattended.sh --paths                   # just say where output goes
 #   ./scripts/wfe_sweep_unattended.sh --no-down                 # leave the stack alone
 #   ./scripts/wfe_sweep_unattended.sh --leave-down              # don't restore at the end
 #   ./scripts/wfe_sweep_unattended.sh --strict-preflight        # abort if any arm needs review
@@ -68,6 +69,7 @@ DETACH=0
 NO_DOWN=0
 LEAVE_DOWN=0
 CHECK_ONLY=0
+PATHS_ONLY=0
 STRICT_PREFLIGHT=0
 for arg in "$@"; do
   case "$arg" in
@@ -75,15 +77,23 @@ for arg in "$@"; do
     --no-down)           NO_DOWN=1 ;;
     --leave-down)        LEAVE_DOWN=1 ;;
     --check)             CHECK_ONLY=1 ;;
+    --paths)             PATHS_ONLY=1 ;;
     --strict-preflight)  STRICT_PREFLIGHT=1 ;;
-    -h|--help)           sed -n '2,49p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    # Print the header comment block by SHAPE, not by line number: a hardcoded
+    # range silently truncates the moment the header grows, which it just did.
+    -h|--help)           awk 'NR>1 && /^#/ {sub(/^# ?/,""); print; next} NR>1 {exit}' \
+                             "${BASH_SOURCE[0]}"; exit 0 ;;
     -*)                  echo "wfe-sweep: unknown flag '$arg'" >&2; exit 2 ;;
     *)                   CAMPAIGN_ID="$arg" ;;
   esac
 done
 CAMPAIGN_ID="${CAMPAIGN_ID:-wfe_full_$(date -u +%Y%m%d)}"
 
-LOG_DIR="/tmp/wfe_${CAMPAIGN_ID}"
+# Exported: scripts/wfe_campaign.sh derives the same default independently, so
+# without this an operator LOG_DIR override would send the child somewhere the
+# banner above does not name — a monitoring path that quietly lies.
+LOG_DIR="${LOG_DIR:-/tmp/wfe_${CAMPAIGN_ID}}"
+export LOG_DIR
 CAMPAIGN_DIR_REL="tests/wfe/results/campaigns/${CAMPAIGN_ID}"
 KICKOFF_LOG="${LOG_DIR}/kickoff.log"
 mkdir -p "$LOG_DIR"
@@ -91,6 +101,39 @@ mkdir -p "$LOG_DIR"
 say()  { printf '\033[1;36m[wfe-sweep]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[wfe-sweep]\033[0m %s\n' "$*"; }
 die()  { printf '\033[1;31m[wfe-sweep] BLOCKED:\033[0m %s\n' "$*" >&2; exit 1; }
+
+# Where everything lands. Printed on detach, on --check and at the end of a
+# foreground run, because a sweep whose output the operator cannot find is a
+# sweep they cannot use. --paths prints it alone, which is also what makes it
+# testable without committing the machine to 30 hours.
+print_paths() {
+  cat <<EOF
+
+  WATCH     uv run python -m tests.wfe.campaign --campaign-id ${CAMPAIGN_ID} --watch
+            Live per-arm progress, row counts and an ETA from what rows have
+            actually cost. Read-only; Ctrl-C leaves the sweep running.
+
+  status    uv run python -m tests.wfe.campaign --campaign-id ${CAMPAIGN_ID} --status
+  report    uv run python -m tests.wfe.report --campaign ${CAMPAIGN_ID}
+
+  kickoff   tail -f ${KICKOFF_LOG}
+              stack down/up, preflight, report
+  progress  tail -f ${LOG_DIR}/progress.log
+              arm START / DONE + exit codes
+  per-arm   tail -f ${LOG_DIR}/*.log
+              one line per row as it finishes ('/' and ':' in a tag become '_')
+  rows      ${CAMPAIGN_DIR_REL}/manifest.json
+              every row and its state; rewritten after each one
+  evidence  ${CAMPAIGN_DIR_REL}/debug/*.debug.jsonl
+              full request, response, tool calls and sandbox tree per run
+EOF
+}
+
+if [ "$PATHS_ONLY" -eq 1 ]; then
+  say "Campaign: ${CAMPAIGN_ID} — where its output goes:"
+  print_paths
+  exit 0
+fi
 
 # ── 1. preconditions — all of them before anything is stopped ────────────────
 say "Campaign: ${CAMPAIGN_ID}"
@@ -131,6 +174,7 @@ uv run python -m tests.wfe.campaign --campaign-id "$CAMPAIGN_ID" $PLAN_FLAG \
 
 if [ "$CHECK_ONLY" -eq 1 ]; then
   say "--check: stopping here. Nothing was stopped or started."
+  print_paths
   exit 0
 fi
 
@@ -145,24 +189,12 @@ if [ "$DETACH" -eq 1 ]; then
       > "$KICKOFF_LOG" 2>&1 &
   pid=$!
   sleep 2
-  cat <<EOF
-
-  started   pid ${pid}
-
-  WATCH     uv run python -m tests.wfe.campaign --campaign-id ${CAMPAIGN_ID} --watch
-            live per-arm progress, row counts and an ETA. Read-only; Ctrl-C
-            leaves the sweep running.
-
-  status    uv run python -m tests.wfe.campaign --campaign-id ${CAMPAIGN_ID} --status
-  kickoff   tail -f ${KICKOFF_LOG}                  (stack down/up, preflight, report)
-  progress  tail -f ${LOG_DIR}/progress.log         (arm START/DONE + exit codes)
-  per-arm   tail -f ${LOG_DIR}/<arm>.log            (one line per row, live)
-  rows      ${CAMPAIGN_DIR_REL}/manifest.json
-  evidence  ${CAMPAIGN_DIR_REL}/debug/<arm>.debug.jsonl
-
-  stop      kill ${pid}     (safe — the campaign resumes from its manifest)
-
-EOF
+  echo
+  echo "  started   pid ${pid}"
+  print_paths
+  echo
+  echo "  stop      kill ${pid}     (safe — the campaign resumes from its manifest)"
+  echo
   exit 0
 fi
 
@@ -229,4 +261,5 @@ uv run python -m tests.wfe.report --campaign "$CAMPAIGN_ID" 2>&1 \
     | tee "${LOG_DIR}/report.txt" || warn "report failed — the rows are intact, re-run the report"
 
 say "Sweep finished (exit ${sweep_rc}). Report: ${LOG_DIR}/report.txt"
+print_paths
 exit "$sweep_rc"
