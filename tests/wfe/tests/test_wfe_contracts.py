@@ -1161,3 +1161,41 @@ class TestInstrumentHealthSection:
     def test_the_census_total_matches_every_recorded_run(self, tmp_path):
         md = self._md(tmp_path, {"inc": ["PASS"] * 5, "ch": ["FAIL"] * 3})
         assert "0 of 8 run(s) excluded as instrument failures." in md
+
+
+class TestLaneWithNoIncumbent:
+    """A workspace whose incumbent arm was excluded still has challengers.
+
+    They cannot be ranked, and the report must SAY that rather than leaving them
+    out of section 3 — an empty row reads as "nothing to report" when the truth
+    is "nothing to compare against". auto-coding is in exactly this state: its
+    production model_hint does not fit this host, so the arm was dropped.
+    """
+
+    def _campaign_no_incumbent(self, tmp_path):
+        d = TestReportCompilation()._campaign(tmp_path, {"ch": ["PASS", "FAIL"]})
+        man = json.loads((d / "manifest.json").read_text())
+        for r in man["rows"]:
+            r["arm_role"] = "challenger"
+        (d / "manifest.json").write_text(json.dumps(man))
+        for f in (d / "rows").glob("*.json"):
+            row = json.loads(f.read_text())
+            row["arm_role"] = "challenger"
+            f.write_text(json.dumps(row))
+        return d
+
+    def test_the_lane_is_named_as_having_no_baseline(self, tmp_path):
+        rep = camp_report_build(self._campaign_no_incumbent(tmp_path))
+        assert rep["comparisons"] == []
+        assert rep["no_baseline"] == ["ws"]
+
+    def test_the_markdown_says_so_instead_of_showing_an_empty_section(self, tmp_path):
+        from tests.wfe.report import render_markdown
+
+        md = render_markdown(camp_report_build(self._campaign_no_incumbent(tmp_path)))
+        assert "no incumbent arm" in md
+        assert "`ws` — challengers were measured" in md
+
+    def test_a_lane_with_an_incumbent_is_not_listed(self, tmp_path):
+        d = TestReportCompilation()._campaign(tmp_path, {"inc": ["PASS"], "ch": ["PASS"]})
+        assert camp_report_build(d)["no_baseline"] == []

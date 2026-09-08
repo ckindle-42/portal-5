@@ -237,6 +237,12 @@ def build(campaign_dir: Path, allow_mixed: bool = False, only_arm: str | None = 
         ),
         "matrix": matrix,
         "comparisons": comparisons,
+        # Lanes that were measured but have nothing to rank against, because the
+        # plan carries no incumbent arm for them. Recorded explicitly so their
+        # absence from `comparisons` is a stated fact, not a silent omission.
+        "no_baseline": sorted(
+            {m["workspace"] for m in matrix} - set(incumbent_of) - {""},
+        ),
         "taxonomy": dict(taxonomy),
         "not_run": [
             {"run_id": m["run_id"], "state": m.get("state"), "note": m.get("note", "")}
@@ -436,6 +442,15 @@ def _sec_comparisons(a, rep) -> None:
         "arms. It is not a tie and must not be read as one._"
     )
     a("")
+    # A lane whose incumbent was excluded has challengers and no baseline. Saying
+    # so is the point: without it those challengers simply have no rows in this
+    # table, which reads as "nothing to report" rather than "nothing to compare".
+    if rep.get("no_baseline"):
+        a("Workspaces with challengers but **no incumbent arm** — no comparison was made:")
+        a("")
+        for ws in rep["no_baseline"]:
+            a(f"- `{ws}` — challengers were measured (section 2) but rank against nothing here.")
+        a("")
     a("## 4. Creative lane (blinded review)")
     a("")
     a(

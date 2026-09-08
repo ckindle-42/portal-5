@@ -7,7 +7,27 @@ workloads:
     home: coding
     discovery: [compliance_agentic]
     arms:
-      incumbent: qwen3-coder:30b-a3b-q4_K_M-ctx256k
+      # NO INCUMBENT — deliberate, operator decision 2026-09-08.
+      #
+      # auto-coding's model_hint is qwen3-coder:30b-a3b-q4_K_M-ctx256k. Measured
+      # on this host: 76.1GB resident, 59.0GB on GPU, 17GB spilled past the
+      # 57,344MB Metal wired limit, driving 41.5GB of swap. Its preflight took
+      # 263s against 18-26s for every other arm. Running its 39 rows would
+      # measure paging, not the model, so the arm is excluded rather than
+      # producing 39 numbers that describe the machine.
+      #
+      # 256k is not the fault: portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k holds
+      # the same 262144 window in 25.5GB, 100% GPU. This model's KV is ~226
+      # KB/token, so ctx64k would be ~33GB and ctx128k ~47GB.
+      #
+      # Production config is intentionally NOT changed: auto-coding is normally
+      # oMLX-served and the Ollama tag is the fallback path only. The accepted
+      # risk is that this fallback stays unmeasured — see KNOWN_LIMITATIONS.md
+      # "auto-coding's Ollama fallback tag does not fit this host".
+      #
+      # Consequence: the three challengers below have no baseline to be compared
+      # against. report.py names the lane as having no incumbent rather than
+      # quietly omitting the comparison rows.
       challengers: [kat-coder-v2.5-dev:Q4_K_M, orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M, glm-4.7-flash:Q4_K_M-ctx64k]
   tools-specialist:
     home: coding
