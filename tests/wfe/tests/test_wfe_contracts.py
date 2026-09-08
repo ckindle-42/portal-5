@@ -849,3 +849,117 @@ class TestToolOutputRetentionForRescore:
         ]
         _execute_calls(calls, 0, sb, tool_log, msgs)
         assert "gold_label=CONTRADICTED" in str(tool_log[0]["output"])
+
+
+class TestAdaptiveThink:
+    """gpt-oss works; the harness refused it over a format:json probe of a mode
+    no campaign task uses, and dropped `think` entirely on the /v1 path so a
+    `think: false` workspace was measured with the model's reasoning left on."""
+
+    def test_v1_payload_carries_think_like_production(self):
+        from tests.wfe.runner import _build_payload
+
+        url, payload, caveats = _build_payload(
+            "m",
+            [{"role": "user", "content": "x"}],
+            {"endpoint": "v1", "format": "none"},
+            {},
+            None,
+            "false",
+        )
+        assert "/v1/chat/completions" in url
+        assert payload["think"] is False
+        assert not caveats  # no more "v1_think_unsupported"
+        _, p2, _ = _build_payload(
+            "m",
+            [{"role": "user", "content": "x"}],
+            {"endpoint": "v1", "format": "none"},
+            {},
+            None,
+            "true",
+        )
+        assert p2["think"] is True
+
+    def test_campaign_harness_resolves_think_workspace_then_card(self):
+        from tests.wfe import campaign as c
+
+        assert c.campaign_harness({"model": "m", "think": False})["think"] == "false"
+        assert c.campaign_harness({"model": "m", "think": True})["think"] == "true"
+        # no workspace think -> card policy
+        reg = {"gpt-oss": {"harness_policy": {"think": "true"}}}
+        import tests.wfe.runner as rn
+
+        assert rn.think_policy("gpt-oss:20b", reg) == "true"
+
+    def test_workspace_context_exposes_think(self):
+        from tests.wfe.runner import workspace_context
+
+        wsc = workspace_context("auto-compliance")
+        assert wsc["think"] in (True, False, None)  # auto-compliance sets it False
+
+    def test_strict_json_failure_is_a_note_not_a_verdict_gate(self):
+        from tests.wfe.runner import _preflight_findings, _strict_json_note
+
+        degenerate = {"content": "The user says ...", "finish_reason": "stop"}
+        note = _strict_json_note(degenerate, card_json_safe=False)
+        assert note and "cannot serve strict-JSON" in note
+        # a strict-json failure contributes NOTHING to the findings list
+        out = {
+            "v1": {"content": "OK"},
+            "v1_tools": {"emitted_call": True, "parsed_ok": True},
+        }
+        assert _preflight_findings(out, {"content": "OK"}, {"content": "OK"}) == []
+
+    def test_verdict_gates_only_on_campaign_arms(self):
+        from tests.wfe.runner import _preflight_findings
+
+        # v1 tool contract broken -> a real gate
+        out = {"v1": {"content": "OK"}, "v1_tools": {"parsed_ok": False}}
+        f = _preflight_findings(out, {"content": "OK"}, {"content": "OK"})
+        assert any("tool-call arguments" in x for x in f)
+        # stream parity mismatch -> a real gate
+        out2 = {"v1": {"content": "OK"}, "v1_tools": {"parsed_ok": True}}
+        f2 = _preflight_findings(out2, {"content": "A"}, {"content": "B"})
+        assert any("parity" in x for x in f2)
+
+
+class TestReasoningFitAudit:
+    def test_reasoning_model_no_think_on_deterministic_lane_is_a_fail(self):
+        from tests.wfe.settings_audit import _audit_reasoning_fit
+
+        reg = {"gpt-oss": {"harness_policy": {"think": "true"}}}
+        ws = {"module": "compliance", "model_hint": "gpt-oss:20b"}  # no `think`
+        v: list[dict] = []
+        _audit_reasoning_fit("w", ws, "gpt-oss:20b", reg, {"gpt-oss:20b"}, v)
+        assert any(x["kind"] == "reasoning_uncontrolled" and x["severity"] == "FAIL" for x in v)
+
+    def test_reasoning_model_no_think_on_agentic_lane_is_a_warn(self):
+        from tests.wfe.settings_audit import _audit_reasoning_fit
+
+        ws = {"module": "coding", "model_hint": "granite4.2:30b-q4_K_M"}
+        v: list[dict] = []
+        _audit_reasoning_fit("w", ws, "granite4.2:30b-q4_K_M", {}, {"granite4.2:30b-q4_K_M"}, v)
+        assert any(x["kind"] == "reasoning_uncontrolled" and x["severity"] == "WARN" for x in v)
+
+    def test_workspace_that_sets_think_is_not_flagged(self):
+        from tests.wfe.settings_audit import _audit_reasoning_fit
+
+        ws = {"module": "compliance", "model_hint": "gpt-oss:20b", "think": False}
+        v: list[dict] = []
+        _audit_reasoning_fit(
+            "w",
+            ws,
+            "gpt-oss:20b",
+            {"gpt-oss": {"harness_policy": {"think": "true"}}},
+            {"gpt-oss:20b"},
+            v,
+        )
+        assert not v
+
+    def test_non_reasoning_model_is_not_flagged(self):
+        from tests.wfe.settings_audit import _audit_reasoning_fit
+
+        ws = {"module": "compliance", "model_hint": "gemma4:e4b-it-qat"}
+        v: list[dict] = []
+        _audit_reasoning_fit("w", ws, "gemma4:e4b-it-qat", {}, {"gemma4:e4b-it-qat"}, v)
+        assert not v
