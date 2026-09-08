@@ -130,20 +130,27 @@ class Sandbox:
         self.root.mkdir(parents=True, exist_ok=True)
         self.allow_repo_read = allow_repo_read
 
+    @staticmethod
+    def _under(child: Path, parent: Path) -> bool:
+        return child == parent or parent in child.parents
+
     def _resolve(self, path: str, write: bool = False) -> Path | None:
-        p = (self.root / path).resolve()
-        try:
-            p.relative_to(self.root)
-            return p
-        except ValueError:
-            if not write and self.allow_repo_read:
-                rp = (REPO / path).resolve()
-                try:
-                    rp.relative_to(REPO)
-                    return rp
-                except ValueError:
-                    return None
-            return None
+        """Resolve a tool path. Writes are sandbox-only. Reads prefer a sandbox
+        file when one exists, then fall back to the repository — the previous
+        version only fell back when the path ESCAPED the sandbox, so
+        file_read('README.md') on an in-repo research task never reached the
+        repo and repo_search('.', ...) searched an empty directory."""
+        sp = (self.root / path).resolve()
+        in_sandbox = self._under(sp, self.root)
+        if write:
+            return sp if in_sandbox else None
+        if in_sandbox and sp.exists():
+            return sp
+        if self.allow_repo_read:
+            rp = (REPO / path).resolve()
+            if self._under(rp, REPO) and rp.exists():
+                return rp
+        return sp if in_sandbox else None
 
     def file_read(self, path: str = ".") -> str:
         f = self._resolve(path)
@@ -153,33 +160,59 @@ class Sandbox:
 
     def file_list(self, path: str = ".") -> str:
         d = self._resolve(path)
+        # A bare, empty sandbox root is useless to a research task — show the
+        # repository's top level instead so the model can navigate it.
+        if d is not None and d == self.root and self.allow_repo_read and not any(d.iterdir()):
+            return "\n".join(sorted(p.name for p in REPO.iterdir() if not p.name.startswith(".")))
         if d is None or not d.is_dir():
             return f"ERROR: cannot list {path}"
+        if d == REPO:  # never rglob the whole repo — top level only
+            return "\n".join(sorted(p.name for p in d.iterdir() if not p.name.startswith(".")))
         return "\n".join(str(x.relative_to(d)) for x in sorted(d.rglob("*"))[:200])
 
+    def _grep_sandbox(self, pattern: str, root: Path) -> str:
+        try:
+            return subprocess.run(
+                ["grep", "-rEnI", "--exclude-dir=__pycache__", "--", pattern, str(root)],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            ).stdout.replace(str(root) + "/", "")
+        except Exception as e:  # pragma: no cover - defensive
+            return f"ERROR: {e}\n"
+
+    def _grep_repo(self, pattern: str) -> str:
+        """`git grep` over TRACKED files only — fast, and .venv / worktrees /
+        node_modules / build artifacts are excluded for free. A plain `grep -r`
+        over the repo root walks .claude/worktrees/*/.venv and times out."""
+        try:
+            r = subprocess.run(
+                ["git", "-C", str(REPO), "grep", "-nEI", "--no-color", "-e", pattern],
+                capture_output=True,
+                text=True,
+                timeout=20,
+            )
+            return r.stdout
+        except Exception as e:  # pragma: no cover - defensive
+            return f"ERROR: {e}\n"
+
     def repo_search(self, pattern: str = "", path: str = "") -> str:
-        """Searches the sandbox AND the repo. The previous implementation greped
-        only the sandbox despite its name and description, so suites that told
-        the model to search the repo measured a harness bug."""
-        roots = [self.root]
-        if self.allow_repo_read:
-            target = self._resolve(path) if path else REPO
-            if target is not None and target != self.root:
-                roots.append(target)
-        chunks = []
-        for r in roots:
-            try:
-                out = subprocess.run(
-                    ["grep", "-rEn", "--", pattern, str(r)],
-                    capture_output=True,
-                    text=True,
-                    timeout=25,
-                ).stdout
-                if out:
-                    chunks.append(out)
-            except Exception as e:
-                chunks.append(f"ERROR: {e}")
-        return ("\n".join(chunks) or "(no matches)")[:8000]
+        """Regex search across the sandbox AND the repository (its stated
+        contract). The previous version only added the repo when `path` was
+        empty or escaped the sandbox, so `path='.'` — which the model naturally
+        passes for "here" — resolved to the sandbox root and excluded the repo."""
+        if not str(pattern).strip():
+            return "ERROR: pattern required"
+        chunks: list[str] = []
+        if path and path not in (".", "./"):
+            t = self._resolve(path)
+            chunks.append(self._grep_sandbox(pattern, t if (t and t.is_dir()) else self.root))
+        else:
+            chunks.append(self._grep_sandbox(pattern, self.root))
+            if self.allow_repo_read:
+                chunks.append(self._grep_repo(pattern))
+        body = "\n".join(c for c in chunks if c.strip())
+        return (body or "(no matches)")[:8000]
 
     def pytest_run(self, args: str = "") -> str:
         try:

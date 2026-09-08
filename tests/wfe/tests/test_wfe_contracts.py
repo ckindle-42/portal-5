@@ -669,3 +669,48 @@ class TestEffectiveSampling:
         v: list[dict] = []
         _audit_sampling("w", ws, "x", {}, {"x"}, v)
         assert any(x["kind"] == "sampling_defaulted" and x["severity"] == "FAIL" for x in v)
+
+
+class TestSandboxRepoAccess:
+    """Regression: an in-repo research task (res-repo-grounded) was unwinnable
+    because repo_search('.', ...) searched only the empty sandbox and
+    file_read('README.md') never fell back to the repository — the fallback
+    fired only when a path ESCAPED the sandbox, which is backwards."""
+
+    def test_file_read_falls_back_to_a_real_repo_file(self, tmp_path):
+        sb = Sandbox(tmp_path)
+        out = sb.file_read("pyproject.toml")
+        assert "[tool.ruff]" in out and not out.startswith("ERROR")
+
+    def test_sandbox_file_wins_over_a_repo_file_of_the_same_name(self, tmp_path):
+        sb = Sandbox(tmp_path)
+        sb.file_write("pyproject.toml", "SANDBOX COPY")
+        assert sb.file_read("pyproject.toml") == "SANDBOX COPY"
+
+    def test_missing_everywhere_is_a_clean_error(self, tmp_path):
+        assert Sandbox(tmp_path).file_read("no/such/file.xyz").startswith("ERROR:")
+
+    def test_repo_search_dot_path_reaches_the_repo(self, tmp_path):
+        sb = Sandbox(tmp_path)
+        hits = sb.repo_search("single source of truth", ".")
+        assert "config/portal.yaml" in hits or "portal.yaml" in hits
+        assert str(sb.root) not in hits  # paths are repo-relative, not absolute
+
+    def test_repo_search_empty_path_reaches_the_repo(self, tmp_path):
+        assert "pyproject.toml" in Sandbox(tmp_path).repo_search(r"\[tool\.ruff\]")
+
+    def test_repo_search_still_finds_sandbox_content(self, tmp_path):
+        sb = Sandbox(tmp_path)
+        sb.file_write("note.txt", "MARKER_TOKEN_XYZ here")
+        assert "MARKER_TOKEN_XYZ" in sb.repo_search("MARKER_TOKEN_XYZ", ".")
+
+    def test_repo_search_requires_a_pattern(self, tmp_path):
+        assert Sandbox(tmp_path).repo_search("", ".").startswith("ERROR:")
+
+    def test_writes_still_cannot_escape(self, tmp_path):
+        assert Sandbox(tmp_path).file_write("../../evil.txt", "x").startswith("ERROR:")
+        assert Sandbox(tmp_path)._resolve("../../evil.txt", write=True) is None
+
+    def test_file_list_of_empty_sandbox_shows_the_repo(self, tmp_path):
+        out = Sandbox(tmp_path).file_list(".")
+        assert "pyproject.toml" in out
