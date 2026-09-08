@@ -465,8 +465,12 @@ def _sampling_for(wsc: dict, repeat: int) -> dict:
     Dimension 8: a temperature-0 pass is not evidence about a product served at
     the lane's declared temperature, and repeats must be three real draws rather
     than three copies of one. All 81 workspaces in portal.yaml declare a
-    sampling block; the campaign serves each arm at its workspace's settings."""
-    s = {"max_tokens": 2048, **(wsc.get("sampling") or {})}
+    sampling block; the campaign serves each arm at its workspace's settings.
+
+    The default output cap is 4096, not 2048: a reasoning-heavy 30B model doing
+    multi-step tool work exhausts 2048 tokens inside its <think> block and never
+    reaches an answer. A workspace with its own predict_limit still wins."""
+    s = {"max_tokens": 4096, **(wsc.get("sampling") or {})}
     s["seed"] = 1000 + repeat
     return s
 
@@ -748,8 +752,8 @@ def _parse_args(argv=None):
     ap.add_argument(
         "--rerun-failed", action="store_true", help="also redo HARNESS_ERROR/TOOL_ERROR rows"
     )
-    ap.add_argument("--max-turns", type=int, default=10)
-    ap.add_argument("--budget-s", type=int, default=900, help="per task-run wall budget")
+    ap.add_argument("--max-turns", type=int, default=16)
+    ap.add_argument("--budget-s", type=int, default=1800, help="per task-run wall budget")
     ap.add_argument("--debug-dir", type=Path, help="write a full per-run .debug.jsonl per arm")
     ap.add_argument("--rescore", type=Path, help="re-grade a debug dir; no model calls")
     ap.add_argument("--notify", action="store_true")

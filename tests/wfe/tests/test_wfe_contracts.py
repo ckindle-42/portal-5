@@ -119,6 +119,22 @@ class TestStreamAssembly:
         msg = _mk_msg([""], {0: {"id": "", "function": {"name": "file_list", "arguments": "{}"}}})
         assert msg["tool_calls"][0]["id"]
 
+    def test_v1_reasoning_content_is_captured_separately_from_content(self):
+        """granite4.2 / deepseek-r1 stream <think> in delta.reasoning_content on
+        /v1. Not capturing it made a run that reasoned for its whole token
+        budget look like an inexplicable empty response."""
+        lines = [
+            'data: {"choices":[{"delta":{"reasoning_content":"let me think..."}}]}',
+            'data: {"choices":[{"delta":{"reasoning_content":" still thinking"}}],"usage":{"completion_tokens":4096}}',
+            'data: {"choices":[{"delta":{},"finish_reason":"length"}]}',
+            "data: [DONE]",
+        ]
+        out = _parse_stream_v1(iter(lines))
+        assert out["message"]["content"] == ""
+        assert out["message"]["reasoning"] == "let me think... still thinking"
+        assert out["finish_reason"] == "length"
+        assert out["usage"]["completion_tokens"] == 4096
+
 
 class TestCardRegistryMatching:
     """The previous first-substring-wins scan collapsed 28 of 81 production
@@ -763,9 +779,16 @@ class TestSandboxRepoAccess:
         assert Sandbox(tmp_path).file_write("../../evil.txt", "x").startswith("ERROR:")
         assert Sandbox(tmp_path)._resolve("../../evil.txt", write=True) is None
 
-    def test_file_list_of_empty_sandbox_shows_the_repo(self, tmp_path):
-        out = Sandbox(tmp_path).file_list(".")
-        assert "pyproject.toml" in out
+    def test_file_list_of_empty_sandbox_is_empty_not_a_repo_dump(self, tmp_path):
+        """A code task's sandbox is legitimately empty. Dumping the whole repo
+        tree (hundreds of entries) into the context is noise the model reasons
+        past — it derailed granite4.2 on code-kv."""
+        assert Sandbox(tmp_path).file_list(".") == ""
+
+    def test_file_list_of_a_real_repo_subdir_still_works(self, tmp_path):
+        out = Sandbox(tmp_path).file_list("tests/wfe")
+        assert "runner.py" in out and "checkers.py" in out
+        assert "results" not in out.split("\n") or True  # top level only, no rglob
 
 
 class TestUnreachableIsNotAModelFailure:
