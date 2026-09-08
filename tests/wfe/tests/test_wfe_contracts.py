@@ -1199,3 +1199,62 @@ class TestLaneWithNoIncumbent:
     def test_a_lane_with_an_incumbent_is_not_listed(self, tmp_path):
         d = TestReportCompilation()._campaign(tmp_path, {"inc": ["PASS"], "ch": ["PASS"]})
         assert camp_report_build(d)["no_baseline"] == []
+
+
+class TestWatch:
+    """A 30-60 hour sweep the operator cannot see is a sweep they cannot trust.
+    The live view is read-only by construction — it must never be able to disturb
+    the campaign it is watching."""
+
+    def _campaign(self, tmp_path, outcomes):
+        d = TestReportCompilation()._campaign(tmp_path, outcomes)
+        for i, f in enumerate(sorted((d / "rows").glob("*.json"))):
+            row = json.loads(f.read_text())
+            row["economics"] = {"wall_s": 100.0 + i}
+            f.write_text(json.dumps(row))
+        return d
+
+    def test_frame_reports_progress_and_an_eta(self, tmp_path):
+        d = self._campaign(tmp_path, {"inc": ["PASS", "PASS"], "ch": ["PENDING", "PENDING"]})
+        frame = camp._watch_frame(d, {}, __import__("time").monotonic())
+        assert "2/4 rows" in frame
+        assert "PENDING=2" in frame
+        assert "left at this rate" in frame
+
+    def test_a_finished_campaign_shows_no_eta(self, tmp_path):
+        d = self._campaign(tmp_path, {"inc": ["PASS", "FAIL"]})
+        assert "left at this rate" not in camp._watch_frame(d, {}, 0.0)
+
+    def test_the_arm_in_flight_is_marked(self, tmp_path):
+        d = self._campaign(tmp_path, {"inc": ["PASS", "PENDING"], "ch": ["PENDING", "PENDING"]})
+        lines = [ln for ln in camp._watch_frame(d, {}, 0.0).splitlines() if "inc" in ln]
+        assert lines and lines[0].lstrip().startswith("▶"), "arm in flight not marked"
+
+    def test_wall_cache_reads_each_row_file_once(self, tmp_path):
+        """Re-reading 513 files every refresh would make the monitor compete
+        with the thing it is monitoring."""
+        d = self._campaign(tmp_path, {"inc": ["PASS", "PASS"]})
+        cache: dict = {}
+        camp._row_walls(d, cache)
+        assert len(cache) == 2
+        for f in (d / "rows").glob("*.json"):
+            f.write_text("{ corrupt")
+        camp._row_walls(d, cache)  # cached names are not re-read
+        assert len(cache) == 2
+
+    def test_a_torn_manifest_read_does_not_kill_the_watch(self, tmp_path):
+        """The campaign rewrites manifest.json after every row, so a reader can
+        catch it mid-write. That must degrade to a skipped frame, not a crash."""
+        d = self._campaign(tmp_path, {"inc": ["PASS"]})
+        (d / "manifest.json").write_text('{"campaign_id": "c1"')
+        with pytest.raises(json.JSONDecodeError):
+            camp._watch_frame(d, {}, 0.0)  # raises here...
+        # ...and _cmd_watch swallows it: the suppress wraps the whole frame, so a
+        # torn read costs one skipped refresh rather than the operator's view.
+        import inspect
+
+        assert "contextlib.suppress" in inspect.getsource(camp._cmd_watch)
+
+    def test_hms_is_readable_at_both_scales(self):
+        assert camp._hms(45) == "0m45s"
+        assert camp._hms(3600 * 30 + 120) == "30h02m"

@@ -32,8 +32,14 @@ Interactive / targeted:
   --suite / --task         narrow further
 
 Unattended:
+  scripts/wfe_sweep_unattended.sh  the kickoff: preconditions, stack down, evict,
+                           preflight, sweep, report, stack restored via trap
   scripts/wfe_campaign.sh  loops arms in fresh processes, skips completed arms,
                            checks Ollama between arms, appends to a progress log
+  --watch                  live per-arm view of a sweep in flight — row counts,
+                           the arm currently running, and an ETA from what rows
+                           have actually cost. Read-only and Ctrl-C safe.
+  --status                 the same numbers, once, without the refresh loop
 
 Usage:
   uv run python -m tests.wfe.campaign --plan tests/wfe/workloads.yaml --smoke
@@ -914,6 +920,8 @@ def _parse_args(argv=None):
     ap.add_argument("--smoke", action="store_true", help="one task end to end, full record printed")
     ap.add_argument("--list-arms", action="store_true")
     ap.add_argument("--status", action="store_true")
+    ap.add_argument("--watch", action="store_true", help="live view of a running campaign")
+    ap.add_argument("--watch-interval", type=int, default=10)
     ap.add_argument(
         "--preflight",
         action="store_true",
@@ -937,6 +945,82 @@ def _cmd_status(campaign_dir: Path) -> int:
     for arm in sorted(per):
         done = sum(v for k, v in per[arm].items() if k != "PENDING")
         print(f"  {done:>4}/{sum(per[arm].values()):<4} {arm}  {dict(per[arm])}")
+    return 0
+
+
+def _row_walls(campaign_dir: Path, cache: dict) -> dict:
+    """wall_s per completed run, read incrementally.
+
+    A finished 513-row sweep is 513 files; re-reading all of them every refresh
+    to print one ETA would be the monitor competing with the thing it monitors."""
+    for f in (campaign_dir / "rows").glob("*.json"):
+        if f.name in cache:
+            continue
+        with contextlib.suppress(Exception):
+            cache[f.name] = float(json.loads(f.read_text())["economics"]["wall_s"])
+    return cache
+
+
+def _hms(seconds: float) -> str:
+    s = max(0, int(seconds))
+    return f"{s // 3600}h{(s % 3600) // 60:02d}m" if s >= 3600 else f"{s // 60}m{s % 60:02d}s"
+
+
+def _watch_frame(campaign_dir: Path, walls: dict, started: float) -> str:
+    import collections
+
+    m = load_manifest(campaign_dir)
+    rows = m["rows"]
+    states = collections.Counter(r.get("state") for r in rows)
+    pending = states.get("PENDING", 0)
+    done = len(rows) - pending
+    walls = _row_walls(campaign_dir, walls)
+    mean = (sum(walls.values()) / len(walls)) if walls else 0.0
+
+    out = [
+        f"campaign {m['campaign_id']}   env {m['env'].get('fingerprint')}",
+        f"watching {_hms(time.monotonic() - started)}   {dt.datetime.now().strftime('%H:%M:%S')}",
+        "",
+        f"  {done}/{len(rows)} rows   " + "  ".join(f"{k}={v}" for k, v in sorted(states.items())),
+    ]
+    if mean and pending:
+        # Arms run one at a time, so remaining wall clock is simply the rows left
+        # times what a row has actually cost so far. No model is run in parallel.
+        out.append(f"  mean row {mean:.0f}s   ~{_hms(pending * mean)} left at this rate")
+    out.append("")
+
+    per: dict = collections.defaultdict(collections.Counter)
+    for r in rows:
+        per[r["arm"]][r.get("state")] += 1
+    for arm in sorted(per, key=lambda a: (per[a].get("PENDING", 0) == sum(per[a].values()), a)):
+        c = per[arm]
+        tot = sum(c.values())
+        d = tot - c.get("PENDING", 0)
+        bar = "█" * int(20 * d / tot) + "·" * (20 - int(20 * d / tot))
+        mark = "▶" if 0 < d < tot else " "
+        detail = "  ".join(f"{k}={v}" for k, v in sorted(c.items()) if k != "PENDING")
+        out.append(f" {mark} {bar} {d:>3}/{tot:<3} {arm[:52]:52s} {detail}")
+
+    log = campaign_dir / "progress.log"
+    if log.exists():
+        out += ["", "recent:"]
+        with contextlib.suppress(Exception):
+            out += ["  " + ln for ln in log.read_text().splitlines()[-8:]]
+    return "\n".join(out)
+
+
+def _cmd_watch(campaign_dir: Path, interval: int) -> int:
+    """Live view of a sweep in flight. Read-only — it touches nothing the
+    campaign writes, so it is safe to start, stop and restart at any time."""
+    walls: dict = {}
+    started = time.monotonic()
+    try:
+        while True:
+            with contextlib.suppress(Exception):
+                print("\033[2J\033[H" + _watch_frame(campaign_dir, walls, started), flush=True)
+            time.sleep(interval)
+    except KeyboardInterrupt:
+        print("\n(watch stopped — the campaign is unaffected)")
     return 0
 
 
@@ -1032,6 +1116,16 @@ def _cmd_rescore(args) -> int:
     return 0
 
 
+def _inspect_command(args, campaign_dir: Path) -> int | None:
+    """The read-only views of a campaign. Separated from main() so a sweep in
+    flight can be inspected without any code path that could write to it."""
+    if args.status:
+        return _cmd_status(campaign_dir)
+    if args.watch:
+        return _cmd_watch(campaign_dir, args.watch_interval)
+    return None
+
+
 def main() -> int:
     ap, args = _parse_args()
     plan = Path(args.plan)
@@ -1050,8 +1144,9 @@ def main() -> int:
         return _cmd_dry_run(matrix, args.repeats)
 
     campaign_dir = open_campaign(args.campaign_id, plan, matrix, args.append)
-    if args.status:
-        return _cmd_status(campaign_dir)
+    rc = _inspect_command(args, campaign_dir)
+    if rc is not None:
+        return rc
     if args.preflight:
         if not ollama_reachable():
             _log(campaign_dir, "ABORT: Ollama unreachable")
