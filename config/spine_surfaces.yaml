@@ -604,13 +604,49 @@ surfaces:
   globs:
   - tests/unit/router/test_correlation.py
   unit: unit-router-test-correlation
+- name: file-tests-wfe-campaign
+  globs:
+  - tests/wfe/campaign.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-checkers
+  globs:
+  - tests/wfe/checkers.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-code_fizz-test_fizz
+  globs:
+  - tests/wfe/graded/code_fizz/test_fizz.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-code_kv-test_parse_kv
+  globs:
+  - tests/wfe/graded/code_kv/test_parse_kv.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-report
+  globs:
+  - tests/wfe/report.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-runner
   globs:
   - tests/wfe/runner.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-schema
+  globs:
+  - tests/wfe/schema.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-settings_audit
   globs:
   - tests/wfe/settings_audit.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_checkers
+  globs:
+  - tests/wfe/tests/test_wfe_checkers.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_contracts
+  globs:
+  - tests/wfe/tests/test_wfe_contracts.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tools-build_compliance_suite
+  globs:
+  - tests/wfe/tools/build_compliance_suite.py
   unit: unit-wfe-workspace-fitness
 - name: unit-surface-acceptance
   globs:

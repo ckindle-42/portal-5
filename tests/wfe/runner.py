@@ -1,24 +1,26 @@
 #!/usr/bin/env python3
 """WFE fitness runner — real-use evaluation of a model IN its workspace/persona
-context with tools exposed. This is the instrument the short-prompt probes could
-not be: multi-turn, tool-executing, real-work tasks with objective checkers.
+context with tools exposed: multi-turn, tool-executing, objectively checked.
 
-Fidelity model (the point of this harness):
-  - system prompt = the workspace persona's actual system_prompt
-  - tools = the tools that workspace declares, executing locally
-  - tasks = real work with checkable outcomes (pytest passes, file produced,
-    cited answer) — not synthetic single-turn accuracy
-  - budget/turns bounded per task; results recorded verbatim for review
-
-Tool implementations are deliberately whitelisted and sandboxed:
-  file_read / file_list / repo_search : read-only inside the repo or task sandbox
-  pytest_run                          : subprocess `pytest` scoped to the task sandbox
-  http_get                            : urllib GET, size-capped, text-only
+Repairs in this revision (each was a false-result generator):
+  - /v1 returns tool-call arguments as a JSON STRING; the previous runner
+    splatted it as **kwargs, so EVERY tool call on the default endpoint failed
+    with "ERROR: bad args". Arguments are now normalised at the boundary,
+    matching portal/platform/inference/router/tools.py.
+  - tool result messages carry tool_call_id + name, as production does.
+  - sandboxes are per (task, repeat); the previous runner shared one directory
+    across every task and every arm, so later runs inherited earlier work.
+  - persona resolution is deterministic and recorded (auto-coding has 40
+    personas bound to it; first-glob-wins made the measured prompt arbitrary).
+  - token/latency economics and finish_reason are captured, not discarded.
+  - the harness `format` dimension is actually applied, so --preflight really
+    exercises the gpt-oss strict-JSON breakage class it was written for.
+  - budget_s is enforced as an HTTP deadline, not only between turns.
 
 Usage:
   uv run python -m tests.wfe.runner --workspace tools-specialist \\
-      --suite tests/wfe/suites/coding.jsonl --sandbox /tmp/wfe/coding_smoke
-  uv run python -m tests.wfe.runner --model <tag> --system-prompt-file <txt> ...  # raw arm
+      --suite tests/wfe/suites/coding.jsonl --sandbox /tmp/wfe/coding
+  uv run python -m tests.wfe.runner --model <tag> --preflight
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ import argparse
 import datetime as dt
 import json
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -35,93 +38,73 @@ from pathlib import Path
 
 import yaml
 
+from tests.wfe.checkers import CheckContext, apply_checkers
+from tests.wfe.schema import Economics, Outcome, ResultRow, env_fingerprint, sha12
+
 REPO = Path(__file__).resolve().parents[2]
 OLLAMA = "http://localhost:11434"
 RESULTS = REPO / "tests" / "wfe" / "results"
-TOOLS_AVAILABLE = ["file_read", "file_list", "repo_search", "pytest_run", "http_get"]
 
+HARNESS_DEFAULTS = {"endpoint": "v1", "stream": False, "think": "default", "format": "none"}
+
+
+def _fn(name: str, desc: str, props: dict, required: list[str] | None = None) -> dict:
+    return {
+        "type": "function",
+        "function": {
+            "name": name,
+            "description": desc,
+            "parameters": {"type": "object", "properties": props, "required": required or []},
+        },
+    }
+
+
+#: One entry per tool. The previous list declared file_write TWICE (7 entries,
+#: 6 unique names) alongside a stale TOOLS_AVAILABLE constant that omitted it.
 TOOL_SCHEMAS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "file_read",
-            "description": "Read a text file. Args: path (str, relative).",
-            "parameters": {
-                "type": "object",
-                "properties": {"path": {"type": "string"}},
-                "required": ["path"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "file_list",
-            "description": "List files under a directory. Args: path (str, default '.')",
-            "parameters": {"type": "object", "properties": {"path": {"type": "string"}}},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "repo_search",
-            "description": "Regex search in sandbox/repo files. Args: pattern (str)",
-            "parameters": {
-                "type": "object",
-                "properties": {"pattern": {"type": "string"}},
-                "required": ["pattern"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "pytest_run",
-            "description": "Run pytest in the task sandbox. Args: args (str, default '')",
-            "parameters": {"type": "object", "properties": {"args": {"type": "string"}}},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "file_write",
-            "description": "Write a file in the sandbox. Args: path, content",
-            "parameters": {
-                "type": "object",
-                "properties": {"path": {"type": "string"}, "content": {"type": "string"}},
-                "required": ["path", "content"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "http_get",
-            "description": "GET a URL, return first 4000 chars of text. Args: url (str)",
-            "parameters": {
-                "type": "object",
-                "properties": {"url": {"type": "string"}},
-                "required": ["url"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "file_write",
-            "description": "Write a text file inside the task sandbox. Args: path (str), content (str)",
-            "parameters": {
-                "type": "object",
-                "properties": {"path": {"type": "string"}, "content": {"type": "string"}},
-                "required": ["path", "content"],
-            },
-        },
-    },
+    _fn(
+        "file_read",
+        "Read a text file. Args: path (str, relative).",
+        {"path": {"type": "string"}},
+        ["path"],
+    ),
+    _fn(
+        "file_list",
+        "List files under a directory. Args: path (str, default '.').",
+        {"path": {"type": "string"}},
+    ),
+    _fn(
+        "repo_search",
+        "Regex search across the sandbox and the repository. Args: pattern (str), path (str, optional).",
+        {"pattern": {"type": "string"}, "path": {"type": "string"}},
+        ["pattern"],
+    ),
+    _fn(
+        "pytest_run",
+        "Run pytest in the task sandbox. Args: args (str, default '').",
+        {"args": {"type": "string"}},
+    ),
+    _fn(
+        "file_write",
+        "Write a text file inside the task sandbox. Args: path (str), content (str).",
+        {"path": {"type": "string"}, "content": {"type": "string"}},
+        ["path", "content"],
+    ),
+    _fn(
+        "http_get",
+        "GET a URL, return the first 4000 chars of text. Args: url (str).",
+        {"url": {"type": "string"}},
+        ["url"],
+    ),
 ]
+TOOL_NAMES = [t["function"]["name"] for t in TOOL_SCHEMAS]
 
 
 class Sandbox:
-    """Root for all file tools. repo=True allows read-only access to the real repo."""
+    """Root for all file tools. Writes are confined to the sandbox; reads may
+    fall back to the repository (read-only) so in-repo tasks are possible.
+    Checkers never use this resolver — they resolve sandbox-only, because a repo
+    fallback let a checker be satisfied by a file the model never wrote."""
 
     def __init__(self, root: Path, allow_repo_read: bool = True):
         self.root = Path(root).resolve()
@@ -155,41 +138,66 @@ class Sandbox:
             return f"ERROR: cannot list {path}"
         return "\n".join(str(x.relative_to(d)) for x in sorted(d.rglob("*"))[:200])
 
-    def repo_search(self, pattern: str = "") -> str:
-        try:
-            r = subprocess.run(
-                ["grep", "-rEn", "--", pattern, str(self.root)],
-                capture_output=True,
-                text=True,
-                timeout=20,
-            )
-            return (r.stdout or "(no matches)")[:8000]
-        except Exception as e:
-            return f"ERROR: {e}"
+    def repo_search(self, pattern: str = "", path: str = "") -> str:
+        """Searches the sandbox AND the repo. The previous implementation greped
+        only the sandbox despite its name and description, so suites that told
+        the model to search the repo measured a harness bug."""
+        roots = [self.root]
+        if self.allow_repo_read:
+            target = self._resolve(path) if path else REPO
+            if target is not None and target != self.root:
+                roots.append(target)
+        chunks = []
+        for r in roots:
+            try:
+                out = subprocess.run(
+                    ["grep", "-rEn", "--", pattern, str(r)],
+                    capture_output=True,
+                    text=True,
+                    timeout=25,
+                ).stdout
+                if out:
+                    chunks.append(out)
+            except Exception as e:
+                chunks.append(f"ERROR: {e}")
+        return ("\n".join(chunks) or "(no matches)")[:8000]
 
     def pytest_run(self, args: str = "") -> str:
         try:
             r = subprocess.run(
-                [sys.executable, "-m", "pytest", "-x", "-q", *(args.split() or [])],
+                [
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    "-q",
+                    "-p",
+                    "no:cacheprovider",
+                    "--import-mode=importlib",
+                    *(args.split() if args else []),
+                ],
                 capture_output=True,
                 text=True,
                 timeout=180,
-                cwd=self.root,
+                cwd=str(self.root),
             )
             return (r.stdout + r.stderr)[:8000]
         except Exception as e:
             return f"ERROR: {e}"
 
     def file_write(self, path: str = "", content: str = "") -> str:
+        if not str(path).strip():
+            return "ERROR: path required"
         f = self._resolve(path, write=True)
         if f is None:
             return f"ERROR: {path} outside sandbox"
+        if f.is_dir() or f == self.root:
+            return f"ERROR: {path} is a directory"
         f.parent.mkdir(parents=True, exist_ok=True)
         f.write_text(content)
         return f"wrote {len(content)} chars to {path}"
 
     def http_get(self, url: str = "") -> str:
-        if not url.startswith("http"):
+        if not str(url).startswith("http"):
             return "ERROR: url required"
         try:
             with urllib.request.urlopen(url, timeout=30) as r:
@@ -211,36 +219,88 @@ class Sandbox:
         try:
             return fn(**args)
         except TypeError as e:
-            return f"ERROR: bad args: {e}"
+            return f"ERROR: bad args for {name}: {e}"
+        except Exception as e:
+            # A model emitting a hostile or malformed argument must produce a
+            # recorded tool ERROR the model can recover from, not abort the run
+            # into HARNESS_ERROR. Dimension 13/14 depend on this distinction.
+            return f"ERROR: {name} failed: {type(e).__name__}: {e}"
 
 
-# Harness dimensions — every result records these so instrument confounds are
-# visible in analysis (the gpt-oss 0.000 artifact was think:false+format:json
-# against a harmony model; production serves /v1 while most probes used /api).
-HARNESS_DEFAULTS = {"endpoint": "v1", "stream": False, "think": "default", "format": "none"}
+def normalize_tool_args(raw) -> tuple[dict, str | None]:
+    """/api/chat returns a dict; /v1 returns a JSON string (OpenAI contract).
+    Mirrors portal/platform/inference/router/tools.py:189."""
+    if raw is None or raw == "":
+        return {}, None
+    if isinstance(raw, dict):
+        return raw, None
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as e:
+            return {}, f"invalid JSON arguments: {e}"
+        if not isinstance(parsed, dict):
+            return {}, f"arguments decoded to {type(parsed).__name__}, expected object"
+        return parsed, None
+    return {}, f"unsupported arguments type {type(raw).__name__}"
 
 
-def _think_policy(tag: str) -> str:
-    """Per-family think policy from the model-card registry ('default'|'true'|'false')."""
-    try:
-        import yaml as _yaml
+def _card_registry() -> dict:
+    path = REPO / "config" / "model_card_expectations.yaml"
+    if not path.exists():
+        return {}
+    return (yaml.safe_load(path.read_text()) or {}).get("models", {}) or {}
 
-        reg = (
-            _yaml.safe_load((REPO / "config/model_card_expectations.yaml").read_text()) or {}
-        ).get("models", {})
-        tl = tag.lower()
-        for key, entry in reg.items():
-            if key.lower() in tl:
-                pol = (entry or {}).get("harness_policy", {}).get("think")
-                if pol:
-                    return pol
-    except Exception:
-        pass
+
+def _norm_key(s: str) -> str:
+    return re.sub(r"[-_.\s]", "", s.lower())
+
+
+def card_entry(tag: str, registry: dict | None = None) -> tuple[str, dict] | None:
+    """Longest-match-wins over separator-normalised keys.
+
+    The previous first-substring-wins scan resolved 28 of 81 production hints to
+    the generic 'qwen3' entry (shadowing qwen3.5/3.6/3.8) and matched NOTHING for
+    granite, because registry keys are hyphenated ('granite-4.1') while installed
+    tags are not ('granite4.1'). Dimensions 2 and 3 were inert as a result."""
+    registry = _card_registry() if registry is None else registry
+    tl = _norm_key(tag)
+    best = None
+    for key, entry in registry.items():
+        nk = _norm_key(key)
+        if nk and nk in tl and (best is None or len(nk) > len(_norm_key(best[0]))):
+            best = (key, entry or {})
+    return best
+
+
+def think_policy(tag: str, registry: dict | None = None) -> str:
+    hit = card_entry(tag, registry)
+    if hit:
+        pol = (hit[1].get("harness_policy") or {}).get("think")
+        if pol:
+            return pol
     return "default"
 
 
+def _mk_msg(content: list, tool_parts: dict) -> dict:
+    msg = {"role": "assistant", "content": "".join(content)}
+    if tool_parts:
+        msg["tool_calls"] = [
+            {
+                "id": s.get("id") or f"call_{i}",
+                "type": "function",
+                "function": {
+                    "name": s["function"]["name"],
+                    "arguments": s["function"]["arguments"],
+                },
+            }
+            for i, (_, s) in enumerate(sorted(tool_parts.items()))
+        ]
+    return msg
+
+
 def _parse_stream_api(lines) -> dict:
-    content, tool_parts, done = [], {}, False
+    content, tool_parts, done_reason, raw = [], {}, None, {}
     for line in lines:
         line = line.strip()
         if not line:
@@ -250,25 +310,22 @@ def _parse_stream_api(lines) -> dict:
         if msg.get("content"):
             content.append(msg["content"])
         for tc in msg.get("tool_calls") or []:
-            idx = tc.get("function", {}).get("index", 0) or 0
+            fn = tc.get("function", {}) or {}
+            idx = fn.get("index", len(tool_parts)) or 0
             slot = tool_parts.setdefault(
-                idx, {"id": "", "type": "function", "function": {"name": "", "arguments": ""}}
+                idx, {"id": tc.get("id") or "", "function": {"name": "", "arguments": ""}}
             )
-            fn = tc.get("function", {})
-            slot["function"]["name"] += fn.get("name", "")
-            slot["function"]["arguments"] += fn.get("arguments", "")
-        done = done or bool(obj.get("done"))
-    message = {"content": "".join(content)}
-    if tool_parts:
-        message["tool_calls"] = [
-            {"function": {"name": s["function"]["name"], "arguments": s["function"]["arguments"]}}
-            for _, s in sorted(tool_parts.items())
-        ]
-    return {"message": message, "done": done}
+            slot["function"]["name"] += fn.get("name") or ""
+            a = fn.get("arguments")
+            slot["function"]["arguments"] += a if isinstance(a, str) else json.dumps(a or {})
+        if obj.get("done"):
+            done_reason = obj.get("done_reason")
+            raw = obj
+    return {"message": _mk_msg(content, tool_parts), "done_reason": done_reason, "_raw": raw}
 
 
 def _parse_stream_v1(lines) -> dict:
-    content, tool_parts = [], {}
+    content, tool_parts, finish = [], {}, None
     for line in lines:
         line = line.strip()
         if not line.startswith("data:"):
@@ -277,22 +334,106 @@ def _parse_stream_v1(lines) -> dict:
         if data == "[DONE]":
             break
         obj = json.loads(data)
-        delta = (obj.get("choices") or [{}])[0].get("delta") or {}
+        choice = (obj.get("choices") or [{}])[0]
+        finish = choice.get("finish_reason") or finish
+        delta = choice.get("delta") or {}
         if delta.get("content"):
             content.append(delta["content"])
         for tc in delta.get("tool_calls") or []:
             idx = tc.get("index", 0) or 0
-            slot = tool_parts.setdefault(idx, {"function": {"name": "", "arguments": ""}})
+            slot = tool_parts.setdefault(
+                idx, {"id": tc.get("id") or "", "function": {"name": "", "arguments": ""}}
+            )
+            if tc.get("id"):
+                slot["id"] = tc["id"]
             fn = tc.get("function", {}) or {}
             slot["function"]["name"] += fn.get("name") or ""
             slot["function"]["arguments"] += fn.get("arguments") or ""
-    message = {"content": "".join(content)}
-    if tool_parts:
-        message["tool_calls"] = [
-            {"function": {"name": s["function"]["name"], "arguments": s["function"]["arguments"]}}
-            for _, s in sorted(tool_parts.items())
-        ]
-    return {"message": message}
+    return {"message": _mk_msg(content, tool_parts), "finish_reason": finish}
+
+
+def _build_payload(
+    model: str,
+    messages: list[dict],
+    h: dict,
+    sampling: dict,
+    schemas: list | None,
+    think: str,
+) -> tuple[str, dict, list[str]]:
+    """Assemble the endpoint-specific request. Split out of chat() so the two
+    wire contracts stay legible and independently testable."""
+    endpoint, stream, fmt = h["endpoint"], bool(h["stream"]), h.get("format", "none")
+    caveats: list[str] = []
+    max_tokens = int(sampling.pop("max_tokens", 2048))
+    if endpoint == "v1":
+        payload = {
+            "model": model,
+            "messages": messages,
+            "stream": stream,
+            "max_tokens": max_tokens,
+        }
+        for k in ("temperature", "top_p", "seed"):
+            if sampling.get(k) is not None:
+                payload[k] = sampling[k]
+        if fmt == "json":
+            payload["response_format"] = {"type": "json_object"}
+        if think != "default":
+            caveats.append("v1_think_unsupported")
+        url = f"{OLLAMA}/v1/chat/completions"
+    else:
+        options = {"num_predict": max_tokens}
+        for k in ("temperature", "top_p", "seed"):
+            if sampling.get(k) is not None:
+                options[k] = sampling[k]
+        payload = {"model": model, "messages": messages, "stream": stream, "options": options}
+        if fmt == "json":
+            payload["format"] = "json"
+        if think in ("true", "false"):
+            payload["think"] = think == "true"
+        url = f"{OLLAMA}/api/chat"
+    if schemas:
+        payload["tools"] = schemas
+    return url, payload, caveats
+
+
+def _read_response(endpoint: str, stream: bool, r) -> tuple[dict, str | None, Economics]:
+    """Decode one response and capture its economics. The pre-repair runner
+    discarded usage/eval_count entirely, which is why dimensions 24 and 25 read
+    as PENDING when the data was already on the wire."""
+    if endpoint == "v1":
+        if stream:
+            out = _parse_stream_v1(line.decode() for line in r)
+            return out["message"], out.get("finish_reason"), Economics()
+        body = json.load(r)
+        choice = (body.get("choices") or [{}])[0]
+        u = body.get("usage") or {}
+        return (
+            choice.get("message") or {"role": "assistant", "content": ""},
+            choice.get("finish_reason"),
+            Economics(
+                prompt_tokens=u.get("prompt_tokens"),
+                completion_tokens=u.get("completion_tokens"),
+                total_tokens=u.get("total_tokens"),
+            ),
+        )
+    if stream:
+        out = _parse_stream_api(line.decode() for line in r)
+        msg, finish, raw = out["message"], out.get("done_reason"), out.get("_raw") or {}
+    else:
+        raw = json.load(r)
+        msg = raw.get("message") or {"role": "assistant", "content": ""}
+        finish = raw.get("done_reason")
+    total = (raw.get("prompt_eval_count") or 0) + (raw.get("eval_count") or 0)
+    return (
+        msg,
+        finish,
+        Economics(
+            prompt_tokens=raw.get("prompt_eval_count"),
+            completion_tokens=raw.get("eval_count"),
+            total_tokens=total or None,
+            load_ms=int((raw.get("load_duration") or 0) / 1e6) or None,
+        ),
+    )
 
 
 def chat(
@@ -300,91 +441,266 @@ def chat(
     messages: list[dict],
     tools: bool = True,
     harness: dict | None = None,
+    sampling: dict | None = None,
+    timeout: int = 600,
+    tool_schemas: list | None = None,
 ) -> dict:
     """One completion under explicit harness dimensions.
-
-    endpoint: 'v1' (production /v1/chat/completions — what the pipeline uses)
-              or 'api' (Ollama-native /api/chat — what the Sept bench probes used)
-    stream:   streaming parse; content/tool_calls assembled from deltas
-    think:    'default' | 'true' | 'false' (api endpoint only; v1 has no think knob —
-              thinking models may inline reasoning, recorded as a harness caveat)
-    """
+    Returns {message, finish_reason, economics, harness_caveats, resolved_think}."""
     h = {**HARNESS_DEFAULTS, **(harness or {})}
     endpoint, stream = h["endpoint"], bool(h["stream"])
     think = h["think"]
     if think == "default":
-        think = _think_policy(model)
-    if tools:
-        pass  # TOOL_SCHEMAS applied per-endpoint below
-    if endpoint == "v1":
-        payload = {"model": model, "messages": messages, "stream": stream, "max_tokens": 2048}
-        if tools:
-            payload["tools"] = TOOL_SCHEMAS
-        req = urllib.request.Request(
-            f"{OLLAMA}/v1/chat/completions",
-            data=json.dumps(payload).encode(),
-            headers={"Content-Type": "application/json"},
+        think = think_policy(model)
+    schemas = TOOL_SCHEMAS if tool_schemas is None else tool_schemas
+    url, payload, caveats = _build_payload(
+        model, messages, h, dict(sampling or {}), schemas if tools else None, think
+    )
+    t0 = time.monotonic()
+    req = urllib.request.Request(
+        url, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}
+    )
+    with urllib.request.urlopen(req, timeout=max(5, int(timeout))) as r:
+        msg, finish, econ = _read_response(endpoint, stream, r)
+    econ.wall_s = round(time.monotonic() - t0, 2)
+    return {
+        "message": msg,
+        "finish_reason": finish,
+        "economics": econ,
+        "harness_caveats": caveats,
+        "resolved_think": think,
+    }
+
+
+def _tool_probe(model: str, endpoint: str) -> dict:
+    """Live tool-call probe: does the model emit a call, and do its arguments
+    decode to an object under THIS endpoint's contract? This is the check that
+    would have caught the v1 string-arguments defect before a campaign."""
+    try:
+        r = chat(
+            model,
+            [
+                {
+                    "role": "user",
+                    "content": "List the files in the current directory using the file_list tool.",
+                }
+            ],
+            tools=True,
+            harness={"endpoint": endpoint, "think": "default"},
+            sampling={"temperature": 0.0, "seed": 7, "max_tokens": 256},
+            timeout=180,
         )
-        with urllib.request.urlopen(req, timeout=600) as r:
-            if stream:
-                resp = _parse_stream_v1(line.decode() for line in r)
-            else:
-                body = json.load(r)
-                msg = (body.get("choices") or [{}])[0].get("message") or {}
-                resp = {"message": msg}
-                if think != "default":
-                    resp.setdefault("harness_caveats", []).append("v1_think_unsupported")
-    else:
-        payload = {
-            "model": model,
-            "messages": messages,
-            "stream": stream,
-            "options": {"num_predict": 2048},
-        }
-        if tools:
-            payload["tools"] = TOOL_SCHEMAS
-        if think in ("true", "false"):
-            payload["think"] = think == "true"
-        req = urllib.request.Request(
-            f"{OLLAMA}/api/chat",
-            data=json.dumps(payload).encode(),
-            headers={"Content-Type": "application/json"},
-        )
-        with urllib.request.urlopen(req, timeout=600) as r:
-            resp = _parse_stream_api(line.decode() for line in r) if stream else json.load(r)
-    return resp
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {e}"}
+    calls = (r.get("message") or {}).get("tool_calls") or []
+    if not calls:
+        return {"emitted_call": False, "parsed_ok": False, "note": "no tool call emitted"}
+    raw = (calls[0].get("function") or {}).get("arguments")
+    args, err = normalize_tool_args(raw)
+    return {
+        "emitted_call": True,
+        "parsed_ok": err is None,
+        "arg_type": type(raw).__name__,
+        "error": err,
+    }
 
 
 def preflight_harness(model: str) -> dict:
-    """Harness self-test — catch instrument artifacts BEFORE a campaign:
-    (1) api think:false+format-json vs native (the gpt-oss breakage class),
-    (2) stream vs non-stream content parity, (3) v1 reachability."""
-    out: dict = {"model": model}
-    base_msgs = [{"role": "user", "content": "Reply with exactly: OK"}]
+    """Harness self-test. Deterministic by construction: temperature 0 and a
+    fixed seed, so stream parity is a real signal rather than sampling noise
+    (the previous version compared two default-temperature generations for exact
+    string equality, flagging REVIEW at random — and per WFE-0.8 rule 2 that
+    would have blocked nearly every model's campaign). The strict-JSON arm now
+    actually sets format:json, so it exercises the gpt-oss harmony breakage
+    class it was written to detect."""
+    out: dict = {"model": model, "resolved_think_policy": think_policy(model)}
+    msgs = [{"role": "user", "content": "Reply with exactly: OK"}]
+    det = {"temperature": 0.0, "seed": 7, "max_tokens": 64}
 
-    def _content(harness):
+    def _run(harness, messages=None):
         try:
-            r = chat(model, base_msgs, tools=False, harness=harness)
-            c = (r.get("message") or {}).get("content", "")
-            caveats = r.get("harness_caveats")
-            if caveats:
-                c = c + f" [{'; '.join(caveats)}]"
-            return c
+            r = chat(
+                model,
+                messages or msgs,
+                tools=False,
+                harness=harness,
+                sampling=dict(det),
+                timeout=180,
+            )
+            return {
+                "content": ((r.get("message") or {}).get("content") or "").strip(),
+                "finish_reason": r.get("finish_reason"),
+                "caveats": r.get("harness_caveats") or [],
+            }
         except Exception as e:
-            return f"ERROR: {e}"
+            return {"error": f"{type(e).__name__}: {e}"}
 
-    strict = {"endpoint": "api", "think": "false", "format": "json"}
-    native = {"endpoint": "api", "think": "default", "format": "none"}
-    out["api_strict_json"] = _content(strict)[:120]
-    out["api_native"] = _content(native)[:120]
-    ns = _content({"endpoint": "api", "think": "default"})
-    st = _content({"endpoint": "api", "think": "default", "stream": True})
-    out["stream_parity"] = (
-        "OK" if ns.strip() == st.strip() else f"MISMATCH ns={ns[:60]!r} st={st[:60]!r}"
+    json_msgs = [
+        {"role": "system", "content": 'Reply with exactly {"ok": true} and nothing else.'},
+        {"role": "user", "content": "go"},
+    ]
+    out["api_native"] = _run({"endpoint": "api", "think": "default"})
+    out["api_strict_json"] = _run(
+        {"endpoint": "api", "think": "false", "format": "json"}, json_msgs
     )
-    out["v1"] = _content({"endpoint": "v1", "think": "default"})[:120]
-    out["verdict"] = "OK" if "ERROR" not in str(out) and out["stream_parity"] == "OK" else "REVIEW"
+    ns = _run({"endpoint": "api", "think": "default"})
+    st = _run({"endpoint": "api", "think": "default", "stream": True})
+    out["stream_nonstream"] = {"ns": ns, "stream": st}
+    out["v1"] = _run({"endpoint": "v1", "think": "default"})
+    out["v1_tools"] = _tool_probe(model, "v1")
+
+    findings = []
+    if out["v1"].get("error"):
+        findings.append("v1 endpoint unreachable — the production path cannot be measured")
+    if out["api_strict_json"].get("error"):
+        findings.append("strict-json arm errored")
+    elif not out["api_strict_json"].get("content"):
+        findings.append(
+            "empty content under format:json + think:false — harmony/template conflict "
+            "(gpt-oss class); this model must not run strict-JSON tasks"
+        )
+    if ns.get("error") or st.get("error"):
+        findings.append("stream/non-stream arm errored")
+    elif ns.get("content") != st.get("content"):
+        findings.append(
+            f"stream parity mismatch at temperature 0: ns={ns.get('content', '')[:40]!r} "
+            f"st={st.get('content', '')[:40]!r}"
+        )
+    if out["v1_tools"].get("error"):
+        findings.append(f"tool probe failed on v1: {out['v1_tools']['error']}")
+    elif not out["v1_tools"].get("parsed_ok"):
+        findings.append("v1 tool-call arguments did not decode to an object")
+
+    out["stream_parity"] = "MISMATCH" if any("parity" in f for f in findings) else "OK"
+    out["findings"] = findings
+    out["verdict"] = "OK" if not findings else "REVIEW"
     return out
+
+
+def resolve_persona(ws_id: str, override: str | None = None) -> tuple[str | None, str]:
+    """Deterministic persona selection, recorded in every result row. auto-coding
+    has 40 personas bound to it and auto-security 10; the previous
+    first-glob-wins scan made the measured system prompt arbitrary and
+    machine-dependent."""
+    candidates = []
+    for pf in sorted((REPO / "config/personas").glob("*.yaml")):
+        d = yaml.safe_load(pf.read_text()) or {}
+        if d.get("workspace_model") == ws_id and d.get("system_prompt"):
+            candidates.append((d.get("slug") or pf.stem, d["system_prompt"]))
+    candidates.sort(key=lambda c: c[0])
+    if override:
+        for slug, sp in candidates:
+            if slug == override:
+                return slug, sp
+        raise SystemExit(f"persona '{override}' not bound to workspace {ws_id}")
+    if candidates:
+        return candidates[0]
+    return None, ""
+
+
+def workspace_context(ws_id: str, persona: str | None = None) -> dict:
+    portal = yaml.safe_load((REPO / "config/portal.yaml").read_text())
+    ws = portal["workspaces"][ws_id]
+    slug, sp = resolve_persona(ws_id, persona)
+    if not sp:
+        sp = (ws.get("description") or "") + "\nPerform the user's task faithfully."
+    declared = list(ws.get("tools") or [])
+    surface = [t for t in TOOL_NAMES if t in declared] or TOOL_NAMES
+    # Production sampling fidelity (dimension 8): every workspace in
+    # portal.yaml declares its own sampling block. A temperature-0 pass is not
+    # evidence about a product served at temperature 0.7, so the campaign runs
+    # each workspace at ITS OWN settings rather than at a harness default.
+    sampling = {
+        k: ws[k]
+        for k in ("temperature", "top_p", "top_k", "min_p", "repeat_penalty", "presence_penalty")
+        if ws.get(k) is not None
+    }
+    if ws.get("predict_limit"):
+        sampling["max_tokens"] = int(ws["predict_limit"])
+    return {
+        "model": ws.get("model_hint"),
+        "system_prompt": sp,
+        "persona_slug": slug,
+        "persona_candidates": len(
+            [
+                1
+                for pf in (REPO / "config/personas").glob("*.yaml")
+                if (yaml.safe_load(pf.read_text()) or {}).get("workspace_model") == ws_id
+            ]
+        ),
+        "declared_tools": declared,
+        "tool_surface": surface,
+        "tool_surface_proxy": sorted(surface) != sorted(declared),
+        "context_limit": ws.get("context_limit"),
+        "module": ws.get("module"),
+        "sampling": sampling,
+        "pinned_seed": ws.get("seed"),
+        "declared_temperature": ws.get("temperature"),
+    }
+
+
+def _execute_calls(calls: list, turn: int, sandbox: Sandbox, tool_log: list, messages: list) -> int:
+    """Dispatch one turn's tool calls and append production-shaped results.
+
+    Two contracts matter here and both were previously wrong: arguments arrive
+    as a JSON string on /v1, and every tool result must carry its tool_call_id
+    (portal/platform/inference/router/tools.py). Returns the error count."""
+    errors = 0
+    for i, c in enumerate(calls):
+        fn = c.get("function") or {}
+        name = fn.get("name") or ""
+        call_id = c.get("id") or f"call_{turn}_{i}"
+        args, err = normalize_tool_args(fn.get("arguments"))
+        if err:
+            out = f"ERROR: {err}"
+            errors += 1
+        else:
+            out = sandbox.dispatch(name, args)
+            if str(out).startswith("ERROR:"):
+                errors += 1
+        tool_log.append(
+            {
+                "name": name,
+                "args": args,
+                "raw_args": str(fn.get("arguments"))[:500],
+                "output": str(out)[:4000],
+                "error": bool(err),
+            }
+        )
+        messages.append(
+            {
+                "role": "tool",
+                "tool_call_id": call_id,
+                "name": name,
+                "content": str(out)[:4000],
+            }
+        )
+    return errors
+
+
+def _classify(
+    task: dict,
+    ctx: CheckContext,
+    transcript: list,
+    override,
+    tool_log: list,
+    tool_errors: int,
+) -> tuple[Outcome, str, dict]:
+    """Turn checker output plus run telemetry into one terminal outcome. The
+    ordering matters: an instrument failure must outrank a model failure."""
+    if override is Outcome.HARNESS_ERROR:
+        note = (
+            transcript[-1].get("harness_error", "harness error") if transcript else "harness error"
+        )
+        return Outcome.HARNESS_ERROR, note, {}
+    cr = apply_checkers(task, ctx)
+    outcome, notes, evidence = cr.outcome, cr.notes, cr.evidence
+    if override is Outcome.BUDGET_EXHAUSTED and outcome != Outcome.PASS:
+        outcome, notes = Outcome.BUDGET_EXHAUSTED, "budget exhausted | " + notes
+    if outcome == Outcome.FAIL and tool_log and tool_errors == len(tool_log):
+        outcome = Outcome.TOOL_ERROR
+        notes = "every tool call errored — instrument suspect | " + notes
+    return outcome, notes, evidence
 
 
 def run_task(
@@ -396,200 +712,258 @@ def run_task(
     budget_s: int,
     use_tools: bool,
     harness: dict | None = None,
+    sampling: dict | None = None,
+    tool_surface: list[str] | None = None,
 ) -> dict:
-    """Run one fitness task to completion (tool-loop), then apply the checker."""
+    """Run one fitness task to completion, then apply its checkers."""
     for seed_path, seed_body in (task.get("seed") or {}).items():
         sandbox.file_write(seed_path, seed_body)
+
+    schemas = (
+        [t for t in TOOL_SCHEMAS if t["function"]["name"] in tool_surface]
+        if tool_surface
+        else TOOL_SCHEMAS
+    )
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": task["instruction"]},
     ]
-    transcript, tool_calls, t0 = [], [], time.monotonic()
+    transcript: list = []
+    tool_log: list = []
+    assistant_texts: list = []
+    econ = Economics()
+    t0 = time.monotonic()
     final_text = ""
+    finish_reason = None
+    outcome_override = None
+    tool_errors = 0
+
     for turn in range(max_turns):
-        if time.monotonic() - t0 > budget_s:
+        remaining = budget_s - (time.monotonic() - t0)
+        if remaining <= 5:
+            outcome_override = Outcome.BUDGET_EXHAUSTED
             break
-        resp = chat(model, messages, tools=use_tools, harness=harness)
+        try:
+            resp = chat(
+                model,
+                messages,
+                tools=use_tools,
+                harness=harness,
+                sampling=sampling,
+                timeout=int(remaining),
+                tool_schemas=schemas if use_tools else None,
+            )
+        except TimeoutError:
+            outcome_override = Outcome.BUDGET_EXHAUSTED
+            break
+        except Exception as e:
+            outcome_override = Outcome.HARNESS_ERROR
+            transcript.append({"turn": turn, "harness_error": f"{type(e).__name__}: {e}"})
+            break
+
+        econ.merge(resp["economics"])
+        finish_reason = resp.get("finish_reason") or finish_reason
         msg = resp.get("message") or {}
-        content = msg.get("content", "") or ""
+        content = msg.get("content") or ""
         calls = msg.get("tool_calls") or []
         transcript.append(
             {
                 "turn": turn,
                 "content": content[:2000],
                 "tool_calls": [
-                    {"name": c["function"]["name"], "args": c["function"]["arguments"]}
+                    {
+                        "name": (c.get("function") or {}).get("name"),
+                        "args_raw": str((c.get("function") or {}).get("arguments"))[:500],
+                    }
                     for c in calls
                 ],
             }
         )
+        if content:
+            assistant_texts.append(content)
+
         if calls:
-            messages.append(msg)
-            for c in calls:
-                name = c["function"]["name"]
-                args = c["function"]["arguments"] or {}
-                out = sandbox.dispatch(name, args)
-                tool_calls.append({"name": name, "args": args, "out_head": out[:300]})
-                messages.append({"role": "tool", "content": out[:4000]})
+            messages.append({"role": "assistant", "content": content, "tool_calls": calls})
+            tool_errors += _execute_calls(calls, turn, sandbox, tool_log, messages)
             continue
+
         final_text = content
         messages.append({"role": "assistant", "content": content})
         if task.get("completion_signal") and re.search(task["completion_signal"], content, re.I):
             break
-        # no signal: single answer tasks end here
         if not task.get("agentic"):
             break
-    checker_name = task.get("checker", {}).get("type", "transcript_contains")
-    spec = task.get("checker", {})
-    ok, notes = apply_checker(checker_name, spec, final_text, transcript, tool_calls, sandbox)
+
+    econ.wall_s = round(time.monotonic() - t0, 1)
+    if not final_text and assistant_texts:
+        final_text = assistant_texts[-1]
+
+    ctx = CheckContext(
+        final_text=final_text,
+        assistant_texts=assistant_texts,
+        tool_calls=tool_log,
+        sandbox_root=sandbox.root,
+        task=task,
+        finish_reason=finish_reason,
+    )
+    outcome, notes, evidence = _classify(
+        task, ctx, transcript, outcome_override, tool_log, tool_errors
+    )
+
     return {
-        "harness": harness or {},
-        "task_id": task["id"],
-        "completed": ok,
+        "outcome": outcome.value,
         "notes": notes,
+        "evidence": evidence,
         "turns": len(transcript),
-        "tool_calls": len(tool_calls),
-        "tool_call_log": tool_calls,
-        "wall_s": round(time.monotonic() - t0, 1),
+        "tool_calls": len(tool_log),
+        "tool_errors": tool_errors,
+        "finish_reason": finish_reason,
+        "economics": econ.__dict__,
+        "final_text": final_text,
         "final_text_head": final_text[:600],
         "transcript": transcript,
+        "tool_call_log": [{**c, "output": str(c.get("output", ""))[:300]} for c in tool_log],
     }
 
 
-def apply_checker(name, spec, final_text, transcript, tool_calls, sandbox) -> tuple[bool, str]:
-    if name == "pytest_pass":
-        out = sandbox.pytest_run(spec.get("pytest_args", ""))
-        ok = "failed" not in out.split("\n")[-2] if out else False
-        return (
-            "passed" in out or "no tests ran" not in out and "== " in out and "failed" not in out
-        ), f"pytest tail: {out[-200:]}"
-    if name == "file_exists":
-        f = sandbox._resolve(spec["path"])
-        ok = f is not None and f.is_file() and f.stat().st_size > 0
-        return ok, f"file {spec['path']} exists={ok}"
-    if name == "file_contains":
-        f = sandbox._resolve(spec["path"])
-        if f is None or not f.is_file():
-            return False, "file missing"
-        body = f.read_text(errors="ignore")
-        ok = all(re.search(pat, body) for pat in spec.get("patterns", []))
-        return ok, f"patterns matched={ok} in {spec['path']}"
-    if name == "transcript_contains":
-        blob = final_text + " " + json.dumps(transcript)
-        ok = all(re.search(pat, blob, re.I) for pat in spec.get("patterns", []))
-        cites = spec.get("require_citation") and not re.search(r"https?://", blob)
-        return (
-            ok and not cites,
-            f"patterns={ok} citation_present={bool(re.search(r'https?://', blob))}",
-        )
-    if name == "human_review":
-        return None, "recorded for operator review (rubric fields in notes)"
-    return False, f"unknown checker {name}"
+def load_suite(path: str | Path) -> list[dict]:
+    return [json.loads(x) for x in Path(path).read_text().splitlines() if x.strip()]
 
 
-def workspace_context(ws_id: str) -> tuple[str, str, list[str]]:
-    """(model, system_prompt, tools) for a workspace, honoring persona overrides."""
-    portal = yaml.safe_load((REPO / "config/portal.yaml").read_text())
-    ws = portal["workspaces"][ws_id]
-    model, system_prompt, tools = ws.get("model_hint"), "", list(ws.get("tools") or [])
-    for pf in (REPO / "config/personas").glob("*.yaml"):
-        d = yaml.safe_load(pf.read_text()) or {}
-        if d.get("workspace_model") == ws_id and d.get("system_prompt"):
-            system_prompt = d["system_prompt"]
-            break
-    if not system_prompt:
-        system_prompt = (ws.get("description") or "") + "\nPerform the user's task faithfully."
-    return model, system_prompt, tools
+def make_sandbox(root: Path, task_id: str, repeat: int, fresh: bool = True) -> Sandbox:
+    """Per (task, repeat) sandbox. Sharing one directory across tasks let task N
+    inherit task N-1's files — pytest_run collected both — and let a later arm
+    pass on an earlier arm's implementation."""
+    d = Path(root) / f"{task_id}__r{repeat}"
+    if fresh and d.exists():
+        shutil.rmtree(d, ignore_errors=True)
+    return Sandbox(d)
 
 
-def main() -> int:
+def _row(label, args, ctxinfo, model, task, r, harness, sampling, env, system_prompt) -> dict:
+    return ResultRow(
+        run_id=f"{label}__{task['id']}__r{args.repeat}",
+        workspace=args.workspace,
+        arm=model,
+        suite=str(args.suite),
+        task_id=task["id"],
+        repeat=args.repeat,
+        outcome=r["outcome"],
+        notes=r["notes"],
+        evidence=r["evidence"],
+        persona_slug=ctxinfo.get("persona_slug"),
+        prompt_sha=sha12(system_prompt),
+        tool_surface=ctxinfo.get("tool_surface") or TOOL_NAMES,
+        tool_surface_proxy=bool(ctxinfo.get("tool_surface_proxy", True)),
+        harness=harness,
+        sampling=sampling,
+        seed=args.seed,
+        turns=r["turns"],
+        tool_calls=r["tool_calls"],
+        tool_errors=r["tool_errors"],
+        finish_reason=r["finish_reason"],
+        economics=r["economics"],
+        env=env,
+        final_text_head=r["final_text_head"],
+        transcript=r["transcript"],
+        tool_call_log=r["tool_call_log"],
+    ).to_dict()
+
+
+def _parse_args(argv=None):
     ap = argparse.ArgumentParser()
     src = ap.add_mutually_exclusive_group(required=True)
-    src.add_argument(
-        "--workspace", help="portal.yaml workspace id (uses its hint + persona + tools)"
-    )
+    src.add_argument("--workspace", help="portal.yaml workspace id")
     src.add_argument("--model", help="raw model tag arm")
+    ap.add_argument("--persona", help="explicit persona slug (default: first by sorted slug)")
     ap.add_argument("--system-prompt-file")
-    ap.add_argument("--suite", required=True, help="jsonl suite file")
+    ap.add_argument("--suite")
     ap.add_argument("--sandbox", default="/tmp/wfe/run")
     ap.add_argument("--max-turns", type=int, default=8)
     ap.add_argument("--budget-s", type=int, default=600)
+    ap.add_argument("--repeat", type=int, default=0)
+    ap.add_argument("--temperature", type=float)
+    ap.add_argument("--seed", type=int)
+    ap.add_argument("--max-tokens", type=int, default=2048)
     ap.add_argument("--no-tools", action="store_true")
     ap.add_argument("--label", default="")
-    ap.add_argument(
-        "--endpoint",
-        choices=["v1", "api"],
-        default="v1",
-        help="v1 = production /v1/chat/completions (default); api = Ollama-native (Sept probes)",
-    )
+    ap.add_argument("--endpoint", choices=["v1", "api"], default="v1")
     ap.add_argument("--stream", action="store_true")
     ap.add_argument("--think", choices=["default", "true", "false"], default="default")
-    ap.add_argument(
-        "--preflight",
-        action="store_true",
-        help="harness self-test only: strict-json/native parity, stream parity, v1 reachability",
-    )
-    args = ap.parse_args()
+    ap.add_argument("--format", choices=["none", "json"], default="none")
+    ap.add_argument("--preflight", action="store_true")
+    return ap, ap.parse_args(argv)
+
+
+def main() -> int:
+    ap, args = _parse_args()
+
+    ctxinfo = workspace_context(args.workspace, args.persona) if args.workspace else {}
+    model = args.model or ctxinfo.get("model")
+
     if args.preflight:
-        model_pf = (
-            args.model or workspace_context(args.workspace)[0]
-            if args.workspace or args.model
-            else None
-        )
-        if not model_pf:
+        if not model:
             ap.error("--preflight needs --model or --workspace")
-        print(json.dumps(preflight_harness(model_pf), indent=1))
+        print(json.dumps(preflight_harness(model), indent=1))
         return 0
-    harness = {"endpoint": args.endpoint, "stream": args.stream, "think": args.think}
+    if not args.suite:
+        ap.error("--suite is required unless --preflight")
 
-    model = args.model
-    system_prompt = Path(args.system_prompt_file).read_text() if args.system_prompt_file else ""
-    if args.workspace:
-        model, sp, ws_tools = workspace_context(args.workspace)
-        system_prompt = system_prompt or sp
-        print(f"workspace {args.workspace}: model={model} tools_declared={len(ws_tools)}")
+    system_prompt = (
+        Path(args.system_prompt_file).read_text()
+        if args.system_prompt_file
+        else ctxinfo.get("system_prompt", "")
+    )
+    harness = {
+        "endpoint": args.endpoint,
+        "stream": args.stream,
+        "think": args.think,
+        "format": args.format,
+    }
+    sampling = {"max_tokens": args.max_tokens}
+    if args.temperature is not None:
+        sampling["temperature"] = args.temperature
+    if args.seed is not None:
+        sampling["seed"] = args.seed
 
-    tasks = [json.loads(x) for x in Path(args.suite).read_text().splitlines() if x.strip()]
-    sandbox = Sandbox(Path(args.sandbox))
+    env = env_fingerprint(OLLAMA)
+    tasks = load_suite(args.suite)
     label = args.label or (args.workspace or model).replace("/", "_")
-    run_rows = []
+    if args.workspace:
+        print(
+            f"workspace {args.workspace}: model={model} persona={ctxinfo.get('persona_slug')} "
+            f"(of {ctxinfo.get('persona_candidates')} bound) tools={ctxinfo.get('tool_surface')}"
+        )
+    rows = []
     for t in tasks:
-        if t.get("requires_network") and not args.suite:
-            pass  # network tasks simply fail their http tool if offline; recorded honestly
+        sb = make_sandbox(Path(args.sandbox), t["id"], args.repeat)
         print(f"--- {t['id']}: {t['instruction'][:80]}...", flush=True)
-        row = run_task(
+        r = run_task(
             model,
             system_prompt,
             t,
-            sandbox,
+            sb,
             args.max_turns,
             args.budget_s,
             use_tools=not args.no_tools,
             harness=harness,
+            sampling=sampling,
+            tool_surface=ctxinfo.get("tool_surface"),
         )
-        row["task_instruction"] = t["instruction"]
-        run_rows.append(row)
+        rows.append(_row(label, args, ctxinfo, model, t, r, harness, sampling, env, system_prompt))
         print(
-            f"    completed={row['completed']} turns={row['turns']} tools={row['tool_calls']} {row['wall_s']}s"
+            f"    outcome={r['outcome']} turns={r['turns']} tools={r['tool_calls']} "
+            f"tool_errors={r['tool_errors']} {r['economics'].get('wall_s')}s"
         )
 
     RESULTS.mkdir(parents=True, exist_ok=True)
     ts = dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ")
     out = RESULTS / f"wfe_{label}_{ts}.json"
-    out.write_text(
-        json.dumps(
-            {
-                "model": model,
-                "workspace": args.workspace,
-                "suite": args.suite,
-                "label": label,
-                "results": run_rows,
-            },
-            indent=1,
-        )
-    )
-    done = sum(1 for r in run_rows if r["completed"] is True)
-    print(f"\nfitness: {done}/{len(run_rows)} tasks completed -> {out}")
+    out.write_text(json.dumps({"env": env, "results": rows}, indent=1))
+    tally: dict = {}
+    for r in rows:
+        tally[r["outcome"]] = tally.get(r["outcome"], 0) + 1
+    print(f"\noutcomes: {tally} -> {out}")
     return 0
 
 
