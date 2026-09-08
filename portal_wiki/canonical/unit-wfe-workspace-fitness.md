@@ -35,13 +35,23 @@ The harness (`tests/wfe/`):
   baked num_ctx vs declared context_limit (Ollama /v1 ignores request-time
   options.num_ctx), sampling vs lane policy, tool-flag vs declared tools.
   Catches the glm_coder-128K class of silent regressions; the -ctxNk tag claim
-  is verified against baked num_ctx rather than trusted; absent sampling in a
-  deterministic lane is a FAIL; LANE_SAMPLING covers every live module.
+  is verified against baked num_ctx rather than trusted. The sampling check
+  compares the temperature the PIPELINE serves — `effective_temperature`:
+  think-profile → workspace flat field → baked tag → Ollama default, mirroring
+  router/validation.py — against the lane ceiling, not the baked tag value in
+  isolation; a cool workspace over a hot tag is a `sampling_baked_hot` WARN, not
+  a FAIL. `eval` is instrumentation and is checked non-deterministically at the
+  stock default.
 - `runner.py` — multi-turn tool loop (file_read/file_list/repo_search/
   pytest_run/file_write/http_get, sandboxed per (task, repeat)) against the
   production `/v1` contract: tool-call arguments are a JSON string, normalised
-  at the boundary; tool results carry tool_call_id. Deterministic persona
-  resolution; token/latency economics captured; `--preflight` self-test.
+  at the boundary; tool results carry tool_call_id. Every request is STREAMED on
+  the wire and a STALL — no bytes for STALL_S (default 300, `WFE_STALL_S`) —
+  aborts the turn as `BUDGET_EXHAUSTED`, never a blind total-time cap: a
+  slow-but-progressing model keeps its work and logs progress, a wedged backend
+  is caught in minutes. Deterministic persona resolution; token/latency
+  economics captured; `--preflight` self-test reconciles observed strict-JSON
+  behaviour (empty OR degenerate) against the model card's format_json_safe.
 - `schema.py` — outcomes are an enum, not a boolean; instrument failures
   (TOOL_ERROR/HARNESS_ERROR/BLOCKED) are quarantined out of every quality rate.
 - `checkers.py` — extracted, unit-tested checkers (hidden_pytest against a

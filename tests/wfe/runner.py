@@ -14,8 +14,11 @@ Repairs in this revision (each was a false-result generator):
     personas bound to it; first-glob-wins made the measured prompt arbitrary).
   - token/latency economics and finish_reason are captured, not discarded.
   - the harness `format` dimension is actually applied, so --preflight really
-    exercises the gpt-oss strict-JSON breakage class it was written for.
-  - budget_s is enforced as an HTTP deadline, not only between turns.
+    exercises the gpt-oss strict-JSON breakage class it was written for, and
+    a degenerate (non-empty non-JSON) reply fails it, not only an empty one.
+  - every request is STREAMED on the wire and a stall (no bytes for STALL_S),
+    not a total-time cap, aborts the turn — a slow-but-progressing model keeps
+    its work; a wedged backend is caught in minutes, not hours.
 
 Usage:
   uv run python -m tests.wfe.runner --workspace tools-specialist \\
@@ -28,6 +31,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -46,6 +50,21 @@ OLLAMA = "http://localhost:11434"
 RESULTS = REPO / "tests" / "wfe" / "results"
 
 HARNESS_DEFAULTS = {"endpoint": "v1", "stream": False, "think": "default", "format": "none"}
+
+#: A timeout is the enemy of a slow-but-progressing model: a large model under
+#: memory pressure can legitimately take many minutes per turn, and a blind
+#: wall-clock deadline throws that work away. The runner therefore streams every
+#: request on the wire and watches for a STALL — no bytes for STALL_S — rather
+#: than a total-time cap. Real progress (tokens arriving) resets the clock and is
+#: logged so a human tailing a multi-day sweep can see the model is alive.
+STALL_S = int(os.environ.get("WFE_STALL_S", "300"))
+_PROGRESS_EVERY_S = 30
+
+
+class StreamStalledError(RuntimeError):
+    """The backend accepted the request but produced no output for STALL_S, or
+    blew a generous hard ceiling. Attributed to the model (too slow for real
+    work in its lane), never to the harness."""
 
 
 def _fn(name: str, desc: str, props: dict, required: list[str] | None = None) -> dict:
@@ -326,6 +345,43 @@ def _mk_msg(content: list, tool_parts: dict) -> dict:
     return msg
 
 
+def _iter_lines_with_stall(resp, stall_s: int, hard_s: int, tag: str):
+    """Yield response lines, aborting on a stall rather than on total time.
+
+    The socket carries a stall_s read timeout, so a readline that blocks longer
+    than that means the backend has gone quiet — raise StreamStalledError. As long as
+    bytes keep arriving the only ceiling is hard_s (minutes of headroom over the
+    slowest plausible real turn), and progress is logged every _PROGRESS_EVERY_S.
+    """
+    t0 = time.monotonic()
+    last_log = t0
+    seen = 0
+    while True:
+        try:
+            line = resp.readline()
+        except TimeoutError as e:
+            raise StreamStalledError(
+                f"{tag}: no output for {stall_s}s after {seen} bytes / "
+                f"{int(time.monotonic() - t0)}s — backend stalled"
+            ) from e
+        if not line:
+            return
+        seen += len(line)
+        now = time.monotonic()
+        if now - t0 > hard_s:
+            raise StreamStalledError(
+                f"{tag}: exceeded {hard_s}s hard ceiling ({seen} bytes) — abandoning turn"
+            )
+        if now - last_log >= _PROGRESS_EVERY_S:
+            print(
+                f"    … {tag}: streaming, {seen} bytes, {int(now - t0)}s elapsed",
+                file=sys.stderr,
+                flush=True,
+            )
+            last_log = now
+        yield line
+
+
 def _parse_stream_api(lines) -> dict:
     content, tool_parts, done_reason, raw = [], {}, None, {}
     for line in lines:
@@ -352,7 +408,7 @@ def _parse_stream_api(lines) -> dict:
 
 
 def _parse_stream_v1(lines) -> dict:
-    content, tool_parts, finish = [], {}, None
+    content, tool_parts, finish, usage = [], {}, None, {}
     for line in lines:
         line = line.strip()
         if not line.startswith("data:"):
@@ -361,6 +417,8 @@ def _parse_stream_v1(lines) -> dict:
         if data == "[DONE]":
             break
         obj = json.loads(data)
+        if obj.get("usage"):
+            usage = obj["usage"]
         choice = (obj.get("choices") or [{}])[0]
         finish = choice.get("finish_reason") or finish
         delta = choice.get("delta") or {}
@@ -376,7 +434,7 @@ def _parse_stream_v1(lines) -> dict:
             fn = tc.get("function", {}) or {}
             slot["function"]["name"] += fn.get("name") or ""
             slot["function"]["arguments"] += fn.get("arguments") or ""
-    return {"message": _mk_msg(content, tool_parts), "finish_reason": finish}
+    return {"message": _mk_msg(content, tool_parts), "finish_reason": finish, "usage": usage}
 
 
 def _build_payload(
@@ -386,19 +444,27 @@ def _build_payload(
     sampling: dict,
     schemas: list | None,
     think: str,
+    wire_stream: bool = True,
 ) -> tuple[str, dict, list[str]]:
     """Assemble the endpoint-specific request. Split out of chat() so the two
-    wire contracts stay legible and independently testable."""
-    endpoint, stream, fmt = h["endpoint"], bool(h["stream"]), h.get("format", "none")
+    wire contracts stay legible and independently testable.
+
+    `wire_stream` is how the bytes come off the socket, which the stall watchdog
+    needs — it is independent of the harness `stream` dimension (that only marks
+    which logical mode a preflight arm is exercising). Default True: streaming is
+    the only way to tell a slow model from a wedged one."""
+    endpoint, fmt = h["endpoint"], h.get("format", "none")
     caveats: list[str] = []
     max_tokens = int(sampling.pop("max_tokens", 2048))
     if endpoint == "v1":
         payload = {
             "model": model,
             "messages": messages,
-            "stream": stream,
+            "stream": wire_stream,
             "max_tokens": max_tokens,
         }
+        if wire_stream:
+            payload["stream_options"] = {"include_usage": True}
         for k in ("temperature", "top_p", "seed"):
             if sampling.get(k) is not None:
                 payload[k] = sampling[k]
@@ -412,7 +478,12 @@ def _build_payload(
         for k in ("temperature", "top_p", "seed"):
             if sampling.get(k) is not None:
                 options[k] = sampling[k]
-        payload = {"model": model, "messages": messages, "stream": stream, "options": options}
+        payload = {
+            "model": model,
+            "messages": messages,
+            "stream": wire_stream,
+            "options": options,
+        }
         if fmt == "json":
             payload["format"] = "json"
         if think in ("true", "false"):
@@ -423,37 +494,54 @@ def _build_payload(
     return url, payload, caveats
 
 
-def _read_response(endpoint: str, stream: bool, r) -> tuple[dict, str | None, Economics]:
-    """Decode one response and capture its economics. The pre-repair runner
-    discarded usage/eval_count entirely, which is why dimensions 24 and 25 read
-    as PENDING when the data was already on the wire."""
+def _econ_from_usage(u: dict) -> Economics:
+    return Economics(
+        prompt_tokens=u.get("prompt_tokens"),
+        completion_tokens=u.get("completion_tokens"),
+        total_tokens=u.get("total_tokens")
+        or ((u.get("prompt_tokens") or 0) + (u.get("completion_tokens") or 0))
+        or None,
+    )
+
+
+def _read_stream(endpoint: str, lines) -> tuple[dict, str | None, Economics]:
+    """Decode a streamed response into (message, finish_reason, economics).
+    Economics come from the usage chunk (/v1, stream_options.include_usage) or
+    the final done object (/api/chat) — the pre-repair runner discarded both."""
     if endpoint == "v1":
-        if stream:
-            out = _parse_stream_v1(line.decode() for line in r)
-            return out["message"], out.get("finish_reason"), Economics()
+        out = _parse_stream_v1(line.decode() for line in lines)
+        return out["message"], out.get("finish_reason"), _econ_from_usage(out.get("usage") or {})
+    out = _parse_stream_api(line.decode() for line in lines)
+    raw = out.get("_raw") or {}
+    total = (raw.get("prompt_eval_count") or 0) + (raw.get("eval_count") or 0)
+    return (
+        out["message"],
+        out.get("done_reason"),
+        Economics(
+            prompt_tokens=raw.get("prompt_eval_count"),
+            completion_tokens=raw.get("eval_count"),
+            total_tokens=total or None,
+            load_ms=int((raw.get("load_duration") or 0) / 1e6) or None,
+        ),
+    )
+
+
+def _read_response(endpoint: str, r) -> tuple[dict, str | None, Economics]:
+    """Decode a NON-streamed response. Only the preflight parity arm asks for
+    this; every other path streams so the stall watchdog has a pulse to watch."""
+    if endpoint == "v1":
         body = json.load(r)
         choice = (body.get("choices") or [{}])[0]
-        u = body.get("usage") or {}
         return (
             choice.get("message") or {"role": "assistant", "content": ""},
             choice.get("finish_reason"),
-            Economics(
-                prompt_tokens=u.get("prompt_tokens"),
-                completion_tokens=u.get("completion_tokens"),
-                total_tokens=u.get("total_tokens"),
-            ),
+            _econ_from_usage(body.get("usage") or {}),
         )
-    if stream:
-        out = _parse_stream_api(line.decode() for line in r)
-        msg, finish, raw = out["message"], out.get("done_reason"), out.get("_raw") or {}
-    else:
-        raw = json.load(r)
-        msg = raw.get("message") or {"role": "assistant", "content": ""}
-        finish = raw.get("done_reason")
+    raw = json.load(r)
     total = (raw.get("prompt_eval_count") or 0) + (raw.get("eval_count") or 0)
     return (
-        msg,
-        finish,
+        raw.get("message") or {"role": "assistant", "content": ""},
+        raw.get("done_reason"),
         Economics(
             prompt_tokens=raw.get("prompt_eval_count"),
             completion_tokens=raw.get("eval_count"),
@@ -473,22 +561,43 @@ def chat(
     tool_schemas: list | None = None,
 ) -> dict:
     """One completion under explicit harness dimensions.
-    Returns {message, finish_reason, economics, harness_caveats, resolved_think}."""
+    Returns {message, finish_reason, economics, harness_caveats, resolved_think}.
+
+    The wire is streamed unless the harness sets `wire_stream: False` (the
+    preflight parity arm). `timeout` is the STALL threshold — no bytes for that
+    long aborts with StreamStalledError — not a total-time cap; a model that keeps
+    emitting tokens runs to a generous hard ceiling. This is deliberate: a large
+    model under memory pressure is slow, not broken, and a blind deadline would
+    discard real work and mislabel the model."""
     h = {**HARNESS_DEFAULTS, **(harness or {})}
-    endpoint, stream = h["endpoint"], bool(h["stream"])
+    endpoint = h["endpoint"]
+    wire_stream = h.get("wire_stream", True)
     think = h["think"]
     if think == "default":
         think = think_policy(model)
     schemas = TOOL_SCHEMAS if tool_schemas is None else tool_schemas
     url, payload, caveats = _build_payload(
-        model, messages, h, dict(sampling or {}), schemas if tools else None, think
+        model, messages, h, dict(sampling or {}), schemas if tools else None, think, wire_stream
     )
+    # `timeout` is the caller's remaining budget for this one call. The stall
+    # threshold is the smaller of STALL_S and that budget; the hard ceiling for
+    # a single call IS that budget, so a task never overruns its wall budget
+    # even though no individual generation is cut off while tokens still flow.
+    hard_s = max(30, int(timeout))
+    stall_s = min(STALL_S, hard_s)
     t0 = time.monotonic()
     req = urllib.request.Request(
         url, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}
     )
-    with urllib.request.urlopen(req, timeout=max(5, int(timeout))) as r:
-        msg, finish, econ = _read_response(endpoint, stream, r)
+    try:
+        with urllib.request.urlopen(req, timeout=stall_s) as r:
+            if wire_stream:
+                lines = _iter_lines_with_stall(r, stall_s, hard_s, model)
+                msg, finish, econ = _read_stream(endpoint, lines)
+            else:
+                msg, finish, econ = _read_response(endpoint, r)
+    except TimeoutError as e:
+        raise StreamStalledError(f"{model}: no response headers for {stall_s}s ({e})") from e
     econ.wall_s = round(time.monotonic() - t0, 2)
     return {
         "message": msg,
@@ -575,8 +684,8 @@ def preflight_harness(model: str) -> dict:
     out["api_strict_json"] = _run(
         {"endpoint": "api", "think": "false", "format": "json"}, json_msgs
     )
-    ns = _run({"endpoint": "api", "think": "default"})
-    st = _run({"endpoint": "api", "think": "default", "stream": True})
+    ns = _run({"endpoint": "api", "think": "default", "wire_stream": False})
+    st = _run({"endpoint": "api", "think": "default", "wire_stream": True})
     out["stream_nonstream"] = {"ns": ns, "stream": st}
     out["v1"] = _run({"endpoint": "v1", "think": "default"})
     out["v1_tools"] = _tool_probe(model, "v1")
@@ -800,12 +909,14 @@ def run_task(
                 timeout=int(remaining),
                 tool_schemas=schemas if use_tools else None,
             )
-        except TimeoutError:
-            outcome_override = Outcome.BUDGET_EXHAUSTED
-            break
         except Exception as e:
-            outcome_override = Outcome.HARNESS_ERROR
-            transcript.append({"turn": turn, "harness_error": f"{type(e).__name__}: {e}"})
+            # A stall (backend accepted the request then went quiet) is the
+            # model's problem — a real fitness verdict, too slow for its lane —
+            # so it is BUDGET_EXHAUSTED, never HARNESS_ERROR.
+            stalled = isinstance(e, StreamStalledError | TimeoutError)
+            outcome_override = Outcome.BUDGET_EXHAUSTED if stalled else Outcome.HARNESS_ERROR
+            key = "stalled" if stalled else "harness_error"
+            transcript.append({"turn": turn, key: f"{type(e).__name__}: {e}"})
             break
 
         econ.merge(resp["economics"])
