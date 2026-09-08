@@ -43,13 +43,25 @@ uv run python -m tests.wfe.campaign \
     --campaign-id "$CAMPAIGN_ID" --repeats "$REPEATS" $ALL_SUITES_FLAG \
     --append --status "$@" > /dev/null 2>&1
 
+# `mapfile`/`readarray` is bash 4+; macOS ships bash 3.2, so read into the array
+# by hand or the whole sweep silently runs zero arms.
+ARMS=()
 if [ -n "${ARMS_FILE:-}" ]; then
-    mapfile -t ARMS < "$ARMS_FILE"
+    while IFS= read -r _line || [ -n "$_line" ]; do
+        [ -n "$_line" ] && ARMS+=("$_line")
+    done < "$ARMS_FILE"
 else
-    mapfile -t ARMS < <(uv run python -m tests.wfe.campaign --list-arms $ALL_SUITES_FLAG \
+    while IFS= read -r _line || [ -n "$_line" ]; do
+        [ -n "$_line" ] && ARMS+=("$_line")
+    done < <(uv run python -m tests.wfe.campaign --list-arms $ALL_SUITES_FLAG \
         2>/dev/null | sed 's/^[[:space:]]*[0-9]*[[:space:]]*//' | grep -v '^$')
 fi
 
+if [ "${#ARMS[@]}" -eq 0 ]; then
+    echo "$(ts) ABORT: no arms resolved (ARMS_FILE=${ARMS_FILE:-<none>}, --list-arms empty?)" \
+        | tee -a "$PROGRESS_LOG"
+    exit 2
+fi
 echo "$(ts) ARMS ${#ARMS[@]}" | tee -a "$PROGRESS_LOG"
 
 for arm in "${ARMS[@]}"; do
