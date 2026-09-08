@@ -41,6 +41,11 @@
 #   ./scripts/wfe_sweep_unattended.sh --leave-down              # don't restore at the end
 #   ./scripts/wfe_sweep_unattended.sh --strict-preflight        # abort if any arm needs review
 #
+# Watching it: the detach banner prints every path, but the one worth knowing is
+#   uv run python -m tests.wfe.campaign --campaign-id <id> --watch
+# a live per-arm view with row counts and an ETA, read-only, Ctrl-C safe. Raw
+# logs are under /tmp/wfe_<id>/ and the evidence under the campaign directory.
+#
 # Resumable: re-run the same campaign id and it continues from the manifest.
 # Env: REPEATS (3) BUDGET_S (1800) MAX_TURNS (16) ALL_SUITES (0)
 #      NOTIFICATIONS_ENABLED (true here — the whole point is to be told)
@@ -79,6 +84,7 @@ done
 CAMPAIGN_ID="${CAMPAIGN_ID:-wfe_full_$(date -u +%Y%m%d)}"
 
 LOG_DIR="/tmp/wfe_${CAMPAIGN_ID}"
+CAMPAIGN_DIR_REL="tests/wfe/results/campaigns/${CAMPAIGN_ID}"
 KICKOFF_LOG="${LOG_DIR}/kickoff.log"
 mkdir -p "$LOG_DIR"
 
@@ -141,11 +147,20 @@ if [ "$DETACH" -eq 1 ]; then
   sleep 2
   cat <<EOF
 
-  started  pid ${pid}
-  kickoff  tail -f ${KICKOFF_LOG}
-  progress tail -f ${LOG_DIR}/progress.log
-  status   uv run python -m tests.wfe.campaign --campaign-id ${CAMPAIGN_ID} --status
-  stop     kill ${pid}     (safe — the campaign resumes from its manifest)
+  started   pid ${pid}
+
+  WATCH     uv run python -m tests.wfe.campaign --campaign-id ${CAMPAIGN_ID} --watch
+            live per-arm progress, row counts and an ETA. Read-only; Ctrl-C
+            leaves the sweep running.
+
+  status    uv run python -m tests.wfe.campaign --campaign-id ${CAMPAIGN_ID} --status
+  kickoff   tail -f ${KICKOFF_LOG}                  (stack down/up, preflight, report)
+  progress  tail -f ${LOG_DIR}/progress.log         (arm START/DONE + exit codes)
+  per-arm   tail -f ${LOG_DIR}/<arm>.log            (one line per row, live)
+  rows      ${CAMPAIGN_DIR_REL}/manifest.json
+  evidence  ${CAMPAIGN_DIR_REL}/debug/<arm>.debug.jsonl
+
+  stop      kill ${pid}     (safe — the campaign resumes from its manifest)
 
 EOF
   exit 0
