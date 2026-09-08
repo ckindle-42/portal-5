@@ -40,6 +40,12 @@ Unattended:
                            the arm currently running, and an ETA from what rows
                            have actually cost. Read-only and Ctrl-C safe.
   --status                 the same numbers, once, without the refresh loop
+  --health                 ONE verdict for an unattended supervisor checking in
+                           on a schedule, with an exit code to branch on:
+                           0 OK  1 DONE  2 STALLED  3 DEGRADED. Stall is judged
+                           against the previous call (recorded in the campaign
+                           dir), because "no row finished in an hour" is the only
+                           honest signal when one row may take thirty minutes.
 
 Usage:
   uv run python -m tests.wfe.campaign --plan tests/wfe/workloads.yaml --smoke
@@ -77,6 +83,7 @@ from tests.wfe.runner import (
     workspace_context,
 )
 from tests.wfe.schema import (
+    INSTRUMENT_OUTCOMES,
     MANIFEST_SCHEMA_VERSION,
     Outcome,
     ResultRow,
@@ -921,6 +928,13 @@ def _parse_args(argv=None):
     ap.add_argument("--list-arms", action="store_true")
     ap.add_argument("--status", action="store_true")
     ap.add_argument("--watch", action="store_true", help="live view of a running campaign")
+    ap.add_argument(
+        "--health",
+        action="store_true",
+        help="one deterministic verdict for an unattended supervisor; "
+        "exit 0=OK 1=DONE 2=STALLED 3=DEGRADED",
+    )
+    ap.add_argument("--stale-after-s", type=int, default=STALL_AFTER_S)
     ap.add_argument("--watch-interval", type=int, default=10)
     ap.add_argument(
         "--preflight",
@@ -1007,6 +1021,106 @@ def _watch_frame(campaign_dir: Path, walls: dict, started: float) -> str:
         with contextlib.suppress(Exception):
             out += ["  " + ln for ln in log.read_text().splitlines()[-8:]]
     return "\n".join(out)
+
+
+#: A row may legitimately run to the full --budget-s (1800s). Anything past twice
+#: that with no completed row is not a slow model, it is a stuck sweep.
+STALL_AFTER_S = 3600
+
+
+def health(campaign_dir: Path, stale_after_s: int = STALL_AFTER_S) -> dict:
+    """One deterministic verdict on a sweep in flight.
+
+    Built for an unattended supervisor checking in on a schedule: the answer has
+    to be the same whoever asks, and cheap enough to ask every hour for two days.
+    Progress is judged against the previous call, recorded in the campaign dir,
+    because "no row finished in the last hour" is the only honest stall signal
+    when a single row is allowed thirty minutes."""
+    import collections
+
+    m = load_manifest(campaign_dir)
+    rows = m["rows"]
+    states = collections.Counter(r.get("state") for r in rows)
+    pending = states.get("PENDING", 0)
+    done = len(rows) - pending
+    now = time.time()
+
+    state_f = campaign_dir / "health_state.json"
+    prev = {}
+    with contextlib.suppress(Exception):
+        prev = json.loads(state_f.read_text())
+    since = now - float(prev.get("ts", now))
+    advanced = done - int(prev.get("done", done))
+    with contextlib.suppress(Exception):
+        state_f.write_text(json.dumps({"ts": now, "done": done}))
+
+    instrument = sum(states.get(o.value, 0) for o in INSTRUMENT_OUTCOMES)
+    checks, problems = {}, []
+
+    checks["ollama"] = "up" if ollama_reachable() else "UNREACHABLE"
+    if checks["ollama"] != "up":
+        problems.append("Ollama is not answering — the sweep cannot make progress")
+
+    with contextlib.suppress(Exception):
+        # Parse the DATA line's Available column by position within that line.
+        # Splitting the whole of stdout instead lands on `1G-blocks` (total size),
+        # which is always large — a disk check that could never fire.
+        df = subprocess.run(
+            ["df", "-g", str(REPO)], capture_output=True, text=True, timeout=20
+        ).stdout.splitlines()
+        free_gb = int(df[1].split()[3])
+        checks["disk_free_gb"] = free_gb
+        if free_gb < 10:
+            problems.append(f"only {free_gb}GB disk free — the debug capture will fail")
+
+    # An instrument failure is the harness breaking, not a model being bad. A
+    # rising count means the run is producing unusable rows and is worth stopping.
+    checks["instrument_failures"] = instrument
+    if done and instrument / done > 0.25:
+        problems.append(
+            f"{instrument}/{done} rows are instrument failures — the harness is at fault, not the models"
+        )
+
+    if pending == 0:
+        verdict, code = "DONE", 1
+    elif problems:
+        verdict, code = "DEGRADED", 3
+    elif prev and since >= stale_after_s and advanced == 0:
+        verdict, code = "STALLED", 2
+        problems.append(
+            f"no row completed in {_hms(since)} (a row's own ceiling is {STALL_AFTER_S // 2}s)"
+        )
+    else:
+        verdict, code = "OK", 0
+
+    return {
+        "verdict": verdict,
+        "exit_code": code,
+        "campaign": m["campaign_id"],
+        "done": done,
+        "total": len(rows),
+        "pending": pending,
+        "advanced_since_last_check": advanced if prev else None,
+        "since_last_check": round(since) if prev else None,
+        "states": dict(states),
+        "checks": checks,
+        "problems": problems,
+    }
+
+
+def _cmd_health(campaign_dir: Path, stale_after_s: int) -> int:
+    """Terse by design: an hourly supervisor should read four lines, not a page."""
+    h = health(campaign_dir, stale_after_s)
+    print(f"{h['verdict']}  {h['campaign']}  {h['done']}/{h['total']} rows  pending={h['pending']}")
+    print("  states  " + "  ".join(f"{k}={v}" for k, v in sorted(h["states"].items())))
+    print("  checks  " + "  ".join(f"{k}={v}" for k, v in h["checks"].items()))
+    if h["advanced_since_last_check"] is not None:
+        print(
+            f"  since last check  +{h['advanced_since_last_check']} rows in {_hms(h['since_last_check'])}"
+        )
+    for p in h["problems"]:
+        print(f"  ! {p}")
+    return h["exit_code"]
 
 
 def _cmd_watch(campaign_dir: Path, interval: int) -> int:
@@ -1123,6 +1237,8 @@ def _inspect_command(args, campaign_dir: Path) -> int | None:
         return _cmd_status(campaign_dir)
     if args.watch:
         return _cmd_watch(campaign_dir, args.watch_interval)
+    if args.health:
+        return _cmd_health(campaign_dir, args.stale_after_s)
     return None
 
 

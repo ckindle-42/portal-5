@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import json
 import socket
+import time
+import types
 
 import pytest
 import yaml
@@ -1258,3 +1260,81 @@ class TestWatch:
     def test_hms_is_readable_at_both_scales(self):
         assert camp._hms(45) == "0m45s"
         assert camp._hms(3600 * 30 + 120) == "30h02m"
+
+
+class TestHealth:
+    """One deterministic verdict, for a supervisor checking in on a schedule for
+    two days. The answer must be the same whoever asks."""
+
+    def _c(self, tmp_path, outcomes):
+        return TestReportCompilation()._campaign(tmp_path, outcomes)
+
+    def test_a_running_campaign_is_ok(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(camp, "ollama_reachable", lambda: True)
+        d = self._c(tmp_path, {"inc": ["PASS", "PENDING"]})
+        h = camp.health(d)
+        assert (h["verdict"], h["exit_code"]) == ("OK", 0)
+
+    def test_no_pending_rows_is_done(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(camp, "ollama_reachable", lambda: True)
+        h = camp.health(self._c(tmp_path, {"inc": ["PASS", "FAIL"]}))
+        assert (h["verdict"], h["exit_code"]) == ("DONE", 1)
+
+    def test_unreachable_ollama_is_degraded(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(camp, "ollama_reachable", lambda: False)
+        h = camp.health(self._c(tmp_path, {"inc": ["PASS", "PENDING"]}))
+        assert (h["verdict"], h["exit_code"]) == ("DEGRADED", 3)
+        assert any("Ollama" in p for p in h["problems"])
+
+    def test_no_progress_between_checks_is_stalled(self, tmp_path, monkeypatch):
+        """A row may legitimately take the full 1800s budget, so a stall is only
+        called when nothing at all completed between two spaced-out checks."""
+        monkeypatch.setattr(camp, "ollama_reachable", lambda: True)
+        d = self._c(tmp_path, {"inc": ["PASS", "PENDING", "PENDING"]})
+        camp.health(d)  # records the baseline
+        state = json.loads((d / "health_state.json").read_text())
+        state["ts"] -= 7200  # two hours ago, still 1 row done
+        (d / "health_state.json").write_text(json.dumps(state))
+        h = camp.health(d)
+        assert (h["verdict"], h["exit_code"]) == ("STALLED", 2)
+        assert any("no row completed" in p for p in h["problems"])
+
+    def test_progress_between_checks_is_not_stalled(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(camp, "ollama_reachable", lambda: True)
+        d = self._c(tmp_path, {"inc": ["PASS", "PASS", "PENDING"]})
+        (d / "health_state.json").write_text(json.dumps({"ts": time.time() - 7200, "done": 1}))
+        h = camp.health(d)
+        assert h["verdict"] == "OK"
+        assert h["advanced_since_last_check"] == 1
+
+    def test_the_first_check_never_reports_a_stall(self, tmp_path, monkeypatch):
+        """With no previous reading there is nothing to compare against."""
+        monkeypatch.setattr(camp, "ollama_reachable", lambda: True)
+        h = camp.health(self._c(tmp_path, {"inc": ["PENDING", "PENDING"]}))
+        assert h["verdict"] == "OK"
+        assert h["advanced_since_last_check"] is None
+
+    def test_mostly_instrument_failures_is_degraded(self, tmp_path, monkeypatch):
+        """The harness breaking is worth waking someone for; a model failing is not."""
+        monkeypatch.setattr(camp, "ollama_reachable", lambda: True)
+        d = self._c(tmp_path, {"inc": ["HARNESS_ERROR", "TOOL_ERROR", "PASS", "PENDING"]})
+        h = camp.health(d)
+        assert (h["verdict"], h["exit_code"]) == ("DEGRADED", 3)
+        assert any("instrument failures" in p for p in h["problems"])
+
+    def test_model_failures_alone_are_not_degraded(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(camp, "ollama_reachable", lambda: True)
+        d = self._c(tmp_path, {"inc": ["FAIL", "FAIL", "FAIL", "PENDING"]})
+        assert camp.health(d)["verdict"] == "OK"
+
+    def test_disk_free_is_the_available_column_not_the_size(self, tmp_path, monkeypatch):
+        """Regression: splitting all of `df -g` stdout lands on 1G-blocks (total),
+        which is always large — a disk check that could never fire."""
+        monkeypatch.setattr(camp, "ollama_reachable", lambda: True)
+        fake = "Filesystem 1G-blocks Used Available Capacity iused ifree %iused Mounted on\n/dev/x 926 920 5 99% 1 2 0% /\n"
+        monkeypatch.setattr(
+            camp.subprocess, "run", lambda *a, **k: types.SimpleNamespace(stdout=fake)
+        )
+        h = camp.health(self._c(tmp_path, {"inc": ["PASS", "PENDING"]}))
+        assert h["checks"]["disk_free_gb"] == 5
+        assert (h["verdict"], h["exit_code"]) == ("DEGRADED", 3)

@@ -114,6 +114,9 @@ print_paths() {
             actually cost. Read-only; Ctrl-C leaves the sweep running.
 
   status    uv run python -m tests.wfe.campaign --campaign-id ${CAMPAIGN_ID} --status
+  health    uv run python -m tests.wfe.campaign --campaign-id ${CAMPAIGN_ID} --health
+            One verdict + exit code (0 OK, 1 DONE, 2 STALLED, 3 DEGRADED).
+            This is what a scheduled check-in should call.
   report    uv run python -m tests.wfe.report --campaign ${CAMPAIGN_ID}
 
   kickoff   tail -f ${KICKOFF_LOG}
