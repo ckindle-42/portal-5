@@ -359,13 +359,23 @@ def _sec_header(a, rep) -> None:
 def _sec_instrument(a, rep) -> None:
     a("## 1. Instrument health")
     a("")
-    a("Runs excluded from every rate below because the harness, not the model, failed:")
+    # Every outcome, not only the excluded ones: a reader has to be able to see
+    # the whole census to judge whether the instrument or the models produced it.
+    # The heading used to promise only exclusions while the table listed all of
+    # them, which read as "every run was an instrument failure".
+    a("Every run by outcome. Rows marked *(excluded)* are instrument failures —")
+    a("the harness, not the model — and are removed from every rate below.")
     a("")
     a("| Outcome | Count |")
     a("|---|---|")
+    excluded = 0
     for k, v in sorted(rep["taxonomy"].items()):
-        mark = " *(excluded)*" if Outcome(k) in INSTRUMENT_OUTCOMES else ""
-        a(f"| {k}{mark} | {v} |")
+        is_instrument = Outcome(k) in INSTRUMENT_OUTCOMES
+        excluded += v if is_instrument else 0
+        a(f"| {k}{' *(excluded)*' if is_instrument else ''} | {v} |")
+    a("")
+    total = sum(rep["taxonomy"].values())
+    a(f"{excluded} of {total} run(s) excluded as instrument failures.")
     a("")
     rev = [k for k, v in rep["preflight"].items() if v["verdict"] != "OK"]
     if rev:

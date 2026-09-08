@@ -29,19 +29,26 @@ ALL_SUITES_FLAG=""
 [ "${ALL_SUITES:-0}" = "1" ] && ALL_SUITES_FLAG="--all-suites"
 NOTIFY_FLAG=""
 [ "${NOTIFICATIONS_ENABLED:-false}" = "true" ] && NOTIFY_FLAG="--notify"
+# PLAN overrides the workload map. Must reach EVERY campaign.py call including
+# --list-arms, or the sweep would run the default plan's arms against the
+# override's rows. Set it to rehearse the driver on a two-arm plan.
+PLAN_FLAG=""
+[ -n "${PLAN:-}" ] && PLAN_FLAG="--plan ${PLAN}"
 
 mkdir -p "$LOG_DIR" "$DEBUG_DIR"
 ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
 echo "$(ts) CAMPAIGN ${CAMPAIGN_ID} repeats=${REPEATS} all_suites=${ALL_SUITES:-0}" | tee -a "$PROGRESS_LOG"
 
-# Materialise the matrix once. Idempotent: re-running only appends new rows.
+# Print the matrix, then materialise it. --dry-run only reports; --status is the
+# call that actually creates/appends the manifest, so its output is kept: a
+# materialisation failure here would otherwise be invisible for the whole sweep.
 uv run python -m tests.wfe.campaign \
-    --campaign-id "$CAMPAIGN_ID" --repeats "$REPEATS" $ALL_SUITES_FLAG \
+    --campaign-id "$CAMPAIGN_ID" --repeats "$REPEATS" $ALL_SUITES_FLAG $PLAN_FLAG \
     --append --dry-run "$@" 2>&1 | tee -a "$PROGRESS_LOG"
 uv run python -m tests.wfe.campaign \
-    --campaign-id "$CAMPAIGN_ID" --repeats "$REPEATS" $ALL_SUITES_FLAG \
-    --append --status "$@" > /dev/null 2>&1
+    --campaign-id "$CAMPAIGN_ID" --repeats "$REPEATS" $ALL_SUITES_FLAG $PLAN_FLAG \
+    --append --status "$@" 2>&1 | tee -a "$PROGRESS_LOG"
 
 # `mapfile`/`readarray` is bash 4+; macOS ships bash 3.2, so read into the array
 # by hand or the whole sweep silently runs zero arms.
@@ -51,10 +58,24 @@ if [ -n "${ARMS_FILE:-}" ]; then
         [ -n "$_line" ] && ARMS+=("$_line")
     done < "$ARMS_FILE"
 else
+    # Smallest model first. Two reasons on a 64GB box: the early arms finish fast
+    # so a broken sweep shows itself in the first hour rather than the tenth, and
+    # each eviction leaves a larger inactive pool for the arm that follows.
     while IFS= read -r _line || [ -n "$_line" ]; do
         [ -n "$_line" ] && ARMS+=("$_line")
-    done < <(uv run python -m tests.wfe.campaign --list-arms $ALL_SUITES_FLAG \
-        2>/dev/null | sed 's/^[[:space:]]*[0-9]*[[:space:]]*//' | grep -v '^$')
+    done < <(uv run python -m tests.wfe.campaign --list-arms $ALL_SUITES_FLAG $PLAN_FLAG \
+        2>/dev/null | sed 's/^[[:space:]]*[0-9]*[[:space:]]*//' | grep -v '^$' \
+        | uv run python -c "
+import json, sys, urllib.request
+try:
+    with urllib.request.urlopen('${OLLAMA:-http://localhost:11434}/api/tags', timeout=10) as r:
+        size = {m['name']: m['size'] for m in json.load(r)['models']}
+except Exception:
+    size = {}
+arms = [ln.strip() for ln in sys.stdin if ln.strip()]
+for a in sorted(arms, key=lambda a: (size.get(a, 0), a)):
+    print(a)
+")
 fi
 
 if [ "${#ARMS[@]}" -eq 0 ]; then
@@ -87,9 +108,19 @@ print(ollama_reachable())
         --budget-s "$BUDGET_S" \
         --max-turns "$MAX_TURNS" \
         --debug-dir "$DEBUG_DIR" \
-        $ALL_SUITES_FLAG $NOTIFY_FLAG "$@" \
-        < /dev/null > "${LOG_DIR}/${safe}.log" 2>&1
+        $ALL_SUITES_FLAG $NOTIFY_FLAG $PLAN_FLAG "$@" \
+        < /dev/null >> "${LOG_DIR}/${safe}.log" 2>&1
     exit_code=$?
+
+    # execute_arm drains its own model and waits for /api/ps to confirm it. This
+    # is the fallback for the path where it could not — a killed or crashed
+    # process — and it is fire-and-forget by design: the next arm's drain_others()
+    # is what actually waits. Without any release, OLLAMA_MAX_LOADED_MODELS (5
+    # here) lets several ~20GB arms sit resident and the sweep measures memory
+    # pressure instead of models.
+    curl -s -m 30 "${OLLAMA:-http://localhost:11434}/api/generate" \
+        -d "{\"model\":\"${arm}\",\"keep_alive\":0}" > /dev/null 2>&1
+
     echo "$(ts) DONE ${arm} exit=${exit_code}" | tee -a "$PROGRESS_LOG"
 done
 

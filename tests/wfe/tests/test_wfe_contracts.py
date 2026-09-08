@@ -963,3 +963,201 @@ class TestReasoningFitAudit:
         v: list[dict] = []
         _audit_reasoning_fit("w", ws, "gemma4:e4b-it-qat", {}, {"gemma4:e4b-it-qat"}, v)
         assert not v
+
+
+class TestTransientPreflightIsRecoverable:
+    """A flaky probe must not cost an arm its whole row budget for the rest of a
+    multi-day sweep.
+
+    Regression: `preflight_arm` cached a REVIEW verdict and `execute_arm` marked
+    every pending row BLOCKED. On resume the cached REVIEW short-circuited the
+    re-probe and the BLOCKED rows no longer matched the PENDING filter, so one
+    momentary connection reset silently cost an arm all 39 of its runs.
+    """
+
+    def _open(self, tmp_path):
+        camp.CAMPAIGNS = tmp_path / "campaigns"
+        plan = tmp_path / "plan.yaml"
+        plan.write_text(
+            yaml.safe_dump(
+                {"workloads": {"auto-coding": {"home": "coding", "arms": {"incumbent": "m:t"}}}}
+            )
+        )
+        matrix = camp.expand_matrix(plan, repeats=1)
+        assert matrix, "fixture plan produced no rows"
+        return camp.open_campaign("c", plan, matrix, append=False)
+
+    def test_review_verdict_is_not_cached(self, tmp_path, monkeypatch):
+        d = self._open(tmp_path)
+        monkeypatch.setattr(
+            camp, "preflight_harness", lambda m: {"verdict": "REVIEW", "findings": ["flaky"]}
+        )
+        assert camp.preflight_arm(d, "m:t")["verdict"] == "REVIEW"
+        # An OK on the next attempt must be reachable, not masked by the cache.
+        monkeypatch.setattr(camp, "preflight_harness", lambda m: {"verdict": "OK", "findings": []})
+        assert camp.preflight_arm(d, "m:t")["verdict"] == "OK"
+
+    def test_ok_verdict_is_cached(self, tmp_path, monkeypatch):
+        """The expensive probe runs once per arm per campaign when it succeeds."""
+        d = self._open(tmp_path)
+        calls = []
+
+        def _probe(m):
+            calls.append(m)
+            return {"verdict": "OK", "findings": []}
+
+        monkeypatch.setattr(camp, "preflight_harness", _probe)
+        camp.preflight_arm(d, "m:t")
+        camp.preflight_arm(d, "m:t")
+        assert calls == ["m:t"]
+
+    def test_blocked_rows_are_re_offered_once_preflight_passes(self, tmp_path, monkeypatch):
+        d = self._open(tmp_path)
+        monkeypatch.setattr(
+            camp, "preflight_harness", lambda m: {"verdict": "REVIEW", "findings": ["flaky"]}
+        )
+        first = camp.execute_arm(d, "m:t", 4, 60, None, False, False)
+        assert first["ran"] == 0 and first["blocked"] > 0
+        states = {r["state"] for r in camp.load_manifest(d)["rows"]}
+        assert states == {Outcome.BLOCKED.value}
+
+        ran = []
+
+        def _row(campaign_dir, manifest, r, wsc, task, *a, **kw):
+            ran.append(r["run_id"])
+            return {
+                "outcome": Outcome.PASS.value,
+                "turns": 1,
+                "tool_calls": 0,
+                "tool_errors": 0,
+                "economics": {"wall_s": 1.0},
+            }
+
+        monkeypatch.setattr(camp, "preflight_harness", lambda m: {"verdict": "OK", "findings": []})
+        monkeypatch.setattr(camp, "workspace_context", lambda ws: {"model": "m:t"})
+        monkeypatch.setattr(camp, "run_row", _row)
+        second = camp.execute_arm(d, "m:t", 4, 60, None, False, False)
+        assert second["ran"] > 0, "resume left the arm permanently blocked"
+        assert len(ran) == len(camp.load_manifest(d)["rows"])
+        assert all(r["state"] == Outcome.PASS.value for r in camp.load_manifest(d)["rows"])
+        assert all("note" not in r for r in camp.load_manifest(d)["rows"])
+
+    def test_a_task_level_block_is_not_re_offered(self, tmp_path, monkeypatch):
+        """Only a preflight block is retryable. A row blocked because the task
+        needs the network and the host is offline stays blocked."""
+        d = self._open(tmp_path)
+        man = camp.load_manifest(d)
+        for r in man["rows"]:
+            r["state"] = Outcome.BLOCKED.value
+            r["note"] = "requires_network but the host is offline"
+        camp.save_manifest(d, man)
+        monkeypatch.setattr(camp, "preflight_harness", lambda m: {"verdict": "OK", "findings": []})
+        assert camp.execute_arm(d, "m:t", 4, 60, None, False, False)["ran"] == 0
+
+
+class TestModelRelease:
+    """A 17-arm sweep of ~20GB models against OLLAMA_MAX_LOADED_MODELS=5 measures
+    memory pressure unless each arm gives its weights back."""
+
+    def test_unload_asks_ollama_to_release_only_that_tag(self, monkeypatch):
+        sent = {}
+
+        def _urlopen(req, timeout=None):
+            sent["url"] = req.full_url
+            sent["body"] = json.loads(req.data)
+
+            class _R:
+                def read(self):
+                    return b""
+
+            return _R()
+
+        monkeypatch.setattr("urllib.request.urlopen", _urlopen)
+        camp.unload_model("some/model:tag")
+        assert sent["url"].endswith("/api/generate")
+        assert sent["body"] == {"model": "some/model:tag", "keep_alive": 0}
+
+    def test_unload_never_raises_into_the_sweep(self, monkeypatch):
+        def _boom(req, timeout=None):
+            raise OSError("connection reset")
+
+        monkeypatch.setattr("urllib.request.urlopen", _boom)
+        camp.unload_model("m:t")  # must not propagate
+
+    def test_model_sizes_degrades_to_empty_when_ollama_is_silent(self, monkeypatch):
+        def _boom(url, timeout=None):
+            raise OSError("no route")
+
+        monkeypatch.setattr("urllib.request.urlopen", _boom)
+        assert camp.model_sizes() == {}
+
+
+class TestDrain:
+    """Eviction on model change, waited on rather than assumed — the bench/UAT
+    rule. Regression: fire-and-forget `keep_alive: 0` let the next arm begin
+    loading ~20GB while the previous model was still resident."""
+
+    def test_drain_waits_until_ollama_reports_the_model_gone(self, monkeypatch):
+        seen = iter([["m:t"], ["m:t"], []])
+        monkeypatch.setattr(camp, "unload_model", lambda t: None)
+        monkeypatch.setattr(camp, "loaded_models", lambda: next(seen))
+        monkeypatch.setattr(camp.time, "sleep", lambda s: None)
+        assert camp.drain_model("m:t") is True
+
+    def test_drain_gives_up_at_the_ceiling_rather_than_hanging(self, monkeypatch):
+        """A wedged backend must not stall a multi-day sweep indefinitely."""
+        clock = iter([0.0] + [float(i) for i in range(1, 500)])
+        monkeypatch.setattr(camp, "unload_model", lambda t: None)
+        monkeypatch.setattr(camp, "loaded_models", lambda: ["m:t"])
+        monkeypatch.setattr(camp.time, "sleep", lambda s: None)
+        monkeypatch.setattr(camp.time, "monotonic", lambda: next(clock))
+        assert camp.drain_model("m:t", timeout_s=5) is False
+
+    def test_drain_others_evicts_everything_but_the_arm(self, monkeypatch):
+        """Including a model a service pinned at keep_alive=-1: that is memory
+        the arm needs, and the owner reloads it on its next request."""
+        resident = ["pinned-classifier:q4", "leftover:tag", "arm:tag"]
+        released = []
+        monkeypatch.setattr(camp, "loaded_models", lambda: list(resident))
+        monkeypatch.setattr(camp, "drain_model", lambda t, timeout_s=0: released.append(t))
+        assert camp.drain_others("arm:tag") == ["pinned-classifier:q4", "leftover:tag"]
+        assert "arm:tag" not in released
+
+    def test_loaded_models_degrades_to_empty_when_ollama_is_silent(self, monkeypatch):
+        def _boom(url, timeout=None):
+            raise OSError("no route")
+
+        monkeypatch.setattr("urllib.request.urlopen", _boom)
+        assert camp.loaded_models() == []
+
+
+class TestInstrumentHealthSection:
+    """Section 1 lists the full outcome census with instrument rows marked.
+
+    Regression: the heading promised only the excluded runs while the table
+    listed every outcome, so a clean campaign of 4 PASS / 1 FAIL / 1
+    BUDGET_EXHAUSTED read as six instrument failures — the exact misreading the
+    outcome taxonomy exists to prevent."""
+
+    def _md(self, tmp_path, outcomes):
+        from tests.wfe.report import render_markdown
+
+        d = TestReportCompilation()._campaign(tmp_path, outcomes)
+        return render_markdown(camp_report_build(d))
+
+    def test_a_clean_campaign_reports_zero_excluded(self, tmp_path):
+        md = self._md(tmp_path, {"inc": ["PASS", "FAIL"], "ch": ["PASS", "BUDGET_EXHAUSTED"]})
+        assert "0 of 4 run(s) excluded as instrument failures." in md
+        # The marker appears in the explanatory line; no TABLE ROW may carry it.
+        assert not [ln for ln in md.splitlines() if ln.startswith("|") and "*(excluded)*" in ln]
+
+    def test_instrument_rows_are_marked_and_counted(self, tmp_path):
+        md = self._md(tmp_path, {"inc": ["PASS", "HARNESS_ERROR"], "ch": ["PASS", "TOOL_ERROR"]})
+        assert "| HARNESS_ERROR *(excluded)* | 1 |" in md
+        assert "| TOOL_ERROR *(excluded)* | 1 |" in md
+        assert "| PASS | 2 |" in md
+        assert "2 of 4 run(s) excluded as instrument failures." in md
+
+    def test_the_census_total_matches_every_recorded_run(self, tmp_path):
+        md = self._md(tmp_path, {"inc": ["PASS"] * 5, "ch": ["FAIL"] * 3})
+        assert "0 of 8 run(s) excluded as instrument failures." in md

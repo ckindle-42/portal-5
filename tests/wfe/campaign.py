@@ -108,6 +108,11 @@ def campaign_harness(wsc: dict) -> dict:
 DEBUG_FILE_CAP = 100_000
 DEBUG_TREE_CAP = 60
 
+#: Prefix on a row note that marks the block as "preflight said REVIEW", which is
+#: retryable, as opposed to a task-level block (offline `requires_network`), which
+#: is not. execute_arm re-offers only rows carrying this prefix.
+_PREFLIGHT_BLOCK = "preflight REVIEW: "
+
 
 # --------------------------------------------------------------------------
 # logging / notification
@@ -159,6 +164,85 @@ def ollama_reachable() -> bool:
             return bool(json.load(r))
     except Exception:
         return False
+
+
+#: Ceiling on waiting for a model to leave memory. Reached only if Ollama never
+#: reports the release; the normal path returns as soon as /api/ps is clean.
+DRAIN_TIMEOUT_S = 180
+_DRAIN_POLL_S = 2
+
+
+def unload_model(tag: str) -> None:
+    """Ask Ollama to release one model (`keep_alive: 0`). Fire and forget."""
+    import urllib.request
+
+    req = urllib.request.Request(
+        f"{OLLAMA}/api/generate",
+        data=json.dumps({"model": tag, "keep_alive": 0}).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    with contextlib.suppress(Exception):
+        urllib.request.urlopen(req, timeout=60).read()
+
+
+def loaded_models() -> list[str]:
+    """Tags Ollama currently holds resident, per /api/ps."""
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(f"{OLLAMA}/api/ps", timeout=10) as r:
+            return [m["name"] for m in json.load(r).get("models") or []]
+    except Exception:
+        return []
+
+
+def drain_model(tag: str, timeout_s: int = DRAIN_TIMEOUT_S) -> bool:
+    """Release `tag` and WAIT until Ollama reports it actually gone.
+
+    Fire-and-forget is not a drain. The release is asynchronous, so without the
+    wait the next arm begins loading ~20GB while the previous model is still
+    resident — which is how a 64GB box ends up 41GB into swap measuring paging
+    instead of models. Event-driven (poll /api/ps) with a safety ceiling, per the
+    house rule for waits: never a blind sleep."""
+    unload_model(tag)
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        if tag not in loaded_models():
+            return True
+        time.sleep(_DRAIN_POLL_S)
+    return False
+
+
+def drain_others(keep: str, timeout_s: int = DRAIN_TIMEOUT_S) -> list[str]:
+    """Evict every resident model that is not `keep`, and wait for each.
+
+    The bench/UAT rule — evict unconditionally on model change, never on a
+    memory-percentage heuristic — because OLLAMA_MAX_LOADED_MODELS (5 here) will
+    happily stack arms until the machine, not the model, is what is measured.
+    Also covers the case the arm's own release cannot: a previous arm's process
+    that was killed and never got to clean up.
+
+    A model some service pinned at keep_alive=-1 (the pipeline's intent
+    classifier) is evicted too. That is deliberate — it is memory the arm needs,
+    and the owning service reloads it on its next request."""
+    evicted = []
+    for tag in loaded_models():
+        if tag == keep:
+            continue
+        drain_model(tag, timeout_s)
+        evicted.append(tag)
+    return evicted
+
+
+def model_sizes() -> dict[str, int]:
+    """Installed tag -> on-disk bytes, for smallest-first arm ordering."""
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(f"{OLLAMA}/api/tags", timeout=10) as r:
+            return {m["name"]: m["size"] for m in json.load(r)["models"]}
+    except Exception:
+        return {}
 
 
 def config_dirty() -> list[str]:
@@ -467,6 +551,12 @@ def rescore_debug_dir(debug_dir: Path, campaign_dir: Path | None = None) -> list
 
 
 def preflight_arm(campaign_dir: Path, arm: str, force: bool = False) -> dict:
+    """Probe an arm's transport before spending an arm's worth of wall clock.
+
+    Only an OK verdict is cached. A REVIEW is written to `<sha>.review.json` for
+    the record but never short-circuits a later attempt: in an unattended sweep a
+    single flaky probe — Ollama mid-eviction, a transient connection reset — would
+    otherwise block that arm's rows permanently across every resume."""
     cache = campaign_dir / "preflight" / (sha12(arm) + ".json")
     if cache.exists() and not force:
         return json.loads(cache.read_text())
@@ -475,7 +565,8 @@ def preflight_arm(campaign_dir: Path, arm: str, force: bool = False) -> dict:
         res = preflight_harness(arm)
     except Exception as e:
         res = {"model": arm, "verdict": "REVIEW", "findings": [f"preflight raised: {e}"]}
-    cache.write_text(json.dumps(res, indent=1))
+    target = cache if res.get("verdict") == "OK" else cache.with_suffix(".review.json")
+    target.write_text(json.dumps(res, indent=1))
     return res
 
 
@@ -625,6 +716,55 @@ def run_row(
     return row
 
 
+def _rows_to_run(
+    campaign_dir: Path,
+    manifest: dict,
+    arm: str,
+    retry_states: set,
+    force_preflight: bool,
+    notify: bool,
+) -> tuple[list[dict], dict | None]:
+    """The arm's runnable rows, or (…, early-return dict) if preflight blocks it.
+
+    Rows a PREVIOUS run blocked on preflight are re-offered here rather than left
+    dead: a flaky probe must not cost an arm its whole row budget for the rest of
+    a multi-day sweep."""
+    arm_rows = [r for r in manifest["rows"] if r["arm"] == arm]
+    todo = [r for r in arm_rows if r.get("state") == "PENDING" or r.get("state") in retry_states]
+    offered = {r["run_id"] for r in todo}
+    stale_block = [
+        r
+        for r in arm_rows
+        if r["run_id"] not in offered
+        and r.get("state") == Outcome.BLOCKED.value
+        and str(r.get("note") or "").startswith(_PREFLIGHT_BLOCK)
+    ]
+    if not todo and not stale_block:
+        _log(campaign_dir, f"arm {arm}: nothing pending")
+        return [], {"arm": arm, "ran": 0}
+
+    pf = preflight_arm(campaign_dir, arm, force_preflight)
+    findings = "; ".join(pf.get("findings") or [])
+    if pf.get("verdict") != "OK" and not force_preflight:
+        for r in todo:
+            r["state"] = Outcome.BLOCKED.value
+            r["note"] = _PREFLIGHT_BLOCK + findings
+        save_manifest(campaign_dir, manifest)
+        _log(campaign_dir, f"arm {arm}: BLOCKED — {findings}")
+        if notify:
+            _notify("test_summary", f"WFE arm BLOCKED: {arm}\n{findings}")
+        return [], {"arm": arm, "ran": 0, "blocked": len(todo) + len(stale_block)}
+
+    if stale_block:
+        for r in stale_block:
+            r["state"] = "PENDING"
+            r.pop("note", None)
+        todo.extend(stale_block)
+        save_manifest(campaign_dir, manifest)
+        _log(campaign_dir, f"arm {arm}: preflight now OK — un-blocked {len(stale_block)} row(s)")
+    return todo, None
+
+
 def execute_arm(
     campaign_dir: Path,
     arm: str,
@@ -640,29 +780,20 @@ def execute_arm(
     must not poison the remaining arms."""
     manifest = load_manifest(campaign_dir)
     retry_states = (
-        {Outcome.HARNESS_ERROR.value, Outcome.TOOL_ERROR.value} if rerun_failed else set()
+        {Outcome.HARNESS_ERROR.value, Outcome.TOOL_ERROR.value, Outcome.BLOCKED.value}
+        if rerun_failed
+        else set()
     )
-    todo = [
-        r
-        for r in manifest["rows"]
-        if r["arm"] == arm and (r.get("state") == "PENDING" or r.get("state") in retry_states)
-    ]
-    if not todo:
-        _log(campaign_dir, f"arm {arm}: nothing pending")
-        return {"arm": arm, "ran": 0}
+    todo, early = _rows_to_run(campaign_dir, manifest, arm, retry_states, force_preflight, notify)
+    if early is not None:
+        return early
 
-    pf = preflight_arm(campaign_dir, arm, force_preflight)
-    if pf.get("verdict") != "OK" and not force_preflight:
-        for r in todo:
-            r["state"] = Outcome.BLOCKED.value
-            r["note"] = "preflight REVIEW: " + "; ".join(pf.get("findings") or [])
-        save_manifest(campaign_dir, manifest)
-        _log(campaign_dir, f"arm {arm}: BLOCKED — {'; '.join(pf.get('findings') or [])}")
-        if notify:
-            _notify(
-                "test_summary", f"WFE arm BLOCKED: {arm}\n{'; '.join(pf.get('findings') or [])}"
-            )
-        return {"arm": arm, "ran": 0, "blocked": len(todo)}
+    # Evict on model change, before the first row rather than after the last: the
+    # previous arm's process may have been killed without cleaning up, and the
+    # pipeline may have pinned a classifier since. Both are memory this arm needs.
+    evicted = drain_others(arm)
+    if evicted:
+        _log(campaign_dir, f"arm {arm}: drained {len(evicted)} resident model(s): {evicted}")
 
     _log(campaign_dir, f"arm {arm}: {len(todo)} runs pending")
     if notify:
@@ -704,6 +835,8 @@ def execute_arm(
             f"errs={row['tool_errors']} {row['economics'].get('wall_s')}s",
         )
 
+    if not drain_model(arm):
+        _log(campaign_dir, f"arm {arm}: WARNING — still resident after {DRAIN_TIMEOUT_S}s")
     elapsed = round(time.monotonic() - t_arm)
     summary = f"{arm}: {tally} in {elapsed}s"
     _log(campaign_dir, f"arm complete — {summary}")
@@ -781,6 +914,11 @@ def _parse_args(argv=None):
     ap.add_argument("--smoke", action="store_true", help="one task end to end, full record printed")
     ap.add_argument("--list-arms", action="store_true")
     ap.add_argument("--status", action="store_true")
+    ap.add_argument(
+        "--preflight",
+        action="store_true",
+        help="probe every arm and stop; exit 1 if any needs review",
+    )
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--force", action="store_true", help="run an arm whose preflight says REVIEW")
     return ap, ap.parse_args(argv)
@@ -848,6 +986,42 @@ def _cmd_list_arms(plan: Path, all_suites: bool) -> int:
     return 0
 
 
+def _cmd_preflight(campaign_dir: Path, force: bool) -> int:
+    """Probe every arm's transport before the sweep starts.
+
+    An arm the harness cannot talk to yields no rows at all — and in an
+    unattended sweep that is discovered at hour forty, not hour zero. Twenty
+    minutes up front clears the whole roster, and every OK verdict is cached, so
+    the sweep does not pay for the probe twice. Exit 1 if any arm needs review."""
+    drain_others("")
+    sizes = model_sizes()
+    arms = sorted(
+        {r["arm"] for r in load_manifest(campaign_dir)["rows"]},
+        key=lambda a: (sizes.get(a, 0), a),
+    )
+    missing = [a for a in arms if a not in sizes] if sizes else []
+    bad = []
+    for i, a in enumerate(arms, 1):
+        t0 = time.monotonic()
+        res = preflight_arm(campaign_dir, a, force)
+        verdict = str(res.get("verdict"))
+        print(f"[{i}/{len(arms)}] {verdict:6s} {round(time.monotonic() - t0, 1):7.1f}s  {a}")
+        for f in res.get("findings") or []:
+            print(f"          FINDING: {f}")
+        for n in res.get("notes") or []:
+            print(f"          note: {n}")
+        if verdict != "OK":
+            bad.append(a)
+        drain_model(a)
+        sys.stdout.flush()
+    print(f"\npreflight: {len(arms) - len(bad)}/{len(arms)} OK")
+    if missing:
+        print("NOT INSTALLED: " + ", ".join(missing))
+    if bad:
+        print("REVIEW (these arms will be BLOCKED): " + ", ".join(bad))
+    return 1 if (bad or missing) else 0
+
+
 def _cmd_rescore(args) -> int:
     cd = CAMPAIGNS / args.campaign_id if args.campaign_id else None
     recs = rescore_debug_dir(args.rescore, cd)
@@ -878,6 +1052,11 @@ def main() -> int:
     campaign_dir = open_campaign(args.campaign_id, plan, matrix, args.append)
     if args.status:
         return _cmd_status(campaign_dir)
+    if args.preflight:
+        if not ollama_reachable():
+            _log(campaign_dir, "ABORT: Ollama unreachable")
+            return 3
+        return _cmd_preflight(campaign_dir, args.force)
     if not ollama_reachable():
         _log(campaign_dir, "ABORT: Ollama unreachable")
         return 3

@@ -72,6 +72,13 @@ tests/uat_corpus/*.json
 tests/uat_adaptive/
 tests/ADAPTIVE_UAT_RESULTS.md
 tests/UAT_RESULTS_ADAPTIVE.md
+
+# WFE campaign run artifacts — per-run manifests, row records, preflight caches
+# and the full --debug-dir capture (every request, response, tool output and
+# sandbox tree for 552 runs). Gigabytes of machine-local evidence; the report it
+# produces is what belongs in docs/. Suites, graded/ and workloads.yaml are
+# source and are NOT under results/.
+tests/wfe/results/
 config/proxmox_ca.pem
 
 # lab_discover.py output — live host state snapshot, not source
