@@ -446,6 +446,27 @@ class TestOfflineRescore:
     checker is wrong — and the checkers in this harness were wrong once already
     — the fix must cost seconds, not another sweep of the fleet."""
 
+    _GOOD_PARSE_KV = (
+        "def parse_kv(s):\n"
+        "    out = {}\n"
+        "    if not s or not s.strip():\n"
+        "        return out\n"
+        "    parts, buf, i = [], '', 0\n"
+        "    while i < len(s):\n"
+        "        if s[i] == '\\\\' and i + 1 < len(s) and s[i+1] == ';':\n"
+        "            buf += ';'; i += 2; continue\n"
+        "        if s[i] == ';':\n"
+        "            parts.append(buf); buf = ''; i += 1; continue\n"
+        "        buf += s[i]; i += 1\n"
+        "    parts.append(buf)\n"
+        "    for p in parts:\n"
+        "        if not p.strip():\n"
+        "            continue\n"
+        "        k, sep, v = p.partition('=')\n"
+        "        out[k.strip()] = v.strip() if sep else ''\n"
+        "    return out\n"
+    )
+
     def _debug_record(self, run_id="ws|m:t|coding|code-kv|r0"):
         return {
             "run_id": run_id,
@@ -529,6 +550,37 @@ class TestOfflineRescore:
         out = camp.rescore_debug_dir(dbg)
         assert out[0]["rescore"]["outcome"] == "FAIL"
         assert out[0]["rescore"]["changed"] is True
+
+    def test_rescore_preserves_a_run_telemetry_outcome_the_checker_cannot_see(self, tmp_path):
+        """A model that exhausted its turn budget (BUDGET_EXHAUSTED) has an empty
+        final answer; apply_checkers on the record alone would call that FAIL.
+        --rescore must keep the recorded outcome — the run, not a checker,
+        decided it — unless the re-grade upgrades it to PASS."""
+        rec = self._debug_record()
+        rec["outcome"] = "BUDGET_EXHAUSTED"
+        rec["final_text"] = ""
+        rec["assistant_texts"] = []
+        rec["sandbox_tree"] = {}  # no impl -> hidden_pytest FAILs
+        dbg = tmp_path / "debug"
+        dbg.mkdir()
+        (dbg / "m_t.debug.jsonl").write_text(json.dumps(rec) + "\n")
+        out = camp.rescore_debug_dir(dbg)
+        assert out[0]["rescore"]["outcome"] == "BUDGET_EXHAUSTED"
+        assert out[0]["rescore"]["checker_outcome"] == "FAIL"
+        assert out[0]["rescore"]["changed"] is False
+
+    def test_rescore_upgrades_a_budget_outcome_when_the_checker_now_passes(self, tmp_path):
+        """The one case a checker fix legitimately overrides run telemetry: the
+        model DID produce a correct artifact, and the too-strict checker was why
+        the run looked unfinished."""
+        rec = self._debug_record()
+        rec["outcome"] = "BUDGET_EXHAUSTED"
+        rec["sandbox_tree"] = {"parse_kv.py": TestOfflineRescore._GOOD_PARSE_KV}
+        dbg = tmp_path / "debug"
+        dbg.mkdir()
+        (dbg / "m_t.debug.jsonl").write_text(json.dumps(rec) + "\n")
+        out = camp.rescore_debug_dir(dbg)
+        assert out[0]["rescore"]["outcome"] == "PASS"
 
     def test_rescore_updates_campaign_rows_and_manifest(self, tmp_path):
         camp.CAMPAIGNS = tmp_path / "campaigns"

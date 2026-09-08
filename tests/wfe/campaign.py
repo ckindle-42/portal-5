@@ -338,12 +338,41 @@ def write_debug(debug_dir: Path, arm: str, record: dict) -> None:
         fh.write(json.dumps(record) + "\n")
 
 
+#: Outcomes decided by run_task from RUN telemetry, not by a checker: a stall,
+#: an exhausted turn budget, a blocked-offline task, an all-errored tool loop.
+#: apply_checkers cannot re-derive these from a static record, so --rescore must
+#: preserve them — unless the re-graded checker now says PASS, in which case a
+#: too-strict checker was the real reason the run looked incomplete.
+_RUN_TELEMETRY_OUTCOMES = frozenset(
+    {
+        Outcome.BUDGET_EXHAUSTED.value,
+        Outcome.BLOCKED.value,
+        Outcome.TOOL_ERROR.value,
+        Outcome.HARNESS_ERROR.value,
+    }
+)
+
+
+def _reconcile_offline(recorded: str | None, checker_outcome: str) -> tuple[str, str]:
+    """Combine the recorded run-telemetry outcome with a fresh checker verdict,
+    mirroring runner._classify's precedence. Returns (outcome, why)."""
+    if recorded in _RUN_TELEMETRY_OUTCOMES and checker_outcome != Outcome.PASS.value:
+        return (
+            recorded,
+            f"kept recorded {recorded} (run telemetry; checker re-grade: {checker_outcome})",
+        )
+    return checker_outcome, "checker re-grade"
+
+
 def rescore_debug_dir(debug_dir: Path, campaign_dir: Path | None = None) -> list[dict]:
     """Re-grade every recorded task-run with no model calls.
 
     The checkers in this harness returned unearned PASSes once already. When a
     checker changes, this re-derives every verdict in the campaign in seconds
-    instead of re-running the fleet for another 30-60 hours."""
+    instead of re-running the fleet for another 30-60 hours. A recorded outcome
+    that came from run telemetry rather than a checker (a stall, an exhausted
+    turn budget, a blocked-offline task) is preserved unless the re-grade
+    upgrades it to PASS."""
     suites: dict[str, dict] = {}
     updated: list[dict] = []
     for f in sorted(Path(debug_dir).glob("*.debug.jsonl")):
@@ -374,20 +403,22 @@ def rescore_debug_dir(debug_dir: Path, campaign_dir: Path | None = None) -> list
                 )
             finally:
                 shutil.rmtree(root, ignore_errors=True)
+            final_outcome, why = _reconcile_offline(rec.get("outcome"), cr.outcome.value)
             rec["rescore"] = {
-                "outcome": cr.outcome.value,
-                "notes": cr.notes,
+                "outcome": final_outcome,
+                "checker_outcome": cr.outcome.value,
+                "notes": f"{cr.notes} [{why}]",
                 "evidence": cr.evidence,
                 "was": rec.get("outcome"),
-                "changed": cr.outcome.value != rec.get("outcome"),
+                "changed": final_outcome != rec.get("outcome"),
             }
             updated.append(rec)
             if campaign_dir and rec.get("run_id"):
                 p = _row_path(campaign_dir, rec["run_id"])
                 if p.exists():
                     row = json.loads(p.read_text())
-                    row["outcome"] = cr.outcome.value
-                    row["notes"] = cr.notes
+                    row["outcome"] = final_outcome
+                    row["notes"] = f"{cr.notes} [{why}]"
                     row["evidence"] = cr.evidence
                     row["rescored_utc"] = dt.datetime.now(dt.UTC).isoformat()
                     p.write_text(json.dumps(row, indent=1))
