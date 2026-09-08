@@ -910,6 +910,24 @@ def _classify(
     return outcome, notes, evidence
 
 
+def _empty_result(outcome: Outcome, notes: str) -> dict:
+    """A no-run task result (BLOCKED / early HARNESS_ERROR) in run_task's shape."""
+    return {
+        "outcome": outcome.value,
+        "notes": notes,
+        "evidence": {},
+        "turns": 0,
+        "tool_calls": 0,
+        "tool_errors": 0,
+        "finish_reason": None,
+        "economics": Economics().__dict__,
+        "final_text": "",
+        "final_text_head": "",
+        "transcript": [],
+        "tool_call_log": [],
+    }
+
+
 def run_task(
     model: str,
     system_prompt: str,
@@ -924,24 +942,13 @@ def run_task(
 ) -> dict:
     """Run one fitness task to completion, then apply its checkers."""
     if task.get("requires_network") and not network_ok():
-        # The harness has no outbound network, so http_get would fail on every
-        # call and a fetch-grounded checker would score the model 0. That is an
-        # instrument limitation, not a model verdict — BLOCKED, excluded from
-        # every rate. The previous version ran the task and recorded a FAIL.
-        return {
-            "outcome": Outcome.BLOCKED.value,
-            "notes": "requires_network but the harness has no outbound network",
-            "evidence": {},
-            "turns": 0,
-            "tool_calls": 0,
-            "tool_errors": 0,
-            "finish_reason": None,
-            "economics": Economics().__dict__,
-            "final_text": "",
-            "final_text_head": "",
-            "transcript": [],
-            "tool_call_log": [],
-        }
+        # No outbound network here: http_get would fail on every call and a
+        # fetch-grounded checker would score the model 0 for the instrument's
+        # gap. BLOCKED, excluded from every rate — not the FAIL the previous
+        # version recorded.
+        return _empty_result(
+            Outcome.BLOCKED, "requires_network but the harness has no outbound network"
+        )
     for seed_path, seed_body in (task.get("seed") or {}).items():
         sandbox.file_write(seed_path, seed_body)
 
@@ -1021,11 +1028,47 @@ def run_task(
             break
         if not task.get("agentic"):
             break
+    else:
+        # The loop ran every turn without breaking — an agentic task that kept
+        # calling tools and never delivered an answer. That is a turn-budget
+        # exhaustion (the model didn't get to finish), not a wrong answer, so
+        # it is BUDGET_EXHAUSTED, not a content FAIL against an empty string.
+        if not final_text:
+            outcome_override = outcome_override or Outcome.BUDGET_EXHAUSTED
+            transcript.append(
+                {"turn": max_turns, "exhausted_turns": f"no final answer in {max_turns} turns"}
+            )
 
     econ.wall_s = round(time.monotonic() - t0, 1)
     if not final_text and assistant_texts:
         final_text = assistant_texts[-1]
+    return _finalize_run(
+        task,
+        final_text,
+        assistant_texts,
+        tool_log,
+        sandbox,
+        finish_reason,
+        transcript,
+        outcome_override,
+        tool_errors,
+        econ,
+    )
 
+
+def _finalize_run(
+    task,
+    final_text,
+    assistant_texts,
+    tool_log,
+    sandbox,
+    finish_reason,
+    transcript,
+    outcome_override,
+    tool_errors,
+    econ,
+) -> dict:
+    """Grade the completed run and assemble its result row."""
     ctx = CheckContext(
         final_text=final_text,
         assistant_texts=assistant_texts,
@@ -1037,7 +1080,6 @@ def run_task(
     outcome, notes, evidence = _classify(
         task, ctx, transcript, outcome_override, tool_log, tool_errors
     )
-
     return {
         "outcome": outcome.value,
         "notes": notes,
@@ -1052,9 +1094,9 @@ def run_task(
         "transcript": transcript,
         # Full tool output (already capped at 4000 in _execute_calls). The
         # previous re-truncation to 300 meant an offline --rescore of the
-        # contamination checker (forbid_in_tool_output) saw far less than the
-        # live run did, so a leaked answer key past char 300 was caught live but
-        # not on re-grade.
+        # contamination checker (forbid_in_tool_output) saw less than the live
+        # run, so a leaked answer key past char 300 was caught live, not on
+        # re-grade.
         "tool_call_log": tool_log,
     }
 
