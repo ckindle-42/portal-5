@@ -27,21 +27,28 @@ REPO = Path(__file__).resolve().parents[2]
 OLLAMA = "http://localhost:11434"
 EXPECTATIONS_PATH = REPO / "config" / "model_card_expectations.yaml"
 
-#: Maximum baked temperature per lane. The previous table covered 6 of 81
-#: workspaces: 56 carry module 'eval', 12 'general', and the media/documents/
-#: video/image/cad singletons had no policy at all, so 75 workspaces received no
-#: sampling check whatsoever.
+#: Effective-temperature ceiling per lane, checked against what the pipeline
+#: actually serves (see `effective_temperature`). The previous table covered 6
+#: of 81 workspaces and — worse — compared only the BAKED tag value, so a
+#: workspace that correctly pins a cool temperature over a hot tag was FAILed.
+#:
+#: `eval` is instrumentation, not a product: every `bench-*` workspace sets its
+#: sampling per benchmark (often the model's own native default) to measure the
+#: model as it would really run. A deterministic 0.4 ceiling there flagged 33
+#: benchmarks that were behaving exactly as intended. It is now non-deterministic
+#: at the Ollama default, so a bench is a WARN only when it runs HOTTER than
+#: stock — a real "is that deliberate?" question, not a production failure.
 LANE_SAMPLING = {
     "compliance": {"temperature": 0.3, "deterministic": True},
     "math": {"temperature": 0.3, "deterministic": True},
     "data": {"temperature": 0.4, "deterministic": True},
     "security": {"temperature": 0.4, "deterministic": True},
     "documents": {"temperature": 0.4, "deterministic": True},
-    "eval": {"temperature": 0.4, "deterministic": True},
     "coding": {"temperature": 0.5, "deterministic": False},
     "reasoning": {"temperature": 0.5, "deterministic": False},
     "research": {"temperature": 0.5, "deterministic": False},
     "cad": {"temperature": 0.5, "deterministic": False},
+    "eval": {"temperature": 0.7, "deterministic": False},
     "general": {"temperature": 0.8, "deterministic": False},
     "media": {"temperature": 0.8, "deterministic": False},
     "image": {"temperature": 0.8, "deterministic": False},
@@ -147,37 +154,74 @@ def _audit_context(ws_id, ws, hint, bp, tags, violations) -> None:
             )
 
 
+def effective_temperature(ws: dict, bp: dict) -> tuple[float | None, str]:
+    """The temperature the PIPELINE actually serves, not the one baked in the tag.
+
+    router/validation.py injects the workspace's flat sampling block — or, when
+    `think` is set, the matching `think_profiles` entry — into options at request
+    time (`_resolve_sampling_values`, setdefault so the caller can still win).
+    That override sits on top of whatever the tag bakes, so the served value is:
+    think-profile temp -> workspace flat temp -> baked tag temp -> Ollama's 0.7
+    default. The previous audit compared only the baked value against lane
+    policy, so a workspace that correctly pins temperature 0.2 at the config
+    layer over a tag that bakes 0.7 was reported as a FAIL it was not."""
+    tp = ws.get("think_profiles") or {}
+    tk = ws.get("think")
+    prof = tp.get("thinking" if tk else "instruct") if (tp and tk is not None) else {}
+    if isinstance(prof, dict) and prof.get("temperature") is not None:
+        return float(prof["temperature"]), "think_profile"
+    if ws.get("temperature") is not None:
+        return float(ws["temperature"]), "workspace config"
+    if bp.get("temperature") is not None:
+        return float(bp["temperature"]), "baked tag"
+    return None, "unset"
+
+
 def _audit_sampling(ws_id, ws, hint, bp, tags, violations) -> None:
     policy = LANE_SAMPLING.get(str(ws.get("module", "")).lower())
-    if policy and hint in tags:
-        baked_temp = bp.get("temperature")
-        if baked_temp is None and policy["deterministic"]:
-            # Absent is NOT compliant: with no baked temperature the tag serves
-            # at Ollama's 0.7 default. The previous audit only fired when a
-            # temperature was present and hot, so this case passed silently.
+    if not (policy and hint in tags):
+        if hint in tags and ws.get("module"):
             _v(
                 violations,
                 ws_id,
-                "sampling_unset",
-                f"{ws.get('module')} lane requires <= {policy['temperature']} but {hint} bakes NO "
-                f"temperature — it serves at the Ollama default",
+                "lane_no_policy",
+                f"module '{ws.get('module')}' has no LANE_SAMPLING entry — sampling unchecked",
+            )
+        return
+
+    limit = policy["temperature"]
+    eff, src = effective_temperature(ws, bp)
+    if eff is None:
+        if policy["deterministic"]:
+            _v(
+                violations,
+                ws_id,
+                "sampling_defaulted",
+                f"{ws.get('module')} lane requires <= {limit} but neither the workspace config "
+                f"nor {hint} sets a temperature — the pipeline serves Ollama's 0.7 default",
                 "FAIL",
             )
-        elif baked_temp is not None and baked_temp > policy["temperature"]:
-            _v(
-                violations,
-                ws_id,
-                "sampling_hot",
-                f"{ws.get('module')} lane but baked temperature={baked_temp} > {policy['temperature']} "
-                f"(lane policy applies at the TAG level)",
-                "FAIL" if policy["deterministic"] else "WARN",
-            )
-    elif hint in tags and ws.get("module"):
+    elif eff > limit + 1e-9:
         _v(
             violations,
             ws_id,
-            "lane_no_policy",
-            f"module '{ws.get('module')}' has no LANE_SAMPLING entry — sampling unchecked",
+            "sampling_hot",
+            f"{ws.get('module')} lane limit {limit} but the pipeline serves temperature={eff} "
+            f"(from {src})",
+            "FAIL" if policy["deterministic"] else "WARN",
+        )
+
+    # Defense in depth: the served value is compliant, but the TAG itself is not
+    # lane-safe, so any request path that omits the workspace override (a direct
+    # /v1 call, a future refactor) would exceed the policy.
+    baked = bp.get("temperature")
+    if baked is not None and baked > limit + 1e-9 and src != "baked tag":
+        _v(
+            violations,
+            ws_id,
+            "sampling_baked_hot",
+            f"served temperature {eff} is within the {limit} lane limit, but {hint} bakes "
+            f"temperature={baked} — a request that omits the workspace override would exceed it",
         )
 
 

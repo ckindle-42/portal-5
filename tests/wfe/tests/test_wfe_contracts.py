@@ -8,6 +8,7 @@ prompt machine-dependent.
 from __future__ import annotations
 
 import json
+import socket
 
 import pytest
 import yaml
@@ -17,7 +18,9 @@ from tests.wfe.runner import (
     TOOL_NAMES,
     TOOL_SCHEMAS,
     Sandbox,
+    StreamStalledError,
     _is_json_object,
+    _iter_lines_with_stall,
     _mk_msg,
     _parse_stream_v1,
     card_entry,
@@ -33,6 +36,7 @@ from tests.wfe.schema import (
     intervals_overlap,
     wilson,
 )
+from tests.wfe.settings_audit import effective_temperature
 
 
 class TestToolArgumentContract:
@@ -571,3 +575,97 @@ class TestOfflineRescore:
         assert s["seed"] == 1002
         if wsc.get("declared_temperature") is not None:
             assert s["temperature"] == wsc["declared_temperature"]
+
+
+class _FakeResp:
+    """Minimal stand-in for an http.client.HTTPResponse line stream."""
+
+    def __init__(self, lines, raise_after=None, exc=socket.timeout):
+        self._lines = list(lines)
+        self._i = 0
+        self._raise_after = raise_after
+        self._exc = exc
+
+    def readline(self):
+        if self._raise_after is not None and self._i >= self._raise_after:
+            raise self._exc("timed out")
+        if self._i >= len(self._lines):
+            return b""
+        ln = self._lines[self._i]
+        self._i += 1
+        return ln
+
+
+class TestStallDetection:
+    """A timeout is the enemy of a slow-but-progressing model. The runner
+    streams and watches for a STALL (no bytes), not a total-time cap — a model
+    that keeps emitting tokens is slow, not wedged, and its work is kept."""
+
+    def test_a_quiet_backend_raises_stream_stalled_not_a_generic_error(self):
+        resp = _FakeResp([b'{"a":1}\n'], raise_after=1)
+        with pytest.raises(StreamStalledError):
+            list(_iter_lines_with_stall(resp, stall_s=1, hard_s=60, tag="m"))
+
+    def test_socket_timeout_subclass_is_caught(self):
+        resp = _FakeResp([], raise_after=0, exc=TimeoutError)
+        with pytest.raises(StreamStalledError):
+            list(_iter_lines_with_stall(resp, stall_s=1, hard_s=60, tag="m"))
+
+    def test_a_progressing_stream_runs_to_completion(self):
+        lines = [b'{"delta":"a"}\n', b'{"delta":"b"}\n', b'{"done":true}\n']
+        out = list(_iter_lines_with_stall(_FakeResp(lines), stall_s=5, hard_s=60, tag="m"))
+        assert out == lines
+
+    def test_hard_ceiling_still_bounds_a_dribbling_stream(self):
+        # hard_s=0 => the very first post-read check trips it, even though bytes
+        # are arriving. The single-call ceiling is the caller's remaining budget.
+        with pytest.raises(StreamStalledError):
+            list(_iter_lines_with_stall(_FakeResp([b"x\n", b"y\n"]), stall_s=5, hard_s=0, tag="m"))
+
+    def test_stream_stalled_is_not_a_harness_error_outcome(self):
+        """run_task maps a stall to BUDGET_EXHAUSTED (a model verdict), never to
+        HARNESS_ERROR — the model accepted the request and went quiet."""
+        from tests.wfe.schema import INSTRUMENT_OUTCOMES, MODEL_QUALITY_OUTCOMES, Outcome
+
+        assert Outcome.BUDGET_EXHAUSTED in MODEL_QUALITY_OUTCOMES
+        assert Outcome.BUDGET_EXHAUSTED not in INSTRUMENT_OUTCOMES
+
+
+class TestEffectiveSampling:
+    """The audit must check the temperature the PIPELINE serves, not the one
+    baked in the tag. router/validation.py injects the workspace's flat sampling
+    (or think_profiles) into options at request time, so a workspace that pins
+    temperature 0.2 over a tag that bakes 0.7 was reported as a FAIL it was not.
+    """
+
+    def test_workspace_config_overrides_a_hot_baked_tag(self):
+        eff, src = effective_temperature({"temperature": 0.2}, {"temperature": 0.7})
+        assert eff == 0.2 and src == "workspace config"
+
+    def test_think_profile_wins_when_think_is_set(self):
+        ws = {"think": False, "think_profiles": {"instruct": {"temperature": 0.4}}}
+        eff, src = effective_temperature(ws, {"temperature": 0.7})
+        assert eff == 0.4 and src == "think_profile"
+
+    def test_falls_back_to_baked_then_unset(self):
+        assert effective_temperature({}, {"temperature": 0.55}) == (0.55, "baked tag")
+        assert effective_temperature({}, {}) == (None, "unset")
+
+    def test_live_auto_coding_is_lane_compliant_after_the_fix(self):
+        """auto-coding pins temperature 0.2 (coding lane <= 0.5) over a tag that
+        bakes 0.7 — the pre-fix audit FAILed it; it must not now."""
+        from tests.wfe.settings_audit import _audit_sampling
+
+        ws = {"module": "coding", "model_hint": "x", "temperature": 0.2}
+        v: list[dict] = []
+        _audit_sampling("auto-coding", ws, "x", {"temperature": 0.7}, {"x"}, v)
+        assert not [x for x in v if x["kind"] == "sampling_hot" and x["severity"] == "FAIL"]
+        assert any(x["kind"] == "sampling_baked_hot" for x in v)
+
+    def test_nothing_set_in_a_deterministic_lane_is_still_a_fail(self):
+        from tests.wfe.settings_audit import _audit_sampling
+
+        ws = {"module": "compliance", "model_hint": "x"}
+        v: list[dict] = []
+        _audit_sampling("w", ws, "x", {}, {"x"}, v)
+        assert any(x["kind"] == "sampling_defaulted" and x["severity"] == "FAIL" for x in v)
