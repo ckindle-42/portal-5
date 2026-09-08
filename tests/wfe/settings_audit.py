@@ -271,6 +271,49 @@ def _audit_workspace(
         _v(violations, ws_id, "pin_absent", f"model_pin={pin} not installed", "FAIL")
 
 
+_REASONING_TAG_RE = re.compile(
+    r"(deepseek-r1|qwen3\.[5-9]|phi4.*reasoning|glm-4\.[67]|glm-z1|gpt-oss|granite4\.[12]"
+    r"|magistral|nemotron.*lightning|qwen3-coder-next|Deepwen)",
+    re.I,
+)
+
+
+def _is_reasoning_model(hint: str, registry: dict) -> bool:
+    """A model that opens a <think> block by default. Card first (its
+    harness_policy.think), then a conservative tag pattern for uncarded models."""
+    hit = _card_entry_matched(hint, registry)
+    if hit and (hit[1].get("harness_policy") or {}).get("think") == "true":
+        return True
+    return bool(_REASONING_TAG_RE.search(hint))
+
+
+def _audit_reasoning_fit(ws_id, ws, hint, registry, tags, violations) -> None:
+    """A <think> model run with no `think` control (the workspace doesn't set it)
+    reasons at its native default. On /v1 the pipeline passes the workspace's
+    `think` through, so a workspace that omits it leaves the model's reasoning
+    on: on a deterministic lane that defeats the lane's purpose, and on any
+    agentic lane the model can spend its whole output budget reasoning and never
+    answer (observed: granite4.2 on tools-specialist)."""
+    if hint not in tags or ws.get("think") is not None:
+        return
+    if not _is_reasoning_model(hint, registry):
+        return
+    module = str(ws.get("module", "")).lower()
+    deterministic = LANE_SAMPLING.get(module, {}).get("deterministic")
+    _v(
+        violations,
+        ws_id,
+        "reasoning_uncontrolled",
+        f"{hint} is a reasoning-family model but the workspace sets no `think` — "
+        + (
+            f"the {module} lane is deterministic and needs think:false"
+            if deterministic
+            else "verify the lane's token budget covers reasoning AND an answer"
+        ),
+        "FAIL" if deterministic else "WARN",
+    )
+
+
 def _audit_personas(tags: set[str], violations: list[dict]) -> int:
     checked = 0
     for pf in (REPO / "config/personas").glob("*.yaml"):
@@ -503,6 +546,7 @@ def run_audit(behavioral: bool = False) -> dict:
         checked += 1
         _audit_workspace(ws_id, ws, tags, registered, tool_flags, violations)
         hint = ws["model_hint"]
+        _audit_reasoning_fit(ws_id, ws, hint, registry, tags, violations)
         if hint in tags:
             _card_check(hint, baked_params(hint), registry, violations, ws_id)
             if behavioral:

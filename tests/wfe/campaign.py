@@ -67,6 +67,7 @@ from tests.wfe.runner import (
     make_sandbox,
     preflight_harness,
     run_task,
+    think_policy,
     workspace_context,
 )
 from tests.wfe.schema import (
@@ -81,8 +82,27 @@ REPO = Path(__file__).resolve().parents[2]
 CAMPAIGNS = REPO / "tests" / "wfe" / "results" / "campaigns"
 SUITE_DIR = REPO / "tests" / "wfe" / "suites"
 DEFAULT_REPEATS = 3
-#: Production fidelity: the pipeline serves /v1 non-streaming.
+#: Production fidelity base: the pipeline serves /v1 non-streaming, no forced
+#: response format. `think` is filled in per workspace by campaign_harness().
 CAMPAIGN_HARNESS = {"endpoint": "v1", "stream": False, "think": "default", "format": "none"}
+
+
+def campaign_harness(wsc: dict) -> dict:
+    """The harness dimensions for one workspace's runs. `think` is resolved the
+    way production resolves it: the workspace's explicit `think` bool wins;
+    otherwise the model card's harness_policy.think; otherwise the model's
+    native default. A test of model X in workspace Y must run X the way Y is
+    configured, including a misconfiguration — that is the signal Y needs
+    fixing, or that X is not a fit."""
+    h = dict(CAMPAIGN_HARNESS)
+    ws_think = wsc.get("think")
+    if ws_think is not None:
+        h["think"] = "true" if ws_think else "false"
+    else:
+        h["think"] = think_policy(wsc.get("model") or "")
+    return h
+
+
 #: Cap on any single captured file in a debug record. Large enough for real
 #: source files, small enough that a debug jsonl stays reviewable.
 DEBUG_FILE_CAP = 100_000
@@ -502,6 +522,7 @@ def run_row(
         Path("/tmp/wfe") / manifest["campaign_id"] / sha12(r["run_id"]), r["task_id"], r["repeat"]
     )
     sampling = _sampling_for(wsc, r["repeat"])
+    harness = campaign_harness(wsc)
     t0 = time.monotonic()
     try:
         out = run_task(
@@ -512,7 +533,7 @@ def run_row(
             max_turns,
             budget_s,
             use_tools=True,
-            harness=dict(CAMPAIGN_HARNESS),
+            harness=dict(harness),
             sampling=sampling,
             tool_surface=wsc.get("tool_surface"),
         )
@@ -551,7 +572,7 @@ def run_row(
         prompt_sha=sha12(wsc["system_prompt"]),
         tool_surface=wsc.get("tool_surface") or TOOL_NAMES,
         tool_surface_proxy=bool(wsc.get("tool_surface_proxy", True)),
-        harness=dict(CAMPAIGN_HARNESS),
+        harness=dict(harness),
         sampling=sampling,
         seed=sampling.get("seed"),
         turns=out["turns"],
@@ -585,7 +606,7 @@ def run_row(
                 "system_prompt": wsc["system_prompt"],
                 "persona_slug": wsc.get("persona_slug"),
                 "instruction": task["instruction"],
-                "harness": dict(CAMPAIGN_HARNESS),
+                "harness": dict(harness),
                 "sampling": sampling,
                 "tool_surface": wsc.get("tool_surface"),
                 "outcome": out["outcome"],

@@ -13,9 +13,12 @@ Repairs in this revision (each was a false-result generator):
   - persona resolution is deterministic and recorded (auto-coding has 40
     personas bound to it; first-glob-wins made the measured prompt arbitrary).
   - token/latency economics and finish_reason are captured, not discarded.
-  - the harness `format` dimension is actually applied, so --preflight really
-    exercises the gpt-oss strict-JSON breakage class it was written for, and
-    a degenerate (non-empty non-JSON) reply fails it, not only an empty one.
+  - `think` is resolved and SENT the way production sends it (the workspace's
+    explicit bool -> the model card -> the model's native default), on /v1 too
+    — Ollama's /v1 honours a top-level `think`, and the pipeline relies on it.
+  - the preflight verdict gates only on the arms the campaign uses (v1 reach,
+    v1 tool contract, stream parity). A format:json incompatibility (gpt-oss)
+    is a note, not a block — the campaign runs zero strict-JSON tasks.
   - every request is STREAMED on the wire and a stall (no bytes for STALL_S),
     not a total-time cap, aborts the turn — a slow-but-progressing model keeps
     its work; a wedged backend is caught in minutes, not hours.
@@ -537,8 +540,13 @@ def _build_payload(
                 payload[k] = sampling[k]
         if fmt == "json":
             payload["response_format"] = {"type": "json_object"}
-        if think != "default":
-            caveats.append("v1_think_unsupported")
+        # Ollama's /v1/chat/completions honours a top-level `think` bool — the
+        # production pipeline sends exactly this (router/validation.py
+        # `_inject_ollama_options`). The previous version dropped it and only
+        # logged a caveat, so a workspace with `think: false` (auto-compliance,
+        # auto-security) was tested with the model's native thinking left on.
+        if think in ("true", "false"):
+            payload["think"] = think == "true"
         url = f"{OLLAMA}/v1/chat/completions"
     else:
         options = {"num_predict": max_tokens}
@@ -675,7 +683,7 @@ def chat(
     }
 
 
-def _tool_probe(model: str, endpoint: str) -> dict:
+def _tool_probe(model: str, endpoint: str, think: str = "default") -> dict:
     """Live tool-call probe: does the model emit a call, and do its arguments
     decode to an object under THIS endpoint's contract? This is the check that
     would have caught the v1 string-arguments defect before a campaign."""
@@ -689,7 +697,7 @@ def _tool_probe(model: str, endpoint: str) -> dict:
                 }
             ],
             tools=True,
-            harness={"endpoint": endpoint, "think": "default"},
+            harness={"endpoint": endpoint, "think": think},
             sampling={"temperature": 0.0, "seed": 7, "max_tokens": 256},
             timeout=180,
         )
@@ -708,17 +716,67 @@ def _tool_probe(model: str, endpoint: str) -> dict:
     }
 
 
+def _strict_json_note(sj: dict, card_json_safe: bool | None) -> str | None:
+    """Diagnostic only — NEVER a verdict gate. The campaign harness sets
+    format:none, so a format:json incompatibility affects zero campaign tasks;
+    blocking a whole arm over it (the gpt-oss case) refused a working model.
+    A suite that actually needs strict JSON can add its own gate."""
+    if sj.get("error"):
+        return f"strict-json probe errored: {sj['error']}"
+    content = sj.get("content") or ""
+    ok = bool(content) and _is_json_object(content)
+    if not ok:
+        kind = "empty" if not content else "degenerate (not a JSON object)"
+        why = (
+            "confirmed against the model card (format_json_safe: false)"
+            if card_json_safe is False
+            else "not predicted by the card — card ground truth owed (WFE-0.6)"
+        )
+        return (
+            f"format:json returns {kind} content — {why}; this model cannot serve "
+            f"strict-JSON tasks (the campaign runs none). Observed: {content[:60]!r}"
+        )
+    if card_json_safe is False:
+        return (
+            f"card records format_json_safe: false but format:json returned clean JSON "
+            f"({content[:40]!r}) — card may be stale, re-verify"
+        )
+    return None
+
+
+def _preflight_findings(out: dict, ns: dict, st: dict) -> list[str]:
+    """A REVIEW verdict blocks the whole arm, so only the arms the CAMPAIGN
+    actually uses gate it: the v1 production path, its tool contract, and
+    stream/non-stream parity. Endpoint-native quirks (strict JSON, api-vs-v1
+    text differences) are recorded as notes, not gates."""
+    f: list[str] = []
+    if out["v1"].get("error"):
+        f.append("v1 endpoint unreachable — the production path cannot be measured")
+    if ns.get("error") or st.get("error"):
+        f.append("stream/non-stream arm errored")
+    elif ns.get("content") != st.get("content"):
+        f.append(
+            f"stream parity mismatch at temperature 0: ns={ns.get('content', '')[:40]!r} "
+            f"st={st.get('content', '')[:40]!r}"
+        )
+    tp = out["v1_tools"]
+    if tp.get("error"):
+        f.append(f"tool probe failed on v1: {tp['error']}")
+    elif not tp.get("parsed_ok"):
+        f.append("v1 tool-call arguments did not decode to an object")
+    return f
+
+
 def preflight_harness(model: str) -> dict:
-    """Harness self-test. Deterministic by construction: temperature 0 and a
-    fixed seed, so stream parity is a real signal rather than sampling noise
-    (the previous version compared two default-temperature generations for exact
-    string equality, flagging REVIEW at random — and per WFE-0.8 rule 2 that
-    would have blocked nearly every model's campaign). The strict-JSON arm now
-    actually sets format:json, so it exercises the gpt-oss harmony breakage
-    class it was written to detect."""
+    """Harness self-test. Deterministic (temperature 0, fixed seed) so stream
+    parity is signal not sampling noise. Every probe runs at the model card's
+    resolved think policy — forcing think:false on a model whose card says
+    think:true (gpt-oss) fights the model and is not how any workspace runs it.
+    """
+    tp = think_policy(model)
     out: dict = {
         "model": model,
-        "resolved_think_policy": think_policy(model),
+        "resolved_think_policy": tp,
         "card_format_json_safe": format_json_policy(model),
         "notes": [],
     }
@@ -747,54 +805,19 @@ def preflight_harness(model: str) -> dict:
         {"role": "system", "content": 'Reply with exactly {"ok": true} and nothing else.'},
         {"role": "user", "content": "go"},
     ]
-    out["api_native"] = _run({"endpoint": "api", "think": "default"})
-    out["api_strict_json"] = _run(
-        {"endpoint": "api", "think": "false", "format": "json"}, json_msgs
-    )
-    ns = _run({"endpoint": "api", "think": "default", "wire_stream": False})
-    st = _run({"endpoint": "api", "think": "default", "wire_stream": True})
+    out["api_native"] = _run({"endpoint": "api", "think": tp})
+    out["api_strict_json"] = _run({"endpoint": "api", "think": tp, "format": "json"}, json_msgs)
+    ns = _run({"endpoint": "api", "think": tp, "wire_stream": False})
+    st = _run({"endpoint": "api", "think": tp, "wire_stream": True})
     out["stream_nonstream"] = {"ns": ns, "stream": st}
-    out["v1"] = _run({"endpoint": "v1", "think": "default"})
-    out["v1_tools"] = _tool_probe(model, "v1")
+    out["v1"] = _run({"endpoint": "v1", "think": tp})
+    out["v1_tools"] = _tool_probe(model, "v1", tp)
 
-    findings = []
-    if out["v1"].get("error"):
-        findings.append("v1 endpoint unreachable — the production path cannot be measured")
-    card_json_safe = out["card_format_json_safe"]
-    sj = out["api_strict_json"]
-    sj_content = sj.get("content") or ""
-    if sj.get("error"):
-        findings.append("strict-json arm errored")
-    elif not sj_content or not _is_json_object(sj_content):
-        kind = "empty" if not sj_content else "degenerate (not a JSON object)"
-        reconcile = (
-            "confirmed against the model card (format_json_safe: false)"
-            if card_json_safe is False
-            else "NOT predicted by the model card — card ground truth owed (WFE-0.6)"
-        )
-        findings.append(
-            f"{kind} content under format:json + think:false — harmony/template conflict "
-            f"(gpt-oss class); this model must not run strict-JSON tasks; {reconcile}. "
-            f"Observed: {sj_content[:60]!r}"
-        )
-    elif card_json_safe is False:
-        out["notes"].append(
-            "model card records format_json_safe: false but the strict-JSON arm returned "
-            f"a clean JSON object ({sj_content[:40]!r}) — the card may be stale, re-verify"
-        )
-    if ns.get("error") or st.get("error"):
-        findings.append("stream/non-stream arm errored")
-    elif ns.get("content") != st.get("content"):
-        findings.append(
-            f"stream parity mismatch at temperature 0: ns={ns.get('content', '')[:40]!r} "
-            f"st={st.get('content', '')[:40]!r}"
-        )
-    if out["v1_tools"].get("error"):
-        findings.append(f"tool probe failed on v1: {out['v1_tools']['error']}")
-    elif not out["v1_tools"].get("parsed_ok"):
-        findings.append("v1 tool-call arguments did not decode to an object")
-
-    out["stream_parity"] = "MISMATCH" if any("parity" in f for f in findings) else "OK"
+    note = _strict_json_note(out["api_strict_json"], out["card_format_json_safe"])
+    if note:
+        out["notes"].append(note)
+    findings = _preflight_findings(out, ns, st)
+    out["stream_parity"] = "MISMATCH" if any("parity" in x for x in findings) else "OK"
     out["findings"] = findings
     out["verdict"] = "OK" if not findings else "REVIEW"
     return out
@@ -829,17 +852,28 @@ def workspace_context(ws_id: str, persona: str | None = None) -> dict:
         sp = (ws.get("description") or "") + "\nPerform the user's task faithfully."
     declared = list(ws.get("tools") or [])
     surface = [t for t in TOOL_NAMES if t in declared] or TOOL_NAMES
-    # Production sampling fidelity (dimension 8): every workspace in
-    # portal.yaml declares its own sampling block. A temperature-0 pass is not
-    # evidence about a product served at temperature 0.7, so the campaign runs
-    # each workspace at ITS OWN settings rather than at a harness default.
-    sampling = {
-        k: ws[k]
-        for k in ("temperature", "top_p", "top_k", "min_p", "repeat_penalty", "presence_penalty")
-        if ws.get(k) is not None
-    }
+
+    # Extended-thinking control (Qwen3/DeepSeek/GLM/gpt-oss/granite4.x). Production
+    # (router/validation.py) resolves the sampling block from `think_profiles`
+    # when the workspace sets `think`, then sends `think` on the request. The
+    # campaign must do the same or a `think: false` workspace is measured with
+    # the model's reasoning left on — which reasons past the token budget and
+    # never answers (granite4.2), or a `think: true` model is under-reasoned.
+    ws_think = ws.get("think")
+    tp = ws.get("think_profiles") or {}
+    profile = (
+        tp.get("thinking" if ws_think else "instruct") if (tp and ws_think is not None) else {}
+    )
+
+    _keys = ("temperature", "top_p", "top_k", "min_p", "repeat_penalty", "presence_penalty")
+    sampling = {}
+    for k in _keys:
+        val = profile.get(k, ws.get(k)) if isinstance(profile, dict) else ws.get(k)
+        if val is not None:
+            sampling[k] = val
     if ws.get("predict_limit"):
         sampling["max_tokens"] = int(ws["predict_limit"])
+
     return {
         "model": ws.get("model_hint"),
         "system_prompt": sp,
@@ -858,7 +892,8 @@ def workspace_context(ws_id: str, persona: str | None = None) -> dict:
         "module": ws.get("module"),
         "sampling": sampling,
         "pinned_seed": ws.get("seed"),
-        "declared_temperature": ws.get("temperature"),
+        "declared_temperature": sampling.get("temperature"),
+        "think": ws_think,  # explicit workspace bool, or None
     }
 
 
