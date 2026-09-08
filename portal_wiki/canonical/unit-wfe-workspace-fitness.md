@@ -60,7 +60,13 @@ The harness (`tests/wfe/`):
   fetch-grounded, human_review → PENDING_REVIEW).
 - `campaign.py` + `scripts/wfe_campaign.sh` — one-arm-per-process campaign
   driver with `--debug-dir` full-run capture and `--rescore` offline re-grade;
+  `--preflight` probes every arm before the sweep, and each arm releases its
+  model (`keep_alive: 0`) so co-resident weight never becomes the measurement;
   `report.py` — deterministic Wilson-interval report, NOT SEPARATED not ranked.
+- `scripts/wfe_sweep_unattended.sh` — the unattended kickoff. The sweep talks
+  straight to Ollama, so the Portal stack is not a dependency but a competitor
+  for memory: this stops it for the duration, evicts every resident model,
+  preflights the roster, runs the sweep and restores the stack via trap.
 - `dimensions.yaml` — the 28-dimension coverage contract report.py reads.
 - `tools/build_compliance_suite.py` — regenerates compliance_agentic gold-
   stripped so the answer key cannot reach the model. `graded/` — hidden suites.
