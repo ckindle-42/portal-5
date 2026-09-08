@@ -282,6 +282,33 @@ def think_policy(tag: str, registry: dict | None = None) -> str:
     return "default"
 
 
+def format_json_policy(tag: str, registry: dict | None = None) -> bool | None:
+    """Card ground truth for the strict-JSON arm: harness_policy.format_json_safe.
+
+    Returns True/False when the card records it, None when the model has no card
+    entry or the field is absent. The gpt-oss card records this False — a
+    harmony/template conflict makes `format:json` return empty or degenerate
+    content — and preflight reconciles that claim against live behaviour rather
+    than trusting either side."""
+    hit = card_entry(tag, registry)
+    if hit:
+        pol = (hit[1].get("harness_policy") or {}).get("format_json_safe")
+        if isinstance(pol, bool):
+            return pol
+    return None
+
+
+def _is_json_object(text: str) -> bool:
+    """True iff `text` parses to a JSON object. The strict-JSON arm asks for
+    exactly `{"ok": true}`; anything that will not `json.loads` to a dict is
+    degenerate output, not a passing response — which is the other half of the
+    'empty/degenerate' breakage the gpt-oss card records."""
+    try:
+        return isinstance(json.loads((text or "").strip()), dict)
+    except (json.JSONDecodeError, ValueError):
+        return False
+
+
 def _mk_msg(content: list, tool_parts: dict) -> dict:
     msg = {"role": "assistant", "content": "".join(content)}
     if tool_parts:
@@ -513,7 +540,12 @@ def preflight_harness(model: str) -> dict:
     would have blocked nearly every model's campaign). The strict-JSON arm now
     actually sets format:json, so it exercises the gpt-oss harmony breakage
     class it was written to detect."""
-    out: dict = {"model": model, "resolved_think_policy": think_policy(model)}
+    out: dict = {
+        "model": model,
+        "resolved_think_policy": think_policy(model),
+        "card_format_json_safe": format_json_policy(model),
+        "notes": [],
+    }
     msgs = [{"role": "user", "content": "Reply with exactly: OK"}]
     det = {"temperature": 0.0, "seed": 7, "max_tokens": 64}
 
@@ -552,12 +584,27 @@ def preflight_harness(model: str) -> dict:
     findings = []
     if out["v1"].get("error"):
         findings.append("v1 endpoint unreachable — the production path cannot be measured")
-    if out["api_strict_json"].get("error"):
+    card_json_safe = out["card_format_json_safe"]
+    sj = out["api_strict_json"]
+    sj_content = sj.get("content") or ""
+    if sj.get("error"):
         findings.append("strict-json arm errored")
-    elif not out["api_strict_json"].get("content"):
+    elif not sj_content or not _is_json_object(sj_content):
+        kind = "empty" if not sj_content else "degenerate (not a JSON object)"
+        reconcile = (
+            "confirmed against the model card (format_json_safe: false)"
+            if card_json_safe is False
+            else "NOT predicted by the model card — card ground truth owed (WFE-0.6)"
+        )
         findings.append(
-            "empty content under format:json + think:false — harmony/template conflict "
-            "(gpt-oss class); this model must not run strict-JSON tasks"
+            f"{kind} content under format:json + think:false — harmony/template conflict "
+            f"(gpt-oss class); this model must not run strict-JSON tasks; {reconcile}. "
+            f"Observed: {sj_content[:60]!r}"
+        )
+    elif card_json_safe is False:
+        out["notes"].append(
+            "model card records format_json_safe: false but the strict-JSON arm returned "
+            f"a clean JSON object ({sj_content[:40]!r}) — the card may be stale, re-verify"
         )
     if ns.get("error") or st.get("error"):
         findings.append("stream/non-stream arm errored")
