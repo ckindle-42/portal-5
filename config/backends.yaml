@@ -1062,7 +1062,7 @@ workspace_routing:
   bench-qwen38-27b:
   - general
   bench-qwen38-flash-next-reap288:
-  - general
+  - coding
   bench-gemma4-26b-optiq:
   - general
   bench-huihui-qwen36-27b:
