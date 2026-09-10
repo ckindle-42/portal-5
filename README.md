@@ -26,7 +26,201 @@ a rebuild.
 
 ---
 
+## What this is for
+
+<!-- WIKI:HUMAN-OWNED reason="founding commitments — the project's purpose, not a property of the code" -->
+Portal 5 exists because the useful version of an AI assistant is the one you can tell the truth
+to.
+
+That rules out most of the market. Ask a hosted model about the control network you are
+defending, the compliance gap you have not closed, or the code you have not shipped, and you
+have filed all of it with a company whose retention policy is a link in a footer. So the
+question this started from was narrow and testable: can a fully local, fully private assistant
+be *good enough to actually use* — not as a demo, not as a principle, but as the thing you
+reach for on a Tuesday afternoon?
+
+It can. That is the whole claim, and everything here serves it:
+
+- **Privacy-first.** Your prompts and your responses stay on this machine. Not "anonymized," not
+  "not used for training." They do not leave.
+- **Fully local.** Inference runs here, on your hardware. Downloading a model is the only thing
+  that reaches out, and you can see exactly when it does.
+- **Zero cloud dependencies.** No accounts, no API keys, no per-token meter, no vendor who can
+  deprecate the model you built a workflow around.
+- **One command.** A fresh machine reaches a working stack from `./launch.sh up`. If that stops
+  being true it is a bug, not a documentation problem.
+
+Every awkward decision downstream traces to one of those four being treated as non-negotiable
+while something more convenient was given up. The convenient thing was usually a cloud call.
+<!-- /WIKI:HUMAN-OWNED -->
+
+## Why you'd choose this
+
+<!-- WIKI:HUMAN-OWNED reason="comparative judgment — an argument about the alternatives, each with its real cost" -->
+Portal 5 is not the easy choice. The honest comparison:
+
+**Against a hosted assistant.** A frontier model in someone's cloud is smarter than anything you
+will run at home, and it is ready in the time it takes to sign up. What you give up is
+everything you type: it lands on hardware you do not control, under terms you did not write, and
+"we don't train on your data" is a promise, not a mechanism. Portal 5 trades the smarter model
+for the property that the sentence never leaves your machine.
+
+**Against wiring your own local stack.** You can connect Ollama, a web UI, a search index and a
+handful of tool servers yourself — a few weekends of integration and a standing maintenance cost
+every time a component moves. Portal 5 is that assembly, already done and kept working, behind
+one command. What you give up is the satisfaction of having made every wiring decision yourself.
+
+**Against a bare Ollama install.** Ollama runs the models; it does not choose one, grant it the
+right tools, or give it a system prompt shaped for the task. Portal 5 is the layer on top — you
+pick an intent and the workspace behind it sets the model, the toolset and the context budget.
+What you give up is little you will miss, unless you enjoy remembering which model was good at
+what.
+
+**Against a commercial on-prem product.** Those exist and are supported, for a licence fee and a
+lock to someone's release schedule and roadmap. Portal 5 is a repository you own outright. What
+you give up is a support contract and someone else's SLA.
+<!-- /WIKI:HUMAN-OWNED -->
+
+## What Portal 5 is not
+
+<!-- WIKI:HUMAN-OWNED reason="scope boundary — the deliberate choices about what not to build, and the tradeoff they buy" -->
+Portal 5 is an intelligence layer on top of Open WebUI, not a replacement for it. Some things it
+deliberately is *not*:
+
+- **Not a chat UI, auth system, knowledge base or metrics stack.** Open WebUI already does those
+  well, so Portal 5 extends it through the Pipeline server and MCP tool servers rather than
+  rebuilding a web frontend.
+- **Not cloud inference with a local option.** There is no frontier fallback when a local model
+  struggles. If a model you can run cannot do the task, the honest answer is that it cannot, and
+  `KNOWN_LIMITATIONS.md` is where those answers are written down.
+- **Not an agent framework.** No LangChain, no LlamaIndex — the abstraction layers cost more
+  here than they saved.
+
+The tradeoff, plainly: you give up a frontier model's ceiling and you take on running your own
+hardware. What you get back is that nothing you type is somebody else's training data.
+<!-- /WIKI:HUMAN-OWNED -->
+
+## How much of this you get
+
+<!-- WIKI:HUMAN-OWNED reason="orientation for a first-time reader — the kinds of capability, framed around a count that is generated rather than typed" -->
+Capability in Portal 5 comes in a few kinds, and it helps to know them before the numbers:
+
+- **Modules** are whole domains you can switch off wholesale — security, coding, compliance,
+  documents, image, media and the rest.
+- **Workspaces** are routing destinations: each pins a model to a toolset and a context budget,
+  so choosing a workspace chooses all three.
+- **Personas** layer a voice and a set of constraints on top of a workspace.
+- **MCP tool servers** are the tools themselves — documents, code sandbox, research, browser,
+  retrieval, CAD, and more.
+- **Channels** are the ways in: the Open WebUI browser tab, plus Telegram and Slack.
+
+The count itself is generated, so it cannot go stale between releases:
+<!-- /WIKI:HUMAN-OWNED -->
+
+<!-- WIKI:GENERATED unit=unit-readme-capability-rollup -->
+Portal 5 is one platform assembled from a small set of switchable
+parts. The headline figures below are derived from config on every
+seed, never hand-written.
+
+| Kind | Count | Source |
+|---|---|---|
+| Modules | 15 enabled of 16 | `config/modules.generated.yaml` |
+| Functional workspaces | 25 | `config/portal.yaml` `workspaces` |
+| Benchmark workspaces | 56 | `config/portal.yaml` `workspaces` (eval module) |
+| Workspaces total | 81 | `config/portal.yaml` `workspaces` |
+| Personas | 135 | `config/personas/` |
+| MCP tool servers | 33 | `config/portal.yaml` `mcp_fleet` |
+
+That is 15 modules enabled of 16 modules total, 25 functional workspaces (56 benchmark workspaces, 81 workspaces total), 135 personas and 33 MCP tool servers — plus the Telegram and Slack channels, which carry no count of their own.
+
+### Why
+
+A first-time reader needs one number before they need eighty-one, so the README opens its capability section on a single rollup. It has to be derived rather than typed because every figure here moves between releases as modules, workspaces and personas are added or retired, and a README that quotes a stale count is the fastest way to lose a new reader's trust in the rest of the page.
+<!-- /WIKI:GENERATED -->
+
+## What it does on this hardware
+
+<!-- WIKI:HUMAN-OWNED reason="performance expectations — the shape of the answer by hand, with the numbers deferred to a real bench run" -->
+The honest shape of it: a short question comes back in a couple of seconds. A larger model
+trades tokens per second for judgment, so a hard reasoning task feels more like waiting for a
+colleague to think than like a web search. Model size sets the memory floor, and when two large
+models are asked for at once the router evicts one.
+
+Concrete throughput belongs here, but it has to come from a bench run on your hardware, not from
+a guess. `docs/PERFORMANCE.md` documents the `bench_tps.py` harness; results land in
+`tests/benchmarks/results/` per run.
+
+**honest-BLOCKED:** the tokens-per-second and memory-per-model table for this README is not
+filled in yet. To produce it:
+
+```bash
+python3 tests/benchmarks/bench_tps.py --mode pipeline --workspace auto --runs 3
+```
+
+A wrong throughput figure in the one document a stranger uses to judge the project is worse than
+an absent one, so this section stays blocked until a real bench lands.
+<!-- /WIKI:HUMAN-OWNED -->
+
+## Which path is yours
+
+<!-- WIKI:HUMAN-OWNED reason="reader-type triage — an opinion about who should do what first, with the time each costs" -->
+Three ways in, depending on why you are here.
+
+**Just trying it** — about half an hour. Run `./launch.sh up`, let it pull the core models, and
+use the browser tab. Do not pull the specialized catalog yet; it is large and you do not need it
+to judge whether the basics work.
+
+**Running it daily** — an evening. Pull the full catalog with `./launch.sh pull-models`, enable
+a channel if you want the assistant in Telegram or Slack, and point retrieval at the material
+you actually care about.
+
+**Building on it** — a week before you commit code. Read `CLAUDE.md`, the classification guide
+and the governance rules first. Portal 5 has opinions about where a new module, workspace or
+tool server belongs, and the rules are enforced at commit time.
+<!-- /WIKI:HUMAN-OWNED -->
+
+## You know it worked when
+
+<!-- WIKI:HUMAN-OWNED reason="acceptance judgment — what 'working' means to an operator, which no health probe defines" -->
+`./launch.sh up` printing an endpoint list means the stack started. It does not mean it works.
+You know it works when:
+
+- you can sign in at `http://localhost:8080` with the credentials in `.env`;
+- the model dropdown lists more than one preset;
+- a plain question answers coherently within a few seconds;
+- a question that needs a tool visibly uses one rather than describing what it would do;
+- `./scripts/smoke_stream.sh` streams tokens instead of delivering one block at the end;
+- `uv run python scripts/validate_system.py` exits zero;
+- Grafana shows request metrics after you have had a conversation.
+
+The useful diagnostic: if the last two pass and the first five do not, the stack is healthy and
+the configuration is wrong — start at Troubleshooting, not at reinstalling.
+<!-- /WIKI:HUMAN-OWNED -->
+
+## What to do next
+
+<!-- WIKI:HUMAN-OWNED reason="sequencing advice — an opinion about the order of the first week, not a system behaviour" -->
+**First hour.** Have a real conversation, switch workspaces mid-task and watch the model change,
+ask something that forces a tool call.
+
+**First evening.** Pull the specialized catalog, wire up a channel, and point retrieval at a
+folder of your own documents.
+
+**First week.** Read `docs/USER_GUIDE.md` end to end, skim `P5_ROADMAP.md` for where this is
+going, and read `KNOWN_LIMITATIONS.md` — it is long on purpose, and it is where the honest
+answers about what does not work yet are kept.
+<!-- /WIKI:HUMAN-OWNED -->
+
+---
+
 ## Prerequisites
+
+<!-- WIKI:HUMAN-OWNED reason="section framing — why the Prerequisites list is the enforced set, not an aspirational one" -->
+This list is what `_check_hardware` actually enforces on every start, not a wishlist. The
+numbers are floors for a working set that has to hold a router plus at least one resident model;
+below them the stack stops rather than limping into a confusing failure. Apple Silicon is named
+first because the native Metal inference and MLX runtimes are where the performance lives.
+<!-- /WIKI:HUMAN-OWNED -->
 
 <!-- WIKI:GENERATED unit=unit-readme-prerequisites -->
 The requirements `./launch.sh up` actually enforces are in `_check_hardware` in
@@ -58,6 +252,13 @@ model need 16 GB, and the FLUX checkpoint sets the floor for the disk check.
 ---
 
 ## Quick Start
+
+<!-- WIKI:HUMAN-OWNED reason="section framing — why first boot is one command that does a lot" -->
+The whole of first boot sits behind `./launch.sh up` on purpose: secret generation, workspace
+init, hardware checks and the core model pull all happen inside it, so there is nothing to
+hand-edit before the stack is usable. If a fresh machine cannot reach a working stack this way,
+that is the bug to file.
+<!-- /WIKI:HUMAN-OWNED -->
 
 <!-- WIKI:GENERATED unit=unit-readme-quick-start -->
 ```bash
@@ -101,6 +302,13 @@ credentials that already exist in `.env`.
 
 ## What Starts Automatically
 
+<!-- WIKI:HUMAN-OWNED reason="section framing — why the stack is split between Docker and host-native services" -->
+Two runtimes, deliberately. The web services live in Docker for its networking, health checks
+and restart policy; the Apple Silicon runtimes — generation, embeddings, speech — run
+host-native because Metal is faster and lighter outside a container. `up` confirms or starts
+them; it does not install them, so the first run of each installer is a separate step.
+<!-- /WIKI:HUMAN-OWNED -->
+
 <!-- WIKI:GENERATED unit=unit-readme-what-starts-automatically -->
 `./launch.sh up` starts the core Docker stack (compose services plus profiles
 auto-selected from Telegram/Slack tokens). Host-native Apple Silicon services
@@ -143,6 +351,13 @@ crashes, so `up` only needs to confirm or start them rather than install them.
 ---
 
 ## Workspaces
+
+<!-- WIKI:HUMAN-OWNED reason="section framing — why routing goes through a config catalog rather than a raw model list" -->
+A workspace is the unit of "pick the right setup for this task": it names a model, a toolset and
+a context budget together, so you choose an intent and get all three. Keeping the catalog in
+`config/portal.yaml` rather than in code makes adding one an operator edit, and the benchmark
+workspaces stay walled off from daily routing unless the eval module is switched on.
+<!-- /WIKI:HUMAN-OWNED -->
 
 <!-- WIKI:GENERATED unit=unit-readme-workspaces -->
 Select a workspace in the Open WebUI model dropdown to activate the right model
@@ -261,6 +476,13 @@ model dropdown while leaving a documented harness path.
 ---
 
 ## Common Commands
+
+<!-- WIKI:HUMAN-OWNED reason="section framing — how to read this section and what it is not" -->
+This is not the full command surface — `./launch.sh` with no argument prints that. It is the
+handful you actually reach for after a fresh install, in roughly the order you meet them. If a
+command here does something surprising, the fix is almost always in the small shell library it
+delegates to under `scripts/lib/`, not in `launch.sh` itself.
+<!-- /WIKI:HUMAN-OWNED -->
 
 <!-- WIKI:GENERATED unit=unit-readme-common-commands -->
 The operator surface is one dispatcher: `./launch.sh <command>`. The `case`
@@ -611,6 +833,13 @@ the Kokoro model uses.
 
 ## Troubleshooting
 
+<!-- WIKI:HUMAN-OWNED reason="section framing — why the list is short and which failure it does not cover" -->
+This covers first-run failures, which are nearly always one of four things: an unhealthy
+container, a full disk, a backend still loading, or a taken port. A model that answers badly is
+a different problem — that is a workspace or model-fit question, and `docs/USER_GUIDE.md` and
+`KNOWN_LIMITATIONS.md` are the places for it.
+<!-- /WIKI:HUMAN-OWNED -->
+
 <!-- WIKI:GENERATED unit=unit-readme-troubleshooting -->
 **Services not starting:**
 ```bash
@@ -727,6 +956,12 @@ a LAN, not the public internet.
 ---
 
 ## Coding Tool Integration (Claude Code / opencode)
+
+<!-- WIKI:HUMAN-OWNED reason="section framing — why a local stack bothers to speak the coding-agent protocols" -->
+Claude Code and opencode expect an OpenAI-compatible endpoint, and the Pipeline is one, so a
+local model can back an agentic coding harness with no cloud key. It is the same routing and the
+same toolset the browser tab uses, addressed from a terminal instead.
+<!-- /WIKI:HUMAN-OWNED -->
 
 <!-- WIKI:GENERATED unit=unit-readme-coding-tool-integration-claude-code-opencode -->
 Portal 5 ships first-class support for AI coding assistants. Two repo-root config
@@ -874,6 +1109,13 @@ at push time to keep the per-commit cost low.
 
 ## Architecture
 
+<!-- WIKI:HUMAN-OWNED reason="section framing — the one load-bearing idea in the diagram below" -->
+One thing to take from the diagram: the Pipeline is the only OpenAI-compatible endpoint Open
+WebUI ever sees, it holds no conversation state, and inference is a single tier. That is what
+lets there be one model catalog and one GPU-memory budget to reason about, rather than two
+model-serving stacks competing for the same RAM.
+<!-- /WIKI:HUMAN-OWNED -->
+
 <!-- WIKI:GENERATED unit=unit-readme-architecture -->
 The deployment is a Docker compose stack plus host-native runtimes, orchestrated
 by `launch.sh`. Open WebUI (port 8080) is the user-facing chat surface and the
@@ -916,6 +1158,32 @@ equivalent runtime — audio synthesis, diarization, embeddings and reranking. O
 tier also means one model catalog (`config/backends.yaml`) and one pull path for
 operators, which is why the retained MLX runtimes are explicitly non-chat.
 <!-- /WIKI:GENERATED -->
+
+---
+
+## Why this exists
+
+<!-- WIKI:HUMAN-OWNED reason="ancestry and intent — the project's own account of where it came from, which no unit can derive" -->
+Portal 5 began as `pocketportal`, a Telegram bot: one private front door to a set of local
+models, with a routing table that ran from a tiny SmallThinker-270M classifier up to a Qwen-32B,
+aimed at an Apple Silicon Mac Mini. The interface later moved to Open WebUI and the model tiers
+were replaced, but the shape held — one door, many local models, the right one chosen for you.
+
+`[OPERATOR: verify or replace]` Why it started: the motive — a specific task a hosted assistant
+could not be trusted with, or a standing objection to filing your work with someone else's
+cloud.
+
+`[OPERATOR: verify or replace]` How it grew: a task showed up that the local stack could not do,
+so the stack grew a capability for it — security work, then compliance, then documents, voice,
+CAD — which is why the module list looks the way it does.
+
+`[OPERATOR: verify or replace]` What was retired: the things removed for not earning their keep
+— name them if the claim should land (for example the MLX inference proxy, or the ComfyUI
+generation path).
+
+Built for privacy, autonomy, and control — and to be good enough that choosing them costs you
+nothing.
+<!-- /WIKI:HUMAN-OWNED -->
 
 ---
 
