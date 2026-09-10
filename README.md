@@ -292,12 +292,9 @@ by hand, which keeps `docker compose up` and `launch.sh up` from diverging.
 
 ---
 
-# Start / stop
-
-# Test everything is working
-
 <!-- WIKI:GENERATED unit=unit-readme-test-everything-is-working -->
 ```bash
+# Test everything is working
 ./launch.sh test            # Run live smoke tests against running stack
 ```
 
@@ -310,7 +307,7 @@ end-to-end checks against the live stack: it probes the pipeline health endpoint
 exit on any failure. This is the quick post-`up` verification path, distinct from
 the heavier acceptance suite.
 
-## Why
+### Why
 
 A mock-only unit suite cannot prove the real services accept requests, so a
 short live smoke test is the first thing an operator runs after `up`. Keeping it
@@ -321,10 +318,9 @@ without parsing output.
 
 ---
 
-# Pull specialized models (security, coding, reasoning — 30–90 min)
-
 <!-- WIKI:GENERATED unit=unit-readme-pull-specialized-models-security-coding-reasoning-30-90-min -->
 ```bash
+# Pull specialized models (security, coding, reasoning — 30–90 min)
 ./launch.sh pull-models
 ```
 
@@ -338,7 +334,7 @@ the full set takes 30–90 minutes depending on connection speed, and it skips
 models already present in Ollama. Gated repositories require `HF_TOKEN` set in
 `.env`; the pull reports a clear error otherwise.
 
-## Why
+### Why
 
 The specialized catalog is large (security, coding, reasoning, vision, creative
 lanes), so it is deliberately a separate, operator-initiated step after the three
@@ -349,12 +345,9 @@ editing shell code, and retired entries stay documented but stop being fetched.
 
 ---
 
-# MLX (Apple Silicon)
-
-# User management
-
 <!-- WIKI:GENERATED unit=unit-readme-user-management -->
 ```bash
+# User management
 ./launch.sh add-user alice@example.com "Alice Smith"
 ./launch.sh list-users
 ```
@@ -368,7 +361,7 @@ generates a temporary password, and prints the credentials for the new account
 its role, name and email. Both require the stack to be running and an admin
 token to be resolvable.
 
-## Why
+### Why
 
 User accounts are owned by Open WebUI, so the CLI does not invent its own user
 store — it shells out to the same admin endpoints the UI uses, which keeps roles
@@ -378,14 +371,9 @@ scriptable path to provision accounts without clicking through the admin panel.
 
 ---
 
-# Enable messaging channels (requires tokens in .env)
-
-# Backup and restore
-
-# Seeding
-
 <!-- WIKI:GENERATED unit=unit-readme-seeding -->
 ```bash
+# Seeding
 ./launch.sh seed            # Re-seed Open WebUI (workspaces + personas)
 ./launch.sh reseed          # Force-refresh all presets (delete + recreate)
 ```
@@ -401,7 +389,7 @@ tool ids and model presets are pushed into Open WebUI.
 healthy, it runs `openwebui-init` in the background to pick up any personas or
 workspaces added since the last boot.
 
-## Why
+### Why
 
 Seeding exists because the workspace and persona catalog is generated from
 `config/portal.yaml` and `config/personas/`, not entered by hand in Open WebUI.
@@ -411,10 +399,6 @@ without touching Open WebUI's database by hand.
 <!-- /WIKI:GENERATED -->
 
 ---
-
-# Update (single command: git pull + rebuild + model refresh + re-seed)
-
-# Cleanup
 
 ## Enable Telegram Bot
 
@@ -714,7 +698,7 @@ would force hours of model re-downloads.
 
 ---
 
-# Then free disk space and retry ./launch.sh up
+### Then free disk space and retry ./launch.sh up
 
 <!-- WIKI:GENERATED unit=unit-readme-then-free-disk-space-and-retry-launch-sh-up -->
 The disk check in `_check_hardware` (`scripts/lib/util.sh`) is the first-run
@@ -731,7 +715,7 @@ model is pulled:
 ./launch.sh pull-models     # Ensure at least one model is pulled
 ```
 
-## Why
+#### Why
 
 Disk is checked before any pull because a failed multi-gigabyte download is the
 most wasteful failure mode — the download restarts or half-completes, and the
@@ -742,7 +726,7 @@ confusing mid-boot error.
 
 ---
 
-# Wait for Ollama to finish loading, then try again
+### Wait for Ollama to finish loading, then try again
 
 <!-- WIKI:GENERATED unit=unit-readme-wait-for-ollama-to-finish-loading-then-try-again -->
 "Wait for Ollama to finish loading, then try again" is the guidance for a cold
@@ -764,7 +748,7 @@ pull commands resume interrupted transfers.
 `_check_ports` uses to print the conflicting PID and its `kill` hint when `up`
 aborts.
 
-## Why
+#### Why
 
 Ollama loads models lazily and the checkpoint downloads are large, so "wait and
 retry" is not a workaround but the documented behavior of the loader: the stack
@@ -775,7 +759,7 @@ one that is actually broken.
 
 ---
 
-# Stop the conflicting service, then ./launch.sh up
+### Stop the conflicting service, then ./launch.sh up
 
 <!-- WIKI:GENERATED unit=unit-readme-stop-the-conflicting-service-then-launch-sh-up -->
 "Stop the conflicting service, then `./launch.sh up`" is the resolution for a
@@ -791,7 +775,7 @@ stops native Speech and the MLX image/video MCPs), or override the port in `.env
 `DOCUMENTS_HOST_PORT=9013` for MCP Documents). After freeing the port, re-run
 `./launch.sh up`.
 
-## Why
+#### Why
 
 Ports are reserved in this project, so silent collisions would produce confusing
 half-started services and cross-talk between Open WebUI, the pipeline and the MCP

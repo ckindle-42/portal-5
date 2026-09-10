@@ -17,6 +17,7 @@ updated_at: 1784946220.682415
 ---
 
 ```bash
+# User management
 ./launch.sh add-user alice@example.com "Alice Smith"
 ./launch.sh list-users
 ```

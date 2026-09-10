@@ -17,6 +17,7 @@ updated_at: 1784946220.68112
 ---
 
 ```bash
+# Test everything is working
 ./launch.sh test            # Run live smoke tests against running stack
 ```
 

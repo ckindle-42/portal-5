@@ -17,6 +17,7 @@ updated_at: 1784946220.6836202
 ---
 
 ```bash
+# Seeding
 ./launch.sh seed            # Re-seed Open WebUI (workspaces + personas)
 ./launch.sh reseed          # Force-refresh all presets (delete + recreate)
 ```
