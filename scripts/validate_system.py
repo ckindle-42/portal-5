@@ -15,22 +15,17 @@ Exit codes:
     2   — script setup error (missing deps, wrong cwd)
 
 This script does NOT require a live Ollama / Open WebUI / Docker stack.
-It validates:
 
-    A. Python import surface — every public package imports cleanly
-    B. Pipeline assembly — FastAPI app instantiates, all 9 routes present
-    C. Config round-trip — portal.yaml loads via PortalConfig
-    D. Rule 6 cross-check — workspaces ↔ backends.yaml ↔ WORKSPACES dict
-    E. Hint validator — _validate_workspace_hints returns 0 errors
-    F. Lifespan startup — async context manager enters + exits cleanly
-    G. CLI introspection — portal --help, config show, models list, validate
-    H. Unit test suite — pytest tests/unit -q (excluding env-only files)
-    I. Shim contract — historical router_pipe imports all resolve
-    Y. Self-index integrity — read-only signal aggregation, deterministic ranking
-    Z. CI parity — bench imports without PYTHONPATH, conftest lab defaults, ci_local.sh
-    AA. Live exec integrity — vulhub->host dispatch, DISPATCH_NOT_RUN guard
-    AB. Stage 2 propose integrity — bounded proposals, proof-gated promotion,
-        no hollow flag-flip, no writes without operator --apply
+The check set is defined by the registry, not by this docstring. An
+enumeration here went stale within months of being written — it still
+advertised about a dozen checks after the registry had grown past two
+hundred. To see the live set:
+
+    uv run python -c "
+    import sys; sys.path.insert(0, '.')
+    from scripts.validation import all_checks
+    for slug, label, _ in all_checks(): print(label)
+    "
 
 Designed to run in under 60 seconds on the M4 Pro Mac Mini. Use this as
 the gate before kicking off the full long-running suites:
