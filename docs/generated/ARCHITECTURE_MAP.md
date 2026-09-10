@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 745 canonical units.*
+*Deterministic projection of 738 canonical units.*
 
 ## Knowledge Layer
 
@@ -638,7 +638,7 @@
 | `unit-readme-benchmark-workspaces-user-selected-only` | what | 4 |
 | `unit-readme-capability-rollup` | what | 4 |
 | `unit-readme-coding-tool-integration-claude-code-opencode` | what | 4 |
-| `unit-readme-common-commands` | what | 5 |
+| `unit-readme-common-commands` | what | 9 |
 | `unit-readme-core-models-pulled-automatically-on-first-run-4-gb` | what | 4 |
 | `unit-readme-documentation` | what | 1 |
 | `unit-readme-functional-workspaces` | what | 4 |
@@ -648,21 +648,14 @@
 | `unit-readme-network-exposure` | what | 4 |
 | `unit-readme-portal-5-local-ai-platform` | what | 4 |
 | `unit-readme-prerequisites` | what | 2 |
-| `unit-readme-pull-specialized-models-security-coding-reasoning-30-90-min` | what | 3 |
 | `unit-readme-quick-start` | what | 4 |
 | `unit-readme-required-environment-variables` | what | 4 |
-| `unit-readme-seeding` | what | 2 |
 | `unit-readme-slack-bot-setup` | what | 4 |
 | `unit-readme-specialized-models-pulled-with-launch-sh-pull-models-60-100-gb-total` | what | 3 |
 | `unit-readme-speech-text-to-speech-speech-to-text` | what | 3 |
-| `unit-readme-stop-the-conflicting-service-then-launch-sh-up` | what | 2 |
 | `unit-readme-telegram-bot-setup` | what | 4 |
-| `unit-readme-test-everything-is-working` | what | 2 |
-| `unit-readme-then-free-disk-space-and-retry-launch-sh-up` | what | 2 |
-| `unit-readme-troubleshooting` | what | 2 |
+| `unit-readme-troubleshooting` | what | 3 |
 | `unit-readme-unit-test-ci` | what | 2 |
-| `unit-readme-user-management` | what | 2 |
-| `unit-readme-wait-for-ollama-to-finish-loading-then-try-again` | what | 2 |
 | `unit-readme-what-starts-automatically` | what | 3 |
 | `unit-readme-workspaces` | what | 3 |
 | `unit-router-streaming` | mixed | 1 |
@@ -754,12 +747,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 745 units
+**Total:** 738 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1836 references
+- **code**: 1826 references
 - **config**: 1 references
 - **doc**: 1 references
 - **mitre**: 40 references
