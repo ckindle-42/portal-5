@@ -20,6 +20,7 @@ updated_at: 1784946220.681514
 ---
 
 ```bash
+# Pull specialized models (security, coding, reasoning — 30–90 min)
 ./launch.sh pull-models
 ```
 
