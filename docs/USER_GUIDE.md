@@ -11,7 +11,7 @@ promote the account to `user` (Admin Panel → Users) before it can chat. Until
 then the account shows a pending status. An admin account is created on first
 launch by `scripts/openwebui_init.py`.
 
-## Why
+### Why
 
 Access behaviour is not a policy of this repository's docs but a consequence of
 the Open WebUI environment and the bootstrap script. Anchoring these claims to
@@ -46,7 +46,7 @@ the `video` module — off by default but shipped enabled — and `auto-council`
 runs an opt-in multi-model review chain whose quorum and dissent handling are
 enforced in code.
 
-## Why
+### Why
 
 The guide presented a fixed table of dropdown workspaces that mixed exposed
 workspaces, hidden variants, and a persona that never existed in config.
@@ -81,7 +81,7 @@ model dropdown as workspaces. Examples include `Cyber Security Specialist`,
 `Red Team Operator`, and `Python Code Generator`. A persona's system prompt comes
 from the YAML's inline `system_prompt` or a shared `prompt_template` body.
 
-## Why
+### Why
 
 The generated guide treated personas as if they were a frontend concept, but they
 are declarative artifacts: one YAML file per specialist, resolved to presets only
@@ -117,7 +117,7 @@ port 8924 via the MLX transcribe server; both always write JSON + Markdown + Wor
 (synchronous, MLX FLUX — including the `qwen-image` model); Portal Music exposes
 the MiniMax job-based music toolset.
 
-## Why
+### Why
 
 The guide described tools by their names in the chat UI, which left the actual
 mapping to ports and code unstated. The fleet table, registration logic, and
@@ -151,7 +151,7 @@ pipeline RAG MCP server (`kb_ingest`, `kb_search`, `kb_list`), which stores
 vectors in LanceDB and reranks candidates via the MLX reranker. Nothing here
 contacts a cloud service.
 
-## Why
+### Why
 
 RAG is the one feature where the guide's "built into Open WebUI" claim conflated
 a vendor UI with repository-owned plumbing. The repository actually owns two
@@ -184,7 +184,7 @@ knowledge collection from the workspace knowledge panel and upload documents
 there; the pipeline's RAG server stores them in LanceDB, and you can reference
 the collection from any chat with a `#` marker.
 
-## Why
+#### Why
 
 Uploading is two different mechanisms that the guide blurred into one flow:
 ad-hoc chat attachments handled by Open WebUI with repository-controlled chunk
@@ -216,7 +216,7 @@ rather than dropped. The document MCP server can read `.docx`, `.pdf`, `.xlsx`,
 and `.pptx` files directly with its `read_*` tools, and can write Word, Excel,
 and PowerPoint. CSV files are not part of the repository's RAG ingestion list.
 
-## Why
+#### Why
 
 The guide's format list mixed Open WebUI's general uploader with repository-owned
 ingestion and invented a CSV claim. The formats Portal actually determines are the
@@ -248,7 +248,7 @@ points at the host-native embedding server on port 8917 running the Harrier mode
 semantic and keyword results. Because every endpoint (`host.docker.internal:8917`
 and the local Ollama host) is on your machine, no document content leaves it.
 
-## Why
+#### Why
 
 The original unit credited `nomic-embed-text` in Ollama as the embedding model,
 which the generated guide copied from an older stack. The deployment manifest
@@ -283,7 +283,7 @@ that store. Memories are embedded and indexed locally with the Harrier model
 in LanceDB. In the Open WebUI interface you can view or edit stored memories
 under Settings → Personalization → Memory.
 
-## Why
+#### Why
 
 The guide's account of memory was a description of a UI surface; the feature's
 existence and its indexer are decided by repository configuration. Grounding here
@@ -317,7 +317,7 @@ as the `auto-reasoning` workspace, intentionally run slow because reasoning
 models trade latency for depth. Keyboard and icon shortcuts in the chat UI are
 Open WebUI affordances, not Portal settings.
 
-## Why
+### Why
 
 The original tips unit asserted UI shortcuts as facts about Portal, but those are
 features of the Open WebUI frontend, which this repository does not modify. The

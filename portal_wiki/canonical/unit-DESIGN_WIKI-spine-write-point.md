@@ -26,6 +26,8 @@ This inverts the traditional model of hand-maintaining prose and then auditing f
 
 The enforcement gate is validate check AW in `scripts/validate_system.py`: `check_wiki_facts_current` diffs each generated block against its unit's current body via `check_generated_blocks_current`, so a mismatch is a precise signal that `sync-config` was not re-run after the source unit changed. AW also verifies fact-units against live config and that migrated docs carry no un-fenced substance.
 
+Heading depth is projected at render time, not stored: a unit body keeps `## Why` at H2 because `quality.check_structure` requires a level-2 `## Why`, while the level it should render at depends on the host section. `project_body` shifts a body's ATX headings (outside code fences) by one uniform delta so the shallowest lands one level below its host, clamped to H1--H6, and `host_section_depth` reads that host depth after blanking prior generated blocks from the prefix so a body already rendered never parents the next one. Both the write path and `check_generated_blocks_current` route through `project_body`, so the currency diff compares projected body to projected body and AW stays exact.
+
 ## Why
 
 Concentrating the write-point in the spine is what makes doc currency mechanical rather than reviewable. If facts lived in two places, nothing could stop them from diverging except an audit nobody schedules; the block-fill contract turns divergence into a per-block diff failure a pre-commit gate can catch. AW diffs against the unit body rather than a hash or timestamp because only an exact body comparison produces the precise, actionable mismatch that a coarse directory-changed signal cannot.

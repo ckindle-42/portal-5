@@ -47,7 +47,7 @@ the MLX-native image generator, and the other native MLX services run on the
 M-series Metal path. On non-Apple-Silicon machines the installers print
 Linux/Docker alternatives instead of failing.
 
-## Why
+### Why
 
 The hardware gate runs before any pull or compose step so the stack fails fast
 with a readable reason instead of dying mid-download or silently OOMing at first
@@ -88,7 +88,7 @@ Sign in at http://localhost:8080 with the admin credentials in `.env`
 (`OPENWEBUI_ADMIN_EMAIL` defaults to `admin@portal.local`, password is the
 auto-generated `OPENWEBUI_ADMIN_PASSWORD`). Do not commit `.env`.
 
-## Why
+### Why
 
 The zero-setup contract is that a fresh machine reaches a usable stack from one
 command: secret generation, workspace init, hardware checks and model bootstrap
@@ -131,7 +131,7 @@ The MCP fleet and its ports are defined in `config/portal.yaml` (`mcp_fleet:`);
 the compose container names and health checks are in
 `deploy/portal-5/docker-compose.yml`.
 
-## Why
+### Why
 
 The split into a compose stack and host-native launchers exists because Apple
 Silicon runtimes (MLX generation, embeddings) are faster and lighter outside Docker,
@@ -158,7 +158,7 @@ disabled unless `PORTAL_ENABLE_EVAL=1` is set; 81 total —
 Benchmark workspaces are excluded from routing when the eval module is off, so the
 daily model dropdown stays limited to the functional set.
 
-## Why
+### Why
 
 Routing against a config-declared workspace catalog rather than a hardcoded model
 list keeps model and tool selection an operator-editable fact: adding a workspace
@@ -208,7 +208,7 @@ The `auto-coding` and `auto-security` families express variants (for example
 `laguna`, `uncensored`, `pentest`, `purpleteam`) as persona `variant:` fields
 instead of sibling workspaces.
 
-## Why
+#### Why
 
 Mapping a dropdown entry to a (model, toolset) pair is what makes the platform
 usable without prompt discipline: the user picks an intent, and the workspace
@@ -249,7 +249,7 @@ The remaining lanes cover security exec chains, LFM micro models, MTP draft pair
 and additional coding, vision and security variants; the authoritative list is
 `config/portal.yaml`, not this table.
 
-## Why
+#### Why
 
 A bench lane decouples model choice from workspace behavior: the same toolset,
 prompt scaffolding and routing apply, so a TPS or quality delta is attributable to
@@ -281,7 +281,7 @@ Silicon services are managed with `start-speech` / `stop-speech`,
 `scripts/lib/services.sh`. `sync-config` regenerates derived artifacts from
 `config/portal.yaml`, and `./launch.sh test` runs live smoke tests.
 
-## Why
+### Why
 
 A single entrypoint keeps every operational action deterministic and scriptable:
 each subcommand either maps to a small shell library or to one typed CLI module,
@@ -445,7 +445,7 @@ only Telegram accounts allowed to talk to the bot, and
 `TELEGRAM_DEFAULT_WORKSPACE` picks the routing workspace for any user who has not
 chosen one with `/workspace`.
 
-## Why
+### Why
 
 Keeping the bot behind a compose profile, rather than a default service, keeps a
 token-less first install free of an always-on relay container. The token check in
@@ -488,7 +488,7 @@ the bot opens an outbound WebSocket and needs no public webhook or ingress.
 `SLACK_DEFAULT_WORKSPACE` selects the routing workspace for direct messages and
 for channels that have no explicit mapping.
 
-## Why
+### Why
 
 Socket Mode is what lets the whole integration stay behind the firewall: the
 app-level token drives an outbound WebSocket from the container, so no inbound
@@ -523,7 +523,7 @@ The init service is the Docker-compose equivalent of the `_DEFAULT_MODELS` list 
 `${DEFAULT_MODEL:-dolphin-llama3:8b}`, the abliterated Llama-3.2 GGUF and
 `nomic-embed-text:latest`.
 
-## Why
+#### Why
 
 A fresh machine must reach a working minimum before any operator-time download
 runs: a general chat model, a router standby and an embedding model guarantee
@@ -558,7 +558,7 @@ Pull mechanics are registry-driven: `./launch.sh pull-models` pulls the active
 `portal/platform/inference/cli/update.py` (`_DEFAULT_MODELS`) covers a broader
 set that also includes `deepseek-coder-v2:16b-lite-instruct-q4_K_M`.
 
-## Why
+#### Why
 
 Cataloging specialized models in `config/backends.yaml` rather than hardcoding
 them in the router keeps one authoritative list for routing, admission and pull
@@ -593,7 +593,7 @@ pulled via `ollama pull` and cataloged in `config/backends.yaml`. The MLX
 inference proxy that previously served ports 8081/18081/18082 was retired in
 commit 3a0c58e, so no MLX runtime participates in conversation routing.
 
-## Why
+#### Why
 
 Retiring the MLX proxy removed a second chat-serving stack while keeping MLX where
 Ollama has no equivalent: Ollama does not host Kokoro/Qwen3 TTS, diarized
@@ -627,7 +627,7 @@ wrapper over `ltx-2-mlx` (pure-MLX LTX-2.3). It is behind the `video` M7 module
 Both replaced a ComfyUI-based path removed in `TASK_IMAGE_VIDEO_OVERHAUL_V1`:
 Metal has no FP8, so ComfyUI's standard quantized checkpoints never ran here.
 
-## Why
+#### Why
 
 Image and video generation run on the host MLX layer alongside
 speech/transcription/embeddings — one accelerator path, no Docker-to-Metal
@@ -666,7 +666,7 @@ checks the PID file at `/tmp/portal-mlx-speech.pid`, and launches
 `stop-speech` kills the recorded PID. Models load lazily on the first TTS or ASR
 request.
 
-## Why
+### Why
 
 TTS and ASR are latency-sensitive and run continuously, so the speech server is a
 host-native process on Metal rather than a Docker container: the MPS path keeps
@@ -703,7 +703,7 @@ docker system df            # See Docker disk usage
 volume, explicitly preserving the Ollama models volume — so a clean wipes chat
 history and settings but does not force the model weights to re-download.
 
-## Why
+### Why
 
 Most boot failures are container health or disk exhaustion, so the troubleshooting
 surface is deliberately two commands. `status` resolves the question of which
@@ -822,7 +822,7 @@ do not carry a matching token.
 left at `CHANGEME` or missing is replaced with a generated secret before the stack
 starts.
 
-## Why
+#### Why
 
 A single shared API key keeps the pipeline, the chat UI and the channel bots
 authenticated against one credential instead of several hand-managed secrets, and
@@ -848,7 +848,7 @@ Open WebUI is the component that defaults to loopback: `launch.sh` derives
 compose mapping (`${WEBUI_LISTEN_ADDR:-127.0.0.1}:8080:8080`). Set
 `ENABLE_REMOTE_ACCESS=true` in `.env` to bind Open WebUI on all interfaces.
 
-## Why
+#### Why
 
 The asymmetry is deliberate: the pipeline must be reachable from LAN clients and
 channel bots, so it exposes 0.0.0.0 and leans on the API key; the chat UI has no
@@ -889,7 +889,7 @@ in `.env` (gitignored, auto-generated by `./launch.sh`).
 
 See [MCP Dev Tooling](docs/MCP_DEV_TOOLING.md) for the full guide.
 
-## Why
+### Why
 
 Coding assistants that default to cloud APIs would stream the repository's source
 and the operator's key budget off the machine, defeating the local-first contract.
@@ -924,7 +924,7 @@ Most of these guides are generated shells whose substance lives in
 blocks, so the docs stay current through `./launch.sh sync-config` rather than
 hand edits.
 
-## Why
+### Why
 
 The documentation is the operator contract, not a summary after the fact: the
 guides cover exactly the surfaces the platform exposes (tooling, accounts, alerts,
@@ -960,7 +960,7 @@ targeted re-run into the saved results. `tests/acceptance/runner.py` maps sectio
 names such as S0, S2, S3a and S70 to their `async` section functions, so the suite
 fails the run whenever any recorded check FAILs or BLOCKs.
 
-## Why
+#### Why
 
 The acceptance gate exists because unit tests deliberately mock Ollama and the HTTP
 surface, so a mocked suite can pass while the deployed stack rejects requests,
@@ -994,7 +994,7 @@ hook running `pytest tests/unit -n auto -x --tb=short -q`. A heavier
 time when the change touches `portal/`, `config/`, `portal_wiki/`, `scripts/`,
 `deploy/` or `tests/`.
 
-## Why
+#### Why
 
 Unit tests must pass with no network and no live services, so the CI gate runs in
 a clean environment where local state cannot mask a broken import. The
@@ -1041,7 +1041,7 @@ speech (`scripts/mlx-speech.py`, port 8918), diarized transcription
 Chat inference is Ollama-only: the MLX inference proxy that once listened on
 ports 8081/18081/18082 was retired in commit 3a0c58e.
 
-## Why
+### Why
 
 Keeping a single inference tier on Ollama avoids running a second model-serving
 stack against the same GPU memory; MLX survives only where Ollama has no
@@ -1060,7 +1060,7 @@ root for the full text. MIT grants permission to use, copy, modify and distribut
 the code for any purpose, including commercial use, subject to preserving the
 copyright and permission notice.
 
-## Why
+### Why
 
 MIT was chosen because the project is a local-first enhancement layer on top of
 Open WebUI, and permissive licensing removes friction for operators who want to

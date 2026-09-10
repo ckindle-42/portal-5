@@ -1,76 +1,5 @@
 {
-  "RD1_inversions": [
-    {
-      "section": "Functional Workspaces",
-      "section_level": 3,
-      "section_line": 172,
-      "why_level": 2,
-      "why_line": 211
-    },
-    {
-      "section": "Benchmark Workspaces (user-selected only)",
-      "section_level": 3,
-      "section_line": 222,
-      "why_level": 2,
-      "why_line": 252
-    },
-    {
-      "section": "Core models (pulled automatically on first run, ~4 GB)",
-      "section_level": 3,
-      "section_line": 503,
-      "why_level": 2,
-      "why_line": 526
-    },
-    {
-      "section": "Specialized models (pulled with `./launch.sh pull-models`, ~60\u2013100 GB total)",
-      "section_level": 3,
-      "section_line": 537,
-      "why_level": 2,
-      "why_line": 561
-    },
-    {
-      "section": "MLX models (Apple Silicon, retained for audio/embedding/reranker only \u2014 chat inference is Ollama-only)",
-      "section_level": 3,
-      "section_line": 573,
-      "why_level": 2,
-      "why_line": 596
-    },
-    {
-      "section": "Image / video generation (MLX-native, host layer)",
-      "section_level": 3,
-      "section_line": 607,
-      "why_level": 2,
-      "why_line": 630
-    },
-    {
-      "section": "Required Environment Variables",
-      "section_level": 3,
-      "section_line": 805,
-      "why_level": 2,
-      "why_line": 825
-    },
-    {
-      "section": "Network Exposure",
-      "section_level": 3,
-      "section_line": 836,
-      "why_level": 2,
-      "why_line": 851
-    },
-    {
-      "section": "Acceptance Testing",
-      "section_level": 3,
-      "section_line": 938,
-      "why_level": 2,
-      "why_line": 963
-    },
-    {
-      "section": "Unit Test CI",
-      "section_level": 3,
-      "section_line": 975,
-      "why_level": 2,
-      "why_line": 997
-    }
-  ],
+  "RD1_inversions": [],
   "RD2_h1_headings": [
     {
       "line": 1,
@@ -198,8 +127,8 @@
   "authored_against": "117f407a",
   "budget_max": 0.4,
   "capability_rollup_unit_exists": false,
-  "chars_generated": 46397,
-  "chars_total": 50831,
+  "chars_generated": 46430,
+  "chars_total": 50864,
   "generated_blocks": 31,
   "headroom_lines": 272,
   "human_lines": 0,

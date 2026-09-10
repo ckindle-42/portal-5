@@ -5,7 +5,7 @@
 <!-- WIKI:GENERATED unit=unit-ADMIN_GUIDE-first-login -->
 `./launch.sh up` creates `.env` from `.env.example` if absent, then `bootstrap_secrets` in scripts/lib/util.sh replaces every `CHANGEME` placeholder, printing a credentials box with the admin email and the generated `OPENWEBUI_ADMIN_PASSWORD` to the console. The account is `OPENWEBUI_ADMIN_EMAIL` (default `admin@portal.local`) and the password is written into `.env` for later retrieval. Log in at `http://localhost:8080`, or at the hostname printed when `ENABLE_REMOTE_ACCESS=true`.
 
-## Why
+### Why
 
 First run has no UI to show credentials, so printing the generated password during bootstrap is the only channel that works before the stack is usable. Persisting the same value into `.env` means the operator can recover it later instead of losing it to scrollback, and the placeholder-repair loop regenerates any secret that was hand-broken or left at `CHANGEME`.
 <!-- /WIKI:GENERATED -->
@@ -17,7 +17,7 @@ First run has no UI to show credentials, so printing the generated password duri
 <!-- WIKI:GENERATED unit=unit-ADMIN_GUIDE-approve-pending-users -->
 Self-registration arrives with the `pending` role because `DEFAULT_USER_ROLE=pending` in `.env.example` is the shipped default, and a pending account has no access until an admin promotes it. Two promotion paths exist. The web path is Open WebUI's Admin Panel > Users: locate the pending account and change its role to `user`. The CLI path is `./launch.sh add-user <email> [name] [role]` with an explicit `pending` role, whose role values scripts/lib/users.sh documents as `user | admin | pending`. `ENABLE_SIGNUP=true` toggles whether self-registration exists at all.
 
-## Why
+#### Why
 
 Pending-by-default is the deliberate team-deployment posture: nobody gains access silently on a shared box, and every account is either approved or created by an operator. Both registration paths share the same role vocabulary, so the approval gate stays consistent whether a user self-signs or is provisioned from the shell.
 <!-- /WIKI:GENERATED -->
@@ -33,7 +33,7 @@ Pending-by-default is the deliberate team-deployment posture: nobody gains acces
 ./launch.sh list-users
 ```
 
-## Why
+#### Why
 
 The CLI exists so an operator can provision accounts without walking someone through the admin UI or sharing the admin password. Because a fresh temporary password is generated and printed per user, the invite path hands out per-account credentials rather than a single reused secret.
 <!-- /WIKI:GENERATED -->
@@ -43,7 +43,7 @@ The CLI exists so an operator can provision accounts without walking someone thr
 <!-- WIKI:GENERATED unit=unit-ADMIN_GUIDE-user-roles -->
 Accounts carry one of three roles. `pending` — no access until approved; this is the default for self-registration via `DEFAULT_USER_ROLE=pending` in `.env.example`. `user` — standard access to workspaces, tools, and chat. `admin` — full access including user management and settings. The CLI accepts exactly these values: `./launch.sh add-user <email> [name] [role]`, with role options `user | admin | pending` documented in scripts/lib/users.sh. `./launch.sh list-users` prints the role column per account.
 
-## Why
+#### Why
 
 Roles are the boundary between a single-operator home box and a team deployment, and pending-by-default keeps the approval gate on unless an operator explicitly relaxes it. The CLI and the signup default agree on the same three values, so a provisioned account can never silently carry a higher privilege than the operator intended.
 <!-- /WIKI:GENERATED -->
@@ -53,7 +53,7 @@ Roles are the boundary between a single-operator home box and a team deployment,
 ### Pull Additional Models
 
 <!-- WIKI:GENERATED unit=unit-ADMIN_GUIDE-pull-additional-models -->
-# Pull additional models
+#### Pull additional models
 
 Pull the Ollama model set for a fresh install or a re-sync of the model
 registry.
@@ -70,7 +70,7 @@ in `_DEFAULT_MODELS` in `portal/platform/inference/cli/update.py` and is
 what `portal update` refreshes. A full pull takes 30-90 minutes depending
 on connection speed, matching the help text in `launch.sh`.
 
-## Why
+##### Why
 
 Model acquisition is a long, interactive operation, so the CLI owns the
 model list rather than this document: `config/portal.yaml` declares the
@@ -87,7 +87,7 @@ serves.
 <!-- WIKI:GENERATED unit=unit-ADMIN_GUIDE-add-a-cluster-node -->
 Cluster scaling is a config-only operation. Adding a node means appending a backend entry to `config/backends.yaml`: a unique `id`, a `type` (`ollama` or `openai_compatible`), the node's `url`, the routing `group`, and the model list it serves. The pipeline discovers new backends through `BackendRegistry` at startup and the auto-routing layer load-balances across healthy backends. After editing, restart the pipeline container so the registry re-reads the file. `./launch.sh status` confirms the new backend through the pipeline health block (`backends_healthy` / `backends_total`).
 
-## Why
+#### Why
 
 Scaling must never touch routing code, so the registry treats `config/backends.yaml` as the single operator-edited surface — a twelve-node fleet is still a YAML edit plus a restart. Keeping the scale-out path data-only is what lets a single-node install grow to a cluster without a fork, a feature flag, or a new code path.
 <!-- /WIKI:GENERATED -->
@@ -97,7 +97,7 @@ Scaling must never touch routing code, so the registry treats `config/backends.y
 <!-- WIKI:GENERATED unit=unit-ADMIN_GUIDE-routine-operations -->
 Routine lifecycle is one command per operation. `./launch.sh status` runs `_cmd_status` in scripts/lib/util.sh — a per-service health table covering the Docker stack, native services, and the pipeline's `backends_healthy` counts. `./launch.sh logs` tails the portal-pipeline container by default; the default stack has no Ollama container (the compose `ollama` service sits behind the `docker-ollama` profile), so native Ollama logs come from `/opt/homebrew/var/log/ollama.log` (the `com.portal5.ollama` LaunchDaemon's configured log path, despite the `homebrew` directory prefix — not Homebrew-managed) or `~/.portal5/logs/ollama.log` on Linux, not from `logs ollama`. `./launch.sh seed` re-runs `openwebui-init` idempotently, `./launch.sh down` stops the stack via `_do_down` with data preserved, and `./launch.sh clean` removes only the `portal-5_open-webui-data` volume, keeping Ollama models.
 
-## Why
+### Why
 
 Each verb carries an explicit data story — `down` preserves, `clean` wipes only Open WebUI data, `clean-all` wipes models — so an operator never reaches for `docker compose down -v` and accidentally deletes model weights. `logs` defaulting to the pipeline matches where the interesting decisions are logged.
 <!-- /WIKI:GENERATED -->
@@ -107,7 +107,7 @@ Each verb carries an explicit data story — `down` preserves, `clean` wipes onl
 <!-- WIKI:GENERATED unit=unit-ADMIN_GUIDE-security-notes -->
 Secrets live in `.env`, which `.gitignore` excludes and `bootstrap_secrets` in scripts/lib/util.sh populates by replacing every `CHANGEME` placeholder on first run. `PIPELINE_API_KEY` authenticates callers of the pipeline API; `WEBUI_SECRET_KEY` encrypts Open WebUI session and tool state — rotating it invalidates stored OAuth tokens and forces re-login, per the `.env.example` note. `GRAFANA_PASSWORD` and `SEARXNG_SECRET_KEY` are generated the same way. Rotation is edit `.env`, then restart the stack; `./launch.sh up` auto-repairs any secret that reverted to a placeholder. Never commit `.env`.
 
-## Why
+### Why
 
 Secret hygiene is automated here because a shared default is the realistic failure: every secret starts as `CHANGEME` and is replaced at first run, so the residual risk is operator error — committing `.env` or hand-setting a weak value — which the gitignore and the placeholder-repair loop directly counter. Knowing which key guards what matters when a rotation is needed.
 <!-- /WIKI:GENERATED -->
@@ -117,7 +117,7 @@ Secret hygiene is automated here because a shared default is the realistic failu
 <!-- WIKI:GENERATED unit=unit-ADMIN_GUIDE-network-exposure -->
 Bindings are per-service in `deploy/portal-5/docker-compose.yml`. Open WebUI publishes `${WEBUI_LISTEN_ADDR:-127.0.0.1}:8080` — localhost unless `ENABLE_REMOTE_ACCESS=true`, and the shipped `.env.example` sets that flag true, so a fresh install listens on `0.0.0.0`. The Docker MCP servers (8910-8926), SearXNG (8088), and Prometheus (9090) bind `127.0.0.1`. The pipeline API binds `0.0.0.0:9099` and Grafana binds `0.0.0.0:3000`. Host-native MCP servers default to `0.0.0.0` — `scripts/mlx-speech.py`, `scripts/mlx-transcribe.py`, `portal/platform/mcp_host/pipeline_mcp.py`, and the security/wiki MCPs. The external boundary is therefore the firewall plus the tunnel/proxy path, not a universal loopback guarantee.
 
-## Why
+### Why
 
 "Everything is localhost" is a false comfort on this stack: compose services and host-native services bind differently, and the pipeline deliberately listens on all interfaces so the host MCPs and remote backends can reach it. Knowing exactly which surfaces are network-visible is what makes the recommended tunnel approach safe — it publishes only the media paths, not the full API plane.
 <!-- /WIKI:GENERATED -->
@@ -129,7 +129,7 @@ Recommended remote access is a Cloudflare Tunnel pointed only at Open WebUI on `
 
 Every generator — speech, music, 3D, documents, spreadsheets, images, transcripts — writes its file locally, then publishes it through Open WebUI's files API via `portal.platform.mcp_host.owui_files.publish_file`. Chat gets one link shape, `${PORTAL_PUBLIC_URL}/api/v1/files/{id}/content/{name}`, served on `:8080` and authorised by the viewer's existing session cookie. No MCP serves files, no per-service ports, no ingress rules. The tunnel can run on any host. With `OWUI_API_KEY` unset a generator returns an error instead of a dead link.
 
-## Why
+#### Why
 
 One publish path through Open WebUI keeps the external surface a single hostname to a single port: nothing but `:8080` is ever exposed, file access rides the UI's own auth, and adding a new generator needs no tunnel or firewall change. Earlier builds served files from each MCP's own port behind per-path ingress rules; consolidating onto the files API removed that entirely.
 <!-- /WIKI:GENERATED -->
@@ -139,7 +139,7 @@ One publish path through Open WebUI keeps the external surface a single hostname
 <!-- WIKI:GENERATED unit=unit-ADMIN_GUIDE-alternative-lan-reverse-proxy-caddy-nginx -->
 For deployments that skip Cloudflare Tunnel, a Caddy or nginx proxy on the same host plays the same role: proxy Open WebUI on `:8080`, set `PORTAL_PUBLIC_URL` to the proxy's public address and `OWUI_API_KEY` to an Open WebUI `sk-` key. Generated files then come back as `${PORTAL_PUBLIC_URL}/api/v1/files/{id}/content/{name}` on `:8080` — the same one-port story as the tunnel. Bindings are per-service in `docker-compose.yml`: the Docker MCP servers bind `127.0.0.1`, but the pipeline API binds `0.0.0.0:9099`, Grafana binds `0.0.0.0:3000`, and the host-native MCP servers (`scripts/mlx-speech.py`, `portal/platform/mcp_host/pipeline_mcp.py`) default to `0.0.0.0`. The proxy must be the only thing that exposes those surfaces; never proxy the bare MCP tool APIs or the `:8080`-adjacent ports.
 
-## Why
+#### Why
 
 The loopback-only posture is enforced per service, not globally, so an operator who assumes "everything is localhost" will misread the network map. The proxy's job is to publish exactly the media-file paths users click in chat and nothing else, which is why the ingress example is path-scoped rather than a blanket pass-through of the whole API plane.
 <!-- /WIKI:GENERATED -->
@@ -149,7 +149,7 @@ The loopback-only posture is enforced per service, not globally, so an operator 
 <!-- WIKI:GENERATED unit=unit-ADMIN_GUIDE-backup -->
 `./launch.sh backup [output-dir]` writes a timestamped directory (default under `./backups/`) via `_launch_backup` in scripts/lib/backup.sh. It tars the `portal-5_open-webui-data` volume into `openwebui-data.tar.gz` (accounts, chats, settings), tars `portal-5_grafana-data` into `grafana-data.tar.gz`, and copies `.env`, `config/`, and `imports/` alongside. Ollama weights in `portal-5_ollama-models` are intentionally excluded — they are re-pullable. `./launch.sh restore <path>` confirms interactively, stops the stack with a compose down, then restores the Open WebUI data, Grafana data, and `.env` from the same directory.
 
-## Why
+### Why
 
 The backup is only as good as the volume inventory behind it. Personal data is confined to `open-webui-data` and `grafana-data` while model weights are disposable, so excluding `ollama-models` keeps backups small and deterministic. A directory-per-run layout plus a single `restore` argument makes recovery unambiguous and never touches `docker compose down -v`.
 <!-- /WIKI:GENERATED -->
@@ -159,7 +159,7 @@ The backup is only as good as the volume inventory behind it. Personal data is c
 <!-- WIKI:GENERATED unit=unit-ADMIN_GUIDE-inference-health-monitoring -->
 The inference tier is a single Ollama backend on port 11434, reached by the pipeline through `OLLAMA_URL` (default `http://host.docker.internal:11434`) and by the router through `LLM_ROUTER_OLLAMA_URL`. The MLX chat-inference proxy (ports 8081/18081/18082) was retired in commit 3a0c58e; its code remains only under `scripts/_archive/mlx-retired-3a0c58e/`. MLX survives strictly outside chat inference (speech, transcription, embeddings, reranking). Health monitoring is therefore `_cmd_status` in scripts/lib/util.sh: the `OLLAMA` row confirms the native server responds, and the pipeline block reports `backends_healthy` / `backends_total`.
 
-## Why
+### Why
 
 With a single backend there is no proxy layer to supervise between the router and the models — health monitoring collapses to "is Ollama up and are the models resident." That simplification is exactly why the retired proxy's watchdog code was archived rather than maintained: supervision complexity scales with tier count, and the single-tier design removed the need for it.
 <!-- /WIKI:GENERATED -->
@@ -167,13 +167,13 @@ With a single backend there is no proxy layer to supervise between the router an
 ### Debugging crashes
 
 <!-- WIKI:GENERATED unit=unit-ADMIN_GUIDE-debugging-crashes -->
-# Debugging crashes
+#### Debugging crashes
 
 When a service is down or a persona request fails, the first step is to
 separate an inference-tier problem from a pipeline problem before touching
 any containers.
 
-## Ollama health and model list
+##### Ollama health and model list
 
 Check that Ollama is up and list what is installed:
 
@@ -184,7 +184,7 @@ curl -s http://localhost:11434/api/tags | jq .
 `/api/tags` is Ollama's model registry; a non-empty response proves the
 inference tier is reachable and shows which GGUF models are present.
 
-## Pipeline health
+##### Pipeline health
 
 Check the Portal pipeline (the OpenAI-compatible router on :9099) and
 every registered backend in one call:
@@ -197,7 +197,7 @@ curl -s http://localhost:9099/health/all | jq .
 returns per-backend status, so a healthy response means routing itself is
 fine even when a specific model is not loaded.
 
-## All services
+##### All services
 
 ```bash
 ./launch.sh status
@@ -206,7 +206,7 @@ fine even when a specific model is not loaded.
 `launch.sh status` reports the whole stack, so it is the broadest first
 probe when the failure's origin is unknown.
 
-## Why
+##### Why
 
 Crash debugging needs a tier order: Ollama, then the pipeline, then the
 full stack. Each command above is one cheap probe that names its tier, so
@@ -226,7 +226,7 @@ endpoints are grounded in the router app that mounts them and the
 <!-- WIKI:GENERATED unit=unit-ADMIN_GUIDE-how-the-llm-router-works -->
 Every `auto` request goes through two layers in routing.py. Layer 1 `_route_with_llm` sends the last user message to Ollama `/api/generate` with `format: _ROUTER_JSON_SCHEMA` — grammar-enforced JSON returning `{"workspace": ..., "confidence": ...}` — and accepts the result only when confidence is at least `LLM_ROUTER_CONFIDENCE_THRESHOLD`. Layer 2 `_detect_workspace` runs weighted keyword scoring over `_WORKSPACE_ROUTING` and fires on timeout, low confidence, or error. Variant recovery (`_infer_variant`) exists only on Layer 1: with the router down, a defensive intent lands on the `auto-security` base rather than `auto-security::blueteam`, a coarser but not incorrect decision. lifespan.py pre-warms the router model with `keep_alive: -1`.
 
-## Why
+#### Why
 
 The keyword scorer exists so the router model is never a hard dependency of serving — it is the guaranteed-latency path while the LLM layer buys accuracy. The variant asymmetry is a direct consequence: variant vocabulary lives in `_SECURITY_VARIANT_SIGNALS`, which Layer 2's scorer has no entry for, so an outage degrades variant precision rather than correctness.
 <!-- /WIKI:GENERATED -->
@@ -236,7 +236,7 @@ The keyword scorer exists so the router model is never a hard dependency of serv
 <!-- WIKI:GENERATED unit=unit-ADMIN_GUIDE-three-tier-router-models -->
 Three router tiers are documented in `.env.example` and the header of routing.py. PRIMARY is `hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M` — 82.2% accuracy, about 840ms warm latency, roughly 5.3GB, and the default `LLM_ROUTER_MODEL`. STANDBY is `llama3.2:3b` (75.3%, about 433ms, roughly 2GB). FALLBACK is `qwen2.5:1.5b` (67.1%, about 339ms, roughly 1GB). Switch tiers by setting `LLM_ROUTER_MODEL` and dropping `LLM_ROUTER_TIMEOUT_MS` to 500 for standby/fallback. The accuracy figures trace to `tests/benchmarks/bench_router.py`'s `GOLDEN_SET`.
 
-## Why
+#### Why
 
 Three tiers exist because accuracy and latency trade against each other on shared unified memory: the primary maximizes routing quality, the fallback's tiny footprint stays resident alongside inference models, and the standby splits the difference. The timeout must track the tier's warm latency, or every request falls through to Layer 2 keyword scoring.
 <!-- /WIKI:GENERATED -->
@@ -246,7 +246,7 @@ Three tiers exist because accuracy and latency trade against each other on share
 <!-- WIKI:GENERATED unit=unit-ADMIN_GUIDE-ollama-max-loaded-models-3 -->
 The slot count is `OLLAMA_MAX_LOADED_MODELS`: `.env.example` ships 5 (router model plus four inference models for chained and parallel bench work), while the compose `docker-ollama` profile still defaults to 3. The number must cover the router plus every concurrently-resident inference model — a multi-hop security chain needs each hop's model hot, or Ollama evicts and cold-reloads between hops. `run.py` reads the live value and emits a preflight warning when `--parallel-workspaces` is used with a count too low for the chain, and routing.py's header records the router model's own slot requirement. After changing it, verify the running server picked up the new value rather than assuming.
 
-## Why
+#### Why
 
 The slot count is a memory-versus-availability trade, not a throughput knob: each resident slot competes for unified memory, but a count below the chain length converts multi-hop workspaces into cold-load stalls. The 3-to-5 bump exists so the security bench can keep four distinct chain models resident during parallel dispatch.
 <!-- /WIKI:GENERATED -->
@@ -262,7 +262,7 @@ docker compose -f deploy/portal-5/docker-compose.yml restart portal-pipeline
 
 Ollama needs no restart because the router model is an ordinary Ollama model.
 
-## Why
+#### Why
 
 The router is a classification model, not an inference tier, so swapping it is config plus a restart with no retraining and no backend rework. The model and its timeout are coupled — the timeout is tuned to the tier's warm latency, so changing one without the other silently pushes requests into Layer 2 fallback instead of giving the new model a chance.
 <!-- /WIKI:GENERATED -->
@@ -278,7 +278,7 @@ On Apple Silicon the default Ollama is native under launchd, not a container —
 
 Root-owned — edit with `sudo`. Since the 2026-08-13 upgrade to v0.32.9, `ProgramArguments` points at `/Users/chris/ollama-current/ollama`, a symlink to the active versioned install directory (currently `ollama-0.33.2`, upgraded 2026-08-29), not a hardcoded version path — this was a deliberate fix after the previous scheme (editing the plist's binary path on every upgrade) left the PATH symlink and the plist able to drift out of sync. **A version upgrade is now just:** unpack the new release to `~/ollama-<version>/`, flip the symlink (`ln -sfn ~/ollama-<version> ~/ollama-current`), then reload the daemon — no plist edit needed. Reload with `sudo launchctl unload /Library/LaunchDaemons/com.portal5.ollama.plist && sudo launchctl load /Library/LaunchDaemons/com.portal5.ollama.plist` (equivalent to `bootout`/`bootstrap` — both fully remove and re-register the service, re-reading the plist from disk; a mere `kickstart -k` restarts the process but does **not** re-read the plist, so it only picks up env var or `ProgramArguments` changes via the full unload/load or bootout/bootstrap cycle). Retaining the previous version directory after an upgrade makes rollback one more symlink flip with no reinstall; `ollama-0.33.1` remains on disk after the 2026-08-29 upgrade to 0.33.2, so a rollback from 0.33.2 is a symlink flip.
 
-## Why
+#### Why
 
 Native and container Ollama are two separate config surfaces, and the compose file documents only the container one. An operator who tunes the container's env block while running native (the default) has made a change that never takes effect — the plist is the only lever that does, so the source of truth must be stated explicitly. The Homebrew-vs-pinned-install distinction is called out explicitly because the failure mode is silent: both bind the same port, so a stale Homebrew reinstall serving an outdated Ollama version produces no error, just quietly-wrong behavior (a whole 3-hour benchmark leg ran against it undetected) until someone thinks to check `/api/version` against the live server instead of trusting `command -v ollama`, which resolves whatever is first on PATH. The `ollama-current` symlink indirection exists because the direct-path scheme required editing the plist's `ProgramArguments` and the `/opt/homebrew/bin/ollama` PATH symlink separately on every upgrade — two places that could silently disagree after a future upgrade if only one got updated.
 <!-- /WIKI:GENERATED -->
@@ -288,7 +288,7 @@ Native and container Ollama are two separate config surfaces, and the compose fi
 <!-- WIKI:GENERATED unit=unit-ADMIN_GUIDE-runtime-vram-vs-file-size-gap -->
 Ollama allocates the KV cache when a model loads, so a resident model's footprint is routinely larger than its GGUF file size; the gap grows with context length, KV quantization, and `OLLAMA_NUM_BATCH`. `devstral:24b` and `granite4.1:8b` are registered in `config/backends.yaml` (general group), and under large contexts a resident big model can push others — including the router — out of memory. Ollama offloads CPU layers rather than crashing; the evicted model cold-loads on its next request, so the first post-eviction `auto` request falls through to Layer 2 keyword scoring in routing.py. `OLLAMA_KEEP_ALIVE_REQUEST` (default `-1`) and `OLLAMA_MAX_LOADED_MODELS` bound residency, and lifespan.py's `_warmup_llm_router` re-pins the router after eviction.
 
-## Why
+#### Why
 
 File size is the wrong planning number because the KV cache is what actually competes for unified memory, making runtime residency diverge from size. Fleet and slot planning must budget resident footprint, and the graceful offload behavior is what makes an eviction a latency event rather than a crash.
 <!-- /WIKI:GENERATED -->
@@ -298,7 +298,7 @@ File size is the wrong planning number because the KV cache is what actually com
 <!-- WIKI:GENERATED unit=unit-ADMIN_GUIDE-ollama-memory-limit-deferred -->
 Native Ollama runs with no memory cap by default. `OLLAMA_MEMORY_LIMIT=0` in `.env.example` means "unlimited", and in the compose `docker-ollama` profile the value becomes the container's `deploy.resources.limits.memory`; a native install ignores it entirely, so the plist is the only lever there. Ollama handles memory pressure by offloading layers to CPU rather than crashing. If Metal OOM errors or kernel panics appear under heavy multi-model load, the escalation path is an `OLLAMA_MEMORY_LIMIT` entry in the launchd plist's `EnvironmentVariables` block (reloaded via `launchctl`), or trimming `OLLAMA_MAX_LOADED_MODELS` instead of adding a cap.
 
-## Why
+#### Why
 
 The absent cap is a deliberate default, not an oversight — the reference slot/memory mix fits the target hardware, so a hard limit would only add an artificial ceiling. Capping is reserved as the escalation move for actual OOM symptoms, which keeps the common case simpler and leaves the tuning lever available when it is genuinely needed.
 <!-- /WIKI:GENERATED -->
@@ -314,7 +314,7 @@ curl -s http://localhost:11434/api/ps | jq '.models[] | {name, size_vram}'
 
 The port and host come from `OLLAMA_URL` (default `http://host.docker.internal:11434`). The same endpoint powers the `get_loaded_models` tool in `portal/platform/mcp_host/pipeline_mcp.py`, which returns each model's name and `vram_size_gb` — the tool is what an agent sees as `portal-pipeline get_loaded_models`.
 
-## Why
+#### Why
 
 "Which models are resident" answers the two most common operational questions at once: is the router model warm (if not, the next `auto` request cold-loads it and falls through to Layer 2), and is a large inference model squatting on unified memory at the expense of everything else. The same query is exposed to both shell and agent so operators and automation read identical state.
 <!-- /WIKI:GENERATED -->
@@ -328,7 +328,7 @@ Router decisions are logged by the pipeline. The LLM layer logs each confident c
 ./launch.sh logs | grep -E "LLM router|Routing workspace|falling back to keywords"
 ```
 
-## Why
+#### Why
 
 Misrouted requests are decided at a single point, so the router logs are the first place to look when a user reports the wrong workspace. The `confidence` field distinguishes a genuinely low-confidence classification from a timeout, which separates a model-quality problem from a latency problem before any deeper debugging starts.
 <!-- /WIKI:GENERATED -->
@@ -344,7 +344,7 @@ ollama pull hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M
 
 That is the value of `LLM_ROUTER_MODEL` in `.env.example`. Until it is present, the first `auto` request after startup cold-loads it and Layer 2 keyword scoring covers the interim.
 
-## Why
+#### Why
 
 A missing router model is a warm-up cost, not an outage — the pipeline degrades to keyword scoring rather than failing, so a fresh install still serves. Pulling through the CLI matters because it keeps the installed set in sync with the catalog, so the router model and the workspace pool are provisioned together rather than piecemeal.
 <!-- /WIKI:GENERATED -->
@@ -360,7 +360,7 @@ OLLAMA_URL=http://localhost:11434 python3 tests/benchmarks/bench_router.py
 
 Results land in `tests/benchmarks/results/`, and the published PRIMARY/STANDBY/FALLBACK accuracy figures in `.env.example` trace back to this bench.
 
-## Why
+#### Why
 
 Router quality is a measured property, not an assumption — the bench pins the accuracy numbers that justify the default model choice, so a swap can be validated against a fixed corpus before it is trusted in production routing. Keeping the corpus and the runner in the repo means the figures stay reproducible instead of remembered.
 <!-- /WIKI:GENERATED -->
@@ -372,7 +372,7 @@ Router quality is a measured property, not an assumption — the bench pins the 
 ### Personas
 
 <!-- WIKI:GENERATED unit=unit-fact-persona-roster -->
-# Persona roster (135 personas)
+#### Persona roster (135 personas)
 
 | Slug | Module | Workspace | Model Pin |
 |---|---|---|---|
@@ -512,7 +512,7 @@ Router quality is a measured property, not an assumption — the bench pins the 
 | `webresearcher` | research | `auto-research` | — |
 | `whiteboardconverter` | general | `auto-vision` | — |
 
-## Why
+##### Why
 
 The roster is derived from the persona YAML files under `config/personas/`, one per specialist, so the count and the slug/module/workspace bindings always reflect what the pipeline can actually route to. Personas are seeded into Open WebUI as model presets by the same files, so the wiki roster and the served roster cannot drift apart.
 <!-- /WIKI:GENERATED -->
@@ -520,9 +520,9 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-# Workspace roster (25 production, 56 eval, 81 total)
+#### Workspace roster (25 production, 56 eval, 81 total)
 
-## Production workspaces (acceptance/UAT scope, eval OFF)
+##### Production workspaces (acceptance/UAT scope, eval OFF)
 
 | Workspace | Module | Model Hint |
 |---|---|---|
@@ -552,7 +552,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `auto-vision` | general | `qwen3-vl:32b-ctx8k` |
 | `tools-specialist` | general | `granite4.1:8b-ctx8k` |
 
-## Eval/bench workspaces (need PORTAL_ENABLE_EVAL=1)
+##### Eval/bench workspaces (need PORTAL_ENABLE_EVAL=1)
 
 - `bench-agentworld`
 - `bench-baronllm-q6k`
@@ -611,7 +611,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 - `bench-vulnllm-r-7b`
 - `bench-vulnllm-r7b`
 
-## Why
+##### Why
 
 The roster is the workspace mapping in `config/portal.yaml`, split into the production workspaces that acceptance/UAT exercises and the eval/bench workspaces gated behind `PORTAL_ENABLE_EVAL=1`. The counts and the per-workspace model hints come straight from that file, so the roster cannot disagree with what routing serves.
 <!-- /WIKI:GENERATED -->
@@ -619,14 +619,14 @@ The roster is the workspace mapping in `config/portal.yaml`, split into the prod
 ### Model Bindings (reachability-resolved)
 
 <!-- WIKI:GENERATED unit=unit-fact-model-bindings -->
-# Model bindings (reachability-resolved)
+#### Model bindings (reachability-resolved)
 
 What each production workspace/persona actually SERVES, not what it
 claims. A row marked GAP means the intended model is unreachable via
 the workspace's routing groups and silently falls back to the pool
 default.
 
-## Workspace model_hint reachability
+##### Workspace model_hint reachability
 
 | Workspace | model_hint | Reachable |
 |---|---|---|
@@ -656,7 +656,7 @@ default.
 | `auto-vision` | `qwen3-vl:32b-ctx8k` | yes |
 | `tools-specialist` | `granite4.1:8b-ctx8k` | yes |
 
-## Persona model_pin reachability
+##### Persona model_pin reachability
 
 | Persona | Workspace | model_pin | Reachable |
 |---|---|---|---|
@@ -674,7 +674,7 @@ default.
 
 **0 reachability gap(s)** — clean.
 
-## Why
+##### Why
 
 Model bindings are the reachability-resolved view of what each workspace `model_hint` and persona `model_pin` actually serve: a hint is reachable only when the workspace's routing groups in `config/backends.yaml` contain the model. The gap count is the live measure of how many bindings silently fall back to the pool default, and is regenerated from the same config the router reads.
 <!-- /WIKI:GENERATED -->
@@ -682,7 +682,7 @@ Model bindings are the reachability-resolved view of what each workspace `model_
 ### MCP Fleet
 
 <!-- WIKI:GENERATED unit=unit-fact-mcp-fleet -->
-# MCP fleet (33 servers)
+#### MCP fleet (33 servers)
 
 | ID | Name | Port |
 |---|---|---|
@@ -720,7 +720,7 @@ Model bindings are the reachability-resolved view of what each workspace `model_
 | `data` | portal-data | 8939 |
 | `netforensics` | portal-netforensics | 8941 |
 
-## Why
+##### Why
 
 The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single source for every MCP tool server the pipeline can dispatch to. Each entry carries the server id, display name, and reserved port, so the wiki fleet roster is the same list the tool registry and the Open WebUI tool-server wiring are built from.
 <!-- /WIKI:GENERATED -->
@@ -728,9 +728,9 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-# Model catalog (253 model ids across 7 backend groups)
+#### Model catalog (253 model ids across 7 backend groups)
 
-## coding (56)
+##### coding (56)
 
 - `Laguna-XS.2-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
@@ -789,7 +789,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `qwen3.6:27b-q4_K_M`
 - `qwen3.6:35b-a3b-q4_K_M`
 
-## creative (12)
+##### creative (12)
 
 - `Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit`
 - `dolphin-llama3:8b`
@@ -804,7 +804,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (105)
+##### general (105)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `cybersecqwen-4b-toolfix:latest`
@@ -912,12 +912,12 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `sylink/sylink:8b`
 
-## omlx (2)
+##### omlx (2)
 
 - `Laguna-XS.2-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
 
-## reasoning (30)
+##### reasoning (30)
 
 - `Qwen3.8-27B-oQ4e-mtp`
 - `Tongyi-DeepResearch-30B-A3B-abliterated-4bit`
@@ -950,7 +950,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `supergemma4-26b-uncensored:Q4_K_M-ctx64k`
 
-## security (32)
+##### security (32)
 
 - `Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit`
 - `VulnLLM-R-7B-4bit`
@@ -985,7 +985,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `sylink/sylink:8b`
 - `sylink/sylink:8b-ctx8k`
 
-## vision (16)
+##### vision (16)
 
 - `gemma4:12b-it-qat`
 - `gemma4:12b-it-qat-ctx8k`
@@ -1004,7 +1004,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `qwen3-vl:32b`
 - `qwen3-vl:32b-ctx8k`
 
-## Why
+##### Why
 
 The catalog groups every model id registered in `config/backends.yaml` by its routing group, which is the same grouping `workspace_routing` uses to resolve which backends a workspace can draw from. Deriving the catalog from the backend file keeps the documented model inventory and the actually-served pool identical.
 <!-- /WIKI:GENERATED -->
