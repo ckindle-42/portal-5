@@ -269,133 +269,80 @@ sourced library under `scripts/lib/` or to `portal.platform.inference.cli`. The
 core lifecycle commands are `./launch.sh up` (build the stack, auto-generate
 secrets, run port pre-flight), `./launch.sh down` (stop Docker services plus
 native macOS services while preserving data) and `./launch.sh status` (health
-table via `_cmd_status` in `scripts/lib/util.sh`).
+table via `_cmd_status` in `scripts/lib/util.sh`). Around that core sit the
+operational groups below; `sync-config` regenerates derived artifacts from
+`config/portal.yaml`, and the native Apple Silicon services are handled with the
+`start-speech` / `start-transcribe` pairs and the embedding installers in
+`scripts/lib/services.sh`.
 
-Around that core sit the operational groups: `seed` / `reseed` for Open WebUI
-presets (`scripts/openwebui_init.py`), `pull-models` / `refresh-models` /
-`import-gguf` for Ollama models, `add-user` / `list-users` for accounts
-(`scripts/lib/users.sh`), `backup` / `restore` for data (`scripts/lib/backup.sh`),
-and `up-telegram` / `up-slack` / `up-channels` for messaging bots. Native Apple
-Silicon services are managed with `start-speech` / `stop-speech`,
-`start-transcribe` / `stop-transcribe` and the embedding service installers in
-`scripts/lib/services.sh`. `sync-config` regenerates derived artifacts from
-`config/portal.yaml`, and `./launch.sh test` runs live smoke tests.
+### Test everything is working
 
-### Why
-
-A single entrypoint keeps every operational action deterministic and scriptable:
-each subcommand either maps to a small shell library or to one typed CLI module,
-so there is exactly one way to start, stop, seed or back up the stack. It also
-means the Docker Compose project directory and the `.env` file are never touched
-by hand, which keeps `docker compose up` and `launch.sh up` from diverging.
-<!-- /WIKI:GENERATED -->
-
----
-
-<!-- WIKI:GENERATED unit=unit-readme-test-everything-is-working -->
 ```bash
 # Test everything is working
 ./launch.sh test            # Run live smoke tests against running stack
 ```
 
-The `test` subcommand in `launch.sh` executes `portal.platform.inference.cli test`,
-implemented in `portal/platform/inference/cli/smoke.py`. `cmd_test` runs
-end-to-end checks against the live stack: it probes the pipeline health endpoint
-(`PIPELINE_URL`, default `http://localhost:9099`) with the configured
-`PIPELINE_API_KEY`, the Open WebUI URL (`OPENWEBUI_URL`, default
-`http://localhost:8080`), and prints a per-check pass/fail summary with a nonzero
-exit on any failure. This is the quick post-`up` verification path, distinct from
-the heavier acceptance suite.
+The `test` subcommand executes `portal.platform.inference.cli test`, implemented
+in `portal/platform/inference/cli/smoke.py`. `cmd_test` runs end-to-end checks
+against the live stack: it probes the pipeline health endpoint (`PIPELINE_URL`,
+default `http://localhost:9099`) with the configured `PIPELINE_API_KEY`, then the
+Open WebUI URL (`OPENWEBUI_URL`), and prints a per-check pass/fail summary that
+exits nonzero on any failure. It is the quick post-`up` check, separate from the
+heavier acceptance suite.
 
-### Why
+### Pull specialized models (security, coding, reasoning — 30–90 min)
 
-A mock-only unit suite cannot prove the real services accept requests, so a
-short live smoke test is the first thing an operator runs after `up`. Keeping it
-inside the CLI (rather than a compose one-shot) means it uses the same environment
-the operator has, and a nonzero exit makes it usable in a scripted health check
-without parsing output.
-<!-- /WIKI:GENERATED -->
-
----
-
-<!-- WIKI:GENERATED unit=unit-readme-pull-specialized-models-security-coding-reasoning-30-90-min -->
 ```bash
 # Pull specialized models (security, coding, reasoning — 30–90 min)
 ./launch.sh pull-models
 ```
 
-`pull-models` delegates to `portal.platform.inference.cli models pull`
-(`launch.sh` case block). That command loads the model registry from
-`config/portal.yaml` (`models:` block), resolves pull targets via
-`_select_pull_targets` (excluding `retired: true` entries and entries without an
-`ollama_name`), and pulls each into Ollama — HuggingFace repos via `hf hub
-download`, native registry models via `ollama pull`. It prints the estimate that
-the full set takes 30–90 minutes depending on connection speed, and it skips
-models already present in Ollama. Gated repositories require `HF_TOKEN` set in
-`.env`; the pull reports a clear error otherwise.
+`pull-models` delegates to `portal.platform.inference.cli models pull`, which
+reads the model registry from `config/portal.yaml` (`models:` block), resolves
+targets with `_select_pull_targets` (skipping `retired: true` entries and entries
+with no `ollama_name`), and fetches each into Ollama — HuggingFace repos through
+`hf download`, native registry tags through `ollama pull`. Anything already
+present is skipped, and gated repos need `HF_TOKEN` set in `.env`.
 
-### Why
+### User management
 
-The specialized catalog is large (security, coding, reasoning, vision, creative
-lanes), so it is deliberately a separate, operator-initiated step after the three
-core models have bootstrapped the stack. Keeping the pull set registry-driven
-means a model added to `config/portal.yaml` is automatically pullable without
-editing shell code, and retired entries stay documented but stop being fetched.
-<!-- /WIKI:GENERATED -->
-
----
-
-<!-- WIKI:GENERATED unit=unit-readme-user-management -->
 ```bash
 # User management
 ./launch.sh add-user alice@example.com "Alice Smith"
 ./launch.sh list-users
 ```
 
-Both commands are implemented in `scripts/lib/users.sh` and wrap the Open WebUI
-admin API. `add-user` calls `POST /api/v1/auths/add` on `OPENWEBUI_URL` (default
-`http://localhost:8080`) with an admin bearer token from `get_admin_token`,
-generates a temporary password, and prints the credentials for the new account
-(email, password, role). The role defaults to `user` and accepts `admin` or
-`pending`. `list-users` calls `GET /api/v1/users/` and prints each account with
-its role, name and email. Both require the stack to be running and an admin
-token to be resolvable.
+Both wrap the Open WebUI admin API from `scripts/lib/users.sh`. `add-user` posts
+to `/api/v1/auths/add` with an admin token from `get_admin_token`, mints a
+temporary password, and prints the new account's credentials; the role defaults
+to `user` and also accepts `admin` or `pending`. `list-users` reads
+`/api/v1/users/`. Both need the stack running and an admin token resolvable.
 
-### Why
+### Seeding
 
-User accounts are owned by Open WebUI, so the CLI does not invent its own user
-store — it shells out to the same admin endpoints the UI uses, which keeps roles
-and password handling consistent. Wrapping them in `launch.sh` gives an operator a
-scriptable path to provision accounts without clicking through the admin panel.
-<!-- /WIKI:GENERATED -->
-
----
-
-<!-- WIKI:GENERATED unit=unit-readme-seeding -->
 ```bash
 # Seeding
 ./launch.sh seed            # Re-seed Open WebUI (workspaces + personas)
 ./launch.sh reseed          # Force-refresh all presets (delete + recreate)
 ```
 
-Both commands run the `openwebui-init` compose service, which executes
-`scripts/openwebui_init.py` against the Open WebUI API. `seed` runs it idempotently:
-`FORCE_RESEED` is false, so existing presets are skipped and only new ones are
-created. `reseed` sets `FORCE_RESEED=true`, and the script deletes and re-creates
-all workspaces, personas and tool presets, so updated persona prompts, workspace
-tool ids and model presets are pushed into Open WebUI.
-
-`./launch.sh up` also performs an incremental seed: if `open-webui` is already
-healthy, it runs `openwebui-init` in the background to pick up any personas or
-workspaces added since the last boot.
+Both run the `openwebui-init` compose service, which executes
+`scripts/openwebui_init.py` against the Open WebUI API. `seed` is idempotent —
+`FORCE_RESEED` is false, so existing presets are left alone — while `reseed` sets
+`FORCE_RESEED=true` and deletes then recreates every workspace, persona and tool
+preset. `./launch.sh up` also runs an incremental seed in the background whenever
+`open-webui` is already healthy.
 
 ### Why
 
-Seeding exists because the workspace and persona catalog is generated from
-`config/portal.yaml` and `config/personas/`, not entered by hand in Open WebUI.
-The idempotent default makes `up` converge safely on every boot, while `reseed`
-is the explicit escape hatch to repair a drifted or partially edited preset set
-without touching Open WebUI's database by hand.
+A single entrypoint keeps every operational action deterministic and scriptable:
+each subcommand maps to one small shell library or one typed CLI module, so there
+is exactly one way to start, stop, seed, verify or back up the stack, and the
+Docker Compose project directory and `.env` are never hand-edited — which keeps
+`docker compose up` and `launch.sh up` from diverging. The groups above are kept
+separate from the lifecycle core because each is an occasional, operator-initiated
+step — pulling the large specialized catalog, provisioning an account, repairing a
+drifted preset set — that has no business running on every boot.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -672,10 +619,10 @@ docker compose -f deploy/portal-5/docker-compose.yml logs <service-name>
 ```
 
 `status` runs `_cmd_status` (`scripts/lib/util.sh`), which reads container health
-from `docker compose ps --format json` and renders a table covering Open WebUI,
-the pipeline, SearXNG, Prometheus, Grafana and the MCP servers, marking each
-healthy, running, starting or failed. `logs` in `launch.sh` tails
-`docker compose logs -f <service>` (default `portal-pipeline`).
+from `docker compose ps --format json` and renders a table over Open WebUI, the
+pipeline, SearXNG, Prometheus, Grafana and the MCP servers, marking each healthy,
+running, starting or failed. `logs` tails `docker compose logs -f <service>`
+(default `portal-pipeline`).
 
 **Out of disk space:**
 ```bash
@@ -683,105 +630,41 @@ docker system df            # See Docker disk usage
 ./launch.sh clean           # Stop services and remove the Open WebUI data volume
 ```
 
-`clean` in `launch.sh` stops the stack and removes only the `open-webui-data`
-volume, explicitly preserving the Ollama models volume — so a clean wipes chat
-history and settings but does not force the model weights to re-download.
+`clean` stops the stack and removes only the `open-webui-data` volume, explicitly
+keeping the Ollama models volume — a clean wipes chat history and settings but
+does not force the weights to re-download. The disk check in `_check_hardware`
+warns below 20 GB free and suggests `docker system prune -a`; below 50 GB it
+notes more is needed for the full catalog. Because the core models plus the FLUX
+checkpoint (~12 GB) dominate a first download, a tight disk makes `up` or the
+pulls fail mid-transfer — free space, then re-run `./launch.sh up`.
 
-### Why
-
-Most boot failures are container health or disk exhaustion, so the troubleshooting
-surface is deliberately two commands. `status` resolves the question of which
-container is not healthy without parsing compose output, and `clean` is scoped to
-remove exactly the data that is safe to lose, because nuking the Ollama volume
-would force hours of model re-downloads.
-<!-- /WIKI:GENERATED -->
-
----
-
-### Then free disk space and retry ./launch.sh up
-
-<!-- WIKI:GENERATED unit=unit-readme-then-free-disk-space-and-retry-launch-sh-up -->
-The disk check in `_check_hardware` (`scripts/lib/util.sh`) is the first-run
-gating constraint: below 20 GB free it warns and suggests `docker system prune -a`
-before continuing, and below 50 GB it notes that more is needed for the full
-model catalog. Because the core models plus the FLUX checkpoint (~12 GB) are the
-bulk of a first download, a tight disk makes `up` or the model pulls fail
-mid-transfer, so the remediation is to free space and re-run `./launch.sh up`.
-
-If models are not loading and Ollama reports zero backends, ensure at least one
-model is pulled:
-
+**Ollama still loading:**
 ```bash
 ./launch.sh pull-models     # Ensure at least one model is pulled
 ```
 
-#### Why
+On a cold start `_ensure_native_services` restarts Ollama — `launchctl kickstart
+-k system/com.portal5.ollama` on Apple Silicon (the pinned `com.portal5.ollama`
+install, not Homebrew), `nohup ollama serve` on Linux — then polls
+`http://localhost:11434/api/tags` for up to 10 seconds. The router only sees a
+backend once its models finish loading, so a request fired immediately after boot
+can hit an empty list; wait for Ollama to answer and retry.
 
-Disk is checked before any pull because a failed multi-gigabyte download is the
-most wasteful failure mode — the download restarts or half-completes, and the
-stack comes up without usable models. Gating on free space up front, and offering
-the exact prune command, turns a storage shortfall into a quick fix rather than a
-confusing mid-boot error.
-<!-- /WIKI:GENERATED -->
+**Port already in use:** `_check_ports` probes every reserved port before `up`
+and, for a busy one, prints the owning process and a `kill` hint before exiting
+1. Stop the conflicting process, run `./launch.sh down` if the owner is an old
+Portal 5 stack, or override the port in `.env` (for example
+`DOCUMENTS_HOST_PORT=9013`), then re-run `./launch.sh up`.
 
----
+### Why
 
-### Wait for Ollama to finish loading, then try again
-
-<!-- WIKI:GENERATED unit=unit-readme-wait-for-ollama-to-finish-loading-then-try-again -->
-"Wait for Ollama to finish loading, then try again" is the guidance for a cold
-start. During `up`, `_ensure_native_services` (`scripts/lib/util.sh`) restarts
-Ollama via `sudo -n launchctl kickstart -k system/com.portal5.ollama` on Apple
-Silicon (the pinned native install, `com.portal5.ollama` — not Homebrew, which
-was uninstalled 2026-08-10) when it is configured but not responding, or via
-`nohup ollama serve` on Linux, then polls `http://localhost:11434/api/tags` up
-to 10 seconds before reporting success or warning. The router only sees healthy
-backends once models finish loading, so an immediate request right after boot
-can hit an empty backend list — retrying after Ollama responds is the intended
-fix.
-
-**First run taking too long:** the FLUX.1-schnell checkpoint is about 12 GB, so on
-a slower connection the download dominates boot time; the `hf download` based
-pull commands resume interrupted transfers.
-
-**Port already in use:** find the owner with `lsof -i :8080` — the same tool
-`_check_ports` uses to print the conflicting PID and its `kill` hint when `up`
-aborts.
-
-#### Why
-
-Ollama loads models lazily and the checkpoint downloads are large, so "wait and
-retry" is not a workaround but the documented behavior of the loader: the stack
-can be up before every model is resident. The 10-second readiness poll in
-`_ensure_native_services` draws the line between a service that is starting and
-one that is actually broken.
-<!-- /WIKI:GENERATED -->
-
----
-
-### Stop the conflicting service, then ./launch.sh up
-
-<!-- WIKI:GENERATED unit=unit-readme-stop-the-conflicting-service-then-launch-sh-up -->
-"Stop the conflicting service, then `./launch.sh up`" is the resolution for a
-port-conflict abort. The `up` case in `launch.sh` runs `_check_ports`
-(`scripts/lib/util.sh`) as a pre-flight: it probes each reserved port with `nc`
-or a `/dev/tcp` fallback and, for a busy port, prints the owning process (via
-`lsof` or `ss`) with a `kill` hint. If any port is taken the stack refuses to
-start and exits 1.
-
-The printed options are the actual remediation paths: stop the conflicting
-process, run `./launch.sh down` if the owner is a previous Portal 5 stack (it also
-stops native Speech and the MLX image/video MCPs), or override the port in `.env` (for example
-`DOCUMENTS_HOST_PORT=9013` for MCP Documents). After freeing the port, re-run
-`./launch.sh up`.
-
-#### Why
-
-Ports are reserved in this project, so silent collisions would produce confusing
-half-started services and cross-talk between Open WebUI, the pipeline and the MCP
-fleet. A hard pre-flight that names the offender and offers both stop and override
-escapes turns the most common first-run failure into a one-line fix instead of a
-log dig.
+Nearly every first-run failure is one of four things — an unhealthy container, an
+exhausted disk, a backend that has not finished loading, or a reserved port
+already taken — so the troubleshooting surface is deliberately small and each
+entry pairs the diagnostic command with the one safe remediation. `status` and
+`_check_ports` name the specific offender rather than making the operator read
+compose output, and `clean` is scoped to the data that is safe to lose because
+nuking the Ollama volume would cost hours of re-downloads.
 <!-- /WIKI:GENERATED -->
 
 ---

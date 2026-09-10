@@ -4,140 +4,66 @@
     {
       "line": 1,
       "title": "Portal 5 \u2014 Local AI Platform"
-    },
-    {
-      "line": 295,
-      "title": "Start / stop"
-    },
-    {
-      "line": 297,
-      "title": "Test everything is working"
-    },
-    {
-      "line": 324,
-      "title": "Pull specialized models (security, coding, reasoning \u2014 30\u201390 min)"
-    },
-    {
-      "line": 352,
-      "title": "MLX (Apple Silicon)"
-    },
-    {
-      "line": 354,
-      "title": "User management"
-    },
-    {
-      "line": 381,
-      "title": "Enable messaging channels (requires tokens in .env)"
-    },
-    {
-      "line": 383,
-      "title": "Backup and restore"
-    },
-    {
-      "line": 385,
-      "title": "Seeding"
-    },
-    {
-      "line": 415,
-      "title": "Update (single command: git pull + rebuild + model refresh + re-seed)"
-    },
-    {
-      "line": 417,
-      "title": "Cleanup"
-    },
-    {
-      "line": 717,
-      "title": "Then free disk space and retry ./launch.sh up"
-    },
-    {
-      "line": 745,
-      "title": "Wait for Ollama to finish loading, then try again"
-    },
-    {
-      "line": 778,
-      "title": "Stop the conflicting service, then ./launch.sh up"
     }
   ],
   "RD3_merge_set": [
     {
-      "claims": [],
-      "present": true,
-      "sources": [
-        "launch.sh",
-        "portal/platform/inference/cli/smoke.py"
-      ],
+      "claims": null,
+      "present": false,
+      "sources": null,
       "unit": "unit-readme-test-everything-is-working"
     },
     {
-      "claims": [],
-      "present": true,
-      "sources": [
-        "launch.sh",
-        "portal/platform/inference/cli/models.py",
-        "config/portal.yaml"
-      ],
+      "claims": null,
+      "present": false,
+      "sources": null,
       "unit": "unit-readme-pull-specialized-models-security-coding-reasoning-30-90-min"
     },
     {
-      "claims": [],
-      "present": true,
-      "sources": [
-        "scripts/lib/users.sh",
-        "launch.sh"
-      ],
+      "claims": null,
+      "present": false,
+      "sources": null,
       "unit": "unit-readme-user-management"
     },
     {
-      "claims": [],
-      "present": true,
-      "sources": [
-        "launch.sh",
-        "scripts/openwebui_init.py"
-      ],
+      "claims": null,
+      "present": false,
+      "sources": null,
       "unit": "unit-readme-seeding"
     },
     {
-      "claims": [],
-      "present": true,
-      "sources": [
-        "scripts/lib/util.sh",
-        "launch.sh"
-      ],
+      "claims": null,
+      "present": false,
+      "sources": null,
       "unit": "unit-readme-then-free-disk-space-and-retry-launch-sh-up"
     },
     {
-      "claims": [],
-      "present": true,
-      "sources": [
-        "scripts/lib/util.sh",
-        "scripts/lib/services.sh"
-      ],
+      "claims": null,
+      "present": false,
+      "sources": null,
       "unit": "unit-readme-wait-for-ollama-to-finish-loading-then-try-again"
     },
     {
-      "claims": [],
-      "present": true,
-      "sources": [
-        "scripts/lib/util.sh",
-        "launch.sh"
-      ],
+      "claims": null,
+      "present": false,
+      "sources": null,
       "unit": "unit-readme-stop-the-conflicting-service-then-launch-sh-up"
     }
   ],
   "authored_against": "117f407a",
   "budget_max": 0.4,
-  "capability_rollup_unit_exists": false,
-  "chars_generated": 46430,
-  "chars_total": 50864,
-  "generated_blocks": 31,
-  "headroom_lines": 272,
+  "capability_rollup_unit_exists": true,
+  "chars_generated": 42235,
+  "chars_total": 45437,
+  "generated_blocks": 24,
+  "headroom_lines": 247,
   "human_lines": 0,
   "human_ratio": 0.0,
   "migrated": true,
-  "pct_generated": 91.3,
+  "pct_generated": 93.0,
   "quality_issues": [],
-  "quality_passing": 31,
-  "readme_units": 31,
-  "substantive_lines": 681,
+  "quality_passing": 25,
+  "readme_units": 25,
+  "substantive_lines": 618,
   "substantive_remainder_empty": true
 }
