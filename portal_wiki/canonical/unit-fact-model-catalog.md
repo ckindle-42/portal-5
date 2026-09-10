@@ -1,11 +1,11 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 253 model ids, 7 backend groups
+title: 254 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 32af15ccf52a
+  commit: 3b08ab3c3137
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1788791792.328119
+updated_at: 1789078463.800237
 ---
 
-# Model catalog (253 model ids across 7 backend groups)
+# Model catalog (254 model ids across 7 backend groups)
 
 ## coding (56)
 
@@ -239,8 +239,9 @@ updated_at: 1788791792.328119
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `supergemma4-26b-uncensored:Q4_K_M-ctx64k`
 
-## security (32)
+## security (33)
 
+- `Nex-N2.5-mini-Uncensored-MLX-4bit`
 - `Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit`
 - `VulnLLM-R-7B-4bit`
 - `baronllm:q6_k`

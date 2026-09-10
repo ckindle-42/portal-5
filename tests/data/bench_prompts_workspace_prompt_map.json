@@ -58,6 +58,7 @@
   "bench-mistral-small-3-2": "general",
   "bench-moecad": "coding",
   "bench-nex-n2-mini": "coding",
+  "bench-nex-n25-mini-uncensored": "security",
   "bench-north-mini-code": "coding",
   "bench-omnicoder2": "coding",
   "bench-orcarouter-q38": "coding",

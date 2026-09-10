@@ -1735,6 +1735,21 @@ workspaces:
     tools: []
     expose_to_owui: false
     enable_web_search: false
+  bench-nex-n25-mini-uncensored:
+    module: eval
+    name: 🔬 Bench · Nex-N2.5-mini-Uncensored (oMLX, MLX 4-bit)
+    description: |-
+      Benchmark: orcarouter/Nex-N2.5-mini-Uncensored-MLX (4bit subfolder, Sept 2026). Abliterated (refusal-orthogonalized) MLX affine 4-bit build of nex-agi/Nex-N2.5-mini — a 35B / 3.5B-active agentic multimodal MoE on the Qwen3.5-MoE arch (qwen3_5_moe: 256 routed experts top-8 + 1 shared, 3:1 hybrid gated-delta-net / full attention, 40 layers, 262K native ctx, Qwen3-VL vision tower). Dynamic mixed-precision quant (routed experts 4-bit, attention pinned 8-bit, router/delta-net/norms BF16): ~19.85GB on disk, ~20.8GB loaded here. Probed live 2026-09-10 (oMLX 0.6.4, host stack up, ~20.8GB admitted co-resident — no quiet host needed): load ~6.2s cold; sustained decode ~65 tok/s on this M4 Pro (8/256 experts active per token). Tool calls CLEAN out of the box (oMLX 0.6.4 parses the template's XML <tool_call><function=NAME> format) — supports_tools:true is a genuine probe result. Thinking is gated on `reasoning_effort` (NOT enable_thinking): unset/default opens <think>, reasoning_effort="none" suppresses it; reasoning lands in the response's reasoning_content field. VISION IS NOT FUNCTIONAL on oMLX 0.6.4 (bundled mlx-vlm 0.6.3 loads qwen3_5_moe text-only; an inline image is silently ignored — the card wants mlx-vlm >= 0.7.0). Stop-token gotcha (card): no upstream generation_config.json, config.json fallback eos is 248044, <|im_end|> (248046) is not a default stop — oMLX's tokenizer_config sets eos_token <|im_end|> so oMLX stops correctly. oMLX-only; a GGUF arm (IQ4_XS, ~52 tok/s on llama.cpp b9950, arch supported) is planned once host disk allows `ollama create`. PROMOTE_POLICY=confirm — candidate only, auto-security's 8 role variants are unchanged. Added 2026-09-10 (TASK_OMLX_NEX_N25_MINI_BRINGUP_V1).
+    model_hint: Nex-N2.5-mini-Uncensored-MLX-4bit
+    predict_limit: 16384
+    temperature: 0.7
+    top_p: 0.8
+    repeat_penalty: 1.05
+    max_concurrent: 1
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
   bench-gemma4-26b-optiq:
     module: eval
     name: 🔬 Bench · Gemma-4-26B-A4B (OptiQ)

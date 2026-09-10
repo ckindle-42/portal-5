@@ -520,7 +520,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-#### Workspace roster (25 production, 56 eval, 81 total)
+#### Workspace roster (25 production, 57 eval, 82 total)
 
 ##### Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -589,6 +589,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 - `bench-mistral-small-3-2`
 - `bench-moecad`
 - `bench-nex-n2-mini`
+- `bench-nex-n25-mini-uncensored`
 - `bench-north-mini-code`
 - `bench-omnicoder2`
 - `bench-orcarouter-q38`
@@ -728,7 +729,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-#### Model catalog (253 model ids across 7 backend groups)
+#### Model catalog (254 model ids across 7 backend groups)
 
 ##### coding (56)
 
@@ -950,8 +951,9 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `supergemma4-26b-uncensored:Q4_K_M-ctx64k`
 
-##### security (32)
+##### security (33)
 
+- `Nex-N2.5-mini-Uncensored-MLX-4bit`
 - `Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit`
 - `VulnLLM-R-7B-4bit`
 - `baronllm:q6_k`

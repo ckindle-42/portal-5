@@ -1,11 +1,11 @@
 ---
 id: unit-fact-workspace-roster
 kind: what
-title: 25 production + 56 eval workspaces
+title: 25 production + 57 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 32af15ccf52a
+  commit: 3b08ab3c3137
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1788791792.023228
+updated_at: 1789078463.488317
 ---
 
-# Workspace roster (25 production, 56 eval, 81 total)
+# Workspace roster (25 production, 57 eval, 82 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -86,6 +86,7 @@ updated_at: 1788791792.023228
 - `bench-mistral-small-3-2`
 - `bench-moecad`
 - `bench-nex-n2-mini`
+- `bench-nex-n25-mini-uncensored`
 - `bench-north-mini-code`
 - `bench-omnicoder2`
 - `bench-orcarouter-q38`
