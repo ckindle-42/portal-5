@@ -9,6 +9,7 @@ from . import (  # noqa: F401  (imports populate the check registry)
     blue_orchestration,
     bully_relate,
     config,
+    doc_voice,
     inference,
     lab,
     personas,
