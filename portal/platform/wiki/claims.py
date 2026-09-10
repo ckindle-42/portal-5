@@ -199,6 +199,14 @@ def _probe_modules_disabled(root: Path) -> list[str]:
     return sorted(k for k, v in _modules_generated(root).items() if not v)
 
 
+def _probe_modules_enabled_count(root: Path) -> int:
+    return len(_probe_modules_enabled(root))
+
+
+def _probe_modules_total(root: Path) -> int:
+    return len(_modules_generated(root))
+
+
 def _probe_workspaces_exposed(root: Path) -> list[str]:
     """Workspace ids with `expose_to_owui: true` — the set that becomes presets."""
     workspaces = _load_portal_yaml(root).get("workspaces") or {}
@@ -421,6 +429,8 @@ PROBES: dict[str, Callable[[Path], Any]] = {
     "workspaces.exposed": _probe_workspaces_exposed,
     "modules.enabled": _probe_modules_enabled,
     "modules.disabled": _probe_modules_disabled,
+    "modules.enabled.count": _probe_modules_enabled_count,
+    "modules.total": _probe_modules_total,
     "mcp.fleet.entries": _probe_fleet_entries,
     "mcp.fleet.ports": _probe_fleet_ports,
     "mcpjson.servers": _probe_mcpjson_servers,

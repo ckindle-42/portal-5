@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 744 canonical units.*
+*Deterministic projection of 745 canonical units.*
 
 ## Knowledge Layer
 
@@ -273,7 +273,7 @@
 | `unit-design-omlx-dual-backend-plumbing` | mixed | 12 |
 | `unit-design-spine-drift-census` | mixed | 4 |
 | `unit-design-wiki-archive-mechanism` | mixed | 5 |
-| `unit-fact-config-index` | mixed | 9 |
+| `unit-fact-config-index` | mixed | 10 |
 | `unit-fact-doc-migration-coverage` | what | 1 |
 | `unit-fact-dockerfile-index` | mixed | 7 |
 | `unit-fact-env-reference` | mixed | 3 |
@@ -636,6 +636,7 @@
 | `unit-readme-acceptance-testing` | what | 3 |
 | `unit-readme-architecture` | what | 4 |
 | `unit-readme-benchmark-workspaces-user-selected-only` | what | 4 |
+| `unit-readme-capability-rollup` | what | 4 |
 | `unit-readme-coding-tool-integration-claude-code-opencode` | what | 4 |
 | `unit-readme-common-commands` | what | 5 |
 | `unit-readme-core-models-pulled-automatically-on-first-run-4-gb` | what | 4 |
@@ -739,7 +740,7 @@
 | `unit-user-guide-tools-mcp-servers` | what | 7 |
 | `unit-user-guide-uploading-documents` | what | 2 |
 | `unit-user-guide-workspaces` | what | 3 |
-| `unit-wfe-workspace-fitness` | mixed | 3 |
+| `unit-wfe-workspace-fitness` | mixed | 4 |
 | `unit-wiki-adapter-modules` | mixed | 1 |
 | `unit-wiki-audit` | mixed | 1 |
 | `unit-wiki-interfaces` | mixed | 1 |
@@ -753,12 +754,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 744 units
+**Total:** 745 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1830 references
+- **code**: 1836 references
 - **config**: 1 references
 - **doc**: 1 references
 - **mitre**: 40 references
