@@ -761,6 +761,78 @@ def derive_doc_migration_coverage(commit: str, save: bool = True) -> KnowledgeUn
     return unit
 
 
+def derive_capability_rollup(commit: str, save: bool = True) -> KnowledgeUnit:
+    """unit-readme-capability-rollup — one derived headline count by kind, every
+    figure bound to a probe so BS fails the moment one drifts (Rule 12)."""
+    from portal.platform.wiki.claims import probe
+
+    root = _REPO_ROOT
+    mods_on = probe("modules.enabled.count", root)
+    mods_all = probe("modules.total", root)
+    ws_func = probe("workspaces.functional", root)
+    ws_bench = probe("workspaces.bench", root)
+    ws_all = probe("workspaces.total", root)
+    personas = probe("personas.count", root)
+    fleet = probe("mcp.fleet.entries", root)
+
+    body = "\n".join(
+        [
+            "Portal 5 is one platform assembled from a small set of switchable",
+            "parts. The headline figures below are derived from config on every",
+            "seed, never hand-written.",
+            "",
+            "| Kind | Count | Source |",
+            "|---|---|---|",
+            f"| Modules | {mods_on} enabled of {mods_all} | `config/modules.generated.yaml` |",
+            f"| Functional workspaces | {ws_func} | `config/portal.yaml` `workspaces` |",
+            f"| Benchmark workspaces | {ws_bench} | `config/portal.yaml` `workspaces` (eval module) |",
+            f"| Workspaces total | {ws_all} | `config/portal.yaml` `workspaces` |",
+            f"| Personas | {personas} | `config/personas/` |",
+            f"| MCP tool servers | {fleet} | `config/portal.yaml` `mcp_fleet` |",
+            "",
+            f"That is {mods_on} modules enabled of {mods_all} modules total, "
+            f"{ws_func} functional workspaces ({ws_bench} benchmark workspaces, "
+            f"{ws_all} workspaces total), {personas} personas and {fleet} MCP "
+            "tool servers — plus the Telegram and Slack channels, which carry no"
+            " count of their own.",
+        ]
+    )
+
+    sources = [
+        SourceRef(type="code", path="config/portal.yaml", commit=commit, section="workspaces"),
+        SourceRef(type="code", path="config/portal.yaml", commit=commit, section="mcp_fleet"),
+        SourceRef(type="code", path="config/personas/", commit=commit),
+        SourceRef(type="code", path="config/modules.generated.yaml", commit=commit),
+    ]
+    unit = _make_unit(
+        "unit-readme-capability-rollup",
+        "Portal 5 capability rollup",
+        sources,
+        body,
+        ["fact", "readme", "rollup"],
+        why=(
+            "A first-time reader needs one number before they need eighty-one, "
+            "so the README opens its capability section on a single rollup. It "
+            "has to be derived rather than typed because every figure here moves "
+            "between releases as modules, workspaces and personas are added or "
+            "retired, and a README that quotes a stale count is the fastest way "
+            "to lose a new reader's trust in the rest of the page."
+        ),
+        claims=[
+            {"probe": "modules.enabled.count", "pattern": "{value} modules enabled"},
+            {"probe": "modules.total", "pattern": "{value} modules total"},
+            {"probe": "workspaces.functional", "pattern": "{value} functional workspaces"},
+            {"probe": "workspaces.bench", "pattern": "{value} benchmark workspaces"},
+            {"probe": "workspaces.total", "pattern": "{value} workspaces total"},
+            {"probe": "personas.count", "pattern": "{value} personas"},
+            {"probe": "mcp.fleet.entries", "pattern": "{value} MCP tool servers"},
+        ],
+    )
+    if save:
+        save_unit(unit)
+    return unit
+
+
 _DERIVERS = (
     derive_persona_roster,
     derive_workspace_roster,
@@ -772,6 +844,7 @@ _DERIVERS = (
     derive_tool_registry,
     derive_media_memory_budget,
     derive_doc_migration_coverage,
+    derive_capability_rollup,
 )
 
 
