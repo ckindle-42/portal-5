@@ -44,6 +44,86 @@ def _find_unit_ids_outside_human_owned(text: str) -> list[str]:
     return [m.group(1) for m in _MARKER_RE.finditer(text) if not _in_human_owned(m.start())]
 
 
+_ANY_BLOCK_RE = re.compile(
+    r"<!-- WIKI:GENERATED unit=[\w.-]+ -->.*?<!-- /WIKI:GENERATED -->", re.DOTALL
+)
+_ATX_RE = re.compile(r"^(#{1,6})(\s+)(\S.*)$")
+_FENCE_LINE_RE = re.compile(r"^\s*(?:`{3,}|~{3,})")
+
+
+def _atx_headings(text: str) -> list[tuple[int, int]]:
+    """(line_index, level) for ATX headings that sit outside code fences."""
+    out: list[tuple[int, int]] = []
+    in_fence = False
+    for idx, line in enumerate(text.splitlines()):
+        if _FENCE_LINE_RE.match(line):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        m = _ATX_RE.match(line)
+        if m:
+            out.append((idx, len(m.group(1))))
+    return out
+
+
+def host_section_depth(text: str, marker_pos: int) -> int:
+    """Heading depth of the section hosting the block at `marker_pos` (0 if
+    nothing precedes it). Prior generated blocks are blanked from the prefix
+    first so an already-rendered body never parents the next one, which keeps
+    `render_all_generated_blocks` idempotent; `Why` headings are body output,
+    not document structure, and are skipped.
+    """
+    prefix = _ANY_BLOCK_RE.sub("", text[:marker_pos])
+    lines = prefix.splitlines()
+    depth = 0
+    in_fence = False
+    for line in lines:
+        if _FENCE_LINE_RE.match(line):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        m = _ATX_RE.match(line)
+        if m and m.group(3).strip().lower() != "why":
+            depth = len(m.group(1))
+    return depth
+
+
+def project_body(body: str, host_depth: int) -> str:
+    """Shift a body's ATX headings (outside code fences) by one uniform delta
+    so the shallowest lands one level below `host_depth`, clamped to H1-H6.
+    Identity when the body has no headings or is already seated. Lives at the
+    render layer because unit bodies keep `## Why` at H2 for
+    `quality.check_structure` while seating is a property of the host doc.
+    """
+    headings = _atx_headings(body)
+    if not headings:
+        return body
+    shallowest = min(level for _, level in headings)
+    target = min(max(host_depth + 1, 1), 6)
+    delta = target - shallowest
+    if delta == 0:
+        return body
+    to_shift = {idx for idx, _ in headings}
+    lines = body.splitlines(keepends=True)
+    for idx in to_shift:
+        raw = lines[idx]
+        newline = ""
+        if raw.endswith("\r\n"):
+            core, newline = raw[:-2], "\r\n"
+        elif raw.endswith("\n"):
+            core, newline = raw[:-1], "\n"
+        else:
+            core = raw
+        m = _ATX_RE.match(core)
+        if not m:
+            continue
+        level = min(max(len(m.group(1)) + delta, 1), 6)
+        lines[idx] = f"{'#' * level}{m.group(2)}{m.group(3)}{newline}"
+    return "".join(lines)
+
+
 # Tier-1 living docs eligible for generated fact-blocks (CLAUDE.md §Rule 12 /
 # DESIGN_WIKI_GENERATION_LOOP_V1.md §4 scope). This is also the migration
 # domain — the set of docs the generation loop operates over. CLAUDE.md is
@@ -94,7 +174,8 @@ def render_unit_into_doc(doc_path: Path, unit_id: str) -> bool:
     if not pattern.search(text):
         raise ValueError(f"No managed block for unit={unit_id!r} found in {doc_path}")
 
-    replacement = f"{start}\n{unit.body}\n{_BLOCK_END}"
+    body = project_body(unit.body, host_section_depth(text, pattern.search(text).start()))
+    replacement = f"{start}\n{body}\n{_BLOCK_END}"
     new_text = pattern.sub(lambda _m: replacement, text, count=1)
     changed = new_text != text
     if changed:
@@ -156,7 +237,7 @@ def check_generated_blocks_current(
             m = pattern.search(text)
             if m is None:
                 drifted.append(f"{doc_path}: malformed block for unit {unit_id!r}")
-            elif m.group(1) != unit.body:
+            elif m.group(1) != project_body(unit.body, host_section_depth(text, m.start())):
                 drifted.append(f"{doc_path}: block for unit {unit_id!r} does not match unit body")
     return drifted
 

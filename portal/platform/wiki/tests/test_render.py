@@ -7,8 +7,13 @@ from pathlib import Path
 
 from portal.platform.wiki.render import (
     _find_unit_ids_outside_human_owned,
+    check_generated_blocks_current,
+    host_section_depth,
+    project_body,
     render_report,
+    render_unit_into_doc,
 )
+from portal.platform.wiki.schema import KnowledgeUnit, SourceRef
 
 
 class TestHumanOwnedAwareness:
@@ -58,6 +63,101 @@ class TestHumanOwnedAwareness:
             <!-- /WIKI:GENERATED -->
         """)
         assert _find_unit_ids_outside_human_owned(text) == ["a", "b"]
+
+
+class TestProjectBody:
+    def test_identity_when_no_headings(self) -> None:
+        body = "Just prose.\n\nMore prose.\n"
+        assert project_body(body, host_depth=3) == body
+
+    def test_why_demoted_under_h3_host(self) -> None:
+        body = "Some description.\n\n## Why\n\nBecause it matters.\n"
+        out = project_body(body, host_depth=3)
+        assert "#### Why" in out
+        assert "## Why" not in out.replace("#### Why", "")
+
+    def test_identity_when_already_seated_at_h1_host(self) -> None:
+        body = "Description.\n\n## Why\n\nRationale.\n"
+        assert project_body(body, host_depth=1) == body
+
+    def test_relative_depth_preserved(self) -> None:
+        body = "Text.\n\n## Why\n\nReason.\n\n### Detail\n\nMore.\n"
+        out = project_body(body, host_depth=2)
+        assert "### Why" in out
+        assert "#### Detail" in out
+
+    def test_headings_inside_fence_untouched(self) -> None:
+        body = (
+            "Text.\n\n```bash\n# Pull specialized models\nollama pull x\n```\n\n## Why\n\nReason.\n"
+        )
+        out = project_body(body, host_depth=3)
+        assert "# Pull specialized models" in out
+        assert "#### Why" in out
+
+    def test_clamps_at_h6_for_h6_host(self) -> None:
+        body = "Text.\n\n## Why\n\nReason.\n"
+        out = project_body(body, host_depth=6)
+        assert "###### Why" in out
+        assert "####### Why" not in out
+
+
+class TestHostSectionDepth:
+    def test_ignores_prior_generated_blocks(self) -> None:
+        text = (
+            "## Real Section\n\n"
+            "<!-- WIKI:GENERATED unit=a -->\n"
+            "#### Some projected heading\n"
+            "<!-- /WIKI:GENERATED -->\n\n"
+            "<!-- WIKI:GENERATED unit=b -->\n"
+        )
+        assert host_section_depth(text, text.index("<!-- WIKI:GENERATED unit=b")) == 2
+
+    def test_skips_why_headings(self) -> None:
+        text = "### Host\n\n## Why\n\nblah\n\n<!-- WIKI:GENERATED unit=b -->\n"
+        assert host_section_depth(text, text.index("<!-- WIKI:GENERATED unit=b")) == 3
+
+    def test_zero_when_nothing_precedes(self) -> None:
+        text = "<!-- WIKI:GENERATED unit=b -->\n"
+        assert host_section_depth(text, 0) == 0
+
+
+def _fake_unit(body: str):
+    return KnowledgeUnit(
+        id="unit-x",
+        kind="mixed",
+        title="X",
+        sources=[SourceRef(type="doc", path="README.md")],
+        body=body,
+    )
+
+
+class TestProjectionSymmetry:
+    def test_render_then_currency_check_agree(self, tmp_path: Path, monkeypatch) -> None:
+        doc = tmp_path / "README.md"
+        doc.write_text(
+            "### Host Section\n\n<!-- WIKI:GENERATED unit=unit-x -->\n\n<!-- /WIKI:GENERATED -->\n"
+        )
+        monkeypatch.setattr(
+            "portal.platform.wiki.render.load_unit",
+            lambda _id: _fake_unit("Body text.\n\n## Why\n\nBecause it is needed here always.\n"),
+        )
+        assert render_unit_into_doc(doc, "unit-x") is True
+        assert "#### Why" in doc.read_text()
+        assert check_generated_blocks_current(tmp_path, doc_paths=[doc]) == []
+
+    def test_second_render_is_idempotent(self, tmp_path: Path, monkeypatch) -> None:
+        doc = tmp_path / "README.md"
+        doc.write_text(
+            "### Host\n\n<!-- WIKI:GENERATED unit=unit-x -->\n\n<!-- /WIKI:GENERATED -->\n"
+        )
+        monkeypatch.setattr(
+            "portal.platform.wiki.render.load_unit",
+            lambda _id: _fake_unit(
+                "Text.\n\n## Why\n\nA sufficiently long rationale sentence here.\n"
+            ),
+        )
+        assert render_unit_into_doc(doc, "unit-x") is True
+        assert render_unit_into_doc(doc, "unit-x") is False
 
 
 class TestRenderReport:

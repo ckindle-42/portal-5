@@ -48,18 +48,18 @@ Mechanical termination exists so migration is never an open-ended rewrite campai
 ### Migration coverage
 
 <!-- WIKI:GENERATED unit=unit-fact-doc-migration-coverage -->
-# Doc migration coverage (4/23 docs migrated, 17.4%)
+#### Doc migration coverage (4/23 docs migrated, 17.4%)
 
 Total generated blocks across migrated docs: 112
 
-## Migrated docs (content-hash gate only)
+##### Migrated docs (content-hash gate only)
 
 - `README.md`
 - `docs/HOWTO.md`
 - `docs/ADMIN_GUIDE.md`
 - `docs/USER_GUIDE.md`
 
-## Unmigrated docs
+##### Unmigrated docs
 
 - `P5_ROADMAP.md`
 - `KNOWN_ISSUES.md`
@@ -81,7 +81,7 @@ Total generated blocks across migrated docs: 112
 - `tests/PORTAL5_BENCH_EXECUTE_V4.md`
 - `tests/PORTAL5_BENCH_SEC_EXECUTE_V3.md`
 
-## Why
+##### Why
 
 The migration numbers come from `render_report()` in `portal/platform/wiki/render.py`, which classifies every Tier-1 doc as migrated, unmigrated, or gamed and counts the generated blocks. Deriving the coverage figure from that same function keeps the documented migration state and the one the renderer actually computes identical.
 <!-- /WIKI:GENERATED -->

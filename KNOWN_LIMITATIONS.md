@@ -127,7 +127,7 @@ holding a correct build hostage to a multi-hour eval.
 ---
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-auto-rag-silent-miss -->
-### Auto-RAG context injection never ran, and failed as a cache miss (RESOLVED)
+##### Auto-RAG context injection never ran, and failed as a cache miss (RESOLVED)
 
 - **ID**: SEAM-V1-AUTORAG-001
 - **Status**: RESOLVED 2026-09-02 (TASK_RAG_COMPOSITION_SEAM_V1 P1). The feature
@@ -166,7 +166,7 @@ holding a correct build hostage to a multi-hour eval.
   or a deliberate route to `kb_search_all` (which carries cross-corpus exposure
   between, e.g., a security workspace and compliance content).
 
-## Why
+#### Why
 
 The failure was invisible for the same reason a paraphrased traceback was: the
 signal it produced — `outcome="miss"` — is a legitimate normal state, so nothing
@@ -180,7 +180,7 @@ a regression.
 ---
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-cip-register-behind-published-versions -->
-### CIP register — version divergence, Attachment-part shortfall, newer versions published
+##### CIP register — version divergence, Attachment-part shortfall, newer versions published
 
 - **ID**: T3-COMPLIANCE-REG-001
 - **Status**: items 1 and 2 RESOLVED; item 3 OPEN (documented). The engine
@@ -218,7 +218,7 @@ a regression.
      one. The register should be rebuilt on whichever versions are enforceable
      once those dates are confirmed against NERC's schedule.
 
-## Why
+#### Why
 
 Recording this keeps the honest position visible: the register is a real
 improvement over a paraphrased map on superseded versions, but it is not
@@ -231,7 +231,7 @@ follow-on.
 ---
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-compliance-implicit-change-recall -->
-### CIP change pipeline — implicit-change detection recall ceiling
+##### CIP change pipeline — implicit-change detection recall ceiling
 
 - **ID**: T4-COMPLIANCE-CHANGE-001
 - **Status**: OPEN (documented). Phase 3 verification publishes false-negative
@@ -260,7 +260,7 @@ follow-on.
   `reports/compliance/REGISTER_COMPLETENESS_V1.md` (supersedes the
   `CHANGE_PIPELINE_V1.md` figures).
 
-## Why
+#### Why
 
 Stating this ceiling is the difference between a tool an SME can calibrate
 against and one they will eventually trust past its evidence. The failure mode
@@ -273,7 +273,7 @@ that nothing changed in the register's extracted surface.
 ---
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-vl-text-gate-tuned-against-manufactured-collision -->
-### VL_TEXT_GATE — τ was fitted to an index the ingest doubled
+##### VL_TEXT_GATE — τ was fitted to an index the ingest doubled
 
 - **ID**: T2-RAG-TAU-001
 - **Status**: OPEN (documented). The figure-scoped visual arm
@@ -308,7 +308,7 @@ that nothing changed in the register's extracted surface.
   stage-set stamp (check `HD`) now forces a re-ingest when any of them changes,
   and this unit is the reminder to re-measure τ with it.
 
-## Why
+#### Why
 
 `prose-cip-07` — the archetypal compliance question, "how does CIP-002
 categorize BES Cyber Systems" — sat outside the top 5 across three builds,
@@ -1198,14 +1198,14 @@ Recording both gate failures with their specific numbers (49GB rung, no TurboQua
 ---
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-minimax-music3-mlx -->
-### MiniMax-Music3-MLX Apple-Silicon-Only, No Continuation, Community License
+##### MiniMax-Music3-MLX Apple-Silicon-Only, No Continuation, Community License
 
 - **ID**: P5-MUSIC-MINIMAX-001
 - **Description**: `music_minimax_mcp.py` uses PocketAiHub/MiniMax-Music3-MLX, a native MLX port with no CPU/CUDA/Linux fallback. Batch size is one. It has no clip-editing or continuation capability.
 - **Impact**: This engine is unavailable off Apple Silicon. Output falls under the MiniMax-Music3 Community License, including its commercial attribution and revenue conditions.
 - **Mitigation**: `_launch_install_music_minimax` refuses non-arm64 installs. There is currently no editing/continuation workaround in the active fleet — ACE-Step-1.5 provided this (task_type="repaint"/"cover") but was disabled 2026-08-27 after the dual-engine comparison (see `unit-known-limitations-acestep15-mlx-backend`); its module code remains in the repo if re-enabling to regain that capability is ever worthwhile.
 
-## Why
+#### Why
 
 The architecture and license constraints need to remain visible at operation time because both can turn an otherwise successful local install into an unusable or non-compliant deployment. Keeping them in the generated register makes hardware eligibility and output obligations reviewable before an operator commits to this backend.
 <!-- /WIKI:GENERATED -->
@@ -1213,7 +1213,7 @@ The architecture and license constraints need to remain visible at operation tim
 ---
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-acestep15-mlx-backend -->
-### ACE-Step-1.5 Disabled After Dual-Engine Comparison — Memory Ceiling, Non-Deterministic Vocal Captioning, Quality
+##### ACE-Step-1.5 Disabled After Dual-Engine Comparison — Memory Ceiling, Non-Deterministic Vocal Captioning, Quality
 
 - **ID**: P5-MUSIC-ACESTEP-001
 - **Status**: **Disabled 2026-08-27** after `TASK_MUSIC_DUAL_BACKEND`'s `[GATE:
@@ -1263,7 +1263,7 @@ The architecture and license constraints need to remain visible at operation tim
   to make future A/B comparisons reproducible.
 - **Note**: ACE-Step-1.5 is MIT-licensed.
 
-## Why
+#### Why
 
 The two-process failure mode, the memory-ceiling math, and the non-deterministic
 captioning are specific to this integration and this hardware, not general
@@ -1276,7 +1276,7 @@ re-evaluating.
 ---
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-compliance-engine-had-no-route -->
-### An engine with no route is an engine that does not exist (RESOLVED)
+##### An engine with no route is an engine that does not exist (RESOLVED)
 
 - **ID**: T5-COMPLIANCE-LANDING-001
 - **Status**: RESOLVED `TASK_COMPLIANCE_ENGINE_LANDING_V1`. Six prior tasks
@@ -1316,7 +1316,7 @@ re-evaluating.
   actually fail: removing one dispatch entry flips the probe from
   `all_reachable:12` to `unreachable:compliance_scope`.
 
-## Why
+#### Why
 
 A probe that only checks a tool exists somewhere in the codebase would have
 passed for six tasks straight while the workspace's model never saw it — that
@@ -1330,7 +1330,7 @@ one of the three links and having every existing test stay green.
 ---
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-compliance-scope-was-gated-on-data-the-corpus-already-answers -->
-### Do not gate on a question the data answers (RESOLVED)
+##### Do not gate on a question the data answers (RESOLVED)
 
 - **ID**: T5-COMPLIANCE-LANDING-002
 - **Status**: RESOLVED `TASK_COMPLIANCE_ENGINE_LANDING_V1` Phase 4.
@@ -1360,7 +1360,7 @@ one of the three links and having every existing test stay green.
   risk this phase was written to prevent, just moved one level down. The
   queue item names this explicitly so an operator can correct it.
 
-## Why
+#### Why
 
 The applicability gate was carried forward unexamined across three follow-on
 tasks because "operator input" reads as a reasonable, conservative default —
@@ -1375,7 +1375,7 @@ time.
 ---
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-compliance-review-queue-not-a-gate -->
-### A queue is not a gate
+##### A queue is not a gate
 
 - **ID**: T5-COMPLIANCE-LANDING-003
 - **Status**: LANDED `TASK_COMPLIANCE_ENGINE_LANDING_V1` Phase 1, live-verified
@@ -1407,7 +1407,7 @@ time.
   f-string; verified a `' OR '1'='1` payload is rejected with `ValueError`
   rather than reaching the filter.
 
-## Why
+#### Why
 
 A gate stops the system until a person answers; a queue lets the system keep
 answering with its best evidence while the person catches up on their own
