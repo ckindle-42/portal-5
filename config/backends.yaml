@@ -936,6 +936,40 @@ backends:
     supports_tools: true
   - id: huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit
     supports_tools: true
+  # orcarouter/Nex-N2.5-mini-Uncensored-MLX (4bit subfolder) added 2026-09-10
+  # (TASK_OMLX_NEX_N25_MINI_BRINGUP_V1). Abliterated (refusal-orthogonalized)
+  # MLX affine 4-bit build of nex-agi/Nex-N2.5-mini — a 35B / 3.5B-active
+  # agentic multimodal MoE on the Qwen3.5-MoE arch (qwen3_5_moe, 256 routed
+  # experts top-8 + 1 shared, 3:1 hybrid gated-delta-net / full attention,
+  # 40 layers, 262K native ctx, Qwen3-VL vision tower). Dynamic mixed-precision
+  # quant (routed experts 4-bit, attention pinned 8-bit, router/delta-net/norms
+  # BF16) — ~19.85GB on disk, ~20.8GB loaded on this host. Bench-only candidate
+  # on the shadow-shift oMLX-security path; the bench-nex-n25-mini-uncensored
+  # workspace in config/portal.yaml carries the model_hint. No alias — auto-
+  # security's 8 role variants are byte-unchanged. No GGUF/Ollama fallback for
+  # the MLX id (a separate GGUF bench arm exists where llama.cpp supports the
+  # arch).
+  #
+  # PROBED live 2026-09-10 (oMLX 0.6.4, host stack up, ~20.8GB admitted):
+  #   - load ~6.2s cold; decode ~65 tok/s sustained on this M4 Pro (8/256
+  #     experts active per token keeps decode far above what 35B suggests).
+  #   - tool calls: CLEAN out of the box. oMLX 0.6.4 parses the template's
+  #     XML <tool_call><function=NAME><parameter=…> format — verified
+  #     get_weather({"location": "Little Rock, AR"}), finish_reason tool_calls.
+  #     Hence supports_tools: true (genuine, not an unprobed default).
+  #   - thinking is gated on `reasoning_effort` (NOT enable_thinking): default
+  #     / unset opens <think>; reasoning_effort="none" suppresses it. Reasoning
+  #     goes to the response's reasoning_content field, not content.
+  #   - VISION NOT FUNCTIONAL on oMLX 0.6.4: its bundled mlx-vlm 0.6.3 loads
+  #     qwen3_5_moe text-only — an inline image_url adds no vision tokens and
+  #     is silently ignored. The card wants mlx-vlm >= 0.7.0 for the tower.
+  #     Text + tools + reasoning are the working surface here.
+  #   - stop-token gotcha (card): no generation_config.json upstream, so a
+  #     config.json fallback uses eos_token_id 248044; <|im_end|> (248046) is
+  #     NOT a default stop token. oMLX's tokenizer_config sets eos_token
+  #     <|im_end|>, so oMLX stops correctly — a raw mlx_lm loader would not.
+  - id: Nex-N2.5-mini-Uncensored-MLX-4bit
+    supports_tools: true
   priority: 10
   aliases:
     hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k: VulnLLM-R-7B-4bit
@@ -1063,6 +1097,8 @@ workspace_routing:
   - general
   bench-qwen38-flash-next-reap288:
   - coding
+  bench-nex-n25-mini-uncensored:
+  - general
   bench-gemma4-26b-optiq:
   - general
   bench-huihui-qwen36-27b:

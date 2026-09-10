@@ -126,12 +126,12 @@ seed, never hand-written.
 |---|---|---|
 | Modules | 15 enabled of 16 | `config/modules.generated.yaml` |
 | Functional workspaces | 25 | `config/portal.yaml` `workspaces` |
-| Benchmark workspaces | 56 | `config/portal.yaml` `workspaces` (eval module) |
-| Workspaces total | 81 | `config/portal.yaml` `workspaces` |
+| Benchmark workspaces | 57 | `config/portal.yaml` `workspaces` (eval module) |
+| Workspaces total | 82 | `config/portal.yaml` `workspaces` |
 | Personas | 135 | `config/personas/` |
 | MCP tool servers | 33 | `config/portal.yaml` `mcp_fleet` |
 
-That is 15 modules enabled of 16 modules total, 25 functional workspaces (56 benchmark workspaces, 81 workspaces total), 135 personas and 33 MCP tool servers — plus the Telegram and Slack channels, which carry no count of their own.
+That is 15 modules enabled of 16 modules total, 25 functional workspaces (57 benchmark workspaces, 82 workspaces total), 135 personas and 33 MCP tool servers — plus the Telegram and Slack channels, which carry no count of their own.
 
 ### Why
 
@@ -366,9 +366,9 @@ and a `tools:` array (the tool grants), both defined in `config/portal.yaml` and
 loaded at import time into `WORKSPACES` by `portal/platform/inference/router/workspaces.py`
 via `get_workspace_dict()`.
 
-Portal 5 includes **25 functional workspaces** (plus 56 benchmark workspaces for
+Portal 5 includes **25 functional workspaces** (plus 57 benchmark workspaces for
 performance comparison, gated off by default behind the `eval` module, which is
-disabled unless `PORTAL_ENABLE_EVAL=1` is set; 81 total —
+disabled unless `PORTAL_ENABLE_EVAL=1` is set; 82 total —
 `python3 -c "import yaml; d=yaml.safe_load(open('config/portal.yaml')); print(len(d['workspaces']))"`).
 Benchmark workspaces are excluded from routing when the eval module is off, so the
 daily model dropdown stays limited to the functional set.
@@ -449,7 +449,7 @@ List the current set with:
 python3 -c "from portal.platform.inference.router.workspaces import WORKSPACES; [print(k) for k in sorted(WORKSPACES) if k.startswith('bench-')]"
 ```
 
-The live count is currently 56 workspaces. Verified examples from `config/portal.yaml`:
+The live count is currently 57 workspaces. Verified examples from `config/portal.yaml`:
 
 | Workspace | Pinned model (`model_hint`) |
 |---|---|
