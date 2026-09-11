@@ -1,11 +1,11 @@
 ---
 id: unit-fact-doc-migration-coverage
 kind: what
-title: 4/23 docs migrated (17.4%)
+title: 3/23 docs migrated (13.0%)
 sources:
 - type: code
   path: portal/platform/wiki/render.py
-  commit: 0da125707238
+  commit: 7e690402aa02
   section: render_report
 claims: []
 confidence: high
@@ -14,22 +14,22 @@ tags:
 - wiki
 - migration
 created_at: 1784941448.187764
-updated_at: 1789064654.5615191
+updated_at: 1789088514.223209
 ---
 
-# Doc migration coverage (4/23 docs migrated, 17.4%)
+# Doc migration coverage (3/23 docs migrated, 13.0%)
 
-Total generated blocks across migrated docs: 106
+Total generated blocks across migrated docs: 81
 
 ## Migrated docs (content-hash gate only)
 
-- `README.md`
 - `docs/HOWTO.md`
 - `docs/ADMIN_GUIDE.md`
 - `docs/USER_GUIDE.md`
 
 ## Unmigrated docs
 
+- `README.md`
 - `P5_ROADMAP.md`
 - `KNOWN_ISSUES.md`
 - `KNOWN_LIMITATIONS.md`
