@@ -875,3 +875,4 @@
 - `unit-readme-then-free-disk-space-and-retry-launch-sh-up` | 2026-09-10 | 82a65e9766593f1e0e933bd6c72e78dd300486df | merged into unit-readme-troubleshooting (Phase C, TASK_README_VOICE_V1)
 - `unit-readme-wait-for-ollama-to-finish-loading-then-try-again` | 2026-09-10 | 82a65e9766593f1e0e933bd6c72e78dd300486df | merged into unit-readme-troubleshooting (Phase C, TASK_README_VOICE_V1)
 - `unit-readme-stop-the-conflicting-service-then-launch-sh-up` | 2026-09-10 | 82a65e9766593f1e0e933bd6c72e78dd300486df | merged into unit-readme-troubleshooting (Phase C, TASK_README_VOICE_V1)
+- `unit-model-catalog-hf-co-yuxinlu1-gemma-4-12b-agentic-fable5-composer2-5-v2-3-5x-tau2-gguf-q4-k-m` | 2026-09-12 | 2704ef21dfe7c5808d577c58c575900f828d739a | hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M and its bench-gemma4-12b-agentic workspace were removed 2026-09-12 (WFE fleet cleanup, register correctly REMOVED_CLOSED for this bench-only identity)

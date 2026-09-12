@@ -14,8 +14,8 @@ tags:
 - T1526
 - technique
 - signature
-created_at: 1788800246.434314
-updated_at: 1788800246.434314
+created_at: 1789196393.373628
+updated_at: 1789196393.373628
 ---
 
 # T1526 — Cloud Service Discovery — enumeration of cloud resources via Describe/List APIs [KEY: CloudTrail Describe/List enumeration API]

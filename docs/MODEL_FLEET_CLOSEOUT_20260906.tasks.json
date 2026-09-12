@@ -58,7 +58,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#baronllm-q6_k"
       ],
       "verified_storage_effect_bytes": 6595996024,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:bully-ae9fa52b558fbce0:latest",
@@ -340,7 +340,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#fredrezones55_Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx24k",
@@ -470,7 +470,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#gemma4-12b-it-qat"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:gemma4:12b-it-qat-ctx8k",
@@ -583,7 +583,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#gemma4-26b-a4b-it-qat"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:gemma4:26b-a4b-it-qat-ctx8k",
@@ -658,7 +658,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#gemma4-31b-it-qat"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:gemma4:31b-it-qat-ctx8k",
@@ -808,8 +808,8 @@
       "decision_question": "Where does this model ACTUALLY belong in real use?",
       "test_if_needed": "fast sub-agent lane discovery: router-assist/drafting/classifier assist tasks vs E4B-OBLITERATED (its family holds the router default)",
       "stop_rule": "no utility niche vs router default + daily driver -> REMOVED",
-      "final_disposition": "RETAINED_FOR_PURPOSE",
-      "decision_reason": "re-tiered per operator guidance 2026-09-07 (short-prompt instruments cannot settle real-usability fit): 'set out for one task, works better at another' \u2014 e4b family's non-obliterated siblings were never tried as fast utility seats",
+      "final_disposition": "INTEGRATED",
+      "decision_reason": "Integrated 2026-09-12: WFE wfe_full_20260911 stop rule met (1.00/1.00 vs incumbent's 0.67/1.00). Wired as tools-specialist.variants.fast.",
       "purpose_or_replacement": "fold bench seat + backends registration; remove alias/weights; shared survivor weights stay intact",
       "evidence_refs": [
         "dep scan: no production ref",
@@ -820,7 +820,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#gemma4-e4b-it-qat"
       ],
       "verified_storage_effect_bytes": 6146098200,
-      "closed_at": "2026-09-07 (determination; removal pending approval)",
+      "closed_at": "2026-09-12 (WFE wfe_full_20260911 integration)",
       "purpose": "USE-PROBE tier \u2014 bounded real-work assignment: fast sub-agent lane discovery: router-assist/drafting/classifier assist tasks vs E4B-OBLITERATED (its family holds the router default)"
     },
     {
@@ -1530,7 +1530,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_HauhauCS_Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:hf.co/Nguuma/security-slm-unsloth-1.5b:latest",
@@ -1672,7 +1672,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_bartowski_Qwen_Qwen3.6-27B-GGUF-Q4_K_M"
       ],
       "verified_storage_effect_bytes": null,
-      "closed_at": "2026-09-07 (executed-test evidence)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf",
@@ -1771,7 +1771,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_bartowski_huihui-ai_Qwen3-Coder-Next-abliterated-GGUF-Q4_K_M"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k",
@@ -1830,7 +1830,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_coder543_North-Mini-Code-1.0-QAD-GGUF-NVFP4"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4-ctx8k",
@@ -1889,7 +1889,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_deepreinforce-ai_Ornith-1.0-35B-GGUF-Q4_K_M"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M-ctx64k",
@@ -2067,7 +2067,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_gaston-parravicini_LFM2.5-8B-A1B-Uncensored-Gaston-GGUF-Q4_K_M"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k",
@@ -2228,7 +2228,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_mradermacher_Ornith-1.5-35B-A3B-Uncensored-GGUF-Q4_K_M"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M",
@@ -2260,7 +2260,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_mradermacher_Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF-Q4_K_M"
       ],
       "verified_storage_effect_bytes": 6251324899,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M",
@@ -2301,7 +2301,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_mradermacher_VulnLLM-R-7B-GGUF-Q4_K_M"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
@@ -2364,7 +2364,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_mradermacher_gemma-4-26B-A4B-it-heretic-GGUF-Q4_K_M"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:q4_k_m-ctx16k",
@@ -2393,7 +2393,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_mradermacher_gemma-4-26B-A4B-it-heretic-GGUF-q4_k_m-ctx16k"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf",
@@ -2674,7 +2674,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_unsloth_GLM-4.7-Flash-REAP-23B-A3B-GGUF-UD-Q4_K_XL-ctx64k"
       ],
       "verified_storage_effect_bytes": null,
-      "closed_at": "2026-09-07 (executed-test evidence)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0",
@@ -2774,7 +2774,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_unsloth_Qwen-AgentWorld-35B-A3B-GGUF-UD-Q4_K_XL"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k",
@@ -2846,7 +2846,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_unsloth_Qwen3.6-35B-A3B-GGUF-UD-Q4_K_XL"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k",
@@ -2981,7 +2981,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_yuxinlu1_gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF-Q4_K_M"
       ],
       "verified_storage_effect_bytes": 7380901298,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:huihui_ai/Qwen3.6-abliterated:27b",
@@ -3088,7 +3088,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#huihui_ai_baronllm-abliterated-latest"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:huihui_ai/baronllm-abliterated:latest-ctx8k",
@@ -3184,7 +3184,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#huihui_ai_qwen3-abliterated-14b-v2"
       ],
       "verified_storage_effect_bytes": 9002251452,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:huihui_ai/qwen3.5-abliterated:9b",
@@ -3340,8 +3340,8 @@
       "decision_question": "Where does this model ACTUALLY belong in real use?",
       "test_if_needed": "auto-coding/splunkdetectionauthor-style real tasks in the IDE flow WITH tools (read->explore->edit->verify), 10+ real repo tasks",
       "stop_rule": "completes real tool-loop tasks >= incumbent lane -> INTEGRATE as fast-repair lane; else REMOVED",
-      "final_disposition": "RETAINED_FOR_PURPOSE",
-      "decision_reason": "re-tiered per operator guidance 2026-09-07 (short-prompt instruments cannot settle real-usability fit): 100% repair-elasticity + 7x field speed never tested in the actual tool loop; bare codegen exam measures a different operating point",
+      "final_disposition": "INTEGRATED",
+      "decision_reason": "Integrated 2026-09-12: WFE wfe_full_20260911 stop rule met (completes real tool-loop tasks, no incumbent to lose to). Wired as auto-coding.variants.fast-repair with a proper -ctx32k derived tag (raw pull had no baked num_ctx). bench-kat-coder retired \u2014 its contender question is resolved.",
       "purpose_or_replacement": null,
       "evidence_refs": [
         "BENCH_REPAIR_20260907T081156Z.md",
@@ -3352,7 +3352,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#kat-coder-v2.5-dev-Q4_K_M"
       ],
       "verified_storage_effect_bytes": null,
-      "closed_at": "2026-09-07 (executed-test evidence)",
+      "closed_at": "2026-09-12 (WFE wfe_full_20260911 integration)",
       "purpose": "USE-PROBE tier \u2014 bounded real-work assignment: auto-coding/splunkdetectionauthor-style real tasks in the IDE flow WITH tools (read->explore->edit->verify), 10+ real repo tasks"
     },
     {
@@ -3391,7 +3391,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#laguna-xs.2-Q4_K_M"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:laguna-xs.2:Q4_K_M-ctx64k",
@@ -3463,7 +3463,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#lfm2.5-8b"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:lfm2.5:8b-ctx8k",
@@ -3745,8 +3745,8 @@
       "decision_question": "Does Qwen3.8-uncensored beat the incumbent on refusal-preservation AND utility?",
       "test_if_needed": "refusal probe + 10-problem coding subset",
       "stop_rule": "no win on either -> remove",
-      "final_disposition": "RETAINED_FOR_PURPOSE",
-      "decision_reason": "all gates passed; no production seat displaced",
+      "final_disposition": "INTEGRATED",
+      "decision_reason": "Integrated 2026-09-12: WFE wfe_full_20260911 stop rule met (1.00/0.90 coding rates, best in the campaign). Wired as auto-coding.variants.uncensored-fast \u2014 explicitly NOT the creative seat (0/9 on its own home:creative lane). bench-orcarouter-q38 retired.",
       "purpose_or_replacement": "VERIFIED uncensored coding specialist \u2014 passed all pre-registered gates: repair exam 100%/100% (ties best-ever), refusal 1.0/0% vs incumbent 0.75/33%, judgment parity 0.952/0.90; manual/bench-only until operator optionally wires an uncensored-coding variant; omnicoder2-9b small-lane NOT displaced (30+ persona pins, intent: small)",
       "evidence_refs": [
         "BENCH_REPAIR_20260907T081156Z.md",
@@ -3757,7 +3757,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#orcarouter_Qwen3.8-27B-Uncensored-Q4_K_M"
       ],
       "verified_storage_effect_bytes": null,
-      "closed_at": "2026-09-07 (executed-test evidence)"
+      "closed_at": "2026-09-12 (WFE wfe_full_20260911 integration)"
     },
     {
       "item_id": "ollama:phi4-mini-reasoning:latest-ctx24k",
@@ -4085,8 +4085,8 @@
       "decision_question": null,
       "test_if_needed": null,
       "stop_rule": null,
-      "final_disposition": "REMOVED_CLOSED",
-      "decision_reason": "no home: bench-only / registered-only / dashboards-only (ruling 2026-09-07: bench-only does not confer a purpose)",
+      "final_disposition": "RETAINED_FOR_PURPOSE",
+      "decision_reason": "Register correction 2026-09-12: the original REMOVED_CLOSED ruling ('no home... dep scan: no production ref') directly contradicted this same item's own known_nonbench_config_references field (auto-coding.variants.uncensored.model_hint), which was populated but never checked before the ruling. It is a real, live, gated variant (config comment: BENCH-GATED PROVISIONAL, not a default; promotion requires a passing GC/CC bench run + separate operator promotion task) serving the auto-coding uncensored variant. Retained pending that promotion decision, not removed.",
       "purpose_or_replacement": "fold bench seat + backends registration; remove alias/weights; shared survivor weights stay intact",
       "evidence_refs": [
         "dep scan: no production ref",
@@ -4096,7 +4096,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#portal5_omnicoder2-9b-q4_K_M-ctx256k"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": null
     },
     {
       "item_id": "ollama:portal5/ornith15-35b:q4_K_M-ctx256k",
@@ -4252,7 +4252,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#qwen3-coder-next-latest"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:qwen3-coder-next:latest-ctx64k",
@@ -4421,7 +4421,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#qwen3-coder-30b-a3b-q4_K_M-ctx8k"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:qwen3-vl:2b-instruct-q4_K_M",
@@ -4757,7 +4757,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#supergemma4-26b-uncensored-Q4_K_M"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
     },
     {
       "item_id": "ollama:supergemma4-26b-uncensored:Q4_K_M-ctx64k",

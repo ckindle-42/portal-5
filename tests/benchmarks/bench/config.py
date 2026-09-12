@@ -208,7 +208,6 @@ MATH_MAX_TOKENS = 1024
 # failure this table exists to prevent.
 REASONING_WORKSPACES: frozenset[str] = frozenset(
     {
-        "bench-laguna",
         "bench-nex-n2-mini",  # Nex-N2-mini (Qwen3.5-35B-A3B MoE) — emits_reasoning
         "auto-data",  # deepseek-r1:32b-q8_0 — R1 chain-of-thought
         "auto-daily",  # phi4-reasoning:plus (?model= override; formerly auto-phi4)

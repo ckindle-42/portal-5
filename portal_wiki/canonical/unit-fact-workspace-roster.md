@@ -1,11 +1,11 @@
 ---
 id: unit-fact-workspace-roster
 kind: what
-title: 25 production + 53 eval workspaces
+title: 25 production + 21 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: ac94ba56a044
+  commit: 2704ef21dfe7
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1789191651.713867
+updated_at: 1789195855.39727
 ---
 
-# Workspace roster (25 production, 53 eval, 78 total)
+# Workspace roster (25 production, 21 eval, 46 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -51,59 +51,27 @@ updated_at: 1789191651.713867
 
 ## Eval/bench workspaces (need PORTAL_ENABLE_EVAL=1)
 
-- `bench-agentworld`
-- `bench-baronllm-q6k`
-- `bench-cad-prior`
 - `bench-e2b-pentest`
-- `bench-exec-exploit`
 - `bench-exec-reasoning`
-- `bench-exec-recon`
 - `bench-foundation-sec-8b-reasoning`
-- `bench-gemma4-12b`
-- `bench-gemma4-12b-agentic`
 - `bench-gemma4-26b-optiq`
-- `bench-gemma4-26b-qat`
-- `bench-gemma4-31b-qat`
 - `bench-gemma4-e4b-qat`
-- `bench-gemma4-heretic-coder`
 - `bench-glm`
-- `bench-glm-reap`
 - `bench-granite41-30b`
 - `bench-granite41-8b`
-- `bench-hauhaucs-coder`
 - `bench-hermes3`
 - `bench-huihui-qwen36-27b`
 - `bench-huihui-qwen36-35b-a3b`
-- `bench-kat-coder`
-- `bench-laguna`
-- `bench-lfm25-8b`
-- `bench-lfm25-8b-uncensored`
 - `bench-magistral-small`
 - `bench-mistral-small-3-2`
-- `bench-moecad`
 - `bench-nex-n2-mini`
 - `bench-nex-n25-mini-uncensored`
-- `bench-north-mini-code`
 - `bench-omnicoder2`
-- `bench-orcarouter-q38`
-- `bench-ornith-35b`
-- `bench-ornith15-coder`
-- `bench-qwable-35b`
-- `bench-qwen3-14b-abliterated`
 - `bench-qwen3-coder-30b`
-- `bench-qwen3-coder-next`
-- `bench-qwen3-coder-next-abliterated`
-- `bench-qwen35-9b-heretic-vision`
 - `bench-qwen35-abliterated`
-- `bench-qwen36-27b-optiq`
-- `bench-qwen36-35b-a3b-ud`
 - `bench-qwen36-cad`
-- `bench-qwen36-hauhaucs`
 - `bench-qwen38-27b`
 - `bench-qwen38-flash-next-reap288`
-- `bench-supergemma4-sec`
-- `bench-vulnllm-r-7b`
-- `bench-vulnllm-r7b`
 
 ## Why
 

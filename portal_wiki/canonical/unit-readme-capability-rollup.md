@@ -5,18 +5,18 @@ title: Portal 5 capability rollup
 sources:
 - type: code
   path: config/portal.yaml
-  commit: ac94ba56a044
+  commit: 2704ef21dfe7
   section: workspaces
 - type: code
   path: config/portal.yaml
-  commit: ac94ba56a044
+  commit: 2704ef21dfe7
   section: mcp_fleet
 - type: code
   path: config/personas/
-  commit: ac94ba56a044
+  commit: 2704ef21dfe7
 - type: code
   path: config/modules.generated.yaml
-  commit: ac94ba56a044
+  commit: 2704ef21dfe7
 claims:
 - probe: modules.enabled.count
   pattern: '{value} modules enabled'
@@ -38,7 +38,7 @@ tags:
 - readme
 - rollup
 created_at: 1789063576.521034
-updated_at: 1789191652.47403
+updated_at: 1789195856.0308511
 ---
 
 Portal 5 is one platform assembled from a small set of switchable
@@ -49,12 +49,12 @@ seed, never hand-written.
 |---|---|---|
 | Modules | 15 enabled of 16 | `config/modules.generated.yaml` |
 | Functional workspaces | 25 | `config/portal.yaml` `workspaces` |
-| Benchmark workspaces | 53 | `config/portal.yaml` `workspaces` (eval module) |
-| Workspaces total | 78 | `config/portal.yaml` `workspaces` |
-| Personas | 133 | `config/personas/` |
+| Benchmark workspaces | 21 | `config/portal.yaml` `workspaces` (eval module) |
+| Workspaces total | 46 | `config/portal.yaml` `workspaces` |
+| Personas | 122 | `config/personas/` |
 | MCP tool servers | 33 | `config/portal.yaml` `mcp_fleet` |
 
-That is 15 modules enabled of 16 modules total, 25 functional workspaces (53 benchmark workspaces, 78 workspaces total), 133 personas and 33 MCP tool servers — plus the Telegram and Slack channels, which carry no count of their own.
+That is 15 modules enabled of 16 modules total, 25 functional workspaces (21 benchmark workspaces, 46 workspaces total), 122 personas and 33 MCP tool servers — plus the Telegram and Slack channels, which carry no count of their own.
 
 ## Why
 

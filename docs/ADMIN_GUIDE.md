@@ -372,7 +372,7 @@ Router quality is a measured property, not an assumption — the bench pins the 
 ### Personas
 
 <!-- WIKI:GENERATED unit=unit-fact-persona-roster -->
-#### Persona roster (133 personas)
+#### Persona roster (122 personas)
 
 | Slug | Module | Workspace | Model Pin |
 |---|---|---|---|
@@ -380,29 +380,18 @@ Router quality is a measured property, not an assumption — the bench pins the 
 | `agenticheavy` | coding | `auto-coding` | — |
 | `agenticlite` | coding | `auto-coding` | — |
 | `agentorchestrator` | coding | `auto-coding` | — |
-| `bench-gemma4-12b` | eval | `bench-gemma4-12b` | — |
 | `bench-gemma4-26b-optiq` | eval | `bench-gemma4-26b-optiq` | — |
-| `bench-gemma4-26b-qat` | eval | `bench-gemma4-26b-qat` | — |
-| `bench-gemma4-31b-qat` | eval | `bench-gemma4-31b-qat` | — |
 | `bench-gemma4-e4b-qat` | eval | `bench-gemma4-e4b-qat` | — |
 | `bench-glm` | eval | `bench-glm` | — |
 | `bench-granite41-30b` | eval | `bench-granite41-30b` | — |
 | `bench-granite41-8b` | eval | `bench-granite41-8b` | — |
 | `bench-huihui-qwen36-27b` | eval | `bench-huihui-qwen36-27b` | — |
 | `bench-huihui-qwen36-35b-a3b` | eval | `bench-huihui-qwen36-35b-a3b` | — |
-| `bench-laguna` | eval | `bench-laguna` | — |
-| `bench-lfm25-8b` | eval | `bench-lfm25-8b` | — |
-| `bench-lfm25-8b-uncensored` | eval | `bench-lfm25-8b-uncensored` | — |
 | `bench-nex-n2-mini` | eval | `bench-nex-n2-mini` | — |
 | `bench-omnicoder2` | eval | `bench-omnicoder2` | — |
 | `bench-qwen35-abliterated` | eval | `bench-qwen35-abliterated` | — |
-| `bench-qwen36-27b-optiq` | eval | `bench-qwen36-27b-optiq` | — |
-| `bench-qwen36-35b-a3b-ud` | eval | `bench-qwen36-35b-a3b-ud` | — |
 | `bench-qwen36-abl-27b` | eval | `bench-huihui-qwen36-27b` | — |
-| `bench-qwen36-hauhaucs` | eval | `bench-qwen36-hauhaucs` | — |
 | `bench-qwen3-coder-30b` | eval | `bench-qwen3-coder-30b` | — |
-| `bench-qwen3-coder-next` | eval | `bench-qwen3-coder-next` | — |
-| `bench-qwen3-coder-next-abliterated` | eval | `bench-qwen3-coder-next-abliterated` | — |
 | `blueteamdefender` | security | `auto-security` | — |
 | `bugdiscoverycodeassistant` | coding | `auto-coding` | — |
 | `businessanalyst` | general | `auto-reasoning` | — |
@@ -518,7 +507,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-#### Workspace roster (25 production, 53 eval, 78 total)
+#### Workspace roster (25 production, 21 eval, 46 total)
 
 ##### Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -552,59 +541,27 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 
 ##### Eval/bench workspaces (need PORTAL_ENABLE_EVAL=1)
 
-- `bench-agentworld`
-- `bench-baronllm-q6k`
-- `bench-cad-prior`
 - `bench-e2b-pentest`
-- `bench-exec-exploit`
 - `bench-exec-reasoning`
-- `bench-exec-recon`
 - `bench-foundation-sec-8b-reasoning`
-- `bench-gemma4-12b`
-- `bench-gemma4-12b-agentic`
 - `bench-gemma4-26b-optiq`
-- `bench-gemma4-26b-qat`
-- `bench-gemma4-31b-qat`
 - `bench-gemma4-e4b-qat`
-- `bench-gemma4-heretic-coder`
 - `bench-glm`
-- `bench-glm-reap`
 - `bench-granite41-30b`
 - `bench-granite41-8b`
-- `bench-hauhaucs-coder`
 - `bench-hermes3`
 - `bench-huihui-qwen36-27b`
 - `bench-huihui-qwen36-35b-a3b`
-- `bench-kat-coder`
-- `bench-laguna`
-- `bench-lfm25-8b`
-- `bench-lfm25-8b-uncensored`
 - `bench-magistral-small`
 - `bench-mistral-small-3-2`
-- `bench-moecad`
 - `bench-nex-n2-mini`
 - `bench-nex-n25-mini-uncensored`
-- `bench-north-mini-code`
 - `bench-omnicoder2`
-- `bench-orcarouter-q38`
-- `bench-ornith-35b`
-- `bench-ornith15-coder`
-- `bench-qwable-35b`
-- `bench-qwen3-14b-abliterated`
 - `bench-qwen3-coder-30b`
-- `bench-qwen3-coder-next`
-- `bench-qwen3-coder-next-abliterated`
-- `bench-qwen35-9b-heretic-vision`
 - `bench-qwen35-abliterated`
-- `bench-qwen36-27b-optiq`
-- `bench-qwen36-35b-a3b-ud`
 - `bench-qwen36-cad`
-- `bench-qwen36-hauhaucs`
 - `bench-qwen38-27b`
 - `bench-qwen38-flash-next-reap288`
-- `bench-supergemma4-sec`
-- `bench-vulnllm-r-7b`
-- `bench-vulnllm-r7b`
 
 ##### Why
 

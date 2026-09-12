@@ -15,8 +15,8 @@ tags:
 - T1098
 - technique
 - signature
-created_at: 1788800246.43362
-updated_at: 1788800246.43362
+created_at: 1789196393.373047
+updated_at: 1789196393.373047
 ---
 
 # T1098 — Account Manipulation — creation of credentials, users, roles, or policies in a cloud account [KEY: CloudTrail account-manipulation API (CreateAccessKey/CreateUser/CreateRole/…)]

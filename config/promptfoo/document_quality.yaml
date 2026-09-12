@@ -12,14 +12,14 @@ providers:
     config:
       temperature: 0
       num_predict: 1024
-  - id: ollama:chat:hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M
+  - id: ollama:chat:hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k
     label: auto-spl
     config:
       temperature: 0
       num_predict: 512
 defaultTest:
   options:
-    provider: ollama:chat:gemma4:26b-a4b-it-qat
+    provider: ollama:chat:gemma4:26b-a4b-it-qat-ctx8k
   assert:
     - type: latency
       threshold: 60000

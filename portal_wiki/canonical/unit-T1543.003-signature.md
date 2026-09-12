@@ -14,8 +14,8 @@ tags:
 - T1543.003
 - technique
 - signature
-created_at: 1788800246.43265
-updated_at: 1788800246.43265
+created_at: 1789196393.372104
+updated_at: 1789196393.372104
 ---
 
 # T1543.003 — Windows service creation — suspicious System 7045 service install [KEY: EventCode=7045 with a suspicious service image path]
