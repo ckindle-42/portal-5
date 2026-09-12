@@ -306,13 +306,22 @@ class Sandbox:
             return f"ERROR: {name} failed: {type(e).__name__}: {e}"
 
 
+def _unwrap_tool_name_envelope(parsed: dict) -> dict:
+    """Some models (command-r confirmed via WFE 2026-09-11) emit tool-call
+    arguments wrapped as {"tool_name": ..., "parameters": {...}} instead of
+    flat kwargs. Mirrors portal/platform/inference/router/tools.py."""
+    if set(parsed) <= {"tool_name", "parameters"} and isinstance(parsed.get("parameters"), dict):
+        return parsed["parameters"]
+    return parsed
+
+
 def normalize_tool_args(raw) -> tuple[dict, str | None]:
     """/api/chat returns a dict; /v1 returns a JSON string (OpenAI contract).
     Mirrors portal/platform/inference/router/tools.py:189."""
     if raw is None or raw == "":
         return {}, None
     if isinstance(raw, dict):
-        return raw, None
+        return _unwrap_tool_name_envelope(raw), None
     if isinstance(raw, str):
         try:
             parsed = json.loads(raw)
@@ -320,7 +329,7 @@ def normalize_tool_args(raw) -> tuple[dict, str | None]:
             return {}, f"invalid JSON arguments: {e}"
         if not isinstance(parsed, dict):
             return {}, f"arguments decoded to {type(parsed).__name__}, expected object"
-        return parsed, None
+        return _unwrap_tool_name_envelope(parsed), None
     return {}, f"unsupported arguments type {type(raw).__name__}"
 
 

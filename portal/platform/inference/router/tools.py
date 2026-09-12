@@ -40,6 +40,21 @@ _REQUIREMENT_LOOKUP_RE = re.compile(
 )
 
 
+def _unwrap_tool_name_envelope(arguments: dict) -> dict:
+    """Some models (command-r confirmed via WFE 2026-09-11) emit tool-call
+    arguments wrapped as {"tool_name": ..., "parameters": {...}} instead of
+    the OpenAI tool-call contract's flat kwargs — the function name is
+    already known from ``tool_call["function"]["name"]``, so every such call
+    dispatched with the wrapper keys instead of real parameters and failed
+    every turn. Unwrap it so the call still dispatches.
+    """
+    if set(arguments) <= {"tool_name", "parameters"} and isinstance(
+        arguments.get("parameters"), dict
+    ):
+        return arguments["parameters"]
+    return arguments
+
+
 def _last_user_content(messages: list[dict[str, Any]]) -> str:
     """Return the last user turn as plain text, including multimodal text parts."""
     for message in reversed(messages):
@@ -195,6 +210,7 @@ async def _dispatch_tool_call(
             "name": tool_name,
             "content": json.dumps({"error": f"Invalid JSON arguments: {arguments_str[:200]}"}),
         }
+    arguments = _unwrap_tool_name_envelope(arguments)
 
     # Whitelist enforcement
     if tool_name not in effective_tools:

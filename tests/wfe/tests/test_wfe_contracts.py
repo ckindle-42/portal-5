@@ -64,6 +64,27 @@ class TestToolArgumentContract:
         args, err = normalize_tool_args("[1, 2]")
         assert args == {} and "expected object" in err
 
+    def test_tool_name_envelope_is_unwrapped(self):
+        """command-r (WFE wfe_full_20260911) emits arguments wrapped as
+        {"tool_name": ..., "parameters": {...}}, which failed every call in
+        the campaign (66/85 rows on this arm) with "bad args" until this
+        unwrap landed. Covers both the /v1 string and /api/chat dict shapes."""
+        args, err = normalize_tool_args(
+            '{"tool_name": "http_get", "parameters": {"url": "https://x"}}'
+        )
+        assert err is None and args == {"url": "https://x"}
+
+        args, err = normalize_tool_args(
+            {"tool_name": "http_get", "parameters": {"url": "https://x"}}
+        )
+        assert err is None and args == {"url": "https://x"}
+
+    def test_tool_name_envelope_unwrap_does_not_swallow_real_arguments(self):
+        """A model that happens to have real parameters named tool_name/
+        parameters must not be unwrapped — only the exact envelope shape."""
+        args, err = normalize_tool_args('{"tool_name": "http_get", "other": "x"}')
+        assert err is None and args == {"tool_name": "http_get", "other": "x"}
+
     def test_dispatch_executes_with_v1_shaped_arguments(self, tmp_path):
         sb = Sandbox(tmp_path)
         sb.file_write("a.txt", "hello")

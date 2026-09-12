@@ -1437,6 +1437,39 @@ class TestDispatchToolCall:
         assert result["role"] == "tool"
         assert "not available" in result["content"]
 
+    @pytest.mark.asyncio
+    async def test_tool_name_envelope_is_unwrapped(self, monkeypatch):
+        """command-r (WFE wfe_full_20260911) emits arguments wrapped as
+        {"tool_name": ..., "parameters": {...}} instead of flat kwargs; every
+        such call must still dispatch with the real parameters, not the
+        envelope, or it fails on every turn."""
+        import json
+
+        from portal.platform.inference.router_pipe import _dispatch_tool_call
+        from portal.platform.inference.tool_registry import tool_registry
+
+        seen = {}
+
+        async def fake_dispatch(tool_name, arguments, request_id=""):
+            seen["tool_name"] = tool_name
+            seen["arguments"] = arguments
+            return {"ok": True}
+
+        monkeypatch.setattr(tool_registry, "dispatch", fake_dispatch)
+
+        tc = {
+            "id": "call_3",
+            "function": {
+                "name": "execute_python",
+                "arguments": json.dumps(
+                    {"tool_name": "execute_python", "parameters": {"code": "print(1)"}}
+                ),
+            },
+        }
+        result = await _dispatch_tool_call(tc, {"execute_python"}, "auto-coding", "test", "req1")
+        assert result["role"] == "tool"
+        assert seen["arguments"] == {"code": "print(1)"}
+
 
 class TestExplicitRequiredToolSelection:
     """Explicit side-effect requests narrow multi-tool payloads deterministically."""
