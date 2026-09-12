@@ -71,9 +71,7 @@ VALID_WORKSPACES = frozenset(
         # TASK_MODEL_FLEET_REFRESH_V2 Phase 4 adds
         "bench-qwen36-hauhaucs",
         "bench-gemma4-12b",
-        "bench-gemma4-e4b",
         # V8 model refresh (TASK_MODEL_REFRESH_V8)
-        "bench-gemma4-e2b",
         "bench-gemma4-e4b-qat",
         "bench-gemma4-26b-qat",
         "bench-gemma4-31b-qat",
