@@ -5,7 +5,8 @@ Terminates every open model question left by `wfe_full_20260911`. Companion to
 `docs/MODEL_FLEET_CLOSEOUT_20260906.tasks.json` (the register, updated here).
 
 **Result: 0 items in the register carry an unterminated stop rule.** Fleet 83 → 78
-models, 852 GB → 820 GB.
+models, 852 GB → 817 GB. Both corrupted lanes were re-run on the fixed harness
+the same day rather than deferred, and one fold was vacated as a result.
 
 The three things that were open on 2026-09-11 — command-r held-not-wired, 11
 models with "NO WFE EVIDENCE", and 22 unscored creative responses — are all
@@ -131,8 +132,8 @@ chars), looked healthy because it is the only non-thinking model in the group.
 | `orcarouter/Qwen3.8-27B-Uncensored` | 9/9 truncated, 0 words, 328s median | 3/3 `finish=stop`, 192–474 words, 22–62s |
 | `Huihui-Qwen3.6-35B-A3B` | 5/9 truncated | 3/3 `finish=stop`, 210–465 words, 6–27s |
 
-Six clean completions where there were zero. **Do not score the existing 22** —
-re-run the creative suite on the fixed harness first. See §6.
+Six clean completions where there were zero. The existing 22 were discarded and
+the full suite re-run on the fixed harness the same day — see §5b.
 
 ---
 
@@ -239,10 +240,21 @@ through every one of them. The number it was removed on was measured with
 thinking forced on against its own workspace config.
 
 It is also the register's **lineage-diversity seat** (§1 census), which is the
-expensive kind of fold to get wrong. Weights re-pulled, arm restored to
-`tests/wfe/workloads.yaml`, disposition moved back to RETAINED_FOR_PURPOSE and
-HELD pending `wfe_think_rerun_20260912`. The stop rule is unchanged and will be
-applied to the new numbers.
+expensive kind of fold to get wrong. Weights re-pulled and the arm restored.
+
+**Outcome: RETAINED, not re-folded** — a second, independent fault surfaced when
+the re-run was set up. Its recorded question is *"does GPT-OSS add reasoning
+**diversity** over DeepSeek-R1-0528 + Qwen3.6-35B"*, and **no run has ever made
+that comparison**; the WFE arm tested it as a compliance judge against
+Qwen3.8-27B, which is a different job — the same mis-specified-venue error
+caught for command-r in §5. And the fact the removal missed entirely:
+`gpt-oss:20b` is registered in **three live backend pools** (general, coding,
+reasoning), reachable from **25 production workspaces**, and named in
+auto-coding's own description as *Fallback 2*. That is a wired production role,
+not a bench seat. Its clean numbers (18/30 = 0.60 home, 7/9 = 0.78 discovery) do
+not bear on it, because neither lane is the job it holds. Retained as a pool
+fallback; **its diversity stop rule remains UNEVALUATED** and needs the recorded
+head-to-head, not another compliance-lane number.
 
 The other three folds survive this check on their own evidence. command-r ran
 `think=default` and emitted **zero** reasoning chars, so the defect never
@@ -252,35 +264,112 @@ that lane's intended behaviour, not a dropped instruction.
 
 ---
 
+## 5b. The re-runs, and what they settled
+
+Both corrupted lanes were re-run on the fixed harness the same day, rather than
+left as plan items.
+
+**Creative (`wfe_creative_20260912`) — the lane the defect destroyed.**
+
+| arm | before | after |
+|---|---|---|
+| Huihui-Qwen3.6-35B (incumbent) | 4 gradeable, 5 truncated | **9/9**, 65 s |
+| huihui_ai/Qwen3.6-abliterated:27b | 9 gradeable | **9/9**, 295 s |
+| orcarouter/Qwen3.8-27B-Uncensored | **0 gradeable**, 9 truncated | **9/9**, 642 s |
+| qwen36-fable-fusion-711 | 9 gradeable | **9/9**, 250 s |
+
+22 biased responses → **36 complete ones**, zero truncated, zero refused. The
+blind queue is rebuilt and awaiting operator scores.
+
+**auto-compliance (`wfe_think_rerun_20260912`), 117 rows + a 30-row comparator.**
+
+| arm | lane | corrupted | fixed |
+|---|---|---|---|
+| Qwen3.8-27B-ctx32k (incumbent) | compliance_agentic | 25/30 = 0.83 | 24/30 = 0.80 [0.63–0.91] |
+| granite4.2:30b | compliance_agentic | 18/30 = 0.60 | 18/30 = 0.60 [0.42–0.75] |
+| gpt-oss:20b | compliance_agentic | 16/30 = 0.53 | 18/30 = 0.60 [0.42–0.75] |
+| **granite4.1:30b-ctx16k** (comparator) | compliance_agentic | never run | **18/30 = 0.60** |
+| Qwen3.8-27B / granite4.2 / gpt-oss | research | 1.00 / 1.00 / 0.67 | 1.00 / 1.00 / 0.78 |
+
+Honest read: **the defect barely moved auto-compliance.** It destroyed the
+creative lane, where a 4096-token budget could not absorb 10k+ chars of
+reasoning, but compliance had enough headroom that the ordering held. The
+incumbent is confirmed on clean evidence.
+
+<a name="granite42"></a>**granite4.2:30b — FOLDED.** Its stop rule is *"no
+analyst-lane advantage over 4.1:30b in real use → REMOVED (council reject stands
+regardless)"*, and `granite4.1:30b` had **never been run as an arm**, so the rule
+had been unevaluable since it was written — the disposition was sitting on a
+permanent hold for want of one 30-row comparator. Run it, and the two are **dead
+even at 0.60**. A tie is no advantage: the rule fires. It also loses to the
+seated incumbent (0.80) and holds no live config reference. The council reject
+stands independently (Y29).
+
+---
+
 ## 6. Plan of action — what is deliberately not closed
 
-Three items remain open **by design**, each with a named next step. None blocks
-the register.
+Two items remain, each with a named owner-action. Everything else is terminal.
 
-1. **Creative-lane blind review (2 dispositions depend on it).**
-   `qwen36-fable-fusion-711` and `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` are
-   RETAINED_FOR_PURPOSE pending an operator creative judgement that no synthetic
-   instrument can make. **Next step:** re-run the creative suite on the fixed
-   harness (all 4 arms × 3 tasks × 3 repeats — now that all four complete, this
-   yields 36 gradeable responses instead of 22 biased ones), then score the
-   blind queue. Discard the existing 22.
+1. **Score the 36 creative responses.** They are generated, blind and complete;
+   what is missing is operator judgement, which no instrument can supply.
+   Scoring sheet: the `Creative Lane Blind Review` artifact. It unblocks the two
+   RETAINED dispositions that rest on creative fit — `qwen36-fable-fusion-711`
+   and `huihui_ai/Qwen3.6-abliterated:27b-ctx8k`. Discard the old 22.
 
-2. **Re-run auto-compliance and auto-general-uncensored under the fixed
-   harness.** Their 189 rows measured the stack as it really behaved, not as
-   configured. Now that config and behaviour agree, the rates should be
-   re-established before anyone cites them as model quality. `granite4.2:30b` is
-   the one RETAINED disposition resting mostly on those rows.
+2. **gpt-oss:20b's diversity stop rule is still unevaluated.** It asks for a
+   head-to-head against DeepSeek-R1-0528 + Qwen3.6-35B on reasoning diversity.
+   That comparison has never been run, and neither compliance nor research
+   measures it. The model is RETAINED on its wired pool role in the meantime,
+   so nothing is blocked — but the rule should not be reported as satisfied.
 
-3. **The campaign still runs on proxy tools.** `tool_surface_proxy: true` on all
-   513 rows — no workspace's real tools were wired, because the sweep runs with
-   the MCP fleet down. The command-r test in §5 shows the real-tool version is
-   straightforward when the fleet is up, and that it can change a verdict.
-   Dimension 4 of the coverage matrix should be re-read as "can it use *a* tool",
-   not "can it use *its* tool", until that is addressed.
+**Structural, not per-model:** the campaign still runs on proxy tools
+(`tool_surface_proxy: true` on every row) because the sweep runs with the MCP
+fleet down. The command-r test in §5 shows the real-tool version is
+straightforward when the fleet is up, and that it can change a verdict. Read
+dimension 4 as "can it use *a* tool", not "can it use *its* tool", until that is
+addressed.
 
 Coverage caveat from the fitness report still stands: dimensions 2, 6–19 and
 23–26 remain unexercised, so every disposition here is provisional against them
 in the sense defined by `TASK_WORKSPACE_FITNESS_EVAL_V1.md`.
+
+---
+
+## 7. What this unblocks — the compliance module
+
+The module paused on 2026-09-06 at **27 PASS / 1 FAIL / 2 PENDING** of 30,
+waiting on seat decisions it could not make itself. Those are now terminal, and
+the continuation task is written:
+**`coding_task/v9_compliance/TASK_COMPLIANCE_CLOSEOUT_RESUME_V1.md`**.
+
+The substantive unblock is **S0**. Y25 (`prose-cip-07` must reach rank 1) fails
+because the answer lives in CIP-002 Attachment 1 — a **table rendered as a
+text-less page image**. The reranker already ranks that chunk highest (rr 0.519)
+but fusion cannot lift it without text, and the fix is to turn on S0 table
+transcription for the compliance composition. S0's transcriber seat was
+provisional while the Ollama OCR arms were unresolved; folding all four confirmed
+`qwen3-vl:4b-instruct-q4_K_M` (0.956 EXACT @ 7.9 s/page), so the fix can now be
+applied against a seat that will not move underneath it.
+
+Also settled for that module: the council roster is final (Y29 passes, 3 seats),
+`granite4.2:30b` — its only live challenger — is folded, and the long-open
+**phi4 4th-seat question is decided: not seated**. F2 0.802 sits at the floor
+rather than above it, 4.5 tps is disqualifying for a seat the council queries on
+every question, and a 4th seat moves quorum from `ceil(0.66x3) = 2 of 3` to
+`ceil(0.66x4) = 3 of 4` — raising the agreement bar while slowing every question,
+using the weakest judge. Recorded in `Y25_ISSUE_AND_REMAINING.md`.
+
+That leaves Y25, Y21 (adjudication of debug data already on disk) and Y23
+(prompt sensitivity, now runnable because the roster is final) between the module
+and 30/30.
+
+**A caveat worth carrying into Y23:** three parameters in this stack were
+accepted and silently discarded — `think` on `/v1`, runtime `options.num_ctx` on
+`/v1`, and the campaign CLI's `--workspace`. Y23 sends a *changed prompt* and
+reads a *changed number*; confirm the variant reached the model on the wire
+before trusting its F2. An ignored parameter looks exactly like one with no
+effect.
 
 ---
 
@@ -289,19 +378,47 @@ in the sense defined by `TASK_WORKSPACE_FITNESS_EVAL_V1.md`.
 | | before | after |
 |---|---|---|
 | models on disk | 83 | 78 |
-| model store | 852 GB | 820 GB |
+| model store | 852 GB | 817 GB |
 | register items with an open stop rule | 12 | **0** |
 | REMOVED_CLOSED / INTEGRATED / RETAINED | 105 / 78 / 5 | 100 / 81 / 7 |
 
-Removed this pass: `deepseek-ocr:latest`, `glm-ocr:Q8_0`,
+**Removed:** `deepseek-ocr:latest`, `glm-ocr:Q8_0`,
 `hf.co/ggml-org/dots.ocr-GGUF:Q8_0`,
 `hf.co/mradermacher/Nanonets-OCR2-3B-GGUF:Q4_K_M`,
 `hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M`,
-`command-r:35b-08-2024-q4_K_M`. Each cross-checked against live
-`config/portal.yaml`, `config/personas/` and `config/backends.yaml` for zero
-production references immediately before deletion, then verified absent.
+`command-r:35b-08-2024-q4_K_M`, `granite4.2:30b-q4_K_M`.
 
-Also fixed in passing: `bench-nex-n25-mini-uncensored` routed to `general` while
-its model is registered only in the `security` group — a latent
-`STRICT_HINT_VALIDATION` failure that would crash the pipeline on any restart.
-It was the only such mismatch across all 46 workspaces.
+**Restored:** `gpt-oss:20b` — folded on invalid evidence, re-pulled, and kept.
+
+Each removal was cross-checked against live `config/portal.yaml`,
+`config/personas/`, `config/backends.yaml` and — after the gpt-oss lesson — the
+backend **pool** membership lists, immediately before deletion, then verified
+absent.
+
+### Re-runs executed
+
+| campaign | scope | result |
+|---|---|---|
+| `wfe_creative_20260912` | 4 arms × 3 tasks × 3 repeats | 36/36 gradeable, 0 truncated (was 22 of 36, biased) |
+| `wfe_think_rerun_20260912` | auto-compliance, 3 arms + 1 comparator | 147 rows; incumbent confirmed 0.80; granite4.2 folded on a 0.60/0.60 tie |
+
+### Instrument defects found and fixed
+
+| defect | effect | fix |
+|---|---|---|
+| `think` dropped by Ollama `/v1` | 12 workspaces reasoned against config; 189 campaign rows; 1 wrong fold | `reasoning_effort:"none"` in 3 call sites |
+| `OLLAMA_URL=host.docker.internal` inherited by host-native services | `explore_repository` dead since it was wired | rewrite to loopback in the launcher |
+| `.claude/worktrees` searchable by GREP/GLOB | explorer cited stale repo copies | skip-set + `.venv` |
+| `--workspace` declared but never used | scoped re-runs silently widened to the whole plan | wired into `expand_matrix` |
+
+Four parameters in this stack have now been found accepted-and-discarded:
+`think` and `--workspace` (fixed here), runtime `options.num_ctx` on `/v1`
+(documented earlier at `validation.py`), and `chat_template_kwargs` /
+`/no_think` on `/v1` (measured here). The pattern is worth a standing check:
+**a parameter that is ignored is indistinguishable from one that had no effect.**
+
+### Also fixed
+
+`bench-nex-n25-mini-uncensored` routed to `general` while its model is registered
+only in the `security` group — a latent `STRICT_HINT_VALIDATION` crash on any
+pipeline restart, and the only such mismatch across all 46 workspaces.

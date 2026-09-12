@@ -70,4 +70,8 @@ workloads:
       # think-defect rows (think=false over /v1, median 1661 reasoning chars —
       # suppression silently failed), and it is the register's lineage-
       # diversity seat. Re-pulled and re-run on the fixed harness.
-      challengers: [granite4.2:30b-q4_K_M, gpt-oss:20b]
+      # granite4.1:30b-ctx16k added 2026-09-12 purely as granite4.2:30b's
+      # COMPARATOR. Its stop rule is 'no analyst-lane advantage over 4.1:30b
+      # in real use -> REMOVED', and 4.1 had never been run as an arm, so the
+      # rule was unevaluable and the disposition sat on a permanent hold.
+      challengers: [granite4.2:30b-q4_K_M, gpt-oss:20b, granite4.1:30b-ctx16k]
