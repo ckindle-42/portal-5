@@ -1,11 +1,11 @@
 ---
 id: unit-fact-workspace-roster
 kind: what
-title: 25 production + 57 eval workspaces
+title: 25 production + 53 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 3b08ab3c3137
+  commit: ac94ba56a044
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1789078463.488317
+updated_at: 1789191651.713867
 ---
 
-# Workspace roster (25 production, 57 eval, 82 total)
+# Workspace roster (25 production, 53 eval, 78 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -61,12 +61,9 @@ updated_at: 1789078463.488317
 - `bench-foundation-sec-8b-reasoning`
 - `bench-gemma4-12b`
 - `bench-gemma4-12b-agentic`
-- `bench-gemma4-26b-heretic`
 - `bench-gemma4-26b-optiq`
 - `bench-gemma4-26b-qat`
 - `bench-gemma4-31b-qat`
-- `bench-gemma4-e2b`
-- `bench-gemma4-e4b`
 - `bench-gemma4-e4b-qat`
 - `bench-gemma4-heretic-coder`
 - `bench-glm`
@@ -81,7 +78,6 @@ updated_at: 1789078463.488317
 - `bench-laguna`
 - `bench-lfm25-8b`
 - `bench-lfm25-8b-uncensored`
-- `bench-llama32-3b-abliterated`
 - `bench-magistral-small`
 - `bench-mistral-small-3-2`
 - `bench-moecad`

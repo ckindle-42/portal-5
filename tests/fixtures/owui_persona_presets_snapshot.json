@@ -144,42 +144,6 @@
       "system": "You are a fast, capable everyday assistant. Be helpful, concise, and accurate.\nAnswer the user's question directly without unnecessary preamble.\n"
     }
   },
-  "bench-gemma4-e2b": {
-    "base_model_id": "bench-gemma4-e2b",
-    "id": "bench-gemma4-e2b",
-    "meta": {
-      "description": "Portal persona: \ud83d\udd2c Bench \u00b7 Gemma 4 E2B QAT (Google)",
-      "profile_image_url": "",
-      "tags": [
-        {
-          "name": "benchmark"
-        }
-      ]
-    },
-    "name": "\ud83d\udd2c Bench \u00b7 Gemma 4 E2B QAT (Google)",
-    "params": {
-      "model": "bench-gemma4-e2b",
-      "system": "You are a fast, capable everyday assistant. Be helpful, concise, and accurate.\nAnswer the user's question directly without unnecessary preamble.\n"
-    }
-  },
-  "bench-gemma4-e4b": {
-    "base_model_id": "bench-gemma4-e4b",
-    "id": "bench-gemma4-e4b",
-    "meta": {
-      "description": "Portal persona: \ud83d\udd2c Bench \u00b7 Gemma 4 E4B (MoE 4B active)",
-      "profile_image_url": "",
-      "tags": [
-        {
-          "name": "benchmark"
-        }
-      ]
-    },
-    "name": "\ud83d\udd2c Bench \u00b7 Gemma 4 E4B (MoE 4B active)",
-    "params": {
-      "model": "bench-gemma4-e4b",
-      "system": "You are a fast, capable everyday assistant. Be helpful, concise, and accurate.\nAnswer the user's question directly without unnecessary preamble.\n"
-    }
-  },
   "bench-gemma4-e4b-qat": {
     "base_model_id": "bench-gemma4-e4b-qat",
     "id": "bench-gemma4-e4b-qat",

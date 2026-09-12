@@ -1109,10 +1109,6 @@ workspace_routing:
   - general
   bench-gemma4-12b:
   - general
-  bench-gemma4-e4b:
-  - general
-  bench-gemma4-e2b:
-  - general
   bench-gemma4-e4b-qat:
   - general
   bench-gemma4-26b-qat:
@@ -1184,10 +1180,6 @@ workspace_routing:
   bench-mistral-small-3-2:
   - general
   bench-magistral-small:
-  - general
-  bench-gemma4-26b-heretic:
-  - general
-  bench-llama32-3b-abliterated:
   - general
   bench-kat-coder:
   - general

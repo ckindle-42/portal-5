@@ -1850,37 +1850,6 @@ workspaces:
     tools: []
     expose_to_owui: false
     enable_web_search: false
-  bench-gemma4-e4b:
-    module: eval
-    name: 🔬 Bench · Gemma 4 E4B (MoE 4B active)
-    description: |-
-      Benchmark: gemma4:e4b-it-q4_K_M (~9.6GB, Google MoE, 4B active, 128K ctx, vision+thinking+tools). Daily-driver candidate.
-    model_hint: gemma4:e4b-it-q4_K_M
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.6
-    top_p: 0.95
-    repeat_penalty: 1.0
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-gemma4-e2b:
-    module: eval
-    name: 🔬 Bench · Gemma 4 E2B QAT (Google)
-    description: |-
-      Benchmark: gemma4:e2b-it-qat (Ollama, Google DeepMind, Apache 2.0). Effective 2B QAT — ~3GB, audio+image+video+text, thinking, 128K ctx. Fastest TPS candidate in fleet. QAT: near-BF16 at 4-bit. PROMOTE_POLICY=confirm.
-    model_hint: gemma4:e2b-it-qat
-    predict_limit: 8192
-    temperature: 1
-    top_p: 0.95
-    top_k: 64
-    repeat_penalty: 1.0
-    max_concurrent: 1
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
   bench-gemma4-e4b-qat:
     module: eval
     name: 🔬 Bench · Gemma 4 E4B QAT (Google)
@@ -2669,34 +2638,6 @@ workspaces:
     repeat_penalty: 1.0
     # Magistral is reasoning-only (no instruct mode) — keep thinking on.
     think: true
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-gemma4-26b-heretic:
-    module: eval
-    name: "🔬 Bench · Gemma 4 26B-A4B Uncensored Heretic (mradermacher)"
-    description: "Slot-fix (TASK-DECISION-GATE-001): bench-orphaned tag added so the pending-verdict evidence miner can produce valid data. Model: hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf. Runtime capabilities verified via `ollama show`: ['tools', 'completion', 'vision'] — no `thinking` capability, so emits_reasoning left false. PROMOTE_POLICY=confirm."
-    model_hint: "hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf"
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: "5m"
-    temperature: 0.7
-    top_p: 0.9
-    repeat_penalty: 1.1
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-llama32-3b-abliterated:
-    module: eval
-    name: "🔬 Bench · Llama-3.2 3B Instruct Abliterated (QuantFactory)"
-    description: "Slot-fix (TASK-DECISION-GATE-001): bench-orphaned tag added so the pending-verdict evidence miner can produce valid data. Model: hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest. Runtime capabilities verified via `ollama show`: ['completion', 'tools'] — no `thinking` at runtime. PROMOTE_POLICY=confirm."
-    model_hint: "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest"
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: "5m"
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
     tools: []
     expose_to_owui: false
     enable_web_search: false
