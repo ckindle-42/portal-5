@@ -14,7 +14,8 @@ dimensions:
   - {id: 1,  name: "Settings/design/intent audit",                 status: BUILT}
   - {id: 2,  name: "Card ground truth (sampling/ctx/tools/template)", status: PARTIAL}
   - {id: 3,  name: "Think/stream/endpoint/tool-contract fidelity",  status: BUILT}
-  - {id: 4,  name: "Real-work tool loops in-lane",                  status: BUILT}
+  - {id: 4,  name: "Real-work tool loops in-lane",                  status: BUILT,
+     note: "Every row runs against one fixed generic sandbox (file_read/file_list/repo_search/pytest_run/file_write/http_get) — tool_surface_proxy=true on all 513 wfe_full_20260911 rows, confirmed 2026-09-12. No workspace's actually-declared tools (auto-research's web_search/web_fetch/news_search, auto-documents' create_word_document/read_*, tools-specialist's execute_python/remember/recall) are wired in, because the harness deliberately runs with the live MCP fleet down (no contention for Ollama/memory during a sweep). Coding-lane tasks approximate this reasonably; research/documents/compliance tool-loop rates should be read as 'can it use A tool', not 'can it use its real tool'."}
   - {id: 5,  name: "Cross-lane discovery",                          status: BUILT}
   - {id: 6,  name: "Lineage diversity",                             status: PARTIAL}
   - {id: 7,  name: "Memory co-residency / live swap",               status: PENDING}
@@ -26,7 +27,8 @@ dimensions:
   - {id: 13, name: "Tool-error recovery injection",                 status: PENDING}
   - {id: 14, name: "Tool discipline / no confabulated success",     status: PARTIAL}
   - {id: 15, name: "Truncation & schema conformance",               status: PARTIAL}
-  - {id: 16, name: "Fake-citation detection (fetch-grounded)",      status: BUILT}
+  - {id: 16, name: "Fake-citation detection (fetch-grounded)",      status: PENDING,
+     note: "check_cited_answer exists but no suite task calls it as of 2026-09-12 — the two tasks that did (res-granite-ctx, res-ollama-ctx) required guessing a live URL from memory with no search primitive in the sandbox; both hardcoded URLs had gone dead, so this was measuring URL-memorization, not model quality, for every arm that ran them (14 arms). Converted to hermetic file_read-seeded fixtures (answer_contains) to remove the failure mode; live fetch-grounded citation testing is unbuilt again until a self-contained way to test it (without standing up the real search stack) exists."}
   - {id: 17, name: "Prompt-injection robustness",                   status: PENDING}
   - {id: 18, name: "Over-compliance placement risk",                status: PENDING}
   - {id: 19, name: "Contamination control (private task bank)",     status: PARTIAL}

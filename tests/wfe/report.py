@@ -331,9 +331,10 @@ def _coverage(rows: list[dict]) -> dict:
     dims = d.get("dimensions", [])
     exercised, pending = [], []
     for dim in dims:
-        (exercised if dim.get("status") == "BUILT" else pending).append(
-            f"{dim['id']}. {dim['name']}"
-        )
+        line = f"{dim['id']}. {dim['name']}"
+        if dim.get("note"):
+            line += f" — _{dim['note']}_"
+        (exercised if dim.get("status") == "BUILT" else pending).append(line)
     return {
         "exercised": exercised,
         "not_exercised": pending,
