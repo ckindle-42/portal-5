@@ -1,0 +1,455 @@
+{
+ "effective_on": "2026-09-12",
+ "scope": {
+  "impact_present": [
+   "high",
+   "low",
+   "medium"
+  ],
+  "associated_present": [
+   "bcs",
+   "eacms",
+   "pacs",
+   "pca"
+  ],
+  "declared": true,
+  "queue_item_id": "b1e1db4b1b22",
+  "n_citing_spans": 263,
+  "note": "has_erc/has_control_center are UNCONFIRMED (unknown) \u2014 this is a corpus-derived CANDIDATE (AssetScope.is_confirmed is False), not an approved declaration; confirm or correct via compliance_review_decide"
+ },
+ "summary": {
+  "effective_on": "2026-09-12",
+  "scope_declared": true,
+  "examined": 4,
+  "substantively_resolved": 4,
+  "not_applicable": 0,
+  "coverage_breakdown": {
+   "FULL": 0,
+   "PARTIAL": 4,
+   "NONE": 0,
+   "NOT_APPLICABLE": 0,
+   "NEEDS_REVIEW": 0,
+   "UNRESOLVED": 0
+  },
+  "unresolved_items": [],
+  "confirmed_gaps_none": [],
+  "from_approved_mappings": 0
+ },
+ "n_matching": 4,
+ "n_rows_returned": 4,
+ "truncated": false,
+ "rows": [
+  {
+   "requirement_id": "CIP-007-6 R2 Part 2.1",
+   "coverage": "PARTIAL",
+   "substantively_resolved": true,
+   "retrieval_errors": [],
+   "note": "source-backed deterministic field comparison; contradictory internal constraint prevents full support",
+   "policy_citation": {
+    "document": "CIP-003/LSPG CIP Cyber Security Policy V13.pdf",
+    "section": "CIP-003/LSPG CIP Cyber Security Policy V13.pdf #chunk44 p11",
+    "span": "- 3.4.2.1 LSPG shall document and implement a patch management process to:\n- Track,  evaluate,  and  install  cyber  security  patches  for  applicable  Cyber  Assets.  The trackin"
+   },
+   "procedure_citation": {
+    "document": "CIP-007/LSPG Security Patch Management Procedure V11.pdf",
+    "section": "CIP-007/LSPG Security Patch Management Procedure V11.pdf #chunk23 p7",
+    "span": "- 3.1.1 The  LSPG  patch  management  process  for  tracking,  evaluating,  and  installing  security patches for applicable CIP Cyber Assets (CAs) are described in this procedure."
+   },
+   "gap_quote": "A patch management process for tracking, evaluating, and installing cyber security patches for applicable Cyber Assets. The tracking portion shall include the identification of a s",
+   "COMPLIANCE_CONFLICT": [
+    {
+     "signal": "COMPLIANCE_CONFLICT",
+     "kind": "deontic",
+     "obligation": "CIP-007-6 R2 Part 2.1",
+     "detail": "CIP-007-6 R2 Part 2.1 is mandatory (['shall']); CIP-007/LSPG Patching Validation Work Instruction v3.pdf #chunk19 p5 is non-binding (['may'])",
+     "same_tier": false,
+     "higher_authority": {
+      "tier": 0,
+      "tier_name": "standard",
+      "citation": "CIP-007-6 R2 Part 2.1",
+      "text": "A patch management process for tracking, evaluating, and installing cyber security patches for applicable Cyber Assets. The tracking portion shall include the identification of a source or sources that the Responsible Entity tracks for the release of cyber security patches for applicable Cyber Assets that are updateable and for which a patching source exists."
+     },
+     "lower_authority": {
+      "tier": 3,
+      "tier_name": "procedure",
+      "citation": "CIP-007/LSPG Patching Validation Work Instruction v3.pdf #chunk19 p5",
+      "text": "- 3.1.1 Any  change  to  an  OT  asset  requires  that  the  SME  follow  the OT  Change  Management Procedure.\n- 3.1.2 For the purposes of this document, patching is defined as any process to change an asset's baseline to address vulnerabilities, features, bugs, etc. This may take the form, but not limited to; firmware updates, application upgrades, hotfixes or major updates, referred to as patch"
+     },
+     "resolution": "NOT reconciled \u2014 the higher-tier obligation is mandatory regardless of how the lower-tier document phrases it; the lower-tier document should be reviewed to confirm it does not weaken a mandatory obligation."
+    },
+    {
+     "signal": "COMPLIANCE_CONFLICT",
+     "kind": "deontic",
+     "obligation": "CIP-007-6 R2 Part 2.1",
+     "detail": "CIP-003/LSPG CIP Cyber Security Policy V13.pdf #chunk44 p11 is mandatory (['shall']); CIP-007/LSPG Patching Validation Work Instruction v3.pdf #chunk19 p5 is non-binding (['may'])",
+     "same_tier": false,
+     "higher_authority": {
+      "tier": 2,
+      "tier_name": "policy",
+      "citation": "CIP-003/LSPG CIP Cyber Security Policy V13.pdf #chunk44 p11",
+      "text": "- 3.4.2.1 LSPG shall document and implement a patch management process to:\n- Track,  evaluate,  and  install  cyber  security  patches  for  applicable  Cyber  Assets.  The tracking portion shall include the identification of a source or sources that LSPG tracks for  the  release  of  cyber  security  patches  for  applicable  Cyber  Assets  that  are updateable and for which a patching source exi"
+     },
+     "lower_authority": {
+      "tier": 3,
+      "tier_name": "procedure",
+      "citation": "CIP-007/LSPG Patching Validation Work Instruction v3.pdf #chunk19 p5",
+      "text": "- 3.1.1 Any  change  to  an  OT  asset  requires  that  the  SME  follow  the OT  Change  Management Procedure.\n- 3.1.2 For the purposes of this document, patching is defined as any process to change an asset's baseline to address vulnerabilities, features, bugs, etc. This may take the form, but not limited to; firmware updates, application upgrades, hotfixes or major updates, referred to as patch"
+     },
+     "resolution": "NOT reconciled \u2014 the higher-tier obligation is mandatory regardless of how the lower-tier document phrases it; the lower-tier document should be reviewed to confirm it does not weaken a mandatory obligation."
+    }
+   ],
+   "from_approved_mapping": false,
+   "open_queue_items": [
+    "36db08fa2a95",
+    "62262e8dbe52",
+    "77adb35bce88",
+    "d7ffc837a1b0"
+   ]
+  },
+  {
+   "requirement_id": "CIP-007-6 R2 Part 2.2",
+   "coverage": "PARTIAL",
+   "substantively_resolved": true,
+   "retrieval_errors": [],
+   "note": "source-backed deterministic field comparison; contradictory internal constraint prevents full support",
+   "policy_citation": {
+    "document": "CIP-003/LSPG CIP Cyber Security Policy V13.pdf",
+    "section": "CIP-003/LSPG CIP Cyber Security Policy V13.pdf #chunk44 p11",
+    "span": "- 3.4.2.1 LSPG shall document and implement a patch management process to:\n- Track,  evaluate,  and  install  cyber  security  patches  for  applicable  Cyber  Assets.  The trackin"
+   },
+   "procedure_citation": {
+    "document": "CIP-007/LSPG Security Patch Management Procedure V11.pdf",
+    "section": "CIP-007/LSPG Security Patch Management Procedure V11.pdf #chunk27 p8",
+    "span": "- 3.3.1 At least once every thirty-five (35) calendar days, SMEs in conjunction with Foxguard, shall review all approved sources for new patches using the applicable patch evaluati"
+   },
+   "gap_quote": "At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.",
+   "COMPLIANCE_CONFLICT": [
+    {
+     "signal": "COMPARISON_UNCERTAINTY",
+     "kind": "comparison_uncertainty",
+     "obligation": "CIP-007-6 R2 Part 2.2",
+     "detail": "CIP-007-6 R2 Part 2.2 says [35 calendar days]; CIP-010/OT Threat and Vulnerability Management Procedure V10.pdf #chunk17 p5 says [15 calendar months, 36 calendar months] \u2014 incomparable units/qualifiers",
+     "same_tier": false,
+     "higher_authority": {
+      "tier": 0,
+      "tier_name": "standard",
+      "citation": "CIP-007-6 R2 Part 2.2",
+      "text": "At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.1."
+     },
+     "lower_authority": {
+      "tier": 3,
+      "tier_name": "procedure",
+      "citation": "CIP-010/OT Threat and Vulnerability Management Procedure V10.pdf #chunk17 p5",
+      "text": "- 1.4.3.1 Determine  whether  patches  or  configuration  changes  can  be  applied  to  remediate vulnerabilities listed in action plans provided by OT Security & Compliance.\n- 1.4.3.2 Create RFC to apply changes.\n- 1.4.3.3 Assist in the execution of a paper or active VA once every 15 calendar months and active VA every 36 calendar months on applicable control center Cyber Assets\n- 1.4.3.4 Produc"
+     },
+     "resolution": "Abstained \u2014 the compared claims use different units/qualifiers with no reviewed conversion rule (a calendar month is not a fixed day count; a business-day count is not a calendar-day count). Neither equality nor conflict is asserted."
+    },
+    {
+     "signal": "COMPARISON_UNCERTAINTY",
+     "kind": "comparison_uncertainty",
+     "obligation": "CIP-007-6 R2 Part 2.2",
+     "detail": "CIP-007/LSPG Security Patch Management Procedure V11.pdf #chunk39 p12 says [35 calendar days, 35 calendar days]; CIP-010/OT Threat and Vulnerability Management Procedure V10.pdf #chunk17 p5 says [15 calendar months, 36 calendar months] \u2014 incomparable units/qualifiers",
+     "same_tier": true,
+     "span_a": {
+      "tier": 3,
+      "tier_name": "procedure",
+      "citation": "CIP-007/LSPG Security Patch Management Procedure V11.pdf #chunk39 p12",
+      "text": "At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.1., Procedure Sections = Section 3.3. R2 Part 2.2 At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified "
+     },
+     "span_b": {
+      "tier": 3,
+      "tier_name": "procedure",
+      "citation": "CIP-010/OT Threat and Vulnerability Management Procedure V10.pdf #chunk17 p5",
+      "text": "- 1.4.3.1 Determine  whether  patches  or  configuration  changes  can  be  applied  to  remediate vulnerabilities listed in action plans provided by OT Security & Compliance.\n- 1.4.3.2 Create RFC to apply changes.\n- 1.4.3.3 Assist in the execution of a paper or active VA once every 15 calendar months and active VA every 36 calendar months on applicable control center Cyber Assets\n- 1.4.3.4 Produc"
+     },
+     "resolution": "Abstained \u2014 the compared claims use different units/qualifiers with no reviewed conversion rule (a calendar month is not a fixed day count; a business-day count is not a calendar-day count). Neither equality nor conflict is asserted."
+    }
+   ],
+   "from_approved_mapping": false,
+   "open_queue_items": [
+    "36db08fa2a95",
+    "62262e8dbe52",
+    "6c8ea923a444",
+    "d7ffc837a1b0",
+    "eb0bcc6ca530"
+   ]
+  },
+  {
+   "requirement_id": "CIP-007-6 R2 Part 2.3",
+   "coverage": "PARTIAL",
+   "substantively_resolved": true,
+   "retrieval_errors": [],
+   "note": "source-backed deterministic field comparison; contradictory internal constraint prevents full support",
+   "policy_citation": {
+    "document": "CIP-003/LSPG CIP Cyber Security Policy V13.pdf",
+    "section": "CIP-003/LSPG CIP Cyber Security Policy V13.pdf #chunk44 p11",
+    "span": "- 3.4.2.1 LSPG shall document and implement a patch management process to:\n- Track,  evaluate,  and  install  cyber  security  patches  for  applicable  Cyber  Assets.  The trackin"
+   },
+   "procedure_citation": {
+    "document": "CIP-007/LSPG Security Patch Management Procedure V11.pdf",
+    "section": "CIP-007/LSPG Security Patch Management Procedure V11.pdf #chunk32 p10",
+    "span": "- 3.6.1 Applicable security patches determined not able to be installed within 35 calendar days of evaluation are added to a mitigation plan by creating a dated mitigation plan or "
+   },
+   "gap_quote": "For applicable patches identified in Part 2.2, within 35 calendar days of the evaluation completion, take one of the following actions: - Apply the applicable patches; or - Create ",
+   "COMPLIANCE_CONFLICT": [
+    {
+     "signal": "COMPARISON_UNCERTAINTY",
+     "kind": "comparison_uncertainty",
+     "obligation": "CIP-007-6 R2 Part 2.3",
+     "detail": "CIP-007-6 R2 Part 2.3 says [35 calendar days]; CIP-010/OT Threat and Vulnerability Management Procedure V10.pdf #chunk17 p5 says [15 calendar months, 36 calendar months] \u2014 incomparable units/qualifiers",
+     "same_tier": false,
+     "higher_authority": {
+      "tier": 0,
+      "tier_name": "standard",
+      "citation": "CIP-007-6 R2 Part 2.3",
+      "text": "For applicable patches identified in Part 2.2, within 35 calendar days of the evaluation completion, take one of the following actions: - Apply the applicable patches; or - Create a dated mitigation plan; or - Revise an existing mitigation plan. Mitigation plans shall include the Responsible Entity\u2019s planned actions to mitigate the vulnerabilities addressed by each security patch and a timeframe to complete these mitigations."
+     },
+     "lower_authority": {
+      "tier": 3,
+      "tier_name": "procedure",
+      "citation": "CIP-010/OT Threat and Vulnerability Management Procedure V10.pdf #chunk17 p5",
+      "text": "- 1.4.3.1 Determine  whether  patches  or  configuration  changes  can  be  applied  to  remediate vulnerabilities listed in action plans provided by OT Security & Compliance.\n- 1.4.3.2 Create RFC to apply changes.\n- 1.4.3.3 Assist in the execution of a paper or active VA once every 15 calendar months and active VA every 36 calendar months on applicable control center Cyber Assets\n- 1.4.3.4 Produc"
+     },
+     "resolution": "Abstained \u2014 the compared claims use different units/qualifiers with no reviewed conversion rule (a calendar month is not a fixed day count; a business-day count is not a calendar-day count). Neither equality nor conflict is asserted."
+    },
+    {
+     "signal": "COMPARISON_UNCERTAINTY",
+     "kind": "comparison_uncertainty",
+     "obligation": "CIP-007-6 R2 Part 2.3",
+     "detail": "CIP-007/LSPG Security Patch Management Procedure V11.pdf #chunk32 p10 says [35 calendar days]; CIP-010/OT Threat and Vulnerability Management Procedure V10.pdf #chunk17 p5 says [15 calendar months, 36 calendar months] \u2014 incomparable units/qualifiers",
+     "same_tier": true,
+     "span_a": {
+      "tier": 3,
+      "tier_name": "procedure",
+      "citation": "CIP-007/LSPG Security Patch Management Procedure V11.pdf #chunk32 p10",
+      "text": "- 3.6.1 Applicable security patches determined not able to be installed within 35 calendar days of evaluation are added to a mitigation plan by creating a dated mitigation plan or revising an existing mitigation plan within the Change Management Solution.\n- 3.6.2 Mitigation plans shall include  a list of patches, LSPG's  planned  actions, and/or implemented  mitigating  controls  to  mitigate  the"
+     },
+     "span_b": {
+      "tier": 3,
+      "tier_name": "procedure",
+      "citation": "CIP-010/OT Threat and Vulnerability Management Procedure V10.pdf #chunk17 p5",
+      "text": "- 1.4.3.1 Determine  whether  patches  or  configuration  changes  can  be  applied  to  remediate vulnerabilities listed in action plans provided by OT Security & Compliance.\n- 1.4.3.2 Create RFC to apply changes.\n- 1.4.3.3 Assist in the execution of a paper or active VA once every 15 calendar months and active VA every 36 calendar months on applicable control center Cyber Assets\n- 1.4.3.4 Produc"
+     },
+     "resolution": "Abstained \u2014 the compared claims use different units/qualifiers with no reviewed conversion rule (a calendar month is not a fixed day count; a business-day count is not a calendar-day count). Neither equality nor conflict is asserted."
+    },
+    {
+     "signal": "COMPARISON_UNCERTAINTY",
+     "kind": "comparison_uncertainty",
+     "obligation": "CIP-007-6 R2 Part 2.3",
+     "detail": "CIP-007/LSPG Security Patch Management Procedure V11.pdf #chunk39 p12 says [35 calendar days, 35 calendar days]; CIP-010/OT Threat and Vulnerability Management Procedure V10.pdf #chunk17 p5 says [15 calendar months, 36 calendar months] \u2014 incomparable units/qualifiers",
+     "same_tier": true,
+     "span_a": {
+      "tier": 3,
+      "tier_name": "procedure",
+      "citation": "CIP-007/LSPG Security Patch Management Procedure V11.pdf #chunk39 p12",
+      "text": "\n 2.2 At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.1., Procedure Sections = Section 3.3. R2 Part 2.2 At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources ident"
+     },
+     "span_b": {
+      "tier": 3,
+      "tier_name": "procedure",
+      "citation": "CIP-010/OT Threat and Vulnerability Management Procedure V10.pdf #chunk17 p5",
+      "text": "- 1.4.3.1 Determine  whether  patches  or  configuration  changes  can  be  applied  to  remediate vulnerabilities listed in action plans provided by OT Security & Compliance.\n- 1.4.3.2 Create RFC to apply changes.\n- 1.4.3.3 Assist in the execution of a paper or active VA once every 15 calendar months and active VA every 36 calendar months on applicable control center Cyber Assets\n- 1.4.3.4 Produc"
+     },
+     "resolution": "Abstained \u2014 the compared claims use different units/qualifiers with no reviewed conversion rule (a calendar month is not a fixed day count; a business-day count is not a calendar-day count). Neither equality nor conflict is asserted."
+    }
+   ],
+   "from_approved_mapping": false,
+   "open_queue_items": [
+    "36db08fa2a95",
+    "5d572fc59c25",
+    "6c8ea923a444",
+    "d7ffc837a1b0"
+   ]
+  },
+  {
+   "requirement_id": "CIP-007-6 R2 Part 2.4",
+   "coverage": "PARTIAL",
+   "substantively_resolved": true,
+   "retrieval_errors": [],
+   "note": "source-backed deterministic field comparison; contradictory internal constraint prevents full support",
+   "policy_citation": {
+    "document": "CIP-003/LSPG CIP Cyber Security Policy V13.pdf",
+    "section": "CIP-003/LSPG CIP Cyber Security Policy V13.pdf #chunk44 p11",
+    "span": "- 3.4.2.1 LSPG shall document and implement a patch management process to:\n- Track,  evaluate,  and  install  cyber  security  patches  for  applicable  Cyber  Assets.  The trackin"
+   },
+   "procedure_citation": {
+    "document": "CIP-007/LSPG Security Patch Management Procedure V11.pdf",
+    "section": "CIP-007/LSPG Security Patch Management Procedure V11.pdf #chunk32 p10",
+    "span": "- 3.6.1 Applicable security patches determined not able to be installed within 35 calendar days of evaluation are added to a mitigation plan by creating a dated mitigation plan or "
+   },
+   "gap_quote": "For each mitigation plan created or revised in Part 2.3, implement the plan within the timeframe specified in the plan, unless a revision to the plan or an extension to the timefra",
+   "COMPLIANCE_CONFLICT": [
+    {
+     "signal": "COMPLIANCE_CONFLICT",
+     "kind": "quantitative",
+     "obligation": "CIP-007-6 R2 Part 2.4",
+     "detail": "CIP-003/LSPG CIP Cyber Security Policy V13.pdf #chunk67 p20 says [30 days]; CIP-007/LSPG Security Patch Management Procedure V11.pdf #chunk32 p10 says [35 calendar days]",
+     "same_tier": false,
+     "higher_authority": {
+      "tier": 2,
+      "tier_name": "policy",
+      "citation": "CIP-003/LSPG CIP Cyber Security Policy V13.pdf #chunk67 p20",
+      "text": "- 4.2.1 CIP Senior Manager Delegations are documented in 'NERC CIP Senior Manager Process: NERC CIP Senior Manager Delegations'. These delegations are documented and include the name and title of the delegate, the specific actions delegated, and the date of the delegation; approved by the CIP Senior Manager; and updated within 30 days of any change to the delegation. Per CIP-003, delegation change"
+     },
+     "lower_authority": {
+      "tier": 3,
+      "tier_name": "procedure",
+      "citation": "CIP-007/LSPG Security Patch Management Procedure V11.pdf #chunk32 p10",
+      "text": "- 3.6.1 Applicable security patches determined not able to be installed within 35 calendar days of evaluation are added to a mitigation plan by creating a dated mitigation plan or revising an existing mitigation plan within the Change Management Solution.\n- 3.6.2 Mitigation plans shall include  a list of patches, LSPG's  planned  actions, and/or implemented  mitigating  controls  to  mitigate  the"
+     },
+     "resolution": "NOT reconciled \u2014 the higher-tier claim governs the regulatory/policy floor. A stricter lower-tier commitment may be an intentional internal choice, not an error; SME review determines intentionality (TASK_COMPLIANCE_REASONING_V2 \u00a77.2) rather than this rule."
+    },
+    {
+     "signal": "COMPARISON_UNCERTAINTY",
+     "kind": "comparison_uncertainty",
+     "obligation": "CIP-007-6 R2 Part 2.4",
+     "detail": "CIP-003/LSPG CIP Cyber Security Policy V13.pdf #chunk67 p20 says [30 days]; CIP-003/LSP CIP Senior Manager Process Rev 6.0.pdf #chunk17 p6 says [15 calendar months] \u2014 incomparable units/qualifiers",
+     "same_tier": false,
+     "higher_authority": {
+      "tier": 2,
+      "tier_name": "policy",
+      "citation": "CIP-003/LSPG CIP Cyber Security Policy V13.pdf #chunk67 p20",
+      "text": "- 4.2.1 CIP Senior Manager Delegations are documented in 'NERC CIP Senior Manager Process: NERC CIP Senior Manager Delegations'. These delegations are documented and include the name and title of the delegate, the specific actions delegated, and the date of the delegation; approved by the CIP Senior Manager; and updated within 30 days of any change to the delegation. Per CIP-003, delegation change"
+     },
+     "lower_authority": {
+      "tier": 3,
+      "tier_name": "procedure",
+      "citation": "CIP-003/LSP CIP Senior Manager Process Rev 6.0.pdf #chunk17 p6",
+      "text": "- 3.3.1 CIP-002-5.1a,  R2.2: Approve  the  identifications  of  the  high,  medium,  and  low  BES  Cyber Systems required by Requirement R1 at least once every 15 calendar months, even if it has no identified items in Requirement R1.\n- 3.3.2 CIP-003-8 (CIP-003-9, effective 4/1/26), R4: The Responsible Entity may delegate authority for specific actions under one or more cyber security policies to "
+     },
+     "resolution": "Abstained \u2014 the compared claims use different units/qualifiers with no reviewed conversion rule (a calendar month is not a fixed day count; a business-day count is not a calendar-day count). Neither equality nor conflict is asserted."
+    },
+    {
+     "signal": "COMPARISON_UNCERTAINTY",
+     "kind": "comparison_uncertainty",
+     "obligation": "CIP-007-6 R2 Part 2.4",
+     "detail": "CIP-003/LSPG CIP Cyber Security Policy V13.pdf #chunk67 p20 says [30 days]; CIP-013/LSPG Supply Chain Plan v8.pdf #chunk24 p6 says [15 calendar months] \u2014 incomparable units/qualifiers",
+     "same_tier": false,
+     "higher_authority": {
+      "tier": 2,
+      "tier_name": "policy",
+      "citation": "CIP-003/LSPG CIP Cyber Security Policy V13.pdf #chunk67 p20",
+      "text": "- 4.2.1 CIP Senior Manager Delegations are documented in 'NERC CIP Senior Manager Process: NERC CIP Senior Manager Delegations'. These delegations are documented and include the name and title of the delegate, the specific actions delegated, and the date of the delegation; approved by the CIP Senior Manager; and updated within 30 days of any change to the delegation. Per CIP-003, delegation change"
+     },
+     "lower_authority": {
+      "tier": 3,
+      "tier_name": "procedure",
+      "citation": "CIP-013/LSPG Supply Chain Plan v8.pdf #chunk24 p6",
+      "text": "LSPG will review this plan at least once every 15 calendar months and obtain the approval of the CIP Senior Manager or their delegate (NERC CIP-013-2 R3)."
+     },
+     "resolution": "Abstained \u2014 the compared claims use different units/qualifiers with no reviewed conversion rule (a calendar month is not a fixed day count; a business-day count is not a calendar-day count). Neither equality nor conflict is asserted."
+    },
+    {
+     "signal": "COMPARISON_UNCERTAINTY",
+     "kind": "comparison_uncertainty",
+     "obligation": "CIP-007-6 R2 Part 2.4",
+     "detail": "CIP-007/LSPG Security Patch Management Procedure V11.pdf #chunk32 p10 says [35 calendar days]; CIP-003/LSP CIP Senior Manager Process Rev 6.0.pdf #chunk17 p6 says [15 calendar months] \u2014 incomparable units/qualifiers",
+     "same_tier": true,
+     "span_a": {
+      "tier": 3,
+      "tier_name": "procedure",
+      "citation": "CIP-007/LSPG Security Patch Management Procedure V11.pdf #chunk32 p10",
+      "text": "- 3.6.1 Applicable security patches determined not able to be installed within 35 calendar days of evaluation are added to a mitigation plan by creating a dated mitigation plan or revising an existing mitigation plan within the Change Management Solution.\n- 3.6.2 Mitigation plans shall include  a list of patches, LSPG's  planned  actions, and/or implemented  mitigating  controls  to  mitigate  the"
+     },
+     "span_b": {
+      "tier": 3,
+      "tier_name": "procedure",
+      "citation": "CIP-003/LSP CIP Senior Manager Process Rev 6.0.pdf #chunk17 p6",
+      "text": "- 3.3.1 CIP-002-5.1a,  R2.2: Approve  the  identifications  of  the  high,  medium,  and  low  BES  Cyber Systems required by Requirement R1 at least once every 15 calendar months, even if it has no identified items in Requirement R1.\n- 3.3.2 CIP-003-8 (CIP-003-9, effective 4/1/26), R4: The Responsible Entity may delegate authority for specific actions under one or more cyber security policies to "
+     },
+     "resolution": "Abstained \u2014 the compared claims use different units/qualifiers with no reviewed conversion rule (a calendar month is not a fixed day count; a business-day count is not a calendar-day count). Neither equality nor conflict is asserted."
+    },
+    {
+     "signal": "COMPLIANCE_CONFLICT",
+     "kind": "same_tier_disagreement",
+     "obligation": "CIP-007-6 R2 Part 2.4",
+     "detail": "CIP-007/LSPG Security Patch Management Procedure V11.pdf #chunk32 p10 says [35 calendar days]; CIP-003/LSP CIP Senior Manager Process Rev 6.0.pdf #chunk22 p7 says [30 calendar days]",
+     "same_tier": true,
+     "span_a": {
+      "tier": 3,
+      "tier_name": "procedure",
+      "citation": "CIP-007/LSPG Security Patch Management Procedure V11.pdf #chunk32 p10",
+      "text": "- 3.6.1 Applicable security patches determined not able to be installed within 35 calendar days of evaluation are added to a mitigation plan by creating a dated mitigation plan or revising an existing mitigation plan within the Change Management Solution.\n- 3.6.2 Mitigation plans shall include  a list of patches, LSPG's  planned  actions, and/or implemented  mitigating  controls  to  mitigate  the"
+     },
+     "span_b": {
+      "tier": 3,
+      "tier_name": "procedure",
+      "citation": "CIP-003/LSP CIP Senior Manager Process Rev 6.0.pdf #chunk22 p7",
+      "text": "Updates must occur within 30 calendar days for the following circumstances:\n- a) Change or cancellation of the delegation of authority for a specific action; and\n- b) Change in CIP Senior Manager.\nRefer to Section 4.3 for additional guidance regarding documentation of updates and approvals."
+     },
+     "resolution": "NOT reconciled \u2014 two same-tier documents disagree about the same obligation; tier alone cannot decide which governs. SME review required to determine which is correct, or whether both are independently valid for different populations."
+    },
+    {
+     "signal": "COMPARISON_UNCERTAINTY",
+     "kind": "comparison_uncertainty",
+     "obligation": "CIP-007-6 R2 Part 2.4",
+     "detail": "CIP-007/LSPG Security Patch Management Procedure V11.pdf #chunk32 p10 says [35 calendar days]; CIP-013/LSPG Supply Chain Plan v8.pdf #chunk24 p6 says [15 calendar months] \u2014 incomparable units/qualifiers",
+     "same_tier": true,
+     "span_a": {
+      "tier": 3,
+      "tier_name": "procedure",
+      "citation": "CIP-007/LSPG Security Patch Management Procedure V11.pdf #chunk32 p10",
+      "text": "- 3.6.1 Applicable security patches determined not able to be installed within 35 calendar days of evaluation are added to a mitigation plan by creating a dated mitigation plan or revising an existing mitigation plan within the Change Management Solution.\n- 3.6.2 Mitigation plans shall include  a list of patches, LSPG's  planned  actions, and/or implemented  mitigating  controls  to  mitigate  the"
+     },
+     "span_b": {
+      "tier": 3,
+      "tier_name": "procedure",
+      "citation": "CIP-013/LSPG Supply Chain Plan v8.pdf #chunk24 p6",
+      "text": "LSPG will review this plan at least once every 15 calendar months and obtain the approval of the CIP Senior Manager or their delegate (NERC CIP-013-2 R3)."
+     },
+     "resolution": "Abstained \u2014 the compared claims use different units/qualifiers with no reviewed conversion rule (a calendar month is not a fixed day count; a business-day count is not a calendar-day count). Neither equality nor conflict is asserted."
+    },
+    {
+     "signal": "COMPARISON_UNCERTAINTY",
+     "kind": "comparison_uncertainty",
+     "obligation": "CIP-007-6 R2 Part 2.4",
+     "detail": "CIP-003/LSP CIP Senior Manager Process Rev 6.0.pdf #chunk17 p6 says [15 calendar months]; CIP-003/LSP CIP Senior Manager Process Rev 6.0.pdf #chunk22 p7 says [30 calendar days] \u2014 incomparable units/qualifiers",
+     "same_tier": true,
+     "span_a": {
+      "tier": 3,
+      "tier_name": "procedure",
+      "citation": "CIP-003/LSP CIP Senior Manager Process Rev 6.0.pdf #chunk17 p6",
+      "text": "- 3.3.1 CIP-002-5.1a,  R2.2: Approve  the  identifications  of  the  high,  medium,  and  low  BES  Cyber Systems required by Requirement R1 at least once every 15 calendar months, even if it has no identified items in Requirement R1.\n- 3.3.2 CIP-003-8 (CIP-003-9, effective 4/1/26), R4: The Responsible Entity may delegate authority for specific actions under one or more cyber security policies to "
+     },
+     "span_b": {
+      "tier": 3,
+      "tier_name": "procedure",
+      "citation": "CIP-003/LSP CIP Senior Manager Process Rev 6.0.pdf #chunk22 p7",
+      "text": "Updates must occur within 30 calendar days for the following circumstances:\n- a) Change or cancellation of the delegation of authority for a specific action; and\n- b) Change in CIP Senior Manager.\nRefer to Section 4.3 for additional guidance regarding documentation of updates and approvals."
+     },
+     "resolution": "Abstained \u2014 the compared claims use different units/qualifiers with no reviewed conversion rule (a calendar month is not a fixed day count; a business-day count is not a calendar-day count). Neither equality nor conflict is asserted."
+    },
+    {
+     "signal": "COMPARISON_UNCERTAINTY",
+     "kind": "comparison_uncertainty",
+     "obligation": "CIP-007-6 R2 Part 2.4",
+     "detail": "CIP-003/LSP CIP Senior Manager Process Rev 6.0.pdf #chunk22 p7 says [30 calendar days]; CIP-013/LSPG Supply Chain Plan v8.pdf #chunk24 p6 says [15 calendar months] \u2014 incomparable units/qualifiers",
+     "same_tier": true,
+     "span_a": {
+      "tier": 3,
+      "tier_name": "procedure",
+      "citation": "CIP-003/LSP CIP Senior Manager Process Rev 6.0.pdf #chunk22 p7",
+      "text": "Updates must occur within 30 calendar days for the following circumstances:\n- a) Change or cancellation of the delegation of authority for a specific action; and\n- b) Change in CIP Senior Manager.\nRefer to Section 4.3 for additional guidance regarding documentation of updates and approvals."
+     },
+     "span_b": {
+      "tier": 3,
+      "tier_name": "procedure",
+      "citation": "CIP-013/LSPG Supply Chain Plan v8.pdf #chunk24 p6",
+      "text": "LSPG will review this plan at least once every 15 calendar months and obtain the approval of the CIP Senior Manager or their delegate (NERC CIP-013-2 R3)."
+     },
+     "resolution": "Abstained \u2014 the compared claims use different units/qualifiers with no reviewed conversion rule (a calendar month is not a fixed day count; a business-day count is not a calendar-day count). Neither equality nor conflict is asserted."
+    }
+   ],
+   "from_approved_mapping": false,
+   "open_queue_items": [
+    "18804240c8ed",
+    "36db08fa2a95",
+    "5d572fc59c25",
+    "81581d7b7bd6",
+    "a748639ffeb8",
+    "d7ffc837a1b0",
+    "f5a0d32be7a7"
+   ]
+  }
+ ]
+}

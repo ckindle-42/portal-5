@@ -27,13 +27,33 @@ from portal.modules.compliance.core.mapping_store import MappingStore
 
 _ID_RE = re.compile(r"[0-9a-f]{12}")  # matches uuid.uuid4().hex[:12] below
 
-KINDS = (
+# Two populations, deliberately distinguished (V8 P7 / W17).
+#
+# PIPELINE kinds are the module reporting its own uncertainty. They are
+# engineering triage: if the standard text and the procedure text settle it, the
+# module owes the answer, not the question. They must never reach the SME packet
+# — on the operator corpus they were 973 of 1107 items and would bury the real
+# judgment calls under a 88% majority of noise.
+PIPELINE_KINDS = (
     "applicability_scope",
     "document_tier",
     "compliance_conflict",
     "mapping_proposal",
     "low_confidence_extraction",
 )
+
+# SME kinds are questions no amount of reading settles, because they are facts
+# about the world or about intent rather than about the documents: does the
+# entity HAVE external routable connectivity (S01); was this stricter-than-
+# required internal rule DELIBERATE (S02); do you accept this redline (S03);
+# which of two supported readings governs (S04); did the activity actually
+# OCCUR in the period (S05). See determination.SME_DECISION_KINDS.
+from portal.modules.compliance.core.determination import (  # noqa: E402
+    SME_DECISION_KINDS as _SME,
+)
+
+SME_KINDS = tuple(_SME)
+KINDS = PIPELINE_KINDS + SME_KINDS
 STATUSES = ("OPEN", "CONFIRMED", "REJECTED", "SUPERSEDED")
 
 _TABLE = "review_queue"  # -> "compliance_review_queue" via the store prefix
@@ -143,6 +163,22 @@ def list_items(kind: str | None = None, status: str | None = None) -> list[Revie
     if status:
         df = df[df["status"] == status]
     return [ReviewItem.from_row(r) for r in df.to_dict("records")]
+
+
+def sme_packet() -> list[ReviewItem]:
+    """The SME packet: OPEN items a human is the right answerer for.
+
+    This is a FILTER, not a second store — the queue holds both populations and
+    this is the view that satisfies "every item carries a kind from
+    SME_DECISION_KINDS". Pipeline-confidence items stay visible through
+    ``open_items()`` for engineering triage."""
+    return [i for i in open_items() if i.kind in SME_KINDS]
+
+
+def triage_items() -> list[ReviewItem]:
+    """The complement: OPEN items the MODULE owes an answer to. A growing list
+    here is a backlog for engineering, never for a compliance reviewer."""
+    return [i for i in open_items() if i.kind not in SME_KINDS]
 
 
 def open_items(kind: str | None = None) -> list[ReviewItem]:

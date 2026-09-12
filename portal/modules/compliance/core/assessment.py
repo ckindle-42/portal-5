@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import asdict
 from typing import Any, cast
@@ -19,6 +20,8 @@ from portal.modules.compliance.core.determination import (
     FieldResult,
     RequirementResult,
 )
+
+logger = logging.getLogger(__name__)
 
 _QUANTITY = re.compile(
     r"(?P<value>\d+)\s+(?:(?P<qualifier>calendar|business)\s+)?(?P<unit>hour|day|week|month|year)s?",
@@ -126,6 +129,15 @@ def _compare(
             if outcome == "LESS_RESTRICTIVE":
                 return "CONTRADICTED", kind, note
             if outcome in {"EQUIVALENT", "MORE_RESTRICTIVE"}:
+                # SUPPORTED is right — a stricter internal rule satisfies a
+                # governing bound and is never a violation. But whether that
+                # strictness is DELIBERATE is not in either document: the
+                # procedure says 30 days, the standard says 35, and no reading
+                # of either settles whether 30 was chosen or drifted. That is
+                # S02_INTENTIONAL_STRICTNESS, and it is the operator's call —
+                # they may confirm the tighter cadence or relax to the governing
+                # bound and reclaim the margin. Surfaced, never assumed.
+                _queue_intentional_strictness(outcome, field, governing, internal, note)
                 return "SUPPORTED", kind, note
             return "UNRESOLVED", kind, note
     left, right = _norm(governing), _norm(f"{internal} {source_text}")
@@ -133,6 +145,36 @@ def _compare(
     if left and (left <= right or len(left & right) / len(left) >= threshold):
         return "SUPPORTED", "token_entailment", "governing terms are present in the assertion"
     return "ABSENT", "token_entailment", "candidate does not address the governing field"
+
+
+def _queue_intentional_strictness(
+    outcome: str, field: str, governing: str, internal: str, note: str
+) -> None:
+    """S02, for MORE_RESTRICTIVE only. The guard lives here rather than at the
+    call site so `_compare` keeps one branch for both SUPPORTED outcomes.
+    Best-effort: a queue failure must never break an assessment."""
+    if outcome != "MORE_RESTRICTIVE":
+        return
+    from portal.modules.compliance.core import review_queue as rq
+
+    try:
+        rq.propose(
+            "S02_INTENTIONAL_STRICTNESS",
+            subject_id=f"{field}:{internal[:60]}",
+            proposed_value={
+                "field": field,
+                "governing_requirement": governing[:200],
+                "internal_commitment": internal[:200],
+                "comparison": note,
+                "question": (
+                    "The internal rule is stricter than the governing bound. Is that "
+                    "deliberate, or should it be relaxed to the governing requirement?"
+                ),
+            },
+            confidence=1.0,  # the COMPARISON is certain; the INTENT is what is asked
+        )
+    except Exception:  # noqa: BLE001 - surfacing a question must not fail the assessment
+        logger.debug("could not queue S02 for %s", field, exc_info=True)
 
 
 def assess_atom(

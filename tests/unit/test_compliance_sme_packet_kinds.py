@@ -7,7 +7,12 @@ module owes the answer, not the question."
 Measured 2026-09-12: 1107 OPEN items, **0** carrying an SME kind, 812 of them
 `low_confidence_extraction` — a retrieval stage reporting its own uncertainty,
 which is precisely what the requirement forbids queueing. Root cause:
-`SME_DECISION_KINDS` is defined and referenced nowhere else in the codebase.
+`SME_DECISION_KINDS` was defined and referenced nowhere else in the codebase.
+
+Closed the same day: the queue now separates the two populations
+(`rq.sme_packet()` / `rq.triage_items()`), S01 is emitted by `scope_derive` (it
+always was, mis-kinded `applicability_scope`) and S02 by `assessment._compare`
+when an internal rule is MORE_RESTRICTIVE than the governing bound.
 
 These tests are hermetic — they assert the taxonomy and the classifier over
 synthetic rows, never the live queue, so they run in CI without the operator's
@@ -30,11 +35,11 @@ _PIPELINE_KINDS = {
 }
 
 
+rq = importlib.import_module("portal.modules.compliance.core.review_queue")
+
+
 def is_sme_kind(kind: str) -> bool:
-    """The predicate the packet builder owes. Kept here (not in the module)
-    deliberately: the module does not have one yet, and this test is what makes
-    its absence visible rather than assumed."""
-    return kind in det.SME_DECISION_KINDS
+    return kind in rq.SME_KINDS
 
 
 def test_the_five_sme_kinds_are_the_contract():
@@ -64,6 +69,20 @@ def test_pipeline_confidence_kinds_are_not_sme_kinds():
             f"{kind!r} is a pipeline-confidence signal and must not reach the "
             "SME packet — the module owes the answer, not the question"
         )
+
+
+def test_the_two_populations_are_disjoint():
+    """The split the packet rests on: a kind is either the module's own backlog
+    or a human's question, never both."""
+    assert not set(rq.PIPELINE_KINDS) & set(rq.SME_KINDS)
+    assert set(rq.KINDS) == set(rq.PIPELINE_KINDS) | set(rq.SME_KINDS)
+
+
+def test_emitted_sme_kinds_are_declarable():
+    """S01 and S02 are emitted by the module today; `propose` must accept them,
+    which it would not have before the taxonomy was wired into KINDS."""
+    for kind in ("S01_SCOPE_DECLARATION", "S02_INTENTIONAL_STRICTNESS"):
+        assert kind in rq.KINDS
 
 
 def test_a_packet_of_pipeline_kinds_is_rejected():
