@@ -237,10 +237,61 @@ def _live_routes() -> tuple[str, str, str]:
     )
 
 
-PENDING_CHECKS: dict[str, tuple[str, str]] = {
-    "Y21": ("adjudicated error ceilings", "stratified 40-row adjudication over seat_sweep_debug/"),
-    "Y23": ("prompt sensitivity", "paraphrase _SEAT_SYSTEM into 3-4 variants, re-run, F2 range"),
-}
+PENDING_CHECKS: dict[str, tuple[str, str]] = {}
+
+_Y21 = _RUN / "y21_adjudication.json"
+_Y23 = _RUN / "y23_prompt_sensitivity.json"
+
+
+def _y21() -> tuple[str, str, str]:
+    """Adjudicated error ceilings: false-gap <= 10% on the SHIPPED roster, and
+    zero false-supported case left unadjudicated."""
+    if not _Y21.exists():
+        return ("PENDING", "adjudicated error ceilings", "run scripts/compliance_y21_adjudicate.py")
+    d = json.loads(_Y21.read_text())
+    c = d.get("ceilings_roster", {})
+    unres = d.get("unresolved_false_supported") or []
+    ok = d.get("verdict_y21") == "PASS"
+    return (
+        "PASS" if ok else "FAIL",
+        "adjudicated error ceilings",
+        f"{d.get('totals', {}).get('case_rows')} case rows, "
+        f"{d.get('totals', {}).get('disagreements')} disagreements; roster causes "
+        f"{d.get('cause_mix_roster')}; false-gap {c.get('false_gap_rate')} (bar 0.10); "
+        f"false-supported cases {d.get('false_supported_cases_roster')} all adjudicated"
+        + (f"; UNRESOLVED {unres}" if unres else ""),
+    )
+
+
+def _y23() -> tuple[str, str, str]:
+    """Prompt sensitivity: the headline F2 must survive paraphrase. A range at
+    or above the threshold means the number is a prompt artifact and must be
+    reported with its range."""
+    if not _Y23.exists():
+        return (
+            "PENDING",
+            "prompt sensitivity",
+            "run scripts/compliance_y23_run.sh then compliance_y23_aggregate.py",
+        )
+    d = json.loads(_Y23.read_text())
+    rng = d.get("max_f2_range_across_roster")
+    verdict = d.get("verdict")
+    if not d.get("complete"):
+        return (
+            "PENDING",
+            "prompt sensitivity",
+            f"sweep incomplete: {d.get('incomplete_pairs') or 'missing variant/seat pairs'}",
+        )
+    seats = d.get("per_seat", {})
+    detail = "; ".join(
+        f"{k.split('/')[-1][:26]} F2 {v['f2_min']:.3f}-{v['f2_max']:.3f}" for k, v in seats.items()
+    )
+    return (
+        "PASS" if verdict == "STABLE_UNDER_PARAPHRASE" else "FAIL",
+        "prompt sensitivity",
+        f"{len(d.get('paraphrase_variants', []))} paraphrases x {len(seats)} roster seats; "
+        f"max F2 range {rng} (artifact threshold {d.get('artifact_threshold')}); {detail}",
+    )
 
 
 def _git_probe_before_pulls() -> tuple[str, str]:
@@ -293,11 +344,9 @@ def main() -> None:
     for cid in ("Y12", "Y13", "Y16"):
         results[cid] = {"name": f"{lr_name} ({cid})", "status": lr_status, "detail": lr_detail}
 
-    for cid, (name, why) in PENDING_CHECKS.items():
-        art = None
-        if "judgment_probe_v6" in why and list(RESULTS.glob("judgment_probe_v6_*.json")):
-            art = "artifact present — run the P8 scorer to close"
-        results[cid] = {"name": name, "status": "PENDING", "detail": art or why}
+    for cid, fn in (("Y21", _y21), ("Y23", _y23)):
+        st, nm, dt = fn()
+        results[cid] = {"name": nm, "status": st, "detail": dt}
 
     ordered = {k: results[k] for k in sorted(results)}
     npass = sum(1 for v in ordered.values() if v["status"] == "PASS")

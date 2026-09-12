@@ -94,6 +94,92 @@ _SYSTEM = (
     '"cited_refs":["..."],"rationale":"one sentence"}'
 )
 
+# ── Y23: prompt sensitivity ──────────────────────────────────────────────────
+# A headline F2 that moves when the prompt is merely REWORDED is a property of
+# the prompt, not of the seat. These are semantically equivalent restatements of
+# `_SYSTEM` — same five rules, same output contract, different wording, length
+# and order. `outdated_rule` is the one deliberate exception: it adds the
+# OUTDATED_LANGUAGE trigger Y21 found missing, so the same run also measures
+# whether that fix earns its place. Report the F2 RANGE, not the best variant.
+_JSON_CONTRACT = (
+    "Return ONE JSON object, no prose around it:\n"
+    '{"determination":"SUPPORTED|PARTIAL|CONTRADICTED|ABSENT|ABSTAIN",'
+    '"finding_type":null|"GAP"|"CONTRADICTION"|"OUTDATED_LANGUAGE"|"WEAK_MAPPING",'
+    '"cited_refs":["..."],"rationale":"one sentence"}'
+)
+
+_V_TERSE = (
+    "You are a sealed seat on a compliance council. Input: one governing unit, "
+    "the analyst's premises, one candidate implementation (or null). Decide "
+    "only whether the candidate satisfies that unit.\n"
+    "RULES:\n"
+    "- Only this unit. Invent no obligations.\n"
+    "- Stricter internal rules (more often, sooner, longer kept) SATISFY a "
+    "governing bound. Never a violation.\n"
+    "- Never infer from silence. Incomplete packet, or a needed premise "
+    "missing (defined term, applicability fact) -> ABSTAIN.\n"
+    "- ABSENT = packet complete, nothing addresses the unit.\n"
+    "- Cite every ref you relied on; cite nothing absent from the packet.\n"
+) + _JSON_CONTRACT
+
+_V_VERBOSE = (
+    "You are acting as a single, independently sealed seat on a compliance "
+    "review council. The problem reaching you has already been analyzed: you "
+    "receive exactly one governing compliance unit, whatever premises the "
+    "analyst chose to attach to it, and exactly one candidate internal "
+    "implementation, which may be null. Your sole decision is whether that "
+    "candidate satisfies that governing unit.\n"
+    "Apply these rules:\n"
+    "- Confine yourself to the governing unit you were given. Do not import, "
+    "infer or invent any additional obligation from elsewhere.\n"
+    "- Where the internal rule is stricter than the governing one — it happens "
+    "more frequently, it has a shorter deadline, it retains for longer — that "
+    "SATISFIES a governing maximum or minimum. A stricter rule is never, in "
+    "itself, a violation.\n"
+    "- Never reason from silence. If the packet is incomplete, or if some "
+    "premise you would need is absent (a defined term, a fact about "
+    "applicability), the correct answer is ABSTAIN.\n"
+    "- Reserve ABSENT for the case where the packet IS complete and no "
+    "candidate addresses the unit at all.\n"
+    "- Cite each register reference your determination rests upon, and cite "
+    "nothing that does not appear in the packet.\n"
+) + _JSON_CONTRACT
+
+_V_REORDERED = (
+    "Decide one question: does the candidate implementation satisfy the "
+    "governing compliance unit you have been given? You are one sealed seat on "
+    "a review council, and the packet — one governing unit, the analyst's "
+    "premises, one candidate (or null) — is already analyzed.\n"
+    "Constraints on your answer:\n"
+    "- Cite every register ref the determination rests on; cite nothing that is "
+    "not in the packet.\n"
+    "- ABSENT means the packet is complete and nothing addresses the unit.\n"
+    "- ABSTAIN if the packet is incomplete or a premise you need (a defined "
+    "term, an applicability fact) is missing. Do not infer from silence.\n"
+    "- A stricter internal rule — more frequent, shorter deadline, longer "
+    "retention — SATISFIES a governing maximum or minimum; it is never a "
+    "violation.\n"
+    "- Judge only the governing unit in front of you; invent no obligations.\n"
+) + _JSON_CONTRACT
+
+# Not a paraphrase: `_SYSTEM` plus the missing OUTDATED_LANGUAGE trigger (Y21).
+_V_OUTDATED_RULE = _SYSTEM.replace(
+    "- Cite every register ref your determination rests on",
+    "- A term alignment that is DATED, or described as last checked or aligned "
+    "at some past time, is not current alignment. A candidate resting on such a "
+    "term has a stale mapping: answer PARTIAL with OUTDATED_LANGUAGE even when "
+    "the substantive duty is otherwise met.\n"
+    "- Cite every register ref your determination rests on",
+)
+
+PROMPT_VARIANTS: dict[str, str] = {
+    "shipped": _SYSTEM,
+    "terse": _V_TERSE,
+    "verbose": _V_VERBOSE,
+    "reordered": _V_REORDERED,
+    "outdated_rule": _V_OUTDATED_RULE,
+}
+
 
 def parse_output(text: str) -> dict | None:
     """Extract the last balanced JSON object. None => schema-invalid."""
@@ -360,7 +446,7 @@ def _is_json(s: str) -> bool:
     return False
 
 
-def run_case(model: str, case: dict, baked: dict | None = None) -> dict:
+def run_case(model: str, case: dict, baked: dict | None = None, system: str | None = None) -> dict:
     # the model's own baked sampling params (from /api/show), with a
     # deterministic temperature and a fixed predict budget for the task
     opts = {k: v for k, v in (baked or {}).items() if k != "num_ctx"}
@@ -368,7 +454,7 @@ def run_case(model: str, case: dict, baked: dict | None = None) -> dict:
     payload = {
         "model": model,
         "messages": [
-            {"role": "system", "content": _SYSTEM},
+            {"role": "system", "content": system or _SYSTEM},
             {"role": "user", "content": packet(case)},
         ],
         "stream": False,
@@ -432,7 +518,13 @@ def _debug_line(case: dict, prefs: set[str], run: dict, score: dict) -> dict:
     }
 
 
-def run_model(model: str, cases: list[dict], *, debug_dir: Path | None = None) -> dict:
+def run_model(
+    model: str,
+    cases: list[dict],
+    *,
+    debug_dir: Path | None = None,
+    system: str | None = None,
+) -> dict:
     pf = preflight(model)
     print(
         f"  preflight: {pf['verdict']}  json_ok={pf.get('json_ok')} "
@@ -463,7 +555,7 @@ def run_model(model: str, cases: list[dict], *, debug_dir: Path | None = None) -
                 dbg.write(json.dumps(_debug_line(case, prefs, run, sc)) + "\n")
             print(f"  {case['id']:8} SKIPPED (model over {_MODEL_BUDGET_S}s budget)", flush=True)
             continue
-        run = run_case(model, case, baked)
+        run = run_case(model, case, baked, system=system)
         sc = score_case(case, run.get("parsed"), prefs)
         runs.append(run)
         scored.append(sc)
@@ -639,6 +731,12 @@ def main() -> None:
     ap.add_argument("--debug-dir", type=Path, help="write a full per-case .debug.jsonl per seat")
     ap.add_argument("--rescore", type=Path, help="re-score a debug dir; no model calls")
     ap.add_argument(
+        "--prompt-variant",
+        default="shipped",
+        choices=sorted(PROMPT_VARIANTS),
+        help="Y23: which system-prompt wording to run (default: shipped)",
+    )
+    ap.add_argument(
         "--notify", action="store_true", help="push start/per-seat/done to enabled channels"
     )
     args = ap.parse_args()
@@ -679,7 +777,10 @@ def main() -> None:
     for i, m in enumerate(models, 1):
         print(f"\n=== [{i}/{len(models)}] {m} ===", flush=True)
         t0 = time.monotonic()
-        results.append(run_model(m, cases, debug_dir=debug_dir))
+        results.append(
+            run_model(m, cases, debug_dir=debug_dir, system=PROMPT_VARIANTS[args.prompt_variant])
+        )
+        results[-1]["prompt_variant"] = args.prompt_variant
         _write_results(out, ts, cases, results, complete=False)
         elapsed = round(time.monotonic() - t0)
         summary = _seat_summary(results[-1])
