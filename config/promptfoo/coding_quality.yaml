@@ -7,11 +7,6 @@ providers:
     config:
       temperature: 0
       num_predict: 1024
-  - id: ollama:chat:qwen3-coder-next:latest
-    label: auto-coding-heavy
-    config:
-      temperature: 0
-      num_predict: 2048
   - id: ollama:chat:granite4.1:8b-ctx8k
     label: tools-specialist
     config:
@@ -19,7 +14,7 @@ providers:
       num_predict: 512
 defaultTest:
   options:
-    provider: ollama:chat:gemma4:26b-a4b-it-qat
+    provider: ollama:chat:gemma4:26b-a4b-it-qat-ctx8k
   assert:
     - type: not-contains
       value: "as an AI language model"

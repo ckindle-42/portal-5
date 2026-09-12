@@ -2,13 +2,8 @@ description: "Portal 5 — Security workspaces quality evaluation (auto-security
 prompts:
   - file://prompts/security.txt
 providers:
-  - id: ollama:chat:hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M
+  - id: ollama:chat:hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k
     label: auto-security-vulnllm
-    config:
-      temperature: 0
-      num_predict: 4096
-  - id: ollama:chat:huihui_ai/baronllm-abliterated:latest
-    label: auto-security-baronllm
     config:
       temperature: 0
       num_predict: 4096
@@ -29,7 +24,7 @@ providers:
       num_predict: 4096
 defaultTest:
   options:
-    provider: ollama:chat:gemma4:26b-a4b-it-qat
+    provider: ollama:chat:gemma4:26b-a4b-it-qat-ctx8k
   assert:
     - type: latency
       threshold: 900000

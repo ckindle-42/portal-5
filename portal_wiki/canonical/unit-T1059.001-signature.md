@@ -14,8 +14,8 @@ tags:
 - T1059.001
 - technique
 - signature
-created_at: 1788800246.432349
-updated_at: 1788800246.432349
+created_at: 1789196393.371789
+updated_at: 1789196393.371789
 ---
 
 # T1059.001 — PowerShell execution — Sysmon process creation or script-block telemetry [KEY: PowerShell image in Sysmon or suspicious script-block content]

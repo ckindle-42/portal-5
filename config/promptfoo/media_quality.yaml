@@ -12,19 +12,19 @@ providers:
     config:
       temperature: 0
       num_predict: 512
-  - id: ollama:chat:lfm2.5:8b
+  - id: ollama:chat:lfm2.5:8b-ctx8k
     label: auto-music
     config:
       temperature: 0.7
       num_predict: 512
-  - id: ollama:chat:gemma4:12b-it-qat
+  - id: ollama:chat:gemma4:12b-it-qat-ctx8k
     label: auto-audio
     config:
       temperature: 0
       num_predict: 512
 defaultTest:
   options:
-    provider: ollama:chat:gemma4:26b-a4b-it-qat
+    provider: ollama:chat:gemma4:26b-a4b-it-qat-ctx8k
   assert:
     - type: not-contains
       value: "as an AI language model"

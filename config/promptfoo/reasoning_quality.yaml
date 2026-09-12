@@ -22,7 +22,7 @@ providers:
 # auto-daily with no preserved variant slot to quality-test separately).
 defaultTest:
   options:
-    provider: ollama:chat:gemma4:26b-a4b-it-qat
+    provider: ollama:chat:gemma4:26b-a4b-it-qat-ctx8k
   assert:
     - type: latency
       threshold: 120000

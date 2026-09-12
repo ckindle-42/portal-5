@@ -1077,16 +1077,10 @@ workspace_routing:
   - general
   bench-qwen3-coder-30b:
   - general
-  bench-laguna:
-  - general
   bench-granite41-8b:
   - general
   bench-granite41-30b:
   - general
-  bench-vulnllm-r-7b:
-  - general
-  bench-baronllm-q6k:
-  - security
   bench-foundation-sec-8b-reasoning:
   - reasoning
   bench-qwen35-abliterated:
@@ -1103,87 +1097,27 @@ workspace_routing:
   - general
   bench-huihui-qwen36-27b:
   - general
-  bench-qwen36-35b-a3b-ud:
-  - general
-  bench-qwen36-hauhaucs:
-  - general
-  bench-gemma4-12b:
-  - general
   bench-gemma4-e4b-qat:
-  - general
-  bench-gemma4-26b-qat:
-  - general
-  bench-gemma4-31b-qat:
-  - general
-  bench-lfm25-8b:
   - general
   bench-nex-n2-mini:
   - general
-  bench-qwen3-coder-next:
-  - general
-  bench-lfm25-8b-uncensored:
-  - general
-  bench-qwen3-coder-next-abliterated:
-  - general
-  bench-hauhaucs-coder:
-  - general
-  bench-gemma4-heretic-coder:
-  - general
-  bench-ornith15-coder:
-  - general
   bench-e2b-pentest:
-  - general
-  bench-qwable-35b:
   - general
   bench-glm:
   - general
   auto-cad:
   - coding
   - general
-  bench-cad-prior:
-  - coding
-  - general
   bench-qwen36-cad:
   - coding
   - general
-  bench-moecad:
-  - coding
-  - general
-  bench-supergemma4-sec:
-  - general
-  bench-vulnllm-r7b:
-  - general
   bench-huihui-qwen36-35b-a3b:
-  - general
-  bench-qwen36-27b-optiq:
-  - general
-  bench-exec-recon:
   - general
   bench-exec-reasoning:
   - general
-  bench-exec-exploit:
-  - general
-  bench-agentworld:
-  - general
-  bench-ornith-35b:
-  - general
-  bench-north-mini-code:
-  - general
-  bench-qwen35-9b-heretic-vision:
-  - general
-  bench-gemma4-12b-agentic:
-  - general
   bench-hermes3:
-  - general
-  bench-qwen3-14b-abliterated:
   - general
   bench-mistral-small-3-2:
   - general
   bench-magistral-small:
-  - general
-  bench-kat-coder:
-  - general
-  bench-orcarouter-q38:
-  - general
-  bench-glm-reap:
   - general

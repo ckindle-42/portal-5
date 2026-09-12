@@ -50,10 +50,8 @@ VALID_WORKSPACES = frozenset(
         "auto-audio",
         "auto-uncensored-throwaway",
         # Coding capability benchmark workspaces (user-selected only)
-        "bench-qwen3-coder-next",
         "bench-qwen3-coder-30b",
         "bench-glm",
-        "bench-laguna",
         "bench-granite41-8b",
         "bench-granite41-30b",
         "bench-qwen35-abliterated",
@@ -62,55 +60,35 @@ VALID_WORKSPACES = frozenset(
         # May 2026 additions (TASK_BENCH_COVERAGE_V1)
         # V7 adds (PHASE_PLAN_MODEL_REFRESH_V7_V2)
         # V7 catalog refresh (TASK_MODEL_REFRESH_V7)
-        "bench-qwen36-35b-a3b-ud",
         # V8 quant-trueup (TASK_QUANT_TRUEUP_V1)
-        "bench-qwen36-27b-optiq",
         "bench-gemma4-26b-optiq",
         "bench-huihui-qwen36-27b",
         "bench-huihui-qwen36-35b-a3b",
         # TASK_MODEL_FLEET_REFRESH_V2 Phase 4 adds
-        "bench-qwen36-hauhaucs",
-        "bench-gemma4-12b",
         # V8 model refresh (TASK_MODEL_REFRESH_V8)
         "bench-gemma4-e4b-qat",
-        "bench-gemma4-26b-qat",
-        "bench-gemma4-31b-qat",
-        "bench-lfm25-8b",
         "bench-nex-n2-mini",
         # V8 uncensored candidates (TASK_MODEL_REFRESH_V8_UNCENSORED)
-        "bench-lfm25-8b-uncensored",
-        "bench-qwen3-coder-next-abliterated",
         # V9 candidate benches (TASK_MODEL_EVAL_V9_CANDIDATES)
-        "bench-qwable-35b",
         "bench-e2b-pentest",
         # June 2026 new production workspaces
         "auto-bigfix",
         "auto-cad",
         # June 2026 bench candidates
-        "bench-supergemma4-sec",
         # June 2026 uncensored coding + stranded-model lanes (TASK_CODING_UNCENSORED_LANES_V1)
         "auto-extract-uncensored",
         "auto-general-uncensored",
         # June 2026 AppSec bench candidate
-        "bench-vulnllm-r7b",
         # June 2026 diffusion research bench
         # May 2026 specialist MLX production workspaces
         "tools-specialist",
         # June 2026 security bench exec-chain workspaces (pipeline-routed)
-        "bench-exec-recon",
         "bench-exec-reasoning",
-        "bench-exec-exploit",
         # TASK_LFM_AGENTWORLD_ROUTER_V1
-        "bench-agentworld",
         # TASK_MODEL_EVAL_V10_CANDIDATES — bench-ornith-9b, bench-qwythos-9b,
         # bench-glm47f-claude-distill dropped 2026-06-30 (operator verdict: Drop)
-        "bench-ornith-35b",
-        "bench-north-mini-code",
         # Bench candidates 2026-06-30 (intake V11) — bench-only, PROMOTE_POLICY=confirm
-        "bench-qwen35-9b-heretic-vision",
-        "bench-gemma4-12b-agentic",
         # V13-B candidate intake 2026-07-08 — bench-only, PROMOTE_POLICY=confirm
-        "bench-qwen3-14b-abliterated",
     }
 )
 

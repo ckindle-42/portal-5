@@ -1,26 +1,26 @@
 ---
 id: unit-fact-persona-roster
 kind: what
-title: 133 personas
+title: 122 personas
 sources:
 - type: code
   path: config/personas/
-  commit: 32af15ccf52a
+  commit: 2704ef21dfe7
 - type: code
   path: config/personas/adversarysimulator.yaml
-  commit: 32af15ccf52a
+  commit: 2704ef21dfe7
 - type: code
   path: config/personas/agenticheavy.yaml
-  commit: 32af15ccf52a
+  commit: 2704ef21dfe7
 - type: code
   path: config/personas/agenticlite.yaml
-  commit: 32af15ccf52a
+  commit: 2704ef21dfe7
 - type: code
   path: config/personas/agentorchestrator.yaml
-  commit: 32af15ccf52a
+  commit: 2704ef21dfe7
 - type: code
-  path: config/personas/bench_gemma4_12b.yaml
-  commit: 32af15ccf52a
+  path: config/personas/bench_gemma4_26b_optiq.yaml
+  commit: 2704ef21dfe7
 claims:
 - probe: personas.count
   pattern: Persona roster ({value} personas)
@@ -29,10 +29,10 @@ tags:
 - fact
 - personas
 created_at: 1784000421.217775
-updated_at: 1788791061.98191
+updated_at: 1789193921.19621
 ---
 
-# Persona roster (133 personas)
+# Persona roster (122 personas)
 
 | Slug | Module | Workspace | Model Pin |
 |---|---|---|---|
@@ -40,29 +40,18 @@ updated_at: 1788791061.98191
 | `agenticheavy` | coding | `auto-coding` | — |
 | `agenticlite` | coding | `auto-coding` | — |
 | `agentorchestrator` | coding | `auto-coding` | — |
-| `bench-gemma4-12b` | eval | `bench-gemma4-12b` | — |
 | `bench-gemma4-26b-optiq` | eval | `bench-gemma4-26b-optiq` | — |
-| `bench-gemma4-26b-qat` | eval | `bench-gemma4-26b-qat` | — |
-| `bench-gemma4-31b-qat` | eval | `bench-gemma4-31b-qat` | — |
 | `bench-gemma4-e4b-qat` | eval | `bench-gemma4-e4b-qat` | — |
 | `bench-glm` | eval | `bench-glm` | — |
 | `bench-granite41-30b` | eval | `bench-granite41-30b` | — |
 | `bench-granite41-8b` | eval | `bench-granite41-8b` | — |
 | `bench-huihui-qwen36-27b` | eval | `bench-huihui-qwen36-27b` | — |
 | `bench-huihui-qwen36-35b-a3b` | eval | `bench-huihui-qwen36-35b-a3b` | — |
-| `bench-laguna` | eval | `bench-laguna` | — |
-| `bench-lfm25-8b` | eval | `bench-lfm25-8b` | — |
-| `bench-lfm25-8b-uncensored` | eval | `bench-lfm25-8b-uncensored` | — |
 | `bench-nex-n2-mini` | eval | `bench-nex-n2-mini` | — |
 | `bench-omnicoder2` | eval | `bench-omnicoder2` | — |
 | `bench-qwen35-abliterated` | eval | `bench-qwen35-abliterated` | — |
-| `bench-qwen36-27b-optiq` | eval | `bench-qwen36-27b-optiq` | — |
-| `bench-qwen36-35b-a3b-ud` | eval | `bench-qwen36-35b-a3b-ud` | — |
 | `bench-qwen36-abl-27b` | eval | `bench-huihui-qwen36-27b` | — |
-| `bench-qwen36-hauhaucs` | eval | `bench-qwen36-hauhaucs` | — |
 | `bench-qwen3-coder-30b` | eval | `bench-qwen3-coder-30b` | — |
-| `bench-qwen3-coder-next` | eval | `bench-qwen3-coder-next` | — |
-| `bench-qwen3-coder-next-abliterated` | eval | `bench-qwen3-coder-next-abliterated` | — |
 | `blueteamdefender` | security | `auto-security` | — |
 | `bugdiscoverycodeassistant` | coding | `auto-coding` | — |
 | `businessanalyst` | general | `auto-reasoning` | — |

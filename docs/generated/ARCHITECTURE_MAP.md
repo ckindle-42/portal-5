@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 738 canonical units.*
+*Deterministic projection of 737 canonical units.*
 
 ## Knowledge Layer
 
@@ -474,7 +474,6 @@
 | `unit-model-catalog-hf-co-unsloth-qwen-agentworld-35b-a3b-gguf-ud-q4-k-xl-ctx64k` | what | 2 |
 | `unit-model-catalog-hf-co-unsloth-qwen3-6-35b-a3b-gguf-ud-q4-k-xl` | what | 2 |
 | `unit-model-catalog-hf-co-unsloth-qwen3-8-27b-gguf-q4-k-m` | what | 3 |
-| `unit-model-catalog-hf-co-yuxinlu1-gemma-4-12b-agentic-fable5-composer2-5-v2-3-5x-tau2-gguf-q4-k-m` | what | 2 |
 | `unit-model-catalog-huihui-ai-baronllm-abliterated` | what | 2 |
 | `unit-model-catalog-huihui-ai-baronllm-abliterated-latest-ctx8k` | what | 2 |
 | `unit-model-catalog-huihui-ai-baronllm-abliterated-latest-dropped-evaluated-not-adopted-supersedes-the-gated-alicankiraz0-baronllm-above` | what | 2 |
@@ -747,12 +746,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 738 units
+**Total:** 737 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1826 references
+- **code**: 1824 references
 - **config**: 1 references
 - **doc**: 1 references
 - **mitre**: 40 references
