@@ -1,7 +1,7 @@
 ---
 id: unit-fact-persona-roster
 kind: what
-title: 135 personas
+title: 133 personas
 sources:
 - type: code
   path: config/personas/
@@ -32,7 +32,7 @@ created_at: 1784000421.217775
 updated_at: 1788791061.98191
 ---
 
-# Persona roster (135 personas)
+# Persona roster (133 personas)
 
 | Slug | Module | Workspace | Model Pin |
 |---|---|---|---|
@@ -44,8 +44,6 @@ updated_at: 1788791061.98191
 | `bench-gemma4-26b-optiq` | eval | `bench-gemma4-26b-optiq` | — |
 | `bench-gemma4-26b-qat` | eval | `bench-gemma4-26b-qat` | — |
 | `bench-gemma4-31b-qat` | eval | `bench-gemma4-31b-qat` | — |
-| `bench-gemma4-e2b` | eval | `bench-gemma4-e2b` | — |
-| `bench-gemma4-e4b` | eval | `bench-gemma4-e4b` | — |
 | `bench-gemma4-e4b-qat` | eval | `bench-gemma4-e4b-qat` | — |
 | `bench-glm` | eval | `bench-glm` | — |
 | `bench-granite41-30b` | eval | `bench-granite41-30b` | — |

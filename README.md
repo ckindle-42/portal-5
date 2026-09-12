@@ -19,7 +19,7 @@ portal-5/
 ├── 📁 config/                            # Single source of truth
 │   ├── portal.yaml                      # ✅ Workspaces + MCP fleet (authoritative)
 │   ├── backends.yaml                    # ✅ Model catalog
-│   ├── personas/                        # ✅ 135 persona definitions
+│   ├── personas/                        # ✅ 133 persona definitions
 │   └── modules.generated.yaml           # ⚠️ Generated - do not edit
 │
 ├── 📁 portal/                            # The platform
@@ -87,7 +87,7 @@ portal-5/
 
 Flip either: `portal module enable video`
 
-### Routing Destinations (82 workspaces)
+### Routing Destinations (78 workspaces)
 
 Every workspace pins a **model + toolset + context budget**. You pick an intent; it sets all three.
 
@@ -121,7 +121,7 @@ Never in daily use. Same toolset and scaffolding as a functional lane, so a TPS 
 | `filesystem` `fetch` `git` `serena` `docker` `context7` | dev | ❌ | ✅ |
 | `browser` `reranker` `proxmox` `binresearch` | specialist | ❌ | ✅ |
 
-### Personas (135)
+### Personas (133)
 Voice and constraints layered over a workspace. The workspace picks the model; the persona shapes the answer.
 
 ### Channels (3)
@@ -131,9 +131,9 @@ Voice and constraints layered over a workspace. The workspace picks the model; t
 
 ### Total Capabilities
 - **16 capability domains** (14 enabled)
-- **82 workspaces** (25 functional, 57 benchmark)
+- **78 workspaces** (25 functional, 53 benchmark)
 - **33 MCP tool servers** (ports 8910-8941)
-- **135 personas**
+- **133 personas**
 - **3 channels**
 - **213 validation checks**
 - **= everything runs on your hardware**
@@ -457,9 +457,9 @@ Your install succeeds when:
 This repository contains **everything** needed to run a production-grade, privacy-first AI platform:
 
 - ✅ **16 capability domains** (14 enabled out of the box)
-- ✅ **82 workspaces** (25 functional, 57 benchmark)
+- ✅ **78 workspaces** (25 functional, 53 benchmark)
 - ✅ **33 MCP tool servers** (ports 8910-8941)
-- ✅ **135 personas**
+- ✅ **133 personas**
 - ✅ **3 channels** (browser, Telegram, Slack)
 - ✅ **213 validation checks**
 - ✅ **No cloud dependencies** (100% local inference)

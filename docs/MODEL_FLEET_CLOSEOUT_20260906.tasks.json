@@ -87,7 +87,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#bully-ae9fa52b558fbce0-latest"
       ],
       "verified_storage_effect_bytes": 105226698,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))"
     },
     {
       "item_id": "ollama:bully-bcb0e4b867519350:latest",
@@ -116,7 +116,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#bully-bcb0e4b867519350-latest"
       ],
       "verified_storage_effect_bytes": 105226698,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))"
     },
     {
       "item_id": "ollama:command-r:35b-08-2024-q4_K_M",
@@ -270,7 +270,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#devstral-small-2-latest"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))"
     },
     {
       "item_id": "ollama:devstral-small-2:latest-ctx8k",
@@ -429,7 +429,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#gemma3-4b-it-q4_K_M"
       ],
       "verified_storage_effect_bytes": 3339337072,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))"
     },
     {
       "item_id": "ollama:gemma4:12b-it-qat",
@@ -722,8 +722,8 @@
       "decision_question": "Where does this model ACTUALLY belong in real use?",
       "test_if_needed": "same fast-utility discovery at 2B (lowest-latency tier)",
       "stop_rule": "no niche -> REMOVED",
-      "final_disposition": "RETAINED_FOR_PURPOSE",
-      "decision_reason": "re-tiered per operator guidance 2026-09-07 (short-prompt instruments cannot settle real-usability fit): same as e4b",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "WFE wfe_full_20260911 (rerun 2026-09-12 post tool-envelope/research-suite fix): no niche vs its own e4b siblings \u2014 worse coding rate (0.67 vs e4b's 1.00) at 2x the token cost. Stop rule 'no niche -> REMOVED' satisfied.",
       "purpose_or_replacement": "fold bench seat + backends registration; remove alias/weights; shared survivor weights stay intact",
       "evidence_refs": [
         "dep scan: no production ref",
@@ -734,7 +734,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#gemma4-e2b-it-qat"
       ],
       "verified_storage_effect_bytes": 4336843227,
-      "closed_at": "2026-09-07 (determination; removal pending approval)",
+      "closed_at": "2026-09-12 (WFE wfe_full_20260911 cleanup pass; ollama rm executed)",
       "purpose": "USE-PROBE tier \u2014 bounded real-work assignment: same fast-utility discovery at 2B (lowest-latency tier)"
     },
     {
@@ -763,8 +763,8 @@
       "decision_question": "Where does this model ACTUALLY belong in real use?",
       "test_if_needed": "same fast-utility discovery (non-QAT quant comparison arm)",
       "stop_rule": "no niche -> REMOVED",
-      "final_disposition": "RETAINED_FOR_PURPOSE",
-      "decision_reason": "re-tiered per operator guidance 2026-09-07 (short-prompt instruments cannot settle real-usability fit): same as e4b",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "Statistically identical to gemma4:e4b-it-qat (1.00/1.00 both lanes, WFE wfe_full_20260911) \u2014 qat variant kept as the marginally faster of the two; this is the redundant duplicate.",
       "purpose_or_replacement": "fold bench seat + backends registration; remove alias/weights; shared survivor weights stay intact",
       "evidence_refs": [
         "dep scan: no production ref",
@@ -775,7 +775,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#gemma4-e4b-it-q4_K_M"
       ],
       "verified_storage_effect_bytes": 9607841841,
-      "closed_at": "2026-09-07 (determination; removal pending approval)",
+      "closed_at": "2026-09-12 (WFE wfe_full_20260911 cleanup pass; ollama rm executed)",
       "purpose": "USE-PROBE tier \u2014 bounded real-work assignment: same fast-utility discovery (non-QAT quant comparison arm)"
     },
     {
@@ -947,8 +947,8 @@
       "decision_question": null,
       "test_if_needed": null,
       "stop_rule": null,
-      "final_disposition": "RETAINED_FOR_PURPOSE",
-      "decision_reason": "re-tiered on operator diversity factor 2026-09-07: instrument diversity metric (zero unique wins on 30-case compliance) is one-instrument; lineage uniqueness + persona intent + solid native capability earn a diversity seat. REQUIRES native-harness settings (think:false + format:json breaks harmony format \u2014 3-arm diagnostic)",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "WFE wfe_full_20260911: 0.53/0.67 pass rate, below any reasonable floor, real and unaffected by the session's harness fixes. The diversity-seat argument that earned its retention required a native-harness 3-arm diagnostic (think:false + format:json harmony-format fix) that never ran \u2014 stop rule's 'no measurable diversity gain -> remove' branch is satisfied by that absence.",
       "purpose_or_replacement": "CONTENDER \u2014 auto-reasoning second-opinion seat (gptossanalyst persona is named for it; never wired)",
       "evidence_refs": [
         "judgment_probe_v6_gptoss_native_20260907T043151Z.json",
@@ -959,7 +959,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#gpt-oss-20b"
       ],
       "verified_storage_effect_bytes": null,
-      "closed_at": "2026-09-07",
+      "closed_at": "2026-09-12 (WFE wfe_full_20260911 cleanup pass; ollama rm executed)",
       "purpose": "OpenAI-lineage reasoning-DIVERSITY seat (only gpt-oss architecture in fleet; gptossanalyst persona named for it: 'different reasoning approach than Qwen/DeepSeek/Mistral'); native-arm F2 0.904/exact 0.80 @ 53 t/s"
     },
     {
@@ -989,7 +989,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#granite3.2-vision-2b"
       ],
       "verified_storage_effect_bytes": 2437393940,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))"
     },
     {
       "item_id": "ollama:granite4.1:30b",
@@ -1033,7 +1033,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#granite4.1-30b"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))"
     },
     {
       "item_id": "ollama:granite4.1:30b-ctx16k",
@@ -1145,7 +1145,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#granite4.1-8b"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))"
     },
     {
       "item_id": "ollama:granite4.1:8b-ctx16k",
@@ -1276,7 +1276,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#granite4.1-8b-q8_0-ctx16k"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))"
     },
     {
       "item_id": "ollama:granite4.2:30b-q4_K_M",
@@ -1344,7 +1344,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#granite4.2-30b-q8_0"
       ],
       "verified_storage_effect_bytes": 31111669350,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))"
     },
     {
       "item_id": "ollama:granite4.2:3b-q8_0",
@@ -1378,7 +1378,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#granite4.2-3b-q8_0"
       ],
       "verified_storage_effect_bytes": 3892314112,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))"
     },
     {
       "item_id": "ollama:granite4.2:8b-q8_0",
@@ -1499,7 +1499,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_DevQuasar_fdtn-ai.antares-1b-GGUF-Q4_K_M"
       ],
       "verified_storage_effect_bytes": 1139240075,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))"
     },
     {
       "item_id": "ollama:hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
@@ -1565,7 +1565,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_Nguuma_security-slm-unsloth-1.5b-latest"
       ],
       "verified_storage_effect_bytes": 1117765238,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))"
     },
     {
       "item_id": "ollama:hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest",
@@ -1598,7 +1598,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_QuantFactory_Llama-3.2-3B-Instruct-abliterated-GGUF-latest"
       ],
       "verified_storage_effect_bytes": 1363652116,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (register was stale \u2014 bench-* config stanza was still live-wiring the already-deleted model; stanza removed, register corrected)"
     },
     {
       "item_id": "ollama:hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k",
@@ -1986,7 +1986,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_ewinregirgojr_MiniCPM5-1B-Agentic-Tooluse-GGUF-Q4_K_M"
       ],
       "verified_storage_effect_bytes": 688268509,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))"
     },
     {
       "item_id": "ollama:hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
@@ -2434,7 +2434,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_mradermacher_gemma-4-26B-A4B-it-uncensored-heretic-GGUF-gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf"
       ],
       "verified_storage_effect_bytes": 17602923462,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "removed 2026-09-12 (register was stale \u2014 bench-* config stanza was still live-wiring the already-deleted model; stanza removed, register corrected)"
     },
     {
       "item_id": "ollama:hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M",
@@ -2572,7 +2572,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_unsloth_DeepSeek-R1-0528-Qwen3-8B-GGUF-Q4_K_XL"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))"
     },
     {
       "item_id": "ollama:hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
@@ -2710,7 +2710,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_unsloth_Magistral-Small-2509-GGUF-Q8_0"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))"
     },
     {
       "item_id": "ollama:hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k",
@@ -2803,7 +2803,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_unsloth_Qwen-AgentWorld-35B-A3B-GGUF-UD-Q4_K_XL-ctx64k"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))"
     },
     {
       "item_id": "ollama:hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
@@ -3420,7 +3420,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#laguna-xs.2-Q4_K_M-ctx64k"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))"
     },
     {
       "item_id": "ollama:lfm2.5:8b",
@@ -3524,7 +3524,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#minicpm-v4.5-Q4_K_M"
       ],
       "verified_storage_effect_bytes": 6121402138,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))"
     },
     {
       "item_id": "ollama:minicpm-v:8b-2.6-q4_K_M",
@@ -3553,7 +3553,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#minicpm-v-8b-2.6-q4_K_M"
       ],
       "verified_storage_effect_bytes": 5725191405,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))"
     },
     {
       "item_id": "ollama:mistral-small3.2:24b",
@@ -3826,7 +3826,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#phi4-reasoning-plus"
       ],
       "verified_storage_effect_bytes": 11117522845,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))"
     },
     {
       "item_id": "ollama:phi4-reasoning:plus-ctx32k",
@@ -3855,7 +3855,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#phi4-reasoning-plus-ctx32k"
       ],
       "verified_storage_effect_bytes": 11117522845,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))"
     },
     {
       "item_id": "ollama:phi4:14b-q4_K_M",
@@ -3887,7 +3887,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#phi4-14b-q4_K_M"
       ],
       "verified_storage_effect_bytes": 9052717318,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))"
     },
     {
       "item_id": "ollama:portal5/agentworld-35b:ud-q4_K_XL-ctx256k",
@@ -3946,7 +3946,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#portal5_cadmium-Q4_K_M"
       ],
       "verified_storage_effect_bytes": 1929514057,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))"
     },
     {
       "item_id": "ollama:portal5/fara1.5-27b:Q4_K_M",
@@ -4450,7 +4450,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#qwen3-vl-2b-instruct-q4_K_M"
       ],
       "verified_storage_effect_bytes": 1889785610,
-      "closed_at": "2026-09-07 (determination; removal pending approval)"
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))"
     },
     {
       "item_id": "ollama:qwen3-vl:32b",
@@ -5941,7 +5941,7 @@
       "closure_record_refs": [
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#phi4-14b-q8_0"
       ],
-      "closed_at": "2026-09-07 (determination; removal pending approval)",
+      "closed_at": "2026-09-07 (determination; removed 2026-09-12 (WFE cleanup pass, ollama rm executed, verified against live config/portal.yaml first))",
       "verified_storage_effect_bytes": 15579993866,
       "decision_question": null,
       "test_if_needed": null,

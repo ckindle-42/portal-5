@@ -372,7 +372,7 @@ Router quality is a measured property, not an assumption — the bench pins the 
 ### Personas
 
 <!-- WIKI:GENERATED unit=unit-fact-persona-roster -->
-#### Persona roster (135 personas)
+#### Persona roster (133 personas)
 
 | Slug | Module | Workspace | Model Pin |
 |---|---|---|---|
@@ -384,8 +384,6 @@ Router quality is a measured property, not an assumption — the bench pins the 
 | `bench-gemma4-26b-optiq` | eval | `bench-gemma4-26b-optiq` | — |
 | `bench-gemma4-26b-qat` | eval | `bench-gemma4-26b-qat` | — |
 | `bench-gemma4-31b-qat` | eval | `bench-gemma4-31b-qat` | — |
-| `bench-gemma4-e2b` | eval | `bench-gemma4-e2b` | — |
-| `bench-gemma4-e4b` | eval | `bench-gemma4-e4b` | — |
 | `bench-gemma4-e4b-qat` | eval | `bench-gemma4-e4b-qat` | — |
 | `bench-glm` | eval | `bench-glm` | — |
 | `bench-granite41-30b` | eval | `bench-granite41-30b` | — |
@@ -520,7 +518,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-#### Workspace roster (25 production, 57 eval, 82 total)
+#### Workspace roster (25 production, 53 eval, 78 total)
 
 ##### Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -564,12 +562,9 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 - `bench-foundation-sec-8b-reasoning`
 - `bench-gemma4-12b`
 - `bench-gemma4-12b-agentic`
-- `bench-gemma4-26b-heretic`
 - `bench-gemma4-26b-optiq`
 - `bench-gemma4-26b-qat`
 - `bench-gemma4-31b-qat`
-- `bench-gemma4-e2b`
-- `bench-gemma4-e4b`
 - `bench-gemma4-e4b-qat`
 - `bench-gemma4-heretic-coder`
 - `bench-glm`
@@ -584,7 +579,6 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 - `bench-laguna`
 - `bench-lfm25-8b`
 - `bench-lfm25-8b-uncensored`
-- `bench-llama32-3b-abliterated`
 - `bench-magistral-small`
 - `bench-mistral-small-3-2`
 - `bench-moecad`
