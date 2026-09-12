@@ -1,6 +1,6 @@
 # WFE Fitness Report — `wfe_full_20260911`
 
-Generated 2026-09-11T03:11:53.106563+00:00
+Generated 2026-09-12T02:52:10.382147+00:00
 Environment: git `7e690402` · Ollama `0.33.2` · fingerprint `bee67a5c0bcd`
 
 ## 1. Instrument health
@@ -10,15 +10,16 @@ the harness, not the model — and are removed from every rate below.
 
 | Outcome | Count |
 |---|---|
-| BUDGET_EXHAUSTED | 6 |
-| FAIL | 19 |
-| HARNESS_ERROR *(excluded)* | 5 |
-| PASS | 79 |
-| REFUSED | 9 |
-| TOOL_ERROR *(excluded)* | 1 |
-| TRUNCATED | 1 |
+| BUDGET_EXHAUSTED | 22 |
+| FAIL | 87 |
+| HARNESS_ERROR *(excluded)* | 4 |
+| PASS | 286 |
+| PENDING_REVIEW | 22 |
+| REFUSED | 29 |
+| TOOL_ERROR *(excluded)* | 30 |
+| TRUNCATED | 33 |
 
-6 of 120 run(s) excluded as instrument failures.
+34 of 513 run(s) excluded as instrument failures.
 
 Preflight notes (informational — did not block the arm):
 
@@ -30,48 +31,45 @@ Preflight notes (informational — did not block the arm):
 - `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M` — format:json returns empty content — not predicted by the card — card ground truth owed (WFE-0.6); this model cannot serve strict-JSON tasks (the campaign runs none). Observed: ''
 - `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` — format:json returns empty content — not predicted by the card — card ground truth owed (WFE-0.6); this model cannot serve strict-JSON tasks (the campaign runs none). Observed: ''
 
-393 matrix rows did not produce a result:
-
-- `auto-documents|command-r:35b-08-2024-q4_K_M|research|res-granite-ctx|r0` — PENDING
-- `auto-documents|command-r:35b-08-2024-q4_K_M|research|res-granite-ctx|r1` — PENDING
-- `auto-documents|command-r:35b-08-2024-q4_K_M|research|res-granite-ctx|r2` — PENDING
-- `auto-documents|command-r:35b-08-2024-q4_K_M|research|res-ollama-ctx|r0` — PENDING
-- `auto-documents|command-r:35b-08-2024-q4_K_M|research|res-ollama-ctx|r1` — PENDING
-- `auto-documents|command-r:35b-08-2024-q4_K_M|research|res-ollama-ctx|r2` — PENDING
-- `auto-documents|command-r:35b-08-2024-q4_K_M|research|res-repo-grounded|r0` — PENDING
-- `auto-documents|command-r:35b-08-2024-q4_K_M|research|res-repo-grounded|r1` — PENDING
-- `auto-documents|command-r:35b-08-2024-q4_K_M|research|res-repo-grounded|r2` — PENDING
-- `auto-research|command-r:35b-08-2024-q4_K_M|compliance_agentic|comp-p6j-01|r0` — PENDING
-- `auto-research|command-r:35b-08-2024-q4_K_M|compliance_agentic|comp-p6j-01|r1` — PENDING
-- `auto-research|command-r:35b-08-2024-q4_K_M|compliance_agentic|comp-p6j-01|r2` — PENDING
-- `auto-research|command-r:35b-08-2024-q4_K_M|compliance_agentic|comp-p6j-02|r0` — PENDING
-- `auto-research|command-r:35b-08-2024-q4_K_M|compliance_agentic|comp-p6j-02|r1` — PENDING
-- `auto-research|command-r:35b-08-2024-q4_K_M|compliance_agentic|comp-p6j-02|r2` — PENDING
-- `auto-research|command-r:35b-08-2024-q4_K_M|compliance_agentic|comp-p6j-03|r0` — PENDING
-- `auto-research|command-r:35b-08-2024-q4_K_M|compliance_agentic|comp-p6j-03|r1` — PENDING
-- `auto-research|command-r:35b-08-2024-q4_K_M|compliance_agentic|comp-p6j-03|r2` — PENDING
-- `auto-research|command-r:35b-08-2024-q4_K_M|compliance_agentic|comp-p6j-05|r0` — PENDING
-- `auto-research|command-r:35b-08-2024-q4_K_M|compliance_agentic|comp-p6j-05|r1` — PENDING
-- `auto-research|command-r:35b-08-2024-q4_K_M|compliance_agentic|comp-p6j-05|r2` — PENDING
-- `auto-research|command-r:35b-08-2024-q4_K_M|compliance_agentic|comp-p6j-06|r0` — PENDING
-- `auto-research|command-r:35b-08-2024-q4_K_M|compliance_agentic|comp-p6j-06|r1` — PENDING
-- `auto-research|command-r:35b-08-2024-q4_K_M|compliance_agentic|comp-p6j-06|r2` — PENDING
-- `auto-research|command-r:35b-08-2024-q4_K_M|compliance_agentic|comp-p6j-09|r0` — PENDING
-
 ## 2. Fitness matrix
 
 Rates count only model-attributable outcomes. Brackets are Wilson 95% intervals.
 
 | Workspace | Lane | Arm | Role | Persona | Rate | Excluded | Med tok | Med s |
 |---|---|---|---|---|---|---|---|---|
+| auto-coding | home:coding | `glm-4.7-flash:Q4_K_M-ctx64k` | challenger | agenticheavy | 8/9 = 0.89 [0.56–0.98] | 0 | 7160 | 40.4 |
+| auto-coding | home:coding | `kat-coder-v2.5-dev:Q4_K_M` | challenger | agenticheavy | 6/9 = 0.67 [0.35–0.88] | 0 | 3750 | 18.9 |
+| auto-coding | home:coding | `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M` | challenger | agenticheavy | 9/9 = 1.00 [0.70–1.00] | 0 | 5363 | 81.1 |
+| auto-coding | disc:compliance_agentic | `glm-4.7-flash:Q4_K_M-ctx64k` | challenger | agenticheavy | 15/30 = 0.50 [0.33–0.67] | 0 | 2459 | 16.9 |
+| auto-coding | disc:compliance_agentic | `kat-coder-v2.5-dev:Q4_K_M` | challenger | agenticheavy | 22/30 = 0.73 [0.56–0.86] | 0 | 2819 | 14.1 |
+| auto-coding | disc:compliance_agentic | `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M` | challenger | agenticheavy | 26/29 = 0.90 [0.74–0.96] | 1 | 3979 | 48.5 |
+| auto-compliance | home:compliance_agentic | `gpt-oss:20b` | challenger | cippolicywriter | 16/30 = 0.53 [0.36–0.70] | 0 | 4599 | 10.3 |
+| auto-compliance | home:compliance_agentic | `granite4.2:30b-q4_K_M` | challenger | cippolicywriter | 18/30 = 0.60 [0.42–0.75] | 0 | 5284 | 138.7 |
+| auto-compliance | home:compliance_agentic | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` | incumbent | cippolicywriter | 25/30 = 0.83 [0.66–0.93] | 0 | 5609 | 155.3 |
+| auto-compliance | disc:research | `gpt-oss:20b` | challenger | cippolicywriter | 4/9 = 0.44 [0.19–0.73] | 0 | 11746 | 26.6 |
+| auto-compliance | disc:research | `granite4.2:30b-q4_K_M` | challenger | cippolicywriter | 5/8 = 0.62 [0.31–0.86] | 1 | 21164 | 390.4 |
+| auto-compliance | disc:research | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` | incumbent | cippolicywriter | 7/9 = 0.78 [0.45–0.94] | 0 | 72506 | 430.9 |
+| auto-documents | home:research | `command-r:35b-08-2024-q4_K_M` | challenger | documentationarchitect | 0/1 = 0.00 [0.00–0.79] | 8 | 4016 | 48.3 |
 | auto-documents | home:research | `granite4.1:8b-ctx16k` | incumbent | documentationarchitect | 5/9 = 0.56 [0.27–0.81] | 0 | 34420 | 43.3 |
+| auto-general-uncensored | home:creative | `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M` | incumbent | — | 0/5 = 0.00 [0.00–0.43] | 0 | 4975 | 76.9 |
+| auto-general-uncensored | home:creative | `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` | challenger | — | n/a (0 gradeable) | 0 | 3382 | 197.8 |
+| auto-general-uncensored | home:creative | `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M` | challenger | — | 0/9 = 0.00 [0.00–0.30] | 0 | 4978 | 328.0 |
+| auto-general-uncensored | home:creative | `qwen36-fable-fusion-711:Q4_K_M` | challenger | — | n/a (0 gradeable) | 0 | 1278 | 44.6 |
+| auto-general-uncensored | disc:research | `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M` | incumbent | — | 5/7 = 0.71 [0.36–0.92] | 2 | 115891 | 140.2 |
+| auto-general-uncensored | disc:research | `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` | challenger | — | 3/9 = 0.33 [0.12–0.65] | 0 | 25562 | 261.5 |
+| auto-general-uncensored | disc:research | `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M` | challenger | — | 7/9 = 0.78 [0.45–0.94] | 0 | 39974 | 233.3 |
+| auto-general-uncensored | disc:research | `qwen36-fable-fusion-711:Q4_K_M` | challenger | — | 4/8 = 0.50 [0.22–0.78] | 1 | 239973 | 435.0 |
+| auto-research | disc:compliance_agentic | `command-r:35b-08-2024-q4_K_M` | challenger | factchecker | 5/17 = 0.29 [0.13–0.53] | 13 | 3944 | 20.3 |
+| auto-research | disc:compliance_agentic | `granite4.2:30b-q4_K_M` | challenger | factchecker | 19/30 = 0.63 [0.46–0.78] | 0 | 4292 | 121.9 |
 | auto-research | disc:compliance_agentic | `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k` | incumbent | factchecker | 24/30 = 0.80 [0.63–0.91] | 0 | 4189 | 39.7 |
-| auto-research | home:research | `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k` | incumbent | factchecker | 3/4 = 0.75 [0.30–0.95] | 5 | 37649 | 90.2 |
+| auto-research | home:research | `command-r:35b-08-2024-q4_K_M` | challenger | factchecker | 0/1 = 0.00 [0.00–0.79] | 8 | 6746 | 29.7 |
+| auto-research | home:research | `granite4.2:30b-q4_K_M` | challenger | factchecker | 3/9 = 0.33 [0.12–0.65] | 0 | 111534 | 378.7 |
+| auto-research | home:research | `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k` | incumbent | factchecker | 3/9 = 0.33 [0.12–0.65] | 0 | 49514 | 134.4 |
 | tools-specialist | home:coding | `gemma4:e2b-it-qat` | challenger | toolcomposer | 6/9 = 0.67 [0.35–0.88] | 0 | 15750 | 47.9 |
 | tools-specialist | home:coding | `gemma4:e4b-it-q4_K_M` | challenger | toolcomposer | 9/9 = 1.00 [0.70–1.00] | 0 | 7464 | 38.7 |
 | tools-specialist | home:coding | `gemma4:e4b-it-qat` | challenger | toolcomposer | 9/9 = 1.00 [0.70–1.00] | 0 | 7758 | 37.3 |
 | tools-specialist | home:coding | `granite4.1:8b-ctx8k` | incumbent | toolcomposer | 6/9 = 0.67 [0.35–0.88] | 0 | 6442 | 14.3 |
-| tools-specialist | disc:research | `gemma4:e2b-it-qat` | challenger | toolcomposer | 3/8 = 0.38 [0.14–0.69] | 1 | 10544 | 37.0 |
+| tools-specialist | disc:research | `gemma4:e2b-it-qat` | challenger | toolcomposer | 3/9 = 0.33 [0.12–0.65] | 0 | 10544 | 37.0 |
 | tools-specialist | disc:research | `gemma4:e4b-it-q4_K_M` | challenger | toolcomposer | 4/9 = 0.44 [0.19–0.73] | 0 | 7461 | 49.2 |
 | tools-specialist | disc:research | `gemma4:e4b-it-qat` | challenger | toolcomposer | 4/9 = 0.44 [0.19–0.73] | 0 | 8013 | 30.0 |
 | tools-specialist | disc:research | `granite4.1:8b-ctx8k` | incumbent | toolcomposer | 6/9 = 0.67 [0.35–0.88] | 0 | 38173 | 36.9 |
@@ -80,18 +78,37 @@ Rates count only model-attributable outcomes. Brackets are Wilson 95% intervals.
 
 | Workspace | Lane | Challenger | Challenger rate | Incumbent rate | Verdict |
 |---|---|---|---|---|---|
+| auto-compliance | home:compliance_agentic | `gpt-oss:20b` | 16/30 = 0.53 [0.36–0.70] | 25/30 = 0.83 [0.66–0.93] | **NOT SEPARATED (n insufficient)** |
+| auto-compliance | home:compliance_agentic | `granite4.2:30b-q4_K_M` | 18/30 = 0.60 [0.42–0.75] | 25/30 = 0.83 [0.66–0.93] | **NOT SEPARATED (n insufficient)** |
+| auto-compliance | discovery:research | `gpt-oss:20b` | 4/9 = 0.44 [0.19–0.73] | 7/9 = 0.78 [0.45–0.94] | **NOT SEPARATED (n insufficient)** |
+| auto-compliance | discovery:research | `granite4.2:30b-q4_K_M` | 5/8 = 0.62 [0.31–0.86] | 7/9 = 0.78 [0.45–0.94] | **NOT SEPARATED (n insufficient)** |
+| auto-documents | home:research | `command-r:35b-08-2024-q4_K_M` | 0/1 = 0.00 [0.00–0.79] | 5/9 = 0.56 [0.27–0.81] | **NOT SEPARATED (n insufficient)** |
+| auto-general-uncensored | home:creative | `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` | n/a (0 gradeable) | 0/5 = 0.00 [0.00–0.43] | **NO GRADEABLE RUNS** |
+| auto-general-uncensored | home:creative | `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M` | 0/9 = 0.00 [0.00–0.30] | 0/5 = 0.00 [0.00–0.43] | **NOT SEPARATED (n insufficient)** |
+| auto-general-uncensored | home:creative | `qwen36-fable-fusion-711:Q4_K_M` | n/a (0 gradeable) | 0/5 = 0.00 [0.00–0.43] | **NO GRADEABLE RUNS** |
+| auto-general-uncensored | discovery:research | `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` | 3/9 = 0.33 [0.12–0.65] | 5/7 = 0.71 [0.36–0.92] | **NOT SEPARATED (n insufficient)** |
+| auto-general-uncensored | discovery:research | `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M` | 7/9 = 0.78 [0.45–0.94] | 5/7 = 0.71 [0.36–0.92] | **NOT SEPARATED (n insufficient)** |
+| auto-general-uncensored | discovery:research | `qwen36-fable-fusion-711:Q4_K_M` | 4/8 = 0.50 [0.22–0.78] | 5/7 = 0.71 [0.36–0.92] | **NOT SEPARATED (n insufficient)** |
+| auto-research | discovery:compliance_agentic | `command-r:35b-08-2024-q4_K_M` | 5/17 = 0.29 [0.13–0.53] | 24/30 = 0.80 [0.63–0.91] | **INCUMBENT BETTER (separated)** |
+| auto-research | discovery:compliance_agentic | `granite4.2:30b-q4_K_M` | 19/30 = 0.63 [0.46–0.78] | 24/30 = 0.80 [0.63–0.91] | **NOT SEPARATED (n insufficient)** |
+| auto-research | home:research | `command-r:35b-08-2024-q4_K_M` | 0/1 = 0.00 [0.00–0.79] | 3/9 = 0.33 [0.12–0.65] | **NOT SEPARATED (n insufficient)** |
+| auto-research | home:research | `granite4.2:30b-q4_K_M` | 3/9 = 0.33 [0.12–0.65] | 3/9 = 0.33 [0.12–0.65] | **NOT SEPARATED (n insufficient)** |
 | tools-specialist | home:coding | `gemma4:e2b-it-qat` | 6/9 = 0.67 [0.35–0.88] | 6/9 = 0.67 [0.35–0.88] | **NOT SEPARATED (n insufficient)** |
 | tools-specialist | home:coding | `gemma4:e4b-it-q4_K_M` | 9/9 = 1.00 [0.70–1.00] | 6/9 = 0.67 [0.35–0.88] | **NOT SEPARATED (n insufficient)** |
 | tools-specialist | home:coding | `gemma4:e4b-it-qat` | 9/9 = 1.00 [0.70–1.00] | 6/9 = 0.67 [0.35–0.88] | **NOT SEPARATED (n insufficient)** |
-| tools-specialist | discovery:research | `gemma4:e2b-it-qat` | 3/8 = 0.38 [0.14–0.69] | 6/9 = 0.67 [0.35–0.88] | **NOT SEPARATED (n insufficient)** |
+| tools-specialist | discovery:research | `gemma4:e2b-it-qat` | 3/9 = 0.33 [0.12–0.65] | 6/9 = 0.67 [0.35–0.88] | **NOT SEPARATED (n insufficient)** |
 | tools-specialist | discovery:research | `gemma4:e4b-it-q4_K_M` | 4/9 = 0.44 [0.19–0.73] | 6/9 = 0.67 [0.35–0.88] | **NOT SEPARATED (n insufficient)** |
 | tools-specialist | discovery:research | `gemma4:e4b-it-qat` | 4/9 = 0.44 [0.19–0.73] | 6/9 = 0.67 [0.35–0.88] | **NOT SEPARATED (n insufficient)** |
 
 _NOT SEPARATED means the intervals overlap: the evidence does not order the two arms. It is not a tie and must not be read as one._
 
+Workspaces with challengers but **no incumbent arm** — no comparison was made:
+
+- `auto-coding` — challengers were measured (section 2) but rank against nothing here.
+
 ## 4. Creative lane (blinded review)
 
-0 responses queued; 0 scored. Unscored items are excluded from every rate above.
+22 responses queued; 0 scored. Unscored items are excluded from every rate above.
 
 ## 5. Decision packets
 
@@ -103,7 +120,13 @@ Stop rules quoted verbatim from the closeout register. Dispositions are operator
 - **Recorded test:** auto-documents/documents-MCP grounded RAG with citations (its card's design purpose) vs granite4.1:8b-ctx16k incumbent on real corpora
 - **Stop rule:** grounded-citation quality > incumbent on real documents -> INTEGRATE as RAG seat; else REMOVED
 - **Prior disposition:** RETAINED_FOR_PURPOSE
-- **Status:** NO WFE EVIDENCE
+- **Status:** EVIDENCE PRESENT — OPERATOR GATE
+  - auto-documents / home:research — 0/1 = 0.00 [0.00–0.79] (excluded 8, med 4016 tok / 48.3 s)
+  - auto-research / discovery:compliance_agentic — 5/17 = 0.29 [0.13–0.53] (excluded 13, med 3944 tok / 20.3 s)
+  - auto-research / home:research — 0/1 = 0.00 [0.00–0.79] (excluded 8, med 6746 tok / 29.7 s)
+  - vs incumbent `granite4.1:8b-ctx16k` on research: **NOT SEPARATED (n insufficient)**
+  - vs incumbent `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k` on compliance_agentic: **INCUMBENT BETTER (separated)**
+  - vs incumbent `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k` on research: **NOT SEPARATED (n insufficient)**
 
   `[GATE] operator disposition: ______________  reason: ______________`
 
@@ -125,7 +148,7 @@ Stop rules quoted verbatim from the closeout register. Dispositions are operator
 - **Prior disposition:** RETAINED_FOR_PURPOSE
 - **Status:** EVIDENCE PRESENT — OPERATOR GATE
   - tools-specialist / home:coding — 6/9 = 0.67 [0.35–0.88] (excluded 0, med 15750 tok / 47.9 s)
-  - tools-specialist / discovery:research — 3/8 = 0.38 [0.14–0.69] (excluded 1, med 10544 tok / 37.0 s)
+  - tools-specialist / discovery:research — 3/9 = 0.33 [0.12–0.65] (excluded 0, med 10544 tok / 37.0 s)
   - vs incumbent `granite4.1:8b-ctx8k` on coding: **NOT SEPARATED (n insufficient)**
   - vs incumbent `granite4.1:8b-ctx8k` on research: **NOT SEPARATED (n insufficient)**
 
@@ -185,7 +208,15 @@ Stop rules quoted verbatim from the closeout register. Dispositions are operator
 - **Recorded test:** analyst personas (dashboardarchitect/dataanalyst) real long-document analysis at proper context; its judgment gap was measured on 500-token packets
 - **Stop rule:** no analyst-lane advantage over 4.1:30b in real use -> REMOVED (council reject stands regardless)
 - **Prior disposition:** RETAINED_FOR_PURPOSE
-- **Status:** NO WFE EVIDENCE
+- **Status:** EVIDENCE PRESENT — OPERATOR GATE
+  - auto-compliance / home:compliance_agentic — 18/30 = 0.60 [0.42–0.75] (excluded 0, med 5284 tok / 138.7 s)
+  - auto-compliance / discovery:research — 5/8 = 0.62 [0.31–0.86] (excluded 1, med 21164 tok / 390.4 s)
+  - auto-research / discovery:compliance_agentic — 19/30 = 0.63 [0.46–0.78] (excluded 0, med 4292 tok / 121.9 s)
+  - auto-research / home:research — 3/9 = 0.33 [0.12–0.65] (excluded 0, med 111534 tok / 378.7 s)
+  - vs incumbent `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` on compliance_agentic: **NOT SEPARATED (n insufficient)**
+  - vs incumbent `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` on research: **NOT SEPARATED (n insufficient)**
+  - vs incumbent `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k` on compliance_agentic: **NOT SEPARATED (n insufficient)**
+  - vs incumbent `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k` on research: **NOT SEPARATED (n insufficient)**
 
   `[GATE] operator disposition: ______________  reason: ______________`
 
@@ -215,7 +246,9 @@ Stop rules quoted verbatim from the closeout register. Dispositions are operator
 - **Recorded test:** auto-coding/splunkdetectionauthor-style real tasks in the IDE flow WITH tools (read->explore->edit->verify), 10+ real repo tasks
 - **Stop rule:** completes real tool-loop tasks >= incumbent lane -> INTEGRATE as fast-repair lane; else REMOVED
 - **Prior disposition:** RETAINED_FOR_PURPOSE
-- **Status:** NO WFE EVIDENCE
+- **Status:** EVIDENCE PRESENT — OPERATOR GATE
+  - auto-coding / home:coding — 6/9 = 0.67 [0.35–0.88] (excluded 0, med 3750 tok / 18.9 s)
+  - auto-coding / discovery:compliance_agentic — 22/30 = 0.73 [0.56–0.86] (excluded 0, med 2819 tok / 14.1 s)
 
   `[GATE] operator disposition: ______________  reason: ______________`
 
@@ -225,7 +258,13 @@ Stop rules quoted verbatim from the closeout register. Dispositions are operator
 - **Recorded test:** refusal probe + 10-problem coding subset
 - **Stop rule:** no win on either -> remove
 - **Prior disposition:** RETAINED_FOR_PURPOSE
-- **Status:** NO WFE EVIDENCE
+- **Status:** EVIDENCE PRESENT — OPERATOR GATE
+  - auto-coding / home:coding — 9/9 = 1.00 [0.70–1.00] (excluded 0, med 5363 tok / 81.1 s)
+  - auto-coding / discovery:compliance_agentic — 26/29 = 0.90 [0.74–0.96] (excluded 1, med 3979 tok / 48.5 s)
+  - auto-general-uncensored / home:creative — 0/9 = 0.00 [0.00–0.30] (excluded 0, med 4978 tok / 328.0 s)
+  - auto-general-uncensored / discovery:research — 7/9 = 0.78 [0.45–0.94] (excluded 0, med 39974 tok / 233.3 s)
+  - vs incumbent `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M` on creative: **NOT SEPARATED (n insufficient)**
+  - vs incumbent `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M` on research: **NOT SEPARATED (n insufficient)**
 
   `[GATE] operator disposition: ______________  reason: ______________`
 
@@ -235,7 +274,11 @@ Stop rules quoted verbatim from the closeout register. Dispositions are operator
 - **Recorded test:** auto-creative/creativewriter real sessions (multi-turn story work, style adherence, persona prompt) — no synthetic probe exists for creative fit
 - **Stop rule:** operator-judged creative parity or better vs seated creative seats -> RETAIN as creative seat; else REMOVED
 - **Prior disposition:** RETAINED_FOR_PURPOSE
-- **Status:** NO WFE EVIDENCE
+- **Status:** EVIDENCE PRESENT — OPERATOR GATE
+  - auto-general-uncensored / home:creative — n/a (0 gradeable) (excluded 0, med 1278 tok / 44.6 s)
+  - auto-general-uncensored / discovery:research — 4/8 = 0.50 [0.22–0.78] (excluded 1, med 239973 tok / 435.0 s)
+  - vs incumbent `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M` on creative: **NO GRADEABLE RUNS**
+  - vs incumbent `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M` on research: **NOT SEPARATED (n insufficient)**
 
   `[GATE] operator disposition: ______________  reason: ______________`
 
@@ -255,7 +298,11 @@ Stop rules quoted verbatim from the closeout register. Dispositions are operator
 - **Recorded test:** 30-case judgment run + diversity delta vs both incumbents
 - **Stop rule:** F2 < 0.80 OR no measurable diversity gain -> remove without further tests
 - **Prior disposition:** contender_test_plan
-- **Status:** NO WFE EVIDENCE
+- **Status:** EVIDENCE PRESENT — OPERATOR GATE
+  - auto-compliance / home:compliance_agentic — 16/30 = 0.53 [0.36–0.70] (excluded 0, med 4599 tok / 10.3 s)
+  - auto-compliance / discovery:research — 4/9 = 0.44 [0.19–0.73] (excluded 0, med 11746 tok / 26.6 s)
+  - vs incumbent `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` on compliance_agentic: **NOT SEPARATED (n insufficient)**
+  - vs incumbent `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` on research: **NOT SEPARATED (n insufficient)**
 
   `[GATE] operator disposition: ______________  reason: ______________`
 
@@ -275,7 +322,9 @@ Stop rules quoted verbatim from the closeout register. Dispositions are operator
 - **Recorded test:** refusal-preservation probe + 30-case judgment at ctx8k
 - **Stop rule:** no quality gain worth +12 GiB residency -> remove
 - **Prior disposition:** contender_test_plan
-- **Status:** NO WFE EVIDENCE
+- **Status:** EVIDENCE PRESENT — OPERATOR GATE
+  - auto-general-uncensored / home:creative — 0/5 = 0.00 [0.00–0.43] (excluded 0, med 4975 tok / 76.9 s)
+  - auto-general-uncensored / discovery:research — 5/7 = 0.71 [0.36–0.92] (excluded 2, med 115891 tok / 140.2 s)
 
   `[GATE] operator disposition: ______________  reason: ______________`
 
@@ -295,7 +344,13 @@ Stop rules quoted verbatim from the closeout register. Dispositions are operator
 - **Recorded test:** refusal probe + 10-problem coding subset
 - **Stop rule:** no win on either -> remove
 - **Prior disposition:** contender_test_plan
-- **Status:** NO WFE EVIDENCE
+- **Status:** EVIDENCE PRESENT — OPERATOR GATE
+  - auto-coding / home:coding — 9/9 = 1.00 [0.70–1.00] (excluded 0, med 5363 tok / 81.1 s)
+  - auto-coding / discovery:compliance_agentic — 26/29 = 0.90 [0.74–0.96] (excluded 1, med 3979 tok / 48.5 s)
+  - auto-general-uncensored / home:creative — 0/9 = 0.00 [0.00–0.30] (excluded 0, med 4978 tok / 328.0 s)
+  - auto-general-uncensored / discovery:research — 7/9 = 0.78 [0.45–0.94] (excluded 0, med 39974 tok / 233.3 s)
+  - vs incumbent `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M` on creative: **NOT SEPARATED (n insufficient)**
+  - vs incumbent `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M` on research: **NOT SEPARATED (n insufficient)**
 
   `[GATE] operator disposition: ______________  reason: ______________`
 
@@ -305,7 +360,9 @@ Stop rules quoted verbatim from the closeout register. Dispositions are operator
 - **Recorded test:** 10-problem exam, same harness as BENCH_REPAIR_MOE_CODERS_20260826
 - **Stop rule:** < 43/50 one-shot -> remove
 - **Prior disposition:** contender_test_plan
-- **Status:** NO WFE EVIDENCE
+- **Status:** EVIDENCE PRESENT — OPERATOR GATE
+  - auto-coding / home:coding — 6/9 = 0.67 [0.35–0.88] (excluded 0, med 3750 tok / 18.9 s)
+  - auto-coding / discovery:compliance_agentic — 22/30 = 0.73 [0.56–0.86] (excluded 0, med 2819 tok / 14.1 s)
 
   `[GATE] operator disposition: ______________  reason: ______________`
 
@@ -325,7 +382,11 @@ Stop rules quoted verbatim from the closeout register. Dispositions are operator
 - **Recorded test:** 30-case judgment vs library qwen3.6:27b quant
 - **Stop rule:** <= parent -> remove (merge adds nothing)
 - **Prior disposition:** contender_test_plan
-- **Status:** NO WFE EVIDENCE
+- **Status:** EVIDENCE PRESENT — OPERATOR GATE
+  - auto-general-uncensored / home:creative — n/a (0 gradeable) (excluded 0, med 1278 tok / 44.6 s)
+  - auto-general-uncensored / discovery:research — 4/8 = 0.50 [0.22–0.78] (excluded 1, med 239973 tok / 435.0 s)
+  - vs incumbent `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M` on creative: **NO GRADEABLE RUNS**
+  - vs incumbent `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M` on research: **NOT SEPARATED (n insufficient)**
 
   `[GATE] operator disposition: ______________  reason: ______________`
 
@@ -345,7 +406,15 @@ Stop rules quoted verbatim from the closeout register. Dispositions are operator
 - **Recorded test:** analyst/compliance mixed set head-to-head
 - **Stop rule:** <= 4.1 -> remove; council reject stands regardless
 - **Prior disposition:** contender_test_plan
-- **Status:** NO WFE EVIDENCE
+- **Status:** EVIDENCE PRESENT — OPERATOR GATE
+  - auto-compliance / home:compliance_agentic — 18/30 = 0.60 [0.42–0.75] (excluded 0, med 5284 tok / 138.7 s)
+  - auto-compliance / discovery:research — 5/8 = 0.62 [0.31–0.86] (excluded 1, med 21164 tok / 390.4 s)
+  - auto-research / discovery:compliance_agentic — 19/30 = 0.63 [0.46–0.78] (excluded 0, med 4292 tok / 121.9 s)
+  - auto-research / home:research — 3/9 = 0.33 [0.12–0.65] (excluded 0, med 111534 tok / 378.7 s)
+  - vs incumbent `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` on compliance_agentic: **NOT SEPARATED (n insufficient)**
+  - vs incumbent `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` on research: **NOT SEPARATED (n insufficient)**
+  - vs incumbent `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k` on compliance_agentic: **NOT SEPARATED (n insufficient)**
+  - vs incumbent `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k` on research: **NOT SEPARATED (n insufficient)**
 
   `[GATE] operator disposition: ______________  reason: ______________`
 
@@ -416,3 +485,27 @@ _A disposition that depends on a dimension this campaign did not exercise is pro
 - 23. Standing canary suite post-swap
 - 25. Cold-start & concurrency under real loading
 - 26. Multimodal through the pipeline
+
+## 7. Targeted instrument recovery
+
+After the full 513-row sweep, the 50 rows classified as `TOOL_ERROR` or
+`HARNESS_ERROR` were retried with the supported `--rerun-failed` path. The
+recovery was preflighted at `16/16 OK` and used the same corrected campaign
+controls: `MAX_TURNS=24`, `BUDGET_S=1800`, unchanged prompts, checkers, and
+workload plan.
+
+| Recovery measure | Count |
+|---|---:|
+| Instrument rows before recovery | 50 |
+| Targeted rows retried | 50 |
+| Rows recovered to non-instrument outcomes | 16 |
+| Instrument rows remaining | 34 |
+
+The final 34 excluded rows are `30 TOOL_ERROR` and `4 HARNESS_ERROR`. The
+remaining errors are concentrated in `command-r` (29), with one `TOOL_ERROR`
+on `granite4.2:30b-q4_K_M`, two `HARNESS_ERROR` rows on the Huihui 35B arm,
+one on `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M`, and one on
+`qwen36-fable-fusion-711:Q4_K_M`. `gemma4:e2b-it-qat` and the Nex arm cleared
+their targeted instrument failures during recovery. `BUDGET_EXHAUSTED` rows
+were intentionally not included in this pass because they are model-quality
+outcomes rather than instrument failures.
