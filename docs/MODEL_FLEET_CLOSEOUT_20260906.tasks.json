@@ -959,20 +959,23 @@
       "test_if_needed": null,
       "stop_rule": null,
       "final_disposition": "RETAINED_FOR_PURPOSE",
-      "decision_reason": "FOLD VACATED 2026-09-12 — the evidence it was removed on is invalid. Its 39 auto-compliance rows in wfe_full_20260911 ran at think=false over /v1, the exact combination proven that day to drop the suppression silently; gpt-oss emitted a median 1661 reasoning chars across them, so the 16/30 = 0.53 that tripped its 'F2 < 0.80 -> remove without further tests' stop rule was measured with thinking forced on against its own workspace config. It is also the register's lineage-diversity seat (§1 census), which makes a wrong fold here expensive. Weights re-pulled and the arm restored to tests/wfe/workloads.yaml; disposition is HELD pending the fixed-harness re-run (campaign wfe_think_rerun_20260912). The stop rule is unchanged and will be applied to the new numbers.",
+      "decision_reason": "FOLD VACATED 2026-09-12, and it is NOT re-folded. Two independent faults in the original removal. (1) Invalid evidence: all 39 auto-compliance rows ran think=false over /v1, where suppression is silently dropped — it emitted a median 1661 reasoning chars, so the 16/30 = 0.53 was measured with thinking forced on. Re-run clean it scores 18/30 = 0.60 home, 7/9 = 0.78 discovery. (2) Mis-specified venue: its recorded question is 'does GPT-OSS add reasoning DIVERSITY over DeepSeek-R1-0528 + Qwen3.6-35B', and no run has ever made that comparison — the WFE arm tested it as a compliance judge against Qwen3.8-27B, which is a different job. Decisive fact the removal missed: it is registered in THREE live backend pools (general, coding, reasoning), reachable from 25 production workspaces, and named in auto-coding's description as Fallback 2. That is a wired production role, not a bench seat. RETAINED as a pool fallback; its diversity stop rule remains UNEVALUATED and needs the recorded head-to-head, not another compliance-lane number.",
       "purpose_or_replacement": "CONTENDER — auto-reasoning second-opinion seat (gptossanalyst persona is named for it; never wired)",
       "evidence_refs": [
+        "config/backends.yaml (general/coding/reasoning pools)",
         "docs/WFE_CLOSEOUT_20260912.md#gpt-oss",
+        "docs/WFE_FITNESS_REPORT_wfe_think_rerun_20260912.md",
         "gptoss_diag 3-arm 2026-09-07",
         "judgment_probe_v6_gptoss_native_20260907T043151Z.json",
         "lineage census 2026-09-07",
         "tests/wfe/results/campaigns/wfe_full_20260911/rows (harness.think=false, endpoint=v1)"
       ],
       "closure_record_refs": [
-        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#gpt-oss-20b"
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#gpt-oss-20b",
+        "docs/WFE_CLOSEOUT_20260912.md"
       ],
       "verified_storage_effect_bytes": null,
-      "closed_at": "fold vacated 2026-09-12; re-pulled, HELD pending wfe_think_rerun_20260912",
+      "closed_at": "fold vacated 2026-09-12; re-pulled and RETAINED as a wired pool fallback; diversity stop rule still unevaluated",
       "purpose": "OpenAI-lineage reasoning-DIVERSITY seat (only gpt-oss architecture in fleet; gptossanalyst persona named for it: 'different reasoning approach than Qwen/DeepSeek/Mistral'); native-arm F2 0.904/exact 0.80 @ 53 t/s"
     },
     {
@@ -1295,7 +1298,7 @@
       "item_id": "ollama:granite4.2:30b-q4_K_M",
       "kind": "ollama_manifest",
       "exact_identity": "granite4.2:30b-q4_K_M",
-      "observed_present": true,
+      "observed_present": false,
       "model_layer_digests": [
         "sha256:f299dace85d77ee0e24ca0b6720bd211b1f4cd1f65b9c0a2111e79692e29c9be"
       ],
@@ -1313,19 +1316,22 @@
       "decision_question": "Where does this model ACTUALLY belong in real use?",
       "test_if_needed": "analyst personas (dashboardarchitect/dataanalyst) real long-document analysis at proper context; its judgment gap was measured on 500-token packets",
       "stop_rule": "no analyst-lane advantage over 4.1:30b in real use -> REMOVED (council reject stands regardless)",
-      "final_disposition": "RETAINED_FOR_PURPOSE",
-      "decision_reason": "re-tiered per operator guidance 2026-09-07 (short-prompt instruments cannot settle real-usability fit): 4.2 is the newer family; its niche may be long-context analysis, not short-prompt compliance",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "stop rule FIRES on a like-for-like comparator, run 2026-09-12. The rule was 'no analyst-lane advantage over 4.1:30b in real use -> REMOVED (council reject stands regardless)', and granite4.1:30b had never been run as an arm, so the rule had been unevaluable since it was written. Added it as a comparator on the fixed harness: granite4.2:30b 18/30 = 0.60 [0.42-0.75], granite4.1:30b-ctx16k 18/30 = 0.60 — dead even. A tie is no advantage. It also loses to the seated auto-compliance incumbent (24/30 = 0.80) and holds no live config reference. The council reject stands independently (Y29).",
       "purpose_or_replacement": "CONTENDER — analyst 30b persona lane (incumbent granite4.1:30b-ctx64k); council reject (F2 0.70) covers ONLY the council seat",
       "evidence_refs": [
-        "judgment_probe_v6_rescored_20260906T224306Z.json (preflight: system_honored=True, template_sha f0ba43f79b3c)",
         "config/compliance/council.yaml rejected-candidates record",
+        "docs/WFE_CLOSEOUT_20260912.md#granite42",
+        "docs/WFE_FITNESS_REPORT_wfe_think_rerun_20260912.md",
+        "judgment_probe_v6_rescored_20260906T224306Z.json (preflight: system_honored=True, template_sha f0ba43f79b3c)",
         "operator real-use doctrine 2026-09-07"
       ],
       "closure_record_refs": [
-        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#granite4.2-30b-q4_K_M"
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#granite4.2-30b-q4_K_M",
+        "docs/WFE_CLOSEOUT_20260912.md"
       ],
       "verified_storage_effect_bytes": null,
-      "closed_at": "2026-09-07 (executed-test evidence)",
+      "closed_at": "removed 2026-09-12 (comparator run wfe_think_rerun_20260912; ollama rm executed, verified absent)",
       "purpose": "USE-PROBE tier — bounded real-work assignment: analyst personas (dashboardarchitect/dataanalyst) real long-document analysis at proper context; its judgment gap was measured on 500-token packets"
     },
     {
