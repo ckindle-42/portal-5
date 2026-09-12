@@ -505,7 +505,7 @@ def compliance_gaps(
         from portal.modules.compliance.core import review_queue as rq
         from portal.modules.compliance.core.cip_register import Register
         from portal.modules.compliance.core.mapping_store import MappingStore
-        from portal.modules.compliance.core.propose import make_real_proposer
+        from portal.modules.compliance.core.propose import default_arbiter, make_real_proposer
         from portal.modules.compliance.core.scope_derive import derive_scope
 
         reg = Register.load()
@@ -531,7 +531,9 @@ def compliance_gaps(
         store = MappingStore()
         rq.sync_proposed_mappings(store)
         eff = effective_on or datetime.date.today().isoformat()
-        matrix = _coverage.coverage_matrix(reg, scope, eff, make_real_proposer(kb_id), store)
+        matrix = _coverage.coverage_matrix(
+            reg, scope, eff, make_real_proposer(kb_id, arbiter_fn=default_arbiter()), store
+        )
         open_tiers = {i.subject_id: i.id for i in rq.open_items(kind="document_tier")}
 
         matching = [
@@ -608,7 +610,7 @@ def compliance_orphans(kb_id: str = "operator_corpus", effective_on: str = "") -
         from portal.modules.compliance.core import coverage as _coverage
         from portal.modules.compliance.core.cip_register import Register
         from portal.modules.compliance.core.mapping_store import MappingStore
-        from portal.modules.compliance.core.propose import make_real_proposer
+        from portal.modules.compliance.core.propose import default_arbiter, make_real_proposer
         from portal.modules.compliance.core.scope_derive import derive_scope
         from portal.platform.retrieval import store as _store
 
@@ -618,7 +620,7 @@ def compliance_orphans(kb_id: str = "operator_corpus", effective_on: str = "") -
             return {"status": "honest-BLOCKED", "reason": scope_meta.get("reason")}
         eff = effective_on or datetime.date.today().isoformat()
         matrix = _coverage.coverage_matrix(
-            reg, scope, eff, make_real_proposer(kb_id), MappingStore()
+            reg, scope, eff, make_real_proposer(kb_id, arbiter_fn=default_arbiter()), MappingStore()
         )
         ttbl = _store.text_table(kb_id, create=False, prefix="compliance_")
         all_sections = set()
@@ -678,7 +680,7 @@ def compliance_scenario(
 
         from portal.modules.compliance.core.cip_register import Register
         from portal.modules.compliance.core.mapping_store import MappingStore
-        from portal.modules.compliance.core.propose import make_real_proposer
+        from portal.modules.compliance.core.propose import default_arbiter, make_real_proposer
         from portal.modules.compliance.core.scenarios import evaluate_scenario, new_scenario
         from portal.modules.compliance.core.scope_derive import derive_scope
 
@@ -694,7 +696,12 @@ def compliance_scenario(
             planned_effective_date=planned_effective_date or None,
         )
         result = evaluate_scenario(
-            scenario, reg, scope, as_of, make_real_proposer(kb_id), MappingStore()
+            scenario,
+            reg,
+            scope,
+            as_of,
+            make_real_proposer(kb_id, arbiter_fn=default_arbiter()),
+            MappingStore(),
         )
         if "error" not in result:
             from portal.modules.compliance.core.repository import Repository
