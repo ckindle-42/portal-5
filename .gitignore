@@ -54,6 +54,8 @@ venv/
 coding_task/
 
 # tests/benchmarks/results/ is tracked (needed for off-machine analysis)
+# Per-host benchmark bookkeeping is local even though selected baselines are tracked.
+tests/benchmarks/results/.quant_trueup_last_utc
 tests/fixtures/audio/
 
 # Stage 2 propose/prove staged diffs + report — working dir, not source
@@ -132,6 +134,9 @@ portal_wiki/provenance_ledger.jsonl
 
 # Local MCP Docker build cache — host-specific derived state.
 /.mcp_dockerfile_hash
+
+# Archived lab port selection is host-specific runtime state, not shared evidence.
+/results/sec_bench_archive/.port_map.json
 portal/modules/compliance/data/cip_pdfs/
 # TASK_COMPLIANCE_ENGINE_LANDING_V1: operator-identifying artifacts (mapping
 # proposals and the document layer/tier sidecar name the operator's internal
