@@ -129,6 +129,9 @@ portal_wiki/provenance_ledger.jsonl
 
 # Runtime supervisor state — regenerates every run, not source.
 /supervisor_log.json
+
+# Local MCP Docker build cache — host-specific derived state.
+/.mcp_dockerfile_hash
 portal/modules/compliance/data/cip_pdfs/
 # TASK_COMPLIANCE_ENGINE_LANDING_V1: operator-identifying artifacts (mapping
 # proposals and the document layer/tier sidecar name the operator's internal
