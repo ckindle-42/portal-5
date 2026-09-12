@@ -14,8 +14,10 @@ Repairs in this revision (each was a false-result generator):
     personas bound to it; first-glob-wins made the measured prompt arbitrary).
   - token/latency economics and finish_reason are captured, not discarded.
   - `think` is resolved and SENT the way production sends it (the workspace's
-    explicit bool -> the model card -> the model's native default), on /v1 too
-    — Ollama's /v1 honours a top-level `think`, and the pipeline relies on it.
+    explicit bool -> the model card -> the model's native default). On /v1 the
+    suppressing direction goes as `reasoning_effort: "none"`: a top-level
+    `think` is silently DROPPED there (measured 2026-09-12, Ollama 0.33.2), and
+    believing otherwise is what invalidated wfe_full_20260911's creative lane.
   - the preflight verdict gates only on the arms the campaign uses (v1 reach,
     v1 tool contract, stream parity). A format:json incompatibility (gpt-oss)
     is a note, not a block — the campaign runs zero strict-JSON tasks.
@@ -549,13 +551,21 @@ def _build_payload(
                 payload[k] = sampling[k]
         if fmt == "json":
             payload["response_format"] = {"type": "json_object"}
-        # Ollama's /v1/chat/completions honours a top-level `think` bool — the
-        # production pipeline sends exactly this (router/validation.py
-        # `_inject_ollama_options`). The previous version dropped it and only
-        # logged a caveat, so a workspace with `think: false` (auto-compliance,
-        # auto-security) was tested with the model's native thinking left on.
+        # CORRECTED 2026-09-12. This block used to claim that
+        # /v1/chat/completions honours a top-level `think` bool. It does not —
+        # measured on Ollama 0.33.2 against qwen3.5-abliterated:9b,
+        # Qwen3.8-27B-Uncensored and Huihui-Qwen3.6-35B-A3B, a `think:false`
+        # over /v1 is byte-for-byte identical to sending nothing. That is what
+        # produced wfe_full_20260911's creative lane: 14 rows burned the whole
+        # token budget on reasoning and returned EMPTY content, then scored as
+        # model FAILures (`0/9 = 0.00`). `reasoning_effort: "none"` is the form
+        # /v1 actually honours. Only the suppressing direction is sent — any
+        # other tier 400s on a model without the thinking capability, and
+        # thinking is already the default for one that has it.
         if think in ("true", "false"):
             payload["think"] = think == "true"
+            # Merge rather than branch: this function is already at its branch budget.
+            payload |= {"reasoning_effort": "none"} if think == "false" else {}
         url = f"{OLLAMA}/v1/chat/completions"
     else:
         options = {"num_predict": max_tokens}

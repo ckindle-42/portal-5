@@ -1,7 +1,7 @@
 {
   "task": "Close every model disposition and retire the pending-model backlog",
   "baseline_observed_at_utc": "2026-09-06T23:31:34.626374+00:00",
-  "execution_state": "REMOVALS_HELD_PENDING_WFE (docs/TASK_WORKSPACE_FITNESS_EVAL_V1.md)",
+  "execution_state": "WFE_CLOSEOUT_EXECUTED_2026-09-12 — every USE-PROBE and contender row now terminal; see docs/WFE_CLOSEOUT_20260912.md",
   "terminal_dispositions": [
     "INTEGRATED",
     "RETAINED_FOR_PURPOSE",
@@ -122,7 +122,7 @@
       "item_id": "ollama:command-r:35b-08-2024-q4_K_M",
       "kind": "ollama_manifest",
       "exact_identity": "command-r:35b-08-2024-q4_K_M",
-      "observed_present": true,
+      "observed_present": false,
       "model_layer_digests": [
         "sha256:c264671c5e5347f66317f2d92db914e46dd242de0fe50f5a534991a0a15a2656"
       ],
@@ -137,26 +137,30 @@
       "decision_question": "Where does this model ACTUALLY belong in real use?",
       "test_if_needed": "auto-documents/documents-MCP grounded RAG with citations (its card's design purpose) vs granite4.1:8b-ctx16k incumbent on real corpora",
       "stop_rule": "grounded-citation quality > incumbent on real documents -> INTEGRATE as RAG seat; else REMOVED",
-      "final_disposition": "RETAINED_FOR_PURPOSE",
-      "decision_reason": "re-tiered per operator guidance 2026-09-07 (short-prompt instruments cannot settle real-usability fit): card says grounded-citation RAG specialist; every prior test was 500-token compliance packets \u2014 the opposite of its design",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "stop rule's 'else REMOVED' FIRES: it is not > the incumbent anywhere. Its recorded venue was mis-specified - auto-documents has no kb_search and does no grounded RAG (it builds Office files with granite4.1:8b-ctx16k), and the live RAG MCP holds only a 'smoketest' KB. Tested 2026-09-12 on that lane's REAL job with the real documents-MCP tool schemas: 4/4 correct tool selection, exactly matching the incumbent's 4/4, at 4-8x the latency (34s vs 8s) and 19GB vs 5.3GB. On its card purpose (grounded citation) both models produced zero fabricated citations - parity again. WFE separately had it LOSING separated to Nex-N2-mini on compliance_agentic (13/30 vs 24/30).",
       "purpose_or_replacement": "fold bench seat + backends registration; remove alias/weights; shared survivor weights stay intact",
       "evidence_refs": [
-        "dep scan: no production ref",
         "attempt artifacts in tasks.json",
-        "operator real-use doctrine 2026-09-07"
+        "dep scan: no production ref",
+        "docs/WFE_CLOSEOUT_20260912.md#command-r",
+        "docs/WFE_FITNESS_REPORT_wfe_full_20260911.md#3-incumbent-vs-challenger",
+        "operator real-use doctrine 2026-09-07",
+        "tests/wfe/results/campaigns/wfe_full_20260911/report.json"
       ],
       "closure_record_refs": [
-        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#command-r-35b-08-2024-q4_K_M"
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#command-r-35b-08-2024-q4_K_M",
+        "docs/WFE_CLOSEOUT_20260912.md"
       ],
       "verified_storage_effect_bytes": 19800872976,
-      "closed_at": "2026-09-07 (determination; removal pending approval)",
-      "purpose": "USE-PROBE tier \u2014 bounded real-work assignment: auto-documents/documents-MCP grounded RAG with citations (its card's design purpose) vs granite4.1:8b-ctx16k incumbent on real corpora"
+      "closed_at": "removed 2026-09-12 (WFE closeout: stop rule executed on real evidence; weights deleted, verified absent)",
+      "purpose": "USE-PROBE tier — bounded real-work assignment: auto-documents/documents-MCP grounded RAG with citations (its card's design purpose) vs granite4.1:8b-ctx16k incumbent on real corpora"
     },
     {
       "item_id": "ollama:deepseek-ocr:latest",
       "kind": "ollama_manifest",
       "exact_identity": "deepseek-ocr:latest",
-      "observed_present": true,
+      "observed_present": false,
       "model_layer_digests": [
         "sha256:3a18673ff291a1d8de94d490877127899356d33a18028d5f3945bf245c11b02c"
       ],
@@ -168,20 +172,23 @@
       "decision_question": "Where does this model ACTUALLY belong in real use?",
       "test_if_needed": "documents-MCP real OCR comparison: deepseek-ocr vs MLX PaddleOCR-VL/dots.ocr on 10 real document images",
       "stop_rule": "MLX stack >= Ollama OCR on real docs -> REMOVED",
-      "final_disposition": "RETAINED_FOR_PURPOSE",
-      "decision_reason": "re-tiered per operator guidance 2026-09-07 (short-prompt instruments cannot settle real-usability fit): Ollama-vs-MLX OCR assumption was config-derived, never benchmarked on real documents",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "stop rule FIRES: 0.800 EXACT ground-truth fact recall vs MLX PaddleOCR-VL-8bit 0.978 on the same 45-fact/9-page figure corpus — 'MLX stack >= Ollama OCR' holds. Fastest tested (3.2s/page) but accuracy-dominated; production transcribe seat is qwen3-vl:4b (0.956 EXACT).",
       "purpose_or_replacement": "fold bench seat + backends registration; remove alias/weights; shared survivor weights stay intact",
       "evidence_refs": [
-        "dep scan: no production ref",
         "attempt artifacts in tasks.json",
-        "operator real-use doctrine 2026-09-07"
+        "dep scan: no production ref",
+        "operator real-use doctrine 2026-09-07",
+        "reports/runtime/HARDENING_V2_P4_MEASUREMENTS.md#s0-revisited (16-model, 5-round bake-off)",
+        "zero live config refs verified 2026-09-12"
       ],
       "closure_record_refs": [
-        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#deepseek-ocr-latest"
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#deepseek-ocr-latest",
+        "docs/WFE_CLOSEOUT_20260912.md"
       ],
       "verified_storage_effect_bytes": 6687264079,
-      "closed_at": "2026-09-07 (determination; removal pending approval)",
-      "purpose": "USE-PROBE tier \u2014 bounded real-work assignment: documents-MCP real OCR comparison: deepseek-ocr vs MLX PaddleOCR-VL/dots.ocr on 10 real document images"
+      "closed_at": "removed 2026-09-12 (WFE closeout: stop rule executed on real evidence; weights deleted, verified absent)",
+      "purpose": "USE-PROBE tier — bounded real-work assignment: documents-MCP real OCR comparison: deepseek-ocr vs MLX PaddleOCR-VL/dots.ocr on 10 real document images"
     },
     {
       "item_id": "ollama:deepseek-r1:32b-q4_k_m",
@@ -723,7 +730,7 @@
       "test_if_needed": "same fast-utility discovery at 2B (lowest-latency tier)",
       "stop_rule": "no niche -> REMOVED",
       "final_disposition": "REMOVED_CLOSED",
-      "decision_reason": "WFE wfe_full_20260911 (rerun 2026-09-12 post tool-envelope/research-suite fix): no niche vs its own e4b siblings \u2014 worse coding rate (0.67 vs e4b's 1.00) at 2x the token cost. Stop rule 'no niche -> REMOVED' satisfied.",
+      "decision_reason": "WFE wfe_full_20260911 (rerun 2026-09-12 post tool-envelope/research-suite fix): no niche vs its own e4b siblings — worse coding rate (0.67 vs e4b's 1.00) at 2x the token cost. Stop rule 'no niche -> REMOVED' satisfied.",
       "purpose_or_replacement": "fold bench seat + backends registration; remove alias/weights; shared survivor weights stay intact",
       "evidence_refs": [
         "dep scan: no production ref",
@@ -735,7 +742,7 @@
       ],
       "verified_storage_effect_bytes": 4336843227,
       "closed_at": "2026-09-12 (WFE wfe_full_20260911 cleanup pass; ollama rm executed)",
-      "purpose": "USE-PROBE tier \u2014 bounded real-work assignment: same fast-utility discovery at 2B (lowest-latency tier)"
+      "purpose": "USE-PROBE tier — bounded real-work assignment: same fast-utility discovery at 2B (lowest-latency tier)"
     },
     {
       "item_id": "ollama:gemma4:e4b-it-q4_K_M",
@@ -764,7 +771,7 @@
       "test_if_needed": "same fast-utility discovery (non-QAT quant comparison arm)",
       "stop_rule": "no niche -> REMOVED",
       "final_disposition": "REMOVED_CLOSED",
-      "decision_reason": "Statistically identical to gemma4:e4b-it-qat (1.00/1.00 both lanes, WFE wfe_full_20260911) \u2014 qat variant kept as the marginally faster of the two; this is the redundant duplicate.",
+      "decision_reason": "Statistically identical to gemma4:e4b-it-qat (1.00/1.00 both lanes, WFE wfe_full_20260911) — qat variant kept as the marginally faster of the two; this is the redundant duplicate.",
       "purpose_or_replacement": "fold bench seat + backends registration; remove alias/weights; shared survivor weights stay intact",
       "evidence_refs": [
         "dep scan: no production ref",
@@ -776,7 +783,7 @@
       ],
       "verified_storage_effect_bytes": 9607841841,
       "closed_at": "2026-09-12 (WFE wfe_full_20260911 cleanup pass; ollama rm executed)",
-      "purpose": "USE-PROBE tier \u2014 bounded real-work assignment: same fast-utility discovery (non-QAT quant comparison arm)"
+      "purpose": "USE-PROBE tier — bounded real-work assignment: same fast-utility discovery (non-QAT quant comparison arm)"
     },
     {
       "item_id": "ollama:gemma4:e4b-it-qat",
@@ -821,7 +828,7 @@
       ],
       "verified_storage_effect_bytes": 6146098200,
       "closed_at": "2026-09-12 (WFE wfe_full_20260911 integration)",
-      "purpose": "USE-PROBE tier \u2014 bounded real-work assignment: fast sub-agent lane discovery: router-assist/drafting/classifier assist tasks vs E4B-OBLITERATED (its family holds the router default)"
+      "purpose": "USE-PROBE tier — bounded real-work assignment: fast sub-agent lane discovery: router-assist/drafting/classifier assist tasks vs E4B-OBLITERATED (its family holds the router default)"
     },
     {
       "item_id": "ollama:glm-4.7-flash:Q4_K_M",
@@ -860,10 +867,11 @@
       "test_if_needed": "glm_coder eval tool-flow subset, head-to-head",
       "stop_rule": "<= REAP-23B -> remove; REAP stays the lane",
       "final_disposition": "INTEGRATED",
-      "decision_reason": "repair exam 82%/90% >= REAP 80%/90% \u2014 REAP failed to beat the baseline (MODEL_CATALOG.md:535 policy); full GLM is the documented baseline and now holds the pin",
+      "decision_reason": "repair exam 82%/90% >= REAP 80%/90% — REAP failed to beat the baseline (MODEL_CATALOG.md:535 policy); full GLM is the documented baseline and now holds the pin | WFE corroboration 2026-09-12: its -ctx64k production tag ran wfe_full_20260911 as an auto-coding challenger at 8/9 home:coding. Terminal since 2026-09-07; no WFE row was ever owed for the base tag.",
       "purpose_or_replacement": "routed: glm_coder persona model_pin (PIN RESTORED per documented promotion policy)",
       "evidence_refs": [
-        "BENCH_REPAIR_20260907T081156Z.md"
+        "BENCH_REPAIR_20260907T081156Z.md",
+        "docs/WFE_CLOSEOUT_20260912.md"
       ],
       "closure_record_refs": [
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#glm-4.7-flash-Q4_K_M"
@@ -875,7 +883,7 @@
       "item_id": "ollama:glm-ocr:Q8_0",
       "kind": "ollama_manifest",
       "exact_identity": "glm-ocr:Q8_0",
-      "observed_present": true,
+      "observed_present": false,
       "model_layer_digests": [
         "sha256:24ca1840804a2aa3faeb2cadf31f628ec8bd48393cf1938c414f0e6cda81914a"
       ],
@@ -887,20 +895,23 @@
       "decision_question": "Where does this model ACTUALLY belong in real use?",
       "test_if_needed": "same OCR comparison (GLM lineage arm)",
       "stop_rule": "same as deepseek-ocr",
-      "final_disposition": "RETAINED_FOR_PURPOSE",
-      "decision_reason": "re-tiered per operator guidance 2026-09-07 (short-prompt instruments cannot settle real-usability fit): same",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "stop rule FIRES: ties at 0.956 EXACT but repeats 37.7% of its lines on its OWN native 'Text Recognition:' contract vs qwen3-vl:4b's 0.6%; duplicate lines dilute the chunk embedding that is the entire product of S0. MLX Nanonets-8bit (1.000 norm) also >= it.",
       "purpose_or_replacement": "fold bench seat + backends registration; remove alias/weights; shared survivor weights stay intact",
       "evidence_refs": [
-        "dep scan: no production ref",
         "attempt artifacts in tasks.json",
-        "operator real-use doctrine 2026-09-07"
+        "dep scan: no production ref",
+        "operator real-use doctrine 2026-09-07",
+        "reports/runtime/HARDENING_V2_P4_MEASUREMENTS.md#why-qwen3-vl4b-over-glm-ocr",
+        "zero live config refs verified 2026-09-12"
       ],
       "closure_record_refs": [
-        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#glm-ocr-Q8_0"
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#glm-ocr-Q8_0",
+        "docs/WFE_CLOSEOUT_20260912.md"
       ],
       "verified_storage_effect_bytes": 1588064157,
-      "closed_at": "2026-09-07 (determination; removal pending approval)",
-      "purpose": "USE-PROBE tier \u2014 bounded real-work assignment: same OCR comparison (GLM lineage arm)"
+      "closed_at": "removed 2026-09-12 (WFE closeout: stop rule executed on real evidence; weights deleted, verified absent)",
+      "purpose": "USE-PROBE tier — bounded real-work assignment: same OCR comparison (GLM lineage arm)"
     },
     {
       "item_id": "ollama:gpt-oss:20b",
@@ -948,8 +959,8 @@
       "test_if_needed": null,
       "stop_rule": null,
       "final_disposition": "REMOVED_CLOSED",
-      "decision_reason": "WFE wfe_full_20260911: 0.53/0.67 pass rate, below any reasonable floor, real and unaffected by the session's harness fixes. The diversity-seat argument that earned its retention required a native-harness 3-arm diagnostic (think:false + format:json harmony-format fix) that never ran \u2014 stop rule's 'no measurable diversity gain -> remove' branch is satisfied by that absence.",
-      "purpose_or_replacement": "CONTENDER \u2014 auto-reasoning second-opinion seat (gptossanalyst persona is named for it; never wired)",
+      "decision_reason": "WFE wfe_full_20260911: 0.53/0.67 pass rate, below any reasonable floor, real and unaffected by the session's harness fixes. The diversity-seat argument that earned its retention required a native-harness 3-arm diagnostic (think:false + format:json harmony-format fix) that never ran — stop rule's 'no measurable diversity gain -> remove' branch is satisfied by that absence.",
+      "purpose_or_replacement": "CONTENDER — auto-reasoning second-opinion seat (gptossanalyst persona is named for it; never wired)",
       "evidence_refs": [
         "judgment_probe_v6_gptoss_native_20260907T043151Z.json",
         "gptoss_diag 3-arm 2026-09-07",
@@ -1239,7 +1250,7 @@
       "stop_rule": null,
       "final_disposition": "REMOVED_CLOSED",
       "decision_reason": "stop rule FIRES: +0.06 exact at +3.5 GiB breaks chain stage-0 memory budget for marginal gain; Q4 seat stays",
-      "purpose_or_replacement": "CONTENDER \u2014 precision upgrade of the incumbent 8b Q4 seats",
+      "purpose_or_replacement": "CONTENDER — precision upgrade of the incumbent 8b Q4 seats",
       "evidence_refs": [
         "judgment_probe_v6_20260907T034934Z.json"
       ],
@@ -1302,7 +1313,7 @@
       "stop_rule": "no analyst-lane advantage over 4.1:30b in real use -> REMOVED (council reject stands regardless)",
       "final_disposition": "RETAINED_FOR_PURPOSE",
       "decision_reason": "re-tiered per operator guidance 2026-09-07 (short-prompt instruments cannot settle real-usability fit): 4.2 is the newer family; its niche may be long-context analysis, not short-prompt compliance",
-      "purpose_or_replacement": "CONTENDER \u2014 analyst 30b persona lane (incumbent granite4.1:30b-ctx64k); council reject (F2 0.70) covers ONLY the council seat",
+      "purpose_or_replacement": "CONTENDER — analyst 30b persona lane (incumbent granite4.1:30b-ctx64k); council reject (F2 0.70) covers ONLY the council seat",
       "evidence_refs": [
         "judgment_probe_v6_rescored_20260906T224306Z.json (preflight: system_honored=True, template_sha f0ba43f79b3c)",
         "config/compliance/council.yaml rejected-candidates record",
@@ -1313,7 +1324,7 @@
       ],
       "verified_storage_effect_bytes": null,
       "closed_at": "2026-09-07 (executed-test evidence)",
-      "purpose": "USE-PROBE tier \u2014 bounded real-work assignment: analyst personas (dashboardarchitect/dataanalyst) real long-document analysis at proper context; its judgment gap was measured on 500-token packets"
+      "purpose": "USE-PROBE tier — bounded real-work assignment: analyst personas (dashboardarchitect/dataanalyst) real long-document analysis at proper context; its judgment gap was measured on 500-token packets"
     },
     {
       "item_id": "ollama:granite4.2:30b-q8_0",
@@ -1368,7 +1379,7 @@
       "test_if_needed": null,
       "stop_rule": null,
       "final_disposition": "REMOVED_CLOSED",
-      "decision_reason": "DECISIVE: system_honored=False twice, same template honored by 4.2:30B sibling \u2014 quant-level instruction-following failure; no 3B seat exists",
+      "decision_reason": "DECISIVE: system_honored=False twice, same template honored by 4.2:30B sibling — quant-level instruction-following failure; no 3B seat exists",
       "purpose_or_replacement": "fold bench seat + backends registration; remove alias/weights; shared survivor weights stay intact",
       "evidence_refs": [
         "dep scan: no production ref",
@@ -1402,8 +1413,8 @@
       "test_if_needed": null,
       "stop_rule": null,
       "final_disposition": "REMOVED_CLOSED",
-      "decision_reason": "DECISIVE, not settings: system_honored=False in TWO independent runs (Sept-6 sweep + Sept-7 rerun) with the SAME template_sha (f0ba43f79b3c) that the 4.2:30B honors \u2014 genuine instruction-following failure at this quant, not a template/parameter artifact. Fails instruction floor + chain-memory constraint",
-      "purpose_or_replacement": "CONTENDER \u2014 8b seats (tools/blueteam: granite4.1:8b); prior rejection was TEMPLATE-related (system_honored=False), infra-fixable",
+      "decision_reason": "DECISIVE, not settings: system_honored=False in TWO independent runs (Sept-6 sweep + Sept-7 rerun) with the SAME template_sha (f0ba43f79b3c) that the 4.2:30B honors — genuine instruction-following failure at this quant, not a template/parameter artifact. Fails instruction floor + chain-memory constraint",
+      "purpose_or_replacement": "CONTENDER — 8b seats (tools/blueteam: granite4.1:8b); prior rejection was TEMPLATE-related (system_honored=False), infra-fixable",
       "evidence_refs": [
         "judgment_probe_v6_rescored_20260906T224306Z.json",
         "judgment_probe_v6_20260907T034934Z.json preflights"
@@ -1598,7 +1609,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_QuantFactory_Llama-3.2-3B-Instruct-abliterated-GGUF-latest"
       ],
       "verified_storage_effect_bytes": 1363652116,
-      "closed_at": "removed 2026-09-12 (register was stale \u2014 bench-* config stanza was still live-wiring the already-deleted model; stanza removed, register corrected)"
+      "closed_at": "removed 2026-09-12 (register was stale — bench-* config stanza was still live-wiring the already-deleted model; stanza removed, register corrected)"
     },
     {
       "item_id": "ollama:hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k",
@@ -1623,7 +1634,7 @@
       "stop_rule": null,
       "final_disposition": "INTEGRATED",
       "decision_reason": "no home: bench-only / registered-only / dashboards-only (ruling 2026-09-07: bench-only does not confer a purpose)",
-      "purpose_or_replacement": "routed: workspaces.auto-nemotron.model_hint \u2014 CONFIG CASE-FIX REQUIRED: config says :Q4_K_M-ctx8k, installed tag is :q4_K_M-ctx8k; retarget hint + backends id to installed spelling",
+      "purpose_or_replacement": "routed: workspaces.auto-nemotron.model_hint — CONFIG CASE-FIX REQUIRED: config says :Q4_K_M-ctx8k, installed tag is :q4_K_M-ctx8k; retarget hint + backends id to installed spelling",
       "evidence_refs": [
         "judgment_probe_v6_rescored (F2 0.8523)",
         "inventory refresh 2026-09-07"
@@ -1662,8 +1673,8 @@
       "test_if_needed": null,
       "stop_rule": null,
       "final_disposition": "REMOVED_CLOSED",
-      "decision_reason": "duplicate-quant stop rule FIRES: exact parity with seated library quant (F2 0.952/exact 0.90/1 fSUP both) \u2014 no distinguishable conversion benefit",
-      "purpose_or_replacement": "CONTENDER \u2014 duplicate-quant check vs library qwen3.6:27b-q4_K_M (holds council/synthesizer seats)",
+      "decision_reason": "duplicate-quant stop rule FIRES: exact parity with seated library quant (F2 0.952/exact 0.90/1 fSUP both) — no distinguishable conversion benefit",
+      "purpose_or_replacement": "CONTENDER — duplicate-quant check vs library qwen3.6:27b-q4_K_M (holds council/synthesizer seats)",
       "evidence_refs": [
         "judgment_probe_v6_20260907T034934Z.json",
         "judgment_probe_v6_rescored_20260906T224306Z.json"
@@ -2103,7 +2114,7 @@
       "item_id": "ollama:hf.co/ggml-org/dots.ocr-GGUF:Q8_0",
       "kind": "ollama_manifest",
       "exact_identity": "hf.co/ggml-org/dots.ocr-GGUF:Q8_0",
-      "observed_present": true,
+      "observed_present": false,
       "model_layer_digests": [
         "sha256:6f2db1a75215893760b7c7185d52f11715d2e0cb7bff9cefd3f6d409fa1de7e9"
       ],
@@ -2115,20 +2126,23 @@
       "decision_question": "Where does this model ACTUALLY belong in real use?",
       "test_if_needed": "same OCR comparison (dots.ocr lineage arm)",
       "stop_rule": "same as deepseek-ocr",
-      "final_disposition": "RETAINED_FOR_PURPOSE",
-      "decision_reason": "re-tiered per operator guidance 2026-09-07 (short-prompt instruments cannot settle real-usability fit): same",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "stop rule FIRES decisively: 0.000 EXACT — worst of the 16 models benched; MLX dots.ocr-4bit (0.422) strictly dominates the GGUF arm.",
       "purpose_or_replacement": "fold bench seat + backends registration; remove alias/weights; shared survivor weights stay intact",
       "evidence_refs": [
-        "dep scan: no production ref",
         "attempt artifacts in tasks.json",
-        "operator real-use doctrine 2026-09-07"
+        "dep scan: no production ref",
+        "operator real-use doctrine 2026-09-07",
+        "reports/runtime/HARDENING_V2_P4_MEASUREMENTS.md#s0-revisited",
+        "zero live config refs verified 2026-09-12"
       ],
       "closure_record_refs": [
-        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_ggml-org_dots.ocr-GGUF-Q8_0"
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_ggml-org_dots.ocr-GGUF-Q8_0",
+        "docs/WFE_CLOSEOUT_20260912.md"
       ],
       "verified_storage_effect_bytes": 3238405341,
-      "closed_at": "2026-09-07 (determination; removal pending approval)",
-      "purpose": "USE-PROBE tier \u2014 bounded real-work assignment: same OCR comparison (dots.ocr lineage arm)"
+      "closed_at": "removed 2026-09-12 (WFE closeout: stop rule executed on real evidence; weights deleted, verified absent)",
+      "purpose": "USE-PROBE tier — bounded real-work assignment: same OCR comparison (dots.ocr lineage arm)"
     },
     {
       "item_id": "ollama:hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M",
@@ -2156,7 +2170,7 @@
       "test_if_needed": null,
       "stop_rule": null,
       "final_disposition": "INTEGRATED",
-      "decision_reason": "lane-relevant refusal instrument WIN (quality 1.0 vs 0.75, over-refusal 0.0 vs 0.33) at 4.3x throughput (55.6 vs 12.9 tps); cross-domain judgment modestly below incumbent (exact 0.87 vs 0.90) \u2014 recorded tradeoff",
+      "decision_reason": "lane-relevant refusal instrument WIN (quality 1.0 vs 0.75, over-refusal 0.0 vs 0.33) at 4.3x throughput (55.6 vs 12.9 tps); cross-domain judgment modestly below incumbent (exact 0.87 vs 0.90) — recorded tradeoff",
       "purpose_or_replacement": "routed: auto-general-uncensored model_hint (REPLACE 27b-ctx8k; intent-consistent uncensored replacement)",
       "evidence_refs": [
         "refusal_preservation_probe_20260907T025849Z.json",
@@ -2172,7 +2186,7 @@
       "item_id": "ollama:hf.co/mradermacher/Nanonets-OCR2-3B-GGUF:Q4_K_M",
       "kind": "ollama_manifest",
       "exact_identity": "hf.co/mradermacher/Nanonets-OCR2-3B-GGUF:Q4_K_M",
-      "observed_present": true,
+      "observed_present": false,
       "model_layer_digests": [
         "sha256:d4f5bae51febb85cf39e90da47aae519a48a7c8ed233a8d0a81565ccaaad52b0"
       ],
@@ -2184,20 +2198,23 @@
       "decision_question": "Where does this model ACTUALLY belong in real use?",
       "test_if_needed": "same OCR comparison (Nanonets lineage arm; MLX Nanonets-8bit already owned)",
       "stop_rule": "same as deepseek-ocr",
-      "final_disposition": "RETAINED_FOR_PURPOSE",
-      "decision_reason": "re-tiered per operator guidance 2026-09-07 (short-prompt instruments cannot settle real-usability fit): same",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "stop rule FIRES literally: MLX Nanonets-OCR2-3B-8bit scores 1.000 norm @ 8.5s/page vs this GGUF's 1.000 @ 9.8s — the already-owned MLX build of the SAME model is >= on both axes.",
       "purpose_or_replacement": "fold bench seat + backends registration; remove alias/weights; shared survivor weights stay intact",
       "evidence_refs": [
-        "dep scan: no production ref",
         "attempt artifacts in tasks.json",
-        "operator real-use doctrine 2026-09-07"
+        "dep scan: no production ref",
+        "operator real-use doctrine 2026-09-07",
+        "reports/runtime/HARDENING_V2_P4_MEASUREMENTS.md#s0-revisited",
+        "zero live config refs verified 2026-09-12"
       ],
       "closure_record_refs": [
-        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_mradermacher_Nanonets-OCR2-3B-GGUF-Q4_K_M"
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_mradermacher_Nanonets-OCR2-3B-GGUF-Q4_K_M",
+        "docs/WFE_CLOSEOUT_20260912.md"
       ],
       "verified_storage_effect_bytes": 2777770098,
-      "closed_at": "2026-09-07 (determination; removal pending approval)",
-      "purpose": "USE-PROBE tier \u2014 bounded real-work assignment: same OCR comparison (Nanonets lineage arm; MLX Nanonets-8bit already owned)"
+      "closed_at": "removed 2026-09-12 (WFE closeout: stop rule executed on real evidence; weights deleted, verified absent)",
+      "purpose": "USE-PROBE tier — bounded real-work assignment: same OCR comparison (Nanonets lineage arm; MLX Nanonets-8bit already owned)"
     },
     {
       "item_id": "ollama:hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M",
@@ -2434,7 +2451,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_mradermacher_gemma-4-26B-A4B-it-uncensored-heretic-GGUF-gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf"
       ],
       "verified_storage_effect_bytes": 17602923462,
-      "closed_at": "removed 2026-09-12 (register was stale \u2014 bench-* config stanza was still live-wiring the already-deleted model; stanza removed, register corrected)"
+      "closed_at": "removed 2026-09-12 (register was stale — bench-* config stanza was still live-wiring the already-deleted model; stanza removed, register corrected)"
     },
     {
       "item_id": "ollama:hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M",
@@ -2524,9 +2541,10 @@
       "test_if_needed": null,
       "stop_rule": null,
       "final_disposition": "INTEGRATED",
-      "decision_reason": "research_probe head-to-head WINNER twice: 0.9/0.8 factuality, synthesis 5.0/4.5 vs Aquila 0.3 and tongyi 0.4; faster avg latency",
+      "decision_reason": "research_probe head-to-head WINNER twice: 0.9/0.8 factuality, synthesis 5.0/4.5 vs Aquila 0.3 and tongyi 0.4; faster avg latency | WFE corroboration 2026-09-12: its -ctx16k production tag ran wfe_full_20260911 as the auto-research INCUMBENT and won its lane separated (24/30 vs command-r 13/30). Terminal since 2026-09-07.",
       "purpose_or_replacement": "routed: auto-research model_hint (REPLACE Aquila-mini; research-lane winner)",
       "evidence_refs": [
+        "docs/WFE_CLOSEOUT_20260912.md",
         "tests/benchmarks/results/research_probe_20260907T030136Z.json",
         "tests/benchmarks/results/research_probe_20260907T032401Z.json"
       ],
@@ -2630,7 +2648,7 @@
       "test_if_needed": null,
       "stop_rule": null,
       "final_disposition": "REMOVED_CLOSED",
-      "decision_reason": "policy-evicted: REAP staged to REPLACE glm-4.7-flash only if it BEAT it (MODEL_CATALOG.md:535); exam 80%/90% vs 82%/90%, no TPS edge \u2014 pin reverted; GLM lineage retained by winner; weights re-downloadable",
+      "decision_reason": "policy-evicted: REAP staged to REPLACE glm-4.7-flash only if it BEAT it (MODEL_CATALOG.md:535); exam 80%/90% vs 82%/90%, no TPS edge — pin reverted; GLM lineage retained by winner; weights re-downloadable",
       "purpose_or_replacement": null,
       "evidence_refs": [
         "BENCH_REPAIR_20260907T081156Z.md",
@@ -3047,7 +3065,7 @@
       "stop_rule": null,
       "final_disposition": "RETAINED_FOR_PURPOSE",
       "decision_reason": "verified; role narrowed to manual/persona seats",
-      "purpose_or_replacement": "verified healthy incumbent (judgment 0.90/0.952, refusal 0.75) \u2014 kept as persona-pinned manual model; loses the auto-general-uncensored HINT to the 35B on lane-instrument data",
+      "purpose_or_replacement": "verified healthy incumbent (judgment 0.90/0.952, refusal 0.75) — kept as persona-pinned manual model; loses the auto-general-uncensored HINT to the 35B on lane-instrument data",
       "evidence_refs": [
         "refusal_preservation_probe_20260907T025849Z.json",
         "judgment_probe_v6_20260907T034934Z.json"
@@ -3143,7 +3161,7 @@
       "stop_rule": null,
       "final_disposition": "INTEGRATED",
       "decision_reason": "no home: bench-only / registered-only / dashboards-only (ruling 2026-09-07: bench-only does not confer a purpose); old ledger investigate (never resolved to a role)",
-      "purpose_or_replacement": "persona pins: pentestlead \u2014 PIN SPELLING FIX REQUIRED: pentestlead lists absent :E2b-qat-ctx8k; retarget to installed :E2b-qat (weights identical)",
+      "purpose_or_replacement": "persona pins: pentestlead — PIN SPELLING FIX REQUIRED: pentestlead lists absent :E2b-qat-ctx8k; retarget to installed :E2b-qat (weights identical)",
       "evidence_refs": [
         "dep scan",
         "refusal_preservation_probe artifacts"
@@ -3341,7 +3359,7 @@
       "test_if_needed": "auto-coding/splunkdetectionauthor-style real tasks in the IDE flow WITH tools (read->explore->edit->verify), 10+ real repo tasks",
       "stop_rule": "completes real tool-loop tasks >= incumbent lane -> INTEGRATE as fast-repair lane; else REMOVED",
       "final_disposition": "INTEGRATED",
-      "decision_reason": "Integrated 2026-09-12: WFE wfe_full_20260911 stop rule met (completes real tool-loop tasks, no incumbent to lose to). Wired as auto-coding.variants.fast-repair with a proper -ctx32k derived tag (raw pull had no baked num_ctx). bench-kat-coder retired \u2014 its contender question is resolved.",
+      "decision_reason": "Integrated 2026-09-12: WFE wfe_full_20260911 stop rule met (completes real tool-loop tasks, no incumbent to lose to). Wired as auto-coding.variants.fast-repair with a proper -ctx32k derived tag (raw pull had no baked num_ctx). bench-kat-coder retired — its contender question is resolved.",
       "purpose_or_replacement": null,
       "evidence_refs": [
         "BENCH_REPAIR_20260907T081156Z.md",
@@ -3353,7 +3371,7 @@
       ],
       "verified_storage_effect_bytes": null,
       "closed_at": "2026-09-12 (WFE wfe_full_20260911 integration)",
-      "purpose": "USE-PROBE tier \u2014 bounded real-work assignment: auto-coding/splunkdetectionauthor-style real tasks in the IDE flow WITH tools (read->explore->edit->verify), 10+ real repo tasks"
+      "purpose": "USE-PROBE tier — bounded real-work assignment: auto-coding/splunkdetectionauthor-style real tasks in the IDE flow WITH tools (read->explore->edit->verify), 10+ real repo tasks"
     },
     {
       "item_id": "ollama:laguna-xs.2:Q4_K_M",
@@ -3746,8 +3764,8 @@
       "test_if_needed": "refusal probe + 10-problem coding subset",
       "stop_rule": "no win on either -> remove",
       "final_disposition": "INTEGRATED",
-      "decision_reason": "Integrated 2026-09-12: WFE wfe_full_20260911 stop rule met (1.00/0.90 coding rates, best in the campaign). Wired as auto-coding.variants.uncensored-fast \u2014 explicitly NOT the creative seat (0/9 on its own home:creative lane). bench-orcarouter-q38 retired.",
-      "purpose_or_replacement": "VERIFIED uncensored coding specialist \u2014 passed all pre-registered gates: repair exam 100%/100% (ties best-ever), refusal 1.0/0% vs incumbent 0.75/33%, judgment parity 0.952/0.90; manual/bench-only until operator optionally wires an uncensored-coding variant; omnicoder2-9b small-lane NOT displaced (30+ persona pins, intent: small)",
+      "decision_reason": "Integrated 2026-09-12: WFE wfe_full_20260911 stop rule met (1.00/0.90 coding rates, best in the campaign). Wired as auto-coding.variants.uncensored-fast — explicitly NOT the creative seat (0/9 on its own home:creative lane). bench-orcarouter-q38 retired.",
+      "purpose_or_replacement": "VERIFIED uncensored coding specialist — passed all pre-registered gates: repair exam 100%/100% (ties best-ever), refusal 1.0/0% vs incumbent 0.75/33%, judgment parity 0.952/0.90; manual/bench-only until operator optionally wires an uncensored-coding variant; omnicoder2-9b small-lane NOT displaced (30+ persona pins, intent: small)",
       "evidence_refs": [
         "BENCH_REPAIR_20260907T081156Z.md",
         "refusal_preservation_probe_20260907T025849Z.json",
@@ -4580,9 +4598,10 @@
       "test_if_needed": null,
       "stop_rule": null,
       "final_disposition": "RETAINED_FOR_PURPOSE",
-      "decision_reason": "stop rule 'materially below 32b' did NOT fire \u2014 parity",
+      "decision_reason": "stop rule 'materially below 32b' did NOT fire — parity | Corroborated 2026-09-12 by the 16-model transcription bake-off: 0.956 EXACT, tying qwen3-vl:4b exactly, at 12.9s/page vs 7.9s. Parity verdict stands; it remains the manual heavier-vision option, not a production seat.",
       "purpose_or_replacement": "validated lighter-vision model (VQA parity 4/4 with 32b at 6.5x throughput, 5.7 vs 23.7 GiB); manual vision model; optional lighter auto-vision variant left as one-line operator decision",
       "evidence_refs": [
+        "docs/WFE_CLOSEOUT_20260912.md",
         "tests/benchmarks/results/vision_probe_20260907T030047Z.json"
       ],
       "closure_record_refs": [
@@ -4683,11 +4702,11 @@
       "known_attempt_artifacts": [],
       "required_action": "Identify supported/manual/service/reference purpose and existing evidence. Choose intentional retention/integration or exact-identity removal. Run only a bounded test that changes that decision.",
       "decision_question": "Where does this model ACTUALLY belong in real use?",
-      "test_if_needed": "auto-creative/creativewriter real sessions (multi-turn story work, style adherence, persona prompt) \u2014 no synthetic probe exists for creative fit",
+      "test_if_needed": "auto-creative/creativewriter real sessions (multi-turn story work, style adherence, persona prompt) — no synthetic probe exists for creative fit",
       "stop_rule": "operator-judged creative parity or better vs seated creative seats -> RETAIN as creative seat; else REMOVED",
       "final_disposition": "RETAINED_FOR_PURPOSE",
       "decision_reason": "re-tiered per operator guidance 2026-09-07 (short-prompt instruments cannot settle real-usability fit): creative merge never measured for its actual purpose; judgment parity only proves no degradation",
-      "purpose_or_replacement": "CONTENDER \u2014 reasoning/general (parent family qwen3.6:27b-q4_K_M)",
+      "purpose_or_replacement": "CONTENDER — reasoning/general (parent family qwen3.6:27b-q4_K_M)",
       "evidence_refs": [
         "judgment_probe_v6_20260907T034934Z.json",
         "operator real-use doctrine 2026-09-07"
@@ -4697,7 +4716,7 @@
       ],
       "verified_storage_effect_bytes": null,
       "closed_at": "2026-09-07 (executed-test evidence)",
-      "purpose": "USE-PROBE tier \u2014 bounded real-work assignment: auto-creative/creativewriter real sessions (multi-turn story work, style adherence, persona prompt) \u2014 no synthetic probe exists for creative fit"
+      "purpose": "USE-PROBE tier — bounded real-work assignment: auto-creative/creativewriter real sessions (multi-turn story work, style adherence, persona prompt) — no synthetic probe exists for creative fit"
     },
     {
       "item_id": "ollama:supergemma4-26b-uncensored:Q4_K_M",
@@ -5752,22 +5771,26 @@
       ],
       "required_action": "Confirm absent exact identity after current job; check surviving aliases/other runtimes and stale references. Record removed-closed disposition with historical reason, or explicitly unknown reason if not recoverable. Do not repull merely to clear the ledger.",
       "proposed_disposition": "REMOVED_CLOSED",
-      "final_disposition": "RETAINED_FOR_PURPOSE",
-      "decision_reason": "re-tiered on operator IDE-path factor 2026-09-07: the dedicated IDE path is a supported capability and this 4B model is its wired explorer. Bounded pull+verify test (pull, run explore_repository against this repo, check citation quality + turns) decides INTEGRATED vs REMOVED; ~2.5 GiB when pulled",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "stop rule FIRES ('poor citations ... REMOVED_CLOSED for good') on a REPAIRED harness. Pulled and tested 2026-09-12 only after fixing three instrument defects that had masked it (host-native OLLAMA_URL pointed at the Docker-only host.docker.internal; thinking unsuppressed over /v1; .claude worktree copies unexcluded from GREP/GLOB). With all three fixed it still emitted no final_answer on 2 of 3 queries and CONFABULATED the citations it did return - src/workspace/routing.py and src/workspace/utils.py, in a repo with no src/ directory at all. explore_repository repointed to qwen3-coder:30b-a3b-q4_K_M-ctx16k, which returns real paths with real line ranges on the identical prompt.",
       "purpose_or_replacement": "close without repull; retire backends.yaml registration/stale references",
       "evidence_refs": [
+        "dep scan",
+        "docs/WFE_CLOSEOUT_20260912.md#fastcontext",
         "portal/platform/mcp_host/pipeline_mcp.py",
-        "dep scan"
+        "portal/platform/mcp_host/pipeline_mcp.py (explorer seat + skip-set fixes)",
+        "scripts/native-mcp-service.sh (OLLAMA_URL host rewrite)"
       ],
       "closure_record_refs": [
-        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_mitkox_FastContext-1.0-4B-SFT-Q4_K_M-GGUF-Q4_K_M"
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_mitkox_FastContext-1.0-4B-SFT-Q4_K_M-GGUF-Q4_K_M",
+        "docs/WFE_CLOSEOUT_20260912.md"
       ],
-      "closed_at": null,
+      "closed_at": "removed 2026-09-12 (WFE closeout: stop rule executed on real evidence; weights deleted, verified absent)",
       "verified_storage_effect_bytes": 0,
       "decision_question": "Does FastContext-4B produce useful cited repo exploration for the IDE path?",
       "test_if_needed": "pull tag; run pipeline_mcp explore_repository on this repo; review citations/turns",
       "stop_rule": "poor citations or broken tool flow after pull -> REMOVED_CLOSED for good",
-      "purpose": "IDE-path repo-explorer subagent \u2014 hardcoded in pipeline_mcp.py explore_repository tools (the dedicated IDE path's code-search capability); currently ABSENT from store so the tool degrades with a pull-hint"
+      "purpose": "IDE-path repo-explorer subagent — hardcoded in pipeline_mcp.py explore_repository tools (the dedicated IDE path's code-search capability); currently ABSENT from store so the tool degrades with a pull-hint"
     },
     {
       "item_id": "historical-absent:huihui_ai/gemma-4-abliterated:E2b-qat-ctx8k",
@@ -5932,7 +5955,7 @@
       "required_action": "Confirm absent exact identity after current job; check surviving aliases/other runtimes and stale references. Record removed-closed disposition with historical reason, or explicitly unknown reason if not recoverable. Do not repull merely to clear the ledger.",
       "proposed_disposition": "REMOVED_CLOSED",
       "final_disposition": "REMOVED_CLOSED",
-      "decision_reason": "no route/persona/seat; backends registration only \u2014 closed at closeout",
+      "decision_reason": "no route/persona/seat; backends registration only — closed at closeout",
       "purpose_or_replacement": "remove weights; retire stale config/pull/persona entries",
       "evidence_refs": [
         "dep scan",
@@ -6290,67 +6313,67 @@
     {
       "identity": "hf.co/unsloth/phi-4-GGUF:Q4_K_M",
       "final_disposition": "REMOVED_CLOSED",
-      "reason": "valid Sept-6 retry capture (exact 0.7333/F2 0.8025, preflight OK) but NOT a council seat; no route/persona \u2014 closed at closeout",
+      "reason": "valid Sept-6 retry capture (exact 0.7333/F2 0.8025, preflight OK) but NOT a council seat; no route/persona — closed at closeout",
       "proposed_reclaim_gib": 8.28
     },
     {
       "identity": "phi4:14b",
       "final_disposition": "REMOVED_CLOSED",
-      "reason": "no route/persona/seat; diagnostic pull during Phi4 500 diagnosis \u2014 closed at closeout",
+      "reason": "no route/persona/seat; diagnostic pull during Phi4 500 diagnosis — closed at closeout",
       "proposed_reclaim_gib": 8.431
     },
     {
       "identity": "phi4:14b-q8_0",
       "final_disposition": "REMOVED_CLOSED",
-      "reason": "no route/persona/seat; backends registration only \u2014 closed at closeout",
+      "reason": "no route/persona/seat; backends registration only — closed at closeout",
       "proposed_reclaim_gib": 14.51
     },
     {
       "identity": "dolphin-llama3:70b-q4_k_m",
       "final_disposition": "REMOVED_CLOSED",
-      "reason": "stale portal.yaml models: pull entry; never installed \u2014 closed at closeout",
+      "reason": "stale portal.yaml models: pull entry; never installed — closed at closeout",
       "proposed_reclaim_gib": 0.0
     },
     {
       "identity": "dolphin3-r1-mistral:24b-q4_k_m",
       "final_disposition": "REMOVED_CLOSED",
-      "reason": "stale portal.yaml models: pull entry; never installed \u2014 closed at closeout",
+      "reason": "stale portal.yaml models: pull entry; never installed — closed at closeout",
       "proposed_reclaim_gib": 0.0
     },
     {
       "identity": "lily-cybersecurity:7b-q4_k_m",
       "final_disposition": "REMOVED_CLOSED",
-      "reason": "stale portal.yaml models: entry + stale blueteamdefender persona pin; never installed \u2014 closed at closeout",
+      "reason": "stale portal.yaml models: entry + stale blueteamdefender persona pin; never installed — closed at closeout",
       "proposed_reclaim_gib": 0.0
     },
     {
       "identity": "llama3.3:70b-q4_k_m",
       "final_disposition": "REMOVED_CLOSED",
-      "reason": "stale portal.yaml models: pull entry; never installed \u2014 closed at closeout",
+      "reason": "stale portal.yaml models: pull entry; never installed — closed at closeout",
       "proposed_reclaim_gib": 0.0
     },
     {
       "identity": "whiterabbitneo:33b-v1.5-q4_k_m",
       "final_disposition": "REMOVED_CLOSED",
-      "reason": "stale portal.yaml models: pull entry; never installed \u2014 closed at closeout",
+      "reason": "stale portal.yaml models: pull entry; never installed — closed at closeout",
       "proposed_reclaim_gib": 0.0
     },
     {
       "identity": "qwen3-coder-next:30b-q5",
       "final_disposition": "REMOVED_CLOSED",
-      "reason": "stale persona pins (bugdiscovery/codebasewiki/ethereum/fullstack); never installed \u2014 closed at closeout",
+      "reason": "stale persona pins (bugdiscovery/codebasewiki/ethereum/fullstack); never installed — closed at closeout",
       "proposed_reclaim_gib": 0.0
     },
     {
       "identity": "supergemma4-26b-uncensored:q4_k_m",
       "final_disposition": "REMOVED_CLOSED",
-      "reason": "stale portal.yaml models: entry (case-mismatched); never installed \u2014 closed at closeout",
+      "reason": "stale portal.yaml models: entry (case-mismatched); never installed — closed at closeout",
       "proposed_reclaim_gib": 0.0
     },
     {
       "identity": "olmo3.1:32b-think",
       "final_disposition": "REMOVED_CLOSED",
-      "reason": "plans disagree (Tier-2 candidate vs decline list); never installed; closed NOT_ADOPTED absent a named owner \u2014 closed at closeout",
+      "reason": "plans disagree (Tier-2 candidate vs decline list); never installed; closed NOT_ADOPTED absent a named owner — closed at closeout",
       "proposed_reclaim_gib": 0.0
     }
   ],
@@ -6457,14 +6480,17 @@
     "bench_repair 4 arms x 70 samples (in flight)"
   ],
   "final_counts": {
-    "REMOVED_CLOSED": 105,
-    "INTEGRATED": 78,
-    "RETAINED_FOR_PURPOSE": 5
+    "REMOVED_CLOSED": 100,
+    "INTEGRATED": 81,
+    "RETAINED_FOR_PURPOSE": 7
   },
   "closure_tiers": {
     "stage1_confirmed": "removals with decisive evidence independent of usability lens (absent, duplicate-identical, real-scenario gate failures, broken install, instruction-floor failures x2, stale wiring) + alias folds (weights survive) + record-only",
     "stage2_use_probe": "models queued for bounded REAL-WORK assignments in their intended workspace/persona context with tools exposed; each carries a stop rule; nothing removed while queued",
     "integrated_retained": "wired roles + named-purpose seats (incl. diversity seat gpt-oss, IDE explorer FastContext, verified specialists)"
   },
-  "wfe_ref": "docs/TASK_WORKSPACE_FITNESS_EVAL_V1.md"
+  "wfe_ref": [
+    "docs/TASK_WORKSPACE_FITNESS_EVAL_V1.md",
+    "docs/WFE_CLOSEOUT_20260912.md"
+  ]
 }

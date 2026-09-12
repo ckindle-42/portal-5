@@ -61,3 +61,43 @@ def test_no_effort_falls_back_to_predict_limit(monkeypatch):
     for inj in (val._inject_ollama_options, val._inject_omlx_options):
         out = inj({"messages": [], "stream": False}, "ws-test")
         assert out["max_tokens"] == 1234  # workspace default when no effort given
+
+
+# ── think:false must reach the backend in the form /v1 actually honours ──────
+# Regression guard for the 2026-09-12 finding: Ollama 0.33.2's OpenAI-compat
+# endpoint silently drops a top-level `think`, so every `think: false` workspace
+# was reasoning anyway. `reasoning_effort: "none"` is the form it honours.
+
+
+def test_think_false_emits_reasoning_effort_none(monkeypatch):
+    monkeypatch.setitem(val.WORKSPACES, "ws-test", {"think": False})
+    out = val._inject_ollama_options({"messages": [], "stream": False}, "ws-test")
+    assert out["reasoning_effort"] == "none"
+    assert out["think"] is False  # native knob still sent for any /api/chat path
+
+
+def test_think_true_emits_no_reasoning_effort(monkeypatch):
+    # Any tier but "none" is rejected 400 by a model without the thinking
+    # capability, and thinking is the template default anyway — so inject none.
+    monkeypatch.setitem(val.WORKSPACES, "ws-test", {"think": True})
+    out = val._inject_ollama_options({"messages": [], "stream": False}, "ws-test")
+    assert "reasoning_effort" not in out
+    assert out["think"] is True
+
+
+def test_think_unset_emits_neither_key(monkeypatch):
+    monkeypatch.setitem(val.WORKSPACES, "ws-test", {"predict_limit": 1234})
+    out = val._inject_ollama_options({"messages": [], "stream": False}, "ws-test")
+    assert "reasoning_effort" not in out
+    assert "think" not in out
+
+
+def test_think_false_suppression_survives_caller_effort(monkeypatch):
+    """A caller's reasoning_effort is a token-budget tier, popped upstream. It
+    must set the cap AND still leave the workspace's suppression on the wire."""
+    monkeypatch.setitem(val.WORKSPACES, "ws-test", {"think": False, "predict_limit": 1234})
+    out = val._inject_ollama_options(
+        {"reasoning_effort": "high", "messages": [], "stream": False}, "ws-test"
+    )
+    assert out["max_tokens"] == HIGH  # caller's budget override still wins
+    assert out["reasoning_effort"] == "none"  # ...and thinking stays suppressed
