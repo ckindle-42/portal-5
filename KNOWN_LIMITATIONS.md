@@ -73,9 +73,42 @@ The VL retrieval path trades concurrency for MPS stability — one lock, one GPU
 - **Also note**: on docling the diagram and prose cosine populations **overlap by 0.072** (4 diagram + 10 prose eval queries share the band), so *no* absolute τ is perfect there — 3 misclassifications of 37 is the information floor, and 0.72 sits on it. Under PyMuPDF the same populations were cleanly separated (gap 0.098), which is why 0.67 read as robust for as long as it did.
 - **Version coupling**: docling is pinned, not floored — `pyproject` `>=2.99.0`, `Dockerfile.mcp` `==2.99.0`. 2.99.0 is a **ceiling** set by `transformers`: docling >= 2.100 pulls `docling-core[chunking]`, which caps `transformers < 5.9.0` against the `>= 5.16.1` the VL retrieval server needs. A bare `pip install docling` into `.venv` resolves that by silently downgrading transformers **under the running VL server** — which is how the first τ answer (0.75) came to be fitted on an unlockable environment. τ moved to 0.72 once re-swept on the locked stack.
 - **Scope of the τ result (read before trusting it)**: the eval's query set does not represent the target use case. 21 of 37 scored queries are `diagram_only` and all target synthetic 2-page documents, while the real corpus is 26 prose/table documents (16 CIP standards, 9 OT policies, 1 NIST slice). `VL_TEXT_GATE` exists to trade prose recall for diagram recall, so τ is fitted to a weighting production will not reproduce. The metric also scores a hit when **one** `target_file` ranks ≤ k, which cannot express the central compliance question — "does our procedure satisfy CIP-007-6 R2?" needs the standard **and** the policy retrieved together, and source diversity is neither measured nor enforced. See P10 in `reports/runtime/HARDENING_V2_P4_MEASUREMENTS.md`; the realignment work is scoped in `docs/RAG_COMPLIANCE_QA_REALIGNMENT_V1.md`.
-- **Concrete symptom**: `prose-cip-07` ("How does NERC CIP-002 categorize BES Cyber Systems as high, medium, or low impact?") — the archetypal compliance question, answered by CIP-002 Attachment 1, a table — is **not in the top 5 on the shipping configuration at any τ**. Not an extraction failure: `cip-002-5.1a.pdf` contributes 121 chunks, 23 mentioning "Attachment 1". It has degraded silently across builds (rank 3 → 5 → absent), hidden by aggregate r@5. Structure-aware chunking and `unified` fusion — both **rejected on aggregate scores** — each put it at rank 1, so those rejections are **provisional**.
+- **Concrete symptom (RESOLVED 2026-09-12 — cause was not τ)**: `prose-cip-07` ("How does NERC CIP-002 categorize BES Cyber Systems as high, medium, or low impact?") now ranks **1**. The cause was never the gate: the compliance composition asked for `chunk_strategy: "docling"` but never supplied `read_document`, and `chunk(strategy="docling")` silently falls back to blind character slicing when handed no `DoclingDocument` — 1508 of 1508 chunks were fixed-sliced at `page=-1` with an empty heading path, so `contextualize=True` had nothing to contextualize. Wiring `read_document` moved it 2 → 1 (and `prose-cip-01` 4 → 1; `prose-cip-04` and `prose-cip-09` each slipped 1 → 2; mean rank 1.36 → 1.14). The τ discussion below stands for `rag_multimodal`; it was never what held this query down. **Note the earlier diagnosis in this entry was wrong**: it attributed the failure to a text-less Attachment 1 page image, but the only CIP-002 page in the visual arm is a 173-char "Regional Variances / None" boilerplate page — Attachment 1 carries 2408 chars and lives in the text arm. Historical text kept below.
+- **Superseded symptom text**: it was **not in the top 5 on the shipping configuration at any τ**. Not an extraction failure: `cip-002-5.1a.pdf` contributes 121 chunks, 23 mentioning "Attachment 1". It has degraded silently across builds (rank 3 → 5 → absent), hidden by aggregate r@5. Structure-aware chunking and `unified` fusion — both **rejected on aggregate scores** — each put it at rank 1, so those rejections are **provisional**.
 - **Unmeasured against the stated requirement**: answer quality; multi-document retrieval; table retrieval; documents longer than `RAG_MAX_PAGES=25` in the **visual** arm (the text arm always extracted in full, so prose numbers are sound, but 10 of 26 real docs exceed 25 pages and their later page images were never built); and **conversational use** — `kb_search` is single-shot and stateless, with no query rewriting or follow-up resolution, and zero of the 37 queries are follow-ups. That last one is an absent capability, not a tuning gap.
 - **Guard**: `tests/unit/test_rag_multimodal.py` pins τ against the p75 of each index's measured diagram cosines and against the measured prose break (0.75), so a τ edit outside the validated band fails a unit test. The full retrieval eval cannot run in CI — it needs the MLX VL server, ~21 min of ingest and the operator's private PDFs — so **re-run it by hand after any change to extraction, chunking, or the embedding model**, and re-derive τ from the sweep rather than assuming it carried over.
+
+### Compliance council — the seat F2 numbers are prompt-sensitive
+
+- **ID**: P5-CMPL-PROMPT-001
+- **Description**: Y23 re-ran the 30-case judgment probe across four
+  semantically-equivalent wordings of the seat system prompt. Two of the three
+  shipped seats move more than the gaps between seats:
+  `mistral-small3.2:24b` **0.641–0.802** (range 0.162), `granite4.1:30b`
+  **0.833–0.919** (range 0.086), `hf.co/unsloth/Qwen3.8-27B` **0.952 flat**
+  (range 0.000). Threshold for calling a number a prompt artifact is 0.05, so
+  the verdict is **PROMPT_ARTIFACT**.
+- **What this invalidates**: any single-prompt F2 used to ORDER two seats. The
+  12-seat sweep that produced the roster (Y29) was run on one wording, and
+  mistral's shipped-prompt 0.802 is its BEST case, not a stable value. A
+  candidate rejected at, say, 0.78 against a seat at 0.80 was not distinguished
+  by that comparison. This is why the F2 leg of the phi4 4th-seat decision was
+  withdrawn (`coding_task/v9_compliance/Y25_ISSUE_AND_REMAINING.md`); that
+  decision now rests only on throughput and quorum arithmetic, which do not move
+  with wording.
+- **What it does NOT invalidate**: the roster itself. Qwen3.8-27B is stable at
+  0.952 across every wording, and no paraphrase reorders the three seats — the
+  ranking survives, only the margins are unreliable.
+- **How to report an F2 from this probe**: with its range attached, never bare.
+- **Guard**: `scripts/compliance_y23_aggregate.py` recomputes the range from
+  saved debug transcripts in seconds (no model calls) and refuses to score a
+  partial sweep; the Y23 check in `verify_compliance_v6_closeout.py` prints the
+  range and the FLAGGED verdict on every run.
+- **Bearing on the fix Y21 made**: the same sweep measured the added
+  OUTDATED_LANGUAGE trigger as a fifth, non-paraphrase arm — Qwen3.8 0.952 →
+  **1.000**, mistral 0.802 → **0.904** (above its entire wording range),
+  granite 0.919 → **0.930** (marginal, inside noise). The trigger earns its
+  place on two of three seats on measured evidence rather than assumption.
 
 ## Why
 

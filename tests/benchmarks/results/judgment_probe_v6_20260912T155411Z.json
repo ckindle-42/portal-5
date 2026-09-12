@@ -1,0 +1,841 @@
+{
+  "probe": "judgment_probe_v6",
+  "probe_sha": "791042c31fc5782a",
+  "utc": "20260912T155411Z",
+  "hardware": {
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "chip": "Apple M4 Pro"
+  },
+  "n_cases": 30,
+  "models": [
+    {
+      "model": "mistral-small3.2:24b-instruct-2506-q4_K_M",
+      "preflight": {
+        "model": "mistral-small3.2:24b-instruct-2506-q4_K_M",
+        "baked_params": {
+          "temperature": 0.15
+        },
+        "template_sha": "706c4d1164f7",
+        "num_ctx_baked": null,
+        "json_ok": true,
+        "think_leak": false,
+        "system_honored": true,
+        "verdict": "OK"
+      },
+      "aggregate": {
+        "n": 30,
+        "violation_class_accuracy": 0.8333,
+        "exact_accuracy": 0.7333,
+        "F2_violation": 0.75,
+        "F1_violation": 0.8276,
+        "MCC_violation": 0.714,
+        "confusion": {
+          "tp": 12,
+          "fp": 0,
+          "fn": 5,
+          "tn": 13
+        },
+        "false_supported_count": 4,
+        "schema_valid_rate": 1.0,
+        "citation_ok_rate": 0.9,
+        "abstain_recall": 1.0,
+        "spurious_abstain_rate": 0.0385,
+        "must_not_flag_fp_count": 0,
+        "median_prompt_tokens": 408,
+        "max_prompt_tokens": 499,
+        "median_tps": 17.1,
+        "errors": 0,
+        "config_unverified": false
+      },
+      "runs": [
+        {
+          "id": "P6J-01",
+          "raw": "{\n  \"determination\": \"SUPPORTED\",\n  \"finding_type\": null,\n  \"cited_refs\": [\"CIP-007-6 R2 Part 2.2\"],\n  \"rationale\": \"The candidate implementation matches the governing unit's requirement for a 35-day evaluation cycle.\"\n}",
+          "parsed": {
+            "determination": "SUPPORTED",
+            "finding_type": null,
+            "cited_refs": [
+              "CIP-007-6 R2 Part 2.2"
+            ],
+            "rationale": "The candidate implementation matches the governing unit's requirement for a 35-day evaluation cycle."
+          },
+          "prompt_tokens": 424,
+          "eval_tokens": 69,
+          "tps": 17.2,
+          "wall_s": 10.75
+        },
+        {
+          "id": "P6J-02",
+          "raw": "{\n  \"determination\": \"SUPPORTED\",\n  \"finding_type\": null,\n  \"cited_refs\": [\"CIP-007-6 R2 Part 2.2\", \"cadence is a maximum interval\"],\n  \"rationale\": \"The candidate implementation's 21-day evaluation interval is stricter than the governing unit's 35-day maximum.\"\n}",
+          "parsed": {
+            "determination": "SUPPORTED",
+            "finding_type": null,
+            "cited_refs": [
+              "CIP-007-6 R2 Part 2.2",
+              "cadence is a maximum interval"
+            ],
+            "rationale": "The candidate implementation's 21-day evaluation interval is stricter than the governing unit's 35-day maximum."
+          },
+          "prompt_tokens": 385,
+          "eval_tokens": 83,
+          "tps": 17.2,
+          "wall_s": 5.32
+        },
+        {
+          "id": "P6J-03",
+          "raw": "{\n  \"determination\": \"SUPPORTED\",\n  \"finding_type\": null,\n  \"cited_refs\": [\"CIP-007-6 R2 Part 2.2\", \"cadence is a maximum interval; calendar days are not business days\"],\n  \"rationale\": \"The candidate implementation's quarterly evaluation (every 90 calendar days) is stricter than the governing unit's requirement of at least once every 35 calendar days.\"\n}",
+          "parsed": {
+            "determination": "SUPPORTED",
+            "finding_type": null,
+            "cited_refs": [
+              "CIP-007-6 R2 Part 2.2",
+              "cadence is a maximum interval; calendar days are not business days"
+            ],
+            "rationale": "The candidate implementation's quarterly evaluation (every 90 calendar days) is stricter than the governing unit's requirement of at least once every 35 calendar days."
+          },
+          "prompt_tokens": 396,
+          "eval_tokens": 101,
+          "tps": 17.1,
+          "wall_s": 6.38
+        },
+        {
+          "id": "P6J-04",
+          "raw": "{\n  \"determination\": \"SUPPORTED\",\n  \"finding_type\": null,\n  \"cited_refs\": [\"CIP-007-6 R4 Part 4.4\"],\n  \"rationale\": \"The candidate implementation's weekly review interval is stricter than the governing unit's maximum of 15 calendar days.\"\n}",
+          "parsed": {
+            "determination": "SUPPORTED",
+            "finding_type": null,
+            "cited_refs": [
+              "CIP-007-6 R4 Part 4.4"
+            ],
+            "rationale": "The candidate implementation's weekly review interval is stricter than the governing unit's maximum of 15 calendar days."
+          },
+          "prompt_tokens": 410,
+          "eval_tokens": 74,
+          "tps": 17.2,
+          "wall_s": 5.24
+        },
+        {
+          "id": "P6J-05",
+          "raw": "{\n  \"determination\": \"PARTIAL\",\n  \"finding_type\": \"GAP\",\n  \"cited_refs\": [\"CIP-007-6 R4 Part 4.4\"],\n  \"rationale\": \"The candidate implementation does not address the requirement to review logged events at intervals no greater than 15 calendar days.\"\n}",
+          "parsed": {
+            "determination": "PARTIAL",
+            "finding_type": "GAP",
+            "cited_refs": [
+              "CIP-007-6 R4 Part 4.4"
+            ],
+            "rationale": "The candidate implementation does not address the requirement to review logged events at intervals no greater than 15 calendar days."
+          },
+          "prompt_tokens": 407,
+          "eval_tokens": 75,
+          "tps": 17.2,
+          "wall_s": 5.08
+        },
+        {
+          "id": "P6J-06",
+          "raw": "{\n  \"determination\": \"ABSENT\",\n  \"finding_type\": null,\n  \"cited_refs\": [\"CIP-007-6 R4 Part 4.4\"],\n  \"rationale\": \"The packet is complete and nothing addresses the governing unit.\"\n}",
+          "parsed": {
+            "determination": "ABSENT",
+            "finding_type": null,
+            "cited_refs": [
+              "CIP-007-6 R4 Part 4.4"
+            ],
+            "rationale": "The packet is complete and nothing addresses the governing unit."
+          },
+          "prompt_tokens": 359,
+          "eval_tokens": 62,
+          "tps": 17.2,
+          "wall_s": 3.89
+        },
+        {
+          "id": "P6J-07",
+          "raw": "{\n  \"determination\": \"SUPPORTED\",\n  \"finding_type\": null,\n  \"cited_refs\": [\"CIP-004-7 R2 Part 2.3\", \"'at least once every 15 calendar months' is a maximum interval between occurrences\"],\n  \"rationale\": \"The candidate implementation's 12-month interval is stricter than the governing unit's 15-month maximum.\"\n}",
+          "parsed": {
+            "determination": "SUPPORTED",
+            "finding_type": null,
+            "cited_refs": [
+              "CIP-004-7 R2 Part 2.3",
+              "'at least once every 15 calendar months' is a maximum interval between occurrences"
+            ],
+            "rationale": "The candidate implementation's 12-month interval is stricter than the governing unit's 15-month maximum."
+          },
+          "prompt_tokens": 407,
+          "eval_tokens": 92,
+          "tps": 17.1,
+          "wall_s": 6.36
+        },
+        {
+          "id": "P6J-08",
+          "raw": "{\n  \"determination\": \"CONTRADICTED\",\n  \"finding_type\": \"CONTRADICTION\",\n  \"cited_refs\": [\"CIP-004-7 R2 Part 2.2\"],\n  \"rationale\": \"The candidate implementation allows access before training completion, violating the ordering constraint.\"\n}",
+          "parsed": {
+            "determination": "CONTRADICTED",
+            "finding_type": "CONTRADICTION",
+            "cited_refs": [
+              "CIP-004-7 R2 Part 2.2"
+            ],
+            "rationale": "The candidate implementation allows access before training completion, violating the ordering constraint."
+          },
+          "prompt_tokens": 415,
+          "eval_tokens": 73,
+          "tps": 17.1,
+          "wall_s": 5.24
+        },
+        {
+          "id": "P6J-09",
+          "raw": "{\n  \"determination\": \"ABSTAIN\",\n  \"finding_type\": null,\n  \"cited_refs\": [],\n  \"rationale\": \"The packet is incomplete as the definition of 'CIP Exceptional Circumstances' is missing.\"\n}",
+          "parsed": {
+            "determination": "ABSTAIN",
+            "finding_type": null,
+            "cited_refs": [],
+            "rationale": "The packet is incomplete as the definition of 'CIP Exceptional Circumstances' is missing."
+          },
+          "prompt_tokens": 410,
+          "eval_tokens": 55,
+          "tps": 17.2,
+          "wall_s": 3.71
+        },
+        {
+          "id": "P6J-10",
+          "raw": "{\n  \"determination\": \"SUPPORTED\",\n  \"finding_type\": null,\n  \"cited_refs\": [\"CIP-009-6 R2 Part 2.1\"],\n  \"rationale\": \"The candidate implementation satisfies the governing unit by performing a tabletop exercise annually, which is within the required 15 calendar months.\"\n}",
+          "parsed": {
+            "determination": "SUPPORTED",
+            "finding_type": null,
+            "cited_refs": [
+              "CIP-009-6 R2 Part 2.1"
+            ],
+            "rationale": "The candidate implementation satisfies the governing unit by performing a tabletop exercise annually, which is within the required 15 calendar months."
+          },
+          "prompt_tokens": 413,
+          "eval_tokens": 77,
+          "tps": 17.1,
+          "wall_s": 5.72
+        },
+        {
+          "id": "P6J-11",
+          "raw": "{\n  \"determination\": \"CONTRADICTED\",\n  \"finding_type\": \"GAP\",\n  \"cited_refs\": [\"CIP-009-6 R2 Part 2.1\"],\n  \"rationale\": \"The candidate implementation does not address the mandatory testing requirement.\"\n}",
+          "parsed": {
+            "determination": "CONTRADICTED",
+            "finding_type": "GAP",
+            "cited_refs": [
+              "CIP-009-6 R2 Part 2.1"
+            ],
+            "rationale": "The candidate implementation does not address the mandatory testing requirement."
+          },
+          "prompt_tokens": 400,
+          "eval_tokens": 67,
+          "tps": 17.1,
+          "wall_s": 4.43
+        },
+        {
+          "id": "P6J-12",
+          "raw": "{\n  \"determination\": \"SUPPORTED\",\n  \"finding_type\": null,\n  \"cited_refs\": [\"CIP-003-8 Attachment 1 Part 4.6\"],\n  \"rationale\": \"The candidate implementation satisfies the governing unit as it meets the maximum elapsed time requirement of 180 calendar days.\"\n}",
+          "parsed": {
+            "determination": "SUPPORTED",
+            "finding_type": null,
+            "cited_refs": [
+              "CIP-003-8 Attachment 1 Part 4.6"
+            ],
+            "rationale": "The candidate implementation satisfies the governing unit as it meets the maximum elapsed time requirement of 180 calendar days."
+          },
+          "prompt_tokens": 403,
+          "eval_tokens": 76,
+          "tps": 17.1,
+          "wall_s": 5.44
+        },
+        {
+          "id": "P6J-13",
+          "raw": "{\n  \"determination\": \"SUPPORTED\",\n  \"finding_type\": null,\n  \"cited_refs\": [\"CIP-010-4 R1 Part 1.3\"],\n  \"rationale\": \"The candidate implementation's 10 business days is stricter than the governing unit's 30 calendar days.\"\n}",
+          "parsed": {
+            "determination": "SUPPORTED",
+            "finding_type": null,
+            "cited_refs": [
+              "CIP-010-4 R1 Part 1.3"
+            ],
+            "rationale": "The candidate implementation's 10 business days is stricter than the governing unit's 30 calendar days."
+          },
+          "prompt_tokens": 400,
+          "eval_tokens": 74,
+          "tps": 17.1,
+          "wall_s": 5.31
+        },
+        {
+          "id": "P6J-14",
+          "raw": "{\n  \"determination\": \"SUPPORTED\",\n  \"finding_type\": null,\n  \"cited_refs\": [\"CIP-010-4 R2 Part 2.1\"],\n  \"rationale\": \"The candidate implementation satisfies the monitoring duty with a stricter interval (24 hours vs. 35 days).\"\n}",
+          "parsed": {
+            "determination": "SUPPORTED",
+            "finding_type": null,
+            "cited_refs": [
+              "CIP-010-4 R2 Part 2.1"
+            ],
+            "rationale": "The candidate implementation satisfies the monitoring duty with a stricter interval (24 hours vs. 35 days)."
+          },
+          "prompt_tokens": 418,
+          "eval_tokens": 75,
+          "tps": 17.1,
+          "wall_s": 5.61
+        },
+        {
+          "id": "P6J-15",
+          "raw": "{\n  \"determination\": \"CONTRADICTED\",\n  \"finding_type\": \"CONTRADICTION\",\n  \"cited_refs\": [\"CIP-010-4 R2 Part 2.1\"],\n  \"rationale\": \"The candidate implementation's semi-annual monitoring interval exceeds the governing unit's maximum interval of 35 calendar days.\"\n}",
+          "parsed": {
+            "determination": "CONTRADICTED",
+            "finding_type": "CONTRADICTION",
+            "cited_refs": [
+              "CIP-010-4 R2 Part 2.1"
+            ],
+            "rationale": "The candidate implementation's semi-annual monitoring interval exceeds the governing unit's maximum interval of 35 calendar days."
+          },
+          "prompt_tokens": 399,
+          "eval_tokens": 83,
+          "tps": 17.1,
+          "wall_s": 5.37
+        },
+        {
+          "id": "P6J-16",
+          "raw": "{\n  \"determination\": \"SUPPORTED\",\n  \"finding_type\": null,\n  \"cited_refs\": [\"CIP-010-4 R3 Part 3.1\"],\n  \"rationale\": \"The candidate implementation satisfies the governing unit as it conducts an active assessment annually, which is stricter than the required 15-month maximum.\"\n}",
+          "parsed": {
+            "determination": "SUPPORTED",
+            "finding_type": null,
+            "cited_refs": [
+              "CIP-010-4 R3 Part 3.1"
+            ],
+            "rationale": "The candidate implementation satisfies the governing unit as it conducts an active assessment annually, which is stricter than the required 15-month maximum."
+          },
+          "prompt_tokens": 396,
+          "eval_tokens": 80,
+          "tps": 17.1,
+          "wall_s": 5.67
+        },
+        {
+          "id": "P6J-17",
+          "raw": "{\n  \"determination\": \"CONTRADICTED\",\n  \"finding_type\": \"CONTRADICTION\",\n  \"cited_refs\": [\"CIP-003-9 R1 Part 1.2.6\", \"the internal document under review cites 'CIP-003-8' as its governing authority\"],\n  \"rationale\": \"The candidate implementation cites an outdated governing authority (CIP-003-8) that does not contain the vendor remote access control required by the governing unit (CIP-003-9 R1 Part 1.2.6).\"\n}",
+          "parsed": {
+            "determination": "CONTRADICTED",
+            "finding_type": "CONTRADICTION",
+            "cited_refs": [
+              "CIP-003-9 R1 Part 1.2.6",
+              "the internal document under review cites 'CIP-003-8' as its governing authority"
+            ],
+            "rationale": "The candidate implementation cites an outdated governing authority (CIP-003-8) that does not contain the vendor remote access control required by the governing unit (CIP-003-9 R1 Part 1.2.6)."
+          },
+          "prompt_tokens": 429,
+          "eval_tokens": 135,
+          "tps": 17.0,
+          "wall_s": 9.19
+        },
+        {
+          "id": "P6J-18",
+          "raw": "{\n  \"determination\": \"ABSTAIN\",\n  \"finding_type\": \"OUTDATED_LANGUAGE\",\n  \"cited_refs\": [\"CIP-010-4 R1 Part 1.3\", \"CIP-010-2 Requirement R1.5\"],\n  \"rationale\": \"The candidate implementation references an outdated requirement number.\"\n}",
+          "parsed": {
+            "determination": "ABSTAIN",
+            "finding_type": "OUTDATED_LANGUAGE",
+            "cited_refs": [
+              "CIP-010-4 R1 Part 1.3",
+              "CIP-010-2 Requirement R1.5"
+            ],
+            "rationale": "The candidate implementation references an outdated requirement number."
+          },
+          "prompt_tokens": 420,
+          "eval_tokens": 81,
+          "tps": 17.1,
+          "wall_s": 5.97
+        },
+        {
+          "id": "P6J-19",
+          "raw": "{\n  \"determination\": \"SUPPORTED\",\n  \"finding_type\": null,\n  \"cited_refs\": [\"CIP-002-5.1a R2 Part 2.2\", \"the NERC Glossary term is 'CIP Senior Manager'\", \"the internal document uses a term it defines locally as 'Critical Infrastructure Protection Officer', last aligned to the glossary in 2019\"],\n  \"rationale\": \"The candidate implementation satisfies the governing unit as the Critical Infrastructure Protection Officer aligns with the CIP Senior Manager term and meets the approval requirement.\"\n}",
+          "parsed": {
+            "determination": "SUPPORTED",
+            "finding_type": null,
+            "cited_refs": [
+              "CIP-002-5.1a R2 Part 2.2",
+              "the NERC Glossary term is 'CIP Senior Manager'",
+              "the internal document uses a term it defines locally as 'Critical Infrastructure Protection Officer', last aligned to the glossary in 2019"
+            ],
+            "rationale": "The candidate implementation satisfies the governing unit as the Critical Infrastructure Protection Officer aligns with the CIP Senior Manager term and meets the approval requirement."
+          },
+          "prompt_tokens": 441,
+          "eval_tokens": 128,
+          "tps": 17.0,
+          "wall_s": 9.02
+        },
+        {
+          "id": "P6J-20",
+          "raw": "{\n  \"determination\": \"ABSENT\",\n  \"finding_type\": null,\n  \"cited_refs\": [],\n  \"rationale\": \"The packet is complete and nothing addresses the governing unit.\"\n}",
+          "parsed": {
+            "determination": "ABSENT",
+            "finding_type": null,
+            "cited_refs": [],
+            "rationale": "The packet is complete and nothing addresses the governing unit."
+          },
+          "prompt_tokens": 408,
+          "eval_tokens": 46,
+          "tps": 17.2,
+          "wall_s": 3.67
+        },
+        {
+          "id": "P6J-21",
+          "raw": "{\n  \"determination\": \"CONTRADICTED\",\n  \"finding_type\": \"CONTRADICTION\",\n  \"cited_refs\": [\"CIP-006-6 R1 Part 1.5\"],\n  \"rationale\": \"The candidate implementation does not meet the 15-minute maximum elapsed time requirement for issuing an alarm or alert.\"\n}",
+          "parsed": {
+            "determination": "CONTRADICTED",
+            "finding_type": "CONTRADICTION",
+            "cited_refs": [
+              "CIP-006-6 R1 Part 1.5"
+            ],
+            "rationale": "The candidate implementation does not meet the 15-minute maximum elapsed time requirement for issuing an alarm or alert."
+          },
+          "prompt_tokens": 414,
+          "eval_tokens": 81,
+          "tps": 17.1,
+          "wall_s": 5.98
+        },
+        {
+          "id": "P6J-22",
+          "raw": "{\n  \"determination\": \"PARTIAL\",\n  \"finding_type\": \"GAP\",\n  \"cited_refs\": [\"CIP-004-7 R2 Part 2.2\"],\n  \"rationale\": \"The candidate implementation only addresses authorized electronic access, not authorized unescorted physical access.\"\n}",
+          "parsed": {
+            "determination": "PARTIAL",
+            "finding_type": "GAP",
+            "cited_refs": [
+              "CIP-004-7 R2 Part 2.2"
+            ],
+            "rationale": "The candidate implementation only addresses authorized electronic access, not authorized unescorted physical access."
+          },
+          "prompt_tokens": 404,
+          "eval_tokens": 69,
+          "tps": 17.1,
+          "wall_s": 5.03
+        },
+        {
+          "id": "P6J-23",
+          "raw": "{\n  \"determination\": \"SUPPORTED\",\n  \"finding_type\": null,\n  \"cited_refs\": [\"CIP-002-5.1a R2 Part 2.1\"],\n  \"rationale\": \"The candidate implementation satisfies the governing unit by reviewing the identification inventory every 12 months, which is stricter than the required 15-month maximum.\"\n}",
+          "parsed": {
+            "determination": "SUPPORTED",
+            "finding_type": null,
+            "cited_refs": [
+              "CIP-002-5.1a R2 Part 2.1"
+            ],
+            "rationale": "The candidate implementation satisfies the governing unit by reviewing the identification inventory every 12 months, which is stricter than the required 15-month maximum."
+          },
+          "prompt_tokens": 435,
+          "eval_tokens": 85,
+          "tps": 17.0,
+          "wall_s": 6.24
+        },
+        {
+          "id": "P6J-24",
+          "raw": "{\n  \"determination\": \"ABSTAIN\",\n  \"finding_type\": null,\n  \"cited_refs\": [\"CIP-003-8 Attachment 1 Part 3.2\"],\n  \"rationale\": \"The packet is incomplete as it does not state whether the entity has any Dial-up Connectivity.\"\n}",
+          "parsed": {
+            "determination": "ABSTAIN",
+            "finding_type": null,
+            "cited_refs": [
+              "CIP-003-8 Attachment 1 Part 3.2"
+            ],
+            "rationale": "The packet is incomplete as it does not state whether the entity has any Dial-up Connectivity."
+          },
+          "prompt_tokens": 418,
+          "eval_tokens": 72,
+          "tps": 17.1,
+          "wall_s": 5.43
+        },
+        {
+          "id": "P6J-25",
+          "raw": "{\n  \"determination\": \"CONTRADICTED\",\n  \"finding_type\": \"CONTRADICTION\",\n  \"cited_refs\": [\"CIP-007-6 R5 Part 5.6\"],\n  \"rationale\": \"The candidate implementation requires password changes at least once every 24 months, which exceeds the maximum interval of 15 calendar months specified in the governing unit.\"\n}",
+          "parsed": {
+            "determination": "CONTRADICTED",
+            "finding_type": "CONTRADICTION",
+            "cited_refs": [
+              "CIP-007-6 R5 Part 5.6"
+            ],
+            "rationale": "The candidate implementation requires password changes at least once every 24 months, which exceeds the maximum interval of 15 calendar months specified in the governing unit."
+          },
+          "prompt_tokens": 404,
+          "eval_tokens": 91,
+          "tps": 17.1,
+          "wall_s": 6.33
+        },
+        {
+          "id": "P6J-26",
+          "raw": "{\n  \"determination\": \"SUPPORTED\",\n  \"finding_type\": null,\n  \"cited_refs\": [\"CIP-007-6 R5 Part 5.6\"],\n  \"rationale\": \"The candidate implementation enforces a stricter cadence than the governing unit's maximum of 15 calendar months.\"\n}",
+          "parsed": {
+            "determination": "SUPPORTED",
+            "finding_type": null,
+            "cited_refs": [
+              "CIP-007-6 R5 Part 5.6"
+            ],
+            "rationale": "The candidate implementation enforces a stricter cadence than the governing unit's maximum of 15 calendar months."
+          },
+          "prompt_tokens": 410,
+          "eval_tokens": 74,
+          "tps": 17.1,
+          "wall_s": 5.07
+        },
+        {
+          "id": "P6J-27",
+          "raw": "{\n  \"determination\": \"PARTIAL\",\n  \"finding_type\": \"GAP\",\n  \"cited_refs\": [\"CIP-010-4 R3 Part 3.1\"],\n  \"rationale\": \"The candidate implementation does not address the requirement for a paper or active vulnerability assessment every 15 calendar months.\"\n}",
+          "parsed": {
+            "determination": "PARTIAL",
+            "finding_type": "GAP",
+            "cited_refs": [
+              "CIP-010-4 R3 Part 3.1"
+            ],
+            "rationale": "The candidate implementation does not address the requirement for a paper or active vulnerability assessment every 15 calendar months."
+          },
+          "prompt_tokens": 385,
+          "eval_tokens": 74,
+          "tps": 17.1,
+          "wall_s": 5.32
+        },
+        {
+          "id": "P6J-28",
+          "raw": "{\n  \"determination\": \"ABSTAIN\",\n  \"finding_type\": null,\n  \"cited_refs\": [],\n  \"rationale\": \"the packet is incomplete as the candidate evidence excerpt was truncated by the retrieval boundary before the cadence clause\"\n}",
+          "parsed": {
+            "determination": "ABSTAIN",
+            "finding_type": null,
+            "cited_refs": [],
+            "rationale": "the packet is incomplete as the candidate evidence excerpt was truncated by the retrieval boundary before the cadence clause"
+          },
+          "prompt_tokens": 407,
+          "eval_tokens": 56,
+          "tps": 17.2,
+          "wall_s": 4.28
+        },
+        {
+          "id": "P6J-29",
+          "raw": "{\n  \"determination\": \"CONTRADICTED\",\n  \"finding_type\": \"CONTRADICTION\",\n  \"cited_refs\": [\"CIP-004-7 R2 Part 2.3\", \"training recurrence is mandatory for all personnel with authorized access\"],\n  \"rationale\": \"The candidate implementation does not require refresher training, which contradicts the governing unit's requirement for completion of training at least once every 15 calendar months.\"\n}",
+          "parsed": {
+            "determination": "CONTRADICTED",
+            "finding_type": "CONTRADICTION",
+            "cited_refs": [
+              "CIP-004-7 R2 Part 2.3",
+              "training recurrence is mandatory for all personnel with authorized access"
+            ],
+            "rationale": "The candidate implementation does not require refresher training, which contradicts the governing unit's requirement for completion of training at least once every 15 calendar months."
+          },
+          "prompt_tokens": 390,
+          "eval_tokens": 103,
+          "tps": 17.0,
+          "wall_s": 7.04
+        },
+        {
+          "id": "P6J-30",
+          "raw": "{\n  \"determination\": \"ABSTAIN\",\n  \"finding_type\": null,\n  \"cited_refs\": [\"CIP-003-8 Attachment 1 Part 4\"],\n  \"rationale\": \"The packet is incomplete as it does not include candidate text for elements 4.1, 4.3, and 4.4.\"\n}",
+          "parsed": {
+            "determination": "ABSTAIN",
+            "finding_type": null,
+            "cited_refs": [
+              "CIP-003-8 Attachment 1 Part 4"
+            ],
+            "rationale": "The packet is incomplete as it does not include candidate text for elements 4.1, 4.3, and 4.4."
+          },
+          "prompt_tokens": 499,
+          "eval_tokens": 80,
+          "tps": 17.0,
+          "wall_s": 6.46
+        }
+      ],
+      "case_scores": [
+        {
+          "schema_ok": true,
+          "pred": "SUPPORTED",
+          "correct": true,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "SUPPORTED",
+          "correct": true,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "SUPPORTED",
+          "correct": false,
+          "false_supported": true,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "SUPPORTED",
+          "correct": true,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "PARTIAL",
+          "correct": false,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "ABSENT",
+          "correct": true,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "SUPPORTED",
+          "correct": true,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "CONTRADICTED",
+          "correct": true,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "ABSTAIN",
+          "correct": true,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": false
+        },
+        {
+          "schema_ok": true,
+          "pred": "SUPPORTED",
+          "correct": true,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "CONTRADICTED",
+          "correct": false,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "SUPPORTED",
+          "correct": false,
+          "false_supported": true,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "SUPPORTED",
+          "correct": true,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "SUPPORTED",
+          "correct": false,
+          "false_supported": true,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "CONTRADICTED",
+          "correct": true,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "SUPPORTED",
+          "correct": true,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "CONTRADICTED",
+          "correct": true,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "ABSTAIN",
+          "correct": false,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": true,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "SUPPORTED",
+          "correct": false,
+          "false_supported": true,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "ABSENT",
+          "correct": true,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": false
+        },
+        {
+          "schema_ok": true,
+          "pred": "CONTRADICTED",
+          "correct": true,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "PARTIAL",
+          "correct": true,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "SUPPORTED",
+          "correct": true,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "ABSTAIN",
+          "correct": true,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "CONTRADICTED",
+          "correct": true,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "SUPPORTED",
+          "correct": true,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "PARTIAL",
+          "correct": false,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "ABSTAIN",
+          "correct": true,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": false
+        },
+        {
+          "schema_ok": true,
+          "pred": "CONTRADICTED",
+          "correct": true,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        },
+        {
+          "schema_ok": true,
+          "pred": "ABSTAIN",
+          "correct": true,
+          "false_supported": false,
+          "missed_abstain": false,
+          "spurious_abstain": false,
+          "must_not_flag_fp": false,
+          "citation_ok": true
+        }
+      ],
+      "prompt_variant": "reordered"
+    }
+  ],
+  "complete": true
+}

@@ -23,7 +23,10 @@ VARIANTS=(shipped terse verbose reordered outdated_rule)
 echo "=== Y23 sweep starting $(date -u +%FT%TZ) ===" >> "$LOG"
 for v in "${VARIANTS[@]}"; do
   for s in "${SEATS[@]}"; do
-    safe="${s//\//_}"
+    # Match the probe's own slug exactly: it replaces BOTH "/" and ":" with
+    # "_". Getting this wrong makes the completeness check look for a file that
+    # never exists, so every pair reports lines=0 and resume re-runs the lot.
+    safe="${s//\//_}"; safe="${safe//:/_}"
     f="$DBG/$v/${safe}.debug.jsonl"
     if [ -f "$f" ] && [ "$(wc -l < "$f")" -ge 31 ]; then
       echo "[skip] $v / $s (complete)" >> "$LOG"
