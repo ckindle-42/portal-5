@@ -958,19 +958,21 @@
       "decision_question": null,
       "test_if_needed": null,
       "stop_rule": null,
-      "final_disposition": "REMOVED_CLOSED",
-      "decision_reason": "WFE wfe_full_20260911: 0.53/0.67 pass rate, below any reasonable floor, real and unaffected by the session's harness fixes. The diversity-seat argument that earned its retention required a native-harness 3-arm diagnostic (think:false + format:json harmony-format fix) that never ran — stop rule's 'no measurable diversity gain -> remove' branch is satisfied by that absence.",
+      "final_disposition": "RETAINED_FOR_PURPOSE",
+      "decision_reason": "FOLD VACATED 2026-09-12 — the evidence it was removed on is invalid. Its 39 auto-compliance rows in wfe_full_20260911 ran at think=false over /v1, the exact combination proven that day to drop the suppression silently; gpt-oss emitted a median 1661 reasoning chars across them, so the 16/30 = 0.53 that tripped its 'F2 < 0.80 -> remove without further tests' stop rule was measured with thinking forced on against its own workspace config. It is also the register's lineage-diversity seat (§1 census), which makes a wrong fold here expensive. Weights re-pulled and the arm restored to tests/wfe/workloads.yaml; disposition is HELD pending the fixed-harness re-run (campaign wfe_think_rerun_20260912). The stop rule is unchanged and will be applied to the new numbers.",
       "purpose_or_replacement": "CONTENDER — auto-reasoning second-opinion seat (gptossanalyst persona is named for it; never wired)",
       "evidence_refs": [
-        "judgment_probe_v6_gptoss_native_20260907T043151Z.json",
+        "docs/WFE_CLOSEOUT_20260912.md#gpt-oss",
         "gptoss_diag 3-arm 2026-09-07",
-        "lineage census 2026-09-07"
+        "judgment_probe_v6_gptoss_native_20260907T043151Z.json",
+        "lineage census 2026-09-07",
+        "tests/wfe/results/campaigns/wfe_full_20260911/rows (harness.think=false, endpoint=v1)"
       ],
       "closure_record_refs": [
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#gpt-oss-20b"
       ],
       "verified_storage_effect_bytes": null,
-      "closed_at": "2026-09-12 (WFE wfe_full_20260911 cleanup pass; ollama rm executed)",
+      "closed_at": "fold vacated 2026-09-12; re-pulled, HELD pending wfe_think_rerun_20260912",
       "purpose": "OpenAI-lineage reasoning-DIVERSITY seat (only gpt-oss architecture in fleet; gptossanalyst persona named for it: 'different reasoning approach than Qwen/DeepSeek/Mistral'); native-arm F2 0.904/exact 0.80 @ 53 t/s"
     },
     {

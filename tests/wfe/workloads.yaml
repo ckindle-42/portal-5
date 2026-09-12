@@ -34,19 +34,27 @@ workloads:
     discovery: [research]
     arms:
       incumbent: granite4.1:8b-ctx8k
-      challengers: [gemma4:e4b-it-qat, gemma4:e2b-it-qat, gemma4:e4b-it-q4_K_M]
+      # e2b-it-qat and e4b-it-q4_K_M folded 2026-09-12 (no niche vs e4b-it-qat,
+      # which WFE kept and which is now tools-specialist's `fast` variant).
+      challengers: [gemma4:e4b-it-qat]
   auto-research:
     home: research
     discovery: [compliance_agentic]
     arms:
       incumbent: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k
-      challengers: [command-r:35b-08-2024-q4_K_M, granite4.2:30b-q4_K_M]
+      # command-r folded 2026-09-12 — lost separated to this incumbent here
+      # (13/30 vs 24/30) and only tied it elsewhere. WFE_CLOSEOUT_20260912.
+      challengers: [granite4.2:30b-q4_K_M]
   auto-documents:
     home: research
     discovery: []
     arms:
       incumbent: granite4.1:8b-ctx16k
-      challengers: [command-r:35b-08-2024-q4_K_M]
+      # Its only challenger (command-r) was folded 2026-09-12. Left empty
+      # rather than deleted: this lane still needs a home-suite incumbent run,
+      # and its REAL tools (create_word_document/read_pdf) are still unwired
+      # here — the research suite is a proxy for a document-builder lane.
+      challengers: []
   auto-general-uncensored:
     home: creative
     discovery: [research]
@@ -58,4 +66,8 @@ workloads:
     discovery: [research]
     arms:
       incumbent: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+      # gpt-oss RESTORED 2026-09-12. Its 16/30 fold was measured on the
+      # think-defect rows (think=false over /v1, median 1661 reasoning chars —
+      # suppression silently failed), and it is the register's lineage-
+      # diversity seat. Re-pulled and re-run on the fixed harness.
       challengers: [granite4.2:30b-q4_K_M, gpt-oss:20b]

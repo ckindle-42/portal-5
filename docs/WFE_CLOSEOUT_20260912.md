@@ -78,8 +78,8 @@ Regression guards: 4 new tests in `tests/unit/test_reasoning_effort.py`.
 
 - **auto-compliance (117 rows)** — all arms got identical treatment, and because
   production carried the same defect these rates are a fair picture of *how the
-  stack actually behaved*. They are not a picture of the *intended* config. No
-  disposition rests on them alone.
+  stack actually behaved*. They are not a picture of the *intended* config —
+  **and one fold did rest on them.** See §5a.
 - **auto-general-uncensored / creative (72 rows)** — destroyed outright, see §3.
 
 ---
@@ -217,6 +217,38 @@ Its stop rule requires grounded-citation quality **>** the incumbent. It is at
 parity on correctness and on citation discipline, while costing 3.6× the
 residency and 4–8× the latency — and WFE separately had it *losing separated* to
 Nex-N2-mini on compliance_agentic. `else REMOVED` fires.
+
+---
+
+## 5a. gpt-oss:20b — fold VACATED, model re-pulled
+
+<a name="gpt-oss"></a>gpt-oss:20b was removed in `a90d11da` on a 16/30 = 0.53
+auto-compliance rate, against a stop rule of "F2 < 0.80 → remove without further
+tests". **That evidence is invalid.** Checked per-row on 2026-09-12:
+
+| arm | workspace | harness `think` | endpoint | median reasoning chars | verdict |
+|---|---|---|---|---|---|
+| **gpt-oss:20b** | auto-compliance | **false** | **v1** | **1661** | **corrupted** |
+| command-r:35b | auto-documents / auto-research | default | v1 | 0 | clean |
+| gemma4:e2b-it-qat | tools-specialist | default | v1 | 8563 | clean |
+| gemma4:e4b-it-q4_K_M | tools-specialist | default | v1 | 3171 | clean |
+
+All 39 of gpt-oss's rows ran at `think=false` over `/v1` — precisely the
+combination proven that day to drop the suppression silently — and it reasoned
+through every one of them. The number it was removed on was measured with
+thinking forced on against its own workspace config.
+
+It is also the register's **lineage-diversity seat** (§1 census), which is the
+expensive kind of fold to get wrong. Weights re-pulled, arm restored to
+`tests/wfe/workloads.yaml`, disposition moved back to RETAINED_FOR_PURPOSE and
+HELD pending `wfe_think_rerun_20260912`. The stop rule is unchanged and will be
+applied to the new numbers.
+
+The other three folds survive this check on their own evidence. command-r ran
+`think=default` and emitted **zero** reasoning chars, so the defect never
+touched it — and its fold rests on the real-tool test in §5 regardless. Both
+gemma4 arms ran in `tools-specialist`, which leaves `think` unset: `default` is
+that lane's intended behaviour, not a dropped instruction.
 
 ---
 

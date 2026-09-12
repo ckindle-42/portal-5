@@ -284,6 +284,7 @@ def expand_matrix(
     only_arm: str | None = None,
     only_suite: str | None = None,
     only_task: str | None = None,
+    only_workspace: str | None = None,
 ) -> list[dict]:
     """Expand the plan into one row per (workspace, arm, suite, task, repeat).
 
@@ -297,6 +298,11 @@ def expand_matrix(
     every = sorted(p.stem for p in SUITE_DIR.glob("*.jsonl") if not p.stem.endswith("_full"))
     rows: list[dict] = []
     for ws_id, wl in (plan.get("workloads") or {}).items():
+        # --workspace was accepted and then ignored until 2026-09-12, so a
+        # scoped re-run silently widened to the whole plan — `--workspace X`
+        # only landed on X when X happened to own the suite as well.
+        if only_workspace and ws_id != only_workspace:
+            continue
         home = wl.get("home")
         suites = every if all_suites else [home] + list(wl.get("discovery") or [])
         arms = wl.get("arms") or {}
@@ -1139,7 +1145,9 @@ def _cmd_watch(campaign_dir: Path, interval: int) -> int:
 
 
 def _cmd_smoke(args, plan: Path) -> int:
-    matrix = expand_matrix(plan, 1, args.all_suites, args.arm, args.suite, args.task)
+    matrix = expand_matrix(
+        plan, 1, args.all_suites, args.arm, args.suite, args.task, args.workspace
+    )
     if not matrix:
         print("smoke: no matching row", file=sys.stderr)
         return 2
@@ -1255,7 +1263,9 @@ def main() -> int:
 
     if not args.campaign_id:
         ap.error("--campaign-id is required (or use --smoke / --rescore / --list-arms)")
-    matrix = expand_matrix(plan, args.repeats, args.all_suites, args.arm, args.suite, args.task)
+    matrix = expand_matrix(
+        plan, args.repeats, args.all_suites, args.arm, args.suite, args.task, args.workspace
+    )
     if args.dry_run:
         return _cmd_dry_run(matrix, args.repeats)
 
