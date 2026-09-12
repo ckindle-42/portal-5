@@ -71,8 +71,23 @@ async def _run(corpus: Path, kb_id: str, reuse: bool, lance_dir: str) -> dict:
     cip07 = next((r for r in rows if r["id"] == "prose-cip-07"), None)
     verdict = "PASS" if cip07 and cip07["rank"] == 1 else "FAIL"
     ranked = [r for r in rows if r["rank"]]
+    # The CIP subset only — the NIST slice is a different corpus and is not part
+    # of Y25's "other 13 prose queries" guard.
+    cip = [r for r in rows if r["id"].startswith("prose-cip-")]
     return {
         "kb_id": kb_id,
+        # Flat fields the Y25 check in verify_compliance_v6_closeout.py reads.
+        "prose_cip_07_rank": (cip07 or {}).get("rank"),
+        "cip_prose_summary": {
+            "n": len(cip),
+            "rank1": sum(1 for r in cip if r["rank"] == 1),
+            "in_top10": sum(1 for r in cip if r["rank"]),
+            "prose_cip_07": (cip07 or {}).get("rank"),
+            "mean_rank": round(
+                sum(r["rank"] for r in cip if r["rank"]) / max(1, sum(1 for r in cip if r["rank"])),
+                3,
+            ),
+        },
         "composition": "compliance_retrieval (docling chunks + BM25 + contextualize)",
         "stage_set": comp.stage_set,
         "fts": comp.fts,

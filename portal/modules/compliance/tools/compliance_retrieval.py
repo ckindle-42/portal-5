@@ -39,6 +39,10 @@ from portal.platform.retrieval import pages as _pages
 from portal.platform.retrieval import pipeline as _pipeline
 from portal.platform.retrieval import store as _store
 
+# The DoclingDocument source. Bound to a name so `_stage_set` can record whether
+# the docling chunker is actually REACHABLE, not merely requested (Y25).
+_READ_DOCUMENT = _extraction.read_document
+
 _PREFIX = "compliance_"
 _PAGES_DIR = Path(
     os.environ.get("COMPLIANCE_PAGES_DIR", os.path.join(_store.LANCE_DIR, "compliance_pages"))
@@ -64,6 +68,20 @@ def _stage_set() -> dict[str, Any]:
         "visual_scope": "figures",
         "contextualize": True,
         "chunk_strategy": _COMPLIANCE_CHUNK_STRATEGY,
+        # Y25 (2026-09-12): `chunk_strategy` records what the composition ASKS
+        # for, and for a year it asked for docling and silently got fixed
+        # slicing — so every KB carried a "docling" stamp it had not earned and
+        # no drift check could see it. This records what the composition can
+        # actually DO: the layout-aware chunker needs a DoclingDocument, which
+        # only `read_document` supplies. Two KBs that differ here differ in
+        # their chunks, so the stamp comparison now catches it. Adding the key
+        # deliberately marks every pre-fix compliance KB stale — they were
+        # fixed-sliced and DO need re-ingesting.
+        "chunker_effective": (
+            "docling"
+            if (_COMPLIANCE_CHUNK_STRATEGY == "docling" and _READ_DOCUMENT is not None)
+            else "fixed"
+        ),
         "fts": True,
     }
 
@@ -89,6 +107,17 @@ def _composition() -> _pipeline.Composition:
         unavailable_error=_embedding.VLUnavailableError,
         chunk=functools.partial(_chunking.chunk, strategy=_COMPLIANCE_CHUNK_STRATEGY),
         read_text=_extraction.read_text,
+        # Y25 root cause, found 2026-09-12. `chunk(strategy="docling")` uses the
+        # layout-aware HybridChunker ONLY when it is handed a DoclingDocument;
+        # with `doc=None` it silently falls back to `chunk_fixed`, which is blind
+        # character slicing and hardcodes page=-1 / headings="". This composition
+        # declared `chunk_strategy: "docling"` in its stage_set and set
+        # `contextualize=True` ("embed heading path + text") but never supplied
+        # `read_document`, so `doc` was always None: every chunk in every
+        # compliance KB was fixed-sliced with an empty heading path, and
+        # contextualize had nothing to contextualize. Measured on the 14-PDF CIP
+        # corpus before the fix: 1508/1508 chunks at page=-1 with headings="".
+        read_document=_READ_DOCUMENT,
         render_pages=_pages.render_pages,
         figure_pages=_pages.figure_pages,
         transcribe_page=_no_transcribe,

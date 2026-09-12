@@ -52,6 +52,17 @@ _SEAT_SYSTEM = (
     "- Do NOT infer from silence. If the packet lacks evidence you need, or "
     "applicability is UNKNOWN/CONFLICTED, return INSUFFICIENT.\n"
     "- ABSENT = the packet is complete and no candidate addresses the unit.\n"
+    # Y21: every other finding_type had a stated trigger; OUTDATED_LANGUAGE had
+    # none, so it was unreachable by construction. All three roster seats then
+    # missed P6J-19 together — the premise said a local term was "last aligned
+    # to the glossary in 2019", and each seat read the alignment and dropped the
+    # date. A finding type you offer without a rule is a finding type you never
+    # get. See tests/unit/test_compliance_y21_error_classes.py.
+    "- A term alignment that is DATED or described as last checked/aligned at "
+    "some past time is not current alignment. If the candidate rests on such a "
+    "term, the mapping is stale: return PARTIAL with OUTDATED_LANGUAGE, even "
+    "when the substantive duty (frequency, actor, threshold) is otherwise "
+    "satisfied.\n"
     "- Cite only refs that appear in the packet.\n"
     'Return ONE JSON object: {"determination":'
     '"SUPPORTED|PARTIAL|CONTRADICTED|ABSENT|INSUFFICIENT",'

