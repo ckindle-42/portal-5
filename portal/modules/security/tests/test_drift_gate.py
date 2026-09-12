@@ -93,7 +93,30 @@ class TestDriftCheckIntegration:
         assert "no purple-test series" in md
 
     def test_render_markdown_has_table_header(self) -> None:
-        report = drift_check(window=5)
+        """Not `drift_check(window=5)` against real results/ — that dir is
+        gitignored and empty on a fresh checkout, so this silently depended
+        on local write-through artifacts from prior `pytest portal` runs and
+        never actually exercised the non-empty branch in CI (2026-09-12)."""
+        report = {
+            "generated_at": "x",
+            "window": 5,
+            "pairs": [
+                {
+                    "scenario": "vuln_wordpress_rce",
+                    "blue_model": "test-model",
+                    "metrics": [
+                        {
+                            "metric": "blue_f1",
+                            "status": "OK",
+                            "delta": 0.0,
+                            "baseline_mean": 0.8,
+                            "candidate_mean": 0.8,
+                            "n_baseline": 3,
+                        }
+                    ],
+                }
+            ],
+        }
         md = render_drift_markdown(report)
         assert "| scenario |" in md
 
