@@ -204,7 +204,10 @@ def _inject_ollama_options(body: dict[str, Any], workspace_id: str = "") -> dict
     ``predict_limit``, sampling keys (``temperature``, ``top_p``, ``top_k``,
     ``min_p``, ``repeat_penalty``, ``presence_penalty``, ``seed``),
     ``mirostat``/``mirostat_tau``/``mirostat_eta`` (mutually exclusive with
-    top_p/top_k; injected only when the workspace opts in), and ``think``.
+    top_p/top_k; injected only when the workspace opts in), and the thinking
+    toggle as ``think`` (Ollama-native, /api/chat only) plus, for ``think:
+    false`` only, ``reasoning_effort: "none"`` — the one form /v1 honours. See
+    the thinking block below for why the other direction is not injected.
 
     Args:
         body: Outgoing request body. Not mutated.
@@ -259,10 +262,40 @@ def _inject_ollama_options(body: dict[str, Any], workspace_id: str = "") -> dict
             if mv is not None:
                 body["options"].setdefault(mk, mv)
 
-    # extended thinking toggle (Qwen3/DeepSeek)
+    # extended thinking toggle (Qwen3/DeepSeek).
+    #
+    # `think` is Ollama's NATIVE knob and works only on /api/chat. We dispatch
+    # over /v1/chat/completions (`Backend.chat_url`), whose OpenAI-compat layer
+    # silently DROPS it — same failure class as runtime `options.num_ctx` above.
+    # Verified live 2026-09-12, Ollama 0.33.2, on qwen3.5-abliterated:9b,
+    # Qwen3.8-27B-Uncensored and Huihui-Qwen3.6-35B-A3B: over /v1 a top-level
+    # `think:false` is byte-for-byte indistinguishable from sending nothing
+    # (~2.2k reasoning chars, 0 content, finish=length), and so are
+    # `chat_template_kwargs.enable_thinking:false`, `options.think`, a bare
+    # `enable_thinking` and a `/no_think` prompt token. The knob /v1 DOES honour
+    # is OpenAI's `reasoning_effort`: "none" suppressed thinking on all three
+    # (0 reasoning chars, finish=stop), "medium" preserved it.
+    #
+    # Only the suppressing direction is injected, deliberately:
+    #   think:false -> reasoning_effort "none". Safe on EVERY model — verified
+    #     on the non-thinking granite4.1:8b, gemma-4-E4B-OBLITERATED and
+    #     command-r, which all answered normally.
+    #   think:true  -> nothing. Thinking is already the template default for a
+    #     thinking-capable model (the no-param baseline reasons), so the inject
+    #     would be a no-op where it works — and a hard failure where it doesn't:
+    #     any tier other than "none" on a model without the thinking capability
+    #     is rejected `400 ... does not support thinking`, which would break
+    #     every think:true workspace seated on a non-thinking model.
+    #
+    # `reasoning_effort` is free to set here: the inbound-API meaning of that
+    # key (a max_tokens tier) was already popped by _apply_reasoning_effort
+    # above, so this never overwrites a caller's value — it re-uses the wire key
+    # for the only meaning Ollama itself gives it.
     ws_think = ws_cfg_local.get("think")
     if ws_think is not None:
         body.setdefault("think", ws_think)
+        if not ws_think:
+            body["reasoning_effort"] = "none"
 
     return body
 

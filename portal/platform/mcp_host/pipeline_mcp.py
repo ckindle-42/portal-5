@@ -38,7 +38,15 @@ REPO_ROOT = pathlib.Path(
 ).resolve()
 
 
-_FASTCONTEXT_MODEL = "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M"
+# The explorer seat. Was FastContext-1.0-4B, folded 2026-09-12 after its
+# closeout stop rule fired on a repaired harness: given working tools it still
+# failed to emit a final_answer on 2 of 3 queries and CONFABULATED the paths it
+# did return (`src/workspace/routing.py` — this repo has no `src/` at all).
+# Repointed to the seated coding model, which issues well-formed parallel
+# GREP/GLOB on the same prompt. Override to re-seat without a code change.
+_FASTCONTEXT_MODEL = os.environ.get(
+    "PIPELINE_MCP_EXPLORER_MODEL", "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+)
 _FASTCONTEXT_MAX_TURNS = 6
 _FASTCONTEXT_TOOLS = load_data("config/inference", "pipeline_mcp_fastcontext_tools")
 
@@ -396,6 +404,17 @@ async def _impl_explore_repository(query: str, max_turns: int = 6) -> dict[str, 
                         "tools": _FASTCONTEXT_TOOLS,
                         "tool_choice": "auto",
                         "stream": False,
+                        # FastContext-4B is a Qwen3 build and carries the
+                        # `thinking` capability, so it reasons by default —
+                        # this is an explorer that must emit tool calls, not
+                        # deliberate. Measured 2026-09-12: as-shipped it
+                        # returned finish=stop with 0 tool calls and 0 content
+                        # on every query (all reasoning); with this key it
+                        # returns finish=tool_calls and real GREP/GLOB calls.
+                        # "none" is the only form Ollama's /v1 honours — a bare
+                        # `think: false` is silently dropped here, same as in
+                        # router/validation.py.
+                        "reasoning_effort": "none",
                     },
                 )
                 if resp.status_code != 200:
@@ -766,7 +785,19 @@ def _dispatch_fastcontext_tool(name: str, args: dict[str, Any]) -> str:
         pattern = args.get("pattern", "**/*")
         try:
             # Exclude common noise
-            _skip = {".git", "__pycache__", ".mypy_cache", "node_modules", ".ruff_cache"}
+            # ".claude" holds full worktree COPIES of this repo. Without it
+            # here, `sorted()` surfaces every stale duplicate before the real
+            # source (".claude" sorts first) and an explorer spends its whole
+            # result budget citing dead trees — measured 2026-09-12.
+            _skip = {
+                ".git",
+                ".claude",
+                ".venv",
+                "__pycache__",
+                ".mypy_cache",
+                "node_modules",
+                ".ruff_cache",
+            }
             results = []
             for p in sorted(REPO_ROOT.glob(pattern)):
                 if any(part in _skip for part in p.parts):
@@ -785,7 +816,19 @@ def _dispatch_fastcontext_tool(name: str, args: dict[str, Any]) -> str:
         max_results = min(int(args.get("max_results", 40)), 100)
         try:
             compiled = re.compile(pattern)
-            _skip = {".git", "__pycache__", ".mypy_cache", "node_modules", ".ruff_cache"}
+            # ".claude" holds full worktree COPIES of this repo. Without it
+            # here, `sorted()` surfaces every stale duplicate before the real
+            # source (".claude" sorts first) and an explorer spends its whole
+            # result budget citing dead trees — measured 2026-09-12.
+            _skip = {
+                ".git",
+                ".claude",
+                ".venv",
+                "__pycache__",
+                ".mypy_cache",
+                "node_modules",
+                ".ruff_cache",
+            }
             hits: list[str] = []
             for p in sorted(REPO_ROOT.glob(glob_filter)):
                 if any(part in _skip for part in p.parts):

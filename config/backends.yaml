@@ -1092,6 +1092,7 @@ workspace_routing:
   bench-qwen38-flash-next-reap288:
   - coding
   bench-nex-n25-mini-uncensored:
+  - security
   - general
   bench-gemma4-26b-optiq:
   - general
