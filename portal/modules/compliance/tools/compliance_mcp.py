@@ -868,14 +868,26 @@ def compliance_route(query: str, effective_on: str = "") -> dict[str, Any]:
 
 
 @mcp.tool()
-def compliance_review_list(kind: str = "", status: str = "OPEN") -> dict[str, Any]:
+def compliance_review_list(
+    kind: str = "", status: str = "OPEN", view: str = "all"
+) -> dict[str, Any]:
     """The review queue: open (default) or filtered judgements the system
     proceeded on with its best evidence-backed answer — never a blocker."""
     try:
         from portal.modules.compliance.core import review_queue as rq
 
+        # view="packet" is the SME packet: only questions a human is the right
+        # answerer for. view="triage" is the complement — the module's own
+        # backlog, which must never be handed to a compliance reviewer.
+        if view in ("packet", "triage"):
+            items = rq.sme_packet() if view == "packet" else rq.triage_items()
+            return {
+                "count": len(items),
+                "view": view,
+                "items": [dataclasses.asdict(i) for i in items],
+            }
         items = rq.list_items(kind=kind or None, status=status or None)
-        return {"count": len(items), "items": [dataclasses.asdict(i) for i in items]}
+        return {"count": len(items), "view": "all", "items": [dataclasses.asdict(i) for i in items]}
     except Exception as e:  # noqa: BLE001
         return {"error": str(e)}
 

@@ -84,8 +84,13 @@ def derive_scope(kb_id: str = "operator_corpus") -> tuple[AssetScope, dict[str, 
         declared_by="derived:corpus",
         declared_at=time.strftime("%Y-%m-%d"),
     )
+    # S01_SCOPE_DECLARATION. This asks whether the entity HAS External Routable
+    # Connectivity / a control center — facts about their network, not about
+    # their documents. No amount of reading the corpus settles it, which is the
+    # test for belonging in the SME packet. It was kinded `applicability_scope`
+    # (a pipeline label) until 2026-09-12; the question never changed.
     item = rq.propose(
-        "applicability_scope",
+        "S01_SCOPE_DECLARATION",
         subject_id="entity",
         proposed_value={
             "impact_present": sorted(impacts),
