@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import contextlib
 import hashlib
 import json
 import logging
@@ -65,14 +66,46 @@ def _run(coro: Awaitable[Any], timeout: float | None = None) -> Any:
 # Three-stage resolution (borrowed from the deeplethe/utopia entity-resolution
 # pattern: exact match -> embedding/rerank similarity -> model-based
 # arbitration of the ambiguous middle): (1) the standard-folder filter above is
-# the exact-match stage; (2) a rerank score is confident above HIGH (locatable)
+# the exact-match stage; (2) a rerank score is confident above HIGH (relevant)
 # or below LOW (irrelevant, dropped without comment — real search noise); (3)
-# the middle band is neither — filing it as `low_confidence_extraction` rather
-# than forcing a binary call is the "model-based arbitration" stage. A span
-# rests as not-locatable meanwhile (conservative: an ambiguous span must not
-# inflate a PARTIAL/FULL claim), but it is visible and queued, not discarded.
+# the middle band is neither, and a MODEL READS BOTH TEXTS to settle it.
+#
+# Stage 3 was documented here from the start and was not implemented until
+# 2026-09-12: the middle band filed a `low_confidence_extraction` review item
+# and returned False. That is not arbitration, it is a human ticket — and
+# returning False meant an ambiguous procedure/standard pair silently became a
+# NON-match, which under-reports coverage (a requirement the procedure does
+# satisfy reads as uncovered). 812 of 1107 open review items on the operator
+# corpus were this band. The judgment is well within reach: the council seats
+# score F2 0.952-1.000 on exactly this question (does this candidate address
+# this governing unit) over the 30-case probe. The band just never asked.
+#
+# A rerank score measures topical similarity between two embeddings. It cannot
+# tell "this procedure implements this requirement" from "this procedure
+# mentions the same equipment" — that needs reading, which is what the arbiter
+# now does. Only a genuinely undecidable pair reaches a human.
 RERANK_THRESHOLD_HIGH = 0.5
 RERANK_THRESHOLD_LOW = 0.25
+
+# One seat, one narrow question — not the full listwise council, which runs 3
+# seats with quorum for a *satisfies* determination. Relevance is cheaper and
+# the band is large, so this is a single call per ambiguous pair.
+_ARBITER_SYSTEM = (
+    "You decide ONE thing: does the candidate text from an internal document "
+    "address the governing compliance requirement? Addressing it means the text "
+    "states a duty, control, process or record that implements, or is directly "
+    "governed by, that requirement.\n"
+    "- Topical overlap is NOT enough. Naming the same system, asset class or "
+    "team, without stating a duty or control that bears on the requirement, is "
+    "NOT_RELEVANT.\n"
+    "- You are NOT deciding whether the requirement is SATISFIED, only whether "
+    "this text is about it. Partial or weak implementation still counts as "
+    "RELEVANT.\n"
+    "- Answer UNSURE only if the candidate text is too truncated or garbled to "
+    "read. Do not use UNSURE for a hard judgment call.\n"
+    'Return ONE JSON object: {"verdict":"RELEVANT|NOT_RELEVANT|UNSURE",'
+    '"reason":"one short sentence"}'
+)
 
 # Bounds one rerank call independent of embedding.vl_rerank's own 300s httpx
 # timeout (see _run's docstring). A failure leaves the Part NEEDS_REVIEW.
@@ -164,21 +197,111 @@ def _verify_anchor(candidate: dict[str, Any]) -> bool:
     return bool(span) and span in text
 
 
+ArbiterFn = Any  # (model, system, user) -> raw JSON string; injected in tests
+
+
+def _arbiter_model() -> str:
+    """The strongest seat on the roster, and the one Y23 measured as insensitive
+    to prompt wording (F2 0.952 flat across four paraphrases) — which matters
+    for a stage whose whole job is reading two texts and judging."""
+    import os
+
+    return os.environ.get(
+        "COMPLIANCE_ARBITER_MODEL", "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
+    )
+
+
+def default_arbiter() -> ArbiterFn:
+    """The production arbiter — one council seat over Ollama. Imported lazily so
+    the module stays importable (and unit-testable) with no inference stack."""
+    from portal.modules.compliance.core.council import _ollama_seat
+
+    return cast("ArbiterFn", _ollama_seat)
+
+
+def arbitrate_relevance(
+    candidate: dict[str, Any],
+    node: RegisterNode,
+    *,
+    arbiter_fn: ArbiterFn | None = None,
+) -> tuple[str, str]:
+    """Stage 3. Read the requirement and the candidate text, decide whether the
+    candidate ADDRESSES the requirement. Returns (verdict, reason) where verdict
+    is RELEVANT / NOT_RELEVANT / UNSURE.
+
+    UNSURE is also what an unreachable or unparseable arbiter yields, so the
+    caller's fallback is the pre-2026-09-12 behaviour (queue it for a human) —
+    this stage can only ever REMOVE work from the human queue, never add it.
+
+    ``arbiter_fn`` is REQUIRED. There is deliberately no live default: the band
+    is resolved inside ``coverage_matrix``, which live routes call, and a hidden
+    default would put a model call per ambiguous pair on that path and make
+    every unit test touching the band reach the network. ``default_arbiter()``
+    returns the production one; the caller opts in."""
+    if arbiter_fn is None:
+        return "UNSURE", "no arbiter supplied"
+    user = json.dumps(
+        {
+            "governing_requirement": {"ref": node.id, "text": getattr(node, "text", "") or ""},
+            "candidate_text": candidate.get("text") or "",
+            "candidate_document": candidate.get("document_id") or "",
+        },
+        indent=2,
+        ensure_ascii=False,
+    )
+    try:
+        raw = arbiter_fn(_arbiter_model(), _ARBITER_SYSTEM, user)
+    except Exception as exc:  # noqa: BLE001 - an unreachable arbiter degrades to the queue
+        logger.warning("relevance arbiter unavailable (%s) — falling back to review queue", exc)
+        return "UNSURE", f"arbiter unavailable: {exc}"
+    obj = None
+    with contextlib.suppress(json.JSONDecodeError):
+        obj = json.loads(raw.strip())
+    if not isinstance(obj, dict):
+        return "UNSURE", "arbiter returned no JSON object"
+    verdict = str(obj.get("verdict", "")).strip().upper()
+    if verdict not in {"RELEVANT", "NOT_RELEVANT", "UNSURE"}:
+        return "UNSURE", f"arbiter returned unknown verdict {verdict!r}"
+    return verdict, str(obj.get("reason", ""))[:200]
+
+
 def _resolve_relevance(
-    candidate: dict[str, Any], score: float, node: RegisterNode, side: str
+    candidate: dict[str, Any],
+    score: float,
+    node: RegisterNode,
+    side: str,
+    *,
+    arbiter_fn: ArbiterFn | None = None,
 ) -> tuple[bool, str]:
     """Stages 2+3: a confident rerank score decides; the ambiguous middle band
-    is queued (`low_confidence_extraction`) rather than guessed. Returns
+    is READ by the arbiter, and only a pair it cannot settle is queued. Returns
     (relevant, queue_item_id) — RELEVANCE only (renamed from
     ``_resolve_locatability``; see ``_verify_anchor`` for anchor proof)."""
     if score >= RERANK_THRESHOLD_HIGH:
         return not is_aspirational(candidate["text"]), ""
     if score < RERANK_THRESHOLD_LOW:
         return False, ""  # confidently irrelevant — ordinary search noise
+
+    verdict, reason = arbitrate_relevance(candidate, node, arbiter_fn=arbiter_fn)
+    if verdict == "RELEVANT":
+        # Aspirational text ("we strive to...") is not a control, and that check
+        # applies here exactly as it does above the HIGH threshold.
+        return not is_aspirational(candidate["text"]), ""
+    if verdict == "NOT_RELEVANT":
+        return False, ""
+
+    # UNSURE only: the arbiter could not read it, or was unreachable. This is
+    # the sole path that still costs a human a decision.
     item = rq.propose(
         "low_confidence_extraction",
         subject_id=candidate["section_id"],
-        proposed_value={"requirement_id": node.id, "side": side, "rerank_score": round(score, 3)},
+        proposed_value={
+            "requirement_id": node.id,
+            "side": side,
+            "rerank_score": round(score, 3),
+            "arbiter_verdict": verdict,
+            "arbiter_reason": reason,
+        },
         evidence=[
             {
                 "document": candidate["document_id"],
@@ -225,7 +348,12 @@ def _quote_span(text: str, requirement: str) -> str:
     return text[start : start + 400]
 
 
-def make_real_proposer(kb_id: str = "operator_corpus", top_k: int = 15) -> ProposeFn:
+def make_real_proposer(
+    kb_id: str = "operator_corpus",
+    top_k: int = 15,
+    *,
+    arbiter_fn: ArbiterFn | None = None,
+) -> ProposeFn:
     """A ``propose(node, side)`` over the real ingested corpus. Documents with
     no ingest-time layer record are given a live best-guess tier (queued, not
     dropped) so a stale sidecar never silences a real span.
@@ -332,7 +460,9 @@ def make_real_proposer(kb_id: str = "operator_corpus", top_k: int = 15) -> Propo
 
         out = []
         for i, c in enumerate(candidates):
-            relevant, queue_item_id = _resolve_relevance(c, scores[i], node, c["layer"])
+            relevant, queue_item_id = _resolve_relevance(
+                c, scores[i], node, c["layer"], arbiter_fn=arbiter_fn
+            )
             anchor_verified = _verify_anchor(c)
             out.append(
                 {
