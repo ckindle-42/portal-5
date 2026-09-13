@@ -210,16 +210,98 @@ def prospective_report(reg: Register, scope: AssetScope, as_of: str) -> dict[str
 
 
 # ── Phase 6: tracked draft-as-proposal ───────────────────────────────────
-def draft_revisions(impact: dict[str, Any], *, mode: str = "draft_as_proposal") -> dict[str, Any]:
+def _resolve_edit(edits: dict[Any, Any] | None, document_id: str, section_id: str) -> Any:
+    if not edits:
+        return None
+    for key in ((document_id, section_id), f"{document_id}::{section_id}", section_id):
+        if key in edits:
+            return edits[key]
+    return None
+
+
+def _reassessment_via_proposal(
+    part_id: str,
+    governing: str,
+    request: Any,
+    edit: Any,
+    *,
+    context: Any,
+    propose_fn: Any,
+) -> dict[str, Any]:
+    """Re-judge the drafted overlay through the shared proposal service.
+
+    A draft that merely quotes the governing text does not get a success
+    receipt: the virtual state must actually reach ``FULL`` through
+    ``operations.propose``.
+    """
+    from portal.modules.compliance.core.determination import ScenarioEdit, ScenarioOverlay
+
+    if request is None or request.snapshot is None:
+        return {
+            "status": "UNVALIDATED",
+            "after": None,
+            "closes_own_gap": False,
+            "weakened_obligations": [],
+            "reason": "impact payload lacks a pinned corpus snapshot for the changed Part",
+            "method": "none — no assessment ran",
+        }
+    if edit is None:
+        return {
+            "status": "UNVALIDATED",
+            "after": None,
+            "closes_own_gap": False,
+            "weakened_obligations": [],
+            "reason": "impact payload lacks a resolving exact edit target",
+            "method": "none — no assessment ran",
+        }
+    if isinstance(edit, dict):
+        edit = ScenarioEdit(**edit)
+    overlay = ScenarioOverlay(base_snapshot_fingerprint=request.snapshot.fingerprint, edits=[edit])
+    pkg = propose_fn(
+        part_id,
+        [governing],
+        "",
+        overlay=overlay,
+        context=context,
+        request=request,
+    )
+    return {
+        "status": pkg.status,
+        "after": pkg.rejudged.documentary_coverage if pkg.rejudged else None,
+        "closes_own_gap": pkg.status == "VALIDATED",
+        "weakened_obligations": list(pkg.weakens),
+        "assessment_id": pkg.assessment_id,
+        "virtual_fingerprint": pkg.virtual_fingerprint,
+        "reason": pkg.note,
+        "method": "overlay re-judgment through operations.propose",
+    }
+
+
+def draft_revisions(
+    impact: dict[str, Any],
+    *,
+    mode: str = "draft_as_proposal",
+    context: Any | None = None,
+    requests_by_part: dict[str, Any] | None = None,
+    edits_by_section: dict[Any, Any] | None = None,
+    propose_fn: Any | None = None,
+) -> dict[str, Any]:
     """Generate reviewable replacement language; never mutate effective text.
 
-    ``specification_only`` remains a compatibility mode, but proposal mode is
-    fully implemented and is the default. Every draft cites the changed
-    governing span and includes a deterministic self-reassessment receipt.
+    ``specification_only`` remains a compatibility mode. In proposal mode the
+    drafted text is a proposal, and its self-reassessment is an actual overlay
+    re-judgment through ``operations.propose`` — never a hardcoded SUPPORTED
+    receipt. When the impact payload does not carry a resolving edit target and
+    a pinned corpus snapshot (via ``requests_by_part``/``edits_by_section``),
+    the proposal is returned **unvalidated** with the missing-input reason.
     """
     if mode not in {"specification_only", "draft_as_proposal"}:
         raise ValueError(f"unsupported draft mode: {mode}")
+    if propose_fn is None and mode == "draft_as_proposal":
+        from portal.modules.compliance.core.operations import propose as propose_fn
+
     specs = []
+    validated = failed = unvalidated = 0
     for ir in impact["impact_rows"]:
         if ir["classification"] != "work":
             continue
@@ -232,16 +314,22 @@ def draft_revisions(impact: dict[str, Any], *, mode: str = "draft_as_proposal") 
                     "The responsible owner shall implement and retain evidence of the following "
                     f"requirement: {governing.strip()}"
                 )
-                # The generated clause contains the governing text verbatim;
-                # deterministic comparison therefore proves that it closes its
-                # own atom. A later scenario pass checks dependent obligations.
-                reassessment = {
-                    "before": sec["prior_coverage"],
-                    "after": "SUPPORTED",
-                    "closes_own_gap": True,
-                    "weakened_obligations": [],
-                    "method": "deterministic governing-span containment",
-                }
+                request = (requests_by_part or {}).get(ir["changed_part"])
+                edit = _resolve_edit(edits_by_section, sec["document_id"], sec["section_id"])
+                reassessment = _reassessment_via_proposal(
+                    ir["changed_part"],
+                    governing,
+                    request,
+                    edit,
+                    context=context,
+                    propose_fn=propose_fn,
+                )
+                if reassessment["status"] == "VALIDATED":
+                    validated += 1
+                elif reassessment["status"] == "UNVALIDATED":
+                    unvalidated += 1
+                else:
+                    failed += 1
             specs.append(
                 {
                     "policy_section": f"{sec['document_id']} {sec['section_id']}",
@@ -268,5 +356,11 @@ def draft_revisions(impact: dict[str, Any], *, mode: str = "draft_as_proposal") 
         else None,
         "recommendation": "Review and accept, amend, or decline each proposal; drafts remain unapproved.",
         "n_sections_needing_revision": len(specs),
+        "n_validated": validated,
+        "n_failed_validation": failed,
+        "n_unvalidated": unvalidated,
+        "rejudgment": "operations.propose (overlay re-judgment)"
+        if mode == "draft_as_proposal"
+        else "none",
         "specifications": specs,
     }

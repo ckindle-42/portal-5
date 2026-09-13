@@ -473,15 +473,283 @@ _SPAN_EXCERPT_CHARS = 180  # P0 (O11): a full-candidate row blew the 8192-token
 
 
 def _compact_citation(spans: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """One representative citation for a side.
+
+    The canonical assessment path marks its exact system-owned support and
+    counterevidence slices ``operative`` — those are preferred. The legacy
+    coverage path supplies retrieval spans ordered by score; the first
+    locatable span is used there so existing projections are preserved.
+    """
+    operative = [s for s in spans if s.get("operative")]
     locatable = [s for s in spans if s.get("locatable")]
-    chosen = locatable[0] if locatable else None
+    chosen = next(iter(operative or locatable or spans), None)
     if not chosen:
         return None
     return {
-        "document": chosen["document_id"],
-        "section": chosen["section_id"],
-        "span": chosen["span"][:_SPAN_EXCERPT_CHARS],
+        "document": chosen.get("document_id") or chosen.get("document", ""),
+        "section": chosen.get("section_id") or chosen.get("ref", ""),
+        "span": str(chosen.get("span") or chosen.get("text", ""))[:_SPAN_EXCERPT_CHARS],
+        "slice_id": chosen.get("slice_id", ""),
     }
+
+
+def _slice_index(result: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {
+        str(s.get("slice_id", "")): s
+        for s in (result.get("selected_source_slices") or [])
+        if isinstance(s, dict)
+    }
+
+
+def _operative_citations(
+    result: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Exact support/counterevidence slices from the canonical covered/gaps."""
+    slices = _slice_index(result)
+    support_ids: list[str] = []
+    for item in result.get("covered", []) or []:
+        support_ids += [str(x) for x in item.get("internal_slice_ids", []) if x]
+        support_ids += [str(x) for x in item.get("governing_slice_ids", []) if x]
+    counter_ids: list[str] = []
+    for item in result.get("gaps", []) or []:
+        counter_ids += [str(x) for x in item.get("internal_counterevidence_slice_ids", []) if x]
+        counter_ids += [str(x) for x in item.get("governing_slice_ids", []) if x]
+
+    def project(ids: list[str]) -> list[dict[str, Any]]:
+        out: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for slice_id in ids:
+            if not slice_id or slice_id in seen or slice_id not in slices:
+                continue
+            seen.add(slice_id)
+            row = dict(slices[slice_id])
+            row.pop("text", None)
+            row["span"] = str(slices[slice_id].get("text", ""))[:_SPAN_EXCERPT_CHARS]
+            row["operative"] = True
+            out.append(row)
+        return out
+
+    return project(support_ids), project(counter_ids)
+
+
+def _governing_excerpt(result: dict[str, Any]) -> str:
+    for row in result.get("selected_source_slices", []) or []:
+        if isinstance(row, dict) and str(row.get("role", "")) == "governing":
+            return str(row.get("text", ""))[:_SPAN_EXCERPT_CHARS]
+    return ""
+
+
+def _assessment_row(result: dict[str, Any]) -> dict[str, Any]:
+    """Project one persisted AssessmentResult into the ordinary gaps row.
+
+    Preserves the legacy representative citation keys (``policy_citation`` /
+    ``procedure_citation``) as projections of the canonical assessment's own
+    operative slices.
+    """
+    support, counter = _operative_citations(result)
+    documentary = str(result.get("documentary_coverage", ""))
+    return {
+        "requirement_id": result.get("requirement_id", ""),
+        "assessment_id": result.get("assessment_id", ""),
+        "run_id": result.get("run_id", ""),
+        "engine": result.get("engine_version", ""),
+        "coverage": result.get("coverage", ""),
+        "documentary_coverage": documentary,
+        "substantively_resolved": bool(result.get("substantively_resolved")),
+        "applicability": result.get("applicability", ""),
+        "applicability_basis": result.get("applicability_basis", ""),
+        "covered": result.get("covered", []),
+        "gaps": result.get("gaps", []),
+        "uncertainties": result.get("uncertainties", []),
+        "policy_citation": _compact_citation(support),
+        "procedure_citation": _compact_citation(counter),
+        "gap_quote": (_governing_excerpt(result) if documentary in ("PARTIAL", "NONE") else None),
+        "note": _row_note(result),
+        "retrieval_errors": (result.get("receipt") or {}).get(
+            "retrieval_errors", result.get("retrieval_errors", [])
+        ),
+        "from_approved_mapping": False,
+        "open_queue_items": [],
+        "receipt": result.get("receipt", {}),
+        "proposals": [],
+    }
+
+
+def _row_note(result: dict[str, Any]) -> str:
+    if result.get("unresolved_code"):
+        return f"unresolved ({result['unresolved_code']}) — {result.get('missing_fact', {})}"
+    documentary = str(result.get("documentary_coverage", ""))
+    if (
+        documentary in ("FULL", "PARTIAL", "NONE")
+        and str(result.get("coverage", "")) == "UNRESOLVED"
+    ):
+        return f"documentary {documentary}; public coverage UNRESOLVED — " + str(
+            (result.get("missing_fact") or {}).get("missing_scope_declaration", "scope unresolved")
+        )
+    return f"documentary {documentary}"
+
+
+def _determination_projection(result: dict[str, Any]) -> dict[str, Any]:
+    """Project an AssessmentResult onto the legacy analyze determination shape."""
+    documentary = str(result.get("documentary_coverage", "UNRESOLVED"))
+    determination = {
+        "FULL": "SUPPORTED",
+        "PARTIAL": "PARTIAL",
+        "NONE": "ABSENT",
+        "NOT_APPLICABLE": "NOT_APPLICABLE",
+        "NEEDS_REVIEW": "NEEDS_REVIEW",
+        "UNRESOLVED": "UNRESOLVED",
+    }.get(documentary, "UNRESOLVED")
+    council = result.get("council_result") or {}
+    return {
+        "node_id": result.get("requirement_id", ""),
+        "determination": determination,
+        "documentary_coverage": documentary,
+        "coverage": result.get("coverage", ""),
+        "assessment_id": result.get("assessment_id", ""),
+        "run_id": result.get("run_id", ""),
+        "engine": result.get("engine_version", ""),
+        "snapshot_fingerprint": (result.get("receipt") or {}).get("snapshot_fingerprint", ""),
+        "input_fingerprint": result.get("input_fingerprint", ""),
+        "applicability": result.get("applicability", ""),
+        "applicability_basis": result.get("applicability_basis", ""),
+        "citations": [
+            str(s.get("slice_id", "")) for s in result.get("selected_source_slices", []) or []
+        ],
+        "covered": result.get("covered", []),
+        "gaps": result.get("gaps", []),
+        "uncertainties": result.get("uncertainties", []),
+        "council_votes": council.get("votes", {}),
+        "dissent": council.get("dissent", []),
+        "gate_gated_out": (
+            documentary == "NOT_APPLICABLE" or result.get("applicability") == "DOES_NOT_APPLY"
+        ),
+        "unresolved_code": result.get("unresolved_code", ""),
+        "missing_fact": result.get("missing_fact", {}),
+        "rationale": _row_note(result),
+    }
+
+
+def _summarize_rows(results: list[dict[str, Any]]) -> dict[str, Any]:
+    by_coverage: dict[str, int] = {}
+    by_documentary: dict[str, int] = {}
+    resolved = 0
+    for result in results:
+        coverage = str(result.get("coverage", "UNRESOLVED"))
+        by_coverage[coverage] = by_coverage.get(coverage, 0) + 1
+        documentary = str(result.get("documentary_coverage", "UNRESOLVED"))
+        by_documentary[documentary] = by_documentary.get(documentary, 0) + 1
+        if result.get("substantively_resolved") and coverage not in ("UNRESOLVED", "NEEDS_REVIEW"):
+            resolved += 1
+    return {
+        "examined": len(results),
+        "substantively_resolved": resolved,
+        "coverage_breakdown": by_coverage,
+        "documentary_breakdown": by_documentary,
+        "unresolved_items": [
+            r.get("requirement_id", "")
+            for r in results
+            if str(r.get("coverage", "")) == "UNRESOLVED"
+        ],
+        "confirmed_gaps_none": [
+            r.get("requirement_id", "") for r in results if str(r.get("coverage", "")) == "NONE"
+        ],
+        "from_approved_mappings": 0,
+    }
+
+
+_STANDARD_PARTS_CACHE: dict[str, list[str]] = {}
+
+
+def _gap_requirements(standard: str, requirement: str) -> list[str]:
+    from portal.modules.compliance.core import assessment_service
+    from portal.modules.compliance.core.cip_register import Register
+
+    reg = Register.load()
+    if requirement and standard:
+        return sorted(
+            n.id
+            for n in reg.nodes
+            if n.granularity == "part" and n.standard.startswith(standard) and requirement in n.id
+        )
+    if requirement:
+        return assessment_service.part_ids(requirement)
+    if standard:
+        return sorted(
+            n.id for n in reg.nodes if n.granularity == "part" and n.standard.startswith(standard)
+        )
+    from portal.modules.compliance.core.engine import effective_parts
+
+    return sorted(n.id for n in effective_parts(reg, datetime.date.today().isoformat()))
+
+
+def _resolve_context_scope(kb_id: str, scope_text: str) -> tuple[Any, dict[str, Any]]:
+    from portal.modules.compliance.core.applicability import parse_scope_declaration
+    from portal.modules.compliance.core.scope_derive import derive_scope
+
+    if scope_text:
+        return parse_scope_declaration(scope_text), {"basis": "declared"}
+    scope, meta = derive_scope(kb_id)
+    return scope, meta
+
+
+def _proposals_for_rows(
+    rows: list[dict[str, Any]],
+    *,
+    scope: Any,
+    seats: list[dict[str, str]],
+    policy_graph: Any,
+    org_commitments: list[dict[str, Any]],
+) -> None:
+    """Draft generation for resolved actionable gaps only.
+
+    Every failure is recorded as a proposal status and never alters the actual
+    coverage result. One attempt per row; no retry loop.
+    """
+    from portal.modules.compliance.core.operations import propose
+
+    for row in rows:
+        if str(row.get("coverage")) not in ("PARTIAL", "NONE"):
+            continue
+        if not row.get("substantively_resolved"):
+            continue
+        unmet = [str(g.get("kind", "")) for g in row.get("gaps", []) if g.get("kind")] or [
+            "OMISSION"
+        ]
+        draft = _draft_text(row)
+        try:
+            package = propose(
+                row["requirement_id"],
+                unmet,
+                draft,
+                scope=scope,
+                org_commitments=org_commitments,
+                seats=seats,
+                policy_graph=policy_graph,
+            )
+            rejudged = package.rejudged
+            row["proposals"] = [
+                {
+                    "status": "proposed",
+                    "closes_fields": list(package.closes_fields),
+                    "rejudged_determination": rejudged.determination if rejudged else "",
+                    "weakens": list(package.weakens),
+                }
+            ]
+        except Exception as exc:  # noqa: BLE001 - a failed draft never changes coverage
+            row["proposals"] = [{"status": "FAILED_VALIDATION", "error": str(exc)}]
+
+
+def _draft_text(row: dict[str, Any]) -> str:
+    gaps = row.get("gaps") or []
+    missing = "; ".join(
+        str(g.get("missing_commitment", "")) for g in gaps if g.get("missing_commitment")
+    )
+    return (
+        "The Responsible Entity shall "
+        + (missing or "implement the missing commitment")
+        + f" (addressing {row.get('requirement_id', '')})."
+    )
 
 
 @mcp.tool()
@@ -492,145 +760,291 @@ def compliance_gaps(
     kb_id: str = "operator_corpus",
     max_rows: int = 25,
     verbose: bool = False,
+    operation: str = "start",
+    run_id: str = "",
+    scope: str = "",
+    conditional_scope: bool = False,
+    known_at: str = "",
+    top_k: int = 15,
+    sync: bool = False,
+    generate_drafts: bool = True,
 ) -> dict[str, Any]:
-    """Coverage matrix: where the operator's ingested corpus does/doesn't cover
-    each applicable NERC CIP Part. ``standard``/``requirement`` filter the rows
-    (e.g. standard='CIP-007-6') and ``max_rows`` caps them — the default row
-    shape (one representative citation per side, ``verbose=False``) is scoped
-    to fit the compliance workspace's ~8192-token input budget; ``verbose=True``
-    returns every retrieved candidate span, for review/debugging, not for the
-    live workspace. Every row derived from an open review-queue item names it."""
+    """Coverage by Part through the one authoritative assessment service.
+
+    ``operation`` is ``start`` (default) | ``status`` | ``result`` | ``cancel``
+    (or ``sync`` for the controlled library path). ``start`` returns a run id
+    immediately and no speculative coverage rows; ``result`` returns the
+    persisted per-Part assessments once the worker has finished. ``max_rows``
+    caps returned rows and draft generation, never the assessed summary. Draft
+    generation runs only for resolved actionable gaps; a proposal failure is
+    reported as a proposal status and never changes the coverage result.
+    """
     try:
-        from portal.modules.compliance.core import coverage as _coverage
+        from portal.modules.compliance.core import assessment_runs
         from portal.modules.compliance.core import review_queue as rq
-        from portal.modules.compliance.core.cip_register import Register
-        from portal.modules.compliance.core.mapping_store import MappingStore
-        from portal.modules.compliance.core.propose import default_arbiter, make_real_proposer
-        from portal.modules.compliance.core.scope_derive import derive_scope
 
-        reg = Register.load()
-        # A `standard` filter scopes the COMPUTATION, not just the returned
-        # rows — coverage_matrix used to run the whole ~193-node register even
-        # for a single-standard call (386 VL round-trips for a 20-Part ask),
-        # which is most of why a scoped call was ever slow. Register is a
-        # plain nodes/edges dataclass — the same pre-filter pattern
-        # compliance_change_impact already uses for old/new.
-        if standard:
-            reg = Register(
-                nodes=[n for n in reg.nodes if n.standard.startswith(standard)], edges=reg.edges
-            )
-        if requirement:  # same reasoning — verified live at 792s for one Part on an unfiltered reg
-            reg = Register(nodes=[n for n in reg.nodes if requirement in n.id], edges=reg.edges)
-        scope, scope_meta = derive_scope(kb_id)
-        if not scope.is_declared:
-            return {
-                "status": "honest-BLOCKED",
-                "reason": scope_meta.get("reason"),
-                "settling_document": scope_meta.get("settling_document"),
-            }
-        store = MappingStore()
-        rq.sync_proposed_mappings(store)
         eff = effective_on or datetime.date.today().isoformat()
-        matrix = _coverage.coverage_matrix(
-            reg, scope, eff, make_real_proposer(kb_id, arbiter_fn=default_arbiter()), store
-        )
-        open_tiers = {i.subject_id: i.id for i in rq.open_items(kind="document_tier")}
-
-        matching = [
-            c
-            for c in matrix.cells
-            if c.applies
-            and (not standard or c.requirement_id.startswith(standard))
-            and (not requirement or requirement in c.requirement_id)
-        ]
-        rows = []
-        for c in matching[:max_rows]:
-            if verbose:
-                d = c.to_dict()
-                d["policy_spans"] = c.policy_spans
-                d["procedure_spans"] = c.procedure_spans
-                d["evidence_spans"] = c.evidence_spans
-                d["COMPLIANCE_CONFLICT"] = c.conflicts
-                rows.append(d)
-                continue
-            all_spans = c.policy_spans + c.procedure_spans + c.evidence_spans
-            resting_on = sorted(
-                {open_tiers[s["document_id"]] for s in all_spans if s["document_id"] in open_tiers}
-                | {s["queue_item_id"] for s in all_spans if s.get("queue_item_id")}
+        if operation in ("status", "result", "cancel") and run_id:
+            if operation == "status":
+                return assessment_runs.run_status(run_id)
+            if operation == "cancel":
+                return assessment_runs.cancel_run(run_id)
+            payload = assessment_runs.run_result(run_id)
+            if "error" in payload:
+                return payload
+            return _gaps_payload(
+                payload["results"],
+                eff,
+                kb_id,
+                max_rows,
+                verbose,
+                scope_text=scope,
+                payload=payload,
+                generate_drafts=generate_drafts,
             )
-            if c.from_approved_mapping:
-                resting_on.append(f"{scope_meta.get('queue_item_id', '')}(approved-mapping-scope)")
-            rows.append(
+
+        if not (sync or operation == "sync"):
+            requirements = _gap_requirements(standard, requirement)
+            if not requirements:
+                return {
+                    "status": "honest-BLOCKED",
+                    "reason": "no register Parts match the requested standard/requirement",
+                }
+            scope_obj, scope_meta = _resolve_context_scope(kb_id, scope)
+            if not scope_obj.is_declared and not conditional_scope:
+                return {
+                    "status": "honest-BLOCKED",
+                    "reason": scope_meta.get("reason", "asset scope undeclared"),
+                    "scope": scope_meta,
+                }
+            started = assessment_runs.start_run(
                 {
-                    "requirement_id": c.requirement_id,
-                    "coverage": c.coverage,
-                    "substantively_resolved": c.substantively_resolved,
-                    "retrieval_errors": c.retrieval_errors,
-                    "note": c.note,
-                    "policy_citation": _compact_citation(c.policy_spans),
-                    "procedure_citation": _compact_citation(c.procedure_spans),
-                    "gap_quote": (
-                        reg_node.verbatim_text[:_SPAN_EXCERPT_CHARS]
-                        if c.coverage in ("PARTIAL", "NONE")
-                        and (
-                            reg_node := next(
-                                (n for n in reg.nodes if n.id == c.requirement_id), None
-                            )
-                        )
-                        else None
-                    ),
-                    "COMPLIANCE_CONFLICT": c.conflicts,
-                    "from_approved_mapping": c.from_approved_mapping,
-                    "open_queue_items": resting_on,
+                    "requirements": requirements,
+                    "kb_id": kb_id,
+                    "scope_text": scope,
+                    "effective_on": eff,
+                    "known_at": known_at,
+                    "conditional_scope": conditional_scope,
+                    "top_k": top_k,
                 }
             )
+            status = assessment_runs.run_status(started)
+            return {
+                "run_id": started,
+                "status": status.get("status", "QUEUED"),
+                "engine": assessment_runs.ENGINE_VERSION,
+                "requirements": requirements,
+                "n_parts": len(requirements),
+                "scope": scope_meta,
+                "note": "call operation=result with this run_id once status is COMPLETE",
+            }
 
+        # ── synchronous controlled path ─────────────────────────────────────
+        scope_obj, scope_meta = _resolve_context_scope(kb_id, scope)
+        if not scope_obj.is_declared and not conditional_scope:
+            return {
+                "status": "honest-BLOCKED",
+                "reason": scope_meta.get("reason", "asset scope undeclared"),
+                "scope": scope_meta,
+            }
+        requirements = _gap_requirements(standard, requirement)
+        results = assessment_runs.assess_requirements_now(
+            requirements,
+            kb_id=kb_id,
+            scope=scope_obj,
+            scope_text=scope,
+            effective_on=eff,
+            known_at=known_at,
+            conditional_scope=conditional_scope,
+            top_k=top_k,
+            repository=None,
+        )
+        persisted = [
+            {
+                "assessment_id": r.assessment_id,
+                "run_id": r.run_id,
+                "requirement_id": r.requirement_id,
+                "coverage": r.coverage,
+                "documentary_coverage": r.documentary_coverage,
+                "substantively_resolved": r.substantively_resolved,
+                "applicability": r.applicability,
+                "applicability_basis": r.applicability_basis,
+                "engine_version": r.engine_version,
+                "covered": [dataclasses.asdict(c) for c in r.covered],
+                "gaps": [dataclasses.asdict(g) for g in r.gaps],
+                "uncertainties": [dataclasses.asdict(u) for u in r.uncertainties],
+                "selected_source_slices": list(r.selected_source_slices),
+                "receipt": dict(r.receipt),
+                "unresolved_code": r.unresolved_code,
+                "missing_fact": dict(r.missing_fact),
+            }
+            for r in results
+        ]
+        return _gaps_payload(
+            persisted,
+            eff,
+            kb_id,
+            max_rows,
+            verbose,
+            scope_text=scope,
+            generate_drafts=generate_drafts,
+            open_tiers={i.subject_id: i.id for i in rq.open_items(kind="document_tier")},
+        )
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
+
+
+def _gaps_payload(
+    results: list[dict[str, Any]],
+    effective_on: str,
+    kb_id: str,
+    max_rows: int,
+    verbose: bool,
+    *,
+    scope_text: str = "",
+    payload: dict[str, Any] | None = None,
+    generate_drafts: bool = True,
+    open_tiers: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Rows + summary for the async result and sync paths (no assessment rerun)."""
+    from portal.modules.compliance.core import review_queue as rq
+
+    scope_obj, scope_meta = _resolve_context_scope(kb_id, scope_text)
+    matching = list(results)
+    if verbose:
+        rows = []
+        for result in matching[:max_rows]:
+            row = dict(result)
+            row.setdefault(
+                "retrieval_errors",
+                (row.get("receipt") or {}).get("retrieval_errors", []),
+            )
+            rows.append(row)
+    else:
+        open_tiers = (
+            open_tiers
+            if open_tiers is not None
+            else {i.subject_id: i.id for i in rq.open_items(kind="document_tier")}
+        )
+        rows = []
+        for result in matching[:max_rows]:
+            row = _assessment_row(result)
+            support = result.get("selected_source_slices", []) or []
+            resting_on = sorted(
+                {
+                    open_tiers[s["document_id"]]
+                    for s in support
+                    if s.get("document_id") in open_tiers
+                }
+                | {s["queue_item_id"] for s in support if s.get("queue_item_id")}
+            )
+            row["open_queue_items"] = resting_on
+            rows.append(row)
+    if generate_drafts and not verbose:
+        from portal.modules.compliance.core.cip_register import Register
+        from portal.modules.compliance.core.policy_graph import build_policy_graph
+        from portal.modules.compliance.core.runtime_config import seat_roster
+
+        _proposals_for_rows(
+            rows,
+            scope=scope_obj,
+            seats=seat_roster(),
+            policy_graph=build_policy_graph(Register.load()),
+            org_commitments=[],
+        )
+    out: dict[str, Any] = {
+        "effective_on": effective_on,
+        "engine": (payload or {}).get("engine", "compliance-reading/1"),
+        "scope": {
+            "impact_present": sorted(scope_obj.impact_present),
+            "associated_present": sorted(scope_obj.associated_present),
+            **scope_meta,
+        },
+        "summary": _summarize_rows(matching),
+        "n_matching": len(matching),
+        "n_rows_returned": len(rows),
+        "truncated": len(matching) > max_rows,
+        "rows": rows,
+    }
+    if payload is not None:
+        out["run_id"] = payload.get("run_id", "")
+        out["status"] = payload.get("status", "")
+        out["assessment_ids"] = payload.get("assessment_ids", [])
+        out["progress"] = payload.get("progress", {})
+    return out
+
+
+@mcp.tool()
+def compliance_orphans(
+    kb_id: str = "operator_corpus", effective_on: str = "", run_id: str = ""
+) -> dict[str, Any]:
+    """Ingested policy/procedure sections mapping to no requirement — dead
+    weight, or evidence the register is incomplete.
+
+    With an explicit ``run_id``, the resolved source links of that assessment
+    run are the basis; an item the run left UNRESOLVED is surfaced separately
+    and is never reported as a proven orphan. Without one, this is a
+    retrieval-only inventory that does not claim any item is orphaned.
+    """
+    try:
+        eff = effective_on or datetime.date.today().isoformat()
+        all_sections = _all_sections(kb_id)
+        if run_id:
+            from portal.modules.compliance.core.assessment_runs import run_result
+
+            payload = run_result(run_id)
+            if "error" in payload:
+                return payload
+            linked: set[str] = set()
+            unresolved: list[str] = []
+            for result in payload.get("results", []):
+                if str(result.get("coverage")) == "UNRESOLVED":
+                    unresolved.append(str(result.get("requirement_id", "")))
+                for slice_row in result.get("selected_source_slices", []) or []:
+                    if not isinstance(slice_row, dict):
+                        continue
+                    ref = str(slice_row.get("ref", "")) or str(slice_row.get("document_id", ""))
+                    if ref:
+                        linked.add(ref)
+            orphans = sorted(all_sections - linked)
+            return {
+                "basis": f"assessment-run:{run_id}",
+                "inventory_only": False,
+                "effective_on": eff,
+                "n_orphans": len(orphans),
+                "orphan_sections": orphans,
+                "unresolved_items": unresolved,
+                "note": (
+                    "resolved links of the named run only; unresolved items are not "
+                    "reported as orphans"
+                ),
+            }
         return {
+            "basis": "retrieval-only",
+            "inventory_only": True,
             "effective_on": eff,
-            "scope": {
-                "impact_present": sorted(scope.impact_present),
-                "associated_present": sorted(scope.associated_present),
-                **scope_meta,
-            },
-            "summary": matrix.summary(),
-            "n_matching": len(matching),
-            "n_rows_returned": len(rows),
-            "truncated": len(matching) > max_rows,
-            "rows": rows,
+            "n_sections": len(all_sections),
+            "n_orphans": 0,
+            "orphan_sections": [],
+            "proven_orphans": [],
+            "note": (
+                "no assessment run supplied — this is a retrieval-only inventory and "
+                "does not prove any section is orphaned"
+            ),
         }
     except Exception as e:  # noqa: BLE001
         return {"error": str(e)}
 
 
-@mcp.tool()
-def compliance_orphans(kb_id: str = "operator_corpus", effective_on: str = "") -> dict[str, Any]:
-    """Ingested policy/procedure sections mapping to no requirement — dead
-    weight, or evidence the register is incomplete."""
-    try:
-        from portal.modules.compliance.core import coverage as _coverage
-        from portal.modules.compliance.core.cip_register import Register
-        from portal.modules.compliance.core.mapping_store import MappingStore
-        from portal.modules.compliance.core.propose import default_arbiter, make_real_proposer
-        from portal.modules.compliance.core.scope_derive import derive_scope
-        from portal.platform.retrieval import store as _store
+def _all_sections(kb_id: str) -> set[str]:
+    from portal.platform.retrieval import store as _store
 
-        reg = Register.load()
-        scope, scope_meta = derive_scope(kb_id)
-        if not scope.is_declared:
-            return {"status": "honest-BLOCKED", "reason": scope_meta.get("reason")}
-        eff = effective_on or datetime.date.today().isoformat()
-        matrix = _coverage.coverage_matrix(
-            reg, scope, eff, make_real_proposer(kb_id, arbiter_fn=default_arbiter()), MappingStore()
-        )
-        ttbl = _store.text_table(kb_id, create=False, prefix="compliance_")
-        all_sections = set()
-        if ttbl is not None:
-            for row in ttbl.to_pandas().to_dict("records"):
-                all_sections.add(f"{row['source_file']} #chunk{row['chunk_index']} p{row['page']}")
-        orphans = _coverage.orphan_policy_spans(matrix.cells, all_sections)
-        return {"effective_on": eff, "n_orphans": len(orphans), "orphan_sections": sorted(orphans)}
-    except Exception as e:  # noqa: BLE001
-        return {"error": str(e)}
+    ttbl = _store.text_table(kb_id, create=False, prefix="compliance_")
+    all_sections: set[str] = set()
+    if ttbl is not None:
+        for row in ttbl.to_pandas().to_dict("records"):
+            all_sections.add(f"{row['source_file']} #chunk{row['chunk_index']} p{row['page']}")
+    return all_sections
 
 
 @mcp.tool()
@@ -668,86 +1082,123 @@ def compliance_scenario(
     planned_effective_date: str = "",
     kb_id: str = "operator_corpus",
     effective_on: str = "",
+    scope: str = "",
+    known_at: str = "",
+    conditional_scope: bool = False,
+    edit_operation: str = "ADD",
+    target_document: str = "",
+    target_section: str = "",
+    chunk_id: str = "",
+    char_start: int = 0,
+    char_end: int = 0,
+    expected_old_hash: str = "",
+    expected_old_text: str = "",
 ) -> dict[str, Any]:
-    """Design §9's "How should we implement a proposed change while
-    maintaining compliance?" (Q12) — an isolated before/after scenario for a
-    proposed patch to ONE targeted requirement/Part, never written to any
-    persisted document or effective mapping. It persists only the isolated
-    scenario record and proposed work items, and returns before/after
-    determinations from the same assessment engine used by analysis."""
-    try:
-        import datetime
+    """Design §9 Q12 — a before/after scenario for ONE targeted Part.
 
-        from portal.modules.compliance.core.cip_register import Register
-        from portal.modules.compliance.core.mapping_store import MappingStore
-        from portal.modules.compliance.core.propose import default_arbiter, make_real_proposer
-        from portal.modules.compliance.core.scenarios import evaluate_scenario, new_scenario
-        from portal.modules.compliance.core.scope_derive import derive_scope
+    The proposed patch is an exact :class:`ScenarioOverlay` over the pinned base
+    snapshot and is re-judged through the same authoritative assessment service
+    (and therefore the same engine/snapshot fingerprint) as analysis; nothing is
+    written to an effective document or mapping. ``REPLACE`` requires an exact
+    target (``chunk_id``/range + ``expected_old_hash``); a bare patch defaults to
+    a labelled ``ADD`` and never silently replaces existing text.
+    """
+    try:
+        from portal.modules.compliance.core import assessment_runs
+        from portal.modules.compliance.core.assessment import assess_part
+        from portal.modules.compliance.core.assessment_source import (
+            build_corpus_snapshot,
+            materialize_overlay,
+        )
+        from portal.modules.compliance.core.determination import ScenarioEdit, ScenarioOverlay
+        from portal.modules.compliance.core.runtime_config import build_assessment_context
 
         as_of = effective_on or datetime.date.today().isoformat()
-        reg = Register.load()
-        scope, scope_meta = derive_scope(kb_id)
-        if not scope.is_declared:
+        scope_obj, scope_meta = _resolve_context_scope(kb_id, scope)
+        if not scope_obj.is_declared and not conditional_scope:
             return {"status": "honest-BLOCKED", "reason": scope_meta.get("reason")}
-        scenario = new_scenario(
+        base_snapshot = build_corpus_snapshot(kb_id)
+        requests = assessment_runs.build_requests_for(
             target_node_id,
-            patch_text,
-            rationale,
-            planned_effective_date=planned_effective_date or None,
+            kb_id=kb_id,
+            scope=scope_obj,
+            effective_on=as_of,
+            known_at=known_at,
+            conditional_scope=conditional_scope,
+            snapshot=base_snapshot,
         )
-        result = evaluate_scenario(
-            scenario,
-            reg,
-            scope,
-            as_of,
-            make_real_proposer(kb_id, arbiter_fn=default_arbiter()),
-            MappingStore(),
+        if not requests:
+            return {"error": f"target_node_id not found in register: {target_node_id}"}
+        base = requests[0]
+        op = edit_operation.upper()
+        if op not in ("REPLACE", "ADD"):
+            op = "ADD"
+        bared = op == "REPLACE" and not (chunk_id and expected_old_hash)
+        edit = ScenarioEdit(
+            operation="ADD" if bared else op,
+            target_document=target_document or target_node_id,
+            target_section=target_section,
+            chunk_id=chunk_id,
+            char_start=char_start,
+            char_end=char_end,
+            expected_old_hash=expected_old_hash,
+            expected_old_text=expected_old_text,
+            new_text=patch_text,
+            label="legacy-add" if bared else "",
         )
-        if "error" not in result:
-            from portal.modules.compliance.core.repository import Repository
-
-            repo = Repository()
-            target_node = next(node for node in reg.nodes if node.id == target_node_id)
-            base = repo._conn.execute(
-                """SELECT revision_id FROM document_revisions
-                   WHERE logical_id = ? ORDER BY retrieved_at DESC LIMIT 1""",
-                (f"NERC/{target_node.standard}",),
-            ).fetchone()
-            if base:
-                with repo._lock, repo._conn:
-                    repo._conn.execute(
-                        """INSERT OR REPLACE INTO change_scenarios(
-                               scenario_id,base_revision_id,patch,rationale,scope,
-                               planned_effective_date,created_at,org_id)
-                           VALUES (?,?,?,?,?,?,?,?)""",
-                        (
-                            scenario.scenario_id,
-                            base[0],
-                            patch_text,
-                            rationale,
-                            scenario.scope_note,
-                            scenario.planned_effective_date,
-                            scenario.created_at,
-                            "default",
-                        ),
-                    )
-                    for item in result["change_plan"]["items"]:
-                        repo._conn.execute(
-                            """INSERT OR REPLACE INTO work_items(
-                                   work_item_id,scenario_id,owner,due_date,status,org_id)
-                               VALUES (?,?,?,?,?,?)""",
-                            (
-                                f"{scenario.scenario_id}-{item['order']}",
-                                scenario.scenario_id,
-                                result["change_plan"]["owner"],
-                                result["change_plan"]["due_date"],
-                                "open",
-                                "default",
-                            ),
-                        )
-        return result
+        overlay = ScenarioOverlay(base_snapshot_fingerprint=base_snapshot.fingerprint, edits=[edit])
+        virtual = materialize_overlay(base, overlay)
+        context = build_assessment_context(kb_id, scope_obj, as_of, known_at, None, arbiter_fn=None)
+        before = assess_part(base, context)
+        after = assess_part(virtual, context)
+        return {
+            "target_node_id": target_node_id,
+            "rationale": rationale,
+            "planned_effective_date": planned_effective_date or None,
+            "exact_overlay_target": {
+                "operation": edit.operation,
+                "target_document": edit.target_document,
+                "chunk_id": edit.chunk_id,
+                "char_start": edit.char_start,
+                "char_end": edit.char_end,
+                "expected_old_hash": edit.expected_old_hash,
+                "label": edit.label,
+            },
+            "before": _scenario_projection(before),
+            "after": _scenario_projection(after),
+            "determination_changed": before.documentary_coverage != after.documentary_coverage,
+            "weakening": before.documentary_coverage in ("FULL", "PARTIAL")
+            and after.documentary_coverage not in ("FULL", "PARTIAL"),
+            "affected_parts": virtual.affected_parts,
+            "engine": before.engine_version,
+            "before_snapshot_fingerprint": base_snapshot.fingerprint,
+            "after_snapshot_fingerprint": (
+                virtual.snapshot.fingerprint if virtual.snapshot else ""
+            ),
+            "note": (
+                "overlay re-judgment through the shared assessment service; "
+                "effective documents and mappings are unchanged"
+            ),
+        }
     except Exception as e:  # noqa: BLE001
         return {"error": str(e)}
+
+
+def _scenario_projection(result: Any) -> dict[str, Any]:
+    return {
+        "requirement_id": result.requirement_id,
+        "assessment_id": result.assessment_id,
+        "run_id": result.run_id,
+        "engine": result.engine_version,
+        "documentary_coverage": result.documentary_coverage,
+        "coverage": result.coverage,
+        "substantively_resolved": result.substantively_resolved,
+        "applicability": result.applicability,
+        "covered": [dataclasses.asdict(c) for c in result.covered],
+        "gaps": [dataclasses.asdict(g) for g in result.gaps],
+        "uncertainties": [dataclasses.asdict(u) for u in result.uncertainties],
+        "unresolved_code": result.unresolved_code,
+    }
 
 
 @mcp.tool()
@@ -780,31 +1231,75 @@ def compliance_draft_revisions(
     new_standard: str,
     kb_id: str = "operator_corpus",
     mode: str = "draft_as_proposal",
+    scope: str = "",
+    effective_on: str = "",
+    known_at: str = "",
+    conditional_scope: bool = False,
+    edits_json: str = "",
 ) -> dict[str, Any]:
-    """Design §9's "What revisions would improve alignment?" (Q07) for a
-    standard-version transition — what must change and why, with both
-    verbatim spans, for every mapped section affected by a substantive
-    change between ``old_standard`` and ``new_standard``. Drafts are returned
-    as unapproved proposals with a self-reassessment. A section with NO prior mapping still
-    appears via ``compliance_change_impact``'s own "no mapping" disclosure;
-    this tool only covers sections that already have one."""
+    """Design §9 Q07 — what revisions improve alignment, for a standard-version
+    transition, with both verbatim spans, for every mapped section affected by a
+    substantive change.
+
+    Drafts are unapproved proposals. Their self-reassessment runs as an exact
+    overlay re-judgment through the shared proposal service against the same
+    KB/snapshot context as ``compliance_analyze`` — a draft that merely quotes
+    the governing text does not get a success receipt. When the impact payload
+    lacks a resolving edit target, the proposal returns unvalidated with the
+    missing-input reason.
+    """
     try:
         from portal.modules.compliance.core.change_pipeline import draft_revisions, impact_report
         from portal.modules.compliance.core.cip_register import Register
         from portal.modules.compliance.core.mapping_store import MappingStore
-        from portal.modules.compliance.core.scope_derive import derive_scope
 
         reg = Register.load()
-        scope, scope_meta = derive_scope(kb_id)
-        if not scope.is_declared:
+        scope_obj, scope_meta = _resolve_context_scope(kb_id, scope)
+        if not scope_obj.is_declared and not conditional_scope:
             return {"status": "honest-BLOCKED", "reason": scope_meta.get("reason")}
         base = old_standard.rsplit("-", 1)[0]
         old = Register(nodes=[n for n in reg.nodes if n.standard == old_standard], edges=reg.edges)
         new = Register(nodes=[n for n in reg.nodes if n.standard == new_standard], edges=reg.edges)
         if not old.nodes or not new.nodes:
             return {"error": f"standard not both in register: {old_standard} -> {new_standard}"}
-        impact = impact_report(old, new, base, scope, MappingStore())
-        return draft_revisions(impact, mode=mode)
+        impact = impact_report(old, new, base, scope_obj, MappingStore())
+
+        context = None
+        requests_by_part: dict[str, Any] = {}
+        if mode == "draft_as_proposal":
+            from portal.modules.compliance.core import assessment_runs
+            from portal.modules.compliance.core.runtime_config import build_assessment_context
+
+            eff = effective_on or datetime.date.today().isoformat()
+            context = build_assessment_context(kb_id, scope_obj, eff, known_at, None)
+            for row in impact.get("impact_rows", []):
+                part = str(row.get("changed_part", ""))
+                if not part or part in requests_by_part:
+                    continue
+                try:
+                    requests = assessment_runs.build_requests_for(
+                        part,
+                        kb_id=kb_id,
+                        scope=scope_obj,
+                        effective_on=eff,
+                        known_at=known_at,
+                        conditional_scope=conditional_scope,
+                    )
+                except Exception:  # noqa: BLE001 - a part without a request stays unvalidated
+                    continue
+                if requests:
+                    requests_by_part[part] = requests[0]
+        edits_by_section = json.loads(edits_json) if edits_json else None
+        result = draft_revisions(
+            impact,
+            mode=mode,
+            context=context,
+            requests_by_part=requests_by_part,
+            edits_by_section=edits_by_section,
+        )
+        result["engine"] = "compliance-reading/1"
+        result["kb_id"] = kb_id
+        return result
     except Exception as e:  # noqa: BLE001
         return {"error": str(e)}
 
@@ -1039,6 +1534,24 @@ def compliance_trace(
         from portal.modules.compliance.core.traceability import trace
 
         repo = Repository()
+        assessment = repo.get_assessment(start_ref)
+        if assessment is not None:
+            run = repo.get_run(str(assessment.get("run_id", "")))
+            return {
+                "kind": "assessment",
+                "assessment_id": start_ref,
+                "assessment": assessment,
+                "run": run,
+                "run_metadata": {
+                    "run_id": assessment.get("run_id", ""),
+                    "status": (run or {}).get("status", ""),
+                    "engine": assessment.get("engine_version", ""),
+                    "input_fingerprint": assessment.get("input_fingerprint", ""),
+                    "snapshot_fingerprint": (assessment.get("receipt") or {}).get(
+                        "snapshot_fingerprint", ""
+                    ),
+                },
+            }
         statuses = ("approved", "proposed") if include_proposed else ("approved",)
         return trace(repo, start_ref, direction=direction, statuses=statuses, max_depth=max_depth)
     except ValueError as e:
@@ -1129,9 +1642,6 @@ def compliance_flexibility(requirement_id: str) -> dict[str, Any]:
         return {"error": str(e)}
 
 
-_ANALYSIS_JOBS: dict[str, dict[str, Any]] = {}
-
-
 @mcp.tool()
 def compliance_analyze(
     requirements: list[str] | str,
@@ -1140,80 +1650,82 @@ def compliance_analyze(
     known_at: str = "",
     operation: str = "start",
     run_id: str = "",
+    kb_id: str = "operator_corpus",
+    conditional_scope: bool = False,
+    effective_on: str = "",
+    sync: bool = False,
 ) -> dict[str, Any]:
-    """Start/status/result/cancel a bounded compliance analysis job."""
-    import uuid
+    """Start/status/result/cancel a bounded compliance analysis run.
 
-    if operation in {"status", "result", "cancel"}:
-        job = _ANALYSIS_JOBS.get(run_id)
-        if not job:
-            return {"error": f"unknown run_id: {run_id}"}
-        if operation == "cancel":
-            job["status"] = "cancelled"
-        return (
-            job if operation == "result" else {k: job[k] for k in ("run_id", "status", "partial")}
+    Uses the same default KB/snapshot/context service as ``compliance_gaps``
+    (never the private org graph). Responses identify the engine, the assessment
+    IDs and the run; the in-memory job dictionary is gone.
+    """
+    try:
+        from portal.modules.compliance.core import assessment_runs, assessment_service
+
+        if operation in ("status", "result", "cancel") and run_id:
+            if operation == "status":
+                return assessment_runs.run_status(run_id)
+            if operation == "cancel":
+                return assessment_runs.cancel_run(run_id)
+            payload = assessment_runs.run_result(run_id)
+            if "error" in payload:
+                return payload
+            payload["results"] = [_determination_projection(r) for r in payload.get("results", [])]
+            payload["result_count"] = len(payload["results"])
+            return payload
+
+        refs = [requirements] if isinstance(requirements, str) else list(requirements)
+        refs = [str(r).strip() for r in refs if str(r).strip()]
+        if not refs:
+            return {"error": "requirements must be a non-empty string or list"}
+        parts: list[str] = []
+        for ref in refs:
+            found = assessment_service.part_ids(ref)
+            parts.extend(found or [ref])
+
+        eff = effective_on or valid_at or datetime.date.today().isoformat()
+        if sync or operation == "sync":
+            results = assessment_runs.assess_requirements_now(
+                parts,
+                kb_id=kb_id,
+                scope_text=scope,
+                effective_on=eff,
+                known_at=known_at,
+                conditional_scope=conditional_scope,
+                repository=None,
+            )
+            projected = [_determination_projection(dataclasses.asdict(r)) for r in results]
+            return {
+                "run_id": "",
+                "status": "COMPLETE",
+                "engine": assessment_runs.ENGINE_VERSION,
+                "result_count": len(projected),
+                "results": projected,
+            }
+
+        started = assessment_runs.start_run(
+            {
+                "requirements": parts,
+                "kb_id": kb_id,
+                "scope_text": scope,
+                "effective_on": eff,
+                "known_at": known_at,
+                "conditional_scope": conditional_scope,
+            }
         )
-    refs = [requirements] if isinstance(requirements, str) else list(requirements)
-    rid = run_id or "analysis-" + uuid.uuid4().hex[:16]
-    results = []
-
-    # V6: assess LIVE through the gate + council. The pre-V6 cached `claims`
-    # SELECT is deleted — a determination is produced now, not read back.
-    from portal.modules.compliance.core.applicability import parse_scope_declaration
-    from portal.modules.compliance.core.operations import judge
-    from portal.modules.compliance.core.policy_graph import build_policy_graph
-    from portal.modules.compliance.core.runtime_config import load_org_commitments, seat_roster
-
-    graph = build_policy_graph()
-    actor_ids = {n.id for n in graph.nodes if n.node_type == "actor_cu"}
-    asset_scope = parse_scope_declaration(scope)
-    seats = seat_roster()
-    org_commitments = load_org_commitments()
-
-    for ref in refs:
-        parts = sorted(i for i in actor_ids if i == ref or i.startswith(ref + " "))
-        if not parts:
-            results.append(
-                {
-                    "node_id": ref,
-                    "determination": "UNRESOLVED",
-                    "unresolved_code": "U02_MISSING_GOVERNING_SOURCE",
-                    "missing_fact": {"logical_id": ref},
-                    "citations": [],
-                }
-            )
-            continue
-        for pid in parts:
-            det = judge(
-                pid,
-                scope=asset_scope,
-                org_commitments=org_commitments,
-                seats=seats,
-                policy_graph=graph,
-            )
-            results.append(
-                {
-                    "node_id": pid,
-                    "determination": det.determination,
-                    "finding_type": det.finding_type,
-                    "citations": det.citations,
-                    "council_votes": det.council_votes,
-                    "dissent": det.dissent,
-                    "sme_decision_kind": det.sme_decision_kind,
-                    "gate_gated_out": det.gate_gated_out,
-                    "rationale": det.rationale,
-                }
-            )
-    job = {
-        "run_id": rid,
-        "status": "complete",
-        "partial": False,
-        "requirements": refs,
-        "results": results,
-        "cursor": None,
-    }
-    _ANALYSIS_JOBS[rid] = job
-    return {"run_id": rid, "status": "complete", "partial": False, "result_count": len(results)}
+        status = assessment_runs.run_status(started)
+        return {
+            "run_id": started,
+            "status": status.get("status", "QUEUED"),
+            "engine": assessment_runs.ENGINE_VERSION,
+            "n_parts": len(parts),
+            "result_count": 0,
+            "note": "call operation=result with this run_id once status is COMPLETE",
+        }
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
 
 
 @mcp.tool()

@@ -28,6 +28,8 @@ from pathlib import Path
 from typing import Any
 
 from portal.modules.compliance.core.determination import (
+    UNRESOLVED_CODES,
+    AssessmentResult,
     AtomResult,
     FieldResult,
     RequirementResult,
@@ -336,6 +338,195 @@ class Repository:
                 (run_id, json.dumps(context), now_iso(), org_id),
             )
         return run_id
+
+    # ── reading architecture: assessments and durable runs ──────────────
+    RUN_STATES = ("QUEUED", "RUNNING", "COMPLETE", "FAILED", "CANCELLED", "INTERRUPTED")
+
+    def record_assessment(
+        self,
+        result: AssessmentResult,
+        *,
+        parent_assessment_id: str = "",
+        schema_version: int = 0,
+    ) -> str:
+        """Persist one canonical AssessmentResult atomically after validating
+        the whole record and every source ref it cites (brief §6)."""
+        payload = asdict(result)
+        # Re-running __post_init__ rejects a mutated/invalid record before SQL.
+        AssessmentResult(**dict(payload))
+        if result.documentary_coverage == "UNRESOLVED" and (
+            result.unresolved_code not in UNRESOLVED_CODES or not result.missing_fact
+        ):
+            raise ValueError("UNRESOLVED assessment requires a code and its missing_fact payload")
+        self._validate_result_source_refs(payload)
+        with self._lock, self._conn:
+            self._conn.execute(
+                """INSERT INTO assessment_results(
+                       assessment_id, run_id, parent_assessment_id, requirement_id,
+                       engine_version, schema_version, org_id, kb_id, input_fingerprint,
+                       effective_on, known_at, applicability, coverage,
+                       documentary_coverage, substantively_resolved, unresolved_code,
+                       result_json, created_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    result.assessment_id,
+                    result.run_id,
+                    parent_assessment_id,
+                    result.requirement_id,
+                    result.engine_version,
+                    schema_version or self.schema_version,
+                    str(payload.get("org_id", "default")),
+                    str(payload.get("kb_id", "")),
+                    result.input_fingerprint,
+                    str(payload.get("effective_on", "")),
+                    str(payload.get("known_at", "")),
+                    result.applicability,
+                    result.coverage,
+                    result.documentary_coverage,
+                    1 if result.substantively_resolved else 0,
+                    result.unresolved_code,
+                    json.dumps(payload),
+                    now_iso(),
+                ),
+            )
+        return result.assessment_id
+
+    def _validate_result_source_refs(self, payload: dict[str, Any]) -> None:
+        """Every slice ID an assessment cites must be present in the same
+        result's selected slices — a report cannot cite a source it did not
+        actually select (brief §4, strict source validation)."""
+        selected = {
+            s.get("slice_id")
+            for s in payload.get("selected_source_slices", [])
+            if isinstance(s, dict)
+        }
+        selected.discard(None)
+        referenced: list[str] = []
+        for item in payload.get("covered", []):
+            referenced += item.get("governing_slice_ids", []) + item.get("internal_slice_ids", [])
+        for item in payload.get("gaps", []):
+            referenced += item.get("governing_slice_ids", []) + item.get(
+                "internal_counterevidence_slice_ids", []
+            )
+        for item in payload.get("uncertainties", []):
+            referenced += item.get("source_slice_ids", [])
+        dangling = sorted({r for r in referenced if r and r not in selected})
+        if dangling:
+            raise ValueError(f"assessment cites source slices it did not select: {dangling}")
+
+    def get_assessment(self, assessment_id: str) -> dict[str, Any] | None:
+        row = self._conn.execute(
+            "SELECT result_json FROM assessment_results WHERE assessment_id = ?",
+            (assessment_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        result: dict[str, Any] = json.loads(row["result_json"])
+        return result
+
+    def assessments_for_run(self, run_id: str) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            "SELECT result_json FROM assessment_results WHERE run_id = ? ORDER BY requirement_id",
+            (run_id,),
+        ).fetchall()
+        return [json.loads(r["result_json"]) for r in rows]
+
+    def run_assessment_ids(self, run_id: str) -> list[str]:
+        rows = self._conn.execute(
+            "SELECT assessment_id FROM assessment_results WHERE run_id = ? ORDER BY requirement_id",
+            (run_id,),
+        ).fetchall()
+        return [r["assessment_id"] for r in rows]
+
+    def create_run(
+        self,
+        request: dict[str, Any],
+        *,
+        run_id: str = "",
+        status: str = "QUEUED",
+        org_id: str = "default",
+    ) -> str:
+        if status not in self.RUN_STATES:
+            raise ValueError(f"unknown run status: {status!r}")
+        run_id = run_id or _new_id()
+        with self._lock, self._conn:
+            self._conn.execute(
+                """INSERT INTO analysis_runs(
+                       run_id, context_json, created_at, org_id, status, request_json,
+                       progress_json, cancel_requested, started_at, finished_at, updated_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    run_id,
+                    json.dumps(request),
+                    now_iso(),
+                    org_id,
+                    status,
+                    json.dumps(request),
+                    "{}",
+                    0,
+                    None,
+                    None,
+                    now_iso(),
+                ),
+            )
+        return run_id
+
+    def update_run(
+        self,
+        run_id: str,
+        *,
+        status: str | None = None,
+        progress: dict[str, Any] | None = None,
+        cancel_requested: bool | None = None,
+        finished: bool = False,
+    ) -> None:
+        sets: list[str] = ["updated_at = ?"]
+        params: list[Any] = [now_iso()]
+        if status is not None:
+            if status not in self.RUN_STATES:
+                raise ValueError(f"unknown run status: {status!r}")
+            sets.append("status = ?")
+            params.append(status)
+            if status == "RUNNING":
+                sets.append("started_at = COALESCE(started_at, ?)")
+                params.append(now_iso())
+        if progress is not None:
+            sets.append("progress_json = ?")
+            params.append(json.dumps(progress))
+        if cancel_requested is not None:
+            sets.append("cancel_requested = ?")
+            params.append(1 if cancel_requested else 0)
+        if finished:
+            sets.append("finished_at = ?")
+            params.append(now_iso())
+        params.append(run_id)
+        with self._lock, self._conn:
+            self._conn.execute(
+                f"UPDATE analysis_runs SET {', '.join(sets)} WHERE run_id = ?", params
+            )
+
+    def get_run(self, run_id: str) -> dict[str, Any] | None:
+        row = self._conn.execute(
+            "SELECT * FROM analysis_runs WHERE run_id = ?", (run_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        d = dict(row)
+        d["request"] = json.loads(d.get("request_json") or "{}")
+        d["progress"] = json.loads(d.get("progress_json") or "{}")
+        d["cancel_requested"] = bool(d.get("cancel_requested"))
+        return d
+
+    def mark_interrupted_runs(self) -> int:
+        """A service restart marks unfinished RUNNING jobs INTERRUPTED — recovery
+        is explicit and never masquerades as completion (brief §6)."""
+        with self._lock, self._conn:
+            cur = self._conn.execute(
+                "UPDATE analysis_runs SET status = 'INTERRUPTED', updated_at = ?, finished_at = ? "
+                "WHERE status IN ('RUNNING', 'QUEUED')",
+                (now_iso(), now_iso()),
+            )
+        return cur.rowcount
 
     def record_claim(
         self,

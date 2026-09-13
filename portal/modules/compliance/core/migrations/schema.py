@@ -446,4 +446,49 @@ MIGRATIONS: list[tuple[int, str, str]] = [
         ALTER TABLE claims_v3 RENAME TO claims;
         """,
     ),
+    (
+        7,
+        "reading architecture: one AssessmentResult authority + durable assessment runs",
+        """
+        -- The canonical run row gains the fields the asynchronous run service
+        -- needs (brief §6 Execution boundary). Old rows default to COMPLETE and
+        -- remain readable — a restart marks unfinished RUNNING jobs INTERRUPTED.
+        ALTER TABLE analysis_runs ADD COLUMN status TEXT NOT NULL DEFAULT 'COMPLETE';
+        ALTER TABLE analysis_runs ADD COLUMN request_json TEXT NOT NULL DEFAULT '{}';
+        ALTER TABLE analysis_runs ADD COLUMN progress_json TEXT NOT NULL DEFAULT '{}';
+        ALTER TABLE analysis_runs ADD COLUMN cancel_requested INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE analysis_runs ADD COLUMN started_at TEXT;
+        ALTER TABLE analysis_runs ADD COLUMN finished_at TEXT;
+        ALTER TABLE analysis_runs ADD COLUMN updated_at TEXT;
+
+        -- One row per assessed Part. The complete result JSON is the authority —
+        -- the scalar columns are indexed projections for run/requirement lookup.
+        CREATE TABLE assessment_results (
+            assessment_id     TEXT PRIMARY KEY,
+            run_id            TEXT NOT NULL REFERENCES analysis_runs(run_id),
+            parent_assessment_id TEXT NOT NULL DEFAULT '',
+            requirement_id    TEXT NOT NULL,
+            engine_version    TEXT NOT NULL DEFAULT '',
+            schema_version    INTEGER NOT NULL DEFAULT 0,
+            org_id            TEXT NOT NULL DEFAULT 'default',
+            kb_id             TEXT NOT NULL DEFAULT '',
+            input_fingerprint TEXT NOT NULL DEFAULT '',
+            effective_on      TEXT NOT NULL DEFAULT '',
+            known_at          TEXT NOT NULL DEFAULT '',
+            applicability     TEXT NOT NULL DEFAULT 'UNKNOWN',
+            coverage          TEXT NOT NULL DEFAULT 'UNRESOLVED',
+            documentary_coverage TEXT NOT NULL DEFAULT 'UNRESOLVED',
+            substantively_resolved INTEGER NOT NULL DEFAULT 0,
+            unresolved_code   TEXT NOT NULL DEFAULT '',
+            result_json       TEXT NOT NULL DEFAULT '{}',
+            created_at        TEXT NOT NULL,
+            CHECK (documentary_coverage IN
+                   ('FULL','PARTIAL','NONE','UNRESOLVED','NEEDS_REVIEW','NOT_APPLICABLE')),
+            CHECK (documentary_coverage <> 'UNRESOLVED' OR unresolved_code <> '')
+        );
+        CREATE INDEX ix_assessment_run ON assessment_results(run_id);
+        CREATE INDEX ix_assessment_requirement ON assessment_results(requirement_id);
+        CREATE INDEX ix_assessment_fingerprint ON assessment_results(input_fingerprint);
+        """,
+    ),
 ]

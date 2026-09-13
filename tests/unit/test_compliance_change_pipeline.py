@@ -8,6 +8,9 @@ beside it, never averaged.
 
 from __future__ import annotations
 
+import hashlib
+from typing import Any
+
 from portal.modules.compliance.core.applicability import AssetScope
 from portal.modules.compliance.core.change_pipeline import (
     draft_revisions,
@@ -202,5 +205,317 @@ def test_draft_revisions_is_proposal_by_default():
     dr = draft_revisions(ir)
     assert dr["mode"] == "draft_as_proposal"
     assert all(s["drafted_replacement"] for s in dr["specifications"])
-    assert all(s["reassessment"]["closes_own_gap"] for s in dr["specifications"])
     assert dr["review_decision_kind"] == "S03_ACCEPT_PROPOSED_REDLINE"
+    # the old hardcoded SUPPORTED receipt is gone: with no resolving edit
+    # target / pinned snapshot the draft is honestly unvalidated.
+    assert dr["specifications"]
+    assert all(s["reassessment"]["status"] == "UNVALIDATED" for s in dr["specifications"])
+    assert not any(s["reassessment"]["closes_own_gap"] for s in dr["specifications"])
+    assert all(s["reassessment"]["after"] is None for s in dr["specifications"])
+
+
+def _draft_inputs(*, weak: str, strong: str) -> tuple[dict, dict, dict]:
+    from portal.modules.compliance.core.determination import (
+        AssessmentRequest,
+        CandidateRecord,
+        CandidateSet,
+        CorpusSnapshot,
+        GoverningBundle,
+        ScenarioEdit,
+        SourceSlice,
+    )
+
+    def _sha(text: str) -> str:
+        return hashlib.sha256(text.encode()).hexdigest()
+
+    request = AssessmentRequest(
+        requirement_id="X R1 Part 1.1",
+        scope=AssetScope(impact_present={"high"}, declared_by="op", declared_at="x"),
+        governing=GoverningBundle(
+            ref="X R1 Part 1.1",
+            part_text="Each entity shall evaluate patches.",
+            lead_in="Each entity shall implement each of the following Parts:",
+            source_slices=[
+                SourceSlice(
+                    slice_id="gov-1",
+                    ref="register:x",
+                    document_id="register",
+                    revision_hash="h",
+                    chunk_id="reg",
+                    text="Evaluate patches at least once every 35 calendar days.",
+                    role="governing",
+                )
+            ],
+            fingerprint="govfp",
+            meta=[{"applicable_systems": "High Impact BES Cyber Systems"}],
+        ),
+        snapshot=CorpusSnapshot(
+            snapshot_id="snap", kb_id="kb", completeness="COMPLETE", fingerprint="snapfp"
+        ),
+        candidate_set=CandidateSet(
+            records=[
+                CandidateRecord(
+                    candidate_id="c1",
+                    document_id="OT-POL",
+                    chunk_id="ch-1",
+                    text=weak,
+                    source_slice=SourceSlice(
+                        slice_id="cand-c1",
+                        ref="OT-POL#1",
+                        document_id="OT-POL",
+                        revision_hash=_sha(weak),
+                        chunk_id="ch-1",
+                        text=weak,
+                        role="candidate",
+                    ),
+                )
+            ]
+        ),
+    )
+    impact = {
+        "impact_rows": [
+            {
+                "classification": "work",
+                "changed_part": "X R1 Part 1.1",
+                "change_type": "LANGUAGE_CHANGED",
+                "old_span": "old",
+                "new_span": "Evaluate patches at least once every 35 calendar days.",
+                "mapped_sections": [
+                    {"document_id": "OT-POL", "section_id": "1.1", "prior_coverage": "PARTIAL"}
+                ],
+            }
+        ]
+    }
+    edit = ScenarioEdit(
+        operation="REPLACE",
+        target_document="OT-POL",
+        chunk_id="ch-1",
+        char_start=0,
+        char_end=len(weak),
+        expected_old_hash=_sha(weak),
+        new_text=strong,
+    )
+    return impact, request, edit
+
+
+def _staged_seat() -> Any:
+    import json
+
+    def fn(model: str, system: str, user: str) -> str:
+        if "narrow clause-alignment reader" in system:
+            packet = json.loads(user)
+            gid = packet["governing"]["selectable_slice_ids"][0]
+            records = []
+            for cand in packet["candidates"]:
+                weak = "40 calendar days" in cand["text"]
+                records.append(
+                    {
+                        "candidate_id": cand["candidate_id"],
+                        "relation": "SAME",
+                        "governing_slice_ids": [gid],
+                        "candidate_slice_ids": cand["selectable_slice_ids"][:1],
+                        "population_overlap": "OVERLAPPING",
+                        "source_function": "OPERATIVE_COMMITMENT",
+                        "activity": "weak" if weak else "evaluate patches",
+                        "object": "patches",
+                        "constraint_bindings": [],
+                    }
+                )
+            return json.dumps({"records": records})
+        if "sealed seat on a compliance review council" in system:
+            weak = "40 calendar days" in user
+            return json.dumps(
+                {
+                    "determination": "PARTIAL" if weak else "SUPPORTED",
+                    "finding_type": None,
+                    "cited_refs": ["c1"],
+                    "confidence": 0.9,
+                    "rationale": "scripted",
+                }
+            )
+        if "source-linked reporting analyst" in system:
+            packet = json.loads(user)
+            gid = packet["governing"]["governing_slice_ids"][0]
+            internal = packet["permitted_internal_slice_ids"][0]
+            weak = any(o.get("activity") == "weak" for o in packet.get("operative_commitments", []))
+            covered = [
+                {
+                    "commitment": "evaluate patches",
+                    "governing_slice_ids": [gid],
+                    "internal_slice_ids": [internal],
+                }
+            ]
+            if weak:
+                return json.dumps(
+                    {
+                        "documentary_coverage": "PARTIAL",
+                        "covered": covered,
+                        "gaps": [
+                            {
+                                "gap_id": "gap-cadence",
+                                "kind": "WEAKER_COMMITMENT",
+                                "missing_commitment": "35 day cadence",
+                                "governing_slice_ids": [gid],
+                                "internal_counterevidence_slice_ids": [internal],
+                            }
+                        ],
+                        "uncertainties": [],
+                    }
+                )
+            return json.dumps(
+                {
+                    "documentary_coverage": "FULL",
+                    "covered": covered,
+                    "gaps": [],
+                    "uncertainties": [],
+                }
+            )
+        if "checking one thing only" in system:
+            return '{"overrides": false, "exception_ref": null}'
+        raise AssertionError(system[:60])
+
+    return fn
+
+
+def _ctx() -> Any:
+    from portal.modules.compliance.core.determination import AssessmentContext
+
+    seats = [{"id": f"s{i}", "label": str(i), "model": f"m{i}"} for i in range(3)]
+    return AssessmentContext(seats=seats, quorum=0.66, seat_fn=_staged_seat(), kb_id="kb")
+
+
+WEAK = "SMEs shall evaluate patch applicability once every 40 calendar days."
+STRONG = "SMEs shall evaluate patch applicability once every 35 calendar days."
+
+
+def test_draft_revisions_validates_an_actual_closing_overlay():
+    impact, request, edit = _draft_inputs(weak=WEAK, strong=STRONG)
+    dr = draft_revisions(
+        impact,
+        context=_ctx(),
+        requests_by_part={"X R1 Part 1.1": request},
+        edits_by_section={("OT-POL", "1.1"): edit},
+    )
+    rea = dr["specifications"][0]["reassessment"]
+    assert rea["status"] == "VALIDATED"
+    assert rea["after"] == "FULL"
+    assert rea["closes_own_gap"] is True
+    assert rea["method"] == "overlay re-judgment through operations.propose"
+    assert dr["n_validated"] == 1
+
+
+def test_draft_revisions_prose_quote_is_not_a_hardcoded_supported():
+    """A patch quoting the governing text inside descriptive prose does not
+    close the still-open weaker rule: the overlay re-judgment fails."""
+    impact, request, _ = _draft_inputs(weak=WEAK, strong=STRONG)
+    prose = (
+        "The responsible owner shall implement and retain evidence of the following "
+        "requirement: evaluate patches at least once every 35 calendar days."
+    )
+    additive = {
+        "operation": "ADD",
+        "target_document": "OT-POL",
+        "target_section": "1.1",
+        "new_text": prose,
+        "label": "legacy-add",
+    }
+    dr = draft_revisions(
+        impact,
+        context=_ctx(),
+        requests_by_part={"X R1 Part 1.1": request},
+        edits_by_section={("OT-POL", "1.1"): additive},
+    )
+    rea = dr["specifications"][0]["reassessment"]
+    assert rea["status"] == "FAILED_VALIDATION"
+    assert rea["after"] != "SUPPORTED"
+    assert rea["closes_own_gap"] is False
+    assert rea["weakened_obligations"]
+    assert dr["n_failed_validation"] == 1
+
+
+# ── materialization: default is source-only; assessment is explicit opt-in ──
+def _load_materializer():
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "scripts" / "materialize_compliance_v3.py"
+    spec = importlib.util.spec_from_file_location("materialize_compliance_v3", path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_materialize_default_emits_no_verdict(tmp_path, monkeypatch):
+    import inspect
+
+    module = _load_materializer()
+    assert inspect.signature(module.materialize).parameters["assess"].default is False
+    # the retired verdict machinery is gone from the module
+    assert not hasattr(module, "assess_atom")
+    assert not hasattr(module, "BoundarySearch")
+
+
+def test_materialize_default_run_emits_no_claims(tmp_path, monkeypatch):
+    from portal.modules.compliance.core.cip_register import Register, RegisterNode
+    from portal.modules.compliance.core.repository import Repository
+
+    module = _load_materializer()
+    node = RegisterNode(
+        id="TEST-1 R1 Part 1.1",
+        standard="TEST-1",
+        version="1",
+        requirement="R1",
+        part="1.1",
+        verbatim_text="Do the thing.",
+        measure_text="",
+        applicable_systems="High Impact BES Cyber Systems",
+        table_name="",
+        vrf="",
+        time_horizon="",
+        lifecycle_state="EFFECTIVE",
+        valid_from="2020-01-01",
+        valid_to=None,
+        supersedes=None,
+        superseded_by=None,
+        authority_tier=0,
+        source_pdf="",
+        source_pages=[],
+        recorded_at=0.0,
+        granularity="part",
+    )
+    monkeypatch.setattr(
+        module, "Register", type("R", (), {"load": staticmethod(lambda: Register(nodes=[node]))})
+    )
+    monkeypatch.setattr(module, "effective_parts", lambda reg, valid_at: [node])
+    monkeypatch.setattr(module, "read_sidecar", lambda: {})
+    monkeypatch.setattr(module, "_pdf_text", lambda path: "policy text")
+    monkeypatch.setattr(module, "classify_document", lambda text: "policy")
+    monkeypatch.setattr(module, "extract_assertions", lambda *a, **k: [])
+    monkeypatch.setattr(module, "_anchor", lambda *a, **k: "span-1")
+    monkeypatch.setattr(module, "_insert_relationship", lambda *a, **k: None)
+
+    corpus = tmp_path / "corpus"
+    (corpus / "TEST-1").mkdir(parents=True)
+    (corpus / "TEST-1" / "a.pdf").write_bytes(b"x")
+    repo = Repository(tmp_path / "materialize.db")
+    counts = module.materialize(corpus, "2026-09-12", repository=repo, assess=False)
+    assert counts["engine"] == "v3-source-materialization"
+    assert counts["emits_coverage_claims"] is False
+    assert counts["claims_emitted"] == 0
+
+
+def test_materialize_assessment_requires_explicit_opt_in(tmp_path, monkeypatch):
+    module = _load_materializer()
+    captured: dict = {}
+
+    def fake_materialize(corpus, valid_at, **kwargs):
+        captured.update(kwargs)
+        return {"anchor_failures": [], "foreign_key_violations": []}
+
+    monkeypatch.setattr(module, "materialize", fake_materialize)
+    assert module.main(["--corpus", str(tmp_path), "--valid-at", "2026-09-12"]) == 0
+    assert captured["assess"] is False
+    captured.clear()
+    assert module.main(["--corpus", str(tmp_path), "--valid-at", "2026-09-12", "--assess"]) == 0
+    assert captured["assess"] is True

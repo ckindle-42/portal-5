@@ -1,0 +1,2184 @@
+{
+  "version": "1",
+  "spec": "docs/IMPLEMENTATION_BRIEF_COMPLIANCE_READING_20260912.md §7",
+  "engine": "compliance-reading/1",
+  "effective_on": "2026-09-12",
+  "controlled_fixtures": {
+    "A21": {
+      "text": "For all applicable updateable Cyber Assets for which a patching source exists, our patch management process tracks, evaluates, and installs cyber security patches.",
+      "document_id": "fixture:A21",
+      "chunk_id": "A21",
+      "section": "A21 p1",
+      "sha256": "a27be651a6ef4f2d0a3d93d1966c1115407532e3d9a4ebe1c706c65caab28840",
+      "private_source": false
+    },
+    "B21": {
+      "text": "The patch-source inventory identifies the release sources tracked for every such Cyber Asset, and the patch management process monitors those identified sources.",
+      "document_id": "fixture:B21",
+      "chunk_id": "B21",
+      "section": "B21 p1",
+      "sha256": "864fdd35a655e8ef7ad13ef7e7921e410b991d038582bd06895677b22d71334c",
+      "private_source": false
+    },
+    "A22": {
+      "text": "SMEs shall evaluate for applicability all security patches released since the previous evaluation by every source identified in our Part 2.1 patch-source inventory.",
+      "document_id": "fixture:A22",
+      "chunk_id": "A22",
+      "section": "A22 p1",
+      "sha256": "f45da4682ce888f81a273d2497ed7347d86b4ab2a2e837e094a66b07b2f0d685",
+      "private_source": false
+    },
+    "B22": {
+      "text": "SMEs shall complete that patch-applicability evaluation at least once every 35 calendar days.",
+      "document_id": "fixture:B22",
+      "chunk_id": "B22",
+      "section": "B22 p1",
+      "sha256": "4f78bd3e667589d94ae017e3ad682819cda63e75d8e6402933c23992e535941e",
+      "private_source": false
+    },
+    "L22": {
+      "text": "SMEs shall complete that patch-applicability evaluation once every 40 calendar days; this is the only required evaluation cadence.",
+      "document_id": "fixture:L22",
+      "chunk_id": "L22",
+      "section": "L22 p1",
+      "sha256": "2c9babbaf950e1cf924071ac6d2f2facd09cd71fd96db880403c03a8e7949c51",
+      "private_source": false
+    },
+    "S22": {
+      "text": "SMEs shall complete that patch-applicability evaluation at least once every 30 calendar days.",
+      "document_id": "fixture:S22",
+      "chunk_id": "S22",
+      "section": "S22 p1",
+      "sha256": "a194b01b4d939f4bf471e7883fd658d2eb5b914c65c78c5a3cbbd7930affdf39",
+      "private_source": false
+    },
+    "M22": {
+      "text": "SMEs shall complete that patch-applicability evaluation at least once every 1 calendar month.",
+      "document_id": "fixture:M22",
+      "chunk_id": "M22",
+      "section": "M22 p1",
+      "sha256": "9cce8cd72410515506698ef1385ab9c56f3e38be7365986b55d50ccb3bbea104",
+      "private_source": false
+    },
+    "A23": {
+      "text": "For every applicable patch identified by the Part 2.2 evaluation, within 35 calendar days after that evaluation is completed, SMEs shall either apply the patch, create a dated mitigation plan, or revise an existing mitigation plan.",
+      "document_id": "fixture:A23",
+      "chunk_id": "A23",
+      "section": "A23 p1",
+      "sha256": "058d38db3ebd4e7021477c04e6585ac12df053e06806300c5f89ce6a177b2ecd",
+      "private_source": false
+    },
+    "B23": {
+      "text": "Every such mitigation plan shall identify the planned actions to mitigate the vulnerabilities addressed by each security patch and a timeframe to complete those mitigations.",
+      "document_id": "fixture:B23",
+      "chunk_id": "B23",
+      "section": "B23 p1",
+      "sha256": "662fa3c9797b494fd112d3b3838945fa4a1d955e219fbc6aeb1151c51ec99b2a",
+      "private_source": false
+    },
+    "L23": {
+      "text": "Every such mitigation plan shall identify those planned actions, but a completion timeframe is optional and may be omitted.",
+      "document_id": "fixture:L23",
+      "chunk_id": "L23",
+      "section": "L23 p1",
+      "sha256": "022ffae6400dbf5ae4fb83dd59d176e0e1b10d2d0527c937e1507697b360e9e2",
+      "private_source": false
+    },
+    "A24": {
+      "text": "For every mitigation plan created or revised under Part 2.3, SMEs shall implement the plan within its specified timeframe.",
+      "document_id": "fixture:A24",
+      "chunk_id": "A24",
+      "section": "A24 p1",
+      "sha256": "7dce8e3c7bccd9a48752b75cdf9cd203dbb5ad478d831feb94ca6a1c21b8f952",
+      "private_source": false
+    },
+    "B24": {
+      "text": "A revision to such a plan or an extension of its timeframe is permitted only when approved by the CIP Senior Manager or delegate.",
+      "document_id": "fixture:B24",
+      "chunk_id": "B24",
+      "section": "B24 p1",
+      "sha256": "71a66b53c6a52eced065e60d50dd6a952d8ae1188338705c335352f77d66b041",
+      "private_source": false
+    },
+    "L24": {
+      "text": "Any SME may extend a Part 2.3 mitigation plan's implementation timeframe without CIP Senior Manager or delegate approval.",
+      "document_id": "fixture:L24",
+      "chunk_id": "L24",
+      "section": "L24 p1",
+      "sha256": "ac2ea2b1ad0200a1e858326f3d0e0cab8e43d9d516789441e96ed7e4fce23bcb",
+      "private_source": false
+    },
+    "PAR22": {
+      "text": "For each source in the Part 2.1 inventory, SMEs shall determine which newly released security fixes apply to the covered Cyber Assets. Successive determinations shall be no more than 35 calendar days apart, and each shall cover everything released after the preceding determination.",
+      "document_id": "fixture:PAR22",
+      "chunk_id": "PAR22",
+      "section": "PAR22 p1",
+      "sha256": "f545cabf4c2c73408018280e143a17cc6b7fc060af88cbf8056bb3dd1dbe82b3",
+      "private_source": false
+    },
+    "TOC22": {
+      "text": "Contents — Security patches; applicability evaluation; every 35 calendar days.",
+      "document_id": "fixture:TOC22",
+      "chunk_id": "TOC22",
+      "section": "TOC22 p1",
+      "sha256": "f42c39bcb8a7c63e676b1b30389c9385326280be1a1d7e61db5093a7300d78aa",
+      "private_source": false
+    },
+    "CROSS22": {
+      "text": "SMEs shall evaluate for applicability all security patches released since the previous evaluation by every source identified in our Part 2.1 patch-source inventory. SMEs shall complete that patch-applicability evaluation at least once every 35 calendar days.",
+      "document_id": "synthetic:CIP-003-policy",
+      "chunk_id": "CROSS22",
+      "section": "CROSS22 p1",
+      "sha256": "81a719520d8703a586f1cef2dc83c3eaa0edd0cc3232cd2a7e1e5f5b907124d8",
+      "private_source": false
+    },
+    "V": {
+      "text": "Vulnerability assessments shall be performed for all Cyber Assets at least once every 15 calendar months, and again every 36 calendar months for certain assets.",
+      "document_id": "CIP-010-policy",
+      "chunk_id": "17",
+      "section": "CIP-010 chunk 17 p5",
+      "sha256": "3176af26a776f111589660d078cfff3797e16f51760858fc09478cfdbd8dcdc4",
+      "private_source": true
+    },
+    "D": {
+      "text": "Delegation records shall be updated within 30 calendar days after a delegate change, under the CIP-003 delegation process.",
+      "document_id": "CIP-003-policy",
+      "chunk_id": "67",
+      "section": "CIP-003 policy 4.2.1 chunk 67 p20",
+      "sha256": "f1cd9ed8327733d1e0a19c6f3dbe1c70c834016c282be4ede27b5698ecbcb1b6",
+      "private_source": true
+    },
+    "E": {
+      "text": "Senior Manager delegation and manager-change records shall be updated within 30 calendar days of the change.",
+      "document_id": "CIP-003-senior-manager-process",
+      "chunk_id": "22",
+      "section": "CIP-003 Senior Manager Process chunk 22 p7",
+      "sha256": "8bb3317b41fa274f09e8d93e47e81d3def28de188f060740a212c6daba7a82ee",
+      "private_source": true
+    },
+    "S": {
+      "text": "LSPG will review this plan at least once every 15 calendar months and obtain the approval of the CIP Senior Manager or their delegate (NERC CIP-013-2 R3).",
+      "document_id": "CIP-013-plan",
+      "chunk_id": "24",
+      "section": "CIP-013 plan chunk 24 p6",
+      "sha256": "b47ea83c548381406b2c48fa6c99766fe0c261a60edc1a469cb4f8937e6a7ed2",
+      "private_source": true
+    },
+    "C": {
+      "text": "A dated mitigation plan shall be created or revised within 35 days of identifying an applicable patch.",
+      "document_id": "patch-procedure",
+      "chunk_id": "32",
+      "section": "patch procedure 3.6.1 chunk 32 p10",
+      "sha256": "94a60ef373b01267126947e70f13e93bf402508ef19f682312aa2c1c0b74cc10",
+      "private_source": true
+    },
+    "I": {
+      "text": "BES system identification shall be approved every 15 calendar months, with the neighboring delegation text preserved.",
+      "document_id": "CIP-003-senior-manager-process",
+      "chunk_id": "17",
+      "section": "CIP-003 Senior Manager Process chunk 17 p6",
+      "sha256": "94719aacd57fdba9b591558ae7160175a33950bfef4536fc37f70aa47827f175",
+      "private_source": true
+    }
+  },
+  "scope": {
+    "applicable_text": "high and medium impact; BCS; ERC; control centers",
+    "conditional_text": "high and medium impact; BCS; ERC; control centers",
+    "derived_scope_note": "derived:corpus stays UNKNOWN until operator-confirmed"
+  },
+  "governing_parts": {
+    "CIP-007-6 R2 Part 2.1": {
+      "ref": "CIP-007-6 R2 Part 2.1"
+    },
+    "CIP-007-6 R2 Part 2.2": {
+      "ref": "CIP-007-6 R2 Part 2.2"
+    },
+    "CIP-007-6 R2 Part 2.3": {
+      "ref": "CIP-007-6 R2 Part 2.3"
+    },
+    "CIP-007-6 R2 Part 2.4": {
+      "ref": "CIP-007-6 R2 Part 2.4"
+    }
+  },
+  "cases": [
+    {
+      "id": "01",
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "requirement_label": "R2.2",
+      "scope": "derived",
+      "boundary": "complete",
+      "mode": "assess",
+      "candidates": [
+        {
+          "label": "A22",
+          "relation": "SAME"
+        },
+        {
+          "label": "B22",
+          "relation": "SAME"
+        },
+        {
+          "label": "V",
+          "relation": "DIFFERENT",
+          "source_function": "OPERATIVE_COMMITMENT"
+        }
+      ],
+      "candidate_order": [
+        "A22",
+        "B22",
+        "V"
+      ],
+      "bindings": {
+        "B22": {
+          "value": 35,
+          "unit": "day",
+          "qualifier": "calendar",
+          "kind": "max_interval",
+          "direction": "max_interval"
+        }
+      },
+      "council": "SUPPORTED",
+      "council_votes": {},
+      "report": {
+        "documentary_coverage": "FULL",
+        "covered": [
+          {
+            "commitment": "operational patch-applicability evaluation with a 35-day cadence",
+            "governing": [
+              "GOV"
+            ],
+            "internal": [
+              "A22",
+              "B22"
+            ]
+          }
+        ],
+        "gaps": [],
+        "uncertainties": [],
+        "boundary_proof_id": ""
+      },
+      "virtual": null,
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "FULL",
+        "coverage": "UNRESOLVED",
+        "substantively_resolved": false,
+        "required_citations": [
+          "A22",
+          "B22"
+        ],
+        "forbidden_citations": [
+          "V"
+        ],
+        "gap_kinds": [],
+        "gap_ids": [],
+        "arithmetic": [
+          {
+            "candidate": "B22",
+            "result": "EQUIVALENT"
+          }
+        ],
+        "missing_scope_declaration": true
+      },
+      "notes": "Real-corpus case: derived scope keeps the public coverage UNRESOLVED while documentary is FULL."
+    },
+    {
+      "id": "02",
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "requirement_label": "R2.2",
+      "scope": "fixture",
+      "boundary": "complete",
+      "mode": "assess",
+      "candidates": [
+        {
+          "label": "A22",
+          "relation": "SAME"
+        },
+        {
+          "label": "B22",
+          "relation": "SAME"
+        },
+        {
+          "label": "V",
+          "relation": "DIFFERENT",
+          "source_function": "OPERATIVE_COMMITMENT"
+        }
+      ],
+      "candidate_order": [
+        "A22",
+        "B22",
+        "V"
+      ],
+      "bindings": {
+        "B22": {
+          "value": 35,
+          "unit": "day",
+          "qualifier": "calendar",
+          "kind": "max_interval",
+          "direction": "max_interval"
+        }
+      },
+      "council": "SUPPORTED",
+      "council_votes": {},
+      "report": {
+        "documentary_coverage": "FULL",
+        "covered": [
+          {
+            "commitment": "patch-applicability evaluation every 35 calendar days",
+            "governing": [
+              "GOV"
+            ],
+            "internal": [
+              "A22",
+              "B22"
+            ]
+          }
+        ],
+        "gaps": [],
+        "uncertainties": [],
+        "boundary_proof_id": ""
+      },
+      "virtual": null,
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "FULL",
+        "coverage": "FULL",
+        "substantively_resolved": true,
+        "required_citations": [
+          "A22",
+          "B22"
+        ],
+        "forbidden_citations": [
+          "V"
+        ],
+        "gap_kinds": [],
+        "gap_ids": [],
+        "arithmetic": [
+          {
+            "candidate": "B22",
+            "result": "EQUIVALENT"
+          }
+        ]
+      },
+      "notes": ""
+    },
+    {
+      "id": "03",
+      "requirement_id": "CIP-007-6 R2 Part 2.4",
+      "requirement_label": "R2.4",
+      "scope": "fixture",
+      "boundary": "complete",
+      "mode": "assess",
+      "candidates": [
+        {
+          "label": "A24",
+          "relation": "SAME"
+        },
+        {
+          "label": "B24",
+          "relation": "SAME"
+        },
+        {
+          "label": "D",
+          "relation": "DIFFERENT",
+          "source_function": "OPERATIVE_COMMITMENT"
+        },
+        {
+          "label": "S",
+          "relation": "DIFFERENT",
+          "source_function": "OPERATIVE_COMMITMENT"
+        }
+      ],
+      "candidate_order": [
+        "A24",
+        "B24",
+        "D",
+        "S"
+      ],
+      "bindings": {},
+      "council": "SUPPORTED",
+      "council_votes": {},
+      "report": {
+        "documentary_coverage": "FULL",
+        "covered": [
+          {
+            "commitment": "mitigation-plan implementation within its timeframe, with authorized approval",
+            "governing": [
+              "GOV"
+            ],
+            "internal": [
+              "A24",
+              "B24"
+            ]
+          }
+        ],
+        "gaps": [],
+        "uncertainties": [],
+        "boundary_proof_id": ""
+      },
+      "virtual": null,
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "FULL",
+        "coverage": "FULL",
+        "substantively_resolved": true,
+        "required_citations": [
+          "A24",
+          "B24"
+        ],
+        "forbidden_citations": [
+          "D",
+          "S"
+        ],
+        "gap_kinds": [],
+        "gap_ids": [],
+        "arithmetic": []
+      },
+      "notes": ""
+    },
+    {
+      "id": "04",
+      "requirement_id": "CIP-007-6 R2 Part 2.4",
+      "requirement_label": "R2.4",
+      "scope": "fixture",
+      "boundary": "complete",
+      "mode": "assess",
+      "candidates": [
+        {
+          "label": "A24",
+          "relation": "SAME"
+        },
+        {
+          "label": "B24",
+          "relation": "SAME"
+        },
+        {
+          "label": "E",
+          "relation": "DIFFERENT",
+          "source_function": "OPERATIVE_COMMITMENT"
+        },
+        {
+          "label": "S",
+          "relation": "DIFFERENT",
+          "source_function": "OPERATIVE_COMMITMENT"
+        }
+      ],
+      "candidate_order": [
+        "A24",
+        "B24",
+        "E",
+        "S"
+      ],
+      "bindings": {},
+      "council": "SUPPORTED",
+      "council_votes": {},
+      "report": {
+        "documentary_coverage": "FULL",
+        "covered": [
+          {
+            "commitment": "mitigation-plan implementation within its timeframe, with authorized approval",
+            "governing": [
+              "GOV"
+            ],
+            "internal": [
+              "A24",
+              "B24"
+            ]
+          }
+        ],
+        "gaps": [],
+        "uncertainties": [],
+        "boundary_proof_id": ""
+      },
+      "virtual": null,
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "FULL",
+        "coverage": "FULL",
+        "substantively_resolved": true,
+        "required_citations": [
+          "A24",
+          "B24"
+        ],
+        "forbidden_citations": [
+          "E",
+          "S"
+        ],
+        "gap_kinds": [],
+        "gap_ids": [],
+        "arithmetic": []
+      },
+      "notes": ""
+    },
+    {
+      "id": "05",
+      "requirement_id": "CIP-007-6 R2 Part 2.4",
+      "requirement_label": "R2.4",
+      "scope": "fixture",
+      "boundary": "complete",
+      "mode": "assess",
+      "candidates": [
+        {
+          "label": "A24",
+          "relation": "SAME"
+        },
+        {
+          "label": "B24",
+          "relation": "SAME"
+        },
+        {
+          "label": "C",
+          "relation": "DIFFERENT",
+          "source_function": "OPERATIVE_COMMITMENT"
+        },
+        {
+          "label": "S",
+          "relation": "DIFFERENT",
+          "source_function": "OPERATIVE_COMMITMENT"
+        }
+      ],
+      "candidate_order": [
+        "A24",
+        "B24",
+        "C",
+        "S"
+      ],
+      "bindings": {},
+      "council": "SUPPORTED",
+      "council_votes": {},
+      "report": {
+        "documentary_coverage": "FULL",
+        "covered": [
+          {
+            "commitment": "mitigation-plan implementation within its timeframe, with authorized approval",
+            "governing": [
+              "GOV"
+            ],
+            "internal": [
+              "A24",
+              "B24"
+            ]
+          }
+        ],
+        "gaps": [],
+        "uncertainties": [],
+        "boundary_proof_id": ""
+      },
+      "virtual": null,
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "FULL",
+        "coverage": "FULL",
+        "substantively_resolved": true,
+        "required_citations": [
+          "A24",
+          "B24"
+        ],
+        "forbidden_citations": [
+          "C",
+          "S"
+        ],
+        "gap_kinds": [],
+        "gap_ids": [],
+        "arithmetic": []
+      },
+      "notes": ""
+    },
+    {
+      "id": "06",
+      "requirement_id": "CIP-007-6 R2 Part 2.4",
+      "requirement_label": "R2.4",
+      "scope": "fixture",
+      "boundary": "complete",
+      "mode": "assess",
+      "candidates": [
+        {
+          "label": "A24",
+          "relation": "SAME"
+        },
+        {
+          "label": "B24",
+          "relation": "SAME"
+        },
+        {
+          "label": "D",
+          "relation": "DIFFERENT",
+          "source_function": "OPERATIVE_COMMITMENT"
+        },
+        {
+          "label": "E",
+          "relation": "DIFFERENT",
+          "source_function": "OPERATIVE_COMMITMENT"
+        },
+        {
+          "label": "S",
+          "relation": "DIFFERENT",
+          "source_function": "OPERATIVE_COMMITMENT"
+        },
+        {
+          "label": "C",
+          "relation": "DIFFERENT",
+          "source_function": "OPERATIVE_COMMITMENT"
+        },
+        {
+          "label": "I",
+          "relation": "DIFFERENT",
+          "source_function": "OPERATIVE_COMMITMENT"
+        }
+      ],
+      "candidate_order": [
+        "A24",
+        "B24",
+        "D",
+        "E",
+        "S",
+        "C",
+        "I"
+      ],
+      "bindings": {},
+      "council": "SUPPORTED",
+      "council_votes": {},
+      "report": {
+        "documentary_coverage": "FULL",
+        "covered": [
+          {
+            "commitment": "mitigation-plan implementation within its timeframe, with authorized approval",
+            "governing": [
+              "GOV"
+            ],
+            "internal": [
+              "A24",
+              "B24"
+            ]
+          }
+        ],
+        "gaps": [],
+        "uncertainties": [],
+        "boundary_proof_id": ""
+      },
+      "virtual": null,
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "FULL",
+        "coverage": "FULL",
+        "substantively_resolved": true,
+        "required_citations": [
+          "A24",
+          "B24"
+        ],
+        "forbidden_citations": [
+          "D",
+          "E",
+          "S",
+          "C",
+          "I"
+        ],
+        "gap_kinds": [],
+        "gap_ids": [],
+        "arithmetic": [],
+        "false_pairs": [
+          "D/C",
+          "D/I",
+          "D/S",
+          "C/I",
+          "C/E",
+          "C/S",
+          "I/E",
+          "E/S"
+        ]
+      },
+      "notes": ""
+    },
+    {
+      "id": "07",
+      "requirement_id": "CIP-007-6 R2 Part 2.1",
+      "requirement_label": "R2.1",
+      "scope": "fixture",
+      "boundary": "complete",
+      "mode": "assess",
+      "candidates": [
+        {
+          "label": "A21",
+          "relation": "SAME"
+        },
+        {
+          "label": "B21",
+          "relation": "SAME"
+        }
+      ],
+      "candidate_order": [
+        "A21",
+        "B21"
+      ],
+      "bindings": {},
+      "council": "SUPPORTED",
+      "council_votes": {},
+      "report": {
+        "documentary_coverage": "FULL",
+        "covered": [
+          {
+            "commitment": "patch management process including tracked release sources",
+            "governing": [
+              "GOV"
+            ],
+            "internal": [
+              "A21",
+              "B21"
+            ]
+          }
+        ],
+        "gaps": [],
+        "uncertainties": [],
+        "boundary_proof_id": ""
+      },
+      "virtual": null,
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "FULL",
+        "coverage": "FULL",
+        "substantively_resolved": true,
+        "required_citations": [
+          "A21",
+          "B21"
+        ],
+        "forbidden_citations": [],
+        "gap_kinds": [],
+        "gap_ids": [],
+        "arithmetic": []
+      },
+      "notes": ""
+    },
+    {
+      "id": "08",
+      "requirement_id": "CIP-007-6 R2 Part 2.1",
+      "requirement_label": "R2.1",
+      "scope": "fixture",
+      "boundary": "complete",
+      "mode": "assess",
+      "candidates": [
+        {
+          "label": "A21",
+          "relation": "SAME"
+        }
+      ],
+      "candidate_order": [
+        "A21"
+      ],
+      "bindings": {},
+      "council": "PARTIAL",
+      "council_votes": {},
+      "report": {
+        "documentary_coverage": "PARTIAL",
+        "covered": [
+          {
+            "commitment": "patch tracking and evaluation process",
+            "governing": [
+              "GOV"
+            ],
+            "internal": [
+              "A21"
+            ]
+          }
+        ],
+        "gaps": [
+          {
+            "gap_id": "g08",
+            "kind": "OMISSION",
+            "missing_commitment": "identify tracked patch-release sources",
+            "governing": [
+              "GOV"
+            ],
+            "counter": [],
+            "boundary_proof_id": ""
+          }
+        ],
+        "uncertainties": [],
+        "boundary_proof_id": ""
+      },
+      "virtual": null,
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "PARTIAL",
+        "coverage": "PARTIAL",
+        "substantively_resolved": true,
+        "required_citations": [
+          "A21"
+        ],
+        "forbidden_citations": [],
+        "gap_kinds": [
+          "OMISSION"
+        ],
+        "gap_ids": [
+          "g08"
+        ],
+        "arithmetic": []
+      },
+      "notes": ""
+    },
+    {
+      "id": "09",
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "requirement_label": "R2.2",
+      "scope": "fixture",
+      "boundary": "complete",
+      "mode": "assess",
+      "candidates": [
+        {
+          "label": "A22",
+          "relation": "SAME"
+        },
+        {
+          "label": "S22",
+          "relation": "SAME"
+        }
+      ],
+      "candidate_order": [
+        "A22",
+        "S22"
+      ],
+      "bindings": {
+        "S22": {
+          "value": 30,
+          "unit": "day",
+          "qualifier": "calendar",
+          "kind": "max_interval",
+          "direction": "max_interval"
+        }
+      },
+      "council": "SUPPORTED",
+      "council_votes": {},
+      "report": {
+        "documentary_coverage": "FULL",
+        "covered": [
+          {
+            "commitment": "patch-applicability evaluation at least every 30 days",
+            "governing": [
+              "GOV"
+            ],
+            "internal": [
+              "A22",
+              "S22"
+            ]
+          }
+        ],
+        "gaps": [],
+        "uncertainties": [],
+        "boundary_proof_id": ""
+      },
+      "virtual": null,
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "FULL",
+        "coverage": "FULL",
+        "substantively_resolved": true,
+        "required_citations": [
+          "A22",
+          "S22"
+        ],
+        "forbidden_citations": [],
+        "gap_kinds": [],
+        "gap_ids": [],
+        "arithmetic": [
+          {
+            "candidate": "S22",
+            "result": "MORE_RESTRICTIVE"
+          }
+        ],
+        "intentional_strictness_advisory_allowed": true
+      },
+      "notes": ""
+    },
+    {
+      "id": "10",
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "requirement_label": "R2.2",
+      "scope": "fixture",
+      "boundary": "complete",
+      "mode": "assess",
+      "candidates": [
+        {
+          "label": "A22",
+          "relation": "SAME"
+        },
+        {
+          "label": "L22",
+          "relation": "SAME"
+        }
+      ],
+      "candidate_order": [
+        "A22",
+        "L22"
+      ],
+      "bindings": {
+        "L22": {
+          "value": 40,
+          "unit": "day",
+          "qualifier": "calendar",
+          "kind": "max_interval",
+          "direction": "max_interval"
+        }
+      },
+      "council": "PARTIAL",
+      "council_votes": {},
+      "report": {
+        "documentary_coverage": "PARTIAL",
+        "covered": [
+          {
+            "commitment": "patch-applicability evaluation of released patches",
+            "governing": [
+              "GOV"
+            ],
+            "internal": [
+              "A22"
+            ]
+          }
+        ],
+        "gaps": [
+          {
+            "gap_id": "g10",
+            "kind": "WEAKER_COMMITMENT",
+            "missing_commitment": "40-day cadence exceeds the 35-day maximum",
+            "governing": [
+              "GOV"
+            ],
+            "counter": [
+              "L22"
+            ],
+            "boundary_proof_id": ""
+          }
+        ],
+        "uncertainties": [],
+        "boundary_proof_id": ""
+      },
+      "virtual": null,
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "PARTIAL",
+        "coverage": "PARTIAL",
+        "substantively_resolved": true,
+        "required_citations": [
+          "A22",
+          "L22"
+        ],
+        "forbidden_citations": [],
+        "gap_kinds": [
+          "WEAKER_COMMITMENT"
+        ],
+        "gap_ids": [
+          "g10"
+        ],
+        "arithmetic": [
+          {
+            "candidate": "L22",
+            "result": "LESS_RESTRICTIVE"
+          }
+        ]
+      },
+      "notes": ""
+    },
+    {
+      "id": "11",
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "requirement_label": "R2.2",
+      "scope": "fixture",
+      "boundary": "complete",
+      "mode": "assess",
+      "candidates": [
+        {
+          "label": "PAR22",
+          "relation": "SAME"
+        }
+      ],
+      "candidate_order": [
+        "PAR22"
+      ],
+      "bindings": {
+        "PAR22": {
+          "value": 35,
+          "unit": "day",
+          "qualifier": "calendar",
+          "kind": "max_interval",
+          "direction": "max_interval"
+        }
+      },
+      "council": "SUPPORTED",
+      "council_votes": {},
+      "report": {
+        "documentary_coverage": "FULL",
+        "covered": [
+          {
+            "commitment": "determine applicability of newly released fixes, no more than 35 days apart",
+            "governing": [
+              "GOV"
+            ],
+            "internal": [
+              "PAR22"
+            ]
+          }
+        ],
+        "gaps": [],
+        "uncertainties": [],
+        "boundary_proof_id": ""
+      },
+      "virtual": null,
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "FULL",
+        "coverage": "FULL",
+        "substantively_resolved": true,
+        "required_citations": [
+          "PAR22"
+        ],
+        "forbidden_citations": [],
+        "gap_kinds": [],
+        "gap_ids": [],
+        "arithmetic": [
+          {
+            "candidate": "PAR22",
+            "result": "EQUIVALENT"
+          }
+        ]
+      },
+      "notes": ""
+    },
+    {
+      "id": "12",
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "requirement_label": "R2.2",
+      "scope": "fixture",
+      "boundary": "complete",
+      "mode": "assess",
+      "candidates": [
+        {
+          "label": "V",
+          "relation": "DIFFERENT",
+          "source_function": "OPERATIVE_COMMITMENT"
+        }
+      ],
+      "candidate_order": [
+        "V"
+      ],
+      "bindings": {},
+      "council": "ABSENT",
+      "council_votes": {},
+      "report": {
+        "documentary_coverage": "NONE",
+        "covered": [],
+        "gaps": [
+          {
+            "gap_id": "g12",
+            "kind": "OMISSION",
+            "missing_commitment": "patch-applicability evaluation and its 35-day cadence",
+            "governing": [
+              "GOV"
+            ],
+            "counter": [],
+            "boundary_proof_id": "bp-12"
+          }
+        ],
+        "uncertainties": [],
+        "boundary_proof_id": ""
+      },
+      "virtual": null,
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "NONE",
+        "coverage": "NONE",
+        "substantively_resolved": true,
+        "required_citations": [],
+        "forbidden_citations": [
+          "V"
+        ],
+        "gap_kinds": [
+          "OMISSION"
+        ],
+        "gap_ids": [
+          "g12"
+        ],
+        "arithmetic": [],
+        "no_v_arithmetic": true
+      },
+      "notes": ""
+    },
+    {
+      "id": "13",
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "requirement_label": "R2.2",
+      "scope": "fixture",
+      "boundary": "partial",
+      "mode": "assess",
+      "candidates": [
+        {
+          "label": "V",
+          "relation": "DIFFERENT",
+          "source_function": "OPERATIVE_COMMITMENT"
+        }
+      ],
+      "candidate_order": [
+        "V"
+      ],
+      "bindings": {},
+      "council": "ABSENT",
+      "council_votes": {},
+      "report": {
+        "documentary_coverage": "NONE",
+        "covered": [],
+        "gaps": [
+          {
+            "gap_id": "g13",
+            "kind": "OMISSION",
+            "missing_commitment": "patch-applicability evaluation and its 35-day cadence",
+            "governing": [
+              "GOV"
+            ],
+            "counter": [],
+            "boundary_proof_id": ""
+          }
+        ],
+        "uncertainties": [],
+        "boundary_proof_id": ""
+      },
+      "virtual": null,
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "UNRESOLVED",
+        "coverage": "UNRESOLVED",
+        "substantively_resolved": false,
+        "required_citations": [],
+        "forbidden_citations": [],
+        "gap_kinds": [],
+        "gap_ids": [],
+        "arithmetic": [],
+        "expected_code": "U04_RETRIEVAL_INCOMPLETE"
+      },
+      "notes": "Incomplete top-k boundary cannot prove absence; the spec requires U04 (production maps the invalid report to U11)."
+    },
+    {
+      "id": "14",
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "requirement_label": "R2.2",
+      "scope": "fixture",
+      "boundary": "complete",
+      "mode": "assess",
+      "candidates": [
+        {
+          "label": "TOC22",
+          "relation": "DIFFERENT",
+          "source_function": "CONTENTS"
+        }
+      ],
+      "candidate_order": [
+        "TOC22"
+      ],
+      "bindings": {},
+      "council": "ABSENT",
+      "council_votes": {},
+      "report": {
+        "documentary_coverage": "NONE",
+        "covered": [],
+        "gaps": [
+          {
+            "gap_id": "g14",
+            "kind": "OMISSION",
+            "missing_commitment": "patch-applicability evaluation and its 35-day cadence",
+            "governing": [
+              "GOV"
+            ],
+            "counter": [],
+            "boundary_proof_id": "bp-14"
+          }
+        ],
+        "uncertainties": [],
+        "boundary_proof_id": ""
+      },
+      "virtual": null,
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "NONE",
+        "coverage": "NONE",
+        "substantively_resolved": true,
+        "required_citations": [],
+        "forbidden_citations": [
+          "TOC22"
+        ],
+        "gap_kinds": [
+          "OMISSION"
+        ],
+        "gap_ids": [
+          "g14"
+        ],
+        "arithmetic": [],
+        "no_v_arithmetic": true
+      },
+      "notes": ""
+    },
+    {
+      "id": "15",
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "requirement_label": "R2.2",
+      "scope": "fixture",
+      "boundary": "complete",
+      "mode": "assess",
+      "candidates": [
+        {
+          "label": "A22",
+          "relation": "SAME"
+        },
+        {
+          "label": "M22",
+          "relation": "SAME"
+        }
+      ],
+      "candidate_order": [
+        "A22",
+        "M22"
+      ],
+      "bindings": {
+        "M22": {
+          "value": 1,
+          "unit": "month",
+          "qualifier": "calendar",
+          "kind": "max_interval",
+          "direction": "max_interval"
+        }
+      },
+      "council": "SUPPORTED",
+      "council_votes": {},
+      "report": {
+        "documentary_coverage": "UNRESOLVED",
+        "covered": [],
+        "gaps": [],
+        "uncertainties": [],
+        "boundary_proof_id": ""
+      },
+      "virtual": null,
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "UNRESOLVED",
+        "coverage": "UNRESOLVED",
+        "substantively_resolved": false,
+        "required_citations": [
+          "A22"
+        ],
+        "forbidden_citations": [],
+        "gap_kinds": [],
+        "gap_ids": [],
+        "arithmetic": [
+          {
+            "candidate": "M22",
+            "result": "INCOMPARABLE"
+          }
+        ],
+        "expected_code": "U12_CONSTRAINT_INCOMPARABLE"
+      },
+      "notes": "Month/day binding is INCOMPARABLE; spec requires U12 and no PARTIAL (production maps the unresolved report to U11)."
+    },
+    {
+      "id": "16",
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "requirement_label": "R2.2",
+      "scope": "fixture",
+      "boundary": "complete",
+      "mode": "assess",
+      "candidates": [
+        {
+          "label": "A22",
+          "relation": "SAME"
+        },
+        {
+          "label": "B22",
+          "relation": "SAME"
+        },
+        {
+          "label": "L22",
+          "relation": "SAME"
+        }
+      ],
+      "candidate_order": [
+        "A22",
+        "B22",
+        "L22"
+      ],
+      "bindings": {},
+      "council": "ESCALATE",
+      "council_votes": {
+        "m1": "SUPPORTED",
+        "m2": "PARTIAL",
+        "m3": "CONTRADICTED"
+      },
+      "report": null,
+      "virtual": null,
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "NEEDS_REVIEW",
+        "coverage": "NEEDS_REVIEW",
+        "substantively_resolved": false,
+        "required_citations": [],
+        "forbidden_citations": [],
+        "gap_kinds": [],
+        "gap_ids": [],
+        "not_full_or_partial": true
+      },
+      "notes": "Equally current conflicting procedures and no authority resolution."
+    },
+    {
+      "id": "17",
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "requirement_label": "R2.2",
+      "scope": "fixture",
+      "boundary": "complete",
+      "mode": "assess",
+      "candidates": [
+        {
+          "label": "CROSS22",
+          "relation": "SAME"
+        }
+      ],
+      "candidate_order": [
+        "CROSS22"
+      ],
+      "bindings": {
+        "CROSS22": {
+          "value": 35,
+          "unit": "day",
+          "qualifier": "calendar",
+          "kind": "max_interval",
+          "direction": "max_interval"
+        }
+      },
+      "council": "SUPPORTED",
+      "council_votes": {},
+      "report": {
+        "documentary_coverage": "FULL",
+        "covered": [
+          {
+            "commitment": "patch-applicability evaluation every 35 calendar days",
+            "governing": [
+              "GOV"
+            ],
+            "internal": [
+              "CROSS22"
+            ]
+          }
+        ],
+        "gaps": [],
+        "uncertainties": [],
+        "boundary_proof_id": ""
+      },
+      "virtual": null,
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "FULL",
+        "coverage": "FULL",
+        "substantively_resolved": true,
+        "required_citations": [
+          "CROSS22"
+        ],
+        "forbidden_citations": [],
+        "gap_kinds": [],
+        "gap_ids": [],
+        "arithmetic": [
+          {
+            "candidate": "CROSS22",
+            "result": "EQUIVALENT"
+          }
+        ]
+      },
+      "notes": ""
+    },
+    {
+      "id": "18",
+      "requirement_id": "CIP-007-6 R2 Part 2.3",
+      "requirement_label": "R2.3",
+      "scope": "fixture",
+      "boundary": "complete",
+      "mode": "assess",
+      "candidates": [
+        {
+          "label": "A23",
+          "relation": "SAME"
+        },
+        {
+          "label": "B23",
+          "relation": "SAME"
+        }
+      ],
+      "candidate_order": [
+        "A23",
+        "B23"
+      ],
+      "bindings": {
+        "A23": {
+          "value": 35,
+          "unit": "day",
+          "qualifier": "calendar",
+          "kind": "max_interval",
+          "direction": "max_interval"
+        }
+      },
+      "council": "SUPPORTED",
+      "council_votes": {},
+      "report": {
+        "documentary_coverage": "FULL",
+        "covered": [
+          {
+            "commitment": "apply/create/revise within 35 days, with mandatory mitigation-plan content",
+            "governing": [
+              "GOV"
+            ],
+            "internal": [
+              "A23",
+              "B23"
+            ]
+          }
+        ],
+        "gaps": [],
+        "uncertainties": [],
+        "boundary_proof_id": ""
+      },
+      "virtual": null,
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "FULL",
+        "coverage": "FULL",
+        "substantively_resolved": true,
+        "required_citations": [
+          "A23",
+          "B23"
+        ],
+        "forbidden_citations": [],
+        "gap_kinds": [],
+        "gap_ids": [],
+        "arithmetic": [
+          {
+            "candidate": "A23",
+            "result": "EQUIVALENT"
+          }
+        ]
+      },
+      "notes": ""
+    },
+    {
+      "id": "19",
+      "requirement_id": "CIP-007-6 R2 Part 2.3",
+      "requirement_label": "R2.3",
+      "scope": "fixture",
+      "boundary": "complete",
+      "mode": "assess",
+      "candidates": [
+        {
+          "label": "A23",
+          "relation": "SAME"
+        },
+        {
+          "label": "L23",
+          "relation": "SAME"
+        }
+      ],
+      "candidate_order": [
+        "A23",
+        "L23"
+      ],
+      "bindings": {
+        "A23": {
+          "value": 35,
+          "unit": "day",
+          "qualifier": "calendar",
+          "kind": "max_interval",
+          "direction": "max_interval"
+        }
+      },
+      "council": "PARTIAL",
+      "council_votes": {},
+      "report": {
+        "documentary_coverage": "PARTIAL",
+        "covered": [
+          {
+            "commitment": "apply/create/revise within 35 days",
+            "governing": [
+              "GOV"
+            ],
+            "internal": [
+              "A23"
+            ]
+          }
+        ],
+        "gaps": [
+          {
+            "gap_id": "g19",
+            "kind": "WEAKER_COMMITMENT",
+            "missing_commitment": "mandatory mitigation completion timeframe made optional",
+            "governing": [
+              "GOV"
+            ],
+            "counter": [
+              "L23"
+            ],
+            "boundary_proof_id": ""
+          }
+        ],
+        "uncertainties": [],
+        "boundary_proof_id": ""
+      },
+      "virtual": null,
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "PARTIAL",
+        "coverage": "PARTIAL",
+        "substantively_resolved": true,
+        "required_citations": [
+          "A23",
+          "L23"
+        ],
+        "forbidden_citations": [],
+        "gap_kinds": [
+          "WEAKER_COMMITMENT"
+        ],
+        "gap_ids": [
+          "g19"
+        ],
+        "arithmetic": [
+          {
+            "candidate": "A23",
+            "result": "EQUIVALENT"
+          }
+        ]
+      },
+      "notes": ""
+    },
+    {
+      "id": "20",
+      "requirement_id": "CIP-007-6 R2 Part 2.4",
+      "requirement_label": "R2.4",
+      "scope": "fixture",
+      "boundary": "complete",
+      "mode": "assess",
+      "candidates": [
+        {
+          "label": "A24",
+          "relation": "SAME"
+        },
+        {
+          "label": "L24",
+          "relation": "SAME"
+        }
+      ],
+      "candidate_order": [
+        "A24",
+        "L24"
+      ],
+      "bindings": {},
+      "council": "PARTIAL",
+      "council_votes": {},
+      "report": {
+        "documentary_coverage": "PARTIAL",
+        "covered": [
+          {
+            "commitment": "implement the mitigation plan within its timeframe",
+            "governing": [
+              "GOV"
+            ],
+            "internal": [
+              "A24"
+            ]
+          }
+        ],
+        "gaps": [
+          {
+            "gap_id": "g20",
+            "kind": "CONTRADICTION",
+            "missing_commitment": "unapproved implementation-timeframe extensions permitted",
+            "governing": [
+              "GOV"
+            ],
+            "counter": [
+              "L24"
+            ],
+            "boundary_proof_id": ""
+          }
+        ],
+        "uncertainties": [],
+        "boundary_proof_id": ""
+      },
+      "virtual": null,
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "PARTIAL",
+        "coverage": "PARTIAL",
+        "substantively_resolved": true,
+        "required_citations": [
+          "A24",
+          "L24"
+        ],
+        "forbidden_citations": [],
+        "gap_kinds": [
+          "CONTRADICTION"
+        ],
+        "gap_ids": [
+          "g20"
+        ],
+        "arithmetic": [],
+        "governing_preservation": true
+      },
+      "notes": ""
+    },
+    {
+      "id": "21",
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "requirement_label": "R2.2",
+      "scope": "fixture",
+      "boundary": "complete",
+      "mode": "missing_governing",
+      "candidates": [
+        {
+          "label": "A22",
+          "relation": "SAME"
+        },
+        {
+          "label": "B22",
+          "relation": "SAME"
+        }
+      ],
+      "candidate_order": [
+        "A22",
+        "B22"
+      ],
+      "bindings": {},
+      "council": "",
+      "council_votes": {},
+      "report": null,
+      "virtual": null,
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "UNRESOLVED",
+        "coverage": "UNRESOLVED",
+        "substantively_resolved": false,
+        "required_citations": [],
+        "forbidden_citations": [],
+        "gap_kinds": [],
+        "gap_ids": [],
+        "arithmetic": [],
+        "expected_code": "U02_MISSING_GOVERNING_SOURCE"
+      },
+      "notes": ""
+    },
+    {
+      "id": "22",
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "requirement_label": "R2.2",
+      "scope": "fixture",
+      "boundary": "complete",
+      "mode": "hash_mismatch",
+      "candidates": [
+        {
+          "label": "A22",
+          "relation": "SAME"
+        },
+        {
+          "label": "B22",
+          "relation": "SAME"
+        }
+      ],
+      "candidate_order": [
+        "A22",
+        "B22"
+      ],
+      "bindings": {},
+      "council": "SUPPORTED",
+      "council_votes": {},
+      "report": {
+        "documentary_coverage": "FULL",
+        "covered": [
+          {
+            "commitment": "patch-applicability evaluation every 35 calendar days",
+            "governing": [
+              "GOV"
+            ],
+            "internal": [
+              "A22",
+              "B22"
+            ]
+          }
+        ],
+        "gaps": [],
+        "uncertainties": [],
+        "boundary_proof_id": ""
+      },
+      "virtual": null,
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "UNRESOLVED",
+        "coverage": "UNRESOLVED",
+        "substantively_resolved": false,
+        "required_citations": [],
+        "forbidden_citations": [],
+        "gap_kinds": [],
+        "gap_ids": [],
+        "arithmetic": [],
+        "expected_code": "U03_EXTRACTION_FAILED"
+      },
+      "notes": "No new-path hash verification emits U03; spec requires U03 with the B22 location/hash failure."
+    },
+    {
+      "id": "23",
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "requirement_label": "R2.2",
+      "scope": "fixture",
+      "boundary": "complete",
+      "mode": "council_invalid",
+      "candidates": [
+        {
+          "label": "A22",
+          "relation": "SAME"
+        },
+        {
+          "label": "B22",
+          "relation": "SAME"
+        }
+      ],
+      "candidate_order": [
+        "A22",
+        "B22"
+      ],
+      "bindings": {},
+      "council": "",
+      "council_votes": {},
+      "report": null,
+      "virtual": null,
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "UNRESOLVED",
+        "coverage": "UNRESOLVED",
+        "substantively_resolved": false,
+        "required_citations": [],
+        "forbidden_citations": [],
+        "gap_kinds": [],
+        "gap_ids": [],
+        "arithmetic": [],
+        "expected_code": "U10_COUNCIL_UNRESOLVED"
+      },
+      "notes": "No quorum maps to ESCALATE/NEEDS_REVIEW in the current council; spec requires U10."
+    },
+    {
+      "id": "24",
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "requirement_label": "R2.2",
+      "scope": "fixture",
+      "boundary": "complete",
+      "mode": "alignment_invalid",
+      "candidates": [
+        {
+          "label": "A22",
+          "relation": "SAME"
+        },
+        {
+          "label": "B22",
+          "relation": "SAME"
+        }
+      ],
+      "candidate_order": [
+        "A22",
+        "B22"
+      ],
+      "bindings": {},
+      "council": "",
+      "council_votes": {},
+      "report": null,
+      "virtual": null,
+      "alignment_invalid": true,
+      "expected": {
+        "documentary_coverage": "UNRESOLVED",
+        "coverage": "UNRESOLVED",
+        "substantively_resolved": false,
+        "required_citations": [],
+        "forbidden_citations": [],
+        "gap_kinds": [],
+        "gap_ids": [],
+        "arithmetic": [],
+        "expected_code": "U09_SEMANTIC_ALIGNMENT_UNKNOWN"
+      },
+      "notes": ""
+    },
+    {
+      "id": "25",
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "requirement_label": "R2.2",
+      "scope": "fixture",
+      "boundary": "complete",
+      "mode": "proposal_validate",
+      "candidates": [
+        {
+          "label": "A22",
+          "relation": "SAME"
+        },
+        {
+          "label": "L22",
+          "relation": "SAME"
+        }
+      ],
+      "candidate_order": [
+        "A22",
+        "L22"
+      ],
+      "bindings": {
+        "L22": {
+          "value": 40,
+          "unit": "day",
+          "qualifier": "calendar",
+          "kind": "max_interval",
+          "direction": "max_interval"
+        }
+      },
+      "council": "PARTIAL",
+      "council_votes": {},
+      "report": {
+        "documentary_coverage": "PARTIAL",
+        "covered": [
+          {
+            "commitment": "patch-applicability evaluation of released patches",
+            "governing": [
+              "GOV"
+            ],
+            "internal": [
+              "A22"
+            ]
+          }
+        ],
+        "gaps": [
+          {
+            "gap_id": "g10",
+            "kind": "WEAKER_COMMITMENT",
+            "missing_commitment": "40-day cadence exceeds the 35-day maximum",
+            "governing": [
+              "GOV"
+            ],
+            "counter": [
+              "L22"
+            ],
+            "boundary_proof_id": ""
+          }
+        ],
+        "uncertainties": [],
+        "boundary_proof_id": ""
+      },
+      "virtual": {
+        "candidates": [
+          {
+            "label": "A22",
+            "relation": "SAME"
+          },
+          {
+            "label": "L22:proposed",
+            "relation": "SAME"
+          }
+        ],
+        "council": "SUPPORTED",
+        "report": {
+          "documentary_coverage": "FULL",
+          "covered": [
+            {
+              "commitment": "patch-applicability evaluation every 35 calendar days",
+              "governing": [
+                "GOV"
+              ],
+              "internal": [
+                "A22",
+                "L22:proposed"
+              ]
+            }
+          ],
+          "gaps": [],
+          "uncertainties": [],
+          "boundary_proof_id": ""
+        },
+        "replacement_text": "SMEs shall complete that patch-applicability evaluation at least once every 35 calendar days.",
+        "target": "L22"
+      },
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "PARTIAL",
+        "coverage": "PARTIAL",
+        "substantively_resolved": true,
+        "required_citations": [
+          "A22",
+          "L22"
+        ],
+        "forbidden_citations": [],
+        "gap_kinds": [
+          "WEAKER_COMMITMENT"
+        ],
+        "gap_ids": [
+          "g10"
+        ],
+        "arithmetic": [
+          {
+            "candidate": "L22",
+            "result": "LESS_RESTRICTIVE"
+          }
+        ],
+        "proposal_status": "VALIDATED",
+        "virtual_coverage": "FULL"
+      },
+      "notes": ""
+    },
+    {
+      "id": "26",
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "requirement_label": "R2.2",
+      "scope": "fixture",
+      "boundary": "complete",
+      "mode": "proposal_fail",
+      "candidates": [
+        {
+          "label": "A22",
+          "relation": "SAME"
+        },
+        {
+          "label": "L22",
+          "relation": "SAME"
+        }
+      ],
+      "candidate_order": [
+        "A22",
+        "L22"
+      ],
+      "bindings": {
+        "L22": {
+          "value": 40,
+          "unit": "day",
+          "qualifier": "calendar",
+          "kind": "max_interval",
+          "direction": "max_interval"
+        }
+      },
+      "council": "PARTIAL",
+      "council_votes": {},
+      "report": {
+        "documentary_coverage": "PARTIAL",
+        "covered": [
+          {
+            "commitment": "patch-applicability evaluation of released patches",
+            "governing": [
+              "GOV"
+            ],
+            "internal": [
+              "A22"
+            ]
+          }
+        ],
+        "gaps": [
+          {
+            "gap_id": "g10",
+            "kind": "WEAKER_COMMITMENT",
+            "missing_commitment": "40-day cadence exceeds the 35-day maximum",
+            "governing": [
+              "GOV"
+            ],
+            "counter": [
+              "L22"
+            ],
+            "boundary_proof_id": ""
+          }
+        ],
+        "uncertainties": [],
+        "boundary_proof_id": ""
+      },
+      "virtual": {
+        "candidates": [
+          {
+            "label": "A22",
+            "relation": "SAME"
+          },
+          {
+            "label": "L22",
+            "relation": "SAME"
+          },
+          {
+            "label": "L22#proposed-0",
+            "relation": "SAME"
+          }
+        ],
+        "council": "PARTIAL",
+        "report": {
+          "documentary_coverage": "PARTIAL",
+          "covered": [
+            {
+              "commitment": "patch-applicability evaluation of released patches",
+              "governing": [
+                "GOV"
+              ],
+              "internal": [
+                "A22"
+              ]
+            }
+          ],
+          "gaps": [
+            {
+              "gap_id": "g10",
+              "kind": "WEAKER_COMMITMENT",
+              "missing_commitment": "40-day cadence exceeds the 35-day maximum",
+              "governing": [
+                "GOV"
+              ],
+              "counter": [
+                "L22"
+              ],
+              "boundary_proof_id": ""
+            }
+          ],
+          "uncertainties": [],
+          "boundary_proof_id": ""
+        },
+        "replacement_text": "SMEs shall complete that patch-applicability evaluation once every 40 calendar days; this is the only required evaluation cadence.",
+        "target": "L22"
+      },
+      "alignment_invalid": false,
+      "expected": {
+        "documentary_coverage": "PARTIAL",
+        "coverage": "PARTIAL",
+        "substantively_resolved": true,
+        "required_citations": [
+          "A22",
+          "L22"
+        ],
+        "forbidden_citations": [],
+        "gap_kinds": [
+          "WEAKER_COMMITMENT"
+        ],
+        "gap_ids": [
+          "g10"
+        ],
+        "arithmetic": [
+          {
+            "candidate": "L22",
+            "result": "LESS_RESTRICTIVE"
+          }
+        ],
+        "proposal_status": "FAILED_VALIDATION",
+        "closes_fields": [],
+        "virtual_coverage": "PARTIAL"
+      },
+      "notes": ""
+    }
+  ],
+  "qualification_controls": [
+    {
+      "id": "H1",
+      "left": "Review the supply-chain risk management plan every 15 calendar months",
+      "right": "Review the supply-chain risk management plan every 18 calendar months",
+      "expected_relation": "SAME",
+      "note": "same duty, different constraints; the weaker cadence stays SAME"
+    },
+    {
+      "id": "H2",
+      "left": "Evaluate patches for applicability every 30 calendar days",
+      "right": "Update delegation records within 30 calendar days after a delegate changes",
+      "expected_relation": "DIFFERENT",
+      "note": "equal quantities do not make two different duties comparable"
+    },
+    {
+      "id": "H3",
+      "left": "SMEs shall evaluate for applicability all security patches released since the previous evaluation by every source identified in our Part 2.1 patch-source inventory. SMEs shall complete that patch-applicability evaluation at least once every 35 calendar days.",
+      "right": "SMEs shall evaluate for applicability all security patches released since the previous evaluation by every source identified in our Part 2.1 patch-source inventory. SMEs shall complete that patch-applicability evaluation at least once every 35 calendar days.",
+      "expected_relation": "SAME",
+      "note": "exact A22+B22 in two differently named/foldered documents stays SAME"
+    },
+    {
+      "id": "H4",
+      "fixture": "02",
+      "metadata": {
+        "approval_date": "2026-07-10",
+        "effective_date": "2026-07-10"
+      },
+      "expected_documentary_coverage": "FULL",
+      "expected_gap_kinds": [],
+      "note": "an approval date alone never produces OUTDATED_LANGUAGE"
+    }
+  ],
+  "architecture_contracts": [
+    {
+      "id": "A01",
+      "name": "route parity",
+      "cases": [
+        "02",
+        "10"
+      ]
+    },
+    {
+      "id": "A02",
+      "name": "governing preservation",
+      "cases": [
+        "20"
+      ]
+    },
+    {
+      "id": "A03",
+      "name": "replacement consistency",
+      "cases": [
+        "10"
+      ]
+    },
+    {
+      "id": "A04",
+      "name": "no self-certified draft",
+      "cases": [
+        "26"
+      ]
+    },
+    {
+      "id": "A05",
+      "name": "scope parity",
+      "cases": [
+        "02"
+      ]
+    },
+    {
+      "id": "A06",
+      "name": "source selection integrity",
+      "cases": [
+        "02"
+      ]
+    },
+    {
+      "id": "A07",
+      "name": "run-specific provenance",
+      "cases": [
+        "02",
+        "10"
+      ]
+    },
+    {
+      "id": "A08",
+      "name": "asynchronous execution",
+      "cases": [
+        "02",
+        "10"
+      ]
+    },
+    {
+      "id": "A09",
+      "name": "absence receipts",
+      "cases": [
+        "12",
+        "13"
+      ]
+    },
+    {
+      "id": "A10",
+      "name": "qualification controls",
+      "cases": [
+        "H1",
+        "H2",
+        "H3",
+        "H4"
+      ]
+    },
+    {
+      "id": "A11",
+      "name": "dependent annotation invalidation",
+      "cases": [
+        "20"
+      ]
+    }
+  ]
+}

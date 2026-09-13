@@ -24,11 +24,25 @@ The gate always runs before the council (Y08).
 
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from portal.modules.compliance.core.applicability import AssetScope, applicability_state
-from portal.modules.compliance.core.constraints import Quantity, compare_constraint
+from portal.modules.compliance.core.constraints import (
+    CONSTRAINT_KINDS,
+    Quantity,
+    compare_constraint,
+)
+from portal.modules.compliance.core.determination import (
+    AlignmentRecord,
+    AlignmentResult,
+    AssessmentContext,
+    AssessmentRequest,
+    CandidateRecord,
+    ConstraintBinding,
+    GoverningBundle,
+)
 from portal.modules.compliance.core.policy_graph import PolicyGraph
 from portal.modules.compliance.core.vocabulary_bridge import PolicyVocabulary, align_actor
 
@@ -69,6 +83,12 @@ class GateResult:
     candidates: list[CandidateAssessment] = field(default_factory=list)
     backstop_surplus: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    # ── aligned-gate additions (reading architecture §4) ────────────────────
+    excluded: list[dict[str, Any]] = field(default_factory=list)
+    unknowns: list[dict[str, Any]] = field(default_factory=list)
+    binding_outcomes: list[dict[str, Any]] = field(default_factory=list)
+    acquisition_completeness: str = "UNKNOWN"
+    governing_fingerprint: str = ""
 
     def to_council_packet(self) -> dict[str, Any]:
         """The structured-JSON packet the council seat receives — a
@@ -80,6 +100,11 @@ class GateResult:
             "exception_clauses": self.exception_clauses,
             "candidates": [asdict(c) for c in self.candidates],
             "backstop_surplus": self.backstop_surplus,
+            "excluded": self.excluded,
+            "unknowns": self.unknowns,
+            "binding_outcomes": self.binding_outcomes,
+            "acquisition_completeness": self.acquisition_completeness,
+            "governing_fingerprint": self.governing_fingerprint,
         }
 
 
@@ -231,3 +256,376 @@ def run_gate(
         backstop_surplus=[c.get("commitment_id", "") for c in backstop],
         notes=notes,
     )
+
+
+# ── aligned gate (reading architecture §4) ──────────────────────────────────
+# The aligned gate consumes an already prepared AlignmentResult and the pinned
+# candidate set. Semantic selection happened in obligation_alignment; this
+# module only assembles the authoritative packet and runs the reviewed
+# arithmetic over model-selected, source-verified operands. It never picks a
+# candidate by word overlap, folder, candidate order or first number.
+
+_BINDING_UNITS = ("hour", "day", "week", "month", "year")
+_EXCLUDED_FUNCTIONS = ("DEFINITION", "AUTHORITY_RECORD", "CROSS_REFERENCE_TABLE", "CONTENTS")
+_ACTOR_PATTERNS = (
+    re.compile(r"\bResponsible Entity\b", re.I),
+    re.compile(
+        r"\b(?:each|the)\s+([A-Z][A-Za-z0-9&'\- ]{2,60}?)\s+"
+        r"(?:shall|must|will|is required to)\b"
+    ),
+)
+_APPROVER_PATTERN = re.compile(
+    r"approved\s+by\s+(?:the\s+)?([A-Z][A-Za-z0-9&'\- ]+?)"
+    r"(?:\s+or\s+(?:their\s+)?delegate|\s*[.,;]|\s*$)"
+)
+_VOCAB_CACHE: list[Any] = []
+
+
+def compare_aligned(binding: ConstraintBinding, link: AlignmentRecord) -> tuple[str, str]:
+    """Deterministic arithmetic over one source-verified SAME binding.
+
+    Rejects any operand that is not carried by a SAME link whose population is
+    not DISJOINT, then defers to the reviewed ``compare_constraint``. An
+    INCOMPARABLE result is uncertainty, never a contradiction."""
+    if link.relation != "SAME":
+        return "INCOMPARABLE", f"link relation is {link.relation}, not source-verified SAME"
+    if link.population_overlap == "DISJOINT":
+        return "INCOMPARABLE", "populations are disjoint — different obligations, no arithmetic"
+    if binding.link_id != link.link_id:
+        return "INCOMPARABLE", "binding link_id does not match the alignment record"
+    if binding.governing_slice_id not in link.governing_slice_ids:
+        return "INCOMPARABLE", "governing operand is not a cited slice of the SAME link"
+    if binding.candidate_slice_id not in link.candidate_slice_ids:
+        return "INCOMPARABLE", "candidate operand is not a cited slice of the SAME link"
+    governing = _binding_quantity(binding.governing_quantity)
+    internal = _binding_quantity(binding.internal_quantity)
+    if governing is None or internal is None:
+        return "INCOMPARABLE", "one or both bound quantities is missing or ill-formed"
+    if binding.constraint_kind not in CONSTRAINT_KINDS:
+        return "INCOMPARABLE", f"unknown constraint kind {binding.constraint_kind!r}"
+    return compare_constraint(binding.constraint_kind, governing, internal)
+
+
+def run_aligned_gate(
+    request: AssessmentRequest,
+    alignment: AlignmentResult,
+    context: AssessmentContext,
+) -> GateResult:
+    """Assemble the council packet from the authoritative Part and alignment."""
+    governing = request.governing
+    governing_ref = (governing.ref if governing else "") or request.requirement_id
+    scope = request.scope if request.scope is not None else AssetScope()
+    applic, reason = applicability_state(_applicable_systems_text(governing), scope)
+    subject = _derive_actor(governing)
+    pairs = [
+        (record, binding)
+        for record in alignment.records
+        if record.relation == "SAME"
+        for binding in record.constraint_bindings
+    ]
+    if applic == "DOES_NOT_APPLY":
+        return GateResult(
+            actor_cu_id=governing_ref,
+            applicability=applic,
+            applicability_reason=reason,
+            gated_out=True,
+            cu=_governing_cu(governing, governing_ref, subject, None),
+            reference_closure=[],
+            exception_clauses=_exception_clauses(governing),
+            notes=["gated out before judgment — never scored ABSENT (task §1.2)"],
+            acquisition_completeness=_completeness(request),
+            governing_fingerprint=governing.fingerprint if governing else "",
+        )
+
+    scalar = _scalar_results(pairs)
+    quantities = [b.governing_quantity for _, b in pairs]
+    single_quantity = quantities[0] if len(pairs) == 1 else None
+    candidates, excluded, unknowns = _aligned_candidates(
+        alignment, request.candidate_set, subject, scalar
+    )
+    outcomes = _binding_results(pairs)
+    notes = _aligned_notes(alignment, excluded, unknowns, applic)
+    return GateResult(
+        actor_cu_id=governing_ref,
+        applicability=applic,
+        applicability_reason=reason,
+        gated_out=False,
+        cu=_governing_cu(governing, governing_ref, subject, single_quantity),
+        reference_closure=_reference_closure(governing),
+        exception_clauses=_exception_clauses(governing),
+        candidates=candidates,
+        backstop_surplus=[],
+        notes=notes,
+        excluded=excluded,
+        unknowns=unknowns,
+        binding_outcomes=outcomes,
+        acquisition_completeness=_completeness(request),
+        governing_fingerprint=governing.fingerprint if governing else "",
+    )
+
+
+def _aligned_candidates(
+    alignment: AlignmentResult,
+    candidate_set: Any,
+    subject: str,
+    scalar: dict[str, tuple[str, str]],
+) -> tuple[list[CandidateAssessment], list[dict[str, Any]], list[dict[str, Any]]]:
+    candidates: list[CandidateAssessment] = []
+    excluded: list[dict[str, Any]] = []
+    unknowns: list[dict[str, Any]] = []
+    for record in alignment.records:
+        if _substantive(record):
+            candidates.append(_build_aligned_candidate(record, candidate_set, subject, scalar))
+            continue
+        entry = _trace_entry(record)
+        excluded.append(entry)
+        if record.relation == "UNKNOWN":
+            unknowns.append(entry)
+    return candidates, excluded, unknowns
+
+
+def _build_aligned_candidate(
+    record: AlignmentRecord,
+    candidate_set: Any,
+    subject: str,
+    scalar: dict[str, tuple[str, str]],
+) -> CandidateAssessment:
+    candidate: CandidateRecord | None = (
+        candidate_set.by_id(record.candidate_ref) if candidate_set else None
+    )
+    text = candidate.text if candidate else ""
+    aligned, note = _actor_alignment_note(text, subject)
+    outcome, quantity_note = scalar.get(record.candidate_ref, ("", ""))
+    doc_name = (candidate.document_id if candidate else "") or record.document_id
+    stable = record.candidate_ref or record.link_id
+    return CandidateAssessment(
+        # Carry both the human-readable document name (so a seat's citation of
+        # "B22.txt" resolves in the council allowlist) and the stable id.
+        commitment_id=f"{doc_name} {stable}".strip() if doc_name else stable,
+        document_id=candidate.document_id if candidate else "",
+        text=text,
+        source="aligned",
+        actor_aligned=aligned,
+        actor_note=note,
+        quantity_outcome=outcome,
+        quantity_note=quantity_note,
+    )
+
+
+def _binding_results(
+    pairs: list[tuple[AlignmentRecord, ConstraintBinding]],
+) -> list[dict[str, Any]]:
+    outcomes: list[dict[str, Any]] = []
+    for record, binding in pairs:
+        result, explanation = compare_aligned(binding, record)
+        outcomes.append(
+            {
+                "link_id": record.link_id,
+                "binding_id": binding.binding_id,
+                "governing_slice_id": binding.governing_slice_id,
+                "candidate_slice_id": binding.candidate_slice_id,
+                "result": result,
+                "explanation": explanation,
+            }
+        )
+    return outcomes
+
+
+def _scalar_results(
+    pairs: list[tuple[AlignmentRecord, ConstraintBinding]],
+) -> dict[str, tuple[str, str]]:
+    # the legacy scalar is populated only for one unambiguous aligned constraint
+    if len(pairs) != 1:
+        return {}
+    record, binding = pairs[0]
+    return {record.candidate_ref: compare_aligned(binding, record)}
+
+
+def _governing_cu(
+    governing: GoverningBundle | None,
+    ref: str,
+    subject: str,
+    quantity: dict[str, Any] | None,
+) -> dict[str, Any]:
+    part_text = governing.part_text if governing else ""
+    lead_in = governing.lead_in if governing else ""
+    constraint: dict[str, Any] = {"text": part_text or lead_in or ref}
+    if quantity:
+        constraint["quantity"] = quantity
+    return {
+        "ref": ref,
+        "verbatim_text": part_text,
+        "lead_in": lead_in,
+        "subject": {"text": subject},
+        "constraint": constraint,
+        "condition": _exception_clauses(governing),
+        "definitions": list(governing.definitions) if governing else [],
+        "references": list(governing.references) if governing else [],
+        "source_slice_ids": [s.slice_id for s in governing.source_slices] if governing else [],
+    }
+
+
+def _reference_closure(governing: GoverningBundle | None) -> list[str]:
+    if governing is None:
+        return []
+    refs: list[str] = []
+    for collection in (governing.references, governing.definitions):
+        for item in collection or []:
+            if not isinstance(item, dict):
+                continue
+            ref = item.get("ref") or item.get("logical_id") or ""
+            if ref:
+                refs.append(str(ref))
+    seen: set[str] = set()
+    out: list[str] = []
+    for ref in refs:
+        if ref not in seen:
+            seen.add(ref)
+            out.append(ref)
+    return out
+
+
+def _exception_clauses(governing: GoverningBundle | None) -> list[dict[str, Any]]:
+    if governing is None:
+        return []
+    out: list[dict[str, Any]] = []
+    for collection in (governing.definitions, governing.references, governing.meta):
+        for item in collection or []:
+            if not isinstance(item, dict):
+                continue
+            kind = str(item.get("kind", "")).lower()
+            role = str(item.get("role", "")).lower()
+            if kind == "exception" or role == "exception":
+                out.append({"ref": str(item.get("ref", "")), "text": str(item.get("text", ""))})
+    return out
+
+
+def _substantive(record: AlignmentRecord) -> bool:
+    if record.source_function in _EXCLUDED_FUNCTIONS:
+        return False
+    if record.relation == "SAME":
+        return True
+    return record.relation == "UNKNOWN" and record.source_function == "OPERATIVE_COMMITMENT"
+
+
+def _exclusion_reason(record: AlignmentRecord) -> str:
+    if record.relation == "DIFFERENT":
+        return "alignment read DIFFERENT — not reinserted as a substantive candidate"
+    if record.source_function in _EXCLUDED_FUNCTIONS:
+        return f"non-operative source function {record.source_function} — not substantive"
+    return "not a substantive operative commitment"
+
+
+def _trace_entry(record: AlignmentRecord) -> dict[str, Any]:
+    return {
+        "link_id": record.link_id,
+        "candidate_ref": record.candidate_ref,
+        "relation": record.relation,
+        "source_function": record.source_function,
+        "rationale": record.rationale,
+        "missing_facts": list(record.missing_facts),
+        "reason": _exclusion_reason(record),
+    }
+
+
+def _aligned_notes(
+    alignment: AlignmentResult,
+    excluded: list[dict[str, Any]],
+    unknowns: list[dict[str, Any]],
+    applic: str,
+) -> list[str]:
+    notes: list[str] = []
+    if not alignment.valid:
+        notes.append(f"alignment was not valid: {alignment.failure}")
+    if excluded:
+        notes.append(f"{len(excluded)} record(s) excluded from the substantive candidate list")
+    if unknowns:
+        notes.append(f"{len(unknowns)} unresolved potentially-operative record(s) retained")
+    if applic != "APPLIES":
+        notes.append(f"applicability is {applic} — the packet is provisional")
+    return notes
+
+
+def _applicable_systems_text(governing: GoverningBundle | None) -> str:
+    if governing is None:
+        return ""
+    for item in governing.meta or []:
+        if isinstance(item, dict):
+            for key in ("applicable_systems", "applicable_systems_text", "applies_to"):
+                value = item.get(key)
+                if value:
+                    return str(value)
+    return ""
+
+
+def _completeness(request: AssessmentRequest) -> str:
+    return request.snapshot.completeness if request.snapshot else "UNKNOWN"
+
+
+def _derive_actor(governing: GoverningBundle | None) -> str:
+    lead_in = governing.lead_in if governing else ""
+    part_text = governing.part_text if governing else ""
+    actor = _leading_actor(lead_in) or _leading_actor(part_text)
+    approver = _exception_approver(part_text)
+    if actor and approver and approver.lower() in actor.lower():
+        actor = ""
+    return actor or "Responsible Entity"
+
+
+def _leading_actor(text: str) -> str:
+    if not text:
+        return ""
+    match = _ACTOR_PATTERNS[0].search(text)
+    if match:
+        return "Responsible Entity"
+    match = _ACTOR_PATTERNS[1].search(text)
+    if match:
+        return match.group(1).strip()
+    return ""
+
+
+def _exception_approver(text: str) -> str:
+    if not text:
+        return ""
+    match = _APPROVER_PATTERN.search(text)
+    return match.group(1).strip() if match else ""
+
+
+def _actor_alignment_note(text: str, subject: str) -> tuple[bool, str]:
+    if not subject:
+        return True, "no governing actor supplied"
+    actor = _leading_actor(text)
+    if not actor:
+        return True, "candidate actor not resolved independently"
+    try:
+        from portal.modules.compliance.core.vocabulary_bridge import (
+            align_actor,
+            derive_vocabulary,
+        )
+
+        if not _VOCAB_CACHE:
+            _VOCAB_CACHE.append(derive_vocabulary())
+        result = align_actor(actor, subject, _VOCAB_CACHE[0])
+        return bool(result.aligned), result.note
+    except Exception:  # noqa: BLE001 - a display annotation never fails the gate
+        return True, "vocabulary bridge unavailable"
+
+
+def _binding_quantity(value: dict[str, Any] | None) -> Quantity | None:
+    if not isinstance(value, dict):
+        return None
+    raw_number = value.get("value")
+    if raw_number is None:
+        return None
+    try:
+        number = int(raw_number)
+    except (TypeError, ValueError):
+        return None
+    unit = str(value.get("unit", "")).lower().rstrip("s")
+    if unit not in _BINDING_UNITS:
+        return None
+    qualifier = value.get("qualifier")
+    norm = str(qualifier).lower() if qualifier else None
+    if norm not in (None, "calendar", "business"):
+        norm = None
+    return Quantity(number, unit, norm)
