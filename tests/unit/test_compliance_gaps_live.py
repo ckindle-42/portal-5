@@ -38,7 +38,9 @@ def _await(run_id: str, timeout: float = 15.0) -> dict:
 def test_gaps_default_start_is_async_without_speculative_rows(repo):
     out = compliance_gaps(requirement="CIP-007-6 R2 Part 2.2", scope="low impact only")
     assert out["run_id"]
-    assert out["status"] in ("QUEUED", "RUNNING")
+    # A fast worker may already have finished before start() snapshots status;
+    # the contract is that start never returns speculative coverage rows.
+    assert out["status"] in ("QUEUED", "RUNNING", "COMPLETE")
     assert "rows" not in out
     _await(out["run_id"])
     result = compliance_gaps(operation="result", run_id=out["run_id"], generate_drafts=False)
