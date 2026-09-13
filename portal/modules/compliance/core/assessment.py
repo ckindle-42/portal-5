@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import re
+import uuid
 from dataclasses import asdict
 from typing import Any, cast
 
@@ -16,6 +19,9 @@ from portal.modules.compliance.core.constraints import (
 )
 from portal.modules.compliance.core.determination import (
     FIELDS,
+    AssessmentContext,
+    AssessmentRequest,
+    AssessmentResult,
     AtomResult,
     FieldResult,
     RequirementResult,
@@ -381,3 +387,396 @@ def assess_requirement(node: dict[str, Any], ctx: dict[str, Any]) -> Requirement
 
 def serialize(result: RequirementResult) -> dict[str, Any]:
     return asdict(result)
+
+
+# ── the one authoritative assessment service ────────────────────────────────
+# IMPLEMENTATION_BRIEF_COMPLIANCE_READING_20260912 §4. Source resolution →
+# applicability → semantic alignment → deterministic gate → unchanged council →
+# one source-linked explanation → consistency projection → persistence. This is
+# the only path that produces substantive verdicts; every projection
+# (CoverageCell, operations.Determination, AtomResult, RequirementResult) is
+# derived from its AssessmentResult, never an independent decision engine.
+
+_ENGINE_VERSION = "compliance-reading/1"
+
+
+def assess_part(request: AssessmentRequest, context: AssessmentContext) -> AssessmentResult:
+    """Assess one governing Part. See ``determination.AssessmentResult``."""
+    from portal.modules.compliance.core.assessment_report import explain
+    from portal.modules.compliance.core.council import run_council
+    from portal.modules.compliance.core.gate import run_aligned_gate
+    from portal.modules.compliance.core.obligation_alignment import align_part
+
+    run_id = _ensure_run(request, context)
+    base: dict[str, Any] = {
+        "assessment_id": uuid.uuid4().hex[:16],
+        "run_id": run_id,
+        "engine_version": context.engine_version or _ENGINE_VERSION,
+        "input_fingerprint": _input_fingerprint(request),
+        "requirement_id": request.requirement_id,
+        "engine_fingerprint": _engine_fingerprint(context),
+    }
+
+    scope = request.scope
+    if scope is None or not getattr(scope, "is_declared", False):
+        return _finalize(
+            AssessmentResult(
+                **base,
+                applicability="UNKNOWN",
+                applicability_basis=request.scope_basis,
+                documentary_coverage="UNRESOLVED",
+                coverage="UNRESOLVED",
+                unresolved_code="U05_SCOPE_UNDECLARED",
+                missing_fact={
+                    "requirement_id": request.requirement_id,
+                    "scope_basis": request.scope_basis,
+                },
+            ),
+            context,
+        )
+
+    integrity = _source_integrity_error(request)
+    if integrity is not None:
+        return _finalize(
+            AssessmentResult(
+                **base,
+                applicability="UNKNOWN",
+                applicability_basis=request.scope_basis,
+                documentary_coverage="UNRESOLVED",
+                coverage="UNRESOLVED",
+                unresolved_code="U03_EXTRACTION_FAILED",
+                missing_fact=integrity,
+            ),
+            context,
+        )
+
+    alignment = align_part(request, context)
+    if not alignment.valid:
+        return _finalize(
+            AssessmentResult(
+                **base,
+                applicability="UNKNOWN",
+                applicability_basis=request.scope_basis,
+                documentary_coverage="UNRESOLVED",
+                coverage="UNRESOLVED",
+                unresolved_code="U09_SEMANTIC_ALIGNMENT_UNKNOWN",
+                missing_fact={"failure": alignment.failure, "part_ref": alignment.part_ref},
+            ),
+            context,
+        )
+
+    gate_result = run_aligned_gate(request, alignment, context)
+    if gate_result.gated_out:
+        return _finalize(
+            AssessmentResult(
+                **base,
+                applicability=gate_result.applicability,
+                applicability_basis=request.scope_basis,
+                documentary_coverage="NOT_APPLICABLE",
+                coverage="NOT_APPLICABLE",
+                substantively_resolved=True,
+                receipt=_receipt(request, gate_result, alignment),
+            ),
+            context,
+        )
+
+    packet = gate_result.to_council_packet()
+    trace: list[dict[str, Any]] = []
+    seat_fn = _recording_seat_fn(context.seat_fn, trace)
+    council = run_council(
+        packet,
+        context.seats,
+        seat_fn=seat_fn,
+        quorum=context.quorum,
+        reference_texts=_reference_texts(request),
+    )
+    source_catalog = _source_catalog(request, alignment)
+    explanation = explain(request, asdict(council), alignment, source_catalog, context)
+
+    documentary, coverage, resolved, code, missing = _project(
+        request, gate_result, council, explanation
+    )
+    valid_explanation = explanation.valid
+    selected = list(source_catalog.values())
+    return _finalize(
+        AssessmentResult(
+            **base,
+            applicability=gate_result.applicability,
+            applicability_basis=request.scope_basis,
+            documentary_coverage=documentary,
+            coverage=coverage,
+            substantively_resolved=resolved,
+            council_result=asdict(council),
+            # An invalid explanation contributes no grounded commitments or gaps.
+            covered=explanation.covered if valid_explanation else [],
+            gaps=explanation.gaps if valid_explanation else [],
+            uncertainties=explanation.uncertainties,
+            selected_source_slices=selected,
+            receipt=_receipt(request, gate_result, alignment, explanation=explanation),
+            unresolved_code=code,
+            missing_fact=missing,
+        ),
+        context,
+    )
+
+
+def _source_integrity_error(request: AssessmentRequest) -> dict[str, Any] | None:
+    """Reject a candidate whose stored slice no longer hashes to its recorded
+    revision — a quote/hash verification failure is U03, never a resolved
+    support or an omission (brief §7 case 22)."""
+    for record in request.candidate_set.records if request.candidate_set else []:
+        sl = record.source_slice
+        if sl is None:
+            continue
+        if hashlib.sha256(sl.text.encode("utf-8")).hexdigest() != sl.revision_hash:
+            return {
+                "revision_id": sl.revision_hash,
+                "section": sl.locator or sl.ref,
+                "candidate_id": record.candidate_id,
+                "parser_error": "candidate source slice hash does not match its stored text",
+            }
+    return None
+
+
+def _project(
+    request: AssessmentRequest,
+    gate_result: Any,
+    council: Any,
+    explanation: Any,
+) -> tuple[str, str, bool, str, dict[str, Any]]:
+    """(documentary_coverage, public coverage, resolved, unresolved_code, missing).
+
+    Documentary coverage is the model-validated reading. The public projection
+    only exposes the ordinary FULL/PARTIAL/NONE vocabulary when applicability is
+    an OPERATOR-CONFIRMED APPLIES; a corpus-derived or undeclared scope keeps
+    ``coverage=UNRESOLVED`` with the missing scope declaration, even when
+    documentary coverage is FULL (brief §5 scope reconciliation)."""
+    decision = str(getattr(council, "determination", ""))
+    votes = getattr(council, "votes", {}) or {}
+    if decision == "ESCALATE":
+        if sum(votes.values()) == 0:
+            # No seat produced a valid vote (timeout/invalid JSON): an
+            # operational uncertainty, never a fabricated SME dispute (U10).
+            return (
+                "UNRESOLVED",
+                "UNRESOLVED",
+                False,
+                "U10_COUNCIL_UNRESOLVED",
+                {
+                    "council_votes": votes,
+                    "dropped": [
+                        {"seat": o.seat_id, "dropped": o.dropped}
+                        for o in getattr(council, "opinions", [])
+                        if not o.votes
+                    ],
+                },
+            )
+        return (
+            "NEEDS_REVIEW",
+            "NEEDS_REVIEW",
+            False,
+            "",
+            {"council": "ESCALATE — S04 interpretation dispute"},
+        )
+    if decision == "INSUFFICIENT":
+        return (
+            "UNRESOLVED",
+            "UNRESOLVED",
+            False,
+            "U10_COUNCIL_UNRESOLVED",
+            {
+                "council_votes": votes,
+                "dropped": [
+                    {"seat": o.seat_id, "dropped": o.dropped}
+                    for o in getattr(council, "opinions", [])
+                    if not o.votes
+                ],
+            },
+        )
+    incomparable = [
+        o for o in getattr(gate_result, "binding_outcomes", []) if o.get("result") == "INCOMPARABLE"
+    ]
+    if incomparable:
+        # A same-duty constraint the reviewed comparator cannot place is
+        # uncertainty, not contradiction and not a PARTIAL fallback (U12).
+        return (
+            "UNRESOLVED",
+            "UNRESOLVED",
+            False,
+            "U12_CONSTRAINT_INCOMPARABLE",
+            {
+                "bindings": incomparable,
+                "council_decision": decision,
+            },
+        )
+    if not explanation.valid:
+        if decision == "ABSENT" and gate_result.acquisition_completeness != "COMPLETE":
+            return (
+                "UNRESOLVED",
+                "UNRESOLVED",
+                False,
+                "U04_RETRIEVAL_INCOMPLETE",
+                {
+                    "acquisition_completeness": gate_result.acquisition_completeness,
+                    "truncation": "absence requires a completed boundary, not a top-k receipt",
+                    "failure": explanation.failure,
+                },
+            )
+        return (
+            "UNRESOLVED",
+            "UNRESOLVED",
+            False,
+            "U11_ASSESSMENT_CONTRACT_FAILED",
+            {"failure": explanation.failure, "council_decision": decision},
+        )
+
+    documentary = explanation.documentary_coverage
+    if documentary in ("FULL", "PARTIAL", "NONE"):
+        if gate_result.applicability == "APPLIES":
+            return documentary, documentary, True, "", {}
+        return (
+            documentary,
+            "UNRESOLVED",
+            False,
+            "",
+            {
+                "missing_scope_declaration": "asset scope is not operator-confirmed",
+                "applicability": gate_result.applicability,
+                "applicability_reason": gate_result.applicability_reason,
+                "scope_basis": request.scope_basis,
+            },
+        )
+    if documentary == "NEEDS_REVIEW":
+        return "NEEDS_REVIEW", "NEEDS_REVIEW", False, "", {}
+    return (
+        "UNRESOLVED",
+        "UNRESOLVED",
+        False,
+        "U11_ASSESSMENT_CONTRACT_FAILED",
+        {"explanation": explanation.documentary_coverage},
+    )
+
+
+def _recording_seat_fn(seat_fn: Any, trace: list[dict[str, Any]]) -> Any:
+    """Wrap the ordinary council transport to retain raw responses so a failed
+    seat's rejection cause is auditable. The council's own cite-or-drop still
+    decides the vote; this only records what was asked and returned."""
+    if seat_fn is None:
+        return None
+
+    def wrapped(model: str, system: str, user: str) -> str:
+        raw = seat_fn(model, system, user)
+        trace.append({"model": model, "raw": raw})
+        return str(raw)
+
+    return wrapped
+
+
+def _reference_texts(request: AssessmentRequest) -> dict[str, str]:
+    governing = request.governing
+    if governing is None:
+        return {}
+    out: dict[str, str] = {}
+    for collection in (governing.references, governing.definitions, governing.meta):
+        for item in collection or []:
+            if isinstance(item, dict) and item.get("ref"):
+                out[str(item["ref"])] = str(item.get("text", ""))
+    return out
+
+
+def _source_catalog(request: AssessmentRequest, alignment: Any) -> dict[str, dict[str, Any]]:
+    """Every immutable selectable slice the report may cite, with exact text."""
+    catalog: dict[str, dict[str, Any]] = {}
+
+    def add(slice_obj: Any) -> None:
+        if slice_obj is None:
+            return
+        catalog[slice_obj.slice_id] = {
+            "slice_id": slice_obj.slice_id,
+            "ref": slice_obj.ref,
+            "text": slice_obj.text,
+            "role": slice_obj.role,
+            "document_id": slice_obj.document_id,
+            "locator": slice_obj.locator,
+        }
+
+    if request.governing:
+        for s in request.governing.source_slices:
+            add(s)
+    if request.candidate_set:
+        for record in request.candidate_set.records:
+            add(record.source_slice)
+    return catalog
+
+
+def _input_fingerprint(request: AssessmentRequest) -> str:
+    body = {
+        "requirement_id": request.requirement_id,
+        "governing": request.governing.fingerprint if request.governing else "",
+        "snapshot": request.snapshot.fingerprint if request.snapshot else "",
+        "scope_basis": request.scope_basis,
+        "effective_on": request.effective_on,
+        "known_at": request.known_at,
+        "overlay": request.overlay.overlay_id if request.overlay else "",
+    }
+    return hashlib.sha256(
+        json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def _engine_fingerprint(context: AssessmentContext) -> str:
+    body = {
+        "engine_version": context.engine_version or _ENGINE_VERSION,
+        "seats": [(s.get("id"), s.get("model")) for s in context.seats],
+        "quorum": context.quorum,
+    }
+    return hashlib.sha256(
+        json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def _receipt(
+    request: AssessmentRequest, gate_result: Any, alignment: Any, explanation: Any = None
+) -> dict[str, Any]:
+    return {
+        "acquisition_mode": request.snapshot.acquisition_mode if request.snapshot else "RETRIEVAL",
+        "completeness": request.snapshot.completeness if request.snapshot else "UNKNOWN",
+        "snapshot_fingerprint": request.snapshot.fingerprint if request.snapshot else "",
+        "governing_fingerprint": request.governing.fingerprint if request.governing else "",
+        "alignment_valid": alignment.valid,
+        "alignment_links": len(alignment.records),
+        "applicability": gate_result.applicability,
+        "explanation_valid": bool(explanation.valid) if explanation is not None else False,
+    }
+
+
+def _ensure_run(request: AssessmentRequest, context: AssessmentContext) -> str:
+    repo = context.repository
+    if repo is None:
+        return str(request.metadata.get("run_id", ""))
+    run_id = str(request.metadata.get("run_id", ""))
+    if run_id and repo.get_run(run_id) is not None:
+        repo.update_run(run_id, status="RUNNING")
+        return run_id
+    created = repo.create_run(
+        {
+            "requirement_id": request.requirement_id,
+            "kb_id": request.kb_id,
+            "scope_basis": request.scope_basis,
+            "effective_on": request.effective_on,
+            "known_at": request.known_at,
+        },
+        status="RUNNING",
+        org_id=request.org_id,
+    )
+    return str(created)
+
+
+def _finalize(result: AssessmentResult, context: AssessmentContext) -> AssessmentResult:
+    repo = context.repository
+    if repo is not None:
+        from portal.modules.compliance.core.repository import Repository
+
+        if isinstance(repo, Repository):
+            repo.record_assessment(result)
+    return result

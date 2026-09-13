@@ -180,8 +180,41 @@ def _filter_candidates(
                 "layer": meta["layer"],
                 "standard_hint": meta.get("standard_hint"),
                 "folder_rank_prior": 1.0 if meta.get("standard_hint") == target_std else 0.0,
+                # additive transport: the retrieval hit already carries these;
+                # carry them forward so a reader never re-retrieves or rechunks.
+                "chunk_id": hit.get("chunk_id", ""),
+                "page": hit.get("page"),
+                "headings": hit.get("headings", ""),
+                "char_start": hit.get("char_start"),
+                "char_end": hit.get("char_end"),
+                "content_available": hit.get("content_available", True),
             }
         )
+    return out
+
+
+def _unresolved_pointers(hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Non-text pointers in a retrieval result. They are retained as
+    diagnostics and can never become quoted documentary evidence."""
+    out = []
+    for hit in hits:
+        text = hit.get("text") or ""
+        if hit.get("content_available") is False or not str(text).strip():
+            source_file = hit.get("source_file", "")
+            out.append(
+                {
+                    "document_id": source_file,
+                    "chunk_id": hit.get("chunk_id", ""),
+                    "section_id": (
+                        f"{source_file} #chunk{hit.get('chunk_index')} p{hit.get('page')}"
+                    ),
+                    "page": hit.get("page"),
+                    "kind": hit.get("kind", ""),
+                    "reason": hit.get("pointer_note")
+                    or hit.get("unresolved_reason")
+                    or "non-text pointer",
+                }
+            )
     return out
 
 
@@ -348,6 +381,137 @@ def _quote_span(text: str, requirement: str) -> str:
     return text[start : start + 400]
 
 
+def _composition() -> Any:
+    from portal.modules.compliance.tools import compliance_retrieval as _cr
+
+    return replace(_cr._composition(), visual_table=lambda _kb_id: None)
+
+
+def _resolve_layers(
+    comp: Any,
+    node: RegisterNode,
+    kb_id: str,
+    top_k: int,
+    arbiter_fn: ArbiterFn | None,
+    queued: set[str],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
+    """One search + one rerank for a node, returning every layer's candidates
+    plus unresolved pointers and an acquisition receipt.
+
+    The retrieval algorithm is unchanged — the same query, top-k, filter, rerank
+    and arbiter — only the returned metadata is additive. This is the single
+    implementation ``make_real_proposer`` and ``assessment_source`` share.
+    """
+    from portal.platform.retrieval import embedding as _embedding
+    from portal.platform.retrieval import pipeline as _pipeline
+
+    sidecar = read_sidecar()
+    target_std = _standard_base(node.standard)
+    query_sha256 = hashlib.sha256(node.verbatim_text.encode()).hexdigest()
+    try:
+        result = _run(
+            _pipeline.search(comp, kb_id, node.verbatim_text, top_k),
+            timeout=SEARCH_CALL_TIMEOUT_S,
+        )
+    except Exception as exc:  # noqa: BLE001 — surfaced on the affected cell
+        logger.warning("compliance search failed for %s: %s", node.id, exc)
+        raise ProposalError("search", f"{type(exc).__name__}: {exc}") from exc
+
+    raw_hits = result.get("results", [])
+    candidates = _filter_candidates(raw_hits, sidecar, target_std, queued)
+    for candidate in candidates:
+        candidate["span"] = _quote_span(candidate["text"], node.verbatim_text)
+    unresolved = _unresolved_pointers(raw_hits)
+    receipt = {
+        "kb_id": kb_id,
+        "requirement_id": node.id,
+        "query_sha256": query_sha256,
+        "top_k": top_k,
+        "hits": [
+            {
+                "document": h.get("source_file"),
+                "chunk": h.get("chunk_index"),
+                "kind": h.get("kind"),
+            }
+            for h in raw_hits
+        ],
+        "acquisition_mode": "RETRIEVAL",
+        "completeness": "UNKNOWN",
+    }
+    logger.info(
+        "compliance candidates %s",
+        json.dumps(
+            {
+                "requirement_id": node.id,
+                "kb_id": kb_id,
+                "query_sha256": query_sha256,
+                "hits": receipt["hits"],
+                "candidates": [c["section_id"] for c in candidates],
+            }
+        ),
+    )
+    if not candidates:
+        return [], unresolved, receipt
+
+    try:
+        ranked = _run(
+            _embedding.vl_rerank(
+                node.verbatim_text,
+                [{"text": c["text"]} for c in candidates],
+                len(candidates),
+            ),
+            timeout=RERANK_CALL_TIMEOUT_S,
+        )
+        scores = _validated_scores(ranked, len(candidates))
+    except Exception as exc:  # noqa: BLE001 — surfaced on the affected cell
+        logger.warning("compliance rerank failed for %s: %s", node.id, exc)
+        raise ProposalError("rerank", f"{type(exc).__name__}: {exc}") from exc
+
+    out = []
+    for i, c in enumerate(candidates):
+        relevant, queue_item_id = _resolve_relevance(
+            c, scores[i], node, c["layer"], arbiter_fn=arbiter_fn
+        )
+        anchor_verified = _verify_anchor(c)
+        out.append(
+            {
+                "document_id": c["document_id"],
+                "section_id": c["section_id"],
+                "span": c["span"],
+                "anchor_verified": anchor_verified,
+                "relevant": relevant,
+                # legacy compatibility field only — never the field consumers
+                # should read to certify a source anchor (see coverage.py).
+                "locatable": anchor_verified and relevant,
+                "queue_item_id": queue_item_id,
+                "rerank_score": scores[i],
+                "layer": c["layer"],
+                # additive transport (brief §6): full text and provenance the
+                # retrieval hit already carried, so a reader never re-retrieves.
+                "chunk_id": c.get("chunk_id", ""),
+                "page": c.get("page"),
+                "headings": c.get("headings", ""),
+                "char_start": c.get("char_start"),
+                "char_end": c.get("char_end"),
+                "content_available": c.get("content_available", True),
+                "text": c["text"],
+            }
+        )
+    return sorted(out, key=lambda candidate: -candidate["rerank_score"]), unresolved, receipt
+
+
+def resolve_candidates(
+    node: RegisterNode,
+    *,
+    kb_id: str = "operator_corpus",
+    top_k: int = 15,
+    arbiter_fn: ArbiterFn | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
+    """Public full-metadata retrieval for one node: (candidates, unresolved,
+    receipt). Reuses the same search/rerank as ``make_real_proposer``."""
+    return _resolve_layers(_composition(), node, kb_id, top_k, arbiter_fn, set())
+
+
 def make_real_proposer(
     kb_id: str = "operator_corpus",
     top_k: int = 15,
@@ -395,99 +559,20 @@ def make_real_proposer(
     candidates are cached per ``node.id`` on first call and split by layer for
     the other two, cutting VL round-trips ~3x (a real fix for the documented
     single-worker MLX serialization ceiling — fewer calls, not more workers)."""
-    from portal.modules.compliance.tools import compliance_retrieval as _cr
-    from portal.platform.retrieval import embedding as _embedding
-    from portal.platform.retrieval import pipeline as _pipeline
-
+    comp = _composition()
     _queued_this_process: set[str] = set()  # avoid re-queuing the same file every call
     _resolved_cache: dict[
-        str, list[dict[str, Any]]
-    ] = {}  # node.id -> every resolved candidate, all layers
-    comp = replace(_cr._composition(), visual_table=lambda _kb_id: None)
-
-    def _resolve_all_layers(node: RegisterNode) -> list[dict[str, Any]]:
-        sidecar = read_sidecar()
-        target_std = _standard_base(node.standard)
-        try:
-            result = _run(
-                _pipeline.search(comp, kb_id, node.verbatim_text, top_k),
-                timeout=SEARCH_CALL_TIMEOUT_S,
-            )
-        except Exception as exc:  # noqa: BLE001 — surfaced on the affected cell
-            logger.warning("compliance search failed for %s: %s", node.id, exc)
-            raise ProposalError("search", f"{type(exc).__name__}: {exc}") from exc
-
-        candidates = _filter_candidates(
-            result.get("results", []), sidecar, target_std, _queued_this_process
-        )
-        for candidate in candidates:
-            candidate["span"] = _quote_span(candidate["text"], node.verbatim_text)
-        logger.info(
-            "compliance candidates %s",
-            json.dumps(
-                {
-                    "requirement_id": node.id,
-                    "kb_id": kb_id,
-                    "query_sha256": hashlib.sha256(node.verbatim_text.encode()).hexdigest(),
-                    "hits": [
-                        {
-                            "document": h.get("source_file"),
-                            "chunk": h.get("chunk_index"),
-                            "kind": h.get("kind"),
-                        }
-                        for h in result.get("results", [])
-                    ],
-                    "candidates": [c["section_id"] for c in candidates],
-                }
-            ),
-        )
-        if not candidates:
-            return []
-
-        try:
-            ranked = _run(
-                _embedding.vl_rerank(
-                    node.verbatim_text,
-                    [{"text": c["text"]} for c in candidates],
-                    len(candidates),
-                ),
-                timeout=RERANK_CALL_TIMEOUT_S,
-            )
-            scores = _validated_scores(ranked, len(candidates))
-        except Exception as exc:  # noqa: BLE001 — surfaced on the affected cell
-            logger.warning("compliance rerank failed for %s: %s", node.id, exc)
-            raise ProposalError("rerank", f"{type(exc).__name__}: {exc}") from exc
-
-        out = []
-        for i, c in enumerate(candidates):
-            relevant, queue_item_id = _resolve_relevance(
-                c, scores[i], node, c["layer"], arbiter_fn=arbiter_fn
-            )
-            anchor_verified = _verify_anchor(c)
-            out.append(
-                {
-                    "document_id": c["document_id"],
-                    "section_id": c["section_id"],
-                    "span": c["span"],
-                    "anchor_verified": anchor_verified,
-                    "relevant": relevant,
-                    # legacy compatibility field only — never the field consumers
-                    # should read to certify a source anchor (see coverage.py).
-                    "locatable": anchor_verified and relevant,
-                    "queue_item_id": queue_item_id,
-                    "rerank_score": scores[i],
-                    "layer": c["layer"],
-                }
-            )
-        return sorted(out, key=lambda candidate: -candidate["rerank_score"])
+        str, tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]
+    ] = {}  # node.id -> (every resolved candidate, unresolved pointers, receipt)
 
     def propose(node: RegisterNode, side: str) -> list[dict[str, Any]]:
         if node.id not in _resolved_cache:
-            _resolved_cache[node.id] = _resolve_all_layers(node)
+            _resolved_cache[node.id] = _resolve_layers(
+                comp, node, kb_id, top_k, arbiter_fn, _queued_this_process
+            )
+        candidates, _unresolved, _receipt = _resolved_cache[node.id]
         return [
-            {k: v for k, v in c.items() if k != "layer"}
-            for c in _resolved_cache[node.id]
-            if c["layer"] == side
+            {k: v for k, v in c.items() if k != "layer"} for c in candidates if c["layer"] == side
         ]
 
     return propose

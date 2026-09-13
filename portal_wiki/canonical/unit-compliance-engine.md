@@ -68,6 +68,16 @@ sources:
 - type: code
   path: portal/modules/compliance/core/assessment.py
 - type: code
+  path: portal/modules/compliance/core/assessment_source.py
+- type: code
+  path: portal/modules/compliance/core/assessment_service.py
+- type: code
+  path: portal/modules/compliance/core/obligation_alignment.py
+- type: code
+  path: portal/modules/compliance/core/assessment_report.py
+- type: code
+  path: portal/modules/compliance/core/assessment_runs.py
+- type: code
   path: portal/modules/compliance/core/traceability.py
 - type: code
   path: portal/modules/compliance/core/impact.py
@@ -363,3 +373,32 @@ a pre-analyzed problem.
 
 Closeout checks Y01–Y30 live in `config/compliance/closeout_checks.yaml`;
 `scripts/verify_compliance_v6_closeout.py` runs the code-verifiable ones.
+
+## One authoritative reading path
+
+`docs/IMPLEMENTATION_BRIEF_COMPLIANCE_READING_20260912.md` replaces the
+deterministic string/quantity matcher on the product path with a service where
+models actually read. The single authority is
+`core/assessment.py::assess_part(request, context) -> AssessmentResult`; every
+projection (`CoverageCell`, `operations.Determination`, `AtomResult`,
+`RequirementResult`) derives from one `AssessmentResult` and exposes its
+`assessment_id`.
+
+Dependency direction: gaps / analyze / scenario / draft-revisions →
+`assessment_source` (pinned governing bundle, `CorpusSnapshot`, full-text
+`CandidateSet`) → `assessment.assess_part` → `obligation_alignment.align_part`
+(categorical SAME/DIFFERENT/UNKNOWN quorum over the full candidate set) →
+`gate.run_aligned_gate` (explicitly aligned operands only; unchanged
+`constraints.compare_constraint`) → `council.run_council` (unchanged internals)
+→ `assessment_report.explain` (one source-linked report; selects slice IDs, the
+application emits stored text) → consistency/evidence validation →
+`Repository.record_assessment`.
+
+`core/assessment_service.py::assess_requirement` expands a requirement into its
+Parts through this one service, so the same input yields the same engine,
+fingerprint and verdict whichever MCP tool asked. `core/assessment_runs.py`
+executes the same service as a durable QUEUED/RUNNING/COMPLETE/FAILED/CANCELLED/
+INTERRUPTED job under `analysis_runs`; a restart marks unfinished jobs
+INTERRUPTED. Schema migration 7 adds `assessment_results` and the run lifecycle
+columns. Semantic selection happens after retrieval — retrieval query
+generation, ranking, top-k and chunking are unchanged.

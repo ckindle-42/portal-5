@@ -1,5 +1,20 @@
 #!/usr/bin/env python3
-"""Materialize the V3 reasoning model from the immutable register and live corpus."""
+"""Materialize the V3 reasoning model from the immutable register and live corpus.
+
+Two distinct jobs live here and are deliberately separated:
+
+* **Source/graph materialization** (the default). It persists extracted
+  register/internal data, anchors, atoms, expressions and relationship
+  provenance. It emits **no coverage verdicts** — no lexical candidate filter,
+  no synthetic boundary proof, no deterministic claim. The run is labelled
+  ``v3-source-materialization`` and is not fresh acceptance evidence.
+* **Assessment** (``--assess`` / ``assess=True``, explicit opt-in). It invokes
+  the one shared assessment service with a pinned source snapshot. Because the
+  measured council is expensive, this never happens implicitly: an offline
+  materialization command must not silently become thousands of model calls.
+
+Existing historical rows are preserved and keep their engine provenance.
+"""
 
 from __future__ import annotations
 
@@ -11,9 +26,7 @@ from pathlib import Path
 
 import pymupdf
 
-from portal.modules.compliance.core.assessment import assess_atom
 from portal.modules.compliance.core.authority import classify
-from portal.modules.compliance.core.boundary import BoundarySearch, build_queries
 from portal.modules.compliance.core.cip_register import Register
 from portal.modules.compliance.core.engine import effective_parts
 from portal.modules.compliance.core.ingest import read_sidecar
@@ -62,8 +75,56 @@ def _insert_relationship(repo: Repository, rel: RelationshipAssertion) -> None:
             raise
 
 
-def materialize(corpus: Path, valid_at: str) -> dict:
-    repo = Repository()
+def _assess_materialized(
+    repo: Repository,
+    nodes: list,
+    *,
+    kb_id: str,
+    scope_text: str,
+    effective_on: str,
+    context: object | None,
+) -> int:
+    """Explicit assessment mode: run the shared service over a pinned snapshot.
+
+    Only reached when the caller has opted in; it is the one place this script
+    may make model calls.
+    """
+    from portal.modules.compliance.core.assessment import assess_part
+    from portal.modules.compliance.core.assessment_source import (
+        build_assessment_request,
+        build_corpus_snapshot,
+    )
+
+    if context is None:
+        from portal.modules.compliance.core.runtime_config import build_assessment_context
+        from portal.modules.compliance.core.scope_derive import derive_scope
+
+        scope, _ = derive_scope(kb_id)
+        context = build_assessment_context(kb_id, scope, effective_on, "", repo)
+
+    snapshot = build_corpus_snapshot(kb_id)
+    assessed = 0
+    for node in nodes:
+        request = build_assessment_request(
+            node.id, kb_id=kb_id, scope_text=scope_text, effective_on=effective_on
+        )
+        request.snapshot = snapshot
+        assess_part(request, context)
+        assessed += 1
+    return assessed
+
+
+def materialize(
+    corpus: Path,
+    valid_at: str,
+    *,
+    assess: bool = False,
+    repository: Repository | None = None,
+    context: object | None = None,
+    kb_id: str = "operator_corpus",
+    scope_text: str = "",
+) -> dict:
+    repo = repository or Repository()
     reg = Register.load()
     nodes = effective_parts(reg, valid_at)
     all_nodes = reg.nodes
@@ -73,6 +134,10 @@ def materialize(corpus: Path, valid_at: str) -> dict:
         "atoms": 0,
         "internal_documents": 0,
         "internal_assertions": 0,
+        "assessed_parts": 0,
+        "claims_emitted": 0,
+        "engine": "v3-assessment" if assess else "v3-source-materialization",
+        "emits_coverage_claims": assess,
         "anchor_failures": [],
     }
     with repo._lock, conn:
@@ -212,9 +277,8 @@ def materialize(corpus: Path, valid_at: str) -> dict:
         counts["governing_nodes"] += 1
         counts["atoms"] += len(atoms)
 
-    # Definitions used repeatedly by the standards. The defining assertion is
-    # tied to a real governing anchor; the body is deliberately scoped to the
-    # equivalence needed by comparison rather than fabricated glossary prose.
+    # Definitions used repeatedly by the standards; the body is deliberately
+    # scoped to the equivalence needed by comparison rather than fabricated prose.
     if governing_anchors:
         first_anchor = next(iter(governing_anchors.values()))
         with repo._lock, conn:
@@ -326,45 +390,24 @@ def materialize(corpus: Path, valid_at: str) -> dict:
         counts["internal_documents"] += 1
         counts["internal_assertions"] += len(assertions)
 
+    # ── graph materialization only; no candidate ranking, no boundary proof,
+    # no verdict. The lexical candidate-filter + assess_atom + record_claim
+    # path that used to live here is retired (brief §6).
     run_id = repo.record_analysis_run(
-        {"valid_at": valid_at, "corpus": str(corpus.resolve()), "engine": "v3-deterministic"}
+        {
+            "valid_at": valid_at,
+            "corpus": str(corpus.resolve()),
+            "engine": counts["engine"],
+            "emits_coverage_claims": assess,
+        }
     )
-    manifest_hash = hashlib.sha256(
-        json.dumps(sorted(str(p.relative_to(corpus)) for p in corpus.rglob("*.pdf"))).encode()
-    ).hexdigest()
     for node in nodes:
         anchor = governing_anchors.get(node.id)
         if not anchor:
             continue
-        atom = decompose(
-            node.id,
-            node.verbatim_text,
-            lead_in=lead_ins.get((node.standard, node.requirement), "")
-            if node.granularity == "part"
-            else "",
-            anchor_ids=[anchor],
-        )[0]
         standard_base = node.standard.rsplit("-", 1)[0]
         eligible = internal_by_standard.get(standard_base, [])
-        ranked_candidates = []
-        governing_terms = set(re.findall(r"[a-z0-9]+", node.verbatim_text.lower()))
         for doc in eligible:
-            assertions = [a for a in doc["assertions"] if a.relation_type == "IMPLEMENTS"]
-            for assertion in assertions:
-                candidate_terms = set(re.findall(r"[a-z0-9]+", assertion.source_text.lower()))
-                shared = len(governing_terms & candidate_terms)
-                overlap = shared / max(1, (len(governing_terms) * len(candidate_terms)) ** 0.5)
-                if overlap >= 0.12:
-                    ranked_candidates.append(
-                        (
-                            overlap,
-                            {
-                                **assertion.__dict__,
-                                "document_kind": classify_document(doc["text"]),
-                                "binding_effect": "internally_mandatory",
-                            },
-                        )
-                    )
             rel_id = _id("rel-", node.id + doc["control_id"])
             _insert_relationship(
                 repo,
@@ -401,24 +444,18 @@ def materialize(corpus: Path, valid_at: str) -> dict:
                         status="proposed",
                     ),
                 )
-        candidates = [
-            candidate
-            for _, candidate in sorted(ranked_candidates, key=lambda item: item[0], reverse=True)
-        ]
-        search = BoundarySearch(
-            atom.atom_id,
-            build_queries(node.id, atom.to_record()),
-            "materialize-v3",
-            manifest_hash,
-            len(eligible),
-            retrieved=[{"anchor_id": c.get("anchor_id", "")} for c in candidates],
+
+    if assess:
+        counts["assessed_parts"] = _assess_materialized(
+            repo,
+            nodes,
+            kb_id=kb_id,
+            scope_text=scope_text,
+            effective_on=valid_at,
+            context=context,
         )
-        result = assess_atom(
-            atom.to_record(),
-            candidates,
-            {"boundary": search, "repository": repo, "index_generation": "materialize-v3"},
-        )
-        repo.record_claim(result, run_id=run_id, assertion=f"{node.id} is {result.determination}")
+        counts["claims_emitted"] = counts["assessed_parts"]
+
     table_names = (
         "obligation_atoms",
         "obligation_expressions",
@@ -449,13 +486,30 @@ def materialize(corpus: Path, valid_at: str) -> dict:
     return counts
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--corpus", required=True, type=Path)
     parser.add_argument("--valid-at", required=True)
     parser.add_argument("--output", type=Path)
-    args = parser.parse_args()
-    result = materialize(args.corpus.resolve(), args.valid_at)
+    parser.add_argument(
+        "--assess",
+        action="store_true",
+        help=(
+            "explicit assessment mode: invoke the shared assessment service with a "
+            "pinned snapshot (may make model calls). Default is source/graph "
+            "materialization only."
+        ),
+    )
+    parser.add_argument("--kb-id", default="operator_corpus")
+    parser.add_argument("--scope", default="")
+    args = parser.parse_args(argv)
+    result = materialize(
+        args.corpus.resolve(),
+        args.valid_at,
+        assess=args.assess,
+        kb_id=args.kb_id,
+        scope_text=args.scope,
+    )
     payload = json.dumps(result, indent=2, sort_keys=True)
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)

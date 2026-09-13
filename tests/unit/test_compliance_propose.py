@@ -340,10 +340,16 @@ def test_tool_output_exposes_failed_retrieval(wired, monkeypatch, verbose):
     monkeypatch.setattr(p.rq, "sync_proposed_mappings", lambda store: 0)
     monkeypatch.setattr(p.rq, "open_items", lambda **kw: [])
     wired.rerank.side_effect = RuntimeError("unavailable")
-    result = compliance_gaps(standard=TARGET.standard, requirement="R5 Part 5.4", verbose=verbose)
+    result = compliance_gaps(
+        standard=TARGET.standard,
+        requirement="R5 Part 5.4",
+        verbose=verbose,
+        sync=True,
+        generate_drafts=False,
+    )
     assert "error" not in result
     row = result["rows"][0]
-    assert row["coverage"] == "NEEDS_REVIEW"
+    assert row["coverage"] == "UNRESOLVED"
     assert not row["substantively_resolved"]
     assert row["retrieval_errors"][0]["stage"] == "rerank"
     assert result["summary"]["substantively_resolved"] == 0

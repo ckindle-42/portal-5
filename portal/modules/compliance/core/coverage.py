@@ -86,6 +86,22 @@ class CoverageCell:
     stale_citations: list[str] = field(default_factory=list)
     note: str = ""
     retrieval_errors: list[dict[str, Any]] = field(default_factory=list)
+    # ── canonical assessment projection (IMPLEMENTATION_BRIEF §6) ────────────
+    # The cell is a projection of one persisted AssessmentResult; the raw
+    # retrieval diagnostics above stay separate from the canonical decision.
+    assessment_id: str = ""
+    documentary_coverage: str = ""
+    applicability: str = ""
+    applicability_basis: str = ""
+    engine_version: str = ""
+    snapshot_fingerprint: str = ""
+    covered: list[dict[str, Any]] = field(default_factory=list)
+    gaps: list[dict[str, Any]] = field(default_factory=list)
+    uncertainties: list[dict[str, Any]] = field(default_factory=list)
+    #: exact system-owned slices for the canonical opinion's support and
+    #: counterevidence — never a model-reconstructed quote.
+    canonical_support: list[dict[str, Any]] = field(default_factory=list)
+    canonical_counterevidence: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -103,6 +119,17 @@ class CoverageCell:
             "stale_citations": self.stale_citations,
             "note": self.note,
             "retrieval_errors": self.retrieval_errors,
+            "assessment_id": self.assessment_id,
+            "documentary_coverage": self.documentary_coverage,
+            "applicability": self.applicability,
+            "applicability_basis": self.applicability_basis,
+            "engine_version": self.engine_version,
+            "snapshot_fingerprint": self.snapshot_fingerprint,
+            "covered": self.covered,
+            "gaps": self.gaps,
+            "uncertainties": self.uncertainties,
+            "canonical_support": self.canonical_support,
+            "canonical_counterevidence": self.canonical_counterevidence,
         }
 
 
@@ -125,17 +152,37 @@ def _qualified(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
 _locatable = _qualified
 
 
-def _classify(
+def _classify(*args: Any, **kwargs: Any) -> tuple[Any, ...]:
+    """Classify coverage.
+
+    Two call shapes are supported:
+
+    * ``_classify(policy, procedure, evidence)`` — the legacy span-list adapter
+      kept for existing tests/CLI callers. It never decides satisfaction on the
+      product path; the product path (``coverage_matrix(context=...)`` /
+      ``_classify(node, candidate_set, context)``) delegates to
+      ``assessment.assess_part`` and returns its canonical projection.
+    * ``_classify(node_or_request, candidate_set, context)`` — the shared-service
+      path; the first argument is a :class:`RegisterNode` or an
+      :class:`AssessmentRequest`.
+    """
+    if len(args) == 3 and all(isinstance(a, list) for a in args):
+        return _classify_legacy(args[0], args[1], args[2])
+    return _classify_assessed(*args, **kwargs)
+
+
+def _classify_legacy(
     policy: list[dict[str, Any]],
     procedure: list[dict[str, Any]],
     evidence: list[dict[str, Any]],
 ) -> tuple[str, bool, str]:
-    """(coverage token, substantively_resolved, note).
+    """(coverage token, substantively_resolved, note) — legacy span adapter.
 
-    This compatibility adapter delegates its substantive positive decision to
-    the V3 field comparator. Retrieval failure is handled by ``_propose_cell``;
-    reaching this function with no qualified candidates therefore means the
-    completed search found an absence, not that a reviewer must re-read it.
+    Retrieval failure is handled by ``_propose_cell``; reaching this function
+    with no qualified candidates therefore means the completed search found an
+    absence, not that a reviewer must re-read it. This path is a compatibility
+    adapter for pre-reading-architecture callers and tests; the product path
+    goes through the shared assessment service below.
     """
     from portal.modules.compliance.core.assessment import assess_atom
 
@@ -159,6 +206,158 @@ def _classify(
     return "NONE", True, "exhaustive completed retrieval found no qualified implementation"
 
 
+def _classify_assessed(
+    node_or_request: Any,
+    candidate_set: Any = None,
+    context: Any = None,
+    *,
+    snapshot: Any = None,
+    kb_id: str = "",
+    effective_on: str = "",
+    known_at: str = "",
+) -> tuple[str, bool, str, dict[str, Any]]:
+    """Classify one Part through the one authoritative service.
+
+    Returns ``(coverage, substantively_resolved, note, projection_fields)`` where
+    ``projection_fields`` carries the canonical assessment ID and its projections.
+    """
+    from portal.modules.compliance.core.assessment import assess_part
+    from portal.modules.compliance.core.determination import AssessmentRequest
+
+    if isinstance(node_or_request, AssessmentRequest):
+        request = node_or_request
+    else:
+        request = _request_for_node(
+            node_or_request,
+            candidate_set,
+            context,
+            snapshot=snapshot,
+            kb_id=kb_id or getattr(context, "kb_id", "") or "operator_corpus",
+            effective_on=effective_on,
+            known_at=known_at,
+        )
+    result = assess_part(request, context)
+    return (
+        str(result.coverage),
+        bool(result.substantively_resolved),
+        _assessment_note(result),
+        _assessment_fields(result),
+    )
+
+
+def _request_for_node(
+    node: RegisterNode,
+    candidate_set: Any,
+    context: Any,
+    *,
+    snapshot: Any = None,
+    kb_id: str = "operator_corpus",
+    effective_on: str = "",
+    known_at: str = "",
+) -> Any:
+    """Build the shared request for a node from an explicit candidate set.
+
+    When the caller supplies a pinned ``CandidateSet`` (and optionally a
+    snapshot) the retrieval step is skipped entirely, so a caller can reuse an
+    already-acquired set rather than re-retrieving it.
+    """
+    from portal.modules.compliance.core.assessment_source import (
+        build_corpus_snapshot,
+        resolve_governing_bundle,
+    )
+    from portal.modules.compliance.core.determination import AssessmentRequest
+    from portal.modules.compliance.core.scope_derive import derive_scope
+
+    scope = derive_scope(kb_id)[0]
+    governing = resolve_governing_bundle(node.id)
+    request = AssessmentRequest(
+        requirement_id=node.id,
+        kb_id=kb_id,
+        scope=scope,
+        effective_on=effective_on,
+        known_at=known_at,
+        governing=governing,
+        snapshot=snapshot,
+        candidate_set=candidate_set,
+    )
+    if request.snapshot is None:
+        request.snapshot = build_corpus_snapshot(kb_id)
+    return request
+
+
+def _assessment_note(result: Any) -> str:
+    if result.substantively_resolved:
+        if result.gaps:
+            kinds = ", ".join(
+                sorted({str(g.get("kind", "")) for g in result.gaps if g.get("kind")})
+            )
+            return f"documentary {result.documentary_coverage}; demonstrated gap(s): {kinds}"
+        return f"documentary {result.documentary_coverage}"
+    if result.unresolved_code:
+        return f"unresolved ({result.unresolved_code}) — {result.missing_fact}"
+    return f"not substantively resolved: {result.documentary_coverage}"
+
+
+def _assessment_fields(result: Any) -> dict[str, Any]:
+    """Project one AssessmentResult into CoverageCell fields.
+
+    Support/counterevidence slices are the system-owned exact slices cited by
+    the covered commitments and grounded gaps — never a first retrieved row.
+    """
+    slices = {
+        str(s.get("slice_id", "")): s
+        for s in (result.selected_source_slices or [])
+        if isinstance(s, dict)
+    }
+    covered = [c if isinstance(c, dict) else _asdict(c) for c in (result.covered or [])]
+    gaps = [g if isinstance(g, dict) else _asdict(g) for g in (result.gaps or [])]
+    uncertainties = [u if isinstance(u, dict) else _asdict(u) for u in (result.uncertainties or [])]
+
+    support_ids: list[str] = []
+    for item in covered:
+        support_ids += [str(x) for x in item.get("internal_slice_ids", []) if x]
+        support_ids += [str(x) for x in item.get("governing_slice_ids", []) if x]
+    counter_ids: list[str] = []
+    for item in gaps:
+        counter_ids += [str(x) for x in item.get("internal_counterevidence_slice_ids", []) if x]
+        counter_ids += [str(x) for x in item.get("governing_slice_ids", []) if x]
+
+    return {
+        "assessment_id": str(result.assessment_id),
+        "documentary_coverage": str(result.documentary_coverage),
+        "applicability": str(result.applicability),
+        "applicability_basis": str(result.applicability_basis),
+        "engine_version": str(result.engine_version),
+        "snapshot_fingerprint": str((result.receipt or {}).get("snapshot_fingerprint", "")),
+        "covered": covered,
+        "gaps": gaps,
+        "uncertainties": uncertainties,
+        "canonical_support": _exact_slices(slices, support_ids),
+        "canonical_counterevidence": _exact_slices(slices, counter_ids),
+    }
+
+
+def _exact_slices(slices: dict[str, dict[str, Any]], ids: list[str]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for slice_id in ids:
+        if not slice_id or slice_id in seen:
+            continue
+        seen.add(slice_id)
+        row = slices.get(slice_id)
+        if row is not None:
+            out.append(dict(row))
+    return out
+
+
+def _asdict(value: Any) -> dict[str, Any]:
+    from dataclasses import asdict, is_dataclass
+
+    if is_dataclass(value) and not isinstance(value, type):
+        return asdict(value)
+    return dict(value) if isinstance(value, dict) else {}
+
+
 @dataclass
 class CoverageMatrix:
     effective_on: str
@@ -167,7 +366,13 @@ class CoverageMatrix:
 
     def summary(self) -> dict[str, Any]:
         applicable_cells = [c for c in self.cells if c.applies]
-        resolved = [c for c in applicable_cells if c.substantively_resolved]
+        # Final applicability/resolution, not mere result presence: an
+        # UNRESOLVED or NEEDS_REVIEW cell is examined but never "resolved".
+        resolved = [
+            c
+            for c in applicable_cells
+            if c.substantively_resolved and c.coverage not in ("UNRESOLVED", "NEEDS_REVIEW")
+        ]
         by_cov: dict[str, int] = dict.fromkeys(_COVERAGE, 0)
         for c in applicable_cells:
             by_cov[c.coverage] = by_cov.get(c.coverage, 0) + 1
@@ -273,18 +478,28 @@ def coverage_matrix(
     propose: ProposeFn,
     store: MappingStore | None = None,
     document_sidecar: dict[str, Any] | None = None,
+    context: Any = None,
 ) -> CoverageMatrix:
     """Enumerate applicable EFFECTIVE parts and classify each. ``propose(node,
     side)`` with side in {"policy","procedure","evidence"} returns candidate
     spans; approved mappings in ``store`` are authoritative over model
     judgement but must resolve and agree (see ``_apply_approved_mappings``).
     ``document_sidecar`` defaults to the real ingest sidecar; tests may pass
-    an explicit dict."""
+    an explicit dict.
+
+    When ``context`` (an :class:`AssessmentContext`) is supplied, classification
+    goes through the one authoritative ``assessment.assess_part`` service and
+    each cell carries the canonical assessment ID; the legacy proposer-based
+    path is used only when no context is given. ``propose`` is ignored on the
+    shared-service path (candidate acquisition happens in the shared adapter).
+    """
     if not scope.is_declared:
         raise ValueError(
             "coverage_matrix requires a declared AssetScope — an ungated matrix "
             "produces false gaps for out-of-scope requirements ([GATE] Phase 5)."
         )
+    if context is not None:
+        return _coverage_matrix_assessed(reg, scope, effective_on, context)
     store = store or MappingStore()
     m = CoverageMatrix(effective_on=effective_on, scope_declared=True)
     nodes = effective_parts(reg, effective_on)
@@ -350,15 +565,9 @@ def coverage_matrix(
         # cites an old id) is also distinct from a stale IMPLEMENTATION
         # (the text describes outdated behavior); this check only detects
         # the former.
-        superseded = {
-            e["dst"] for e in reg.edges if e["rel"] == "SUPERSEDES" and e["src"] == node.standard
-        }
-        cell.stale_citations = [
-            f"{s['section_id']} cites {old} (superseded reference, not necessarily an obsolete implementation)"
-            for s in cell.policy_spans + cell.procedure_spans
-            for old in superseded
-            if re.search(rf"(?<![\w-]){re.escape(old)}(?![\w-])", s["span"])
-        ]
+        cell.stale_citations = _stale_citations(
+            reg, node.standard, cell.policy_spans + cell.procedure_spans
+        )
 
         cell.coverage, cell.substantively_resolved, classify_note = _classify(
             cell.policy_spans, cell.procedure_spans, cell.evidence_spans
@@ -372,6 +581,90 @@ def coverage_matrix(
             cell.note += "; contradictory internal constraint prevents full support"
         m.cells.append(cell)
 
+    return m
+
+
+def _superseded_standard_ids(reg: Register, standard: str) -> set[str]:
+    return {e["dst"] for e in reg.edges if e["rel"] == "SUPERSEDES" and e["src"] == standard}
+
+
+def _stale_citations(reg: Register, standard: str, spans: list[dict[str, Any]]) -> list[str]:
+    """Exact superseded-reference advisories, kept separate from the verdict."""
+    superseded = _superseded_standard_ids(reg, standard)
+    out: list[str] = []
+    for span in spans:
+        text = str(span.get("span") or span.get("text") or "")
+        citation = str(span.get("section_id") or span.get("ref") or "")
+        for old in sorted(superseded):
+            if re.search(rf"(?<![\w-]){re.escape(old)}(?![\w-])", text):
+                out.append(
+                    f"{citation} cites {old} (superseded reference, not necessarily an "
+                    "obsolete implementation)"
+                )
+    return out
+
+
+def _coverage_matrix_assessed(
+    reg: Register,
+    scope: AssetScope,
+    effective_on: str,
+    context: Any,
+) -> CoverageMatrix:
+    """Classify every applicable Part through the shared assessment service.
+
+    No lexical conflict discovery and no blanket conflict-to-PARTIAL override:
+    the substantive decision, its covered commitments, grounded gaps and
+    uncertainties are whatever ``assess_part`` produced and persisted.
+    """
+    from portal.modules.compliance.core import assessment_runs
+
+    m = CoverageMatrix(effective_on=effective_on, scope_declared=True)
+    nodes = effective_parts(reg, effective_on)
+    has_parts = {
+        (n.standard, n.requirement)
+        for n in nodes
+        if n.granularity == "part"
+        and not (n.standard.startswith("CIP-003") and n.requirement == "R1")
+    }
+    kb_id = str(getattr(context, "kb_id", "") or "operator_corpus")
+    for node in nodes:
+        if _skip_node(node, has_parts):
+            continue
+        applies, reason = applicable(node.applicable_systems, scope)
+        cell = CoverageCell(requirement_id=node.id, applies=applies, applicability_reason=reason)
+        if not applies:
+            cell.coverage = "NOT_APPLICABLE"
+            cell.documentary_coverage = "NOT_APPLICABLE"
+            cell.substantively_resolved = True
+            m.cells.append(cell)
+            continue
+        try:
+            requests = assessment_runs.build_requests_for(
+                node.id, kb_id=kb_id, scope=scope, effective_on=effective_on
+            )
+        except Exception as exc:  # noqa: BLE001 - retrieval failure is unresolved
+            cell.retrieval_errors.append({"stage": "acquire", "error": str(exc)})
+            cell.coverage = "UNRESOLVED"
+            cell.note = f"source acquisition failed: {exc}"
+            m.cells.append(cell)
+            continue
+        if not requests:
+            cell.coverage = "UNRESOLVED"
+            cell.note = "no assessment request could be built for this Part"
+            m.cells.append(cell)
+            continue
+        coverage, resolved, note, fields = _classify(requests[0], context)
+        for key, value in fields.items():
+            setattr(cell, key, value)
+        cell.coverage = coverage
+        cell.substantively_resolved = resolved
+        cell.note = note
+        cell.stale_citations = _stale_citations(
+            reg, node.standard, [*cell.canonical_support, *cell.canonical_counterevidence]
+        )
+        if cell.stale_citations:
+            cell.note += f"; also cites a superseded standard id: {cell.stale_citations}"
+        m.cells.append(cell)
     return m
 
 

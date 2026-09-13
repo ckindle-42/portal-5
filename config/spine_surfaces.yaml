@@ -48,6 +48,22 @@ surfaces:
   globs:
   - portal/modules/compliance/core/assessment.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-assessment_report
+  globs:
+  - portal/modules/compliance/core/assessment_report.py
+  unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-assessment_runs
+  globs:
+  - portal/modules/compliance/core/assessment_runs.py
+  unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-assessment_service
+  globs:
+  - portal/modules/compliance/core/assessment_service.py
+  unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-assessment_source
+  globs:
+  - portal/modules/compliance/core/assessment_source.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-auth
   globs:
   - portal/modules/compliance/core/auth.py
@@ -143,6 +159,10 @@ surfaces:
 - name: file-portal-modules-compliance-core-models
   globs:
   - portal/modules/compliance/core/models.py
+  unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-obligation_alignment
+  globs:
+  - portal/modules/compliance/core/obligation_alignment.py
   unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-obligations
   globs:
