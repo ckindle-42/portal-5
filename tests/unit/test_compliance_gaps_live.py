@@ -7,12 +7,24 @@ durable run service end to end without network.
 from __future__ import annotations
 
 import time
+from pathlib import Path
 
 import pytest
 
 from portal.modules.compliance.core import assessment_runs
 from portal.modules.compliance.core.repository import Repository
 from portal.modules.compliance.tools.compliance_mcp import compliance_gaps
+
+# NERC CIP standard PDFs are fetched locally, deliberately gitignored (see
+# cip_register.py's fetch_pdfs docstring) — CI never has them. This case falls
+# through to assessment_source._pdf_parent_requirement's raw-PDF recovery
+# path, but the run happens on a background thread that converts the
+# resulting FileNotFoundError into a FAILED run status rather than raising
+# it here, so there's no exception for a generic skip-on-error fixture to
+# catch.
+_CIP_PDFS_PRESENT = any(
+    (Path(__file__).resolve().parents[2] / "portal/modules/compliance/data/cip_pdfs").glob("*.pdf")
+)
 
 
 @pytest.fixture
@@ -35,6 +47,7 @@ def _await(run_id: str, timeout: float = 15.0) -> dict:
     raise AssertionError(f"run {run_id} did not finish")
 
 
+@pytest.mark.skipif(not _CIP_PDFS_PRESENT, reason="NERC CIP PDF corpus not fetched locally")
 def test_gaps_default_start_is_async_without_speculative_rows(repo):
     out = compliance_gaps(requirement="CIP-007-6 R2 Part 2.2", scope="low impact only")
     assert out["run_id"]

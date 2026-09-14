@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import replace
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -18,6 +19,16 @@ from portal.platform.retrieval import embedding, pipeline
 
 REAL_SEARCH = pipeline.search
 TARGET = next(n for n in Register.load().nodes if n.id == "CIP-007-6 R5 Part 5.4")
+
+# NERC CIP standard PDFs are fetched locally, deliberately gitignored (see
+# cip_register.py's fetch_pdfs docstring) — CI never has them. This case falls
+# through to assessment_source._pdf_parent_requirement's raw-PDF recovery
+# path; compliance_gaps wraps its whole sync path in try/except and returns
+# {"error": ...} instead of raising, so there's no exception for a generic
+# skip-on-error fixture to catch.
+_CIP_PDFS_PRESENT = any(
+    (Path(__file__).resolve().parents[2] / "portal/modules/compliance/data/cip_pdfs").glob("*.pdf")
+)
 OTHER = next(n for n in Register.load().nodes if n.id == "CIP-007-6 R1 Part 1.1")
 SCOPE = AssetScope(impact_present={"high", "medium"}, declared_by="test")
 TEXT = "Change known default passwords, per Cyber Asset capability."
@@ -330,6 +341,7 @@ def test_direct_proposer_surfaces_errors_to_other_callers(wired):
         p.make_real_proposer()(TARGET, "policy")
 
 
+@pytest.mark.skipif(not _CIP_PDFS_PRESENT, reason="NERC CIP PDF corpus not fetched locally")
 @pytest.mark.parametrize("verbose", [False, True])
 def test_tool_output_exposes_failed_retrieval(wired, monkeypatch, verbose):
     from portal.modules.compliance.core import mapping_store, scope_derive
