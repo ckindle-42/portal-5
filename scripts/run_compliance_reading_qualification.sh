@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/bin/bash
 # Offline qualification runner for the compliance reading architecture.
 #
 # Runs the three outstanding qualification stages (resume doc §5C–D) back to
@@ -27,7 +27,7 @@ STATUS="$ART/status.json"
 REV=$(git -C "$REPO" rev-parse HEAD)
 DIRTY=$(git -C "$REPO" status --porcelain | wc -l | tr -d ' ')
 
-note() { print -r -- "$(date -u +%Y-%m-%dT%H:%M:%SZ) $*"; }
+note() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 
 write_status() {
   python3 - "$STATUS" "$REV" "$DIRTY" "$@" <<'PY'
@@ -55,9 +55,9 @@ PY
 
 run_stage() {
   local name=$1; shift
-  local log="$ART/$name.log"
-  if [ -f "$ART/$name.exit" ]; then
-    note "$name already finished (exit $(cat "$ART/$name.exit")); skipping"
+  local log="$ART/${name}.log"
+  if [ -f "$ART/${name}.exit" ]; then
+    note "$name already finished (exit $(cat "$ART/${name}.exit")); skipping"
     return
   fi
   # A log with no .exit is an aborted attempt: keep it, but start a fresh log so
@@ -67,11 +67,11 @@ run_stage() {
     note "$name: archived an aborted log"
   fi
   note "$name START: $*"
-  write_status "$name:RUNNING:-"
+  write_status "${name}:RUNNING:-"
   "$@" >> "$log" 2>&1
   local rc=$?
-  print -r -- "$rc" > "$ART/$name.exit"
-  write_status "$name:FINISHED:$rc"
+  printf '%s\n' "$rc" > "$ART/${name}.exit"
+  write_status "${name}:FINISHED:${rc}"
   note "$name FINISHED exit=$rc (log: $log)"
 }
 

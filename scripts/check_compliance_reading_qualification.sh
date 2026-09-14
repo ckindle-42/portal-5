@@ -38,7 +38,7 @@ install_job() {
 	<string>$LABEL</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/bin/zsh</string>
+		<string>/bin/bash</string>
 		<string>$REPO/scripts/run_compliance_reading_qualification.sh</string>
 	</array>
 	<key>RunAtLoad</key>
