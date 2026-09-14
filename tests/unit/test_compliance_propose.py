@@ -343,10 +343,23 @@ def test_direct_proposer_surfaces_errors_to_other_callers(wired):
 
 @pytest.mark.skipif(not _CIP_PDFS_PRESENT, reason="NERC CIP PDF corpus not fetched locally")
 @pytest.mark.parametrize("verbose", [False, True])
-def test_tool_output_exposes_failed_retrieval(wired, monkeypatch, verbose):
+def test_tool_output_exposes_failed_retrieval(wired, monkeypatch, verbose, tmp_path):
     from portal.modules.compliance.core import mapping_store, scope_derive
     from portal.modules.compliance.tools.compliance_mcp import compliance_gaps
 
+    # Unlike the other tests in this file, this one exercises the real
+    # compliance_gaps(sync=True) MCP path, which calls
+    # assessment_runs.build_requests_for -> build_corpus_snapshot -- a real
+    # LanceDB read of the corpus's current view, not just pipeline.search
+    # (already mocked via `wired`). Point it at an empty tmp store rather
+    # than mocking it away, matching test_compliance_retrieval_seam.py's
+    # established pattern, since this test's own build_corpus_snapshot call
+    # is legitimate (it wants the real acquire-then-rerank-fails path).
+    from portal.platform.retrieval import store as _store
+
+    monkeypatch.setattr(_store, "LANCE_DIR", str(tmp_path / "lance"))
+    monkeypatch.setattr(_store, "RAG_DIR", str(tmp_path / "lance" / "rag"))
+    _store._db = None
     monkeypatch.setattr(scope_derive, "derive_scope", lambda kb: (SCOPE, {}))
     monkeypatch.setattr(mapping_store, "MappingStore", lambda: wired.store)
     monkeypatch.setattr(p.rq, "sync_proposed_mappings", lambda store: 0)

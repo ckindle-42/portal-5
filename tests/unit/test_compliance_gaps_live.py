@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from portal.modules.compliance.core import assessment_runs
+from portal.modules.compliance.core import assessment_runs, review_queue
 from portal.modules.compliance.core.repository import Repository
 from portal.modules.compliance.tools.compliance_mcp import compliance_gaps
 
@@ -48,7 +48,8 @@ def _await(run_id: str, timeout: float = 15.0) -> dict:
 
 
 @pytest.mark.skipif(not _CIP_PDFS_PRESENT, reason="NERC CIP PDF corpus not fetched locally")
-def test_gaps_default_start_is_async_without_speculative_rows(repo):
+def test_gaps_default_start_is_async_without_speculative_rows(repo, monkeypatch):
+    monkeypatch.setattr(review_queue, "open_items", lambda **kw: [])
     out = compliance_gaps(requirement="CIP-007-6 R2 Part 2.2", scope="low impact only")
     assert out["run_id"]
     # A fast worker may already have finished before start() snapshots status;
