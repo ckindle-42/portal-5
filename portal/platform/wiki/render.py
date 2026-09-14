@@ -171,10 +171,11 @@ def render_unit_into_doc(doc_path: Path, unit_id: str) -> bool:
     text = doc_path.read_text(encoding="utf-8")
     start = _BLOCK_START.format(unit_id=unit_id)
     pattern = re.compile(re.escape(start) + r".*?" + re.escape(_BLOCK_END), re.DOTALL)
-    if not pattern.search(text):
+    match = pattern.search(text)
+    if match is None:
         raise ValueError(f"No managed block for unit={unit_id!r} found in {doc_path}")
 
-    body = project_body(unit.body, host_section_depth(text, pattern.search(text).start()))
+    body = project_body(unit.body, host_section_depth(text, match.start()))
     replacement = f"{start}\n{body}\n{_BLOCK_END}"
     new_text = pattern.sub(lambda _m: replacement, text, count=1)
     changed = new_text != text

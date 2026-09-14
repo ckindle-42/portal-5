@@ -163,7 +163,10 @@ def resolve(
     from portal.modules.compliance.core.engine import _is_enforceable_at
 
     reg_by_id = {n.id: n for n in Register.load().nodes}
-    actor_cus, premises, meta_cus, ref_closure = [], [], [], set()
+    actor_cus: list[dict[str, Any]] = []
+    premises: list[dict[str, Any]] = []
+    meta_cus: list[dict[str, Any]] = []
+    ref_closure: set[str] = set()
     label = "current"
     for n in nodes:
         rn = reg_by_id.get(n.id)
@@ -221,14 +224,14 @@ def trace(
     all_edges = list(g.edges) + list(org_edges or [])
     if edge_types:
         all_edges = [e for e in all_edges if e["rel"] in edge_types]
-    fwd: dict[str, list[dict]] = {}
-    rev: dict[str, list[dict]] = {}
+    fwd: dict[str, list[dict[str, Any]]] = {}
+    rev: dict[str, list[dict[str, Any]]] = {}
     for e in all_edges:
         fwd.setdefault(e["src"], []).append(e)
         rev.setdefault(e["dst"], []).append(e)
 
     seen = {start}
-    out_edges: list[dict] = []
+    out_edges: list[dict[str, Any]] = []
     frontier: list[str] = []
     budget_hit = False
     q: deque[tuple[str, int]] = deque([(start, 0)])
@@ -236,7 +239,7 @@ def trace(
         node, d = q.popleft()
         if d >= depth:
             continue
-        nbrs: list[dict] = []
+        nbrs: list[dict[str, Any]] = []
         if direction in ("forward", "both"):
             nbrs += fwd.get(node, [])
         if direction in ("reverse", "both"):

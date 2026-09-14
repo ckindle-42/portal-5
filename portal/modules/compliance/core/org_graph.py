@@ -348,9 +348,8 @@ async def build_org_graph(corpus_dir: str | Path) -> OrgGraph:
             title = tm.group(2).replace("&amp;", "&").strip()
         cb = parse_control_block(text)
         folder = pdf.parent.name
-        std_folder = (
-            f"CIP-{_STD_FOLDER.match(folder).group(1)}" if _STD_FOLDER.match(folder) else ""
-        )
+        std_folder_m = _STD_FOLDER.match(folder)
+        std_folder = f"CIP-{std_folder_m.group(1)}" if std_folder_m else ""
         sections = parse_sections(text, lid)
         declared = [s for s in sections if s.number]
         graph.documents.append(
