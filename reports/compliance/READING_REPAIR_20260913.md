@@ -269,3 +269,92 @@ assessment plus the proposal-overlay reassessment (30 calls) through
 - Lint + format clean repo-wide; focused mypy on `assessment_report.py` clean;
   the two `call-arg` errors on the verifier are gone.
 - Complexity gate **OK at budget, no budget increase**.
+
+
+## Full offline qualification — completed 2026-09-14 08:48Z
+
+Ran unattended as launchd job `com.portal5.compliance.reading.qualification.20260913`
+on a single fixed revision, `36a81bb7`, clean tree. Artifacts:
+`/tmp/compliance-reading-qualification-20260913/`.
+
+| Stage | Command | Exit | Receipts |
+| --- | --- | --- | --- |
+| stage1 | `--live --runs 1` (26 cases) | 1 | `reading_acceptance/20260914T021750369449Z/` |
+| stage2 | `--live --cases 01,02,03,04,05 --runs 2` | 1 | `reading_acceptance/20260914T053910880658Z/` |
+| stage3 | `verify_compliance_reading_route.py` | **0** | `reading_route/20260914T074108394845Z/` |
+
+All three `summary.json` files carry `"complete": true` (26, 10 and 16 rows).
+Zero tracebacks and zero `checker_error` rows across 36 case executions — the
+crash-class defects fixed before launch (`report: null`, `boundary_proof_id:
+null`) held for the whole run.
+
+### stage1 — 26/26 executed, 13 PASS / 13 FAIL
+
+PASS: 03, 07, 09, 11, 12, 13, 14, 17, 18, 21, 22, 24, 26
+FAIL: 01, 02, 04, 05, 06, 08, 10, 15, 16, 19, 20, 23, 25
+
+Failures fall into four families, none an instrument defect:
+
+* **Excluded L-document counterevidence (10, 19, 20, 25).** Seats vote the
+  changed cadence DIFFERENT, the L-doc is excluded, arithmetic never runs, the
+  reporter's citation of it is refused, and the result is U11. Most common family.
+* **Fabricated numeric bindings (02, 04, 05, 06, 15).** Seats invent a quantity
+  for a candidate containing no number; literal validation rejects it and the
+  categorical quorum collapses to U09. In case 04 both required duties resolved
+  cleanly and only the **decoys** went UNKNOWN — yet that still vetoed the Part.
+* **False FULL (08, 16).** The council asserts coverage the fixture denies.
+* **Real-corpus / control limits (01, 23).** Case 01's seats omit candidate ids
+  at corpus breadth; case 23's U10 is unreachable behind an earlier U09.
+
+Notable passes: **26** (`PARTIAL`, 30 calls — the proposal-overlay path end to
+end), **12** (a genuine `NONE` absence verdict resting on a completed boundary
+receipt), and **13**, which was a *false* pass in the original run and now passes
+on the strengthened checks.
+
+### stage2 — three observations each for cases 01–05
+
+| Case | Record | Disposition |
+| --- | --- | --- |
+| 01 | 0/3 PASS | **Stable failure** — 1946.6 / 1950.2 / 1949.1 s, identical 5-call shape and identical failed checks every time |
+| 02 | 4/5 PASS | **Intermittent** — one U09 in five observations |
+| 03 | 3/3 PASS | **Stable pass** |
+| 04 | 2/3 PASS | **Intermittent** — the decoy-binding veto fires occasionally, not structurally |
+| 05 | 0/3 PASS | **Stable failure** — same 3-call U09 signature each time |
+
+This separation is what the repetition requirement exists for: 01 and 05 are
+reproducible defects to act on; 02 and 04 are sampling variance in the alignment
+seats that must stay in the record but are not structural. It could not have been
+derived from stage 1 alone.
+
+### stage3 — deployed scoped-R2 route: 16/16 PASS
+
+First execution of the scoped-requirement path over the deployed MCP HTTP
+surface, after kickstarting `com.portal5.compliance-mcp` onto the final revision.
+Run `f4e11d2c8471445c`, KB `operator_corpus`, effective 2026-09-12, conditional
+scope declared.
+
+* `start` returned run identity only, no speculative coverage rows, and expanded
+  `CIP-007-6 R2` into all four Parts.
+* `result` returned **four distinct assessment ids** — `56ac7605e1a14096`,
+  `04e7a3eb42274f6d`, `9a3060fc72b84064`, `c7934b577e924b1d` — under one shared
+  `run_id`, engine `compliance-reading/1`.
+* The envelope replayed the **original** request context: `effective_on`
+  2026-09-12 (not today, 2026-09-14) and the declared scope, despite the result
+  call deliberately sending a wrong `kb_id` and a blank date.
+* A repeated status/result pair returned byte-identical ids and `finished_at`
+  in 0.003 s / 0.441 s — no additional model work (A08).
+
+This closes the two §5D items that were outstanding: the scoped R2 request and
+completed-result verification over the deployed lifecycle.
+
+### Runner defect found and fixed mid-run
+
+Stage 1 completed all 26 cases and wrote its `.exit`, then the wrapper died
+before stage 2 with `run_stage:18: N: parameter not set`. zsh parses an unbraced
+`$name:FINISHED:$rc` as a `${name:F...}` colon modifier;
+`write_status "$name:RUNNING:-"` survived only because `:-` is the valid
+default-value operator, which is why stage 1 ran to completion and only the
+FINISHED write failed. Fixed in `36a81bb7` (runner and plist moved to bash,
+every colon-adjacent expansion braced, zsh-only `print -r --` replaced). The job
+resumed at stage 2 via stage 1's existing `.exit`, losing none of the 3h20m
+already spent.

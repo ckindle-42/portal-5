@@ -1,10 +1,13 @@
 # RESUME — compliance reading architecture (one authoritative assessment path)
 
-**Status (2026-09-13 evening):** implementation and repairs landed and
-**committed**; the targeted controls completed and the coding-agent corrections in
-§9 are applied. Architecture acceptance is **NOT green** — the full 26-case
-qualification runs offline via the job in §9, and three substantive failures
-(cases 08, 10, 23) are carried into it with evidence-based dispositions.
+**Status (2026-09-14 08:48Z):** the full offline qualification **completed** on
+fixed revision `36a81bb7` — stage1 26/26 executed (13 PASS / 13 FAIL, exit 1),
+stage2 three observations each for cases 01–05 (exit 1), stage3 the deployed
+scoped-R2 route **16/16 PASS (exit 0)**. Architecture acceptance is **NOT green**:
+the live 26-case criterion in §4 is not met. The §5D route and completed-result
+items ARE now closed. Full census, per-case dispositions and the stable-vs-
+intermittent split are in `reports/compliance/READING_REPAIR_20260913.md`
+("Full offline qualification").
 **Branch:** `main`. **Spec:**
 `docs/IMPLEMENTATION_BRIEF_COMPLIANCE_READING_20260912.md` (rev 2).
 **Baseline commit:** `2ef55701` (the design brief's snapshot).
