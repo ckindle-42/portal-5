@@ -1,29 +1,7 @@
-"""Workstream C — semantic duty alignment (IMPLEMENTATION_BRIEF §4).
+"""Source-grounded duty identity and operand selection before arithmetic.
 
-This is the narrow reading pass that runs *before* any arithmetic or council
-judgment. It does not decide FULL/PARTIAL/NONE. For one Part it reads the
-complete candidate set against the complete governing duty (full Part text,
-verified lead-in, cited definitions/references and the scope context) and
-returns one :class:`AlignmentRecord` per candidate:
-
-  - ``SAME``      the clause prescribes or implements the governing
-                  activity/object for an overlapping population with a
-                  compatible trigger (different deadlines / weaker wording /
-                  incomplete satisfaction stay SAME);
-  - ``DIFFERENT`` the wording positively establishes another duty or
-                  non-operative material;
-  - ``UNKNOWN``   the supplied text establishes neither; the precise missing
-                  fact is recorded and no arithmetic may use the record.
-
-Agreement is categorical and reaches a relation only by the same quorum rule
-``council.run_council`` uses; confidence is never a vote and there is no
-keyword/lexical fallback. Every candidate ID must appear exactly once in every
-seat's response — an omission, an invalid response, or duplicate inconsistent
-IDs fail the whole alignment (``valid=False``) rather than being retried for a
-more favorable answer.
-
-The reader is deliberately sealed from the later stages: it never receives a
-prior determination, a gold label, an approved verdict or a coverage decision.
+Categorical quorum determines SAME/DIFFERENT; no lexical fallback or prior
+judgment enters the reader. Invalid selections remain explicit uncertainty.
 """
 
 from __future__ import annotations
@@ -54,34 +32,80 @@ _UNITS = ("hour", "day", "week", "month", "year")
 _OPERATIVE = "OPERATIVE_COMMITMENT"
 
 _ALIGNMENT_SYSTEM = (
-    "You are a narrow clause-alignment reader. You compare source clauses and "
-    "return categorical duty identities. You never decide whether a requirement "
-    "is met, and you never output a confidence score.\n"
-    "Given one governing duty (its full Part text, the verified lead-in, cited "
-    "definitions and references, and the scope context) and a list of candidate "
-    "source clauses, classify each candidate clause's relation to the duty:\n"
-    "- SAME: the clause prescribes or implements the governing activity/object "
-    "for an overlapping population with a compatible trigger. Different "
-    "deadlines, weaker wording, omitted conditions or incomplete wording stay "
-    "SAME.\n"
-    "- DIFFERENT: the wording positively establishes another activity, another "
-    "triggering duty, a disjoint population, or non-operative reference "
-    "material.\n"
-    "- UNKNOWN: the supplied text does not establish either; state the precise "
-    "missing fact.\n"
-    "RULES:\n"
-    "- Read the source semantically. Do not use keyword overlap, folder names, "
-    "file names or numeric equality to decide the relation.\n"
-    "- Select only slice ids that appear in the supplied selectable slices. "
-    "Never write a quoted string, an ellipsis, or a character offset.\n"
-    '- Every candidate_id must appear exactly once in "records".\n'
-    "- A chunk that mixes topics returns separate records.\n"
-    "- constraint_bindings capture numeric constraints: pick the exact governing "
-    "and candidate operand slice ids, the literal digit as written (for example "
-    '35 in "thirty-five (35) calendar days"), the unit, the qualifier and the '
-    "constraint kind and direction.\n"
-    'Return ONE JSON object: {"records":[{...}]}.'
+    "Read duty identity, never satisfaction or confidence. Use the full Part, lead-in, "
+    "definitions, references, scope and candidate context.\n"
+    "SAME: the clause implements the governing activity/object for an overlapping "
+    "population and compatible triggering event. Missing conditions, weaker wording "
+    "or changed deadlines remain SAME. DIFFERENT: the text establishes another duty, "
+    "disjoint population or non-operative material. Otherwise UNKNOWN with missing facts.\n"
+    "Distinguish the event creating a duty from its frequency/completion deadline. "
+    "A changed or missing interval does not create a different duty. Resolve 'that "
+    "evaluation' from the other candidate clauses; a cadence clause can implement "
+    "an activity stated elsewhere. Select each candidate's own source slice.\n"
+    "Use source meaning, never keyword overlap, filenames, folders or numeric equality. "
+    "Select supplied slice IDs, never reconstructed quotes or character offsets.\n"
+    "For clause_alignment, emit exactly one record per candidate using response_contract. "
+    "Bind every matched quantity for a SAME duty to the governing and candidate slices "
+    "that actually contain its literal digit, unit and qualifier. A reference supplying "
+    "context need not contain the numeric operand. Missing/ambiguous operands mean UNKNOWN. "
+    "Use empty constraint_bindings only without a quantity for the matched duty.\n"
+    "max_interval bounds delay between recurrences or time to finish an action. "
+    "min_retention bounds how long records/material must be kept. 'At least once every' "
+    "is max_interval. Direction must equal constraint_kind.\n"
+    "For internal_pair_identity, compare only LEFT and RIGHT, returning relation, "
+    "rationale and missing_facts instead of candidate records."
 )
+
+
+def _object_schema(properties: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "type": "object",
+        "properties": properties,
+        "required": list(properties),
+        "additionalProperties": False,
+    }
+
+
+def _quantity_schema() -> dict[str, Any]:
+    return _object_schema(
+        {
+            "value": {"type": "integer"},
+            "unit": {"type": "string", "enum": list(_UNITS)},
+            "qualifier": {"type": ["string", "null"], "enum": ["calendar", "business", None]},
+        }
+    )
+
+
+def _response_contract(task: str = "clause_alignment") -> dict[str, Any]:
+    strings: dict[str, Any] = {"type": "array", "items": {"type": "string"}}
+    relation = {"type": "string", "enum": list(ALIGNMENT_RELATIONS)}
+    if task == "internal_pair_identity":
+        return _object_schema(
+            {"relation": relation, "rationale": {"type": "string"}, "missing_facts": strings}
+        )
+    binding: dict[str, Any] = {
+        "governing_slice_id": {"type": "string"},
+        "candidate_slice_id": {"type": "string"},
+        "constraint_kind": {"type": "string", "enum": list(CONSTRAINT_KINDS)},
+        "direction": {"type": "string", "enum": list(CONSTRAINT_KINDS)},
+        "governing_quantity": _quantity_schema(),
+        "internal_quantity": _quantity_schema(),
+        "rationale": {"type": "string"},
+    }
+    record: dict[str, Any] = {
+        key: {"type": "string"}
+        for key in ("candidate_id", "activity", "object", "trigger", "population", "rationale")
+    }
+    record.update(
+        relation=relation,
+        population_overlap={"type": "string", "enum": list(POPULATION_OVERLAPS)},
+        source_function={"type": "string", "enum": list(SOURCE_FUNCTIONS)},
+        missing_facts=strings,
+        governing_slice_ids=strings,
+        candidate_slice_ids=strings,
+        constraint_bindings={"type": "array", "items": _object_schema(binding)},
+    )
+    return _object_schema({"records": {"type": "array", "items": _object_schema(record)}})
 
 
 def align_part(request: AssessmentRequest, context: AssessmentContext) -> AlignmentResult:
@@ -163,6 +187,7 @@ def _build_user_packet(request: AssessmentRequest) -> dict[str, Any]:
     candidate_set = request.candidate_set
     return {
         "task": "clause_alignment",
+        "response_contract": _response_contract(),
         "governing": {
             "ref": governing.ref if governing else request.requirement_id,
             "part_text": governing.part_text if governing else "",
@@ -170,6 +195,10 @@ def _build_user_packet(request: AssessmentRequest) -> dict[str, Any]:
             "definitions": governing.definitions if governing else [],
             "references": governing.references if governing else [],
             "selectable_slice_ids": _governing_slice_ids(governing),
+            "source_slices": [
+                {"slice_id": s.slice_id, "ref": s.ref, "role": s.role, "text": s.text}
+                for s in (governing.source_slices if governing else [])
+            ],
         },
         "scope": _scope_dict(request.scope),
         "candidates": [
@@ -259,15 +288,29 @@ def _aggregate(
     for seat_id in seat_order:
         record = seat_records[seat_id][cand.candidate_id]
         record = _resolve_slices(record, cand, gov_default, cand_allowed, gov_allowed)
-        valid, _ = _validate_vote(record, cand_allowed, gov_allowed)
+        valid, reason = _validate_vote(record, cand_allowed, gov_allowed)
+        if valid and record["relation"] == "SAME":
+            for raw in record["constraint_bindings"]:
+                if (
+                    _validate_binding(
+                        cand.candidate_id, "", raw, gov_by_id, cand_allowed, cand.text
+                    )
+                    is None
+                ):
+                    valid, reason = False, f"seat {seat_id}: invalid numeric binding"
+                    break
+        if not valid:
+            record["missing_facts"] = [*record["missing_facts"], reason]
         votes.append((seat_id, record, valid))
 
     same = [v for v in votes if v[2] and v[1]["relation"] == "SAME"]
     diff = [v for v in votes if v[2] and v[1]["relation"] == "DIFFERENT"]
     if len(same) >= required and len(same) > len(diff):
-        return _decided_record(governing_ref, cand, "SAME", same, gov_by_id, cand_allowed)
+        return _decided_record(governing_ref, cand, "SAME", same, gov_by_id, cand_allowed, required)
     if len(diff) >= required and len(diff) > len(same):
-        return _decided_record(governing_ref, cand, "DIFFERENT", diff, gov_by_id, cand_allowed)
+        return _decided_record(
+            governing_ref, cand, "DIFFERENT", diff, gov_by_id, cand_allowed, required
+        )
     return _unknown_record(governing_ref, cand, votes, same, diff, required)
 
 
@@ -278,6 +321,7 @@ def _decided_record(
     winning: list[tuple[str, dict[str, Any], bool]],
     gov_by_id: dict[str, SourceSlice],
     cand_allowed: set[str],
+    required: int,
 ) -> AlignmentRecord:
     template = winning[0][1]
     gov_ids = _dedupe(
@@ -288,13 +332,17 @@ def _decided_record(
     )
     if not cand_ids and cand.source_slice is not None:
         cand_ids = [cand.source_slice.slice_id]
-    # The link id carries the human-readable document id ahead of the opaque
-    # candidate id, so a seat's citation of the document name resolves in the
-    # council allowlist (and in the report's consensus match) without changing
-    # council internals. The candidate id remains the stable key for lookup.
     link_id = _link_id(cand)
     cand_text = cand.source_slice.text if cand.source_slice is not None else cand.text
-    bindings = _bindings_from_winning(link_id, winning, gov_by_id, cand_allowed, cand_text)
+    missing_facts = _dedupe(template["missing_facts"])
+    try:
+        bindings = _bindings_from_winning(
+            link_id, winning, gov_by_id, cand_allowed, cand_text, required
+        )
+    except ValueError as exc:
+        relation = "UNKNOWN"
+        bindings = []
+        missing_facts.append(str(exc))
     return AlignmentRecord(
         link_id=link_id,
         governing_ref=governing_ref,
@@ -310,7 +358,7 @@ def _decided_record(
         population_overlap=template["population_overlap"],
         source_function=template["source_function"],
         rationale=template["rationale"],
-        missing_facts=_dedupe(template["missing_facts"]),
+        missing_facts=missing_facts,
         constraint_bindings=bindings,
     )
 
@@ -326,9 +374,8 @@ def _unknown_record(
     abstentions = [v for v in votes if v[2] and v[1]["relation"] == "UNKNOWN"]
     template = abstentions[0][1] if abstentions else None
     facts: list[str] = []
-    for _, record, valid in votes:
-        if valid:
-            facts.extend(record["missing_facts"])
+    for _, record, _ in votes:
+        facts.extend(record["missing_facts"])
     if not (len(same) >= required or len(diff) >= required):
         facts.append(
             f"no categorical quorum: SAME={len(same)} DIFFERENT={len(diff)} required={required}"
@@ -392,6 +439,8 @@ def _validate_vote(
 ) -> tuple[bool, str]:
     if record["relation"] == "UNKNOWN":
         return True, ""
+    if record["relation"] == "SAME" and record["population_overlap"] != "OVERLAPPING":
+        return False, "SAME requires source-grounded overlapping populations"
     if not record["candidate_slice_ids"]:
         return False, "no candidate source slice selected"
     if not record["governing_slice_ids"]:
@@ -412,28 +461,35 @@ def _bindings_from_winning(
     gov_by_id: dict[str, SourceSlice],
     cand_allowed: set[str],
     cand_text: str = "",
+    required: int = 1,
 ) -> list[ConstraintBinding]:
-    out: list[ConstraintBinding] = []
-    seen: set[tuple[Any, ...]] = set()
-    for _, record, _ in winning:
+    bindings: dict[str, ConstraintBinding] = {}
+    supporters: dict[str, set[str]] = {}
+    for seat_id, record, _ in winning:
         for raw in record["constraint_bindings"]:
-            binding = _validate_binding(
-                link_id, f"{link_id}:b{len(out)}", raw, gov_by_id, cand_allowed, cand_text
-            )
+            binding = _validate_binding(link_id, "", raw, gov_by_id, cand_allowed, cand_text)
             if binding is None:
-                continue
-            key = (
-                binding.governing_slice_id,
-                binding.candidate_slice_id,
-                binding.value,
-                binding.unit,
-                binding.constraint_kind,
-            )
-            if key in seen:
-                continue
-            seen.add(key)
-            out.append(binding)
-    return out
+                raise ValueError(f"seat {seat_id}: invalid numeric binding for {link_id}")
+            identity = {
+                k: raw.get(k)
+                for k in (
+                    "governing_slice_id",
+                    "candidate_slice_id",
+                    "governing_quantity",
+                    "internal_quantity",
+                    "constraint_kind",
+                    "direction",
+                )
+            }
+            key = json.dumps(identity, sort_keys=True)
+            bindings[key] = binding
+            supporters.setdefault(key, set()).add(seat_id)
+    accepted = [binding for key, binding in bindings.items() if len(supporters[key]) >= required]
+    if bindings and not accepted:
+        raise ValueError("no quorum on source-grounded numeric operands and constraint kind")
+    for index, binding in enumerate(accepted):
+        binding.binding_id = f"{link_id}:b{index}"
+    return accepted
 
 
 def _validate_binding(
@@ -452,18 +508,20 @@ def _validate_binding(
     if kind not in CONSTRAINT_KINDS:
         return None
     direction = str(raw.get("direction", ""))
-    if not direction:
+    if direction != kind:
         return None
     governing_q = _quantity_dict(raw.get("governing_quantity"))
     internal_q = _quantity_dict(raw.get("internal_quantity"))
     if governing_q is None or internal_q is None:
         return None
     gov_text = gov_by_id[gov_id].text
-    if not _text_has_quantity(gov_text, governing_q.value, governing_q.unit):
+    if not _text_has_quantity(gov_text, governing_q.value, governing_q.unit, governing_q.qualifier):
         return None
     # The internal operand must also be literally present in the candidate text;
     # the model selects operands, deterministic validation checks their literals.
-    if cand_text and not _text_has_quantity(cand_text, internal_q.value, internal_q.unit):
+    if cand_text and not _text_has_quantity(
+        cand_text, internal_q.value, internal_q.unit, internal_q.qualifier
+    ):
         return None
     return ConstraintBinding(
         binding_id=binding_id,
@@ -505,12 +563,9 @@ def _quantity_as_dict(quantity: Quantity) -> dict[str, Any]:
     return {"value": quantity.value, "unit": quantity.unit, "qualifier": quantity.qualifier}
 
 
-def _text_has_quantity(text: str, value: int, unit: str) -> bool:
-    if not text:
-        return False
-    if not re.search(rf"(?<!\d){value}(?!\d)", text):
-        return False
-    return bool(re.search(rf"\b{re.escape(unit)}s?\b", text, re.I))
+def _text_has_quantity(text: str, value: int, unit: str, qualifier: str | None = None) -> bool:
+    pattern = rf"(?<![\d.]){value}(?![\d.])\)?\s+(?:(calendar|business)\s+)?{re.escape(unit)}s?\b"
+    return any((match.group(1) or None) == qualifier for match in re.finditer(pattern, text, re.I))
 
 
 # ── internal-pair identity batch ────────────────────────────────────────────
@@ -715,13 +770,18 @@ def _ollama_alignment_seat(model: str, system: str, user: str) -> str:
     with a larger ``num_predict``; the council's own transport is untouched."""
     import urllib.request
 
+    packet = json.loads(user)
+    count = len(packet.get("candidates", []))
+    # One record per supplied source, with bindings and exact ids. The real
+    # corpus can supply fifteen records; a council-sized cap truncates them.
+    output_budget = min(8192, max(4096, 512 * count))
     payload = {
         "model": model,
         "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
         "stream": False,
-        "format": "json",
+        "format": _response_contract(packet.get("task", "clause_alignment")),
         "think": False,
-        "options": {"temperature": 0.0, "num_predict": 4096},
+        "options": {"temperature": 0.0, "num_predict": output_budget},
     }
     req = urllib.request.Request(
         "http://localhost:11434/api/chat",

@@ -155,7 +155,17 @@ def build_request(
         snapshot=build_snapshot(case),
         candidate_set=CandidateSet(
             records=records,
-            acquisition_receipt={"acquisition_mode": "EXPLICIT_SET", "completeness": "COMPLETE"},
+            acquisition_receipt={
+                "acquisition_mode": "EXPLICIT_SET",
+                "boundary_receipt": {
+                    "complete": case["boundary"] == "complete",
+                    "eligible_sections": [r.chunk_id for r in records],
+                    "examined_sections": [r.chunk_id for r in records],
+                    "document_revision_hashes": {r.document_id: r.revision_hash for r in records},
+                    "omissions": [],
+                    "acquisition_mode": "EXPLICIT_SET",
+                },
+            },
         ),
     )
 
@@ -335,7 +345,11 @@ class FakeTransport:
                     "missing_commitment": item["missing_commitment"],
                     "governing_slice_ids": [gov_id],
                     "internal_counterevidence_slice_ids": counter,
-                    "boundary_proof_id": item.get("boundary_proof_id", ""),
+                    "boundary_proof_id": (
+                        (packet.get("allowed_boundary_proof_ids") or [""])[0]
+                        if item["kind"] == "OMISSION"
+                        else item.get("boundary_proof_id", "")
+                    ),
                 }
             )
         return json.dumps(
@@ -1081,6 +1095,7 @@ def test_a10_qualification_controls(tmp_path: Path) -> None:
                             {
                                 "candidate_id": "right",
                                 "relation": relation,
+                                "population_overlap": "OVERLAPPING",
                                 "governing_slice_ids": ["gov-h"],
                                 "candidate_slice_ids": ["cand-h"],
                                 "constraint_bindings": [binding] if binding else [],

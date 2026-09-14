@@ -119,7 +119,7 @@ def _staged_seat() -> Any:
     """
 
     def fn(model: str, system: str, user: str) -> str:
-        if "narrow clause-alignment reader" in system:
+        if json.loads(user).get("task") == "clause_alignment":
             packet = json.loads(user)
             gid = packet["governing"]["selectable_slice_ids"][0]
             records = []

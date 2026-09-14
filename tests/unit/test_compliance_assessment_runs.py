@@ -184,3 +184,40 @@ def test_acquisition_failure_is_disclosed_not_fatal(repo, monkeypatch):
     assert result["coverage"] == "UNRESOLVED"
     assert result["unresolved_code"] == "U04_RETRIEVAL_INCOMPLETE"
     assert result["receipt"]["retrieval_errors"][0]["stage"] == "rerank"
+
+
+def test_recovery_preserves_live_owner_and_detects_reused_pid(repo):
+    import os
+
+    from portal.modules.compliance.core.repository import process_identity
+
+    owner = {"pid": os.getpid(), "started": process_identity(os.getpid())}
+    active = repo.create_run({"worker_owner": owner}, status="RUNNING")
+    stale = repo.create_run(
+        {"worker_owner": {**owner, "started": "a different process birth time"}}, status="QUEUED"
+    )
+    assert assessment_runs.init_store(repo) == 1
+    assert repo.get_run(active)["status"] == "RUNNING"
+    assert repo.get_run(stale)["status"] == "INTERRUPTED"
+
+
+def test_other_process_import_cannot_interrupt_owned_run(repo):
+    import os
+    import subprocess
+    import sys
+
+    from portal.modules.compliance.core.repository import process_identity
+
+    run_id = repo.create_run(
+        {"worker_owner": {"pid": os.getpid(), "started": process_identity(os.getpid())}},
+        status="RUNNING",
+    )
+    # A new CLI process performs the real import-time recovery sweep.
+    db_path = repo._conn.execute("PRAGMA database_list").fetchone()[2]
+    subprocess.run(
+        [sys.executable, "-c", "import portal.modules.compliance.core.assessment_runs"],
+        env={**os.environ, "COMPLIANCE_DB_PATH": db_path},
+        check=True,
+        timeout=20,
+    )
+    assert repo.get_run(run_id)["status"] == "RUNNING"

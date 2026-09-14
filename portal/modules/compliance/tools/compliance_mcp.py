@@ -792,13 +792,14 @@ def compliance_gaps(
             payload = assessment_runs.run_result(run_id)
             if "error" in payload:
                 return payload
+            original = payload.get("request") or {}
             return _gaps_payload(
                 payload["results"],
-                eff,
-                kb_id,
+                str(original.get("effective_on") or eff),
+                str(original.get("kb_id") or kb_id),
                 max_rows,
                 verbose,
-                scope_text=scope,
+                scope_text=str(original.get("scope_text") or scope),
                 payload=payload,
                 generate_drafts=generate_drafts,
             )

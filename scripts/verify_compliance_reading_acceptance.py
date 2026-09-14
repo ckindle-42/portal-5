@@ -27,10 +27,13 @@ import json
 import sys
 import tempfile
 import time
+import traceback
+from contextlib import contextmanager
 from dataclasses import asdict
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -90,19 +93,6 @@ def _load_manifest() -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _materialize_fixtures(manifest: dict[str, Any], kb_id: str) -> dict[str, Any]:
-    """Write controlled fixtures to a temp folder and ingest them into an
-    isolated ``compliance_*`` KB. Never touches the operator corpus."""
-    from portal.modules.compliance.core.ingest import ingest_folder
-
-    with tempfile.TemporaryDirectory(prefix="reading-acceptance-") as tmp:
-        src = Path(tmp)
-        for label, fixture in manifest["controlled_fixtures"].items():
-            name = f"{label}.txt"
-            src.joinpath(name).write_text(fixture["text"], encoding="utf-8")
-        return asyncio.run(ingest_folder(str(src), kb_id=kb_id, rebuild=True))
-
-
 def _materialize_case_fixtures(
     manifest: dict[str, Any], case: dict[str, Any], kb_id: str
 ) -> dict[str, Any]:
@@ -158,12 +148,23 @@ def _live_case_via_gaps(
     run_id = started.get("run_id", "")
     if not run_id:
         return {"error": "compliance_gaps start returned no run_id", "started": started}
+    print(f"run_id={run_id}", flush=True)
+    last_heartbeat = time.monotonic()
     deadline = time.time() + 6 * 60 * 60
     while time.time() < deadline:
         status = compliance_gaps(operation="status", run_id=run_id, kb_id=kb_id)
         if status.get("status") in ("COMPLETE", "FAILED", "CANCELLED", "INTERRUPTED"):
             break
+        if time.monotonic() - last_heartbeat >= 30:
+            print(
+                f"run_id={run_id} status={status.get('status')} progress={status.get('progress')}",
+                flush=True,
+            )
+            last_heartbeat = time.monotonic()
         time.sleep(2.0)
+    else:
+        compliance_gaps(operation="cancel", run_id=run_id, kb_id=kb_id)
+        raise TimeoutError(f"assessment deadline exceeded; cancellation requested for {run_id}")
     payload = compliance_gaps(
         operation="result",
         run_id=run_id,
@@ -177,35 +178,6 @@ def _live_case_via_gaps(
     return {"error": "part not returned by compliance_gaps", "payload": payload}
 
 
-def _install_seat_wrapper(mode: str) -> Any:
-    """Install a controlled failure on the real seat transport; returns a
-    restore callable. ``timeout`` fails every seat call, ``invalid_alignment``
-    makes the alignment reader return non-JSON."""
-    from portal.modules.compliance.core import council, obligation_alignment
-
-    real_seat = council._ollama_seat
-    real_default = obligation_alignment._default_seat_fn
-
-    def wrapped(model: str, system: str, user: str) -> str:
-        if system == obligation_alignment._ALIGNMENT_SYSTEM:
-            if mode == "invalid_alignment":
-                return "not a json object"
-            if mode == "timeout":
-                raise TimeoutError("controlled seat timeout")
-        if system == council._SEAT_SYSTEM and mode == "timeout":
-            raise TimeoutError("controlled seat timeout")
-        return real_seat(model, system, user)
-
-    council._ollama_seat = wrapped  # type: ignore[assignment]
-    obligation_alignment._default_seat_fn = lambda: wrapped  # type: ignore[assignment]
-
-    def restore() -> None:
-        council._ollama_seat = real_seat  # type: ignore[assignment]
-        obligation_alignment._default_seat_fn = real_default  # type: ignore[assignment]
-
-    return restore
-
-
 def _documentary_of(result: dict[str, Any]) -> str:
     if "actual" in result and isinstance(result["actual"], dict):
         return str(result["actual"].get("documentary_coverage", ""))
@@ -217,139 +189,587 @@ def _live_case_direct(
     case: dict[str, Any],
     kb_id: str,
     *,
-    failure_mode: str = "",
     scope_text_override: str = "",
+    trace_dir: Path | None = None,
 ) -> dict[str, Any]:
-    """Build the request from the isolated KB and run the shared service.
-
-    ``failure_mode`` injects a controlled failure on the real route: ``timeout``
-    makes the configured seat fail, ``invalid_alignment`` makes the alignment
-    reader return non-JSON, and ``hash`` corrupts the B22 candidate slice hash.
-    """
+    """Real-corpus diagnostic using the same stage budgets as the async route."""
     from portal.modules.compliance.core.applicability import parse_scope_declaration
     from portal.modules.compliance.core.assessment import assess_part
+    from portal.modules.compliance.core.assessment_runs import _guarded_seat
     from portal.modules.compliance.core.assessment_source import build_assessment_request
-    from portal.modules.compliance.core.council import _ollama_seat
-    from portal.modules.compliance.core.determination import AssessmentContext
+    from portal.modules.compliance.core.repository import Repository
+    from portal.modules.compliance.core.runtime_config import build_assessment_context
+
+    request = build_assessment_request(
+        case["requirement_id"],
+        kb_id=kb_id,
+        effective_on=manifest["effective_on"],
+    )
+    scope_text = scope_text_override or _scope_text(manifest, case)
+    if scope_text:
+        request.scope = parse_scope_declaration(scope_text)
+    request.scope_basis = "conditional" if scope_text_override else "actual"
+    repo = Repository()
+    context = build_assessment_context(
+        kb_id,
+        request.scope,
+        manifest["effective_on"],
+        repository=repo,
+        seat_fn=_traced_seat(_guarded_seat(None, "", None), trace_dir),
+    )
+    result = assess_part(request, context)
+    repo.update_run(result.run_id, status="COMPLETE", finished=True)
+    return asdict(result)
+
+
+def _traced_seat(inner: Any, trace_dir: Path | None) -> Any:
+    """Write each model attempt before sending it, and persist errors too."""
+    import hashlib
+
+    from portal.modules.compliance.core.assessment_report import _REPORT_SYSTEM
+    from portal.modules.compliance.core.obligation_alignment import _ALIGNMENT_SYSTEM
+
+    sequence = len(list(trace_dir.glob("model-*.json"))) if trace_dir else 0
+
+    def invoke(model: str, system: str, user: str) -> str:
+        nonlocal sequence
+        sequence += 1
+        stage = (
+            "alignment"
+            if system == _ALIGNMENT_SYSTEM
+            else "report"
+            if system == _REPORT_SYSTEM
+            else "council"
+        )
+        path = trace_dir / f"model-{sequence:03}.json" if trace_dir else None
+        event: dict[str, Any] = {
+            "stage": stage,
+            "model": model,
+            "status": "STARTED",
+            "started_at": datetime.now(UTC).isoformat(),
+            "system_sha256": hashlib.sha256(system.encode()).hexdigest(),
+            "input_sha256": hashlib.sha256(user.encode()).hexdigest(),
+            "system": system,
+            "input": user,
+        }
+        if path:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(event, indent=2))
+        started = time.monotonic()
+        print(f"model_call={sequence} stage={stage} model={model} START", flush=True)
+        try:
+            raw = inner(model, system, user)
+            event.update(status="COMPLETE", response=raw)
+            return raw
+        except Exception as exc:
+            event.update(status="ERROR", error=repr(exc))
+            raise
+        finally:
+            event["elapsed_seconds"] = time.monotonic() - started
+            if path:
+                path.write_text(json.dumps(event, indent=2))
+            print(
+                f"model_call={sequence} stage={stage} {event['status']} elapsed={event['elapsed_seconds']:.1f}s",
+                flush=True,
+            )
+
+    return invoke
+
+
+def _verify_fixture_load(loaded: dict[str, Any], case: dict[str, Any], kb_id: str) -> None:
+    from portal.platform.retrieval import store
+
+    if loaded.get("error") or loaded.get("ingest_error"):
+        raise RuntimeError(f"fixture ingestion failed: {loaded}")
+    table = store.text_table(kb_id, prefix="compliance_")
+    if table is None:
+        raise RuntimeError(f"fixture KB unavailable after ingestion: {kb_id}")
+    rows = table.to_arrow().to_pylist()
+    fixtures = _load_manifest()["controlled_fixtures"]
+    expected = {f"{c['label']}.txt": fixtures[c["label"]]["text"] for c in case["candidates"]}
+    actual = {r["source_file"]: r["text"] for r in rows}
+    if actual != expected or len(rows) != len(expected):
+        raise RuntimeError("fixture contents differ from the declared complete candidate set")
+
+
+@contextmanager
+def _controlled_route(case: dict[str, Any], kb_id: str, trace_dir: Path | None = None):
+    """Control acquisition evidence/faults, while executing the actual async route.
+
+    Completeness is proved only for this isolated, fully enumerated fixture KB.
+    The retrieved candidates must exactly cover that stored population. No
+    fixture labels, expected verdicts or gold gap IDs enter model requests.
+    """
+    from portal.modules.compliance.core import assessment_runs
+    from portal.modules.compliance.core.assessment_source import build_corpus_snapshot
+    from portal.modules.compliance.core.council import _SEAT_SYSTEM
+    from portal.modules.compliance.core.obligation_alignment import _ALIGNMENT_SYSTEM
+    from portal.platform.retrieval import store
+
+    build = assessment_runs.build_requests_for
+    guarded = assessment_runs._guarded_seat
+    captured: list[Any] = []
+
+    def requests(*args: Any, **kwargs: Any) -> list[Any]:
+        result = build(*args, **kwargs)
+        if kwargs.get("kb_id") != kb_id:
+            return result
+        table = store.text_table(kb_id, prefix="compliance_")
+        population = {r["chunk_id"] for r in table.to_arrow().to_pylist()}
+        for request in result:
+            candidates = request.candidate_set
+            examined = {r.chunk_id for r in candidates.records}
+            if examined != population or candidates.unresolved:
+                raise RuntimeError("fixture retrieval did not examine the complete declared set")
+            receipt = dict(candidates.acquisition_receipt)
+            receipt["acquisition_mode"] = "EXPLICIT_SET"
+            receipt["boundary_receipt"] = {
+                "complete": case["boundary"] == "complete",
+                "eligible_sections": sorted(population),
+                "examined_sections": sorted(examined),
+                "omissions": [],
+                "table_version": table.version,
+                "acquisition_mode": "EXPLICIT_SET",
+                "document_revision_hashes": request.snapshot.document_revision_hashes,
+            }
+            candidates.acquisition_receipt = receipt
+            request.snapshot = build_corpus_snapshot(kb_id, acquisition_receipt=receipt)
+            if case["id"] == "22":
+                target = next(r for r in candidates.records if r.document_id == "B22.txt")
+                target.revision_hash = "0" * 64
+                target.source_slice.revision_hash = "0" * 64
+            captured.append(request)
+        return result
+
+    def seat(repo: Any, run_id: str, inner: Any) -> Any:
+        real = guarded(repo, run_id, inner)
+
+        def invoke(model: str, system: str, user: str) -> str:
+            if case["id"] == "23" and system == _SEAT_SYSTEM:
+                raise TimeoutError("controlled council timeout")
+            if case["id"] == "24" and system == _ALIGNMENT_SYSTEM:
+                return "not a json object"
+            return real(model, system, user)
+
+        return _traced_seat(invoke, trace_dir)
+
+    with (
+        patch.object(assessment_runs, "build_requests_for", requests),
+        patch.object(assessment_runs, "_guarded_seat", seat),
+    ):
+        yield captured
+
+
+def _proposal_result(
+    manifest: dict[str, Any], case: dict[str, Any], request: Any
+) -> dict[str, Any]:
+    import hashlib
+
+    from portal.modules.compliance.core.assessment_runs import _guarded_seat
+    from portal.modules.compliance.core.determination import ScenarioEdit, ScenarioOverlay
+    from portal.modules.compliance.core.operations import propose
+    from portal.modules.compliance.core.runtime_config import build_assessment_context
+
+    virtual = case["virtual"]
+    target = next(
+        r for r in request.candidate_set.records if r.document_id == f"{virtual['target']}.txt"
+    )
+    edit = ScenarioEdit(
+        operation="REPLACE",
+        target_document=target.document_id,
+        chunk_id=target.chunk_id,
+        char_start=0,
+        char_end=len(target.text),
+        expected_old_hash=hashlib.sha256(target.text.encode()).hexdigest(),
+        new_text=virtual["replacement_text"],
+    )
+    overlay = ScenarioOverlay(base_snapshot_fingerprint=request.snapshot.fingerprint, edits=[edit])
+    context = build_assessment_context(
+        request.kb_id,
+        request.scope,
+        manifest["effective_on"],
+        seat_fn=_guarded_seat(None, "", None),
+    )
+    package = propose(
+        case["requirement_id"],
+        ["evaluation cadence"],
+        virtual["replacement_text"],
+        overlay=overlay,
+        context=context,
+        request=request,
+    )
+    return asdict(package)
+
+
+def _live_checks(case: dict[str, Any], result: dict[str, Any]) -> list[dict[str, Any]]:
+    """Never count the expected word alone as acceptance of a broken run."""
+    expected = case["expected"]
+    checks: list[dict[str, Any]] = []
+
+    def check(name: str, ok: bool, detail: Any = "") -> None:
+        checks.append({"name": name, "ok": bool(ok), "detail": detail})
+
+    check("execution", not result.get("error"), result.get("error", ""))
+    if result.get("error"):
+        return checks
+    if case["id"] == "01":
+        actual, conditional = result.get("actual", {}), result.get("conditional", {})
+        check(
+            "actual_scope",
+            actual.get("coverage") == "UNRESOLVED" and not actual.get("substantively_resolved"),
+        )
+        check(
+            "conditional_documentary",
+            conditional.get("documentary_coverage") == "FULL",
+            conditional.get("missing_fact"),
+        )
+        check(
+            "conditional_evidence", bool(conditional.get("covered")) and not conditional.get("gaps")
+        )
+        # The actual corpus has real document names, not controlled A22/B22 IDs.
+        check(
+            "scope_disclosed", bool(actual.get("missing_fact", {}).get("missing_scope_declaration"))
+        )
+        return checks
+    for name in ("documentary_coverage", "coverage", "substantively_resolved"):
+        check(
+            name,
+            result.get(name) == expected[name],
+            {"got": result.get(name), "expected": expected[name]},
+        )
+    check(
+        "acquisition",
+        not result.get("retrieval_errors")
+        and not result.get("receipt", {}).get("retrieval_errors"),
+        result.get("missing_fact"),
+    )
+    if expected.get("expected_code"):
+        check(
+            "code",
+            result.get("unresolved_code") == expected["expected_code"],
+            result.get("unresolved_code"),
+        )
+    kinds = [g["kind"] for g in result.get("gaps", [])]
+    check("gap_kinds", kinds == expected.get("gap_kinds", []), kinds)
+    _check_live_gap_identities(case, result, check)
+    _check_live_sources(expected, result, check)
+    receipt = result.get("receipt", {})
+    if case["id"] in ("25", "26"):
+        proposal = result.get("proposal", {})
+        check(
+            "proposal_status",
+            proposal.get("status") == expected["proposal_status"],
+            proposal.get("status"),
+        )
+        check(
+            "virtual_coverage",
+            (proposal.get("rejudged") or {}).get("documentary_coverage")
+            == expected["virtual_coverage"],
+        )
+        if case["id"] == "26":
+            check("closes_fields", proposal.get("closes_fields") == [])
+    check("run_identity", bool(result.get("run_id")) and bool(result.get("assessment_id")))
+    if case["id"] not in ("21", "22"):
+        check("model_evidence", bool(receipt.get("alignment", {}).get("raw")))
+    return checks
+
+
+def _check_live_gap_identities(case: dict[str, Any], result: dict[str, Any], check: Any) -> None:
+    """Resolve fixture handles to actual IDs by exact kind and source identities."""
+    gaps = result.get("gaps", [])
+    ids = [g.get("gap_id", "") for g in gaps]
+    expected_ids = case["expected"].get("gap_ids", [])
+    sources = {s["slice_id"]: s for s in result.get("selected_source_slices", [])}
+    identities: dict[str, str] = {}
+    # Cases 16/21/23/24 carry `"report": null`: .get()'s default never applies.
+    for gold in (case.get("report") or {}).get("gaps", []):
+        if gold["gap_id"] not in expected_ids:
+            continue
+        matches = []
+        for gap in gaps:
+            counter = {
+                sources.get(sid, {})
+                .get("document_id", "")
+                .removeprefix("fixture:")
+                .removesuffix(".txt")
+                for sid in gap.get("internal_counterevidence_slice_ids", [])
+            }
+            governing = {
+                sources.get(sid, {}).get("ref", "") for sid in gap.get("governing_slice_ids", [])
+            }
+            if (
+                gap.get("kind") == gold["kind"]
+                and counter == set(gold.get("counter", []))
+                and case["requirement_id"] in governing
+                and gap.get("missing_commitment", "").strip()
+                and (gap.get("kind") != "OMISSION" or gap.get("boundary_proof_id"))
+            ):
+                matches.append(gap.get("gap_id", ""))
+        if len(matches) == 1:
+            identities[gold["gap_id"]] = matches[0]
+    ok = (
+        len(ids) == len(expected_ids)
+        and all(ids)
+        and len(set(ids)) == len(ids)
+        and set(identities) == set(expected_ids)
+        and len(set(identities.values())) == len(expected_ids)
+    )
+    check(
+        "gap_ids",
+        ok,
+        {"actual_ids": ids, "fixture_identity_map": identities, "expected": expected_ids},
+    )
+
+
+def _check_live_sources(expected: dict[str, Any], result: dict[str, Any], check: Any) -> None:
+    receipt = result.get("receipt", {})
+    packet = receipt.get("council_packet", {})
+    core = {c.get("document_id", "") for c in packet.get("candidates", [])}
+    core |= {c.get("commitment_id", "") for c in packet.get("candidates", [])}
+    used_ids = {sid for c in result.get("covered", []) for sid in c.get("internal_slice_ids", [])}
+    used_ids |= {
+        sid
+        for g in result.get("gaps", [])
+        for sid in g.get("internal_counterevidence_slice_ids", [])
+    }
+    used_docs = {
+        s.get("document_id", "")
+        for s in result.get("selected_source_slices", [])
+        if s.get("slice_id") in used_ids
+    }
+
+    def has_label(label: str, values: set[str]) -> bool:
+        return any(
+            v == f"{label}.txt" or v.startswith(f"{label}.txt ") or v == f"fixture:{label}"
+            for v in values
+        )
+
+    for label in expected.get("required_citations", []):
+        check(f"required:{label}", has_label(label, used_docs), sorted(used_docs))
+    for label in expected.get("forbidden_citations", []):
+        check(
+            f"forbidden:{label}", not has_label(label, used_docs | core), sorted(used_docs | core)
+        )
+    links = {r["link_id"]: r for r in receipt.get("alignment", {}).get("records", [])}
+    outcomes = packet.get("binding_outcomes", [])
+    for item in expected.get("arithmetic", []):
+        matches = [
+            o
+            for o in outcomes
+            if has_label(
+                item["candidate"], {links.get(o.get("link_id"), {}).get("document_id", "")}
+            )
+        ]
+        check(
+            f"arithmetic:{item['candidate']}",
+            any(o.get("result") == item["result"] for o in matches),
+            matches,
+        )
+
+
+def _execute_live_case(
+    manifest: dict[str, Any],
+    case: dict[str, Any],
+    case_kb: str,
+    setup_error: str,
+    trace_dir: Path | None = None,
+) -> dict[str, Any]:
+    cid = case["id"]
+    try:
+        if setup_error:
+            return {"error": setup_error, "stage": "fixture_setup"}
+        if cid == "01":
+            actual = _live_case_direct(
+                manifest, case, case_kb, trace_dir=trace_dir / "actual" if trace_dir else None
+            )
+            conditional = _live_case_direct(
+                manifest,
+                case,
+                case_kb,
+                scope_text_override=manifest["scope"]["applicable_text"],
+                trace_dir=trace_dir / "conditional" if trace_dir else None,
+            )
+            return {"actual": actual, "conditional": conditional}
+        with _controlled_route(case, case_kb, trace_dir) as requests:
+            if cid == "21":
+                from portal.modules.compliance.core import assessment_runs
+
+                with patch.object(
+                    assessment_runs,
+                    "resolve_governing_bundle",
+                    side_effect=ValueError("controlled missing governing anchor"),
+                ):
+                    result = _live_case_via_gaps(manifest, case, case_kb)
+            else:
+                result = _live_case_via_gaps(manifest, case, case_kb)
+            if cid in ("25", "26") and requests:
+                result["proposal"] = _proposal_result(manifest, case, requests[0])
+            return result
+    except Exception as exc:
+        return {"error": repr(exc)}
+
+
+def _run_manifest() -> dict[str, Any]:
+    import hashlib
+    import subprocess
+    import urllib.request
+
     from portal.modules.compliance.core.runtime_config import seat_roster
 
-    restore = None
-    seat_fn: Any = _ollama_seat
-    if failure_mode in ("timeout", "invalid_alignment"):
-        restore = _install_seat_wrapper(failure_mode)
-        from portal.modules.compliance.core import council as _council
-
-        seat_fn = _council._ollama_seat
-
-    try:
-        request = build_assessment_request(
-            case["requirement_id"],
-            kb_id=kb_id,
-            effective_on=manifest["effective_on"],
+    patterns = (
+        "portal/modules/compliance/core/*.py",
+        "portal/modules/compliance/tools/*.py",
+        "portal/platform/retrieval/*.py",
+        "config/compliance/council.yaml",
+        "portal/modules/compliance/data/nerc_cip_register.json",
+        "portal/modules/compliance/data/cip_pdfs/*.pdf",
+        "tests/data/compliance_reading_acceptance.json",
+        "scripts/verify_compliance_reading_acceptance.py",
+    )
+    files = sorted({p for pattern in patterns for p in REPO_ROOT.glob(pattern)})
+    hashes = {
+        str(p.relative_to(REPO_ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in files
+    }
+    roster = seat_roster()
+    with urllib.request.urlopen("http://localhost:11434/api/tags", timeout=15) as response:
+        models = json.load(response).get("models", [])
+    configured = {seat["model"] for seat in roster}
+    digests = {m["name"]: m["digest"] for m in models if m["name"] in configured}
+    if set(digests) != configured:
+        raise RuntimeError(
+            f"configured model digests unavailable: {sorted(configured - digests.keys())}"
         )
-        if failure_mode == "hash":
-            for record in request.candidate_set.records:
-                if record.candidate_id == "B22" or "35 calendar days" in record.text:
-                    record.revision_hash = "0" * 64
-                    if record.source_slice is not None:
-                        record.source_slice.revision_hash = "0" * 64
-        scope_text = scope_text_override or _scope_text(manifest, case)
-        request.scope = parse_scope_declaration(scope_text) if scope_text else request.scope
-        request.scope_basis = "conditional" if case["scope"] == "derived" else "actual"
-        context = AssessmentContext(seats=seat_roster(), quorum=0.66, kb_id=kb_id, seat_fn=seat_fn)
-        result = assess_part(request, context)
-        return asdict(result)
-    finally:
-        if restore is not None:
-            restore()
+    return {
+        "started_at": datetime.now(UTC).isoformat(),
+        "git_head": subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, text=True
+        ).strip(),
+        "source_sha256": hashes,
+        "roster": roster,
+        "model_digests": digests,
+    }
+
+
+def _guarded_live_checks(
+    case: dict[str, Any], result: dict[str, Any], case_dir: Path, index: int
+) -> list[dict[str, Any]]:
+    """Record a checker crash as a failed check instead of ending the suite: it
+    used to abort the whole multi-hour run at that case, discarding every case
+    after it. Never a pass, never a skip."""
+    try:
+        return _live_checks(case, result)
+    except Exception as exc:  # noqa: BLE001 - a checker defect must not end the run
+        trace = traceback.format_exc()
+        (case_dir / f"checker_error-{index}.txt").write_text(trace)
+        print(f"case {case['id']} run {index}: CHECKER ERROR {exc!r}", flush=True)
+        return [{"name": "checker_error", "ok": False, "detail": repr(exc)}]
+
+
+def _run_record(
+    cid: str, index: int, result: dict[str, Any], failed: list[str], trace_dir: Path
+) -> dict[str, Any]:
+    """Per-run closeout evidence the brief's final handoff must report: run id,
+    elapsed and actual model-call count, aggregated here rather than recovered
+    by hand from each case directory afterwards."""
+    run_ids = [str(result.get("run_id", ""))] if result.get("run_id") else []
+    for key in ("actual", "conditional"):
+        nested = result.get(key)
+        if isinstance(nested, dict) and nested.get("run_id"):
+            run_ids.append(str(nested["run_id"]))
+    return {
+        "case": cid,
+        "run": index,
+        "status": "FAIL" if failed else "PASS",
+        "documentary": _documentary_of(result),
+        "run_id": run_ids[0] if len(run_ids) == 1 else "",
+        "run_ids": run_ids,
+        "assessment_id": str(result.get("assessment_id", "")),
+        "unresolved_code": str(result.get("unresolved_code", "")),
+        "elapsed_seconds": float(result.get("elapsed_seconds", 0.0)),
+        "model_calls": len(sorted(trace_dir.rglob("model-*.json"))) if trace_dir.exists() else 0,
+        "failed": failed,
+    }
+
+
+def _write_summary(
+    receipt_dir: Path,
+    args: argparse.Namespace,
+    summaries: list[tuple[str, str, str]],
+    records: list[dict[str, Any]],
+    *,
+    complete: bool,
+) -> None:
+    (receipt_dir / "summary.json").write_text(
+        json.dumps(
+            {
+                "kb_id": args.kb_id,
+                "runs": args.runs,
+                "rows": summaries,
+                "records": records,
+                "per_case_kb": True,
+                "complete": complete,
+            },
+            indent=2,
+        )
+    )
 
 
 def run_live(args: argparse.Namespace) -> int:
     manifest = _load_manifest()
-    timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
     receipt_dir = PRIVATE_DIR / timestamp
-    receipt_dir.mkdir(parents=True, exist_ok=True)
-
+    receipt_dir.mkdir(parents=True, exist_ok=False)
     only = set(args.cases.split(",")) if args.cases else None
-    from tests.unit import test_compliance_reading_acceptance as acc
-
+    cases = {c["id"]: c for c in manifest["cases"]}
+    if only and not only.issubset(cases):
+        raise ValueError(f"unknown case ids: {sorted(only - cases.keys())}")
     summaries: list[tuple[str, str, str]] = []
-    for cid, case in acc.CASES.items():
+    records: list[dict[str, Any]] = []
+    print(f"receipts: {receipt_dir}", flush=True)
+    (receipt_dir / "manifest.json").write_text(json.dumps(_run_manifest(), indent=2))
+    for cid, case in cases.items():
         if only and cid not in only:
             continue
         case_dir = receipt_dir / f"case-{cid}"
-        case_dir.mkdir(exist_ok=True)
-        # Isolate the case's own candidates so the routed call cannot see other
-        # cases' decoys. Case 01 runs against the pinned operator corpus.
-        case_kb = args.kb_id
+        case_dir.mkdir()
+        case_kb = "operator_corpus" if cid == "01" else f"{args.kb_id}-c{cid}"
+        setup_error = ""
         if cid != "01" and case.get("candidates"):
-            case_kb = f"{args.kb_id}-c{cid}"
             try:
                 loaded = _materialize_case_fixtures(manifest, case, case_kb)
                 (case_dir / "fixture_load.json").write_text(
-                    json.dumps(loaded, indent=2, default=str), encoding="utf-8"
+                    json.dumps(loaded, indent=2, default=str)
                 )
-            except Exception as exc:  # noqa: BLE001 - retained on the case
-                (case_dir / "fixture_load_error.txt").write_text(repr(exc), encoding="utf-8")
-        expected = case["expected"]
-        for run_index in range(max(1, args.runs)):
-            try:
-                if cid == "01":
-                    # actual derived scope (UNKNOWN) and the explicit conditional
-                    # diagnostic are reported separately.
-                    actual = _live_case_direct(manifest, case, "operator_corpus")
-                    conditional = _live_case_direct(
-                        manifest,
-                        case,
-                        "operator_corpus",
-                        scope_text_override=manifest["scope"]["applicable_text"],
-                    )
-                    result = {"actual": actual, "conditional": conditional}
-                elif cid == "21":
-                    from portal.modules.compliance.core import assessment_runs
-
-                    with tempfile.TemporaryDirectory() as tmp:
-                        repo = acc.Repository(Path(tmp) / "live21.db")
-                        bad_ref = f"{case['requirement_id']} (unresolvable)"
-                        run_id = repo.create_run(
-                            {"requirements": [bad_ref], "kb_id": case_kb},
-                            status="RUNNING",
-                        )
-                        results = assessment_runs.assess_requirements_now(
-                            [bad_ref],
-                            kb_id=case_kb,
-                            scope=acc.build_scope(case),
-                            effective_on=manifest["effective_on"],
-                            repository=repo,
-                            run_id=run_id,
-                        )
-                        result = asdict(results[0])
-                elif cid in ("22", "23", "24"):
-                    mode = {"22": "hash", "23": "timeout", "24": "invalid_alignment"}[cid]
-                    result = _live_case_direct(manifest, case, case_kb, failure_mode=mode)
-                else:
-                    result = _live_case_via_gaps(manifest, case, case_kb)
-            except Exception as exc:  # noqa: BLE001 - an errored live case is retained
-                result = {"error": repr(exc)}
-            (case_dir / f"run-{run_index}.json").write_text(
-                json.dumps(result, indent=2, default=str), encoding="utf-8"
+                _verify_fixture_load(loaded, case, case_kb)
+            except Exception as exc:
+                setup_error = repr(exc)
+                (case_dir / "fixture_load_error.txt").write_text(setup_error)
+        for index in range(max(1, args.runs)):
+            started = time.monotonic()
+            print(f"case {cid} run {index}: START", flush=True)
+            result = _execute_live_case(
+                manifest, case, case_kb, setup_error, case_dir / f"trace-{index}"
             )
-            got = _documentary_of(result)
-            ok = got == expected["documentary_coverage"]
-            summaries.append((cid, "PASS" if ok else "FAIL", f"got={got}"))
-        print(f"case {cid}: retained {receipt_dir / f'case-{cid}'}")
-
-    (receipt_dir / "summary.json").write_text(
-        json.dumps(
-            {"kb_id": args.kb_id, "runs": args.runs, "rows": summaries, "per_case_kb": True},
-            indent=2,
-            default=str,
-        ),
-        encoding="utf-8",
-    )
-    print()
+            result["elapsed_seconds"] = time.monotonic() - started
+            checks = _guarded_live_checks(case, result, case_dir, index)
+            (case_dir / f"run-{index}.json").write_text(json.dumps(result, indent=2, default=str))
+            (case_dir / f"checks-{index}.json").write_text(
+                json.dumps(checks, indent=2, default=str)
+            )
+            failed = [c["name"] for c in checks if not c["ok"]]
+            status = "FAIL" if failed else "PASS"
+            record = _run_record(cid, index, result, failed, case_dir / f"trace-{index}")
+            records.append(record)
+            detail = (
+                f"run={index} got={record['documentary']} run_id={record['run_id'] or '-'} "
+                f"calls={record['model_calls']} elapsed={record['elapsed_seconds']:.1f}s "
+                f"failed={','.join(failed)}"
+            )
+            summaries.append((cid, status, detail))
+            _write_summary(receipt_dir, args, summaries, records, complete=False)
+            print(f"case {cid} run {index}: {status} {detail}", flush=True)
+    _write_summary(receipt_dir, args, summaries, records, complete=True)
     _print_table(summaries)
-    print(f"\nreceipts: {receipt_dir}")
     return 0 if all(status == "PASS" for _, status, _ in summaries) else 1
 
 

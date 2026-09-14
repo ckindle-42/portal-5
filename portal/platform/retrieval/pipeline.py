@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from portal.platform.retrieval import fusion as _fusion
+from portal.platform.retrieval.store import table_names
 
 _DEFAULT_SUFFIXES = (
     ".md",
@@ -199,7 +200,7 @@ async def ingest_document(
     if rebuild:
         db = comp.get_db()
         for name in (comp.tname(kb_id), comp.vname(kb_id)):
-            if name in db.table_names():
+            if name in table_names(db):
                 # drop, not delete-rows: a stage change (P3) can change the
                 # table schema (the docling chunker adds page / headings), and
                 # `.add()` into a stale schema fails. A rebuild is a fresh table.
@@ -281,7 +282,7 @@ async def reindex(comp: Composition) -> dict[str, Any]:
     done: dict[str, int] = {}
     plen = len(comp.table_prefix)
     for t in [
-        x for x in db.table_names() if x.startswith(comp.table_prefix) and not x.endswith("_visual")
+        x for x in table_names(db) if x.startswith(comp.table_prefix) and not x.endswith("_visual")
     ]:
         kb_id = t[plen:]
         rows = db.open_table(t).search().limit(1_000_000).to_list()
