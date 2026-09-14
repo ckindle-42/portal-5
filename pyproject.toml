@@ -163,7 +163,7 @@ apple-silicon = [
     # merged at word level on Apple Silicon (both native in mlx-audio, ungated —
     # no pyannote, no HF token). The non-Apple-Silicon fallback is faster-whisper
     # (base deps), which bundles its own CTranslate2 runtime — no mlx-whisper.
-    "torch>=2.13.0",
+    "torch>=2.14.0",
     # torchaudio floor is deliberately below torch's: the working venv pairs
     # torchaudio 2.11.0 with torch 2.13.0 (mlx-audio's transcription path does
     # not exercise the version-coupled C-extension surface). Raise to 2.13.x
@@ -172,10 +172,10 @@ apple-silicon = [
     # torchvision: NOT used for inference — preprocessing runs on the PIL path
     # (`Qwen2VLImageProcessorPil`). It is required only to satisfy transformers 5.x's
     # class-level `@requires(backends=("vision",))` gate on `AutoImageProcessor`,
-    # which the Qwen3-VL processor constructs. Pinned exact: torchvision 0.28.0
-    # requires `torch==2.13.0` (verified on PyPI); a newer torchvision would drag
+    # which the Qwen3-VL processor constructs. Pinned exact: torchvision 0.29.0
+    # requires `torch==2.14.0` (verified on PyPI); a newer torchvision would drag
     # torch with it and buys nothing (PIL path). Sunset the pin when torch moves.
-    "torchvision==0.28.0",
+    "torchvision==0.29.0",
     # Reference-clip resampling for voice cloning (mlx-speech.py _voice_clone)
     "scipy>=1.10.0",
     # Kokoro TTS phonemizer dependencies (required by mlx-audio Kokoro backend)
