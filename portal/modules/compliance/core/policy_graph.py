@@ -190,8 +190,9 @@ def classify_node(node: RegisterNode, parent: RegisterNode | None) -> tuple[Node
         return "meta_cu", "applicability_predicate", mm.group(0)
 
     # 5. Explicit own modal → an obligation / prohibition addressed to the actor.
-    if _has_modal(text):
-        return "actor_cu", "explicit_modal", _MODAL.search(text).group(0)
+    modal_match = _MODAL.search(text)
+    if modal_match:
+        return "actor_cu", "explicit_modal", modal_match.group(0)
 
     # 6. Child Part under a parent that introduces an enumerated list of
     #    mandatory elements ("... a plan which shall include:", "... electronic
@@ -200,11 +201,12 @@ def classify_node(node: RegisterNode, parent: RegisterNode | None) -> tuple[Node
         return "actor_cu", "mandatory_enumerated_element", (parent_text[-70:].strip())
 
     # 7. Imperative / gerund clause whose parent requirement carries a modal.
-    if parent is not None and _has_modal(parent_text) and _IMPERATIVE.match(text):
+    imperative_match = _IMPERATIVE.match(text)
+    if parent is not None and _has_modal(parent_text) and imperative_match:
         return (
             "actor_cu",
             "imperative_fragment_under_modal_parent",
-            _IMPERATIVE.match(text).group(1),
+            imperative_match.group(1),
         )
 
     # 8. A numbered requirement Part in a requirement-parts table is normative by
@@ -297,9 +299,10 @@ def resolve_references(node: RegisterNode, reg: Register, ids: set[str]) -> list
     worklist rather than a silent hole."""
     text = node.verbatim_text
     edges: list[dict[str, Any]] = []
-    seen: set[tuple[str, str]] = set()
+    seen: set[tuple[str, str, str]] = set()
     for m in _REF_RE.finditer(text):
         kind = m.lastgroup
+        assert kind is not None  # every _REF_RE alternative is a named group
         surface = m.group(0)
         dst, res = _resolve_one(kind, surface, node, reg, ids)
         if dst == node.id or (kind, dst, res) in seen:
@@ -351,7 +354,9 @@ def _resolve_one(
     if kind in ("standard_version", "standard"):
         return _resolve_standard(kind, s, node, reg)
     if kind == "requirement":
-        rn = re.search(r"R\d+", s, re.I).group(0).upper()
+        req_m = re.search(r"R\d+", s, re.I)
+        assert req_m is not None  # kind=="requirement" guarantees this shape
+        rn = req_m.group(0).upper()
         hit = _first_in(ids, f"{std} {rn}")
         # Most standards have no requirement-level node — the reference still
         # resolves to a real scope: the set of that requirement's Parts.
@@ -362,6 +367,7 @@ def _resolve_one(
         return "", "unresolved_requirement"
     if kind == "attachment_section":
         mm = re.search(r"Attachment\s+(\d+),?\s+Section\s+(\d+)", s, re.I)
+        assert mm is not None  # kind=="attachment_section" guarantees this shape
         a, sec = mm.group(1), mm.group(2)
         hit = _first_in(
             ids,
@@ -370,7 +376,9 @@ def _resolve_one(
         )
         return (hit, "exact") if hit else (f"{std} Attachment {a} Section {sec}", "dangling")
     if kind == "part":
-        pn = re.search(r"\d+(?:\.\d+)*", s).group(0)
+        part_m = re.search(r"\d+(?:\.\d+)*", s)
+        assert part_m is not None  # kind=="part" guarantees this shape
+        pn = part_m.group(0)
         top = pn.split(".")[0]
         same_base = node.id.rsplit(" Part ", 1)[0] if " Part " in node.id else ""
         hit = _first_in(
@@ -389,7 +397,9 @@ def _resolve_one(
         # where the sibling section header is "<attach> Part N". A "Section N"
         # in a standard's body points at unextracted front-matter — leave it
         # for the relative-reference arm rather than mis-resolve it.
-        sn = re.search(r"\d+", s).group(0)
+        section_m = re.search(r"\d+", s)
+        assert section_m is not None  # kind=="section" guarantees this shape
+        sn = section_m.group(0)
         if " Part " in node.id and "Attachment" in node.id:
             base = node.id.rsplit(" Part ", 1)[0]
             hit = _first_in(ids, f"{base} Part {sn}", f"{base} Section {sn}")
@@ -516,6 +526,7 @@ def decompose_actor_cu(
 
     # subject
     rm = _ROLE.search(text, body_start)
+    subject: dict[str, Any]
     if rm:
         subject = {
             "text": rm.group(0).strip(),

@@ -5,6 +5,8 @@ from __future__ import annotations
 import textwrap
 from pathlib import Path
 
+import pytest
+
 from portal.platform.wiki.render import (
     _find_unit_ids_outside_human_owned,
     check_generated_blocks_current,
@@ -121,7 +123,7 @@ class TestHostSectionDepth:
         assert host_section_depth(text, 0) == 0
 
 
-def _fake_unit(body: str):
+def _fake_unit(body: str) -> KnowledgeUnit:
     return KnowledgeUnit(
         id="unit-x",
         kind="mixed",
@@ -132,7 +134,9 @@ def _fake_unit(body: str):
 
 
 class TestProjectionSymmetry:
-    def test_render_then_currency_check_agree(self, tmp_path: Path, monkeypatch) -> None:
+    def test_render_then_currency_check_agree(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         doc = tmp_path / "README.md"
         doc.write_text(
             "### Host Section\n\n<!-- WIKI:GENERATED unit=unit-x -->\n\n<!-- /WIKI:GENERATED -->\n"
@@ -145,7 +149,9 @@ class TestProjectionSymmetry:
         assert "#### Why" in doc.read_text()
         assert check_generated_blocks_current(tmp_path, doc_paths=[doc]) == []
 
-    def test_second_render_is_idempotent(self, tmp_path: Path, monkeypatch) -> None:
+    def test_second_render_is_idempotent(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         doc = tmp_path / "README.md"
         doc.write_text(
             "### Host\n\n<!-- WIKI:GENERATED unit=unit-x -->\n\n<!-- /WIKI:GENERATED -->\n"

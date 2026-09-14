@@ -40,7 +40,7 @@ _REQUIREMENT_LOOKUP_RE = re.compile(
 )
 
 
-def _unwrap_tool_name_envelope(arguments: dict) -> dict:
+def _unwrap_tool_name_envelope(arguments: dict[str, Any]) -> dict[str, Any]:
     """Some models (command-r confirmed via WFE 2026-09-11) emit tool-call
     arguments wrapped as {"tool_name": ..., "parameters": {...}} instead of
     the OpenAI tool-call contract's flat kwargs — the function name is
@@ -48,10 +48,9 @@ def _unwrap_tool_name_envelope(arguments: dict) -> dict:
     dispatched with the wrapper keys instead of real parameters and failed
     every turn. Unwrap it so the call still dispatches.
     """
-    if set(arguments) <= {"tool_name", "parameters"} and isinstance(
-        arguments.get("parameters"), dict
-    ):
-        return arguments["parameters"]
+    params = arguments.get("parameters")
+    if set(arguments) <= {"tool_name", "parameters"} and isinstance(params, dict):
+        return params
     return arguments
 
 
