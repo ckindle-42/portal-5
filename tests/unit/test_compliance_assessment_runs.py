@@ -116,7 +116,9 @@ def test_start_returns_immediately_and_persists_under_the_run(repo, monkeypatch)
 def test_status_and_result_re_run_nothing(repo, monkeypatch):
     calls: list[str] = []
     _install(monkeypatch, calls=calls)
-    run_id = assessment_runs.start_run({"requirements": ["A"], "kb_id": "kb"})
+    run_id = assessment_runs.start_run(
+        {"requirements": ["A"], "kb_id": "kb", "scope_text": "high impact"}
+    )
     _await(repo, run_id)
     assert calls == ["A"]
     assessment_runs.run_status(run_id)
@@ -129,7 +131,9 @@ def test_cancel_takes_effect_at_the_next_part_boundary(repo, monkeypatch):
     block = threading.Event()
     calls: list[str] = []
     _install(monkeypatch, block=block, calls=calls)
-    run_id = assessment_runs.start_run({"requirements": ["A", "B"], "kb_id": "kb"})
+    run_id = assessment_runs.start_run(
+        {"requirements": ["A", "B"], "kb_id": "kb", "scope_text": "high impact"}
+    )
     deadline = time.time() + 5
     while not calls and time.time() < deadline:
         time.sleep(0.005)
@@ -145,7 +149,9 @@ def test_cancel_takes_effect_at_the_next_part_boundary(repo, monkeypatch):
 
 def test_cancelled_or_failed_run_is_not_rewritten_as_successful(repo, monkeypatch):
     _install(monkeypatch)
-    run_id = assessment_runs.start_run({"requirements": ["A"], "kb_id": "kb"})
+    run_id = assessment_runs.start_run(
+        {"requirements": ["A"], "kb_id": "kb", "scope_text": "high impact"}
+    )
     _await(repo, run_id)
     assessment_runs.cancel_run(run_id)  # terminal: returns unchanged
     assert repo.get_run(run_id)["status"] == "COMPLETE"
@@ -177,7 +183,9 @@ def test_acquisition_failure_is_disclosed_not_fatal(repo, monkeypatch):
         raise ProposalError()
 
     monkeypatch.setattr(assessment_runs, "build_requests_for", boom)
-    run_id = assessment_runs.start_run({"requirements": ["A"], "kb_id": "kb"})
+    run_id = assessment_runs.start_run(
+        {"requirements": ["A"], "kb_id": "kb", "scope_text": "high impact"}
+    )
     run = _await(repo, run_id)
     assert run["status"] == "COMPLETE"
     result = assessment_runs.run_result(run_id)["results"][0]

@@ -95,7 +95,7 @@ def test_analyze_unknown_ref_is_u02_not_a_silent_pass(repo):
 
 
 def test_analyze_status_never_reruns(repo):
-    r = compliance_analyze("CIP-999-1 R9 Part 9.9", operation="start")
+    r = compliance_analyze("CIP-999-1 R9 Part 9.9", scope="low impact only", operation="start")
     _await(r["run_id"])
     before = repo.run_assessment_ids(r["run_id"])
     status = compliance_analyze("", operation="status", run_id=r["run_id"])

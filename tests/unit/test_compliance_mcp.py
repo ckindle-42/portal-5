@@ -180,6 +180,7 @@ def test_gaps_sync_path_uses_injected_results(monkeypatch):
 
     monkeypatch.setattr(compliance_mcp, "_gap_requirements", lambda s, r: ["X"])
     monkeypatch.setattr(compliance_mcp, "_resolve_context_scope", lambda kb, scope: (SCOPE, {}))
+    monkeypatch.setattr(review_queue, "open_items", lambda **kw: [])
     monkeypatch.setattr(
         assessment_runs, "assess_requirements_now", lambda *a, **k: [_result("X", coverage="FULL")]
     )
