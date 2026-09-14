@@ -29,6 +29,7 @@ with the run identity injected.
 from __future__ import annotations
 
 import logging
+import os
 import queue
 import threading
 import uuid
@@ -457,7 +458,13 @@ def start_run(
     requirements = [str(r) for r in (request or {}).get("requirements", []) if str(r)]
     if not requirements:
         raise ValueError("start_run requires at least one requirement id")
+    from portal.modules.compliance.core.repository import process_identity
+
     repo = _get_repo(repository)
+    request = {
+        **request,
+        "worker_owner": {"pid": os.getpid(), "started": process_identity(os.getpid())},
+    }
     run_id = repo.create_run(
         {**request, "requirements": requirements},
         status="QUEUED",
@@ -505,6 +512,7 @@ def run_result(run_id: str, *, repository: Any = None) -> dict[str, Any]:
         "requirements": list((run.get("request") or {}).get("requirements", [])),
         "assessment_ids": [a.get("assessment_id", "") for a in assessments],
         "results": assessments,
+        "request": {k: v for k, v in (run.get("request") or {}).items() if k != "worker_owner"},
         "summary": summarize(assessments),
     }
 

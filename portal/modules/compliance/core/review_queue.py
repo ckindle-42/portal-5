@@ -112,11 +112,11 @@ def _table(create: bool = True) -> Any:
 
     db = _store.get_db()
     name = f"compliance_{_TABLE}"
-    if name in db.table_names():
+    if name in _store.table_names(db):
         return db.open_table(name)
     if not create:
         return None
-    return db.create_table(name, schema=_schema())
+    return db.create_table(name, schema=_schema(), exist_ok=True)
 
 
 def propose(

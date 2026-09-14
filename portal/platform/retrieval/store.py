@@ -37,6 +37,23 @@ def get_db() -> Any:
     return _db
 
 
+def table_names(db: Any) -> list[str]:
+    """Read the entire catalog; LanceDB's default page contains only ten tables."""
+    names: list[str] = []
+    token = None
+    while True:
+        # The installed list_tables API returns the first *unreturned* name as
+        # a token but resumes after it, skipping one table. table_names uses
+        # explicit start-after semantics and is lossless with the last name.
+        page = list(db.table_names(page_token=token, limit=100))
+        if not page:
+            return names
+        if page[-1] == token:
+            raise RuntimeError("LanceDB table listing did not advance")
+        names.extend(page)
+        token = page[-1]
+
+
 # SEAM V1 P7: a second composition (compliance) reuses this stage with its own
 # table prefix, so its tables and stamps never collide with `kb_*`. Everything is
 # keyed off `prefix`; the default keeps the general RAG unchanged.
@@ -121,7 +138,7 @@ def vname(kb_id: str, prefix: str = DEFAULT_PREFIX) -> str:
 def text_table(kb_id: str, create: bool = False, prefix: str = DEFAULT_PREFIX) -> Any:
     db = get_db()
     name = tname(kb_id, prefix)
-    if name in db.table_names():
+    if name in table_names(db):
         return db.open_table(name)
     if not create:
         return None
@@ -142,13 +159,13 @@ def text_table(kb_id: str, create: bool = False, prefix: str = DEFAULT_PREFIX) -
             pa.field("ingested_at", pa.float64()),
         ]
     )
-    return db.create_table(name, schema=schema)
+    return db.create_table(name, schema=schema, exist_ok=True)
 
 
 def visual_table(kb_id: str, create: bool = False, prefix: str = DEFAULT_PREFIX) -> Any:
     db = get_db()
     name = vname(kb_id, prefix)
-    if name in db.table_names():
+    if name in table_names(db):
         return db.open_table(name)
     if not create:
         return None
@@ -163,11 +180,11 @@ def visual_table(kb_id: str, create: bool = False, prefix: str = DEFAULT_PREFIX)
             pa.field("ingested_at", pa.float64()),
         ]
     )
-    return db.create_table(name, schema=schema)
+    return db.create_table(name, schema=schema, exist_ok=True)
 
 
 def list_kbs(prefix: str = DEFAULT_PREFIX) -> list[str]:
     n = len(prefix)
     return sorted(
-        t[n:] for t in get_db().table_names() if t.startswith(prefix) and not t.endswith("_visual")
+        t[n:] for t in table_names(get_db()) if t.startswith(prefix) and not t.endswith("_visual")
     )

@@ -23,6 +23,28 @@ if TYPE_CHECKING:
 _BOUNDARY_MODES = ("RETRIEVAL", "EXPLICIT_SET")
 
 
+def verified_completeness(receipt: dict[str, Any]) -> bool:
+    """Validate the acquisition adapter's section-by-section receipt."""
+    eligible = receipt.get("eligible_sections")
+    examined = receipt.get("examined_sections")
+    revisions = receipt.get("document_revision_hashes")
+    return bool(
+        receipt.get("complete") is True
+        and receipt.get("acquisition_mode") in _BOUNDARY_MODES
+        and isinstance(eligible, list)
+        and eligible
+        and all(isinstance(s, str) and s for s in eligible)
+        and isinstance(examined, list)
+        and all(isinstance(s, str) and s for s in examined)
+        and set(eligible) == set(examined)
+        and len(eligible) == len(set(eligible))
+        and not receipt.get("omissions")
+        and isinstance(revisions, dict)
+        and revisions
+        and all(revisions.values())
+    )
+
+
 @dataclass(frozen=True)
 class BoundaryCompletenessReceipt:
     """Proof that the declared population was accounted for, section by section.

@@ -207,7 +207,7 @@ def test_binding_uses_the_literal_digit_in_parentheses():
     assert bindings[0].qualifier == "calendar"
 
 
-def test_binding_with_absent_literal_is_dropped_not_retried():
+def test_binding_with_absent_literal_is_unresolved_not_silently_dropped():
     text = "Complete the evaluation at least once every thirty-five (35) calendar days."
     request = _request(_candidate("a", text))
     calls: list[tuple[str, str]] = []
@@ -215,8 +215,10 @@ def test_binding_with_absent_literal_is_dropped_not_retried():
     responses = {m: _seat_response(spec) for m in ("m1", "m2", "m3")}
     result = align_part(request, _context(responses, calls))
     record = result.records[0]
-    assert record.relation == "SAME"
+    assert record.relation == "UNKNOWN"
     assert record.constraint_bindings == []
+    assert any("invalid numeric binding" in fact for fact in record.missing_facts)
+    assert len(calls) == 3
 
 
 def test_reader_never_receives_a_prior_or_gold_or_approved_verdict():
@@ -250,3 +252,110 @@ def test_omitted_candidate_fails_the_alignment():
     result = align_part(request, _context(responses, calls))
     assert result.valid is False
     assert "omitted" in result.failure
+
+
+def test_same_without_population_binding_remains_unknown():
+    request = _request(_candidate("a", CAND_TEXT))
+    calls = []
+    spec = {"a": {"relation": "SAME", "overlap": "UNKNOWN"}}
+    result = align_part(
+        request, _context({m: _seat_response(spec) for m in ("m1", "m2", "m3")}, calls)
+    )
+    assert result.records[0].relation == "UNKNOWN"
+    assert result.records[0].constraint_bindings == []
+
+
+def test_alignment_transport_enforces_scalar_schema_and_sizes_output(monkeypatch):
+    import io
+    import urllib.request
+
+    from portal.modules.compliance.core.obligation_alignment import (
+        _ALIGNMENT_SYSTEM,
+        _ollama_alignment_seat,
+    )
+
+    payloads = []
+
+    def response(req, timeout):
+        payloads.append(json.loads(req.data))
+        return io.StringIO(json.dumps({"message": {"content": '{"records":[]}'}}))
+
+    monkeypatch.setattr(urllib.request, "urlopen", response)
+    _ollama_alignment_seat("test", _ALIGNMENT_SYSTEM, json.dumps({"candidates": [{}] * 15}))
+    payload = payloads[0]
+    assert payload["options"]["num_predict"] == 7680
+    record = payload["format"]["properties"]["records"]["items"]
+    binding = record["properties"]["constraint_bindings"]["items"]["properties"]
+    assert binding["constraint_kind"]["type"] == "string"
+    assert binding["internal_quantity"]["properties"]["unit"]["type"] == "string"
+    assert "population_overlap" in record["required"]
+
+
+def test_reader_maps_each_governing_slice_to_its_exact_text():
+    from portal.modules.compliance.core.obligation_alignment import _build_user_packet
+
+    request = _request(_candidate("a", CAND_TEXT))
+    request.governing.source_slices.append(
+        SourceSlice(
+            slice_id="reference",
+            ref="other",
+            document_id="reg",
+            revision_hash="h",
+            chunk_id="other",
+            text="Identify the sources.",
+            role="reference",
+        )
+    )
+    packet = _build_user_packet(request)
+    texts = {s["slice_id"]: s["text"] for s in packet["governing"]["source_slices"]}
+    assert texts == {"gov-1": GOV_TEXT, "reference": "Identify the sources."}
+
+
+def test_valid_binding_quorum_survives_one_invalid_seat():
+    request = _request(_candidate("a", CAND_TEXT))
+    valid = _seat_response({"a": {"relation": "SAME", "bindings": [_binding(35)]}})
+    invalid = _seat_response({"a": {"relation": "SAME", "bindings": [_binding(40)]}})
+    result = align_part(request, _context({"m1": valid, "m2": valid, "m3": invalid}, []))
+    assert result.records[0].relation == "SAME"
+    assert len(result.records[0].constraint_bindings) == 1
+    assert result.records[0].constraint_bindings[0].value == 35
+
+
+def test_disagreement_on_constraint_kind_cannot_invent_arithmetic():
+    request = _request(_candidate("a", CAND_TEXT))
+    other = {**_binding(35), "constraint_kind": "min_retention", "direction": "min_retention"}
+    responses = {
+        "m1": _seat_response({"a": {"relation": "SAME", "bindings": [_binding(35)]}}),
+        "m2": _seat_response({"a": {"relation": "SAME", "bindings": [other]}}),
+        "m3": _seat_response({"a": {"relation": "UNKNOWN"}}),
+    }
+    result = align_part(request, _context(responses, []))
+    assert result.records[0].relation == "UNKNOWN"
+    assert result.records[0].constraint_bindings == []
+
+
+def test_quantity_validation_does_not_splice_units_or_invent_qualifiers():
+    from portal.modules.compliance.core.obligation_alignment import _text_has_quantity
+
+    assert not _text_has_quantity("3 hours and 5 days", 3, "day")
+    assert not _text_has_quantity("35 business days", 35, "day", "calendar")
+    assert not _text_has_quantity("35 calendar days", 35, "day")
+    assert _text_has_quantity("thirty-five (35) calendar days", 35, "day", "calendar")
+
+
+def test_internal_pair_transport_uses_pair_schema(monkeypatch):
+    import io
+    import urllib.request
+
+    from portal.modules.compliance.core.obligation_alignment import _ollama_alignment_seat
+
+    payloads = []
+
+    def response(req, timeout):
+        payloads.append(json.loads(req.data))
+        return io.StringIO(json.dumps({"message": {"content": "{}"}}))
+
+    monkeypatch.setattr(urllib.request, "urlopen", response)
+    _ollama_alignment_seat("test", "pair", json.dumps({"task": "internal_pair_identity"}))
+    assert set(payloads[0]["format"]["required"]) == {"relation", "rationale", "missing_facts"}
+    assert "records" not in payloads[0]["format"]["properties"]

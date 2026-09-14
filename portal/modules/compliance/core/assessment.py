@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import re
 import uuid
 from dataclasses import asdict
@@ -451,7 +452,8 @@ def assess_part(request: AssessmentRequest, context: AssessmentContext) -> Asses
         )
 
     alignment = align_part(request, context)
-    if not alignment.valid:
+    unknown_links = [r for r in alignment.records if r.relation == "UNKNOWN"]
+    if not alignment.valid or unknown_links:
         return _finalize(
             AssessmentResult(
                 **base,
@@ -460,7 +462,12 @@ def assess_part(request: AssessmentRequest, context: AssessmentContext) -> Asses
                 documentary_coverage="UNRESOLVED",
                 coverage="UNRESOLVED",
                 unresolved_code="U09_SEMANTIC_ALIGNMENT_UNKNOWN",
-                missing_fact={"failure": alignment.failure, "part_ref": alignment.part_ref},
+                missing_fact={
+                    "failure": alignment.failure,
+                    "part_ref": alignment.part_ref,
+                    "unknown_links": [asdict(r) for r in unknown_links],
+                },
+                receipt=_receipt(request, None, alignment),
             ),
             context,
         )
@@ -512,7 +519,11 @@ def assess_part(request: AssessmentRequest, context: AssessmentContext) -> Asses
             gaps=explanation.gaps if valid_explanation else [],
             uncertainties=explanation.uncertainties,
             selected_source_slices=selected,
-            receipt=_receipt(request, gate_result, alignment, explanation=explanation),
+            receipt={
+                **_receipt(request, gate_result, alignment, explanation=explanation),
+                "council_packet": packet,
+                "council_trace": trace,
+            },
             unresolved_code=code,
             missing_fact=missing,
         ),
@@ -610,7 +621,9 @@ def _project(
             },
         )
     if not explanation.valid:
-        if decision == "ABSENT" and gate_result.acquisition_completeness != "COMPLETE":
+        if gate_result.acquisition_completeness != "COMPLETE" and (
+            decision == "ABSENT" or any(g.kind == "OMISSION" for g in explanation.gaps)
+        ):
             return (
                 "UNRESOLVED",
                 "UNRESOLVED",
@@ -662,7 +675,9 @@ def _recording_seat_fn(seat_fn: Any, trace: list[dict[str, Any]]) -> Any:
     seat's rejection cause is auditable. The council's own cite-or-drop still
     decides the vote; this only records what was asked and returned."""
     if seat_fn is None:
-        return None
+        from portal.modules.compliance.core.council import _ollama_seat
+
+        seat_fn = _ollama_seat
 
     def wrapped(model: str, system: str, user: str) -> str:
         raw = seat_fn(model, system, user)
@@ -745,12 +760,16 @@ def _receipt(
         "governing_fingerprint": request.governing.fingerprint if request.governing else "",
         "alignment_valid": alignment.valid,
         "alignment_links": len(alignment.records),
-        "applicability": gate_result.applicability,
+        "alignment": asdict(alignment),
+        "applicability": gate_result.applicability if gate_result is not None else "UNKNOWN",
         "explanation_valid": bool(explanation.valid) if explanation is not None else False,
+        "explanation": asdict(explanation) if explanation is not None else {},
     }
 
 
 def _ensure_run(request: AssessmentRequest, context: AssessmentContext) -> str:
+    from portal.modules.compliance.core.repository import process_identity
+
     repo = context.repository
     if repo is None:
         return str(request.metadata.get("run_id", ""))
@@ -765,6 +784,7 @@ def _ensure_run(request: AssessmentRequest, context: AssessmentContext) -> str:
             "scope_basis": request.scope_basis,
             "effective_on": request.effective_on,
             "known_at": request.known_at,
+            "worker_owner": {"pid": os.getpid(), "started": process_identity(os.getpid())},
         },
         status="RUNNING",
         org_id=request.org_id,

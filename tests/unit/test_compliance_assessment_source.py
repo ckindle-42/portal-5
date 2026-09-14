@@ -257,7 +257,14 @@ def test_corpus_snapshot_unknown_for_topk_and_stable_fingerprint(stub_store):
 def test_corpus_snapshot_complete_only_with_completed_boundary_receipt(stub_store):
     receipt = {
         "acquisition_mode": "EXPLICIT_SET",
-        "boundary_receipt": {"complete": True},
+        "boundary_receipt": {
+            "complete": True,
+            "acquisition_mode": "EXPLICIT_SET",
+            "eligible_sections": ["s1", "s2"],
+            "examined_sections": ["s1", "s2"],
+            "document_revision_hashes": {"a.pdf": "revision-a", "b.pdf": "revision-b"},
+            "omissions": [],
+        },
         "candidate_identities": ["s1", "s2"],
     }
     snap = src.build_corpus_snapshot("fixture_kb", acquisition_receipt=receipt)
@@ -595,3 +602,26 @@ def test_org_commitments_distinguish_missing_from_empty(tmp_path):
     assert empty["status"] == "EMPTY"
     assert empty["revision"]
     assert empty["commitments"] == []
+
+
+def test_a_bare_complete_flag_cannot_certify_absence(stub_store):
+    snap = src.build_corpus_snapshot(
+        "fixture_kb", acquisition_receipt={"boundary_receipt": {"complete": True}}
+    )
+    assert snap.completeness == "UNKNOWN"
+
+
+def test_table_part_recovers_parent_from_pinned_pdf():
+    bundle = src.resolve_governing_bundle("CIP-007-6 R2 Part 2.2")
+    assert "collectively include each of the applicable requirement parts" in bundle.lead_in
+    parent = next(s for s in bundle.source_slices if s.ref == "CIP-007-6 R2")
+    assert parent.text == bundle.lead_in
+    assert parent.revision_hash == _sha(parent.text)
+
+
+def test_parent_pdf_revision_must_match_register():
+    reg = Register.load()
+    node = next(n for n in reg.nodes if n.id == "CIP-007-6 R2 Part 2.2")
+    reg.source_pdfs[node.source_pdf] = "0" * 12
+    with pytest.raises(ValueError, match="revision mismatch"):
+        src._pdf_parent_requirement(node, reg)

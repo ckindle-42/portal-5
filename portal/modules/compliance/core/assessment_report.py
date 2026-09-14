@@ -17,6 +17,7 @@ never a gap reconstructed from rationale keywords.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import asdict, is_dataclass
 from typing import Any
@@ -63,6 +64,9 @@ _REPORT_SYSTEM = (
     "character offset; the application emits the stored text for the ids you "
     "select.\n"
     "- Use only ids from the supplied selectable slices.\n"
+    "- For an OMISSION, select a supplied allowed_boundary_proof_id and leave "
+    "internal_counterevidence_slice_ids empty. A source that does not mention a "
+    "duty is not an internal quote proving absence. Never invent a boundary id.\n"
     "- Full coverage requires the overall supported result. Partial coverage "
     "requires both a covered commitment and a grounded shortfall. No coverage "
     "requires no supported commitment plus a valid completeness or explicit "
@@ -125,6 +129,15 @@ def explain(
     covered, gaps, uncertainties, errors = _validate_report(
         obj, governing_ids, internal_ids, source_catalog
     )
+    boundary_id = _boundary_proof_id(request)
+    for gap in gaps:
+        if gap.boundary_proof_id and gap.boundary_proof_id != boundary_id:
+            errors.append("gap cites an unverified boundary proof id")
+        if gap.kind == "OMISSION":
+            if not boundary_id or gap.boundary_proof_id != boundary_id:
+                errors.append("OMISSION requires the supplied completed boundary proof")
+            if gap.internal_counterevidence_slice_ids:
+                errors.append("OMISSION cannot invent an internal counterevidence quote")
     coverage = str(obj.get("documentary_coverage", "")).upper()
     if coverage not in _REPORT_COVERAGE:
         errors.append(f"invalid documentary_coverage {coverage!r}")
@@ -154,6 +167,22 @@ def explain(
 
 
 # ── reporting packet ────────────────────────────────────────────────────────
+
+
+def _boundary_proof_id(request: AssessmentRequest) -> str:
+    from portal.modules.compliance.core.boundary import verified_completeness
+
+    if request.candidate_set is None or request.snapshot is None:
+        return ""
+    receipt = request.candidate_set.acquisition_receipt.get("boundary_receipt") or {}
+    if not verified_completeness(receipt) or request.snapshot.completeness != "COMPLETE":
+        return ""
+    if set(receipt["examined_sections"]) != {r.chunk_id for r in request.candidate_set.records}:
+        return ""
+    payload = {"snapshot": request.snapshot.fingerprint, "receipt": receipt}
+    return (
+        "boundary-" + hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:20]
+    )
 
 
 def _report_packet(
@@ -191,6 +220,14 @@ def _report_packet(
         "operative_commitments": operative,
         "arithmetic": _arithmetic(alignment),
         "selectable_source_slice_ids": sorted(source_catalog),
+        "source_catalog": source_catalog,
+        "acquisition_receipt": (
+            request.candidate_set.acquisition_receipt if request.candidate_set else {}
+        ),
+        "completeness": request.snapshot.completeness if request.snapshot else "UNKNOWN",
+        "allowed_boundary_proof_ids": [_boundary_proof_id(request)]
+        if _boundary_proof_id(request)
+        else [],
         "permitted_internal_slice_ids": sorted(internal_ids),
     }
 
@@ -396,8 +433,7 @@ def _none_error(
     if covered:
         return "NONE cannot report a supported commitment"
     if decision == "ABSENT":
-        complete = bool(request.snapshot and request.snapshot.completeness == "COMPLETE")
-        if complete or any(g.boundary_proof_id for g in gaps):
+        if _boundary_proof_id(request):
             return ""
         return "NONE by absence requires a completed boundary or a boundary proof id"
     if any(g.kind == "CONTRADICTION" and g.internal_counterevidence_slice_ids for g in gaps):

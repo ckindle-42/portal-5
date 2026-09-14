@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import replace
+from pathlib import Path
 from typing import Any
 
 from portal.modules.compliance.core import propose as _propose
@@ -124,6 +125,8 @@ def resolve_governing_bundle(requirement_id: str, *, policy_graph: Any = None) -
     if node.granularity == "part":
         base_id = requirement_id.rsplit(" Part ", 1)[0]
         lead = by_id.get(base_id) or next((n for n in reg.nodes if n.id == base_id), None)
+        if lead is None:
+            lead = _pdf_parent_requirement(node, reg)
         if lead is not None and lead.verbatim_text:
             lead_in = lead.verbatim_text
             slices.append(
@@ -181,6 +184,30 @@ def resolve_governing_bundle(requirement_id: str, *, policy_graph: Any = None) -
     )
     bundle.fingerprint = _bundle_fingerprint(slices)
     return bundle
+
+
+def _pdf_parent_requirement(node: RegisterNode, reg: Register) -> RegisterNode:
+    """Recover a table's omitted R header from the register's pinned public PDF."""
+    import pymupdf
+
+    from portal.modules.compliance.core.cip_extract import _leadins
+
+    pdf = Path(__file__).resolve().parent.parent / "data" / "cip_pdfs" / Path(node.source_pdf).name
+    content = pdf.read_bytes()
+    expected = reg.source_pdfs.get(pdf.name, "")
+    if not expected or not hashlib.sha256(content).hexdigest().startswith(expected):
+        raise ValueError(f"governing parent PDF revision mismatch: {pdf.name}")
+    with pymupdf.open(stream=content, filetype="pdf") as document:  # type: ignore[no-untyped-call]
+        headers = _leadins(" ".join(page.get_text() for page in document))
+    if node.requirement not in headers:
+        raise ValueError(f"governing parent unavailable: {node.standard} {node.requirement}")
+    return replace(
+        node,
+        id=f"{node.standard} {node.requirement}",
+        part="",
+        verbatim_text=headers[node.requirement][0],
+        granularity="requirement",
+    )
 
 
 def _build_policy_graph(reg: Register) -> Any:
@@ -288,7 +315,9 @@ def build_corpus_snapshot(
     if mode not in ("RETRIEVAL", "EXPLICIT_SET"):
         mode = "RETRIEVAL"
     boundary = receipt.get("boundary_receipt") or {}
-    completeness = "COMPLETE" if boundary.get("complete") is True else "UNKNOWN"
+    from portal.modules.compliance.core.boundary import verified_completeness
+
+    completeness = "COMPLETE" if verified_completeness(boundary) else "UNKNOWN"
     if completeness not in COMPLETENESS_STATES:
         completeness = "UNKNOWN"
 

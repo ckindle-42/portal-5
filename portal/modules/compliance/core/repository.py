@@ -20,6 +20,7 @@ import json
 import os
 import shutil
 import sqlite3
+import subprocess
 import threading
 import uuid
 from collections import deque
@@ -49,6 +50,32 @@ from portal.modules.compliance.core.temporal import now_iso
 
 _DATA = Path(__file__).resolve().parent.parent / "data"
 DEFAULT_DB_PATH = Path(os.environ.get("COMPLIANCE_DB_PATH", _DATA / "compliance_store.db"))
+
+
+def process_identity(pid: int) -> str:
+    """OS process birth time disambiguates a live worker from a reused PID."""
+    try:
+        return subprocess.check_output(
+            ["ps", "-p", str(pid), "-o", "lstart="], text=True, timeout=2
+        ).strip()
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def _run_owner_alive(request: dict[str, Any]) -> bool:
+    owner = request.get("worker_owner") or {}
+    pid = owner.get("pid")
+    if not isinstance(pid, int) or pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    identity = process_identity(pid)
+    # An unavailable process query is not proof that a live owner has died.
+    return not identity or not owner.get("started") or identity == owner["started"]
 
 
 class ConcurrencyError(RuntimeError):
@@ -518,15 +545,19 @@ class Repository:
         return d
 
     def mark_interrupted_runs(self) -> int:
-        """A service restart marks unfinished RUNNING jobs INTERRUPTED — recovery
-        is explicit and never masquerades as completion (brief §6)."""
+        """Recover abandoned jobs without interrupting another live process."""
         with self._lock, self._conn:
-            cur = self._conn.execute(
-                "UPDATE analysis_runs SET status = 'INTERRUPTED', updated_at = ?, finished_at = ? "
-                "WHERE status IN ('RUNNING', 'QUEUED')",
-                (now_iso(), now_iso()),
-            )
-        return cur.rowcount
+            rows = self._conn.execute(
+                "SELECT run_id, request_json FROM analysis_runs WHERE status IN ('RUNNING', 'QUEUED')"
+            ).fetchall()
+            abandoned = [row[0] for row in rows if not _run_owner_alive(json.loads(row[1] or "{}"))]
+            for run_id in abandoned:
+                self._conn.execute(
+                    "UPDATE analysis_runs SET status = 'INTERRUPTED', updated_at = ?, finished_at = ? "
+                    "WHERE run_id = ? AND status IN ('RUNNING', 'QUEUED')",
+                    (now_iso(), now_iso(), run_id),
+                )
+        return len(abandoned)
 
     def record_claim(
         self,

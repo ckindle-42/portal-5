@@ -184,7 +184,7 @@ def test_partial_requires_covered_and_grounded_gaps():
     assert explanation.documentary_coverage == "UNRESOLVED"
 
 
-def test_none_with_absence_boundary_proof_is_valid():
+def test_none_with_invented_absence_boundary_proof_is_rejected():
     calls: list[tuple[str, str, str]] = []
     payload = _report(
         documentary_coverage="NONE",
@@ -196,8 +196,8 @@ def test_none_with_absence_boundary_proof_is_valid():
     explanation = explain(
         _request(), _council("ABSENT"), _alignment(), CATALOG, _context(payload, calls)
     )
-    assert explanation.valid
-    assert explanation.documentary_coverage == "NONE"
+    assert not explanation.valid
+    assert "unverified boundary" in explanation.failure
 
 
 def test_none_without_a_boundary_basis_is_unresolved():
