@@ -207,6 +207,13 @@ dev = [
     # dev/CI transitively. Without it the dev/CI unit suite (compliance review
     # queue, rag retrieval seams) fails deterministically under Python 3.12.
     "pandas>=2.0.0",
+    # pymupdf lives in the `mcp` extra (research/RAG PDF ingest) but several
+    # compliance unit tests exercise assessment_source._pdf_parent_requirement /
+    # cip_extract.py against real pinned PDF fixtures, so it's a hard dev/CI
+    # unit-test dependency too, not just a lazy MCP-tool-call import. Without it
+    # tests/unit/test_compliance_reading_live_runner.py and friends fail with
+    # ModuleNotFoundError under the dev-only extras CI installs.
+    "pymupdf>=1.28.2",
 ]
 
 [project.scripts]
