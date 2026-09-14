@@ -258,6 +258,8 @@ committed. §5C and §5D are what remains, and they run **offline**.
 | 3 | Per-run `run_id` / model-call count / elapsed in every row + `records` in `summary.json` | Brief §9 requires exactly these per case in the final handoff; they were only recoverable by hand from each case directory. |
 | 4 | `scripts/verify_compliance_reading_route.py` | §5D's scoped-R2 request over the **deployed** HTTP surface had no implementation. The 26-case verifier only runs isolated Parts in-process. |
 | 5 | `scripts/run_compliance_reading_qualification.sh` + `scripts/check_compliance_reading_qualification.sh` | §5C's stages needed a single fixed-revision offline job with per-stage logs/exits that a later agent can inspect without this session. |
+| 6 | `build_assessment_context(…, known_at, repository, …)` in `_live_case_direct` and `_proposal_result` | Both live-only call sites omitted `known_at` (and the proposal one also `repository`). Case 01 failed in 5.8 s with a `TypeError` and zero model calls; cases 25/26's proposal reassessment could not build a context. mypy had reported both as `call-arg`; they were wrongly dismissed as this script's baseline typing debt. |
+| 7 | `str(item.get(k) or "")` for every optional field in `assessment_report._parse_gaps`/`_parse_*` | A present JSON `null` never hits `.get()`'s default, so `str(None)` became the truthy `"None"`. Live case 26 produced a **correct** PARTIAL report with `boundary_proof_id: null` and our parser rejected it as "an unverified boundary proof id", sinking the assessment to U11. `kind` would likewise have become `"NONE"` and `gap_id` the literal `"None"`. Regression test reproduces the live failure. |
 
 ### The offline qualification job
 

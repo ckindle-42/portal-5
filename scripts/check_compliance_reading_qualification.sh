@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/bin/bash
 # Install / inspect / stop the offline compliance-reading qualification job.
 #
 #   --install   write the one-shot launchd plist and bootstrap it (starts now)
@@ -53,22 +53,22 @@ install_job() {
 </plist>
 PLIST
   launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null
-  launchctl bootstrap "gui/$(id -u)" "$PLIST" || { print -r -- "bootstrap failed"; exit 1; }
-  print -r -- "installed and started: $LABEL"
-  print -r -- "artifacts: $ART"
+  launchctl bootstrap "gui/$(id -u)" "$PLIST" || { echo "bootstrap failed"; exit 1; }
+  echo "installed and started: $LABEL"
+  echo "artifacts: $ART"
 }
 
 status_job() {
-  print -r -- "label:    $LABEL"
-  print -r -- "launchd:  $(launchctl list | grep -F "$LABEL" || print -r -- 'not loaded')"
-  print -r -- "artifacts: $ART"
-  [ -f "$ART/status.json" ] && { print -r -- '--- status.json ---'; cat "$ART/status.json"; }
+  echo "label:    $LABEL"
+  echo "launchd:  $(launchctl list | grep -F "$LABEL" || echo 'not loaded')"
+  echo "artifacts: $ART"
+  [ -f "$ART/status.json" ] && { echo '--- status.json ---'; cat "$ART/status.json"; }
   for stage in stage1 stage2 stage3; do
-    local log="$ART/$stage.log"
+    log="$ART/$stage.log"
     [ -f "$log" ] || continue
-    print -r -- "--- $stage ---"
-    print -r -- "exit: $(cat "$ART/$stage.exit" 2>/dev/null || print -r -- 'still running')"
-    print -r -- "receipts: $(head -1 "$log" | sed -n 's/^receipts: //p')"
+    echo "--- $stage ---"
+    echo "exit: $(cat "$ART/$stage.exit" 2>/dev/null || echo 'still running')"
+    echo "receipts: $(head -1 "$log" | sed -n 's/^receipts: //p')"
     grep -E '^(case |PASS |FAIL |run_id=.* status=)' "$log" | tail -5
   done
   # A suite is only qualified when its own summary says so.
@@ -97,6 +97,6 @@ PY
 
 case "$MODE" in
   --install) install_job ;;
-  --stop)    launchctl bootout "gui/$(id -u)/$LABEL" && print -r -- "stopped $LABEL" ;;
+  --stop)    launchctl bootout "gui/$(id -u)/$LABEL" && echo "stopped $LABEL" ;;
   *)         status_job ;;
 esac

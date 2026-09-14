@@ -214,7 +214,8 @@ def _live_case_direct(
         kb_id,
         request.scope,
         manifest["effective_on"],
-        repository=repo,
+        request.known_at,
+        repo,
         seat_fn=_traced_seat(_guarded_seat(None, "", None), trace_dir),
     )
     result = assess_part(request, context)
@@ -368,6 +369,7 @@ def _proposal_result(
     from portal.modules.compliance.core.assessment_runs import _guarded_seat
     from portal.modules.compliance.core.determination import ScenarioEdit, ScenarioOverlay
     from portal.modules.compliance.core.operations import propose
+    from portal.modules.compliance.core.repository import Repository
     from portal.modules.compliance.core.runtime_config import build_assessment_context
 
     virtual = case["virtual"]
@@ -388,6 +390,8 @@ def _proposal_result(
         request.kb_id,
         request.scope,
         manifest["effective_on"],
+        request.known_at,
+        Repository(),
         seat_fn=_guarded_seat(None, "", None),
     )
     package = propose(

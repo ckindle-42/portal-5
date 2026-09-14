@@ -199,3 +199,73 @@ changes acceptance semantics and is the operator's call — it was not done here
 - System validator: **211 pass · 0 fail · 1 warn · 1 skip**, 120.4 s (`--skip-pytest`).
 
 No council prompt, roster, quorum, override or arithmetic was changed.
+
+
+## Correction 6 — `build_assessment_context` was called with too few arguments
+
+Arming the offline job exposed it immediately: case 01 returned
+`TypeError: build_assessment_context() missing 1 required positional argument:
+'known_at'` in 5.8 s, with zero model calls. Two live-only call sites in
+`scripts/verify_compliance_reading_acceptance.py` omitted `known_at`, and the
+proposal path also omitted `repository`:
+
+* `_live_case_direct` — the case 01 real-corpus diagnostic (both the actual-scope
+  and conditional-scope runs);
+* `_proposal_result` — the cases 25/26 proposal overlay reassessment.
+
+Both now pass `request.known_at` and an explicit `Repository()`, matching
+`assessment_runs`' canonical call. This was **already reported by mypy** as a
+`call-arg` error on those two lines and was wrongly set aside as part of the
+script's documented baseline typing debt; it was a real defect that would have
+failed case 01 on every run and broken the 25/26 proposal path. The remaining
+seven mypy findings on this file are `no-any-return`/annotation noise, and the
+two `call-arg` errors are now gone.
+
+Verified live on the corrected code: case 01 ran a real 486 s alignment seat
+against the operator corpus instead of failing in 5.8 s, and case 26 executed the
+full initial assessment plus the proposal-overlay reassessment (12+ model calls),
+which is exactly the `_proposal_result` path that could not previously build its
+context.
+
+Also hardened: `run_stage` archives a stage log that has no `.exit` before
+restarting that stage, so a resumed job's log always begins with its own receipt
+directory rather than an aborted attempt's.
+
+
+## Correction 7 — a JSON `null` was read as the string `"None"`
+
+Live case 26 (run `affeefffda744a9a`, 30 model calls, 1322.4 s) returned
+`UNRESOLVED` / `U11_ASSESSMENT_CONTRACT_FAILED` with
+`"gap cites an unverified boundary proof id"`. The reporter's actual output was
+**correct**: `PARTIAL`, one `WEAKER_COMMITMENT` gap for the missing
+"at least once every 35 calendar days", L22 as counterevidence, and
+`"boundary_proof_id": null` — exactly what the prompt asks for outside an
+OMISSION. Alignment had resolved both A22 and L22 as `SAME` and the council
+returned PARTIAL.
+
+`_parse_gaps` coerced the field with `str(item.get("boundary_proof_id", ""))`.
+`.get()`'s default never applies to a present `null`, so `str(None)` produced the
+truthy `"None"`, which then failed `gap.boundary_proof_id != boundary_id`. Every
+other optional field in the report parser (`commitment`, `kind`,
+`missing_commitment`, `gap_id`, `reason`, `code`) carried the same hazard —
+`kind` would have become `"NONE"`, `gap_id` the literal `"None"` instead of the
+generated fallback. All seven now use `str(item.get(k) or "")`.
+
+This is the same defect class as the `"report": null` suite crash, and it is
+**ours, not the models'**: a correct report was discarded and the assessment
+downgraded to an uncertainty code. Regression:
+`test_explicit_null_optional_fields_are_not_read_as_values`, which reproduces the
+exact live failure (`AssertionError: gap cites an unverified boundary proof id`)
+when the coercion is reverted.
+
+The case 26 fix also confirmed correction 6: the run executed the full initial
+assessment plus the proposal-overlay reassessment (30 calls) through
+`_proposal_result`, the path that previously could not build a context at all.
+
+### Gates after corrections 6 and 7
+
+- Full unit suite: **1,818 passed, 4 skipped**, 204.77 s.
+- Fast hermetic acceptance: **26/26 PASS**.
+- Lint + format clean repo-wide; focused mypy on `assessment_report.py` clean;
+  the two `call-arg` errors on the verifier are gone.
+- Complexity gate **OK at budget, no budget increase**.
