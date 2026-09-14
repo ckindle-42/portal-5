@@ -500,7 +500,9 @@ def coverage_matrix(
         )
     if context is not None:
         return _coverage_matrix_assessed(reg, scope, effective_on, context)
-    store = store or MappingStore()
+    # An empty MappingStore is falsy (__len__), so `store or ...` silently
+    # substituted the ambient store at STORE_PATH for an injected empty one.
+    store = store if store is not None else MappingStore()
     m = CoverageMatrix(effective_on=effective_on, scope_declared=True)
     nodes = effective_parts(reg, effective_on)
     # skip an R-level node only when the same R has extracted Parts that are

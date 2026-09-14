@@ -193,15 +193,50 @@ def test_mapping_expiry_completeness(tmp_path):
     assert store._by_id(store.all_for("CIP-003-8 R1 Part 1.2.5")[0].id).valid_to is None
 
 
-def test_impact_report_examined_and_resolved_are_separate_numbers():
-    ir = impact_report(_OLD, _NEW, "CIP-003", _SCOPE)
+def _seeded_store(tmp_path):
+    """A mapping store this test owns.
+
+    ``impact_report`` fills ``mapped_sections`` from ``store.all_for(...)``. With
+    no ``store=`` it constructs ``MappingStore()`` at the gitignored ``STORE_PATH``
+    — machine-local state. On a developer box that store is populated and these
+    tests pass; on a clean checkout (CI, or a fresh clone) it is empty, every row
+    gets zero mapped sections, and ``draft_revisions`` returns no specifications.
+    That is P5-CI-DRAFT-REVISIONS-FLAKE-001: not a CI-runner effect, a fixture
+    that asserted on ambient state.
+    """
+    store = MappingStore(tmp_path / "mappings.db")
+    mapping = store.propose("CIP-003-9 R1 Part 1.2.6", "LSPG-CIP-003-POLICY", "4.2", "FULL")
+    store.approve(mapping.id, "sme-fixture")
+    return store
+
+
+def test_impact_report_ignores_ambient_machine_state(tmp_path):
+    """The regression guard: an empty store must produce zero specifications.
+
+    If this ever passes with specifications, something reintroduced a default
+    store read and the suite is once again machine-dependent. It guards the
+    ``store or MappingStore()`` defect specifically: ``MappingStore`` defines
+    ``__len__``, so an empty store is falsy and that idiom silently swapped the
+    injected store for the ambient one — leaving the seam working only for a
+    populated store, which is the one case it is not needed for.
+    """
+    empty = MappingStore(tmp_path / "empty.db")
+    ir = impact_report(_OLD, _NEW, "CIP-003", _SCOPE, empty)
+    assert ir["examined"] == 6
+    assert ir["substantively_resolved"] == 0
+    assert draft_revisions(ir)["specifications"] == []
+
+
+def test_impact_report_examined_and_resolved_are_separate_numbers(tmp_path):
+    ir = impact_report(_OLD, _NEW, "CIP-003", _SCOPE, _seeded_store(tmp_path))
+    assert ir["examined"] == 6 and ir["substantively_resolved"] == 1
     assert "examined" in ir and "substantively_resolved" in ir
     assert ir["examined"] >= ir["substantively_resolved"]
 
 
 # ── Phase 6 proposal workflow ───────────────────────────────────────────
-def test_draft_revisions_is_proposal_by_default():
-    ir = impact_report(_OLD, _NEW, "CIP-003", _SCOPE)
+def test_draft_revisions_is_proposal_by_default(tmp_path):
+    ir = impact_report(_OLD, _NEW, "CIP-003", _SCOPE, _seeded_store(tmp_path))
     dr = draft_revisions(ir)
     assert dr["mode"] == "draft_as_proposal"
     assert all(s["drafted_replacement"] for s in dr["specifications"])

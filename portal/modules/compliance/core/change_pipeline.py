@@ -60,7 +60,12 @@ def impact_report(
     Part outside the asset scope is **informational**, not work."""
     if not scope.is_declared:
         raise ValueError("impact_report needs a declared AssetScope ([GATE] Phase 5)")
-    store = store or MappingStore()
+    # `store or MappingStore()` discarded an injected *empty* store: MappingStore
+    # defines __len__, so a store with no rows is falsy and the caller's store was
+    # silently replaced by the ambient one at STORE_PATH. The seam only worked for
+    # a populated store — the one case it exists to isolate, an empty one, was the
+    # case it swallowed.
+    store = store if store is not None else MappingStore()
     rows = diff_standard(old, new, standard_base)
     out: list[ImpactRow] = []
     examined = resolved = 0
