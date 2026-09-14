@@ -10,6 +10,7 @@ import dataclasses
 
 import pytest
 
+from portal.modules.compliance.core import review_queue
 from portal.modules.compliance.core.applicability import AssetScope
 from portal.modules.compliance.core.determination import (
     AssessmentResult,
@@ -161,6 +162,7 @@ def test_gaps_result_projects_persisted_assessments(monkeypatch):
         },
     )
     monkeypatch.setattr(compliance_mcp, "_resolve_context_scope", lambda kb, scope: (SCOPE, {}))
+    monkeypatch.setattr(review_queue, "open_items", lambda **kw: [])
     out = compliance_mcp.compliance_gaps(
         operation="result", run_id="run-1", max_rows=1, generate_drafts=False
     )
