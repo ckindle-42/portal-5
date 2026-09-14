@@ -184,6 +184,20 @@ def test_partial_requires_covered_and_grounded_gaps():
     assert explanation.documentary_coverage == "UNRESOLVED"
 
 
+def test_explicit_null_optional_fields_are_not_read_as_values():
+    """`null` is absence, not `"None"`: the old coercion made a nullable
+    boundary_proof_id truthy, sinking a correct PARTIAL to U11 (live case 26)."""
+    calls: list[tuple[str, str, str]] = []
+    payload = _report(gaps=[_gap(boundary_proof_id=None, gap_id=None)])
+    explanation = explain(
+        _request(), _council("PARTIAL"), _alignment(), CATALOG, _context(payload, calls)
+    )
+    assert explanation.valid, explanation.failure
+    assert explanation.documentary_coverage == "PARTIAL"
+    assert explanation.gaps[0].boundary_proof_id == ""
+    assert explanation.gaps[0].gap_id == "gap-0"
+
+
 def test_none_with_invented_absence_boundary_proof_is_rejected():
     calls: list[tuple[str, str, str]] = []
     payload = _report(

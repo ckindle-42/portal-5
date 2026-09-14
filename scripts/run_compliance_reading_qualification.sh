@@ -9,9 +9,9 @@
 #   stage3  deployed-HTTP scoped R2 route verification
 #
 # Stages are deliberately NOT chained with `&&`: a semantic FAIL in stage 1 must
-# not suppress the required repetitions. Each stage writes its own log, its own
-# child exit code, and a line in status.json. The wrapper always exits 0 so a
-# supervisor never restarts a failed suite; read the .exit files instead.
+# not suppress the required repetitions. Each writes its own log, child exit code
+# and status.json line. The wrapper always exits 0 so a supervisor never restarts
+# a failed suite; read the .exit files instead.
 #
 # Normally launched detached via the one-shot launchd job installed by
 # scripts/check_compliance_reading_qualification.sh --install.
@@ -59,6 +59,12 @@ run_stage() {
   if [ -f "$ART/$name.exit" ]; then
     note "$name already finished (exit $(cat "$ART/$name.exit")); skipping"
     return
+  fi
+  # A log with no .exit is an aborted attempt: keep it, but start a fresh log so
+  # the first line still names THIS attempt's receipt directory.
+  if [ -s "$log" ]; then
+    mv "$log" "$log.aborted-$(date -u +%Y%m%dT%H%M%SZ)"
+    note "$name: archived an aborted log"
   fi
   note "$name START: $*"
   write_status "$name:RUNNING:-"

@@ -285,7 +285,7 @@ def _clean_covered(
         if not isinstance(item, dict):
             errors.append("covered entry is not an object")
             continue
-        commitment = str(item.get("commitment", "")).strip()
+        commitment = str(item.get("commitment") or "").strip()
         gov = _str_list(item.get("governing_slice_ids"))
         internal = _str_list(item.get("internal_slice_ids"))
         if not commitment or not gov or not internal:
@@ -323,8 +323,8 @@ def _clean_gaps(
         if not isinstance(item, dict):
             errors.append("gap entry is not an object")
             continue
-        kind = str(item.get("kind", "")).upper()
-        missing = str(item.get("missing_commitment", "")).strip()
+        kind = str(item.get("kind") or "").upper()
+        missing = str(item.get("missing_commitment") or "").strip()
         gov = _str_list(item.get("governing_slice_ids"))
         counter = _str_list(item.get("internal_counterevidence_slice_ids"))
         if kind not in _GAP_KINDS:
@@ -345,12 +345,12 @@ def _clean_gaps(
             continue
         out.append(
             GroundedGap(
-                gap_id=str(item.get("gap_id", "")) or f"gap-{index}",
+                gap_id=str(item.get("gap_id") or "") or f"gap-{index}",
                 kind=kind,
                 missing_commitment=missing,
                 governing_slice_ids=gov,
                 internal_counterevidence_slice_ids=counter,
-                boundary_proof_id=str(item.get("boundary_proof_id", "")),
+                boundary_proof_id=str(item.get("boundary_proof_id") or ""),
             )
         )
     return out, errors
@@ -365,7 +365,7 @@ def _clean_uncertainties(
         if not isinstance(item, dict):
             errors.append("uncertainty entry is not an object")
             continue
-        reason = str(item.get("reason", "")).strip()
+        reason = str(item.get("reason") or "").strip()
         ids = _str_list(item.get("source_slice_ids"))
         if not reason:
             errors.append("uncertainty entry is missing a reason")
@@ -377,7 +377,7 @@ def _clean_uncertainties(
             ExplanationUncertainty(
                 reason=reason,
                 source_slice_ids=ids,
-                code=str(item.get("code", "")),
+                code=str(item.get("code") or ""),
             )
         )
     return out, errors

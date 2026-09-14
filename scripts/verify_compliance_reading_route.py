@@ -4,12 +4,10 @@
 The 26-case verifier exercises the registered async handler in-process against
 isolated Parts. This covers what that cannot (brief §7.1 / resume §5D): a scoped
 ``CIP-007-6 R2`` request over the deployed MCP HTTP surface, with explicit scope,
-conditional-scope disclosure and a non-today effective date, carried through
-start → status → result to four persisted Part assessment IDs. It asserts the
-envelope replays the original request context, that start returns identity only,
-and that a repeated status/result pair does no further model work (A08). A check
-that cannot be evaluated is a failure, never a skip.
-"""
+conditional-scope disclosure and a non-today effective date, carried through start
+→ status → result to four persisted Part assessment IDs. It asserts the envelope
+replays the original request, that start returns identity only, and that a repeated
+status/result pair does no further model work (A08)."""
 
 from __future__ import annotations
 
