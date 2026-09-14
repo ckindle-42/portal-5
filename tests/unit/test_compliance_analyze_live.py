@@ -17,6 +17,17 @@ from portal.modules.compliance.core.repository import Repository
 from portal.modules.compliance.core.runtime_config import load_org_commitments, seat_roster
 from portal.modules.compliance.tools.compliance_mcp import compliance_analyze
 
+# NERC CIP standard PDFs are fetched locally, deliberately gitignored (see
+# cip_register.py's fetch_pdfs docstring) — CI never has them. The gated-out
+# case below falls through to assessment_source._pdf_parent_requirement's
+# raw-PDF recovery path, but the run happens on a background thread that
+# converts the resulting FileNotFoundError into a FAILED run status rather
+# than raising it here, so there's no exception for a generic skip-on-error
+# fixture to catch.
+_CIP_PDFS_PRESENT = any(
+    (Path(__file__).resolve().parents[2] / "portal/modules/compliance/data/cip_pdfs").glob("*.pdf")
+)
+
 
 @pytest.fixture
 def repo(tmp_path, monkeypatch):
@@ -58,6 +69,7 @@ def test_org_commitments_load_from_the_built_graph_or_empty():
         assert all({"commitment_id", "document_id", "text"} <= set(c) for c in coms[:20])
 
 
+@pytest.mark.skipif(not _CIP_PDFS_PRESENT, reason="NERC CIP PDF corpus not fetched locally")
 def test_analyze_gated_out_cu_returns_not_applicable_without_a_model_call(repo):
     r = compliance_analyze("CIP-007-6 R2 Part 2.2", scope="low impact only", operation="start")
     assert "error" not in r
