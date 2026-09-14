@@ -83,7 +83,11 @@ def test_analyze_gated_out_cu_returns_not_applicable_without_a_model_call(repo):
 
 
 def test_analyze_unknown_ref_is_u02_not_a_silent_pass(repo):
-    r = compliance_analyze("CIP-999-1 R9 Part 9.9", operation="start")
+    # An explicit scope avoids assess_requirements_now's empty-scope_text
+    # fallback to derive_scope(), which is LanceDB-backed (not hermetic) and
+    # runs before the U02 short-circuit this test exercises — same as the
+    # gated-out case above.
+    r = compliance_analyze("CIP-999-1 R9 Part 9.9", scope="low impact only", operation="start")
     assert "error" not in r
     _await(r["run_id"])
     res = compliance_analyze("", operation="result", run_id=r["run_id"])
