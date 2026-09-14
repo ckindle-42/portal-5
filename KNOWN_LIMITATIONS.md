@@ -1230,6 +1230,20 @@ Recording both gate failures with their specific numbers (49GB rung, no TurboQua
 
 ---
 
+### CI-Only Deterministic Failure: test_draft_revisions_is_proposal_by_default
+
+- **ID**: P5-CI-DRAFT-REVISIONS-FLAKE-001
+- **Status**: Open, unresolved. Discovered 2026-09-14 during an unrelated CI-hardening pass (mypy strict-baseline, `pymupdf` dev-extras gap, NERC CIP PDF corpus hermeticity, LanceDB hermeticity — see commits `13bcbb61`..`1c9a44a0`).
+- **Description**: `tests/unit/test_compliance_change_pipeline.py::test_draft_revisions_is_proposal_by_default` fails deterministically on every GitHub Actions run (Linux, Python 3.12) with `assert dr["specifications"]` → `assert []` — no exception, no captured log, just an empty list where the test expects at least one drafted specification. `_OLD`/`_NEW` in that test file are built from `Register.load()` filtered to `CIP-003-8`/`CIP-003-9`; `Register.load()` reads only the committed `register.json` (no PDF, no LanceDB), and that JSON is identical between this machine and the CI checkout at the same commit.
+- **What was ruled out**: reproduced CI's exact invocation locally — full suite, `pytest-xdist -n auto`, both isolated and in the complete parallel run — under every combination of: real vs. broken `PORTAL5_LANCE_DIR`, present vs. absent `cip_pdfs/` corpus (both together, matching CI exactly), and a same-commit CI rerun (to rule out a one-off transient). Every local run passes (1/1 isolated, 3512/3512 in the full combined-broken-env run); CI fails 2/2 identical attempts. Since the register JSON is byte-identical between environments and `Register.load()` touches no other I/O, this isn't the corpus/LanceDB gap the surrounding commits fixed — something else about the CI runner (Linux vs. macOS, Python 3.12 vs. 3.13 here, or `PYTHONHASHSEED`/set-ordering under `-n auto`) is the live suspect, not yet isolated.
+- **Impact**: `unit-tests.yml` fails on every push to `main` until this is fixed, independent of the actual change being pushed — a real gate regression, not cosmetic.
+
+## Why
+
+Recorded rather than silently worked around (no `xfail`, no skip added) so the failure keeps showing up in CI as a visible, honest gate failure instead of being hidden — and so the next session picks up the ruled-out list above instead of re-running the same exhaustive local reproduction attempts from zero.
+
+---
+
 <!-- WIKI:GENERATED unit=unit-known-limitations-minimax-music3-mlx -->
 ##### MiniMax-Music3-MLX Apple-Silicon-Only, No Continuation, Community License
 
