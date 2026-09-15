@@ -57,6 +57,16 @@ UNRESOLVED_CODES: dict[str, str] = {
     "U12_CONSTRAINT_INCOMPARABLE": "bound operands + comparator explanation",
     # The pinned corpus/source fingerprint moved between acquisition and use.
     "U13_SNAPSHOT_MISMATCH": "expected fingerprint + actual fingerprint",
+    # ── product-contract codes (END_TO_END P1 / foundation §P1) ──────────────
+    # A required governing-bundle component (Measure, Technical Basis, lead-in,
+    # applicability, implementation plan) was missing or truncated.
+    "U14_INCOMPLETE_SOURCE_BUNDLE": "requirement_id + the missing/truncated component",
+    # A graph/lexical/vector projection no longer matches the canonical snapshot.
+    "U15_PROJECTION_MISMATCH": "projection kind + canonical fingerprint + projection fingerprint",
+    # A result cited an id that does not resolve to a pinned source span.
+    "U16_INVALID_CITATION": "the unresolvable citation id + where it was cited",
+    # Two governing readings each with source support; not an engineering defect.
+    "U17_INTERPRETIVE_CONFLICT": "both readings + the source spans supporting each",
 }
 
 # ── closed enum of decisions an SME may be asked for ────────────────────────
@@ -560,6 +570,14 @@ class AssessmentResult:
     unresolved_code: str = ""
     missing_fact: dict[str, Any] = field(default_factory=dict)
     engine_fingerprint: str = ""
+    # ── product-contract dimensions (result_contract.py owns the vocabularies;
+    #    these remain plain fields so the record stays serializable) ──────────
+    source_readiness: str = "UNKNOWN"  # READY | INCOMPLETE | CONFLICTED | UNKNOWN
+    temporal_currency: str = "UNKNOWN"  # CURRENT | FUTURE | HISTORICAL | UNKNOWN
+    documentary_alignment: str = "UNRESOLVED"  # ALIGNED | PARTIAL | MISALIGNED | UNRESOLVED
+    implementation_evidence: str = "NOT_ASSESSED"  # SUFFICIENT | PARTIAL | ABSENT | NOT_ASSESSED
+    review_required: bool = False
+    review_reason: str = ""
 
     def __post_init__(self) -> None:
         if self.documentary_coverage not in DOCUMENTARY_COVERAGE:
@@ -567,6 +585,24 @@ class AssessmentResult:
                 f"documentary_coverage must be one of {DOCUMENTARY_COVERAGE}, "
                 f"got {self.documentary_coverage!r}"
             )
+        from portal.modules.compliance.core.result_contract import (
+            DOCUMENTARY_ALIGNMENT,
+            IMPLEMENTATION_EVIDENCE,
+            SOURCE_READINESS,
+            TEMPORAL_CURRENCY,
+        )
+
+        for field_name, vocabulary in (
+            ("source_readiness", SOURCE_READINESS),
+            ("temporal_currency", TEMPORAL_CURRENCY),
+            ("documentary_alignment", DOCUMENTARY_ALIGNMENT),
+            ("implementation_evidence", IMPLEMENTATION_EVIDENCE),
+        ):
+            value = getattr(self, field_name)
+            if value not in vocabulary:
+                raise DeterminationContractError(
+                    f"{field_name} must be one of {vocabulary}, got {value!r}"
+                )
         if self.documentary_coverage == "UNRESOLVED":
             if self.unresolved_code not in UNRESOLVED_CODES:
                 raise DeterminationContractError(

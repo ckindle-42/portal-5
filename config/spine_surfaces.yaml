@@ -212,6 +212,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/repository.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-result_contract
+  globs:
+  - portal/modules/compliance/core/result_contract.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-review_queue
   globs:
   - portal/modules/compliance/core/review_queue.py

@@ -42,6 +42,8 @@ sources:
 - type: code
   path: portal/modules/compliance/core/determination.py
 - type: code
+  path: portal/modules/compliance/core/result_contract.py
+- type: code
   path: portal/modules/compliance/core/obligations.py
 - type: code
   path: portal/modules/compliance/core/policy_graph.py
