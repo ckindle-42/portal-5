@@ -196,6 +196,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/provenance.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-reading
+  globs:
+  - portal/modules/compliance/core/reading.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-reading_transport
   globs:
   - portal/modules/compliance/core/reading_transport.py
