@@ -151,6 +151,44 @@ def _staged_seat() -> Any:
                     "rationale": "scripted",
                 }
             )
+        if "You are a compliance analyst" in system:
+            # The reading pass replaced the reporter: duties, not covered/gaps.
+            packet = json.loads(user)
+            gid = packet["governing"]["selectable_slice_ids"][0]
+            cands = packet["candidates"]
+            internal = next(
+                (c["selectable_slice_ids"][0] for c in cands if c["selectable_slice_ids"]), ""
+            )
+            weak = any("40 calendar days" in c["text"] for c in cands)
+            return json.dumps(
+                {
+                    "documentary_coverage": "PARTIAL" if weak else "FULL",
+                    "duties": [
+                        {
+                            "duty_id": "d1",
+                            "statement": "evaluate patches",
+                            "finding": "PARTIAL" if weak else "COVERED",
+                            "governing_slice_ids": [gid],
+                            "candidate_slice_ids": [internal],
+                        }
+                    ],
+                    "gaps": (
+                        [
+                            {
+                                "duty_id": "d1",
+                                "gap_id": "gap-cadence",
+                                "kind": "WEAKER_COMMITMENT",
+                                "missing_commitment": "35 calendar day cadence",
+                                "governing_slice_ids": [gid],
+                                "internal_counterevidence_slice_ids": [internal],
+                            }
+                        ]
+                        if weak
+                        else []
+                    ),
+                    "uncertainties": [],
+                }
+            )
         if "source-linked reporting analyst" in system:
             packet = json.loads(user)
             gid = packet["governing"]["governing_slice_ids"][0]

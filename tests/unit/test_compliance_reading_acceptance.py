@@ -46,6 +46,7 @@ from portal.modules.compliance.core.determination import (
 )
 from portal.modules.compliance.core.obligation_alignment import _ALIGNMENT_SYSTEM, align_part
 from portal.modules.compliance.core.operations import ProposePackage, judge, propose
+from portal.modules.compliance.core.reading import READING_SYSTEM
 from portal.modules.compliance.core.repository import Repository
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -188,6 +189,7 @@ class FakeTransport:
         self.alignment_packets: list[str] = []
         self.council_packets: list[str] = []
         self.report_packets: list[str] = []
+        self.reading_packets: list[str] = []
         self.council_raises = case.get("mode") == "council_invalid"
 
     # -- dispatch -----------------------------------------------------------
@@ -201,6 +203,9 @@ class FakeTransport:
                 raise TimeoutError("controlled seat timeout")
             self.council_packets.append(user)
             return self._council(model, user)
+        if system == READING_SYSTEM:
+            self.reading_packets.append(user)
+            return self._reading(user)
         if system == _REPORT_SYSTEM:
             self.report_packets.append(user)
             return self._report(user)
@@ -296,6 +301,89 @@ class FakeTransport:
                 "cited_refs": cited,
                 "confidence": 0.9,
                 "rationale": "controlled acceptance seat",
+            }
+        )
+
+    def _reading(self, user: str) -> str:
+        """Simulate one reading pass, derived from the case's own report spec.
+
+        No case expectation is edited or added: the duties are projected from
+        the ``covered`` and ``gaps`` the fixture already declares, so this
+        stands in for what a model reading both sides would return. A covered
+        commitment becomes a COVERED duty; a gap becomes a duty that is PARTIAL
+        (weaker or contradicted) or MISSING (an omission).
+        """
+        active = self._active(user)
+        spec = active.get("report") or self.case.get("report")
+        if not spec:
+            return "{}"
+        try:
+            packet = json.loads(user)
+        except json.JSONDecodeError:
+            packet = {}
+        gov_ids = packet.get("governing", {}).get("selectable_slice_ids", [])
+        gov_id = gov_ids[0] if gov_ids else "gov-missing"
+        candidate_slices = {
+            c.get("candidate_id"): list(c.get("selectable_slice_ids", []))
+            for c in packet.get("candidates", [])
+        }
+
+        duties: list[dict[str, Any]] = []
+        gaps: list[dict[str, Any]] = []
+        for index, entry in enumerate(spec.get("covered", []), start=1):
+            internal = [
+                slice_id
+                for label in entry["internal"]
+                for slice_id in candidate_slices.get(label, [])
+            ]
+            if not internal:
+                continue
+            duties.append(
+                {
+                    "duty_id": f"d{index}",
+                    "statement": entry["commitment"],
+                    "finding": "COVERED",
+                    "governing_slice_ids": [gov_id],
+                    "candidate_slice_ids": internal,
+                }
+            )
+        for index, item in enumerate(spec.get("gaps", []), start=len(duties) + 1):
+            counter = [
+                slice_id
+                for label in item.get("counter", [])
+                for slice_id in candidate_slices.get(label, [])
+            ]
+            duty_id = f"d{index}"
+            duties.append(
+                {
+                    "duty_id": duty_id,
+                    "statement": item["missing_commitment"],
+                    "finding": "MISSING" if item["kind"] == "OMISSION" else "PARTIAL",
+                    "governing_slice_ids": [gov_id],
+                    "candidate_slice_ids": counter,
+                }
+            )
+            gaps.append(
+                {
+                    "duty_id": duty_id,
+                    "gap_id": item["gap_id"],
+                    "kind": item["kind"],
+                    "missing_commitment": item["missing_commitment"],
+                    "governing_slice_ids": [gov_id],
+                    "internal_counterevidence_slice_ids": counter,
+                    "boundary_proof_id": (
+                        (packet.get("allowed_boundary_proof_ids") or [""])[0]
+                        if item["kind"] == "OMISSION"
+                        else item.get("boundary_proof_id", "")
+                    ),
+                }
+            )
+        return json.dumps(
+            {
+                "documentary_coverage": spec["documentary_coverage"],
+                "duties": duties,
+                "gaps": gaps,
+                "uncertainties": spec.get("uncertainties", []),
             }
         )
 
@@ -949,15 +1037,26 @@ def test_a06_source_selection_integrity(repo_dir: Path, tmp_path: Path) -> None:
     request = build_request(case)
 
     class OffPacket(FakeTransport):
-        def _report(self, user: str) -> str:
+        """A reading whose only support is a slice id that is not in the packet.
+
+        The property under test is unchanged by the move to the reading
+        architecture: a verdict may never rest on a citation the application
+        cannot resolve against its own pinned sources. What changed is where it
+        is enforced — the reading pass verifies its own citations, so the
+        forged support is named and the verdict cannot stand on it.
+        """
+
+        def _reading(self, user: str) -> str:
             return json.dumps(
                 {
                     "documentary_coverage": "FULL",
-                    "covered": [
+                    "duties": [
                         {
-                            "commitment": "forged support",
+                            "duty_id": "d1",
+                            "statement": "forged support",
+                            "finding": "COVERED",
                             "governing_slice_ids": ["gov-missing"],
-                            "internal_slice_ids": ["off-packet-slice"],
+                            "candidate_slice_ids": ["off-packet-slice"],
                         }
                     ],
                     "gaps": [],
@@ -973,6 +1072,8 @@ def test_a06_source_selection_integrity(repo_dir: Path, tmp_path: Path) -> None:
     assert not result.substantively_resolved
     assert result.documentary_coverage == "UNRESOLVED"
     assert result.unresolved_code == "U11_ASSESSMENT_CONTRACT_FAILED"
+    # and the forged id is named rather than silently dropped
+    assert any("off-packet-slice" in u.reason for u in result.uncertainties)
 
 
 def test_a07_run_specific_provenance(repo_dir: Path, tmp_path: Path) -> None:

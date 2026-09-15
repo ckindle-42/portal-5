@@ -88,6 +88,7 @@ HOW TO READ:
 - One adequate policy or procedure can suffice. Neither both document classes nor a percentage of matching wording is required.
 - A term alignment described as dated, or as last checked or aligned at some past time, is not current alignment: the mapping is stale, so the duty is PARTIAL with an OUTDATED_LANGUAGE gap even when the substantive duty is otherwise satisfied.
 - Do not infer a commitment from silence. Do not invent obligations the Part does not impose.
+- An OMISSION gap asserts that NOTHING supplied addresses the duty. That is a claim about the completeness of the search, which you cannot see: it is carried by a completeness receipt. Emit an OMISSION only by selecting a supplied allowed_boundary_proof_ids value into the gap's "boundary_proof_id", leaving its counterevidence empty. If no boundary proof id is supplied, absence is not provable — record the duty as MISSING and say in "uncertainties" that the search boundary was not proven complete. Never invent a boundary id.
 
 documentary_coverage:
 - "FULL" only when EVERY enumerated duty is COVERED with at least one cited candidate slice id.
@@ -201,12 +202,26 @@ def build_reading_packet(request: AssessmentRequest) -> dict[str, Any]:
             "applicability for this Part is already decided upstream; "
             "do not re-decide it and do not treat it as evidence"
         ),
+        # An OMISSION asserts that NOTHING in the corpus addresses the duty.
+        # That is a claim about the search boundary, which the reader cannot
+        # see, so it is carried by a completeness receipt. Empty here means the
+        # boundary was not proven complete and absence is therefore unprovable.
+        "allowed_boundary_proof_ids": (
+            [boundary_proof_id(request)] if boundary_proof_id(request) else []
+        ),
     }
     if ref_slices:
         packet["governing"]["reference_texts"] = [
             {"ref": s.ref, "text": s.text} for s in ref_slices
         ]
     return packet
+
+
+def boundary_proof_id(request: AssessmentRequest) -> str:
+    """The completed-boundary receipt id, or "" when absence cannot be proven."""
+    from portal.modules.compliance.core.assessment_report import _boundary_proof_id
+
+    return str(_boundary_proof_id(request))
 
 
 def _slice_index(request: AssessmentRequest) -> dict[str, SourceSlice]:
@@ -402,6 +417,25 @@ def verify_judgment(
             )
         )
 
+    unprovable = _unprovable_absences(gaps, boundary_proof_id(request))
+    for note in unprovable:
+        uncertainties.append(ExplanationUncertainty(reason=note, code="READING_BOUNDARY_UNPROVEN"))
+    if unprovable:
+        # The reading may be right that nothing addresses the duty, but it cannot
+        # be *shown* from an incomplete search. U04, not a NONE verdict.
+        return ReadingJudgment(
+            documentary_coverage="UNRESOLVED",
+            rationale=str(obj.get("rationale") or ""),
+            duties=duties,
+            covered=covered,
+            gaps=[],
+            uncertainties=uncertainties,
+            valid=False,
+            failure=unprovable[0],
+            downgraded_from=coverage,
+            raw={"response": obj},
+        )
+
     final, downgraded = _derive_coverage(coverage, duties)
     return ReadingJudgment(
         documentary_coverage=final,
@@ -414,6 +448,31 @@ def verify_judgment(
         downgraded_from=downgraded,
         raw={"response": obj},
     )
+
+
+def _unprovable_absences(gaps: list[GroundedGap], allowed: str) -> list[str]:
+    """An OMISSION without the completed boundary receipt proves nothing.
+
+    Absence of evidence is a claim about the *search*, not about the documents,
+    and a reader cannot see the search boundary. A partial top-k cannot ground
+    it (acceptance case 13), so the honest answer is U04_RETRIEVAL_INCOMPLETE
+    rather than a NONE verdict that reads as "the operator has no such control".
+    """
+    problems = []
+    for gap in gaps:
+        if gap.kind != "OMISSION":
+            continue
+        if not allowed or gap.boundary_proof_id != allowed:
+            problems.append(
+                f"gap {gap.gap_id} claims an OMISSION without the completed "
+                "boundary receipt; absence is not provable from this search"
+            )
+        elif gap.internal_counterevidence_slice_ids:
+            problems.append(
+                f"gap {gap.gap_id} is an OMISSION citing internal counterevidence; "
+                "a source that does not mention a duty is not a quote proving absence"
+            )
+    return problems
 
 
 def _derive_coverage(claimed: str, duties: list[DutyFinding]) -> tuple[str, str]:

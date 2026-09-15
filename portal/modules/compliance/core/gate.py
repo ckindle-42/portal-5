@@ -500,12 +500,18 @@ def _exception_clauses(governing: GoverningBundle | None) -> list[dict[str, Any]
     return out
 
 
-def _substantive(record: AlignmentRecord) -> bool:
+def is_substantive(record: AlignmentRecord) -> bool:
     if record.source_function in _EXCLUDED_FUNCTIONS:
         return False
     if record.relation == "SAME":
         return True
     return record.relation == "UNKNOWN" and record.source_function == "OPERATIVE_COMMITMENT"
+
+
+# Promoted from `_substantive` so the assessment layer can reuse the materiality
+# test rather than invent a second one; the alias keeps the internal call sites
+# untouched.
+_substantive = is_substantive
 
 
 def _exclusion_reason(record: AlignmentRecord) -> str:

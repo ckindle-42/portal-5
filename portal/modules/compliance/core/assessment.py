@@ -403,10 +403,10 @@ _ENGINE_VERSION = "compliance-reading/1"
 
 def assess_part(request: AssessmentRequest, context: AssessmentContext) -> AssessmentResult:
     """Assess one governing Part. See ``determination.AssessmentResult``."""
-    from portal.modules.compliance.core.assessment_report import explain
     from portal.modules.compliance.core.council import run_council
     from portal.modules.compliance.core.gate import run_aligned_gate
     from portal.modules.compliance.core.obligation_alignment import align_part
+    from portal.modules.compliance.core.reading import read_and_judge
 
     run_id = _ensure_run(request, context)
     base: dict[str, Any] = {
@@ -452,7 +452,16 @@ def assess_part(request: AssessmentRequest, context: AssessmentContext) -> Asses
         )
 
     alignment = align_part(request, context)
-    unknown_links = [r for r in alignment.records if r.relation == "UNKNOWN"]
+    # An UNKNOWN candidate blocks the Part only where the uncertainty is
+    # decision-changing. gate.is_substantive already draws that line — an
+    # UNKNOWN operative commitment is carried forward as a potentially operative
+    # input, anything else is excluded — and this check used to pre-empt it, so
+    # a decoy the reader correctly could not classify vetoed a Part whose duties
+    # all resolved (case 04). It also pre-empted the reading pass entirely,
+    # which is the stage that now decides coverage.
+    from portal.modules.compliance.core.gate import is_substantive
+
+    unknown_links = [r for r in alignment.records if r.relation == "UNKNOWN" and is_substantive(r)]
     if not alignment.valid or unknown_links:
         return _finalize(
             AssessmentResult(
@@ -490,6 +499,13 @@ def assess_part(request: AssessmentRequest, context: AssessmentContext) -> Asses
     packet = gate_result.to_council_packet()
     trace: list[dict[str, Any]] = []
     seat_fn = _recording_seat_fn(context.seat_fn, trace)
+
+    # The reading judgment is the product: one pass that reads the Part and the
+    # operator's material in full, enumerates the Part's mandatory duties as it
+    # reads, and judges each one. It replaces `assessment_report.explain`, whose
+    # model was told "do not re-judge", and it is what produces covered/gaps.
+    judgment = read_and_judge(request, context, transport=seat_fn)
+
     council = run_council(
         packet,
         context.seats,
@@ -498,10 +514,13 @@ def assess_part(request: AssessmentRequest, context: AssessmentContext) -> Asses
         reference_texts=_reference_texts(request),
     )
     source_catalog = _source_catalog(request, alignment)
-    explanation = explain(request, asdict(council), alignment, source_catalog, context)
+    explanation = _explanation_from(judgment)
 
     documentary, coverage, resolved, code, missing = _project(
         request, gate_result, council, explanation
+    )
+    documentary, coverage, resolved, code, missing = _reconcile_reading_and_council(
+        judgment, council, documentary, coverage, resolved, code, missing
     )
     valid_explanation = explanation.valid
     selected = list(source_catalog.values())
@@ -528,6 +547,73 @@ def assess_part(request: AssessmentRequest, context: AssessmentContext) -> Asses
             missing_fact=missing,
         ),
         context,
+    )
+
+
+def _explanation_from(judgment: Any) -> Any:
+    """Project the reading judgment onto the shape the result already carries.
+
+    ``assessment_report.explain`` was a second model call whose prompt opened
+    "you do not re-judge the requirement and you never reverse the supplied
+    decision". The reading pass already produces covered commitments, grounded
+    gaps and uncertainties with verified slice ids, so the second call is
+    deleted rather than kept as a formatter — one fewer model call per Part.
+    """
+    from portal.modules.compliance.core.determination import CoverageExplanation
+
+    return CoverageExplanation(
+        documentary_coverage=judgment.documentary_coverage,
+        covered=judgment.covered,
+        gaps=judgment.gaps,
+        uncertainties=judgment.uncertainties,
+        valid=judgment.valid,
+        failure=judgment.failure,
+        raw=judgment.raw,
+    )
+
+
+# The council's determinations that assert the duty is met, against which a
+# reading of NONE is a genuine disagreement rather than a finer-grained reading.
+_COUNCIL_MET = ("SUPPORTED",)
+
+
+def _reconcile_reading_and_council(
+    judgment: Any,
+    council: Any,
+    documentary: str,
+    coverage: str,
+    resolved: bool,
+    code: str,
+    missing: dict[str, Any],
+) -> tuple[str, str, bool, str, dict[str, Any]]:
+    """The council is an independent cross-check, not an override.
+
+    Both outputs are retained. They are only in conflict when one says the duty
+    is met and the other says nothing in the corpus addresses it; a council
+    PARTIAL beside a reading PARTIAL is agreement, and a council SUPPORTED
+    beside a reading PARTIAL is the finer-grained reading the duty enumeration
+    exists to produce, not a dispute. A real disagreement is surfaced for review
+    with both records intact rather than silently resolved in either direction.
+    """
+    decision = str(getattr(council, "determination", ""))
+    if not judgment.valid or documentary == "UNRESOLVED":
+        return documentary, coverage, resolved, code, missing
+    conflict = (decision in _COUNCIL_MET and documentary == "NONE") or (
+        decision == "ABSENT" and documentary in ("FULL", "PARTIAL")
+    )
+    if not conflict:
+        return documentary, coverage, resolved, code, missing
+    return (
+        "UNRESOLVED",
+        "UNRESOLVED",
+        False,
+        "U12_READING_COUNCIL_DISAGREEMENT",
+        {
+            "reading_documentary_coverage": documentary,
+            "council_determination": decision,
+            "reading_rationale": judgment.rationale,
+            "council_rationale": str(getattr(council, "rationale", "")),
+        },
     )
 
 
