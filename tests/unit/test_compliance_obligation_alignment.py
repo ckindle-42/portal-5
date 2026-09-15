@@ -284,14 +284,16 @@ def test_alignment_transport_enforces_scalar_schema_and_sizes_output(monkeypatch
     _ollama_alignment_seat("test", _ALIGNMENT_SYSTEM, json.dumps({"candidates": [{}] * 15}))
     payload = payloads[0]
     # 768 tokens per candidate, floored at 8k and capped at 16k. Raised from
-    # 512/4k/8k when the think suppression was removed: a reasoning model
-    # emitting one record per candidate across fifteen candidates does not fit
-    # in the old 7680, and a truncated response loses the trailing records
-    # rather than failing loudly.
+    # 512/4k/8k: fifteen records with bindings and exact ids do not fit in the
+    # old 7680, and a truncated response loses the trailing records rather than
+    # failing loudly.
     assert payload["options"]["num_predict"] == 11520
-    # the seat is allowed to reason; the trace arrives in message.thinking and
-    # so cannot contaminate this constrained-JSON response
-    assert payload["think"] is True
+    # Explicit, and false by measurement. On the real case-10 packet this seat
+    # returned the identical correct reading at false/low/medium/true (52s vs
+    # 683s), so reasoning is available per call but is not bought by default.
+    # Explicit rather than omitted: an omitted key lets the chat template decide,
+    # and a thinking template reasons anyway.
+    assert payload["think"] is False
     record = payload["format"]["properties"]["records"]["items"]
     binding = record["properties"]["constraint_bindings"]["items"]["properties"]
     assert binding["constraint_kind"]["type"] == "string"
