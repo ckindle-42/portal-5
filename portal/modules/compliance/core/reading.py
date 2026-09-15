@@ -88,6 +88,11 @@ HOW TO READ:
 - One adequate policy or procedure can suffice. Neither both document classes nor a percentage of matching wording is required.
 - A term alignment described as dated, or as last checked or aligned at some past time, is not current alignment: the mapping is stale, so the duty is PARTIAL with an OUTDATED_LANGUAGE gap even when the substantive duty is otherwise satisfied.
 - Do not infer a commitment from silence. Do not invent obligations the Part does not impose.
+- CHOOSING THE GAP KIND. Use the operator's own words to decide:
+  * CONTRADICTION — the material AUTHORISES or REQUIRES what the Part forbids or conditions. A Part that permits an act only with a named approval, against material letting anyone do it without that approval, is a contradiction: the condition has been removed, not merely loosened.
+  * WEAKER_COMMITMENT — the material addresses the duty but commits to LESS than the Part requires: a longer interval, or a mandatory element made optional. The duty survives in weakened form.
+  * OUTDATED_LANGUAGE — the material rests on a term alignment described as dated or last checked at some past time.
+  * OMISSION — nothing supplied addresses the duty AT ALL. If you can cite candidate material that bears on the duty, the gap is one of the three above, never an OMISSION.
 - An OMISSION gap asserts that NOTHING supplied addresses the duty. That is a claim about the completeness of the search, which you cannot see: it is carried by a completeness receipt. Emit an OMISSION only by selecting a supplied allowed_boundary_proof_ids value into the gap's "boundary_proof_id", leaving its counterevidence empty. If no boundary proof id is supplied, absence is not provable — record the duty as MISSING and say in "uncertainties" that the search boundary was not proven complete. Never invent a boundary id.
 
 documentary_coverage:
