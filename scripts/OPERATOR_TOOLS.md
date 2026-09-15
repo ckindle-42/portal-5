@@ -99,3 +99,21 @@ python3 scripts/bully_universal_intake_run.py       # M.6 universal-intake verif
 New operator tools live in `scripts/` and should be added here so the complexity
 census's `unwired_scripts` stays at zero. A tool that a machine should invoke
 automatically belongs in `validate_system.py` or a Makefile target instead.
+
+## Compliance product operations
+
+```bash
+python3 scripts/materialize_internal_corpus.py --corpus coding_task/v9_compliance/LSPG-CIP
+                                    # P4: sourced control-block metadata + section functions onto
+                                    # the canonical store, quarantines folder-derived proposals
+python3 scripts/rebuild_compliance_projections.py --corpus coding_task/v9_compliance/LSPG-CIP
+                                    # P5/P6: rebuild retrieval+graph projections from one canonical
+                                    # fingerprint, prove materialization, record index manifests
+python3 scripts/verify_foundation_routed.py --service-pid <pid> --served-commit <sha>
+                                    # P7: the eight foundation observations over HTTP (:8937)
+python3 scripts/probe_single_part_live.py --part "CIP-007-6 R2 Part 2.2"
+                                    # smallest live case with per-stage timing before expensive runs
+python3 scripts/run_seven_question_routed.py [--scenario]
+                                    # P6: the compound seven-question CIP-007 R2 arm through the
+                                    # deployed route; --scenario adds the isolated proposed edit
+```
