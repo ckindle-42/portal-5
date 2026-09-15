@@ -44,6 +44,8 @@ sources:
 - type: code
   path: portal/modules/compliance/core/result_contract.py
 - type: code
+  path: portal/modules/compliance/core/nerc_source_sync.py
+- type: code
   path: portal/modules/compliance/core/obligations.py
 - type: code
   path: portal/modules/compliance/core/policy_graph.py

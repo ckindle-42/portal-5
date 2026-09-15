@@ -11,8 +11,8 @@
 | phase | scope | state | commit |
 | --- | --- | --- | --- |
 | 0 | reconcile reality, freeze ledger, this report | **DONE** | `c52edc8f` |
-| 1 | product/result contract (foundation P1) | **DONE** | (this commit) |
-| 2 | official NERC source sync (foundation P2) | pending | |
+| 1 | product/result contract (foundation P1) | **DONE** | `626aa18d` |
+| 2 | official NERC source sync (foundation P2) | **DONE** | (this commit) |
 | 3 | complete regulatory semantics (foundation P3) | pending | |
  | 4 | internal revisions and source functions (foundation P4) | pending | |
 | 5 | two clocks + projections (foundation P5–P6) | pending | |
@@ -214,6 +214,51 @@ Implemented `core/result_contract.py` + `AssessmentResult`/schema migration:
   L25 (review projection test), L26 (null/falsy guard on new fields).
 
 ## 3. Failure and repair history
+
+### Phase 2 — official NERC source synchronization (DONE)
+
+Implemented `core/nerc_source_sync.py` — fingerprinted acquisition from official
+NERC sources:
+
+- **Lifecycle registry**: NERC's One-Stop Shop workbook
+  (`nerc.com/globalassets/align-reports/one-stop-shop.xlsx`,
+  sha256 `0adda91e…`, retrieved 2026-09-15T10:23Z) parsed into sourced
+  `LifecycleFacts` per standard revision — status, board/FERC/order/effective/
+  retirement dates, docket, project page, implementation-plan/rationale links.
+  The workbook hash is carried on every fact as provenance. 657 standards parse.
+- **Measured lifecycle facts** (correcting the store's missing retirement
+  boundary): CIP-007-6 = Mandatory Subject to Enforcement, effective
+  **2016-07-01**, **inactive (retires) 2028-06-30**, docket RM15-14-000;
+  CIP-007-7 = Inactive (replaced by 7.1 via errata, never effective);
+  CIP-007-7.1 = Subject to Future Enforcement, effective **2028-07-01** (FERC
+  order 2026-03-19, order effective 2026-05-26, docket RM24-8-000).
+- **Live bundle acquisition** (all `ACQUIRED`, zero warnings, registered in the
+  canonical store as immutable regulatory revisions):
+  `cip-007-6.pdf` `5b7820e7…` (**byte-identical to the register's pinned copy**
+  — the operator's governing source is verified current against today's
+  official revision) · `cip-007-6-implementation-plan.pdf` `8ff922d2…` ·
+  `cip-007-7.1.pdf` `c7014e55…` · `cip-007-7.1-implementation-plan.pdf`
+  `39829090…` · `cip-007-7.1-technical-rationale.pdf` `6d1ebeb0…` · registry
+  workbook. Bytes live under the private hierarchy
+  (`data/private/nerc_official/`), written atomically, never mutated; identical
+  re-acquisition is `UNCHANGED` (no rewrite, no new revision).
+- **Guarantees tested hermetically** (9 tests, saved public fixture of the real
+  registry rows at `tests/data/compliance_nerc/one_stop_shop_fixture.xlsx`):
+  fingerprint-aware idempotence, failure preservation of the last verified
+  snapshot with a dated currency warning, FAILED reporting when no prior
+  snapshot exists, immutable-revision registration, absent-standard warning.
+- **Known honesty note**: the 7.1 implementation-plan PDF is the 2024 board
+  version (`clean_04032024`) and predates FERC's 2026 order, so the plan text
+  does not carry the final effective date; **2028-07-01 is sourced from the
+  fingerprinted registry** (NERC's own post-order lifecycle record). Both
+  artifacts retained with explicit provenance.
+- **validation**: `ruff check .` / `format --check .` clean ·
+  `pytest tests/unit/ -q` **1880 passed, 4 skipped** · spine manifest
+  regenerated · wiki unit updated.
+- Ledger rows: L07 (KB/ingestion proof → acquisition receipts + parse-through)
+  PASS at module level, routed proof at Phase 6; L22 unchanged (Phase 6).
+
+
 
 | date | failure | repair | guard |
 | --- | --- | --- | --- |

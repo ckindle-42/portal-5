@@ -160,6 +160,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/models.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-nerc_source_sync
+  globs:
+  - portal/modules/compliance/core/nerc_source_sync.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-obligation_alignment
   globs:
   - portal/modules/compliance/core/obligation_alignment.py
