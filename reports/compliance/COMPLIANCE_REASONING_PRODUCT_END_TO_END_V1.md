@@ -15,7 +15,7 @@
 | 2 | official NERC source sync (foundation P2) | **DONE** | `3ef77f88` |
 | 3 | complete regulatory semantics (foundation P3) | **DONE** | `2d3ec5a8` |
  | 4 | internal revisions and source functions (foundation P4) | **DONE** | `3ff50ab1` |
-| 5 | two clocks + projections (foundation P5–P6) | pending | |
+| 5 | two clocks + projections (foundation P5–P6) | **DONE** | `fb473750` |
 | 6 | foundation routed acceptance — `PRODUCT_FOUNDATION_READY` | pending | |
 | 7 | compound R2 analysis plan (slice P1) | pending | |
 | 8 | candidate closure + reading packet (slice P2–P3) | pending | |
@@ -153,14 +153,14 @@ closure owned by that phase) · NOT_APPLICABLE (reason). Updated per phase below
 | L11 | different base model called a quant control | identical base/revision/template, quant only | FAIL → Phase 12 (Magistral≠Mistral-small3.2 is NOT a valid control; same-base pair required or recorded unavailable) |
 | L12 | pre-analyzed council vote ≠ reading evidence | primary reader sees both sides; council = cross-check | **PASS** — `b1612cd2`/`5f5f93b8` (reading path in production); framing cleanup Phase 8 |
 | L13 | omitted bundle components (Measures/TB/lead-ins) | required-component readiness + negative tests | **PASS** — `core/regulatory_bundle.py` shape-typed required components; negative test per component (`test_compliance_regulatory_bundle.py`); routed proof Phase 6 |
-| L14 | stale dependent annotations after fragment repair | same-fingerprint rebuild of dependents | FAIL → Phase 5 (projection invalidation tests) |
+| L14 | stale dependent annotations after fragment repair | same-fingerprint rebuild of dependents | **PASS** — `projections.projection_status` FRESH/STALE vs canonical fingerprint (`test_manifest_records_fingerprint_and_detects_staleness`); live rebuild both FRESH @ `2b9b6e44` |
 | L15 | duty identity conflated with adequacy (40d≠35d duty) | semantic correspondence before quantity compare | **PASS** — reading prompt + `constraints.compare_constraint`; minimal-pair cases re-run Phase 9 |
 | L16 | spliced/token-overlap quantities | literal operand in one cited phrase | **PASS** — `reading._operand_is_in_source` + acceptance cases |
 | L17 | empty top-k = absence | boundary receipt requirement | **PASS** — `reading._unprovable_absences` + case 13; corpus-boundary closure Phase 8 |
 | L18 | copied regulation row = implementation | source function carried end-to-end | **PASS (store/extraction)** — P4 section-role gating (`test_copied_traceability_rows_yield_no_commitments`); packet-surface proof Phase 8 |
 | L19 | Cartesian folder mappings in trace/impact | discovery-only, excluded from established trace | **PASS** — P4 `derivation` quarantine (1342 tagged) + approved-only impact (`test_cartesian_quarantine_tags_once_and_excludes_from_impact`); routed proof Phase 6 |
 | L20 | approval overrides fresh comparison | approval = governance, not truth | **PASS (behavior)** — no approval prerequisite on the reading path; stale-mapping regression Phase 5 |
-| L21 | `known_at` echoed, not applied | both clocks on every operation | FAIL → Phase 5 (two-clock operational + replay tests) |
+| L21 | `known_at` echoed, not applied | both clocks on every operation | **PASS (library+route)** — `temporal_selection` UNKNOWN_KNOWLEDGE semantics + `compliance_requirement` revision_selection/withholding (`test_late_recorded_fact_is_unknown_knowledge_before_recording`); routed receipts Phase 6 |
 | L22 | running service ≠ current HEAD | record served commit; restart via managed path | **FAIL (live now)** — deployed MCP predates HEAD by 7 commits; closure Phase 6 restart-from-commit |
 | L23 | reused campaign directory skips work | new immutable campaign ID/manifest per campaign | FAIL → Phase 11 (manifest-to-receipt reconciliation) |
 | L24 | failures averaged / labels moved post-hoc | frozen manifest, repeats, all attempts retained | FAIL → Phase 11 freeze |
@@ -438,6 +438,60 @@ and classified sections.
 | --- | --- | --- | --- |
 | 2026-09-15 (Phase 4) | migration 10's comment text contained a semicolon ("impact; empty") — the runner splits statements on `;` and executed a comment fragment (`near "empty"`), the exact migration-8 trap | comment rewritten semicolon-free | migration tests (v10 fresh + populated-v9 upgrade); the schema file's own NOTE |
 | 2026-09-15 (Phase 4) | `InternalSection.section_id` omitted the revision id — 68 documents sharing heading paths (`1.0` page 1) collided, and only 1037 of 2531 sections survived insertion with cross-revision references | id now hashes `{revision_id}|path|page_start|role`; live store re-materialized and verified (2508 sections, 0 shared ids across revisions) | `test_section_ids_are_scoped_to_the_revision` |
+
+
+### Phase 5 — two clocks and projections operational (DONE)
+
+Implemented `core/temporal_selection.py` + `core/projections.py` +
+`scripts/rebuild_compliance_projections.py` — both clocks now select truth,
+and projections carry checkable freshness.
+
+- **Two-clock revision selection** (`select_revision_effectivity`): governing
+  revisions resolve from the canonical `effectivity_assertions` (never from
+  filenames or the static register snapshot). At `valid_at`:
+  SELECTED / FUTURE / SUPERSEDED_OR_RETIRED; under `known_at`, a fact true
+  but not yet recorded answers **UNKNOWN_KNOWLEDGE** with its recording time
+  named — the late-recorded shape (L21). Correction replay: a correction
+  closes the prior row's `recorded_to`, so `known_at` before the correction
+  selects the old fact and after selects the correction, no mutation.
+- **Routed application** (`compliance_requirement`): responses carry
+  `revision_selection` (selected/future/historical/unknown_knowledge); parts
+  whose revision's effectivity postdates the requested `known_at` are
+  **withheld** (`withheld_as_unknown_knowledge`), so "what applied then given
+  what we knew then" genuinely differs from "what we know now". Future
+  revisions the pinned register lacks (CIP-007-7.1) resolve from the store's
+  own verbatim decomposition clauses. Live checks: `CIP-007-6 R2 Part 2.1`
+  SELECTED @ 2026-09-14; withheld (UNKNOWN_KNOWLEDGE) at
+  `known_at=2026-09-01`; served at `known_at=2026-09-16`; `CIP-007-7.1 R2`
+  FUTURE today and SELECTED with verbatim clauses at 2028-08-01.
+- **Both clocks on traversal** (L19/L21): `list_relationship_assertions` and
+  `traverse_relationships` accept `valid_at`/`known_at`; an unknown
+  `valid_from` is excluded from temporal reads, never treated as "always
+  valid" (F02); `trace()`/`impact.analyze()` disclose a
+  `temporal` exclusion census so an empty temporal trace is explained, not
+  silent.
+- **Projection fingerprints** (`core/projections.py`): one deterministic
+  `canonical_fingerprint` over the ten truth tables; every projection
+  generation records the fingerprint it was built from in `index_manifests`;
+  `projection_status` returns FRESH/STALE/ABSENT — a stale dependent
+  projection is detectable, never silently consumed (L14).
+- **Live projection rebuild** (`rebuild_compliance_projections.py`, receipt
+  `coding_task/v9_compliance/private/projections/rebuild_20260915.json`):
+  retrieval projection rebuilt over the 68-document operator corpus (2636
+  chunks) and **proved materialized** with a live search returning 5 hits
+  (L07 — an ingestion count is not proof); graph projection rebuilt (292
+  nodes / 255 edges); both generations recorded FRESH against canonical
+  fingerprint `2b9b6e44…`. The first ten tables catalog lesson (L06) keeps
+  its hermetic regression (`test_compliance_v3_matrices.py`); live catalog
+  reconciliation is the Phase 16 final-sweep item.
+- **validation**: `ruff check .` clean · `ruff format --check .` clean ·
+  `pytest tests/unit/ -q` **1963 passed, 4 skipped** (15 new two-clock and
+  projection tests) · spine manifest regenerated.
+
+| date | failure | repair | guard |
+| --- | --- | --- | --- |
+| 2026-09-15 (Phase 5) | the first `select_revision_effectivity` joined `standard_revisions → document_revisions → requirement_nodes` on hashes, but the store's live linkage runs node-id → `standard_revision_id` text ids (e.g. `CIP-007-6`), so every selection came back empty | selection re-based on the canonical node-level effectivity (the assertion itself), with `standard_revisions` only as display metadata | routed checks above (obs 1/2/4 non-empty) |
+| 2026-09-15 (Phase 5) | `effective_now` was evaluated over ALL recorded intervals, so at a post-correction `known_at` the superseded pre-correction interval still selected the revision | interval visibility now requires the requested knowledge time to fall inside the row's recording interval (`recorded_from <= known_at < recorded_to`), defaulting to latest believed rows | `test_corrected_effectivity_replays_before_and_after` |
 
 ## 4. Commands and receipts (Phase 0)
 
