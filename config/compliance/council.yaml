@@ -18,6 +18,15 @@ seats:
   - id: mistral
     label: "Mistral Small 3.2 24B (Q4_K_M)"
     model: "mistral-small3.2:24b-instruct-2506-q4_K_M"
+    # UNDER REVIEW — docs/TASK_COMPLIANCE_READING_SEAT_REPLACEMENT_V1.md
+    # The roster was qualified on the OLD question (F2 violation detection over
+    # a pre-analyzed packet). On the reading task this seat gets
+    # documentary_coverage right 4/4 but attaches the counterevidence slice id
+    # only 1/4, and once emitted an id with a digit dropped. Its gaps are
+    # therefore unciteable: an operator cannot follow them to the sentence in
+    # their own procedure. The other two seats score 6/6 on the same four cases.
+    # Quorum still carries every case at 2-of-3, so this is a quality issue, not
+    # an outage. Not swapped here: PROMOTE_POLICY: confirm.
 
 # Rejected candidates, with evidence (do not re-add without a fresh sweep):
 #   hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF   F2 0.40 — REAP pruning degrades reasoning
