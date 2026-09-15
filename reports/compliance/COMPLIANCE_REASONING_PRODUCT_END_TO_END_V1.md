@@ -16,7 +16,7 @@
 | 3 | complete regulatory semantics (foundation P3) | **DONE** | `2d3ec5a8` |
  | 4 | internal revisions and source functions (foundation P4) | **DONE** | `3ff50ab1` |
 | 5 | two clocks + projections (foundation P5–P6) | **DONE** | `fb473750` |
-| 6 | foundation routed acceptance — `PRODUCT_FOUNDATION_READY` | pending | |
+| 6 | foundation routed acceptance — `PRODUCT_FOUNDATION_READY` | **DONE** | `5c7317ac` |
 | 7 | compound R2 analysis plan (slice P1) | pending | |
 | 8 | candidate closure + reading packet (slice P2–P3) | pending | |
 | 9 | duty-level judgment + verification (slice §5.4/6) | pending | |
@@ -142,11 +142,11 @@ closure owned by that phase) · NOT_APPLICABLE (reason). Updated per phase below
 | --- | --- | --- | --- |
 | L01 | task/design file treated as proof architecture was right | re-derive operational question from live route (§1.5) | **FAIL → Phase 6/10** (deployed route still UNRESOLVED ×4; in-process replay correct) |
 | L02 | refining pipeline before the full use case | question-to-primitive coverage ledger | FAIL → Phase 15 (twelve-question ledger) |
-| L03 | HTTP 200/hermetic pass ≠ live acceptance | deployed-route receipts w/ substantive findings | FAIL → Phase 6 (P7 routed observations) |
+| L03 | HTTP 200/hermetic pass ≠ live acceptance | deployed-route receipts w/ substantive findings | **PASS (foundation)** — 8/8 routed observations @ `5c7317ac`/PID 64096; full model-judgment proof Phase 10 |
 | L04 | latest-row instead of exact run-ID | ID-scoped verifier queries + concurrent-run regression | **PASS** — `tests/unit/test_compliance_assessment_runs.py` (run-ID isolation suite); re-exercised Phase 6 |
 | L05 | `nohup` reaped / failed launchctl restart | durable launcher, monitor, bootout | **PASS (operational)** — launchctl `com.portal5.compliance-mcp` managed; failed-job bootout exercised Phase 16 |
 | L06 | LanceDB first-10-tables | lossless `table_names(page_token=…)` | **PASS** — `40331b57` hermeticity suite + `tests/unit/test_compliance_v3_matrices.py`; live reconciliation Phase 16 |
-| L07 | KB materialization believed without proof | post-acquisition query/lookup receipt | FAIL → Phase 2 (acquisition receipts) |
+| L07 | KB materialization believed without proof | post-acquisition query/lookup receipt | **PASS** — P2 acquisition receipts + P5 live search (5 hits) on the rebuilt index |
 | L08 | generic `UNRESOLVED` matches infra failure | exact controlled failure code + stage | **PARTIAL/PASS** — reading verifier returns controlled codes (`READING_*`); controlled failure-code vocabulary extended in Phase 1 |
 | L09 | expensive rerun before stored-trace diagnosis | diagnose retained traces first | **PASS (tool)** — `scripts/replay_compliance_trace.py` byte-exact replay; discipline re-applied each phase |
 | L10 | blaming model before packet/harness/transport | one-variable isolation; harness validation first | FAIL → Phase 11 (harness validation experiments) |
@@ -161,7 +161,7 @@ closure owned by that phase) · NOT_APPLICABLE (reason). Updated per phase below
 | L19 | Cartesian folder mappings in trace/impact | discovery-only, excluded from established trace | **PASS** — P4 `derivation` quarantine (1342 tagged) + approved-only impact (`test_cartesian_quarantine_tags_once_and_excludes_from_impact`); routed proof Phase 6 |
 | L20 | approval overrides fresh comparison | approval = governance, not truth | **PASS (behavior)** — no approval prerequisite on the reading path; stale-mapping regression Phase 5 |
 | L21 | `known_at` echoed, not applied | both clocks on every operation | **PASS (library+route)** — `temporal_selection` UNKNOWN_KNOWLEDGE semantics + `compliance_requirement` revision_selection/withholding (`test_late_recorded_fact_is_unknown_knowledge_before_recording`); routed receipts Phase 6 |
-| L22 | running service ≠ current HEAD | record served commit; restart via managed path | **FAIL (live now)** — deployed MCP predates HEAD by 7 commits; closure Phase 6 restart-from-commit |
+| L22 | running service ≠ current HEAD | record served commit; restart via managed path | **PASS** — kickstart restart 2026-09-15 13:32:45 CDT, PID 64096 serving `5c7317ac`; re-verified each phase after code changes |
 | L23 | reused campaign directory skips work | new immutable campaign ID/manifest per campaign | FAIL → Phase 11 (manifest-to-receipt reconciliation) |
 | L24 | failures averaged / labels moved post-hoc | frozen manifest, repeats, all attempts retained | FAIL → Phase 11 freeze |
 | L25 | engineering triage vs SME decisions conflated | queue classification test + packet inspection | FAIL → Phase 1 (review-queue projection of named reasons) |
@@ -492,6 +492,24 @@ and projections carry checkable freshness.
 | --- | --- | --- | --- |
 | 2026-09-15 (Phase 5) | the first `select_revision_effectivity` joined `standard_revisions → document_revisions → requirement_nodes` on hashes, but the store's live linkage runs node-id → `standard_revision_id` text ids (e.g. `CIP-007-6`), so every selection came back empty | selection re-based on the canonical node-level effectivity (the assertion itself), with `standard_revisions` only as display metadata | routed checks above (obs 1/2/4 non-empty) |
 | 2026-09-15 (Phase 5) | `effective_now` was evaluated over ALL recorded intervals, so at a post-correction `known_at` the superseded pre-correction interval still selected the revision | interval visibility now requires the requested knowledge time to fall inside the row's recording interval (`recorded_from <= known_at < recorded_to`), defaulting to latest believed rows | `test_corrected_effectivity_replays_before_and_after` |
+
+
+### Phase 6 — foundation routed acceptance (DONE → `PRODUCT_FOUNDATION_READY`)
+
+Routed through the managed service (launchctl kickstart → PID 64096 serving
+`5c7317ac`): all eight P7 observations pass over HTTP with substantive
+assertions — current/historical/future revision selection with sourced
+lifecycle, the two-`known_at` late-recorded reproduction, complete R2.1–R2.4
+bundles (Measures + Technical Basis + fingerprints), R2.3's deadline and
+alternatives and R2.4's exception, patch-procedure section functions with its
+Appendix-1 rows as TRACEABILITY_ASSERTION, and a default trace that never
+presents Cartesian proposals. Receipt:
+`coding_task/v9_compliance/private/foundation_routed/20260915T183311Z/routed_observations.json`.
+Full report: `reports/compliance/PRODUCT_CONTRACT_AND_SOURCE_SYNC_V1.md`.
+Routed code surfaces added: `compliance_bundle` (deterministic governing
+bundle) and `compliance_sources(include_sections)`; the deployed service was
+restarted again after those commits so the receipt identity matches the
+served code.
 
 ## 4. Commands and receipts (Phase 0)
 
