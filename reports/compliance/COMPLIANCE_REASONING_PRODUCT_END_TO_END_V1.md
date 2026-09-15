@@ -13,7 +13,7 @@
 | 0 | reconcile reality, freeze ledger, this report | **DONE** | `c52edc8f` |
 | 1 | product/result contract (foundation P1) | **DONE** | `626aa18d` |
 | 2 | official NERC source sync (foundation P2) | **DONE** | `3ef77f88` |
-| 3 | complete regulatory semantics (foundation P3) | **DONE** | (this commit) |
+| 3 | complete regulatory semantics (foundation P3) | **DONE** | `2d3ec5a8` |
  | 4 | internal revisions and source functions (foundation P4) | pending | |
 | 5 | two clocks + projections (foundation P5–P6) | pending | |
 | 6 | foundation routed acceptance — `PRODUCT_FOUNDATION_READY` | pending | |
