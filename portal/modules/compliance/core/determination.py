@@ -367,6 +367,13 @@ class GoverningBundle:
     extracted role, never reduced to a first atom. ``lead_in`` is the verified
     parent lead-in; ``definitions``/``references`` carry the cited definition and
     reference texts the reader needs to resolve the duty and its exceptions.
+
+    Foundation P3 completes the bundle by source shape: ``measures`` are the
+    evidence expectations (``MEASURE`` role — never an additional duty),
+    ``technical_basis`` the interpretive context (``TECHNICAL_BASIS`` role —
+    never binding text), ``applicable_systems`` the Part's scope column, and
+    ``readiness`` the named component verdict (a non-ready bundle carries the
+    ``U14_INCOMPLETE_SOURCE_BUNDLE`` failures that make it so).
     """
 
     ref: str
@@ -377,6 +384,12 @@ class GoverningBundle:
     meta: list[dict[str, Any]] = field(default_factory=list)
     source_slices: list[SourceSlice] = field(default_factory=list)
     fingerprint: str = ""
+    measures: list[dict[str, Any]] = field(default_factory=list)
+    technical_basis: list[dict[str, Any]] = field(default_factory=list)
+    applicable_systems: str = ""
+    revision_id: str = ""
+    definitions_disposition: str = ""  # inline | external_glossary
+    readiness: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass

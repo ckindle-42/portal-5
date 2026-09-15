@@ -12,8 +12,8 @@
 | --- | --- | --- | --- |
 | 0 | reconcile reality, freeze ledger, this report | **DONE** | `c52edc8f` |
 | 1 | product/result contract (foundation P1) | **DONE** | `626aa18d` |
-| 2 | official NERC source sync (foundation P2) | **DONE** | (this commit) |
-| 3 | complete regulatory semantics (foundation P3) | pending | |
+| 2 | official NERC source sync (foundation P2) | **DONE** | `3ef77f88` |
+| 3 | complete regulatory semantics (foundation P3) | **DONE** | (this commit) |
  | 4 | internal revisions and source functions (foundation P4) | pending | |
 | 5 | two clocks + projections (foundation P5–P6) | pending | |
 | 6 | foundation routed acceptance — `PRODUCT_FOUNDATION_READY` | pending | |
@@ -152,7 +152,7 @@ closure owned by that phase) · NOT_APPLICABLE (reason). Updated per phase below
 | L10 | blaming model before packet/harness/transport | one-variable isolation; harness validation first | FAIL → Phase 11 (harness validation experiments) |
 | L11 | different base model called a quant control | identical base/revision/template, quant only | FAIL → Phase 12 (Magistral≠Mistral-small3.2 is NOT a valid control; same-base pair required or recorded unavailable) |
 | L12 | pre-analyzed council vote ≠ reading evidence | primary reader sees both sides; council = cross-check | **PASS** — `b1612cd2`/`5f5f93b8` (reading path in production); framing cleanup Phase 8 |
-| L13 | omitted bundle components (Measures/TB/lead-ins) | required-component readiness + negative tests | FAIL → Phase 3 (Measures/TB into bundle; negative readiness) |
+| L13 | omitted bundle components (Measures/TB/lead-ins) | required-component readiness + negative tests | **PASS** — `core/regulatory_bundle.py` shape-typed required components; negative test per component (`test_compliance_regulatory_bundle.py`); routed proof Phase 6 |
 | L14 | stale dependent annotations after fragment repair | same-fingerprint rebuild of dependents | FAIL → Phase 5 (projection invalidation tests) |
 | L15 | duty identity conflated with adequacy (40d≠35d duty) | semantic correspondence before quantity compare | **PASS** — reading prompt + `constraints.compare_constraint`; minimal-pair cases re-run Phase 9 |
 | L16 | spliced/token-overlap quantities | literal operand in one cited phrase | **PASS** — `reading._operand_is_in_source` + acceptance cases |
@@ -258,7 +258,103 @@ NERC sources:
 - Ledger rows: L07 (KB/ingestion proof → acquisition receipts + parse-through)
   PASS at module level, routed proof at Phase 6; L22 unchanged (Phase 6).
 
+### Phase 3 — complete regulatory semantics (DONE)
 
+Implemented `core/regulatory_bundle.py` + decomposer rewrite + duty lineage —
+the governing side now extracts completely, models its own logic, and refuses
+to run on a defective bundle.
+
+- **Bundle extraction** (`core/regulatory_bundle.py`): one module extracts the
+  whole semantic content of an official revision — requirement Parts with
+  lead-ins and applicable-system columns, per-Part Measures + `M<n>` measure
+  statements, the Guidelines and Technical Basis section (per-requirement
+  spans, per-Part sub-spans, NERC rationale boxes as separate spans), and the
+  definitions disposition. Every span is hash-anchored
+  (`RegulatorySpan.verify` re-derives text+sha256 from the revision bytes).
+  Marker-based GTB parsing handles the three observed header shapes
+  ("Requirement R2:", "Rationale for Requirement R2:", "Rationale for R2:")
+  and refuses markers outside a real GTB section (CIP-013-2's duty prose
+  contains a "Requirement R2:" phrase that would otherwise fabricate a span).
+  CIP-007-7.1's 2024 edition has **no GTB section** — recorded as a revision
+  shape fact (`technical_basis_section: absent`), never silently tolerated.
+- **Decomposition rewrite** (`core/obligations.py`): multi-atom with verbatim
+  clause text + offsets per atom, declared-list-only `ANY_OF`
+  ("one of the following" — an incidental "or" can no longer manufacture
+  alternatives), explicit/inherited/absent modality (`modality_basis`),
+  conditions, exceptions, deadlines, and `Part X.Y` dependencies. Expression
+  kinds: `ALL_OF`/`ANY_OF` (≥2 children only), `SINGLE`, `EMPTY` — the
+  one-child false-complete container is now structurally impossible.
+  `decomposition_defects()` names every way an expression can fail to
+  represent the text and feeds readiness.
+- **CIP-007-6 R2 verified shapes**: R2.1 `ALL_OF[2]` (process + tracking
+  source), R2.2 `SINGLE` with the 35-day cadence + dependency on Part 2.1
+  (the old `ANY_OF` from "source or sources" is dead), R2.3
+  `ALL_OF[ANY_OF[3 alternatives], mitigation-plan subduty]` with the 35-day
+  deadline and the Part 2.2 dependency, R2.4 `SINGLE` with the
+  `unless…approved by the CIP Senior Manager` exception.
+- **Duty identity + lineage** (`core/duty_lineage.py`): concepts are computed
+  from duty-text correspondence (terminology-fold normalizer — "cyber
+  security patches"→"security patches", "Applicable Systems"→"applicable
+  Cyber Assets", "BCS"→"BES Cyber Systems"; difflib autojunk off — it
+  distorted long duties to ~0.47), threshold 0.75, derivation string
+  recorded on every concept. CIP-007-6↔7.1: **19 duties pair (0.83–1.00)**;
+  genuinely new/changed duties stay unpaired (7.1's new R1 Part 1.3 VCA
+  duty; both rewritten R1 Part 1.1s). Concepts root at the oldest member, so
+  a future revision joins instead of forking. Part numbers are carried for
+  inspection, never used as a matching feature.
+- **GoverningBundle + packet** (`core/determination.py`,
+  `core/assessment_source.py`, `core/reading.py`): the bundle carries
+  `measures`, `technical_basis`, `applicable_systems`, `revision_id`,
+  `definitions_disposition`, and a component `readiness` verdict; the dead
+  `getattr(governing, "measures", "")` placeholder is gone — Measures and
+  Technical Basis reach the reader as labelled context blocks
+  ("not an additional duty" / "not binding text"), excluded from
+  `selectable_slice_ids`. The reading verifier demotes a context-slice
+  citation with `READING_CONTEXT_CITED_AS_DUTY` and strips it from covered
+  governing anchors. Definitions: CIP-007 defers to the NERC Glossary —
+  recorded as `external_glossary`; the three fabricated
+  "Canonical NERC defined term" rows are deleted and never re-created.
+- **U14 hard gate**: `build_assessment_request` raises
+  `SourceBundleIncompleteError` (U14, per-component payload) on a non-ready
+  bundle — an engineering stop, not an SME item. Census after fixes: **all
+  255 register nodes READY**.
+- **Migration 9** (additive; live store 8→9 after a full backup at
+  `data/private/backups/pre-v9-20260915T114116Z.db`, 11.26 MB):
+  `obligation_atoms.clause_text`, `obligation_dependencies`,
+  `obligation_concepts`. `source_sections.role` now written by the
+  materializers (live: 33 `REGULATORY_REQUIREMENT`, 51 `MEASURE`,
+  24 `TECHNICAL_BASIS`).
+- **Store re-derivation** (same immutable revisions, `L14`): live atoms
+  310→378, expressions 254→277 (multi-atom + CIP-007-7.1 duty rows + the two
+  new CIP-008-6 R3 parts), 22 dependency rows, 22 concepts. Zero one-child
+  containers remain. The stale `CIP-008-6 R3` register-orphan node (and its
+  legacy `valid_to=NULL` effectivity rows) removed with its derived rows.
+  `materialize_regulatory_bundles.py` registered both official CIP-007
+  revisions with role-typed sections + hash-verified spans, asserted
+  registry-sourced effectivity (6: 2016-07-01→2028-06-30; 7.1: 2028-07-01,
+  replacing the unverified `legacy:` rows), and wrote the R2.1–R2.4
+  inspection receipt at
+  `coding_task/v9_compliance/private/regulatory_bundles/20260915T115230/inspection.json`
+  (all four READY; atoms 2/1/4/1; decomposition defects none).
+- **Register regenerated** (`255` nodes, 255/255 fidelity-verified, 0
+  completeness holes): the `_table_parts` header-row fix (content-located, so
+  7.1-style layouts with empty leading rows parse) exposed that CIP-008-6 R3
+  actually has Parts 3.1/3.2 that the register build had missed (that is why
+  an R-level placeholder node existed). `nerc_cip_register.json` +
+  `nerc_cip_map.json` regenerated through the canonical build CLI.
+- **validation**: `ruff check .` clean · `ruff format --check .` clean ·
+  `pytest tests/unit/ -q` **1921 passed, 4 skipped** (73 new tests:
+  decomposition 13, bundle extraction/readiness negatives 23, lineage 9,
+  packet/context-citation 4, plus updated migration/policy-graph pins) ·
+  spine manifest regenerated after adding the two new modules to
+  `unit-compliance-engine`.
+- Ledger rows closed: **L13** (required components by source shape + one
+  negative test per component: lead-in, part text, applicable systems,
+  measures missing/truncated, TB truncated, TB fact unrecorded, definitions
+  disposition, span offsets, revision pin, decomposition defects, mixed
+  fingerprint) PASS. **L20/L14 strengthened** (register supersession cleanup;
+  same-revision re-derivation replaces derived rows) PASS. L13's routed
+  proof remains Phase 6; L18/L19 unchanged (Phase 4).
 
 | date | failure | repair | guard |
 | --- | --- | --- | --- |
@@ -267,6 +363,10 @@ NERC sources:
 | 2026-09-14 (this phase) | deployed compliance MCP stale vs HEAD (started 02:41, HEAD 21:28) — operator question still returns UNRESOLVED ×4 from stale code | scheduled: restart from final foundation commit in Phase 6 with recorded identity | L22 row above; Phase 6 routed receipts must record served commit |
 | 2026-09-14 (Phase 1) | `_reconcile_reading_and_council` emitted `U12_READING_COUNCIL_DISAGREEMENT`, which is not in `UNRESOLVED_CODES` — a genuine reading/council disagreement would have raised `DeterminationContractError` in `AssessmentResult.__post_init__` instead of producing a reviewable result | switched to the new `U17_INTERPRETIVE_CONFLICT` with both records + reading slice ids retained in `missing_fact` | `test_compliance_result_contract.py::test_reading_council_disagreement_is_a_valid_unresolved_result` |
 | 2026-09-14 (Phase 1) | the migration runner splits DDL on `;`, so a `;` inside a SQL comment breaks the migration (hit while writing v8) | comment text rewritten semicolon-free; NOTE recorded in the migration file itself | `test_migration_eight_is_non_destructive`, `test_migration_from_a_populated_v7_store` |
+| 2026-09-15 (Phase 3) | the census exposed that `resolve_governing_bundle` crashed for attachment-shaped parts (CIP-002/003) — a latent defect at the Phase-0 baseline: lead-in recovery ran `_pdf_parent_requirement` for `requirement="Attachment 1"`, which cannot resolve | lead-in resolution restricted to numbered requirements; attachment shape requires only its own components | readiness census 255/255 READY + `test_attachment_shape_requires_only_its_own_components` |
+| 2026-09-15 (Phase 3) | register staleness discovered against its own pinned sources: CIP-008-6 R3 has Parts 3.1/3.2 that the register build missed (empty-leading-row table layout defeated the fixed header-row index), leaving a bogus R-level node | `_table_parts` locates the header row by content; register regenerated via the canonical CLI (255 nodes, 0 holes); superseded store node removed with its derived rows by the materializer | extraction-vs-register diff run over all 14 standards (only CIP-008-6 changed); `test_migration_from_a_populated_v7_store` extended to migration 9 |
+| 2026-09-15 (Phase 3) | difflib's default `autojunk` distorted long-duty similarity (true pair CIP-007-6↔7.1 R2.1 scored 0.47, below any sane threshold) | similarity computed with `autojunk=False`; threshold 0.75 pinned by same-duty/different-duty tests | `test_compliance_duty_lineage.py` (same-duty ≥0.75, different-duty <0.5, swapped-number pairing) |
+| 2026-09-15 (Phase 3) | CIP-013-2 carries no Guidelines and Technical Basis section, but its duty prose contains "Requirement R2:" — the marker scan fabricated a Technical Basis span from requirement text with the wrong role | markers only count inside a real GTB section (heading-scoped); section-absent is a recorded shape fact | `test_absent_technical_basis_section_is_a_recorded_shape_fact` + census (0 fabricated spans) |
 
 ## 4. Commands and receipts (Phase 0)
 

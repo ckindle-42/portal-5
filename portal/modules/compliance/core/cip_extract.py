@@ -379,22 +379,32 @@ def _table_parts(
     pdf: Path,
     seen: set[tuple[str, str]],
 ) -> list[RequirementPart]:
-    """Every recognised `Table R<n>` row on one page."""
+    """Every recognised `Table R<n>` row on one page. The header row is
+    located by content, not position: some layouts (CIP-007-7.1) emit an
+    empty leading row that shifts the caption/header down."""
     out: list[RequirementPart] = []
     for tab in page.find_tables().tables:
         rows = tab.extract()
-        if len(rows) < 2:
+        if len(rows) < 3:
             continue
-        header = " ".join(_cells(rows[1]))
-        if "Applicable Systems" not in header or "Requirements" not in header:
+        header_idx = None
+        for i in range(min(4, len(rows))):
+            header = " ".join(_cells(rows[i]))
+            if "Applicable Systems" in header and "Requirements" in header:
+                header_idx = i
+                break
+        if header_idx is None:
             continue
-        cm = _TABLE_CAP_RE.search(" ".join(_cells(rows[0])))
+        caption_row = rows[header_idx - 1] if header_idx else rows[0]
+        cm = _TABLE_CAP_RE.search(" ".join(_cells(caption_row))) or _TABLE_CAP_RE.search(
+            " ".join(_cells(rows[0]))
+        )
         if not cm:
             continue
         req = f"R{cm.group(1)}"
         table_name = _norm(cm.group(2))
         lead = leadins.get(req, ("", "", ""))
-        for r in rows[2:]:
+        for r in rows[header_idx + 1 :]:
             cc = _cells(r)
             if len(cc) < 3 or not _PART_RE.match(cc[0]) or (standard, cc[0]) in seen:
                 continue

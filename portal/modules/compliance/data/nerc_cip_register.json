@@ -1,6 +1,6 @@
 {
- "built_at": "2026-09-04T13:32:14+00:00",
- "extractor_commit": "ee28423f6be8-dirty",
+ "built_at": "2026-09-15T11:29:13+00:00",
+ "extractor_commit": "a26f431f9a0b-dirty",
  "source_pdfs": {
   "cip-002-5.1a.pdf": "747e1ac250b9",
   "cip-003-8.pdf": "ceff7112505d",
@@ -20,12 +20,12 @@
  "lifecycle_source": "nerc.com/pa/Stand — FERC-approved enforcement dates (public record)",
  "extraction_report": {
   "n_standards": 14,
-  "n_nodes": 254,
-  "n_parts": 232,
-  "n_requirement_level": 22,
+  "n_nodes": 255,
+  "n_parts": 234,
+  "n_requirement_level": 21,
   "fidelity": {
-   "n_extracted": 254,
-   "n_fidelity_verified": 254,
+   "n_extracted": 255,
+   "n_fidelity_verified": 255,
    "n_fidelity_failed": 0,
    "fidelity_failed": []
   },
@@ -40,7 +40,7 @@
     "CIP-005-7": "document:enumerated-list",
     "CIP-006-6": "document:enumerated-list+document:requirement-level",
     "CIP-007-6": "document:enumerated-list",
-    "CIP-008-6": "document:enumerated-list+document:requirement-level",
+    "CIP-008-6": "document:enumerated-list",
     "CIP-009-6": "document:enumerated-list",
     "CIP-010-4": "document:enumerated-list+document:requirement-level",
     "CIP-011-3": "document:enumerated-list",
@@ -273,28 +273,26 @@
      "R3",
      "R4"
     ],
-    "n_parts": 10,
-    "partless_requirements": [
-     "R3"
-    ],
+    "n_parts": 12,
+    "partless_requirements": [],
     "lifecycle": {
      "state": "EFFECTIVE",
      "valid_from": "2021-01-01",
      "valid_to": null
     },
     "fidelity": {
-     "n_extracted": 11,
-     "n_fidelity_verified": 11,
+     "n_extracted": 12,
+     "n_fidelity_verified": 12,
      "n_fidelity_failed": 0,
      "fidelity_failed": []
     },
     "completeness": {
      "n_requirements": 4,
-     "n_parts_extracted": 10,
+     "n_parts_extracted": 12,
      "incomplete_requirements": [],
      "n_missing": 0,
      "complete": true,
-     "denominator_source": "document:enumerated-list+document:requirement-level"
+     "denominator_source": "document:enumerated-list"
     }
    },
    "CIP-009-6": {
@@ -4941,6 +4939,56 @@
    "granularity": "part"
   },
   {
+   "id": "CIP-008-6 R3 Part 3.1",
+   "standard": "CIP-008-6",
+   "version": "6",
+   "requirement": "R3",
+   "part": "3.1",
+   "verbatim_text": "No later than 90 calendar days after completion of a Cyber Security Incident response plan(s) test or actual Reportable Cyber Security Incident response: 3.1.1. Document any lessons learned or document the absence of any lessons learned; 3.1.2. Update the Cyber Security Incident response plan based on any documented lessons learned associated with the plan; and 3.1.3. Notify each person or group with a defined role in the Cyber Security Incident response plan of the updates to the Cyber Security Incident response plan based on any documented lessons learned.",
+   "measure_text": "An example of evidence may include, but is not limited to, all of the following: 1. Dated documentation of post incident(s) review meeting notes or follow-up report showing lessons learned associated with the Cyber Security Incident response plan(s) test or actual Reportable Cyber Security Incident response or dated documentation stating there were no lessons learned; 2. Dated and revised Cyber Security Incident response plan showing any changes based on the lessons learned; and 3. Evidence of plan update distribution including, but not limited to: • Emails; • USPS or other mail service; • Electronic distribution system; or • Training sign-in sheets.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: • EACMS Medium Impact BES Cyber Systems and their associated: • EACMS",
+   "table_name": "Cyber Security Incident Response Plan",
+   "vrf": "Lower",
+   "time_horizon": "Operations Assessment",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2021-01-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-008-6.pdf",
+   "source_pages": [
+    9
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
+   "id": "CIP-008-6 R3 Part 3.2",
+   "standard": "CIP-008-6",
+   "version": "6",
+   "requirement": "R3",
+   "part": "3.2",
+   "verbatim_text": "No later than 60 calendar days after a change to the roles or responsibilities, Cyber Security Incident response groups or individuals, or technology that the Responsible Entity determines would impact the ability to execute the plan: 3.2.1. Update the Cyber Security Incident response plan(s); and 3.2.2. Notify each person or group with a defined role in the Cyber Security Incident response plan of the updates.",
+   "measure_text": "An example of evidence may include, but is not limited to: 1. Dated and revised Cyber Security Incident response plan with changes to the roles or responsibilities, responders or technology; and 2. Evidence of plan update distribution including, but not limited to: • Emails; • USPS or other mail service; • Electronic distribution system; or • Training sign-in sheets.",
+   "applicable_systems": "High Impact BES Cyber Systems and their associated: • EACMS Medium Impact BES Cyber Systems and their associated: • EACMS",
+   "table_name": "Cyber Security Incident Response Plan",
+   "vrf": "Lower",
+   "time_horizon": "Operations Assessment",
+   "lifecycle_state": "EFFECTIVE",
+   "valid_from": "2021-01-01",
+   "valid_to": null,
+   "supersedes": null,
+   "superseded_by": null,
+   "authority_tier": 0,
+   "source_pdf": "cip-008-6.pdf",
+   "source_pages": [
+    10
+   ],
+   "recorded_at": 0.0,
+   "granularity": "part"
+  },
+  {
    "id": "CIP-008-6 R4 Part 4.1",
    "standard": "CIP-008-6",
    "version": "6",
@@ -5014,29 +5062,6 @@
    ],
    "recorded_at": 0.0,
    "granularity": "part"
-  },
-  {
-   "id": "CIP-008-6 R3",
-   "standard": "CIP-008-6",
-   "version": "6",
-   "requirement": "R3",
-   "part": "",
-   "verbatim_text": "Each Responsible Entity shall maintain each of its Cyber Security Incident response plans according to each of the applicable requirement parts in CIP-008-6 Table R3 – Cyber Security Incident Response Plan Review, Update, and Communication.",
-   "measure_text": "",
-   "applicable_systems": "",
-   "table_name": "",
-   "vrf": "Lower",
-   "time_horizon": "Operations Assessment",
-   "lifecycle_state": "EFFECTIVE",
-   "valid_from": "2021-01-01",
-   "valid_to": null,
-   "supersedes": null,
-   "superseded_by": null,
-   "authority_tier": 0,
-   "source_pdf": "cip-008-6.pdf",
-   "source_pages": [],
-   "recorded_at": 0.0,
-   "granularity": "requirement"
   },
   {
    "id": "CIP-009-6 R1 Part 1.1",
@@ -7584,6 +7609,16 @@
   },
   {
    "src": "CIP-008-6",
+   "dst": "CIP-008-6 R3 Part 3.1",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-008-6",
+   "dst": "CIP-008-6 R3 Part 3.2",
+   "rel": "HAS_REQUIREMENT"
+  },
+  {
+   "src": "CIP-008-6",
    "dst": "CIP-008-6 R4 Part 4.1",
    "rel": "HAS_REQUIREMENT"
   },
@@ -7595,11 +7630,6 @@
   {
    "src": "CIP-008-6",
    "dst": "CIP-008-6 R4 Part 4.3",
-   "rel": "HAS_REQUIREMENT"
-  },
-  {
-   "src": "CIP-008-6",
-   "dst": "CIP-008-6 R3",
    "rel": "HAS_REQUIREMENT"
   },
   {

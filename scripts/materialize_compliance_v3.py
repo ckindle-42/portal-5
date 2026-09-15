@@ -51,7 +51,7 @@ def _id(prefix: str, value: str) -> str:
     return prefix + hashlib.sha256(value.encode()).hexdigest()[:20]
 
 
-def _anchor(repo: Repository, revision_id: str, label: str, text: str) -> str:
+def _anchor(repo: Repository, revision_id: str, label: str, text: str, *, role: str = "") -> str:
     section_id = _id("section-", revision_id + label)
     span_id = _id("span-", revision_id + label + text)
     repo.add_source_section(
@@ -61,6 +61,7 @@ def _anchor(repo: Repository, revision_id: str, label: str, text: str) -> str:
             path=label,
             extractor="pymupdf",
             extractor_version=pymupdf.__version__,
+            role=role,
         )
     )
     repo.add_source_span(span_id, section_id, 0, len(text), text_hash(text))
@@ -170,11 +171,12 @@ def materialize(
 
     standard_revisions = {}
     governing_anchors = {}
-    lead_ins = {
+    register_lead_ins = {
         (node.standard, node.requirement): node.verbatim_text
         for node in all_nodes
         if node.granularity == "requirement"
     }
+    lead_ins = dict(register_lead_ins)
     for standard in sorted({node.standard for node in all_nodes}):
         pdf = (
             Path(__file__).resolve().parents[1]
@@ -185,6 +187,15 @@ def materialize(
             counts["anchor_failures"].append({"standard": standard, "error": "source PDF missing"})
             continue
         raw = pdf.read_bytes()
+        # Parts whose requirement has no register-level node (table headers
+        # the register build omitted) still inherit a lead-in — take it from
+        # the pinned PDF itself, so modality is never silently "proposed".
+        from portal.modules.compliance.core.cip_extract import _leadins as _pdf_leadins
+
+        with pymupdf.open(stream=raw, filetype="pdf") as document:
+            doc_text = "\n".join(page.get_text() for page in document)
+        for req, (lead, _vrf, _th) in _pdf_leadins(doc_text).items():
+            lead_ins.setdefault((standard, req), lead)
         logical_id = f"NERC/{standard}"
         repo.upsert_source_document(
             SourceDocument(logical_id, standard, "NERC", "regulatory_standard", "United States")
@@ -221,7 +232,9 @@ def materialize(
         revision_id = standard_revisions.get(node.standard)
         if not revision_id:
             continue
-        anchor_id = _anchor(repo, revision_id, node.id, node.verbatim_text)
+        anchor_id = _anchor(
+            repo, revision_id, node.id, node.verbatim_text, role="REGULATORY_REQUIREMENT"
+        )
         governing_anchors[node.id] = anchor_id
         with repo._lock, conn:
             conn.execute(
@@ -243,56 +256,63 @@ def materialize(
             else "",
             anchor_ids=[anchor_id],
         )
-        with repo._lock, conn:
-            for atom in atoms:
-                conn.execute(
-                    """INSERT OR REPLACE INTO obligation_atoms(atom_id,node_id,actor,modality,action,object,population,trigger,deadline_cadence,conditions_json,exceptions_json,evidence_expectation,source_anchor_ids_json,interpretation_status,org_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                    (
-                        atom.atom_id,
-                        node.id,
-                        atom.actor,
-                        atom.modality,
-                        atom.action,
-                        atom.object,
-                        atom.population,
-                        atom.trigger,
-                        atom.deadline_cadence,
-                        json.dumps(atom.conditions),
-                        json.dumps(atom.exceptions),
-                        atom.evidence_expectation,
-                        json.dumps(atom.source_anchor_ids),
-                        atom.interpretation_status,
-                        "default",
-                    ),
-                )
-            conn.execute(
-                "INSERT OR REPLACE INTO obligation_expressions(expression_id,node_id,structure_json,org_id) VALUES (?,?,?,?)",
-                (
-                    _id("expr-", node.id),
+        repo.replace_obligation_derivation(
+            node.id,
+            [a.to_record() for a in atoms],
+            expression_for(atoms, node.verbatim_text),
+            expression_id=_id("expr-", node.id),
+        )
+        # 'identified in Part 2.1' becomes an explicit dependency row
+        base_id = node.id.rsplit(" Part ", 1)[0]
+        known = {row[0] for row in conn.execute("SELECT node_id FROM requirement_nodes").fetchall()}
+        for atom in atoms:
+            for ref in atom.depends_on:
+                target = f"{base_id} {ref}"
+                if target not in known or target == node.id:
+                    continue
+                repo.add_obligation_dependency(
+                    _id("dep-", node.id + atom.atom_id + ref),
                     node.id,
-                    json.dumps(expression_for(atoms, node.verbatim_text)),
-                    "default",
-                ),
-            )
+                    atom.atom_id,
+                    depends_on_node_id=target,
+                    depends_on_ref=ref,
+                )
         counts["governing_nodes"] += 1
         counts["atoms"] += len(atoms)
 
-    # Definitions used repeatedly by the standards; the body is deliberately
-    # scoped to the equivalence needed by comparison rather than fabricated prose.
-    if governing_anchors:
-        first_anchor = next(iter(governing_anchors.values()))
-        with repo._lock, conn:
-            for term in ("BES Cyber System", "BES Cyber Asset", "Electronic Security Perimeter"):
-                conn.execute(
-                    "INSERT OR IGNORE INTO definitions(definition_id,term,body,source_anchor_id,org_id) VALUES (?,?,?,?,?)",
-                    (
-                        _id("definition-", term),
-                        term,
-                        f"Canonical NERC defined term: {term}",
-                        first_anchor,
-                        "default",
-                    ),
-                )
+    # Register supersession: a node the current register no longer carries
+    # (its extraction changed — e.g. CIP-008-6 R3 became Parts 3.1/3.2) must
+    # not keep stale derived rows beside fresh ones. A node is an orphan when
+    # it is not in the register while its standard is a register standard —
+    # duties from non-register pipelines (CIP-007-7.1) are untouched, whatever
+    # revision id scheme they scope to.
+    register_node_ids = {node.id for node in all_nodes}
+    register_standards = {node.standard for node in all_nodes}
+    orphan_rows = conn.execute("SELECT node_id FROM requirement_nodes").fetchall()
+    orphans = []
+    for (node_id,) in orphan_rows:
+        if node_id in register_node_ids:
+            continue
+        m = re.match(r"(CIP-\d{3}-[\w.]+)\s", node_id + " ")
+        if m and m.group(1) in register_standards:
+            orphans.append(node_id)
+    with repo._lock, conn:
+        for node_id in orphans:
+            conn.execute("DELETE FROM effectivity_assertions WHERE node_id = ?", (node_id,))
+            conn.execute("DELETE FROM obligation_dependencies WHERE node_id = ?", (node_id,))
+            conn.execute("DELETE FROM obligation_atoms WHERE node_id = ?", (node_id,))
+            conn.execute("DELETE FROM obligation_expressions WHERE node_id = ?", (node_id,))
+            conn.execute("DELETE FROM requirement_nodes WHERE node_id = ?", (node_id,))
+    if orphans:
+        counts["orphaned_register_nodes_removed"] = orphans
+
+    # Placeholder definitions are deleted and never re-created (foundation
+    # P3): a defined term is either a verbatim sourced definition (an inline
+    # definitions section) or an explicit missing-definition result carried on
+    # the governing bundle (definitions_disposition=external_glossary). A
+    # fabricated 'Canonical NERC defined term' body is neither.
+    with repo._lock, conn:
+        conn.execute("DELETE FROM definitions WHERE body LIKE 'Canonical NERC defined term:%'")
 
     sidecar = read_sidecar()
     internal_by_standard: dict[str, list[dict]] = {}

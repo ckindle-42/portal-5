@@ -49,7 +49,8 @@ def test_only_actor_cus_would_receive_determinations(graph):
     # Y01: premises and meta-CUs must be excluded from the judged set.
     judged = [n for n in graph.nodes if n.node_type == "actor_cu"]
     not_judged = [n for n in graph.nodes if n.node_type != "actor_cu"]
-    assert len(judged) == 197
+    # 255 register nodes (foundation P3: CIP-008-6 R3 became Parts 3.1/3.2)
+    assert len(judged) == 198
     assert all(n.node_type in {"premise", "meta_cu"} for n in not_judged)
 
 
