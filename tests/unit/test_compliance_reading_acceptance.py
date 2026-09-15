@@ -775,11 +775,18 @@ def test_missing_governing_is_u02(repo_dir: Path, tmp_path: Path) -> None:
     assert result.missing_fact
 
 
-def test_alignment_invalid_is_u09(repo_dir: Path, tmp_path: Path) -> None:
+def test_alignment_invalid_no_longer_gates_the_verdict(repo_dir: Path, tmp_path: Path) -> None:
+    """Slice P3 removed the pre-reading alignment veto (U09). An invalid
+    alignment diagnostic cannot unresolved the Part; the verdict belongs to
+    the reading pass — which, in this fixture, has no canned response, so the
+    honest outcome is the reading contract failure (U11), not a gate code."""
     outcome = run_case(CASES["24"], Repository(tmp_path / "u09.db"))
     result: AssessmentResult = outcome.result
-    assert result.unresolved_code == "U09_SEMANTIC_ALIGNMENT_UNKNOWN"
+    assert result.unresolved_code == "U11_ASSESSMENT_CONTRACT_FAILED"
     assert not result.substantively_resolved
+    # the failed diagnostic is still retained and labeled
+    assert result.receipt.get("alignment_valid") is False
+    assert result.receipt.get("alignment_diagnostic") is True
 
 
 def test_needs_review_is_not_full_or_partial(repo_dir: Path, tmp_path: Path) -> None:

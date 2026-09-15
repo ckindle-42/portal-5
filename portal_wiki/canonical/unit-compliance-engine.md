@@ -80,6 +80,8 @@ sources:
 - type: code
   path: portal/modules/compliance/core/vertical_slice.py
 - type: code
+  path: portal/modules/compliance/core/candidate_closure.py
+- type: code
   path: portal/modules/compliance/core/impact.py
 - type: code
   path: portal/modules/compliance/core/boundary.py
