@@ -62,7 +62,7 @@ def test_thinking_is_requested_and_preserved(monkeypatch):
     server = _Server(thinking_capable=True, content='{"ok": true}', thinking="step one, step two")
     monkeypatch.setattr(reading_transport, "_post", server)
 
-    result = chat("qwen38", "sys", "user", budget=8192)
+    result = chat("qwen38", "sys", "user", budget=8192, think=True)
 
     assert server.payloads[0]["think"] is True
     assert server.payloads[0]["options"]["num_predict"] == 8192
@@ -78,7 +78,9 @@ def test_http_400_downgrades_once_and_is_recorded(monkeypatch):
     server = _Server(thinking_capable=False, content='{"relation": "SAME"}')
     monkeypatch.setattr(reading_transport, "_post", server)
 
-    result = chat("granite4.1:30b-ctx16k", "sys", "user")
+    # think is asked for explicitly: DEFAULT_EFFORT is False by measurement, so
+    # the downgrade path is only reachable when a caller opts in to reasoning
+    result = chat("granite4.1:30b-ctx16k", "sys", "user", think=True)
 
     # one rejected attempt, one retry without the flag — not a silent failure
     assert len(server.payloads) == 2
@@ -97,9 +99,9 @@ def test_capability_is_cached_so_the_400_is_paid_once(monkeypatch):
     server = _Server(thinking_capable=False)
     monkeypatch.setattr(reading_transport, "_post", server)
 
-    chat("mistral-small3.2:24b-instruct-2506-q4_K_M", "sys", "user")
+    chat("mistral-small3.2:24b-instruct-2506-q4_K_M", "sys", "user", think=True)
     server.payloads.clear()
-    second = chat("mistral-small3.2:24b-instruct-2506-q4_K_M", "sys", "user")
+    second = chat("mistral-small3.2:24b-instruct-2506-q4_K_M", "sys", "user", think=True)
 
     # the second call never asks again, so a three-seat council pays the
     # rejection once per model per process, not once per Part
@@ -122,7 +124,7 @@ def test_a_non_400_error_is_not_swallowed(monkeypatch):
     monkeypatch.setattr(reading_transport, "_post", boom)
     # a downgrade is only ever a capability answer; a real fault must surface
     with pytest.raises(urllib.error.HTTPError):
-        chat("qwen38", "sys", "user")
+        chat("qwen38", "sys", "user", think=True)
 
 
 def test_inline_think_block_is_stripped_from_content(monkeypatch):
@@ -188,3 +190,27 @@ def test_the_think_key_is_never_omitted(monkeypatch):
         for payload in server.payloads:
             assert "think" in payload, f"think omitted (capable={capable}, asked={asked})"
             assert isinstance(payload["think"], bool)
+
+
+def test_default_effort_is_the_measured_one(monkeypatch):
+    """The default is a measurement, not a preference.
+
+    On the real case-10 alignment packet think false/low/medium/true all
+    returned the identical correct reading, at 52s / 180s / 224s / 683s. `true`
+    is the worst of them, because this roster's template reads
+    `reasoning_effort|default('xhigh')`. So an unqualified call must not buy
+    reasoning: raising the effort is a per-call-site decision backed by a
+    measurement on that call site.
+    """
+    assert reading_transport.DEFAULT_EFFORT is False
+
+    server = _Server(thinking_capable=True, thinking="should not be requested")
+    monkeypatch.setattr(reading_transport, "_post", server)
+    result = chat("qwen38", "sys", "user")
+
+    assert server.payloads[0]["think"] is False
+    assert result.reasoned is False
+    # and a caller can still opt in, per call, without touching a global
+    server.payloads.clear()
+    assert chat("qwen38", "sys", "user", think="low").reasoned is True
+    assert server.payloads[0]["think"] == "low"

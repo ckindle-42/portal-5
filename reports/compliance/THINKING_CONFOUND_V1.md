@@ -208,8 +208,14 @@ dispositions, and this report does not claim otherwise.
    packet; it now has a measured, single-factor root cause to fix — remove
    non-duty-identity material from the alignment packet, and stop presenting
    reference-closure duties as selectable governing evidence.
-3. **The default effort level should be `false` or `low`, never `true`.** On
-   this roster `true` means `xhigh`: 13× the cost for no measured gain.
+3. **The default effort level is set to `false`, by this measurement.**
+   `reading_transport.DEFAULT_EFFORT`, pinned by
+   `test_default_effort_is_the_measured_one`. Four settings returned one answer,
+   so the cheapest wins and `true` is the worst of them — on this roster it
+   means `xhigh`, 13× the cost for no measured gain. Keeping the value
+   production already had needs no new evidence; raising it does, and none
+   exists. Reasoning is available per call, so raising it for a given call site
+   is a measurement on that call site rather than a preference applied globally.
 4. **Diagnosis moves to trace replay.** 81 seconds and byte-exact, versus hours
    and non-reproducible.
 
@@ -228,6 +234,8 @@ dispositions, and this report does not claim otherwise.
   arm A ran entirely on pre-Phase-3 code. Case 02's result is recorded on that
   basis.
 - `granite4.1:30b` and `mistral-small3.2:24b` cannot reason at all (HTTP 400).
-  Any future "reasoning restored" claim covers **one of three** council seats
-  until the operator decides otherwise. `PROMOTE_POLICY: confirm` is untouched
-  by this report.
+  Any future "reasoning restored" claim covers **one of three** council seats.
+  This is recorded, not raised as an open question: §3 measures both seats
+  reading the isolated packet correctly, so capability is not the cause here and
+  the evidence does not call for a roster change. `PROMOTE_POLICY: confirm` is
+  untouched by this report.

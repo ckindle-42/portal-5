@@ -24,7 +24,30 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-__all__ = ["ChatResult", "chat", "strip_inline_reasoning"]
+__all__ = ["DEFAULT_EFFORT", "ChatResult", "chat", "strip_inline_reasoning"]
+
+# The one reasoning knob for every compliance model call.
+#
+# Measured 2026-09-14 on the byte-exact live case-10 alignment packet, one
+# variable, same prompt and model (reports/compliance/THINKING_CONFOUND_V1.md):
+#
+#     think:false    52.4s      0 thinking chars   A22 SAME, L22 SAME, 35/40
+#     think:low     179.5s   5206 thinking chars   A22 SAME, L22 SAME, 35/40
+#     think:medium  224.0s   8710 thinking chars   A22 SAME, L22 SAME, 35/40
+#     think:true    683.0s  34097 thinking chars   A22 SAME, L22 SAME, 35/40
+#
+# Four settings, one answer, up to 13x the wall time. `true` is the worst of
+# them and not neutral: this roster's template reads
+# reasoning_effort|default('xhigh'), so `true` buys the most expensive setting
+# the model has. The default therefore stays where production already had it —
+# that choice needs no new evidence, whereas raising it does, and none exists.
+#
+# What the transport changed is that reasoning is now *available, explicit and
+# recorded*: a caller passes an effort level per call, a model that cannot
+# reason is detected and its downgrade written onto the response. Raising this
+# for a given call site is a measurement on that call site, not an assumption
+# carried over from this one.
+DEFAULT_EFFORT: bool | str = False
 
 _ENDPOINT = "http://localhost:11434/api/chat"
 _THINK_CAPABLE: dict[str, bool] = {}
@@ -70,17 +93,20 @@ def chat(
     *,
     budget: int = 4096,
     fmt: Any = "json",
-    think: bool | str = True,
+    think: bool | str | None = None,
     timeout: int = 900,
 ) -> ChatResult:
-    """One judged call. Reasoning on by default; downgrade is explicit.
+    """One judged call. The effort level is explicit; a downgrade is recorded.
 
     ``think`` is ``True``/``False`` or a reasoning-effort level the server
     passes to the chat template (``"low"``/``"medium"``/``"high"``). The level
     matters: this roster's Qwen3.8 template sets
     ``reasoning_effort|default('xhigh')``, so plain ``True`` buys the most
-    expensive setting the model has.
+    expensive setting the model has. ``None`` takes :data:`DEFAULT_EFFORT`,
+    whose value is set by measurement — see the comment there.
     """
+    if think is None:
+        think = DEFAULT_EFFORT
     started = time.time()
     want_think: bool | str = think if isinstance(think, str) else bool(think)
     if not _THINK_CAPABLE.get(model, True):
