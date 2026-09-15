@@ -82,6 +82,10 @@ sources:
 - type: code
   path: portal/modules/compliance/core/candidate_closure.py
 - type: code
+  path: portal/modules/compliance/core/revision_compare.py
+- type: code
+  path: portal/modules/compliance/core/slice_executor.py
+- type: code
   path: portal/modules/compliance/core/impact.py
 - type: code
   path: portal/modules/compliance/core/boundary.py
