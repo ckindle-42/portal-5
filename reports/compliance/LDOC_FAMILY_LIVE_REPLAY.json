@@ -1,0 +1,404 @@
+[
+  {
+    "case": "10",
+    "model": "qwen38",
+    "score": 6,
+    "of": 6,
+    "checks": {
+      "coverage": true,
+      "gap_kinds": true,
+      "covered_cites": true,
+      "counter_cites": true,
+      "required_citations": true,
+      "citations_resolve": true
+    },
+    "coverage": "PARTIAL",
+    "duties": [
+      {
+        "statement": "Evaluate security patches for applicability that have been released since the last evaluation from the source or sources",
+        "finding": "COVERED"
+      },
+      {
+        "statement": "Conduct the evaluation at least once every 35 calendar days.",
+        "finding": "PARTIAL"
+      }
+    ],
+    "gaps": [
+      {
+        "kind": "WEAKER_COMMITMENT",
+        "counter": [
+          "cand-L22"
+        ]
+      }
+    ],
+    "elapsed": 71.5,
+    "failure": ""
+  },
+  {
+    "case": "10",
+    "model": "granite",
+    "score": 6,
+    "of": 6,
+    "checks": {
+      "coverage": true,
+      "gap_kinds": true,
+      "covered_cites": true,
+      "counter_cites": true,
+      "required_citations": true,
+      "citations_resolve": true
+    },
+    "coverage": "PARTIAL",
+    "duties": [
+      {
+        "statement": "At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last",
+        "finding": "PARTIAL"
+      }
+    ],
+    "gaps": [
+      {
+        "kind": "WEAKER_COMMITMENT",
+        "counter": [
+          "cand-L22"
+        ]
+      }
+    ],
+    "elapsed": 51.6,
+    "failure": ""
+  },
+  {
+    "case": "10",
+    "model": "mistral",
+    "score": 5,
+    "of": 6,
+    "checks": {
+      "coverage": true,
+      "gap_kinds": true,
+      "covered_cites": true,
+      "counter_cites": false,
+      "required_citations": true,
+      "citations_resolve": true
+    },
+    "coverage": "PARTIAL",
+    "duties": [
+      {
+        "statement": "Evaluate security patches for applicability that have been released since the last evaluation from the source or sources",
+        "finding": "COVERED"
+      },
+      {
+        "statement": "Evaluate security patches for applicability at least once every 35 calendar days.",
+        "finding": "PARTIAL"
+      }
+    ],
+    "gaps": [
+      {
+        "kind": "WEAKER_COMMITMENT",
+        "counter": []
+      }
+    ],
+    "elapsed": 47.6,
+    "failure": ""
+  },
+  {
+    "case": "19",
+    "model": "qwen38",
+    "score": 6,
+    "of": 6,
+    "checks": {
+      "coverage": true,
+      "gap_kinds": true,
+      "covered_cites": true,
+      "counter_cites": true,
+      "required_citations": true,
+      "citations_resolve": true
+    },
+    "coverage": "PARTIAL",
+    "duties": [
+      {
+        "statement": "Within 35 calendar days of the evaluation completion, take one of the following actions: apply the applicable patches, c",
+        "finding": "COVERED"
+      },
+      {
+        "statement": "Mitigation plans shall include the Responsible Entity\u2019s planned actions to mitigate the vulnerabilities addressed by eac",
+        "finding": "PARTIAL"
+      }
+    ],
+    "gaps": [
+      {
+        "kind": "WEAKER_COMMITMENT",
+        "counter": [
+          "cand-L23"
+        ]
+      }
+    ],
+    "elapsed": 79.4,
+    "failure": ""
+  },
+  {
+    "case": "19",
+    "model": "granite",
+    "score": 6,
+    "of": 6,
+    "checks": {
+      "coverage": true,
+      "gap_kinds": true,
+      "covered_cites": true,
+      "counter_cites": true,
+      "required_citations": true,
+      "citations_resolve": true
+    },
+    "coverage": "PARTIAL",
+    "duties": [
+      {
+        "statement": "For applicable patches identified in Part 2.2, within 35 calendar days of the evaluation completion, take one of the fol",
+        "finding": "COVERED"
+      },
+      {
+        "statement": "Mitigation plans shall include the Responsible Entity\u2019s planned actions to mitigate the vulnerabilities addressed by eac",
+        "finding": "PARTIAL"
+      }
+    ],
+    "gaps": [
+      {
+        "kind": "WEAKER_COMMITMENT",
+        "counter": [
+          "cand-L23"
+        ]
+      }
+    ],
+    "elapsed": 60.0,
+    "failure": ""
+  },
+  {
+    "case": "19",
+    "model": "mistral",
+    "score": 6,
+    "of": 6,
+    "checks": {
+      "coverage": true,
+      "gap_kinds": true,
+      "covered_cites": true,
+      "counter_cites": true,
+      "required_citations": true,
+      "citations_resolve": true
+    },
+    "coverage": "PARTIAL",
+    "duties": [
+      {
+        "statement": "For applicable patches identified in Part 2.2, within 35 calendar days of the evaluation completion, take one of the fol",
+        "finding": "COVERED"
+      },
+      {
+        "statement": "Mitigation plans shall include the Responsible Entity\u2019s planned actions to mitigate the vulnerabilities addressed by eac",
+        "finding": "PARTIAL"
+      }
+    ],
+    "gaps": [
+      {
+        "kind": "WEAKER_COMMITMENT",
+        "counter": [
+          "cand-L23"
+        ]
+      }
+    ],
+    "elapsed": 50.9,
+    "failure": ""
+  },
+  {
+    "case": "20",
+    "model": "qwen38",
+    "score": 6,
+    "of": 6,
+    "checks": {
+      "coverage": true,
+      "gap_kinds": true,
+      "covered_cites": true,
+      "counter_cites": true,
+      "required_citations": true,
+      "citations_resolve": true
+    },
+    "coverage": "PARTIAL",
+    "duties": [
+      {
+        "statement": "Implement each mitigation plan created or revised in Part 2.3 within the timeframe specified in the plan.",
+        "finding": "COVERED"
+      },
+      {
+        "statement": "Ensure that any revision to the plan or extension to the timeframe is approved by the CIP Senior Manager or delegate.",
+        "finding": "MISSING"
+      }
+    ],
+    "gaps": [
+      {
+        "kind": "CONTRADICTION",
+        "counter": [
+          "cand-L24"
+        ]
+      }
+    ],
+    "elapsed": 75.8,
+    "failure": ""
+  },
+  {
+    "case": "20",
+    "model": "granite",
+    "score": 6,
+    "of": 6,
+    "checks": {
+      "coverage": true,
+      "gap_kinds": true,
+      "covered_cites": true,
+      "counter_cites": true,
+      "required_citations": true,
+      "citations_resolve": true
+    },
+    "coverage": "PARTIAL",
+    "duties": [
+      {
+        "statement": "Implement each mitigation plan within the timeframe specified in the plan.",
+        "finding": "PARTIAL"
+      },
+      {
+        "statement": "Only allow revision of a mitigation plan or extension of its timeframe if approved by the CIP Senior Manager or delegate",
+        "finding": "MISSING"
+      }
+    ],
+    "gaps": [
+      {
+        "kind": "CONTRADICTION",
+        "counter": [
+          "cand-L24"
+        ]
+      }
+    ],
+    "elapsed": 54.8,
+    "failure": ""
+  },
+  {
+    "case": "20",
+    "model": "mistral",
+    "score": 3,
+    "of": 6,
+    "checks": {
+      "coverage": true,
+      "gap_kinds": false,
+      "covered_cites": true,
+      "counter_cites": false,
+      "required_citations": false,
+      "citations_resolve": true
+    },
+    "coverage": "PARTIAL",
+    "duties": [
+      {
+        "statement": "Implement each mitigation plan created or revised in Part 2.3 within the timeframe specified in the plan, unless a revis",
+        "finding": "PARTIAL"
+      }
+    ],
+    "gaps": [
+      {
+        "kind": "OMISSION",
+        "counter": []
+      }
+    ],
+    "elapsed": 43.3,
+    "failure": ""
+  },
+  {
+    "case": "25",
+    "model": "qwen38",
+    "score": 6,
+    "of": 6,
+    "checks": {
+      "coverage": true,
+      "gap_kinds": true,
+      "covered_cites": true,
+      "counter_cites": true,
+      "required_citations": true,
+      "citations_resolve": true
+    },
+    "coverage": "PARTIAL",
+    "duties": [
+      {
+        "statement": "Evaluate security patches for applicability that have been released since the last evaluation from the source or sources",
+        "finding": "COVERED"
+      },
+      {
+        "statement": "Conduct the evaluation at least once every 35 calendar days.",
+        "finding": "PARTIAL"
+      }
+    ],
+    "gaps": [
+      {
+        "kind": "WEAKER_COMMITMENT",
+        "counter": [
+          "cand-L22"
+        ]
+      }
+    ],
+    "elapsed": 71.3,
+    "failure": ""
+  },
+  {
+    "case": "25",
+    "model": "granite",
+    "score": 6,
+    "of": 6,
+    "checks": {
+      "coverage": true,
+      "gap_kinds": true,
+      "covered_cites": true,
+      "counter_cites": true,
+      "required_citations": true,
+      "citations_resolve": true
+    },
+    "coverage": "PARTIAL",
+    "duties": [
+      {
+        "statement": "At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last",
+        "finding": "PARTIAL"
+      }
+    ],
+    "gaps": [
+      {
+        "kind": "WEAKER_COMMITMENT",
+        "counter": [
+          "cand-L22"
+        ]
+      }
+    ],
+    "elapsed": 49.5,
+    "failure": ""
+  },
+  {
+    "case": "25",
+    "model": "mistral",
+    "score": 5,
+    "of": 6,
+    "checks": {
+      "coverage": true,
+      "gap_kinds": true,
+      "covered_cites": true,
+      "counter_cites": false,
+      "required_citations": true,
+      "citations_resolve": true
+    },
+    "coverage": "PARTIAL",
+    "duties": [
+      {
+        "statement": "Evaluate security patches for applicability that have been released since the last evaluation from the source or sources",
+        "finding": "COVERED"
+      },
+      {
+        "statement": "Evaluate security patches for applicability at least once every 35 calendar days.",
+        "finding": "PARTIAL"
+      }
+    ],
+    "gaps": [
+      {
+        "kind": "WEAKER_COMMITMENT",
+        "counter": []
+      }
+    ],
+    "elapsed": 46.9,
+    "failure": ""
+  }
+]
