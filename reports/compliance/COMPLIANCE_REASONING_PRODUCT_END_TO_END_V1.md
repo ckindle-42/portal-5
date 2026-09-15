@@ -17,10 +17,10 @@
  | 4 | internal revisions and source functions (foundation P4) | **DONE** | `3ff50ab1` |
 | 5 | two clocks + projections (foundation P5–P6) | **DONE** | `fb473750` |
 | 6 | foundation routed acceptance — `PRODUCT_FOUNDATION_READY` | **DONE** | `5c7317ac` |
-| 7 | compound R2 analysis plan (slice P1) | pending | |
-| 8 | candidate closure + reading packet (slice P2–P3) | pending | |
-| 9 | duty-level judgment + verification (slice §5.4/6) | pending | |
-| 10 | trace/change/scenario + live slice — `CIP007_R2_PRODUCT_PROOF_COMPLETE` | pending | |
+| 7 | compound R2 analysis plan (slice P1) | **DONE** | `5e47db91` |
+| 8 | candidate closure + reading packet (slice P2–P3) | **DONE** | `2a64bffe` |
+| 9 | duty-level judgment + verification (slice §5.4/6) | **DONE** | `48ec42d0` |
+| 10 | trace/change/scenario + live slice — `CIP007_R2_PRODUCT_PROOF_COMPLETE` | **IN PROGRESS** — wiring done `4a1b6694`/`10ca0406`; live arm stopped at review; see `docs/COMPLIANCE_END_TO_END_RESUME_20260915.md` | |
 | 11 | freeze qualification harness (model/scale P1) | pending | |
 | 12 | qualify reader/critic — `MODEL_ROLES_QUALIFIED` | pending | |
 | 13 | shadow, activate, regress | pending | |
@@ -510,6 +510,40 @@ Routed code surfaces added: `compliance_bundle` (deterministic governing
 bundle) and `compliance_sources(include_sections)`; the deployed service was
 restarted again after those commits so the receipt identity matches the
 served code.
+
+
+### Phases 7–9 (DONE) and Phase 10 (in progress at review stop)
+
+- **Phase 7** (`5e47db91`): `core/vertical_slice.py` — one immutable analysis
+  context (4 bundles fingerprinted, snapshot, both clocks, model config) and
+  the deterministic seven-operation plan; no keyword routing; U14 raises at
+  plan build; `execute_plan` never composes answers from steps that did not run.
+- **Phase 8** (`2a64bffe`): `assess_part` is reading-first — the alignment
+  gate no longer vetoes (U09 removed; U12 retired with it) and now runs after
+  the reading as a retained diagnostic; applicability is deterministic from
+  governing text + declared scope. `core/candidate_closure.py` puts source
+  functions, revision currency, mapping metadata (governance-only), sibling
+  closure, and the declared-corpus boundary receipt into the reader packet.
+  Acceptance cases 15/24 re-derived before any live run (both stay
+  UNRESOLVED; U12/U09 → U11; notes in the manifest).
+- **Phase 9** (`48ec42d0`): verifier demotes non-operative and stale citations;
+  same-duty quantitative direction (35→40 → PARTIAL/LESS_RESTRICTIVE; 30 →
+  STRICTER with unused flexibility); separated per-duty outcomes
+  (ALIGNED/PARTIAL/MISALIGNED/STRICTER/EVIDENCE_ONLY/CONFLICT).
+- **Phase 10** (`4a1b6694`, `1f51524f`, `c68c1c47`, `10ca0406`):
+  `revision_compare` (store-based semantic 6→7.1 delta), `slice_executor`
+  (real-primitive arm + `semantic_reading` proposed edges), routed
+  `analysis_plan` on `compliance_analyze`. Live single-Part probe: R2.2 FULL,
+  3/3 duties COVERED, council SUPPORTED, ~49 min/Part. Full routed arm was
+  stopped at operator review ~20 min in; three abandoned run rows retained as
+  INTERRUPTED. Resume instructions:
+  `docs/COMPLIANCE_END_TO_END_RESUME_20260915.md`.
+
+| date | failure | repair | guard |
+| --- | --- | --- | --- |
+| 2026-09-15 (Phase 10) | first routed live launch died in 6 s — the packet-building request lacked `snapshot` | request completed | compliance suite re-green; runner committed |
+| 2026-09-15 (Phase 10) | the arm reaped its own run 34 s in — `assessment_runs.init_store()` (import-time sweep) marks RUNNING rows INTERRUPTED when `worker_owner` is missing; `run_seven_question` created its row without one | run rows record the serving process identity (`10ca0406`); abandoned rows retained as evidence | resumption doc §3; sweep semantics unchanged and still correct for genuine restarts |
+| 2026-09-15 (discipline) | the full arm was launched after only a 6-second smoke response, without a smallest live case — diagnosed on review as a stall (no model generation, 0 assessments at ~55 min) | killed, swept, then the single-Part probe validated the whole path live (R2.2 FULL, 49 min) before relaunching | `scripts/probe_single_part_live.py` + the D0 discipline note in the resume doc |
 
 ## 4. Commands and receipts (Phase 0)
 
