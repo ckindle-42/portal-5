@@ -14,7 +14,7 @@
 | 1 | product/result contract (foundation P1) | **DONE** | `626aa18d` |
 | 2 | official NERC source sync (foundation P2) | **DONE** | `3ef77f88` |
 | 3 | complete regulatory semantics (foundation P3) | **DONE** | `2d3ec5a8` |
- | 4 | internal revisions and source functions (foundation P4) | pending | |
+ | 4 | internal revisions and source functions (foundation P4) | **DONE** | `3ff50ab1` |
 | 5 | two clocks + projections (foundation P5–P6) | pending | |
 | 6 | foundation routed acceptance — `PRODUCT_FOUNDATION_READY` | pending | |
 | 7 | compound R2 analysis plan (slice P1) | pending | |
@@ -157,8 +157,8 @@ closure owned by that phase) · NOT_APPLICABLE (reason). Updated per phase below
 | L15 | duty identity conflated with adequacy (40d≠35d duty) | semantic correspondence before quantity compare | **PASS** — reading prompt + `constraints.compare_constraint`; minimal-pair cases re-run Phase 9 |
 | L16 | spliced/token-overlap quantities | literal operand in one cited phrase | **PASS** — `reading._operand_is_in_source` + acceptance cases |
 | L17 | empty top-k = absence | boundary receipt requirement | **PASS** — `reading._unprovable_absences` + case 13; corpus-boundary closure Phase 8 |
-| L18 | copied regulation row = implementation | source function carried end-to-end | FAIL → Phase 4 (internal source-function classification) + Phase 8 |
-| L19 | Cartesian folder mappings in trace/impact | discovery-only, excluded from established trace | FAIL → Phase 4 (quarantine 1338 proposed assertions) |
+| L18 | copied regulation row = implementation | source function carried end-to-end | **PASS (store/extraction)** — P4 section-role gating (`test_copied_traceability_rows_yield_no_commitments`); packet-surface proof Phase 8 |
+| L19 | Cartesian folder mappings in trace/impact | discovery-only, excluded from established trace | **PASS** — P4 `derivation` quarantine (1342 tagged) + approved-only impact (`test_cartesian_quarantine_tags_once_and_excludes_from_impact`); routed proof Phase 6 |
 | L20 | approval overrides fresh comparison | approval = governance, not truth | **PASS (behavior)** — no approval prerequisite on the reading path; stale-mapping regression Phase 5 |
 | L21 | `known_at` echoed, not applied | both clocks on every operation | FAIL → Phase 5 (two-clock operational + replay tests) |
 | L22 | running service ≠ current HEAD | record served commit; restart via managed path | **FAIL (live now)** — deployed MCP predates HEAD by 7 commits; closure Phase 6 restart-from-commit |
@@ -367,6 +367,77 @@ to run on a defective bundle.
 | 2026-09-15 (Phase 3) | register staleness discovered against its own pinned sources: CIP-008-6 R3 has Parts 3.1/3.2 that the register build missed (empty-leading-row table layout defeated the fixed header-row index), leaving a bogus R-level node | `_table_parts` locates the header row by content; register regenerated via the canonical CLI (255 nodes, 0 holes); superseded store node removed with its derived rows by the materializer | extraction-vs-register diff run over all 14 standards (only CIP-008-6 changed); `test_migration_from_a_populated_v7_store` extended to migration 9 |
 | 2026-09-15 (Phase 3) | difflib's default `autojunk` distorted long-duty similarity (true pair CIP-007-6↔7.1 R2.1 scored 0.47, below any sane threshold) | similarity computed with `autojunk=False`; threshold 0.75 pinned by same-duty/different-duty tests | `test_compliance_duty_lineage.py` (same-duty ≥0.75, different-duty <0.5, swapped-number pairing) |
 | 2026-09-15 (Phase 3) | CIP-013-2 carries no Guidelines and Technical Basis section, but its duty prose contains "Requirement R2:" — the marker scan fabricated a Technical Basis span from requirement text with the wrong role | markers only count inside a real GTB section (heading-scoped); section-absent is a recorded shape fact | `test_absent_technical_basis_section_is_a_recorded_shape_fact` + census (0 fabricated spans) |
+
+### Phase 4 — internal revisions and source functions (DONE)
+
+Implemented `core/internal_corpus.py` + migration 10 + the discovery-only
+quarantine — the internal side of the corpus now resolves to exact revisions
+and classified sections.
+
+- **Control-block metadata** (`parse_document_control`): title, document
+  number (`Document Number:` and the `Document ID:` variant), stated type,
+  NERC standard, effective date, owner/owner-title, approver/approval date,
+  version + authored date from the REVISION HISTORY latest row, and the
+  latest review-row date. Every field carries page provenance; a field the
+  document does not state stays `None`/empty — a filename never invents a
+  value. Corpus census: 63/68 effective dates, 61 document numbers, 48
+  versions, 67 owners, 64 approval dates sourced; the rest recorded as
+  absent (mostly forms).
+- **Kind classification** (`classify_kind`): the document's own
+  `Document Type:` line wins, filename fallback recorded as such, no signal
+  → `unknown`/unknown binding — never a plausible guess. Kinds: 24 work
+  instructions, 20 procedures, 5 plans, 4 processes, 1 policy, 5 evidence
+  specifications, 9 unknown.
+- **Section functions** (`sectionize`): heading-driven sections with full
+  dotted paths, page ranges, and hash-verified span anchors, classified into
+  the controlled vocabulary — operative body (doc-kind role), copied
+  regulation rows under a Requirements Traceability appendix subtree
+  (`TRACEABILITY_ASSERTION`), ToC pages (`TABLE_OF_CONTENTS`), owner/
+  approvals/revision-history (`DOCUMENT_CONTROL`), definitions, commentary.
+  Guards proven on the real corpus: numbering continuity keeps appendix
+  table rows that re-use referenced numbers (`3.1`, `3.3`) inside the
+  appendix; a revision-history cutoff stops date/author rows re-using
+  section numbers; numbered content items never become sections. New roles
+  `TABLE_OF_CONTENTS`/`DOCUMENT_CONTROL` added to `SOURCE_ROLES` (vocabulary
+  is "at minimum" per contract §3.2).
+- **Migration 10** (additive; live store 9→10 after a full backup at
+  `data/private/backups/pre-v10-*.db`): `document_revisions`
+  .document_number/.version/.owner/.owner_title, `source_sections.title`,
+  `relationship_assertions.derivation`. Sourced values fill honest
+  placeholders only — a re-run can never clobber a real value.
+- **Materialization** (`scripts/materialize_internal_corpus.py`): all 68
+  on-disk controlled documents hash-matched their store revisions (zero
+  unmatched, zero missing-from-disk); 2508 revision-scoped sections + spans
+  persisted; the legacy whole-document section of each document typed with
+  its document-level role. Receipt:
+  `coding_task/v9_compliance/private/internal_corpus/20260915T171637Z/inventory.json`
+  (+ the pre-fix run at `…/20260915T171511Z/`).
+- **The quarantine (L19)**: `impact.analyze` computes established impact
+  from **approved** edges only — proposed edges return as labeled
+  `discovery_candidates` (`derivation`, "discovery-only" note), never in
+  direct/transitive. All 1342 legacy folder-derived proposals tagged:
+  1070 `folder_cartesian` (IMPLEMENTS node×document per standard folder) +
+  272 `folder_placeholder_org`; 0 untagged proposed rows remain, and a
+  re-run re-tags nothing (idempotent). `trace()` already defaulted to
+  approved-only.
+- **Commitment gating (L18)**: `extract_assertions(section_role=…)` — only
+  operative roles can yield commitments; the patch procedure's Appendix 1
+  copied R2 rows produce zero commitments while its §3.1–3.8 sections
+  resolve operative.
+- **Exit-condition inspection (store-level)**: patch procedure revision =
+  `LSPG-ADM-CIP007SPM` v11.0, effective 2026-07-31, approved 2026-07-24,
+  owner Ryan Borg, binding `internally_mandatory`; sections 3.1/3.3/3.5/3.6
+  `OPERATIVE_PROCEDURE`, 5.1 `TRACEABILITY_ASSERTION`. The routed proof of
+  these classifications is Phase 6 (P7 observations 7–8).
+- **validation**: `ruff check .` clean · `ruff format --check .` clean ·
+  `pytest tests/unit/ -q` **1948 passed, 4 skipped** (29 new tests) · spine
+  manifest regenerated after mapping `internal_corpus.py` (+`impact.py`)
+  into `unit-compliance-engine`.
+
+| date | failure | repair | guard |
+| --- | --- | --- | --- |
+| 2026-09-15 (Phase 4) | migration 10's comment text contained a semicolon ("impact; empty") — the runner splits statements on `;` and executed a comment fragment (`near "empty"`), the exact migration-8 trap | comment rewritten semicolon-free | migration tests (v10 fresh + populated-v9 upgrade); the schema file's own NOTE |
+| 2026-09-15 (Phase 4) | `InternalSection.section_id` omitted the revision id — 68 documents sharing heading paths (`1.0` page 1) collided, and only 1037 of 2531 sections survived insertion with cross-revision references | id now hashes `{revision_id}|path|page_start|role`; live store re-materialized and verified (2508 sections, 0 shared ids across revisions) | `test_section_ids_are_scoped_to_the_revision` |
 
 ## 4. Commands and receipts (Phase 0)
 
