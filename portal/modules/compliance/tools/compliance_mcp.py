@@ -128,6 +128,60 @@ def search_controls(
         return {"error": str(e)}
 
 
+def _register_part(
+    conn: Any,
+    reg: Any,
+    node: Any,
+    decompose: Any,
+    expression_for: Any,
+    when: str,
+    today: str,
+) -> dict[str, Any]:
+    """One register-resolved governing part with its atoms and sourced
+    effectivity (the register path of ``compliance_requirement``)."""
+    anchors = []
+    try:
+        row = conn.execute(
+            "SELECT source_anchor_ids_json FROM obligation_atoms WHERE node_id = ? ORDER BY atom_id LIMIT 1",
+            (node.id,),
+        ).fetchone()
+        if row:
+            anchors = json.loads(row[0])
+    except Exception:  # pragma: no cover - compatibility fallback
+        anchors = []
+    anchors = anchors or [f"{node.source_pdf}#pages={','.join(map(str, node.source_pages))}"]
+    parent = next(
+        (
+            candidate.verbatim_text
+            for candidate in reg.nodes
+            if candidate.standard == node.standard
+            and candidate.requirement == node.requirement
+            and candidate.granularity == "requirement"
+        ),
+        "",
+    )
+    atoms = decompose(
+        node.id,
+        node.verbatim_text,
+        lead_in=parent if node.granularity == "part" else "",
+        anchor_ids=anchors,
+    )
+    return {
+        "id": node.id,
+        "standard": node.standard,
+        "verbatim_text": node.verbatim_text,
+        "atoms": [atom.to_record() for atom in atoms],
+        "expression": expression_for(atoms, node.verbatim_text),
+        "conditions": node.applicable_systems,
+        "effectivity": {
+            "valid_from": node.valid_from,
+            "valid_to": node.valid_to,
+            "anchor": reg.lifecycle_source,
+        },
+        "temporal_label": "historical" if node.valid_to or when < today else "current",
+    }
+
+
 @mcp.tool()
 def compliance_requirement(
     requirement: str,
@@ -135,96 +189,120 @@ def compliance_requirement(
     valid_at: str = "",
     known_at: str = "",
 ) -> dict[str, Any]:
-    """Resolve governing requirements by validity interval and return atoms."""
+    """Resolve governing requirements by validity interval and return atoms.
+
+    Phase 5: both clocks are applied. ``valid_at`` selects what governed the
+    requested moment and ``known_at`` selects what this store knew then —
+    a fact already true but not yet recorded (late-recorded) is reported as
+    ``UNKNOWN_KNOWLEDGE`` instead of being silently included or dropped.
+    Effectivity comes from the canonical store's registry-sourced
+    assertions, never from filenames."""
     try:
         from portal.modules.compliance.core.cip_register import Register
         from portal.modules.compliance.core.engine import effective_parts, parse_iso_date
         from portal.modules.compliance.core.obligations import decompose, expression_for
+        from portal.modules.compliance.core.repository import Repository
+        from portal.modules.compliance.core.temporal_selection import (
+            select_revision_effectivity,
+            store_nodes_for_revisions,
+            withhold_unknown_knowledge,
+        )
 
         today = datetime.date.today().isoformat()
         when = parse_iso_date(valid_at or today, field="valid_at")
         reg = Register.load()
+        repo = Repository()
+        conn = repo._conn
+        family_match = re.match(r"(CIP-\d+)", requirement.strip().upper())
+        family = family_match.group(1) if family_match else ""
+        selection = (
+            select_revision_effectivity(conn, family=family, valid_at=when, known_at=known_at)
+            if family
+            else None
+        )
+        selected_versions = (
+            {rev["version"] for rev in selection["selected"]} if selection else set()
+        )
+        selected_revision_ids = (
+            {rid for rev in selection["selected"] for rid in rev["revision_ids"]}
+            if selection
+            else set()
+        )
         active = effective_parts(reg, when)
+        # The register is pinned to current revisions; a selected future or
+        # historical store revision it does not carry still resolves from the
+        # canonical store (requirement_nodes + verbatim atom clauses).
         want = re.sub(r"\s+", "", requirement.strip()).upper()
         hits = [n for n in active if re.sub(r"\s+", "", n.id).upper().startswith(want)]
         if not hits:
             # Family queries such as CIP-003 select the effective revision at
             # the requested date; explicit retired version IDs remain exact.
             hits = [n for n in active if re.sub(r"\s+", "", n.standard).upper().startswith(want)]
-        if hits:
-            parts: list[dict[str, Any]] = []
-            for node in hits:
-                anchors = []
-                try:
-                    from portal.modules.compliance.core.repository import Repository
-
-                    row = (
-                        Repository()
-                        ._conn.execute(
-                            "SELECT source_anchor_ids_json FROM obligation_atoms WHERE node_id = ? ORDER BY atom_id LIMIT 1",
-                            (node.id,),
-                        )
-                        .fetchone()
-                    )
-                    if row:
-                        anchors = json.loads(row[0])
-                except Exception:  # pragma: no cover - compatibility fallback
-                    anchors = []
-                anchors = anchors or [
-                    f"{node.source_pdf}#pages={','.join(map(str, node.source_pages))}"
-                ]
-                parent = next(
-                    (
-                        candidate.verbatim_text
-                        for candidate in reg.nodes
-                        if candidate.standard == node.standard
-                        and candidate.requirement == node.requirement
-                        and candidate.granularity == "requirement"
-                    ),
-                    "",
-                )
-                atoms = decompose(
-                    node.id,
-                    node.verbatim_text,
-                    lead_in=parent if node.granularity == "part" else "",
-                    anchor_ids=anchors,
-                )
-                parts.append(
-                    {
-                        "id": node.id,
-                        "standard": node.standard,
-                        "verbatim_text": node.verbatim_text,
-                        "atoms": [atom.to_record() for atom in atoms],
-                        "expression": expression_for(atoms, node.verbatim_text),
-                        "conditions": node.applicable_systems,
-                        "effectivity": {
-                            "valid_from": node.valid_from,
-                            "valid_to": node.valid_to,
-                            "anchor": reg.lifecycle_source,
-                        },
-                        "temporal_label": "historical"
-                        if node.valid_to or when < today
-                        else "current",
-                    }
-                )
-            return {
+        # drop register nodes whose standard revision the store's sourced
+        # effectivity does not select at this valid_at/known_at
+        if selected_versions:
+            hits = [n for n in hits if n.standard.rsplit("-", 1)[1] in selected_versions]
+        parts = [
+            _register_part(conn, reg, node, decompose, expression_for, when, today) for node in hits
+        ]
+        # canonical-store nodes for selected revisions the register does not
+        # carry (e.g. the future CIP-007-7.1) resolve from the store's own
+        # decompositions — verbatim atom clauses, never invented text.
+        if selected_revision_ids:
+            carried = {n.standard for n in hits}
+            store_parts = store_nodes_for_revisions(
+                conn, selected_revision_ids, exclude_standards=carried
+            )
+            for node_id, entry in store_parts.items():
+                if want in re.sub(r"\s+", "", node_id).upper() or not re.search(r"R\d+", want):
+                    parts.append(entry)
+        # as-known strictness: a part whose revision's effectivity was not
+        # yet recorded at the requested known_at is NOT served as known —
+        # the disclosure names it (late-recorded fact, L21).
+        parts, withheld_knowledge = withhold_unknown_knowledge(parts, selection)
+        if parts or selection:
+            response: dict[str, Any] = {
                 "requirement": requirement,
-                "found": True,
+                "found": bool(parts),
                 "scope": scope,
                 "valid_at": when,
                 "known_at": known_at or "latest recorded knowledge",
                 "defaulted_valid_at": not bool(valid_at),
-                "granularity": "exact"
-                if len(parts) == 1 and re.sub(r"\s+", "", parts[0]["id"]).upper() == want
-                else "rollup",
-                "parts": parts,
-                "readiness": {"complete": True, "missing": []},
-                "source": "NERC CIP Reliability Standards verbatim register",
             }
+            if selection is not None:
+                response["revision_selection"] = {
+                    "selected": selection["selected"],
+                    "future": selection["future"],
+                    "historical": selection["historical"],
+                    "unknown_knowledge": selection["unknown_knowledge"],
+                }
+            if withheld_knowledge:
+                response["withheld_as_unknown_knowledge"] = withheld_knowledge
+            if parts:
+                response.update(
+                    {
+                        "granularity": "exact"
+                        if len(parts) == 1 and re.sub(r"\s+", "", parts[0]["id"]).upper() == want
+                        else "rollup",
+                        "parts": parts,
+                        "readiness": {"complete": True, "missing": []},
+                        "source": "NERC CIP Reliability Standards verbatim register",
+                    }
+                )
+            return response
         return {
             "requirement": requirement,
             "found": False,
             "valid_at": when,
+            "known_at": known_at or "latest recorded knowledge",
+            "revision_selection": {
+                "selected": selection["selected"],
+                "future": selection["future"],
+                "historical": selection["historical"],
+                "unknown_knowledge": selection["unknown_knowledge"],
+            }
+            if selection
+            else None,
             "note": "no governing revision is enforceable at the requested date",
         }
     except Exception as e:  # noqa: BLE001

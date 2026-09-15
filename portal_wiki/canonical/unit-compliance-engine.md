@@ -74,6 +74,10 @@ sources:
 - type: code
   path: portal/modules/compliance/core/internal_corpus.py
 - type: code
+  path: portal/modules/compliance/core/temporal_selection.py
+- type: code
+  path: portal/modules/compliance/core/projections.py
+- type: code
   path: portal/modules/compliance/core/impact.py
 - type: code
   path: portal/modules/compliance/core/boundary.py
