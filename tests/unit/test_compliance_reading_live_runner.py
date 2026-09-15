@@ -39,10 +39,18 @@ def test_failure_retains_alignment_response(tmp_path):
 def test_report_receives_verified_source_text(tmp_path):
     case = acceptance.CASES["10"]
     outcome = acceptance.run_case(case, acceptance.Repository(tmp_path / "report.db"))
+    # The property is unchanged by the move to the reading architecture: the
+    # model must receive the VERIFIED STORED TEXT, never a reconstruction. What
+    # changed is the packet shape — the reading pass gives each candidate its
+    # full text inline instead of a separate source_catalog keyed by slice id.
     packet = outcome.result.receipt["explanation"]["raw"]["request"]
-    assert packet["source_catalog"]["cand-L22"]["text"] == acceptance.FIXTURES["L22"]["text"]
-    assert packet["source_catalog"]["cand-A22"]["text"] == acceptance.FIXTURES["A22"]["text"]
-    assert packet["completeness"] == "COMPLETE"
+    by_id = {c["candidate_id"]: c for c in packet["candidates"]}
+    assert by_id["L22"]["text"] == acceptance.FIXTURES["L22"]["text"]
+    assert by_id["A22"]["text"] == acceptance.FIXTURES["A22"]["text"]
+    # the governing side is supplied in full too, not trimmed to an atom
+    assert packet["governing"]["part_text"]
+    # case 10's boundary is complete, so absence would be provable here
+    assert packet["allowed_boundary_proof_ids"]
 
 
 def test_result_projection_uses_the_original_run_context(monkeypatch):

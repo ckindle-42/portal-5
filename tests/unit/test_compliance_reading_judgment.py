@@ -196,24 +196,62 @@ def test_full_requires_every_duty_covered():
                 {
                     "duty_id": "d2",
                     "statement": "do it every 35 days",
-                    "finding": "MISSING",
+                    "finding": "PARTIAL",
                     "governing_slice_ids": ["gov-1"],
-                    "candidate_slice_ids": [],
+                    "candidate_slice_ids": ["cand-L22"],
                 },
             ],
             "gaps": [
                 {
                     "duty_id": "d2",
-                    "kind": "OMISSION",
-                    "missing_commitment": "no cadence stated",
+                    "kind": "WEAKER_COMMITMENT",
+                    "missing_commitment": "40 days exceeds the 35-day maximum",
                     "governing_slice_ids": ["gov-1"],
-                    "internal_counterevidence_slice_ids": [],
+                    "internal_counterevidence_slice_ids": ["cand-L22"],
                 }
             ],
         }
     )
     assert judgment.documentary_coverage == "PARTIAL"
     assert judgment.downgraded_from == "FULL"
+
+
+def test_an_omission_without_a_completed_boundary_cannot_prove_absence():
+    """Acceptance case 13, as a rule rather than an accident.
+
+    An OMISSION asserts that *nothing supplied* addresses the duty. That is a
+    claim about the search, not about the documents, and the reader cannot see
+    the search boundary. Without a completed boundary receipt the honest answer
+    is U04_RETRIEVAL_INCOMPLETE, never a NONE verdict that reads to an operator
+    as "you have no such control".
+    """
+    judgment = _judge(
+        {
+            "documentary_coverage": "NONE",
+            "duties": [
+                {
+                    "duty_id": "d1",
+                    "statement": "evaluate patches every 35 days",
+                    "finding": "MISSING",
+                    "governing_slice_ids": ["gov-1"],
+                    "candidate_slice_ids": [],
+                }
+            ],
+            "gaps": [
+                {
+                    "duty_id": "d1",
+                    "kind": "OMISSION",
+                    "missing_commitment": "no patch evaluation cadence",
+                    "governing_slice_ids": ["gov-1"],
+                    "internal_counterevidence_slice_ids": [],
+                }
+            ],
+        }
+    )
+    assert judgment.documentary_coverage == "UNRESOLVED"
+    assert not judgment.valid
+    assert "absence is not provable" in judgment.failure
+    assert "READING_BOUNDARY_UNPROVEN" in {u.code for u in judgment.uncertainties}
 
 
 def test_full_stands_when_every_duty_is_covered_and_cited():
