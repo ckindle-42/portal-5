@@ -98,6 +98,7 @@ def _op_implementing_clauses(
                 "governing": bundle,
                 "candidate_set": candidate_set,
                 "metadata": {},
+                "snapshot": None,
             },
         )()
         packet = build_reading_packet(request, repository=repo)
