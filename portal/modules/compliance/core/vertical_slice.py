@@ -225,6 +225,7 @@ def seven_question_plan(ctx: SliceContext) -> list[SliceOperation]:
         "valid_at": ctx.valid_at,
         "known_at": ctx.known_at,
         "kb_id": ctx.kb_id,
+        "scope_text": ctx.scope_text,
         "snapshot_id": ctx.snapshot_id,
         "snapshot_fingerprint": ctx.snapshot_fingerprint,
         "revision_before": ctx.revision_before,

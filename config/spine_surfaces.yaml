@@ -244,6 +244,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/review_queue.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-revision_compare
+  globs:
+  - portal/modules/compliance/core/revision_compare.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-runtime
   globs:
   - portal/modules/compliance/core/runtime.py
@@ -259,6 +263,10 @@ surfaces:
 - name: file-portal-modules-compliance-core-scope_derive
   globs:
   - portal/modules/compliance/core/scope_derive.py
+  unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-slice_executor
+  globs:
+  - portal/modules/compliance/core/slice_executor.py
   unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-temporal
   globs:

@@ -1741,12 +1741,22 @@ def compliance_analyze(
     conditional_scope: bool = False,
     effective_on: str = "",
     sync: bool = False,
+    analysis_plan: str = "",
+    scenario_part_id: str = "",
+    scenario_edits: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Start/status/result/cancel a bounded compliance analysis run.
 
     Uses the same default KB/snapshot/context service as ``compliance_gaps``
     (never the private org graph). Responses identify the engine, the assessment
     IDs and the run; the in-memory job dictionary is gone.
+
+    ``analysis_plan="seven_question_cip007_r2"`` executes the compound
+    CIP-007 R2 arm over ONE shared context through the real primitives:
+    duties, implementing clauses, alignment, gaps, evidence connections, the
+    semantic 6->7.1 temporal diff, and (when ``scenario_edits`` is supplied
+    with ``scenario_part_id``) an isolated proposed-change reassessment.
+    Sync only.
     """
     try:
         from portal.modules.compliance.core import assessment_runs, assessment_service
@@ -1773,6 +1783,20 @@ def compliance_analyze(
             parts.extend(found or [ref])
 
         eff = effective_on or valid_at or datetime.date.today().isoformat()
+        if analysis_plan:
+            if analysis_plan != "seven_question_cip007_r2":
+                return {"error": f"unknown analysis_plan {analysis_plan!r}"}
+            from portal.modules.compliance.core.slice_executor import run_seven_question
+
+            return run_seven_question(
+                refs[0] if refs else "CIP-007-6 R2",
+                valid_at=eff,
+                known_at=known_at,
+                kb_id=kb_id,
+                scope_text=scope,
+                scenario_part_id=scenario_part_id,
+                scenario_edits=scenario_edits,
+            )
         if sync or operation == "sync":
             results = assessment_runs.assess_requirements_now(
                 parts,
