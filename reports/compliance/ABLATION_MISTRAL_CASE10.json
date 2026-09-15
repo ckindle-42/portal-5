@@ -1,0 +1,35 @@
+{
+  "model": "mistral-small3.2:24b-instruct-2506-q4_K_M",
+  "rows": [
+    {
+      "variant": "baseline (unmodified)",
+      "l22": "DIFFERENT[(35, 40)]",
+      "elapsed": 51.9
+    },
+    {
+      "variant": "readable candidate ids",
+      "l22": "DIFFERENT[(35, 40)]",
+      "elapsed": 44.7
+    },
+    {
+      "variant": "no R2 lead-in slice",
+      "l22": "DIFFERENT[(35, 40)]",
+      "elapsed": 46.1
+    },
+    {
+      "variant": "no scope block",
+      "l22": "SAME[(35, 40)]",
+      "elapsed": 46.2
+    },
+    {
+      "variant": "no filename locator",
+      "l22": "DIFFERENT[(35, 40)]",
+      "elapsed": 42.5
+    },
+    {
+      "variant": "minimal (all of the above)",
+      "l22": "SAME[(35, 40)]",
+      "elapsed": 38.5
+    }
+  ]
+}

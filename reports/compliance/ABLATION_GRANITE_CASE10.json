@@ -1,0 +1,35 @@
+{
+  "model": "granite4.1:30b-ctx16k",
+  "rows": [
+    {
+      "variant": "baseline (unmodified)",
+      "l22": "DIFFERENT[(35, 40)]",
+      "elapsed": 51.6
+    },
+    {
+      "variant": "readable candidate ids",
+      "l22": "DIFFERENT[(35, 40)]",
+      "elapsed": 50.1
+    },
+    {
+      "variant": "no Part 2.1 reference",
+      "l22": "SAME[(35, 40)]",
+      "elapsed": 55.1
+    },
+    {
+      "variant": "no R2 lead-in slice",
+      "l22": "DIFFERENT",
+      "elapsed": 43.5
+    },
+    {
+      "variant": "no scope block",
+      "l22": "DIFFERENT[(35, 40)]",
+      "elapsed": 56.4
+    },
+    {
+      "variant": "no filename locator",
+      "l22": "DIFFERENT[(35, 40)]",
+      "elapsed": 53.3
+    }
+  ]
+}

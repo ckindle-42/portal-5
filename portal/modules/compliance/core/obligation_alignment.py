@@ -765,28 +765,28 @@ def _default_seat_fn() -> Any:
 
 def _ollama_alignment_seat(model: str, system: str, user: str) -> str:
     """The alignment transport: one JSON object per candidate plus bindings, so
-    it needs far more output budget than a single council verdict. Mirrors the
-    council's Ollama transport (think suppressed, temperature 0, JSON format)
-    with a larger ``num_predict``; the council's own transport is untouched."""
-    import urllib.request
+    it needs far more output budget than a single council verdict.
 
+    Goes through the shared reasoning transport, keeping this seat's own
+    constrained-JSON ``format`` and its computed budget. The think suppression
+    is gone for the reason given in ``reading_transport``: on native
+    ``/api/chat`` a reasoning trace arrives in ``message.thinking`` and cannot
+    contaminate the constrained response.
+    """
     packet = json.loads(user)
     count = len(packet.get("candidates", []))
     # One record per supplied source, with bindings and exact ids. The real
     # corpus can supply fifteen records; a council-sized cap truncates them.
-    output_budget = min(8192, max(4096, 512 * count))
-    payload = {
-        "model": model,
-        "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        "stream": False,
-        "format": _response_contract(packet.get("task", "clause_alignment")),
-        "think": False,
-        "options": {"temperature": 0.0, "num_predict": output_budget},
-    }
-    req = urllib.request.Request(
-        "http://localhost:11434/api/chat",
-        data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json"},
+    # Raised with reasoning restored: a reasoning model emitting one record per
+    # candidate across fifteen candidates does not fit in 8k.
+    output_budget = min(16384, max(8192, 768 * count))
+    from portal.modules.compliance.core.reading_transport import chat
+
+    result = chat(
+        model,
+        system,
+        user,
+        budget=output_budget,
+        fmt=_response_contract(packet.get("task", "clause_alignment")),
     )
-    with urllib.request.urlopen(req, timeout=600) as response:  # noqa: S310 - fixed localhost
-        return (json.load(response).get("message") or {}).get("content", "") or ""
+    return result.content

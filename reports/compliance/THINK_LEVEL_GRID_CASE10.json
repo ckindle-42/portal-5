@@ -1,0 +1,141 @@
+{
+  "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+  "arms": [
+    {
+      "arm": "qwen38     think:false",
+      "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+      "think": false,
+      "thinking_chars": 0,
+      "thinking_head": "",
+      "thinking_tail": "",
+      "elapsed": 52.4,
+      "eval_count": 639,
+      "parse_error": "",
+      "records": {
+        "A22": {
+          "relation": "SAME",
+          "activity": "evaluate security patches for applicability",
+          "bindings": [],
+          "missing_facts": []
+        },
+        "L22": {
+          "relation": "SAME",
+          "activity": "complete patch-applicability evaluation",
+          "bindings": [
+            {
+              "candidate_slice_id": "cand-L22",
+              "constraint_kind": "max_interval",
+              "direction": "max_interval",
+              "governing_quantity": {
+                "qualifier": "calendar",
+                "unit": "day",
+                "value": 35
+              },
+              "governing_slice_id": "gov-1",
+              "internal_quantity": {
+                "qualifier": "calendar",
+                "unit": "day",
+                "value": 40
+              },
+              "rationale": "The candidate sets a maximum interval of 40 calendar days for the evaluation, whereas the governing clause requires at least once every 35 calendar days. The duty identity remains the same, but the specific interval constraint differs."
+            }
+          ],
+          "missing_facts": []
+        }
+      },
+      "raw_head": "{\n  \"records\": [\n    {\n      \"activity\": \"evaluate security patches for applicability\",\n      \"candidate_id\": \"A22\",\n      \"candidate_slice_ids\": [\n        \"cand-A22\"\n      ],\n      \"constraint_bindin"
+    },
+    {
+      "arm": "qwen38     think:low",
+      "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+      "think": "low",
+      "thinking_chars": 5206,
+      "thinking_head": "Let me analyze each candidate against the governing clause.\n\n**Governing clause (gov-1):**\n\"At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.1.\"\n\nKey elements:\n- Activity: evaluate security patches for applicability\n- Object: security patches released since the last ev",
+      "thinking_tail": "nction: OPERATIVE_COMMITMENT\n- constraint_bindings: [{governing_slice_id: \"gov-1\", candidate_slice_id: \"cand-L22\", constraint_kind: \"max_interval\", direction: \"max_interval\", governing_quantity: {value: 35, unit: \"day\", qualifier: \"calendar\"}, internal_quantity: {value: 40, unit: \"day\", qualifier: \"calendar\"}, rationale: \"...\"}]\n- governing_slice_ids: [\"gov-1\"]\n- candidate_slice_ids: [\"cand-L22\"]\n",
+      "elapsed": 179.5,
+      "eval_count": 1943,
+      "parse_error": "",
+      "records": {
+        "A22": {
+          "relation": "SAME",
+          "activity": "evaluate security patches for applicability",
+          "bindings": [],
+          "missing_facts": [
+            "No evaluation cadence or interval is stated in the candidate; the governing requires at least once every 35 calendar days."
+          ]
+        },
+        "L22": {
+          "relation": "SAME",
+          "activity": "complete patch-applicability evaluation",
+          "bindings": [
+            {
+              "candidate_slice_id": "cand-L22",
+              "constraint_kind": "max_interval",
+              "direction": "max_interval",
+              "governing_quantity": {
+                "qualifier": "calendar",
+                "unit": "day",
+                "value": 35
+              },
+              "governing_slice_id": "gov-1",
+              "internal_quantity": {
+                "qualifier": "calendar",
+                "unit": "day",
+                "value": 40
+              },
+              "rationale": "The governing sets a maximum interval of 35 calendar days ('at least once every 35 calendar days'); the candidate sets a maximum interval of 40 calendar days ('once every 40 calendar days'). Both are max_interval constraints bounding the delay between recurrences of the same evaluation activity."
+            }
+          ],
+          "missing_facts": []
+        }
+      },
+      "raw_head": "{\n  \"records\": [\n    {\n      \"activity\": \"evaluate security patches for applicability\",\n      \"candidate_id\": \"A22\",\n      \"candidate_slice_ids\": [\n        \"cand-A22\"\n      ],\n      \"constraint_bindin"
+    },
+    {
+      "arm": "qwen38     think:medium",
+      "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+      "think": "medium",
+      "thinking_chars": 8710,
+      "thinking_head": "Let me analyze the governing clause and each candidate carefully.\n\n**Governing clause (gov-1):**\n\"At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.1.\"\n\nKey elements:\n- Activity: evaluate security patches for applicability\n- Object: security patches released since the l",
+      "thinking_tail": " can't confirm exact identity of the population reference).\n\nActually, let me reconsider. The governing says \"from the source or sources identified in Part 2.1.\" L22 says \"that patch-applicability evaluation\" - it doesn't explicitly restate the population. The population is implied to be the same. I'll say OVERLAPPING since it's implied rather than explicitly stated.\n\nLet me finalize my response.\n",
+      "elapsed": 224.0,
+      "eval_count": 2738,
+      "parse_error": "",
+      "records": {
+        "A22": {
+          "relation": "SAME",
+          "activity": "evaluate security patches for applicability",
+          "bindings": [],
+          "missing_facts": [
+            "evaluation interval not stated in candidate"
+          ]
+        },
+        "L22": {
+          "relation": "SAME",
+          "activity": "complete patch-applicability evaluation",
+          "bindings": [
+            {
+              "candidate_slice_id": "cand-L22",
+              "constraint_kind": "max_interval",
+              "direction": "max_interval",
+              "governing_quantity": {
+                "qualifier": "calendar",
+                "unit": "day",
+                "value": 35
+              },
+              "governing_slice_id": "gov-1",
+              "internal_quantity": {
+                "qualifier": "calendar",
+                "unit": "day",
+                "value": 40
+              },
+              "rationale": "Governing sets 'at least once every 35 calendar days' (max_interval 35d); candidate sets 'once every 40 calendar days' (max_interval 40d). Both bound the maximum delay between successive patch-applicability evaluations. The changed interval does not create a different duty."
+            }
+          ],
+          "missing_facts": []
+        }
+      },
+      "raw_head": "{\n  \"records\": [\n    {\n      \"activity\": \"evaluate security patches for applicability\",\n      \"candidate_id\": \"A22\",\n      \"candidate_slice_ids\": [\n        \"cand-A22\"\n      ],\n      \"constraint_bindin"
+    }
+  ]
+}

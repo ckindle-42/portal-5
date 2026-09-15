@@ -283,7 +283,15 @@ def test_alignment_transport_enforces_scalar_schema_and_sizes_output(monkeypatch
     monkeypatch.setattr(urllib.request, "urlopen", response)
     _ollama_alignment_seat("test", _ALIGNMENT_SYSTEM, json.dumps({"candidates": [{}] * 15}))
     payload = payloads[0]
-    assert payload["options"]["num_predict"] == 7680
+    # 768 tokens per candidate, floored at 8k and capped at 16k. Raised from
+    # 512/4k/8k when the think suppression was removed: a reasoning model
+    # emitting one record per candidate across fifteen candidates does not fit
+    # in the old 7680, and a truncated response loses the trailing records
+    # rather than failing loudly.
+    assert payload["options"]["num_predict"] == 11520
+    # the seat is allowed to reason; the trace arrives in message.thinking and
+    # so cannot contaminate this constrained-JSON response
+    assert payload["think"] is True
     record = payload["format"]["properties"]["records"]["items"]
     binding = record["properties"]["constraint_bindings"]["items"]["properties"]
     assert binding["constraint_kind"]["type"] == "string"

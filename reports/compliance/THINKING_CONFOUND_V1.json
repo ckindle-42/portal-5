@@ -1,0 +1,257 @@
+{
+  "recorded_at": "2026-09-14T23:05:36Z",
+  "seats_probed": [
+    {
+      "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+      "thinking_capable": true,
+      "evidence": "200, message.thinking = 138 chars",
+      "elapsed": 16.8,
+      "seat": "qwen38"
+    },
+    {
+      "model": "granite4.1:30b-ctx16k",
+      "thinking_capable": false,
+      "evidence": "HTTP 400: {\"error\":\"\\\"granite4.1:30b-ctx16k\\\" does not support thinking\"}",
+      "elapsed": 0.0,
+      "seat": "granite41"
+    },
+    {
+      "model": "mistral-small3.2:24b-instruct-2506-q4_K_M",
+      "thinking_capable": false,
+      "evidence": "HTTP 400: {\"error\":\"\\\"mistral-small3.2:24b-instruct-2506-q4_K_M\\\" does not support thinking\"}",
+      "elapsed": 0.0,
+      "seat": "mistral"
+    }
+  ],
+  "seats_thinking_capable": 1,
+  "seats_total": 3,
+  "arm_b_reach": "1/3 council seats reason under arm B; the remainder downgrade and are recorded as downgraded",
+  "cases": [
+    {
+      "case": "02",
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "expected": {
+        "documentary_coverage": "FULL",
+        "coverage": "FULL",
+        "substantively_resolved": true,
+        "required_citations": [
+          "A22",
+          "B22"
+        ],
+        "forbidden_citations": [
+          "V"
+        ],
+        "gap_kinds": [],
+        "gap_ids": [],
+        "arithmetic": [
+          {
+            "candidate": "B22",
+            "result": "EQUIVALENT"
+          }
+        ]
+      },
+      "notes": ""
+    },
+    {
+      "case": "04",
+      "requirement_id": "CIP-007-6 R2 Part 2.4",
+      "expected": {
+        "documentary_coverage": "FULL",
+        "coverage": "FULL",
+        "substantively_resolved": true,
+        "required_citations": [
+          "A24",
+          "B24"
+        ],
+        "forbidden_citations": [
+          "E",
+          "S"
+        ],
+        "gap_kinds": [],
+        "gap_ids": [],
+        "arithmetic": []
+      },
+      "notes": ""
+    },
+    {
+      "case": "05",
+      "requirement_id": "CIP-007-6 R2 Part 2.4",
+      "expected": {
+        "documentary_coverage": "FULL",
+        "coverage": "FULL",
+        "substantively_resolved": true,
+        "required_citations": [
+          "A24",
+          "B24"
+        ],
+        "forbidden_citations": [
+          "C",
+          "S"
+        ],
+        "gap_kinds": [],
+        "gap_ids": [],
+        "arithmetic": []
+      },
+      "notes": ""
+    },
+    {
+      "case": "08",
+      "requirement_id": "CIP-007-6 R2 Part 2.1",
+      "expected": {
+        "documentary_coverage": "PARTIAL",
+        "coverage": "PARTIAL",
+        "substantively_resolved": true,
+        "required_citations": [
+          "A21"
+        ],
+        "forbidden_citations": [],
+        "gap_kinds": [
+          "OMISSION"
+        ],
+        "gap_ids": [
+          "g08"
+        ],
+        "arithmetic": []
+      },
+      "notes": ""
+    },
+    {
+      "case": "10",
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "expected": {
+        "documentary_coverage": "PARTIAL",
+        "coverage": "PARTIAL",
+        "substantively_resolved": true,
+        "required_citations": [
+          "A22",
+          "L22"
+        ],
+        "forbidden_citations": [],
+        "gap_kinds": [
+          "WEAKER_COMMITMENT"
+        ],
+        "gap_ids": [
+          "g10"
+        ],
+        "arithmetic": [
+          {
+            "candidate": "L22",
+            "result": "LESS_RESTRICTIVE"
+          }
+        ]
+      },
+      "notes": ""
+    },
+    {
+      "case": "16",
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "expected": {
+        "documentary_coverage": "NEEDS_REVIEW",
+        "coverage": "NEEDS_REVIEW",
+        "substantively_resolved": false,
+        "required_citations": [],
+        "forbidden_citations": [],
+        "gap_kinds": [],
+        "gap_ids": [],
+        "not_full_or_partial": true
+      },
+      "notes": "Equally current conflicting procedures and no authority resolution."
+    },
+    {
+      "case": "19",
+      "requirement_id": "CIP-007-6 R2 Part 2.3",
+      "expected": {
+        "documentary_coverage": "PARTIAL",
+        "coverage": "PARTIAL",
+        "substantively_resolved": true,
+        "required_citations": [
+          "A23",
+          "L23"
+        ],
+        "forbidden_citations": [],
+        "gap_kinds": [
+          "WEAKER_COMMITMENT"
+        ],
+        "gap_ids": [
+          "g19"
+        ],
+        "arithmetic": [
+          {
+            "candidate": "A23",
+            "result": "EQUIVALENT"
+          }
+        ]
+      },
+      "notes": ""
+    },
+    {
+      "case": "20",
+      "requirement_id": "CIP-007-6 R2 Part 2.4",
+      "expected": {
+        "documentary_coverage": "PARTIAL",
+        "coverage": "PARTIAL",
+        "substantively_resolved": true,
+        "required_citations": [
+          "A24",
+          "L24"
+        ],
+        "forbidden_citations": [],
+        "gap_kinds": [
+          "CONTRADICTION"
+        ],
+        "gap_ids": [
+          "g20"
+        ],
+        "arithmetic": [],
+        "governing_preservation": true
+      },
+      "notes": ""
+    },
+    {
+      "case": "23",
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "expected": {
+        "documentary_coverage": "UNRESOLVED",
+        "coverage": "UNRESOLVED",
+        "substantively_resolved": false,
+        "required_citations": [],
+        "forbidden_citations": [],
+        "gap_kinds": [],
+        "gap_ids": [],
+        "arithmetic": [],
+        "expected_code": "U10_COUNCIL_UNRESOLVED"
+      },
+      "notes": "No quorum maps to ESCALATE/NEEDS_REVIEW in the current council; spec requires U10."
+    },
+    {
+      "case": "25",
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "expected": {
+        "documentary_coverage": "PARTIAL",
+        "coverage": "PARTIAL",
+        "substantively_resolved": true,
+        "required_citations": [
+          "A22",
+          "L22"
+        ],
+        "forbidden_citations": [],
+        "gap_kinds": [
+          "WEAKER_COMMITMENT"
+        ],
+        "gap_ids": [
+          "g10"
+        ],
+        "arithmetic": [
+          {
+            "candidate": "L22",
+            "result": "LESS_RESTRICTIVE"
+          }
+        ],
+        "proposal_status": "VALIDATED",
+        "virtual_coverage": "FULL"
+      },
+      "notes": ""
+    }
+  ],
+  "note": "arm A/B execution is driven by scripts/verify_compliance_reading_acceptance.py with the transport injected; this file records the case inventory and the per-seat capability probe that bounds what arm B can possibly show"
+}
