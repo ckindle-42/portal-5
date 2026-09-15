@@ -276,6 +276,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/traceability.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-vertical_slice
+  globs:
+  - portal/modules/compliance/core/vertical_slice.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-vocabulary_bridge
   globs:
   - portal/modules/compliance/core/vocabulary_bridge.py
