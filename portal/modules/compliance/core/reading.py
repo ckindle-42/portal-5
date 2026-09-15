@@ -147,7 +147,7 @@ class ReadingJudgment:
 # ── packet ──────────────────────────────────────────────────────────────────
 
 
-def build_reading_packet(request: AssessmentRequest) -> dict[str, Any]:
+def build_reading_packet(request: AssessmentRequest, *, repository: Any = None) -> dict[str, Any]:
     """Both sides in full, with references marked as context rather than duties.
 
     Two structural choices are load-bearing, each isolated by single-factor
@@ -254,6 +254,22 @@ def build_reading_packet(request: AssessmentRequest) -> dict[str, Any]:
         packet["governing"]["reference_texts"] = [
             {"ref": s.ref, "text": s.text} for s in ref_slices
         ]
+    # Phase 8 candidate closure: source functions, revision ids, mapping
+    # metadata, sibling closure, and the declared corpus boundary ride in the
+    # packet so a copied traceability row can never present itself to the
+    # reader as operative implementation. Without a repository the packet is
+    # served unenriched and says so — never silently.
+    if repository is not None:
+        from portal.modules.compliance.core.candidate_closure import enrich_reading_packet
+
+        enrich_reading_packet(
+            repository,
+            packet,
+            requirement_id=request.requirement_id,
+            corpus_dir=str(request.metadata.get("corpus_dir", "") or ""),
+        )
+    else:
+        packet["candidate_closure"] = "not enriched — no canonical repository on the context"
     return packet
 
 
@@ -596,7 +612,7 @@ def read_and_judge(
     model: str = "",
 ) -> ReadingJudgment:
     """One reasoning pass over both sides, then verification of what it cited."""
-    packet = build_reading_packet(request)
+    packet = build_reading_packet(request, repository=getattr(context, "repository", None))
     user = json.dumps(packet, indent=2, ensure_ascii=False, default=str)
 
     fn = transport or context.report_fn or context.seat_fn

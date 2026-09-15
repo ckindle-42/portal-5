@@ -404,7 +404,6 @@ _ENGINE_VERSION = "compliance-reading/1"
 def assess_part(request: AssessmentRequest, context: AssessmentContext) -> AssessmentResult:
     """Assess one governing Part. See ``determination.AssessmentResult``."""
     from portal.modules.compliance.core.council import run_council
-    from portal.modules.compliance.core.gate import run_aligned_gate
     from portal.modules.compliance.core.obligation_alignment import align_part
     from portal.modules.compliance.core.reading import read_and_judge
 
@@ -451,61 +450,49 @@ def assess_part(request: AssessmentRequest, context: AssessmentContext) -> Asses
             context,
         )
 
-    alignment = align_part(request, context)
-    # An UNKNOWN candidate blocks the Part only where the uncertainty is
-    # decision-changing. gate.is_substantive already draws that line — an
-    # UNKNOWN operative commitment is carried forward as a potentially operative
-    # input, anything else is excluded — and this check used to pre-empt it, so
-    # a decoy the reader correctly could not classify vetoed a Part whose duties
-    # all resolved (case 04). It also pre-empted the reading pass entirely,
-    # which is the stage that now decides coverage.
-    from portal.modules.compliance.core.gate import is_substantive
+    from portal.modules.compliance.core.applicability import applicability_state
+    from portal.modules.compliance.core.gate import _applicable_systems_text
 
-    unknown_links = [r for r in alignment.records if r.relation == "UNKNOWN" and is_substantive(r)]
-    if not alignment.valid or unknown_links:
+    # Applicability is a deterministic scope decision over the governing
+    # applicable-systems text — computed here directly, never as a by-product
+    # of a model alignment pass (slice P3: no legacy gate may veto or
+    # short-circuit the complete reading).
+    applic, applicability_reason = applicability_state(
+        _applicable_systems_text(request.governing), scope
+    )
+    if applic == "DOES_NOT_APPLY":
         return _finalize(
             AssessmentResult(
                 **base,
-                applicability="UNKNOWN",
-                applicability_basis=request.scope_basis,
-                documentary_coverage="UNRESOLVED",
-                coverage="UNRESOLVED",
-                unresolved_code="U09_SEMANTIC_ALIGNMENT_UNKNOWN",
-                missing_fact={
-                    "failure": alignment.failure,
-                    "part_ref": alignment.part_ref,
-                    "unknown_links": [asdict(r) for r in unknown_links],
-                },
-                receipt=_receipt(request, None, alignment),
-            ),
-            context,
-        )
-
-    gate_result = run_aligned_gate(request, alignment, context)
-    if gate_result.gated_out:
-        return _finalize(
-            AssessmentResult(
-                **base,
-                applicability=gate_result.applicability,
+                applicability=applic,
                 applicability_basis=request.scope_basis,
                 documentary_coverage="NOT_APPLICABLE",
                 coverage="NOT_APPLICABLE",
                 substantively_resolved=True,
-                receipt=_receipt(request, gate_result, alignment),
+                receipt=_receipt(request, None, None, applicability=applic),
             ),
             context,
         )
 
-    packet = gate_result.to_council_packet()
     trace: list[dict[str, Any]] = []
     seat_fn = _recording_seat_fn(context.seat_fn, trace)
 
     # The reading judgment is the product: one pass that reads the Part and the
     # operator's material in full, enumerates the Part's mandatory duties as it
-    # reads, and judges each one. It replaces `assessment_report.explain`, whose
-    # model was told "do not re-judge", and it is what produces covered/gaps.
+    # reads, and judges each one. Nothing runs before it that can veto it.
     judgment = read_and_judge(request, context, transport=seat_fn)
 
+    # The per-candidate alignment pass is a DIAGNOSTIC now: it runs after the
+    # reading, its records and numeric bindings are retained in the receipt and
+    # the council packet, and neither an invalid pass nor an UNKNOWN link can
+    # veto or downgrade the verdict (slice P3 — the old pre-reading U09 gate is
+    # gone; the U12 incomparable code with it).
+    alignment = align_part(request, context)
+
+    # The council is an independent CROSS-CHECK of the reading (slice §7): it
+    # never replaces the primary source-backed reading and its vote alone can
+    # no longer gate the verdict.
+    packet = _council_packet(request, applic, alignment)
     council = run_council(
         packet,
         context.seats,
@@ -513,11 +500,11 @@ def assess_part(request: AssessmentRequest, context: AssessmentContext) -> Asses
         quorum=context.quorum,
         reference_texts=_reference_texts(request),
     )
-    source_catalog = _source_catalog(request, alignment)
     explanation = _explanation_from(judgment)
+    source_catalog = _source_catalog(request, None)
 
     documentary, coverage, resolved, code, missing = _project(
-        request, gate_result, council, explanation
+        request, applic, applicability_reason, council, explanation
     )
     documentary, coverage, resolved, code, missing = _reconcile_reading_and_council(
         judgment, council, documentary, coverage, resolved, code, missing
@@ -527,7 +514,7 @@ def assess_part(request: AssessmentRequest, context: AssessmentContext) -> Asses
     return _finalize(
         AssessmentResult(
             **base,
-            applicability=gate_result.applicability,
+            applicability=applic,
             applicability_basis=request.scope_basis,
             documentary_coverage=documentary,
             coverage=coverage,
@@ -539,7 +526,14 @@ def assess_part(request: AssessmentRequest, context: AssessmentContext) -> Asses
             uncertainties=explanation.uncertainties,
             selected_source_slices=selected,
             receipt={
-                **_receipt(request, gate_result, alignment, explanation=explanation),
+                **_receipt(
+                    request,
+                    None,
+                    alignment,
+                    explanation=explanation,
+                    applicability=applic,
+                    applicability_reason=applicability_reason,
+                ),
                 "council_packet": packet,
                 "council_trace": trace,
             },
@@ -548,6 +542,81 @@ def assess_part(request: AssessmentRequest, context: AssessmentContext) -> Asses
         ),
         context,
     )
+
+
+def _council_packet(
+    request: AssessmentRequest, applic: str, alignment: Any = None
+) -> dict[str, Any]:
+    """The council cross-check packet, built from the request directly.
+
+    (It previously came from the alignment gate's result; with the gate out of
+    the verdict path the packet is assembled from the same governing material
+    and the pinned candidate set — no alignment records, no derived verdicts,
+    just the material the seats read and vote on.)"""
+    from dataclasses import asdict
+
+    from portal.modules.compliance.core.gate import (
+        _aligned_candidates,
+        _aligned_notes,
+        _completeness,
+        _derive_actor,
+        _exception_clauses,
+        _governing_cu,
+        _reference_closure,
+        _scalar_results,
+    )
+
+    governing = request.governing
+    governing_ref = (governing.ref if governing else "") or request.requirement_id
+    subject = _derive_actor(governing)
+    # The diagnostic alignment still shapes the council packet the way the old
+    # gate did (substantive SAME records become candidates; the rest are
+    # excluded/unknown) — retained for the cross-check, never for the verdict.
+    records = list(getattr(alignment, "records", []) or [])
+    pairs = [
+        (record, binding)
+        for record in records
+        if record.relation == "SAME"
+        for binding in record.constraint_bindings
+    ]
+    scalar = _scalar_results(pairs)
+    candidates, excluded, unknowns = _aligned_candidates(
+        alignment, request.candidate_set, subject, scalar
+    )
+    return {
+        "governing_unit": {
+            "ref": governing_ref,
+            **_governing_cu(governing, governing_ref, subject, None),
+        },
+        "applicability": {"state": applic, "reason": ""},
+        "reference_closure": _reference_closure(governing),
+        "exception_clauses": _exception_clauses(governing),
+        "candidates": [asdict(c) for c in candidates],
+        "backstop_surplus": [],
+        "excluded": excluded,
+        "unknowns": unknowns,
+        "notes": _aligned_notes(alignment, excluded, unknowns, applic),
+        "binding_outcomes": _diagnostic_binding_outcomes(alignment),
+        "acquisition_completeness": _completeness(request),
+        "governing_fingerprint": governing.fingerprint if governing else "",
+    }
+
+
+def _diagnostic_binding_outcomes(alignment: Any) -> list[dict[str, Any]]:
+    """Deterministic quantity outcomes over the diagnostic alignment's SAME
+    bindings (the compare_aligned results the report surfaces) — retained as
+    diagnostics; an incomparable binding no longer unresolved the Part."""
+    if alignment is None:
+        return []
+    from portal.modules.compliance.core.gate import _binding_results
+
+    pairs = [
+        (record, binding)
+        for record in getattr(alignment, "records", [])
+        if record.relation == "SAME"
+        for binding in record.constraint_bindings
+    ]
+    return _binding_results(pairs)
 
 
 def _explanation_from(judgment: Any) -> Any:
@@ -654,37 +723,46 @@ def _source_integrity_error(request: AssessmentRequest) -> dict[str, Any] | None
 
 def _project(
     request: AssessmentRequest,
-    gate_result: Any,
+    applic: str,
+    applicability_reason: str,
     council: Any,
     explanation: Any,
 ) -> tuple[str, str, bool, str, dict[str, Any]]:
     """(documentary_coverage, public coverage, resolved, unresolved_code, missing).
 
-    Documentary coverage is the model-validated reading. The public projection
-    only exposes the ordinary FULL/PARTIAL/NONE vocabulary when applicability is
-    an OPERATOR-CONFIRMED APPLIES; a corpus-derived or undeclared scope keeps
+    The model-validated reading IS the verdict. The council is a cross-check:
+    only a genuine interpretive dispute (ESCALATE with actual votes, S04)
+    routes to review, and only when the reading itself produced nothing does a
+    council operational failure (U10/U11) decide the outcome. The public
+    projection exposes the ordinary FULL/PARTIAL/NONE vocabulary only under an
+    operator-confirmed APPLIES; a corpus-derived or undeclared scope keeps
     ``coverage=UNRESOLVED`` with the missing scope declaration, even when
     documentary coverage is FULL (brief §5 scope reconciliation)."""
     decision = str(getattr(council, "determination", ""))
     votes = getattr(council, "votes", {}) or {}
-    if decision == "ESCALATE":
-        if sum(votes.values()) == 0:
-            # No seat produced a valid vote (timeout/invalid JSON): an
-            # operational uncertainty, never a fabricated SME dispute (U10).
+    if explanation.valid:
+        documentary = explanation.documentary_coverage
+        if documentary in ("FULL", "PARTIAL", "NONE"):
+            if applic == "APPLIES":
+                return documentary, documentary, True, "", {}
             return (
-                "UNRESOLVED",
+                documentary,
                 "UNRESOLVED",
                 False,
-                "U10_COUNCIL_UNRESOLVED",
+                "",
                 {
-                    "council_votes": votes,
-                    "dropped": [
-                        {"seat": o.seat_id, "dropped": o.dropped}
-                        for o in getattr(council, "opinions", [])
-                        if not o.votes
-                    ],
+                    "missing_scope_declaration": "asset scope is not operator-confirmed",
+                    "applicability": applic,
+                    "applicability_reason": applicability_reason,
+                    "scope_basis": request.scope_basis,
                 },
             )
+        if documentary == "NEEDS_REVIEW":
+            return "NEEDS_REVIEW", "NEEDS_REVIEW", False, "", {}
+
+    # The reading produced no usable verdict — the cross-check and the failure
+    # shape decide the honest unresolved code.
+    if decision == "ESCALATE" and sum(votes.values()) > 0:
         return (
             "NEEDS_REVIEW",
             "NEEDS_REVIEW",
@@ -692,7 +770,9 @@ def _project(
             "",
             {"council": "ESCALATE — S04 interpretation dispute"},
         )
-    if decision == "INSUFFICIENT":
+    if decision in ("ESCALATE", "INSUFFICIENT") and sum(votes.values()) == 0:
+        # No seat produced a valid vote (timeout/invalid JSON): an operational
+        # uncertainty, never a fabricated SME dispute (U10).
         return (
             "UNRESOLVED",
             "UNRESOLVED",
@@ -707,24 +787,9 @@ def _project(
                 ],
             },
         )
-    incomparable = [
-        o for o in getattr(gate_result, "binding_outcomes", []) if o.get("result") == "INCOMPARABLE"
-    ]
-    if incomparable:
-        # A same-duty constraint the reviewed comparator cannot place is
-        # uncertainty, not contradiction and not a PARTIAL fallback (U12).
-        return (
-            "UNRESOLVED",
-            "UNRESOLVED",
-            False,
-            "U12_CONSTRAINT_INCOMPARABLE",
-            {
-                "bindings": incomparable,
-                "council_decision": decision,
-            },
-        )
     if not explanation.valid:
-        if gate_result.acquisition_completeness != "COMPLETE" and (
+        completeness = request.snapshot.completeness if request.snapshot else "UNKNOWN"
+        if completeness != "COMPLETE" and (
             decision == "ABSENT" or any(g.kind == "OMISSION" for g in explanation.gaps)
         ):
             return (
@@ -733,7 +798,7 @@ def _project(
                 False,
                 "U04_RETRIEVAL_INCOMPLETE",
                 {
-                    "acquisition_completeness": gate_result.acquisition_completeness,
+                    "acquisition_completeness": completeness,
                     "truncation": "absence requires a completed boundary, not a top-k receipt",
                     "failure": explanation.failure,
                 },
@@ -745,25 +810,6 @@ def _project(
             "U11_ASSESSMENT_CONTRACT_FAILED",
             {"failure": explanation.failure, "council_decision": decision},
         )
-
-    documentary = explanation.documentary_coverage
-    if documentary in ("FULL", "PARTIAL", "NONE"):
-        if gate_result.applicability == "APPLIES":
-            return documentary, documentary, True, "", {}
-        return (
-            documentary,
-            "UNRESOLVED",
-            False,
-            "",
-            {
-                "missing_scope_declaration": "asset scope is not operator-confirmed",
-                "applicability": gate_result.applicability,
-                "applicability_reason": gate_result.applicability_reason,
-                "scope_basis": request.scope_basis,
-            },
-        )
-    if documentary == "NEEDS_REVIEW":
-        return "NEEDS_REVIEW", "NEEDS_REVIEW", False, "", {}
     return (
         "UNRESOLVED",
         "UNRESOLVED",
@@ -854,20 +900,28 @@ def _engine_fingerprint(context: AssessmentContext) -> str:
 
 
 def _receipt(
-    request: AssessmentRequest, gate_result: Any, alignment: Any, explanation: Any = None
+    request: AssessmentRequest,
+    gate_result: Any = None,
+    alignment: Any = None,
+    explanation: Any = None,
+    applicability: str = "UNKNOWN",
+    applicability_reason: str = "",
 ) -> dict[str, Any]:
-    return {
+    receipt = {
         "acquisition_mode": request.snapshot.acquisition_mode if request.snapshot else "RETRIEVAL",
         "completeness": request.snapshot.completeness if request.snapshot else "UNKNOWN",
         "snapshot_fingerprint": request.snapshot.fingerprint if request.snapshot else "",
         "governing_fingerprint": request.governing.fingerprint if request.governing else "",
-        "alignment_valid": alignment.valid,
-        "alignment_links": len(alignment.records),
-        "alignment": asdict(alignment),
-        "applicability": gate_result.applicability if gate_result is not None else "UNKNOWN",
+        "alignment_valid": alignment.valid if alignment is not None else None,
+        "alignment_links": len(alignment.records) if alignment is not None else 0,
+        "alignment": asdict(alignment) if alignment is not None else {},
+        "alignment_diagnostic": alignment is not None,
+        "applicability": applicability,
+        "applicability_reason": applicability_reason,
         "explanation_valid": bool(explanation.valid) if explanation is not None else False,
         "explanation": asdict(explanation) if explanation is not None else {},
     }
+    return receipt
 
 
 def _ensure_run(request: AssessmentRequest, context: AssessmentContext) -> str:

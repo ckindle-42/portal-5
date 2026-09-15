@@ -76,6 +76,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/boundary.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-candidate_closure
+  globs:
+  - portal/modules/compliance/core/candidate_closure.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-change_pipeline
   globs:
   - portal/modules/compliance/core/change_pipeline.py

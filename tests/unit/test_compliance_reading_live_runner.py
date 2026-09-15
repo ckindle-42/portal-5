@@ -29,11 +29,17 @@ def test_setup_failure_does_not_execute_route(monkeypatch):
 
 
 def test_failure_retains_alignment_response(tmp_path):
+    """Slice P3 demoted the alignment pass to a diagnostic: its failure no
+    longer produces U09 (that veto is gone). The failed pass is still retained
+    verbatim in the receipt, and the outcome is the reading contract failure
+    (U11) because this fixture supplies no reading response either."""
     case = acceptance.CASES["24"]
     outcome = acceptance.run_case(case, acceptance.Repository(tmp_path / "trace.db"))
     result = asdict(outcome.result)
-    assert result["unresolved_code"] == "U09_SEMANTIC_ALIGNMENT_UNKNOWN"
+    assert result["unresolved_code"] == "U11_ASSESSMENT_CONTRACT_FAILED"
     assert result["receipt"]["alignment"]["raw"]["seats"][0]["raw"]
+    assert result["receipt"]["alignment_valid"] is False
+    assert result["receipt"]["alignment_diagnostic"] is True
 
 
 def test_report_receives_verified_source_text(tmp_path):
