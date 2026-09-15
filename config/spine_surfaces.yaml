@@ -200,6 +200,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/policy_graph.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-projections
+  globs:
+  - portal/modules/compliance/core/projections.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-propose
   globs:
   - portal/modules/compliance/core/propose.py
@@ -255,6 +259,10 @@ surfaces:
 - name: file-portal-modules-compliance-core-temporal
   globs:
   - portal/modules/compliance/core/temporal.py
+  unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-temporal_selection
+  globs:
+  - portal/modules/compliance/core/temporal_selection.py
   unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-text_signals
   globs:

@@ -1002,6 +1002,8 @@ class Repository:
         ref: str | None = None,
         statuses: tuple[str, ...] = ("approved",),
         org_id: str | None = None,
+        valid_at: str | None = None,
+        known_at: str | None = None,
     ) -> list[RelationshipAssertion]:
         """Governed reads default to ``statuses=("approved",)`` — a caller
         must explicitly widen this to see proposals/rejections (design §4:
@@ -1009,7 +1011,16 @@ class Repository:
         rows by forgetting a status filter"). ``org_id``, when given, is a
         bound-parameter equality filter (P6.4/A28) — a caller scoped to one
         org never sees another org's edges, even when both reference the
-        same ``ref``."""
+        same ``ref``.
+
+        Phase 5: ``valid_at``/``known_at`` apply both clocks. A ``valid_at``
+        filter excludes rows whose validity interval does not contain the
+        moment — and a row with an UNKNOWN ``valid_from`` is never treated as
+        "always valid" (F02): it is excluded, and
+        :func:`temporal_selection.temporal_exclusion_census` names how many.
+        ``known_at`` filters recorded knowledge (``recorded_from`` is NOT
+        NULL on every row). Without either argument the governed status
+        surface is unchanged."""
         placeholders = ",".join("?" for _ in statuses)
         sql = f"SELECT * FROM relationship_assertions WHERE status IN ({placeholders})"
         params: list[str] = list(statuses)
@@ -1019,6 +1030,12 @@ class Repository:
         if org_id is not None:
             sql += " AND org_id = ?"
             params.append(org_id)
+        if valid_at:
+            sql += " AND valid_from IS NOT NULL AND valid_from <= ? AND (valid_to IS NULL OR valid_to > ?)"
+            params += [valid_at, valid_at]
+        if known_at:
+            sql += " AND recorded_from <= ? AND (recorded_to IS NULL OR recorded_to > ?)"
+            params += [known_at, known_at]
         with self._lock:
             rows = self._conn.execute(sql, params).fetchall()
             return [self._row_to_relationship(r) for r in rows]
@@ -1136,6 +1153,8 @@ class Repository:
         max_depth: int = 3,
         max_edges: int = 500,
         org_id: str | None = None,
+        valid_at: str | None = None,
+        known_at: str | None = None,
     ) -> dict[str, Any]:
         """Forward/reverse/both-direction traversal from ``start_ref``,
         cycle-safe (each node expands at most once) and bounded by both
@@ -1160,7 +1179,13 @@ class Repository:
             if depth >= max_depth:
                 depth_limited.add(ref)
                 continue
-            for rel in self.list_relationship_assertions(ref=ref, statuses=statuses, org_id=org_id):
+            for rel in self.list_relationship_assertions(
+                ref=ref,
+                statuses=statuses,
+                org_id=org_id,
+                valid_at=valid_at,
+                known_at=known_at,
+            ):
                 if len(edges_out) >= max_edges:
                     truncated = True
                     break
