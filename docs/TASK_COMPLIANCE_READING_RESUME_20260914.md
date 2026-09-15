@@ -1,5 +1,11 @@
 # TASK_COMPLIANCE_READING_IS_THE_PRODUCT_V1 — resume point, 2026-09-14
 
+> **Status: SUPERSEDED AS AN EXECUTION ENTRY POINT.** Preserve this document as
+> measured history. Resume through
+> `coding_task/v9_compliance/TASK_COMPLIANCE_REASONING_PRODUCT_END_TO_END_V1.md`,
+> which places the reading work inside the complete source, temporal, traceability,
+> change-analysis, model-qualification, and cross-standard product contract.
+
 **Branch:** `main` · **Head at handoff:** `bacc850c`
 **Governing task:** `coding_task/TASK_COMPLIANCE_READING_IS_THE_PRODUCT_V1.md`
 

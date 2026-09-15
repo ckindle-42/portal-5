@@ -1,7 +1,12 @@
 # TASK_COMPLIANCE_READING_SEAT_REPLACEMENT_V1
 
-**Status:** OPEN — diagnosis and candidate selection. No seat changes without an
-operator decision (`PROMOTE_POLICY: confirm`).
+**Status:** SUPERSEDED AS A STANDALONE TASK — retain as diagnostic evidence.
+Execute the complete sequence through
+`coding_task/v9_compliance/TASK_COMPLIANCE_REASONING_PRODUCT_END_TO_END_V1.md`.
+Its model-qualification phases correct the production-reader and quantization
+confounds and do not require an operator preference when frozen hard gates
+determine the result.
+
 **Opened:** 2026-09-14, on the operator's instruction after
 `reports/compliance/LDOC_FAMILY_LIVE_REPLAY.md`.
 **Incumbent under review:** `mistral-small3.2:24b-instruct-2506-q4_K_M`
