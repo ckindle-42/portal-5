@@ -140,6 +140,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/intentionality.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-internal_corpus
+  globs:
+  - portal/modules/compliance/core/internal_corpus.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-internal_model
   globs:
   - portal/modules/compliance/core/internal_model.py

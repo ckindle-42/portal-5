@@ -442,6 +442,8 @@ def materialize(
                     [{"governing_anchor_id": anchor, "internal_anchor_id": doc["anchor_id"]}],
                     status="proposed",
                     rationale="content-derived candidate; determination does not depend on approval",
+                    # P4 quarantine: folder-scoped candidates are discovery-only.
+                    derivation="folder_cartesian",
                 ),
             )
             for rel_type, ref in (
@@ -462,6 +464,7 @@ def materialize(
                         standard_base,
                         [{"internal_anchor_id": doc["anchor_id"]}],
                         status="proposed",
+                        derivation="folder_placeholder_org",
                     ),
                 )
 

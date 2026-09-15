@@ -52,6 +52,13 @@ class DocumentRevision:
     org_id: str = "default"
     recorded_from: str = ""
     recorded_to: str | None = None
+    # migration 10 (END_TO_END P4): controlled-document metadata read from the
+    # document's own control block. Empty string = absent/unsourced — a
+    # filename never invents a value.
+    document_number: str = ""
+    version: str = ""
+    owner: str = ""
+    owner_title: str = ""
 
 
 @dataclass
@@ -66,6 +73,9 @@ class SourceSection:
     extractor_version: str = ""
     org_id: str = "default"
     role: str = ""  # result_contract.SOURCE_ROLES value; '' = unclassified
+    # migration 10 (P4): the heading text itself, for name-based resolution of
+    # operative sections ('3.5 Mitigation Plans'); '' when unnamed.
+    title: str = ""
 
 
 @dataclass
@@ -116,6 +126,10 @@ class RelationshipAssertion:
     coverage: str = ""  # FULL | PARTIAL | NONE | NOT_APPLICABLE | NEEDS_REVIEW | ""
     proposed_coverage: str = ""  # what the system proposed — feeds the SME override rate
     confidence: float = 0.0
+    # migration 10 (P4): how this assertion was derived. 'folder_cartesian'
+    # marks a folder/prefix discovery candidate — visible only through the
+    # explicit discovery surface, never as an established trace/impact edge.
+    derivation: str = ""
 
 
 @dataclass

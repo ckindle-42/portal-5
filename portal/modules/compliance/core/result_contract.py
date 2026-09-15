@@ -115,6 +115,11 @@ SOURCE_ROLES: dict[str, str] = {
     "EVIDENCE_SPECIFICATION": "What the organization says must be retained or demonstrated.",
     "EVIDENCE_ARTIFACT": "Evidence of actual performance, distinct from documented design.",
     "COMMENTARY": "Nonbinding explanation.",
+    # P4 additions for the internal corpus: structural text is never operative,
+    # and document-control pages are the SOURCE of metadata, not duties.
+    "TABLE_OF_CONTENTS": "Structural navigation text; never operative content.",
+    "DOCUMENT_CONTROL": "Document-control metadata (owner, approvals, revision history); "
+    "sources effectivity/version facts, never operative text.",
 }
 
 

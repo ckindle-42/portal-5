@@ -72,6 +72,10 @@ sources:
 - type: code
   path: portal/modules/compliance/core/internal_model.py
 - type: code
+  path: portal/modules/compliance/core/internal_corpus.py
+- type: code
+  path: portal/modules/compliance/core/impact.py
+- type: code
   path: portal/modules/compliance/core/boundary.py
 - type: code
   path: portal/modules/compliance/core/assessment.py
