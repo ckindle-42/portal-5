@@ -47,6 +47,11 @@ _OFFSET_KEYS = (
     "doc_char_end",
 )
 
+# The reporter emits covered commitments, grounded gaps and uncertainties with
+# exact slice ids — several records, not one verdict. It previously inherited
+# the council seat's 900-token budget by reusing that transport.
+_REPORT_BUDGET = 8192
+
 _REPORT_SYSTEM = (
     "You are a source-linked reporting analyst. You receive an already-decided "
     "satisfaction result and the exact selectable source slices. You "
@@ -86,11 +91,14 @@ def explain(
     decision = str(council.get("determination", ""))
     transport = context.report_fn or context.seat_fn
     if transport is None:
-        # Production supplies no injected transport; default to the same local
-        # Ollama transport the council uses, with the separate reporting prompt.
-        from portal.modules.compliance.core.council import _ollama_seat
+        # Production supplies no injected transport. Go straight to the shared
+        # reasoning transport rather than through ``council._ollama_seat``: the
+        # reporter was silently inheriting the council's seat budget, which is
+        # sized for a verdict, not for a coverage characterisation.
+        from portal.modules.compliance.core.reading_transport import chat
 
-        transport = _ollama_seat
+        def transport(model: str, system: str, user: str) -> str:
+            return chat(model, system, user, budget=_REPORT_BUDGET, fmt="json").content
 
     consensus_refs = _agreeing_refs(council)
     governing_ids = _governing_ids(request, source_catalog)

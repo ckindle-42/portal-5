@@ -26,7 +26,7 @@ from __future__ import annotations
 import json
 import math
 import re
-from collections import Counter
+from collections import Counter, deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -36,6 +36,16 @@ SeatFn = Callable[[str, str, str], str]  # (model, system, user) -> raw text
 _DETERMINATIONS = ("SUPPORTED", "PARTIAL", "CONTRADICTED", "ABSENT", "INSUFFICIENT")
 _UNMET = ("PARTIAL", "CONTRADICTED", "ABSENT")
 _FINDING_TYPES = ("", "GAP", "CONTRADICTION", "OUTDATED_LANGUAGE", "WEAK_MAPPING")
+
+# A judgment is a reasoning task. 900 tokens fitted a one-sentence rationale
+# with reasoning suppressed; it cannot hold a read of a Part plus its
+# candidates. Raised with the suppression removed (946196bb solved a /v1 leak by
+# disabling thought; /api/chat separates the channels).
+_SEAT_BUDGET = 8192
+
+# Per-call reasoning provenance for the run receipt. Bounded: this module is
+# imported by a long-lived MCP server, so an unbounded list would be a slow leak.
+_LAST_TRACE: deque[dict[str, Any]] = deque(maxlen=256)
 
 _SEAT_SYSTEM = (
     "You are one sealed seat on a compliance review council. You receive a "
@@ -184,28 +194,36 @@ def _json_object(text: str) -> dict[str, Any] | None:
 
 
 def _ollama_seat(model: str, system: str, user: str) -> str:
-    import urllib.request
+    """One council seat, through the shared reasoning transport.
 
-    payload = {
-        "model": model,
-        "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        "stream": False,
-        "format": "json",
-        # Qwen3 / DeepSeek / GLM-Z1 / Granite-thinking templates open <think> by
-        # default; on a strict-JSON task that either leaks into the content or
-        # eats the predict budget before the closing brace, and the seat drops
-        # to "no JSON object". Suppress it — a seat that needs delimited
-        # reasoning is disqualified at D0-M anyway.
-        "think": False,
-        "options": {"temperature": 0.0, "num_predict": 900},
-    }
-    req = urllib.request.Request(
-        "http://localhost:11434/api/chat",
-        data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json"},
+    ``SeatFn`` still returns ``str`` — the seat's answer is its JSON content, so
+    nothing downstream changes shape. What changes is that the seat is allowed
+    to reason: the previous transport sent ``think: false`` because a Qwen3 /
+    DeepSeek / GLM-Z1 template opened ``<think>`` and leaked it into strict-JSON
+    content or ate a 900-token budget before the closing brace (946196bb). On
+    native ``/api/chat`` the trace comes back as ``message.thinking``, a
+    separate field, so the leak is solved by reading the right field and sizing
+    the budget — not by disabling reasoning on a task that is entirely reading
+    and comparing.
+
+    The trace is recorded rather than dropped. ``_LAST_TRACE`` lets a run
+    receipt state, per call, whether the seat actually reasoned or was
+    downgraded for lacking the capability — which two of the three D0-M seats
+    are, so the distinction has to be visible.
+    """
+    from portal.modules.compliance.core.reading_transport import chat
+
+    result = chat(model, system, user, budget=_SEAT_BUDGET, fmt="json")
+    _LAST_TRACE.append(
+        {
+            "model": model,
+            "reasoned": result.reasoned,
+            "downgraded": result.get("downgraded", ""),
+            "thinking_chars": len(result.thinking),
+            "elapsed": result.get("elapsed", 0.0),
+        }
     )
-    with urllib.request.urlopen(req, timeout=300) as r:  # noqa: S310 - fixed localhost
-        return (json.load(r).get("message") or {}).get("content", "") or ""
+    return result.content
 
 
 def run_council(
