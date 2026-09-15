@@ -367,13 +367,19 @@ def run_seven_question(
     scenario_edits: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """The compound arm over the live corpus, with real implementations."""
+    import os
+
     from portal.modules.compliance.core import vertical_slice
-    from portal.modules.compliance.core.repository import Repository
+    from portal.modules.compliance.core.repository import Repository, process_identity
 
     repo = Repository()
     ctx = vertical_slice.build_context(
         requirement, valid_at=valid_at, known_at=known_at, kb_id=kb_id, scope_text=scope_text
     )
+    # worker_owner is REQUIRED: the import-time interruption sweep reaps
+    # RUNNING runs whose owner cannot be proven alive — a run row created
+    # without one is dead on arrival (found live: the arm reaped its own run
+    # 34s in when _op_alignment first imported assessment_runs).
     run_id = repo.create_run(
         {
             "requirement": requirement,
@@ -382,6 +388,7 @@ def run_seven_question(
             "valid_at": valid_at,
             "known_at": known_at,
             "snapshot_fingerprint": ctx.snapshot_fingerprint,
+            "worker_owner": {"pid": os.getpid(), "started": process_identity(os.getpid())},
         },
         status="RUNNING",
     )
