@@ -71,11 +71,16 @@ def source_function_for(
         return {
             "source_function": "UNRESOLVED",
             "revision_id": "",
+            "revision_current": False,
             "section_path": "",
             "operative": False,
             "note": "candidate document does not resolve to a canonical revision",
         }
     revision_id, _logical = resolved
+    # current-revision filter: a candidate from a superseded internal revision
+    # cannot answer the current question (slice §6 D) — labelled, never silent.
+    revisions = repo.revisions_for_logical_id(_logical)
+    revision_current = bool(revisions) and revisions[-1].revision_id == revision_id
     sections = _section_rows(repo, revision_id)
     section = _match_section(sections, text)
     role = (section or {}).get("role", "") or (sections[0].get("role") if sections else "")
@@ -83,6 +88,7 @@ def source_function_for(
     return {
         "source_function": role or "UNCLASSIFIED",
         "revision_id": revision_id,
+        "revision_current": revision_current,
         "section_path": (section or {}).get("path", ""),
         "section_title": (section or {}).get("title", ""),
         "operative": operative,

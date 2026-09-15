@@ -121,11 +121,27 @@ class DutyFinding:
     rationale: str = ""
     unverified_citations: list[str] = field(default_factory=list)
     unverified_operands: list[str] = field(default_factory=list)
+    #: citations resolved to a non-operative candidate (traceability row, ToC,
+    #: control page, commentary) — demoted, never implementation evidence
+    non_operative_citations: list[str] = field(default_factory=list)
+    #: citations resolved to a superseded internal revision — stale, demoted
+    stale_citations: list[str] = field(default_factory=list)
+    #: deterministic quantitative direction after same-duty correspondence
+    #: ("" when no quantity applies): EQUIVALENT | MORE_RESTRICTIVE |
+    #: LESS_RESTRICTIVE | INCOMPARABLE
+    quantity_direction: str = ""
 
     @property
     def verified_support(self) -> bool:
-        """At least one candidate citation that actually resolved."""
-        return bool(set(self.candidate_slice_ids) - set(self.unverified_citations))
+        """At least one candidate citation that actually resolved AND is
+        operative and current — a copied traceability row or a stale revision
+        is not support (lesson L18)."""
+        demoted = (
+            set(self.unverified_citations)
+            | set(self.non_operative_citations)
+            | set(self.stale_citations)
+        )
+        return bool(set(self.candidate_slice_ids) - demoted)
 
 
 @dataclass
@@ -142,6 +158,11 @@ class ReadingJudgment:
     failure: str = ""
     downgraded_from: str = ""
     raw: dict[str, Any] = field(default_factory=dict)
+    #: separated per-duty outcomes (Phase 9): one tag per duty from
+    #: ALIGNED | PARTIAL | MISALIGNED | STRICTER | EVIDENCE_ONLY | CONFLICT,
+    #: plus the judgment-level conflict/boundary flags. Documentary verdicts
+    #: remain the P1 contract's dimensions; this is the finer duty grain.
+    outcomes: dict[str, Any] = field(default_factory=dict)
 
 
 # ── packet ──────────────────────────────────────────────────────────────────
@@ -327,12 +348,62 @@ def _unverified_operands(duty: DutyFinding, index: dict[str, SourceSlice]) -> li
     return notes
 
 
+def _quantity_from_operand(operand: str) -> tuple[int, str, str | None] | None:
+    """(value, unit, qualifier) from an operand phrase, or None. Deliberately
+    narrow: the full phrase must carry the literal 'N <unit>' — a spliced or
+    unitless operand never yields a quantity (lesson L16)."""
+    m = re.search(
+        r"(?<![\d.])(\d+)(?![\d.])\)?\s+(?:(calendar|business)\s+)?(hour|day|week|month|year)s?\b",
+        operand or "",
+        re.I,
+    )
+    if not m:
+        return None
+    qualifier = m.group(2).lower() if m.group(2) else None
+    return int(m.group(1)), m.group(3).lower().rstrip("s"), qualifier
+
+
+def _quantity_direction(duty: DutyFinding, index: dict[str, SourceSlice]) -> tuple[str, str | None]:
+    """Deterministic quantitative direction AFTER same-duty correspondence.
+
+    Called only for duties the reading judged COVERED/PARTIAL — duty identity
+    is the model's contextual reading (L15); direction is computed here only
+    when both operands carry a literal quantity in the cited texts. Returns
+    (direction, uncertainty_note)."""
+    if duty.finding not in ("COVERED", "PARTIAL"):
+        return "", None
+    gov_q = _quantity_from_operand(duty.governing_operand)
+    cand_q = _quantity_from_operand(duty.candidate_operand)
+    if not gov_q or not cand_q:
+        return "", None
+    gov_texts = [index[x].text for x in duty.governing_slice_ids if x in index]
+    cand_texts = [index[x].text for x in duty.candidate_slice_ids if x in index]
+    if not _operand_is_in_source(duty.governing_operand, gov_texts) or not _operand_is_in_source(
+        duty.candidate_operand, cand_texts
+    ):
+        return "", None
+    kind = "max_interval" if "every" in duty.governing_operand.lower() else "min_retention"
+    from portal.modules.compliance.core.constraints import Quantity, compare_constraint
+
+    result, reason = compare_constraint(
+        kind,
+        Quantity(gov_q[0], gov_q[1], gov_q[2]),
+        Quantity(cand_q[0], cand_q[1], cand_q[2]),
+    )
+    note = f"{duty.duty_id}: {result} — {reason}" if result == "INCOMPARABLE" else None
+    return result, note
+
+
 def _verify_duties(
-    obj: dict[str, Any], index: dict[str, SourceSlice]
+    obj: dict[str, Any],
+    index: dict[str, SourceSlice],
+    *,
+    candidate_functions: dict[str, dict[str, Any]] | None = None,
 ) -> tuple[list[DutyFinding], list[ExplanationUncertainty]]:
     """Resolve each duty's citations and quantity claims against the pinned sources."""
     duties: list[DutyFinding] = []
     uncertainties: list[ExplanationUncertainty] = []
+    candidate_functions = candidate_functions or {}
 
     for i, raw_duty in enumerate(obj.get("duties") or [], start=1):
         finding = str(raw_duty.get("finding") or "").upper()
@@ -367,6 +438,38 @@ def _verify_duties(
             rationale=str(raw_duty.get("rationale") or ""),
             unverified_citations=unresolved + context_cited,
         )
+
+        # Phase 9: a candidate slice whose packet source function is
+        # non-operative (copied traceability row, ToC, control page,
+        # commentary, evidence artifact) is demoted — citing it cannot make
+        # a duty covered.
+        for cid in cand_ids:
+            fn = candidate_functions.get(cid)
+            if fn and not fn.get("operative", True):
+                duty.non_operative_citations.append(cid)
+                uncertainties.append(
+                    ExplanationUncertainty(
+                        reason=(
+                            f"duty {duty.duty_id} cites {cid!r}, whose source function is "
+                            f"{fn.get('source_function') or 'unclassified'} — not operative "
+                            "implementation"
+                        ),
+                        source_slice_ids=[cid],
+                        code="READING_NON_OPERATIVE_CITED_AS_IMPLEMENTATION",
+                    )
+                )
+            elif fn and fn.get("revision_current") is False:
+                duty.stale_citations.append(cid)
+                uncertainties.append(
+                    ExplanationUncertainty(
+                        reason=(
+                            f"duty {duty.duty_id} cites {cid!r} from a superseded internal "
+                            "revision — it cannot answer the current question"
+                        ),
+                        source_slice_ids=[cid],
+                        code="READING_STALE_REVISION_CITED",
+                    )
+                )
 
         duty.unverified_operands.extend(_unverified_operands(duty, index))
 
@@ -403,6 +506,8 @@ def _verify_duties(
 def verify_judgment(
     obj: dict[str, Any],
     request: AssessmentRequest,
+    *,
+    packet: dict[str, Any] | None = None,
 ) -> ReadingJudgment:
     """Check the reading against the pinned sources. Name failures; do not veto.
 
@@ -421,7 +526,19 @@ def verify_judgment(
             raw={"response": obj},
         )
 
-    duties, uncertainties = _verify_duties(obj, index)
+    candidate_functions = {
+        str(c.get("candidate_id")): c
+        for c in ((packet or {}).get("candidates") or [])
+        if isinstance(c, dict)
+    }
+    duties, uncertainties = _verify_duties(obj, index, candidate_functions=candidate_functions)
+    for duty in duties:
+        direction, note = _quantity_direction(duty, index)
+        duty.quantity_direction = direction
+        if note:
+            uncertainties.append(
+                ExplanationUncertainty(reason=note, code="READING_QUANTITY_INCOMPARABLE")
+            )
 
     if not duties:
         return ReadingJudgment(
@@ -468,7 +585,7 @@ def verify_judgment(
         )
 
     final, downgraded = _derive_coverage(coverage, duties)
-    return ReadingJudgment(
+    judgment = ReadingJudgment(
         documentary_coverage=final,
         rationale=str(obj.get("rationale") or ""),
         duties=duties,
@@ -479,6 +596,8 @@ def verify_judgment(
         downgraded_from=downgraded,
         raw={"response": obj},
     )
+    judgment.outcomes = _duty_outcomes(judgment)
+    return judgment
 
 
 def _verify_gaps(
@@ -646,9 +765,50 @@ def read_and_judge(
             raw={"request": packet, "response": raw[:4000]},
         )
 
-    judgment = verify_judgment(obj, request)
+    judgment = verify_judgment(obj, request, packet=packet)
     judgment.raw = {"request": packet, "response": obj}
     return judgment
+
+
+def _duty_outcomes(judgment: ReadingJudgment) -> dict[str, Any]:
+    """Separate aligned / partial / misaligned / stricter / conflict /
+    evidence-only per duty (slice §6: outcomes are separated, not averaged).
+    STRICTER is a distinct satisfied outcome — more restrictive than required,
+    with the unused flexibility noted, never a gap."""
+    conflict_gaps = {g.gap_id for g in judgment.gaps if g.kind == "CONTRADICTION"}
+    per_duty: list[dict[str, Any]] = []
+    for duty in judgment.duties:
+        if duty.finding in ("COVERED", "PARTIAL") and not duty.verified_support:
+            # the finding rests entirely on demoted citations (copied rows,
+            # context slices, stale revisions) — it is not established
+            outcome = "EVIDENCE_ONLY"
+        elif duty.finding == "COVERED":
+            if duty.quantity_direction == "MORE_RESTRICTIVE":
+                outcome = "STRICTER"
+            elif duty.quantity_direction == "LESS_RESTRICTIVE":
+                outcome = "PARTIAL"
+            else:
+                outcome = "ALIGNED"
+        elif duty.finding == "PARTIAL":
+            outcome = "PARTIAL"
+        elif not duty.verified_support and duty.non_operative_citations:
+            # nothing operative supports it; only copied/context material was cited
+            outcome = "EVIDENCE_ONLY"
+        else:
+            outcome = "MISALIGNED"
+        per_duty.append(
+            {
+                "duty_id": duty.duty_id,
+                "outcome": outcome,
+                "quantity_direction": duty.quantity_direction,
+            }
+        )
+    return {
+        "duties": per_duty,
+        "conflict": bool(conflict_gaps),
+        "conflict_gap_ids": sorted(conflict_gaps),
+        "unused_flexibility": [d["duty_id"] for d in per_duty if d["outcome"] == "STRICTER"],
+    }
 
 
 def _json_object(text: str) -> dict[str, Any] | None:
