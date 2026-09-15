@@ -1529,7 +1529,10 @@ def compliance_review_decide(
 
 @mcp.tool()
 def compliance_sources(
-    revision_id: str = "", alias_path: str = "", logical_id: str = ""
+    revision_id: str = "",
+    alias_path: str = "",
+    logical_id: str = "",
+    include_sections: bool = False,
 ) -> dict[str, Any]:
     """Exact permitted source context for an immutable document revision
     (design §9's "What documents... connect" / P7's `compliance_sources`
@@ -1583,6 +1586,11 @@ def compliance_sources(
                     )
             else:
                 entry["integrity"] = "unverifiable — source file not found on disk"
+            if include_sections:
+                # P4 source functions: the classified section tree (role per
+                # section) — what makes a copied traceability row inspectable
+                # as non-operative through the route.
+                entry["sections"] = repo.sections_with_role(rev.revision_id)
             out.append(entry)
         return {
             "found": True,
@@ -1848,6 +1856,46 @@ def compliance_impact(start_ref: str, max_depth: int = 5, max_edges: int = 1000)
         return {"error": str(exc)}
 
 
+@mcp.tool()
+def compliance_bundle(requirement_id: str) -> dict[str, Any]:
+    """Resolve the complete governing bundle for one requirement Part through
+    the deployed route (P7 routed observation 5/6): verbatim Part text, lead-in,
+    Measures, Technical Basis spans, applicable systems, definitions
+    disposition, source revision id, component readiness, and the bundle
+    fingerprint. No model calls — this is the deterministic governing side a
+    reader would receive."""
+    try:
+        from portal.modules.compliance.core.assessment_source import resolve_governing_bundle
+
+        bundle = resolve_governing_bundle(requirement_id)
+        return {
+            "requirement_id": requirement_id,
+            "found": True,
+            "part_text": bundle.part_text,
+            "lead_in": bundle.lead_in,
+            "measures": bundle.measures,
+            "technical_basis": bundle.technical_basis,
+            "applicable_systems": bundle.applicable_systems,
+            "revision_id": bundle.revision_id,
+            "definitions_disposition": bundle.definitions_disposition,
+            "readiness": bundle.readiness,
+            "fingerprint": getattr(bundle, "fingerprint", ""),
+            "n_source_slices": len(bundle.source_slices),
+            "source_slices": [
+                {
+                    "slice_id": s.slice_id,
+                    "role": s.role,
+                    "ref": s.ref,
+                    "document_id": s.document_id,
+                    "revision_hash": s.revision_hash,
+                }
+                for s in bundle.source_slices
+            ],
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {"requirement_id": requirement_id, "found": False, "error": str(exc)}
+
+
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_compliance_mcp")
 
 # mcp.custom_route() has no return annotation upstream — bind the concrete
@@ -1886,6 +1934,7 @@ _DISPATCH: dict[str, Callable[..., Any]] = {
     "compliance_analyze": compliance_analyze,
     "compliance_compare": compliance_compare,
     "compliance_impact": compliance_impact,
+    "compliance_bundle": compliance_bundle,
 }
 
 
