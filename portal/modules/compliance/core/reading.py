@@ -260,6 +260,22 @@ def _operand_is_in_source(operand: str, texts: list[str]) -> bool:
     return all(re.search(rf"(?<![\d.]){n}(?![\d.])", blob) for n in numbers)
 
 
+def _unverified_operands(duty: DutyFinding, index: dict[str, SourceSlice]) -> list[str]:
+    """Quantity claims, checked against the text of the ids the duty itself cites."""
+    sides = (
+        ("governing", duty.governing_operand, duty.governing_slice_ids),
+        ("candidate", duty.candidate_operand, duty.candidate_slice_ids),
+    )
+    notes = []
+    for label, operand, ids in sides:
+        if not operand:
+            continue
+        texts = [index[x].text for x in ids if x in index]
+        if not _operand_is_in_source(operand, texts):
+            notes.append(f"{label} operand not in source: {operand!r}")
+    return notes
+
+
 def _verify_duties(
     obj: dict[str, Any], index: dict[str, SourceSlice]
 ) -> tuple[list[DutyFinding], list[ExplanationUncertainty]]:
@@ -293,17 +309,7 @@ def _verify_duties(
             unverified_citations=unresolved,
         )
 
-        # Quantity claims are checked against the text of the ids the duty cites.
-        gov_texts = [index[x].text for x in gov_ids if x in index]
-        cand_texts = [index[x].text for x in cand_ids if x in index]
-        if duty.governing_operand and not _operand_is_in_source(duty.governing_operand, gov_texts):
-            duty.unverified_operands.append(
-                f"governing operand not in source: {duty.governing_operand!r}"
-            )
-        if duty.candidate_operand and not _operand_is_in_source(duty.candidate_operand, cand_texts):
-            duty.unverified_operands.append(
-                f"candidate operand not in source: {duty.candidate_operand!r}"
-            )
+        duty.unverified_operands.extend(_unverified_operands(duty, index))
 
         for ref in unresolved:
             uncertainties.append(
@@ -366,61 +372,9 @@ def verify_judgment(
         if d.finding in ("COVERED", "PARTIAL") and d.verified_support
     ]
 
-    gaps: list[GroundedGap] = []
-    by_duty = {d.duty_id: d for d in duties}
-    for i, raw_gap in enumerate(obj.get("gaps") or [], start=1):
-        kind = str(raw_gap.get("kind") or "").upper()
-        if kind not in _GAP_KINDS:
-            uncertainties.append(
-                ExplanationUncertainty(
-                    reason=f"gap {i} has an unknown kind {kind!r}; gap dropped",
-                    code="READING_GAP_INVALID",
-                )
-            )
-            continue
-        counter = [str(x) for x in (raw_gap.get("internal_counterevidence_slice_ids") or [])]
-        gov = [str(x) for x in (raw_gap.get("governing_slice_ids") or [])]
-        bad = [x for x in counter + gov if x not in index]
-        for ref in bad:
-            uncertainties.append(
-                ExplanationUncertainty(
-                    reason=f"gap {i} cites {ref!r}, which is not in the packet",
-                    code="READING_CITATION_UNVERIFIED",
-                )
-            )
-        gaps.append(
-            GroundedGap(
-                gap_id=str(raw_gap.get("gap_id") or f"g{i}"),
-                kind=kind,
-                missing_commitment=str(raw_gap.get("missing_commitment") or ""),
-                # unverified ids are dropped from the citation, not the gap
-                governing_slice_ids=[x for x in gov if x in index],
-                internal_counterevidence_slice_ids=[x for x in counter if x in index],
-                boundary_proof_id=str(raw_gap.get("boundary_proof_id") or ""),
-            )
-        )
-        duty = by_duty.get(str(raw_gap.get("duty_id") or ""))
-        if duty is not None and duty.finding == "COVERED":
-            uncertainties.append(
-                ExplanationUncertainty(
-                    reason=(
-                        f"gap {i} is raised against duty {duty.duty_id}, which the reading "
-                        "marked COVERED"
-                    ),
-                    code="READING_GAP_INCONSISTENT",
-                )
-            )
-
-    for raw_unc in obj.get("uncertainties") or []:
-        uncertainties.append(
-            ExplanationUncertainty(
-                reason=str(raw_unc.get("reason") or ""),
-                source_slice_ids=[
-                    str(x) for x in (raw_unc.get("source_slice_ids") or []) if str(x) in index
-                ],
-                code=str(raw_unc.get("code") or "READING_UNCERTAINTY"),
-            )
-        )
+    gaps, gap_notes = _verify_gaps(obj, index, duties)
+    uncertainties.extend(gap_notes)
+    uncertainties.extend(_carried_uncertainties(obj, index))
 
     unprovable = _unprovable_absences(gaps, boundary_proof_id(request))
     for note in unprovable:
@@ -453,6 +407,74 @@ def verify_judgment(
         downgraded_from=downgraded,
         raw={"response": obj},
     )
+
+
+def _verify_gaps(
+    obj: dict[str, Any], index: dict[str, SourceSlice], duties: list[DutyFinding]
+) -> tuple[list[GroundedGap], list[ExplanationUncertainty]]:
+    """Resolve each gap's citations. An unverified id is dropped, never the gap."""
+    gaps: list[GroundedGap] = []
+    notes: list[ExplanationUncertainty] = []
+    by_duty = {d.duty_id: d for d in duties}
+
+    for i, raw_gap in enumerate(obj.get("gaps") or [], start=1):
+        kind = str(raw_gap.get("kind") or "").upper()
+        if kind not in _GAP_KINDS:
+            notes.append(
+                ExplanationUncertainty(
+                    reason=f"gap {i} has an unknown kind {kind!r}; gap dropped",
+                    code="READING_GAP_INVALID",
+                )
+            )
+            continue
+        counter = [str(x) for x in (raw_gap.get("internal_counterevidence_slice_ids") or [])]
+        gov = [str(x) for x in (raw_gap.get("governing_slice_ids") or [])]
+        for ref in [x for x in counter + gov if x not in index]:
+            notes.append(
+                ExplanationUncertainty(
+                    reason=f"gap {i} cites {ref!r}, which is not in the packet",
+                    code="READING_CITATION_UNVERIFIED",
+                )
+            )
+        gaps.append(
+            GroundedGap(
+                gap_id=str(raw_gap.get("gap_id") or f"g{i}"),
+                kind=kind,
+                missing_commitment=str(raw_gap.get("missing_commitment") or ""),
+                # unverified ids are dropped from the citation, not the gap
+                governing_slice_ids=[x for x in gov if x in index],
+                internal_counterevidence_slice_ids=[x for x in counter if x in index],
+                boundary_proof_id=str(raw_gap.get("boundary_proof_id") or ""),
+            )
+        )
+        duty = by_duty.get(str(raw_gap.get("duty_id") or ""))
+        if duty is not None and duty.finding == "COVERED":
+            notes.append(
+                ExplanationUncertainty(
+                    reason=(
+                        f"gap {i} is raised against duty {duty.duty_id}, which the reading "
+                        "marked COVERED"
+                    ),
+                    code="READING_GAP_INCONSISTENT",
+                )
+            )
+    return gaps, notes
+
+
+def _carried_uncertainties(
+    obj: dict[str, Any], index: dict[str, SourceSlice]
+) -> list[ExplanationUncertainty]:
+    """The reading's own uncertainties, with unresolvable source ids dropped."""
+    return [
+        ExplanationUncertainty(
+            reason=str(raw.get("reason") or ""),
+            source_slice_ids=[
+                str(x) for x in (raw.get("source_slice_ids") or []) if str(x) in index
+            ],
+            code=str(raw.get("code") or "READING_UNCERTAINTY"),
+        )
+        for raw in obj.get("uncertainties") or []
+    ]
 
 
 def _unprovable_absences(gaps: list[GroundedGap], allowed: str) -> list[str]:
