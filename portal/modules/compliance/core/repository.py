@@ -267,8 +267,8 @@ class Repository:
                 )
             self._conn.execute(
                 """INSERT INTO source_sections(section_id, revision_id, path, page_start,
-                       page_end, table_ref, extractor, extractor_version, org_id)
-                   VALUES (?,?,?,?,?,?,?,?,?)
+                       page_end, table_ref, extractor, extractor_version, org_id, role)
+                   VALUES (?,?,?,?,?,?,?,?,?,?)
                    ON CONFLICT(section_id) DO NOTHING""",
                 (
                     section.section_id,
@@ -280,6 +280,7 @@ class Repository:
                     section.extractor,
                     section.extractor_version,
                     section.org_id,
+                    section.role,
                 ),
             )
 
@@ -308,6 +309,125 @@ class Repository:
                        text_sha256, org_id) VALUES (?,?,?,?,?,?)
                    ON CONFLICT(span_id) DO NOTHING""",
                 (span_id, section_id, char_start, char_end, text_sha256, org_id),
+            )
+
+    # ── P3: obligation decomposition, dependencies, semantic lineage ────
+    def replace_obligation_derivation(
+        self,
+        node_id: str,
+        atoms: list[dict[str, Any]],
+        expression: dict[str, Any],
+        *,
+        expression_id: str,
+        org_id: str = "default",
+    ) -> None:
+        """Re-derive one node's atoms + expression atomically.
+
+        Atoms and expressions are machine-derived assertions (§3.1): when the
+        decomposer changes, re-derivation REPLACES the previous rows for the
+        node under the same source anchors — stale derived rows are never
+        kept beside fresh ones (lesson L14, same-fingerprint dependents).
+        Dependency rows for the node are cleared with the atoms.
+        """
+        with self._lock, self._conn:
+            if not self._conn.execute(
+                "SELECT 1 FROM requirement_nodes WHERE node_id = ?", (node_id,)
+            ).fetchone():
+                raise BrokenReferenceError(f"requirement node {node_id!r} does not resolve")
+            self._conn.execute("DELETE FROM obligation_dependencies WHERE node_id = ?", (node_id,))
+            self._conn.execute("DELETE FROM obligation_atoms WHERE node_id = ?", (node_id,))
+            self._conn.execute("DELETE FROM obligation_expressions WHERE node_id = ?", (node_id,))
+            for atom in atoms:
+                self._conn.execute(
+                    """INSERT INTO obligation_atoms(atom_id,node_id,actor,modality,action,object,population,trigger,deadline_cadence,conditions_json,exceptions_json,evidence_expectation,source_anchor_ids_json,interpretation_status,clause_text,org_id)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        atom["atom_id"],
+                        node_id,
+                        atom.get("actor", ""),
+                        atom.get("modality", ""),
+                        atom.get("action", ""),
+                        atom.get("object", ""),
+                        atom.get("population", ""),
+                        atom.get("trigger", ""),
+                        atom.get("deadline_cadence", ""),
+                        json.dumps(atom.get("conditions", [])),
+                        json.dumps(atom.get("exceptions", [])),
+                        atom.get("evidence_expectation", ""),
+                        json.dumps(atom.get("source_anchor_ids", [])),
+                        atom.get("interpretation_status", "proposed"),
+                        atom.get("text", ""),
+                        org_id,
+                    ),
+                )
+            self._conn.execute(
+                """INSERT INTO obligation_expressions(expression_id,node_id,structure_json,org_id)
+                   VALUES (?,?,?,?)""",
+                (expression_id, node_id, json.dumps(expression), org_id),
+            )
+
+    def add_obligation_dependency(
+        self,
+        dependency_id: str,
+        node_id: str,
+        atom_id: str,
+        *,
+        depends_on_node_id: str = "",
+        depends_on_ref: str = "",
+        kind: str = "references",
+        org_id: str = "default",
+    ) -> None:
+        with self._lock, self._conn:
+            if not self._conn.execute(
+                "SELECT 1 FROM obligation_atoms WHERE atom_id = ?", (atom_id,)
+            ).fetchone():
+                raise BrokenReferenceError(f"obligation atom {atom_id!r} does not resolve")
+            self._conn.execute(
+                """INSERT INTO obligation_dependencies(dependency_id,node_id,atom_id,
+                       depends_on_node_id,depends_on_ref,kind,org_id)
+                   VALUES (?,?,?,?,?,?,?)
+                   ON CONFLICT(dependency_id) DO NOTHING""",
+                (
+                    dependency_id,
+                    node_id,
+                    atom_id,
+                    depends_on_node_id,
+                    depends_on_ref,
+                    kind,
+                    org_id,
+                ),
+            )
+
+    def upsert_obligation_concept(
+        self,
+        concept_id: str,
+        *,
+        family: str = "",
+        label: str = "",
+        derivation: str = "",
+        org_id: str = "default",
+    ) -> None:
+        with self._lock, self._conn:
+            self._conn.execute(
+                """INSERT INTO obligation_concepts(concept_id,family,label,derivation,org_id)
+                   VALUES (?,?,?,?,?)
+                   ON CONFLICT(concept_id) DO UPDATE SET
+                       label = excluded.label,
+                       derivation = excluded.derivation""",
+                (concept_id, family, label, derivation, org_id),
+            )
+
+    def set_requirement_lineage(self, node_id: str, concept_id: str) -> None:
+        """Record concept membership on a revision-specific duty row. The
+        concept must already exist — lineage identity is never implicit."""
+        with self._lock, self._conn:
+            if not self._conn.execute(
+                "SELECT 1 FROM obligation_concepts WHERE concept_id = ?", (concept_id,)
+            ).fetchone():
+                raise BrokenReferenceError(f"obligation concept {concept_id!r} does not resolve")
+            self._conn.execute(
+                "UPDATE requirement_nodes SET logical_lineage_id = ? WHERE node_id = ?",
+                (concept_id, node_id),
             )
 
     # ── V3 determinations and exhaustive-search receipts ───────────────

@@ -65,6 +65,7 @@ class SourceSection:
     extractor: str = ""
     extractor_version: str = ""
     org_id: str = "default"
+    role: str = ""  # result_contract.SOURCE_ROLES value; '' = unclassified
 
 
 @dataclass

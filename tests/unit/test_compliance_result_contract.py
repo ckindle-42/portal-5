@@ -343,11 +343,11 @@ def test_migration_from_a_populated_v7_store(tmp_path, monkeypatch):
     conn.commit()
     conn.close()
 
-    # Restore the full list and open through the Repository — v8 must apply
-    # onto the populated store, non-destructively.
+    # Restore the full list and open through the Repository — migrations 8-9
+    # must apply onto the populated store, non-destructively.
     monkeypatch.setattr(migrations_pkg, "MIGRATIONS", migrations_pkg.schema.MIGRATIONS)
     repo = Repository(path)
-    assert repo.schema_version == 8
+    assert repo.schema_version == migrations_pkg.CURRENT_SCHEMA_VERSION
     kept = repo._conn.execute(  # noqa: SLF001
         "SELECT documentary_coverage, source_readiness FROM assessment_results "
         "WHERE assessment_id = 'legacy1'"
@@ -355,6 +355,15 @@ def test_migration_from_a_populated_v7_store(tmp_path, monkeypatch):
     assert kept["documentary_coverage"] == "PARTIAL"  # untouched
     assert kept["source_readiness"] == "UNKNOWN"  # honest default, no back-fill
     assert repo._conn.execute("SELECT count(*) FROM analysis_runs").fetchone()[0] == 1
+    # migration 9: clause text, dependencies, and concepts exist; nothing is
+    # back-filled to look derived
+    columns = {
+        row[1] for row in repo._conn.execute("PRAGMA table_info(obligation_atoms)").fetchall()
+    }
+    assert "clause_text" in columns
+    for table in ("obligation_dependencies", "obligation_concepts"):
+        count = repo._conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
+        assert count == 0  # schema arrives before rows; never fabricated
     repo.close()
 
 

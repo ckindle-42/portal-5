@@ -116,6 +116,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/determination.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-duty_lineage
+  globs:
+  - portal/modules/compliance/core/duty_lineage.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-engine
   globs:
   - portal/modules/compliance/core/engine.py
@@ -212,6 +216,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/register_diff.py
   unit: unit-compliance-change-pipeline
+- name: file-portal-modules-compliance-core-regulatory_bundle
+  globs:
+  - portal/modules/compliance/core/regulatory_bundle.py
+  unit: unit-compliance-engine
 - name: file-portal-modules-compliance-core-repository
   globs:
   - portal/modules/compliance/core/repository.py

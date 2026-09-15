@@ -514,4 +514,42 @@ MIGRATIONS: list[tuple[int, str, str]] = [
         ALTER TABLE source_sections ADD COLUMN role TEXT NOT NULL DEFAULT '';
         """,
     ),
+    (
+        9,
+        "complete regulatory semantics (END_TO_END P3): clause text, dependencies, "
+        "duty concepts and semantic lineage",
+        """
+        -- P3: each obligation atom carries the verbatim clause it was derived
+        -- from, so an atom can always be proven against the duty text. Legacy
+        -- rows (single-heuristic atoms) keep an empty clause and read as
+        -- unanchored until re-derived from the same source revision.
+        ALTER TABLE obligation_atoms ADD COLUMN clause_text TEXT NOT NULL DEFAULT '';
+
+        -- P3: explicit duty dependencies — 'identified in Part 2.1' becomes a
+        -- row, not prose inside an atom field.
+        CREATE TABLE obligation_dependencies (
+            dependency_id    TEXT PRIMARY KEY,
+            node_id          TEXT NOT NULL REFERENCES requirement_nodes(node_id),
+            atom_id          TEXT NOT NULL REFERENCES obligation_atoms(atom_id),
+            depends_on_node_id TEXT NOT NULL DEFAULT '',
+            depends_on_ref   TEXT NOT NULL DEFAULT '',
+            kind             TEXT NOT NULL DEFAULT 'references',
+            org_id           TEXT NOT NULL DEFAULT 'default'
+        );
+        CREATE INDEX ix_obligation_deps_node ON obligation_dependencies(node_id);
+        CREATE INDEX ix_obligation_deps_target ON obligation_dependencies(depends_on_node_id);
+
+        -- P3: stable semantic duty concepts. A concept may span revisions;
+        -- membership is recorded on requirement_nodes.logical_lineage_id and
+        -- is computed from duty text correspondence — part numbering is
+        -- evidence, never the identity rule.
+        CREATE TABLE obligation_concepts (
+            concept_id   TEXT PRIMARY KEY,
+            family       TEXT NOT NULL DEFAULT '',
+            label        TEXT NOT NULL DEFAULT '',
+            derivation   TEXT NOT NULL DEFAULT '',
+            org_id       TEXT NOT NULL DEFAULT 'default'
+        );
+        """,
+    ),
 ]

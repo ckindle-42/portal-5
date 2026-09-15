@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -38,6 +39,7 @@ from portal.modules.compliance.core.determination import (
     ScenarioOverlay,
     SourceSlice,
 )
+from portal.modules.compliance.core.regulatory_bundle import SourceBundleIncompleteError
 
 __all__ = [
     "acquire_candidates",
@@ -86,9 +88,105 @@ def _governing_slice(
     )
 
 
+_bundle_cache: dict[str, Any] = {}
+
+
+def _revision_bundle(source_pdf: str, expected_prefix: str) -> Any:
+    """The extracted RevisionBundle for one pinned source PDF, cached by
+    digest. Prefers the officially acquired bytes and falls back to the
+    register's pinned public copy; both must carry the register's hash
+    prefix, so a foreign revision can never be read."""
+    from portal.modules.compliance.core.regulatory_bundle import (
+        extract_revision_bundle,
+        sha256_of,
+    )
+
+    module_dir = Path(__file__).resolve().parent.parent
+    candidates = [
+        module_dir / "data" / "private" / "nerc_official" / Path(source_pdf).name,
+        module_dir / "data" / "cip_pdfs" / Path(source_pdf).name,
+    ]
+    for path in candidates:
+        if not path.is_file():
+            continue
+        content = path.read_bytes()
+        digest = sha256_of(content)
+        if expected_prefix and not digest.startswith(expected_prefix):
+            continue  # not the pinned revision — try the next source
+        if digest not in _bundle_cache:
+            _bundle_cache[digest] = extract_revision_bundle(
+                content, expected_sha256=digest, source_name=Path(source_pdf).name
+            )
+        return _bundle_cache[digest]
+    raise ValueError(f"governing source revision unavailable for {source_pdf!r}")
+
+
 def _bundle_fingerprint(slices: list[SourceSlice]) -> str:
     body = [(s.ref, s.revision_hash, s.char_start, s.char_end) for s in slices]
     return hashlib.sha256(json.dumps(body, separators=(",", ":")).encode()).hexdigest()
+
+
+def _bundle_components(
+    node: RegisterNode, reg: Register
+) -> tuple[dict[str, Any], Any, list[dict[str, str]]]:
+    """P3 components from the pinned source revision: the part bundle plus
+    the extracted RevisionBundle (for lead-in recovery) plus readiness
+    failures. A source that cannot be read is a ``source_revision`` failure,
+    never a silent empty bundle."""
+    from portal.modules.compliance.core.regulatory_bundle import (
+        part_bundle,
+        verify_bundle_spans,
+    )
+
+    failures: list[dict[str, str]] = []
+    extracted = None
+    try:
+        extracted = _revision_bundle(
+            node.source_pdf, reg.source_pdfs.get(Path(node.source_pdf).name, "")
+        )
+        pb = (
+            part_bundle(extracted, node.requirement, node.part)
+            if node.granularity == "part"
+            else _requirement_level_bundle(extracted, node)
+        )
+        for locator in verify_bundle_spans(extracted):
+            failures.append(
+                {
+                    "component": "span_offsets",
+                    "detail": f"span failed hash re-verification: {locator}",
+                    "code": "U14_INCOMPLETE_SOURCE_BUNDLE",
+                }
+            )
+        failures.extend(regulatory_readiness_failures(pb))
+        return pb, extracted, failures
+    except (ValueError, OSError) as exc:
+        failures.append(
+            {
+                "component": "source_revision",
+                "detail": str(exc),
+                "code": "U14_INCOMPLETE_SOURCE_BUNDLE",
+            }
+        )
+        return {}, None, failures
+
+
+def _lead_in_node(
+    node: RegisterNode, requirement_id: str, reg: Register, by_id: dict[str, Any], extracted: Any
+) -> Any:
+    """The verified parent R lead-in for a numbered Part. Only numbered
+    requirements carry one — attachment criteria have an attachment section
+    as parent, and no lead-in exists to recover, by source shape."""
+    if node.granularity != "part" or not re.fullmatch(r"R\d+", node.requirement):
+        return None
+    base_id = requirement_id.rsplit(" Part ", 1)[0]
+    lead = by_id.get(base_id) or next((n for n in reg.nodes if n.id == base_id), None)
+    if lead is None and extracted is not None:
+        lead_text = extracted.leadins.get(node.requirement, ("", "", ""))[0]
+        if lead_text:
+            lead = replace(
+                node, id=base_id, part="", verbatim_text=lead_text, granularity="requirement"
+            )
+    return lead if lead is not None else _pdf_parent_requirement(node, reg)
 
 
 def resolve_governing_bundle(requirement_id: str, *, policy_graph: Any = None) -> GoverningBundle:
@@ -100,6 +198,13 @@ def resolve_governing_bundle(requirement_id: str, *, policy_graph: Any = None) -
     text. Referenced targets are bucketed by the policy graph's own typing:
     ``premise`` nodes become ``definitions``, everything else ``references``.
     A reference whose endpoint does not resolve is dropped, never fabricated.
+
+    Foundation P3: the bundle also carries the Part's Measures (``MEASURE``
+    role — evidence expectation, not an extra duty), the requirement's
+    Guidelines and Technical Basis spans (``TECHNICAL_BASIS`` role — read as
+    interpretive context, never binding text), the applicable-systems column,
+    the recorded definitions disposition, and the component ``readiness``
+    verdict over the pinned source revision.
     """
     reg = Register.load()
     node = next((n for n in reg.nodes if n.id == requirement_id), None)
@@ -121,28 +226,70 @@ def resolve_governing_bundle(requirement_id: str, *, policy_graph: Any = None) -
     ]
     meta: list[dict[str, Any]] = [_node_meta(node, "governing")]
 
-    lead_in = ""
-    if node.granularity == "part":
-        base_id = requirement_id.rsplit(" Part ", 1)[0]
-        lead = by_id.get(base_id) or next((n for n in reg.nodes if n.id == base_id), None)
-        if lead is None:
-            lead = _pdf_parent_requirement(node, reg)
-        if lead is not None and lead.verbatim_text:
-            lead_in = lead.verbatim_text
-            slices.append(
-                _governing_slice(
-                    node_id=lead.id,
-                    text=lead.verbatim_text,
-                    role="governing",
-                    document_id=getattr(lead, "source_pdf", "") or getattr(lead, "standard", ""),
-                    chunk_id=lead.id,
-                    locator=getattr(lead, "part", "") or getattr(lead, "requirement", ""),
-                )
-            )
-            meta.append(_node_meta(lead, "lead_in"))
+    # ── P3: complete-bundle components from the pinned source revision ──
+    pb, extracted, failures = _bundle_components(node, reg)
+    measures = list(pb.get("measures", []))
+    technical_basis = [
+        *pb.get("technical_basis", []),
+        *pb.get("technical_basis_parts", []),
+        *pb.get("technical_basis_rationale", []),
+    ]
+    applicable_systems = (getattr(node, "applicable_systems", "") or "") or pb.get(
+        "applicable_systems", ""
+    )
+    document_id = node.source_pdf or node.standard
+    for m in measures:
+        slices.append(_context_slice(m, role="measure", document_id=document_id))
+    for span in technical_basis:
+        slices.append(_context_slice(span, role="technical_basis", document_id=document_id))
 
+    lead_in = ""
+    lead = _lead_in_node(node, requirement_id, reg, by_id, extracted)
+    if lead is not None and lead.verbatim_text:
+        lead_in = lead.verbatim_text
+        slices.append(
+            _governing_slice(
+                node_id=lead.id,
+                text=lead.verbatim_text,
+                role="governing",
+                document_id=getattr(lead, "source_pdf", "") or getattr(lead, "standard", ""),
+                chunk_id=lead.id,
+                locator=getattr(lead, "part", "") or getattr(lead, "requirement", ""),
+            )
+        )
+        meta.append(_node_meta(lead, "lead_in"))
+
+    definitions, references, ref_slices = _graph_references(graph, requirement_id, by_id)
+    slices.extend(ref_slices)
+
+    bundle_out = GoverningBundle(
+        ref=requirement_id,
+        part_text=node.verbatim_text,
+        lead_in=lead_in,
+        definitions=definitions,
+        references=references,
+        meta=meta,
+        source_slices=slices,
+        measures=measures,
+        technical_basis=technical_basis,
+        applicable_systems=applicable_systems,
+        revision_id=pb.get("revision_id", ""),
+        definitions_disposition=pb.get("definitions_disposition", ""),
+        readiness={"ready": not failures, "failures": failures},
+    )
+    bundle_out.fingerprint = _bundle_fingerprint(slices)
+    return bundle_out
+
+
+def _graph_references(
+    graph: Any, requirement_id: str, by_id: dict[str, Any]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[SourceSlice]]:
+    """REFERS_TO targets bucketed into definitions/references, each carried
+    as a reference-role slice. Unresolved endpoints are dropped, never
+    fabricated."""
     definitions: list[dict[str, Any]] = []
     references: list[dict[str, Any]] = []
+    ref_slices: list[SourceSlice] = []
     for edge in graph.edges:
         if edge.get("src") != requirement_id or edge.get("rel") != "REFERS_TO":
             continue
@@ -162,7 +309,7 @@ def resolve_governing_bundle(requirement_id: str, *, policy_graph: Any = None) -
             definitions.append(entry)
         else:
             references.append(entry)
-        slices.append(
+        ref_slices.append(
             _governing_slice(
                 node_id=target.id,
                 text=entry["text"],
@@ -172,18 +319,40 @@ def resolve_governing_bundle(requirement_id: str, *, policy_graph: Any = None) -
                 locator=getattr(target, "part", "") or getattr(target, "requirement", ""),
             )
         )
+    return definitions, references, ref_slices
 
-    bundle = GoverningBundle(
-        ref=requirement_id,
-        part_text=node.verbatim_text,
-        lead_in=lead_in,
-        definitions=definitions,
-        references=references,
-        meta=meta,
-        source_slices=slices,
+
+def _requirement_level_bundle(bundle: Any, node: RegisterNode) -> dict[str, Any]:
+    """Components for a requirement-granularity node (no Parts table)."""
+    from portal.modules.compliance.core.regulatory_bundle import part_bundle
+
+    return part_bundle(bundle, node.requirement, "")
+
+
+def _context_slice(record: dict[str, Any], *, role: str, document_id: str) -> SourceSlice:
+    """A MEASURE / TECHNICAL_BASIS context slice. Context is carried for the
+    reader but is never selectable duty evidence — build_reading_packet keeps
+    these out of ``selectable_slice_ids``."""
+    text = str(record.get("text", ""))
+    locator = str(record.get("locator", ""))
+    return SourceSlice(
+        slice_id=f"ctx-{hashlib.sha256(f'{locator}|{role}|{text}'.encode()).hexdigest()[:16]}",
+        ref=str(record.get("ref", "")) or locator,
+        document_id=document_id,
+        revision_hash=_sha256(text),
+        chunk_id=locator,
+        locator=locator,
+        text=text,
+        char_start=0,
+        char_end=len(text),
+        role=role,
     )
-    bundle.fingerprint = _bundle_fingerprint(slices)
-    return bundle
+
+
+def regulatory_readiness_failures(pb: dict[str, Any]) -> list[dict[str, str]]:
+    from portal.modules.compliance.core.regulatory_bundle import readiness_failures
+
+    return readiness_failures(pb)
 
 
 def _pdf_parent_requirement(node: RegisterNode, reg: Register) -> RegisterNode:
@@ -454,10 +623,21 @@ def build_assessment_request(
     policy_graph: Any = None,
 ) -> AssessmentRequest:
     """Build one fully specified request. A silently-loaded default org graph
-    is never consulted; the caller declares scope or the corpus derives it."""
+    is never consulted; the caller declares scope or the corpus derives it.
+
+    A governing bundle with a failed component (``U14_INCOMPLETE_SOURCE_BUNDLE``)
+    stops here — an incomplete source bundle is an engineering defect to
+    repair, never an assessment to run against a partial governing text and
+    never an item for the SME queue.
+    """
     node = _register_node(requirement_id)
     scope, scope_meta = _resolve_scope(kb_id, scope_text)
     governing = resolve_governing_bundle(requirement_id, policy_graph=policy_graph)
+    readiness = governing.readiness or {}
+    if readiness and not readiness.get("ready", True):
+        raise SourceBundleIncompleteError(
+            ref=requirement_id, failures=list(readiness.get("failures", []))
+        )
     candidates = acquire_candidates(node, kb_id=kb_id, top_k=top_k, arbiter_fn=arbiter_fn)
     snapshot = build_corpus_snapshot(kb_id, acquisition_receipt=candidates.acquisition_receipt)
     return AssessmentRequest(

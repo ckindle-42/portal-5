@@ -166,11 +166,27 @@ def build_reading_packet(request: AssessmentRequest) -> dict[str, Any]:
     candidates = list(request.candidate_set.records) if request.candidate_set else []
 
     gov_slices = [
-        s for s in (governing.source_slices if governing else []) if s.role != "reference"
+        s for s in (governing.source_slices if governing else []) if s.role == "governing"
     ]
     ref_slices = [
         s for s in (governing.source_slices if governing else []) if s.role == "reference"
     ]
+    all_governing_slices = governing.source_slices if governing else []
+    measure_slices = [s for s in all_governing_slices if s.role == "measure"]
+    tb_slices = [s for s in all_governing_slices if s.role == "technical_basis"]
+
+    def _context_block(slices_, role_label, note):
+        return [
+            {
+                "slice_id": s.slice_id,
+                "ref": s.ref,
+                "role": role_label,
+                "locator": s.locator,
+                "text": s.text,
+                "note": note,
+            }
+            for s in slices_
+        ]
 
     packet: dict[str, Any] = {
         "governing": {
@@ -186,7 +202,24 @@ def build_reading_packet(request: AssessmentRequest) -> dict[str, Any]:
                 }
                 for r in (list(governing.references) if governing else [])
             ],
-            "measures": getattr(governing, "measures", "") if governing else "",
+            # Measures: evidence expectations from the source's own Measures
+            # column / M-lead-in. Never an additional unstated duty, and never
+            # selectable as duty evidence.
+            "measures": _context_block(
+                measure_slices,
+                "MEASURE",
+                "evidence expectation from the source; not an additional duty and "
+                "not selectable as duty evidence",
+            ),
+            # Technical Basis: the source's own interpretive context. Binding
+            # text lives in part_text/lead_in only.
+            "technical_basis": _context_block(
+                tb_slices,
+                "TECHNICAL_BASIS",
+                "interpretive context from the source's Guidelines and Technical "
+                "Basis; not binding text and not selectable as duty evidence",
+            ),
+            "applicable_systems": governing.applicable_systems if governing else "",
             "selectable_slice_ids": [s.slice_id for s in gov_slices],
             "source_slices": [
                 {"slice_id": s.slice_id, "ref": s.ref, "role": s.role, "text": s.text}
@@ -215,6 +248,8 @@ def build_reading_packet(request: AssessmentRequest) -> dict[str, Any]:
             [boundary_proof_id(request)] if boundary_proof_id(request) else []
         ),
     }
+    if governing is not None and governing.readiness and not governing.readiness.get("ready", True):
+        packet["governing"]["readiness"] = governing.readiness
     if ref_slices:
         packet["governing"]["reference_texts"] = [
             {"ref": s.ref, "text": s.text} for s in ref_slices
@@ -296,6 +331,14 @@ def _verify_duties(
         gov_ids = [str(x) for x in (raw_duty.get("governing_slice_ids") or [])]
         cand_ids = [str(x) for x in (raw_duty.get("candidate_slice_ids") or [])]
         unresolved = [x for x in gov_ids + cand_ids if x not in index]
+        # Measures / Technical Basis / references ride in the packet as
+        # context, never as duty evidence (foundation §3.2 source roles). A
+        # citation that resolves to a context slice is recorded and demoted.
+        context_cited = [
+            x
+            for x in gov_ids
+            if x in index and index[x].role not in ("governing", "candidate", "proposed")
+        ]
 
         duty = DutyFinding(
             duty_id=str(raw_duty.get("duty_id") or f"d{i}"),
@@ -306,7 +349,7 @@ def _verify_duties(
             governing_operand=str(raw_duty.get("governing_operand") or ""),
             candidate_operand=str(raw_duty.get("candidate_operand") or ""),
             rationale=str(raw_duty.get("rationale") or ""),
-            unverified_citations=unresolved,
+            unverified_citations=unresolved + context_cited,
         )
 
         duty.unverified_operands.extend(_unverified_operands(duty, index))
@@ -316,6 +359,17 @@ def _verify_duties(
                 ExplanationUncertainty(
                     reason=f"duty {duty.duty_id} cites {ref!r}, which is not in the packet",
                     code="READING_CITATION_UNVERIFIED",
+                )
+            )
+        for ref in context_cited:
+            uncertainties.append(
+                ExplanationUncertainty(
+                    reason=(
+                        f"duty {duty.duty_id} cites {ref!r}, which is a context slice "
+                        f"({index[ref].role}), not duty evidence"
+                    ),
+                    source_slice_ids=[ref],
+                    code="READING_CONTEXT_CITED_AS_DUTY",
                 )
             )
         for note in duty.unverified_operands:
@@ -365,7 +419,9 @@ def verify_judgment(
     covered = [
         CoveredCommitment(
             commitment=d.statement,
-            governing_slice_ids=[x for x in d.governing_slice_ids if x in index],
+            governing_slice_ids=[
+                x for x in d.governing_slice_ids if x in index and index[x].role == "governing"
+            ],
             internal_slice_ids=[x for x in d.candidate_slice_ids if x in index],
         )
         for d in duties
