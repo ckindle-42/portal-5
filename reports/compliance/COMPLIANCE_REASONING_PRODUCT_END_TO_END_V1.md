@@ -10,8 +10,8 @@
 
 | phase | scope | state | commit |
 | --- | --- | --- | --- |
-| 0 | reconcile reality, freeze ledger, this report | **DONE** | (this commit) |
-| 1 | product/result contract (foundation P1) | pending | |
+| 0 | reconcile reality, freeze ledger, this report | **DONE** | `c52edc8f` |
+| 1 | product/result contract (foundation P1) | **DONE** | (this commit) |
 | 2 | official NERC source sync (foundation P2) | pending | |
 | 3 | complete regulatory semantics (foundation P3) | pending | |
  | 4 | internal revisions and source functions (foundation P4) | pending | |
@@ -171,6 +171,48 @@ closure owned by that phase) · NOT_APPLICABLE (reason). Updated per phase below
 New failure shapes discovered during execution are appended here with their
 regression guard in the same phase that repairs them.
 
+### Phase 1 — product/result contract (DONE)
+
+Implemented `core/result_contract.py` + `AssessmentResult`/schema migration:
+
+- **§3.1 truth classes**: `truth_class_of_table()` maps all 33 canonical tables to
+  `source_fact` / `derived_assertion` / `organizational_decision`; unmapped tables
+  raise rather than guess.
+- **§3.2 source roles**: `SOURCE_ROLES` — the full 15-role controlled vocabulary
+  with load-bearing meaning text (a Measure reads as evidence context, never an
+  extra duty); no numeric authority tier. `source_sections.role` column added
+  (migration 8; `''` = unclassified, never guessed).
+- **§3.4 separated dimensions**: `AssessmentResult` gained
+  `source_readiness`/`temporal_currency`/`documentary_alignment`/
+  `implementation_evidence`/`review_required`/`review_reason`, vocabulary-checked
+  in `__post_init__`, computed by `dimensions_of()` at `assessment._finalize` (the
+  single exit point — every path carries them), persisted as scalar columns
+  (migration 8). `documentary_alignment_of()` is the one explicit
+  legacy-coverage→alignment map (CONTRADICTION gap ⇒ MISALIGNED).
+- **review is an output**: `review_reason_for()` projects only genuine SME
+  reasons (S04 interpretive conflict, S01 external scope fact); every
+  engineering `UNRESOLVED_*` code yields `review_required=False` — triage, not
+  the SME packet. Existing `review_queue.PIPELINE_KINDS`/`sme_packet()` split
+  retained.
+- **new controlled failure codes**: `U14_INCOMPLETE_SOURCE_BUNDLE`,
+  `U15_PROJECTION_MISMATCH`, `U16_INVALID_CITATION`, `U17_INTERPRETIVE_CONFLICT`
+  (each names its required payload).
+- **repair**: the reading/council disagreement path emitted an unregistered code
+  and would have crashed the result contract — now `U17` with both records
+  retained; regression added.
+- **live store**: migrated 7→8 non-destructively via `Repository()` (additive
+  ALTERs only), pre-migration snapshot at
+  `data/private/backups/pre-v8-20260914T232533Z.db` (11.2 MB), row counts
+  identical before/after, legacy rows read with honest UNKNOWN/NOT_ASSESSED
+  defaults, restore-from-backup proven (487 assessment rows recoverable).
+- **validation**: `ruff check .` clean · `ruff format --check .` clean ·
+  `pytest tests/unit/ -q` **1863 passed, 4 skipped** (15 new contract tests) ·
+  mypy clean on touched modules · spine manifest regenerated
+  (`python -m portal.platform.wiki.coverage --write-manifest`) after adding
+  `result_contract.py` to `unit-compliance-engine` sources.
+- Ledger rows closed/strengthened: L08 (controlled codes complete),
+  L25 (review projection test), L26 (null/falsy guard on new fields).
+
 ## 3. Failure and repair history
 
 | date | failure | repair | guard |
@@ -178,6 +220,8 @@ regression guard in the same phase that repairs them.
 | (pre-baseline, retained) | L-document family UNRESOLVED ×4 via old three-gate architecture | reading judgment `b1612cd2`/`5f5f93b8` | 26-case suite + live replay `5ae8ffe1` |
 | (pre-baseline, retained) | harness supplied no boundary receipt → own OMISSION rule voided correct reads (case 20) | boundary-receipt plumbing | acceptance fixtures carry receipts |
 | 2026-09-14 (this phase) | deployed compliance MCP stale vs HEAD (started 02:41, HEAD 21:28) — operator question still returns UNRESOLVED ×4 from stale code | scheduled: restart from final foundation commit in Phase 6 with recorded identity | L22 row above; Phase 6 routed receipts must record served commit |
+| 2026-09-14 (Phase 1) | `_reconcile_reading_and_council` emitted `U12_READING_COUNCIL_DISAGREEMENT`, which is not in `UNRESOLVED_CODES` — a genuine reading/council disagreement would have raised `DeterminationContractError` in `AssessmentResult.__post_init__` instead of producing a reviewable result | switched to the new `U17_INTERPRETIVE_CONFLICT` with both records + reading slice ids retained in `missing_fact` | `test_compliance_result_contract.py::test_reading_council_disagreement_is_a_valid_unresolved_result` |
+| 2026-09-14 (Phase 1) | the migration runner splits DDL on `;`, so a `;` inside a SQL comment breaks the migration (hit while writing v8) | comment text rewritten semicolon-free; NOTE recorded in the migration file itself | `test_migration_eight_is_non_destructive`, `test_migration_from_a_populated_v7_store` |
 
 ## 4. Commands and receipts (Phase 0)
 

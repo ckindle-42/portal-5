@@ -607,12 +607,29 @@ def _reconcile_reading_and_council(
         "UNRESOLVED",
         "UNRESOLVED",
         False,
-        "U12_READING_COUNCIL_DISAGREEMENT",
+        # A reading/council disagreement is an interpretive conflict with
+        # support on both sides — reviewable, never a crash. (This path
+        # previously emitted "U12_READING_COUNCIL_DISAGREEMENT", which is not
+        # in UNRESOLVED_CODES and would have been rejected by the result
+        # contract's own __post_init__.)
+        "U17_INTERPRETIVE_CONFLICT",
         {
             "reading_documentary_coverage": documentary,
             "council_determination": decision,
             "reading_rationale": judgment.rationale,
             "council_rationale": str(getattr(council, "rationale", "")),
+            "reading_source_slice_ids": sorted(
+                {
+                    sid
+                    for c in judgment.covered
+                    for sid in c.governing_slice_ids + c.internal_slice_ids
+                }
+                | {
+                    sid
+                    for g in judgment.gaps
+                    for sid in g.governing_slice_ids + g.internal_counterevidence_slice_ids
+                }
+            ),
         },
     )
 
@@ -879,6 +896,14 @@ def _ensure_run(request: AssessmentRequest, context: AssessmentContext) -> str:
 
 
 def _finalize(result: AssessmentResult, context: AssessmentContext) -> AssessmentResult:
+    # §3.4 dimensions are computed at the single exit point so every path —
+    # scope-exit, integrity-exit, alignment-exit, and the full reading —
+    # carries them. `review_required` is a projection of named reasons, never
+    # a gate anything upstream consults.
+    from portal.modules.compliance.core.result_contract import dimensions_of
+
+    for field_name, value in dimensions_of(result).items():
+        setattr(result, field_name, value)
     repo = context.repository
     if repo is not None:
         from portal.modules.compliance.core.repository import Repository

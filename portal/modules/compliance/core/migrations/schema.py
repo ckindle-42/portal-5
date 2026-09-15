@@ -491,4 +491,27 @@ MIGRATIONS: list[tuple[int, str, str]] = [
         CREATE INDEX ix_assessment_fingerprint ON assessment_results(input_fingerprint);
         """,
     ),
+    (
+        8,
+        "product contract (END_TO_END P1): separated result dimensions + source roles",
+        # NOTE: this runner splits statements on ';' — never put one inside a
+        # comment line inside a migration's SQL block.
+        """
+        -- §3.4: the canonical result carries readiness, currency, evidence and
+        -- review-need as separate typed columns, not one collapsed coverage
+        -- label. Legacy rows keep the honest defaults (UNKNOWN/NOT_ASSESSED)
+        -- and remain fully readable. Nothing is back-filled to look ready.
+        ALTER TABLE assessment_results ADD COLUMN source_readiness TEXT NOT NULL DEFAULT 'UNKNOWN';
+        ALTER TABLE assessment_results ADD COLUMN temporal_currency TEXT NOT NULL DEFAULT 'UNKNOWN';
+        ALTER TABLE assessment_results ADD COLUMN documentary_alignment TEXT NOT NULL DEFAULT 'UNRESOLVED';
+        ALTER TABLE assessment_results ADD COLUMN implementation_evidence TEXT NOT NULL DEFAULT 'NOT_ASSESSED';
+        ALTER TABLE assessment_results ADD COLUMN review_required INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE assessment_results ADD COLUMN review_reason TEXT NOT NULL DEFAULT '';
+
+        -- §3.2: source sections carry a controlled role drawn from the
+        -- result_contract.SOURCE_ROLES vocabulary. Empty means unclassified,
+        -- never a guessed role.
+        ALTER TABLE source_sections ADD COLUMN role TEXT NOT NULL DEFAULT '';
+        """,
+    ),
 ]
