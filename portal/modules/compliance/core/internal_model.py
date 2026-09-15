@@ -49,7 +49,26 @@ def classify_document(text: str) -> str:
     return "unknown"
 
 
-def extract_assertions(revision_id: str, text: str, *, anchor_id: str) -> list[InternalAssertion]:
+def extract_assertions(
+    revision_id: str,
+    text: str,
+    *,
+    anchor_id: str,
+    section_role: str = "",
+) -> list[InternalAssertion]:
+    """Extract candidate internal commitments from one section's text.
+
+    ``section_role`` (a SOURCE_ROLES value) gates extraction: only operative
+    roles (policy/procedure/work-instruction body text) can yield
+    IMPLEMENTS-style commitments. A copied regulation row under a
+    traceability appendix, a revision-history page, a ToC, or commentary is
+    never a commitment — the classification, not sentence regexes, decides
+    (lesson L18). Callers that omit the role get the legacy whole-document
+    behavior, with the appendix-quote guard below still active."""
+    from portal.modules.compliance.core.internal_corpus import OPERATIVE_ROLES
+
+    if section_role and section_role not in OPERATIVE_ROLES:
+        return []
     out = []
     for index, sentence in enumerate(re.split(r"(?<=[.!?])\s+|\n+", text)):
         sentence = " ".join(sentence.split()).strip()

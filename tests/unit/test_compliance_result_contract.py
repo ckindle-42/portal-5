@@ -67,6 +67,10 @@ def test_source_role_vocabulary_is_the_contract_set():
         "EVIDENCE_SPECIFICATION",
         "EVIDENCE_ARTIFACT",
         "COMMENTARY",
+        # P4 additions: structural internal-corpus text is never operative,
+        # and document-control pages source metadata rather than duties.
+        "TABLE_OF_CONTENTS",
+        "DOCUMENT_CONTROL",
     }
     assert set(SOURCE_ROLES) == expected
     assert all(SOURCE_ROLES[r] for r in SOURCE_ROLES)  # meaning text is load-bearing

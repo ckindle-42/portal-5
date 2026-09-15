@@ -552,4 +552,30 @@ MIGRATIONS: list[tuple[int, str, str]] = [
         );
         """,
     ),
+    (
+        10,
+        "internal corpus (END_TO_END P4): sourced revision metadata, section "
+        "titles, and mapping derivation",
+        # NOTE: this runner splits statements on ';' — never put one inside a
+        # comment line inside a migration's SQL block.
+        """
+        -- P4: controlled-document metadata read from the document's own
+        -- control block. Empty string means absent/unsourced — never guessed
+        -- from a filename or defaulted.
+        ALTER TABLE document_revisions ADD COLUMN document_number TEXT NOT NULL DEFAULT '';
+        ALTER TABLE document_revisions ADD COLUMN version TEXT NOT NULL DEFAULT '';
+        ALTER TABLE document_revisions ADD COLUMN owner TEXT NOT NULL DEFAULT '';
+        ALTER TABLE document_revisions ADD COLUMN owner_title TEXT NOT NULL DEFAULT '';
+
+        -- P4: section heading titles beside the structural path, so an
+        -- operative section resolves by its own name.
+        ALTER TABLE source_sections ADD COLUMN title TEXT NOT NULL DEFAULT '';
+
+        -- P4: how a mapping assertion was derived. Folder/prefix Cartesian
+        -- candidates carry 'folder_cartesian' and are excluded from
+        -- established trace and deterministic impact. Empty means the
+        -- pre-P4 legacy derivation recorded only in rationale.
+        ALTER TABLE relationship_assertions ADD COLUMN derivation TEXT NOT NULL DEFAULT '';
+        """,
+    ),
 ]

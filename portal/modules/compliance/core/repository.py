@@ -202,12 +202,17 @@ class Repository:
                 approved_date=dates.get("approved_date"),
                 effective_date=dates.get("effective_date"),
                 last_reviewed_date=dates.get("last_reviewed_date"),
+                document_number=dates.get("document_number", ""),
+                version=dates.get("version", ""),
+                owner=dates.get("owner", ""),
+                owner_title=dates.get("owner_title", ""),
             )
             self._conn.execute(
                 """INSERT INTO document_revisions(revision_id, logical_id, alias_path,
                        binding_effect, authored_date, approved_date, effective_date,
-                       last_reviewed_date, retrieved_at, org_id, recorded_from, recorded_to)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,NULL)""",
+                       last_reviewed_date, retrieved_at, org_id, recorded_from, recorded_to,
+                       document_number, version, owner, owner_title)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,NULL,?,?,?,?)""",
                 (
                     rev.revision_id,
                     rev.logical_id,
@@ -220,10 +225,96 @@ class Repository:
                     rev.retrieved_at,
                     rev.org_id,
                     rev.recorded_from,
+                    rev.document_number,
+                    rev.version,
+                    rev.owner,
+                    rev.owner_title,
                 ),
             )
             self._write_outbox_unlocked("document_revision_added", {"revision_id": revision_id})
             return rev
+
+    def update_revision_control_metadata(
+        self,
+        revision_id: str,
+        *,
+        binding_effect: str | None = None,
+        document_number: str | None = None,
+        version: str | None = None,
+        owner: str | None = None,
+        owner_title: str | None = None,
+        effective_date: str | None = None,
+        approved_date: str | None = None,
+        authored_date: str | None = None,
+        last_reviewed_date: str | None = None,
+    ) -> bool:
+        """Record sourced control-block metadata on an existing immutable
+        revision. Bytes are untouched; absent arguments are left as-is;
+        sourced values overwrite only previous NULL/empty placeholders, so a
+        re-run can never clobber a real value with an empty one. Returns
+        False when the revision does not resolve."""
+        with self._lock, self._conn:
+            if not self._conn.execute(
+                "SELECT 1 FROM document_revisions WHERE revision_id = ?", (revision_id,)
+            ).fetchone():
+                return False
+            assignments: list[str] = []
+            params: list[Any] = []
+            for column, value in (
+                ("binding_effect", binding_effect),
+                ("document_number", document_number),
+                ("version", version),
+                ("owner", owner),
+                ("owner_title", owner_title),
+                ("effective_date", effective_date),
+                ("approved_date", approved_date),
+                ("authored_date", authored_date),
+                ("last_reviewed_date", last_reviewed_date),
+            ):
+                if value is None:
+                    continue
+                if column == "binding_effect":
+                    assignments.append(f"{column} = ?")
+                    params.append(value)
+                else:
+                    # dates/text: fill honest placeholders only
+                    assignments.append(
+                        f"{column} = (CASE WHEN ({column} IS NULL OR {column} = '') THEN ? ELSE {column} END)"
+                    )
+                    params.append(value)
+            if not assignments:
+                return True
+            params.append(revision_id)
+            self._conn.execute(
+                f"UPDATE document_revisions SET {', '.join(assignments)} WHERE revision_id = ?",
+                params,
+            )
+            return True
+
+    def set_section_function(self, section_id: str, *, role: str, title: str) -> bool:
+        """Assign a section's controlled function (role + heading title).
+        Used to type the legacy whole-document section with the document's
+        own source role. Returns False when the section does not resolve."""
+        with self._lock, self._conn:
+            cur = self._conn.execute(
+                "UPDATE source_sections SET role = ?, title = ? WHERE section_id = ?",
+                (role, title, section_id),
+            )
+            return cur.rowcount > 0
+
+    def sections_with_role(self, revision_id: str) -> list[dict[str, Any]]:
+        """Every classified section of a revision, ordered by page then
+        position — the operative-section resolution surface."""
+        rows = self._conn.execute(
+            """SELECT s.section_id, s.path, s.role, s.title, s.page_start, s.page_end,
+                      MIN(sp.char_start) AS char_start
+               FROM source_sections s LEFT JOIN source_spans sp ON sp.section_id = s.section_id
+               WHERE s.revision_id = ?
+               GROUP BY s.section_id
+               ORDER BY char_start, s.path""",
+            (revision_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
 
     def get_revision(self, revision_id: str) -> DocumentRevision | None:
         with self._lock:
@@ -267,8 +358,8 @@ class Repository:
                 )
             self._conn.execute(
                 """INSERT INTO source_sections(section_id, revision_id, path, page_start,
-                       page_end, table_ref, extractor, extractor_version, org_id, role)
-                   VALUES (?,?,?,?,?,?,?,?,?,?)
+                       page_end, table_ref, extractor, extractor_version, org_id, role, title)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?)
                    ON CONFLICT(section_id) DO NOTHING""",
                 (
                     section.section_id,
@@ -281,6 +372,7 @@ class Repository:
                     section.extractor_version,
                     section.org_id,
                     section.role,
+                    section.title,
                 ),
             )
 
@@ -809,8 +901,8 @@ class Repository:
                        src_revision_id, dst_ref, dst_revision_id, scope, citations_json, status,
                        review_state, valid_from, valid_to, recorded_from, recorded_to, rationale,
                        decided_by, decided_at, version, org_id, coverage, proposed_coverage,
-                       confidence)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                       confidence, derivation)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     rel.assertion_id,
                     rel.relation_type,
@@ -834,10 +926,42 @@ class Repository:
                     rel.coverage,
                     rel.proposed_coverage,
                     rel.confidence,
+                    rel.derivation,
                 ),
             )
             self._write_outbox_unlocked("relationship_proposed", {"assertion_id": rel.assertion_id})
         return rel
+
+    def tag_relationship_derivation(
+        self,
+        derivation: str,
+        *,
+        from_rationale: str | None = None,
+        relation_types: tuple[str, ...] = (),
+        statuses: tuple[str, ...] = ("proposed",),
+    ) -> int:
+        """P4 quarantine: stamp the derivation on legacy assertions matching
+        an explicit provenance shape — either ``from_rationale`` (substring
+        match) or ``relation_types`` — so folder/prefix Cartesian candidates
+        become machine-recognizable discovery-only rows. Returns the number
+        of rows tagged. Never touches assertions that already carry a
+        derivation; at least one shape filter is required so a caller cannot
+        stamp the whole table blind."""
+        if from_rationale is None and not relation_types:
+            raise ValueError("tag_relationship_derivation requires a provenance shape filter")
+        placeholders = ",".join("?" for _ in statuses)
+        sql = f"UPDATE relationship_assertions SET derivation = ? WHERE derivation = '' AND status IN ({placeholders})"
+        params: list[Any] = [derivation, *statuses]
+        if from_rationale is not None:
+            sql += " AND rationale LIKE '%' || ? || '%'"
+            params.append(from_rationale)
+        if relation_types:
+            rt = ",".join("?" for _ in relation_types)
+            sql += f" AND relation_type IN ({rt})"
+            params.extend(relation_types)
+        with self._lock, self._conn:
+            cur = self._conn.execute(sql, params)
+            return cur.rowcount
 
     def _row_to_relationship(self, row: sqlite3.Row) -> RelationshipAssertion:
         d = dict(row)
