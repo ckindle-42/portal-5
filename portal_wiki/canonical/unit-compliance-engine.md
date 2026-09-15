@@ -78,6 +78,8 @@ sources:
 - type: code
   path: portal/modules/compliance/core/reading_transport.py
 - type: code
+  path: portal/modules/compliance/core/reading.py
+- type: code
   path: portal/modules/compliance/core/assessment_runs.py
 - type: code
   path: portal/modules/compliance/core/traceability.py
