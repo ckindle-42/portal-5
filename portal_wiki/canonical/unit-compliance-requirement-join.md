@@ -6,6 +6,10 @@ sources:
 - type: code
   path: portal/modules/compliance/core/requirement_anchor.py
 - type: code
+  path: scripts/capture_register_standards.py
+- type: code
+  path: scripts/anchor_requirements.py
+- type: code
   path: tests/unit/test_compliance_requirement_anchor.py
 claims:
 - probe: compliance.register
@@ -103,6 +107,27 @@ join: `requirement_id`, `vrf`, `time_horizon`, `applicable_systems` and
 disagreement is reported on the entry and **neither value is overwritten** —
 two derivations of one fact silently differing is precisely the failure this
 module has already had twice.
+
+## The corpus the join needs
+
+The backlog was never 33 unreachable PDFs. The Register records `source_pdfs`
+with a sha256 for **14 standards** — proof those URLs resolved and those bytes
+were fetched. Thirteen of the fourteen had reached the store only as `pymupdf`
+sections with `char_start = -1`: structure with no coordinate space, so nothing
+could be projected from them and nothing could be anchored into them.
+`scripts/capture_register_standards.py` gives each one the `docling`
+whole-document capture the reading path actually needs, sha-verifying against
+the Register's recorded digest first — a mismatch STOPs that document, because
+the Register's structure came from those exact bytes and anchoring against
+different bytes produces a join that is silently wrong rather than loudly
+absent. `scripts/anchor_requirements.py` then anchors every standard that has
+both Register nodes and a capture, and writes the per-standard, per-relation
+census.
+
+What is still missing is a different and smaller problem: NERC's per-version
+URLs for *older* revisions. The Register holds one revision per standard except
+CIP-003, so `valid_at` queries into the past are answerable only where a prior
+revision was captured.
 
 ## The capture is never edited
 
