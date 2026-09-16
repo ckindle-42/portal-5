@@ -363,35 +363,31 @@ def _quantity_from_operand(operand: str) -> tuple[int, str, str | None] | None:
     return int(m.group(1)), m.group(3).lower().rstrip("s"), qualifier
 
 
-def _quantity_direction(duty: DutyFinding, index: dict[str, SourceSlice]) -> tuple[str, str | None]:
-    """Deterministic quantitative direction AFTER same-duty correspondence.
-
-    Called only for duties the reading judged COVERED/PARTIAL — duty identity
-    is the model's contextual reading (L15); direction is computed here only
-    when both operands carry a literal quantity in the cited texts. Returns
-    (direction, uncertainty_note)."""
-    if duty.finding not in ("COVERED", "PARTIAL"):
-        return "", None
-    gov_q = _quantity_from_operand(duty.governing_operand)
-    cand_q = _quantity_from_operand(duty.candidate_operand)
-    if not gov_q or not cand_q:
-        return "", None
-    gov_texts = [index[x].text for x in duty.governing_slice_ids if x in index]
-    cand_texts = [index[x].text for x in duty.candidate_slice_ids if x in index]
-    if not _operand_is_in_source(duty.governing_operand, gov_texts) or not _operand_is_in_source(
-        duty.candidate_operand, cand_texts
-    ):
-        return "", None
-    kind = "max_interval" if "every" in duty.governing_operand.lower() else "min_retention"
-    from portal.modules.compliance.core.constraints import Quantity, compare_constraint
-
-    result, reason = compare_constraint(
-        kind,
-        Quantity(gov_q[0], gov_q[1], gov_q[2]),
-        Quantity(cand_q[0], cand_q[1], cand_q[2]),
-    )
-    note = f"{duty.duty_id}: {result} — {reason}" if result == "INCOMPARABLE" else None
-    return result, note
+#: DELETED in BILATERAL_CORPUS_V1 P6.4, with its cause rather than repaired.
+#:
+#: ``_quantity_direction`` chose its comparator with
+#: ``"max_interval" if "every" in duty.governing_operand.lower() else
+#: "min_retention"``. A duty phrased "within 35 calendar days" contains no
+#: "every", so it was compared as a RETENTION minimum: a 40-day operator
+#: interval — a four-working-week shortfall against a 35-day obligation — came
+#: out MORE_RESTRICTIVE, which the outcome map turned into STRICTER and then
+#: into "unused flexibility". The system reported a shortfall as generosity.
+#:
+#: This is not a comparator bug to patch. Deciding, from the shape of a phrase,
+#: which direction "more" points in, is the prescriptive move §0 names: the
+#: standard declines to say whether its interval is a ceiling or a floor in
+#: terms a regex can read, and inventing the answer is how the reading came to
+#: contradict the text. The comparison is read now, by a model that has the
+#: requirement, its Technical Basis and the operator's own words in front of it,
+#: and that says in prose which way the difference runs and why.
+#:
+#: ``DutyFinding.quantity_direction`` stays on the dataclass, permanently empty,
+#: because the deprecated outcome map still reads it. Empty means ALIGNED there
+#: — the honest default when nothing computed a direction.
+_QUANTITY_DIRECTION_DELETED = (
+    "BILATERAL_CORPUS_V1 P6.4: the quantity comparator was deleted with its cause. "
+    "Direction between a regulatory interval and an operator interval is read, not computed."
+)
 
 
 def _verify_duties(
@@ -532,13 +528,7 @@ def verify_judgment(
         if isinstance(c, dict)
     }
     duties, uncertainties = _verify_duties(obj, index, candidate_functions=candidate_functions)
-    for duty in duties:
-        direction, note = _quantity_direction(duty, index)
-        duty.quantity_direction = direction
-        if note:
-            uncertainties.append(
-                ExplanationUncertainty(reason=note, code="READING_QUANTITY_INCOMPARABLE")
-            )
+    # No computed quantity direction — see _QUANTITY_DIRECTION_DELETED.
 
     if not duties:
         return ReadingJudgment(

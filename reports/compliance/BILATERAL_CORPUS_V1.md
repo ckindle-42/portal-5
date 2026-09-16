@@ -575,3 +575,194 @@ fresh ones. Now scoped to the capture's own extractor.
 **Rollback.** `git revert <sha>`; restore
 `data/private/backups/pre-regulatory-20260916T030415Z.db` (the run takes its own
 snapshot first).
+
+---
+
+## §5 — P4 one identity space
+
+### 5.1 What changed
+
+`core/section_index` emits the retrieval index **from** `source_sections`, at
+section granularity, with `chunk_id = section_id`. No change to the shared Arrow
+schema — the existing field carries the identity.
+`compliance_retrieval.project_sections` writes those units through the same
+stages as `ingest_document` (same embedder, same contextualize rule, same BM25
+sparse arm) and differs only in where the units come from.
+`ingest_folder` is marked **deprecated as the product retrieval path** in place.
+
+### 5.2 The live projection
+
+`uv run python scripts/project_compliance_sections.py`:
+
+| corpus | eligible | projected | units | split | unprojectable | boundary complete | wall |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `operator_corpus` | 2,568 | 2,568 | 2,579 | 21 | **0** | **true** | 1,090.4 s |
+| `nerc_corpus` | 1,173 | 1,173 | 1,173 | 0 | **0** | **true** | 161.9 s |
+| `operator_notes` | 1 | 1 | 1 | 0 | 0 | true | 0.2 s |
+| `conversation` | 0 | 0 | 0 | 0 | 0 | — (empty) | 0.0 s |
+
+**Cost against the P0 extrapolation.** P0 measured 0.664 s/section on a sample
+averaging ~750 characters and projected ~62 min for both corpora. The real
+figure is **1,252 s (20.9 min) for 3,752 units — 0.334 s/unit**, about half the
+extrapolation. The sample over-estimated because it drew evenly across the
+store, which over-weights the long tail; the real population is dominated by
+short table rows and list items. Recorded rather than quietly replaced.
+
+### 5.3 Three populations, kept apart
+
+A revision's capture is a *total* cover of that revision, so for a captured
+revision the captured sections **are** the eligible population.
+
+* **superseded** — pre-capture sections on a revision that now has one. They are
+  a second extraction of the same bytes, which is the duplication this phase
+  removes. Counted, not eligible, not silently dropped.
+* **uncaptured documents** — revisions with no capture. Named by document, and
+  `corpus_whole` is false while any remain, so a partial corpus cannot carry an
+  absence claim about the whole jurisdiction.
+
+The first dry run reported 2,636 internal sections unprojectable: the internal
+materializer wrote sections and spans but **never persisted the document text**,
+so no internal section could resolve to verbatim text. Fixed at the source —
+`materialize_internal_corpus` now writes `document_texts` and the migration-11
+positional columns, and the corpus was re-materialized.
+
+### 5.4 A falsy-zero bug the tests caught
+
+`int(entry["char_start"] or -1)` reads **0 as -1**. The first section of every
+document starts at offset 0, so every document's first section was classified
+unanchored and silently excluded: 68 internal and 6 regulatory sections, including
+CIP-007-6's opening. Found by a unit test asserting the resolved text of a known
+first section, not by inspection. Replaced with an explicit `_span_of`.
+
+### 5.5 Identity, demonstrated live
+
+| check | result |
+| --- | --- |
+| search hits resolving to a `source_sections` row | **50 / 50** across five queries |
+| semantic query *"what is the intent of the security patch management requirement"* | top hits are `Rationale for Requirement R2` and the `Table R2` rows from `nerc_corpus` |
+| lexical query *"at least once every 35 calendar days evaluate security patches"* | top hit is the **Part 2.2 table row**, followed by CIP-007-7.1's and the R2 VSL row |
+| exact address `CIP-007-6 R2 Part 2.2` | resolved **as an address**, Part row first |
+
+On the address path: a requirements-table row's verbatim text is
+`2.2 | High Impact …` and never contains the string `CIP-007-6 R2 Part 2.2`, so
+matching a full address lexically is luck. `compliance_search` now resolves an
+exact regulatory address directly and labels those hits `match: "address"`,
+which is stronger than hoping the sparse arm ranks it first. The sparse/dense
+fusion is still what finds the row from its own words, as the third row above
+shows.
+
+### 5.6 The boundary is a fact (P4.6)
+
+`acquire_exhaustively` reads the **whole declared population** rather than a
+top-k window, and emits the receipt from the projection. Live on CIP-007-6's 278
+sections:
+
+```
+complete receipt: True | candidates 278 | snapshot COMPLETE
+boundary_proof_id: boundary-91b01811468966b66db1
+
+withheld one section -> complete: False | omissions 1
+boundary_proof_id: ''
+```
+
+Both directions. This is §0.4 closed: before it, every producer of a boundary
+receipt in the tree was a test fixture or a replay script, and
+`_boundary_proof_id` returned `""` on every production request.
+
+### 5.7 Freshness is per corpus
+
+One store-wide fingerprint made writing a single operator note mark the
+**regulatory** index stale — false, and the fastest way to teach someone to
+ignore the signal. `section_population_fingerprint(repo, jurisdiction)` and
+`retrieval_projection_status` are per corpus, and a partial run carries forward
+the corpora it did not touch. `--restamp` re-records a manifest only after
+verifying the live table's `chunk_id`s equal the store's current units **row for
+row**:
+
+```
+operator_corpus  expected 2579  live 2579  matches True
+nerc_corpus      expected 1173  live 1173  matches True
+operator_notes   expected    1  live    1  matches True
+conversation     expected    0  live    0  matches True
+projection status: FRESH (all four corpora FRESH)
+```
+
+---
+
+## §6 — P5 addressability and the reading assembly
+
+### 6.1 The tools
+
+Seven new synchronous tools on the compliance MCP, none of which returns a run
+id or starts a background job. `_SPAN_EXCERPT_CHARS = 180` is gone from this
+surface: text is whole up to a caller-supplied `max_chars`, and truncation is
+**stated** in the payload.
+
+| tool | live result |
+| --- | --- |
+| `compliance_search` | both corpora, every hit resolved to a section, exact addresses resolved as addresses, both clocks honoured with exclusions named |
+| `compliance_read` | `CIP-007-6 R2 Part 2.2` → 6 units, verbatim, page 9, effective 2016-07-01 |
+| `compliance_links` | traversal with status, derivation and confidence on every edge |
+| `compliance_timeline` | 5 revisions across CIP-007-6/7.1 and their companions, with the semantic delta |
+| `compliance_coverage` | deterministic; named all four R2 Parts as having no link |
+| `compliance_note` / `compliance_notes` | a note written in one call is retrievable in the next |
+| `compliance_context` | see below |
+
+`compliance_search` was the name of the raw kb-scoped passthrough; that is now
+`compliance_kb_search`, and the route with it. The new tool is what an analyst
+should use — it spans both corpora and resolves every hit.
+
+### 6.2 `compliance_context` — the reading assembly
+
+Live on **CIP-007-6 R2**, default 60,000-token budget:
+
+| component | sections | tokens |
+| --- | --- | --- |
+| requirement | 9 | 936 |
+| technical_basis | 11 | 1,874 |
+| rationale | 2 | 73 |
+| glossary | 7 | 317 |
+| vsl | 13 | 656 |
+| applicability | 6 | 510 |
+| background | 10 | 822 |
+| effective_dates | 2 | 14 |
+| compliance_and_evidence_retention | 49 | 3,536 |
+| version_history | 14 | 410 |
+| implementation_plan | 116 | 5,156 |
+| **total** | | **15,240 — nothing omitted** |
+
+A requirement's whole neighbourhood, for a quarter of the budget. Each table row
+carries its cells under their column names, so the Measure stays attached to its
+Part:
+
+```
+Part               :: 2.2
+Applicable Systems :: High Impact BES Cyber Systems and their associated: 1. EACMS; 2. PACS;
+Requirements       :: At least once every 35 calendar days, evaluate security patches for ap…
+Measures           :: An example of evidence may include, but is not limited to, an evaluati…
+```
+
+The first implementation emitted `measures` as a duplicate of `requirement` —
+for a table-shaped requirement the Measures cell travels *inside* its Part row,
+and a separate component just spent the budget twice. Now the Measures component
+fires only for prose `M<n>` lead-ins, and the row carries its own cells.
+
+### 6.3 Operator notes are sources
+
+A note is a `source_documents` row, an immutable `document_revisions` row keyed
+on its own bytes, and a `source_sections` row with a span — so it is citeable by
+`section_id`, resolvable, projectable, and retrievable by search from the next
+question onward. Written live against `CIP-007-6 R2 Part 2.2` and retrieved in
+the next call.
+
+### 6.4 Verification
+
+| gate | result |
+| --- | --- |
+| `uv run pytest tests/unit/ -q` | **2110 passed, 4 skipped** (+39 for P4/P5) |
+| ruff check / format, mypy on the new modules | clean |
+| `tests/unit/test_spine_gates.py` | 6 passed |
+| tools manifest / workspace reachability probe | `all_reachable:23` |
+
+**Rollback.** `git revert <sha>`; `scripts/project_compliance_sections.py`
+rebuilds the index from the store.

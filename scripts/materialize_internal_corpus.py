@@ -40,7 +40,7 @@ DERIVATION_FOLDER_ORG_PLACEHOLDER = "folder_placeholder_org"
 V3_CANDIDATE_RATIONALE = "content-derived candidate"
 _PLACEHOLDER_ORG_EDGES = ("PERFORMED_BY", "APPLIES_TO", "EVIDENCED_BY", "HAS_ACTIVITY")
 EXTRACTOR = "internal_corpus"
-EXTRACTOR_VERSION = "1"
+EXTRACTOR_VERSION = "2"  # BILATERAL_CORPUS_V1 P1: complete tiling + positional columns
 
 
 def _control_dict(control: ic.DocumentControl) -> dict:
@@ -155,8 +155,19 @@ def _rederive_sections(repo: Repository, conn, pdf: Path, inv: dict) -> None:
             "DELETE FROM source_sections WHERE revision_id = ? AND extractor = ?",
             (revision_id, EXTRACTOR),
         )
+    # P1/P4: the document's extracted text is the coordinate space its sections
+    # tile. Persisting it is what lets a section resolve to verbatim text without
+    # re-reading the PDF, and therefore what lets the section be PROJECTED into
+    # the retrieval index under its own id (BILATERAL_CORPUS_V1 P4).
+    repo.put_document_text(
+        revision_id,
+        inv["full_text"],
+        page_count=int(inv["pages"]),
+        extractor=EXTRACTOR,
+        extractor_version=EXTRACTOR_VERSION,
+    )
     section_rows = []
-    for section in inv["sections"]:
+    for ordinal, section in enumerate(inv["sections"]):
         section.revision_id = revision_id  # scope the section id to this revision
         if not is_source_role(section.role):
             raise ValueError(
@@ -180,6 +191,12 @@ def _rederive_sections(repo: Repository, conn, pdf: Path, inv: dict) -> None:
                 extractor_version=EXTRACTOR_VERSION,
                 role=section.role,
                 title=section.title,
+                # migration 11 positional columns: the tiling, queryable
+                unit_kind="prose",
+                ordinal=ordinal,
+                char_start=section.char_start,
+                char_end=section.char_end,
+                heading_path=section.heading or section.path,
             )
         )
         span_id = "ispan-" + section.section_id[len("isection-") :]

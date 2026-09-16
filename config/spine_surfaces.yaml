@@ -80,6 +80,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/candidate_closure.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-candidate_links
+  globs:
+  - portal/modules/compliance/core/candidate_links.py
+  unit: unit-compliance-bilateral-corpus
 - name: file-portal-modules-compliance-core-capture
   globs:
   - portal/modules/compliance/core/capture.py
@@ -184,6 +188,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/nerc_source_sync.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-notes
+  globs:
+  - portal/modules/compliance/core/notes.py
+  unit: unit-compliance-bilateral-corpus
 - name: file-portal-modules-compliance-core-obligation_alignment
   globs:
   - portal/modules/compliance/core/obligation_alignment.py
@@ -224,10 +232,18 @@ surfaces:
   globs:
   - portal/modules/compliance/core/provenance.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-reader
+  globs:
+  - portal/modules/compliance/core/reader.py
+  unit: unit-compliance-bilateral-corpus
 - name: file-portal-modules-compliance-core-reading
   globs:
   - portal/modules/compliance/core/reading.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-reading_assembly
+  globs:
+  - portal/modules/compliance/core/reading_assembly.py
+  unit: unit-compliance-bilateral-corpus
 - name: file-portal-modules-compliance-core-reading_transport
   globs:
   - portal/modules/compliance/core/reading_transport.py
@@ -272,6 +288,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/scope_derive.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-section_index
+  globs:
+  - portal/modules/compliance/core/section_index.py
+  unit: unit-compliance-bilateral-corpus
 - name: file-portal-modules-compliance-core-slice_executor
   globs:
   - portal/modules/compliance/core/slice_executor.py

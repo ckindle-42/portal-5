@@ -8,6 +8,18 @@ sources:
 - type: code
   path: portal/modules/compliance/core/glossary.py
 - type: code
+  path: portal/modules/compliance/core/section_index.py
+- type: code
+  path: portal/modules/compliance/core/reading_assembly.py
+- type: code
+  path: portal/modules/compliance/core/notes.py
+- type: code
+  path: portal/modules/compliance/core/reader.py
+- type: code
+  path: portal/modules/compliance/core/candidate_links.py
+- type: code
+  path: scripts/project_compliance_sections.py
+- type: code
   path: scripts/materialize_regulatory_corpus.py
 - type: code
   path: tests/unit/test_compliance_capture.py
@@ -15,6 +27,10 @@ sources:
   path: tests/unit/test_compliance_glossary.py
 - type: code
   path: tests/unit/test_compliance_regulatory_corpus.py
+- type: code
+  path: tests/unit/test_compliance_section_index.py
+- type: code
+  path: tests/unit/test_compliance_reading_assembly.py
 claims:
 - probe: compliance.capture.unit_kinds
   contains: table_row
@@ -195,3 +211,54 @@ answers it from the pinned register. Verified live on CIP-007: both paths select
 `6` today with `7.1` future, and both select `7.1` at 2029-01-01 with `6`
 historical. An undated revision is never read as always-in-force, and a revision
 recorded after the requested `known_at` answers `UNKNOWN_KNOWLEDGE`.
+
+## One identity space
+
+`core/section_index` emits the retrieval index FROM `source_sections`, at
+section granularity, with `chunk_id = section_id`. Before it, 68 internal
+documents existed as 2,508 classified sections with `isection-…` ids and as
+2,636 docling chunks with sha1 ids, and the intersection of those two id sets
+was **empty** — a hit could not be resolved to a section, and
+`_boundary_proof_id`'s `set(examined_sections) == {chunk_id}` check could never
+pass. Measured after the change: 50 of 50 live search hits resolve to a
+canonical section.
+
+Three populations are kept apart because they mean different things. A
+revision's capture is a *total* cover of that revision, so for a captured
+revision the captured sections ARE the eligible population; pre-capture sections
+on the same revision are **superseded**, not missing; revisions with no capture
+are **uncaptured documents**, named, and the corpus is not whole while any
+remain. Splitting a long section into `<section_id>#<n>` sub-units is a
+projection detail — `parent_section_id` resolves them back.
+
+**The boundary is a fact, not a fixture.** `boundary_receipt` emits
+`eligible_sections`, `examined_sections` and `document_revision_hashes` from the
+store, and `assessment_source.acquire_exhaustively` reads the whole declared
+population rather than a top-k window. Demonstrated live on CIP-007-6's 278
+sections: a complete scoped acquisition yields
+`boundary-91b01811468966b66db1`, and withholding one section yields `""`.
+
+Freshness is tracked **per corpus**: one store-wide hash would mark the
+regulatory index stale the moment somebody writes an operator note, which is
+false and teaches people to ignore the signal. `--restamp` re-records a
+manifest only for corpora whose index matches the store row for row.
+
+## The reading assembly
+
+`core/reading_assembly.assemble` replaces the top-k keyhole. For a requirement
+it gathers, by document structure and recorded graph edges rather than by
+relevance score: the requirement and its Parts with their own cells, the
+Measures, the Guidelines and Technical Basis, the Rationale, the VSL rows,
+Section 4 applicability, Section 6 background and its reading conventions, the
+resolved Glossary terms, the implementation plan and technical rationale, the
+version history, the linked operator sections in full, and the operator's own
+notes. Measured on CIP-007-6 R2: **15,240 tokens, nothing omitted** at the
+default 60k budget. Anything the budget cannot hold is named in `omitted`.
+
+Selecting the sections under `Guidelines and Technical Basis > Requirement R2:`
+reads the document's own outline; it decides nothing about what any passage
+means. Nothing is marked ineligible to cite.
+
+An operator note (`core/notes`) is a source like any other — a document, an
+immutable revision, a section — so it is citeable, resolvable and projectable by
+exactly the same machinery, and it outranks a stored answer.

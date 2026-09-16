@@ -660,4 +660,78 @@ MIGRATIONS: list[tuple[int, str, str]] = [
         ALTER TABLE document_revisions ADD COLUMN source_url TEXT NOT NULL DEFAULT '';
         """,
     ),
+    (
+        13,
+        "operator notes and the conversation corpus (BILATERAL_CORPUS_V1 P5/P6)",
+        # NOTE: this runner splits statements on ';' -- never put one inside a
+        # comment line inside a migration's SQL block (rule R9).
+        """
+        -- P5: an operator decision, intent or rationale, recorded as a dated and
+        -- attributed source. The BODY lives where every other source's body
+        -- lives -- a document revision and a section -- so a note is citeable,
+        -- projectable and resolvable by exactly the same machinery. This table
+        -- is the index over those notes by what they are ABOUT.
+        CREATE TABLE operator_notes (
+            note_id     TEXT PRIMARY KEY,
+            subject_ref TEXT NOT NULL,
+            kind        TEXT NOT NULL DEFAULT 'note',
+            author      TEXT NOT NULL DEFAULT '',
+            created_at  TEXT NOT NULL,
+            section_id  TEXT NOT NULL REFERENCES source_sections(section_id),
+            revision_id TEXT NOT NULL REFERENCES document_revisions(revision_id),
+            org_id      TEXT NOT NULL DEFAULT 'default'
+        );
+        CREATE INDEX ix_operator_notes_subject ON operator_notes(subject_ref);
+
+        -- P6: an answer is one analyst's notes pinned to the revisions it read.
+        -- Never a fact, never promoted by age, always outranked by a note.
+        -- superseded_at is set when a revision it cited moves.
+        CREATE TABLE conversation_answers (
+            answer_id      TEXT PRIMARY KEY,
+            thread_id      TEXT NOT NULL DEFAULT '',
+            asked_at       TEXT NOT NULL,
+            question       TEXT NOT NULL,
+            answer         TEXT NOT NULL,
+            model          TEXT NOT NULL DEFAULT '',
+            subject_ref    TEXT NOT NULL DEFAULT '',
+            elapsed_s      REAL NOT NULL DEFAULT 0,
+            eval_count     INTEGER NOT NULL DEFAULT 0,
+            prompt_bytes   INTEGER NOT NULL DEFAULT 0,
+            load_duration_s REAL NOT NULL DEFAULT 0,
+            reasoning_effort TEXT NOT NULL DEFAULT '',
+            num_ctx        INTEGER NOT NULL DEFAULT 0,
+            superseded_at  TEXT,
+            superseded_by  TEXT NOT NULL DEFAULT '',
+            correction_of  TEXT NOT NULL DEFAULT '',
+            org_id         TEXT NOT NULL DEFAULT 'default'
+        );
+        CREATE INDEX ix_conversation_answers_subject ON conversation_answers(subject_ref);
+        CREATE INDEX ix_conversation_answers_thread ON conversation_answers(thread_id);
+
+        -- P6: every id an answer cited, with what it resolved to. An
+        -- unresolvable citation is recorded as unresolvable rather than dropped.
+        CREATE TABLE answer_citations (
+            answer_id    TEXT NOT NULL REFERENCES conversation_answers(answer_id),
+            cited_ref    TEXT NOT NULL,
+            resolved     INTEGER NOT NULL DEFAULT 0,
+            resolves_to  TEXT NOT NULL DEFAULT '',
+            revision_id  TEXT NOT NULL DEFAULT '',
+            jurisdiction TEXT NOT NULL DEFAULT '',
+            source_kind  TEXT NOT NULL DEFAULT '',
+            detail       TEXT NOT NULL DEFAULT '',
+            PRIMARY KEY (answer_id, cited_ref)
+        );
+
+        -- P6: the questions the operator already cares about. Run on ingest and
+        -- on every auto-sync change -- that IS the initial assessment.
+        CREATE TABLE standing_questions (
+            question_id TEXT PRIMARY KEY,
+            question    TEXT NOT NULL,
+            subject_ref TEXT NOT NULL DEFAULT '',
+            created_at  TEXT NOT NULL,
+            active      INTEGER NOT NULL DEFAULT 1,
+            org_id      TEXT NOT NULL DEFAULT 'default'
+        );
+        """,
+    ),
 ]
