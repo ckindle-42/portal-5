@@ -5,9 +5,15 @@ title: "Compliance requirement→section join — the key the graph and the corp
 sources:
 - type: code
   path: portal/modules/compliance/core/requirement_anchor.py
+- type: code
+  path: tests/unit/test_compliance_requirement_anchor.py
 claims:
 - probe: compliance.register
   contains: CIP-007-6
+- probe: compliance.store.tables
+  contains: requirement_sections
+- probe: compliance.store.tables
+  contains: requirement_anchor_misses
 confidence: high
 tags:
 - compliance
@@ -75,6 +81,28 @@ because a row is one unit — which is why `relation` is a column on the join
 rather than a reason to cut new sections. A relation narrows *which* of a
 requirement's material is being asked for; per `capture.positional_role`'s rule
 it must never bar a passage from a general search.
+
+## The two primitives
+
+`Repository.sections_for_requirement(requirement_id, relations=…, valid_at=…)`
+is the retrieval primitive that did not exist: section rows in reading order,
+the revision selected by `document_revisions`' own clock. It defaults to
+`("governing",)` so a caller that wants only the duty text gets only the duty
+text. `Repository.requirements_for_section(section_id)` is its exact inverse —
+a reader looking at a passage can say which requirements it bears on and how,
+which makes a citation checkable in both directions rather than only forwards.
+`Repository.record_anchors` is the idempotent upsert into
+`requirement_sections`, with every miss landing in
+`requirement_anchor_misses` so an unanchored requirement is a queryable fact
+rather than a line in a report nobody re-reads.
+
+`section_index.resolve_sections` rides the Register's facts in on a `governing`
+join: `requirement_id`, `vrf`, `time_horizon`, `applicable_systems` and
+`lifecycle_state` are READ from the register node. Where the Register's
+`authority_tier` and the document-derived projection disagree, the
+disagreement is reported on the entry and **neither value is overwritten** —
+two derivations of one fact silently differing is precisely the failure this
+module has already had twice.
 
 ## The capture is never edited
 

@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import asdict, dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -140,6 +141,25 @@ class Register:
             source_pdfs=d.get("source_pdfs", {}),
             extractor_commit=d.get("extractor_commit", ""),
         )
+
+
+@lru_cache(maxsize=1)
+def node_index(path: str = "") -> dict[str, RegisterNode]:
+    """``requirement_id -> RegisterNode``, loaded once.
+
+    The read side of the ONE_REGULATORY_EXTRACTION_V1 join. Once
+    `requirement_sections` says which requirement a section carries, the facts
+    that requirement already holds — `vrf`, `time_horizon`,
+    `applicable_systems`, `lifecycle_state`, `authority_tier` — are READ from
+    here rather than re-derived, because two derivations of one fact silently
+    differing is the identity-space failure this module has already had twice.
+    An absent register file yields an empty index rather than raising: the join
+    is an enrichment, and a missing enrichment must not break resolution.
+    """
+    target = Path(path) if path else REGISTER_PATH
+    if not target.is_file():
+        return {}
+    return {n.id: n for n in Register.load(target).nodes}
 
 
 _XREF_RE = re.compile(r"\bCIP-\d{3}(?:-[\w.]+)?\b")
