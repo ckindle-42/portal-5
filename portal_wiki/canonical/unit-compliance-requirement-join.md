@@ -10,7 +10,11 @@ sources:
 - type: code
   path: scripts/anchor_requirements.py
 - type: code
+  path: portal/modules/compliance/core/enumeration.py
+- type: code
   path: tests/unit/test_compliance_requirement_anchor.py
+- type: code
+  path: tests/unit/test_compliance_requirement_scoping.py
 claims:
 - probe: compliance.register
   contains: CIP-007-6
@@ -128,6 +132,48 @@ What is still missing is a different and smaller problem: NERC's per-version
 URLs for *older* revisions. The Register holds one revision per standard except
 CIP-003, so `valid_at` queries into the past are answerable only where a prior
 revision was captured.
+
+## Retrieval and closure scope by identity
+
+`compliance_search(requirement=…)` narrows **before** ranking. The resolution is
+two-step and deliberately not a predicate column: a section bears several
+relations to a requirement and can bear on several requirements, so a
+multi-value column would need `LIKE` matching on ids — and `'CIP-007-6 R2'` is a
+substring of `'CIP-007-6 R2 Part 2.2'`, so `LIKE` is wrong here, not merely
+inelegant. Repeated index rows are also out, because they break
+`chunk_id = section_id`. So the requirement resolves to exact section ids in
+SQLite and those ids are pushed as `chunk_id IN (…)` through `predicates.build`,
+composed with the clock clauses by `AND`. Above a measured ceiling the tool
+returns `honest-BLOCKED` naming the count rather than falling back to an
+unfiltered search, which would look filtered.
+
+`enumeration.population_for_requirement` is the closure-side twin: the
+requirement's population comes from the join, and the structural walk survives
+as a **named** fallback — `population_method: "proximity"`, never a silent
+substitution, because an absence claim resting on a guess must be visibly weaker
+than one resting on the join.
+
+## Measures and the Technical Basis, without the verdict engine
+
+`regulatory_bundle` owns the whole semantic content of a revision — the Measures
+column and the `M<n>` statements, the Guidelines and Technical Basis per
+requirement and per Part, the rationale boxes — and all of it was reachable only
+through `resolve_governing_bundle`, which re-parses the PDF at call time.
+
+The GTB text is **already captured**: it sits in `full_text` as prose under its
+own heading path. So `requirement_anchor.anchor_bundle_spans` adds nothing to
+`source_sections` — it locates each span in the captured character space and
+writes a `requirement_sections` row with `relation='technical_basis'` pointing at
+the sections that already contain it. Zero new sections, one new table's rows,
+and the material becomes readable, findable, scopeable and countable
+independently of the verdict engine. `regulatory_bundle.py`, `cip_extract.py`
+and `cip_register.py` stay: they are the regulatory extractor.
+
+A Measures lead-in is scoped to its `M<n>` statement rather than the whole
+extracted region, because `regulatory_bundle` bounds a lead-in at the start of
+the next region and the span therefore runs through the entire requirements
+table. Attaching all of it to every Part would join Part 2.1's Measures cell to
+Part 2.4 — a citation that looks correct and cannot be checked afterwards.
 
 ## The capture is never edited
 

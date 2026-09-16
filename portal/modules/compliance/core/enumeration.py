@@ -17,6 +17,65 @@ from __future__ import annotations
 
 from typing import Any
 
+#: The full requirement-side population: everything the join says belongs to a
+#: requirement, in every relation. A narrower call asks for less on purpose.
+ALL_RELATIONS = ("governing", "measure", "applicable_systems", "technical_basis")
+
+
+def population_for_requirement(
+    repo: Any,
+    ref: str,
+    *,
+    relations: tuple[str, ...] = ALL_RELATIONS,
+    valid_at: str = "",
+    proximity_fallback: Any = None,
+) -> dict[str, Any]:
+    """The sections constituting one requirement, BY IDENTITY where possible.
+
+    ONE_REGULATORY_EXTRACTION_V1 P4.2. Before the join there was no way to
+    retrieve *the sections constituting R2 Part 2.2*, so the reading path
+    gathered by heading-path proximity — not because proximity is a principle,
+    but because it was the only option available. Where
+    ``requirement_sections`` has an anchor, the population is now the join, and
+    ``population_method`` says ``"join"``.
+
+    Where it does not, ``proximity_fallback`` (a zero-argument callable
+    returning section rows) still runs, and ``population_method`` says
+    ``"proximity"`` — **named, never silently substituted**. An absence claim
+    resting on a proximity guess has to be visibly weaker than one resting on
+    the join, or the two get treated as the same evidence.
+
+    The operator-side sections the existing link walk contributes are unioned
+    in by the caller: both sides as before, only the regulatory side's
+    derivation changes.
+    """
+    rows = repo.sections_for_requirement(ref, relations=relations, valid_at=valid_at)
+    if rows:
+        return {
+            "ref": ref,
+            "population_method": "join",
+            "relations": list(relations),
+            "section_ids": list(dict.fromkeys(str(r["section_id"]) for r in rows)),
+            "rows": rows,
+            "detail": (f"{len(rows)} section-relation pair(s) anchored to {ref!r} by exact match"),
+        }
+    misses = [m for m in repo.anchor_misses() if str(m["requirement_id"]) == ref]
+    fallback_rows = list(proximity_fallback() or []) if proximity_fallback else []
+    return {
+        "ref": ref,
+        "population_method": "proximity",
+        "relations": list(relations),
+        "section_ids": [str(r.get("section_id", "")) for r in fallback_rows],
+        "rows": fallback_rows,
+        "unanchored": misses,
+        "detail": (
+            f"{ref!r} is not anchored into the captured revision"
+            + (f" ({misses[0]['reason']})" if misses else "")
+            + " — this population was gathered by heading-path proximity, which is a "
+            "weaker basis than the join and is reported as such"
+        ),
+    }
+
 
 def declared_population(
     repo: Any,

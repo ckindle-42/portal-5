@@ -1981,6 +1981,25 @@ def _provenance(entry: dict[str, Any]) -> dict[str, Any]:
         "approved_date": entry.get("approved_date"),
         "inactive_date": entry.get("inactive_date"),
         "lifecycle_status": entry.get("lifecycle_status", ""),
+        # ONE_REGULATORY_EXTRACTION_V1 P4: what this passage governs and how.
+        # Ridden in on the join by section_index.resolve_sections, so a hit
+        # arrives knowing its requirement rather than needing a second lookup.
+        # Absent on a section with no join — never a plausible-looking blank.
+        **{
+            key: entry[key]
+            for key in (
+                "requirement_id",
+                "requirement_ids",
+                "relations",
+                "vrf",
+                "time_horizon",
+                "applicable_systems",
+                "lifecycle_state",
+                "register_authority_tier",
+                "authority_tier_disagreement",
+            )
+            if entry.get(key)
+        },
     }
 
 
@@ -2063,7 +2082,9 @@ def _contains_group(column: str, value: str) -> list[Any]:
     return [(column, "LIKE", f"%{v}%") for v in variants]
 
 
-def _search_predicate(*, standard: str, layer: str, valid_at: str, known_at: str) -> str:
+def _search_predicate(
+    *, standard: str, layer: str, valid_at: str, known_at: str, extra: Any = None
+) -> str:
     """The pushdown predicate for ``compliance_search`` (SUBSTRATE_PROPERTIES_V1 P3).
 
     Property 1: the clocks filter BEFORE ranking. Written against the P1
@@ -2093,7 +2114,80 @@ def _search_predicate(*, standard: str, layer: str, valid_at: str, known_at: str
         entries.append([("recorded_to", "=", ""), ("recorded_to", ">", k)])
     if not v and not k:
         entries.append(("is_superseded", "=", 0))
+    if extra is not None:
+        # P4.1: the requirement's exact section ids, composed with the clocks by
+        # AND. Exact, so no substring hazard, and no schema change.
+        entries.append(extra)
     return predicates.build(entries)
+
+
+#: The largest ``chunk_id IN (…)`` list pushed into the arms. MEASURED, not
+#: guessed — §P4.1's sweep timed 10 / 100 / 500 / 1000 ids against the live
+#: index and recorded where latency turns; see
+#: reports/compliance/ONE_REGULATORY_EXTRACTION_V1.md. Above it the tool returns
+#: honest-BLOCKED naming the count, because a silent fallback to an unfiltered
+#: search would LOOK filtered, which is worse than refusing.
+MAX_REQUIREMENT_SECTION_IDS = 500
+
+
+def _requirement_predicate(repo: Any, requirement: str, relations: tuple[str, ...]) -> Any:
+    """Resolve a requirement to exact section ids, two-step (P4.1).
+
+    **No new predicate column.** A section bears several relations to a
+    requirement and can bear on several requirements, so a multi-value index
+    column would need ``LIKE`` matching on ids — and ``'CIP-007-6 R2'`` is a
+    substring of ``'CIP-007-6 R2 Part 2.2'``, so ``LIKE`` is wrong here, not
+    merely inelegant. Repeated index rows are also out: they break
+    ``chunk_id = section_id``, the identity BILATERAL_CORPUS_V1 P4 unified.
+
+    So: resolve in SQLite through the join, then push exact ids as
+    ``chunk_id IN (…)``, which composes with the clock clauses by ``AND``.
+
+    Returns ``(entry, section_ids, blocked)``. ``blocked`` is a populated
+    honest-BLOCKED payload when the requirement resolves to nothing or to more
+    ids than the measured ceiling.
+    """
+    rows = repo.sections_for_requirement(requirement, relations=relations)
+    section_ids = list(dict.fromkeys(str(r["section_id"]) for r in rows))
+    if not section_ids:
+        misses = [m for m in repo.anchor_misses() if str(m["requirement_id"]) == requirement]
+        return (
+            None,
+            [],
+            {
+                "signal": "honest-BLOCKED",
+                "detail": (
+                    f"{requirement!r} resolves to no section through the requirement join"
+                    + (
+                        f" — it is recorded UNANCHORED: {misses[0]['reason']}"
+                        if misses
+                        else " — it is not a requirement this store carries"
+                    )
+                ),
+                "requirement": requirement,
+                "relations": list(relations),
+                "unanchored": misses,
+            },
+        )
+    if len(section_ids) > MAX_REQUIREMENT_SECTION_IDS:
+        return (
+            None,
+            section_ids,
+            {
+                "signal": "honest-BLOCKED",
+                "detail": (
+                    f"{requirement!r} resolves to {len(section_ids)} sections, above the "
+                    f"measured pushdown ceiling of {MAX_REQUIREMENT_SECTION_IDS}. Ask for a "
+                    "narrower requirement (a Part rather than a whole standard) — this tool "
+                    "will not silently fall back to an unfiltered search, which would look "
+                    "filtered."
+                ),
+                "requirement": requirement,
+                "section_count": len(section_ids),
+                "ceiling": MAX_REQUIREMENT_SECTION_IDS,
+            },
+        )
+    return (("in", "chunk_id", section_ids), section_ids, None)
 
 
 def _filter_notes(valid_at: str, known_at: str) -> list[str]:
@@ -2154,6 +2248,8 @@ def compliance_search(
     layer: str = "",
     valid_at: str = "",
     known_at: str = "",
+    requirement: str = "",
+    relations: str = "governing",
     top_k: int = 10,
     max_chars: int = 4000,
 ) -> dict[str, Any]:
@@ -2164,6 +2260,18 @@ def compliance_search(
     followed. Text is verbatim up to ``max_chars`` with truncation stated.
     ``jurisdiction`` is ``US`` / ``internal`` / ``operator_note``; ``standard``
     and ``layer`` filter by document; both clocks are honoured.
+
+    ONE_REGULATORY_EXTRACTION_V1 P4 — ``requirement`` narrows by IDENTITY:
+    ``"CIP-007-6 R2 Part 2.2"`` resolves through ``requirement_sections`` to
+    exact section ids, pushed as ``chunk_id IN (…)`` BEFORE ranking. Not a
+    ``LIKE``: ``'CIP-007-6 R2'`` is a substring of ``'CIP-007-6 R2 Part 2.2'``,
+    so substring matching would be wrong here, not merely inelegant.
+    ``relations`` is a comma-separated subset of ``governing`` / ``measure`` /
+    ``applicable_systems`` / ``technical_basis`` and narrows WHICH of the
+    requirement's material is asked for — it never bars a passage from an
+    unscoped search. Every hit then carries ``requirement_id``, ``relation``,
+    ``vrf``, ``time_horizon`` and ``applicable_systems``, so a passage arrives
+    knowing what it governs and how.
 
     SUBSTRATE_PROPERTIES_V1 P3 — property 1: every filter is pushed DOWN as a
     ``.where()`` predicate and applied BEFORE ranking, so a filter can target
@@ -2185,8 +2293,21 @@ def compliance_search(
         addressed = _addressed_hits(repo, query, max_chars)
         addressed, addressed_excluded = _clock_addressed(addressed, valid_at, known_at)
 
+        requirement_entry, requirement_sections, blocked = (None, [], None)
+        if requirement:
+            wanted = tuple(r.strip() for r in relations.split(",") if r.strip()) or ("governing",)
+            requirement_entry, requirement_sections, blocked = _requirement_predicate(
+                repo, requirement, wanted
+            )
+            if blocked:
+                return {"query": query, "num_results": 0, "results": [], **blocked}
+
         where = _search_predicate(
-            standard=standard, layer=layer, valid_at=valid_at, known_at=known_at
+            standard=standard,
+            layer=layer,
+            valid_at=valid_at,
+            known_at=known_at,
+            extra=requirement_entry,
         )
 
         corpora = (
@@ -2250,7 +2371,23 @@ def compliance_search(
             "valid_at": valid_at or "latest effective",
             "known_at": known_at or "latest recorded knowledge",
             "filter_applied": where,
-            "filter_notes": _filter_notes(valid_at, known_at),
+            "requirement": requirement,
+            "requirement_relations": (
+                [r.strip() for r in relations.split(",") if r.strip()] if requirement else []
+            ),
+            # the candidate pool the ARMS scored, not the result count. A caller
+            # checking that identity-scoping worked has to be able to see the
+            # pool it narrowed to, not infer it from how many rows came back.
+            "requirement_pool": requirement_sections,
+            "filter_notes": _filter_notes(valid_at, known_at)
+            + (
+                [
+                    f"scoped to {len(requirement_sections)} section(s) joined to "
+                    f"{requirement!r} — the arms scored only those"
+                ]
+                if requirement
+                else []
+            ),
             "filter_report": filter_report,
             "excluded_meaning": (
                 "hits that do not resolve to a canonical source_sections row — an "
