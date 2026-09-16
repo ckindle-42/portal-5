@@ -293,3 +293,117 @@ def _request(candidates):  # noqa: ANN001, ANN202
         snapshot=snapshot,
         candidate_set=candidates,
     )
+
+
+class TestTheProjectionCarriesWhatTheStoreMeans:
+    """SUBSTRATE_PROPERTIES_V1 P1: every projected row carries the predicate
+    columns, copied from the canonical store, so property 1 — temporal validity
+    filters BEFORE ranking — becomes expressible as a ``.where()`` predicate."""
+
+    def test_every_unit_carries_the_predicate_columns(self, store: Repository) -> None:
+        plan = si.build_plan(store, jurisdiction="internal")
+        assert plan.units
+        for unit in plan.units:
+            row = unit.as_row()
+            for column in si.PREDICATE_COLUMNS:
+                assert column in row, f"missing predicate column {column}"
+                assert row[column] is not None, f"None in predicate column {column}"
+            assert unit.jurisdiction == "internal"
+            assert unit.logical_id == "LSPG/patching"
+            assert unit.revision_id
+            assert unit.source_kind == "procedure"
+            assert unit.unit_kind == "prose"
+
+    def test_clocks_are_date_shaped_with_explicit_open_bounds(self, store: Repository) -> None:
+        revision_id = store._conn.execute(
+            "SELECT revision_id FROM document_revisions WHERE logical_id = 'LSPG/patching'"
+        ).fetchone()[0]
+        row = store._conn.execute(
+            "SELECT recorded_from FROM document_revisions WHERE revision_id = ?",
+            (revision_id,),
+        ).fetchone()
+        plan = si.build_plan(store, jurisdiction="internal")
+        unit = plan.units[0]
+        # recorded_from is a full timestamp in the store; a .where() compares
+        # strings, so it must land as YYYY-MM-DD or a known_at date never
+        # matches its own day.
+        assert unit.recorded_from == str(row[0])[:10]
+        assert len(unit.recorded_from) == 10
+        # an open bound is "" — never None, never a guess
+        assert unit.effective_to == ""
+        assert unit.recorded_to == ""
+        assert unit.effective_from == ""
+
+    def test_a_replaced_revision_is_flagged_governing_is_not(self, tmp_path: Path) -> None:
+        repo = Repository(tmp_path / "revisions.db")
+        try:
+            repo.upsert_source_document(
+                SourceDocument(
+                    logical_id="NERC/glossary",
+                    title="glossary",
+                    issuer="NERC",
+                    source_kind="glossary",
+                    jurisdiction="US",
+                )
+            )
+            old = repo.add_document_revision(
+                "NERC/glossary",
+                "/docs/glossary.pdf",
+                b"old glossary bytes",
+                effective_date="2020-01-01",
+                inactive_date="2026-09-01",
+            )
+            store_capture(
+                repo,
+                old.revision_id,
+                _capture(Path("/docs/glossary.pdf"), [("Terms", "The old term definition.")]),
+            )
+            new = repo.add_document_revision(
+                "NERC/glossary",
+                "/docs/glossary.pdf",
+                b"new glossary bytes",
+                effective_date="2026-09-01",
+            )
+            store_capture(
+                repo,
+                new.revision_id,
+                _capture(Path("/docs/glossary.pdf"), [("Terms", "The new term definition.")]),
+            )
+            plan = si.build_plan(repo, jurisdiction="US")
+            by_revision = {u.revision_id: u.is_superseded for u in plan.units}
+            assert by_revision[old.revision_id] == 1
+            assert by_revision[new.revision_id] == 0
+            # history stays answerable: the superseded rows are still projected
+            assert len({u.revision_id for u in plan.units}) == 2
+        finally:
+            repo.close()
+
+    def test_an_untiered_unset_document_still_projects_every_predicate(
+        self, tmp_path: Path
+    ) -> None:
+        repo = Repository(tmp_path / "bare.db")
+        try:
+            repo.upsert_source_document(
+                SourceDocument(
+                    logical_id="note/loose",
+                    title="loose note",
+                    issuer="operator",
+                    source_kind="operator_note",
+                    jurisdiction="operator_note",
+                )
+            )
+            revision = repo.add_document_revision("note/loose", "note/loose", b"note bytes")
+            store_capture(
+                repo,
+                revision.revision_id,
+                _capture(Path("note/loose"), [("Note", "An operator note with no dates.")]),
+            )
+            plan = si.build_plan(repo, jurisdiction="operator_note")
+            assert plan.units
+            unit = plan.units[0]
+            assert unit.effective_from == ""
+            assert unit.effective_to == ""
+            assert unit.is_superseded == 0
+            assert unit.as_row()["is_superseded"] == 0
+        finally:
+            repo.close()
