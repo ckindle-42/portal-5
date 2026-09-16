@@ -52,25 +52,69 @@ from typing import Any
 #: exactly as the model saw it.
 CITATION_RE = re.compile(r"\b((?:c|i)section-[0-9a-f]{20}(?:#\d+)?)\b")
 
-#: A quantity claim in an answer: "35 calendar days", "30 days", "three years".
+#: Dash characters a model substitutes for the ASCII hyphen when it renders an
+#: id inside prose or Markdown.
+#:
+#: Found in the P6.8 seat probe, and it mattered: granite4.1 cited nine sections
+#: and scored ZERO, because it wrote them with U+2011 NON-BREAKING HYPHEN
+#: (``csection‑7ffb333ac44c2b9d3da3``). A citation checker that reads a correct
+#: citation as a missing one does not just mis-score a model — it reports a
+#: well-grounded answer as ungrounded, which is the opposite of its job. The id
+#: is normalised before matching, and the answer's own spelling is kept in
+#: ``cited_as`` so nothing is silently rewritten.
+_DASHES = str.maketrans(dict.fromkeys("\u2010\u2011\u2012\u2013\u2014\u2015\u2212\uff0d", "-"))
+
+#: A quantity claim in an answer: "35 calendar days", "thirty-five (35) days",
+#: "three calendar years".
+#:
+#: The word list runs past ten and handles compounds, because this material is
+#: full of them and getting it wrong is not a near miss. Measured in the P6.8
+#: probe with the naive one-to-ten list: "thirty-five calendar days" matched as
+#: **"five calendar days"** — the regex caught the tail of the compound and the
+#: checker then went looking for a 5-day interval in a 35-day requirement. A
+#: quantity checker that reads 35 as 5 is worse than no checker.
+_TENS = ("twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety")
+_UNITS = (
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+    "eleven",
+    "twelve",
+)
+#: longest-first so a compound never loses to its own tail
+_WORD_ALT = "|".join([f"{t}[- ]{u}" for t in _TENS for u in _UNITS] + list(_TENS) + list(_UNITS))
 _QUANTITY_RE = re.compile(
-    r"\b(\d{1,4}|one|two|three|four|five|six|seven|eight|nine|ten)\s+"
-    r"(?:calendar\s+|business\s+|working\s+)?(day|days|month|months|year|years|hour|hours)\b",
+    rf"\b(\d{{1,4}}|{_WORD_ALT})\s*"
+    r"(?:\([0-9]+\)\s*)?"
+    r"(?:calendar\s+|business\s+|working\s+)?"
+    r"(day|days|month|months|year|years|hour|hours)\b",
     re.I,
 )
 
-_WORD_NUMBERS = {
-    "one": "1",
-    "two": "2",
-    "three": "3",
-    "four": "4",
-    "five": "5",
-    "six": "6",
-    "seven": "7",
-    "eight": "8",
-    "nine": "9",
-    "ten": "10",
-}
+_WORD_NUMBERS: dict[str, str] = {w: str(i + 1) for i, w in enumerate(_UNITS)}
+_WORD_NUMBERS.update({t: str((i + 2) * 10) for i, t in enumerate(_TENS)})
+_WORD_NUMBERS.update(
+    {
+        f"{t}{sep}{u}": str((i + 2) * 10 + j + 1)
+        for i, t in enumerate(_TENS)
+        for j, u in enumerate(_UNITS[:9])
+        for sep in ("-", " ")
+    }
+)
+
+#: How far a quantity may sit from the citation it is pinned to. Beyond this it
+#: is reported as UNATTRIBUTED rather than misattributed: a concluding sentence
+#: that carries a number and no nearby id is not the same failure as a number
+#: sourced from one document and pinned to another, and calling it one would be
+#: a false accusation.
+_ATTRIBUTION_WINDOW_CHARS = 300
 
 SYSTEM_PROMPT = """You are reading with a compliance analyst.
 
@@ -147,8 +191,41 @@ def _render_material(context: dict[str, Any]) -> str:
 
 
 def _normalise_quantity(match: re.Match[str]) -> tuple[str, str]:
-    number = match.group(1).lower()
+    number = re.sub(r"\s+", " ", match.group(1).lower())
     return _WORD_NUMBERS.get(number, number), match.group(2).lower().rstrip("s")
+
+
+def _quantity_in(number: str, unit: str, haystack: str) -> bool:
+    """Is this quantity stated in ``haystack``, in digits or in words?
+
+    Tolerant of the shapes this material actually uses. A strict
+    ``35\\s*\\S*\\s?day`` misses ``thirty-five (35) calendar days`` — the
+    parenthesised digits sit between the word and the unit — and reporting a
+    number as absent from the very section that states it is the worst thing
+    this function can do.
+    """
+    if not haystack:
+        return False
+    spellings = [re.escape(number)]
+    spellings += [w.replace("-", "[- ]") for w, digits in _WORD_NUMBERS.items() if digits == number]
+    alternation = "|".join(sorted(spellings, key=len, reverse=True))
+    return bool(re.search(rf"\b(?:{alternation})\b[^.;\n]{{0,30}}?\b{unit}s?\b", haystack, re.I))
+
+
+def _nearest_citation(position: int, positions: list[tuple[int, str]]) -> str:
+    """The citation a claim at ``position`` is pinned to: the first one that
+    FOLLOWS it within the attribution window — a reader writes the claim, then
+    the id — falling back to the most recent one just before it. A claim with no
+    citation nearby is pinned to nothing, and says so."""
+    after = [
+        ref for start, ref in positions if position <= start <= position + _ATTRIBUTION_WINDOW_CHARS
+    ]
+    if after:
+        return after[0]
+    before = [
+        ref for start, ref in positions if position - _ATTRIBUTION_WINDOW_CHARS <= start < position
+    ]
+    return before[-1] if before else ""
 
 
 def verify_citations(repo: Any, answer: str, material: str = "") -> dict[str, Any]:
@@ -166,7 +243,8 @@ def verify_citations(repo: Any, answer: str, material: str = "") -> dict[str, An
     """
     from portal.modules.compliance.core.section_index import parent_section_id, resolve_sections
 
-    cited = list(dict.fromkeys(CITATION_RE.findall(answer)))
+    normalised = answer.translate(_DASHES)
+    cited = list(dict.fromkeys(CITATION_RE.findall(normalised)))
     resolved = resolve_sections(repo, cited)
     entries: list[dict[str, Any]] = []
     for ref in cited:
@@ -196,38 +274,66 @@ def verify_citations(repo: Any, answer: str, material: str = "") -> dict[str, An
             }
         )
 
-    cited_text = "\n".join(
-        str(resolved[parent_section_id(r)].get("text", ""))
-        for r in cited
-        if parent_section_id(r) in resolved
-    )
-    haystack = cited_text + "\n" + material
+    # Attribution matters more than presence. Measured in the P6.8 seat probe:
+    # three of four seats wrote "the operator's procedure evaluates every thirty
+    # calendar days [isection-21a3…]" when that section says "thirty-five (35)".
+    # The 30 was real — it came from an operator NOTE elsewhere in the packet —
+    # so a check against the union of everything cited passed all three. A
+    # quantity is therefore checked against the SECTION IT IS ATTRIBUTED TO:
+    # the nearest citation that follows it in the sentence, or the nearest
+    # preceding one. Sourcing a number from one document and pinning it to
+    # another is exactly the shape of a confidently wrong compliance answer.
+    texts = {
+        ref: str(resolved[parent_section_id(ref)].get("text", ""))
+        for ref in cited
+        if parent_section_id(ref) in resolved
+    }
+    positions = [(m.start(), m.group(1)) for m in CITATION_RE.finditer(normalised)]
     quantities: list[dict[str, Any]] = []
-    for match in _QUANTITY_RE.finditer(answer):
+    for match in _QUANTITY_RE.finditer(normalised):
         number, unit = _normalise_quantity(match)
-        pattern = re.compile(rf"\b{re.escape(number)}\s+\S*\s?{unit}", re.I)
-        word = next((w for w, d in _WORD_NUMBERS.items() if d == number), "")
-        alt = re.compile(rf"\b{word}\s+\S*\s?{unit}", re.I) if word else None
-        found = bool(pattern.search(haystack)) or bool(alt and alt.search(haystack))
+        attributed = _nearest_citation(match.start(), positions)
+        scope = texts.get(attributed or "", "")
         quantities.append(
             {
                 "claim": match.group(0),
                 "number": number,
                 "unit": unit,
-                "appears_in_cited_text": found,
+                "attributed_to": attributed,
+                "appears_in_attributed_section": (
+                    _quantity_in(number, unit, scope) if attributed else None
+                ),
+                "unattributed": not attributed,
+                "appears_somewhere_in_the_material": _quantity_in(
+                    number, unit, "\n".join(texts.values()) + "\n" + material
+                ),
             }
         )
 
     unresolved = [e["cited_ref"] for e in entries if not e["resolved"]]
-    unsupported = [q["claim"] for q in quantities if not q["appears_in_cited_text"]]
+    unsupported = [q["claim"] for q in quantities if q["appears_in_attributed_section"] is False]
     return {
         "citations": entries,
         "num_cited": len(entries),
         "unresolvable": unresolved,
         "quantities": quantities,
         "quantities_not_in_cited_text": unsupported,
+        # A FLAG FOR A HUMAN, not a verdict. Attribution is positional — the
+        # nearest citation within the window — which is right most of the time
+        # and approximate at a paragraph boundary. It points at a sentence worth
+        # checking; it does not decide that the answer is wrong.
+        "misattributed_quantities": [
+            {
+                "claim": q["claim"],
+                "attributed_to": q["attributed_to"],
+                "detail": "this number is in the packet, but not in the section it is pinned to",
+            }
+            for q in quantities
+            if q["appears_in_attributed_section"] is False
+            and q["appears_somewhere_in_the_material"]
+        ],
         "note": (
-            "resolution and quantity presence only — nothing here judges whether "
+            "resolution and quantity attribution only — nothing here judges whether "
             "the answer is right, and no citation is disqualified"
         ),
     }
@@ -292,13 +398,28 @@ def read(
     # the window must hold the material AND the answer, with room for the
     # chat template's own overhead — a context that truncates the material is
     # the keyhole again, silently.
-    needed = (len(material) // CHARS_PER_TOKEN) + answer_tokens + 2048
-    window = num_ctx or max(8192, 1 << (needed - 1).bit_length())
+    estimated_prompt = int(len(material) / CHARS_PER_TOKEN)
+    needed = estimated_prompt + answer_tokens + 2048
+    # Rounded up to the next 4k, NOT to the next power of two. A 33.5k
+    # requirement rounds to 36,864 rather than 65,536, and on a 27B model at
+    # Q4 that difference is tens of gigabytes of KV cache — enough to push the
+    # machine into swap, which is how the first live probe of this phase spent
+    # twenty minutes producing nothing.
+    window = num_ctx or max(8192, -(-needed // 4096) * 4096)
 
+    # MATERIAL FIRST, QUESTION LAST — and that order is load-bearing, not
+    # cosmetic. Every turn of a session ships the identical ~30k-token
+    # neighbourhood; with the question in front, the first differing token is
+    # at position ~20 and the runner re-prefills all of it. Measured on this
+    # corpus: 281 s of prompt evaluation per exchange. With the material first,
+    # the prefix is byte-identical across turns and the slot cache carries it,
+    # so only the question and the answer are new work. The model attends
+    # fine to a question at the end; it cannot attend at all to material the
+    # clock did not leave time to send.
     result = chat(
         model,
         SYSTEM_PROMPT,
-        f"{question}\n\n---\n\n{material}",
+        f"{material}\n\n---\n\nThe analyst asks:\n\n{question}",
         budget=answer_tokens,
         fmt=None,
         think=reasoning_effort,
@@ -306,7 +427,35 @@ def read(
         timeout=timeout,
     )
     answer = result.content.strip()
+    # An empty answer is a FAILED reading, and it must say so rather than travel
+    # as a very short one. Measured on this call site (P6.7): with reasoning
+    # enabled at "low" or "medium", Qwen3.8 spent the whole 1,600-token budget
+    # inside `thinking` and emitted zero characters of content — 450 s and
+    # 6,382 characters of reasoning for nothing. The same call with
+    # `think: false` returned a complete, seven-citation, 4,756-character
+    # answer. Returning "" as an answer would make that look like a terse model.
+    exhausted = bool(not answer and result.thinking)
     verification = verify_citations(repo, answer, material)
+    # The estimate is checked against the runner's own count on every call. An
+    # under-estimate is the dangerous direction: it sizes the window too small
+    # and the material is silently truncated, which is the keyhole returning.
+    actual_prompt = int(result.get("prompt_eval_count") or 0)
+    generated = int(result.get("eval_count") or 0)
+    fit = {
+        "estimated_prompt_tokens": estimated_prompt,
+        "actual_prompt_tokens": actual_prompt,
+        "chars_per_token_observed": (
+            round(len(material) / actual_prompt, 2) if actual_prompt else None
+        ),
+        "num_ctx": window,
+        "headroom_tokens": window - actual_prompt - generated,
+        "overflowed": bool(actual_prompt and actual_prompt + generated >= window),
+        "estimate_error_pct": (
+            round(100 * (estimated_prompt - actual_prompt) / actual_prompt, 1)
+            if actual_prompt
+            else None
+        ),
+    }
     payload: dict[str, Any] = {
         "question": question,
         "ref": context["ref"],
@@ -319,6 +468,17 @@ def read(
         "components": [c["component"] for c in context["components"]],
         "omitted": context["omitted"],
         "verification": verification,
+        "failed": exhausted or not answer,
+        "failure": (
+            (
+                f"the model produced no answer: the whole {answer_tokens}-token budget "
+                f"went to reasoning ({len(result.thinking)} characters of it). Reasoning "
+                "is measured OFF for this call site — see reading_transport.DEFAULT_EFFORT."
+            )
+            if exhausted
+            else ("the model produced no answer" if not answer else "")
+        ),
+        "context_fit": fit,
         "latency": {
             "elapsed_s": round(float(result.get("elapsed", 0)), 2),
             "load_duration_s": result.get("load_duration_s"),

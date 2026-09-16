@@ -34,3 +34,45 @@ seats:
 #   granite4.2:3b-q8_0 / granite4.2:8b-q8_0         system_honored=False (template), weak
 #   phi4:14b-q4_K_M                                 broken install (llama-server abort trap)
 #   granite4.2:30b-q4_K_M                           F2 0.70 — below granite4.1:30b
+
+# ── the reading seat (BILATERAL_CORPUS_V1 P6.8) ────────────────────────────
+#
+# NOT a council seat. The council is three models voting on a JSON verdict over
+# a pre-analysed packet; this is one model reading a ~27,000-token bilateral
+# neighbourhood and answering an analyst in prose. Different question,
+# different packet, separately chosen.
+#
+# Chosen by reading the answers, not by a score — reports/compliance/
+# BILATERAL_CORPUS_V1.md §7 carries the transcripts and the argument. The short
+# version: asked whether a 30-day evaluation cycle is stricter than the 35 days
+# CIP-007-6 R2 Part 2.2 allows, three of the four candidates repeated the
+# operator's NOTE as if it were the operator's PROCEDURE. Qwen3.8 read the
+# procedure itself, found that section 3.3.1 actually says "thirty-five (35)
+# calendar days", and surfaced the conflict between the written procedure and
+# the recorded practice. Nobody asked it to look; that is the behaviour this
+# module exists to produce.
+#
+# Measured on the same 27k-token packet, stack down, Ollama /api/chat:
+#
+#   seat                    prefill tok/s   cold      warm      cites  bad cites
+#   Qwen3.8-27B Q4_K_M            112      406.5s   123-153s    9/7/7      0
+#   glm-4.7-flash Q4_K_M          244      276.2s    30-52s     7/4/2      0
+#   granite4.1:30b                 95      458.6s    39-168s    6/3/3      0
+#   mistral-small3.2:24b          126      324.3s    18-55s     0/3/3      0
+#
+# Not one fabricated citation in twelve answers, so citation fidelity did not
+# separate them; the reading did.
+reading_seat:
+  id: qwen38-reader
+  label: "Qwen3.8 27B (unsloth Q4_K_M, 32k) — bilateral reading seat"
+  model: "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
+
+# The fast alternate. 3-5x quicker warm and it made the sharpest single finding
+# of the probe (the corpus holds the patch-evaluation PROCESS but not the
+# RECORD an auditor would ask for) — but it produced one of the three
+# misattributions above. Use it when latency dominates and the citation checker
+# is being read.
+reading_seat_alternate:
+  id: glm47flash-reader
+  label: "GLM-4.7-Flash (Q4_K_M, 64k) — fast alternate"
+  model: "glm-4.7-flash:Q4_K_M-ctx64k"

@@ -115,31 +115,48 @@ def requirement_queries(repo: Any, standard: str) -> dict[str, str]:
 async def _rank(query: str, kb_id: str, pool: int) -> list[tuple[str, float, str, str, str]]:
     """``(section_id, score, text, headings, document)`` best first.
 
-    The dense arm and the BM25 sparse arm both feed the pool, and the
-    cross-encoder reranks it — the same stages the search surface uses, so a
-    proposed link and a search hit agree about what is relevant.
+    The dense arm and the BM25 sparse arm build the pool; the **cross-encoder
+    scores it**. The rerank pass is explicit here rather than taken from the
+    search response because the compliance composition runs the shared
+    ``text_gate`` fusion, which reranks only page images and leaves every text
+    chunk at ``reranker_prob: None``. Its ``fused_score`` is a reciprocal-rank
+    constant — measured live, every candidate for every CIP-007-6 Part came back
+    at 0.0167, 0.0164, 0.0161 … in rank order, identical across requirements.
+
+    That matters because P7 records ABSENCE below a threshold. A threshold on a
+    rank constant says "not in the top N", which is true of most of any corpus
+    and calibrates to nothing. A threshold on a cross-encoder probability is a
+    statement about this requirement and this section.
     """
     from portal.modules.compliance.core.section_index import parent_section_id
     from portal.modules.compliance.tools.compliance_retrieval import search as _search
+    from portal.platform.retrieval import embedding as _embedding
 
     body = await _search(kb_id, query, pool)
-    out: list[tuple[str, float, str, str, str]] = []
+    candidates: list[tuple[str, str, str, str]] = []
     seen: set[str] = set()
     for hit in body.get("results", []):
         section_id = parent_section_id(str(hit.get("chunk_id", "")))
-        if not section_id or section_id in seen:
+        text = str(hit.get("text", ""))
+        if not section_id or section_id in seen or not text.strip():
             continue
         seen.add(section_id)
-        out.append(
-            (
-                section_id,
-                float(hit.get("rerank_score") or hit.get("fused_score") or 0.0),
-                str(hit.get("text", "")),
-                str(hit.get("headings", "")),
-                str(hit.get("source_file", "")),
-            )
+        candidates.append(
+            (section_id, text, str(hit.get("headings", "")), str(hit.get("source_file", "")))
         )
-    return out
+    if not candidates:
+        return []
+    order = await _embedding.vl_rerank(query, [{"text": c[1]} for c in candidates], len(candidates))
+    return [
+        (
+            candidates[int(entry["index"])][0],
+            float(entry["score"]),
+            candidates[int(entry["index"])][1],
+            candidates[int(entry["index"])][2],
+            candidates[int(entry["index"])][3],
+        )
+        for entry in order
+    ]
 
 
 def build_links(
@@ -208,7 +225,7 @@ def record_links(
                 repo._conn.execute(
                     """INSERT INTO relationship_assertions(assertion_id, relation_type,
                            src_ref, src_revision_id, dst_ref, dst_revision_id, scope,
-                           citations, status, review_state, recorded_from, rationale,
+                           citations_json, status, review_state, recorded_from, rationale,
                            confidence, derivation, org_id, version)
                        VALUES (?,?,?,NULL,?,NULL,'',?,'proposed','proposed',?,?,?,?,?,1)
                        ON CONFLICT(assertion_id) DO UPDATE SET
@@ -285,7 +302,7 @@ def record_reading_link(
     with repo._lock, repo._conn:
         repo._conn.execute(
             """INSERT INTO relationship_assertions(assertion_id, relation_type, src_ref,
-                   src_revision_id, dst_ref, dst_revision_id, scope, citations, status,
+                   src_revision_id, dst_ref, dst_revision_id, scope, citations_json, status,
                    review_state, recorded_from, rationale, confidence, derivation, org_id,
                    version)
                VALUES (?,?,?,NULL,?,NULL,'',?,'proposed','proposed',?,?,0.0,?,?,1)

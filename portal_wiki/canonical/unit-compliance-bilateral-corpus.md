@@ -18,6 +18,8 @@ sources:
 - type: code
   path: portal/modules/compliance/core/candidate_links.py
 - type: code
+  path: scripts/compliance_reading_seat_probe.py
+- type: code
   path: scripts/project_compliance_sections.py
 - type: code
   path: scripts/materialize_regulatory_corpus.py
@@ -262,3 +264,45 @@ means. Nothing is marked ineligible to cite.
 An operator note (`core/notes`) is a source like any other — a document, an
 immutable revision, a section — so it is citeable, resolvable and projectable by
 exactly the same machinery, and it outranks a stored answer.
+
+## The reader, and what measuring it changed
+
+`core/reader` builds the **conditions for reading**, not a reading procedure:
+no schema, no field list, no outcome vocabulary, no canonical stored reading.
+The seat receives the whole `compliance_context` assembly with every passage
+labelled and nothing suppressed, answers in prose, and cites section ids. The
+one mechanical check that survives is citation resolution — every cited id is
+resolved and **reported with what it is** (regulatory Part, Technical Basis,
+operator procedure, operator note, a prior answer), so an argument resting on
+the standard quoting itself as the operator's control is visible as exactly
+that. No code decides a citation is disqualified, and no code decides the answer
+is right.
+
+Four measurements on the live stack changed the design:
+
+* **`num_ctx` is honoured per request** on this transport — a direct
+  `/api/chat` lowered `granite4.1:30b-ctx64k` to 32,768 — so no context tag was
+  baked. The "request-time num_ctx is ignored" rule belongs to the router path.
+* **`CHARS_PER_TOKEN = 4` was wrong by 1.9×**, and in the direction that
+  silently truncates: the runner reported 29,353 tokens for material budgeted at
+  15,700. Real ratio 2.16 — dense prose plus a 29-character section id per
+  passage that costs ~12 tokens. Every call now checks its estimate against the
+  runner's `prompt_eval_count` and reports headroom and overflow.
+* **Material first, question last.** With the question in front, every turn
+  re-prefilled the whole neighbourhood. Reordered: prompt evaluation went from
+  **214.7 s to 0.8 s** on a follow-up — 268×, and larger than any seat swap
+  buys.
+* **Reasoning is off here, measured here.** At `low` and `medium`, Qwen3.8 spent
+  the entire answer budget inside `thinking` and returned an **empty** answer;
+  `think:false` returned 4,756 characters with seven citations. An empty answer
+  is now reported as a failed reading rather than a terse one.
+
+The seat was chosen by reading the answers, not by a score. Asked whether a
+30-day evaluation cycle is stricter than the 35 days CIP-007-6 R2 Part 2.2
+allows, three of four candidates asserted the operator's procedure says thirty —
+it says *"thirty-five (35)"*; the thirty came from an operator note elsewhere in
+the packet. Qwen3.8 read the procedure itself and surfaced the conflict. That
+also exposed two defects in the checker: correct citations written with a
+Unicode non-breaking hyphen scored zero, and quantities were verified against
+the union of everything cited rather than the section they were pinned to.
+Both fixed; the fixed checker reproduces the hand finding.

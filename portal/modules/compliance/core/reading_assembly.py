@@ -31,11 +31,26 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-#: characters per token, for budgeting only. Deliberately crude and stated: a
-#: real tokenizer would make the budget exact for one model and wrong for the
-#: next, and the budget's job is to stop an assembly overflowing a window, not
-#: to be an accounting system.
-CHARS_PER_TOKEN = 4
+#: Characters per token, for budgeting. Deliberately crude and stated: a real
+#: tokenizer would make the budget exact for one model and wrong for the next.
+#:
+#: **Measured, not assumed.** The obvious 4.0 — fine for ordinary English — is
+#: wrong for this material by nearly 2x, and the error is dangerous in one
+#: direction only: it under-counts, so a window sized from it is too SMALL and
+#: the material is silently truncated, which is the top-k keyhole returning
+#: through the back door. Measured on the live CIP-007-6 R2 Part 2.2 assembly
+#: against the runner's own ``prompt_eval_count``: 63,500 characters tokenised
+#: to 29,353 tokens = **2.16 chars/token**. Dense regulatory prose is part of
+#: it; the larger part is that every passage carries a section id, and
+#: ``csection-7afa10cdad0b38ae102e`` is 29 characters and about 12 tokens.
+#:
+#: 2.1 is used rather than 2.16 so the estimate errs HIGH — over-reserving a
+#: window costs memory, under-reserving costs the answer.
+#:
+#: :func:`core.reader.read` checks the estimate against the runner's real
+#: ``prompt_eval_count`` on every call and reports a mismatch, so this constant
+#: cannot quietly drift away from the corpus it was measured on.
+CHARS_PER_TOKEN = 2.1
 
 DEFAULT_BUDGET_TOKENS = 60_000
 
@@ -93,7 +108,7 @@ class Component:
 
     @property
     def tokens(self) -> int:
-        return self.characters // CHARS_PER_TOKEN
+        return int(self.characters / CHARS_PER_TOKEN)
 
 
 # ── structural selection ────────────────────────────────────────────────────

@@ -47,6 +47,20 @@ __all__ = ["DEFAULT_EFFORT", "ChatResult", "chat", "strip_inline_reasoning"]
 # reason is detected and its downgrade written onto the response. Raising this
 # for a given call site is a measurement on that call site, not an assumption
 # carried over from this one.
+#
+# BILATERAL_CORPUS_V1 P6.7 did that measurement for the READING call site — a
+# prose answer over a ~27,000-token bilateral neighbourhood, which is a
+# different packet answering a different question from the JSON alignment
+# verdict above. Qwen3.8-27B, same packet, same question, one variable
+# (reports/compliance/seat_probe/20260916T134144Z-effort.json):
+#
+#     think:false    432.0s      0 thinking chars   4,756-char answer, 7 citations
+#     think:low      449.8s  6,382 thinking chars   EMPTY answer, 0 citations
+#     think:medium   148.5s  6,258 thinking chars   EMPTY answer, 0 citations
+#
+# Not "slower for the same answer" as on the alignment packet — NO ANSWER. The
+# reasoning trace consumed the entire num_predict budget and the content field
+# came back empty. Reasoning stays off here, now for a reason measured here.
 DEFAULT_EFFORT: bool | str = False
 
 _ENDPOINT = "http://localhost:11434/api/chat"
@@ -135,7 +149,6 @@ def chat(
             {"role": "user", "content": user},
         ],
         "stream": False,
-        "format": fmt,
         "options": {"temperature": 0.0, "num_predict": budget, "num_ctx": num_ctx},
         "keep_alive": keep_alive,
         # Always explicit. Omitting the key is NOT suppression: it leaves the
@@ -147,6 +160,10 @@ def chat(
         # suppresses, which is what the production transport sent.
         "think": want_think,
     }
+    # `format` is omitted, not nulled, when the caller wants prose: a reading
+    # answers in prose and a JSON envelope is the schema P6 exists to not have.
+    if fmt:
+        payload["format"] = fmt
 
     downgraded = ""
     try:
