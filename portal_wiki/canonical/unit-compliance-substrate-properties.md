@@ -20,7 +20,17 @@ tags:
 SUBSTRATE_PROPERTIES_V1 gave the compliance module's four founding properties
 implementations; the two files documented here are property 3 and property 4.
 
-## enumeration — property 3's population primitive
+## Why
+
+For a year the module's founding docstring described four properties that did
+not exist — the only `.where(` in the module was the docstring's own claim, and
+the declared evaluation set had never been wired. Four generations of reasoning
+layer were built on that docstring. These two files are the parts of the fix
+that outlive any one retrieval call: a population you can name (so an absence
+claim is checkable) and a ground truth that grows every time an SME approves a
+mapping (so a seat can be scored instead of argued).
+
+## Enumeration — property 3's population primitive
 
 `declared_population(repo, *, jurisdiction, scope_sections=None)` reads a whole
 declared population straight from the canonical store
@@ -31,7 +41,7 @@ retriever. One implementation, three consumers: `assessment_source.
 acquire_exhaustively` (reduced to a caller), file B's closure, file D's
 `compliance_orphans`.
 
-## evaluation — property 4's instrument
+## Evaluation — property 4's instrument
 
 `mapping_store` has always said every approved mapping is a labelled example;
 `labelled_examples(repo)` is the first thing to use them that way — settled
