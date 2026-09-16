@@ -86,6 +86,21 @@ def _post(payload: dict[str, Any], timeout: int) -> dict[str, Any]:
         return result
 
 
+#: Requested context window, in tokens, for a compliance call.
+#:
+#: BILATERAL_CORPUS_V1 P6.7. ``options.num_ctx`` was absent from every
+#: compliance call site, so Ollama reserved the MODEL'S FULL WINDOW multiplied
+#: by ``OLLAMA_NUM_PARALLEL`` for each of them — P5-ROUTER-EVICTION-001, fixed
+#: in the router and never applied here. A reading call now states the window it
+#: actually needs, which is the size of the assembly plus room to answer.
+DEFAULT_NUM_CTX = 32768
+
+#: How long the seat stays resident between turns of one session. A conversation
+#: is many calls to one model; paying the load cost on each of them is the
+#: difference between a three-second exchange and a ninety-second one.
+DEFAULT_KEEP_ALIVE = "30m"
+
+
 def chat(
     model: str,
     system: str,
@@ -95,6 +110,8 @@ def chat(
     fmt: Any = "json",
     think: bool | str | None = None,
     timeout: int = 900,
+    num_ctx: int = DEFAULT_NUM_CTX,
+    keep_alive: str = DEFAULT_KEEP_ALIVE,
 ) -> ChatResult:
     """One judged call. The effort level is explicit; a downgrade is recorded.
 
@@ -119,7 +136,8 @@ def chat(
         ],
         "stream": False,
         "format": fmt,
-        "options": {"temperature": 0.0, "num_predict": budget},
+        "options": {"temperature": 0.0, "num_predict": budget, "num_ctx": num_ctx},
+        "keep_alive": keep_alive,
         # Always explicit. Omitting the key is NOT suppression: it leaves the
         # model's own chat template in charge, and a Qwen3/DeepSeek/GLM-Z1
         # template opens <think> by default. Measured on
@@ -152,6 +170,9 @@ def chat(
     raw_content = str(message.get("content", "") or "")
     thinking = str(message.get("thinking", "") or "")
     content = strip_inline_reasoning(raw_content) if "<think>" in raw_content else raw_content
+    # P6.7: enough to reason about latency afterwards. `_recording_seat_fn`
+    # stored {model, raw}, so no run in the module's history has a single
+    # recorded duration, token count or load time to argue from.
     return ChatResult(
         content=content,
         thinking=thinking,
@@ -159,5 +180,14 @@ def chat(
         downgraded=downgraded,
         elapsed=time.time() - started,
         eval_count=body.get("eval_count", 0),
+        prompt_eval_count=body.get("prompt_eval_count", 0),
+        eval_duration_s=round(float(body.get("eval_duration", 0) or 0) / 1e9, 3),
+        prompt_eval_duration_s=round(float(body.get("prompt_eval_duration", 0) or 0) / 1e9, 3),
+        load_duration_s=round(float(body.get("load_duration", 0) or 0) / 1e9, 3),
+        total_duration_s=round(float(body.get("total_duration", 0) or 0) / 1e9, 3),
+        prompt_bytes=len(system.encode()) + len(user.encode()),
+        num_ctx=num_ctx,
+        keep_alive=keep_alive,
+        reasoning_effort=want_think if isinstance(want_think, str) else str(bool(want_think)),
         model=model,
     )

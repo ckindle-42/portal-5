@@ -145,7 +145,7 @@ def _duty(
 
 
 class TestSameDutyQuantity:
-    def test_40_days_is_the_same_duty_weaker(self):
+    def test_40_days_no_longer_yields_a_computed_direction(self):
         """35→40: same duty, weaker cadence — LESS_RESTRICTIVE direction, the
         duty lands PARTIAL, never a different-duty escape."""
         candidates = [
@@ -160,8 +160,22 @@ class TestSameDutyQuantity:
             candidates,
         )
         duty = judgment.duties[0]
-        assert duty.quantity_direction == "LESS_RESTRICTIVE"
-        assert judgment.outcomes["duties"][0]["outcome"] == "PARTIAL"
+        # BILATERAL_CORPUS_V1 P6.4: no direction is COMPUTED any more, and this
+        # deprecated path therefore no longer distinguishes a weaker interval
+        # from an equal one — it reports the duty ALIGNED.
+        #
+        # That is the honest state, not a regression hidden behind a softened
+        # assertion. The deleted comparator chose "max_interval" vs
+        # "min_retention" from whether the governing phrase contained the word
+        # "every": it happened to get THIS case right and got "within 35
+        # calendar days" exactly backwards, turning a five-day shortfall into
+        # MORE_RESTRICTIVE and then into "unused flexibility". A comparator that
+        # is right by luck of phrasing is not a comparator. Direction is read
+        # now, in prose, by a model holding the requirement, its Technical Basis
+        # and the operator's own words — and this path is unwired from the
+        # product surface in P10.
+        assert duty.quantity_direction == ""
+        assert judgment.outcomes["duties"][0]["outcome"] == "ALIGNED"
 
     def test_30_days_is_stricter_with_unused_flexibility(self):
         """30 against a required 35 is MORE_RESTRICTIVE: a satisfied duty whose
@@ -178,10 +192,13 @@ class TestSameDutyQuantity:
             candidates,
         )
         duty = judgment.duties[0]
-        assert duty.quantity_direction == "MORE_RESTRICTIVE"
+        assert duty.quantity_direction == ""  # P6.4 — see above
         outcomes = judgment.outcomes["duties"][0]
-        assert outcomes["outcome"] == "STRICTER"
-        assert judgment.outcomes["unused_flexibility"] == ["d1"]
+        # a covered duty with no computed direction is ALIGNED, not STRICTER:
+        # "unused flexibility" was the label the deleted comparator's wrong
+        # answer wore, and claiming it needs a reading, not a regex
+        assert outcomes["outcome"] == "ALIGNED"
+        assert judgment.outcomes["unused_flexibility"] == []
 
     def test_no_operands_means_no_direction_claim(self):
         judgment = _judge([_duty("d1", gov_operand="", cand_operand="")], [])
@@ -246,7 +263,7 @@ class TestSourceFunctionAdversaries:
         duty = judgment.duties[0]
         assert duty.verified_support is True
         assert "DECOY" in duty.non_operative_citations
-        assert duty.quantity_direction == "EQUIVALENT"
+        assert duty.quantity_direction == ""  # P6.4 — no computed direction
 
 
 # ── D: stale revision ───────────────────────────────────────────────────────

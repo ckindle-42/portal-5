@@ -2,582 +2,6 @@
  {
   "type": "function",
   "function": {
-   "name": "lookup_control",
-   "description": "Authoritative text for a control id (e.g. AC-2 in NIST 800-53, PR.AA-05 in CSF 2.0).",
-   "parameters": {
-    "type": "object",
-    "properties": {
-     "control_id": {
-      "type": "string"
-     },
-     "framework": {
-      "type": "string",
-      "enum": [
-       "nist_800_53",
-       "csf_2_0"
-      ]
-     }
-    },
-    "required": [
-     "control_id"
-    ]
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
-   "name": "search_controls",
-   "description": "Keyword search across control titles/statements; returns citable ids.",
-   "parameters": {
-    "type": "object",
-    "properties": {
-     "keyword": {
-      "type": "string"
-     },
-     "framework": {
-      "type": "string",
-      "enum": [
-       "nist_800_53",
-       "csf_2_0"
-      ]
-     },
-     "top_k": {
-      "type": "integer"
-     }
-    },
-    "required": [
-     "keyword"
-    ]
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
-   "name": "nerc_cip_requirement",
-   "description": "AUTHORITATIVE, LOCAL lookup of exact verbatim NERC CIP requirement/Part text from the maintained bitemporal register (e.g. 'CIP-007-6 R2 Part 2.2', or 'CIP-007-6 R2' for every Part). Use this FIRST for ANY question asking what a specific CIP standard/requirement/Part currently, historically, or in the future requires \u2014 it resolves lifecycle/validity dates deterministically and returns the exact verbatim text with related 800-53 controls. Prefer this over web_search or browser tools for CIP standard text: an external fetch cannot verify effective-date selection or exact revision the way this can, and a generic search result is not a substitute for the maintained register.",
-   "parameters": {
-    "type": "object",
-    "properties": {
-     "req_id": {
-      "type": "string"
-     }
-    },
-    "required": [
-     "req_id"
-    ]
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
-   "name": "nerc_cip_currency",
-   "description": "Per-standard NERC CIP currency: held version, whether a newer version PDF is published on nerc.com, and an explicit 'verify the enforcement date'. Currency is never inferred; honest-BLOCKED when nerc.com is unreachable.",
-   "parameters": {
-    "type": "object",
-    "properties": {}
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
-   "name": "map_frameworks",
-   "description": "Cross-framework mapping for a control id via the bundled OLIR-style crosswalk seed.",
-   "parameters": {
-    "type": "object",
-    "properties": {
-     "control_id": {
-      "type": "string"
-     },
-     "from_fw": {
-      "type": "string"
-     },
-     "to_fw": {
-      "type": "string"
-     }
-    },
-    "required": [
-     "control_id"
-    ]
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
-   "name": "patch_evidence",
-   "description": "CIP-007-6 R2 patch-evaluation record for a CVE (uses vulnintel triage).",
-   "parameters": {
-    "type": "object",
-    "properties": {
-     "cve_id": {
-      "type": "string"
-     }
-    },
-    "required": [
-     "cve_id"
-    ]
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
-   "name": "refresh_catalogs",
-   "description": "Re-pull the authoritative OSCAL catalogs (NIST 800-53 Rev5, CSF 2.0) into the local data dir.",
-   "parameters": {
-    "type": "object",
-    "properties": {},
-    "required": []
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
-   "name": "compliance_ingest",
-   "description": "Ingest a folder of the operator's policy AND procedure PDFs into the compliance corpus in one pass. Idempotent, re-runnable. Derives and queues layer (policy/procedure/evidence) and authority tier per document from its own title/filename/document-control block; reports a layer census (zero procedures means no coverage cell can reach FULL).",
-   "parameters": {
-    "type": "object",
-    "properties": {
-     "source_dir": {
-      "type": "string"
-     },
-     "kb_id": {
-      "type": "string"
-     },
-     "rebuild": {
-      "type": "boolean"
-     }
-    },
-    "required": [
-     "source_dir"
-    ]
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
-   "name": "compliance_search",
-   "description": "Free-form retrieval over the ingested compliance corpus (kb_id, query, top_k).",
-   "parameters": {
-    "type": "object",
-    "properties": {
-     "kb_id": {
-      "type": "string"
-     },
-     "query": {
-      "type": "string"
-     },
-     "top_k": {
-      "type": "integer"
-     }
-    },
-    "required": [
-     "kb_id",
-     "query"
-    ]
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
-   "name": "compliance_gaps",
-   "description": "Coverage matrix: where the operator's ingested corpus does/doesn't cover each applicable NERC CIP Part, at the derived asset scope. FULL requires a located span from both a policy and a procedure. Filter by standard/requirement id prefix for pagination. Every row derived from an open review-queue item names it; COMPLIANCE_CONFLICT surfaces as its own field.",
-   "parameters": {
-    "type": "object",
-    "properties": {
-     "standard": {
-      "type": "string"
-     },
-     "requirement": {
-      "type": "string"
-     },
-     "effective_on": {
-      "type": "string"
-     },
-     "kb_id": {
-      "type": "string"
-     },
-     "max_rows": {
-      "type": "integer"
-     },
-     "verbose": {
-      "type": "boolean"
-     }
-    },
-    "required": []
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
-   "name": "compliance_orphans",
-   "description": "Ingested policy/procedure sections mapping to no requirement in the coverage matrix \u2014 dead weight, or evidence the requirement register is incomplete.",
-   "parameters": {
-    "type": "object",
-    "properties": {
-     "kb_id": {
-      "type": "string"
-     },
-     "effective_on": {
-      "type": "string"
-     }
-    },
-    "required": []
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
-   "name": "compliance_change_impact",
-   "description": "Impact of a standard-version transition (e.g. old_standard='CIP-003-8', new_standard='CIP-003-9') on the operator's mapped sections \u2014 which prior coverage verdicts are now unverified, gated on applicability.",
-   "parameters": {
-    "type": "object",
-    "properties": {
-     "old_standard": {
-      "type": "string"
-     },
-     "new_standard": {
-      "type": "string"
-     },
-     "kb_id": {
-      "type": "string"
-     }
-    },
-    "required": [
-     "old_standard",
-     "new_standard"
-    ]
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
-   "name": "compliance_mappings",
-   "description": "List/filter the mapping store (requirement -> internal document/section), and the SME override rate (the trust signal).",
-   "parameters": {
-    "type": "object",
-    "properties": {
-     "requirement_id": {
-      "type": "string"
-     },
-     "approved_only": {
-      "type": "boolean"
-     }
-    },
-    "required": []
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
-   "name": "compliance_scope",
-   "description": "The asset applicability scope derived from the operator's own ingested corpus, with citing evidence \u2014 queued rather than asked for.",
-   "parameters": {
-    "type": "object",
-    "properties": {
-     "kb_id": {
-      "type": "string"
-     }
-    },
-    "required": []
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
-   "name": "compliance_route",
-   "description": "Route a free-form compliance question to its intent (today / change / gaps / freeform) and the register node set that path operates on.",
-   "parameters": {
-    "type": "object",
-    "properties": {
-     "query": {
-      "type": "string"
-     },
-     "effective_on": {
-      "type": "string"
-     }
-    },
-    "required": [
-     "query"
-    ]
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
-   "name": "compliance_review_list",
-   "description": "The review queue: open (default) or filtered judgements the system proceeded on without blocking \u2014 applicability scope, document tiers, mapping proposals, conflicts, low-confidence extractions.",
-   "parameters": {
-    "type": "object",
-    "properties": {
-     "kind": {
-      "type": "string"
-     },
-     "status": {
-      "type": "string"
-     }
-    },
-    "required": []
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
-   "name": "compliance_review_decide",
-   "description": "Confirm or reject one open review-queue item. Reversible: writes a new row superseding the prior one; nothing is overwritten. Confirming a mapping_proposal approves it in the mapping store directly. Requires an operator-issued reviewer_token; decided_by is caller-supplied context only and is NOT what gets recorded as the deciding principal.",
-   "parameters": {
-    "type": "object",
-    "properties": {
-     "item_id": {
-      "type": "string"
-     },
-     "decision": {
-      "type": "string",
-      "enum": [
-       "CONFIRMED",
-       "REJECTED"
-      ]
-     },
-     "decided_by": {
-      "type": "string"
-     },
-     "corrected_value": {
-      "type": "object"
-     },
-     "reviewer_token": {
-      "type": "string",
-      "description": "Operator-issued token identifying the authenticated reviewer. Without a valid token the decision is rejected (status: UNAUTHENTICATED) \u2014 this tool cannot record a review decision on the LLM's own authority."
-     }
-    },
-    "required": [
-     "item_id",
-     "decision",
-     "decided_by",
-     "reviewer_token"
-    ]
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
-   "name": "compliance_sources",
-   "description": "Exact permitted source context for an immutable document revision from the canonical compliance store \u2014 pass revision_id for an exact historical anchor, logical_id for the human-facing source-dir-relative name (e.g. 'CIP-007/Some Procedure.pdf'), or alias_path for the literal filesystem path. Verifies the source file's current bytes still match the recorded revision hash (drift detection).",
-   "parameters": {
-    "type": "object",
-    "properties": {
-     "revision_id": {
-      "type": "string"
-     },
-     "logical_id": {
-      "type": "string"
-     },
-     "alias_path": {
-      "type": "string"
-     }
-    }
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
-   "name": "compliance_trace",
-   "description": "Bidirectional relationship traversal from a requirement/document/control reference in the canonical compliance store \u2014 forward, reverse, or both directions, cycle-safe and depth/work-budget bounded. Discloses depth-limited nodes and any truncated frontier explicitly rather than presenting a partial traversal as complete.",
-   "parameters": {
-    "type": "object",
-    "properties": {
-     "start_ref": {
-      "type": "string"
-     },
-     "direction": {
-      "type": "string",
-      "enum": [
-       "forward",
-       "reverse",
-       "both"
-      ]
-     },
-     "max_depth": {
-      "type": "integer"
-     },
-     "include_proposed": {
-      "type": "boolean",
-      "description": "Widen beyond the governed approved-only edge surface to include proposed relationships \u2014 candidate-discovery use only."
-     }
-    },
-    "required": [
-     "start_ref"
-    ]
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
-   "name": "compliance_prospective",
-   "description": "What requires review when a new/revised NERC CIP standard takes effect \u2014 future-effective register content as of effective_on (default today), explicitly segregated from what is required today. Every row is marked prospective and must never be read as a current obligation.",
-   "parameters": {
-    "type": "object",
-    "properties": {
-     "effective_on": {
-      "type": "string"
-     },
-     "kb_id": {
-      "type": "string"
-     }
-    }
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
-   "name": "compliance_scenario",
-   "description": "An isolated before/after scenario for a proposed patch to one targeted requirement/Part, never written to any persisted document or the mapping store. Compares whether the candidate/qualification layer sees evidence for the obligation before vs. after the proposed text. Does not produce a compliance verdict or a full implementation plan.",
-   "parameters": {
-    "type": "object",
-    "properties": {
-     "target_node_id": {
-      "type": "string"
-     },
-     "patch_text": {
-      "type": "string"
-     },
-     "rationale": {
-      "type": "string"
-     },
-     "planned_effective_date": {
-      "type": "string"
-     },
-     "kb_id": {
-      "type": "string"
-     },
-     "effective_on": {
-      "type": "string"
-     }
-    },
-    "required": [
-     "target_node_id",
-     "patch_text",
-     "rationale"
-    ]
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
-   "name": "compliance_draft_revisions",
-   "description": "What revisions would improve alignment for a standard-version transition (e.g. old_standard='CIP-003-8', new_standard='CIP-003-9') \u2014 what must change and why, with both verbatim spans, for every mapped section affected by a substantive change. Specification only: does not draft replacement language itself.",
-   "parameters": {
-    "type": "object",
-    "properties": {
-     "old_standard": {
-      "type": "string"
-     },
-     "new_standard": {
-      "type": "string"
-     },
-     "kb_id": {
-      "type": "string"
-     }
-    },
-    "required": [
-     "old_standard",
-     "new_standard"
-    ]
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
-   "name": "compliance_intentionality",
-   "description": "Are our internal rules more restrictive than the standard for this requirement, and is that intentional? Compares every numeric duration claim in the supplied internal procedure/policy text against the governing requirement's verbatim text using the correct comparator direction (a shorter review interval is stricter; a longer retention period is stricter). Pass control_id (a real internal_controls row) to also check for a recorded policy_decisions entry \u2014 without a match, intentionality is reported unknown, never inferred. Never calls a stricter internal practice a violation.",
-   "parameters": {
-    "type": "object",
-    "properties": {
-     "requirement_id": {
-      "type": "string"
-     },
-     "internal_text": {
-      "type": "string"
-     },
-     "control_id": {
-      "type": "string"
-     }
-    },
-    "required": [
-     "requirement_id",
-     "internal_text"
-    ]
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
-   "name": "compliance_flexibility",
-   "description": "Where does this requirement's governing text permit flexibility we may not be using? Scans the verbatim requirement text for explicit permissive-alternative cues (\"may\", \"alternatively\", \"at its discretion\") and returns each matching sentence verbatim. Cue-word detection only, never a recommendation to relax a control \u2014 an SME must confirm any candidate's conditions before adoption.",
-   "parameters": {
-    "type": "object",
-    "properties": {
-     "requirement_id": {
-      "type": "string"
-     }
-    },
-    "required": [
-     "requirement_id"
-    ]
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
-   "name": "compliance_requirement",
-   "description": "Resolve current, historical, or future governing NERC CIP text by validity interval and return decomposed atoms with exact source anchors.",
-   "parameters": {
-    "type": "object",
-    "properties": {
-     "requirement": {
-      "type": "string"
-     },
-     "scope": {
-      "type": "string"
-     },
-     "valid_at": {
-      "type": "string"
-     },
-     "known_at": {
-      "type": "string"
-     }
-    },
-    "required": [
-     "requirement",
-     "valid_at"
-    ]
-   }
-  }
- },
- {
-  "type": "function",
-  "function": {
    "name": "compliance_analyze",
    "description": "Start, inspect, retrieve, or cancel a bounded compliance analysis job.",
    "parameters": {
@@ -622,6 +46,102 @@
  {
   "type": "function",
   "function": {
+   "name": "compliance_answers",
+   "description": "Stored answers about a subject, each with its citations and its standing.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "subject_ref": {
+      "type": "string"
+     },
+     "include_superseded": {
+      "type": "string"
+     }
+    }
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_ask",
+   "description": "Ask a question about a requirement, with the whole neighbourhood in front of the reader.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "question": {
+      "type": "string"
+     },
+     "ref": {
+      "type": "string"
+     },
+     "budget_tokens": {
+      "type": "string"
+     },
+     "valid_at": {
+      "type": "string"
+     },
+     "thread_id": {
+      "type": "string"
+     },
+     "model": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "question",
+     "ref"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_bundle",
+   "description": "Resolve the complete governing bundle for one NERC CIP requirement Part (verbatim Part text, lead-in, Measures, Technical Basis, applicable systems, readiness, fingerprint). Deterministic, no model calls.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "requirement_id": {
+      "type": "string",
+      "description": "Exact register node id, e.g. 'CIP-007-6 R2 Part 2.1'."
+     }
+    },
+    "required": [
+     "requirement_id"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_change_impact",
+   "description": "Impact of a standard-version transition (e.g. old_standard='CIP-003-8', new_standard='CIP-003-9') on the operator's mapped sections \u2014 which prior coverage verdicts are now unverified, gated on applicability.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "old_standard": {
+      "type": "string"
+     },
+     "new_standard": {
+      "type": "string"
+     },
+     "kb_id": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "old_standard",
+     "new_standard"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
    "name": "compliance_compare",
    "description": "Compare explicit standard revisions and return raw and interpreted deltas with impacted scope.",
    "parameters": {
@@ -638,6 +158,156 @@
      "before_revision",
      "after_revision"
     ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_context",
+   "description": "**The reading assembly.** Everything a requirement's neighbourhood holds.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "ref": {
+      "type": "string"
+     },
+     "budget_tokens": {
+      "type": "string"
+     },
+     "include": {
+      "type": "string"
+     },
+     "valid_at": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "ref"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_correct",
+   "description": "Record an operator's correction of a stored answer. Kept as a note about the answer: the operator's word outranks the reading, and both remain.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "answer_id": {
+      "type": "string"
+     },
+     "correction": {
+      "type": "string"
+     },
+     "author": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "answer_id",
+     "correction"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_coverage",
+   "description": "Per requirement: the internal sections linked to it, and explicitly those with none. **Deterministic \u2014 no model call, no background job.**",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "standard": {
+      "type": "string"
+     },
+     "requirement": {
+      "type": "string"
+     },
+     "valid_at": {
+      "type": "string"
+     },
+     "known_at": {
+      "type": "string"
+     }
+    }
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_draft_revisions",
+   "description": "What revisions would improve alignment for a standard-version transition (e.g. old_standard='CIP-003-8', new_standard='CIP-003-9') \u2014 what must change and why, with both verbatim spans, for every mapped section affected by a substantive change. Specification only: does not draft replacement language itself.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "old_standard": {
+      "type": "string"
+     },
+     "new_standard": {
+      "type": "string"
+     },
+     "kb_id": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "old_standard",
+     "new_standard"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_flexibility",
+   "description": "Where does this requirement's governing text permit flexibility we may not be using? Scans the verbatim requirement text for explicit permissive-alternative cues (\"may\", \"alternatively\", \"at its discretion\") and returns each matching sentence verbatim. Cue-word detection only, never a recommendation to relax a control \u2014 an SME must confirm any candidate's conditions before adoption.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "requirement_id": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "requirement_id"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_gaps",
+   "description": "Coverage matrix: where the operator's ingested corpus does/doesn't cover each applicable NERC CIP Part, at the derived asset scope. FULL requires a located span from both a policy and a procedure. Filter by standard/requirement id prefix for pagination. Every row derived from an open review-queue item names it; COMPLIANCE_CONFLICT surfaces as its own field.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "standard": {
+      "type": "string"
+     },
+     "requirement": {
+      "type": "string"
+     },
+     "effective_on": {
+      "type": "string"
+     },
+     "kb_id": {
+      "type": "string"
+     },
+     "max_rows": {
+      "type": "integer"
+     },
+     "verbose": {
+      "type": "boolean"
+     }
+    },
+    "required": []
    }
   }
  },
@@ -668,18 +338,651 @@
  {
   "type": "function",
   "function": {
-   "name": "compliance_bundle",
-   "description": "Resolve the complete governing bundle for one NERC CIP requirement Part (verbatim Part text, lead-in, Measures, Technical Basis, applicable systems, readiness, fingerprint). Deterministic, no model calls.",
+   "name": "compliance_ingest",
+   "description": "Ingest a folder of the operator's policy AND procedure PDFs into the compliance corpus in one pass. Idempotent, re-runnable. Derives and queues layer (policy/procedure/evidence) and authority tier per document from its own title/filename/document-control block; reports a layer census (zero procedures means no coverage cell can reach FULL).",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "source_dir": {
+      "type": "string"
+     },
+     "kb_id": {
+      "type": "string"
+     },
+     "rebuild": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "source_dir"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_intentionality",
+   "description": "Are our internal rules more restrictive than the standard for this requirement, and is that intentional? Compares every numeric duration claim in the supplied internal procedure/policy text against the governing requirement's verbatim text using the correct comparator direction (a shorter review interval is stricter; a longer retention period is stricter). Pass control_id (a real internal_controls row) to also check for a recorded policy_decisions entry \u2014 without a match, intentionality is reported unknown, never inferred. Never calls a stricter internal practice a violation.",
    "parameters": {
     "type": "object",
     "properties": {
      "requirement_id": {
-      "type": "string",
-      "description": "Exact register node id, e.g. 'CIP-007-6 R2 Part 2.1'."
+      "type": "string"
+     },
+     "internal_text": {
+      "type": "string"
+     },
+     "control_id": {
+      "type": "string"
      }
     },
     "required": [
-     "requirement_id"
+     "requirement_id",
+     "internal_text"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_kb_search",
+   "description": "Sync dispatch wrapper over ``compliance_retrieval.search`` \u2014 raw kb-scoped retrieval, one corpus, no section resolution and no clocks.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "kb_id": {
+      "type": "string"
+     },
+     "query": {
+      "type": "string"
+     },
+     "top_k": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "kb_id",
+     "query"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_links",
+   "description": "Traversal over ``relationship_assertions``. Every edge is labelled with its status, how it was derived and its confidence \u2014 a proposal is visible as a proposal, never as an established fact.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "ref": {
+      "type": "string"
+     },
+     "direction": {
+      "type": "string"
+     },
+     "status": {
+      "type": "string"
+     },
+     "derivation": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "ref"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_mappings",
+   "description": "List/filter the mapping store (requirement -> internal document/section), and the SME override rate (the trust signal).",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "requirement_id": {
+      "type": "string"
+     },
+     "approved_only": {
+      "type": "boolean"
+     }
+    },
+    "required": []
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_note",
+   "description": "Record an operator decision, intent or rationale as a dated, attributed, immutable source \u2014 citeable and retrievable from the next question onward.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "subject_ref": {
+      "type": "string"
+     },
+     "body": {
+      "type": "string"
+     },
+     "kind": {
+      "type": "string"
+     },
+     "author": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "subject_ref",
+     "body"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_notes",
+   "description": "Operator notes about one subject, newest first, with their verbatim text.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "subject_ref": {
+      "type": "string"
+     },
+     "limit": {
+      "type": "string"
+     }
+    }
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_orphans",
+   "description": "Ingested policy/procedure sections mapping to no requirement in the coverage matrix \u2014 dead weight, or evidence the requirement register is incomplete.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "kb_id": {
+      "type": "string"
+     },
+     "effective_on": {
+      "type": "string"
+     }
+    },
+    "required": []
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_prospective",
+   "description": "What requires review when a new/revised NERC CIP standard takes effect \u2014 future-effective register content as of effective_on (default today), explicitly segregated from what is required today. Every row is marked prospective and must never be read as a current obligation.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "effective_on": {
+      "type": "string"
+     },
+     "kb_id": {
+      "type": "string"
+     }
+    }
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_read",
+   "description": "Verbatim text of any addressable unit, from either side.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "ref": {
+      "type": "string"
+     },
+     "neighbors": {
+      "type": "string"
+     },
+     "max_chars": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "ref"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_requirement",
+   "description": "Resolve current, historical, or future governing NERC CIP text by validity interval and return decomposed atoms with exact source anchors.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "requirement": {
+      "type": "string"
+     },
+     "scope": {
+      "type": "string"
+     },
+     "valid_at": {
+      "type": "string"
+     },
+     "known_at": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "requirement",
+     "valid_at"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_review_decide",
+   "description": "Confirm or reject one open review-queue item. Reversible: writes a new row superseding the prior one; nothing is overwritten. Confirming a mapping_proposal approves it in the mapping store directly. Requires an operator-issued reviewer_token; decided_by is caller-supplied context only and is NOT what gets recorded as the deciding principal.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "item_id": {
+      "type": "string"
+     },
+     "decision": {
+      "type": "string",
+      "enum": [
+       "CONFIRMED",
+       "REJECTED"
+      ]
+     },
+     "decided_by": {
+      "type": "string"
+     },
+     "corrected_value": {
+      "type": "object"
+     },
+     "reviewer_token": {
+      "type": "string",
+      "description": "Operator-issued token identifying the authenticated reviewer. Without a valid token the decision is rejected (status: UNAUTHENTICATED) \u2014 this tool cannot record a review decision on the LLM's own authority."
+     }
+    },
+    "required": [
+     "item_id",
+     "decision",
+     "decided_by",
+     "reviewer_token"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_review_list",
+   "description": "The review queue: open (default) or filtered judgements the system proceeded on without blocking \u2014 applicability scope, document tiers, mapping proposals, conflicts, low-confidence extractions.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "kind": {
+      "type": "string"
+     },
+     "status": {
+      "type": "string"
+     }
+    },
+    "required": []
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_route",
+   "description": "Route a free-form compliance question to its intent (today / change / gaps / freeform) and the register node set that path operates on.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "query": {
+      "type": "string"
+     },
+     "effective_on": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "query"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_scenario",
+   "description": "An isolated before/after scenario for a proposed patch to one targeted requirement/Part, never written to any persisted document or the mapping store. Compares whether the candidate/qualification layer sees evidence for the obligation before vs. after the proposed text. Does not produce a compliance verdict or a full implementation plan.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "target_node_id": {
+      "type": "string"
+     },
+     "patch_text": {
+      "type": "string"
+     },
+     "rationale": {
+      "type": "string"
+     },
+     "planned_effective_date": {
+      "type": "string"
+     },
+     "kb_id": {
+      "type": "string"
+     },
+     "effective_on": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "target_node_id",
+     "patch_text",
+     "rationale"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_scope",
+   "description": "The asset applicability scope derived from the operator's own ingested corpus, with citing evidence \u2014 queued rather than asked for.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "kb_id": {
+      "type": "string"
+     }
+    },
+    "required": []
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_search",
+   "description": "Ranked sections across BOTH corpora \u2014 regulatory and operator together.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "query": {
+      "type": "string"
+     },
+     "jurisdiction": {
+      "type": "string"
+     },
+     "standard": {
+      "type": "string"
+     },
+     "layer": {
+      "type": "string"
+     },
+     "valid_at": {
+      "type": "string"
+     },
+     "known_at": {
+      "type": "string"
+     },
+     "top_k": {
+      "type": "string"
+     },
+     "max_chars": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "query"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_sources",
+   "description": "Exact permitted source context for an immutable document revision from the canonical compliance store \u2014 pass revision_id for an exact historical anchor, logical_id for the human-facing source-dir-relative name (e.g. 'CIP-007/Some Procedure.pdf'), or alias_path for the literal filesystem path. Verifies the source file's current bytes still match the recorded revision hash (drift detection).",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "revision_id": {
+      "type": "string"
+     },
+     "logical_id": {
+      "type": "string"
+     },
+     "alias_path": {
+      "type": "string"
+     }
+    }
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_standing_questions",
+   "description": "The questions the operator already cares about.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "question": {
+      "type": "string"
+     },
+     "subject_ref": {
+      "type": "string"
+     },
+     "run": {
+      "type": "string"
+     }
+    }
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_timeline",
+   "description": "Every revision of either side, with its dates \u2014 plus the semantic delta between consecutive regulatory revisions.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "ref": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "ref"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_trace",
+   "description": "Bidirectional relationship traversal from a requirement/document/control reference in the canonical compliance store \u2014 forward, reverse, or both directions, cycle-safe and depth/work-budget bounded. Discloses depth-limited nodes and any truncated frontier explicitly rather than presenting a partial traversal as complete.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "start_ref": {
+      "type": "string"
+     },
+     "direction": {
+      "type": "string",
+      "enum": [
+       "forward",
+       "reverse",
+       "both"
+      ]
+     },
+     "max_depth": {
+      "type": "integer"
+     },
+     "include_proposed": {
+      "type": "boolean",
+      "description": "Widen beyond the governed approved-only edge surface to include proposed relationships \u2014 candidate-discovery use only."
+     }
+    },
+    "required": [
+     "start_ref"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "lookup_control",
+   "description": "Authoritative text for a control id (e.g. AC-2 in NIST 800-53, PR.AA-05 in CSF 2.0).",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "control_id": {
+      "type": "string"
+     },
+     "framework": {
+      "type": "string",
+      "enum": [
+       "nist_800_53",
+       "csf_2_0"
+      ]
+     }
+    },
+    "required": [
+     "control_id"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "map_frameworks",
+   "description": "Cross-framework mapping for a control id via the bundled OLIR-style crosswalk seed.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "control_id": {
+      "type": "string"
+     },
+     "from_fw": {
+      "type": "string"
+     },
+     "to_fw": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "control_id"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "nerc_cip_currency",
+   "description": "Per-standard NERC CIP currency: held version, whether a newer version PDF is published on nerc.com, and an explicit 'verify the enforcement date'. Currency is never inferred; honest-BLOCKED when nerc.com is unreachable.",
+   "parameters": {
+    "type": "object",
+    "properties": {}
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "nerc_cip_requirement",
+   "description": "AUTHORITATIVE, LOCAL lookup of exact verbatim NERC CIP requirement/Part text from the maintained bitemporal register (e.g. 'CIP-007-6 R2 Part 2.2', or 'CIP-007-6 R2' for every Part). Use this FIRST for ANY question asking what a specific CIP standard/requirement/Part currently, historically, or in the future requires \u2014 it resolves lifecycle/validity dates deterministically and returns the exact verbatim text with related 800-53 controls. Prefer this over web_search or browser tools for CIP standard text: an external fetch cannot verify effective-date selection or exact revision the way this can, and a generic search result is not a substitute for the maintained register.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "req_id": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "req_id"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "patch_evidence",
+   "description": "CIP-007-6 R2 patch-evaluation record for a CVE (uses vulnintel triage).",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "cve_id": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "cve_id"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "refresh_catalogs",
+   "description": "Re-pull the authoritative OSCAL catalogs (NIST 800-53 Rev5, CSF 2.0) into the local data dir.",
+   "parameters": {
+    "type": "object",
+    "properties": {},
+    "required": []
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "search_controls",
+   "description": "Keyword search across control titles/statements; returns citable ids.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "keyword": {
+      "type": "string"
+     },
+     "framework": {
+      "type": "string",
+      "enum": [
+       "nist_800_53",
+       "csf_2_0"
+      ]
+     },
+     "top_k": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "keyword"
     ]
    }
   }

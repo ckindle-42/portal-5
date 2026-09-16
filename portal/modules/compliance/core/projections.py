@@ -125,6 +125,60 @@ def projection_status(
     }
 
 
+def retrieval_projection_status(repo: Any) -> dict[str, Any]:
+    """FRESH / STALE / ABSENT per corpus, against the SECTION POPULATION each is
+    a projection of (BILATERAL_CORPUS_V1 P4.5).
+
+    :func:`canonical_fingerprint` hashes ``section_id || role``, which does not
+    move when a section's span does — so a re-capture that shifted a boundary
+    left the manifest reading FRESH over an index that no longer matched the
+    store. The retrieval manifest is fingerprinted against each section's
+    identity, span and revision instead, so STALE means what it says.
+
+    Per corpus, because the corpora are projected independently: one store-wide
+    hash would mark the regulatory index stale the moment somebody writes an
+    operator note, which is false and teaches people to ignore the signal. The
+    overall status is the worst of them.
+    """
+    from portal.modules.compliance.core.section_index import (
+        CORPUS_FOR_JURISDICTION,
+        section_population_fingerprint,
+    )
+
+    row = repo._conn.execute(
+        """SELECT generation_id, created_at, counts_json FROM index_manifests
+           WHERE index_kind = 'retrieval' AND active = 1
+           ORDER BY created_at DESC LIMIT 1"""
+    ).fetchone()
+    if row is None:
+        return {"index_kind": "retrieval", "status": "ABSENT", "corpora": {}}
+    built = json.loads(row[2] or "{}").get("corpora", {})
+    corpora: dict[str, Any] = {}
+    for jurisdiction, kb_id in CORPUS_FOR_JURISDICTION.items():
+        live = section_population_fingerprint(repo, jurisdiction)
+        recorded = str((built.get(kb_id) or {}).get("fingerprint", ""))
+        corpora[kb_id] = {
+            "status": "ABSENT" if not recorded else ("FRESH" if recorded == live else "STALE"),
+            "live_fingerprint": live,
+            "built_from_fingerprint": recorded,
+            "sections": (built.get(kb_id) or {}).get("sections"),
+        }
+    # an empty corpus is not a stale one: nothing to project is a state, not a drift
+    interesting = [
+        entry["status"]
+        for kb_id, entry in corpora.items()
+        if entry["status"] != "ABSENT" or (built.get(kb_id) or {}).get("sections")
+    ]
+    overall = "STALE" if "STALE" in interesting else ("FRESH" if interesting else "ABSENT")
+    return {
+        "index_kind": "retrieval",
+        "status": overall,
+        "generation_id": row[0],
+        "built_at": row[1],
+        "corpora": corpora,
+    }
+
+
 def census(conn: sqlite3.Connection) -> dict[str, int]:
     """Row counts over the fingerprinted truth tables — the cheap sanity
     half of a materialization proof."""

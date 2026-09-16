@@ -132,6 +132,75 @@ def _composition() -> _pipeline.Composition:
     )
 
 
+async def project_sections(
+    kb_id: str,
+    units: list[Any],
+    *,
+    rebuild: bool = True,
+) -> dict[str, Any]:
+    """Write one corpus's indexable units into the compliance text table.
+
+    The index is a PROJECTION of the canonical section store
+    (BILATERAL_CORPUS_V1 P4): ``chunk_id`` is the ``section_id``, so every hit
+    resolves to a row in ``source_sections`` and a boundary receipt's
+    ``examined_sections`` can be compared to its ``eligible_sections`` without
+    crossing an identity boundary.
+
+    Uses the same stages as ``ingest_document`` — the same embedder, the same
+    contextualize rule (heading path embedded, raw text stored and returned),
+    the same BM25 sparse arm — and differs only in where the units come from.
+    A rebuild drops the table because the population, not just its content, is
+    being replaced.
+    """
+    import contextlib
+    import time
+
+    comp = _composition()
+    live_model, live_dim = await comp.vl_model_id()
+    if rebuild:
+        db = comp.get_db()
+        for name in (comp.tname(kb_id), comp.vname(kb_id)):
+            if name in _store.table_names(db):
+                with contextlib.suppress(Exception):
+                    db.drop_table(name)
+    else:
+        comp.assert_embedding_space(kb_id, live_model, comp.stage_set or None)
+    ttbl = comp.text_table(kb_id, create=True)
+
+    added = 0
+    batch = 64
+    for start in range(0, len(units), batch):
+        window = units[start : start + batch]
+        embed_texts = [
+            f"{u.headings}\n\n{u.text}" if (comp.contextualize and u.headings) else u.text
+            for u in window
+        ]
+        vectors = await comp.vl_embed_batch([{"text": t} for t in embed_texts])
+        now = time.time()
+        ttbl.add(
+            [
+                {**u.as_row(), "vector": vec, "ingested_at": now}
+                for u, vec in zip(window, vectors, strict=True)
+            ]
+        )
+        added += len(window)
+
+    fts_built = False
+    if comp.fts and added:
+        with contextlib.suppress(Exception):
+            ttbl.create_fts_index("text", replace=True)
+            fts_built = True
+    comp.write_stamp(kb_id, live_model, live_dim, comp.stage_set or None)
+    return {
+        "kb_id": kb_id,
+        "units_indexed": added,
+        "fts_index": fts_built,
+        "embed_model": live_model,
+        "table": comp.tname(kb_id),
+        "table_version": int(getattr(ttbl, "version", 0) or 0),
+    }
+
+
 async def search(kb_id: str, query: str, top_k: int = 5) -> dict[str, Any]:
     """Plain-arg entry point — the HTTP concern (request parsing, status codes)
     stays in ``_search`` below; ``compliance_mcp``'s sync dispatch wrapper calls
@@ -140,7 +209,12 @@ async def search(kb_id: str, query: str, top_k: int = 5) -> dict[str, Any]:
 
 
 async def _search(request: Request) -> JSONResponse:
-    """compliance_search: same behaviour as kb_search, over the compliance_* tables."""
+    """compliance_kb_search: raw kb-scoped retrieval over the compliance_* tables.
+
+    Renamed from ``compliance_search`` in BILATERAL_CORPUS_V1 P5: that name now
+    belongs to the bilateral, section-addressed search tool on the MCP, which
+    resolves every hit to a canonical section. This stays as the seam's raw
+    passthrough — one kb, no resolution, no clocks."""
     args = (await request.json()).get("arguments", {})
     kb_id = args.get("kb_id", "")
     query = args.get("query", "")
@@ -158,6 +232,14 @@ async def _search(request: Request) -> JSONResponse:
 async def _ingest(request: Request) -> JSONResponse:
     """compliance_ingest: ingest a folder of policy AND procedure PDFs in one
     pass over the compliance_* tables — TASK_COMPLIANCE_ENGINE_LANDING_V1 P3.
+
+    **DEPRECATED as the product retrieval path (BILATERAL_CORPUS_V1 P4.4.)**
+    This is an ACQUISITION path: it discovers documents on disk and derives
+    their layer and authority tier. It also builds its own docling chunks with
+    their own sha1 ids, which is the second identity space §0.3 names — those
+    ids resolve to nothing in ``source_sections``. The product index is now
+    emitted from the canonical sections by ``project_sections`` above. Kept, not
+    deleted (additive-only discipline); nothing new may be built on its chunks.
     Beyond kb_ingest's chunk/embed, this derives layer (policy/procedure/
     evidence) and authority tier per document from its own self-description,
     queues every derivation (``document_tier``), and reports the layer census
@@ -181,4 +263,4 @@ async def _ingest(request: Request) -> JSONResponse:
 def register_compliance_retrieval_routes(mcp: Any) -> None:
     """Own the compliance_* retrieval routes on the compliance MCP."""
     mcp.custom_route("/tools/compliance_ingest", methods=["POST"])(_ingest)
-    mcp.custom_route("/tools/compliance_search", methods=["POST"])(_search)
+    mcp.custom_route("/tools/compliance_kb_search", methods=["POST"])(_search)
