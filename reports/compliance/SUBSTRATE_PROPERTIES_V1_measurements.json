@@ -1,0 +1,247 @@
+{
+ "measured_at": "2026-09-16T20:35:11+00:00",
+ "index_rows": 4483,
+ "mapping_ground_truth": {
+  "n_labelled_requirements": 1,
+  "n_settled_sections": 0,
+  "n_rejected_sections": 1,
+  "status": "NO SETTLED ROWS \u2014 the declared evaluation set has zero approved mappings; only a rejected one"
+ },
+ "superseded_competition": {
+  "n_queries": 6,
+  "superseded_rows_in_prefilter_top15": 1,
+  "queries_with_superseded_in_top15": 1,
+  "queries_with_target_located": 1,
+  "queries_with_governing_outside_prefilter_top15": 0,
+  "per_query": [
+   {
+    "query": "Our own procedure evaluates security patches every thirty ca",
+    "superseded_in_top15": 0,
+    "target_located": false,
+    "governing_outside_prefilter_top15": false
+   },
+   {
+    "query": "At least once every 35 calendar days, evaluate security patc",
+    "superseded_in_top15": 0,
+    "target_located": true,
+    "governing_outside_prefilter_top15": false
+   },
+   {
+    "query": "evaluate security patches every 30 days",
+    "superseded_in_top15": 0,
+    "target_located": false,
+    "governing_outside_prefilter_top15": false
+   },
+   {
+    "query": "patch evaluation sources SME review",
+    "superseded_in_top15": 0,
+    "target_located": false,
+    "governing_outside_prefilter_top15": false
+   },
+   {
+    "query": "CIP-007-6 R2 Part 2.2 measures",
+    "superseded_in_top15": 0,
+    "target_located": false,
+    "governing_outside_prefilter_top15": false
+   },
+   {
+    "query": "ESP review cadence 15 calendar months",
+    "superseded_in_top15": 1,
+    "target_located": false,
+    "governing_outside_prefilter_top15": false
+   }
+  ]
+ },
+ "untiered_documents": {
+  "n_documents": 28,
+  "by_source_kind": {
+   "technical_rationale": 24,
+   "glossary": 1,
+   "lifecycle_registry": 1,
+   "operator_note": 1,
+   "derived_answer": 1
+  },
+  "untiered": [
+   {
+    "logical_id": "NERC/glossary-of-terms",
+    "source_kind": "glossary",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "NERC/one-stop-shop",
+    "source_kind": "lifecycle_registry",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "NERC/CIP-007-7.1 technical rationale",
+    "source_kind": "technical_rationale",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "note/note-c7add17014402659a9cc",
+    "source_kind": "operator_note",
+    "jurisdiction": "operator_note"
+   },
+   {
+    "logical_id": "answer/answer-1c889b342a6329186a70",
+    "source_kind": "derived_answer",
+    "jurisdiction": "derived"
+   },
+   {
+    "logical_id": "NERC/CIP-002-7 technical rationale",
+    "source_kind": "technical_rationale",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "NERC/CIP-002-8 technical rationale",
+    "source_kind": "technical_rationale",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "NERC/CIP-003-10 technical rationale",
+    "source_kind": "technical_rationale",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "NERC/CIP-003-11 technical rationale",
+    "source_kind": "technical_rationale",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "NERC/CIP-003-9 technical rationale",
+    "source_kind": "technical_rationale",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "NERC/CIP-004-7 technical rationale",
+    "source_kind": "technical_rationale",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "NERC/CIP-004-8 technical rationale",
+    "source_kind": "technical_rationale",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "NERC/CIP-005-7 technical rationale",
+    "source_kind": "technical_rationale",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "NERC/CIP-005-8 technical rationale",
+    "source_kind": "technical_rationale",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "NERC/CIP-006-7.1 technical rationale",
+    "source_kind": "technical_rationale",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "NERC/CIP-008-6 technical rationale",
+    "source_kind": "technical_rationale",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "NERC/CIP-008-7.1 technical rationale",
+    "source_kind": "technical_rationale",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "NERC/CIP-009-7.1 technical rationale",
+    "source_kind": "technical_rationale",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "NERC/CIP-010-4 technical rationale",
+    "source_kind": "technical_rationale",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "NERC/CIP-010-5 technical rationale",
+    "source_kind": "technical_rationale",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "NERC/CIP-011-3 technical rationale",
+    "source_kind": "technical_rationale",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "NERC/CIP-011-4.1 technical rationale",
+    "source_kind": "technical_rationale",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "NERC/CIP-012-2 technical rationale",
+    "source_kind": "technical_rationale",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "NERC/CIP-013-2 technical rationale",
+    "source_kind": "technical_rationale",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "NERC/CIP-013-3 technical rationale",
+    "source_kind": "technical_rationale",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "NERC/CIP-014-4 technical rationale",
+    "source_kind": "technical_rationale",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "NERC/CIP-015-1 technical rationale",
+    "source_kind": "technical_rationale",
+    "jurisdiction": "US"
+   },
+   {
+    "logical_id": "NERC/CIP-015-2 technical rationale",
+    "source_kind": "technical_rationale",
+    "jurisdiction": "US"
+   }
+  ]
+ },
+ "scorer_validation": {
+  "n_transcripts": 4,
+  "n_hand_judged_answers": 45,
+  "n_scored": 0,
+  "n_blocked": 45,
+  "blocked_reason": "requirement 'CIP-007-6 R2 Part 2.2' carries no settled section mapping \u2014 nothing to recall against",
+  "note": "the hand judgment scored reading quality; the scorer scores citation recall against settled mappings \u2014 with none approved, every answer is honest-BLOCKED, which confirms the \u00a70 finding rather than disagreeing with the hand judgment"
+ },
+ "recall_at_k": {
+  "source": "hand-judged, provisional (READING_SEAT_RESEARCH_V1 \u00a72.1)",
+  "expected": [
+   "csection-440a5cdf9a6b65292ef3",
+   "csection-7700dd5499cead0994ec",
+   "isection-21a30e0d44708f5dfdce"
+  ],
+  "table": [
+   {
+    "k": 5,
+    "without_pushdown": 0.667,
+    "without_pushdown_superseded_in_topk": 0,
+    "with_pushdown": 0.667,
+    "with_pushdown_superseded_in_topk": 0
+   },
+   {
+    "k": 10,
+    "without_pushdown": 1.0,
+    "without_pushdown_superseded_in_topk": 0,
+    "with_pushdown": 1.0,
+    "with_pushdown_superseded_in_topk": 0
+   },
+   {
+    "k": 15,
+    "without_pushdown": 1.0,
+    "without_pushdown_superseded_in_topk": 0,
+    "with_pushdown": 1.0,
+    "with_pushdown_superseded_in_topk": 0
+   }
+  ]
+ },
+ "elapsed_s": 5.5
+}

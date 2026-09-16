@@ -389,3 +389,52 @@ class TestTheTierRidesOnEveryHit:
         assert conflicts_component["sections"], "the known contradiction rides with the reading"
         entry = conflicts_component["sections"][0]
         assert entry["conflict"]["signal"] == "COMPLIANCE_CONFLICT"
+
+
+class TestEdgesResolveInBothRecordedShapes:
+    """Defect found wiring P4 (live store): mapping_store writes edge endpoints
+    as ``{document}::{section_id}`` while the reading path resolved the raw
+    value — on the live store every ``::``-shaped edge resolved to nothing and
+    only bare section-id edges reached the reading."""
+
+    def test_a_doc_colon_colon_section_edge_resolves_to_its_section(
+        self, env
+    ) -> None:
+        make = env["make"]
+        repo = make()
+        try:
+            revision = _doc(
+                repo,
+                "LSPG procedure",
+                "internal",
+                "procedure",
+                [("4 Records", "Evaluation evidence is retained for 12 calendar months.")],
+            )
+            section_id = repo._conn.execute(
+                "SELECT section_id FROM source_sections WHERE revision_id = ?",
+                (revision.revision_id,),
+            ).fetchone()[0]
+            repo.propose_relationship(
+                RelationshipAssertion(
+                    assertion_id="",
+                    relation_type="IMPLEMENTS",
+                    src_ref=REF,
+                    src_revision_id=None,
+                    dst_ref=f"LSPG procedure.pdf::{section_id}",
+                    dst_revision_id=None,
+                    scope="",
+                    citations=[],
+                    status="proposed",
+                    review_state="proposed",
+                    coverage="",
+                    proposed_coverage="",
+                    confidence=0.9,
+                )
+            )
+            from portal.modules.compliance.core.reading_assembly import _linked_internal
+
+            linked = _linked_internal(repo, REF)
+        finally:
+            repo.close()
+        assert len(linked) == 1
+        assert linked[0]["text"].startswith("Evaluation evidence")

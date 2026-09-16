@@ -228,6 +228,12 @@ def _linked_internal(repo: Any, ref: str) -> list[dict[str, Any]]:
     proposed, because an analyst asking *does what we do achieve this* needs to
     see the candidates as well as the confirmed ones, and needs to know which
     is which.
+
+    An edge's endpoint arrives in two recorded shapes: a bare ``section_id``
+    and ``mapping_store``'s ``{document}::{section_id}`` — one identity space
+    (BILATERAL_CORPUS_V1 P4) with two spellings. The tail after ``::`` is the
+    section; on the live store every ``::``-shaped edge resolves through the
+    tail and none through the raw value.
     """
     from portal.modules.compliance.core.section_index import resolve_sections
 
@@ -238,6 +244,10 @@ def _linked_internal(repo: Any, ref: str) -> list[dict[str, Any]]:
         (ref,),
     ).fetchall()
     edges = [dict(r) for r in rows]
+    for edge in edges:
+        _doc, sep, section = str(edge["dst_ref"]).partition("::")
+        if sep and section:
+            edge["dst_ref"] = section
     resolved = resolve_sections(repo, [str(e["dst_ref"]) for e in edges])
     out: list[dict[str, Any]] = []
     for edge in edges:
