@@ -49,6 +49,27 @@ SEATS = (
 #: prompt: glm-4.7-flash (MoE) 244 tok/s prefill against 126 for dense Mistral
 #: Small 3.2, 112 for dense Qwen3.8-27B and 95 for hybrid-Mamba granite4.1. The
 #: two slowest seats are the two non-MoE ones, which is the whole argument.
+#: Small, purpose-fit seats, probed on a SCOPED packet rather than the whole
+#: neighbourhood. Two reasons, and the second is the product reason:
+#:
+#: 1. 55% of the full packet is the implementation plan and the compliance
+#:    section, while the requirement itself is 2%. A question about what a
+#:    requirement is FOR does not need either, and the `intent` profile is
+#:    ~6,500 tokens against ~29,900.
+#: 2. The module ships inside the running product. A seat that needs the Docker
+#:    stack down is not a seat. granite4.1:30b at 32k context is 36.4 GB
+#:    resident and cannot co-exist with 22 containers on this machine; a 5-9 GB
+#:    seat can, with room to spare.
+#:
+#: Foundation-Sec-8B-Reasoning is here because it is the only model in the
+#: catalog actually trained for this domain.
+SMALL_SEATS = (
+    "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
+    "granite4.1:8b-ctx16k",
+    "huihui_ai/qwen3.5-abliterated:9b-ctx64k",
+    "qwen3-vl:8b-instruct-q4_K_M",
+)
+
 MOE_SEATS = (
     "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k",
     "qwen3-coder:30b-a3b-q4_K_M-ctx256k",
@@ -86,7 +107,11 @@ def _unload(model: str) -> None:
 
 
 def probe_seats(
-    seats: tuple[str, ...], questions: tuple[str, ...], ref: str, effort: bool | str | None
+    seats: tuple[str, ...],
+    questions: tuple[str, ...],
+    ref: str,
+    effort: bool | str | None,
+    profile: str = "",
 ) -> dict[str, Any]:
     repo = Repository()
     out: dict[str, Any] = {
@@ -94,6 +119,7 @@ def probe_seats(
         "ref": ref,
         "questions": list(questions),
         "reasoning_effort": str(effort),
+        "profile": profile or "full",
         "seats": [],
     }
     try:
@@ -108,6 +134,7 @@ def probe_seats(
                     model=model,
                     reasoning_effort=effort,
                     answer_tokens=1600,
+                    profile=profile,
                     store=False,
                     timeout=1800,
                 )
@@ -212,6 +239,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--effort-probe", default="", help="run the effort grid on this model")
     parser.add_argument("--effort", default="false", help="false | low | medium | high")
     parser.add_argument("--moe", action="store_true", help="probe the sparse-mixture seats")
+    parser.add_argument("--small", action="store_true", help="probe the small purpose-fit seats")
+    parser.add_argument("--profile", default="", help="full | intent | conformance | audit")
     parser.add_argument(
         "--prefix-cache",
         action="store_true",
@@ -233,8 +262,15 @@ def main(argv: list[str] | None = None) -> int:
         out = probe_effort(args.effort_probe, args.ref, QUESTIONS[1])
         target = OUT_ROOT / f"{stamp}-effort.json"
     else:
-        chosen = tuple(args.seat) if args.seat else (MOE_SEATS if args.moe else SEATS)
-        out = probe_seats(chosen, QUESTIONS, args.ref, effort)
+        if args.seat:
+            chosen = tuple(args.seat)
+        elif args.small:
+            chosen = SMALL_SEATS
+        elif args.moe:
+            chosen = MOE_SEATS
+        else:
+            chosen = SEATS
+        out = probe_seats(chosen, QUESTIONS, args.ref, effort, args.profile)
         target = OUT_ROOT / f"{stamp}-seats.json"
     target.write_text(json.dumps(out, indent=2, default=str) + "\n", encoding="utf-8")
     print(f"\ntranscripts: {target}")

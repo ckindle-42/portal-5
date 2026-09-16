@@ -35,44 +35,56 @@ seats:
 #   phi4:14b-q4_K_M                                 broken install (llama-server abort trap)
 #   granite4.2:30b-q4_K_M                           F2 0.70 — below granite4.1:30b
 
-# ── the reading seat (BILATERAL_CORPUS_V1 P6.8) ────────────────────────────
+# ── the reading seats (BILATERAL_CORPUS_V1 P6.8) ───────────────────────────
 #
-# NOT a council seat. The council is three models voting on a JSON verdict over
-# a pre-analysed packet; this is one model reading a ~27,000-token bilateral
-# neighbourhood and answering an analyst in prose. Different question,
-# different packet, separately chosen.
+# NOT council seats. The council is three models voting on a JSON verdict over
+# a pre-analysed packet; this is one model reading a bilateral neighbourhood and
+# answering an analyst in prose. Different question, different packet, chosen
+# separately and chosen BY READING THE ANSWERS — reports/compliance/
+# BILATERAL_CORPUS_V1.md §7 carries the transcripts and the argument.
 #
-# Chosen by reading the answers, not by a score — reports/compliance/
-# BILATERAL_CORPUS_V1.md §7 carries the transcripts and the argument. The short
-# version: asked whether a 30-day evaluation cycle is stricter than the 35 days
-# CIP-007-6 R2 Part 2.2 allows, three of the four candidates repeated the
-# operator's NOTE as if it were the operator's PROCEDURE. Qwen3.8 read the
-# procedure itself, found that section 3.3.1 actually says "thirty-five (35)
-# calendar days", and surfaced the conflict between the written procedure and
-# the recorded practice. Nobody asked it to look; that is the behaviour this
-# module exists to produce.
+# HARD CONSTRAINT: every seat here runs co-resident with the full Docker stack.
+# This is a module inside the product, not something you take the product down
+# to use. granite4.1:30b is excluded on footprint alone — 36.4 GB resident at
+# 32k context, which cannot co-exist with 22 containers on this machine and put
+# it into 50 GB of swap when tried.
 #
-# Measured on the same 27k-token packet, stack down, Ollama /api/chat:
+# THE SEAT FOLLOWS THE PACKET. The same question, same corpus, two packet sizes:
 #
-#   seat                    prefill tok/s   cold      warm      cites  bad cites
-#   Qwen3.8-27B Q4_K_M            112      406.5s   123-153s    9/7/7      0
-#   glm-4.7-flash Q4_K_M          244      276.2s    30-52s     7/4/2      0
-#   granite4.1:30b                 95      458.6s    39-168s    6/3/3      0
-#   mistral-small3.2:24b          126      324.3s    18-55s     0/3/3      0
+#   seat                       size   full packet (~30k)   focused (~6k)
+#   Qwen3.8-27B Q4_K_M        18.8GB  correct, 406s cold   correct, 112s/55s
+#   glm-4.7-flash Q4_K_M      ~19 GB  WRONG                correct,  28s/14s
+#   qwen3.5-abliterated 9B     6.6GB  not tested           correct,  49s/23s
+#   granite4.1:8b              5.3GB  not tested           wrong
+#   qwen3-vl:8b                6.1GB  not tested           wrong
+#   Foundation-Sec-8B-Reason   8.5GB  not tested           wrong (backwards)
 #
-# Not one fabricated citation in twelve answers, so citation fidelity did not
-# separate them; the reading did.
+# The discriminator: asked whether a 30-day evaluation cycle is stricter than
+# the 35 days CIP-007-6 R2 Part 2.2 allows, a seat had to notice that the
+# operator's PROCEDURE says "thirty-five (35)" while the operator's NOTE claims
+# thirty. On the 30k packet that sentence is one of 239 sections and glm missed
+# it; on the 6k packet it read it correctly. The packet size was the failure,
+# not the parameter count — which is why focusing the packet buys more than
+# buying a bigger model.
+
+# Focused profiles (intent / conformance / audit / timeline). Fast enough to
+# hold a conversation in: 14-28 s per exchange warm.
 reading_seat:
+  id: glm47flash-reader
+  label: "GLM-4.7-Flash (Q4_K_M, 64k) — focused-packet reading seat"
+  model: "glm-4.7-flash:Q4_K_M-ctx64k"
+
+# The full ~30k neighbourhood. The only seat measured correct at that size: it
+# was the one that read the operator's own procedure instead of accepting the
+# note's summary of it.
+reading_seat_full_packet:
   id: qwen38-reader
-  label: "Qwen3.8 27B (unsloth Q4_K_M, 32k) — bilateral reading seat"
+  label: "Qwen3.8 27B (unsloth Q4_K_M, 32k) — full-packet reading seat"
   model: "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
 
-# The fast alternate. 3-5x quicker warm and it made the sharpest single finding
-# of the probe (the corpus holds the patch-evaluation PROCESS but not the
-# RECORD an auditor would ask for) — but it produced one of the three
-# misattributions above. Use it when latency dominates and the citation checker
-# is being read.
-reading_seat_alternate:
-  id: glm47flash-reader
-  label: "GLM-4.7-Flash (Q4_K_M, 64k) — fast alternate"
-  model: "glm-4.7-flash:Q4_K_M-ctx64k"
+# Minimum footprint, for a host with less headroom. 6.6 GB, correct on the
+# discriminator, 23 s warm.
+reading_seat_minimal:
+  id: qwen35-9b-reader
+  label: "Qwen3.5 9B abliterated (64k) — minimal-footprint reading seat"
+  model: "huihui_ai/qwen3.5-abliterated:9b-ctx64k"

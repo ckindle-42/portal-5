@@ -279,12 +279,60 @@ COMPONENT_ORDER = (
 )
 
 
+#: Question-scoped packets. Measured on CIP-007-6 R2 Part 2.2, the full
+#: neighbourhood is ~29,900 tokens, of which the implementation plan is 33% and
+#: the compliance/evidence-retention section 22% — while the requirement itself
+#: is 2%. Handing all of it to every question is not thoroughness, it is ballast:
+#: it costs minutes of prefill, it forces a large seat, and it buries the two
+#: hundred words that answer the question.
+#:
+#: A profile is NOT a classifier and nothing infers one from the question — that
+#: would be the prescriptive move in a new place. The caller names it, ``full``
+#: is the default, and **whatever a profile leaves out is named in `omitted`**
+#: and repeated to the reader, so the honest response to a question a profile
+#: cannot answer is "I would need the implementation plan for that" — which is a
+#: conversation, not a silent gap.
+PROFILES: dict[str, tuple[str, ...]] = {
+    "intent": (
+        "requirement",
+        "measures",
+        "technical_basis",
+        "rationale",
+        "glossary",
+        "background",
+    ),
+    "conformance": (
+        "requirement",
+        "measures",
+        "glossary",
+        "applicability",
+        "linked_internal",
+    ),
+    "audit": (
+        "requirement",
+        "measures",
+        "vsl",
+        "compliance_and_evidence_retention",
+        "applicability",
+        "linked_internal",
+    ),
+    "timeline": (
+        "requirement",
+        "effective_dates",
+        "implementation_plan",
+        "technical_rationale_document",
+        "version_history",
+    ),
+}
+
+
 def assemble(
     repo: Any,
     ref: str,
     *,
     budget_tokens: int = DEFAULT_BUDGET_TOKENS,
     include: list[str] | None = None,
+    profile: str = "",
     valid_at: str = "",
 ) -> dict[str, Any]:
     """Everything a reader needs for one requirement, sized to a budget.
@@ -385,13 +433,36 @@ def assemble(
         (c for c in components if c.sections),
         key=lambda c: COMPONENT_ORDER.index(c.name) if c.name in COMPONENT_ORDER else 99,
     )
-    if include:
-        wanted = {i.lower() for i in include}
+    wanted = {i.lower() for i in include} if include else set()
+    if profile and profile.lower() != "full":
+        if profile.lower() not in PROFILES:
+            return {
+                "ref": ref,
+                "error": f"unknown profile {profile!r}; choose one of "
+                f"{sorted(['full', *PROFILES])}",
+            }
+        wanted |= set(PROFILES[profile.lower()])
+    profile_omitted: list[dict[str, Any]] = []
+    if wanted:
+        profile_omitted = [
+            {
+                "component": c.name,
+                "why": c.why,
+                "sections": len(c.sections),
+                "tokens": c.tokens,
+                "reason": (
+                    f"outside the {profile or 'requested'} profile — ask for it and it "
+                    "will be assembled"
+                ),
+            }
+            for c in ordered
+            if c.name not in wanted
+        ]
         ordered = [c for c in ordered if c.name in wanted]
 
     cells = _cells_for(repo, [s for c in components for s in c.sections])
     kept: list[Component] = []
-    omitted: list[dict[str, Any]] = []
+    omitted: list[dict[str, Any]] = list(profile_omitted)
     spent = 0
     for component in ordered:
         if kept and spent + component.tokens > budget_tokens:
@@ -420,6 +491,7 @@ def assemble(
             "alias_path": revision["alias_path"],
         },
         "valid_at": valid_at or _today(),
+        "profile": profile or "full",
         "budget_tokens": budget_tokens,
         "tokens_used": spent,
         "components": [
