@@ -6,7 +6,11 @@ sources:
 - type: code
   path: portal/modules/compliance/core/capture.py
 - type: code
+  path: portal/modules/compliance/core/glossary.py
+- type: code
   path: tests/unit/test_compliance_capture.py
+- type: code
+  path: tests/unit/test_compliance_glossary.py
 claims:
 - probe: compliance.capture.unit_kinds
   contains: table_row
@@ -120,3 +124,37 @@ sections partition its text exactly, and enforces one invariant in one place —
 before that pass: 63 documents lost material at a section boundary (the
 characters between a table-of-contents page and the next heading, and the tail
 after the last heading). After it: zero.
+
+## The Glossary is a corpus, not a footnote
+
+`portal.modules.compliance.core.glossary` acquires the *Glossary of Terms Used in
+NERC Reliability Standards* from https://www.nerc.com/glossary-of-terms, whose
+`window._model` payload carries one structured record per term — verbatim
+definition, acronym, status, docket, Board-adoption date, effective date,
+inactive date. Records are located **by shape**, not by JSON path, so a CMS
+reshuffle fails loudly instead of yielding zero terms.
+
+Each term becomes a section in the same tables as everything else, so a Glossary
+entry is the same kind of addressable thing as a requirement Part or an operator
+procedure section. `nerc_source_sync` acquires it beside the standards with the
+same byte-hash UNCHANGED semantics.
+
+Resolution honours both clocks and never guesses:
+
+* the Glossary carries a term's **future successor beside its enforceable
+  revision** (measured live: 330 terms, with `Protected Cyber Assets` enforceable
+  to 2028-06-30 and `Protected Cyber Asset` effective from 2028-07-01), so
+  `resolve_terms` selects by `valid_at` — defaulting to today — and names the
+  other revisions rather than hiding them;
+* an acronym resolves only when every entry carrying it belongs to one term;
+* a trailing plural `s` is normalised, because NERC renames headwords between
+  revisions and a requirement written in the singular must still reach its own
+  definition. Verified against the live Glossary: exactly one bucket collapses
+  two spellings and their windows are sequential, so no two concepts merge;
+* a term the Glossary does not carry comes back explicitly unresolved, naming
+  itself. Never guessed, never silently empty.
+
+`assessment_source.resolve_governing_bundle` now resolves the
+`external_glossary` disposition instead of only recording it: a bundle whose
+standard has no definitions section carries the Glossary terms its own duty text
+depends on, each with its section id, revision and effectivity.

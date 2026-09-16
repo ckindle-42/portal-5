@@ -95,8 +95,15 @@ def test_resolve_bundle_preserves_full_part_leadin_refs_and_defs():
     assert bundle.lead_in == lead.verbatim_text
     assert [r["ref"] for r in bundle.references] == ["CIP-013-2 R1 Part 1.2"]
     assert bundle.references[0]["text"] == "The referenced supply chain clause body."
-    assert [d["ref"] for d in bundle.definitions] == ["CIP-013-2 R1 Part 1.3"]
-    assert bundle.definitions[0]["text"].startswith("Definition:")
+    graph_defs = [d for d in bundle.definitions if not d.get("source")]
+    assert [d["ref"] for d in graph_defs] == ["CIP-013-2 R1 Part 1.3"]
+    assert graph_defs[0]["text"].startswith("Definition:")
+    # P2: a standard deferring to the NERC Glossary also carries the Glossary
+    # terms its own duty text depends on, each labelled with its source.
+    for entry in bundle.definitions:
+        if entry.get("source"):
+            assert entry["source"] == "NERC Glossary of Terms"
+            assert entry["section_id"] or not entry["resolved"]
     # every assembled element has a slice; no fabricated governing-register anchor
     refs = {s.ref for s in bundle.source_slices}
     assert {"CIP-013-2 R1 Part 1.1", "CIP-013-2 R1", "CIP-013-2 R1 Part 1.2"} <= refs

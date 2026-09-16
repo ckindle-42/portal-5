@@ -14,6 +14,7 @@ import hashlib
 import json
 from pathlib import Path
 
+from portal.modules.compliance.core.glossary import GLOSSARY_URL
 from portal.modules.compliance.core.nerc_source_sync import (
     ONE_STOP_SHOP_URL,
     Artifact,
@@ -30,8 +31,36 @@ FIXTURE_SHA = hashlib.sha256(FIXTURE_BYTES).hexdigest()
 PDF_BYTES = b"%PDF-1.6 fake standard bytes for hermetic sync\n"
 PLAN_BYTES = b"%PDF-1.6 fake implementation plan bytes\n"
 
+
+# The Glossary is a bundle component (BILATERAL_CORPUS_V1 P2): every CIP standard
+# that carries no definitions section defers to it.
+GLOSSARY_BYTES = (
+    "<!DOCTYPE html><html><script>window._model = "
+    + json.dumps(
+        {
+            "pageModel": {
+                "searchResults": {
+                    "items": [
+                        {
+                            "term": "BES Cyber System",
+                            "definitionHtml": "One or more BES Cyber Assets.",
+                            "acronym": None,
+                            "status": "Subject to Enforcement",
+                            "effectiveDate": "2016-07-01T04:00:00+00:00",
+                            "inactiveDate": None,
+                            "docketNumber": "RM13-5-000",
+                        }
+                    ]
+                }
+            }
+        }
+    )
+    + ";</script></html>"
+).encode()
+
 URL_MAP = {
     ONE_STOP_SHOP_URL: FIXTURE_BYTES,
+    GLOSSARY_URL: GLOSSARY_BYTES,
     "https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-007-6.pdf": PDF_BYTES,
     "https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-007-7.1.pdf": b"%PDF-1.6 other pdf v7.1\n",
     "https://www.nerc.com/globalassets/standards/reliability-standards/cip/CIP_Implementation_Plan_CLEAN_BOARD.pdf": PLAN_BYTES,
@@ -85,11 +114,51 @@ def test_registry_provenance_is_carried_on_the_facts():
 # ── synchronization (hermetic) ──────────────────────────────────────────────
 
 
+def _stub_glossary_registration(monkeypatch):
+    """The Glossary lands in the canonical store through its own path; these
+    tests own the transport, not the store."""
+    monkeypatch.setattr(
+        "portal.modules.compliance.core.nerc_source_sync._register_glossary",
+        lambda payload, artifact: hashlib.sha256(payload).hexdigest(),
+    )
+
+
+def test_sync_acquires_the_glossary_as_a_bundle_component(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "portal.modules.compliance.core.nerc_source_sync._register_in_store",
+        lambda *a, **k: "r",
+    )
+    _stub_glossary_registration(monkeypatch)
+    report = sync_official_bundle(directory=tmp_path, fetch=RecordingFetch())
+    glossary = by(report.artifacts, "glossary-of-terms.html")
+    assert glossary.status == "ACQUIRED"
+    assert glossary.role == "glossary"
+    assert glossary.media_type == "text/html"
+    assert report.store_revisions["glossary-of-terms.html"]
+    assert not report.warnings
+
+
+def test_a_missing_glossary_is_a_named_warning_not_a_silent_gap(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "portal.modules.compliance.core.nerc_source_sync._register_in_store",
+        lambda *a, **k: "r",
+    )
+    _stub_glossary_registration(monkeypatch)
+    report = sync_official_bundle(
+        directory=tmp_path, fetch=RecordingFetch(fail_urls={GLOSSARY_URL})
+    )
+    assert by(report.artifacts, "glossary-of-terms.html").status == "FAILED"
+    assert any("defined terms will not resolve" in w for w in report.warnings)
+    # the standards still land — one missing component never voids the bundle
+    assert by(report.artifacts, "cip-007-6.pdf").status == "ACQUIRED"
+
+
 def test_sync_acquires_verifies_and_records(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "portal.modules.compliance.core.nerc_source_sync._register_in_store",
         lambda *a, **k: hashlib.sha256(k["payload"]).hexdigest(),  # bytes → revision id
     )
+    _stub_glossary_registration(monkeypatch)
     fetch = RecordingFetch()
     report = sync_official_bundle(directory=tmp_path, fetch=fetch, register_store=True)
     by_name = {a.name: a for a in report.artifacts}
@@ -113,6 +182,7 @@ def test_sync_is_fingerprint_aware_unchanged_bytes_never_rewrite(tmp_path, monke
         "portal.modules.compliance.core.nerc_source_sync._register_in_store",
         lambda *a, **k: "r",
     )
+    _stub_glossary_registration(monkeypatch)
     fetch = RecordingFetch()
     sync_official_bundle(directory=tmp_path, fetch=fetch)
     first_mtime = (tmp_path / "cip-007-6.pdf").stat().st_mtime_ns

@@ -324,3 +324,119 @@ its remainder happens to be a comment line, so it splits harmlessly.
 
 **Rollback.** `git revert <sha>`; restore
 `data/private/backups/pre-v11-20260916T023321Z.db`.
+
+---
+
+## §3 — P2 the Glossary becomes a corpus
+
+### 3.1 Source and acquisition
+
+NERC no longer publishes the Glossary as a PDF: `Glossary_of_Terms.pdf` and
+`files/glossary_of_terms.pdf` both 302 to https://www.nerc.com/glossary-of-terms,
+a page whose `window._model` payload carries **one structured record per term** —
+the term, its acronym, the verbatim `definitionHtml`, status, region, docket
+number, Board-adoption date, effective date and inactive date. That payload is
+the authority, and it is strictly better than the PDF: the dates are the
+Glossary's own, not parsed out of prose.
+
+`nerc_source_sync` now acquires `glossary-of-terms.html` beside the standards
+with the same append-only manifest and the same byte-hash UNCHANGED semantics,
+under `role="glossary"`. Live run: **ACQUIRED, 473,538 bytes, `text/html`**, and
+registered. A fetch failure is a named warning (*"defined terms will not
+resolve"*) that never voids the rest of the bundle — covered by a test.
+
+Term records are located **by shape, not by JSON path**, so a CMS reshuffle that
+moves `pageModel.searchResults.items` fails loudly instead of silently yielding
+zero terms.
+
+### 3.2 Registration
+
+| | |
+| --- | --- |
+| document | `NERC/glossary-of-terms` — *Glossary of Terms Used in NERC Reliability Standards* |
+| `source_kind` / `jurisdiction` | `glossary` / `US` |
+| sections | **330** (one per term, `extractor='nerc_glossary'`) |
+| coordinate space | `document_texts`, same as any captured document |
+
+A Glossary entry is now the same kind of addressable thing as a requirement Part
+or an operator procedure section, in the same tables, ready to project in P4.
+
+### 3.3 The seven terms, resolved live
+
+`resolve_terms(repo, [...])` against the live store, `valid_at` defaulting to
+today:
+
+| query | resolved as | effective | inactive |
+| --- | --- | --- | --- |
+| `BES Cyber System` | BES Cyber System | 2016-07-01 | 2028-06-30 |
+| `EACMS` | Electronic Access Control or Monitoring Systems | 2016-07-01 | 2028-06-30 |
+| `PACS` | Physical Access Control Systems | 2016-07-01 | 2028-06-30 |
+| `Protected Cyber Asset` | Protected Cyber **Assets** | 2016-07-01 | 2028-06-30 |
+| `External Routable Connectivity` | External Routable Connectivity | 2016-07-01 | 2028-06-30 |
+| `CIP Senior Manager` | CIP Senior Manager | 2016-07-01 | 2028-06-30 |
+| `Cyber Asset` | Cyber **Assets** | 2016-07-01 | 2028-06-30 |
+| `Frobnicating Widget Authority` | — | — | *"not a NERC Glossary term"* |
+
+Each carries verbatim text, a section id and a date. The invented term does not
+resolve, is not guessed, and is still returned naming itself.
+
+### 3.4 Two things the live data forced, which a naive lookup would have got wrong
+
+**The Glossary carries a term's future successor beside its enforceable
+revision.** 2016-07-01 definitions with `inactive 2028-06-30` sit alongside
+2028-07-01 successors from the virtualization project. A last-wins index served
+`Protected Cyber Asset` as the **2028** definition — the wrong text, silently.
+`resolve_terms` therefore selects by `valid_at` (default today), reports the
+clock that excluded a revision, and names the other revisions in
+`other_revisions` rather than hiding them. Verified both directions: today
+selects the enforceable revision, `valid_at=2029-01-01` selects the successor.
+
+**NERC renames headwords between revisions.** The enforceable definition is under
+*Protected Cyber Assets* and its successor under *Protected Cyber Asset*; *Cyber
+Assets* is plural while every CIP requirement says *Cyber Asset*. `normalise_term`
+drops a trailing plural `s`, and the resolution names the headword it actually
+matched (`matched_as`) so the inflection is visible, not silent. Checked against
+all 330 live terms: exactly one bucket collapses two spellings
+(`protected cyber asset`), and its two windows are **sequential**, so no two
+distinct concepts are merged. An acronym is indexed only when every entry
+carrying it belongs to one term — `EACMS` and `PACS` each appear twice, once per
+revision of the same term, which is why they resolve; a genuinely ambiguous
+acronym resolves to nothing rather than to a guess (covered by a test).
+
+### 3.5 The deferral, resolved (P2.3)
+
+`assessment_source.resolve_governing_bundle` now resolves
+`definitions_disposition == "external_glossary"` instead of only recording it.
+Live on `CIP-007-6 R2 Part 2.2`:
+
+```
+disposition: external_glossary
+definitions: 7   (BES Cyber System, Electronic Access Control or Monitoring
+                  Systems, Physical Access Control Systems, Protected Cyber
+                  Assets, System, Cyber Assets, CIP Senior Manager)
+```
+
+Each carries `source: "NERC Glossary of Terms"`, its `section_id`, `revision_id`,
+effective and inactive dates, and `matched_as`. Which terms a duty depends on is
+decided by the **Glossary's own membership**, not by a vocabulary in the code: a
+capitalised span is kept only when the Glossary carries it as a term. (`System`
+appears because it genuinely is a NERC defined term.) An unresolvable term stays
+in the payload, explicitly unresolved.
+
+### 3.6 Verification
+
+| gate | result |
+| --- | --- |
+| `uv run pytest tests/unit/ -q` | **2034 passed, 4 skipped** (+21 glossary, +2 sync) |
+| ruff check / format, mypy on `glossary.py` | clean |
+| live glossary registration | 330 sections, `source_kind='glossary'` |
+| seven named terms | all resolve with verbatim text and a date |
+| invented term | does not resolve, names itself |
+
+Two existing tests changed behaviour rather than breaking: the hermetic sync
+fixture now serves a Glossary page (the Glossary is a bundle component, so a
+sync without it is incomplete), and the governing-bundle test now separates
+graph-derived definitions from Glossary-derived ones instead of asserting an
+exact list.
+
+**Rollback.** `git revert <sha>`; acquired bytes stay (append-only).

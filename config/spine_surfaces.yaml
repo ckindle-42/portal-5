@@ -136,6 +136,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/gate.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-glossary
+  globs:
+  - portal/modules/compliance/core/glossary.py
+  unit: unit-compliance-bilateral-corpus
 - name: file-portal-modules-compliance-core-impact
   globs:
   - portal/modules/compliance/core/impact.py

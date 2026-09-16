@@ -155,6 +155,8 @@ def _media_type(url: str, payload: bytes) -> str:
         return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     if url.endswith(".docx"):
         return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    if payload[:15].lstrip().lower().startswith((b"<!doctype html", b"<html")):
+        return "text/html"
     return "application/octet-stream"
 
 
@@ -321,6 +323,57 @@ def _register_in_store(logical_id: str, title: str, alias_path: str, payload: by
         repo.close()
 
 
+def _register_glossary(payload: bytes, artifact: Artifact) -> str:
+    """Register the Glossary as a resolvable term corpus: one section per term,
+    with the effectivity sidecar beside the acquired bytes."""
+    from portal.modules.compliance.core.glossary import (
+        parse_glossary,
+        register_glossary,
+        write_term_dates,
+    )
+    from portal.modules.compliance.core.repository import Repository
+
+    repo = Repository()
+    try:
+        write_term_dates(Path(artifact.path).parent, parse_glossary(payload))
+        report = register_glossary(repo, payload, artifact.path)
+        return str(report["revision_id"])
+    finally:
+        repo.close()
+
+
+def _register_artifacts(report: SyncReport) -> None:
+    """Register every acquired/unchanged artifact in the canonical store. A
+    store failure is a warning on the report, never data loss — the bytes and
+    the manifest are already durable."""
+    for artifact in report.artifacts:
+        if artifact.status == "FAILED":
+            continue
+        payload = Path(artifact.path).read_bytes()
+        if artifact.role == "glossary":
+            try:
+                report.store_revisions[artifact.name] = _register_glossary(payload, artifact)
+            except Exception as exc:  # noqa: BLE001 - a parse failure is reported, not fatal
+                report.warnings.append(
+                    f"{artifact.name}: Glossary registration failed ({exc}); "
+                    "bytes and manifest retained, defined terms will not resolve"
+                )
+            continue
+        try:
+            revision_id = _register_in_store(
+                logical_id=f"NERC/{artifact.name}",
+                title=artifact.name,
+                alias_path=artifact.path,
+                payload=payload,
+            )
+            report.store_revisions[artifact.name] = revision_id
+        except Exception as exc:  # noqa: BLE001 - store failure is a warning, not data loss
+            report.warnings.append(
+                f"{artifact.name}: canonical-store registration failed ({exc}); "
+                "bytes and manifest retained"
+            )
+
+
 def sync_official_bundle(
     family: str = "CIP-007",
     versions: tuple[str, ...] = ("6", "7.1"),
@@ -362,6 +415,23 @@ def sync_official_bundle(
     registry_bytes = (directory / "one-stop-shop.xlsx").read_bytes()
     facts = parse_lifecycle(registry_bytes, registry_sha256=registry.sha256)
     slug_family = family.lower()  # CIP-007 -> cip-007
+
+    # 1b. the Glossary of Terms — every CIP standard that carries no definitions
+    # section defers to it, so it is a component of the bundle, not an extra.
+    from portal.modules.compliance.core.glossary import GLOSSARY_ARTIFACT, GLOSSARY_URL
+
+    glossary = _acquire(
+        GLOSSARY_ARTIFACT,
+        GLOSSARY_URL,
+        role="glossary",
+        directory=directory,
+        fetch=fetch,
+    )
+    report.artifacts.append(glossary)
+    if glossary.status == "FAILED":
+        report.warnings.append(
+            f"NERC Glossary unavailable: {glossary.warning}; defined terms will not resolve"
+        )
 
     # 2. standard PDFs + linked implementation plans / technical rationale
     for version in versions:
@@ -413,23 +483,7 @@ def sync_official_bundle(
 
     # 3. register acquired/unchanged artifacts in the canonical store
     if register_store:
-        for artifact in report.artifacts:
-            if artifact.status == "FAILED":
-                continue
-            payload = Path(artifact.path).read_bytes()
-            try:
-                revision_id = _register_in_store(
-                    logical_id=f"NERC/{artifact.name}",
-                    title=artifact.name,
-                    alias_path=artifact.path,
-                    payload=payload,
-                )
-                report.store_revisions[artifact.name] = revision_id
-            except Exception as exc:  # noqa: BLE001 - store failure is a warning, not data loss
-                report.warnings.append(
-                    f"{artifact.name}: canonical-store registration failed ({exc}); "
-                    "bytes and manifest retained"
-                )
+        _register_artifacts(report)
 
     _write_manifest(report, directory)
     return report
