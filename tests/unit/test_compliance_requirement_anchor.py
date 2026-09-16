@@ -232,6 +232,18 @@ class TestNormalisationIsLicensedOnly:
         register = "take one of the following actions: - Apply the applicable patches"
         assert ra.normalise(captured) == ra.normalise(register)
 
+    def test_the_two_readers_quote_marks_fold_to_one_form(self) -> None:
+        # the same glyph in the PDF: pymupdf gives U+201C/U+201D, docling ASCII "'"
+        register = "systems identified in the \u201cApplicable Systems\u201d column"
+        captured = "systems identified in the 'Applicable Systems' column"
+        assert ra.normalise(register) == ra.normalise(captured)
+
+    def test_a_list_bullet_the_capture_folded_into_structure_is_dropped(self) -> None:
+        # docling makes the unit a list_item and drops the marker glyph
+        register = "shall be performed: \u2022 At least once every 30 calendar months"
+        captured = "shall be performed: At least once every 30 calendar months"
+        assert ra.normalise(register) == ra.normalise(captured)
+
     def test_the_ligature_is_licensed(self) -> None:
         assert ra.normalise("conﬁrm the conﬂict") == ra.normalise("confirm the conflict")
 

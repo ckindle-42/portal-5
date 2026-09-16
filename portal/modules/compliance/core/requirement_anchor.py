@@ -61,6 +61,19 @@ _SUBSTITUTIONS = (
     # change to any already-anchored range, 9 UNANCHORED converted (see the
     # report). It is a rendering reconciliation, not a text edit.
     ("", "-"),
+    # The same typographic double quote, read two ways: pymupdf gives U+201C /
+    # U+201D, docling gives ASCII "'". The pair above already folds the curly
+    # doubles to '"', so this last step folds the quote glyphs into ONE form.
+    # Which quote mark a reader chose is typography, not what a requirement
+    # says. Admitted under the §P1.3 test: zero change to any already-anchored
+    # range, 7 UNANCHORED converted.
+    ('"', "'"),
+    # A list bullet. docling folds the marker into structure (the unit becomes a
+    # ``list_item``) and drops the glyph; pymupdf renders it inline, so the
+    # Register's text carries a bullet the capture does not. Same class as the
+    # soft hyphen above -- a marker, not a word. Admitted under the same test:
+    # zero change to any already-anchored range, 7 UNANCHORED converted.
+    ("•", ""),
 )
 
 _WS = re.compile(r"\s+")
