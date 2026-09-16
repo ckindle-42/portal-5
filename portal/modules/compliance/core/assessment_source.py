@@ -657,9 +657,7 @@ def acquire_exhaustively(
         )
         held = set(withhold or ())
         examined = [s for s in population["examined_sections"] if s not in held]
-        resolved = {
-            s: entry for s, entry in population["sections"].items() if s in set(examined)
-        }
+        resolved = {s: entry for s, entry in population["sections"].items() if s in set(examined)}
         records = [
             _candidate_record(
                 {
@@ -677,7 +675,9 @@ def acquire_exhaustively(
         ]
         receipt = population["boundary_receipt"]
         receipt["examined_sections"] = sorted(set(examined) & set(resolved))
-        receipt["omissions"] = sorted(set(scope_sections or receipt["eligible_sections"]) - set(receipt["examined_sections"]))
+        receipt["omissions"] = sorted(
+            set(scope_sections or receipt["eligible_sections"]) - set(receipt["examined_sections"])
+        )
         receipt["complete"] = bool(receipt["eligible_sections"]) and not receipt["omissions"]
     finally:
         repo.close()

@@ -83,9 +83,7 @@ def _reading(sections: list[str], ref: str = "CIP-007-6 R2 Part 2.2") -> dict:
     return {
         "ref": ref,
         "answer": "...",
-        "verification": {
-            "citations": [{"cited_ref": s, "resolved": True} for s in sections]
-        },
+        "verification": {"citations": [{"cited_ref": s, "resolved": True} for s in sections]},
     }
 
 
@@ -127,9 +125,7 @@ class TestLabelledExamples:
 
 
 class TestScoreReading:
-    def test_citing_exactly_the_mapped_sections_scores_recall_one(
-        self, repo: Repository
-    ) -> None:
+    def test_citing_exactly_the_mapped_sections_scores_recall_one(self, repo: Repository) -> None:
         examples = evaluation.labelled_examples(repo)
         score = evaluation.score_reading(
             _reading(["isection-aaaa1111", "isection-bbbb2222"]), examples
@@ -167,9 +163,7 @@ class TestScoreReading:
         assert plain["closure_honesty"] is None, "absent is None, never 0"
         carrying = _reading(["isection-aaaa1111"])
         carrying["closure_receipt"] = {"complete": True}
-        assert evaluation.score_reading(carrying, examples)["closure_honesty"] == {
-            "complete": True
-        }
+        assert evaluation.score_reading(carrying, examples)["closure_honesty"] == {"complete": True}
 
     def test_an_empty_labelled_set_is_honest_blocked_never_zero(self) -> None:
         score = evaluation.score_reading(_reading(["isection-aaaa1111"]), [])

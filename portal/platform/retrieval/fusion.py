@@ -343,7 +343,10 @@ async def fuse(
         ),
         "visual": "applied"
         if (vtbl is not None and _arm_has_column(vtbl, where))
-        else ("arm absent" if vtbl is None else "not applied — the visual table does not carry "
-              "the predicate's columns"),
+        else (
+            "arm absent"
+            if vtbl is None
+            else "not applied — the visual table does not carry the predicate's columns"
+        ),
     }
     return FusedWithFilter(rows, report)

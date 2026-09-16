@@ -2063,9 +2063,7 @@ def _contains_group(column: str, value: str) -> list[Any]:
     return [(column, "LIKE", f"%{v}%") for v in variants]
 
 
-def _search_predicate(
-    *, standard: str, layer: str, valid_at: str, known_at: str
-) -> str:
+def _search_predicate(*, standard: str, layer: str, valid_at: str, known_at: str) -> str:
     """The pushdown predicate for ``compliance_search`` (SUBSTRATE_PROPERTIES_V1 P3).
 
     Property 1: the clocks filter BEFORE ranking. Written against the P1

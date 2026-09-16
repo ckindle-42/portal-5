@@ -274,9 +274,7 @@ def _measures_population(make):
 
 
 class TestContradictionIsRetrievable:
-    def test_incompatible_cadences_produce_one_conflict_with_both_sides(
-        self, env
-    ) -> None:
+    def test_incompatible_cadences_produce_one_conflict_with_both_sides(self, env) -> None:
         make = env["make"]
         _conflict_population(make)
         repo = make()
@@ -284,9 +282,7 @@ class TestContradictionIsRetrievable:
             out = conflicts_for_requirement(repo, REF)
         finally:
             repo.close()
-        real = [
-            c for c in out["conflicts"] if c.get("signal") == "COMPLIANCE_CONFLICT"
-        ]
+        real = [c for c in out["conflicts"] if c.get("signal") == "COMPLIANCE_CONFLICT"]
         assert len(real) == 1
         conflict = real[0]
         assert conflict["kind"] == "quantitative"
@@ -385,7 +381,9 @@ class TestTheTierRidesOnEveryHit:
             repo.close()
         names = [c["component"] for c in assembled["components"]]
         assert "conflicts" in names
-        conflicts_component = next(c for c in assembled["components"] if c["component"] == "conflicts")
+        conflicts_component = next(
+            c for c in assembled["components"] if c["component"] == "conflicts"
+        )
         assert conflicts_component["sections"], "the known contradiction rides with the reading"
         entry = conflicts_component["sections"][0]
         assert entry["conflict"]["signal"] == "COMPLIANCE_CONFLICT"
@@ -397,9 +395,7 @@ class TestEdgesResolveInBothRecordedShapes:
     value — on the live store every ``::``-shaped edge resolved to nothing and
     only bare section-id edges reached the reading."""
 
-    def test_a_doc_colon_colon_section_edge_resolves_to_its_section(
-        self, env
-    ) -> None:
+    def test_a_doc_colon_colon_section_edge_resolves_to_its_section(self, env) -> None:
         make = env["make"]
         repo = make()
         try:

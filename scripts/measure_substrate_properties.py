@@ -56,7 +56,9 @@ def _rows(kb_id: str) -> dict[str, dict]:
     return {r["chunk_id"]: r for r in table.search().limit(1_000_000).to_list()}
 
 
-def _unfiltered_and_filtered(kb_ids: list[str], query: str, k: int) -> tuple[list[dict], list[dict]]:
+def _unfiltered_and_filtered(
+    kb_ids: list[str], query: str, k: int
+) -> tuple[list[dict], list[dict]]:
     """The pre-P3 shape (no predicate) and the post-P3 shape (default
     predicate) of the same query, per corpus, merged and ranked."""
     from portal.modules.compliance.tools import compliance_retrieval as cr
@@ -101,15 +103,19 @@ def superseded_competition(kb_ids: list[str], queries: list[str], rows: dict[str
             (
                 cid
                 for cid, r in rows.items()
-                if r.get("is_superseded") == 0 and needle in " ".join(str(r.get("text", "")).split()).lower()
+                if r.get("is_superseded") == 0
+                and needle in " ".join(str(r.get("text", "")).split()).lower()
             ),
             None,
         )
-        governing_ids = {section_index.parent_section_id(cid) for cid in rows if rows[cid].get("is_superseded") == 0}
+        governing_ids = {
+            section_index.parent_section_id(cid)
+            for cid in rows
+            if rows[cid].get("is_superseded") == 0
+        }
         top15_sections = {section_index.parent_section_id(str(h.get("chunk_id"))) for h in top15}
         governing_outside = (
-            target is not None
-            and section_index.parent_section_id(target) not in top15_sections
+            target is not None and section_index.parent_section_id(target) not in top15_sections
         )
         per_query.append(
             {
@@ -143,10 +149,7 @@ def recall_at_k(kb_ids: list[str], rows: dict[str, dict], truth: dict) -> dict:
         unfiltered, pushed = _unfiltered_and_filtered(kb_ids, truth["query"], k)
         row = {"k": k}
         for name, hits in (("without_pushdown", unfiltered), ("with_pushdown", pushed)):
-            sections = {
-                section_index.parent_section_id(str(h.get("chunk_id")))
-                for h in hits[:k]
-            }
+            sections = {section_index.parent_section_id(str(h.get("chunk_id"))) for h in hits[:k]}
             found = [s for s in truth["expected"] if s in sections]
             row[name] = round(len(found) / len(truth["expected"]), 3)
             row[f"{name}_superseded_in_topk"] = sum(
@@ -272,11 +275,24 @@ def main() -> int:
         out = REPO_ROOT / "reports" / "compliance" / "SUBSTRATE_PROPERTIES_V1_measurements.json"
         out.write_text(json.dumps(measurements, indent=1) + "\n")
         print(f"measurements: {out}")
-        print(json.dumps({k: v for k, v in measurements.items() if k not in ("superseded_competition", "untiered_documents", "recall_at_k")}, indent=1)[:800])
-        print("\nsuperseded in pre-filter top-15:",
-              measurements["superseded_competition"]["superseded_rows_in_prefilter_top15"],
-              "queries with governing outside top-15:",
-              measurements["superseded_competition"]["queries_with_governing_outside_prefilter_top15"])
+        print(
+            json.dumps(
+                {
+                    k: v
+                    for k, v in measurements.items()
+                    if k not in ("superseded_competition", "untiered_documents", "recall_at_k")
+                },
+                indent=1,
+            )[:800]
+        )
+        print(
+            "\nsuperseded in pre-filter top-15:",
+            measurements["superseded_competition"]["superseded_rows_in_prefilter_top15"],
+            "queries with governing outside top-15:",
+            measurements["superseded_competition"][
+                "queries_with_governing_outside_prefilter_top15"
+            ],
+        )
         print("\nrecall@k:")
         for row in measurements["recall_at_k"]["table"]:
             print(" ", row)

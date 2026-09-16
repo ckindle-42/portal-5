@@ -205,9 +205,7 @@ def _blocked(reason: str, requirement_id: str = "") -> dict[str, Any]:
     }
 
 
-def score_reading(
-    answer_payload: dict[str, Any], examples: list[dict[str, Any]]
-) -> dict[str, Any]:
+def score_reading(answer_payload: dict[str, Any], examples: list[dict[str, Any]]) -> dict[str, Any]:
     """Score one reading's citation behaviour against the labelled set.
 
     OFFLINE ONLY. The measures, in the order they can fail:
@@ -230,17 +228,17 @@ def score_reading(
     manufactured.
     """
     if not examples:
-        return _blocked("the labelled set is empty — no settled requirement→document "
-                        "mappings exist to score against")
+        return _blocked(
+            "the labelled set is empty — no settled requirement→document "
+            "mappings exist to score against"
+        )
     requirement_id = str(
         answer_payload.get("ref")
         or answer_payload.get("requirement_id")
         or answer_payload.get("requirement")
         or ""
     )
-    example = next(
-        (e for e in examples if e.get("requirement_id") == requirement_id), None
-    )
+    example = next((e for e in examples if e.get("requirement_id") == requirement_id), None)
     if example is None:
         return _blocked(
             f"no labelled example for requirement {requirement_id!r} — "
