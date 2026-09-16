@@ -1,0 +1,36 @@
+{
+  "model": "glm-4.7-flash:Q4_K_M-ctx64k",
+  "ref": "CIP-007-6 R2 Part 2.2",
+  "turns": [
+    {
+      "label": "turn 1 \u2014 cold",
+      "elapsed_s": 263.94,
+      "load_duration_s": 8.85,
+      "prompt_eval_duration_s": 214.717,
+      "eval_duration_s": 40.312,
+      "eval_count": 400,
+      "prompt_eval_count": 27176,
+      "prompt_bytes": 101534
+    },
+    {
+      "label": "turn 2 \u2014 same question",
+      "elapsed_s": 40.47,
+      "load_duration_s": 0.015,
+      "prompt_eval_duration_s": 0.126,
+      "eval_duration_s": 40.27,
+      "eval_count": 400,
+      "prompt_eval_count": 27176,
+      "prompt_bytes": 101534
+    },
+    {
+      "label": "turn 3 \u2014 new question, same material",
+      "elapsed_s": 30.41,
+      "load_duration_s": 0.005,
+      "prompt_eval_duration_s": 0.779,
+      "eval_duration_s": 29.56,
+      "eval_count": 294,
+      "prompt_eval_count": 27181,
+      "prompt_bytes": 101561
+    }
+  ]
+}

@@ -766,3 +766,195 @@ the next call.
 
 **Rollback.** `git revert <sha>`; `scripts/project_compliance_sections.py`
 rebuilds the index from the store.
+
+---
+
+## §7 — P6 wiring the reader
+
+Everything in this section was measured on the live stack with Docker **down**,
+against the real CIP-007-6 R2 Part 2.2 neighbourhood. Transcripts:
+`reports/compliance/seat_probe/`.
+
+### 7.1 What the reader receives
+
+`compliance_ask` hands the seat `compliance_context` output rendered as text:
+every component labelled with what it is and where it came from, every passage
+carrying its `section_id`, table rows broken out under their column names, the
+operator's notes, and — when the budget dropped something — a section headed
+*"omitted for budget — you have NOT seen these"*. Nothing is filtered, nothing
+is marked ineligible to cite. The system prompt is 5 sentences and contains no
+schema, no field list, no output shape and no instruction about how to weigh a
+Measure against the Technical Basis. A test asserts those words are absent.
+
+### 7.2 Four measurements that changed the design
+
+**(a) Request-time `num_ctx` IS honoured on this transport.** P6.7 says to bake
+context into the Ollama tag where the tag lacks one. Measured instead: a direct
+`/api/chat` with `options.num_ctx: 32768` against
+`mistral-small3.2:24b-instruct-2506-q4_K_M` (no baked `num_ctx`, 131k native)
+produced `"context_length": 32768` in `/api/ps`, and `granite4.1:30b-ctx64k`
+loaded at 32,768 — the request **lowered** a tag's baked 64k. **No tag was
+baked**: the transport states the window per call and Ollama obeys. The
+"request-time num_ctx is ignored" rule that motivated P6.7 belongs to the
+pipeline/router path, not to this one. Deviation recorded rather than performed.
+
+**(b) `CHARS_PER_TOKEN = 4` was wrong by 1.9×, in the dangerous direction.** The
+runner's own log: `prompt processing, n_tokens = 29353`, for material the budget
+had counted as ~15,700 tokens. Real ratio **2.16 chars/token** — dense
+regulatory prose, and every passage carries a 29-character `section_id` that
+costs about 12 tokens. The constant under-counted, so the window sized from it
+was too *small*, and a slightly larger assembly would have been silently
+truncated: the top-k keyhole returning by the back door. Now 2.1 (erring high),
+and every call compares the estimate to the runner's real `prompt_eval_count`
+and reports `context_fit` with observed chars/token, headroom, and an
+`overflowed` flag. Window sizing also moved from next-power-of-two to next-4k:
+33.5k rounded to 65,536 before, which on a 27B model is tens of gigabytes of
+needless KV.
+
+**(c) Material first, question last — worth more than any seat swap.** The
+prompt originally put the question in front, so the first differing token of
+every turn sat at position ~20 and the runner re-prefilled all 27k tokens.
+Measured after reordering, glm-4.7-flash, same neighbourhood:
+
+| turn | wall | prompt eval |
+| --- | --- | --- |
+| 1 — cold | 263.9 s | 27,176 tok in **214.7 s** |
+| 2 — same question | 40.5 s | 27,176 tok in **0.1 s** |
+| 3 — new question, same material | 30.4 s | 27,181 tok in **0.8 s** |
+
+**268× less prefill on every follow-up.** Confirmed in the four-seat probe:
+Qwen 406.5 s → 123.3 s → 152.7 s; granite 458.6 s → 39.1 s; mistral 324.3 s →
+17.7 s. The first exchange of a session costs minutes; every one after costs
+seconds. A test asserts the material precedes the question and that two
+different questions share a >90% byte-identical prefix.
+
+**(d) The machine thrashed before any of this was visible.** The first live
+probe produced nothing for twenty minutes. Cause: `granite4.1:30b` at 32k
+context is **36.4 GB resident**, and with the Docker stack up (21 containers)
+swap hit **50.6 GB of 51.2 GB** and free memory 16%. Brought the stack down per
+the standing rule; free memory went to 85% and the same call completed. Recorded
+because "the model is slow" and "the machine is swapping" look identical from
+the outside and have nothing in common.
+
+### 7.3 Seat prefill throughput — why this is a sparse-mixture problem
+
+12k-token prompt, 32k window, stack down:
+
+| seat | prefill tok/s | gen tok/s | wall |
+| --- | --- | --- | --- |
+| `glm-4.7-flash:Q4_K_M-ctx64k` (MoE) | **244** | 34.2 | 58.1 s |
+| `mistral-small3.2:24b` (dense) | 126 | 28.5 | 110.5 s |
+| `Qwen3.8-27B` (dense) | 112 | 22.6 | 120.3 s |
+| `granite4.1:30b` (hybrid Mamba) | 95 | 21.8 | 135.1 s |
+
+What this workload costs is prefill over a long neighbourhood, and prefill
+compute scales with **active** parameters. The two slowest seats are the two
+non-MoE ones. `MOE_SEATS` in the probe script names the local A3B candidates for
+a follow-up pass.
+
+### 7.4 The seat, chosen by reading the answers
+
+Three real questions, same neighbourhood, transcripts in
+`reports/compliance/seat_probe/20260916T130058Z-seats.json`.
+
+| seat | cold | warm | citations (Q1/Q2/Q3) | unresolvable |
+| --- | --- | --- | --- | --- |
+| Qwen3.8-27B | 406.5 s | 123–153 s | 9 / 7 / 7 | **0** |
+| glm-4.7-flash | 276.2 s | 30–52 s | 7 / 4 / 2 | **0** |
+| granite4.1:30b | 458.6 s | 39–168 s | 6 / 3 / 3 | **0** |
+| mistral-small3.2 | 324.3 s | 18–55 s | 0 / 3 / 3 | **0** |
+
+**Not one fabricated citation in twelve answers.** Citation fidelity did not
+separate them, so the reading had to.
+
+**Q2 decided it.** Asked whether evaluating every 30 days is stricter than the
+35 the Part allows, **three of the four seats asserted that the operator's
+procedure says thirty** — and it does not. `LSPG Security Patch Management
+Procedure §3.3.1` says *"At least once every thirty-five (35) calendar days"*.
+The thirty came from an operator **note**, elsewhere in the packet. Qwen3.8 was
+the only seat that read the procedure itself, quoted it verbatim, and surfaced
+the conflict between the written procedure and the recorded practice — a real
+finding nobody asked it to look for. It also framed the 35 days correctly as a
+maximum interval; granite called it a "minimum interval" and reasoned to the
+right answer anyway.
+
+`reading_seat` is therefore **Qwen3.8-27B**, recorded in
+`config/compliance/council.yaml` with the argument. `glm-4.7-flash` is recorded
+as the **fast alternate**: 3–5× quicker warm, and it made the sharpest single
+observation of the probe — that the corpus holds the patch-evaluation *process*
+but not the *record* an auditor would ask for — but it produced one of the three
+misattributions.
+
+### 7.5 Two verifier defects the probe exposed
+
+**Unicode dashes silently voided correct citations.** granite4.1 cited six
+sections and scored **zero**, because it wrote them with U+2011 NON-BREAKING
+HYPHEN (`csection‑7ffb333ac44c2b9d3da3`). A checker that reads a correct
+citation as a missing one reports a well-grounded answer as ungrounded. Dashes
+are normalised before matching now; parameterised over six dash characters.
+
+**Quantities were checked against the union of everything cited.** The original
+check asked only whether a number appeared *somewhere* in the material, so
+"the procedure evaluates every thirty calendar days [§3.3.1]" passed — the 30
+was real, it was just in a different document. A quantity is now attributed to
+the citation nearest it and checked **against that section**, and the three real
+misattributions fall out automatically: with the fix, Qwen and granite come back
+clean and mistral and glm are flagged for pinning "thirty calendar days" to the
+regulatory row that says thirty-five. Two sub-bugs were fixed to get there —
+`"thirty-five calendar days"` was matching as **"five calendar days"** (a
+checker that reads 35 as 5 is worse than none), and `thirty` was not in the
+number vocabulary at all. A claim with no citation within 300 characters is
+reported as **unattributed**, not misattributed: that is a different observation
+and calling it the other would be a false accusation. The result is a flag for a
+human, not a verdict — attribution is positional and approximate at a paragraph
+boundary, and the payload says so.
+
+### 7.6 Reasoning effort, measured on THIS call site (P6.7)
+
+`DEFAULT_EFFORT` was settled on a JSON alignment packet. A prose reading over a
+27k-token bilateral neighbourhood is a different call, so it was re-measured.
+Qwen3.8-27B, same packet, same question, one variable:
+
+| effort | wall | thinking | answer | citations |
+| --- | --- | --- | --- | --- |
+| `false` | 432.0 s | 0 chars | **4,756 chars** | **7** |
+| `low` | 449.8 s | 6,382 chars | **empty** | 0 |
+| `medium` | 148.5 s | 6,258 chars | **empty** | 0 |
+
+Not "slower for the same answer" as on the alignment packet — **no answer at
+all**. The reasoning trace consumed the entire `num_predict` budget and the
+content field came back empty. Reasoning stays off here, now for a reason
+measured here. An empty answer is reported as `failed` with the budget numbers,
+rather than travelling as a very short one.
+
+### 7.7 The two §0 verifier defects, dispositioned (P6.4)
+
+| defect | disposition |
+| --- | --- |
+| (a) `_verify_duties` checked context citations against `gov_ids` only, so a Measure cited as operator evidence passed with `verified_support=True` — the standard quoting itself as the operator's control | **FIXED by the new design.** `verify_citations` resolves **both** sides and labels what each citation IS: *"regulatory — a requirements table row"*, *"regulatory — Guidelines and Technical Basis (interpretive, the standard's own)"*, *"operator document — procedure"*, *"operator note — the operator's own recorded decision"*, *"a stored answer from an earlier conversation, not a fact"*. The standard cited as operator evidence is now visible as exactly that. No code disqualifies a citation. |
+| (b) `_quantity_direction` chose its comparator with `"max_interval" if "every" in operand else "min_retention"`, so `"within 35 calendar days"` turned a 40-day shortfall into MORE_RESTRICTIVE → STRICTER → `unused_flexibility` | **DELETED with its cause**, not repaired. Deciding from the shape of a phrase which direction "more" points in is the prescriptive move §0 names. `DutyFinding.quantity_direction` remains on the dataclass, permanently empty, because the deprecated outcome map still reads it. The consequence is stated rather than hidden: that path now reports a genuinely weaker interval as ALIGNED, and its test says so and says why. |
+
+### 7.8 Conversation as a corpus
+
+Question, answer, citations, model, `num_ctx`, reasoning effort, elapsed,
+`eval_count`, `prompt_bytes` and `load_duration` are retained in
+`conversation_answers` / `answer_citations` and projected into the `conversation`
+corpus as a `derived` source. A stored answer reports its own standing — *"one
+analyst's notes pinned to the revisions it read"* — is marked **SUPERSEDED**
+when a revision it cited moves, and says when an operator note on the same
+subject outranks it. A correction is kept as a note *about the answer*; the
+answer is never rewritten. Standing questions are recorded and runnable per
+subject, which is what the on-ingest assessment is.
+
+### 7.9 Verification
+
+| gate | result |
+| --- | --- |
+| `uv run pytest tests/unit/ -q` | **2135 passed, 4 skipped** (+81 for P6) |
+| ruff check / format, mypy on the new modules | clean |
+| citation resolution, both directions | a real citation resolves and is labelled; a fabricated one is named; six dash spellings resolve |
+| latency per exchange | cold 276–459 s, warm **18–153 s**; recorded per call with prefill/generation split |
+| seat choice | argued from transcripts in `reports/compliance/seat_probe/`, recorded in `config/compliance/council.yaml` |
+
+**Rollback.** `git revert <sha>`; delete `conversation_answers`,
+`answer_citations` and the `conversation` projection.
