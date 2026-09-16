@@ -135,30 +135,45 @@ def vname(kb_id: str, prefix: str = DEFAULT_PREFIX) -> str:
     return f"{prefix}{kb_id}_visual"
 
 
-def text_table(kb_id: str, create: bool = False, prefix: str = DEFAULT_PREFIX) -> Any:
+def text_table(
+    kb_id: str,
+    create: bool = False,
+    prefix: str = DEFAULT_PREFIX,
+    schema: pa.Schema | None = None,
+) -> Any:
+    """Open (or create) one KB's text table.
+
+    ``schema`` (SUBSTRATE_PROPERTIES_V1 P2): an additive extension point. The
+    default schema is byte-identical to what every existing consumer has always
+    built; a second composition whose rows carry MORE columns (the compliance
+    projection's predicate columns) supplies its own so a plain-arg search over
+    its tables can push a ``.where()`` predicate down. Opening an existing
+    table is unaffected — the stored schema wins, whatever was passed.
+    """
     db = get_db()
     name = tname(kb_id, prefix)
     if name in table_names(db):
         return db.open_table(name)
     if not create:
         return None
-    schema = pa.schema(
-        [
-            pa.field("chunk_id", pa.string()),
-            pa.field("kb_id", pa.string()),
-            pa.field("source_file", pa.string()),
-            pa.field("chunk_index", pa.int64()),
-            pa.field("text", pa.string()),
-            pa.field("vector", pa.list_(pa.float32(), _embedding.VL_DIM)),
-            pa.field("char_start", pa.int64()),
-            pa.field("char_end", pa.int64()),
-            # SUBSTRATE_MIGRATION_V1 P3.2: the docling chunker carries these onto
-            # the row; the fixed/structured chunkers leave page = -1, headings "".
-            pa.field("page", pa.int64()),
-            pa.field("headings", pa.string()),
-            pa.field("ingested_at", pa.float64()),
-        ]
-    )
+    if schema is None:
+        schema = pa.schema(
+            [
+                pa.field("chunk_id", pa.string()),
+                pa.field("kb_id", pa.string()),
+                pa.field("source_file", pa.string()),
+                pa.field("chunk_index", pa.int64()),
+                pa.field("text", pa.string()),
+                pa.field("vector", pa.list_(pa.float32(), _embedding.VL_DIM)),
+                pa.field("char_start", pa.int64()),
+                pa.field("char_end", pa.int64()),
+                # SUBSTRATE_MIGRATION_V1 P3.2: the docling chunker carries these onto
+                # the row; the fixed/structured chunkers leave page = -1, headings "".
+                pa.field("page", pa.int64()),
+                pa.field("headings", pa.string()),
+                pa.field("ingested_at", pa.float64()),
+            ]
+        )
     return db.create_table(name, schema=schema, exist_ok=True)
 
 

@@ -49,6 +49,44 @@ _PAGES_DIR = Path(
 )
 
 
+def _text_schema() -> Any:
+    """The compliance text-table schema: the shared base columns plus the
+    projection's predicate columns (SUBSTRATE_PROPERTIES_V1 P1).
+
+    A projected row is a canonical ``source_sections`` row, so it can answer
+    "which document, which revision, which jurisdiction, in force when,
+    recorded when, superseded or not" — the fields a ``.where()`` predicate
+    needs to filter BEFORE ranking. The shared library's own default schema is
+    untouched; ``rag_multimodal``'s tables are byte-identical to before. Every
+    field is nullable and LanceDB null-fills a row that omits one, so the
+    deprecated docling-chunk ingest path (whose rows predate these columns)
+    still writes — but only a ``project_sections`` rebuild stamps a KB whose
+    rows actually carry the predicates.
+    """
+    import pyarrow as pa
+
+    from portal.modules.compliance.core import section_index as si
+
+    fields = [
+        pa.field("chunk_id", pa.string()),
+        pa.field("kb_id", pa.string()),
+        pa.field("source_file", pa.string()),
+        pa.field("chunk_index", pa.int64()),
+        pa.field("text", pa.string()),
+        pa.field("vector", pa.list_(pa.float32(), _embedding.VL_DIM)),
+        pa.field("char_start", pa.int64()),
+        pa.field("char_end", pa.int64()),
+        pa.field("page", pa.int64()),
+        pa.field("headings", pa.string()),
+        pa.field("ingested_at", pa.float64()),
+    ]
+    fields.extend(
+        pa.field(name, pa.int64() if name == "is_superseded" else pa.string())
+        for name in si.PREDICATE_COLUMNS
+    )
+    return pa.schema(fields)
+
+
 async def _no_transcribe(_img_path: str) -> str:
     """S0 figure transcription is off for the compliance composition (P7)."""
     return ""
@@ -83,7 +121,22 @@ def _stage_set() -> dict[str, Any]:
             else "fixed"
         ),
         "fts": True,
+        # SUBSTRATE_PROPERTIES_V1 P1: the projection's predicate columns. Their
+        # addition changed the table schema, so every compliance KB indexed
+        # before it carries rows WITHOUT them — a ``.where()`` predicate on a
+        # missing column silently excludes everything, which must be a STALE
+        # verdict, never a silent empty result. Same mechanism Y25 used when
+        # ``chunker_effective`` landed.
+        "predicate_columns": sorted(
+            _predicate_columns()
+        ),
     }
+
+
+def _predicate_columns() -> tuple[str, ...]:
+    from portal.modules.compliance.core import section_index as si
+
+    return si.PREDICATE_COLUMNS
 
 
 def _composition() -> _pipeline.Composition:
@@ -92,7 +145,7 @@ def _composition() -> _pipeline.Composition:
     return _pipeline.Composition(
         name="compliance_retrieval",
         get_db=_store.get_db,
-        text_table=functools.partial(_store.text_table, **pfx),
+        text_table=functools.partial(_store.text_table, schema=_text_schema(), **pfx),
         visual_table=functools.partial(_store.visual_table, **pfx),
         tname=functools.partial(_store.tname, **pfx),
         vname=functools.partial(_store.vname, **pfx),

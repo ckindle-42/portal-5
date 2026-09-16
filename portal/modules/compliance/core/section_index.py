@@ -36,6 +36,35 @@ from typing import Any
 #: first few thousand characters with the rest silently unreachable.
 MAX_UNIT_CHARS = 6000
 
+#: The predicate columns every projected row carries on top of the base nine
+#: (TASK_COMPLIANCE_SUBSTRATE_PROPERTIES_V1 P1). Property 1 — temporal validity
+#: filters *before* ranking — was not expressible until the index held something
+#: to push a ``.where()`` predicate onto: the projected row carried none of the
+#: fields the post-filter read, so every clock and document filter ran as a
+#: SQLite lookup *after* retrieval had already returned. Each column is a flat
+#: scalar because a LanceDB predicate cannot traverse structure, and each is
+#: copied from the canonical store — a second derivation is how the identity
+#: spaces diverged before P4 unified them.
+#:
+#: ``effective_from``/``effective_to``/``recorded_from``/``recorded_to`` are
+#: zero-padded ``YYYY-MM-DD`` or ``""`` — never ``None``, never a mixed format —
+#: because a ``.where()`` string compares lexicographically and a ``NULL``
+#: comparison silently excludes the row. An OPEN bound is ``""``, so a
+#: "still in force" predicate is written against ``""`` explicitly; the wrong
+#: choice here hides *current* material rather than superseded material.
+PREDICATE_COLUMNS: tuple[str, ...] = (
+    "jurisdiction",
+    "logical_id",
+    "revision_id",
+    "source_kind",
+    "effective_from",
+    "effective_to",
+    "recorded_from",
+    "recorded_to",
+    "is_superseded",
+    "unit_kind",
+)
+
 #: the corpus each jurisdiction projects into. Both sit under the ``compliance_``
 #: table prefix, so ``search_all`` spans them.
 CORPUS_FOR_JURISDICTION: dict[str, str] = {
@@ -63,6 +92,18 @@ class IndexableUnit:
     page: int
     char_start: int
     char_end: int
+    # the predicate columns (P1): the store's own answer to "what is this row",
+    # copied verbatim so a filter can run BEFORE ranking.
+    jurisdiction: str = ""
+    logical_id: str = ""
+    revision_id: str = ""
+    source_kind: str = ""
+    effective_from: str = ""
+    effective_to: str = ""
+    recorded_from: str = ""
+    recorded_to: str = ""
+    is_superseded: int = 0
+    unit_kind: str = ""
 
     def as_row(self) -> dict[str, Any]:
         return {
@@ -75,6 +116,7 @@ class IndexableUnit:
             "char_end": self.char_end,
             "page": self.page,
             "headings": self.headings,
+            **{c: getattr(self, c) for c in PREDICATE_COLUMNS},
         }
 
 
@@ -159,6 +201,66 @@ def _span_of(entry: dict[str, Any]) -> tuple[int, int]:
     return (int(start) if start is not None else -1, int(end) if end is not None else -1)
 
 
+def _date_of(value: Any) -> str:
+    """A clock column as a lexicographically comparable ``YYYY-MM-DD``, or ``""``.
+
+    ``recorded_from`` is a full timestamp in the store (``2026-09-05T13:12:41…``);
+    left whole it would never compare ``<=`` to a ``known_at`` date —
+    ``"2026-09-05T13:…" <= "2026-09-05"`` is false because the longer string
+    sorts after its own prefix. Truncated, every date column is
+    ``YYYY-MM-DD`` or empty, which is the only shape a ``.where()`` predicate
+    can compare. An absent value is ``""`` (an open bound), never ``None``.
+    """
+    text = str(value or "")
+    return text[:10] if len(text) >= 10 and text[4] == "-" and text[7] == "-" else ""
+
+
+def _governing_revisions(repo: Any, jurisdiction: str) -> set[str]:
+    """The revision_id of each document that governs its document *now*.
+
+    The index holds every captured revision — history is answerable — so the
+    row needs a cheap marker for "this revision has been replaced".
+    ``plan.superseded_sections`` names pre-capture sections duplicating bytes
+    the capture already covers, and those are not projected; the superseded
+    population that IS in the index is a document's non-governing revisions
+    (the old Glossary revision, a retired lifecycle). The selection rule is
+    the store's own, the same one :func:`reading_assembly._revision_for` uses:
+    newest live revision by ``(effective_date, retrieved_at)``, else the newest
+    revision at all — derived from the store's columns, never re-derived from
+    filenames or section text.
+    """
+    rows = repo._conn.execute(
+        """SELECT r.revision_id, r.logical_id, r.effective_date, r.inactive_date, r.retrieved_at
+           FROM document_revisions r
+           JOIN source_documents d ON d.logical_id = r.logical_id
+           WHERE d.jurisdiction = ?
+           ORDER BY r.logical_id, COALESCE(r.effective_date, ''), r.retrieved_at""",
+        (jurisdiction,),
+    ).fetchall()
+    today = _today()
+    governing: dict[str, str] = {}
+    latest: dict[str, str] = {}
+    live: dict[str, str] = {}
+    for row in rows:
+        revision_id, logical_id = str(row[0]), str(row[1])
+        effective = str(row[2] or "")
+        inactive = str(row[3] or "")
+        latest[logical_id] = revision_id
+        if effective and not (inactive and inactive <= today):
+            live[logical_id] = revision_id
+    for logical_id, revision_id in live.items():
+        governing[logical_id] = revision_id
+    for logical_id, revision_id in latest.items():
+        governing.setdefault(logical_id, revision_id)
+    return set(governing.values())
+
+
+def _today() -> str:
+    from portal.modules.compliance.core.temporal import now_iso
+
+    return now_iso()[:10]
+
+
 def build_plan(repo: Any, *, jurisdiction: str, kb_id: str = "") -> ProjectionPlan:
     """Every canonical section of one jurisdiction, as indexable units.
 
@@ -166,13 +268,21 @@ def build_plan(repo: Any, *, jurisdiction: str, kb_id: str = "") -> ProjectionPl
     jurisdiction. The examined population is those actually projected. A section
     that cannot yield verbatim text is in the first and not the second, and the
     reason is recorded — never dropped silently.
+
+    Every unit carries the predicate columns (P1): the jurisdiction, document,
+    revision, source kind, both clocks, supersession and unit kind, copied from
+    the canonical store so a query can filter BEFORE ranking instead of sieving
+    the results afterwards.
     """
     kb_id = kb_id or CORPUS_FOR_JURISDICTION.get(jurisdiction, jurisdiction)
     plan = ProjectionPlan(kb_id=kb_id, jurisdiction=jurisdiction)
+    governing = _governing_revisions(repo, jurisdiction)
     rows = repo._conn.execute(
         """SELECT s.section_id, s.revision_id, s.path, s.title, s.heading_path,
                   s.page_start, s.char_start, s.char_end, s.unit_kind, s.ordinal,
-                  r.alias_path, d.logical_id
+                  r.alias_path, r.effective_date, r.inactive_date,
+                  r.recorded_from, r.recorded_to,
+                  d.logical_id, d.source_kind, d.jurisdiction
            FROM source_sections s
            JOIN document_revisions r ON r.revision_id = s.revision_id
            JOIN source_documents d ON d.logical_id = r.logical_id
@@ -230,6 +340,16 @@ def build_plan(repo: Any, *, jurisdiction: str, kb_id: str = "") -> ProjectionPl
                     page=int(entry["page_start"] or 0),
                     char_start=start + offset,
                     char_end=start + offset + len(piece),
+                    jurisdiction=str(entry["jurisdiction"] or ""),
+                    logical_id=str(entry["logical_id"] or ""),
+                    revision_id=revision_id,
+                    source_kind=str(entry["source_kind"] or ""),
+                    effective_from=_date_of(entry["effective_date"]),
+                    effective_to=_date_of(entry["inactive_date"]),
+                    recorded_from=_date_of(entry["recorded_from"]),
+                    recorded_to=_date_of(entry["recorded_to"]),
+                    is_superseded=0 if revision_id in governing else 1,
+                    unit_kind=str(entry["unit_kind"] or ""),
                 )
             )
     plan.uncaptured_revisions = [
