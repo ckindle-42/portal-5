@@ -632,6 +632,12 @@ def acquire_exhaustively(
     that says which sections were eligible, which were examined, and which
     document revisions they came from.
 
+    SUBSTRATE_PROPERTIES_V1 P6.1: the population reading itself now lives in
+    ONE place — :func:`enumeration.declared_population` — because file B's
+    closure and file D's orphans need exactly the same primitive. This function
+    is the assessment-shaped caller of it: it wraps the population in a
+    ``CandidateSet``.
+
     Because ``chunk_id`` is now ``section_id``, ``examined_sections`` and the
     candidate identities are the same strings — which is what
     ``_boundary_proof_id``'s equality check has always demanded and never been
@@ -641,16 +647,19 @@ def acquire_exhaustively(
     eligible. That is the shape of a real omission, and it must make the receipt
     incomplete.
     """
-    from portal.modules.compliance.core import section_index
+    from portal.modules.compliance.core import enumeration
     from portal.modules.compliance.core.repository import Repository
 
     repo = Repository()
     try:
-        plan = section_index.build_plan(repo, jurisdiction=jurisdiction, kb_id=kb_id)
-        scope = list(scope_sections) if scope_sections is not None else plan.eligible_sections
+        population = enumeration.declared_population(
+            repo, jurisdiction=jurisdiction, kb_id=kb_id, scope_sections=scope_sections
+        )
         held = set(withhold or ())
-        examined = [s for s in scope if s not in held]
-        resolved = section_index.resolve_sections(repo, examined)
+        examined = [s for s in population["examined_sections"] if s not in held]
+        resolved = {
+            s: entry for s, entry in population["sections"].items() if s in set(examined)
+        }
         records = [
             _candidate_record(
                 {
@@ -666,9 +675,9 @@ def acquire_exhaustively(
             )
             for section_id, entry in sorted(resolved.items())
         ]
-        receipt = section_index.boundary_receipt(repo, plan, scope_sections=scope)
+        receipt = population["boundary_receipt"]
         receipt["examined_sections"] = sorted(set(examined) & set(resolved))
-        receipt["omissions"] = sorted(set(scope) - set(receipt["examined_sections"]))
+        receipt["omissions"] = sorted(set(scope_sections or receipt["eligible_sections"]) - set(receipt["examined_sections"]))
         receipt["complete"] = bool(receipt["eligible_sections"]) and not receipt["omissions"]
     finally:
         repo.close()

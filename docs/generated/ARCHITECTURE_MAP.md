@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 738 canonical units.*
+*Deterministic projection of 739 canonical units.*
 
 ## Knowledge Layer
 
@@ -253,6 +253,7 @@
 | `unit-compliance-fallback-policy-threshold-policy` | what | 4 |
 | `unit-compliance-fallback-policy-what-compliance-fallback-means` | what | 5 |
 | `unit-compliance-module-config-only` | mixed | 1 |
+| `unit-compliance-substrate-properties` | mixed | 2 |
 | `unit-corpus-injection-a-canned-detection-firing-on-corpus-data-t1558-004-as-rep-roasting-verbatim-spl` | what | 2 |
 | `unit-corpus-injection-always-dry-run-first-it-prints-exact-per-sourcetype-volume-without-injecting` | what | 2 |
 | `unit-corpus-injection-confirm-the-live-triage-window-is-still-clean` | what | 2 |
@@ -589,7 +590,7 @@
 | `unit-persona-matrix-ci-persona-matrix-ci-operations` | what | 2 |
 | `unit-persona-matrix-ci-pipeline-shape` | what | 3 |
 | `unit-persona-matrix-ci-regression-triage-workflow` | what | 5 |
-| `unit-platform-retrieval` | mixed | 9 |
+| `unit-platform-retrieval` | mixed | 10 |
 | `unit-platform-retrieval-substrate-migration` | mixed | 4 |
 | `unit-platform-storage-config-facade` | mixed | 2 |
 | `unit-portal-conftest` | mixed | 1 |
@@ -747,12 +748,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 738 units
+**Total:** 739 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1858 references
+- **code**: 1861 references
 - **config**: 1 references
 - **doc**: 1 references
 - **mitre**: 40 references

@@ -136,6 +136,14 @@ surfaces:
   globs:
   - portal/modules/compliance/core/engine.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-enumeration
+  globs:
+  - portal/modules/compliance/core/enumeration.py
+  unit: unit-compliance-substrate-properties
+- name: file-portal-modules-compliance-core-evaluation
+  globs:
+  - portal/modules/compliance/core/evaluation.py
+  unit: unit-compliance-substrate-properties
 - name: file-portal-modules-compliance-core-gate
   globs:
   - portal/modules/compliance/core/gate.py
