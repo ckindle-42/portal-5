@@ -575,6 +575,7 @@ def _fallback_page_sections(
 ) -> list[InternalSection]:
     """No headings at all (forms, contact lists): per-page sections at the
     document-level role so the whole document remains addressable."""
+    end_of_text = page_offsets[-1] - 1
     return [
         InternalSection(
             path=f"page.{i + 1}",
@@ -583,7 +584,9 @@ def _fallback_page_sections(
             page_start=i + 1,
             page_end=i + 1,
             char_start=page_offsets[i],
-            char_end=page_offsets[i] + len(page),
+            # to the NEXT page's start, so the join newline belongs to the page
+            # it follows and the pages tile the document with no 1-char gaps.
+            char_end=min(page_offsets[i + 1], end_of_text),
             text=page,
         )
         for i, page in enumerate(pages)
@@ -603,7 +606,7 @@ def _toc_sections(
             page_start=i + 1,
             page_end=i + 1,
             char_start=page_offsets[i],
-            char_end=page_offsets[i] + len(pages[i]),
+            char_end=min(page_offsets[i + 1], page_offsets[-1] - 1),
             text=pages[i],
             heading="Table of Contents",
         )
@@ -633,7 +636,65 @@ def sectionize(pages: list[str], *, operative_role: str = "") -> list[InternalSe
         sections = _fallback_page_sections(pages, page_offsets, operative_role)
     sections.extend(_toc_sections(pages, page_offsets, toc_pages))
     sections.sort(key=lambda s: s.char_start)
-    return sections
+    return _complete_tiling(sections, "\n".join(pages), page_offsets, operative_role)
+
+
+def _complete_tiling(
+    sections: list[InternalSection],
+    full_text: str,
+    page_offsets: list[int],
+    operative_role: str,
+) -> list[InternalSection]:
+    """Close every gap the heading/ToC split leaves, so the sections tile the
+    document's whole text.
+
+    Measured on the 68-document operator corpus before this pass: 63 documents
+    lost material at a section boundary — the char between a ToC page's end and
+    the next heading's line, and the tail after the last heading. Small, but a
+    corpus that silently drops text cannot support an absence claim
+    (BILATERAL_CORPUS_V1 P1.7). Filler carries the document's own operative
+    role — it is ordinary body text nobody gave a heading, not a lesser class of
+    passage, and no code path may use its role to withhold it.
+    """
+    ordered = sorted(sections, key=lambda s: (s.char_start, s.char_end))
+    out: list[InternalSection] = []
+    cursor = 0
+    for idx, section in enumerate(ordered):
+        # a section never reaches into the next one: the cover/control block
+        # spans to the first heading, which may be on the far side of a ToC page
+        # the ToC pass also claims.
+        limit = ordered[idx + 1].char_start if idx + 1 < len(ordered) else len(full_text)
+        start = max(section.char_start, cursor)
+        end = min(section.char_end, max(limit, start))
+        if end <= start:
+            continue  # wholly inside a section already emitted
+        if start > cursor:
+            out.append(_filler(cursor, start, full_text, page_offsets, operative_role))
+        if (start, end) != (section.char_start, section.char_end):
+            section.char_start, section.char_end = start, end
+            section.page_end = _page_of_offset(page_offsets, max(start, end - 1)) + 1
+        # one invariant, enforced in one place: a section's text IS its span.
+        section.text = full_text[start:end]
+        out.append(section)
+        cursor = end
+    if cursor < len(full_text):
+        out.append(_filler(cursor, len(full_text), full_text, page_offsets, operative_role))
+    return out
+
+
+def _filler(
+    start: int, end: int, full_text: str, page_offsets: list[int], operative_role: str
+) -> InternalSection:
+    return InternalSection(
+        path=f"unsectioned.{start}",
+        title="",
+        role=operative_role,
+        page_start=_page_of_offset(page_offsets, start) + 1,
+        page_end=_page_of_offset(page_offsets, max(start, end - 1)) + 1,
+        char_start=start,
+        char_end=end,
+        text=full_text[start:end],
+    )
 
 
 def _page_of_offset(page_offsets: list[int], offset: int) -> int:

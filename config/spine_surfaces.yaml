@@ -80,6 +80,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/candidate_closure.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-capture
+  globs:
+  - portal/modules/compliance/core/capture.py
+  unit: unit-compliance-bilateral-corpus
 - name: file-portal-modules-compliance-core-change_pipeline
   globs:
   - portal/modules/compliance/core/change_pipeline.py

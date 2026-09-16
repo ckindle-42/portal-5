@@ -1,0 +1,122 @@
+---
+id: unit-compliance-bilateral-corpus
+kind: mixed
+title: "Compliance bilateral corpus — faithful whole-document capture"
+sources:
+- type: code
+  path: portal/modules/compliance/core/capture.py
+- type: code
+  path: tests/unit/test_compliance_capture.py
+claims:
+- probe: compliance.capture.unit_kinds
+  contains: table_row
+- probe: compliance.capture.unit_kinds
+  contains: figure_caption
+- probe: compliance.store.tables
+  contains: document_texts
+- probe: compliance.store.tables
+  contains: source_table_cells
+confidence: high
+tags:
+- compliance
+- retrieval
+- authored-v1
+---
+
+`portal.modules.compliance.core.capture` is the regulatory and internal ingest
+path for TASK_COMPLIANCE_BILATERAL_CORPUS_AND_CONVERSATION_V1. It exists because
+every previous compliance extractor **selected**: `cip_extract._requirement_block`
+bounded its search to a standard's "Requirements and Measures" section and
+terminated at `Violation Severity Level`, so a CIP standard's VSL tables, version
+history, Section 4 applicability, Section 6 background and evidence-retention
+section were never captured at all. An analyst cannot ask what a requirement is
+*for* when the text stating its intent was discarded at ingest.
+
+## Why
+
+An analyst asks what a requirement is *for*, whether what we do achieves it, and
+where we fall short. Those questions are answered from the parts of a standard
+that explain its intent — the Guidelines and Technical Basis, the Rationale, the
+Background section's reading conventions — and from the parts that show what an
+auditor will look for, the VSL tables and the evidence-retention section. Every
+one of those was discarded at ingest. Capture is not a performance concern or a
+tidiness concern: it is the difference between a corpus that can answer the
+question and one that cannot, and it is the only place a discard can still be
+prevented rather than worked around.
+
+It also makes absence provable. A boundary receipt asserting "we read the
+declared population and nothing addresses this" is worth exactly as much as the
+population it names. A population assembled by a selecting extractor cannot
+support the claim; a total tiling can.
+
+## What a capture is
+
+`capture_document(path)` runs the layout-aware reader already in the retrieval
+stack (`portal.platform.retrieval.extraction.read_document` → docling) and lays
+the whole document out as an ordered tiling of `CapturedUnit`s over one
+character coordinate space, `CapturedDocument.full_text`.
+
+A unit records **where it is**, never what it means:
+
+| field | source |
+| --- | --- |
+| `ordinal` | reading order, 0-based |
+| `heading_path` | the document's own outline, via a heading-level stack |
+| `page_start` / `page_end` | the reader's provenance |
+| `char_start` / `char_end` | half-open span in `full_text` |
+| `unit_kind` | `prose`, `table`, `table_row`, `list_item`, `figure_caption` |
+
+There is no requirement parser, no VSL parser, no rationale parser and no
+keyword classifier in this module, and there must never be one. `role` survives
+on the stored section, populated by `positional_role()` from the top-level
+heading — it is a positional label, and **no code path may use it to bar a
+passage from retrieval, return or citation**.
+
+## The three fidelity properties
+
+`fidelity_report()` measures them and `assert_faithful()` refuses a store write
+that fails any, so a lossy capture cannot reach the canonical store:
+
+1. **total character coverage** — the units tile `full_text` with no gap and no
+   overlap; every character belongs to exactly one unit. The tiling separator
+   belongs to the unit it follows, which is what makes the partition gapless.
+2. **total page coverage** — every page `1..N` carries at least one unit. A page
+   the layout reader returns nothing for is captured verbatim from the page's
+   own text; silence about a page is the one thing a fidelity capture may not do.
+3. **empty reconstruction diff** — concatenating the units in ordinal order
+   reproduces `full_text` byte for byte.
+
+A tiling is trivially 100% of itself, which proves nothing, so a fourth check
+runs against the **reader** rather than the capture: `reader_strings` holds every
+distinct normalised string docling produced — each item's text and each table
+cell's text — and `reader_strings_absent` must be zero. That check is what caught
+a real defect during P1: table caption rows flagged as column headers were being
+dropped while self-coverage still read 100%.
+
+## Tables stay tables
+
+Flattening a CIP requirements table loses which Measure belongs to which Part and
+which Applicable Systems row governs which requirement. A `TableItem` becomes one
+`table` unit carrying the caption and every header row, plus one `table_row` unit
+per body row with its `cells` and the `columns` they sit under. Both carry the
+reader's `table_ref`, so a row resolves to its parent table. Measured on
+`cip-007-6.pdf`: the R2 table arrives as four separate one-row tables (docling
+splits it per page), yielding Part rows `2.1`, `2.2`, `2.3`, `2.4`, each with its
+own four cells under `Part | Applicable Systems | Requirements | Measures`.
+
+## Where it lands
+
+Migration 11 adds the positional columns (`unit_kind`, `ordinal`, `char_start`,
+`char_end`, `heading_path`) to `source_sections`, the `document_texts` table that
+holds a revision's captured coordinate space, and `source_table_cells` for
+structured rows. `store_capture()` writes a capture as a same-fingerprint
+rebuild: sections written by this extractor for the revision are replaced
+wholesale, and sections written by another extractor are untouched.
+
+The internal corpus is captured on the same terms. `internal_corpus.sectionize`
+gained `_complete_tiling`, which clips overlaps and fills gaps so a document's
+sections partition its text exactly, and enforces one invariant in one place —
+**a section's text is its span**. Measured on the 68-document operator corpus
+before that pass: 63 documents lost material at a section boundary (the
+characters between a table-of-contents page and the next heading, and the tail
+after the last heading). After it: zero.

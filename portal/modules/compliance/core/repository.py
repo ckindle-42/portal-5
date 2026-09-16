@@ -358,8 +358,9 @@ class Repository:
                 )
             self._conn.execute(
                 """INSERT INTO source_sections(section_id, revision_id, path, page_start,
-                       page_end, table_ref, extractor, extractor_version, org_id, role, title)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                       page_end, table_ref, extractor, extractor_version, org_id, role, title,
+                       unit_kind, ordinal, char_start, char_end, heading_path)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                    ON CONFLICT(section_id) DO NOTHING""",
                 (
                     section.section_id,
@@ -373,8 +374,99 @@ class Repository:
                     section.org_id,
                     section.role,
                     section.title,
+                    section.unit_kind,
+                    section.ordinal,
+                    section.char_start,
+                    section.char_end,
+                    section.heading_path,
                 ),
             )
+
+    # ── P1 (BILATERAL_CORPUS_V1): captured document text and table cells ────
+
+    def put_document_text(
+        self,
+        revision_id: str,
+        full_text: str,
+        *,
+        page_count: int,
+        extractor: str,
+        extractor_version: str,
+        org_id: str = "default",
+    ) -> None:
+        """The revision's captured text — the coordinate space its sections
+        tile. Replacing it replaces the whole capture, so it is written in the
+        same transaction that rewrites the sections."""
+        with self._lock, self._conn:
+            if not self._conn.execute(
+                "SELECT 1 FROM document_revisions WHERE revision_id = ?", (revision_id,)
+            ).fetchone():
+                raise BrokenReferenceError(
+                    f"document_texts.revision_id {revision_id!r} does not resolve"
+                )
+            self._conn.execute(
+                """INSERT INTO document_texts(revision_id, full_text, char_count, page_count,
+                       extractor, extractor_version, captured_at, org_id)
+                   VALUES (?,?,?,?,?,?,?,?)
+                   ON CONFLICT(revision_id) DO UPDATE SET
+                       full_text=excluded.full_text, char_count=excluded.char_count,
+                       page_count=excluded.page_count, extractor=excluded.extractor,
+                       extractor_version=excluded.extractor_version,
+                       captured_at=excluded.captured_at""",
+                (
+                    revision_id,
+                    full_text,
+                    len(full_text),
+                    page_count,
+                    extractor,
+                    extractor_version,
+                    now_iso(),
+                    org_id,
+                ),
+            )
+
+    def get_document_text(self, revision_id: str) -> str | None:
+        row = self._conn.execute(
+            "SELECT full_text FROM document_texts WHERE revision_id = ?", (revision_id,)
+        ).fetchone()
+        return str(row[0]) if row else None
+
+    def add_table_cells(
+        self,
+        section_id: str,
+        row_index: int,
+        cells: list[str],
+        columns: list[str],
+        *,
+        org_id: str = "default",
+    ) -> None:
+        """One table row's cells, kept as cells under their column names."""
+        with self._lock, self._conn:
+            self._conn.executemany(
+                """INSERT INTO source_table_cells(section_id, row_index, col_index,
+                       column_name, text, org_id) VALUES (?,?,?,?,?,?)
+                   ON CONFLICT(section_id, row_index, col_index) DO UPDATE SET
+                       column_name=excluded.column_name, text=excluded.text""",
+                [
+                    (
+                        section_id,
+                        row_index,
+                        idx,
+                        columns[idx] if idx < len(columns) else "",
+                        cell,
+                        org_id,
+                    )
+                    for idx, cell in enumerate(cells)
+                ],
+            )
+
+    def table_cells(self, section_id: str) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            """SELECT row_index, col_index, column_name, text FROM source_table_cells
+               WHERE section_id = ? ORDER BY row_index, col_index""",
+            (section_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
 
     def add_source_span(
         self,

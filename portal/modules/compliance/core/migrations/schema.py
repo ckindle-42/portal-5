@@ -578,4 +578,63 @@ MIGRATIONS: list[tuple[int, str, str]] = [
         ALTER TABLE relationship_assertions ADD COLUMN derivation TEXT NOT NULL DEFAULT '';
         """,
     ),
+    (
+        11,
+        "faithful whole-document capture (BILATERAL_CORPUS_V1 P1): positional "
+        "units, document coordinate space, structured tables",
+        # NOTE: this runner splits statements on ';' -- never put one inside a
+        # comment line inside a migration's SQL block (rule R9).
+        """
+        -- P1: what kind of positional unit a section is. Purely structural --
+        -- prose, table, table_row, list_item, figure_caption. Empty string on
+        -- every pre-P1 row, which is how a legacy section is recognised.
+        ALTER TABLE source_sections ADD COLUMN unit_kind TEXT NOT NULL DEFAULT '';
+
+        -- P1: reading order within the revision, 0-based. -1 means the
+        -- extractor did not record one.
+        ALTER TABLE source_sections ADD COLUMN ordinal INTEGER NOT NULL DEFAULT -1;
+
+        -- P1: the section's half-open span in the revision's captured text
+        -- (document_texts.full_text). -1 means unanchored. source_spans keeps
+        -- its own rows and these columns make the tiling queryable without a join
+        -- and are what the fidelity gates read.
+        ALTER TABLE source_sections ADD COLUMN char_start INTEGER NOT NULL DEFAULT -1;
+        ALTER TABLE source_sections ADD COLUMN char_end INTEGER NOT NULL DEFAULT -1;
+
+        -- P1: the heading lineage the unit sits under, from the document's own
+        -- outline. Never inferred from content.
+        ALTER TABLE source_sections ADD COLUMN heading_path TEXT NOT NULL DEFAULT '';
+
+        CREATE INDEX ix_source_sections_ordinal ON source_sections(revision_id, ordinal);
+        CREATE INDEX ix_source_sections_table ON source_sections(table_ref);
+
+        -- P1: the captured document text -- the one character coordinate space
+        -- a revision's sections tile. Held here so a section resolves to its
+        -- verbatim text without re-running the layout reader.
+        CREATE TABLE document_texts (
+            revision_id       TEXT PRIMARY KEY REFERENCES document_revisions(revision_id),
+            full_text         TEXT NOT NULL,
+            char_count        INTEGER NOT NULL,
+            page_count        INTEGER NOT NULL,
+            extractor         TEXT NOT NULL DEFAULT '',
+            extractor_version TEXT NOT NULL DEFAULT '',
+            captured_at       TEXT NOT NULL DEFAULT '',
+            org_id            TEXT NOT NULL DEFAULT 'default'
+        );
+
+        -- P1: a table row's cells, kept as cells. Flattening a requirements
+        -- table loses which Measure belongs to which Part and which Applicable
+        -- Systems row governs which requirement.
+        CREATE TABLE source_table_cells (
+            section_id   TEXT NOT NULL REFERENCES source_sections(section_id),
+            row_index    INTEGER NOT NULL,
+            col_index    INTEGER NOT NULL,
+            column_name  TEXT NOT NULL DEFAULT '',
+            text         TEXT NOT NULL DEFAULT '',
+            org_id       TEXT NOT NULL DEFAULT 'default',
+            PRIMARY KEY (section_id, row_index, col_index)
+        );
+        CREATE INDEX ix_source_table_cells_column ON source_table_cells(column_name);
+        """,
+    ),
 ]

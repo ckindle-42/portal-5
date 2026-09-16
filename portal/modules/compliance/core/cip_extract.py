@@ -26,6 +26,23 @@ CIP-002 (categorisation + Attachment 1), CIP-003 (Attachment 1 for low impact),
 CIP-012, CIP-013, CIP-014 diverge; ``extract_standard`` returns what it can and
 the caller reports the shortfall per standard against that standard's own
 numbering.
+
+**DEPRECATED as the regulatory capture path (BILATERAL_CORPUS_V1 P1).** This
+module selects: ``_requirement_block`` bounds its search to the
+"Requirements and Measures" section and terminates at the Compliance section or
+``Violation Severity Level``, so the VSL tables, the version history, Section 4
+applicability, Section 6 background and the evidence-retention section never
+become anything. That discard is removed from the product path by removing the
+path: regulatory documents are now captured whole by :mod:`core.capture`, which
+has no parser, no terminator and no vocabulary, and the store's regulatory
+sections come from there.
+
+Those two bounds survive HERE, unchanged and on purpose. They are not a capture
+rule — they are what keeps the *pinned Part register* from reading a
+``R1.`` cell inside a VSL table as a requirement. The register is the
+prescriptive artifact P10 retires; stripping its bounds while it still runs
+would manufacture garbage Parts, which is a regression dressed as a fix. Nothing
+new may be built on this module.
 """
 
 from __future__ import annotations

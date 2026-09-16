@@ -174,3 +174,153 @@ unbroken internal section and will split into sub-units under P4.1.
   `data/cip_pdfs/` copy was. Two copies of one standard, one registered.
 * **`NERC/CIP-007-7.1` (regulatory_standard) has no revision either**; its 52
   sections hang off the `official_standard_material` document instead.
+
+---
+
+## §2 — P1 faithful whole-document capture
+
+New module `portal/modules/compliance/core/capture.py`; migration 11 applied
+live (v10 → v11) against the snapshot `data/private/backups/pre-v11-20260916T023321Z.db`.
+
+### 2.1 What was built
+
+`capture_document(path)` runs the layout-aware reader already in the retrieval
+stack (`portal.platform.retrieval.extraction.read_document` → docling, the same
+path the compliance composition forces its chunker onto) and lays the whole
+document out as an ordered tiling of positional units over one character
+coordinate space. A unit records `ordinal`, `heading_path` (from the document's
+own outline), `page_start`/`page_end`, `char_start`/`char_end` and
+`unit_kind ∈ {prose, table, table_row, list_item, figure_caption}`. There is no
+requirement parser, no VSL parser, no rationale parser and no keyword
+classifier in it.
+
+`role` is kept and populated by `positional_role()` from the top-level heading —
+a positional fact. No code path added in this task uses it to bar a passage from
+retrieval, return or citation; the P10 verifier asserts that.
+
+### 2.2 Fidelity gates — live, on real PDFs
+
+`uv run python scripts/compliance_capture_fidelity.py <pdfs>`:
+
+| document | pages | sections | chars | coverage | recon diff | unit kinds |
+| --- | --- | --- | --- | --- | --- | --- |
+| cip-007-6.pdf | 51 | 278 | 80,218 | **100.00%** | **empty** | prose 121, list_item 70, table 31, table_row 55, figure_caption 1 |
+| cip-003-9.pdf | 27 | 226 | 44,846 | **100.00%** | **empty** | prose 30, list_item 141, table 14, table_row 41 |
+| cip-010-4.pdf | 29 | 186 | 46,346 | **100.00%** | **empty** | prose 31, list_item 104, table 16, table_row 35 |
+
+Zero gaps, zero overlaps, zero missing pages on all three. Capture cost
+6–13 s/document.
+
+**The self-coverage number proves nothing on its own** — a tiling is trivially
+100% of itself. The gate that matters checks the capture against the *reader*:
+`reader_strings` holds every distinct normalised string docling produced (349 for
+CIP-007-6, items and table cells alike) and `reader_strings_absent` must be zero.
+That check earned itself immediately: the first implementation dropped the
+caption row of every requirements table (`CIP-007-6 Table R2 - Security Patch
+Management`) because docling flags it as a column-header row, while self-coverage
+still read 100.0%. Fixed by keeping every header row on the `table` unit.
+
+### 2.3 What is now captured that was not
+
+Probed live in the CIP-007-6 capture — each of these was absent from the store
+before P1 (§1.5):
+
+| passage | units | heading path |
+| --- | --- | --- |
+| Violation Severity Level | 11 | `2. Table of Compliance Elements` |
+| Section 6 Background | 1 | `6. Background:` |
+| Evidence Retention | 3 | `1.2. Evidence Retention:` |
+| Version History | 1 | `Version History` |
+| *"not strictly an 'install every security patch' requirement"* | 1 | `Requirement R2:` |
+
+### 2.4 Tables stay tables
+
+Measured on CIP-007-6: docling splits the R2 requirements table across its four
+pages, so the capture yields four one-row tables. Each row carries its own four
+cells under `Part | Applicable Systems | Requirements | Measures`:
+
+```
+#/tables/2  cols ['Part','Applicable Systems','Requirements','Measures']  rows 1  cells [4]  part ['2.1']
+#/tables/3  …  part ['2.2']
+#/tables/4  …  part ['2.3']
+#/tables/5  …  part ['2.4']
+```
+
+Four Part rows, each with its own cells. Cells are persisted in
+`source_table_cells` under their column names, so a Measure stays attached to
+the Part it belongs to.
+
+### 2.5 The internal corpus, on the same terms (P1.7)
+
+`internal_corpus.sectionize` gained `_complete_tiling`, which clips overlaps,
+fills gaps, and enforces one invariant in one place: **a section's text is its
+span**. Two upstream fixes fell out of it — `_fallback_page_sections` and
+`_toc_sections` now run to the next page's offset, so the page-join newline
+belongs to the page it follows instead of becoming a one-character hole.
+
+| | before | after |
+| --- | --- | --- |
+| documents losing material | **63 of 68** | **0 of 68** |
+
+The loss was small per document (≈52 characters: the text between a
+table-of-contents page and the next heading, and the tail after the last
+heading) and structural: the cover/control block spanned to the first heading
+*through* the ToC page the ToC pass also claimed, so those two sections
+overlapped and the text after the overlap fell out. `--internal` on the fidelity
+script now reports 68/68 faithful.
+
+The internal corpus was re-materialized live against the new tiling
+(`scripts/materialize_internal_corpus.py --corpus coding_task/v9_compliance/LSPG-CIP`):
+68/68 documents, role census `OPERATIVE_PROCEDURE 1234, WORK_INSTRUCTION 783,
+DOCUMENT_CONTROL 230, COMMENTARY 72, TABLE_OF_CONTENTS 65, DEFINITION 63,
+INTERNAL_POLICY 60, EVIDENCE_SPECIFICATION 36, TRACEABILITY_ASSERTION 33`.
+
+### 2.6 Deviation from the task text, recorded (R2)
+
+P1.1 says both bounds in `core/cip_extract.py` go — the
+`Requirements and Measures` restriction and the `\bViolation Severity Level`
+terminator. **They are still there, deliberately, and the discard is gone
+anyway.**
+
+`_requirement_block`'s bounds are not a capture rule. They are what stops the
+*pinned Part register* reading an `R1.` cell inside a VSL table as a
+requirement. Stripping them while that register still runs manufactures garbage
+Parts — a regression wearing a fix's clothes, which is R4 in a new costume. The
+discard is removed from the product path by removing the path: regulatory
+capture no longer routes through `cip_extract` at all, it routes through
+`capture.py`, which has no bounds to remove. `cip_extract`'s module docstring now
+says so and marks the module deprecated as the capture path; the register itself
+retires in P10.2.
+
+### 2.7 Migration 11
+
+Additive, applied live, semicolon-free inside comments. The first attempt
+violated R9 — `-- its own rows; these columns make the tiling queryable` split
+into a bare `these columns …` statement and failed with
+`sqlite3.OperationalError: near "these": syntax error`. The migration runner's
+one-transaction-per-version discipline held: the store rolled back cleanly to
+v10 with its original columns, which is the behaviour R9 exists to protect.
+
+| change | table |
+| --- | --- |
+| `unit_kind`, `ordinal`, `char_start`, `char_end`, `heading_path` | `source_sections` |
+| `ix_source_sections_ordinal`, `ix_source_sections_table` | — |
+| `document_texts` (revision → captured coordinate space) | new |
+| `source_table_cells` (section, row, col, column_name, text) | new |
+
+One latent R9 hazard was found in the already-landed migration 9
+(`-- A concept may span revisions;`) and left alone: it is applied everywhere and
+its remainder happens to be a comment line, so it splits harmlessly.
+
+### 2.8 Verification
+
+| gate | result |
+| --- | --- |
+| `uv run pytest tests/unit/ -q` | **2011 passed, 4 skipped** (baseline 1991 + 20 new) |
+| `uv run ruff check` / `ruff format --check` | clean |
+| `uv run mypy portal/modules/compliance/core/capture.py` | clean |
+| `tests/unit/test_spine_gates.py` | 6 passed (new wiki unit + manifest + two new probes) |
+| store schema version | **11** |
+
+**Rollback.** `git revert <sha>`; restore
+`data/private/backups/pre-v11-20260916T023321Z.db`.
