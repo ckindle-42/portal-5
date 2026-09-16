@@ -4,6 +4,11 @@ Base `114c3918`. Every number below is from a live query or a live run on this
 machine (`reports/compliance/SUBSTRATE_PROPERTIES_V1_measurements.json` holds
 the raw measurement output; the embedder ran at `:8917` throughout).
 
+Final gates, this HEAD: `validate_system.py` **213 pass · 0 fail · 1 warn**;
+`pytest tests/unit/` **2179 passed, 4 skipped**; `ruff check portal/ tests/
+scripts/` clean; spine gates 6/6; complexity budget re-baselined for this
+file's intentional growth (god_lines 53,556 → 53,795; prose 47,517 → 48,087).
+
 `core/__init__.py` named four properties on the day the module was created and
 said of them: *"Not a RAG chatbot. Four properties, none a retrieval
 parameter."* At base HEAD none of the four existed. This file built them. File

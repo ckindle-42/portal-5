@@ -116,4 +116,8 @@ python3 scripts/probe_single_part_live.py --part "CIP-007-6 R2 Part 2.2"
 python3 scripts/run_seven_question_routed.py [--scenario]
                                     # P6: the compound seven-question CIP-007 R2 arm through the
                                     # deployed route; --scenario adds the isolated proposed edit
+python3 scripts/measure_substrate_properties.py
+                                    # SUBSTRATE_PROPERTIES_V1 P6.2: re-run the superseded-competition,
+                                    # recall@k and scorer-validation measurements against the live store
+                                    # and index; appends nothing — overwrites the measurements JSON
 ```
