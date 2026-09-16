@@ -228,3 +228,91 @@ def withhold_unknown_knowledge(
         else:
             kept.append(part)
     return kept, withheld
+
+
+def select_document_effectivity(
+    conn: sqlite3.Connection,
+    *,
+    family: str,
+    valid_at: str,
+    known_at: str = "",
+) -> dict[str, Any]:
+    """Which revisions of ``family`` govern at ``valid_at``, read from the
+    REGULATORY CORPUS (BILATERAL_CORPUS_V1 P3).
+
+    :func:`select_revision_effectivity` answers the same question from the
+    pinned register's ``requirement_nodes`` + ``effectivity_assertions``. This
+    answers it from the documents themselves: ``document_revisions``'
+    ``effective_date`` / ``inactive_date``, both parsed from the One-Stop-Shop
+    workbook, filtered to ``jurisdiction='US'`` regulatory standards.
+
+    Both clocks, same semantics as the register path. ``recorded_from`` is when
+    this store started believing the revision existed, so a standard acquired
+    after the requested ``known_at`` answers ``UNKNOWN_KNOWLEDGE`` rather than
+    being silently included or silently dropped.
+    """
+    valid, known = _clock_params(valid_at, known_at)
+    rows = conn.execute(
+        """SELECT d.logical_id, r.revision_id, r.effective_date, r.inactive_date,
+                  r.recorded_from, r.recorded_to, r.lifecycle_status, r.alias_path
+           FROM source_documents d
+           JOIN document_revisions r ON r.logical_id = d.logical_id
+           WHERE d.jurisdiction = 'US'
+             AND d.source_kind = 'regulatory_standard'
+             AND d.logical_id LIKE ? || '-%'
+           ORDER BY r.effective_date, r.revision_id""",
+        (f"NERC/{family}",),
+    ).fetchall()
+
+    current, future, historical, unknown_knowledge, undated = [], [], [], [], []
+    for row in rows:
+        version = str(row[0]).rsplit("-", 1)[-1]
+        revision: dict[str, Any] = {
+            "family": family,
+            "version": version,
+            "logical_id": row[0],
+            "revision_id": row[1],
+            "valid_from": row[2] or None,
+            "valid_to": row[3] or None,
+            "recorded_from": row[4],
+            "lifecycle_status": row[6] or "",
+            "alias_path": row[7],
+        }
+        recorded_from = str(row[4] or "")
+        recorded_to = row[5]
+        if known and (
+            (recorded_from and recorded_from[:10] > known)
+            or (recorded_to is not None and str(recorded_to)[:10] <= known)
+        ):
+            revision["as_known"] = "UNKNOWN_KNOWLEDGE"
+            revision["detail"] = (
+                f"revision recorded from {recorded_from[:10]}, after the requested known_at {known}"
+            )
+            unknown_knowledge.append(revision)
+            continue
+        if not revision["valid_from"]:
+            # no sourced effective date is not "always in force" (F02)
+            revision["as_known"] = "UNDATED"
+            revision["detail"] = "no effective date in the lifecycle registry"
+            undated.append(revision)
+            continue
+        if revision["valid_from"] > valid:
+            revision["as_known"] = "FUTURE"
+            future.append(revision)
+        elif revision["valid_to"] and revision["valid_to"] < valid:
+            revision["as_known"] = "SUPERSEDED_OR_RETIRED"
+            historical.append(revision)
+        else:
+            revision["as_known"] = "SELECTED"
+            current.append(revision)
+    return {
+        "family": family,
+        "valid_at": valid,
+        "known_at": known or "latest recorded knowledge",
+        "basis": "regulatory corpus (document_revisions lifecycle)",
+        "selected": current,
+        "future": future,
+        "historical": historical,
+        "unknown_knowledge": unknown_knowledge,
+        "undated": undated,
+    }

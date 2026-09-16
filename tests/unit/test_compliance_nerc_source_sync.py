@@ -251,11 +251,15 @@ def test_store_registration_creates_immutable_revisions(tmp_path):
         )
     finally:
         mod._register_in_store = original
+    # P3: identity is the STANDARD, not the filename — two acquisitions of one
+    # standard are two revisions of one document.
     assert {logical for logical, _ in repo_calls} >= {
-        "NERC/cip-007-6.pdf",
-        "NERC/cip-007-7.1.pdf",
-        "NERC/one-stop-shop.xlsx",
+        "NERC/CIP-007-6",
+        "NERC/CIP-007-7.1",
+        "NERC/CIP-007-6 implementation plan",
+        "NERC/one-stop-shop",
     }
+    assert not any(logical.endswith(".pdf") for logical, _ in repo_calls)
     assert report.store_revisions["cip-007-6.pdf"] == hashlib.sha256(PDF_BYTES).hexdigest()
 
 

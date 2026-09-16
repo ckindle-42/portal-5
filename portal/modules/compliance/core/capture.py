@@ -511,22 +511,26 @@ def store_capture(
 
     report = assert_faithful(captured)
     conn = repo._conn
+    # scoped to THIS capture's own extractor, not the module default: the
+    # Glossary capture declares its own extractor, and deleting by the default
+    # would leave its previous units in place beside the fresh ones.
+    extractor = captured.extractor
     with repo._lock, conn:
         conn.execute(
             """DELETE FROM source_table_cells WHERE section_id IN (
                    SELECT section_id FROM source_sections
                    WHERE revision_id = ? AND extractor = ?)""",
-            (revision_id, EXTRACTOR),
+            (revision_id, extractor),
         )
         conn.execute(
             """DELETE FROM source_spans WHERE section_id IN (
                    SELECT section_id FROM source_sections
                    WHERE revision_id = ? AND extractor = ?)""",
-            (revision_id, EXTRACTOR),
+            (revision_id, extractor),
         )
         conn.execute(
             "DELETE FROM source_sections WHERE revision_id = ? AND extractor = ?",
-            (revision_id, EXTRACTOR),
+            (revision_id, extractor),
         )
     repo.put_document_text(
         revision_id,

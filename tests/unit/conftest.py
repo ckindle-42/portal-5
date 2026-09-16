@@ -63,3 +63,29 @@ def pytest_configure(config) -> None:
     # Prevent lifespan background tasks (health loop, state save) from
     # being created during TestClient teardown — they fail in test mode.
     os.environ["UNIT_TEST_MODE"] = "1"
+
+
+@pytest.fixture(autouse=True)
+def _never_write_the_live_compliance_store(tmp_path, monkeypatch):
+    """A unit test may not touch the operator's real compliance store.
+
+    Found the hard way in BILATERAL_CORPUS_V1 P3: the hermetic NERC-sync test
+    exercised a code path that constructs ``Repository()`` with no argument, and
+    ``Repository``'s default is the production database. A tmp_path fixture's
+    glossary page landed in the live store as a real revision with real
+    sections, and the only reason it was caught was a census count being one
+    higher than the term count.
+
+    The redirect is on the BOUND DEFAULT, not on the module constant: the
+    constant is the declaration that the mapping store and the repository share
+    one canonical file, and a test asserts exactly that. A test that wants a
+    store still passes its own path; a test that forgets gets a scratch file
+    instead of the operator's data.
+    """
+    from portal.modules.compliance.core import mapping_store as _ms
+    from portal.modules.compliance.core import repository as _repo
+
+    scratch = tmp_path / "compliance_store_scratch.db"
+    monkeypatch.setattr(_repo.Repository.__init__, "__defaults__", (scratch,))
+    if _ms.MappingStore.__init__.__defaults__:
+        monkeypatch.setattr(_ms.MappingStore.__init__, "__defaults__", (scratch,))

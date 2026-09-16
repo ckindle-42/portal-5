@@ -382,6 +382,46 @@ class Repository:
                 ),
             )
 
+    def set_regulatory_lifecycle(
+        self,
+        revision_id: str,
+        *,
+        effective_date: str = "",
+        inactive_date: str = "",
+        approved_date: str = "",
+        authored_date: str = "",
+        lifecycle_status: str = "",
+        source_url: str = "",
+    ) -> bool:
+        """Record a regulatory revision's lifecycle from the One-Stop-Shop
+        workbook (BILATERAL_CORPUS_V1 P3).
+
+        Unlike ``update_revision_control_metadata``, which only fills honest
+        placeholders on an internal document, this OVERWRITES: the registry is
+        the authority for a standard's lifecycle, and a corrected retirement
+        date must land rather than be refused because a value was already
+        there. An empty argument still leaves the column alone — the workbook
+        saying nothing is not the workbook saying ''.
+        """
+        columns = {
+            "effective_date": effective_date,
+            "inactive_date": inactive_date,
+            "approved_date": approved_date,
+            "authored_date": authored_date,
+            "lifecycle_status": lifecycle_status,
+            "source_url": source_url,
+        }
+        assignments = [f"{c} = ?" for c, v in columns.items() if v]
+        if not assignments:
+            return False
+        params = [v for v in columns.values() if v]
+        with self._lock, self._conn:
+            cur = self._conn.execute(
+                f"UPDATE document_revisions SET {', '.join(assignments)} WHERE revision_id = ?",
+                (*params, revision_id),
+            )
+            return cur.rowcount > 0
+
     # ── P1 (BILATERAL_CORPUS_V1): captured document text and table cells ────
 
     def put_document_text(

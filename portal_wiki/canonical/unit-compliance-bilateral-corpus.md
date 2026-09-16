@@ -8,9 +8,13 @@ sources:
 - type: code
   path: portal/modules/compliance/core/glossary.py
 - type: code
+  path: scripts/materialize_regulatory_corpus.py
+- type: code
   path: tests/unit/test_compliance_capture.py
 - type: code
   path: tests/unit/test_compliance_glossary.py
+- type: code
+  path: tests/unit/test_compliance_regulatory_corpus.py
 claims:
 - probe: compliance.capture.unit_kinds
   contains: table_row
@@ -158,3 +162,36 @@ Resolution honours both clocks and never guesses:
 `external_glossary` disposition instead of only recording it: a bundle whose
 standard has no definitions section carries the Glossary terms its own duty text
 depends on, each with its section id, revision and effectivity.
+
+## Symmetric materialization
+
+`scripts/materialize_regulatory_corpus.py` is the twin of
+`materialize_internal_corpus.py`. Every acquired official artifact becomes a
+`source_documents` row with `jurisdiction='US'` and its own `source_kind`, a
+`document_revisions` row keyed on byte hash carrying lifecycle dates **parsed
+from the One-Stop-Shop workbook and never from a filename**, and a faithful
+capture as `source_sections` / `source_spans`. After it runs, the two sides are
+the same kind of thing in the same tables and the only difference between them
+is the `jurisdiction` column.
+
+Three properties it owns:
+
+* **hash-match or fail.** Every artifact is re-hashed against the acquisition
+  manifest. A mismatch, or a manifest naming a file that no longer exists, is a
+  hard failure — a document whose bytes moved is not the document the lifecycle
+  facts describe.
+* **one identity per standard.** `canonical_identity` derives
+  `NERC/CIP-007-6` from an artifact's role and the standard id in its name, so
+  two acquisitions of one standard are two revisions of one document. The
+  version's own case is preserved: the register spells it `CIP-002-5.1a`.
+* **one jurisdiction, one spelling.** The store carried both `US` and
+  `United States` for the same jurisdiction, so every jurisdiction-filtered
+  query was wrong by construction. Normalised to `US`.
+
+`temporal_selection.select_document_effectivity` answers the two-clock question
+from the regulatory corpus — `document_revisions.effective_date` /
+`inactive_date`, both from the workbook — where `select_revision_effectivity`
+answers it from the pinned register. Verified live on CIP-007: both paths select
+`6` today with `7.1` future, and both select `7.1` at 2029-01-01 with `6`
+historical. An undated revision is never read as always-in-force, and a revision
+recorded after the requested `known_at` answers `UNKNOWN_KNOWLEDGE`.

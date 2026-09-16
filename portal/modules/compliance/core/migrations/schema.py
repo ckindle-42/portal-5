@@ -637,4 +637,27 @@ MIGRATIONS: list[tuple[int, str, str]] = [
         CREATE INDEX ix_source_table_cells_column ON source_table_cells(column_name);
         """,
     ),
+    (
+        12,
+        "regulatory lifecycle on the revision (BILATERAL_CORPUS_V1 P3): the "
+        "workbook's own retirement date, status and source URL",
+        # NOTE: this runner splits statements on ';' -- never put one inside a
+        # comment line inside a migration's SQL block (rule R9).
+        """
+        -- P3: the retirement boundary, parsed from the One-Stop-Shop workbook
+        -- and never from a filename. NULL means the workbook states none, which
+        -- is not the same as "never retires" and is not the same as unknown --
+        -- the workbook cell is the fact either way.
+        ALTER TABLE document_revisions ADD COLUMN inactive_date TEXT;
+
+        -- P3: the workbook's own lifecycle status string, verbatim
+        -- ('Mandatory Subject to Enforcement', 'Subject to Future
+        -- Enforcement', 'Inactive'). Empty for a revision with no registry row.
+        ALTER TABLE document_revisions ADD COLUMN lifecycle_status TEXT NOT NULL DEFAULT '';
+
+        -- P3: where the bytes came from. Provenance for an acquired artifact,
+        -- empty for one that arrived from disk.
+        ALTER TABLE document_revisions ADD COLUMN source_url TEXT NOT NULL DEFAULT '';
+        """,
+    ),
 ]
