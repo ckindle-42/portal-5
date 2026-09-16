@@ -254,11 +254,16 @@ async def project_sections(
     }
 
 
-async def search(kb_id: str, query: str, top_k: int = 5) -> dict[str, Any]:
+async def search(kb_id: str, query: str, top_k: int = 5, *, where: str = "") -> dict[str, Any]:
     """Plain-arg entry point — the HTTP concern (request parsing, status codes)
     stays in ``_search`` below; ``compliance_mcp``'s sync dispatch wrapper calls
-    this directly (pipeline.py's own separation, P3)."""
-    return await _pipeline.search(_composition(), kb_id, query, min(int(top_k), 20))
+    this directly (pipeline.py's own separation, P3).
+
+    ``where`` (SUBSTRATE_PROPERTIES_V1 P3) is the pushdown predicate the MCP
+    tool builds from its ``standard`` / ``layer`` / clock arguments — the
+    filter runs INSIDE the arms, before ranking, instead of sieving the
+    results afterwards."""
+    return await _pipeline.search(_composition(), kb_id, query, min(int(top_k), 20), where=where)
 
 
 async def _search(request: Request) -> JSONResponse:

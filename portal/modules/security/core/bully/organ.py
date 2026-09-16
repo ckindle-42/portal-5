@@ -27,6 +27,8 @@ from typing import Any, cast
 
 import httpx
 
+from portal.platform.retrieval import predicates
+
 from .contracts import RecallReceipt
 from .store import Store
 
@@ -279,15 +281,16 @@ class Organ:
         if table is None:
             return []
         search = table.search(vector).metric("cosine").limit(k)
+        # SUBSTRATE_PROPERTIES_V1 P2: the shared clause builder, not an inline
+        # one — the Bully went around pipeline.search to get `.where()` and
+        # built `key = 'value'` itself; compliance needed the same thing (plus
+        # clock comparisons this builder never handled), so the seam moved into
+        # the shared library and both consumers use it. Same clause shape for
+        # str/int equality; quotes now escaped rather than interpolated raw.
         if filters:
-            clauses = []
-            for key, value in filters.items():
-                if isinstance(value, str):
-                    clauses.append(f"{key} = '{value}'")
-                else:
-                    clauses.append(f"{key} = {value}")
-            if clauses:
-                search = search.where(" AND ".join(clauses))
+            clause = predicates.build(filters)
+            if clause:
+                search = search.where(clause)
         rows = search.to_list()
         return [
             (

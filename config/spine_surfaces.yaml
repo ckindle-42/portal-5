@@ -576,6 +576,10 @@ surfaces:
   globs:
   - portal/platform/retrieval/pipeline.py
   unit: unit-platform-retrieval
+- name: file-portal-platform-retrieval-predicates
+  globs:
+  - portal/platform/retrieval/predicates.py
+  unit: unit-platform-retrieval
 - name: file-portal-platform-retrieval-store
   globs:
   - portal/platform/retrieval/store.py

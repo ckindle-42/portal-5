@@ -242,10 +242,23 @@ async def ingest_document(
 
 
 # ── search ────────────────────────────────────────────────────────────────────
-async def search(comp: Composition, kb_id: str, query: str, top_k: int) -> dict[str, Any]:
+async def search(
+    comp: Composition, kb_id: str, query: str, top_k: int, *, where: str = ""
+) -> dict[str, Any]:
     """RRF (or unified) fusion of text-chunk and page-image retrieval. Returns
     the kb_search response dict; raises ``UnknownKBError`` for a missing table and
-    propagates VL errors."""
+    propagates VL errors.
+
+    ``where`` (SUBSTRATE_PROPERTIES_V1 P2) is an optional pre-ranking filter —
+    a SQL-ish predicate built by ``predicates.build`` and pushed into every
+    search arm that can express it. The default is ``""``, so every existing
+    caller is unaffected; a filter narrows the candidate pools BEFORE ranking
+    instead of a consumer sieving the results afterwards. When set, the
+    response carries ``filter_applied`` plus the per-arm ``filter_report`` (the
+    visual arm reports a predicate its schema cannot express as not applied —
+    a half-filtered fused list looks filtered, which is the failure this seam
+    exists to prevent).
+    """
     ttbl = comp.text_table(kb_id)
     vtbl = comp.visual_table(kb_id)
     if ttbl is None and vtbl is None:
@@ -253,8 +266,19 @@ async def search(comp: Composition, kb_id: str, query: str, top_k: int) -> dict[
     live_model, _ = await comp.vl_model_id()
     comp.assert_embedding_space(kb_id, live_model, comp.stage_set or None)
     qvec = await comp.vl_embed(text=query, is_query=True)
-    results = await _fusion.fuse(comp.fusion_mode, ttbl, vtbl, query, qvec, top_k, comp.vl_rerank)
-    return {"kb_id": kb_id, "query": query, "num_results": len(results), "results": results}
+    fused = await _fusion.fuse(
+        comp.fusion_mode, ttbl, vtbl, query, qvec, top_k, comp.vl_rerank, where
+    )
+    out: dict[str, Any] = {
+        "kb_id": kb_id,
+        "query": query,
+        "num_results": len(fused),
+        "results": list(fused),
+    }
+    if where:
+        out["filter_applied"] = where
+        out["filter_report"] = dict(getattr(fused, "filter_report", {}))
+    return out
 
 
 async def search_all(comp: Composition, query: str, top_k: int) -> dict[str, Any]:
