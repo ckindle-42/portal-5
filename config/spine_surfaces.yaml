@@ -268,6 +268,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/repository.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-requirement_anchor
+  globs:
+  - portal/modules/compliance/core/requirement_anchor.py
+  unit: unit-compliance-requirement-join
 - name: file-portal-modules-compliance-core-result_contract
   globs:
   - portal/modules/compliance/core/result_contract.py
