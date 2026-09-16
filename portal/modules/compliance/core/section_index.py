@@ -519,8 +519,68 @@ def resolve_sections(repo: Any, section_ids: list[str]) -> dict[str, dict[str, A
         entry["authority_tier"] = recorded_tier(
             str(entry["logical_id"] or ""), str(entry["source_kind"] or "")
         )
+        _attach_register_facts(repo, entry)
         out[str(entry["section_id"])] = entry
     return out
+
+
+#: The Register facts a section inherits from the requirement it carries. Each
+#: is READ from the register node, never re-derived here: SUBSTRATE_PROPERTIES_V1
+#: P1 re-derived tier and both clocks as projection columns only because the
+#: graph was unreachable, and where the Register carries a fact it is the source
+#: and the projected column is its carrier.
+REGISTER_FACTS: tuple[str, ...] = (
+    "vrf",
+    "time_horizon",
+    "applicable_systems",
+    "lifecycle_state",
+)
+
+
+def _attach_register_facts(repo: Any, entry: dict[str, Any]) -> None:
+    """Ride the Register's per-requirement facts in on the join.
+
+    A section with a ``governing`` join carries the requirement's identity and
+    the facts that requirement already holds. Nothing is attached to a section
+    with no join — an unanchored section stays exactly as resolved, rather than
+    acquiring a plausible-looking blank.
+
+    Where the Register's ``authority_tier`` and the document-derived
+    ``authority_tier`` disagree, the disagreement is REPORTED on the entry
+    (``authority_tier_disagreement``) and neither value is overwritten. Two
+    derivations of one fact silently differing is the identity-space failure
+    this module has already had twice; the one thing that must not happen is
+    for one to quietly win.
+    """
+    entry["requirement_ids"] = []
+    entry["relations"] = []
+    try:
+        pairs = repo.requirements_for_section(str(entry["section_id"]))
+    except Exception:  # noqa: BLE001 — the join is an enrichment, never a gate
+        return
+    if not pairs:
+        return
+    entry["requirement_ids"] = sorted({rid for rid, _ in pairs})
+    entry["relations"] = sorted({rel for _, rel in pairs})
+    governing = [rid for rid, rel in pairs if rel == "governing"]
+    if not governing:
+        return
+    from portal.modules.compliance.core.cip_register import node_index
+
+    node = node_index().get(governing[0])
+    if node is None:
+        return
+    entry["requirement_id"] = node.id
+    for fact in REGISTER_FACTS:
+        entry[fact] = getattr(node, fact, "") or ""
+    register_tier = "" if node.authority_tier is None else str(node.authority_tier)
+    entry["register_authority_tier"] = register_tier
+    projected = str(entry.get("authority_tier") or "")
+    if projected and register_tier and projected != register_tier:
+        entry["authority_tier_disagreement"] = (
+            f"register says tier {register_tier} for {node.id}, "
+            f"the document projection says tier {projected}"
+        )
 
 
 def sections_in_scope(

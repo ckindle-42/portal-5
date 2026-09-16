@@ -471,6 +471,146 @@ class Repository:
         ).fetchone()
         return str(row[0]) if row else None
 
+    # ── the requirement → section join (ONE_REGULATORY_EXTRACTION_V1 P2) ──
+    def record_anchors(self, anchors: list[Any]) -> dict[str, int]:
+        """Upsert `requirement_anchor.Anchor` results into both join tables.
+
+        Idempotent: re-anchoring a revision after a re-capture rewrites the same
+        keys rather than accumulating. A miss is written to
+        `requirement_anchor_misses` and its `requirement_sections` rows for that
+        relation are cleared, so a requirement that stops anchoring stops being
+        joined instead of keeping a stale citation.
+
+        Writes nothing to `source_sections` — `capture.assert_faithful` raises on
+        overlapping spans and the capture is never edited to carry a join.
+        """
+        from portal.modules.compliance.core.requirement_anchor import Anchor
+
+        stamp = now_iso()
+        joined = missed = 0
+        with self._lock, self._conn:
+            for anchor in anchors:
+                if not isinstance(anchor, Anchor):
+                    raise TypeError(f"record_anchors expects Anchor, got {type(anchor).__name__}")
+                key = (anchor.requirement_id, anchor.revision_id, anchor.relation)
+                self._conn.execute(
+                    """DELETE FROM requirement_sections
+                       WHERE requirement_id = ? AND revision_id = ? AND relation = ?""",
+                    key,
+                )
+                self._conn.execute(
+                    """DELETE FROM requirement_anchor_misses
+                       WHERE requirement_id = ? AND revision_id = ? AND relation = ?""",
+                    key,
+                )
+                if not anchor.anchored:
+                    self._conn.execute(
+                        """INSERT INTO requirement_anchor_misses(requirement_id, revision_id,
+                               relation, reason, anchored_at) VALUES (?,?,?,?,?)""",
+                        (*key, anchor.reason, stamp),
+                    )
+                    missed += 1
+                    continue
+                self._conn.executemany(
+                    """INSERT INTO requirement_sections(requirement_id, revision_id, section_id,
+                           relation, char_start, char_end, occurrences, anchor_method,
+                           anchored_at, extractor_version)
+                       VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                    [
+                        (
+                            anchor.requirement_id,
+                            anchor.revision_id,
+                            section_id,
+                            anchor.relation,
+                            anchor.char_start,
+                            anchor.char_end,
+                            anchor.occurrences,
+                            "exact",
+                            stamp,
+                            "",
+                        )
+                        for section_id in anchor.section_ids
+                    ],
+                )
+                joined += len(anchor.section_ids)
+        return {"sections_joined": joined, "misses": missed}
+
+    def sections_for_requirement(
+        self,
+        requirement_id: str,
+        *,
+        relations: tuple[str, ...] = ("governing",),
+        valid_at: str = "",
+    ) -> list[dict[str, Any]]:
+        """The sections constituting ``requirement_id``, in reading order.
+
+        **This is the retrieval primitive that did not exist.** Without it there
+        was no way to ask for *the sections constituting CIP-007-6 R2 Part 2.2*,
+        which is why `reading_assembly` gathered by heading-path proximity and
+        `resolve_governing_bundle` re-parsed the PDF at call time.
+
+        ``relations`` defaults to ``("governing",)`` so a caller that wants only
+        the duty text gets only the duty text; pass more for the fuller
+        neighbourhood. A relation narrows WHICH of a requirement's material is
+        being asked for and must never be used to bar a passage from an unscoped
+        search.
+
+        ``valid_at`` selects the governing revision through `document_revisions`'
+        own clock, on the same ``""``-means-open-bound convention the rest of the
+        module uses.
+        """
+        if not requirement_id or not relations:
+            return []
+        rel_marks = ",".join("?" for _ in relations)
+        clock = ""
+        params: list[Any] = [requirement_id, *relations]
+        if valid_at:
+            clock = (
+                " AND (r.effective_date = '' OR r.effective_date IS NULL OR r.effective_date <= ?)"
+                " AND (r.inactive_date = '' OR r.inactive_date IS NULL OR r.inactive_date > ?)"
+            )
+            params += [valid_at, valid_at]
+        rows = self._conn.execute(
+            f"""SELECT j.section_id, j.relation, j.revision_id, j.char_start AS anchor_start,
+                       j.char_end AS anchor_end, j.occurrences, j.anchor_method,
+                       s.ordinal, s.path, s.heading_path, s.title, s.unit_kind,
+                       s.page_start, s.page_end
+                  FROM requirement_sections j
+                  JOIN source_sections s ON s.section_id = j.section_id
+                  JOIN document_revisions r ON r.revision_id = j.revision_id
+                 WHERE j.requirement_id = ? AND j.relation IN ({rel_marks}){clock}
+                 ORDER BY s.ordinal, j.relation""",  # noqa: S608 - placeholders only
+            tuple(params),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def requirements_for_section(self, section_id: str) -> list[tuple[str, str]]:
+        """``[(requirement_id, relation)]`` — the exact inverse of
+        :meth:`sections_for_requirement`.
+
+        A reader looking at a passage can say which requirements it bears on and
+        how, which is what makes a citation checkable in both directions rather
+        than only forwards.
+        """
+        rows = self._conn.execute(
+            """SELECT requirement_id, relation FROM requirement_sections
+               WHERE section_id = ? ORDER BY requirement_id, relation""",
+            (section_id,),
+        ).fetchall()
+        return [(str(r[0]), str(r[1])) for r in rows]
+
+    def anchor_misses(self, *, revision_id: str = "") -> list[dict[str, Any]]:
+        """Every unanchored requirement, optionally for one revision. The miss is
+        a queryable fact rather than a line in a report nobody re-reads."""
+        sql = "SELECT * FROM requirement_anchor_misses"
+        params: tuple[Any, ...] = ()
+        if revision_id:
+            sql += " WHERE revision_id = ?"
+            params = (revision_id,)
+        return [
+            dict(r) for r in self._conn.execute(sql + " ORDER BY requirement_id, relation", params)
+        ]
+
     def add_table_cells(
         self,
         section_id: str,

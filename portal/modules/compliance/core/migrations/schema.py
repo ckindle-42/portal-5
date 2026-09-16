@@ -734,4 +734,55 @@ MIGRATIONS: list[tuple[int, str, str]] = [
         );
         """,
     ),
+    (
+        14,
+        "requirement to section join, relation-typed (ONE_REGULATORY_EXTRACTION_V1 P2)",
+        # NOTE: this runner splits statements on ';' -- never put one inside a
+        # comment line inside a migration's SQL block (rule R9).
+        """
+        -- The key the graph and the corpus never shared. RegisterNode carries no
+        -- section_id and source_sections carries no requirement reference, so the
+        -- only overlap was source_pdf + source_pages, which is page granularity.
+        -- requirement_anchor locates a requirement's verbatim_text in the captured
+        -- character space by exact match and the overlapping sections ARE its
+        -- sections. Those pairs land here.
+        --
+        -- relation is on the primary key because one section legitimately bears
+        -- several relations to one requirement. A CIP requirements-table row is a
+        -- single table_row unit whose text is the joined cells, so the requirement
+        -- text, the applicable-systems column and the Measures column all sit in
+        -- that one section. That is the normal case, not a collision.
+        --
+        -- Additive only. No source_sections row is written by any of this, so
+        -- capture.assert_faithful is untouched.
+        CREATE TABLE requirement_sections (
+            requirement_id    TEXT NOT NULL,
+            revision_id       TEXT NOT NULL REFERENCES document_revisions(revision_id),
+            section_id        TEXT NOT NULL REFERENCES source_sections(section_id),
+            relation          TEXT NOT NULL DEFAULT 'governing',
+            char_start        INTEGER NOT NULL,
+            char_end          INTEGER NOT NULL,
+            occurrences       INTEGER NOT NULL DEFAULT 1,
+            anchor_method     TEXT NOT NULL DEFAULT 'exact',
+            anchored_at       TEXT NOT NULL,
+            extractor_version TEXT NOT NULL DEFAULT '',
+            org_id            TEXT NOT NULL DEFAULT 'default',
+            PRIMARY KEY (requirement_id, revision_id, section_id, relation)
+        );
+        CREATE INDEX ix_requirement_sections_section ON requirement_sections(section_id);
+        CREATE INDEX ix_requirement_sections_req ON requirement_sections(requirement_id, relation);
+
+        -- An unanchored requirement is a queryable fact rather than a line in a
+        -- report nobody re-reads. compliance_coverage reads this table.
+        CREATE TABLE requirement_anchor_misses (
+            requirement_id TEXT NOT NULL,
+            revision_id    TEXT NOT NULL,
+            relation       TEXT NOT NULL,
+            reason         TEXT NOT NULL,
+            anchored_at    TEXT NOT NULL,
+            org_id         TEXT NOT NULL DEFAULT 'default',
+            PRIMARY KEY (requirement_id, revision_id, relation)
+        );
+        """,
+    ),
 ]
