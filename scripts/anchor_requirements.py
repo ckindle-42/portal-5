@@ -35,9 +35,12 @@ from portal.modules.compliance.core.cip_register import Register  # noqa: E402
 from portal.modules.compliance.core.repository import Repository  # noqa: E402
 from portal.modules.compliance.core.requirement_anchor import (  # noqa: E402
     RELATIONS,
+    anchor_bundle_spans,
     anchor_report,
     anchor_revision,
 )
+
+PDF_DIR = REPO_ROOT / "portal" / "modules" / "compliance" / "data" / "cip_pdfs"
 
 REPORT_PATH = REPO_ROOT / "reports" / "compliance" / "requirement_anchor_rates.json"
 
@@ -83,10 +86,184 @@ def anchor_standard(
     anchors = anchor_revision(repo, revision_id, nodes)
     record["revision_id"] = revision_id
     record.update(anchor_report(anchors))
+    bundle_anchors = _bundle_anchors(repo, revision_id, pdf, sha256_prefix, nodes, record)
     record["status"] = "DRY_RUN" if dry_run else "ANCHORED"
     if not dry_run:
         record["written"] = repo.record_anchors(anchors)
+        if bundle_anchors:
+            record["bundle_written"] = repo.record_anchors(bundle_anchors)
     return record
+
+
+def _bundle_anchors(
+    repo: Repository,
+    revision_id: str,
+    pdf: str,
+    sha256_prefix: str,
+    nodes: list[Any],
+    record: dict[str, Any],
+) -> list[Any]:
+    """The revision bundle's Measures and Technical Basis, anchored (P5.1).
+
+    `regulatory_bundle` owns the whole semantic content of a revision and all of
+    it was reachable only through `resolve_governing_bundle`, re-parsed from the
+    PDF at call time. The GTB prose is already IN the capture, so nothing is
+    added to `source_sections` — each span is located in the captured character
+    space and a `requirement_sections` row points at the sections that already
+    contain it.
+
+    A bundle that cannot be extracted is reported, never fatal: the requirement
+    join stands on its own and the annotation is an enrichment on top of it.
+    """
+    from portal.modules.compliance.core.regulatory_bundle import extract_revision_bundle
+
+    path = PDF_DIR / pdf
+    if not path.is_file():
+        record["bundle"] = f"no local copy of {pdf} to extract"
+        return []
+    try:
+        bundle = extract_revision_bundle(path.read_bytes(), source_name=pdf, expected_sha256="")
+    except Exception as exc:  # noqa: BLE001 — a bundle failure is reported, not fatal
+        record["bundle"] = f"{type(exc).__name__}: {exc}"
+        return []
+    if not str(getattr(bundle, "source_sha256", "")).startswith(sha256_prefix):
+        record["bundle"] = "local bytes are not the Register's revision — bundle skipped"
+        return []
+    anchors = anchor_bundle_spans(repo, revision_id, bundle, nodes)
+    census: dict[str, int] = {}
+    sections: dict[str, set[str]] = {}
+    for anchor in anchors:
+        census[anchor.relation] = census.get(anchor.relation, 0) + 1
+        sections.setdefault(anchor.relation, set()).update(anchor.section_ids)
+    record["bundle"] = {
+        "technical_basis_section": getattr(bundle, "technical_basis_section", ""),
+        "spans_anchored": census,
+        "sections_joined": {rel: len(ids) for rel, ids in sections.items()},
+    }
+    return anchors
+
+
+def verify_bundle_equivalence(
+    repo: Repository, register: Register, standard: str
+) -> dict[str, Any]:
+    """Does the join reach everything re-parsing the PDF reaches? (P5.3)
+
+    The precondition for file D. `resolve_governing_bundle` re-parses the PDF at
+    call time to obtain the Measures and the Guidelines and Technical Basis; §P5
+    claims the same material is reachable through the stored join. This measures
+    it, and the measure is by SECTION, not by byte: the two readers render the
+    same bytes differently (pymupdf splices the running page header inline,
+    docling does not), so byte equality between their outputs is the wrong test
+    and would fail for reasons that have nothing to do with reachability.
+
+    For every Technical Basis piece the bundle carries, locate it in the capture
+    and check the sections covering it are all in the join's set. Anything the
+    bundle reaches and the join does not is NAMED.
+    """
+    from portal.modules.compliance.core.regulatory_bundle import extract_revision_bundle
+    from portal.modules.compliance.core.requirement_anchor import (
+        OffsetMap,
+        _span_pieces,
+        locate,
+        sections_overlapping,
+    )
+
+    nodes = [n for n in register.nodes if n.standard == standard]
+    pdf = next((n.source_pdf for n in nodes if n.source_pdf), "")
+    revision_id = _revision_for(repo, standard, register.source_pdfs.get(pdf, ""))
+    if not revision_id or not (repo.get_document_text(revision_id) or ""):
+        return {"standard": standard, "status": "NOT_CAPTURED"}
+    offsets = OffsetMap.build(repo.get_document_text(revision_id) or "")
+    bundle = extract_revision_bundle((PDF_DIR / pdf).read_bytes(), source_name=pdf)
+
+    located = covered = 0
+    unreachable: list[str] = []
+    for node in nodes:
+        joined = {
+            str(r["section_id"])
+            for r in repo.sections_for_requirement(node.id, relations=("technical_basis",))
+        }
+        # every component `anchor_bundle_spans` writes, so the measure covers
+        # what the join actually claims rather than a subset of it.
+        spans = [
+            *bundle.technical_basis.get(node.requirement, []),
+            *bundle.technical_basis_rationale.get(node.requirement, []),
+            *(
+                bundle.technical_basis_parts.get(f"{node.requirement} Part {node.part}", [])
+                if node.part
+                else []
+            ),
+        ]
+        for span in spans:
+            for group in _span_pieces(span.text):
+                for piece in group[1:] or group[:1]:
+                    start, end, _count, _why = locate(piece, offsets)
+                    if start < 0:
+                        continue
+                    located += 1
+                    missing = set(sections_overlapping(repo, revision_id, start, end)) - joined
+                    if missing:
+                        unreachable.append(f"{node.id}: {sorted(missing)[0]}")
+                    else:
+                        covered += 1
+    return {
+        "standard": standard,
+        "status": "MEASURED",
+        "pieces_located": located,
+        "covered_by_the_join": covered,
+        "rate": round(covered / located, 4) if located else 0.0,
+        "reachable_by_reparse_only": sorted(set(unreachable)),
+    }
+
+
+def _print_summary(summary: dict[str, Any]) -> None:
+    """The fleet-wide rates, and every miss by name — never a rounded total."""
+    print("\nfleet-wide, per relation:")
+    for relation, stats in summary["by_relation"].items():
+        print(f"  {relation:20s} {stats['anchored']:4d}/{stats['attempted']:4d} = {stats['rate']}")
+    if summary["unanchored"]:
+        print(f"\n{len(summary['unanchored'])} unanchored, every one named:")
+        for miss in summary["unanchored"]:
+            print(f"  {miss['relation']:20s} {miss['requirement_id']:28s} {miss['reason']}")
+
+
+def _console_line(record: dict[str, Any]) -> str:
+    """One standard's per-relation rates, as the operator reads them."""
+    rates = " ".join(
+        f"{rel[:4]}={record['by_relation'][rel]['anchored']}"
+        f"/{record['by_relation'][rel]['attempted']}"
+        for rel in RELATIONS
+        if rel in record.get("by_relation", {})
+    )
+    return (
+        f"{record['standard']:14s} {record['status']:12s} nodes={record['nodes']:3d}  "
+        f"{rates}  {record.get('detail', '')}"
+    )
+
+
+def _equivalence_pass(
+    register: Register, standards: list[str], *, quiet: bool
+) -> list[dict[str, Any]]:
+    """The P5.3 measurement across a set of standards, reported as it runs."""
+    repo = Repository()
+    try:
+        rows = [verify_bundle_equivalence(repo, register, s) for s in standards]
+    finally:
+        repo.close()
+    if quiet:
+        return rows
+    print("\nbundle equivalence — does the join reach what re-parsing reaches?")
+    for row in rows:
+        if row["status"] != "MEASURED":
+            print(f"  {row['standard']:14s} {row['status']}")
+            continue
+        only = row["reachable_by_reparse_only"]
+        print(
+            f"  {row['standard']:14s} {row['covered_by_the_join']:4d}/"
+            f"{row['pieces_located']:4d} = {row['rate']}"
+            + (f"  reparse-only: {len(only)}" if only else "")
+        )
+    return rows
 
 
 def _summarise(records: list[dict[str, Any]]) -> dict[str, Any]:
@@ -125,6 +302,11 @@ def main() -> int:
     ap.add_argument("--all", action="store_true")
     ap.add_argument("--standard", default="")
     ap.add_argument("--report", action="store_true", help=f"write {REPORT_PATH}")
+    ap.add_argument(
+        "--verify-bundle-equivalence",
+        action="store_true",
+        help="measure whether the join reaches everything re-parsing the PDF reaches (P5.3)",
+    )
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
@@ -147,33 +329,17 @@ def main() -> int:
             record = anchor_standard(repo, register, standard, dry_run=args.dry_run)
             records.append(record)
             if not args.json:
-                rates = " ".join(
-                    f"{rel[:4]}={record['by_relation'][rel]['anchored']}"
-                    f"/{record['by_relation'][rel]['attempted']}"
-                    for rel in RELATIONS
-                    if rel in record.get("by_relation", {})
-                )
-                print(
-                    f"{standard:14s} {record['status']:12s} nodes={record['nodes']:3d}  {rates}"
-                    f"  {record.get('detail', '')}",
-                    flush=True,
-                )
+                print(_console_line(record), flush=True)
     finally:
         repo.close()
 
     summary = _summarise(records)
+    if args.verify_bundle_equivalence:
+        summary["bundle_equivalence"] = _equivalence_pass(register, standards, quiet=args.json)
     if args.json:
         print(json.dumps(summary, indent=2))
     else:
-        print("\nfleet-wide, per relation:")
-        for relation, stats in summary["by_relation"].items():
-            print(
-                f"  {relation:20s} {stats['anchored']:4d}/{stats['attempted']:4d} = {stats['rate']}"
-            )
-        if summary["unanchored"]:
-            print(f"\n{len(summary['unanchored'])} unanchored, every one named:")
-            for miss in summary["unanchored"]:
-                print(f"  {miss['relation']:20s} {miss['requirement_id']:28s} {miss['reason']}")
+        _print_summary(summary)
     if args.report:
         REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
         REPORT_PATH.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")

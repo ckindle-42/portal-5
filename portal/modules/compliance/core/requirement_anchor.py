@@ -260,6 +260,148 @@ def anchor_revision(repo: Any, revision_id: str, nodes: list[Any]) -> list[Ancho
     return out
 
 
+#: How long a bundle span may be before it is anchored in pieces. A whole
+#: Guidelines-and-Technical-Basis region is thousands of characters, and the two
+#: readers disagree about it in exactly one recurring way: pymupdf reads the
+#: running page header ("Guidelines and Technical Basis") as inline text, so the
+#: bundle's prose carries a heading spliced mid-sentence that the capture does
+#: not. One such splice would otherwise discard the whole region.
+#:
+#: Splitting does NOT loosen the match — every piece is still located by exact
+#: substring — it only bounds the blast radius of one disagreement.
+MAX_SPAN_CHARS = 600
+
+
+def _span_pieces(text: str) -> list[list[str]]:
+    """A long span as paragraph-sized groups, each group as its own lines.
+
+    Returns ``[[group_text, *its lines], …]``: the group is tried first because
+    a longer needle is a more distinctive one, and its lines are the retry for
+    a group a header splice landed inside. Both are exact matches.
+    """
+    lines: list[str] = []
+    for raw in (text or "").splitlines():
+        if not normalise(raw):
+            continue
+        # A reader that emits no line breaks (the M<n> lead-ins arrive as one
+        # unbroken run that continues into the requirements table, where the two
+        # readers lay cells out differently) still needs a retry unit. Sentences
+        # are that unit. Still exact substrings -- `locate` is never loosened.
+        if len(raw) > MAX_SPAN_CHARS:
+            lines.extend(s for s in re.split(r"(?<=[.;])\s+", raw) if normalise(s))
+        else:
+            lines.append(raw)
+    groups: list[list[str]] = []
+    buf: list[str] = []
+    size = 0
+    for line in lines:
+        if buf and size + len(line) > MAX_SPAN_CHARS:
+            groups.append(["\n".join(buf), *buf])
+            buf, size = [], 0
+        buf.append(line)
+        size += len(line)
+    if buf:
+        groups.append(["\n".join(buf), *buf])
+    return groups or [[text]]
+
+
+def _leadin_statement(text: str) -> str:
+    """The M<n> statement itself, not the table it runs into.
+
+    ``regulatory_bundle`` bounds a Measures lead-in at the start of the NEXT
+    region, so the extracted span continues past the statement and through the
+    whole requirements table. That span is requirement-level, and attaching all
+    of it to every Part of the requirement would join Part 2.1's Measures cell
+    to Part 2.4 — a citation that looks correct and cannot be checked
+    afterwards, which is the exact failure this module refuses.
+
+    The statement is the first sentence. Each Part's own Measures cell is
+    already joined exactly, from the Register's per-Part ``measure_text``.
+    """
+    head = re.split(r"(?<=\.)\s+", (text or "").strip(), maxsplit=1)
+    return head[0] if head else ""
+
+
+def anchor_bundle_spans(
+    repo: Any,
+    revision_id: str,
+    bundle: Any,
+    nodes: list[Any],
+) -> list[Anchor]:
+    """Anchor a revision bundle's Measures and Technical Basis into the capture.
+
+    ONE_REGULATORY_EXTRACTION_V1 P5.1. `regulatory_bundle` owns the whole
+    semantic content of a revision — the Measures column and the ``M<n>``
+    statements, the Guidelines and Technical Basis per requirement and per Part,
+    the rationale boxes — and until now all of it was reachable only through
+    `resolve_governing_bundle`, re-parsed from the PDF at call time.
+
+    **The GTB text is already captured.** It sits in ``full_text`` as prose under
+    its own heading path. So nothing is added to `source_sections` — and nothing
+    may be, because `assert_faithful` raises on overlapping spans. Each span is
+    located in the captured character space and a `requirement_sections` row is
+    written pointing at the sections that already contain it.
+
+    A requirement-level span attaches to every Register node of that requirement:
+    the Register carries CIP-007-6 at Part granularity with no R-level node, and
+    the Guidelines for R2 are the interpretive context of 2.1 through 2.4 alike.
+
+    ``bundle`` is duck-typed on purpose — this module stays free of
+    `regulatory_bundle`, which re-parses PDFs.
+    """
+    full = repo.get_document_text(revision_id) or ""
+    if not full:
+        return []
+    offsets = OffsetMap.build(full)
+    by_requirement: dict[str, list[str]] = {}
+    by_part: dict[str, str] = {}
+    for node in nodes:
+        requirement = str(getattr(node, "requirement", "") or "")
+        part = str(getattr(node, "part", "") or "")
+        by_requirement.setdefault(requirement, []).append(str(node.id))
+        if part:
+            by_part[f"{requirement} Part {part}"] = str(node.id)
+
+    out: list[Anchor] = []
+    seen: set[tuple[str, str, str]] = set()
+
+    def emit(req_ids: list[str], text: str, relation: str) -> None:
+        for group in _span_pieces(text):
+            whole, lines = group[0], group[1:]
+            for req_id in req_ids:
+                key = (req_id, relation, normalise(whole)[:120])
+                if key in seen:
+                    continue
+                seen.add(key)
+                anchor = _anchor_one(repo, revision_id, offsets, req_id, whole, relation)
+                if anchor.anchored:
+                    out.append(anchor)
+                    continue
+                # the group did not locate — a header splice, almost always.
+                # Retry its lines individually. Still exact, never fuzzy.
+                out.extend(
+                    line_anchor
+                    for line in lines
+                    if (
+                        line_anchor := _anchor_one(
+                            repo, revision_id, offsets, req_id, line, relation
+                        )
+                    ).anchored
+                )
+
+    for key, spans in (getattr(bundle, "technical_basis", {}) or {}).items():
+        emit(by_requirement.get(key, []), "\n\n".join(s.text for s in spans), "technical_basis")
+    for key, spans in (getattr(bundle, "technical_basis_parts", {}) or {}).items():
+        node_id = by_part.get(key)
+        if node_id:
+            emit([node_id], "\n\n".join(s.text for s in spans), "technical_basis")
+    for key, spans in (getattr(bundle, "technical_basis_rationale", {}) or {}).items():
+        emit(by_requirement.get(key, []), "\n\n".join(s.text for s in spans), "technical_basis")
+    for key, text in (getattr(bundle, "measures_leadins", {}) or {}).items():
+        emit(by_requirement.get(key, []), _leadin_statement(str(text)), "measure")
+    return out
+
+
 def anchor_report(anchors: list[Anchor]) -> dict[str, Any]:
     """The honest census, per relation. Every miss named, never rounded away.
 

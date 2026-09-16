@@ -352,6 +352,118 @@ class TestTheCaptureIsUntouched:
         assert report["reconstruction_diff"] == ""
 
 
+# ── Measures and the Technical Basis, through the join (P5) ─────────────────
+class _Bundle:
+    """The shape `anchor_bundle_spans` reads off a `RevisionBundle`. Duck-typed
+    on purpose — `requirement_anchor` stays free of `regulatory_bundle`, which
+    re-parses PDFs at call time."""
+
+    def __init__(self, **kw: object) -> None:
+        self.technical_basis: dict = kw.get("technical_basis", {})  # type: ignore[assignment]
+        self.technical_basis_parts: dict = kw.get("technical_basis_parts", {})  # type: ignore[assignment]
+        self.technical_basis_rationale: dict = kw.get("technical_basis_rationale", {})  # type: ignore[assignment]
+        self.measures_leadins: dict = kw.get("measures_leadins", {})  # type: ignore[assignment]
+        self.technical_basis_section = "present"
+
+
+class _Span:
+    def __init__(self, text: str) -> None:
+        self.text = text
+        self.role = "TECHNICAL_BASIS"
+
+
+GTB_TEXT = BODIES[4][2]
+
+
+class TestTheTechnicalBasisIsReachableThroughTheJoin:
+    def _nodes(self) -> list[_Node]:
+        node = _Node("CIP-007-6 R2 Part 2.2", REQ_2_2, MEASURE_2_2, SYSTEMS_2_2)
+        node.requirement, node.part = "R2", "2.2"  # type: ignore[attr-defined]
+        return [node]
+
+    def test_a_gtb_span_resolves_in_both_directions(self, store: Repository) -> None:
+        bundle = _Bundle(technical_basis={"R2": [_Span(GTB_TEXT)]})
+        anchors = ra.anchor_bundle_spans(store, store.revision_id, bundle, self._nodes())
+        store.record_anchors(anchors)
+        gtb = _section_at(store, 4)
+        rows = store.sections_for_requirement(
+            "CIP-007-6 R2 Part 2.2", relations=("technical_basis",)
+        )
+        assert [r["section_id"] for r in rows] == [gtb]
+        assert ("CIP-007-6 R2 Part 2.2", "technical_basis") in store.requirements_for_section(gtb)
+
+    def test_a_per_part_span_attaches_to_that_part(self, store: Repository) -> None:
+        bundle = _Bundle(technical_basis_parts={"R2 Part 2.2": [_Span(GTB_TEXT)]})
+        store.record_anchors(
+            ra.anchor_bundle_spans(store, store.revision_id, bundle, self._nodes())
+        )
+        rows = store.sections_for_requirement(
+            "CIP-007-6 R2 Part 2.2", relations=("technical_basis",)
+        )
+        assert [r["section_id"] for r in rows] == [_section_at(store, 4)]
+
+    def test_no_source_section_row_is_created_by_the_annotation(self, store: Repository) -> None:
+        before = store._conn.execute("SELECT COUNT(*) FROM source_sections").fetchone()[0]
+        bundle = _Bundle(
+            technical_basis={"R2": [_Span(GTB_TEXT)]},
+            measures_leadins={"R2": MEASURE_2_2},
+        )
+        store.record_anchors(
+            ra.anchor_bundle_spans(store, store.revision_id, bundle, self._nodes())
+        )
+        after = store._conn.execute("SELECT COUNT(*) FROM source_sections").fetchone()[0]
+        assert after == before
+        report = assert_faithful(_capture(Path("/docs/cip-007-6.pdf"), BODIES))
+        assert report["overlaps"] == [] and report["reconstruction_diff"] == ""
+
+    def test_a_relation_narrows_but_the_gtb_stays_reachable_unscoped(
+        self, store: Repository
+    ) -> None:
+        bundle = _Bundle(technical_basis={"R2": [_Span(GTB_TEXT)]})
+        store.record_anchors(
+            ra.anchor_bundle_spans(store, store.revision_id, bundle, self._nodes())
+        )
+        gtb = _section_at(store, 4)
+        duty = store.sections_for_requirement("CIP-007-6 R2 Part 2.2")
+        assert gtb not in {r["section_id"] for r in duty}, "the relation narrows"
+        # ...and the passage is still a passage: it resolves, with its text, and
+        # nothing about the relation removes it from the store.
+        entry = si.resolve_sections(store, [gtb])[gtb]
+        assert entry["resolvable"] and entry["text"].strip()
+        assert entry["relations"] == ["technical_basis"]
+
+    def test_a_span_absent_from_the_capture_is_simply_not_joined(self, store: Repository) -> None:
+        bundle = _Bundle(technical_basis={"R2": [_Span("A paragraph the capture does not hold.")]})
+        anchors = ra.anchor_bundle_spans(store, store.revision_id, bundle, self._nodes())
+        assert anchors == [], "never approximated to the nearest section"
+
+    def test_a_requirement_level_span_reaches_every_part_of_that_requirement(
+        self, store: Repository
+    ) -> None:
+        other = _Node("CIP-007-6 R2 Part 2.3", REQ_2_2)
+        other.requirement, other.part = "R2", "2.3"  # type: ignore[attr-defined]
+        nodes = [*self._nodes(), other]
+        bundle = _Bundle(technical_basis={"R2": [_Span(GTB_TEXT)]})
+        store.record_anchors(ra.anchor_bundle_spans(store, store.revision_id, bundle, nodes))
+        gtb = _section_at(store, 4)
+        assert sorted(r for r, rel in store.requirements_for_section(gtb)) == [
+            "CIP-007-6 R2 Part 2.2",
+            "CIP-007-6 R2 Part 2.3",
+        ]
+
+    def test_a_measures_leadin_is_the_statement_not_the_table_it_runs_into(self) -> None:
+        # regulatory_bundle bounds a lead-in at the NEXT region, so the span
+        # continues through the whole requirements table. Attaching all of it to
+        # every Part would join 2.1's Measures cell to 2.4.
+        leadin = (
+            "Evidence must include each of the applicable documented processes. "
+            "CIP-007-6 Table R2 Part Applicable Systems Requirements Measures 2.1 High Impact"
+        )
+        assert ra._leadin_statement(leadin) == (
+            "Evidence must include each of the applicable documented processes."
+        )
+
+
 # ── Register facts ride in on the join ───────────────────────────────────────
 class TestRegisterFactsRideOnTheJoin:
     def test_a_governing_join_carries_the_requirements_facts(

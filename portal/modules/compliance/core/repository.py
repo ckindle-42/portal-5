@@ -488,21 +488,28 @@ class Repository:
 
         stamp = now_iso()
         joined = missed = 0
+        # A key is cleared ONCE per call, not once per anchor: one requirement
+        # legitimately receives several anchors under one relation (a Technical
+        # Basis region arrives as paragraph-sized pieces), and clearing per
+        # anchor would leave only the last piece joined.
+        cleared: set[tuple[str, str, str]] = set()
         with self._lock, self._conn:
             for anchor in anchors:
                 if not isinstance(anchor, Anchor):
                     raise TypeError(f"record_anchors expects Anchor, got {type(anchor).__name__}")
                 key = (anchor.requirement_id, anchor.revision_id, anchor.relation)
-                self._conn.execute(
-                    """DELETE FROM requirement_sections
-                       WHERE requirement_id = ? AND revision_id = ? AND relation = ?""",
-                    key,
-                )
-                self._conn.execute(
-                    """DELETE FROM requirement_anchor_misses
-                       WHERE requirement_id = ? AND revision_id = ? AND relation = ?""",
-                    key,
-                )
+                if key not in cleared:
+                    cleared.add(key)
+                    self._conn.execute(
+                        """DELETE FROM requirement_sections
+                           WHERE requirement_id = ? AND revision_id = ? AND relation = ?""",
+                        key,
+                    )
+                    self._conn.execute(
+                        """DELETE FROM requirement_anchor_misses
+                           WHERE requirement_id = ? AND revision_id = ? AND relation = ?""",
+                        key,
+                    )
                 if not anchor.anchored:
                     self._conn.execute(
                         """INSERT INTO requirement_anchor_misses(requirement_id, revision_id,
@@ -515,7 +522,10 @@ class Repository:
                     """INSERT INTO requirement_sections(requirement_id, revision_id, section_id,
                            relation, char_start, char_end, occurrences, anchor_method,
                            anchored_at, extractor_version)
-                       VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                       VALUES (?,?,?,?,?,?,?,?,?,?)
+                       ON CONFLICT(requirement_id, revision_id, section_id, relation)
+                       DO UPDATE SET char_start = MIN(char_start, excluded.char_start),
+                                     char_end = MAX(char_end, excluded.char_end)""",
                     [
                         (
                             anchor.requirement_id,
