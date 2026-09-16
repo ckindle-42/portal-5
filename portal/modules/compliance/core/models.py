@@ -59,6 +59,11 @@ class DocumentRevision:
     version: str = ""
     owner: str = ""
     owner_title: str = ""
+    # migration 12 (BILATERAL_CORPUS_V1 P3): regulatory lifecycle, parsed from
+    # the One-Stop-Shop workbook. None/'' means the registry states none.
+    inactive_date: str | None = None
+    lifecycle_status: str = ""
+    source_url: str = ""
 
 
 @dataclass

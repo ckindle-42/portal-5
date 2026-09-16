@@ -440,3 +440,138 @@ graph-derived definitions from Glossary-derived ones instead of asserting an
 exact list.
 
 **Rollback.** `git revert <sha>`; acquired bytes stay (append-only).
+
+---
+
+## §4 — P3 symmetric materialization
+
+`scripts/materialize_regulatory_corpus.py`, the twin of
+`materialize_internal_corpus.py`. Migration 12 applied live (v11 → v12) against
+`data/private/backups/pre-v12-20260916T030238Z.db`.
+
+### 4.1 Live run
+
+```
+NERC/one-stop-shop                    lifecycle_registry   eff -           inact -           not captured — structured registry
+NERC/glossary-of-terms                glossary             eff -           inact -            330 sections, 330 glossary terms
+NERC/CIP-007-6                        regulatory_standard  eff 2016-07-01  inact 2028-06-30   278 sections,  80218 chars, cov 100.0%
+NERC/CIP-007-6 implementation plan    implementation_plan  eff 2016-07-01  inact 2028-06-30   116 sections,  20627 chars, cov 100.0%
+NERC/CIP-007-7.1                      regulatory_standard  eff 2028-07-01  inact -            141 sections,  34706 chars, cov 100.0%
+NERC/CIP-007-7.1 implementation plan  implementation_plan  eff 2028-07-01  inact -             97 sections,  10982 chars, cov 100.0%
+NERC/CIP-007-7.1 technical rationale  technical_rationale  eff 2028-07-01  inact -            211 sections,  62919 chars, cov 100.0%
+
+hash-verified artifacts: 7
+jurisdiction rows normalised: 13
+jurisdictions now: ['internal', 'US']
+```
+
+Every date above is the workbook's, not a filename's. The workbook itself is
+registered and dated but deliberately **not captured as prose** — its content is
+the lifecycle facts, and those are already recorded structurally on every
+revision they describe.
+
+### 4.2 Store after P3
+
+| jurisdiction | source_kind | documents | sections |
+| --- | --- | --- | --- |
+| US | regulatory_standard | 15 | 781 |
+| US | glossary | 1 | 330 |
+| US | implementation_plan | 2 | 213 |
+| US | technical_rationale | 1 | 211 |
+| US | lifecycle_registry | 1 | 0 |
+| internal | procedure | 28 | 1,176 |
+| internal | work_instruction | 26 | 979 |
+| internal | plan | 5 | 309 |
+| internal | policy | 1 | 68 |
+| internal | process | 2 | 49 |
+| internal | unknown | 1 | 38 |
+| internal | evidence_specification | 5 | 17 |
+
+Regulatory sections by `unit_kind`: prose 757, list_item 246, table_row 119,
+table 51, figure_caption 1 — plus **362 with an empty `unit_kind`**, which are
+the pre-P1 register-materializer rows on the `data/cip_pdfs/` revisions. They are
+legacy, have no captured coordinate space, and P4 projects only captured
+sections and reports the rest rather than pretending they resolve.
+
+### 4.3 Both clocks, from the corpus rather than the register
+
+`temporal_selection.select_document_effectivity` answers the two-clock question
+from `document_revisions`' workbook-sourced lifecycle. Live, side by side with
+the existing register path:
+
+| valid_at | register: selected / future / historical | corpus: selected / future / historical |
+| --- | --- | --- |
+| 2026-09-15 | `6` / `7.1` / — | `6` / `7.1` / — |
+| 2029-01-01 | `7.1` / — / `6` | `7.1` / — / `6` |
+
+Identical. Also verified: at `2015-01-01` both revisions are `future`; with
+`known_at=2020-01-01` both answer `UNKNOWN_KNOWLEDGE` (the store had not yet
+acquired them); a revision with no effective date is `undated`, never read as
+always-in-force (F02).
+
+### 4.4 Identity, repaired
+
+`canonical_identity` derives the logical id from the artifact's **role** and the
+standard id in its name, with the version's own case preserved
+(`CIP-002-5.1a`, not `5.1A`). Repairs applied to pre-P3 rows:
+
+```
+NERC/cip-007-6.pdf                        -> NERC/CIP-007-6
+NERC/cip-007-7.1.pdf                      -> NERC/CIP-007-7.1
+NERC/cip-007-6-implementation-plan.pdf    -> NERC/CIP-007-6 implementation plan
+NERC/cip-007-7.1-implementation-plan.pdf  -> NERC/CIP-007-7.1 implementation plan
+NERC/cip-007-7.1-technical-rationale.pdf  -> NERC/CIP-007-7.1 technical rationale
+NERC/one-stop-shop.xlsx                   -> NERC/one-stop-shop
+```
+
+The first implementation of this merged `NERC/CIP-007-6 implementation plan`
+into `NERC/CIP-007-6` — the version regex `^(cip-\d{3}-[\w.]+)` swallowed the
+file extension, and the repair pass matched canonical ids as well as legacy
+ones. Caught by reading the run's own output, rolled back to the pre-run
+snapshot, and fixed twice over: the regex now reads the name's *stem*, and the
+repair only matches ids that end in a file extension, so it can never merge a
+component into the standard it belongs to.
+
+### 4.5 A test was writing to the operator's live store
+
+While reconciling the post-run census, the Glossary showed **331** sections
+against **330** terms. The extra one was a `document_revisions` row whose
+`alias_path` was
+`/private/var/.../pytest-of-chris/pytest-1570/test_failed_refresh_preserves_0/glossary-of-terms.html`.
+
+`Repository()` with no argument defaults to the production database, and the
+hermetic NERC-sync test reached a code path that constructs one. A tmp_path
+fixture's glossary page had landed in the operator's store as a real revision
+with a real section, and nothing would have noticed but a count being one too
+high.
+
+Fixed at the root, not worked around:
+
+* the leaked revision, its section, span and text were deleted;
+* the sync tests stub Glossary registration, which is the store's concern, not
+  the transport's;
+* `tests/unit/conftest.py` gained an autouse fixture that redirects
+  `Repository.__init__`'s and `MappingStore.__init__`'s **bound defaults** to a
+  scratch file. The module constant `DEFAULT_DB_PATH` is left alone on purpose —
+  it is the declaration that the two share one canonical file, and a test
+  asserts exactly that.
+
+A second defect surfaced with it: `store_capture` deleted prior sections by the
+module-level `EXTRACTOR` ("docling") while inserting under
+`captured.extractor`, so a Glossary re-capture would leave stale units beside
+fresh ones. Now scoped to the capture's own extractor.
+
+### 4.6 Verification
+
+| gate | result |
+| --- | --- |
+| `uv run pytest tests/unit/ -q` | **2054 passed, 4 skipped** (+20 P3) |
+| ruff check / format across `portal/ tests/ scripts/` | clean |
+| `tests/unit/test_spine_gates.py` | 6 passed |
+| store schema version | **12** |
+| hash-match gate | 7/7 artifacts verified; mismatch and missing-file both covered by tests |
+| jurisdictions in the store | `internal`, `US` — the split is gone |
+
+**Rollback.** `git revert <sha>`; restore
+`data/private/backups/pre-regulatory-20260916T030415Z.db` (the run takes its own
+snapshot first).

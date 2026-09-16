@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -292,7 +293,50 @@ def parse_lifecycle(xlsx_bytes: bytes, *, registry_sha256: str = "") -> dict[str
 # ── the bundle synchronizer ─────────────────────────────────────────────────
 
 
-def _register_in_store(logical_id: str, title: str, alias_path: str, payload: bytes) -> str:
+#: artifact role -> (source_kind, logical-id suffix). The logical id is the
+#: STANDARD's stable identity plus the component, never the filename: two
+#: acquisitions of the same standard are two revisions of one document, and a
+#: filename change must not fork the identity (BILATERAL_CORPUS_V1 P3).
+_ROLE_IDENTITY: dict[str, tuple[str, str]] = {
+    "standard": ("regulatory_standard", ""),
+    "implementation_plan": ("implementation_plan", " implementation plan"),
+    "technical_rationale": ("technical_rationale", " technical rationale"),
+    "rsaw": ("rsaw", " RSAW"),
+    "registry": ("lifecycle_registry", ""),
+}
+
+# the standard id at the head of an artifact name, read off the name's stem so a
+# version dot is never confused with a file extension: cip-007-6.pdf ->
+# CIP-007-6, cip-002-5.1a.pdf -> CIP-002-5.1A,
+# cip-007-6-implementation-plan.pdf -> CIP-007-6.
+_ARTIFACT_EXT_RE = re.compile(r"\.(pdf|xlsx|html|htm|docx)$", re.I)
+_ARTIFACT_STANDARD_RE = re.compile(r"^(cip-\d{3}-[\d.]+[a-z]?)(?:$|-)", re.I)
+
+
+def canonical_identity(artifact: Artifact) -> tuple[str, str, str]:
+    """``(logical_id, source_kind, title)`` for one acquired artifact.
+
+    Derived from the artifact's ROLE and the standard id its name carries, so
+    ``cip-007-6.pdf`` and a later ``cip-007-6-clean.pdf`` are two revisions of
+    ``NERC/CIP-007-6`` rather than two documents. An artifact whose name carries
+    no standard id keeps its own name as its identity — honest, and visible.
+    """
+    kind, suffix = _ROLE_IDENTITY.get(artifact.role, ("official_standard_material", ""))
+    if artifact.role == "registry":
+        return "NERC/one-stop-shop", kind, "NERC One-Stop Shop lifecycle registry"
+    m = _ARTIFACT_STANDARD_RE.match(_ARTIFACT_EXT_RE.sub("", artifact.name))
+    if not m:
+        return f"NERC/{artifact.name}", kind, artifact.name
+    family, number, version = m.group(1).split("-", 2)
+    # the family is upper-cased, the version kept exactly as published: the
+    # register spells it CIP-002-5.1a, and 5.1A is a different string.
+    standard = f"{family.upper()}-{number}-{version}"
+    return f"NERC/{standard}{suffix}", kind, f"{standard}{suffix}".strip()
+
+
+def _register_in_store(
+    logical_id: str, title: str, alias_path: str, payload: bytes, source_kind: str
+) -> str:
     """Record the artifact in the canonical store as an immutable revision.
 
     Idempotent on identical bytes (content hash). New bytes at the same alias
@@ -308,7 +352,7 @@ def _register_in_store(logical_id: str, title: str, alias_path: str, payload: by
                 logical_id=logical_id,
                 title=title,
                 issuer="NERC",
-                source_kind="official_standard_material",
+                source_kind=source_kind,
                 jurisdiction="US",
             )
         )
@@ -359,12 +403,14 @@ def _register_artifacts(report: SyncReport) -> None:
                     "bytes and manifest retained, defined terms will not resolve"
                 )
             continue
+        logical_id, source_kind, title = canonical_identity(artifact)
         try:
             revision_id = _register_in_store(
-                logical_id=f"NERC/{artifact.name}",
-                title=artifact.name,
+                logical_id=logical_id,
+                title=title,
                 alias_path=artifact.path,
                 payload=payload,
+                source_kind=source_kind,
             )
             report.store_revisions[artifact.name] = revision_id
         except Exception as exc:  # noqa: BLE001 - store failure is a warning, not data loss
