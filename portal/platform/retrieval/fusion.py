@@ -12,6 +12,7 @@ injected as callables so a second composition can swap the service client.
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Awaitable, Callable
 from typing import Any, cast
 
@@ -47,6 +48,58 @@ FUSION = os.environ.get("VL_FUSION", "text_gate")
 UNIFIED_TEXT_DEPTH = float(os.environ.get("VL_UNIFIED_TEXT_DEPTH", "3"))
 
 RerankFn = Callable[[str, list[dict[str, Any]], int], Awaitable[list[dict[str, Any]]]]
+
+# SUBSTRATE_PROPERTIES_V1 P2 — the filter seam.
+#
+# A ``where`` predicate is pushed into BOTH text arms (the dense search and the
+# BM25 search) and into the visual search WHERE the visual table carries the
+# column. A predicate applied to one arm and not the other returns a fused list
+# where half the candidates ignore the filter — worse than no filter, because
+# the result LOOKS filtered. So a predicate the visual schema cannot express is
+# not silently skipped: ``fuse`` reports per-arm application via
+# :class:`FusedWithFilter`, and a caller that asked for a filter can see exactly
+# what it narrowed.
+
+
+class FusedWithFilter(list):
+    """The fusion output, when a ``where`` predicate was requested.
+
+    A ``list`` (every consumer unchanged), carrying ``filter_report``: one entry
+    per searched arm, ``"applied"`` or why it was not.
+    """
+
+    filter_report: dict[str, str]
+
+    def __init__(self, rows: list[dict[str, Any]], filter_report: dict[str, str]):
+        super().__init__(rows)
+        self.filter_report = filter_report
+
+
+def _arm_has_column(table: Any, clause: str) -> bool:
+    """Can this table apply the clause at all — does its schema carry the columns?
+
+    Quoted literals are stripped first (a value like ``'US'`` is data, not an
+    identifier), then the check runs over the identifiers the clause names. A
+    clause the schema cannot express must be REPORTED, never silently dropped
+    (that is the failure this seam exists to prevent) and never half-applied to
+    the arms that happen to work.
+    """
+    if table is None:
+        return False
+    try:
+        names = set(table.schema.names)
+    except Exception:  # noqa: BLE001 - a table without an inspectable schema
+        return False
+    bare = re.sub(r"'(?:[^']|'')*'", "", clause)
+    for m in re.finditer(r"[A-Za-z_][A-Za-z0-9_.]*", bare):
+        name = m.group(0)
+        if name in ("OR", "AND", "IN", "in"):
+            continue
+        head = name.split(".", 1)[0]
+        if head not in names:
+            return False
+    return True
+
 
 # SUBSTRATE_MIGRATION_V1 P2 — locator payload.
 #
@@ -119,6 +172,7 @@ async def search_unified(
     qvec: list[float],
     top_k: int,
     vl_rerank: RerankFn,
+    where: str = "",
 ) -> list[dict[str, Any]]:
     """One cross-encoder pass over a mixed text+image candidate pool.
 
@@ -137,11 +191,17 @@ async def search_unified(
     meta: list[dict[str, Any]] = []
 
     if ttbl is not None:
-        for r in ttbl.search(qvec).limit(tdepth).to_list():
+        dense = ttbl.search(qvec).limit(tdepth)
+        if where:
+            dense = dense.where(where)
+        for r in dense.to_list():
             cands.append({"text": r["text"]})
             meta.append({**_text_payload(r), "reranker_prob": None})
     if vtbl is not None:
-        for r in vtbl.search(qvec).limit(vdepth).to_list():
+        visual = vtbl.search(qvec).limit(vdepth)
+        if where and _arm_has_column(vtbl, where):
+            visual = visual.where(where)
+        for r in visual.to_list():
             cands.append({"image_path": r["image_path"]})
             meta.append({**_visual_payload(r), "reranker_prob": None})
     if not cands:
@@ -161,13 +221,16 @@ async def search_unified(
     return out
 
 
-def _bm25_rows(ttbl: Any, query: str, limit: int) -> list[dict[str, Any]]:
+def _bm25_rows(ttbl: Any, query: str, limit: int, where: str = "") -> list[dict[str, Any]]:
     """BM25 (full-text) hits for the text arm. Returns [] if the table has no
     FTS index or the query has no lexical content — the dense arm stands alone."""
     try:
+        q = ttbl.search(query, query_type="fts").limit(limit)
+        if where:
+            q = q.where(where)
         return cast(
             list[dict[str, Any]],
-            ttbl.search(query, query_type="fts").limit(limit).to_list(),
+            q.to_list(),
         )
     except Exception:  # noqa: BLE001 — no fts index / empty query / backend quirk
         return []
@@ -180,16 +243,26 @@ async def rrf_fuse(
     qvec: list[float],
     top_k: int,
     vl_rerank: RerankFn,
+    where: str = "",
 ) -> list[dict[str, Any]]:
     """Text-chunk RRF + page-image rerank, fused, with the gated visual boost.
 
-    Extracted verbatim from ``_search``'s non-``unified`` body."""
+    Extracted verbatim from ``_search``'s non-``unified`` body. ``where``
+    (SUBSTRATE_PROPERTIES_V1 P2) pushes a predicate into the dense text arm and
+    the BM25 arm, and into the visual arm when its schema can express it —
+    a filter on one arm only would return a fused list where half the
+    candidates ignore the filter, which is worse than no filter because it
+    looks filtered.
+    """
     scores: dict[tuple[str, str], float] = {}
     payload: dict[tuple[str, str], dict[str, Any]] = {}
     top_text_sim = 0.0
     text_margin = 0.0
     if ttbl is not None:
-        trows = ttbl.search(qvec).limit(top_k * 3).to_list()
+        dense = ttbl.search(qvec).limit(top_k * 3)
+        if where:
+            dense = dense.where(where)
+        trows = dense.to_list()
         if trows:
             # lancedb `_distance` is L2^2 between the unit query and unit
             # stored vector == 2*(1-cos); server guarantees normalize=True
@@ -203,7 +276,7 @@ async def rrf_fuse(
             scores[key] = scores.get(key, 0.0) + 1.0 / (RRF_K + rank)
             payload[key] = {**_text_payload(r), "reranker_prob": None}
         if BM25_WEIGHT > 0.0:
-            for rank, r in enumerate(_bm25_rows(ttbl, query, top_k * 3)):
+            for rank, r in enumerate(_bm25_rows(ttbl, query, top_k * 3, where)):
                 key = ("text", r["chunk_id"])
                 scores[key] = scores.get(key, 0.0) + BM25_WEIGHT * (1.0 / (RRF_K + rank))
                 payload.setdefault(key, {**_text_payload(r), "reranker_prob": None})
@@ -215,7 +288,10 @@ async def rrf_fuse(
         # latency at no measured recall cost. Sweep 3/2/1.5/1: recall
         # identical at every depth (26.4s -> 8.8s); 1.5 keeps a margin.
         depth = max(1, round(VL_RERANK_DEPTH * top_k))
-        coarse = vtbl.search(qvec).limit(depth).to_list()
+        coarse_q = vtbl.search(qvec).limit(depth)
+        if where and _arm_has_column(vtbl, where):
+            coarse_q = coarse_q.where(where)
+        coarse = coarse_q.to_list()
         cands = [{"image_path": r["image_path"]} for r in coarse]
         order = await vl_rerank(query, cands, min(len(cands), top_k * 2)) if cands else []
         # Gate the visual boost on whether the text arm has a confident answer.
@@ -241,10 +317,33 @@ async def fuse(
     qvec: list[float],
     top_k: int,
     vl_rerank: RerankFn,
+    where: str = "",
 ) -> list[dict[str, Any]]:
     """Dispatch on the composition's fusion mode. ``rrf`` and ``text_gate`` share
     ``rrf_fuse`` — the difference is only whether ``text_arm_is_unconfident``
-    ever fires, which ``VL_TEXT_GATE`` / ``VL_TEXT_GATE_MODE`` already control."""
+    ever fires, which ``VL_TEXT_GATE`` / ``VL_TEXT_GATE_MODE`` already control.
+
+    With a ``where`` predicate (SUBSTRATE_PROPERTIES_V1 P2) the result is a
+    :class:`FusedWithFilter` carrying the per-arm application report — the
+    visual arm reports ``not applied`` when its schema does not carry the
+    predicate's columns, because a silently half-filtered fused list is the
+    failure this seam exists to prevent. No ``where`` returns a plain list and
+    the byte-identical shape every pre-existing consumer reads.
+    """
     if fusion_mode == "unified":
-        return await search_unified(ttbl, vtbl, query, qvec, top_k, vl_rerank)
-    return await rrf_fuse(ttbl, vtbl, query, qvec, top_k, vl_rerank)
+        rows = await search_unified(ttbl, vtbl, query, qvec, top_k, vl_rerank, where)
+    else:
+        rows = await rrf_fuse(ttbl, vtbl, query, qvec, top_k, vl_rerank, where)
+    if not where:
+        return rows
+    report: dict[str, str] = {
+        "text_dense": "applied" if ttbl is not None else "arm absent",
+        "text_bm25": (
+            "applied" if BM25_WEIGHT > 0.0 and ttbl is not None else "arm disabled or absent"
+        ),
+        "visual": "applied"
+        if (vtbl is not None and _arm_has_column(vtbl, where))
+        else ("arm absent" if vtbl is None else "not applied — the visual table does not carry "
+              "the predicate's columns"),
+    }
+    return FusedWithFilter(rows, report)

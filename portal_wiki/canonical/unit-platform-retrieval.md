@@ -20,6 +20,8 @@ sources:
 - type: code
   path: portal/platform/retrieval/pipeline.py
 - type: code
+  path: portal/platform/retrieval/predicates.py
+- type: code
   path: portal/modules/compliance/tools/compliance_retrieval.py
 claims:
 # O9: real bindings, not a nominal `modules.enabled` probe. Each stage file and
@@ -90,11 +92,22 @@ Service-touching (Phase 3):
 - `fusion` — `rrf_fuse` (RRF text/visual with the gated visual boost),
   `search_unified` (one cross-encoder pass), and `fuse` dispatch on the mode.
   `VL_TEXT_GATE` τ=0.72 and the mode constants live here.
+- `predicates` — the ONE clause builder behind the filter seam
+  (SUBSTRATE_PROPERTIES_V1 P2): `dict` equalities, `(column, op, value)`
+  comparisons, `("in", column, values)` lists, and nested OR-groups for clock
+  bounds. Values are tool arguments an operator or a model supplies, so a raw
+  string is never interpolated — quotes are escaped, unknown shapes are
+  rejected. The Bully's former inline builder moved here (same clause shape for
+  str/int equality), so both consumers that needed `.where()` build through one
+  seam instead of two.
 - `pipeline` — the `Composition` dataclass and the four entry points
   `ingest_document` / `search` / `search_all` / `reindex`, free functions over a
   composition. The HTTP concern (JSONResponse, 503/500/404 mapping) stays in the
   route handlers; `UnknownKBError` is raised where `_search` returned an in-body
-  404.
+  404. `search` takes a keyword-only `where=""` predicate, applied to both text
+  arms and to the visual arm where its schema can express it (reported as not
+  applied where it cannot — a half-filtered fused list looks filtered); the
+  empty default leaves every existing caller byte-identical.
 
 ## Compositions
 
