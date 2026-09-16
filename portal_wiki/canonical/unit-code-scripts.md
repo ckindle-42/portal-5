@@ -1,35 +1,35 @@
 ---
 id: unit-code-scripts
 kind: what
-title: scripts subsystem (115 files)
+title: scripts subsystem (135 files)
 sources:
 - type: code
   path: scripts/_archive/analyze_bench_v5.py
-  commit: 2704ef21dfe7
+  commit: d1dfa5717fe0
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py
-  commit: 2704ef21dfe7
+  commit: d1dfa5717fe0
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-watchdog.py
-  commit: 2704ef21dfe7
+  commit: d1dfa5717fe0
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/smoke_test_mlx.py
-  commit: 2704ef21dfe7
+  commit: d1dfa5717fe0
 - type: code
   path: scripts/alias_census.py
-  commit: 2704ef21dfe7
+  commit: d1dfa5717fe0
 claims: []
 confidence: high
 tags:
 - code
 - scripts
-created_at: 1789196393.2327302
-updated_at: 1789196393.2327302
+created_at: 1789571713.967995
+updated_at: 1789571713.967995
 ---
 
 # scripts subsystem
 
-**Files:** 115
+**Files:** 135
 
 - `scripts/_archive/analyze_bench_v5.py`
 - `scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py`
@@ -38,6 +38,7 @@ updated_at: 1789196393.2327302
 - `scripts/alias_census.py`
 - `scripts/analyst_corpus_real_ingest.py`
 - `scripts/analyst_corpus_snapshot_v2.py`
+- `scripts/bench_compliance_thinking.py`
 - `scripts/bench_supervisor.py`
 - `scripts/blend_acceptance_results.py`
 - `scripts/build_specimen_corpus.py`
@@ -50,5 +51,4 @@ updated_at: 1789196393.2327302
 - `scripts/bully_investigation_run_a6.py`
 - `scripts/bully_investigation_run_i6.py`
 - `scripts/bully_loop_milestone_run.py`
-- `scripts/bully_relate_run.py`
-- ... and 95 more
+- ... and 115 more

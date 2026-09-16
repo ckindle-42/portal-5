@@ -400,6 +400,38 @@ now covered by one.
 
 ---
 
+## 9a. Two things the first live auto-sync run turned up
+
+The P8 auto-sync was run once to establish currency before pushing. It did more
+than intended and both outcomes are worth recording.
+
+**The CIP family scale-up is only 3/36 done, and the store says so.** The sync
+diffed NERC's registry against the store, found 115 standards it did not hold,
+and acquired what it could. Result: 36 `regulatory_standard` documents
+registered, but only **three** carry a capture (`CIP-007-6` 278 units,
+`CIP-007-7.1` 141, `CIP-015-2` 86) and **20 have zero sections**. Most
+acquisitions failed — NERC's per-version PDF URL pattern does not resolve for
+older revisions like `CIP-002-1`. This is P10 work surfacing early and
+incomplete; it is not a regression, because the boundary receipt reports every
+registered-but-uncaptured document under `documents_not_captured` and
+`corpus_whole` is false while any remain. P10 has to make that list empty, and
+the URL-resolution failure is the first thing it must fix.
+
+**The NERC Glossary is not byte-stable across a day, and the change was real.**
+Two glossary revisions now exist. Byte hashes differ; captured text differs by
+1,956 characters. Diffed: NERC moved acronyms into the headwords
+(`BES Cyber System Information` → `BES Cyber System Information (BCSI)`) and
+edited definitions accordingly. So the second revision is a genuine republication
+and append-only handling is correct — both resolve, and `resolve_terms` selects
+across revisions by `valid_at`.
+
+**Open item:** `glossary_index` reads only the most recent revision, so the
+earlier revision's 330 sections are projected and searchable but never resolved
+through the glossary path. Under a daily LaunchAgent that grows without bound if
+NERC edits often. Either the index should span revisions and select by clock
+(consistent with everything else in the store), or superseded glossary revisions
+should be excluded from projection. Not decided.
+
 ## 10. Recommendation at the pivot
 
 1. **Keep the substrate.** P0–P5 are measured, verified and independent of the
@@ -407,13 +439,15 @@ now covered by one.
 2. **Treat §6 as provisional wiring, not a decision.** It is good enough to
    continue P7–P10 against, and every phase after this one exercises the reader
    on more material, which is exactly the evidence §8.1 asks for.
-3. **Run the cheap research first** — §8.2 (repeats), §8.3 (the other local
+3. **Fix the acquisition URL resolution before P10 scales.** 20 of 36 registered
+   standards have no bytes; the family scale-up cannot be judged until they do.
+4. **Run the cheap research first** — §8.2 (repeats), §8.3 (the other local
    MoEs), §8.5 (re-run `intent` against the louder omission block). All three
    are hours, not days, and use the harness that exists.
-4. **Decide §8.4 deliberately.** A ~45 GB model is a real commitment on a 64 GB
+5. **Decide §8.4 deliberately.** A ~45 GB model is a real commitment on a 64 GB
    machine that must also run the product. Measure the footprint at 8k–16k
    context with the stack up *before* evaluating its reading.
-5. **Do not fold the seat choice into the product's defaults until §8.1 and
+6. **Do not fold the seat choice into the product's defaults until §8.1 and
    §8.2 are done.** One requirement and one run per cell is not a basis for a
    production reader, and saying otherwise would be the kind of green board this
    module exists to stop producing.

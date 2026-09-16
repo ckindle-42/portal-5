@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 737 canonical units.*
+*Deterministic projection of 738 canonical units.*
 
 ## Knowledge Layer
 
@@ -239,9 +239,10 @@
 | `unit-code-portal_wiki` | what | 4 |
 | `unit-code-scripts` | what | 5 |
 | `unit-code-tests` | what | 5 |
+| `unit-compliance-bilateral-corpus` | mixed | 15 |
 | `unit-compliance-change-pipeline` | mixed | 3 |
 | `unit-compliance-config-workspace-pointers` | mixed | 1 |
-| `unit-compliance-engine` | mixed | 68 |
+| `unit-compliance-engine` | mixed | 87 |
 | `unit-compliance-fallback-policy-canonical-baseline` | what | 5 |
 | `unit-compliance-fallback-policy-compliance-fallback-policy` | what | 4 |
 | `unit-compliance-fallback-policy-full-sweep` | what | 3 |
@@ -746,12 +747,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 737 units
+**Total:** 738 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1824 references
+- **code**: 1858 references
 - **config**: 1 references
 - **doc**: 1 references
 - **mitre**: 40 references
