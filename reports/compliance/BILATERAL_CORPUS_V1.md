@@ -1051,7 +1051,37 @@ carries the sentence it points at, and is documented as a pointer for a human
 rather than a judgement. Citation *resolution* — which is reliable, and which
 caught a fabricated id from Foundation-Sec-8B — is unchanged.
 
-### 7.13 Verification
+### 7.13 Status of the model layer: measured, not settled
+
+The substrate is verified. **The seat choice is not.** It rests on three
+questions, one requirement, one run per cell — enough to exclude the clearly
+worse seats and to establish the design facts above, not enough to pick a
+production reader.
+
+`reports/compliance/READING_SEAT_RESEARCH_V1.md` is the standalone record: full
+method, every measurement, the ten bugs this work found in our own code, and an
+eight-item research agenda. The open items in short:
+
+* the sample is one requirement and one discriminator (§8.1);
+* one run per cell, no repeats (§8.2);
+* the MoE hypothesis is supported by exactly one MoE (§8.3);
+* the out-of-catalog candidate worth evaluating — a Qwen3-Next-80B-A3B-class
+  model — may not fit beside the running stack, and that must be measured
+  before its reading is (§8.4);
+* **profile selection is an unsolved correctness problem**, not a performance
+  knob (§8.5);
+* nothing warms the seat, so the first exchange of a session pays full prefill
+  (§8.6);
+* the minimal-footprint recommendation is an abliterated variant, unexamined for
+  this use (§8.7);
+* semantic quantity checking may not be mechanisable without becoming the
+  adjudicator the task forbids (§8.8).
+
+The seats in `config/compliance/council.yaml` are provisional wiring so P7–P10
+can proceed. Every later phase exercises the reader on more material, which is
+the evidence §8.1 asks for.
+
+### 7.14 Verification
 
 | gate | result |
 | --- | --- |
