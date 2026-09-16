@@ -329,6 +329,30 @@ def _probe_compliance_change_types(root: Path) -> list[str]:
     return sorted(re.findall(r'"([A-Z_]+)"', m.group(1)))
 
 
+def _probe_compliance_capture_unit_kinds(root: Path) -> list[str]:
+    """The positional unit kinds a faithful capture may emit
+    (BILATERAL_CORPUS_V1 P1). Read from the module constant, so a new kind
+    added in code shows up here rather than in prose."""
+    import re as _re
+
+    p = root / "portal" / "modules" / "compliance" / "core" / "capture.py"
+    if not p.is_file():
+        return []
+    m = _re.search(r"^UNIT_KINDS = \(([^)]*)\)", p.read_text(encoding="utf-8"), _re.M)
+    return sorted(_re.findall(r'"([a-z_]+)"', m.group(1))) if m else []
+
+
+def _probe_compliance_store_tables(root: Path) -> list[str]:
+    """Tables the compliance store's migrations create. Derived from the DDL,
+    never from a live database file."""
+    import re as _re
+
+    p = root / "portal" / "modules" / "compliance" / "core" / "migrations" / "schema.py"
+    if not p.is_file():
+        return []
+    return sorted(set(_re.findall(r"CREATE TABLE (\w+)", p.read_text(encoding="utf-8"))))
+
+
 def _probe_compliance_register(root: Path) -> list[str]:
     """The NERC CIP standards carried in the bitemporal register (T3). A nominal
     ``modules.enabled contains: compliance`` probe passed while the register was
@@ -456,6 +480,8 @@ PROBES: dict[str, Callable[[Path], Any]] = {
     "compliance.completeness": _probe_compliance_completeness,
     "compliance.change_types": _probe_compliance_change_types,
     "compliance.workspace_tools": _probe_compliance_workspace_tools,
+    "compliance.capture.unit_kinds": _probe_compliance_capture_unit_kinds,
+    "compliance.store.tables": _probe_compliance_store_tables,
     "retrieval.stage_set": _probe_retrieval_stage_set,
 }
 

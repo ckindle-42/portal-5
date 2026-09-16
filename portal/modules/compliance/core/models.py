@@ -76,6 +76,13 @@ class SourceSection:
     # migration 10 (P4): the heading text itself, for name-based resolution of
     # operative sections ('3.5 Mitigation Plans'); '' when unnamed.
     title: str = ""
+    # migration 11 (BILATERAL_CORPUS_V1 P1): where the unit sits, never what it
+    # means. '' / -1 on every pre-P1 row.
+    unit_kind: str = ""  # prose | table | table_row | list_item | figure_caption
+    ordinal: int = -1
+    char_start: int = -1
+    char_end: int = -1
+    heading_path: str = ""
 
 
 @dataclass
