@@ -946,14 +946,120 @@ subject outranks it. A correction is kept as a note *about the answer*; the
 answer is never rewritten. Standing questions are recorded and runnable per
 subject, which is what the on-ingest assessment is.
 
-### 7.9 Verification
+### 7.9 Correction — the earlier seat measurements were taken with the stack DOWN
+
+Everything in §7.2(d) through §7.6 was measured with Docker stopped. **That was
+a workaround, not a result.** The compliance module is a module *inside* Portal
+5; a seat that only works when the product is switched off is not a seat, and
+reporting its latency as the product's latency would be reporting a number
+nobody can have. The stack was brought back up and the work redone against it.
+
+Two things changed once the constraint was real.
+
+**granite4.1:30b is excluded on footprint, before any question of quality.**
+36.4 GB resident at 32k context cannot co-exist with 22 containers on a 64 GB
+machine — that is what put it into 50.6 GB of swap and made the first probe
+produce nothing for twenty minutes. Its reading was middling anyway, but the
+footprint alone settles it.
+
+**The packet, not the parameter count, was the failure.** 55% of the full
+CIP-007-6 R2 Part 2.2 packet is the implementation plan (33%) and the
+compliance/evidence-retention section (22%), while the requirement itself is 2%.
+Scoping the packet to the question changes what a seat can do:
+
+| seat | size | full packet (~29.9k tok) | focused `conformance` (~6.0k tok) |
+| --- | --- | --- | --- |
+| Qwen3.8-27B Q4_K_M | 18.8 GB | correct, 406 s cold | correct, 112 s cold / 55 s warm |
+| glm-4.7-flash Q4_K_M (MoE) | ~19 GB | **WRONG** | **correct**, 28 s cold / 14 s warm |
+| qwen3.5-abliterated 9B | **6.6 GB** | not tested | **correct**, 49 s cold / 23 s warm |
+| granite4.1:8b | 5.3 GB | not tested | wrong |
+| qwen3-vl:8b | 6.1 GB | not tested | wrong |
+| Foundation-Sec-8B-Reasoning Q8 | 8.5 GB | not tested | wrong — and backwards |
+
+glm-4.7-flash misread the operator's procedure when that sentence was one of 239
+sections and read it correctly when it was one of 22. **Focusing the packet
+bought more than buying a bigger model would have**, and it is the cheaper move
+in every direction: less prefill, smaller seat, more headroom beside the stack.
+
+Notable: `Foundation-Sec-8B-Reasoning` is the only model in the catalog trained
+for this domain and it was the worst seat tested — it fabricated a citation, hit
+the answer cap twice, and stated the operator's procedure says thirty when it
+says thirty-five. Domain pre-training did not substitute for reading the packet.
+
+### 7.10 Question-scoped packets (`profile`)
+
+`compliance_context(profile=…)` and `compliance_ask(profile=…)`, measured on
+CIP-007-6 R2 Part 2.2:
+
+| profile | sections | est. tokens | carries |
+| --- | --- | --- | --- |
+| `full` | 239 | 29,904 | everything |
+| `intent` | 35 | 6,467 | requirement, measures, technical basis, rationale, glossary, background |
+| `conformance` | 22 | 6,013 | requirement, measures, glossary, applicability, **linked operator sections** |
+| `audit` | 79 | 13,544 | requirement, measures, VSL, evidence retention, applicability, linked |
+| `timeline` | 138 | 11,231 | requirement, effective dates, implementation plan, technical rationale, version history |
+
+**Nothing infers a profile from the question** — that would be the prescriptive
+move in a new place. The caller names it, `full` is the default, and everything
+a profile leaves out is listed in `omitted` and rendered to the reader under a
+heading that says *"NOT IN THIS PACKET — you have not seen any of the
+following"*, with what each missing component would have answered.
+
+That heading exists because of a measured failure. On the `intent` profile —
+which deliberately excludes the operator's own sections — **all four small seats
+answered "are we stricter than we need to be" confidently, from an operator note
+alone, and none said it lacked the procedure.** The note misstates the
+procedure, so all four were confidently wrong about the operator's own posture:
+exactly the failure this module exists to stop. The omission block was a quiet
+footnote; it is now the loudest thing in the packet. Choosing the wrong profile
+is therefore a **correctness** decision, not a performance knob, and the report
+says so rather than leaving it to be discovered.
+
+### 7.11 The seats, and the rule that picks one
+
+Recorded in `config/compliance/council.yaml` with the transcripts:
+
+| role | seat | why |
+| --- | --- | --- |
+| `reading_seat` (focused profiles) | `glm-4.7-flash:Q4_K_M-ctx64k` | fastest measured (244 tok/s prefill against 95–126 for the dense and hybrid seats), correct on focused packets, 14–28 s per exchange |
+| `reading_seat_full_packet` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` | the only seat measured correct on 30k of material |
+| `reading_seat_minimal` | `huihui_ai/qwen3.5-abliterated:9b-ctx64k` | 6.6 GB, correct on the discriminator, for a host with less headroom |
+
+`_reading_seat(profile)` picks the full-packet seat when no profile is named and
+the fast seat otherwise. End-to-end through the MCP tool **with all 22
+containers running**: `compliance_ask(..., profile="conformance")` returned in
+**35.4 s** with 5 citations, 0 unresolvable, the answer stored and projected.
+Memory with the stack up and the seat resident: **56% free**.
+
+### 7.12 The quantity check was narrowed, because it could not do what it claimed
+
+§7.5 reported a per-citation quantity check that reproduced a hand finding. Run
+across the wider transcript set it turned out to be unreliable **in both
+directions on exactly the prose that matters** — an answer that correctly
+contrasts two numbers:
+
+* *false positive*: `"you are compressing the evaluation window by five days
+  compared to the standard's 35-day maximum"` — correct arithmetic (35 − 30),
+  flagged because "five days" is not in the cited note;
+* *false negative*: granite4.1:8b wrote *"the operator's procedure evaluates
+  every 30 calendar days"* — it says thirty-five — and cited nothing within
+  range, so nothing was flagged at all.
+
+Attribution is positional and prose is not. P6.3 says verify citations and
+**adjudicate nothing**, so the field was renamed `quantity_review_pointers`, now
+carries the sentence it points at, and is documented as a pointer for a human
+rather than a judgement. Citation *resolution* — which is reliable, and which
+caught a fabricated id from Foundation-Sec-8B — is unchanged.
+
+### 7.13 Verification
 
 | gate | result |
 | --- | --- |
 | `uv run pytest tests/unit/ -q` | **2135 passed, 4 skipped** (+81 for P6) |
 | ruff check / format, mypy on the new modules | clean |
 | citation resolution, both directions | a real citation resolves and is labelled; a fabricated one is named; six dash spellings resolve |
-| latency per exchange | cold 276–459 s, warm **18–153 s**; recorded per call with prefill/generation split |
+| latency per exchange, **stack up, focused packet** | **14–35 s warm**, 28–112 s cold; recorded per call with the prefill/generation split |
+| co-residency | `compliance_ask` end to end with all 22 containers running: 35.4 s, 56% memory free |
 | seat choice | argued from transcripts in `reports/compliance/seat_probe/`, recorded in `config/compliance/council.yaml` |
 
 **Rollback.** `git revert <sha>`; delete `conversation_answers`,

@@ -178,12 +178,23 @@ def _render_material(context: dict[str, Any]) -> str:
             lines.append(str(note.get("text", "")).strip())
     omitted = context.get("omitted") or []
     if omitted:
-        lines.append("\n## omitted for budget — you have NOT seen these")
+        # Loud, and it says what each missing component WOULD have answered.
+        # Measured in the P6.8 small-seat probe: with the operator's own
+        # sections outside the profile, every seat answered "are we stricter
+        # than we need to be" confidently from an operator NOTE alone — and the
+        # note turned out to misstate the procedure. A quiet footnote is not a
+        # disclosure. The `why` text is the component's own description, not an
+        # instruction about what to conclude.
+        lines.append("\n## NOT IN THIS PACKET — you have not seen any of the following")
         for entry in omitted:
             lines.append(
-                f"- {entry['component']}: {entry['sections']} sections "
-                f"(~{entry['tokens']} tokens) — {entry['why']}"
+                f"- **{entry['component']}** ({entry['sections']} sections, "
+                f"~{entry['tokens']} tokens) — {entry['why']}. {entry['reason']}"
             )
+        lines.append(
+            "\nA question that depends on any of the above cannot be settled from what "
+            "you have. Say which one you need."
+        )
     return "\n".join(lines)
 
 
@@ -226,6 +237,17 @@ def _nearest_citation(position: int, positions: list[tuple[int, str]]) -> str:
         ref for start, ref in positions if position - _ATTRIBUTION_WINDOW_CHARS <= start < position
     ]
     return before[-1] if before else ""
+
+
+def _sentence_around(text: str, position: int) -> str:
+    """The sentence a claim sits in, so a review pointer points at something a
+    person can read without opening the transcript."""
+    start = max(text.rfind(".", 0, position), text.rfind("\n", 0, position)) + 1
+    end = min(
+        (x for x in (text.find(".", position), text.find("\n", position)) if x != -1),
+        default=len(text),
+    )
+    return text[start : end + 1].strip()
 
 
 def verify_citations(repo: Any, answer: str, material: str = "") -> dict[str, Any]:
@@ -304,6 +326,7 @@ def verify_citations(repo: Any, answer: str, material: str = "") -> dict[str, An
                     _quantity_in(number, unit, scope) if attributed else None
                 ),
                 "unattributed": not attributed,
+                "sentence": _sentence_around(normalised, match.start()),
                 "appears_somewhere_in_the_material": _quantity_in(
                     number, unit, "\n".join(texts.values()) + "\n" + material
                 ),
@@ -318,15 +341,32 @@ def verify_citations(repo: Any, answer: str, material: str = "") -> dict[str, An
         "unresolvable": unresolved,
         "quantities": quantities,
         "quantities_not_in_cited_text": unsupported,
-        # A FLAG FOR A HUMAN, not a verdict. Attribution is positional — the
-        # nearest citation within the window — which is right most of the time
-        # and approximate at a paragraph boundary. It points at a sentence worth
-        # checking; it does not decide that the answer is wrong.
-        "misattributed_quantities": [
+        # A POINTER FOR A HUMAN, and deliberately not a verdict.
+        #
+        # Measured on the P6.8 transcripts, this signal is unreliable in both
+        # directions on exactly the prose that matters — an answer that
+        # correctly CONTRASTS two numbers:
+        #
+        #   false positive: "you are compressing the evaluation window by five
+        #     days compared to the standard's 35-day maximum" — correct
+        #     arithmetic, flagged because "five days" is not in the cited note.
+        #   false negative: granite4.1:8b wrote "the operator's procedure
+        #     evaluates every 30 calendar days" (it says thirty-five) and cited
+        #     nothing within range, so nothing was flagged at all.
+        #
+        # Attribution is positional and prose is not. P6.3 says verify
+        # citations and ADJUDICATE NOTHING, so this stays a pointer at a
+        # sentence worth a human glance, carrying that sentence, and it is
+        # named so no caller can mistake it for a judgement.
+        "quantity_review_pointers": [
             {
                 "claim": q["claim"],
-                "attributed_to": q["attributed_to"],
-                "detail": "this number is in the packet, but not in the section it is pinned to",
+                "nearest_citation": q["attributed_to"],
+                "sentence": q["sentence"],
+                "detail": (
+                    "this number is in the packet but not in the nearest cited section — "
+                    "may be a correct contrast, may be a misattribution; read it"
+                ),
             }
             for q in quantities
             if q["appears_in_attributed_section"] is False
@@ -377,6 +417,7 @@ def read(
     *,
     model: str,
     budget_tokens: int = 60_000,
+    profile: str = "",
     num_ctx: int = 0,
     reasoning_effort: bool | str | None = None,
     answer_tokens: int = 3072,
@@ -390,7 +431,7 @@ def read(
     from portal.modules.compliance.core.reading_assembly import CHARS_PER_TOKEN, assemble
     from portal.modules.compliance.core.reading_transport import chat
 
-    context = assemble(repo, ref, budget_tokens=budget_tokens, valid_at=valid_at)
+    context = assemble(repo, ref, budget_tokens=budget_tokens, profile=profile, valid_at=valid_at)
     if "error" in context:
         return {"error": context["error"], "ref": ref}
     context["operator_notes"] = notes_for(repo, ref)
@@ -465,6 +506,7 @@ def read(
         "num_ctx": window,
         "material_chars": len(material),
         "material_tokens": len(material) // CHARS_PER_TOKEN,
+        "profile": context.get("profile", "full"),
         "components": [c["component"] for c in context["components"]],
         "omitted": context["omitted"],
         "verification": verification,

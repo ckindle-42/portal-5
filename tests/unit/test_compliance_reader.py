@@ -131,7 +131,7 @@ class TestTheMaterialHandedOver:
 
         context = assemble(store, "CIP-007-6 R2", budget_tokens=1)
         material = reader._render_material(context)
-        assert "omitted for budget — you have NOT seen these" in material
+        assert "NOT IN THIS PACKET" in material
 
     def test_operator_notes_travel_with_the_material(self, store: Repository) -> None:
         from portal.modules.compliance.core.reading_assembly import assemble
@@ -475,7 +475,7 @@ class TestQuantityAttribution:
         match = reader._QUANTITY_RE.search("thirty-five calendar days")
         assert reader._normalise_quantity(match)[0] == "35"
 
-    def test_a_number_pinned_to_the_wrong_section_is_flagged(self, store: Repository) -> None:
+    def test_a_number_pinned_to_the_wrong_section_is_pointed_at(self, store: Repository) -> None:
         regulatory = _section(store, "35 calendar days")
         note = write_note(store, subject_ref="CIP-007-6 R2", body="We evaluate every 30 days.")
         out = reader.verify_citations(
@@ -483,7 +483,7 @@ class TestQuantityAttribution:
             f"The standard requires evaluation every thirty calendar days [{regulatory}], "
             f"which is what we do [{note['section_id']}].",
         )
-        assert [m["claim"] for m in out["misattributed_quantities"]] == ["thirty calendar days"]
+        assert [m["claim"] for m in out["quantity_review_pointers"]] == ["thirty calendar days"]
 
     def test_a_number_in_no_source_at_all_is_reported_as_unsupported(
         self, store: Repository
@@ -493,14 +493,14 @@ class TestQuantityAttribution:
             store, f"The standard requires evaluation every ninety days [{regulatory}]."
         )
         assert out["quantities_not_in_cited_text"] == ["ninety days"]
-        assert out["misattributed_quantities"] == []
+        assert out["quantity_review_pointers"] == []
 
     def test_a_number_the_cited_section_states_is_not_flagged(self, store: Repository) -> None:
         regulatory = _section(store, "35 calendar days")
         out = reader.verify_citations(
             store, f"The standard requires evaluation every 35 calendar days [{regulatory}]."
         )
-        assert out["misattributed_quantities"] == []
+        assert out["quantity_review_pointers"] == []
 
     def test_a_parenthesised_spelling_still_counts_as_stated(self) -> None:
         assert reader._quantity_in(
@@ -513,7 +513,7 @@ class TestQuantityAttribution:
         regulatory = _section(store, "35 calendar days")
         filler = " ".join(["padding"] * 120)
         out = reader.verify_citations(store, f"[{regulatory}] {filler} so it is 90 days.")
-        assert out["misattributed_quantities"] == []
+        assert out["quantity_review_pointers"] == []
         assert any(q["unattributed"] for q in out["quantities"])
 
 

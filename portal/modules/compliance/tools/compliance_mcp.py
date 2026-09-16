@@ -2413,6 +2413,7 @@ def compliance_context(
     ref: str,
     budget_tokens: int = 60000,
     include: str = "",
+    profile: str = "",
     valid_at: str = "",
 ) -> dict[str, Any]:
     """**The reading assembly.** Everything a requirement's neighbourhood holds.
@@ -2425,8 +2426,16 @@ def compliance_context(
     implementation plan and technical rationale where they exist, the version
     history, and the linked internal sections in full.
 
-    Sized to an explicit token budget, with anything omitted for budget NAMED in
-    the payload, so the reader knows what it has not seen.
+    Sized to an explicit token budget, with anything omitted NAMED in the
+    payload, so the reader knows what it has not seen.
+
+    ``profile`` scopes the packet to a kind of question — ``full`` (default),
+    ``intent``, ``conformance``, ``audit``, ``timeline``. Measured on
+    CIP-007-6 R2 Part 2.2: full is ~29,900 tokens, ``intent`` ~6,500. Nothing
+    infers the profile from the question; the caller names it, and everything a
+    profile leaves out is listed in ``omitted`` so the honest answer to a
+    question it cannot settle is "I would need the implementation plan for
+    that".
     """
     from portal.modules.compliance.core.notes import notes_for
     from portal.modules.compliance.core.reading_assembly import assemble
@@ -2438,6 +2447,7 @@ def compliance_context(
             ref,
             budget_tokens=budget_tokens,
             include=[i.strip() for i in include.split(",") if i.strip()] or None,
+            profile=profile,
             valid_at=valid_at,
         )
         payload["operator_notes"] = notes_for(repo, ref)
@@ -2449,23 +2459,40 @@ def compliance_context(
 # ── BILATERAL_CORPUS_V1 P6: the reader, and the conversation as a corpus ────
 
 
-def _reading_seat() -> str:
-    """The seat that reads. Chosen in P6.8 by reading its answers, not by a
-    score — see reports/compliance/BILATERAL_CORPUS_V1.md §7."""
+def _reading_seat(profile: str = "") -> str:
+    """The seat that reads — chosen WITH the packet, not once for all packets.
+
+    P6.8 measured the same question against the same corpus at two packet
+    sizes. On the full ~30,000-token neighbourhood, glm-4.7-flash misread the
+    operator's procedure; on the focused ~6,000-token one it read it correctly,
+    as did a 6.6 GB 9B model. The packet size, not the parameter count, was the
+    failure — so the seat follows the packet:
+
+    * a focused profile gets the fast seat (MoE, 244 tok/s prefill, 14-28 s);
+    * the full packet gets the seat that was correct on 30k of material.
+
+    Both are recorded in config/compliance/council.yaml with the transcripts
+    that chose them. Every one of them fits alongside the running Docker stack,
+    which is a hard requirement: this is a module inside the product, not a
+    thing you take the product down to use.
+    """
     import os
 
     from portal.modules.compliance.core.runtime_config import _read_council_config
 
-    configured = _read_council_config().get("reading_seat")
+    config = _read_council_config()
+    key = "reading_seat" if profile and profile.lower() != "full" else "reading_seat_full_packet"
+    configured = config.get(key) or config.get("reading_seat")
     if isinstance(configured, dict) and configured.get("model"):
         return str(configured["model"])
-    return os.environ.get("COMPLIANCE_READING_MODEL", "granite4.1:30b-ctx64k")
+    return os.environ.get("COMPLIANCE_READING_MODEL", "glm-4.7-flash:Q4_K_M-ctx64k")
 
 
 @mcp.tool()
 def compliance_ask(
     question: str,
     ref: str,
+    profile: str = "",
     budget_tokens: int = 60000,
     valid_at: str = "",
     thread_id: str = "",
@@ -2493,8 +2520,9 @@ def compliance_ask(
             repo,
             question,
             ref,
-            model=model or _reading_seat(),
+            model=model or _reading_seat(profile),
             budget_tokens=budget_tokens,
+            profile=profile,
             valid_at=valid_at,
             thread_id=thread_id,
         )
