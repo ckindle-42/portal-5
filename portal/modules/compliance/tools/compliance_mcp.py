@@ -27,6 +27,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
+from portal.platform.retrieval import predicates
 
 logger = logging.getLogger(__name__)
 _port = int(os.environ.get("COMPLIANCE_MCP_PORT") or os.environ.get("MCP_PORT", "8937"))
@@ -2047,6 +2048,105 @@ def _addressed_hits(repo: Any, query: str, max_chars: int) -> list[dict[str, Any
     return out
 
 
+def _contains_group(column: str, value: str) -> list[Any]:
+    """Case-variant substring match as an OR-group of LIKEs.
+
+    The pre-pushdown filter compared ``value.lower() in stored.lower()`` — a
+    case-insensitive substring. DataFusion's ``LIKE`` is case-sensitive, so the
+    group tries the value in its given, lower and upper spellings; a caller
+    that passes what the store spells differently still matches. The values
+    stay quoted literals inside the group (``predicates.build`` escapes them),
+    so a quote or a clause fragment in a ``standard`` argument remains data.
+    """
+    variants = list(dict.fromkeys([value, value.lower(), value.upper()]))
+    return [(column, "LIKE", f"%{v}%") for v in variants]
+
+
+def _search_predicate(
+    *, standard: str, layer: str, valid_at: str, known_at: str
+) -> str:
+    """The pushdown predicate for ``compliance_search`` (SUBSTRATE_PROPERTIES_V1 P3).
+
+    Property 1: the clocks filter BEFORE ranking. Written against the P1
+    projection columns and their ``""`` open-bound convention:
+
+    * valid-time at ``valid_at``: ``(effective_from = '' OR effective_from <= V)
+      AND (effective_to = '' OR effective_to > V)``
+    * transaction-time at ``known_at``: ``(recorded_from = '' OR recorded_from
+      <= K) AND (recorded_to = '' OR recorded_to > K)``
+    * neither given: ``is_superseded = 0`` — a search with no clock asks about
+      what governs NOW, and superseded revisions must not spend top-k slots by
+      default. A caller who wants history says so.
+    """
+    from portal.modules.compliance.core.section_index import _date_of
+
+    v, k = _date_of(valid_at), _date_of(known_at)
+    entries: list[Any] = []
+    if standard:
+        entries.append(_contains_group("logical_id", standard))
+    if layer:
+        entries.append(_contains_group("source_kind", layer))
+    if v:
+        entries.append([("effective_from", "=", ""), ("effective_from", "<=", v)])
+        entries.append([("effective_to", "=", ""), ("effective_to", ">", v)])
+    if k:
+        entries.append([("recorded_from", "=", ""), ("recorded_from", "<=", k)])
+        entries.append([("recorded_to", "=", ""), ("recorded_to", ">", k)])
+    if not v and not k:
+        entries.append(("is_superseded", "=", 0))
+    return predicates.build(entries)
+
+
+def _filter_notes(valid_at: str, known_at: str) -> list[str]:
+    """What the pushed-down filter excluded, said in the payload.
+
+    A pushdown filter cannot enumerate what it filtered out — the rows never
+    come back. The exclusion CLASSES are still stated, in the same vocabulary
+    the post-filter used, so a short result list is explainable instead of
+    mysterious (UNKNOWN_KNOWLEDGE is the late-recorded shape's name and stays).
+    """
+    notes: list[str] = []
+    if valid_at:
+        notes.append(
+            f"revisions not in force at {valid_at} were excluded below ranking "
+            "(not effective yet, or inactive by then)"
+        )
+    if known_at:
+        notes.append(
+            f"UNKNOWN_KNOWLEDGE: revisions first recorded after {known_at} were excluded "
+            "below ranking — the store did not know them then"
+        )
+    if not valid_at and not known_at:
+        notes.append(
+            "superseded revisions were excluded by default (is_superseded = 0); "
+            "pass valid_at or known_at to query history"
+        )
+    return notes
+
+
+def _clock_addressed(
+    addressed: list[dict[str, Any]], valid_at: str, known_at: str
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Clock-check the addressed hits, keeping the per-hit reasons.
+
+    An addressed hit is resolved directly from the store, past the search
+    arms, so the clocks must be applied to it here — with the reason string
+    the pushdown path cannot carry. UNKNOWN_KNOWLEDGE survives verbatim in
+    ``excluded`` through this function.
+    """
+    if not (valid_at or known_at):
+        return addressed, []
+    kept: list[dict[str, Any]] = []
+    excluded: list[dict[str, Any]] = []
+    for a in addressed:
+        ok, why = _within_clocks(a, valid_at, known_at)
+        if ok:
+            kept.append(a)
+        else:
+            excluded.append({"section_id": a.get("section_id"), "why": why})
+    return kept, excluded
+
+
 @mcp.tool()
 def compliance_search(
     query: str,
@@ -2065,6 +2165,13 @@ def compliance_search(
     followed. Text is verbatim up to ``max_chars`` with truncation stated.
     ``jurisdiction`` is ``US`` / ``internal`` / ``operator_note``; ``standard``
     and ``layer`` filter by document; both clocks are honoured.
+
+    SUBSTRATE_PROPERTIES_V1 P3 — property 1: every filter is pushed DOWN as a
+    ``.where()`` predicate and applied BEFORE ranking, so a filter can target
+    the search rather than shrink its aftermath. ``filter_applied`` carries the
+    clause that ran and ``filter_notes`` the exclusion classes; ``excluded`` no
+    longer lists sieve rejects (there is no sieve) — it lists hits that do not
+    resolve in the canonical store, which is an integrity signal.
     """
     from portal.modules.compliance.core import section_index
     from portal.modules.compliance.tools.compliance_retrieval import search as _kb_search
@@ -2077,6 +2184,11 @@ def compliance_search(
         # string "CIP-007-6 R2 Part 2.2", so lexical matching on the full
         # address is luck. Addressed hits lead, labelled as addressed.
         addressed = _addressed_hits(repo, query, max_chars)
+        addressed, addressed_excluded = _clock_addressed(addressed, valid_at, known_at)
+
+        where = _search_predicate(
+            standard=standard, layer=layer, valid_at=valid_at, known_at=known_at
+        )
 
         corpora = (
             [section_index.CORPUS_FOR_JURISDICTION[jurisdiction]]
@@ -2085,13 +2197,16 @@ def compliance_search(
         )
         hits: list[dict[str, Any]] = []
         searched, unavailable = [], []
+        filter_report: dict[str, Any] = {}
         for kb_id in corpora:
             try:
-                body = asyncio.run(_kb_search(kb_id, query, max(top_k, 3)))
+                body = asyncio.run(_kb_search(kb_id, query, max(top_k, 3), where=where))
             except Exception as exc:  # noqa: BLE001 - an absent corpus is reported
                 unavailable.append({"kb_id": kb_id, "detail": str(exc)})
                 continue
             searched.append(kb_id)
+            if body.get("filter_report"):
+                filter_report[kb_id] = body["filter_report"]
             for row in body.get("results", []):
                 row["kb_id"] = kb_id
                 hits.append(row)
@@ -2100,22 +2215,20 @@ def compliance_search(
         resolved = section_index.resolve_sections(repo, [str(h.get("chunk_id", "")) for h in hits])
         out: list[dict[str, Any]] = []
         excluded: list[dict[str, Any]] = []
+        addressed_ids = {a["section_id"] for a in addressed}
         for hit in hits:
             section_id = section_index.parent_section_id(str(hit.get("chunk_id", "")))
             entry = resolved.get(section_id)
             if entry is None:
-                excluded.append({"chunk_id": hit.get("chunk_id"), "why": "does not resolve"})
-                continue
-            if standard and standard.lower() not in str(entry.get("logical_id", "")).lower():
-                continue
-            if layer and layer.lower() not in str(entry.get("source_kind", "")).lower():
-                continue
-            keep, why = _within_clocks(entry, valid_at, known_at)
-            if not keep:
-                excluded.append({"section_id": section_id, "why": why})
+                excluded.append(
+                    {
+                        "chunk_id": hit.get("chunk_id"),
+                        "why": "does not resolve in the canonical store",
+                    }
+                )
                 continue
             text, note = _clip(entry.get("text", ""), max_chars)
-            if section_id in {a["section_id"] for a in addressed}:
+            if section_id in addressed_ids:
                 continue
             out.append(
                 {
@@ -2137,9 +2250,16 @@ def compliance_search(
             "corpora_unavailable": unavailable,
             "valid_at": valid_at or "latest effective",
             "known_at": known_at or "latest recorded knowledge",
+            "filter_applied": where,
+            "filter_notes": _filter_notes(valid_at, known_at),
+            "filter_report": filter_report,
+            "excluded_meaning": (
+                "hits that do not resolve to a canonical source_sections row — an "
+                "integrity signal, not a filter rejection (filters run below ranking)"
+            ),
             "num_results": len(out),
             "results": out,
-            "excluded": excluded,
+            "excluded": addressed_excluded + excluded,
         }
     finally:
         repo.close()
