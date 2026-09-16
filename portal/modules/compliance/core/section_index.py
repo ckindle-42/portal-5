@@ -63,6 +63,10 @@ PREDICATE_COLUMNS: tuple[str, ...] = (
     "recorded_to",
     "is_superseded",
     "unit_kind",
+    # P4: a document's recorded authority tier, as "0".."4" — or "" when the
+    # document carries no recorded tier, which must stay VISIBLE (an untiered
+    # document is never silently a Tier 3 or a Tier 4).
+    "authority_tier",
 )
 
 #: the corpus each jurisdiction projects into. Both sit under the ``compliance_``
@@ -104,6 +108,7 @@ class IndexableUnit:
     recorded_to: str = ""
     is_superseded: int = 0
     unit_kind: str = ""
+    authority_tier: str = ""
 
     def as_row(self) -> dict[str, Any]:
         return {
@@ -277,6 +282,15 @@ def build_plan(repo: Any, *, jurisdiction: str, kb_id: str = "") -> ProjectionPl
     kb_id = kb_id or CORPUS_FOR_JURISDICTION.get(jurisdiction, jurisdiction)
     plan = ProjectionPlan(kb_id=kb_id, jurisdiction=jurisdiction)
     governing = _governing_revisions(repo, jurisdiction)
+    from portal.modules.compliance.core.tiers import recorded_tier
+
+    tier_of: dict[str, str] = {}
+
+    def _tier(logical_id: str, source_kind: str) -> str:
+        if logical_id not in tier_of:
+            tier_of[logical_id] = recorded_tier(logical_id, source_kind)
+        return tier_of[logical_id]
+
     rows = repo._conn.execute(
         """SELECT s.section_id, s.revision_id, s.path, s.title, s.heading_path,
                   s.page_start, s.char_start, s.char_end, s.unit_kind, s.ordinal,
@@ -350,6 +364,7 @@ def build_plan(repo: Any, *, jurisdiction: str, kb_id: str = "") -> ProjectionPl
                     recorded_to=_date_of(entry["recorded_to"]),
                     is_superseded=0 if revision_id in governing else 1,
                     unit_kind=str(entry["unit_kind"] or ""),
+                    authority_tier=_tier(str(entry["logical_id"] or ""), str(entry["source_kind"] or "")),
                 )
             )
     plan.uncaptured_revisions = [
@@ -495,6 +510,13 @@ def resolve_sections(repo: Any, section_ids: list[str]) -> dict[str, dict[str, A
         entry["text"] = full[start:end] if full and 0 <= start < end <= len(full) else ""
         entry["headings"] = _heading_of(entry)
         entry["resolvable"] = bool(entry["text"])
+        # P4: a section always arrives labelled with its authority — "" is
+        # untiered and stays visible as untiered.
+        from portal.modules.compliance.core.tiers import recorded_tier
+
+        entry["authority_tier"] = recorded_tier(
+            str(entry["logical_id"] or ""), str(entry["source_kind"] or "")
+        )
         out[str(entry["section_id"])] = entry
     return out
 

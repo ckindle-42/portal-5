@@ -255,6 +255,118 @@ def _linked_internal(repo: Any, ref: str) -> list[dict[str, Any]]:
     return out
 
 
+# ── contradiction is a retrievable fact (SUBSTRATE_PROPERTIES_V1 P4) ────────
+
+# A duration/modal mismatch is only a real COMPLIANCE_CONFLICT when the two
+# compared spans are actually about the same obligation. Carried from
+# ``coverage.py`` (whose verdict-engine cell file D retires — the guard itself
+# must survive it): live on the real corpus, ``detect_conflicts`` flagged a
+# password-rotation cadence against an unrelated sub-item's access-revocation
+# deadline mentioned in the same paragraph of a genuinely relevant, locatable
+# procedure chunk. Requiring the two spans to share this much topical
+# vocabulary is a cheap, disclosed proxy for "same obligation" — not semantic
+# understanding, but it closes the specific false-positive class observed live.
+_CONFLICT_TOPIC_OVERLAP = 3
+
+
+def _shares_topic(conflict: Any) -> bool:
+    from portal.modules.compliance.core.text_signals import keywords
+
+    overlap = keywords(conflict.higher.text) & keywords(conflict.lower.text)
+    return len(overlap) >= _CONFLICT_TOPIC_OVERLAP
+
+
+def conflicts_for_requirement(
+    repo: Any, ref: str, *, valid_at: str = ""
+) -> dict[str, Any]:
+    """The cross-tier contradictions touching one requirement's neighbourhood.
+
+    The detection logic is ``tiers.detect_conflicts``, unchanged — both spans,
+    both tiers, both citations, emitted and **never reconciled**. What changed
+    (SUBSTRATE_PROPERTIES_V1 P4) is where the result lives: not inside the
+    coverage cell (retired in file D), but here, where the reader can reach it
+    — a tool on its own and a component of every full assembly.
+
+    The standard side of every comparison is the requirement's OWN table rows
+    — never the Measures, never the Guidelines and Technical Basis. Both of
+    those quote the standard's other Parts; comparing them against an operator
+    procedure produced FALSE ``COMPLIANCE_CONFLICT``s live (a policy-review
+    cadence flagged against an unrelated delegation deadline, and the standard
+    appearing to disagree with itself). The Measures are example evidence, not
+    duty text; a conflict detector that fires on the standard quoting itself is
+    worse than none.
+
+    An untiered operator document cannot take part in a CROSS-tier ruling —
+    ranking it would fabricate the very authority the property refuses to
+    invent — so it is listed under ``untiered_sections``, visibly, instead.
+    """
+    from portal.modules.compliance.core.tiers import Span, detect_conflicts
+
+    parsed = parse_ref(ref)
+    if parsed is None:
+        return {"ref": ref, "error": f"{ref!r} is not a regulatory address"}
+    revision = _revision_for(repo, parsed.logical_id, valid_at)
+    if revision is None:
+        return {"ref": ref, "error": f"{parsed.logical_id} is not in the store"}
+    sections = _sections(repo, str(revision["revision_id"]))
+    body = _under(sections, "requirements and measures") or sections
+    req_sections = _requirement_rows(body, parsed.requirement, parsed.part)
+    linked = _linked_internal(repo, str(parsed))
+
+    spans: list[Span] = [
+        Span(
+            str(s.get("text", "")),
+            tier=0,
+            citation=str(s.get("section_id", "")),
+            doc_class="standard",
+        )
+        for s in req_sections
+        if str(s.get("text", "")).strip()
+    ]
+    untiered: list[str] = []
+    for entry in linked:
+        tier = str(entry.get("authority_tier", ""))
+        text = str(entry.get("text", ""))
+        if not text.strip():
+            continue
+        if tier == "":
+            untiered.append(str(entry.get("section_id", "")))
+            continue
+        spans.append(
+            Span(
+                text,
+                tier=int(tier),
+                citation=str(entry.get("section_id", "")),
+                doc_class=str(entry.get("source_kind", "")),
+            )
+        )
+
+    conflicts = [
+        c for c in detect_conflicts(spans, obligation=str(parsed)) if _shares_topic(c)
+    ]
+    payload: list[dict[str, Any]] = []
+    for c in conflicts:
+        entry = c.to_dict()
+        # both sides addressable: the citation IS the section id on each side
+        higher_key = "higher_authority" if not c.same_tier else "span_a"
+        lower_key = "lower_authority" if not c.same_tier else "span_b"
+        entry["sections"] = {
+            higher_key.split("_")[0] if not c.same_tier else "a": c.higher.citation,
+            lower_key.split("_")[0] if not c.same_tier else "b": c.lower.citation,
+        }
+        payload.append(entry)
+    return {
+        "ref": str(parsed),
+        "obligation": str(parsed),
+        "standard_sections": [str(s.get("section_id", "")) for s in req_sections],
+        "operator_sections": [
+            str(e.get("section_id", "")) for e in linked if e.get("section_id")
+        ],
+        "untiered_sections": sorted(set(untiered)),
+        "conflicts": payload,
+    }
+
+
 # ── the assembly ────────────────────────────────────────────────────────────
 
 #: assembly order. Earlier components survive a tight budget; the requirement
@@ -268,6 +380,7 @@ COMPONENT_ORDER = (
     "rationale",
     "glossary",
     "linked_internal",
+    "conflicts",
     "vsl",
     "applicability",
     "background",
@@ -425,6 +538,31 @@ def assemble(
             "linked_internal",
             "operator sections recorded as related to this requirement, in full",
             _linked_internal(repo, str(parsed)),
+        )
+    )
+    # P4: contradiction is a retrievable fact that rides with the reading — a
+    # reading that never looked at a known cross-tier contradiction between the
+    # standard and the operator's own documents should be visible as one.
+    conflicts = conflicts_for_requirement(repo, str(parsed), valid_at=valid_at)
+    conflict_sections = [
+        {
+            "section_id": (c.get("sections", {}) or {}).get("higher", "")
+            + " / "
+            + (c.get("sections", {}) or {}).get("lower", ""),
+            "title": f"{c.get('signal')} — {c.get('kind')}",
+            "headings": "cross-tier contradiction, emitted and never reconciled",
+            "text": str(c.get("detail", "")),
+            "conflict": c,
+        }
+        for c in conflicts.get("conflicts", [])
+    ]
+    components.append(
+        Component(
+            "conflicts",
+            "known contradictions between the standard and the operator's own "
+            "documents touching this requirement — both sides, both tiers, never "
+            "reconciled",
+            conflict_sections,
         )
     )
     components.extend(_companion_documents(repo, parsed, valid_at))
@@ -611,6 +749,8 @@ def _cite(
                 "document_title",
                 "jurisdiction",
                 "source_kind",
+                "authority_tier",
+                "conflict",
                 "version",
             )
             if key in section

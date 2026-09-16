@@ -33,6 +33,7 @@ TIER_NAMES = {
 _DOC_CLASS_TIER = {
     "standard": 0,
     "nerc_standard": 0,
+    "regulatory_standard": 0,  # the canonical store's spelling of the same thing
     "implementation_plan": 1,
     "rsaw": 1,
     "compliance_guidance": 1,
@@ -48,6 +49,39 @@ _DOC_CLASS_TIER = {
 
 def classify_tier(doc_class: str) -> int:
     return _DOC_CLASS_TIER.get((doc_class or "").strip().lower(), 4)
+
+
+def recorded_tier(logical_id: str, source_kind: str = "") -> str:
+    """A document's recorded authority tier, as ``"0"``..``"4"``, or ``""``.
+
+    P4.1: tier is a property of a SECTION, projected from what was RECORDED
+    about its document — never a silent default. Two records exist, in order:
+
+    1. the ingest sidecar's per-document derivation (``ingest.LAYER_SIDECAR``,
+       keyed by the document path, which for the operator corpus is the
+       ``logical_id``) — the record the ``document_tier`` review item shows an
+       SME;
+    2. the module's own declared doc-class table above, applied to the
+       canonical ``source_kind`` — but ONLY on an exact hit. A class the table
+       does not name has no recorded tier.
+
+    Everything else is ``""`` — UNTIERED, and visible as untiered. An
+    unclassified document must not quietly become Tier 3 (overrides nothing,
+    is overridden by nothing, so a silent default makes it invisible to the
+    property) — nor Tier 4, which would LEND it a ranking it was never given.
+    """
+    if logical_id:
+        try:
+            from portal.modules.compliance.core.ingest import LAYER_SIDECAR, read_sidecar
+
+            entry = read_sidecar(LAYER_SIDECAR).get(logical_id) or {}
+            tier = entry.get("tier")
+            if tier is not None and str(tier).strip() != "":
+                return str(int(tier))
+        except (OSError, ValueError):  # noqa: BLE001 — an unreadable sidecar records nothing
+            pass
+    hit = _DOC_CLASS_TIER.get((source_kind or "").strip().lower())
+    return "" if hit is None else str(hit)
 
 
 @dataclass
