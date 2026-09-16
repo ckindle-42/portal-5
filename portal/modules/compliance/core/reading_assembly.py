@@ -471,8 +471,39 @@ def assemble(
     sections = _sections(repo, revision_id)
     requirement, part = parsed.requirement, parsed.part
 
-    body = _under(sections, "requirements and measures") or sections
-    req_sections = _requirement_rows(body, requirement, part)
+    # P4.2: the requirement's own sections come from the JOIN where one exists.
+    # Heading-path proximity was never a principle here — with no
+    # requirement→section key there was no way to retrieve *the sections
+    # constituting R2 Part 2.2*, so proximity was the only option available. It
+    # stays as a NAMED fallback for an unanchored requirement, never a silent
+    # substitute: an absence claim resting on a guess must be visibly weaker.
+    from portal.modules.compliance.core import enumeration
+
+    population = enumeration.population_for_requirement(
+        repo,
+        str(parsed),
+        relations=("governing",),
+        proximity_fallback=lambda: _requirement_rows(
+            _under(sections, "requirements and measures") or sections, requirement, part
+        ),
+    )
+    by_id = {str(s["section_id"]): s for s in sections}
+    req_sections = (
+        [by_id[sid] for sid in population["section_ids"] if sid in by_id]
+        if population["population_method"] == "join"
+        else population["rows"]
+    )
+    if population["population_method"] == "join" and not req_sections:
+        # the join resolved into a revision these sections do not come from.
+        # Say so by falling back rather than returning an empty requirement.
+        population["population_method"] = "proximity"
+        population["detail"] = (
+            f"{str(parsed)!r} is anchored, but into a revision other than "
+            f"{revision_id[:12]} — gathered by heading-path proximity instead"
+        )
+        req_sections = _requirement_rows(
+            _under(sections, "requirements and measures") or sections, requirement, part
+        )
     gtb = _under(sections, f"requirement r{requirement}:") if requirement else []
     rationale = (
         _under(sections, f"rationale for requirement r{requirement}:") if requirement else []
@@ -646,6 +677,11 @@ def assemble(
             for c in kept
         ],
         "omitted": omitted,
+        # P4.2: how the requirement's own population was derived. "join" is the
+        # exact anchor; "proximity" is the weaker structural walk, and it is
+        # named here so a reader never mistakes one for the other.
+        "population_method": population["population_method"],
+        "population_detail": population["detail"],
         "assembly": "deterministic — document structure and recorded edges, no relevance score",
     }
 

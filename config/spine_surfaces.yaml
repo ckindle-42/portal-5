@@ -139,7 +139,7 @@ surfaces:
 - name: file-portal-modules-compliance-core-enumeration
   globs:
   - portal/modules/compliance/core/enumeration.py
-  unit: unit-compliance-substrate-properties
+  unit: unit-compliance-requirement-join
 - name: file-portal-modules-compliance-core-evaluation
   globs:
   - portal/modules/compliance/core/evaluation.py
