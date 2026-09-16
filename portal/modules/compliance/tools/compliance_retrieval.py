@@ -127,9 +127,7 @@ def _stage_set() -> dict[str, Any]:
         # missing column silently excludes everything, which must be a STALE
         # verdict, never a silent empty result. Same mechanism Y25 used when
         # ``chunker_effective`` landed.
-        "predicate_columns": sorted(
-            _predicate_columns()
-        ),
+        "predicate_columns": sorted(_predicate_columns()),
     }
 
 

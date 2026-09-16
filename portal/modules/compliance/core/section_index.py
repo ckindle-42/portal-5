@@ -364,7 +364,9 @@ def build_plan(repo: Any, *, jurisdiction: str, kb_id: str = "") -> ProjectionPl
                     recorded_to=_date_of(entry["recorded_to"]),
                     is_superseded=0 if revision_id in governing else 1,
                     unit_kind=str(entry["unit_kind"] or ""),
-                    authority_tier=_tier(str(entry["logical_id"] or ""), str(entry["source_kind"] or "")),
+                    authority_tier=_tier(
+                        str(entry["logical_id"] or ""), str(entry["source_kind"] or "")
+                    ),
                 )
             )
     plan.uncaptured_revisions = [

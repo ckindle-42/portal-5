@@ -53,7 +53,12 @@ async def _rr(_query, cands, _n):
         {
             "index": i,
             "score": round(
-                int(hashlib.sha256((c.get("text") or c.get("image_path") or "").encode()).hexdigest()[:8], 16)
+                int(
+                    hashlib.sha256(
+                        (c.get("text") or c.get("image_path") or "").encode()
+                    ).hexdigest()[:8],
+                    16,
+                )
                 % 1000
                 / 1000,
                 5,
@@ -106,7 +111,9 @@ class TestPredicatesBuild:
         assert predicates.build([("in", "col", [])]) == "0"
 
     def test_or_group_for_clock_bounds(self):
-        clause = predicates.build([[("effective_from", "=", ""), ("effective_from", "<=", "2026-09-16")]])
+        clause = predicates.build(
+            [[("effective_from", "=", ""), ("effective_from", "<=", "2026-09-16")]]
+        )
         assert clause == "(effective_from = '' OR effective_from <= '2026-09-16')"
 
     def test_a_quote_in_a_value_is_escaped_not_interpreted(self):
@@ -179,10 +186,29 @@ def _run(c):
 
 class TestTheSeappliesToBothArmsOrReports:
     def test_a_filter_hits_dense_bm25_and_visual_when_expressible(self):
-        rows = [{"chunk_id": "a", "text": "x", "_marker": True, "source_file": "f", "chunk_index": 0, "page": 1, "char_start": 0, "char_end": 1}]
+        rows = [
+            {
+                "chunk_id": "a",
+                "text": "x",
+                "_marker": True,
+                "source_file": "f",
+                "chunk_index": 0,
+                "page": 1,
+                "char_start": 0,
+                "char_end": 1,
+            }
+        ]
         ttbl = _FakeTable(rows, {"chunk_id", "text", "marker_col"})
         vtbl = _FakeTable(
-            [{"chunk_id": "v", "image_path": "p.png", "source_file": "f", "page": 1, "_marker": True}],
+            [
+                {
+                    "chunk_id": "v",
+                    "image_path": "p.png",
+                    "source_file": "f",
+                    "page": 1,
+                    "_marker": True,
+                }
+            ],
             {"chunk_id", "image_path", "source_file", "page", "jurisdiction"},
         )
         out = _run(
@@ -196,7 +222,18 @@ class TestTheSeappliesToBothArmsOrReports:
         assert vtbl.states[0]["where"] == "jurisdiction = 'US'"
 
     def test_an_inexpressible_visual_predicate_is_reported_not_silently_skipped(self):
-        rows = [{"chunk_id": "a", "text": "x", "_marker": True, "source_file": "f", "chunk_index": 0, "page": 1, "char_start": 0, "char_end": 1}]
+        rows = [
+            {
+                "chunk_id": "a",
+                "text": "x",
+                "_marker": True,
+                "source_file": "f",
+                "chunk_index": 0,
+                "page": 1,
+                "char_start": 0,
+                "char_end": 1,
+            }
+        ]
         ttbl = _FakeTable(rows, {"chunk_id", "text"})
         vtbl = _FakeTable(
             [{"chunk_id": "v", "image_path": "p.png", "source_file": "f", "page": 1}],
@@ -210,7 +247,18 @@ class TestTheSeappliesToBothArmsOrReports:
         assert out.filter_report["visual"].startswith("not applied")
 
     def test_no_filter_returns_a_plain_list_and_untouched_arms(self):
-        rows = [{"chunk_id": "a", "text": "x", "_marker": False, "source_file": "f", "chunk_index": 0, "page": 1, "char_start": 0, "char_end": 1}]
+        rows = [
+            {
+                "chunk_id": "a",
+                "text": "x",
+                "_marker": False,
+                "source_file": "f",
+                "chunk_index": 0,
+                "page": 1,
+                "char_start": 0,
+                "char_end": 1,
+            }
+        ]
         ttbl = _FakeTable(rows, {"chunk_id", "text"})
         out = _run(fusion.fuse("text_gate", ttbl, None, "q", [0.1] * DIM, 3, _rr))
         assert type(out) is list
@@ -240,9 +288,11 @@ def _baseline_kb(tmp_path):
     )
     (src / "evidence.txt").write_text("Evidence is retained in the change record for three years.")
     ingest = json.loads(
-        (asyncio.new_event_loop().run_until_complete(
-            rm._ingest(_Req({"kb_id": "kb", "source_dir": str(src)}))
-        )).body
+        (
+            asyncio.new_event_loop().run_until_complete(
+                rm._ingest(_Req({"kb_id": "kb", "source_dir": str(src)}))
+            )
+        ).body
     )
     assert ingest["chunks_added"] == 3
 
@@ -292,10 +342,21 @@ class TestNoFilterResultsAreUnchanged:
     def test_search_kb_order_scores_and_keys_are_pinned(self, _baseline_kb):
         src = _baseline_kb
         out = json.loads(
-            (asyncio.new_event_loop().run_until_complete(
-                rm._search(_Req({"kb_id": "kb", "query": "evaluate security patches 35 days", "top_k": 5}))
-            )).body
+            (
+                asyncio.new_event_loop().run_until_complete(
+                    rm._search(
+                        _Req(
+                            {
+                                "kb_id": "kb",
+                                "query": "evaluate security patches 35 days",
+                                "top_k": 5,
+                            }
+                        )
+                    )
+                )
+            ).body
         )
+
         # pinned from the pre-seam run of this exact fixture: same ordering,
         # same kind, same fused scores, same payload keys. The ingest chunk id
         # is sha1(f"{kb_id}|{absolute file}|{idx}") — computed from the fixture.

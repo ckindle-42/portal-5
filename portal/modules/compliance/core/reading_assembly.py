@@ -286,9 +286,7 @@ def _shares_topic(conflict: Any) -> bool:
     return len(overlap) >= _CONFLICT_TOPIC_OVERLAP
 
 
-def conflicts_for_requirement(
-    repo: Any, ref: str, *, valid_at: str = ""
-) -> dict[str, Any]:
+def conflicts_for_requirement(repo: Any, ref: str, *, valid_at: str = "") -> dict[str, Any]:
     """The cross-tier contradictions touching one requirement's neighbourhood.
 
     The detection logic is ``tiers.detect_conflicts``, unchanged — both spans,
@@ -351,9 +349,7 @@ def conflicts_for_requirement(
             )
         )
 
-    conflicts = [
-        c for c in detect_conflicts(spans, obligation=str(parsed)) if _shares_topic(c)
-    ]
+    conflicts = [c for c in detect_conflicts(spans, obligation=str(parsed)) if _shares_topic(c)]
     payload: list[dict[str, Any]] = []
     for c in conflicts:
         entry = c.to_dict()
@@ -369,9 +365,7 @@ def conflicts_for_requirement(
         "ref": str(parsed),
         "obligation": str(parsed),
         "standard_sections": [str(s.get("section_id", "")) for s in req_sections],
-        "operator_sections": [
-            str(e.get("section_id", "")) for e in linked if e.get("section_id")
-        ],
+        "operator_sections": [str(e.get("section_id", "")) for e in linked if e.get("section_id")],
         "untiered_sections": sorted(set(untiered)),
         "conflicts": payload,
     }
