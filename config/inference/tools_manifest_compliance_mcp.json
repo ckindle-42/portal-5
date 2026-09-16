@@ -541,6 +541,29 @@
  {
   "type": "function",
   "function": {
+   "name": "compliance_conflicts",
+   "description": "Cross-tier contradictions touching a requirement's neighbourhood \u2014 both spans, both tiers, both section ids, never reconciled.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "ref": {
+      "type": "string",
+      "description": "regulatory address, e.g. CIP-007-6 R2 Part 2.2"
+     },
+     "valid_at": {
+      "type": "string",
+      "description": "ISO date to read the standard as of"
+     }
+    },
+    "required": [
+     "ref"
+    ]
+   }
+  }
+ },
+ {
+  "type": "function",
+  "function": {
    "name": "compliance_read",
    "description": "Verbatim text of any addressable unit, from either side.",
    "parameters": {

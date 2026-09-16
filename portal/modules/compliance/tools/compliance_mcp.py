@@ -1968,6 +1968,7 @@ def _provenance(entry: dict[str, Any]) -> dict[str, Any]:
         "logical_id": entry.get("logical_id", ""),
         "jurisdiction": entry.get("jurisdiction", ""),
         "source_kind": entry.get("source_kind", ""),
+        "authority_tier": entry.get("authority_tier", ""),  # "" == untiered, visibly
         "document_number": entry.get("document_number", ""),
         "version": entry.get("version", ""),
         "revision_id": entry.get("revision_id", ""),
@@ -2297,6 +2298,27 @@ def compliance_read(ref: str, neighbors: bool = False, max_chars: int = 20000) -
         if parsed is not None:
             payload["address"] = str(parsed)
         return payload
+    finally:
+        repo.close()
+
+
+@mcp.tool()
+def compliance_conflicts(ref: str, valid_at: str = "") -> dict[str, Any]:
+    """Cross-tier contradictions touching a requirement's neighbourhood.
+
+    Property 2 (SUBSTRATE_PROPERTIES_V1 P4): a contradiction between tiers is a
+    RETRIEVABLE fact, not a verdict-engine byproduct. ``ref`` is a regulatory
+    address (``CIP-007-6 R2 Part 2.2``). Each conflict carries both spans, both
+    tiers, both section ids — emitted and **never reconciled**. The standard is
+    compared only through its own requirement rows, so the standard quoting
+    itself (Measures, Guidelines) does not fire. Documents with no recorded
+    tier are listed under ``untiered_sections`` — visible, never ranked.
+    """
+    from portal.modules.compliance.core import reading_assembly
+
+    repo = _repo()
+    try:
+        return reading_assembly.conflicts_for_requirement(repo, ref, valid_at=valid_at)
     finally:
         repo.close()
 
@@ -2758,6 +2780,7 @@ _DISPATCH: dict[str, Callable[..., Any]] = {
     "compliance_bundle": compliance_bundle,
     # BILATERAL_CORPUS_V1 P5 — addressability and the reading assembly
     "compliance_read": compliance_read,
+    "compliance_conflicts": compliance_conflicts,
     "compliance_links": compliance_links,
     "compliance_timeline": compliance_timeline,
     "compliance_coverage": compliance_coverage,
