@@ -262,6 +262,24 @@ def resolve_governing_bundle(requirement_id: str, *, policy_graph: Any = None) -
     definitions, references, ref_slices = _graph_references(graph, requirement_id, by_id)
     slices.extend(ref_slices)
 
+    # P2: the external-glossary deferral, actually resolved. A standard with no
+    # definitions section defers to the NERC Glossary; before this the
+    # disposition was recorded and nothing ever fetched it, so every defined
+    # term in the duty text resolved to nothing.
+    if pb.get("definitions_disposition") == "external_glossary":
+        definitions.extend(
+            _glossary_definitions(
+                " ".join(
+                    [
+                        node.verbatim_text,
+                        lead_in,
+                        applicable_systems,
+                        *(str(m.get("text", "")) for m in measures),
+                    ]
+                )
+            )
+        )
+
     bundle_out = GoverningBundle(
         ref=requirement_id,
         part_text=node.verbatim_text,
@@ -279,6 +297,40 @@ def resolve_governing_bundle(requirement_id: str, *, policy_graph: Any = None) -
     )
     bundle_out.fingerprint = _bundle_fingerprint(slices)
     return bundle_out
+
+
+def _glossary_definitions(text: str) -> list[dict[str, Any]]:
+    """Resolved NERC Glossary terms the duty text depends on, each with its own
+    provenance and effectivity. An unresolvable term is carried explicitly
+    unresolved — never guessed and never silently omitted. A store without the
+    Glossary registered yields an empty list rather than an error: the bundle is
+    still usable, and the absence is visible in the payload."""
+    from portal.modules.compliance.core.glossary import resolve_bundle_definitions
+    from portal.modules.compliance.core.repository import Repository
+
+    repo = Repository()
+    try:
+        resolution = resolve_bundle_definitions(repo, text)
+    except Exception:  # noqa: BLE001 - an unreadable store defers, never invents
+        return []
+    finally:
+        repo.close()
+    return [
+        {
+            "ref": entry["term"],
+            "text": entry["definition"],
+            "role": "definition",
+            "source": "NERC Glossary of Terms",
+            "matched_as": entry.get("matched_as", ""),
+            "section_id": entry["section_id"],
+            "revision_id": entry["revision_id"],
+            "effective_date": entry["effective_date"],
+            "inactive_date": entry["inactive_date"],
+            "resolved": entry["resolved"],
+            "detail": entry["detail"],
+        }
+        for entry in resolution["terms"]
+    ]
 
 
 def _graph_references(
