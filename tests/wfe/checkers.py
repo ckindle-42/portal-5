@@ -16,6 +16,7 @@ Every checker here replaced a version that could return a false PASS:
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import shutil
 import subprocess
@@ -337,6 +338,54 @@ def check_human_review(spec: dict, ctx: CheckContext) -> CheckResult:
     )
 
 
+def check_compliance_reading_contract(spec: dict, ctx: CheckContext) -> CheckResult:
+    """Score the mechanical reading contract without judging prose quality.
+
+    The model must return one JSON object describing the receipt it actually
+    produced. This checker covers closure completeness, citation resolution,
+    unsupported-absence disclosure, and first-tool selection; citation
+    correctness remains the offline ``core.evaluation`` instrument.
+    """
+    text = ctx.final_text or ""
+    payload = None
+    decoder = json.JSONDecoder()
+    for match in re.finditer(r"\{", text):
+        try:
+            candidate, _end = decoder.raw_decode(text[match.start() :])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(candidate, dict):
+            payload = candidate
+    if payload is None:
+        return CheckResult(Outcome.FAIL, "reading contract did not contain a JSON object", {})
+
+    unread = payload.get("closure_unread") or []
+    citations = payload.get("citations") or []
+    unresolved = [
+        item for item in citations if isinstance(item, dict) and item.get("resolved") is not True
+    ]
+    expected_first = str(spec.get("expected_first_tool", "compliance_requirement"))
+    checks = {
+        "closure_complete": payload.get("closure_complete") is (not unread),
+        "citation_resolution": not unresolved,
+        "unsupported_absence": int(payload.get("unsupported_absence", 0) or 0) == 0,
+        "tool_selection": payload.get("first_tool") == expected_first,
+    }
+    ok = all(checks.values())
+    evidence = {
+        "reading_contract": checks,
+        "unread": unread,
+        "unresolved_citations": unresolved,
+        "first_tool": payload.get("first_tool"),
+        "ground_truth_verdict": payload.get("ground_truth_verdict", ""),
+    }
+    return CheckResult(
+        Outcome.PASS if ok else Outcome.FAIL,
+        "reading contract passed" if ok else f"reading contract failed={checks}",
+        evidence,
+    )
+
+
 CHECKERS = {
     "pytest_pass": check_pytest_pass,
     "hidden_pytest": check_hidden_pytest,
@@ -346,6 +395,7 @@ CHECKERS = {
     "answer_contains": check_answer_contains,
     "cited_answer": check_cited_answer,
     "human_review": check_human_review,
+    "compliance_reading_contract": check_compliance_reading_contract,
 }
 
 

@@ -69,22 +69,8 @@ seats:
 
 # Focused profiles (intent / conformance / audit / timeline). Fast enough to
 # hold a conversation in: 14-28 s per exchange warm.
-reading_seat:
-  id: glm47flash-reader
-  label: "GLM-4.7-Flash (Q4_K_M, 64k) — focused-packet reading seat"
-  model: "glm-4.7-flash:Q4_K_M-ctx64k"
-
 # The full ~30k neighbourhood. The only seat measured correct at that size: it
 # was the one that read the operator's own procedure instead of accepting the
 # note's summary of it.
-reading_seat_full_packet:
-  id: qwen38-reader
-  label: "Qwen3.8 27B (unsloth Q4_K_M, 32k) — full-packet reading seat"
-  model: "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
-
 # Minimum footprint, for a host with less headroom. 6.6 GB, correct on the
 # discriminator, 23 s warm.
-reading_seat_minimal:
-  id: qwen35-9b-reader
-  label: "Qwen3.5 9B abliterated (64k) — minimal-footprint reading seat"
-  model: "huihui_ai/qwen3.5-abliterated:9b-ctx64k"
