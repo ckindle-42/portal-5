@@ -152,10 +152,47 @@ class TestTheMaterialHandedOver:
         assert "change window is monthly" in material
 
     def test_the_prompt_imposes_no_output_shape(self) -> None:
-        prompt = reader.SYSTEM_PROMPT.lower()
+        prompt, version, sha = reader.load_prompt()
+        lowered = " ".join(prompt.lower().split())
         for forbidden in ("json", "schema", "field", "enum", "step 1", "first,", "format:"):
-            assert forbidden not in prompt, forbidden
-        assert "prose" in prompt
+            assert forbidden not in lowered, forbidden
+        assert "prose" in lowered
+        # It is a versioned artifact, not a literal: both identifiers exist and
+        # the sha is of the body, so an edit cannot pass as the same prompt.
+        assert version != "undeclared" and len(sha) == 12
+
+    def test_the_prompt_asks_for_the_work_the_reader_actually_does(self) -> None:
+        """PROVE_CIP_007_V1 P1.2. The v1 prompt opened "in front of you" and
+        asked for prose. It never said the model had tools, never said the
+        opening material was a starting point, and never asked for the
+        comparison a posture question needs — so a control contract had to FAIL
+        a reading for behaviour the prompt had not requested."""
+        prompt, _, _ = reader.load_prompt()
+        # wrapping is incidental to prose; the claims are about the sentences
+        lowered = " ".join(prompt.lower().split())
+        # the tools, named
+        for tool in (
+            "compliance_requirement",
+            "compliance_read",
+            "compliance_links",
+            "compliance_search",
+            "compliance_timeline",
+            "compliance_notes",
+        ):
+            assert tool in prompt, tool
+        # references are not text
+        assert "references" in lowered and "unread until you read it" in lowered
+        # both sides
+        assert "at least one operator section" in lowered
+        # over-strictness as fact, not as a gap or a question
+        assert "exceeding a requirement is permitted" in lowered
+        assert "never a gap" in lowered
+        # latitude the standard grants and the procedure narrowed
+        assert "less latitude than nerc grants" in lowered
+        # the GTB, citable but never duty text
+        assert "never binding duty text" in lowered
+        # declared omissions
+        assert "a declared omission is acceptable" in lowered
 
 
 class TestCitationsAreResolvedAndLabelled:
@@ -552,8 +589,16 @@ class TestAnEmptyAnswerIsAFailure:
             store, "q", "CIP-007-6 R2", model="stub", answer_tokens=1600, store=False
         )
         assert payload["failed"] is True
-        assert "whole 1600-token budget" in payload["failure"]
-        assert "reasoning" in payload["failure"]
+        # A BUDGET verdict, named by the transport after it retried once at
+        # double the reasoning allowance — never a substantive answer, and never
+        # evidence about reasoning.
+        # Reasoning is OFF by default on this call site, so this seat reasoned
+        # although it was told not to — the failure says which of the two it
+        # was, and either way it is a BUDGET result, never an answer.
+        assert "reasoning was OFF for this call" in payload["failure"]
+        assert "not a reasoning result and not an answer" in payload["failure"]
+        assert payload["applied_settings"]["attempts"][0]["thinking_chars"] == 6000
+        assert payload["applied_settings"]["reasoning_allowance"] == 0
 
     def test_an_answer_that_read_nothing_is_a_failed_reading(
         self, store: Repository, monkeypatch: pytest.MonkeyPatch

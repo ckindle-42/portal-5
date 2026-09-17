@@ -45,6 +45,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from pathlib import Path
 from typing import Any
 
 #: Section ids as they appear in an answer. Both extractors' prefixes plus the
@@ -116,23 +117,37 @@ _WORD_NUMBERS.update(
 #: a false accusation.
 _ATTRIBUTION_WINDOW_CHARS = 300
 
-SYSTEM_PROMPT = """You are reading with a compliance analyst.
+#: Where the reading prompt lives. It is an ARTIFACT, not a literal.
+#:
+#: On an agentic reader the prompt is the primary lever, and as a hardcoded
+#: unversioned string it was the one input that left no trace: absent from every
+#: stored answer, every closure receipt and every report. A prompt change could
+#: not be measured because there was nothing to compare it with. It now carries
+#: a declared ``prompt_version`` and a content sha, both recorded on every
+#: answer and every acceptance row, so a change has a before and an after.
+PROMPT_PATH = Path(__file__).resolve().parents[4] / "config" / "compliance" / "reading_prompt.md"
 
-You have two bodies of material in front of you: NERC regulatory text, and the \
-operator's own policies, procedures, work instructions and recorded decisions. \
-Both are verbatim. Each passage is labelled with what it is and where it came \
-from, and carries a section id.
+_FRONT_MATTER = re.compile(r"\A---\n(.*?)\n---\n", re.S)
 
-Answer the analyst's question in prose. Cite the section id of any passage you \
-rely on, inline, as you go — an argument the analyst cannot follow back to the \
-text is not usable. Quote where quoting is clearer than paraphrase.
 
-Say plainly when the material you have been given cannot settle something, and \
-say what would settle it. If part of the neighbourhood was omitted for budget, \
-it is named at the end of the material; take that into account.
+def load_prompt(path: Path | None = None) -> tuple[str, str, str]:
+    """The reading prompt, its declared version, and the sha of its body.
 
-Do not invent a section id. Do not treat the standard as evidence that the \
-operator does anything."""
+    Both identifiers are recorded. The declared version is what a person writes
+    in a report; the sha is what makes a claim about "the new prompt" checkable,
+    because an edited file carrying an unchanged version string is exactly the
+    drift a version string alone cannot catch.
+    """
+    raw = (path or PROMPT_PATH).read_text(encoding="utf-8")
+    version = ""
+    body = raw
+    front = _FRONT_MATTER.match(raw)
+    if front:
+        body = raw[front.end() :]
+        match = re.search(r"^prompt_version:\s*(\S+)\s*$", front.group(1), re.M)
+        version = match.group(1) if match else ""
+    body = body.strip()
+    return body, version or "undeclared", hashlib.sha256(body.encode()).hexdigest()[:12]
 
 
 def _render_material(context: dict[str, Any]) -> str:
@@ -547,6 +562,57 @@ def _closure_failure(
     return ""
 
 
+def _dispatch_calls(
+    repo: Any,
+    calls: list[Any],
+    *,
+    step: int,
+    max_chars: int,
+    thread: list[dict[str, Any]],
+    examined: set[str],
+    enumerated: set[str],
+    trace: list[dict[str, Any]],
+) -> None:
+    """Run one turn's model-elected tool calls and append their results.
+
+    ``compliance_links`` hands back the EDGE LIST, so what it names is
+    ENUMERATED, never examined — counting those ids as read would let one call
+    mark every linked section read without a word of it reaching the model.
+    """
+    from portal.modules.compliance.core.reading_tools import dispatch
+
+    for call in calls:
+        function = call.get("function", call) if isinstance(call, dict) else {}
+        name = str(function.get("name", ""))
+        arguments = function.get("arguments", {})
+        if isinstance(arguments, str):
+            try:
+                arguments = json.loads(arguments)
+            except json.JSONDecodeError:
+                arguments = {}
+        result = dispatch(
+            repo, name, arguments if isinstance(arguments, dict) else {}, max_chars=max_chars
+        )
+        target = enumerated if name == "compliance_links" else examined
+        target.update(str(section_id) for section_id in result.get("section_ids", []))
+        trace.append(
+            {
+                "step": step + 1,
+                "tool": name,
+                "derivation": "model",
+                "section_ids": result.get("section_ids", []),
+                "error": bool(result.get("error")),
+            }
+        )
+        thread.append(
+            {
+                "role": "tool",
+                "tool_name": name,
+                "content": json.dumps(result.get("payload", result), default=str),
+            }
+        )
+
+
 def read(  # noqa: PLR0912, PLR0915
     repo: Any,
     question: str,
@@ -558,6 +624,8 @@ def read(  # noqa: PLR0912, PLR0915
     num_ctx: int = 0,
     reasoning_effort: bool | str | None = None,
     answer_tokens: int = 3072,
+    reasoning_allowance: int = 0,
+    prompt_path: Path | None = None,
     valid_at: str = "",
     thread_id: str = "",
     store: bool = True,
@@ -579,8 +647,14 @@ def read(  # noqa: PLR0912, PLR0915
     from portal.modules.compliance.core import requirement_scope
     from portal.modules.compliance.core.notes import notes_for
     from portal.modules.compliance.core.reading_assembly import CHARS_PER_TOKEN, assemble
-    from portal.modules.compliance.core.reading_tools import TOOL_SCHEMAS, dispatch
-    from portal.modules.compliance.core.reading_transport import chat
+    from portal.modules.compliance.core.reading_tools import TOOL_SCHEMAS
+    from portal.modules.compliance.core.reading_transport import (
+        DEFAULT_NUM_CTX,
+        DEFAULT_REASONING_ALLOWANCE,
+        ChatResult,
+        ContextCeilingError,
+        chat,
+    )
 
     if profile:
         return {
@@ -677,8 +751,9 @@ def read(  # noqa: PLR0912, PLR0915
     # current question, so on turn two the last message in the thread was an old
     # assistant answer and the model was replying to its own previous turn.
     outstanding = _outstanding(population, examined)
+    system_prompt, prompt_version, prompt_sha = load_prompt(prompt_path)
     thread: list[dict[str, Any]] = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": seed},
         *bootstrap,
         *([{"role": "user", "content": outstanding}] if outstanding else []),
@@ -699,22 +774,50 @@ def read(  # noqa: PLR0912, PLR0915
     )
     estimated_prompt = int(len(prefix) / CHARS_PER_TOKEN)
     needed = estimated_prompt + answer_tokens + 2048
-    window = num_ctx or max(8192, -(-needed // 4096) * 4096)
+    # The window is fixed once, on the first turn — and then the loop APPENDS a
+    # tool result per call, up to `max_steps` of them at `max_chars` each. Sizing
+    # it from the first turn's prefix alone therefore sizes it for the smallest
+    # thread this reading will ever have. On Ollama 0.34.0 an overflowing prompt
+    # is not truncated: it is HTTP 400 `exceed_context_size_error`, which kills
+    # the reading outright. So the floor is the transport's own default, which
+    # is sized for the worst case this loop can build.
+    #
+    # `CHARS_PER_TOKEN` (2.1) OVER-counts on this material — measured at 4.22
+    # chars/token on the seat (140,000 chars -> 33,142 prompt tokens), so the
+    # estimate reserves about twice the window it needs. That is the safe
+    # direction and it is left alone deliberately: the number that must never be
+    # optimistic is the one that reserves the window.
+    window = num_ctx or max(DEFAULT_NUM_CTX, -(-needed // 4096) * 4096)
     answer_result: Any = None
     stop_reason = ""
     model_calls = 0
     max_steps = 12
+    ceiling_failure = ""
     for step in range(max_steps):
-        answer_result = chat(
-            model,
-            messages=thread,
-            tools=TOOL_SCHEMAS,
-            budget=answer_tokens,
-            fmt=None,
-            think=reasoning_effort,
-            num_ctx=window,
-            timeout=timeout,
-        )
+        try:
+            answer_result = chat(
+                model,
+                messages=thread,
+                tools=TOOL_SCHEMAS,
+                answer_budget=answer_tokens,
+                reasoning_allowance=reasoning_allowance or DEFAULT_REASONING_ALLOWANCE,
+                fmt=None,
+                think=reasoning_effort,
+                num_ctx=window,
+                timeout=timeout,
+            )
+        except ContextCeilingError as exc:
+            # A reading whose thread outgrew its window is a FAILED reading with
+            # a named reason, not an exception escaping into a generic handler
+            # that reports it as a transport error of unknown kind.
+            ceiling_failure = str(exc)
+            stop_reason = f"context ceiling reached at step {step + 1}: {exc}"
+            if answer_result is None:
+                # Failed on the FIRST call: there is no result to report from, so
+                # an empty one is constructed rather than letting the receipt
+                # code dereference None.
+                answer_result = ChatResult(content="", thinking="", num_ctx=window, model=model)
+            break
         calls = list(
             getattr(answer_result, "tool_calls", []) or answer_result.get("tool_calls", [])
         )
@@ -726,39 +829,16 @@ def read(  # noqa: PLR0912, PLR0915
             break
         model_calls += len(calls)
         thread.append(raw_message or {"role": "assistant", "tool_calls": calls})
-        for call in calls:
-            function = call.get("function", call) if isinstance(call, dict) else {}
-            name = str(function.get("name", ""))
-            arguments = function.get("arguments", {})
-            if isinstance(arguments, str):
-                try:
-                    arguments = json.loads(arguments)
-                except json.JSONDecodeError:
-                    arguments = {}
-            result = dispatch(
-                repo,
-                name,
-                arguments if isinstance(arguments, dict) else {},
-                max_chars=max_chars,
-            )
-            target = enumerated if name == "compliance_links" else examined
-            target.update(str(section_id) for section_id in result.get("section_ids", []))
-            tool_trace.append(
-                {
-                    "step": step + 1,
-                    "tool": name,
-                    "derivation": "model",
-                    "section_ids": result.get("section_ids", []),
-                    "error": bool(result.get("error")),
-                }
-            )
-            thread.append(
-                {
-                    "role": "tool",
-                    "tool_name": name,
-                    "content": json.dumps(result.get("payload", result), default=str),
-                }
-            )
+        _dispatch_calls(
+            repo,
+            calls,
+            step=step,
+            max_chars=max_chars,
+            thread=thread,
+            examined=examined,
+            enumerated=enumerated,
+            trace=tool_trace,
+        )
     else:
         stop_reason = f"max_steps={max_steps} reached before the model returned an answer"
 
@@ -778,7 +858,12 @@ def read(  # noqa: PLR0912, PLR0915
     # 6,382 characters of reasoning for nothing. The same call with
     # `think: false` returned a complete, seven-citation, 4,756-character
     # answer. Returning "" as an answer would make that look like a terse model.
-    exhausted = bool(not answer and result.thinking)
+    # A budget error, named by the transport, which retried once at double the
+    # reasoning allowance before giving up. It is never a substantive answer and
+    # never evidence about reasoning — only about the budget it was given.
+    exhausted = result.get("stop_reason") == "budget_exhausted_in_reasoning" or bool(
+        not answer and result.thinking
+    )
     verification = verify_citations(repo, answer, material)
     # P4.3: assembly, disclosure and closure resolve the SAME scope, from the one
     # `population` object built before the reading. Computing the eligible set
@@ -843,6 +928,8 @@ def read(  # noqa: PLR0912, PLR0915
         "operator_eligible": sorted(operator_eligible),
         "operator_examined": sorted(operator_eligible & examined),
         "operator_cited": sorted(operator_eligible & cited),
+        "prompt_version": prompt_version,
+        "prompt_sha": prompt_sha,
         "model_tool_calls": model_calls,
         "complete": bool(eligible) and not unread,
         "stop_reason": stop_reason,
@@ -887,22 +974,56 @@ def read(  # noqa: PLR0912, PLR0915
         "answer": answer,
         "thinking_chars": len(result.thinking),
         "model": model,
+        # The prompt is an input like any other, and the one that moves the
+        # answer most. Recorded on the payload, the stored answer, the receipt
+        # and every acceptance row, so "did the prompt change help" is a
+        # question with an answer.
+        "prompt_version": prompt_version,
+        "prompt_sha": prompt_sha,
+        # REQUESTED is not APPLIED. `num_ctx` is what the call asked for;
+        # `applied` is what /api/ps says the runner loaded.
         "num_ctx": window,
+        "applied_settings": {
+            "num_ctx_requested": window,
+            "num_ctx_applied": result.get("num_ctx_applied"),
+            "seat_ceiling": result.get("seat_ceiling"),
+            "temperature": result.get("temperature"),
+            "answer_budget": result.get("answer_budget"),
+            "reasoning_allowance": result.get("reasoning_allowance"),
+            "num_predict": result.get("num_predict"),
+            "attempts": result.get("attempts"),
+            "transport_stop_reason": result.get("stop_reason"),
+        },
         "material_chars": len(material),
         "material_tokens": len(material) // CHARS_PER_TOKEN,
         "profile": "agent",
         "components": [c["component"] for c in context["components"]],
         "omitted": context["omitted"],
         "verification": verification,
-        "failed": bool(exhausted or not answer or closure_failure),
+        "failed": bool(exhausted or ceiling_failure or not answer or closure_failure),
         "failure": (
             (
-                f"the model produced no answer: the whole {answer_tokens}-token budget "
-                f"went to reasoning ({len(result.thinking)} characters of it). Reasoning "
-                "is measured OFF for this call site — see reading_transport.DEFAULT_EFFORT."
+                (
+                    "budget_exhausted_in_reasoning: the answer came back empty with "
+                    f"{len(result.thinking)} characters of reasoning, after a retry at "
+                    f"double the allowance (attempts: {result.get('attempts')}). This is a "
+                    "BUDGET result, not a reasoning result and not an answer."
+                )
+                if result.get("stop_reason") == "budget_exhausted_in_reasoning"
+                else (
+                    "the answer came back empty with "
+                    f"{len(result.thinking)} characters of reasoning although reasoning was "
+                    f"OFF for this call (effort={result.get('reasoning_effort')}): the "
+                    "template reasoned anyway and spent the answer budget doing it. This is "
+                    "a BUDGET result, not a reasoning result and not an answer."
+                )
             )
             if exhausted
-            else (closure_failure or ("the model produced no answer" if not answer else ""))
+            else (
+                ceiling_failure
+                or closure_failure
+                or ("the model produced no answer" if not answer else "")
+            )
         ),
         "closure_receipt": closure,
         "context_fit": fit,
@@ -961,8 +1082,9 @@ def store_answer(
         repo._conn.execute(
             """INSERT INTO conversation_answers(answer_id, thread_id, asked_at, question,
                    answer, model, subject_ref, elapsed_s, eval_count, prompt_bytes,
-                   load_duration_s, reasoning_effort, num_ctx, org_id)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'default')
+                   load_duration_s, reasoning_effort, num_ctx, prompt_version, prompt_sha,
+                   org_id)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'default')
                ON CONFLICT(answer_id) DO NOTHING""",
             (
                 answer_id,
@@ -978,6 +1100,8 @@ def store_answer(
                 float(latency.get("load_duration_s") or 0),
                 str(payload.get("reasoning_effort", "")),
                 int(payload.get("num_ctx") or 0),
+                str(payload.get("prompt_version", "")),
+                str(payload.get("prompt_sha", "")),
             ),
         )
         repo._conn.executemany(
@@ -1084,8 +1208,8 @@ def store_run(
                    question, answer, model, failed, failure, stop_reason, scope_json,
                    closure_json, tool_trace_json, messages_json, verification_json,
                    latency_json, context_fit_json, prompt_fingerprint, material_fingerprint,
-                   revision_id, reasoning_effort, num_ctx, org_id)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'default')
+                   revision_id, reasoning_effort, num_ctx, prompt_version, prompt_sha, org_id)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'default')
                ON CONFLICT(run_id) DO NOTHING""",
             (
                 run_id,
@@ -1111,6 +1235,8 @@ def store_run(
                 str(context.get("revision_id", "")),
                 str(payload.get("reasoning_effort", "")),
                 int(payload.get("num_ctx") or 0),
+                str(payload.get("prompt_version", "")),
+                str(payload.get("prompt_sha", "")),
             ),
         )
     return run_id
