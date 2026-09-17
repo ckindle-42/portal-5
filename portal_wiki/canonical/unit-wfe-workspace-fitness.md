@@ -58,6 +58,20 @@ The harness (`tests/wfe/`):
   model-unwritable graded suite, immutable, sandbox-only file_exists/
   file_contains, answer_contains with tool-output leak detection, cited_answer
   fetch-grounded, human_review → PENDING_REVIEW).
+- `compliance_reading_contract` scores the reading contract from what was
+  OBSERVED: the transcript's own `tool_calls` and the receipt `compliance_ask`
+  returned, never the JSON object a model writes about its own run. Three ways
+  it previously reported a false PASS, each now a regression lock in
+  `tests/wfe/tests/`: `closure_complete is (not unread)` is TRUE when the model
+  reports `false` with a non-empty unread list, so an explicitly incomplete
+  closure passed as a satisfied one; citations were only scanned for
+  `resolved is not True`, so an empty citation list passed every time; and
+  `first_tool` was whatever the model said it was, with `ctx.tool_calls` never
+  read, so a run with no tool calls at all could pass. Ground-truth recall binds
+  to the evaluation set (the APPROVED mappings) through
+  `ground_truth_requirement`; with no labels the outcome is PENDING_REVIEW —
+  honest-BLOCKED, never a pass, because a gate that passed against nothing would
+  qualify a seat against nothing.
 - `campaign.py` + `scripts/wfe_campaign.sh` — one-arm-per-process campaign
   driver with `--debug-dir` full-run capture and `--rescore` offline re-grade;
   `--preflight` probes every arm before the sweep, and each arm releases its

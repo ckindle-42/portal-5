@@ -17,6 +17,7 @@ from tests.wfe.checkers import (
     apply_checkers,
     check_answer_contains,
     check_cited_answer,
+    check_compliance_reading_contract,
     check_file_contains,
     check_file_exists,
     check_hidden_pytest,
@@ -426,3 +427,148 @@ def test_empty_response_breaks_instead_of_stacking_assistant_messages(tmp_path):
     assert len(calls) == 1, "empty response should end the loop, not keep calling"
     assert out["outcome"] in (Outcome.FAIL.value, Outcome.REFUSED.value, Outcome.TRUNCATED.value)
     assert any(t.get("empty_response") for t in out["transcript"])
+
+
+# ---------------------------------------------------------------------------
+# compliance reading contract — the gate that could pass without a reading
+# ---------------------------------------------------------------------------
+
+
+def _receipt(**overrides) -> dict:
+    """A `compliance_ask` return payload, in the reader's own shape."""
+    payload = {
+        "failed": False,
+        "failure": "",
+        "closure_receipt": {
+            "complete": True,
+            "eligible": ["csection-a", "isection-b"],
+            "examined": ["csection-a", "isection-b"],
+            "unread": [],
+            "outside": [],
+            "operator_eligible": ["isection-b"],
+            "model_tool_calls": 3,
+        },
+        "verification": {
+            "citations": [
+                {"cited_ref": "csection-a", "resolved": True, "jurisdiction": "US"},
+                {"cited_ref": "isection-b", "resolved": True, "jurisdiction": "internal"},
+            ]
+        },
+    }
+    closure = overrides.pop("closure", {})
+    citations = overrides.pop("citations", None)
+    payload.update(overrides)
+    payload["closure_receipt"].update(closure)
+    if citations is not None:
+        payload["verification"]["citations"] = citations
+    return payload
+
+
+def _ctx(receipt: dict | None, first_tool: str = "compliance_requirement") -> CheckContext:
+    calls = [{"name": first_tool, "args": {}, "output": "{}"}]
+    if receipt is not None:
+        calls.append({"name": "compliance_ask", "args": {}, "output": json.dumps(receipt)})
+    return CheckContext(final_text="an answer", tool_calls=calls)
+
+
+SPEC = {
+    "type": "compliance_reading_contract",
+    "expected_first_tool": "compliance_requirement",
+    "ground_truth_sections": ["csection-a"],
+}
+
+
+def test_reading_contract_passes_on_an_actual_reading():
+    result = check_compliance_reading_contract(SPEC, _ctx(_receipt()))
+    assert result.outcome is Outcome.PASS
+
+
+def test_an_incomplete_closure_no_longer_self_reports_as_pass():
+    """Reproduced false pass #1: the old check was
+    `payload["closure_complete"] is (not unread)`, and `False is (not ["x"])`
+    is True — an explicitly INCOMPLETE receipt satisfied the completeness
+    check."""
+    result = check_compliance_reading_contract(
+        SPEC, _ctx(_receipt(closure={"complete": False, "unread": ["csection-x"]}))
+    )
+    assert result.outcome is Outcome.FAIL
+    assert result.evidence["reading_contract"]["closure_complete"] is False
+    assert result.evidence["reading_contract"]["closure_unread_empty"] is False
+
+
+def test_an_answer_with_no_citations_fails():
+    """Reproduced false pass #2: citations were only scanned for
+    `resolved is not True`, so an EMPTY citation list passed every time."""
+    result = check_compliance_reading_contract(SPEC, _ctx(_receipt(citations=[])))
+    assert result.outcome is Outcome.FAIL
+    assert result.evidence["reading_contract"]["citation_resolution"] is False
+
+
+def test_a_run_with_no_tool_calls_fails():
+    result = check_compliance_reading_contract(
+        SPEC, CheckContext(final_text='{"closure_complete": true}', tool_calls=[])
+    )
+    assert result.outcome is Outcome.FAIL
+    assert "no compliance tool was called" in result.notes
+
+
+def test_a_model_authored_receipt_is_not_a_receipt():
+    """The whole JSON object the model writes about its own run is no longer
+    scored: without a `compliance_ask` receipt there is nothing to score."""
+    ctx = CheckContext(
+        final_text=json.dumps(
+            {"closure_complete": True, "closure_unread": [], "first_tool": "compliance_requirement"}
+        ),
+        tool_calls=[{"name": "compliance_requirement", "args": {}, "output": "{}"}],
+    )
+    result = check_compliance_reading_contract(SPEC, ctx)
+    assert result.outcome is Outcome.FAIL
+    assert "model's own account" in result.notes
+
+
+def test_the_first_tool_is_read_from_the_transcript_not_the_answer():
+    result = check_compliance_reading_contract(
+        SPEC, _ctx(_receipt(), first_tool="compliance_search")
+    )
+    assert result.outcome is Outcome.FAIL
+    assert result.evidence["first_tool"] == "compliance_search"
+    assert result.evidence["reading_contract"]["tool_selection"] is False
+
+
+def test_a_posture_answer_must_cite_the_operators_own_side():
+    result = check_compliance_reading_contract(
+        SPEC,
+        _ctx(
+            _receipt(
+                citations=[{"cited_ref": "csection-a", "resolved": True, "jurisdiction": "US"}]
+            )
+        ),
+    )
+    assert result.outcome is Outcome.FAIL
+    assert result.evidence["reading_contract"]["operator_citation"] is False
+
+
+def test_a_failed_reading_never_passes_the_gate():
+    result = check_compliance_reading_contract(
+        SPEC, _ctx(_receipt(failed=True, failure="the model answered without reading"))
+    )
+    assert result.outcome is Outcome.FAIL
+    assert result.evidence["reading_contract"]["reading_did_not_fail"] is False
+
+
+def test_a_missing_ground_truth_citation_fails():
+    result = check_compliance_reading_contract(
+        {**SPEC, "ground_truth_sections": ["csection-a", "csection-missing"]}, _ctx(_receipt())
+    )
+    assert result.outcome is Outcome.FAIL
+    assert result.evidence["ground_truth_missing"] == ["csection-missing"]
+
+
+def test_no_labels_is_honest_blocked_never_a_pass():
+    """The evaluation set's own discipline: no ground truth is not a bad
+    reading — and it is not a qualified seat either."""
+    result = check_compliance_reading_contract(
+        {"type": "compliance_reading_contract"}, _ctx(_receipt())
+    )
+    assert result.outcome is Outcome.PENDING_REVIEW
+    assert "honest-BLOCKED" in result.notes
