@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 739 canonical units.*
+*Deterministic projection of 740 canonical units.*
 
 ## Knowledge Layer
 
@@ -253,6 +253,7 @@
 | `unit-compliance-fallback-policy-threshold-policy` | what | 4 |
 | `unit-compliance-fallback-policy-what-compliance-fallback-means` | what | 5 |
 | `unit-compliance-module-config-only` | mixed | 1 |
+| `unit-compliance-requirement-join` | mixed | 6 |
 | `unit-compliance-substrate-properties` | mixed | 2 |
 | `unit-corpus-injection-a-canned-detection-firing-on-corpus-data-t1558-004-as-rep-roasting-verbatim-spl` | what | 2 |
 | `unit-corpus-injection-always-dry-run-first-it-prints-exact-per-sourcetype-volume-without-injecting` | what | 2 |
@@ -748,12 +749,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 739 units
+**Total:** 740 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1861 references
+- **code**: 1867 references
 - **config**: 1 references
 - **doc**: 1 references
 - **mitre**: 40 references

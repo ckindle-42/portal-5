@@ -120,4 +120,13 @@ python3 scripts/measure_substrate_properties.py
                                     # SUBSTRATE_PROPERTIES_V1 P6.2: re-run the superseded-competition,
                                     # recall@k and scorer-validation measurements against the live store
                                     # and index; appends nothing — overwrites the measurements JSON
+python3 scripts/capture_register_standards.py --verify-sha --all
+                                    # ONE_REGULATORY_EXTRACTION_V1 P3: give each of the Register's 14
+                                    # standards a docling whole-document capture, sha-verified against
+                                    # the Register's recorded digest — a mismatch STOPs that document
+python3 scripts/anchor_requirements.py --all --report [--verify-bundle-equivalence]
+                                    # ONE_REGULATORY_EXTRACTION_V1 P3/P5: anchor every requirement into
+                                    # its captured revision by exact match and persist the join; every
+                                    # miss lands in requirement_anchor_misses by name. Run it after any
+                                    # re-capture — a moved section boundary invalidates the join.
 ```
