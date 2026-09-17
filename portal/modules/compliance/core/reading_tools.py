@@ -7,12 +7,16 @@ ids returned to the model; the reader uses those ids for its closure receipt.
 
 from __future__ import annotations
 
-import asyncio
 import inspect
 from collections.abc import Callable
 from typing import Any
 
-from portal.modules.compliance.core import addressing, graph_queries, reading_assembly
+from portal.modules.compliance.core import (
+    addressing,
+    enumeration,
+    graph_queries,
+    reading_assembly,
+)
 
 MAX_CHARS = 6000
 
@@ -45,58 +49,27 @@ def compliance_search(
     requirement: str = "",
     top_k: int = 10,
 ) -> dict[str, Any]:
-    from portal.modules.compliance.core import section_index
-    from portal.modules.compliance.tools.compliance_retrieval import search as retrieve
+    """Find citable material across both corpora.
 
-    addressed = addressing.addressed_hits(repo, query, MAX_CHARS)
-    corpora = (
-        [section_index.CORPUS_FOR_JURISDICTION[jurisdiction]]
-        if jurisdiction in section_index.CORPUS_FOR_JURISDICTION
-        else list(dict.fromkeys(section_index.CORPUS_FOR_JURISDICTION.values()))
+    This had grown a second implementation: retrieve an unscoped top-k, then
+    drop the results that were not joined to ``requirement``. That is the
+    keyhole the shared predicate exists to remove, rebuilt beside it — and
+    because it filtered against the REGULATORY anchors, passing ``requirement=``
+    also discarded every operator hit, in the one tool a bilateral reading uses
+    to find the operator's side. It delegates now; there is one composition.
+    """
+    from portal.modules.compliance.core import search_service
+
+    payload = search_service.search(
+        repo,
+        query,
+        jurisdiction=jurisdiction,
+        requirement=requirement,
+        relations=",".join(enumeration.ALL_RELATIONS),
+        top_k=top_k,
+        max_chars=MAX_CHARS,
     )
-    hits: list[dict[str, Any]] = []
-    unavailable: list[dict[str, str]] = []
-    for kb_id in corpora:
-        try:
-            body = asyncio.run(retrieve(kb_id, query, max(top_k, 3)))
-        except Exception as exc:  # noqa: BLE001 - report corpus availability to the agent
-            unavailable.append({"kb_id": kb_id, "detail": str(exc)})
-            continue
-        hits.extend(body.get("results", []))
-    resolved = section_index.resolve_sections(repo, [str(hit.get("chunk_id", "")) for hit in hits])
-    addressed_ids = {str(hit["section_id"]) for hit in addressed}
-    results: list[dict[str, Any]] = list(addressed)
-    for hit in sorted(hits, key=lambda row: -float(row.get("fused_score", 0) or 0)):
-        section_id = section_index.parent_section_id(str(hit.get("chunk_id", "")))
-        entry = resolved.get(section_id)
-        if entry is None or section_id in addressed_ids:
-            continue
-        if requirement:
-            wanted = {str(row["section_id"]) for row in repo.sections_for_requirement(requirement)}
-            if section_id not in wanted:
-                continue
-        text, note = addressing.clip(entry.get("text", ""), MAX_CHARS)
-        results.append(
-            {
-                **addressing.provenance(entry),
-                "match": "retrieval",
-                "score": hit.get("fused_score"),
-                "text": text,
-                **note,
-            }
-        )
-        if len(results) >= top_k:
-            break
-    return _result(
-        {
-            "query": query,
-            "requirement": requirement,
-            "results": results[:top_k],
-            "num_results": len(results[:top_k]),
-            "corpora_unavailable": unavailable,
-        },
-        [str(row["section_id"]) for row in results[:top_k]],
-    )
+    return _result(payload, [str(row.get("section_id", "")) for row in payload.get("results", [])])
 
 
 def compliance_read(repo: Any, ref: str, neighbors: bool = False) -> dict[str, Any]:

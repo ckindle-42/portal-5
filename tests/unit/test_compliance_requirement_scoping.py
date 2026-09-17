@@ -27,11 +27,12 @@ import pytest
 
 from portal.modules.compliance.core import requirement_anchor as ra
 from portal.modules.compliance.core.capture import CapturedDocument, CapturedUnit, store_capture
-from portal.modules.compliance.core.models import SourceDocument
+from portal.modules.compliance.core.models import RelationshipAssertion, SourceDocument
 from portal.modules.compliance.core.repository import Repository
 
 si = importlib.import_module("portal.modules.compliance.core.section_index")
 compliance_mcp = importlib.import_module("portal.modules.compliance.tools.compliance_mcp")
+search_service = importlib.import_module("portal.modules.compliance.core.search_service")
 cr = importlib.import_module("portal.modules.compliance.tools.compliance_retrieval")
 _store = importlib.import_module("portal.platform.retrieval.store")
 _embedding = importlib.import_module("portal.platform.retrieval.embedding")
@@ -94,8 +95,12 @@ class _Node:
 
 
 def _capture(path: Path) -> CapturedDocument:
+    return _capture_rows(path, BODIES)
+
+
+def _capture_rows(path: Path, rows: list[tuple[str, str]]) -> CapturedDocument:
     units, buf, cursor = [], [], 0
-    for ordinal, (heading, body) in enumerate(BODIES):
+    for ordinal, (heading, body) in enumerate(rows):
         piece = body + "\n"
         units.append(
             CapturedUnit(
@@ -117,7 +122,7 @@ def _capture(path: Path) -> CapturedDocument:
         page_count=1,
         full_text="".join(buf),
         units=units,
-        reader_strings=tuple(b for _h, b in BODIES),
+        reader_strings=tuple(b for _h, b in rows),
     )
 
 
@@ -178,6 +183,57 @@ def env(tmp_path, monkeypatch):
             ]
         )
 
+    # the register: where a parent requirement's Parts come from (P4.3). R20 is
+    # here so a prefix match would be VISIBLY wrong rather than merely untested.
+    with repo._lock, repo._conn:
+        repo._conn.execute(
+            "INSERT OR IGNORE INTO standard_revisions(revision_id, logical_id, family,"
+            " version, org_id) VALUES ('CIP-007-6','CIP-007','CIP-007','6','default')"
+        )
+        for requirement, part in (("R2", "2.2"), ("R2", "2.3"), ("R20", "20.1")):
+            repo._conn.execute(
+                "INSERT OR IGNORE INTO requirement_nodes(node_id, standard_revision_id,"
+                " requirement, part, logical_lineage_id, org_id) VALUES (?,?,?,?,'','default')",
+                (f"CIP-007-6 {requirement} Part {part}", "CIP-007-6", requirement, part),
+            )
+
+    # the operator's side of the bilateral corpus, and one recorded edge to it
+    repo.upsert_source_document(
+        SourceDocument(
+            logical_id="LSPG/patching",
+            title="patching",
+            issuer="LSPG",
+            source_kind="procedure",
+            jurisdiction="internal",
+        )
+    )
+    operator_revision = repo.add_document_revision(
+        "LSPG/patching", "/docs/patching.pdf", b"patching"
+    )
+    store_capture(
+        repo,
+        operator_revision.revision_id,
+        _capture_rows(
+            Path("/docs/patching.pdf"),
+            [("3 Patching", "The OT team evaluates security patches every 30 calendar days.")],
+        ),
+    )
+    operator_section = _section_at(repo, operator_revision.revision_id, 0)
+    repo.propose_relationship(
+        RelationshipAssertion(
+            assertion_id="rel-2-2",
+            relation_type="IMPLEMENTS",
+            src_ref="CIP-007-6 R2 Part 2.2",
+            src_revision_id=None,
+            dst_ref=f"LSPG/patching::{operator_section}",
+            dst_revision_id=None,
+            scope="",
+            citations=[],
+            status="proposed",
+            review_state="proposed",
+        )
+    )
+
     plan = si.build_plan(repo, jurisdiction="US")
     asyncio.run(cr.project_sections(plan.kb_id, plan.units, rebuild=True))
     repo.close()
@@ -186,7 +242,11 @@ def env(tmp_path, monkeypatch):
         return Repository(db_path)
 
     monkeypatch.setattr(compliance_mcp, "_repo", make)
-    return {"make": make, "revision_id": revision.revision_id}
+    return {
+        "make": make,
+        "revision_id": revision.revision_id,
+        "operator_section": operator_section,
+    }
 
 
 def _section_at(repo: Repository, revision_id: str, ordinal: int) -> str:
@@ -196,6 +256,10 @@ def _section_at(repo: Repository, revision_id: str, ordinal: int) -> str:
             (revision_id, ordinal),
         ).fetchone()[0]
     )
+
+
+def _operator(env) -> str:
+    return str(env["operator_section"])
 
 
 def _ids(env, ordinal: int) -> str:
@@ -213,21 +277,43 @@ class TestRequirementNarrowsBeforeRanking:
             query="security patches", requirement="CIP-007-6 R2 Part 2.2", top_k=10
         )
         assert out["requirement"] == "CIP-007-6 R2 Part 2.2"
-        assert out["requirement_pool"] == [_ids(env, 0)]
-        assert {r["section_id"] for r in out["results"]} <= {_ids(env, 0)}
+        # BILATERAL: the requirement's own anchor AND the operator section
+        # recorded as related to it. A pool built from `sections_for_requirement`
+        # alone is the regulatory side only, so scoping a bilateral search to a
+        # requirement used to discard exactly the operator evidence it wanted.
+        assert set(out["requirement_pool"]) == {_ids(env, 0), _operator(env)}
+        assert {r["section_id"] for r in out["results"]} <= {_ids(env, 0), _operator(env)}
 
     def test_the_predicate_pushed_is_an_exact_id_list_not_a_like(self, env) -> None:
         out = compliance_mcp.compliance_search(
             query="security patches", requirement="CIP-007-6 R2 Part 2.2", top_k=10
         )
-        assert f"chunk_id IN ('{_ids(env, 0)}')" in out["filter_applied"]
+        assert "chunk_id IN (" in out["filter_applied"]
+        for section_id in (_ids(env, 0), _operator(env)):
+            assert f"'{section_id}'" in out["filter_applied"]
         assert "LIKE" not in out["filter_applied"].replace("logical_id", "")
 
-    def test_a_requirement_prefix_does_not_drag_in_its_parts(self, env) -> None:
-        # 'CIP-007-6 R2' is a substring of 'CIP-007-6 R2 Part 2.2'. A LIKE
-        # predicate would match both; an exact id list matches neither wrongly.
-        out = compliance_mcp.compliance_search(
+    def test_a_parent_requirement_reaches_its_parts_through_the_register(self, env) -> None:
+        # 'CIP-007-6 R2' is a substring of 'CIP-007-6 R2 Part 2.2' AND of
+        # 'CIP-007-6 R20 Part 20.1'. The parent reaches its Parts because the
+        # REGISTER numbers them, never because the strings look alike — so R20
+        # stays out while 2.2 and 2.3 come in.
+        parent = compliance_mcp.compliance_search(
             query="security patches", requirement="CIP-007-6 R2", top_k=10
+        )
+        parts = set()
+        for part in ("CIP-007-6 R2 Part 2.2", "CIP-007-6 R2 Part 2.3"):
+            parts |= set(
+                compliance_mcp.compliance_search(
+                    query="security patches", requirement=part, top_k=10
+                )["requirement_pool"]
+            )
+        assert set(parent["requirement_pool"]) == parts
+        assert "signal" not in parent
+
+    def test_a_sibling_requirement_is_never_dragged_in_by_prefix(self, env) -> None:
+        out = compliance_mcp.compliance_search(
+            query="security patches", requirement="CIP-007-6 R20", top_k=10
         )
         assert out["signal"] == "honest-BLOCKED"
         assert out["results"] == []
@@ -237,7 +323,7 @@ class TestRequirementNarrowsBeforeRanking:
         narrow = compliance_mcp.compliance_search(
             query="security patches", requirement="CIP-007-6 R2 Part 2.2", top_k=10
         )
-        assert narrow["requirement_pool"] == [_ids(env, 0)]
+        assert set(narrow["requirement_pool"]) == {_ids(env, 0), _operator(env)}
         assert len(narrow["results"]) < len(wide["results"])
 
     def test_every_hit_carries_what_it_governs_and_how(self, env, monkeypatch) -> None:
@@ -269,8 +355,8 @@ class TestRelationsNarrowNeverBar:
             relations="governing,measure,applicable_systems,technical_basis",
             top_k=10,
         )
-        assert duty["requirement_pool"] == [_ids(env, 0)]
-        assert set(whole["requirement_pool"]) == {_ids(env, 0), _ids(env, 2)}
+        assert set(duty["requirement_pool"]) == {_ids(env, 0), _operator(env)}
+        assert set(whole["requirement_pool"]) == {_ids(env, 0), _ids(env, 2), _operator(env)}
         assert set(duty["requirement_pool"]) < set(whole["requirement_pool"])
 
     def test_a_relation_never_bars_a_passage_from_an_unscoped_search(self, env) -> None:
@@ -286,7 +372,7 @@ class TestRelationsNarrowNeverBar:
             out = compliance_mcp.compliance_search(
                 query="patches", requirement=req, relations="technical_basis", top_k=10
             )
-            assert out["requirement_pool"] == [shared]
+            assert shared in out["requirement_pool"]
         repo = env["make"]()
         try:
             pairs = repo.requirements_for_section(shared)
@@ -326,17 +412,17 @@ class TestTheCeilingAndTheBlock:
     def test_a_list_above_the_measured_ceiling_is_blocked_with_the_count(
         self, env, monkeypatch
     ) -> None:
-        monkeypatch.setattr(compliance_mcp, "MAX_REQUIREMENT_SECTION_IDS", 0)
+        monkeypatch.setattr(search_service, "MAX_REQUIREMENT_SECTION_IDS", 0)
         out = compliance_mcp.compliance_search(
             query="patches", requirement="CIP-007-6 R2 Part 2.2", top_k=10
         )
         assert out["signal"] == "honest-BLOCKED"
-        assert out["section_count"] == 1
+        assert out["section_count"] == 2  # the anchor and the operator section
         assert out["ceiling"] == 0
         assert out["results"] == [], "never a silent fallback to an unfiltered search"
 
     def test_the_block_names_a_narrower_requirement_as_the_way_out(self, env, monkeypatch) -> None:
-        monkeypatch.setattr(compliance_mcp, "MAX_REQUIREMENT_SECTION_IDS", 0)
+        monkeypatch.setattr(search_service, "MAX_REQUIREMENT_SECTION_IDS", 0)
         out = compliance_mcp.compliance_search(
             query="patches", requirement="CIP-007-6 R2 Part 2.2", top_k=10
         )

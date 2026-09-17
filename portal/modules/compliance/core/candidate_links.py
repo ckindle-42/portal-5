@@ -277,33 +277,97 @@ def record_links(
     }
 
 
+#: Relations a reading may propose. A reading never proposes anything else, and
+#: never proposes without naming which of these it means.
+READING_RELATIONS = ("IMPLEMENTS", "EVIDENCES")
+
+#: A sentence positively asserting that the operator's section implements the
+#: duty. Required — a citation on its own asserts nothing.
+_ASSERTS_IMPLEMENTS = re.compile(
+    r"\b(?:implement(?:s|ed|ing)?|satisf(?:ies|y|ied)|meets?|fulfil(?:s|ls|led)?|"
+    r"address(?:es|ed)?|covers?|complies\s+with|discharg(?:es|ed))\b",
+    re.I,
+)
+
+#: A sentence offering the section as EVIDENCE of the duty rather than as the
+#: control itself. A different relation, and the store already has a name for it.
+_ASSERTS_EVIDENCES = re.compile(
+    r"\b(?:evidence(?:s|d)?|demonstrat(?:es|ed|ing)|records?|logs?|attests?)\b", re.I
+)
+
+#: Anything that makes the sentence something OTHER than a positive assertion:
+#: a negation, a shortfall, a contradiction, a contrast, or a bare mention. When
+#: one of these is present the link is withheld with the reason, and the
+#: citation stays what it already was — evidence, in ``answer_citations``.
+_WITHHOLDS = re.compile(
+    r"\b(?:not|no|never|without|fails?|failed|lacks?|absent|missing|silent|"
+    r"conflicts?|contradicts?|inconsistent|diverges?|unlike|whereas|however|"
+    r"but|although|though|stricter|shorter|longer|exceeds?|unclear|cannot|"
+    r"does\s+not|would\s+need|insufficient)\b",
+    re.I,
+)
+
+
+def classify_assertion(sentence: str) -> tuple[str, str]:
+    """What a citing sentence actually ASSERTS about the section it cites.
+
+    Every resolved internal citation used to become an ``IMPLEMENTS`` proposal.
+    That reads a citation as a claim, and a reading cites for many reasons: to
+    show a shortfall, to name a contradiction, to quote the very section that
+    does NOT satisfy the duty. Those proposals then travel into the review queue
+    and, once approved, into the labelled evaluation set — so counterevidence
+    ends up recorded as the implementation of the thing it contradicts.
+
+    Returns ``(relation, reason)``; an empty relation means withheld, and the
+    reason says why. Conservative by construction: a sentence must positively
+    assert, and must carry no withholding marker, to yield an edge at all.
+    """
+    text = str(sentence or "")
+    if not text.strip():
+        return "", "no sentence around the citation to read an assertion from"
+    if _WITHHOLDS.search(text):
+        return "", "the citing sentence negates, contrasts or qualifies — not an assertion"
+    if _ASSERTS_IMPLEMENTS.search(text):
+        return "IMPLEMENTS", "the citing sentence asserts implementation"
+    if _ASSERTS_EVIDENCES.search(text):
+        return "EVIDENCES", "the citing sentence offers the section as evidence"
+    return "", "the citing sentence discusses the section without asserting a relation"
+
+
 def record_reading_link(
     repo: Any,
     *,
     src_ref: str,
     dst_section_id: str,
     answer_id: str,
+    relation: str,
     rationale: str = "",
     org_id: str = "default",
 ) -> str:
     """A link a reading asserted, recorded as its own kind of proposal.
 
-    The model reading both sides and saying *this section is what implements
-    that* is evidence for a link. It is recorded as ``derivation='reading'``
-    carrying the answer it came from, so an analyst can follow it back to the
-    argument and disagree with it.
+    ``relation`` is explicit and required: the caller says which of
+    :data:`READING_RELATIONS` it means, because the reading is what carries that
+    information and a citation does not.
+
+    Recorded as ``derivation='reading'`` carrying the answer it came from, so an
+    analyst can follow it back to the argument and disagree with it.
     """
     from portal.modules.compliance.core.temporal import now_iso
 
-    assertion_id = "rel-" + hashlib.sha256(f"{src_ref}|{dst_section_id}".encode()).hexdigest()[:20]
+    if relation not in READING_RELATIONS:
+        raise ValueError(f"relation must be one of {READING_RELATIONS}, not {relation!r}")
+    assertion_id = (
+        "rel-" + hashlib.sha256(f"{src_ref}|{dst_section_id}|{relation}".encode()).hexdigest()[:20]
+    )
     detail = rationale or f"asserted while reading, in answer {answer_id}"
     with repo._lock, repo._conn:
         existing = repo._conn.execute(
             """SELECT assertion_id, derivation, rationale, citations_json
                FROM relationship_assertions
-               WHERE relation_type = 'IMPLEMENTS' AND src_ref = ? AND dst_ref = ?
+               WHERE relation_type = ? AND src_ref = ? AND dst_ref = ?
                  AND status = 'proposed'""",
-            (src_ref, dst_section_id),
+            (relation, src_ref, dst_section_id),
         ).fetchone()
         if existing is not None:
             current = [part for part in str(existing[1] or "").split("|") if part]
@@ -332,7 +396,7 @@ def record_reading_link(
                ON CONFLICT(assertion_id) DO NOTHING""",
             (
                 assertion_id,
-                "IMPLEMENTS",
+                relation,
                 src_ref,
                 dst_section_id,
                 json.dumps([{"answer_id": answer_id, "section_id": dst_section_id}]),
@@ -345,24 +409,36 @@ def record_reading_link(
     return assertion_id
 
 
-def links_from_answer(repo: Any, answer_id: str, src_ref: str = "") -> list[str]:
-    """Every operator section a stored answer cited becomes a reading-derived
-    proposal for the requirement the answer was about.
+def links_from_answer(repo: Any, answer_id: str, src_ref: str = "") -> dict[str, Any]:
+    """The links a stored answer ASSERTED, and the citations it did not.
+
+    Every resolved internal citation used to become an ``IMPLEMENTS`` proposal.
+    A reading cites for many reasons — to show a shortfall, to name a
+    contradiction, to quote the section that does NOT satisfy the duty — and
+    those proposals travel into the review queue and, once approved, into the
+    labelled evaluation set, so counterevidence was being recorded as the
+    implementation of the thing it contradicts.
+
+    A citation is now evidence and stays evidence, in ``answer_citations``. It
+    becomes a proposed edge only where the citing sentence positively asserts a
+    relation and carries no negation, contrast or qualification; everything else
+    is returned under ``withheld`` with the reason, visible rather than dropped.
 
     Only the OPERATOR side: the answer citing the standard it was asked about is
     not a claim that the standard implements itself.
     """
+    empty: dict[str, Any] = {"proposed": [], "withheld": []}
     row = repo._conn.execute(
         "SELECT subject_ref, question, answer FROM conversation_answers WHERE answer_id = ?",
         (answer_id,),
     ).fetchone()
     if row is None:
-        return []
+        return empty
     subject = src_ref or str(row[0])
     if not re.match(r"^CIP-\d{3}-[\w.]+\s+R\d+", subject, re.I):
-        return []
+        return empty
     if re.search(r"\b(?:hypothetical|scenario|suppose|if we)\b", str(row[1] or ""), re.I):
-        return []
+        return empty
     citations = repo._conn.execute(
         """SELECT cited_ref, jurisdiction, detail FROM answer_citations
            WHERE answer_id = ? AND resolved = 1 AND jurisdiction = 'internal'""",
@@ -371,21 +447,45 @@ def links_from_answer(repo: Any, answer_id: str, src_ref: str = "") -> list[str]
     from portal.modules.compliance.core.section_index import parent_section_id
 
     answer = str(row[2] or "")
-    links: list[str] = []
+    proposed: list[dict[str, Any]] = []
+    withheld: list[dict[str, Any]] = []
     for citation, _jurisdiction, detail in citations:
         position = answer.find(str(citation))
         start = max(answer.rfind(".", 0, position), answer.rfind("\n", 0, position)) + 1
         end = answer.find(".", position)
         sentence = answer[start : (end + 1 if end >= 0 else len(answer))].strip()
-        links.append(
-            record_reading_link(
-                repo,
-                src_ref=subject,
-                dst_section_id=parent_section_id(str(citation)),
-                answer_id=answer_id,
-                rationale=(
-                    f"answer {answer_id}; cited sentence: {sentence or detail or str(citation)}"
+        relation, reason = classify_assertion(sentence)
+        entry = {
+            "section_id": parent_section_id(str(citation)),
+            "cited_ref": str(citation),
+            "sentence": sentence or detail,
+            "reason": reason,
+        }
+        if not relation:
+            withheld.append(entry)
+            continue
+        proposed.append(
+            {
+                **entry,
+                "relation": relation,
+                "assertion_id": record_reading_link(
+                    repo,
+                    src_ref=subject,
+                    dst_section_id=entry["section_id"],
+                    answer_id=answer_id,
+                    relation=relation,
+                    rationale=(
+                        f"answer {answer_id}; {reason}; cited sentence: "
+                        f"{sentence or detail or str(citation)}"
+                    ),
                 ),
-            )
+            }
         )
-    return links
+    return {
+        "proposed": proposed,
+        "withheld": withheld,
+        "note": (
+            "a citation is evidence, not an assertion: an edge is proposed only where the "
+            "citing sentence positively asserts a relation"
+        ),
+    }

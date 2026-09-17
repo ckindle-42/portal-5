@@ -316,6 +316,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/scope_derive.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-search_service
+  globs:
+  - portal/modules/compliance/core/search_service.py
+  unit: unit-compliance-substrate-properties
 - name: file-portal-modules-compliance-core-section_index
   globs:
   - portal/modules/compliance/core/section_index.py

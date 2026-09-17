@@ -17,13 +17,13 @@ function that delivers it:
    granularity. `requirement_sections` is that key
    (`requirement_anchor` anchors it by exact match,
    `Repository.sections_for_requirement` / `requirements_for_section` read it
-   both ways), and `compliance_mcp._requirement_predicate` resolves a
+   both ways), and `core.search_service.requirement_predicate` resolves a
    requirement to exact ids pushed as `chunk_id IN (…)`. The clocks compose
    with it by `AND`: the projection carries the predicate columns
    (`section_index.PREDICATE_COLUMNS`, `section_index.build_plan`), the shared
    seam applies them under ranking
    (`portal/platform/retrieval/pipeline.search(where=…)` → `fusion.fuse` →
-   both arms), and `compliance_mcp._search_predicate` builds the clock clauses
+   both arms), and `core.search_service.search_predicate` builds the clock clauses
    against their `""` open-bound convention;
 2. authority tiers have precedence — a cross-tier contradiction is emitted,
    never reconciled: every section resolves with its recorded tier

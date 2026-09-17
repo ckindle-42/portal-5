@@ -33,7 +33,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from portal.modules.compliance.core import evaluation, section_index, tiers  # noqa: E402
 from portal.modules.compliance.core.repository import Repository  # noqa: E402
-from portal.modules.compliance.tools.compliance_mcp import _search_predicate  # noqa: E402
+from portal.modules.compliance.core.search_service import search_predicate  # noqa: E402
 from portal.platform.retrieval import store as _store  # noqa: E402
 
 PROBE_SECTIONS = {
@@ -63,7 +63,7 @@ def _unfiltered_and_filtered(
     predicate) of the same query, per corpus, merged and ranked."""
     from portal.modules.compliance.tools import compliance_retrieval as cr
 
-    where = _search_predicate(standard="", layer="", valid_at="", known_at="")
+    where = search_predicate(standard="", layer="", valid_at="", known_at="")
 
     async def both():
         plain, pushed = [], []
