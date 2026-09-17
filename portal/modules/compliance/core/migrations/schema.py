@@ -785,4 +785,51 @@ MIGRATIONS: list[tuple[int, str, str]] = [
         );
         """,
     ),
+    (
+        15,
+        "the reading run and its receipt (BILATERAL_CORPUS_V1 P6.9)",
+        # NOTE: this runner splits statements on ';' -- never put one inside a
+        # comment line inside a migration's SQL block (rule R9).
+        """
+        -- What `conversation_answers` does NOT keep. That table retains the
+        -- prose, the timing and the citations, which is enough to re-read an
+        -- answer and not enough to audit one: the closure receipt, the scope it
+        -- was computed over, the tool trace and the actual tool messages all
+        -- lived in the returned payload and nowhere else, so a live reading's
+        -- receipt was ephemeral by construction.
+        --
+        -- A run is retained whether or not the answer is projected into the
+        -- corpus, and whether or not the reading FAILED -- a failed reading is
+        -- the one most worth having a record of.
+        CREATE TABLE reading_runs (
+            run_id               TEXT PRIMARY KEY,
+            answer_id            TEXT NOT NULL DEFAULT '',
+            thread_id            TEXT NOT NULL DEFAULT '',
+            asked_at             TEXT NOT NULL,
+            subject_ref          TEXT NOT NULL,
+            question             TEXT NOT NULL,
+            answer               TEXT NOT NULL DEFAULT '',
+            model                TEXT NOT NULL DEFAULT '',
+            failed               INTEGER NOT NULL DEFAULT 0,
+            failure              TEXT NOT NULL DEFAULT '',
+            stop_reason          TEXT NOT NULL DEFAULT '',
+            scope_json           TEXT NOT NULL DEFAULT '{}',
+            closure_json         TEXT NOT NULL DEFAULT '{}',
+            tool_trace_json      TEXT NOT NULL DEFAULT '[]',
+            messages_json        TEXT NOT NULL DEFAULT '[]',
+            verification_json    TEXT NOT NULL DEFAULT '{}',
+            latency_json         TEXT NOT NULL DEFAULT '{}',
+            context_fit_json     TEXT NOT NULL DEFAULT '{}',
+            prompt_fingerprint   TEXT NOT NULL DEFAULT '',
+            material_fingerprint TEXT NOT NULL DEFAULT '',
+            revision_id          TEXT NOT NULL DEFAULT '',
+            reasoning_effort     TEXT NOT NULL DEFAULT '',
+            num_ctx              INTEGER NOT NULL DEFAULT 0,
+            org_id               TEXT NOT NULL DEFAULT 'default'
+        );
+        CREATE INDEX ix_reading_runs_subject ON reading_runs(subject_ref, asked_at);
+        CREATE INDEX ix_reading_runs_answer ON reading_runs(answer_id);
+        CREATE INDEX ix_reading_runs_thread ON reading_runs(thread_id, asked_at);
+        """,
+    ),
 ]

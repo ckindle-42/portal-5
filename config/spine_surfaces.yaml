@@ -284,6 +284,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/requirement_anchor.py
   unit: unit-compliance-requirement-join
+- name: file-portal-modules-compliance-core-requirement_scope
+  globs:
+  - portal/modules/compliance/core/requirement_scope.py
+  unit: unit-compliance-bilateral-corpus
 - name: file-portal-modules-compliance-core-result_contract
   globs:
   - portal/modules/compliance/core/result_contract.py

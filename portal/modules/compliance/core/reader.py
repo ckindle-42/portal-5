@@ -410,6 +410,89 @@ def _what_it_is(entry: dict[str, Any]) -> str:
 # ── the reading call ────────────────────────────────────────────────────────
 
 
+#: Run before the model speaks, on every reading. Acquisition is not the seat's
+#: to elect: measured live, Qwen3.8 answered the parent-level R2 question in
+#: prose on the first turn, called nothing, and the loop accepted it. Both
+#: operations are deterministic, so they sit inside the cacheable prefix.
+BOOTSTRAP_TOOLS = ("compliance_requirement", "compliance_links")
+
+
+def _acquire(
+    repo: Any, ref: str, *, max_chars: int, trace: list[dict[str, Any]]
+) -> tuple[list[dict[str, Any]], dict[str, set[str]]]:
+    """The recorded first acquisition: the requirement packet, and the
+    deterministic enumeration of the operator sections linked to it.
+
+    ``compliance_links`` returns EDGES, not text, so what it names is
+    ENUMERATED, never examined — counting those ids as read would let one call
+    mark every linked section read without a word of it reaching the model.
+    """
+    from portal.modules.compliance.core.reading_tools import dispatch
+
+    messages: list[dict[str, Any]] = []
+    ids: dict[str, set[str]] = {"examined": set(), "enumerated": set()}
+    for name in BOOTSTRAP_TOOLS:
+        arguments = {"ref": ref}
+        acquired = dispatch(repo, name, arguments, max_chars=max_chars)
+        bucket = "enumerated" if name == "compliance_links" else "examined"
+        ids[bucket].update(str(section_id) for section_id in acquired.get("section_ids", []))
+        trace.append(
+            {
+                "step": 0,
+                "tool": name,
+                "derivation": "bootstrap",
+                "section_ids": acquired.get("section_ids", []),
+                "error": bool(acquired.get("error")),
+            }
+        )
+        messages.extend(
+            [
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [{"function": {"name": name, "arguments": arguments}}],
+                },
+                {
+                    "role": "tool",
+                    "tool_name": name,
+                    "content": json.dumps(acquired.get("payload", acquired), default=str),
+                },
+            ]
+        )
+    return messages, ids
+
+
+def _closure_failure(
+    *,
+    model_calls: int,
+    eligible: set[str],
+    cited: set[str],
+    unread: list[str],
+    absence_claim: bool,
+) -> str:
+    """The control contract, in the order a reading fails it.
+
+    A terminal prose answer with no tool call at all used to be accepted as
+    success: ``failed`` was set only when the narrow absence regex happened to
+    fire, so ordinary unsupported prose travelled as a sound reading. That is
+    exactly what the live parent-level run did, and exactly what the loop
+    permitted.
+    """
+    if not model_calls:
+        return (
+            "the model answered without reading: it made no tool call, so the answer "
+            f"rests on the acquired packet alone out of {len(eligible)} eligible section(s)"
+        )
+    if eligible and not (cited & eligible):
+        return (
+            f"the answer cites no section in scope: {len(eligible)} section(s) were "
+            "eligible and none of them is cited"
+        )
+    if absence_claim and unread:
+        return "answer asserts an absence without reading every eligible section"
+    return ""
+
+
 def read(  # noqa: PLR0912, PLR0915
     repo: Any,
     question: str,
@@ -424,6 +507,7 @@ def read(  # noqa: PLR0912, PLR0915
     valid_at: str = "",
     thread_id: str = "",
     store: bool = True,
+    retain_run: bool = True,
     timeout: int = 900,
 ) -> dict[str, Any]:
     """Drive one bounded reading conversation and retain its receipt.
@@ -431,6 +515,12 @@ def read(  # noqa: PLR0912, PLR0915
     ``budget_tokens`` is retained for API compatibility but is now the maximum
     per-tool-result character budget.  The seed is deliberately small; the
     agent must retrieve and read the material it relies on.
+
+    ``store`` projects the ANSWER into the corpus as a derived source.
+    ``retain_run`` retains the RECEIPT — scope, tool trace, closure, transcript
+    and timings — and defaults on independently, because a reading that failed
+    is the one most worth having a record of and is exactly the one that must
+    not be projected as an answer.
     """
     from portal.modules.compliance.core.notes import notes_for
     from portal.modules.compliance.core.reading_assembly import CHARS_PER_TOKEN, assemble
@@ -478,21 +568,50 @@ def read(  # noqa: PLR0912, PLR0915
                 ]
             )
 
+    max_chars = max(1000, min(int(budget_tokens), 12000))
+    examined: set[str] = set()
+    enumerated: set[str] = set()
+    tool_trace: list[dict[str, Any]] = []
+
+    # The material handed over unasked is READ material, and the closure has to
+    # count it as read. Leaving the seed out of `examined` made every reading
+    # start owing the receipt sections it had already been given.
+    examined.update(
+        str(section.get("section_id", ""))
+        for component in context.get("components", [])
+        for section in component.get("sections", [])
+        if section.get("section_id")
+    )
+
+    # P6.9: ACQUISITION IS NOT THE MODEL'S TO ELECT. The loop used to open with
+    # nothing but the seed and hope the seat chose to call a tool; measured
+    # live, Qwen3.8 answered the parent-level R2 question in prose on the first
+    # turn, called nothing, and the loop accepted it. Two operations are
+    # therefore RUN and RECORDED before the model speaks: the requirement packet
+    # it is being asked about, and the deterministic enumeration of the operator
+    # sections linked to it. Both are identical on every turn of a thread, so
+    # they sit inside the cacheable prefix rather than costing a re-prefill.
+    bootstrap, acquired_ids = _acquire(repo, context["ref"], max_chars=max_chars, trace=tool_trace)
+    examined.update(acquired_ids["examined"])
+    enumerated.update(acquired_ids["enumerated"])
+
+    # system -> material -> the recorded acquisition -> prior turns -> the
+    # question now being asked. The prior turns used to be appended AFTER the
+    # current question, so on turn two the last message in the thread was an old
+    # assistant answer and the model was replying to its own previous turn.
     thread: list[dict[str, Any]] = [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {
-            "role": "user",
-            "content": f"{seed}\n\n---\n\nThe analyst asks:\n\n{question}",
-        },
+        {"role": "user", "content": seed},
+        *bootstrap,
         *prior,
+        {"role": "user", "content": f"The analyst asks:\n\n{question}"},
     ]
     estimated_prompt = int(len(seed) / CHARS_PER_TOKEN)
     needed = estimated_prompt + answer_tokens + 2048
     window = num_ctx or max(8192, -(-needed // 4096) * 4096)
-    examined: set[str] = set()
-    tool_trace: list[dict[str, Any]] = []
     answer_result: Any = None
     stop_reason = ""
+    model_calls = 0
     max_steps = 12
     for step in range(max_steps):
         answer_result = chat(
@@ -514,6 +633,7 @@ def read(  # noqa: PLR0912, PLR0915
         if not calls:
             stop_reason = "model returned an answer"
             break
+        model_calls += len(calls)
         thread.append(raw_message or {"role": "assistant", "tool_calls": calls})
         for call in calls:
             function = call.get("function", call) if isinstance(call, dict) else {}
@@ -528,13 +648,15 @@ def read(  # noqa: PLR0912, PLR0915
                 repo,
                 name,
                 arguments if isinstance(arguments, dict) else {},
-                max_chars=max(1000, min(int(budget_tokens), 12000)),
+                max_chars=max_chars,
             )
-            examined.update(str(section_id) for section_id in result.get("section_ids", []))
+            target = enumerated if name == "compliance_links" else examined
+            target.update(str(section_id) for section_id in result.get("section_ids", []))
             tool_trace.append(
                 {
                     "step": step + 1,
                     "tool": name,
+                    "derivation": "model",
                     "section_ids": result.get("section_ids", []),
                     "error": bool(result.get("error")),
                 }
@@ -588,6 +710,11 @@ def read(  # noqa: PLR0912, PLR0915
             re.I,
         )
     )
+    operator_eligible = {
+        section_id
+        for section_id, entry in (population.get("sections") or {}).items()
+        if entry.get("side") == "operator"
+    }
     closure = {
         "population_method": population.get("population_method"),
         "scope": population.get("scope"),
@@ -601,14 +728,29 @@ def read(  # noqa: PLR0912, PLR0915
         "examined": sorted(examined),
         "outside": outside,
         "unread": unread,
+        # Enumerated is not examined: `compliance_links` hands back the edge
+        # list, so a section named there has been COUNTED, not read.
+        "enumerated": sorted(enumerated),
+        "operator_eligible": sorted(operator_eligible),
+        "operator_examined": sorted(operator_eligible & examined),
+        "operator_cited": sorted(operator_eligible & cited),
+        "model_tool_calls": model_calls,
         "complete": bool(eligible) and not unread,
         "stop_reason": stop_reason,
         "tool_trace": tool_trace,
     }
-    closure_failure = (
-        "answer asserts an absence without reading every eligible section"
-        if absence_claim and unread
-        else ""
+    # The control contract, in the order a reading fails it.
+    #
+    # A terminal prose answer with no tool call at all was accepted as success:
+    # `failed` was set only when the narrow absence regex happened to fire, so
+    # ordinary unsupported prose travelled as a sound reading. That is precisely
+    # what the live parent-level run did, and precisely what the loop permitted.
+    closure_failure = _closure_failure(
+        model_calls=model_calls,
+        eligible=eligible,
+        cited=cited,
+        unread=unread,
+        absence_claim=absence_claim,
     )
     # The estimate is checked against the runner's own count on every call. An
     # under-estimate is the dangerous direction: it sizes the window too small
@@ -675,6 +817,8 @@ def read(  # noqa: PLR0912, PLR0915
             payload["proposed_links"] = links_from_answer(
                 repo, payload["answer_id"], context["ref"]
             )
+    if retain_run:
+        payload["run_id"] = store_run(repo, payload, context, thread=thread, thread_id=thread_id)
     return payload
 
 
@@ -793,6 +937,108 @@ def store_answer(
         ),
     )
     return answer_id
+
+
+def store_run(
+    repo: Any,
+    payload: dict[str, Any],
+    context: dict[str, Any],
+    *,
+    thread: list[dict[str, Any]],
+    thread_id: str = "",
+) -> str:
+    """Retain one reading RUN: what was in scope, what was actually called, what
+    the receipt said, and the transcript that produced it.
+
+    ``conversation_answers`` keeps the prose, the timing and the citations —
+    enough to re-read an answer, not enough to audit one. The closure receipt,
+    the scope it was computed over, the tool trace and the tool messages
+    themselves lived only in the returned payload, so the receipt a live reading
+    produced was gone the moment the process exited. A run is retained whether
+    or not the answer was projected into the corpus, and **whether or not the
+    reading failed** — a failed reading is the one most worth keeping.
+    """
+    from portal.modules.compliance.core.temporal import now_iso
+
+    asked_at = now_iso()
+    closure = payload.get("closure_receipt", {}) or {}
+    run_id = (
+        "run-"
+        + hashlib.sha256(
+            f"{payload.get('question', '')}|{payload.get('ref', '')}|{asked_at}".encode()
+        ).hexdigest()[:20]
+    )
+    messages = json.dumps(thread, default=str)
+    with repo._lock, repo._conn:
+        repo._conn.execute(
+            """INSERT INTO reading_runs(run_id, answer_id, thread_id, asked_at, subject_ref,
+                   question, answer, model, failed, failure, stop_reason, scope_json,
+                   closure_json, tool_trace_json, messages_json, verification_json,
+                   latency_json, context_fit_json, prompt_fingerprint, material_fingerprint,
+                   revision_id, reasoning_effort, num_ctx, org_id)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'default')
+               ON CONFLICT(run_id) DO NOTHING""",
+            (
+                run_id,
+                str(payload.get("answer_id", "")),
+                thread_id,
+                asked_at,
+                str(payload.get("ref", "")),
+                str(payload.get("question", "")),
+                str(payload.get("answer", "")),
+                str(payload.get("model", "")),
+                1 if payload.get("failed") else 0,
+                str(payload.get("failure", "")),
+                str(closure.get("stop_reason", "")),
+                json.dumps(closure.get("scope", {}), default=str),
+                json.dumps(closure, default=str),
+                json.dumps(closure.get("tool_trace", []), default=str),
+                messages,
+                json.dumps(payload.get("verification", {}), default=str),
+                json.dumps(payload.get("latency", {}), default=str),
+                json.dumps(payload.get("context_fit", {}), default=str),
+                hashlib.sha256(messages.encode()).hexdigest()[:20],
+                hashlib.sha256(str(context.get("ref", "")).encode()).hexdigest()[:20],
+                str(context.get("revision_id", "")),
+                str(payload.get("reasoning_effort", "")),
+                int(payload.get("num_ctx") or 0),
+            ),
+        )
+    return run_id
+
+
+def runs_for(
+    repo: Any, subject_ref: str = "", *, thread_id: str = "", limit: int = 50
+) -> list[dict[str, Any]]:
+    """Retained reading runs, newest first, each with its receipt decoded."""
+    clauses, params = [], []
+    if subject_ref:
+        clauses.append("subject_ref = ?")
+        params.append(subject_ref)
+    if thread_id:
+        clauses.append("thread_id = ?")
+        params.append(thread_id)
+    where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+    rows = repo._conn.execute(
+        f"SELECT * FROM reading_runs {where} ORDER BY asked_at DESC LIMIT ?",  # noqa: S608
+        (*params, int(limit)),
+    ).fetchall()
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        entry = dict(row)
+        for column in (
+            "scope_json",
+            "closure_json",
+            "tool_trace_json",
+            "messages_json",
+            "verification_json",
+            "latency_json",
+            "context_fit_json",
+        ):
+            entry[column.removesuffix("_json")] = json.loads(entry.pop(column) or "null")
+        entry["failed"] = bool(entry["failed"])
+        out.append(entry)
+    return out
 
 
 def supersede_answers_for_revisions(repo: Any, revision_ids: list[str]) -> list[str]:
