@@ -35,13 +35,37 @@ The harness (`tests/wfe/`):
   baked num_ctx vs declared context_limit (Ollama /v1 ignores request-time
   options.num_ctx), sampling vs lane policy, tool-flag vs declared tools.
   Catches the glm_coder-128K class of silent regressions; the -ctxNk tag claim
-  is verified against baked num_ctx rather than trusted. The sampling check
+  is verified against baked num_ctx rather than trusted.
+  `--behavioral` adds per-tag template probes that DO call the model:
+  system-instruction honored, clean JSON under `format: json`,
+  `template_tools_ignored` (a real `tools` array and a question only a tool call
+  can answer — prose with no `tool_calls` is a FAIL, which is how a
+  `tool_trace=[]` stops being a mystery about the model and becomes a
+  measurement of the template), and `template_think_ignored` (`think: true` then
+  `think: false`; honored means `message.thinking` non-empty then empty, and an
+  HTTP 400 is recorded as REFUSED rather than confused with a silently ignored
+  flag). Every probe sends `think: false` explicitly — omitting the key leaves
+  the template in charge, and on a reasoning-family template a 20-token probe
+  budget goes entirely to `thinking`, which made the system-instruction probe
+  FAIL correct templates. `--tag <tag>` probes one seat instead of sweeping
+  every workspace incumbent, and returns the verdicts a campaign pins. The sampling check
   compares the temperature the PIPELINE serves — `effective_temperature`:
   think-profile → workspace flat field → baked tag → Ollama default, mirroring
   router/validation.py — against the lane ceiling, not the baked tag value in
   isolation; a cool workspace over a hot tag is a `sampling_baked_hot` WARN, not
   a FAIL. `eval` is instrumentation and is checked non-deterministically at the
   stock default.
+- `compliance_preflight.py` — the REQUEST path, which `settings_audit` (config
+  and metadata) makes no promises about. Per candidate seat: the behavioural
+  probes, then one real call carrying the first-turn thread for the largest
+  CIP-007-6 population, with every number read back from the runner — applied
+  `num_ctx` from `/api/ps`, `prompt_eval_count`, headroom, observed
+  chars-per-token, template sha, baked params, `ollama ps`, free memory — and a
+  go/no-go. It exists because a baked `num_ctx` is a DEFAULT, not a ceiling:
+  native `/api/chat` honours a larger request-time value (measured: a 32,768
+  tag served 65,536) and refuses an oversized prompt with HTTP 400
+  `exceed_context_size_error` rather than truncating it, so what a path
+  actually gets has to be measured, not read off the tag name.
 - `runner.py` — multi-turn tool loop (file_read/file_list/repo_search/
   pytest_run/file_write/http_get, sandboxed per (task, repeat)) against the
   production `/v1` contract: tool-call arguments are a JSON string, normalised

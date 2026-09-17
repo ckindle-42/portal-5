@@ -748,6 +748,10 @@ surfaces:
   globs:
   - tests/wfe/checkers.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-compliance_preflight
+  globs:
+  - tests/wfe/compliance_preflight.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-graded-code_fizz-test_fizz
   globs:
   - tests/wfe/graded/code_fizz/test_fizz.py

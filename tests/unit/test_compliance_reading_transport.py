@@ -65,7 +65,13 @@ def test_thinking_is_requested_and_preserved(monkeypatch):
     result = chat("qwen38", "sys", "user", budget=8192, think=True)
 
     assert server.payloads[0]["think"] is True
-    assert server.payloads[0]["options"]["num_predict"] == 8192
+    # `budget` is the ANSWER budget; the reasoning allowance is added on top, so
+    # turning reasoning on cannot shrink the answer.
+    assert server.payloads[0]["options"]["num_predict"] == (
+        8192 + reading_transport.DEFAULT_REASONING_ALLOWANCE
+    )
+    assert result["answer_budget"] == 8192
+    assert result["reasoning_allowance"] == reading_transport.DEFAULT_REASONING_ALLOWANCE
     # the trace is kept as an audit artifact, and never mixed into the answer
     assert result.thinking == "step one, step two"
     assert result.content == '{"ok": true}'
@@ -214,3 +220,143 @@ def test_default_effort_is_the_measured_one(monkeypatch):
     server.payloads.clear()
     assert chat("qwen38", "sys", "user", think="low").reasoned is True
     assert server.payloads[0]["think"] == "low"
+
+
+# ── the answer budget, the reasoning allowance, and the ceiling ──────────────
+#
+# TASK_COMPLIANCE_PROVE_CIP_007_V1 P0.2/P1.3. Three things the transport used to
+# leave implicit and one it used to get wrong:
+#
+# * one `num_predict` covered thinking AND content, so the trace could starve
+#   the answer to nothing and the empty string travelled as a terse answer;
+# * temperature was an unnamed literal, so a declared lane policy and the value
+#   actually sent could never be compared;
+# * an oversized prompt arrived as a bare `HTTPError` that killed the reading,
+#   and was described in the module as a silent front-truncation — which this
+#   runner does not do.
+
+
+class _EmptyUnderReasoning:
+    """A seat that spends its whole allowance thinking until the allowance
+    doubles."""
+
+    def __init__(self, *, succeed_at: int) -> None:
+        self.succeed_at = succeed_at
+        self.payloads: list[dict[str, Any]] = []
+
+    def __call__(self, payload: dict[str, Any], timeout: int) -> dict[str, Any]:
+        self.payloads.append(json.loads(json.dumps(payload)))
+        predict = payload["options"]["num_predict"]
+        content = "the answer" if predict >= self.succeed_at else ""
+        return {"message": {"content": content, "thinking": "x" * 500}, "eval_count": 9}
+
+
+def _no_ceiling(monkeypatch):
+    monkeypatch.setattr(reading_transport, "seat_ceiling", lambda model: 0)
+    monkeypatch.setattr(reading_transport, "applied_context_length", lambda model: 0)
+
+
+def test_budget_is_an_alias_for_answer_budget_and_reasoning_is_free_of_it(monkeypatch):
+    _no_ceiling(monkeypatch)
+    server = _Server(thinking_capable=True, content="prose", thinking="trace")
+    monkeypatch.setattr(reading_transport, "_post", server)
+
+    off = chat("qwen38", "sys", "user", budget=1000, think=False)
+    assert server.payloads[-1]["options"]["num_predict"] == 1000
+    assert off["reasoning_allowance"] == 0
+
+    chat("qwen38", "sys", "user", answer_budget=1000, reasoning_allowance=250, think=True)
+    assert server.payloads[-1]["options"]["num_predict"] == 1250
+
+
+def test_temperature_is_the_named_default_and_is_recorded(monkeypatch):
+    _no_ceiling(monkeypatch)
+    server = _Server(thinking_capable=True, content="prose")
+    monkeypatch.setattr(reading_transport, "_post", server)
+
+    result = chat("qwen38", "sys", "user")
+
+    assert reading_transport.DEFAULT_TEMPERATURE == 0.0
+    assert server.payloads[0]["options"]["temperature"] == 0.0
+    # recorded on the result, so an acceptance row carries the APPLIED value
+    assert result["temperature"] == 0.0
+
+
+def test_an_empty_answer_under_reasoning_retries_once_at_double_the_allowance(monkeypatch):
+    _no_ceiling(monkeypatch)
+    server = _EmptyUnderReasoning(succeed_at=1000 + 500)
+    monkeypatch.setattr(reading_transport, "_post", server)
+
+    result = chat("qwen38", "sys", "user", answer_budget=1000, reasoning_allowance=250, think=True)
+
+    assert [p["options"]["num_predict"] for p in server.payloads] == [1250, 1500]
+    assert result.content == "the answer"
+    assert result["stop_reason"] == ""
+    # both attempts are recorded, with the allowance each one had
+    assert [a["reasoning_allowance"] for a in result["attempts"]] == [250, 500]
+
+
+def test_a_still_empty_answer_is_a_budget_error_never_a_substantive_one(monkeypatch):
+    _no_ceiling(monkeypatch)
+    server = _EmptyUnderReasoning(succeed_at=10_000)
+    monkeypatch.setattr(reading_transport, "_post", server)
+
+    result = chat("qwen38", "sys", "user", answer_budget=1000, reasoning_allowance=250, think=True)
+
+    assert result.content == ""
+    assert result["stop_reason"] == "budget_exhausted_in_reasoning"
+    assert len(result["attempts"]) == 2
+    assert result["attempts"][-1]["thinking_chars"] == 500
+
+
+def test_a_window_above_the_seat_ceiling_is_stated_not_clamped(monkeypatch):
+    monkeypatch.setattr(reading_transport, "seat_ceiling", lambda model: 32768)
+    called: list[dict[str, Any]] = []
+    monkeypatch.setattr(reading_transport, "_post", lambda p, t: called.append(p) or {})
+
+    with pytest.raises(reading_transport.ContextCeilingError) as excinfo:
+        chat("qwen38", "sys", "user", num_ctx=65536)
+
+    assert "65536" in str(excinfo.value) and "32768" in str(excinfo.value)
+    assert called == []  # refused before the call, never silently reduced
+
+
+def test_an_oversized_prompt_is_named_rather_than_killing_the_reading(monkeypatch):
+    monkeypatch.setattr(reading_transport, "seat_ceiling", lambda model: 262144)
+
+    def overflow(payload, timeout):
+        raise urllib.error.HTTPError(
+            reading_transport._ENDPOINT,
+            400,
+            "Bad Request",
+            {},  # type: ignore[arg-type]
+            io.BytesIO(
+                json.dumps(
+                    {
+                        "error": json.dumps(
+                            {
+                                "error": {
+                                    "code": 400,
+                                    "message": "request (33142 tokens) exceeds the available "
+                                    "context size (32768 tokens), try increasing it",
+                                    "type": "exceed_context_size_error",
+                                    "n_prompt_tokens": 33142,
+                                    "n_ctx": 32768,
+                                }
+                            }
+                        )
+                    }
+                ).encode()
+            ),
+        )
+
+    monkeypatch.setattr(reading_transport, "_post", overflow)
+
+    with pytest.raises(reading_transport.ContextCeilingError) as excinfo:
+        chat("qwen38", "sys", "user", num_ctx=32768, think=True)
+
+    # the runner's own two numbers survive into the message
+    assert "33142" in str(excinfo.value) and "32768" in str(excinfo.value)
+    # and it is NOT mistaken for "does not support thinking": the think cache is
+    # untouched, so the next call is not silently downgraded
+    assert reading_transport._THINK_CAPABLE == {}

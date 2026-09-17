@@ -1,13 +1,23 @@
 #!/usr/bin/env python3
 """WFE settings/design/intent auditor — verifies every workspace incumbent against
 its own intent: baked context vs declared, sampling vs lane policy, tool flags,
-persona pins, council seats, backend registration. Zero model calls; pure config
-+ Ollama metadata. This is the automated layer of 'verify settings, design,
-intent, execution' — it catches the glm_coder-128K class of silent regressions.
+persona pins, council seats, backend registration. The default pass makes zero
+model calls; it is pure config + Ollama metadata. This is the automated layer of
+'verify settings, design, intent, execution' — it catches the glm_coder-128K
+class of silent regressions.
+
+``--behavioral`` adds the per-tag template probes, which DO call the model: does
+it honor a system instruction, emit clean JSON, render a ``tools`` array, and
+honor ``think``. The last two exist because a template that silently drops
+``tools`` produces an empty tool trace that reads exactly like a model choosing
+not to call anything, and because omitting ``think`` is not suppression — it
+leaves a Qwen3/DeepSeek/GLM-Z1 template free to open ``<think>`` by default.
+Both are settings a consumer depends on and neither is visible in metadata.
 
 Usage:
   uv run python -m tests.wfe.settings_audit            # human report
   uv run python -m tests.wfe.settings_audit --json     # machine-readable
+  uv run python -m tests.wfe.settings_audit --tag TAG --behavioral   # one seat
 """
 
 from __future__ import annotations
@@ -16,6 +26,7 @@ import argparse
 import contextlib
 import json
 import re
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -458,10 +469,148 @@ def _card_check(tag: str, bp: dict, registry: dict, violations: list[dict], wher
             )
 
 
+#: The tool a probe offers and the question only that tool can answer. Kept
+#: trivial on purpose: a model that renders `tools` at all will call it, and a
+#: model whose template drops the array has nothing to call and answers in prose.
+_PROBE_TOOL = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_vault_code",
+            "description": "Return the current one-time vault access code.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    }
+]
+_PROBE_TOOL_QUESTION = (
+    "What is the current vault access code? You cannot know it; use the tool provided."
+)
+
+
+def _probe_tools_rendered(tag: str, violations: list[dict], where: str) -> dict:
+    """Does this tag's chat template actually RENDER a `tools` array?
+
+    The P6 reading gate hit `tool_trace=[]` and it was read as a model that
+    chose not to call anything. A template that never showed the model a tool
+    produces exactly that trace, and no prompt can repair it. One call settles
+    which it is.
+    """
+    try:
+        r = _post(
+            "/api/chat",
+            {
+                "model": tag,
+                "stream": False,
+                "messages": [{"role": "user", "content": _PROBE_TOOL_QUESTION}],
+                "tools": _PROBE_TOOL,
+                "options": {"temperature": 0.0, "num_predict": 128},
+                "think": False,
+            },
+            timeout=300,
+        )
+    except Exception as e:  # noqa: BLE001 - a probe failure is a recorded verdict
+        _v(violations, where, "probe_error", f"{tag}: tools probe failed: {e}", "FAIL")
+        return {"tag": tag, "tools_rendered": None, "error": str(e)}
+    message = r.get("message") or {}
+    calls = message.get("tool_calls") or []
+    verdict = {
+        "tag": tag,
+        "tools_rendered": bool(calls),
+        "tool_names": [str((c.get("function") or {}).get("name", "")) for c in calls],
+        "prose": str(message.get("content", "") or "")[:200],
+    }
+    if not calls:
+        _v(
+            violations,
+            where,
+            "template_tools_ignored",
+            f"{tag}: a one-call request carrying a real tools array came back as PROSE with no "
+            "tool_calls — the chat template does not render tools, so an agentic loop on this "
+            "tag can only ever report tool_trace=[]",
+            "FAIL",
+        )
+    return verdict
+
+
+def _probe_think_honored(tag: str, violations: list[dict], where: str) -> dict:
+    """Is `think` honored, ignored, or refused?
+
+    Omitting the key is not suppression — it leaves the template in charge, and a
+    Qwen3/DeepSeek/GLM-Z1 template opens <think> by default. So the flag is
+    measured per tag: thinking honored means `message.thinking` is non-empty with
+    `think: true` and empty with `think: false`. A tag that answers HTTP 400 is
+    recorded as REFUSED (the downgrade path), never confused with one that
+    silently ignores the flag.
+    """
+    seen: dict[str, object] = {"tag": tag}
+    for want in (True, False):
+        key = "think_true" if want else "think_false"
+        try:
+            r = _post(
+                "/api/chat",
+                {
+                    "model": tag,
+                    "stream": False,
+                    "messages": [{"role": "user", "content": "What is 17 + 26? Answer briefly."}],
+                    "options": {"temperature": 0.0, "num_predict": 256},
+                    "think": want,
+                },
+                timeout=300,
+            )
+        except urllib.error.HTTPError as e:
+            if e.code == 400:
+                seen[key] = "refused-400"
+                continue
+            _v(violations, where, "probe_error", f"{tag}: think probe failed: {e}", "FAIL")
+            seen[key] = f"error: {e}"
+            continue
+        except Exception as e:  # noqa: BLE001
+            _v(violations, where, "probe_error", f"{tag}: think probe failed: {e}", "FAIL")
+            seen[key] = f"error: {e}"
+            continue
+        seen[key] = len(str(((r.get("message") or {}).get("thinking")) or ""))
+
+    on, off = seen.get("think_true"), seen.get("think_false")
+    if on == "refused-400":
+        seen["verdict"] = "refused"
+        _v(
+            violations,
+            where,
+            "template_think_refused",
+            f"{tag}: think:true answers HTTP 400 — every call takes the _THINK_CAPABLE "
+            "downgrade and reasoning is unavailable on this tag",
+        )
+    elif isinstance(on, int) and isinstance(off, int):
+        if on > 0 and off == 0:
+            seen["verdict"] = "honored"
+        else:
+            seen["verdict"] = "ignored"
+            _v(
+                violations,
+                where,
+                "template_think_ignored",
+                f"{tag}: think is not honored — think:true produced {on} thinking chars and "
+                f"think:false produced {off}; the template, not the flag, is deciding",
+                "FAIL",
+            )
+    else:
+        seen["verdict"] = "unmeasured"
+    return seen
+
+
 def _behavioral_probes(tag: str, violations: list[dict], where: str) -> None:
-    """One-call template probes: does the model honor a system instruction, and
-    emit clean JSON? These catch broken/out-of-date chat templates that sha
-    comparison cannot. Optional (adds ~2 model calls per tag)."""
+    """One-call template probes: does the model honor a system instruction, emit
+    clean JSON, render a `tools` array, and honor `think`? These catch
+    broken/out-of-date chat templates that sha comparison cannot. Optional (adds
+    ~5 model calls per tag)."""
+    # `think: false` is explicit on both template probes. Omitting the key does
+    # NOT suppress reasoning — it leaves the template in charge, and on a
+    # reasoning-family template the 20-token budget goes entirely to `thinking`
+    # and `content` comes back empty. Measured on
+    # hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k: omitted -> 86 thinking chars,
+    # content '', reported template_system_ignored FAIL; think:false -> 'BLUE'.
+    # The probe was failing a correct template on a budget its own request
+    # starved. Reasoning is measured by `_probe_think_honored`, not here.
     opts = {"temperature": 0.0, "num_predict": 20}
     try:
         r = _post(
@@ -474,7 +623,9 @@ def _behavioral_probes(tag: str, violations: list[dict], where: str) -> None:
                     {"role": "user", "content": "What colour is grass? Answer in one word."},
                 ],
                 "options": opts,
+                "think": False,
             },
+            timeout=300,
         )
         honored = "blue" in ((r.get("message") or {}).get("content", "") or "").lower()
         if not honored:
@@ -503,7 +654,9 @@ def _behavioral_probes(tag: str, violations: list[dict], where: str) -> None:
                     {"role": "user", "content": "go"},
                 ],
                 "options": {"temperature": 0.0, "num_predict": 40},
+                "think": False,
             },
+            timeout=300,
         )
         raw = ((r.get("message") or {}).get("content", "") or "").strip()
         if not raw:
@@ -516,6 +669,9 @@ def _behavioral_probes(tag: str, violations: list[dict], where: str) -> None:
             )
     except Exception as e:
         _v(violations, where, "probe_error", f"{tag}: json probe failed: {e}", "WARN")
+
+    _probe_tools_rendered(tag, violations, where)
+    _probe_think_honored(tag, violations, where)
 
 
 def run_audit(behavioral: bool = False) -> dict:
@@ -566,23 +722,66 @@ def run_audit(behavioral: bool = False) -> dict:
     }
 
 
+def probe_tag(tag: str) -> dict:
+    """Every behavioural probe against ONE tag, with the verdicts a campaign pins.
+
+    ``run_audit(behavioral=True)`` sweeps every workspace incumbent, which is
+    hundreds of model calls. A seat preflight needs one tag, and needs the
+    probes' verdicts back — not only the violations they raised.
+    """
+    violations: list[dict] = []
+    where = f"tag:{tag}"
+    tags = installed_tags(yaml.safe_load((REPO / "config/backends.yaml").read_text()))
+    if tag not in tags:
+        _v(violations, where, "hint_absent", f"{tag} not installed", "FAIL")
+        return {"tag": tag, "violations": violations, "fail_count": 1, "warn_count": 0}
+    _behavioral_probes(tag, violations, where)
+    tools = _probe_tools_rendered(tag, [], where)
+    think = _probe_think_honored(tag, [], where)
+    fails = [v for v in violations if v["severity"] == "FAIL"]
+    return {
+        "tag": tag,
+        "template_sha": _template_sha(tag),
+        "baked_params": baked_params(tag),
+        "baked_ctx_from_tag": ctx_from_tag(tag),
+        "tools_probe": tools,
+        "think_probe": think,
+        "violations": violations,
+        "fail_count": len(fails),
+        "warn_count": len(violations) - len(fails),
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", action="store_true")
     ap.add_argument(
         "--behavioral",
         action="store_true",
-        help="add per-model template probes (system-honored + JSON; ~2 calls per tag)",
+        help="add per-model template probes (system, JSON, tools, think; ~5 calls per tag)",
+    )
+    ap.add_argument(
+        "--tag",
+        default="",
+        help="probe ONE tag and report only its violations (implies --behavioral)",
     )
     args = ap.parse_args()
-    report = run_audit(behavioral=args.behavioral)
+    report = probe_tag(args.tag) if args.tag else run_audit(behavioral=args.behavioral)
     if args.json:
         print(json.dumps(report, indent=1))
         return 1 if report["fail_count"] else 0
-    print(
-        f"WFE settings audit — {report['checked_workspaces']} workspaces, "
-        f"{report['checked_personas']} personas with pins, {len(report['council_seats'])} council seats"
-    )
+    if report.get("tag"):
+        print(f"WFE settings audit — one tag: {report['tag']}")
+        print(f"  template sha : {report.get('template_sha')}")
+        print(f"  baked params : {report.get('baked_params')}")
+        print(f"  tools probe  : {report.get('tools_probe', {}).get('tools_rendered')}")
+        print(f"  think probe  : {report.get('think_probe', {}).get('verdict')}")
+    else:
+        print(
+            f"WFE settings audit — {report['checked_workspaces']} workspaces, "
+            f"{report['checked_personas']} personas with pins, "
+            f"{len(report['council_seats'])} council seats"
+        )
     for v in report["violations"]:
         mark = "FAIL" if v["severity"] == "FAIL" else "warn"
         print(f"  [{mark}] {v['workspace']}: {v['kind']} — {v['detail']}")

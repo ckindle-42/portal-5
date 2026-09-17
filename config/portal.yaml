@@ -1452,7 +1452,9 @@ workspaces:
     model_hint: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
     context_limit: 32768
     predict_limit: 24576
-    temperature: 0.5
+    # compliance is a deterministic lane (settings_audit LANE_SAMPLING ceiling 0.3);
+    # 0.5 exceeded it. The reading transport already sends 0.0.
+    temperature: 0.3
     top_p: 0.95
     top_k: 20
     min_p: 0.0
@@ -1559,7 +1561,9 @@ workspaces:
     model_hint: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
     context_limit: 32768
     predict_limit: 24576
-    temperature: 0.5
+    # compliance is a deterministic lane (settings_audit LANE_SAMPLING ceiling 0.3);
+    # 0.5 exceeded it. The reading transport already sends 0.0.
+    temperature: 0.3
     top_p: 0.95
     top_k: 20
     min_p: 0.0

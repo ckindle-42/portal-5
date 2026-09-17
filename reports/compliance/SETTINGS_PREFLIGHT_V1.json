@@ -1,0 +1,1102 @@
+{
+ "generated_at": "2026-09-17T15:30:24Z",
+ "git_rev": "0db04c6f98b7332d6decbc1f67427c3e234cfdd3",
+ "ollama_version": "0.34.0",
+ "num_ctx_requested": 65536,
+ "reference_ref": "CIP-007-6 R5",
+ "largest_population": {
+  "ref": "CIP-007-6 R5",
+  "regulatory": 43,
+  "operator": 14,
+  "operator_notes": 0,
+  "link_statuses": [
+   "proposed"
+  ],
+  "chars": 31335,
+  "population_method": "join"
+ },
+ "populations": [
+  {
+   "ref": "CIP-007-6 R1",
+   "regulatory": 18,
+   "operator": 6,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 15851,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R2",
+   "regulatory": 16,
+   "operator": 9,
+   "operator_notes": 1,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 27024,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R3",
+   "regulatory": 12,
+   "operator": 6,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 19933,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R4",
+   "regulatory": 31,
+   "operator": 8,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 19703,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R5",
+   "regulatory": 43,
+   "operator": 14,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 31335,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R1 Part 1.1",
+   "regulatory": 17,
+   "operator": 4,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 14134,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R1 Part 1.2",
+   "regulatory": 16,
+   "operator": 4,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 12105,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R2 Part 2.1",
+   "regulatory": 13,
+   "operator": 4,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 13428,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R2 Part 2.2",
+   "regulatory": 14,
+   "operator": 4,
+   "operator_notes": 1,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 17476,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R2 Part 2.3",
+   "regulatory": 14,
+   "operator": 5,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 17072,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R2 Part 2.4",
+   "regulatory": 14,
+   "operator": 4,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 19781,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R3 Part 3.1",
+   "regulatory": 10,
+   "operator": 3,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 8261,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R3 Part 3.2",
+   "regulatory": 10,
+   "operator": 5,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 17534,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R3 Part 3.3",
+   "regulatory": 10,
+   "operator": 2,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 8059,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R4 Part 4.1",
+   "regulatory": 27,
+   "operator": 3,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 11498,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R4 Part 4.2",
+   "regulatory": 27,
+   "operator": 3,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 12154,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R4 Part 4.3",
+   "regulatory": 26,
+   "operator": 5,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 12841,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R4 Part 4.4",
+   "regulatory": 26,
+   "operator": 3,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 11170,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R5 Part 5.1",
+   "regulatory": 34,
+   "operator": 5,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 20346,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R5 Part 5.2",
+   "regulatory": 35,
+   "operator": 1,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 14506,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R5 Part 5.3",
+   "regulatory": 35,
+   "operator": 5,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 16490,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R5 Part 5.4",
+   "regulatory": 35,
+   "operator": 4,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 19591,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R5 Part 5.5",
+   "regulatory": 35,
+   "operator": 3,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 20040,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R5 Part 5.6",
+   "regulatory": 35,
+   "operator": 3,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 19700,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R5 Part 5.7",
+   "regulatory": 35,
+   "operator": 3,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 19222,
+   "population_method": "join"
+  }
+ ],
+ "seats": [
+  {
+   "seat": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+   "template_sha": "701ba13a085c",
+   "baked_params": {
+    "num_ctx": 32768
+   },
+   "baked_ctx_from_tag": 32768,
+   "tools_probe": {
+    "tag": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+    "tools_rendered": true,
+    "tool_names": [
+     "get_vault_code"
+    ],
+    "prose": ""
+   },
+   "think_probe": {
+    "tag": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+    "think_true": 48,
+    "think_false": 0,
+    "verdict": "honored"
+   },
+   "audit_violations": [],
+   "applied_versus_requested": {
+    "seat": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+    "ref": "CIP-007-6 R5",
+    "material_chars": 52244,
+    "num_ctx_requested": 65536,
+    "seat_ceiling": 262144,
+    "answer_budget": 3072,
+    "reasoning_allowance": 4096,
+    "elapsed_s": 226.8,
+    "num_ctx_applied": 65536,
+    "temperature_applied": 0.0,
+    "prompt_eval_count": 16590,
+    "eval_count": 755,
+    "headroom_tokens": 48191,
+    "chars_per_token_observed": 3.15,
+    "tool_calls": [
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read"
+    ],
+    "thinking_chars": 0,
+    "answer_chars": 366,
+    "transport_stop_reason": "",
+    "required_tokens": 23758,
+    "margin_tokens": 41778,
+    "blocks": false,
+    "block_reasons": []
+   },
+   "ollama_ps": [
+    {
+     "name": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+     "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+     "size": 19954663422,
+     "digest": "71936e26c83aabf99c7cfe1805c098a24684f91a0d132542952b9975a518c937",
+     "details": {
+      "parent_model": "",
+      "format": "gguf",
+      "family": "qwen35",
+      "families": [
+       "qwen35"
+      ],
+      "parameter_size": "27.3B",
+      "quantization_level": "Q4_K_M"
+     },
+     "expires_at": "2026-09-17T11:04:38.275726-05:00",
+     "size_vram": 19954663422,
+     "context_length": 65536
+    }
+   ],
+   "free_memory_mb": 10688,
+   "go": true,
+   "no_go_reasons": []
+  },
+  {
+   "seat": "glm-4.7-flash:Q4_K_M-ctx64k",
+   "template_sha": "b507b9c2f6ca",
+   "baked_params": {
+    "min_p": 0.01,
+    "num_ctx": 65536,
+    "repeat_penalty": 1,
+    "temperature": 1,
+    "top_p": 0.95
+   },
+   "baked_ctx_from_tag": 65536,
+   "tools_probe": {
+    "tag": "glm-4.7-flash:Q4_K_M-ctx64k",
+    "tools_rendered": true,
+    "tool_names": [
+     "get_vault_code"
+    ],
+    "prose": "I'll retrieve the current vault access code for you."
+   },
+   "think_probe": {
+    "tag": "glm-4.7-flash:Q4_K_M-ctx64k",
+    "think_true": 404,
+    "think_false": 0,
+    "verdict": "honored"
+   },
+   "audit_violations": [],
+   "applied_versus_requested": {
+    "seat": "glm-4.7-flash:Q4_K_M-ctx64k",
+    "ref": "CIP-007-6 R5",
+    "material_chars": 52244,
+    "num_ctx_requested": 65536,
+    "seat_ceiling": 202752,
+    "answer_budget": 3072,
+    "reasoning_allowance": 4096,
+    "elapsed_s": 111.1,
+    "num_ctx_applied": 65536,
+    "temperature_applied": 0.0,
+    "prompt_eval_count": 15339,
+    "eval_count": 500,
+    "headroom_tokens": 49697,
+    "chars_per_token_observed": 3.41,
+    "tool_calls": [
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read"
+    ],
+    "thinking_chars": 0,
+    "answer_chars": 226,
+    "transport_stop_reason": "",
+    "required_tokens": 22507,
+    "margin_tokens": 43029,
+    "blocks": false,
+    "block_reasons": []
+   },
+   "ollama_ps": [
+    {
+     "name": "glm-4.7-flash:Q4_K_M-ctx64k",
+     "model": "glm-4.7-flash:Q4_K_M-ctx64k",
+     "size": 26997927444,
+     "digest": "7c977485cc3c2241e5d1ceb527dc940f3a338abeed9503a9b068f24438cbe8a9",
+     "details": {
+      "parent_model": "",
+      "format": "gguf",
+      "family": "glm4moelite",
+      "families": [
+       "glm4moelite"
+      ],
+      "parameter_size": "29.9B",
+      "quantization_level": "Q4_K_M"
+     },
+     "expires_at": "2026-09-17T11:07:00.893888-05:00",
+     "size_vram": 26997927444,
+     "context_length": 65536
+    }
+   ],
+   "free_memory_mb": 7442,
+   "go": true,
+   "no_go_reasons": []
+  },
+  {
+   "seat": "qwen3.6:27b-q4_K_M",
+   "template_sha": "b507b9c2f6ca",
+   "baked_params": {
+    "temperature": 1,
+    "top_k": 20,
+    "top_p": 0.95,
+    "min_p": 0,
+    "presence_penalty": 1.5,
+    "repeat_penalty": 1
+   },
+   "baked_ctx_from_tag": null,
+   "tools_probe": {
+    "tag": "qwen3.6:27b-q4_K_M",
+    "tools_rendered": true,
+    "tool_names": [
+     "get_vault_code"
+    ],
+    "prose": ""
+   },
+   "think_probe": {
+    "tag": "qwen3.6:27b-q4_K_M",
+    "think_true": 425,
+    "think_false": 0,
+    "verdict": "honored"
+   },
+   "audit_violations": [],
+   "applied_versus_requested": {
+    "seat": "qwen3.6:27b-q4_K_M",
+    "ref": "CIP-007-6 R5",
+    "material_chars": 52244,
+    "num_ctx_requested": 65536,
+    "seat_ceiling": 262144,
+    "answer_budget": 3072,
+    "reasoning_allowance": 4096,
+    "elapsed_s": 228.2,
+    "num_ctx_applied": 65536,
+    "temperature_applied": 0.0,
+    "prompt_eval_count": 16582,
+    "eval_count": 761,
+    "headroom_tokens": 48193,
+    "chars_per_token_observed": 3.15,
+    "tool_calls": [
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_read",
+     "compliance_notes"
+    ],
+    "thinking_chars": 0,
+    "answer_chars": 1109,
+    "transport_stop_reason": "",
+    "required_tokens": 23750,
+    "margin_tokens": 41786,
+    "blocks": false,
+    "block_reasons": []
+   },
+   "ollama_ps": [
+    {
+     "name": "qwen3.6:27b-q4_K_M",
+     "model": "qwen3.6:27b-q4_K_M",
+     "size": 18656064961,
+     "digest": "a50eda8ed977ab48a12431878896b27ffd5cef552c17af3317d9623b939a7f1e",
+     "details": {
+      "parent_model": "",
+      "format": "gguf",
+      "family": "qwen35",
+      "families": [
+       "qwen35"
+      ],
+      "parameter_size": "27.8B",
+      "quantization_level": "Q4_K_M"
+     },
+     "expires_at": "2026-09-17T11:11:30.574244-05:00",
+     "size_vram": 18656064961,
+     "context_length": 65536
+    }
+   ],
+   "free_memory_mb": 11518,
+   "go": true,
+   "no_go_reasons": []
+  }
+ ],
+ "settings_audit_fleet": {
+  "checked_workspaces": 47,
+  "checked_personas": 112,
+  "council_seats": {
+   "qwen38": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+   "granite41": "granite4.1:30b-ctx16k",
+   "mistral": "mistral-small3.2:24b-instruct-2506-q4_K_M"
+  },
+  "violations": [
+   {
+    "workspace": "auto",
+    "kind": "sampling_baked_hot",
+    "detail": "served temperature 0.7 is within the 0.8 lane limit, but huihui_ai/qwen3.5-abliterated:9b-ctx8k bakes temperature=1 \u2014 a request that omits the workspace override would exceed it",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto",
+    "kind": "card_research_debt",
+    "detail": "huihui_ai/qwen3.5-abliterated:9b-ctx8k: family 'qwen3.5' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-extract-uncensored",
+    "kind": "sampling_hot",
+    "detail": "documents lane limit 0.4 but the pipeline serves temperature=0.6 (from workspace config)",
+    "severity": "FAIL"
+   },
+   {
+    "workspace": "auto-extract-uncensored",
+    "kind": "card_research_debt",
+    "detail": "hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k: family 'lfm2' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-general-uncensored",
+    "kind": "ctx_not_baked",
+    "detail": "context_limit=8192 declared but hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M bakes no num_ctx (the served window is Ollama's default, not 8192)",
+    "severity": "FAIL"
+   },
+   {
+    "workspace": "auto-general-uncensored",
+    "kind": "tools_unsupported",
+    "detail": "workspace declares tools ['execute_bash', 'execute_python', 'read_word_document', 'read_pdf', 'remember', 'recall'] but backends marks hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M supports_tools=false",
+    "severity": "FAIL"
+   },
+   {
+    "workspace": "auto-general-uncensored",
+    "kind": "card_research_debt",
+    "detail": "hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M: family 'qwen3.6' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-uncensored-throwaway",
+    "kind": "card_research_debt",
+    "detail": "portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k: family 'qwen3.6' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-daily",
+    "kind": "sampling_hot",
+    "detail": "general lane limit 0.8 but the pipeline serves temperature=1.0 (from workspace config)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-daily",
+    "kind": "sampling_baked_hot",
+    "detail": "served temperature 1.0 is within the 0.8 lane limit, but gemma4:26b-a4b-it-qat-ctx8k bakes temperature=1 \u2014 a request that omits the workspace override would exceed it",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-daily",
+    "kind": "card_research_debt",
+    "detail": "gemma4:26b-a4b-it-qat-ctx8k: family 'gemma4' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-nemotron",
+    "kind": "card_research_debt",
+    "detail": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k: recommended_sampling pending research (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-coding",
+    "kind": "sampling_baked_hot",
+    "detail": "served temperature 0.2 is within the 0.5 lane limit, but qwen3-coder:30b-a3b-q4_K_M-ctx256k bakes temperature=0.7 \u2014 a request that omits the workspace override would exceed it",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-coding",
+    "kind": "card_research_debt",
+    "detail": "qwen3-coder:30b-a3b-q4_K_M-ctx256k: family 'qwen3' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-spl",
+    "kind": "reasoning_uncontrolled",
+    "detail": "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k is a reasoning-family model but the workspace sets no `think` \u2014 verify the lane's token budget covers reasoning AND an answer",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-spl",
+    "kind": "card_research_debt",
+    "detail": "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k: family 'qwen3' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-security",
+    "kind": "card_research_debt",
+    "detail": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k: family 'vulnllm' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-bigfix",
+    "kind": "card_research_debt",
+    "detail": "qwen3-coder:30b-a3b-q4_K_M-ctx16k: family 'qwen3' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "tools-specialist",
+    "kind": "reasoning_uncontrolled",
+    "detail": "granite4.1:8b-ctx8k is a reasoning-family model but the workspace sets no `think` \u2014 verify the lane's token budget covers reasoning AND an answer",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "tools-specialist",
+    "kind": "card_research_debt",
+    "detail": "granite4.1:8b-ctx8k: family 'granite-4.1' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-creative",
+    "kind": "sampling_baked_hot",
+    "detail": "served temperature 0.7 is within the 0.8 lane limit, but fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k bakes temperature=1 \u2014 a request that omits the workspace override would exceed it",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-creative",
+    "kind": "card_research_debt",
+    "detail": "fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k: family 'qwen3.6' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-reasoning",
+    "kind": "card_research_debt",
+    "detail": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k: family 'deepseek-r1' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-council",
+    "kind": "sampling_baked_hot",
+    "detail": "served temperature 0.7 is within the 0.8 lane limit, but qwen3.6:27b-q4_K_M-ctx16k bakes temperature=1 \u2014 a request that omits the workspace override would exceed it",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-council",
+    "kind": "card_research_debt",
+    "detail": "qwen3.6:27b-q4_K_M-ctx16k: family 'qwen3.6' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-documents",
+    "kind": "sampling_hot",
+    "detail": "documents lane limit 0.4 but the pipeline serves temperature=0.5 (from workspace config)",
+    "severity": "FAIL"
+   },
+   {
+    "workspace": "auto-documents",
+    "kind": "reasoning_uncontrolled",
+    "detail": "granite4.1:8b-ctx16k is a reasoning-family model but the workspace sets no `think` \u2014 the documents lane is deterministic and needs think:false",
+    "severity": "FAIL"
+   },
+   {
+    "workspace": "auto-documents",
+    "kind": "card_research_debt",
+    "detail": "granite4.1:8b-ctx16k: family 'granite-4.1' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-video",
+    "kind": "reasoning_uncontrolled",
+    "detail": "granite4.1:8b-ctx16k is a reasoning-family model but the workspace sets no `think` \u2014 verify the lane's token budget covers reasoning AND an answer",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-video",
+    "kind": "card_research_debt",
+    "detail": "granite4.1:8b-ctx16k: family 'granite-4.1' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-image",
+    "kind": "reasoning_uncontrolled",
+    "detail": "granite4.1:8b-ctx16k is a reasoning-family model but the workspace sets no `think` \u2014 verify the lane's token budget covers reasoning AND an answer",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-image",
+    "kind": "card_research_debt",
+    "detail": "granite4.1:8b-ctx16k: family 'granite-4.1' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-music",
+    "kind": "card_research_debt",
+    "detail": "lfm2.5:8b-ctx8k: family 'lfm2' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-research",
+    "kind": "sampling_hot",
+    "detail": "research lane limit 0.5 but the pipeline serves temperature=0.6 (from workspace config)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-research",
+    "kind": "card_research_debt",
+    "detail": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k: family 'nex-n2' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-vision",
+    "kind": "sampling_baked_hot",
+    "detail": "served temperature 0.5 is within the 0.8 lane limit, but qwen3-vl:32b-ctx8k bakes temperature=1 \u2014 a request that omits the workspace override would exceed it",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-vision",
+    "kind": "card_research_debt",
+    "detail": "qwen3-vl:32b-ctx8k: family 'qwen3' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-data",
+    "kind": "sampling_hot",
+    "detail": "research lane limit 0.5 but the pipeline serves temperature=0.7 (from workspace config)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-data",
+    "kind": "card_research_debt",
+    "detail": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k: family 'qwen3.6' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-compliance",
+    "kind": "sampling_hot",
+    "detail": "compliance lane limit 0.3 but the pipeline serves temperature=0.5 (from workspace config)",
+    "severity": "FAIL"
+   },
+   {
+    "workspace": "auto-compliance",
+    "kind": "card_research_debt",
+    "detail": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k: family 'qwen3.8' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "compliance-reading",
+    "kind": "sampling_hot",
+    "detail": "compliance lane limit 0.3 but the pipeline serves temperature=0.5 (from workspace config)",
+    "severity": "FAIL"
+   },
+   {
+    "workspace": "compliance-reading",
+    "kind": "card_research_debt",
+    "detail": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k: family 'qwen3.8' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-math",
+    "kind": "reasoning_uncontrolled",
+    "detail": "phi4-mini-reasoning:latest-ctx24k is a reasoning-family model but the workspace sets no `think` \u2014 verify the lane's token budget covers reasoning AND an answer",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-math",
+    "kind": "card_research_debt",
+    "detail": "phi4-mini-reasoning:latest-ctx24k: family 'phi4' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-audio",
+    "kind": "sampling_hot",
+    "detail": "media lane limit 0.8 but the pipeline serves temperature=1.0 (from workspace config)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-audio",
+    "kind": "sampling_baked_hot",
+    "detail": "served temperature 1.0 is within the 0.8 lane limit, but gemma4:12b-it-qat-ctx8k bakes temperature=1 \u2014 a request that omits the workspace override would exceed it",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-audio",
+    "kind": "card_research_debt",
+    "detail": "gemma4:12b-it-qat-ctx8k: family 'gemma4' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-qwen3-coder-30b",
+    "kind": "card_research_debt",
+    "detail": "qwen3-coder:30b-a3b-q4_K_M: family 'qwen3' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-granite41-8b",
+    "kind": "reasoning_uncontrolled",
+    "detail": "granite4.1:8b-ctx8k is a reasoning-family model but the workspace sets no `think` \u2014 verify the lane's token budget covers reasoning AND an answer",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-granite41-8b",
+    "kind": "card_research_debt",
+    "detail": "granite4.1:8b-ctx8k: family 'granite-4.1' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-granite41-30b",
+    "kind": "reasoning_uncontrolled",
+    "detail": "granite4.1:30b-ctx16k is a reasoning-family model but the workspace sets no `think` \u2014 verify the lane's token budget covers reasoning AND an answer",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-granite41-30b",
+    "kind": "card_research_debt",
+    "detail": "granite4.1:30b-ctx16k: family 'granite-4.1' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-foundation-sec-8b-reasoning",
+    "kind": "card_no_ground_truth",
+    "detail": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0: no model_card_expectations entry \u2014 card research owed (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-qwen35-abliterated",
+    "kind": "sampling_baked_hot",
+    "detail": "served temperature 0.7 is within the 0.7 lane limit, but huihui_ai/qwen3.5-abliterated:9b bakes temperature=1 \u2014 a request that omits the workspace override would exceed it",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-qwen35-abliterated",
+    "kind": "card_research_debt",
+    "detail": "huihui_ai/qwen3.5-abliterated:9b: family 'qwen3.5' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-omnicoder2",
+    "kind": "card_no_ground_truth",
+    "detail": "omnicoder2:9b-q4_k_m: no model_card_expectations entry \u2014 card research owed (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-qwen38-27b",
+    "kind": "card_research_debt",
+    "detail": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M: family 'qwen3.8' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-qwen38-flash-next-reap288",
+    "kind": "hint_absent",
+    "detail": "model_hint Qwen3.8-Flash-Next-REAP-288-MLX-4bit not installed (workspace cannot serve)",
+    "severity": "FAIL"
+   },
+   {
+    "workspace": "bench-nex-n25-mini-uncensored",
+    "kind": "hint_absent",
+    "detail": "model_hint Nex-N2.5-mini-Uncensored-MLX-4bit not installed (workspace cannot serve)",
+    "severity": "FAIL"
+   },
+   {
+    "workspace": "bench-gemma4-26b-optiq",
+    "kind": "sampling_baked_hot",
+    "detail": "served temperature 0.6 is within the 0.7 lane limit, but gemma4:26b-a4b-it-q4_K_M bakes temperature=1 \u2014 a request that omits the workspace override would exceed it",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-gemma4-26b-optiq",
+    "kind": "card_research_debt",
+    "detail": "gemma4:26b-a4b-it-q4_K_M: family 'gemma4' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-huihui-qwen36-27b",
+    "kind": "sampling_baked_hot",
+    "detail": "served temperature 0.7 is within the 0.7 lane limit, but huihui_ai/Qwen3.6-abliterated:27b bakes temperature=1 \u2014 a request that omits the workspace override would exceed it",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-huihui-qwen36-27b",
+    "kind": "card_research_debt",
+    "detail": "huihui_ai/Qwen3.6-abliterated:27b: family 'qwen3.6' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-gemma4-e4b-qat",
+    "kind": "sampling_hot",
+    "detail": "eval lane limit 0.7 but the pipeline serves temperature=1.0 (from workspace config)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-gemma4-e4b-qat",
+    "kind": "sampling_baked_hot",
+    "detail": "served temperature 1.0 is within the 0.7 lane limit, but gemma4:e4b-it-qat bakes temperature=1 \u2014 a request that omits the workspace override would exceed it",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-gemma4-e4b-qat",
+    "kind": "card_research_debt",
+    "detail": "gemma4:e4b-it-qat: family 'gemma4' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-nex-n2-mini",
+    "kind": "card_research_debt",
+    "detail": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M: family 'nex-n2' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-e2b-pentest",
+    "kind": "sampling_baked_hot",
+    "detail": "served temperature 0.3 is within the 0.7 lane limit, but huihui_ai/gemma-4-abliterated:E2b-qat bakes temperature=1 \u2014 a request that omits the workspace override would exceed it",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-e2b-pentest",
+    "kind": "card_research_debt",
+    "detail": "huihui_ai/gemma-4-abliterated:E2b-qat: family 'gemma4' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-glm",
+    "kind": "sampling_hot",
+    "detail": "eval lane limit 0.7 but the pipeline serves temperature=1.0 (from workspace config)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-glm",
+    "kind": "sampling_baked_hot",
+    "detail": "served temperature 1.0 is within the 0.7 lane limit, but glm-4.7-flash:Q4_K_M bakes temperature=1 \u2014 a request that omits the workspace override would exceed it",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-glm",
+    "kind": "reasoning_uncontrolled",
+    "detail": "glm-4.7-flash:Q4_K_M is a reasoning-family model but the workspace sets no `think` \u2014 verify the lane's token budget covers reasoning AND an answer",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-glm",
+    "kind": "card_research_debt",
+    "detail": "glm-4.7-flash:Q4_K_M: recommended_sampling pending research (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-cad",
+    "kind": "sampling_baked_hot",
+    "detail": "served temperature 0.2 is within the 0.5 lane limit, but qwen3-coder:30b-a3b-q4_K_M-ctx16k bakes temperature=0.7 \u2014 a request that omits the workspace override would exceed it",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "auto-cad",
+    "kind": "card_research_debt",
+    "detail": "qwen3-coder:30b-a3b-q4_K_M-ctx16k: family 'qwen3' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-qwen36-cad",
+    "kind": "sampling_baked_hot",
+    "detail": "served temperature 0.2 is within the 0.7 lane limit, but qwen3.6:27b-q4_K_M-ctx16k bakes temperature=1 \u2014 a request that omits the workspace override would exceed it",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-qwen36-cad",
+    "kind": "tools_unsupported",
+    "detail": "workspace declares tools ['execute_python', 'execute_bash', 'sandbox_status', 'read_pdf', 'read_word_document', 'web_search', 'web_fetch', 'remember', 'recall', 'kb_search', 'render_mesh', 'render_openscad', 'convert_cad', 'generate_scad'] but backends marks qwen3.6:27b-q4_K_M-ctx16k supports_tools=false",
+    "severity": "FAIL"
+   },
+   {
+    "workspace": "bench-qwen36-cad",
+    "kind": "card_research_debt",
+    "detail": "qwen3.6:27b-q4_K_M-ctx16k: family 'qwen3.6' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-huihui-qwen36-35b-a3b",
+    "kind": "card_research_debt",
+    "detail": "hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M: family 'qwen3.6' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-exec-reasoning",
+    "kind": "sampling_baked_hot",
+    "detail": "served temperature 0.1 is within the 0.7 lane limit, but huihui_ai/gemma-4-abliterated:E2b-qat bakes temperature=1 \u2014 a request that omits the workspace override would exceed it",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-exec-reasoning",
+    "kind": "card_research_debt",
+    "detail": "huihui_ai/gemma-4-abliterated:E2b-qat: family 'gemma4' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-hermes3",
+    "kind": "card_research_debt",
+    "detail": "hermes3:8b: family 'hermes' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-mistral-small-3-2",
+    "kind": "card_research_debt",
+    "detail": "mistral-small3.2:24b: family 'mistral-small' has no verified card ground truth yet (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "bench-magistral-small",
+    "kind": "card_no_ground_truth",
+    "detail": "hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k: no model_card_expectations entry \u2014 card research owed (WFE-0.6)",
+    "severity": "WARN"
+   },
+   {
+    "workspace": "persona:nemotronlightning",
+    "kind": "persona_pin_absent",
+    "detail": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M not installed (silent 404 when resolver reaches this pin)",
+    "severity": "FAIL"
+   },
+   {
+    "workspace": "persona:qwen38coder-dflash",
+    "kind": "persona_pin_absent",
+    "detail": "Qwen3.8-27B-4bit not installed (silent 404 when resolver reaches this pin)",
+    "severity": "FAIL"
+   },
+   {
+    "workspace": "compliance-council:mistral",
+    "kind": "seat_unregistered",
+    "detail": "council seat model mistral-small3.2:24b-instruct-2506-q4_K_M not in backends.yaml",
+    "severity": "WARN"
+   }
+  ],
+  "fail_count": 12,
+  "warn_count": 76
+ }
+}
