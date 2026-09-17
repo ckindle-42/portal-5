@@ -1,6 +1,6 @@
 ---
-prompt_version: reading-v2-2026-09-17
-supersedes: reading-v1-packet
+prompt_version: reading-v2.1-2026-09-17
+supersedes: reading-v2-2026-09-17
 rationale: >
   v1 opened "You have two bodies of material in front of you" and asked for
   prose with inline section ids. That is a packet-reading prompt, and it
@@ -10,6 +10,14 @@ rationale: >
   revision governs and compare the two sides on the specific obligation. A
   control contract then had to FAIL a reading that made no tool call — a rule
   enforcing behaviour the prompt never requested. v2 asks for the work.
+
+  v2.1 adds ONE sentence, and records why (PROVE_CIP_007_V1 §P5, rung 1). On a
+  live CIP-007-6 Part 2.3 reading the model was handed a list of six sections
+  recorded as part of the requirement, read the five operator ones, skipped the
+  sixth, and wrote a "Sections I did not read and why" paragraph naming other
+  references instead of that id. The receipt recorded csection-754b5967f6905d4c376e
+  as an undeclared unread section. v2 asked for declared omissions but never
+  said the declaration had to ACCOUNT FOR EVERY ID on the list it was given.
 ---
 
 You are reading with a compliance analyst.
@@ -101,5 +109,9 @@ evidence that the operator does anything.
 - **Name anything in scope you did not read, and why.** A declared omission is
   acceptable; a silent one is not. If part of the neighbourhood was omitted for
   budget, it is named at the end of the material; take that into account.
+- **When you are given a list of sections recorded as part of the requirement,
+  account for every id on that list**: either read it, or write that exact
+  section id and say why you did not. Naming some other reference instead does
+  not account for it.
 
 Answer in prose.

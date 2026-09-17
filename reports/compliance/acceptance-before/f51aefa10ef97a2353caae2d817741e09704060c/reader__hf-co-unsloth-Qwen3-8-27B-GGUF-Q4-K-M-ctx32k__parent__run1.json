@@ -1,0 +1,188 @@
+{
+ "cell": "reader__hf-co-unsloth-Qwen3-8-27B-GGUF-Q4-K-M-ctx32k__parent__run1",
+ "adapter": "reader",
+ "seat": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+ "case": "parent",
+ "ref": "CIP-007-6 R2",
+ "question": "Across all four Parts of CIP-007-6 R2, where do our patch-management procedures stand, and how would a violation of each Part be priced?",
+ "run_index": 1,
+ "environment_before": {
+  "at": "2026-09-17T17:03:28Z",
+  "ollama_version": "0.34.0",
+  "ollama_ps": [
+   {
+    "name": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+    "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+    "size": 19954663422,
+    "digest": "71936e26c83aabf99c7cfe1805c098a24684f91a0d132542952b9975a518c937",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "qwen35",
+     "families": [
+      "qwen35"
+     ],
+     "parameter_size": "27.3B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-17T12:33:28.606326-05:00",
+    "size_vram": 19954663422,
+    "context_length": 65536
+   }
+  ],
+  "free_memory_mb": 11460,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "payload": {
+  "error": "HTTP Error 500: Internal Server Error",
+  "question": "Across all four Parts of CIP-007-6 R2, where do our patch-management procedures stand, and how would a violation of each Part be priced?",
+  "ref": "CIP-007-6 R2",
+  "_wall_s": 1522.0
+ },
+ "prompt_version": null,
+ "prompt_sha": null,
+ "applied_settings": null,
+ "context_fit": null,
+ "thinking_chars": null,
+ "latency": null,
+ "closure_receipt": null,
+ "citations": [],
+ "comparable": {
+  "requirements_covered": [
+   "CIP-007-6 R2"
+  ],
+  "section_ids": [],
+  "row_count": 0
+ },
+ "guard": [
+  {
+   "assertion": "applied_num_ctx == requested",
+   "ok": true,
+   "detail": {
+    "requested": 0,
+    "applied": null
+   }
+  },
+  {
+   "assertion": "headroom > 0",
+   "ok": true,
+   "detail": null
+  },
+  {
+   "assertion": "prompt below the ceiling",
+   "ok": true,
+   "detail": {
+    "prompt_eval_count": 0,
+    "num_ctx": 0
+   }
+  },
+  {
+   "assertion": "runner did not refuse the prompt",
+   "ok": true,
+   "detail": ""
+  }
+ ],
+ "checks": [
+  {
+   "assertion": "required_citation:csection-7700dd5499cead0994ec",
+   "ok": false,
+   "detail": "absent"
+  },
+  {
+   "assertion": "required_citation:csection-c36c38b8842c8bc217ac",
+   "ok": false,
+   "detail": "absent"
+  },
+  {
+   "assertion": "required_citation:csection-c0cd08b61c308b0e6403",
+   "ok": false,
+   "detail": "absent"
+  },
+  {
+   "assertion": "operator_citations>=1",
+   "ok": false,
+   "detail": []
+  },
+  {
+   "assertion": "cites_the_operator_side",
+   "ok": false,
+   "detail": []
+  },
+  {
+   "assertion": "must_state:all_four_parts",
+   "ok": false,
+   "detail": [
+    [
+     "2.1"
+    ],
+    [
+     "2.2"
+    ],
+    [
+     "2.3"
+    ],
+    [
+     "2.4"
+    ]
+   ]
+  },
+  {
+   "assertion": "must_state:vsl_or_declared",
+   "ok": false,
+   "detail": "none of ['vsl', 'violation severity', 'severe', 'moderate', 'lower', 'not in the material', 'was not given', 'did not read', 'not available', 'not in scope', 'could not find']"
+  },
+  {
+   "assertion": "must_not_state:single_collapsed_verdict",
+   "ok": true,
+   "detail": "absent"
+  },
+  {
+   "assertion": "tool_calls>=2",
+   "ok": false,
+   "detail": 0
+  },
+  {
+   "assertion": "reading_did_not_fail",
+   "ok": true,
+   "detail": ""
+  }
+ ],
+ "passed": false,
+ "environment_after": {
+  "at": "2026-09-17T17:28:50Z",
+  "ollama_version": "0.34.0",
+  "ollama_ps": [
+   {
+    "name": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+    "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+    "size": 19954663422,
+    "digest": "71936e26c83aabf99c7cfe1805c098a24684f91a0d132542952b9975a518c937",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "qwen35",
+     "families": [
+      "qwen35"
+     ],
+     "parameter_size": "27.3B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-17T12:58:50.623007-05:00",
+    "size_vram": 19954663422,
+    "context_length": 65536
+   }
+  ],
+  "free_memory_mb": 9634,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "failed_assertions": [
+  "required_citation:csection-7700dd5499cead0994ec",
+  "required_citation:csection-c36c38b8842c8bc217ac",
+  "required_citation:csection-c0cd08b61c308b0e6403",
+  "operator_citations>=1",
+  "cites_the_operator_side",
+  "must_state:all_four_parts",
+  "must_state:vsl_or_declared",
+  "tool_calls>=2"
+ ]
+}

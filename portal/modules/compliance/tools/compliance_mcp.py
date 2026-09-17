@@ -2270,6 +2270,7 @@ def compliance_ask(
     valid_at: str = "",
     thread_id: str = "",
     model: str = "",
+    store: bool = True,
 ) -> dict[str, Any]:
     """Ask a question about a requirement, with the whole neighbourhood in front
     of the reader.
@@ -2284,6 +2285,16 @@ def compliance_ask(
     The answer is retained and projected into the corpus as a ``derived``
     source: contestable, retrievable, never a fact, and outranked by any
     operator note on the same subject.
+
+    ``store=False`` answers the question WITHOUT projecting it. The receipt is
+    still retained — a reading that failed is the one most worth a record of —
+    but nothing enters the corpus. That exists because projection makes repeated
+    readings of one question dependent on each other: measured on three live
+    CIP-007-6 Part 2.4 readings, run 1's answer came back inside run 2's
+    ``compliance_links`` payload as a ``reading`` edge, run 2's prompt grew by
+    105 tokens, and run 2 PASSED a case run 1 failed — at temperature 0.0, where
+    the model cannot be the variable. Correct product behaviour; fatal
+    measurement behaviour.
     """
     from portal.modules.compliance.core.reader import read
     from portal.modules.compliance.core.runtime_config import reading_seat
@@ -2299,6 +2310,7 @@ def compliance_ask(
             profile=profile,
             valid_at=valid_at,
             thread_id=thread_id,
+            store=store,
         )
     except Exception as exc:  # noqa: BLE001 - a transport failure is reported, not raised
         return {"error": str(exc), "question": question, "ref": ref}

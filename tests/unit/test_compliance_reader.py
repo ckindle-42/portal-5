@@ -760,3 +760,81 @@ class TestTurnOrder:
         assert "FIRST-QUESTION" in joined, "the prior turn travels"
         assert joined.index("FIRST-QUESTION") < joined.index("SECOND-QUESTION")
         assert contents[-1].rstrip().endswith("SECOND-QUESTION")
+
+
+# ── what the live CIP-007-6 acceptance run found ────────────────────────────
+#
+# TASK_COMPLIANCE_PROVE_CIP_007_V1 §P5. Each of these is a defect the LIVE run
+# exposed and no unit test caught, which is the whole reason the task exists:
+# "Each of these passed every unit test and failed the moment a model was on the
+# other end." They are cases now, so the class cannot return unnoticed.
+
+
+class TestAnAbsenceClaimIsNotANegativeAnswer:
+    """Rung 2. The analyst asked "does anything narrow that choice?"; the model
+    answered "**No.** The operator's procedure preserves all three actions" —
+    and the contract read `no` … `procedure` within eighty characters as an
+    assertion that evidence was ABSENT. Three live Part 2.3 readings, every
+    semantic check passing, all failed for answering the question they were
+    asked."""
+
+    def test_a_negative_answer_is_not_an_absence_claim(self) -> None:
+        for answer in (
+            "**No.** The operator's procedure preserves all three permitted actions.",
+            "No. The operator has not narrowed the control.",
+            "The standard does not prescribe an action for this procedure.",
+        ):
+            assert not reader._ABSENCE_CLAIM.search(answer), answer
+
+    def test_a_real_absence_claim_still_is_one(self) -> None:
+        for answer in (
+            "There is no evidence that the operator performs this.",
+            "No operator document in scope addresses the obligation.",
+            "I found no procedure covering the inventory.",
+            "None of the linked sections describe the practice.",
+            "The corpus does not contain any such record.",
+            "Nothing in the material settles it.",
+        ):
+            assert reader._ABSENCE_CLAIM.search(answer), answer
+
+
+class TestTheLoopRefusesACallThatCannotFit:
+    """Rung 0. `DEFAULT_NUM_CTX` was derived at 4.22 chars/token, measured on
+    RAW CORPUS TEXT; a real assembled thread runs 2.95–3.06. The loop appends a
+    tool result per turn, bounded at 12,000 characters, up to twelve times — so
+    the worst thread is ~82,000 tokens, not the ~43,000 the derivation assumed.
+    The live `CIP-007-6 R2` cell reached it and died with an Ollama HTTP 500,
+    twice, at 1,522 s and 760 s."""
+
+    def test_a_thread_that_would_not_fit_is_refused_with_both_numbers(self) -> None:
+        detail = reader._window_exhausted(
+            thread_chars=300_000,
+            ratio=3.0,
+            window=98_304,
+            answer_tokens=3072,
+            reasoning=4096,
+            step=7,
+        )
+        assert detail
+        assert "100000" in detail and "98304" in detail
+        assert "after 7 turn(s)" in detail
+
+    def test_a_thread_that_fits_is_not_refused(self) -> None:
+        assert (
+            reader._window_exhausted(
+                thread_chars=30_000,
+                ratio=3.0,
+                window=98_304,
+                answer_tokens=3072,
+                reasoning=4096,
+                step=1,
+            )
+            == ""
+        )
+
+    def test_the_ratio_is_recalibrated_from_the_runner_not_the_constant(self) -> None:
+        """The estimate is seeded from CHARS_PER_TOKEN and replaced by the
+        runner's own count, because the constant was measured on other text."""
+        assert reader._recalibrate(2.1, 60_000, {"prompt_eval_count": 20_000}) == 3.0
+        # no count yet: keep the (conservative) seed rather than invent one
+        assert reader._recalibrate(2.1, 60_000, {"prompt_eval_count": 0}) == 2.1

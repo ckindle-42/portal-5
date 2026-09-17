@@ -41,6 +41,15 @@ from typing import Any
 REPO = Path(__file__).resolve().parents[2]
 OLLAMA = "http://localhost:11434"
 
+#: The loop's own bounds, which are what the window has to hold. Kept beside
+#: the check that uses them so the two cannot drift: `reader.read` runs at most
+#: `max_steps` turns and `reading_tools.dispatch` bounds every tool result at
+#: `max_chars`, so the tool results alone can be `MAX_STEPS * MAX_CHARS`
+#: characters -- the dominant term, and the one the first version of this check
+#: left out entirely.
+MAX_STEPS = 12
+TOOL_RESULT_MAX_CHARS = 12000
+
 #: The CIP-007-6 requirement whose population is largest, which is what the
 #: ceiling has to hold. Derived, never hardcoded in prose: --ref overrides it and
 #: `--survey` prints the whole standard's populations so the choice is checkable.
@@ -251,17 +260,32 @@ def applied_versus_requested(seat: str, ref: str, num_ctx: int) -> dict[str, Any
             f"prompt_eval_count {prompt_tokens} is at or above the window {num_ctx}: the "
             "prompt did not fit"
         )
-    # The ceiling must hold the material PLUS the answer PLUS reasoning, with
-    # margin. A window that only just fits the prompt is a window that fails on
-    # the second turn, when the first tool result is appended.
-    required = prompt_tokens + DEFAULT_ANSWER_BUDGET + DEFAULT_REASONING_ALLOWANCE
+    # The ceiling must hold the WORST THREAD THE LOOP CAN BUILD, not the first
+    # turn. This check counted `first-turn prompt + answer + reasoning` and
+    # reported 41,778 tokens of margin on a seat whose loop then died with an
+    # Ollama HTTP 500 after twelve tool calls: it measured one turn and
+    # certified a twelve-turn loop. The tool results the loop appends are the
+    # dominant term and were simply absent from the sum.
+    #
+    # The ratio is the OBSERVED one from this very call, never a constant: a
+    # character budget divided by too large a ratio under-counts the tokens it
+    # becomes, which is how 4.22 (measured on raw corpus text) produced a window
+    # that did not fit threads whose real ratio is ~3.0.
+    ratio = row.get("chars_per_token_observed") or 3.0
+    tool_result_tokens = int(MAX_STEPS * TOOL_RESULT_MAX_CHARS / float(ratio))
+    required = (
+        prompt_tokens + tool_result_tokens + DEFAULT_ANSWER_BUDGET + DEFAULT_REASONING_ALLOWANCE
+    )
+    row["worst_case_tool_result_tokens"] = tool_result_tokens
     row["required_tokens"] = required
     row["margin_tokens"] = num_ctx - required
     if row["margin_tokens"] <= 0:
         reasons.append(
-            f"the window {num_ctx} does not hold the material ({prompt_tokens}) plus the "
-            f"answer budget ({DEFAULT_ANSWER_BUDGET}) plus the reasoning allowance "
-            f"({DEFAULT_REASONING_ALLOWANCE}) with margin"
+            f"the window {num_ctx} does not hold the worst thread this loop can build: the "
+            f"first turn is {prompt_tokens} tokens, {MAX_STEPS} tool results bounded at "
+            f"{TOOL_RESULT_MAX_CHARS} characters add ~{tool_result_tokens} at the observed "
+            f"{ratio} chars/token, and the answer budget ({DEFAULT_ANSWER_BUDGET}) plus the "
+            f"reasoning allowance ({DEFAULT_REASONING_ALLOWANCE}) needs {required} in all"
         )
     row["blocks"] = bool(reasons)
     row["block_reasons"] = reasons

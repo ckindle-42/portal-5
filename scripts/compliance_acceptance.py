@@ -219,6 +219,28 @@ def truncation_guard(payload: dict[str, Any]) -> list[dict[str, Any]]:
     prompt_tokens = int(fit.get("actual_prompt_tokens") or 0)
     headroom = fit.get("headroom_tokens")
     served = applied.get("num_ctx_applied")
+
+    # An unevaluable guard is a FAILURE, never a skip. Measured on the live
+    # `parent` cell: the call died with an Ollama HTTP 500 after 1,522 s, so the
+    # payload carried no `context_fit` and no `applied_settings` at all — and
+    # every one of the four guards below read its missing input as a zero and
+    # reported OK. A truncation guard that passes when nothing was measured is
+    # worse than no guard, because it certifies the one run that has no
+    # evidence. This is the same rule the module applies elsewhere and the same
+    # failure this task exists to stop.
+    if payload.get("error") or not fit or not applied:
+        return [
+            {
+                "assertion": "the call produced measurements to guard",
+                "ok": False,
+                "detail": {
+                    "error": payload.get("error", ""),
+                    "context_fit": bool(fit),
+                    "applied_settings": bool(applied),
+                },
+            }
+        ]
+
     rows.append(
         {
             "assertion": "applied_num_ctx == requested",
@@ -256,7 +278,17 @@ def truncation_guard(payload: dict[str, Any]) -> list[dict[str, Any]]:
 def adapter_reader(
     client: httpx.Client, base_url: str, case: dict[str, Any], seat: str
 ) -> dict[str, Any]:
-    """The agentic reader, through `compliance_ask` on the deployed service."""
+    """The agentic reader, through `compliance_ask` on the deployed service.
+
+    ``store=False`` is the only place this differs from a production reading,
+    and it is the difference between three observations and one observation
+    repeated into its own input. `compliance_ask` projects an answer into the
+    corpus as a derived source and proposes candidate links from it; the next
+    reading of the same question then receives its predecessor's answer through
+    `compliance_links`. Measured on Part 2.4: run 2's prompt grew by 105 tokens
+    over run 1's and PASSED a case run 1 failed, at temperature 0.0. The receipt
+    is still retained — what is suppressed is projection, not the record.
+    """
     started = time.monotonic()
     payload = invoke(
         client,
@@ -265,6 +297,7 @@ def adapter_reader(
         question=str(case["question"]).strip(),
         ref=str(case["ref"]),
         model=seat,
+        store=False,
     )
     payload["_wall_s"] = round(time.monotonic() - started, 1)
     return payload
@@ -294,11 +327,16 @@ def adapter_legacy(
     )
     run_id = str(start.get("run_id", ""))
     result: dict[str, Any] = start
+    # The run's own vocabulary, read from `assessment_runs.TERMINAL_STATES`
+    # rather than guessed: the key is `status`, not `state`, and INTERRUPTED is
+    # terminal too — a poller that waits for "finished" waits for ever.
+    terminal = {"COMPLETE", "FAILED", "CANCELLED", "INTERRUPTED"}
     deadline = time.monotonic() + 3600
+    last_status: dict[str, Any] = {}
     while run_id and time.monotonic() < deadline:
         time.sleep(15)
-        status = invoke(client, base_url, "compliance_gaps", operation="status", run_id=run_id)
-        if str(status.get("state", "")).lower() in {"finished", "complete", "completed", "failed"}:
+        last_status = invoke(client, base_url, "compliance_gaps", operation="status", run_id=run_id)
+        if str(last_status.get("status", "")).upper() in terminal:
             result = invoke(client, base_url, "compliance_gaps", operation="result", run_id=run_id)
             break
     return {
@@ -306,6 +344,7 @@ def adapter_legacy(
         "ref": ref,
         "run_id": run_id,
         "start": start,
+        "last_status": last_status,
         "result": result,
         "_wall_s": round(time.monotonic() - started, 1),
     }
@@ -382,7 +421,14 @@ def run_cell(
             record["comparable"] = legacy_comparable(payload)
             record["checks"] = []
             record["guard"] = []
-            record["passed"] = not payload.get("result", {}).get("error")
+            # `honest-BLOCKED` is an answer, not a crash: the legacy path
+            # refuses when the asset scope is undeclared, and that refusal is
+            # exactly the kind of thing the comparison exists to surface.
+            outcome = payload.get("result") or {}
+            record["passed"] = not outcome.get("error")
+            record["legacy_status"] = outcome.get("status") or payload.get("last_status", {}).get(
+                "status"
+            )
         else:
             payload = adapter_reader(client, base_url, case, seat)
             record["payload"] = payload
@@ -465,6 +511,11 @@ def main() -> int:
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--http-timeout", type=float, default=5400.0)
     parser.add_argument("--out", default="")
+    parser.add_argument(
+        "--no-preflight",
+        action="store_true",
+        help="skip the §P0 seat pin (for a smoke run against an already-pinned seat)",
+    )
     args = parser.parse_args()
 
     # One worker at a time: a second live suite invalidates both, and the
@@ -506,6 +557,22 @@ def main() -> int:
                 indent=1,
             )
         )
+
+        # §P0.5/§P0.6: the campaign is pinned BEFORE the first case, and a seat
+        # that is not GO does not run. The pin is what a later check compares
+        # the live template sha against, so a run whose template moved
+        # underneath it is detectable rather than merely wrong.
+        if not args.no_preflight:
+            from tests.wfe.compliance_preflight import run as preflight_run
+
+            pin = preflight_run(seats)
+            (out_dir / "preflight.json").write_text(json.dumps(pin, indent=1, default=str))
+            blocked = [s for s in pin["seats"] if not s["go"]]
+            if blocked:
+                for seat in blocked:
+                    print(f"NO-GO  {seat['seat']}: {'; '.join(seat['no_go_reasons'])}")
+                print("honest-BLOCKED: §P0.6 go/no-go failed; no case was run")
+                return 3
 
         rows: list[dict[str, Any]] = []
         with httpx.Client(timeout=args.http_timeout) as client:

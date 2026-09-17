@@ -1,0 +1,31 @@
+{
+ "git_head": "f51aefa10ef97a2353caae2d817741e09704060c",
+ "cases": [
+  "interval",
+  "choice",
+  "no_maximum",
+  "either_or",
+  "parent",
+  "no_operator_side"
+ ],
+ "seats": [
+  "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
+ ],
+ "adapters": [
+  "reader"
+ ],
+ "runs": 3,
+ "mcp_base_url": "http://localhost:8937",
+ "case_meta": {
+  "standard": "CIP-007-6",
+  "revision_id": "5b7820e758467bbdd401ef806def3b91dfd7e5d98145146c36bf8c45a566a8bd",
+  "derived_against_prompt_version": "reading-v2-2026-09-17",
+  "derived_at": "2026-09-17",
+  "corpus_findings": [
+   "Every one of the twenty CIP-007-6 Parts has at least one operator section in its population, so no Part can carry the `no_operator_side` case as an ABSENT operator side. Part 5.2 is the minimum at exactly one, and that one section restates the requirement verbatim rather than describing a practice -- which is the same answer shape reached honestly, from real material.",
+   "Every operator edge in the CIP-007-6 population carries link_status `proposed`. There are no `approved` edges. Acceptance does not depend on approvals by design; the population is reported with its standing.",
+   "The R2 VSL row (csection-94e31ab3fe6fb6051478, heading `2. Table of Compliance Elements`) exists in the captured revision but is anchored to NO requirement, so it is not in any population and the reader is never handed it. It is reachable only through `compliance_search`.",
+   "Part 2.1's requirement row (csection-754b5967f6905d4c376e) is anchored with relation `applicable_systems` rather than `governing`. The text is present and citable; the relation label is the anomaly."
+  ]
+ }
+}

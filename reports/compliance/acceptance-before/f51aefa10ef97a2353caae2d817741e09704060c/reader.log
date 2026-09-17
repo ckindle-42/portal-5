@@ -1,0 +1,14 @@
+PASS  reader__hf-co-unsloth-Qwen3-8-27B-GGUF-Q4-K-M-ctx32k__interval__run1  
+PASS  reader__hf-co-unsloth-Qwen3-8-27B-GGUF-Q4-K-M-ctx32k__interval__run2  
+PASS  reader__hf-co-unsloth-Qwen3-8-27B-GGUF-Q4-K-M-ctx32k__interval__run3  
+FAIL  reader__hf-co-unsloth-Qwen3-8-27B-GGUF-Q4-K-M-ctx32k__choice__run1  ['reading_did_not_fail']
+FAIL  reader__hf-co-unsloth-Qwen3-8-27B-GGUF-Q4-K-M-ctx32k__choice__run2  ['reading_did_not_fail']
+FAIL  reader__hf-co-unsloth-Qwen3-8-27B-GGUF-Q4-K-M-ctx32k__choice__run3  ['reading_did_not_fail']
+FAIL  reader__hf-co-unsloth-Qwen3-8-27B-GGUF-Q4-K-M-ctx32k__no_maximum__run1  ['reading_did_not_fail']
+PASS  reader__hf-co-unsloth-Qwen3-8-27B-GGUF-Q4-K-M-ctx32k__no_maximum__run2  
+PASS  reader__hf-co-unsloth-Qwen3-8-27B-GGUF-Q4-K-M-ctx32k__no_maximum__run3  
+PASS  reader__hf-co-unsloth-Qwen3-8-27B-GGUF-Q4-K-M-ctx32k__either_or__run1  
+PASS  reader__hf-co-unsloth-Qwen3-8-27B-GGUF-Q4-K-M-ctx32k__either_or__run2  
+PASS  reader__hf-co-unsloth-Qwen3-8-27B-GGUF-Q4-K-M-ctx32k__either_or__run3  
+FAIL  reader__hf-co-unsloth-Qwen3-8-27B-GGUF-Q4-K-M-ctx32k__parent__run1  ['required_citation:csection-7700dd5499cead0994ec', 'required_citation:csection-c36c38b8842c8bc217ac', 'required_citation:csection-c0cd08b61c308b0e6403', 'operator_citations>=1', 'cites_the_operator_side', 'must_state:all_four_parts', 'must_state:vsl_or_declared', 'tool_calls>=2']
+FAIL  reader__hf-co-unsloth-Qwen3-8-27B-GGUF-Q4-K-M-ctx32k__parent__run2  ['required_citation:csection-7700dd5499cead0994ec', 'required_citation:csection-c36c38b8842c8bc217ac', 'required_citation:csection-c0cd08b61c308b0e6403', 'operator_citations>=1', 'cites_the_operator_side', 'must_state:all_four_parts', 'must_state:vsl_or_declared', 'tool_calls>=2']

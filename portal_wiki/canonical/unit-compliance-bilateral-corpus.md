@@ -338,6 +338,62 @@ Four measurements on the live stack changed the design:
   `think:false` returned 4,756 characters with seven citations. An empty answer
   is now reported as a failed reading rather than a terse one.
 
+  That measurement held a single `num_predict` constant across both, so what it
+  showed was a STARVED answer, not a worse one. `chat()` now takes an
+  `answer_budget` and a separate `reasoning_allowance` and sends their sum, so
+  turning reasoning on cannot shrink the answer; an answer still empty after one
+  automatic retry at double the allowance is
+  `stop_reason=budget_exhausted_in_reasoning`, a budget result that is never
+  reported as a substantive answer and never as evidence about reasoning.
+  `DEFAULT_EFFORT` stays `False` — the lever now works when it is reached for,
+  which is a different claim from it being the right default.
+
+## The prompt is an artifact, and the ceiling is measured
+
+`SYSTEM_PROMPT` was a hardcoded literal that opened *"You have two bodies of
+material in front of you"* and asked for prose. That is a packet-reading prompt
+and it survived the change to an agentic reader unaltered, so a control contract
+had to FAIL a reading which made no tool call — a rule enforcing behaviour the
+prompt never requested. It is now `config/compliance/reading_prompt.md` with a
+declared `prompt_version` and a content sha, both recorded on the payload, the
+closure receipt, `conversation_answers` and `reading_runs`. It names each tool,
+says `compliance_links` returns references that stay unread until read, asks for
+the comparison a posture question needs, requires at least one operator citation
+or a plain statement that none exists, and requires over-strictness to be stated
+as FACT rather than raised as a gap or a question. Measured: under the old
+prompt a live parent-level run answered in prose and called nothing; under the
+new one all three preflight seats open by reading, 7-17 `compliance_read` calls
+on the first turn.
+
+Three things about the window were measured rather than assumed, on Ollama
+0.34.0 via native `/api/chat`:
+
+* a baked `num_ctx` is a **default**, not a ceiling — the 32,768-baked seat
+  served a requested 65,536, confirmed by `/api/ps` `context_length`;
+* the runner **refuses rather than truncates**: an oversized prompt is HTTP 400
+  `exceed_context_size_error` carrying `n_prompt_tokens` and `n_ctx`. The risk
+  was a killed reading, not a fluent answer over silently cut material;
+* the true ceiling is the seat's **trained** context, read from `/api/show`
+  (262,144 on this seat). `seat_ceiling()` reads it, a request above it is a
+  named `ContextCeilingError` before the call, and the runner's own 400 is
+  re-raised as the same error. Nothing is clamped silently.
+
+`DEFAULT_NUM_CTX` is 65,536, sized for the worst thread the loop can build —
+seed, two bootstrap payloads and up to twelve model-elected tool results — not
+for the first turn, which is the smallest thread a reading will ever have.
+`context_fit.chars_per_token_observed` is thread chars over prompt tokens: it
+divided FIRST-TURN material chars by WHOLE-THREAD prompt tokens and reported 1.4
+where the real figure is 3.15, and a window sized from that would be less than
+half of what it needs.
+
+Acceptance is `scripts/compliance_acceptance.py`, live only, through the
+deployed MCP at the port `config/portal.yaml` declares, with artifacts under the
+git rev, a truncation guard per call, and an adapter per answer path. Two
+`validate_system` checks make abandonment cost something: **HG** fails when
+`portal/modules/compliance/` has moved and no acceptance run exists at or after
+that commit, and **HH** fails when the seat's live chat-template sha differs
+from the one the campaign pinned.
+
 The seat was chosen by reading the answers, not by a score. Asked whether a
 30-day evaluation cycle is stricter than the 35 days CIP-007-6 R2 Part 2.2
 allows, three of four candidates asserted the operator's procedure says thirty —

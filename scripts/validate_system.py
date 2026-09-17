@@ -73,6 +73,10 @@ from scripts.validation.blue_orchestration import (  # noqa: E402, F401
     check_subtechnique_discriminator_gate,
     check_trajectory_scoring_honesty,
 )
+from scripts.validation.compliance_acceptance import (  # noqa: E402, F401
+    check_compliance_acceptance_currency,
+    check_compliance_seat_template_identity,
+)
 from scripts.validation.compliance_currency import (  # noqa: E402, F401
     check_compliance_corpus_currency,
 )
