@@ -259,6 +259,9 @@ def _linked_internal(repo: Any, ref: str) -> list[dict[str, Any]]:
                 **entry,
                 "link_status": edge["status"],
                 "link_derivation": edge["derivation"],
+                "link_derivations": [
+                    part for part in str(edge.get("derivation") or "").split("|") if part
+                ],
                 "link_confidence": edge["confidence"],
             }
         )
