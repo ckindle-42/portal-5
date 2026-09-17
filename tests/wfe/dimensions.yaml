@@ -41,3 +41,11 @@ dimensions:
   - {id: 26, name: "Multimodal through the pipeline",               status: PENDING}
   - {id: 27, name: "Checker gameability (adversarial fixtures)",    status: BUILT}
   - {id: 28, name: "Harness determinism (persona/seed/sampling pinned)", status: BUILT}
+  - {id: 29, name: "Compliance reading closure completeness", status: PARTIAL,
+     note: "The compliance reading contract checker is present and the suite carries a receipt task; live campaign evidence is still required."}
+  - {id: 30, name: "Compliance citation resolution", status: PARTIAL,
+     note: "The checker rejects unresolved citations, while citation recall/precision remains the offline evaluation instrument."}
+  - {id: 31, name: "Compliance unsupported-absence rate", status: PARTIAL,
+     note: "The checker requires zero unsupported absence claims; the live reading arm must still be run."}
+  - {id: 32, name: "Compliance tool-selection validity", status: PARTIAL,
+     note: "The suite requires compliance_requirement as the first tool; measured live selection is not yet a promotion decision."}

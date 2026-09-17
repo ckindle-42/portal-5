@@ -143,7 +143,8 @@ backends:
   - id: portal5/qwen3.6-27b-mtp:q8_0-drafted
     supports_tools: false
   - id: qwen3.6:35b-a3b-q4_K_M
-    supports_tools: false
+    # P1.4 preflight: direct /api/chat tool-call probe accepted typed arguments.
+    supports_tools: true
   - id: omnicoder2:9b-q4_k_m
     supports_tools: false
   - id: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4
