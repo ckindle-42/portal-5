@@ -6,6 +6,10 @@ sources:
 - type: code
   path: portal/modules/compliance/core/enumeration.py
 - type: code
+  path: portal/modules/compliance/core/search_service.py
+- type: code
+  path: tests/unit/test_compliance_reading_boundaries.py
+- type: code
   path: portal/modules/compliance/core/evaluation.py
 claims:
 - probe: modules.enabled
@@ -56,3 +60,28 @@ Two disciplines are load-bearing: the scorer is an OFFLINE instrument — a test
 walks `portal/` and fails if anything outside `evaluation.py` imports it — and
 it is validated against the hand-judged seat-probe transcripts before it is
 trusted (with zero approved mappings it blocks on all of them, by name).
+
+## The search composition — property 1, in one place
+
+`core/search_service.search` is the whole compliance search: addressed hits
+resolved directly, then the arms scored over a pushed-down `.where()`
+predicate. Every filter — the clocks, the standard, the layer, the requirement
+identity — is composed BEFORE ranking, so a filter targets the search rather
+than shrinking its aftermath. A filter that runs after ranking and one that runs
+before it produce the same count and completely different evidence.
+
+It lives in `core/` rather than in the MCP tool because it has two callers.
+`tools/compliance_mcp.compliance_search` and the reader's own
+`core/reading_tools.compliance_search` are both thin delegations. The reader's
+tool had grown a second implementation — retrieve an unscoped top-k, then drop
+the results not joined to `requirement` — which is the keyhole this predicate
+exists to remove, rebuilt beside it. Because that copy filtered against
+`sections_for_requirement`, which holds the REGULATORY anchors, passing
+`requirement=` also discarded every operator hit: a bilateral search that could
+not return the operator's side, in the one tool a bilateral reading uses to find
+it.
+
+`requirement` narrows by identity through `core/requirement_scope`, so the pool
+is bilateral (the requirement's anchors AND the operator sections recorded as
+related to it) and a parent requirement reaches its Parts through the register
+rather than by string prefix.

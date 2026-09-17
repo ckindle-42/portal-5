@@ -38,6 +38,28 @@ STORE_PATH = Path(os.environ.get("COMPLIANCE_MAPPING_STORE", str(_DATA / "compli
 
 COVERAGE_VALUES = ("FULL", "PARTIAL", "NONE", "NOT_APPLICABLE", "NEEDS_REVIEW")
 
+
+def _out_of_scope(current: Any, org_id: str) -> str:
+    """Why this row is not one a mapping review may decide, or ``""``.
+
+    The three boundaries a versioned, authenticated batch still has to hold:
+    the row is a MAPPING (not some other relation this table carries), it
+    belongs to the deciding organisation, and it is still OPEN — re-deciding an
+    approved or revoked row through the batch surface bypasses ``approve`` and
+    ``revoke``, which is where a reversal's own audit trail is written.
+    """
+    if current.relation_type not in _MAPPING_RELATION_TYPES:
+        return (
+            f"{current.relation_type} is not a mapping relation "
+            f"({', '.join(_MAPPING_RELATION_TYPES)}); this surface decides mappings"
+        )
+    if str(getattr(current, "org_id", "default")) != org_id:
+        return "this mapping belongs to another organisation"
+    if current.status != "proposed":
+        return f"this mapping is already {current.status}; it is not open for decision"
+    return ""
+
+
 # Only these relation types are this facade's own — a future typed edge
 # (e.g. CROSS_REFERENCES between two requirement nodes) must never be
 # silently surfaced as a requirement<->document coverage mapping.
@@ -183,13 +205,24 @@ class MappingStore:
         )
         return _relationship_to_mapping(updated)
 
-    def decide_batch(self, decisions: list[dict[str, Any]], sme: str) -> list[dict[str, Any]]:
+    def decide_batch(
+        self, decisions: list[dict[str, Any]], sme: str, *, org_id: str = "default"
+    ) -> list[dict[str, Any]]:
         """Apply versioned mapping decisions in one transaction.
 
         A stale item is reported and skipped while the remaining decisions keep
         their own audit events.  This is intentionally not all-or-nothing: a
         reviewer should not lose 49 sound decisions because one row changed
         while the packet was open.
+
+        **The object boundary, not just the caller's.** Authentication says who
+        is deciding; it does not say WHAT they may decide. This took any
+        ``relationship_assertions`` id at all and changed its status: a
+        non-mapping relation type, a row belonging to another organisation, a
+        row already approved or revoked — an approval reached all of them
+        through the one surface built for proposed mappings. Each is now
+        rejected by name, so a caller learns which boundary it crossed rather
+        than having a decision silently applied to the wrong kind of object.
         """
         results: list[dict[str, Any]] = []
         with self._repo._lock, self._repo._conn:
@@ -206,6 +239,12 @@ class MappingStore:
                     results.append({"mapping_id": mapping_id, "status": "NOT_FOUND"})
                     continue
                 current = self._repo._row_to_relationship(row)
+                refusal = _out_of_scope(current, org_id)
+                if refusal:
+                    results.append(
+                        {"mapping_id": mapping_id, "status": "OUT_OF_SCOPE", "error": refusal}
+                    )
+                    continue
                 if expected is None or int(expected) != current.version:
                     results.append(
                         {
