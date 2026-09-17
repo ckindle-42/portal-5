@@ -197,23 +197,50 @@ never reached for.
 **What is not working, and is the real concern:** the defect rate *in newly
 written apparatus* is unacceptable, and the feedback loop that catches it is
 measured in hours. I wrote four defects into a preflight built to prevent
-defects, and each one took a two-hour live run to surface. That is the
-structural problem, and it is not fixed by any of the seven fixes above.
+defects, plus one into the gate built to stop the next abandonment, and each
+took a live run to surface. That is the structural problem, and none of the
+eight fixes above addresses it.
 
-**The concrete gap:** there is no cheap self-test for the instrument. Defects
-#4 (guard passes on missing data), #5 (absence regex), and #3 (contamination,
-detectable as "two runs of one case produced different prompt token counts")
-are all checkable in **seconds** against *recorded* threads, with no model
-involved. They cost hours each instead. Every artifact needed already exists —
-`reading_runs` retains full transcripts, and the acceptance records carry every
-applied setting.
+**A recommendation I made here, and then withdrew.** My first answer was to
+build a cheap no-model "replay layer" — run the checker, the guard and the
+closure contract against recorded threads and assert known verdicts — on the
+grounds that it would have caught four of the eight in seconds. The operator
+rejected it, and on inspection the operator is right on the merits, not merely
+on policy:
 
-**What I would do before spending another two hours of GPU time:** build that
-replay layer first — feed the recorded before/after threads through the checker,
-the guard and the closure contract with no model, and assert the known verdicts.
-It is perhaps an hour of work, it would have caught four of today's eight, and
-it makes every future instrument change cost seconds to validate instead of a
-campaign. Then re-run.
+* The absence detector broke on `"**No.** The operator's procedure…"`. That is
+  not a string anyone writes as a fixture. **The live run produced it.**
+* The guard passed on missing data because the payload was empty after an HTTP
+  500. Fixtures get written well-formed, because well-formed is what the author
+  imagines.
+* The contamination was only visible because a real second run read a real
+  stored answer written by a real first run.
+
+In every case the value was **the input, not the checker**. "Checkable in
+seconds" is true in hindsight and false in foresight. This repository currently
+has 2,299 passing unit tests and 75 compliance test files, three of which touch
+a live model — and the module they cover had eight defects. That is the whole
+reason this task opens with **"Live only. No phase accepts a unit test as
+evidence the product works"**, and my recommendation was that rule being
+re-broken under a new name.
+
+**What actually addresses the two-hour loop, without leaving live:**
+
+1. **A one-cell smoke before every campaign.** One case, one run, live, ~4
+   minutes, after any instrument change and before committing to 18 cells.
+   Defects #4, #5 and #8 would each have surfaced there. Cheaper feedback from
+   *real* data, not substituted data.
+2. **Order the suite by risk, not alphabetically.** `parent` is the case that
+   exposes window limits and it ran twelfth. Run the largest population first so
+   the expensive failure is the first thing seen, not the last.
+3. **Fail the campaign on the first cell whose GUARD fails**, instead of
+   carrying on. A guard failure means the measurement is invalid, and continuing
+   spends hours producing more invalid measurements.
+
+The regression tests added today are kept, but their standing is narrow and
+should be stated: each pins an input **the live run actually produced**. They
+stop a known defect returning. They are not evidence that anything works, and
+nothing in this report should be read as claiming they are.
 
 **On the underlying question — is the compliance reading product itself sound?**
 The evidence so far says yes, and more strongly than before this run. Across 19
