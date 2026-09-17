@@ -112,13 +112,24 @@ def population(
     valid_at: str = "",
     proximity_fallback: Any = None,
     include_operator: bool = True,
+    include_notes: bool = True,
 ) -> dict[str, Any]:
     """The sections constituting a requirement across its whole scope.
 
-    Both sides, each entry keeping the leaf identity it came from and its
-    standing: a regulatory anchor keeps its ``relation``, an operator edge keeps
-    its ``link_status``, so a population containing only ``proposed`` edges
-    cannot be mistaken for one built from approved ones.
+    Three kinds of material, each entry keeping the leaf identity it came from
+    and its standing: a regulatory anchor keeps its ``relation``, an operator
+    edge keeps its ``link_status``, so a population containing only ``proposed``
+    edges cannot be mistaken for one built from approved ones.
+
+    **Operator notes are in the population.** They are neither an anchor nor an
+    edge, so a population built from those two alone left them out — and a
+    reading that cited the operator's own recorded decision about the very
+    requirement it was reading had that citation classified ``outside`` scope.
+    Measured on the live Part 2.2 reading: the answer correctly engaged the
+    note saying *we evaluate every 30 days, not the 35 the Part allows, and the
+    extra strictness is deliberate*, and the receipt called it out-of-scope. The
+    note travels in the assembly already; it is eligible material by the
+    module's own reckoning.
 
     The regulatory side is the join wherever any leaf is anchored;
     ``proximity_fallback`` runs only when no leaf resolves, and the method says
@@ -182,17 +193,33 @@ def population(
     # One section legitimately serves several Parts — the operator's single
     # patch procedure answers 2.1 through 2.4 — so the union keeps every
     # identity it answers for rather than the first one seen.
+    notes: list[dict[str, Any]] = []
+    if include_notes:
+        from portal.modules.compliance.core.notes import notes_for
+
+        for identity in scope.refs:
+            notes.extend(
+                {
+                    "section_id": str(note["section_id"]),
+                    "requirement_id": identity,
+                    "kind": str(note.get("kind", "")),
+                    "side": "operator_note",
+                }
+                for note in notes_for(repo, identity)
+                if note.get("section_id")
+            )
+
     by_section: dict[str, dict[str, Any]] = {}
-    for entry in [*regulatory, *operator]:
+    for entry in [*regulatory, *operator, *notes]:
         kept = by_section.setdefault(
             entry["section_id"], {**entry, "requirement_ids": [entry["requirement_id"]]}
         )
         if entry["requirement_id"] not in kept["requirement_ids"]:
             kept["requirement_ids"].append(entry["requirement_id"])
     detail = (
-        f"{len(regulatory)} regulatory section(s) by {method} and {len(operator)} "
-        f"operator section(s) by recorded edge, over {len(scope.refs)} identity(ies): "
-        f"{', '.join(scope.refs)}"
+        f"{len(regulatory)} regulatory section(s) by {method}, {len(operator)} operator "
+        f"section(s) by recorded edge and {len(notes)} operator note(s), over "
+        f"{len(scope.refs)} identity(ies): {', '.join(scope.refs)}"
     )
     if method == "proximity":
         # The disclosure `enumeration` attaches to a single unanchored identity,
@@ -211,6 +238,7 @@ def population(
         "relations": list(relations),
         "regulatory": regulatory,
         "operator": operator,
+        "notes": notes,
         "sections": by_section,
         "section_ids": list(by_section),
         "rows": rows,

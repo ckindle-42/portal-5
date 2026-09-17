@@ -278,3 +278,130 @@ class TestTheAssemblyAndTheClosureShareTheScope:
         assert closure["eligible"], "an empty population reports complete and reads as a finding"
         assert closure["scope"]["leaves"]
         assert set(closure["population"]) == set(closure["eligible"])
+
+
+class TestTheNoteIsPartOfThePopulation:
+    """Found live: a Part 2.2 reading correctly engaged the operator's own note
+    — *we evaluate every 30 days, not the 35 the Part allows, and the extra
+    strictness is deliberate* — and the receipt classified that citation as
+    `outside` scope, because the population was anchors and edges only. A note
+    is neither, and it travels in the assembly already."""
+
+    def test_an_operator_note_is_eligible_material(self, store: Repository) -> None:
+        from portal.modules.compliance.core.notes import write_note
+
+        note = write_note(
+            store,
+            subject_ref="CIP-007-6 R2 Part 2.2",
+            body="We evaluate every 30 days, not the 35 the Part allows. Deliberate.",
+            kind="intentional_strictness",
+        )
+        population = requirement_scope.population(store, "CIP-007-6 R2 Part 2.2")
+        assert note["section_id"] in population["section_ids"]
+        assert population["sections"][note["section_id"]]["side"] == "operator_note"
+
+    def test_a_parents_notes_sit_on_its_parts(self, store: Repository) -> None:
+        from portal.modules.compliance.core.notes import write_note
+
+        note = write_note(store, subject_ref="CIP-007-6 R2 Part 2.3", body="x", kind="decision")
+        assert (
+            note["section_id"] in requirement_scope.population(store, "CIP-007-6 R2")["section_ids"]
+        )
+
+
+class TestReadOrSayWhatYouDidNotRead:
+    """The disclosure asks the reader to read what its answer depends on and to
+    say plainly what it did not read and why. Three live Part 2.2 runs did
+    exactly that — and were scored as having an undisclosed gap."""
+
+    def _read(self, store: Repository, monkeypatch: pytest.MonkeyPatch, answer: str) -> dict:
+        from portal.modules.compliance.core import reader, reading_transport
+
+        monkeypatch.setattr(
+            reading_transport,
+            "_post",
+            lambda payload, timeout: {
+                "message": {"content": answer},
+                "prompt_eval_count": 900,
+                "eval_count": 40,
+            },
+        )
+        return reader.read(
+            store, "what do we do?", "CIP-007-6 R2 Part 2.2", model="stub", store=False
+        )
+
+    def test_the_unread_population_is_stated_to_the_reader(
+        self, store: Repository, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from portal.modules.compliance.core import reader, reading_transport
+
+        seen: dict = {}
+
+        def _post(payload, timeout):  # noqa: ANN001, ANN202
+            seen.setdefault("messages", payload["messages"])
+            return {"message": {"content": "ok"}, "prompt_eval_count": 9, "eval_count": 2}
+
+        monkeypatch.setattr(reading_transport, "_post", _post)
+        reader.read(store, "q", "CIP-007-6 R2 Part 2.2", model="stub", store=False)
+        blob = "\n".join(str(m.get("content", "")) for m in seen["messages"])
+        assert "you have not read them" in blob
+        assert "operator's OWN documents" in blob
+
+    def test_a_named_omission_is_accounted_for(
+        self, store: Repository, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        payload = self._read(store, monkeypatch, "placeholder")
+        unread = payload["closure_receipt"]["unread"]
+        assert unread, "this fixture leaves something unread"
+        declared = self._read(
+            store,
+            monkeypatch,
+            f"I did not read {unread[0]} because its text is reproduced in the row I have. "
+            f"There is no evidence of dated evaluations [{unread[0]}].",
+        )
+        closure = declared["closure_receipt"]
+        assert closure["omitted_with_reason"] == [unread[0]]
+        assert closure["undeclared_unread"] == []
+        assert closure["accounted_for"] is True
+        assert closure["complete"] is False, "a declared omission is not a full read"
+
+    def test_an_undeclared_gap_still_bars_an_absence_claim(
+        self, store: Repository, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from portal.modules.compliance.core import reader, reading_transport
+
+        turns: list[int] = []
+
+        def _post(payload, timeout):  # noqa: ANN001, ANN202
+            turns.append(1)
+            if len(turns) == 1:
+                # a tool call, so the zero-tool rule is not what fires here
+                return {
+                    "message": {
+                        "content": "",
+                        "tool_calls": [{"function": {"name": "compliance_notes", "arguments": {}}}],
+                    },
+                    "prompt_eval_count": 9,
+                    "eval_count": 2,
+                }
+            return {
+                "message": {
+                    "content": (
+                        f"The requirement says this [{cited}]. There is no operator "
+                        "procedure covering this at all."
+                    )
+                },
+                "prompt_eval_count": 900,
+                "eval_count": 40,
+            }
+
+        monkeypatch.setattr(reading_transport, "_post", _post)
+        # cite one eligible section, so neither the zero-tool rule nor the
+        # nothing-in-scope rule is what fires
+        cited = requirement_scope.population(store, "CIP-007-6 R2 Part 2.2")["section_ids"][0]
+        payload = reader.read(
+            store, "what do we do?", "CIP-007-6 R2 Part 2.2", model="stub", store=False
+        )
+        assert payload["closure_receipt"]["model_tool_calls"] == 1
+        assert payload["failed"] is True
+        assert "neither read nor named" in payload["failure"]
