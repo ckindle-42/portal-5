@@ -767,6 +767,25 @@ def _write_manifest(
     base_url: str,
     meta: dict[str, Any],
 ) -> None:
+    # The workspace prompt's LIVE sha, from the serving config itself — the
+    # declared version string is what a person writes in a report; the sha is
+    # what makes it checkable. Recorded on the manifest so every acceptance
+    # row of this campaign has a before and an after.
+    prompt_sha = ""
+    try:
+        import hashlib
+
+        import yaml as _yaml
+
+        portal = _yaml.safe_load((REPO / "config/portal.yaml").read_text())
+        ws_prompt = str(
+            (portal.get("workspaces") or {})
+            .get("compliance-reading", {})
+            .get("system_prompt_append", "")
+        )
+        prompt_sha = hashlib.sha256(ws_prompt.encode()).hexdigest()[:12] if ws_prompt else ""
+    except Exception:  # noqa: BLE001 - a missing sha is recorded as empty, never fatal
+        prompt_sha = ""
     (out_dir / "manifest.json").write_text(
         json.dumps(
             {
@@ -780,6 +799,7 @@ def _write_manifest(
                 "mcp_base_url": base_url,
                 "router_base_url": router_base_url(),
                 "prompt_version": meta.get("workspace_prompt_version", ""),
+                "workspace_prompt_sha_live": prompt_sha,
                 "case_meta": meta,
             },
             indent=1,
