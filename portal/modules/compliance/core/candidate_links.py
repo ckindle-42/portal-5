@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -293,13 +295,34 @@ def record_reading_link(
     """
     from portal.modules.compliance.core.temporal import now_iso
 
-    assertion_id = (
-        "rel-"
-        + hashlib.sha256(
-            f"{src_ref}|{dst_section_id}|{DERIVATION_READING}|{answer_id}".encode()
-        ).hexdigest()[:20]
-    )
+    assertion_id = "rel-" + hashlib.sha256(f"{src_ref}|{dst_section_id}".encode()).hexdigest()[:20]
+    detail = rationale or f"asserted while reading, in answer {answer_id}"
     with repo._lock, repo._conn:
+        existing = repo._conn.execute(
+            """SELECT assertion_id, derivation, rationale, citations_json
+               FROM relationship_assertions
+               WHERE relation_type = 'IMPLEMENTS' AND src_ref = ? AND dst_ref = ?
+                 AND status = 'proposed'""",
+            (src_ref, dst_section_id),
+        ).fetchone()
+        if existing is not None:
+            current = [part for part in str(existing[1] or "").split("|") if part]
+            if DERIVATION_READING not in current:
+                current.append(DERIVATION_READING)
+            citations = json.loads(existing[3] or "[]")
+            citations.append({"answer_id": answer_id, "section_id": dst_section_id})
+            repo._conn.execute(
+                """UPDATE relationship_assertions
+                   SET derivation = ?, rationale = ?, citations_json = ?
+                   WHERE assertion_id = ?""",
+                (
+                    "|".join(dict.fromkeys(current)),
+                    f"{existing[2] or ''}\n{detail}".strip(),
+                    json.dumps(citations),
+                    existing[0],
+                ),
+            )
+            return str(existing[0])
         repo._conn.execute(
             """INSERT INTO relationship_assertions(assertion_id, relation_type, src_ref,
                    src_revision_id, dst_ref, dst_revision_id, scope, citations_json, status,
@@ -312,9 +335,9 @@ def record_reading_link(
                 "IMPLEMENTS",
                 src_ref,
                 dst_section_id,
-                f'[{{"answer_id": "{answer_id}"}}]',
+                json.dumps([{"answer_id": answer_id, "section_id": dst_section_id}]),
                 now_iso(),
-                rationale or f"asserted while reading, in answer {answer_id}",
+                detail,
                 DERIVATION_READING,
                 org_id,
             ),
@@ -330,17 +353,39 @@ def links_from_answer(repo: Any, answer_id: str, src_ref: str = "") -> list[str]
     not a claim that the standard implements itself.
     """
     row = repo._conn.execute(
-        "SELECT subject_ref FROM conversation_answers WHERE answer_id = ?", (answer_id,)
+        "SELECT subject_ref, question, answer FROM conversation_answers WHERE answer_id = ?",
+        (answer_id,),
     ).fetchone()
     if row is None:
         return []
     subject = src_ref or str(row[0])
+    if not re.match(r"^CIP-\d{3}-[\w.]+\s+R\d+", subject, re.I):
+        return []
+    if re.search(r"\b(?:hypothetical|scenario|suppose|if we)\b", str(row[1] or ""), re.I):
+        return []
     citations = repo._conn.execute(
-        """SELECT cited_ref, jurisdiction FROM answer_citations
+        """SELECT cited_ref, jurisdiction, detail FROM answer_citations
            WHERE answer_id = ? AND resolved = 1 AND jurisdiction = 'internal'""",
         (answer_id,),
     ).fetchall()
-    return [
-        record_reading_link(repo, src_ref=subject, dst_section_id=str(c[0]), answer_id=answer_id)
-        for c in citations
-    ]
+    from portal.modules.compliance.core.section_index import parent_section_id
+
+    answer = str(row[2] or "")
+    links: list[str] = []
+    for citation, _jurisdiction, detail in citations:
+        position = answer.find(str(citation))
+        start = max(answer.rfind(".", 0, position), answer.rfind("\n", 0, position)) + 1
+        end = answer.find(".", position)
+        sentence = answer[start : (end + 1 if end >= 0 else len(answer))].strip()
+        links.append(
+            record_reading_link(
+                repo,
+                src_ref=subject,
+                dst_section_id=parent_section_id(str(citation)),
+                answer_id=answer_id,
+                rationale=(
+                    f"answer {answer_id}; cited sentence: {sentence or detail or str(citation)}"
+                ),
+            )
+        )
+    return links
