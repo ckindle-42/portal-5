@@ -832,4 +832,25 @@ MIGRATIONS: list[tuple[int, str, str]] = [
         CREATE INDEX ix_reading_runs_thread ON reading_runs(thread_id, asked_at);
         """,
     ),
+    (
+        16,
+        "the prompt an answer was read under (PROVE_CIP_007_V1 P1.1)",
+        # NOTE: this runner splits statements on ';' -- never put one inside a
+        # comment line inside a migration's SQL block (rule R9).
+        #
+        # On an agentic reader the prompt is the primary lever, and it was a
+        # hardcoded unversioned literal: the one input that left no trace on any
+        # stored answer or receipt. A prompt change was therefore not
+        # measurable, because there was nothing recorded to compare against.
+        #
+        # Two identifiers, not one. The declared version is what a person writes
+        # in a report; the sha is of the prompt BODY, so an edited file carrying
+        # an unchanged version string cannot pass as the same prompt.
+        """
+        ALTER TABLE conversation_answers ADD COLUMN prompt_version TEXT NOT NULL DEFAULT '';
+        ALTER TABLE conversation_answers ADD COLUMN prompt_sha TEXT NOT NULL DEFAULT '';
+        ALTER TABLE reading_runs ADD COLUMN prompt_version TEXT NOT NULL DEFAULT '';
+        ALTER TABLE reading_runs ADD COLUMN prompt_sha TEXT NOT NULL DEFAULT '';
+        """,
+    ),
 ]
