@@ -441,9 +441,12 @@ def _receipt(**overrides) -> dict:
         "failure": "",
         "closure_receipt": {
             "complete": True,
+            "accounted_for": True,
             "eligible": ["csection-a", "isection-b"],
             "examined": ["csection-a", "isection-b"],
             "unread": [],
+            "undeclared_unread": [],
+            "omitted_with_reason": [],
             "outside": [],
             "operator_eligible": ["isection-b"],
             "model_tool_calls": 3,
@@ -489,11 +492,21 @@ def test_an_incomplete_closure_no_longer_self_reports_as_pass():
     is True — an explicitly INCOMPLETE receipt satisfied the completeness
     check."""
     result = check_compliance_reading_contract(
-        SPEC, _ctx(_receipt(closure={"complete": False, "unread": ["csection-x"]}))
+        SPEC,
+        _ctx(
+            _receipt(
+                closure={
+                    "complete": False,
+                    "accounted_for": False,
+                    "unread": ["csection-x"],
+                    "undeclared_unread": ["csection-x"],
+                }
+            )
+        ),
     )
     assert result.outcome is Outcome.FAIL
-    assert result.evidence["reading_contract"]["closure_complete"] is False
-    assert result.evidence["reading_contract"]["closure_unread_empty"] is False
+    assert result.evidence["reading_contract"]["closure_accounted_for"] is False
+    assert result.evidence["reading_contract"]["no_undeclared_unread"] is False
 
 
 def test_an_answer_with_no_citations_fails():
@@ -572,3 +585,27 @@ def test_no_labels_is_honest_blocked_never_a_pass():
     )
     assert result.outcome is Outcome.PENDING_REVIEW
     assert "honest-BLOCKED" in result.notes
+
+
+def test_a_declared_omission_is_accounted_for_not_a_gap():
+    """Measured on three live Part 2.2 runs: the seat named the one section it
+    did not read and said why the text was redundant. A strict `unread == []`
+    scores that as an undisclosed gap — it is the contract being complied
+    with, and `complete` stays visible so it cannot pass as a full read."""
+    result = check_compliance_reading_contract(
+        SPEC,
+        _ctx(
+            _receipt(
+                closure={
+                    "complete": False,
+                    "accounted_for": True,
+                    "unread": ["csection-skipped"],
+                    "omitted_with_reason": ["csection-skipped"],
+                    "undeclared_unread": [],
+                }
+            )
+        ),
+    )
+    assert result.outcome is Outcome.PASS
+    assert result.evidence["closure_complete"] is False
+    assert result.evidence["omitted_with_reason"] == ["csection-skipped"]

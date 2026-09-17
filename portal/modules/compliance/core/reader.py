@@ -462,6 +462,55 @@ def _acquire(
     return messages, ids
 
 
+def _outstanding(population: dict[str, Any], examined: set[str]) -> str:
+    """What is recorded as part of this requirement and has NOT been read yet.
+
+    Measured on the live Part 2.2 reading with the acquisition in place and this
+    disclosure absent: the seat answered in 3,709 characters, made ZERO tool
+    calls, cited three sections and none of the operator's own — with the
+    operator's patch procedure sitting unread in the population. It was not a
+    capability failure (the same seat calls `compliance_read` correctly when
+    asked to). Nothing had told it there was anything left to read.
+
+    So the unread population is stated, with the same discipline the assembly
+    already applies to what a budget could not hold: **omissions are named**. It
+    imposes no output shape and demands no verdict — it says which ids exist,
+    which side each is, and that reading them is available.
+    """
+    sections = population.get("sections") or {}
+    unread = [
+        (section_id, entry) for section_id, entry in sections.items() if section_id not in examined
+    ]
+    if not unread:
+        return ""
+    operator = [s for s, e in unread if e.get("side") == "operator"]
+    lines = [
+        f"{len(unread)} section(s) recorded as part of {population.get('ref')} are NOT in "
+        "what you have been given, and you have not read them:",
+        "",
+    ]
+    for section_id, entry in unread:
+        side = str(entry.get("side", ""))
+        label = (
+            f"operator document, {entry.get('link_status', 'linked')} link to "
+            f"{entry.get('requirement_id', '')}"
+            if side == "operator"
+            else f"regulatory, {entry.get('relation', '')} for {entry.get('requirement_id', '')}"
+        )
+        lines.append(f"- {section_id} — {label}")
+    lines.append("")
+    lines.append(
+        "`compliance_read` takes any of these ids and returns the verbatim text. Read what "
+        "your answer depends on, and say plainly which of them you did not read and why."
+    )
+    if operator:
+        lines.append(
+            f"{len(operator)} of them are the operator's OWN documents. An answer about what "
+            "the operator does, written without reading them, is an answer about the standard."
+        )
+    return "\n".join(lines)
+
+
 def _closure_failure(
     *,
     model_calls: int,
@@ -470,6 +519,8 @@ def _closure_failure(
     unread: list[str],
     absence_claim: bool,
 ) -> str:
+    """``unread`` here is the UNDECLARED remainder: a section the answer names as
+    one it did not read is accounted for, and does not bar an absence claim."""
     """The control contract, in the order a reading fails it.
 
     A terminal prose answer with no tool call at all used to be accepted as
@@ -489,7 +540,10 @@ def _closure_failure(
             "eligible and none of them is cited"
         )
     if absence_claim and unread:
-        return "answer asserts an absence without reading every eligible section"
+        return (
+            "answer asserts an absence with "
+            f"{len(unread)} eligible section(s) neither read nor named as unread"
+        )
     return ""
 
 
@@ -522,6 +576,7 @@ def read(  # noqa: PLR0912, PLR0915
     is the one most worth having a record of and is exactly the one that must
     not be projected as an answer.
     """
+    from portal.modules.compliance.core import requirement_scope
     from portal.modules.compliance.core.notes import notes_for
     from portal.modules.compliance.core.reading_assembly import CHARS_PER_TOKEN, assemble
     from portal.modules.compliance.core.reading_tools import TOOL_SCHEMAS, dispatch
@@ -546,7 +601,13 @@ def read(  # noqa: PLR0912, PLR0915
     )
     if "error" in context:
         return {"error": context["error"], "ref": ref}
-    context["operator_notes"] = notes_for(repo, ref)
+    # Across the scope: a parent requirement's notes sit on its Parts, exactly
+    # as its anchors and its edges do.
+    context["operator_notes"] = [
+        note
+        for identity in requirement_scope.resolve(repo, ref).refs
+        for note in notes_for(repo, identity)
+    ]
     seed = _render_material(context)
     prior: list[dict[str, Any]] = []
     if thread_id:
@@ -582,6 +643,16 @@ def read(  # noqa: PLR0912, PLR0915
         for section in component.get("sections", [])
         if section.get("section_id")
     )
+    # The operator's notes travel in the seed too, under their own key rather
+    # than as a component. Left out of this, a reading was handed the note and
+    # then billed for not having read it: three live Part 2.2 runs came back
+    # `examined=18 unread=1 complete=false`, and the one unread section was the
+    # note quoted in the answer.
+    examined.update(
+        str(note.get("section_id", ""))
+        for note in context.get("operator_notes", [])
+        if note.get("section_id")
+    )
 
     # P6.9: ACQUISITION IS NOT THE MODEL'S TO ELECT. The loop used to open with
     # nothing but the seed and hope the seat chose to call a tool; measured
@@ -595,18 +666,38 @@ def read(  # noqa: PLR0912, PLR0915
     examined.update(acquired_ids["examined"])
     enumerated.update(acquired_ids["enumerated"])
 
+    # The population is resolved BEFORE the reading, not after it, because the
+    # reader has to be told what it has not read while it can still act on that.
+    # The same object is the closure's eligible set, so the reading is judged
+    # against exactly the population it was shown.
+    population = requirement_scope.population(repo, context["ref"], valid_at=valid_at)
+
     # system -> material -> the recorded acquisition -> prior turns -> the
     # question now being asked. The prior turns used to be appended AFTER the
     # current question, so on turn two the last message in the thread was an old
     # assistant answer and the model was replying to its own previous turn.
+    outstanding = _outstanding(population, examined)
     thread: list[dict[str, Any]] = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": seed},
         *bootstrap,
+        *([{"role": "user", "content": outstanding}] if outstanding else []),
         *prior,
         {"role": "user", "content": f"The analyst asks:\n\n{question}"},
     ]
-    estimated_prompt = int(len(seed) / CHARS_PER_TOKEN)
+    # The estimate covers everything the FIRST call actually ships, which since
+    # the acquisition became deterministic is the seed plus both recorded tool
+    # payloads. Sizing the window from the seed alone under-counts, and
+    # under-counting is the dangerous direction: it reserves a window too small
+    # and the material is silently truncated, which is the keyhole returning.
+    prefix = (
+        seed
+        + "".join(
+            str(message.get("content", "")) for message in bootstrap if message["role"] == "tool"
+        )
+        + outstanding
+    )
+    estimated_prompt = int(len(prefix) / CHARS_PER_TOKEN)
     needed = estimated_prompt + answer_tokens + 2048
     window = num_ctx or max(8192, -(-needed // 4096) * 4096)
     answer_result: Any = None
@@ -674,7 +765,9 @@ def read(  # noqa: PLR0912, PLR0915
     answer = (answer_result.content if answer_result is not None else "").strip()
     if not stop_reason:
         stop_reason = f"max_steps={max_steps} reached"
-    material = seed
+    # What the model actually had in front of it on its first turn, which is
+    # what "appears somewhere in the material" has to mean.
+    material = prefix
     # The estimate is for the seed sent on the first turn. Later tool results
     # are accounted for by the receipt and the per-tool truncation disclosure.
     result = answer_result
@@ -687,14 +780,12 @@ def read(  # noqa: PLR0912, PLR0915
     # answer. Returning "" as an answer would make that look like a terse model.
     exhausted = bool(not answer and result.thinking)
     verification = verify_citations(repo, answer, material)
-    from portal.modules.compliance.core import requirement_scope
-
-    # P4.3: assembly and closure resolve the SAME scope. Computing the eligible
-    # population from an exact match on the ref as asked is what emptied it:
-    # `CIP-007-6 R2` holds no anchors and no edges of its own — its four Parts
-    # hold all of them — so the receipt reported eligible=[] examined=[] and
-    # classified the answer's own regulatory citations as `outside`.
-    population = requirement_scope.population(repo, context["ref"], valid_at=valid_at)
+    # P4.3: assembly, disclosure and closure resolve the SAME scope, from the one
+    # `population` object built before the reading. Computing the eligible set
+    # from an exact match on the ref as asked is what emptied it: `CIP-007-6 R2`
+    # holds no anchors and no edges of its own — its four Parts hold all of them
+    # — so the receipt reported eligible=[] examined=[] and classified the
+    # answer's own regulatory citations as `outside`.
     eligible = {str(section_id) for section_id in population.get("section_ids", [])}
     cited = {
         str(entry.get("cited_ref"))
@@ -703,6 +794,20 @@ def read(  # noqa: PLR0912, PLR0915
     }
     outside = sorted(cited - eligible)
     unread = sorted(eligible - examined)
+    # An eligible section the answer NAMES is accounted for even when it was not
+    # read: the disclosure asks the reader to read what its answer depends on
+    # and to say plainly what it did not read and why, so a declared omission is
+    # compliance with the contract, not a breach of it.
+    #
+    # Measured on three live Part 2.2 runs: the seat wrote "I did not read
+    # csection-754b… (the regulatory applicable_systems cell) because that text
+    # is already reproduced in the requirement row I have" — correct, checkable,
+    # and scored as an undisclosed gap. Meanwhile its one absence claim ("I have
+    # no evidence of actual evaluation dates") was about records the corpus does
+    # not contain, which is the kind of absence a reading exists to surface.
+    normalised_answer = answer.translate(_DASHES)
+    omitted_with_reason = [section_id for section_id in unread if section_id in normalised_answer]
+    undeclared_unread = [section_id for section_id in unread if section_id not in normalised_answer]
     absence_claim = bool(
         re.search(
             r"\b(?:no|none|not found|does not|without)\b.{0,80}\b(?:evidence|section|control|procedure|link)",
@@ -728,6 +833,10 @@ def read(  # noqa: PLR0912, PLR0915
         "examined": sorted(examined),
         "outside": outside,
         "unread": unread,
+        # read, or named as not-read: the two ways a section is accounted for
+        "omitted_with_reason": omitted_with_reason,
+        "undeclared_unread": undeclared_unread,
+        "accounted_for": bool(eligible) and not undeclared_unread,
         # Enumerated is not examined: `compliance_links` hands back the edge
         # list, so a section named there has been COUNTED, not read.
         "enumerated": sorted(enumerated),
@@ -749,7 +858,7 @@ def read(  # noqa: PLR0912, PLR0915
         model_calls=model_calls,
         eligible=eligible,
         cited=cited,
-        unread=unread,
+        unread=undeclared_unread,
         absence_claim=absence_claim,
     )
     # The estimate is checked against the runner's own count on every call. An

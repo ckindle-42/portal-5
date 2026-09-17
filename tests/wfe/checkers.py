@@ -418,7 +418,11 @@ def check_compliance_reading_contract(spec: dict, ctx: CheckContext) -> CheckRes
 
     * `payload["closure_complete"] is (not unread)` is TRUE when the model
       reports `false` with a non-empty unread list — an explicitly incomplete
-      closure passed as a satisfied one;
+      closure passed as a satisfied one. What is required in its place is
+      `accounted_for`: every eligible section read, or NAMED as not-read. A
+      strict `unread == []` fails a reading that declares the one section it
+      skipped and says why, which is the contract being complied with — measured
+      on three live Part 2.2 runs, all three did exactly that;
     * citations were only checked for `resolved is not True`, so an empty
       citation list passed every time;
     * `first_tool` was whatever the model said it was; `ctx.tool_calls` was
@@ -468,8 +472,13 @@ def check_compliance_reading_contract(spec: dict, ctx: CheckContext) -> CheckRes
     checks = {
         "tool_selection": first_tool.endswith(expected_first),
         "reading_did_not_fail": receipt.get("failed") is False,
-        "closure_complete": closure.get("complete") is True,
-        "closure_unread_empty": not (closure.get("unread") or []),
+        # Everything eligible was READ, or NAMED as not-read with a reason. A
+        # strict `unread == []` fails a reading that explicitly declares the one
+        # section it skipped and why, which is the contract being complied with.
+        # `complete` stays in the evidence, unweakened, so a declared omission is
+        # visible as one rather than passing as a full read.
+        "closure_accounted_for": closure.get("accounted_for") is True,
+        "no_undeclared_unread": not (closure.get("undeclared_unread") or []),
         "citation_resolution": bool(resolved) and not unresolved,
         "regulatory_citation": bool(regulatory_cited),
         "nothing_cited_outside_scope": not (closure.get("outside") or []),
@@ -487,7 +496,10 @@ def check_compliance_reading_contract(spec: dict, ctx: CheckContext) -> CheckRes
         "first_tool": first_tool,
         "model_tool_calls": closure.get("model_tool_calls"),
         "eligible": len(eligible),
+        "closure_complete": closure.get("complete"),
         "unread": closure.get("unread") or [],
+        "omitted_with_reason": closure.get("omitted_with_reason") or [],
+        "undeclared_unread": closure.get("undeclared_unread") or [],
         "outside": closure.get("outside") or [],
         "resolved_citations": len(resolved),
         "unresolved_citations": unresolved,
