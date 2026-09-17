@@ -282,7 +282,9 @@ def test_alignment_transport_enforces_scalar_schema_and_sizes_output(monkeypatch
 
     monkeypatch.setattr(urllib.request, "urlopen", response)
     _ollama_alignment_seat("test", _ALIGNMENT_SYSTEM, json.dumps({"candidates": [{}] * 15}))
-    payload = payloads[0]
+    # The transport also reads the seat's trained context from /api/show and the
+    # applied window from /api/ps, so the chat call is the one carrying messages.
+    payload = next(p for p in payloads if "messages" in p)
     # 768 tokens per candidate, floored at 8k and capped at 16k. Raised from
     # 512/4k/8k: fifteen records with bindings and exact ids do not fit in the
     # old 7680, and a truncated response loses the trailing records rather than

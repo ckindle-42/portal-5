@@ -136,10 +136,16 @@ backends:
     supports_tools: false
   - id: granite4.1:30b-ctx16k
     supports_tools: false
+  # supports_tools was `false` here and `true` for the same tag under
+  # ollama-coding. One model cannot both render a tools array and not render
+  # one, and nothing in the module produced the field. It does now:
+  # `settings_audit --tag <tag> --behavioral` sends a real tools array and a
+  # question only a tool call can answer. Measured 2026-09-17, both tags
+  # returned a tool_calls entry for `get_vault_code`.
   - id: qwen3.6:27b-q4_K_M
-    supports_tools: false
+    supports_tools: true
   - id: qwen3.6:27b-q4_K_M-ctx16k
-    supports_tools: false
+    supports_tools: true
   - id: portal5/qwen3.6-27b-mtp:q8_0-drafted
     supports_tools: false
   - id: qwen3.6:35b-a3b-q4_K_M
@@ -178,10 +184,14 @@ backends:
     supports_tools: false
   - id: hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf
     supports_tools: false
+  # Same contradiction, settled the same way: `false` here, `true` under
+  # ollama-coding and ollama-security. Measured 2026-09-17 on
+  # glm-4.7-flash:Q4_K_M-ctx64k — tool_calls returned, think honored
+  # (404 thinking chars on `think: true`, 0 on `think: false`).
   - id: glm-4.7-flash:Q4_K_M
-    supports_tools: false
+    supports_tools: true
   - id: glm-4.7-flash:Q4_K_M-ctx64k
-    supports_tools: false
+    supports_tools: true
   - id: hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL
     supports_tools: false
   - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
