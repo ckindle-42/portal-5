@@ -40,6 +40,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/__init__.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-addressing
+  globs:
+  - portal/modules/compliance/core/addressing.py
+  unit: unit-compliance-bilateral-corpus
 - name: file-portal-modules-compliance-core-applicability
   globs:
   - portal/modules/compliance/core/applicability.py
@@ -152,6 +156,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/glossary.py
   unit: unit-compliance-bilateral-corpus
+- name: file-portal-modules-compliance-core-graph_queries
+  globs:
+  - portal/modules/compliance/core/graph_queries.py
+  unit: unit-compliance-bilateral-corpus
 - name: file-portal-modules-compliance-core-impact
   globs:
   - portal/modules/compliance/core/impact.py
@@ -252,10 +260,14 @@ surfaces:
   globs:
   - portal/modules/compliance/core/reading_assembly.py
   unit: unit-compliance-bilateral-corpus
+- name: file-portal-modules-compliance-core-reading_tools
+  globs:
+  - portal/modules/compliance/core/reading_tools.py
+  unit: unit-compliance-bilateral-corpus
 - name: file-portal-modules-compliance-core-reading_transport
   globs:
   - portal/modules/compliance/core/reading_transport.py
-  unit: unit-compliance-engine
+  unit: unit-compliance-bilateral-corpus
 - name: file-portal-modules-compliance-core-register_diff
   globs:
   - portal/modules/compliance/core/register_diff.py
@@ -291,7 +303,7 @@ surfaces:
 - name: file-portal-modules-compliance-core-runtime_config
   globs:
   - portal/modules/compliance/core/runtime_config.py
-  unit: unit-compliance-engine
+  unit: unit-compliance-bilateral-corpus
 - name: file-portal-modules-compliance-core-scenarios
   globs:
   - portal/modules/compliance/core/scenarios.py

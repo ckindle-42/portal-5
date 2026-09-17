@@ -26,6 +26,26 @@ from mcp.server import MCPServer
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from portal.modules.compliance.core.addressing import (
+    addressed_hits as _addressed_hits,
+)
+from portal.modules.compliance.core.addressing import (
+    clip as _clip,
+)
+from portal.modules.compliance.core.addressing import (
+    neighbors as _neighbors,
+)
+from portal.modules.compliance.core.addressing import (
+    provenance as _provenance,
+)
+from portal.modules.compliance.core.addressing import (
+    resolve_by_address as _resolve_by_address,
+)
+from portal.modules.compliance.core.addressing import (
+    within_clocks as _within_clocks,
+)
+from portal.modules.compliance.core.graph_queries import links as _graph_links
+from portal.modules.compliance.core.graph_queries import timeline as _graph_timeline
 from portal.platform.data_loader import load_data
 from portal.platform.retrieval import predicates
 
@@ -1942,132 +1962,6 @@ def _repo() -> Any:
     return Repository()
 
 
-def _clip(text: str, max_chars: int) -> tuple[str, dict[str, Any]]:
-    """Text up to ``max_chars``, and the truncation note when there was one.
-
-    A caller that asks for less than the whole thing is told exactly how much
-    it did not get. Silent truncation is how a reader comes to believe it has
-    seen a requirement it has only seen the first 180 characters of.
-    """
-    body = str(text or "")
-    if max_chars <= 0 or len(body) <= max_chars:
-        return body, {}
-    return body[:max_chars], {
-        "truncated": True,
-        "returned_chars": max_chars,
-        "total_chars": len(body),
-        "omitted_chars": len(body) - max_chars,
-    }
-
-
-def _provenance(entry: dict[str, Any]) -> dict[str, Any]:
-    """Everything needed to cite one unit, from either jurisdiction."""
-    return {
-        "section_id": entry.get("section_id", ""),
-        "document": entry.get("document_title") or entry.get("logical_id", ""),
-        "logical_id": entry.get("logical_id", ""),
-        "jurisdiction": entry.get("jurisdiction", ""),
-        "source_kind": entry.get("source_kind", ""),
-        "authority_tier": entry.get("authority_tier", ""),  # "" == untiered, visibly
-        "document_number": entry.get("document_number", ""),
-        "version": entry.get("version", ""),
-        "revision_id": entry.get("revision_id", ""),
-        "section_path": entry.get("path", ""),
-        "heading_lineage": entry.get("headings", ""),
-        "title": entry.get("title", ""),
-        "unit_kind": entry.get("unit_kind", ""),
-        "page": entry.get("page_start"),
-        "effective_date": entry.get("effective_date"),
-        "approved_date": entry.get("approved_date"),
-        "inactive_date": entry.get("inactive_date"),
-        "lifecycle_status": entry.get("lifecycle_status", ""),
-        # ONE_REGULATORY_EXTRACTION_V1 P4: what this passage governs and how.
-        # Ridden in on the join by section_index.resolve_sections, so a hit
-        # arrives knowing its requirement rather than needing a second lookup.
-        # Absent on a section with no join — never a plausible-looking blank.
-        **{
-            key: entry[key]
-            for key in (
-                "requirement_id",
-                "requirement_ids",
-                "relations",
-                "vrf",
-                "time_horizon",
-                "applicable_systems",
-                "lifecycle_state",
-                "register_authority_tier",
-                "authority_tier_disagreement",
-            )
-            if entry.get(key)
-        },
-    }
-
-
-def _within_clocks(entry: dict[str, Any], valid_at: str, known_at: str) -> tuple[bool, str]:
-    """Both clocks over one unit, with the reason when one excludes it.
-
-    ``valid_at`` is what applied in the world; ``known_at`` is what this store
-    believed then. A unit whose revision was only recorded later is excluded as
-    UNKNOWN_KNOWLEDGE rather than served — the late-recorded shape. Material
-    outside either window is excluded or returned explicitly labelled, never
-    silently mixed in.
-    """
-    effective = str(entry.get("effective_date") or "")
-    inactive = str(entry.get("inactive_date") or "")
-    if valid_at:
-        if effective and effective > valid_at:
-            return False, f"not effective at {valid_at} (effective {effective})"
-        if inactive and inactive <= valid_at:
-            return False, f"retired at {valid_at} (inactive from {inactive})"
-    if known_at:
-        recorded_from = str(entry.get("recorded_from") or "")[:10]
-        recorded_to = entry.get("recorded_to")
-        if recorded_from and recorded_from > known_at:
-            return False, (
-                f"UNKNOWN_KNOWLEDGE: the store recorded this revision on {recorded_from}, "
-                f"after the requested known_at {known_at}"
-            )
-        if recorded_to and str(recorded_to)[:10] <= known_at:
-            return False, (
-                f"superseded in the store by {str(recorded_to)[:10]}, at or before the "
-                f"requested known_at {known_at}"
-            )
-    return True, ""
-
-
-def _addressed_hits(repo: Any, query: str, max_chars: int) -> list[dict[str, Any]]:
-    """An exact regulatory address, resolved directly.
-
-    A requirements-table row's verbatim text is ``2.2 | High Impact …`` and
-    never contains the string ``CIP-007-6 R2 Part 2.2``, so matching the full
-    address lexically is luck. The addressed units lead the results, labelled
-    as addressed, with the Part's own row first.
-    """
-    from portal.modules.compliance.core import reading_assembly, section_index
-
-    if reading_assembly.parse_ref(query) is None:
-        return []
-    out: list[dict[str, Any]] = []
-    for section_id, entry in _resolve_by_address(repo, query).items():
-        text, note = _clip(entry.get("text", ""), max_chars)
-        out.append(
-            {
-                **_provenance(entry),
-                "section_id": section_id,
-                "kb_id": section_index.CORPUS_FOR_JURISDICTION.get(
-                    str(entry.get("jurisdiction", "")), ""
-                ),
-                "match": "address",
-                "score": None,
-                "text": text,
-                **note,
-            }
-        )
-    order = {"table_row": 0, "prose": 1, "list_item": 2, "table": 3}
-    out.sort(key=lambda h: (order.get(str(h.get("unit_kind")), 4), h.get("page") or 0))
-    return out
-
-
 def _contains_group(column: str, value: str) -> list[Any]:
     """Case-variant substring match as an OR-group of LIKEs.
 
@@ -2471,45 +2365,6 @@ def compliance_conflicts(ref: str, valid_at: str = "") -> dict[str, Any]:
         repo.close()
 
 
-def _resolve_by_address(repo: Any, ref: str) -> dict[str, dict[str, Any]]:
-    """A regulatory address, a glossary term, or a whole document."""
-    from portal.modules.compliance.core import reading_assembly, section_index
-    from portal.modules.compliance.core.glossary import glossary_index
-
-    parsed = reading_assembly.parse_ref(ref)
-    if parsed is not None:
-        assembly = reading_assembly.assemble(repo, ref, include=["requirement"])
-        ids = [
-            s["section_id"] for c in assembly.get("components", []) for s in c.get("sections", [])
-        ]
-        if ids:
-            return section_index.resolve_sections(repo, ids)
-    entries = glossary_index(repo).get(ref.strip().lower())
-    if entries:
-        return section_index.resolve_sections(repo, [e["section_id"] for e in entries])
-    ids = section_index.sections_in_scope(repo, logical_id=ref)
-    return section_index.resolve_sections(repo, ids[:200]) if ids else {}
-
-
-def _neighbors(repo: Any, entry: dict[str, Any], max_chars: int) -> dict[str, Any]:
-    from portal.modules.compliance.core import section_index
-
-    rows = repo._conn.execute(
-        """SELECT section_id FROM source_sections
-           WHERE revision_id = ? AND heading_path = ? AND char_start >= 0
-           ORDER BY ordinal""",
-        (entry.get("revision_id"), entry.get("heading_path", "")),
-    ).fetchall()
-    siblings = section_index.resolve_sections(repo, [str(r[0]) for r in rows])
-    return {
-        "heading_path": entry.get("heading_path", ""),
-        "siblings": [
-            {**_provenance(s), "text": _clip(s.get("text", ""), max_chars)[0]}
-            for s in sorted(siblings.values(), key=lambda s: s.get("ordinal", 0))
-        ],
-    }
-
-
 @mcp.tool()
 def compliance_links(
     ref: str, direction: str = "both", status: str = "", derivation: str = ""
@@ -2519,37 +2374,7 @@ def compliance_links(
     as a proposal, never as an established fact."""
     repo = _repo()
     try:
-        clauses, params = [], []
-        if direction in ("out", "both"):
-            clauses.append("src_ref = ?")
-            params.append(ref)
-        if direction in ("in", "both"):
-            clauses.append("dst_ref = ?")
-            params.append(ref)
-        where = "(" + " OR ".join(clauses or ["src_ref = ?"]) + ")"
-        if not clauses:
-            params.append(ref)
-        if status:
-            where += " AND status = ?"
-            params.append(status)
-        if derivation:
-            where += " AND derivation = ?"
-            params.append(derivation)
-        rows = repo._conn.execute(
-            f"""SELECT assertion_id, relation_type, src_ref, dst_ref, status, derivation,
-                       confidence, coverage, rationale, valid_from, valid_to, recorded_from
-                FROM relationship_assertions WHERE {where}
-                ORDER BY status, confidence DESC LIMIT 500""",  # noqa: S608
-            tuple(params),
-        ).fetchall()
-        edges = [dict(r) for r in rows]
-        return {
-            "ref": ref,
-            "direction": direction,
-            "num_edges": len(edges),
-            "edges": edges,
-            "note": "status 'proposed' is a candidate, not an established relationship",
-        }
+        return _graph_links(repo, ref, direction, status, derivation)
     finally:
         repo.close()
 
@@ -2558,44 +2383,9 @@ def compliance_links(
 def compliance_timeline(ref: str) -> dict[str, Any]:
     """Every revision of either side, with its dates — plus the semantic delta
     between consecutive regulatory revisions."""
-    from portal.modules.compliance.core import reading_assembly
-    from portal.modules.compliance.core.revision_compare import semantic_diff
-
     repo = _repo()
     try:
-        parsed = reading_assembly.parse_ref(ref)
-        logical_id = parsed.logical_id if parsed else ref
-        rows = repo._conn.execute(
-            """SELECT r.revision_id, r.logical_id, r.version, r.effective_date, r.approved_date,
-                      r.authored_date, r.inactive_date, r.lifecycle_status, r.recorded_from,
-                      r.alias_path, d.jurisdiction, d.source_kind, d.title
-               FROM document_revisions r JOIN source_documents d ON d.logical_id = r.logical_id
-               WHERE r.logical_id = ? OR r.logical_id LIKE ? || '%'
-               ORDER BY COALESCE(r.effective_date, ''), r.recorded_from""",
-            (logical_id, logical_id.rsplit("-", 1)[0]),
-        ).fetchall()
-        revisions = [dict(r) for r in rows]
-        delta: dict[str, Any] = {}
-        if parsed:
-            family = "-".join(parsed.standard.split("-")[:2])
-            versions = sorted(
-                {
-                    str(r["logical_id"]).rsplit("-", 1)[-1]
-                    for r in revisions
-                    if str(r["source_kind"]) == "regulatory_standard"
-                }
-            )
-            if len(versions) >= 2:
-                try:
-                    delta = semantic_diff(
-                        repo,
-                        family=family,
-                        version_before=versions[0],
-                        version_after=versions[-1],
-                    )
-                except Exception as exc:  # noqa: BLE001 - a delta is optional context
-                    delta = {"error": str(exc)}
-        return {"ref": ref, "revisions": revisions, "semantic_delta": delta}
+        return _graph_timeline(repo, ref)
     finally:
         repo.close()
 
@@ -2746,38 +2536,6 @@ def compliance_context(
         repo.close()
 
 
-# ── BILATERAL_CORPUS_V1 P6: the reader, and the conversation as a corpus ────
-
-
-def _reading_seat(profile: str = "") -> str:
-    """The seat that reads — chosen WITH the packet, not once for all packets.
-
-    P6.8 measured the same question against the same corpus at two packet
-    sizes. On the full ~30,000-token neighbourhood, glm-4.7-flash misread the
-    operator's procedure; on the focused ~6,000-token one it read it correctly,
-    as did a 6.6 GB 9B model. The packet size, not the parameter count, was the
-    failure — so the seat follows the packet:
-
-    * a focused profile gets the fast seat (MoE, 244 tok/s prefill, 14-28 s);
-    * the full packet gets the seat that was correct on 30k of material.
-
-    Both are recorded in config/compliance/council.yaml with the transcripts
-    that chose them. Every one of them fits alongside the running Docker stack,
-    which is a hard requirement: this is a module inside the product, not a
-    thing you take the product down to use.
-    """
-    import os
-
-    from portal.modules.compliance.core.runtime_config import _read_council_config
-
-    config = _read_council_config()
-    key = "reading_seat" if profile and profile.lower() != "full" else "reading_seat_full_packet"
-    configured = config.get(key) or config.get("reading_seat")
-    if isinstance(configured, dict) and configured.get("model"):
-        return str(configured["model"])
-    return os.environ.get("COMPLIANCE_READING_MODEL", "glm-4.7-flash:Q4_K_M-ctx64k")
-
-
 @mcp.tool()
 def compliance_ask(
     question: str,
@@ -2803,6 +2561,7 @@ def compliance_ask(
     operator note on the same subject.
     """
     from portal.modules.compliance.core.reader import read
+    from portal.modules.compliance.core.runtime_config import reading_seat
 
     repo = _repo()
     try:
@@ -2810,7 +2569,7 @@ def compliance_ask(
             repo,
             question,
             ref,
-            model=model or _reading_seat(profile),
+            model=model or reading_seat(),
             budget_tokens=budget_tokens,
             profile=profile,
             valid_at=valid_at,
@@ -2878,7 +2637,9 @@ def compliance_standing_questions(
     try:
         recorded = add_standing_question(repo, question, subject_ref) if question else ""
         if run and subject_ref:
-            answers = run_standing_questions(repo, subject_ref, model=_reading_seat())
+            from portal.modules.compliance.core.runtime_config import reading_seat
+
+            answers = run_standing_questions(repo, subject_ref, model=reading_seat())
             return {"subject_ref": subject_ref, "ran": len(answers), "answers": answers}
         return {
             "recorded": recorded,

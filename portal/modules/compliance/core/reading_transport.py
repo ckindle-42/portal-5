@@ -69,7 +69,7 @@ _INLINE_THINK = re.compile(r"<think>.*?</think>\s*", re.S | re.I)
 
 
 class ChatResult(dict[str, Any]):
-    """A chat response. ``content`` is the answer; ``thinking`` is the trace."""
+    """A chat response, including the raw message needed for tool loops."""
 
     @property
     def content(self) -> str:
@@ -82,6 +82,16 @@ class ChatResult(dict[str, Any]):
     @property
     def reasoned(self) -> bool:
         return bool(self.get("reasoned"))
+
+    @property
+    def tool_calls(self) -> list[dict[str, Any]]:
+        calls = self.get("tool_calls") or []
+        return calls if isinstance(calls, list) else []
+
+    @property
+    def raw_message(self) -> dict[str, Any]:
+        message = self.get("raw_message") or {}
+        return message if isinstance(message, dict) else {}
 
 
 def strip_inline_reasoning(text: str) -> str:
@@ -117,9 +127,11 @@ DEFAULT_KEEP_ALIVE = "30m"
 
 def chat(
     model: str,
-    system: str,
-    user: str,
+    system: str = "",
+    user: str = "",
     *,
+    messages: list[dict[str, Any]] | None = None,
+    tools: list[dict[str, Any]] | None = None,
     budget: int = 4096,
     fmt: Any = "json",
     think: bool | str | None = None,
@@ -142,12 +154,17 @@ def chat(
     want_think: bool | str = think if isinstance(think, str) else bool(think)
     if not _THINK_CAPABLE.get(model, True):
         want_think = False
-    payload: dict[str, Any] = {
-        "model": model,
-        "messages": [
+    sent_messages = (
+        messages
+        if messages is not None
+        else [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
-        ],
+        ]
+    )
+    payload: dict[str, Any] = {
+        "model": model,
+        "messages": sent_messages,
         "stream": False,
         "options": {"temperature": 0.0, "num_predict": budget, "num_ctx": num_ctx},
         "keep_alive": keep_alive,
@@ -164,6 +181,8 @@ def chat(
     # answers in prose and a JSON envelope is the schema P6 exists to not have.
     if fmt:
         payload["format"] = fmt
+    if tools is not None:
+        payload["tools"] = tools
 
     downgraded = ""
     try:
@@ -187,6 +206,7 @@ def chat(
     raw_content = str(message.get("content", "") or "")
     thinking = str(message.get("thinking", "") or "")
     content = strip_inline_reasoning(raw_content) if "<think>" in raw_content else raw_content
+    prompt_bytes = sum(len(str(message.get("content", "")).encode()) for message in sent_messages)
     # P6.7: enough to reason about latency afterwards. `_recording_seat_fn`
     # stored {model, raw}, so no run in the module's history has a single
     # recorded duration, token count or load time to argue from.
@@ -202,9 +222,11 @@ def chat(
         prompt_eval_duration_s=round(float(body.get("prompt_eval_duration", 0) or 0) / 1e9, 3),
         load_duration_s=round(float(body.get("load_duration", 0) or 0) / 1e9, 3),
         total_duration_s=round(float(body.get("total_duration", 0) or 0) / 1e9, 3),
-        prompt_bytes=len(system.encode()) + len(user.encode()),
+        prompt_bytes=prompt_bytes,
         num_ctx=num_ctx,
         keep_alive=keep_alive,
         reasoning_effort=want_think if isinstance(want_think, str) else str(bool(want_think)),
         model=model,
+        tool_calls=message.get("tool_calls") or [],
+        raw_message=message,
     )

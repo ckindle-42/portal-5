@@ -18,6 +18,16 @@ sources:
 - type: code
   path: portal/modules/compliance/core/candidate_links.py
 - type: code
+  path: portal/modules/compliance/core/addressing.py
+- type: code
+  path: portal/modules/compliance/core/graph_queries.py
+- type: code
+  path: portal/modules/compliance/core/reading_tools.py
+- type: code
+  path: portal/modules/compliance/core/reading_transport.py
+- type: code
+  path: portal/modules/compliance/core/runtime_config.py
+- type: code
   path: scripts/compliance_reading_seat_probe.py
 - type: code
   path: scripts/project_compliance_sections.py

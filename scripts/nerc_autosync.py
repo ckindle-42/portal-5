@@ -280,8 +280,9 @@ def run(
         # 4. re-run the standing questions whose material moved
         if read_answers:
             from portal.modules.compliance.core.reader import run_standing_questions
+            from portal.modules.compliance.core.runtime_config import reading_seat
 
-            seat = model or _reading_seat()
+            seat = model or reading_seat()
             for entry in report["changed"]:
                 for row in entry.get("linked_impact", []):
                     report["standing_answers"].extend(
@@ -305,17 +306,6 @@ def run(
         }
     )
     return report
-
-
-def _reading_seat() -> str:
-    import os
-
-    from portal.modules.compliance.core.runtime_config import _read_council_config
-
-    configured = _read_council_config().get("reading_seat")
-    if isinstance(configured, dict) and configured.get("model"):
-        return str(configured["model"])
-    return os.environ.get("COMPLIANCE_READING_MODEL", "granite4.1:30b-ctx64k")
 
 
 def _summarise_materialization(report: dict[str, Any]) -> dict[str, Any]:
