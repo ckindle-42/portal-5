@@ -11,7 +11,7 @@ sources:
   path: config/portal.yaml
 claims:
 - probe: compliance.workspace_tools
-  contains: "all_reachable:23"
+  contains: "all_reachable:36"
 confidence: high
 tags:
 - docs
@@ -53,8 +53,9 @@ tags:
 - **Guard**: `compliance.workspace_tools` (`portal/platform/wiki/claims.py`)
   cross-checks all three — the workspace list, the discovery manifest, and
   `_DISPATCH` — for every `compliance_*`/`nerc_cip*` tool name, and reports
-  `unreachable:<name>` the moment any one of the three drops it. Verified to
-  actually fail: removing one dispatch entry flips the probe from
+  `unreachable:<name>` the moment any one of the three drops it. The current
+  inventory is 36 reachable compliance/register tools. Verified to actually fail:
+  removing one dispatch entry flips the probe from
   `all_reachable:12` to `unreachable:compliance_scope`.
 
 ## Why

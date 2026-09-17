@@ -1,0 +1,19 @@
+{
+  "id": "compliance-reading",
+  "name": "⚖️ Portal Compliance Reading",
+  "meta": {
+    "description": "⚖️ Portal Compliance Reading",
+    "profile_image_url": "",
+    "toolIds": [
+      "server:mcp:portal_rag"
+    ],
+    "capabilities": {
+      "builtin_tools": false
+    }
+  },
+  "params": {
+    "model": "compliance-reading",
+    "system": "Focused NERC CIP reading workspace. Use compliance_ask for operator-posture judgments, cite both governing and operator material, and disclose the closure receipt. Other frameworks have catalog lookups only and no local corpus or gap analysis.",
+    "function_calling": "native"
+  }
+}
