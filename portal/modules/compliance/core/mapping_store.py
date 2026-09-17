@@ -24,13 +24,14 @@ still gets full isolation, since a distinct file is a distinct store).
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from portal.modules.compliance.core.models import RelationshipAssertion
-from portal.modules.compliance.core.repository import Repository
+from portal.modules.compliance.core.repository import Repository, _new_id
+from portal.modules.compliance.core.temporal import now_iso
 
 _DATA = Path(__file__).resolve().parent.parent / "data"
 STORE_PATH = Path(os.environ.get("COMPLIANCE_MAPPING_STORE", str(_DATA / "compliance_store.db")))
@@ -181,6 +182,113 @@ class MappingStore:
             mapping_id, "REVOKED", sme, expected_version=current.version
         )
         return _relationship_to_mapping(updated)
+
+    def decide_batch(self, decisions: list[dict[str, Any]], sme: str) -> list[dict[str, Any]]:
+        """Apply versioned mapping decisions in one transaction.
+
+        A stale item is reported and skipped while the remaining decisions keep
+        their own audit events.  This is intentionally not all-or-nothing: a
+        reviewer should not lose 49 sound decisions because one row changed
+        while the packet was open.
+        """
+        results: list[dict[str, Any]] = []
+        with self._repo._lock, self._repo._conn:
+            for item in decisions:
+                mapping_id = str(item.get("mapping_id", ""))
+                expected = item.get("version")
+                decision = str(item.get("decision", "")).upper()
+                coverage = item.get("coverage")
+                rationale = str(item.get("rationale", ""))
+                row = self._repo._conn.execute(
+                    "SELECT * FROM relationship_assertions WHERE assertion_id = ?", (mapping_id,)
+                ).fetchone()
+                if row is None:
+                    results.append({"mapping_id": mapping_id, "status": "NOT_FOUND"})
+                    continue
+                current = self._repo._row_to_relationship(row)
+                if expected is None or int(expected) != current.version:
+                    results.append(
+                        {
+                            "mapping_id": mapping_id,
+                            "status": "STALE",
+                            "current_version": current.version,
+                            "error": "re-read this item before deciding",
+                        }
+                    )
+                    continue
+                if decision in ("APPROVE", "APPROVED", "CONFIRM", "CONFIRMED"):
+                    normalized = (
+                        "CORRECTED" if coverage and coverage != current.coverage else "CONFIRMED"
+                    )
+                elif decision in ("REJECT", "REJECTED"):
+                    normalized = "REJECTED"
+                else:
+                    results.append(
+                        {"mapping_id": mapping_id, "status": "INVALID", "error": decision}
+                    )
+                    continue
+                if coverage is not None and coverage not in COVERAGE_VALUES:
+                    results.append(
+                        {
+                            "mapping_id": mapping_id,
+                            "status": "INVALID",
+                            "error": f"coverage={coverage!r}",
+                        }
+                    )
+                    continue
+                new_status = "approved" if normalized in ("CONFIRMED", "CORRECTED") else "rejected"
+                new_coverage = coverage if normalized == "CORRECTED" else current.coverage
+                stamp = now_iso()
+                self._repo._conn.execute(
+                    """UPDATE relationship_assertions
+                       SET status = ?, review_state = ?, decided_by = ?, decided_at = ?,
+                           coverage = ?, version = version + 1
+                       WHERE assertion_id = ? AND version = ?""",
+                    (
+                        new_status,
+                        normalized,
+                        sme,
+                        stamp,
+                        new_coverage,
+                        mapping_id,
+                        current.version,
+                    ),
+                )
+                self._repo._conn.execute(
+                    """INSERT INTO review_events(event_id, target_type, target_id, expected_version,
+                           decision, decided_by, rationale, evidence_json, created_at, prior_event_id, org_id)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        _new_id(),
+                        "relationship_assertion",
+                        mapping_id,
+                        current.version,
+                        normalized,
+                        sme,
+                        rationale,
+                        "[]",
+                        stamp,
+                        "",
+                        current.org_id,
+                    ),
+                )
+                self._repo._write_outbox_unlocked(
+                    "relationship_decided", {"assertion_id": mapping_id, "decision": normalized}
+                )
+                updated = self._repo._conn.execute(
+                    "SELECT * FROM relationship_assertions WHERE assertion_id = ?", (mapping_id,)
+                ).fetchone()
+                results.append(
+                    {
+                        "mapping_id": mapping_id,
+                        "status": "APPLIED",
+                        "decision": normalized,
+                        "mapping": asdict(
+                            _relationship_to_mapping(self._repo._row_to_relationship(updated))
+                        ),
+                    }
+                )
+        return results
 
     def close_validity(self, mapping_id: str, valid_to: str) -> Mapping:
         """Close ``valid_to`` because the STANDARD superseded this mapping's
