@@ -953,11 +953,22 @@ def read(  # noqa: PLR0912, PLR0915
     # and the material is silently truncated, which is the keyhole returning.
     actual_prompt = int(result.get("prompt_eval_count") or 0)
     generated = int(result.get("eval_count") or 0)
+    # The ratio is thread chars over prompt tokens, not MATERIAL chars over
+    # prompt tokens. `material` is the first-turn prefix — the seed and the
+    # acquisition payloads — while `prompt_eval_count` is for the WHOLE thread
+    # the last call shipped, system prompt, question, tool results and all.
+    # Dividing one by the other reported 1.4 chars/token on a live run where the
+    # true figure is 3.15, i.e. an apparent ratio less than half the real one. A
+    # calibration constant taken from that would size every window at less than
+    # half of what it needs, which is the direction that refuses the prompt.
+    thread_chars = sum(len(str(message.get("content", "") or "")) for message in thread)
     fit = {
         "estimated_prompt_tokens": estimated_prompt,
         "actual_prompt_tokens": actual_prompt,
+        "thread_chars": thread_chars,
+        "material_chars": len(material),
         "chars_per_token_observed": (
-            round(len(material) / actual_prompt, 2) if actual_prompt else None
+            round(thread_chars / actual_prompt, 2) if actual_prompt else None
         ),
         "num_ctx": window,
         "headroom_tokens": window - actual_prompt - generated,
