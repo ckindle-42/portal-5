@@ -73,11 +73,31 @@ def _acceptance_runs() -> list[dict[str, Any]]:
         cells = data.get("cells") or []
         if not cells:
             continue
+        # COMPLETE means every cell the manifest planned actually ran. A partial
+        # run is not currency: measured on this very check, a campaign stopped
+        # after 5 of 18 cells satisfied it, because it asked "is there a run"
+        # and never "did it finish". An aborted run is exactly the shape the
+        # seven abandoned harnesses left behind.
+        expected = 0
+        manifest = entry / "manifest.json"
+        if manifest.is_file():
+            try:
+                plan = json.loads(manifest.read_text(encoding="utf-8"))
+                expected = (
+                    len(plan.get("cases") or [])
+                    * len(plan.get("seats") or [])
+                    * len(plan.get("adapters") or [])
+                    * int(plan.get("runs") or 0)
+                )
+            except (OSError, ValueError):
+                expected = 0
         runs.append(
             {
                 "rev": data.get("git_head") or entry.name,
                 "dir": entry.name,
                 "cells": len(cells),
+                "expected_cells": expected,
+                "complete": bool(expected) and len(cells) >= expected,
                 "passed": sum(1 for c in cells if c.get("passed")),
                 "updated_at": data.get("updated_at", ""),
             }
@@ -111,7 +131,18 @@ def check_compliance_acceptance_currency() -> tuple[str, str, list[dict]]:
             "scripts/run_compliance_acceptance.sh",
             findings,
         )
-    current = [r for r in runs if _is_ancestor(last_touch, str(r["rev"]))]
+    current = [r for r in runs if r["complete"] and _is_ancestor(last_touch, str(r["rev"]))]
+    partial = [r for r in runs if not r["complete"] and _is_ancestor(last_touch, str(r["rev"]))]
+    if not current and partial:
+        newest = max(partial, key=lambda r: str(r["updated_at"]))
+        return (
+            "FAIL",
+            f"the only acceptance run at or after {last_touch[:12]} is INCOMPLETE: "
+            f"{newest['cells']} of {newest['expected_cells']} planned cell(s) in "
+            f"{newest['dir'][:12]}. A stopped run is not currency — finish it, or "
+            "re-run scripts/run_compliance_acceptance.sh",
+            findings,
+        )
     if not current:
         newest = max(runs, key=lambda r: str(r["updated_at"]))
         return (

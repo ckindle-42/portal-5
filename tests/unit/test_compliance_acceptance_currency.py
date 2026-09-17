@@ -17,12 +17,18 @@ import pytest
 from scripts.validation import compliance_acceptance as check
 
 
-def _run_dir(root: Path, rev: str, cells: list[dict] | None) -> Path:
+def _run_dir(root: Path, rev: str, cells: list[dict] | None, planned: int = 0) -> Path:
     directory = root / rev
     directory.mkdir(parents=True)
     if cells is not None:
         (directory / "status.json").write_text(
             json.dumps({"git_head": rev, "updated_at": "2026-09-17T00:00:00Z", "cells": cells})
+        )
+    if planned:
+        (directory / "manifest.json").write_text(
+            json.dumps(
+                {"cases": ["a"] * planned, "seats": ["s"], "adapters": ["reader"], "runs": 1}
+            )
         )
     return directory
 
@@ -75,11 +81,37 @@ class TestHGCurrency:
         assert "the module moved and nothing re-ran" in detail
 
     def test_a_run_containing_the_change_passes(self, acceptance_root, monkeypatch) -> None:
-        _run_dir(acceptance_root, "newer", [{"cell": "x", "passed": True}])
+        _run_dir(acceptance_root, "newer", [{"cell": "x", "passed": True}], planned=1)
         monkeypatch.setattr(check, "_git", lambda *a: "older")
         monkeypatch.setattr(check, "_is_ancestor", lambda older, newer: True)
         status, _, _ = check.check_compliance_acceptance_currency()
         assert status == "PASS"
+
+    def test_a_partial_run_is_not_currency(self, acceptance_root, monkeypatch) -> None:
+        """Found by running the check: a campaign STOPPED after 5 of 18 cells
+        satisfied it, because it asked "is there a run" and never "did it
+        finish". An aborted run is precisely the shape the seven abandoned
+        harnesses left behind."""
+        _run_dir(
+            acceptance_root,
+            "newer",
+            [{"cell": f"c{i}", "passed": True} for i in range(5)],
+            planned=18,
+        )
+        monkeypatch.setattr(check, "_git", lambda *a: "older")
+        monkeypatch.setattr(check, "_is_ancestor", lambda older, newer: True)
+        status, detail, _ = check.check_compliance_acceptance_currency()
+        assert status == "FAIL"
+        assert "INCOMPLETE" in detail and "5 of 18" in detail
+
+    def test_a_run_with_no_manifest_cannot_claim_completeness(
+        self, acceptance_root, monkeypatch
+    ) -> None:
+        _run_dir(acceptance_root, "newer", [{"cell": "x", "passed": True}])
+        monkeypatch.setattr(check, "_git", lambda *a: "older")
+        monkeypatch.setattr(check, "_is_ancestor", lambda older, newer: True)
+        status, _, _ = check.check_compliance_acceptance_currency()
+        assert status == "FAIL"
 
 
 class TestHHTemplateIdentity:
