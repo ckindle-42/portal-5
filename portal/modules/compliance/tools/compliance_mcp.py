@@ -2121,12 +2121,25 @@ def _search_predicate(
     return predicates.build(entries)
 
 
-#: The largest ``chunk_id IN (…)`` list pushed into the arms. MEASURED, not
-#: guessed — §P4.1's sweep timed 10 / 100 / 500 / 1000 ids against the live
-#: index and recorded where latency turns; see
-#: reports/compliance/ONE_REGULATORY_EXTRACTION_V1.md. Above it the tool returns
-#: honest-BLOCKED naming the count, because a silent fallback to an unfiltered
-#: search would LOOK filtered, which is worse than refusing.
+#: The largest ``chunk_id IN (…)`` list pushed into the arms.
+#:
+#: MEASURED, and the measurement says something other than what §P4.1 expected.
+#: Timed against the live 4,477-row ``nerc_corpus`` at 10 / 100 / 500 / 1000 /
+#: 2000 / 3000 / 4000 ids, prefiltered, the median was 5.9 / 8.5 / 12.0 / 19.7 /
+#: 26.0 / 32.4 ms against a 4.9 ms clock-only baseline — **linear, with no knee**
+#: even at an id list naming every row in the table. There is no latency turn to
+#: set a cap from.
+#:
+#: So the cap comes from the population instead: across the 252 joined
+#: requirements the sections-per-requirement distribution is median 3, p90 35,
+#: max 97. 500 sits five times above the observed maximum at 8.5 ms, so it never
+#: refuses a real requirement — it refuses a request that has stopped being a
+#: requirement and become a whole standard. Both numbers are in
+#: reports/compliance/ONE_REGULATORY_EXTRACTION_V1.md.
+#:
+#: Above it the tool returns honest-BLOCKED naming the count, because a silent
+#: fallback to an unfiltered search would LOOK filtered, which is worse than
+#: refusing.
 MAX_REQUIREMENT_SECTION_IDS = 500
 
 

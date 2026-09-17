@@ -5,23 +5,23 @@ title: portal_wiki subsystem (4 files)
 sources:
 - type: code
   path: portal_wiki/__init__.py
-  commit: d1dfa5717fe0
+  commit: de64ed14981d
 - type: code
   path: portal_wiki/__main__.py
-  commit: d1dfa5717fe0
+  commit: de64ed14981d
 - type: code
   path: portal_wiki/mcp.py
-  commit: d1dfa5717fe0
+  commit: de64ed14981d
 - type: code
   path: portal_wiki/wiki_mcp.py
-  commit: d1dfa5717fe0
+  commit: de64ed14981d
 claims: []
 confidence: high
 tags:
 - code
 - portal_wiki
-created_at: 1789571713.967556
-updated_at: 1789571713.967556
+created_at: 1789603069.4014149
+updated_at: 1789603069.4014149
 ---
 
 # portal_wiki subsystem

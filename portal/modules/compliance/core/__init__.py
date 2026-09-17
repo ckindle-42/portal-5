@@ -8,12 +8,23 @@ Not a RAG chatbot. Four properties, none a retrieval parameter — and since
 SUBSTRATE_PROPERTIES_V1, four properties that EXIST, each with the module and
 function that delivers it:
 
-1. temporal validity filters *before* ranking — the projection carries the
-   predicate columns (`section_index.PREDICATE_COLUMNS`,
-   `section_index.build_plan`), the shared seam applies them under ranking
-   (`portal/platform/retrieval/pipeline.search(where=…)` →
-   `fusion.fuse` → both arms), and `compliance_mcp._search_predicate` builds
-   the clock clauses against their `""` open-bound convention;
+1. filters run *before* ranking, and **the predicate that matters is
+   requirement identity** — not only the document-derived clocks. A question
+   about CIP-007-6 R2 Part 2.2 is a question about *that requirement's
+   sections*, and until ONE_REGULATORY_EXTRACTION_V1 the store could not
+   express it: `RegisterNode` carried no `section_id`, `source_sections`
+   carried no requirement reference, and the only overlap was page
+   granularity. `requirement_sections` is that key
+   (`requirement_anchor` anchors it by exact match,
+   `Repository.sections_for_requirement` / `requirements_for_section` read it
+   both ways), and `compliance_mcp._requirement_predicate` resolves a
+   requirement to exact ids pushed as `chunk_id IN (…)`. The clocks compose
+   with it by `AND`: the projection carries the predicate columns
+   (`section_index.PREDICATE_COLUMNS`, `section_index.build_plan`), the shared
+   seam applies them under ranking
+   (`portal/platform/retrieval/pipeline.search(where=…)` → `fusion.fuse` →
+   both arms), and `compliance_mcp._search_predicate` builds the clock clauses
+   against their `""` open-bound convention;
 2. authority tiers have precedence — a cross-tier contradiction is emitted,
    never reconciled: every section resolves with its recorded tier
    (`tiers.recorded_tier`, projected as `authority_tier`), and contradiction is
