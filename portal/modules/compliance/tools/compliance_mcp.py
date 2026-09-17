@@ -203,6 +203,7 @@ def compliance_requirement(
     scope: str = "",
     valid_at: str = "",
     known_at: str = "",
+    max_chars: int = 6000,
 ) -> dict[str, Any]:
     """Resolve governing requirements by validity interval and return atoms.
 
@@ -211,7 +212,11 @@ def compliance_requirement(
     a fact already true but not yet recorded (late-recorded) is reported as
     ``UNKNOWN_KNOWLEDGE`` instead of being silently included or dropped.
     Effectivity comes from the canonical store's registry-sourced
-    assertions, never from filenames."""
+    assertions, never from filenames.
+
+    Text ceiling: ``max_chars`` (default 6,000) bounds the verbatim text this
+    ONE call returns, shared across the matched parts; every clip is STATED
+    in ``truncation``, and a rollup whose budget ran out names where."""
     try:
         from portal.modules.compliance.core.cip_register import Register
         from portal.modules.compliance.core.engine import effective_parts, parse_iso_date
@@ -294,6 +299,7 @@ def compliance_requirement(
             if withheld_knowledge:
                 response["withheld_as_unknown_knowledge"] = withheld_knowledge
             if parts:
+                parts, truncation = _ceiling(parts, max_chars)
                 response.update(
                     {
                         "granularity": "exact"
@@ -302,6 +308,7 @@ def compliance_requirement(
                         "parts": parts,
                         "readiness": {"complete": True, "missing": []},
                         "source": "NERC CIP Reliability Standards verbatim register",
+                        "truncation": truncation,
                     }
                 )
             return response
@@ -1585,6 +1592,21 @@ def compliance_review_decide(
         return {"error": str(e)}
 
 
+def _clip_revised_sections(revision_id: str, repo: Any) -> list[dict[str, Any]]:
+    """The classified section tree, with each section's text ceiling-capped.
+
+    WINDOW_AND_SEAT_V1 P1.1: `include_sections=true` used to return whole
+    sections unbounded. The ids are what a reader follows for the full text.
+    """
+    sections = repo.sections_with_role(revision_id)
+    for section in sections:
+        text, note = _clip(str(section.get("text", "")), 4000)
+        section["text"] = text
+        if note:
+            section["truncation"] = {"max_chars": 4000, "stated": True}
+    return sections
+
+
 @mcp.tool()
 def compliance_sources(
     revision_id: str = "",
@@ -1645,10 +1667,10 @@ def compliance_sources(
             else:
                 entry["integrity"] = "unverifiable — source file not found on disk"
             if include_sections:
-                # P4 source functions: the classified section tree (role per
-                # section) — what makes a copied traceability row inspectable
-                # as non-operative through the route.
-                entry["sections"] = repo.sections_with_role(rev.revision_id)
+                # the classified section tree (role per section) — what makes a
+                # copied traceability row inspectable as non-operative through
+                # the route. Text is ceiling-capped and the clip stated.
+                entry["sections"] = _clip_revised_sections(rev.revision_id, repo)
             out.append(entry)
         return {
             "found": True,
@@ -1995,6 +2017,48 @@ def _repo() -> Any:
     return Repository()
 
 
+def _ceiling(parts: list[dict[str, Any]], max_chars: int) -> tuple[list[dict[str, Any]], dict]:
+    """Bound the verbatim text one call returns, shared across its parts.
+
+    WINDOW_AND_SEAT_V1 P1.1: a tool that can return more than a fifth of the
+    serving window in one call is a hazard on the conversation path. The
+    budget is PER CALL, not per part — a four-Part rollup must not cost four
+    ceilings. Every clip is stated, and the part that exhausted the budget is
+    named, so a truncated read is visible as one.
+    """
+    remaining = max(int(max_chars), 0)
+    clipped: list[dict[str, str]] = []
+
+    def _cut(text: str, where: str) -> str:
+        nonlocal remaining
+        if len(text) <= remaining:
+            remaining -= len(text)
+            return text
+        if remaining <= 0:
+            clipped.append({"where": where, "kept": 0, "omitted_chars": len(text)})
+            return ""
+        kept, note = _clip(text, remaining)
+        clipped.append({"where": where, "kept": remaining, "omitted_chars": len(text) - remaining})
+        remaining = 0
+        return kept + (f"\n{note}" if note else "")
+
+    for part in parts:
+        part["verbatim_text"] = _cut(
+            str(part.get("verbatim_text", "")), f"{part.get('id', '')}:verbatim_text"
+        )
+        for atom in part.get("atoms") or []:
+            atom["verbatim_text"] = _cut(
+                str(atom.get("verbatim_text", "")),
+                f"{part.get('id', '')}:atom:{atom.get('atom_id', '')}",
+            )
+    return parts, {
+        "max_chars": int(max_chars),
+        "stated": True,
+        "clipped": clipped,
+        "budget_exhausted_by": clipped[-1]["where"] if clipped else "",
+    }
+
+
 @mcp.tool()
 def compliance_search(
     query: str,
@@ -2034,12 +2098,16 @@ def compliance_search(
 
 
 @mcp.tool()
-def compliance_read(ref: str, neighbors: bool = False, max_chars: int = 20000) -> dict[str, Any]:
+def compliance_read(ref: str, neighbors: bool = False, max_chars: int = 6000) -> dict[str, Any]:
     """Verbatim text of any addressable unit, from either side.
 
     ``ref`` is a ``section_id``, a regulatory address (``CIP-007-6 R2 Part
     2.2``), a glossary term, or a document ``logical_id``. With ``neighbors``
     the unit's parent heading and its siblings in reading order come too.
+
+    Per-call ceiling ``max_chars`` defaults to 6,000 — the same bound the
+    nested reader's dispatch applies — and every clip is STATED in the unit's
+    note, never silent. A section needing more can be asked for again.
     """
     from portal.modules.compliance.core import reading_assembly, section_index
 
@@ -2070,7 +2138,7 @@ def compliance_read(ref: str, neighbors: bool = False, max_chars: int = 20000) -
 
 
 @mcp.tool()
-def compliance_conflicts(ref: str, valid_at: str = "") -> dict[str, Any]:
+def compliance_conflicts(ref: str, valid_at: str = "", span_chars: int = 1000) -> dict[str, Any]:
     """Cross-tier contradictions touching a requirement's neighbourhood.
 
     Property 2 (SUBSTRATE_PROPERTIES_V1 P4): a contradiction between tiers is a
@@ -2080,26 +2148,50 @@ def compliance_conflicts(ref: str, valid_at: str = "") -> dict[str, Any]:
     compared only through its own requirement rows, so the standard quoting
     itself (Measures, Guidelines) does not fire. Documents with no recorded
     tier are listed under ``untiered_sections`` — visible, never ranked.
+    Ceiling: each span is clipped to ``span_chars`` (default 1,000) with the
+    clip stated; the ids are what let a reader pull the full text.
     """
     from portal.modules.compliance.core import reading_assembly
 
     repo = _repo()
     try:
-        return reading_assembly.conflicts_for_requirement(repo, ref, valid_at=valid_at)
+        payload = reading_assembly.conflicts_for_requirement(repo, ref, valid_at=valid_at)
+        for conflict in payload.get("conflicts", []):
+            for key in ("higher_authority", "lower_authority", "span_a", "span_b"):
+                span = conflict.get(key)
+                if isinstance(span, dict) and isinstance(span.get("text"), str):
+                    text, note = _clip(span["text"], span_chars)
+                    span["text"] = text
+                    if note:
+                        span["truncation"] = {"span_chars": span_chars, "stated": True}
+        return payload
     finally:
         repo.close()
 
 
 @mcp.tool()
 def compliance_links(
-    ref: str, direction: str = "both", status: str = "", derivation: str = ""
+    ref: str, direction: str = "both", status: str = "", derivation: str = "", max_edges: int = 50
 ) -> dict[str, Any]:
-    """Traversal over ``relationship_assertions``. Every edge is labelled with
-    its status, how it was derived and its confidence — a proposal is visible
-    as a proposal, never as an established fact."""
+    """Traversal over ``relationship_assertions`` — REFERENCES, not text.
+
+    Every edge is labelled with its status, how it was derived and its
+    confidence — a proposal is visible as a proposal, never as an established
+    fact. What an edge names is UNREAD until ``compliance_read`` fetches it.
+    Ceiling: ``max_edges`` (default 50) with truncation stated when hit.
+    """
     repo = _repo()
     try:
-        return _graph_links(repo, ref, direction, status, derivation)
+        payload = _graph_links(repo, ref, direction, status, derivation)
+        edges = payload.get("edges")
+        if isinstance(edges, list) and len(edges) > max_edges:
+            payload["edges"] = edges[:max_edges]
+            payload["truncation"] = {
+                "max_edges": max_edges,
+                "stated": True,
+                "omitted_edges": len(edges) - max_edges,
+            }
+        return payload
     finally:
         repo.close()
 
@@ -2202,60 +2294,167 @@ def compliance_note(
 
 
 @mcp.tool()
-def compliance_notes(subject_ref: str = "", limit: int = 50) -> dict[str, Any]:
-    """Operator notes about one subject, newest first, with their verbatim text."""
+def compliance_notes(
+    subject_ref: str = "", limit: int = 20, max_chars: int = 4000
+) -> dict[str, Any]:
+    """Operator notes about one subject, newest first, with their verbatim text.
+
+    Ceiling: each note's text is clipped to ``max_chars`` (default 4,000) with
+    the clip stated on the note; ``limit`` (default 20) bounds the count.
+    """
     from portal.modules.compliance.core.notes import notes_for
 
     repo = _repo()
     try:
-        return {"subject_ref": subject_ref, "notes": notes_for(repo, subject_ref, limit=limit)}
+        notes = notes_for(repo, subject_ref, limit=limit)
+        for note in notes:
+            text, clip_note = _clip(str(note.get("text", "")), max_chars)
+            note["text"] = text
+            if clip_note:
+                note["truncation"] = {"max_chars": max_chars, "stated": True}
+        return {"subject_ref": subject_ref, "notes": notes}
     finally:
         repo.close()
+
+
+def _index_row(section: dict[str, Any]) -> dict[str, Any]:
+    """One index row: where a section IS, and nothing of what it says."""
+    jurisdiction = str(section.get("jurisdiction", ""))
+    side = (
+        "operator"
+        if jurisdiction == "internal"
+        else (jurisdiction or str(section.get("source_kind", "")) or "regulatory")
+    )
+    return {
+        "section_id": section.get("section_id", ""),
+        "side": side,
+        "document": section.get("document_title") or section.get("logical_id", ""),
+        "path": section.get("path", "") or section.get("headings", ""),
+        "title": section.get("title", ""),
+        "page": section.get("page"),
+        "link_status": section.get("link_status", ""),
+    }
+
+
+#: Components whose sections vary with the requirement — the rows an index
+#: exists to enumerate. The rest are the standard's own fixed body (Section 4,
+#: Section 6, the implementation plan, version history…), identical for every
+#: requirement in the revision: measured on CIP-007-6 R2 Part 2.2, 210 of the
+#: 233 index rows were that fixed body, which is not what "what is in scope
+#: here" means and would have pushed one index call past a fifth of a 32k
+#: window. They are collapsed to a stated count instead of silently dropped.
+_INDEX_SCOPED = {
+    "requirement",
+    "measures",
+    "technical_basis",
+    "rationale",
+    "vsl",
+    "glossary",
+    "linked_internal",
+    "conflicts",
+}
 
 
 @mcp.tool()
 def compliance_context(
     ref: str,
+    mode: str = "index",
     budget_tokens: int = 60000,
     include: str = "",
     profile: str = "",
     valid_at: str = "",
 ) -> dict[str, Any]:
-    """**The reading assembly.** Everything a requirement's neighbourhood holds.
+    """**The neighbourhood index.** What a requirement's scope holds — ids, not text.
 
-    Deterministic and gathered by document structure, never by relevance score:
-    the requirement and its lead-in, every Part row with its own cells, the
-    Measures, the Guidelines and Technical Basis, the Rationale, the VSL rows,
-    Section 4 applicability and exemptions, Section 6 background and reading
-    conventions, the resolved Glossary terms the text depends on, the
-    implementation plan and technical rationale where they exist, the version
-    history, and the linked internal sections in full.
+    Default ``mode=index``: one row per section in every component — section
+    id, side, document, section path, page, link status — plus the operator
+    notes' metadata. NO text travels in this payload, and nothing is sized or
+    omitted: the index is the whole neighbourhood. It is what a conversation
+    needs to decide what to read next; the text itself is one
+    ``compliance_read`` (or ``compliance_requirement``) call away.
 
-    Sized to an explicit token budget, with anything omitted NAMED in the
-    payload, so the reader knows what it has not seen.
+    ``mode=packet`` assembles full text — the requirement and its lead-in,
+    every Part row, the Measures, the Guidelines and Technical Basis, the
+    Rationale, VSL rows, Section 4/6, glossary, and the linked internal
+    sections IN FULL — sized to ``budget_tokens``, with anything omitted NAMED.
+    A packet is a batch-reader artifact, not one turn of a conversation: on a
+    32k window a 60k-token packet ends the conversation in one call.
 
-    ``profile`` scopes the packet to a kind of question — ``full`` (default),
+    ``profile`` (packet mode) scopes the packet — ``full`` (default),
     ``intent``, ``conformance``, ``audit``, ``timeline``. Measured on
-    CIP-007-6 R2 Part 2.2: full is ~29,900 tokens, ``intent`` ~6,500. Nothing
-    infers the profile from the question; the caller names it, and everything a
-    profile leaves out is listed in ``omitted`` so the honest answer to a
-    question it cannot settle is "I would need the implementation plan for
-    that".
+    CIP-007-6 R2 Part 2.2: full is ~29,900 tokens, ``intent`` ~6,500.
     """
     from portal.modules.compliance.core.notes import notes_for
     from portal.modules.compliance.core.reading_assembly import assemble
 
     repo = _repo()
     try:
+        if mode == "packet":
+            payload = assemble(
+                repo,
+                ref,
+                budget_tokens=budget_tokens,
+                include=[i.strip() for i in include.split(",") if i.strip()] or None,
+                profile=profile,
+                valid_at=valid_at,
+            )
+            payload["operator_notes"] = notes_for(repo, ref)
+            return payload
+        # The index covers the WHOLE neighbourhood regardless of any budget —
+        # it is ids and paths, so there is nothing to leave out. Omitting a
+        # component here would be the packet's budget rule misapplied to a
+        # table of contents.
         payload = assemble(
             repo,
             ref,
-            budget_tokens=budget_tokens,
+            budget_tokens=2**31,
             include=[i.strip() for i in include.split(",") if i.strip()] or None,
             profile=profile,
             valid_at=valid_at,
         )
-        payload["operator_notes"] = notes_for(repo, ref)
+        if "error" in payload:
+            return payload
+        payload["mode"] = "index"
+        components: list[dict[str, Any]] = []
+        collapsed: list[dict[str, Any]] = []
+        for c in payload.get("components", []):
+            if c["component"] in _INDEX_SCOPED:
+                components.append(
+                    {
+                        "component": c["component"],
+                        "why": c["why"],
+                        "n_sections": len(c["sections"]),
+                        "sections": [_index_row(s) for s in c["sections"]],
+                    }
+                )
+            else:
+                collapsed.append(
+                    {
+                        "component": c["component"],
+                        "why": c["why"],
+                        "n_sections": len(c["sections"]),
+                        "reason": (
+                            "the standard's own fixed body, identical for every requirement in "
+                            "this revision — not enumerated per row; read by address or via "
+                            "compliance_sources"
+                        ),
+                    }
+                )
+        payload["components"] = components
+        payload["fixed_components_collapsed"] = collapsed
+        payload["operator_notes"] = [
+            {
+                key: note[key]
+                for key in ("section_id", "kind", "subject_ref", "created_at", "author")
+                if key in note
+            }
+            for note in notes_for(repo, ref)
+        ]
+        payload["note"] = (
+            "index only — no text is in this payload; read any id with compliance_read, "
+            "or fetch requirement+Measures+GTB with compliance_requirement; "
+            "mode=packet assembles full text to an explicit budget"
+        )
         return payload
     finally:
         repo.close()
@@ -2266,7 +2465,7 @@ def compliance_ask(
     question: str,
     ref: str,
     profile: str = "",
-    budget_tokens: int = 60000,
+    budget_tokens: int = 12000,
     valid_at: str = "",
     thread_id: str = "",
     model: str = "",
@@ -2281,6 +2480,11 @@ def compliance_ask(
     ids are then resolved and reported with **what each one is**, so an argument
     resting on the standard quoting itself as the operator's control is visible
     as exactly that. Nothing here adjudicates whether the answer is right.
+
+    ``budget_tokens`` declares 12,000 because that is what the reader enforces
+    (the assembly is clamped there regardless of what is asked); the declared
+    default used to say 60,000 — a policy the code silently ignored. This is a
+    batch and standing-question tool, not a conversation turn.
 
     The answer is retained and projected into the corpus as a ``derived``
     source: contestable, retrievable, never a fact, and outranked by any
@@ -2319,21 +2523,28 @@ def compliance_ask(
 
 
 @mcp.tool()
-def compliance_answers(subject_ref: str = "", include_superseded: bool = True) -> dict[str, Any]:
+def compliance_answers(
+    subject_ref: str = "", include_superseded: bool = True, max_chars: int = 2000
+) -> dict[str, Any]:
     """Stored answers about a subject, each with its citations and its standing.
 
     An answer is one analyst's notes pinned to the revisions it read. It is
     marked SUPERSEDED once a revision it cited moves, and it says so when an
-    operator note on the same subject outranks it.
+    operator note on the same subject outranks it. Ceiling: each answer's text
+    is clipped to ``max_chars`` (default 2,000) with the clip stated — read the
+    sections, not the prior answers, when the argument matters.
     """
     from portal.modules.compliance.core.reader import answers_for
 
     repo = _repo()
     try:
-        return {
-            "subject_ref": subject_ref,
-            "answers": answers_for(repo, subject_ref, include_superseded=include_superseded),
-        }
+        rows = answers_for(repo, subject_ref, include_superseded=include_superseded)
+        for row in rows:
+            text, clip_note = _clip(str(row.get("answer", "")), max_chars)
+            row["answer"] = text
+            if clip_note:
+                row["truncation"] = {"max_chars": max_chars, "stated": True}
+        return {"subject_ref": subject_ref, "answers": rows}
     finally:
         repo.close()
 

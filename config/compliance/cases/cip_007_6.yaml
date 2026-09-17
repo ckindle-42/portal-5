@@ -1,253 +1,45 @@
 # Six CIP-007-6 acceptance cases.
 #
-# TASK_COMPLIANCE_PROVE_CIP_007_V1 §P2. Every expectation below was derived by
-# READING the real material -- `compliance_requirement` for the node and
-# `compliance_read` for every operator section in scope -- and each records the
-# section ids it was derived from. Nothing here is invented, and no operator
-# document was manufactured to fill a case.
+# TASK_COMPLIANCE_WINDOW_AND_SEAT_V1 §P6. Live only, through the deployed
+# compliance-reading workspace on /v1. The first four cases are TURNS of one
+# thread (`thread: main`) — that is what makes them a conversation rather than
+# six audits; the last two open their own threads because they test different
+# shapes and must not inherit the main thread's context.
 #
-# What was PORTED from the old 26-case manifest, because it is a property of an
-# ANSWER rather than of a retired engine's output shape:
-#   required_citations, forbidden_citations (all 26 carried them), arithmetic
-#   (25), intentional_strictness -- PROMOTED from "advisory allowed" to
-#   REQUIRED -- missing_scope_declaration, false_pairs, governing_preservation.
+# WINDOW_AND_SEAT_V1 §P6.5: the string-matching rubric was DELETED —
+# `required_citations`, `forbidden_citations`, `arithmetic`, `must_state`,
+# `must_not_state` all went. A rubric that scores prose by string match
+# produced every false failure the last campaign recorded (`choice` failed 0/3
+# on a CORRECT answer whose "No." answered the question it was asked). What a
+# machine can still check, it does: every cited id resolves, a tool call was
+# made, the prompt was not truncated (missing input fails), the campaign
+# completed its planned cells. Whether an answer UNDERSTOOD the material is
+# judged by the agent, which reads each transcript and writes PASS or FAIL
+# with its reasons beside it.
 #
-# What was DROPPED, explicitly and on the record: documentary_coverage,
-# coverage, substantively_resolved, gap_kinds, council_votes. Those are the
-# retiring engine's output vocabulary, not properties of an answer. Carrying
-# that vocabulary forward is what made verification unportable four times.
+# Every case's `derived_from` list records the section ids the case was
+# derived from, by READING the real material. Nothing here is invented, and no
+# operator document was manufactured to fill a case. Measured on the live
+# store (WINDOW_AND_SEAT_V1 §P6.3): every CIP-007-6 Part has at least one
+# operator section — Part 5.2 is the minimum at exactly one, and that one
+# section restates the requirement verbatim rather than describing a practice,
+# which is the absence shape `no_operator_side` tests, reached honestly.
+# Every operator edge in the population carries link_status `proposed`.
 
 meta:
   standard: CIP-007-6
   revision_id: 5b7820e758467bbdd401ef806def3b91dfd7e5d98145146c36bf8c45a566a8bd
-  derived_against_prompt_version: reading-v2-2026-09-17
+  derived_against_prompt_version: reading-v2.1-2026-09-17
   derived_at: "2026-09-17"
-  corpus_findings:
-  - >-
-    Every one of the twenty CIP-007-6 Parts has at least one operator section in
-    its population, so no Part can carry the `no_operator_side` case as an
-    ABSENT operator side. Part 5.2 is the minimum at exactly one, and that one
-    section restates the requirement verbatim rather than describing a practice
-    -- which is the same answer shape reached honestly, from real material.
-  - >-
-    Every operator edge in the CIP-007-6 population carries link_status
-    `proposed`. There are no `approved` edges. Acceptance does not depend on
-    approvals by design; the population is reported with its standing.
-  - >-
-    The R2 VSL row (csection-94e31ab3fe6fb6051478, heading `2. Table of
-    Compliance Elements`) exists in the captured revision but is anchored to NO
-    requirement, so it is not in any population and the reader is never handed
-    it. It is reachable only through `compliance_search`.
-  - >-
-    Part 2.1's requirement row (csection-754b5967f6905d4c376e) is anchored with
-    relation `applicable_systems` rather than `governing`. The text is present
-    and citable; the relation label is the anomaly.
 
 cases:
 
-- id: interval
-  shape: hard number
-  ref: CIP-007-6 R2 Part 2.2
-  question: >-
-    How often must we evaluate security patches under CIP-007-6 R2 Part 2.2,
-    how often do we actually evaluate them, and is the difference a problem?
-  derived_from:
-  - csection-7700dd5499cead0994ec  # Part 2.2 governing row: "at least once every 35 calendar days"
-  - csection-285d8c24551776cb380d  # GTB 2.2: assessment "within 35 days of release"
-  - isection-21a30e0d44708f5dfdce  # operator 3.3.1: "every thirty-five (35) calendar days"
-  - isection-87d00aedd4cf1f41f0cd  # operator 3.4.2.1: "At least once every 35 calendar days"
-  - csection-440a5cdf9a6b65292ef3  # operator note: "every 30 days, not the 35 the Part allows"
-  tool_calls_min: 1
-  required_citations:
-    regulatory: [csection-7700dd5499cead0994ec]
-    operator_any: [isection-21a30e0d44708f5dfdce, isection-87d00aedd4cf1f41f0cd,
-                   csection-440a5cdf9a6b65292ef3]
-  forbidden_citations: []
-  arithmetic:
-    standard_days: 35
-    operator_days: 30
-    delta_days: 5
-    direction: stricter
-  must_state:
-  - id: standard_interval
-    kind: quantity
-    number: 35
-    unit: day
-    why: the Part's own figure
-  - id: operator_practice
-    kind: quantity
-    number: 30
-    unit: day
-    why: the operator's own recorded practice, from their note
-  - id: intentional_strictness
-    kind: concept
-    any_of: ["stricter", "more strict", "more stringent", "more frequent",
-             "shorter interval", "exceeds the requirement", "more often than"]
-    why: >-
-      REQUIRED, not advisory. The operator evaluates more often than the Part
-      obliges, and that is a fact to state.
-  - id: exceeding_is_permitted
-    kind: concept
-    any_of: ["permitted", "allowed", "not a violation", "not a gap",
-             "compliant", "does not create", "no requirement to relax"]
-    why: exceeding a requirement is permitted, and the answer must say so
-  must_not_state:
-  - id: strictness_as_gap
-    kind: absent_concept
-    any_of: ["is a gap", "a gap in", "non-compliance", "noncompliance",
-             "violation of part 2.2", "fails to meet", "does not comply"]
-    why: >-
-      Treating thirty-day evaluation as a shortfall against a thirty-five-day
-      obligation is the specific wrong answer this case exists to catch.
-
-- id: choice
-  shape: three permitted actions
-  ref: CIP-007-6 R2 Part 2.3
-  question: >-
-    CIP-007-6 R2 Part 2.3 gives a choice of three actions within 35 calendar
-    days. Which of them do our procedures allow, and does anything we have
-    written narrow that choice?
-  derived_from:
-  - csection-c36c38b8842c8bc217ac  # Part 2.3 governing: apply; OR create a dated plan; OR revise one
-  - csection-7d6ba196ae0e7c219624  # GTB 2.3: event designations, e.g. next scheduled outage of >=2 days
-  - isection-c75f69c881d6a214ff52  # operator 3.5.1: "one of the following actions shall be taken" (all three)
-  - isection-87d00aedd4cf1f41f0cd  # operator 3.4.2.1: the same three joined by "and", not "or"
-  - isection-12bd999ecfa8bf61d440  # operator 3.6: mitigation plan management
-  tool_calls_min: 1
-  required_citations:
-    regulatory: [csection-c36c38b8842c8bc217ac]
-    operator_any: [isection-c75f69c881d6a214ff52, isection-87d00aedd4cf1f41f0cd]
-  forbidden_citations: []
-  arithmetic:
-    standard_days: 35
-    operator_days: 35
-    delta_days: 0
-    direction: same
-  must_state:
-  - id: all_three_actions
-    kind: concept_all
-    all_of:
-    - ["apply", "install", "installation"]
-    - ["create", "creation", "dated mitigation plan"]
-    - ["revise", "revision", "revising"]
-    why: the standard offers three actions and the answer must recognise all three
-  - id: deadline_matches
-    kind: quantity
-    number: 35
-    unit: day
-    why: the operator's deadline and the standard's are the same figure
-  - id: or_versus_and
-    kind: concept
-    any_of: ["narrower", "narrows", "less latitude", "all three", "conjunctive",
-             "reads as requiring", "uses \"and\"", "joined by \"and\"",
-             "inconsistent", "inconsistency", "conflicts with", "disagree"]
-    why: >-
-      The operator's own two sections disagree. 3.5.1 says "one of the
-      following actions shall be taken" and lists all three -- correct. 3.4.2.1
-      lists the same three joined by "and", which reads as requiring all three
-      where the standard permits any one. That is the operator using LESS
-      latitude than NERC grants, and it is an inconsistency between two of
-      their own documents.
-  must_not_state:
-  - id: strictness_as_gap
-    kind: absent_concept
-    any_of: ["is a gap", "a gap in", "non-compliance", "noncompliance",
-             "violation of part 2.3"]
-    why: narrower than permitted is not a shortfall against the requirement
-
-- id: no_maximum
-  shape: no outer bound
-  ref: CIP-007-6 R2 Part 2.4
-  question: >-
-    By when must we implement a mitigation plan created under CIP-007-6 R2
-    Part 2.3? Does the standard set an outer deadline, and does our procedure?
-  derived_from:
-  - csection-c0cd08b61c308b0e6403  # Part 2.4 governing: "within the timeframe specified in the plan"
-  - csection-ac05e06738e383a07698  # GTB 2.4: "There is no maximum timeframe in this requirement"
-  - isection-87d00aedd4cf1f41f0cd  # operator 3.4.2.1: mirrors Part 2.4 wording exactly
-  - isection-12bd999ecfa8bf61d440  # operator 3.6: 35 days is the Part 2.3 TRIGGER, not a 2.4 deadline
-  - isection-34eefd771edff96a7384  # CIP Senior Manager delegation 3.3.3, for CIP-007-6 R2.4
-  tool_calls_min: 1
-  required_citations:
-    regulatory: [csection-c0cd08b61c308b0e6403]
-    operator_any: [isection-87d00aedd4cf1f41f0cd, isection-12bd999ecfa8bf61d440,
-                   isection-34eefd771edff96a7384]
-  forbidden_citations: []
-  arithmetic:
-    standard_days: null
-    operator_days: null
-    delta_days: null
-    direction: no maximum
-  must_state:
-  - id: no_maximum_in_standard
-    kind: concept
-    any_of: ["no maximum", "does not set", "sets no", "no outer", "no deadline",
-             "not specify a maximum", "no fixed", "timeframe specified in the plan"]
-    why: >-
-      Part 2.4 requires implementation within the timeframe the PLAN specifies;
-      its Guidelines and Technical Basis says in terms that there is no maximum
-      timeframe in the requirement.
-  - id: senior_manager_exception
-    kind: concept
-    any_of: ["cip senior manager", "senior manager", "delegate"]
-    why: the one named route to a revision or extension
-  must_not_state:
-  - id: invented_deadline
-    kind: absent_concept
-    any_of: ["part 2.4 requires implementation within 35",
-             "must implement the plan within 35",
-             "2.4 deadline of 35", "35 calendar days to implement the plan"]
-    why: >-
-      3.6.1's thirty-five days is the Part 2.3 trigger for CREATING a plan, not
-      a Part 2.4 deadline for implementing one. Reading it across is the
-      specific wrong answer this case exists to catch.
-
-- id: either_or
-  shape: conditional either/or
-  ref: CIP-007-6 R5 Part 5.7
-  question: >-
-    Does what we have written satisfy CIP-007-6 R5 Part 5.7, and what applies
-    where limiting unsuccessful authentication attempts is not technically
-    feasible?
-  derived_from:
-  - csection-98ce4ada99c0ad8c57dd  # Part 5.7 governing: where technically feasible, either limit OR alert
-  - csection-f0bda2e1711f7a09b0b8  # GTB 5.7: threshold tuning
-  - csection-f5df3655893798a35602  # Rationale R5: EITHER branch; caution on lockout as a DoS vector
-  - isection-a9fc0586269cfac4a5c3  # operator 3.5.3.1: "Limit ... AND/OR; Generate alerts ..."
-  - isection-fbc9ce9e2439c4f4af90  # operator 3.4.5.1: "either: Limit ... or ..."
-  tool_calls_min: 1
-  required_citations:
-    regulatory: [csection-98ce4ada99c0ad8c57dd]
-    operator_any: [isection-a9fc0586269cfac4a5c3, isection-fbc9ce9e2439c4f4af90]
-  forbidden_citations: []
-  arithmetic: null
-  must_state:
-  - id: either_branch_satisfies
-    kind: concept
-    any_of: ["either", "or", "one of the two", "not both", "any one"]
-    why: either branch satisfies the Part; the answer must not read it as conjunctive
-  - id: technical_feasibility
-    kind: concept
-    any_of: ["technically feasible", "technical feasibility", "tfe",
-             "technical feasibility exception"]
-    why: >-
-      "Where technically feasible" is a CONDITION on the obligation. Infeasibility
-      is not non-compliance; it is the route the standard itself provides.
-  must_not_state:
-  - id: both_required
-    kind: absent_concept
-    any_of: ["both are required", "must do both", "requires both",
-             "both limiting and alerting are required"]
-    why: >-
-      The operator's 3.5.3.1 says "AND/OR", which includes OR. Reading it as
-      mandating both is the specific wrong answer this case exists to catch.
-
 - id: parent
   shape: rollup
+  thread: main
   ref: CIP-007-6 R2
   question: >-
-    Across all four Parts of CIP-007-6 R2, where do our patch-management
-    procedures stand, and how would a violation of each Part be priced?
+    Where are our gaps in CIP-007-6 R2, and how bad is each one?
   derived_from:
   - csection-754b5967f6905d4c376e  # Part 2.1 row (anchored as applicable_systems)
   - csection-7700dd5499cead0994ec  # Part 2.2 governing
@@ -259,74 +51,72 @@ cases:
   - isection-c75f69c881d6a214ff52
   - isection-12bd999ecfa8bf61d440
   tool_calls_min: 2
-  required_citations:
-    regulatory: [csection-7700dd5499cead0994ec, csection-c36c38b8842c8bc217ac,
-                 csection-c0cd08b61c308b0e6403]
-    operator_min: 1
-  forbidden_citations: []
-  arithmetic: null
-  must_state:
-  - id: all_four_parts
-    kind: concept_all
-    all_of: [["2.1"], ["2.2"], ["2.3"], ["2.4"]]
-    why: >-
-      The parent stands for its four Parts. Collapsing them into one verdict is
-      what the parent-level scope defect produced and what this case exists to
-      catch.
-  - id: vsl_or_declared
-    kind: concept
-    any_of: ["vsl", "violation severity", "severe", "moderate", "lower",
-             "not in the material", "was not given", "did not read",
-             "not available", "not in scope", "could not find"]
-    why: >-
-      The VSL row exists in the captured revision but is anchored to nothing, so
-      it reaches the reader only through `compliance_search`. Either the answer
-      finds and prices against it, or it says plainly that it does not have it.
-      A silent omission is the failure.
-  must_not_state:
-  - id: single_collapsed_verdict
-    kind: absent_concept
-    any_of: ["r2 is fully compliant", "r2 is compliant overall",
-             "overall verdict for r2", "r2 as a whole is"]
-    why: four Parts, four obligations, not one rolled-up verdict
+
+- id: choice
+  shape: three permitted actions
+  thread: main
+  ref: CIP-007-6 R2 Part 2.3
+  question: >-
+    Are we using all the latitude NERC gives us on Part 2.3?
+  derived_from:
+  - csection-c36c38b8842c8bc217ac  # Part 2.3 governing: apply; OR create a dated plan; OR revise one
+  - csection-7d6ba196ae0e7c219624  # GTB 2.3: event designations, e.g. next scheduled outage of >=2 days
+  - isection-c75f69c881d6a214ff52  # operator 3.5.1: "one of the following actions shall be taken" (all three)
+  - isection-87d00aedd4cf1f41f0cd  # operator 3.4.2.1: the same three joined by "and", not "or"
+  - isection-12bd999ecfa8bf61d440  # operator 3.6: mitigation plan management
+  tool_calls_min: 1
+
+- id: interval
+  shape: hard number
+  thread: main
+  ref: CIP-007-6 R2 Part 2.2
+  question: >-
+    Is our 30-day evaluation cycle stricter than Part 2.2 requires?
+  derived_from:
+  - csection-7700dd5499cead0994ec  # Part 2.2 governing row: "at least once every 35 calendar days"
+  - csection-285d8c24551776cb380d  # GTB 2.2: assessment "within 35 days of release"
+  - isection-21a30e0d44708f5dfdce  # operator 3.3.1: "every thirty-five (35) calendar days"
+  - isection-87d00aedd4cf1f41f0cd  # operator 3.4.2.1: "At least once every 35 calendar days"
+  - csection-440a5cdf9a6b65292ef3  # operator note: "every 30 days, not the 35 the Part allows"
+  tool_calls_min: 1
+
+- id: read_check
+  shape: both sides cited
+  thread: main
+  ref: CIP-007-6 R2
+  question: >-
+    Did you read our patch management procedure, or just the standard?
+  derived_from:
+  - isection-87d00aedd4cf1f41f0cd  # operator 3.4.2.1 — the patch management procedure's evaluation section
+  - isection-21a30e0d44708f5dfdce  # operator 3.3.1
+  - isection-c75f69c881d6a214ff52  # operator 3.5.1
+  - isection-12bd999ecfa8bf61d440  # operator 3.6
+  tool_calls_min: 1
+
+- id: either_or
+  shape: conditional either/or
+  thread: eitheror
+  ref: CIP-007-6 R5 Part 5.7
+  question: >-
+    Does our account-lockout setup satisfy Part 5.7?
+  derived_from:
+  - csection-98ce4ada99c0ad8c57dd  # Part 5.7 governing: where technically feasible, either limit OR alert
+  - csection-f0bda2e1711f7a09b0b8  # GTB 5.7: threshold tuning
+  - csection-f5df3655893798a35602  # Rationale R5: EITHER branch; caution on lockout as a DoS vector
+  - isection-a9fc0586269cfac4a5c3  # operator 3.5.3.1: "Limit ... AND/OR; Generate alerts ..."
+  - isection-fbc9ce9e2439c4f4af90  # operator 3.4.5.1: "either: Limit ... or ..."
+  tool_calls_min: 1
 
 - id: no_operator_side
   shape: absence
+  thread: noop
   ref: CIP-007-6 R5 Part 5.2
   question: >-
-    What does CIP-007-6 R5 Part 5.2 require, and which of our own documents
-    shows that we actually do it?
+    What does Part 5.2 require, and which of our own documents shows that we
+    actually do it?
   derived_from:
   - csection-ec458b69bb605a5c345a  # Part 5.2 governing: identify and inventory default/generic accounts
   - csection-babf06d3f1ed425a7b4a  # GTB 5.2: remove, rename or disable where possible; document what remains
   - csection-2bf8f38b1549dcff2970  # Rationale 5.2: the Part deliberately prescribes no action
   - isection-fbc9ce9e2439c4f4af90  # the ONE operator section in scope -- a verbatim restatement
   tool_calls_min: 1
-  required_citations:
-    regulatory: [csection-ec458b69bb605a5c345a]
-    operator_any: [isection-fbc9ce9e2439c4f4af90]
-  forbidden_citations: []
-  arithmetic: null
-  must_state:
-  - id: restatement_not_evidence
-    kind: concept
-    any_of: ["restates", "repeats", "mirrors", "same wording", "verbatim",
-             "no procedure", "does not describe", "no operator document",
-             "does not show", "no evidence"]
-    why: >-
-      The single operator section in scope reproduces the Part's own wording and
-      describes no practice. A document that restates a requirement is not
-      evidence that the operator does anything, and the prompt says so.
-  - id: unverified_not_gap
-    kind: concept
-    any_of: ["unverified", "cannot confirm", "not confirmed", "cannot settle",
-             "would settle", "not a confirmed gap", "no evidence either way"]
-    why: absence of evidence in scope is an unverified obligation, not a proven gap
-  must_not_state:
-  - id: confirmed_gap
-    kind: absent_concept
-    any_of: ["this is a gap", "confirmed gap", "we are non-compliant",
-             "we are noncompliant", "violation of part 5.2"]
-    why: >-
-      An unread or unrepresented obligation is not a proven failure, and calling
-      it one is a false accusation against the operator.

@@ -1,0 +1,217 @@
+{
+ "cell": "workspace__hf-co-unsloth-Qwen3-8-27B-GGUF-Q4-K-M-ctx32k__interval__run1",
+ "adapter": "workspace",
+ "seat": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+ "case": "interval",
+ "ref": "CIP-007-6 R2 Part 2.2",
+ "thread": "main",
+ "question": "Is our 30-day evaluation cycle stricter than Part 2.2 requires?",
+ "run_index": 1,
+ "environment_before": {
+  "at": "2026-09-17T21:44:35Z",
+  "ollama_version": "0.34.0",
+  "ollama_ps": [
+   {
+    "name": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+    "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+    "size": 18646009117,
+    "digest": "71936e26c83aabf99c7cfe1805c098a24684f91a0d132542952b9975a518c937",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "qwen35",
+     "families": [
+      "qwen35"
+     ],
+     "parameter_size": "27.3B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-17T16:49:35.505612-05:00",
+    "size_vram": 18646009117,
+    "context_length": 32768
+   }
+  ],
+  "free_memory_mb": 11046,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "turn": {
+  "question": "Is our 30-day evaluation cycle stricter than Part 2.2 requires?",
+  "answer": "\n\n[Tool-use limit (20 hops) reached. Returning partial result.]",
+  "reasoning_chars": 0,
+  "wall_s": 71.32,
+  "first_token_s": 0.02,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+  "served_model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+  "tool_calls": {
+   "kb_list": 19.0
+  },
+  "tool_errors": {
+   "kb_list": 19.0
+  },
+  "usage_hops": [
+   {
+    "prompt_tokens": 3297,
+    "completion_tokens": 15
+   },
+   {
+    "prompt_tokens": 3353,
+    "completion_tokens": 15
+   },
+   {
+    "prompt_tokens": 3412,
+    "completion_tokens": 15
+   },
+   {
+    "prompt_tokens": 3471,
+    "completion_tokens": 15
+   },
+   {
+    "prompt_tokens": 3530,
+    "completion_tokens": 15
+   },
+   {
+    "prompt_tokens": 3589,
+    "completion_tokens": 15
+   },
+   {
+    "prompt_tokens": 3648,
+    "completion_tokens": 15
+   },
+   {
+    "prompt_tokens": 3707,
+    "completion_tokens": 15
+   },
+   {
+    "prompt_tokens": 3766,
+    "completion_tokens": 15
+   },
+   {
+    "prompt_tokens": 3825,
+    "completion_tokens": 15
+   },
+   {
+    "prompt_tokens": 3884,
+    "completion_tokens": 15
+   },
+   {
+    "prompt_tokens": 3942,
+    "completion_tokens": 15
+   },
+   {
+    "prompt_tokens": 4000,
+    "completion_tokens": 15
+   },
+   {
+    "prompt_tokens": 4058,
+    "completion_tokens": 15
+   },
+   {
+    "prompt_tokens": 4116,
+    "completion_tokens": 15
+   },
+   {
+    "prompt_tokens": 4174,
+    "completion_tokens": 15
+   },
+   {
+    "prompt_tokens": 4232,
+    "completion_tokens": 15
+   },
+   {
+    "prompt_tokens": 4290,
+    "completion_tokens": 15
+   },
+   {
+    "prompt_tokens": 4348,
+    "completion_tokens": 15
+   },
+   {
+    "prompt_tokens": 4406,
+    "completion_tokens": 15
+   }
+  ],
+  "prompt_tokens_high_water": 4406,
+  "prompt_tokens_final_hop": 4406,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+ },
+ "thread_length_messages": 6,
+ "served_model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+ "guard": [],
+ "checks": [
+  {
+   "assertion": "http_200",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "assertion": "answer_nonempty",
+   "ok": true,
+   "detail": 63
+  },
+  {
+   "assertion": "prompt_tokens_measured",
+   "ok": true,
+   "detail": {
+    "high_water": 4406,
+    "final_hop": 4406,
+    "hops_seen": 20
+   }
+  },
+  {
+   "assertion": "applied_window_known_and_not_exceeded",
+   "ok": true,
+   "detail": {
+    "served_model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+    "applied_ctx": 32768,
+    "input_tokens": 4406.0
+   }
+  },
+  {
+   "assertion": "tool_calls>=1",
+   "ok": true,
+   "detail": {
+    "kb_list": 19.0
+   }
+  },
+  {
+   "assertion": "cited_ids_resolve",
+   "ok": false,
+   "detail": "no section id cited in the answer"
+  }
+ ],
+ "passed": false,
+ "environment_after": {
+  "at": "2026-09-17T21:45:46Z",
+  "ollama_version": "0.34.0",
+  "ollama_ps": [
+   {
+    "name": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+    "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+    "size": 18646009117,
+    "digest": "71936e26c83aabf99c7cfe1805c098a24684f91a0d132542952b9975a518c937",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "qwen35",
+     "families": [
+      "qwen35"
+     ],
+     "parameter_size": "27.3B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-17T16:50:46.949939-05:00",
+    "size_vram": 18646009117,
+    "context_length": 32768
+   }
+  ],
+  "free_memory_mb": 11073,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "failed_assertions": [
+  "cited_ids_resolve"
+ ]
+}

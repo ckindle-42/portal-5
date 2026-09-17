@@ -451,7 +451,20 @@ class TestPromptOrderIsCacheable:
             retain_run=False,
         )
         messages = seen["messages"]
-        assert "## requirement" in messages[1]["content"]
+        # WINDOW_AND_SEAT_V1 P1.3: the seed carries no text-bearing regulatory
+        # component — the requirement text arrives once, through the recorded
+        # bootstrap payloads that follow it, and the seed names what it has
+        # NOT seen. The material-and-acquisition prefix still precedes the
+        # question.
+        assert "## requirement" not in messages[1]["content"]
+        tool_names = [str(m.get("tool_name", "")) for m in messages if m.get("role") == "tool"]
+        assert tool_names[:2] == ["compliance_requirement", "compliance_links"]
+        requirement_payload = next(
+            str(m.get("content", ""))
+            for m in messages
+            if m.get("role") == "tool" and m.get("tool_name") == "compliance_requirement"
+        )
+        assert '"components"' in requirement_payload
         # the question is the LAST thing said, so the material and the recorded
         # acquisition are a prefix that does not move between turns
         assert messages[-1]["content"].rstrip().endswith("WHAT-IS-THE-QUESTION")

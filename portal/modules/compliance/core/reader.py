@@ -753,7 +753,28 @@ def read(  # noqa: PLR0912, PLR0915
         for identity in requirement_scope.resolve(repo, ref).refs
         for note in notes_for(repo, identity)
     ]
+    # WINDOW_AND_SEAT_V1 P1.3: the seed ships NO text-bearing regulatory
+    # component. `114b72a0` added the bootstrap (requirement packet + links)
+    # for a correct measured reason and nothing removed the seed's first copy,
+    # so the requirement's verbatim text, Measures and Technical Basis rode in
+    # the thread TWICE on turn one — pure high-water-mark inflation on a fixed
+    # window. The bootstrap keeps them: a recorded call the closure can count,
+    # non-elective, inside the same cacheable prefix. What stays in the seed is
+    # the header, the operator's own notes, and the omission disclosure — with
+    # the three bootstrap-covered components removed from that disclosure,
+    # because the model is about to be handed them two messages later and a
+    # "you have not seen this" that is false on the next line is a lie, not a
+    # disclosure.
+    bootstrap_components = {"requirement", "measures", "technical_basis"}
+    seed_components = context["components"]
+    context["components"] = []
+    context["omitted"] = [
+        entry
+        for entry in context.get("omitted", [])
+        if entry.get("component") not in bootstrap_components
+    ]
     seed = _render_material(context)
+    context["components"] = seed_components
     prior: list[dict[str, Any]] = []
     if thread_id:
         rows = repo._conn.execute(
