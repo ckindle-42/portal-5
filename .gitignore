@@ -150,5 +150,9 @@ portal/modules/compliance/data/compliance_store.db
 portal/modules/compliance/data/compliance_store.db-wal
 portal/modules/compliance/data/compliance_store.db-shm
 portal/modules/compliance/data/private/
+# The same private material under the repo-level data root. It was NOT ignored
+# here, only under portal/modules/compliance/data/, so a `git add -A` swept
+# 158MB of operator store backups into a commit.
+data/private/
 # P7/F09: operator-issued reviewer tokens — a secret, never committed.
 portal/modules/compliance/data/compliance_reviewers.json
