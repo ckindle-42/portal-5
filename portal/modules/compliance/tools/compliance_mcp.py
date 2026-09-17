@@ -1487,8 +1487,8 @@ def compliance_review_list(
                 "view": view,
                 "items": items,
             }
-        items = rq.list_items(kind=kind or None, status=status or None)
-        return {"count": len(items), "view": "all", "items": [dataclasses.asdict(i) for i in items]}
+        rows = rq.list_items(kind=kind or None, status=status or None)
+        return {"count": len(rows), "view": "all", "items": [dataclasses.asdict(i) for i in rows]}
     except Exception as e:  # noqa: BLE001
         return {"error": str(e)}
 
