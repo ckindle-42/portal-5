@@ -1,156 +1,156 @@
 [
-  {
-    "description": "List all available knowledge bases (KBs) and their document counts.",
-    "name": "kb_list",
-    "parameters": {
-      "properties": {},
-      "required": [],
-      "type": "object"
-    }
-  },
-  {
-    "description": "Search a specific knowledge base. Multimodal by default: fuses text-chunk and rendered-PDF-page retrieval (RRF) via the Qwen3-VL retrieval model. Returns top chunks with source_file, text, fused_score (RRF fusion value), reranker_prob (VL reranker probability, visual rows only), and kind (text|visual).",
-    "name": "kb_search",
-    "parameters": {
-      "properties": {
-        "kb_id": {
-          "description": "Knowledge base identifier",
-          "type": "string"
-        },
-        "query": {
-          "type": "string"
-        },
-        "query_type": {
-          "default": "vector",
-          "enum": [
-            "vector",
-            "fts",
-            "hybrid"
-          ],
-          "type": "string"
-        },
-        "top_k": {
-          "default": 5,
-          "maximum": 20,
-          "minimum": 1,
-          "type": "integer"
-        }
-      },
-      "required": [
-        "kb_id",
-        "query"
-      ],
-      "type": "object"
-    }
-  },
-  {
-    "description": "Search across all knowledge bases simultaneously (multimodal, RRF-fused). Useful when the user's question could be answered by any KB.",
-    "name": "kb_search_all",
-    "parameters": {
-      "properties": {
-        "query": {
-          "type": "string"
-        },
-        "query_type": {
-          "default": "vector",
-          "enum": [
-            "vector",
-            "fts",
-            "hybrid"
-          ],
-          "type": "string"
-        },
-        "top_k": {
-          "default": 5,
-          "maximum": 20,
-          "minimum": 1,
-          "type": "integer"
-        }
-      },
-      "required": [
-        "query"
-      ],
-      "type": "object"
-    }
-  },
-  {
-    "description": "Admin: ingest files from a directory into a knowledge base. Text chunks are VL-embedded; PDF pages are additionally rendered to images and embedded in the same pass (multimodal index). Reads .md/.txt/.pdf/.docx/.pptx/.xlsx/.html/.epub.",
-    "name": "kb_ingest",
-    "parameters": {
-      "properties": {
-        "fts": {
-          "default": false,
-          "description": "Build a native Lance BM25 full-text index after ingest (enables query_type fts/hybrid on this KB)",
-          "type": "boolean"
-        },
-        "kb_id": {
-          "type": "string"
-        },
-        "rebuild": {
-          "default": false,
-          "description": "Drop existing chunks and reingest",
-          "type": "boolean"
-        },
-        "source_dir": {
-          "description": "Absolute path to directory of source files",
-          "type": "string"
-        }
-      },
-      "required": [
-        "kb_id",
-        "source_dir"
-      ],
-      "type": "object"
-    }
-  },
-  {
-    "description": "Admin: build an IVF_PQ vector index on a KB for faster search. Skipped automatically for KBs under 256 chunks (brute-force is already fast). Run after large ingests.",
-    "name": "kb_optimize",
-    "parameters": {
-      "properties": {
-        "kb_id": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "kb_id"
-      ],
-      "type": "object"
-    }
-  },
-  {
-    "description": "List a KB's LanceDB version history and named tags (e.g. automatic pre-rebuild tags). Use with kb_restore to roll back.",
-    "name": "kb_versions",
-    "parameters": {
-      "properties": {
-        "kb_id": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "kb_id"
-      ],
-      "type": "object"
-    }
-  },
-  {
-    "description": "Admin: restore a KB to an earlier LanceDB version (see kb_versions). The restore itself is a new version, so it can be undone.",
-    "name": "kb_restore",
-    "parameters": {
-      "properties": {
-        "kb_id": {
-          "type": "string"
-        },
-        "version": {
-          "description": "Version number from kb_versions",
-          "type": "integer"
-        }
-      },
-      "required": [
-        "kb_id",
-        "version"
-      ],
-      "type": "object"
-    }
+ {
+  "description": "List retrieval KBs with document counts.",
+  "name": "kb_list",
+  "parameters": {
+   "properties": {},
+   "required": [],
+   "type": "object"
   }
+ },
+ {
+  "description": "Keyword search in one retrieval KB; returns ranked chunk ids and snippets for locating operator documents.",
+  "name": "kb_search",
+  "parameters": {
+   "properties": {
+    "kb_id": {
+     "description": "Knowledge base identifier",
+     "type": "string"
+    },
+    "query": {
+     "type": "string"
+    },
+    "query_type": {
+     "default": "vector",
+     "enum": [
+      "vector",
+      "fts",
+      "hybrid"
+     ],
+     "type": "string"
+    },
+    "top_k": {
+     "default": 5,
+     "maximum": 20,
+     "minimum": 1,
+     "type": "integer"
+    }
+   },
+   "required": [
+    "kb_id",
+    "query"
+   ],
+   "type": "object"
+  }
+ },
+ {
+  "description": "Search across all knowledge bases simultaneously (multimodal, RRF-fused). Useful when the user's question could be answered by any KB.",
+  "name": "kb_search_all",
+  "parameters": {
+   "properties": {
+    "query": {
+     "type": "string"
+    },
+    "query_type": {
+     "default": "vector",
+     "enum": [
+      "vector",
+      "fts",
+      "hybrid"
+     ],
+     "type": "string"
+    },
+    "top_k": {
+     "default": 5,
+     "maximum": 20,
+     "minimum": 1,
+     "type": "integer"
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  }
+ },
+ {
+  "description": "Admin: ingest files from a directory into a knowledge base. Text chunks are VL-embedded; PDF pages are additionally rendered to images and embedded in the same pass (multimodal index). Reads .md/.txt/.pdf/.docx/.pptx/.xlsx/.html/.epub.",
+  "name": "kb_ingest",
+  "parameters": {
+   "properties": {
+    "fts": {
+     "default": false,
+     "description": "Build a native Lance BM25 full-text index after ingest (enables query_type fts/hybrid on this KB)",
+     "type": "boolean"
+    },
+    "kb_id": {
+     "type": "string"
+    },
+    "rebuild": {
+     "default": false,
+     "description": "Drop existing chunks and reingest",
+     "type": "boolean"
+    },
+    "source_dir": {
+     "description": "Absolute path to directory of source files",
+     "type": "string"
+    }
+   },
+   "required": [
+    "kb_id",
+    "source_dir"
+   ],
+   "type": "object"
+  }
+ },
+ {
+  "description": "Admin: build an IVF_PQ vector index on a KB for faster search. Skipped automatically for KBs under 256 chunks (brute-force is already fast). Run after large ingests.",
+  "name": "kb_optimize",
+  "parameters": {
+   "properties": {
+    "kb_id": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "kb_id"
+   ],
+   "type": "object"
+  }
+ },
+ {
+  "description": "List a KB's LanceDB version history and named tags (e.g. automatic pre-rebuild tags). Use with kb_restore to roll back.",
+  "name": "kb_versions",
+  "parameters": {
+   "properties": {
+    "kb_id": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "kb_id"
+   ],
+   "type": "object"
+  }
+ },
+ {
+  "description": "Admin: restore a KB to an earlier LanceDB version (see kb_versions). The restore itself is a new version, so it can be undone.",
+  "name": "kb_restore",
+  "parameters": {
+   "properties": {
+    "kb_id": {
+     "type": "string"
+    },
+    "version": {
+     "description": "Version number from kb_versions",
+     "type": "integer"
+    }
+   },
+   "required": [
+    "kb_id",
+    "version"
+   ],
+   "type": "object"
+  }
+ }
 ]

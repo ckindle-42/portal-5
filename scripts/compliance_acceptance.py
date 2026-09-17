@@ -118,83 +118,36 @@ def resolve_sides(citations: list[dict[str, Any]], sides: dict[str, str]) -> lis
 
 # ── the checks ──────────────────────────────────────────────────────────────
 #
-# Semantic, not string-equality: a `concept` passes on any member of a phrase
-# FAMILY, a `quantity` uses the reader's own number extraction (which handles
-# "thirty-five (35) calendar days"), and a citation check is evaluated against
-# RESOLVED citations with their side, not against the raw text of the answer.
-
-
-def _normalise(text: str) -> str:
-    from portal.modules.compliance.core.reader import _DASHES
-
-    return " ".join(text.translate(_DASHES).lower().split())
-
-
-def _quantity_stated(answer: str, number: int, unit: str) -> bool:
-    from portal.modules.compliance.core.reader import _quantity_in
-
-    return _quantity_in(str(number), unit, answer)
-
-
-def _concept(text: str, phrases: list[str]) -> str:
-    for phrase in phrases:
-        if _normalise(phrase) in text:
-            return phrase
-    return ""
+# WINDOW_AND_SEAT_V1 P6.5: the string-matching rubric is DELETED. `must_state`,
+# `must_not_state` and `forbidden_citations` produced every false failure the
+# last campaign recorded — `choice` failed 0/3 because a CORRECT answer ("No.
+# The operator's procedure preserves all three permitted actions") matched
+# `no` … `procedure`. Judging whether an answer understood the material is the
+# agent's job now, done by READING the transcript and writing its verdict
+# beside it. What stays is exactly the four facts a machine cannot get wrong:
+# cited ids resolve, a tool call was made, the prompt was not truncated (with
+# a missing input failing rather than reading as zero), and the campaign
+# completed its planned cells.
 
 
 def check_case(case: dict[str, Any], payload: dict[str, Any]) -> list[dict[str, Any]]:
-    """Every assertion for one case, each naming itself when it fails."""
-    answer = str(payload.get("answer", "") or "")
-    text = _normalise(answer)
+    """The deterministic checks for one `reader`-adapter cell.
+
+    Three facts, each naming itself when it fails: every cited id resolves, a
+    tool call was made, and the reading did not fail its own contract. The
+    truncation guard is separate and gates these. Whether the answer UNDERSTOOD
+    the material is the agent judge's call, made by reading the transcript.
+    """
     closure = payload.get("closure_receipt") or {}
-    sides = population_sides(str(case["ref"]))
-    citations = resolve_sides(
-        list((payload.get("verification") or {}).get("citations") or []), sides
-    )
-    resolved = {c["cited_ref"] for c in citations if c.get("resolved")}
+    verification = payload.get("verification") or {}
     rows: list[dict[str, Any]] = []
 
     def add(name: str, ok: bool, detail: Any = "") -> None:
         rows.append({"assertion": name, "ok": bool(ok), "detail": detail})
 
-    required = case.get("required_citations") or {}
-    for ref in required.get("regulatory") or []:
-        add(f"required_citation:{ref}", ref in resolved, "cited" if ref in resolved else "absent")
-    any_of = required.get("operator_any") or []
-    if any_of:
-        hit = [r for r in any_of if r in resolved]
-        add("required_citation:operator_any", bool(hit), hit or f"none of {any_of}")
-    minimum = required.get("operator_min")
-    if minimum:
-        operator = [c["cited_ref"] for c in citations if c["side"].startswith("operator")]
-        add(f"operator_citations>={minimum}", len(operator) >= minimum, operator)
-
-    for ref in case.get("forbidden_citations") or []:
-        add(f"forbidden_citation:{ref}", ref not in resolved, "cited" if ref in resolved else "ok")
-
-    # Both sides, always. An answer about the operator's posture written only
-    # from regulatory text is an answer about the standard.
-    operator_cited = [c["cited_ref"] for c in citations if c["side"].startswith("operator")]
-    add("cites_the_operator_side", bool(operator_cited), operator_cited)
-
-    for spec in case.get("must_state") or []:
-        kind = spec["kind"]
-        if kind == "quantity":
-            ok = _quantity_stated(answer, int(spec["number"]), str(spec["unit"]))
-            add(f"must_state:{spec['id']}", ok, f"{spec['number']} {spec['unit']}")
-        elif kind == "concept":
-            hit = _concept(text, list(spec["any_of"]))
-            add(f"must_state:{spec['id']}", bool(hit), hit or f"none of {spec['any_of']}")
-        elif kind == "concept_all":
-            missing = [group for group in spec["all_of"] if not _concept(text, list(group))]
-            add(f"must_state:{spec['id']}", not missing, missing or "all present")
-        else:
-            add(f"must_state:{spec['id']}", False, f"unknown check kind {kind!r}")
-
-    for spec in case.get("must_not_state") or []:
-        hit = _concept(text, list(spec["any_of"]))
-        add(f"must_not_state:{spec['id']}", not hit, hit or "absent")
+    citations = list(verification.get("citations") or [])
+    unresolved = [c.get("cited_ref") for c in citations if not c.get("resolved")]
+    add("cited_ids_resolve", len(citations) > 0 and not unresolved, unresolved or "all resolve")
 
     minimum_calls = int(case.get("tool_calls_min") or 0)
     made = int(closure.get("model_tool_calls") or 0)
@@ -364,6 +317,271 @@ def legacy_comparable(result: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# ── the workspace path (WINDOW_AND_SEAT_V1) ─────────────────────────────────
+#
+# The deployed compliance-reading workspace on /v1 — the path the operator
+# actually uses, with the 20-hop router loop and the schema tax. Every
+# measurement the earlier adapters take lands on a path the operator does not
+# touch; this one lands on the product.
+
+
+def router_base_url() -> str:
+    """The deployed router, from ``PORTAL_ROUTER_URL`` or the compose default."""
+    return os.environ.get("PORTAL_ROUTER_URL", "http://localhost:9099").rstrip("/")
+
+
+def _api_key() -> str:
+    env = REPO / ".env"
+    if env.is_file():
+        for line in env.read_text().splitlines():
+            if line.startswith("PIPELINE_API_KEY="):
+                return line.split("=", 1)[1].strip()
+    return os.environ.get("PIPELINE_API_KEY", "")
+
+
+def snapshot_counters(session: httpx.Client, router: str) -> dict[str, float]:
+    """The router's Prometheus counters, flattened.
+
+    Deltas of ``portal_input_tokens_total``/``portal_output_tokens_total``
+    (model+workspace labelled) give a turn's total prompt/output tokens across
+    ALL hops of the tool loop — the streamed SSE never exposes per-hop usage to
+    the client, and the last hop's usage alone would under-count a multi-hop
+    turn by every hop but the last. ``portal5_tool_calls_total`` deltas give
+    the per-turn tool trace by name.
+    """
+    try:
+        text = session.get(f"{router}/metrics", timeout=10).text
+    except Exception as exc:  # noqa: BLE001 - counters are evidence, not the road
+        return {"error": str(exc)}
+    out: dict[str, float] = {}
+    for line in text.splitlines():
+        if line.startswith("#") or " " not in line:
+            continue
+        name, _, value = line.partition(" ")
+        if name.startswith(
+            (
+                "portal_input_tokens_total",
+                "portal_output_tokens_total",
+                "portal5_tool_calls_total",
+                "portal5_tool_call_errors_total",
+            )
+        ):
+            try:
+                out[name + line[line.index("{") : line.index("}") + 1]] = float(value)
+            except ValueError:
+                continue
+    return out
+
+
+def counter_delta(before: dict[str, float], after: dict[str, float]) -> dict[str, dict[str, float]]:
+    """Per-label deltas between two counter snapshots."""
+    out: dict[str, dict[str, float]] = {"input": {}, "output": {}, "tools": {}, "tool_errors": {}}
+    for key, value in after.items():
+        delta = value if key not in before else value - before[key]
+        if abs(delta) < 1e-9:
+            continue
+        if key.startswith("portal_input_tokens_total"):
+            out["input"][key] = delta
+        elif key.startswith("portal_output_tokens_total"):
+            out["output"][key] = delta
+        elif key.startswith("portal5_tool_calls_total"):
+            tool = key.split('tool="')[1].split('"')[0] if 'tool="' in key else key
+            out["tools"][tool] = out["tools"].get(tool, 0) + delta
+        elif key.startswith("portal5_tool_call_errors_total"):
+            tool = key.split('tool="')[1].split('"')[0] if 'tool="' in key else key
+            out["tool_errors"][tool] = out["tool_errors"].get(tool, 0) + delta
+    return out
+
+
+class WorkspaceThread:
+    """One conversation on the deployed workspace: turns append to one thread.
+
+    The first four §P6 cases run as turns of ONE thread — that is what makes
+    them a conversation rather than four audits, and it is what the prefix
+    cache (P6.4: later turns faster than the first) is measured against. The
+    two remaining cases open their own threads because they test different
+    shapes, and a shared thread would let the earlier answers bleed into them.
+    """
+
+    def __init__(self, session: httpx.Client, workspace: str, router: str) -> None:
+        self.session = session
+        self.workspace = workspace
+        self.router = router
+        self.messages: list[dict[str, str]] = []
+        self.rng = __import__("random").Random()
+
+    def turn(self, question: str, *, timeout: float = 1800.0) -> dict[str, Any]:
+        self.messages.append({"role": "user", "content": question})
+        before = snapshot_counters(self.session, self.router)
+        started = time.monotonic()
+        first_token_s: float | None = None
+        content_parts: list[str] = []
+        reasoning_parts: list[str] = []
+        usage_hops: list[dict[str, int]] = []
+        finish_reason = ""
+        route_header = ""
+        http_status = 0
+        error = ""
+        try:
+            with self.session.stream(
+                "POST",
+                f"{self.router}/v1/chat/completions",
+                headers={"Authorization": f"Bearer {_api_key()}"},
+                json={
+                    "model": self.workspace,
+                    "messages": self.messages,
+                    "stream": True,
+                    "temperature": 0.0,
+                },
+                timeout=timeout,
+            ) as response:
+                http_status = response.status_code
+                route_header = response.headers.get("x-portal-route", "")
+                if http_status != 200:
+                    error = response.read().decode()[:500]
+                else:
+                    for line in response.iter_lines():
+                        if not line.startswith("data: "):
+                            continue
+                        payload_text = line[len("data: ") :].strip()
+                        if payload_text == "[DONE]":
+                            break
+                        try:
+                            chunk = json.loads(payload_text)
+                        except json.JSONDecodeError:
+                            continue
+                        if first_token_s is None:
+                            first_token_s = time.monotonic() - started
+                        # Ollama's final per-hop usage chunk (empty choices).
+                        # On a multi-hop turn one arrives PER HOP — each
+                        # hop's prompt includes the whole thread plus every
+                        # tool result before it, so the LAST one's
+                        # prompt_tokens is that turn's high-water mark,
+                        # counted by the server's own tokenizer.
+                        usage = chunk.get("usage")
+                        if usage:
+                            usage_hops.append(
+                                {
+                                    "prompt_tokens": int(usage.get("prompt_tokens") or 0),
+                                    "completion_tokens": int(usage.get("completion_tokens") or 0),
+                                }
+                            )
+                        choices = chunk.get("choices") or []
+                        if not choices:
+                            continue
+                        delta = choices[0].get("delta") or {}
+                        content_parts.append(str(delta.get("content") or ""))
+                        reasoning_parts.append(str(delta.get("reasoning") or ""))
+                        if choices[0].get("finish_reason"):
+                            finish_reason = str(choices[0]["finish_reason"])
+        except Exception as exc:  # noqa: BLE001 - a transport failure is a recorded result
+            error = f"{type(exc).__name__}: {exc}"
+        wall = round(time.monotonic() - started, 2)
+        after = snapshot_counters(self.session, self.router)
+        deltas = counter_delta(before, after)
+        content = "".join(content_parts)
+        record: dict[str, Any] = {
+            "question": question,
+            "answer": content,
+            "reasoning_chars": len("".join(reasoning_parts)),
+            "wall_s": wall,
+            "first_token_s": round(first_token_s, 2) if first_token_s is not None else None,
+            "finish_reason": finish_reason,
+            "http_status": http_status,
+            "route_header": route_header,
+            "served_model": route_header.split(";")[2] if route_header.count(";") >= 2 else "",
+            "tool_calls": deltas["tools"],
+            "tool_errors": deltas["tool_errors"],
+            "usage_hops": usage_hops,
+            "prompt_tokens_high_water": (max((h["prompt_tokens"] for h in usage_hops), default=0)),
+            "prompt_tokens_final_hop": (usage_hops[-1]["prompt_tokens"] if usage_hops else 0),
+            "input_tokens_all_hops": sum(deltas["input"].values()),
+            "output_tokens_all_hops": sum(deltas["output"].values()),
+            "error": error,
+        }
+        if content:
+            self.messages.append({"role": "assistant", "content": content})
+        return record
+
+
+def check_workspace_cell(case: dict[str, Any], record: dict[str, Any]) -> list[dict[str, Any]]:
+    """The deterministic checks for one workspace turn.
+
+    Missing input FAILS rather than reading as zero — exactly how a guard
+    passed on an HTTP 500 last campaign. An answer text with no length and no
+    error is a zero-length measurement, not a short answer.
+    """
+    rows: list[dict[str, Any]] = []
+
+    def add(name: str, ok: bool, detail: Any = "") -> None:
+        rows.append({"assertion": name, "ok": bool(ok), "detail": detail})
+
+    served = record.get("served_model", "")
+    answer = str(record.get("answer", "") or "")
+    # Exact per-turn measurement: the last hop's usage chunk counts the whole
+    # thread plus every tool result of this turn, with the server's own
+    # tokenizer. The counter deltas are the cross-check (per-worker registries
+    # make them a lower bound, never the number of record).
+    input_tokens = float(
+        record.get("prompt_tokens_high_water") or record.get("input_tokens_all_hops") or 0
+    )
+    tool_calls = record.get("tool_calls") or {}
+
+    # Missing measurement = failure, never zero.
+    if record.get("http_status") != 200:
+        add("http_200", False, record.get("error") or f"status {record.get('http_status')}")
+    else:
+        add("http_200", True, "")
+
+    add("answer_nonempty", bool(answer.strip()), len(answer))
+
+    add(
+        "prompt_tokens_measured",
+        input_tokens > 0,
+        {
+            "high_water": record.get("prompt_tokens_high_water"),
+            "final_hop": record.get("prompt_tokens_final_hop"),
+            "hops_seen": len(record.get("usage_hops") or []),
+        },
+    )
+
+    # Truncation: applied window (from the served tag) must exceed what the
+    # turn actually evaluated. A tag with no -ctxNk suffix reads as UNKNOWN
+    # and FAILs — an unmeasurable window is not a safe one.
+    from tests.wfe.settings_audit import ctx_from_tag
+
+    applied_ctx = ctx_from_tag(served)
+    add(
+        "applied_window_known_and_not_exceeded",
+        applied_ctx is not None and input_tokens < applied_ctx,
+        {"served_model": served, "applied_ctx": applied_ctx, "input_tokens": input_tokens},
+    )
+
+    minimum_calls = int(case.get("tool_calls_min") or 0)
+    made = sum(tool_calls.values())
+    add(f"tool_calls>={minimum_calls}", made >= minimum_calls, tool_calls)
+
+    # Every cited id resolves — post-hoc on the transcript, the one
+    # deterministic check the task keeps from P6.4.
+    from portal.modules.compliance.core.reader import _DASHES, CITATION_RE
+    from portal.modules.compliance.core.repository import Repository
+    from portal.modules.compliance.core.section_index import resolve_sections
+
+    normalised = answer.translate(_DASHES)
+    cited = list(dict.fromkeys(CITATION_RE.findall(normalised)))
+    if cited:
+        repo = Repository()
+        try:
+            resolved = resolve_sections(repo, cited)
+            unresolved = [ref for ref in cited if not resolved]
+            add("cited_ids_resolve", not unresolved, unresolved or f"all {len(cited)} resolve")
+        finally:
+            repo.close()
+    else:
+        add("cited_ids_resolve", False, "no section id cited in the answer")
+    return rows
+
+
 # ── the runner ──────────────────────────────────────────────────────────────
 
 
@@ -386,6 +604,33 @@ def environment(base_url: str) -> dict[str, Any]:
     }
 
 
+def _run_workspace_cell(
+    client: httpx.Client,
+    case: dict[str, Any],
+    record: dict[str, Any],
+    threads: dict[str, WorkspaceThread],
+) -> None:
+    """One turn of the deployed conversation, checked, into ``record``.
+
+    One thread per case-group, carried across cells in manifest order: the
+    first four §P6 cases are TURNS of one conversation, and the transcript is
+    the whole point of measuring here.
+    """
+    thread_key = f"{record['seat']}::{record['thread']}::{record['run_index']}"
+    thread = threads.get(thread_key)
+    if thread is None:
+        thread = WorkspaceThread(client, "compliance-reading", router_base_url())
+        threads[thread_key] = thread
+    turn = thread.turn(str(case["question"]).strip())
+    record["turn"] = turn
+    record["thread_length_messages"] = len(thread.messages)
+    record["served_model"] = turn.get("served_model", "")
+    checks = check_workspace_cell(case, turn)
+    record["guard"] = []
+    record["checks"] = checks
+    record["passed"] = all(c["ok"] for c in checks)
+
+
 def run_cell(
     client: httpx.Client,
     base_url: str,
@@ -394,6 +639,7 @@ def run_cell(
     adapter: str,
     run_index: int,
     out_dir: Path,
+    threads: dict[str, WorkspaceThread] | None = None,
 ) -> dict[str, Any]:
     name = f"{adapter}__{_slug(seat)}__{case['id']}__run{run_index}"
     path = out_dir / f"{name}.json"
@@ -410,12 +656,15 @@ def run_cell(
         "seat": seat,
         "case": case["id"],
         "ref": case["ref"],
+        "thread": str(case.get("thread", case["id"])),
         "question": str(case["question"]).strip(),
         "run_index": run_index,
         "environment_before": before,
     }
     try:
-        if adapter == "legacy":
+        if adapter == "workspace":
+            _run_workspace_cell(client, case, record, threads or {})
+        elif adapter == "legacy":
             payload = adapter_legacy(client, base_url, case, seat)
             record["payload"] = payload
             record["comparable"] = legacy_comparable(payload)
@@ -501,13 +750,68 @@ def write_status(out_dir: Path, rev: str, rows: list[dict[str, Any]]) -> None:
     )
 
 
+#: §P6.1: RISK ORDER, not alphabetical and not manifest order. `parent` first —
+#: it exposes window limits and ran twelfth last campaign. Thread members stay
+#: adjacent so a thread is a thread. `either_or` and `no_operator_side` have
+#: never run in any campaign, and they run BEFORE anything already proven.
+RISK_ORDER = ["parent", "choice", "interval", "read_check", "either_or", "no_operator_side"]
+
+
+def _write_manifest(
+    out_dir: Path,
+    rev: str,
+    cases: list[dict[str, Any]],
+    seats: list[str],
+    adapters: list[str],
+    runs: int,
+    base_url: str,
+    meta: dict[str, Any],
+) -> None:
+    (out_dir / "manifest.json").write_text(
+        json.dumps(
+            {
+                "git_head": rev,
+                "risk_order": RISK_ORDER,
+                "cases": [c["id"] for c in cases],
+                "threads": {str(c["id"]): str(c.get("thread", c["id"])) for c in cases},
+                "seats": seats,
+                "adapters": adapters,
+                "runs": runs,
+                "mcp_base_url": base_url,
+                "router_base_url": router_base_url(),
+                "prompt_version": meta.get("workspace_prompt_version", ""),
+                "case_meta": meta,
+            },
+            indent=1,
+        )
+    )
+
+
+def _acquire_campaign_lock() -> bool:
+    """One worker at a time: a second live suite invalidates both, and the
+    machine cannot hold two 27B seats without evicting one mid-run."""
+    if LOCK.exists():
+        owner = LOCK.read_text().strip()
+        try:
+            os.kill(int(owner), 0)
+        except (ValueError, ProcessLookupError):
+            LOCK.unlink(missing_ok=True)
+        else:
+            print(f"ABORT: acceptance worker already running (pid {owner})")
+            return False
+    LOCK.write_text(str(os.getpid()))
+    return True
+
+
 def main() -> int:
     from portal.modules.compliance.core.runtime_config import reading_seat
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--seat", action="append", default=[])
     parser.add_argument("--case", action="append", default=[])
-    parser.add_argument("--adapter", action="append", default=[], choices=["reader", "legacy"])
+    parser.add_argument(
+        "--adapter", action="append", default=[], choices=["workspace", "reader", "legacy"]
+    )
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--http-timeout", type=float, default=5400.0)
     parser.add_argument("--out", default="")
@@ -520,22 +824,17 @@ def main() -> int:
 
     # One worker at a time: a second live suite invalidates both, and the
     # machine cannot hold two 27B seats without evicting one mid-run.
-    if LOCK.exists():
-        owner = LOCK.read_text().strip()
-        try:
-            os.kill(int(owner), 0)
-        except (ValueError, ProcessLookupError):
-            LOCK.unlink(missing_ok=True)
-        else:
-            print(f"ABORT: acceptance worker already running (pid {owner})")
-            return 2
-    LOCK.write_text(str(os.getpid()))
+    if not _acquire_campaign_lock():
+        return 2
 
     try:
         manifest = yaml.safe_load(CASES_PATH.read_text())
         cases = [c for c in manifest["cases"] if not args.case or c["id"] in args.case]
+        # Risk order, restricted to what survived the --case filter.
+        rank = {cid: i for i, cid in enumerate(RISK_ORDER)}
+        cases.sort(key=lambda c: rank.get(str(c["id"]), len(rank)))
         seats = args.seat or [reading_seat()]
-        adapters = args.adapter or ["reader"]
+        adapters = args.adapter or ["workspace"]
         rev = subprocess.check_output(
             ["git", "-C", str(REPO), "rev-parse", "HEAD"], text=True
         ).strip()
@@ -543,20 +842,7 @@ def main() -> int:
         out_dir.mkdir(parents=True, exist_ok=True)
         base_url = mcp_base_url()
 
-        (out_dir / "manifest.json").write_text(
-            json.dumps(
-                {
-                    "git_head": rev,
-                    "cases": [c["id"] for c in cases],
-                    "seats": seats,
-                    "adapters": adapters,
-                    "runs": args.runs,
-                    "mcp_base_url": base_url,
-                    "case_meta": manifest["meta"],
-                },
-                indent=1,
-            )
-        )
+        _write_manifest(out_dir, rev, cases, seats, adapters, args.runs, base_url, manifest["meta"])
 
         # §P0.5/§P0.6: the campaign is pinned BEFORE the first case, and a seat
         # that is not GO does not run. The pin is what a later check compares
@@ -578,9 +864,12 @@ def main() -> int:
         with httpx.Client(timeout=args.http_timeout) as client:
             for adapter in adapters:
                 for seat in seats:
+                    threads: dict[str, WorkspaceThread] = {}
                     for case in cases:
                         for index in range(1, args.runs + 1):
-                            record = run_cell(client, base_url, case, seat, adapter, index, out_dir)
+                            record = run_cell(
+                                client, base_url, case, seat, adapter, index, out_dir, threads
+                            )
                             rows.append(record)
                             mark = "PASS" if record.get("passed") else "FAIL"
                             print(

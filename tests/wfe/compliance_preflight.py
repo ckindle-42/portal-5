@@ -155,7 +155,22 @@ def first_turn_thread(ref: str, *, budget_tokens: int = 12000) -> tuple[list[dic
             for identity in requirement_scope.resolve(repo, ref).refs
             for note in notes_for(repo, identity)
         ]
+        # Mirror reader.read()'s seed construction exactly (WINDOW_AND_SEAT_V1
+        # P1.3): the seed carries no text-bearing regulatory component — the
+        # bootstrap ships requirement/measures/technical_basis — and the
+        # omission disclosure drops those three, because they arrive two
+        # messages later. Rendering the seed here with them included would
+        # measure a thread the reader never sends.
+        bootstrap_components = {"requirement", "measures", "technical_basis"}
+        seed_components = context["components"]
+        context["components"] = []
+        context["omitted"] = [
+            entry
+            for entry in context.get("omitted", [])
+            if entry.get("component") not in bootstrap_components
+        ]
         seed = reader._render_material(context)
+        context["components"] = seed_components
         trace: list[dict[str, Any]] = []
         bootstrap, acquired = reader._acquire(
             repo, context["ref"], max_chars=budget_tokens, trace=trace

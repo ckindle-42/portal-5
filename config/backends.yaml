@@ -6,6 +6,17 @@ backends:
 - group: general
   id: ollama-general
   models:
+  # WINDOW_AND_SEAT_V1 P1.4 rung-0 fix: compliance-reading's model_hint is the
+  # Qwen3.8-27B ctx32k tag, but that tag was registered only in the coding and
+  # reasoning groups — the workspace routes to the general group, so hint
+  # enforcement skipped every candidate and the LAST-candidate-accepts-any rule
+  # served whatever answered (Nemotron ctx8k, gemma-4-26b via oMLX): the
+  # workspace's declared 32k window was fiction on the live path. Registered
+  # here so the deployed seat serves the tag its own config declares.
+  # supports_tools:true — the incumbent reading seat; tool-calling verified in
+  # the prior campaign's preflight probes.
+  - id: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+    supports_tools: true
   # Nemotron 3.5 Lightning added 2026-08-14 for auto-nemotron workspace
   # (architectural diversity vs the Gemma-4 daily driver). supports_tools
   # verified via direct tool-call probe (clean tool_calls, typed arguments).

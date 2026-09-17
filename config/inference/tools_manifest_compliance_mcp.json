@@ -41,24 +41,34 @@
      "valid_at"
     ]
    }
- }
+  }
  },
  {
   "type": "function",
   "function": {
    "name": "compliance_review_decide_batch",
-   "description": "Apply versioned compliance mapping decisions as one auditable batch; stale items return their current version and do not discard other decisions.",
+   "description": "Apply several reviewed decisions in one transaction; stale rows returned individually.",
    "parameters": {
     "type": "object",
     "properties": {
      "decisions": {
       "type": "array",
-      "items": {"type": "object"}
+      "items": {
+       "type": "object"
+      }
      },
-     "sme": {"type": "string"},
-     "reviewer_token": {"type": "string"}
+     "sme": {
+      "type": "string"
+     },
+     "reviewer_token": {
+      "type": "string"
+     }
     },
-    "required": ["decisions", "sme", "reviewer_token"]
+    "required": [
+     "decisions",
+     "sme",
+     "reviewer_token"
+    ]
    }
   }
  },
@@ -66,7 +76,7 @@
   "type": "function",
   "function": {
    "name": "compliance_answers",
-   "description": "Stored answers about a subject, each with its citations and its standing.",
+   "description": "Stored answers about a subject with citations and standing (superseded? outranked?); each answer capped at 2,000 chars.",
    "parameters": {
     "type": "object",
     "properties": {
@@ -84,7 +94,7 @@
   "type": "function",
   "function": {
    "name": "compliance_ask",
-   "description": "Ask a question about a requirement, with the whole neighbourhood in front of the reader.",
+   "description": "The unattended batch reader on one question \u2014 full receipt (citations, closure, tool trace); seed clamped to 12,000 tokens. Standing-question use, not a conversation turn.",
    "parameters": {
     "type": "object",
     "properties": {
@@ -184,7 +194,7 @@
   "type": "function",
   "function": {
    "name": "compliance_context",
-   "description": "**The reading assembly.** Everything a requirement's neighbourhood holds.",
+   "description": "INDEX of a requirement's neighbourhood \u2014 section ids, sides, documents, paths, pages, NO text. Use it to learn what exists before deciding what to read. mode=packet assembles full text to budget_tokens (batch readers, not conversation turns).",
    "parameters": {
     "type": "object",
     "properties": {
@@ -211,7 +221,7 @@
   "type": "function",
   "function": {
    "name": "compliance_correct",
-   "description": "Record an operator's correction of a stored answer. Kept as a note about the answer: the operator's word outranks the reading, and both remain.",
+   "description": "Record an operator's correction of a stored answer, as a note that outranks it.",
    "parameters": {
     "type": "object",
     "properties": {
@@ -236,7 +246,7 @@
   "type": "function",
   "function": {
    "name": "compliance_coverage",
-   "description": "Per requirement: the internal sections linked to it, and explicitly those with none. **Deterministic \u2014 no model call, no background job.**",
+   "description": "Deterministic per-requirement link report: which operator sections are recorded against each Part, and which Parts have none. No text.",
    "parameters": {
     "type": "object",
     "properties": {
@@ -432,7 +442,7 @@
   "type": "function",
   "function": {
    "name": "compliance_links",
-   "description": "Traversal over ``relationship_assertions``. Every edge is labelled with its status, how it was derived and its confidence \u2014 a proposal is visible as a proposal, never as an established fact.",
+   "description": "REFERENCES, not text: edges between a requirement and operator sections, labelled approved/proposed; capped at 50 edges. What it names is unread until you read it.",
    "parameters": {
     "type": "object",
     "properties": {
@@ -478,7 +488,7 @@
   "type": "function",
   "function": {
    "name": "compliance_note",
-   "description": "Record an operator decision, intent or rationale as a dated, attributed, immutable source \u2014 citeable and retrievable from the next question onward.",
+   "description": "Record an operator decision, intent or rationale as a dated, attributed, citeable note.",
    "parameters": {
     "type": "object",
     "properties": {
@@ -506,7 +516,7 @@
   "type": "function",
   "function": {
    "name": "compliance_notes",
-   "description": "Operator notes about one subject, newest first, with their verbatim text.",
+   "description": "Operator notes for a subject, newest first \u2014 the operator's own recorded decisions, which outrank the procedure; each note capped at 4,000 chars, clip stated.",
    "parameters": {
     "type": "object",
     "properties": {
@@ -561,7 +571,7 @@
   "type": "function",
   "function": {
    "name": "compliance_conflicts",
-   "description": "Cross-tier contradictions touching a requirement's neighbourhood \u2014 both spans, both tiers, both section ids, never reconciled.",
+   "description": "Cross-tier contradictions touching a requirement \u2014 both spans (1,000 chars each, clip stated), both tiers, emitted and never reconciled.",
    "parameters": {
     "type": "object",
     "properties": {
@@ -584,7 +594,7 @@
   "type": "function",
   "function": {
    "name": "compliance_read",
-   "description": "Verbatim text of any addressable unit, from either side.",
+   "description": "Verbatim text at a section id or regulatory address, either side; 6,000-char per-call ceiling, truncation stated.",
    "parameters": {
     "type": "object",
     "properties": {
@@ -608,7 +618,7 @@
   "type": "function",
   "function": {
    "name": "compliance_requirement",
-   "description": "Resolve current, historical, or future governing NERC CIP text by validity interval and return decomposed atoms with exact source anchors.",
+   "description": "The requirement with Parts, atoms and effectivity by validity interval \u2014 verbatim text capped at 6,000 chars per call, clips stated. Start here.",
    "parameters": {
     "type": "object",
     "properties": {
@@ -636,7 +646,7 @@
   "type": "function",
   "function": {
    "name": "compliance_review_decide",
-   "description": "Confirm or reject one open review-queue item. Reversible: writes a new row superseding the prior one; nothing is overwritten. Confirming a mapping_proposal approves it in the mapping store directly. Requires an operator-issued reviewer_token; decided_by is caller-supplied context only and is NOT what gets recorded as the deciding principal.",
+   "description": "Confirm or reject one queue item with a reviewer token; writes a new superseding row, nothing overwritten.",
    "parameters": {
     "type": "object",
     "properties": {
@@ -674,7 +684,7 @@
   "type": "function",
   "function": {
    "name": "compliance_review_list",
-   "description": "The review queue: open (default) or filtered judgements the system proceeded on without blocking \u2014 applicability scope, document tiers, mapping proposals, conflicts, low-confidence extractions.",
+   "description": "The review queue: open mapping and review items, filtered by kind/status.",
    "parameters": {
     "type": "object",
     "properties": {
@@ -765,7 +775,7 @@
   "type": "function",
   "function": {
    "name": "compliance_search",
-   "description": "Ranked sections across BOTH corpora \u2014 regulatory and operator together.",
+   "description": "Ranked sections across BOTH corpora (regulatory + operator), resolved to citable ids; snippets capped at 4,000 chars.",
    "parameters": {
     "type": "object",
     "properties": {
@@ -804,7 +814,7 @@
   "type": "function",
   "function": {
    "name": "compliance_sources",
-   "description": "Exact permitted source context for an immutable document revision from the canonical compliance store \u2014 pass revision_id for an exact historical anchor, logical_id for the human-facing source-dir-relative name (e.g. 'CIP-007/Some Procedure.pdf'), or alias_path for the literal filesystem path. Verifies the source file's current bytes still match the recorded revision hash (drift detection).",
+   "description": "Permitted source context for a document revision, with live integrity re-hash; include_sections=true clips each section to 4,000 chars, stated.",
    "parameters": {
     "type": "object",
     "properties": {
@@ -825,7 +835,7 @@
   "type": "function",
   "function": {
    "name": "compliance_standing_questions",
-   "description": "The questions the operator already cares about.",
+   "description": "Questions the operator already cares about; run=true answers them through the batch reader (not a conversation turn).",
    "parameters": {
     "type": "object",
     "properties": {
@@ -846,7 +856,7 @@
   "type": "function",
   "function": {
    "name": "compliance_timeline",
-   "description": "Every revision of either side, with its dates \u2014 plus the semantic delta between consecutive regulatory revisions.",
+   "description": "Revisions and effective/known-at dates for a reference, with the semantic delta between consecutive regulatory revisions.",
    "parameters": {
     "type": "object",
     "properties": {
@@ -864,7 +874,7 @@
   "type": "function",
   "function": {
    "name": "compliance_trace",
-   "description": "Bidirectional relationship traversal from a requirement/document/control reference in the canonical compliance store \u2014 forward, reverse, or both directions, cycle-safe and depth/work-budget bounded. Discloses depth-limited nodes and any truncated frontier explicitly rather than presenting a partial traversal as complete.",
+   "description": "Typed relationship paths from a reference to max_depth hops with edge status; depth-bounded, any truncated frontier disclosed.",
    "parameters": {
     "type": "object",
     "properties": {
@@ -946,7 +956,7 @@
   "type": "function",
   "function": {
    "name": "nerc_cip_currency",
-   "description": "Per-standard NERC CIP currency: held version, whether a newer version PDF is published on nerc.com, and an explicit 'verify the enforcement date'. Currency is never inferred; honest-BLOCKED when nerc.com is unreachable.",
+   "description": "Per standard: our held version vs the newest published on nerc.com, plus the enforcement-date verification step.",
    "parameters": {
     "type": "object",
     "properties": {}
@@ -957,7 +967,7 @@
   "type": "function",
   "function": {
    "name": "nerc_cip_requirement",
-   "description": "AUTHORITATIVE, LOCAL lookup of exact verbatim NERC CIP requirement/Part text from the maintained bitemporal register (e.g. 'CIP-007-6 R2 Part 2.2', or 'CIP-007-6 R2' for every Part). Use this FIRST for ANY question asking what a specific CIP standard/requirement/Part currently, historically, or in the future requires \u2014 it resolves lifecycle/validity dates deterministically and returns the exact verbatim text with related 800-53 controls. Prefer this over web_search or browser tools for CIP standard text: an external fetch cannot verify effective-date selection or exact revision the way this can, and a generic search result is not a substitute for the maintained register.",
+   "description": "One NERC CIP requirement resolved by validity interval: id, verbatim text (6,000-char per-call cap, clips stated), atoms, effectivity.",
    "parameters": {
     "type": "object",
     "properties": {
