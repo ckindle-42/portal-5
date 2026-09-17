@@ -1,11 +1,11 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 254 model ids, 7 backend groups
+title: 255 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 3b08ab3c3137
+  commit: 3eb15d5f384f
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1789078463.800237
+updated_at: 1789609970.5705159
 ---
 
-# Model catalog (254 model ids across 7 backend groups)
+# Model catalog (255 model ids across 7 backend groups)
 
 ## coding (56)
 
@@ -93,7 +93,7 @@ updated_at: 1789078463.800237
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (105)
+## general (106)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `cybersecqwen-4b-toolfix:latest`
@@ -161,6 +161,7 @@ updated_at: 1789078463.800237
 - `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k`
 - `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL`
 - `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M`
+- `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k`
 - `hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M`
 - `huihui_ai/Qwen3.6-abliterated:27b`
 - `huihui_ai/Qwen3.6-abliterated:27b-ctx8k`

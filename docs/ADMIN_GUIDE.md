@@ -507,7 +507,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-#### Workspace roster (25 production, 21 eval, 46 total)
+#### Workspace roster (26 production, 21 eval, 47 total)
 
 ##### Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -537,6 +537,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `auto-uncensored-throwaway` | general | `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k` |
 | `auto-video` | video | `granite4.1:8b-ctx16k` |
 | `auto-vision` | general | `qwen3-vl:32b-ctx8k` |
+| `compliance-reading` | compliance | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` |
 | `tools-specialist` | general | `granite4.1:8b-ctx8k` |
 
 ##### Eval/bench workspaces (need PORTAL_ENABLE_EVAL=1)
@@ -606,6 +607,7 @@ default.
 | `auto-uncensored-throwaway` | `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k` | yes |
 | `auto-video` | `granite4.1:8b-ctx16k` | yes |
 | `auto-vision` | `qwen3-vl:32b-ctx8k` | yes |
+| `compliance-reading` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` | yes |
 | `tools-specialist` | `granite4.1:8b-ctx8k` | yes |
 
 ##### Persona model_pin reachability
@@ -680,7 +682,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-#### Model catalog (254 model ids across 7 backend groups)
+#### Model catalog (255 model ids across 7 backend groups)
 
 ##### coding (56)
 
@@ -756,7 +758,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-##### general (105)
+##### general (106)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `cybersecqwen-4b-toolfix:latest`
@@ -824,6 +826,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k`
 - `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL`
 - `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M`
+- `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k`
 - `hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M`
 - `huihui_ai/Qwen3.6-abliterated:27b`
 - `huihui_ai/Qwen3.6-abliterated:27b-ctx8k`

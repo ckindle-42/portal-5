@@ -103,15 +103,15 @@ def reading_seat() -> str:
             import yaml
 
             portal = yaml.safe_load(_PORTAL_CONFIG.read_text()) or {}
-            configured = str(
-                ((portal.get("workspaces") or {}).get("auto-compliance") or {}).get(
-                    "model_hint", ""
-                )
+            workspaces = portal.get("workspaces") or {}
+            binding = (
+                workspaces.get("compliance-reading") or workspaces.get("auto-compliance") or {}
             )
+            configured = str(binding.get("model_hint", ""))
         except Exception:  # noqa: BLE001 - a malformed binding is reported below
             configured = ""
     if not configured:
-        raise RuntimeError("auto-compliance has no workspace-bound reading seat")
+        raise RuntimeError("compliance-reading has no workspace-bound reading seat")
 
     backends = Path(__file__).resolve().parents[4] / "config" / "backends.yaml"
     measured = False

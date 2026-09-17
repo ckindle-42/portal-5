@@ -300,6 +300,8 @@ backends:
   # (clean tool_calls, correctly typed arguments), not inferred.
   - id: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M
     supports_tools: true
+  - id: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+    supports_tools: true
   - id: hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest
     supports_tools: true
   type: ollama
@@ -1069,6 +1071,8 @@ workspace_routing:
   - general
   auto-compliance:
   - reasoning
+  - general
+  compliance-reading:
   - general
   auto-math:
   - reasoning
