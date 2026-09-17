@@ -338,50 +338,176 @@ def check_human_review(spec: dict, ctx: CheckContext) -> CheckResult:
     )
 
 
-def check_compliance_reading_contract(spec: dict, ctx: CheckContext) -> CheckResult:
-    """Score the mechanical reading contract without judging prose quality.
+def _receipt_from_calls(tool_calls: list) -> dict | None:
+    """The reading's OWN receipt, out of the `compliance_ask` call that produced
+    it — never the model's account of it.
 
-    The model must return one JSON object describing the receipt it actually
-    produced. This checker covers closure completeness, citation resolution,
-    unsupported-absence disclosure, and first-tool selection; citation
-    correctness remains the offline ``core.evaluation`` instrument.
+    The checker used to score a JSON object the model wrote about its own run.
+    A model that reports `closure_complete: true` and cites nothing scores the
+    same as one that read the population, which makes the gate an instrument for
+    measuring compliance with a reporting format.
     """
-    text = ctx.final_text or ""
-    payload = None
     decoder = json.JSONDecoder()
-    for match in re.finditer(r"\{", text):
-        try:
-            candidate, _end = decoder.raw_decode(text[match.start() :])
-        except json.JSONDecodeError:
+    for call in reversed(list(tool_calls or [])):
+        if "compliance_ask" not in str(call.get("name", "")):
             continue
-        if isinstance(candidate, dict):
-            payload = candidate
-    if payload is None:
-        return CheckResult(Outcome.FAIL, "reading contract did not contain a JSON object", {})
+        output = call.get("output")
+        if isinstance(output, dict):
+            payload = output
+        else:
+            payload = None
+            for match in re.finditer(r"\{", str(output or "")):
+                try:
+                    candidate, _end = decoder.raw_decode(str(output)[match.start() :])
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(candidate, dict) and "closure_receipt" in candidate:
+                    payload = candidate
+                    break
+        if isinstance(payload, dict) and "closure_receipt" in payload:
+            return payload
+    return None
 
-    unread = payload.get("closure_unread") or []
-    citations = payload.get("citations") or []
+
+def _resolved_citations(receipt: dict) -> list[dict]:
+    citations = ((receipt.get("verification") or {}).get("citations")) or []
+    return [c for c in citations if isinstance(c, dict) and c.get("resolved") is True]
+
+
+def _ground_truth_sections(spec: dict) -> list[str]:
+    """The labelled sections this reading is expected to cite.
+
+    ``ground_truth_sections`` states them outright. ``ground_truth_requirement``
+    resolves them from the evaluation set — the APPROVED mappings, which is the
+    only ground truth the module recognises — so the gate starts scoring recall
+    the moment a human settles a proposal, without the suite being re-edited.
+
+    An unavailable or empty label set returns nothing, and the caller reports
+    honest-BLOCKED rather than a pass.
+    """
+    stated = [str(s) for s in (spec.get("ground_truth_sections") or [])]
+    if stated:
+        return stated
+    requirement = str(spec.get("ground_truth_requirement", ""))
+    if not requirement:
+        return []
+    try:
+        from portal.modules.compliance.core.evaluation import as_eval_set, labelled_examples
+        from portal.modules.compliance.core.repository import Repository
+    except Exception:  # noqa: BLE001 - the checker must run without the module installed
+        return []
+    repo = Repository()
+    try:
+        eval_set = as_eval_set(labelled_examples(repo))
+    except Exception:  # noqa: BLE001 - no labels is not a bad reading, and not a pass
+        return []
+    finally:
+        repo.close()
+    for example in eval_set.get("examples", []):
+        if str(example.get("requirement_id", "")) == requirement:
+            return [str(s) for s in example.get("expected_sections", [])]
+    return []
+
+
+def check_compliance_reading_contract(spec: dict, ctx: CheckContext) -> CheckResult:
+    """Score the mechanical reading contract from what was OBSERVED.
+
+    Every sub-check reads either the transcript's own tool calls or the receipt
+    `compliance_ask` returned. Three ways this previously reported a false PASS,
+    each reproduced before it was fixed:
+
+    * `payload["closure_complete"] is (not unread)` is TRUE when the model
+      reports `false` with a non-empty unread list — an explicitly incomplete
+      closure passed as a satisfied one;
+    * citations were only checked for `resolved is not True`, so an empty
+      citation list passed every time;
+    * `first_tool` was whatever the model said it was; `ctx.tool_calls` was
+      never looked at, so a run with no tool calls at all could pass.
+
+    `ground_truth_sections` is required because the suite has always asked the
+    model for `ground_truth_section_hits` and nothing ever checked it. With no
+    labels for this requirement the reading is NOT scored — that is the
+    evaluation set's own `honest-BLOCKED` discipline, and a gate that passed
+    instead would qualify a seat against nothing.
+    """
+    calls = list(ctx.tool_calls or [])
+    compliance_calls = [c for c in calls if str(c.get("name", "")).find("compliance_") >= 0]
+    if not compliance_calls:
+        return CheckResult(
+            Outcome.FAIL,
+            "no compliance tool was called: nothing was read",
+            {"tool_calls": [str(c.get("name", "")) for c in calls]},
+        )
+
+    receipt = _receipt_from_calls(calls)
+    if receipt is None:
+        return CheckResult(
+            Outcome.FAIL,
+            "no compliance_ask receipt in the transcript — the contract cannot be "
+            "scored from the model's own account of it",
+            {"tools_called": [str(c.get("name", "")) for c in compliance_calls]},
+        )
+
+    closure = receipt.get("closure_receipt") or {}
+    resolved = _resolved_citations(receipt)
     unresolved = [
-        item for item in citations if isinstance(item, dict) and item.get("resolved") is not True
+        c
+        for c in ((receipt.get("verification") or {}).get("citations") or [])
+        if isinstance(c, dict) and c.get("resolved") is not True
     ]
+    eligible = set(closure.get("eligible") or [])
+    operator_eligible = set(closure.get("operator_eligible") or [])
+    cited = {str(c.get("cited_ref", "")) for c in resolved}
+    regulatory_cited = [c for c in resolved if str(c.get("jurisdiction", "")) not in ("internal",)]
+    operator_cited = [c for c in resolved if str(c.get("jurisdiction", "")) == "internal"]
+
     expected_first = str(spec.get("expected_first_tool", "compliance_requirement"))
+    first_tool = str(compliance_calls[0].get("name", ""))
+    ground_truth = _ground_truth_sections(spec)
+
     checks = {
-        "closure_complete": payload.get("closure_complete") is (not unread),
-        "citation_resolution": not unresolved,
-        "unsupported_absence": int(payload.get("unsupported_absence", 0) or 0) == 0,
-        "tool_selection": payload.get("first_tool") == expected_first,
+        "tool_selection": first_tool.endswith(expected_first),
+        "reading_did_not_fail": receipt.get("failed") is False,
+        "closure_complete": closure.get("complete") is True,
+        "closure_unread_empty": not (closure.get("unread") or []),
+        "citation_resolution": bool(resolved) and not unresolved,
+        "regulatory_citation": bool(regulatory_cited),
+        "nothing_cited_outside_scope": not (closure.get("outside") or []),
     }
-    ok = all(checks.values())
+    # An operator citation is required wherever the population HAS an operator
+    # side: a posture answer that never cites the operator's own documents is
+    # about the standard, not about the operator.
+    if operator_eligible:
+        checks["operator_citation"] = bool(operator_cited)
+    if ground_truth:
+        checks["ground_truth_citation_recall"] = set(ground_truth) <= cited
+
     evidence = {
         "reading_contract": checks,
-        "unread": unread,
+        "first_tool": first_tool,
+        "model_tool_calls": closure.get("model_tool_calls"),
+        "eligible": len(eligible),
+        "unread": closure.get("unread") or [],
+        "outside": closure.get("outside") or [],
+        "resolved_citations": len(resolved),
         "unresolved_citations": unresolved,
-        "first_tool": payload.get("first_tool"),
-        "ground_truth_verdict": payload.get("ground_truth_verdict", ""),
+        "operator_citations": len(operator_cited),
+        "ground_truth_missing": sorted(set(ground_truth) - cited),
+        "failure": receipt.get("failure", ""),
     }
+    if not ground_truth:
+        return CheckResult(
+            Outcome.PENDING_REVIEW,
+            "honest-BLOCKED: no ground-truth sections are labelled for this "
+            "requirement, so citation recall cannot be scored",
+            evidence,
+        )
+    ok = all(checks.values())
     return CheckResult(
         Outcome.PASS if ok else Outcome.FAIL,
-        "reading contract passed" if ok else f"reading contract failed={checks}",
+        "reading contract passed"
+        if ok
+        else f"reading contract failed={[k for k, v in checks.items() if not v]}",
         evidence,
     )
 
