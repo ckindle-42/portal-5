@@ -1,0 +1,37 @@
+{
+ "git_head": "a3b6f047ab0de703d7f5d1e3bfdf4fe2cacb9abe",
+ "dirty_paths": 1,
+ "updated_at": "2026-09-17T18:22:35Z",
+ "cells": [
+  {
+   "cell": "reader__hf-co-unsloth-Qwen3-8-27B-GGUF-Q4-K-M-ctx32k__interval__run1",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  },
+  {
+   "cell": "reader__hf-co-unsloth-Qwen3-8-27B-GGUF-Q4-K-M-ctx32k__interval__run2",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  },
+  {
+   "cell": "reader__hf-co-unsloth-Qwen3-8-27B-GGUF-Q4-K-M-ctx32k__interval__run3",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  },
+  {
+   "cell": "reader__hf-co-unsloth-Qwen3-8-27B-GGUF-Q4-K-M-ctx32k__choice__run1",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  },
+  {
+   "cell": "reader__hf-co-unsloth-Qwen3-8-27B-GGUF-Q4-K-M-ctx32k__choice__run2",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  }
+ ]
+}
