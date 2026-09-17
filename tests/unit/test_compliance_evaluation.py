@@ -8,6 +8,7 @@ the scorer is an offline instrument: nothing in the product path imports it.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -27,7 +28,6 @@ def _link(
     status: str = "approved",
     review_state: str = "CONFIRMED",
     decided_by: str = "sme-1",
-    decided_at: str = "2026-09-16T10:00:00+00:00",
     corrected_coverage: str | None = None,
 ) -> None:
     rel = RelationshipAssertion(
@@ -95,7 +95,11 @@ class TestLabelledExamples:
         assert part22["settled_sections"] == ["isection-aaaa1111", "isection-bbbb2222"]
         assert part22["rejected_sections"] == ["isection-cccc3333"]
         assert part22["approved_by"] == "sme-1"
-        assert part22["approved_date"] == "2026-09-16"
+        # The decision date is when the decision was MADE — `decide_relationship`
+        # stamps it and deliberately takes no override, because a back-datable
+        # approval is not an audit trail. Asserting a literal here only worked on
+        # the day the test was written.
+        assert part22["approved_date"] == datetime.now(UTC).strftime("%Y-%m-%d")
         part21 = by_ref["CIP-007-6 R2 Part 2.1"]
         assert part21["correction"] is True, "a corrected mapping is the sharpest label"
 

@@ -20,6 +20,7 @@ import hashlib
 import importlib
 import sys
 import types
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -314,7 +315,10 @@ class TestTheClocksPushDown:
             make,
             query="procedure text",
             jurisdiction="internal",
-            known_at="2026-09-16",
+            # TODAY, derived. The early revision's recorded_from is stamped at
+            # ingest, so a literal date here silently stops testing anything the
+            # day after it is written -- and then starts failing.
+            known_at=datetime.now(UTC).strftime("%Y-%m-%d"),
             top_k=5,
         )
         texts = " ".join(r["text"] for r in out["results"])
