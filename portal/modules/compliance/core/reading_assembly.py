@@ -221,7 +221,7 @@ def _vsl_rows(sections: list[dict[str, Any]], requirement: str) -> list[dict[str
     ]
 
 
-def _linked_internal(repo: Any, ref: str) -> list[dict[str, Any]]:
+def linked_internal(repo: Any, ref: str, *, scope: Any = None) -> list[dict[str, Any]]:
     """Internal sections recorded as related to this requirement, in full.
 
     Read from ``relationship_assertions``; a proposed edge travels labelled as
@@ -229,19 +229,28 @@ def _linked_internal(repo: Any, ref: str) -> list[dict[str, Any]]:
     see the candidates as well as the confirmed ones, and needs to know which
     is which.
 
+    **Across the whole scope.** The edges live on the identities the standard
+    numbers, so an exact match on a parent requirement returns nothing while its
+    Parts hold every edge there is (``CIP-007-6 R2``: 0 against 66). Each entry
+    carries ``link_requirement`` — the leaf the edge was recorded against — so
+    expanding the query never blurs which Part the operator's section answers.
+
     An edge's endpoint arrives in two recorded shapes: a bare ``section_id``
     and ``mapping_store``'s ``{document}::{section_id}`` — one identity space
     (BILATERAL_CORPUS_V1 P4) with two spellings. The tail after ``::`` is the
     section; on the live store every ``::``-shaped edge resolves through the
     tail and none through the raw value.
     """
+    from portal.modules.compliance.core import requirement_scope
     from portal.modules.compliance.core.section_index import resolve_sections
 
+    refs = (scope or requirement_scope.resolve(repo, ref)).refs
+    marks = ",".join("?" for _ in refs)
     rows = repo._conn.execute(
-        """SELECT dst_ref, status, derivation, confidence, rationale
+        f"""SELECT src_ref, dst_ref, status, derivation, confidence, rationale
            FROM relationship_assertions
-           WHERE src_ref = ? AND status IN ('approved', 'proposed')""",
-        (ref,),
+           WHERE src_ref IN ({marks}) AND status IN ('approved', 'proposed')""",  # noqa: S608
+        tuple(refs),
     ).fetchall()
     edges = [dict(r) for r in rows]
     for edge in edges:
@@ -257,6 +266,7 @@ def _linked_internal(repo: Any, ref: str) -> list[dict[str, Any]]:
         out.append(
             {
                 **entry,
+                "link_requirement": edge["src_ref"],
                 "link_status": edge["status"],
                 "link_derivation": edge["derivation"],
                 "link_derivations": [
@@ -322,7 +332,7 @@ def conflicts_for_requirement(repo: Any, ref: str, *, valid_at: str = "") -> dic
     sections = _sections(repo, str(revision["revision_id"]))
     body = _under(sections, "requirements and measures") or sections
     req_sections = _requirement_rows(body, parsed.requirement, parsed.part)
-    linked = _linked_internal(repo, str(parsed))
+    linked = linked_internal(repo, str(parsed))
 
     spans: list[Span] = [
         Span(
@@ -480,19 +490,31 @@ def assemble(
     # constituting R2 Part 2.2*, so proximity was the only option available. It
     # stays as a NAMED fallback for an unanchored requirement, never a silent
     # substitute: an absence claim resting on a guess must be visibly weaker.
-    from portal.modules.compliance.core import enumeration
+    #
+    # P4.3: over the whole SCOPE. A parent requirement is anchored through its
+    # Parts, so asking the join for `CIP-007-6 R2` exactly returned nothing and
+    # fell through to proximity on every parent-level reading — the same
+    # identity mismatch that emptied the closure population.
+    from portal.modules.compliance.core import requirement_scope
 
-    population = enumeration.population_for_requirement(
+    population = requirement_scope.population(
         repo,
         str(parsed),
         relations=("governing",),
+        valid_at=valid_at,
+        include_operator=False,
         proximity_fallback=lambda: _requirement_rows(
             _under(sections, "requirements and measures") or sections, requirement, part
         ),
     )
     by_id = {str(s["section_id"]): s for s in sections}
     req_sections = (
-        [by_id[sid] for sid in population["section_ids"] if sid in by_id]
+        # reading order, not join order: a scope spanning four Parts concatenates
+        # four anchor sets, and the reader is handed the document, not the query.
+        sorted(
+            (by_id[sid] for sid in population["section_ids"] if sid in by_id),
+            key=lambda s: s.get("ordinal", 0),
+        )
         if population["population_method"] == "join"
         else population["rows"]
     )
@@ -575,7 +597,7 @@ def assemble(
         Component(
             "linked_internal",
             "operator sections recorded as related to this requirement, in full",
-            _linked_internal(repo, str(parsed)),
+            linked_internal(repo, str(parsed)),
         )
     )
     # P4: contradiction is a retrievable fact that rides with the reading — a
@@ -685,6 +707,9 @@ def assemble(
         # named here so a reader never mistakes one for the other.
         "population_method": population["population_method"],
         "population_detail": population["detail"],
+        # P4.3: the identities this assembly answers for. A parent requirement
+        # reads as its Parts, and the reading says which ones.
+        "scope": population["scope"],
         "assembly": "deterministic — document structure and recorded edges, no relevance score",
     }
 

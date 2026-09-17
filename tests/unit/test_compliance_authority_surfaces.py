@@ -427,9 +427,9 @@ class TestEdgesResolveInBothRecordedShapes:
                     confidence=0.9,
                 )
             )
-            from portal.modules.compliance.core.reading_assembly import _linked_internal
+            from portal.modules.compliance.core.reading_assembly import linked_internal
 
-            linked = _linked_internal(repo, REF)
+            linked = linked_internal(repo, REF)
         finally:
             repo.close()
         assert len(linked) == 1

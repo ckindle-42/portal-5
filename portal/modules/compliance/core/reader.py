@@ -565,12 +565,15 @@ def read(  # noqa: PLR0912, PLR0915
     # answer. Returning "" as an answer would make that look like a terse model.
     exhausted = bool(not answer and result.thinking)
     verification = verify_citations(repo, answer, material)
-    from portal.modules.compliance.core import enumeration, reading_assembly
+    from portal.modules.compliance.core import requirement_scope
 
-    population = enumeration.population_for_requirement(repo, context["ref"])
+    # P4.3: assembly and closure resolve the SAME scope. Computing the eligible
+    # population from an exact match on the ref as asked is what emptied it:
+    # `CIP-007-6 R2` holds no anchors and no edges of its own — its four Parts
+    # hold all of them — so the receipt reported eligible=[] examined=[] and
+    # classified the answer's own regulatory citations as `outside`.
+    population = requirement_scope.population(repo, context["ref"], valid_at=valid_at)
     eligible = {str(section_id) for section_id in population.get("section_ids", [])}
-    linked = reading_assembly._linked_internal(repo, context["ref"])
-    eligible.update(str(section.get("section_id")) for section in linked)
     cited = {
         str(entry.get("cited_ref"))
         for entry in verification.get("citations", [])
@@ -587,6 +590,13 @@ def read(  # noqa: PLR0912, PLR0915
     )
     closure = {
         "population_method": population.get("population_method"),
+        "scope": population.get("scope"),
+        "population_detail": population.get("detail"),
+        # every eligible section with the leaf identity it belongs to, which side
+        # it is, and — for an operator edge — whether it is approved or merely
+        # proposed. A population built entirely from proposed edges must not read
+        # like one built from approved ones.
+        "population": population.get("sections"),
         "eligible": sorted(eligible),
         "examined": sorted(examined),
         "outside": outside,
