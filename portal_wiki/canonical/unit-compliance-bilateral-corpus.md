@@ -12,6 +12,8 @@ sources:
 - type: code
   path: portal/modules/compliance/core/reading_assembly.py
 - type: code
+  path: portal/modules/compliance/core/requirement_scope.py
+- type: code
   path: portal/modules/compliance/core/notes.py
 - type: code
   path: portal/modules/compliance/core/reader.py
@@ -43,6 +45,8 @@ sources:
   path: tests/unit/test_compliance_section_index.py
 - type: code
   path: tests/unit/test_compliance_reading_assembly.py
+- type: code
+  path: tests/unit/test_compliance_requirement_scope.py
 claims:
 - probe: compliance.capture.unit_kinds
   contains: table_row
@@ -254,6 +258,33 @@ Freshness is tracked **per corpus**: one store-wide hash would mark the
 regulatory index stale the moment somebody writes an operator note, which is
 false and teaches people to ignore the signal. `--restamp` re-records a
 manifest only for corpora whose index matches the store row for row.
+
+## One scope: a parent requirement and its Parts
+
+`core/requirement_scope` resolves the identity a question is asked at to the
+identities the store keys evidence to. A product question names `CIP-007-6 R2`;
+every anchor and every operator edge is recorded against `R2 Part 2.1` through
+`Part 2.4`. Measured on the live store: the parent carried **0**
+`requirement_sections` rows and **0** `relationship_assertions` rows, against
+its Parts' 14 anchors each and 66 proposed edges between them.
+
+An exact lookup on the parent therefore produced an EMPTY population, and an
+empty population satisfies both `complete` and `unread` — so a reading over no
+evidence at all reported exactly like a reading that read everything, with the
+answer's own regulatory citations classified `outside` scope. No prompt and no
+seat can repair that: nothing was ever offered to read.
+
+The expansion comes from `requirement_nodes`, the standard's own numbering,
+never from a string prefix — `'CIP-007-6 R2'` is a prefix of `'CIP-007-6 R20'`
+as readily as of `'CIP-007-6 R2 Part 2.1'`. The parent stays inside its own
+scope, because some standards anchor material to the bare requirement and
+number no Parts at all (`CIP-003-9 R2`).
+
+`population()` is the single call the assembly, the search predicate and the
+closure all make, so a reading cannot be assembled over one scope and then
+judged against another. Each eligible section keeps the leaf it belongs to,
+which side of the corpus it is, and — for an operator edge — whether it is
+approved or merely proposed.
 
 ## The reading assembly
 

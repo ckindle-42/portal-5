@@ -401,14 +401,24 @@ class TestPromptOrderIsCacheable:
         seen: dict = {}
 
         def _capture(payload, timeout):  # noqa: ANN001, ANN202
-            seen["user"] = payload["messages"][1]["content"]
+            seen["messages"] = payload["messages"]
             return {"message": {"content": "ok"}, "prompt_eval_count": 10, "eval_count": 2}
 
         monkeypatch.setattr(reading_transport, "_post", _capture)
-        reader.read(store, "WHAT-IS-THE-QUESTION", "CIP-007-6 R2", model="stub", store=False)
-        user = seen["user"]
-        assert user.index("WHAT-IS-THE-QUESTION") > user.index("## requirement")
-        assert user.rstrip().endswith("WHAT-IS-THE-QUESTION")
+        reader.read(
+            store,
+            "WHAT-IS-THE-QUESTION",
+            "CIP-007-6 R2",
+            model="stub",
+            store=False,
+            retain_run=False,
+        )
+        messages = seen["messages"]
+        assert "## requirement" in messages[1]["content"]
+        # the question is the LAST thing said, so the material and the recorded
+        # acquisition are a prefix that does not move between turns
+        assert messages[-1]["content"].rstrip().endswith("WHAT-IS-THE-QUESTION")
+        assert not any("WHAT-IS-THE-QUESTION" in str(m.get("content", "")) for m in messages[:-1])
 
     def test_two_questions_share_a_byte_identical_prefix(
         self, store: Repository, monkeypatch: pytest.MonkeyPatch
@@ -418,12 +428,14 @@ class TestPromptOrderIsCacheable:
         prompts: list[str] = []
 
         def _capture(payload, timeout):  # noqa: ANN001, ANN202
-            prompts.append(payload["messages"][1]["content"])
+            prompts.append("".join(str(m.get("content", "")) for m in payload["messages"][:-1]))
             return {"message": {"content": "ok"}, "prompt_eval_count": 10, "eval_count": 2}
 
         monkeypatch.setattr(reading_transport, "_post", _capture)
         for question in ("first question", "an entirely different second question"):
-            reader.read(store, question, "CIP-007-6 R2", model="stub", store=False)
+            reader.read(
+                store, question, "CIP-007-6 R2", model="stub", store=False, retain_run=False
+            )
         shared = len(os.path.commonprefix(prompts))
         assert shared > 0.9 * min(len(p) for p in prompts)
 
@@ -543,9 +555,13 @@ class TestAnEmptyAnswerIsAFailure:
         assert "whole 1600-token budget" in payload["failure"]
         assert "reasoning" in payload["failure"]
 
-    def test_a_real_answer_is_not_marked_failed(
+    def test_an_answer_that_read_nothing_is_a_failed_reading(
         self, store: Repository, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """The condition this test used to ACCEPT. A terminal prose answer with
+        no tool call was scored as success, so ordinary unsupported prose
+        travelled as a sound reading — which is what the live parent-level R2
+        run did, and what the loop permitted."""
         from portal.modules.compliance.core import reading_transport
 
         monkeypatch.setattr(
@@ -558,5 +574,144 @@ class TestAnEmptyAnswerIsAFailure:
             },
         )
         payload = reader.read(store, "q", "CIP-007-6 R2", model="stub", store=False)
-        assert payload["failed"] is False
-        assert payload["failure"] == ""
+        assert payload["failed"] is True
+        assert "made no tool call" in payload["failure"]
+        assert payload["closure_receipt"]["model_tool_calls"] == 0
+
+
+class TestAcquisitionIsRecordedNotElected:
+    """P6.9. The loop used to open with the seed and hope the seat chose to call
+    a tool. Measured live on the parent-level R2 question, Qwen3.8 answered in
+    prose on the first turn, called nothing, and the loop accepted it — so the
+    first acquisition is now RUN and RECORDED before the model speaks."""
+
+    def _seat(self, monkeypatch: pytest.MonkeyPatch, content: str, calls: list | None = None):
+        from portal.modules.compliance.core import reading_transport
+
+        turns: list[dict] = []
+
+        def _post(payload, timeout):  # noqa: ANN001, ANN202
+            turns.append(payload)
+            message = {"content": "" if calls and len(turns) == 1 else content}
+            if calls and len(turns) == 1:
+                message["tool_calls"] = calls
+            return {"message": message, "prompt_eval_count": 900, "eval_count": 40}
+
+        monkeypatch.setattr(reading_transport, "_post", _post)
+        return turns
+
+    def test_the_requirement_packet_is_acquired_before_the_model_speaks(
+        self, store: Repository, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        turns = self._seat(monkeypatch, "an answer")
+        payload = reader.read(store, "q", "CIP-007-6 R2", model="stub", store=False)
+        roles = [m["role"] for m in turns[0]["messages"]]
+        assert roles[:2] == ["system", "user"]
+        assert "tool" in roles
+        trace = payload["closure_receipt"]["tool_trace"]
+        assert [entry["tool"] for entry in trace if entry["derivation"] == "bootstrap"] == list(
+            reader.BOOTSTRAP_TOOLS
+        )
+
+    def test_the_seed_counts_as_examined(
+        self, store: Repository, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._seat(monkeypatch, "an answer")
+        closure = reader.read(store, "q", "CIP-007-6 R2", model="stub", store=False)[
+            "closure_receipt"
+        ]
+        assert closure["examined"], "material handed over unasked is material that was read"
+
+    def test_following_the_link_list_is_enumerating_not_reading(
+        self, store: Repository, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`compliance_links` returns edges, not text. Counting its ids as
+        examined would let one call mark every linked section read."""
+        self._seat(
+            monkeypatch,
+            "an answer",
+            calls=[
+                {"function": {"name": "compliance_links", "arguments": {"ref": "CIP-007-6 R2"}}}
+            ],
+        )
+        closure = reader.read(store, "q", "CIP-007-6 R2", model="stub", store=False)[
+            "closure_receipt"
+        ]
+        links = [e for e in closure["tool_trace"] if e["tool"] == "compliance_links"]
+        assert links, "the enumeration ran"
+        assert not (set(closure["enumerated"]) & set(closure["examined"]))
+
+
+class TestTheRunIsRetained:
+    def _read(self, store: Repository, monkeypatch: pytest.MonkeyPatch, **kwargs) -> dict:
+        from portal.modules.compliance.core import reading_transport
+
+        monkeypatch.setattr(
+            reading_transport,
+            "_post",
+            lambda payload, timeout: {
+                "message": {"content": "an answer"},
+                "prompt_eval_count": 900,
+                "eval_count": 40,
+            },
+        )
+        return reader.read(store, "q", "CIP-007-6 R2", model="stub", store=False, **kwargs)
+
+    def test_the_receipt_survives_the_process(
+        self, store: Repository, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        payload = self._read(store, monkeypatch)
+        (run,) = reader.runs_for(store, "CIP-007-6 R2")
+        assert run["run_id"] == payload["run_id"]
+        assert run["closure"]["stop_reason"] == payload["closure_receipt"]["stop_reason"]
+        assert run["tool_trace"] == payload["closure_receipt"]["tool_trace"]
+
+    def test_a_failed_reading_is_retained_not_discarded(
+        self, store: Repository, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        payload = self._read(store, monkeypatch)
+        assert payload["failed"] is True  # it called nothing
+        (run,) = reader.runs_for(store, "CIP-007-6 R2")
+        assert run["failed"] is True
+        assert "made no tool call" in run["failure"]
+
+    def test_the_transcript_is_retained_with_the_tool_messages(
+        self, store: Repository, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._read(store, monkeypatch)
+        (run,) = reader.runs_for(store, "CIP-007-6 R2")
+        assert [m["role"] for m in run["messages"]][:2] == ["system", "user"]
+        assert any(m["role"] == "tool" for m in run["messages"])
+
+    def test_the_run_can_be_declined(
+        self, store: Repository, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._read(store, monkeypatch, retain_run=False)
+        assert reader.runs_for(store, "CIP-007-6 R2") == []
+
+
+class TestTurnOrder:
+    def test_a_prior_turn_comes_before_the_question_being_asked(
+        self, store: Repository, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The prior turns were appended AFTER the current question, so on turn
+        two the last message in the thread was an old assistant answer and the
+        model was replying to its own previous turn."""
+        from portal.modules.compliance.core import reading_transport
+
+        seen: list[list[dict]] = []
+
+        def _post(payload, timeout):  # noqa: ANN001, ANN202
+            seen.append(payload["messages"])
+            return {"message": {"content": "an answer"}, "prompt_eval_count": 9, "eval_count": 4}
+
+        monkeypatch.setattr(reading_transport, "_post", _post)
+        for question in ("FIRST-QUESTION", "SECOND-QUESTION"):
+            reader.read(
+                store, question, "CIP-007-6 R2", model="stub", thread_id="t1", retain_run=False
+            )
+        contents = [str(m.get("content", "")) for m in seen[-1]]
+        joined = "\n".join(contents)
+        assert "FIRST-QUESTION" in joined, "the prior turn travels"
+        assert joined.index("FIRST-QUESTION") < joined.index("SECOND-QUESTION")
+        assert contents[-1].rstrip().endswith("SECOND-QUESTION")
