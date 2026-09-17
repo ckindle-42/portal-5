@@ -49,6 +49,7 @@ _DEFAULT_SEATS: list[dict[str, str]] = [
 ]
 
 _DEFAULT_QUORUM = 0.66
+_PORTAL_CONFIG = _CONFIG.parent / "portal.yaml"
 
 
 def _read_council_config() -> dict[str, Any]:
@@ -85,6 +86,57 @@ def council_quorum() -> float:
     if isinstance(q, (int, float)) and not isinstance(q, bool):
         return float(q)
     return _DEFAULT_QUORUM
+
+
+def reading_seat() -> str:
+    """Resolve the single workspace-bound seat that has measured tool support.
+
+    The workspace binding is authoritative.  A model is not eligible merely
+    because a name appears in a council roster: it must have an explicit
+    ``supports_tools: true`` registry record produced by a direct preflight.
+    """
+    import os
+
+    configured = os.environ.get("COMPLIANCE_READING_MODEL", "")
+    if not configured and _PORTAL_CONFIG.exists():
+        try:
+            import yaml
+
+            portal = yaml.safe_load(_PORTAL_CONFIG.read_text()) or {}
+            configured = str(
+                ((portal.get("workspaces") or {}).get("auto-compliance") or {}).get(
+                    "model_hint", ""
+                )
+            )
+        except Exception:  # noqa: BLE001 - a malformed binding is reported below
+            configured = ""
+    if not configured:
+        raise RuntimeError("auto-compliance has no workspace-bound reading seat")
+
+    backends = Path(__file__).resolve().parents[4] / "config" / "backends.yaml"
+    measured = False
+    if backends.exists():
+        try:
+            import yaml
+
+            data = yaml.safe_load(backends.read_text()) or {}
+            for group in data.get("backends", []) or []:
+                for candidate in group.get("models", []) or []:
+                    if (
+                        str(candidate.get("id", "")) == configured
+                        and candidate.get("supports_tools") is True
+                    ):
+                        measured = True
+                        break
+                if measured:
+                    break
+        except Exception:  # noqa: BLE001 - refuse closed on malformed registry
+            measured = False
+    if not measured:
+        raise RuntimeError(
+            f"reading seat {configured!r} has no measured CAN_DRIVE_A_LOOP registry verdict"
+        )
+    return configured
 
 
 def build_assessment_context(

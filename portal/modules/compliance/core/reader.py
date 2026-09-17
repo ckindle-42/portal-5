@@ -410,13 +410,13 @@ def _what_it_is(entry: dict[str, Any]) -> str:
 # ── the reading call ────────────────────────────────────────────────────────
 
 
-def read(
+def read(  # noqa: PLR0912, PLR0915
     repo: Any,
     question: str,
     ref: str,
     *,
     model: str,
-    budget_tokens: int = 60_000,
+    budget_tokens: int = 6000,
     profile: str = "",
     num_ctx: int = 0,
     reasoning_effort: bool | str | None = None,
@@ -426,48 +426,136 @@ def read(
     store: bool = True,
     timeout: int = 900,
 ) -> dict[str, Any]:
-    """One reading. Assemble, ask, verify the citations, keep the answer."""
+    """Drive one bounded reading conversation and retain its receipt.
+
+    ``budget_tokens`` is retained for API compatibility but is now the maximum
+    per-tool-result character budget.  The seed is deliberately small; the
+    agent must retrieve and read the material it relies on.
+    """
     from portal.modules.compliance.core.notes import notes_for
     from portal.modules.compliance.core.reading_assembly import CHARS_PER_TOKEN, assemble
+    from portal.modules.compliance.core.reading_tools import TOOL_SCHEMAS, dispatch
     from portal.modules.compliance.core.reading_transport import chat
 
-    context = assemble(repo, ref, budget_tokens=budget_tokens, profile=profile, valid_at=valid_at)
+    if profile:
+        return {
+            "error": (
+                "profile= is closed: the agent chooses material through its tools; "
+                "remove profile and ask the question directly"
+            ),
+            "ref": ref,
+            "failed": True,
+        }
+
+    context = assemble(
+        repo,
+        ref,
+        budget_tokens=max(2048, min(int(budget_tokens), 12000)),
+        include=["requirement"],
+        valid_at=valid_at,
+    )
     if "error" in context:
         return {"error": context["error"], "ref": ref}
     context["operator_notes"] = notes_for(repo, ref)
-    material = _render_material(context)
-    # the window must hold the material AND the answer, with room for the
-    # chat template's own overhead — a context that truncates the material is
-    # the keyhole again, silently.
-    estimated_prompt = int(len(material) / CHARS_PER_TOKEN)
-    needed = estimated_prompt + answer_tokens + 2048
-    # Rounded up to the next 4k, NOT to the next power of two. A 33.5k
-    # requirement rounds to 36,864 rather than 65,536, and on a 27B model at
-    # Q4 that difference is tens of gigabytes of KV cache — enough to push the
-    # machine into swap, which is how the first live probe of this phase spent
-    # twenty minutes producing nothing.
-    window = num_ctx or max(8192, -(-needed // 4096) * 4096)
+    seed = _render_material(context)
+    prior: list[dict[str, Any]] = []
+    if thread_id:
+        rows = repo._conn.execute(
+            """SELECT question, answer, superseded_at FROM conversation_answers
+               WHERE thread_id = ? AND subject_ref = ? ORDER BY asked_at""",
+            (thread_id, ref),
+        ).fetchall()
+        for row in rows:
+            standing = (
+                "\n\n[standing superseded: the revision cited by this answer has moved]"
+                if row[2]
+                else ""
+            )
+            prior.extend(
+                [
+                    {"role": "user", "content": str(row[0])},
+                    {"role": "assistant", "content": str(row[1]) + standing},
+                ]
+            )
 
-    # MATERIAL FIRST, QUESTION LAST — and that order is load-bearing, not
-    # cosmetic. Every turn of a session ships the identical ~30k-token
-    # neighbourhood; with the question in front, the first differing token is
-    # at position ~20 and the runner re-prefills all of it. Measured on this
-    # corpus: 281 s of prompt evaluation per exchange. With the material first,
-    # the prefix is byte-identical across turns and the slot cache carries it,
-    # so only the question and the answer are new work. The model attends
-    # fine to a question at the end; it cannot attend at all to material the
-    # clock did not leave time to send.
-    result = chat(
-        model,
-        SYSTEM_PROMPT,
-        f"{material}\n\n---\n\nThe analyst asks:\n\n{question}",
-        budget=answer_tokens,
-        fmt=None,
-        think=reasoning_effort,
-        num_ctx=window,
-        timeout=timeout,
-    )
-    answer = result.content.strip()
+    thread: list[dict[str, Any]] = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": f"{seed}\n\n---\n\nThe analyst asks:\n\n{question}",
+        },
+        *prior,
+    ]
+    estimated_prompt = int(len(seed) / CHARS_PER_TOKEN)
+    needed = estimated_prompt + answer_tokens + 2048
+    window = num_ctx or max(8192, -(-needed // 4096) * 4096)
+    examined: set[str] = set()
+    tool_trace: list[dict[str, Any]] = []
+    answer_result: Any = None
+    stop_reason = ""
+    max_steps = 12
+    for step in range(max_steps):
+        answer_result = chat(
+            model,
+            messages=thread,
+            tools=TOOL_SCHEMAS,
+            budget=answer_tokens,
+            fmt=None,
+            think=reasoning_effort,
+            num_ctx=window,
+            timeout=timeout,
+        )
+        calls = list(
+            getattr(answer_result, "tool_calls", []) or answer_result.get("tool_calls", [])
+        )
+        raw_message = dict(
+            getattr(answer_result, "raw_message", {}) or answer_result.get("raw_message", {})
+        )
+        if not calls:
+            stop_reason = "model returned an answer"
+            break
+        thread.append(raw_message or {"role": "assistant", "tool_calls": calls})
+        for call in calls:
+            function = call.get("function", call) if isinstance(call, dict) else {}
+            name = str(function.get("name", ""))
+            arguments = function.get("arguments", {})
+            if isinstance(arguments, str):
+                try:
+                    arguments = json.loads(arguments)
+                except json.JSONDecodeError:
+                    arguments = {}
+            result = dispatch(
+                repo,
+                name,
+                arguments if isinstance(arguments, dict) else {},
+                max_chars=max(1000, min(int(budget_tokens), 12000)),
+            )
+            examined.update(str(section_id) for section_id in result.get("section_ids", []))
+            tool_trace.append(
+                {
+                    "step": step + 1,
+                    "tool": name,
+                    "section_ids": result.get("section_ids", []),
+                    "error": bool(result.get("error")),
+                }
+            )
+            thread.append(
+                {
+                    "role": "tool",
+                    "tool_name": name,
+                    "content": json.dumps(result.get("payload", result), default=str),
+                }
+            )
+    else:
+        stop_reason = f"max_steps={max_steps} reached before the model returned an answer"
+
+    answer = (answer_result.content if answer_result is not None else "").strip()
+    if not stop_reason:
+        stop_reason = f"max_steps={max_steps} reached"
+    material = seed
+    # The estimate is for the seed sent on the first turn. Later tool results
+    # are accounted for by the receipt and the per-tool truncation disclosure.
+    result = answer_result
     # An empty answer is a FAILED reading, and it must say so rather than travel
     # as a very short one. Measured on this call site (P6.7): with reasoning
     # enabled at "low" or "medium", Qwen3.8 spent the whole 1,600-token budget
@@ -477,6 +565,41 @@ def read(
     # answer. Returning "" as an answer would make that look like a terse model.
     exhausted = bool(not answer and result.thinking)
     verification = verify_citations(repo, answer, material)
+    from portal.modules.compliance.core import enumeration, reading_assembly
+
+    population = enumeration.population_for_requirement(repo, context["ref"])
+    eligible = {str(section_id) for section_id in population.get("section_ids", [])}
+    linked = reading_assembly._linked_internal(repo, context["ref"])
+    eligible.update(str(section.get("section_id")) for section in linked)
+    cited = {
+        str(entry.get("cited_ref"))
+        for entry in verification.get("citations", [])
+        if entry.get("resolved")
+    }
+    outside = sorted(cited - eligible)
+    unread = sorted(eligible - examined)
+    absence_claim = bool(
+        re.search(
+            r"\b(?:no|none|not found|does not|without)\b.{0,80}\b(?:evidence|section|control|procedure|link)",
+            answer,
+            re.I,
+        )
+    )
+    closure = {
+        "population_method": population.get("population_method"),
+        "eligible": sorted(eligible),
+        "examined": sorted(examined),
+        "outside": outside,
+        "unread": unread,
+        "complete": bool(eligible) and not unread,
+        "stop_reason": stop_reason,
+        "tool_trace": tool_trace,
+    }
+    closure_failure = (
+        "answer asserts an absence without reading every eligible section"
+        if absence_claim and unread
+        else ""
+    )
     # The estimate is checked against the runner's own count on every call. An
     # under-estimate is the dangerous direction: it sizes the window too small
     # and the material is silently truncated, which is the keyhole returning.
@@ -506,11 +629,11 @@ def read(
         "num_ctx": window,
         "material_chars": len(material),
         "material_tokens": len(material) // CHARS_PER_TOKEN,
-        "profile": context.get("profile", "full"),
+        "profile": "agent",
         "components": [c["component"] for c in context["components"]],
         "omitted": context["omitted"],
         "verification": verification,
-        "failed": exhausted or not answer,
+        "failed": bool(exhausted or not answer or closure_failure),
         "failure": (
             (
                 f"the model produced no answer: the whole {answer_tokens}-token budget "
@@ -518,8 +641,9 @@ def read(
                 "is measured OFF for this call site — see reading_transport.DEFAULT_EFFORT."
             )
             if exhausted
-            else ("the model produced no answer" if not answer else "")
+            else (closure_failure or ("the model produced no answer" if not answer else ""))
         ),
+        "closure_receipt": closure,
         "context_fit": fit,
         "latency": {
             "elapsed_s": round(float(result.get("elapsed", 0)), 2),
@@ -535,6 +659,12 @@ def read(
     }
     if store:
         payload["answer_id"] = store_answer(repo, payload, context, thread_id=thread_id)
+        if not re.search(r"\b(?:hypothetical|scenario|if we|suppose)\b", question, re.I):
+            from portal.modules.compliance.core.candidate_links import links_from_answer
+
+            payload["proposed_links"] = links_from_answer(
+                repo, payload["answer_id"], context["ref"]
+            )
     return payload
 
 
