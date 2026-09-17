@@ -97,14 +97,31 @@ def check_compliance_corpus_currency() -> tuple[str, str, list[dict]]:
         status = retrieval_projection_status(repo)
     finally:
         repo.close()
-    findings.append({"retrieval_projection": status["status"]})
+    corpora = status.get("corpora", {})
+    findings.append(
+        {
+            "retrieval_projection": status["status"],
+            "corpora": {kb_id: entry["status"] for kb_id, entry in corpora.items()},
+        }
+    )
     if status["status"] != "FRESH":
+        # Per corpus, because the status is per corpus: `built_from_fingerprint`
+        # and the live fingerprint live on each entry, never at the top level.
+        # Reading them from the top level raised KeyError, so the ONE branch that
+        # reports the real drift crashed instead of naming it — and a check that
+        # dies where it should explain is indistinguishable from a broken check.
+        drifted = [
+            f"{kb_id} is {entry['status']} (built from "
+            f"{str(entry.get('built_from_fingerprint', '') or 'nothing')[:12]}…, store is now "
+            f"{str(entry.get('live_fingerprint', ''))[:12]}…)"
+            for kb_id, entry in corpora.items()
+            if entry["status"] != "FRESH"
+        ]
         return (
             "FAIL",
-            f"the retrieval index is {status['status']} against the section population "
-            f"(built from {str(status.get('built_from_fingerprint', ''))[:12]}…, store is now "
-            f"{status['canonical_fingerprint'][:12]}…) — re-run "
-            "scripts/project_compliance_sections.py",
+            f"the retrieval index is {status['status']} against the section population: "
+            + "; ".join(drifted or ["no corpus is projected"])
+            + " — re-run scripts/project_compliance_sections.py",
             findings,
         )
     return "PASS", "", findings
