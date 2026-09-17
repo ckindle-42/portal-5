@@ -140,6 +140,35 @@ Stated plainly, because the temptation is to let these slide:
 
 ---
 
+## 4a — This was pushed with the gate RED, deliberately
+
+`git push` was run with `--no-verify`. That bypassed `HG`, which was failing
+correctly:
+
+```
+✗ HG. compliance acceptance has run at or after the last commit touching the module
+     — the only acceptance run at or after a3b6f047ab0d is INCOMPLETE:
+       5 of 18 planned cell(s). A stopped run is not currency.
+```
+
+**The gate was right and was overridden anyway**, by explicit operator decision,
+so that the findings reach `main` immediately rather than waiting ~2 hours on a
+run the operator had chosen to stop. Recorded here because a bypassed gate that
+leaves no trace is indistinguishable from a gate that never fired — which is the
+failure mode this whole task is about.
+
+`BU` (complexity budget) was **not** bypassed; it was legitimately re-stamped in
+`9c5c916f` after real code growth. Note `unwired_scripts` 13 → 16: three of the
+scripts added here (`compliance_acceptance_report.py`,
+`compliance_prompt_comparison.py`, `compliance_unproject_campaign_answers.py`)
+are one-off tools with no caller. That is a real, if minor, complexity signal.
+
+**What this means for anyone reading `main`:** the compliance module at
+`a3b6f047` carries seven fixes that have **not** been validated by a complete
+live acceptance run. `HG` will keep failing every push until one lands. Do not
+read the green unit suite as evidence that the reading path works — that is
+precisely the inference this task was written to stop.
+
 ## 5 — What is left, in order
 
 1. Re-run the 18 reader cells at `a3b6f047` (~1.5–2 h). This settles #1, #2, #3.
