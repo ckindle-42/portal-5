@@ -173,12 +173,26 @@ DEFAULT_TEMPERATURE = 0.0
 #:   escaping as a bare ``HTTPError``.
 #:
 #: The figure is sized for the worst case this call site can build, not for the
-#: seed: a 12,000-character assembly, two bootstrap tool payloads and up to
-#: twelve model-elected tool results, each bounded at 12,000 characters
-#: (~43,000 tokens at the observed ratio), plus the answer budget and the
-#: reasoning allowance. 65,536 holds that with roughly 15,000 tokens of margin
-#: and keeps the 27B seat at 19.2 GB resident.
-DEFAULT_NUM_CTX = 65536
+#: seed. That derivation was done twice, and the first one was wrong in the
+#: direction that matters:
+#:
+#: * 65,536 was derived using 4.22 chars/token, measured on RAW CORPUS TEXT.
+#:   The ratio on a real assembled thread — system prompt, tool schemas, tool
+#:   results, JSON punctuation — is **~3.0**, measured across every CIP-007-6
+#:   acceptance cell (2.95 to 3.15). Dividing a character budget by the larger
+#:   ratio under-counts the tokens it becomes.
+#: * Recomputed at 3.0: seed plus both bootstrap payloads is ~27,000 tokens
+#:   (measured on the `either_or` cell), twelve model-elected tool results
+#:   bounded at 12,000 characters each is ~48,000, and the answer budget plus
+#:   the reasoning allowance is 7,168. About **82,000 tokens**, against a 65,536
+#:   window.
+#:
+#: The live `CIP-007-6 R2` cell — the largest population in the standard — is
+#: the one that reaches it: twelve tool calls, 1,522 seconds, and an Ollama
+#: HTTP 500. So the window holds the recomputed worst case with margin, and
+#: :func:`reader.read` additionally refuses to make a call whose thread would
+#: not fit, which turns a runner-side failure into a named stop_reason.
+DEFAULT_NUM_CTX = 98304
 
 _SHOW_ENDPOINT = "http://localhost:11434/api/show"
 _PS_ENDPOINT = "http://localhost:11434/api/ps"

@@ -45,6 +45,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import urllib.error
 from pathlib import Path
 from typing import Any
 
@@ -108,6 +109,36 @@ _WORD_NUMBERS.update(
         for j, u in enumerate(_UNITS[:9])
         for sep in ("-", " ")
     }
+)
+
+#: An assertion that something is ABSENT from the corpus — which is the one kind
+#: of claim a reading may not make while eligible material sits unread.
+#:
+#: The previous pattern was
+#: ``(no|none|not found|does not|without) .{0,80} (evidence|section|control|procedure|link)``
+#: — a negation anywhere within eighty characters of a noun. Measured on a live
+#: CIP-007-6 Part 2.3 reading that was otherwise correct on every check: the
+#: analyst asked "does anything narrow that choice?", the model answered
+#: **"No.** The operator's procedure preserves all three permitted actions"* —
+#: and the pattern matched ``no`` … ``procedure``. The reading was failed for
+#: ANSWERING THE QUESTION IT WAS ASKED, and the failure it was given accused it
+#: of asserting an absence it never asserted.
+#:
+#: The negation must now GOVERN the noun — a determiner ("no operator document"),
+#: an existential ("there is no record"), a finding ("I found no procedure"), or
+#: a container verb ("the corpus does not contain") — so a sentence-initial "No."
+#: answering a yes/no question cannot match: every alternative needs a word
+#: between the negation and the noun, and punctuation is not a word.
+_ABSENCE_CLAIM = re.compile(
+    r"\b(?:there\s+(?:is|are)|i\s+(?:found|have|see)|we\s+(?:have|found))\s+no\b"
+    r"|\bno\s+(?:\w+\s+){0,3}?"
+    r"(?:evidence|record|records|document|documents|procedure|procedures|section|sections|"
+    r"control|controls|link|links)\b"
+    r"|\bnone\s+of\s+(?:the|these|those)\b"
+    r"|\bnothing\s+(?:in|among|within)\b"
+    r"|\b(?:does|do|did)\s+not\s+(?:appear\s+to\s+)?"
+    r"(?:contain|include|hold|show|record|address|exist)\b",
+    re.I,
 )
 
 #: How far a quantity may sit from the citation it is pinned to. Beyond this it
@@ -613,6 +644,46 @@ def _dispatch_calls(
         )
 
 
+def _recalibrate(ratio: float, thread_chars: int, result: Any) -> float:
+    """The runner's own count replaces the estimate, once there is one.
+
+    ``CHARS_PER_TOKEN`` was measured on different text and over-counts, which is
+    the safe direction for reserving a window and the wrong one for deciding
+    whether the next turn fits. After the first call the ratio is observed.
+    """
+    counted = int(result.get("prompt_eval_count") or 0)
+    return max(1.0, thread_chars / counted) if counted else ratio
+
+
+def _window_exhausted(
+    *,
+    thread_chars: int,
+    ratio: float,
+    window: int,
+    answer_tokens: int,
+    reasoning: int,
+    step: int,
+) -> str:
+    """Would the NEXT call fit? Refused here, with both numbers, or "".
+
+    An oversized prompt is an HTTP 400 on this runner, and — measured on the
+    live parent-level ``CIP-007-6 R2`` cell — an HTTP 500 after twelve tool
+    calls and 1,522 seconds. Neither tells you which turn outgrew the window,
+    and the 500 killed the reading before its receipt was written. The loop
+    therefore stops itself, naming the turn, the projection and the budget.
+    """
+    projected = int(thread_chars / max(ratio, 1.0))
+    required = projected + answer_tokens + reasoning
+    if required <= window:
+        return ""
+    return (
+        f"the thread reached {projected} tokens and the window is {window}: with the "
+        f"{answer_tokens}-token answer budget and a {reasoning}-token reasoning allowance it "
+        f"needs {required}. The reading stopped after {step} turn(s) rather than sending a "
+        "call that cannot fit."
+    )
+
+
 def read(  # noqa: PLR0912, PLR0915
     repo: Any,
     question: str,
@@ -793,7 +864,27 @@ def read(  # noqa: PLR0912, PLR0915
     model_calls = 0
     max_steps = 12
     ceiling_failure = ""
+    # The ratio the thread is measured against. Seeded from the assembly's
+    # constant and replaced by the runner's own count after the first call, so
+    # the check calibrates itself instead of trusting an estimate that was
+    # measured on different text. CHARS_PER_TOKEN (2.1) over-counts and is safe;
+    # the danger is the other direction.
+    observed_ratio = float(CHARS_PER_TOKEN)
     for step in range(max_steps):
+        thread_chars = sum(len(str(message.get("content", "") or "")) for message in thread)
+        ceiling_failure = _window_exhausted(
+            thread_chars=thread_chars,
+            ratio=observed_ratio,
+            window=window,
+            answer_tokens=answer_tokens,
+            reasoning=reasoning_allowance or DEFAULT_REASONING_ALLOWANCE,
+            step=step,
+        )
+        if ceiling_failure:
+            stop_reason = f"window exhausted before step {step + 1}: {ceiling_failure}"
+            if answer_result is None:
+                answer_result = ChatResult(content="", thinking="", num_ctx=window, model=model)
+            break
         try:
             answer_result = chat(
                 model,
@@ -806,18 +897,32 @@ def read(  # noqa: PLR0912, PLR0915
                 num_ctx=window,
                 timeout=timeout,
             )
-        except ContextCeilingError as exc:
-            # A reading whose thread outgrew its window is a FAILED reading with
-            # a named reason, not an exception escaping into a generic handler
-            # that reports it as a transport error of unknown kind.
-            ceiling_failure = str(exc)
-            stop_reason = f"context ceiling reached at step {step + 1}: {exc}"
+        except (ContextCeilingError, urllib.error.HTTPError, urllib.error.URLError, OSError) as exc:
+            # ANY transport failure ends the reading as a FAILED READING WITH A
+            # RECEIPT, never as an exception escaping into a caller's generic
+            # handler. Only the ceiling error was caught before, so an Ollama
+            # HTTP 500 on the live `CIP-007-6 R2` cell propagated out of read()
+            # past store_run() — and the reading that died after 1,522 seconds
+            # and twelve tool calls left NO record of what it had done, which is
+            # the exact inverse of this module's stated rule that a failed
+            # reading is the one most worth keeping.
+            ceiling_failure = (
+                str(exc)
+                if isinstance(exc, ContextCeilingError)
+                else f"the transport failed at step {step + 1}: {type(exc).__name__}: {exc}"
+            )
+            stop_reason = (
+                f"context ceiling reached at step {step + 1}: {exc}"
+                if isinstance(exc, ContextCeilingError)
+                else f"transport failure at step {step + 1}: {type(exc).__name__}: {exc}"
+            )
             if answer_result is None:
                 # Failed on the FIRST call: there is no result to report from, so
                 # an empty one is constructed rather than letting the receipt
                 # code dereference None.
                 answer_result = ChatResult(content="", thinking="", num_ctx=window, model=model)
             break
+        observed_ratio = _recalibrate(observed_ratio, thread_chars, answer_result)
         calls = list(
             getattr(answer_result, "tool_calls", []) or answer_result.get("tool_calls", [])
         )
@@ -893,13 +998,7 @@ def read(  # noqa: PLR0912, PLR0915
     normalised_answer = answer.translate(_DASHES)
     omitted_with_reason = [section_id for section_id in unread if section_id in normalised_answer]
     undeclared_unread = [section_id for section_id in unread if section_id not in normalised_answer]
-    absence_claim = bool(
-        re.search(
-            r"\b(?:no|none|not found|does not|without)\b.{0,80}\b(?:evidence|section|control|procedure|link)",
-            answer,
-            re.I,
-        )
-    )
+    absence_claim = bool(_ABSENCE_CLAIM.search(answer))
     operator_eligible = {
         section_id
         for section_id, entry in (population.get("sections") or {}).items()
