@@ -1479,16 +1479,55 @@ def compliance_review_list(
         # answerer for. view="triage" is the complement — the module's own
         # backlog, which must never be handed to a compliance reviewer.
         if view in ("packet", "triage"):
-            items = rq.sme_packet() if view == "packet" else rq.triage_items()
+            if view == "packet":
+                repo = _repo()
+                try:
+                    packet = rq.mapping_packet(repo)
+                finally:
+                    repo.close()
+                items = [*packet, *[dataclasses.asdict(item) for item in rq.sme_packet()]]
+            else:
+                items = [dataclasses.asdict(item) for item in rq.triage_items()]
             return {
                 "count": len(items),
                 "view": view,
-                "items": [dataclasses.asdict(i) for i in items],
+                "items": items,
             }
         items = rq.list_items(kind=kind or None, status=status or None)
         return {"count": len(items), "view": "all", "items": [dataclasses.asdict(i) for i in items]}
     except Exception as e:  # noqa: BLE001
         return {"error": str(e)}
+
+
+@mcp.tool()
+def compliance_review_decide_batch(
+    decisions: list[dict[str, Any]],
+    sme: str,
+    reviewer_token: str = "",
+) -> dict[str, Any]:
+    """Apply versioned mapping decisions in one transaction.
+
+    Stale rows are returned individually with their current version; they do
+    not discard the rest of the reviewer's batch.
+    """
+    from portal.modules.compliance.core.auth import UnauthenticatedReviewError, verify_reviewer
+    from portal.modules.compliance.core.mapping_store import MappingStore
+
+    try:
+        verified = verify_reviewer(reviewer_token)
+    except UnauthenticatedReviewError as exc:
+        return {"error": str(exc), "status": "UNAUTHENTICATED"}
+    try:
+        results = MappingStore().decide_batch(decisions, verified)
+        return {
+            "count": len(results),
+            "applied": sum(result.get("status") == "APPLIED" for result in results),
+            "results": results,
+            "decided_by": verified,
+            "caller_label": sme,
+        }
+    except Exception as exc:  # noqa: BLE001 - report a batch failure as a payload
+        return {"error": str(exc)}
 
 
 @mcp.tool()
@@ -2675,6 +2714,7 @@ _DISPATCH: dict[str, Callable[..., Any]] = {
     "compliance_scope": compliance_scope,
     "compliance_route": compliance_route,
     "compliance_review_list": compliance_review_list,
+    "compliance_review_decide_batch": compliance_review_decide_batch,
     "compliance_review_decide": compliance_review_decide,
     "compliance_sources": compliance_sources,
     "compliance_trace": compliance_trace,

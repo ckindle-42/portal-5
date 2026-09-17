@@ -41,6 +41,25 @@
      "valid_at"
     ]
    }
+ }
+ },
+ {
+  "type": "function",
+  "function": {
+   "name": "compliance_review_decide_batch",
+   "description": "Apply versioned compliance mapping decisions as one auditable batch; stale items return their current version and do not discard other decisions.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "decisions": {
+      "type": "array",
+      "items": {"type": "object"}
+     },
+     "sme": {"type": "string"},
+     "reviewer_token": {"type": "string"}
+    },
+    "required": ["decisions", "sme", "reviewer_token"]
+   }
   }
  },
  {

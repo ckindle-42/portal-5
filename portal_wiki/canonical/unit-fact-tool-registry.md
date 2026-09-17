@@ -1,11 +1,11 @@
 ---
 id: unit-fact-tool-registry
 kind: what
-title: 167 MCP tools across 33 servers
+title: 168 MCP tools across 33 servers
 sources:
 - type: code
   path: portal/modules/*/tools/*_mcp.py
-  commit: 77d861541d63
+  commit: ede1ae59168e
 claims: []
 confidence: high
 tags:
@@ -13,7 +13,7 @@ tags:
 - tools
 - mcp
 created_at: 1784049584.748966
-updated_at: 1789591185.302689
+updated_at: 1789609101.624369
 ---
 
 # MCP tool registry
@@ -25,7 +25,7 @@ What each MCP server actually registers — `@mcp.tool()` defs, or `@mcp.custom_
 | `binresearch` | _(unresolved — server file not found)_ |
 | `browser` | `browser_click`, `browser_close`, `browser_evaluate`, `browser_fill`, `browser_list_profiles`, `browser_navigate`, `browser_screenshot`, `browser_snapshot` |
 | `cad_render` | `convert_cad`, `generate_scad`, `render_mesh`, `render_openscad` |
-| `compliance` | `compliance_analyze`, `compliance_answers`, `compliance_ask`, `compliance_bundle`, `compliance_change_impact`, `compliance_compare`, `compliance_conflicts`, `compliance_context`, `compliance_correct`, `compliance_coverage`, `compliance_draft_revisions`, `compliance_flexibility`, `compliance_gaps`, `compliance_impact`, `compliance_intentionality`, `compliance_links`, `compliance_mappings`, `compliance_note`, `compliance_notes`, `compliance_orphans`, `compliance_prospective`, `compliance_read`, `compliance_requirement`, `compliance_review_decide`, `compliance_review_list`, `compliance_route`, `compliance_scenario`, `compliance_scope`, `compliance_search`, `compliance_sources`, `compliance_standing_questions`, `compliance_timeline`, `compliance_trace`, `lookup_control`, `map_frameworks`, `nerc_cip_currency`, `nerc_cip_requirement`, `patch_evidence`, `refresh_catalogs`, `search_controls` |
+| `compliance` | `compliance_analyze`, `compliance_answers`, `compliance_ask`, `compliance_bundle`, `compliance_change_impact`, `compliance_compare`, `compliance_conflicts`, `compliance_context`, `compliance_correct`, `compliance_coverage`, `compliance_draft_revisions`, `compliance_flexibility`, `compliance_gaps`, `compliance_impact`, `compliance_intentionality`, `compliance_links`, `compliance_mappings`, `compliance_note`, `compliance_notes`, `compliance_orphans`, `compliance_prospective`, `compliance_read`, `compliance_requirement`, `compliance_review_decide`, `compliance_review_decide_batch`, `compliance_review_list`, `compliance_route`, `compliance_scenario`, `compliance_scope`, `compliance_search`, `compliance_sources`, `compliance_standing_questions`, `compliance_timeline`, `compliance_trace`, `lookup_control`, `map_frameworks`, `nerc_cip_currency`, `nerc_cip_requirement`, `patch_evidence`, `refresh_catalogs`, `search_controls` |
 | `context7` | `execute_bash`, `execute_nodejs`, `execute_powershell`, `execute_python`, `list_sessions`, `reset_session`, `sandbox_status` |
 | `data` | `attach_source`, `list_session`, `profile_table`, `run_sql` |
 | `detection` | `compile_yara`, `convert_sigma`, `query_splunk`, `query_windows_events`, `scan_yara`, `validate_sigma` |

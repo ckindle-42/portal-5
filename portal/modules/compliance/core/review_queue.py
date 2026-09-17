@@ -181,6 +181,97 @@ def triage_items() -> list[ReviewItem]:
     return [i for i in open_items() if i.kind not in SME_KINDS]
 
 
+def mapping_packet(repo: Any, *, status: str = "proposed") -> list[dict[str, Any]]:
+    """Assemble the human-reviewable requirement-to-section packet.
+
+    This is a projection over the canonical relationship store, not a second
+    queue.  Each row contains both sides and all alternatives, so the reviewer
+    can decide without opening a second tool call or relying on a score alone.
+    """
+    from portal.modules.compliance.core import reading_assembly, section_index
+
+    relationships = repo.list_relationship_assertions(statuses=(status,))
+    relationships = [r for r in relationships if r.relation_type == "IMPLEMENTS"]
+    by_requirement: dict[str, list[Any]] = {}
+    for relation in relationships:
+        by_requirement.setdefault(str(relation.src_ref), []).append(relation)
+    packet: list[dict[str, Any]] = []
+    for requirement, candidates in by_requirement.items():
+        assembled = reading_assembly.assemble(
+            repo,
+            requirement,
+            budget_tokens=20000,
+            include=["requirement", "measures", "technical_basis"],
+        )
+        components = {str(c["component"]): c for c in assembled.get("components", [])}
+        requirement_sections = components.get("requirement", {}).get("sections", [])
+        first = requirement_sections[0] if requirement_sections else {}
+        register_facts = {}
+        if first.get("section_id"):
+            register_facts = section_index.resolve_sections(repo, [str(first["section_id"])]).get(
+                str(first["section_id"]), {}
+            )
+        candidate_rows: list[dict[str, Any]] = []
+        for relation in candidates:
+            section_id = str(relation.dst_ref).split("::")[-1]
+            resolved = section_index.resolve_sections(repo, [section_id]).get(section_id, {})
+            candidate_rows.append(
+                {
+                    "mapping_id": relation.assertion_id,
+                    "version": relation.version,
+                    "section_id": section_id,
+                    "document": resolved.get("document_title") or resolved.get("logical_id", ""),
+                    "section_path": resolved.get("path", ""),
+                    "page": resolved.get("page_start"),
+                    "text": resolved.get("text", ""),
+                    "score": relation.confidence,
+                    "derivations": [
+                        part for part in str(relation.derivation or "").split("|") if part
+                    ],
+                    "rationale": relation.rationale,
+                    "boundary_receipt": relation.citations,
+                }
+            )
+        for candidate in candidate_rows:
+            candidate["other_candidates"] = [
+                other for other in candidate_rows if other["mapping_id"] != candidate["mapping_id"]
+            ]
+            corroborated = len(candidate["derivations"]) > 1
+            candidate["decidability"] = (
+                "corroborated"
+                if corroborated
+                else "high_score"
+                if candidate["score"] >= 0.8
+                else "candidate"
+            )
+            packet.append(
+                {
+                    "mapping_id": candidate["mapping_id"],
+                    "version": candidate["version"],
+                    "requirement_id": requirement,
+                    "requirement_text": first.get("text", ""),
+                    "vrf": first.get("vrf", "") or register_facts.get("vrf", ""),
+                    "time_horizon": first.get("time_horizon", "")
+                    or register_facts.get("time_horizon", ""),
+                    "applicable_systems": first.get("applicable_systems", "")
+                    or register_facts.get("applicable_systems", ""),
+                    "measures": components.get("measures", {}).get("sections", []),
+                    "technical_basis": components.get("technical_basis", {}).get("sections", []),
+                    "candidate": candidate,
+                    "ordering": "corroborated, then high rerank score, then no-candidate, then remaining",
+                }
+            )
+    packet.sort(
+        key=lambda item: (
+            0 if item["candidate"]["decidability"] == "corroborated" else 1,
+            0 if item["candidate"]["decidability"] == "high_score" else 1,
+            -float(item["candidate"].get("score") or 0),
+            item["mapping_id"],
+        )
+    )
+    return packet
+
+
 def open_items(kind: str | None = None) -> list[ReviewItem]:
     return list_items(kind=kind, status="OPEN")
 
