@@ -87,8 +87,16 @@ def parse_ref(ref: str) -> Ref | None:
     m = _REF_RE.match(str(ref).strip())
     if not m:
         return None
+    # Normalise the FAMILY prefix (cip-007-6 -> CIP-007-6) and nothing else.
+    # Uppercasing the whole id broke revision suffixes that carry case: the
+    # register's `CIP-002-5.1a` became `CIP-002-5.1A`, which matches no
+    # requirement_nodes row and no document revision — a whole standard
+    # silently resolved to nothing (measured live, PROVE_THEN_SCALE_V1 §P7).
+    standard = re.sub(
+        r"^(cip-\d{3})", lambda match: match.group(1).upper(), m.group("standard"), flags=re.I
+    )
     return Ref(
-        standard=m.group("standard").upper(),
+        standard=standard,
         requirement=m.group("requirement") or "",
         part=m.group("part") or "",
     )

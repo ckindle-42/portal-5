@@ -184,9 +184,7 @@ def map_read(
                     relation_type=str(entry.get("relation_type", "")).upper(),
                     answer_id=answer_id,
                     sentence=str(entry.get("sentence", "")),
-                    confidence=CONFIDENCE_BANDS.get(
-                        str(entry.get("confidence", "")).lower(), 0.0
-                    ),
+                    confidence=CONFIDENCE_BANDS.get(str(entry.get("confidence", "")).lower(), 0.0),
                     read_ref=ref,
                 )
             )
@@ -273,20 +271,19 @@ def sweep_order(repo: Any) -> list[str]:
 
 
 def refs_for_standard(reg: Any, standard: str) -> list[str]:
-    """The register nodes of one standard revision, in the standard's own
-    numbering. ``standard`` arrives as a revision id (CIP-007-6); register
-    node ids prefix to the revision (CIP-007-6 R2 Part 2.1) whose FAMILY is
-    what comparisons key on (CIP-007). Comparing raw prefixes silently
-    selects nothing — which is how the first live pass of this reported
-    0 requirements."""
-    family = standard.rsplit("-", 1)[0] if re.match(r"^CIP-\d{3}-", standard) else standard
+    """The register nodes of exactly ONE standard revision, in the standard's
+    own numbering. Node ids prefix to their revision (`CIP-003-8 R1 …`), so
+    the match is on the full revision id — matching the FAMILY instead swept
+    both CIP-003 revisions' 83 nodes under each revision's banner (measured
+    live, PROVE_THEN_SCALE_V1 §P7), double-reading 44 requirements under the
+    wrong fixed body."""
 
     def _numbering(node_id: str) -> tuple:
         tail = node_id.split(" ", 1)[1] if " " in node_id else ""
         return [(0, int(t)) if t.isdigit() else (1, t) for t in re.split(r"[\s.]+", tail)]
 
     return sorted(
-        (n.id for n in reg.nodes if n.id.split(" ")[0].rsplit("-", 1)[0] == family),
+        (n.id for n in reg.nodes if n.id.split(" ")[0] == standard),
         key=_numbering,
     )
 
