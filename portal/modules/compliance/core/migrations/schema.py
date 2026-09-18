@@ -853,4 +853,104 @@ MIGRATIONS: list[tuple[int, str, str]] = [
         ALTER TABLE reading_runs ADD COLUMN prompt_sha TEXT NOT NULL DEFAULT '';
         """,
     ),
+    (
+        17,
+        "machine_determined mapping status (PROVE_THEN_SCALE_V1 P2.1)",
+        # A reading that examines both sides and says "this section implements
+        # that Part, here is the text" writes an edge at its OWN status —
+        # neither proposed (which reads like a candidate awaiting a human who
+        # cannot get through 1,427 rows) nor ever approved (approved means a
+        # human said so). requirement_scope.population keeps link_status, so a
+        # population built from determined edges stays visibly different from
+        # one built from approved ones.
+        #
+        # status carries a CHECK constraint, so the widened vocabulary needs a
+        # table rebuild: create the successor with the expanded CHECK, copy
+        # every row verbatim, drop, rename, restore the indexes. The rebuild
+        # MUST name every column the preceding migrations added — base (1),
+        # coverage trio (5), derivation (10). Naming only the base columns
+        # compiles and runs and SILENTLY DROPS the rest; that mistake was made
+        # on the live store, caught within minutes because
+        # reading_assembly.linked_internal queries `derivation` and failed
+        # loudly, and repaired by a forward migration plus a reconstruction of
+        # the dropped values from the rationale/relation_type fingerprints the
+        # original writers left (see reports/compliance/PROVE_THEN_SCALE_V1.md
+        # §0-bis). Recorded here so the next table rebuild in this module
+        # starts from the full column list, not the happy-path one.
+        """
+        CREATE TABLE relationship_assertions_new (
+            assertion_id     TEXT PRIMARY KEY,
+            relation_type    TEXT NOT NULL,
+            src_ref          TEXT NOT NULL,
+            src_revision_id  TEXT,
+            dst_ref          TEXT NOT NULL,
+            dst_revision_id  TEXT,
+            scope            TEXT NOT NULL DEFAULT '',
+            citations_json   TEXT NOT NULL DEFAULT '[]',
+            status           TEXT NOT NULL DEFAULT 'proposed'
+                             CHECK (status IN ('proposed','machine_determined','approved','rejected','revoked','stale')),
+            review_state     TEXT NOT NULL DEFAULT 'proposed',
+            valid_from       TEXT,
+            valid_to         TEXT,
+            recorded_from    TEXT NOT NULL,
+            recorded_to      TEXT,
+            rationale        TEXT NOT NULL DEFAULT '',
+            decided_by       TEXT NOT NULL DEFAULT '',
+            decided_at       TEXT,
+            version          INTEGER NOT NULL DEFAULT 1,
+            org_id           TEXT NOT NULL DEFAULT 'default',
+            coverage         TEXT NOT NULL DEFAULT '',
+            proposed_coverage TEXT NOT NULL DEFAULT '',
+            confidence       REAL NOT NULL DEFAULT 0.0,
+            derivation       TEXT NOT NULL DEFAULT ''
+        );
+        INSERT INTO relationship_assertions_new
+            SELECT assertion_id, relation_type, src_ref, src_revision_id, dst_ref,
+                   dst_revision_id, scope, citations_json, status, review_state,
+                   valid_from, valid_to, recorded_from, recorded_to, rationale,
+                   decided_by, decided_at, version, org_id,
+                   coverage, proposed_coverage, confidence, derivation
+            FROM relationship_assertions;
+        DROP TABLE relationship_assertions;
+        ALTER TABLE relationship_assertions_new RENAME TO relationship_assertions;
+        CREATE INDEX ix_rel_src ON relationship_assertions(src_ref, status);
+        CREATE INDEX ix_rel_dst ON relationship_assertions(dst_ref, status);
+        """,
+    ),
+    (
+        18,
+        "the human-confirmed evaluation sample (PROVE_THEN_SCALE_V1 P5.3/P6)",
+        # The module's founding property — settled mappings are human-owned and
+        # double as the evaluation set — is circular once a machine determines
+        # mappings at scale. The split: operational mappings (machine_determined
+        # rows, never approved) build populations; THE EVALUATION SET is this
+        # table — a small, stratified sample a human confirmed or corrected,
+        # and the only thing the scorer is allowed to measure against. Sample
+        # membership is recorded here rather than inferred from the assertion's
+        # status, so approving a determined row during normal review can never
+        # quietly induct it into the evaluation set.
+        """
+        CREATE TABLE evaluation_sample (
+            sample_id        TEXT PRIMARY KEY,
+            assertion_id     TEXT NOT NULL,
+            requirement_id   TEXT NOT NULL,
+            section_id       TEXT NOT NULL,
+            relation_type    TEXT NOT NULL,
+            machine_relation TEXT NOT NULL DEFAULT '',
+            confidence       REAL NOT NULL DEFAULT 0.0,
+            confidence_band  TEXT NOT NULL DEFAULT '',
+            stratum_standard TEXT NOT NULL DEFAULT '',
+            stratum_relation TEXT NOT NULL DEFAULT '',
+            decision         TEXT NOT NULL DEFAULT '',
+            human_relation   TEXT NOT NULL DEFAULT '',
+            decided_by       TEXT NOT NULL DEFAULT '',
+            decided_at       TEXT,
+            notes            TEXT NOT NULL DEFAULT '',
+            selected_at      TEXT NOT NULL,
+            org_id           TEXT NOT NULL DEFAULT 'default'
+        );
+        CREATE INDEX ix_eval_sample_req ON evaluation_sample(requirement_id);
+        CREATE INDEX ix_eval_sample_decision ON evaluation_sample(decision);
+        """,
+    ),
 ]

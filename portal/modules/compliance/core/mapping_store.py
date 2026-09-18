@@ -55,8 +55,11 @@ def _out_of_scope(current: Any, org_id: str) -> str:
         )
     if str(getattr(current, "org_id", "default")) != org_id:
         return "this mapping belongs to another organisation"
-    if current.status != "proposed":
-        return f"this mapping is already {current.status}; it is not open for decision"
+    if current.status not in _DECIDABLE_STATUSES:
+        return (
+            f"this mapping is already {current.status}; it is not open for decision "
+            f"(decidable statuses: {', '.join(_DECIDABLE_STATUSES)})"
+        )
     return ""
 
 
@@ -64,7 +67,18 @@ def _out_of_scope(current: Any, org_id: str) -> str:
 # (e.g. CROSS_REFERENCES between two requirement nodes) must never be
 # silently surfaced as a requirement<->document coverage mapping.
 _MAPPING_RELATION_TYPES = ("IMPLEMENTS", "EVIDENCES", "REFERENCES")
-_ALL_STATUSES = ("proposed", "approved", "rejected", "revoked", "stale")
+#: PROVE_THEN_SCALE_V1 P2.1: a reading's determinations land at their OWN
+#: status — neither proposed (which reads like one more candidate in the queue
+#: a human cannot get through) nor approved (approved means a human said so).
+#: ``machine_determined`` rows build populations, carry provenance on every
+#: row, and are decidable by a human through the same review surface as
+#: proposals — decided, never silently upgraded.
+_ALL_STATUSES = ("proposed", "machine_determined", "approved", "rejected", "revoked", "stale")
+#: Statuses a mapping review may still decide: anything not yet decided by a
+#: human. A determined row is OPEN for review — that is the operator's
+#: check-the-work path — but it is not approved, and no surface may treat it
+#: as one.
+_DECIDABLE_STATUSES = ("proposed", "machine_determined")
 _SEP = "::"  # dst_ref = f"{internal_document_id}{_SEP}{section_id}"
 
 

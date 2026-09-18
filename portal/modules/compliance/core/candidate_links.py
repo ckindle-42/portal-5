@@ -281,6 +281,13 @@ def record_links(
 #: never proposes without naming which of these it means.
 READING_RELATIONS = ("IMPLEMENTS", "EVIDENCES")
 
+#: Relations a DETERMINATION may carry (PROVE_THEN_SCALE_V1 P2.1): the reading
+#: chooses, because forcing all three into IMPLEMENTS is the modelling error
+#: the overlap fact exposes — a procedure that performs the duty implements it,
+#: one that records it evidences it, one that points at another standard
+#: references it.
+DETERMINATION_RELATIONS = ("IMPLEMENTS", "EVIDENCES", "REFERENCES")
+
 #: A sentence positively asserting that the operator's section implements the
 #: duty. Required — a citation on its own asserts nothing.
 _ASSERTS_IMPLEMENTS = re.compile(
@@ -488,4 +495,215 @@ def links_from_answer(repo: Any, answer_id: str, src_ref: str = "") -> dict[str,
             "a citation is evidence, not an assertion: an edge is proposed only where the "
             "citing sentence positively asserts a relation"
         ),
+    }
+
+
+# ── machine determinations (PROVE_THEN_SCALE_V1 P2) ─────────────────────────
+
+
+def _norm_for_verbatim(text: str) -> str:
+    """Fold the variations a model's quotation picks up in transit — dash
+    characters, quote marks, whitespace runs, case — so a VERBATIM check judges
+    the words, not the typography. The folding is symmetric: if the folded
+    sentence is not a substring of the folded section text, the sentence is not
+    in the section, and the determination is not written."""
+    folded = text.translate(
+        str.maketrans(
+            {
+                "\u2010": "-",
+                "\u2011": "-",
+                "\u2012": "-",
+                "\u2013": "-",
+                "\u2014": "-",
+                "\u2015": "-",
+                "\u2212": "-",
+                "\uff0d": "-",
+                "\u2018": "'",
+                "\u2019": "'",
+                "\u201c": '"',
+                "\u201d": '"',
+                "\u00a0": " ",
+            }
+        )
+    )
+    return re.sub(r"\s+", " ", folded).strip().lower()
+
+
+def record_determination(
+    repo: Any,
+    *,
+    requirement_id: str,
+    section_id: str,
+    relation_type: str,
+    answer_id: str,
+    sentence: str,
+    confidence: float = 0.0,
+    read_ref: str = "",
+    run_id: str = "",
+    org_id: str = "default",
+) -> dict[str, Any]:
+    """One machine determination: a typed edge a READING wrote, at its own
+    status, with the provenance to check it by.
+
+    * ``status='machine_determined'`` — never ``approved``; approved means a
+      human said so, and nothing here is a human. ``requirement_scope.population``
+      keeps ``link_status``, so a population built from determined edges is
+      visibly different from one built from approved ones, and that distinction
+      survives into every answer that uses it.
+    * ``derivation='reading'`` with the answer id, the run, the requirement
+      being read, and THE SENTENCE THAT JUSTIFIED IT — an edge without its
+      reading is not written (§Execution rules).
+    * The sentence is checked VERBATIM against the section's text before
+      anything is written; a justification the section does not contain
+      produces a REJECTED record, never a quiet drop and never an edge.
+    * **The guard against bootstrapping (P2.3):** a pairing the store already
+      holds is CORROBORATED, not re-created — the reading's provenance lands on
+      the existing row. Only a genuinely new pairing is a determination.
+
+    Returns ``{"action": "determined" | "corroborated" | "rejected", ...}``.
+    """
+    from portal.modules.compliance.core.reading_assembly import parse_ref
+    from portal.modules.compliance.core.section_index import resolve_sections
+    from portal.modules.compliance.core.temporal import now_iso
+
+    if relation_type not in DETERMINATION_RELATIONS:
+        return {
+            "action": "rejected",
+            "reason": f"relation_type must be one of {DETERMINATION_RELATIONS}, not {relation_type!r}",
+            "requirement_id": requirement_id,
+            "section_id": section_id,
+        }
+    parsed = parse_ref(requirement_id)
+    if parsed is None:
+        return {
+            "action": "rejected",
+            "reason": f"requirement_id {requirement_id!r} is not a regulatory address",
+            "section_id": section_id,
+        }
+    resolved = resolve_sections(repo, [section_id])
+    entry = resolved.get(section_id)
+    if entry is None:
+        return {
+            "action": "rejected",
+            "reason": f"section_id {section_id!r} does not resolve in this store",
+            "requirement_id": str(parsed),
+        }
+    if str(entry.get("jurisdiction")) != "internal":
+        return {
+            "action": "rejected",
+            "reason": (
+                f"section {section_id!r} is {entry.get('jurisdiction') or 'unknown'} jurisdiction — "
+                "determinations pair a requirement with an OPERATOR section only"
+            ),
+            "requirement_id": str(parsed),
+        }
+    folded_sentence = _norm_for_verbatim(sentence)
+    if not folded_sentence:
+        return {
+            "action": "rejected",
+            "reason": "no justifying sentence given — a determination without its reading is not written",
+            "requirement_id": str(parsed),
+            "section_id": section_id,
+        }
+    if folded_sentence not in _norm_for_verbatim(str(entry.get("text", ""))):
+        return {
+            "action": "rejected",
+            "reason": (
+                "the quoted sentence is not in the section's text — a citation the store "
+                "cannot trace is not a citation"
+            ),
+            "requirement_id": str(parsed),
+            "section_id": section_id,
+            "sentence": sentence,
+        }
+
+    provenance = {
+        "answer_id": answer_id,
+        "run_id": run_id,
+        "read_ref": read_ref or str(parsed),
+        "sentence": sentence,
+        "section_id": section_id,
+    }
+    with repo._lock, repo._conn:
+        existing = repo._conn.execute(
+            """SELECT assertion_id, derivation, citations_json, status FROM relationship_assertions
+               WHERE relation_type = ? AND src_ref = ? AND dst_ref = ?""",
+            (relation_type, str(parsed), section_id),
+        ).fetchone()
+        if existing is not None and existing[3] != "rejected":
+            # P2.3: the pairing already exists and is OPEN or settled-yes —
+            # the reading was GIVEN this edge, or a prior reading found it, or
+            # a human approved it. Corroborate on the existing row; only a new
+            # pairing is a determination.
+            citations = json.loads(existing[2] or "[]")
+            citations.append({**provenance, "corroborated": True})
+            derivations = [d for d in str(existing[1] or "").split("|") if d]
+            derivations.append(DERIVATION_READING)
+            repo._conn.execute(
+                """UPDATE relationship_assertions
+                   SET derivation = ?, citations_json = ?
+                   WHERE assertion_id = ?""",
+                (
+                    "|".join(dict.fromkeys(derivations)),
+                    json.dumps(citations),
+                    existing[0],
+                ),
+            )
+            return {
+                "action": "corroborated",
+                "assertion_id": str(existing[0]),
+                "status": str(existing[3]),
+                "requirement_id": str(parsed),
+                "section_id": section_id,
+                "relation_type": relation_type,
+            }
+        # A REJECTED pairing is a settled human NO, not an edge the reading
+        # was given — corroborating it would bury the disagreement on a closed
+        # row. The determination is written as its own machine_determined row
+        # (run-scoped id, so repeated readings stay distinct) and the
+        # contradiction scan (P5.1) surfaces it as the review item it is.
+        if existing is not None:
+            assertion_id = (
+                "rel-"
+                + hashlib.sha256(
+                    f"{parsed}|{section_id}|{relation_type}|machine_determined|{run_id or answer_id}".encode()
+                ).hexdigest()[:20]
+            )
+        else:
+            assertion_id = (
+                "rel-"
+                + hashlib.sha256(
+                    f"{parsed}|{section_id}|{relation_type}|machine_determined".encode()
+                ).hexdigest()[:20]
+            )
+        repo._conn.execute(
+            """INSERT INTO relationship_assertions(assertion_id, relation_type, src_ref,
+                   src_revision_id, dst_ref, dst_revision_id, scope, citations_json, status,
+                   review_state, recorded_from, rationale, confidence, derivation, coverage,
+                   proposed_coverage, org_id, version)
+               VALUES (?,?,?,NULL,?,NULL,'',?,'machine_determined','machine_determined',?,?,?,'reading','','',?,1)
+               ON CONFLICT(assertion_id) DO NOTHING""",
+            (
+                assertion_id,
+                relation_type,
+                str(parsed),
+                section_id,
+                json.dumps([provenance]),
+                now_iso(),
+                (
+                    f"determined by reading answer {answer_id}"
+                    + (f" (run {run_id})" if run_id else "")
+                    + f" while reading {read_ref or str(parsed)}; justifying sentence: {sentence}"
+                ),
+                float(confidence),
+                org_id,
+            ),
+        )
+    return {
+        "action": "determined",
+        "assertion_id": assertion_id,
+        "requirement_id": str(parsed),
+        "section_id": section_id,
+        "relation_type": relation_type,
+        "confidence": float(confidence),
     }
