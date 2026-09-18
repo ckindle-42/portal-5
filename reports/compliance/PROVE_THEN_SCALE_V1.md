@@ -373,3 +373,67 @@ rather than silently, and the store stands at **11 machine_determined rows**,
 all register-resolvable, each carrying its reading and justifying sentence.
 
 **Commit:** `feat(compliance): P4 — the standard-ordered sweep, mapped and reduced`
+
+---
+
+## §P5 — the operator checks the work, by exception
+
+`scripts/prove_then_scale/p5_review_surfaces.py`; artifacts:
+`p5_contradictions.json`, `p5_drilldown_example.json`, `p5_sample_packet.json`.
+
+**P5.1 the contradiction queue — generated, and this pass it is empty, which
+is a finding about the pass, not the queue.** `contradictions.scan_contradictions`
+surfaces the three disagreement kinds the task names — conflicting relation
+types for one pair, a determination against a human REJECTED edge, a
+determination disagreeing with an APPROVED edge. The CIP-007-6 sweep is one
+pass with no re-readings and no approved edges to contradict, so the queue has
+zero items: every cross-reading overlap it found (two R3 Parts, several R5
+Parts) AGREED on the relation. The mechanism is unit-tested (relation
+conflicts and rejected-contradictions both fire in
+`test_compliance_prove_then_scale.py`); the queue fills on the second pass,
+when a re-sweep or a corrected corpus makes readings disagree.
+
+**P5.2 answer-level review with citation drill-down — live.**
+`contradictions.drill_down` opens one answer (or, for a sweep reading, its
+retained run) to the verbatim text of every cited section on both sides —
+`p5_drilldown_example.json` is the newest map reading with its two citations
+opened. An error in an answer is traceable to the citation that produced it.
+
+**P5.3 the stratified sample — selected, and waiting for the only human in
+the loop.** `evaluation.select_sample` picked every current determination
+(11 rows; stratified across standards, relation types and confidence bands —
+degenerate today at one standard and one band, and the packet regenerates
+additively as the family sweep writes more rows; the final stratified
+selection runs after §P7). Each row in `p5_sample_packet.json` carries both
+sides' text and a decide hint. **The confirmations are the operator's, not
+this agent's** — a sample the reading agent confirmed would be machine
+labels wearing a human costume, which is precisely the circularity §P6
+exists to prevent.
+
+---
+
+## §P6 — operational mappings and the evaluation set, split
+
+The split is enforced in code, on three locks:
+
+1. **`machine_determined` is its own status and never upgrades silently.** It
+   is decidable by a human through the review surface (`decide_batch` accepts
+   `proposed` and `machine_determined`, refuses anything already decided) —
+   decided, never auto-promoted; `approved` still means a human said so.
+   `requirement_scope.population` keeps `link_status`, so a population built
+   from determined edges is visibly different from one built from approved
+   ones in every answer that uses it.
+2. **`labelled_examples` reads the sample table and nothing else.** The
+   operational set cannot leak at any `min_status` setting: widening to
+   `proposed` exposes UNDECIDED sample rows as *pending*, never as labels
+   (unit-tested the other way: a determined row that was never sampled and
+   never decided appears in no export). Sample membership lives in the
+   `evaluation_sample` table (migration 18); approving a determined row in the
+   ordinary review path does not induct it into the evaluation set.
+3. **`agreement()` reports honest-BLOCKED until a human decides rows.** That
+   is the current live state (`p6_agreement.json`): `no decided sample rows —
+   the evaluation set has no labels yet (P5.3)`. The scorer never sees an
+   operational mapping, so the first accuracy number this module reports will
+   be a measurement, not a self-agreement.
+
+**Commit:** `feat(compliance): P5/P6 — contradictions, drill-down, a sample; operational mappings and the evaluation set, split`
