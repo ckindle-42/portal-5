@@ -138,17 +138,29 @@ def map_read(
     if "error" in material:
         return {"ref": ref, "error": material["error"], "model": model}
     started = time.time()
-    result = chat(
-        model,
-        messages=[{"role": "user", "content": material["text"]}],
-        tools=None,
-        fmt=None,
-        think=False,
-        num_ctx=num_ctx,
-        answer_budget=answer_budget,
-        timeout=timeout,
-        keep_alive=keep_alive,
-    )
+    # A transient transport failure is a RECORDED cell, never a dead sweep:
+    # reader.read learned this the hard way (an HTTP 500 killed a 1,522 s
+    # reading and lost the receipt). A failed cell here returns an error row
+    # the sweep records, and a re-run of the standard redoes only that ref.
+    try:
+        result = chat(
+            model,
+            messages=[{"role": "user", "content": material["text"]}],
+            tools=None,
+            fmt=None,
+            think=False,
+            num_ctx=num_ctx,
+            answer_budget=answer_budget,
+            timeout=timeout,
+            keep_alive=keep_alive,
+        )
+    except Exception as exc:  # noqa: BLE001 — a failed cell is a recorded cell
+        return {
+            "ref": ref,
+            "error": f"transport failure: {type(exc).__name__}: {exc}",
+            "model": model,
+            "wall_s": round(time.time() - started, 2),
+        }
     wall = round(time.time() - started, 2)
     answer = (result.content or "").strip()
     entries, parse_error = parse_determinations(answer)
