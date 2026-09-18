@@ -529,6 +529,32 @@ def _norm_for_verbatim(text: str) -> str:
     return re.sub(r"\s+", " ", folded).strip().lower()
 
 
+def _requirement_in_register(repo: Any, parsed: Any) -> bool:
+    """Does this regulatory address name a requirement the register tracks?
+
+    A Part must be a ``requirement_nodes`` row; a parent must have its
+    requirement on some node of the standard's register revision. Both sides
+    of a determination have to RESOLVE (§P2.1), and parseable is not
+    resolvable: the register, not the regex, is the requirement universe.
+    """
+    standard = parsed.standard
+    rows = repo._conn.execute(
+        """SELECT node_id, requirement, part FROM requirement_nodes
+           WHERE standard_revision_id = ?""",
+        (standard,),
+    ).fetchall()
+    if not rows:
+        return False
+    if not parsed.requirement:
+        return True  # a whole-standard address resolves when the revision is registered
+    req = f"R{parsed.requirement}"
+    if parsed.part:
+        return any(
+            str(r["requirement"]) == req and str(r["part"]) == parsed.part for r in rows
+        )
+    return any(str(r["requirement"]) == req for r in rows)
+
+
 def record_determination(
     repo: Any,
     *,
@@ -578,6 +604,17 @@ def record_determination(
         return {
             "action": "rejected",
             "reason": f"requirement_id {requirement_id!r} is not a regulatory address",
+            "section_id": section_id,
+        }
+    if not _requirement_in_register(repo, parsed):
+        return {
+            "action": "rejected",
+            "reason": (
+                f"requirement_id {str(parsed)!r} is not in the register — a well-formed "
+                "address that names no requirement this store tracks (measured live: a "
+                "reading invented plausible revision numbers; the verbatim check cannot "
+                "catch a wrong requirement id, register membership can)"
+            ),
             "section_id": section_id,
         }
     resolved = resolve_sections(repo, [section_id])

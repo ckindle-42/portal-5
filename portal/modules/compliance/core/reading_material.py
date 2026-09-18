@@ -308,9 +308,11 @@ def render(
     parsed = parse_ref(ref)
     if parsed is None:
         return {"error": f"{ref!r} is not a regulatory address", "ref": ref}
-    logical_id = parsed.logical_id
     if fixed is None:
-        fixed = fixed_body(repo, logical_id)
+        # the fixed body is per REVISION — address the standard the way the
+        # assembly's own parser expects (the plain standard id, not the
+        # document's logical_id, which is not a regulatory address)
+        fixed = fixed_body(repo, parsed.standard)
     if "error" in fixed:
         return {"error": fixed["error"], "ref": ref}
     grouped, sections, population = _population_blocks(repo, ref, valid_at=valid_at)

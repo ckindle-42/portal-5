@@ -30,8 +30,28 @@ from portal.modules.compliance.core.repository import Repository
 @pytest.fixture
 def repo(tmp_path: Path) -> Repository:
     r = Repository(tmp_path / "pts.db")
+    _seed_register(r, "CIP-007-6", [("R1", "1.1"), ("R2", "2.1"), ("R2", "2.2"), ("R2", "2.3"), ("R2", "2.4"), ("R3", "3.1"), ("R3", "3.2"), ("R3", "3.3"), ("R4", "4.4"), ("R5", "5.1"), ("R5", "5.2"), ("R5", "5.3"), ("R5", "5.4"), ("R5", "5.5"), ("R5", "5.6"), ("R5", "5.7")])
     yield r
     r.close()
+
+
+def _seed_register(repo: Repository, standard: str, parts: list[tuple[str, str]]) -> None:
+    """A minimal register: a standard revision and the requirement nodes the
+    determinations must resolve against — parseable is not resolvable."""
+    with repo._lock, repo._conn:
+        repo._conn.execute(
+            """INSERT INTO standard_revisions(revision_id, logical_id, family, version)
+               VALUES (?, ?, ?, '1')
+               ON CONFLICT(revision_id) DO NOTHING""",
+            (standard, f"NERC/{standard}", standard.rsplit("-", 1)[0]),
+        )
+        for requirement, part in parts:
+            repo._conn.execute(
+                """INSERT INTO requirement_nodes(node_id, standard_revision_id, requirement, part)
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT(node_id) DO NOTHING""",
+                (f"{standard} {requirement} Part {part}", standard, requirement, part),
+            )
 
 
 def _add_section(
@@ -187,6 +207,22 @@ class TestRecordDetermination:
         assert [c["answer_id"] for c in citations] == ["answer-1", "answer-2"]
         assert citations[1]["corroborated"] is True
 
+    def test_a_well_formed_but_unregistered_requirement_is_refused(self, repo: Repository) -> None:
+        sid = _add_section(repo, "5.1 traceability", "Appendix 1 provides a cross-reference between the standards")
+        outcome = candidate_links.record_determination(
+            repo,
+            requirement_id="CIP-003-6 R1 Part 1.1.4",  # plausible address, no such register revision
+            section_id=sid,
+            relation_type="REFERENCES",
+            answer_id="answer-1",
+            sentence="Appendix 1 provides a cross-reference between the standards",
+        )
+        assert outcome["action"] == "rejected"
+        assert "not in the register" in outcome["reason"]
+        assert (
+            repo._conn.execute("SELECT COUNT(*) FROM relationship_assertions").fetchone()[0] == 0
+        )
+
     def test_the_relation_is_the_reading_s_choice(self, repo: Repository) -> None:
         section_id = _add_section(
             repo,
@@ -273,15 +309,24 @@ class TestParseDeterminations:
 class TestSweepOrder:
     def test_standards_run_in_dependency_order(self, repo: Repository) -> None:
         order = sweep.sweep_order(repo)
-        standards = [ref.split(" ")[0].rsplit("-", 1)[0] for ref in order]
-        first_positions = {}
-        for i, s in enumerate(standards):
-            first_positions.setdefault(s, i)
-        sequence = list(dict.fromkeys(standards))
+        assert order, "the register is empty — nothing to order"
+        families = [ref.split(" ")[0].rsplit("-", 1)[0] for ref in order]
+        sequence = list(dict.fromkeys(families))
         named = [s for s, _ in sweep.STANDARD_ORDER]
         assert sequence == [s for s in named if s in set(sequence)], (
             "the sweep runs the standards in the recorded dependency order"
         )
+        # non-vacuous: the register genuinely carries the family revision the
+        # campaign sweeps, and the order carries every one of its nodes
+        cip007 = [ref for ref in order if ref.split(" ")[0].rsplit("-", 1)[0] == "CIP-007"]
+        assert len(cip007) == 20, f"CIP-007-6 contributes 20 Part nodes, got {len(cip007)}"
+
+    def test_refs_for_standard_selects_a_revision_family(self, repo: Repository) -> None:
+        from portal.modules.compliance.core.cip_register import Register
+
+        refs = sweep.refs_for_standard(Register.load(), "CIP-007-6")
+        assert len(refs) == 20, "the revision key must reach its family's nodes"
+        assert refs[0] == "CIP-007-6 R1 Part 1.1" and refs[-1] == "CIP-007-6 R5 Part 5.7"
 
     def test_within_a_standard_requirements_run_in_numeric_order(self, repo: Repository) -> None:
         order = sweep.sweep_order(repo)
