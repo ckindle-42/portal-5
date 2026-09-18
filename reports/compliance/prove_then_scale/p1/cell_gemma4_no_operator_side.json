@@ -1,0 +1,22 @@
+{
+  "case": "no_operator_side",
+  "ref": "CIP-007-6 R5 Part 5.2",
+  "seat": "gemma4",
+  "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "wall_s": 59.97,
+  "prompt_tokens": 22355,
+  "prompt_eval_duration_s": 52.763,
+  "eval_count": 232,
+  "chars_per_token": 3.61,
+  "material_chars": 80724,
+  "cited_regulatory": [
+    "csection-babf06d3f1ed425a7b4a"
+  ],
+  "cited_operator": [
+    "isection-fbc9ce9e2439c4f4af90"
+  ],
+  "cited_both_sides": true,
+  "thinking_chars": 0,
+  "stop_reason": "",
+  "answer": "Part 5.2 of CIP-007-6 R5 requires that, \"where possible, default and other generic accounts provided by a vendor should be removed, renamed, or disabled prior to production use of the Cyber Asset or BES Cyber System\" [csection-babf06d3f1ed425a7b4a]. If this is not possible, \"the passwords must be changed from the default provided by the vendor\" and \"Default and other generic accounts remaining enabled must be documented\" [csection-babf06d3f1ed425a7b4a].\n\nThe entity's compliance with this requirement is demonstrated in the **CIP Cyber Security Policy \u2014 3.4.5 System Access Controls Process (R5)**, which states that the LSPG shall \"Identify and inventory all known enabled default or other generic account types, either by system, by groups of systems, by location, or by system type(s) (Part 5.2)\" [isection-fbc9ce9e2439c4f4af90]."
+}

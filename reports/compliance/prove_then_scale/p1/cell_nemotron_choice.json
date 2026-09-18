@@ -1,0 +1,18 @@
+{
+  "case": "choice",
+  "ref": "CIP-007-6 R2 Part 2.3",
+  "seat": "nemotron",
+  "model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
+  "wall_s": 44.43,
+  "prompt_tokens": 22973,
+  "prompt_eval_duration_s": 42.997,
+  "eval_count": 58,
+  "chars_per_token": 3.47,
+  "material_chars": 79748,
+  "cited_regulatory": [],
+  "cited_operator": [],
+  "cited_both_sides": false,
+  "thinking_chars": 0,
+  "stop_reason": "",
+  "answer": "No. The standard requires that within 35 calendar days of evaluation completion, you must either apply the patch, create a dated mitigation plan, or revise an existing mitigation plan. There is no discretion to simply ignore the patch or delay indefinitely without taking one of these three actions."
+}

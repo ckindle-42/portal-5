@@ -1,0 +1,18 @@
+{
+  "case": "either_or",
+  "ref": "CIP-007-6 R5 Part 5.7",
+  "seat": "nemotron",
+  "model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
+  "wall_s": 47.17,
+  "prompt_tokens": 24661,
+  "prompt_eval_duration_s": 46.359,
+  "eval_count": 32,
+  "chars_per_token": 3.48,
+  "material_chars": 85787,
+  "cited_regulatory": [],
+  "cited_operator": [],
+  "cited_both_sides": false,
+  "thinking_chars": 0,
+  "stop_reason": "",
+  "answer": "Yes, if your system is configured to either limit the number of unsuccessful authentication attempts or generate alerts after a threshold of unsuccessful authentication attempts, where technically feasible."
+}

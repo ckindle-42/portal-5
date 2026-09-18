@@ -1,0 +1,18 @@
+{
+  "case": "interval",
+  "ref": "CIP-007-6 R2 Part 2.2",
+  "seat": "nemotron",
+  "model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
+  "wall_s": 43.47,
+  "prompt_tokens": 23230,
+  "prompt_eval_duration_s": 43.381,
+  "eval_count": 2,
+  "chars_per_token": 3.46,
+  "material_chars": 80314,
+  "cited_regulatory": [],
+  "cited_operator": [],
+  "cited_both_sides": false,
+  "thinking_chars": 0,
+  "stop_reason": "",
+  "answer": "yes"
+}

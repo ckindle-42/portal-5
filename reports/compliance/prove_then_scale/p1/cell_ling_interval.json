@@ -1,0 +1,18 @@
+{
+  "case": "interval",
+  "ref": "CIP-007-6 R2 Part 2.2",
+  "seat": "ling",
+  "model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+  "wall_s": 28.48,
+  "prompt_tokens": 23007,
+  "prompt_eval_duration_s": 26.913,
+  "eval_count": 85,
+  "chars_per_token": 3.49,
+  "material_chars": 80314,
+  "cited_regulatory": [],
+  "cited_operator": [],
+  "cited_both_sides": false,
+  "thinking_chars": 0,
+  "stop_reason": "",
+  "answer": "No. The operator's 30-day evaluation cycle is not stricter than what Part 2.2 requires. Part 2.2 explicitly requires evaluation at least once every 35 calendar days, and the operator's 30-day cycle satisfies that requirement. The operator's note explains that the 30-day window is intentional and not a gap, as it aligns with the operator's monthly change window."
+}
