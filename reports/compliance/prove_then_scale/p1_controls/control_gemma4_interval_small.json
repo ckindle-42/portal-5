@@ -1,0 +1,12 @@
+{
+  "control": "interval_small",
+  "seat": "gemma4",
+  "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "question": "Is our 30-day evaluation cycle stricter than Part 2.2 requires?",
+  "material_chars": 6733,
+  "prompt_tokens": 1720,
+  "wall_s": 20.6,
+  "thinking_chars": 0,
+  "stop_reason": "",
+  "answer": "Yes, the 30-day evaluation cycle is stricter than what Part 2.2 requires.\n\n*   **Requirement:** Part 2.2 requires evaluation \"At least once every 35 calendar days\" [csection-7700dd5499cead0994ec] and states that \"Responsible Entities are to perform an assessment of security related patches within 35 days of release from their monitored source\" [csection-285d8c24551776cb380d].\n*   **Operator Practice:** The operator's practice is \"We evaluate patches every 30 days, not the 35 the Part allows\" [csection-440a5cdf9a6b65292ef3].\n*   **Strictness:** The operator notes that \"The extra strictness is deliberate and is not a gap\" [csection-440a5cdf9a6b65292ef3]."
+}

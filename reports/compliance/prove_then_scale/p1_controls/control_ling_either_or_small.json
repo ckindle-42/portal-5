@@ -1,0 +1,12 @@
+{
+  "control": "either_or_small",
+  "seat": "ling",
+  "model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+  "question": "Does our account-lockout setup satisfy Part 5.7?",
+  "material_chars": 4469,
+  "prompt_tokens": 1143,
+  "wall_s": 1.77,
+  "thinking_chars": 0,
+  "stop_reason": "",
+  "answer": "No. The material does not contain a specific account-lockout setup or configuration to evaluate. Part 5.7 requires that either limiting the number of unsuccessful authentication attempts or generating alerts after a threshold of failed attempts be implemented, and the threshold must be set high enough to avoid false positives and low enough to account for online password attacks. The provided sections describe the requirement and its rationale but do not describe a specific account-lockout setup that can be confirmed as satisfying the requirement."
+}

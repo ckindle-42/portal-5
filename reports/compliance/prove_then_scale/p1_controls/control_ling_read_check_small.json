@@ -1,0 +1,12 @@
+{
+  "control": "read_check_small",
+  "seat": "ling",
+  "model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+  "question": "Did you read our patch management procedure, or just the standard?",
+  "material_chars": 5581,
+  "prompt_tokens": 1575,
+  "wall_s": 2.26,
+  "thinking_chars": 0,
+  "stop_reason": "",
+  "answer": "No, the material does not contain a statement from the operator confirming they read the patch management procedure. The operator's comment in [isection-440a5cdf9a6b65292ef3] is an internal justification for their own strictness, not a statement of having read the procedure. The material only shows the operator's intentional strictness on CIP-007-6 R2 Part 2.2 and their rationale for evaluating patches every 30 days instead of the 35 days allowed by the standard."
+}

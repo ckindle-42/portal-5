@@ -1,0 +1,12 @@
+{
+  "control": "either_or_small",
+  "seat": "nemotron",
+  "model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
+  "question": "Does our account-lockout setup satisfy Part 5.7?",
+  "material_chars": 4469,
+  "prompt_tokens": 1138,
+  "wall_s": 9.93,
+  "thinking_chars": 0,
+  "stop_reason": "",
+  "answer": "Based on the provided material, here is the answer to whether your account-lockout setup satisfies Part 5.7:\n\nThe material does not contain information about your specific account-lockout setup. It only provides the regulatory requirements and examples of evidence, but it does not reference your organization's configuration or status.\n\nHowever, the material defines the criteria for satisfying Part 5.7 as follows:\n\n*   **[csection-98ce4ada99c0ad8c57dd]** \"Where technically feasible, either: \uf0b7 Limit the number of unsuccessful authentication attempts; or \uf0b7 Generate alerts after a threshold of unsuccessful authentication attempts.\"\n*   **[csection-f0bda2e1711f7a09b0b8]** \"5.7 Configuring an account lockout policy or alerting after a certain number of failed authentication attempts serves to prevent unauthorized access through an online password guessing attack.\"\n*   **[isection-a9fc0586269cfac4a5c3]** \"For applicable systems, at a minimum, where technically feasible, systems shall be configured to: \u2022 Limit the number of unsuccessful authentication attempts, AND/OR; \u2022 Generate alerts after a threshold of unsuccessful authentication attempts.\"\n*   **[isection-fbc9ce9e2439c4f4af90]** \"LSPG shall, where technically feasible, either: o Limit the number of unsuccessful authentication attempts, or o Generate alerts after a threshold of unsuccessful authentication attempts (Part 5.7).\"\n\nTo determine if your setup satisfies Part 5.7, you must verify if your system is configured to either limit unsuccessful attempts or generate alerts after a threshold, and ensure this is done \"where technically feasible.\""
+}

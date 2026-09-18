@@ -227,4 +227,62 @@ What §P1 does NOT claim, in the voice of CIP_007_ACCEPTANCE_V1 §4:
    by hand in the judgments, and the note-side citations were verified
    manually, not by the counter.
 
+### P1.3-bis — the failure attribution, verified not assumed
+
+The §P1 verdict claims the two disqualified seats failed as SEATS, not as
+victims of a template, harness, prompt or delivery defect. That claim was
+checked, not asserted, with three controls
+(`scripts/prove_then_scale/p1_seat_failure_controls.py`, raw cells under
+`reports/compliance/prove_then_scale/p1_controls/`):
+
+1. **Instrument — exonerated.** All 18 cells: zero thinking characters (the
+   `think:false` pin held on every seat — no template opened a reasoning block
+   and starved the answer), no budget-exhaustion stop reasons, prompts
+   22,198–26,282 of 32,768 tokens (an overflowing prompt is HTTP 400 on this
+   runner, never a silent clip — so nothing was truncated), zero error cells.
+   The same message per case went to all three seats, so the prompt cannot be
+   the differentiator; gemma4's six answers quote it and comply with its
+   citation instruction, so it parsed.
+2. **Delivery — refuted by the answers themselves.** Both disqualified seats
+   quote OPERATOR material from inside the message: Ling's no_operator_side
+   quotes the operator policy's Part 5.2 bullet verbatim (while its either_or
+   denies the operator side exists — the contradiction is Ling's, not the
+   harness's); Nemotron's read_check names the LSPG procedure's actual
+   sections and its parent cites the operator traceability section and quotes
+   the note. Material a model quotes, the model received.
+3. **Size — the confound that was live, now measured.** The same questions
+   over ONLY the sections each case turns on (~1.1–1.8k tokens of prompt
+   instead of ~23k), same renderer rules, same instructions, one call each:
+
+   | control | gemma4 | Nemotron | Ling |
+   | --- | --- | --- | --- |
+   | interval_small | PASS | **PASS** (verbatim both sides, comparison right) | FAIL (says "No", then states "meaning it is stricter than the 35-day minimum" inside the same answer) |
+   | either_or_small | PASS | FAIL* (quotes both operator sections verbatim, still opens "the material does not contain information about your specific account-lockout setup") | FAIL (same absence claim over quoted material) |
+   | read_check_small | PASS | PASS | FAIL (misreads the question as asking for an operator statement about the assistant) |
+
+   **The attribution this produces, and it is different from §P1.3's shorthand:**
+   * **Nemotron's defect is LONG MATERIAL, not reading.** At 1.7k tokens it
+     answers interval exactly as gemma4 does — correct comparison, verbatim
+     quotes, both sides cited. At 23k it wrote "yes" (3 chars) and fabricated
+     severe gaps. Its boundary sits between those sizes, and the product's
+     populations live past it; the disqualification stands, but the failure
+     mode is attention/comprehension over the real material size — a seat
+     property measured, not a harness artifact.
+   * **Ling's defect is the reading itself.** interval and either_or fail at
+     BOTH sizes with the same signature — asserting absence over material it
+     simultaneously quotes, inverting a verdict its own sentence supports —
+     and read_check flips from PASS (large) to FAIL (small), so its behavior
+     is not even stable in the direction size predicts. Nothing about the
+     harness explains any of that.
+   * Templates were already directly probed per candidate tag in the last
+     campaign (`settings_audit`: tools rendered ✓, think honored ✓ for all
+     three tags), and this campaign's zero-thinking-characters check confirms
+     the pin on these exact cells.
+
+**Consequence for the fork taken in §P1.3: unchanged in outcome, changed in
+mechanism.** gemma4 remains the seat; Nemotron remains disqualified (its
+verified boundary — material size — is exactly the product's operating point);
+Ling remains disqualified (reading-level failures at any size). No branch of
+the fork points at the material, the prompt, the template or the transport.
+
 **Commit:** `feat(compliance): P1 — the proof, material handed over, no navigation`

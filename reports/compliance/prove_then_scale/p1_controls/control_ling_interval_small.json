@@ -1,0 +1,12 @@
+{
+  "control": "interval_small",
+  "seat": "ling",
+  "model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+  "question": "Is our 30-day evaluation cycle stricter than Part 2.2 requires?",
+  "material_chars": 6733,
+  "prompt_tokens": 1744,
+  "wall_s": 6.22,
+  "thinking_chars": 0,
+  "stop_reason": "",
+  "answer": "No. The material does not support the claim that a 30-day cycle is stricter than Part 2.2. Section [csection-7700dd5499cead0994ec] states that at least once every 35 calendar days, security patches must be evaluated. Section [csection-285d8c24551776cb380d] confirms this 35-day requirement. Section [csection-440a5cdf9a6b65292ef3] explains that the operator's 30-day cycle is intentional and not a gap, meaning it is stricter than the 35-day minimum."
+}

@@ -1,0 +1,12 @@
+{
+  "control": "read_check_small",
+  "seat": "gemma4",
+  "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "question": "Did you read our patch management procedure, or just the standard?",
+  "material_chars": 5581,
+  "prompt_tokens": 1554,
+  "wall_s": 7.76,
+  "thinking_chars": 0,
+  "stop_reason": "",
+  "answer": "Yes, I have read the provided material, which includes both the regulatory standard and the operator's specific procedures.\n\nThe material demonstrates that the operator's procedure is more frequent than the standard requires:\n\n*   **The Standard:** Requires evaluation \"At least once every 35 calendar days\" [csection-7700dd5499cead0994ec].\n*   **The Operator's Procedure:** Specifies that \"At least once every thirty-five (35) calendar days, SMEs in conjunction with Foxguard, shall review all approved sources for new patches\" [isection-21a30e0d44708f5dfdce].\n*   **The Operator's Intentional Strictness:** Explicitly states, \"We evaluate patches every 30 days, not the 35 the Part allows, because our change window is monthly and a 35-day clock straddles two windows. The extra strictness is deliberate and is not a gap\" [csection-440a5cdf9a6b65292ef3]."
+}
