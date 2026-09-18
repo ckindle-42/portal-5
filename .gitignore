@@ -156,3 +156,5 @@ portal/modules/compliance/data/private/
 data/private/
 # P7/F09: operator-issued reviewer tokens — a secret, never committed.
 portal/modules/compliance/data/compliance_reviewers.json
+portal/modules/compliance/data/compliance_store.db.pre-repair-backup
+reports/compliance/prove_then_scale/p1_run*.log
