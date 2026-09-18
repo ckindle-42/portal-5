@@ -206,6 +206,10 @@ def map_read(
             "n_sections": material.get("n_sections", 0),
             "by_side": material.get("by_side", {}),
             "stop_reason": "map reading — one call, no tools",
+            # outcomes ride INSIDE the closure receipt because that is what
+            # store_run persists — payload-level keys are lost (measured:
+            # the family pass's rejection reasons died exactly this way)
+            "determinations": {},
         },
         "latency": {
             "elapsed_s": wall,
@@ -224,6 +228,9 @@ def map_read(
             "corroborated": sum(1 for o in outcomes if o["action"] == "corroborated"),
             "rejected": sum(1 for o in outcomes if o["action"] == "rejected"),
         },
+    }
+    payload["closure_receipt"]["determinations"] = {
+        k: v for k, v in payload["determinations"].items() if k != "outcomes"
     }
     payload["run_id"] = store_run(
         repo,
