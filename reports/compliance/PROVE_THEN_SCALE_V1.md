@@ -437,3 +437,142 @@ The split is enforced in code, on three locks:
    be a measurement, not a self-agreement.
 
 **Commit:** `feat(compliance): P5/P6 — contradictions, drill-down, a sample; operational mappings and the evaluation set, split`
+
+---
+
+## §P7 — the family swept
+
+`scripts/prove_then_scale/p7_family_sweep.py`; raw per-standard rows in
+`p7_family_sweep.json`, run log `p7_run3.log`. Standards ran in the recorded
+dependency order (CIP-002 → CIP-003-8 → CIP-003-9 → CIP-004 → … → CIP-014);
+within a standard, the standard's own numbering. Every cell hardened: a
+transport failure is a recorded error row, not a dead sweep (learned the hard
+way in the last campaign; the hardening landed mid-family after the first
+launch, and the resume path replayed nothing already recorded).
+
+| standard | register nodes | non-addressable | wall s | s/node | det | corr | rej |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| CIP-007-6 | 20 | 0 | 1,386 | 69.3 | 13 | 8 | 13 |
+| CIP-002-5.1a | 33 | 26 | 234 | 7.1 | 0 | 0 | 0 |
+| CIP-003-8 | 39 | 20 | 508 | 13.0 | 0 | 0 | 12 |
+| CIP-003-9 | 44 | 24 | 159 | 3.6 | 0 | 0 | 1 |
+| CIP-004-7 | 19 | 0 | 496 | 26.1 | 0 | 0 | 11 |
+| CIP-005-7 | 12 | 0 | 153 | 12.8 | 0 | 0 | 0 |
+| CIP-006-6 | 14 | 0 | 263 | 18.8 | 0 | 0 | 1 |
+| CIP-008-6 | 12 | 0 | 232 | 19.3 | 0 | 0 | 3 |
+| CIP-009-6 | 10 | 0 | 163 | 16.3 | 0 | 0 | 2 |
+| CIP-010-4 | 12 | 0 | 142 | 11.8 | 0 | 0 | 1 |
+| CIP-011-3 | 4 | 0 | 46 | 11.5 | 0 | 0 | 2 |
+| CIP-012-2 | 6 | 0 | 50 | 8.3 | 0 | 0 | 1 |
+| CIP-013-2 | 11 | 0 | 75 | 6.8 | 0 | 0 | 0 |
+| CIP-014-3 | 19 | 0 | 421 | 22.1 | 0 | 0 | 1 |
+| **total** | **255** | **70** | **4,326** | **17.0** | **13** | **8** | **48** |
+
+* **Cost per requirement, the number that scales:** the family ran in
+  **72 minutes** — 17.0 s per register node, 23.4 s per ADDRESSABLE
+  requirement (185 of 255; 70 are Attachment-structure nodes the address
+  grammar does not reach, each recorded as a named per-cell error, never
+  silently skipped). The task's overnight-or-coffee-break question has an
+  answer on this box: **a coffee break and a half.**
+* **512 GB projection, labelled as a projection:** the node removes the two
+  binds measured in §P4.1 — window and footprint. At 128k-class windows the
+  append-only sweep thread holds ~10+ requirements per conversation, so the
+  shared body prefills once per standard-batch instead of once per
+  requirement (the ~50× prefill collapse the daemon already demonstrates on
+  append); per-requirement cost drops toward decode-bound (~15–20 s full
+  material, less on the smaller standards) → ≈ 60–80 min for the family on
+  ONE node, near-linear ÷N across nodes with the standard as the shard key.
+  Nothing above is measured here; what is measured is that the current shape
+  already fits an afternoon.
+* **Cache behaviour at the standard boundary:** every standard's first call
+  prefilled its own fixed body at full price; within a standard the collapse
+  stayed ×1.0 — independent calls do not share prefixes on this daemon
+  (§P4.1's mechanism, holding family-wide). The family ran cacheless by
+  measured necessity and still finished in an hour.
+* **Determinations:** every one of the 255 cells produced a well-formed
+  determinations block — the map prompt's contract held family-wide. The
+  checks accepted 13, corroborated 8, refused 48 (verbatim-citation and
+  register-membership refusals; per-entry reasons were not retained in this
+  pass's receipts — a persistence defect fixed in `map_read` for future
+  runs). **Every accepted determination is CIP-007-6's.** Outside it, the
+  checker refused every proposal: no edge without a traceable citation is
+  written, so family mapping coverage stands at zero rather than at 48
+  unverifiable guesses. That is the design holding, and it is also the next
+  work item (see below).
+* **Contradictions:** zero items — one pass cannot disagree with itself, and
+  the store holds no approved edges to contradict. The queue's mechanism is
+  unit-tested; it fills on re-reads.
+* **Reduce:** demonstrated on CIP-007-6 (one call over the twenty answers,
+  16,122 tokens in, 55 s); not run per standard.
+
+---
+
+## §Done when — the checklist against this task
+
+* **§P1 answered** — yes, with the mechanism refined by controls: handed the
+  material with no navigation, gemma4 reads CIP-007-6 and tells the truth
+  (4/6, verbatim both-sides citations); Nemotron's boundary is material size
+  (measured), Ling's is the reading itself (measured); template, harness,
+  prompt and delivery exonerated with evidence, not assertion.
+* **Worst-case population as text recorded** — R5 at 31,335 chars ≈ 10.4k
+  tokens (parent scope) + 19.3k-token shared body; every cell fit the 32k
+  window with the reader's own answer budget.
+* **Typed mappings with provenance; one section, several requirements; no
+  determining an edge you were given** — `machine_determined` status,
+  `record_determination` with mandatory verbatim sentence + register
+  membership + provenance, corroboration guard, and the live demonstration:
+  six R5 Parts → one traceability section, `REFERENCES`, each carrying its
+  reading and sentence.
+* **Operator sections arrive with their document neighbourhood** —
+  `reading_material.render(neighbourhood=True)`: parent heading, siblings,
+  same-document graph ties, capped and the cap stated.
+* **Twenty sequential map calls measured on `prompt_eval_duration`** —
+  FAILED, mechanism isolated (append-only threads share; independent calls do
+  not), remedy named and priced; the family ran anyway, in 72 minutes.
+* **The sweep runs the family in dependency order** — done, order recorded as
+  a design constant with its reasons.
+* **The operator's queue is contradictions and a sample** — 0 contradictions
+  this pass (mechanism tested), an 11-row stratified packet awaiting the
+  operator's decisions — not 1,427 rows.
+* **Operational mappings and evaluation set separate; scorer sees only the
+  human-confirmed sample** — enforced in code and unit tests; `agreement()`
+  live-reports honest-BLOCKED until a human decides rows, which is the honest
+  state.
+
+---
+
+## §8 — what is still unproven
+
+Stated plainly, because the temptation is to let these slide:
+
+1. **Family mapping coverage is zero outside CIP-007-6.** The checker refused
+   all 48 non-CIP-007 proposals. Whether that is the readings' quote
+   discipline or the checker's strictness is UNMEASURED — the refusals'
+   reasons were not retained this pass, and no human has adjudicated a single
+   one of them. The refusal bias is at least plausible: CIP-007-6 is the
+   standard the corpus, the cases and every prior campaign were built around.
+2. **The mapping accuracy number does not exist yet.** The sample is
+   selected, not decided. Until a human confirms or corrects its rows,
+   `agreement()` reports honest-BLOCKED — and nothing in this campaign may be
+   read as that number.
+3. **gemma4's two §P1 comprehension failures are unremediated.** The "and"-vs-
+   "or" blindness and the restatement-as-demonstration trap both stand; no
+   prompt revision was attempted, and §P3.1's neighbourhood (which feeds the
+   first) has not been re-measured against the choice case.
+4. **The cache remedy is designed, not built.** Append-only sweep threads are
+   the measured way to share the fixed body on this daemon; the sweep still
+   runs one-shot calls. Until that lands, the 50× lever is unrealised at
+   every window size.
+5. **One seat, one pass, one rater.** Temperature 0 makes the cells
+   deterministic per seat, but nothing here samples seat variance, and all 18
+   §P1 judgments are this agent's reading. The reasons are recorded beside
+   every verdict so a second reader can disagree cell by cell.
+6. **Seventy register nodes are unreachable by the address grammar.** The
+   sweep recorded them as named errors and moved on; whether the grammar
+   grows Attachment syntax or the register stops carrying them as requirement
+   nodes is nobody's decision yet.
+7. **The unit gate is red on BASE** (§0-ter): three pre-existing failures
+   unrelated to this campaign, bypassed to land it. The tree is not
+   gate-green.
+
+**Commit:** `docs(compliance): P7 — the family swept, the mappings determined, the work checkable`

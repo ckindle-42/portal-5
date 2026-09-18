@@ -291,7 +291,2640 @@
           "run_id": "run-612f55386fb7bc4a24f6"
         }
       ]
+    },
+    {
+      "standard": "CIP-002-5.1a",
+      "n_requirements": 33,
+      "total_wall_s": 233.61,
+      "wall_per_requirement_s": 7.08,
+      "prompt_eval_durations_s": [
+        34.141,
+        37.119,
+        37.183,
+        36.62,
+        17.01,
+        16.497,
+        16.16
+      ],
+      "first_call_prefill_s": 34.141,
+      "rest_mean_prefill_s": 26.765,
+      "cache_collapse_ratio": 1.3,
+      "determined": 0,
+      "corroborated": 0,
+      "rejected": 0,
+      "rows": [
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Part 1.1",
+          "error": "'CIP-002-5.1a Attachment 1 Part 1.1' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Part 1.2",
+          "error": "'CIP-002-5.1a Attachment 1 Part 1.2' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Part 1.3",
+          "error": "'CIP-002-5.1a Attachment 1 Part 1.3' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Part 1.4",
+          "error": "'CIP-002-5.1a Attachment 1 Part 1.4' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Part 2.1",
+          "error": "'CIP-002-5.1a Attachment 1 Part 2.1' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Part 2.2",
+          "error": "'CIP-002-5.1a Attachment 1 Part 2.2' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Part 2.3",
+          "error": "'CIP-002-5.1a Attachment 1 Part 2.3' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Part 2.4",
+          "error": "'CIP-002-5.1a Attachment 1 Part 2.4' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Part 2.5",
+          "error": "'CIP-002-5.1a Attachment 1 Part 2.5' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Part 2.6",
+          "error": "'CIP-002-5.1a Attachment 1 Part 2.6' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Part 2.7",
+          "error": "'CIP-002-5.1a Attachment 1 Part 2.7' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Part 2.8",
+          "error": "'CIP-002-5.1a Attachment 1 Part 2.8' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Part 2.9",
+          "error": "'CIP-002-5.1a Attachment 1 Part 2.9' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Part 2.10",
+          "error": "'CIP-002-5.1a Attachment 1 Part 2.10' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Part 2.11",
+          "error": "'CIP-002-5.1a Attachment 1 Part 2.11' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Part 2.12",
+          "error": "'CIP-002-5.1a Attachment 1 Part 2.12' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Part 2.13",
+          "error": "'CIP-002-5.1a Attachment 1 Part 2.13' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Part 3.1",
+          "error": "'CIP-002-5.1a Attachment 1 Part 3.1' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Part 3.2",
+          "error": "'CIP-002-5.1a Attachment 1 Part 3.2' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Part 3.3",
+          "error": "'CIP-002-5.1a Attachment 1 Part 3.3' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Part 3.4",
+          "error": "'CIP-002-5.1a Attachment 1 Part 3.4' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Part 3.5",
+          "error": "'CIP-002-5.1a Attachment 1 Part 3.5' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Part 3.6",
+          "error": "'CIP-002-5.1a Attachment 1 Part 3.6' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Section 1",
+          "error": "'CIP-002-5.1a Attachment 1 Section 1' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Section 2",
+          "error": "'CIP-002-5.1a Attachment 1 Section 2' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a Attachment 1 Section 3",
+          "error": "'CIP-002-5.1a Attachment 1 Section 3' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-002-5.1a R1",
+          "wall_s": 39.48,
+          "prompt_tokens": 18130,
+          "prompt_eval_duration_s": 34.141,
+          "eval_count": 219,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-6df75e6585109629aa49"
+        },
+        {
+          "ref": "CIP-002-5.1a R1 Part 1.1",
+          "wall_s": 39.55,
+          "prompt_tokens": 18157,
+          "prompt_eval_duration_s": 37.119,
+          "eval_count": 97,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-c74311709bf2206313a4"
+        },
+        {
+          "ref": "CIP-002-5.1a R1 Part 1.2",
+          "wall_s": 40.16,
+          "prompt_tokens": 18159,
+          "prompt_eval_duration_s": 37.183,
+          "eval_count": 121,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-8c4def2d7d0bac691b96"
+        },
+        {
+          "ref": "CIP-002-5.1a R1 Part 1.3",
+          "wall_s": 39.52,
+          "prompt_tokens": 18171,
+          "prompt_eval_duration_s": 36.62,
+          "eval_count": 117,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-20eaed8f64cea87d51ca"
+        },
+        {
+          "ref": "CIP-002-5.1a R2",
+          "wall_s": 20.73,
+          "prompt_tokens": 9872,
+          "prompt_eval_duration_s": 17.01,
+          "eval_count": 170,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-f8fa0736d99f29d84683"
+        },
+        {
+          "ref": "CIP-002-5.1a R2 Part 2.1",
+          "wall_s": 33.72,
+          "prompt_tokens": 9714,
+          "prompt_eval_duration_s": 16.497,
+          "eval_count": 798,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-2dc3979edb997f0d3d0e"
+        },
+        {
+          "ref": "CIP-002-5.1a R2 Part 2.2",
+          "wall_s": 20.32,
+          "prompt_tokens": 9705,
+          "prompt_eval_duration_s": 16.16,
+          "eval_count": 193,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-5cf148796114368a4db5"
+        }
+      ]
+    },
+    {
+      "standard": "CIP-003-8",
+      "n_requirements": 39,
+      "total_wall_s": 507.59,
+      "wall_per_requirement_s": 13.02,
+      "prompt_eval_durations_s": [
+        17.83,
+        15.791,
+        15.768,
+        15.783,
+        15.701,
+        15.59,
+        15.395,
+        15.344,
+        15.564,
+        15.612,
+        15.762,
+        15.742,
+        15.674,
+        15.704,
+        15.671,
+        15.712,
+        45.897,
+        9.411,
+        9.915
+      ],
+      "first_call_prefill_s": 17.83,
+      "rest_mean_prefill_s": 16.669,
+      "cache_collapse_ratio": 1.1,
+      "determined": 0,
+      "corroborated": 0,
+      "rejected": 12,
+      "rows": [
+        {
+          "ref": "CIP-003-8 Attachment 1 Part 1",
+          "error": "'CIP-003-8 Attachment 1 Part 1' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-8 Attachment 1 Part 2",
+          "error": "'CIP-003-8 Attachment 1 Part 2' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-8 Attachment 1 Part 3",
+          "error": "'CIP-003-8 Attachment 1 Part 3' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-8 Attachment 1 Part 3.1",
+          "error": "'CIP-003-8 Attachment 1 Part 3.1' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-8 Attachment 1 Part 3.2",
+          "error": "'CIP-003-8 Attachment 1 Part 3.2' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-8 Attachment 1 Part 4",
+          "error": "'CIP-003-8 Attachment 1 Part 4' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-8 Attachment 1 Part 4.1",
+          "error": "'CIP-003-8 Attachment 1 Part 4.1' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-8 Attachment 1 Part 4.2",
+          "error": "'CIP-003-8 Attachment 1 Part 4.2' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-8 Attachment 1 Part 4.3",
+          "error": "'CIP-003-8 Attachment 1 Part 4.3' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-8 Attachment 1 Part 4.4",
+          "error": "'CIP-003-8 Attachment 1 Part 4.4' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-8 Attachment 1 Part 4.5",
+          "error": "'CIP-003-8 Attachment 1 Part 4.5' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-8 Attachment 1 Part 4.6",
+          "error": "'CIP-003-8 Attachment 1 Part 4.6' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-8 Attachment 1 Part 5",
+          "error": "'CIP-003-8 Attachment 1 Part 5' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-8 Attachment 1 Part 5.1",
+          "error": "'CIP-003-8 Attachment 1 Part 5.1' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-8 Attachment 1 Part 5.2",
+          "error": "'CIP-003-8 Attachment 1 Part 5.2' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-8 Attachment 1 Part 5.2.1",
+          "error": "'CIP-003-8 Attachment 1 Part 5.2.1' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-8 Attachment 1 Part 5.2.2",
+          "error": "'CIP-003-8 Attachment 1 Part 5.2.2' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-8 Attachment 1 Part 5.3",
+          "error": "'CIP-003-8 Attachment 1 Part 5.3' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-8 Attachment 1 Part 5.3.1",
+          "error": "'CIP-003-8 Attachment 1 Part 5.3.1' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-8 Attachment 1 Part 5.3.2",
+          "error": "'CIP-003-8 Attachment 1 Part 5.3.2' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-8 R1",
+          "wall_s": 20.37,
+          "prompt_tokens": 10500,
+          "prompt_eval_duration_s": 17.83,
+          "eval_count": 114,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-a05df25376d3a2392721"
+        },
+        {
+          "ref": "CIP-003-8 R1 Part 1.1.1",
+          "wall_s": 20.17,
+          "prompt_tokens": 9436,
+          "prompt_eval_duration_s": 15.791,
+          "eval_count": 204,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-e80eb1cd279eb4d012a1"
+        },
+        {
+          "ref": "CIP-003-8 R1 Part 1.1.2",
+          "wall_s": 32.43,
+          "prompt_tokens": 9438,
+          "prompt_eval_duration_s": 15.768,
+          "eval_count": 777,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-cb673f56b06fdb6fe372"
+        },
+        {
+          "ref": "CIP-003-8 R1 Part 1.1.3",
+          "wall_s": 19.73,
+          "prompt_tokens": 9437,
+          "prompt_eval_duration_s": 15.783,
+          "eval_count": 183,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-6d8e44e3996725656e8e"
+        },
+        {
+          "ref": "CIP-003-8 R1 Part 1.1.4",
+          "wall_s": 46.72,
+          "prompt_tokens": 9433,
+          "prompt_eval_duration_s": 15.701,
+          "eval_count": 1440,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 7,
+          "parse_error": "",
+          "run_id": "run-ce6cd13fee498283b9a0"
+        },
+        {
+          "ref": "CIP-003-8 R1 Part 1.1.5",
+          "wall_s": 42.57,
+          "prompt_tokens": 9437,
+          "prompt_eval_duration_s": 15.59,
+          "eval_count": 1257,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-a405b9dabe8879dbd80c"
+        },
+        {
+          "ref": "CIP-003-8 R1 Part 1.1.6",
+          "wall_s": 19.63,
+          "prompt_tokens": 9437,
+          "prompt_eval_duration_s": 15.395,
+          "eval_count": 199,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-d047cc6fc5ecfd1a17b4"
+        },
+        {
+          "ref": "CIP-003-8 R1 Part 1.1.7",
+          "wall_s": 17.85,
+          "prompt_tokens": 9343,
+          "prompt_eval_duration_s": 15.344,
+          "eval_count": 118,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-93e38527ab64dd3997d5"
+        },
+        {
+          "ref": "CIP-003-8 R1 Part 1.1.8",
+          "wall_s": 55.32,
+          "prompt_tokens": 9435,
+          "prompt_eval_duration_s": 15.564,
+          "eval_count": 1852,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 3,
+          "parse_error": "",
+          "run_id": "run-0321c0903a41f0c715e9"
+        },
+        {
+          "ref": "CIP-003-8 R1 Part 1.1.9",
+          "wall_s": 19.94,
+          "prompt_tokens": 9434,
+          "prompt_eval_duration_s": 15.612,
+          "eval_count": 201,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-1f085bb886a02aa3bfd7"
+        },
+        {
+          "ref": "CIP-003-8 R1 Part 1.2.1",
+          "wall_s": 19.5,
+          "prompt_tokens": 9434,
+          "prompt_eval_duration_s": 15.762,
+          "eval_count": 173,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-ec751c8927ce70f8e074"
+        },
+        {
+          "ref": "CIP-003-8 R1 Part 1.2.2",
+          "wall_s": 24.91,
+          "prompt_tokens": 9435,
+          "prompt_eval_duration_s": 15.742,
+          "eval_count": 430,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 1,
+          "parse_error": "",
+          "run_id": "run-784163bec75c0b239843"
+        },
+        {
+          "ref": "CIP-003-8 R1 Part 1.2.3",
+          "wall_s": 20.24,
+          "prompt_tokens": 9432,
+          "prompt_eval_duration_s": 15.674,
+          "eval_count": 211,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-9b8db5bf953116e9a4e1"
+        },
+        {
+          "ref": "CIP-003-8 R1 Part 1.2.4",
+          "wall_s": 27.14,
+          "prompt_tokens": 9437,
+          "prompt_eval_duration_s": 15.704,
+          "eval_count": 534,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-29319d60cd8487144c66"
+        },
+        {
+          "ref": "CIP-003-8 R1 Part 1.2.5",
+          "wall_s": 19.9,
+          "prompt_tokens": 9445,
+          "prompt_eval_duration_s": 15.671,
+          "eval_count": 197,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-4b043a114d6988f13450"
+        },
+        {
+          "ref": "CIP-003-8 R1 Part 1.2.6",
+          "wall_s": 27.04,
+          "prompt_tokens": 9440,
+          "prompt_eval_duration_s": 15.712,
+          "eval_count": 529,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 1,
+          "parse_error": "",
+          "run_id": "run-aa24c631919fffa2e47c"
+        },
+        {
+          "ref": "CIP-003-8 R2",
+          "wall_s": 50.45,
+          "prompt_tokens": 22252,
+          "prompt_eval_duration_s": 45.897,
+          "eval_count": 173,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-432d6ee970e8db09b4a1"
+        },
+        {
+          "ref": "CIP-003-8 R3",
+          "wall_s": 11.54,
+          "prompt_tokens": 5954,
+          "prompt_eval_duration_s": 9.411,
+          "eval_count": 101,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-8ef01ad4a3862d09a2c9"
+        },
+        {
+          "ref": "CIP-003-8 R4",
+          "wall_s": 11.86,
+          "prompt_tokens": 6240,
+          "prompt_eval_duration_s": 9.915,
+          "eval_count": 95,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-7e58ed198061421f9a44"
+        }
+      ]
+    },
+    {
+      "standard": "CIP-003-9",
+      "n_requirements": 44,
+      "total_wall_s": 158.56,
+      "wall_per_requirement_s": 3.6,
+      "prompt_eval_durations_s": [
+        7.23,
+        4.927,
+        4.937,
+        4.929,
+        4.923,
+        4.928,
+        4.928,
+        4.789,
+        4.884,
+        4.895,
+        4.909,
+        4.907,
+        4.866,
+        4.88,
+        4.916,
+        4.9,
+        4.908,
+        4.904,
+        4.731,
+        4.854
+      ],
+      "first_call_prefill_s": 7.23,
+      "rest_mean_prefill_s": 4.89,
+      "cache_collapse_ratio": 1.5,
+      "determined": 0,
+      "corroborated": 0,
+      "rejected": 1,
+      "rows": [
+        {
+          "ref": "CIP-003-9 Attachment 1 Part 1",
+          "error": "'CIP-003-9 Attachment 1 Part 1' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-9 Attachment 1 Part 2",
+          "error": "'CIP-003-9 Attachment 1 Part 2' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-9 Attachment 1 Part 3",
+          "error": "'CIP-003-9 Attachment 1 Part 3' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-9 Attachment 1 Part 3.1",
+          "error": "'CIP-003-9 Attachment 1 Part 3.1' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-9 Attachment 1 Part 3.2",
+          "error": "'CIP-003-9 Attachment 1 Part 3.2' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-9 Attachment 1 Part 4",
+          "error": "'CIP-003-9 Attachment 1 Part 4' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-9 Attachment 1 Part 4.1",
+          "error": "'CIP-003-9 Attachment 1 Part 4.1' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-9 Attachment 1 Part 4.2",
+          "error": "'CIP-003-9 Attachment 1 Part 4.2' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-9 Attachment 1 Part 4.3",
+          "error": "'CIP-003-9 Attachment 1 Part 4.3' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-9 Attachment 1 Part 4.4",
+          "error": "'CIP-003-9 Attachment 1 Part 4.4' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-9 Attachment 1 Part 4.5",
+          "error": "'CIP-003-9 Attachment 1 Part 4.5' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-9 Attachment 1 Part 4.6",
+          "error": "'CIP-003-9 Attachment 1 Part 4.6' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-9 Attachment 1 Part 5",
+          "error": "'CIP-003-9 Attachment 1 Part 5' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-9 Attachment 1 Part 5.1",
+          "error": "'CIP-003-9 Attachment 1 Part 5.1' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-9 Attachment 1 Part 5.2",
+          "error": "'CIP-003-9 Attachment 1 Part 5.2' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-9 Attachment 1 Part 5.2.1",
+          "error": "'CIP-003-9 Attachment 1 Part 5.2.1' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-9 Attachment 1 Part 5.2.2",
+          "error": "'CIP-003-9 Attachment 1 Part 5.2.2' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-9 Attachment 1 Part 5.3",
+          "error": "'CIP-003-9 Attachment 1 Part 5.3' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-9 Attachment 1 Part 5.3.1",
+          "error": "'CIP-003-9 Attachment 1 Part 5.3.1' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-9 Attachment 1 Part 5.3.2",
+          "error": "'CIP-003-9 Attachment 1 Part 5.3.2' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-9 Attachment 1 Part 6",
+          "error": "'CIP-003-9 Attachment 1 Part 6' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-9 Attachment 1 Part 6.1",
+          "error": "'CIP-003-9 Attachment 1 Part 6.1' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-9 Attachment 1 Part 6.2",
+          "error": "'CIP-003-9 Attachment 1 Part 6.2' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-9 Attachment 1 Part 6.3",
+          "error": "'CIP-003-9 Attachment 1 Part 6.3' is not a regulatory address"
+        },
+        {
+          "ref": "CIP-003-9 R1",
+          "wall_s": 9.6,
+          "prompt_tokens": 4634,
+          "prompt_eval_duration_s": 7.23,
+          "eval_count": 118,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-c1ea5f0d2f27717d4df8"
+        },
+        {
+          "ref": "CIP-003-9 R1 Part 1.1.1",
+          "wall_s": 6.76,
+          "prompt_tokens": 3256,
+          "prompt_eval_duration_s": 4.927,
+          "eval_count": 91,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-68253e143c11792c719a"
+        },
+        {
+          "ref": "CIP-003-9 R1 Part 1.1.2",
+          "wall_s": 6.85,
+          "prompt_tokens": 3263,
+          "prompt_eval_duration_s": 4.937,
+          "eval_count": 96,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-5fb69be51a679c1c6ed6"
+        },
+        {
+          "ref": "CIP-003-9 R1 Part 1.1.3",
+          "wall_s": 6.9,
+          "prompt_tokens": 3259,
+          "prompt_eval_duration_s": 4.929,
+          "eval_count": 100,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-e94c89f1f642fbb78124"
+        },
+        {
+          "ref": "CIP-003-9 R1 Part 1.1.4",
+          "wall_s": 6.85,
+          "prompt_tokens": 3258,
+          "prompt_eval_duration_s": 4.923,
+          "eval_count": 98,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-556c56ef273a0a849971"
+        },
+        {
+          "ref": "CIP-003-9 R1 Part 1.1.5",
+          "wall_s": 6.63,
+          "prompt_tokens": 3260,
+          "prompt_eval_duration_s": 4.928,
+          "eval_count": 84,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-a0e53ab0a34047cea0ce"
+        },
+        {
+          "ref": "CIP-003-9 R1 Part 1.1.6",
+          "wall_s": 6.64,
+          "prompt_tokens": 3261,
+          "prompt_eval_duration_s": 4.928,
+          "eval_count": 85,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-529e021d832ce333a397"
+        },
+        {
+          "ref": "CIP-003-9 R1 Part 1.1.7",
+          "wall_s": 13.6,
+          "prompt_tokens": 3166,
+          "prompt_eval_duration_s": 4.789,
+          "eval_count": 445,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 1,
+          "parse_error": "",
+          "run_id": "run-4601a382ef0609952e5c"
+        },
+        {
+          "ref": "CIP-003-9 R1 Part 1.1.8",
+          "wall_s": 6.77,
+          "prompt_tokens": 3259,
+          "prompt_eval_duration_s": 4.884,
+          "eval_count": 95,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-0078e17a7e33dd878ed5"
+        },
+        {
+          "ref": "CIP-003-9 R1 Part 1.1.9",
+          "wall_s": 7.12,
+          "prompt_tokens": 3255,
+          "prompt_eval_duration_s": 4.895,
+          "eval_count": 111,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-910db44c6fa8fb22da98"
+        },
+        {
+          "ref": "CIP-003-9 R1 Part 1.2.1",
+          "wall_s": 7.33,
+          "prompt_tokens": 3259,
+          "prompt_eval_duration_s": 4.909,
+          "eval_count": 122,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-74e3a4da958ec37e36f8"
+        },
+        {
+          "ref": "CIP-003-9 R1 Part 1.2.2",
+          "wall_s": 13.6,
+          "prompt_tokens": 3261,
+          "prompt_eval_duration_s": 4.907,
+          "eval_count": 437,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-4a35c35f34eff67fa592"
+        },
+        {
+          "ref": "CIP-003-9 R1 Part 1.2.3",
+          "wall_s": 9.03,
+          "prompt_tokens": 3257,
+          "prompt_eval_duration_s": 4.866,
+          "eval_count": 211,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-54e9bd0747dadffeffc5"
+        },
+        {
+          "ref": "CIP-003-9 R1 Part 1.2.4",
+          "wall_s": 7.27,
+          "prompt_tokens": 3259,
+          "prompt_eval_duration_s": 4.88,
+          "eval_count": 120,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-04712054b30f091dd89d"
+        },
+        {
+          "ref": "CIP-003-9 R1 Part 1.2.5",
+          "wall_s": 7.11,
+          "prompt_tokens": 3266,
+          "prompt_eval_duration_s": 4.916,
+          "eval_count": 110,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-482f14c0a9297ab1298b"
+        },
+        {
+          "ref": "CIP-003-9 R1 Part 1.2.6",
+          "wall_s": 6.73,
+          "prompt_tokens": 3263,
+          "prompt_eval_duration_s": 4.9,
+          "eval_count": 92,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-c5d13dd2d1af70f4ebfe"
+        },
+        {
+          "ref": "CIP-003-9 R1 Part 1.2.7",
+          "wall_s": 6.83,
+          "prompt_tokens": 3263,
+          "prompt_eval_duration_s": 4.908,
+          "eval_count": 99,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-484855d5fb6c7fb305e0"
+        },
+        {
+          "ref": "CIP-003-9 R2",
+          "wall_s": 6.62,
+          "prompt_tokens": 3243,
+          "prompt_eval_duration_s": 4.904,
+          "eval_count": 87,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-671cfcb1f14a16358eee"
+        },
+        {
+          "ref": "CIP-003-9 R3",
+          "wall_s": 8.2,
+          "prompt_tokens": 3135,
+          "prompt_eval_duration_s": 4.731,
+          "eval_count": 176,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-bce7e319fc5453ddf46f"
+        },
+        {
+          "ref": "CIP-003-9 R4",
+          "wall_s": 8.05,
+          "prompt_tokens": 3223,
+          "prompt_eval_duration_s": 4.854,
+          "eval_count": 164,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-4d732e64ea21a37e1712"
+        }
+      ]
+    },
+    {
+      "standard": "CIP-004-7",
+      "n_requirements": 19,
+      "total_wall_s": 495.58,
+      "wall_per_requirement_s": 26.08,
+      "prompt_eval_durations_s": [
+        8.307,
+        16.914,
+        17.415,
+        17.369,
+        17.541,
+        17.567,
+        17.448,
+        17.081,
+        17.555,
+        17.312,
+        17.356,
+        17.469,
+        17.586,
+        17.625,
+        17.408,
+        17.106,
+        17.625,
+        17.637,
+        17.617
+      ],
+      "first_call_prefill_s": 8.307,
+      "rest_mean_prefill_s": 17.424,
+      "cache_collapse_ratio": 0.5,
+      "determined": 0,
+      "corroborated": 0,
+      "rejected": 11,
+      "rows": [
+        {
+          "ref": "CIP-004-7 R1 Part 1.1",
+          "wall_s": 15.09,
+          "prompt_tokens": 10145,
+          "prompt_eval_duration_s": 8.307,
+          "eval_count": 312,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-4d13e05b4b4f26f4a12b"
+        },
+        {
+          "ref": "CIP-004-7 R2 Part 2.1",
+          "wall_s": 19.07,
+          "prompt_tokens": 10090,
+          "prompt_eval_duration_s": 16.914,
+          "eval_count": 98,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-4f7855d0907ef9e5410a"
+        },
+        {
+          "ref": "CIP-004-7 R2 Part 2.2",
+          "wall_s": 24.91,
+          "prompt_tokens": 10283,
+          "prompt_eval_duration_s": 17.415,
+          "eval_count": 345,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-09ec959bb83453ff7bbb"
+        },
+        {
+          "ref": "CIP-004-7 R2 Part 2.3",
+          "wall_s": 22.55,
+          "prompt_tokens": 10258,
+          "prompt_eval_duration_s": 17.369,
+          "eval_count": 237,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-ef1b5e743b0b953f99f2"
+        },
+        {
+          "ref": "CIP-004-7 R3 Part 3.1",
+          "wall_s": 30.22,
+          "prompt_tokens": 10373,
+          "prompt_eval_duration_s": 17.541,
+          "eval_count": 581,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 2,
+          "parse_error": "",
+          "run_id": "run-eec1049ca6c09f56545c"
+        },
+        {
+          "ref": "CIP-004-7 R3 Part 3.2",
+          "wall_s": 31.09,
+          "prompt_tokens": 10437,
+          "prompt_eval_duration_s": 17.567,
+          "eval_count": 621,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 2,
+          "parse_error": "",
+          "run_id": "run-3ec15f723ed9d9d1497d"
+        },
+        {
+          "ref": "CIP-004-7 R3 Part 3.3",
+          "wall_s": 27.86,
+          "prompt_tokens": 10384,
+          "prompt_eval_duration_s": 17.448,
+          "eval_count": 477,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-30d7e792d41e599433cf"
+        },
+        {
+          "ref": "CIP-004-7 R3 Part 3.4",
+          "wall_s": 27.22,
+          "prompt_tokens": 10212,
+          "prompt_eval_duration_s": 17.081,
+          "eval_count": 466,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 1,
+          "parse_error": "",
+          "run_id": "run-d6bc054880ece547e787"
+        },
+        {
+          "ref": "CIP-004-7 R3 Part 3.5",
+          "wall_s": 30.85,
+          "prompt_tokens": 10431,
+          "prompt_eval_duration_s": 17.555,
+          "eval_count": 612,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 2,
+          "parse_error": "",
+          "run_id": "run-9193472e0041c633e320"
+        },
+        {
+          "ref": "CIP-004-7 R4 Part 4.1",
+          "wall_s": 25.15,
+          "prompt_tokens": 10306,
+          "prompt_eval_duration_s": 17.312,
+          "eval_count": 359,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-15550ef1a97b076b6fbb"
+        },
+        {
+          "ref": "CIP-004-7 R4 Part 4.2",
+          "wall_s": 25.19,
+          "prompt_tokens": 10308,
+          "prompt_eval_duration_s": 17.356,
+          "eval_count": 360,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-1911b3609c4a90965110"
+        },
+        {
+          "ref": "CIP-004-7 R4 Part 4.3",
+          "wall_s": 30.48,
+          "prompt_tokens": 10365,
+          "prompt_eval_duration_s": 17.469,
+          "eval_count": 600,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 2,
+          "parse_error": "",
+          "run_id": "run-d9ac3579d7d49d04142a"
+        },
+        {
+          "ref": "CIP-004-7 R5 Part 5.1",
+          "wall_s": 27.71,
+          "prompt_tokens": 10464,
+          "prompt_eval_duration_s": 17.586,
+          "eval_count": 465,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-387175d843f75c4d47a2"
+        },
+        {
+          "ref": "CIP-004-7 R5 Part 5.2",
+          "wall_s": 28.95,
+          "prompt_tokens": 10468,
+          "prompt_eval_duration_s": 17.625,
+          "eval_count": 519,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 1,
+          "parse_error": "",
+          "run_id": "run-39cb36e24543ea20aff9"
+        },
+        {
+          "ref": "CIP-004-7 R5 Part 5.3",
+          "wall_s": 24.1,
+          "prompt_tokens": 10347,
+          "prompt_eval_duration_s": 17.408,
+          "eval_count": 307,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-c2c14f4aec61d5530a68"
+        },
+        {
+          "ref": "CIP-004-7 R5 Part 5.4",
+          "wall_s": 26.93,
+          "prompt_tokens": 10198,
+          "prompt_eval_duration_s": 17.106,
+          "eval_count": 453,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-6cd05a3f6103b598e425"
+        },
+        {
+          "ref": "CIP-004-7 R6 Part 6.1",
+          "wall_s": 26.83,
+          "prompt_tokens": 10463,
+          "prompt_eval_duration_s": 17.625,
+          "eval_count": 420,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-64f60b4437a070e36fb7"
+        },
+        {
+          "ref": "CIP-004-7 R6 Part 6.2",
+          "wall_s": 24.54,
+          "prompt_tokens": 10473,
+          "prompt_eval_duration_s": 17.637,
+          "eval_count": 315,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 1,
+          "parse_error": "",
+          "run_id": "run-f10c1acdf27bf4d4dbc8"
+        },
+        {
+          "ref": "CIP-004-7 R6 Part 6.3",
+          "wall_s": 26.69,
+          "prompt_tokens": 10434,
+          "prompt_eval_duration_s": 17.617,
+          "eval_count": 415,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-2da24d15f16ed6e34313"
+        }
+      ]
+    },
+    {
+      "standard": "CIP-005-7",
+      "n_requirements": 12,
+      "total_wall_s": 153.02,
+      "wall_per_requirement_s": 12.75,
+      "prompt_eval_durations_s": [
+        8.611,
+        8.646,
+        8.671,
+        8.69,
+        8.682,
+        8.671,
+        8.962,
+        9.049,
+        9.145,
+        9.043,
+        8.699,
+        9.153
+      ],
+      "first_call_prefill_s": 8.611,
+      "rest_mean_prefill_s": 8.856,
+      "cache_collapse_ratio": 1.0,
+      "determined": 0,
+      "corroborated": 0,
+      "rejected": 0,
+      "rows": [
+        {
+          "ref": "CIP-005-7 R1 Part 1.1",
+          "wall_s": 11.41,
+          "prompt_tokens": 5564,
+          "prompt_eval_duration_s": 8.611,
+          "eval_count": 137,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-ed2286355dbb7f122d15"
+        },
+        {
+          "ref": "CIP-005-7 R1 Part 1.2",
+          "wall_s": 12.21,
+          "prompt_tokens": 5563,
+          "prompt_eval_duration_s": 8.646,
+          "eval_count": 175,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-7026aa19bc43b195b82a"
+        },
+        {
+          "ref": "CIP-005-7 R1 Part 1.3",
+          "wall_s": 11.31,
+          "prompt_tokens": 5572,
+          "prompt_eval_duration_s": 8.671,
+          "eval_count": 130,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-9b4a4df4efad888668b7"
+        },
+        {
+          "ref": "CIP-005-7 R1 Part 1.4",
+          "wall_s": 11.11,
+          "prompt_tokens": 5569,
+          "prompt_eval_duration_s": 8.69,
+          "eval_count": 119,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-13d879f267649f250537"
+        },
+        {
+          "ref": "CIP-005-7 R1 Part 1.5",
+          "wall_s": 11.87,
+          "prompt_tokens": 5565,
+          "prompt_eval_duration_s": 8.682,
+          "eval_count": 157,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-2ed9227ee494d1da78a3"
+        },
+        {
+          "ref": "CIP-005-7 R2 Part 2.1",
+          "wall_s": 12.72,
+          "prompt_tokens": 5561,
+          "prompt_eval_duration_s": 8.671,
+          "eval_count": 199,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-210537f09ba0a1e87fa8"
+        },
+        {
+          "ref": "CIP-005-7 R2 Part 2.2",
+          "wall_s": 15.46,
+          "prompt_tokens": 5711,
+          "prompt_eval_duration_s": 8.962,
+          "eval_count": 321,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-e41f5d52082d0c922add"
+        },
+        {
+          "ref": "CIP-005-7 R2 Part 2.3",
+          "wall_s": 13.95,
+          "prompt_tokens": 5770,
+          "prompt_eval_duration_s": 9.049,
+          "eval_count": 240,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-0dc70a95250ef01473d4"
+        },
+        {
+          "ref": "CIP-005-7 R2 Part 2.4",
+          "wall_s": 15.53,
+          "prompt_tokens": 5835,
+          "prompt_eval_duration_s": 9.145,
+          "eval_count": 314,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-00bc3a922767a096fbb2"
+        },
+        {
+          "ref": "CIP-005-7 R2 Part 2.5",
+          "wall_s": 11.3,
+          "prompt_tokens": 5779,
+          "prompt_eval_duration_s": 9.043,
+          "eval_count": 110,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-27fd43c57ffd60664b95"
+        },
+        {
+          "ref": "CIP-005-7 R3 Part 3.1",
+          "wall_s": 11.18,
+          "prompt_tokens": 5578,
+          "prompt_eval_duration_s": 8.699,
+          "eval_count": 122,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-34de9ffedfd12fd1fd7e"
+        },
+        {
+          "ref": "CIP-005-7 R3 Part 3.2",
+          "wall_s": 14.93,
+          "prompt_tokens": 5817,
+          "prompt_eval_duration_s": 9.153,
+          "eval_count": 283,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-5e343e36f8e03bbb24aa"
+        }
+      ]
+    },
+    {
+      "standard": "CIP-006-6",
+      "n_requirements": 14,
+      "total_wall_s": 262.68,
+      "wall_per_requirement_s": 18.76,
+      "prompt_eval_durations_s": [
+        15.02,
+        15.161,
+        15.189,
+        15.121,
+        15.679,
+        15.432,
+        15.541,
+        15.569,
+        15.503,
+        15.457,
+        11.382,
+        11.366,
+        11.115,
+        10.62
+      ],
+      "first_call_prefill_s": 15.02,
+      "rest_mean_prefill_s": 14.087,
+      "cache_collapse_ratio": 1.1,
+      "determined": 0,
+      "corroborated": 0,
+      "rejected": 1,
+      "rows": [
+        {
+          "ref": "CIP-006-6 R1 Part 1.1",
+          "wall_s": 17.92,
+          "prompt_tokens": 9092,
+          "prompt_eval_duration_s": 15.02,
+          "eval_count": 133,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-295e3d77f962adb2da38"
+        },
+        {
+          "ref": "CIP-006-6 R1 Part 1.2",
+          "wall_s": 18.67,
+          "prompt_tokens": 9148,
+          "prompt_eval_duration_s": 15.161,
+          "eval_count": 162,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-e7b2cbdb9ed24fbefeb1"
+        },
+        {
+          "ref": "CIP-006-6 R1 Part 1.3",
+          "wall_s": 17.32,
+          "prompt_tokens": 9159,
+          "prompt_eval_duration_s": 15.189,
+          "eval_count": 98,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-3a74c49463d9035bac4a"
+        },
+        {
+          "ref": "CIP-006-6 R1 Part 1.4",
+          "wall_s": 17.75,
+          "prompt_tokens": 9111,
+          "prompt_eval_duration_s": 15.121,
+          "eval_count": 122,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-718b575364e30b537061"
+        },
+        {
+          "ref": "CIP-006-6 R1 Part 1.5",
+          "wall_s": 23.45,
+          "prompt_tokens": 9379,
+          "prompt_eval_duration_s": 15.679,
+          "eval_count": 363,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-9a44256a91ff52bb683f"
+        },
+        {
+          "ref": "CIP-006-6 R1 Part 1.6",
+          "wall_s": 20.74,
+          "prompt_tokens": 9247,
+          "prompt_eval_duration_s": 15.432,
+          "eval_count": 247,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-1ff38eb849517bec34b1"
+        },
+        {
+          "ref": "CIP-006-6 R1 Part 1.7",
+          "wall_s": 23.66,
+          "prompt_tokens": 9331,
+          "prompt_eval_duration_s": 15.541,
+          "eval_count": 381,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-521db3432bbf470b786a"
+        },
+        {
+          "ref": "CIP-006-6 R1 Part 1.8",
+          "wall_s": 20.17,
+          "prompt_tokens": 9354,
+          "prompt_eval_duration_s": 15.569,
+          "eval_count": 213,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-ded15af863cdedc68c54"
+        },
+        {
+          "ref": "CIP-006-6 R1 Part 1.9",
+          "wall_s": 17.96,
+          "prompt_tokens": 9307,
+          "prompt_eval_duration_s": 15.503,
+          "eval_count": 113,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-3ceb0350c9a9f868e426"
+        },
+        {
+          "ref": "CIP-006-6 R1 Part 1.10",
+          "wall_s": 18.56,
+          "prompt_tokens": 9257,
+          "prompt_eval_duration_s": 15.457,
+          "eval_count": 143,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-18f1b0c19f0463ed3bfa"
+        },
+        {
+          "ref": "CIP-006-6 R2 Part 2.1",
+          "wall_s": 18.6,
+          "prompt_tokens": 7076,
+          "prompt_eval_duration_s": 11.382,
+          "eval_count": 348,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 1,
+          "parse_error": "",
+          "run_id": "run-9d5360451f6932fddffe"
+        },
+        {
+          "ref": "CIP-006-6 R2 Part 2.2",
+          "wall_s": 17.56,
+          "prompt_tokens": 7101,
+          "prompt_eval_duration_s": 11.366,
+          "eval_count": 304,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-5f84882b848d755d205a"
+        },
+        {
+          "ref": "CIP-006-6 R2 Part 2.3",
+          "wall_s": 15.55,
+          "prompt_tokens": 7027,
+          "prompt_eval_duration_s": 11.115,
+          "eval_count": 216,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-83b6bd19d48269d8f8dc"
+        },
+        {
+          "ref": "CIP-006-6 R3",
+          "wall_s": 14.66,
+          "prompt_tokens": 6673,
+          "prompt_eval_duration_s": 10.62,
+          "eval_count": 199,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-ba7cd00799ea754268ed"
+        }
+      ]
+    },
+    {
+      "standard": "CIP-008-6",
+      "n_requirements": 12,
+      "total_wall_s": 231.84,
+      "wall_per_requirement_s": 19.32,
+      "prompt_eval_durations_s": [
+        11.672,
+        12.177,
+        12.005,
+        11.929,
+        12.02,
+        12.041,
+        12.022,
+        12.543,
+        12.546,
+        12.312,
+        12.381,
+        12.258
+      ],
+      "first_call_prefill_s": 11.672,
+      "rest_mean_prefill_s": 12.203,
+      "cache_collapse_ratio": 1.0,
+      "determined": 0,
+      "corroborated": 0,
+      "rejected": 3,
+      "rows": [
+        {
+          "ref": "CIP-008-6 R1 Part 1.1",
+          "wall_s": 14.88,
+          "prompt_tokens": 7315,
+          "prompt_eval_duration_s": 11.672,
+          "eval_count": 155,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-20d8c0d6f7366e84022f"
+        },
+        {
+          "ref": "CIP-008-6 R1 Part 1.2",
+          "wall_s": 14.13,
+          "prompt_tokens": 7603,
+          "prompt_eval_duration_s": 12.177,
+          "eval_count": 94,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-1f2faca08e78c8930917"
+        },
+        {
+          "ref": "CIP-008-6 R1 Part 1.3",
+          "wall_s": 19.14,
+          "prompt_tokens": 7492,
+          "prompt_eval_duration_s": 12.005,
+          "eval_count": 347,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-6dc962684f3b88328522"
+        },
+        {
+          "ref": "CIP-008-6 R1 Part 1.4",
+          "wall_s": 18.36,
+          "prompt_tokens": 7477,
+          "prompt_eval_duration_s": 11.929,
+          "eval_count": 312,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-e1e387617d571a40c9ee"
+        },
+        {
+          "ref": "CIP-008-6 R2 Part 2.1",
+          "wall_s": 16.33,
+          "prompt_tokens": 7537,
+          "prompt_eval_duration_s": 12.02,
+          "eval_count": 210,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-7775bf3972cd0295a500"
+        },
+        {
+          "ref": "CIP-008-6 R2 Part 2.2",
+          "wall_s": 18.57,
+          "prompt_tokens": 7549,
+          "prompt_eval_duration_s": 12.041,
+          "eval_count": 317,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-56c8b2f05e4a2e207362"
+        },
+        {
+          "ref": "CIP-008-6 R2 Part 2.3",
+          "wall_s": 32.33,
+          "prompt_tokens": 7551,
+          "prompt_eval_duration_s": 12.022,
+          "eval_count": 977,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 3,
+          "parse_error": "",
+          "run_id": "run-cc98b8f93454ce5b69d6"
+        },
+        {
+          "ref": "CIP-008-6 R3 Part 3.1",
+          "wall_s": 17.13,
+          "prompt_tokens": 7793,
+          "prompt_eval_duration_s": 12.543,
+          "eval_count": 221,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-78062984ba0fad027905"
+        },
+        {
+          "ref": "CIP-008-6 R3 Part 3.2",
+          "wall_s": 20.78,
+          "prompt_tokens": 7711,
+          "prompt_eval_duration_s": 12.546,
+          "eval_count": 393,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-05ca77de58fc968db0b3"
+        },
+        {
+          "ref": "CIP-008-6 R4 Part 4.1",
+          "wall_s": 20.67,
+          "prompt_tokens": 7657,
+          "prompt_eval_duration_s": 12.312,
+          "eval_count": 401,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-6908a467d40894bd83c8"
+        },
+        {
+          "ref": "CIP-008-6 R4 Part 4.2",
+          "wall_s": 19.69,
+          "prompt_tokens": 7684,
+          "prompt_eval_duration_s": 12.381,
+          "eval_count": 350,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-251471da730f26bf6357"
+        },
+        {
+          "ref": "CIP-008-6 R4 Part 4.3",
+          "wall_s": 19.76,
+          "prompt_tokens": 7626,
+          "prompt_eval_duration_s": 12.258,
+          "eval_count": 359,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-37ee3f9492632bef02ae"
+        }
+      ]
+    },
+    {
+      "standard": "CIP-009-6",
+      "n_requirements": 10,
+      "total_wall_s": 163.3,
+      "wall_per_requirement_s": 16.33,
+      "prompt_eval_durations_s": [
+        13.54,
+        13.873,
+        13.939,
+        13.666,
+        13.985,
+        12.079,
+        11.987,
+        11.833,
+        11.777,
+        11.684
+      ],
+      "first_call_prefill_s": 13.54,
+      "rest_mean_prefill_s": 12.758,
+      "cache_collapse_ratio": 1.1,
+      "determined": 0,
+      "corroborated": 0,
+      "rejected": 2,
+      "rows": [
+        {
+          "ref": "CIP-009-6 R1 Part 1.1",
+          "wall_s": 16.0,
+          "prompt_tokens": 8306,
+          "prompt_eval_duration_s": 13.54,
+          "eval_count": 115,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-f7f101deb891202a2702"
+        },
+        {
+          "ref": "CIP-009-6 R1 Part 1.2",
+          "wall_s": 16.37,
+          "prompt_tokens": 8466,
+          "prompt_eval_duration_s": 13.873,
+          "eval_count": 118,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-33faf3c092c82cdc4c76"
+        },
+        {
+          "ref": "CIP-009-6 R1 Part 1.3",
+          "wall_s": 16.4,
+          "prompt_tokens": 8481,
+          "prompt_eval_duration_s": 13.939,
+          "eval_count": 117,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-975557f5c88a56cefe61"
+        },
+        {
+          "ref": "CIP-009-6 R1 Part 1.4",
+          "wall_s": 15.99,
+          "prompt_tokens": 8328,
+          "prompt_eval_duration_s": 13.666,
+          "eval_count": 110,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-2e666c5c8cf30b063c6a"
+        },
+        {
+          "ref": "CIP-009-6 R1 Part 1.5",
+          "wall_s": 16.36,
+          "prompt_tokens": 8509,
+          "prompt_eval_duration_s": 13.985,
+          "eval_count": 112,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-56455458b0742271f28c"
+        },
+        {
+          "ref": "CIP-009-6 R2 Part 2.1",
+          "wall_s": 22.9,
+          "prompt_tokens": 7469,
+          "prompt_eval_duration_s": 12.079,
+          "eval_count": 521,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 2,
+          "parse_error": "",
+          "run_id": "run-f41b71fb7d3160acc105"
+        },
+        {
+          "ref": "CIP-009-6 R2 Part 2.2",
+          "wall_s": 15.52,
+          "prompt_tokens": 7461,
+          "prompt_eval_duration_s": 11.987,
+          "eval_count": 169,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-61928be37772de7617c1"
+        },
+        {
+          "ref": "CIP-009-6 R2 Part 2.3",
+          "wall_s": 14.06,
+          "prompt_tokens": 7345,
+          "prompt_eval_duration_s": 11.833,
+          "eval_count": 106,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-d793d361db9054f8b573"
+        },
+        {
+          "ref": "CIP-009-6 R3 Part 3.1",
+          "wall_s": 14.1,
+          "prompt_tokens": 7298,
+          "prompt_eval_duration_s": 11.777,
+          "eval_count": 111,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-341d216cbcce13086859"
+        },
+        {
+          "ref": "CIP-009-6 R3 Part 3.2",
+          "wall_s": 15.51,
+          "prompt_tokens": 7243,
+          "prompt_eval_duration_s": 11.684,
+          "eval_count": 185,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-570b55aba4ffcd4261b7"
+        }
+      ]
+    },
+    {
+      "standard": "CIP-010-4",
+      "n_requirements": 12,
+      "total_wall_s": 141.89,
+      "wall_per_requirement_s": 11.82,
+      "prompt_eval_durations_s": [
+        5.133,
+        5.333,
+        5.391,
+        5.507,
+        4.989,
+        5.074,
+        4.706,
+        5.227,
+        4.996,
+        5.013,
+        5.268,
+        4.909
+      ],
+      "first_call_prefill_s": 5.133,
+      "rest_mean_prefill_s": 5.128,
+      "cache_collapse_ratio": 1.0,
+      "determined": 0,
+      "corroborated": 0,
+      "rejected": 1,
+      "rows": [
+        {
+          "ref": "CIP-010-4 R1 Part 1.1",
+          "wall_s": 14.9,
+          "prompt_tokens": 3393,
+          "prompt_eval_duration_s": 5.133,
+          "eval_count": 491,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-de78fed4084c7635e9b5"
+        },
+        {
+          "ref": "CIP-010-4 R1 Part 1.2",
+          "wall_s": 17.0,
+          "prompt_tokens": 3564,
+          "prompt_eval_duration_s": 5.333,
+          "eval_count": 588,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-18f4289b8753b2dec094"
+        },
+        {
+          "ref": "CIP-010-4 R1 Part 1.3",
+          "wall_s": 7.92,
+          "prompt_tokens": 3591,
+          "prompt_eval_duration_s": 5.391,
+          "eval_count": 126,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-fea0cd8c48821313cd30"
+        },
+        {
+          "ref": "CIP-010-4 R1 Part 1.4",
+          "wall_s": 18.02,
+          "prompt_tokens": 3648,
+          "prompt_eval_duration_s": 5.507,
+          "eval_count": 631,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-b219b40c5949299cc78d"
+        },
+        {
+          "ref": "CIP-010-4 R1 Part 1.5",
+          "wall_s": 9.13,
+          "prompt_tokens": 3360,
+          "prompt_eval_duration_s": 4.989,
+          "eval_count": 208,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-0829b5ea161256001311"
+        },
+        {
+          "ref": "CIP-010-4 R1 Part 1.6",
+          "wall_s": 13.16,
+          "prompt_tokens": 3400,
+          "prompt_eval_duration_s": 5.074,
+          "eval_count": 409,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-4e18a8806a1f4e7e8d29"
+        },
+        {
+          "ref": "CIP-010-4 R2 Part 2.1",
+          "wall_s": 7.19,
+          "prompt_tokens": 3148,
+          "prompt_eval_duration_s": 4.706,
+          "eval_count": 125,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-5b5cb9f216eb1d1ff9a0"
+        },
+        {
+          "ref": "CIP-010-4 R3 Part 3.1",
+          "wall_s": 12.82,
+          "prompt_tokens": 3490,
+          "prompt_eval_duration_s": 5.227,
+          "eval_count": 381,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 1,
+          "parse_error": "",
+          "run_id": "run-c705f901e19f1db14dbc"
+        },
+        {
+          "ref": "CIP-010-4 R3 Part 3.2",
+          "wall_s": 8.51,
+          "prompt_tokens": 3360,
+          "prompt_eval_duration_s": 4.996,
+          "eval_count": 178,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-8423d570a2760befcf95"
+        },
+        {
+          "ref": "CIP-010-4 R3 Part 3.3",
+          "wall_s": 11.22,
+          "prompt_tokens": 3357,
+          "prompt_eval_duration_s": 5.013,
+          "eval_count": 316,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-29e0c7bdae8cf30df121"
+        },
+        {
+          "ref": "CIP-010-4 R3 Part 3.4",
+          "wall_s": 12.28,
+          "prompt_tokens": 3534,
+          "prompt_eval_duration_s": 5.268,
+          "eval_count": 352,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-2db5339bd4847c403a89"
+        },
+        {
+          "ref": "CIP-010-4 R4",
+          "wall_s": 9.68,
+          "prompt_tokens": 3293,
+          "prompt_eval_duration_s": 4.909,
+          "eval_count": 242,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-ee2e0adeda80cb33a80d"
+        }
+      ]
+    },
+    {
+      "standard": "CIP-011-3",
+      "n_requirements": 4,
+      "total_wall_s": 45.96,
+      "wall_per_requirement_s": 11.49,
+      "prompt_eval_durations_s": [
+        3.916,
+        4.351,
+        4.14,
+        4.441
+      ],
+      "first_call_prefill_s": 3.916,
+      "rest_mean_prefill_s": 4.311,
+      "cache_collapse_ratio": 0.9,
+      "determined": 0,
+      "corroborated": 0,
+      "rejected": 2,
+      "rows": [
+        {
+          "ref": "CIP-011-3 R1 Part 1.1",
+          "wall_s": 7.06,
+          "prompt_tokens": 2638,
+          "prompt_eval_duration_s": 3.916,
+          "eval_count": 159,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-f4ffae3902d4ce7317dc"
+        },
+        {
+          "ref": "CIP-011-3 R1 Part 1.2",
+          "wall_s": 10.24,
+          "prompt_tokens": 2943,
+          "prompt_eval_duration_s": 4.351,
+          "eval_count": 299,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-41ff016ab7cd9c56ff19"
+        },
+        {
+          "ref": "CIP-011-3 R2 Part 2.1",
+          "wall_s": 16.28,
+          "prompt_tokens": 2791,
+          "prompt_eval_duration_s": 4.14,
+          "eval_count": 623,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 2,
+          "parse_error": "",
+          "run_id": "run-581e4cc204babb47e919"
+        },
+        {
+          "ref": "CIP-011-3 R2 Part 2.2",
+          "wall_s": 12.36,
+          "prompt_tokens": 3023,
+          "prompt_eval_duration_s": 4.441,
+          "eval_count": 404,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-203aa1907160e6e3ecc2"
+        }
+      ]
+    },
+    {
+      "standard": "CIP-012-2",
+      "n_requirements": 6,
+      "total_wall_s": 49.55,
+      "wall_per_requirement_s": 8.26,
+      "prompt_eval_durations_s": [
+        5.154,
+        4.262,
+        4.255,
+        4.259,
+        4.267,
+        4.269
+      ],
+      "first_call_prefill_s": 5.154,
+      "rest_mean_prefill_s": 4.262,
+      "cache_collapse_ratio": 1.2,
+      "determined": 0,
+      "corroborated": 0,
+      "rejected": 1,
+      "rows": [
+        {
+          "ref": "CIP-012-2 R1",
+          "wall_s": 7.29,
+          "prompt_tokens": 3475,
+          "prompt_eval_duration_s": 5.154,
+          "eval_count": 105,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-d709ba64bd4846492cbe"
+        },
+        {
+          "ref": "CIP-012-2 R1 Part 1.1",
+          "wall_s": 8.29,
+          "prompt_tokens": 2876,
+          "prompt_eval_duration_s": 4.262,
+          "eval_count": 203,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-fc967d2acfa7f28e1bb5"
+        },
+        {
+          "ref": "CIP-012-2 R1 Part 1.2",
+          "wall_s": 6.79,
+          "prompt_tokens": 2871,
+          "prompt_eval_duration_s": 4.255,
+          "eval_count": 127,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-99994c801b6faf3dab7a"
+        },
+        {
+          "ref": "CIP-012-2 R1 Part 1.3",
+          "wall_s": 6.57,
+          "prompt_tokens": 2864,
+          "prompt_eval_duration_s": 4.259,
+          "eval_count": 118,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-c02365079e679fe3919b"
+        },
+        {
+          "ref": "CIP-012-2 R1 Part 1.4",
+          "wall_s": 7.87,
+          "prompt_tokens": 2861,
+          "prompt_eval_duration_s": 4.267,
+          "eval_count": 180,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-c0b7cce53e9086d70dea"
+        },
+        {
+          "ref": "CIP-012-2 R1 Part 1.5",
+          "wall_s": 12.72,
+          "prompt_tokens": 2880,
+          "prompt_eval_duration_s": 4.269,
+          "eval_count": 431,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 1,
+          "parse_error": "",
+          "run_id": "run-b13a3a3eca8436b8ba75"
+        }
+      ]
+    },
+    {
+      "standard": "CIP-013-2",
+      "n_requirements": 11,
+      "total_wall_s": 74.93,
+      "wall_per_requirement_s": 6.81,
+      "prompt_eval_durations_s": [
+        4.008,
+        2.729,
+        2.647,
+        2.653,
+        2.656,
+        2.644,
+        2.647,
+        2.647,
+        2.642,
+        2.677,
+        2.759
+      ],
+      "first_call_prefill_s": 4.008,
+      "rest_mean_prefill_s": 2.67,
+      "cache_collapse_ratio": 1.5,
+      "determined": 0,
+      "corroborated": 0,
+      "rejected": 0,
+      "rows": [
+        {
+          "ref": "CIP-013-2 R1",
+          "wall_s": 5.61,
+          "prompt_tokens": 2709,
+          "prompt_eval_duration_s": 4.008,
+          "eval_count": 83,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-9203ecbda58ee8e486e4"
+        },
+        {
+          "ref": "CIP-013-2 R1 Part 1.1",
+          "wall_s": 8.42,
+          "prompt_tokens": 1857,
+          "prompt_eval_duration_s": 2.729,
+          "eval_count": 294,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-cab7cc5f56d0d085846b"
+        },
+        {
+          "ref": "CIP-013-2 R1 Part 1.2",
+          "wall_s": 6.31,
+          "prompt_tokens": 1814,
+          "prompt_eval_duration_s": 2.647,
+          "eval_count": 190,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-39d07681a538c296855e"
+        },
+        {
+          "ref": "CIP-013-2 R1 Part 1.2.1",
+          "wall_s": 5.88,
+          "prompt_tokens": 1818,
+          "prompt_eval_duration_s": 2.653,
+          "eval_count": 168,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-a71d64e9f785f8b1339c"
+        },
+        {
+          "ref": "CIP-013-2 R1 Part 1.2.2",
+          "wall_s": 6.37,
+          "prompt_tokens": 1824,
+          "prompt_eval_duration_s": 2.656,
+          "eval_count": 192,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-5cad68627f8efdcfa047"
+        },
+        {
+          "ref": "CIP-013-2 R1 Part 1.2.3",
+          "wall_s": 5.39,
+          "prompt_tokens": 1808,
+          "prompt_eval_duration_s": 2.644,
+          "eval_count": 142,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-0ee343c1550f0f63778c"
+        },
+        {
+          "ref": "CIP-013-2 R1 Part 1.2.4",
+          "wall_s": 7.34,
+          "prompt_tokens": 1809,
+          "prompt_eval_duration_s": 2.647,
+          "eval_count": 243,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-d019ff4f749688bcfb95"
+        },
+        {
+          "ref": "CIP-013-2 R1 Part 1.2.5",
+          "wall_s": 6.39,
+          "prompt_tokens": 1824,
+          "prompt_eval_duration_s": 2.647,
+          "eval_count": 194,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-37c2b967083c07533e18"
+        },
+        {
+          "ref": "CIP-013-2 R1 Part 1.2.6",
+          "wall_s": 6.15,
+          "prompt_tokens": 1804,
+          "prompt_eval_duration_s": 2.642,
+          "eval_count": 182,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-a2e89be66af717eb8a2b"
+        },
+        {
+          "ref": "CIP-013-2 R2",
+          "wall_s": 9.09,
+          "prompt_tokens": 1828,
+          "prompt_eval_duration_s": 2.677,
+          "eval_count": 335,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-5787eec5e9c89cbe4fb2"
+        },
+        {
+          "ref": "CIP-013-2 R3",
+          "wall_s": 7.93,
+          "prompt_tokens": 1899,
+          "prompt_eval_duration_s": 2.759,
+          "eval_count": 268,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-6c5e4116a7b80f10dc6f"
+        }
+      ]
+    },
+    {
+      "standard": "CIP-014-3",
+      "n_requirements": 19,
+      "total_wall_s": 420.78,
+      "wall_per_requirement_s": 22.15,
+      "prompt_eval_durations_s": [
+        18.259,
+        18.035,
+        18.634,
+        18.949,
+        19.577,
+        18.833,
+        18.774,
+        17.989,
+        17.94,
+        17.741,
+        17.916,
+        17.41,
+        17.477,
+        17.502,
+        17.485,
+        17.506,
+        17.802,
+        18.322,
+        18.386
+      ],
+      "first_call_prefill_s": 18.259,
+      "rest_mean_prefill_s": 18.127,
+      "cache_collapse_ratio": 1.0,
+      "determined": 0,
+      "corroborated": 0,
+      "rejected": 1,
+      "rows": [
+        {
+          "ref": "CIP-014-3 R1 Part 1.1",
+          "wall_s": 20.67,
+          "prompt_tokens": 10794,
+          "prompt_eval_duration_s": 18.259,
+          "eval_count": 108,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-936a1e9e4141a3b8dec5"
+        },
+        {
+          "ref": "CIP-014-3 R1 Part 1.2",
+          "wall_s": 20.38,
+          "prompt_tokens": 10543,
+          "prompt_eval_duration_s": 18.035,
+          "eval_count": 106,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-10569485ff9e0a1352e1"
+        },
+        {
+          "ref": "CIP-014-3 R2 Part 2.1",
+          "wall_s": 20.8,
+          "prompt_tokens": 10926,
+          "prompt_eval_duration_s": 18.634,
+          "eval_count": 97,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-cc13bc29f8f50cec63d4"
+        },
+        {
+          "ref": "CIP-014-3 R2 Part 2.2",
+          "wall_s": 21.1,
+          "prompt_tokens": 11069,
+          "prompt_eval_duration_s": 18.949,
+          "eval_count": 96,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-7f15f1ea269767340715"
+        },
+        {
+          "ref": "CIP-014-3 R2 Part 2.3",
+          "wall_s": 22.06,
+          "prompt_tokens": 11254,
+          "prompt_eval_duration_s": 19.577,
+          "eval_count": 110,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-97a3e2c4a5aac7c45102"
+        },
+        {
+          "ref": "CIP-014-3 R2 Part 2.4",
+          "wall_s": 20.95,
+          "prompt_tokens": 10926,
+          "prompt_eval_duration_s": 18.833,
+          "eval_count": 95,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-d3bb96952439006a9c4d"
+        },
+        {
+          "ref": "CIP-014-3 R4",
+          "wall_s": 20.9,
+          "prompt_tokens": 10892,
+          "prompt_eval_duration_s": 18.774,
+          "eval_count": 97,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-339a018d6a717c827e6e"
+        },
+        {
+          "ref": "CIP-014-3 R4 Part 4.1",
+          "wall_s": 20.7,
+          "prompt_tokens": 10499,
+          "prompt_eval_duration_s": 17.989,
+          "eval_count": 122,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-f40e8cdd68ca2a5ee2b8"
+        },
+        {
+          "ref": "CIP-014-3 R4 Part 4.2",
+          "wall_s": 25.48,
+          "prompt_tokens": 10502,
+          "prompt_eval_duration_s": 17.94,
+          "eval_count": 348,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-c9c25e94b031a82603e8"
+        },
+        {
+          "ref": "CIP-014-3 R4 Part 4.3",
+          "wall_s": 28.2,
+          "prompt_tokens": 10523,
+          "prompt_eval_duration_s": 17.741,
+          "eval_count": 482,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 1,
+          "parse_error": "",
+          "run_id": "run-f5bc789805fbbba5ca98"
+        },
+        {
+          "ref": "CIP-014-3 R5",
+          "wall_s": 30.3,
+          "prompt_tokens": 10621,
+          "prompt_eval_duration_s": 17.916,
+          "eval_count": 571,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-b3bd9d6705d06d3d1c1f"
+        },
+        {
+          "ref": "CIP-014-3 R5 Part 5.1",
+          "wall_s": 19.43,
+          "prompt_tokens": 10358,
+          "prompt_eval_duration_s": 17.41,
+          "eval_count": 93,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-3e0e96f0724275f46997"
+        },
+        {
+          "ref": "CIP-014-3 R5 Part 5.2",
+          "wall_s": 24.01,
+          "prompt_tokens": 10330,
+          "prompt_eval_duration_s": 17.477,
+          "eval_count": 300,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-bc605391c2e9e7545c21"
+        },
+        {
+          "ref": "CIP-014-3 R5 Part 5.3",
+          "wall_s": 22.3,
+          "prompt_tokens": 10340,
+          "prompt_eval_duration_s": 17.502,
+          "eval_count": 219,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-bc591328d621f8f2e4b6"
+        },
+        {
+          "ref": "CIP-014-3 R5 Part 5.4",
+          "wall_s": 22.24,
+          "prompt_tokens": 10356,
+          "prompt_eval_duration_s": 17.485,
+          "eval_count": 222,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-fae6fe2c0393999563f5"
+        },
+        {
+          "ref": "CIP-014-3 R6 Part 6.1",
+          "wall_s": 19.59,
+          "prompt_tokens": 10435,
+          "prompt_eval_duration_s": 17.506,
+          "eval_count": 96,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-256e10a256d4367e172b"
+        },
+        {
+          "ref": "CIP-014-3 R6 Part 6.2",
+          "wall_s": 20.04,
+          "prompt_tokens": 10590,
+          "prompt_eval_duration_s": 17.802,
+          "eval_count": 102,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-ad1aee90f13ed0b52082"
+        },
+        {
+          "ref": "CIP-014-3 R6 Part 6.3",
+          "wall_s": 20.86,
+          "prompt_tokens": 10752,
+          "prompt_eval_duration_s": 18.322,
+          "eval_count": 115,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-945ae1cbe072170f9ff4"
+        },
+        {
+          "ref": "CIP-014-3 R6 Part 6.4",
+          "wall_s": 20.65,
+          "prompt_tokens": 10568,
+          "prompt_eval_duration_s": 18.386,
+          "eval_count": 102,
+          "determined": 0,
+          "corroborated": 0,
+          "rejected": 0,
+          "parse_error": "",
+          "run_id": "run-ae4ff1c43edb0954397a"
+        }
+      ]
     }
   ],
-  "updated_at": "2026-09-18T16:15:53"
+  "updated_at": "2026-09-18T17:10:11"
 }
