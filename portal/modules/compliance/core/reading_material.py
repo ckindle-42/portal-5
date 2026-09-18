@@ -163,12 +163,123 @@ def _population_blocks(
                     "logical_id": str(resolved.get("logical_id") or ""),
                     "page_start": resolved.get("page_start"),
                     "ordinal": resolved.get("ordinal", 0),
+                    "_resolved": resolved,
                 }
             )
         entries.sort(key=lambda e: (str(e.get("ordinal", 0)), e["section_id"]))
         if entries:
             grouped.append((side, entries))
     return grouped, sections, population
+
+
+#: The document neighbourhood's caps (PROVE_THEN_SCALE_V1 P3.1) — stated in the
+#: rendered label, not just here, so a reader knows when context was clipped.
+NEIGHBOURHOOD_MAX_SECTIONS = 6
+NEIGHBOURHOOD_MAX_CHARS = 6000
+NEIGHBOURHOOD_ENTRY_CHARS = 1500
+
+
+def _document_neighbourhood(
+    repo: Any,
+    section_id: str,
+    requirement_id: str,
+    resolved: dict[str, Any],
+    *,
+    revision_cache: dict[str, list[dict[str, Any]]],
+    anchored_ids: set[str],
+) -> list[dict[str, Any]]:
+    """One operator section's document neighbourhood, capped.
+
+    The `choice` case failed on exactly this: the operator's §3.5.1 permits
+    one-of-three while §3.4.2.1 joins all three with "and" — a section-level
+    population hands the model one clause of a procedure and the answer is
+    wrong through no fault of the reading. So when an operator section enters
+    a population, its document comes with it:
+
+    * the parent heading (where the section sits in the document's own tree);
+    * the SIBLING sections in reading order, nearest ordinal first;
+    * any other section of the SAME document the graph also ties to this
+      requirement — by anchor (the population's own regulatory side, which IS
+      ``sections_for_requirement``) or by a recorded edge — because procedures
+      build on each other and a requirement's material inside one document is
+      often scattered.
+
+    Capped at :data:`NEIGHBOURHOOD_MAX_SECTIONS` sections and
+    :data:`NEIGHBOURHOOD_MAX_CHARS` of text, each entry clipped to
+    :data:`NEIGHBOURHOOD_ENTRY_CHARS`; the cap is stated in the rendered
+    label. Excludes sections already in the population.
+    """
+    revision_id = str(resolved.get("revision_id") or "")
+    if not revision_id:
+        return []
+    if revision_id not in revision_cache:
+        rows = repo._conn.execute(
+            """SELECT section_id, ordinal, heading_path, title, char_start, char_end
+               FROM source_sections WHERE revision_id = ? ORDER BY ordinal""",
+            (revision_id,),
+        ).fetchall()
+        revision_cache[revision_id] = [dict(r) for r in rows]
+    doc_rows = revision_cache[revision_id]
+    by_id = {str(r["section_id"]): r for r in doc_rows}
+    me = by_id.get(section_id)
+    if me is None:
+        return []
+
+    def _parent(path: str) -> str:
+        return str(path or "").rsplit(">", 1)[0].strip()
+
+    my_parent = _parent(str(me.get("heading_path") or ""))
+    my_ordinal = int(me.get("ordinal", 0) or 0)
+
+    edge_rows = repo._conn.execute(
+        """SELECT dst_ref FROM relationship_assertions
+           WHERE src_ref = ? AND relation_type IN ('IMPLEMENTS','EVIDENCES','REFERENCES')
+           AND status IN ('proposed','machine_determined','approved')""",
+        (requirement_id,),
+    ).fetchall()
+    edge_sections = {str(r[0]).partition("::")[2] for r in edge_rows}
+    graph_ids = (edge_sections & set(by_id)) | (anchored_ids & set(by_id))
+
+    candidates: list[tuple[int, str]] = []
+    for row in doc_rows:
+        other = str(row["section_id"])
+        if other == section_id:
+            continue
+        is_graph = other in graph_ids
+        is_sibling = bool(my_parent) and _parent(str(row.get("heading_path") or "")) == my_parent
+        if not (is_graph or is_sibling):
+            continue
+        distance = abs(int(row.get("ordinal", 0) or 0) - my_ordinal)
+        candidates.append((0 if is_graph else 1, f"{distance:06d}|{other}"))
+    candidates.sort()
+
+    text_full = repo.get_document_text(revision_id) or ""
+    out: list[dict[str, Any]] = []
+    budget = NEIGHBOURHOOD_MAX_CHARS
+    for _rank, key in candidates:
+        if len(out) >= NEIGHBOURHOOD_MAX_SECTIONS or budget <= 0:
+            break
+        other = key.split("|", 1)[1]
+        row = by_id[other]
+        start, end = int(row.get("char_start") or 0), int(row.get("char_end") or 0)
+        text = text_full[start:end] if 0 <= start < end <= len(text_full) else ""
+        text = text.strip()
+        if not text:
+            continue
+        if len(text) > NEIGHBOURHOOD_ENTRY_CHARS:
+            text = text[:NEIGHBOURHOOD_ENTRY_CHARS].rstrip() + "… [clipped]"
+        budget -= len(text)
+        out.append(
+            {
+                "section_id": other,
+                "title": str(row.get("title") or ""),
+                "headings": str(row.get("heading_path") or ""),
+                "document_title": str(resolved.get("document_title") or ""),
+                "text": text,
+                "graph_linked": other in graph_ids,
+            }
+        )
+    return out
 
 
 def render(
@@ -178,14 +289,19 @@ def render(
     question: str = "",
     fixed: dict[str, Any] | None = None,
     valid_at: str = "",
+    neighbourhood: bool = True,
 ) -> dict[str, Any]:
     """One requirement's population as the material a reading reads — one
     message, fixed body first, the question last.
 
     Ordered shared body first, then the requirement's own scope — regulatory
     anchors, operator edges, operator notes — every entry labelled with its
-    side and standing. Returns the text plus the numbers the campaign reports:
-    total, fixed-body share, and per-side section counts.
+    side and standing. Operator sections arrive with their **document
+    neighbourhood** (P3.1): parent heading, siblings in reading order, and the
+    same document's other sections the graph ties to this requirement —
+    capped, and the cap stated in the label. Returns the text plus the numbers
+    the campaign reports: total, fixed-body share, and per-side section
+    counts.
     """
     from portal.modules.compliance.core.reading_assembly import parse_ref
 
@@ -198,6 +314,29 @@ def render(
     if "error" in fixed:
         return {"error": fixed["error"], "ref": ref}
     grouped, sections, population = _population_blocks(repo, ref, valid_at=valid_at)
+    revision_cache: dict[str, list[dict[str, Any]]] = {}
+    anchored_ids = {
+        entry["section_id"]
+        for side, entries in grouped
+        if side == "regulatory"
+        for entry in entries
+    }
+    neighbourhood_sections = 0
+    if neighbourhood:
+        for side, entries in grouped:
+            if side != "operator":
+                continue
+            for entry in entries:
+                neighbours = _document_neighbourhood(
+                    repo,
+                    entry["section_id"],
+                    ref,
+                    entry["_resolved"],
+                    revision_cache=revision_cache,
+                    anchored_ids=anchored_ids,
+                )
+                entry["neighbourhood"] = neighbours
+                neighbourhood_sections += len(neighbours)
 
     # The fixed body is the FIRST thing in the message and is byte-identical
     # for every requirement of the revision — that is what makes it a shared
@@ -230,6 +369,16 @@ def render(
                 line += f" — standing: {entry['standing']}"
             scope_lines.append(line)
             scope_lines.append(entry["text"])
+            for neighbour in entry.get("neighbourhood", []):
+                scope_lines.append("")
+                scope_lines.append(
+                    f"> document neighbourhood of {entry['section_id']} "
+                    f"(same document, graph-linked to this requirement or a sibling clause; "
+                    f"capped at {NEIGHBOURHOOD_MAX_SECTIONS} sections / "
+                    f"{NEIGHBOURHOOD_MAX_CHARS} chars):"
+                )
+                scope_lines.append(f"> [{neighbour['section_id']}] {neighbour['title']}")
+                scope_lines.append("> " + neighbour["text"].replace("\n", "\n> "))
     scope_lines.append("")
     scope_lines.append("## The question")
     if question:
@@ -245,6 +394,7 @@ def render(
         "population_chars": len(text) - fixed_chars,
         "fixed_sha": fixed["sha"],
         "n_sections": len(sections),
+        "n_neighbourhood_sections": neighbourhood_sections,
         "by_side": {side: len(entries) for side, entries in grouped},
         "population_detail": population.get("detail", ""),
         "population_method": population.get("population_method", ""),
