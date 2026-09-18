@@ -33,6 +33,10 @@ backends:
     supports_tools: true
   - id: ling30-tiny-test:latest
     supports_tools: true
+  # WINDOW_AND_SEAT_V1 §P8.1: the production seat tag (bound by measurement;
+  # see config/portal.yaml compliance-reading for the decision record).
+  - id: hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k
+    supports_tools: true
   # Nemotron 3.5 Lightning added 2026-08-14 for auto-nemotron workspace
   # (architectural diversity vs the Gemma-4 daily driver). supports_tools
   # verified via direct tool-call probe (clean tool_calls, typed arguments).

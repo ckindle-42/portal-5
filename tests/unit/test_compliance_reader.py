@@ -784,31 +784,39 @@ class TestTurnOrder:
 
 
 class TestAnAbsenceClaimIsNotANegativeAnswer:
-    """Rung 2. The analyst asked "does anything narrow that choice?"; the model
-    answered "**No.** The operator's procedure preserves all three actions" —
-    and the contract read `no` … `procedure` within eighty characters as an
-    assertion that evidence was ABSENT. Three live Part 2.3 readings, every
-    semantic check passing, all failed for answering the question they were
-    asked."""
+    """Rung 2, then §P8.4. The analyst asked "does anything narrow that
+    choice?"; the model answered "**No.** The operator's procedure preserves
+    all three actions" — and the contract read `no` … `procedure` within
+    eighty characters as an assertion that evidence was ABSENT. Three live
+    Part 2.3 readings, every semantic check passing, all failed for answering
+    the question they were asked. The cue regex was first narrowed, then
+    REMOVED entirely (WINDOW_AND_SEAT_V1 §P8.4): whether prose asserts an
+    absence is a judgment about prose, and a pattern match that makes it is
+    the acceptance rubric living inside the product. The closure now fails on
+    exactly two facts — no tool call, nothing in scope cited — and never on
+    the shape of a sentence."""
 
-    def test_a_negative_answer_is_not_an_absence_claim(self) -> None:
-        for answer in (
-            "**No.** The operator's procedure preserves all three permitted actions.",
-            "No. The operator has not narrowed the control.",
-            "The standard does not prescribe an action for this procedure.",
-        ):
-            assert not reader._ABSENCE_CLAIM.search(answer), answer
+    def test_the_closure_has_no_absence_input_left(self) -> None:
+        import inspect
 
-    def test_a_real_absence_claim_still_is_one(self) -> None:
-        for answer in (
-            "There is no evidence that the operator performs this.",
-            "No operator document in scope addresses the obligation.",
-            "I found no procedure covering the inventory.",
-            "None of the linked sections describe the practice.",
-            "The corpus does not contain any such record.",
-            "Nothing in the material settles it.",
-        ):
-            assert reader._ABSENCE_CLAIM.search(answer), answer
+        parameters = inspect.signature(reader._closure_failure).parameters
+        assert "absence_claim" not in parameters
+        assert not hasattr(reader, "_ABSENCE_CLAIM")
+
+    def test_an_absence_flavored_answer_with_in_scope_citations_passes(self) -> None:
+        cited = "csection-" + "a" * 20
+        # The answer TEXT is not an input to the closure at all — that is the
+        # contract. The same facts that once fired the regex now pass: one
+        # tool call, one in-scope citation.
+        assert reader._closure_failure(model_calls=1, eligible={cited}, cited={cited}) == ""
+        assert reader._closure_failure(model_calls=3, eligible={cited}, cited={cited}) == ""
+
+    def test_the_two_facts_still_fail(self) -> None:
+        cited = "csection-" + "a" * 20
+        no_tool_call = reader._closure_failure(model_calls=0, eligible={cited}, cited={cited})
+        assert "without reading" in no_tool_call
+        out_of_scope = reader._closure_failure(model_calls=2, eligible={cited}, cited=set())
+        assert "cites no section in scope" in out_of_scope
 
 
 class TestTheLoopRefusesACallThatCannotFit:

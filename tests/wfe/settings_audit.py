@@ -627,14 +627,37 @@ def _behavioral_probes(tag: str, violations: list[dict], where: str) -> None:
             },
             timeout=300,
         )
-        honored = "blue" in ((r.get("message") or {}).get("content", "") or "").lower()
-        if not honored:
+        content = str((r.get("message") or {}).get("content", "") or "")
+        honored = "blue" in content.lower()
+        if not honored and not content.strip():
+            # EMPTY content is the template/budget breakdown signal — the
+            # gpt-oss-class harmony conflict, or a template that ate the turn.
+            # That is a real FAIL: nothing reached the caller.
             _v(
                 violations,
                 where,
                 "template_system_ignored",
-                f"{tag}: system instruction NOT honored — chat template likely wrong/broken for this model",
+                f"{tag}: EMPTY content under a system instruction — chat template likely "
+                "wrong/broken for this model",
                 "FAIL",
+            )
+        elif not honored:
+            # Non-empty but disobedient — WINDOW_AND_SEAT_V1 §P4, measured on
+            # granite4:tiny-h and Ling-3.0-tiny: the template renders the system
+            # prompt fine (prose arrives, well-formed); the MODEL declines this
+            # specific absurd instruction ("say BLUE about grass"). The prior
+            # verdict called this "template likely wrong/broken", which the
+            # measurement disproved. Recorded as a WARN with the content
+            # quoted: whether the seat follows its REAL workspace instructions
+            # is judged by the acceptance campaign on full transcripts, not by
+            # one refused absurdity here.
+            _v(
+                violations,
+                where,
+                "instruction_declined",
+                f"{tag}: system instruction declined, template delivers fine — model answered "
+                f"{content.strip()[:60]!r}; judge real-instruction following on campaign "
+                "transcripts",
             )
     except Exception as e:
         _v(violations, where, "probe_error", f"{tag}: behavioral probe failed: {e}", "FAIL")

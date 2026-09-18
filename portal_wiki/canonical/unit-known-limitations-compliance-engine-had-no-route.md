@@ -11,7 +11,11 @@ sources:
   path: config/portal.yaml
 claims:
 - probe: compliance.workspace_tools
-  contains: "all_reachable:36"
+  contains: "all_reachable:30"
+  # was 36 — WINDOW_AND_SEAT_V1 §P8.5 removed the six verdict-engine tools
+  # (gaps/scenario/analyze/impact/prospective/change_impact) from the
+  # auto-compliance workspace; the reachability fact still holds, the count
+  # moved with the deliberate removal.
 confidence: high
 tags:
 - docs

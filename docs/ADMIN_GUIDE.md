@@ -529,7 +529,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `auto-image` | image | `granite4.1:8b-ctx16k` |
 | `auto-math` | general | `phi4-mini-reasoning:latest-ctx24k` |
 | `auto-music` | media | `lfm2.5:8b-ctx8k` |
-| `auto-nemotron` | general | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k` |
+| `auto-nemotron` | general | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k` |
 | `auto-reasoning` | general | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` |
 | `auto-research` | research | `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k` |
 | `auto-security` | security | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` |
@@ -537,7 +537,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `auto-uncensored-throwaway` | general | `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k` |
 | `auto-video` | video | `granite4.1:8b-ctx16k` |
 | `auto-vision` | general | `qwen3-vl:32b-ctx8k` |
-| `compliance-reading` | compliance | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` |
+| `compliance-reading` | compliance | `hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k` |
 | `tools-specialist` | general | `granite4.1:8b-ctx8k` |
 
 ##### Eval/bench workspaces (need PORTAL_ENABLE_EVAL=1)
@@ -599,7 +599,7 @@ default.
 | `auto-image` | `granite4.1:8b-ctx16k` | yes |
 | `auto-math` | `phi4-mini-reasoning:latest-ctx24k` | yes |
 | `auto-music` | `lfm2.5:8b-ctx8k` | yes |
-| `auto-nemotron` | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k` | yes |
+| `auto-nemotron` | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k` | yes |
 | `auto-reasoning` | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` | yes |
 | `auto-research` | `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k` | yes |
 | `auto-security` | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` | yes |
@@ -607,7 +607,7 @@ default.
 | `auto-uncensored-throwaway` | `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k` | yes |
 | `auto-video` | `granite4.1:8b-ctx16k` | yes |
 | `auto-vision` | `qwen3-vl:32b-ctx8k` | yes |
-| `compliance-reading` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` | yes |
+| `compliance-reading` | `hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k` | yes |
 | `tools-specialist` | `granite4.1:8b-ctx8k` | yes |
 
 ##### Persona model_pin reachability
@@ -682,7 +682,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-#### Model catalog (261 model ids across 7 backend groups)
+#### Model catalog (262 model ids across 7 backend groups)
 
 ##### coding (56)
 
@@ -758,7 +758,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-##### general (112)
+##### general (113)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `cybersecqwen-4b-toolfix:latest`
@@ -811,6 +811,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M`
 - `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf`
 - `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M`
+- `hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k`
 - `hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M`
 - `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M`
 - `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k`
