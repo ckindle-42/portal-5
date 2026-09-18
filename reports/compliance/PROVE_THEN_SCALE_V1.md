@@ -576,3 +576,103 @@ Stated plainly, because the temptation is to let these slide:
    gate-green.
 
 **Commit:** `docs(compliance): P7 — the family swept, the mappings determined, the work checkable`
+
+---
+
+## §9 — observations, lessons learned, fixes, what's to come
+
+Closing record for the push; each item traces to a section above.
+
+### Observations
+
+1. **The architecture is right and the proof is small.** Handing a
+   requirement's population over as one message — no tools, no loop, no
+   navigation — turned the seat question from a 20-hop competition into a
+   reading test, and one local seat (gemma4) passes 4/6 with verbatim
+   both-sides citations at 27–101 s a cell. Every hard case the last campaign
+   failed on navigation, this one fails on judgment — a different, smaller,
+   fixable class.
+2. **The failure modes moved, they did not disappear.** The fabricated-absence
+   class that disqualified the old seat reappeared *inside* the winning
+   seat's two failures and *both* disqualified seats — with no tools to blame.
+   Reading material you were given is now provably what is being tested.
+3. **The checks are the product.** At family scale the machinery refused 48
+   of the 61 new pairings the readings proposed; every edge in the store
+   carries its reading, run and justifying sentence. The operator's queue is
+   11 determined rows and a sample — not 1,427.
+4. **The cache finding is a deployment fact, not an architecture fact.** The
+   shared body is byte-identical and first in every prompt; Ollama 0.34.2
+   simply does not reuse prefixes across independent requests. The sweep ran
+   cacheless and still finished the family in 72 minutes — the design owes
+   the daemon nothing.
+5. **The gate culture held.** Two silent-failure classes (a schema rebuild
+   dropping columns; a family key matching sibling revisions) were both
+   caught by *readers of the dropped detail* within minutes and hours, not by
+   review — and both are now unit-pinned.
+
+### Lessons learned
+
+1. **A table rebuild is a harness.** Migration 17 compiled, ran, and silently
+   dropped four columns; the first reader of a dropped column caught it in
+   minutes. The rule, again in a new costume: validate a schema change with a
+   control — the first reader of every column it touches — before believing
+   it. The rebuild's SQL now carries the full column list and the incident
+   comment.
+2. **Parseable is not resolvable.** A reading invented `CIP-003-6 R1 Part
+   1.1.4` — a well-formed address for a requirement the register has never
+   carried — and the verbatim check could not catch it, because it checks the
+   sentence against the section, not the requirement against the store. The
+   register, not the regex, is the requirement universe; `record_determination`
+   now proves membership.
+3. **A family key must match the id space it selects.** `CIP-003-8`.rsplit →
+   `CIP-003` matched both CIP-003 revisions' 83 nodes and double-read 44
+   requirements under the wrong fixed body before anyone looked. Selection
+   now matches the full revision id.
+4. **Case-normalising a whole identifier corrupts the tail.** `parse_ref`'s
+   blanket `.upper()` turned the register's `CIP-002-5.1a` into `CIP-002-5.1A`
+   and a whole standard resolved to nothing. Normalise the family prefix;
+   leave revision suffixes alone.
+5. **A receipt that omits its rejections audits nothing.** Determination
+   outcomes lived in a return value the process discarded; 48 refusals lost
+   their reasons. Outcomes now ride inside the closure receipt that
+   `store_run` actually persists.
+6. **The instrument lesson keeps paying.** The ~50× cache collapse the last
+   campaign "measured on every architecture" was a within-conversation
+   property; this campaign's first cross-call measurement read ×1.0. A
+   measurement answers only the shape it was taken in.
+
+### Fixes shipped (this campaign, on the record)
+
+* `machine_determined` status (migration 17) + the evaluation-sample table
+  (migration 18); mapping review accepts determined rows, never auto-approves.
+* `record_determination`: typed, provenance-carrying, verbatim-checked,
+  register-checked, bootstrap-guarded; one section may serve several
+  requirements in different modes.
+* `reading_material`: shared-body-first renderer with standing labels and
+  capped document neighbourhoods; `fixed_body` sha-pinned per revision.
+* `sweep`: dependency-ordered, cell-hardened map/reduce with receipts;
+  `contradictions.scan_contradictions` and `drill_down`; the evaluation split
+  (`labelled_examples` reads the human-confirmed sample only).
+* Store repairs, both verified against recorded pre-damage state: the
+  derivation/confidence reconstruction after the migration-17 column loss,
+  and the two deleted register-unresolvable determinations (ids in §P4.3).
+
+### What's to come, in order
+
+1. **The operator decides the sample** (`p5_sample_packet.json`) — the first
+   honest mapping-accuracy number is `agreement()` after that, and nothing
+   before it.
+2. **Close the family coverage gap**: retain refusal reasons (fixed for
+   future runs), adjudicate the 48 refusals, and separate quote-discipline
+   failures from checker strictness — a rung-1 prompt revision (shorter exact
+   quotes) is the first lever.
+3. **Build the append-only sweep thread** — the measured cache remedy; at
+   128k-class windows it amortises the fixed body and drops per-requirement
+   cost toward decode-bound.
+4. **Re-measure `choice` under the document neighbourhood** — §P3.1 was built
+   for gemma4's "and"-vs-"or" blindness and has not been run against the case.
+5. **Reconcile the 70 non-addressable register nodes** — Attachment grammar or
+   register filtering, someone's explicit decision.
+6. **The three base-tree unit failures and the HG acceptance-currency gate**
+   belong to their owners; until then the unit gate stays red and pushes
+   stay deliberately, recordedly bypassed.
