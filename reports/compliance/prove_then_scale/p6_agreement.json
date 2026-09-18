@@ -1,0 +1,6 @@
+{
+  "verdict": "honest-BLOCKED",
+  "reason": "no decided sample rows \u2014 the evaluation set has no labels yet (P5.3)",
+  "n_decided": 0,
+  "agreement_rate": null
+}

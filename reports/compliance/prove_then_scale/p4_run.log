@@ -1,0 +1,24 @@
+  CIP-007-6 R1 Part 1.1        wall= 67.98 s prefill= 48.682 s determined=0 corroborated=1 rejected=0
+  CIP-007-6 R1 Part 1.2        wall= 66.96 s prefill= 49.761 s determined=0 corroborated=0 rejected=1
+  CIP-007-6 R2 Part 2.1        wall= 65.22 s prefill= 46.035 s determined=0 corroborated=0 rejected=1
+  CIP-007-6 R2 Part 2.2        wall= 75.93 s prefill= 48.939 s determined=0 corroborated=1 rejected=0
+  CIP-007-6 R2 Part 2.3        wall= 72.77 s prefill=  47.58 s determined=1 corroborated=0 rejected=0
+  CIP-007-6 R2 Part 2.4        wall= 72.54 s prefill= 49.517 s determined=0 corroborated=2 rejected=0
+  CIP-007-6 R3 Part 3.1        wall= 72.95 s prefill=  40.56 s determined=3 corroborated=1 rejected=2
+  CIP-007-6 R3 Part 3.2        wall= 70.97 s prefill=  48.73 s determined=1 corroborated=0 rejected=0
+  CIP-007-6 R3 Part 3.3        wall= 47.19 s prefill= 40.304 s determined=0 corroborated=0 rejected=0
+  CIP-007-6 R4 Part 4.1        wall= 61.49 s prefill= 46.947 s determined=0 corroborated=0 rejected=0
+  CIP-007-6 R4 Part 4.2        wall= 63.39 s prefill= 47.239 s determined=0 corroborated=0 rejected=0
+  CIP-007-6 R4 Part 4.3        wall= 68.78 s prefill= 48.109 s determined=0 corroborated=0 rejected=1
+  CIP-007-6 R4 Part 4.4        wall= 69.93 s prefill= 46.305 s determined=1 corroborated=1 rejected=2
+  CIP-007-6 R5 Part 5.1        wall= 66.44 s prefill= 53.417 s determined=1 corroborated=0 rejected=0
+  CIP-007-6 R5 Part 5.2        wall= 54.92 s prefill= 48.059 s determined=0 corroborated=0 rejected=0
+  CIP-007-6 R5 Part 5.3        wall=  66.6 s prefill= 50.502 s determined=0 corroborated=0 rejected=0
+  CIP-007-6 R5 Part 5.4        wall= 70.61 s prefill= 53.278 s determined=0 corroborated=0 rejected=1
+  CIP-007-6 R5 Part 5.5        wall=119.76 s prefill=   53.3 s determined=6 corroborated=2 rejected=5
+  CIP-007-6 R5 Part 5.6        wall= 66.68 s prefill= 54.627 s determined=0 corroborated=0 rejected=0
+  CIP-007-6 R5 Part 5.7        wall= 64.72 s prefill= 53.579 s determined=0 corroborated=0 rejected=0
+
+CIP-007-6: 20 requirements, total 1386.23 s (69.31 s/requirement)
+cache: first-call prefill 48.682 s, rest mean 48.778 s, collapse x1.0
+determinations: 13 determined, 8 corroborated, 13 rejected

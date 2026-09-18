@@ -286,3 +286,90 @@ Ling remains disqualified (reading-level failures at any size). No branch of
 the fork points at the material, the prompt, the template or the transport.
 
 **Commit:** `feat(compliance): P1 — the proof, material handed over, no navigation`
+
+---
+
+## §P4 — the sweep: the cache did not hold, and that is the finding
+
+### P4.1 the twenty-call measurement — FAIL, mechanism isolated, remedy named
+
+`scripts/prove_then_scale/p4_cache_sweep.py`; raw rows in
+`reports/compliance/prove_then_scale/p4_cip007_cache.json`. Twenty sequential
+map readings over CIP-007-6's twenty Parts, shared body first, gemma4, one
+call each, nothing else running.
+
+**Pass bar (calls 2–20 show the ~50× prefill collapse on
+`prompt_eval_duration`): NOT MET — collapse ×1.0.** First call prefilled
+48.7 s; the remaining nineteen averaged 48.8 s (range 40.3–54.6 s), full
+price every time, while `load_duration_s` sat at ~0.01 s — the model never
+reloaded, the KV prefix simply was not reused. Daemon: Ollama 0.34.2.
+
+The mechanism was then isolated with one more probe rather than guessed at.
+Two calls shaped as a strict append — call 1 the fixed body plus requirement
+A; call 2 the SAME messages plus requirement B's scope appended as the next
+turn: call 2's prompt totalled 26,005 tokens and prefilled in **19.5 s**
+against call 1's 38.2 s for 19,743 — the 19.7k-token prefix came from cache;
+only the tail was computed. **Ollama 0.34.2 reuses the prefix within an
+append-only conversation, and does not reuse it across independent requests
+that merely share a long prefix.** The last campaign's "~50× on every
+architecture" was measured turn-over-turn inside one conversation — the
+property this sweep's one-call-per-requirement shape does not get.
+
+**The shared body therefore has to be shared some other way, and the way is
+the one the daemon already honours: append-only sweep threads.** One
+conversation per standard, requirement N's scope appended as turn N —
+constrained today by the baked window, not by the daemon: the fixed body is
+~19.3k tokens and a requirement's scope+answer ~7k, so a 32k window holds
+~one requirement per conversation (no win), a 48k window ~2–3, and a
+128k-class window — the 512 GB horizon this task prices — ~10+ before the
+thread closes. At that point the fixed body pays once per standard-batch
+instead of once per requirement, and per-requirement prefill drops toward the
+scope-only cost. The design conclusion is unchanged and now measured: **the
+standard is the unit — and on a cluster, the shard key — because it owns the
+shared body AND the append thread that shares it.**
+
+**And the economics without the cache, which is why the campaign continued
+rather than stopping:** the sweep cost **69.3 s per requirement** (1,386 s for
+twenty), end to end including the reduce below. At that rate the family's 255
+register requirements is ≈ **4.9 hours — an afternoon, not an overnight**. The
+cache is a 2–4× lever that unblocks at the bigger-window horizon; its absence
+today costs hours, not the design.
+
+### P4.2 map and reduce
+
+* **Map** — one requirement, a deterministic population, one call, a receipt:
+  `sweep.map_read`, 20 receipts retained in `reading_runs`. (This sweep's
+  receipts predate the receipts-carry-outcomes fix; their written rows are in
+  the store, their rejection reasons are not — fixed for the family sweep.)
+* **Reduce** — one call over the twenty ANSWERS (57,862 chars → 16,122 prompt
+  tokens, 55 s), never over the twenty populations:
+  `sweep.reduce_standard`, receipt retained, rollup in
+  `p4_reduce_cip007.json`.
+
+### P4.3 what the sweep wrote, and one validator gap it exposed
+
+The twenty readings proposed 34 pairings; the machinery accepted 13,
+corroborated 8 (pairings the store already held — the §P2.3 guard working,
+including on the smoke run where the model put a GIVEN pairing in the block
+and the guard converted it), and **rejected 13**, every rejection the verbatim
+check refusing a quoted "sentence" that is not in the section's text.
+
+The accepted determinations are the overlap shape §P2.2 predicted: reading
+CIP-007-6 R5's Parts lit up `REFERENCES` edges from six different R5 Parts to
+the SAME operator traceability section (`isection-7685e76f…`), plus
+`EVIDENCES`/`IMPLEMENTS` pairings a rerank score could never have typed. One
+section legitimately serving several requirements, in different modes.
+
+**The gap:** two accepted rows named requirements that do not exist in the
+register (`CIP-003-6 R1 Part 1.1.4`, `CIP-004-6 R5 Part 5.4`) — plausible
+addresses the reading invented while reading the Senior Manager delegation
+section, which the verbatim check cannot catch because it verifies the
+SENTENCE against the section, not the REQUIREMENT against the store.
+`record_determination` now requires register membership (parseable is not
+resolvable; the register, not the regex, is the requirement universe). The two
+contaminated rows were **deleted by id** — `rel-6a12c456602ef9c62aba`,
+`rel-585b9c308731f928e037` — a data repair for a validator bug, recorded here
+rather than silently, and the store stands at **11 machine_determined rows**,
+all register-resolvable, each carrying its reading and justifying sentence.
+
+**Commit:** `feat(compliance): P4 — the standard-ordered sweep, mapped and reduced`

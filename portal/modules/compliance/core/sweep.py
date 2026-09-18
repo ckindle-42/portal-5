@@ -155,6 +155,30 @@ def map_read(
 
     from portal.modules.compliance.core.reader import store_run, verify_citations
 
+    # Determinations are written BEFORE the receipt lands, so the outcomes —
+    # including rejections with their reasons — travel in the retained run and
+    # a rejection is auditable instead of living only in a lost return value.
+    # (The CIP-007-6 cache-sweep receipts predate this order: their written
+    # rows are in the store, their rejection reasons are not.)
+    answer_id = f"map-{ref}"
+    outcomes: list[dict[str, Any]] = []
+    if write:
+        for entry in entries:
+            outcomes.append(
+                candidate_links.record_determination(
+                    repo,
+                    requirement_id=str(entry.get("requirement_id", "")),
+                    section_id=str(entry.get("section_id", "")),
+                    relation_type=str(entry.get("relation_type", "")).upper(),
+                    answer_id=answer_id,
+                    sentence=str(entry.get("sentence", "")),
+                    confidence=CONFIDENCE_BANDS.get(
+                        str(entry.get("confidence", "")).lower(), 0.0
+                    ),
+                    read_ref=ref,
+                )
+            )
+
     payload: dict[str, Any] = {
         "question": f"[mapping] {ref} — determinations from the population",
         "ref": ref,
@@ -165,7 +189,7 @@ def map_read(
         "prompt_sha": prompt_sha,
         "num_ctx": num_ctx,
         "verification": verify_citations(repo, answer, material["text"]),
-        "failed": bool(parse_error and entries is not None) or not answer,
+        "failed": bool(parse_error) or not answer,
         "failure": parse_error or ("" if answer else "the model produced no answer"),
         "closure_receipt": {
             "population_detail": material.get("population_detail", ""),
@@ -182,8 +206,16 @@ def map_read(
             "prompt_eval_count": result.get("prompt_eval_count"),
             "prompt_bytes": result.get("prompt_bytes"),
         },
+        "determinations": {
+            "requested": len(entries),
+            "parse_error": parse_error,
+            "outcomes": outcomes,
+            "determined": sum(1 for o in outcomes if o["action"] == "determined"),
+            "corroborated": sum(1 for o in outcomes if o["action"] == "corroborated"),
+            "rejected": sum(1 for o in outcomes if o["action"] == "rejected"),
+        },
     }
-    run_id = store_run(
+    payload["run_id"] = store_run(
         repo,
         {**payload, "failed": False},
         {"ref": ref, "revision_id": ""},
@@ -192,32 +224,7 @@ def map_read(
             {"role": "assistant", "content": answer},
         ],
     )
-    payload["run_id"] = run_id
-
-    answer_id = f"map-{run_id}"
-    outcomes: list[dict[str, Any]] = []
-    if write:
-        for entry in entries:
-            outcome = candidate_links.record_determination(
-                repo,
-                requirement_id=str(entry.get("requirement_id", "")),
-                section_id=str(entry.get("section_id", "")),
-                relation_type=str(entry.get("relation_type", "")).upper(),
-                answer_id=answer_id,
-                sentence=str(entry.get("sentence", "")),
-                confidence=CONFIDENCE_BANDS.get(str(entry.get("confidence", "")).lower(), 0.0),
-                read_ref=ref,
-                run_id=run_id,
-            )
-            outcomes.append(outcome)
-    payload["determinations"] = {
-        "requested": len(entries),
-        "parse_error": parse_error,
-        "outcomes": outcomes,
-        "determined": sum(1 for o in outcomes if o["action"] == "determined"),
-        "corroborated": sum(1 for o in outcomes if o["action"] == "corroborated"),
-        "rejected": sum(1 for o in outcomes if o["action"] == "rejected"),
-    }
+    payload["determinations"]["run_id"] = payload["run_id"]
     return payload
 
 
@@ -253,6 +260,25 @@ def sweep_order(repo: Any) -> list[str]:
     return ordered
 
 
+def refs_for_standard(reg: Any, standard: str) -> list[str]:
+    """The register nodes of one standard revision, in the standard's own
+    numbering. ``standard`` arrives as a revision id (CIP-007-6); register
+    node ids prefix to the revision (CIP-007-6 R2 Part 2.1) whose FAMILY is
+    what comparisons key on (CIP-007). Comparing raw prefixes silently
+    selects nothing — which is how the first live pass of this reported
+    0 requirements."""
+    family = standard.rsplit("-", 1)[0] if re.match(r"^CIP-\d{3}-", standard) else standard
+
+    def _numbering(node_id: str) -> tuple:
+        tail = node_id.split(" ", 1)[1] if " " in node_id else ""
+        return [(0, int(t)) if t.isdigit() else (1, t) for t in re.split(r"[\s.]+", tail)]
+
+    return sorted(
+        (n.id for n in reg.nodes if n.id.split(" ")[0].rsplit("-", 1)[0] == family),
+        key=_numbering,
+    )
+
+
 def sweep_standard(
     repo: Any,
     standard: str,
@@ -277,14 +303,7 @@ def sweep_standard(
     from portal.modules.compliance.core.cip_register import Register
 
     if refs is None:
-        reg = Register.load()
-        refs = sorted(
-            (n.id for n in reg.nodes if n.id.split(" ")[0].rsplit("-", 1)[0] == standard),
-            key=lambda node_id: [
-                (0, int(t)) if t.isdigit() else (1, t)
-                for t in re.split(r"[\s.]+", node_id.split(" ", 1)[1] if " " in node_id else "")
-            ],
-        )
+        refs = refs_for_standard(Register.load(), standard)
     fixed = reading_material.fixed_body(repo, standard)
     if "error" in fixed:
         return {"standard": standard, "error": fixed["error"]}
@@ -350,12 +369,118 @@ def sweep_standard(
     return summary
 
 
+def sweep_answers(repo: Any, standard: str) -> list[dict[str, Any]]:
+    """The retained map answers of one standard's sweep, in sweep order — the
+    reduce's input, read back from the receipts so no caller has to have been
+    the process that ran the map."""
+    family = standard.rsplit("-", 1)[0] if re.match(r"^CIP-\d{3}-", standard) else standard
+    rows = repo._conn.execute(
+        "SELECT subject_ref, answer, asked_at FROM reading_runs "
+        "WHERE question LIKE ? ORDER BY asked_at",
+        (f"[mapping] {family}%",),
+    ).fetchall()
+    seen: set[str] = set()
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        ref = str(row["subject_ref"])
+        if ref in seen or not str(row["answer"]).strip():
+            continue
+        seen.add(ref)
+        out.append({"ref": ref, "answer": str(row["answer"])})
+    return out
+
+
+def reduce_standard(
+    repo: Any,
+    standard: str,
+    answers: list[dict[str, Any]],
+    *,
+    model: str,
+    num_ctx: int = 32768,
+    answer_budget: int = 4096,
+) -> dict[str, Any]:
+    """The reduce half of map-reduce: one call over the standard's map ANSWERS.
+
+    Reduce runs over the answers — each a receipt-backed reading of one
+    requirement — never over the twenty populations, which would re-prefill
+    the whole standard to synthesize what the readings already said. The
+    question is the standard-level rollup an operator actually wants: which
+    requirements the operator's documents cover, where the readings found no
+    operator side, and what the new determinations connect. No tools; the
+    input is the twenty answers and their refs.
+    """
+    from portal.modules.compliance.core.reader import store_run
+    from portal.modules.compliance.core.reading_transport import chat
+
+    lines = [
+        f"# Standard review: {standard}",
+        "",
+        "Below are the per-requirement reading answers from a sweep over this "
+        "standard, in the standard's own order. Each answer is the reading of "
+        "one requirement against the operator's documents, as retained.",
+        "",
+    ]
+    for entry in answers:
+        lines.append(f"## {entry.get('ref', '')}")
+        lines.append(str(entry.get("answer", "")).strip())
+        lines.append("")
+    lines.append("## The question")
+    lines.append("")
+    lines.append(
+        "Across this standard: which requirements do the operator's documents "
+        "cover, which requirements have no operator side or a thin one, what "
+        "cross-requirement observations did the readings surface, and what "
+        "should the operator look at first? Cite requirement ids for every "
+        "claim. Say plainly where the answers disagree or where evidence is thin."
+    )
+    message = "\n".join(lines)
+    started = time.time()
+    result = chat(
+        model,
+        messages=[{"role": "user", "content": message}],
+        tools=None,
+        fmt=None,
+        think=False,
+        num_ctx=num_ctx,
+        answer_budget=answer_budget,
+    )
+    wall = round(time.time() - started, 2)
+    answer = (result.content or "").strip()
+    payload = {
+        "question": f"[reduce] {standard} — rollup over the sweep answers",
+        "ref": standard,
+        "answer": answer,
+        "model": model,
+        "failed": not answer,
+        "failure": "" if answer else "the model produced no answer",
+        "closure_receipt": {"n_answers": len(answers), "stop_reason": "reduce — one call"},
+        "latency": {
+            "elapsed_s": wall,
+            "prompt_eval_count": result.get("prompt_eval_count"),
+            "prompt_eval_duration_s": result.get("prompt_eval_duration_s"),
+            "eval_count": result.get("eval_count"),
+        },
+    }
+    payload["run_id"] = store_run(
+        repo,
+        {**payload, "failed": False},
+        {"ref": standard, "revision_id": ""},
+        thread=[
+            {"role": "user", "content": message},
+            {"role": "assistant", "content": answer},
+        ],
+    )
+    return payload
+
+
 __all__ = [
     "CONFIDENCE_BANDS",
     "STANDARD_ORDER",
     "load_mapping_prompt",
     "map_read",
     "parse_determinations",
+    "reduce_standard",
+    "sweep_answers",
     "sweep_order",
     "sweep_standard",
 ]
