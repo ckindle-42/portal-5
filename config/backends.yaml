@@ -17,6 +17,22 @@ backends:
   # the prior campaign's preflight probes.
   - id: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
     supports_tools: true
+  # WINDOW_AND_SEAT_V1 P4.2: candidate tags registered so the live tool-loop
+  # test can address them through compliance-reading's ?model= override. Each
+  # was probed (settings_audit.probe_tag) before registration; supports_tools
+  # per the probe verdicts, not the registry's word.
+  - id: hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k
+    supports_tools: true
+  - id: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx48k
+    supports_tools: true
+  - id: gemma4:26b-a4b-it-q4_K_M-ctx32k
+    supports_tools: true
+  - id: granite4:tiny-h-ctx32k
+    supports_tools: true
+  - id: granite4:small-h-ctx32k
+    supports_tools: true
+  - id: ling30-tiny-test:latest
+    supports_tools: true
   # Nemotron 3.5 Lightning added 2026-08-14 for auto-nemotron workspace
   # (architectural diversity vs the Gemma-4 daily driver). supports_tools
   # verified via direct tool-call probe (clean tool_calls, typed arguments).

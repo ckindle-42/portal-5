@@ -175,19 +175,18 @@ came from the arch list inward.
 
 ### P2.2 the runnability blockers — verified, not worried about
 
-* **LFM2 family: the cache bug fires here. Kill, on the record.** llama.cpp
-  [#16491](https://github.com/ggml-org/llama.cpp/issues/16491): `lfm2`/`lfm2moe` clear the
-  prompt cache every turn. Verified live on the installed `lfm2.5:8b-ctx8k`
-  (Ollama 0.34.0, this box, today): two turns, one thread — turn 1
-  `prompt_eval_count=1221`, turn 2 **`1242`** (ratio 1.02; the suffix alone would have
-  been ≪1). Every follow-up re-prefills from scratch, so §P6.4's "later turns faster
-  than the first" can never hold on this family. **LFM2-24B-A2B and LFM2.5-8B-A1B are
-  out for the conversation seat regardless of their architecture's merits**, and the
-  24B was not pulled — the family property is disqualifying and the 8B already
-  demonstrated it. Revisit when upstream lands the fix. (The family's other known
-  blocker — chat template dropping tools,
-  llama.cpp PR #23826 — is moot for the seat given the cache kill, and remains the
-  thing `settings_audit`'s `template_tools_ignored` probe exists to catch.)
+* **LFM2 family: the §P2.2 cache kill is WITHDRAWN — see §P3.1.** The
+  two-turn `prompt_eval_count` comparison that killed the family measured a
+  metric that reads the full prompt on cache hits. With the duration
+  instrument, `lfm2.5:8b`'s turn-2 prefill is 0.08 s against 2.56 s — the
+  cache holds, and llama.cpp
+  [#16491](https://github.com/ggml-org/llama.cpp/issues/16491) does not
+  reproduce on Ollama 0.34.0 under sequential or lightly-interleaved traffic.
+  LFM2-24B-A2B and LFM2.5-8B-A1B revert to the candidate pool; the 24B was
+  never pulled and its speed is unmeasured. The family's other recorded
+  blocker — chat template dropping tools (upstream PR #23826) — was never
+  reached and remains the thing `settings_audit`'s `template_tools_ignored`
+  probe exists to catch on any future LFM2 trial.
 * **Ling-3.0-tiny: arch support.** llama.cpp merged `bailingmoe3` (PR #26608,
   2026-08-17); Ollama's own support is not in a released version, and community Ollama
   pages (`maternion/ling-3.0-tiny`) still need the LOCAL runner to know the arch.
@@ -240,3 +239,151 @@ came from the arch list inward.
 Null results stated: none of P2.5 produced an in-band candidate that the slate missed.
 
 Commit: `docs(compliance): P2 — the slate, its runnability gate, and what is ruled out`
+
+---
+
+## §P3 — what the box affords, per candidate (stack up: 21 containers, MLX audio/embeddings, reranker)
+
+Sweep harness: `scripts/window_seat_sweep.py` (new; reuses `bench/lifecycle.py`'s
+unload/idle discipline — what it could not reuse: lifecycle benches short-prompt TPS,
+this needs prefill at the ~20k high-water, decode at length, two-turn cache ratio,
+free pages and swap with each model loaded). All candidates measured under identical
+conditions, sequentially, nothing else running. Raw rows:
+`reports/compliance/window_and_seat/p3_measurements.json`.
+
+| candidate @ window | decode tok/s | prefill tok/s (20.5k tok) | cold load | swap grew |
+| --- | --- | --- | --- | --- |
+| incumbent Qwen3.8-27B dense @32k | 12.0 | 94.4 | 16.6 s | no |
+| Nemotron Lightning 30B-A3B @32k | 51.9 | 643.3 | 21.9 s | no |
+| Qwen3.6-35B-A3B @48k | 44.3 | 589.6 | 11.3 s | no |
+| Qwen3.6-35B-A3B @32k | 44.0 | 591.4 | 10.5 s | no |
+| gemma4 26B-A4B @32k | 55.8 | 493.9 | 9.1 s | no |
+| granite4:tiny-h (7B/1B) @32k | **78.8** | **1278.1** | 3.3 s | no |
+| granite4:small-h (32B/9B) @32k | 22.2 | 275.2 | 13.9 s | no |
+| Ling-3.0-tiny (7.9B/1.3B) | **104.5** | 1040.1 | 3.7 s | no |
+
+* The §0.4 prediction holds: active parameters decide decode. Every A3B/low-active
+  candidate beats the 27B dense incumbent by 4–9×; the incumbent's prefill (94 tok/s)
+  means turn one of `parent` pays ~4 minutes in prefill alone at the high water.
+* **No swap growth on any candidate.** The `granite4.1:30b` disqualifier (50.6 GB
+  swap) does not recur anywhere on this slate.
+* **Instrument caveats, recorded**: `/api/ps` `size` does not move with KV allocation
+  on Ollama 0.34 (the "resident at window N minus window 1" column reads 0.0 for
+  every architecture — the cache-cost-of-the-window number needs an allocation-level
+  instrument; not solvable from the public API this round). macOS `Pages free` is a
+  weak pressure signal (the box shows ~60–100 "free" MB with an 18 GB model loaded
+  and no swap); swap-growth is the hard disqualifier and it never fired.
+* **Cache-cost caveat, superseded by a bigger finding** — see §P3.1: nothing holds
+  prompt cache on this deployment, so the architecture-specific KV-reuse advantage
+  is currently unrealised for every candidate equally.
+* Fleet co-residency (§P3.3): the sweep ran models one-at-a-time on an otherwise
+  idle Ollama. `granite4:tiny-h` is the only candidate that meaningfully shrinks the
+  seat's footprint (≈4.4 GB at Q4_K_M; 16.5 GB free pages at load vs ~0 for the
+  18–25 GB candidates) — co-resident with the audio/embeddings/reranker lanes
+  without eviction pressure. `OLLAMA_GPU_OVERHEAD` = 20 GiB (the corrected value);
+  at 20 GiB it binds nothing on this slate (largest candidate 25.5 GB < overhead +
+  headroom), recorded so the next footprint gate pass does not re-discover it.
+
+### §P3.1 the cross-turn prompt cache — answered three times, correctly once
+
+This question was closed wrongly twice before it was closed rightly, and the
+history stays on the record because the wrong instruments are still in the repo's
+muscle memory.
+
+1. **Wrong (over-inclusive kill).** The §P2.2 two-turn test compared
+   `prompt_eval_count` between turns and concluded LFM2's cache "cleared every
+   turn" — the family was disqualified on it. **`prompt_eval_count` reports the
+   TOTAL prompt length, not tokens evaluated**; on a cache hit it still reads the
+   full count. The number cannot answer the cache question, and the LFM2 kill
+   built on it was void.
+2. **Wrong (over-broad retraction).** Reading the same metric on more models —
+   including a pure-attention control (`hermes3:8b`) and `/api/generate` with
+   byte-identical prompts — produced "cache holds for nobody; slot rotation
+   swallows it". Also an artifact of the same metric, enshrined briefly in this
+   report and withdrawn.
+3. **Right (the duration field).** `prompt_eval_duration` is the signal: it
+   collapses ~50× on a cache hit. Measured turn-over-turn on the restarted
+   daemon, sequential traffic:
+
+   | model | turn-1 prefill | turn-2 prefill | |
+   | --- | --- | --- | --- |
+   | hermes3:8b (pure attention, control) | 10.49 s | **0.11 s** | holds |
+   | incumbent Qwen3.8-27B GDN @32k | 41.23 s | **1.29 s** | holds |
+   | `lfm2.5:8b` (lfm2moe) | 2.56 s | **0.08 s** | holds |
+   | Ling-3.0-tiny (bailingmoe3) | 2.64 s | **0.13 s** | holds |
+   | granite4:tiny-h (granitehybrid) | 3.45 s | **0.09 s** | holds |
+
+   And under interleaved traffic (a second, unrelated conversation between the
+   two turns — `NUM_PARALLEL=4` gives it its own slot): the first
+   conversation's cache **survived** (turn-2 prefill 0.09 s). The upstream
+   random-miss symptom ([ollama#5303](https://github.com/ollama/ollama/issues/5303))
+   does not reproduce at this concurrency on Ollama 0.34.0.
+
+**Verdict**: cross-turn prompt caching works on this deployment for every
+architecture tested, hybrid and pure. §P6.4's "later turns faster than the
+first" is a live expectation, not a hope. **The LFM2 cache kill is formally
+withdrawn** — llama.cpp [#16491](https://github.com/ollama/ollama/issues/16491)
+does not reproduce on Ollama 0.34.0 under sequential or lightly-interleaved
+traffic; LFM2-24B-A2B reverts to the candidate pool with its speed unmeasured
+(the 24B was never pulled). The cache-cost-of-the-window remains unmeasured
+(`/api/ps` size does not track KV allocation); with caching working, it matters
+less than the §P3 prefill/decode table for the seat decision.
+
+Process note, owed to the operator who asked the right question: the project's
+known failure mode — harnesses and templates quietly mis-configured, producing
+confident bad numbers — is exactly what happened here, twice, in one campaign.
+The rule that held is the one the task already states: **a measurement instrument
+is validated by a control before its verdicts are believed.** The pure-attention
+control and the duration counterweight were added only after the first two
+readings; they should have been in the harness from §P2.2.
+
+---
+
+## §P4 — the loop, the settings actually applied, and the templates
+
+### P4.1 the probes were already in the shared audit
+
+`settings_audit._behavioral_probes` already carried `template_tools_ignored`
+(`_probe_tools_rendered`) and `template_think_ignored` (`_probe_think_honored`) —
+landed in `54f96434`/`01d6fc46` between the task draft and this campaign. Nothing
+new was written; `probe_tag` ran per candidate instead.
+
+### P4.1-bis probe verdicts, and the template investigation
+
+Raw: `reports/compliance/window_and_seat/p4_probes.json`.
+
+| candidate | tools rendered | think | template sha | notes |
+| --- | --- | --- | --- | --- |
+| Nemotron Lightning @32k | ✓ | honored | `c1d545bca1bb` | clean, 0 fails |
+| Qwen3.6-35B-A3B @48k | ✓ | honored | `55d4931433fe` | clean, 0 fails |
+| gemma4 26B-A4B @32k | ✓ | honored | `b507b9c2f6ca` | clean, 0 fails |
+| granite4:tiny-h @32k | ✓ | refused-400 | `0f6ec9740c76` | system-probe FAIL |
+| granite4:small-h @32k | ✓ | refused-400 | `0f6ec9740c76` | |
+| Ling-3.0-tiny | ✓ | honored | `eb6226c94ae3` | system-probe FAIL |
+
+* **The granite twins' `think` refusal is the documented state, not a defect**: HTTP
+  400 "does not support thinking" — IBM shipped Granite 4.0 hybrid without reasoning.
+  On /v1 the workspace pins `think:false`, which injects `reasoning_effort=none` —
+  the suppressing direction, verified safe on non-thinking models — so the downgrade
+  path never fires in the product.
+* **The system-probe FAILs on tiny-h and Ling were investigated as suspected
+  template limitations, and the template is exonerated.** Reproduced at
+  `num_predict` 20 AND 300, `think:false` honored, zero thinking chars, clean
+  `stop`: tiny-h answers `GREEN.`, Ling `Green.` — both render the system prompt
+  and both decline to obey an instruction that contradicts what they know (say
+  BLUE about grass). Same template (`0f6ec9740c76`) with small-h (9B active) obeys.
+  So this is **small-active-model instruction-following**, a genuine seat signal
+  for a workspace whose control surface is a large system prompt — a model
+  property, not a template or budget artifact. The probe's `template_system_ignored`
+  name overstates what it measured; noted as a probe-naming debt, not fixed here.
+* **One real template finding**: Ling's template defaults `thinking_option` to ON
+  when the flag is absent (Bailing V3 template, read in `/api/show`). The workspace
+  pins `think:false`, so the product is safe; any client that omits the flag gets
+  thinking by default and a starved `num_predict`.
+* **Tag-case finding**: `ollama create` normalised the Nemotron window tag to
+  `…:Q4_K_M-ctx32k` (uppercase Q) and refuses the lowercase spelling of the same
+  name while the 8k sibling (`…q4_K_M-ctx8k`) exists in lowercase. The uppercase
+  tag is the canonical 32k Nemotron tag going forward; the legacy lowercase 8k tag
+  is the §P8.2 deletion.
+
+Commit: `feat(compliance): P4 — tool-loop and applied-settings probes in the shared audit`

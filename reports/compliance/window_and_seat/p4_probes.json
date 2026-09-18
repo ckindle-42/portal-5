@@ -1,0 +1,206 @@
+{
+ "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx32k": {
+  "tag": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx32k",
+  "violations": [
+   {
+    "workspace": "tag:hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx32k",
+    "kind": "hint_absent",
+    "detail": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx32k not installed",
+    "severity": "FAIL"
+   }
+  ],
+  "fail_count": 1,
+  "warn_count": 0
+ },
+ "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx48k": {
+  "tag": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx48k",
+  "template_sha": "55d4931433fe",
+  "baked_params": {
+   "num_ctx": 49152
+  },
+  "baked_ctx_from_tag": 49152,
+  "tools_probe": {
+   "tag": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx48k",
+   "tools_rendered": true,
+   "tool_names": [
+    "get_vault_code"
+   ],
+   "prose": ""
+  },
+  "think_probe": {
+   "tag": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx48k",
+   "think_true": 350,
+   "think_false": 0,
+   "verdict": "honored"
+  },
+  "violations": [],
+  "fail_count": 0,
+  "warn_count": 0
+ },
+ "gemma4:26b-a4b-it-q4_K_M-ctx32k": {
+  "tag": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "template_sha": "b507b9c2f6ca",
+  "baked_params": {
+   "num_ctx": 32768,
+   "temperature": 1,
+   "top_k": 64,
+   "top_p": 0.95
+  },
+  "baked_ctx_from_tag": 32768,
+  "tools_probe": {
+   "tag": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+   "tools_rendered": true,
+   "tool_names": [
+    "get_vault_code"
+   ],
+   "prose": ""
+  },
+  "think_probe": {
+   "tag": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+   "think_true": 177,
+   "think_false": 0,
+   "verdict": "honored"
+  },
+  "violations": [],
+  "fail_count": 0,
+  "warn_count": 0
+ },
+ "granite4:tiny-h-ctx32k": {
+  "tag": "granite4:tiny-h-ctx32k",
+  "template_sha": "0f6ec9740c76",
+  "baked_params": {
+   "num_ctx": 32768
+  },
+  "baked_ctx_from_tag": 32768,
+  "tools_probe": {
+   "tag": "granite4:tiny-h-ctx32k",
+   "tools_rendered": true,
+   "tool_names": [
+    "get_vault_code"
+   ],
+   "prose": ""
+  },
+  "think_probe": {
+   "tag": "granite4:tiny-h-ctx32k",
+   "think_true": "refused-400",
+   "think_false": 0,
+   "verdict": "refused"
+  },
+  "violations": [
+   {
+    "workspace": "tag:granite4:tiny-h-ctx32k",
+    "kind": "template_system_ignored",
+    "detail": "granite4:tiny-h-ctx32k: system instruction NOT honored \u2014 chat template likely wrong/broken for this model",
+    "severity": "FAIL"
+   },
+   {
+    "workspace": "tag:granite4:tiny-h-ctx32k",
+    "kind": "template_think_refused",
+    "detail": "granite4:tiny-h-ctx32k: think:true answers HTTP 400 \u2014 every call takes the _THINK_CAPABLE downgrade and reasoning is unavailable on this tag",
+    "severity": "WARN"
+   }
+  ],
+  "fail_count": 1,
+  "warn_count": 1
+ },
+ "granite4:small-h-ctx32k": {
+  "tag": "granite4:small-h-ctx32k",
+  "template_sha": "0f6ec9740c76",
+  "baked_params": {
+   "num_ctx": 32768
+  },
+  "baked_ctx_from_tag": 32768,
+  "tools_probe": {
+   "tag": "granite4:small-h-ctx32k",
+   "tools_rendered": true,
+   "tool_names": [
+    "get_vault_code"
+   ],
+   "prose": ""
+  },
+  "think_probe": {
+   "tag": "granite4:small-h-ctx32k",
+   "think_true": "refused-400",
+   "think_false": 0,
+   "verdict": "refused"
+  },
+  "violations": [
+   {
+    "workspace": "tag:granite4:small-h-ctx32k",
+    "kind": "template_think_refused",
+    "detail": "granite4:small-h-ctx32k: think:true answers HTTP 400 \u2014 every call takes the _THINK_CAPABLE downgrade and reasoning is unavailable on this tag",
+    "severity": "WARN"
+   }
+  ],
+  "fail_count": 0,
+  "warn_count": 1
+ },
+ "ling30-tiny-test": {
+  "tag": "ling30-tiny-test",
+  "violations": [
+   {
+    "workspace": "tag:ling30-tiny-test",
+    "kind": "hint_absent",
+    "detail": "ling30-tiny-test not installed",
+    "severity": "FAIL"
+   }
+  ],
+  "fail_count": 1,
+  "warn_count": 0
+ },
+ "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k": {
+  "tag": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
+  "template_sha": "c1d545bca1bb",
+  "baked_params": {
+   "num_ctx": 32768
+  },
+  "baked_ctx_from_tag": 32768,
+  "tools_probe": {
+   "tag": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
+   "tools_rendered": true,
+   "tool_names": [
+    "get_vault_code"
+   ],
+   "prose": ""
+  },
+  "think_probe": {
+   "tag": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
+   "think_true": 451,
+   "think_false": 0,
+   "verdict": "honored"
+  },
+  "violations": [],
+  "fail_count": 0,
+  "warn_count": 0
+ },
+ "ling30-tiny-test:latest": {
+  "tag": "ling30-tiny-test:latest",
+  "template_sha": "eb6226c94ae3",
+  "baked_params": {},
+  "baked_ctx_from_tag": null,
+  "tools_probe": {
+   "tag": "ling30-tiny-test:latest",
+   "tools_rendered": true,
+   "tool_names": [
+    "get_vault_code"
+   ],
+   "prose": ""
+  },
+  "think_probe": {
+   "tag": "ling30-tiny-test:latest",
+   "think_true": 89,
+   "think_false": 0,
+   "verdict": "honored"
+  },
+  "violations": [
+   {
+    "workspace": "tag:ling30-tiny-test:latest",
+    "kind": "template_system_ignored",
+    "detail": "ling30-tiny-test:latest: system instruction NOT honored \u2014 chat template likely wrong/broken for this model",
+    "severity": "FAIL"
+   }
+  ],
+  "fail_count": 1,
+  "warn_count": 0
+ }
+}

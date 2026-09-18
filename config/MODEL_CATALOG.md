@@ -2086,3 +2086,63 @@ An earlier characterization of this model as "BF16-only, no GGUF, dead end" was 
 CADFusion (Microsoft) surveyed and declined per TASK_CAD_MODULE_OVERHAUL_V1 P8.5b: DeepCAD-sequence model bound to its own dataset format, not OpenSCAD/trimesh/CadQuery, not text-prompt-general — off-format, not benched.
 
 ---
+
+---
+
+### `granite4:tiny-h-ctx32k`
+
+`granite4:tiny-h-ctx32k` is the 32K-context derived tag of IBM Granite 4.0 H-Tiny (6.9B total, ~1B active, `granitehybrid` Mamba-2/attention MoE), pulled 2026-09-17 from the official `ibm/granite4` Ollama collection (Q4_K_M, Apache-2.0) during WINDOW_AND_SEAT_V1. `config/backends.yaml` registers it in the `general` group with `supports_tools: true` (`settings_audit.probe_tag`: tools rendered). Measured on this box at the §P3 sweep: 78.8 tok/s decode, 1278 tok/s prefill at the 20.5k high-water (fastest of the slate), 3.3 s cold load, no swap; the two-turn prompt-cache test shows the cache holding (turn-2 prefill 0.09 s vs 3.45 s). Probe caveats: `think` answers HTTP 400 (IBM shipped 4.0 hybrid without reasoning — the /v1 suppressing inject is safe), and the model declined an absurd system instruction at the 20-token probe (small-active instruction-following; investigated to template level — the template renders system fine, same template obeys on small-h).
+
+## Why
+
+WINDOW_AND_SEAT_V1's seat slate: the architecture leg (hybrid/recurrent attention, low active parameters, tool support, ≤ ~25 GB at Q4) found it via the runtime's supported-architecture list. It leads the slate on prefill and footprint and is the runt of the memory cost by a wide margin (~4.4 GB resident).
+
+---
+
+### `granite4:small-h-ctx32k`
+
+`granite4:small-h-ctx32k` is the 32K-context derived tag of IBM Granite 4.0 H-Small (32B total, ~9B active, `granitehybrid`), pulled 2026-09-17 alongside tiny-h during WINDOW_AND_SEAT_V1. Registered in the `general` group with `supports_tools: true` (probe: tools rendered; `think` refused-400 same as tiny-h). §P3 sweep: 22.2 tok/s decode, 275 tok/s prefill at the high-water, no swap, cache holds.
+
+## Why
+
+The slate's mid-weight hybrid: 9B active puts its decode between the incumbent dense 27B and the A3B candidates. Kept on the record so the next seat pass does not re-pull and re-measure it.
+
+---
+
+### `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k`
+
+`Q4_K_M-ctx32k` (uppercase — Ollama normalised the tag case on `ollama create` and refuses the lowercase spelling while the lowercase 8k sibling exists) is the 32K-context derived tag of Nemotron 3.5 Lightning 30B-A3B, created 2026-09-17 during WINDOW_AND_SEAT_V1 by re-baking from the mis-baked 8k tag (`…:q4_K_M-ctx8k`, whose cap once got the model rejected from `council.yaml` citing "ctx8k" — our tag, not the model). `PARAMETER num_ctx 32768` baked. Registered in the `general` group, `supports_tools: true` (probe: tools rendered, think honored, template sha `c1d545bca1bb`, zero violations). §P3 sweep: 51.9 tok/s decode, 643 tok/s prefill at the high-water, no swap, cache holds; ~4.6 GB free pages at load — the roomiest of the 25 GB-class candidates.
+
+## Why
+
+§P2's slate: a Mamba-2+MoE agent model with a 1M native window baked at 8k was a recorded error; this tag makes the model seat-eligible at the campaign's measured window regardless of whether it wins.
+
+---
+
+### `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx48k`
+
+`UD-Q4_K_XL-ctx48k` is the 48K-context derived tag of the GDN+MoE Qwen3.6-35B-A3B (unsloth dynamic quant), created 2026-09-17 during WINDOW_AND_SEAT_V1 from the existing `-ctx32k` layers (no re-download). Registered in the `general` group, `supports_tools: true` (probe: tools rendered, think honored, sha `55d4931433fe`, zero violations). §P3 sweep at 48k: 44.3 tok/s decode, 590 tok/s prefill, 11.3 s cold load, no swap, cache holds.
+
+## Why
+
+§P1.4 measured the incumbent conversation overflowing 32k before the prompt/tool fixes landed; this tag is the above-the-high-water rung of the window ladder for the strongest A3B candidate.
+
+---
+
+### `gemma4:26b-a4b-it-q4_K_M-ctx32k`
+
+`gemma4:26b-a4b-it-q4_K_M-ctx32k` is the 32K-context derived tag of Gemma 4 26B-A4B (sliding+global attention, unified KV, cross-layer KV sharing), baked 2026-09-17 during WINDOW_AND_SEAT_V1 — the model had been in the fleet unbaked. Registered in the `general` group, `supports_tools: true` (probe: tools rendered, think honored, sha `b507b9c2f6ca`, zero violations). §P3 sweep: 55.8 tok/s decode, 494 tok/s prefill, 9.1 s cold load, no swap, cache holds.
+
+## Why
+
+§P2 slate: the only pure-attention candidate in the band, and its cross-layer KV sharing is a different window-cost shape from the recurrent hybrids.
+
+---
+
+### `ling30-tiny-test:latest`
+
+`ling30-tiny-test` is a local import (`ollama create` from the official `inclusionAI/Ling-3.0-tiny-GGUF` Q4_K_M, 4.8 GB) made 2026-09-17 during WINDOW_AND_SEAT_V1 to settle the Ling arch question by experiment: **Ollama 0.34.0 knows `bailingmoe3`** — the expected `honest-BLOCKED: arch not supported` did not happen; the model loads, reports capabilities `tools, thinking`, and runs (KDA 3:1 + MLA, 1.3B active of 7.9B, 131k native context). `settings_audit.probe_tag`: tools rendered, think honored (template sha `eb6226c94ae3`); the system-probe flag was investigated to the template level and attributed to small-active instruction-following (answers "Green." to grass over a system command to say BLUE), and the template defaults `thinking_option` ON when the flag is absent — safe on the workspace's pinned `think:false`, recorded for any client that omits it. §P3 sweep: **104.5 tok/s decode (fastest of the slate), 1040 tok/s prefill**, 3.7 s cold load, no swap, cache holds (turn-2 prefill 0.13 s). NOT registered in `backends.yaml` — the `-test` tag and the /tmp GGUF are measurement artifacts; a production candidate needs a proper name, a decided quant, and a catalog entry.
+
+## Why
+
+§P2's slate priced it by architecture (cheapest KV shape, fastest decode); this import replaced speculation with numbers. The Vulkan-community report of slow prefill did not reproduce on Metal (1040 tok/s at the high-water).
