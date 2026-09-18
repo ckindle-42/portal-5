@@ -1,0 +1,270 @@
+{
+ "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__choice__run1",
+ "adapter": "workspace",
+ "seat": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+ "case": "choice",
+ "ref": "CIP-007-6 R2 Part 2.3",
+ "thread": "main",
+ "campaign_inputs": {
+  "seat": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+  "workspace_prompt_sha": "b4a0a9c12a0c"
+ },
+ "question": "Are we using all the latitude NERC gives us on Part 2.3?",
+ "run_index": 1,
+ "environment_before": {
+  "at": "2026-09-18T03:01:38Z",
+  "ollama_version": "0.34.0",
+  "ollama_ps": [
+   {
+    "name": "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M",
+    "model": "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M",
+    "size": 5633736703,
+    "digest": "6b9ccd9d95d232fac03ded381bd5e2a2477c54bdfa2f32a071fefc39923482eb",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "gemma4",
+     "families": [
+      "gemma4"
+     ],
+     "parameter_size": "7.46B",
+     "quantization_level": "unknown"
+    },
+    "expires_at": "2318-12-28T19:10:45.465982807-06:00",
+    "size_vram": 5633736703,
+    "context_length": 2048
+   },
+   {
+    "name": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "size": 6070971922,
+    "digest": "b2f78a71f32ac696e16f06c82504f56265071806c7fb8fc4449955463e76bcb4",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "bailingmoe3",
+     "families": [
+      "bailingmoe3"
+     ],
+     "parameter_size": "7.9B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-17T22:06:38.886883-05:00",
+    "size_vram": 6070971922,
+    "context_length": 32768
+   }
+  ],
+  "free_memory_mb": 30405,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "turn": {
+  "question": "Are we using all the latitude NERC gives us on Part 2.3?",
+  "answer": "\n\n[Tool-use limit (20 hops) reached. Returning partial result.]",
+  "reasoning_chars": 0,
+  "wall_s": 32.76,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.05,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+  "served_model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+  "tool_calls": {
+   "compliance_requirement": 2.0,
+   "compliance_search": 18.0
+  },
+  "tool_errors": {},
+  "usage_hops": [
+   {
+    "prompt_tokens": 3025,
+    "completion_tokens": 118
+   },
+   {
+    "prompt_tokens": 3312,
+    "completion_tokens": 40
+   },
+   {
+    "prompt_tokens": 3739,
+    "completion_tokens": 32
+   },
+   {
+    "prompt_tokens": 4138,
+    "completion_tokens": 28
+   },
+   {
+    "prompt_tokens": 4529,
+    "completion_tokens": 30
+   },
+   {
+    "prompt_tokens": 4924,
+    "completion_tokens": 38
+   },
+   {
+    "prompt_tokens": 5347,
+    "completion_tokens": 45
+   },
+   {
+    "prompt_tokens": 5802,
+    "completion_tokens": 53
+   },
+   {
+    "prompt_tokens": 6285,
+    "completion_tokens": 62
+   },
+   {
+    "prompt_tokens": 6847,
+    "completion_tokens": 70
+   },
+   {
+    "prompt_tokens": 7437,
+    "completion_tokens": 70
+   },
+   {
+    "prompt_tokens": 8027,
+    "completion_tokens": 70
+   },
+   {
+    "prompt_tokens": 8617,
+    "completion_tokens": 70
+   },
+   {
+    "prompt_tokens": 9207,
+    "completion_tokens": 70
+   },
+   {
+    "prompt_tokens": 9797,
+    "completion_tokens": 70
+   },
+   {
+    "prompt_tokens": 10387,
+    "completion_tokens": 70
+   },
+   {
+    "prompt_tokens": 10977,
+    "completion_tokens": 70
+   },
+   {
+    "prompt_tokens": 11567,
+    "completion_tokens": 70
+   },
+   {
+    "prompt_tokens": 12157,
+    "completion_tokens": 70
+   },
+   {
+    "prompt_tokens": 12747,
+    "completion_tokens": 70
+   }
+  ],
+  "prompt_tokens_high_water": 12747,
+  "prompt_tokens_final_hop": 12747,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+ },
+ "thread_length_messages": 2,
+ "served_model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+ "guard": [],
+ "checks": [
+  {
+   "assertion": "http_200",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "assertion": "turn_within_budget",
+   "ok": true,
+   "detail": {
+    "wall_s": 32.76,
+    "budget_s": 900.0,
+    "error": ""
+   }
+  },
+  {
+   "assertion": "answer_nonempty",
+   "ok": true,
+   "detail": 63
+  },
+  {
+   "assertion": "prompt_tokens_measured",
+   "ok": true,
+   "detail": {
+    "high_water": 12747,
+    "final_hop": 12747,
+    "hops_seen": 20
+   }
+  },
+  {
+   "assertion": "applied_window_known_and_not_exceeded",
+   "ok": true,
+   "detail": {
+    "served_model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "applied_ctx": 32768,
+    "input_tokens": 12747.0
+   }
+  },
+  {
+   "assertion": "tool_calls>=1",
+   "ok": true,
+   "detail": {
+    "compliance_requirement": 2.0,
+    "compliance_search": 18.0
+   }
+  },
+  {
+   "assertion": "cited_ids_resolve",
+   "ok": false,
+   "detail": "no section id cited in the answer"
+  }
+ ],
+ "passed": false,
+ "environment_after": {
+  "at": "2026-09-18T03:02:11Z",
+  "ollama_version": "0.34.0",
+  "ollama_ps": [
+   {
+    "name": "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M",
+    "model": "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M",
+    "size": 5633736703,
+    "digest": "6b9ccd9d95d232fac03ded381bd5e2a2477c54bdfa2f32a071fefc39923482eb",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "gemma4",
+     "families": [
+      "gemma4"
+     ],
+     "parameter_size": "7.46B",
+     "quantization_level": "unknown"
+    },
+    "expires_at": "2318-12-28T19:10:45.465982807-06:00",
+    "size_vram": 5633736703,
+    "context_length": 2048
+   },
+   {
+    "name": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "size": 6070971922,
+    "digest": "b2f78a71f32ac696e16f06c82504f56265071806c7fb8fc4449955463e76bcb4",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "bailingmoe3",
+     "families": [
+      "bailingmoe3"
+     ],
+     "parameter_size": "7.9B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-17T22:07:11.781943-05:00",
+    "size_vram": 6070971922,
+    "context_length": 32768
+   }
+  ],
+  "free_memory_mb": 30231,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "failed_assertions": [
+  "cited_ids_resolve"
+ ]
+}

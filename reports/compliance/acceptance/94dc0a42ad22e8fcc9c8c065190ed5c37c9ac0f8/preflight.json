@@ -1,0 +1,395 @@
+{
+ "generated_at": "2026-09-18T02:52:35Z",
+ "git_rev": "94dc0a42ad22e8fcc9c8c065190ed5c37c9ac0f8",
+ "ollama_version": "0.34.0",
+ "num_ctx_requested": 98304,
+ "reference_ref": "CIP-007-6 R5",
+ "largest_population": {
+  "ref": "CIP-007-6 R5",
+  "regulatory": 43,
+  "operator": 14,
+  "operator_notes": 0,
+  "link_statuses": [
+   "proposed"
+  ],
+  "chars": 31335,
+  "population_method": "join"
+ },
+ "populations": [
+  {
+   "ref": "CIP-007-6 R1",
+   "regulatory": 18,
+   "operator": 6,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 15851,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R2",
+   "regulatory": 16,
+   "operator": 9,
+   "operator_notes": 1,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 27024,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R3",
+   "regulatory": 12,
+   "operator": 6,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 19933,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R4",
+   "regulatory": 31,
+   "operator": 8,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 19703,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R5",
+   "regulatory": 43,
+   "operator": 14,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 31335,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R1 Part 1.1",
+   "regulatory": 17,
+   "operator": 4,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 14134,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R1 Part 1.2",
+   "regulatory": 16,
+   "operator": 4,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 12105,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R2 Part 2.1",
+   "regulatory": 13,
+   "operator": 4,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 13428,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R2 Part 2.2",
+   "regulatory": 14,
+   "operator": 4,
+   "operator_notes": 1,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 17476,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R2 Part 2.3",
+   "regulatory": 14,
+   "operator": 5,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 17072,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R2 Part 2.4",
+   "regulatory": 14,
+   "operator": 4,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 19781,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R3 Part 3.1",
+   "regulatory": 10,
+   "operator": 3,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 8261,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R3 Part 3.2",
+   "regulatory": 10,
+   "operator": 5,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 17534,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R3 Part 3.3",
+   "regulatory": 10,
+   "operator": 2,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 8059,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R4 Part 4.1",
+   "regulatory": 27,
+   "operator": 3,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 11498,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R4 Part 4.2",
+   "regulatory": 27,
+   "operator": 3,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 12154,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R4 Part 4.3",
+   "regulatory": 26,
+   "operator": 5,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 12841,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R4 Part 4.4",
+   "regulatory": 26,
+   "operator": 3,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 11170,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R5 Part 5.1",
+   "regulatory": 34,
+   "operator": 5,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 20346,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R5 Part 5.2",
+   "regulatory": 35,
+   "operator": 1,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 14506,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R5 Part 5.3",
+   "regulatory": 35,
+   "operator": 5,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 16490,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R5 Part 5.4",
+   "regulatory": 35,
+   "operator": 4,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 19591,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R5 Part 5.5",
+   "regulatory": 35,
+   "operator": 3,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 20040,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R5 Part 5.6",
+   "regulatory": 35,
+   "operator": 3,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 19700,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R5 Part 5.7",
+   "regulatory": 35,
+   "operator": 3,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 19222,
+   "population_method": "join"
+  }
+ ],
+ "seats": [
+  {
+   "seat": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+   "template_sha": "eb6226c94ae3",
+   "baked_params": {
+    "num_ctx": 32768
+   },
+   "baked_ctx_from_tag": 32768,
+   "tools_probe": {
+    "tag": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "tools_rendered": true,
+    "tool_names": [
+     "get_vault_code"
+    ],
+    "prose": ""
+   },
+   "think_probe": {
+    "tag": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "think_true": 89,
+    "think_false": 0,
+    "verdict": "honored"
+   },
+   "audit_violations": [
+    {
+     "workspace": "tag:hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+     "kind": "instruction_declined",
+     "detail": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k: system instruction declined, template delivers fine \u2014 model answered 'Green.'; judge real-instruction following on campaign transcripts",
+     "severity": "WARN"
+    }
+   ],
+   "applied_versus_requested": {
+    "seat": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "ref": "CIP-007-6 R5",
+    "material_chars": 46841,
+    "num_ctx_requested": 98304,
+    "seat_ceiling": 131072,
+    "answer_budget": 3072,
+    "reasoning_allowance": 4096,
+    "elapsed_s": 23.0,
+    "num_ctx_applied": 98304,
+    "temperature_applied": 0.0,
+    "prompt_eval_count": 15244,
+    "eval_count": 654,
+    "headroom_tokens": 82406,
+    "chars_per_token_observed": 3.07,
+    "tool_calls": [],
+    "thinking_chars": 0,
+    "answer_chars": 3128,
+    "transport_stop_reason": "",
+    "worst_case_tool_result_tokens": 46905,
+    "required_tokens": 69317,
+    "margin_tokens": 28987,
+    "blocks": false,
+    "block_reasons": []
+   },
+   "ollama_ps": [
+    {
+     "name": "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M",
+     "model": "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M",
+     "size": 5633736703,
+     "digest": "6b9ccd9d95d232fac03ded381bd5e2a2477c54bdfa2f32a071fefc39923482eb",
+     "details": {
+      "parent_model": "",
+      "format": "gguf",
+      "family": "gemma4",
+      "families": [
+       "gemma4"
+      ],
+      "parameter_size": "7.46B",
+      "quantization_level": "unknown"
+     },
+     "expires_at": "2318-12-28T19:10:45.465982807-06:00",
+     "size_vram": 5633736703,
+     "context_length": 2048
+    },
+    {
+     "name": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+     "model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+     "size": 7604252178,
+     "digest": "b2f78a71f32ac696e16f06c82504f56265071806c7fb8fc4449955463e76bcb4",
+     "details": {
+      "parent_model": "",
+      "format": "gguf",
+      "family": "bailingmoe3",
+      "families": [
+       "bailingmoe3"
+      ],
+      "parameter_size": "7.9B",
+      "quantization_level": "Q4_K_M"
+     },
+     "expires_at": "2026-09-17T22:23:01.880966-05:00",
+     "size_vram": 7604252178,
+     "context_length": 98304
+    }
+   ],
+   "free_memory_mb": 30714,
+   "go": true,
+   "no_go_reasons": []
+  }
+ ]
+}

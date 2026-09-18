@@ -1,0 +1,202 @@
+{
+ "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__interval__run1",
+ "adapter": "workspace",
+ "seat": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+ "case": "interval",
+ "ref": "CIP-007-6 R2 Part 2.2",
+ "thread": "main",
+ "campaign_inputs": {
+  "seat": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+  "workspace_prompt_sha": "b4a0a9c12a0c"
+ },
+ "question": "Is our 30-day evaluation cycle stricter than Part 2.2 requires?",
+ "run_index": 1,
+ "environment_before": {
+  "at": "2026-09-18T03:02:11Z",
+  "ollama_version": "0.34.0",
+  "ollama_ps": [
+   {
+    "name": "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M",
+    "model": "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M",
+    "size": 5633736703,
+    "digest": "6b9ccd9d95d232fac03ded381bd5e2a2477c54bdfa2f32a071fefc39923482eb",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "gemma4",
+     "families": [
+      "gemma4"
+     ],
+     "parameter_size": "7.46B",
+     "quantization_level": "unknown"
+    },
+    "expires_at": "2318-12-28T19:10:45.465982807-06:00",
+    "size_vram": 5633736703,
+    "context_length": 2048
+   },
+   {
+    "name": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "size": 6070971922,
+    "digest": "b2f78a71f32ac696e16f06c82504f56265071806c7fb8fc4449955463e76bcb4",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "bailingmoe3",
+     "families": [
+      "bailingmoe3"
+     ],
+     "parameter_size": "7.9B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-17T22:07:11.781943-05:00",
+    "size_vram": 6070971922,
+    "context_length": 32768
+   }
+  ],
+  "free_memory_mb": 30229,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "turn": {
+  "question": "Is our 30-day evaluation cycle stricter than Part 2.2 requires?",
+  "answer": "Here is the answer.\n\n**No, your 30-day evaluation cycle is not stricter than Part 2.2 requires \u2014 it is actually *less* strict than the standard allows.**\n\nThe standard (CIP-007-6 R2, Part 2.2) sets a **floor of 35 calendar days**:\n\n> \"At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.1.\"\n\nThe Technical Basis confirms the 35-day figure is the outer bound:\n\n> \"Responsible Entities are to perform an assessment of security related patches within 35 days of release from their monitored source.\"\n\nSo the standard permits any cadence up to and including 35 days. A 30-day cadence is **inside** the 35-day allowance \u2014 it is more frequent, not less.\n\n**What your own material actually requires:**\n\nYour governing documents \u2014 the CIP Cyber Security Policy v13.0 \u00a73.4.2.1 and the LSPG Security Patch Management Procedure v11.0 \u00a73.3.1 \u2014 both state **35 calendar days**, not 30. The procedure's traceability table maps Part 2.2 to \"Section 3.3\" and quotes the same 35-day text.\n\n**The only 30-day claim** comes from a single operator note (csection-440a5cdf9a6b65292ef3), recorded 2026-09-16 by chris. That note says:\n\n> \"We evaluate patches every 30 days, not the 35 the Part allows, because our change window is monthly and a 35-day clock straddles two windows. The extra strictness is deliberate and is not a gap.\"\n\nThis is a **recorded decision**, not a procedure or policy. It asserts a practice that is not reflected in the policy or procedure text. The note's rationale (a 35-day clock straddling two monthly change windows) is a scheduling convenience, not a compliance driver \u2014 the standard's 35-day clock is measured from release, not from a change window.\n\n**Bottom line:**\n\n- The standard requires **at least 35 calendar days** between evaluations.\n- Your policy and procedure both require **35 calendar days**.\n- The only 30-day claim is an operator note, not a document requirement.\n- If the 30-day practice is actually being run, you are **stricter** than the standard requires (30 < 35), but you cannot confirm that practice from the documents I have read.\n\n**What would settle it:**\n\nYou would need either (a) actual patch-evaluation records/workbooks showing the real interval between evaluations, or (b) a procedure or policy section that mandates the 30-day cadence. The linked operator sections I read (isection-21a30e0d44708f5dfdce, isection-87d00aedd4cf1f41f0cd, isection-e450e773b7d8578062c6, isection-c75f69c881d6a214ff52) all say 35 days.\n\nCited sections:\n- csection-440a5cdf9a6b65292ef3 (intentional_strictness on CIP-007-6 R2 Part 2.2, operator note)\n- csection-7700dd5499cead0994ec (Part 2.2 standard, \"At least once every 35 calendar days\")\n- csection-285d8c24551776cb380d (Technical Basis, \"within 35 days of release\")\n- isection-87d00aedd4cf1f41f0cd (CIP Cyber Security Policy \u00a73.4.2.1, 35 days)\n- isection-21a30e0d44708f5dfdce (SPM Procedure \u00a73.3.1, 35 days)\n- isection-e450e773b7d8578062c6 (SPM Procedure traceability, maps Part 2.2 to \u00a73.3, 35 days)\n- isection-c75f69c881d6a214ff52 (SPM Procedure \u00a73.5, 35 days for next step)",
+  "reasoning_chars": 0,
+  "wall_s": 27.12,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.05,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+  "served_model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+  "tool_calls": {
+   "compliance_requirement": 1.0,
+   "compliance_search": 1.0,
+   "compliance_read": 1.0
+  },
+  "tool_errors": {},
+  "usage_hops": [
+   {
+    "prompt_tokens": 3025,
+    "completion_tokens": 75
+   },
+   {
+    "prompt_tokens": 11417,
+    "completion_tokens": 33
+   },
+   {
+    "prompt_tokens": 11892,
+    "completion_tokens": 1044
+   }
+  ],
+  "prompt_tokens_high_water": 11892,
+  "prompt_tokens_final_hop": 11892,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+ },
+ "thread_length_messages": 2,
+ "served_model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+ "guard": [],
+ "checks": [
+  {
+   "assertion": "http_200",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "assertion": "turn_within_budget",
+   "ok": true,
+   "detail": {
+    "wall_s": 27.12,
+    "budget_s": 900.0,
+    "error": ""
+   }
+  },
+  {
+   "assertion": "answer_nonempty",
+   "ok": true,
+   "detail": 3182
+  },
+  {
+   "assertion": "prompt_tokens_measured",
+   "ok": true,
+   "detail": {
+    "high_water": 11892,
+    "final_hop": 11892,
+    "hops_seen": 3
+   }
+  },
+  {
+   "assertion": "applied_window_known_and_not_exceeded",
+   "ok": true,
+   "detail": {
+    "served_model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "applied_ctx": 32768,
+    "input_tokens": 11892.0
+   }
+  },
+  {
+   "assertion": "tool_calls>=1",
+   "ok": true,
+   "detail": {
+    "compliance_requirement": 1.0,
+    "compliance_search": 1.0,
+    "compliance_read": 1.0
+   }
+  },
+  {
+   "assertion": "cited_ids_resolve",
+   "ok": true,
+   "detail": "all 7 resolve"
+  }
+ ],
+ "passed": true,
+ "environment_after": {
+  "at": "2026-09-18T03:02:39Z",
+  "ollama_version": "0.34.0",
+  "ollama_ps": [
+   {
+    "name": "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M",
+    "model": "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M",
+    "size": 5633736703,
+    "digest": "6b9ccd9d95d232fac03ded381bd5e2a2477c54bdfa2f32a071fefc39923482eb",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "gemma4",
+     "families": [
+      "gemma4"
+     ],
+     "parameter_size": "7.46B",
+     "quantization_level": "unknown"
+    },
+    "expires_at": "2318-12-28T19:10:45.465982807-06:00",
+    "size_vram": 5633736703,
+    "context_length": 2048
+   },
+   {
+    "name": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "size": 6070971922,
+    "digest": "b2f78a71f32ac696e16f06c82504f56265071806c7fb8fc4449955463e76bcb4",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "bailingmoe3",
+     "families": [
+      "bailingmoe3"
+     ],
+     "parameter_size": "7.9B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-17T22:07:39.035347-05:00",
+    "size_vram": 6070971922,
+    "context_length": 32768
+   }
+  ],
+  "free_memory_mb": 30327,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "failed_assertions": []
+}
