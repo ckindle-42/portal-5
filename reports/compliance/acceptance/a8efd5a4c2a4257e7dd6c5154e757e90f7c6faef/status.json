@@ -1,0 +1,50 @@
+{
+ "git_head": "a8efd5a4c2a4257e7dd6c5154e757e90f7c6faef",
+ "dirty_paths": 19,
+ "updated_at": "2026-09-18T01:38:22Z",
+ "cells": [
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__parent__run1",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__choice__run1",
+   "passed": false,
+   "failed_assertions": [
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__interval__run1",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__read_check__run1",
+   "passed": false,
+   "failed_assertions": [
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__either_or__run1",
+   "passed": false,
+   "failed_assertions": [
+    "tool_calls>=1",
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__no_operator_side__run1",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  }
+ ]
+}

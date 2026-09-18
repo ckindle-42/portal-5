@@ -1,0 +1,198 @@
+{
+ "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__interval__run1",
+ "adapter": "workspace",
+ "seat": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+ "case": "interval",
+ "ref": "CIP-007-6 R2 Part 2.2",
+ "thread": "main",
+ "question": "Is our 30-day evaluation cycle stricter than Part 2.2 requires?",
+ "run_index": 1,
+ "environment_before": {
+  "at": "2026-09-18T01:37:05Z",
+  "ollama_version": "0.34.0",
+  "ollama_ps": [
+   {
+    "name": "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M",
+    "model": "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M",
+    "size": 5633736703,
+    "digest": "6b9ccd9d95d232fac03ded381bd5e2a2477c54bdfa2f32a071fefc39923482eb",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "gemma4",
+     "families": [
+      "gemma4"
+     ],
+     "parameter_size": "7.46B",
+     "quantization_level": "unknown"
+    },
+    "expires_at": "2318-12-28T19:10:45.465982807-06:00",
+    "size_vram": 5633736703,
+    "context_length": 2048
+   },
+   {
+    "name": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "size": 6070971922,
+    "digest": "b2f78a71f32ac696e16f06c82504f56265071806c7fb8fc4449955463e76bcb4",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "bailingmoe3",
+     "families": [
+      "bailingmoe3"
+     ],
+     "parameter_size": "7.9B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-17T20:42:05.136784-05:00",
+    "size_vram": 6070971922,
+    "context_length": 32768
+   }
+  ],
+  "free_memory_mb": 33704,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "turn": {
+  "question": "Is our 30-day evaluation cycle stricter than Part 2.2 requires?",
+  "answer": "Here is the answer.\n\n**No, your 30-day evaluation cycle is not stricter than Part 2.2 requires \u2014 it is *within* the standard's allowance.**\n\nThe standard (CIP-007-6 R2, Part 2.2) sets a **floor**, not a target:\n\n> \"At least once every **35 calendar days**, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.1.\" (csection-7700dd5499cead0994ec)\n\nThe Technical Basis confirms the 35-day figure is the outer bound:\n\n> \"Responsible Entities are to perform an assessment of security related patches within **35 days** of release from their monitored source.\" (csection-285d8c24551776cb380d)\n\nSo the standard permits any cadence up to and including 35 days. A 30-day cycle is **more frequent** than the 35-day floor \u2014 it satisfies the requirement.\n\nYour own governing documents \u2014 the CIP Cyber Security Policy v13.0 (\u00a73.4.2.1) and the LSPG Security Patch Management Procedure v11.0 (\u00a73.3.1) \u2014 both codify the **35-day** cadence, not 30 days. The only place a 30-day figure appears is the operator note (csection-440a5cdf9a6b65292ef3), which is a recorded decision, not a procedure or policy. That note says the strictness is deliberate and is not a gap, but it does not appear in the policy, the procedure, or the traceability table.\n\n**Bottom line:** The standard requires a minimum of 35 days. Your own documents require 35 days. A 30-day cycle is tighter than the standard requires, but it is not a violation \u2014 it is a deliberate over-performance. The question is whether the 30-day practice is actually being run, which you would need to verify with actual evaluation records or a procedure section that mandates 30 days.\n\nCited sections:\n- csection-7700dd5499cead0994ec (Part 2.2, \"At least once every 35 calendar days\")\n- csection-285d8c24551776cb380d (Technical Basis, \"within 35 days of release\")\n- csection-440a5cdf9a6b65292ef3 (operator note: \"We evaluate patches every 30 days, not the 35 the Part allows\")\n- isection-87d00aedd4cf1f41f0cd (CIP Cyber Security Policy v13.0, \u00a73.4.2.1 \u2014 35 days)\n- isection-21a30e0d44708f5dfdce (LSPG Security Patch Management Procedure, \u00a73.3.1 \u2014 35 days)",
+  "reasoning_chars": 0,
+  "wall_s": 20.76,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.03,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+  "served_model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+  "tool_calls": {
+   "compliance_requirement": 1.0,
+   "compliance_read": 1.0,
+   "compliance_search": 1.0
+  },
+  "tool_errors": {},
+  "usage_hops": [
+   {
+    "prompt_tokens": 3025,
+    "completion_tokens": 75
+   },
+   {
+    "prompt_tokens": 10980,
+    "completion_tokens": 33
+   },
+   {
+    "prompt_tokens": 11455,
+    "completion_tokens": 698
+   }
+  ],
+  "prompt_tokens_high_water": 11455,
+  "prompt_tokens_final_hop": 11455,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+ },
+ "thread_length_messages": 2,
+ "served_model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+ "guard": [],
+ "checks": [
+  {
+   "assertion": "http_200",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "assertion": "turn_within_budget",
+   "ok": true,
+   "detail": {
+    "wall_s": 20.76,
+    "budget_s": 900.0,
+    "error": ""
+   }
+  },
+  {
+   "assertion": "answer_nonempty",
+   "ok": true,
+   "detail": 2181
+  },
+  {
+   "assertion": "prompt_tokens_measured",
+   "ok": true,
+   "detail": {
+    "high_water": 11455,
+    "final_hop": 11455,
+    "hops_seen": 3
+   }
+  },
+  {
+   "assertion": "applied_window_known_and_not_exceeded",
+   "ok": true,
+   "detail": {
+    "served_model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "applied_ctx": 32768,
+    "input_tokens": 11455.0
+   }
+  },
+  {
+   "assertion": "tool_calls>=1",
+   "ok": true,
+   "detail": {
+    "compliance_requirement": 1.0,
+    "compliance_read": 1.0,
+    "compliance_search": 1.0
+   }
+  },
+  {
+   "assertion": "cited_ids_resolve",
+   "ok": true,
+   "detail": "all 5 resolve"
+  }
+ ],
+ "passed": true,
+ "environment_after": {
+  "at": "2026-09-18T01:37:26Z",
+  "ollama_version": "0.34.0",
+  "ollama_ps": [
+   {
+    "name": "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M",
+    "model": "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M",
+    "size": 5633736703,
+    "digest": "6b9ccd9d95d232fac03ded381bd5e2a2477c54bdfa2f32a071fefc39923482eb",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "gemma4",
+     "families": [
+      "gemma4"
+     ],
+     "parameter_size": "7.46B",
+     "quantization_level": "unknown"
+    },
+    "expires_at": "2318-12-28T19:10:45.465982807-06:00",
+    "size_vram": 5633736703,
+    "context_length": 2048
+   },
+   {
+    "name": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "size": 6070971922,
+    "digest": "b2f78a71f32ac696e16f06c82504f56265071806c7fb8fc4449955463e76bcb4",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "bailingmoe3",
+     "families": [
+      "bailingmoe3"
+     ],
+     "parameter_size": "7.9B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-17T20:42:25.975093-05:00",
+    "size_vram": 6070971922,
+    "context_length": 32768
+   }
+  ],
+  "free_memory_mb": 33865,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "failed_assertions": []
+}

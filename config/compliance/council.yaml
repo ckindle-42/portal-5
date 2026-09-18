@@ -31,6 +31,10 @@ seats:
 # Rejected candidates, with evidence (do not re-add without a fresh sweep):
 #   hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF   F2 0.40 — REAP pruning degrades reasoning
 #   NVIDIA-Nemotron-3.5-Lightning-30B-A3B           abstain-recall 0.25, ctx8k
+#     ^ WINDOW_AND_SEAT_V1 §P8.2 correction: "ctx8k" was OUR mis-baked tag, not
+#     a property of the model (1M native window). The 32k tag now exists
+#     (…:Q4_K_M-ctx32k); the rejection stands on the abstain-recall number
+#     alone, never on the window.
 #   granite4.2:3b-q8_0 / granite4.2:8b-q8_0         system_honored=False (template), weak
 #   phi4:14b-q4_K_M                                 broken install (llama-server abort trap)
 #   granite4.2:30b-q4_K_M                           F2 0.70 — below granite4.1:30b

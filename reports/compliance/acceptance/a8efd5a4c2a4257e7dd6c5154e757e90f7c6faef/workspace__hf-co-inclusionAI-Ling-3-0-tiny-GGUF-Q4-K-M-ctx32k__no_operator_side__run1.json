@@ -1,0 +1,208 @@
+{
+ "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__no_operator_side__run1",
+ "adapter": "workspace",
+ "seat": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+ "case": "no_operator_side",
+ "ref": "CIP-007-6 R5 Part 5.2",
+ "thread": "noop",
+ "question": "What does Part 5.2 require, and which of our own documents shows that we actually do it?",
+ "run_index": 1,
+ "environment_before": {
+  "at": "2026-09-18T01:37:37Z",
+  "ollama_version": "0.34.0",
+  "ollama_ps": [
+   {
+    "name": "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M",
+    "model": "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M",
+    "size": 5633736703,
+    "digest": "6b9ccd9d95d232fac03ded381bd5e2a2477c54bdfa2f32a071fefc39923482eb",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "gemma4",
+     "families": [
+      "gemma4"
+     ],
+     "parameter_size": "7.46B",
+     "quantization_level": "unknown"
+    },
+    "expires_at": "2318-12-28T19:10:45.465982807-06:00",
+    "size_vram": 5633736703,
+    "context_length": 2048
+   },
+   {
+    "name": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "size": 6070971922,
+    "digest": "b2f78a71f32ac696e16f06c82504f56265071806c7fb8fc4449955463e76bcb4",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "bailingmoe3",
+     "families": [
+      "bailingmoe3"
+     ],
+     "parameter_size": "7.9B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-17T20:42:37.462815-05:00",
+    "size_vram": 6070971922,
+    "context_length": 32768
+   }
+  ],
+  "free_memory_mb": 33726,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "turn": {
+  "question": "What does Part 5.2 require, and which of our own documents shows that we actually do it?",
+  "answer": "I need to be upfront: the standard text does not contain a \"Part 5.2\" in the CIP-007-6 R2 framework. The four Parts of CIP-007-6 R2 are 2.1, 2.2, 2.3, and 2.4. The only \"5.2\" I found in the operator's documents is in the CIP-008 Incident Response Plan (section 5.2 \"Protect\"), which is a different CIP standard.\n\nLet me confirm what the operator's own documents actually say about the patch management process, since that's the most likely candidate for what you're asking about.\n\nCited sections:\n- isection-54b1a51296c6c865638a (Technical Feasible Exceptions, CIP-005/LSPG TFE Procedure v4.pdf) \u2014 shows Part 5.1, 5.6, and 5.7 of CIP-007-6 R2 are referenced in the TFE procedure, but does not contain Part 5.2\n- isection-440a5cdf9a6b65292ef3 (intentional_strictness on CIP-007-6 R2 Part 2.2) \u2014 operator note about 30-day evaluation cadence vs. the 35-day standard\n- isection-87d00aedd4cf1f41f0cd (CIP-002-5.1a, \u00a73.4.2.1) \u2014 operator's patch management process policy text\n- isection-5a6e77a9acc7ab5eee74 (CIP-002-5.1a, \u00a73.1.2) \u2014 procedure text on tracking sources\n- isection-21a30e0d44708f5dfdce (CIP-002-5.1a, \u00a73.3.1\u20133.3.2) \u2014 procedure text on evaluation cadence\n\nWhat I have not read: the actual text of CIP-007-6 R2 Part 5.2. The standard's four Parts are 2.1, 2.2, 2.3, and 2.4 \u2014 there is no Part 5.2 in CIP-007-6 R2. The \"5.2\" in the operator's documents is from CIP-008 (Incident Response Plan), which is a different standard.\n\nIf you are looking for a specific Part 5.2 requirement, it may be in a different CIP standard (e.g., CIP-005-7, CIP-010-4, or another standard) that I have not located. Could you clarify which CIP standard or which Part 5.2 you are referring to?",
+  "reasoning_chars": 0,
+  "wall_s": 44.68,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.02,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+  "served_model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+  "tool_calls": {
+   "compliance_requirement": 1.0,
+   "compliance_search": 3.0,
+   "compliance_context": 1.0
+  },
+  "tool_errors": {
+   "compliance_context": 1.0
+  },
+  "usage_hops": [
+   {
+    "prompt_tokens": 3030,
+    "completion_tokens": 73
+   },
+   {
+    "prompt_tokens": 3214,
+    "completion_tokens": 20
+   },
+   {
+    "prompt_tokens": 10802,
+    "completion_tokens": 28
+   },
+   {
+    "prompt_tokens": 18557,
+    "completion_tokens": 28
+   },
+   {
+    "prompt_tokens": 26058,
+    "completion_tokens": 646
+   }
+  ],
+  "prompt_tokens_high_water": 26058,
+  "prompt_tokens_final_hop": 26058,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+ },
+ "thread_length_messages": 2,
+ "served_model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+ "guard": [],
+ "checks": [
+  {
+   "assertion": "http_200",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "assertion": "turn_within_budget",
+   "ok": true,
+   "detail": {
+    "wall_s": 44.68,
+    "budget_s": 900.0,
+    "error": ""
+   }
+  },
+  {
+   "assertion": "answer_nonempty",
+   "ok": true,
+   "detail": 1678
+  },
+  {
+   "assertion": "prompt_tokens_measured",
+   "ok": true,
+   "detail": {
+    "high_water": 26058,
+    "final_hop": 26058,
+    "hops_seen": 5
+   }
+  },
+  {
+   "assertion": "applied_window_known_and_not_exceeded",
+   "ok": true,
+   "detail": {
+    "served_model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "applied_ctx": 32768,
+    "input_tokens": 26058.0
+   }
+  },
+  {
+   "assertion": "tool_calls>=1",
+   "ok": true,
+   "detail": {
+    "compliance_requirement": 1.0,
+    "compliance_search": 3.0,
+    "compliance_context": 1.0
+   }
+  },
+  {
+   "assertion": "cited_ids_resolve",
+   "ok": true,
+   "detail": "all 5 resolve"
+  }
+ ],
+ "passed": true,
+ "environment_after": {
+  "at": "2026-09-18T01:38:22Z",
+  "ollama_version": "0.34.0",
+  "ollama_ps": [
+   {
+    "name": "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M",
+    "model": "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M",
+    "size": 5633736703,
+    "digest": "6b9ccd9d95d232fac03ded381bd5e2a2477c54bdfa2f32a071fefc39923482eb",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "gemma4",
+     "families": [
+      "gemma4"
+     ],
+     "parameter_size": "7.46B",
+     "quantization_level": "unknown"
+    },
+    "expires_at": "2318-12-28T19:10:45.465982807-06:00",
+    "size_vram": 5633736703,
+    "context_length": 2048
+   },
+   {
+    "name": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "size": 6070971922,
+    "digest": "b2f78a71f32ac696e16f06c82504f56265071806c7fb8fc4449955463e76bcb4",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "bailingmoe3",
+     "families": [
+      "bailingmoe3"
+     ],
+     "parameter_size": "7.9B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-17T20:43:22.225686-05:00",
+    "size_vram": 6070971922,
+    "context_length": 32768
+   }
+  ],
+  "free_memory_mb": 33747,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "failed_assertions": []
+}

@@ -8,11 +8,14 @@ preferred_models:
   - hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
 module: compliance
 description: >
-  Framework-agnostic compliance analysis: gap analysis, policy review, evidence
-  assessment across NERC CIP, HIPAA, GDPR, SOC 2, PCI-DSS, NIST CSF, ISO 27001,
-  FedRAMP, NIS2, CMMC, FFIEC, state privacy laws (CCPA/CPRA, Texas TDPSA,
-  Connecticut CTDPA, Virginia VCDPA), and emerging frameworks. Use when the
-  framework is not pre-known or spans multiple regimes.
+  Compliance triage and document production: CVE triage, security advisories,
+  framework catalog lookups (NIST 800-53, CSF 2.0, OLIR-style crosswalk), and
+  policy/evidence document drafting. The ingested corpus holds ONE framework —
+  the NERC CIP register plus the CIP-007-6 operator corpus; every other
+  framework named here is a CATALOG lookup with no local corpus, and no gap
+  analysis. Requirement reading lives in the compliance-reading workspace, in
+  conversation. The eleven-framework gap-analysis promise this description
+  once made was never backed by the store (WINDOW_AND_SEAT_V1 §P8.5).
 system_prompt: |
   You are a senior compliance analyst who works across regulatory frameworks.
   Your value is methodology, not memorization. You apply a consistent analytical

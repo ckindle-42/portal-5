@@ -419,8 +419,11 @@ workspaces:
     name: "⚡ Nemotron Lightning"
     description: |-
       Speed-focused general assistant on NVIDIA Nemotron 3.5 Lightning (30B-A3B MoE, ~3B active params/token, Apache 2.0). Added 2026-08-14 as an architecturally distinct alternative to the Gemma-4 daily driver — same everyday-assistant job, different model lineage. oMLX + MTPLX side-car MTP (txgsync/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp, real mtp.* weights verified) measured 70.0-70.3 tok/s vs 52.9-53.1 tok/s on the Ollama GGUF baseline (~1.33x), same prompt/hardware/session — high MTP draft-accept rate (76-87%) thanks to the small MoE active-param backbone. supports_tools:true verified on both the oMLX and Ollama paths via direct tool-call probes (clean tool_calls, correctly typed arguments). Freshly staged — no production track record yet.
-    model_hint: hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k
-    context_limit: 8192
+    # WINDOW_AND_SEAT_V1 §P8.2: the 8k bake was a recorded error (council.yaml
+    # once rejected this model citing "ctx8k" — our tag, not the model). The 32k
+    # tag is the corrected window; the legacy lowercase 8k tag is deleted.
+    model_hint: hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k
+    context_limit: 32768
     predict_limit: 4096
     max_concurrent: 1
     keep_alive: 5m
@@ -1440,7 +1443,7 @@ workspaces:
       The Guidelines and Technical Basis is citable interpretive material, and Measures are not all-inclusive. Explain the VSL price when the question asks where gaps are or how severe they are. Do not use Full, Partial, None, or Ambiguous as a fixed output taxonomy; answer in prose with citations, uncertainty, and the closure receipt.
     name: ⚖️  Portal Compliance Analyst
     description: |-
-      NERC CIP compliance analysis over the ingested NERC CIP register and operator corpus. Other frameworks are catalog lookups only; they have no local corpus and therefore no gap analysis here. The reading path uses approved mappings, bilateral citations, VSL/GTB context, and closure receipts.
+      CVE triage, security advisories, framework catalog lookups, and compliance document production. The ingested store holds ONE framework — the NERC CIP register and the CIP-007-6 operator corpus — and requirement reading lives in compliance-reading, in conversation. The retired coverage engine (gaps/scenario/analyze/impact/prospective/change_impact) was removed from this workspace per WINDOW_AND_SEAT_V1 §P8.5: it returned UNRESOLVED on undeclared scope and its lexical surface competed with the operator's real question. Other frameworks are catalog lookups only; they have no local corpus.
     # ctx32k baked tag; the omlx-reasoning alias serves Qwen3.8-27B-oQ4e-mtp.
     # think:false — Qwen3.8's chat template opens `<think>` by default; on hard/
     # uncertain compliance questions that reasoning degenerates into verbatim
@@ -1496,9 +1499,7 @@ workspaces:
     - refresh_catalogs
     - compliance_ingest
     - compliance_search
-    - compliance_gaps
     - compliance_orphans
-    - compliance_change_impact
     - compliance_mappings
     - compliance_scope
     - compliance_route
@@ -1506,14 +1507,10 @@ workspaces:
     - compliance_review_decide
     - compliance_sources
     - compliance_trace
-    - compliance_prospective
-    - compliance_scenario
     - compliance_draft_revisions
     - compliance_intentionality
     - compliance_flexibility
-    - compliance_analyze
     - compliance_compare
-    - compliance_impact
     expose_to_owui: true
     enable_web_search: true
     owui_system_prompt: |-
@@ -1558,16 +1555,26 @@ workspaces:
     name: ⚖️ Portal Compliance Reading
     description: |-
       Focused NERC CIP reading loop with only the corpus, reading, currency, and review tools. Requirement reading lives here, in conversation; auto-compliance keeps catalog lookups, CVE triage and document production. Other frameworks remain catalog-only.
-    model_hint: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+    # WINDOW_AND_SEAT_V1 §P8.1 — THE SEAT, BOUND BY MEASUREMENT. Ling-3.0-tiny
+    # (KDA 3:1 + MLA, 1.3B active of 7.9B) won the §P3 sweep's binding
+    # criterion — fastest decode (104.5 tok/s vs the dense incumbent's 12.0,
+    # 8.7x) with the high-water held (18,297 tokens at 6 hops, live §P4.2) and
+    # no swap — and turn one of `parent` answered in 57 s on the live path
+    # against the acceptance bar of under a minute. Runner-up:
+    # granite4:tiny-h-ctx32k (fastest turn wall 19.5 s, smallest footprint
+    # 4.4 GB, fastest prefill 1278 tok/s) lost on decode speed and on the §P7
+    # lever: `think` answers HTTP 400 on the granite hybrid, so rung 4 has no
+    # reasoning reserve there; Ling's template honors think both ways.
+    # Previously bound: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k (dense
+    # 27B, 12.0 tok/s decode, 94 tok/s prefill — turn one 397.8 s, 6.6x over
+    # the bar, and the 32k window overflowed at the old prompt/tool surface).
+    model_hint: hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k
     context_limit: 32768
     predict_limit: 24576
     # compliance is a deterministic lane (settings_audit LANE_SAMPLING ceiling
     # 0.3, settled WINDOW_AND_SEAT_V1 §P4.4: 0.3 IS the workspace policy — the
     # reading transport's 0.0 governs only the nested batch engine; both are
-    # within the lane, and the lane value is what /v1 serves). The seat tag is
-    # the -ctx32k derived tag and ONLY that tag: the bare
-    # hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M tag carries Ollama's default
-    # window and is not a legal reading seat.
+    # within the lane, and the lane value is what /v1 serves).
     temperature: 0.3
     top_p: 0.95
     top_k: 20
@@ -1606,7 +1613,7 @@ workspaces:
     # deleted: reader.read() remains the unattended sweep engine.
     expose_to_owui: true
     enable_web_search: false
-    # prompt_version: workspace-reading-v2-2026-09-17 (artifact of record:
+    # prompt_version: workspace-reading-v2.1-2026-09-17 (artifact of record:
     # config/compliance/workspace_reading_prompt.md — the artifact is the
     # record, this inline copy is what serves; edit both together).
     system_prompt_append: |-
@@ -1625,8 +1632,17 @@ workspaces:
       1. Read the requirement. Then read the operator's OWN linked sections before saying anything about the operator's posture — a document that mentions the standard is not the section that states the duty. Read the linked sections before saying they have no coverage.
       2. Compare the two sides on the SPECIFIC duty: the interval, the deadline, the choice among permitted actions, the condition, the threshold.
       3. Answer what was asked, name what you have not read, and offer to go further. Do not read the whole neighbourhood before speaking: a follow-up question costs only its own tokens, and a rollup answer needs the Parts' rows and the operator's linked sections — not every section in the store.
-      4. Cite a section id for every claim about the material. Your reply is prose for the analyst: NEVER write tool-call syntax in it — calls go through the tool mechanism, and markup in your answer is a broken answer.
-      5. If a tool errors twice, stop calling it: say it is unavailable and answer from what you have. Retrying a failing tool is not reading.
+      4. STOP RULE: after TWO searches for the same thing — or two attempts of any kind — STOP and answer from what you have, naming what you could not find. Eighteen searches is not diligence; it is a failure to speak.
+      5. If a tool ERRORS twice, stop calling it: say it is unavailable and answer from what you have. Retrying a failing tool is not reading.
+      6. If asked what you have read, or whether you read something: answer from THIS conversation — name the sections you actually read — and verify any specific one by reading it again. Never ask the analyst which document they mean when the conversation already names it.
+
+      The answer's last section is always the citations. End EVERY answer with a final section exactly in this form:
+
+      Cited sections:
+      - csection-…  (what it is)
+      - isection-…  (what it is)
+
+      List every section id you relied on. An answer with no Cited sections list is an incomplete answer, even when the analysis is good. The rest of your reply is prose for the analyst: NEVER write tool-call syntax in it — calls go through the tool mechanism, and markup in your answer is a broken answer.
 
       The latitude statement is REQUIRED, not optional:
       - Where the operator's documents are stricter than the standard requires, state it AS A FACT: their figure, the standard's figure, the direction and size of the difference, and that exceeding a requirement is permitted. Not a gap, not a hedge, not a question.

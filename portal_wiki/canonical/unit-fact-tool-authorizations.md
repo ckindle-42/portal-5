@@ -5,7 +5,7 @@ title: tool authorizations for 26 production workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 4361faf07179
+  commit: a8efd5a4c2a4
   section: workspaces[].tools
 claims: []
 confidence: high
@@ -14,7 +14,7 @@ tags:
 - tools
 - workspaces
 created_at: 1784049584.703768
-updated_at: 1789689170.718824
+updated_at: 1789692579.113007
 ---
 
 # Tool authorizations (per-workspace `tools:` whitelist)
@@ -28,7 +28,7 @@ The pipeline strips any tool a workspace does not authorize (metric `portal5_too
 | `auto-bigfix` | general | `execute_python`, `execute_bash`, `web_search`! |
 | `auto-cad` | cad | `execute_python`, `execute_bash`, `sandbox_status`, `read_pdf`, `read_word_document`, `web_search`!, `web_fetch`!, `remember`!, `recall`!, `kb_search`!, `render_mesh`, `render_openscad`, `convert_cad`, `generate_scad` |
 | `auto-coding` | coding | `execute_python`, `execute_nodejs`, `execute_bash`, `sandbox_status`, `read_word_document`, `read_pdf`, `remember`!, `recall`! |
-| `auto-compliance` | compliance | `create_word_document`, `read_pdf`, `kb_search`!, `kb_list`!, `web_search`!, `lookup_cve`, `get_epss`, `check_kev`, `triage_cve`, `ics_advisories`, `scan_dependencies`, `lookup_control`, `search_controls`, `nerc_cip_requirement`, `compliance_requirement`, `compliance_read`, `compliance_links`, `compliance_timeline`, `compliance_note`, `compliance_notes`, `compliance_answers`, `compliance_correct`, `compliance_context`, `compliance_coverage`, `compliance_ask`, `compliance_conflicts`, `compliance_standing_questions`, `compliance_review_decide_batch`, `nerc_cip_currency`, `map_frameworks`, `patch_evidence`, `refresh_catalogs`, `compliance_ingest`!, `compliance_search`, `compliance_gaps`, `compliance_orphans`, `compliance_change_impact`, `compliance_mappings`, `compliance_scope`, `compliance_route`, `compliance_review_list`, `compliance_review_decide`, `compliance_sources`, `compliance_trace`, `compliance_prospective`, `compliance_scenario`, `compliance_draft_revisions`, `compliance_intentionality`, `compliance_flexibility`, `compliance_analyze`, `compliance_compare`, `compliance_impact` |
+| `auto-compliance` | compliance | `create_word_document`, `read_pdf`, `kb_search`!, `kb_list`!, `web_search`!, `lookup_cve`, `get_epss`, `check_kev`, `triage_cve`, `ics_advisories`, `scan_dependencies`, `lookup_control`, `search_controls`, `nerc_cip_requirement`, `compliance_requirement`, `compliance_read`, `compliance_links`, `compliance_timeline`, `compliance_note`, `compliance_notes`, `compliance_answers`, `compliance_correct`, `compliance_context`, `compliance_coverage`, `compliance_ask`, `compliance_conflicts`, `compliance_standing_questions`, `compliance_review_decide_batch`, `nerc_cip_currency`, `map_frameworks`, `patch_evidence`, `refresh_catalogs`, `compliance_ingest`!, `compliance_search`, `compliance_orphans`, `compliance_mappings`, `compliance_scope`, `compliance_route`, `compliance_review_list`, `compliance_review_decide`, `compliance_sources`, `compliance_trace`, `compliance_draft_revisions`, `compliance_intentionality`, `compliance_flexibility`, `compliance_compare` |
 | `auto-council` | general | _(none)_ |
 | `auto-creative` | media | _(none)_ |
 | `auto-daily` | general | `web_search`!, `web_fetch`!, `kb_search`!, `kb_list`!, `read_pdf`, `read_word_document`, `read_excel`, `create_word_document`, `create_excel`, `create_powerpoint`, `execute_python`, `remember`!, `recall`!, `minimax_generate`, `minimax_status`, `transcribe_audio` |

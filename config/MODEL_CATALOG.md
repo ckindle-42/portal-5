@@ -2146,3 +2146,13 @@ The slate's mid-weight hybrid: 9B active puts its decode between the incumbent d
 ## Why
 
 §P2's slate priced it by architecture (cheapest KV shape, fastest decode); this import replaced speculation with numbers. The Vulkan-community report of slow prefill did not reproduce on Metal (1040 tok/s at the high-water).
+
+---
+
+### `hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k`
+
+`hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k` is the PRODUCTION reading seat tag, created 2026-09-17 during WINDOW_AND_SEAT_V1 (`ollama create` from the official inclusionAI Q4_K_M GGUF, MIT, with `PARAMETER num_ctx 32768` baked — Ollama /v1 ignores request-time `options.num_ctx`). Ling-3.0-tiny is inclusionAI's 7.9B hybrid (KDA 3:1 + MLA — one attention-bearing layer in four, latent-compressed), 1.3B active parameters/token, 131k native context, capabilities `tools, thinking`. `config/backends.yaml` registers it in the `general` group with `supports_tools: true` (probe: tools rendered, think honored, template sha `eb6226c94ae3`). WINDOW_AND_SEAT_V1 §P3 sweep: **104.5 tok/s decode (fastest of the slate), 1040 tok/s prefill** at the 20.5k high-water, 3.7 s cold load, no swap, cross-turn cache holds (turn-2 prefill 0.13 s vs 2.64 s). §P4.2 live loop: `parent` answered in 57.1 s across 6 hops and 14 tool calls, zero errors — inside the product's one-minute bar where the incumbent dense seat took 397.8 s. Probe caveats, investigated to the template level: the system-probe flag is small-active instruction-following (it answers "Green." over a system command to say BLUE — the template renders system fine), and the Bailing V3 template defaults `thinking_option` ON when the flag is absent — the workspace pins `think:false`, so the product is safe; any client omitting the flag gets thinking by default and a starved token budget.
+
+## Why
+
+WINDOW_AND_SEAT_V1 §P8.1 bound it as the compliance-reading seat: the binding criterion among qualifiers (no swap, high-water held) is fastest decode, and it carries a working `think` lever for the §P7 rung-4 reserve that the granite hybrid lacks. The arch-support risk named in the task (Ollama too old for `bailingmoe3`) did not materialize on Ollama 0.34.0, and the community-reported agentic-use fragility (dropped tool calls in unclosed think blocks, 500s) did not reproduce on this build's live 14-tool loop.

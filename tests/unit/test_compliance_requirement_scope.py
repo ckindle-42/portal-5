@@ -365,9 +365,18 @@ class TestReadOrSayWhatYouDidNotRead:
         assert closure["accounted_for"] is True
         assert closure["complete"] is False, "a declared omission is not a full read"
 
-    def test_an_undeclared_gap_still_bars_an_absence_claim(
+    def test_an_undeclared_gap_is_reported_and_judged_not_regexed(
         self, store: Repository, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """WINDOW_AND_SEAT_V1 §P8.4. The absence-cue rule is gone from the
+        closure: this reading declares an omission in prose the regex would
+        once have treated differently from an undeclared one, and the closure
+        no longer fails EITHER way on prose shape. What the contract still
+        guarantees is the FACT record: the unread section is named in
+        ``undeclared_unread``, ``accounted_for`` is False, ``complete`` is
+        False, and the failure string is empty — an analyst (or the agent
+        judge) reads the receipt and decides, not a pattern match."""
+
         from portal.modules.compliance.core import reader, reading_transport
 
         turns: list[int] = []
@@ -403,5 +412,9 @@ class TestReadOrSayWhatYouDidNotRead:
             store, "what do we do?", "CIP-007-6 R2 Part 2.2", model="stub", store=False
         )
         assert payload["closure_receipt"]["model_tool_calls"] == 1
-        assert payload["failed"] is True
-        assert "neither read nor named" in payload["failure"]
+        receipt = payload["closure_receipt"]
+        assert receipt["undeclared_unread"], "the unread section is still reported as a fact"
+        assert receipt["accounted_for"] is False
+        assert receipt["complete"] is False
+        assert payload["failure"] == "", "prose shape can no longer fail a reading"
+        assert payload["failed"] is False

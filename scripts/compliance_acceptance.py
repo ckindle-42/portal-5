@@ -377,7 +377,15 @@ def counter_delta(before: dict[str, float], after: dict[str, float]) -> dict[str
     """Per-label deltas between two counter snapshots."""
     out: dict[str, dict[str, float]] = {"input": {}, "output": {}, "tools": {}, "tool_errors": {}}
     for key, value in after.items():
-        delta = value if key not in before else value - before[key]
+        # A failed scrape comes back as {"error": "..."} (str) and individual
+        # values can be NaN — neither is a counter delta. Skip non-numerics:
+        # counters are a cross-check here, never worth crashing a turn over.
+        if not isinstance(value, (int, float)):
+            continue
+        before_value = before.get(key)
+        # a key absent from `before` is a NEW counter — its full value is the
+        # delta (a counter that did not exist cannot have been consumed)
+        delta = value if not isinstance(before_value, (int, float)) else value - before_value
         if abs(delta) < 1e-9:
             continue
         if key.startswith("portal_input_tokens_total"):
@@ -402,6 +410,7 @@ def _consume_workspace_stream(  # noqa: PLR0912 - one linear pass over the SSE l
     started: float,
     turn_budget_s: float,
     timeout: float,
+    query: str = "",
 ) -> dict[str, Any]:
     """Stream one workspace turn and fold it into measurements.
 
@@ -428,7 +437,7 @@ def _consume_workspace_stream(  # noqa: PLR0912 - one linear pass over the SSE l
     try:
         with session.stream(
             "POST",
-            f"{router}/v1/chat/completions",
+            f"{router}/v1/chat/completions{query}",
             headers={"Authorization": f"Bearer {_api_key()}"},
             json={"model": workspace, "messages": messages, "stream": True, "temperature": 0.0},
             timeout=timeout,
@@ -494,12 +503,20 @@ class WorkspaceThread:
     cache (P6.4: later turns faster than the first) is measured against. The
     two remaining cases open their own threads because they test different
     shapes, and a shared thread would let the earlier answers bleed into them.
+
+    ``model_override`` pins the seat's model per request through the router's
+    ``?model=<tag>`` override (bounded to backends-registered ids) — the §P4.2
+    loop probe drives the SAME workspace — prompt, tool list, sampling — on
+    each candidate without touching the serving config.
     """
 
-    def __init__(self, session: httpx.Client, workspace: str, router: str) -> None:
+    def __init__(
+        self, session: httpx.Client, workspace: str, router: str, model_override: str = ""
+    ) -> None:
         self.session = session
         self.workspace = workspace
         self.router = router
+        self.model_override = model_override
         self.messages: list[dict[str, str]] = []
         self.rng = __import__("random").Random()
 
@@ -510,6 +527,11 @@ class WorkspaceThread:
         # §P4 loop-probe wall-clock budget, env-overridable; see the stream
         # consumer's guard for why it aborts rather than waits.
         turn_budget_s = min(timeout, float(os.environ.get("TURN_BUDGET_S", "900")))
+        import urllib.parse
+
+        query = (
+            f"?model={urllib.parse.quote(self.model_override, '')}" if self.model_override else ""
+        )
         stream = _consume_workspace_stream(
             self.session,
             self.router,
@@ -518,6 +540,7 @@ class WorkspaceThread:
             started=started,
             turn_budget_s=turn_budget_s,
             timeout=timeout,
+            query=query,
         )
         wall = round(time.monotonic() - started, 2)
         after = snapshot_counters(self.session, self.router)
@@ -698,6 +721,34 @@ def _run_workspace_cell(
     record["passed"] = all(c["ok"] for c in checks)
 
 
+def _campaign_inputs(seat: str) -> dict[str, str]:
+    """The identity a cell's result is valid FOR: the seat and the LIVE sha of
+    the workspace prompt it will be served.
+
+    WINDOW_AND_SEAT_V1 near miss (documented in the report): a rerun of the
+    campaign silently RESUMED every cell from disk — the resume key carried no
+    notion of what the cell was run WITH, so a new prompt version produced
+    byte-identical 'results' from the old run and nearly entered the report as
+    evidence for the revision. A cell may only resume when its recorded
+    campaign inputs match the live ones; anything else re-runs.
+    """
+    import hashlib
+
+    try:
+        import yaml as _yaml
+
+        portal = _yaml.safe_load((REPO / "config/portal.yaml").read_text())
+        ws_prompt = str(
+            (portal.get("workspaces") or {})
+            .get("compliance-reading", {})
+            .get("system_prompt_append", "")
+        )
+        prompt_sha = hashlib.sha256(ws_prompt.encode()).hexdigest()[:12] if ws_prompt else ""
+    except Exception:  # noqa: BLE001 - an unreadable prompt sha must never pass a resume check
+        prompt_sha = "unreadable"
+    return {"seat": seat, "workspace_prompt_sha": prompt_sha}
+
+
 def run_cell(
     client: httpx.Client,
     base_url: str,
@@ -713,8 +764,12 @@ def run_cell(
     exit_path = out_dir / f"{name}.exit"
     if exit_path.is_file() and path.is_file():
         record = json.loads(path.read_text())
-        record["resumed"] = True
-        return record
+        if record.get("campaign_inputs") == _campaign_inputs(seat):
+            record["resumed"] = True
+            return record
+        # Stale cell: it was run against a different seat or prompt. Fall
+        # through and re-run it — a resume across a config change is how a
+        # revision 'passes' without ever executing (the near miss).
 
     before = environment(base_url)
     record: dict[str, Any] = {
@@ -724,6 +779,7 @@ def run_cell(
         "case": case["id"],
         "ref": case["ref"],
         "thread": str(case.get("thread", case["id"])),
+        "campaign_inputs": _campaign_inputs(seat),
         "question": str(case["question"]).strip(),
         "run_index": run_index,
         "environment_before": before,

@@ -111,36 +111,6 @@ _WORD_NUMBERS.update(
     }
 )
 
-#: An assertion that something is ABSENT from the corpus — which is the one kind
-#: of claim a reading may not make while eligible material sits unread.
-#:
-#: The previous pattern was
-#: ``(no|none|not found|does not|without) .{0,80} (evidence|section|control|procedure|link)``
-#: — a negation anywhere within eighty characters of a noun. Measured on a live
-#: CIP-007-6 Part 2.3 reading that was otherwise correct on every check: the
-#: analyst asked "does anything narrow that choice?", the model answered
-#: **"No.** The operator's procedure preserves all three permitted actions"* —
-#: and the pattern matched ``no`` … ``procedure``. The reading was failed for
-#: ANSWERING THE QUESTION IT WAS ASKED, and the failure it was given accused it
-#: of asserting an absence it never asserted.
-#:
-#: The negation must now GOVERN the noun — a determiner ("no operator document"),
-#: an existential ("there is no record"), a finding ("I found no procedure"), or
-#: a container verb ("the corpus does not contain") — so a sentence-initial "No."
-#: answering a yes/no question cannot match: every alternative needs a word
-#: between the negation and the noun, and punctuation is not a word.
-_ABSENCE_CLAIM = re.compile(
-    r"\b(?:there\s+(?:is|are)|i\s+(?:found|have|see)|we\s+(?:have|found))\s+no\b"
-    r"|\bno\s+(?:\w+\s+){0,3}?"
-    r"(?:evidence|record|records|document|documents|procedure|procedures|section|sections|"
-    r"control|controls|link|links)\b"
-    r"|\bnone\s+of\s+(?:the|these|those)\b"
-    r"|\bnothing\s+(?:in|among|within)\b"
-    r"|\b(?:does|do|did)\s+not\s+(?:appear\s+to\s+)?"
-    r"(?:contain|include|hold|show|record|address|exist)\b",
-    re.I,
-)
-
 #: How far a quantity may sit from the citation it is pinned to. Beyond this it
 #: is reported as UNATTRIBUTED rather than misattributed: a concluding sentence
 #: that carries a number and no nearby id is not the same failure as a number
@@ -562,18 +532,25 @@ def _closure_failure(
     model_calls: int,
     eligible: set[str],
     cited: set[str],
-    unread: list[str],
-    absence_claim: bool,
 ) -> str:
-    """``unread`` here is the UNDECLARED remainder: a section the answer names as
-    one it did not read is accounted for, and does not bar an absence claim."""
-    """The control contract, in the order a reading fails it.
+    """The control contract, reduced to the two facts (WINDOW_AND_SEAT_V1 §P8.4).
 
     A terminal prose answer with no tool call at all used to be accepted as
-    success: ``failed`` was set only when the narrow absence regex happened to
-    fire, so ordinary unsupported prose travelled as a sound reading. That is
-    exactly what the live parent-level run did, and exactly what the loop
-    permitted.
+    success: ``failed`` was set only when an absence regex happened to fire, so
+    ordinary unsupported prose travelled as a sound reading. That is exactly
+    what the live parent-level run did, and exactly what the loop permitted.
+
+    It carried a THIRD rule until §P8.4: an answer whose prose "asserted an
+    absence" while eligible sections sat unread failed the reading. Whether
+    prose asserts an absence was decided by a cue regex — and a regex deciding
+    what prose claims is the acceptance rubric living inside the product, where
+    it fails real answers instead of merely mis-scoring them (it failed a
+    correct "No." to a yes/no question on a live Part 2.3 reading). The rule is
+    reduced to the other two, which are facts; the unread population stays
+    fully reported in the receipt (``unread``, ``undeclared_unread``,
+    ``accounted_for``, ``complete``), and judging whether an answer's absence
+    language is warranted given what it left unread is the agent judge's job,
+    not a pattern match's.
     """
     if not model_calls:
         return (
@@ -584,11 +561,6 @@ def _closure_failure(
         return (
             f"the answer cites no section in scope: {len(eligible)} section(s) were "
             "eligible and none of them is cited"
-        )
-    if absence_claim and unread:
-        return (
-            "answer asserts an absence with "
-            f"{len(unread)} eligible section(s) neither read nor named as unread"
         )
     return ""
 
@@ -1019,7 +991,6 @@ def read(  # noqa: PLR0912, PLR0915
     normalised_answer = answer.translate(_DASHES)
     omitted_with_reason = [section_id for section_id in unread if section_id in normalised_answer]
     undeclared_unread = [section_id for section_id in unread if section_id not in normalised_answer]
-    absence_claim = bool(_ABSENCE_CLAIM.search(answer))
     operator_eligible = {
         section_id
         for section_id, entry in (population.get("sections") or {}).items()
@@ -1055,18 +1026,12 @@ def read(  # noqa: PLR0912, PLR0915
         "stop_reason": stop_reason,
         "tool_trace": tool_trace,
     }
-    # The control contract, in the order a reading fails it.
-    #
-    # A terminal prose answer with no tool call at all was accepted as success:
-    # `failed` was set only when the narrow absence regex happened to fire, so
-    # ordinary unsupported prose travelled as a sound reading. That is precisely
-    # what the live parent-level run did, and precisely what the loop permitted.
+    # The control contract, reduced to the two facts (§P8.4) — see
+    # _closure_failure's docstring for why the absence-cue rule is gone.
     closure_failure = _closure_failure(
         model_calls=model_calls,
         eligible=eligible,
         cited=cited,
-        unread=undeclared_unread,
-        absence_claim=absence_claim,
     )
     # The estimate is checked against the runner's own count on every call. An
     # under-estimate is the dangerous direction: it sizes the window too small

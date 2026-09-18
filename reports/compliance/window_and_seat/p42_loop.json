@@ -1,0 +1,164 @@
+{
+ "granite4:tiny-h-ctx32k": {
+  "requested": "granite4:tiny-h-ctx32k",
+  "served": "granite4:tiny-h-ctx32k",
+  "wall_s": 19.46,
+  "budget_exceeded": false,
+  "hops": 5,
+  "hop_prompts": [
+   2356,
+   2455,
+   2556,
+   3352,
+   4148
+  ],
+  "tool_calls": {
+   "compliance_coverage": 1.0,
+   "compliance_search": 1.0,
+   "compliance_requirement": 2.0
+  },
+  "tool_errors": {
+   "compliance_coverage": 1.0,
+   "compliance_search": 1.0
+  },
+  "answer_chars": 2639,
+  "answer_head": "**CIP\u2011007\u20116\u202fR2 \u2013 Gap Summary (as of\u202f27\u202fAug\u202f2025)**  \n\n| Part | What the standard says | Operator\u2011side coverage (what you have) | Gap description | How \u201cbad\u201d it is |\n|------|------------------------|----------------------------------------|----------------|----",
+  "error": ""
+ },
+ "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k": {
+  "requested": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
+  "served": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
+  "wall_s": 99.8,
+  "budget_exceeded": false,
+  "hops": 12,
+  "hop_prompts": [
+   3206,
+   7190,
+   13874,
+   14620,
+   15040,
+   15555,
+   16890,
+   17729,
+   19456,
+   20050,
+   20622,
+   21996
+  ],
+  "tool_calls": {
+   "compliance_requirement": 1.0,
+   "compliance_coverage": 1.0,
+   "compliance_read": 9.0
+  },
+  "tool_errors": {},
+  "answer_chars": 5640,
+  "answer_head": "Now I have a clear picture of the gaps. Let me summarize the analysis:\n\n## CIP-007-6 R2 Gap Analysis\n\n### The Standard's Requirements (Parts 2.1\u20132.4)\n\n| Part | Standard Requirement | Key Interval/Deadline |\n|------|---------------------|----------------------|",
+  "error": ""
+ },
+ "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx48k": {
+  "requested": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx48k",
+  "served": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx48k",
+  "wall_s": 102.02,
+  "budget_exceeded": false,
+  "hops": 4,
+  "hop_prompts": [
+   2894,
+   13126,
+   17776,
+   21467
+  ],
+  "tool_calls": {
+   "nerc_cip_requirement": 1.0,
+   "compliance_coverage": 1.0,
+   "compliance_read": 5.0,
+   "compliance_conflicts": 3.0
+  },
+  "tool_errors": {},
+  "answer_chars": 5373,
+  "answer_head": "To answer this accurately, I need to first establish the specific duty in CIP-007-6 R2 and then check the operator's coverage against it.\n\nHere is the gap analysis for CIP-007-6 R2, based on the verbatim standard and the operator\u2019s linked sections.\n\n### 1. Par",
+  "error": ""
+ },
+ "gemma4:26b-a4b-it-q4_K_M-ctx32k": {
+  "requested": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "wall_s": 65.24,
+  "budget_exceeded": false,
+  "hops": 6,
+  "hop_prompts": [
+   2467,
+   6328,
+   6710,
+   13967,
+   14690,
+   16289
+  ],
+  "tool_calls": {
+   "compliance_requirement": 1.0,
+   "compliance_links": 1.0,
+   "compliance_context": 1.0,
+   "compliance_read": 2.0
+  },
+  "tool_errors": {},
+  "answer_chars": 3457,
+  "answer_head": "Based on my review of the NERC CIP-007-6 R2 requirements and your internal documentation, I have identified several critical compliance conflicts and unverified obligations.\n\n### **Critical Compliance Conflicts**\nThere is a significant quantitative conflict re",
+  "error": ""
+ },
+ "granite4:small-h-ctx32k": {
+  "requested": "granite4:small-h-ctx32k",
+  "served": "granite4:small-h-ctx32k",
+  "wall_s": 247.51,
+  "budget_exceeded": false,
+  "hops": 13,
+  "hop_prompts": [
+   2356,
+   2433,
+   5890,
+   5977,
+   6054,
+   6141,
+   19167,
+   19244,
+   20698,
+   21041,
+   21105,
+   24562,
+   20751
+  ],
+  "tool_calls": {
+   "compliance_coverage": 5.0,
+   "compliance_requirement": 4.0,
+   "compliance_context": 1.0,
+   "compliance_links": 1.0,
+   "compliance_notes": 1.0
+  },
+  "tool_errors": {
+   "compliance_coverage": 5.0
+  },
+  "answer_chars": 3834,
+  "answer_head": "**NERC\u202fCIP\u2011007\u20116\u202fR2 \u2013 Patch\u2011Management Requirement (as of\u202f31\u202fDec\u202f2023)**  \n\n| Part | Duty (verbatim) | Key Elements | Effectivity |\n|------|----------------|--------------|-------------|\n| **2.1** | \u201cA patch\u2011management process for tracking, evaluating, and ins",
+  "error": ""
+ },
+ "ling30-tiny-test:latest": {
+  "requested": "ling30-tiny-test:latest",
+  "served": "ling30-tiny-test:latest",
+  "wall_s": 57.11,
+  "budget_exceeded": false,
+  "hops": 6,
+  "hop_prompts": [
+   2855,
+   6755,
+   12402,
+   15935,
+   17808,
+   18297
+  ],
+  "tool_calls": {
+   "compliance_requirement": 5.0,
+   "compliance_search": 9.0
+  },
+  "tool_errors": {},
+  "answer_chars": 6053,
+  "answer_head": "I have now read the full text of all four parts of CIP-007-6 R2. Here is the gap analysis, with each gap rated by severity.\n\n---\n\n## CIP-007-6 R2 Gap Analysis\n\n### 1. Part 2.1 \u2014 Patch Management Process & Source Identification\n**Requirement:** \"A patch managem",
+  "error": ""
+ }
+}

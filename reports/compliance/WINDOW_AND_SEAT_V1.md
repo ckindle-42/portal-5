@@ -387,3 +387,126 @@ Raw: `reports/compliance/window_and_seat/p4_probes.json`.
   is the §P8.2 deletion.
 
 Commit: `feat(compliance): P4 — tool-loop and applied-settings probes in the shared audit`
+
+---
+
+## §P4.2 — the live tool loop, per candidate
+
+The router's `?model=` override (bounded to backends-registered ids) drives the
+SAME deployed workspace — prompt, 19 tools, sampling — on each candidate without
+touching the serving config. Verified live: the route header serves the requested
+tag through `compliance-reading::model=<tag>`. Raw:
+`reports/compliance/window_and_seat/p42_loop.json`.
+
+| candidate | turn wall | hops | tool calls | tool errors | answer |
+| --- | --- | --- | --- | --- | --- |
+| granite4:tiny-h @32k | **19.5 s** | 5 | 4 | 2 (transient) | gap table, prose |
+| Ling-3.0-tiny | 57.1 s | 6 | 14 | 0 | gap analysis w/ severity |
+| gemma4 26B-A4B @32k | 65.2 s | 6 | 5 | 0 | conflicts + obligations |
+| Nemotron @32k | 99.8 s | 12 | 11 | 0 | gap analysis |
+| Qwen3.6-35B-A3B @48k | 102.0 s | 4 | 10 | 0 | methodical, both sides |
+| granite4:small-h @32k | 247.5 s | 13 | 12 | **5** (coverage ×5 — repeated a failing tool) | patch table |
+| (incumbent, pre-fix reference) | 397.8 s | 3 | 19 | 0 | **pseudo `<tool_call>` markup, no prose** |
+
+Every candidate drives the loop and answers in prose. small-h repeated a failing
+`compliance_coverage` five times (the retry pattern §P5's stop rule targets);
+its errors were verified NOT reproducible standalone — the tool answers in <30 s
+— so the failure is the seat's retry behaviour, not the tool.
+
+---
+
+## §P5/§P6 — the campaigns, judged by reading
+
+### The think question, answered with the lever pulled (§P7)
+
+*"Does the model need to think to answer the question?"* — measured on the bound
+seat, three arms, adequate budgets, deterministic temperature, `choice`-case
+material verbatim from the store:
+
+* **think OFF**: 2 s, 81 tokens — structurally correct on every single-document
+  fact, but MISSED the case's key point (the operator's two procedure sections
+  disagree: 3.5.1 permits one-of-three, 3.4.2.1 joins all three with "and").
+* **think ON @2,048**: **no answer** — 8,617 characters of thinking consumed the
+  entire budget.
+* **think ON @8,192** (4×): **still no answer** — 32,854 characters of thinking,
+  zero content. Ling's reasoning does not terminate on this material at
+  temperature 0.
+
+Verdict: on the bound seat, thinking is not a hidden capability the `think:false`
+pin is suppressing — it is unusable, and the pin is the only working
+configuration. §P7's rung-4 lever has no reserve on this seat. (The transport's
+allowance split — `answer_budget`/`reasoning_allowance`, retry at double, both
+attempts recorded — is what makes this measurement honest rather than
+starved; it landed in `ea37da78` and `DEFAULT_EFFORT` stays `False`.)
+
+### Campaign one (prompt v2) — and the NEAR MISS
+
+The first campaign on the bound seat (v2 prompt, 19 tools): 2 PASS / 4 FAIL —
+`interval` passed (4 real ids, verbatim both-sides quotes), `read_check` answered
+prose; `parent`/`choice` returned pseudo tool-call markup or empty stubs,
+`no_operator_side` and `choice` hit the 20-hop ceiling looping
+`compliance_search` ×18.
+
+**The near miss, documented because it is the campaign's most important
+instrument finding.** The v2.1 prompt revision was followed by TWO "reruns" that
+produced byte-identical results — identical to the hundredth of a second
+(`wall_s=53.04 / 22.97 / 2.13 / 22.53` across "different" runs). They were not
+runs: `run_cell`'s resume logic replays any on-disk cell whose filename matches,
+its key carries NO notion of what the cell was run with, the campaign directory
+is keyed by git rev (unchanged across the prompt edit), and — the third leg —
+my cleanup `rm` executed from the wrong working directory and deleted nothing.
+A revision would have entered the report as "measured" without ever executing.
+What caught it was reading the numbers against each other. The fix, landed in
+the harness: every cell now records its **campaign inputs** (seat + live sha of
+the workspace prompt), and a cell may only resume when that identity matches the
+live one — anything else re-runs. The rule this project keeps relearning, again:
+an instrument is validated by a control before its verdicts are believed, and a
+resume path is an instrument.
+
+### Campaign two (prompt v2.1, fresh cells, verified deployed) — 3 PASS / 3 FAIL
+
+| case | wall | hops | tools | ids cited | Cited-sections list | deterministic | agent judgment |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| parent | **547.8 s** | 5 | 30 | 3 | no | **PASS** | real synthesis of all four Parts; 30 tool calls is the appetite cap failing; 9 minutes against the one-minute bar |
+| choice | 33.6 s | 20 | 20 | 0 | no | FAIL | 20-hop ceiling again — the stop rule did not hold |
+| interval | 20.8 s | 3 | 3 | **5** | **yes** | PASS | ids, verbatim quotes, both sides; the latitude phrasing stays muddled but the facts are stated |
+| read_check | 8.2 s | 2 | 2 | 0 | no | FAIL | **claimed the operator's patch-management procedure does not exist in the corpus** — the searches SUCCEEDED (see below); an absence fabricated over received evidence |
+| either_or | 3.1 s | 1 | 0 | 0 | no | FAIL | asked the analyst to clarify which standard "Part 5.7" means instead of reading it (the prior campaign's either_or answered) |
+| no_operator_side | 44.7 s | 5 | 5 | **5** | **yes** | **PASS** | resolved the scope confusion out loud, cited five sections, gave the unverified-obligation answer the case exists for |
+
+v2.1's structural additions worked WHERE the seat engaged with them: three
+answers carry the mandatory `Cited sections:` list (zero did before), parent
+passed for the first time, no_operator_side — the case that had never passed —
+passed. Where the seat did not engage, nothing changed: the stop rule was
+ignored in `choice`, and `read_check`/`either_or` show the same
+small-active-instruction-following ceiling the §P4 probe flagged —
+now measured on REAL instructions across 13 observed turns.
+
+**Rung ledger (§P7)**: `choice` — rung 1, revision one spent (stop rule added;
+it did not hold; one revision remains before the case is reported as testing
+something the prompt cannot express on this seat). `read_check` — **rung 4,
+verified by reproduction**: the store holds the LSPG Security Patch Management
+Procedure (two of its sections resolve by id), `compliance_search("patch
+management procedure")` returns 10 hits with the operator's own patch material
+as the FIRST hit, the seat's two calls dispatched with zero errors — and it
+wrote "the search returned zero results". The tool delivered; the seat
+fabricated an absence over a full result payload. With the think lever
+non-terminating on this seat, there is no reserve for a rung-4 failure —
+this is the seat finding. `interval` — the latitude inversion (v2 campaign)
+is rung-4-shaped on verbatim-quoted text; v2.1 states it correctly.
+`either_or` — rung 1, revision one.
+
+**Where the seat decision stands (§P8.1, honest)**: the bound seat passes 3/6
+with genuinely good answers when it engages, and cannot be relied on to
+engage — one fabricated-absence failure in six cases is disqualifying for a
+compliance product if it stands. The measured tradeoff across the slate: the
+two fast seats inside the one-minute bar (Ling 57 s, granite tiny-h 19.5 s)
+both carry the instruction-following flag; the three instruction-clean seats
+(gemma4 65 s, Nemotron 100 s, Qwen3.6 102 s) were all measured OVER the
+minute bar on turn one. No candidate currently meets both bars. Next levers,
+in order: rung-1 revision two (choice/either_or), and a campaign run on
+gemma4 — the fastest instruction-clean seat — to measure whether its 65 s
+turn-one and its factuality hold where Ling's did not. The bind stays
+recorded as provisional until one seat passes all six.
+
+Commit: `refactor(compliance): P6 — six cases live, smoke-first, judged by reading`
