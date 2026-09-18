@@ -510,3 +510,78 @@ turn-one and its factuality hold where Ling's did not. The bind stays
 recorded as provisional until one seat passes all six.
 
 Commit: `refactor(compliance): P6 — six cases live, smoke-first, judged by reading`
+
+## §A — appendix: the ternary collection (Bonsai-2 27B), measured, and why it is not the seat
+
+The `prism-ml/bonsai-2` collection was evaluated as a possible seat family
+before anything else touched it. What it is: the incumbent's own architecture
+— a ternary g128 re-encoding of Qwen3.8-27B at a true 1.72 bits/weight
+(5.95 GB on disk vs the incumbent's 18.77 GB Q4_K_M), vendor-claimed at 98.2%
+of FP16 benchmark average with tool calling retained (BFCL v3 74.92, IFEval
+slightly above baseline). On paper that is the seat the incumbent failed to
+be, so both engines were attempted, in the order that could produce evidence:
+Ollama (the deployed chat lane) and MLX (out-of-band measurement lane).
+
+### A.1 Ollama: refuses loudly, not silently — and one deliberate non-test
+
+`ollama pull hf.co/prism-ml/Ternary-Bonsai-2-27B-gguf:PTQ1_0` succeeds
+(5.9 GB, digest verified); loading fails with
+`Error: tensor "output.weight" size overflow`. Stock llama.cpp — which Ollama
+0.34.0 embeds — does not know the PTQ1_0/PQ2_0 ternary tensor types and
+mis-sizes the packed LM head. The failure is loud. The silent variant is
+real and vendor-documented: the separate `-dev` repo packs the same model as
+stock-`Q2_0`, which stock llama.cpp loads WITHOUT WARNING and decodes to
+gibberish (it has no Hadamard activation runtime). That file was
+deliberately never loaded anywhere in this project's tooling — it is the
+exact silent-harness-failure class this campaign exists to catch, now with a
+concrete vendor example.
+
+### A.2 MLX: fully working on stock wheels, checksum-verified loader
+
+The `mlx-2bit` pack ships its own loader (`runtime/`), all four files sha-256
+verified against the vendor's Bonsai-demo pin manifest, and runs on standard
+PyPI wheels (mlx 0.32.0, mlx-lm 0.31.3, mlx-vlm 0.6.3, transformers 5.5.0)
+in an isolated venv — no fork, production site-packages untouched. The
+correct entry point is `vision_artifact.load_vl_model` (the pack's
+`model.safetensors` uses `language_model.`-prefixed tensor keys; the
+text-only loader in the same runtime refuses the shipped config's schema 2).
+Text generation is coherent end to end: a one-word instruction answered in
+one word; 17×23 exact with a correct check line; a 24k-token comprehension
+probe over this report answered correctly; a `get_weather` call emitted in
+Qwen3.8's parseable `<tool_call>` form through the shipped template.
+Thinking is on by default and the vendor demo's
+`<think>\n\n</think>\n\n` prompt prefix suppresses it cleanly — that is the
+deterministic-lane configuration. These are smoke-level checks, not
+campaign-grade judgments; the 14-benchmark table is the vendor's.
+
+Measured on this box (M4 Pro, 64 GB), against the §P3 sweep numbers:
+
+| measure | Bonsai-2 MLX (measured) | incumbent Q4_K_M | Ling (seat) | granite tiny-h |
+|---|---|---|---|---|
+| resident weights | 9.3 GB | 18.77 GB | — | 5.57 GB |
+| decode at depth | 15.8–21 tok/s | 12.0 | 104.5 | 78.8 |
+| prefill at depth | 91 tok/s @ 24.4k | 94.4 @ 20.7k | 1040.1 | 1278.1 |
+| turn one at the high-water | **270.5 s = 4.51× the bar** | 397.8 s (loop) | 57.1 s (loop) | 19.5 s (loop) |
+| peak memory at high-water | 21.85 GB | 18.77 GB | — | — |
+
+(The 270.5 s row is a single prefill-plus-answer turn at 24,368 prompt
+tokens; the loop figures include their tool hops. The prefill row is the
+like-for-like comparison, and it is not close.)
+
+### A.3 verdict: watched, not seated
+
+Ternary compression cuts bytes, not FLOPs. Decode is bandwidth-bound, so it
+improves on the incumbent (15.8–21 vs 12.0 tok/s at half the resident
+footprint); prefill is compute-bound on the unchanged 27B backbone and lands
+at 91 tok/s — the incumbent's disease at the incumbent's severity, an order
+of magnitude behind the low-active-param seats. At the campaign's 20.5k
+high-water a single turn is 4.51× the product's one-minute bar before any
+instruction-following evidence is considered, and the deployed lane cannot
+serve it at all. The inert 6.5 GB Ollama blob was removed from the local
+store (`ollama rm`); the MLX pack and probe scripts stay under `/tmp`
+(`bonsai-mlx`, `bonsai_probe2.py`, `bonsai_prefill20k.py`) for the day the
+ternary kernels land in stock llama.cpp/Ollama — the vendor is upstreaming,
+and a 5.95 GB seat with incumbent-grade quality would then be a real
+candidate for a lane with a bigger prefill budget. The open gap — a seat
+both inside the minute bar and instruction-clean — is unchanged, and the
+next levers remain the ones named in §P8.1.
