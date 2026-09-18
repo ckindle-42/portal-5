@@ -5,7 +5,7 @@ title: tool authorizations for 26 production workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 3eb15d5f384f
+  commit: 4361faf07179
   section: workspaces[].tools
 claims: []
 confidence: high
@@ -14,7 +14,7 @@ tags:
 - tools
 - workspaces
 created_at: 1784049584.703768
-updated_at: 1789609913.8310971
+updated_at: 1789689170.718824
 ---
 
 # Tool authorizations (per-workspace `tools:` whitelist)
@@ -47,7 +47,7 @@ The pipeline strips any tool a workspace does not authorize (metric `portal5_too
 | `auto-uncensored-throwaway` | general | `web_search`!, `web_fetch`!, `news_search`!, `execute_bash`, `execute_python`, `remember`!, `recall`! |
 | `auto-video` | video | `generate_video`, `animate_image` |
 | `auto-vision` | general | `transcribe_audio`, `generate_image`, `edit_image` |
-| `compliance-reading` | compliance | `kb_search`!, `kb_list`!, `nerc_cip_requirement`, `compliance_requirement`, `nerc_cip_currency`, `compliance_search`, `compliance_read`, `compliance_links`, `compliance_timeline`, `compliance_note`, `compliance_notes`, `compliance_answers`, `compliance_correct`, `compliance_context`, `compliance_coverage`, `compliance_ask`, `compliance_conflicts`, `compliance_standing_questions`, `compliance_review_list`, `compliance_review_decide`, `compliance_review_decide_batch`, `compliance_sources`, `compliance_trace` |
+| `compliance-reading` | compliance | `nerc_cip_requirement`, `compliance_requirement`, `nerc_cip_currency`, `compliance_search`, `compliance_read`, `compliance_links`, `compliance_timeline`, `compliance_note`, `compliance_notes`, `compliance_answers`, `compliance_correct`, `compliance_context`, `compliance_coverage`, `compliance_conflicts`, `compliance_standing_questions`, `compliance_review_list`, `compliance_review_decide`, `compliance_review_decide_batch`, `compliance_sources` |
 | `tools-specialist` | general | `execute_python`, `remember`!, `recall`! |
 
 ## Why

@@ -393,6 +393,99 @@ def counter_delta(before: dict[str, float], after: dict[str, float]) -> dict[str
     return out
 
 
+def _consume_workspace_stream(  # noqa: PLR0912 - one linear pass over the SSE lines
+    session: httpx.Client,
+    router: str,
+    workspace: str,
+    messages: list[dict[str, str]],
+    *,
+    started: float,
+    turn_budget_s: float,
+    timeout: float,
+) -> dict[str, Any]:
+    """Stream one workspace turn and fold it into measurements.
+
+    Returns http_status, route_header, finish_reason, error, first_token_s,
+    usage_hops (per hop), and the content/reasoning parts.
+
+    The wall-clock budget guard aborts and RECORords a turn that exceeds the
+    product's own bar, never leaves it running: measured live
+    (WINDOW_AND_SEAT_V1 §P4), a candidate that launched the batch reader inside
+    a conversation turn held the shared runner for 40+ minutes and — killed
+    client-side — left the daemon wedged for every lane.
+    """
+    out: dict[str, Any] = {
+        "http_status": 0,
+        "route_header": "",
+        "finish_reason": "",
+        "error": "",
+        "first_token_s": None,
+        "usage_hops": [],
+        "content_parts": [],
+        "reasoning_parts": [],
+        "budget_exceeded": False,
+    }
+    try:
+        with session.stream(
+            "POST",
+            f"{router}/v1/chat/completions",
+            headers={"Authorization": f"Bearer {_api_key()}"},
+            json={"model": workspace, "messages": messages, "stream": True, "temperature": 0.0},
+            timeout=timeout,
+        ) as response:
+            out["http_status"] = response.status_code
+            out["route_header"] = response.headers.get("x-portal-route", "")
+            if response.status_code != 200:
+                out["error"] = response.read().decode()[:500]
+                return out
+            for line in response.iter_lines():
+                if not line.startswith("data: "):
+                    continue
+                payload_text = line[len("data: ") :].strip()
+                if payload_text == "[DONE]":
+                    break
+                if time.monotonic() - started > turn_budget_s:
+                    out["error"] = (
+                        f"turn exceeded the {turn_budget_s:.0f}s budget — aborted by the "
+                        "harness; a candidate that cannot finish one turn inside the "
+                        "product's bar fails the loop probe on that fact"
+                    )
+                    out["budget_exceeded"] = True
+                    return out
+                try:
+                    chunk = json.loads(payload_text)
+                except json.JSONDecodeError:
+                    continue
+                if out["first_token_s"] is None:
+                    out["first_token_s"] = time.monotonic() - started
+                # Ollama's final per-hop usage chunk (empty choices). On a
+                # multi-hop turn one arrives PER HOP — each hop's prompt
+                # includes the whole thread plus every tool result before it,
+                # so the LAST one's prompt_tokens is that turn's high-water
+                # mark, counted by the server's own tokenizer.
+                usage = chunk.get("usage")
+                if usage:
+                    out["usage_hops"].append(
+                        {
+                            "prompt_tokens": int(usage.get("prompt_tokens") or 0),
+                            "completion_tokens": int(usage.get("completion_tokens") or 0),
+                        }
+                    )
+                choices = chunk.get("choices") or []
+                if not choices:
+                    continue
+                delta = choices[0].get("delta") or {}
+                if delta.get("content"):
+                    out["content_parts"].append(str(delta["content"]))
+                if delta.get("reasoning"):
+                    out["reasoning_parts"].append(str(delta["reasoning"]))
+                if choices[0].get("finish_reason"):
+                    out["finish_reason"] = str(choices[0]["finish_reason"])
+    except Exception as exc:  # noqa: BLE001 - a transport failure is a recorded result
+        out["error"] = f"{type(exc).__name__}: {exc}"
+    return out
+
+
 class WorkspaceThread:
     """One conversation on the deployed workspace: turns append to one thread.
 
@@ -414,90 +507,52 @@ class WorkspaceThread:
         self.messages.append({"role": "user", "content": question})
         before = snapshot_counters(self.session, self.router)
         started = time.monotonic()
-        first_token_s: float | None = None
-        content_parts: list[str] = []
-        reasoning_parts: list[str] = []
-        usage_hops: list[dict[str, int]] = []
-        finish_reason = ""
-        route_header = ""
-        http_status = 0
-        error = ""
-        try:
-            with self.session.stream(
-                "POST",
-                f"{self.router}/v1/chat/completions",
-                headers={"Authorization": f"Bearer {_api_key()}"},
-                json={
-                    "model": self.workspace,
-                    "messages": self.messages,
-                    "stream": True,
-                    "temperature": 0.0,
-                },
-                timeout=timeout,
-            ) as response:
-                http_status = response.status_code
-                route_header = response.headers.get("x-portal-route", "")
-                if http_status != 200:
-                    error = response.read().decode()[:500]
-                else:
-                    for line in response.iter_lines():
-                        if not line.startswith("data: "):
-                            continue
-                        payload_text = line[len("data: ") :].strip()
-                        if payload_text == "[DONE]":
-                            break
-                        try:
-                            chunk = json.loads(payload_text)
-                        except json.JSONDecodeError:
-                            continue
-                        if first_token_s is None:
-                            first_token_s = time.monotonic() - started
-                        # Ollama's final per-hop usage chunk (empty choices).
-                        # On a multi-hop turn one arrives PER HOP — each
-                        # hop's prompt includes the whole thread plus every
-                        # tool result before it, so the LAST one's
-                        # prompt_tokens is that turn's high-water mark,
-                        # counted by the server's own tokenizer.
-                        usage = chunk.get("usage")
-                        if usage:
-                            usage_hops.append(
-                                {
-                                    "prompt_tokens": int(usage.get("prompt_tokens") or 0),
-                                    "completion_tokens": int(usage.get("completion_tokens") or 0),
-                                }
-                            )
-                        choices = chunk.get("choices") or []
-                        if not choices:
-                            continue
-                        delta = choices[0].get("delta") or {}
-                        content_parts.append(str(delta.get("content") or ""))
-                        reasoning_parts.append(str(delta.get("reasoning") or ""))
-                        if choices[0].get("finish_reason"):
-                            finish_reason = str(choices[0]["finish_reason"])
-        except Exception as exc:  # noqa: BLE001 - a transport failure is a recorded result
-            error = f"{type(exc).__name__}: {exc}"
+        # §P4 loop-probe wall-clock budget, env-overridable; see the stream
+        # consumer's guard for why it aborts rather than waits.
+        turn_budget_s = min(timeout, float(os.environ.get("TURN_BUDGET_S", "900")))
+        stream = _consume_workspace_stream(
+            self.session,
+            self.router,
+            self.workspace,
+            self.messages,
+            started=started,
+            turn_budget_s=turn_budget_s,
+            timeout=timeout,
+        )
         wall = round(time.monotonic() - started, 2)
         after = snapshot_counters(self.session, self.router)
         deltas = counter_delta(before, after)
-        content = "".join(content_parts)
+        content = "".join(stream["content_parts"])
         record: dict[str, Any] = {
             "question": question,
             "answer": content,
-            "reasoning_chars": len("".join(reasoning_parts)),
+            "reasoning_chars": len("".join(stream["reasoning_parts"])),
             "wall_s": wall,
-            "first_token_s": round(first_token_s, 2) if first_token_s is not None else None,
-            "finish_reason": finish_reason,
-            "http_status": http_status,
-            "route_header": route_header,
-            "served_model": route_header.split(";")[2] if route_header.count(";") >= 2 else "",
+            "turn_budget_s": turn_budget_s,
+            "turn_budget_exceeded": stream["budget_exceeded"],
+            "first_token_s": (
+                round(stream["first_token_s"], 2) if stream["first_token_s"] is not None else None
+            ),
+            "finish_reason": stream["finish_reason"],
+            "http_status": stream["http_status"],
+            "route_header": stream["route_header"],
+            "served_model": (
+                stream["route_header"].split(";")[2]
+                if stream["route_header"].count(";") >= 2
+                else ""
+            ),
             "tool_calls": deltas["tools"],
             "tool_errors": deltas["tool_errors"],
-            "usage_hops": usage_hops,
-            "prompt_tokens_high_water": (max((h["prompt_tokens"] for h in usage_hops), default=0)),
-            "prompt_tokens_final_hop": (usage_hops[-1]["prompt_tokens"] if usage_hops else 0),
+            "usage_hops": stream["usage_hops"],
+            "prompt_tokens_high_water": (
+                max((h["prompt_tokens"] for h in stream["usage_hops"]), default=0)
+            ),
+            "prompt_tokens_final_hop": (
+                stream["usage_hops"][-1]["prompt_tokens"] if stream["usage_hops"] else 0
+            ),
             "input_tokens_all_hops": sum(deltas["input"].values()),
             "output_tokens_all_hops": sum(deltas["output"].values()),
-            "error": error,
+            "error": stream["error"],
         }
         if content:
             self.messages.append({"role": "assistant", "content": content})
@@ -532,6 +587,18 @@ def check_workspace_cell(case: dict[str, Any], record: dict[str, Any]) -> list[d
         add("http_200", False, record.get("error") or f"status {record.get('http_status')}")
     else:
         add("http_200", True, "")
+
+    # One turn inside the product's own time bar — a candidate that cannot
+    # finish a turn fails here rather than wedging the shared runner.
+    add(
+        "turn_within_budget",
+        not record.get("turn_budget_exceeded"),
+        {
+            "wall_s": record.get("wall_s"),
+            "budget_s": record.get("turn_budget_s"),
+            "error": record.get("error", ""),
+        },
+    )
 
     add("answer_nonempty", bool(answer.strip()), len(answer))
 

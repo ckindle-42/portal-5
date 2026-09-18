@@ -682,7 +682,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-#### Model catalog (255 model ids across 7 backend groups)
+#### Model catalog (261 model ids across 7 backend groups)
 
 ##### coding (56)
 
@@ -758,7 +758,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-##### general (106)
+##### general (112)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `cybersecqwen-4b-toolfix:latest`
@@ -770,6 +770,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `gemma-4-26b-a4b-it-QAT-4bit`
 - `gemma4:12b-it-qat`
 - `gemma4:26b-a4b-it-q4_K_M`
+- `gemma4:26b-a4b-it-q4_K_M-ctx32k`
 - `gemma4:26b-a4b-it-qat`
 - `gemma4:26b-a4b-it-qat-ctx8k`
 - `gemma4:31b-it-qat`
@@ -784,6 +785,8 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `granite4.1:8b`
 - `granite4.1:8b-ctx16k`
 - `granite4.1:8b-ctx8k`
+- `granite4:small-h-ctx32k`
+- `granite4:tiny-h-ctx32k`
 - `hermes3:8b`
 - `hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M`
 - `hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M`
@@ -799,6 +802,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `hf.co/Nguuma/security-slm-unsloth-1.5b:latest`
 - `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF`
 - `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest`
+- `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k`
 - `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k`
 - `hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M`
 - `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf`
@@ -825,6 +829,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL`
 - `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k`
 - `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL`
+- `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx48k`
 - `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M`
 - `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k`
 - `hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M`
@@ -840,6 +845,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `laguna-xs.2:Q4_K_M`
 - `lfm2.5:8b`
 - `lfm2.5:8b-ctx8k`
+- `ling30-tiny-test:latest`
 - `llama3.2:3b`
 - `llama3.2:3b-instruct-q8_0-ctx8k`
 - `meta-secalign-8b-q4_k_m:latest`

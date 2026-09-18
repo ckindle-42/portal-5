@@ -1576,8 +1576,6 @@ workspaces:
     think: false
     emits_reasoning: false
     tools:
-    - kb_search
-    - kb_list
     - nerc_cip_requirement
     - compliance_requirement
     - nerc_cip_currency
@@ -1591,14 +1589,21 @@ workspaces:
     - compliance_correct
     - compliance_context
     - compliance_coverage
-    - compliance_ask
     - compliance_conflicts
     - compliance_standing_questions
     - compliance_review_list
     - compliance_review_decide
     - compliance_review_decide_batch
     - compliance_sources
-    - compliance_trace
+    # WINDOW_AND_SEAT_V1 §P8.3 + §P1.2 list edits, on live evidence: removed
+    # compliance_trace (zero calls in the P1.4 transcripts), kb_search +
+    # kb_list (22 dispatch errors on the deployed rag MCP and an empty KB for
+    # this lane; one turn derailed into a 19-retry loop that hit the 20-hop
+    # ceiling), and compliance_ask (launches the BATCH reader inside a
+    # conversation turn — a turn was measured stuck >40 min in a nested
+    # reading; the batch engine stays reachable at the MCP for standing
+    # questions and the unattended sweep, never in this list). No code was
+    # deleted: reader.read() remains the unattended sweep engine.
     expose_to_owui: true
     enable_web_search: false
     # prompt_version: workspace-reading-v2-2026-09-17 (artifact of record:

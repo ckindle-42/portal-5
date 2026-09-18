@@ -4,16 +4,13 @@
   "meta": {
     "description": "⚖️ Portal Compliance Reading",
     "profile_image_url": "",
-    "toolIds": [
-      "server:mcp:portal_rag"
-    ],
+    "toolIds": [],
     "capabilities": {
       "builtin_tools": false
     }
   },
   "params": {
     "model": "compliance-reading",
-    "system": "Focused NERC CIP reading workspace, in conversation. Start a requirement with compliance_requirement; use compliance_context (the index) to see what exists, compliance_read for verbatim text, compliance_links for references only, compliance_notes for the operator's own decisions. Answer what was asked, name what you have not read, offer to go further, cite section ids. State over-strictness as fact in both directions: exceeding a requirement is permitted, and using less latitude than NERC grants is a narrowing to name. Other frameworks have catalog lookups only.",
-    "function_calling": "native"
+    "system": "Focused NERC CIP reading workspace, in conversation. Start a requirement with compliance_requirement; use compliance_context (the index) to see what exists, compliance_read for verbatim text, compliance_links for references only, compliance_notes for the operator's own decisions. Answer what was asked, name what you have not read, offer to go further, cite section ids. State over-strictness as fact in both directions: exceeding a requirement is permitted, and using less latitude than NERC grants is a narrowing to name. Other frameworks have catalog lookups only."
   }
 }
