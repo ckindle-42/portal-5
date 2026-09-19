@@ -63,9 +63,14 @@ class TestHGWhatCountsAsARun:
 
 
 class TestHGCurrency:
+    """These pin the underlying staleness detection (`_compliance_acceptance_currency`),
+    which is unaffected by IN_SERVICE. The public `check_compliance_acceptance_currency`
+    wrapper's IN_SERVICE downgrade is covered separately, below.
+    """
+
     def test_no_run_at_all_fails_and_names_the_commit(self, acceptance_root, monkeypatch) -> None:
         monkeypatch.setattr(check, "_git", lambda *a: "deadbeefcafe0000")
-        status, detail, _ = check.check_compliance_acceptance_currency()
+        status, detail, _ = check._compliance_acceptance_currency()
         assert status == "FAIL"
         assert "deadbeefcafe" in detail
         assert "run_compliance_acceptance.sh" in detail
@@ -76,7 +81,7 @@ class TestHGCurrency:
         _run_dir(acceptance_root, "older", [{"cell": "x", "passed": True}])
         monkeypatch.setattr(check, "_git", lambda *a: "newer")
         monkeypatch.setattr(check, "_is_ancestor", lambda older, newer: False)
-        status, detail, _ = check.check_compliance_acceptance_currency()
+        status, detail, _ = check._compliance_acceptance_currency()
         assert status == "FAIL"
         assert "the module moved and nothing re-ran" in detail
 
@@ -100,7 +105,7 @@ class TestHGCurrency:
         )
         monkeypatch.setattr(check, "_git", lambda *a: "older")
         monkeypatch.setattr(check, "_is_ancestor", lambda older, newer: True)
-        status, detail, _ = check.check_compliance_acceptance_currency()
+        status, detail, _ = check._compliance_acceptance_currency()
         assert status == "FAIL"
         assert "INCOMPLETE" in detail and "5 of 18" in detail
 
@@ -110,8 +115,42 @@ class TestHGCurrency:
         _run_dir(acceptance_root, "newer", [{"cell": "x", "passed": True}])
         monkeypatch.setattr(check, "_git", lambda *a: "older")
         monkeypatch.setattr(check, "_is_ancestor", lambda older, newer: True)
+        status, _, _ = check._compliance_acceptance_currency()
+        assert status == "FAIL"
+
+
+class TestHGInServiceDowngrade:
+    """While compliance is pre-service (IN_SERVICE=False), a stale/missing
+    acceptance run must not block a push: the public check downgrades FAIL to
+    a non-blocking WARN, and says why. Flip IN_SERVICE=True the day compliance
+    ships, and this same stale state must go back to a hard-blocking FAIL.
+    """
+
+    def test_a_stale_run_warns_not_fails_while_pre_service(
+        self, acceptance_root, monkeypatch
+    ) -> None:
+        monkeypatch.setattr(check, "_git", lambda *a: "deadbeefcafe0000")
+        monkeypatch.setattr(check, "IN_SERVICE", False)
+        status, detail, _ = check.check_compliance_acceptance_currency()
+        assert status == "WARN"
+        assert "IN_SERVICE" in detail
+        assert "deadbeefcafe" in detail
+
+    def test_the_same_stale_run_fails_once_in_service(self, acceptance_root, monkeypatch) -> None:
+        monkeypatch.setattr(check, "_git", lambda *a: "deadbeefcafe0000")
+        monkeypatch.setattr(check, "IN_SERVICE", True)
         status, _, _ = check.check_compliance_acceptance_currency()
         assert status == "FAIL"
+
+    def test_a_passing_currency_check_is_unaffected_by_in_service(
+        self, acceptance_root, monkeypatch
+    ) -> None:
+        _run_dir(acceptance_root, "newer", [{"cell": "x", "passed": True}], planned=1)
+        monkeypatch.setattr(check, "_git", lambda *a: "older")
+        monkeypatch.setattr(check, "_is_ancestor", lambda older, newer: True)
+        monkeypatch.setattr(check, "IN_SERVICE", False)
+        status, _, _ = check.check_compliance_acceptance_currency()
+        assert status == "PASS"
 
 
 class TestHHTemplateIdentity:

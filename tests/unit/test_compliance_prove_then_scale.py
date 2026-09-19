@@ -30,7 +30,28 @@ from portal.modules.compliance.core.repository import Repository
 @pytest.fixture
 def repo(tmp_path: Path) -> Repository:
     r = Repository(tmp_path / "pts.db")
-    _seed_register(r, "CIP-007-6", [("R1", "1.1"), ("R2", "2.1"), ("R2", "2.2"), ("R2", "2.3"), ("R2", "2.4"), ("R3", "3.1"), ("R3", "3.2"), ("R3", "3.3"), ("R4", "4.4"), ("R5", "5.1"), ("R5", "5.2"), ("R5", "5.3"), ("R5", "5.4"), ("R5", "5.5"), ("R5", "5.6"), ("R5", "5.7")])
+    _seed_register(
+        r,
+        "CIP-007-6",
+        [
+            ("R1", "1.1"),
+            ("R2", "2.1"),
+            ("R2", "2.2"),
+            ("R2", "2.3"),
+            ("R2", "2.4"),
+            ("R3", "3.1"),
+            ("R3", "3.2"),
+            ("R3", "3.3"),
+            ("R4", "4.4"),
+            ("R5", "5.1"),
+            ("R5", "5.2"),
+            ("R5", "5.3"),
+            ("R5", "5.4"),
+            ("R5", "5.5"),
+            ("R5", "5.6"),
+            ("R5", "5.7"),
+        ],
+    )
     yield r
     r.close()
 
@@ -208,7 +229,9 @@ class TestRecordDetermination:
         assert citations[1]["corroborated"] is True
 
     def test_a_well_formed_but_unregistered_requirement_is_refused(self, repo: Repository) -> None:
-        sid = _add_section(repo, "5.1 traceability", "Appendix 1 provides a cross-reference between the standards")
+        sid = _add_section(
+            repo, "5.1 traceability", "Appendix 1 provides a cross-reference between the standards"
+        )
         outcome = candidate_links.record_determination(
             repo,
             requirement_id="CIP-003-6 R1 Part 1.1.4",  # plausible address, no such register revision
@@ -219,9 +242,7 @@ class TestRecordDetermination:
         )
         assert outcome["action"] == "rejected"
         assert "not in the register" in outcome["reason"]
-        assert (
-            repo._conn.execute("SELECT COUNT(*) FROM relationship_assertions").fetchone()[0] == 0
-        )
+        assert repo._conn.execute("SELECT COUNT(*) FROM relationship_assertions").fetchone()[0] == 0
 
     def test_the_relation_is_the_reading_s_choice(self, repo: Repository) -> None:
         section_id = _add_section(
