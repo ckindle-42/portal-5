@@ -6,10 +6,10 @@ Decision artifact for TASK_BULLY_P0_SPINE_REDUCTION_V1.md P0.1. `[GATE]`:
 produced read-only, best-evidenced classification made without a live
 operator sign-off in this run — flagged for review before P0.2+ acted on it.
 
-- Total canonical units at generation time: **719**
-- KEEP-FACT: **14**
-- RELEASE: **552**
-- ARCHIVE: **153**
+- Total canonical units at generation time: **740**
+- KEEP-FACT: **53**
+- RELEASE: **71**
+- ARCHIVE: **616**
 
 ## KEEP-FACT
 
@@ -18,8 +18,25 @@ facts (A4). These keep a `WIKI:GENERATED` fence and stay AW-governed.
 
 | unit id | reason |
 |---|---|
+| `unit-capability-compliance` | carries executable claims (A2 anti-drift core) |
+| `unit-capability-data` | carries executable claims (A2 anti-drift core) |
+| `unit-capability-detection` | carries executable claims (A2 anti-drift core) |
+| `unit-capability-icsot` | carries executable claims (A2 anti-drift core) |
+| `unit-capability-netforensics` | carries executable claims (A2 anti-drift core) |
+| `unit-capability-rag` | carries executable claims (A2 anti-drift core) |
+| `unit-capability-vulnintel` | carries executable claims (A2 anti-drift core) |
+| `unit-capability-wiki` | carries executable claims (A2 anti-drift core) |
+| `unit-compliance-bilateral-corpus` | carries executable claims (A2 anti-drift core) |
+| `unit-compliance-change-pipeline` | carries executable claims (A2 anti-drift core) |
+| `unit-compliance-engine` | carries executable claims (A2 anti-drift core) |
+| `unit-compliance-requirement-join` | carries executable claims (A2 anti-drift core) |
+| `unit-compliance-substrate-properties` | carries executable claims (A2 anti-drift core) |
 | `unit-design-spine-drift-census` | carries executable claims (A2 anti-drift core) |
+| `unit-fact-config-index` | carries executable claims (A2 anti-drift core) |
 | `unit-fact-doc-migration-coverage` | live-config-derived volatile-fact unit (A4) |
+| `unit-fact-dockerfile-index` | carries executable claims (A2 anti-drift core) |
+| `unit-fact-env-reference` | carries executable claims (A2 anti-drift core) |
+| `unit-fact-launch-commands` | carries executable claims (A2 anti-drift core) |
 | `unit-fact-mcp-fleet` | carries executable claims (A2 anti-drift core) |
 | `unit-fact-media-memory-budget` | live-config-derived volatile-fact unit (A4) |
 | `unit-fact-model-bindings` | live-config-derived volatile-fact unit (A4) |
@@ -29,9 +46,31 @@ facts (A4). These keep a `WIKI:GENERATED` fence and stay AW-governed.
 | `unit-fact-tool-authorizations` | live-config-derived volatile-fact unit (A4) |
 | `unit-fact-tool-registry` | live-config-derived volatile-fact unit (A4) |
 | `unit-fact-workspace-roster` | carries executable claims (A2 anti-drift core) |
+| `unit-known-limitations-cip-register-behind-published-versions` | carries executable claims (A2 anti-drift core) |
+| `unit-known-limitations-compliance-engine-had-no-route` | carries executable claims (A2 anti-drift core) |
+| `unit-module-cad` | carries executable claims (A2 anti-drift core) |
+| `unit-module-coding` | carries executable claims (A2 anti-drift core) |
+| `unit-module-compliance` | carries executable claims (A2 anti-drift core) |
+| `unit-module-data` | carries executable claims (A2 anti-drift core) |
+| `unit-module-detection` | carries executable claims (A2 anti-drift core) |
+| `unit-module-documents` | carries executable claims (A2 anti-drift core) |
+| `unit-module-eval` | carries executable claims (A2 anti-drift core) |
+| `unit-module-general` | carries executable claims (A2 anti-drift core) |
+| `unit-module-icsot` | carries executable claims (A2 anti-drift core) |
+| `unit-module-image` | carries executable claims (A2 anti-drift core) |
+| `unit-module-media` | carries executable claims (A2 anti-drift core) |
+| `unit-module-netforensics` | carries executable claims (A2 anti-drift core) |
+| `unit-module-research` | carries executable claims (A2 anti-drift core) |
+| `unit-module-security` | carries executable claims (A2 anti-drift core) |
+| `unit-module-video` | carries executable claims (A2 anti-drift core) |
+| `unit-module-vulnintel` | carries executable claims (A2 anti-drift core) |
+| `unit-platform-retrieval` | carries executable claims (A2 anti-drift core) |
+| `unit-platform-retrieval-substrate-migration` | carries executable claims (A2 anti-drift core) |
 | `unit-readme-benchmark-workspaces-user-selected-only` | carries executable claims (A2 anti-drift core) |
+| `unit-readme-capability-rollup` | carries executable claims (A2 anti-drift core) |
 | `unit-readme-coding-tool-integration-claude-code-opencode` | carries executable claims (A2 anti-drift core) |
 | `unit-readme-workspaces` | carries executable claims (A2 anti-drift core) |
+| `unit-user-guide-workspaces` | carries executable claims (A2 anti-drift core) |
 
 ## RELEASE
 
@@ -66,11 +105,6 @@ binding unit from the AW-governed set; P0.4 archives the now-orphaned unit.
 | `unit-ADMIN_GUIDE-security-notes` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-ADMIN_GUIDE-three-tier-router-models` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-ADMIN_GUIDE-user-roles` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-DESIGN_WIKI-discovery-termination` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-DESIGN_WIKI-fence-contract` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-DESIGN_WIKI-migration-procedure` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-DESIGN_WIKI-section-granularity` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-DESIGN_WIKI-spine-write-point` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-HOWTO-1-quick-start` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-HOWTO-10-music-generation` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-HOWTO-11-text-to-speech` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
@@ -93,496 +127,21 @@ binding unit from the AW-governed set; P0.4 archives the now-orphaned unit.
 | `unit-HOWTO-7-document-generation` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-HOWTO-8-image-generation` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-HOWTO-9-video-generation` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
+| `unit-HOWTO-adding-new-capabilities` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-HOWTO-diarized-transcription-speaker-labeled-transcripts` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
+| `unit-HOWTO-discovery-with-fact-units` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
+| `unit-HOWTO-embed-media-in-documents` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
+| `unit-HOWTO-media-memory-and-launch-order` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-HOWTO-quick-reference-cli-commands` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-HOWTO-shared-workspace` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-SEC_BENCH-blue-orchestration` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-SEC_BENCH-coding-agent-reentry` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-SEC_BENCH-execution-chain-features` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-SEC_BENCH-exercises` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-SEC_BENCH-prerequisites` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-SEC_BENCH-quick-start-tiers` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-SEC_BENCH-scoring` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-SEC_BENCH-single-prompt-tests` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-SEC_BENCH-sub-components` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-SEC_BENCH-verification` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-SEC_BENCH-what-it-is` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-agent-loop-agent-loop-platform-core` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-agent-loop-consumers` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-agent-loop-contracts-the-key-modules-implement` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-agent-loop-discipline-borrowed-from-the-campaign-supervisor` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-agent-loop-operator-surface` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-agent-loop-record-path-writing-enabled-ci-gated` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-agent-loop-shape` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-alerts-1-enable-notifications` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-alerts-3-restart-the-pipeline` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-alerts-alert-thresholds` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-alerts-channel-priority` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-alerts-daily-summary` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-alerts-daily-usage-summary` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-alerts-email` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-alerts-enable-disable-daily-summary-default-true` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-alerts-fire-all-backends-down-immediately-when-all-backends-fail-default-true` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-alerts-fire-backend-down-after-this-many-consecutive-failures-per-backend-default-3` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-alerts-hour-to-send-summary-0-23-default-8` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-alerts-operational-alerts` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-alerts-optional-json-object-for-additional-headers-e-g-auth-tokens` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-alerts-portal-6-0-0-alerts-notifications-guide` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-alerts-pushover` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-alerts-quick-start` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-alerts-slack` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-alerts-telegram` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-alerts-timezone-for-the-schedule-default-utc` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-alerts-troubleshooting` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-alerts-webhook` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-1-open-webui-data` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-1-open-webui-data-critical` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-2-configuration` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-2-configuration-files` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-3-mcp-data-if-applicable` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-4-full-system-backup-script` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-add-to-crontab-crontab-e` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-after-config-changes-re-seed` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-backup-config-directory` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-backup-portal-5-data` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-backup-retention` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-cleanup-old-backups-run-daily` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-complete-system-recovery` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-config-excluding-env-for-security-back-that-up-manually` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-daily-backup-with-cron` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-extract-config-careful-may-overwrite-current-settings` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-manual-backup` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-mcp-data-if-exists` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-migration-to-new-host` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-model-weights-recovery` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-open-webui-data` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-or-just-config-excluding-env-for-security` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-or-manually` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-portal-6-0-0-backup-restore-guide` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-pull-default-model` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-restart-services` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-restore-from-backup` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-security-notes` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-stop-services-first` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-what-not-to-back-up` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-what-to-back-up` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-backup-restore-with-compression-faster-for-large-volumes` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-cluster-scale-portal-5-cluster-scale-out-guide` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-cluster-scale-stage-1-stage-2-add-a-second-mac-studio` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-cluster-scale-stage-3-vllm-for-70b-models` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-cluster-scale-stage-4-5-specialized-model-groups` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-cinematic-quality-t2v-a14b-slower` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-download-models` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-explicit-model-override` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-fast-preset-ti2v-5b-9-min-per-5s-clip` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-flux-images-are-pure-static-tv-noise` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-image-flux-schnell-default` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-image-sdxl-simpler-single-self-contained-file-no-separate-clip-vae-needed` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-linux-nvidia-gpu` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-manual-start-stop` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-models-download-automatically-on-first-start` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-portal-5-comfyui-setup-guide` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-quick-install-apple-silicon` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-restart` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-should-return-json-with-gpu-info-showing-mps-device` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-start` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-step-1-pull-the-weights-opt-in-80gb-total` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-step-2-export-comfyui-workflow-templates` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-step-3-use` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-stop` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-then-set-video-backend-wan21-nsfw-in-env-and-restart-docker-compose-restart-mcp-video` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-ti2v-5b-fast-image-to-video-single-file-comfyui-native-repackaging` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-use-docker-comfyui-with-cuda-profile` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-verify` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-via-mcp-tool` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-video-wan21-nsfw-currently-configured-video-backend-in-env` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-view-logs` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-comfyui-setup-wan-2-2-family-v6-2-addition` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-compliance-fallback-policy-canonical-baseline` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-compliance-fallback-policy-compliance-fallback-policy` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-compliance-fallback-policy-full-sweep` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-compliance-fallback-policy-granite-4-1-initial-expectation` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-compliance-fallback-policy-granite-required-sweep-fails-if-granite-has-been-removed-from-chain` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-compliance-fallback-policy-out-of-scope` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-compliance-fallback-policy-re-running-the-matrix` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-compliance-fallback-policy-threshold-policy` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-compliance-fallback-policy-what-compliance-fallback-means` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-corpus-injection-a-canned-detection-firing-on-corpus-data-t1558-004-as-rep-roasting-verbatim-spl` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-corpus-injection-always-dry-run-first-it-prints-exact-per-sourcetype-volume-without-injecting` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-corpus-injection-confirm-the-live-triage-window-is-still-clean` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-corpus-injection-corpus-injection-getting-hunt-ready-telemetry-into-lab-splunk` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-corpus-injection-durability-surviving-a-lab-reset` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-corpus-injection-inside-lxc-301-as-the-splunk-user-uid-41812-the-apps-dir-is-splunk-owned` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-corpus-injection-landing-which-sourcetypes-got-data` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-corpus-injection-lane-a-bots-pre-indexed-datasets` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-corpus-injection-lane-b-att-ck-labeled-corpora-over-hec` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-corpus-injection-lane-c-live-emulation-caldera-atomic-red-team` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-corpus-injection-on-the-target-from-the-lab-network` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-corpus-injection-related` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-corpus-injection-rollback` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-corpus-injection-the-property-that-matters-field-extraction-actually-works` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-corpus-injection-two-format-traps-that-silently-produce-useless-data` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-corpus-injection-verify-lane-b` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-corpus-injection-verify-lane-c` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-corpus-injection-why-corpus-data-coexists-safely-with-bench-runs` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-fish-speech-setup-alternative-kokoro-onnx-built-in-no-setup` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-fish-speech-setup-check-if-fish-speech-api-is-running` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-fish-speech-setup-clone-fish-speech-repository` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-fish-speech-setup-create-virtual-environment` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-fish-speech-setup-download-the-1-4-model-recommended` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-fish-speech-setup-fish-speech-not-installed` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-fish-speech-setup-fish-speech-presets` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-fish-speech-setup-install-dependencies-requires-pytorch-with-mps-support` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-fish-speech-setup-installation-macos-apple-silicon` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-fish-speech-setup-kokoro-onnx-voices-zero-setup-fallback` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-fish-speech-setup-model-download-failures` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-fish-speech-setup-model-downloads` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-fish-speech-setup-mps-gpu-not-available` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-fish-speech-setup-portal-5-integration` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-fish-speech-setup-portal-6-0-0-fish-speech-setup-guide` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-fish-speech-setup-running-fish-speech` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-fish-speech-setup-start-api-server-on-port-5005` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-fish-speech-setup-test-tts-mcp-directly` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-fish-speech-setup-testing` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-fish-speech-setup-voice-cloning` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-issues-known-issues` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-70b-dense-models-unusable-for-daily-routing-on-m4-pro-64gb` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-antares-gate-e1-gated-download` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-asteroids-bench-score-variance-is-the-benchmark-s-purpose` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-auto-math-workspace-reasoning-block-support` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-baronllm-text-only-tool-output-auto-security-mcp-tools-non-functional` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-cadquery-and-build123d-unusable-on-linux-arm64` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-code-sandbox-requires-privileged-container` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-comfyui-cross-model-family-memory-exhaustion-apple-silicon` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-comfyui-model-download-commands-are-broken` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-comfyui-runs-outside-docker` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-devstral-24b-runtime-vram-footprint-25-7-gb` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-diarized-transcription-task-transcribe-001` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-emergent-objective-loop-curated-capability-tool-names-vs-live-dispatch-whitelist` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-fara-cua-tag-closure` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-importing-the-security-bench-module-sets-a-linux-only-prometheus-multiproc-dir-host-side` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-known-limitations` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-ling-3-0-flash-turboquant-memory-gates` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-meta3-metasploitable3-windows-scenario-coverage-spl-precision-gaps` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-mlx-inference-proxy-retired-commit-3a0c58e` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-model-parity-specialist-models-lost-in-the-mlx-ollama-migration` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-models-out-of-m4-pro-64-gb-budget` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-narrated-tool-call-instead-of-real-dispatch` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-no-built-in-multi-user-rate-limiting` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-ollama-gpu-overhead-ceiling` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-ollama-native-mlx-engine-evaluation-findings-2026-07-01` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-ollama-v1-ignores-options-num-ctx-and-options-num-batch` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-owui-audio-drop-ux-task-owui-audio-drop-001` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-p5-emergent-002-deterministic-capability-ranker-can-t-reach-oracle-bearing-capabilities-once-any-tool-declaring-recon-capability-is-a-candidate` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-p5-mlx-eval-001-gguf-fleet-regressed-slightly-on-0-31-1-mtp-is-mlx-engine-only` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-p5-mlx-eval-002-ollama-s-official-gemma4-mlx-tags-are-not-drop-in-swaps` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-p5-mlx-eval-003-hf-hosted-mlx-models-are-currently-unreachable-by-the-pipeline` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-p5-mlx-eval-004-large-single-blob-mlx-downloads-hang-intermittently` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-p5-mlx-eval-005-two-security-tier-fine-tunes-have-no-working-mlx-conversion` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-phi4-reasoning-plus-crashes-ollama-s-llama-server-on-this-host-confirmed-not-a-corrupted-download` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-post-v1-messages-anthropic-compat-endpoint-returns-http-200-with-a-null-body` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-pytest-portal-leaves-real-write-through-test-artifacts` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-qwen-image-bf16-crashes-on-apple-silicon-mps` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-rbp-benign-corpus-alert-fatigue` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-request-size-cap-relies-on-content-length-only` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-router-model-eviction-single-request` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-serena-gate-d1-airgap-staging` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-shared-workspace-auto-stt-disabled-task-workspace-001` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-speculative-decoding-mtp-retired-with-the-mlx-proxy-commit-3a0c58e` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-spine-code-coverage-ratchet` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-tool-preselection-candidate-1b-models-cannot-rank-tools` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-v8-catalog-deferred-insufficient-hardware` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-voice-cloning-fish-speech-requires-separate-installation` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-known-limitations-wan22-fp8-scaled-checkpoints-crash-on-apple-silicon-mps` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-lab-setup-all-these-should-succeed-after-setup` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-lab-setup-full-setup-downloads-vulhub-challenge-composes-base-images-model-pulls` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-lab-setup-lab-setup-cold-start-runbook` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-lab-setup-lane-targets` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-lab-setup-metadata-only-skip-heavy-vulhub-model-pulls` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-lab-setup-on-demand-targets-from-lab-targets-yaml` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-lab-setup-readiness-gate` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-lab-setup-reference` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-lab-setup-teardown` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-lab-setup-tier-1-first-time-setup-run-once-re-run-to-update` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-lab-setup-tier-2-daily-operations` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-lab-setup-update-an-existing-setup-git-pull-vulhub-refresh-composes` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-lab-setup-verification` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-1-ensure-stack-is-running` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-2-export-the-pipeline-api-key-into-the-environment` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-3-launch-opencode-reads-opencode-jsonc-mcp-json-automatically` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-adding-a-feature-opencode-with-local-laguna` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-auto-coding-workspace-laguna-variant` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-checking-what-s-in-vram-before-a-long-task` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-claude-code-integration` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-debugging-a-failing-mcp-server-claude-code` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-dual-mode-portal-vs-stock-no-file-renaming` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-fastcontext-repository-explorer` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-fixing-a-bug-claude-code` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-install-if-missing` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-mcp-dev-tooling-claude-code-opencode-integration` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-mcp-servers-mcp-json` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-mode-a-cloud-intelligence-portal-tools-default-cc-portal-sh` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-mode-b-local-model-intelligence-portal-tools-cc-local-sh` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-mode-c-stock-cloud-zero-portal-mcp-cc-stock-sh` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-opencode-integration-opencode-jsonc` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-portal-pipeline-mcp-portal-pipeline-8928` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-prerequisites` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-prometheus-fetch-patterns` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-quick-start` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-security-boundaries` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-tools` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-what-opencode-gets` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-mcp-dev-tooling-workspace-selection` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-alicankiraz0-cybersecurity-baronllm-offensive-security-llm-q6-k-gguf-dropped-hf-id-only-see-baronllm-q6-k-below-for-the-fleet-entry` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-baronllm-q6-k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-blue-red-candidate-batch-evaluated-2026-07-03-none-promoted` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-cybersecqwen-4b-toolfix-latest` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-deepseek-r1-0528-qwen3-8b-4bit` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-deepseek-r1-32b-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-devstral-24b` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-devstral-small-2` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-devstral-small-2-latest` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-devstral-small-2-latest-ctx8k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-dolphin-llama3-8b` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-fredrezones55-qwen3-6-35b-a3b-uncensored-hauhaucs-aggressive-q4` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-fredrezones55-qwen3-6-35b-a3b-uncensored-hauhaucs-aggressive-q4-ctx8k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-gemma-4-26b-a4b-it-qat-4bit` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-gemma-4-e4b-it-4bit` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-gemma4-12b-it-qat` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-gemma4-12b-it-qat-ctx8k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-gemma4-26b-a4b-it-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-gemma4-26b-a4b-it-qat` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-gemma4-26b-a4b-it-qat-ctx8k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-gemma4-31b-it-qat` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-gemma4-31b-it-qat-ctx8k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-gemma4-e2b-it-qat` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-gemma4-e2b-it-qat-ctx8k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-gemma4-e4b-it-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-gemma4-e4b-it-qat` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-gemma4-e4b-it-qat-ctx8k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-glm-4-7-flash-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-gpt-oss-20b` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-granite-4-1-30b-4bit` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-granite-4-1-8b-mxfp8` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-granite4-1-30b` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-granite4-1-30b-ctx16k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-granite4-1-30b-ctx64k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-granite4-1-8b` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-granite4-1-8b-ctx16k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-granite4-1-8b-ctx8k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hermes3-8b` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-abiray-agents-a1-q4-k-m-gguf-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-andycurrent-mistral-7b-uncensored-gguf-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-bartowski-huihui-ai-qwen3-coder-next-abliterated-gguf-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-bartowski-huihui-ai-qwen3-coder-next-abliterated-gguf-q4-k-m-ctx64k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-bartowski-nvidia-nemotron-3-5-lightning-30b-a3b-gguf-q4-k-m-ctx8k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-bartowski-qwen-qwen3-6-27b-gguf-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-bartowski-thudm-glm-z1-rumination-32b-0414-gguf-thudm-glm-z1-rumination-32b-0414-q4-k-m-gguf` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-bartowski-thudm-glm-z1-rumination-32b-0414-gguf-thudm-glm-z1-rumination-32b-0414-q4-k-m-gguf-ctx64k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-bugtraceai-bugtraceai-core-ultra-27b-q6-q6-k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-coder543-north-mini-code-1-0-qad-gguf-nvfp4-ctx8k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-coder543-north-mini-code-1-0-qad-gguf-nvfp4-promoted-2026-06-30` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-deepreinforce-ai-ornith-1-0-35b-gguf-q4-k-m-ctx64k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-deepreinforce-ai-ornith-1-0-35b-gguf-q4-k-m-promoted-2026-06-30` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-deepreinforce-ai-ornith-1-0-9b-gguf-q4-k-m-dropped-2026-06-30` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-douyamv-gemma-4-31b-jang-4m-crack-gguf-gemma-4-31b-jang-crack-q4-k-m-gguf` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-empero-ai-qwythos-9b-claude-mythos-5-1m-gguf-q4-k-m-dropped-2026-06-30` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-fdtn-ai-foundation-sec-8b-reasoning-q8-0-gguf-q8-0` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-gaston-parravicini-lfm2-5-8b-a1b-uncensored-gaston-gguf-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-gaston-parravicini-lfm2-5-8b-a1b-uncensored-gaston-gguf-q4-k-m-ctx8k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-jackrong-qwopus3-6-27b-v2-mtp-gguf-qwopus3-6-27b-v2-mtp-q5-k-m-gguf` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-jiunsong-superqwen-agentworld-35b-a3b-abliterated-gguf-4bit-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-liquidai-lfm2-5-1-2b-instruct-gguf-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-liquidai-lfm2-5-230m-gguf-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-liquidai-lfm2-5-350m-gguf-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-mia-ailab-qwable-3-6-35b-qwable-3-6-35b-q4-k-m-gguf` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-mia-ailab-qwable-3-6-35b-qwable-3-6-35b-q4-k-m-gguf-removed-from-security-group` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-mitkox-fastcontext-1-0-4b-sft-q4-k-m-gguf-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-mradermacher-cybersecqwen-4b-gguf-q4-k-m-dropped-tool-call-blocker-fixed-2026-07-04-detection-quality-inconclusive-not-adopted` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-mradermacher-gemma-4-26b-a4b-it-uncensored-heretic-gguf-gemma-4-26b-a4b-it-uncensored-heretic-q4-k-m-gguf` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-mradermacher-huihui-qwen3-6-35b-a3b-abliterated-gguf-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-mradermacher-qwen3-5-9b-claude-4-6-highiq-thinking-heretic-uncensored-gguf-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-mradermacher-vulnllm-r-7b-gguf-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-mradermacher-vulnllm-r-7b-gguf-q4-k-m-ctx8k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-nguuma-security-slm-unsloth-1-5b-latest` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-quantfactory-llama-3-2-3b-instruct-abliterated-gguf` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-redteamlab-qwen3-6-27b-blueteam-v1-q3-k-s-dropped-evaluated-not-adopted` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-redteamlab-qwen3-6-27b-redteam-v5-qwen3-6-27b-redteam-v5-q4-k-m-gguf-dropped-evaluated-not-adopted` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-sjakek-nex-n2-mini-gguf-ud-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-unsloth-deepseek-r1-0528-qwen3-8b-gguf-q4-k-xl` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-unsloth-deepseek-r1-0528-qwen3-8b-gguf-q4-k-xl-ctx64k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-unsloth-glm-4-7-flash-reap-23b-a3b-gguf-ud-q4-k-xl` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-unsloth-glm-4-7-flash-reap-23b-a3b-gguf-ud-q4-k-xl-ctx64k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-unsloth-magistral-small-2509-gguf-q8-0` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-unsloth-magistral-small-2509-gguf-q8-0-ctx64k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-unsloth-qwen-agentworld-35b-a3b-gguf-ud-q4-k-xl` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-unsloth-qwen-agentworld-35b-a3b-gguf-ud-q4-k-xl-ctx64k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-unsloth-qwen3-6-35b-a3b-gguf-ud-q4-k-xl` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-unsloth-qwen3-8-27b-gguf-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-hf-co-yuxinlu1-gemma-4-12b-agentic-fable5-composer2-5-v2-3-5x-tau2-gguf-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-huihui-ai-baronllm-abliterated` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-huihui-ai-baronllm-abliterated-latest-ctx8k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-huihui-ai-baronllm-abliterated-latest-dropped-evaluated-not-adopted-supersedes-the-gated-alicankiraz0-baronllm-above` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-huihui-ai-gemma-4-abliterated-e2b-qat` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-huihui-ai-gemma-4-abliterated-e2b-qat-ctx8k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-huihui-ai-huihui-qwen3-5-9b-abliterated-mlx-4bit` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-huihui-ai-qwen3-5-abliterated-9b` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-huihui-ai-qwen3-5-abliterated-9b-ctx64k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-huihui-ai-qwen3-5-abliterated-9b-ctx8k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-huihui-ai-qwen3-6-abliterated-27b` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-huihui-ai-qwen3-6-abliterated-27b-ctx8k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-huihui-ai-qwen3-abliterated-14b-v2` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-huihui-ai-tongyi-deepresearch-abliterated` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-huihui-ai-tongyi-deepresearch-abliterated-latest-ctx64k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-jackrong-deepseek-v4-pro-qwen3-5-4b-mtp` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-jackrong-deepseek-v4-pro-qwen3-5-9b-mtp` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-laguna-xs-2-4bit` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-laguna-xs-2-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-laguna-xs-2-q4-k-m-ctx64k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-lfm2-5-8b` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-lfm2-5-8b-ctx8k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-llama-3-2-3b-instruct-8bit` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-llama3-2-3b` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-llama3-2-3b-instruct-q8-0-ctx8k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-meta-secalign-8b-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-meta-secalign-8b-q4-k-m-latest` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-mistral-small3-2-24b` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-model-catalog-portal-5-model-reference` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-muse-glimmer-30b-mlx` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-nvidia-nemotron-3-5-lightning-30b-a3b-oq4e-mtp` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-omnicoder2-9b-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-omnicoder2-9b-q4-k-m-ctx8k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-phi-4-reasoning-plus-mlx-4bit` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-phi4-14b-q8-0` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-phi4-mini` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-phi4-mini-reasoning` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-phi4-mini-reasoning-latest-ctx24k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-phi4-reasoning-plus` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-phi4-reasoning-plus-ctx32k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-portal5-deepwen-3-6-q4-5-moq` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-portal5-deepwen-3-6-q4-5-moq-ctx32k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-portal5-gemma4-12b-q4-k-m-ctx8k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-portal5-qwen3-6-27b-mtp-q8-0-drafted` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-portal5-qwen36-27b-fable-fusion-heretic-q4-k-m-dropped` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-portal5-xyz-aquila-mini-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-qwen3-6-27b-mtp-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-qwen3-6-27b-oq8-mtp` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-qwen3-6-27b-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-qwen3-6-27b-q4-k-m-ctx16k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-qwen3-6-27b-q8-0` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-qwen3-6-35b-a3b-hauhaucs-aggressive-4bit` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-qwen3-6-35b-a3b-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-qwen3-8-27b-oq4e-mtp` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-qwen3-coder-30b-a3b-instruct-4bit` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-qwen3-coder-30b-a3b-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-qwen3-coder-30b-a3b-q4-k-m-ctx16k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-qwen3-coder-30b-a3b-q4-k-m-ctx8k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-qwen3-coder-next-latest` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-qwen3-coder-next-latest-ctx64k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-qwen3-vl-32b` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-qwen3-vl-32b-ctx8k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-qwen3-vl-32b-instruct-4bit` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-ravenx-cyberagent-35b-q4-k-m-dropped-evaluated-not-adopted-local-alias-for-ravenx-cyberagent-35b` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-supergemma4-26b-abliterated-multimodal-mlx-4bit` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-supergemma4-26b-uncensored-q4-k-m` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-supergemma4-26b-uncensored-q4-k-m-ctx64k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-sylink-sylink-8b` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-sylink-sylink-8b-ctx8k` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-tongyi-deepresearch-30b-a3b-abliterated-4bit` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-model-catalog-vulnllm-r-7b-4bit` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-p5-roadmap-future-considerations-not-yet-implemented` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-p5-roadmap-p5-fut-004-webhook-based-event-notifications` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-p5-roadmap-p5-fut-006-llm-based-intent-routing` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-p5-roadmap-p5-fut-009-model-size-aware-admission-control-mlx-proxy` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-p5-roadmap-p5-fut-013-omlx-evaluation-canceled` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-p5-roadmap-p5-fut-014-v7-model-refresh-waterline` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-p5-roadmap-p5-fut-embed-001-embeddinggemma-migration-seed` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-p5-roadmap-p5-fut-speech-002-speech-model-shootout` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-p5-roadmap-p5-roadmap-md-portal-5-v7-future-enhancements` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-p5-roadmap-score-history` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-p5-roadmap-speculative-decoding-mtp-retired-commit-3a0c58e` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-p5-roadmap-workspace-clean-utility-low-priority` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-performance-backend-candidate-cache` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-performance-benchmark-client-reuse` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-performance-benchmarking` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-performance-keyword-cache` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-performance-llm-router-warmup-at-startup` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-performance-p7-perf-pipeline-optimizations` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-performance-shared-http-client` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-persona-matrix-ci-baseline-lifecycle` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-persona-matrix-ci-big-model-coverage` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-persona-matrix-ci-ci-vs-local-run-boundary` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-persona-matrix-ci-mlx-coverage-policy` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-persona-matrix-ci-out-of-scope-for-ci` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-persona-matrix-ci-persona-matrix-ci-operations` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-persona-matrix-ci-pipeline-shape` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-persona-matrix-ci-regression-triage-workflow` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-acceptance-execute-v9-autonomous-monitoring-loop-required-default` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-acceptance-execute-v9-coverage-current` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-acceptance-execute-v9-failure-playbook` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-acceptance-execute-v9-new-in-v9-routing-served-model-verification` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-acceptance-execute-v9-non-negotiables` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-acceptance-execute-v9-phase-0-preflight-required` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-acceptance-execute-v9-portal5-acceptance-execute-v9-claude-code-prompt` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-acceptance-execute-v9-results-dashboard` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-acceptance-execute-v9-running` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-acceptance-execute-v9-your-role` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-execute-v4-1-ground-truth-counts-no-retired-alias-leak` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-execute-v4-2-bench-plan-the-real-test-count-for-this-run` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-execute-v4-3-backends-up` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-execute-v4-autonomous-monitoring-loop-required-default` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-execute-v4-failure-playbook` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-execute-v4-modes` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-execute-v4-non-negotiables` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-execute-v4-on-each-wakeup` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-execute-v4-on-launch` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-execute-v4-phase-0-preflight-required-before-any-run` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-execute-v4-portal5-bench-execute-v4-opencode-bench-execution-prompt` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-execute-v4-results-dashboard` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-execute-v4-served-model-sanity-new-in-v4` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-execute-v4-your-role` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-sec-execute-v3-0a-ground-truth` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-sec-execute-v3-0b-lab-readiness-gate-do-not-bench-a-cold-or-unreachable-lab` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-sec-execute-v3-autonomous-monitoring-loop-required-default` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-sec-execute-v3-candidate-qualification-report` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-sec-execute-v3-dry-run-the-full-expanded-plan-first-each-step-no-ops-if-its-module-is-absent` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-sec-execute-v3-failure-playbook` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-sec-execute-v3-full-expanded-with-live-lab-execution-needs-green-lab-ready` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-sec-execute-v3-non-negotiables` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-sec-execute-v3-portal5-bench-sec-execute-v3-security-bench-execution-prompt` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-sec-execute-v3-running` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-sec-execute-v3-served-model-note-new-in-v3` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-sec-execute-v3-several-variants` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-sec-execute-v3-single-variant-on-the-prompt-set` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-sec-execute-v3-what-changed-in-the-security-surface-read-before-running` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-portal5-bench-sec-execute-v3-your-role` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-acceptance-testing` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-architecture` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-common-commands` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-core-models-pulled-automatically-on-first-run-4-gb` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-documentation` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-functional-workspaces` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-image-generation-downloaded-automatically-on-first-run-12-gb` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-license` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-mlx-models-apple-silicon-retained-for-audio-embedding-reranker-only-chat-inference-is-ollama-only` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-network-exposure` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-portal-5-local-ai-platform` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-prerequisites` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-pull-specialized-models-security-coding-reasoning-30-90-min` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-quick-start` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-required-environment-variables` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-seeding` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-specialized-models-pulled-with-launch-sh-pull-models-60-100-gb-total` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-speech-text-to-speech-speech-to-text` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-stop-the-conflicting-service-then-launch-sh-up` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-test-everything-is-working` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-then-free-disk-space-and-retry-launch-sh-up` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-troubleshooting` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-unit-test-ci` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-user-management` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-wait-for-ollama-to-finish-loading-then-try-again` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-readme-what-starts-automatically` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-security-combined-corpus-validation` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
+| `unit-HOWTO-user-management` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
+| `unit-known-limitations-acestep15-mlx-backend` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
+| `unit-known-limitations-auto-rag-silent-miss` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
+| `unit-known-limitations-compliance-implicit-change-recall` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
+| `unit-known-limitations-compliance-review-queue-not-a-gate` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
+| `unit-known-limitations-compliance-scope-was-gated-on-data-the-corpus-already-answers` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
+| `unit-known-limitations-minimax-music3-mlx` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
+| `unit-known-limitations-vl-text-gate-tuned-against-manufactured-collision` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-user-guide-cross-session-memory` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-user-guide-getting-access` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-user-guide-how-it-works` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
@@ -592,7 +151,6 @@ binding unit from the AW-governed set; P0.4 archives the now-orphaned unit.
 | `unit-user-guide-tips` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-user-guide-tools-mcp-servers` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-user-guide-uploading-documents` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
-| `unit-user-guide-workspaces` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 
 ## ARCHIVE
 
@@ -602,16 +160,30 @@ P0.4 candidates for the archive bridge rule.
 | unit id | reason |
 |---|---|
 | `SEC_BENCH-combined-corpus-validation-20260731` | prose-only: no claim, no fact, not referenced by a live doc block |
-| `unit-HOWTO-adding-new-capabilities` | prose-only: no claim, no fact, not referenced by a live doc block |
-| `unit-HOWTO-discovery-with-fact-units` | prose-only: no claim, no fact, not referenced by a live doc block |
-| `unit-HOWTO-media-memory-and-launch-order` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-DESIGN_WIKI-discovery-termination` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-DESIGN_WIKI-fence-contract` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-DESIGN_WIKI-migration-procedure` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-DESIGN_WIKI-section-granularity` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-DESIGN_WIKI-spine-write-point` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-SEC_BENCH-architecture-invariant` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-SEC_BENCH-blue-orchestration` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-SEC_BENCH-coding-agent-reentry` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-SEC_BENCH-execution-chain-features` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-SEC_BENCH-execution-tiers` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-SEC_BENCH-execution-transport` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-SEC_BENCH-exercises` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-SEC_BENCH-lab-topology` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-SEC_BENCH-multiseat-v2-results-2026-07-05` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-SEC_BENCH-prerequisites` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-SEC_BENCH-quick-start-tiers` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-SEC_BENCH-scoring` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-SEC_BENCH-single-prompt-tests` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-SEC_BENCH-source-material` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-SEC_BENCH-sub-components` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-SEC_BENCH-verification` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-SEC_BENCH-what-it-is` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-T1003.001-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-T1003.002-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-T1003.003-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-T1003.006-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-T1021.001-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
@@ -620,10 +192,13 @@ P0.4 candidates for the archive bridge rule.
 | `unit-T1047-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-T1053.005-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-T1059-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-T1059.001-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-T1059.004-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-T1068-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-T1078-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-T1078.004-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-T1083-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-T1098-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-T1110.001-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-T1110.003-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-T1189-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
@@ -631,6 +206,9 @@ P0.4 candidates for the archive bridge rule.
 | `unit-T1203-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-T1210-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-T1505.003-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-T1526-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-T1530-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-T1543.003-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-T1548.001-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-T1550.002-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-T1552-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
@@ -643,20 +221,141 @@ P0.4 candidates for the archive bridge rule.
 | `unit-T1595-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-T1610-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-T1611-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-T1621-signature` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-acceptance-runner` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-agent-loop-agent-loop-platform-core` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-agent-loop-consumers` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-agent-loop-contracts-the-key-modules-implement` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-agent-loop-discipline-borrowed-from-the-campaign-supervisor` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-agent-loop-operator-surface` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-agent-loop-record-path-writing-enabled-ci-gated` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-agent-loop-shape` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-alerts-1-enable-notifications` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-alerts-3-restart-the-pipeline` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-alerts-alert-thresholds` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-alerts-channel-priority` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-alerts-daily-summary` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-alerts-daily-usage-summary` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-alerts-email` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-alerts-enable-disable-daily-summary-default-true` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-alerts-fire-all-backends-down-immediately-when-all-backends-fail-default-true` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-alerts-fire-backend-down-after-this-many-consecutive-failures-per-backend-default-3` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-alerts-hour-to-send-summary-0-23-default-8` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-alerts-operational-alerts` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-alerts-optional-json-object-for-additional-headers-e-g-auth-tokens` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-alerts-portal-6-0-0-alerts-notifications-guide` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-alerts-pushover` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-alerts-quick-start` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-alerts-slack` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-alerts-telegram` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-alerts-timezone-for-the-schedule-default-utc` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-alerts-troubleshooting` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-alerts-webhook` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-archive-v5-ladder-analysis` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-1-open-webui-data` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-1-open-webui-data-critical` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-2-configuration` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-2-configuration-files` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-3-mcp-data-if-applicable` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-4-full-system-backup-script` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-add-to-crontab-crontab-e` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-after-config-changes-re-seed` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-backup-config-directory` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-backup-portal-5-data` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-backup-retention` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-cleanup-old-backups-run-daily` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-complete-system-recovery` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-config-excluding-env-for-security-back-that-up-manually` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-daily-backup-with-cron` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-extract-config-careful-may-overwrite-current-settings` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-manual-backup` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-mcp-data-if-exists` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-migration-to-new-host` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-model-weights-recovery` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-open-webui-data` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-or-just-config-excluding-env-for-security` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-or-manually` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-portal-6-0-0-backup-restore-guide` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-pull-default-model` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-restart-services` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-restore-from-backup` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-security-notes` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-stop-services-first` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-what-not-to-back-up` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-what-to-back-up` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-backup-restore-with-compression-faster-for-large-volumes` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-bench-candidates-v10` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-bench-mlx-hf` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-bench-security` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-blue-orchestration-v2-capture-gap` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-blue-orchestration-v3-council-of-agreement` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-binresearch` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-browser` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-cad-render` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-context7` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-detections` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-docker` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-documents` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-execution` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-fetch` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-filesystem` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-git` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-memory` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-mflux` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-mitre` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-mlx-transcribe` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-music-minimax` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-pipeline` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-proxmox` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-reranker` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-research` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-security` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-serena` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-tts` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-video-mlx` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-whisper` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-channels-dispatcher` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-channels-namespace` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-channels-slack-adapter` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-channels-telegram-adapter` | prose-only: no claim, no fact, not referenced by a live doc block |
-| `unit-comfyui-common` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-cluster-scale-portal-5-cluster-scale-out-guide` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-cluster-scale-stage-1-stage-2-add-a-second-mac-studio` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-cluster-scale-stage-3-vllm-for-70b-models` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-cluster-scale-stage-4-5-specialized-model-groups` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-code-portal` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-code-portal_channels` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-code-portal_wiki` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-code-scripts` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-code-tests` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-compliance-config-workspace-pointers` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-compliance-fallback-policy-canonical-baseline` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-compliance-fallback-policy-compliance-fallback-policy` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-compliance-fallback-policy-full-sweep` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-compliance-fallback-policy-granite-4-1-initial-expectation` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-compliance-fallback-policy-granite-required-sweep-fails-if-granite-has-been-removed-from-chain` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-compliance-fallback-policy-out-of-scope` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-compliance-fallback-policy-re-running-the-matrix` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-compliance-fallback-policy-threshold-policy` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-compliance-fallback-policy-what-compliance-fallback-means` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-compliance-module-config-only` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-corpus-injection-a-canned-detection-firing-on-corpus-data-t1558-004-as-rep-roasting-verbatim-spl` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-corpus-injection-always-dry-run-first-it-prints-exact-per-sourcetype-volume-without-injecting` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-corpus-injection-confirm-the-live-triage-window-is-still-clean` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-corpus-injection-corpus-injection-getting-hunt-ready-telemetry-into-lab-splunk` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-corpus-injection-durability-surviving-a-lab-reset` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-corpus-injection-inside-lxc-301-as-the-splunk-user-uid-41812-the-apps-dir-is-splunk-owned` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-corpus-injection-landing-which-sourcetypes-got-data` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-corpus-injection-lane-a-bots-pre-indexed-datasets` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-corpus-injection-lane-b-att-ck-labeled-corpora-over-hec` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-corpus-injection-lane-c-live-emulation-caldera-atomic-red-team` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-corpus-injection-on-the-target-from-the-lab-network` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-corpus-injection-related` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-corpus-injection-rollback` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-corpus-injection-the-property-that-matters-field-extraction-actually-works` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-corpus-injection-two-format-traps-that-silently-produce-useless-data` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-corpus-injection-verify-lane-b` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-corpus-injection-verify-lane-c` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-corpus-injection-why-corpus-data-coexists-safely-with-bench-runs` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-design-omlx-dual-backend-plumbing` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-design-wiki-archive-mechanism` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-fixture-capability-context-sample` | prose-only: no claim, no fact, not referenced by a live doc block |
@@ -664,22 +363,340 @@ P0.4 candidates for the archive bridge rule.
 | `unit-general-module-vendored-tools` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-general-tools-vendored-fleet` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-inference-router-pipe` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-issues-known-issues` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-70b-dense-models-unusable-for-daily-routing-on-m4-pro-64gb` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-antares-gate-e1-gated-download` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-asteroids-bench-score-variance-is-the-benchmark-s-purpose` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-auto-math-workspace-reasoning-block-support` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-baronllm-text-only-tool-output-auto-security-mcp-tools-non-functional` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-cadquery-and-build123d-unusable-on-linux-arm64` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-code-sandbox-requires-privileged-container` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-devstral-24b-runtime-vram-footprint-25-7-gb` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-diarized-transcription-task-transcribe-001` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-emergent-objective-loop-curated-capability-tool-names-vs-live-dispatch-whitelist` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-fara-cua-tag-closure` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-higgs-voice-cloning` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-known-limitations-host-native-mcp-lifecycle-launcher-child-exit` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-importing-the-security-bench-module-sets-a-linux-only-prometheus-multiproc-dir-host-side` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-known-limitations` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-ling-3-0-flash-turboquant-memory-gates` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-meta3-metasploitable3-windows-scenario-coverage-spl-precision-gaps` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-mlx-inference-proxy-retired-commit-3a0c58e` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-model-parity-specialist-models-lost-in-the-mlx-ollama-migration` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-models-out-of-m4-pro-64-gb-budget` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-narrated-tool-call-instead-of-real-dispatch` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-no-built-in-multi-user-rate-limiting` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-ollama-gpu-overhead-ceiling` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-ollama-native-mlx-engine-evaluation-findings-2026-07-01` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-ollama-v1-ignores-options-num-ctx-and-options-num-batch` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-owui-audio-drop-ux-task-owui-audio-drop-001` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-p5-emergent-002-deterministic-capability-ranker-can-t-reach-oracle-bearing-capabilities-once-any-tool-declaring-recon-capability-is-a-candidate` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-p5-mlx-eval-001-gguf-fleet-regressed-slightly-on-0-31-1-mtp-is-mlx-engine-only` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-p5-mlx-eval-002-ollama-s-official-gemma4-mlx-tags-are-not-drop-in-swaps` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-p5-mlx-eval-003-hf-hosted-mlx-models-are-currently-unreachable-by-the-pipeline` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-p5-mlx-eval-004-large-single-blob-mlx-downloads-hang-intermittently` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-p5-mlx-eval-005-two-security-tier-fine-tunes-have-no-working-mlx-conversion` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-phi4-reasoning-plus-crashes-ollama-s-llama-server-on-this-host-confirmed-not-a-corrupted-download` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-post-v1-messages-anthropic-compat-endpoint-returns-http-200-with-a-null-body` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-pytest-portal-leaves-real-write-through-test-artifacts` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-rbp-benign-corpus-alert-fatigue` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-request-size-cap-relies-on-content-length-only` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-router-model-eviction-single-request` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-serena-gate-d1-airgap-staging` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-shared-workspace-auto-stt-disabled-task-workspace-001` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-speculative-decoding-mtp-retired-with-the-mlx-proxy-commit-3a0c58e` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-spine-code-coverage-ratchet` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-tool-preselection-candidate-1b-models-cannot-rank-tools` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-known-limitations-v5-model-visible-corpus-retrieval-coverage` | prose-only: no claim, no fact, not referenced by a live doc block |
-| `unit-media-tools-torch-device` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-v8-catalog-deferred-insufficient-hardware` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-known-limitations-vl-retrieval-runtime` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-lab-setup-all-these-should-succeed-after-setup` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-lab-setup-full-setup-downloads-vulhub-challenge-composes-base-images-model-pulls` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-lab-setup-lab-setup-cold-start-runbook` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-lab-setup-lane-targets` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-lab-setup-metadata-only-skip-heavy-vulhub-model-pulls` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-lab-setup-on-demand-targets-from-lab-targets-yaml` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-lab-setup-readiness-gate` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-lab-setup-reference` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-lab-setup-teardown` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-lab-setup-tier-1-first-time-setup-run-once-re-run-to-update` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-lab-setup-tier-2-daily-operations` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-lab-setup-update-an-existing-setup-git-pull-vulhub-refresh-composes` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-lab-setup-verification` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-1-ensure-stack-is-running` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-2-export-the-pipeline-api-key-into-the-environment` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-3-launch-opencode-reads-opencode-jsonc-mcp-json-automatically` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-adding-a-feature-opencode-with-local-laguna` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-auto-coding-workspace-laguna-variant` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-checking-what-s-in-vram-before-a-long-task` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-claude-code-integration` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-debugging-a-failing-mcp-server-claude-code` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-dual-mode-portal-vs-stock-no-file-renaming` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-fastcontext-repository-explorer` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-fixing-a-bug-claude-code` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-install-if-missing` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-mcp-dev-tooling-claude-code-opencode-integration` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-mcp-servers-mcp-json` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-mode-a-cloud-intelligence-portal-tools-default-cc-portal-sh` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-mode-b-local-model-intelligence-portal-tools-cc-local-sh` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-mode-c-stock-cloud-zero-portal-mcp-cc-stock-sh` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-opencode-integration-opencode-jsonc` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-portal-pipeline-mcp-portal-pipeline-8928` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-prerequisites` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-prometheus-fetch-patterns` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-quick-start` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-security-boundaries` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-tools` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-what-opencode-gets` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-mcp-dev-tooling-workspace-selection` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-memory-mcp-lancedb` | prose-only: no claim, no fact, not referenced by a live doc block |
-| `unit-module-cad` | prose-only: no claim, no fact, not referenced by a live doc block |
-| `unit-module-coding` | prose-only: no claim, no fact, not referenced by a live doc block |
-| `unit-module-compliance` | prose-only: no claim, no fact, not referenced by a live doc block |
-| `unit-module-documents` | prose-only: no claim, no fact, not referenced by a live doc block |
-| `unit-module-eval` | prose-only: no claim, no fact, not referenced by a live doc block |
-| `unit-module-general` | prose-only: no claim, no fact, not referenced by a live doc block |
-| `unit-module-media` | prose-only: no claim, no fact, not referenced by a live doc block |
-| `unit-module-research` | prose-only: no claim, no fact, not referenced by a live doc block |
-| `unit-module-security` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-alicankiraz0-cybersecurity-baronllm-offensive-security-llm-q6-k-gguf-dropped-hf-id-only-see-baronllm-q6-k-below-for-the-fleet-entry` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-baronllm-q6-k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-blue-red-candidate-batch-evaluated-2026-07-03-none-promoted` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-cybersecqwen-4b-toolfix-latest` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-deepseek-r1-0528-qwen3-8b-4bit` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-deepseek-r1-32b-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-devstral-24b` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-devstral-small-2` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-devstral-small-2-latest` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-devstral-small-2-latest-ctx8k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-dolphin-llama3-8b` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-fredrezones55-qwen3-6-35b-a3b-uncensored-hauhaucs-aggressive-q4` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-fredrezones55-qwen3-6-35b-a3b-uncensored-hauhaucs-aggressive-q4-ctx8k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-gemma-4-26b-a4b-it-qat-4bit` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-gemma-4-e4b-it-4bit` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-gemma4-12b-it-qat` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-gemma4-12b-it-qat-ctx8k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-gemma4-26b-a4b-it-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-gemma4-26b-a4b-it-qat` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-gemma4-26b-a4b-it-qat-ctx8k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-gemma4-31b-it-qat` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-gemma4-31b-it-qat-ctx8k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-gemma4-e2b-it-qat` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-gemma4-e2b-it-qat-ctx8k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-gemma4-e4b-it-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-gemma4-e4b-it-qat` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-gemma4-e4b-it-qat-ctx8k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-glm-4-7-flash-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-gpt-oss-20b` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-granite-4-1-30b-4bit` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-granite-4-1-8b-mxfp8` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-granite4-1-30b` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-granite4-1-30b-ctx16k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-granite4-1-30b-ctx64k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-granite4-1-8b` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-granite4-1-8b-ctx16k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-granite4-1-8b-ctx8k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hermes3-8b` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-abiray-agents-a1-q4-k-m-gguf-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-andycurrent-mistral-7b-uncensored-gguf-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-bartowski-huihui-ai-qwen3-coder-next-abliterated-gguf-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-bartowski-huihui-ai-qwen3-coder-next-abliterated-gguf-q4-k-m-ctx64k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-bartowski-nvidia-nemotron-3-5-lightning-30b-a3b-gguf-q4-k-m-ctx8k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-bartowski-qwen-qwen3-6-27b-gguf-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-bartowski-thudm-glm-z1-rumination-32b-0414-gguf-thudm-glm-z1-rumination-32b-0414-q4-k-m-gguf` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-bartowski-thudm-glm-z1-rumination-32b-0414-gguf-thudm-glm-z1-rumination-32b-0414-q4-k-m-gguf-ctx64k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-bugtraceai-bugtraceai-core-ultra-27b-q6-q6-k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-coder543-north-mini-code-1-0-qad-gguf-nvfp4-ctx8k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-coder543-north-mini-code-1-0-qad-gguf-nvfp4-promoted-2026-06-30` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-deepreinforce-ai-ornith-1-0-35b-gguf-q4-k-m-ctx64k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-deepreinforce-ai-ornith-1-0-35b-gguf-q4-k-m-promoted-2026-06-30` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-deepreinforce-ai-ornith-1-0-9b-gguf-q4-k-m-dropped-2026-06-30` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-douyamv-gemma-4-31b-jang-4m-crack-gguf-gemma-4-31b-jang-crack-q4-k-m-gguf` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-empero-ai-qwythos-9b-claude-mythos-5-1m-gguf-q4-k-m-dropped-2026-06-30` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-fdtn-ai-foundation-sec-8b-reasoning-q8-0-gguf-q8-0` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-gaston-parravicini-lfm2-5-8b-a1b-uncensored-gaston-gguf-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-gaston-parravicini-lfm2-5-8b-a1b-uncensored-gaston-gguf-q4-k-m-ctx8k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-jackrong-qwopus3-6-27b-v2-mtp-gguf-qwopus3-6-27b-v2-mtp-q5-k-m-gguf` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-jiunsong-superqwen-agentworld-35b-a3b-abliterated-gguf-4bit-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-liquidai-lfm2-5-1-2b-instruct-gguf-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-liquidai-lfm2-5-230m-gguf-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-liquidai-lfm2-5-350m-gguf-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-mia-ailab-qwable-3-6-35b-qwable-3-6-35b-q4-k-m-gguf` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-mia-ailab-qwable-3-6-35b-qwable-3-6-35b-q4-k-m-gguf-removed-from-security-group` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-mitkox-fastcontext-1-0-4b-sft-q4-k-m-gguf-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-mradermacher-cybersecqwen-4b-gguf-q4-k-m-dropped-tool-call-blocker-fixed-2026-07-04-detection-quality-inconclusive-not-adopted` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-mradermacher-gemma-4-26b-a4b-it-uncensored-heretic-gguf-gemma-4-26b-a4b-it-uncensored-heretic-q4-k-m-gguf` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-mradermacher-huihui-qwen3-6-35b-a3b-abliterated-gguf-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-mradermacher-qwen3-5-9b-claude-4-6-highiq-thinking-heretic-uncensored-gguf-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-mradermacher-vulnllm-r-7b-gguf-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-mradermacher-vulnllm-r-7b-gguf-q4-k-m-ctx8k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-nguuma-security-slm-unsloth-1-5b-latest` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-quantfactory-llama-3-2-3b-instruct-abliterated-gguf` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-redteamlab-qwen3-6-27b-blueteam-v1-q3-k-s-dropped-evaluated-not-adopted` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-redteamlab-qwen3-6-27b-redteam-v5-qwen3-6-27b-redteam-v5-q4-k-m-gguf-dropped-evaluated-not-adopted` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-sjakek-nex-n2-mini-gguf-ud-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-unsloth-deepseek-r1-0528-qwen3-8b-gguf-q4-k-xl` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-unsloth-deepseek-r1-0528-qwen3-8b-gguf-q4-k-xl-ctx64k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-unsloth-glm-4-7-flash-reap-23b-a3b-gguf-ud-q4-k-xl` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-unsloth-glm-4-7-flash-reap-23b-a3b-gguf-ud-q4-k-xl-ctx64k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-unsloth-magistral-small-2509-gguf-q8-0` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-unsloth-magistral-small-2509-gguf-q8-0-ctx64k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-unsloth-qwen-agentworld-35b-a3b-gguf-ud-q4-k-xl` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-unsloth-qwen-agentworld-35b-a3b-gguf-ud-q4-k-xl-ctx64k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-unsloth-qwen3-6-35b-a3b-gguf-ud-q4-k-xl` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-hf-co-unsloth-qwen3-8-27b-gguf-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-huihui-ai-baronllm-abliterated` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-huihui-ai-baronllm-abliterated-latest-ctx8k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-huihui-ai-baronllm-abliterated-latest-dropped-evaluated-not-adopted-supersedes-the-gated-alicankiraz0-baronllm-above` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-huihui-ai-gemma-4-abliterated-e2b-qat` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-huihui-ai-gemma-4-abliterated-e2b-qat-ctx8k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-huihui-ai-huihui-qwen3-5-9b-abliterated-mlx-4bit` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-huihui-ai-qwen3-5-abliterated-9b` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-huihui-ai-qwen3-5-abliterated-9b-ctx64k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-huihui-ai-qwen3-5-abliterated-9b-ctx8k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-huihui-ai-qwen3-6-abliterated-27b` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-huihui-ai-qwen3-6-abliterated-27b-ctx8k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-huihui-ai-qwen3-abliterated-14b-v2` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-huihui-ai-tongyi-deepresearch-abliterated` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-huihui-ai-tongyi-deepresearch-abliterated-latest-ctx64k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-jackrong-deepseek-v4-pro-qwen3-5-4b-mtp` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-jackrong-deepseek-v4-pro-qwen3-5-9b-mtp` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-laguna-xs-2-4bit` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-laguna-xs-2-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-laguna-xs-2-q4-k-m-ctx64k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-lfm2-5-8b` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-lfm2-5-8b-ctx8k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-llama-3-2-3b-instruct-8bit` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-llama3-2-3b` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-llama3-2-3b-instruct-q8-0-ctx8k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-meta-secalign-8b-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-meta-secalign-8b-q4-k-m-latest` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-mistral-small3-2-24b` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-model-catalog-portal-5-model-reference` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-muse-glimmer-30b-mlx` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-nvidia-nemotron-3-5-lightning-30b-a3b-oq4e-mtp` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-omnicoder2-9b-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-omnicoder2-9b-q4-k-m-ctx8k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-phi-4-reasoning-plus-mlx-4bit` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-phi4-14b-q8-0` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-phi4-mini` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-phi4-mini-reasoning` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-phi4-mini-reasoning-latest-ctx24k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-phi4-reasoning-plus` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-phi4-reasoning-plus-ctx32k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-portal5-deepwen-3-6-q4-5-moq` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-portal5-deepwen-3-6-q4-5-moq-ctx32k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-portal5-gemma4-12b-q4-k-m-ctx8k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-portal5-qwen3-6-27b-mtp-q8-0-drafted` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-portal5-qwen36-27b-fable-fusion-heretic-q4-k-m-dropped` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-portal5-xyz-aquila-mini-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-qwen3-6-27b-mtp-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-qwen3-6-27b-oq8-mtp` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-qwen3-6-27b-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-qwen3-6-27b-q4-k-m-ctx16k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-qwen3-6-27b-q8-0` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-qwen3-6-35b-a3b-hauhaucs-aggressive-4bit` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-qwen3-6-35b-a3b-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-qwen3-8-27b-oq4e-mtp` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-qwen3-8-flash-next-reap-288-mlx-4bit` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-qwen3-coder-30b-a3b-instruct-4bit` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-qwen3-coder-30b-a3b-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-qwen3-coder-30b-a3b-q4-k-m-ctx16k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-qwen3-coder-30b-a3b-q4-k-m-ctx8k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-qwen3-coder-next-latest` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-qwen3-coder-next-latest-ctx64k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-qwen3-vl-32b` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-qwen3-vl-32b-ctx8k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-qwen3-vl-32b-instruct-4bit` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-ravenx-cyberagent-35b-q4-k-m-dropped-evaluated-not-adopted-local-alias-for-ravenx-cyberagent-35b` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-supergemma4-26b-abliterated-multimodal-mlx-4bit` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-supergemma4-26b-uncensored-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-supergemma4-26b-uncensored-q4-k-m-ctx64k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-sylink-sylink-8b` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-sylink-sylink-8b-ctx8k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-tongyi-deepresearch-30b-a3b-abliterated-4bit` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-vulnllm-r-7b-4bit` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-p5-roadmap-future-considerations-not-yet-implemented` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-p5-roadmap-p5-fut-004-webhook-based-event-notifications` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-p5-roadmap-p5-fut-006-llm-based-intent-routing` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-p5-roadmap-p5-fut-009-model-size-aware-admission-control-mlx-proxy` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-p5-roadmap-p5-fut-013-omlx-evaluation-canceled` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-p5-roadmap-p5-fut-014-v7-model-refresh-waterline` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-p5-roadmap-p5-fut-embed-001-embeddinggemma-migration-seed` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-p5-roadmap-p5-fut-speech-002-speech-model-shootout` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-p5-roadmap-p5-roadmap-md-portal-5-v7-future-enhancements` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-p5-roadmap-score-history` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-p5-roadmap-speculative-decoding-mtp-retired-commit-3a0c58e` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-p5-roadmap-workspace-clean-utility-low-priority` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-performance-backend-candidate-cache` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-performance-benchmark-client-reuse` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-performance-benchmarking` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-performance-keyword-cache` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-performance-llm-router-warmup-at-startup` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-performance-p7-perf-pipeline-optimizations` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-performance-shared-http-client` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-persona-matrix-ci-baseline-lifecycle` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-persona-matrix-ci-big-model-coverage` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-persona-matrix-ci-ci-vs-local-run-boundary` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-persona-matrix-ci-mlx-coverage-policy` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-persona-matrix-ci-out-of-scope-for-ci` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-persona-matrix-ci-persona-matrix-ci-operations` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-persona-matrix-ci-pipeline-shape` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-persona-matrix-ci-regression-triage-workflow` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-platform-storage-config-facade` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-portal-conftest` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-portal-mcp-namespace` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-acceptance-execute-v9-autonomous-monitoring-loop-required-default` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-acceptance-execute-v9-coverage-current` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-acceptance-execute-v9-failure-playbook` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-acceptance-execute-v9-new-in-v9-routing-served-model-verification` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-acceptance-execute-v9-non-negotiables` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-acceptance-execute-v9-phase-0-preflight-required` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-acceptance-execute-v9-portal5-acceptance-execute-v9-claude-code-prompt` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-acceptance-execute-v9-results-dashboard` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-acceptance-execute-v9-running` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-acceptance-execute-v9-your-role` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-execute-v4-1-ground-truth-counts-no-retired-alias-leak` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-execute-v4-2-bench-plan-the-real-test-count-for-this-run` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-execute-v4-3-backends-up` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-execute-v4-autonomous-monitoring-loop-required-default` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-execute-v4-failure-playbook` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-execute-v4-modes` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-execute-v4-non-negotiables` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-execute-v4-on-each-wakeup` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-execute-v4-on-launch` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-execute-v4-phase-0-preflight-required-before-any-run` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-execute-v4-portal5-bench-execute-v4-opencode-bench-execution-prompt` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-execute-v4-results-dashboard` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-execute-v4-served-model-sanity-new-in-v4` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-execute-v4-your-role` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-sec-execute-v3-0a-ground-truth` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-sec-execute-v3-0b-lab-readiness-gate-do-not-bench-a-cold-or-unreachable-lab` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-sec-execute-v3-autonomous-monitoring-loop-required-default` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-sec-execute-v3-candidate-qualification-report` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-sec-execute-v3-dry-run-the-full-expanded-plan-first-each-step-no-ops-if-its-module-is-absent` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-sec-execute-v3-failure-playbook` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-sec-execute-v3-full-expanded-with-live-lab-execution-needs-green-lab-ready` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-sec-execute-v3-non-negotiables` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-sec-execute-v3-portal5-bench-sec-execute-v3-security-bench-execution-prompt` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-sec-execute-v3-running` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-sec-execute-v3-served-model-note-new-in-v3` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-sec-execute-v3-several-variants` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-sec-execute-v3-single-variant-on-the-prompt-set` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-sec-execute-v3-what-changed-in-the-security-surface-read-before-running` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-portal5-bench-sec-execute-v3-your-role` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-readme-acceptance-testing` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-readme-architecture` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-readme-common-commands` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-readme-core-models-pulled-automatically-on-first-run-4-gb` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-readme-documentation` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-readme-functional-workspaces` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-readme-image-video-generation-mlx-native-host-layer` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-readme-license` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-readme-mlx-models-apple-silicon-retained-for-audio-embedding-reranker-only-chat-inference-is-ollama-only` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-readme-network-exposure` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-readme-portal-5-local-ai-platform` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-readme-prerequisites` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-readme-quick-start` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-readme-required-environment-variables` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-readme-slack-bot-setup` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-readme-specialized-models-pulled-with-launch-sh-pull-models-60-100-gb-total` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-readme-speech-text-to-speech-speech-to-text` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-readme-telegram-bot-setup` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-readme-troubleshooting` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-readme-unit-test-ci` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-readme-what-starts-automatically` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-router-streaming` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-router-test-context-inject` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-router-test-correlation` | prose-only: no claim, no fact, not referenced by a live doc block |
@@ -698,6 +715,7 @@ P0.4 candidates for the archive bridge rule.
 | `unit-sec-tests-test_security_mcp` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-security-capability-index` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-security-cli-pass-through` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-security-combined-corpus-validation` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-security-commands-namespace` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-security-commands-run` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-security-config-reserved` | prose-only: no claim, no fact, not referenced by a live doc block |
@@ -706,7 +724,7 @@ P0.4 candidates for the archive bridge rule.
 | `unit-surface-acceptance` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-archive-mlx` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-benchmarks` | prose-only: no claim, no fact, not referenced by a live doc block |
-| `unit-surface-comfyui-tests` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-surface-binary-research` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-inference` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-inference-cli` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-investigation` | prose-only: no claim, no fact, not referenced by a live doc block |
@@ -716,10 +734,12 @@ P0.4 candidates for the archive bridge rule.
 | `unit-surface-portal-wiki` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-router` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-scripts` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-surface-sec-bully` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-sec-core` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-sec-tests` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-security-eval` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-siem` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-surface-tests-bully` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-tests-harness` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-tests-scripts` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-tests-unit` | prose-only: no claim, no fact, not referenced by a live doc block |
@@ -742,6 +762,7 @@ P0.4 candidates for the archive bridge rule.
 | `unit-uat-owui_api` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-uat-results` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-uat-state` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-wfe-workspace-fitness` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-wiki-adapter-modules` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-wiki-audit` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-wiki-interfaces` | prose-only: no claim, no fact, not referenced by a live doc block |

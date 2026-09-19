@@ -116,6 +116,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/constraints.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-contradictions
+  globs:
+  - portal/modules/compliance/core/contradictions.py
+  unit: unit-compliance-prove-then-scale
 - name: file-portal-modules-compliance-core-council
   globs:
   - portal/modules/compliance/core/council.py
@@ -260,6 +264,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/reading_assembly.py
   unit: unit-compliance-bilateral-corpus
+- name: file-portal-modules-compliance-core-reading_material
+  globs:
+  - portal/modules/compliance/core/reading_material.py
+  unit: unit-compliance-prove-then-scale
 - name: file-portal-modules-compliance-core-reading_tools
   globs:
   - portal/modules/compliance/core/reading_tools.py
@@ -328,6 +336,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/slice_executor.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-sweep
+  globs:
+  - portal/modules/compliance/core/sweep.py
+  unit: unit-compliance-prove-then-scale
 - name: file-portal-modules-compliance-core-temporal
   globs:
   - portal/modules/compliance/core/temporal.py
@@ -806,6 +818,10 @@ surfaces:
   globs:
   - portal/modules/binary_research/**/*.py
   unit: unit-surface-binary-research
+- name: unit-surface-compliance-prove-then-scale-scripts
+  globs:
+  - scripts/prove_then_scale/*.py
+  unit: unit-surface-compliance-prove-then-scale-scripts
 - name: unit-surface-inference
   globs:
   - portal/platform/inference/*.py
