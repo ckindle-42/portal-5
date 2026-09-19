@@ -537,7 +537,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `auto-uncensored-throwaway` | general | `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k` |
 | `auto-video` | video | `granite4.1:8b-ctx16k` |
 | `auto-vision` | general | `qwen3-vl:32b-ctx8k` |
-| `compliance-reading` | compliance | `hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k` |
+| `compliance-reading` | compliance | `gemma4:26b-a4b-it-q4_K_M-ctx32k` |
 | `tools-specialist` | general | `granite4.1:8b-ctx8k` |
 
 ##### Eval/bench workspaces (need PORTAL_ENABLE_EVAL=1)
@@ -607,7 +607,7 @@ default.
 | `auto-uncensored-throwaway` | `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k` | yes |
 | `auto-video` | `granite4.1:8b-ctx16k` | yes |
 | `auto-vision` | `qwen3-vl:32b-ctx8k` | yes |
-| `compliance-reading` | `hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k` | yes |
+| `compliance-reading` | `gemma4:26b-a4b-it-q4_K_M-ctx32k` | yes |
 | `tools-specialist` | `granite4.1:8b-ctx8k` | yes |
 
 ##### Persona model_pin reachability

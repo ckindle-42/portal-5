@@ -5,7 +5,7 @@ title: 26 production + 21 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: a8efd5a4c2a4
+  commit: 2acd84207797
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'
@@ -14,7 +14,7 @@ tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1789693470.17839
+updated_at: 1789853954.5593688
 ---
 
 # Workspace roster (26 production, 21 eval, 47 total)
@@ -47,7 +47,7 @@ updated_at: 1789693470.17839
 | `auto-uncensored-throwaway` | general | `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k` |
 | `auto-video` | video | `granite4.1:8b-ctx16k` |
 | `auto-vision` | general | `qwen3-vl:32b-ctx8k` |
-| `compliance-reading` | compliance | `hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k` |
+| `compliance-reading` | compliance | `gemma4:26b-a4b-it-q4_K_M-ctx32k` |
 | `tools-specialist` | general | `granite4.1:8b-ctx8k` |
 
 ## Eval/bench workspaces (need PORTAL_ENABLE_EVAL=1)

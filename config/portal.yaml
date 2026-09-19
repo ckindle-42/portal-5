@@ -1555,20 +1555,27 @@ workspaces:
     name: ⚖️ Portal Compliance Reading
     description: |-
       Focused NERC CIP reading loop with only the corpus, reading, currency, and review tools. Requirement reading lives here, in conversation; auto-compliance keeps catalog lookups, CVE triage and document production. Other frameworks remain catalog-only.
-    # WINDOW_AND_SEAT_V1 §P8.1 — THE SEAT, BOUND BY MEASUREMENT. Ling-3.0-tiny
-    # (KDA 3:1 + MLA, 1.3B active of 7.9B) won the §P3 sweep's binding
-    # criterion — fastest decode (104.5 tok/s vs the dense incumbent's 12.0,
-    # 8.7x) with the high-water held (18,297 tokens at 6 hops, live §P4.2) and
-    # no swap — and turn one of `parent` answered in 57 s on the live path
-    # against the acceptance bar of under a minute. Runner-up:
-    # granite4:tiny-h-ctx32k (fastest turn wall 19.5 s, smallest footprint
-    # 4.4 GB, fastest prefill 1278 tok/s) lost on decode speed and on the §P7
-    # lever: `think` answers HTTP 400 on the granite hybrid, so rung 4 has no
-    # reasoning reserve there; Ling's template honors think both ways.
-    # Previously bound: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k (dense
-    # 27B, 12.0 tok/s decode, 94 tok/s prefill — turn one 397.8 s, 6.6x over
-    # the bar, and the 32k window overflowed at the old prompt/tool surface).
-    model_hint: hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k
+    # WINDOW_AND_SEAT_V1 §P8.1 bound the seat; TASK_COMPLIANCE_DELIVER_AND_
+    # SETTLE_ENGINE_V1 §A2/A3 RE-BOUND it on the proving instrument. The
+    # §A2 read-test (reports/compliance/prove_then_scale/p1/A2_SPLASH_MODEL_
+    # JUDGMENT.md) ran the six §P1 cases one-call/no-tools on three candidates:
+    # gemma4, Qwen3.8-27B and Qwen3.6-35B-A3B each read 4/6 with the IDENTICAL
+    # two failures (choice: the policy's "and"-joined restatement of Part 2.3
+    # goes unflagged; no_operator_side: the policy's verbatim restatement of
+    # Part 5.2 cited as demonstration). A tie does not displace a
+    # twice-measured incumbent, so the seat binds gemma4 — the seat that
+    # proved 6/6 verbatim citations at §P1 and carried the family sweep.
+    # Ling and Nemotron are DISQUALIFIED FOR FABRICATION, NOT SPEED: Ling is
+    # the fastest decoder measured (104.5 tok/s) and scored 1/6 — failing
+    # read_check 0-of-6 and writing "the material does not include our
+    # implementation" over operator sections labelled in the same message;
+    # Nemotron failed read_check cells the same way. Neither is deleted.
+    # Previously bound: hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k
+    # (§P3's binding criterion was speed-first; §A2's is read-first). Before
+    # that: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k (dense 27B, 12.0
+    # tok/s decode, 94 tok/s prefill — turn one 397.8 s on the old prompt/
+    # tool surface, and the 32k window overflowed there).
+    model_hint: gemma4:26b-a4b-it-q4_K_M-ctx32k
     context_limit: 32768
     predict_limit: 24576
     # compliance is a deterministic lane (settings_audit LANE_SAMPLING ceiling
