@@ -1,0 +1,86 @@
+{
+  "decider": "agent:zcode-portal5 (A6.2 read-judgment, 2026-09-19; both sides rendered per row)",
+  "decisions": [
+    {
+      "sample_id": "sample-563199128236",
+      "decision": "CONFIRMED",
+      "notes": "Appendix traceability table states 'R2 Part 2.4 ... implement the plan within the timeframe ...' -> Section 3.6.7 (page 14 of 14): a literal cross-reference of the Part. REFERENCES is the correct relation for a traceability appendix row."
+    },
+    {
+      "sample_id": "sample-509327577403",
+      "decision": "CONFIRMED",
+      "notes": "Appendix row 'R3 Part 3.2 Mitigate the threat of detected malicious code' -> Section 3.3. Literal cross-reference; REFERENCES correct."
+    },
+    {
+      "sample_id": "sample-145043017188",
+      "decision": "CORRECTED",
+      "notes": "The paired section is 1.1 Purpose: it NAMES the duty ('establish a process to update malware signatures') but states no who/when/how; the operator's own appendix maps Part 3.3 to Sections 3.4 & 3.5. A purpose statement references the Part; it does not implement it. Machine said IMPLEMENTS - corrected to REFERENCES."
+    },
+    {
+      "sample_id": "sample-227733149837",
+      "decision": "CONFIRMED",
+      "notes": "Appendix row 'R3 Part 3.3 ... update of the signatures or patterns ...' -> Sections 3.4 & 3.5. Literal cross-reference; REFERENCES correct."
+    },
+    {
+      "sample_id": "sample-286997154093",
+      "decision": "CONFIRMED",
+      "notes": "LSPG Event Monitoring 3.5 carries 3.5.4 'all related logs and information shall be collected, retained, and be provided upon request' for reportable incidents - the documented retention/provision evidence for R4 Part 4.4; review intervals and escalation in 3.5.1-3.5.3 evidence the detection/alerting duties. EVIDENCES defensible."
+    },
+    {
+      "sample_id": "sample-501062352848",
+      "decision": "CONFIRMED",
+      "notes": "Appendix row 'R5 Part 5.1 Have a method(s) to enforce authentication ...' -> Section 3.1. Literal cross-reference; REFERENCES correct."
+    },
+    {
+      "sample_id": "sample-578469429352",
+      "decision": "CONFIRMED",
+      "notes": "Appendix row 'R5 Part 5.2 Identify and inventory all known enabled default or other generic account types' -> Section 3.1.4. Literal cross-reference; REFERENCES correct."
+    },
+    {
+      "sample_id": "sample-914576081310",
+      "decision": "CONFIRMED",
+      "notes": "Appendix row 'R5 Part 5.3 Identify individuals who have authorized access to shared accounts' -> Section 3.2.2. Literal cross-reference; REFERENCES correct."
+    },
+    {
+      "sample_id": "sample-200272322082",
+      "decision": "CONFIRMED",
+      "notes": "Appendix row 'R5 Part 5.4 Change known default passwords, per Cyber Asset capability' -> Section 3.1.4. Literal cross-reference; REFERENCES correct."
+    },
+    {
+      "sample_id": "sample-303103891891",
+      "decision": "CONFIRMED",
+      "notes": "Appendix row 'R5 Part 5.6 ... password changes ... at least once every 15 calendar months' -> Sections 3.4.1.1 / 3.4.2.2 / 3.5.1. Literal cross-reference; REFERENCES correct."
+    },
+    {
+      "sample_id": "sample-323735105984",
+      "decision": "CONFIRMED",
+      "notes": "Appendix row 'R5 Part 5.7 ... Limit the number of unsuccessful authentication attempts; or Generate alerts ...' -> Section 3.5.3. Literal cross-reference; REFERENCES correct."
+    }
+  ],
+  "agreement": {
+    "verdict": "scored",
+    "n_decided": 11,
+    "n_confirmed": 10,
+    "n_corrected": 1,
+    "n_rejected": 0,
+    "agreement_rate": 0.9091,
+    "by_machine_relation": {
+      "EVIDENCES": {
+        "n": 1,
+        "confirmed": 1,
+        "agreement": 1.0
+      },
+      "IMPLEMENTS": {
+        "n": 1,
+        "confirmed": 0,
+        "agreement": 0.0
+      },
+      "REFERENCES": {
+        "n": 9,
+        "confirmed": 9,
+        "agreement": 1.0
+      }
+    },
+    "note": "machine determinations versus the human-confirmed sample \u2014 the mapping accuracy"
+  }
+}
