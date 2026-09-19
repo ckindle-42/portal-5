@@ -549,9 +549,7 @@ def _requirement_in_register(repo: Any, parsed: Any) -> bool:
         return True  # a whole-standard address resolves when the revision is registered
     req = f"R{parsed.requirement}"
     if parsed.part:
-        return any(
-            str(r["requirement"]) == req and str(r["part"]) == parsed.part for r in rows
-        )
+        return any(str(r["requirement"]) == req and str(r["part"]) == parsed.part for r in rows)
     return any(str(r["requirement"]) == req for r in rows)
 
 

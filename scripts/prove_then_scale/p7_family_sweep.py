@@ -43,7 +43,11 @@ def revisions_in_order() -> list[str]:
     revisions: list[str] = []
     for family, _reason in sweep.STANDARD_ORDER:
         revs = sorted(
-            {n.id.split(" ")[0] for n in reg.nodes if n.id.split(" ")[0].rsplit("-", 1)[0] == family}
+            {
+                n.id.split(" ")[0]
+                for n in reg.nodes
+                if n.id.split(" ")[0].rsplit("-", 1)[0] == family
+            }
         )
         revisions.extend(revs)
     seen_families = {r.rsplit("-", 1)[0] for r in revisions}
@@ -75,16 +79,18 @@ def main() -> int:
             print(f"== {revision} ==")
             summary = sweep.sweep_standard(repo, revision, model=SEAT, write=True)
             standards.append(summary)
-            ART.write_text(json.dumps(
-                {
-                    "seat": SEAT,
-                    "order": [s for s, _ in sweep.STANDARD_ORDER],
-                    "standards": standards,
-                    "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
-                },
-                indent=2,
-                default=str,
-            ))
+            ART.write_text(
+                json.dumps(
+                    {
+                        "seat": SEAT,
+                        "order": [s for s, _ in sweep.STANDARD_ORDER],
+                        "standards": standards,
+                        "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                    },
+                    indent=2,
+                    default=str,
+                )
+            )
             if "error" in summary:
                 print(f"  ERROR: {summary['error']}")
                 continue
