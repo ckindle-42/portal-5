@@ -57,7 +57,8 @@ DEFAULT_BUDGET_TOKENS = 60_000
 _REF_RE = re.compile(
     r"^(?P<standard>CIP-\d{3}-[\w.]+)"
     r"(?:\s+R(?P<requirement>\d+))?"
-    r"(?:\s+Part\s+(?P<part>\d+(?:\.\d+)*))?\s*$",
+    r"(?:\s+Attachment\s+(?P<attachment>\d+))?"
+    r"(?:\s+(?:Part\s+(?P<part>\d+(?:\.\d+)*)|Section\s+(?P<section>\d+)))?\s*$",
     re.I,
 )
 
@@ -65,11 +66,18 @@ _REF_RE = re.compile(
 @dataclass
 class Ref:
     """A parsed regulatory address. ``requirement`` and ``part`` may be empty —
-    a whole standard is a legitimate thing to read."""
+    a whole standard is a legitimate thing to read. ``attachment`` carries the
+    CIP-002-style Attachment structure the register tracks as requirement nodes
+    (COMPLIANCE_FAMILY_CENSUS_V1 §5 / A5): the categorisation method every other
+    standard's applicability derives from is Attachment 1 Part N.N text, and a
+    grammar that refused it left 26 of 33 CIP-002-5.1a nodes unreadable by the
+    sweep — measured: every one skipped with "not a regulatory address"."""
 
     standard: str
     requirement: str = ""
     part: str = ""
+    attachment: str = ""
+    section: str = ""
 
     @property
     def logical_id(self) -> str:
@@ -77,13 +85,18 @@ class Ref:
 
     def __str__(self) -> str:
         tail = f" R{self.requirement}" if self.requirement else ""
+        tail += f" Attachment {self.attachment}" if self.attachment else ""
         tail += f" Part {self.part}" if self.part else ""
+        tail += f" Section {self.section}" if self.section else ""
         return f"{self.standard}{tail}"
 
 
 def parse_ref(ref: str) -> Ref | None:
     """``CIP-007-6 R2 Part 2.2`` -> a :class:`Ref`. ``None`` when the string is
-    not a regulatory address (it may still be a section id or a document)."""
+    not a regulatory address (it may still be a section id or a document).
+    Attachment addresses parse too: ``CIP-002-5.1a Attachment 1 Part 2.3`` and
+    ``CIP-002-5.1a Attachment 1 Section 1`` — the register carries them as
+    requirement nodes, and ``str(Ref)`` round-trips to exactly those ids."""
     m = _REF_RE.match(str(ref).strip())
     if not m:
         return None
@@ -99,6 +112,8 @@ def parse_ref(ref: str) -> Ref | None:
         standard=standard,
         requirement=m.group("requirement") or "",
         part=m.group("part") or "",
+        attachment=m.group("attachment") or "",
+        section=m.group("section") or "",
     )
 
 
