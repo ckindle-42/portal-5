@@ -676,3 +676,39 @@ Closing record for the push; each item traces to a section above.
 6. **The three base-tree unit failures and the HG acceptance-currency gate**
    belong to their owners; until then the unit gate stays red and pushes
    stay deliberately, recordedly bypassed.
+
+---
+
+## §10 — push-time gate record (final)
+
+Every pre-push gate was either satisfied through its designed remedy or the
+bypass is recorded here, per the operator's explicit instruction to conclude
+and push:
+
+* **BR spine coverage** — FIXED the designed way: two fact-units authored
+  (`unit-compliance-prove-then-scale` for the three new core modules,
+  `unit-surface-compliance-prove-then-scale-scripts` declaring the campaign
+  scripts' glob), manifest regenerated (`config/spine_surfaces.yaml`),
+  0 uncovered files.
+* **BU complexity ratchet** — re-stamped (`config/complexity_budget.yaml`)
+  after real code growth, the documented legitimate path; the census now
+  counts `unwired_scripts: 22` — six of them this campaign's committed
+  instruments, visible as the signal they are.
+* **GS NERC currency** — cleared by a REAL sync (`nerc_autosync.py`), which
+  found and reported a genuine upstream change: **CIP-015-1's lifecycle moved
+  (effective 2028-10-01)** — the corpus is current and the change report is
+  on the record.
+* **HG acceptance currency** — the live acceptance suite RAN at the final
+  HEAD (`reports/compliance/acceptance/b7f7fa20…/`): the reader stage
+  completed all 18 planned cells (6 PASS / 12 FAIL) before the legacy stage
+  was deliberately stopped to conclude the campaign. The FAILs are the
+  deployed acceptance seat — **Ling, the seat this campaign disqualified** —
+  failing exactly as §P1 predicts (interval and no_operator_side pass;
+  parent/choice/either_or/read_check fail on citation discipline). The suite
+  proving the seat wrong is running the wrong seat: **re-seating the
+  acceptance on gemma4 is deployment work and is first in what's-to-come.**
+* **Push** — executed with `--no-verify` under explicit operator instruction
+  ("commit and push to main… bypass if needed"). This paragraph is that
+  bypass's trace.
+
+**Commit:** `docs(compliance): push-time gate record — BR fixed, BU re-stamped, GS synced, HG run and recorded`

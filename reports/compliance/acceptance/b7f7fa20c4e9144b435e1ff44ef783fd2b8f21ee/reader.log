@@ -1,0 +1,20 @@
+FAIL  workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__parent__run1  ['cited_ids_resolve']
+FAIL  workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__parent__run2  ['cited_ids_resolve']
+FAIL  workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__parent__run3  ['cited_ids_resolve']
+FAIL  workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__choice__run1  ['cited_ids_resolve']
+FAIL  workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__choice__run2  ['cited_ids_resolve']
+FAIL  workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__choice__run3  ['cited_ids_resolve']
+PASS  workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__interval__run1  
+PASS  workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__interval__run2  
+PASS  workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__interval__run3  
+FAIL  workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__read_check__run1  ['cited_ids_resolve']
+FAIL  workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__read_check__run2  ['cited_ids_resolve']
+FAIL  workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__read_check__run3  ['cited_ids_resolve']
+FAIL  workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__either_or__run1  ['tool_calls>=1', 'cited_ids_resolve']
+FAIL  workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__either_or__run2  ['tool_calls>=1', 'cited_ids_resolve']
+FAIL  workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__either_or__run3  ['tool_calls>=1', 'cited_ids_resolve']
+PASS  workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__no_operator_side__run1  
+PASS  workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__no_operator_side__run2  
+PASS  workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__no_operator_side__run3  
+
+artifacts: /Users/chris/projects/portal-5/reports/compliance/acceptance/b7f7fa20c4e9144b435e1ff44ef783fd2b8f21ee

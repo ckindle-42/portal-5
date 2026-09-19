@@ -1,0 +1,5 @@
+2026-09-19T00:13:51Z restarting com.portal5.compliance-mcp onto rev=b7f7fa20c4e9144b435e1ff44ef783fd2b8f21ee (port 8937)
+2026-09-19T00:13:54Z acceptance start rev=b7f7fa20c4e9144b435e1ff44ef783fd2b8f21ee dirty_paths=4 artifacts=/Users/chris/projects/portal-5/reports/compliance/acceptance/b7f7fa20c4e9144b435e1ff44ef783fd2b8f21ee
+2026-09-19T00:13:54Z reader START: /Users/chris/.local/bin/uv run python scripts/compliance_acceptance.py --runs 3
+2026-09-19T00:34:55Z reader FINISHED exit=1 (log: /Users/chris/projects/portal-5/reports/compliance/acceptance/b7f7fa20c4e9144b435e1ff44ef783fd2b8f21ee/reader.log)
+2026-09-19T00:34:55Z legacy START: /Users/chris/.local/bin/uv run python scripts/compliance_acceptance.py --adapter legacy --runs 1

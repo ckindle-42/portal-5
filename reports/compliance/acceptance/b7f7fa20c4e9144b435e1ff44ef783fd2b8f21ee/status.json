@@ -1,0 +1,142 @@
+{
+ "git_head": "b7f7fa20c4e9144b435e1ff44ef783fd2b8f21ee",
+ "dirty_paths": 7,
+ "updated_at": "2026-09-19T00:34:55Z",
+ "cells": [
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__parent__run1",
+   "passed": false,
+   "failed_assertions": [
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__parent__run2",
+   "passed": false,
+   "failed_assertions": [
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__parent__run3",
+   "passed": false,
+   "failed_assertions": [
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__choice__run1",
+   "passed": false,
+   "failed_assertions": [
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__choice__run2",
+   "passed": false,
+   "failed_assertions": [
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__choice__run3",
+   "passed": false,
+   "failed_assertions": [
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__interval__run1",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__interval__run2",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__interval__run3",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__read_check__run1",
+   "passed": false,
+   "failed_assertions": [
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__read_check__run2",
+   "passed": false,
+   "failed_assertions": [
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__read_check__run3",
+   "passed": false,
+   "failed_assertions": [
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__either_or__run1",
+   "passed": false,
+   "failed_assertions": [
+    "tool_calls>=1",
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__either_or__run2",
+   "passed": false,
+   "failed_assertions": [
+    "tool_calls>=1",
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__either_or__run3",
+   "passed": false,
+   "failed_assertions": [
+    "tool_calls>=1",
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__no_operator_side__run1",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__no_operator_side__run2",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__no_operator_side__run3",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  }
+ ]
+}

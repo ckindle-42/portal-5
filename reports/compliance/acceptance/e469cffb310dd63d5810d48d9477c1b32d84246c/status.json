@@ -1,0 +1,55 @@
+{
+ "git_head": "e469cffb310dd63d5810d48d9477c1b32d84246c",
+ "dirty_paths": 4,
+ "updated_at": "2026-09-19T00:12:35Z",
+ "cells": [
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__parent__run1",
+   "passed": false,
+   "failed_assertions": [
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__parent__run2",
+   "passed": false,
+   "failed_assertions": [
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__parent__run3",
+   "passed": false,
+   "failed_assertions": [
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__choice__run1",
+   "passed": false,
+   "failed_assertions": [
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__choice__run2",
+   "passed": false,
+   "failed_assertions": [
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  },
+  {
+   "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__choice__run3",
+   "passed": false,
+   "failed_assertions": [
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  }
+ ]
+}

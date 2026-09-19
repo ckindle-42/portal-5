@@ -1,0 +1,3 @@
+2026-09-18T23:32:43Z restarting com.portal5.compliance-mcp onto rev=e469cffb310dd63d5810d48d9477c1b32d84246c (port 8937)
+2026-09-18T23:32:45Z acceptance start rev=e469cffb310dd63d5810d48d9477c1b32d84246c dirty_paths=8 artifacts=/Users/chris/projects/portal-5/reports/compliance/acceptance/e469cffb310dd63d5810d48d9477c1b32d84246c
+2026-09-18T23:32:45Z reader START: /Users/chris/.local/bin/uv run python scripts/compliance_acceptance.py --runs 3

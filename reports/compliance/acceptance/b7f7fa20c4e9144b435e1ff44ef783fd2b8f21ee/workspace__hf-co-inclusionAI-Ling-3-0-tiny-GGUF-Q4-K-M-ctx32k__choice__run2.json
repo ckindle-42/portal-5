@@ -1,0 +1,232 @@
+{
+ "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__choice__run2",
+ "adapter": "workspace",
+ "seat": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+ "case": "choice",
+ "ref": "CIP-007-6 R2 Part 2.3",
+ "thread": "main",
+ "campaign_inputs": {
+  "seat": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+  "workspace_prompt_sha": "b4a0a9c12a0c"
+ },
+ "question": "Are we using all the latitude NERC gives us on Part 2.3?",
+ "run_index": 2,
+ "environment_before": {
+  "at": "2026-09-19T00:30:19Z",
+  "ollama_version": "0.34.2",
+  "ollama_ps": [
+   {
+    "name": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "size": 6070971922,
+    "digest": "b2f78a71f32ac696e16f06c82504f56265071806c7fb8fc4449955463e76bcb4",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "bailingmoe3",
+     "families": [
+      "bailingmoe3"
+     ],
+     "parameter_size": "7.9B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-18T19:35:19.221881-05:00",
+    "size_vram": 6070971922,
+    "context_length": 32768
+   }
+  ],
+  "free_memory_mb": 28387,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "turn": {
+  "question": "Are we using all the latitude NERC gives us on Part 2.3?",
+  "answer": "I need to stop searching and try a different approach. Let me look at what's actually in the operator corpus for Part 2.3.\n\n\n[Tool-use limit (20 hops) reached. Returning partial result.]",
+  "reasoning_chars": 0,
+  "wall_s": 25.26,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.02,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+  "served_model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+  "tool_calls": {
+   "compliance_requirement": 2.0,
+   "compliance_search": 18.0
+  },
+  "tool_errors": {},
+  "usage_hops": [
+   {
+    "prompt_tokens": 3025,
+    "completion_tokens": 118
+   },
+   {
+    "prompt_tokens": 3312,
+    "completion_tokens": 40
+   },
+   {
+    "prompt_tokens": 3739,
+    "completion_tokens": 32
+   },
+   {
+    "prompt_tokens": 4138,
+    "completion_tokens": 28
+   },
+   {
+    "prompt_tokens": 4529,
+    "completion_tokens": 30
+   },
+   {
+    "prompt_tokens": 4924,
+    "completion_tokens": 25
+   },
+   {
+    "prompt_tokens": 5309,
+    "completion_tokens": 35
+   },
+   {
+    "prompt_tokens": 5724,
+    "completion_tokens": 29
+   },
+   {
+    "prompt_tokens": 6117,
+    "completion_tokens": 25
+   },
+   {
+    "prompt_tokens": 6502,
+    "completion_tokens": 30
+   },
+   {
+    "prompt_tokens": 6897,
+    "completion_tokens": 36
+   },
+   {
+    "prompt_tokens": 7314,
+    "completion_tokens": 31
+   },
+   {
+    "prompt_tokens": 7711,
+    "completion_tokens": 46
+   },
+   {
+    "prompt_tokens": 8168,
+    "completion_tokens": 45
+   },
+   {
+    "prompt_tokens": 8623,
+    "completion_tokens": 54
+   },
+   {
+    "prompt_tokens": 9106,
+    "completion_tokens": 52
+   },
+   {
+    "prompt_tokens": 9585,
+    "completion_tokens": 53
+   },
+   {
+    "prompt_tokens": 10066,
+    "completion_tokens": 54
+   },
+   {
+    "prompt_tokens": 10549,
+    "completion_tokens": 82
+   },
+   {
+    "prompt_tokens": 11028,
+    "completion_tokens": 53
+   }
+  ],
+  "prompt_tokens_high_water": 11028,
+  "prompt_tokens_final_hop": 11028,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+ },
+ "thread_length_messages": 2,
+ "served_model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+ "guard": [],
+ "checks": [
+  {
+   "assertion": "http_200",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "assertion": "turn_within_budget",
+   "ok": true,
+   "detail": {
+    "wall_s": 25.26,
+    "budget_s": 900.0,
+    "error": ""
+   }
+  },
+  {
+   "assertion": "answer_nonempty",
+   "ok": true,
+   "detail": 186
+  },
+  {
+   "assertion": "prompt_tokens_measured",
+   "ok": true,
+   "detail": {
+    "high_water": 11028,
+    "final_hop": 11028,
+    "hops_seen": 20
+   }
+  },
+  {
+   "assertion": "applied_window_known_and_not_exceeded",
+   "ok": true,
+   "detail": {
+    "served_model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "applied_ctx": 32768,
+    "input_tokens": 11028.0
+   }
+  },
+  {
+   "assertion": "tool_calls>=1",
+   "ok": true,
+   "detail": {
+    "compliance_requirement": 2.0,
+    "compliance_search": 18.0
+   }
+  },
+  {
+   "assertion": "cited_ids_resolve",
+   "ok": false,
+   "detail": "no section id cited in the answer"
+  }
+ ],
+ "passed": false,
+ "environment_after": {
+  "at": "2026-09-19T00:30:44Z",
+  "ollama_version": "0.34.2",
+  "ollama_ps": [
+   {
+    "name": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "size": 6070971922,
+    "digest": "b2f78a71f32ac696e16f06c82504f56265071806c7fb8fc4449955463e76bcb4",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "bailingmoe3",
+     "families": [
+      "bailingmoe3"
+     ],
+     "parameter_size": "7.9B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-18T19:35:44.608114-05:00",
+    "size_vram": 6070971922,
+    "context_length": 32768
+   }
+  ],
+  "free_memory_mb": 28168,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "failed_assertions": [
+  "cited_ids_resolve"
+ ]
+}

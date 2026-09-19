@@ -1,0 +1,6 @@
+FAIL  workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__parent__run1  ['cited_ids_resolve']
+FAIL  workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__parent__run2  ['cited_ids_resolve']
+FAIL  workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__parent__run3  ['cited_ids_resolve']
+FAIL  workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__choice__run1  ['cited_ids_resolve']
+FAIL  workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__choice__run2  ['cited_ids_resolve']
+FAIL  workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__choice__run3  ['cited_ids_resolve']
