@@ -39,14 +39,22 @@ prefix the sweep does not. It is not:
   reports a miss when there is nothing shared. The reuse is real prefix
   sharing by the daemon, not a broken clock.
 
-**Attribution (open, recorded honestly):** §P4.1 ran 2026-09-17 on this same
-daemon version (0.34.2). The daemon's `.env` was rewritten 2026-09-18 13:48;
-the live environment now carries `OLLAMA_NUM_PARALLEL=4`,
-`OLLAMA_KV_CACHE_TYPE=q8_0`, `OLLAMA_FLASH_ATTENTION=1`,
-`OLLAMA_MAX_LOADED_MODELS=5` (repo defaults for these date to Apr/Jun — what
-the *running* daemon carried on Sep 17 is not recoverable; the specific switch
-was not isolated, and isolating it would require restarting the production
-daemon, which State B forbids re-configuring mid-campaign).
+**Attribution (probed 2026-09-19, still open):** §P4.1 ran 2026-09-18 15:38
+(p4_run.log timestamps; prefills 48.68/49.76/46.04/48.94 s) on daemon PID
+started 2026-09-18 13:16 — i.e. AFTER the `ollama-0.34.2` binary landed
+(Sep 17 22:57, symlink 22:58). The daemon's launchd plist env is IDENTICAL
+across the Sep 17 22:58, Sep 18 13:16 and current restarts (FLASH_ATTENTION
+true, KV q8_0, NUM_PARALLEL 4, MAX_LOADED_MODELS 5, GPU_OVERHEAD 20 GiB —
+verified in ollama.log server-config lines). A NUM_PARALLEL=1 A/B was run via
+the daemon plist (`launchctl bootout/bootstrap`, restored to 4 afterwards):
+**reuse persists unchanged at NUM_PARALLEL=1** (16,708/16,730 cached, prefill
+0.27 s vs 30.32 s cold). So the flip is neither the binary version nor the
+daemon env — same binary, same env on both sides of the behavior change. The
+difference is daemon STATE, not configuration; candidates (slot occupancy
+from concurrent sessions during the Sep 18 campaign, KV pool pressure) are
+not isolable without re-running the Sep 18 campaign under its exact session
+state. Record: ×1.0 was real when measured; ×118 reuse is real now; the
+attribution is open.
 
 **Consequence for Part B, on the record:** on State B, Ollama ALREADY shares
 prefixes across independent sequential requests. The sweep's sequential loop
