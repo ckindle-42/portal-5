@@ -76,6 +76,15 @@ SEATS = {
     "gemma4": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
     "nemotron": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "ling": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    # TASK_COMPLIANCE_DELIVER_AND_SETTLE_ENGINE_V1 §A2 — the two bases the
+    # splash packages ship (incoai/Qwen3.8-27B-Splash, incoai/Qwen3.6-35B-A3B-Splash),
+    # read-tested on Ollama first so B6's splash re-run can ask whether the
+    # ENGINE changes what a model says. Same tunes as the packages (unsloth
+    # Q4 GGUF), never an abliterated variant. think=False — Qwen3.8's chat
+    # template opens <think> by default and degenerates on hard compliance
+    # questions without it (config/portal.yaml auto-compliance).
+    "qwen38": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+    "qwen36": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k",
 }
 
 #: The baked window all three seat tags carry. Nothing here is tuned per seat:
@@ -116,9 +125,22 @@ def cited_sections(repo: Repository, answer: str) -> dict[str, list[str]]:
     }
 
 
-def run_cell(repo: Repository, seat_key: str, case: dict[str, str], fixed: dict) -> dict:
+def run_cell(
+    repo: Repository,
+    seat_key: str,
+    case: dict[str, str],
+    fixed: dict,
+    *,
+    extra_instruction: str = "",
+) -> dict:
     """One seat, one question, one call. The receipt is the record."""
-    material = reading_material.render(repo, case["ref"], question=case["question"], fixed=fixed)
+    material = reading_material.render(
+        repo,
+        case["ref"],
+        question=case["question"],
+        fixed=fixed,
+        extra_instruction=extra_instruction,
+    )
     if "error" in material:
         return {"case": case["id"], "seat": seat_key, "error": material["error"]}
     message = material["text"]
@@ -169,14 +191,50 @@ def run_cell(repo: Repository, seat_key: str, case: dict[str, str], fixed: dict)
     }
 
 
+#: A6.1 measurement hooks — candidate standing-instruction additions, each an
+#: attempt at ONE failure class, tried SEPARATELY and measured on ALL six
+#: cases (never tuned against the one case that failed). Empty string is the
+#: baseline. `conjunction` targets the `choice` failure: the operator policy
+#: restates Part 2.3's three permitted actions joined with "and" where the
+#: Part grants one-of-three ("or"), and the reading adopted one reading
+#: silently. `restatement` targets the `no_operator_side` failure: the policy's
+#: verbatim restatement of Part 5.2 was cited as proof the operator DOES the
+#: duty — a restatement is the requirement repeated, not evidence of
+#: performance.
+INSTRUCTION_VARIANTS = {
+    "baseline": "",
+    "conjunction": (
+        "When an operator passage restates a requirement's list of permitted "
+        "actions, compare the conjunction as written: if the standard grants a "
+        "choice among alternatives and the operator's wording joins them — or "
+        "the reverse — flag that conflict explicitly and state which reading "
+        "each text supports, rather than silently adopting either."
+    ),
+    "restatement": (
+        "A passage that merely restates a requirement's own words — quoting "
+        "the Part, naming the Part in parentheses, or paraphrasing the duty — "
+        "is the requirement repeated, not evidence of implementation. When "
+        "asked what shows the operator performs a duty, only a passage that "
+        "says who does it, when, and how counts as implementation evidence."
+    ),
+}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--seats", default="gemma4,nemotron,ling")
     parser.add_argument("--cases", default="all")
+    parser.add_argument(
+        "--instruction",
+        default="baseline",
+        choices=sorted(INSTRUCTION_VARIANTS),
+        help="A6.1 candidate standing-instruction addition (tried separately, measured on all cases)",
+    )
     args = parser.parse_args()
     ART_DIR.mkdir(parents=True, exist_ok=True)
     seats = [s.strip() for s in args.seats.split(",") if s.strip()]
     cases = CASES if args.cases == "all" else [c for c in CASES if c["id"] in args.cases.split(",")]
+    extra = INSTRUCTION_VARIANTS[args.instruction]
 
     repo = Repository()
     try:
@@ -184,16 +242,19 @@ def main() -> int:
         if "error" in fixed:
             print(f"FIXED BODY ERROR: {fixed['error']}")
             return 1
-        print(f"fixed body: {fixed['chars']} chars, sha {fixed['sha']}")
+        print(
+            f"fixed body: {fixed['chars']} chars, sha {fixed['sha']} instruction={args.instruction}"
+        )
         for seat in seats:
             for case in cases:
-                cell_path = ART_DIR / f"cell_{seat}_{case['id']}.json"
+                suffix = "" if args.instruction == "baseline" else f"__{args.instruction}"
+                cell_path = ART_DIR / f"cell_{seat}_{case['id']}{suffix}.json"
                 if cell_path.exists():
                     cell = json.loads(cell_path.read_text())
                     if not cell.get("error"):
                         print(f"skip existing {cell_path.name}")
                         continue
-                cell = run_cell(repo, seat, case, fixed)
+                cell = run_cell(repo, seat, case, fixed, extra_instruction=extra)
                 cell_path.write_text(json.dumps(cell, indent=2, default=str))
                 cited = (
                     "both"

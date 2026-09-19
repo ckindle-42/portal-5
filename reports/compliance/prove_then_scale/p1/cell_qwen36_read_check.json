@@ -1,0 +1,22 @@
+{
+  "case": "read_check",
+  "ref": "CIP-007-6 R2",
+  "seat": "qwen36",
+  "model": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k",
+  "wall_s": 46.27,
+  "prompt_tokens": 25385,
+  "prompt_eval_duration_s": 42.091,
+  "eval_count": 164,
+  "chars_per_token": 3.6,
+  "material_chars": 91343,
+  "cited_regulatory": [
+    "csection-29d2db5f61a4fb75c5fb"
+  ],
+  "cited_operator": [
+    "isection-5a6e77a9acc7ab5eee74"
+  ],
+  "cited_both_sides": true,
+  "thinking_chars": 0,
+  "stop_reason": "",
+  "answer": "I read both.\n\nThe standard **CIP-007-6** is provided in the section labeled `# CIP-007-6 \u2014 the standard's own fixed body` [csection-29d2db5f61a4fb75c5fb].\n\nThe operator's **patch management procedure** (specifically the \"LSPG Security Patch Management Procedure\") is provided in the section labeled `### operator \u2014 the operator's own documents, linked by a recorded edge` [isection-5a6e77a9acc7ab5eee74], which includes sections 3.1, 3.2.2, 3.3, 3.5, 3.6, and 5.1."
+}

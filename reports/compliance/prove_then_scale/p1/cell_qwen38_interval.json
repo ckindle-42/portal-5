@@ -1,0 +1,24 @@
+{
+  "case": "interval",
+  "ref": "CIP-007-6 R2 Part 2.2",
+  "seat": "qwen38",
+  "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+  "wall_s": 256.44,
+  "prompt_tokens": 22538,
+  "prompt_eval_duration_s": 222.615,
+  "eval_count": 392,
+  "chars_per_token": 3.56,
+  "material_chars": 80314,
+  "cited_regulatory": [
+    "csection-7700dd5499cead0994ec",
+    "csection-285d8c24551776cb380d",
+    "csection-440a5cdf9a6b65292ef3"
+  ],
+  "cited_operator": [
+    "isection-21a30e0d44708f5dfdce"
+  ],
+  "cited_both_sides": true,
+  "thinking_chars": 0,
+  "stop_reason": "",
+  "answer": "Yes, the 30-day evaluation cycle is stricter than Part 2.2 requires.\n\n**1. The Standard's Requirement**\nCIP-007-6 R2 Part 2.2 explicitly requires that security patches be evaluated for applicability \"At least once every 35 calendar days\" [csection-7700dd5499cead0994ec]. The rationale further clarifies that entities are to perform this assessment \"within 35 days of release from their monitored source\" [csection-285d8c24551776cb380d].\n\n**2. The Operator's Implementation**\nThe operator's LSPG Security Patch Management Procedure states in Section 3.3.1: \"At least once every thirty-five (35) calendar days, SMEs in conjunction with Foxguard, shall review all approved sources for new patches...\" [isection-21a30e0d44708f5dfdce].\n\n**3. The Operator's Note on Strictness**\nThe operator's recorded note explicitly addresses this discrepancy, stating: \"We evaluate patches every 30 days, not the 35 the Part allows, because our change window is monthly and a 35-day clock straddles two windows. The extra strictness is deliberate and is not a gap.\" [csection-440a5cdf9a6b65292ef3].\n\n**Conclusion**\nWhile the procedure text in Section 3.3.1 mentions a 35-day review cycle, the operator's note confirms that the actual operational cycle is 30 days. Since 30 days is a shorter interval than the 35-day maximum allowed by the standard, the 30-day cycle is indeed stricter than the requirement."
+}
