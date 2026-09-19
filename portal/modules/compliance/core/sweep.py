@@ -307,12 +307,34 @@ def sweep_standard(
 ) -> dict[str, Any]:
     """Map every requirement of one standard, sequentially, shared body first.
 
-    Sequential because a single operator has no concurrent traffic and the
-    prompt cache holds one slot: call N reuses the fixed body call N−1
-    prefilled, measured on ``prompt_eval_duration`` — the only honest cache
-    signal on this runner (``prompt_eval_count`` reads the FULL prompt length
-    on a hit and cannot answer this; the last campaign established that the
-    hard way). Returns the per-call rows and the summary the family report
+    The cache story of this loop has now been measured THREE times, and the
+    latest measurement wins:
+
+    * PROVE_THEN_SCALE_V1 §P4.1 (2026-09-17): this exact shape — twenty
+      sequential map readings, shared body first — prefilled at full price
+      every call (collapse ×1.0); the mechanism was isolated as "Ollama 0.34.2
+      reuses a prefix WITHIN an append-only conversation and NOT across
+      independent requests that merely share one".
+    * TASK_COMPLIANCE_DELIVER_AND_SETTLE_ENGINE_V1 §B2 (2026-09-19), State B:
+      that negative no longer reproduces. The §P4.1 shape re-run through this
+      module's own transport fields (gemma4, real fixed body, ``/api/chat``,
+      ``think:false``, keep_alive 30m) now reuses 16,708 of 16,730 tokens —
+      prefill 0.27 s against 31.82 s full price (×118). The daemon
+      environment was rewritten between the two measurements
+      (``.env`` mtime Sep 18; ``OLLAMA_NUM_PARALLEL=4``, ``OLLAMA_KV_CACHE_TYPE
+      =q8_0``, ``OLLAMA_FLASH_ATTENTION=1`` are the prime suspects — not
+      isolated). A genuinely-unshared control still prefills at full price, so
+      the reuse is real prefix sharing, not a broken clock.
+    * Consequence: the sequential loop's fixed-body-first ordering is not
+      "correct by accident" any more — on State B it buys the collapse for
+      independent sequential calls. Whether a CONCURRENT fan-out still beats
+      it on wall clock, on any engine, is exactly what
+      tests/benchmarks/bench_engine_concurrency.py measures; this docstring
+      deliberately does not preempt that verdict.
+    (``prompt_eval_duration`` remains the honest cache signal on Ollama;
+    ``prompt_eval_count`` reads the FULL prompt length on a hit — and
+    ``prompt_eval_cached_count`` on the native surface is the corroborating
+    counter.) Returns the per-call rows and the summary the family report
     scales from.
     """
     from portal.modules.compliance.core import reading_material
