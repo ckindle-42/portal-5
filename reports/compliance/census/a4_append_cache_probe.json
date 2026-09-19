@@ -1,0 +1,24 @@
+{
+  "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "note": "real v2.2 system prompt + real reading_material.render output; Ollama native /api/chat; num_predict capped",
+  "calls": [
+    {
+      "call": "call1 system+question",
+      "prompt_eval_count": 1049,
+      "prompt_eval_cached_count": 0,
+      "prompt_eval_duration_s": 1.429
+    },
+    {
+      "call": "call2 = call1 + material appended (tool-result turn)",
+      "prompt_eval_count": 26395,
+      "prompt_eval_cached_count": 0,
+      "prompt_eval_duration_s": 59.211
+    },
+    {
+      "call": "call3 = call2 + answer + follow-up (next turn)",
+      "prompt_eval_count": 26458,
+      "prompt_eval_cached_count": 26395,
+      "prompt_eval_duration_s": 0.376
+    }
+  ]
+}

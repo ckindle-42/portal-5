@@ -2364,7 +2364,8 @@ def compliance_context(
     profile: str = "",
     valid_at: str = "",
 ) -> dict[str, Any]:
-    """**The neighbourhood index.** What a requirement's scope holds — ids, not text.
+    """**The neighbourhood, in the shape a turn needs.** Three renderings of one
+    scope, one tool.
 
     Default ``mode=index``: one row per section in every component — section
     id, side, document, section path, page, link status — plus the operator
@@ -2372,6 +2373,16 @@ def compliance_context(
     omitted: the index is the whole neighbourhood. It is what a conversation
     needs to decide what to read next; the text itself is one
     ``compliance_read`` (or ``compliance_requirement``) call away.
+
+    ``mode=material``: THE PROVEN READING MATERIAL — the exact
+    ``reading_material.render()`` unit PROVE_THEN_SCALE_V1 §P1 used to prove
+    the reading seat: the standard's fixed body first (byte-identical for
+    every requirement of the revision), then the requirement's own scope —
+    regulatory anchors, operator edges, notes, each labelled with its side
+    and standing, operator sections with their document neighbourhood — and
+    the standing instruction. One message; nothing is missing from it; answer
+    from what it returns and cite section ids. This is the same primitive the
+    proof used, exposed — not a second renderer.
 
     ``mode=packet`` assembles full text — the requirement and its lead-in,
     every Part row, the Measures, the Guidelines and Technical Basis, the
@@ -2384,11 +2395,21 @@ def compliance_context(
     ``intent``, ``conformance``, ``audit``, ``timeline``. Measured on
     CIP-007-6 R2 Part 2.2: full is ~29,900 tokens, ``intent`` ~6,500.
     """
+    from portal.modules.compliance.core import reading_material
     from portal.modules.compliance.core.notes import notes_for
     from portal.modules.compliance.core.reading_assembly import assemble
 
     repo = _repo()
     try:
+        if mode == "material":
+            payload = reading_material.render(repo, ref, valid_at=valid_at)
+            payload["mode"] = "material"
+            payload["note"] = (
+                "the proven reading material (reading_material.render) — the whole "
+                "neighbourhood for this ref, fixed body first; answer from what this "
+                "returns and cite section ids"
+            )
+            return payload
         if mode == "packet":
             payload = assemble(
                 repo,
