@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 740 canonical units.*
+*Deterministic projection of 742 canonical units.*
 
 ## Knowledge Layer
 
@@ -239,7 +239,7 @@
 | `unit-code-portal_wiki` | what | 4 |
 | `unit-code-scripts` | what | 5 |
 | `unit-code-tests` | what | 5 |
-| `unit-compliance-bilateral-corpus` | mixed | 15 |
+| `unit-compliance-bilateral-corpus` | mixed | 22 |
 | `unit-compliance-change-pipeline` | mixed | 3 |
 | `unit-compliance-config-workspace-pointers` | mixed | 1 |
 | `unit-compliance-engine` | mixed | 87 |
@@ -253,8 +253,9 @@
 | `unit-compliance-fallback-policy-threshold-policy` | what | 4 |
 | `unit-compliance-fallback-policy-what-compliance-fallback-means` | what | 5 |
 | `unit-compliance-module-config-only` | mixed | 1 |
+| `unit-compliance-prove-then-scale` | mixed | 3 |
 | `unit-compliance-requirement-join` | mixed | 6 |
-| `unit-compliance-substrate-properties` | mixed | 2 |
+| `unit-compliance-substrate-properties` | mixed | 4 |
 | `unit-corpus-injection-a-canned-detection-firing-on-corpus-data-t1558-004-as-rep-roasting-verbatim-spl` | what | 2 |
 | `unit-corpus-injection-always-dry-run-first-it-prints-exact-per-sourcetype-volume-without-injecting` | what | 2 |
 | `unit-corpus-injection-confirm-the-live-triage-window-is-still-clean` | what | 2 |
@@ -688,6 +689,7 @@
 | `unit-surface-archive-mlx` | mixed | 1 |
 | `unit-surface-benchmarks` | mixed | 3 |
 | `unit-surface-binary-research` | mixed | 1 |
+| `unit-surface-compliance-prove-then-scale-scripts` | mixed | 1 |
 | `unit-surface-inference` | mixed | 1 |
 | `unit-surface-inference-cli` | mixed | 1 |
 | `unit-surface-investigation` | mixed | 1 |
@@ -749,12 +751,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 740 units
+**Total:** 742 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1867 references
+- **code**: 1880 references
 - **config**: 1 references
 - **doc**: 1 references
 - **mitre**: 40 references

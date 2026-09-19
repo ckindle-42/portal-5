@@ -359,7 +359,13 @@ def test_internal_pair_transport_uses_pair_schema(monkeypatch):
     import io
     import urllib.request
 
+    from portal.modules.compliance.core import reading_transport
     from portal.modules.compliance.core.obligation_alignment import _ollama_alignment_seat
+
+    # seat_ceiling() caches per model tag in a module-level dict; clear the
+    # "test" entry so its own /api/show probe always fires here rather than
+    # depending on whatever earlier test last touched that tag.
+    reading_transport._CEILING.pop("test", None)
 
     payloads = []
 
@@ -369,5 +375,8 @@ def test_internal_pair_transport_uses_pair_schema(monkeypatch):
 
     monkeypatch.setattr(urllib.request, "urlopen", response)
     _ollama_alignment_seat("test", "pair", json.dumps({"task": "internal_pair_identity"}))
-    assert set(payloads[0]["format"]["required"]) == {"relation", "rationale", "missing_facts"}
-    assert "records" not in payloads[0]["format"]["properties"]
+    # payloads[0] is the seat_ceiling() preflight probe (no "format" key);
+    # the chat transport's actual request is the last one sent.
+    chat_payload = payloads[-1]
+    assert set(chat_payload["format"]["required"]) == {"relation", "rationale", "missing_facts"}
+    assert "records" not in chat_payload["format"]["properties"]
