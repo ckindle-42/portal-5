@@ -243,11 +243,106 @@ incoai/Qwen3.8-27B-Splash --no-webui --max-context 32768 …`.
 
 ---
 
+## §ADDENDUM 2 — the full arm set re-run on splash 1.0.1 tuned (2026-09-20)
+
+Tool probe **PASSES** on 1.0.1 tuned (receipt
+`reports/compliance/prove_then_scale/b5/toolprobe_splash_incoai_Qwen3.8-27B-Splash.json`,
+2026-09-20T16:09Z): well-formed `tool_calls`, arguments parse, serialized
+bytes clean (`'{"ref":"CIP-007-6 R2 Part 2.2","mode":"index"}'`), identical
+assembly under streaming (23 deltas) and non-streaming. The §8
+`TOOLCALL_INCOMPATIBLE` is retired for 1.0.1.
+
+The full §3 arm set re-ran on 1.0.1 + `--max-context 32768` (receipts
+`engconc_splash_direct_*_stateB_20260920T16*`, `…T17*`). Summarizer, splash
+rows and gates:
+
+```
+splash/direct/off              concurrent    1     11.1     0.751    23.52    21.09    1.00
+splash/direct/off              concurrent    2     21.7     1.112    14.49    20.28    1.00
+splash/direct/off              concurrent    4     37.8     1.915     8.12    25.05    1.00
+splash/direct/off              concurrent    8     83.0    11.313     7.65    25.65    1.00
+splash/direct/off              concurrent   16    141.2    47.547     7.67    29.51    0.81
+splash/direct/off              sequential    2     16.5     0.714    21.22    19.21    1.00
+splash/direct/off              sequential    4     53.7     0.595    20.22    19.36    1.00
+splash/direct/off              sequential    8     99.3     0.592    22.02    19.97    1.00
+splash/direct/on               concurrent    4     50.7     1.910     9.41    31.58    1.00
+
+-- prefix reuse under load (warm TTFT / cold prefill TTFT) --
+  splash/direct/off concurrent n=1: x0.01 PREFIX_REUSED
+  splash/direct/off concurrent n=2: x0.01 PREFIX_REUSED
+  splash/direct/off concurrent n=4: x0.01 PREFIX_REUSED
+  splash/direct/off concurrent n=8: x0.08 PREFIX_REUSED
+  splash/direct/off concurrent n=16: x0.34 PREFIX_REUSED
+  splash/direct/off sequential n=2..8: x0.00-0.01 PREFIX_REUSED
+
+-- fan-out vs sequential (same arm, same n, wall clock) --
+  splash n=4: sequential 53.7s vs concurrent 37.8s = x1.42 MARGINAL
+  splash n=8: sequential 99.3s vs concurrent 83.0s = x1.20 MARGINAL
+
+-- engine margin, concurrent wall clock at n=4 --
+  splash vs omlx [direct/off]: x10.72 WIN
+  splash vs ollama [direct/off]: x3.74 WIN
+```
+
+(The one stale `sequential n=1 … ×2.51 PREFIX_LOST` row in the summarizer is
+the 1.0-era single-request record from §3; the 1.0.1 sequential ladder is the
+n=2..8 rows.)
+
+What changed against the 1.0 record:
+
+* **Gate 1 is PREFIX_REUSED at every n — including n=16 (×0.34)** — where
+  ollama goes PREFIX_LOST at n=8 concurrent (×0.74). Splash 1.0.1's shared
+  cache survives concurrency; ollama's single slot does not.
+* **Gate 2 is MARGINAL for splash** (×1.20–1.42) and NO_WIN for everything
+  else — splash 1.0.1 is the only engine on which fanning out finishes
+  sooner at all.
+* **Gate 3 at n=4: splash beats ollama ×3.74 and oMLX ×10.72 on wall
+  clock**, all arms completing. Against ollama's *best* shape (sequential,
+  140.2 s at n=4) splash's concurrent n=4 is still ×3.7.
+* **Admission (§6, now measured):** n=8 all accepted; n=16 accepts 12–13/16
+  (81%) with aggregate throughput still climbing (29.5–30.5 tok/s) — the
+  memory plan publishes `maximum_batch_width: 4` and queues the rest
+  honestly; failures are recorded, not silent.
+* Aggregate decode climbs with concurrency (21 → 30 tok/s) — 1.0.1 batches;
+  ollama's aggregate is flat at 11.4. Per-stream decode decays (23.5 → 7.7
+  tok/s at n=16) — the chat-lane trade-off, unchanged in kind.
+* Reasoning-on costs ~35% wall (50.7 s vs 37.8 s at n=4) with the highest
+  aggregate measured (31.6 tok/s).
+
+Projection refresh (same caveats — fixed-body probes, not a sweep run):
+splash 1.0.1 concurrent n=4 at 37.8 s per 4-node wave ≈ **9.5 s/node** → per
+standard ≈ 3 min; full register ≈ **41 min**, against the recorded
+72 min/standard and ≈4.9 h.
+
+## §ADDENDUM 2b — the 3-hour soak at the real duty cycle: PASS (2026-09-20)
+
+Receipt: `engconc_splash_direct_fanout_concurrent_off_stateSOAK_20260920T204322Z.json`.
+State B conditions, splash 1.0.1 + `--max-context 32768`, `--shape fanout
+--mode concurrent --concurrency 4 --max-tokens 400` (the sweep's output
+shape), 160 rounds / 30 s settles: **17:31:52Z → 20:43:22Z = 3 h 11 m 31 s
+continuous.**
+
+* **160/160 waves accepted, zero failed waves, zero errors** — no wedge, no
+  recovery flap, no silent stall. The 1.0 failure mode (§10) did not recur.
+* **TTFT p50 1.96 s overall; first-10 median 1.92 s → last-10 median 2.14 s**
+  — +11% over three hours; the prefix cache does not degrade (the serve log
+  shows `cached 16,992` on essentially every request to the end). Max wave
+  TTFT 157 s is the round-1 cold prefill, expected.
+* **Aggregate p50 25.1 tok/s**, first-10 26.9 → last-10 23.9 (−11%), min 5.7
+  (one early re-prefill wave). Per-stream ≈ 6.9–12 tok/s across 4 streams.
+* Free memory 24.55 → 21.08 GB over the run: ~3.5 GB accumulation — a watch
+  item for a multi-hour production duty cycle, not a failure at 3 h.
+
+The §10 verdict is superseded for 1.0.1 tuned: the three-hour bar the 1.0
+engine could not attempt, the tuned 1.0.1 build passes at the first try.
+
+---
+
 ## `[GATE]` — operator decision. Evidence presented; this task stops here.
 
 The three options, priced by this record (re-priced by the addendum above):
 
-1. **Sanctioned evaluation tier with a dedicated compliance seat** — the §10/§8 blockers were 1.0 + default-configuration artifacts (addendum): on splash **1.0.1** with `--max-context 32768` the reuse collapse exists (×0.006), n=4 concurrent completes with shared-prefix reuse, and the 27B package no longer deadlocks. Before promotion: re-run this bake-off's full arm set on 1.0.1 tuned, pass the tool probe, and take the 3 h soak at the real duty cycle.
+1. **Sanctioned evaluation tier with a dedicated compliance seat** — the §10/§8 blockers were 1.0 + default-configuration artifacts (addenda 2/2b), and the three promotion asks are now MET on splash **1.0.1** + `--max-context 32768`: full arm set re-run (Gate 1 REUSED at every n including 16; Gate 2 MARGINAL ×1.20–1.42 — the only engine that gains from fanning out; Gate 3 ×3.74 vs ollama, ×10.72 vs oMLX), tool probe PASS, and the 3 h soak at the real duty cycle PASS (160/160 waves, +11% TTFT drift, watch item: ~3.5 GB memory accumulation). Projection: ≈41 min full register vs the recorded ≈4.9 h. What promotion would still cost: one-model-at-a-time (§14), a 32K-capped serve line (the reuse fix is load-bearing — auto context reintroduces the failure), and re-validation whenever splash ships a release.
 2. **Standalone side-channel for the sweep** — the sweep's own verdict (§12) is that ollama sequential already wins on today's daemon; a side-channel buys nothing until splash completes the workload at all. Not recommended on this record.
 3. **Drop** — the forwarder scripts and roster line are inert without a serve process; nothing to unwind beyond deleting them.
 
