@@ -1,0 +1,133 @@
+{
+  "schema": "engine_concurrency_v2",
+  "engine": "splash",
+  "via": "direct",
+  "url": "http://localhost:8086",
+  "model": "incoai/Qwen3.8-27B-Splash",
+  "shape": "fanout",
+  "mode": "concurrent",
+  "reasoning": "off",
+  "state": "B",
+  "body_tokens_target": 13900,
+  "body_file": "/tmp/fixed_body_cip007.txt",
+  "body_chars": 57906,
+  "max_tokens": 400,
+  "rounds": 2,
+  "started_at": "2026-09-20T12:45:21.556864+00:00",
+  "memory_before": {
+    "captured_at": "2026-09-20T12:45:21.557226+00:00",
+    "page_size": 16384,
+    "pages": {
+      "Pages free": 5346,
+      "Pages active": 151350,
+      "Pages inactive": 149177,
+      "Pages speculative": 441,
+      "Pages throttled": 0,
+      "Pages wired down": 3659522,
+      "Pages purgeable": 2,
+      "Pages copy-on-write": 7655300,
+      "Pages zero filled": 1468446470,
+      "Pages reactivated": 260172275,
+      "Pages purged": 8546431,
+      "Pages stored in compressor": 222138,
+      "Pages occupied by compressor": 181829
+    },
+    "approx_free_gb": 2.36,
+    "memory_pressure": "System-wide memory free percentage: 7%",
+    "engines_reachable": {
+      "ollama": true,
+      "omlx": true,
+      "splash": false
+    }
+  },
+  "waves": [
+    {
+      "concurrency": 2,
+      "mode": "concurrent",
+      "accepted": 0,
+      "failed": 2,
+      "wall_s": 0.01,
+      "errors": [
+        "{\"error\":{\"message\":\"engine is recovering; retry shortly\",\"type\":\"server_error\",\"code\":\"engine_recovering\"}}",
+        "{\"error\":{\"message\":\"engine is recovering; retry shortly\",\"type\":\"server_error\",\"code\":\"engine_recovering\"}}"
+      ],
+      "round": 0
+    },
+    {
+      "concurrency": 2,
+      "mode": "concurrent",
+      "accepted": 0,
+      "failed": 2,
+      "wall_s": 0.19,
+      "errors": [
+        "{\"error\":{\"message\":\"engine is recovering; retry shortly\",\"type\":\"server_error\",\"code\":\"engine_recovering\"}}",
+        "{\"error\":{\"message\":\"engine is recovering; retry shortly\",\"type\":\"server_error\",\"code\":\"engine_recovering\"}}"
+      ],
+      "round": 1
+    },
+    {
+      "concurrency": 4,
+      "mode": "concurrent",
+      "accepted": 0,
+      "failed": 4,
+      "wall_s": 0.2,
+      "errors": [
+        "{\"error\":{\"message\":\"engine is recovering; retry shortly\",\"type\":\"server_error\",\"code\":\"engine_recovering\"}}",
+        "{\"error\":{\"message\":\"engine is recovering; retry shortly\",\"type\":\"server_error\",\"code\":\"engine_recovering\"}}",
+        "{\"error\":{\"message\":\"engine is recovering; retry shortly\",\"type\":\"server_error\",\"code\":\"engine_recovering\"}}",
+        "{\"error\":{\"message\":\"engine is recovering; retry shortly\",\"type\":\"server_error\",\"code\":\"engine_recovering\"}}"
+      ],
+      "round": 0
+    },
+    {
+      "concurrency": 4,
+      "mode": "concurrent",
+      "accepted": 0,
+      "failed": 4,
+      "wall_s": 0.14,
+      "errors": [
+        "{\"error\":{\"message\":\"engine is recovering; retry shortly\",\"type\":\"server_error\",\"code\":\"engine_recovering\"}}",
+        "{\"error\":{\"message\":\"engine is recovering; retry shortly\",\"type\":\"server_error\",\"code\":\"engine_recovering\"}}",
+        "{\"error\":{\"message\":\"engine is recovering; retry shortly\",\"type\":\"server_error\",\"code\":\"engine_recovering\"}}",
+        "{\"error\":{\"message\":\"engine is recovering; retry shortly\",\"type\":\"server_error\",\"code\":\"engine_recovering\"}}"
+      ],
+      "round": 1
+    }
+  ],
+  "warmup_ok": false,
+  "warmup_error": "{\"error\":{\"message\":\"engine is recovering; retry shortly\",\"type\":\"server_error\",\"code\":\"engine_recovering\"}}",
+  "cold_prefill": {
+    "ok": false,
+    "ttft_s": null,
+    "prompt_tokens": null,
+    "cached_tokens": null,
+    "error": "{\"error\":{\"message\":\"engine is recovering; retry shortly\",\"type\":\"server_error\",\"code\":\"engine_recovering\"}}"
+  },
+  "memory_after": {
+    "captured_at": "2026-09-20T12:47:22.743809+00:00",
+    "page_size": 16384,
+    "pages": {
+      "Pages free": 6027,
+      "Pages active": 108025,
+      "Pages inactive": 104578,
+      "Pages speculative": 1648,
+      "Pages throttled": 0,
+      "Pages wired down": 3731800,
+      "Pages purgeable": 16,
+      "Pages copy-on-write": 7662514,
+      "Pages zero filled": 1468629250,
+      "Pages reactivated": 261476355,
+      "Pages purged": 8565967,
+      "Pages stored in compressor": 257553,
+      "Pages occupied by compressor": 195583
+    },
+    "approx_free_gb": 1.69,
+    "memory_pressure": "System-wide memory free percentage: 5%",
+    "engines_reachable": {
+      "ollama": true,
+      "omlx": true,
+      "splash": false
+    }
+  },
+  "finished_at": "2026-09-20T12:47:22.880706+00:00"
+}

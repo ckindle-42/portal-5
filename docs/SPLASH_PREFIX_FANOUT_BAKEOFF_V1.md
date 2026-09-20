@@ -196,11 +196,58 @@ The barrier is not CLAUDE.md Rule 8. Rule 8's heading says "Single Inference Tie
 
 ---
 
+## §ADDENDUM — configuration fairness pass and splash 1.0.1 (2026-09-20)
+
+The operator's challenge — *did splash get the same effort and verification
+of settings and configs that ollama and oMLX earned over time?* — was
+correct, and the re-test changes verdicts. Splash 1.0 got the standard
+harness but zero of the tuning the other engines carry (ollama: baked
+num_ctx, KV quant, parallel slots; oMLX: watchdog, option injection). Three
+configuration/version artifacts were found and isolated:
+
+1. **Context ceiling — the reuse fix.** Serving with `--max-context 32768`
+   (the workspace's own limit) instead of the 256K auto default flips Gate 1
+   for splash: cold 149-192 s → identical request **cached 16,992, TTFT
+   ~0.8-1.0 s (PREFIX_REUSED ×0.006)** — matching ollama's ×0.004. The §3
+   verdict `splash … PREFIX_LOST ×0.95, cached_tokens=0` is **retired as a
+   configuration artifact**. (The 28G `--max-memory` cap tested alongside is
+   NOT harmless: with it the engine flaps into `engine_recovering` after
+   heavy requests — leave memory on auto and cap only context.)
+2. **Version — the wedge fix.** splash **1.0.1** (released 2026-09-20, mid-campaign) 
+   ships exactly what 1.0 lacked: *"more reliable startup and cache recovery
+   under memory pressure"*, *"shared-prefix reuse across concurrent requests
+   and fairer prefill scheduling"*, and `--port` (the one-port constraint is
+   softened). Smoke on 1.0.1 + `--max-context 32768` (receipts in
+   `tests/benchmarks/results/`): cold 191.6 s → identical **cached 16,992,
+   9.2 s**; n=2 concurrent both accepted (one fair-prefill miss, 164 s); **n=4
+   concurrent all four cached (16,960), 31-36 s walls, zero failures** — the
+   shape that deadlocked twice on 1.0. The 1.0.1 startup memory plan also
+   publishes the batch limit (`maximum_batch_width: 4` on this box).
+3. **Probe hygiene.** Two 1.0 failures were self-inflicted pressure: the 503
+   `resource_timeout` tool probe ran in KV state my own chat bench had just
+   created, and one serve attempt starved behind the acceptance suite's
+   legacy stage (granite4.1:30b resident at 74 GB). Both retried clean once
+   the box was quiet. The tool probe has still not PASSED on splash — that
+   remains an open ask, now on 1.0.1.
+
+**Revised standing verdict:** the §12 recommendation (keep `sweep.py`
+sequential) is unchanged — ollama sequential still wins on wall clock and
+completes; but the §10/§14 blockers (wedge, no reuse) are now attributed to
+1.0 + default configuration and are fixed or fixed-able on 1.0.1 tuned. The
+honest [GATE] framing becomes: **splash 1.0.1 tuned is a live candidate**,
+and the asks before any promotion are a re-run of this bake-off's full arm
+set on 1.0.1 (this record's numbers describe 1.0), the tool probe, and the
+3 h soak at the real duty cycle. `--max-context 32768` must be part of any
+sanctioned serve line; the tuned smoke used `splash serve --model
+incoai/Qwen3.8-27B-Splash --no-webui --max-context 32768 …`.
+
+---
+
 ## `[GATE]` — operator decision. Evidence presented; this task stops here.
 
-The three options, priced by this record:
+The three options, priced by this record (re-priced by the addendum above):
 
-1. **Sanctioned evaluation tier with a dedicated compliance seat** — blocked today by §10 (non-deterministic suspend deadlock at the duty cycle) and §8 (tool dispatch fails under memory pressure). Both are splash-side defects; re-run this bake-off after a splash release fixes them. The 35B MoE is the interesting package: it reads (B6, 6/6 both-sides, ~2.5× faster than Ollama on the same cells), batches chat aggregate (×2), and holds its cache within a run.
+1. **Sanctioned evaluation tier with a dedicated compliance seat** — the §10/§8 blockers were 1.0 + default-configuration artifacts (addendum): on splash **1.0.1** with `--max-context 32768` the reuse collapse exists (×0.006), n=4 concurrent completes with shared-prefix reuse, and the 27B package no longer deadlocks. Before promotion: re-run this bake-off's full arm set on 1.0.1 tuned, pass the tool probe, and take the 3 h soak at the real duty cycle.
 2. **Standalone side-channel for the sweep** — the sweep's own verdict (§12) is that ollama sequential already wins on today's daemon; a side-channel buys nothing until splash completes the workload at all. Not recommended on this record.
 3. **Drop** — the forwarder scripts and roster line are inert without a serve process; nothing to unwind beyond deleting them.
 
