@@ -1,0 +1,157 @@
+{
+  "schema": "engine_concurrency_v2",
+  "engine": "omlx",
+  "via": "direct",
+  "url": "http://localhost:8085",
+  "model": "Qwen3.8-27B-4bit",
+  "shape": "append",
+  "mode": "sequential",
+  "reasoning": "off",
+  "state": "B",
+  "body_tokens_target": 13900,
+  "body_file": "/tmp/fixed_body_cip007.txt",
+  "body_chars": 57906,
+  "max_tokens": 160,
+  "rounds": 1,
+  "started_at": "2026-09-20T04:14:09.541037+00:00",
+  "memory_before": {
+    "captured_at": "2026-09-20T04:14:09.541176+00:00",
+    "page_size": 16384,
+    "pages": {
+      "Pages free": 434231,
+      "Pages active": 2159109,
+      "Pages inactive": 1178056,
+      "Pages speculative": 1642,
+      "Pages throttled": 0,
+      "Pages wired down": 167630,
+      "Pages purgeable": 4160,
+      "Pages copy-on-write": 6052469,
+      "Pages zero filled": 1331536201,
+      "Pages reactivated": 186160781,
+      "Pages purged": 4402983,
+      "Pages stored in compressor": 384257,
+      "Pages occupied by compressor": 206997
+    },
+    "approx_free_gb": 24.6,
+    "memory_pressure": "System-wide memory free percentage: 90%",
+    "engines_reachable": {
+      "ollama": true,
+      "omlx": true,
+      "splash": false
+    }
+  },
+  "waves": [
+    {
+      "concurrency": 4,
+      "mode": "sequential",
+      "accepted": 4,
+      "failed": 0,
+      "errors": [],
+      "ttft_p50_s": 1.084,
+      "ttft_max_s": 1.091,
+      "cached_tokens_seen": [
+        17002,
+        17002,
+        17041,
+        17080
+      ],
+      "prompt_tokens_seen": [
+        17009,
+        17048,
+        17087,
+        17127
+      ],
+      "per_stream_decode_tps_p50": 20.39,
+      "per_stream_decode_tps_min": 19.0,
+      "itl_p95_ms_max": 242.31,
+      "aggregate_tps": 18.15,
+      "wall_s": 34.49,
+      "requests": [
+        {
+          "ok": true,
+          "ttft_s": 0.39035724999848753,
+          "wall_s": 7.083751707992633,
+          "completion_tokens": 146,
+          "prompt_tokens": 17009,
+          "cached_tokens": 17002,
+          "decode_tps": 21.812549808061483,
+          "itl_p50_ms": 0.12,
+          "itl_p95_ms": 242.31,
+          "chars": 655
+        },
+        {
+          "ok": true,
+          "ttft_s": 1.0910652919992572,
+          "wall_s": 8.645867541999905,
+          "completion_tokens": 160,
+          "prompt_tokens": 17048,
+          "cached_tokens": 17002,
+          "decode_tps": 21.178582139590254,
+          "itl_p50_ms": 0.11,
+          "itl_p95_ms": 240.46,
+          "chars": 765
+        },
+        {
+          "ok": true,
+          "ttft_s": 1.0762763749953592,
+          "wall_s": 9.498799666995183,
+          "completion_tokens": 160,
+          "prompt_tokens": 17087,
+          "cached_tokens": 17041,
+          "decode_tps": 18.996682401813814,
+          "itl_p50_ms": 0.13,
+          "itl_p95_ms": 131.06,
+          "chars": 776
+        },
+        {
+          "ok": true,
+          "ttft_s": 1.091400416000397,
+          "wall_s": 9.257814583004802,
+          "completion_tokens": 160,
+          "prompt_tokens": 17127,
+          "cached_tokens": 17080,
+          "decode_tps": 19.592442500218066,
+          "itl_p50_ms": 0.15,
+          "itl_p95_ms": 148.54,
+          "chars": 661
+        }
+      ],
+      "round": 0
+    }
+  ],
+  "warmup_ok": true,
+  "cold_prefill": {
+    "ok": true,
+    "ttft_s": 0.4,
+    "prompt_tokens": 17009,
+    "cached_tokens": 17002,
+    "error": null
+  },
+  "memory_after": {
+    "captured_at": "2026-09-20T04:15:05.589029+00:00",
+    "page_size": 16384,
+    "pages": {
+      "Pages free": 521710,
+      "Pages active": 2117785,
+      "Pages inactive": 1131930,
+      "Pages speculative": 1642,
+      "Pages throttled": 0,
+      "Pages wired down": 167596,
+      "Pages purgeable": 4930,
+      "Pages copy-on-write": 6053252,
+      "Pages zero filled": 1332256595,
+      "Pages reactivated": 186160813,
+      "Pages purged": 4402985,
+      "Pages stored in compressor": 384272,
+      "Pages occupied by compressor": 207002
+    },
+    "approx_free_gb": 25.23,
+    "memory_pressure": "System-wide memory free percentage: 90%",
+    "engines_reachable": {
+      "ollama": true,
+      "omlx": true,
+      "splash": false
+    }
+  },
+  "finished_at": "2026-09-20T04:15:05.690928+00:00"
+}

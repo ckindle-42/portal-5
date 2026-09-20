@@ -1,0 +1,124 @@
+{
+  "schema": "engine_concurrency_v2",
+  "engine": "splash",
+  "via": "direct",
+  "url": "http://localhost:8086",
+  "model": "incoai/Qwen3.6-35B-A3B-Splash",
+  "shape": "multiturn",
+  "mode": "concurrent",
+  "reasoning": "off",
+  "state": "B",
+  "body_tokens_target": null,
+  "body_file": null,
+  "body_chars": 0,
+  "max_tokens": 256,
+  "rounds": 2,
+  "started_at": "2026-09-20T06:25:21.129899+00:00",
+  "memory_before": {
+    "captured_at": "2026-09-20T06:25:21.130064+00:00",
+    "page_size": 16384,
+    "pages": {
+      "Pages free": 1663620,
+      "Pages active": 429526,
+      "Pages inactive": 424971,
+      "Pages speculative": 3819,
+      "Pages throttled": 0,
+      "Pages wired down": 192641,
+      "Pages purgeable": 719,
+      "Pages copy-on-write": 6211507,
+      "Pages zero filled": 1353318398,
+      "Pages reactivated": 186511060,
+      "Pages purged": 4462496,
+      "Pages stored in compressor": 1492490,
+      "Pages occupied by compressor": 1433088
+    },
+    "approx_free_gb": 31.87,
+    "memory_pressure": "System-wide memory free percentage: 60%",
+    "engines_reachable": {
+      "ollama": true,
+      "omlx": true,
+      "splash": false
+    }
+  },
+  "waves": [
+    {
+      "concurrency": 1,
+      "mode": "concurrent",
+      "accepted": 0,
+      "failed": 1,
+      "wall_s": 0.0,
+      "errors": [
+        "RemoteProtocolError: Server disconnected without sending a response."
+      ],
+      "round": 0
+    },
+    {
+      "concurrency": 1,
+      "mode": "concurrent",
+      "accepted": 0,
+      "failed": 1,
+      "wall_s": 0.01,
+      "errors": [
+        "RemoteProtocolError: Server disconnected without sending a response."
+      ],
+      "round": 1
+    },
+    {
+      "concurrency": 4,
+      "mode": "concurrent",
+      "accepted": 0,
+      "failed": 4,
+      "wall_s": 0.01,
+      "errors": [
+        "RemoteProtocolError: Server disconnected without sending a response.",
+        "RemoteProtocolError: Server disconnected without sending a response.",
+        "RemoteProtocolError: Server disconnected without sending a response.",
+        "RemoteProtocolError: Server disconnected without sending a response."
+      ],
+      "round": 0
+    },
+    {
+      "concurrency": 4,
+      "mode": "concurrent",
+      "accepted": 0,
+      "failed": 4,
+      "wall_s": 0.02,
+      "errors": [
+        "RemoteProtocolError: Server disconnected without sending a response.",
+        "RemoteProtocolError: Server disconnected without sending a response.",
+        "RemoteProtocolError: Server disconnected without sending a response.",
+        "RemoteProtocolError: Server disconnected without sending a response."
+      ],
+      "round": 1
+    }
+  ],
+  "warmup_ok": false,
+  "warmup_error": "RemoteProtocolError: Server disconnected without sending a response.",
+  "memory_after": {
+    "captured_at": "2026-09-20T06:26:01.317320+00:00",
+    "page_size": 16384,
+    "pages": {
+      "Pages free": 1668109,
+      "Pages active": 429159,
+      "Pages inactive": 427622,
+      "Pages speculative": 3880,
+      "Pages throttled": 0,
+      "Pages wired down": 185687,
+      "Pages purgeable": 873,
+      "Pages copy-on-write": 6213112,
+      "Pages zero filled": 1353402875,
+      "Pages reactivated": 186511074,
+      "Pages purged": 4462496,
+      "Pages stored in compressor": 1492774,
+      "Pages occupied by compressor": 1433208
+    },
+    "approx_free_gb": 31.98,
+    "memory_pressure": "System-wide memory free percentage: 60%",
+    "engines_reachable": {
+      "ollama": true,
+      "omlx": true,
+      "splash": false
+    }
+  },
+  "finished_at": "2026-09-20T06:26:01.415386+00:00"
+}
