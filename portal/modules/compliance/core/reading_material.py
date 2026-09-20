@@ -282,6 +282,23 @@ def _document_neighbourhood(
     return out
 
 
+def _standing_instruction(extra: str) -> str:
+    """The material's standing instruction, plus an optional A6.1 candidate
+    sentence (tried separately, measured on all six cases, never tuned
+    against the one case that failed)."""
+    base = (
+        "You are given the complete material for this question — every section "
+        "the standard's own join and the operator's recorded edges place in this "
+        "requirement's scope, plus the standard's fixed body above. Nothing here "
+        "needs a search: everything is in this message, each entry labelled with "
+        "what it is and the standing it carries. Answer only from this material; "
+        "cite section ids in square brackets for every claim, and quote the text "
+        "verbatim where the exact words matter. If the material does not contain "
+        "the answer, say so plainly."
+    )
+    return f"{base} {extra.strip()}" if extra else base
+
+
 def render(
     repo: Any,
     ref: str,
@@ -290,6 +307,7 @@ def render(
     fixed: dict[str, Any] | None = None,
     valid_at: str = "",
     neighbourhood: bool = True,
+    extra_instruction: str = "",
 ) -> dict[str, Any]:
     """One requirement's population as the material a reading reads — one
     message, fixed body first, the question last.
@@ -302,6 +320,12 @@ def render(
     capped, and the cap stated in the label. Returns the text plus the numbers
     the campaign reports: total, fixed-body share, and per-side section
     counts.
+
+    ``extra_instruction`` appends one sentence to the standing instruction —
+    the A6.1 measurement hook: candidate instructions are tried separately,
+    each measured on all six cases, and never tuned against the one case that
+    failed. It rides AFTER the fixed body, so a variant changes no byte of the
+    shared prefix.
     """
     from portal.modules.compliance.core.reading_assembly import parse_ref
 
@@ -349,14 +373,7 @@ def render(
     scope_lines: list[str] = [f"# This reading: {ref}", ""]
     scope_lines.extend(
         [
-            "You are given the complete material for this question — every section "
-            "the standard's own join and the operator's recorded edges place in this "
-            "requirement's scope, plus the standard's fixed body above. Nothing here "
-            "needs a search: everything is in this message, each entry labelled with "
-            "what it is and the standing it carries. Answer only from this material; "
-            "cite section ids in square brackets for every claim, and quote the text "
-            "verbatim where the exact words matter. If the material does not contain "
-            "the answer, say so plainly.",
+            _standing_instruction(extra_instruction),
             "",
             f"## {ref}'s own scope",
         ]
