@@ -1,0 +1,212 @@
+#!/usr/bin/env python3
+"""CLOSEOUT_V1 P8 - the three product questions, asked on the deployed surface.
+
+This is the module's reason for existing, asked out loud:
+
+  1. Where are we not covered?
+  2. Where do we exceed what the standard requires?
+  3. Where does the standard grant latitude we are not using?
+
+Question 1 has a stored relation behind it (absence of IMPLEMENTS) and can be
+cross-checked against compliance_coverage. Questions 2 and 3 have no stored
+relation - DETERMINATION_RELATIONS is (IMPLEMENTS, EVIDENCES, REFERENCES) - so
+they are answered by reading the material in conversation. That asymmetry is
+recorded on every row rather than smoothed over.
+
+Reuses WorkspaceThread from scripts/compliance_acceptance.py: one deployed
+conversation per question, through the router the config actually declares.
+
+Exit codes:
+    0 - all three questions answered with resolving citations
+    1 - at least one question failed (the close is refused)
+    3 - could not reach the deployed surface at all
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime as _dt
+import json
+import pathlib
+import re
+import sys
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+
+import httpx  # noqa: E402
+from compliance_acceptance import WorkspaceThread, router_base_url  # noqa: E402
+
+from portal.modules.compliance.core.repository import Repository  # noqa: E402
+
+_SECTION_ID = re.compile(r"\b([ci])section-[0-9a-f]+\b", re.I)
+_ANY_ID = re.compile(r"\b[ci]section-[0-9a-f]+\b", re.I)
+
+QUESTIONS = [
+    {
+        "key": "coverage_gap",
+        "question": (
+            "For CIP-007-6 R2, which Parts do my documents not cover? "
+            "For each Part with no implementing section of mine, say so plainly "
+            "and cite the Part. For each Part that is covered, cite the section "
+            "of mine that covers it."
+        ),
+        "requires_side": "operator",
+        "has_stored_relation": True,
+        "cross_check": "compliance_coverage",
+    },
+    {
+        "key": "exceedance",
+        "question": (
+            "For CIP-007-6 R2, where do my documents commit me to more than the "
+            "standard requires? Quote the standard's requirement and my document's "
+            "stronger commitment side by side, and cite both."
+        ),
+        "requires_side": "operator",
+        "has_stored_relation": False,
+        "cross_check": None,
+    },
+    {
+        "key": "unused_latitude",
+        "question": (
+            "For CIP-007-6 R2, where does the standard leave a choice or an "
+            "allowance that my documents do not take up? Cite the standard's own "
+            "words granting the latitude, and say what my documents do instead."
+        ),
+        "requires_side": "regulatory",
+        "has_stored_relation": False,
+        "cross_check": None,
+    },
+]
+
+
+def _cited_ids(text: str) -> list[str]:
+    return sorted({m.group(0) for m in _ANY_ID.finditer(text or "")})
+
+
+def _resolve(repo, ids: list[str]) -> tuple[list[str], list[str]]:
+    resolved, unresolved = [], []
+    for sid in ids:
+        try:
+            row = repo._conn.execute(
+                "SELECT 1 FROM source_sections WHERE section_id = ?", (sid,)
+            ).fetchone()
+        except Exception:  # noqa: BLE001 - an unreadable store resolves nothing
+            row = None
+        (resolved if row else unresolved).append(sid)
+    return resolved, unresolved
+
+
+def _side(section_id: str) -> str:
+    return "regulatory" if section_id.lower().startswith("csection-") else "operator"
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--workspace", default="compliance-reading")
+    ap.add_argument("--out-dir", required=True, type=pathlib.Path)
+    ap.add_argument("--timeout", type=float, default=1800.0)
+    args = ap.parse_args()
+
+    (args.out_dir / "transcripts").mkdir(parents=True, exist_ok=True)
+
+    try:
+        router = router_base_url()
+    except Exception as exc:  # noqa: BLE001
+        print(f"FAIL: cannot resolve the router base url: {exc}", file=sys.stderr)
+        return 3
+
+    repo = Repository()
+    rows = []
+    try:
+        with httpx.Client(timeout=httpx.Timeout(args.timeout, connect=10.0)) as session:
+            for spec in QUESTIONS:
+                thread = WorkspaceThread(session, args.workspace, router)
+                try:
+                    record = thread.turn(spec["question"], timeout=args.timeout)
+                except Exception as exc:  # noqa: BLE001 - a dead turn is a recorded failure
+                    rows.append(
+                        {
+                            **{k: spec[k] for k in ("key", "requires_side", "has_stored_relation")},
+                            "question": spec["question"],
+                            "verdict": "FAIL",
+                            "reason": f"turn raised {type(exc).__name__}: {exc}",
+                        }
+                    )
+                    continue
+
+                answer = str(record.get("answer") or "")
+                (args.out_dir / "transcripts" / f"{spec['key']}.json").write_text(
+                    json.dumps(record, indent=2, default=str)
+                )
+
+                ids = _cited_ids(answer)
+                resolved, unresolved = _resolve(repo, ids)
+                sides = {_side(s) for s in resolved}
+
+                checks = {
+                    "answered": bool(answer.strip())
+                    and not record.get("turn_budget_exceeded")
+                    and record.get("http_status") in (200, None),
+                    "cited_something": bool(ids),
+                    "all_citations_resolve": bool(ids) and not unresolved,
+                    "required_side_present": spec["requires_side"] in sides,
+                }
+                verdict = "PASS" if all(checks.values()) else "FAIL"
+                failed = [k for k, v in checks.items() if not v]
+
+                rows.append(
+                    {
+                        **{
+                            k: spec[k]
+                            for k in ("key", "requires_side", "has_stored_relation", "cross_check")
+                        },
+                        "question": spec["question"],
+                        "answer_chars": len(answer),
+                        "wall_s": record.get("wall_s"),
+                        "first_token_s": record.get("first_token_s"),
+                        "cited_ids": ids,
+                        "resolved_ids": resolved,
+                        "unresolved_ids": unresolved,
+                        "sides_cited": sorted(sides),
+                        "checks": checks,
+                        "verdict": verdict,
+                        "reason": "all checks passed"
+                        if verdict == "PASS"
+                        else f"failed: {', '.join(failed)}",
+                    }
+                )
+    finally:
+        repo.close()
+
+    passed = sum(1 for r in rows if r["verdict"] == "PASS")
+    receipt = {
+        "run_id": _dt.datetime.now(_dt.UTC).isoformat(),
+        "workspace": args.workspace,
+        "router": router,
+        "n_questions": len(rows),
+        "n_passed": passed,
+        "rows": rows,
+        "relation_asymmetry_note": (
+            "coverage_gap has a stored relation behind it (absence of IMPLEMENTS) "
+            "and is cross-checkable against compliance_coverage. exceedance and "
+            "unused_latitude have no stored relation: DETERMINATION_RELATIONS is "
+            "(IMPLEMENTS, EVIDENCES, REFERENCES). Those two answers are readings, "
+            "with a reading's reliability, and the closing report says so. Adding "
+            "EXCEEDS/LATITUDE relation types would convert a Results-Based Standard "
+            "into prescriptions it declines to state - the failure this module has "
+            "already paid for twice."
+        ),
+        "verdict": "PASS" if passed == len(rows) else "FAIL",
+    }
+    out = args.out_dir / "product_questions.json"
+    out.write_text(json.dumps(receipt, indent=2, default=str))
+    print(f"WROTE {out}")
+    for r in rows:
+        print(f"  [{r['verdict']}] {r['key']}: {r['reason']}")
+    return 0 if receipt["verdict"] == "PASS" else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -161,3 +161,6 @@ reports/compliance/prove_then_scale/p1_run*.log
 
 # ZCode harness-local state (skills, session config)
 .zcode/
+
+# compliance store backups (operator-local, not repo artifacts)
+data/compliance/backups/
