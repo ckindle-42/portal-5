@@ -1,0 +1,10 @@
+{
+  "engine": "splash",
+  "model": "incoai/Qwen3.6-35B-A3B-Splash",
+  "nonstream_status": 503,
+  "nonstream_error": "{\"error\":{\"message\":\"memory did not become available within the resource wait limit\",\"type\":\"server_error\",\"code\":\"resource_timeout\"}}",
+  "stream_status": 200,
+  "stream_tool_calls": 0,
+  "stream_content_chars": 0,
+  "recorded_at": "2026-09-20T06:37:39.637207+00:00"
+}

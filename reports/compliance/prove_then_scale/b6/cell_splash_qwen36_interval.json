@@ -1,0 +1,23 @@
+{
+  "case": "interval",
+  "ref": "CIP-007-6 R2 Part 2.2",
+  "seat": "qwen36",
+  "engine": "splash",
+  "model": "incoai/Qwen3.6-35B-A3B-Splash",
+  "wall_s": 12.07,
+  "prompt_tokens": 22538,
+  "completion_tokens": 226,
+  "cached_tokens": 16992,
+  "material_chars": 80314,
+  "cited_regulatory": [
+    "csection-7700dd5499cead0994ec",
+    "csection-440a5cdf9a6b65292ef3"
+  ],
+  "cited_operator": [
+    "isection-21a30e0d44708f5dfdce"
+  ],
+  "cited_both_sides": true,
+  "finish_reason": "stop",
+  "recorded_at": "2026-09-20T06:47:20.569891+00:00",
+  "answer": "Yes, the 30-day evaluation cycle is stricter than Part 2.2 requires.\n\nThe standard requires evaluation \"At least once every 35 calendar days\" [csection-7700dd5499cead0994ec]. The operator's note explicitly states, \"We evaluate patches every 30 days, not the 35 the Part allows... The extra strictness is deliberate and is not a gap\" [csection-440a5cdf9a6b65292ef3]. Additionally, the operator's procedure confirms this by stating, \"At least once every thirty-five (35) calendar days... shall review all approved sources\" [isection-21a30e0d44708f5dfdce], while the note clarifies the actual execution is every 30 days to align with monthly change windows. Since 30 days is a more frequent interval than 35 days, it satisfies the \"at least once every 35 calendar days\" requirement with greater frequency."
+}

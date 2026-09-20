@@ -283,6 +283,9 @@ def one_request(
     key = os.environ.get("SPLASH_API_KEY")
     if key and ":8086" in url:
         headers["Authorization"] = f"Bearer {key}"
+    pkey = os.environ.get("PIPELINE_API_KEY")
+    if pkey and ":9099" in url:
+        headers["Authorization"] = f"Bearer {pkey}"
 
     stamps: list[float] = []
     text_len = 0
@@ -317,7 +320,17 @@ def one_request(
                     usage = chunk["usage"]
                 for choice in chunk.get("choices", []):
                     delta = choice.get("delta") or {}
-                    piece = delta.get("content") or delta.get("reasoning_content") or ""
+                    # Three dialects for thinking streams: OpenAI's classic
+                    # `reasoning_content`, the newer `reasoning`, and plain
+                    # content. Missing one reads as an EMPTY stream — measured
+                    # on Ollama /v1 (Qwen3.8 thinks by default and emits
+                    # `reasoning`), which zeroed every chars/TTFT number.
+                    piece = (
+                        delta.get("content")
+                        or delta.get("reasoning")
+                        or delta.get("reasoning_content")
+                        or ""
+                    )
                     if piece:
                         now = time.perf_counter()
                         if ttft is None:

@@ -1,0 +1,148 @@
+{
+  "schema": "engine_concurrency_v2",
+  "engine": "ollama",
+  "via": "pipeline",
+  "url": "http://localhost:9099",
+  "model": "auto-data",
+  "shape": "short",
+  "mode": "concurrent",
+  "reasoning": "off",
+  "state": "B",
+  "body_tokens_target": null,
+  "body_file": null,
+  "body_chars": 0,
+  "max_tokens": 256,
+  "rounds": 2,
+  "started_at": "2026-09-20T06:00:41.839657+00:00",
+  "memory_before": {
+    "captured_at": "2026-09-20T06:00:41.839797+00:00",
+    "page_size": 16384,
+    "pages": {
+      "Pages free": 62188,
+      "Pages active": 1880448,
+      "Pages inactive": 1878698,
+      "Pages speculative": 3195,
+      "Pages throttled": 0,
+      "Pages wired down": 173311,
+      "Pages purgeable": 3846,
+      "Pages copy-on-write": 6138268,
+      "Pages zero filled": 1348124575,
+      "Pages reactivated": 186164546,
+      "Pages purged": 4407485,
+      "Pages stored in compressor": 322702,
+      "Pages occupied by compressor": 149825
+    },
+    "approx_free_gb": 29.62,
+    "memory_pressure": "System-wide memory free percentage: 92%",
+    "engines_reachable": {
+      "ollama": true,
+      "omlx": true,
+      "splash": false
+    }
+  },
+  "waves": [
+    {
+      "concurrency": 1,
+      "mode": "concurrent",
+      "accepted": 0,
+      "failed": 1,
+      "wall_s": 0.01,
+      "errors": [
+        "{\"detail\":\"Missing Authorization header\"}"
+      ],
+      "round": 0
+    },
+    {
+      "concurrency": 1,
+      "mode": "concurrent",
+      "accepted": 0,
+      "failed": 1,
+      "wall_s": 0.02,
+      "errors": [
+        "{\"detail\":\"Missing Authorization header\"}"
+      ],
+      "round": 1
+    },
+    {
+      "concurrency": 2,
+      "mode": "concurrent",
+      "accepted": 0,
+      "failed": 2,
+      "wall_s": 0.02,
+      "errors": [
+        "{\"detail\":\"Missing Authorization header\"}",
+        "{\"detail\":\"Missing Authorization header\"}"
+      ],
+      "round": 0
+    },
+    {
+      "concurrency": 2,
+      "mode": "concurrent",
+      "accepted": 0,
+      "failed": 2,
+      "wall_s": 0.02,
+      "errors": [
+        "{\"detail\":\"Missing Authorization header\"}",
+        "{\"detail\":\"Missing Authorization header\"}"
+      ],
+      "round": 1
+    },
+    {
+      "concurrency": 4,
+      "mode": "concurrent",
+      "accepted": 0,
+      "failed": 4,
+      "wall_s": 0.02,
+      "errors": [
+        "{\"detail\":\"Missing Authorization header\"}",
+        "{\"detail\":\"Missing Authorization header\"}",
+        "{\"detail\":\"Missing Authorization header\"}",
+        "{\"detail\":\"Missing Authorization header\"}"
+      ],
+      "round": 0
+    },
+    {
+      "concurrency": 4,
+      "mode": "concurrent",
+      "accepted": 0,
+      "failed": 4,
+      "wall_s": 0.02,
+      "errors": [
+        "{\"detail\":\"Missing Authorization header\"}",
+        "{\"detail\":\"Missing Authorization header\"}",
+        "{\"detail\":\"Missing Authorization header\"}",
+        "{\"detail\":\"Missing Authorization header\"}"
+      ],
+      "round": 1
+    }
+  ],
+  "warmup_ok": false,
+  "warmup_error": "{\"detail\":\"Missing Authorization header\"}",
+  "memory_after": {
+    "captured_at": "2026-09-20T06:01:42.102471+00:00",
+    "page_size": 16384,
+    "pages": {
+      "Pages free": 57159,
+      "Pages active": 1886758,
+      "Pages inactive": 1882567,
+      "Pages speculative": 3732,
+      "Pages throttled": 0,
+      "Pages wired down": 167755,
+      "Pages purgeable": 8004,
+      "Pages copy-on-write": 6139994,
+      "Pages zero filled": 1348262959,
+      "Pages reactivated": 186164633,
+      "Pages purged": 4407607,
+      "Pages stored in compressor": 321944,
+      "Pages occupied by compressor": 149694
+    },
+    "approx_free_gb": 29.6,
+    "memory_pressure": "System-wide memory free percentage: 92%",
+    "engines_reachable": {
+      "ollama": true,
+      "omlx": true,
+      "splash": false
+    }
+  },
+  "finished_at": "2026-09-20T06:01:42.204381+00:00"
+}

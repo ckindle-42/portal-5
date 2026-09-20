@@ -1,0 +1,19 @@
+{
+  "engine": "omlx",
+  "model": "Qwen3.8-27B-4bit",
+  "nonstream_status": 200,
+  "nonstream_tool_calls": 1,
+  "nonstream_tool_name": "compliance_context",
+  "nonstream_args_parse": "OK",
+  "nonstream_args_ref": "CIP-007-6 R2 Part 2.2",
+  "nonstream_args_bytes_repr": "'{\"ref\": \"CIP-007-6 R2 Part 2.2\", \"mode\": \"index\"}'",
+  "nonstream_args_len": 49,
+  "stream_status": 200,
+  "stream_tool_calls": 1,
+  "stream_assembled_name": "compliance_context",
+  "stream_assembled_args_len": 49,
+  "stream_args_parse": "OK",
+  "stream_assembled_bytes_repr": "'{\"ref\": \"CIP-007-6 R2 Part 2.2\", \"mode\": \"index\"}'",
+  "stream_content_chars": 1,
+  "recorded_at": "2026-09-20T06:44:41.009949+00:00"
+}
