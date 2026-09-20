@@ -75,7 +75,16 @@ __all__ = [
 # came back empty. Reasoning stays off here, now for a reason measured here.
 DEFAULT_EFFORT: bool | str = False
 
+# The native default. Kept as a module constant because existing readers expect
+# it; the dialect layer is what actually decides where a call goes now. See
+# transport_dialects: the sweep's endpoint was hardcoded here, which is why
+# registering an engine with the PIPELINE never changed the sweep.
 _ENDPOINT = "http://localhost:11434/api/chat"
+
+from portal.modules.compliance.core.transport_dialects import (  # noqa: E402
+    resolve_dialect as _resolve_dialect,
+)
+
 _THINK_CAPABLE: dict[str, bool] = {}
 _INLINE_THINK = re.compile(r"<think>.*?</think>\s*", re.S | re.I)
 
@@ -111,11 +120,12 @@ def strip_inline_reasoning(text: str) -> str:
     return _INLINE_THINK.sub("", text).strip()
 
 
-def _post(payload: dict[str, Any], timeout: int) -> dict[str, Any]:
+def _post(payload: dict[str, Any], timeout: int, dialect: Any = None) -> dict[str, Any]:
+    dialect = dialect if dialect is not None else _resolve_dialect()
     request = urllib.request.Request(
-        _ENDPOINT,
+        dialect.endpoint,
         data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json"},
+        headers=dialect.headers(),
     )
     with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
         result: dict[str, Any] = json.load(response)
@@ -289,9 +299,14 @@ def _exceeds_context(exc: urllib.error.HTTPError) -> dict[str, Any] | None:
     return None
 
 
-def _unpack(raw: dict[str, Any]) -> tuple[str, str]:
-    """Content and reasoning, read from the two fields the native endpoint keeps
-    apart, with a defensive strip for a template that still inlines its block."""
+def _unpack(raw: dict[str, Any], dialect: Any = None) -> tuple[str, str]:
+    """Content and reasoning, read from the two fields the endpoint keeps
+    apart, with a defensive strip for a template that still inlines its block.
+
+    A non-native dialect owns its own response shape; the strip is native-only
+    because ``<think>`` inlining is an Ollama-template failure mode."""
+    if dialect is not None and dialect.name != "ollama-native":
+        return dialect.unpack(raw)
     message = raw.get("message") or {}
     raw_content = str(message.get("content", "") or "")
     return (
@@ -300,14 +315,17 @@ def _unpack(raw: dict[str, Any]) -> tuple[str, str]:
     )
 
 
-def _attempt(body: dict[str, Any], answer_budget: int, allowance: int) -> dict[str, Any]:
-    content, thinking = _unpack(body)
+def _attempt(
+    body: dict[str, Any], answer_budget: int, allowance: int, dialect: Any = None
+) -> dict[str, Any]:
+    content, thinking = _unpack(body, dialect)
+    metrics = dialect.metrics(body) if dialect is not None else {}
     return {
         "answer_budget": answer_budget,
         "reasoning_allowance": allowance,
         "thinking_chars": len(thinking),
         "answer_chars": len(content),
-        "eval_count": body.get("eval_count", 0),
+        "eval_count": metrics.get("eval_count", body.get("eval_count", 0)),
     }
 
 
@@ -317,6 +335,7 @@ def _post_judged(
     allowance: int,
     want_think: bool | str,
     timeout: int,
+    dialect: Any = None,
 ) -> tuple[dict[str, Any], bool | str, str]:
     """One POST, with the two HTTP 400s this endpoint actually returns told apart.
 
@@ -325,25 +344,34 @@ def _post_judged(
     support thinking", which is cached and retried once with the flag off. They
     used to be one branch, so an oversized prompt on a reasoning model was
     retried as a non-reasoning call and then failed again with a bare
-    ``HTTPError``.
+    ``HTTPError``. A non-native dialect classifies its own 400s
+    (:meth:`Dialect.classify_400`) and gets the same two-way split.
     """
+    _dialect = dialect if dialect is not None else _resolve_dialect()
     try:
-        body = _post(build(allowance, want_think), timeout)
+        body = _post(build(allowance, want_think), timeout, _dialect)
     except urllib.error.HTTPError as exc:
         if exc.code != 400:
             raise
-        overflow = _exceeds_context(exc)
-        if overflow:
+        if _dialect.name == "ollama-native":
+            overflow = _exceeds_context(exc)
+            if overflow:
+                raise ContextCeilingError(
+                    f"{model}: the assembled prompt is {overflow.get('n_prompt_tokens')} tokens "
+                    f"and the requested window is {overflow.get('n_ctx')} — the runner refused "
+                    "it rather than truncating"
+                ) from exc
+        elif _dialect.classify_400(exc) == "context":
             raise ContextCeilingError(
-                f"{model}: the assembled prompt is {overflow.get('n_prompt_tokens')} tokens "
-                f"and the requested window is {overflow.get('n_ctx')} — the runner refused "
-                "it rather than truncating"
+                f"{model}: the {_dialect.name} server at {_dialect.endpoint} refused the "
+                "assembled prompt as over its window — the window is the server's own, "
+                "so reduce the material or raise the serve-line pin"
             ) from exc
         if not want_think:
             raise
         _THINK_CAPABLE[model] = False
         return (
-            _post(build(allowance, False), timeout),
+            _post(build(allowance, False), timeout, _dialect),
             False,
             f"model does not support thinking (HTTP 400): {model}",
         )
@@ -368,6 +396,7 @@ def chat(
     num_ctx: int = DEFAULT_NUM_CTX,
     temperature: float = DEFAULT_TEMPERATURE,
     keep_alive: str = DEFAULT_KEEP_ALIVE,
+    dialect: Any = None,
 ) -> ChatResult:
     """One judged call. The effort level is explicit; a downgrade is recorded.
 
@@ -402,7 +431,8 @@ def chat(
     if not _THINK_CAPABLE.get(model, True):
         want_think = False
 
-    ceiling = seat_ceiling(model)
+    _dialect = _resolve_dialect(dialect)
+    ceiling = _dialect.seat_ceiling(model)
     if ceiling and num_ctx > ceiling:
         # Stated, never clamped. A window silently reduced to the trained length
         # is a reading that believes it holds material it does not.
@@ -422,6 +452,18 @@ def chat(
 
     def build(allowance: int, thinking: bool | str) -> dict[str, Any]:
         predict = answer_budget + (allowance if thinking else 0)
+        if _dialect.name != "ollama-native":
+            return _dialect.build(
+                model=model,
+                messages=sent_messages,
+                tools=tools,
+                fmt=fmt,
+                think=thinking,
+                num_predict=predict,
+                num_ctx=num_ctx,
+                temperature=temperature,
+                keep_alive=keep_alive,
+            )
         payload: dict[str, Any] = {
             "model": model,
             "messages": sent_messages,
@@ -450,18 +492,20 @@ def chat(
         return payload
 
     allowance = reasoning_allowance
-    body, want_think, downgraded = _post_judged(model, build, allowance, want_think, timeout)
+    body, want_think, downgraded = _post_judged(
+        model, build, allowance, want_think, timeout, _dialect
+    )
 
-    content, thinking = _unpack(body)
-    attempts = [_attempt(body, answer_budget, allowance if want_think else 0)]
+    content, thinking = _unpack(body, _dialect)
+    attempts = [_attempt(body, answer_budget, allowance if want_think else 0, _dialect)]
     stop_reason = ""
     if want_think and not content.strip() and thinking:
         # One retry at double the allowance. The answer budget is untouched:
         # what was starved was the trace's room, not the answer's.
         allowance *= 2
-        body = _post(build(allowance, want_think), timeout)
-        content, thinking = _unpack(body)
-        attempts.append(_attempt(body, answer_budget, allowance))
+        body = _post(build(allowance, want_think), timeout, _dialect)
+        content, thinking = _unpack(body, _dialect)
+        attempts.append(_attempt(body, answer_budget, allowance, _dialect))
         if not content.strip():
             stop_reason = "budget_exhausted_in_reasoning"
 
@@ -484,8 +528,14 @@ def chat(
         total_duration_s=round(float(body.get("total_duration", 0) or 0) / 1e9, 3),
         prompt_bytes=prompt_bytes,
         num_ctx=num_ctx,
-        num_ctx_applied=applied_context_length(model),
+        num_ctx_applied=_dialect.applied_context_length(model),
         seat_ceiling=ceiling,
+        # Which engine served this call. A receipt that cannot say this can be
+        # filed under the wrong engine — which is how a splash measurement gets
+        # taken on Ollama and written into a promotion decision.
+        dialect=_dialect.name,
+        endpoint=_dialect.endpoint,
+        context_source=_dialect.context_source(),
         temperature=temperature,
         answer_budget=answer_budget,
         reasoning_allowance=allowance if want_think else 0,

@@ -120,6 +120,7 @@ def map_read(
     timeout: int = 1800,
     keep_alive: str = "30m",
     write: bool = True,
+    dialect: Any = None,
 ) -> dict[str, Any]:
     """One map reading: the population as one message, the mapping prompt as
     the question, one call, a receipt.
@@ -129,6 +130,11 @@ def map_read(
     through :func:`candidate_links.record_determination`, which enforces the
     two bounds the task puts on this loop: provenance is mandatory, and a
     pairing the store already holds is corroborated, never re-created.
+
+    ``dialect`` names the wire protocol the call travels on
+    (:mod:`transport_dialects`). None means the default resolution —
+    ``ollama-native`` unless ``COMPLIANCE_TRANSPORT`` says otherwise — and the
+    resolved engine is stamped onto the payload either way.
     """
     from portal.modules.compliance.core import candidate_links, reading_material
     from portal.modules.compliance.core.reading_transport import chat
@@ -153,6 +159,7 @@ def map_read(
             answer_budget=answer_budget,
             timeout=timeout,
             keep_alive=keep_alive,
+            dialect=dialect,
         )
     except Exception as exc:  # noqa: BLE001 — a failed cell is a recorded cell
         return {
@@ -193,6 +200,12 @@ def map_read(
         "question": f"[mapping] {ref} — determinations from the population",
         "ref": ref,
         "answer": answer,
+        # Which engine produced this cell. A receipt that cannot say this can be
+        # filed under the wrong engine — which is how a splash measurement gets
+        # taken on Ollama and written into a promotion decision.
+        "dialect": result.get("dialect", "ollama-native"),
+        "endpoint": result.get("endpoint", ""),
+        "context_source": result.get("context_source", "request_num_ctx"),
         "thinking_chars": len(result.thinking),
         "model": model,
         "prompt_version": prompt_version,
@@ -312,6 +325,7 @@ def sweep_standard(
     num_ctx: int = 32768,
     write: bool = True,
     refs: list[str] | None = None,
+    dialect: Any = None,
 ) -> dict[str, Any]:
     """Map every requirement of one standard, sequentially, shared body first.
 
@@ -364,6 +378,7 @@ def sweep_standard(
             fixed=fixed,
             num_ctx=num_ctx,
             write=write,
+            dialect=dialect,
         )
         if "error" in payload:
             rows.append({"ref": ref, "error": payload["error"]})

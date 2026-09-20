@@ -20,6 +20,7 @@ import pytest
 
 from portal.modules.compliance.core import reading_transport
 from portal.modules.compliance.core.reading_transport import chat, strip_inline_reasoning
+from portal.modules.compliance.core.transport_dialects import OllamaNative
 
 
 def _http_400(message: str) -> urllib.error.HTTPError:
@@ -41,7 +42,7 @@ class _Server:
         self.thinking = thinking
         self.payloads: list[dict[str, Any]] = []
 
-    def __call__(self, payload: dict[str, Any], timeout: int) -> dict[str, Any]:
+    def __call__(self, payload: dict[str, Any], timeout: int, dialect=None) -> dict[str, Any]:
         self.payloads.append(json.loads(json.dumps(payload)))
         if payload.get("think") and not self.thinking_capable:
             raise _http_400(f'"{payload["model"]}" does not support thinking')
@@ -118,7 +119,7 @@ def test_capability_is_cached_so_the_400_is_paid_once(monkeypatch):
 
 
 def test_a_non_400_error_is_not_swallowed(monkeypatch):
-    def boom(payload: dict[str, Any], timeout: int) -> dict[str, Any]:
+    def boom(payload: dict[str, Any], timeout: int, dialect=None) -> dict[str, Any]:
         raise urllib.error.HTTPError(
             reading_transport._ENDPOINT,
             500,
@@ -244,7 +245,7 @@ class _EmptyUnderReasoning:
         self.succeed_at = succeed_at
         self.payloads: list[dict[str, Any]] = []
 
-    def __call__(self, payload: dict[str, Any], timeout: int) -> dict[str, Any]:
+    def __call__(self, payload: dict[str, Any], timeout: int, dialect=None) -> dict[str, Any]:
         self.payloads.append(json.loads(json.dumps(payload)))
         predict = payload["options"]["num_predict"]
         content = "the answer" if predict >= self.succeed_at else ""
@@ -252,8 +253,10 @@ class _EmptyUnderReasoning:
 
 
 def _no_ceiling(monkeypatch):
-    monkeypatch.setattr(reading_transport, "seat_ceiling", lambda model: 0)
-    monkeypatch.setattr(reading_transport, "applied_context_length", lambda model: 0)
+    # Post-seam the ceiling and applied window come from the resolved dialect,
+    # so that is the interception point (P1.2: chat delegates to _dialect).
+    monkeypatch.setattr(OllamaNative, "seat_ceiling", lambda self, model: 0)
+    monkeypatch.setattr(OllamaNative, "applied_context_length", lambda self, model: 0)
 
 
 def test_budget_is_an_alias_for_answer_budget_and_reasoning_is_free_of_it(monkeypatch):
@@ -310,9 +313,11 @@ def test_a_still_empty_answer_is_a_budget_error_never_a_substantive_one(monkeypa
 
 
 def test_a_window_above_the_seat_ceiling_is_stated_not_clamped(monkeypatch):
-    monkeypatch.setattr(reading_transport, "seat_ceiling", lambda model: 32768)
+    monkeypatch.setattr(OllamaNative, "seat_ceiling", lambda self, model: 32768)
     called: list[dict[str, Any]] = []
-    monkeypatch.setattr(reading_transport, "_post", lambda p, t: called.append(p) or {})
+    monkeypatch.setattr(
+        reading_transport, "_post", lambda p, t, dialect=None: called.append(p) or {}
+    )
 
     with pytest.raises(reading_transport.ContextCeilingError) as excinfo:
         chat("qwen38", "sys", "user", num_ctx=65536)
@@ -322,9 +327,9 @@ def test_a_window_above_the_seat_ceiling_is_stated_not_clamped(monkeypatch):
 
 
 def test_an_oversized_prompt_is_named_rather_than_killing_the_reading(monkeypatch):
-    monkeypatch.setattr(reading_transport, "seat_ceiling", lambda model: 262144)
+    monkeypatch.setattr(OllamaNative, "seat_ceiling", lambda self, model: 262144)
 
-    def overflow(payload, timeout):
+    def overflow(payload, timeout, dialect=None):
         raise urllib.error.HTTPError(
             reading_transport._ENDPOINT,
             400,

@@ -357,7 +357,7 @@ class TestTheTransportStatesItsWindow:
 
         seen: dict = {}
 
-        def _capture_post(payload, timeout):  # noqa: ANN001, ANN202
+        def _capture_post(payload, timeout, dialect=None):  # noqa: ANN001, ANN202
             seen.update(payload)
             return {"message": {"content": "ok"}, "eval_count": 7, "load_duration": 1_000_000_000}
 
@@ -386,7 +386,7 @@ class TestTheWindowIsSizedFromMeasurement:
     ) -> None:
         from portal.modules.compliance.core import reading_transport
 
-        def _fake_post(payload, timeout):  # noqa: ANN001, ANN202
+        def _fake_post(payload, timeout, dialect=None):  # noqa: ANN001, ANN202
             window = payload["options"]["num_ctx"]
             return {
                 "message": {"content": "an answer"},
@@ -411,7 +411,7 @@ class TestTheWindowIsSizedFromMeasurement:
         monkeypatch.setattr(
             reading_transport,
             "_post",
-            lambda payload, timeout: {
+            lambda payload, timeout, dialect=None: {
                 "message": {"content": "an answer"},
                 "prompt_eval_count": 900,
                 "eval_count": 40,
@@ -437,7 +437,7 @@ class TestPromptOrderIsCacheable:
 
         seen: dict = {}
 
-        def _capture(payload, timeout):  # noqa: ANN001, ANN202
+        def _capture(payload, timeout, dialect=None):  # noqa: ANN001, ANN202
             seen["messages"] = payload["messages"]
             return {"message": {"content": "ok"}, "prompt_eval_count": 10, "eval_count": 2}
 
@@ -477,7 +477,7 @@ class TestPromptOrderIsCacheable:
 
         prompts: list[str] = []
 
-        def _capture(payload, timeout):  # noqa: ANN001, ANN202
+        def _capture(payload, timeout, dialect=None):  # noqa: ANN001, ANN202
             prompts.append("".join(str(m.get("content", "")) for m in payload["messages"][:-1]))
             return {"message": {"content": "ok"}, "prompt_eval_count": 10, "eval_count": 2}
 
@@ -592,7 +592,7 @@ class TestAnEmptyAnswerIsAFailure:
         monkeypatch.setattr(
             reading_transport,
             "_post",
-            lambda payload, timeout: {
+            lambda payload, timeout, dialect=None: {
                 "message": {"content": "", "thinking": "x" * 6000},
                 "prompt_eval_count": 900,
                 "eval_count": 1600,
@@ -625,7 +625,7 @@ class TestAnEmptyAnswerIsAFailure:
         monkeypatch.setattr(
             reading_transport,
             "_post",
-            lambda payload, timeout: {
+            lambda payload, timeout, dialect=None: {
                 "message": {"content": "a real answer"},
                 "prompt_eval_count": 900,
                 "eval_count": 40,
@@ -648,7 +648,7 @@ class TestAcquisitionIsRecordedNotElected:
 
         turns: list[dict] = []
 
-        def _post(payload, timeout):  # noqa: ANN001, ANN202
+        def _post(payload, timeout, dialect=None):  # noqa: ANN001, ANN202
             turns.append(payload)
             message = {"content": "" if calls and len(turns) == 1 else content}
             if calls and len(turns) == 1:
@@ -707,7 +707,7 @@ class TestTheRunIsRetained:
         monkeypatch.setattr(
             reading_transport,
             "_post",
-            lambda payload, timeout: {
+            lambda payload, timeout, dialect=None: {
                 "message": {"content": "an answer"},
                 "prompt_eval_count": 900,
                 "eval_count": 40,
@@ -759,7 +759,7 @@ class TestTurnOrder:
 
         seen: list[list[dict]] = []
 
-        def _post(payload, timeout):  # noqa: ANN001, ANN202
+        def _post(payload, timeout, dialect=None):  # noqa: ANN001, ANN202
             seen.append(payload["messages"])
             return {"message": {"content": "an answer"}, "prompt_eval_count": 9, "eval_count": 4}
 
