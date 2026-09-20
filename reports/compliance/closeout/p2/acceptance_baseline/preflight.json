@@ -1,0 +1,372 @@
+{
+ "generated_at": "2026-09-20T23:12:03Z",
+ "git_rev": "26a9d2e64e389fbb50fadf8bd66b65fa04409879",
+ "ollama_version": "0.34.2",
+ "num_ctx_requested": 98304,
+ "reference_ref": "CIP-007-6 R5",
+ "largest_population": {
+  "ref": "CIP-007-6 R5",
+  "regulatory": 43,
+  "operator": 14,
+  "operator_notes": 0,
+  "link_statuses": [
+   "proposed"
+  ],
+  "chars": 31335,
+  "population_method": "join"
+ },
+ "populations": [
+  {
+   "ref": "CIP-007-6 R1",
+   "regulatory": 18,
+   "operator": 6,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 15851,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R2",
+   "regulatory": 16,
+   "operator": 9,
+   "operator_notes": 1,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 27024,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R3",
+   "regulatory": 12,
+   "operator": 6,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 19933,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R4",
+   "regulatory": 31,
+   "operator": 8,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 19703,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R5",
+   "regulatory": 43,
+   "operator": 14,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 31335,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R1 Part 1.1",
+   "regulatory": 17,
+   "operator": 4,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 14134,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R1 Part 1.2",
+   "regulatory": 16,
+   "operator": 4,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 12105,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R2 Part 2.1",
+   "regulatory": 13,
+   "operator": 4,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 13428,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R2 Part 2.2",
+   "regulatory": 14,
+   "operator": 4,
+   "operator_notes": 1,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 17476,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R2 Part 2.3",
+   "regulatory": 14,
+   "operator": 5,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 17072,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R2 Part 2.4",
+   "regulatory": 14,
+   "operator": 4,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 19781,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R3 Part 3.1",
+   "regulatory": 10,
+   "operator": 3,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 8261,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R3 Part 3.2",
+   "regulatory": 10,
+   "operator": 5,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 17534,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R3 Part 3.3",
+   "regulatory": 10,
+   "operator": 2,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 8059,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R4 Part 4.1",
+   "regulatory": 27,
+   "operator": 3,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 11498,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R4 Part 4.2",
+   "regulatory": 27,
+   "operator": 3,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 12154,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R4 Part 4.3",
+   "regulatory": 26,
+   "operator": 5,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 12841,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R4 Part 4.4",
+   "regulatory": 26,
+   "operator": 3,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 11170,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R5 Part 5.1",
+   "regulatory": 34,
+   "operator": 5,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 20346,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R5 Part 5.2",
+   "regulatory": 35,
+   "operator": 1,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 14506,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R5 Part 5.3",
+   "regulatory": 35,
+   "operator": 5,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 16490,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R5 Part 5.4",
+   "regulatory": 35,
+   "operator": 4,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 19591,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R5 Part 5.5",
+   "regulatory": 35,
+   "operator": 3,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 20040,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R5 Part 5.6",
+   "regulatory": 35,
+   "operator": 3,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 19700,
+   "population_method": "join"
+  },
+  {
+   "ref": "CIP-007-6 R5 Part 5.7",
+   "regulatory": 35,
+   "operator": 3,
+   "operator_notes": 0,
+   "link_statuses": [
+    "proposed"
+   ],
+   "chars": 19222,
+   "population_method": "join"
+  }
+ ],
+ "seats": [
+  {
+   "seat": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+   "template_sha": "b507b9c2f6ca",
+   "baked_params": {
+    "num_ctx": 32768,
+    "temperature": 1,
+    "top_k": 64,
+    "top_p": 0.95
+   },
+   "baked_ctx_from_tag": 32768,
+   "tools_probe": {
+    "tag": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+    "tools_rendered": true,
+    "tool_names": [
+     "get_vault_code"
+    ],
+    "prose": ""
+   },
+   "think_probe": {
+    "tag": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+    "think_true": 177,
+    "think_false": 0,
+    "verdict": "honored"
+   },
+   "audit_violations": [],
+   "applied_versus_requested": {
+    "seat": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+    "ref": "CIP-007-6 R5",
+    "material_chars": 46841,
+    "num_ctx_requested": 98304,
+    "seat_ceiling": 262144,
+    "answer_budget": 3072,
+    "reasoning_allowance": 4096,
+    "elapsed_s": 57.7,
+    "num_ctx_applied": 98304,
+    "temperature_applied": 0.0,
+    "prompt_eval_count": 14940,
+    "eval_count": 947,
+    "headroom_tokens": 82417,
+    "chars_per_token_observed": 3.14,
+    "tool_calls": [],
+    "thinking_chars": 0,
+    "answer_chars": 3011,
+    "transport_stop_reason": "",
+    "worst_case_tool_result_tokens": 45859,
+    "required_tokens": 67967,
+    "margin_tokens": 30337,
+    "blocks": false,
+    "block_reasons": []
+   },
+   "ollama_ps": [
+    {
+     "name": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+     "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+     "size": 19518067833,
+     "digest": "dddcfdbd690cd186ceb2122c8e86cdea50ab001353e354d53e6adcfeb4cb5b3f",
+     "details": {
+      "parent_model": "",
+      "format": "gguf",
+      "family": "gemma4",
+      "families": [
+       "gemma4"
+      ],
+      "parameter_size": "25.8B",
+      "quantization_level": "Q4_K_M"
+     },
+     "expires_at": "2026-09-20T18:43:06.345765-05:00",
+     "size_vram": 19518067833,
+     "context_length": 98304
+    }
+   ],
+   "free_memory_mb": 10337,
+   "go": true,
+   "no_go_reasons": []
+  }
+ ]
+}

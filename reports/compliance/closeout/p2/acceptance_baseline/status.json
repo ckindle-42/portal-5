@@ -1,0 +1,123 @@
+{
+ "git_head": "26a9d2e64e389fbb50fadf8bd66b65fa04409879",
+ "dirty_paths": 4,
+ "updated_at": "2026-09-20T23:25:04Z",
+ "cells": [
+  {
+   "cell": "workspace__gemma4-26b-a4b-it-q4-K-M-ctx32k__parent__run1",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  },
+  {
+   "cell": "workspace__gemma4-26b-a4b-it-q4-K-M-ctx32k__parent__run2",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  },
+  {
+   "cell": "workspace__gemma4-26b-a4b-it-q4-K-M-ctx32k__parent__run3",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  },
+  {
+   "cell": "workspace__gemma4-26b-a4b-it-q4-K-M-ctx32k__choice__run1",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  },
+  {
+   "cell": "workspace__gemma4-26b-a4b-it-q4-K-M-ctx32k__choice__run2",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  },
+  {
+   "cell": "workspace__gemma4-26b-a4b-it-q4-K-M-ctx32k__choice__run3",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  },
+  {
+   "cell": "workspace__gemma4-26b-a4b-it-q4-K-M-ctx32k__interval__run1",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  },
+  {
+   "cell": "workspace__gemma4-26b-a4b-it-q4-K-M-ctx32k__interval__run2",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  },
+  {
+   "cell": "workspace__gemma4-26b-a4b-it-q4-K-M-ctx32k__interval__run3",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  },
+  {
+   "cell": "workspace__gemma4-26b-a4b-it-q4-K-M-ctx32k__read_check__run1",
+   "passed": false,
+   "failed_assertions": [
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  },
+  {
+   "cell": "workspace__gemma4-26b-a4b-it-q4-K-M-ctx32k__read_check__run2",
+   "passed": false,
+   "failed_assertions": [
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  },
+  {
+   "cell": "workspace__gemma4-26b-a4b-it-q4-K-M-ctx32k__read_check__run3",
+   "passed": false,
+   "failed_assertions": [
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  },
+  {
+   "cell": "workspace__gemma4-26b-a4b-it-q4-K-M-ctx32k__either_or__run1",
+   "passed": false,
+   "failed_assertions": [
+    "cited_ids_resolve"
+   ],
+   "error": ""
+  },
+  {
+   "cell": "workspace__gemma4-26b-a4b-it-q4-K-M-ctx32k__either_or__run2",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  },
+  {
+   "cell": "workspace__gemma4-26b-a4b-it-q4-K-M-ctx32k__either_or__run3",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  },
+  {
+   "cell": "workspace__gemma4-26b-a4b-it-q4-K-M-ctx32k__no_operator_side__run1",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  },
+  {
+   "cell": "workspace__gemma4-26b-a4b-it-q4-K-M-ctx32k__no_operator_side__run2",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  },
+  {
+   "cell": "workspace__gemma4-26b-a4b-it-q4-K-M-ctx32k__no_operator_side__run3",
+   "passed": true,
+   "failed_assertions": [],
+   "error": ""
+  }
+ ]
+}

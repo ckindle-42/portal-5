@@ -732,13 +732,29 @@ surfaces:
   globs:
   - scripts/compliance/ask_product_questions.py
   unit: unit-surface-compliance-closeout-scripts
+- name: file-scripts-compliance-bench_sweep_engines
+  globs:
+  - scripts/compliance/bench_sweep_engines.py
+  unit: unit-surface-compliance-closeout-scripts
 - name: file-scripts-compliance-calibrate_cip007
   globs:
   - scripts/compliance/calibrate_cip007.py
   unit: unit-surface-compliance-closeout-scripts
+- name: file-scripts-compliance-closeout_family_sweep
+  globs:
+  - scripts/compliance/closeout_family_sweep.py
+  unit: unit-surface-compliance-closeout-scripts
+- name: file-scripts-compliance-decide_sweep_engine
+  globs:
+  - scripts/compliance/decide_sweep_engine.py
+  unit: unit-surface-compliance-closeout-scripts
 - name: file-scripts-compliance-verify_conjunction_adoption
   globs:
   - scripts/compliance/verify_conjunction_adoption.py
+  unit: unit-surface-compliance-closeout-scripts
+- name: file-scripts-compliance-write_closeout_report
+  globs:
+  - scripts/compliance/write_closeout_report.py
   unit: unit-surface-compliance-closeout-scripts
 - name: file-tests-fixtures-capability_context-sample_module
   globs:

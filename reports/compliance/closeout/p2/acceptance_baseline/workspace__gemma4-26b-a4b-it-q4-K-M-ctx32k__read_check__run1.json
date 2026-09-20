@@ -1,0 +1,150 @@
+{
+ "cell": "workspace__gemma4-26b-a4b-it-q4-K-M-ctx32k__read_check__run1",
+ "adapter": "workspace",
+ "seat": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+ "case": "read_check",
+ "ref": "CIP-007-6 R2",
+ "thread": "main",
+ "campaign_inputs": {
+  "seat": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "workspace_prompt_sha": "96d85343ae26"
+ },
+ "question": "Did you read our patch management procedure, or just the standard?",
+ "run_index": 1,
+ "environment_before": {
+  "at": "2026-09-20T23:20:14Z",
+  "ollama_version": "0.34.2",
+  "ollama_ps": [
+   {
+    "name": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+    "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+    "size": 18377143745,
+    "digest": "dddcfdbd690cd186ceb2122c8e86cdea50ab001353e354d53e6adcfeb4cb5b3f",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "gemma4",
+     "families": [
+      "gemma4"
+     ],
+     "parameter_size": "25.8B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-20T18:25:14.214603-05:00",
+    "size_vram": 18377143745,
+    "context_length": 32768
+   }
+  ],
+  "free_memory_mb": 12650,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "turn": {
+  "question": "Did you read our patch management procedure, or just the standard?",
+  "answer": "I have only read the sections of the standard and the operator's documents that were explicitly returned by the `compliance_context` tool during our conversation.\n\nSpecifically, I have access to the \"neighbourhood\" of any requirement ref you provide, which includes the standard's fixed body and any operator-recorded edges (such as linked procedures or notes) that the tool identifies as being in that requirement's scope. I have not read your entire patch management procedure unless a specific part of it was included in a `compliance_context` call for a requirement we discussed.\n\nIf you would like me to analyze a specific part of your patch management procedure, please provide the relevant requirement reference or section ID, and I will pull it into our conversation.\n\nCited sections:\n- None",
+  "reasoning_chars": 0,
+  "wall_s": 4.05,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.02,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {},
+  "tool_errors": {},
+  "usage_hops": [
+   {
+    "prompt_tokens": 2827,
+    "completion_tokens": 160
+   }
+  ],
+  "prompt_tokens_high_water": 2827,
+  "prompt_tokens_final_hop": 2827,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+ },
+ "thread_length_messages": 2,
+ "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+ "guard": [],
+ "checks": [
+  {
+   "assertion": "http_200",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "assertion": "turn_within_budget",
+   "ok": true,
+   "detail": {
+    "wall_s": 4.05,
+    "budget_s": 900.0,
+    "error": ""
+   }
+  },
+  {
+   "assertion": "answer_nonempty",
+   "ok": true,
+   "detail": 799
+  },
+  {
+   "assertion": "prompt_tokens_measured",
+   "ok": true,
+   "detail": {
+    "high_water": 2827,
+    "final_hop": 2827,
+    "hops_seen": 1
+   }
+  },
+  {
+   "assertion": "applied_window_known_and_not_exceeded",
+   "ok": true,
+   "detail": {
+    "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+    "applied_ctx": 32768,
+    "input_tokens": 2827.0
+   }
+  },
+  {
+   "assertion": "tool_calls>=0",
+   "ok": true,
+   "detail": {}
+  },
+  {
+   "assertion": "cited_ids_resolve",
+   "ok": false,
+   "detail": "no section id cited in the answer"
+  }
+ ],
+ "passed": false,
+ "environment_after": {
+  "at": "2026-09-20T23:20:18Z",
+  "ollama_version": "0.34.2",
+  "ollama_ps": [
+   {
+    "name": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+    "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+    "size": 18377143745,
+    "digest": "dddcfdbd690cd186ceb2122c8e86cdea50ab001353e354d53e6adcfeb4cb5b3f",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "gemma4",
+     "families": [
+      "gemma4"
+     ],
+     "parameter_size": "25.8B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-20T18:25:18.403667-05:00",
+    "size_vram": 18377143745,
+    "context_length": 32768
+   }
+  ],
+  "free_memory_mb": 12629,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "failed_assertions": [
+  "cited_ids_resolve"
+ ]
+}
