@@ -360,6 +360,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/traceability.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-transport_dialects
+  globs:
+  - portal/modules/compliance/core/transport_dialects.py
+  unit: unit-compliance-transport-dialects
 - name: file-portal-modules-compliance-core-vertical_slice
   globs:
   - portal/modules/compliance/core/vertical_slice.py

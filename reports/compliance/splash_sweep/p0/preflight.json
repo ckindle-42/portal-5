@@ -1,0 +1,8 @@
+{
+  "run_id": "2026-09-20T22:34:15.219245+00:00",
+  "base_commit": "8720b60a94b303350c0826a8d348c6dd631b8d64",
+  "splash_version": "Splash 1.0.1",
+  "incumbent_seat": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "verdict": "PASS",
+  "reason": "splash 1.0.1 present, socat present, api key set, incumbent seat resident"
+}

@@ -1,0 +1,16 @@
+{
+  "run_id": "2026-09-20T22:37:29.092918+00:00",
+  "seat": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "implicit": {
+    "dialect": "ollama-native",
+    "endpoint": "http://localhost:11434/api/chat",
+    "answer": "parity"
+  },
+  "explicit": {
+    "dialect": "ollama-native",
+    "endpoint": "http://localhost:11434/api/chat",
+    "answer": "parity"
+  },
+  "verdict": "PASS",
+  "reason": "no-dialect and ollama-native must resolve to the same endpoint"
+}

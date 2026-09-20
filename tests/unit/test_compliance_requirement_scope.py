@@ -266,7 +266,7 @@ class TestTheAssemblyAndTheClosureShareTheScope:
         monkeypatch.setattr(
             reading_transport,
             "_post",
-            lambda payload, timeout: {
+            lambda payload, timeout, dialect=None: {
                 "message": {"content": "an answer"},
                 "prompt_eval_count": 900,
                 "eval_count": 40,
@@ -320,7 +320,7 @@ class TestReadOrSayWhatYouDidNotRead:
         monkeypatch.setattr(
             reading_transport,
             "_post",
-            lambda payload, timeout: {
+            lambda payload, timeout, dialect=None: {
                 "message": {"content": answer},
                 "prompt_eval_count": 900,
                 "eval_count": 40,
@@ -337,7 +337,7 @@ class TestReadOrSayWhatYouDidNotRead:
 
         seen: dict = {}
 
-        def _post(payload, timeout):  # noqa: ANN001, ANN202
+        def _post(payload, timeout, dialect=None):  # noqa: ANN001, ANN202
             seen.setdefault("messages", payload["messages"])
             return {"message": {"content": "ok"}, "prompt_eval_count": 9, "eval_count": 2}
 
@@ -381,7 +381,7 @@ class TestReadOrSayWhatYouDidNotRead:
 
         turns: list[int] = []
 
-        def _post(payload, timeout):  # noqa: ANN001, ANN202
+        def _post(payload, timeout, dialect=None):  # noqa: ANN001, ANN202
             turns.append(1)
             if len(turns) == 1:
                 # a tool call, so the zero-tool rule is not what fires here
