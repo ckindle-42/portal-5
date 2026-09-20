@@ -1,0 +1,45 @@
+{
+ "git_head": "82854d0c5caa623ca7ad57032462a1aa7a22f664",
+ "risk_order": [
+  "parent",
+  "choice",
+  "interval",
+  "read_check",
+  "either_or",
+  "no_operator_side"
+ ],
+ "cases": [
+  "parent",
+  "choice",
+  "interval",
+  "read_check",
+  "either_or",
+  "no_operator_side"
+ ],
+ "threads": {
+  "parent": "main",
+  "choice": "main",
+  "interval": "main",
+  "read_check": "main",
+  "either_or": "eitheror",
+  "no_operator_side": "noop"
+ },
+ "seats": [
+  "gemma4:26b-a4b-it-q4_K_M-ctx32k"
+ ],
+ "adapters": [
+  "legacy"
+ ],
+ "runs": 1,
+ "mcp_base_url": "http://localhost:8937",
+ "router_base_url": "http://localhost:9099",
+ "prompt_version": "workspace-reading-v2.1-2026-09-17",
+ "workspace_prompt_sha_live": "96d85343ae26",
+ "case_meta": {
+  "standard": "CIP-007-6",
+  "revision_id": "5b7820e758467bbdd401ef806def3b91dfd7e5d98145146c36bf8c45a566a8bd",
+  "derived_against_prompt_version": "reading-v2.1-2026-09-17",
+  "workspace_prompt_version": "workspace-reading-v2.1-2026-09-17",
+  "derived_at": "2026-09-17"
+ }
+}

@@ -1,0 +1,19 @@
+{
+  "engine": "splash",
+  "model": "incoai/Qwen3.8-27B-Splash",
+  "nonstream_status": 200,
+  "nonstream_tool_calls": 1,
+  "nonstream_tool_name": "compliance_context",
+  "nonstream_args_parse": "OK",
+  "nonstream_args_ref": "CIP-007-6 R2 Part 2.2",
+  "nonstream_args_bytes_repr": "'{\"ref\":\"CIP-007-6 R2 Part 2.2\",\"mode\":\"index\"}'",
+  "nonstream_args_len": 46,
+  "stream_status": 200,
+  "stream_tool_calls": 23,
+  "stream_assembled_name": "compliance_context",
+  "stream_assembled_args_len": 46,
+  "stream_args_parse": "OK",
+  "stream_assembled_bytes_repr": "'{\"ref\":\"CIP-007-6 R2 Part 2.2\",\"mode\":\"index\"}'",
+  "stream_content_chars": 0,
+  "recorded_at": "2026-09-20T16:09:29.255949+00:00"
+}

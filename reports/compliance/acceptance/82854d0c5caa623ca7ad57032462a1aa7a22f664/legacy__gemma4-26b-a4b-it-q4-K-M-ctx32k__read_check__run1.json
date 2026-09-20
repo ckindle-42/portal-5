@@ -1,0 +1,147 @@
+{
+ "cell": "legacy__gemma4-26b-a4b-it-q4-K-M-ctx32k__read_check__run1",
+ "adapter": "legacy",
+ "seat": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+ "case": "read_check",
+ "ref": "CIP-007-6 R2",
+ "thread": "main",
+ "campaign_inputs": {
+  "seat": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "workspace_prompt_sha": "96d85343ae26"
+ },
+ "question": "Did you read our patch management procedure, or just the standard?",
+ "run_index": 1,
+ "environment_before": {
+  "at": "2026-09-20T13:18:49Z",
+  "ollama_version": "0.34.2",
+  "ollama_ps": [
+   {
+    "name": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+    "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+    "size": 20548167924,
+    "digest": "71936e26c83aabf99c7cfe1805c098a24684f91a0d132542952b9975a518c937",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "qwen35",
+     "families": [
+      "qwen35"
+     ],
+     "parameter_size": "27.3B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-20T08:38:10.487418-05:00",
+    "size_vram": 20548167924,
+    "context_length": 98304
+   }
+  ],
+  "free_memory_mb": 22383,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "payload": {
+  "adapter": "legacy",
+  "ref": "CIP-007-6 R2",
+  "run_id": "d71e97dc44a54125",
+  "start": {
+   "run_id": "d71e97dc44a54125",
+   "status": "QUEUED",
+   "engine": "compliance-reading/1",
+   "requirements": [
+    "CIP-007-6 R2 Part 2.1",
+    "CIP-007-6 R2 Part 2.2",
+    "CIP-007-6 R2 Part 2.3",
+    "CIP-007-6 R2 Part 2.4"
+   ],
+   "n_parts": 4,
+   "scope": {
+    "declared": true,
+    "queue_item_id": "c45ee4ff40f1",
+    "n_citing_spans": 149,
+    "note": "has_erc/has_control_center are UNCONFIRMED (unknown) \u2014 this is a corpus-derived CANDIDATE (AssetScope.is_confirmed is False), not an approved declaration; confirm or correct via compliance_review_decide"
+   },
+   "note": "call operation=result with this run_id once status is COMPLETE"
+  },
+  "last_status": {
+   "run_id": "d71e97dc44a54125",
+   "status": "RUNNING",
+   "progress": {
+    "completed": 1,
+    "total": 4,
+    "parts": [
+     "CIP-007-6 R2 Part 2.1"
+    ],
+    "assessment_ids": [
+     "7ffa8416ad2f4436"
+    ]
+   },
+   "cancel_requested": false,
+   "engine": "compliance-reading/1",
+   "requirements": [
+    "CIP-007-6 R2 Part 2.1",
+    "CIP-007-6 R2 Part 2.2",
+    "CIP-007-6 R2 Part 2.3",
+    "CIP-007-6 R2 Part 2.4"
+   ],
+   "created_at": "2026-09-20T13:18:49.682486+00:00",
+   "started_at": "2026-09-20T13:39:58.196312+00:00",
+   "finished_at": null
+  },
+  "result": {
+   "run_id": "d71e97dc44a54125",
+   "status": "QUEUED",
+   "engine": "compliance-reading/1",
+   "requirements": [
+    "CIP-007-6 R2 Part 2.1",
+    "CIP-007-6 R2 Part 2.2",
+    "CIP-007-6 R2 Part 2.3",
+    "CIP-007-6 R2 Part 2.4"
+   ],
+   "n_parts": 4,
+   "scope": {
+    "declared": true,
+    "queue_item_id": "c45ee4ff40f1",
+    "n_citing_spans": 149,
+    "note": "has_erc/has_control_center are UNCONFIRMED (unknown) \u2014 this is a corpus-derived CANDIDATE (AssetScope.is_confirmed is False), not an approved declaration; confirm or correct via compliance_review_decide"
+   },
+   "note": "call operation=result with this run_id once status is COMPLETE"
+  },
+  "_wall_s": 3611.0
+ },
+ "comparable": {
+  "requirements_covered": [],
+  "section_ids": [],
+  "row_count": 0
+ },
+ "checks": [],
+ "guard": [],
+ "passed": true,
+ "legacy_status": "QUEUED",
+ "environment_after": {
+  "at": "2026-09-20T14:19:00Z",
+  "ollama_version": "0.34.2",
+  "ollama_ps": [
+   {
+    "name": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+    "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+    "size": 20548167924,
+    "digest": "71936e26c83aabf99c7cfe1805c098a24684f91a0d132542952b9975a518c937",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "qwen35",
+     "families": [
+      "qwen35"
+     ],
+     "parameter_size": "27.3B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-20T09:49:00.517731-05:00",
+    "size_vram": 20548167924,
+    "context_length": 98304
+   }
+  ],
+  "free_memory_mb": 27204,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "failed_assertions": []
+}

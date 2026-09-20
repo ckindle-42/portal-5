@@ -1,0 +1,129 @@
+{
+ "cell": "legacy__gemma4-26b-a4b-it-q4-K-M-ctx32k__choice__run1",
+ "adapter": "legacy",
+ "seat": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+ "case": "choice",
+ "ref": "CIP-007-6 R2 Part 2.3",
+ "thread": "main",
+ "campaign_inputs": {
+  "seat": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "workspace_prompt_sha": "96d85343ae26"
+ },
+ "question": "Are we using all the latitude NERC gives us on Part 2.3?",
+ "run_index": 1,
+ "environment_before": {
+  "at": "2026-09-20T11:18:26Z",
+  "ollama_version": "0.34.2",
+  "ollama_ps": [
+   {
+    "name": "granite4.1:30b-ctx16k",
+    "model": "granite4.1:30b-ctx16k",
+    "size": 74732011518,
+    "digest": "ba729eaac2d298e2d336ba4f86653ffad171876222cc932936584656db43e92b",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "granite",
+     "families": [
+      "granite"
+     ],
+     "parameter_size": "28.9B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-20T06:48:26.138899-05:00",
+    "size_vram": 58228547256,
+    "context_length": 98304
+   }
+  ],
+  "free_memory_mb": 1450,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "payload": {
+  "adapter": "legacy",
+  "ref": "CIP-007-6 R2 Part 2.3",
+  "run_id": "07c637001e464838",
+  "start": {
+   "run_id": "07c637001e464838",
+   "status": "QUEUED",
+   "engine": "compliance-reading/1",
+   "requirements": [
+    "CIP-007-6 R2 Part 2.3"
+   ],
+   "n_parts": 1,
+   "scope": {
+    "declared": true,
+    "queue_item_id": "8d7cfc150568",
+    "n_citing_spans": 149,
+    "note": "has_erc/has_control_center are UNCONFIRMED (unknown) \u2014 this is a corpus-derived CANDIDATE (AssetScope.is_confirmed is False), not an approved declaration; confirm or correct via compliance_review_decide"
+   },
+   "note": "call operation=result with this run_id once status is COMPLETE"
+  },
+  "last_status": {
+   "run_id": "07c637001e464838",
+   "status": "QUEUED",
+   "progress": {},
+   "cancel_requested": false,
+   "engine": "compliance-reading/1",
+   "requirements": [
+    "CIP-007-6 R2 Part 2.3"
+   ],
+   "created_at": "2026-09-20T11:18:27.191208+00:00",
+   "started_at": null,
+   "finished_at": null
+  },
+  "result": {
+   "run_id": "07c637001e464838",
+   "status": "QUEUED",
+   "engine": "compliance-reading/1",
+   "requirements": [
+    "CIP-007-6 R2 Part 2.3"
+   ],
+   "n_parts": 1,
+   "scope": {
+    "declared": true,
+    "queue_item_id": "8d7cfc150568",
+    "n_citing_spans": 149,
+    "note": "has_erc/has_control_center are UNCONFIRMED (unknown) \u2014 this is a corpus-derived CANDIDATE (AssetScope.is_confirmed is False), not an approved declaration; confirm or correct via compliance_review_decide"
+   },
+   "note": "call operation=result with this run_id once status is COMPLETE"
+  },
+  "_wall_s": 3610.3
+ },
+ "comparable": {
+  "requirements_covered": [],
+  "section_ids": [],
+  "row_count": 0
+ },
+ "checks": [],
+ "guard": [],
+ "passed": true,
+ "legacy_status": "QUEUED",
+ "environment_after": {
+  "at": "2026-09-20T12:18:36Z",
+  "ollama_version": "0.34.2",
+  "ollama_ps": [
+   {
+    "name": "granite4.1:30b-ctx16k",
+    "model": "granite4.1:30b-ctx16k",
+    "size": 74732011518,
+    "digest": "ba729eaac2d298e2d336ba4f86653ffad171876222cc932936584656db43e92b",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "granite",
+     "families": [
+      "granite"
+     ],
+     "parameter_size": "28.9B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-20T07:48:36.558945-05:00",
+    "size_vram": 58228547256,
+    "context_length": 98304
+   }
+  ],
+  "free_memory_mb": 1367,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "failed_assertions": []
+}

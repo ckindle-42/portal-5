@@ -1,0 +1,18 @@
+PASS  legacy__gemma4-26b-a4b-it-q4-K-M-ctx32k__parent__run1  
+PASS  legacy__gemma4-26b-a4b-it-q4-K-M-ctx32k__choice__run1  
+PASS  legacy__gemma4-26b-a4b-it-q4-K-M-ctx32k__interval__run1  
+PASS  legacy__gemma4-26b-a4b-it-q4-K-M-ctx32k__read_check__run1  
+Traceback (most recent call last):
+  File "/Users/chris/projects/portal-5/scripts/compliance_acceptance.py", line 1031, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "/Users/chris/projects/portal-5/scripts/compliance_acceptance.py", line 1013, in main
+    record = run_cell(
+        client, base_url, case, seat, adapter, index, out_dir, threads
+    )
+  File "/Users/chris/projects/portal-5/scripts/compliance_acceptance.py", line 791, in run_cell
+    payload = adapter_legacy(client, base_url, case, seat)
+  File "/Users/chris/projects/portal-5/scripts/compliance_acceptance.py", line 290, in adapter_legacy
+    time.sleep(15)
+    ~~~~~~~~~~^^^^
+KeyboardInterrupt

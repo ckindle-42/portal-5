@@ -1,0 +1,12 @@
+PASS  legacy__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__parent__run1  
+Traceback (most recent call last):
+Traceback (most recent call last):
+  File "/Users/chris/projects/portal-5/scripts/compliance_acceptance.py", line 1031, in <module>
+    raise SystemExit(main())
+  File "/Users/chris/projects/portal-5/scripts/compliance_acceptance.py", line 1013, in main
+    record = run_cell(
+  File "/Users/chris/projects/portal-5/scripts/compliance_acceptance.py", line 791, in run_cell
+    payload = adapter_legacy(client, base_url, case, seat)
+  File "/Users/chris/projects/portal-5/scripts/compliance_acceptance.py", line 290, in adapter_legacy
+    time.sleep(15)
+KeyboardInterrupt

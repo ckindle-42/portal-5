@@ -1,0 +1,166 @@
+{
+ "cell": "workspace__gemma4-26b-a4b-it-q4-K-M-ctx32k__interval__run1",
+ "adapter": "workspace",
+ "seat": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+ "case": "interval",
+ "ref": "CIP-007-6 R2 Part 2.2",
+ "thread": "main",
+ "campaign_inputs": {
+  "seat": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "workspace_prompt_sha": "96d85343ae26"
+ },
+ "question": "Is our 30-day evaluation cycle stricter than Part 2.2 requires?",
+ "run_index": 1,
+ "environment_before": {
+  "at": "2026-09-20T10:11:09Z",
+  "ollama_version": "0.34.2",
+  "ollama_ps": [
+   {
+    "name": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+    "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+    "size": 18701992591,
+    "digest": "dddcfdbd690cd186ceb2122c8e86cdea50ab001353e354d53e6adcfeb4cb5b3f",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "gemma4",
+     "families": [
+      "gemma4"
+     ],
+     "parameter_size": "25.8B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-20T05:16:09.834836-05:00",
+    "size_vram": 18701992591,
+    "context_length": 32768
+   }
+  ],
+  "free_memory_mb": 14344,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "turn": {
+  "question": "Is our 30-day evaluation cycle stricter than Part 2.2 requires?",
+  "answer": "No, your 30-day evaluation cycle is **stricter** than the standard requires.\n\nThe standard (CIP-007-6 R2 Part 2.2) sets the evaluation interval at **at least once every 35 calendar days** [csection-7700dd5499cead0994ec]. Your internal procedure (LSPG Security Patch Management Procedure, Section 3.3.1) mandates a review **at least once every thirty-five (35) calendar days** [isection-21a30e0d44708f5dfdce].\n\nWait, looking closely at your question and the documents: you asked about a **30-day** cycle. While your procedure actually matches the 35-day standard requirement (both specify 35 days), if you are indeed operating on a **30-day** cycle as stated in your question, then you are using less latitude than NERC grants by shortening the allowed window from 35 days to 30 days.\n\n**Summary of Comparison:**\n*   **Standard Requirement:** At least once every 35 calendar days [csection-7700dd5499cead0994ec].\n*   **Operator Procedure:** At least once every 35 calendar days [isection-21a30e0d44708f5dfdce].\n*   **Your Stated Cycle:** 30 days.\n\n**Conclusion:**\nIf your actual practice is 30 days, you are exceeding the requirement by being more frequent. Exceeding a requirement is permitted.\n\nCited sections:\n- csection-7700dd5499cead0994ec (CIP-007-6 R2 Part 2.2 requirement text)\n- isection-21a30e0d44708f5dfdce (LSPG Security Patch Management Procedure 3.3.1)",
+  "reasoning_chars": 0,
+  "wall_s": 24.6,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.02,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+   "compliance_context": 1.0,
+   "compliance_read": 2.0
+  },
+  "tool_errors": {},
+  "usage_hops": [
+   {
+    "prompt_tokens": 2832,
+    "completion_tokens": 28
+   },
+   {
+    "prompt_tokens": 7413,
+    "completion_tokens": 37
+   },
+   {
+    "prompt_tokens": 8067,
+    "completion_tokens": 38
+   },
+   {
+    "prompt_tokens": 9375,
+    "completion_tokens": 442
+   }
+  ],
+  "prompt_tokens_high_water": 9375,
+  "prompt_tokens_final_hop": 9375,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+ },
+ "thread_length_messages": 2,
+ "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+ "guard": [],
+ "checks": [
+  {
+   "assertion": "http_200",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "assertion": "turn_within_budget",
+   "ok": true,
+   "detail": {
+    "wall_s": 24.6,
+    "budget_s": 900.0,
+    "error": ""
+   }
+  },
+  {
+   "assertion": "answer_nonempty",
+   "ok": true,
+   "detail": 1365
+  },
+  {
+   "assertion": "prompt_tokens_measured",
+   "ok": true,
+   "detail": {
+    "high_water": 9375,
+    "final_hop": 9375,
+    "hops_seen": 4
+   }
+  },
+  {
+   "assertion": "applied_window_known_and_not_exceeded",
+   "ok": true,
+   "detail": {
+    "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+    "applied_ctx": 32768,
+    "input_tokens": 9375.0
+   }
+  },
+  {
+   "assertion": "tool_calls>=1",
+   "ok": true,
+   "detail": {
+    "compliance_context": 1.0,
+    "compliance_read": 2.0
+   }
+  },
+  {
+   "assertion": "cited_ids_resolve",
+   "ok": true,
+   "detail": "all 2 resolve"
+  }
+ ],
+ "passed": true,
+ "environment_after": {
+  "at": "2026-09-20T10:11:34Z",
+  "ollama_version": "0.34.2",
+  "ollama_ps": [
+   {
+    "name": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+    "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+    "size": 18701992591,
+    "digest": "dddcfdbd690cd186ceb2122c8e86cdea50ab001353e354d53e6adcfeb4cb5b3f",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "gemma4",
+     "families": [
+      "gemma4"
+     ],
+     "parameter_size": "25.8B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-20T05:16:34.549354-05:00",
+    "size_vram": 18701992591,
+    "context_length": 32768
+   }
+  ],
+  "free_memory_mb": 13986,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "failed_assertions": []
+}

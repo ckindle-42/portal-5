@@ -1,0 +1,151 @@
+{
+ "cell": "workspace__hf-co-inclusionAI-Ling-3-0-tiny-GGUF-Q4-K-M-ctx32k__either_or__run1",
+ "adapter": "workspace",
+ "seat": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+ "case": "either_or",
+ "ref": "CIP-007-6 R5 Part 5.7",
+ "thread": "eitheror",
+ "campaign_inputs": {
+  "seat": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+  "workspace_prompt_sha": "b4a0a9c12a0c"
+ },
+ "question": "Does our account-lockout setup satisfy Part 5.7?",
+ "run_index": 1,
+ "environment_before": {
+  "at": "2026-09-19T17:24:11Z",
+  "ollama_version": "0.34.2",
+  "ollama_ps": [
+   {
+    "name": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "size": 6070971922,
+    "digest": "b2f78a71f32ac696e16f06c82504f56265071806c7fb8fc4449955463e76bcb4",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "bailingmoe3",
+     "families": [
+      "bailingmoe3"
+     ],
+     "parameter_size": "7.9B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-19T12:29:11.221523-05:00",
+    "size_vram": 6070971922,
+    "context_length": 32768
+   }
+  ],
+  "free_memory_mb": 31779,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "turn": {
+  "question": "Does our account-lockout setup satisfy Part 5.7?",
+  "answer": "I need to understand what you're asking about. \"Account-lockout\" could refer to several different security controls, and \"Part 5.7\" could refer to different standards depending on the context. Let me first check what's in scope for this question.\n\nCould you clarify:\n1. Which specific standard or framework is Part 5.7 referring to? (e.g., NERC CIP, ISO 27001, NIST, etc.)\n2. What is your \"account-lockout setup\" \u2014 specifically, what controls or mechanisms are you implementing?\n\nThis will help me locate the relevant requirement and assess whether your setup satisfies it.",
+  "reasoning_chars": 0,
+  "wall_s": 1.56,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.02,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+  "served_model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+  "tool_calls": {},
+  "tool_errors": {},
+  "usage_hops": [
+   {
+    "prompt_tokens": 3021,
+    "completion_tokens": 140
+   }
+  ],
+  "prompt_tokens_high_water": 3021,
+  "prompt_tokens_final_hop": 3021,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+ },
+ "thread_length_messages": 2,
+ "served_model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+ "guard": [],
+ "checks": [
+  {
+   "assertion": "http_200",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "assertion": "turn_within_budget",
+   "ok": true,
+   "detail": {
+    "wall_s": 1.56,
+    "budget_s": 900.0,
+    "error": ""
+   }
+  },
+  {
+   "assertion": "answer_nonempty",
+   "ok": true,
+   "detail": 573
+  },
+  {
+   "assertion": "prompt_tokens_measured",
+   "ok": true,
+   "detail": {
+    "high_water": 3021,
+    "final_hop": 3021,
+    "hops_seen": 1
+   }
+  },
+  {
+   "assertion": "applied_window_known_and_not_exceeded",
+   "ok": true,
+   "detail": {
+    "served_model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "applied_ctx": 32768,
+    "input_tokens": 3021.0
+   }
+  },
+  {
+   "assertion": "tool_calls>=1",
+   "ok": false,
+   "detail": {}
+  },
+  {
+   "assertion": "cited_ids_resolve",
+   "ok": false,
+   "detail": "no section id cited in the answer"
+  }
+ ],
+ "passed": false,
+ "environment_after": {
+  "at": "2026-09-19T17:24:12Z",
+  "ollama_version": "0.34.2",
+  "ollama_ps": [
+   {
+    "name": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "model": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+    "size": 6070971922,
+    "digest": "b2f78a71f32ac696e16f06c82504f56265071806c7fb8fc4449955463e76bcb4",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "bailingmoe3",
+     "families": [
+      "bailingmoe3"
+     ],
+     "parameter_size": "7.9B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-19T12:29:12.907158-05:00",
+    "size_vram": 6070971922,
+    "context_length": 32768
+   }
+  ],
+  "free_memory_mb": 31791,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "failed_assertions": [
+  "tool_calls>=1",
+  "cited_ids_resolve"
+ ]
+}

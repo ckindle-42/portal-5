@@ -1,0 +1,185 @@
+{
+ "cell": "workspace__gemma4-26b-a4b-it-q4-K-M-ctx32k__parent__run3",
+ "adapter": "workspace",
+ "seat": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+ "case": "parent",
+ "ref": "CIP-007-6 R2",
+ "thread": "main",
+ "campaign_inputs": {
+  "seat": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "workspace_prompt_sha": "96d85343ae26"
+ },
+ "question": "Where are our gaps in CIP-007-6 R2, and how bad is each one?",
+ "run_index": 3,
+ "environment_before": {
+  "at": "2026-09-20T10:08:14Z",
+  "ollama_version": "0.34.2",
+  "ollama_ps": [
+   {
+    "name": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+    "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+    "size": 18701992591,
+    "digest": "dddcfdbd690cd186ceb2122c8e86cdea50ab001353e354d53e6adcfeb4cb5b3f",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "gemma4",
+     "families": [
+      "gemma4"
+     ],
+     "parameter_size": "25.8B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-20T05:13:13.937262-05:00",
+    "size_vram": 18701992591,
+    "context_length": 32768
+   }
+  ],
+  "free_memory_mb": 16604,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "turn": {
+  "question": "Where are our gaps in CIP-007-6 R2, and how bad is each one?",
+  "answer": "",
+  "reasoning_chars": 0,
+  "wall_s": 26.15,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.03,
+  "finish_reason": "tool_calls",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+   "compliance_context": 1.0,
+   "compliance_requirement": 2.0,
+   "compliance_read": 3.0
+  },
+  "tool_errors": {
+   "compliance_requirement": 2.0
+  },
+  "usage_hops": [
+   {
+    "prompt_tokens": 2940,
+    "completion_tokens": 23
+   },
+   {
+    "prompt_tokens": 10196,
+    "completion_tokens": 29
+   },
+   {
+    "prompt_tokens": 10277,
+    "completion_tokens": 44
+   },
+   {
+    "prompt_tokens": 10357,
+    "completion_tokens": 41
+   },
+   {
+    "prompt_tokens": 11203,
+    "completion_tokens": 37
+   },
+   {
+    "prompt_tokens": 11857,
+    "completion_tokens": 35
+   },
+   {
+    "prompt_tokens": 12637,
+    "completion_tokens": 38
+   }
+  ],
+  "prompt_tokens_high_water": 12637,
+  "prompt_tokens_final_hop": 12637,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+ },
+ "thread_length_messages": 1,
+ "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+ "guard": [],
+ "checks": [
+  {
+   "assertion": "http_200",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "assertion": "turn_within_budget",
+   "ok": true,
+   "detail": {
+    "wall_s": 26.15,
+    "budget_s": 900.0,
+    "error": ""
+   }
+  },
+  {
+   "assertion": "answer_nonempty",
+   "ok": false,
+   "detail": 0
+  },
+  {
+   "assertion": "prompt_tokens_measured",
+   "ok": true,
+   "detail": {
+    "high_water": 12637,
+    "final_hop": 12637,
+    "hops_seen": 7
+   }
+  },
+  {
+   "assertion": "applied_window_known_and_not_exceeded",
+   "ok": true,
+   "detail": {
+    "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+    "applied_ctx": 32768,
+    "input_tokens": 12637.0
+   }
+  },
+  {
+   "assertion": "tool_calls>=2",
+   "ok": true,
+   "detail": {
+    "compliance_context": 1.0,
+    "compliance_requirement": 2.0,
+    "compliance_read": 3.0
+   }
+  },
+  {
+   "assertion": "cited_ids_resolve",
+   "ok": false,
+   "detail": "no section id cited in the answer"
+  }
+ ],
+ "passed": false,
+ "environment_after": {
+  "at": "2026-09-20T10:08:40Z",
+  "ollama_version": "0.34.2",
+  "ollama_ps": [
+   {
+    "name": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+    "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+    "size": 18701992591,
+    "digest": "dddcfdbd690cd186ceb2122c8e86cdea50ab001353e354d53e6adcfeb4cb5b3f",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "gemma4",
+     "families": [
+      "gemma4"
+     ],
+     "parameter_size": "25.8B",
+     "quantization_level": "Q4_K_M"
+    },
+    "expires_at": "2026-09-20T05:13:40.222594-05:00",
+    "size_vram": 18701992591,
+    "context_length": 32768
+   }
+  ],
+  "free_memory_mb": 16045,
+  "mcp_base_url": "http://localhost:8937"
+ },
+ "failed_assertions": [
+  "answer_nonempty",
+  "cited_ids_resolve"
+ ]
+}
