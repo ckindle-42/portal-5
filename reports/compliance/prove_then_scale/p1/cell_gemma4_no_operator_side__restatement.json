@@ -1,0 +1,22 @@
+{
+  "case": "no_operator_side",
+  "ref": "CIP-007-6 R5 Part 5.2",
+  "seat": "gemma4",
+  "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "wall_s": 52.4,
+  "prompt_tokens": 22422,
+  "prompt_eval_duration_s": 47.261,
+  "eval_count": 192,
+  "chars_per_token": 3.62,
+  "material_chars": 81060,
+  "cited_regulatory": [
+    "csection-ec458b69bb605a5c345a"
+  ],
+  "cited_operator": [
+    "isection-fbc9ce9e2439c4f4af90"
+  ],
+  "cited_both_sides": true,
+  "thinking_chars": 0,
+  "stop_reason": "",
+  "answer": "CIP-007-6 R5 Part 5.2 requires the following:\n\n\"Identify and inventory all known enabled default or other generic account types, either by system, by groups of systems, by location, or by system type(s)\" [csection-ec458b69bb605a5c345a].\n\nThe following document shows that the operator performs this duty:\n\n*   **CIP Cyber Security Policy \u2014 3.4.5 System Access Controls Process (R5)**: This document states that \"LSPG shall document and implement a system access control process to: ... Identify and inventory all known enabled default or other generic account types, either by system, by groups of systems, by location, or by system type(s) (Part 5.2)\" [isection-fbc9ce9e2439c4f4af90]."
+}

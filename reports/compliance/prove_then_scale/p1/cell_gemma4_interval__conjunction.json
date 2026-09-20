@@ -1,0 +1,21 @@
+{
+  "case": "interval",
+  "ref": "CIP-007-6 R2 Part 2.2",
+  "seat": "gemma4",
+  "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "wall_s": 58.37,
+  "prompt_tokens": 22540,
+  "prompt_eval_duration_s": 50.959,
+  "eval_count": 187,
+  "chars_per_token": 3.58,
+  "material_chars": 80647,
+  "cited_regulatory": [
+    "csection-7700dd5499cead0994ec",
+    "csection-440a5cdf9a6b65292ef3"
+  ],
+  "cited_operator": [],
+  "cited_both_sides": false,
+  "thinking_chars": 0,
+  "stop_reason": "",
+  "answer": "Yes, the 30-day evaluation cycle is stricter than what is required by CIP-007-6 R2 Part 2.2.\n\nThe standard's requirement for Part 2.2 is to \"At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.1\" [csection-7700dd5499cead0994ec].\n\nThe operator's recorded decision states: \"We evaluate patches every 30 days, not the 35 the Part allows, because our change window is monthly and a 35-day clock straddles two windows. The extra strictness is deliberate and is not a gap\" [csection-440a5cdf9a6b65292ef3]."
+}
