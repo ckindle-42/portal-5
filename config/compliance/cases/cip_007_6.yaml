@@ -11,11 +11,12 @@
 # `must_not_state` all went. A rubric that scores prose by string match
 # produced every false failure the last campaign recorded (`choice` failed 0/3
 # on a CORRECT answer whose "No." answered the question it was asked). What a
-# machine can still check, it does: every cited id resolves, a tool call was
-# made, the prompt was not truncated (missing input fails), the campaign
-# completed its planned cells. Whether an answer UNDERSTOOD the material is
-# judged by the agent, which reads each transcript and writes PASS or FAIL
-# with its reasons beside it.
+# machine can still check, it does: every cited id resolves, the prompt was
+# not truncated (missing input fails), the campaign completed its planned
+# cells — and on the cases whose contract still requires one, that a tool call
+# was made (see the v2.3 note at `meta`, and read_check's tool_calls_min: 0).
+# Whether an answer UNDERSTOOD the material is judged by the agent, which
+# reads each transcript and writes PASS or FAIL with its reasons beside it.
 #
 # Every case's `derived_from` list records the section ids the case was
 # derived from, by READING the real material. Nothing here is invented, and no
@@ -29,9 +30,21 @@
 meta:
   standard: CIP-007-6
   revision_id: 5b7820e758467bbdd401ef806def3b91dfd7e5d98145146c36bf8c45a566a8bd
-  derived_against_prompt_version: reading-v2.1-2026-09-17
-  workspace_prompt_version: workspace-reading-v2.1-2026-09-17
+  # Updated for workspace-reading-v2.3 (TASK_COMPLIANCE_DELIVER_AND_SETTLE_
+  # ENGINE_V1 §A4): the v2.3 prompt moves the seat from "hunt well" to "read
+  # what you are handed" — compliance_context(mode="material") once per ref,
+  # and on follow-up turns the material is ALREADY IN THE THREAD (the pipeline
+  # is stateless; the thread replays user/assistant messages, so turn 4's
+  # answer can draw on turn 1's material call). read_check therefore drops its
+  # tool_calls_min: as turn 4 of the main thread it is answerable from the
+  # conversation, and the guard that still bites is cited_ids_resolve (an id
+  # from memory must still resolve — the A4 v2.2 run's fabricated ids failed
+  # exactly there). The tool_calls_min on the material-fetching turns (parent)
+  # and the fresh-thread cases (either_or, no_operator_side) stay.
+  derived_against_prompt_version: reading-v2.3-2026-09-19
+  workspace_prompt_version: workspace-reading-v2.3-2026-09-19
   derived_at: "2026-09-17"
+  assertions_updated_at: "2026-09-20"
 
 cases:
 
@@ -92,7 +105,12 @@ cases:
   - isection-21a30e0d44708f5dfdce  # operator 3.3.1
   - isection-c75f69c881d6a214ff52  # operator 3.5.1
   - isection-12bd999ecfa8bf61d440  # operator 3.6
-  tool_calls_min: 1
+  # tool_calls_min: 0 — this case runs as turn 4 of the main thread: the
+  # material tool result from turn 1 is already in the thread, and the v2.3
+  # contract says answer from what the conversation already carries rather
+  # than re-calling. cited_ids_resolve remains the real guard (any id cited
+  # from memory must still resolve); the agent judges the transcript.
+  tool_calls_min: 0
 
 - id: either_or
   shape: conditional either/or
