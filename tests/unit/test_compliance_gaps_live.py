@@ -65,6 +65,10 @@ def test_gaps_default_start_is_async_without_speculative_rows(repo, monkeypatch)
     assert row["run_id"] == out["run_id"]
 
 
+# Same skipif as its sibling above: the assessment runs on a background worker,
+# so conftest's corpus-absent skip is raised inside that thread and never
+# reaches this test — it only sees a run that never left RUNNING.
+@pytest.mark.skipif(not _CIP_PDFS_PRESENT, reason="NERC CIP PDF corpus not fetched locally")
 def test_gaps_status_does_not_rerun(repo):
     out = compliance_gaps(requirement="CIP-007-6 R2 Part 2.2", scope="low impact only")
     _await(out["run_id"])

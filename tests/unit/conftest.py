@@ -70,17 +70,29 @@ def pytest_configure(config) -> None:
     # being created during TestClient teardown — they fail in test mode.
     os.environ["UNIT_TEST_MODE"] = "1"
 
+    _patch_pdf_parent_requirement_when_the_corpus_is_absent()
 
-@pytest.fixture(autouse=True)
-def _skip_when_the_cip_pdf_corpus_is_absent(monkeypatch):
+
+def _patch_pdf_parent_requirement_when_the_corpus_is_absent() -> None:
     """Turn the missing-PDF FileNotFoundError into a skip, wherever it surfaces.
 
-    `_pdf_parent_requirement` is the one place the gitignored corpus is read.
-    Replacing it with `pytest.skip` reports the real reason instead of a
-    FileNotFoundError naming a path CI is never meant to have, and — because
-    `Skipped` derives from `BaseException`, not `Exception` — the callers that
-    swallow the original with a bare `except Exception` cannot swallow this.
-    Those that catch it across a thread boundary still need the node-id list.
+    `_pdf_parent_requirement` is the one place the gitignored corpus is read,
+    so replacing it reports the real reason instead of a FileNotFoundError
+    naming a path CI is never meant to have. `Skipped` derives from
+    `BaseException`, not `Exception`, so the callers that swallow the original
+    with a bare `except Exception` cannot swallow this one.
+
+    Done in `pytest_configure`, for the whole session, rather than in an
+    autouse fixture: pytest sets up higher-scoped fixtures first, so a
+    function-scoped patch is not yet in place when a module-scoped fixture
+    builds its context. That is how CI still errored at the setup of
+    `test_compliance_vertical_slice.py::TestSharedContext` after the fixture
+    version landed. Nothing restores the patch, which is correct — without the
+    corpus the real function cannot do anything but raise.
+
+    Still not covered: a call made on a worker thread, where the Skipped
+    propagates into the worker instead of the test. Those stay on the node-id
+    list, or carry their own skipif.
     """
     if _CIP_PDFS_PRESENT:
         return
@@ -89,7 +101,31 @@ def _skip_when_the_cip_pdf_corpus_is_absent(monkeypatch):
     def _corpus_not_fetched(*_args: object, **_kwargs: object) -> None:
         pytest.skip("NERC CIP PDF corpus not fetched locally")
 
-    monkeypatch.setattr(assessment_source, "_pdf_parent_requirement", _corpus_not_fetched)
+    assessment_source._pdf_parent_requirement = _corpus_not_fetched  # type: ignore[assignment]
+
+
+@pytest.fixture(autouse=True)
+def _the_admission_gate_never_reads_this_machine(monkeypatch):
+    """A unit test's verdict may not depend on how loaded the host is.
+
+    `concurrency._last_memory_pct` is a module global the health cycle fills
+    from a real `vm_stat`, and the admission gate 503s anything above the
+    threshold. A TestClient lifespan runs that cycle, so on a busy machine
+    (measured at 98% during a parallel run) every later request in that worker
+    is rejected — `test_anthropic_non_streaming_success_returns_message` got
+    503 instead of 200 twice, looking exactly like a flaky test. Being a
+    module global, one test's poll poisons the rest of the worker.
+
+    Both ends are pinned. Resetting the global alone is not enough: the health
+    cycle runs *during* the test and writes the real figure back over it, so
+    `monitor.memory_pct` — the one function that reads this machine — is
+    stubbed too. The gate itself still runs, and a test that wants to exercise
+    it can set the value itself.
+    """
+    from portal.platform.inference.router import concurrency, monitor
+
+    monkeypatch.setattr(monitor, "memory_pct", lambda: 0.0)
+    monkeypatch.setattr(concurrency, "_last_memory_pct", 0.0)
 
 
 @pytest.fixture(autouse=True)
