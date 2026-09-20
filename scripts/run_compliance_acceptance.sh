@@ -18,6 +18,20 @@ REPO=/Users/chris/projects/portal-5
 UV=/Users/chris/.local/bin/uv
 cd "$REPO" || exit 0
 
+# Explicit opt-in while compliance is pre-service. This suite runs for hours,
+# detaches from the shell that starts it (a worker was found orphaned at
+# PPID 1, four hours in), and its council cycles a 58 GB seat through Ollama —
+# which evicts whatever else is loaded and stalls unrelated work on this
+# machine. Nothing downstream depends on the result yet, so it runs when
+# someone means it, never as a side effect of a push. Check HG's IN_SERVICE
+# flag (scripts/validation/compliance_acceptance.py) is the same switch: flip
+# it the day compliance ships and drop this guard with it.
+if [ "${ACCEPTANCE_RUN:-0}" != "1" ]; then
+  echo "refusing to start: the CIP-007-6 acceptance suite is opt-in while" >&2
+  echo "compliance is pre-service. Re-run with ACCEPTANCE_RUN=1 if you mean it." >&2
+  exit 0
+fi
+
 REV=$(git -C "$REPO" rev-parse HEAD)
 ART=${ACCEPTANCE_DIR:-$REPO/reports/compliance/acceptance/$REV}
 mkdir -p "$ART"

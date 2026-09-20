@@ -17,7 +17,9 @@ gate, modelled on the doc-ledger currency check.
   happened. A template is not versioned, not announced, and changes on an
   `ollama pull`.
 
-Both are pre-PUSH checks in practice: they need the store and the runner.
+Both are pre-PUSH checks in practice: they need the store and the runner. Both
+are also held at SKIP by the `IN_SERVICE` flag below while compliance is still
+being built, so neither spends a push's time on a module nothing depends on yet.
 """
 
 from __future__ import annotations
@@ -40,6 +42,12 @@ CAMPAIGN_PIN = REPO_ROOT / "reports" / "compliance" / "SETTINGS_PREFLIGHT_V1.jso
 # unrelated work for a safety property nothing downstream depends on yet.
 # Flip this to True the day compliance goes into service, which restores HG
 # to a hard push-blocking FAIL as originally designed.
+#
+# Pre-service the result is SKIP, not WARN. A WARN still named
+# run_compliance_acceptance.sh on every push touching the module, and that is
+# how the suite kept getting started: a ~6-hour live run whose council cycles
+# a 58 GB seat through Ollama, for a module nothing depends on yet. The gate
+# should be silent while the answer is "not yet", and loud the day it is not.
 IN_SERVICE = False
 
 
@@ -122,9 +130,10 @@ def check_compliance_acceptance_currency() -> tuple[str, str, list[dict]]:
     status, detail, findings = _compliance_acceptance_currency()
     if status == "FAIL" and not IN_SERVICE:
         return (
-            "WARN",
-            f"not push-blocking — compliance is pre-service (IN_SERVICE=False in "
-            f"scripts/validation/compliance_acceptance.py). Underlying: {detail}",
+            "SKIP",
+            f"compliance is pre-service (IN_SERVICE=False in "
+            f"scripts/validation/compliance_acceptance.py) — no live run is asked for. "
+            f"Underlying: {detail}",
             findings,
         )
     return status, detail, findings
@@ -185,6 +194,24 @@ def _compliance_acceptance_currency() -> tuple[str, str, list[dict]]:
     order=199,
 )
 def check_compliance_seat_template_identity() -> tuple[str, str, list[dict]]:
+    # Short-circuited pre-service, BEFORE the probe rather than after it. HG
+    # downgrades its verdict because its evidence is already on disk and costs
+    # nothing to read; HH's evidence is a live `/api/show` per seat, so the only
+    # way not to spend it is not to ask. With the stack down or a seat tag
+    # uninstalled that probe FAILs and blocks a push over a template belonging
+    # to a module nothing depends on yet.
+    if not IN_SERVICE:
+        return (
+            "SKIP",
+            "compliance is pre-service (IN_SERVICE=False in "
+            "scripts/validation/compliance_acceptance.py) — the live seat templates "
+            "are not probed, so no push waits on Ollama for them",
+            [],
+        )
+    return _compliance_seat_template_identity()
+
+
+def _compliance_seat_template_identity() -> tuple[str, str, list[dict]]:
     if not CAMPAIGN_PIN.is_file():
         return (
             "FAIL",

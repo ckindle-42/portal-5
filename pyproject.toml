@@ -214,6 +214,12 @@ dev = [
     # tests/unit/test_compliance_reading_live_runner.py and friends fail with
     # ModuleNotFoundError under the dev-only extras CI installs.
     "pymupdf>=1.28.2",
+    # openpyxl is likewise an `mcp`-extra package (xlsx document generation)
+    # that the unit suite depends on directly: nerc_source_sync.parse_lifecycle
+    # reads NERC's official standards registry, which ships as .xlsx, and
+    # test_compliance_nerc_source_sync.py parses a committed fixture of it.
+    # Without it the dev-only extras CI installs fail with ModuleNotFoundError.
+    "openpyxl>=3.1.0",
 ]
 
 [project.scripts]
