@@ -1,0 +1,34 @@
+{
+  "run_id": "2026-09-20T22:53:23.747736+00:00",
+  "base_commit": "296652933b54355074538438a41566db61fb32fb",
+  "seat": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "endpoint": "http://localhost:11434/api/chat",
+  "agreement_at_start": {
+    "verdict": "scored",
+    "n_decided": 11,
+    "n_confirmed": 10,
+    "n_corrected": 1,
+    "n_rejected": 0,
+    "agreement_rate": 0.9091,
+    "by_machine_relation": {
+      "EVIDENCES": {
+        "n": 1,
+        "confirmed": 1,
+        "agreement": 1.0
+      },
+      "IMPLEMENTS": {
+        "n": 1,
+        "confirmed": 0,
+        "agreement": 0.0
+      },
+      "REFERENCES": {
+        "n": 9,
+        "confirmed": 9,
+        "agreement": 1.0
+      }
+    },
+    "note": "machine determinations versus the human-confirmed sample \u2014 the mapping accuracy"
+  },
+  "verdict": "PASS",
+  "reason": "stack up, seat resident, store backed up"
+}

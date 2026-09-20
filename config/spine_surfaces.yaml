@@ -724,6 +724,22 @@ surfaces:
   globs:
   - scripts/_archive/analyze_bench_v5.py
   unit: unit-archive-v5-ladder-analysis
+- name: file-scripts-compliance-adjudicate_refusals
+  globs:
+  - scripts/compliance/adjudicate_refusals.py
+  unit: unit-surface-compliance-closeout-scripts
+- name: file-scripts-compliance-ask_product_questions
+  globs:
+  - scripts/compliance/ask_product_questions.py
+  unit: unit-surface-compliance-closeout-scripts
+- name: file-scripts-compliance-calibrate_cip007
+  globs:
+  - scripts/compliance/calibrate_cip007.py
+  unit: unit-surface-compliance-closeout-scripts
+- name: file-scripts-compliance-verify_conjunction_adoption
+  globs:
+  - scripts/compliance/verify_conjunction_adoption.py
+  unit: unit-surface-compliance-closeout-scripts
 - name: file-tests-fixtures-capability_context-sample_module
   globs:
   - tests/fixtures/capability_context/sample_module.py

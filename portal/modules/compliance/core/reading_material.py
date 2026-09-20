@@ -294,7 +294,11 @@ def _standing_instruction(extra: str) -> str:
         "what it is and the standing it carries. Answer only from this material; "
         "cite section ids in square brackets for every claim, and quote the text "
         "verbatim where the exact words matter. If the material does not contain "
-        "the answer, say so plainly."
+        "the answer, say so plainly. When an operator section restates a "
+        "requirement's list of permitted actions, check whether the standard's "
+        'disjunction ("or", "either", "one of") survives the restatement or '
+        'has become a conjunction ("and", "all of"); say so when the '
+        "restatement narrows what the standard permits."
     )
     return f"{base} {extra.strip()}" if extra else base
 

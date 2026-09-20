@@ -1,0 +1,42 @@
+{
+  "run_id": "2026-09-20T23:07:40.755580+00:00",
+  "rows": [
+    {
+      "case": "choice",
+      "before": "PASS",
+      "after": "PASS"
+    },
+    {
+      "case": "either_or",
+      "before": "PASS",
+      "after": "PASS"
+    },
+    {
+      "case": "interval",
+      "before": "FAIL",
+      "after": "FAIL"
+    },
+    {
+      "case": "no_operator_side",
+      "before": "PASS",
+      "after": "PASS"
+    },
+    {
+      "case": "parent",
+      "before": "PASS",
+      "after": "PASS"
+    },
+    {
+      "case": "read_check",
+      "before": "PASS",
+      "after": "PASS"
+    }
+  ],
+  "fixes": [],
+  "regressions": [],
+  "only_before": [],
+  "only_after": [],
+  "verdict_basis": "mechanical floor: FAIL on error/empty/budget-exhausted, PASS on cited_both_sides; the task's literal field-probe would have graded every cell UNKNOWN (no verdict field in this generation's cells) and passed trivially",
+  "verdict": "PASS",
+  "reason": "no regressions; fixed: none"
+}
