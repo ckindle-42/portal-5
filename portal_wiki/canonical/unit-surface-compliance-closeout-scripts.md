@@ -13,6 +13,14 @@ sources:
   path: scripts/compliance/adjudicate_refusals.py
   commit: 29665293
 - type: code
+  path: scripts/compliance/closeout_family_sweep.py
+- type: code
+  path: scripts/compliance/write_closeout_report.py
+- type: code
+  path: scripts/compliance/bench_sweep_engines.py
+- type: code
+  path: scripts/compliance/decide_sweep_engine.py
+- type: code
   path: scripts/compliance/ask_product_questions.py
   commit: 29665293
 claims: []
