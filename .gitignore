@@ -158,3 +158,6 @@ data/private/
 portal/modules/compliance/data/compliance_reviewers.json
 portal/modules/compliance/data/compliance_store.db.pre-repair-backup
 reports/compliance/prove_then_scale/p1_run*.log
+
+# ZCode harness-local state (skills, session config)
+.zcode/
