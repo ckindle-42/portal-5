@@ -229,8 +229,16 @@ def map_read(
             "rejected": sum(1 for o in outcomes if o["action"] == "rejected"),
         },
     }
+    # A6.3 fix: the outcomes — INCLUDING rejection reasons — now ride inside
+    # the closure receipt. The previous line stripped them (kept everything
+    # except "outcomes"), so every rejection reason died at write time and the
+    # quote-discipline-vs-checker-strictness analysis was impossible from the
+    # store: the family pass's rejection reasons died exactly this way once
+    # already (see the comment above), and the CIP-003-8/CIP-004-7 re-run
+    # reproduced the loss live before this fix.
     payload["closure_receipt"]["determinations"] = {
-        k: v for k, v in payload["determinations"].items() if k != "outcomes"
+        **{k: v for k, v in payload["determinations"].items() if k != "outcomes"},
+        "outcomes": outcomes,
     }
     payload["run_id"] = store_run(
         repo,
