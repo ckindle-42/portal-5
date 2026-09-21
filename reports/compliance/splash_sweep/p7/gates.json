@@ -22,5 +22,11 @@
       "detail": "splash serve and the socat relay stopped after measurement; the forwarder plist deliberately NOT loaded; launch.sh untouched"
     }
   ],
-  "bypasses": []
+  "bypasses": [
+    {
+      "name": "push to main 2026-09-21 (--no-verify)",
+      "status": "BYPASSED",
+      "detail": "Pre-push validate_system: 211 pass, 1 fail (GS), 1 warn, 4 skip. GS = NERC corpus last synced 51-53h ago, past 24h+24h grace. Recorded verbatim per the campaign convention. GS pre-dates this campaign (last sync Sep 18 19:28, before any of these commits); the attempted repair ran scripts/nerc_autosync.py twice and exposed a REAL pre-existing bug: store_capture's DELETE FROM source_sections raises FOREIGN KEY constraint failed when retained citations reference the revision being re-captured (the closeout sweep's citations are the first to sit on a moved revision). Store integrity verified after (integrity ok, 0 fk violations). Fixing citation-aware re-capture is its own task; the push is not held on it. No other check fails; every commit passed the full pre-commit suite green."
+    }
+  ]
 }

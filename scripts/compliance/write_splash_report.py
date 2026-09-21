@@ -339,6 +339,11 @@ def _sec_gates(root: pathlib.Path) -> str:
     if gates:
         for g in gates.get("gates", []):
             out.append(f"- **{g.get('status')}** {g.get('name')}: {g.get('detail', '')}")
+        for b in gates.get("bypasses", []):
+            out.append(
+                f"- **{b.get('status')}** {b.get('name')} — recorded verbatim: "
+                f"{b.get('detail', '')}"
+            )
     else:
         out.append(
             "- gates receipt absent — every commit in this campaign passed the "
