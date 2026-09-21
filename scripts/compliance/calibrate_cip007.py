@@ -1,16 +1,31 @@
 #!/usr/bin/env python3
-"""CLOSEOUT_V1 P5 - CIP-007-6 calibration against the PROVE_THEN_SCALE baseline.
+"""CLOSEOUT_V1 P5 - CIP-007-6 calibration against the pre-sweep baseline.
 
 Compares the pairings the store holds for CIP-007-6 now against the pairings
-recorded when PROVE_THEN_SCALE closed, and sorts the difference into four
-buckets. It reports; it does not act. An automatic reconciler here would be
-the verdict engine growing back.
+it held before the closeout re-sweep wrote anything, and sorts the difference
+into four buckets. It reports; it does not act. An automatic reconciler here
+would be the verdict engine growing back.
 
   preserved         - same (requirement, section, relation) in both
   changed_relation  - same pairing, different relation type. ALWAYS a review
                       item: a relation should not move silently.
   lost              - baseline held it, the store no longer does
   new               - the store holds it, the baseline did not
+
+Basis (adaptation, recorded): the task pointed --baseline at the
+PROVE_THEN_SCALE sweep artifact, but that artifact holds per-ref COUNTS only —
+no pair exists in it, and none exists in the campaign report either, so a
+pair-level calibration against it would have compared two empty sets and
+printed a dishonest row of zeros. The pre-closeout STORE BACKUP (P0, taken
+before the sweep wrote a determination) is the only true pair-level record of
+the pre-sweep state, so ``--baseline-db`` reads pairings from it and this
+receipt records which basis was used.
+
+Reading-derived pairings are rows where the derivation names a reading
+(``reading`` or ``...|reading`` from a corroboration) or the status is
+``machine_determined`` — the task's ``derivation = 'machine_determined'``
+matched nothing, because ``machine_determined`` is a STATUS in this schema and
+corroboration APPENDS ``|reading`` to a compound derivation.
 
 Exit codes: 0 always (a comparison is a recording, not a gate).
 """
@@ -21,17 +36,39 @@ import argparse
 import datetime as _dt
 import json
 import pathlib
+import sqlite3
 import sys
 from typing import Any
+
+# derivation names a reading: bare, or appended to an existing derivation by a
+# corroboration. `semantic_reading` is a different writer and must not match.
+_READING_HELD = (
+    "status = 'machine_determined' OR derivation = 'reading' OR derivation LIKE '%|reading'"
+)
 
 
 def _pairs_from_store(repo: Any, standard: str) -> dict[tuple[str, str], str]:
     rows = repo._conn.execute(
-        """SELECT src_ref, dst_ref, relation_type
-             FROM relationship_assertions
-            WHERE src_ref LIKE ? AND derivation = 'machine_determined'""",
+        f"""SELECT src_ref, dst_ref, relation_type, status, derivation
+              FROM relationship_assertions
+             WHERE src_ref LIKE ? AND {_READING_HELD}""",
         (f"{standard}%",),
     ).fetchall()
+    return {(str(r[0]), str(r[1])): str(r[2]) for r in rows}
+
+
+def _pairs_from_db(path: pathlib.Path, standard: str) -> dict[tuple[str, str], str]:
+    """The pairings a STORE SNAPSHOT held — the P0 pre-sweep backup."""
+    conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    try:
+        rows = conn.execute(
+            f"""SELECT src_ref, dst_ref, relation_type
+                  FROM relationship_assertions
+                 WHERE src_ref LIKE ? AND {_READING_HELD}""",
+            (f"{standard}%",),
+        ).fetchall()
+    finally:
+        conn.close()
     return {(str(r[0]), str(r[1])): str(r[2]) for r in rows}
 
 
@@ -70,9 +107,24 @@ def _pairs_from_baseline(path: pathlib.Path) -> dict[tuple[str, str], str]:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--standard", default="CIP-007-6")
-    ap.add_argument("--baseline", required=True, type=pathlib.Path)
+    ap.add_argument(
+        "--baseline",
+        type=pathlib.Path,
+        default=None,
+        help="a JSON receipt carrying pair-level determinations",
+    )
+    ap.add_argument(
+        "--baseline-db",
+        type=pathlib.Path,
+        default=None,
+        help="a STORE SNAPSHOT (the P0 pre-sweep backup) — the only "
+        "pair-level record of the pre-sweep state",
+    )
     ap.add_argument("--out", required=True, type=pathlib.Path)
     args = ap.parse_args()
+    if bool(args.baseline) == bool(args.baseline_db):
+        print("FAIL: exactly one of --baseline / --baseline-db", file=sys.stderr)
+        return 3
 
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
     from portal.modules.compliance.core.repository import Repository
@@ -82,7 +134,12 @@ def main() -> int:
         current = _pairs_from_store(repo, args.standard)
     finally:
         repo.close()
-    baseline = _pairs_from_baseline(args.baseline)
+    if args.baseline_db:
+        baseline = _pairs_from_db(args.baseline_db, args.standard)
+        basis = f"store snapshot {args.baseline_db} (reading-derived pairings)"
+    else:
+        baseline = _pairs_from_baseline(args.baseline)
+        basis = f"json receipt {args.baseline}"
 
     preserved, changed, lost, new = [], [], [], []
     for key, rel in baseline.items():
@@ -106,7 +163,8 @@ def main() -> int:
     receipt = {
         "run_id": _dt.datetime.now(_dt.UTC).isoformat(),
         "standard": args.standard,
-        "baseline_path": str(args.baseline),
+        "baseline_path": str(args.baseline or args.baseline_db),
+        "baseline_basis": basis,
         "baseline_pairs": len(baseline),
         "current_pairs": len(current),
         "summary": {
