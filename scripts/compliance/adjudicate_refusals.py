@@ -58,13 +58,18 @@ def _fuzzy_backend() -> str:
 
 
 def _section_text(repo: Any, section_id: str) -> str:
+    """Verbatim section text via the module's own accessor (adaptation,
+    recorded): source_sections stores char spans, not a text column — the
+    task's ``SELECT text`` returned nothing for every row, which would have
+    silently dropped all 25 sentence-bearing refusals into unclassified."""
     try:
-        row = repo._conn.execute(
-            "SELECT text FROM source_sections WHERE section_id = ?", (section_id,)
-        ).fetchone()
+        from portal.modules.compliance.core.section_index import parent_section_id, resolve_sections
+
+        resolved = resolve_sections(repo, [parent_section_id(section_id)])
+        entry = resolved.get(parent_section_id(section_id)) or {}
+        return str(entry.get("text") or "")
     except Exception:  # noqa: BLE001 - an unreadable section yields no text, never a guess
         return ""
-    return str(row[0]) if row and row[0] else ""
 
 
 def _classify(repo: Any, outcome: dict[str, Any]) -> tuple[str, str, dict[str, Any]]:
@@ -106,6 +111,39 @@ def _classify(repo: Any, outcome: dict[str, Any]) -> tuple[str, str, dict[str, A
     return ("unclassified", reason or "no reason recorded", detail)
 
 
+def _refusals_from_store(repo: Any, sweep_data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Every rejection this sweep recorded, read back from the store.
+
+    Adaptation, recorded: the task walked the sweep ARTIFACT for
+    ``determinations.outcomes``, but the artifact holds per-ref COUNTS only —
+    the outcomes persist in ``reading_runs.closure_json`` (the 9077422 fix is
+    precisely that they persist THERE). The artifact's per-ref ``run_id`` pins
+    the exact retained runs, so nothing outside this sweep can leak in.
+    """
+    refusals: list[dict[str, Any]] = []
+    for standard in sweep_data.get("standards", []):
+        for row in standard.get("rows", []):
+            run_id = str(row.get("run_id") or "")
+            if not run_id:
+                continue
+            rows = repo._conn.execute(
+                "SELECT subject_ref, closure_json FROM reading_runs WHERE run_id = ?",
+                (run_id,),
+            ).fetchall()
+            for subject_ref, closure_json in rows:
+                try:
+                    closure = json.loads(closure_json or "{}")
+                except json.JSONDecodeError:
+                    continue
+                det = closure.get("determinations") or {}
+                for o in det.get("outcomes") or []:
+                    if isinstance(o, dict) and o.get("action") == "rejected":
+                        refusals.append(
+                            {**o, "standard": standard.get("standard", ""), "ref": subject_ref}
+                        )
+    return refusals
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--sweep", required=True, type=pathlib.Path)
@@ -117,27 +155,9 @@ def main() -> int:
 
     sweep_data = json.loads(args.sweep.read_text())
 
-    refusals: list[dict[str, Any]] = []
-
-    def _walk(node: Any, standard: str = "", ref: str = "") -> None:
-        if isinstance(node, dict):
-            standard = str(node.get("standard") or standard)
-            ref = str(node.get("ref") or ref)
-            outcomes = (node.get("determinations") or {}).get("outcomes")
-            if isinstance(outcomes, list):
-                for o in outcomes:
-                    if isinstance(o, dict) and o.get("action") == "rejected":
-                        refusals.append({**o, "standard": standard, "ref": ref})
-            for v in node.values():
-                _walk(v, standard, ref)
-        elif isinstance(node, list):
-            for v in node:
-                _walk(v, standard, ref)
-
-    _walk(sweep_data)
-
     repo = Repository()
     try:
+        refusals = _refusals_from_store(repo, sweep_data)
         buckets: dict[str, list[dict[str, Any]]] = {
             "model_side_error": [],
             "checker_strictness": [],
