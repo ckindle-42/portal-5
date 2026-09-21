@@ -182,6 +182,77 @@ def _sec_decision(root: pathlib.Path) -> str:
         out.append(f"| {c['name']} | {c['value']} | {bound} | {'OK' if c['ok'] else 'NO'} |")
     out.append("")
     out.append(f"> {dec.get('scope_note', '')}")
+    out.append("")
+    out.append(
+        "**Withdrawn and re-measured:** the §5 arms ran the task default "
+        "(`Qwen3.6-35B-A3B`), but the deciding bake-off evidence "
+        "(addendum 2 PASS + the 3-hour soak) was earned on **Qwen3.8-27B** — "
+        "see §ADDENDUM. The 35B decision is superseded by the addendum's."
+    )
+    return "\n".join(out)
+
+
+def _sec_addendum(root: pathlib.Path) -> str:
+    arms_rc = _read(root, "p3/arms_qwen38.json")
+    dec = _read(root, "p5/decision_qwen38.json")
+    out = ["## §ADDENDUM — re-measured on the deciding model (Qwen3.8-27B), 2026-09-21\n"]
+    out.append(
+        "The operator challenged the model choice, correctly: every splash PASS "
+        "verdict in the bake-off — the tool probe, addendum 2, and the 3-hour "
+        "soak — was earned on `incoai/Qwen3.8-27B-Splash` (the 1.0-era wedges "
+        "were an engine-version failure, fixed in 1.0.1, on this same model). "
+        "This task's default had named the 35B, and the original §5 arms "
+        "measured it. Arms B/C re-ran on Qwen3.8-27B, readiness-gated on a real "
+        "completion; A/D (the incumbent) are unchanged. Two earlier receipts "
+        "from the correction are preserved: an empty-`--splash-model` run "
+        "(overwritten) and a run that raced the 30-second model load "
+        "(`arms_splash_qwen38_INVALID_raced_model_load.json`)."
+    )
+    out.append("")
+    if not arms_rc or not dec:
+        out.append(_blocked("p3/arms_qwen38.json + p5/decision_qwen38.json"))
+        return "\n".join(out)
+    arms = arms_rc.get("arms", {})
+    out.append("| arm | model | wall s | ok | determinations |")
+    out.append("| --- | --- | --- | --- | --- |")
+    for key in ("A", "B", "C", "D"):
+        r = arms.get(key) or {}
+        out.append(
+            f"| {key} | {r.get('model', '')} | {r.get('total_wall_s', '')} | "
+            f"{r.get('n_ok')}/{r.get('n_refs')} | {r.get('determinations_total')} |"
+        )
+    comp = arms_rc.get("comparison_vs_A", {})
+    out.append("")
+    out.append(
+        "Jaccard vs A: "
+        + ", ".join(f"{k} {v.get('jaccard_vs_A')}" for k, v in sorted(comp.items()))
+        + "."
+    )
+    out.append("")
+    out.append(
+        f"**{dec.get('decision')}** — `config/compliance/sweep_engine.json` "
+        f"{'written' if dec.get('applied_to') else 'not written'}."
+    )
+    out.append("")
+    out.append("| criterion | measured | bound | ok |")
+    out.append("| --- | --- | --- | --- |")
+    for c in dec.get("checks", []):
+        bound = c.get("floor", c.get("ceiling"))
+        out.append(f"| {c['name']} | {c['value']} | {bound} | {'OK' if c['ok'] else 'NO'} |")
+    out.append("")
+    out.append(
+        "**Why the early bench's 2.1× does not appear here:** the early bench "
+        "compared ENGINES on the same model (splash-Qwen3.8 vs "
+        "ollama-Qwen3.8, a 11.6 tok/s decode baseline) on 400-token probes. "
+        "The four arms compare production SHAPES: the incumbent is gemma4 on "
+        "ollama — a faster decoder that also holds the prefix cache "
+        "sequentially — and the sweep's outputs are 1-3k tokens, where the "
+        "27B decodes at ~9 tok/s even on splash. Splash-3.8 concurrent does "
+        "beat the incumbent's sequential wall (1089.8s vs 1375.8s, 1.26×), "
+        "but under the 2.0 floor, with 4/20 cells failing the output contract "
+        "and jaccard 0.2. The verdict direction survives the model "
+        "correction; its evidence is now earned on the right model."
+    )
     return "\n".join(out)
 
 
@@ -295,6 +366,7 @@ def main() -> int:
         _sec_soak(root),
         _sec_open(root),
         _sec_lessons(),
+        _sec_addendum(root),
         _sec_gates(root),
     ]
     args.out.parent.mkdir(parents=True, exist_ok=True)

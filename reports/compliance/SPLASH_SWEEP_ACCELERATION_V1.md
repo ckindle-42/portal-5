@@ -1,6 +1,6 @@
 # SPLASH_SWEEP_ACCELERATION_V1 — the sweep lane, measured and decided
 
-Generated 2026-09-21T04:31:09.606464+00:00 by `scripts/compliance/write_splash_report.py`. Every number is read from a receipt at write time.
+Generated 2026-09-21T09:21:23.640190+00:00 by `scripts/compliance/write_splash_report.py`. Every number is read from a receipt at write time.
 
 - **Base:** 8720b60a94b3 · splash Splash 1.0.1 · incumbent `gemma4:26b-a4b-it-q4_K_M-ctx32k`
 
@@ -51,6 +51,8 @@ Address rate: single-model control **1.0**, two-model case **1.0** — the conve
 
 > This decision governs the compliance SWEEP lane only. The conversation lane keeps its seat: the incumbent already reuses the append prefix x157 and nothing measured here speaks to conversation quality or latency.
 
+**Withdrawn and re-measured:** the §5 arms ran the task default (`Qwen3.6-35B-A3B`), but the deciding bake-off evidence (addendum 2 PASS + the 3-hour soak) was earned on **Qwen3.8-27B** — see §ADDENDUM. The 35B decision is superseded by the addendum's.
+
 ## §6 — Soak watch
 
 **SKIP** — sweep stayed on ollama; the splash memory watch item is not operational
@@ -72,6 +74,31 @@ Address rate: single-model control **1.0**, two-model case **1.0** — the conve
 | 2026-09-20 | the wrong lane: a proposed integration wired splash into the pipeline, which the sweep does not use | the dialect seam | every cell records the endpoint that served it, and the decision refuses to score an arm whose endpoint contradicts its dialect |
 | 2026-09-20 | the missing control: the first four-arm design had no arm D, so a concurrency gain would have been reported as an engine gain | arm D measured — and showed concurrency buys the incumbent almost nothing (1.072×) | `engine_speedup_C_over_D` is a required criterion; the decider exits 2 when arm D is absent |
 | 2026-09-21 | the shell that lied: the first B/C invocation expanded `--splash-model` to empty (per-command prefix assignment does not set the variable used earlier in the same command line), producing 0.03 s/ref cells with zero determinations | receipt overwritten by the valid re-run; the empty-model arms are documented here, not silently discarded | the decision script's endpoint-integrity and completion gates reject junk arms |
+
+## §ADDENDUM — re-measured on the deciding model (Qwen3.8-27B), 2026-09-21
+
+The operator challenged the model choice, correctly: every splash PASS verdict in the bake-off — the tool probe, addendum 2, and the 3-hour soak — was earned on `incoai/Qwen3.8-27B-Splash` (the 1.0-era wedges were an engine-version failure, fixed in 1.0.1, on this same model). This task's default had named the 35B, and the original §5 arms measured it. Arms B/C re-ran on Qwen3.8-27B, readiness-gated on a real completion; A/D (the incumbent) are unchanged. Two earlier receipts from the correction are preserved: an empty-`--splash-model` run (overwritten) and a run that raced the 30-second model load (`arms_splash_qwen38_INVALID_raced_model_load.json`).
+
+| arm | model | wall s | ok | determinations |
+| --- | --- | --- | --- | --- |
+| A | gemma4:26b-a4b-it-q4_K_M-ctx32k | 1375.83 | 20/20 | 35 |
+| B | incoai/Qwen3.8-27B-Splash | 2833.5 | 16/20 | 35 |
+| C | incoai/Qwen3.8-27B-Splash | 1089.8 | 16/20 | 35 |
+| D | gemma4:26b-a4b-it-q4_K_M-ctx32k | 1283.28 | 20/20 | 42 |
+
+Jaccard vs A: B 0.2, C 0.2, D 0.2857.
+
+**KEEP_OLLAMA_FOR_SWEEP** — `config/compliance/sweep_engine.json` not written.
+
+| criterion | measured | bound | ok |
+| --- | --- | --- | --- |
+| engine_speedup_C_over_D | 1.178 | 2.0 | NO |
+| wall_speedup_C_over_A | 1.262 | 2.0 | NO |
+| reading_agreement_jaccard | 0.2 | 0.8 | NO |
+| parse_failure_delta | 0.2 | 0.05 | NO |
+| completion_rate | 0.8 | 0.95 | NO |
+
+**Why the early bench's 2.1× does not appear here:** the early bench compared ENGINES on the same model (splash-Qwen3.8 vs ollama-Qwen3.8, a 11.6 tok/s decode baseline) on 400-token probes. The four arms compare production SHAPES: the incumbent is gemma4 on ollama — a faster decoder that also holds the prefix cache sequentially — and the sweep's outputs are 1-3k tokens, where the 27B decodes at ~9 tok/s even on splash. Splash-3.8 concurrent does beat the incumbent's sequential wall (1089.8s vs 1375.8s, 1.26×), but under the 2.0 floor, with 4/20 cells failing the output contract and jaccard 0.2. The verdict direction survives the model correction; its evidence is now earned on the right model.
 
 ## §9 — Push-time gate record
 

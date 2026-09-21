@@ -1,0 +1,55 @@
+{
+  "run_id": "2026-09-21T09:19:45.718785+00:00",
+  "arms_receipt": "reports/compliance/splash_sweep/p3/arms_qwen38.json",
+  "standard": "CIP-007-6",
+  "measured": {
+    "A_wall_s": 1375.83,
+    "B_wall_s": 2833.5,
+    "C_wall_s": 1089.8,
+    "D_wall_s": 1283.28,
+    "wall_speedup_C_over_A": 1.262,
+    "engine_speedup_C_over_D": 1.178,
+    "concurrency_speedup_D_over_A": 1.072,
+    "jaccard_C_vs_A": 0.2
+  },
+  "checks": [
+    {
+      "name": "engine_speedup_C_over_D",
+      "value": 1.178,
+      "floor": 2.0,
+      "ok": false,
+      "why": "the engine's own contribution, with concurrency held constant"
+    },
+    {
+      "name": "wall_speedup_C_over_A",
+      "value": 1.262,
+      "floor": 2.0,
+      "ok": false,
+      "why": "the end-to-end change actually being bought"
+    },
+    {
+      "name": "reading_agreement_jaccard",
+      "value": 0.2,
+      "floor": 0.8,
+      "ok": false,
+      "why": "a faster sweep that determines different things is a different sweep"
+    },
+    {
+      "name": "parse_failure_delta",
+      "value": 0.2,
+      "ceiling": 0.05,
+      "ok": false,
+      "why": "a too-small window corrupts determination JSON before it slows anything"
+    },
+    {
+      "name": "completion_rate",
+      "value": 0.8,
+      "floor": 0.95,
+      "ok": false,
+      "why": "cells that error under concurrency are not a faster sweep"
+    }
+  ],
+  "decision": "KEEP_OLLAMA_FOR_SWEEP",
+  "scope_note": "This decision governs the compliance SWEEP lane only. The conversation lane keeps its seat: the incumbent already reuses the append prefix x157 and nothing measured here speaks to conversation quality or latency.",
+  "verdict": "PASS"
+}
