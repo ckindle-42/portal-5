@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 742 canonical units.*
+*Deterministic projection of 744 canonical units.*
 
 ## Knowledge Layer
 
@@ -256,6 +256,7 @@
 | `unit-compliance-prove-then-scale` | mixed | 3 |
 | `unit-compliance-requirement-join` | mixed | 6 |
 | `unit-compliance-substrate-properties` | mixed | 4 |
+| `unit-compliance-transport-dialects` | mixed | 3 |
 | `unit-corpus-injection-a-canned-detection-firing-on-corpus-data-t1558-004-as-rep-roasting-verbatim-spl` | what | 2 |
 | `unit-corpus-injection-always-dry-run-first-it-prints-exact-per-sourcetype-volume-without-injecting` | what | 2 |
 | `unit-corpus-injection-confirm-the-live-triage-window-is-still-clean` | what | 2 |
@@ -689,6 +690,7 @@
 | `unit-surface-archive-mlx` | mixed | 1 |
 | `unit-surface-benchmarks` | mixed | 3 |
 | `unit-surface-binary-research` | mixed | 1 |
+| `unit-surface-compliance-closeout-scripts` | mixed | 8 |
 | `unit-surface-compliance-prove-then-scale-scripts` | mixed | 1 |
 | `unit-surface-inference` | mixed | 1 |
 | `unit-surface-inference-cli` | mixed | 1 |
@@ -751,12 +753,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 742 units
+**Total:** 744 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1880 references
+- **code**: 1891 references
 - **config**: 1 references
 - **doc**: 1 references
 - **mitre**: 40 references

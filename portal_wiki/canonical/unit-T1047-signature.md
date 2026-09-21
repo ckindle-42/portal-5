@@ -15,8 +15,8 @@ tags:
 - T1047
 - technique
 - signature
-created_at: 1789196393.369366
-updated_at: 1789196393.369366
+created_at: 1789957136.311875
+updated_at: 1789957136.311875
 ---
 
 # T1047 — WMI execution — remote command execution via WMI/cimv2
