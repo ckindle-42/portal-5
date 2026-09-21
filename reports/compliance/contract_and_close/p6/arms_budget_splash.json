@@ -1,0 +1,2996 @@
+{
+  "run_id": "2026-09-21T13:05:17.722244+00:00",
+  "script_sha256": "0f2985000b45eccbe21feb60b080443a7564a783a035e54497640f889ba3af1d",
+  "standard": "CIP-007-6",
+  "n_refs": 20,
+  "concurrency": 4,
+  "num_ctx_requested": 32768,
+  "answer_budget": 8192,
+  "arms": {
+    "B": {
+      "arm": "B",
+      "label": "splash sequential",
+      "dialect": "openai-compat",
+      "concurrent": false,
+      "concurrency": 1,
+      "model": "incoai/Qwen3.6-35B-A3B-Splash",
+      "endpoints_observed": [
+        "http://127.0.0.1:8086/v1/chat/completions"
+      ],
+      "n_refs": 20,
+      "n_ok": 15,
+      "n_error": 5,
+      "n_parse_failed": 0,
+      "unaccounted": [],
+      "total_wall_s": 348.88,
+      "per_ref_wall_s": 17.44,
+      "mean_cell_wall_s": 23.24,
+      "determinations_total": 34,
+      "rows": [
+        {
+          "ref": "CIP-007-6 R1 Part 1.1",
+          "wall_s": 37.57,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R1 Part 1.2",
+          "wall_s": 51.83,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R2 Part 2.1",
+          "wall_s": 12.25,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 4,
+          "triples": [
+            [
+              "CIP-007-6 R2 Part 2.1",
+              "isection-168c9eef69eadf095093",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.1",
+              "isection-5a6e77a9acc7ab5eee74",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.1",
+              "isection-87d00aedd4cf1f41f0cd",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.1",
+              "isection-e450e773b7d8578062c6",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "isection-5a6e77a9acc7ab5eee74",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Security Patch Management Procedure",
+                "heading_lineage": "3.1 Security Patch Management Process > Security Patch Management Process > 3.1",
+                "page": 7,
+                "revision_id": "9ac8da89373df209d59c24a89fd263d73ae4752e13b0ed9439606cfdcb6ba724",
+                "effective_date": "2026-07-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-e450e773b7d8578062c6",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Security Patch Management Procedure",
+                "heading_lineage": "5.1 Appendix 1: Requirements Traceability > Appendix 1: Requirements Traceability > 5.1",
+                "page": 12,
+                "revision_id": "9ac8da89373df209d59c24a89fd263d73ae4752e13b0ed9439606cfdcb6ba724",
+                "effective_date": "2026-07-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-87d00aedd4cf1f41f0cd",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 policy",
+                "jurisdiction": "internal",
+                "source_kind": "policy",
+                "document": "CIP Cyber Security Policy",
+                "heading_lineage": "3.4.2 Security Patch Management Process (R2) > Security Patch Management Process (R2) > 3.4.2",
+                "page": 11,
+                "revision_id": "64eeb6c8cbbf62641e981ed4b13c5e3744596469bf7e8f9a69422d750c37b715",
+                "effective_date": "2026-04-01",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-168c9eef69eadf095093",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Security Patch Management Procedure",
+                "heading_lineage": "1.1 Purpose > Purpose > 1.1",
+                "page": 4,
+                "revision_id": "9ac8da89373df209d59c24a89fd263d73ae4752e13b0ed9439606cfdcb6ba724",
+                "effective_date": "2026-07-31",
+                "detail": ""
+              }
+            ],
+            "num_cited": 4,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R2 Part 2.2",
+          "wall_s": 29.02,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 1,
+          "triples": [
+            [
+              "CIP-007-6 R2 Part 2.3",
+              "isection-c75f69c881d6a214ff52",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "isection-c75f69c881d6a214ff52",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Security Patch Management Procedure",
+                "heading_lineage": "3.5 Patch Implementation Process > Patch Implementation Process > 3.5",
+                "page": 10,
+                "revision_id": "9ac8da89373df209d59c24a89fd263d73ae4752e13b0ed9439606cfdcb6ba724",
+                "effective_date": "2026-07-31",
+                "detail": ""
+              }
+            ],
+            "num_cited": 1,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "2**: \"At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   **Key Duty**: Perform an evaluation of security patches for applicability at least every 35 calendar days.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "1 At least once every thirty-five (35) calendar days, SMEs in conjunction with Foxguard, shall review all approved sources for new patches using the applicable patch evaluation workbook.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "2 (evaluating patches for applicability at least every 35 calendar days).",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "1 For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken: 3.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "2 At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   **Text**: \"\u2022 At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources (Part 2.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "1 For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken: 3.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "2, within 35 calendar days of the evaluation completion, take one of the following actions: Apply.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "1 At least once every thirty-five (35) calendar days, SMEs in conjunction with Foxguard, shall review all approved sources for new patches using the applicable patch evaluation workbook.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"\u2022 At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources (Part 2.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken: 3.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "isection-c75f69c881d6a214ff52",
+                "appears_in_attributed_section": false,
+                "unattributed": false,
+                "sentence": "\"sentence\": \"For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken: 3.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "1 At least once every thirty-five (35) calendar days, SMEs in conjunction with Foxguard, shall review all approved sources for new patches using the applicable patch evaluation workbook.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\" This performs the duty of evaluating patches for applicability at least every 35 calendar days.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "2 At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "The text states: \"\u2022 At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources (Part 2.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [
+              "thirty-five (35) calendar days"
+            ],
+            "quantity_review_pointers": [
+              {
+                "claim": "thirty-five (35) calendar days",
+                "nearest_citation": "isection-c75f69c881d6a214ff52",
+                "sentence": "\"sentence\": \"For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken: 3.",
+                "detail": "this number is in the packet but not in the nearest cited section \u2014 may be a correct contrast, may be a misattribution; read it"
+              }
+            ],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R2 Part 2.3",
+          "wall_s": 16.68,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 4,
+          "triples": [
+            [
+              "CIP-007-6 R2 Part 2.3",
+              "isection-12bd999ecfa8bf61d440",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.3",
+              "isection-87d00aedd4cf1f41f0cd",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.3",
+              "isection-c75f69c881d6a214ff52",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.3",
+              "isection-e450e773b7d8578062c6",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "isection-c75f69c881d6a214ff52",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Security Patch Management Procedure",
+                "heading_lineage": "3.5 Patch Implementation Process > Patch Implementation Process > 3.5",
+                "page": 10,
+                "revision_id": "9ac8da89373df209d59c24a89fd263d73ae4752e13b0ed9439606cfdcb6ba724",
+                "effective_date": "2026-07-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-12bd999ecfa8bf61d440",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Security Patch Management Procedure",
+                "heading_lineage": "3.6 Patch Mitigation Plan Management > Patch Mitigation Plan Management > 3.6",
+                "page": 10,
+                "revision_id": "9ac8da89373df209d59c24a89fd263d73ae4752e13b0ed9439606cfdcb6ba724",
+                "effective_date": "2026-07-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-e450e773b7d8578062c6",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Security Patch Management Procedure",
+                "heading_lineage": "5.1 Appendix 1: Requirements Traceability > Appendix 1: Requirements Traceability > 5.1",
+                "page": 12,
+                "revision_id": "9ac8da89373df209d59c24a89fd263d73ae4752e13b0ed9439606cfdcb6ba724",
+                "effective_date": "2026-07-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-87d00aedd4cf1f41f0cd",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 policy",
+                "jurisdiction": "internal",
+                "source_kind": "policy",
+                "document": "CIP Cyber Security Policy",
+                "heading_lineage": "3.4.2 Security Patch Management Process (R2) > Security Patch Management Process (R2) > 3.4.2",
+                "page": 11,
+                "revision_id": "64eeb6c8cbbf62641e981ed4b13c5e3744596469bf7e8f9a69422d750c37b715",
+                "effective_date": "2026-04-01",
+                "detail": ""
+              }
+            ],
+            "num_cited": 4,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "thirty-five (35) days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "3 All applications shall be reviewed to verify there are no applicable patches greater than thirty-five (35) days old.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   **Analysis:** This section describes the *evaluation* process (checking for patches > 35 days old).",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "1 For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken: 3.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\" It mandates taking one of these actions within 35 calendar days of evaluation.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "1 Applicable security patches determined not able to be installed within 35 calendar days of evaluation are added to a mitigation plan by creating a dated mitigation plan or revising an existing mitigation plan within the Change Management Solution.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "2, within 35 calendar days of the evaluation completion, take one of the following actions: \u2022 Apply the applicable patches; or \u2022 Create a dated mitigation plan; or \u2022 Revise an existing mitigation plan.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   **Text:** \"Within 35 calendar days of the evaluation completion (of applicable security patches) take one of the following actions: o Apply the applicable security patches, o Create a dated mitigation plan, and o Revise an existing mitigation plan.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "It explicitly lists the actions (Apply, Create, Revise) and the timeframe (35 calendar days of evaluation completion).",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "isection-c75f69c881d6a214ff52",
+                "appears_in_attributed_section": false,
+                "unattributed": false,
+                "sentence": "1 For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken: 3.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "isection-e450e773b7d8578062c6",
+                "appears_in_attributed_section": false,
+                "unattributed": false,
+                "sentence": "1 Applicable security patches determined not able to be installed within 35 calendar days of evaluation are added to a mitigation plan by creating a dated mitigation plan or revising an existing mitigation plan within the Change Management Solution.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "isection-e450e773b7d8578062c6",
+                "appears_in_attributed_section": false,
+                "unattributed": false,
+                "sentence": "2, within 35 calendar days of the evaluation completion, take one of the following actions: \u2022 Apply the applicable patches; or \u2022 Create a dated mitigation plan; or \u2022 Revise an existing mitigation plan.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "isection-87d00aedd4cf1f41f0cd",
+                "appears_in_attributed_section": true,
+                "unattributed": false,
+                "sentence": "\"sentence\": \"Within 35 calendar days of the evaluation completion (of applicable security patches) take one of the following actions: o Apply the applicable security patches, o Create a dated mitigation plan, and o Revise an existing mitigation plan.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [
+              "thirty-five (35) calendar days",
+              "35 calendar days",
+              "35 calendar days"
+            ],
+            "quantity_review_pointers": [
+              {
+                "claim": "thirty-five (35) calendar days",
+                "nearest_citation": "isection-c75f69c881d6a214ff52",
+                "sentence": "1 For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken: 3.",
+                "detail": "this number is in the packet but not in the nearest cited section \u2014 may be a correct contrast, may be a misattribution; read it"
+              },
+              {
+                "claim": "35 calendar days",
+                "nearest_citation": "isection-e450e773b7d8578062c6",
+                "sentence": "1 Applicable security patches determined not able to be installed within 35 calendar days of evaluation are added to a mitigation plan by creating a dated mitigation plan or revising an existing mitigation plan within the Change Management Solution.",
+                "detail": "this number is in the packet but not in the nearest cited section \u2014 may be a correct contrast, may be a misattribution; read it"
+              },
+              {
+                "claim": "35 calendar days",
+                "nearest_citation": "isection-e450e773b7d8578062c6",
+                "sentence": "2, within 35 calendar days of the evaluation completion, take one of the following actions: \u2022 Apply the applicable patches; or \u2022 Create a dated mitigation plan; or \u2022 Revise an existing mitigation plan.",
+                "detail": "this number is in the packet but not in the nearest cited section \u2014 may be a correct contrast, may be a misattribution; read it"
+              }
+            ],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R2 Part 2.4",
+          "wall_s": 40.07,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 4,
+          "triples": [
+            [
+              "CIP-007-6 R2 Part 2.4",
+              "isection-12bd999ecfa8bf61d440",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.4",
+              "isection-34eefd771edff96a7384",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.4",
+              "isection-87d00aedd4cf1f41f0cd",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.4",
+              "isection-e450e773b7d8578062c6",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "isection-34eefd771edff96a7384",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 process",
+                "jurisdiction": "internal",
+                "source_kind": "process",
+                "document": "NERC CIP Senior Manager Process Revision 6.0 | 01/31/2026 LS Power Development, LLC",
+                "heading_lineage": "3.3 NERC CIP Activities Permitted for Delegation > NERC CIP Activities Permitted for Delegation > 3.3",
+                "page": 6,
+                "revision_id": "1d0e894d417d8605dd9bf5f80e878bda3853421882e38a5a060273ec948e96d3",
+                "effective_date": "2025-07-08",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-12bd999ecfa8bf61d440",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Security Patch Management Procedure",
+                "heading_lineage": "3.6 Patch Mitigation Plan Management > Patch Mitigation Plan Management > 3.6",
+                "page": 10,
+                "revision_id": "9ac8da89373df209d59c24a89fd263d73ae4752e13b0ed9439606cfdcb6ba724",
+                "effective_date": "2026-07-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-e450e773b7d8578062c6",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Security Patch Management Procedure",
+                "heading_lineage": "5.1 Appendix 1: Requirements Traceability > Appendix 1: Requirements Traceability > 5.1",
+                "page": 12,
+                "revision_id": "9ac8da89373df209d59c24a89fd263d73ae4752e13b0ed9439606cfdcb6ba724",
+                "effective_date": "2026-07-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-87d00aedd4cf1f41f0cd",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 policy",
+                "jurisdiction": "internal",
+                "source_kind": "policy",
+                "document": "CIP Cyber Security Policy",
+                "heading_lineage": "3.4.2 Security Patch Management Process (R2) > Security Patch Management Process (R2) > 3.4.2",
+                "page": 11,
+                "revision_id": "64eeb6c8cbbf62641e981ed4b13c5e3744596469bf7e8f9a69422d750c37b715",
+                "effective_date": "2026-04-01",
+                "detail": ""
+              }
+            ],
+            "num_cited": 4,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "1: \"Applicable security patches determined not able to be installed within 35 calendar days of evaluation are added to a mitigation plan by creating a dated mitigation plan or revising an existing mitigation plan within the Change Management Solution.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R3 Part 3.1",
+          "wall_s": 33.67,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 3,
+          "triples": [
+            [
+              "CIP-007-6 R3 Part 3.1",
+              "isection-9632acf7d9e2f8d2d46d",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R3 Part 3.1",
+              "isection-eccfffe0062b8f04bfeb",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R3 Part 3.1",
+              "isection-fcaa9b478655c44bb0ec",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "isection-9632acf7d9e2f8d2d46d",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "OT Malicious Code Prevention",
+                "heading_lineage": "1.1 Purpose > Purpose > 1.1",
+                "page": 5,
+                "revision_id": "604392c157cdfeb62fa6087d2cd8449d89e9094feb5b76c8fcfdb6fd5d29e982",
+                "effective_date": "2025-12-19",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-fcaa9b478655c44bb0ec",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 policy",
+                "jurisdiction": "internal",
+                "source_kind": "policy",
+                "document": "CIP Cyber Security Policy",
+                "heading_lineage": "3.4.3 Malicious Code Prevention Process (R3) > Malicious Code Prevention Process (R3) > 3.4.3",
+                "page": 11,
+                "revision_id": "64eeb6c8cbbf62641e981ed4b13c5e3744596469bf7e8f9a69422d750c37b715",
+                "effective_date": "2026-04-01",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-eccfffe0062b8f04bfeb",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "OT Malicious Code Prevention",
+                "heading_lineage": "5.1 Appendix 1: Requirements Traceability > Appendix 1: Requirements Traceability > 5.1",
+                "page": 9,
+                "revision_id": "604392c157cdfeb62fa6087d2cd8449d89e9094feb5b76c8fcfdb6fd5d29e982",
+                "effective_date": "2025-12-19",
+                "detail": ""
+              }
+            ],
+            "num_cited": 3,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R3 Part 3.2",
+          "wall_s": 44.72,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R3 Part 3.3",
+          "wall_s": 5.27,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 2,
+          "triples": [
+            [
+              "CIP-007-6 R3 Part 3.3",
+              "isection-eccfffe0062b8f04bfeb",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R3 Part 3.3",
+              "isection-fcaa9b478655c44bb0ec",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "isection-fcaa9b478655c44bb0ec",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 policy",
+                "jurisdiction": "internal",
+                "source_kind": "policy",
+                "document": "CIP Cyber Security Policy",
+                "heading_lineage": "3.4.3 Malicious Code Prevention Process (R3) > Malicious Code Prevention Process (R3) > 3.4.3",
+                "page": 11,
+                "revision_id": "64eeb6c8cbbf62641e981ed4b13c5e3744596469bf7e8f9a69422d750c37b715",
+                "effective_date": "2026-04-01",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-eccfffe0062b8f04bfeb",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "OT Malicious Code Prevention",
+                "heading_lineage": "5.1 Appendix 1: Requirements Traceability > Appendix 1: Requirements Traceability > 5.1",
+                "page": 9,
+                "revision_id": "604392c157cdfeb62fa6087d2cd8449d89e9094feb5b76c8fcfdb6fd5d29e982",
+                "effective_date": "2025-12-19",
+                "detail": ""
+              }
+            ],
+            "num_cited": 2,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R4 Part 4.1",
+          "wall_s": 8.8,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R4 Part 4.2",
+          "wall_s": 12.42,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R4 Part 4.3",
+          "wall_s": 16.55,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 5,
+          "triples": [
+            [
+              "CIP-007-6 R4 Part 4.3",
+              "isection-25276eed24a6bbce5c3e",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.3",
+              "isection-2ad8fac94a9f8fcb7fd2",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.3",
+              "isection-33386dc31a5696c751f7",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.3",
+              "isection-3614663bc41ccac4eca2",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.3",
+              "isection-e9ebd2f76d13cea92bea",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "isection-25276eed24a6bbce5c3e",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Cyber Security Event Monitoring",
+                "heading_lineage": "3.7 Documentation Review and Maintenance > Documentation Review and Maintenance > 3.7",
+                "page": 8,
+                "revision_id": "39248a1cd882df59d83f66d27db93c2c0146d078f42711b3fc5ad4f4dea94e49",
+                "effective_date": "2026-08-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-e9ebd2f76d13cea92bea",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Cyber Security Event Monitoring",
+                "heading_lineage": "5.1 Appendix 1: Requirements Traceability > Appendix 1: Requirements Traceability > 5.1",
+                "page": 9,
+                "revision_id": "39248a1cd882df59d83f66d27db93c2c0146d078f42711b3fc5ad4f4dea94e49",
+                "effective_date": "2026-08-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-3614663bc41ccac4eca2",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 policy",
+                "jurisdiction": "internal",
+                "source_kind": "policy",
+                "document": "CIP Cyber Security Policy",
+                "heading_lineage": "3.4.4 Security Event Monitoring Process (R4) > Security Event Monitoring Process (R4) > 3.4.4",
+                "page": 12,
+                "revision_id": "64eeb6c8cbbf62641e981ed4b13c5e3744596469bf7e8f9a69422d750c37b715",
+                "effective_date": "2026-04-01",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-2ad8fac94a9f8fcb7fd2",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 plan",
+                "jurisdiction": "internal",
+                "source_kind": "plan",
+                "document": "Physical Security Plan",
+                "heading_lineage": "3.7.9 Access Log Retention > Access Log Retention > 3.7.9",
+                "page": 11,
+                "revision_id": "e0d61432c43b4c693482bc9854c1cc103b781ba2d2cfea69968a9f153e2d15e3",
+                "effective_date": "2026-04-01",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-33386dc31a5696c751f7",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 policy",
+                "jurisdiction": "internal",
+                "source_kind": "policy",
+                "document": "CIP Cyber Security Policy",
+                "heading_lineage": "3.9 Declaring and responding to CIP Exceptional Circumstances > Declaring and responding to CIP Exceptional Circumstances > 3.9",
+                "page": 19,
+                "revision_id": "64eeb6c8cbbf62641e981ed4b13c5e3744596469bf7e8f9a69422d750c37b715",
+                "effective_date": "2026-04-01",
+                "detail": ""
+              }
+            ],
+            "num_cited": 5,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "90 calendar days",
+                "number": "90",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "9 states: \"NOTE: The PACS server sends logs to the Security Information and Event Management (SIEM) console where they are saved for a minimum of 90 calendar days, where technically feasible.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "ninety (90) calendar days",
+                "number": "90",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "1 All PSP access logs shall be retained for at least ninety (90) calendar days.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "ninety (90) calendar days",
+                "number": "90",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "**[O4]**: The text \"All PSP access logs shall be retained for at least ninety (90) calendar days.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "ninety (90) calendar days",
+                "number": "90",
+                "unit": "day",
+                "attributed_to": "isection-33386dc31a5696c751f7",
+                "appears_in_attributed_section": false,
+                "unattributed": false,
+                "sentence": "\"sentence\": \"All PSP access logs shall be retained for at least ninety (90) calendar days.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [
+              "ninety (90) calendar days"
+            ],
+            "quantity_review_pointers": [
+              {
+                "claim": "ninety (90) calendar days",
+                "nearest_citation": "isection-33386dc31a5696c751f7",
+                "sentence": "\"sentence\": \"All PSP access logs shall be retained for at least ninety (90) calendar days.",
+                "detail": "this number is in the packet but not in the nearest cited section \u2014 may be a correct contrast, may be a misattribution; read it"
+              }
+            ],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R4 Part 4.4",
+          "wall_s": 7.52,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 3,
+          "triples": [
+            [
+              "CIP-007-6 R4 Part 4.4",
+              "isection-3614663bc41ccac4eca2",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.4",
+              "isection-7de5f87c883913499283",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.4",
+              "isection-e9ebd2f76d13cea92bea",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "isection-7de5f87c883913499283",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Cyber Security Event Monitoring",
+                "heading_lineage": "3.5 CMLAP Log Review for CIP High Impact BES Cyber Systems, EACM, and PCA Devices > CMLAP Log Review for CIP High Impact BES Cyber Systems, EACM, and PCA Devices > 3.5",
+                "page": 7,
+                "revision_id": "39248a1cd882df59d83f66d27db93c2c0146d078f42711b3fc5ad4f4dea94e49",
+                "effective_date": "2026-08-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-e9ebd2f76d13cea92bea",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Cyber Security Event Monitoring",
+                "heading_lineage": "5.1 Appendix 1: Requirements Traceability > Appendix 1: Requirements Traceability > 5.1",
+                "page": 9,
+                "revision_id": "39248a1cd882df59d83f66d27db93c2c0146d078f42711b3fc5ad4f4dea94e49",
+                "effective_date": "2026-08-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-3614663bc41ccac4eca2",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 policy",
+                "jurisdiction": "internal",
+                "source_kind": "policy",
+                "document": "CIP Cyber Security Policy",
+                "heading_lineage": "3.4.4 Security Event Monitoring Process (R4) > Security Event Monitoring Process (R4) > 3.4.4",
+                "page": 12,
+                "revision_id": "64eeb6c8cbbf62641e981ed4b13c5e3744596469bf7e8f9a69422d750c37b715",
+                "effective_date": "2026-04-01",
+                "detail": ""
+              }
+            ],
+            "num_cited": 3,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "15 calendar days",
+                "number": "15",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "at intervals no greater than 15 calendar days\").",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar days",
+                "number": "15",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "4 Review a summarization or sampling of logged events, as determined by the Responsible Entity, at intervals no greater than 15 calendar days, to identify undetected Cyber Security Incidents.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar days",
+                "number": "15",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   **Text:** \"LSPG shall review a summarization or sampling of logged events as determined by LSPG at intervals no greater than 15 calendar days to identify undetected Cyber Security Incidents (Part 4.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar days",
+                "number": "15",
+                "unit": "day",
+                "attributed_to": "isection-3614663bc41ccac4eca2",
+                "appears_in_attributed_section": true,
+                "unattributed": false,
+                "sentence": "4 Review a summarization or sampling of logged events, as determined by the Responsible Entity, at intervals no greater than 15 calendar days, to identify undetected Cyber Security Incidents.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar days",
+                "number": "15",
+                "unit": "day",
+                "attributed_to": "isection-3614663bc41ccac4eca2",
+                "appears_in_attributed_section": true,
+                "unattributed": false,
+                "sentence": "\"sentence\": \"LSPG shall review a summarization or sampling of logged events as determined by LSPG at intervals no greater than 15 calendar days to identify undetected Cyber Security Incidents (Part 4.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.1",
+          "wall_s": 0.04,
+          "dialect": "openai-compat",
+          "endpoint": "",
+          "context_source": "",
+          "error": "transport failure: ContextCeilingError: incoai/Qwen3.6-35B-A3B-Splash: the openai-compat server at http://127.0.0.1:8086/v1/chat/completions refused the assembled prompt as over its window \u2014 the window is the server's own, so reduce the material or raise the serve-line pin",
+          "prompt_eval_count": null,
+          "eval_count": null,
+          "prompt_eval_duration_s": null,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": null
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.2",
+          "wall_s": 4.13,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 1,
+          "triples": [
+            [
+              "CIP-007-6 R5 Part 5.2",
+              "isection-fbc9ce9e2439c4f4af90",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "isection-fbc9ce9e2439c4f4af90",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 policy",
+                "jurisdiction": "internal",
+                "source_kind": "policy",
+                "document": "CIP Cyber Security Policy",
+                "heading_lineage": "3.4.5 System Access Controls Process (R5) > System Access Controls Process (R5) > 3.4.5",
+                "page": 12,
+                "revision_id": "64eeb6c8cbbf62641e981ed4b13c5e3744596469bf7e8f9a69422d750c37b715",
+                "effective_date": "2026-04-01",
+                "detail": ""
+              }
+            ],
+            "num_cited": 1,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.3",
+          "wall_s": 28.15,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 7,
+          "triples": [
+            [
+              "CIP-007-6 R5 Part 5.2",
+              "isection-2a32b3689d12758bf07b",
+              "EVIDENCES"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.2",
+              "isection-4a791503c7c2d923d58e",
+              "EVIDENCES"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.2",
+              "isection-ad7b6d77c2ef7989f903",
+              "EVIDENCES"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.4",
+              "isection-4a791503c7c2d923d58e",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.5",
+              "isection-4a791503c7c2d923d58e",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.6",
+              "isection-182b34c5f5089b40216a",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.6",
+              "isection-2a32b3689d12758bf07b",
+              "EVIDENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "isection-182b34c5f5089b40216a",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Account Management",
+                "heading_lineage": "1.4.1 OT Security Management > OT Security Management > 1.4.1",
+                "page": 4,
+                "revision_id": "e7302489224acab0e64d26e9e394e07a47808981c44c41f18cc27dc3ae60aee6",
+                "effective_date": "2026-08-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-ad7b6d77c2ef7989f903",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Account Management",
+                "heading_lineage": "3.1.3 Shared Accounts > Shared Accounts > 3.1.3",
+                "page": 6,
+                "revision_id": "e7302489224acab0e64d26e9e394e07a47808981c44c41f18cc27dc3ae60aee6",
+                "effective_date": "2026-08-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-4a791503c7c2d923d58e",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Account Management",
+                "heading_lineage": "3.2.2.2 Shared account names on the device(s) > Shared account names on the device(s) > 3.2.2.2",
+                "page": 8,
+                "revision_id": "e7302489224acab0e64d26e9e394e07a47808981c44c41f18cc27dc3ae60aee6",
+                "effective_date": "2026-08-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-2a32b3689d12758bf07b",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Account Management",
+                "heading_lineage": "1.1 Purpose > Purpose > 1.1",
+                "page": 4,
+                "revision_id": "e7302489224acab0e64d26e9e394e07a47808981c44c41f18cc27dc3ae60aee6",
+                "effective_date": "2026-08-31",
+                "detail": ""
+              }
+            ],
+            "num_cited": 4,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.4",
+          "wall_s": 0.04,
+          "dialect": "openai-compat",
+          "endpoint": "",
+          "context_source": "",
+          "error": "transport failure: ContextCeilingError: incoai/Qwen3.6-35B-A3B-Splash: the openai-compat server at http://127.0.0.1:8086/v1/chat/completions refused the assembled prompt as over its window \u2014 the window is the server's own, so reduce the material or raise the serve-line pin",
+          "prompt_eval_count": null,
+          "eval_count": null,
+          "prompt_eval_duration_s": null,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": null
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.5",
+          "wall_s": 0.04,
+          "dialect": "openai-compat",
+          "endpoint": "",
+          "context_source": "",
+          "error": "transport failure: ContextCeilingError: incoai/Qwen3.6-35B-A3B-Splash: the openai-compat server at http://127.0.0.1:8086/v1/chat/completions refused the assembled prompt as over its window \u2014 the window is the server's own, so reduce the material or raise the serve-line pin",
+          "prompt_eval_count": null,
+          "eval_count": null,
+          "prompt_eval_duration_s": null,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": null
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.6",
+          "wall_s": 0.04,
+          "dialect": "openai-compat",
+          "endpoint": "",
+          "context_source": "",
+          "error": "transport failure: ContextCeilingError: incoai/Qwen3.6-35B-A3B-Splash: the openai-compat server at http://127.0.0.1:8086/v1/chat/completions refused the assembled prompt as over its window \u2014 the window is the server's own, so reduce the material or raise the serve-line pin",
+          "prompt_eval_count": null,
+          "eval_count": null,
+          "prompt_eval_duration_s": null,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": null
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.7",
+          "wall_s": 0.04,
+          "dialect": "openai-compat",
+          "endpoint": "",
+          "context_source": "",
+          "error": "transport failure: ContextCeilingError: incoai/Qwen3.6-35B-A3B-Splash: the openai-compat server at http://127.0.0.1:8086/v1/chat/completions refused the assembled prompt as over its window \u2014 the window is the server's own, so reduce the material or raise the serve-line pin",
+          "prompt_eval_count": null,
+          "eval_count": null,
+          "prompt_eval_duration_s": null,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": null
+        }
+      ]
+    },
+    "C": {
+      "arm": "C",
+      "label": "splash concurrent (proposal)",
+      "dialect": "openai-compat",
+      "concurrent": true,
+      "concurrency": 4,
+      "model": "incoai/Qwen3.6-35B-A3B-Splash",
+      "endpoints_observed": [
+        "http://127.0.0.1:8086/v1/chat/completions"
+      ],
+      "n_refs": 20,
+      "n_ok": 15,
+      "n_error": 5,
+      "n_parse_failed": 0,
+      "unaccounted": [],
+      "total_wall_s": 241.76,
+      "per_ref_wall_s": 12.09,
+      "mean_cell_wall_s": 59.68,
+      "determinations_total": 34,
+      "rows": [
+        {
+          "ref": "CIP-007-6 R1 Part 1.1",
+          "wall_s": 100.28,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R1 Part 1.2",
+          "wall_s": 137.42,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R2 Part 2.1",
+          "wall_s": 32.61,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 4,
+          "triples": [
+            [
+              "CIP-007-6 R2 Part 2.1",
+              "isection-168c9eef69eadf095093",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.1",
+              "isection-5a6e77a9acc7ab5eee74",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.1",
+              "isection-87d00aedd4cf1f41f0cd",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.1",
+              "isection-e450e773b7d8578062c6",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "isection-5a6e77a9acc7ab5eee74",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Security Patch Management Procedure",
+                "heading_lineage": "3.1 Security Patch Management Process > Security Patch Management Process > 3.1",
+                "page": 7,
+                "revision_id": "9ac8da89373df209d59c24a89fd263d73ae4752e13b0ed9439606cfdcb6ba724",
+                "effective_date": "2026-07-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-e450e773b7d8578062c6",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Security Patch Management Procedure",
+                "heading_lineage": "5.1 Appendix 1: Requirements Traceability > Appendix 1: Requirements Traceability > 5.1",
+                "page": 12,
+                "revision_id": "9ac8da89373df209d59c24a89fd263d73ae4752e13b0ed9439606cfdcb6ba724",
+                "effective_date": "2026-07-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-87d00aedd4cf1f41f0cd",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 policy",
+                "jurisdiction": "internal",
+                "source_kind": "policy",
+                "document": "CIP Cyber Security Policy",
+                "heading_lineage": "3.4.2 Security Patch Management Process (R2) > Security Patch Management Process (R2) > 3.4.2",
+                "page": 11,
+                "revision_id": "64eeb6c8cbbf62641e981ed4b13c5e3744596469bf7e8f9a69422d750c37b715",
+                "effective_date": "2026-04-01",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-168c9eef69eadf095093",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Security Patch Management Procedure",
+                "heading_lineage": "1.1 Purpose > Purpose > 1.1",
+                "page": 4,
+                "revision_id": "9ac8da89373df209d59c24a89fd263d73ae4752e13b0ed9439606cfdcb6ba724",
+                "effective_date": "2026-07-31",
+                "detail": ""
+              }
+            ],
+            "num_cited": 4,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R2 Part 2.2",
+          "wall_s": 76.56,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 1,
+          "triples": [
+            [
+              "CIP-007-6 R2 Part 2.3",
+              "isection-c75f69c881d6a214ff52",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "isection-c75f69c881d6a214ff52",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Security Patch Management Procedure",
+                "heading_lineage": "3.5 Patch Implementation Process > Patch Implementation Process > 3.5",
+                "page": 10,
+                "revision_id": "9ac8da89373df209d59c24a89fd263d73ae4752e13b0ed9439606cfdcb6ba724",
+                "effective_date": "2026-07-31",
+                "detail": ""
+              }
+            ],
+            "num_cited": 1,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "2**: \"At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   **Key Duty**: Perform an evaluation of security patches for applicability at least every 35 calendar days.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "1 At least once every thirty-five (35) calendar days, SMEs in conjunction with Foxguard, shall review all approved sources for new patches using the applicable patch evaluation workbook.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "2 (evaluating patches for applicability at least every 35 calendar days).",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "1 For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken: 3.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "2 At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   **Text**: \"\u2022 At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources (Part 2.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "1 For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken: 3.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "2, within 35 calendar days of the evaluation completion, take one of the following actions: Apply.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "1 At least once every thirty-five (35) calendar days, SMEs in conjunction with Foxguard, shall review all approved sources for new patches using the applicable patch evaluation workbook.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"\u2022 At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources (Part 2.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken: 3.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "isection-c75f69c881d6a214ff52",
+                "appears_in_attributed_section": false,
+                "unattributed": false,
+                "sentence": "\"sentence\": \"For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken: 3.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "1 At least once every thirty-five (35) calendar days, SMEs in conjunction with Foxguard, shall review all approved sources for new patches using the applicable patch evaluation workbook.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\" This performs the duty of evaluating patches for applicability at least every 35 calendar days.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "2 At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "The text states: \"\u2022 At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources (Part 2.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [
+              "thirty-five (35) calendar days"
+            ],
+            "quantity_review_pointers": [
+              {
+                "claim": "thirty-five (35) calendar days",
+                "nearest_citation": "isection-c75f69c881d6a214ff52",
+                "sentence": "\"sentence\": \"For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken: 3.",
+                "detail": "this number is in the packet but not in the nearest cited section \u2014 may be a correct contrast, may be a misattribution; read it"
+              }
+            ],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R2 Part 2.3",
+          "wall_s": 45.06,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 4,
+          "triples": [
+            [
+              "CIP-007-6 R2 Part 2.3",
+              "isection-12bd999ecfa8bf61d440",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.3",
+              "isection-87d00aedd4cf1f41f0cd",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.3",
+              "isection-c75f69c881d6a214ff52",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.3",
+              "isection-e450e773b7d8578062c6",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "isection-c75f69c881d6a214ff52",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Security Patch Management Procedure",
+                "heading_lineage": "3.5 Patch Implementation Process > Patch Implementation Process > 3.5",
+                "page": 10,
+                "revision_id": "9ac8da89373df209d59c24a89fd263d73ae4752e13b0ed9439606cfdcb6ba724",
+                "effective_date": "2026-07-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-12bd999ecfa8bf61d440",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Security Patch Management Procedure",
+                "heading_lineage": "3.6 Patch Mitigation Plan Management > Patch Mitigation Plan Management > 3.6",
+                "page": 10,
+                "revision_id": "9ac8da89373df209d59c24a89fd263d73ae4752e13b0ed9439606cfdcb6ba724",
+                "effective_date": "2026-07-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-e450e773b7d8578062c6",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Security Patch Management Procedure",
+                "heading_lineage": "5.1 Appendix 1: Requirements Traceability > Appendix 1: Requirements Traceability > 5.1",
+                "page": 12,
+                "revision_id": "9ac8da89373df209d59c24a89fd263d73ae4752e13b0ed9439606cfdcb6ba724",
+                "effective_date": "2026-07-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-87d00aedd4cf1f41f0cd",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 policy",
+                "jurisdiction": "internal",
+                "source_kind": "policy",
+                "document": "CIP Cyber Security Policy",
+                "heading_lineage": "3.4.2 Security Patch Management Process (R2) > Security Patch Management Process (R2) > 3.4.2",
+                "page": 11,
+                "revision_id": "64eeb6c8cbbf62641e981ed4b13c5e3744596469bf7e8f9a69422d750c37b715",
+                "effective_date": "2026-04-01",
+                "detail": ""
+              }
+            ],
+            "num_cited": 4,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "thirty-five (35) days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "3 All applications shall be reviewed to verify there are no applicable patches greater than thirty-five (35) days old.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   **Analysis:** This section describes the *evaluation* process (checking for patches > 35 days old).",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "1 For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken: 3.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\" It mandates taking one of these actions within 35 calendar days of evaluation.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "1 Applicable security patches determined not able to be installed within 35 calendar days of evaluation are added to a mitigation plan by creating a dated mitigation plan or revising an existing mitigation plan within the Change Management Solution.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "2, within 35 calendar days of the evaluation completion, take one of the following actions: \u2022 Apply the applicable patches; or \u2022 Create a dated mitigation plan; or \u2022 Revise an existing mitigation plan.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   **Text:** \"Within 35 calendar days of the evaluation completion (of applicable security patches) take one of the following actions: o Apply the applicable security patches, o Create a dated mitigation plan, and o Revise an existing mitigation plan.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "It explicitly lists the actions (Apply, Create, Revise) and the timeframe (35 calendar days of evaluation completion).",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "isection-c75f69c881d6a214ff52",
+                "appears_in_attributed_section": false,
+                "unattributed": false,
+                "sentence": "1 For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken: 3.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "isection-e450e773b7d8578062c6",
+                "appears_in_attributed_section": false,
+                "unattributed": false,
+                "sentence": "1 Applicable security patches determined not able to be installed within 35 calendar days of evaluation are added to a mitigation plan by creating a dated mitigation plan or revising an existing mitigation plan within the Change Management Solution.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "isection-e450e773b7d8578062c6",
+                "appears_in_attributed_section": false,
+                "unattributed": false,
+                "sentence": "2, within 35 calendar days of the evaluation completion, take one of the following actions: \u2022 Apply the applicable patches; or \u2022 Create a dated mitigation plan; or \u2022 Revise an existing mitigation plan.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "isection-87d00aedd4cf1f41f0cd",
+                "appears_in_attributed_section": true,
+                "unattributed": false,
+                "sentence": "\"sentence\": \"Within 35 calendar days of the evaluation completion (of applicable security patches) take one of the following actions: o Apply the applicable security patches, o Create a dated mitigation plan, and o Revise an existing mitigation plan.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [
+              "thirty-five (35) calendar days",
+              "35 calendar days",
+              "35 calendar days"
+            ],
+            "quantity_review_pointers": [
+              {
+                "claim": "thirty-five (35) calendar days",
+                "nearest_citation": "isection-c75f69c881d6a214ff52",
+                "sentence": "1 For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken: 3.",
+                "detail": "this number is in the packet but not in the nearest cited section \u2014 may be a correct contrast, may be a misattribution; read it"
+              },
+              {
+                "claim": "35 calendar days",
+                "nearest_citation": "isection-e450e773b7d8578062c6",
+                "sentence": "1 Applicable security patches determined not able to be installed within 35 calendar days of evaluation are added to a mitigation plan by creating a dated mitigation plan or revising an existing mitigation plan within the Change Management Solution.",
+                "detail": "this number is in the packet but not in the nearest cited section \u2014 may be a correct contrast, may be a misattribution; read it"
+              },
+              {
+                "claim": "35 calendar days",
+                "nearest_citation": "isection-e450e773b7d8578062c6",
+                "sentence": "2, within 35 calendar days of the evaluation completion, take one of the following actions: \u2022 Apply the applicable patches; or \u2022 Create a dated mitigation plan; or \u2022 Revise an existing mitigation plan.",
+                "detail": "this number is in the packet but not in the nearest cited section \u2014 may be a correct contrast, may be a misattribution; read it"
+              }
+            ],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R2 Part 2.4",
+          "wall_s": 106.87,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 4,
+          "triples": [
+            [
+              "CIP-007-6 R2 Part 2.4",
+              "isection-12bd999ecfa8bf61d440",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.4",
+              "isection-34eefd771edff96a7384",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.4",
+              "isection-87d00aedd4cf1f41f0cd",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.4",
+              "isection-e450e773b7d8578062c6",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "isection-34eefd771edff96a7384",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 process",
+                "jurisdiction": "internal",
+                "source_kind": "process",
+                "document": "NERC CIP Senior Manager Process Revision 6.0 | 01/31/2026 LS Power Development, LLC",
+                "heading_lineage": "3.3 NERC CIP Activities Permitted for Delegation > NERC CIP Activities Permitted for Delegation > 3.3",
+                "page": 6,
+                "revision_id": "1d0e894d417d8605dd9bf5f80e878bda3853421882e38a5a060273ec948e96d3",
+                "effective_date": "2025-07-08",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-12bd999ecfa8bf61d440",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Security Patch Management Procedure",
+                "heading_lineage": "3.6 Patch Mitigation Plan Management > Patch Mitigation Plan Management > 3.6",
+                "page": 10,
+                "revision_id": "9ac8da89373df209d59c24a89fd263d73ae4752e13b0ed9439606cfdcb6ba724",
+                "effective_date": "2026-07-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-e450e773b7d8578062c6",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Security Patch Management Procedure",
+                "heading_lineage": "5.1 Appendix 1: Requirements Traceability > Appendix 1: Requirements Traceability > 5.1",
+                "page": 12,
+                "revision_id": "9ac8da89373df209d59c24a89fd263d73ae4752e13b0ed9439606cfdcb6ba724",
+                "effective_date": "2026-07-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-87d00aedd4cf1f41f0cd",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 policy",
+                "jurisdiction": "internal",
+                "source_kind": "policy",
+                "document": "CIP Cyber Security Policy",
+                "heading_lineage": "3.4.2 Security Patch Management Process (R2) > Security Patch Management Process (R2) > 3.4.2",
+                "page": 11,
+                "revision_id": "64eeb6c8cbbf62641e981ed4b13c5e3744596469bf7e8f9a69422d750c37b715",
+                "effective_date": "2026-04-01",
+                "detail": ""
+              }
+            ],
+            "num_cited": 4,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "1: \"Applicable security patches determined not able to be installed within 35 calendar days of evaluation are added to a mitigation plan by creating a dated mitigation plan or revising an existing mitigation plan within the Change Management Solution.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R3 Part 3.1",
+          "wall_s": 90.93,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 3,
+          "triples": [
+            [
+              "CIP-007-6 R3 Part 3.1",
+              "isection-9632acf7d9e2f8d2d46d",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R3 Part 3.1",
+              "isection-eccfffe0062b8f04bfeb",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R3 Part 3.1",
+              "isection-fcaa9b478655c44bb0ec",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "isection-9632acf7d9e2f8d2d46d",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "OT Malicious Code Prevention",
+                "heading_lineage": "1.1 Purpose > Purpose > 1.1",
+                "page": 5,
+                "revision_id": "604392c157cdfeb62fa6087d2cd8449d89e9094feb5b76c8fcfdb6fd5d29e982",
+                "effective_date": "2025-12-19",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-fcaa9b478655c44bb0ec",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 policy",
+                "jurisdiction": "internal",
+                "source_kind": "policy",
+                "document": "CIP Cyber Security Policy",
+                "heading_lineage": "3.4.3 Malicious Code Prevention Process (R3) > Malicious Code Prevention Process (R3) > 3.4.3",
+                "page": 11,
+                "revision_id": "64eeb6c8cbbf62641e981ed4b13c5e3744596469bf7e8f9a69422d750c37b715",
+                "effective_date": "2026-04-01",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-eccfffe0062b8f04bfeb",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "OT Malicious Code Prevention",
+                "heading_lineage": "5.1 Appendix 1: Requirements Traceability > Appendix 1: Requirements Traceability > 5.1",
+                "page": 9,
+                "revision_id": "604392c157cdfeb62fa6087d2cd8449d89e9094feb5b76c8fcfdb6fd5d29e982",
+                "effective_date": "2025-12-19",
+                "detail": ""
+              }
+            ],
+            "num_cited": 3,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R3 Part 3.2",
+          "wall_s": 119.74,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R3 Part 3.3",
+          "wall_s": 14.2,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 2,
+          "triples": [
+            [
+              "CIP-007-6 R3 Part 3.3",
+              "isection-eccfffe0062b8f04bfeb",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R3 Part 3.3",
+              "isection-fcaa9b478655c44bb0ec",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "isection-fcaa9b478655c44bb0ec",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 policy",
+                "jurisdiction": "internal",
+                "source_kind": "policy",
+                "document": "CIP Cyber Security Policy",
+                "heading_lineage": "3.4.3 Malicious Code Prevention Process (R3) > Malicious Code Prevention Process (R3) > 3.4.3",
+                "page": 11,
+                "revision_id": "64eeb6c8cbbf62641e981ed4b13c5e3744596469bf7e8f9a69422d750c37b715",
+                "effective_date": "2026-04-01",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-eccfffe0062b8f04bfeb",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "OT Malicious Code Prevention",
+                "heading_lineage": "5.1 Appendix 1: Requirements Traceability > Appendix 1: Requirements Traceability > 5.1",
+                "page": 9,
+                "revision_id": "604392c157cdfeb62fa6087d2cd8449d89e9094feb5b76c8fcfdb6fd5d29e982",
+                "effective_date": "2025-12-19",
+                "detail": ""
+              }
+            ],
+            "num_cited": 2,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R4 Part 4.1",
+          "wall_s": 24.04,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R4 Part 4.2",
+          "wall_s": 34.13,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R4 Part 4.3",
+          "wall_s": 43.96,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 5,
+          "triples": [
+            [
+              "CIP-007-6 R4 Part 4.3",
+              "isection-25276eed24a6bbce5c3e",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.3",
+              "isection-2ad8fac94a9f8fcb7fd2",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.3",
+              "isection-33386dc31a5696c751f7",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.3",
+              "isection-3614663bc41ccac4eca2",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.3",
+              "isection-e9ebd2f76d13cea92bea",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "isection-25276eed24a6bbce5c3e",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Cyber Security Event Monitoring",
+                "heading_lineage": "3.7 Documentation Review and Maintenance > Documentation Review and Maintenance > 3.7",
+                "page": 8,
+                "revision_id": "39248a1cd882df59d83f66d27db93c2c0146d078f42711b3fc5ad4f4dea94e49",
+                "effective_date": "2026-08-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-e9ebd2f76d13cea92bea",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Cyber Security Event Monitoring",
+                "heading_lineage": "5.1 Appendix 1: Requirements Traceability > Appendix 1: Requirements Traceability > 5.1",
+                "page": 9,
+                "revision_id": "39248a1cd882df59d83f66d27db93c2c0146d078f42711b3fc5ad4f4dea94e49",
+                "effective_date": "2026-08-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-3614663bc41ccac4eca2",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 policy",
+                "jurisdiction": "internal",
+                "source_kind": "policy",
+                "document": "CIP Cyber Security Policy",
+                "heading_lineage": "3.4.4 Security Event Monitoring Process (R4) > Security Event Monitoring Process (R4) > 3.4.4",
+                "page": 12,
+                "revision_id": "64eeb6c8cbbf62641e981ed4b13c5e3744596469bf7e8f9a69422d750c37b715",
+                "effective_date": "2026-04-01",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-2ad8fac94a9f8fcb7fd2",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 plan",
+                "jurisdiction": "internal",
+                "source_kind": "plan",
+                "document": "Physical Security Plan",
+                "heading_lineage": "3.7.9 Access Log Retention > Access Log Retention > 3.7.9",
+                "page": 11,
+                "revision_id": "e0d61432c43b4c693482bc9854c1cc103b781ba2d2cfea69968a9f153e2d15e3",
+                "effective_date": "2026-04-01",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-33386dc31a5696c751f7",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 policy",
+                "jurisdiction": "internal",
+                "source_kind": "policy",
+                "document": "CIP Cyber Security Policy",
+                "heading_lineage": "3.9 Declaring and responding to CIP Exceptional Circumstances > Declaring and responding to CIP Exceptional Circumstances > 3.9",
+                "page": 19,
+                "revision_id": "64eeb6c8cbbf62641e981ed4b13c5e3744596469bf7e8f9a69422d750c37b715",
+                "effective_date": "2026-04-01",
+                "detail": ""
+              }
+            ],
+            "num_cited": 5,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "90 calendar days",
+                "number": "90",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "9 states: \"NOTE: The PACS server sends logs to the Security Information and Event Management (SIEM) console where they are saved for a minimum of 90 calendar days, where technically feasible.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "ninety (90) calendar days",
+                "number": "90",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "1 All PSP access logs shall be retained for at least ninety (90) calendar days.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "ninety (90) calendar days",
+                "number": "90",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "**[O4]**: The text \"All PSP access logs shall be retained for at least ninety (90) calendar days.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "ninety (90) calendar days",
+                "number": "90",
+                "unit": "day",
+                "attributed_to": "isection-33386dc31a5696c751f7",
+                "appears_in_attributed_section": false,
+                "unattributed": false,
+                "sentence": "\"sentence\": \"All PSP access logs shall be retained for at least ninety (90) calendar days.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [
+              "ninety (90) calendar days"
+            ],
+            "quantity_review_pointers": [
+              {
+                "claim": "ninety (90) calendar days",
+                "nearest_citation": "isection-33386dc31a5696c751f7",
+                "sentence": "\"sentence\": \"All PSP access logs shall be retained for at least ninety (90) calendar days.",
+                "detail": "this number is in the packet but not in the nearest cited section \u2014 may be a correct contrast, may be a misattribution; read it"
+              }
+            ],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R4 Part 4.4",
+          "wall_s": 20.42,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 3,
+          "triples": [
+            [
+              "CIP-007-6 R4 Part 4.4",
+              "isection-3614663bc41ccac4eca2",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.4",
+              "isection-7de5f87c883913499283",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.4",
+              "isection-e9ebd2f76d13cea92bea",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "isection-7de5f87c883913499283",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Cyber Security Event Monitoring",
+                "heading_lineage": "3.5 CMLAP Log Review for CIP High Impact BES Cyber Systems, EACM, and PCA Devices > CMLAP Log Review for CIP High Impact BES Cyber Systems, EACM, and PCA Devices > 3.5",
+                "page": 7,
+                "revision_id": "39248a1cd882df59d83f66d27db93c2c0146d078f42711b3fc5ad4f4dea94e49",
+                "effective_date": "2026-08-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-e9ebd2f76d13cea92bea",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Cyber Security Event Monitoring",
+                "heading_lineage": "5.1 Appendix 1: Requirements Traceability > Appendix 1: Requirements Traceability > 5.1",
+                "page": 9,
+                "revision_id": "39248a1cd882df59d83f66d27db93c2c0146d078f42711b3fc5ad4f4dea94e49",
+                "effective_date": "2026-08-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-3614663bc41ccac4eca2",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 policy",
+                "jurisdiction": "internal",
+                "source_kind": "policy",
+                "document": "CIP Cyber Security Policy",
+                "heading_lineage": "3.4.4 Security Event Monitoring Process (R4) > Security Event Monitoring Process (R4) > 3.4.4",
+                "page": 12,
+                "revision_id": "64eeb6c8cbbf62641e981ed4b13c5e3744596469bf7e8f9a69422d750c37b715",
+                "effective_date": "2026-04-01",
+                "detail": ""
+              }
+            ],
+            "num_cited": 3,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "15 calendar days",
+                "number": "15",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "at intervals no greater than 15 calendar days\").",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar days",
+                "number": "15",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "4 Review a summarization or sampling of logged events, as determined by the Responsible Entity, at intervals no greater than 15 calendar days, to identify undetected Cyber Security Incidents.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar days",
+                "number": "15",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   **Text:** \"LSPG shall review a summarization or sampling of logged events as determined by LSPG at intervals no greater than 15 calendar days to identify undetected Cyber Security Incidents (Part 4.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar days",
+                "number": "15",
+                "unit": "day",
+                "attributed_to": "isection-3614663bc41ccac4eca2",
+                "appears_in_attributed_section": true,
+                "unattributed": false,
+                "sentence": "4 Review a summarization or sampling of logged events, as determined by the Responsible Entity, at intervals no greater than 15 calendar days, to identify undetected Cyber Security Incidents.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar days",
+                "number": "15",
+                "unit": "day",
+                "attributed_to": "isection-3614663bc41ccac4eca2",
+                "appears_in_attributed_section": true,
+                "unattributed": false,
+                "sentence": "\"sentence\": \"LSPG shall review a summarization or sampling of logged events as determined by LSPG at intervals no greater than 15 calendar days to identify undetected Cyber Security Incidents (Part 4.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.1",
+          "wall_s": 0.04,
+          "dialect": "openai-compat",
+          "endpoint": "",
+          "context_source": "",
+          "error": "transport failure: ContextCeilingError: incoai/Qwen3.6-35B-A3B-Splash: the openai-compat server at http://127.0.0.1:8086/v1/chat/completions refused the assembled prompt as over its window \u2014 the window is the server's own, so reduce the material or raise the serve-line pin",
+          "prompt_eval_count": null,
+          "eval_count": null,
+          "prompt_eval_duration_s": null,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": null
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.2",
+          "wall_s": 11.16,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 1,
+          "triples": [
+            [
+              "CIP-007-6 R5 Part 5.2",
+              "isection-fbc9ce9e2439c4f4af90",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "isection-fbc9ce9e2439c4f4af90",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 policy",
+                "jurisdiction": "internal",
+                "source_kind": "policy",
+                "document": "CIP Cyber Security Policy",
+                "heading_lineage": "3.4.5 System Access Controls Process (R5) > System Access Controls Process (R5) > 3.4.5",
+                "page": 12,
+                "revision_id": "64eeb6c8cbbf62641e981ed4b13c5e3744596469bf7e8f9a69422d750c37b715",
+                "effective_date": "2026-04-01",
+                "detail": ""
+              }
+            ],
+            "num_cited": 1,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.3",
+          "wall_s": 37.89,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 7,
+          "triples": [
+            [
+              "CIP-007-6 R5 Part 5.2",
+              "isection-2a32b3689d12758bf07b",
+              "EVIDENCES"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.2",
+              "isection-4a791503c7c2d923d58e",
+              "EVIDENCES"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.2",
+              "isection-ad7b6d77c2ef7989f903",
+              "EVIDENCES"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.4",
+              "isection-4a791503c7c2d923d58e",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.5",
+              "isection-4a791503c7c2d923d58e",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.6",
+              "isection-182b34c5f5089b40216a",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.6",
+              "isection-2a32b3689d12758bf07b",
+              "EVIDENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "isection-182b34c5f5089b40216a",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Account Management",
+                "heading_lineage": "1.4.1 OT Security Management > OT Security Management > 1.4.1",
+                "page": 4,
+                "revision_id": "e7302489224acab0e64d26e9e394e07a47808981c44c41f18cc27dc3ae60aee6",
+                "effective_date": "2026-08-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-ad7b6d77c2ef7989f903",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Account Management",
+                "heading_lineage": "3.1.3 Shared Accounts > Shared Accounts > 3.1.3",
+                "page": 6,
+                "revision_id": "e7302489224acab0e64d26e9e394e07a47808981c44c41f18cc27dc3ae60aee6",
+                "effective_date": "2026-08-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-4a791503c7c2d923d58e",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Account Management",
+                "heading_lineage": "3.2.2.2 Shared account names on the device(s) > Shared account names on the device(s) > 3.2.2.2",
+                "page": 8,
+                "revision_id": "e7302489224acab0e64d26e9e394e07a47808981c44c41f18cc27dc3ae60aee6",
+                "effective_date": "2026-08-31",
+                "detail": ""
+              },
+              {
+                "cited_ref": "isection-2a32b3689d12758bf07b",
+                "resolved": true,
+                "resolves_to": "operator document \u2014 procedure",
+                "jurisdiction": "internal",
+                "source_kind": "procedure",
+                "document": "LSPG Account Management",
+                "heading_lineage": "1.1 Purpose > Purpose > 1.1",
+                "page": 4,
+                "revision_id": "e7302489224acab0e64d26e9e394e07a47808981c44c41f18cc27dc3ae60aee6",
+                "effective_date": "2026-08-31",
+                "detail": ""
+              }
+            ],
+            "num_cited": 4,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.4",
+          "wall_s": 0.05,
+          "dialect": "openai-compat",
+          "endpoint": "",
+          "context_source": "",
+          "error": "transport failure: ContextCeilingError: incoai/Qwen3.6-35B-A3B-Splash: the openai-compat server at http://127.0.0.1:8086/v1/chat/completions refused the assembled prompt as over its window \u2014 the window is the server's own, so reduce the material or raise the serve-line pin",
+          "prompt_eval_count": null,
+          "eval_count": null,
+          "prompt_eval_duration_s": null,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": null
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.5",
+          "wall_s": 0.05,
+          "dialect": "openai-compat",
+          "endpoint": "",
+          "context_source": "",
+          "error": "transport failure: ContextCeilingError: incoai/Qwen3.6-35B-A3B-Splash: the openai-compat server at http://127.0.0.1:8086/v1/chat/completions refused the assembled prompt as over its window \u2014 the window is the server's own, so reduce the material or raise the serve-line pin",
+          "prompt_eval_count": null,
+          "eval_count": null,
+          "prompt_eval_duration_s": null,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": null
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.6",
+          "wall_s": 0.04,
+          "dialect": "openai-compat",
+          "endpoint": "",
+          "context_source": "",
+          "error": "transport failure: ContextCeilingError: incoai/Qwen3.6-35B-A3B-Splash: the openai-compat server at http://127.0.0.1:8086/v1/chat/completions refused the assembled prompt as over its window \u2014 the window is the server's own, so reduce the material or raise the serve-line pin",
+          "prompt_eval_count": null,
+          "eval_count": null,
+          "prompt_eval_duration_s": null,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": null
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.7",
+          "wall_s": 0.04,
+          "dialect": "openai-compat",
+          "endpoint": "",
+          "context_source": "",
+          "error": "transport failure: ContextCeilingError: incoai/Qwen3.6-35B-A3B-Splash: the openai-compat server at http://127.0.0.1:8086/v1/chat/completions refused the assembled prompt as over its window \u2014 the window is the server's own, so reduce the material or raise the serve-line pin",
+          "prompt_eval_count": null,
+          "eval_count": null,
+          "prompt_eval_duration_s": null,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": null
+        }
+      ]
+    }
+  },
+  "comparison_vs_A": {},
+  "attribution_note": "speedup_vs_A for arm C mixes the engine change and the concurrency change. Arm D isolates concurrency on the incumbent engine and arm B isolates the engine at concurrency 1. The engine's own contribution is C/D, not C/A.",
+  "verdict": "RECORDED"
+}
