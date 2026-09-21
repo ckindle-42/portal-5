@@ -90,7 +90,13 @@ def _triples(cell: dict[str, Any]) -> set[tuple[str, str, str]]:
 
 
 def _one(
-    repo: Any, ref: str, model: str, dialect_name: str, num_ctx: int, timeout: int
+    repo: Any,
+    ref: str,
+    model: str,
+    dialect_name: str,
+    num_ctx: int,
+    timeout: int,
+    answer_budget: int,
 ) -> dict[str, Any]:
     started = time.monotonic()
     try:
@@ -100,6 +106,7 @@ def _one(
             model=model,
             dialect=dialect_name,
             num_ctx=num_ctx,
+            answer_budget=answer_budget,
             timeout=timeout,
             write=False,
         )
@@ -129,7 +136,13 @@ def _one(
 
 
 def _run_arm(
-    arm: str, refs: list[str], model: str, concurrency: int, num_ctx: int, timeout: int
+    arm: str,
+    refs: list[str],
+    model: str,
+    concurrency: int,
+    num_ctx: int,
+    timeout: int,
+    answer_budget: int,
 ) -> dict[str, Any]:
     spec = ARMS[arm]
     repo = Repository()
@@ -144,20 +157,28 @@ def _run_arm(
             def _task(ref: str) -> dict[str, Any]:
                 r = Repository()
                 try:
-                    return _one(r, ref, model, spec["dialect"], num_ctx, timeout)
+                    return _one(r, ref, model, spec["dialect"], num_ctx, timeout, answer_budget)
                 finally:
                     r.close()
 
             with _fut.ThreadPoolExecutor(max_workers=concurrency) as pool:
                 rows = list(pool.map(_task, refs))
         else:
-            rows = [_one(repo, ref, model, spec["dialect"], num_ctx, timeout) for ref in refs]
+            rows = [
+                _one(repo, ref, model, spec["dialect"], num_ctx, timeout, answer_budget)
+                for ref in refs
+            ]
     finally:
         repo.close()
     wall = round(time.monotonic() - started, 2)
 
     ok = [r for r in rows if not r.get("error") and not r.get("failed")]
     endpoints = sorted({r.get("endpoint", "") for r in rows if r.get("endpoint")})
+    # An unearned measurement is an error, not a value: a cell that COMPLETED
+    # (no transport error, no parse failure) but reports no prompt-token count
+    # was not measured, even though it looks like a normal row. Recording it
+    # as 0 is how a receipt asserts a measurement that never happened.
+    unaccounted = sorted(r["ref"] for r in ok if r.get("prompt_eval_count") is None)
     return {
         "arm": arm,
         "label": spec["label"],
@@ -170,6 +191,7 @@ def _run_arm(
         "n_ok": len(ok),
         "n_error": sum(1 for r in rows if r.get("error")),
         "n_parse_failed": sum(1 for r in rows if r.get("failed")),
+        "unaccounted": unaccounted,
         "total_wall_s": wall,
         "per_ref_wall_s": round(wall / len(refs), 2) if refs else None,
         "mean_cell_wall_s": (round(sum(r["wall_s"] for r in ok) / len(ok), 2) if ok else None),
@@ -192,6 +214,7 @@ def main() -> int:
     ap.add_argument("--splash-model", required=True)
     ap.add_argument("--concurrency", type=int, default=4)
     ap.add_argument("--num-ctx", type=int, default=32768)
+    ap.add_argument("--answer-budget", type=int, default=3072)
     ap.add_argument("--timeout", type=int, default=1800)
     ap.add_argument("--out", required=True, type=pathlib.Path)
     args = ap.parse_args()
@@ -211,7 +234,9 @@ def main() -> int:
     for arm in wanted:
         model = args.splash_model if ARMS[arm]["dialect"] == "openai-compat" else args.ollama_model
         print(f"== arm {arm}: {ARMS[arm]['label']} ({model}) ==")
-        results[arm] = _run_arm(arm, refs, model, args.concurrency, args.num_ctx, args.timeout)
+        results[arm] = _run_arm(
+            arm, refs, model, args.concurrency, args.num_ctx, args.timeout, args.answer_budget
+        )
         r = results[arm]
         print(
             f"   {r['n_ok']}/{r['n_refs']} ok, {r['total_wall_s']}s "
@@ -251,6 +276,7 @@ def main() -> int:
         "n_refs": len(refs),
         "concurrency": args.concurrency,
         "num_ctx_requested": args.num_ctx,
+        "answer_budget": args.answer_budget,
         "arms": results,
         "comparison_vs_A": comparison,
         "attribution_note": (

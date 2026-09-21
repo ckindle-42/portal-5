@@ -92,6 +92,21 @@ def main() -> int:
             print(f"FAIL: {err}", file=sys.stderr)
             return 2
 
+    # An unearned measurement is an error, not a value: 40/40 splash cells
+    # once reported prompt_eval_count: 0 against a live 23,119 on the same
+    # material, and that zero was scored as though it were a number. A cell
+    # with no prompt-token count was not measured; refuse to decide on an arm
+    # that contains one.
+    for name, arm in arms.items():
+        unaccounted = arm.get("unaccounted") or []
+        if unaccounted:
+            print(
+                f"FAIL: arm {name} has {len(unaccounted)} unaccounted cell(s) "
+                f"(completed with no prompt-token count): {unaccounted[:10]}",
+                file=sys.stderr,
+            )
+            return 2
+
     # arm_a/arm_c/arm_d are the receipt's arms A/C/D: the task's criteria
     # table speaks of C-over-D (the engine's contribution) and C-over-A (the
     # end-to-end change).

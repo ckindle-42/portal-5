@@ -277,9 +277,30 @@ class OpenAICompat:
     def metrics(self, body: dict[str, Any]) -> dict[str, Any]:
         usage = body.get("usage") or {}
         timings = body.get("timings") or {}
+        # splash 1.0.1 does not populate usage.prompt_tokens (measured: every
+        # cell of arms B/C reported prompt_eval_count: 0 against a live
+        # prompt_eval_count of 23,119 tokens on the Ollama side of the same
+        # material — 40/40 rows). A `0` here was recorded as though it were a
+        # measurement; it was the absence of one. Every plausible key splash's
+        # OpenAI-compatible surface might use is tried, and an unaccounted
+        # cell reports None — never a number nothing backs.
+        prompt_tokens = (
+            usage.get("prompt_tokens")
+            or usage.get("prompt_eval_count")
+            or usage.get("prompt_token_count")
+            or timings.get("prompt_n")
+        )
+        eval_tokens = (
+            usage.get("completion_tokens")
+            or usage.get("eval_count")
+            or usage.get("completion_token_count")
+            or timings.get("predicted_n")
+        )
         return {
-            "eval_count": usage.get("completion_tokens", 0),
-            "prompt_eval_count": usage.get("prompt_tokens", 0),
+            "eval_count": eval_tokens if isinstance(eval_tokens, (int, float)) else None,
+            "prompt_eval_count": (
+                prompt_tokens if isinstance(prompt_tokens, (int, float)) else None
+            ),
             "cached_prompt_tokens": (
                 usage.get("prompt_tokens_cached") or usage.get("prompt_cache_hit_tokens") or 0
             ),
