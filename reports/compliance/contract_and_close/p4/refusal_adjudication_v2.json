@@ -1,0 +1,1290 @@
+{
+  "run_id": "2026-09-21T12:35:14.494398+00:00",
+  "sweep_receipt": "reports/compliance/closeout/p3/family_sweep.json",
+  "quote_measure": "token_set_containment (text_match.quote_containment)",
+  "threshold_note": "No threshold is applied. A6.3 separated CIP-004-7's 15 refusals into 8 checker-strictness and 7 model-discipline BY READING THE QUOTES - both emit the identical reason string, so no rule reproduces that split. Choosing a floor to match A6.3's count would be fitting, not calibrating. The bands below are the evidence a checker-relaxation task needs to choose a floor against a re-read sample; that task owns the decision.",
+  "n_refusals": 116,
+  "totals": {
+    "model_side_error": 56,
+    "non_verbatim_quote": 25,
+    "address_form": 17,
+    "register_gap": 18,
+    "unclassified": 0
+  },
+  "categories": {
+    "model_side_error": [
+      {
+        "standard": "CIP-002-5.1a",
+        "requirement": "CIP-002-5.1a R1 Part 1.1",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-09cee84193c80477a04b' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-002-5.1a",
+        "requirement": "CIP-002-5.1a R2 Part 2.1",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-fe63389b7812876c4cb8' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-002-5.1a",
+        "requirement": "CIP-002-5.1a R2 Part 2.2",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-fe63389b7812876c4cb8' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-002-5.1a",
+        "requirement": "CIP-002-5.1a R2 Part 2.2",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-178c32b4bb2d91d65772' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 Attachment 1 Part 1",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-aff4ce0f78c484538c37' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 Attachment 1 Part 3.1",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-bf599982bf93d1684d66' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 Attachment 1 Part 4.1",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-bf599982bf93d1684d66' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 Attachment 1 Part 4.1",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-b979c19d2f0677200011' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R1",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section_id 'isection-7085ec4c19d8f192fcc70' does not resolve in this store",
+        "classification_reason": "section_id 'isection-7085ec4c19d8f192fcc70' does not resolve in this store"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R1",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section_id 'isection-7085ec4c19d8f192fcc70' does not resolve in this store",
+        "classification_reason": "section_id 'isection-7085ec4c19d8f192fcc70' does not resolve in this store"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R1",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section_id 'isection-7085ec4c19d8f192fcc70' does not resolve in this store",
+        "classification_reason": "section_id 'isection-7085ec4c19d8f192fcc70' does not resolve in this store"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R1 Part 1.1.1",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-23a8a4ff6ba1ff4a732b' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R1 Part 1.1.1",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-08999657334709af8f5a' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R1 Part 1.1.1",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-d23a65af131f1ae37718' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R1 Part 1.1.1",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-b23d15be83bc5965a865' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R1 Part 1.1.1",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section_id 'csection-2193cd3d565aa66588a' does not resolve in this store",
+        "classification_reason": "section_id 'csection-2193cd3d565aa66588a' does not resolve in this store"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R1 Part 1.1.1",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-2929f40dd605265aeb3e' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R1 Part 1.1.1",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-0c591fe2d8d4e7f89d2d' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R1 Part 1.1.1",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-446efa689ebaaf535346' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R1 Part 1.1.1",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-b82a3951521c6df8498a' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R1 Part 1.1.1",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-3c85c2caa1eb6c12d971' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R1 Part 1.1.6",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-1cd7b86408d9df6761a1' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R1 Part 1.1.6",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-3c85c2caa1eb6c12d971' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R1 Part 1.1.9",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-3c85c2caa1eb6c12d971' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R1 Part 1.2.1",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-3c85c2caa1eb6c12d971' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R1 Part 1.2.4",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-23a8a4ff6ba1ff4a732b' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R1 Part 1.2.4",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-66d83190ad2327a25d26' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R1 Part 1.2.4",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-2929f40dd605265aeb3e' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R1 Part 1.2.4",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-446efa689ebaaf535346' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R1 Part 1.2.4",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-3c85c2caa1eb6c12d971' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R1 Part 1.2.5",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-3c85c2caa1eb6c12d971' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-004-7",
+        "requirement": "CIP-004-7 R3 Part 3.3",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section_id 'isection-b6cd40f6135b2404bf0f2' does not resolve in this store",
+        "classification_reason": "section_id 'isection-b6cd40f6135b2404bf0f2' does not resolve in this store"
+      },
+      {
+        "standard": "CIP-004-7",
+        "requirement": "CIP-004-7 R3 Part 3.4",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section_id 'isection-1a95eed653dfae560ea' does not resolve in this store",
+        "classification_reason": "section_id 'isection-1a95eed653dfae560ea' does not resolve in this store"
+      },
+      {
+        "standard": "CIP-004-7",
+        "requirement": "CIP-004-7 R4 Part 4.2",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section_id 'isection-d06fd811f12c7ad4bbf' does not resolve in this store",
+        "classification_reason": "section_id 'isection-d06fd811f12c7ad4bbf' does not resolve in this store"
+      },
+      {
+        "standard": "CIP-004-7",
+        "requirement": "CIP-004-7 R6 Part 6.1",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-64157056814c6393485b' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-006-6",
+        "requirement": "CIP-006-6 R1 Part 1.6",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section_id 'isection-7ebe740707932ed3d24' does not resolve in this store",
+        "classification_reason": "section_id 'isection-7ebe740707932ed3d24' does not resolve in this store"
+      },
+      {
+        "standard": "CIP-006-6",
+        "requirement": "CIP-006-6 R2 Part 2.2",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section_id 'isection-277bc171150d2feb548' does not resolve in this store",
+        "classification_reason": "section_id 'isection-277bc171150d2feb548' does not resolve in this store"
+      },
+      {
+        "standard": "CIP-006-6",
+        "requirement": "CIP-006-6 R3",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-d9d6e5cab7eaf0b3aeeb' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-006-6",
+        "requirement": "CIP-006-6 R3",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-fbc38cc0bbbbc82e0ee0' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-006-6",
+        "requirement": "CIP-006-6 R3",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section_id 'csection-0fdf113d56fbc82016a' does not resolve in this store",
+        "classification_reason": "section_id 'csection-0fdf113d56fbc82016a' does not resolve in this store"
+      },
+      {
+        "standard": "CIP-007-6",
+        "requirement": "CIP-007-6 R2 Part 2.3",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section_id 'isection-87d00aedd4cf1f4cd' does not resolve in this store",
+        "classification_reason": "section_id 'isection-87d00aedd4cf1f4cd' does not resolve in this store"
+      },
+      {
+        "standard": "CIP-007-6",
+        "requirement": "CIP-007-6 R4 Part 4.4",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section_id 'isection-3614663bc41ccac4eca' does not resolve in this store",
+        "classification_reason": "section_id 'isection-3614663bc41ccac4eca' does not resolve in this store"
+      },
+      {
+        "standard": "CIP-009-6",
+        "requirement": "CIP-009-6 R1 Part 1.4",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section_id 'isection-364_placeholder_logic' does not resolve in this store",
+        "classification_reason": "section_id 'isection-364_placeholder_logic' does not resolve in this store"
+      },
+      {
+        "standard": "CIP-009-6",
+        "requirement": "CIP-009-6 R2 Part 2.1",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section_id 'isection-7141_placeholder' does not resolve in this store",
+        "classification_reason": "section_id 'isection-7141_placeholder' does not resolve in this store"
+      },
+      {
+        "standard": "CIP-009-6",
+        "requirement": "CIP-009-6 R2 Part 2.3",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section_id 'isection-6d7930530f4b82634a0' does not resolve in this store",
+        "classification_reason": "section_id 'isection-6d7930530f4b82634a0' does not resolve in this store"
+      },
+      {
+        "standard": "CIP-009-6",
+        "requirement": "CIP-009-6 R3 Part 3.2",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-663a1fb785a535e62c53' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-010-4",
+        "requirement": "CIP-010-4 R1 Part 1.2",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section_id 'isection-3d2874e685fc97754de' does not resolve in this store",
+        "classification_reason": "section_id 'isection-3d2874e685fc97754de' does not resolve in this store"
+      },
+      {
+        "standard": "CIP-010-4",
+        "requirement": "CIP-010-4 R1 Part 1.3",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section_id 'isection-3d2874e685fc97754de' does not resolve in this store",
+        "classification_reason": "section_id 'isection-3d2874e685fc97754de' does not resolve in this store"
+      },
+      {
+        "standard": "CIP-010-4",
+        "requirement": "CIP-010-4 R2 Part 2.1",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section_id 'isection-3d2874e685fc97754de' does not resolve in this store",
+        "classification_reason": "section_id 'isection-3d2874e685fc97754de' does not resolve in this store"
+      },
+      {
+        "standard": "CIP-010-4",
+        "requirement": "CIP-010-4 R3 Part 3.4",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section_id 'isection-525c2eb32871bd96f8e' does not resolve in this store",
+        "classification_reason": "section_id 'isection-525c2eb32871bd96f8e' does not resolve in this store"
+      },
+      {
+        "standard": "CIP-013-2",
+        "requirement": "CIP-013-2 R1 Part 1.2.3",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-e85b938fd8411407ba4b' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-014-3",
+        "requirement": "CIP-014-3 R2 Part 2.2",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-9d1ab542dd7711d2a35d' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-014-3",
+        "requirement": "CIP-014-3 R2 Part 2.2",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-f0e2323c269baf57b195' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-014-3",
+        "requirement": "CIP-014-3 R2 Part 2.2",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-c07062e04b63bd1ee171' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-014-3",
+        "requirement": "CIP-014-3 R2 Part 2.2",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-a46c7ed8ee86db3270cb' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      },
+      {
+        "standard": "CIP-014-3",
+        "requirement": "CIP-014-3 R4 Part 4.3",
+        "section_id": null,
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "section 'csection-35d714e36f882a4f8494' is US jurisdiction \u2014 determinations pair a requirement with an OPERATOR section only",
+        "classification_reason": "paired a regulatory section as the operator side"
+      }
+    ],
+    "non_verbatim_quote": [
+      {
+        "standard": "CIP-004-7",
+        "requirement": "CIP-004-7 R2 Part 2.3",
+        "section_id": "isection-7879412b5de8e080a800",
+        "relation_type": null,
+        "sentence": "NERC CIP Training is completed prior to being granted unescorted physical access and/or electronic access to BES Cyber Systems and their associated EACMS and PACS, and renewed at least once every 15 calendar months.",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 1.00)",
+        "containment_ratio": 1.0,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      },
+      {
+        "standard": "CIP-004-7",
+        "requirement": "CIP-004-7 R3 Part 3.4",
+        "section_id": "isection-2bdd0a485e3266db15e7",
+        "relation_type": null,
+        "sentence": "LSPG shall document and implement a personnel risk assessment program for personnel who require authorized electronic or authorized unescoded physical access to BES Cyber Systems.",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 0.96)",
+        "containment_ratio": 0.9565,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      },
+      {
+        "standard": "CIP-004-7",
+        "requirement": "CIP-004-7 R3 Part 3.5",
+        "section_id": "isection-2bdd0a485e3266db15e7",
+        "relation_type": null,
+        "sentence": "Process to ensure individuals with authorized unescoded physical access and/or authorized electronic access complete a personnel risk assessment at least every seven years (Part 3.5).",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 0.96)",
+        "containment_ratio": 0.96,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      },
+      {
+        "standard": "CIP-004-7",
+        "requirement": "CIP-004-7 R3 Part 3.5",
+        "section_id": "isection-6d0c96c74b67738d805d",
+        "relation_type": null,
+        "sentence": "If a completed PRA is not on a file or cannot be provided prior to personnel being granted access during a CEC, LSPG is required to complete and submit a Self-Report for this instance to the Regional Entity.",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 1.00)",
+        "containment_ratio": 1.0,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      },
+      {
+        "standard": "CIP-005-7",
+        "requirement": "CIP-005-7 R1 Part 1.2",
+        "section_id": "isection-057fa20386bfe1ef3a26",
+        "relation_type": null,
+        "sentence": "For each asset containing Low Impact BES Cyber System(s) identified pursuant to CIP- 002, the Responsible Entity shall implement electronic access controls to: ... ii. using a routable protocol when entering or leaving the asset containing the Low Impact BES Cyber System(s); and",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 1.00)",
+        "containment_ratio": 1.0,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      },
+      {
+        "standard": "CIP-005-7",
+        "requirement": "CIP-005-7 R2 Part 2.3",
+        "section_id": "isection-83954fd87625e93cf2d1",
+        "relation_type": null,
+        "sentence": "LSPG shall document and implement a process for Interactive Remote Access management to require: \u2022 ... \u2022 Require multi-factor authentication for all Interactive Remote Access sessions (Part 2.3),",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 1.00)",
+        "containment_ratio": 1.0,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      },
+      {
+        "standard": "CIP-005-7",
+        "requirement": "CIP-005-7 R2 Part 2.5",
+        "section_id": "isection-83954fd87625e93cf2d1",
+        "relation_type": null,
+        "sentence": "3.2.2.1 LSPG shall document and implement a process for Interactive Remote Access management to require: [...] \u2022 Have one or more method(s) to disable active vendor remote access (including Interactive Remote Access and system-to-system remote access) (Part 2.5, section 6.2).",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 1.00)",
+        "containment_ratio": 1.0,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      },
+      {
+        "standard": "CIP-006-6",
+        "requirement": "CIP-006-6 R1 Part 1.4",
+        "section_id": "isection-5a5ab9d236fe29d84230",
+        "relation_type": null,
+        "sentence": "Where physical access restrictions are not implemented, LSPG shall document and implement one or more of the following: \n\u2022 Encryption of data that transits such cabling and components; or\n\u2022 Monitoring the status of the communication link composed of such cabling and components and issuing an alarm or alert in response to detected communication failures to the personnel identified in the BES Cyber Security Incident response plan within 15 minutes of detection; or\n\u2022 An equally effective logical protection.",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 1.00)",
+        "containment_ratio": 1.0,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      },
+      {
+        "standard": "CIP-006-6",
+        "requirement": "CIP-006-6 R1 Part 1.8",
+        "section_id": "isection-1566a1d8b1b6f7dc34b0",
+        "relation_type": null,
+        "sentence": "Physical access logs include the following data about each individual: 3.1.1 Date 3.1.2 Time 3.1.3 Name 3.1.4 Access card ID (number) 3.1.5 Specific access point into the PSP",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 1.00)",
+        "containment_ratio": 1.0,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      },
+      {
+        "standard": "CIP-006-6",
+        "requirement": "CIP-006-6 R1 Part 1.10",
+        "section_id": "isection-5a5ab9d236fe29d84230",
+        "relation_type": null,
+        "sentence": "LSPG shall document and implement one or more physical security plans that: ... Restrict physical access to cabling and other nonprogrammable communication components used for connection between applicable Cyber Assets within the same Electronic Security Perimeter in those instances when such cabling and components are located outside of a Physical Security Perimeter (Part 1.10).",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 1.00)",
+        "containment_ratio": 1.0,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      },
+      {
+        "standard": "CIP-007-6",
+        "requirement": "CIP-007-6 R1 Part 1.1",
+        "section_id": "isection-268000e1cb3da5cbe019",
+        "relation_type": null,
+        "sentence": "The OT Security & Compliance Team utilizes active discovery tools to discover open ports and services on in scope devices and verify that all enabled ports and and services have an appropriate business justification.",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 1.00)",
+        "containment_ratio": 1.0,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      },
+      {
+        "standard": "CIP-007-6",
+        "requirement": "CIP-007-6 R1 Part 1.1",
+        "section_id": "isection-5469536961202168f587",
+        "relation_type": null,
+        "sentence": "LSPG shall document and implement a ports and services process to: \u2022 Enable only logical network accessible ports determined to be unable to be needed (where technically feasible), including port ranges or services where needed to handle dynamic ports.",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 0.96)",
+        "containment_ratio": 0.9643,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      },
+      {
+        "standard": "CIP-007-6",
+        "requirement": "CIP-007-6 R2 Part 2.4",
+        "section_id": "isection-12bd999ecfa8bf61d440",
+        "relation_type": null,
+        "sentence": "Applicable security patches determined not able to be installed within 35 calendar days of evaluation are added to a mitigation plan by creating a dated mitigation plan or revising an existing mitigation and mitigation plan within the Change Management Solution.",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 1.00)",
+        "containment_ratio": 1.0,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      },
+      {
+        "standard": "CIP-007-6",
+        "requirement": "CIP-007-6 R2 Part 2.4",
+        "section_id": "isection-87d00aedd4cf1f41f0cd",
+        "relation_type": null,
+        "sentence": "LSPG shall document and implement a patch management process to: ... \u2022 At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources (Part 2.2),",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 1.00)",
+        "containment_ratio": 1.0,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      },
+      {
+        "standard": "CIP-007-6",
+        "requirement": "CIP-007-6 R2 Part 2.4",
+        "section_id": "isection-87d00aedd4cf1f41f0cd",
+        "relation_type": null,
+        "sentence": "LSPG shall document and implement a patch management process to: ... \u2022 Within 35 calendar days of the evaluation completion (of applicable security patches) take one of the following actions: o Apply the applicable security patches, o Create a dated mitigation plan, and o Revise an existing mitigation plan.",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 1.00)",
+        "containment_ratio": 1.0,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      },
+      {
+        "standard": "CIP-007-6",
+        "requirement": "CIP-007-6 R5 Part 5.2",
+        "section_id": "isection-fbc9ce9e2439c4f4af90",
+        "relation_type": null,
+        "sentence": "LSPG shall document and implement a system access control process to: \u2022 Identify and inventory all known enabled default or other generic account types, either by system, by groups of systems, by location, or by system type(s) (Part 5.2),",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 1.00)",
+        "containment_ratio": 1.0,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      },
+      {
+        "standard": "CIP-008-6",
+        "requirement": "CIP-008-6 R1 Part 1.3",
+        "section_id": "isection-9ab2a9716aa52bb21a56",
+        "relation_type": null,
+        "sentence": "LSPG shall document and implement one or more Cyber Security Incident response plans to include: ... The roles and responsibilities of Cyber Security Incident response groups or individuals (Part 1.3), and",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 1.00)",
+        "containment_ratio": 1.0,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      },
+      {
+        "standard": "CIP-008-6",
+        "requirement": "CIP-008-6 R4 Part 4.2",
+        "section_id": "isection-9ab2a9716aa52bb21a56",
+        "relation_type": null,
+        "sentence": "LSPG shall document and implement one or more Cyber Security Incident response plans to include: [...] To provide notification per Requirement R4 (Part 1.2.3)",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 1.00)",
+        "containment_ratio": 1.0,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      },
+      {
+        "standard": "CIP-008-6",
+        "requirement": "CIP-008-6 R4 Part 4.2",
+        "section_id": "isection-8ef18d9d53a032848c80",
+        "relation_type": null,
+        "sentence": "After the Responsible Entity\u2019s determination made pursuant to documented process(s) in Requirement R1, Part 1.2, provide initial notification within the following timelines (Part 4.2): \u2022 One hour after the determination of a Reportable Cyber Security Incident. \u2022 By the end of the next calendar day after determination that a Cyber Security Incident was an attempt to compromise a system identified in the \u201cApplicable Systems\u201d column for this Part.",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 1.00)",
+        "containment_ratio": 1.0,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      },
+      {
+        "standard": "CIP-010-4",
+        "requirement": "CIP-010-4 R1 Part 1.4",
+        "section_id": "isection-7d6a91bd1915c55b5176",
+        "relation_type": null,
+        "sentence": "Attach to the RFC all evidence documentation, which may include but is not limited to: \u2022 Security Event Monitoring Report \u2022 Security Controls Monitoring Report \u2022 Device Baseline Configuration Comparison Report",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 1.00)",
+        "containment_ratio": 1.0,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      },
+      {
+        "standard": "CIP-010-4",
+        "requirement": "CIP-010-4 R1 Part 1.5",
+        "section_id": "isection-1500fee07c685ebbaece",
+        "relation_type": null,
+        "sentence": "LSPG shall develop, document, and implement a configuration change management process to: ... (Part 1.5, for High impact BES Cyber Systems only): ... test the change in a test environment or test the changes in a production environment where the test is performed in a manner that minimizes adverse effects, and that models the baseline configuration, to ensure that required cyber security controls in CIP-005 and CIP-007 are not adversely affected",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 1.00)",
+        "containment_ratio": 1.0,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      },
+      {
+        "standard": "CIP-010-4",
+        "requirement": "CIP-010-4 R1 Part 1.6",
+        "section_id": "isection-d25a469654085bff6b6b",
+        "relation_type": null,
+        "sentence": "R1 Part 1.6 Prior to a change that deviates from the existing baseline configuration associated with baseline items in Parts 1.1.1, 1.1.2, and 1.1.5, and when the method to do so is available to the Responsible Entity from the software source: 1.6.1. Verify the identity of the software source; and 1.6.2. Verify the integrity of the software obtained from the software source. Section 3.4",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 1.00)",
+        "containment_ratio": 1.0,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      },
+      {
+        "standard": "CIP-010-4",
+        "requirement": "CIP-010-4 R1 Part 1.6",
+        "section_id": "isection-1500fee07c685ebbaece",
+        "relation_type": null,
+        "sentence": "Prior to a change that deviates from the existing baseline configuration associated with baseline items in Parts 1.1.1, 1.1.2, and 1.1.5, and when the method to do so is available to the Responsible Entity from the software source (Part 1.6): Verify the identity of the software source (Part 1.6.1); and Verify the integrity of the software obtained from the software source (Part 1.6.2).",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 1.00)",
+        "containment_ratio": 1.0,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      },
+      {
+        "standard": "CIP-010-4",
+        "requirement": "CIP-010-4 R3 Part 3.4",
+        "section_id": "isection-124e047f06fdaac506ec",
+        "relation_type": null,
+        "sentence": "Proposed action plan should include: 3.4.1.1.1 Suggested remediation from vulnerability scanning tool. 3.4.1.1.2 Analysis of risk to the BES using vulnerability scores and mitigating controls 3.4.1.1.3 Documented proposed dates of completion for the action plan. 3.4.1.1.4 Independent research where applicable. 3.4.1.1.5 Records of the status of the action items (Compliance Tracking Tool tasks)",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 1.00)",
+        "containment_ratio": 1.0,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      },
+      {
+        "standard": "CIP-011-3",
+        "requirement": "CIP-011-3 R1 Part 1.2",
+        "section_id": "isection-d8517a0a112a317bb860",
+        "relation_type": null,
+        "sentence": "3.8.1.1 LSPG shall document and implement an information protection program for: \u2022 Method(s) to protect and securely handle BCSI, to mitigate risks of compromising confidentiality (Part 1.2).",
+        "original_reason": "the quoted sentence is not in the section's text \u2014 a citation the store cannot trace is not a citation",
+        "classification_reason": "quoted sentence not a verbatim substring (containment 1.00)",
+        "containment_ratio": 1.0,
+        "containment_band": "0.8-1.0",
+        "verbatim": false,
+        "backend": "token_set_containment"
+      }
+    ],
+    "address_form": [
+      {
+        "standard": "CIP-002-5.1a",
+        "requirement": "CIP-002-5.1a R1",
+        "section_id": "isection-92592a9832a91d9ae017",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-003-9 R1.2.6' is not a regulatory address",
+        "classification_reason": "normalizes to CIP-002-5.1a R1",
+        "normalized_requirement_id": "CIP-002-5.1a R1",
+        "reoffer": {
+          "action": "rejected",
+          "reason": "relation_type must be one of ('IMPLEMENTS', 'EVIDENCES', 'REFERENCES'), not ''",
+          "requirement_id": "CIP-002-5.1a R1",
+          "section_id": "isection-92592a9832a91d9ae017"
+        }
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R4",
+        "section_id": "isection-34eefd771edff96a7384",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-002-5.1a R2.2' is not a regulatory address",
+        "classification_reason": "normalizes to CIP-003-8 R4",
+        "normalized_requirement_id": "CIP-003-8 R4",
+        "reoffer": {
+          "action": "rejected",
+          "reason": "relation_type must be one of ('IMPLEMENTS', 'EVIDENCES', 'REFERENCES'), not ''",
+          "requirement_id": "CIP-003-8 R4",
+          "section_id": "isection-34eefd771edff96a7384"
+        }
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R4",
+        "section_id": "isection-34eefd771edff96a7384",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-007-6 R2.4' is not a regulatory address",
+        "classification_reason": "normalizes to CIP-003-8 R4",
+        "normalized_requirement_id": "CIP-003-8 R4",
+        "reoffer": {
+          "action": "rejected",
+          "reason": "relation_type must be one of ('IMPLEMENTS', 'EVIDENCES', 'REFERENCES'), not ''",
+          "requirement_id": "CIP-003-8 R4",
+          "section_id": "isection-34eefd771edff96a7384"
+        }
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R4",
+        "section_id": "isection-34eefd771edff96a7384",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-004-7 R2.2' is not a regulatory address",
+        "classification_reason": "normalizes to CIP-003-8 R4",
+        "normalized_requirement_id": "CIP-003-8 R4",
+        "reoffer": {
+          "action": "rejected",
+          "reason": "relation_type must be one of ('IMPLEMENTS', 'EVIDENCES', 'REFERENCES'), not ''",
+          "requirement_id": "CIP-003-8 R4",
+          "section_id": "isection-34eefd771edff96a7384"
+        }
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R4",
+        "section_id": "isection-34eefd771edff96a7384",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-004-7 R4.1-R4.1.3' is not a regulatory address",
+        "classification_reason": "normalizes to CIP-003-8 R4",
+        "normalized_requirement_id": "CIP-003-8 R4",
+        "reoffer": {
+          "action": "rejected",
+          "reason": "relation_type must be one of ('IMPLEMENTS', 'EVIDENCES', 'REFERENCES'), not ''",
+          "requirement_id": "CIP-003-8 R4",
+          "section_id": "isection-34eefd771edff96a7384"
+        }
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R4",
+        "section_id": "isection-34eefd771edff96a7384",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-006-6 R2.1 and R2.2' is not a regulatory address",
+        "classification_reason": "normalizes to CIP-003-8 R4",
+        "normalized_requirement_id": "CIP-003-8 R4",
+        "reoffer": {
+          "action": "rejected",
+          "reason": "relation_type must be one of ('IMPLEMENTS', 'EVIDENCES', 'REFERENCES'), not ''",
+          "requirement_id": "CIP-003-8 R4",
+          "section_id": "isection-34eefd771edff96a7384"
+        }
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R4",
+        "section_id": "isection-34eefd771edff96a7384",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-007-6 R4.3' is not a regulatory address",
+        "classification_reason": "normalizes to CIP-003-8 R4",
+        "normalized_requirement_id": "CIP-003-8 R4",
+        "reoffer": {
+          "action": "rejected",
+          "reason": "relation_type must be one of ('IMPLEMENTS', 'EVIDENCES', 'REFERENCES'), not ''",
+          "requirement_id": "CIP-003-8 R4",
+          "section_id": "isection-34eefd771edff96a7384"
+        }
+      },
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R4",
+        "section_id": "isection-34eefd771edff96a7384",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-010-4 R3.3' is not a regulatory address",
+        "classification_reason": "normalizes to CIP-003-8 R4",
+        "normalized_requirement_id": "CIP-003-8 R4",
+        "reoffer": {
+          "action": "rejected",
+          "reason": "relation_type must be one of ('IMPLEMENTS', 'EVIDENCES', 'REFERENCES'), not ''",
+          "requirement_id": "CIP-003-8 R4",
+          "section_id": "isection-34eefd771edff96a7384"
+        }
+      },
+      {
+        "standard": "CIP-003-9",
+        "requirement": "CIP-003-9 R4",
+        "section_id": "isection-34eefd771edff96a7384",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-007-6 R2.4' is not a regulatory address",
+        "classification_reason": "normalizes to CIP-003-9 R4",
+        "normalized_requirement_id": "CIP-003-9 R4",
+        "reoffer": {
+          "action": "rejected",
+          "reason": "relation_type must be one of ('IMPLEMENTS', 'EVIDENCES', 'REFERENCES'), not ''",
+          "requirement_id": "CIP-003-9 R4",
+          "section_id": "isection-34eefd771edff96a7384"
+        }
+      },
+      {
+        "standard": "CIP-005-7",
+        "requirement": "CIP-005-7 R1 Part 1.4",
+        "section_id": "isection-057fa20386bfe1ef3a26",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-003-9 R2 Attachment 1 Section 3.2' is not a regulatory address",
+        "classification_reason": "normalizes to CIP-005-7 R1 Part 1.4",
+        "normalized_requirement_id": "CIP-005-7 R1 Part 1.4",
+        "reoffer": {
+          "action": "rejected",
+          "reason": "relation_type must be one of ('IMPLEMENTS', 'EVIDENCES', 'REFERENCES'), not ''",
+          "requirement_id": "CIP-005-7 R1 Part 1.4",
+          "section_id": "isection-057fa20386bfe1ef3a26"
+        }
+      },
+      {
+        "standard": "CIP-005-7",
+        "requirement": "CIP-005-7 R1 Part 1.5",
+        "section_id": "isection-af9865a6aa11ca3c416e",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-003-9 R2 Attachment 1 Section 6.3' is not a regulatory address",
+        "classification_reason": "normalizes to CIP-005-7 R1 Part 1.5",
+        "normalized_requirement_id": "CIP-005-7 R1 Part 1.5",
+        "reoffer": {
+          "action": "rejected",
+          "reason": "relation_type must be one of ('IMPLEMENTS', 'EVIDENCES', 'REFERENCES'), not ''",
+          "requirement_id": "CIP-005-7 R1 Part 1.5",
+          "section_id": "isection-af9865a6aa11ca3c416e"
+        }
+      },
+      {
+        "standard": "CIP-005-7",
+        "requirement": "CIP-005-7 R2 Part 2.2",
+        "section_id": "isection-14dd58e51dcf7dfcd884",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-003 R2 Attachment 1' is not a regulatory address",
+        "classification_reason": "normalizes to CIP-005-7 R2 Part 2.2",
+        "normalized_requirement_id": "CIP-005-7 R2 Part 2.2",
+        "reoffer": {
+          "action": "rejected",
+          "reason": "relation_type must be one of ('IMPLEMENTS', 'EVIDENCES', 'REFERENCES'), not ''",
+          "requirement_id": "CIP-005-7 R2 Part 2.2",
+          "section_id": "isection-14dd58e51dcf7dfcd884"
+        }
+      },
+      {
+        "standard": "CIP-005-7",
+        "requirement": "CIP-005-7 R2 Part 2.4",
+        "section_id": "isection-92592a9832a91d9ae017",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-003-9 R2 Attachment 1 Section 6.1' is not a regulatory address",
+        "classification_reason": "normalizes to CIP-005-7 R2 Part 2.4",
+        "normalized_requirement_id": "CIP-005-7 R2 Part 2.4",
+        "reoffer": {
+          "action": "rejected",
+          "reason": "relation_type must be one of ('IMPLEMENTS', 'EVIDENCES', 'REFERENCES'), not ''",
+          "requirement_id": "CIP-005-7 R2 Part 2.4",
+          "section_id": "isection-92592a9832a91d9ae017"
+        }
+      },
+      {
+        "standard": "CIP-005-7",
+        "requirement": "CIP-005-7 R3 Part 3.2",
+        "section_id": "isection-92592a9832a91d9ae017",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-003-9 R2 Attachment 1 Section 6.1' is not a regulatory address",
+        "classification_reason": "normalizes to CIP-005-7 R3 Part 3.2",
+        "normalized_requirement_id": "CIP-005-7 R3 Part 3.2",
+        "reoffer": {
+          "action": "rejected",
+          "reason": "relation_type must be one of ('IMPLEMENTS', 'EVIDENCES', 'REFERENCES'), not ''",
+          "requirement_id": "CIP-005-7 R3 Part 3.2",
+          "section_id": "isection-92592a9832a91d9ae017"
+        }
+      },
+      {
+        "standard": "CIP-007-6",
+        "requirement": "CIP-007-6 R4 Part 4.3",
+        "section_id": "isection-25276eed24a6bbce5c3e",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-004-6 R2.2' is not a regulatory address",
+        "classification_reason": "normalizes to CIP-007-6 R4 Part 4.3",
+        "normalized_requirement_id": "CIP-007-6 R4 Part 4.3",
+        "reoffer": {
+          "action": "rejected",
+          "reason": "relation_type must be one of ('IMPLEMENTS', 'EVIDENCES', 'REFERENCES'), not ''",
+          "requirement_id": "CIP-007-6 R4 Part 4.3",
+          "section_id": "isection-25276eed24a6bbce5c3e"
+        }
+      },
+      {
+        "standard": "CIP-011-3",
+        "requirement": "CIP-011-3 R2 Part 2.1",
+        "section_id": "isection-c0da22e080db0037a8d1",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-011 R1 Part 1.1' is not a regulatory address",
+        "classification_reason": "normalizes to CIP-011-3 R2 Part 2.1",
+        "normalized_requirement_id": "CIP-011-3 R2 Part 2.1",
+        "reoffer": {
+          "action": "rejected",
+          "reason": "relation_type must be one of ('IMPLEMENTS', 'EVIDENCES', 'REFERENCES'), not ''",
+          "requirement_id": "CIP-011-3 R2 Part 2.1",
+          "section_id": "isection-c0da22e080db0037a8d1"
+        }
+      },
+      {
+        "standard": "CIP-012-2",
+        "requirement": "CIP-012-2 R1",
+        "section_id": "isection-861636e35ef1f520cac3",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-003 R2' is not a regulatory address",
+        "classification_reason": "normalizes to CIP-012-2 R1",
+        "normalized_requirement_id": "CIP-012-2 R1",
+        "reoffer": {
+          "action": "rejected",
+          "reason": "relation_type must be one of ('IMPLEMENTS', 'EVIDENCES', 'REFERENCES'), not ''",
+          "requirement_id": "CIP-012-2 R1",
+          "section_id": "isection-861636e35ef1f520cac3"
+        }
+      }
+    ],
+    "register_gap": [
+      {
+        "standard": "CIP-003-8",
+        "requirement": "CIP-003-8 R4",
+        "section_id": "isection-34eefd771edff96a7384",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-012-1 R1' is not in the register \u2014 a well-formed address that names no requirement this store tracks (measured live: a reading invented plausible revision numbers; the verbatim check cannot catch a wrong requirement id, register membership can)",
+        "classification_reason": "CIP-003-8 R4 is well-formed and absent from the register"
+      },
+      {
+        "standard": "CIP-004-7",
+        "requirement": "CIP-004-7 R4 Part 4.3",
+        "section_id": "isection-bcb86ea841631ae4061a",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-004-7 R4 Part 4.4' is not in the register \u2014 a well-formed address that names no requirement this store tracks (measured live: a reading invented plausible revision numbers; the verbatim check cannot catch a wrong requirement id, register membership can)",
+        "classification_reason": "CIP-004-7 R4 Part 4.3 is well-formed and absent from the register"
+      },
+      {
+        "standard": "CIP-004-7",
+        "requirement": "CIP-004-7 R5 Part 5.4",
+        "section_id": "isection-7685e76f49f852376938",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-007-7 R5 Part 5.1' is not in the register \u2014 a well-formed address that names no requirement this store tracks (measured live: a reading invented plausible revision numbers; the verbatim check cannot catch a wrong requirement id, register membership can)",
+        "classification_reason": "CIP-004-7 R5 Part 5.4 is well-formed and absent from the register"
+      },
+      {
+        "standard": "CIP-006-6",
+        "requirement": "CIP-006-6 R1 Part 1.10",
+        "section_id": "isection-f7839dbfe41caf67ab54",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-003-7 R2 Attachment 1' is not in the register \u2014 a well-formed address that names no requirement this store tracks (measured live: a reading invented plausible revision numbers; the verbatim check cannot catch a wrong requirement id, register membership can)",
+        "classification_reason": "CIP-006-6 R1 Part 1.10 is well-formed and absent from the register"
+      },
+      {
+        "standard": "CIP-007-6",
+        "requirement": "CIP-007-6 R3 Part 3.2",
+        "section_id": "isection-7085ec4c19d8f192fcc5",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-003-6 R1 Part 1.1.4' is not in the register \u2014 a well-formed address that names no requirement this store tracks (measured live: a reading invented plausible revision numbers; the verbatim check cannot catch a wrong requirement id, register membership can)",
+        "classification_reason": "CIP-007-6 R3 Part 3.2 is well-formed and absent from the register"
+      },
+      {
+        "standard": "CIP-007-6",
+        "requirement": "CIP-007-6 R5 Part 5.1",
+        "section_id": "isection-7685e76f49f852376938",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-004-6 R5 Part 5.4' is not in the register \u2014 a well-formed address that names no requirement this store tracks (measured live: a reading invented plausible revision numbers; the verbatim check cannot catch a wrong requirement id, register membership can)",
+        "classification_reason": "CIP-007-6 R5 Part 5.1 is well-formed and absent from the register"
+      },
+      {
+        "standard": "CIP-007-6",
+        "requirement": "CIP-007-6 R5 Part 5.4",
+        "section_id": "isection-7685e76f49f852376938",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-004-6 R5 Part 5.4' is not in the register \u2014 a well-formed address that names no requirement this store tracks (measured live: a reading invented plausible revision numbers; the verbatim check cannot catch a wrong requirement id, register membership can)",
+        "classification_reason": "CIP-007-6 R5 Part 5.4 is well-formed and absent from the register"
+      },
+      {
+        "standard": "CIP-008-6",
+        "requirement": "CIP-008-6 R3 Part 3.1",
+        "section_id": "isection-fc83c78fe1a856b9431f",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-008-6 R3 Part 3.1' is not in the register \u2014 a well-formed address that names no requirement this store tracks (measured live: a reading invented plausible revision numbers; the verbatim check cannot catch a wrong requirement id, register membership can)",
+        "classification_reason": "CIP-008-6 R3 Part 3.1 is well-formed and absent from the register"
+      },
+      {
+        "standard": "CIP-008-6",
+        "requirement": "CIP-008-6 R3 Part 3.1",
+        "section_id": "isection-fc83c78fe1a856b9431f",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-008-6 R3 Part 3.1' is not in the register \u2014 a well-formed address that names no requirement this store tracks (measured live: a reading invented plausible revision numbers; the verbatim check cannot catch a wrong requirement id, register membership can)",
+        "classification_reason": "CIP-008-6 R3 Part 3.1 is well-formed and absent from the register"
+      },
+      {
+        "standard": "CIP-008-6",
+        "requirement": "CIP-008-6 R3 Part 3.1",
+        "section_id": "isection-fc83c78fe1a856b9431f",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-008-6 R3 Part 3.1' is not in the register \u2014 a well-formed address that names no requirement this store tracks (measured live: a reading invented plausible revision numbers; the verbatim check cannot catch a wrong requirement id, register membership can)",
+        "classification_reason": "CIP-008-6 R3 Part 3.1 is well-formed and absent from the register"
+      },
+      {
+        "standard": "CIP-008-6",
+        "requirement": "CIP-008-6 R3 Part 3.1",
+        "section_id": "isection-0d324029f9e79c7ceec9",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-008-6 R3 Part 3.1' is not in the register \u2014 a well-formed address that names no requirement this store tracks (measured live: a reading invented plausible revision numbers; the verbatim check cannot catch a wrong requirement id, register membership can)",
+        "classification_reason": "CIP-008-6 R3 Part 3.1 is well-formed and absent from the register"
+      },
+      {
+        "standard": "CIP-008-6",
+        "requirement": "CIP-008-6 R3 Part 3.1",
+        "section_id": "isection-0d324029f9e79c7ceec9",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-008-6 R3 Part 3.1' is not in the register \u2014 a well-formed address that names no requirement this store tracks (measured live: a reading invented plausible revision numbers; the verbatim check cannot catch a wrong requirement id, register membership can)",
+        "classification_reason": "CIP-008-6 R3 Part 3.1 is well-formed and absent from the register"
+      },
+      {
+        "standard": "CIP-008-6",
+        "requirement": "CIP-008-6 R3 Part 3.1",
+        "section_id": "isection-82f9c58aaec95137a9e",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-008-6 R3 Part 3.1' is not in the register \u2014 a well-formed address that names no requirement this store tracks (measured live: a reading invented plausible revision numbers; the verbatim check cannot catch a wrong requirement id, register membership can)",
+        "classification_reason": "CIP-008-6 R3 Part 3.1 is well-formed and absent from the register"
+      },
+      {
+        "standard": "CIP-010-4",
+        "requirement": "CIP-010-4 R1 Part 1.1",
+        "section_id": "isection-1500fee07c685ebbaece",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-010-4 R1 Part 1.1.1' is not in the register \u2014 a well-formed address that names no requirement this store tracks (measured live: a reading invented plausible revision numbers; the verbatim check cannot catch a wrong requirement id, register membership can)",
+        "classification_reason": "CIP-010-4 R1 Part 1.1 is well-formed and absent from the register"
+      },
+      {
+        "standard": "CIP-010-4",
+        "requirement": "CIP-010-4 R1 Part 1.1",
+        "section_id": "isection-1500fee07c685ebbaece",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-010-4 R1 Part 1.1.2' is not in the register \u2014 a well-formed address that names no requirement this store tracks (measured live: a reading invented plausible revision numbers; the verbatim check cannot catch a wrong requirement id, register membership can)",
+        "classification_reason": "CIP-010-4 R1 Part 1.1 is well-formed and absent from the register"
+      },
+      {
+        "standard": "CIP-010-4",
+        "requirement": "CIP-010-4 R1 Part 1.1",
+        "section_id": "isection-1500fee07c685ebbaece",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-010-4 R1 Part 1.1.3' is not in the register \u2014 a well-formed address that names no requirement this store tracks (measured live: a reading invented plausible revision numbers; the verbatim check cannot catch a wrong requirement id, register membership can)",
+        "classification_reason": "CIP-010-4 R1 Part 1.1 is well-formed and absent from the register"
+      },
+      {
+        "standard": "CIP-010-4",
+        "requirement": "CIP-010-4 R1 Part 1.1",
+        "section_id": "isection-1500fee07c685ebbaece",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-010-4 R1 Part 1.1.4' is not in the register \u2014 a well-formed address that names no requirement this store tracks (measured live: a reading invented plausible revision numbers; the verbatim check cannot catch a wrong requirement id, register membership can)",
+        "classification_reason": "CIP-010-4 R1 Part 1.1 is well-formed and absent from the register"
+      },
+      {
+        "standard": "CIP-010-4",
+        "requirement": "CIP-010-4 R1 Part 1.1",
+        "section_id": "isection-1500fee07c685ebbaece",
+        "relation_type": null,
+        "sentence": null,
+        "original_reason": "requirement_id 'CIP-010-4 R1 Part 1.1.5' is not in the register \u2014 a well-formed address that names no requirement this store tracks (measured live: a reading invented plausible revision numbers; the verbatim check cannot catch a wrong requirement id, register membership can)",
+        "classification_reason": "CIP-010-4 R1 Part 1.1 is well-formed and absent from the register"
+      }
+    ],
+    "unclassified": []
+  },
+  "admission_note": "Only address_form pairings are re-offered to record_determination, with the normalised address in place of the standard's shorthand \u2014 every other check the sweep already applies still governs admission. Nothing else here writes to the store. non_verbatim_quote is a candidate set for a future checker-relaxation task, not a backlog of edges waiting to be let in.",
+  "verdict": "RECORDED"
+}

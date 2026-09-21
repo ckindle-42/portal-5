@@ -636,6 +636,7 @@ def record_determination(
                 "determinations pair a requirement with an OPERATOR section only"
             ),
             "requirement_id": str(parsed),
+            "section_id": section_id,
         }
     folded_sentence = _norm_for_verbatim(sentence)
     if not folded_sentence:
