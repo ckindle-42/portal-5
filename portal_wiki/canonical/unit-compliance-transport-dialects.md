@@ -10,6 +10,10 @@ sources:
   path: portal/modules/compliance/core/reading_transport.py
   commit: 8720b60a
 - type: code
+  path: scripts/compliance/write_splash_report.py
+- type: code
+  path: scripts/validation/splash_sweep_engine.py
+- type: code
   path: tests/unit/test_compliance_reading_transport.py
   commit: 8720b60a
 claims: []

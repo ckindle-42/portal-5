@@ -16,6 +16,7 @@ from . import (  # noqa: F401  (imports populate the check registry)
     platform,
     rag_runtime,
     security_bench,
+    splash_sweep_engine,
     telemetry,
     wiki,
 )
