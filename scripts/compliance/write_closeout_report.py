@@ -422,6 +422,11 @@ def _sec_gates(gates: pathlib.Path | None, root: pathlib.Path) -> str:
     if receipt:
         for g in receipt.get("gates", []):
             out.append(f"- **{g.get('status')}** {g.get('name')}: {g.get('detail', '')}")
+        for b in receipt.get("bypasses", []):
+            out.append(
+                f"- **{b.get('status')}** {b.get('name')} — recorded verbatim: "
+                f"{b.get('detail', '')}"
+            )
     else:
         out.append(
             "- gates receipt absent — see the campaign's commits for the per-phase "
