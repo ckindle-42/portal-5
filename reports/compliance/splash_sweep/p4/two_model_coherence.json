@@ -1,0 +1,71 @@
+{
+  "run_id": "2026-09-21T04:23:19.915429+00:00",
+  "refs": [
+    "CIP-007-6 R2 Part 2.2",
+    "CIP-007-6 R5 Part 5.1",
+    "CIP-007-6 R4 Part 4.1"
+  ],
+  "rows": [
+    {
+      "ref": "CIP-007-6 R2 Part 2.2",
+      "arm": "A",
+      "n_proposed": 1,
+      "n_sections_addressed": 1,
+      "address_rate": 1.0,
+      "wall_s": 25.99,
+      "answer_chars": 1547,
+      "verdict": "RECORDED"
+    },
+    {
+      "ref": "CIP-007-6 R2 Part 2.2",
+      "arm": "C",
+      "n_proposed": 1,
+      "n_sections_addressed": 1,
+      "address_rate": 1.0,
+      "wall_s": 24.04,
+      "answer_chars": 1215,
+      "verdict": "RECORDED"
+    },
+    {
+      "ref": "CIP-007-6 R5 Part 5.1",
+      "arm": "A",
+      "n_proposed": 1,
+      "n_sections_addressed": 1,
+      "address_rate": 1.0,
+      "wall_s": 35.33,
+      "answer_chars": 1712,
+      "verdict": "RECORDED"
+    },
+    {
+      "ref": "CIP-007-6 R5 Part 5.1",
+      "arm": "C",
+      "n_proposed": 4,
+      "n_sections_addressed": 4,
+      "address_rate": 1.0,
+      "wall_s": 52.14,
+      "answer_chars": 2824,
+      "verdict": "RECORDED"
+    },
+    {
+      "ref": "CIP-007-6 R4 Part 4.1",
+      "arm": "A",
+      "verdict": "SKIP",
+      "reason": "the arm determined nothing for this requirement"
+    },
+    {
+      "ref": "CIP-007-6 R4 Part 4.1",
+      "arm": "C",
+      "n_proposed": 3,
+      "n_sections_addressed": 3,
+      "address_rate": 1.0,
+      "wall_s": 39.58,
+      "answer_chars": 2714,
+      "verdict": "RECORDED"
+    }
+  ],
+  "mean_address_rate_A_single_model": 1.0,
+  "mean_address_rate_C_two_model": 1.0,
+  "router_wording_note": "Run 1 asked the original wording ('...the requirement and my documents... say for each whether you agree...') and every turn died empty at hop 1 \u2014 the router's explicit-side-effect matcher again ('requirement'/'say' plus a CIP id narrows the workspace to one tool and the turn passes through unanswered). Receipt preserved at two_model_coherence_run1_blocked_by_router.json. Run 2 (this receipt) avoids the matcher's trigger words.",
+  "note": "A is the single-model control: the conversation seat reading determinations its own engine produced. C is the two-model case. A materially lower rate for C is the coherence cost of splitting the engines, and it is a cost the speed has to be worth.",
+  "verdict": "RECORDED"
+}
