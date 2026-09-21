@@ -19,8 +19,8 @@ tags:
 - T1505.003
 - technique
 - signature
-created_at: 1789196393.361077
-updated_at: 1789196393.361077
+created_at: 1789957136.302169
+updated_at: 1789957136.302169
 ---
 
 # T1505.003 — Webshell — file-write + subsequent exec correlation

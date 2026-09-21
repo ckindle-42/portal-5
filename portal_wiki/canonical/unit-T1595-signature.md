@@ -19,8 +19,8 @@ tags:
 - T1595
 - technique
 - signature
-created_at: 1789196393.3667681
-updated_at: 1789196393.3667681
+created_at: 1789957136.30906
+updated_at: 1789957136.30906
 ---
 
 # T1595 — Active scanning — vulnerability scanning and directory brute-force

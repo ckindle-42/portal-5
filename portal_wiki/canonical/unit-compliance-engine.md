@@ -198,6 +198,9 @@ confidence: high
 tags:
 - compliance
 - authored-v1
+ready_for_use: false
+ready_evaluated_at: 2026-09-21
+ready_basis: "2/3 product questions answered with resolving citations"
 ---
 
 `portal.modules.compliance.core` builds the compliance reasoning engine
