@@ -51,8 +51,11 @@ _SIDE_HEADING = {
 }
 
 
-def _section_line(section: dict[str, Any], *, max_heading: int = 0) -> str:
-    """``[id] document — heading path, page N`` — where a section IS."""
+def _section_line(section: dict[str, Any], *, max_heading: int = 0, handle: str = "") -> str:
+    """``[handle] document — heading path, page N   (section_id)`` — where a
+    section IS. The bracketed token is the citation handle a model is asked
+    to use; the long id rides alongside as provenance, never as the thing to
+    transcribe (a dropped character in a transcribed id blocked a close)."""
     heading = str(section.get("headings") or section.get("path") or "")
     if max_heading and len(heading) > max_heading:
         heading = heading[: max_heading - 1].rstrip() + "…"
@@ -64,7 +67,9 @@ def _section_line(section: dict[str, Any], *, max_heading: int = 0) -> str:
     page = section.get("page_start")
     if page:
         line += f", page {page}"
-    return f"[{section.get('section_id', '')}] {line}"
+    label = handle or section.get("section_id", "")
+    suffix = f"   ({section.get('section_id', '')})" if handle else ""
+    return f"[{label}] {line}{suffix}"
 
 
 def _fixed_section_line(section: dict[str, Any]) -> str:
@@ -292,8 +297,9 @@ def _standing_instruction(extra: str) -> str:
         "requirement's scope, plus the standard's fixed body above. Nothing here "
         "needs a search: everything is in this message, each entry labelled with "
         "what it is and the standing it carries. Answer only from this material; "
-        "cite section ids in square brackets for every claim, and quote the text "
-        "verbatim where the exact words matter. If the material does not contain "
+        "cite the bracketed handle exactly as shown — [O3], not the long id in "
+        "parentheses beside it — for every claim, and quote the text verbatim "
+        "where the exact words matter. If the material does not contain "
         "the answer, say so plainly. When an operator section restates a "
         "requirement's list of permitted actions, check whether the standard's "
         'disjunction ("or", "either", "one of") survives the restatement or '
@@ -331,11 +337,13 @@ def render(
     failed. It rides AFTER the fixed body, so a variant changes no byte of the
     shared prefix.
     """
+    from portal.modules.compliance.core.answer_contract import build_contract
     from portal.modules.compliance.core.reading_assembly import parse_ref
 
     parsed = parse_ref(ref)
     if parsed is None:
         return {"error": f"{ref!r} is not a regulatory address", "ref": ref}
+    canonical_ref = str(parsed)
     if fixed is None:
         # the fixed body is per REVISION — address the standard the way the
         # assembly's own parser expects (the plain standard id, not the
@@ -368,6 +376,16 @@ def render(
                 entry["neighbourhood"] = neighbours
                 neighbourhood_sections += len(neighbours)
 
+    # Built from the SAME rows the text below is laid out from — the one
+    # place "what is a section id / a side / an address" is decided for this
+    # rendering, handed to whatever later judges an answer about it.
+    contract = build_contract(
+        ref=ref,
+        canonical_ref=canonical_ref,
+        sections=[dict(entry, side=side) for side, entries in grouped for entry in entries],
+        addresses={ref: canonical_ref, canonical_ref: canonical_ref},
+    )
+
     # The fixed body is the FIRST thing in the message and is byte-identical
     # for every requirement of the revision — that is what makes it a shared
     # cache prefix across a standard-ordered sweep. Everything that varies with
@@ -387,7 +405,8 @@ def render(
         scope_lines.append(f"### {_side_heading(side)} ({len(entries)} section(s))")
         for entry in entries:
             scope_lines.append("")
-            line = _section_line(entry)
+            token = contract.by_section_id.get(entry["section_id"])
+            line = _section_line(entry, handle=token.handle if token else "")
             if entry["standing"]:
                 line += f" — standing: {entry['standing']}"
             scope_lines.append(line)
@@ -421,6 +440,7 @@ def render(
         "by_side": {side: len(entries) for side, entries in grouped},
         "population_detail": population.get("detail", ""),
         "population_method": population.get("population_method", ""),
+        "contract": contract,
     }
 
 

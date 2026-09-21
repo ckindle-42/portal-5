@@ -334,6 +334,48 @@ def canonical_identity(artifact: Artifact) -> tuple[str, str, str]:
     return f"NERC/{standard}{suffix}", kind, f"{standard}{suffix}".strip()
 
 
+def apply_lifecycle_only(repo: Any, standard: str, entry: LifecycleFacts) -> dict[str, Any]:
+    """Record a moved effective date without re-capturing the document.
+
+    A lifecycle change is a fact about a revision's *effectivity*, not its
+    *text*. There was no path to record one without re-capturing the whole
+    document, which is what wedged the NERC autosync: re-capturing an
+    UNCHANGED revision deleted sections that citations, spans and requirement
+    joins reference. This writes the effectivity change against the existing
+    revision and touches no section.
+    """
+    row = repo._conn.execute(
+        """SELECT r.revision_id FROM document_revisions r
+           JOIN source_documents d ON d.logical_id = r.logical_id
+           WHERE d.source_kind = 'regulatory_standard' AND d.logical_id LIKE ?
+           ORDER BY r.retrieved_at DESC LIMIT 1""",
+        (f"%/{standard}",),
+    ).fetchone()
+    if row is None:
+        return {
+            "standard": standard,
+            "action": "no_existing_revision",
+            "reason": f"no stored revision for {standard} — cannot apply lifecycle-only",
+        }
+    revision_id = str(row[0])
+    repo.set_regulatory_lifecycle(
+        revision_id,
+        effective_date=str(entry.effective or ""),
+        inactive_date=str(entry.inactive or ""),
+        approved_date=str(entry.board_adopted or ""),
+        authored_date=str(entry.filed or ""),
+        lifecycle_status=str(entry.status or ""),
+    )
+    return {
+        "standard": standard,
+        "revision_id": revision_id,
+        "action": "lifecycle_only",
+        "effective_date": entry.effective,
+        "inactive_date": entry.inactive,
+        "lifecycle_status": entry.status,
+    }
+
+
 def _register_in_store(
     logical_id: str, title: str, alias_path: str, payload: bytes, source_kind: str
 ) -> str:

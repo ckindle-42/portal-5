@@ -78,7 +78,9 @@ from scripts.validation.compliance_acceptance import (  # noqa: E402, F401
     check_compliance_seat_template_identity,
 )
 from scripts.validation.compliance_currency import (  # noqa: E402, F401
+    check_citation_derivation_singleton,
     check_compliance_corpus_currency,
+    check_jurisdiction_domain,
 )
 from scripts.validation.config import check_config_loads, check_rule_6  # noqa: E402, F401
 from scripts.validation.inference import (  # noqa: E402, F401

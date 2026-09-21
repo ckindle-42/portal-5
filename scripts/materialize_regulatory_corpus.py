@@ -209,6 +209,7 @@ def materialize(
     directory: Path | None = None,
     repository: Repository | None = None,
     backup: bool = True,
+    only_changed: bool = False,
 ) -> dict[str, Any]:
     from portal.modules.compliance.core.temporal import now_iso
 
@@ -231,9 +232,29 @@ def materialize(
         "skipped": [],
     }
 
-    for entry in manifest.get("artifacts", []):
+    artifacts = manifest.get("artifacts", [])
+    # sync_official_bundle already computed byte-status per artifact
+    # (ACQUIRED | UNCHANGED | FAILED). Re-capturing an UNCHANGED artifact is
+    # pure churn now that store_capture no-ops on identical content, but
+    # skipping it here means the corpus sweep never touches the store for a
+    # standard whose bytes did not move.
+    if only_changed and artifacts and all(a.get("status") == "UNCHANGED" for a in artifacts):
+        report["skipped_all_unchanged"] = True
+        report["identity_repairs"] = 0
+        report["jurisdiction_normalised"] = 0
+        report["census"] = _census(repo)
+        if repository is None:
+            repo.close()
+        return report
+
+    for entry in artifacts:
         if entry.get("status") == "FAILED":
             report["skipped"].append({"name": entry.get("name"), "reason": "acquisition failed"})
+            continue
+        if only_changed and entry.get("status") == "UNCHANGED":
+            report["skipped"].append(
+                {"name": entry.get("name"), "reason": "unchanged bytes — capture retained"}
+            )
             continue
         name = str(entry.get("name", ""))
         path = Path(str(entry.get("path", "")))
@@ -333,9 +354,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", type=Path)
     parser.add_argument("--no-backup", action="store_true")
     parser.add_argument("--json", dest="as_json", action="store_true")
+    parser.add_argument("--only-changed", action="store_true")
     args = parser.parse_args(argv)
 
-    report = materialize(directory=args.directory, backup=not args.no_backup)
+    report = materialize(
+        directory=args.directory, backup=not args.no_backup, only_changed=args.only_changed
+    )
     payload = json.dumps(report, indent=2, sort_keys=True, default=str)
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     receipt = args.output or (RECEIPT_ROOT / stamp / "materialization.json")

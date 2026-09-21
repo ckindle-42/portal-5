@@ -125,3 +125,70 @@ def check_compliance_corpus_currency() -> tuple[str, str, list[dict]]:
             findings,
         )
     return "PASS", "", findings
+
+
+@register(
+    "jurisdiction_domain",
+    "the jurisdiction domain has no value this module does not classify",
+    order=198,
+)
+def check_jurisdiction_domain() -> tuple[str, str, list[dict]]:
+    """FAIL when the store carries a jurisdiction outside {US, internal,
+    operator_note, derived} — the exact failure mode that made ``operator_note``
+    silently score as regulatory for the life of the module (CONTRACT_AND_CLOSE_V1
+    §0 RC1): a sixth value must be a loud finding, never a guess."""
+    from portal.modules.compliance.core.jurisdiction import unknown_jurisdictions
+    from portal.modules.compliance.core.repository import Repository
+
+    repo = Repository()
+    try:
+        unknown = unknown_jurisdictions(repo)
+    finally:
+        repo.close()
+    if unknown:
+        named = ", ".join(f"{u['jurisdiction']!r} ({u['n_documents']} docs)" for u in unknown)
+        return "FAIL", f"unclassified jurisdiction value(s): {named}", unknown
+    return "PASS", "", []
+
+
+@register(
+    "citation_derivation_singleton",
+    "section-id shape, jurisdiction side and requirement address are decided in exactly one place",
+    order=199,
+)
+def check_citation_derivation_singleton() -> tuple[str, str, list[dict]]:
+    """FAIL when a second module-level ``section-`` id regex exists outside
+    ``answer_contract.py``, or a two-valued ``jurisdiction ==/!= "internal"``
+    predicate survives anywhere. This is the guard against the habit
+    CONTRACT_AND_CLOSE_V1 fixed: seven regexes and fourteen side rules,
+    re-derived independently and disagreeing, because the material that already
+    knew the answer discarded it. Two more of each were added by task files
+    written AFTER the first fix — this check is what stops an eighth."""
+    import re
+
+    repo_root = Path(__file__).resolve().parents[2]
+    section_regex = re.compile(r"section-\s*[\[\(]?\s*[0-9a-f]")
+    jurisdiction_predicate = re.compile(r"""jurisdiction[^=!\n]{0,40}[=!]=\s*["']internal["']""")
+
+    offenders: list[dict] = []
+    for base in (repo_root / "portal", repo_root / "scripts"):
+        for path in base.rglob("*.py"):
+            if path.name in ("answer_contract.py", "compliance_currency.py"):
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            rel = str(path.relative_to(repo_root))
+            for lineno, line in enumerate(text.splitlines(), start=1):
+                if "section-" in line and re.search(r"re\.compile\(.*section-", line):
+                    offenders.append({"file": rel, "line": lineno, "kind": "section_id_regex"})
+                if jurisdiction_predicate.search(line):
+                    offenders.append(
+                        {"file": rel, "line": lineno, "kind": "two_valued_jurisdiction"}
+                    )
+    if offenders:
+        named = "; ".join(f"{o['file']}:{o['line']} ({o['kind']})" for o in offenders[:10])
+        more = f" (+{len(offenders) - 10} more)" if len(offenders) > 10 else ""
+        return "FAIL", f"the derivation habit survives: {named}{more}", offenders
+    return "PASS", "", []

@@ -62,6 +62,15 @@ _REF_RE = re.compile(
     re.I,
 )
 
+#: The standard's own shorthand: ``R2.4`` for ``R2 Part 2.4``. CIP-007-6 R2.4
+#: is written that way in the standard's own text — ``parse_ref`` rejected it
+#: as "not a regulatory address" for the life of the module, which is how a
+#: well-formed address became 30 of the sites' worth of "invalid" refusals.
+_SHORTHAND_RE = re.compile(
+    r"^(?P<standard>CIP-\d{3}-[\w.]+)\s+R(?P<requirement>\d+)\.(?P<part>\d+(?:\.\d+)*)\s*$",
+    re.I,
+)
+
 
 @dataclass
 class Ref:
@@ -97,9 +106,20 @@ def parse_ref(ref: str) -> Ref | None:
     Attachment addresses parse too: ``CIP-002-5.1a Attachment 1 Part 2.3`` and
     ``CIP-002-5.1a Attachment 1 Section 1`` — the register carries them as
     requirement nodes, and ``str(Ref)`` round-trips to exactly those ids."""
-    m = _REF_RE.match(str(ref).strip())
+    text = str(ref).strip()
+    m = _REF_RE.match(text)
     if not m:
-        return None
+        shorthand = _SHORTHAND_RE.match(text)
+        if shorthand is None:
+            return None
+        # Rewrite the shorthand into the canonical spelling and re-parse, so
+        # there is exactly one place ("Part N.M") that constructs a Ref.
+        m = _REF_RE.match(
+            f"{shorthand.group('standard')} R{shorthand.group('requirement')} "
+            f"Part {shorthand.group('requirement')}.{shorthand.group('part')}"
+        )
+        if m is None:
+            return None
     # Normalise the FAMILY prefix (cip-007-6 -> CIP-007-6) and nothing else.
     # Uppercasing the whole id broke revision suffixes that carry case: the
     # register's `CIP-002-5.1a` became `CIP-002-5.1A`, which matches no

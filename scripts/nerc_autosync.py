@@ -189,6 +189,43 @@ def _semantic_delta(repo: Repository, standard: str) -> dict[str, Any]:
         return {"error": str(exc)}
 
 
+def _acquire_changed_standards(
+    changed: list[dict[str, Any]], workbook: dict[str, Any], repo: Repository
+) -> tuple[dict[str, Any], list[str], dict[str, Any]]:
+    """Step 2/2b: acquire every moved standard's bundle, and record which of
+    them moved lifecycle facts only — their own PDF bytes reported UNCHANGED,
+    which is the RC3 case: apply_lifecycle_only() writes the effectivity
+    change directly rather than routing through materialize()/capture."""
+    acquired: dict[str, Any] = {}
+    warnings: list[str] = []
+    bytes_unchanged: list[str] = []
+    for entry in changed:
+        standard = str(entry["standard"])
+        family, version = standard.rsplit("-", 1)
+        bundle = sync.sync_official_bundle(family=family, versions=(version,))
+        acquired[standard] = {
+            a.name: {"status": a.status, "sha256": a.sha256[:16], "role": a.role}
+            for a in bundle.artifacts
+        }
+        warnings.extend(bundle.warnings)
+        own_pdf = next((a for a in bundle.artifacts if a.role == "standard"), None)
+        if own_pdf is not None and own_pdf.status == "UNCHANGED":
+            bytes_unchanged.append(standard)
+
+    lifecycle_only: dict[str, Any] = {}
+    if bytes_unchanged:
+        lc_repo = Repository()
+        try:
+            for standard in bytes_unchanged:
+                facts = workbook.get(standard)
+                if facts is None:
+                    continue
+                lifecycle_only[standard] = sync.apply_lifecycle_only(lc_repo, standard, facts)
+        finally:
+            lc_repo.close()
+    return acquired, warnings, lifecycle_only
+
+
 def run(
     *,
     families: tuple[str, ...] = DEFAULT_FAMILIES,
@@ -239,23 +276,23 @@ def run(
             )
             return report
 
-        # 2. acquire every moved standard's bundle
-        for entry in report["changed"]:
-            standard = str(entry["standard"])
-            family, version = standard.rsplit("-", 1)
-            bundle = sync.sync_official_bundle(family=family, versions=(version,))
-            report["acquired"][standard] = {
-                a.name: {"status": a.status, "sha256": a.sha256[:16], "role": a.role}
-                for a in bundle.artifacts
-            }
-            report["warnings"].extend(bundle.warnings)
+        # 2/2b. acquire every moved standard's bundle; route bytes-unchanged
+        # standards through the lifecycle-only path instead of materialize().
+        acquired, acquire_warnings, lifecycle_only = _acquire_changed_standards(
+            report["changed"], workbook, repo
+        )
+        report["acquired"] = acquired
+        report["warnings"].extend(acquire_warnings)
+        report["lifecycle_only"] = lifecycle_only
     finally:
         repo.close()
 
     # 3. materialize (capture lands here), re-project, rebuild links
     from scripts.materialize_regulatory_corpus import materialize
 
-    report["materialization"] = _summarise_materialization(materialize(backup=True))
+    report["materialization"] = _summarise_materialization(
+        materialize(backup=True, only_changed=True)
+    )
 
     if reproject:
         from scripts.project_compliance_sections import project

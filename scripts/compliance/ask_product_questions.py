@@ -28,7 +28,6 @@ import argparse
 import datetime as _dt
 import json
 import pathlib
-import re
 import sys
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -38,10 +37,11 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 import httpx  # noqa: E402
 from compliance_acceptance import WorkspaceThread, router_base_url  # noqa: E402
 
+from portal.modules.compliance.core.answer_contract import (  # noqa: E402
+    AnswerContract,
+    build_contract,
+)
 from portal.modules.compliance.core.repository import Repository  # noqa: E402
-
-_SECTION_ID = re.compile(r"\b([ci])section-[0-9a-f]+\b", re.I)
-_ANY_ID = re.compile(r"\b[ci]section-[0-9a-f]+\b", re.I)
 
 QUESTIONS = [
     {
@@ -114,25 +114,38 @@ QUESTIONS = [
 # the finding.
 
 
-def _cited_ids(text: str) -> list[str]:
-    return sorted({m.group(0) for m in _ANY_ID.finditer(text or "")})
+def _requirement_contract(repo, requirement: str) -> AnswerContract:
+    """The union contract over every Part of one requirement — this script
+    asks about the requirement as a whole (CIP-007-6 R2), not one Part, so no
+    single ``reading_material.render`` call covers the citations an answer
+    may use. Built the same way ``render`` builds its own: from the
+    population's own rows, never from a regex over the id."""
+    from portal.modules.compliance.core import reading_material
+    from portal.modules.compliance.core.cip_register import node_index
+    from portal.modules.compliance.core.reading_assembly import parse_ref
 
+    parsed = parse_ref(requirement)
+    standard = parsed.standard if parsed else requirement
+    parts = sorted(
+        k for k in node_index() if k == requirement or k.startswith(f"{requirement} Part ")
+    )
+    if not parts:
+        parts = [requirement]
 
-def _resolve(repo, ids: list[str]) -> tuple[list[str], list[str]]:
-    resolved, unresolved = [], []
-    for sid in ids:
-        try:
-            row = repo._conn.execute(
-                "SELECT 1 FROM source_sections WHERE section_id = ?", (sid,)
-            ).fetchone()
-        except Exception:  # noqa: BLE001 - an unreadable store resolves nothing
-            row = None
-        (resolved if row else unresolved).append(sid)
-    return resolved, unresolved
-
-
-def _side(section_id: str) -> str:
-    return "regulatory" if section_id.lower().startswith("csection-") else "operator"
+    fixed = reading_material.fixed_body(repo, standard)
+    sections: list[dict] = []
+    addresses: dict[str, str] = {requirement: requirement}
+    for ref in parts:
+        material = reading_material.render(repo, ref, fixed=fixed if "error" not in fixed else None)
+        if "error" in material:
+            continue
+        part_contract: AnswerContract = material["contract"]
+        for section_id, token in part_contract.by_section_id.items():
+            sections.append(
+                {"section_id": section_id, "side": token.kind, "document_title": token.document}
+            )
+        addresses.update(part_contract.addresses)
+    return build_contract(requirement, requirement, sections, addresses=addresses)
 
 
 def main() -> int:
@@ -153,6 +166,7 @@ def main() -> int:
     repo = Repository()
     rows = []
     try:
+        contract = _requirement_contract(repo, "CIP-007-6 R2")
         with httpx.Client(timeout=httpx.Timeout(args.timeout, connect=10.0)) as session:
             for spec in QUESTIONS:
                 thread = WorkspaceThread(session, args.workspace, router)
@@ -174,16 +188,16 @@ def main() -> int:
                     json.dumps(record, indent=2, default=str)
                 )
 
-                ids = _cited_ids(answer)
-                resolved, unresolved = _resolve(repo, ids)
-                sides = {_side(s) for s in resolved}
+                cited = contract.cited(answer)
+                ids = cited["resolved"] + cited["unresolved"]
+                sides = set(cited["by_side"])
 
                 checks = {
                     "answered": bool(answer.strip())
                     and not record.get("turn_budget_exceeded")
                     and record.get("http_status") in (200, None),
                     "cited_something": bool(ids),
-                    "all_citations_resolve": bool(ids) and not unresolved,
+                    "all_citations_resolve": bool(ids) and not cited["unresolved"],
                     "required_side_present": spec["requires_side"] in sides,
                 }
                 verdict = "PASS" if all(checks.values()) else "FAIL"
@@ -201,8 +215,8 @@ def main() -> int:
                         "wall_s": record.get("wall_s"),
                         "first_token_s": record.get("first_token_s"),
                         "cited_ids": ids,
-                        "resolved_ids": resolved,
-                        "unresolved_ids": unresolved,
+                        "resolved_ids": cited["resolved"],
+                        "unresolved_ids": cited["unresolved"],
                         "sides_cited": sorted(sides),
                         "checks": checks,
                         "verdict": verdict,

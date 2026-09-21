@@ -44,6 +44,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/addressing.py
   unit: unit-compliance-bilateral-corpus
+- name: file-portal-modules-compliance-core-answer_contract
+  globs:
+  - portal/modules/compliance/core/answer_contract.py
+  unit: unit-compliance-bilateral-corpus
 - name: file-portal-modules-compliance-core-applicability
   globs:
   - portal/modules/compliance/core/applicability.py
@@ -184,6 +188,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/internal_model.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-jurisdiction
+  globs:
+  - portal/modules/compliance/core/jurisdiction.py
+  unit: unit-compliance-bilateral-corpus
 - name: file-portal-modules-compliance-core-mapping_store
   globs:
   - portal/modules/compliance/core/mapping_store.py
@@ -348,6 +356,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/temporal_selection.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-core-text_match
+  globs:
+  - portal/modules/compliance/core/text_match.py
+  unit: unit-compliance-bilateral-corpus
 - name: file-portal-modules-compliance-core-text_signals
   globs:
   - portal/modules/compliance/core/text_signals.py

@@ -181,13 +181,21 @@ def map_read(
     # rows are in the store, their rejection reasons are not.)
     answer_id = f"map-{ref}"
     outcomes: list[dict[str, Any]] = []
+    contract = material.get("contract")
     if write:
         for entry in entries:
+            raw_section = str(entry.get("section_id", ""))
+            # The model may name the section by its citation handle ([O3]) or
+            # by the long id the mapping prompt's own example shows. resolve()
+            # accepts either and is a no-op when it is already the real id —
+            # an unresolved token falls back to the raw string unchanged.
+            found = contract.resolve(raw_section) if contract is not None else None
+            section_id = found.section_id if found is not None else raw_section
             outcomes.append(
                 candidate_links.record_determination(
                     repo,
                     requirement_id=str(entry.get("requirement_id", "")),
-                    section_id=str(entry.get("section_id", "")),
+                    section_id=section_id,
                     relation_type=str(entry.get("relation_type", "")).upper(),
                     answer_id=answer_id,
                     sentence=str(entry.get("sentence", "")),
