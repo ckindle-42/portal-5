@@ -1,0 +1,79 @@
+{
+  "run_id": "2026-09-21T22:22:16.647934+00:00",
+  "method": "Replaces the first-pass _adjudicate_arm substring heuristic (does a known section id string appear in the content) with a real reading-based judgment: each turn read against its requirement text and the actual population, judged SUPPORTED only if the answer is genuinely correct, well-grounded, and does not fabricate the requirement identity or operator facts. Also adds a full repeat run (split + single-35B, 5 turns each) to check reproducibility the way \u00a7P0 did for the sweep \u2014 single-27B is not repeated since it already loses decisively on speed (~9x turn1) and more data would not change that.",
+  "runs": {
+    "split": {
+      "run1": {
+        "turn1_wall_s": 57.81,
+        "mean_turn_wall_s": 18.66,
+        "precision": 0.8,
+        "supported": 4,
+        "total": 5,
+        "per_case": {
+          "parent": "SUPPORTED",
+          "choice": "SUPPORTED",
+          "interval": "SUPPORTED",
+          "read_check": "SUPPORTED",
+          "either_or": "UNSUPPORTED"
+        }
+      },
+      "run2": {
+        "turn1_wall_s": 62.13,
+        "mean_turn_wall_s": 20.84,
+        "precision": 0.8,
+        "supported": 4,
+        "total": 5,
+        "per_case": {
+          "parent": "SUPPORTED",
+          "choice": "SUPPORTED",
+          "interval": "SUPPORTED",
+          "read_check": "SUPPORTED",
+          "either_or": "UNSUPPORTED"
+        }
+      },
+      "reproducibility": "Fully reproducible: identical precision (0.8) and near-identical per-case verdict pattern both runs, turn1 and mean_turn within ~10% across runs. The one consistent failure mode: either_or (CIP-007-6 R5 Part 5.7) \u2014 the model asks the user a clarifying question and refuses to answer instead of proactively calling the material tool itself, in both runs, despite its own system prompt instructing it to call the tool once and answer."
+    },
+    "single-35B": {
+      "run1": {
+        "turn1_wall_s": 47.84,
+        "mean_turn_wall_s": 21.62,
+        "precision": 0.6,
+        "supported": 3,
+        "total": 5,
+        "per_case": {
+          "parent": "UNSUPPORTED",
+          "choice": "SUPPORTED",
+          "interval": "SUPPORTED",
+          "read_check": "SUPPORTED",
+          "either_or": "UNSUPPORTED"
+        },
+        "notes": {
+          "parent": "Muddled: claims the operator patch-evaluation cycle is \"15-month\", conflating the CIP Senior Manager policy-review cadence (genuinely 15 months, but for POLICY REVIEW) with the patch-evaluation cadence (which every other turn correctly reports as 30 days). A real confusion between two different cited cadences, not a clean answer.",
+          "either_or": "Hallucinated the wrong standard entirely: answered about \"CIP-005-7 R4\" (invented) instead of the actual scoped ref (CIP-007-6 R5 Part 5.7), then answered from \"training data\" rather than tools, explicitly against its own system prompt. Confidently wrong on the requirement identity, not just an honest non-answer."
+        }
+      },
+      "run2": {
+        "turn1_wall_s": 39.41,
+        "mean_turn_wall_s": 66.4,
+        "precision": 0.8,
+        "supported": 4,
+        "total": 5,
+        "per_case": {
+          "parent": "SUPPORTED",
+          "choice": "UNSUPPORTED",
+          "interval": "SUPPORTED",
+          "read_check": "SUPPORTED",
+          "either_or": "SUPPORTED"
+        },
+        "notes": {
+          "parent": "Honest this time: reported a tool failure (\"index-only result\") after 4 attempts, correctly invoked its own STOP RULE, and answered from what it had without fabricating operator specifics.",
+          "choice": "Hard failure: exceeded the 8-hop cap with zero content \u2014 looped without ever answering.",
+          "either_or": "Correct and well-grounded this time: identified the right requirement, cited a real matching section (isection-a9fc0586269cfac4a5c3), and gave a substantively correct analysis \u2014 the opposite of run1s failure on the SAME case."
+        }
+      },
+      "reproducibility": "NOT reproducible in the way that matters. Aggregate precision (0.6, 0.8) and turn1 (47.84s, 39.41s) land in similar ranges both times, and turn1 genuinely, consistently beats the incumbent split arm on both runs \u2014 that speed edge looks real. But WHICH case fails is different each run (parent+either_or in run1; choice in run2, this time a hard hop-exhaustion failure with zero content rather than a wrong answer), and mean_turn_wall_s swings 3x between runs (21.62s to 66.4s) because three of five turns in run2 took 80+ seconds versus 5-6 seconds for the identical cases in run1. This is run-to-run instability in both correctness AND latency, not noise around a stable mean."
+    }
+  },
+  "conclusion": "Not \"single-35B wins.\" The first-pass n=5, substring-heuristic result that appeared to beat the incumbent does not survive a repeat run with real reading judgment: split is reproducibly reliable (0.8 precision, consistent failure mode, both runs); single-35B has a genuine, repeated turn1-latency edge (~40-48s vs ~58-62s) but swaps which case fails each run \u2014 including one hard hop-exhaustion failure and one hallucinated-standard answer across the two runs, with mean per-turn latency varying 3x. Combined with \u00a7P3s decisive throughput finding on the sweep and \u00a7P4bs first-pass caveats already flagged, the corrected read supports the users framing: keep the incumbent split (gemma4 via the router) as the deployed conversation seat. Splash is real but not consistently reliable enough, at either model size, to justify displacing it on this evidence.",
+  "verdict": "SPLIT (incumbent stands) \u2014 tightened from the first-pass inconclusive result"
+}
