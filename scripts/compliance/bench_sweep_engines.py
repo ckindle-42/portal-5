@@ -124,6 +124,13 @@ def _one(
         "dialect": cell.get("dialect", dialect_name),
         "endpoint": cell.get("endpoint", ""),
         "context_source": cell.get("context_source", ""),
+        # map_read catches a transport failure internally and returns an
+        # {"error": ...} dict rather than raising — that dict has none of the
+        # keys below, so every accessor here defaults quietly and the cell
+        # used to be counted as "ok" with null metrics. Surfacing cell's own
+        # error is what makes _run_arm's `ok` filter and the receipt's
+        # `unaccounted` list actually see the failure and why.
+        "error": cell.get("error", ""),
         "prompt_eval_count": (cell.get("latency") or {}).get("prompt_eval_count"),
         "eval_count": (cell.get("latency") or {}).get("eval_count"),
         "prompt_eval_duration_s": (cell.get("latency") or {}).get("prompt_eval_duration_s"),
