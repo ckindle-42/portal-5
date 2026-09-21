@@ -1,0 +1,105 @@
+{
+  "question": "For CIP-002-5.1a R1, where do my documents commit me to more than the standard requires? Quote the standard's requirement and my document's stronger commitment side by side, and cite both.",
+  "answer": "\n\n[Tool-use limit (20 hops) reached. Returning partial result.]",
+  "reasoning_chars": 0,
+  "wall_s": 28.37,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.03,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+    "compliance_context": 1.0,
+    "compliance_read": 18.0
+  },
+  "tool_errors": {},
+  "usage_hops": [
+    {
+      "prompt_tokens": 2862,
+      "completion_tokens": 26
+    },
+    {
+      "prompt_tokens": 5893,
+      "completion_tokens": 41
+    },
+    {
+      "prompt_tokens": 6390,
+      "completion_tokens": 35
+    },
+    {
+      "prompt_tokens": 6477,
+      "completion_tokens": 35
+    },
+    {
+      "prompt_tokens": 6564,
+      "completion_tokens": 35
+    },
+    {
+      "prompt_tokens": 6651,
+      "completion_tokens": 35
+    },
+    {
+      "prompt_tokens": 6738,
+      "completion_tokens": 35
+    },
+    {
+      "prompt_tokens": 6825,
+      "completion_tokens": 35
+    },
+    {
+      "prompt_tokens": 6912,
+      "completion_tokens": 35
+    },
+    {
+      "prompt_tokens": 6999,
+      "completion_tokens": 35
+    },
+    {
+      "prompt_tokens": 7086,
+      "completion_tokens": 35
+    },
+    {
+      "prompt_tokens": 7173,
+      "completion_tokens": 35
+    },
+    {
+      "prompt_tokens": 7260,
+      "completion_tokens": 35
+    },
+    {
+      "prompt_tokens": 7347,
+      "completion_tokens": 35
+    },
+    {
+      "prompt_tokens": 7434,
+      "completion_tokens": 35
+    },
+    {
+      "prompt_tokens": 7521,
+      "completion_tokens": 31
+    },
+    {
+      "prompt_tokens": 7608,
+      "completion_tokens": 31
+    },
+    {
+      "prompt_tokens": 7695,
+      "completion_tokens": 35
+    },
+    {
+      "prompt_tokens": 7782,
+      "completion_tokens": 31
+    },
+    {
+      "prompt_tokens": 7869,
+      "completion_tokens": 31
+    }
+  ],
+  "prompt_tokens_high_water": 7869,
+  "prompt_tokens_final_hop": 7869,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+}
