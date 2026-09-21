@@ -366,6 +366,7 @@ def snapshot_counters(session: httpx.Client, router: str) -> dict[str, float]:
                 "portal_output_tokens_total",
                 "portal5_tool_calls_total",
                 "portal5_tool_call_errors_total",
+                "portal_errors_total",
             )
         ):
             try:
@@ -377,7 +378,13 @@ def snapshot_counters(session: httpx.Client, router: str) -> dict[str, float]:
 
 def counter_delta(before: dict[str, float], after: dict[str, float]) -> dict[str, dict[str, float]]:
     """Per-label deltas between two counter snapshots."""
-    out: dict[str, dict[str, float]] = {"input": {}, "output": {}, "tools": {}, "tool_errors": {}}
+    out: dict[str, dict[str, float]] = {
+        "input": {},
+        "output": {},
+        "tools": {},
+        "tool_errors": {},
+        "pipeline_errors": {},
+    }
     for key, value in after.items():
         # A failed scrape comes back as {"error": "..."} (str) and individual
         # values can be NaN — neither is a counter delta. Skip non-numerics:
@@ -400,6 +407,16 @@ def counter_delta(before: dict[str, float], after: dict[str, float]) -> dict[str
         elif key.startswith("portal5_tool_call_errors_total"):
             tool = key.split('tool="')[1].split('"')[0] if 'tool="' in key else key
             out["tool_errors"][tool] = out["tool_errors"].get(tool, 0) + delta
+        elif key.startswith("portal_errors_total"):
+            # portal_errors_total{workspace=...,error_type=...} — pipeline-level
+            # failures (empty_completion, tool_not_allowed, ...) that a tool
+            # error alone never surfaces: a turn can die with zero tool_errors
+            # and still record one of these (P4.2 — the harness previously
+            # read only tool counts and missed the pipeline's own detection).
+            error_type = (
+                key.split('error_type="')[1].split('"')[0] if 'error_type="' in key else key
+            )
+            out["pipeline_errors"][error_type] = out["pipeline_errors"].get(error_type, 0) + delta
     return out
 
 

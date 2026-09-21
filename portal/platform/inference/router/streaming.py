@@ -287,6 +287,24 @@ async def _dispatch_hop_tool_calls(
         workspace_id,
         [tc["function"]["name"] for tc in all_tool_calls],
     )
+    # A tool result carrying "error" used to leave only a bare error COUNT in
+    # portal5_tool_call_errors_total — the message itself (§P4.2: e.g. the
+    # router-narrowing residue from an already-dispatched call) was never
+    # logged, so a turn that died at hop 1 was knowable only by re-running it
+    # and guessing. Log the body so the first run is enough.
+    for result in dispatch_results:
+        try:
+            content = json.loads(result.get("content") or "{}")
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if isinstance(content, dict) and content.get("error"):
+            logger.warning(
+                "Tool loop hop=%d workspace=%s tool=%s error=%s",
+                hop,
+                workspace_id,
+                result.get("name"),
+                content["error"],
+            )
     return assistant_msg, dispatch_results
 
 
@@ -1470,8 +1488,14 @@ async def _build_streaming_request(
             _required_tool = _select_explicit_required_tool(
                 backend_body.get("messages", []), set(effective_tools)
             )
+        # _offer_tools narrows the SCHEMA the model sees; effective_tools
+        # (returned below, used for _dispatch_tool_call authorization) stays
+        # the workspace's full whitelist. A model under tool_choice=required
+        # that names a different tool the workspace actually allows used to
+        # have that call dropped by the whitelist gate — the narrowing was
+        # a hint about what to offer, not a shrink of what's authorized.
+        _offer_tools = [_required_tool] if _required_tool else effective_tools
         if _required_tool:
-            effective_tools = [_required_tool]
             backend_body["tool_choice"] = "required"
             logger.info(
                 "Tool-call: workspace=%s explicit side-effect intent selected required tool=%s",
@@ -1479,7 +1503,7 @@ async def _build_streaming_request(
                 _required_tool,
             )
         await tool_registry.refresh()
-        tools_array = tool_registry.get_openai_tools(effective_tools)
+        tools_array = tool_registry.get_openai_tools(_offer_tools)
         # Merge client-injected tools with workspace tools — clients
         # (e.g. bench blue/purple) may inject domain-specific tools
         # that complement the workspace tools, not replace them.

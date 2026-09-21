@@ -25,19 +25,20 @@ logger = logging.getLogger(__name__)
 
 _CREATE_ACTION_RE = re.compile(r"\b(?:build|create|generate|make|produce|save)\b")
 _RUN_ACTION_RE = re.compile(r"\b(?:execute|run)\b")
-# TASK_COMPLIANCE_REASONING_V2 P8-L live finding: with the full compliance
-# tool set offered under tool_choice=auto, the deployed model repeatedly
-# chose browser_navigate/web_search over nerc_cip_requirement for an exact
-# "what does CIP-XXX-Y RZ require" question even after its description and
-# the persona's system_prompt_append were both corrected to prefer it —
-# fixing the instructions did not change the model's own tool-choice
-# judgment. Forcing tool_choice=required with a single-tool schema (the same
-# mechanism already used for create_word_document/execute_python below) does
-# not depend on that judgment.
-_CIP_ID_RE = re.compile(r"\bcip-\d{3}(?:-\d+(?:\.\d+\w*)?)?\b")
-_REQUIREMENT_LOOKUP_RE = re.compile(
-    r"\b(require|requires|requirement|requirements|say|says|state|states|mean|means|text|verbatim)\b"
-)
+# TASK_COMPLIANCE_REASONING_V2 P8-L tried forcing tool_choice=required onto
+# nerc_cip_requirement for any message naming a CIP id plus a word like
+# "requirement" or "means" — the same mechanism used for
+# create_word_document/execute_python below, applied to a lookup instead of
+# a side effect. TASK_COMPLIANCE_PROVE_THE_MODULE_V1 §P4.1: that word list
+# ("requirement", "requirements", "say", "says", "state", "states", "mean",
+# "means", "text", "verbatim") is compliance-reading's own core vocabulary —
+# an analyst asking "what does CIP-007-6 R2 require?" matched it, got forced
+# onto a single tool, named a different one anyway (per its system prompt),
+# had that call dropped by the whitelist gate, and the turn ended unanswered
+# with the dispatch counter unmoved. Killed turns in three separate
+# measurements (closeout/p8, splash_sweep/p4, contract_and_close/p5); every
+# time the recorded workaround was to reword the question. A question is not
+# a side effect — the candidate is removed, not just re-tuned.
 
 
 def _unwrap_tool_name_envelope(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -88,10 +89,6 @@ def _select_explicit_required_tool(
         return None
 
     candidates: list[tuple[str, bool]] = [
-        (
-            "nerc_cip_requirement",
-            bool(_CIP_ID_RE.search(text)) and bool(_REQUIREMENT_LOOKUP_RE.search(text)),
-        ),
         (
             "create_powerpoint",
             bool(_CREATE_ACTION_RE.search(text))
