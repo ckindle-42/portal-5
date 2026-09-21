@@ -1,0 +1,5 @@
+{
+  "run_id": "2026-09-21T04:23:45.011574+00:00",
+  "verdict": "SKIP",
+  "reason": "sweep stayed on ollama; the splash memory watch item is not operational"
+}
