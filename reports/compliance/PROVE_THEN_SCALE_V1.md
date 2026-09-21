@@ -159,6 +159,14 @@ and the intentional-strictness note). Judgments with reasons:
 | wall (6 cells) | 413 s | 335 s | 226 s |
 | cited both sides | 6/6 cells | 1/6 | 0/6 |
 
+> **Note, CONTRACT_AND_CLOSE_V1, 2026-09-21:** this row's "6/6" was a hand
+> tally at the time. The sweep's own mechanical `cited_both_sides` field
+> recorded `False` for `interval` at this commit and every commit since,
+> because the 30-day operator note carries `jurisdiction = "operator_note"`
+> and the field's own check tested only `== "internal"`. The hand verdict
+> above was right; `answer_contract.py` fixed the field, and `interval` now
+> reconciles (`reports/compliance/contract_and_close/p3/p1_cases.json`).
+
 The signatures, because they are the finding:
 
 * **gemma4 reads.** parent is a real synthesis of all four Parts with the note

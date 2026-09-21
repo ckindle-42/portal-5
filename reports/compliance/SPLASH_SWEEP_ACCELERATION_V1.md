@@ -107,3 +107,20 @@ Jaccard vs A: B 0.2, C 0.2, D 0.2857.
 - **PASS-with-recorded-GS** validate_system.py (full): see CLOSEOUT_V1 §11: GS corpus-sync staleness is pre-existing and recorded there with the attempted repair; this campaign's own checks (incl. the new splash_sweep_engine SKIP-when-unpromoted) are green
 - **PASS** leave the box as found: splash serve and the socat relay stopped after measurement; the forwarder plist deliberately NOT loaded; launch.sh untouched
 - **BYPASSED** push to main 2026-09-21 (--no-verify) — recorded verbatim: Pre-push validate_system: 211 pass, 1 fail (GS), 1 warn, 4 skip. GS = NERC corpus last synced 51-53h ago, past 24h+24h grace. Recorded verbatim per the campaign convention. GS pre-dates this campaign (last sync Sep 18 19:28, before any of these commits); the attempted repair ran scripts/nerc_autosync.py twice and exposed a REAL pre-existing bug: store_capture's DELETE FROM source_sections raises FOREIGN KEY constraint failed when retained citations reference the revision being re-captured (the closeout sweep's citations are the first to sit on a moved revision). Store integrity verified after (integrity ok, 0 fk violations). Fixing citation-aware re-capture is its own task; the push is not held on it. No other check fails; every commit passed the full pre-commit suite green.
+
+## §ADDENDUM — CONTRACT_AND_CLOSE_V1, re-measured at a fair answer budget, 2026-09-21
+
+The --no-verify bypass above is now closed: `store_capture` compares before mutating (a genuine unchanged-content re-capture is a no-op; only a real re-extraction of an immutable revision raises), and `scripts/nerc_autosync.py` completed clean — 111 standards refreshed, zero FK violations, GS PASSES.
+
+The 6-cell splash failure this doc's §8 lessons never fully diagnosed had two components, found by tracing rather than assuming: `bench_sweep_engines.py` never threaded an answer budget to `map_read`, so both arms silently ran at the reading prompt's 3,072-token default; and `OpenAICompat.metrics()` read a `usage.prompt_tokens` key this splash build does not always populate consistently, so a failed cell could be miscounted as a completed one with null metrics. Both are fixed: `--answer-budget` is now a real flag (equal for every arm — changing it and the engine together would repeat the exact attribution mistake arm D exists to prevent), and `_one()` now propagates a cell's own transport error instead of defaulting every accessor silently.
+
+Re-run at `--answer-budget 8192`, num_ctx unchanged at 32768:
+
+| arm | model | wall s | ok | determinations |
+| --- | --- | --- | --- | --- |
+| A | gemma4:26b-a4b-it-q4_K_M-ctx32k | 1291.02 | 20/20 | 40 |
+| B | incoai/Qwen3.6-35B-A3B-Splash | 348.88 | 15/20 | 34 |
+| C | incoai/Qwen3.6-35B-A3B-Splash | 241.76 | 15/20 | 34 |
+| D | gemma4:26b-a4b-it-q4_K_M-ctx32k | 1186.71 | 19/20 | 35 |
+
+**KEEP_OLLAMA_FOR_SWEEP**, unchanged — but for a different, now-traced reason. The larger budget did NOT fix the 5 failing cells: `CIP-007-6 R5 Parts 5.1/5.4/5.5/5.6/5.7` all fail with a genuine `ContextCeilingError` — the assembled material for these Parts is ~41.7k estimated tokens against splash's fixed `--max-context 32768` serve-line pin. Ollama's arms A/D complete 20/20 and 19/20 on the identical material at the same requested `num_ctx`, so this is a splash-serve-line-specific ceiling, not a shared prompt-size problem. The engine and wall speedups clear their floors easily (4.909×, 5.34×); completion_rate (0.75 < 0.95) and reading_agreement_jaccard (0.0769 < 0.80) both fail. The jaccard is close to the 0.100 this doc's earlier addenda measured on the restricted both-completed set, so the reading disagreement is not an artifact of this budget change — raising splash's context pin (not its answer budget) is the variable a future task would need to test, and that is deliberately not done here per §Failure modes: "never widen the interval/pin to make a gate pass."
