@@ -1,0 +1,960 @@
+[
+  {
+    "assertion_id": "rel-d188ff496a9b0c1eb490",
+    "verdict": "WRONG_RELATION",
+    "quote": "3.3.5 CIP-003-8 (CIP-003-9, effective 4/1/26), Attachment 1, Section 5: Each Responsible Entity shall, except under CIP Exceptional Circumstances, implement plans to achieve the objective of mitigatin",
+    "wrong_relation": "REFERENCES",
+    "reason": "cited text is a delegation-of-authority matrix entry naming the requirement, not a description of how the mitigation plan is implemented"
+  },
+  {
+    "assertion_id": "rel-f787fdc3c6e7907a53c6",
+    "verdict": "SUPPORTED",
+    "quote": "CIP-003-8 (CIP-003-9, effective 4/1/26), R4: The Responsible Entity may delegate authority for specific actions under one or more cyber security policies to a delegate or delegates where allowed by th"
+  },
+  {
+    "assertion_id": "rel-32092be04fa0d86782b6",
+    "verdict": "SUPPORTED",
+    "quote": "These delegations are documented and include the name and title of the delegate, the specific actions delegated, and the date of the delegation; approved by the CIP Senior Manager; and updated within "
+  },
+  {
+    "assertion_id": "rel-fcdf794c5aced9a0786f",
+    "verdict": "SUPPORTED",
+    "quote": "For its assets identified in CIP\u2010002 containing low impact BES Cyber Systems, vendor electronic remote access security controls; Section 1.3, 3.1"
+  },
+  {
+    "assertion_id": "rel-8eda7a76fa299bc465d7",
+    "verdict": "SUPPORTED",
+    "quote": "The CIP Senior Manager must approve LS Power Cyber Security Policies for high impact, medium impact and assets containing low BES Cyber Systems in accordance with CIP-003-8 (CIP-003-9, effective 4/1/2"
+  },
+  {
+    "assertion_id": "rel-a29c1ffd30b9adddc3a3",
+    "verdict": "SUPPORTED",
+    "quote": "Ensures that the Cyber Security Incident Response Plan (this document) is tested at least once every fifteen (15) calendar months, as required by NERC CIP-008-6 R2 and once every thirty-six calendar m"
+  },
+  {
+    "assertion_id": "rel-e0ede6b01386059645fb",
+    "verdict": "SUPPORTED",
+    "quote": "LSPG shall document and implement a program to reinforce cyber security and physical security practices at least once each calendar quarter for personnel who have authorized electronic access and/or a"
+  },
+  {
+    "assertion_id": "rel-1b969bd0d6239f7f5ded",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following table provides a cross-reference between the regulatory compliance standards/requirements and the section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-665cc4d153247e6e137f",
+    "verdict": "SUPPORTED",
+    "quote": "LSPG has developed this Security Awareness and NERC CIP Training Program to emphasize cyber security practices to Employees, Vendors and Contractors who require authorized unescorted physical access a"
+  },
+  {
+    "assertion_id": "rel-e67aa8fffe190383b3a0",
+    "verdict": "SUPPORTED",
+    "quote": "OT Security Operations/OT Security & Compliance Management has developed a NERC CIP training program that includes:"
+  },
+  {
+    "assertion_id": "rel-aef7e1944fe4ce8c7365",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following table provides a cross-reference between the regulatory compliance standards/requirements and the section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-bc8fd7cab9e15b0d8603",
+    "verdict": "SUPPORTED",
+    "quote": "LSPG has developed this Security Awareness and NERC CIP Training Program to emphasize cyber security practices to Employees, Vendors and Contractors who require authorized unescorted physical access a"
+  },
+  {
+    "assertion_id": "rel-bc4857c33edf1eb6a17c",
+    "verdict": "SUPPORTED",
+    "quote": "LSPG shall document and implement a training program appropriate to individual roles, functions, or responsibilities that address the following content (Part 2.1):"
+  },
+  {
+    "assertion_id": "rel-972e6f508fda99832efb",
+    "verdict": "SUPPORTED",
+    "quote": "A record of the training shall be retained for evidence within the Compliance Tracking Tool."
+  },
+  {
+    "assertion_id": "rel-1f1a3405461a96c414de",
+    "verdict": "SUPPORTED",
+    "quote": "The following table provides a cross-reference between the regulatory compliance standards/requirements and the section(s) in this procedure each requirement is addressed."
+  },
+  {
+    "assertion_id": "rel-de05d14cf841a244c896",
+    "verdict": "SUPPORTED",
+    "quote": "LSPG shall require completion of cyber security training at least once every 15 months (Part 2.3)."
+  },
+  {
+    "assertion_id": "rel-a2c8e3db85851121f1bd",
+    "verdict": "SUPPORTED",
+    "quote": "HR uses an LSPG approved PRA vendor to complete identity verification, Section 3.5, and criminal history background check, Section 3.6, for the employee, vendor, or contractor in accordance with feder"
+  },
+  {
+    "assertion_id": "rel-c864e5563a17329e967a",
+    "verdict": "SUPPORTED",
+    "quote": "LSPG shall document and implement a personnel risk assessment program for personnel who require authorized electronic or authorized unescorted physical access to BES Cyber Systems."
+  },
+  {
+    "assertion_id": "rel-7e18757b62495109e110",
+    "verdict": "SUPPORTED",
+    "quote": "Evidence of identity verification upon completion of the identity check to include technique used to verify identity, e.g., Social Security Number trace."
+  },
+  {
+    "assertion_id": "rel-c6aad980c7f5105d969d",
+    "verdict": "SUPPORTED",
+    "quote": "The following employee was subject to a criminal background check and identity verification as noted below. The report was received, identity was verified, and subject was returned with no felony find"
+  },
+  {
+    "assertion_id": "rel-b9843768041e0ff7a85e",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following table provides a cross-reference between the regulatory compliance standards/requirements and the section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-221f3eda9175bbf15c47",
+    "verdict": "SUPPORTED",
+    "quote": "HR uses an LSPG approved PRA vendor to complete identity verification, Section 3.5, and criminal history background check, Section 3.6, for the employee, vendor, or contractor in accordance with feder"
+  },
+  {
+    "assertion_id": "rel-d4bd496763677310f100",
+    "verdict": "SUPPORTED",
+    "quote": "If a full seven-year criminal history check cannot be accomplished, documentation must be provided of what criminal history check was completed including the reasons why a complete seven-year check wa"
+  },
+  {
+    "assertion_id": "rel-e7b85c95431b42393763",
+    "verdict": "SUPPORTED",
+    "quote": "LSPG shall document and implement a personnel risk assessment program for personnel who require authorized electronic or authorized unescorted physical access to BES Cyber Systems."
+  },
+  {
+    "assertion_id": "rel-09afc8e0b4f482ef7ed8",
+    "verdict": "SUPPORTED",
+    "quote": "HR evaluates the results of the individual\u2019s seven-year criminal records to check results to determine acceptability based upon the following criteria:"
+  },
+  {
+    "assertion_id": "rel-4c2d0a30645bc27acc3a",
+    "verdict": "SUPPORTED",
+    "quote": "Criminal history check for individual based upon residence for the past seven years."
+  },
+  {
+    "assertion_id": "rel-34eb261d1aaa06d213c2",
+    "verdict": "SUPPORTED",
+    "quote": "The report was received, identity was verified, and subject was returned with no felony findings."
+  },
+  {
+    "assertion_id": "rel-1fabe1a3c967eb48c85a",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following table provides a cross-reference between the regulatory compliance standards/requirements and the section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-d676d501abc0908731c7",
+    "verdict": "SUPPORTED",
+    "quote": "The employee, vendor and/or contractor must complete and sign the release form prior to conducting the assessment."
+  },
+  {
+    "assertion_id": "rel-e2e972864af816b16037",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following table provides a cross-reference between the regulatory compliance standards/requirements and the section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-92be0c93b27387608e52",
+    "verdict": "SUPPORTED",
+    "quote": "If a completed PRA is not on file or cannot be provided prior to personnel being granted access during a CEC, LSPG is required to complete and submit a Self-Report for this instance to the Regional En"
+  },
+  {
+    "assertion_id": "rel-650c6dcf5a8fd57633a0",
+    "verdict": "SUPPORTED",
+    "quote": "A completed Personnel Risk Assessment (PRA) and NERC CIP training is required prior to granting unescorted physical access."
+  },
+  {
+    "assertion_id": "rel-9caaf8bd12e606a2b87d",
+    "verdict": "SUPPORTED",
+    "quote": "Prior to the seven-year anniversary, a PRA will be conducted for individuals with authorized unescorted physical access and/or authorized electronic access to applicable systems."
+  },
+  {
+    "assertion_id": "rel-0b05ecd5646be62a42a6",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following table provides a cross-reference between the regulatory compliance standards/requirements and the section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-f4d4ddd1f56e7a54d04b",
+    "verdict": "SUPPORTED",
+    "quote": "LSPG shall require, at least each calendar quarter, verification of authorization and documentation for individuals with active electronic access or unescorted physical access (Part 4.2)."
+  },
+  {
+    "assertion_id": "rel-c3a90b79f2941b5fbf20",
+    "verdict": "SUPPORTED",
+    "quote": "After the Direct Manager approves the request goes to OT Security Management for final review and approval."
+  },
+  {
+    "assertion_id": "rel-25cf9facf841406ae017",
+    "verdict": "SUPPORTED",
+    "quote": "LSPG shall conduct reviews of individuals with active electronic access, unescorted physical access, and associated authorization records, including BCSI access, on a quarterly basis and at least once"
+  },
+  {
+    "assertion_id": "rel-f9a2e6fa9bfd3579644f",
+    "verdict": "SUPPORTED",
+    "quote": "The OT Security & Compliance team facilitates quarterly reviews of authorization records for individuals with active electronic access and/or unescorted physical access."
+  },
+  {
+    "assertion_id": "rel-63fa8006a7a3c1127b71",
+    "verdict": "SUPPORTED",
+    "quote": "LSPG shall require, at least each calendar quarter, verification of authorization and documentation for individuals with active electronic access or unescorted physical access (Part 4.2)."
+  },
+  {
+    "assertion_id": "rel-d535467c72b36b6f2863",
+    "verdict": "SUPPORTED",
+    "quote": "Create a summary report of findings and compile all lists into a master workbook."
+  },
+  {
+    "assertion_id": "rel-b76a89084dd0849676e9",
+    "verdict": "SUPPORTED",
+    "quote": "The OT Security & Compliance team facilitates annual reviews (not to exceed 15 calendar months) for accuracy and business need of user accounts, group accounts, user role categories, and their specifi"
+  },
+  {
+    "assertion_id": "rel-969958b5934d729a0a57",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following table provides a cross-reference between the regulatory compliance standards/requirements and the section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-5adb4a23133db84254a1",
+    "verdict": "SUPPORTED",
+    "quote": "Revoke ability for unescorted physical access and Interactive Remote Access and complete the removals within 24 hours (Part 5.1);"
+  },
+  {
+    "assertion_id": "rel-b03bd13303b7af313211",
+    "verdict": "SUPPORTED",
+    "quote": "A process to initiate removal of an individual\u2019s ability for unescorted physical access and Interactive Remote Access upon a termination action, and complete the removals within 24 hours of the termin"
+  },
+  {
+    "assertion_id": "rel-18b52c96e0a4e396b65e",
+    "verdict": "SUPPORTED",
+    "quote": "If an individual is reassigned or transferred (job responsibility change), the user\u2019s access is revoked per OT Access Management Procedure within 24 hours of the date it is determined the user no long"
+  },
+  {
+    "assertion_id": "rel-c9f8a35fd04e947fbfc9",
+    "verdict": "SUPPORTED",
+    "quote": "Revoke access to non-shared accounts within 30 days of the effective date of the termination action (Part 5.3, for High impact BES Cyber Systems and associated EACMS only);"
+  },
+  {
+    "assertion_id": "rel-8b36e7cc77610b795b49",
+    "verdict": "SUPPORTED",
+    "quote": "R6 Part 6.1 Prior to provisioning, authorize (unless already authorized according to Part 4.1.) based on need, as determined by the Responsible Entity, except for CIP Exceptional Circumstances: 6.1.1."
+  },
+  {
+    "assertion_id": "rel-daec45427f069615672e",
+    "verdict": "SUPPORTED",
+    "quote": "LSPG shall require, at least once every 15 calendar months, verification that all provisioned access to BSCI is authorized and appropriate based on need as determined by the responsible entity (Part 6"
+  },
+  {
+    "assertion_id": "rel-e188e3f563c4ae98b7b3",
+    "verdict": "SUPPORTED",
+    "quote": "R1 Part 1.1 Electronic Security Perimeter \u2014 All applicable Cyber Assets connected to a network via a routable protocol shall reside within a defined ESP."
+  },
+  {
+    "assertion_id": "rel-299ee269cabb0fb3fbf5",
+    "verdict": "SUPPORTED",
+    "quote": "Networking devices that communicate using a routable protocol, typically Internet Protocol (IP), and are Electronic Security Perimeter (ESP) Access Points (EAPs) or within LSPG ESPs."
+  },
+  {
+    "assertion_id": "rel-6bf5ff13a7332a4f318c",
+    "verdict": "SUPPORTED",
+    "quote": "R2 Part 2.3 Require multi-factor authentication for all Interactive Remote Access sessions. Section 3.2"
+  },
+  {
+    "assertion_id": "rel-a46c3f4ce60db01f51af",
+    "verdict": "SUPPORTED",
+    "quote": "R2 Part 2.3 Require multi-factor authentication for all Interactive Remote Access sessions. Section 3.2"
+  },
+  {
+    "assertion_id": "rel-a3f84984ad7e8f2e04fb",
+    "verdict": "SUPPORTED",
+    "quote": "Where technically feasible, multi-factor authentication (MFA) will be used for all interactive Intermediate System server sessions, and privileges will be restricted to only what is required for autho"
+  },
+  {
+    "assertion_id": "rel-1cbef2c032bd2b535f2e",
+    "verdict": "UNSUPPORTED",
+    "quote": "However, all Interactive Remote Access (IRA) sessions must follow OT Electronic Security Perimeters Procedure for remote access methods.",
+    "reason": "cited sentence directs to a different procedure and never mentions multi-factor authentication, the substance of R2 Part 2.3"
+  },
+  {
+    "assertion_id": "rel-603c36b2c4876026c4de",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following tables provide a cross-reference between the regulatory compliance standards/requirements and which section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-5f6a92fa7b38141ef0f5",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following tables provide a cross-reference between the regulatory compliance standards/requirements and which section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-7b7aac24d41320bcbcdf",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following tables provide a cross-reference between the regulatory compliance standards/requirements and which section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-b4ff2da89b423b9287c5",
+    "verdict": "SUPPORTED",
+    "quote": "CIP-005-7 R2, Part 2.5 requires one or more method(s) to disable active Vendor remote access sessions (including Interactive Remote Access and system-to-system remote access), and R3, Part 3.2 require"
+  },
+  {
+    "assertion_id": "rel-ea20d2a7770d0d58ee13",
+    "verdict": "SUPPORTED",
+    "quote": "LSPG utilizes methods to restrict physical access to such cabling components which may include conduits, armored cabling, or enclosed cable trays with secure fasteners."
+  },
+  {
+    "assertion_id": "rel-5584c258ce34581fa80d",
+    "verdict": "SUPPORTED",
+    "quote": "Restrict physical access to cabling and other nonprogrammable communication components used for connection between applicable Cyber Assets within the same Electronic Security Perimeter in those instan"
+  },
+  {
+    "assertion_id": "rel-4807e7052bf459c74ffb",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following table provides a cross-reference between the regulatory compliance standards/requirements and which section(s) in this plan each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-5e4e3752abdd6f74cc4f",
+    "verdict": "SUPPORTED",
+    "quote": "CIP-006 Part 1.2 Utilize at least one physical access control to allow unescorted physical access into each applicable Physical Security Perimeter to only those individuals who have authorized unescor"
+  },
+  {
+    "assertion_id": "rel-8ad67965f13be212200d",
+    "verdict": "SUPPORTED",
+    "quote": "3.2.2.1 Position sensors/switches are required for all ACPs."
+  },
+  {
+    "assertion_id": "rel-8aea7eba9a931cc1c9ce",
+    "verdict": "SUPPORTED",
+    "quote": "3.3.1 LSPG has implemented physical access controls to protect each ACP from individuals who do not have authorized unescorted physical access into the PSP."
+  },
+  {
+    "assertion_id": "rel-63fcc5c47aaaf872a5d0",
+    "verdict": "SUPPORTED",
+    "quote": "Monitor for unauthorized access through a physical access point into a Physical Security Perimeter (Part 1.4),"
+  },
+  {
+    "assertion_id": "rel-2f440b2478f1a98f8e71",
+    "verdict": "SUPPORTED",
+    "quote": "Notification to the Transmission Operations Manager (or designee) is required after detection of unauthorized access through a physical access point into a PSP or unauthorized physical access to a PAC"
+  },
+  {
+    "assertion_id": "rel-fbf08bd60ce33ac4085f",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following table provides a cross-reference between the regulatory compliance standards/requirements and which section(s) in this plan each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-dc49e11ccaf36d6b067f",
+    "verdict": "SUPPORTED",
+    "quote": "LSPG has implemented physical access controls to protect each ACP from individuals who do not have authorized unescorted physical access into the PSP."
+  },
+  {
+    "assertion_id": "rel-5a9baf4bb0a493a70666",
+    "verdict": "SUPPORTED",
+    "quote": "Monitor each Physical Access Control System for unauthorized physical access to a Physical Access Control System (Part 1.6)"
+  },
+  {
+    "assertion_id": "rel-f14b749c32ba58547d99",
+    "verdict": "SUPPORTED",
+    "quote": "The PACS is configured to monitor and log access 24x7 to the PSPs through its access control devices (e.g., card readers, PIN pads, door sensors, and local controllers)."
+  },
+  {
+    "assertion_id": "rel-721d89a899f8e870fdc6",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following table provides a cross-reference between the regulatory compliance standards/requirements and which section(s) in this plan each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-4888e9ad56c0e4839320",
+    "verdict": "SUPPORTED",
+    "quote": "Log (through automated means or by personnel who control entry) entry of each individual with authorized unescorted physical access into each Physical Security Perimeter, with information to identify "
+  },
+  {
+    "assertion_id": "rel-b929db7b1d3c96360569",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following table provides a cross-reference between the regulatory compliance standards/requirements and which section(s) in this plan each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-fec79a386f200438a9e5",
+    "verdict": "SUPPORTED",
+    "quote": "Physical access logs (electronic and manual) will be retained for a minimum of 90 days."
+  },
+  {
+    "assertion_id": "rel-b035bff006ef50758058",
+    "verdict": "UNSUPPORTED",
+    "quote": "Section 3.7",
+    "reason": "cited text is only a bare section number ('Section 3.7') with no content tying it to 90-day log retention"
+  },
+  {
+    "assertion_id": "rel-d1dd5b66d3b32a452ee3",
+    "verdict": "SUPPORTED",
+    "quote": "R2 Part 2.1 Require continuous escorted access of visitors (individuals who are provided access but are not authorized for unescorted physical access) within each Physical Security Perimeter, except d"
+  },
+  {
+    "assertion_id": "rel-4cc3cf72e6971774ee46",
+    "verdict": "SUPPORTED",
+    "quote": "Requirement for manual or automatic logging of visitor access to a Physical Security Perimeter (CIP-006 R2.2)"
+  },
+  {
+    "assertion_id": "rel-ca8b367955328e23d278",
+    "verdict": "SUPPORTED",
+    "quote": "R2 Part 2.2 Require manual or automated logging of visitor entry into and exit from the Physical Security Perimeter that includes date and time of the initial entry and last exit, the visitor\u2019s name, "
+  },
+  {
+    "assertion_id": "rel-4b0ea0635fdfbc80ca6f",
+    "verdict": "SUPPORTED",
+    "quote": "Require manual or automated logging of visitor entry into and exit from the Physical Security Perimeter that includes date and time of the initial entry and last exit, the visitor\u2019s name, and the name"
+  },
+  {
+    "assertion_id": "rel-ccaf2d21157d6b6dc054",
+    "verdict": "SUPPORTED",
+    "quote": "R2 Part 2.3 Retain visitor logs for at least ninety calendar days. Sections 3.6.1.5, 3.6.2.6"
+  },
+  {
+    "assertion_id": "rel-0ffbe15dbac3869cc66a",
+    "verdict": "SUPPORTED",
+    "quote": "Require retention of visitor logs for at least 90 calendar days (Part 2.3)."
+  },
+  {
+    "assertion_id": "rel-dc8bfb02ed38b9ce675b",
+    "verdict": "SUPPORTED",
+    "quote": "Enable only logical network accessible ports determined to be needed (where technically feasible), including port ranges or services where needed to handle dynamic ports."
+  },
+  {
+    "assertion_id": "rel-b7e0d043f9df6a96cde8",
+    "verdict": "SUPPORTED",
+    "quote": "For applicable CIP Cyber Assets, at a minimum, logical ports and services that are not required for normal or emergency operations shall be disabled on devices within the scope of this procedure."
+  },
+  {
+    "assertion_id": "rel-cfef49e7843a539921cb",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following tables provide a cross-reference between the regulatory compliance standards/requirements and which section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-aca27ae692a909f1e5f3",
+    "verdict": "SUPPORTED",
+    "quote": "Protect against the use of unnecessary physical input/output ports used for network connectivity, console commands, or Removable Media (Part 1.2)."
+  },
+  {
+    "assertion_id": "rel-33db0bf9cff8edef0f66",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following tables provide a cross-reference between the regulatory compliance standards/requirements and which section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-259a730564bda6a5842f",
+    "verdict": "UNSUPPORTED",
+    "quote": "",
+    "reason": "no citation given (empty cited_sentences) \u2014 a determination with no quoted sentence carries no support"
+  },
+  {
+    "assertion_id": "rel-9c5c20605eed16d8bfcc",
+    "verdict": "SUPPORTED",
+    "quote": "LSPG shall document and implement a patch management process to: \u2022 Track, evaluate, and install cyber security patches for applicable Cyber Assets."
+  },
+  {
+    "assertion_id": "rel-6c4dfe33d8746bac0a80",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following tables provide a cross-reference between the regulatory compliance standards/requirements and which section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-f050b4fcf10e9b3fbb31",
+    "verdict": "SUPPORTED",
+    "quote": "All data collected or created during the discovery and initial evaluation process for security patches, by Foxguard, shall be entered directly into the applicable patch evaluation workbook which may i"
+  },
+  {
+    "assertion_id": "rel-48324df02ae8a453bd67",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following tables provide a cross-reference between the regulatory compliance standards/requirements and which section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-b0b96672af2a009e4277",
+    "verdict": "SUPPORTED",
+    "quote": "LSPG maintains mitigation plans within the Change Management Solution which serve to document patches that cannot, or have not, been deployed and the associated mitigating measures to reduce risk."
+  },
+  {
+    "assertion_id": "rel-d82bccb5ad1e512489d5",
+    "verdict": "SUPPORTED",
+    "quote": "Applicable security patches determined not able to be installed within 35 calendar days of evaluation are added to a mitigation plan by creating a dated mitigation plan or revising an existing mitigat"
+  },
+  {
+    "assertion_id": "rel-a7c2a6cb28f2f1e2507c",
+    "verdict": "SUPPORTED",
+    "quote": "The inventory of applications installed on in-scope CIP CAs shall be maintained in the applicable patch evaluation workbook."
+  },
+  {
+    "assertion_id": "rel-1dd0c7939a6a25c095fc",
+    "verdict": "SUPPORTED",
+    "quote": "All applications shall be reviewed to verify there are no applicable patches greater than thirty-five (35) days old."
+  },
+  {
+    "assertion_id": "rel-37ef2af355a2d30d1ae1",
+    "verdict": "SUPPORTED",
+    "quote": "For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken: 3.5.1.1 RFC approval and ins"
+  },
+  {
+    "assertion_id": "rel-43f327029db96ca2e328",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following tables provide a cross-reference between the regulatory compliance standards/requirements and which section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-58a7a1ad58b8693c6547",
+    "verdict": "SUPPORTED",
+    "quote": "The mitigation plan review will include determining if the plan is still valid and is on schedule to be completed by the assigned mitigation date."
+  },
+  {
+    "assertion_id": "rel-715cbc2d86a5a2df52b5",
+    "verdict": "UNSUPPORTED",
+    "quote": "",
+    "reason": "no citation given (empty cited_sentences)"
+  },
+  {
+    "assertion_id": "rel-6628f4a2a1e38dd32a2b",
+    "verdict": "SUPPORTED",
+    "quote": "R2 Part 2.4 For each mitigation plan created or revised in Part 2.3, implement the plan within the timeframe specified in the plan, unless a revision to the plan or an extension to the timeframe speci"
+  },
+  {
+    "assertion_id": "rel-da7b34915995e920cde8",
+    "verdict": "SUPPORTED",
+    "quote": "The purpose of OT Malicious Code Prevention procedure is to provide a process to document the use of malicious code prevention methods to deter, detect, prevent, and mitigate the threat of detected ma"
+  },
+  {
+    "assertion_id": "rel-34b53d2fba4ba1d0a6fd",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following tables provide a cross-reference between the regulatory compliance standards/requirements and which section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-b41e84dd30d136a79009",
+    "verdict": "SUPPORTED",
+    "quote": "LSPG shall document and implement a malicious code prevention process to: \u2022 Deploy method(s) to deter, detect, or prevent malicious code (Part 3.1), \u2022 Mitigate the threat of detected malicious code (P"
+  },
+  {
+    "assertion_id": "rel-d5c79ed11eaed6ff51d3",
+    "verdict": "SUPPORTED",
+    "quote": "The purpose of OT Malicious Code Prevention procedure is to provide a process to document the use of malicious code prevention methods to deter, detect, prevent, and mitigate the threat of detected ma"
+  },
+  {
+    "assertion_id": "rel-4c2d473a7aee33218890",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following tables provide a cross-reference between the regulatory compliance standards/requirements and which section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-dae225a810c90895a887",
+    "verdict": "SUPPORTED",
+    "quote": "The purpose of OT Malicious Code Prevention procedure is to provide a process to document the use of malicious code prevention methods to deter, detect, prevent, and mitigate the threat of detected ma"
+  },
+  {
+    "assertion_id": "rel-44cd5c41bef8d1a21093",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following tables provide a cross-reference between the regulatory compliance standards/requirements and which section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-e8660fed7fbc1c35eab0",
+    "verdict": "SUPPORTED",
+    "quote": "Completion of this review shall be documented in a Compliance Tracking Tool task."
+  },
+  {
+    "assertion_id": "rel-e810c47f3c48b0a16860",
+    "verdict": "SUPPORTED",
+    "quote": "OT shall review a summarization or sampling of logged events for Applicable Systems, at a minimum at intervals no greater than fifteen (15) calendar days, to identify undetected Cyber Security Inciden"
+  },
+  {
+    "assertion_id": "rel-2b83c6a277f179ff80f5",
+    "verdict": "SUPPORTED",
+    "quote": "R4 Part 4.4 Review a summarization or sampling of logged events, as determined by the Responsible Entity, at intervals no greater than 15 calendar days, to identify undetected Cyber Security Incidents"
+  },
+  {
+    "assertion_id": "rel-82c635fb95125e3e5d48",
+    "verdict": "SUPPORTED",
+    "quote": "Have a method(s) to enforce authentication of interactive user access, where technically feasible."
+  },
+  {
+    "assertion_id": "rel-dd6ec05872b9e1b08c75",
+    "verdict": "SUPPORTED",
+    "quote": "Define a method(s) to enforce authentication of interactive user access, where technically feasible (Part 5.1)"
+  },
+  {
+    "assertion_id": "rel-7bef8323810befa5a5a3",
+    "verdict": "SUPPORTED",
+    "quote": "Identify and inventory all known enabled default or other generic account types, either by system, by groups of systems, by location, or by system type(s)."
+  },
+  {
+    "assertion_id": "rel-1bfc4b74ee7284396cb1",
+    "verdict": "SUPPORTED",
+    "quote": "When accessing a device using a shared account, the shared account user creates a log entry in the EPM tool in the \u201creason for retrieval text box\u201d which will record the information regarding the usage"
+  },
+  {
+    "assertion_id": "rel-bc337411b578efae62d7",
+    "verdict": "SUPPORTED",
+    "quote": "Identify individuals who have authorized access to shared accounts."
+  },
+  {
+    "assertion_id": "rel-820442a8325c65b5db11",
+    "verdict": "SUPPORTED",
+    "quote": "Change known default passwords, per Cyber Asset capability"
+  },
+  {
+    "assertion_id": "rel-d115d3e6e7e323a50a23",
+    "verdict": "SUPPORTED",
+    "quote": "For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action."
+  },
+  {
+    "assertion_id": "rel-dcac798056927db4fcb0",
+    "verdict": "SUPPORTED",
+    "quote": "Where technically feasible, for password-only authentication for interactive user access, either technically or procedurally enforce password changes or an obligation to change the password at least o"
+  },
+  {
+    "assertion_id": "rel-62226f2714d9bfdfb5e8",
+    "verdict": "SUPPORTED",
+    "quote": "Generate alerts after a threshold of unsuccessful authentication attempts."
+  },
+  {
+    "assertion_id": "rel-adeef9ad36cc72543301",
+    "verdict": "SUPPORTED",
+    "quote": "LSPG shall document and implement one or more Cyber Security Incident response plans to include: \u2022 One or more processes to identify, classify, and respond to Cyber Security Incidents (Part 1.1)"
+  },
+  {
+    "assertion_id": "rel-18c0a5101c73374d9f41",
+    "verdict": "SUPPORTED",
+    "quote": "The SIRT will review available data and attempt to identify and classify the cyber security incident using Table 5.1 Classify Cyber Security Incidents."
+  },
+  {
+    "assertion_id": "rel-e50669acc848f8dc7f77",
+    "verdict": "SUPPORTED",
+    "quote": "The purpose of this work instruction is to outline the processes that OT Security Operations / OT Security & Compliance should adhere to when responding to cyber security incidents related to maliciou"
+  },
+  {
+    "assertion_id": "rel-656b308bcc4ece5c9291",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following table provides a cross-reference between the regulatory compliance standards/requirements and the section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-c60b47094ea81027fe3d",
+    "verdict": "SUPPORTED",
+    "quote": "LSPG shall document and implement one or more Cyber Security Incident response plans to include: \u2022 One or more processes to identify, classify, and respond to Cyber Security Incidents (Part 1.1) (Att."
+  },
+  {
+    "assertion_id": "rel-5e4acde2b97162f4c2e9",
+    "verdict": "UNSUPPORTED",
+    "quote": "The framework and supporting activities are not intended to form a serial path or lead to a static desired end state; the following activities can be performed concurrently and continuously to form an",
+    "reason": "cited sentence is generic framework philosophy prose, never names an incident-handling procedure"
+  },
+  {
+    "assertion_id": "rel-f279edfb9af501ad5e9a",
+    "verdict": "SUPPORTED",
+    "quote": "The purpose of this work instruction is to outline the processes that OT Security Operations / OT Security & Compliance should adhere to when responding to cyber security incidents related to maliciou"
+  },
+  {
+    "assertion_id": "rel-a410d03d0b471b18b6d3",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following table provides a cross-reference between the regulatory compliance standards/requirements and the section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-c1fcd82e26a591737f30",
+    "verdict": "SUPPORTED",
+    "quote": "LSPG shall document and implement one or more Cyber Security Incident response plans to include: \u2022 One or more processes to identify, classify, and respond to Cyber Security Incidents (Part 1.1) (Att."
+  },
+  {
+    "assertion_id": "rel-b1e06d6479d8df41b7bc",
+    "verdict": "UNSUPPORTED",
+    "quote": "Table of Contents",
+    "reason": "cited text is literally 'Table of Contents' \u2014 no substantive content"
+  },
+  {
+    "assertion_id": "rel-134739655f1479e0dae0",
+    "verdict": "SUPPORTED",
+    "quote": "CIP-008 R2 Part 2.1 Test each Cyber Security Incident response plan(s) at least once every 15 calendar months"
+  },
+  {
+    "assertion_id": "rel-bd74bb85face2864ae86",
+    "verdict": "SUPPORTED",
+    "quote": "CIP-008 R2 Part 2.2 Use the Cyber Security Incident response plan(s) under Requirement R1 when responding to a Reportable Cyber Security Incident, responding to a Cyber Security Incident that attempte"
+  },
+  {
+    "assertion_id": "rel-78536347ead8074f2e42",
+    "verdict": "SUPPORTED",
+    "quote": "Records generated from a Reportable Cyber Security incident shall be maintained for a minimum of three (3) years, or longer if directed by the Reliability Compliance Team to retain longer due to an in"
+  },
+  {
+    "assertion_id": "rel-dd91a2588e48c630cdce",
+    "verdict": "SUPPORTED",
+    "quote": "LSPG shall communicate Reportable Cyber Security Incidents to E-ISAC or if subject to the jurisdiction of the United States, the United States National Cybersecurity and Communications Integration Cen"
+  },
+  {
+    "assertion_id": "rel-f7e26be172fbd150329c",
+    "verdict": "SUPPORTED",
+    "quote": "If the incident was determined to be a Reportable Cyber Security Incident by the SIRT Team and the Director, Operations Technology, the SIRT Lead has one (1) hour to complete the OE-417 form Reliabili"
+  },
+  {
+    "assertion_id": "rel-5b00a80cf4b97cb2c7cc",
+    "verdict": "SUPPORTED",
+    "quote": "Initial notification to the E\u2010ISAC, NCCIC, ERCOT, PJM, NYISO, CAISO and other agencies which may be only a preliminary notice, shall not exceed one hour from the determination of a Reportable Cyber Se"
+  },
+  {
+    "assertion_id": "rel-31d18798291bc22ad0fa",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following table provides a cross-reference between the regulatory compliance standards/requirements and the section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-ec99deba9a05b2ed3db3",
+    "verdict": "SUPPORTED",
+    "quote": "If the incident was determined to be an attempt to compromise a system, the SIRT Lead has until the end of the next calendar day to complete and submits the appropriate form(s) to E-ISAC and NCCIC."
+  },
+  {
+    "assertion_id": "rel-2ce80c58b1c94bcbb81e",
+    "verdict": "UNSUPPORTED",
+    "quote": "This section describes the responsibilities for roles as they relate to this Procedure.",
+    "reason": "cited sentence is a generic 'this section describes responsibilities' intro, names no actual role or responsibility"
+  },
+  {
+    "assertion_id": "rel-4f5987d36ac8df7acc1d",
+    "verdict": "UNSUPPORTED",
+    "quote": "This section describes the responsibilities for roles as they relate to this procedure.",
+    "reason": "same generic section-intro sentence, names no actual role or responsibility"
+  },
+  {
+    "assertion_id": "rel-fc7c7d6ff14c50b54e1b",
+    "verdict": "UNSUPPORTED",
+    "quote": "This section describes the responsibilities for roles as they relate to this procedure.",
+    "reason": "same generic section-intro sentence, names no actual role or responsibility"
+  },
+  {
+    "assertion_id": "rel-2a233b3affb747abd1e4",
+    "verdict": "SUPPORTED",
+    "quote": "R1 Part 1.2 Roles and responsibilities of responders"
+  },
+  {
+    "assertion_id": "rel-12329d530e06dfa81917",
+    "verdict": "SUPPORTED",
+    "quote": "Upon the activation of this procedure and at the direction of the respective management team, OT Security Operations, OT Security & Compliance, Field Operations and/or EMS Support personnel shall be r"
+  },
+  {
+    "assertion_id": "rel-718776546ab39e7a3c35",
+    "verdict": "UNSUPPORTED",
+    "quote": "This section describes the responsibilities for roles as they relate to this procedure.",
+    "reason": "same generic section-intro sentence, names no actual role or responsibility"
+  },
+  {
+    "assertion_id": "rel-96b6571d8ff7fd8dcc9c",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following table provides a cross-reference between the regulatory compliance standards/requirements and the section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-90f8b87071511699bc8b",
+    "verdict": "UNSUPPORTED",
+    "quote": "The Recovery Plan describes the process to assess the conditions for the activation of the Recovery Plan, the roles and responsibilities of responders, and the backup and storage process to recover BE",
+    "reason": "cited sentence describes backup/storage recovery, not the specific data-preservation-for-cause-determination the Part requires"
+  },
+  {
+    "assertion_id": "rel-b04d6652a610d325e167",
+    "verdict": "SUPPORTED",
+    "quote": "OT, EMS, and Field Ops shall initiate a request for all backup information testing performed."
+  },
+  {
+    "assertion_id": "rel-4559d92205e10972c8c2",
+    "verdict": "SUPPORTED",
+    "quote": "CIP-009-6 Recovery Plan Specifications \u2013 R3. Each Responsible Entity shall maintain each of its recovery plans in accordance with each of the applicable requirement parts below."
+  },
+  {
+    "assertion_id": "rel-ea426b1b87c92044525a",
+    "verdict": "SUPPORTED",
+    "quote": "7.2.5 The composed lessons learned shall be scanned, saved, and uploaded to the LSPG Compliance Tracking Tool."
+  },
+  {
+    "assertion_id": "rel-eb587b005218b69f3ac7",
+    "verdict": "SUPPORTED",
+    "quote": "Authorize and document any changes that deviate from the existing baseline configuration (Part 1.2)"
+  },
+  {
+    "assertion_id": "rel-014eacef85ae3c5932d5",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following tables provide a cross-reference between the regulatory compliance standards/requirements and which section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-56af35d1be0c047ecec1",
+    "verdict": "SUPPORTED",
+    "quote": "OT Security Operations/ OT Security & Compliance is required to validate that changes are authorized before promoting (approving) the new baseline."
+  },
+  {
+    "assertion_id": "rel-e554717fc2493fd57cab",
+    "verdict": "SUPPORTED",
+    "quote": "RFC approval is required prior to implementing any changes that result in a deviation from the existing baseline configuration."
+  },
+  {
+    "assertion_id": "rel-a99338bd327c0eecfd20",
+    "verdict": "SUPPORTED",
+    "quote": "Prior to the change, determine required cyber security controls in CIP-005 and CIP-007 that could be impacted by the change (Part 1.4.1); following the change, verify the required cyber security contr"
+  },
+  {
+    "assertion_id": "rel-88f28f1268809f3802dd",
+    "verdict": "SUPPORTED",
+    "quote": "005 and CIP-007 that could be impacted by the change; 1.4.2. Following the change, verify that required cyber security controls determined in 1.4.1 are not adversely affected; and 1.4.3. Document the "
+  },
+  {
+    "assertion_id": "rel-2c93c1ab02f8984883e2",
+    "verdict": "SUPPORTED",
+    "quote": "The SME identifies the applicable CIP-005 and CIP-007 security controls that could be impacted by the baseline configuration change."
+  },
+  {
+    "assertion_id": "rel-a7b6c148758e8ce9b5be",
+    "verdict": "SUPPORTED",
+    "quote": "R1 Part 1.4.1 Prior to the change, determine required cyber security controls in CIP-005 and CIP-007 that could be impacted by the change;"
+  },
+  {
+    "assertion_id": "rel-81f176eea1278f53c170",
+    "verdict": "SUPPORTED",
+    "quote": "Performs CIP-005 and CIP-007 security controls testing for baseline configuration changes to verify that controls that could be impacted by the change are not adversely affected."
+  },
+  {
+    "assertion_id": "rel-19bb5ef7ced58e28e741",
+    "verdict": "SUPPORTED",
+    "quote": "Document the results of the testing and, if a test environment was used, the differences between the test environment and the production environment, including a description of the measures used to ac"
+  },
+  {
+    "assertion_id": "rel-99e4c4ea73b3a6d5a447",
+    "verdict": "SUPPORTED",
+    "quote": "a representative sample device that models the baseline configuration as defined by the asset owner is used in performing this procedure."
+  },
+  {
+    "assertion_id": "rel-4c7419363e67a1f807e7",
+    "verdict": "SUPPORTED",
+    "quote": "R1.6 Prior to a change that deviates from the existing baseline configuration associated with baseline items in Parts 1.1.1, 1.1.2, and 1.1.5, and when the method to do so is available to the Responsi"
+  },
+  {
+    "assertion_id": "rel-7a07338773a00a6803ef",
+    "verdict": "SUPPORTED",
+    "quote": "LSPG has created a software verification form within the Change Management Solution to document the identity and integrity verification methods used or to document that a method for verification does "
+  },
+  {
+    "assertion_id": "rel-b20fa408949816be8539",
+    "verdict": "SUPPORTED",
+    "quote": "LSPG performs a paper or active VA on High and Medium Impact BES Cyber Systems and their associated Electronic Access Control or Monitoring Systems. (EACMS), Protected Cyber Assets (PCA), and Physical"
+  },
+  {
+    "assertion_id": "rel-7546570d8fd2de3b90ae",
+    "verdict": "SUPPORTED",
+    "quote": "Perform periodic analysis of vulnerability scans to help identify risks and create action plans between CIP mandated 15-month cycles for paper or active VA."
+  },
+  {
+    "assertion_id": "rel-b018c4b194ccea257329",
+    "verdict": "SUPPORTED",
+    "quote": "LSPG shall document the results of the assessments conducted and the action plan to remediate or mitigate vulnerabilities identified in the assessments including the planned date of completing the act"
+  },
+  {
+    "assertion_id": "rel-92abf0e436f07cfbc9d6",
+    "verdict": "SUPPORTED",
+    "quote": "The final report and action plan are retained in the Compliance Tracking Tool task."
+  },
+  {
+    "assertion_id": "rel-d00efb8d95f7aa431314",
+    "verdict": "SUPPORTED",
+    "quote": "The OT Security & Compliance Team, or approved third party vendor, documents the results of paper or active VA conducted in Sections 3.1 through 3.3 of this procedure and the action plan for the remed"
+  },
+  {
+    "assertion_id": "rel-97bc987a0d797977518d",
+    "verdict": "SUPPORTED",
+    "quote": "3.3.11 CIP-010-4, R4: Each Responsible Entity, for its high impact and medium impact BES Cyber Systems and associated Protected Cyber Assets, shall implement, except under CIP Exceptional Circumstance"
+  },
+  {
+    "assertion_id": "rel-7073b325da53999e8902",
+    "verdict": "SUPPORTED",
+    "quote": "Electronically or physically mark BES Cyber System Information \u201cBCSI\u201d where operationally practical and feasible"
+  },
+  {
+    "assertion_id": "rel-743eda9cbb9fa60e5e3d",
+    "verdict": "SUPPORTED",
+    "quote": "This document addresses NERC CIP-011 that requires a program to identify and provide procedures for protecting and securely handling BES Cyber System Information (BCSI) for all BES Cyber Systems (BCS)"
+  },
+  {
+    "assertion_id": "rel-06396dcde63a8394e072",
+    "verdict": "SUPPORTED",
+    "quote": "The following table lists the categories of information that are classified as BCSI and provides examples of documentation that meets the criteria."
+  },
+  {
+    "assertion_id": "rel-a3e567d2a32dd98ee429",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following table provides a cross-reference between the regulatory compliance standards/requirements and the section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-4d6786c308c902dcd707",
+    "verdict": "SUPPORTED",
+    "quote": "3.8.1.1 LSPG shall document and implement an information protection program for: \u2022 Method(s) to identify BCSI (Part 1.1), and"
+  },
+  {
+    "assertion_id": "rel-79450e02f238a7535df4",
+    "verdict": "UNSUPPORTED",
+    "quote": "All LSPG users shall report violations of this policy to the Sr. Director, Operations Technology or the Reliability Compliance Team.",
+    "reason": "cited sentence is a policy-violation-reporting clause, unrelated to methods to protect/securely handle BCSI"
+  },
+  {
+    "assertion_id": "rel-bd5bc2dbe13d9bee0d16",
+    "verdict": "SUPPORTED",
+    "quote": "This document addresses NERC CIP-011 that requires a program to identify and provide procedures for protecting and securely handling BES Cyber System Information (BCSI) for all BES Cyber Systems (BCS)"
+  },
+  {
+    "assertion_id": "rel-140eb38c2d8c2ac264af",
+    "verdict": "UNSUPPORTED",
+    "quote": "The following table provides a cross-reference between the regulatory compliance standards/requirements and the section(s) in this procedure each requirement is addressed.",
+    "reason": "cited sentence is the generic crosswalk-table intro boilerplate ('...provides a cross-reference between the regulatory compliance standards/requirements and the section(s)...'), reused verbatim for every requirement in the family \u2014 it names no requirement-specific content"
+  },
+  {
+    "assertion_id": "rel-00fe71d2db39457f8226",
+    "verdict": "SUPPORTED",
+    "quote": "This procedure describes the methods to prevent unauthorized retrieval of BCSI from Cyber Assets that are to be disposed of or repurposed."
+  },
+  {
+    "assertion_id": "rel-16acc70e3e94b4f50c01",
+    "verdict": "SUPPORTED",
+    "quote": "Prior to the release for reuse, prevent the unauthorized retrieval of BCSI from the Cyber Asset data storage media prior to the release for reuse of applicable Cyber Assets that contain BCSI (except f"
+  },
+  {
+    "assertion_id": "rel-8ebc7cc50984e01b0bac",
+    "verdict": "SUPPORTED",
+    "quote": "LSPG will review this plan at least once every 15 calendar months and obtain the approval of the CIP Senior Manager or their delegate (NERC CIP-013-2 R3)."
+  },
+  {
+    "assertion_id": "rel-c5ffaf668a389927c756",
+    "verdict": "SUPPORTED",
+    "quote": "3.3.4 CIP-013-2, R3: Each Responsible Entity shall review and obtain CIP Senior Manager or delegate approval of its supply chain cyber security risk management plan(s) specified in Requirement R1 at l"
+  },
+  {
+    "assertion_id": "rel-a4c76f0acf3587b69d9f",
+    "verdict": "SUPPORTED",
+    "quote": "R4. Each Transmission Owner that identified a Transmission station, Transmission substation, or a primary control center in Requirement R1 and verified according to Requirement R2, and each Transmissi"
+  },
+  {
+    "assertion_id": "rel-89fd356cd46b26502950",
+    "verdict": "SUPPORTED",
+    "quote": "1.4.2.1 Responsible for completing the threat and vulnerabilities evaluation"
+  },
+  {
+    "assertion_id": "rel-f15d79dced63aef7d94b",
+    "verdict": "SUPPORTED",
+    "quote": "The physical security plan(s) shall be developed within 120 calendar days following the completion of Requirement R2 and executed according to the timeline specified in the physical security plan(s)."
+  },
+  {
+    "assertion_id": "rel-e65cff6ee5ab984f9350",
+    "verdict": "SUPPORTED",
+    "quote": "1.4.2.2 Responsible for developing physical security plans for all applicable sites"
+  }
+]
