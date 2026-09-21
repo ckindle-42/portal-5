@@ -1,0 +1,2178 @@
+{
+  "run_id": "2026-09-21T11:16:50.470927+00:00",
+  "last_success": "2026-09-18T23:33:00Z",
+  "last_error": null,
+  "families": [
+    "CIP-002",
+    "CIP-003",
+    "CIP-004",
+    "CIP-005",
+    "CIP-006",
+    "CIP-007",
+    "CIP-008",
+    "CIP-009",
+    "CIP-010",
+    "CIP-011",
+    "CIP-012",
+    "CIP-013",
+    "CIP-014",
+    "CIP-015"
+  ],
+  "n_changed": 111,
+  "standards": [
+    {
+      "standard": "CIP-002-1",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2008-07-01",
+          "inactive": "2010-03-31",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-002-2",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2010-04-01",
+          "inactive": "2010-09-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-002-3",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2010-10-01",
+          "inactive": "2016-06-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-002-3(i)",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2014-11-13",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-002-3(i)b",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2014-11-13",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-002-3a",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2013-03-21",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-002-3b",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2016-06-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-002-4",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2014-10-01",
+          "inactive": "2014-02-03",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-002-4a",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2013-03-21",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-002-5",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2014-02-03",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "747e1ac250b975a2",
+          "sections": 420
+        },
+        {
+          "revision_id": "b4a07c1f80701c5e",
+          "sections": 0
+        }
+      ],
+      "captured_already": true
+    },
+    {
+      "standard": "CIP-002-5.1",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2016-07-01",
+          "inactive": "2016-12-26",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "747e1ac250b975a2",
+          "sections": 420
+        },
+        {
+          "revision_id": "b4a07c1f80701c5e",
+          "sections": 0
+        }
+      ],
+      "captured_already": true
+    },
+    {
+      "standard": "CIP-002-5.1a",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Mandatory Subject to Enforcement"
+          },
+          "effective": {
+            "was": "",
+            "now": "2016-12-27"
+          },
+          "inactive": {
+            "was": "",
+            "now": "2028-06-30"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "747e1ac250b975a2",
+          "sections": 420
+        },
+        {
+          "revision_id": "b4a07c1f80701c5e",
+          "sections": 0
+        }
+      ],
+      "captured_already": true
+    },
+    {
+      "standard": "CIP-002-6",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2021-02-04",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-002-7",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Subject to Future Enforcement"
+          },
+          "effective": {
+            "was": "",
+            "now": "2028-07-01"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "0cc1b2319dc43bd0",
+          "sections": 0
+        },
+        {
+          "revision_id": "3ecd70c9355a088c",
+          "sections": 0
+        }
+      ],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-002-8",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Subject to Future Enforcement"
+          },
+          "effective": {
+            "was": "",
+            "now": "2028-07-01"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "00f58f1011c946e5",
+          "sections": 0
+        },
+        {
+          "revision_id": "144e4ac2cff50608",
+          "sections": 0
+        },
+        {
+          "revision_id": "2a3983d738128bf3",
+          "sections": 0
+        }
+      ],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-003-1",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2008-07-01",
+          "inactive": "2010-03-31",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "0a1be556b902474d",
+          "sections": 0
+        },
+        {
+          "revision_id": "139efd7803b9d05a",
+          "sections": 0
+        },
+        {
+          "revision_id": "923613c248ab0679",
+          "sections": 0
+        },
+        {
+          "revision_id": "e4cc8513405bccdc",
+          "sections": 0
+        },
+        {
+          "revision_id": "f7165d8be2de845c",
+          "sections": 0
+        }
+      ],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-003-10",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Subject to Future Enforcement"
+          },
+          "effective": {
+            "was": "",
+            "now": "2028-07-01"
+          },
+          "inactive": {
+            "was": "",
+            "now": "2029-06-30"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "0a1be556b902474d",
+          "sections": 0
+        },
+        {
+          "revision_id": "f7165d8be2de845c",
+          "sections": 0
+        }
+      ],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-003-11",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Subject to Future Enforcement"
+          },
+          "effective": {
+            "was": "",
+            "now": "2029-07-01"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "139efd7803b9d05a",
+          "sections": 0
+        },
+        {
+          "revision_id": "923613c248ab0679",
+          "sections": 0
+        },
+        {
+          "revision_id": "e4cc8513405bccdc",
+          "sections": 0
+        }
+      ],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-003-2",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2010-04-01",
+          "inactive": "2010-09-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-003-3",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2010-10-01",
+          "inactive": "2016-06-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-003-3a",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2016-06-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-003-4",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2014-10-01",
+          "inactive": "2014-02-03",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-003-4a",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2014-02-03",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-003-5",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2016-06-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-003-6",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2016-07-01",
+          "inactive": "2019-12-31",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-003-7",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2020-01-01",
+          "inactive": "2020-03-31",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-003-8",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Inactive"
+          },
+          "effective": {
+            "was": "",
+            "now": "2020-04-01"
+          },
+          "inactive": {
+            "was": "",
+            "now": "2026-03-31"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "ceff7112505de191",
+          "sections": 490
+        }
+      ],
+      "captured_already": true
+    },
+    {
+      "standard": "CIP-003-9",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Mandatory Subject to Enforcement"
+          },
+          "effective": {
+            "was": "",
+            "now": "2026-04-01"
+          },
+          "inactive": {
+            "was": "",
+            "now": "2028-06-30"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "3aa7858bc21854a6",
+          "sections": 0
+        },
+        {
+          "revision_id": "3f78ac315f75fa6c",
+          "sections": 0
+        },
+        {
+          "revision_id": "b10f255cf8bf3324",
+          "sections": 270
+        }
+      ],
+      "captured_already": true
+    },
+    {
+      "standard": "CIP-004-1",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2008-07-01",
+          "inactive": "2010-03-31",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-004-2",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2010-04-01",
+          "inactive": "2010-09-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-004-3",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2010-10-01",
+          "inactive": "2012-12-11",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-004-3a",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2012-12-12",
+          "inactive": "2016-06-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-004-4",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2012-12-11",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-004-4a",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2014-10-01",
+          "inactive": "2014-02-03",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-004-5",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2013-09-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-004-5.1",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2016-06-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-004-6",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2016-07-01",
+          "inactive": "2023-12-31",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-004-7",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Mandatory Subject to Enforcement"
+          },
+          "effective": {
+            "was": "",
+            "now": "2024-01-01"
+          },
+          "inactive": {
+            "was": "",
+            "now": "2028-06-30"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "1b7f722db0679929",
+          "sections": 0
+        },
+        {
+          "revision_id": "4b01d0a7eb7892af",
+          "sections": 0
+        },
+        {
+          "revision_id": "aee6d5262bd4ecd1",
+          "sections": 190
+        }
+      ],
+      "captured_already": true
+    },
+    {
+      "standard": "CIP-004-8",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Subject to Future Enforcement"
+          },
+          "effective": {
+            "was": "",
+            "now": "2028-07-01"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "9376de2257cf4314",
+          "sections": 0
+        },
+        {
+          "revision_id": "b0afb2b2a42c13a8",
+          "sections": 0
+        }
+      ],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-005-1",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2008-07-01",
+          "inactive": "2010-03-31",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-005-1a",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2011-02-01",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-005-2",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2010-04-01",
+          "inactive": "2010-09-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-005-2a",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2011-02-01",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-005-3",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2010-10-01",
+          "inactive": "2011-02-01",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-005-3a",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2011-02-02",
+          "inactive": "2016-06-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-005-4a",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2014-10-01",
+          "inactive": "2014-02-03",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-005-5",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2016-07-01",
+          "inactive": "2020-09-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-005-6",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2020-10-01",
+          "inactive": "2022-09-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-005-7",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Mandatory Subject to Enforcement"
+          },
+          "effective": {
+            "was": "",
+            "now": "2022-10-01"
+          },
+          "inactive": {
+            "was": "",
+            "now": "2028-06-30"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "316e0c6d030769a6",
+          "sections": 0
+        },
+        {
+          "revision_id": "7c2ff0092259d767",
+          "sections": 138
+        },
+        {
+          "revision_id": "a88f1600e4e56498",
+          "sections": 0
+        }
+      ],
+      "captured_already": true
+    },
+    {
+      "standard": "CIP-005-8",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Subject to Future Enforcement"
+          },
+          "effective": {
+            "was": "",
+            "now": "2028-07-01"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "9551a14beb15f063",
+          "sections": 0
+        },
+        {
+          "revision_id": "a636dba5808b2dc2",
+          "sections": 0
+        }
+      ],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-006-1",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2008-07-01",
+          "inactive": "2010-03-31",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-006-1a",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2009-12-22",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-006-1b",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2009-12-22",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-006-1c",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2010-04-20",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-006-2",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2010-04-01",
+          "inactive": "2010-07-14",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-006-2a",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2010-07-15",
+          "inactive": "2010-09-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-006-2b",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2010-07-14",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-006-2c",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2010-09-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-006-3",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2010-09-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-006-3a",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2010-10-01",
+          "inactive": "2011-05-18",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-006-3c",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2011-05-19",
+          "inactive": "2016-06-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-006-3d",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2013-03-21",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-006-4c",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2014-10-01",
+          "inactive": "2014-02-03",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-006-4d",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2013-03-21",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-006-5",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2016-06-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-006-6",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Mandatory Subject to Enforcement"
+          },
+          "effective": {
+            "was": "",
+            "now": "2016-07-01"
+          },
+          "inactive": {
+            "was": "",
+            "now": "2028-06-30"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "5515b5e7e5176a1d",
+          "sections": 204
+        }
+      ],
+      "captured_already": true
+    },
+    {
+      "standard": "CIP-006-7",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Inactive"
+          },
+          "inactive": {
+            "was": "",
+            "now": "2026-03-19"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "0c8afbe74dfd2bd1",
+          "sections": 0
+        },
+        {
+          "revision_id": "43eec104482435ec",
+          "sections": 0
+        },
+        {
+          "revision_id": "8b9a964ddcbc4ba9",
+          "sections": 0
+        }
+      ],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-006-7.1",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Subject to Future Enforcement"
+          },
+          "effective": {
+            "was": "",
+            "now": "2028-07-01"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "43eec104482435ec",
+          "sections": 0
+        },
+        {
+          "revision_id": "8b9a964ddcbc4ba9",
+          "sections": 0
+        }
+      ],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-007-1",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2008-07-01",
+          "inactive": "2010-03-31",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-007-2",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2010-03-31",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-007-2a",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2010-04-01",
+          "inactive": "2010-09-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-007-3",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2016-06-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-007-3a",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2010-10-01",
+          "inactive": "2016-06-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-007-3b",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2016-06-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-007-4a",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2014-10-01",
+          "inactive": "2014-02-03",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-007-4b",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2014-02-03",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-007-5",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2016-06-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-007-7",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Inactive"
+          },
+          "inactive": {
+            "was": "",
+            "now": "2026-03-19"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "39829090afff1c87",
+          "sections": 97
+        },
+        {
+          "revision_id": "6d1ebeb0de682069",
+          "sections": 211
+        },
+        {
+          "revision_id": "9bac9a44fbb0cd1b",
+          "sections": 0
+        },
+        {
+          "revision_id": "c7014e55e08f8676",
+          "sections": 193
+        }
+      ],
+      "captured_already": true
+    },
+    {
+      "standard": "CIP-008-1",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2008-07-01",
+          "inactive": "2010-03-31",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-008-2",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2010-04-01",
+          "inactive": "2010-09-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-008-3",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2010-10-01",
+          "inactive": "2016-06-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-008-4",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2014-10-01",
+          "inactive": "2014-02-03",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-008-5",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2016-07-01",
+          "inactive": "2020-12-31",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-008-6",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Mandatory Subject to Enforcement"
+          },
+          "effective": {
+            "was": "",
+            "now": "2021-01-01"
+          },
+          "inactive": {
+            "was": "",
+            "now": "2028-06-30"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "2f5f4fea9e310adb",
+          "sections": 0
+        },
+        {
+          "revision_id": "419d3a72b7a876ca",
+          "sections": 0
+        },
+        {
+          "revision_id": "74642c2e4ceb905a",
+          "sections": 156
+        }
+      ],
+      "captured_already": true
+    },
+    {
+      "standard": "CIP-008-7",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Inactive"
+          },
+          "inactive": {
+            "was": "",
+            "now": "2026-03-19"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "546100751a6d9b2a",
+          "sections": 0
+        },
+        {
+          "revision_id": "71a2f5c33802179a",
+          "sections": 0
+        },
+        {
+          "revision_id": "c4b6c027ae264054",
+          "sections": 0
+        }
+      ],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-008-7.1",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Subject to Future Enforcement"
+          },
+          "effective": {
+            "was": "",
+            "now": "2028-07-01"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "546100751a6d9b2a",
+          "sections": 0
+        },
+        {
+          "revision_id": "71a2f5c33802179a",
+          "sections": 0
+        }
+      ],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-009-1",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2008-07-01",
+          "inactive": "2010-03-31",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-009-2",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2010-04-01",
+          "inactive": "2010-09-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-009-3",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2010-10-01",
+          "inactive": "2016-06-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-009-4",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2014-10-01",
+          "inactive": "2014-02-03",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-009-5",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2016-06-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-009-6",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Mandatory Subject to Enforcement"
+          },
+          "effective": {
+            "was": "",
+            "now": "2016-07-01"
+          },
+          "inactive": {
+            "was": "",
+            "now": "2028-06-30"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "0661279b897af87a",
+          "sections": 189
+        }
+      ],
+      "captured_already": true
+    },
+    {
+      "standard": "CIP-009-7",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Inactive"
+          },
+          "inactive": {
+            "was": "",
+            "now": "2026-03-19"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "91c8d21921282633",
+          "sections": 0
+        },
+        {
+          "revision_id": "b329ecca893b56fc",
+          "sections": 0
+        },
+        {
+          "revision_id": "f1af4592205b811b",
+          "sections": 0
+        }
+      ],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-009-7.1",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Subject to Future Enforcement"
+          },
+          "effective": {
+            "was": "",
+            "now": "2028-07-01"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "91c8d21921282633",
+          "sections": 0
+        },
+        {
+          "revision_id": "b329ecca893b56fc",
+          "sections": 0
+        }
+      ],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-010-1",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2016-06-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-010-2",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2016-07-01",
+          "inactive": "2020-09-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-010-3",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2020-10-01",
+          "inactive": "2022-09-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-010-4",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Mandatory Subject to Enforcement"
+          },
+          "effective": {
+            "was": "",
+            "now": "2022-10-01"
+          },
+          "inactive": {
+            "was": "",
+            "now": "2028-06-30"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "2d2be70f97323738",
+          "sections": 198
+        },
+        {
+          "revision_id": "999570c4fd8736a1",
+          "sections": 0
+        }
+      ],
+      "captured_already": true
+    },
+    {
+      "standard": "CIP-010-5",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Subject to Future Enforcement"
+          },
+          "effective": {
+            "was": "",
+            "now": "2028-07-01"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "3a9ba26e18db02e4",
+          "sections": 0
+        },
+        {
+          "revision_id": "4d811503c1992382",
+          "sections": 0
+        }
+      ],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-011-1",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "",
+          "inactive": "2016-06-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-011-2",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2016-07-01",
+          "inactive": "2023-12-31",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-011-3",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Mandatory Subject to Enforcement"
+          },
+          "effective": {
+            "was": "",
+            "now": "2024-01-01"
+          },
+          "inactive": {
+            "was": "",
+            "now": "2028-06-30"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "7eb7264737015d73",
+          "sections": 104
+        },
+        {
+          "revision_id": "c81107ef04015656",
+          "sections": 0
+        }
+      ],
+      "captured_already": true
+    },
+    {
+      "standard": "CIP-011-4",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Inactive"
+          },
+          "inactive": {
+            "was": "",
+            "now": "2026-03-19"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "4e03c65d0a797130",
+          "sections": 0
+        },
+        {
+          "revision_id": "d2e66840087d6063",
+          "sections": 0
+        },
+        {
+          "revision_id": "e5dacb4f0d302e4f",
+          "sections": 0
+        }
+      ],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-011-4.1",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Subject to Future Enforcement"
+          },
+          "effective": {
+            "was": "",
+            "now": "2028-07-01"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "4e03c65d0a797130",
+          "sections": 0
+        },
+        {
+          "revision_id": "d2e66840087d6063",
+          "sections": 0
+        }
+      ],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-012-1",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Inactive"
+          },
+          "effective": {
+            "was": "",
+            "now": "2022-07-01"
+          },
+          "inactive": {
+            "was": "",
+            "now": "2026-06-30"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "0302d85d86d16ad1",
+          "sections": 0
+        }
+      ],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-012-2",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Mandatory Subject to Enforcement"
+          },
+          "effective": {
+            "was": "",
+            "now": "2026-07-01"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "045934201de7074f",
+          "sections": 76
+        },
+        {
+          "revision_id": "330e20218755e285",
+          "sections": 0
+        },
+        {
+          "revision_id": "e4d4aedfdaddca9c",
+          "sections": 0
+        }
+      ],
+      "captured_already": true
+    },
+    {
+      "standard": "CIP-013-1",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2020-10-01",
+          "inactive": "2022-09-30",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-013-2",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Mandatory Subject to Enforcement"
+          },
+          "effective": {
+            "was": "",
+            "now": "2022-10-01"
+          },
+          "inactive": {
+            "was": "",
+            "now": "2028-06-30"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "de9db5c36c39a280",
+          "sections": 0
+        },
+        {
+          "revision_id": "ffb4a30e2ec9e72d",
+          "sections": 96
+        }
+      ],
+      "captured_already": true
+    },
+    {
+      "standard": "CIP-013-3",
+      "lifecycle_delta": {
+        "change": "lifecycle moved",
+        "deltas": {
+          "status": {
+            "was": "",
+            "now": "Subject to Future Enforcement"
+          },
+          "effective": {
+            "was": "",
+            "now": "2028-07-01"
+          }
+        }
+      },
+      "known_revisions": [
+        {
+          "revision_id": "c96a82bc8d233153",
+          "sections": 0
+        },
+        {
+          "revision_id": "fd30ffd3700c9e6c",
+          "sections": 0
+        }
+      ],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-014-1",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2015-10-01",
+          "inactive": "2015-10-01",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    },
+    {
+      "standard": "CIP-014-2",
+      "lifecycle_delta": {
+        "change": "not in the store",
+        "now": {
+          "status": "Inactive",
+          "effective": "2015-10-02",
+          "inactive": "2022-06-16",
+          "implementation_plan_url": "",
+          "technical_rationale_url": ""
+        }
+      },
+      "known_revisions": [],
+      "captured_already": false
+    }
+  ],
+  "diagnosis": "A standard with a lifecycle_delta whose revisions are ALREADY CAPTURED is the RC3 case: the effective date moved, the document did not, and re-capturing it deletes the sections that retained citations, spans and requirement joins reference.",
+  "verdict": "RECORDED"
+}

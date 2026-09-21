@@ -1,0 +1,38 @@
+{
+  "run_id": "2026-09-21T12:31:39.857607+00:00",
+  "cells": {
+    "choice": {
+      "reg": 2,
+      "op": 1,
+      "both": true
+    },
+    "either_or": {
+      "reg": 2,
+      "op": 2,
+      "both": true
+    },
+    "interval": {
+      "reg": 1,
+      "op": 1,
+      "both": true
+    },
+    "no_operator_side": {
+      "reg": 3,
+      "op": 1,
+      "both": true
+    },
+    "parent": {
+      "reg": 4,
+      "op": 6,
+      "both": true
+    },
+    "read_check": {
+      "reg": 3,
+      "op": 6,
+      "both": true
+    }
+  },
+  "interval_reconciled": true,
+  "note": "PROVE_THEN_SCALE_V1.md:154 records interval PASS, 'both sides quoted'. The cited_both_sides field recorded False at 97330066 and every commit since, because the 30-day note carries jurisdiction 'operator_note'. If reconciled is true, the two verdict systems now agree and the hand verdict was right.",
+  "verdict": "PASS"
+}
