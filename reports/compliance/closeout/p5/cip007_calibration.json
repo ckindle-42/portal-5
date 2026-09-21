@@ -1,0 +1,912 @@
+{
+  "run_id": "2026-09-21T01:44:52.263238+00:00",
+  "standard": "CIP-007-6",
+  "baseline_path": "data/compliance/backups/pre_closeout_20260920T225121Z.sqlite",
+  "baseline_basis": "store snapshot data/compliance/backups/pre_closeout_20260920T225121Z.sqlite (reading-derived pairings)",
+  "baseline_pairs": 44,
+  "current_pairs": 178,
+  "summary": {
+    "preserved": 44,
+    "changed_relation": 0,
+    "lost": 0,
+    "new": 134
+  },
+  "preserved": [
+    {
+      "requirement": "CIP-007-6 R1 Part 1.2",
+      "section": "isection-5469536961202168f587",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-007-6 R2 Part 2.3",
+      "section": "isection-c75f69c881d6a214ff52",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-007-6 R2 Part 2.4",
+      "section": "isection-12bd999ecfa8bf61d440",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-007-6 R2 Part 2.4",
+      "section": "isection-87d00aedd4cf1f41f0cd",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-007-6 R3 Part 3.2",
+      "section": "isection-9632acf7d9e2f8d2d46d",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-007-6 R4 Part 4.4",
+      "section": "isection-7de5f87c883913499283",
+      "relation": "EVIDENCES"
+    },
+    {
+      "requirement": "CIP-007-6 R5 Part 5.1",
+      "section": "isection-fbc9ce9e2439c4f4af90",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-007-6 R2",
+      "section": "isection-87d00aedd4cf1f41f0cd",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-007-6 R2 Part 2.4",
+      "section": "isection-e450e773b7d8578062c6",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-007-6 R3 Part 3.3",
+      "section": "isection-9632acf7d9e2f8d2d46d",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-007-6 R3 Part 3.2",
+      "section": "isection-eccfffe0062b8f04bfeb",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-007-6 R3 Part 3.3",
+      "section": "isection-eccfffe0062b8f04bfeb",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-007-6 R5 Part 5.4",
+      "section": "isection-7685e76f49f852376938",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-007-6 R5 Part 5.1",
+      "section": "isection-7685e76f49f852376938",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-007-6 R5 Part 5.2",
+      "section": "isection-7685e76f49f852376938",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-007-6 R5 Part 5.3",
+      "section": "isection-7685e76f49f852376938",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-007-6 R5 Part 5.6",
+      "section": "isection-7685e76f49f852376938",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-007-6 R5 Part 5.7",
+      "section": "isection-7685e76f49f852376938",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-003-8 R4",
+      "section": "isection-8b3fc4ca15fc6e519f73",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R3 Part 3.1",
+      "section": "isection-2bdd0a485e3266db15e7",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R3 Part 3.1",
+      "section": "isection-1a956eed653dfae560ea",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R3 Part 3.2",
+      "section": "isection-927c09824565487245ef",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R3 Part 3.3",
+      "section": "isection-8f11090aebe46a0dc8a0",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R3 Part 3.5",
+      "section": "isection-7869c2cece8e582ffe8c",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R3 Part 3.5",
+      "section": "isection-6d0c96c74b67738d805d",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R3 Part 3.5",
+      "section": "isection-6e0c85fabafabd3e5607",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R4 Part 4.2",
+      "section": "isection-d06fd811f12c57ad4bbf",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R4 Part 4.2",
+      "section": "isection-a64e543030cedbbb056c",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R4 Part 4.2",
+      "section": "isection-884f2646b20d13ba3a7d",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R5 Part 5.3",
+      "section": "isection-64c5b56c9131246a007b",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R6 Part 6.2",
+      "section": "isection-d06fd811f12c57ad4bbf",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-013-2 R3",
+      "section": "isection-2df38174446e00c455de",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-003-9 R1",
+      "section": "isection-92592a9832a91d9ae017",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-003-8 R4",
+      "section": "isection-34eefd771edff96a7384",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-004-7 R2 Part 2.3",
+      "section": "isection-e1e88ff0988c1d559772",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R2 Part 2.3",
+      "section": "isection-926934500ea5583d3270",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-004-7 R3 Part 3.1",
+      "section": "isection-6de9b2f90c87dc00dd82",
+      "relation": "EVIDENCES"
+    },
+    {
+      "requirement": "CIP-004-7 R3 Part 3.1",
+      "section": "isection-b6cd40f635b2404bf0f2",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-004-7 R3 Part 3.3",
+      "section": "isection-b6cd40f635b2404bf0f2",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-004-7 R3 Part 3.2",
+      "section": "isection-1a956eed653dfae560ea",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R3 Part 3.5",
+      "section": "isection-b6cd40f635b2404bf0f2",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-004-7 R5 Part 5.2",
+      "section": "isection-6ab61929a92217dfb8e9",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R4",
+      "section": "isection-d06fd811f12c57ad4bbf",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R5 Part 5.1",
+      "section": "isection-d110b02ef4d7b787089a",
+      "relation": "REFERENCES"
+    }
+  ],
+  "changed_relation": [],
+  "lost": [],
+  "new": [
+    {
+      "requirement": "CIP-007-6 R1 Part 1.1",
+      "section": "isection-5469536961202168f587",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-007-6 R1 Part 1.1",
+      "section": "isection-9b3f5221ce8a7a30d1c7",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-007-6 R2 Part 2.1",
+      "section": "isection-87d00aedd4cf1f41f0cd",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-007-6 R2 Part 2.3",
+      "section": "isection-12bd999ecfa8bf61d440",
+      "relation": "EVIDENCES"
+    },
+    {
+      "requirement": "CIP-007-6 R2 Part 2.3",
+      "section": "isection-137aae1d5b133db988eb",
+      "relation": "EVIDENCES"
+    },
+    {
+      "requirement": "CIP-007-6 R3 Part 3.1",
+      "section": "isection-fcaa9b478655c44bb0ec",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-007-6 R3 Part 3.1",
+      "section": "isection-9632acf7d9e2f8d2d46d",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R1 Part 1.1",
+      "section": "isection-764f0ea056fd3ea467c1",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R1 Part 1.1",
+      "section": "isection-dd868fe054b6b21fae11",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R2 Part 2.1",
+      "section": "isection-e1e88ff0988c1d559772",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R2 Part 2.1",
+      "section": "isection-0b9c967c80b4932c117e",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R2 Part 2.1",
+      "section": "isection-dd868fe054b6b21fae11",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R3 Part 3.3",
+      "section": "isection-2bdd0a485e3266db15e7",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R3 Part 3.3",
+      "section": "isection-927c09824565487245ef",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R3 Part 3.4",
+      "section": "isection-83b7b16dcfd32de2eab9",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R4 Part 4.1",
+      "section": "isection-503810bbb237b55532a4",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R4 Part 4.3",
+      "section": "isection-a64e543030cedbbb056c",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R5 Part 5.1",
+      "section": "isection-64c5b56c9131246a007b",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-005-7 R2 Part 2.3",
+      "section": "isection-ed97263a17dc9f7e2bc2",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-005-7 R2 Part 2.5",
+      "section": "isection-f81439953da5e42e200c",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-006-6 R1 Part 1.4",
+      "section": "isection-5a5ab9d236fe29d84230",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-006-6 R1 Part 1.4",
+      "section": "isection-cc02aedeacaaa0695d73",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-006-6 R1 Part 1.4",
+      "section": "isection-32ec5c7d8c47ad3c1709",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-006-6 R1 Part 1.4",
+      "section": "isection-4e6f36de9324946237ec",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-006-6 R1 Part 1.6",
+      "section": "isection-5a5ab9d236fe29d84230",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-006-6 R1 Part 1.6",
+      "section": "isection-6962b7c90f361f8fa90f",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-006-6 R1 Part 1.6",
+      "section": "isection-4e6f36de9324946237ec",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-006-6 R1 Part 1.8",
+      "section": "isection-5a5ab9d236fe29d84230",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-006-6 R1 Part 1.9",
+      "section": "isection-07fd015c4b477ad658d3",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-006-6 R1 Part 1.10",
+      "section": "isection-106c60c07f7deccb1381",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-006-6 R1 Part 1.10",
+      "section": "isection-5a5ab9d236fe29d84230",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-006-6 R2 Part 2.2",
+      "section": "isection-facd07136fcf4a70128f",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-006-6 R2 Part 2.3",
+      "section": "isection-facd07136fcf4a70128f",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-008-6 R1 Part 1.1",
+      "section": "isection-9ab2a9716aa52bb21a56",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-008-6 R1 Part 1.1",
+      "section": "isection-4c588cd19d48739b7e38",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-008-6 R1 Part 1.1",
+      "section": "isection-6d92032ab9eb28f202b0",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-008-6 R1 Part 1.4",
+      "section": "isection-9ab2a9716aa52bb21a56",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-008-6 R1 Part 1.4",
+      "section": "isection-6d92032ab9eb28f202b0",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-008-6 R1 Part 1.4",
+      "section": "isection-640b65552a1103f50225",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-008-6 R4 Part 4.2",
+      "section": "isection-c293315764c871c7cd6e",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-008-6 R4 Part 4.2",
+      "section": "isection-4c588cd19d48739b7e38",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-009-6 R1 Part 1.2",
+      "section": "isection-a6198c1b3ac7575bb17e",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-009-6 R1 Part 1.5",
+      "section": "isection-669a330db8ed66277640",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-009-6 R2 Part 2.2",
+      "section": "isection-3eb6f33e3b91d43e51e6",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-010-4 R1 Part 1.2",
+      "section": "isection-e5b5d30cde2c9c1f3cd4",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-010-4 R1 Part 1.2",
+      "section": "isection-1500fee07c685ebbaece",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-010-4 R1 Part 1.2",
+      "section": "isection-c9e93374a7db42100961",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-010-4 R1 Part 1.4",
+      "section": "isection-1500fee07c685ebbaece",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-010-4 R1 Part 1.4",
+      "section": "isection-7d6a91bd1915c55b5176",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-010-4 R1 Part 1.4",
+      "section": "isection-d9dea8e10632778bd35a",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-010-4 R1 Part 1.5",
+      "section": "isection-1500fee07c685ebbaece",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-010-4 R1 Part 1.5",
+      "section": "isection-73896053ded1873b7d1c",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-010-4 R3 Part 3.1",
+      "section": "isection-954a80dfc1d5c2d24c97",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-010-4 R3 Part 3.4",
+      "section": "isection-132a5a6f47c595fd3282",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-010-4 R3 Part 3.4",
+      "section": "isection-b15ad1b07e7672698f18",
+      "relation": "EVIDENCES"
+    },
+    {
+      "requirement": "CIP-011-3 R1 Part 1.1",
+      "section": "isection-d8517a0a112a317bb860",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-011-3 R1 Part 1.1",
+      "section": "isection-77d784bb61d87856ad90",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-011-3 R1 Part 1.1",
+      "section": "isection-2a6ba58f620d0eb8ff12",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-011-3 R1 Part 1.2",
+      "section": "isection-2a6ba58f620d0eb8ff12",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-011-3 R1 Part 1.2",
+      "section": "isection-ff89b0b0f4344052df09",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-011-3 R2 Part 2.1",
+      "section": "isection-7819596e99b117c99190",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-014-3 R4",
+      "section": "isection-8481c6b57be704071e0c",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-014-3 R5",
+      "section": "isection-8481c6b57be704071e0c",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-013-2 R3",
+      "section": "isection-34eefd771edff96a7384",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-003-8 Attachment 1 Section 5",
+      "section": "isection-34eefd771edff96a7384",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-010-4 R4",
+      "section": "isection-34eefd771edff96a7384",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-003-9 R1",
+      "section": "isection-b1d080a820eca9150781",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-004-7 R1 Part 1.1",
+      "section": "isection-926934500ea5583d3270",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-004-7 R2 Part 2.1",
+      "section": "isection-926934500ea5583d3270",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-004-7 R2 Part 2.3",
+      "section": "isection-7879412b5de8e080a800",
+      "relation": "EVIDENCES"
+    },
+    {
+      "requirement": "CIP-004-7 R3 Part 3.1",
+      "section": "isection-a742ee993cafb5c63eb1",
+      "relation": "EVIDENCES"
+    },
+    {
+      "requirement": "CIP-004-7 R3 Part 3.3",
+      "section": "isection-a742ee993cafb5c63eb1",
+      "relation": "EVIDENCES"
+    },
+    {
+      "requirement": "CIP-004-7 R3 Part 3.4",
+      "section": "isection-b6cd40f635b2404bf0f2",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-004-7 R4 Part 4.3",
+      "section": "isection-884f2646b20d13ba3a7d",
+      "relation": "EVIDENCES"
+    },
+    {
+      "requirement": "CIP-004-7 R4 Part 4.3",
+      "section": "isection-bcb86ea841631ae4061a",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-004-7 R6 Part 6.1",
+      "section": "isection-33cc83768f509d29923c",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-005-7 R1 Part 1.2",
+      "section": "isection-b6f5509f78d482f8bc2f",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-005-7 R1 Part 1.1",
+      "section": "isection-06f4009b4cbab1f25cf6",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-005-7 R2 Part 2.3",
+      "section": "isection-f81439953da5e42e200c",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-005-7 R2 Part 2.3",
+      "section": "isection-06f4009b4cbab1f25cf6",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-005-7 R2 Part 2.3",
+      "section": "isection-14dd58e51dcf7dfcd884",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-005-7 R2 Part 2.5",
+      "section": "isection-2dd4f75367e54d100d03",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-005-7 R2 Part 2.5",
+      "section": "isection-92592a9832a91d9ae017",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-005-7 R2 Part 2.5",
+      "section": "isection-057fa20386bfe1ef3a26",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-006-6 R1 Part 1.2",
+      "section": "isection-f7839dbfe41caf67ab54",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-006-6 R1 Part 1.4",
+      "section": "isection-f7839dbfe41caf67ab54",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-006-6 R1 Part 1.6",
+      "section": "isection-f7839dbfe41caf67ab54",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-006-6 R1 Part 1.8",
+      "section": "isection-f7839dbfe41caf67ab54",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-006-6 R1 Part 1.9",
+      "section": "isection-f7839dbfe41caf67ab54",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-006-6 R1 Part 1.10",
+      "section": "isection-f7839dbfe41caf67ab54",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-006-6 R2 Part 2.2",
+      "section": "isection-dad2015e581473fa246b",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-006-6 R2 Part 2.3",
+      "section": "isection-dad2015e581473fa246b",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-006-6 R2 Part 2.2",
+      "section": "isection-33386dc31a5696c751f7",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-006-6 R2 Part 2.1",
+      "section": "isection-dad2015e581473fa246b",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-007-6 R1 Part 1.1",
+      "section": "isection-ed239c37c5c9ea99aa23",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-007-6 R1 Part 1.2",
+      "section": "isection-ed239c37c5c9ea99aa23",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-007-6 R2 Part 2.3",
+      "section": "isection-e450e773b7d8578062c6",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-007-6 R2 Part 2.2",
+      "section": "isection-21a30e0d44708f5dfdce",
+      "relation": "EVIDENCES"
+    },
+    {
+      "requirement": "CIP-007-6 R2 Part 2.1",
+      "section": "isection-e450e773b7d8578062c6",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-007-6 R2 Part 2.2",
+      "section": "isection-e450e773b7d8578062c6",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-007-6 R3 Part 3.1",
+      "section": "isection-eccfffe0062b8f04bfeb",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-007-6 R4 Part 4.4",
+      "section": "isection-e9ebd2f76d13cea92bea",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-007-6 R5 Part 5.3",
+      "section": "isection-66d4b53b3e22f35d2a44",
+      "relation": "EVIDENCES"
+    },
+    {
+      "requirement": "CIP-008-6 R1 Part 1.1",
+      "section": "isection-82f9c583aaec95137a9e",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-008-6 R1 Part 1.4",
+      "section": "isection-fa3c90bce97393236a19",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-008-6 R1 Part 1.4",
+      "section": "isection-82f9c583aaec95137a9e",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-003-9 R2",
+      "section": "isection-30831fc2e23604249ef5",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-008-6 R1",
+      "section": "isection-9ab2a9716aa52bb21a56",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-008-6 R4",
+      "section": "isection-8ef18d9d53a032848c80",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-008-6 R4",
+      "section": "isection-c293315764c871c7cd6e",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-008-6 R2 Part 2.1",
+      "section": "isection-82f9c583aaec95137a9e",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-008-6 R2 Part 2.2",
+      "section": "isection-82f9c583aaec95137a9e",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-008-6 R2 Part 2.3",
+      "section": "isection-0d324029f9e79c7ceec9",
+      "relation": "EVIDENCES"
+    },
+    {
+      "requirement": "CIP-008-6 R4 Part 4.2",
+      "section": "isection-82f9c583aaec95137a9e",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-009-6 R1 Part 1.2",
+      "section": "isection-6d7930c530f4b82634a0",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-009-6 R1 Part 1.2",
+      "section": "isection-232e45bc06393aaabbbc",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-009-6 R1 Part 1.2",
+      "section": "isection-1384f458c627b6e052df",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-009-6 R1 Part 1.2",
+      "section": "isection-1cadfd7e5412cdf3e35d",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-009-6 R1 Part 1.2",
+      "section": "isection-ee4fd0ce3c1518947f07",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-009-6 R1 Part 1.4",
+      "section": "isection-6d7930c530f4b82634a0",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-009-6 R3 Part 3.1",
+      "section": "isection-aed910227a16cb23133f",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-009-6 R3 Part 3.1",
+      "section": "isection-fc83c78fe1a856b9431f",
+      "relation": "EVIDENCES"
+    },
+    {
+      "requirement": "CIP-010-4 R1 Part 1.2",
+      "section": "isection-2d5709630f6566082ce1",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-010-4 R1 Part 1.4",
+      "section": "isection-d25a469654085bff6b6b",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-010-4 R1 Part 1.4",
+      "section": "isection-7b944c35ce9261c14275",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-010-4 R1 Part 1.6",
+      "section": "isection-ad41ac8e196bb2874827",
+      "relation": "EVIDENCES"
+    },
+    {
+      "requirement": "CIP-010-4 R1 Part 1.6",
+      "section": "isection-7b944c35ce9261c14275",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-010-4 R3 Part 3.2",
+      "section": "isection-3831cb9eb97205ceb1a7",
+      "relation": "IMPLEMENTS"
+    },
+    {
+      "requirement": "CIP-011-3 R1 Part 1.1",
+      "section": "isection-c0da22e080db0037a8d1",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-011-3 R1 Part 1.1",
+      "section": "isection-5e2f52b8dbb9dc337870",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-011-3 R1 Part 1.2",
+      "section": "isection-c0da22e080db0037a8d1",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-011-3 R1 Part 1.2",
+      "section": "isection-5e2f52b8dbb9dc337870",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-014-3 R4",
+      "section": "isection-7a80d3bd98433c322111",
+      "relation": "REFERENCES"
+    },
+    {
+      "requirement": "CIP-014-3 R5",
+      "section": "isection-7a80d3bd98433c322111",
+      "relation": "REFERENCES"
+    }
+  ],
+  "interpretation": "changed_relation is always a review item. lost is legitimate when the re-reading refused the citation under the same checker; it is a regression when the pairing simply vanished. new pairings passed the same checker as any other and get no special treatment. Nothing here is auto-actioned.",
+  "verdict": "RECORDED"
+}
