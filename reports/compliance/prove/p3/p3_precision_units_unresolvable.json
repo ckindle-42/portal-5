@@ -1,0 +1,514 @@
+{
+  "n_units": 46,
+  "units": [
+    {
+      "requirement_id": "CIP-004 R5",
+      "section_id": "csection-04e66666666666666666666666666666",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "A"
+      ]
+    },
+    {
+      "requirement_id": "CIP-004 R5 Part 5.4",
+      "section_id": "csection-03a8b31512a240440322",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "A"
+      ]
+    },
+    {
+      "requirement_id": "CIP-004 R5 Part 5.4",
+      "section_id": "csection-51lba4f3641bcdc9e70301c6",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "D"
+      ]
+    },
+    {
+      "requirement_id": "CIP-004 R5 Part 5.4",
+      "section_id": "csection-5fb0af3dc5d821f7ddeb",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "",
+      "requirement_text_synthesized": false,
+      "section_text": "* The NERC Board of Trustees adopted Reliability Standards CIP -006 -6 and CIP -009 -6, and an associated implementation plan, on November 13, 2014. While these Reliability Standards are not being presented again for ballot or Board adoption, they are included herein for ease of reference and to provide a single implementation plan that contains all of the Reliability Standards adopted as part of Project 2014 -02 CIP Version 5 Revisions.\n",
+      "in_arms": [
+        "A"
+      ]
+    },
+    {
+      "requirement_id": "CIP-004 R5 Part 5.4",
+      "section_id": "isection-7685e76f49f852376938",
+      "relation_type": "REFERENCES",
+      "requirement_text": "",
+      "requirement_text_synthesized": false,
+      "section_text": "5.1 Appendix 1: Requirements Traceability \nThe \nfollowing \ntable \nprovides \na \ncross-reference \nbetween \nthe \nregulatory \ncompliance \nstandards/requirements and the section(s) in this procedure each requirement is addressed. \nNERC Standard & Requirement \nProcedure \nSections \nApplicable \nSystems \nTFE \nEligible? \nCIP-004 R5 \u2013 Access Revocation \nR5. Each Responsible Entity shall implement one or more documented access revocation \nprograms that collectively include each of the applicable requirements. \nR5 Part 5.4 For termination actions, change \npasswords for shared account(s) known to the \nuser within 30 calendar days of the \ntermination action. For reassignments or \ntransfers, change passwords for shared \naccount(s) known to the user within 30 \ncalendar days following the date that the \nResponsible Entity determines that the \nindividual no longer requires retention of that \naccess. \nIf the Responsible Entity determines and \ndocuments that extenuating operating \ncircumstances require a longer time \nperiod, change the password(s) within 10 \ncalendar days following the end of the \noperating circumstances. \nSections \n3.4.2 \nHigh Impact BCS and \ntheir associated \nEACMs \nNo \nCIP-007 R5 \u2013 System Access Control \nR5. Each Responsible Entity shall implement one or more documented processes that \ncollectively include each of the applicable requirement parts. \nR5 Part 5.1 Have a method(s) to enforce \nauthentication of interactive user \naccess, where technically feasible. \nSection \n3.1 \nHigh Impact BCS \nand their \nassociated CIP \nCyber Assets \nYes \n \n \nMedium Impact \nBCS at Control \nCenters and their \nassociated CIP \nCyber Assets \n \n\n \nPRIVATE \u2013 FOR INTERNAL USE ONLY \nPage 14 of 16 \n \nNERC Standard & Requirement \nProcedure \nSections \nApplicable \nSystems \nTFE \nEligible? \nR5 Part 5.2 Identify and inventory all known \nenabled default or other generic account \ntypes, either by system, by groups of systems, \nby location, or by system type(s). \nSection \n3.1.4 \nHigh Impact BCS \nand their \nassociated CIP \nCyber Assets \nNo \n \n \nMedium Impact \nBCS and their \nassociated CIP \nCyber Assets \n \nR5 Part 5.3 Identify individuals who have \nauthorized access to shared accounts. \nSection \n3.2.2 \nHigh Impact BCS \nand their \nassociated CIP \nCyber Assets \nNo \n \n \nMedium Impact BCS \nwith External \nRoutable \nConnectivity and \ntheir associated CIP \nCyber Assets \n \nR5 Part 5.4 Change known default passwords, \nper Cyber Asset capability \nSection \n3.1.4 \nHigh Impact BCS \nand their \nassociated CIP \nCyber Assets \nNo \n \n \nMedium Impact \nBCS and their \nassociated CIP \nCyber Assets \n \nR5 Part 5.5 For password-only authentication \nfor interactive user access, either technically \nor procedurally enforce the following password \nparameters: \nSection \n3.5 \nHigh Impact BCS \nand their \nassociated CIP \nCyber Assets \nNo \n \n \nMedium Impact \nBCS and their \n \n\n \nPRIVATE \u2013 FOR INTERNAL USE ONLY \nPage 15 of 16 \n \nNERC Standard & Requirement \nProcedure \nSections \nApplicable \nSystems \nTFE \nEligible? \nR5 Part 5.5.1 Password length that is, at least, \nthe lesser of eight characters or the \nmaximum length supported by the Cyber \nAsset; and \nSection \n3.5.2 \nHigh Impact BCS and \ntheir associated CIP \nCyber Assets \nMedium Impact BCS \nand their associated \nCIP Cyber Assets \nNo \nR5 Part 5.5.2 Minimum password complexity \nthat is the lesser of three or more different \ntypes of characters (e.g., uppercase \nalphabetic, lowercase alphabetic, numeric, \nnon-alphanumeric) or the maximum \ncomplexity supported by the Cyber Asset. \nSection \n3.5.2 \nHigh Impact BCS and \ntheir associated CIP \nCyber Assets \nMedium Impact BCS \nand their associated \nCIP Cyber Assets \nNo \nR5 Part 5.6 Where technically feasible, for \npassword-only authentication for interactive \nuser access, either technically or procedurally \nenforce password changes or an obligation to \nchange the password at least once every 15 \ncalendar months. \nSection \n3.4.1.1 \n3.4.2.2 \n3.5.1 \nHigh Impact BCS and \ntheir associated CIP \nCyber Assets \nMedium Impact BCS \nwith External Routable \nConnectivity and their \nassociated CIP Cyber \nAssets \nNo \nR5 Part 5.7 Where technically feasible, either: \nLimit the number of unsuccessful \nauthentication attempts; or \nGenerate alerts after a threshold of unsuccessful \nauthentication attempts. \nSection \n3.5.3 \nHigh Impact BCS and \ntheir associated CIP \nCyber Assets \nMedium Impact BCS \nat Control Centers \nand their associated \nCIP Cyber Assets \nYes \n \n \n\n \nPRIVATE \u2013 FOR INTERNAL USE ONLY \nPage 16 of 16 \n \n",
+      "in_arms": [
+        "C"
+      ]
+    },
+    {
+      "requirement_id": "CIP-004 R5 \u2013 Access Revocation",
+      "section_id": "csection-5fb0af3dc5d821f7ddeb",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "",
+      "requirement_text_synthesized": false,
+      "section_text": "* The NERC Board of Trustees adopted Reliability Standards CIP -006 -6 and CIP -009 -6, and an associated implementation plan, on November 13, 2014. While these Reliability Standards are not being presented again for ballot or Board adoption, they are included herein for ease of reference and to provide a single implementation plan that contains all of the Reliability Standards adopted as part of Project 2014 -02 CIP Version 5 Revisions.\n",
+      "in_arms": [
+        "D"
+      ]
+    },
+    {
+      "requirement_id": "CIP-004-6 R2 Part 2.4.5",
+      "section_id": "csection-5ef06866666666666666666666666666",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "A"
+      ]
+    },
+    {
+      "requirement_id": "CIP-004-6 R5 Part 5.4",
+      "section_id": "isection-7685e76f49f852376938",
+      "relation_type": "REFERENCES",
+      "requirement_text": "",
+      "requirement_text_synthesized": false,
+      "section_text": "5.1 Appendix 1: Requirements Traceability \nThe \nfollowing \ntable \nprovides \na \ncross-reference \nbetween \nthe \nregulatory \ncompliance \nstandards/requirements and the section(s) in this procedure each requirement is addressed. \nNERC Standard & Requirement \nProcedure \nSections \nApplicable \nSystems \nTFE \nEligible? \nCIP-004 R5 \u2013 Access Revocation \nR5. Each Responsible Entity shall implement one or more documented access revocation \nprograms that collectively include each of the applicable requirements. \nR5 Part 5.4 For termination actions, change \npasswords for shared account(s) known to the \nuser within 30 calendar days of the \ntermination action. For reassignments or \ntransfers, change passwords for shared \naccount(s) known to the user within 30 \ncalendar days following the date that the \nResponsible Entity determines that the \nindividual no longer requires retention of that \naccess. \nIf the Responsible Entity determines and \ndocuments that extenuating operating \ncircumstances require a longer time \nperiod, change the password(s) within 10 \ncalendar days following the end of the \noperating circumstances. \nSections \n3.4.2 \nHigh Impact BCS and \ntheir associated \nEACMs \nNo \nCIP-007 R5 \u2013 System Access Control \nR5. Each Responsible Entity shall implement one or more documented processes that \ncollectively include each of the applicable requirement parts. \nR5 Part 5.1 Have a method(s) to enforce \nauthentication of interactive user \naccess, where technically feasible. \nSection \n3.1 \nHigh Impact BCS \nand their \nassociated CIP \nCyber Assets \nYes \n \n \nMedium Impact \nBCS at Control \nCenters and their \nassociated CIP \nCyber Assets \n \n\n \nPRIVATE \u2013 FOR INTERNAL USE ONLY \nPage 14 of 16 \n \nNERC Standard & Requirement \nProcedure \nSections \nApplicable \nSystems \nTFE \nEligible? \nR5 Part 5.2 Identify and inventory all known \nenabled default or other generic account \ntypes, either by system, by groups of systems, \nby location, or by system type(s). \nSection \n3.1.4 \nHigh Impact BCS \nand their \nassociated CIP \nCyber Assets \nNo \n \n \nMedium Impact \nBCS and their \nassociated CIP \nCyber Assets \n \nR5 Part 5.3 Identify individuals who have \nauthorized access to shared accounts. \nSection \n3.2.2 \nHigh Impact BCS \nand their \nassociated CIP \nCyber Assets \nNo \n \n \nMedium Impact BCS \nwith External \nRoutable \nConnectivity and \ntheir associated CIP \nCyber Assets \n \nR5 Part 5.4 Change known default passwords, \nper Cyber Asset capability \nSection \n3.1.4 \nHigh Impact BCS \nand their \nassociated CIP \nCyber Assets \nNo \n \n \nMedium Impact \nBCS and their \nassociated CIP \nCyber Assets \n \nR5 Part 5.5 For password-only authentication \nfor interactive user access, either technically \nor procedurally enforce the following password \nparameters: \nSection \n3.5 \nHigh Impact BCS \nand their \nassociated CIP \nCyber Assets \nNo \n \n \nMedium Impact \nBCS and their \n \n\n \nPRIVATE \u2013 FOR INTERNAL USE ONLY \nPage 15 of 16 \n \nNERC Standard & Requirement \nProcedure \nSections \nApplicable \nSystems \nTFE \nEligible? \nR5 Part 5.5.1 Password length that is, at least, \nthe lesser of eight characters or the \nmaximum length supported by the Cyber \nAsset; and \nSection \n3.5.2 \nHigh Impact BCS and \ntheir associated CIP \nCyber Assets \nMedium Impact BCS \nand their associated \nCIP Cyber Assets \nNo \nR5 Part 5.5.2 Minimum password complexity \nthat is the lesser of three or more different \ntypes of characters (e.g., uppercase \nalphabetic, lowercase alphabetic, numeric, \nnon-alphanumeric) or the maximum \ncomplexity supported by the Cyber Asset. \nSection \n3.5.2 \nHigh Impact BCS and \ntheir associated CIP \nCyber Assets \nMedium Impact BCS \nand their associated \nCIP Cyber Assets \nNo \nR5 Part 5.6 Where technically feasible, for \npassword-only authentication for interactive \nuser access, either technically or procedurally \nenforce password changes or an obligation to \nchange the password at least once every 15 \ncalendar months. \nSection \n3.4.1.1 \n3.4.2.2 \n3.5.1 \nHigh Impact BCS and \ntheir associated CIP \nCyber Assets \nMedium Impact BCS \nwith External Routable \nConnectivity and their \nassociated CIP Cyber \nAssets \nNo \nR5 Part 5.7 Where technically feasible, either: \nLimit the number of unsuccessful \nauthentication attempts; or \nGenerate alerts after a threshold of unsuccessful \nauthentication attempts. \nSection \n3.5.3 \nHigh Impact BCS and \ntheir associated CIP \nCyber Assets \nMedium Impact BCS \nat Control Centers \nand their associated \nCIP Cyber Assets \nYes \n \n \n\n \nPRIVATE \u2013 FOR INTERNAL USE ONLY \nPage 16 of 16 \n \n",
+      "in_arms": [
+        "C"
+      ]
+    },
+    {
+      "requirement_id": "CIP-006-6 R2 Part 2.2",
+      "section_id": "isection-3.7.9",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "Require manual or automated logging of visitor entry into and exit from the Physical Security Perimeter that includes date and time of the initial entry and last exit, the visitor\u2019s name, and the name of an individual point of contact responsible for the visitor, except during CIP Exceptional Circumstances.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "C"
+      ]
+    },
+    {
+      "requirement_id": "CIP-006-6 R2.2",
+      "section_id": "csection-04444444444444444444444444444444",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "D"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R1 Part 1.1",
+      "section_id": "csection-3707469307a3c5852aa3",
+      "relation_type": "EVIDENCES",
+      "requirement_text": "Where technically feasible, enable only logical network accessible ports that have been determined to be needed by the Responsible Entity, including port ranges or services where needed to handle dynamic ports. If a device has no provision for disabling or restricting logical ports on the device then those ports that are open are deemed needed.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "D"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R1 Part 1.1.4",
+      "section_id": "csection-05806666666666666666666666666666",
+      "relation_type": "REFERENCES",
+      "requirement_text": "",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "D"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R2 Part 2.1",
+      "section_id": "csection-o4-11",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "A patch management process for tracking, evaluating, and installing cyber security patches for applicable Cyber Assets. The tracking portion shall include the identification of a source or sources that the Responsible Entity tracks for the release of cyber security patches for applicable Cyber Assets that are updateable and for which a patching source exists.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "D"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "section_id": "csection-3224ad86066666666666666666666666",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.1.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "D"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "section_id": "csection-334d4e990131cda252fca",
+      "relation_type": "EVIDENCES",
+      "requirement_text": "At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.1.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "A"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R2 Part 2.2",
+      "section_id": "csection-o1-332",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.1.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "D"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R2 Part 2.3",
+      "section_id": "csection-322_inventory",
+      "relation_type": "NONE",
+      "requirement_text": "For applicable patches identified in Part 2.2, within 35 calendar days of the evaluation completion, take one of the following actions: - Apply the applicable patches; or - Create a dated mitigation plan; or - Revise an existing mitigation plan. Mitigation plans shall include the Responsible Entity\u2019s planned actions to mitigate the vulnerabilities addressed by each security patch and a timeframe to complete these mitigations.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "A"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R2 Part 2.3",
+      "section_id": "csection-342_policy",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "For applicable patches identified in Part 2.2, within 35 calendar days of the evaluation completion, take one of the following actions: - Apply the applicable patches; or - Create a dated mitigation plan; or - Revise an existing mitigation plan. Mitigation plans shall include the Responsible Entity\u2019s planned actions to mitigate the vulnerabilities addressed by each security patch and a timeframe to complete these mitigations.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "A"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R2 Part 2.3",
+      "section_id": "csection-35_patch_impl",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "For applicable patches identified in Part 2.2, within 35 calendar days of the evaluation completion, take one of the following actions: - Apply the applicable patches; or - Create a dated mitigation plan; or - Revise an existing mitigation plan. Mitigation plans shall include the Responsible Entity\u2019s planned actions to mitigate the vulnerabilities addressed by each security patch and a timeframe to complete these mitigations.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "A"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R2 Part 2.3",
+      "section_id": "csection-36_mitigation_mgmt",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "For applicable patches identified in Part 2.2, within 35 calendar days of the evaluation completion, take one of the following actions: - Apply the applicable patches; or - Create a dated mitigation plan; or - Revise an existing mitigation plan. Mitigation plans shall include the Responsible Entity\u2019s planned actions to mitigate the vulnerabilities addressed by each security patch and a timeframe to complete these mitigations.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "A"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R2 Part 2.3",
+      "section_id": "csection-4c86fad4713337ba99d",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "For applicable patches identified in Part 2.2, within 35 calendar days of the evaluation completion, take one of the following actions: - Apply the applicable patches; or - Create a dated mitigation plan; or - Revise an existing mitigation plan. Mitigation plans shall include the Responsible Entity\u2019s planned actions to mitigate the vulnerabilities addressed by each security patch and a timeframe to complete these mitigations.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "A"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R2 Part 2.3",
+      "section_id": "csection-51_traceability",
+      "relation_type": "REFERENCES",
+      "requirement_text": "For applicable patches identified in Part 2.2, within 35 calendar days of the evaluation completion, take one of the following actions: - Apply the applicable patches; or - Create a dated mitigation plan; or - Revise an existing mitigation plan. Mitigation plans shall include the Responsible Entity\u2019s planned actions to mitigate the vulnerabilities addressed by each security patch and a timeframe to complete these mitigations.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "A"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R2 Part 2.3",
+      "section_id": "csection-51appendix1traceability",
+      "relation_type": "REFERENCES",
+      "requirement_text": "For applicable patches identified in Part 2.2, within 35 calendar days of the evaluation completion, take one of the following actions: - Apply the applicable patches; or - Create a dated mitigation plan; or - Revise an existing mitigation plan. Mitigation plans shall include the Responsible Entity\u2019s planned actions to mitigate the vulnerabilities addressed by each security patch and a timeframe to complete these mitigations.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "D"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R2 Part 2.3",
+      "section_id": "csection-o2-361",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "For applicable patches identified in Part 2.2, within 35 calendar days of the evaluation completion, take one of the following actions: - Apply the applicable patches; or - Create a dated mitigation plan; or - Revise an existing mitigation plan. Mitigation plans shall include the Responsible Entity\u2019s planned actions to mitigate the vulnerabilities addressed by each security patch and a timeframe to complete these mitigations.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "D"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R2 Part 2.3",
+      "section_id": "csection-o3-51",
+      "relation_type": "REFERENCES",
+      "requirement_text": "For applicable patches identified in Part 2.2, within 35 calendar days of the evaluation completion, take one of the following actions: - Apply the applicable patches; or - Create a dated mitigation plan; or - Revise an existing mitigation plan. Mitigation plans shall include the Responsible Entity\u2019s planned actions to mitigate the vulnerabilities addressed by each security patch and a timeframe to complete these mitigations.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "D"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R2 Part 2.3",
+      "section_id": "csection-o4-3421",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "For applicable patches identified in Part 2.2, within 35 calendar days of the evaluation completion, take one of the following actions: - Apply the applicable patches; or - Create a dated mitigation plan; or - Revise an existing mitigation plan. Mitigation plans shall include the Responsible Entity\u2019s planned actions to mitigate the vulnerabilities addressed by each security patch and a timeframe to complete these mitigations.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "D"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R2 Part 2.4",
+      "section_id": "csection-o3-52",
+      "relation_type": "REFERENCES",
+      "requirement_text": "For each mitigation plan created or revised in Part 2.3, implement the plan within the timeframe specified in the plan, unless a revision to the plan or an extension to the timeframe specified in Part 2.3 is approved by the CIP Senior Manager or delegate.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "D"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R4 Part 4.4",
+      "section_id": "csection-344securityeventmonitoringprocessr4",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "Review a summarization or sampling of logged events as determined by the Responsible Entity at intervals no greater than 15 calendar days to identify undetected Cyber Security Incidents.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "A",
+        "D"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R4 Part 4.4",
+      "section_id": "csection-35cmlaplogreviewforciphighimpactbescybersystems...",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "Review a summarization or sampling of logged events as determined by the Responsible Entity at intervals no greater than 15 calendar days to identify undetected Cyber Security Incidents.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "A",
+        "D"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R4 Part 4.4",
+      "section_id": "csection-51appendix1requirementstraceability",
+      "relation_type": "REFERENCES",
+      "requirement_text": "Review a summarization or sampling of logged events as determined by the Responsible Entity at intervals no greater than 15 calendar days to identify undetected Cyber Security Incidents.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "A",
+        "D"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R5 Part 5.2",
+      "section_id": "csection-345_policy_subclause_5.2",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "Identify and inventory all known enabled default or other generic account types, either by system, by groups of systems, by location, or by system type(s).",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "A"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R5 Part 5.3",
+      "section_id": "csection-11_purpose",
+      "relation_type": "EVIDENCES",
+      "requirement_text": "Identify individuals who have authorized access to shared accounts.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "D"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R5 Part 5.3",
+      "section_id": "csection-322498620e87429c",
+      "relation_type": "EVIDENCES",
+      "requirement_text": "Identify individuals who have authorized access to shared accounts.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "D"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R5 Part 5.3",
+      "section_id": "csection-323",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "Identify individuals who have authorized access to shared accounts.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "A"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R5 Part 5.3",
+      "section_id": "csection-3255_shared_auth",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "Identify individuals who have authorized access to shared accounts.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "D"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R5 Part 5.3",
+      "section_id": "csection-8a0dba69747ab4fb49ed",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "Identify individuals who have authorized access to shared accounts.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "D"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R5 Part 5.4",
+      "section_id": "csection-03u4v5w6x7y8z9a0b1c2d3e4",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "Change known default passwords, per Cyber Asset capability",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "A"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R5 Part 5.4",
+      "section_id": "csection-03u_trace_5.4",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "Change known default passwords, per Cyber Asset capability",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "D"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R5 Part 5.6",
+      "section_id": "csection-03u4v5w6x7y8z9a0b1c2d3e4",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "Where technically feasible, for password-only authentication for interactive user access, either technically or procedurally enforce password changes or an obligation to change the password at least once every 15 calendar months.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "A"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R5 Part 5.6",
+      "section_id": "csection-03u_trace_5.6",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "Where technically feasible, for password-only authentication for interactive user access, either technically or procedurally enforce password changes or an obligation to change the password at least once every 15 calendar months.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "D"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R5 Part 5.7",
+      "section_id": "csection-03u4v5w6x7y8z9a0b1c2d3e4",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "Where technically feasible, either: - Limit the number of unsuccessful authentication attempts; or - Generate alerts after a threshold of unsuccessful authentication attempts.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "A"
+      ]
+    },
+    {
+      "requirement_id": "CIP-007-6 R5 Part 5.7",
+      "section_id": "csection-03u_trace_5.7",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "Where technically feasible, either: - Limit the number of unsuccessful authentication attempts; or - Generate alerts after a threshold of unsuccessful authentication attempts.",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "D"
+      ]
+    },
+    {
+      "requirement_id": "CIP-008-6 (Incident Response)",
+      "section_id": "isection-2ad8fac94a9f8fcb7fd2",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "",
+      "requirement_text_synthesized": false,
+      "section_text": "3.7.9 Access Log Retention \nNOTE: The PACS server sends logs to the Security Information and Event Management \n(SIEM) console where they are saved for a minimum of 90 calendar days, where \ntechnically feasible.  \n3.7.9.1 \nAll PSP access logs shall be retained for at least ninety (90) calendar days. This includes \nelectronic, manual, and video surveillance logs (if used for investigative purposes only).  \n\n \nPRIVATE \u2013 FOR INTERNAL USE ONLY \nPage 12 of 18 \n \n3.7.9.2 \nIf the PACS is not functioning and manual logging into the PSP is required for a period of \ntime, the manual logs shall be stored in the LSPG Compliance Tracking Tool and retained \nfor at least ninety (90) calendar days. \n\u2022 \nAny manual logging forms shall be submitted to OT Security Management \ndaily for review, until the PACS logging functionality is restored. \n3.7.9.3 \nLogs related to reportable incidents shall be retained for three (3) years in accordance \nwith the Cyber Security Incident Response Plan. \n",
+      "in_arms": [
+        "A"
+      ]
+    },
+    {
+      "requirement_id": "CIP-010 R1 Part 1.2",
+      "section_id": "isection-ed239c37c5c9ea99aa23",
+      "relation_type": "REFERENCES",
+      "requirement_text": "",
+      "requirement_text_synthesized": false,
+      "section_text": "5.1 Appendix 1: Requirements Traceability \nThe \nfollowing \ntables \nprovide \na \ncross-reference \nbetween \nthe \nregulatory \ncompliance \nstandards/requirements and which section(s) in this procedure each requirement is addressed. \nNERC Standard & \nRequirement \nProcedure \nSections \nApplicable \nSystems \nTFE \nEligible? \nCIP-007 Ports and Services \u2013 \nR1. Each Responsible Entity shall implement one or more documented processes that \ncollectively include each of the applicable requirement parts:  \n \nR1 Part 1.1 Where technically \nfeasible, enable only logical \nnetwork accessible ports that \nhave been determined to be \nneeded by the Responsible Entity, \nincluding port ranges or services \nwhere needed to handle dynamic \nports. If a device has no provision \nfor disabling or restricting logical \nports on the device then those \nports that are open are \ndeemed needed \n  Section 3.7 \nSection 3.8 \nHigh Impact BCS and \ntheir associated CIP \nCyber Assets \n \nMedium Impact \nBCS with External \nRoutable \nConnectivity and \ntheir associated \nCIP Cyber Assets \nYes \n \n \nR1 Part 1.2 Protect against the use \nof unnecessary physical \ninput/output ports used for \nnetwork connectivity, console \ncommands, or Removable Media. \nSection 3.9 \nHigh Impact BCS and \ntheir associated CIP \nCyber Assets \n \nMedium Impact BCS \nwith External \nRoutable \nConnectivity and \ntheir associated CIP \nCyber Assets \nNo \n \n \n \n \n \n\n \nPRIVATE \u2013 FOR INTERNAL USE ONLY \nPage 15 of 22 \n \nNERC Standard & \nRequirement \nProcedure Sections \nApplicable Systems \nTFE \nEligible? \nCIP-010 Configuration Change Management \u2013 \nR1. Each Responsible Entity shall implement one or more documented processes that collectively include \neach of the applicable requirement parts. \nR1 Part 1.1 Develop a baseline \nconfiguration, individually or by \ngroup, which shall include the \nfollowing items: \nSection 3.3 \nHigh Impact BCS and their \nassociated: \n\u2022 \nEACMS; \n\u2022 \nPACS; and \n\u2022 \nPCA \nNo \n \n \nMedium Impact BCS Cyber \nSystems and their \nassociated: \n\u2022 \nEACMS; \n\u2022 \nPACS; and \n\u2022 \nPCA \n \nR1 Part 1.1.1 Operating System(s) \n(including version) or firmware \nwhere no independent operating \nsystem exists; \nSection 3.3 \nHigh Impact BCS and their \nassociated: \n\u2022 \nEACMS; \n\u2022 \nPACS; and \n\u2022 \nPCA \nNo \n \n \nMedium Impact BCS Cyber \nSystems and their \nassociated: \n\u2022 \nEACMS; \n\u2022 \nPACS; and \n\u2022 \nPCA \n \nR1 Part 1.1.2 Any commercially \navailable \nor \nopen-source \napplication \nsoftware \n(including \nversion) intentionally installed; \nSection 3.3 \nHigh Impact BCS and their \nassociated: \n\u2022 \nEACMS; \n\u2022 \nPACS; and \n\u2022 \nPCA \nNo \n \n \nMedium Impact BCS Cyber \nSystems and their \nassociated: \n\u2022 \nEACMS; \n\u2022 \nPACS; and \n\u2022 \nPCA \n \n \n\n \nPRIVATE \u2013 FOR INTERNAL USE ONLY \nPage 16 of 22 \n \nNERC Standard & Requirement \n \nProcedure \nSections \nApplicable Systems \nTFE \nEligible? \nCIP-010-4 Configuration Change Management \u2013 \nR1. Each Responsible Entity shall implement one or more documented processes that collectively include \neach of the applicable requirement parts. \nR1 Part 1.1.3 Any custom software \ninstalled; \nSection 3.3 \nHigh Impact BCS and their \nassociated: \n\u2022 \nEACMS; \n\u2022 \nPACS; and \n\u2022 \nPCA \nNo \n \n \nMedium Impact BCS Cyber \nSystems and their associated: \n\u2022 \nEACMS; \n\u2022 \nPACS; and \n\u2022 \nPCA \n \nR1 Part 1.1.4 Any logical network \naccessible ports; \nSection 3.3 \nHigh Impact BCS and their \nassociated: \n\u2022 \nEACMS; \n\u2022 \nPACS; and \n\u2022 \nPCA \nNo \n \n \nMedium Impact BCS Cyber \nSystems and their associated: \n\u2022 \nEACMS; \n\u2022 \nPACS; and \n\u2022 \nPCA \n \nR1 Part 1.1.5 Any security patches \napplied. \nSection 3.3 \nHigh Impact BCS and their \nassociated: \n\u2022 \nEACMS; \n\u2022 \nPACS; and \n\u2022 \nPCA \nNo \n \n \nMedium Impact BCS Cyber \nSystems and their associated: \n\u2022 \nEACMS; \n\u2022 \nPACS; and \n\u2022 \nPCA \n \n\n \nPRIVATE \u2013 FOR INTERNAL USE ONLY \nPage 17 of 22 \n \nNERC Standard & Requirement \n \nProcedure \nSections \nApplicable Systems \nTFE \nEligible? \nR1 Part 1.2 Authorize and document \nchanges that deviate from the \nexisting baseline configuration. \nSection 3.6 \nHigh Impact BCS and their \nassociated: \n\u2022 \nEACMS; \n\u2022 \nPACS; and \n\u2022 \nPCA \nMedium Impact BCS Cyber \nSystems and their associated: \n\u2022 \nEACMS; \n\u2022 \nPACS; and \n\u2022 \nPCA \nNo \nCIP-010 Configuration Change Management \u2013 \nR1. Each Responsible Entity shall implement one or more documented processes that collectively include \neach of the applicable requirement parts. \nR1 Part 1.3 For a change that \ndeviates from the existing baseline \nconfiguration, update the baseline \nconfiguration as necessary within \n",
+      "in_arms": [
+        "C"
+      ]
+    },
+    {
+      "requirement_id": "CIP-010-2 R4",
+      "section_id": "isection-9ba0ddc0d37e87aeab5c",
+      "relation_type": "IMPLEMENTS",
+      "requirement_text": "",
+      "requirement_text_synthesized": false,
+      "section_text": "3.3.4 Mitigate the Introduction of Malicious Code (Section 3.2, 3.2.1) \nLSPG uses RM to perform maintenance on applicable systems. As a protective measure, OT Security \nOperations logically disables ports not in use. Prior to being plugged into a BES Cyber System or PCA, \nthe user plugs the RM into a TCA which has current signature files per Section 2.1.6 and scans the RM \nfor possible malicious code. If malicious code is found during the scan of the RM, the TCA should be \nquarantined and rescanned prior to being connected to the BCS or PCA. Evidence of using RM and the \nscan is maintained in the change management solution repository, per the OT Change Management \nProcedure. \nIf the RM is identified as having malicious code prior to connecting to an applicable system, LSPG \nfollows the OT Security Incident Response Plan. \n",
+      "in_arms": [
+        "C"
+      ]
+    },
+    {
+      "requirement_id": "CIP-010-4 R1 Part 1.1.1",
+      "section_id": "csection-51_appendix_1_requirements_traceability",
+      "relation_type": "REFERENCES",
+      "requirement_text": "",
+      "requirement_text_synthesized": false,
+      "section_text": "",
+      "in_arms": [
+        "A"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,373 @@
+[
+  {
+    "requirement_id": "CIP-007-6 R1 Part 1.2",
+    "section_id": "isection-5469536961202168f587",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R1 Part 1.2",
+    "section_id": "isection-dbe64d065efd87143e2a",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R1 Part 1.2",
+    "section_id": "isection-ed239c37c5c9ea99aa23",
+    "relation_type": "REFERENCES",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R1 Part 1.2",
+    "section_id": "isection-f0faec69efde5d8ec92a",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R2 Part 2.1",
+    "section_id": "isection-137aae1d5b133db988eb",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "UNSUPPORTED",
+    "reason": "Application inventory tracking, not identification of patch sources for tracking releases \u2014 adjacent but not the specific duty."
+  },
+  {
+    "requirement_id": "CIP-007-6 R2 Part 2.1",
+    "section_id": "isection-168c9eef69eadf095093",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R2 Part 2.1",
+    "section_id": "isection-5a6e77a9acc7ab5eee74",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R2 Part 2.1",
+    "section_id": "isection-87d00aedd4cf1f41f0cd",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R2 Part 2.1",
+    "section_id": "isection-e450e773b7d8578062c6",
+    "relation_type": "REFERENCES",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R2 Part 2.2",
+    "section_id": "csection-8f3cb73feb731feeb3ce",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "UNSUPPORTED",
+    "reason": "Unrelated regulatory-history boilerplate about NERC Board adoption of the standard; nothing about patch evaluation cadence."
+  },
+  {
+    "requirement_id": "CIP-007-6 R2 Part 2.2",
+    "section_id": "isection-87d00aedd4cf1f41f0cd",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R2 Part 2.2",
+    "section_id": "isection-e450e773b7d8578062c6",
+    "relation_type": "REFERENCES",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R2 Part 2.3",
+    "section_id": "isection-87d00aedd4cf1f41f0cd",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R2 Part 2.3",
+    "section_id": "isection-c75f69c881d6a214ff52",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R2 Part 2.3",
+    "section_id": "isection-e450e773b7d8578062c6",
+    "relation_type": "REFERENCES",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R2 Part 2.4",
+    "section_id": "isection-12bd999ecfa8bf61d440",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R2 Part 2.4",
+    "section_id": "isection-34eefd771edff96a7384",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "UNSUPPORTED",
+    "reason": "General CIP Senior Manager delegation-of-authority list; does not address mitigation-plan implementation/extension approval specifically."
+  },
+  {
+    "requirement_id": "CIP-007-6 R2 Part 2.4",
+    "section_id": "isection-87d00aedd4cf1f41f0cd",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R2 Part 2.4",
+    "section_id": "isection-e450e773b7d8578062c6",
+    "relation_type": "REFERENCES",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R3 Part 3.1",
+    "section_id": "isection-9632acf7d9e2f8d2d46d",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R3 Part 3.1",
+    "section_id": "isection-eccfffe0062b8f04bfeb",
+    "relation_type": "REFERENCES",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R3 Part 3.1",
+    "section_id": "isection-fcaa9b478655c44bb0ec",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R3 Part 3.2",
+    "section_id": "isection-7085ec4c19d8f192fcc5",
+    "relation_type": "REFERENCES",
+    "verdict": "UNSUPPORTED",
+    "reason": "Visible appendix content is the CIP-003 R1 cyber-security-policy row, not a CIP-007 R3 Part 3.2 row \u2014 wrong table entry cited."
+  },
+  {
+    "requirement_id": "CIP-007-6 R3 Part 3.2",
+    "section_id": "isection-9632acf7d9e2f8d2d46d",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R3 Part 3.3",
+    "section_id": "isection-9632acf7d9e2f8d2d46d",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R4 Part 4.1",
+    "section_id": "isection-3614663bc41ccac4eca2",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R4 Part 4.1",
+    "section_id": "isection-e9ebd2f76d13cea92bea",
+    "relation_type": "REFERENCES",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R4 Part 4.2",
+    "section_id": "isection-3614663bc41ccac4eca2",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R4 Part 4.2",
+    "section_id": "isection-84f6a819ea304c8f078b",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R4 Part 4.2",
+    "section_id": "isection-e9ebd2f76d13cea92bea",
+    "relation_type": "REFERENCES",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R4 Part 4.3",
+    "section_id": "isection-3614663bc41ccac4eca2",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R4 Part 4.3",
+    "section_id": "isection-e9ebd2f76d13cea92bea",
+    "relation_type": "REFERENCES",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R4 Part 4.4",
+    "section_id": "isection-3614663bc41ccac4eca2",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R4 Part 4.4",
+    "section_id": "isection-7de5f87c883913499283",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R4 Part 4.4",
+    "section_id": "isection-e9ebd2f76d13cea92bea",
+    "relation_type": "REFERENCES",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R5 Part 5.1",
+    "section_id": "isection-fbc9ce9e2439c4f4af90",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R5 Part 5.2",
+    "section_id": "isection-1c832aa9f657003de712",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R5 Part 5.2",
+    "section_id": "isection-4a791503c7c2d923d58e",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R5 Part 5.2",
+    "section_id": "isection-7685e76f49f852376938",
+    "relation_type": "REFERENCES",
+    "verdict": "UNSUPPORTED",
+    "reason": "Visible appendix content is the CIP-004 R5 Access Revocation row, not CIP-007 R5 Part 5.2 \u2014 wrong standard/row cited."
+  },
+  {
+    "requirement_id": "CIP-007-6 R5 Part 5.2",
+    "section_id": "isection-ad7b6d77c2ef7989f903",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R5 Part 5.2",
+    "section_id": "isection-fbc9ce9e2439c4f4af90",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R5 Part 5.3",
+    "section_id": "csection-0b53d108c1f1ced50f40",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "UNSUPPORTED",
+    "reason": "Section text is only a mis-attributed document heading (\"CIP-004-6 Cyber Security Personnel & Training\"), no substantive content."
+  },
+  {
+    "requirement_id": "CIP-007-6 R5 Part 5.3",
+    "section_id": "isection-fbc9ce9e2439c4f4af90",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R5 Part 5.4",
+    "section_id": "isection-fbc9ce9e2439c4f4af90",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R5 Part 5.5",
+    "section_id": "isection-7685e76f49f852376938",
+    "relation_type": "REFERENCES",
+    "verdict": "UNSUPPORTED",
+    "reason": "Visible appendix content is the CIP-004 R5 Access Revocation / Part 5.4 row, not CIP-007 R5 Part 5.5 \u2014 wrong standard/row cited."
+  },
+  {
+    "requirement_id": "CIP-007-6 R5 Part 5.5",
+    "section_id": "isection-a83386fd57a4b249539f",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R5 Part 5.5",
+    "section_id": "isection-fbc9ce9e2439c4f4af90",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R5 Part 5.6",
+    "section_id": "isection-182b34c5f5089b40216a",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "UNSUPPORTED",
+    "reason": "Names only that OT Security Management ensures shared-account password changes; does not state the 15-calendar-month cadence Part 5.6 requires."
+  },
+  {
+    "requirement_id": "CIP-007-6 R5 Part 5.6",
+    "section_id": "isection-7685e76f49f852376938",
+    "relation_type": "REFERENCES",
+    "verdict": "UNSUPPORTED",
+    "reason": "Visible appendix content is the CIP-004 R5 Access Revocation / Part 5.4 row, not CIP-007 R5 Part 5.6 \u2014 wrong standard/row cited."
+  },
+  {
+    "requirement_id": "CIP-007-6 R5 Part 5.6",
+    "section_id": "isection-f23120a8de2128ab702f",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R5 Part 5.6",
+    "section_id": "isection-fbc9ce9e2439c4f4af90",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-007-6 R5 Part 5.7",
+    "section_id": "isection-fbc9ce9e2439c4f4af90",
+    "relation_type": "IMPLEMENTS",
+    "verdict": "SUPPORTED",
+    "reason": "Section text substantively addresses the requirement duty under the claimed relation."
+  },
+  {
+    "requirement_id": "CIP-010-4 R1 Part 1.1",
+    "section_id": "isection-ed239c37c5c9ea99aa23",
+    "relation_type": "REFERENCES",
+    "verdict": "UNSUPPORTED",
+    "reason": "Visible appendix content is the CIP-007 R1 Ports-and-Services row, not CIP-010-4 R1 Part 1.1 baseline configuration \u2014 wrong standard/row cited."
+  }
+]

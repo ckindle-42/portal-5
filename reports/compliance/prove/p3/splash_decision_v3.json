@@ -1,0 +1,75 @@
+{
+  "run_id": "2026-09-21T20:04:17.589470+00:00",
+  "config": {
+    "num_ctx": 65536,
+    "answer_budget": 8192,
+    "concurrency": 4,
+    "standard": "CIP-007-6"
+  },
+  "source_sweep": "reports/compliance/prove/p3/arms_budget_v2.json (handle-resolution fix in place)",
+  "wall_s": {
+    "A": 1314.98,
+    "C": 2444.43,
+    "D": 1197.31
+  },
+  "completion_rate": {
+    "A": 1.0,
+    "C": 1.0,
+    "D": 1.0
+  },
+  "per_arm_precision": {
+    "A": {
+      "n": 37,
+      "supported": 15,
+      "unsupported_judged": 1,
+      "unresolvable": 21,
+      "precision": 0.4054
+    },
+    "C": {
+      "n": 43,
+      "supported": 30,
+      "unsupported_judged": 8,
+      "unresolvable": 5,
+      "precision": 0.6977
+    },
+    "D": {
+      "n": 41,
+      "supported": 16,
+      "unsupported_judged": 2,
+      "unresolvable": 23,
+      "precision": 0.3902
+    }
+  },
+  "checks": [
+    {
+      "name": "engine_speedup_C_over_D >= 2.0",
+      "value": 0.4898,
+      "floor": 2.0,
+      "ok": false
+    },
+    {
+      "name": "completion_rate >= 0.95 (all arms)",
+      "value": {
+        "A": 1.0,
+        "C": 1.0,
+        "D": 1.0
+      },
+      "floor": 0.95,
+      "ok": true
+    },
+    {
+      "name": "determination_precision within 5pts of incumbent (arm A)",
+      "value": {
+        "A": 0.4054,
+        "C": 0.6977,
+        "gap": 0.2923
+      },
+      "floor": 0.05,
+      "ok": true
+    }
+  ],
+  "decision": "KEEP_OLLAMA",
+  "reasoning": "Raising context/budget to 65536/8192 (P3.1-P3.2) fixed the prior ContextCeilingError completions failures \u2014 all three arms now complete 20/20 with zero transport errors, real measurement this time (the handle-resolution fix in bench_sweep_engines.py was required first; the two receipts produced before that fix, discarded, showed corrupted triples that could not even resolve section text). But the completion fix traded away throughput: arm C (splash concurrent) took 2444.43s against arm D (ollama concurrent) at 1197.31s for the SAME 20 refs \u2014 engine_speedup_C_over_D = 0.49, i.e. splash is slower, not the 4.909x faster measured at the earlier (smaller-context, more failures) config. The earlier 4.909x number does not hold once the ContextCeilingError failures are actually fixed rather than absorbed. Splash queues concurrent requests through a single engine (confirmed live: TTFT of 55-600s per request under concurrency=4, see splash-serve log), and the larger context window makes that queueing worse, not better. determination_precision surprisingly FAVORS splash (0.698 vs the incumbent arm A at 0.405) \u2014 ollama fabricates far more unresolvable/malformed section ids under this sweep (21/37 and 23/41 in arms A and D respectively, vs 5/43 in arm C) than splash does. Quality is not the blocker; throughput is. KEEP_OLLAMA on the speed floor alone \u2014 a faster engine that reads more carefully would be a genuine win, but this is a slower engine that reads more carefully, and the sweep is judged on wall-clock deadline, not reading quality alone.",
+  "system_cost_reference": "reports/compliance/prove/p3/splash_system_cost.json",
+  "verdict": "RECORDED"
+}

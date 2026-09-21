@@ -1,0 +1,4498 @@
+{
+  "run_id": "2026-09-21T19:43:02.307920+00:00",
+  "script_sha256": "874017bb0ab4c5b062948548d38c6e9a6c3eacb9037df6d51de20cfaae8b5a62",
+  "standard": "CIP-007-6",
+  "n_refs": 20,
+  "concurrency": 4,
+  "num_ctx_requested": 65536,
+  "answer_budget": 8192,
+  "arms": {
+    "A": {
+      "arm": "A",
+      "label": "ollama sequential (incumbent)",
+      "dialect": "ollama-native",
+      "concurrent": false,
+      "concurrency": 1,
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "endpoints_observed": [
+        "http://localhost:11434/api/chat"
+      ],
+      "n_refs": 20,
+      "n_ok": 20,
+      "n_error": 0,
+      "n_parse_failed": 0,
+      "unaccounted": [],
+      "total_wall_s": 1314.98,
+      "per_ref_wall_s": 65.75,
+      "mean_cell_wall_s": 65.72,
+      "determinations_total": 37,
+      "rows": [
+        {
+          "ref": "CIP-007-6 R1 Part 1.1",
+          "wall_s": 81.03,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 22442,
+          "eval_count": 765,
+          "prompt_eval_duration_s": 45.727,
+          "n_determinations": 1,
+          "triples": [
+            [
+              "CIP-010-4 R1 Part 1.1.1",
+              "csection-51_appendix_1_requirements_traceability",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R1 Part 1.2",
+          "wall_s": 69.42,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 21889,
+          "eval_count": 785,
+          "prompt_eval_duration_s": 48.521,
+          "n_determinations": 4,
+          "triples": [
+            [
+              "CIP-007-6 R1 Part 1.2",
+              "isection-5469536961202168f587",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R1 Part 1.2",
+              "isection-dbe64d065efd87143e2a",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R1 Part 1.2",
+              "isection-ed239c37c5c9ea99aa23",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R1 Part 1.2",
+              "isection-f0faec69efde5d8ec92a",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R2 Part 2.1",
+          "wall_s": 65.34,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 21581,
+          "eval_count": 807,
+          "prompt_eval_duration_s": 44.29,
+          "n_determinations": 4,
+          "triples": [
+            [
+              "CIP-007-6 R2 Part 2.1",
+              "isection-168c9eef69eadf095093",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.1",
+              "isection-5a6e77a9acc7ab5eee74",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.1",
+              "isection-87d00aedd4cf1f41f0cd",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.1",
+              "isection-e450e773b7d8578062c6",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R2 Part 2.2",
+          "wall_s": 79.83,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 22865,
+          "eval_count": 1006,
+          "prompt_eval_duration_s": 50.747,
+          "n_determinations": 2,
+          "triples": [
+            [
+              "CIP-007-6 R2 Part 2.2",
+              "csection-334d4e990131cda252fca",
+              "EVIDENCES"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.2",
+              "csection-8f3cb73feb731feeb3ce",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "csection-334d4e990131cda252fca",
+                "resolved": false,
+                "detail": "does not resolve to any section in this store"
+              },
+              {
+                "cited_ref": "csection-8f3cb73feb731feeb3ce",
+                "resolved": true,
+                "resolves_to": "regulatory companion document \u2014 implementation plan",
+                "jurisdiction": "US",
+                "source_kind": "implementation_plan",
+                "document": "Cyber Security \u2014 System Security Management",
+                "heading_lineage": "Certain Compliance Dates in the Implementation Plan for Version 5 CIP Cyber Security Standards Remain the Same > Certain Compliance Dates in the Implementation Plan for Version 5 CIP Cyber Security Standards Remain the Same / #105",
+                "page": 9,
+                "revision_id": "8ff922d280ff873abd4fc84a11c78fc83a6f85511d87b0ebdf6acbae19865895",
+                "effective_date": "2016-07-01",
+                "detail": ""
+              }
+            ],
+            "num_cited": 2,
+            "unresolvable": [
+              "csection-334d4e990131cda252fca"
+            ],
+            "quantities": [
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "The text states: \"At least once every thirty-five (35) calendar days, SMEs in conjunction with Foxguard, shall review all approved sources for new patches using the applicable patch evaluation workbook\" [O1].",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "The text states: \"For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken: [list of actions]\" [O2].",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources (Part 2.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "30 days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "The text states: \"We evaluate patches every 30 days, not the 35 the Part allows, because our change window is monthly and a 35-day clock straddles two windows\" [N1].",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "30 days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "csection-8f3cb73feb731feeb3ce",
+                "appears_in_attributed_section": false,
+                "unattributed": false,
+                "sentence": "\"sentence\": \"We evaluate patches every 30 days, not the 35 the Part allows, because our change window is monthly and a 35-day clock straddles two windows.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [
+              "30 days"
+            ],
+            "quantity_review_pointers": [
+              {
+                "claim": "30 days",
+                "nearest_citation": "csection-8f3cb73feb731feeb3ce",
+                "sentence": "\"sentence\": \"We evaluate patches every 30 days, not the 35 the Part allows, because our change window is monthly and a 35-day clock straddles two windows.",
+                "detail": "this number is in the packet but not in the nearest cited section \u2014 may be a correct contrast, may be a misattribution; read it"
+              }
+            ],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R2 Part 2.3",
+          "wall_s": 79.93,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 22585,
+          "eval_count": 1210,
+          "prompt_eval_duration_s": 46.948,
+          "n_determinations": 5,
+          "triples": [
+            [
+              "CIP-007-6 R2 Part 2.3",
+              "csection-322_inventory",
+              "NONE"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.3",
+              "csection-342_policy",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.3",
+              "csection-35_patch_impl",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.3",
+              "csection-36_mitigation_mgmt",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.3",
+              "csection-51_traceability",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "35 days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "While it mentions verifying that patches are not greater than 35 days old, it does not explicitly state that this section *implements* or *evidences* the specific actions of Part 2.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "3: \"For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken: 3.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "It describes the process for handling patches that cannot be installed: \"Applicable security patches determined not able to be installed within 35 calendar days of evaluation are added to a mitigation plan by creating a dated mitigation plan or revising an existing mitigation plan within the Change Management Solution.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "Within 35 calendar days of the evaluation completion (of applicable security patches) take one of the following actions: o Apply the applicable security patches, o Create a dated mitigation plan, and o Revise an existing mitigation plan.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken: 3.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"Applicable security patches determined not able to be installed within 35 calendar days of evaluation are added to a mitigation plan by creating a dated mitigation plan or revising an existing mitigation plan within the Change Management Solution.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"Within 35 calendar days of the evaluation completion (of applicable security patches) take one of the following actions: o Apply the applicable security patches, o Create a dated mitigation plan, and o Revise an existing mitigation plan.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R2 Part 2.4",
+          "wall_s": 71.03,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 23275,
+          "eval_count": 724,
+          "prompt_eval_duration_s": 50.593,
+          "n_determinations": 1,
+          "triples": [
+            [
+              "CIP-007-6 R2 Part 2.3",
+              "csection-4c86fad4713337ba99d",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "csection-4c86fad4713337ba99d",
+                "resolved": false,
+                "detail": "does not resolve to any section in this store"
+              }
+            ],
+            "num_cited": 1,
+            "unresolvable": [
+              "csection-4c86fad4713337ba99d"
+            ],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R3 Part 3.1",
+          "wall_s": 61.07,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 20258,
+          "eval_count": 736,
+          "prompt_eval_duration_s": 41.435,
+          "n_determinations": 3,
+          "triples": [
+            [
+              "CIP-007-6 R3 Part 3.1",
+              "isection-9632acf7d9e2f8d2d46d",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R3 Part 3.1",
+              "isection-eccfffe0062b8f04bfeb",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R3 Part 3.1",
+              "isection-fcaa9b478655c44bb0ec",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R3 Part 3.2",
+          "wall_s": 72.71,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 23074,
+          "eval_count": 1017,
+          "prompt_eval_duration_s": 45.769,
+          "n_determinations": 1,
+          "triples": [
+            [
+              "CIP-004-6 R2 Part 2.4.5",
+              "csection-5ef06866666666666666666666666666",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "csection-5ef06866666666666666666666666666",
+                "resolved": false,
+                "detail": "does not resolve to any section in this store"
+              }
+            ],
+            "num_cited": 1,
+            "unresolvable": [
+              "csection-5ef06866666666666666666666666666"
+            ],
+            "quantities": [
+              {
+                "claim": "36 calendar months",
+                "number": "36",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "5 Testing the Cyber Security Incident response plan(s) at least once every 36 calendar months by: (1) responding to an actual Reportable Cyber Security Incident; (2) using a drill or tabletop exercise of a Reportable Cyber Security Incident; or (3) using an operational exercise of a Reportable Cyber Security Incident;\" describes a process that **IMPLEMENTS** the testing requirement for CIP-004-6.",
+                "appears_somewhere_in_the_material": false
+              },
+              {
+                "claim": "36 calendar months",
+                "number": "36",
+                "unit": "month",
+                "attributed_to": "csection-5ef06866666666666666666666666666",
+                "appears_in_attributed_section": false,
+                "unattributed": false,
+                "sentence": "5 Testing the Cyber Security Incident response plan(s) at least once every 36 calendar months by: (1) responding to an actual Reportable Cyber Security Incident; (2) using a drill or tabletop exercise of a Reportable Cyber Security Incident; or (3) using an operational exercise of a Reportable Cyber Security Incident;\",",
+                "appears_somewhere_in_the_material": false
+              }
+            ],
+            "quantities_not_in_cited_text": [
+              "36 calendar months"
+            ],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R3 Part 3.3",
+          "wall_s": 45.55,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 20158,
+          "eval_count": 296,
+          "prompt_eval_duration_s": 38.065,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R4 Part 4.1",
+          "wall_s": 54.8,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 22135,
+          "eval_count": 445,
+          "prompt_eval_duration_s": 43.123,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R4 Part 4.2",
+          "wall_s": 68.37,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 22271,
+          "eval_count": 957,
+          "prompt_eval_duration_s": 43.36,
+          "n_determinations": 4,
+          "triples": [
+            [
+              "CIP-007-6 R4 Part 4.1",
+              "isection-3614663bc41ccac4eca2",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.2",
+              "isection-3614663bc41ccac4eca2",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.2",
+              "isection-84f6a819ea304c8f078b",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.2",
+              "isection-e9ebd2f76d13cea92bea",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R4 Part 4.3",
+          "wall_s": 62.14,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 22582,
+          "eval_count": 689,
+          "prompt_eval_duration_s": 44.019,
+          "n_determinations": 1,
+          "triples": [
+            [
+              "CIP-008-6 (Incident Response)",
+              "isection-2ad8fac94a9f8fcb7fd2",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "ninety (90) calendar days",
+                "number": "90",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "The text states, \"All PSP access logs shall be retained for at least ninety (90) calendar days\" [O4].",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "three (3) years",
+                "number": "3",
+                "unit": "year",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "The text states, \"Logs related to reportable incidents shall be retained for three (3) years in accordance with the Cyber Security Incident Response Plan\" [O4].",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "three (3) years",
+                "number": "3",
+                "unit": "year",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"Logs related to reportable incidents shall be retained for three (3) years in accordance with the Cyber Security Incident Response Plan.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R4 Part 4.4",
+          "wall_s": 59.81,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 22018,
+          "eval_count": 666,
+          "prompt_eval_duration_s": 42.56,
+          "n_determinations": 3,
+          "triples": [
+            [
+              "CIP-007-6 R4 Part 4.4",
+              "csection-344securityeventmonitoringprocessr4",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.4",
+              "csection-35cmlaplogreviewforciphighimpactbescybersystems...",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.4",
+              "csection-51appendix1requirementstraceability",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "15 calendar days",
+                "number": "15",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   **Corroboration**: The text states, \"LSPG shall review a summarization or sampling of logged events as determined by LSPG at intervals no greater than 15 calendar days to identify undetected Cyber Security Incidents (Part 4.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar days",
+                "number": "15",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"LSPG shall review a summarization or sampling of logged events as determined by LSPG at intervals no greater than 15 calendar days to identify undetected Cyber Security Incidents (Part 4.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.1",
+          "wall_s": 65.56,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 24239,
+          "eval_count": 639,
+          "prompt_eval_duration_s": 48.27,
+          "n_determinations": 1,
+          "triples": [
+            [
+              "CIP-004 R5 Part 5.4",
+              "csection-5fb0af3dc5d821f7ddeb",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "csection-5fb0af3dc5d821f7ddeb",
+                "resolved": true,
+                "resolves_to": "regulatory companion document \u2014 implementation plan",
+                "jurisdiction": "US",
+                "source_kind": "implementation_plan",
+                "document": "Cyber Security \u2014 System Security Management",
+                "heading_lineage": "Requested Approvals \uf02b > Requested Approvals \uf02b / #13",
+                "page": 1,
+                "revision_id": "8ff922d280ff873abd4fc84a11c78fc83a6f85511d87b0ebdf6acbae19865895",
+                "effective_date": "2016-07-01",
+                "detail": ""
+              }
+            ],
+            "num_cited": 1,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "The text states, \"Where technically feasible, for password-only authentication for interactive user access, password changes are performed at least once every 15 calendar months\" [O3].",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "csection-5fb0af3dc5d821f7ddeb",
+                "appears_in_attributed_section": false,
+                "unattributed": false,
+                "sentence": "The text states, \"For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action\" [O5].",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "csection-5fb0af3dc5d821f7ddeb",
+                "appears_in_attributed_section": false,
+                "unattributed": false,
+                "sentence": "\"sentence\": \"For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [
+              "30 calendar days",
+              "30 calendar days"
+            ],
+            "quantity_review_pointers": [
+              {
+                "claim": "30 calendar days",
+                "nearest_citation": "csection-5fb0af3dc5d821f7ddeb",
+                "sentence": "The text states, \"For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action\" [O5].",
+                "detail": "this number is in the packet but not in the nearest cited section \u2014 may be a correct contrast, may be a misattribution; read it"
+              },
+              {
+                "claim": "30 calendar days",
+                "nearest_citation": "csection-5fb0af3dc5d821f7ddeb",
+                "sentence": "\"sentence\": \"For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action.",
+                "detail": "this number is in the packet but not in the nearest cited section \u2014 may be a correct contrast, may be a misattribution; read it"
+              }
+            ],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.2",
+          "wall_s": 53.19,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 22436,
+          "eval_count": 365,
+          "prompt_eval_duration_s": 43.587,
+          "n_determinations": 1,
+          "triples": [
+            [
+              "CIP-007-6 R5 Part 5.2",
+              "csection-345_policy_subclause_5.2",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.3",
+          "wall_s": 61.66,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 23126,
+          "eval_count": 609,
+          "prompt_eval_duration_s": 45.571,
+          "n_determinations": 1,
+          "triples": [
+            [
+              "CIP-007-6 R5 Part 5.3",
+              "csection-323",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.4",
+          "wall_s": 64.67,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 24081,
+          "eval_count": 615,
+          "prompt_eval_duration_s": 48.024,
+          "n_determinations": 1,
+          "triples": [
+            [
+              "CIP-004 R5",
+              "csection-04e66666666666666666666666666666",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "csection-04e66666666666666666666666666666",
+                "resolved": false,
+                "detail": "does not resolve to any section in this store"
+              }
+            ],
+            "num_cited": 1,
+            "unresolvable": [
+              "csection-04e66666666666666666666666666666"
+            ],
+            "quantities": [
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "csection-04e66666666666666666666666666666",
+                "appears_in_attributed_section": false,
+                "unattributed": false,
+                "sentence": "The text states: \"For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action\" [O4].",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "csection-04e66666666666666666666666666666",
+                "appears_in_attributed_section": false,
+                "unattributed": false,
+                "sentence": "\"sentence\": \"For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [
+              "30 calendar days",
+              "30 calendar days"
+            ],
+            "quantity_review_pointers": [
+              {
+                "claim": "30 calendar days",
+                "nearest_citation": "csection-04e66666666666666666666666666666",
+                "sentence": "The text states: \"For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action\" [O4].",
+                "detail": "this number is in the packet but not in the nearest cited section \u2014 may be a correct contrast, may be a misattribution; read it"
+              },
+              {
+                "claim": "30 calendar days",
+                "nearest_citation": "csection-04e66666666666666666666666666666",
+                "sentence": "\"sentence\": \"For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action.",
+                "detail": "this number is in the packet but not in the nearest cited section \u2014 may be a correct contrast, may be a misattribution; read it"
+              }
+            ],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.5",
+          "wall_s": 78.71,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 24101,
+          "eval_count": 1142,
+          "prompt_eval_duration_s": 47.97,
+          "n_determinations": 3,
+          "triples": [
+            [
+              "CIP-007-6 R5 Part 5.4",
+              "csection-03u4v5w6x7y8z9a0b1c2d3e4",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.6",
+              "csection-03u4v5w6x7y8z9a0b1c2d3e4",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.7",
+              "csection-03u4v5w6x7y8z9a0b1c2d3e4",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "4, the section states: \"For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action\" [O3].",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "6, the section states: \"Where technically feasible, for password-only authentication for interactive user access, either technically or procedurally enforce password changes or an obligation to change the password at least once every 15 calendar months\" [O3].",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"Where technically feasible, for password-only authentication for interactive user access, either technically or procedurally enforce password changes or an obligation to change the password at least once every 15 calendar months.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.6",
+          "wall_s": 61.53,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 23995,
+          "eval_count": 519,
+          "prompt_eval_duration_s": 47.642,
+          "n_determinations": 1,
+          "triples": [
+            [
+              "CIP-004 R5 Part 5.4",
+              "csection-03a8b31512a240440322",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "csection-03a8b31512a240440322",
+                "resolved": false,
+                "detail": "does not resolve to any section in this store"
+              }
+            ],
+            "num_cited": 1,
+            "unresolvable": [
+              "csection-03a8b31512a240440322"
+            ],
+            "quantities": [
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "The section specifies the action to be taken: \"Where technically feasible, for password-only authentication for interactive user access, password changes are performed at least once every 15 calendar months.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "For password-only authentication for interactive user access, where technically feasible, either technically or procedurally enforce password changes or an obligation to change the password at least once every 15 calendar months (Part 5.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "csection-03a8b31512a240440322",
+                "appears_in_attributed_section": false,
+                "unattributed": false,
+                "sentence": "4**, as it prescribes a specific action: \"For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "csection-03a8b31512a240440322",
+                "appears_in_attributed_section": false,
+                "unattributed": false,
+                "sentence": "\"sentence\": \"For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [
+              "30 calendar days",
+              "30 calendar days"
+            ],
+            "quantity_review_pointers": [
+              {
+                "claim": "30 calendar days",
+                "nearest_citation": "csection-03a8b31512a240440322",
+                "sentence": "4**, as it prescribes a specific action: \"For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action.",
+                "detail": "this number is in the packet but not in the nearest cited section \u2014 may be a correct contrast, may be a misattribution; read it"
+              },
+              {
+                "claim": "30 calendar days",
+                "nearest_citation": "csection-03a8b31512a240440322",
+                "sentence": "\"sentence\": \"For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action.",
+                "detail": "this number is in the packet but not in the nearest cited section \u2014 may be a correct contrast, may be a misattribution; read it"
+              }
+            ],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.7",
+          "wall_s": 57.95,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 23918,
+          "eval_count": 386,
+          "prompt_eval_duration_s": 47.694,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        }
+      ]
+    },
+    "C": {
+      "arm": "C",
+      "label": "splash concurrent (proposal)",
+      "dialect": "openai-compat",
+      "concurrent": true,
+      "concurrency": 4,
+      "model": "incoai/Qwen3.8-27B-Splash",
+      "endpoints_observed": [
+        "http://127.0.0.1:8086/v1/chat/completions"
+      ],
+      "n_refs": 20,
+      "n_ok": 20,
+      "n_error": 0,
+      "n_parse_failed": 0,
+      "unaccounted": [],
+      "total_wall_s": 2444.43,
+      "per_ref_wall_s": 122.22,
+      "mean_cell_wall_s": 474.17,
+      "determinations_total": 59,
+      "rows": [
+        {
+          "ref": "CIP-007-6 R1 Part 1.1",
+          "wall_s": 361.27,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 1,
+          "triples": [
+            [
+              "CIP-010-4 R1 Part 1.1",
+              "isection-ed239c37c5c9ea99aa23",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R1 Part 1.2",
+          "wall_s": 291.06,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 1,
+          "triples": [
+            [
+              "CIP-010 R1 Part 1.2",
+              "isection-ed239c37c5c9ea99aa23",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R2 Part 2.1",
+          "wall_s": 879.3,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 6,
+          "triples": [
+            [
+              "CIP-007-6 R2 Part 2.2",
+              "isection-87d00aedd4cf1f41f0cd",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.2",
+              "isection-e450e773b7d8578062c6",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.3",
+              "isection-87d00aedd4cf1f41f0cd",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.3",
+              "isection-e450e773b7d8578062c6",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.4",
+              "isection-87d00aedd4cf1f41f0cd",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.4",
+              "isection-e450e773b7d8578062c6",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "- Text: \"At least once every 35 calendar days, evaluate security patches for applicability.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "- Text: \"Within 35 calendar days.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "2 At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "2, within 35 calendar days of the evaluation completion, take one of the following actions: \u2022 Apply the applicable patches; or \u2022 Create a dated mitigation plan; or \u2022 Revise an existing mitigation plan.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "- Sentence: \"At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources (Part 2.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "- Sentence: \"Within 35 calendar days of the evaluation completion (of applicable security patches) take one of the following actions: o Apply the applicable security patches, o Create a dated mitigation plan, and o Revise an existing mitigation plan.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "2 At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "2, within 35 calendar days of the evaluation completion, take one of the following actions: \u2022 Apply the applicable patches; or \u2022 Create a dated mitigation plan; or \u2022 Revise an existing mitigation plan.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources (Part 2.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"Within 35 calendar days of the evaluation completion (of applicable security patches) take one of the following actions: o Apply the applicable security patches, o Create a dated mitigation plan, and o Revise an existing mitigation plan.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R2 Part 2.2",
+          "wall_s": 564.1,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 1,
+          "triples": [
+            [
+              "CIP-007-6 R2 Part 2.3",
+              "isection-c75f69c881d6a214ff52",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   **Justification:** The standard requires the entity to \"evaluate security patches for applicability\" at least once every 35 calendar days [R14].",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   **Verbatim Quote:** \"At least once every thirty-five (35) calendar days, SMEs in conjunction with Foxguard, shall review all approved sources for new patches using the applicable patch evaluation workbook.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "30 days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   **Note on Strictness:** The operator note [N1] states they evaluate every 30 days.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "However, the text of [O1] itself says \"thirty-five (35) calendar days.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "30 days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "The note explains a *stricter* internal practice (30 days) that satisfies the 35-day requirement, but the *documented procedure* [O1] cites the 35-day cycle.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   **Verbatim Quote:** \"For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken: .",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "2 At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   **Verbatim Quote:** \"At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources (Part 2.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken: 3.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R2 Part 2.3",
+          "wall_s": 857.87,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 2,
+          "triples": [
+            [
+              "CIP-007-6 R2 Part 2.1",
+              "isection-137aae1d5b133db988eb",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.4",
+              "isection-12bd999ecfa8bf61d440",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "thirty-five (35) days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "3 All applications shall be reviewed to verify there are no applicable patches greater than thirty-five (35) days old.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "1 For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken: 3.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "3: applying patches, creating a mitigation plan, or revising a mitigation plan within 35 days of evaluation.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "1 Applicable security patches determined not able to be installed within 35 calendar days of evaluation are added to a mitigation plan by creating a dated mitigation plan or revising an existing mitigation plan within the Change Management Solution.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "2, within 35 calendar days of the evaluation completion, take one of the following actions: \u2022 Apply the applicable patches; or \u2022 Create a dated mitigation plan; or \u2022 Revise an existing mitigation plan.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "Within 35 calendar days of the evaluation completion (of applicable security patches) take one of the following actions: o Apply the applicable security patches, o Create a dated mitigation plan, and o Revise an existing mitigation plan.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "3 in the input, but its content (\"verify there are no applicable patches greater than thirty-five (35) days old\") is a check on the *age* of patches, which relates to the *evaluation* cycle (Part 2.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   Let's check the text of [O1] again: \"All applications shall be reviewed to verify there are no applicable patches greater than thirty-five (35) days old.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "2 requires: \"At least once every 35 calendar days, evaluate security patches for applicability.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   The text \"verify there are no applicable patches greater than thirty-five (35) days old\" is a check on the *status* of the patch, which is part of the *evaluation* (determining if it's applicable and if it's overdue) or *tracking*.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "3? \"verify there are no applicable patches greater than thirty-five (35) days old.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "3 in the input, but its content (\"verify there are no applicable patches greater than thirty-five (35) days old\") is a tracking/evaluation control.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "It **CORROBORATES** the link by explicitly stating the operator will \"take one of the following actions\" (install, create plan, revise plan) within 35 days, which matches the standard's disjunction.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R2 Part 2.4",
+          "wall_s": 297.4,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 4,
+          "triples": [
+            [
+              "CIP-007-6 R2 Part 2.4",
+              "isection-12bd999ecfa8bf61d440",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.4",
+              "isection-34eefd771edff96a7384",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.4",
+              "isection-87d00aedd4cf1f41f0cd",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.4",
+              "isection-e450e773b7d8578062c6",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R3 Part 3.1",
+          "wall_s": 256.07,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 2,
+          "triples": [
+            [
+              "CIP-007-6 R3 Part 3.2",
+              "isection-9632acf7d9e2f8d2d46d",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R3 Part 3.3",
+              "isection-9632acf7d9e2f8d2d46d",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R3 Part 3.2",
+          "wall_s": 727.54,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 2,
+          "triples": [
+            [
+              "CIP-007-6 R3 Part 3.2",
+              "isection-7085ec4c19d8f192fcc5",
+              "REFERENCES"
+            ],
+            [
+              "CIP-010-2 R4",
+              "isection-9ba0ddc0d37e87aeab5c",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "csection-2fbfb9b18f1d04e0ee45",
+                "resolved": true,
+                "resolves_to": "regulatory companion document \u2014 implementation plan",
+                "jurisdiction": "US",
+                "source_kind": "implementation_plan",
+                "document": "Cyber Security \u2014 System Security Management",
+                "heading_lineage": "8. New and Modified NERC Glossary Terms > 8. New and Modified NERC Glossary Terms / #88",
+                "page": 8,
+                "revision_id": "8ff922d280ff873abd4fc84a11c78fc83a6f85511d87b0ebdf6acbae19865895",
+                "effective_date": "2016-07-01",
+                "detail": ""
+              },
+              {
+                "cited_ref": "csection-16324c327b13b0e0858a",
+                "resolved": true,
+                "resolves_to": "regulatory companion document \u2014 implementation plan",
+                "jurisdiction": "US",
+                "source_kind": "implementation_plan",
+                "document": "Cyber Security \u2014 System Security Management",
+                "heading_lineage": "Requested Approvals \uf02b > Requested Approvals \uf02b / #10",
+                "page": 1,
+                "revision_id": "8ff922d280ff873abd4fc84a11c78fc83a6f85511d87b0ebdf6acbae19865895",
+                "effective_date": "2016-07-01",
+                "detail": ""
+              }
+            ],
+            "num_cited": 2,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R3 Part 3.3",
+          "wall_s": 187.91,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R4 Part 4.1",
+          "wall_s": 282.25,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 3,
+          "triples": [
+            [
+              "CIP-007-6 R4 Part 4.2",
+              "isection-3614663bc41ccac4eca2",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.3",
+              "isection-3614663bc41ccac4eca2",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.4",
+              "isection-3614663bc41ccac4eca2",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "15 calendar days",
+                "number": "15",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"LSPG shall review a summarization or sampling of logged events as determined by LSPG at intervals no greater than 15 calendar days to identify undetected Cyber Security Incidents (Part 4.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R4 Part 4.2",
+          "wall_s": 596.44,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 6,
+          "triples": [
+            [
+              "CIP-007-6 R4 Part 4.1",
+              "isection-3614663bc41ccac4eca2",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.1",
+              "isection-e9ebd2f76d13cea92bea",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.3",
+              "isection-3614663bc41ccac4eca2",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.3",
+              "isection-e9ebd2f76d13cea92bea",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.4",
+              "isection-3614663bc41ccac4eca2",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.4",
+              "isection-e9ebd2f76d13cea92bea",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "15 calendar days",
+                "number": "15",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "4 Review a summarization or sampling of logged events, as determined by the Responsible Entity, at intervals no greater than 15 calendar days, to identify undetected Cyber Security Incidents.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar days",
+                "number": "15",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"LSPG shall review a summarization or sampling of logged events as determined by LSPG at intervals no greater than 15 calendar days to identify undetected Cyber Security Incidents (Part 4.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R4 Part 4.3",
+          "wall_s": 719.75,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 1,
+          "triples": [
+            [
+              "CIP-006-6 R2 Part 2.2",
+              "isection-3.7.9",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "ninety (90) calendar days",
+                "number": "90",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "1 All PSP access logs shall be retained for at least ninety (90) calendar days.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "90 days",
+                "number": "90",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "While the duration (90 days) matches, the *subject matter* (PSP physical access logs vs.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "ninety (90) calendar days",
+                "number": "90",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "retained for at least ninety (90) calendar days.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "ninety (90) calendar days",
+                "number": "90",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*Refining [O4]*: The text in [O4] is \"All PSP access logs shall be retained for at least ninety (90) calendar days.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "ninety (90) calendar days",
+                "number": "90",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "Sentence: \"All PSP access logs shall be retained for at least ninety (90) calendar days.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "ninety (90) calendar days",
+                "number": "90",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"All PSP access logs shall be retained for at least ninety (90) calendar days.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R4 Part 4.4",
+          "wall_s": 276.39,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 3,
+          "triples": [
+            [
+              "CIP-007-6 R4 Part 4.4",
+              "isection-3614663bc41ccac4eca2",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.4",
+              "isection-7de5f87c883913499283",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.4",
+              "isection-e9ebd2f76d13cea92bea",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "15 days",
+                "number": "15",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "4 (reviewing logs at intervals no greater than 15 days).",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar days",
+                "number": "15",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "4 Review a summarization or sampling of logged events, as determined by the Responsible Entity, at intervals no greater than 15 calendar days, to identify undetected Cyber Security Incidents.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar days",
+                "number": "15",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   **Quote:** \"LSPG shall review a summarization or sampling of logged events as determined by LSPG at intervals no greater than 15 calendar days to identify undetected Cyber Security Incidents (Part 4.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar days",
+                "number": "15",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "4 Review a summarization or sampling of logged events, as determined by the Responsible Entity, at intervals no greater than 15 calendar days, to identify undetected Cyber Security Incidents.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar days",
+                "number": "15",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"LSPG shall review a summarization or sampling of logged events as determined by LSPG at intervals no greater than 15 calendar days to identify undetected Cyber Security Incidents (Part 4.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.1",
+          "wall_s": 312.56,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 1,
+          "triples": [
+            [
+              "CIP-007-6 R5 Part 5.6",
+              "isection-f23120a8de2128ab702f",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   **Reasoning:** The text in [O3] states: \"password changes are performed at least once every 15 calendar months.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   **Quote:** \"Where technically feasible, for password-only authentication for interactive user access, password changes are performed at least once every 15 calendar months.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"Where technically feasible, for password-only authentication for interactive user access, password changes are performed at least once every 15 calendar months.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.2",
+          "wall_s": 537.45,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 6,
+          "triples": [
+            [
+              "CIP-007-6 R5 Part 5.1",
+              "isection-fbc9ce9e2439c4f4af90",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.3",
+              "isection-fbc9ce9e2439c4f4af90",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.4",
+              "isection-fbc9ce9e2439c4f4af90",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.5",
+              "isection-fbc9ce9e2439c4f4af90",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.6",
+              "isection-fbc9ce9e2439c4f4af90",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.7",
+              "isection-fbc9ce9e2439c4f4af90",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "6:** \"For password-only authentication for interactive user access, where technically feasible, either technically or procedurally enforce password changes or an obligation to change the password at least once every 15 calendar months (Part 5.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"For password-only authentication for interactive user access, where technically feasible, either technically or procedurally enforce password changes or an obligation to change the password at least once every 15 calendar months (Part 5.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.3",
+          "wall_s": 633.92,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 3,
+          "triples": [
+            [
+              "CIP-007-6 R5 Part 5.2",
+              "isection-4a791503c7c2d923d58e",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.2",
+              "isection-ad7b6d77c2ef7989f903",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.6",
+              "isection-182b34c5f5089b40216a",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.4",
+          "wall_s": 733.79,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 4,
+          "triples": [
+            [
+              "CIP-004-6 R5 Part 5.4",
+              "isection-7685e76f49f852376938",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.2",
+              "isection-1c832aa9f657003de712",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.2",
+              "isection-7685e76f49f852376938",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.2",
+              "isection-fbc9ce9e2439c4f4af90",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "4 For termination actions, change passwords for shared account(s) known to the user within 30 calendar days.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "4 For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "4 For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "4 is: \"For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "4 For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "4 For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "4 For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "4 For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "4 For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.5",
+          "wall_s": 499.38,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 3,
+          "triples": [
+            [
+              "CIP-007-6 R5 Part 5.5",
+              "isection-7685e76f49f852376938",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.5",
+              "isection-a83386fd57a4b249539f",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.5",
+              "isection-fbc9ce9e2439c4f4af90",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.6",
+          "wall_s": 229.79,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 3,
+          "triples": [
+            [
+              "CIP-007-6 R5 Part 5.6",
+              "isection-7685e76f49f852376938",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.6",
+              "isection-f23120a8de2128ab702f",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.6",
+              "isection-fbc9ce9e2439c4f4af90",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "6 requires that, where technically feasible, for password-only authentication for interactive user access, the entity either technically or procedurally enforce password changes or an obligation to change the password at least once every 15 calendar months [R1].",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "1 Where technically feasible, for password-only authentication for interactive user access, password changes are performed at least once every 15 calendar months.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   **Text:** \"For password-only authentication for interactive user access, where technically feasible, either technically or procedurally enforce password changes or an obligation to change the password at least once every 15 calendar months (Part 5.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "6 Where technically feasible, for password-only authentication for interactive user access, either technically or procedurally enforce password changes or an obligation to change the password at least once every 15 calendar months.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"Where technically feasible, for password-only authentication for interactive user access, password changes are performed at least once every 15 calendar months.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"For password-only authentication for interactive user access, where technically feasible, either technically or procedurally enforce password changes or an obligation to change the password at least once every 15 calendar months (Part 5.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "6 Where technically feasible, for password-only authentication for interactive user access, either technically or procedurally enforce password changes or an obligation to change the password at least once every 15 calendar months.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.7",
+          "wall_s": 239.11,
+          "dialect": "openai-compat",
+          "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+          "context_source": "serve_line_pin",
+          "error": "",
+          "prompt_eval_count": 0,
+          "eval_count": 0,
+          "prompt_eval_duration_s": 0.0,
+          "n_determinations": 7,
+          "triples": [
+            [
+              "CIP-004 R5 Part 5.4",
+              "isection-7685e76f49f852376938",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.1",
+              "isection-fbc9ce9e2439c4f4af90",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.2",
+              "isection-fbc9ce9e2439c4f4af90",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.3",
+              "isection-fbc9ce9e2439c4f4af90",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.4",
+              "isection-fbc9ce9e2439c4f4af90",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.5",
+              "isection-fbc9ce9e2439c4f4af90",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.6",
+              "isection-fbc9ce9e2439c4f4af90",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "4 For termination actions, change passwords for shared account(s) known to the user within 30 calendar days.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   Text: \"For password-only authentication for interactive user access, where technically feasible, either technically or procedurally enforce password changes or an obligation to change the password at least once every 15 calendar months (Part 5.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "4 For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"For password-only authentication for interactive user access, where technically feasible, either technically or procedurally enforce password changes or an obligation to change the password at least once every 15 calendar months (Part 5.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "4 For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        }
+      ]
+    },
+    "D": {
+      "arm": "D",
+      "label": "ollama concurrent (control)",
+      "dialect": "ollama-native",
+      "concurrent": true,
+      "concurrency": 4,
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "endpoints_observed": [
+        "http://localhost:11434/api/chat"
+      ],
+      "n_refs": 20,
+      "n_ok": 20,
+      "n_error": 0,
+      "n_parse_failed": 0,
+      "unaccounted": [],
+      "total_wall_s": 1197.31,
+      "per_ref_wall_s": 59.87,
+      "mean_cell_wall_s": 237.96,
+      "determinations_total": 41,
+      "rows": [
+        {
+          "ref": "CIP-007-6 R1 Part 1.1",
+          "wall_s": 223.6,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 22442,
+          "eval_count": 497,
+          "prompt_eval_duration_s": 94.052,
+          "n_determinations": 1,
+          "triples": [
+            [
+              "CIP-007-6 R1 Part 1.1",
+              "csection-3707469307a3c5852aa3",
+              "EVIDENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "csection-3707469307a3c5852aa3",
+                "resolved": false,
+                "detail": "does not resolve to any section in this store"
+              }
+            ],
+            "num_cited": 1,
+            "unresolvable": [
+              "csection-3707469307a3c5852aa3"
+            ],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R1 Part 1.2",
+          "wall_s": 294.91,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 21889,
+          "eval_count": 805,
+          "prompt_eval_duration_s": 49.948,
+          "n_determinations": 4,
+          "triples": [
+            [
+              "CIP-007-6 R1 Part 1.2",
+              "isection-5469536961202168f587",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R1 Part 1.2",
+              "isection-dbe64d065efd87143e2a",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R1 Part 1.2",
+              "isection-ed239c37c5c9ea99aa23",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R1 Part 1.2",
+              "isection-f0faec69efde5d8ec92a",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R2 Part 2.1",
+          "wall_s": 298.25,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 21581,
+          "eval_count": 770,
+          "prompt_eval_duration_s": 48.392,
+          "n_determinations": 4,
+          "triples": [
+            [
+              "CIP-007-6 R2 Part 2.1",
+              "isection-168c9eef69eadf095093",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.1",
+              "isection-5a6e77a9acc7ab5eee74",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.1",
+              "isection-87d00aedd4cf1f41f0cd",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.1",
+              "isection-e450e773b7d8578062c6",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R2 Part 2.2",
+          "wall_s": 394.62,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 22865,
+          "eval_count": 1089,
+          "prompt_eval_duration_s": 47.54,
+          "n_determinations": 4,
+          "triples": [
+            [
+              "CIP-007-6 R2 Part 2.1",
+              "csection-o4-11",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.2",
+              "csection-o1-332",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.3",
+              "csection-o3-51",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.4",
+              "csection-o3-52",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "The text states that \"For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken\" [O2], committing the operator to the required actions.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "At least once every 35 calendar days, evaluate security patches for applicability\" [O4].",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R2 Part 2.3",
+          "wall_s": 257.56,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 22585,
+          "eval_count": 1039,
+          "prompt_eval_duration_s": 47.966,
+          "n_determinations": 2,
+          "triples": [
+            [
+              "CIP-007-6 R2 Part 2.2",
+              "csection-3224ad86066666666666666666666666",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.3",
+              "csection-51appendix1traceability",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "csection-3224ad86066666666666666666666666",
+                "resolved": false,
+                "detail": "does not resolve to any section in this store"
+              }
+            ],
+            "num_cited": 1,
+            "unresolvable": [
+              "csection-3224ad86066666666666666666666666"
+            ],
+            "quantities": [
+              {
+                "claim": "thirty-five (35) days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "3:** The text \"All applications shall be reviewed to verify there are no applicable patches greater than thirty-five (35) days old\" [O1] corroborates the implementation of the timeframe and action requirements of Part 2.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "2):** The text \"All applications shall be reviewed to verify there are no applicable patches greater than thirty-five (35) days old\" [O1] also directly **IMPLEMENTS** the evaluation frequency/timeframe required in Part 2.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "3:** The text \"For all identified applicable security or potential security patches, within thirty-five (35) calendar days of the evaluation, one of the following actions shall be taken: [list of actions]\" [O2] corroborates the **IMPLEMENTS** relation for Part 2.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "3:** The text \"Applicable security patches determined not able to be installed within 35 calendar days of evaluation are added to a mitigation plan by creating a dated mitigation plan or revising an existing mitigation plan within the Change Management Solution\" [O3] corroborates the **IMPLEMENTS** relation for Part 2.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "3:** The text \"Within 35 calendar days of the evaluation completion (of applicable security patches) take one of the following actions: [list of actions]\" [O5] corroborates the **IMPLEMENTS** relation for Part 2.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "thirty-five (35) days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "csection-3224ad86066666666666666666666666",
+                "appears_in_attributed_section": false,
+                "unattributed": false,
+                "sentence": "\"sentence\": \"All applications shall be reviewed to verify there are no applicable patches greater than thirty-five (35) days old.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [
+              "thirty-five (35) days"
+            ],
+            "quantity_review_pointers": [
+              {
+                "claim": "thirty-five (35) days",
+                "nearest_citation": "csection-3224ad86066666666666666666666666",
+                "sentence": "\"sentence\": \"All applications shall be reviewed to verify there are no applicable patches greater than thirty-five (35) days old.",
+                "detail": "this number is in the packet but not in the nearest cited section \u2014 may be a correct contrast, may be a misattribution; read it"
+              }
+            ],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R2 Part 2.4",
+          "wall_s": 291.98,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 23275,
+          "eval_count": 1001,
+          "prompt_eval_duration_s": 49.956,
+          "n_determinations": 2,
+          "triples": [
+            [
+              "CIP-007-6 R2 Part 2.3",
+              "csection-o2-361",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R2 Part 2.3",
+              "csection-o4-3421",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "1 Applicable security patches determined not able to be installed within 35 calendar days of evaluation are added to a mitigation plan by creating a dated mitigation plan or revising an existing mitigation plan within the Change Management Solution.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   **Sentence**: \"Within 35 calendar days of the evaluation completion (of applicable security patches) take one of the following actions: o Apply the applicable security patches, o Create a dated mitigation plan, and o Revise an existing mitigation plan.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"Applicable security patches determined not able to be installed within 35 calendar days of evaluation are added to a mitigation plan by creating a dated mitigation plan or revising an existing mitigation plan within the Change Management Solution.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "35 calendar days",
+                "number": "35",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"Within 35 calendar days of the evaluation completion (of applicable security patches) take one of the following actions: o Apply the applicable security patches, o Create a dated mitigation plan, and o Revise an existing mitigation plan.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R3 Part 3.1",
+          "wall_s": 227.83,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 20258,
+          "eval_count": 733,
+          "prompt_eval_duration_s": 44.843,
+          "n_determinations": 3,
+          "triples": [
+            [
+              "CIP-007-6 R3 Part 3.1",
+              "isection-9632acf7d9e2f8d2d46d",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R3 Part 3.1",
+              "isection-eccfffe0062b8f04bfeb",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R3 Part 3.1",
+              "isection-fcaa9b478655c44bb0ec",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R3 Part 3.2",
+          "wall_s": 298.9,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 23074,
+          "eval_count": 1045,
+          "prompt_eval_duration_s": 48.92,
+          "n_determinations": 1,
+          "triples": [
+            [
+              "CIP-007-6 R1 Part 1.1.4",
+              "csection-05806666666666666666666666666666",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "csection-05806666666666666666666666666666",
+                "resolved": false,
+                "detail": "does not resolve to any section in this store"
+              }
+            ],
+            "num_cited": 1,
+            "unresolvable": [
+              "csection-05806666666666666666666666666666"
+            ],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R3 Part 3.3",
+          "wall_s": 143.73,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 20158,
+          "eval_count": 311,
+          "prompt_eval_duration_s": 41.392,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R4 Part 4.1",
+          "wall_s": 197.6,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 22135,
+          "eval_count": 457,
+          "prompt_eval_duration_s": 46.676,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R4 Part 4.2",
+          "wall_s": 228.31,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 22271,
+          "eval_count": 544,
+          "prompt_eval_duration_s": 94.999,
+          "n_determinations": 3,
+          "triples": [
+            [
+              "CIP-007-6 R4 Part 4.2",
+              "isection-3614663bc41ccac4eca2",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.2",
+              "isection-84f6a819ea304c8f078b",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.2",
+              "isection-e9ebd2f76d13cea92bea",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R4 Part 4.3",
+          "wall_s": 249.9,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 22582,
+          "eval_count": 753,
+          "prompt_eval_duration_s": 50.113,
+          "n_determinations": 1,
+          "triples": [
+            [
+              "CIP-006-6 R2.2",
+              "csection-04444444444444444444444444444444",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "csection-04444444444444444444444444444444",
+                "resolved": false,
+                "detail": "does not resolve to any section in this store"
+              }
+            ],
+            "num_cited": 1,
+            "unresolvable": [
+              "csection-04444444444444444444444444444444"
+            ],
+            "quantities": [
+              {
+                "claim": "ninety (90) calendar days",
+                "number": "90",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "The section states: \"All PSP access logs shall be retained for at least ninety (90) calendar days\" [O4].",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "ninety (90) calendar days",
+                "number": "90",
+                "unit": "day",
+                "attributed_to": "csection-04444444444444444444444444444444",
+                "appears_in_attributed_section": false,
+                "unattributed": false,
+                "sentence": "\"sentence\": \"All PSP access logs shall be retained for at least ninety (90) calendar days.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [
+              "ninety (90) calendar days"
+            ],
+            "quantity_review_pointers": [
+              {
+                "claim": "ninety (90) calendar days",
+                "nearest_citation": "csection-04444444444444444444444444444444",
+                "sentence": "\"sentence\": \"All PSP access logs shall be retained for at least ninety (90) calendar days.",
+                "detail": "this number is in the packet but not in the nearest cited section \u2014 may be a correct contrast, may be a misattribution; read it"
+              }
+            ],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R4 Part 4.4",
+          "wall_s": 286.03,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 22018,
+          "eval_count": 680,
+          "prompt_eval_duration_s": 47.043,
+          "n_determinations": 3,
+          "triples": [
+            [
+              "CIP-007-6 R4 Part 4.4",
+              "csection-344securityeventmonitoringprocessr4",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.4",
+              "csection-35cmlaplogreviewforciphighimpactbescybersystems...",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R4 Part 4.4",
+              "csection-51appendix1requirementstraceability",
+              "REFERENCES"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "15 calendar days",
+                "number": "15",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "] LSPG shall review a summarization or sampling of logged events as determined by LSPG at intervals no greater than 15 calendar days to identify undetected Cyber Security Incidents (Part 4.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar days",
+                "number": "15",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"LSPG shall review a summarization or sampling of logged events as determined by LSPG at intervals no greater than 15 calendar days to identify undetected Cyber Security Incidents (Part 4.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.1",
+          "wall_s": 259.99,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 24239,
+          "eval_count": 641,
+          "prompt_eval_duration_s": 54.66,
+          "n_determinations": 1,
+          "triples": [
+            [
+              "CIP-004 R5 \u2013 Access Revocation",
+              "csection-5fb0af3dc5d821f7ddeb",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "csection-5fb0af3dc5d821f7ddeb",
+                "resolved": true,
+                "resolves_to": "regulatory companion document \u2014 implementation plan",
+                "jurisdiction": "US",
+                "source_kind": "implementation_plan",
+                "document": "Cyber Security \u2014 System Security Management",
+                "heading_lineage": "Requested Approvals \uf02b > Requested Approvals \uf02b / #13",
+                "page": 1,
+                "revision_id": "8ff922d280ff873abd4fc84a11c78fc83a6f85511d87b0ebdf6acbae19865895",
+                "effective_date": "2016-07-01",
+                "detail": ""
+              }
+            ],
+            "num_cited": 1,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "The text states, \"Where technically feasible, for password-only authentication for interactive user access, password changes are performed at least once every 15 calendar months\" [O3].",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "csection-5fb0af3dc5d821f7ddeb",
+                "appears_in_attributed_section": false,
+                "unattributed": false,
+                "sentence": "The text states, \"For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action\" [O5].",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "csection-5fb0af3dc5d821f7ddeb",
+                "appears_in_attributed_section": false,
+                "unattributed": false,
+                "sentence": "\"sentence\": \"For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [
+              "30 calendar days",
+              "30 calendar days"
+            ],
+            "quantity_review_pointers": [
+              {
+                "claim": "30 calendar days",
+                "nearest_citation": "csection-5fb0af3dc5d821f7ddeb",
+                "sentence": "The text states, \"For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action\" [O5].",
+                "detail": "this number is in the packet but not in the nearest cited section \u2014 may be a correct contrast, may be a misattribution; read it"
+              },
+              {
+                "claim": "30 calendar days",
+                "nearest_citation": "csection-5fb0af3dc5d821f7ddeb",
+                "sentence": "\"sentence\": \"For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action.",
+                "detail": "this number is in the packet but not in the nearest cited section \u2014 may be a correct contrast, may be a misattribution; read it"
+              }
+            ],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.2",
+          "wall_s": 109.02,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 22436,
+          "eval_count": 205,
+          "prompt_eval_duration_s": 47.536,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.3",
+          "wall_s": 314.39,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 23126,
+          "eval_count": 977,
+          "prompt_eval_duration_s": 49.236,
+          "n_determinations": 5,
+          "triples": [
+            [
+              "CIP-007-6 R5 Part 5.3",
+              "csection-0b53d108c1f1ced50f40",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.3",
+              "csection-11_purpose",
+              "EVIDENCES"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.3",
+              "csection-322498620e87429c",
+              "EVIDENCES"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.3",
+              "csection-3255_shared_auth",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.3",
+              "csection-8a0dba69747ab4fb49ed",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [
+              {
+                "cited_ref": "csection-8a0dba69747ab4fb49ed",
+                "resolved": false,
+                "detail": "does not resolve to any section in this store"
+              },
+              {
+                "cited_ref": "csection-0b53d108c1f1ced50f40",
+                "resolved": true,
+                "resolves_to": "regulatory companion document \u2014 implementation plan",
+                "jurisdiction": "US",
+                "source_kind": "implementation_plan",
+                "document": "Cyber Security \u2014 System Security Management",
+                "heading_lineage": "Requested Board Withdrawals > Requested Board Withdrawals / #18",
+                "page": 2,
+                "revision_id": "8ff922d280ff873abd4fc84a11c78fc83a6f85511d87b0ebdf6acbae19865895",
+                "effective_date": "2016-07-01",
+                "detail": ""
+              },
+              {
+                "cited_ref": "csection-322498620e87429c",
+                "resolved": false,
+                "detail": "does not resolve to any section in this store"
+              }
+            ],
+            "num_cited": 3,
+            "unresolvable": [
+              "csection-8a0dba69747ab4fb49ed",
+              "csection-322498620e87429c"
+            ],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.4",
+          "wall_s": 195.1,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 24081,
+          "eval_count": 589,
+          "prompt_eval_duration_s": 52.887,
+          "n_determinations": 1,
+          "triples": [
+            [
+              "CIP-004 R5 Part 5.4",
+              "csection-51lba4f3641bcdc9e70301c6",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "*   **Sentence:** \"For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.5",
+          "wall_s": 217.61,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 24101,
+          "eval_count": 1014,
+          "prompt_eval_duration_s": 52.334,
+          "n_determinations": 3,
+          "triples": [
+            [
+              "CIP-007-6 R5 Part 5.4",
+              "csection-03u_trace_5.4",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.6",
+              "csection-03u_trace_5.6",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.7",
+              "csection-03u_trace_5.7",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "4, the section states: \"For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action\" [O3].",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "6, the section states: \"Where technically feasible, for password-only authentication for interactive user access, either technically or procedurally enforce password changes or an obligation to change the password at least once every 15 calendar months\" [O3].",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "30 calendar days",
+                "number": "30",
+                "unit": "day",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"For termination actions, change passwords for shared account(s) known to the user within 30 calendar days of the termination action.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"Where technically feasible, for password-only authentication for interactive user access, either technically or procedurally enforce password changes or an obligation to change the password at least once every 15 calendar months.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.6",
+          "wall_s": 193.64,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 23995,
+          "eval_count": 593,
+          "prompt_eval_duration_s": 54.305,
+          "n_determinations": 3,
+          "triples": [
+            [
+              "CIP-007-6 R5 Part 5.6",
+              "isection-7685e76f49f852376938",
+              "REFERENCES"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.6",
+              "isection-f23120a8de2128ab702f",
+              "IMPLEMENTS"
+            ],
+            [
+              "CIP-007-6 R5 Part 5.6",
+              "isection-fbc9ce9e2439c4f4af90",
+              "IMPLEMENTS"
+            ]
+          ],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "The section specifies the action to be taken: \"Where technically feasible, for password-only authentication for interactive user access, password changes are performed at least once every 15 calendar months.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "For password-only authentication for interactive user access, where technically feasible, either technically or procedurally enforce password changes or an obligation to change the password at least once every 15 calendar months (Part 5.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"Where technically feasible, for password-only authentication for interactive user access, password changes are performed at least once every 15 calendar months.",
+                "appears_somewhere_in_the_material": true
+              },
+              {
+                "claim": "15 calendar months",
+                "number": "15",
+                "unit": "month",
+                "attributed_to": "",
+                "appears_in_attributed_section": null,
+                "unattributed": true,
+                "sentence": "\"sentence\": \"For password-only authentication for interactive user access, where technically feasible, either technically or procedurally enforce password changes or an obligation to change the password at least once every 15 calendar months (Part 5.",
+                "appears_somewhere_in_the_material": true
+              }
+            ],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        },
+        {
+          "ref": "CIP-007-6 R5 Part 5.7",
+          "wall_s": 76.14,
+          "dialect": "ollama-native",
+          "endpoint": "http://localhost:11434/api/chat",
+          "context_source": "request_num_ctx",
+          "error": "",
+          "prompt_eval_count": 23918,
+          "eval_count": 395,
+          "prompt_eval_duration_s": 51.472,
+          "n_determinations": 0,
+          "triples": [],
+          "failed": false,
+          "failure": "",
+          "verification": {
+            "citations": [],
+            "num_cited": 0,
+            "unresolvable": [],
+            "quantities": [],
+            "quantities_not_in_cited_text": [],
+            "quantity_review_pointers": [],
+            "note": "resolution and quantity attribution only \u2014 nothing here judges whether the answer is right, and no citation is disqualified"
+          }
+        }
+      ]
+    }
+  },
+  "comparison_vs_A": {
+    "C": {
+      "jaccard_vs_A": 0.0256,
+      "n_triples": 43,
+      "n_triples_A": 37,
+      "only_in_arm": [
+        [
+          "CIP-004 R5 Part 5.4",
+          "isection-7685e76f49f852376938",
+          "REFERENCES"
+        ],
+        [
+          "CIP-004-6 R5 Part 5.4",
+          "isection-7685e76f49f852376938",
+          "REFERENCES"
+        ],
+        [
+          "CIP-006-6 R2 Part 2.2",
+          "isection-3.7.9",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.1",
+          "isection-137aae1d5b133db988eb",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.2",
+          "isection-87d00aedd4cf1f41f0cd",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.2",
+          "isection-e450e773b7d8578062c6",
+          "REFERENCES"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.3",
+          "isection-87d00aedd4cf1f41f0cd",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.3",
+          "isection-c75f69c881d6a214ff52",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.3",
+          "isection-e450e773b7d8578062c6",
+          "REFERENCES"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.4",
+          "isection-12bd999ecfa8bf61d440",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.4",
+          "isection-34eefd771edff96a7384",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.4",
+          "isection-87d00aedd4cf1f41f0cd",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.4",
+          "isection-e450e773b7d8578062c6",
+          "REFERENCES"
+        ],
+        [
+          "CIP-007-6 R3 Part 3.2",
+          "isection-7085ec4c19d8f192fcc5",
+          "REFERENCES"
+        ],
+        [
+          "CIP-007-6 R3 Part 3.2",
+          "isection-9632acf7d9e2f8d2d46d",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R3 Part 3.3",
+          "isection-9632acf7d9e2f8d2d46d",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R4 Part 4.1",
+          "isection-e9ebd2f76d13cea92bea",
+          "REFERENCES"
+        ],
+        [
+          "CIP-007-6 R4 Part 4.3",
+          "isection-3614663bc41ccac4eca2",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R4 Part 4.3",
+          "isection-e9ebd2f76d13cea92bea",
+          "REFERENCES"
+        ],
+        [
+          "CIP-007-6 R4 Part 4.4",
+          "isection-3614663bc41ccac4eca2",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R4 Part 4.4",
+          "isection-7de5f87c883913499283",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R4 Part 4.4",
+          "isection-e9ebd2f76d13cea92bea",
+          "REFERENCES"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.1",
+          "isection-fbc9ce9e2439c4f4af90",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.2",
+          "isection-1c832aa9f657003de712",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.2",
+          "isection-4a791503c7c2d923d58e",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.2",
+          "isection-7685e76f49f852376938",
+          "REFERENCES"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.2",
+          "isection-ad7b6d77c2ef7989f903",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.2",
+          "isection-fbc9ce9e2439c4f4af90",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.3",
+          "isection-fbc9ce9e2439c4f4af90",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.4",
+          "isection-fbc9ce9e2439c4f4af90",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.5",
+          "isection-7685e76f49f852376938",
+          "REFERENCES"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.5",
+          "isection-a83386fd57a4b249539f",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.5",
+          "isection-fbc9ce9e2439c4f4af90",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.6",
+          "isection-182b34c5f5089b40216a",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.6",
+          "isection-7685e76f49f852376938",
+          "REFERENCES"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.6",
+          "isection-f23120a8de2128ab702f",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.6",
+          "isection-fbc9ce9e2439c4f4af90",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.7",
+          "isection-fbc9ce9e2439c4f4af90",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-010 R1 Part 1.2",
+          "isection-ed239c37c5c9ea99aa23",
+          "REFERENCES"
+        ],
+        [
+          "CIP-010-2 R4",
+          "isection-9ba0ddc0d37e87aeab5c",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-010-4 R1 Part 1.1",
+          "isection-ed239c37c5c9ea99aa23",
+          "REFERENCES"
+        ]
+      ],
+      "only_in_A": [
+        [
+          "CIP-004 R5",
+          "csection-04e66666666666666666666666666666",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-004 R5 Part 5.4",
+          "csection-03a8b31512a240440322",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-004 R5 Part 5.4",
+          "csection-5fb0af3dc5d821f7ddeb",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-004-6 R2 Part 2.4.5",
+          "csection-5ef06866666666666666666666666666",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R1 Part 1.2",
+          "isection-5469536961202168f587",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R1 Part 1.2",
+          "isection-dbe64d065efd87143e2a",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R1 Part 1.2",
+          "isection-ed239c37c5c9ea99aa23",
+          "REFERENCES"
+        ],
+        [
+          "CIP-007-6 R1 Part 1.2",
+          "isection-f0faec69efde5d8ec92a",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.1",
+          "isection-168c9eef69eadf095093",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.1",
+          "isection-5a6e77a9acc7ab5eee74",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.1",
+          "isection-87d00aedd4cf1f41f0cd",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.1",
+          "isection-e450e773b7d8578062c6",
+          "REFERENCES"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.2",
+          "csection-334d4e990131cda252fca",
+          "EVIDENCES"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.2",
+          "csection-8f3cb73feb731feeb3ce",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.3",
+          "csection-322_inventory",
+          "NONE"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.3",
+          "csection-342_policy",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.3",
+          "csection-35_patch_impl",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.3",
+          "csection-36_mitigation_mgmt",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.3",
+          "csection-4c86fad4713337ba99d",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.3",
+          "csection-51_traceability",
+          "REFERENCES"
+        ],
+        [
+          "CIP-007-6 R3 Part 3.1",
+          "isection-9632acf7d9e2f8d2d46d",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R3 Part 3.1",
+          "isection-eccfffe0062b8f04bfeb",
+          "REFERENCES"
+        ],
+        [
+          "CIP-007-6 R3 Part 3.1",
+          "isection-fcaa9b478655c44bb0ec",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R4 Part 4.2",
+          "isection-84f6a819ea304c8f078b",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R4 Part 4.2",
+          "isection-e9ebd2f76d13cea92bea",
+          "REFERENCES"
+        ],
+        [
+          "CIP-007-6 R4 Part 4.4",
+          "csection-344securityeventmonitoringprocessr4",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R4 Part 4.4",
+          "csection-35cmlaplogreviewforciphighimpactbescybersystems...",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R4 Part 4.4",
+          "csection-51appendix1requirementstraceability",
+          "REFERENCES"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.2",
+          "csection-345_policy_subclause_5.2",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.3",
+          "csection-323",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.4",
+          "csection-03u4v5w6x7y8z9a0b1c2d3e4",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.6",
+          "csection-03u4v5w6x7y8z9a0b1c2d3e4",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.7",
+          "csection-03u4v5w6x7y8z9a0b1c2d3e4",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-008-6 (Incident Response)",
+          "isection-2ad8fac94a9f8fcb7fd2",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-010-4 R1 Part 1.1.1",
+          "csection-51_appendix_1_requirements_traceability",
+          "REFERENCES"
+        ]
+      ],
+      "speedup_vs_A": 0.538
+    },
+    "D": {
+      "jaccard_vs_A": 0.2787,
+      "n_triples": 41,
+      "n_triples_A": 37,
+      "only_in_arm": [
+        [
+          "CIP-004 R5 Part 5.4",
+          "csection-51lba4f3641bcdc9e70301c6",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-004 R5 \u2013 Access Revocation",
+          "csection-5fb0af3dc5d821f7ddeb",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-006-6 R2.2",
+          "csection-04444444444444444444444444444444",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R1 Part 1.1",
+          "csection-3707469307a3c5852aa3",
+          "EVIDENCES"
+        ],
+        [
+          "CIP-007-6 R1 Part 1.1.4",
+          "csection-05806666666666666666666666666666",
+          "REFERENCES"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.1",
+          "csection-o4-11",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.2",
+          "csection-3224ad86066666666666666666666666",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.2",
+          "csection-o1-332",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.3",
+          "csection-51appendix1traceability",
+          "REFERENCES"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.3",
+          "csection-o2-361",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.3",
+          "csection-o3-51",
+          "REFERENCES"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.3",
+          "csection-o4-3421",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.4",
+          "csection-o3-52",
+          "REFERENCES"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.3",
+          "csection-0b53d108c1f1ced50f40",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.3",
+          "csection-11_purpose",
+          "EVIDENCES"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.3",
+          "csection-322498620e87429c",
+          "EVIDENCES"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.3",
+          "csection-3255_shared_auth",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.3",
+          "csection-8a0dba69747ab4fb49ed",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.4",
+          "csection-03u_trace_5.4",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.6",
+          "csection-03u_trace_5.6",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.6",
+          "isection-7685e76f49f852376938",
+          "REFERENCES"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.6",
+          "isection-f23120a8de2128ab702f",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.6",
+          "isection-fbc9ce9e2439c4f4af90",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.7",
+          "csection-03u_trace_5.7",
+          "IMPLEMENTS"
+        ]
+      ],
+      "only_in_A": [
+        [
+          "CIP-004 R5",
+          "csection-04e66666666666666666666666666666",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-004 R5 Part 5.4",
+          "csection-03a8b31512a240440322",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-004 R5 Part 5.4",
+          "csection-5fb0af3dc5d821f7ddeb",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-004-6 R2 Part 2.4.5",
+          "csection-5ef06866666666666666666666666666",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.2",
+          "csection-334d4e990131cda252fca",
+          "EVIDENCES"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.2",
+          "csection-8f3cb73feb731feeb3ce",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.3",
+          "csection-322_inventory",
+          "NONE"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.3",
+          "csection-342_policy",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.3",
+          "csection-35_patch_impl",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.3",
+          "csection-36_mitigation_mgmt",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.3",
+          "csection-4c86fad4713337ba99d",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R2 Part 2.3",
+          "csection-51_traceability",
+          "REFERENCES"
+        ],
+        [
+          "CIP-007-6 R4 Part 4.1",
+          "isection-3614663bc41ccac4eca2",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.2",
+          "csection-345_policy_subclause_5.2",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.3",
+          "csection-323",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.4",
+          "csection-03u4v5w6x7y8z9a0b1c2d3e4",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.6",
+          "csection-03u4v5w6x7y8z9a0b1c2d3e4",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-007-6 R5 Part 5.7",
+          "csection-03u4v5w6x7y8z9a0b1c2d3e4",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-008-6 (Incident Response)",
+          "isection-2ad8fac94a9f8fcb7fd2",
+          "IMPLEMENTS"
+        ],
+        [
+          "CIP-010-4 R1 Part 1.1.1",
+          "csection-51_appendix_1_requirements_traceability",
+          "REFERENCES"
+        ]
+      ],
+      "speedup_vs_A": 1.098
+    }
+  },
+  "attribution_note": "speedup_vs_A for arm C mixes the engine change and the concurrency change. Arm D isolates concurrency on the incumbent engine and arm B isolates the engine at concurrency 1. The engine's own contribution is C/D, not C/A.",
+  "verdict": "RECORDED"
+}

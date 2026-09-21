@@ -1,0 +1,14 @@
+{
+  "run_id": "2026-09-21T20:03:15.963697+00:00",
+  "method": "Lightweight, not continuous 30s sampling during the sweep (not built into this session in time): a post-sweep snapshot plus one live probe with splash still resident.",
+  "splash_process": {
+    "rss_pages_16384b": 970240,
+    "rss_gb_approx": 15.9
+  },
+  "ollama_gemma4_evicted_during_sweep": false,
+  "ollama_gemma4_evidence": "'ollama ps' immediately after the sweep finished showed gemma4:26b-a4b-it-q4_K_M-ctx32k still resident (18GB, 100% GPU, num_ctx=65536, 10 min keep-alive remaining) \u2014 it was never evicted across arm A (sequential ollama), arm C (splash-only), or arm D (concurrent ollama), despite splash holding ~15.9GB resident throughout arm C.",
+  "concurrent_conversation_turn_survives_sweep": true,
+  "concurrent_conversation_evidence": "One live compliance-reading conversation turn through the deployed router, fired immediately after the sweep completed with splash still loaded and idle: HTTP 200, wall 10.68s, answered normally. Not fired DURING active sweep load (the sweep had just finished) \u2014 this is evidence the product surface recovers promptly and models coexist at rest, not proof of latency under simultaneous load.",
+  "caveat": "A true concurrent-load test (a conversation turn fired WHILE arm C or D is actively generating) was not run \u2014 doing so would have meant a fourth live sweep pass, and the speed/completion findings already answer whether splash is worth adopting at this config. Recorded as an open item rather than a claim this receipt does not support.",
+  "verdict": "RECORDED"
+}
