@@ -1,0 +1,132 @@
+{
+  "run_id": "2026-09-21T02:15:47.672582+00:00",
+  "workspace": "compliance-reading",
+  "router": "http://localhost:9099",
+  "n_questions": 3,
+  "n_passed": 2,
+  "rows": [
+    {
+      "key": "coverage_gap",
+      "requires_side": "operator",
+      "has_stored_relation": true,
+      "cross_check": "compliance_coverage",
+      "question": "For CIP-007-6 R2, which Parts do my documents not cover? For each Part with no implementing section of mine, be plain about it and cite the Part. For each Part that is covered, cite the section of mine that covers it.",
+      "original_wording": "For CIP-007-6 R2, which Parts do my documents not cover? For each Part with no implementing section of mine, say so plainly and cite the Part. For each Part that is covered, cite the section of mine that covers it.",
+      "answer_chars": 1670,
+      "wall_s": 27.83,
+      "first_token_s": 0.05,
+      "cited_ids": [
+        "isection-12bd999ecfa8bf61d440",
+        "isection-137aae1d5b133db988eb",
+        "isection-168c9eef69ead095093",
+        "isection-21a30e0d44708f5dfdce",
+        "isection-34eefd771edff96a7384",
+        "isection-5a6e77a9acc7ab5eee74",
+        "isection-87d00aedd4cf1f41f0cd",
+        "isection-c75f69c881d6a214ff52",
+        "isection-e450e773b7d8578062c6"
+      ],
+      "resolved_ids": [
+        "isection-12bd999ecfa8bf61d440",
+        "isection-137aae1d5b133db988eb",
+        "isection-21a30e0d44708f5dfdce",
+        "isection-34eefd771edff96a7384",
+        "isection-5a6e77a9acc7ab5eee74",
+        "isection-87d00aedd4cf1f41f0cd",
+        "isection-c75f69c881d6a214ff52",
+        "isection-e450e773b7d8578062c6"
+      ],
+      "unresolved_ids": [
+        "isection-168c9eef69ead095093"
+      ],
+      "sides_cited": [
+        "operator"
+      ],
+      "checks": {
+        "answered": true,
+        "cited_something": true,
+        "all_citations_resolve": false,
+        "required_side_present": true
+      },
+      "verdict": "FAIL",
+      "reason": "failed: all_citations_resolve"
+    },
+    {
+      "key": "exceedance",
+      "requires_side": "operator",
+      "has_stored_relation": false,
+      "cross_check": null,
+      "question": "For CIP-007-6 R2, where do my documents commit me to more than the standard asks? Quote the standard's demand and my document's stronger commitment side by side, and cite both.",
+      "original_wording": "For CIP-007-6 R2, where do my documents commit me to more than the standard requires? Quote the standard's requirement and my document's stronger commitment side by side, and cite both.",
+      "answer_chars": 1072,
+      "wall_s": 32.45,
+      "first_token_s": 0.03,
+      "cited_ids": [
+        "csection-754b5967f6905d4c376e",
+        "csection-7700dd5499cead0994ec",
+        "csection-c36c38b8842c8bc217ac",
+        "isection-5a6e77a9acc7ab5eee74"
+      ],
+      "resolved_ids": [
+        "csection-754b5967f6905d4c376e",
+        "csection-7700dd5499cead0994ec",
+        "csection-c36c38b8842c8bc217ac",
+        "isection-5a6e77a9acc7ab5eee74"
+      ],
+      "unresolved_ids": [],
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "cited_something": true,
+        "all_citations_resolve": true,
+        "required_side_present": true
+      },
+      "verdict": "PASS",
+      "reason": "all checks passed"
+    },
+    {
+      "key": "unused_latitude",
+      "requires_side": "regulatory",
+      "has_stored_relation": false,
+      "cross_check": null,
+      "question": "For CIP-007-6 R2, where does the standard leave a choice or an allowance that my documents do not take up? Cite the standard's own words granting the latitude, and name what my documents do instead.",
+      "original_wording": "For CIP-007-6 R2, where does the standard leave a choice or an allowance that my documents do not take up? Cite the standard's own words granting the latitude, and say what my documents do instead.",
+      "answer_chars": 2101,
+      "wall_s": 40.15,
+      "first_token_s": 0.02,
+      "cited_ids": [
+        "csection-c0cd08b61c308b0e6403",
+        "csection-c36c38b8842c8bc217ac",
+        "isection-12bd999ecfa8bf61d440",
+        "isection-34eefd771edff96a7384",
+        "isection-c75f69c881d6a214ff52"
+      ],
+      "resolved_ids": [
+        "csection-c0cd08b61c308b0e6403",
+        "csection-c36c38b8842c8bc217ac",
+        "isection-12bd999ecfa8bf61d440",
+        "isection-34eefd771edff96a7384",
+        "isection-c75f69c881d6a214ff52"
+      ],
+      "unresolved_ids": [],
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "cited_something": true,
+        "all_citations_resolve": true,
+        "required_side_present": true
+      },
+      "verdict": "PASS",
+      "reason": "all checks passed"
+    }
+  ],
+  "relation_asymmetry_note": "coverage_gap has a stored relation behind it (absence of IMPLEMENTS) and is cross-checkable against compliance_coverage. exceedance and unused_latitude have no stored relation: DETERMINATION_RELATIONS is (IMPLEMENTS, EVIDENCES, REFERENCES). Those two answers are readings, with a reading's reliability, and the closing report says so. Adding EXCEEDS/LATITUDE relation types would convert a Results-Based Standard into prescriptions it declines to state - the failure this module has already paid for twice.",
+  "router_wording_finding": "Run 1 asked the ORIGINAL wordings and all three turns died at hop 1: the router's explicit-side-effect matcher (_select_explicit_required_tool) saw a CIP id plus a lookup word ('requires'/'say') and narrowed the workspace to the single tool nerc_cip_requirement with tool_choice=required; the model named compliance_context from the system prompt, the whitelist gate passed the raw tool_calls through, and the turn ended unanswered (dispatch counter did not move - measured, not inferred). That is a router product defect for conversational analysis questions, recorded as an open item; it is not a reading defect. Run 2 (this receipt) asks the same three asks in wordings that avoid the matcher's trigger words; each row records both wordings. Run 1 receipt preserved at product_questions_run1_blocked_by_router.json.",
+  "verdict": "FAIL"
+}

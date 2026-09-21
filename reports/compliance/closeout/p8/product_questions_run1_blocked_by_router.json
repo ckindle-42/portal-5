@@ -1,0 +1,77 @@
+{
+  "run_id": "2026-09-21T01:54:16.328140+00:00",
+  "workspace": "compliance-reading",
+  "router": "http://localhost:9099",
+  "n_questions": 3,
+  "n_passed": 0,
+  "rows": [
+    {
+      "key": "coverage_gap",
+      "requires_side": "operator",
+      "has_stored_relation": true,
+      "cross_check": "compliance_coverage",
+      "question": "For CIP-007-6 R2, which Parts do my documents not cover? For each Part with no implementing section of mine, say so plainly and cite the Part. For each Part that is covered, cite the section of mine that covers it.",
+      "answer_chars": 0,
+      "wall_s": 2.79,
+      "first_token_s": 0.05,
+      "cited_ids": [],
+      "resolved_ids": [],
+      "unresolved_ids": [],
+      "sides_cited": [],
+      "checks": {
+        "answered": false,
+        "cited_something": false,
+        "all_citations_resolve": false,
+        "required_side_present": false
+      },
+      "verdict": "FAIL",
+      "reason": "failed: answered, cited_something, all_citations_resolve, required_side_present"
+    },
+    {
+      "key": "exceedance",
+      "requires_side": "operator",
+      "has_stored_relation": false,
+      "cross_check": null,
+      "question": "For CIP-007-6 R2, where do my documents commit me to more than the standard requires? Quote the standard's requirement and my document's stronger commitment side by side, and cite both.",
+      "answer_chars": 0,
+      "wall_s": 0.85,
+      "first_token_s": 0.02,
+      "cited_ids": [],
+      "resolved_ids": [],
+      "unresolved_ids": [],
+      "sides_cited": [],
+      "checks": {
+        "answered": false,
+        "cited_something": false,
+        "all_citations_resolve": false,
+        "required_side_present": false
+      },
+      "verdict": "FAIL",
+      "reason": "failed: answered, cited_something, all_citations_resolve, required_side_present"
+    },
+    {
+      "key": "unused_latitude",
+      "requires_side": "regulatory",
+      "has_stored_relation": false,
+      "cross_check": null,
+      "question": "For CIP-007-6 R2, where does the standard leave a choice or an allowance that my documents do not take up? Cite the standard's own words granting the latitude, and say what my documents do instead.",
+      "answer_chars": 0,
+      "wall_s": 0.84,
+      "first_token_s": 0.02,
+      "cited_ids": [],
+      "resolved_ids": [],
+      "unresolved_ids": [],
+      "sides_cited": [],
+      "checks": {
+        "answered": false,
+        "cited_something": false,
+        "all_citations_resolve": false,
+        "required_side_present": false
+      },
+      "verdict": "FAIL",
+      "reason": "failed: answered, cited_something, all_citations_resolve, required_side_present"
+    }
+  ],
+  "relation_asymmetry_note": "coverage_gap has a stored relation behind it (absence of IMPLEMENTS) and is cross-checkable against compliance_coverage. exceedance and unused_latitude have no stored relation: DETERMINATION_RELATIONS is (IMPLEMENTS, EVIDENCES, REFERENCES). Those two answers are readings, with a reading's reliability, and the closing report says so. Adding EXCEEDS/LATITUDE relation types would convert a Results-Based Standard into prescriptions it declines to state - the failure this module has already paid for twice.",
+  "verdict": "FAIL"
+}
