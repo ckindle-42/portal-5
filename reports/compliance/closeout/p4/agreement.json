@@ -1,0 +1,58 @@
+{
+  "run_id": "2026-09-21T01:37:23.974156+00:00",
+  "base_commit": "8d872fd74a35f5e2c69d35a8260b2a5ae4e64840",
+  "agreement_before_sweep": {
+    "verdict": "scored",
+    "n_decided": 11,
+    "n_confirmed": 10,
+    "n_corrected": 1,
+    "n_rejected": 0,
+    "agreement_rate": 0.9091,
+    "by_machine_relation": {
+      "EVIDENCES": {
+        "n": 1,
+        "confirmed": 1,
+        "agreement": 1.0
+      },
+      "IMPLEMENTS": {
+        "n": 1,
+        "confirmed": 0,
+        "agreement": 0.0
+      },
+      "REFERENCES": {
+        "n": 9,
+        "confirmed": 9,
+        "agreement": 1.0
+      }
+    },
+    "note": "machine determinations versus the human-confirmed sample \u2014 the mapping accuracy"
+  },
+  "agreement_after_sweep": {
+    "verdict": "scored",
+    "n_decided": 11,
+    "n_confirmed": 10,
+    "n_corrected": 1,
+    "n_rejected": 0,
+    "agreement_rate": 0.9091,
+    "by_machine_relation": {
+      "EVIDENCES": {
+        "n": 1,
+        "confirmed": 1,
+        "agreement": 1.0
+      },
+      "IMPLEMENTS": {
+        "n": 1,
+        "confirmed": 0,
+        "agreement": 0.0
+      },
+      "REFERENCES": {
+        "n": 9,
+        "confirmed": 9,
+        "agreement": 1.0
+      }
+    },
+    "note": "machine determinations versus the human-confirmed sample \u2014 the mapping accuracy"
+  },
+  "sample_size_note": "The rate is reported with n_decided beside it everywhere. A rate over a single-digit or low-double-digit sample is a signal, not a qualification; growing the decided sample is the largest open item in the closing report.",
+  "verdict": "RECORDED"
+}
