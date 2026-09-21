@@ -87,6 +87,7 @@ def _section_jurisdiction(repo: Any, section_id: str) -> str:
 
 
 def _classify(repo: Any, outcome: dict[str, Any]) -> tuple[str, str, dict[str, Any]]:
+    from portal.modules.compliance.core.answer_contract import _SECTION_TOKEN
     from portal.modules.compliance.core.jurisdiction import is_regulatory_side
     from portal.modules.compliance.core.reading_assembly import parse_ref
     from portal.modules.compliance.core.text_match import quote_containment
@@ -98,6 +99,13 @@ def _classify(repo: Any, outcome: dict[str, Any]) -> tuple[str, str, dict[str, A
     # address that was actually asked about, and is the fallback.
     requirement_id = str(outcome.get("requirement_id") or outcome.get("ref") or "")
     section_id = str(outcome.get("section_id", ""))
+    if not section_id:
+        # A receipt sourced from before the jurisdiction-crossing rejection
+        # carried its own section_id: the id is still in the reason string
+        # ("section 'isection-...' is US jurisdiction — ..."), so it is
+        # recovered rather than lost to unclassified.
+        found = _SECTION_TOKEN.search(reason)
+        section_id = found.group(0) if found else ""
     sentence = str(outcome.get("sentence", ""))
     detail: dict[str, Any] = {}
 
