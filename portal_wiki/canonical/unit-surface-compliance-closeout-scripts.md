@@ -23,6 +23,10 @@ sources:
 - type: code
   path: scripts/compliance/ask_product_questions.py
   commit: 29665293
+- type: code
+  path: scripts/compliance/adjudicate_determinations.py
+- type: code
+  path: scripts/compliance/diagnose_dead_standards.py
 claims: []
 confidence: high
 tags:
@@ -60,3 +64,18 @@ one conversation per question, and passes a question only when the answer is
 non-empty, every cited section id resolves in the store, and at least one
 resolved citation sits on the side the question requires (operator for
 coverage and exceedance, regulatory for unused latitude).
+
+TASK_COMPLIANCE_PROVE_THE_MODULE_V1 adds two more instruments in the same
+spirit. `adjudicate_determinations` replaces `agreement()`'s n=11 as the
+module's quality number: `--extract` walks every reading-derived
+`relationship_assertions` row into a judgeable unit (requirement text,
+operator section text, relation, cited sentence), and `--fold` takes the
+coding agent's own verdicts on those units and computes precision overall
+and per standard — the adjudication is a human-equivalent read, not a
+mechanical rule, and the script writes nothing to the store either way.
+`diagnose_dead_standards` classifies every Part-level requirement in a
+named standard into one of four mechanical causes (no_operator_document,
+below_threshold, empty_population, reading_failure) from the store's own
+autosync links payload, `requirement_scope.population`, and the existing
+refusal adjudication — never a new threshold, and it does not touch
+`DEFAULT_THRESHOLD`.
