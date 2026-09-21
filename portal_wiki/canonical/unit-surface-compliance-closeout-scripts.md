@@ -27,6 +27,8 @@ sources:
   path: scripts/compliance/adjudicate_determinations.py
 - type: code
   path: scripts/compliance/diagnose_dead_standards.py
+- type: code
+  path: scripts/compliance/single_vs_split.py
 claims: []
 confidence: high
 tags:
@@ -78,4 +80,10 @@ named standard into one of four mechanical causes (no_operator_document,
 below_threshold, empty_population, reading_failure) from the store's own
 autosync links payload, `requirement_scope.population`, and the existing
 refusal adjudication — never a new threshold, and it does not touch
-`DEFAULT_THRESHOLD`.
+`DEFAULT_THRESHOLD`. `single_vs_split` (§P4b) runs the same five-turn
+conversation three ways — the incumbent split (gemma4, through the
+deployed router) and two single-seat splash arms (Qwen3.8-27B,
+Qwen3.6-35B-A3B, called directly against the splash forwarder since it has
+no `config/backends.yaml` entry) — reusing the router's own
+`_dispatch_tool_call` so a splash arm's tool loop is authorized exactly
+the way the deployed one is.

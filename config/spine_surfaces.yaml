@@ -768,6 +768,10 @@ surfaces:
   globs:
   - scripts/compliance/diagnose_dead_standards.py
   unit: unit-surface-compliance-closeout-scripts
+- name: file-scripts-compliance-single_vs_split
+  globs:
+  - scripts/compliance/single_vs_split.py
+  unit: unit-surface-compliance-closeout-scripts
 - name: file-scripts-compliance-verify_conjunction_adoption
   globs:
   - scripts/compliance/verify_conjunction_adoption.py
