@@ -2319,10 +2319,12 @@ def compliance_notes(
 
 def _index_row(section: dict[str, Any]) -> dict[str, Any]:
     """One index row: where a section IS, and nothing of what it says."""
+    from portal.modules.compliance.core.jurisdiction import is_operator_side
+
     jurisdiction = str(section.get("jurisdiction", ""))
     side = (
         "operator"
-        if jurisdiction == "internal"
+        if is_operator_side(jurisdiction)
         else (jurisdiction or str(section.get("source_kind", "")) or "regulatory")
     )
     return {

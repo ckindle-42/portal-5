@@ -511,6 +511,58 @@ def store_capture(
 
     report = assert_faithful(captured)
     conn = repo._conn
+
+    # Compare before mutating. A revision is content-addressed and the
+    # repository promises revisions are "never deleted or mutated" so that
+    # "historical anchors into the prior revision still resolve". Re-capturing
+    # an UNCHANGED revision used to delete and re-insert byte-identical rows,
+    # which four foreign keys correctly refuse once anything cites them
+    # (source_spans, requirement_sections, source_table_cells, operator_notes).
+    # That is what wedged the NERC autosync and forced a --no-verify push: a
+    # moved EFFECTIVE DATE re-captured a document whose text had not changed.
+    # Traced against the schema: source_sections has NO text_hash and NO text
+    # column - it carries (section_id, revision_id, path, page_start, page_end,
+    # table_ref, extractor, extractor_version, org_id). A text comparison is
+    # neither available nor needed: revision_id IS content_hash(bytes), and
+    # section_id_for(revision_id, unit) = sha256(revision_id|ordinal|unit_kind|
+    # path). So identical revision + identical extractor version from a
+    # deterministic extractor yields an identical section-id SET, and that set
+    # is a sufficient identity check using only columns that exist.
+    prior = conn.execute(
+        "SELECT section_id, extractor_version FROM source_sections "
+        "WHERE revision_id = ? AND extractor = ?",
+        (revision_id, captured.extractor),
+    ).fetchall()
+    if prior:
+        existing = {str(row[0]) for row in prior}
+        stored_versions = {str(row[1] or "") for row in prior}
+        incoming = {section_id_for(revision_id, unit) for unit in captured.units}
+        same_version = stored_versions == {str(captured.extractor_version or "")}
+        if same_version and incoming == existing:
+            return {
+                "revision_id": revision_id,
+                "extractor": captured.extractor,
+                "sections": len(existing),
+                "action": "unchanged",
+                "reason": (
+                    "this revision already holds an identical capture from the same "
+                    "extractor version — nothing rewritten, retained citations intact"
+                ),
+                "faithfulness": report,
+            }
+        if not same_version:
+            # A re-extraction of an immutable revision is a real operation with
+            # real consequences for anything anchored to it. It is not a silent
+            # delete. Refuse and name the migration the operator must choose.
+            raise RuntimeError(
+                f"revision {revision_id} holds sections from {captured.extractor} "
+                f"version {sorted(stored_versions)!r}; this capture is "
+                f"{captured.extractor_version!r}. Re-extracting an immutable revision "
+                f"would orphan {len(existing)} sections that citations, spans and "
+                "requirement joins reference. Run a re-extraction migration that "
+                "supersedes rather than deletes."
+            )
+
     # scoped to THIS capture's own extractor, not the module default: the
     # Glossary capture declares its own extractor, and deleting by the default
     # would leave its previous units in place beside the fresh ones.

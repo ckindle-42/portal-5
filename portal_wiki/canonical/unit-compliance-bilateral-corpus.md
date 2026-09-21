@@ -20,6 +20,12 @@ sources:
 - type: code
   path: portal/modules/compliance/core/candidate_links.py
 - type: code
+  path: portal/modules/compliance/core/jurisdiction.py
+- type: code
+  path: portal/modules/compliance/core/answer_contract.py
+- type: code
+  path: portal/modules/compliance/core/text_match.py
+- type: code
   path: portal/modules/compliance/core/addressing.py
 - type: code
   path: portal/modules/compliance/core/graph_queries.py

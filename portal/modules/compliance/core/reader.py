@@ -49,10 +49,16 @@ import urllib.error
 from pathlib import Path
 from typing import Any
 
-#: Section ids as they appear in an answer. Both extractors' prefixes plus the
-#: split sub-unit suffix, so an id the model copied from the material resolves
-#: exactly as the model saw it.
-CITATION_RE = re.compile(r"\b((?:c|i)section-[0-9a-f]{20}(?:#\d+)?)\b")
+from portal.modules.compliance.core.answer_contract import SECTION_ID_PATTERN
+
+#: Section ids as they appear in an answer, when there is no answer_contract in
+#: scope for the material being read. Built on the one shared definition
+#: (:data:`answer_contract.SECTION_ID_PATTERN`) with a capture group for this
+#: module's own ``findall``/``group(1)`` callers — a second, independently
+#: maintained pattern here is exactly the habit CONTRACT_AND_CLOSE_V1 fixed: a
+#: 20-hex-only variant of this regex once meant a single dropped character
+#: voided a citation invisibly.
+CITATION_RE = re.compile(rf"\b({SECTION_ID_PATTERN})\b", re.I)
 
 #: Dash characters a model substitutes for the ASCII hyphen when it renders an
 #: id inside prose or Markdown.
@@ -418,7 +424,9 @@ def _what_it_is(entry: dict[str, Any]) -> str:
         return "regulatory — standard text"
     if kind in ("implementation_plan", "technical_rationale", "rsaw"):
         return f"regulatory companion document — {kind.replace('_', ' ')}"
-    if str(entry.get("jurisdiction")) == "internal":
+    from portal.modules.compliance.core.jurisdiction import is_operator_side
+
+    if is_operator_side(entry.get("jurisdiction")):
         return f"operator document — {kind.replace('_', ' ') or 'unclassified'}"
     return kind or "unclassified source"
 

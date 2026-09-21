@@ -105,9 +105,11 @@ def resolve_sides(citations: list[dict[str, Any]], sides: dict[str, str]) -> lis
         side = sides.get(ref, "")
         if not side and entry.get("resolved"):
             # outside the population: fall back to what it resolved to
+            from portal.modules.compliance.core.jurisdiction import is_operator_side
+
             resolves = str(entry.get("resolves_to", "")).lower()
-            jurisdiction = str(entry.get("jurisdiction", "")).lower()
-            if "operator" in resolves or jurisdiction == "internal":
+            jurisdiction = str(entry.get("jurisdiction", ""))
+            if "operator" in resolves or is_operator_side(jurisdiction):
                 side = "operator"
             elif resolves or jurisdiction:
                 side = "regulatory"

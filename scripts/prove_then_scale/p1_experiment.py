@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 import time
 from pathlib import Path
@@ -25,7 +24,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from portal.modules.compliance.core import reader, reading_material  # noqa: E402
+from portal.modules.compliance.core import reading_material  # noqa: E402
 from portal.modules.compliance.core.reading_transport import ChatResult, chat  # noqa: E402
 from portal.modules.compliance.core.repository import Repository  # noqa: E402
 
@@ -96,34 +95,6 @@ SEATS = {
 NUM_CTX = 32768
 ANSWER_BUDGET = 3072
 
-_ID_RE = re.compile(r"\b[ci]section-[0-9a-f]{20}(?:#\d+)?\b")
-
-
-def cited_sections(repo: Repository, answer: str) -> dict[str, list[str]]:
-    """Section ids in the answer, split by SIDE — resolved against the store,
-    because the id prefix is not the side: an operator note is an internal
-    section and can carry a ``csection-`` id (the 30-day note on R2 Part 2.2
-    does exactly that). Jurisdiction is the truth; the prefix is spelling."""
-    from portal.modules.compliance.core.section_index import parent_section_id, resolve_sections
-
-    found = list(dict.fromkeys(_ID_RE.findall(answer.translate(reader._DASHES))))
-    resolved = resolve_sections(repo, [parent_section_id(s) for s in found])
-    regulatory: list[str] = []
-    operator: list[str] = []
-    for section_id in found:
-        entry = resolved.get(parent_section_id(section_id))
-        if entry is None:
-            continue
-        if str(entry.get("jurisdiction")) == "internal":
-            operator.append(section_id)
-        else:
-            regulatory.append(section_id)
-    return {
-        "regulatory": regulatory,
-        "operator": operator,
-        "unknown": sorted(set(found) - set(resolved)),
-    }
-
 
 def run_cell(
     repo: Repository,
@@ -166,7 +137,7 @@ def run_cell(
             "wall_s": round(time.time() - started, 2),
         }
     answer = (result.content or "").strip()
-    cited = cited_sections(repo, answer)
+    cited = material["contract"].cited(answer)
     return {
         "case": case["id"],
         "ref": case["ref"],
@@ -184,7 +155,7 @@ def run_cell(
         "material_chars": material["chars"],
         "cited_regulatory": cited["regulatory"],
         "cited_operator": cited["operator"],
-        "cited_both_sides": bool(cited["regulatory"] and cited["operator"]),
+        "cited_both_sides": cited["both_sides"],
         "thinking_chars": len(result.thinking or ""),
         "stop_reason": result.get("stop_reason", ""),
         "answer": answer,

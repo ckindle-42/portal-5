@@ -34,6 +34,8 @@ import random
 import re
 from typing import Any
 
+from portal.modules.compliance.core.answer_contract import _SECTION_TOKEN
+
 #: relation types that are requirement→document mappings (mapping_store's own
 #: list — a typed edge of another kind is not a coverage mapping).
 _MAPPING_RELATION_TYPES = ("IMPLEMENTS", "EVIDENCES", "REFERENCES")
@@ -41,7 +43,6 @@ _SEP = "::"
 _SAMPLE = "evaluation_sample"
 
 _CITATION_KEYS = ("cited_ref", "section_id", "citation")
-_REF_RE = re.compile(r"c?[a-z]*section-[0-9a-f]{8,}|isection-[0-9a-f]{8,}")
 
 #: The decisions a sample reviewer can record. CONFIRMED agrees with the
 #: machine; CORRECTED keeps the pair and replaces the relation; REJECTED is a
@@ -394,9 +395,14 @@ def _cited_sections(answer_payload: dict[str, Any]) -> list[str]:
             ref = str(entry)
         if not ref:
             continue
-        if (
-            _REF_RE.fullmatch(ref.strip()) or ref.strip().startswith(("csection-", "isection-"))
-        ) and ref not in out:
+        stripped = ref.strip()
+        # Permissive on shape, same as the contract's own extraction: a
+        # malformed id is still a citation attempt and belongs in the score
+        # as unlabelled, not silently dropped for failing a stricter regex.
+        looks_like_a_section = _SECTION_TOKEN.fullmatch(stripped) or stripped.startswith(
+            ("csection-", "isection-")
+        )
+        if looks_like_a_section and ref not in out:
             out.append(ref)
     return out
 

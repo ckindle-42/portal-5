@@ -183,10 +183,12 @@ def corpus_boundary_receipt(repo: Any, corpus_dir: str) -> dict[str, Any]:
 
     root = Path(corpus_dir)
     pdfs = sorted(str(p.relative_to(root)) for p in root.rglob("*.pdf") if p.is_file())
+    from portal.modules.compliance.core.jurisdiction import OPERATOR_SQL_IN
+
     registered = {
         row[0]
         for row in repo._conn.execute(
-            "SELECT logical_id FROM source_documents WHERE jurisdiction = 'internal'"
+            f"SELECT logical_id FROM source_documents WHERE jurisdiction IN {OPERATOR_SQL_IN}"
         ).fetchall()
     }
     missing = [rel for rel in pdfs if rel not in registered]

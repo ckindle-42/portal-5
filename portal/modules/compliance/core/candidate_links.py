@@ -446,9 +446,11 @@ def links_from_answer(repo: Any, answer_id: str, src_ref: str = "") -> dict[str,
         return empty
     if re.search(r"\b(?:hypothetical|scenario|suppose|if we)\b", str(row[1] or ""), re.I):
         return empty
+    from portal.modules.compliance.core.jurisdiction import OPERATOR_SQL_IN
+
     citations = repo._conn.execute(
-        """SELECT cited_ref, jurisdiction, detail FROM answer_citations
-           WHERE answer_id = ? AND resolved = 1 AND jurisdiction = 'internal'""",
+        f"""SELECT cited_ref, jurisdiction, detail FROM answer_citations
+           WHERE answer_id = ? AND resolved = 1 AND jurisdiction IN {OPERATOR_SQL_IN}""",
         (answer_id,),
     ).fetchall()
     from portal.modules.compliance.core.section_index import parent_section_id
@@ -602,6 +604,7 @@ def record_determination(
         return {
             "action": "rejected",
             "reason": f"requirement_id {requirement_id!r} is not a regulatory address",
+            "requirement_id": requirement_id,
             "section_id": section_id,
         }
     if not _requirement_in_register(repo, parsed):
@@ -623,7 +626,9 @@ def record_determination(
             "reason": f"section_id {section_id!r} does not resolve in this store",
             "requirement_id": str(parsed),
         }
-    if str(entry.get("jurisdiction")) != "internal":
+    from portal.modules.compliance.core.jurisdiction import is_operator_side
+
+    if not is_operator_side(entry.get("jurisdiction")):
         return {
             "action": "rejected",
             "reason": (
