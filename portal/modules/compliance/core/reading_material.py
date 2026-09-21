@@ -52,10 +52,8 @@ _SIDE_HEADING = {
 
 
 def _section_line(section: dict[str, Any], *, max_heading: int = 0, handle: str = "") -> str:
-    """``[handle] document — heading path, page N   (section_id)`` — where a
-    section IS. The bracketed token is the citation handle a model is asked
-    to use; the long id rides alongside as provenance, never as the thing to
-    transcribe (a dropped character in a transcribed id blocked a close)."""
+    """``[handle] document — heading path, page N`` — where a section IS. The
+    bracketed token is the citation handle a model is asked to use."""
     heading = str(section.get("headings") or section.get("path") or "")
     if max_heading and len(heading) > max_heading:
         heading = heading[: max_heading - 1].rstrip() + "…"
@@ -67,9 +65,13 @@ def _section_line(section: dict[str, Any], *, max_heading: int = 0, handle: str 
     page = section.get("page_start")
     if page:
         line += f", page {page}"
+    # The long id is NOT printed beside the handle. It was, and the model
+    # copied it every time — three answers, zero handles used, one id
+    # transcribed with a character dropped. A 20-hex token on the line IS
+    # the transcription task, whatever the instruction says. Provenance
+    # lives in render()["contract"], which every judge already consults.
     label = handle or section.get("section_id", "")
-    suffix = f"   ({section.get('section_id', '')})" if handle else ""
-    return f"[{label}] {line}{suffix}"
+    return f"[{label}] {line}"
 
 
 def _fixed_section_line(section: dict[str, Any]) -> str:

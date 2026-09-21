@@ -326,8 +326,11 @@ async def _try_non_streaming(
             _required_tool = _select_explicit_required_tool(
                 req_body.get("messages", []), set(_ns_tools)
             )
+        # _ns_offer_tools narrows the SCHEMA the model sees; _ns_tools stays
+        # the workspace's full whitelist for dispatch authorization below —
+        # see the matching comment in streaming.py's _build_stream_request.
+        _ns_offer_tools = [_required_tool] if _required_tool else _ns_tools
         if _required_tool:
-            _ns_tools = [_required_tool]
             req_body["tool_choice"] = "required"
             logger.info(
                 "Tool-call (non-stream): workspace=%s explicit side-effect intent "
@@ -336,7 +339,7 @@ async def _try_non_streaming(
                 _required_tool,
             )
         await tool_registry.refresh()
-        _tools_arr = tool_registry.get_openai_tools(_ns_tools)
+        _tools_arr = tool_registry.get_openai_tools(_ns_offer_tools)
         # Merge client-injected tools with workspace tools — same logic as the
         # streaming path (handlers.py). Without this, clients (e.g. bench
         # blue/purple) that inject domain-specific tools via body["tools"]
