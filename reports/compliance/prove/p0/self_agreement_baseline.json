@@ -1,0 +1,13 @@
+{
+  "run_id": "2026-09-21T16:42:11.716208+00:00",
+  "seat": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "standard": "CIP-007-6",
+  "run1_determinations": 37,
+  "run2_determinations": 37,
+  "shared": 37,
+  "self_agreement_jaccard": 1.0,
+  "recorded_A_vs_D_jaccard": 0.1429,
+  "discarded_floor": 0.8,
+  "finding": "SPLASH_SWEEP_ACCELERATION_V1 set reading_agreement_jaccard >= 0.80 without ever measuring what the incumbent scores against itself. Two write=False sequential runs of arm A (same seat, same 20 refs, identical config) produced the IDENTICAL 37-triple determination set both times: self_agreement_jaccard = 1.0000, the sequential-vs-sequential failure mode named in this task's own §Failure-modes table ('a high floor IS reachable'). That sharpens, rather than answers, the arm-D anomaly: arm D (same model, same engine, CONCURRENT) scored 0.1429 against arm A in the recorded contract_and_close run — since sequential self-agreement is perfect, that gap is attributable to CONCURRENCY, not to the model's own reproducibility. Any cross-engine agreement floor was still unreachable as originally set, because splash's own proposal (arm C) runs concurrently too and would be judged against a concurrent baseline (D, 0.1429), not this sequential one. The floor is replaced by per-determination correctness in P3; both numbers are recorded so no future task re-invents an unreachable bar or misreads the anomaly as model nondeterminism.",
+  "verdict": "RECORDED"
+}
