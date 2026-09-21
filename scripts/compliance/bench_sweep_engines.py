@@ -76,17 +76,53 @@ def _refs(standard: str) -> list[str]:
     return sorted({n.id for n in reg.nodes if n.id.split(" ")[0] == standard})
 
 
-def _triples(cell: dict[str, Any]) -> set[tuple[str, str, str]]:
-    """The (requirement, section, relation) set a cell WOULD write."""
+def _triples(cell: dict[str, Any], contract: Any = None) -> set[tuple[str, str, str]]:
+    """The (requirement, section, relation) set a cell WOULD write.
+
+    ``map_read``'s own write=True path resolves a model-named citation handle
+    (``[O3]``) to its real section_id via the answer's contract before it
+    ever reaches ``record_determination`` (sweep.py, guarded by ``if
+    write:``) — write=False never runs that branch, so this helper used to
+    take the raw ``section_id`` field verbatim. A model citing by handle
+    (routine since reading_material stopped printing the raw id beside the
+    handle) produced a triple keyed on "O3", not the section it actually
+    named — invisible in cell counts (n_determinations was always right) but
+    silently corrupting every cross-arm/cross-run SET comparison this
+    receipt makes (jaccard, precision-by-pairing) for as long as any model in
+    the comparison used handles. Resolving through ``contract`` here matches
+    what a write=True run would actually admit.
+    """
     out: set[tuple[str, str, str]] = set()
     entries, _err = _sweep.parse_determinations(cell.get("answer", "") or "")
     for e in entries or []:
         req = str(e.get("requirement_id", "")).strip()
-        sec = str(e.get("section_id", "")).strip()
+        raw_sec = str(e.get("section_id", "")).strip()
         rel = str(e.get("relation_type", "")).strip().upper()
+        sec = raw_sec
+        if contract is not None and raw_sec:
+            found = contract.resolve(raw_sec)
+            if found is not None:
+                sec = found.section_id
         if req and sec and rel:
             out.add((req, sec, rel))
     return out
+
+
+def _contract_for(repo: Any, ref: str) -> Any:
+    """The same contract ``map_read`` builds internally, rebuilt here so
+    write=False cells can resolve a citation handle the same way a write=True
+    run would. Errors resolve to None: an unresolvable ref means every raw
+    token in that cell's triples stays unresolved, which is a real "the
+    model named something unrecognisable" fact, not a bug to swallow."""
+    from portal.modules.compliance.core import reading_material
+
+    try:
+        standard = ref.split(" ")[0]
+        fixed = reading_material.fixed_body(repo, standard)
+        material = reading_material.render(repo, ref, fixed=fixed if "error" not in fixed else None)
+        return material.get("contract")
+    except Exception:  # noqa: BLE001 - contract build failure degrades to unresolved, not a crash
+        return None
 
 
 def _one(
@@ -117,7 +153,8 @@ def _one(
             "wall_s": round(time.monotonic() - started, 2),
         }
     wall = round(time.monotonic() - started, 2)
-    triples = _triples(cell)
+    contract = _contract_for(repo, ref)
+    triples = _triples(cell, contract)
     return {
         "ref": ref,
         "wall_s": wall,
