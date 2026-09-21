@@ -1,0 +1,26 @@
+{
+  "run_id": "2026-09-21T04:31:09.354535+00:00",
+  "gates": [
+    {
+      "name": "pre-commit suite (every commit)",
+      "status": "PASS",
+      "detail": "gitleaks + ruff lint/format + spine coverage/drift + full unit suite (2333 tests) green on all splash-task commits"
+    },
+    {
+      "name": "spine manifest",
+      "status": "PASS",
+      "detail": "regenerated after binding write_splash_report.py and the splash_sweep_engine validation check to unit-compliance-transport-dialects; part1 0 errors, part2 0 uncovered"
+    },
+    {
+      "name": "validate_system.py (full)",
+      "status": "PASS-with-recorded-GS",
+      "detail": "see CLOSEOUT_V1 \u00a711: GS corpus-sync staleness is pre-existing and recorded there with the attempted repair; this campaign's own checks (incl. the new splash_sweep_engine SKIP-when-unpromoted) are green"
+    },
+    {
+      "name": "leave the box as found",
+      "status": "PASS",
+      "detail": "splash serve and the socat relay stopped after measurement; the forwarder plist deliberately NOT loaded; launch.sh untouched"
+    }
+  ],
+  "bypasses": []
+}
