@@ -1,0 +1,21 @@
+{
+  "run_id": "2026-09-21T03:14:58.864176+00:00",
+  "model": "incoai/Qwen3.6-35B-A3B-Splash",
+  "dialect": "openai-compat",
+  "endpoint": "http://127.0.0.1:8086/v1/chat/completions",
+  "context_source": "serve_line_pin",
+  "answer_chars": 9365,
+  "n_determinations": 1,
+  "parse_error": "",
+  "latency": {
+    "elapsed_s": 60.47,
+    "load_duration_s": 0.0,
+    "prompt_eval_duration_s": 0.0,
+    "eval_duration_s": 0.0,
+    "eval_count": 0,
+    "prompt_eval_count": 0,
+    "prompt_bytes": 83700
+  },
+  "verdict": "PASS",
+  "reason": "splash served the call and produced a parseable determination block"
+}
