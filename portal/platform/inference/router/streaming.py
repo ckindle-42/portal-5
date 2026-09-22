@@ -401,6 +401,10 @@ async def _stream_with_tool_loop_impl(
         finish_reason: str | None = None
         _content_emitted: bool = False  # any non-think content reached client
         _think_content_buf: list[str] = []  # reasoning fallback if content is empty
+        # the backend's final parsed SSE frame — the error body logged at the
+        # empty_completion site, so a zero-content completion names its cause
+        # (LOAD_AND_CONVERSE_V1 §P5) instead of leaving a bare count
+        _last_frame: dict[str, Any] = {}
 
         # Emit preamble (role chunk) on first hop
         if hop == 1:
@@ -468,6 +472,7 @@ async def _stream_with_tool_loop_impl(
                     except Exception:
                         yield (line + "\n\n").encode()
                         continue
+                    _last_frame = obj
 
                     choice = (obj.get("choices") or [{}])[0]
                     delta = choice.get("delta", {})
@@ -579,14 +584,23 @@ async def _stream_with_tool_loop_impl(
         # Surface a backend completion with neither visible content nor reasoning
         # tokens. A silent stream close would leave OWUI with an empty assistant
         # message that is indistinguishable from a rendering or transport failure.
+        # LOAD_AND_CONVERSE_V1 §P5: the counter alone recorded THAT it happened
+        # and never WHY — the harness read a count instead of a reason. The log
+        # now carries the error body: the backend's own final frame (finish
+        # reason, usage, error field) and the serving identity, so the named
+        # cause is diagnosable from the log without re-running the turn.
         if not _content_emitted and not _think_content_buf and finish_reason != "tool_calls":
             logger.warning(
                 "Streaming hop %d/%d: backend returned zero content and zero "
-                "reasoning tokens (workspace=%s, finish_reason=%s).",
+                "reasoning tokens (workspace=%s, finish_reason=%s, backend=%s, "
+                "model=%s, last_frame=%s).",
                 hop,
                 MAX_TOOL_HOPS,
                 workspace_id,
                 finish_reason,
+                backend_url,
+                current_body.get("model", ""),
+                json.dumps(_last_frame, default=str)[:500],
             )
             _record_error(workspace_id, "empty_completion")
             _empty_chunk = {
@@ -987,12 +1001,17 @@ async def _stream_from_backend_guarded(
 
                 if line.startswith("data:") and line[5:].strip() == "[DONE]":
                     if _completion_tokens_seen > 0 and not _any_content_emitted:
+                        # LOAD_AND_CONVERSE_V1 §P5: completion tokens without
+                        # content is the shape whose cause used to die with the
+                        # turn — carry the serving identity in the log so the
+                        # named cause is reachable without a re-run.
                         logger.warning(
                             "Backend %s completed with %d completion tokens but zero "
-                            "content ever emitted (workspace=%s).",
+                            "content ever emitted (workspace=%s, model=%s).",
                             url,
                             _completion_tokens_seen,
                             workspace_id,
+                            model,
                         )
                         _record_error(workspace_id, "empty_completion")
                         _empty_chunk = {

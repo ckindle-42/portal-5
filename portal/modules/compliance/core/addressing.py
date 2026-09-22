@@ -23,10 +23,34 @@ def clip(text: str, max_chars: int) -> tuple[str, dict[str, Any]]:
     }
 
 
+def cite_as(entry: dict[str, Any]) -> str:
+    """The short, stable token a reader cites this section by (LOAD_AND_CONVERSE_V1
+    §P5).
+
+    A 20-hex id is not copyable without error — the measured failure is a
+    citation carrying two dropped characters mid-hash, which resolves to
+    nothing. Every tool payload that yields a section carries this token BESIDE
+    the id: side letter + the id's first six hex characters, derived
+    deterministically from the section's own identity, so the same token
+    appears wherever the section does — search, read, requirement, material —
+    and never collides with a render's numbered handles (``O1``, ``R2``).
+    ``answer_contract`` resolves it by unique prefix; a prefix that is
+    ambiguous resolves to nothing, never to a guess.
+    """
+    from portal.modules.compliance.core.jurisdiction import is_operator_side
+
+    raw = str(entry.get("section_id") or "")
+    body = raw.split("#", 1)[0]
+    hex_part = body.rsplit("-", 1)[-1][:6]
+    letter = "O" if is_operator_side(entry.get("jurisdiction")) else "R"
+    return f"{letter}-{hex_part}" if hex_part else ""
+
+
 def provenance(entry: dict[str, Any]) -> dict[str, Any]:
     """Return the complete citable identity of one captured unit."""
     return {
         "section_id": entry.get("section_id", ""),
+        "cite_as": cite_as(entry),
         "document": entry.get("document_title") or entry.get("logical_id", ""),
         "logical_id": entry.get("logical_id", ""),
         "jurisdiction": entry.get("jurisdiction", ""),
