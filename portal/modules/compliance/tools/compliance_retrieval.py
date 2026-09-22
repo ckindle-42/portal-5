@@ -183,6 +183,15 @@ def _composition() -> _pipeline.Composition:
     )
 
 
+#: True while :func:`project_sections` is rebuilding an index. ``ingest_folder``
+#: checks this and refuses: indexing sha1 chunks beside (or after) a section
+#: projection is how the second identity space returns. A module flag rather
+#: than a contextvar is deliberate — the guard exists to make the WRONG
+#: composition raise, including across asyncio task boundaries where a fresh
+#: context would silently miss a contextvar set by the caller.
+_PROJECTION_IN_FLIGHT = False
+
+
 async def project_sections(
     kb_id: str,
     units: list[Any],
@@ -202,7 +211,23 @@ async def project_sections(
     the same BM25 sparse arm — and differs only in where the units come from.
     A rebuild drops the table because the population, not just its content, is
     being replaced.
+
+    This is the ONLY projection path. While it runs, a projection context is
+    open: ``ingest_folder`` — the deprecated sha1-chunk path — refuses inside
+    one, because chunks written there carry ids that resolve to nothing in
+    ``source_sections`` (LOAD_AND_CONVERSE_V1 §P2).
     """
+    global _PROJECTION_IN_FLIGHT
+    _PROJECTION_IN_FLIGHT = True
+    try:
+        return await _project_sections_locked(kb_id, units, rebuild=rebuild)
+    finally:
+        _PROJECTION_IN_FLIGHT = False
+
+
+async def _project_sections_locked(
+    kb_id: str, units: list[Any], *, rebuild: bool
+) -> dict[str, Any]:
     import contextlib
     import time
 
