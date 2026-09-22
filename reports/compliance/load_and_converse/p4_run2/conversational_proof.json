@@ -1,0 +1,559 @@
+{
+  "run_id": "2026-09-22T20:24:11.250740+00:00",
+  "workspace": "compliance-reading",
+  "router": "http://localhost:9099",
+  "n_questions": 14,
+  "n_passed": 8,
+  "n_used_search": 13,
+  "n_agent_judged": 0,
+  "invented_coverage_count": 0,
+  "added_questions": {
+    "training_evidence_bridge": "vocabulary bridge: the operator corpus says 'records'/'training materials', the standards say 'evidence' \u2014 semantic search exists to survive exactly this gap, and no register-path question ever exercised it",
+    "cip003_revision_change": "cross-revision: the store holds both CIP-003 revisions by design (_governing_revisions keeps history answerable); a conversation about 'what changed' must find material in each \u2014 a different kind of ask than any the twelve cover"
+  },
+  "rows": [
+    {
+      "key": "remote_access",
+      "kind": "topic",
+      "question": "What do our procedures say about remote access, and what does CIP require of it?",
+      "verdict": "FAIL",
+      "reason": "failed: grounding_per_claim, regulatory_cited",
+      "answer_chars": 3318,
+      "wall_s": 50.89,
+      "tool_calls": {
+        "compliance_search": 1.0
+      },
+      "used_search": true,
+      "cited_ids": [
+        "isection-6f407250d489329e391f",
+        "isection-fb3ce0b972d0a5cbd2f3"
+      ],
+      "unresolved_ids": [
+        "csection-2dd4f75367e54d03",
+        "isection-51126660666666666666666666666666"
+      ],
+      "sides_cited": [
+        "operator"
+      ],
+      "grounding": {
+        "n_claims": 11,
+        "n_ungrounded": 3,
+        "unsupported_lines": [
+          "*   **Requirement R2, Part 2.4**: The entity must have one or more methods for determining active vendor remote access sessions. This includes both **Interactive Remote Access** and **system-to-system remote access** [csection-2dd4f75367e54d03, isection-51126660666666666666666666666666].",
+          "*   **Scope**: These requirements apply to High Impact BES Cyber Systems and their associated PCA, as well as Medium Impact BES Cyber Systems with External Routable Connectivity and their associated PCA [csection-2dd4f75367e54d03, isection-51126660666666666666666666666666].",
+          "- csection-2dd4f75367e54d03 (CIP-005-7 R2 Traceability - Work Instruction)"
+        ]
+      },
+      "checks": {
+        "answered": true,
+        "used_search": true,
+        "grounding_per_claim": false,
+        "operator_cited": true,
+        "regulatory_cited": false
+      }
+    },
+    {
+      "key": "patching",
+      "kind": "topic",
+      "question": "Where does our patching practice sit against what the standards require?",
+      "verdict": "PASS",
+      "reason": "all checks passed",
+      "answer_chars": 3051,
+      "wall_s": 49.64,
+      "tool_calls": {
+        "compliance_search": 1.0
+      },
+      "used_search": true,
+      "cited_ids": [
+        "csection-440a5cdf9a6b65292ef3",
+        "csection-7700dd5499cead0994ec",
+        "csection-8e1c9006314d834adedb",
+        "isection-21a30e0d44708f5dfdce",
+        "isection-5a6e77a9acc7ab5eee74",
+        "isection-87d00aedd4cf1f41f0cd"
+      ],
+      "unresolved_ids": [],
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "grounding": {
+        "n_claims": 13,
+        "n_ungrounded": 0,
+        "unsupported_lines": []
+      },
+      "checks": {
+        "answered": true,
+        "used_search": true,
+        "grounding_per_claim": true,
+        "operator_cited": true,
+        "regulatory_cited": true
+      }
+    },
+    {
+      "key": "vendor_risk",
+      "kind": "topic",
+      "question": "Which of our policies touch vendor and supply-chain risk?",
+      "verdict": "PASS",
+      "reason": "all checks passed",
+      "answer_chars": 2879,
+      "wall_s": 38.87,
+      "tool_calls": {
+        "compliance_search": 1.0
+      },
+      "used_search": true,
+      "cited_ids": [
+        "csection-77f6d38373d13a3e0d94",
+        "isection-6234081e5e6a41de8bb7",
+        "isection-9f5acb6e88d8b2cda4c8",
+        "isection-ffd6de53a3474107b18b"
+      ],
+      "unresolved_ids": [],
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "grounding": {
+        "n_claims": 15,
+        "n_ungrounded": 0,
+        "unsupported_lines": []
+      },
+      "checks": {
+        "answered": true,
+        "used_search": true,
+        "grounding_per_claim": true,
+        "operator_cited": true,
+        "regulatory_cited": true
+      }
+    },
+    {
+      "key": "shared_accounts",
+      "kind": "topic",
+      "question": "What do we say about shared accounts?",
+      "verdict": "FAIL",
+      "reason": "failed: grounding_per_claim",
+      "answer_chars": 3616,
+      "wall_s": 44.55,
+      "tool_calls": {
+        "compliance_search": 1.0
+      },
+      "used_search": true,
+      "cited_ids": [
+        "csection-250e44eb6597139a534b",
+        "csection-d7d29fe42ab39cda38be",
+        "isection-66d4b53b3e22f35d2a44",
+        "isection-ad7b6d77c2ef7989f903"
+      ],
+      "unresolved_ids": [
+        "isection-4a7915037c2d923d58e"
+      ],
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "grounding": {
+        "n_claims": 18,
+        "n_ungrounded": 4,
+        "unsupported_lines": [
+          "*   **Implementation**: Access is granted via User Groups within the EPM tool [isection-4a7915037c2d923d58e].",
+          "*   The EPM system is configured to generate passwords for shared accounts [isection-4a7915037c2d923d58e].",
+          "*   The EPM System Administrator is responsible for updating the EPM tool when adding/removing users or changing passwords [isection-4a7915037c2d923d58e].",
+          "- isection-4a7915037c2d923d58e (LSPG Account Management Procedure - EPM/User Groups)"
+        ]
+      },
+      "checks": {
+        "answered": true,
+        "used_search": true,
+        "grounding_per_claim": false,
+        "operator_cited": true,
+        "regulatory_cited": true
+      }
+    },
+    {
+      "key": "patch_cycle",
+      "kind": "operator_fact",
+      "question": "We have a 30-day patch cycle. Which requirements does that bear on?",
+      "verdict": "PASS",
+      "reason": "all checks passed",
+      "answer_chars": 2419,
+      "wall_s": 67.33,
+      "tool_calls": {
+        "compliance_search": 1.0
+      },
+      "used_search": true,
+      "cited_ids": [
+        "csection-440a5cdf9a6b65292ef3",
+        "csection-7700dd5499cead0994ec",
+        "isection-21a30e0d44708f5dfdce",
+        "isection-87d00aedd4cf1f41f0cd",
+        "isection-c75f69c881d6a214ff52"
+      ],
+      "unresolved_ids": [],
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "grounding": {
+        "n_claims": 11,
+        "n_ungrounded": 0,
+        "unsupported_lines": []
+      },
+      "checks": {
+        "answered": true,
+        "used_search": true,
+        "grounding_per_claim": true,
+        "operator_cited": true,
+        "regulatory_cited": true
+      }
+    },
+    {
+      "key": "baselines",
+      "kind": "operator_fact",
+      "question": "Our change-management procedure mentions baselines. Which standards care about that?",
+      "verdict": "PASS",
+      "reason": "all checks passed",
+      "answer_chars": 2964,
+      "wall_s": 44.03,
+      "tool_calls": {
+        "compliance_search": 1.0
+      },
+      "used_search": true,
+      "cited_ids": [
+        "csection-afe225c5ef91da2380ae",
+        "csection-bbee7b9801c2e52957fe",
+        "isection-1500fee07c685ebbaece",
+        "isection-5e0cad3bd147480bd22e",
+        "isection-faab43c2f45f8426fbcd"
+      ],
+      "unresolved_ids": [],
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "grounding": {
+        "n_claims": 11,
+        "n_ungrounded": 0,
+        "unsupported_lines": []
+      },
+      "checks": {
+        "answered": true,
+        "used_search": true,
+        "grounding_per_claim": true,
+        "operator_cited": true,
+        "regulatory_cited": true
+      }
+    },
+    {
+      "key": "personnel_leaving",
+      "kind": "operator_fact",
+      "question": "What are our obligations around personnel leaving the company?",
+      "verdict": "PASS",
+      "reason": "all checks passed",
+      "answer_chars": 3324,
+      "wall_s": 41.34,
+      "tool_calls": {
+        "compliance_search": 1.0
+      },
+      "used_search": true,
+      "cited_ids": [
+        "csection-7edf3e5d16f703bf60de",
+        "csection-8071424a6fe36cd02e0f",
+        "isection-4712608bbe3637f811d4",
+        "isection-6dbf20997a824336f011"
+      ],
+      "unresolved_ids": [],
+      "sides_cited": [
+        "derived",
+        "operator",
+        "regulatory"
+      ],
+      "grounding": {
+        "n_claims": 10,
+        "n_ungrounded": 0,
+        "unsupported_lines": []
+      },
+      "checks": {
+        "answered": true,
+        "used_search": true,
+        "grounding_per_claim": true,
+        "operator_cited": true,
+        "regulatory_cited": true
+      }
+    },
+    {
+      "key": "most_work",
+      "kind": "cross_cutting",
+      "question": "Which of our documents are doing the most compliance work?",
+      "verdict": "FAIL",
+      "reason": "failed: grounding_per_claim",
+      "answer_chars": 3231,
+      "wall_s": 46.71,
+      "tool_calls": {
+        "compliance_search": 1.0,
+        "compliance_coverage": 1.0
+      },
+      "used_search": true,
+      "cited_ids": [
+        "csection-22d252ebb54285b762fb",
+        "csection-440a5cdf9a6b65292ef3",
+        "csection-55e12d9c9a8d9cc9e662",
+        "csection-8071424a6fe36cd02e0f",
+        "isection-84095c2161acada2e671"
+      ],
+      "unresolved_ids": [
+        "isection-3b403417181804deeaf1"
+      ],
+      "sides_cited": [
+        "derived",
+        "operator",
+        "regulatory"
+      ],
+      "grounding": {
+        "n_claims": 11,
+        "n_ungrounded": 2,
+        "unsupported_lines": [
+          "*   **`CIP-008/SIRT Contact List v4.pdf`:** This provides the essential contact structure for the Security Incident Response Team (SIRT), which is a foundational requirement for incident reporting under **CIP-008** [isection-3b403417181804deeaf1].",
+          "- isection-3b403417181804deeaf1 (SIRT Contact List)"
+        ]
+      },
+      "checks": {
+        "answered": true,
+        "used_search": true,
+        "grounding_per_claim": false,
+        "operator_cited": true,
+        "regulatory_cited": true
+      }
+    },
+    {
+      "key": "overlap",
+      "kind": "cross_cutting",
+      "question": "Where do the standards overlap in what they ask of us?",
+      "verdict": "FAIL",
+      "reason": "failed: used_search, grounding_per_claim, operator_cited, regulatory_cited",
+      "answer_chars": 880,
+      "wall_s": 5.25,
+      "tool_calls": {},
+      "used_search": false,
+      "cited_ids": [],
+      "unresolved_ids": [],
+      "sides_cited": [],
+      "grounding": {
+        "n_claims": 0,
+        "n_ungrounded": 0,
+        "unsupported_lines": []
+      },
+      "checks": {
+        "answered": true,
+        "used_search": false,
+        "grounding_per_claim": false,
+        "operator_cited": false,
+        "regulatory_cited": false
+      }
+    },
+    {
+      "key": "ciso_handover",
+      "kind": "cross_cutting",
+      "question": "If our CISO role changed hands, what would we need to revisit?",
+      "verdict": "FAIL",
+      "reason": "failed: grounding_per_claim",
+      "answer_chars": 2654,
+      "wall_s": 38.74,
+      "tool_calls": {
+        "compliance_search": 1.0
+      },
+      "used_search": true,
+      "cited_ids": [
+        "csection-cccb0f15f565c92def53",
+        "csection-ec9dfcc4f8695e265184",
+        "isection-d6f4205dc7c8baea8c10"
+      ],
+      "unresolved_ids": [
+        "csection-3d9855d41cb48f6334c4"
+      ],
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "grounding": {
+        "n_claims": 11,
+        "n_ungrounded": 2,
+        "unsupported_lines": [
+          "It is important to note that while the identity of the manager must be updated, any existing delegations of authority made by the previous CISO remain valid [csection-3d9855d41cb48f6334c4]. You do not need to re-authorize or re-instantiate existing delegations just because the person in the CISO role has changed.",
+          "- csection-3d9855d41cb48f6334c4 (CIP-003-8 R4)"
+        ]
+      },
+      "checks": {
+        "answered": true,
+        "used_search": true,
+        "grounding_per_claim": false,
+        "operator_cited": true,
+        "regulatory_cited": true
+      }
+    },
+    {
+      "key": "physical_perimeter",
+      "kind": "absence",
+      "question": "What do our documents say about physical security perimeters?",
+      "verdict": "PASS",
+      "reason": "all checks passed",
+      "answer_chars": 3434,
+      "wall_s": 39.44,
+      "tool_calls": {
+        "compliance_search": 1.0
+      },
+      "used_search": true,
+      "cited_ids": [
+        "csection-a7329dd90d143581840e",
+        "isection-32ec5c7d8c47ad3c1709",
+        "isection-5a5ab9d236fe29d84230",
+        "isection-e825156b286795be17d4"
+      ],
+      "unresolved_ids": [],
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "grounding": {
+        "n_claims": 17,
+        "n_ungrounded": 0,
+        "unsupported_lines": []
+      },
+      "checks": {
+        "answered": true,
+        "used_search": true,
+        "grounding_per_claim": true,
+        "no_invented_coverage": true
+      },
+      "absence": {
+        "named_requirement": false,
+        "named_standard_or_requirement": false,
+        "invented_coverage": [],
+        "grounded_support": [],
+        "invented": false
+      },
+      "absence_judgment": "agent"
+    },
+    {
+      "key": "categorization",
+      "kind": "absence",
+      "question": "What's our position on BES Cyber System categorization?",
+      "verdict": "PASS",
+      "reason": "all checks passed",
+      "answer_chars": 3383,
+      "wall_s": 47.26,
+      "tool_calls": {
+        "compliance_search": 1.0
+      },
+      "used_search": true,
+      "cited_ids": [
+        "csection-eb786be67ddf1761b3dc",
+        "isection-66e4a8111f75c938e21a",
+        "isection-af5e84ee6441f6f0eee3"
+      ],
+      "unresolved_ids": [],
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "grounding": {
+        "n_claims": 18,
+        "n_ungrounded": 0,
+        "unsupported_lines": []
+      },
+      "checks": {
+        "answered": true,
+        "used_search": true,
+        "grounding_per_claim": true,
+        "no_invented_coverage": true
+      },
+      "absence": {
+        "named_requirement": true,
+        "named_standard_or_requirement": true,
+        "invented_coverage": [],
+        "grounded_support": [],
+        "invented": false
+      },
+      "absence_judgment": "agent"
+    },
+    {
+      "key": "training_evidence_bridge",
+      "kind": "topic",
+      "question": "Which of our records would serve as evidence for training requirements, and what do the standards accept as evidence?",
+      "verdict": "FAIL",
+      "reason": "failed: grounding_per_claim",
+      "answer_chars": 2291,
+      "wall_s": 35.37,
+      "tool_calls": {
+        "compliance_search": 1.0
+      },
+      "used_search": true,
+      "cited_ids": [
+        "csection-8e718802fae87f056354",
+        "csection-cff9f0e2597fda51edc7",
+        "isection-7879412b5de8e080a800",
+        "isection-b6a1e16c7e59968c08ad"
+      ],
+      "unresolved_ids": [
+        "isection-c0da729383cb78e"
+      ],
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "grounding": {
+        "n_claims": 11,
+        "n_ungrounded": 2,
+        "unsupported_lines": [
+          "*   **For Vendors and Contractors specifically:** If we accept training provided by a vendor's parent company, we must also retain the **company name, Employee name, the training completion date, and the NERC CIP training materials** used [isection-c0da729383cb78e].",
+          "- isection-c0da729383cb78e (LSPG Procedure: Vendor training metadata requirements)"
+        ]
+      },
+      "checks": {
+        "answered": true,
+        "used_search": true,
+        "grounding_per_claim": false,
+        "operator_cited": true,
+        "regulatory_cited": true
+      }
+    },
+    {
+      "key": "cip003_revision_change",
+      "kind": "cross_cutting",
+      "question": "Did the newest CIP-003 revision change what it asks of us compared with the one it replaced?",
+      "verdict": "PASS",
+      "reason": "all checks passed",
+      "answer_chars": 1707,
+      "wall_s": 105.76,
+      "tool_calls": {
+        "compliance_search": 1.0,
+        "compliance_timeline": 1.0,
+        "compliance_requirement": 2.0,
+        "compliance_context": 1.0
+      },
+      "used_search": true,
+      "cited_ids": [
+        "csection-81799cf9e0d53477e683",
+        "isection-4156a35e1dc2de1ec0c4"
+      ],
+      "unresolved_ids": [],
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "grounding": {
+        "n_claims": 4,
+        "n_ungrounded": 0,
+        "unsupported_lines": []
+      },
+      "checks": {
+        "answered": true,
+        "used_search": true,
+        "grounding_per_claim": true,
+        "operator_cited": true,
+        "regulatory_cited": true
+      }
+    }
+  ],
+  "pass_rule": "answered + compliance_search actually called (router counters) + per-claim grounding (full id, cite_as token, or unique prefix; mistyped restatements of resolving citations absorbed; nothing repaired) + (relational questions) both sides cited. Absence questions: positively-asserted operator coverage must RESOLVE (mechanical); whether resolvable coverage is real is the agent's reading, folded via --overrides and recorded on the row.",
+  "verdict": "FAIL"
+}

@@ -1,0 +1,33 @@
+{
+  "question": "What are our obligations around personnel leaving the company?",
+  "answer": "Your obligations regarding personnel leaving the company involve both regulatory requirements (NERC CIP) and internal procedures for revoking access.\n\n### 1. Regulatory Obligations (CIP-004-7)\nThe standard sets specific deadlines for removing access following a termination action:\n*   **Physical and Remote Access:** For High Impact BES Cyber Systems (and certain Medium Impact systems), you must initiate the removal of unescorted physical access and Interactive Remote Access upon a termination action and complete these removals **within 2 and 24 hours** of the termination action [csection-7edf3e5d16f703bf60de].\n*   **Reassignments/Transfers:** For individuals who are reassigned or transferred, you must revoke authorized electronic and unescorted physical access that is no longer necessary by the **end of the next calendar day** following the determination that the access is no longer required [csection-8071424a6fe36cd02e0f].\n\n### 2. Internal Procedures (LSPG)\nOur internal procedures establish the workflow and specific timelines for these actions:\n*   **Notification:** Management is responsible for notifying the OT Director **immediately** when an Employee, Vendor, or Contractor is terminated [isection-4712608bbe3637f811d4]. Notifications can come from HR or any Supervisory personnel [isection-4712608bbe3637f811d4].\n*   **Physical Access Removal:** The OT Team must remove physical access for any terminated individual **within at least 24 hours** of the termination action [isection-4712608bbe3637f811d4].\n*   **Electronic/Logical Access:** All individual access (both physical and electronic) will be **disabled within 24 hours** of notice of termination [isection-6dbf20997a824336f011]. For access to BCSI (BES Cyber System Information), revocation will be completed by the **end of the next calendar day** following the termination action [isection-6dbf20997a824336f011].\n*   **Account Handling:** Note that accounts are **disabled rather than removed** to maintain an audit trail and allow for potential reinstatement (e.g., if training expires and is later completed) [isection-6dbf20997a824336f011].\n\n### Summary of Deadlines\n| Action Type | NERC CIP Requirement | LSPG Procedure |\n| :--- | :--- | :--- |\n| **Termination (Physical/Remote)** | Complete within **24 hours** | Remove physical within **24 hours**; Disable all access within **24 hours** |\n| **Termination (BCSI Access)** | Not explicitly specified | Revoke by **end of next calendar day** |\n| **Reassignment/Transfer** | Revoke unnecessary access by **end of next calendar day** | Revoke access within **24 hours** of determination |\n\n**Latitude Statement:** The operator's procedures for electronic access revocation (disabling within 24 hours) and physical access removal (within 24 hours) are consistent with the 24-hour window permitted by the standard. However, the procedure for BCSI access revocation (end of next calendar day) is a specific internal deadline that aligns with the \"next calendar day\" logic used for reassignments.\n\nCited sections:\n- csection-7edf3e5d16f703bf60de (CIP-004-7 R5 Part 5.1)\n- csection-8071424a6fe36cd02e0f (CIP-004-7 R5 Part 5.2)\n- isection-4712608bbe3637f811d4 (LSPG Physical Access Control Procedure v11, 3.5.2 & 3.5.3)\n- isection-6dbf20997a824336f011 (LSPG Access Management Procedure v10, 3.6)",
+  "reasoning_chars": 0,
+  "wall_s": 41.34,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.03,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+    "compliance_search": 1.0
+  },
+  "tool_errors": {},
+  "pipeline_errors": {},
+  "usage_hops": [
+    {
+      "prompt_tokens": 3114,
+      "completion_tokens": 21
+    },
+    {
+      "prompt_tokens": 11331,
+      "completion_tokens": 928
+    }
+  ],
+  "prompt_tokens_high_water": 11331,
+  "prompt_tokens_final_hop": 11331,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+}

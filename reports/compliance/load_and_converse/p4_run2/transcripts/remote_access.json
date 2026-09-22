@@ -1,0 +1,33 @@
+{
+  "question": "What do our procedures say about remote access, and what does CIP require of it?",
+  "answer": "Based on the available documentation, the requirements for remote access are found in **CIP-005-7**, while our internal procedures for managing these sessions are detailed in the **LSPG Bomgar Remote Access Session Work Instruction** and the **LSPG Electronic Security Perimeter and IRA Procedure**.\n\n### NERC CIP Requirements (CIP-005-7)\nThe standard focuses on managing **Interactive Remote Access** (R2). Specifically:\n*   **Requirement R2, Part 2.4**: The entity must have one or more methods for determining active vendor remote access sessions. This includes both **Interactive Remote Access** and **system-to-system remote access** [csection-2dd4f75367e54d03, isection-51126660666666666666666666666666].\n*   **Scope**: These requirements apply to High Impact BES Cyber Systems and their associated PCA, as well as Medium Impact BES Cyber Systems with External Routable Connectivity and their associated PCA [csection-2dd4f75367e54d03, isection-51126660666666666666666666666666].\n\n### Operator Procedures\nOur procedures establish specific controls for emergency and vendor access:\n\n*   **Emergency Access Controls**: For emergency interactive access to CIP Cyber Assets within an ESP, the following controls must be used [isection-fb3ce0b972d0a5]:\n    *   Access must utilize an **LSPG-owned computer/laptop**.\n    *   Access must be **non-routable** (e.g., via serial console, RS-232, KVM, or maintenance port).\n    *   **Session Sharing**: Sharing an interactive session for remote user assistance or verification is permitted **only if** the remote user has a \"need to know\" and is restricted to **read-only access** [isection-fb3ce0b972d0a5].\n\n*   **Vendor Session Monitoring**: Our **Bomgar Remote Access Session Work Instruction** includes specific methods for determining active vendor sessions (specifically sections 3.1.1 and 3.1.2) for High Impact and certain Medium Impact systems [isection-6f407250d489329e391f].\n\n### Summary Comparison\n| Feature | NERC CIP-005-7 Requirement | LSPG Operator Procedure |\n| :--- | :--- | :--- |\n| **Vendor Monitoring** | Must have methods to determine active vendor sessions (Interactive and System-to-System) [R2 P2.4]. | Implements specific methods in sections 3.1.1 and 3.1.2 of the Bomgar Work Instruction [isection-6f407250d489329e391f]. |\n| **Emergency Access** | (Not explicitly detailed in the retrieved R2 snippet). | Mandates LSPG-owned hardware and non-routable connections [isection-fb3ce0b972d0a5]. |\n| **Session Sharing** | (Not explicitly detailed in the retrieved R2 snippet). | Restricts sharing to \"need to know\" users with \"read-only\" permissions [isection-fb3ce0b972d0a5]. |\n\n**Note on Latitude**: The standard (CIP-005-7) defines the requirement to have methods for determining active sessions but does not mandate the specific hardware (e.g., LSPG-owned laptops) or the \"read-only\" restriction for session sharing. Our procedures are **stricter** than the standard by hardcoding these specific technical constraints to ensure controlled access.\n\nCited sections:\n- csection-2dd4f75367e54d03 (CIP-005-7 R2 Traceability - Work Instruction)\n- isection-6f407250d489329e391f (LSPG Bomgar Remote Access Session Work Instruction - Traceability)\n- isection-fb3ce0b972d0a5 (LSPG Electronic Security Perimeter and IRA Procedure - Control and Authentication)",
+  "reasoning_chars": 0,
+  "wall_s": 50.89,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.05,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+    "compliance_search": 1.0
+  },
+  "tool_errors": {},
+  "pipeline_errors": {},
+  "usage_hops": [
+    {
+      "prompt_tokens": 3121,
+      "completion_tokens": 19
+    },
+    {
+      "prompt_tokens": 11115,
+      "completion_tokens": 952
+    }
+  ],
+  "prompt_tokens_high_water": 11115,
+  "prompt_tokens_final_hop": 11115,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+}

@@ -1,0 +1,33 @@
+{
+  "question": "What do our documents say about physical security perimeters?",
+  "answer": "Our documents define a **Physical Security Perimeter (PSP)** as the physical border surrounding locations where BES Cyber Assets, BES Cyber Systems, or Electronic Access Control or Monitoring Systems (EACMS) reside, and for which access is controlled [csection-a7329dd90d143581840e].\n\nThe operator's requirements for managing these perimeters are detailed in the **CIP Cyber Security Policy** and the **Physical Security Plan**.\n\n### 1. Perimeter Controls and Access\nThe **CIP Cyber Security Policy** mandates that the Physical Security Plan must:\n*   **Restrict Access:** Define operational or procedural controls to restrict physical access [isection-5a5ab9d236fe29d84230].\n*   **Unescorted Access:** Use at least one physical access control to allow unescorted access only to authorized individuals [isection-5a5ab9d236fe29d84230].\n*   **Enhanced Controls (High Impact):** For High Impact BES Cyber Systems (and associated EACMS/PCA), the plan must utilize two or more different physical access controls to collectively allow unescended access only to authorized individuals [isection-5a5ab9d236fe29d84230].\n*   **Access Point Monitoring:** Monitor for unauthorized access through physical access points into a PSP [isection-5a5ab9d236fe29d84230].\n*   **Access Point Hardware:** The **Physical Security Plan** specifically requires that all Access Control Points (ACPs) into PSPs must have:\n    *   Position sensors or switches (each door in a double-door setup must have its own switch) [isection-32ec5c7d8c47ad3c1709].\n    *   Fail-secure electrified locking hardware [isection-32ec5c7d8c47ad3c1709].\n\n### 2. Monitoring, Alerting, and Logging\n*   **Unauthorized Access Alerts:** The policy requires issuing an alarm or alert for unauthorized access through a PSP access point, or unauthorized access to a Physical Access Control System (PACS), to identified personnel within **15 minutes of detection** [isection-5a5ab9d236fe29d84230].\n*   **Unauthorized Access Configuration:** The **Physical Security Plan** specifies that all ACPs must be configured to alert in the event of an unauthorized access attempt [isection-32ec5c7d8c47ad3c1709].\n*   **Logging:** The operator must log the entry of every individual with authorized unescorted access, including their identity and the date/time of entry [isection-5a5ab9d236fe29d84230].\n*   **Retention:** Physical access logs must be retained for at least **90 calendar days** [isection-5a5ab9d236fe29d84230].\n*   **Incident Response:** The **Cyber Security Incident Response Plan** identifies initial responders and investigators for Physical Security Perimeter alarms [isection-e825156b286795be17d4].\n\n### 3. Protection of External Components\nWhere cabling or nonprogrammable communication components used for connections between Cyber Assets (within the same ESP) are located **outside** of a PSP, the operator must implement one of the following:\n*   Encryption of the data transiting the components;\n*   Monitoring the communication link and issuing an alert within 15 minutes of a detected failure; or\n*   An equally effective logical protection [isection-5a5ab9d236fe29d84230].\n\nCited sections:\n- csection-a7329dd90d143581840e (NERC Glossary definition of PSP)\n- isection-5a5ab9d236fe29d84230 (LSPG CIP Cyber Security Policy v13)\n- isection-32ec5c7d8c47ad3c1709 (LSPG CIP-006 Physical Security Plan V14)\n- isection-e825156b286795be17d4 (LSPG CIP-008 Incident Response Plan V14)",
+  "reasoning_chars": 0,
+  "wall_s": 39.44,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.03,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+    "compliance_search": 1.0
+  },
+  "tool_errors": {},
+  "pipeline_errors": {},
+  "usage_hops": [
+    {
+      "prompt_tokens": 3115,
+      "completion_tokens": 17
+    },
+    {
+      "prompt_tokens": 10275,
+      "completion_tokens": 975
+    }
+  ],
+  "prompt_tokens_high_water": 10275,
+  "prompt_tokens_final_hop": 10275,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+}

@@ -1,0 +1,33 @@
+{
+  "question": "Where does our patching practice sit against what the standards require?",
+  "answer": "Our patching practice is characterized by \"intentional strictness\" in its evaluation cadence, though our formal written procedures currently mirror the standard's maximum allowable window.\n\n### 1. Evaluation Cadence (The 35-Day Window)\nThe standard (CIP-007-6 R2 Part 2.2) sets a maximum threshold: security patches must be evaluated for applicability **at least once every 35 calendar days** [csection-7700dd5499cead0994ec].\n\n*   **The Standard:** Permits any frequency up to 35 days [csection-8e1c9006314d834adedb].\n*   **Our Written Procedure:** Our formal documents (Policy v13.0 and Procedure v11.0) both specify a **35-day** window [isection-87d00aedd4cf1f41f0cd, isection-21a30e0d44708f5dfdce].\n*   **Our Actual Practice:** An operator note (recorded 2026-09-16) states that we actually evaluate patches **every 30 days** to align with our monthly change window [csection-440a5cdf9a6b65292ef3].\n\n**Latitude Statement:** Our actual practice (30 days) is stricter than the standard requires (35 days). The operator is using less latitude than NERC grants by narrowing the permitted 35-day window to a 30-day cycle.\n\n### 2. Tracking and Sources\nThe standard requires a process for tracking, evaluating, and installing patches, including the identification of monitored sources [csection-8e1c9006314d834adedb].\n\n*   **Our Practice:** Our policy and procedures confirm we have identified and are tracking sources for applicable Cyber Assets [isection-87d00aedd4cf1f41f0cd, isection-5a6e77a9acc7ab5eee74].\n*   **Unverified Obligation:** While our documents claim sources are identified, I have not read the actual **list of monitored sources** or the **patch evaluation workbook**. Therefore, I cannot verify if the specific sources being tracked are currently maintained or sufficient to meet the \"documentation or lists of sources\" requirement in the standard's Measures [csection-8e1c9006314d834adedb].\n\n### 3. Summary of Coverage\n| Duty | Standard Requirement | Our Documented Procedure | Our Recorded Practice | Status |\n| :--- | :--- | :--- | :--- | :--- |\n| **Evaluation Frequency** | Max 35 days | 35 days | 30 days | **Stricter than Standard** |\n| **Source Identification** | Must identify sources | Sources identified | (Not verified) | **Unverified** |\n| **Patch Application** | Within 35 days of evaluation | (Not explicitly detailed in search) | (Not explicitly detailed in search) | **Unverified** |\n\nTo provide a complete gap analysis, I would need to review the **patch evaluation workbooks** (to verify the 30-day cadence and source tracking) and the **patch installation records** (to verify compliance with the 35-day application deadline in Part 2.3).\n\nCited sections:\n- csection-8e1c9006314d834adedb (NERC CIP-007-7.1 Requirement/Measures)\n- csection-7700dd5499cead0994ec (CIP-007-6 R2 Part 2.2)\n- csection-440a5cdf9a6b65292ef3 (Operator Note: intentional strictness)\n- isection-87d00aedd4cf1f41f0cd (LSPG Policy v13.0)\n- isection-21a30e0d44708f5dfdce (LSPG Procedure v11.0)\n- isection-5a6e77a9acc7ab5eee74 (LSPG Procedure v11.0)",
+  "reasoning_chars": 0,
+  "wall_s": 49.64,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.03,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+    "compliance_search": 1.0
+  },
+  "tool_errors": {},
+  "pipeline_errors": {},
+  "usage_hops": [
+    {
+      "prompt_tokens": 3116,
+      "completion_tokens": 17
+    },
+    {
+      "prompt_tokens": 12312,
+      "completion_tokens": 958
+    }
+  ],
+  "prompt_tokens_high_water": 12312,
+  "prompt_tokens_final_hop": 12312,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+}

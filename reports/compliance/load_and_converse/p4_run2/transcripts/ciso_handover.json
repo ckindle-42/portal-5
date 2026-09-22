@@ -1,0 +1,33 @@
+{
+  "question": "If our CISO role changed hands, what would we need to revisit?",
+  "answer": "If the CISO role changes hands, you have two distinct compliance obligations to address: one regarding the formal identification of the new leader and another regarding the update of your incident response documentation.\n\n### 1. Formal Identification of the New CIP Senior Manager\nUnder **CIP-003-9 R3**, the Responsible Entity is required to identify a CIP Senior Manager by name and must document any change to this role **within 30 calendar days** of the change [csection-ec9dfcc4f8695e265184].\n\nIt is important to note that while the identity of the manager must be updated, any existing delegations of authority made by the previous CISO remain valid [csection-3d9855d41cb48f6334c4]. You do not need to re-authorize or re-instantiate existing delegations just because the person in the CISO role has changed.\n\n### 2. Incident Response Plan Updates\nA change in roles or responsibilities for key personnel can trigger a requirement to update your Cyber Security Incident Response Plan (CSIRP). Under **CIP-008-6 R3 Part 3.2**, if a change to roles or responsibilities is determined to impact the ability to execute the plan, you must:\n*   **Update the plan** no later than **60 calendar days** after the change [csection-cccb0f15f565c92def53].\n*   **Notify all individuals or groups** with defined roles in the plan of these updates [csection-cccb0f15f565c92def53].\n\n### 3. Access Revocation (Internal Procedure)\nPer your **LSPG Access Management Procedure**, a change in role (reassignment or transfer) triggers a specific internal workflow:\n*   **Notification:** OT Security Operations must receive email notification from HR or the LSPG Manager regarding the status change [isection-d6f4205dc7c8baea8c10, 3.6.2.1].\n*   **Review:** OT Security Operations must determine if the outgoing CISO's physical, electronic, or BCSI access to the CIP OT environment requires revocation [isection-d6f4205dc7c8baea8c10, 3.6.2.3].\n*   **Execution:** If revocation is required, an Action Request (AR) must be created and routed to OT Security Management for approval [isection-d6f4205dc7c8baea8c10, 3.6.2.4-3.6.2.5].\n\n**Summary of Deadlines:**\n| Action | Deadline | Source |\n| :--- | :--- | :--- |\n| **Update CIP Senior Manager Name** | 30 Calendar Days | CIP-003-9 R3 |\n| **Update Incident Response Plan** | 60 Calendar Days | CIP-008-6 R3 |\n| **Revoke Access (Internal)** | Per HR/Manager Notification | LSPG Access Mgmt Proc |\n\nCited sections:\n- csection-ec9dfcc4f8695e265184 (CIP-003-9 R3)\n- csection-3d9855d41cb48f6334c4 (CIP-003-8 R4)\n- csection-cccb0f15f565c92def53 (CIP-008-6 R3 Part 3.2)\n- isection-d6f4205dc7c8baea8c10 (LSPG Access Management Procedure)",
+  "reasoning_chars": 0,
+  "wall_s": 38.74,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.03,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+    "compliance_search": 1.0
+  },
+  "tool_errors": {},
+  "pipeline_errors": {},
+  "usage_hops": [
+    {
+      "prompt_tokens": 3119,
+      "completion_tokens": 23
+    },
+    {
+      "prompt_tokens": 11757,
+      "completion_tokens": 821
+    }
+  ],
+  "prompt_tokens_high_water": 11757,
+  "prompt_tokens_final_hop": 11757,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+}
