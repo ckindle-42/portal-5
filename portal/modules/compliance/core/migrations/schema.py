@@ -953,4 +953,29 @@ MIGRATIONS: list[tuple[int, str, str]] = [
         CREATE INDEX ix_eval_sample_decision ON evaluation_sample(decision);
         """,
     ),
+    (
+        19,
+        "persisted per-requirement absence (LOAD_AND_CONVERSE_V1 P3.2)",
+        # record_links computed per-requirement absence — best_score, threshold,
+        # population searched, boundary proof — and RETURNED it without storing
+        # it, so no census could ever distinguish "searched and found nothing"
+        # from "never searched". That distinction is exactly what the 121
+        # empty populations turned on. One row per requirement ref, upserted on
+        # each proposal run; a ref whose latest run DID propose is deleted, so
+        # the table is always "the requirements whose latest run found nothing",
+        # never a fossil record of every past absence.
+        """
+        CREATE TABLE requirement_absence (
+            ref                 TEXT PRIMARY KEY,
+            best_score          REAL NOT NULL DEFAULT 0.0,
+            threshold           REAL NOT NULL DEFAULT 0.0,
+            population_searched INTEGER NOT NULL DEFAULT 0,
+            boundary_proof_id   TEXT NOT NULL DEFAULT '',
+            claim               TEXT NOT NULL DEFAULT '',
+            recorded_from       TEXT NOT NULL,
+            org_id              TEXT NOT NULL DEFAULT 'default'
+        );
+        CREATE INDEX ix_req_absence_boundary ON requirement_absence(boundary_proof_id);
+        """,
+    ),
 ]

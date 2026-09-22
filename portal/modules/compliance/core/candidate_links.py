@@ -78,6 +78,16 @@ def requirement_queries(repo: Any, standard: str) -> dict[str, str]:
     The query is the standard's own text, never a paraphrase and never a
     hand-written search string: a query nobody can trace to the requirement is
     a query nobody can audit.
+
+    **Every register node is covered** (LOAD_AND_CONVERSE_V1 §P3): the duty
+    tables and the prose lead-ins feed what they carry, and the REGISTER fills
+    every node they miss — Parts included — with the node's own verbatim text.
+    The table path only yields Part-level queries where the capture holds a
+    duty table with a ``Part`` column; for every other shape the fallback used
+    to stop at requirement level, so ``build_links`` proposed against
+    ``R1`` while the register's ``R1 Part 1.1`` … ``R1 Part 1.9`` had no query,
+    no proposal and therefore an empty population — whatever the index held.
+    That was the 121.
     """
     from portal.modules.compliance.core.reading_assembly import assemble, parse_ref
 
@@ -101,17 +111,39 @@ def requirement_queries(repo: Any, standard: str) -> dict[str, str]:
             continue
         requirement = part.split(".", 1)[0]
         out[f"{parsed.standard} R{requirement} Part {part}"] = duty
-    if out:
-        return out
-    # a prose standard: fall back to the requirement lead-ins the capture holds
-    assembly = assemble(repo, standard, include=["requirement"])
-    for component in assembly.get("components", []):
-        for section in component.get("sections", []):
-            text = str(section.get("text", "")).strip()
-            if text.startswith("R"):
-                ref = f"{parsed.standard} {text.split('.', 1)[0]}"
-                out.setdefault(ref, text)
-    return out
+    if not out:
+        # a prose standard: fall back to the requirement lead-ins the capture holds
+        assembly = assemble(repo, standard, include=["requirement"])
+        for component in assembly.get("components", []):
+            for section in component.get("sections", []):
+                text = str(section.get("text", "")).strip()
+                if text.startswith("R"):
+                    # strip(): the split left a trailing space inside the ref
+                    # ("… R2 ") — an identity the store's exact-match lookups
+                    # would never see again
+                    ref = f"{parsed.standard} {text.split('.', 1)[0]}".strip()
+                    out.setdefault(ref, text)
+    return _fill_from_register(parsed.standard, out)
+
+
+def _fill_from_register(standard: str, queries: dict[str, str]) -> dict[str, str]:
+    """Every register node of the standard with verbatim text gets a query.
+
+    Existing entries win: a duty table's cell text is richer than the node's
+    verbatim line. The register adds the rest — every Part the table path and
+    the prose fallback do not reach. An empty verbatim node stays queryless and
+    is therefore still visible as an absence row, never silently covered.
+    """
+    from portal.modules.compliance.core.cip_register import Register
+
+    for node in Register.load().nodes:
+        if node.standard != standard:
+            continue
+        text = str(node.verbatim_text or "").strip()
+        if not text:
+            continue
+        queries.setdefault(node.id, text)
+    return queries
 
 
 async def _rank(query: str, kb_id: str, pool: int) -> list[tuple[str, float, str, str, str]]:
@@ -198,6 +230,14 @@ def record_links(
     so a re-run after a re-projection never leaves stale candidates beside fresh
     ones. Edges from any other derivation — an approved mapping, a reading's
     assertion — are untouched.
+
+    **Absence is persisted where it is computed** (LOAD_AND_CONVERSE_V1 P3.2).
+    It used to be computed here and only returned, so no census could ever
+    distinguish *searched and found nothing* from *never searched* — the
+    distinction the 121 empty populations turned on. A requirement whose latest
+    run proposes nothing gets a ``requirement_absence`` row; one whose latest
+    run DOES propose gets its row deleted, so the table always reads as "the
+    requirements whose latest run found nothing", never a fossil record.
     """
     from portal.modules.compliance.core.temporal import now_iso
 
@@ -253,21 +293,46 @@ def record_links(
                 recorded += 1
             if not entry.proposed:
                 best = max((c.score for c in entry.rejected), default=0.0)
-                absent.append(
-                    {
-                        "ref": entry.ref,
-                        "best_score": round(best, 4),
-                        "threshold": entry.threshold,
-                        "population_searched": len(
-                            (boundary_receipt or {}).get("examined_sections", [])
-                        ),
-                        "boundary_proof_id": receipt_id,
-                        "claim": (
-                            "no operator section in the searched population scores above the "
-                            "calibrated threshold for this requirement"
-                        ),
-                    }
+                absence = {
+                    "ref": entry.ref,
+                    "best_score": round(best, 4),
+                    "threshold": entry.threshold,
+                    "population_searched": len(
+                        (boundary_receipt or {}).get("examined_sections", [])
+                    ),
+                    "boundary_proof_id": receipt_id,
+                    "claim": (
+                        "no operator section in the searched population scores above the "
+                        "calibrated threshold for this requirement"
+                    ),
+                }
+                repo._conn.execute(
+                    """INSERT INTO requirement_absence(ref, best_score, threshold,
+                           population_searched, boundary_proof_id, claim, recorded_from, org_id)
+                       VALUES (?,?,?,?,?,?,?,?)
+                       ON CONFLICT(ref) DO UPDATE SET
+                           best_score = excluded.best_score,
+                           threshold = excluded.threshold,
+                           population_searched = excluded.population_searched,
+                           boundary_proof_id = excluded.boundary_proof_id,
+                           claim = excluded.claim,
+                           recorded_from = excluded.recorded_from""",
+                    (
+                        absence["ref"],
+                        absence["best_score"],
+                        absence["threshold"],
+                        absence["population_searched"],
+                        absence["boundary_proof_id"],
+                        absence["claim"],
+                        stamp,
+                        org_id,
+                    ),
                 )
+                absent.append(absence)
+            else:
+                # the latest run found something: an earlier absence row for this
+                # ref no longer states a fact
+                repo._conn.execute("DELETE FROM requirement_absence WHERE ref = ?", (entry.ref,))
     return {
         "edges_recorded": recorded,
         "requirements": len(links),

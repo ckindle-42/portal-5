@@ -29,6 +29,10 @@ sources:
   path: scripts/compliance/diagnose_dead_standards.py
 - type: code
   path: scripts/compliance/single_vs_split.py
+- type: code
+  path: scripts/compliance/family_links.py
+- type: code
+  path: scripts/compliance/ask_conversational.py
 claims: []
 confidence: high
 tags:
@@ -87,3 +91,16 @@ Qwen3.6-35B-A3B, called directly against the splash forwarder since it has
 no `config/backends.yaml` entry) — reusing the router's own
 `_dispatch_tool_call` so a splash arm's tool loop is authorized exactly
 the way the deployed one is.
+
+LOAD_AND_CONVERSE_V1 adds two instruments in the same spirit.
+`family_links` (§P3.2) runs `build_links` for every register standard
+revision — not only the standards a past campaign or an autosync lifecycle
+change touched — against the whole projected operator corpus, and persists
+per-requirement absence (`requirement_absence`) where it is computed, so a
+census can distinguish *searched and found nothing* from *never searched*.
+`ask_conversational` (§P4) asks fourteen questions that name no requirement
+address at all, on the deployed workspace, and passes a question only when
+it answers, `compliance_search` was ACTUALLY called (router counters), every
+citation resolves, and both sides are cited — with the absence questions
+inverted: honest absence passes, invented coverage fails, judged by the
+module's own assertion classifier against the store's recorded edges.

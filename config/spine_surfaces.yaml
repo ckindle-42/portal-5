@@ -744,6 +744,10 @@ surfaces:
   globs:
   - scripts/compliance/adjudicate_refusals.py
   unit: unit-surface-compliance-closeout-scripts
+- name: file-scripts-compliance-ask_conversational
+  globs:
+  - scripts/compliance/ask_conversational.py
+  unit: unit-surface-compliance-closeout-scripts
 - name: file-scripts-compliance-ask_product_questions
   globs:
   - scripts/compliance/ask_product_questions.py
@@ -767,6 +771,10 @@ surfaces:
 - name: file-scripts-compliance-diagnose_dead_standards
   globs:
   - scripts/compliance/diagnose_dead_standards.py
+  unit: unit-surface-compliance-closeout-scripts
+- name: file-scripts-compliance-family_links
+  globs:
+  - scripts/compliance/family_links.py
   unit: unit-surface-compliance-closeout-scripts
 - name: file-scripts-compliance-single_vs_split
   globs:

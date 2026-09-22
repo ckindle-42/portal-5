@@ -156,13 +156,21 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--standards", required=True, help="comma-separated standard ids")
     ap.add_argument("--out", required=True, type=pathlib.Path)
+    ap.add_argument(
+        "--links-report",
+        type=pathlib.Path,
+        default=None,
+        help="a JSON with a ``links`` payload (family_links.py output). Default: the "
+        "latest autosync report, which only carries the standards a lifecycle "
+        "change touched — a family-wide diagnosis wants the family-wide report",
+    )
     args = ap.parse_args()
 
     standards = [s.strip() for s in args.standards.split(",") if s.strip()]
 
-    autosync_path = _latest_autosync()
-    autosync = json.loads(autosync_path.read_text()) if autosync_path else {}
-    links = autosync.get("links", {})
+    links_path = args.links_report or _latest_autosync()
+    source_doc = json.loads(links_path.read_text()) if links_path else {}
+    links = source_doc.get("links", source_doc.get("standards_links", {}))
 
     refusal_path = _latest_refusal_adjudication()
     refusal_data = json.loads(refusal_path.read_text()) if refusal_path else {"categories": {}}
@@ -191,7 +199,7 @@ def main() -> int:
 
     receipt = {
         "run_id": _dt.datetime.now(_dt.UTC).isoformat(),
-        "autosync_source": str(autosync_path) if autosync_path else None,
+        "links_source": str(links_path) if links_path else None,
         "refusal_adjudication_source": str(refusal_path) if refusal_path else None,
         "standards": results,
         "n_recall_misses": len(recall_misses),
