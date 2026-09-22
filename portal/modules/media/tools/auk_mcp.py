@@ -278,8 +278,10 @@ async def synthesize(text: str, reference_audio_url: str | None = None) -> dict[
     if reference_audio_url:
         ref = await _fetch_source(reference_audio_url)
         instruction = f"Say the following with the same voice: '{text}'"
-        seconds = _duration_s(ref) or _tts_seconds(text)
-        return await _invoke(instruction=instruction, source=ref, gen_seconds=seconds)
+        # gen_seconds must track the TEXT being spoken, not the reference
+        # clip's length — a long reference clip previously made the model
+        # pad/hallucinate extra speech to fill the target duration.
+        return await _invoke(instruction=instruction, source=ref, gen_seconds=_tts_seconds(text))
     instruction = (
         'Generate speech based on the following description: "a clear neutral adult '
         f'speaking voice, moderate pace". The content to speak is: "{text}".'
