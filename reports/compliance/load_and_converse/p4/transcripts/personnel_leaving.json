@@ -1,0 +1,33 @@
+{
+  "question": "What are our obligations around personnel leaving the company?",
+  "answer": "Your obligations regarding personnel leaving the company (termination) involve both regulatory requirements and internal procedures for revoking access.\n\n### Regulatory Requirements (CIP-004-7)\nUnder **CIP-004-7 R5 Part 5.1**, the company has a specific mandate for High and Medium Impact BES Cyber Systems:\n*   **The Duty:** The company must have a process to initiate the removal of an individual's ability for unescorted physical access and Interactive Remote Access upon a termination action.\n*   **The Deadline:** This removal must be completed **within 24 hours** of the termination action [cite R-7edf3e5d16f703bf60de].\n\n### Internal Procedures and Posture\nOur internal procedures establish a process that is at least as strict as the standard, specifically regarding the notification and execution of access revocation.\n\n**1. Notification and Execution**\n*   **Notification:** Management is required to notify the OT Director **immediately** when an Employee, Vendor, or Contractor is terminated [cite O-1sfile4712608bbe3637f811d4]. Notifications for \"immediate\" revocations (e.g., involuntary separation) can be sent via phone or email by HR or a Manager to OT Administrators or OT Security Management [cite O-1sfile6dbf20997a824336f011].\n*   **Execution (Physical Access):** The OT Team must remove physical access for any terminated individual **within at least 24 hours** of the termination action [cite O-1sfile4712608bbe3637f811d4].\n*   **Execution (Electronic/BCSI Access):** All individual access accounts (including electronic and BCSI access) are disabled **within 24 hours** of notice of termination [cite O-1sfile6dbf20997a824336f011]. Specifically, BCSI access is revoked by the end of the next calendar day following the termination action [cite O-1sfile6dbf20997a824336f011].\n\n**2. Account Management Policy**\n*   **Disabling vs. Deletion:** Our policy is to **disable** accounts rather than delete them. This is done to maintain an audit trail and to allow for easy re-activation if the individual returns (e.g., after a period of leave or expired training) [cite O-1sfile6dbf20997a824336f011].\n*   **Reassignments/Transfers:** If a person is reassigned or transferred, their access is revoked within **24 hours** of the date it is determined they no longer require it [cite O-1sfile6ab619m2a92217dfb8e9].\n\n### Summary of Latitudes\nThe operator's procedures are **stricter** than the standard in the following ways:\n*   **Scope of Access:** While the standard (Part 5.1) focuses on the removal of unescorted physical access and Interactive Remote Access, our internal procedure [cite O-1sfile6dbf20997a824336f011] explicitly includes the revocation of **BCSI access** within the same 24-hour window.\n*   **Notification Speed:** The standard requires the *completion* of removal within 24 hours; our procedure mandates that management notify the OT Director **immediately** upon termination [cite O-1sfile4712608bbe3637f811d4].\n\nCited sections:\n- csection-7edf3e5d16f703bf60de (CIP-004-7 R5 Part 5.1)\n- isection-4712608bbe3637f811d4 (LSPG Physical Access Control Procedure v11, 3.5.2/3.5.3)\n- isection-6dbf20997a824336f011 (LSPG Access Management Procedure v10, 3.6)\n- isection-6ab619m2a92217dfb8e9 (LSPG Account Management Procedure v6, 3.3)",
+  "reasoning_chars": 0,
+  "wall_s": 44.73,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.03,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+    "compliance_search": 1.0
+  },
+  "tool_errors": {},
+  "pipeline_errors": {},
+  "usage_hops": [
+    {
+      "prompt_tokens": 3150,
+      "completion_tokens": 31
+    },
+    {
+      "prompt_tokens": 11242,
+      "completion_tokens": 979
+    }
+  ],
+  "prompt_tokens_high_water": 11242,
+  "prompt_tokens_final_hop": 11242,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+}

@@ -1,0 +1,33 @@
+{
+  "question": "What do our documents say about physical security perimeters?",
+  "answer": "Our documents define and regulate Physical Security Perimeters (PSP) through a combination of NERC definitions, internal policies, and specific operational plans.\n\n### 1. Definition\nAccording to the **NERC Glossary of Terms**, a Physical Security Perimeter (PSP) is the physical border surrounding locations where BES Cyber Assets, BES Cyber Systems, or Electronic Access Control or Monitoring Systems (EACMS) reside, and for which access is controlled [csection-a7329dd90d143581840e].\n\n### 2. Operator Policy and Requirements\nThe **LSPG CIP Cyber Security Policy (v13)** mandates that the organization must implement physical security plans that satisfy several specific duties [isection-5a5ab9d236fe29d84230]:\n*   **Access Control:** Use at least one physical access control to allow unescorted access only to authorized individuals [isection-5a5ab9d236fe29d84230]. For High Impact systems, the policy requires utilizing two or more different physical access controls where technically feasible [isection-5a5ab9d236fe29d84230].\n*   **Monitoring and Alerting:** \n    *   Monitor for unauthorized access through physical access points [isection-5a5ab9d23<0xC2>au6fe29d84230].\n    *   Issue an alarm or alert for unauthorized access to a PSP or a Physical Access Control System (PACS) to identified personnel **within 15 minutes of detection** [isection-5a5ab9d236fe29d84230].\n*   **Logging:** Log the entry of all authorized individuals, including identity, date, and time [isection-5a5ab9d236fe29d84230]. These logs must be retained for at least **90 calendar days** [isection-5a5ab9d236fe29d84230].\n*   **Cabling Protection:** Restrict physical access to cabling and nonprogrammable communication components used for connections between Cyber Assets within the same Electronic Security Perimeter (ESP) if they are located outside a PSP [isection-5a5ab9d236fe29d84230]. If restrictions are not implemented, the operator must use encryption, monitoring with 15-minute alerting, or an equally effective logical protection [isection-5a5ab9d236fe29d84230].\n\n### 3. Operational Controls\nThe **LSPG CIP-006 Physical Security Plan (v14)** specifies the minimum technical controls required for Access Control Points (ACPs) within PSPs [isection-32ec5c7d8c47ad3c1709]:\n*   **Sensors:** Position sensors or switches are required for all ACPs; double doors must have a switch for each door [isection-32ec5c7d8c47ad3c1709].\n*   **Locking:** Hardware must be fail-secure electrified locking [isection-32ec5c7d8c47ad3c1709].\n*   **Alerting:** All ACPs must be configured to alert in the event of an unauthorized access attempt [isection-32ec5c7d8c6a25b22a2d0].\n\nAdditionally, the **Cyber Security Incident Response Plan (v14)** identifies Transmission System and Field Operations as the initial responders and investigators for Physical Security Perimeter alarms [isection-e825156b286795be17d4].\n\nCited sections:\n- csection-a7329dd90d143581840e (NERC Glossary definition of PSP)\n- isection-5a5ab9d236fe29d84230 (LSPG CIP Cyber Security Policy requirements)\n- isection-32ec5c7d8c47ad3c1709 (LSPG Physical Security Plan ACP controls)\n- isection-e825156b286795be17d4 (Incident Response Plan responders)",
+  "reasoning_chars": 0,
+  "wall_s": 38.15,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.02,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+    "compliance_search": 1.0
+  },
+  "tool_errors": {},
+  "pipeline_errors": {},
+  "usage_hops": [
+    {
+      "prompt_tokens": 3011,
+      "completion_tokens": 17
+    },
+    {
+      "prompt_tokens": 10171,
+      "completion_tokens": 944
+    }
+  ],
+  "prompt_tokens_high_water": 10171,
+  "prompt_tokens_final_hop": 10171,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+}

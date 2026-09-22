@@ -1,0 +1,478 @@
+{
+  "run_id": "2026-09-22T19:59:08.445117+00:00",
+  "workspace": "compliance-reading",
+  "router": "http://localhost:9099",
+  "n_questions": 14,
+  "n_passed": 5,
+  "n_used_search": 11,
+  "invented_coverage_count": 1,
+  "added_questions": {
+    "training_evidence_bridge": "vocabulary bridge: the operator corpus says 'records'/'training materials', the standards say 'evidence' \u2014 semantic search exists to survive exactly this gap, and no register-path question ever exercised it",
+    "cip003_revision_change": "cross-revision: the store holds both CIP-003 revisions by design (_governing_revisions keeps history answerable); a conversation about 'what changed' must find material in each \u2014 a different kind of ask than any the twelve cover"
+  },
+  "rows": [
+    {
+      "key": "remote_access",
+      "kind": "topic",
+      "question": "What do our procedures say about remote access, and what does CIP require of it?",
+      "verdict": "PASS",
+      "reason": "all checks passed",
+      "answer_chars": 2663,
+      "wall_s": 75.51,
+      "tool_calls": {
+        "compliance_search": 1.0,
+        "compliance_requirement": 2.0,
+        "compliance_context": 1.0
+      },
+      "used_search": true,
+      "cited_ids": [
+        "csection-0fc974404b4b39d04328",
+        "csection-42536c5b30863290dc7b",
+        "isection-ba7d3761d6c62add6725",
+        "isection-fb3ce0b972d0a5cbd2f3"
+      ],
+      "unresolved_ids": [],
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "used_search": true,
+        "all_citations_resolve": true,
+        "operator_cited": true,
+        "regulatory_cited": true
+      }
+    },
+    {
+      "key": "patching",
+      "kind": "topic",
+      "question": "Where does our patching practice sit against what the standards require?",
+      "verdict": "FAIL",
+      "reason": "failed: all_citations_resolve",
+      "answer_chars": 3397,
+      "wall_s": 52.26,
+      "tool_calls": {
+        "compliance_search": 1.0
+      },
+      "used_search": true,
+      "cited_ids": [
+        "csection-440a5c",
+        "csection-440a5cdf9a6b65292ef3",
+        "csection-7700dd5",
+        "csection-7700dd54",
+        "csection-7700dd5499cead0994ec",
+        "csection-8e1c9006314d834adedb",
+        "isection-21a30e",
+        "isection-21a30e0d44708f5dfdce",
+        "isection-87d00aedd4cf1f41f0cd",
+        "isection-eaf414678075ec2a5a39"
+      ],
+      "unresolved_ids": [
+        "csection-440a5c",
+        "csection-7700dd5",
+        "csection-7700dd54",
+        "isection-21a30e"
+      ],
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "used_search": true,
+        "all_citations_resolve": false,
+        "operator_cited": true,
+        "regulatory_cited": true
+      }
+    },
+    {
+      "key": "vendor_risk",
+      "kind": "topic",
+      "question": "Which of our policies touch vendor and supply-chain risk?",
+      "verdict": "FAIL",
+      "reason": "failed: all_citations_resolve",
+      "answer_chars": 2323,
+      "wall_s": 31.28,
+      "tool_calls": {
+        "compliance_search": 1.0
+      },
+      "used_search": true,
+      "cited_ids": [
+        "csection-77f6d383",
+        "csection-77f6d38373d13a3e0d94",
+        "isection-6234081e5e6a41de8bb7",
+        "isection-9f5acb6e",
+        "isection-9f5acb6e88d8b2cda4c8",
+        "isection-ffd6de53",
+        "isection-ffd6de53a3474107b18b"
+      ],
+      "unresolved_ids": [
+        "csection-77f6d383",
+        "isection-9f5acb6e",
+        "isection-ffd6de53"
+      ],
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "used_search": true,
+        "all_citations_resolve": false,
+        "operator_cited": true,
+        "regulatory_cited": true
+      }
+    },
+    {
+      "key": "shared_accounts",
+      "kind": "topic",
+      "question": "What do we say about shared accounts?",
+      "verdict": "FAIL",
+      "reason": "failed: all_citations_resolve",
+      "answer_chars": 3509,
+      "wall_s": 45.32,
+      "tool_calls": {
+        "compliance_search": 1.0
+      },
+      "used_search": true,
+      "cited_ids": [
+        "csection-250e44eb6597139a534b",
+        "csection-31e2dcb55975d1e1aba7",
+        "csection-d7d29fe42ab39cda38be",
+        "isection-4a7915037c2d923d58e",
+        "isection-66d4b53b3e22f35d2a44",
+        "isection-ad7b6d77c2ef7989f903"
+      ],
+      "unresolved_ids": [
+        "isection-4a7915037c2d923d58e"
+      ],
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "used_search": true,
+        "all_citations_resolve": false,
+        "operator_cited": true,
+        "regulatory_cited": true
+      }
+    },
+    {
+      "key": "patch_cycle",
+      "kind": "operator_fact",
+      "question": "We have a 30-day patch cycle. Which requirements does that bear on?",
+      "verdict": "PASS",
+      "reason": "all checks passed",
+      "answer_chars": 2347,
+      "wall_s": 40.9,
+      "tool_calls": {
+        "compliance_search": 1.0
+      },
+      "used_search": true,
+      "cited_ids": [
+        "csection-440a5cdf9a6b65292ef3",
+        "csection-7700dd5499cead0994ec",
+        "isection-21a30e0d44708f5dfdce",
+        "isection-87d00aedd4cf1f41f0cd"
+      ],
+      "unresolved_ids": [],
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "used_search": true,
+        "all_citations_resolve": true,
+        "operator_cited": true,
+        "regulatory_cited": true
+      }
+    },
+    {
+      "key": "baselines",
+      "kind": "operator_fact",
+      "question": "Our change-management procedure mentions baselines. Which standards care about that?",
+      "verdict": "PASS",
+      "reason": "all checks passed",
+      "answer_chars": 1923,
+      "wall_s": 34.09,
+      "tool_calls": {
+        "compliance_search": 1.0
+      },
+      "used_search": true,
+      "cited_ids": [
+        "csection-afe225c5ef91da2380ae",
+        "csection-bbee7b9801c2e52957fe",
+        "isection-1500fee07c685ebbaece",
+        "isection-5e0cad3bd147480bd22e"
+      ],
+      "unresolved_ids": [],
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "used_search": true,
+        "all_citations_resolve": true,
+        "operator_cited": true,
+        "regulatory_cited": true
+      }
+    },
+    {
+      "key": "personnel_leaving",
+      "kind": "operator_fact",
+      "question": "What are our obligations around personnel leaving the company?",
+      "verdict": "PASS",
+      "reason": "all checks passed",
+      "answer_chars": 3206,
+      "wall_s": 43.49,
+      "tool_calls": {
+        "compliance_search": 1.0
+      },
+      "used_search": true,
+      "cited_ids": [
+        "csection-7edf3e5d16f703bf60de",
+        "csection-eeffeae001359d58c045",
+        "isection-4712608bbe3637f811d4",
+        "isection-6ab61929a92217dfb8e9",
+        "isection-6dbf20997a824336f011"
+      ],
+      "unresolved_ids": [],
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "used_search": true,
+        "all_citations_resolve": true,
+        "operator_cited": true,
+        "regulatory_cited": true
+      }
+    },
+    {
+      "key": "most_work",
+      "kind": "cross_cutting",
+      "question": "Which of our documents are doing the most compliance work?",
+      "verdict": "FAIL",
+      "reason": "failed: used_search, operator_cited, regulatory_cited",
+      "answer_chars": 525,
+      "wall_s": 6.61,
+      "tool_calls": {
+        "compliance_coverage": 2.0
+      },
+      "used_search": false,
+      "cited_ids": [],
+      "unresolved_ids": [],
+      "sides_cited": [],
+      "checks": {
+        "answered": true,
+        "used_search": false,
+        "all_citations_resolve": true,
+        "operator_cited": false,
+        "regulatory_cited": false
+      }
+    },
+    {
+      "key": "overlap",
+      "kind": "cross_cutting",
+      "question": "Where do the standards overlap in what they ask of us?",
+      "verdict": "FAIL",
+      "reason": "failed: used_search, operator_cited, regulatory_cited",
+      "answer_chars": 668,
+      "wall_s": 3.71,
+      "tool_calls": {},
+      "used_search": false,
+      "cited_ids": [],
+      "unresolved_ids": [],
+      "sides_cited": [],
+      "checks": {
+        "answered": true,
+        "used_search": false,
+        "all_citations_resolve": true,
+        "operator_cited": false,
+        "regulatory_cited": false
+      }
+    },
+    {
+      "key": "ciso_handover",
+      "kind": "cross_cutting",
+      "question": "If our CISO role changed hands, what would we need to revisit?",
+      "verdict": "FAIL",
+      "reason": "failed: all_citations_resolve",
+      "answer_chars": 2829,
+      "wall_s": 40.27,
+      "tool_calls": {
+        "compliance_search": 1.0
+      },
+      "used_search": true,
+      "cited_ids": [
+        "csection-3d9855d4cb48f6334c4",
+        "csection-4bce1efc3470f195c61a",
+        "isection-c71ef1906622fd674909",
+        "isection-d6f4205dc7c8baea8c10"
+      ],
+      "unresolved_ids": [
+        "csection-3d9855d4cb48f6334c4"
+      ],
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "used_search": true,
+        "all_citations_resolve": false,
+        "operator_cited": true,
+        "regulatory_cited": true
+      }
+    },
+    {
+      "key": "physical_perimeter",
+      "kind": "absence",
+      "question": "What do our documents say about physical security perimeters?",
+      "verdict": "FAIL",
+      "reason": "failed: all_citations_resolve, names_requirement, no_invented_coverage",
+      "answer_chars": 3186,
+      "wall_s": 38.15,
+      "tool_calls": {
+        "compliance_search": 1.0
+      },
+      "used_search": true,
+      "cited_ids": [
+        "csection-a7329dd90d143581840e",
+        "isection-32ec5c7d8c47ad3c1709",
+        "isection-32ec5c7d8c6a25b22a2d0",
+        "isection-5a5ab9d23",
+        "isection-5a5ab9d236fe29d84230",
+        "isection-e825156b286795be17d4"
+      ],
+      "unresolved_ids": [
+        "isection-32ec5c7d8c6a25b22a2d0",
+        "isection-5a5ab9d23"
+      ],
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "used_search": true,
+        "all_citations_resolve": false,
+        "names_requirement": false,
+        "no_invented_coverage": false
+      },
+      "absence": {
+        "named_requirement": false,
+        "invented_coverage": [
+          {
+            "section_id": "isection-5a5ab9d236fe29d84230",
+            "sentence": "The **LSPG CIP Cyber Security Policy (v13)** mandates that the organization must implement physical security plans that satisfy several specific duties [isection-5a5ab9d236fe29d84230]:\n*   **Access Control:** Use at least one physical access control to allow unescorted access only to authorized individuals [isection-5a5ab9d236fe29d84230].",
+            "classification": "the citing sentence asserts implementation"
+          }
+        ],
+        "store_backed_coverage": [],
+        "invented": true
+      }
+    },
+    {
+      "key": "categorization",
+      "kind": "absence",
+      "question": "What's our position on BES Cyber System categorization?",
+      "verdict": "FAIL",
+      "reason": "failed: names_requirement",
+      "answer_chars": 2705,
+      "wall_s": 41.87,
+      "tool_calls": {
+        "compliance_search": 1.0
+      },
+      "used_search": true,
+      "cited_ids": [
+        "csection-eb786be67ddf1761b3dc",
+        "isection-66e4a8111f75c938e21a",
+        "isection-af5e84ee6441f6f0eee3"
+      ],
+      "unresolved_ids": [],
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "used_search": true,
+        "all_citations_resolve": true,
+        "names_requirement": false,
+        "no_invented_coverage": true
+      },
+      "absence": {
+        "named_requirement": false,
+        "invented_coverage": [],
+        "store_backed_coverage": [],
+        "invented": false
+      }
+    },
+    {
+      "key": "training_evidence_bridge",
+      "kind": "topic",
+      "question": "Which of our records would serve as evidence for training requirements, and what do the standards accept as evidence?",
+      "verdict": "PASS",
+      "reason": "all checks passed",
+      "answer_chars": 2596,
+      "wall_s": 41.28,
+      "tool_calls": {
+        "compliance_search": 1.0
+      },
+      "used_search": true,
+      "cited_ids": [
+        "csection-5a2adea15d758169834e",
+        "csection-8e718802fae87f056354",
+        "csection-df1b781531106f58ce9b",
+        "isection-7879412b5de8e080a800",
+        "isection-c0da729383cb1fb5378e"
+      ],
+      "unresolved_ids": [],
+      "sides_cited": [
+        "derived",
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "used_search": true,
+        "all_citations_resolve": true,
+        "operator_cited": true,
+        "regulatory_cited": true
+      }
+    },
+    {
+      "key": "cip003_revision_change",
+      "kind": "cross_cutting",
+      "question": "Did the newest CIP-003 revision change what it asks of us compared with the one it replaced?",
+      "verdict": "FAIL",
+      "reason": "failed: used_search, operator_cited, regulatory_cited",
+      "answer_chars": 3642,
+      "wall_s": 115.95,
+      "tool_calls": {
+        "compliance_requirement": 2.0,
+        "compliance_context": 1.0,
+        "compliance_timeline": 2.0
+      },
+      "used_search": false,
+      "cited_ids": [],
+      "unresolved_ids": [],
+      "sides_cited": [],
+      "checks": {
+        "answered": true,
+        "used_search": false,
+        "all_citations_resolve": true,
+        "operator_cited": false,
+        "regulatory_cited": false
+      }
+    }
+  ],
+  "pass_rule": "answered + compliance_search actually called (router counters) + every citation resolves + (relational questions) both sides cited. Absence questions: name the requirement and either cite store-linked operator coverage or name the gap; a positively-asserted operator section with no recorded edge into the named family is invented coverage (FAIL).",
+  "verdict": "FAIL"
+}

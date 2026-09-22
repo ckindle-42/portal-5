@@ -1,0 +1,33 @@
+{
+  "question": "Our change-management procedure mentions baselines. Which standards care about that?",
+  "answer": "Based on your change-management procedure, the primary standard that addresses baselines is **CIP-010-4**.\n\nSpecifically, the following requirements and your internal documents are involved:\n\n### 1. Regulatory Requirement: CIP-010-4\nThe standard requires a configuration change management process that includes several baseline-related duties:\n*   **Baseline Establishment (R1.1):** The entity must develop a baseline configuration that includes elements such as operating systems/firmware, application software, custom software, logical network ports, and applied security patches [cite R-afe225c5ef91da2380ae].\n*   **Change Authorization (R1.2):** The entity must authorize and document any changes that deviate from the existing baseline [cite R-afe225c5ef91da2380ae].\n*   **Baseline Updates (R1.3):** For any change that deviates from the baseline, the entity must update the baseline configuration as necessary within **30 calendar days** of completing the change [cite R-bbee7b9801c2e52957fe].\n*   **Configuration Monitoring (R2.1):** The entity must monitor for changes to the baseline configuration at least once every 35 calendar days [cite R-3d2874e685fc97754de2].\n\n### 2. Your Internal Procedure\nYour procedure, **LSPG Security Controls Testing (v6.0)**, contains specific instructions for managing these deviations:\n*   **Update Deadline:** Your procedure mandates that for any change deviating from the baseline, the baseline configuration in the designated system of record must be updated within **30 calendar days** of the completion of the change [cite O-5e0cad3bd147480bd22e].\n*   **Definition of Completion:** The update is considered complete when either the Change Configuration Monitoring Solution detects the change or the baseline is promoted within the Protection Asset tool [cite O-5e0cad3bd147480bd22e].\n\n### 3. Latitude Statement\nYour procedure's 30-day deadline for updating the baseline matches the 30-day deadline required by CIP-010-4 R1.3 exactly; therefore, your procedure is not using less latitude than the standard grants for this specific duty.\n\nCited sections:\n- csection-afe225c5ef91da2380ae (CIP-010-4 R1 Violation Severity Levels)\n- csection-bbee7b9801c2e52957fe (CIP-010-4 R1.3 Requirement)\n- csection-3d2874e685fc97754de2 (CIP-010-4 R2.1 Requirement)\n- isection-5e0cad3bd147480bd22e (LSPG Security Controls Testing 3.6.2)",
+  "reasoning_chars": 0,
+  "wall_s": 41.91,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.02,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+    "compliance_search": 1.0
+  },
+  "tool_errors": {},
+  "pipeline_errors": {},
+  "usage_hops": [
+    {
+      "prompt_tokens": 3155,
+      "completion_tokens": 17
+    },
+    {
+      "prompt_tokens": 13373,
+      "completion_tokens": 669
+    }
+  ],
+  "prompt_tokens_high_water": 13373,
+  "prompt_tokens_final_hop": 13373,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+}

@@ -1,0 +1,33 @@
+{
+  "question": "Which of our policies touch vendor and supply-chain risk?",
+  "answer": "Based on the available documentation, three of our internal documents specifically address vendor and supply-chain risk management:\n\n### 1. LSPG CIP-013 Risk Assessment Procedure\nThis procedure (v8.0) outlines the operational steps for managing vendor risk, including:\n*   **Vendor Status Verification:** Verifying whether a proposed vendor is \"needs assessment,\" \"approved,\" or \"not eligible\" [isection-62340mu].\n*   **Risk Assessment Coordination:** Coordinating with Business Units to collect necessary vendor documentation for assessments [isection-6234mu].\n*   **Re-assessment Management:** Notifying the Cross-Functional Team Lead when vendor risk assessments are expiring or have expired [isection-6234mu].\n\n### 2. LSPG CIP-013 Procurement Procedure\nThis procedure (v8.0) focuses on the procurement side of the supply chain, including:\n*   **Vendor Verification:** Similar to the Risk Assessment Procedure, it verifies the status of proposed vendors [isection-ffd6de53].\n*   **Contract Management:** Negotiating and executing contracts, managing expirations/changes, and maintaining the \"CIP-013 approved and prohibited Vendor list\" [isection-ffd6de53].\n*   **Sourcing Strategy:** Managing the purchasing strategy and sourcing for both new and active contracts [isection-ffd6de53].\n\n### 3. Supply Chain Cyber Security Risk Management Plan\nThis plan (v8.0) provides the high-level management framework for the supply chain, including:\n*   **Compliance Oversight:** Reviewing the \"CIP-013 Applicability Form\" for accuracy [isection-9f5acb6e].\n*   **Vendor List Management:** Managing the \"CIP-013-2 approved and prohibited Vendor list\" [isection-9f5acb6e].\n*   **Contract and Sourcing Management:** Managing purchasing strategies for active contracts and handling contract changes [isection-9f5acb6e].\n\n**Note on Regulatory Alignment:**\nThe regulatory standard **CIP-013-2** (Cyber Security - Supply Chain Risk Management) is also identified in the corpus as the governing standard for these activities [csection-77f6d383].\n\nCited sections:\n- isection-6234081e5e6a41de8bb7 (LSPG CIP-013 Risk Assessment Procedure)\n- isection-ffd6de53a3474107b18b (LSPG CIP-013 Procurement Procedure)\n- isection-9f5acb6e88d8b2cda4c8 (Supply Chain Cyber Security Risk Management Plan)\n- csection-77f6d38373d13a3e0d94 (CIP-013-2 Standard)",
+  "reasoning_chars": 0,
+  "wall_s": 31.28,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.02,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+    "compliance_search": 1.0
+  },
+  "tool_errors": {},
+  "pipeline_errors": {},
+  "usage_hops": [
+    {
+      "prompt_tokens": 2908,
+      "completion_tokens": 20
+    },
+    {
+      "prompt_tokens": 9717,
+      "completion_tokens": 628
+    }
+  ],
+  "prompt_tokens_high_water": 9717,
+  "prompt_tokens_final_hop": 9717,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+}

@@ -1,0 +1,33 @@
+{
+  "question": "If our CISO role changed hands, what would we need to revisit?",
+  "answer": "If the CISO role changes hands, you have two distinct compliance obligations to address: one regarding the **authority** of the role (CIP-003-8) and one regarding the **incident response plan** (CIP-008-6).\n\n### 1. Updating the CIP Senior Manager Documentation (CIP-003-8)\nUnder **CIP-003-8 R4**, the Responsible Entity is required to keep its documentation of the CIP Senior Manager and any delegations up-to-date [csection-3d9855d4cb48f6334c4]. \n\n*   **The Duty:** You must update the records to reflect the new individual in the CISO/Senior Manager role.\n*   **The Latitude:** The standard provides a specific relief for delegations: if the CISO (the delegator) is replaced, you **do not** need to re-institute existing delegations (e.g., a delegation from the CISO to a Maintenance Manager). The existing delegation remains in effect as approved by the previous CIMS, provided the documentation of the new CISO is updated within the required timeframe [csection-3d9855d4cb48f6334c4].\n\n### 2. Updating the Cyber Security Incident Response Plan (CIP-008-6)\nA change in the CISO role constitutes a change in \"roles or responsibilities\" or \"individuals\" that could impact the ability to execute the plan.\n\n*   **The Deadline:** You must update the Cyber Security Incident Response Plan(s) and notify all persons/groups with defined roles in the plan **no later than 90 calendar days** after the change [csection-4bce1efc3470f195c61a].\n*   **The Operator's Procedure:** Your current **Cyber Security Incident Response Plan (V14)** already includes a process for updating roles and responsibilities [isection-c71ef1906622fd674909]. \n*   **The Risk of Violation:** Note that if the update or notification is not completed within the **60 to 90-day** window, it may fall into a higher violation severity tier [csection-4bce1efc3470f195c61a].\n\n### Summary of Actions\n| Area | Requirement | Action Required | Deadline |\n| :--- | :--- | :--- | :--- |\n| **Authority** | CIP-003-8 R4 | Update documentation of the CIP Senior Manager. | Within the specified timeframe (per your internal policy). |\n| **Incident Response** | CIP-008-6 3.2 | Update the Incident Response Plan and notify all defined roles. | Within 90 calendar days. |\n\n**Note on Access:** If the CISO's departure involves a revocation of access, your **LSPG Access Management Procedure (3.6.2)** requires that OT Security Operations receives notification from HR/Management and initiates the revocation process for any physical, electronic, or BCSI access [isection-d6f4205dc7c8baea8c10].\n\nCited sections:\n- csection-3d9855d4cb48f6334c4 (CIP-003-8 R4 text)\n- csection-4bce1efc3470f195c61a (CIP-008-6 R3 3.2 text)\n- isection-c71ef1906622fd674909 (Cyber Security Incident Response Plan Revision History)\n- isection-d6f4205dc7c8baea8c10 (LSPG Access Management Procedure 3.6.2)",
+  "reasoning_chars": 0,
+  "wall_s": 40.27,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.02,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+    "compliance_search": 1.0
+  },
+  "tool_errors": {},
+  "pipeline_errors": {},
+  "usage_hops": [
+    {
+      "prompt_tokens": 3015,
+      "completion_tokens": 22
+    },
+    {
+      "prompt_tokens": 11245,
+      "completion_tokens": 843
+    }
+  ],
+  "prompt_tokens_high_water": 11245,
+  "prompt_tokens_final_hop": 11245,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+}

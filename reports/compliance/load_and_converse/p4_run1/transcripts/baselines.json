@@ -1,0 +1,33 @@
+{
+  "question": "Our change-management procedure mentions baselines. Which standards care about that?",
+  "answer": "Based on your change-management procedure and the available NERC CIP standards, **CIP-010-4** is the primary standard concerned with baselines and configuration changes.\n\nSpecifically, the following connections exist:\n\n*   **CIP-010-4 (Regulatory Standard):** This standard explicitly requires a configuration change management process. It includes specific requirements for managing changes that deviate from an existing baseline. For example, **R1** includes violations for not having a process that requires authorization and documentation of changes that deviate from the existing baseline configuration [csection-afe225c5ef91da2380ae].\n*   **LSPG CIP Cyber Security Policy (Operator Policy):** Your internal policy (Section 3.7.1) maps directly to these requirements. It mandates establishing a baseline configuration (including OS, software, ports, and patches) and requires the authorization and documentation of any changes that deviate from that baseline [isection-1500fee07c685ebbaece].\n*   **LSPG Security Controls Testing (Operator Procedure):** Your procedure (Section 3.6.2) provides the specific operational deadline for these changes, stating that the baseline configuration must be updated in the system of record within **30 calendar days** of the completion of a change [isection-5e0cad3bd147480bd22e].\n\n**Note on Latitude:**\nThe standard **CIP-010-4 R1.3** allows for updating the baseline configuration \"as necessary within 30 calendar days\" [csection-bbee7b9801c2e52957fe]. Your procedure (Section 3.6.2) matches this 30-day deadline exactly, so you are not using less latitude than the standard grants here.\n\nCited sections:\n- csection-afe225c5ef91da2380ae (CIP-010-4 R1 Violation Severity Levels)\n- csection-bbee7b9801c2e52957fe (CIP-010-4 R1.3 Requirement)\n- isection-1500fee07c685ebbaece (LSPG CIP Cyber Security Policy 3.7.1)\n- isection-5e0cad3bd147480bd22e (LSPG Security Controls Testing 3.6.2)",
+  "reasoning_chars": 0,
+  "wall_s": 34.09,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.03,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+    "compliance_search": 1.0
+  },
+  "tool_errors": {},
+  "pipeline_errors": {},
+  "usage_hops": [
+    {
+      "prompt_tokens": 3015,
+      "completion_tokens": 17
+    },
+    {
+      "prompt_tokens": 11871,
+      "completion_tokens": 538
+    }
+  ],
+  "prompt_tokens_high_water": 11871,
+  "prompt_tokens_final_hop": 11871,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+}

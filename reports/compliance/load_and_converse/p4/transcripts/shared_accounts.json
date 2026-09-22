@@ -1,0 +1,33 @@
+{
+  "question": "What do we say about shared accounts?",
+  "answer": "Our approach to shared accounts is defined by both the NERC CIP standard and our internal **LSPG Account Management Procedure**.\n\n### NERC CIP Standard (CIP-007-6)\nThe standard defines a **shared user account** as one used by multiple users (employees or contractors) for normal business functions, typically on devices that do not support individual user accounts [cite csection-d7d29fe42ab39cda38be]. \n\nRegarding compliance, the standard provides two permitted methods for maintaining control:\n*   Identifying individuals with access to shared accounts through the standard access authorization and provisioning process [cite csection-250e4ss9a6b65292ef3].\n*   Maintaining a separate listing specifically for shared accounts [cite csection-250e4ss9a6b65292ef3].\n\n### Operator Procedure (LSPG Account Management)\nOur internal procedures are more prescriptive than the standard's choice of evidence, mandating specific use of the **EPM system** for management and auditing.\n\n**1. Definition and Scope**\nWe define shared accounts to include administrator/root accounts, factory/default accounts, accounts for automated tasks, and generic application/database accounts [cite isection-ad7b6d77c2ef7989f903].\n\n**2. Access and Authorization**\n*   **Authorization:** Access to existing shared accounts is granted via an Access Request (AR) following the OT Access Management Procedure [cite isection-ad7b6d77c2ef7989f903]. Creating a new shared account requires a Request for Change (RFC) via the OT Change Management Procedure [cite isection-ad7b6d77c2ef7989f903].\n*   **Mechanism:** Access is granted through **User Groups** within the EPM tool [cite isection-4a7915037c2d923d58e].\n*   **Password Retrieval:** Where possible, users must log into a CIP Cyber Asset using their individual credentials and then use the EPM system to retrieve the shared account password [cite isection-ad7b6d77c2ef7989f903].\n*   **Administration:** The EPM System Administrator is responsible for updating the EPM tool when adding/removing users or changing passwords [cite isection-4a7915037c2d923d58e].\n\n**3. Usage and Auditing**\n*   **Principle of Least Privilege:** Shared accounts must be used only when necessary and removed when possible. Access must be kept to a minimum, and users should only use them when their specific role requires it [cite isection-ad7b6d77c2ef7989f903].\n*   **Logging:** When using a shared account to access a device, the user **must** create a log entry in the EPM tool in the \"reason for retrieval\" text box to record the usage [cite isection-66d4b53b3e22f35d2a44].\n*   **Inventory:** All shared accounts for devices must be recorded in the EPM system [cite isection-ad7b6d77c2ef7989f903].\n\n**Latitude Statement:**\nThe NERC standard allows for the use of individual authorization records to satisfy the requirement [cite csection-250e4ss9a6b65292ef3]. Our procedure narrows this choice by mandating that shared accounts be recorded in the EPM system [cite isection-ad7b6d77c2ef7989f903] and requiring a specific log entry in the \"reason for retrieval\" box during use [cite isection-66d4b53b3e22f35d2a44].\n\nCited sections:\n- csection-d7d29fe42ab39cda38be (NERC CIP-007-6 definition of shared account)\n- csection-250e44eb6597139a534b (NERC CIP-007-6 evidence options)\n- isection-ad7b6d77c2ef7989f903 (LSPG Account Management: Definition, Authorization, and Password Retrieval)\n- isection-4a7915037c2d923d58e (LSPG Account Management: User Groups and Administration)\n- isection-66d4b53b3e22f35d2a44 (LSPG Account Management: Usage Logging)",
+  "reasoning_chars": 0,
+  "wall_s": 45.91,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.05,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+    "compliance_search": 1.0
+  },
+  "tool_errors": {},
+  "pipeline_errors": {},
+  "usage_hops": [
+    {
+      "prompt_tokens": 3148,
+      "completion_tokens": 16
+    },
+    {
+      "prompt_tokens": 10472,
+      "completion_tokens": 1054
+    }
+  ],
+  "prompt_tokens_high_water": 10472,
+  "prompt_tokens_final_hop": 10472,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+}

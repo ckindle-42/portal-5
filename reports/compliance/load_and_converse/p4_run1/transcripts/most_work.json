@@ -1,0 +1,39 @@
+{
+  "question": "Which of our documents are doing the most compliance work?",
+  "answer": "I cannot answer which of your documents are doing the most compliance work without a specific scope. The `compliance_coverage` tool requires a specific regulatory address (like a Part or a Requirement ID) to generate a report on which operator sections are linked to which requirements.\n\nIf you can point me to a specific standard (e.g., \"CIP-007-6\") or a specific Part, I can run a report to show you the coverage distribution and identify which of your documents are mapped to the most requirements.\n\nCited sections:\n- None",
+  "reasoning_chars": 0,
+  "wall_s": 6.61,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.03,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+    "compliance_coverage": 2.0
+  },
+  "tool_errors": {
+    "compliance_coverage": 2.0
+  },
+  "pipeline_errors": {},
+  "usage_hops": [
+    {
+      "prompt_tokens": 3011,
+      "completion_tokens": 26
+    },
+    {
+      "prompt_tokens": 3056,
+      "completion_tokens": 47
+    },
+    {
+      "prompt_tokens": 3122,
+      "completion_tokens": 118
+    }
+  ],
+  "prompt_tokens_high_water": 3122,
+  "prompt_tokens_final_hop": 3122,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+}

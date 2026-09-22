@@ -1,0 +1,33 @@
+{
+  "question": "What are our obligations around personnel leaving the company?",
+  "answer": "Your obligations regarding personnel leaving the company (termination, reassignment, or transfer) involve both regulatory requirements under **CIP-004-7** and our internal procedures.\n\n### 1. Termination (Immediate or Planned)\nWhen an individual (Employee, Vendor, or Contractor) is terminated, we have specific duties regarding access revocation:\n\n*   **The Standard (CIP-004-7 R5 Part 5.1):** We must initiate the removal of unescorted physical access and Interactive Remote Access upon a termination action and complete these removals within **24 hours** of the termination action [csection-7edf3e5d16f703bf60de].\n*   **Our Internal Procedure (LSPG Physical Access Control Procedure):**\n    *   **Notification:** Management must notify the OT Director **immediately** upon termination [isection-4712608bbe3637f811d4].\n    *   **Physical Access:** The OT Team must remove physical access for any terminated individual within **at least 24 hours** of the termination action [isection-4712608bbe3637f811d4].\n*   **Our Internal Procedure (LSPG Access Management):**\n    *   **Electronic/BCSI Access:** All individual access (including electronic and BCSI) will be disabled within **24 hours** of notice of termination [isection-6dbf20997a824336f011].\n    *   **Note on Account Handling:** Our practice is to **disable** accounts rather than delete them to maintain an audit trail and allow for potential reinstatement (e.g., if training expires and is later completed) [isection-6dbf20997a824336f011].\n\n### 2. Reassignment or Transfer\nWhen an individual's job responsibilities change, we must evaluate and revoke unnecessary access:\n\n*   **The Standard (CIP-004-7 R5 Part 5.2):** For reassignments or transfers, we must revoke authorized electronic access and unescorted physical access that we determine is no longer necessary by the **end of the next calendar day** following the determination [csection-eeffeae001359d58c045].\n*   **Our Internal Procedure (LSPG Account Management):** We must revoke access per the OT Access Management Procedure within **24 hours** of the date it is determined the user no longer requires it [isection-6ab61929a92217dfb8e9].\n\n### Summary of Deadlines\n| Event | Standard Deadline | Our Procedure Deadline |\n| :--- | :--- | :--- |\n| **Termination (Physical/Remote Access)** | Within 24 hours | Within 24 hours |\n| **Termination (Electronic/BCSI)** | Not explicitly specified | Within 24 hours |\n| **Reassignment/Transfer** | End of next calendar day | Within 24 hours |\n\n**Note on Latitude:** Our procedures for reassignments and transfers are **stricter** than the standard. While CIP-004-7 R5 Part 5.2 allows until the \"end of the next calendar day\" following a determination, our Account Management procedure mandates action within **24 hours** of that determination [csection-eeffeae001359d58c045, isection-6ab61929a92217dfb8e9].\n\nCited sections:\n- csection-7edf3e5d16f703bf60de (CIP-004-7 R5 Part 5.1)\n- csection-eeffeae001359d58c045 (CIP-004-7 R5 Part 5.2)\n- isection-4712608bbe3637f811d4 (LSPG Physical Access Control Procedure 3.5.2, 3.5.3)\n- isection-6dbf20997a824336f011 (LSPG Access Management 3.6)\n- isection-6ab61929a92217dfb8e9 (LSPG Account Management 3.3.3)",
+  "reasoning_chars": 0,
+  "wall_s": 43.49,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.03,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+    "compliance_search": 1.0
+  },
+  "tool_errors": {},
+  "pipeline_errors": {},
+  "usage_hops": [
+    {
+      "prompt_tokens": 3010,
+      "completion_tokens": 21
+    },
+    {
+      "prompt_tokens": 11227,
+      "completion_tokens": 975
+    }
+  ],
+  "prompt_tokens_high_water": 11227,
+  "prompt_tokens_final_hop": 11227,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+}
