@@ -1,0 +1,815 @@
+{
+  "run_id": "2026-09-22T23:11:11.522872+00:00",
+  "workspace": "compliance-reading",
+  "router": "http://localhost:9099",
+  "standards": [
+    "CIP-007-6",
+    "CIP-004-7",
+    "CIP-010-4",
+    "CIP-003-8",
+    "CIP-002-5.1a"
+  ],
+  "anchors": {
+    "CIP-007-6": "CIP-007-6 R2",
+    "CIP-004-7": "CIP-004-7 R4",
+    "CIP-010-4": "CIP-010-4 R1",
+    "CIP-003-8": "CIP-003-8 R1",
+    "CIP-002-5.1a": "CIP-002-5.1a R1"
+  },
+  "n_questions": 15,
+  "n_passed": 12,
+  "rows": [
+    {
+      "standard": "CIP-007-6",
+      "requirement": "CIP-007-6 R2",
+      "key": "coverage_gap",
+      "requires_side": "operator",
+      "has_stored_relation": true,
+      "cross_check": "compliance_coverage",
+      "question": "For CIP-007-6 R2, which Parts do my documents not cover? For each Part with no implementing section of mine, say so plainly and cite the Part. For each Part that is covered, cite the section of mine that covers it.",
+      "answer": "Based on the available documentation, the requirements for patch management under **CIP-007-6 R2** involve a documented process for tracking, evaluating, and installing security patches.\n\nThe following breakdown compares the NERC CIP standard requirements against the operator's documented procedures and recorded practices:\n\n### **1. Patch Management Process and Source Identification (Part 2.1)**\n*   **Standard Requirement:** The Responsible Entity must implement a documented process for tracking, evaluating, and installing cyber security patches for applicable Cyber Assets. This process must include identifying the source(s) used to track the release of patches for updateable assets where a source exists [csection-754b5967f6905d4c376e].\n*   **Operator's Position:** The operator's **Security Patch Management (SPM) Procedure** states that they have identified and are tracking sources for the release of security patches for applicable CIP Cyber Assets [isection-5a6e77a9acc7ab5eee74]. The process involves using a \"patch evaluation workbook\" in conjunction with \"Foxguard\" [isection-21a30e0d44708f5dfdce].\n*   **Assessment:** There is no gap in the documented process. However, while the procedure claims sources are identified, the specific list of these sources is not contained in the provided material.\n\n### **2. Patch Evaluation Frequency (Part 2.2)**\n*   **Standard Requirement:** Security patches must be evaluated for applicability at least once every **35 calendar days** [csection-7700dd5499cead0994ec].\n*   **Operator's Position:** The operator's procedure specifies an evaluation interval of at least once every **35 calendar days** [isection-21a30e0d44708f5dfdce].\n*   **Latitude Statement:** The operator is using **more strictness** than the standard requires. An operator note records a deliberate decision to evaluate patches every **30 days** to align with their monthly change window, rather than the 35-day maximum allowed by the standard [csection-440a5 certainly 5cdf9a6b65292ef3].\n\n### **3. Patch Action and Mitigation (Part 2.3)**\n*   **Standard Requirement:** Within **35 calendar days** of completing an evaluation, the entity must take one of three actions for applicable patches:\n    1. Apply the patch;\n    2. Create a dated mitigation plan; or\n    3. Revise an existing mitigation plan [csection-c36c38b8842c8bc217ac].\n*   **Operator's Position:** The operator's procedure and traceability matrix confirm that they address this requirement through sections 3.5 and 3.6 of their SPM Procedure [isection-e450e773b7d8578062c6].\n*   **Assessment:** The documented procedure covers the requirement.\n\n### **4. Mitigation Plan Implementation (Part 2.4)**\n*   **Standard Requirement:** Any mitigation plan created or revised under Part 2.3 must be implemented within the timeframe specified in the plan, unless an extension is approved by the CIP Senior Manager or their delegate [csection-c0cd08b61c308b0e6403].\n*   **Operator's Position:** The operator's procedure (Section 3.6.7) is mapped to this requirement [isection-e450e773b7d8578062c6], and the roles and responsibilities section (1.4.1.12) explicitly tasks personnel with creating and revising mitigation plans in the Change Management Solution for patches that cannot be installed within 35 days [isection-d046f5a3_..._12].\n\n**Summary of Findings:**\nThe operator's documented processes for CIP-007-6 R2 appear to meet or exceed the requirements of the standard. The only unverified element is the actual contents of the \"patch evaluation workbook\" and the specific \"source list,\" which would be required to verify that the tracking portion of Part 2.1 is actively maintained.\n\nCited sections:\n- csection-754b5967f6905d4c376e (Standard R2.1)\n- csection-7700dd5499cead0994ec (Standard R2.2)\n- csection-c36c38b8842c8bc217ac (Standard R2.3)\n- csection-c0cd08b61c308b0e6403 (Standard R2.4)\n- csection-440a5cdf9a6b65292ef3 (Operator Note: Intentional Strictness)\n- isection-5a6e77a9acc7ab5eee74 (SPM Procedure 3.1.2)\n- isection-21a30e0d44708f5dfdce (SPM Procedure 3.3.1)\n- isection-e450e773b7d8578062c6 (SPM Procedure Traceability Appendix)\n- isection-d046f5a3b91e74af33f9 (SPM Procedure 1.4.1.12)",
+      "answer_chars": 4185,
+      "wall_s": 67.47,
+      "first_token_s": 0.05,
+      "cited_ids": [
+        "csection-440a5cdf9a6b65292ef3",
+        "csection-754b5967f6905d4c376e",
+        "csection-7700dd5499cead0994ec",
+        "csection-9ba0557b1602efdffff2",
+        "csection-c0cd08b61c308b0e6403",
+        "csection-c36c38b8842c8bc217ac",
+        "isection-21a30e0d44708f5dfdce",
+        "isection-5a6e77a9acc7ab5eee74",
+        "isection-d046f5a3b91e74af33f9",
+        "isection-e450e773b7d8578062c6"
+      ],
+      "resolved_ids": [
+        "csection-440a5cdf9a6b65292ef3",
+        "csection-754b5967f6905d4c376e",
+        "csection-7700dd5499cead0994ec",
+        "csection-9ba0557b1602efdffff2",
+        "csection-c0cd08b61c308b0e6403",
+        "csection-c36c38b8842c8bc217ac",
+        "isection-21a30e0d44708f5dfdce",
+        "isection-5a6e77a9acc7ab5eee74",
+        "isection-d046f5a3b91e74af33f9",
+        "isection-e450e773b7d8578062c6"
+      ],
+      "unresolved_ids": [],
+      "grounding": {
+        "n_claims": 19,
+        "n_ungrounded": 0,
+        "unsupported_lines": []
+      },
+      "pipeline_errors": {},
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "cited_something": true,
+        "grounding_per_claim": true,
+        "required_side_present": true
+      },
+      "verdict": "PASS",
+      "reason": "all checks passed"
+    },
+    {
+      "standard": "CIP-007-6",
+      "requirement": "CIP-007-6 R2",
+      "key": "exceedance",
+      "requires_side": "operator",
+      "has_stored_relation": false,
+      "cross_check": null,
+      "question": "For CIP-007-6 R2, where do my documents commit me to more than the standard requires? Quote the standard's requirement and my document's stronger commitment side by side, and cite both.",
+      "answer": "Based on my review of the requirements for **CIP-007-6 R2** and your **LSPG Security Patch Management Procedure**, I found no instances where your internal documents commit you to a more stringent obligation than the standard requires.\n\nThe standard's primary quantitative threshold in R2 is a **35-calendar-day** interval for both evaluating patches [csection-7700dd5499cead0994ec] and taking action on identified patches [csection-c36c38b8842c8bc217ac]. Your procedure matches this interval exactly:\n\n| Requirement (CIP-007-6 R2) | Operator Procedure (LSPG) |\n| :--- | :--- |\n| \"At least once every **35 calendar days**, evaluate security patches for applicability...\" [csection-7700dd5499cead0994ec] | \"At least once every **thirty-five (35) calendar days**, SMEs... shall review all approved sources for new patches...\" [isection-21a30e0d44708f5dfdce] |\n\nWhile your procedure adds significant detail regarding the *method* of evaluation (e.g., using Foxguard, specific workbook entries, and SME reviews), these are procedural instructions rather than a narrowing of the regulatory deadline or a widening of the scope of the duty.\n\nI have not reviewed any other documents that might contain different commitments. If you believe there is another procedure or policy that imposes a stricter deadline (e.g., a 14-day or 30-day window), please let me know.\n\nCited sections:\n- csection-7700dd5499cead0994ec (CIP-007-6 R2 Part 2.2)\n- csection-c36c38b8842c8bc217ac (CIP-007-6 R2 Part 2.3)\n- isection-21a30e0d44708f5dfdce (LSPG Security Patch Management Procedure 3.3.1)",
+      "answer_chars": 1566,
+      "wall_s": 50.53,
+      "first_token_s": 0.07,
+      "cited_ids": [
+        "csection-7700dd5499cead0994ec",
+        "csection-9ba0557b1602efdffff2",
+        "csection-c36c38b8842c8bc217ac",
+        "isection-21a30e0d44708f5dfdce"
+      ],
+      "resolved_ids": [
+        "csection-7700dd5499cead0994ec",
+        "csection-9ba0557b1602efdffff2",
+        "csection-c36c38b8842c8bc217ac",
+        "isection-21a30e0d44708f5dfdce"
+      ],
+      "unresolved_ids": [],
+      "grounding": {
+        "n_claims": 7,
+        "n_ungrounded": 0,
+        "unsupported_lines": []
+      },
+      "pipeline_errors": {},
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "cited_something": true,
+        "grounding_per_claim": true,
+        "required_side_present": true
+      },
+      "verdict": "PASS",
+      "reason": "all checks passed"
+    },
+    {
+      "standard": "CIP-007-6",
+      "requirement": "CIP-007-6 R2",
+      "key": "unused_latitude",
+      "requires_side": "regulatory",
+      "has_stored_relation": false,
+      "cross_check": null,
+      "question": "For CIP-007-6 R2, where does the standard leave a choice or an allowance that my documents do not take up? Cite the standard's own words granting the latitude, and say what my documents do instead.",
+      "answer": "In CIP-007-6 R2, the standard provides significant latitude regarding the actions an entity may take following a patch evaluation, as well as the timeframe for implementing mitigations. Your documents use less latitude than NERC grants in the following ways:\n\n### 1. Choice of Action (Part 2.3)\nThe standard grants a choice between three distinct actions when a patch is identified as applicable [csection-c36c38b8842c8bc217ac]:\n*   Apply the applicable patches; **or**\n*   Create a dated mitigation plan; **or**\n*   Revise an existing mitigation plan.\n\nYour procedure, **LSPG Security Patch Management Procedure**, narrows this choice by adding a mandatory prerequisite for the first option. While the standard allows for the direct application of patches, your procedure requires that the SME must \"begin by initiating an RFC per the OT Change Management procedure\" [isection-c75f69c881d6a214ff52].\n\n### 2. Implementation Timeframe (Part 2.4)\nThe standard allows for a flexible implementation window for mitigation plans. It requires implementation \"**within the timeframe specified in the plan**,\" provided that any extension or revision is approved by the CIP Senior Manager or their delegate [csection-c0cd08b61c308b0e6403].\n\nYour procedure does not explicitly define the \"timeframe\" for mitigation implementation in the provided text, but it does establish a rigid requirement for the initial action window. While the standard's 35-day window for *taking action* (applying, creating, or revising) is maintained in your procedure [isection-c75f69c881d6a214ff52], the standard's allowance for any timeframe specified in a plan (subject to approval) is an unverified obligation in your current documentation, as the procedure text provided does not detail the approval process for extending these specific mitigation timeframes.\n\nCited sections:\n- csection-c0cd08b61c308b0e6403 (CIP-007-6 R2 Part 2.4)\n- csection-c36c38b8842c8bc217ac (CIP-007-6 R2 Part 2.3)\n- isection-c75f69c881d6a214ff52 (LSPG Security Patch Management Procedure 3.5)",
+      "answer_chars": 2039,
+      "wall_s": 51.42,
+      "first_token_s": 0.03,
+      "cited_ids": [
+        "csection-9ba0557b1602efdffff2",
+        "csection-c0cd08b61c308b0e6403",
+        "csection-c36c38b8842c8bc217ac",
+        "isection-c75f69c881d6a214ff52"
+      ],
+      "resolved_ids": [
+        "csection-9ba0557b1602efdffff2",
+        "csection-c0cd08b61c308b0e6403",
+        "csection-c36c38b8842c8bc217ac",
+        "isection-c75f69c881d6a214ff52"
+      ],
+      "unresolved_ids": [],
+      "grounding": {
+        "n_claims": 8,
+        "n_ungrounded": 0,
+        "unsupported_lines": []
+      },
+      "pipeline_errors": {},
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "cited_something": true,
+        "grounding_per_claim": true,
+        "required_side_present": true
+      },
+      "verdict": "PASS",
+      "reason": "all checks passed"
+    },
+    {
+      "standard": "CIP-004-7",
+      "requirement": "CIP-004-7 R4",
+      "key": "coverage_gap",
+      "requires_side": "operator",
+      "has_stored_relation": true,
+      "cross_check": "compliance_coverage",
+      "question": "For CIP-004-7 R4, which Parts do my documents not cover? For each Part with no implementing section of mine, say so plainly and cite the Part. For each Part that is covered, cite the section of mine that covers it.",
+      "answer": "Based on the available documentation, the requirements for patch management under **CIP-007-6 R2** involve a documented process for tracking, evaluating, and installing security patches.\n\nThe requirements are broken down into four specific parts:\n\n### 1. Patch Management Process and Source Identification (Part 2.1)\n*   **The Standard Requires:** A documented process for tracking, evaluating, and installing cyber security patches for applicable Cyber Assets. This process must include identifying the source or sources that the Responsible Entity tracks for the release of patches for updateable assets where a source exists [csection-754b5967f6905d4c376e].\n*   **The Operator's Position:** The operator's policy and procedure both confirm that a process is in place and that sources have been identified and are being tracked [isection-5a6e77a9acc7ab5eee74]. However, the specific list of these sources is not contained in the provided material.\n\n### 2. Evaluation Frequency (Part 2.2)\n*   **The Standard Requires:** An evaluation of security patches for applicability at least once every **35 calendar days** [csection-7700dd5499cead0994ec].\n*   **The Operator's Position:** The operator's procedure specifies a 35-day interval [isection-21a30e0d44708f5dfdce]. \n*   **Latitude Statement:** The operator is using **more strictness** than the standard requires. An operator note explicitly states that they evaluate patches every **30 days** to align with their monthly change window, rather than the 35-day maximum allowed by the standard [csection-440a5cdf9a6b65292ef3].\n\n### 3. Action Post-Evaluation (Part 2.3)\n*   **The Standard Requires:** Within **35 calendar days** of completing an evaluation, the entity must take one of three actions for applicable patches:\n    1. Apply the patch;\n    2. Create a dated mitigation plan; or\n    3. Revise an existing mitigation plan.\n    Mitigation plans must include planned actions and a timeframe for completion [csection-c36c38b8842c8bc217ac].\n*   **The Operator's Position:** The operator's traceability documentation confirms that their procedures (Sections 3.5 & 3.6) are designed to address these actions [isection-e450e773b7d8578062c6].\n\n### 4. Mitigation Plan Implementation (Part 2.4)\n*   **The Standard Requires:** Any mitigation plan created or revised under Part 2.3 must be implemented within the timeframe specified in the plan, unless an extension or revision is approved by the CIP Senior Manager or their delegate [csection-c0cd08b61c308b0e6403].\n*   **The Operator's Position:** The operator's procedure (Section 3.6.7) is mapped to this requirement [isection-e450e773b7d8578062c6], and the roles and responsibilities section notes that the creation of mitigation plans is a responsibility of the relevant teams [isection-d046f5a3ipu33f9].\n\n**Summary of Unverified Obligations:**\nI have not read the specific contents of the \"patch evaluation workbook\" or the \"list of identified sources,\" so I cannot verify if the actual implementation of the tracking and evaluation matches the documented process.\n\nCited sections:\n- csection-754b5967f6905d4c376e (Standard R2.1)\n- csection-7700dd5499cead0994ec (Standard R2.2)\n- csection-c36c38b8842c8bc217ac (Standard R2.3)\n- csection-c0cd08b61c308b0e6403 (Standard R2.4)\n- csection-440a5cdf9a6b65292ef3 (Operator Note: intentional strictness)\n- isection-5a6e77a9acc7ab5eee74 (Operator Procedure: 3.1.2)\n- isection-21a30e0d44708f5dfdce (Operator Procedure: 3.3.1)\n- isection-e450e773b7d8578062c6 (Operator Procedure: 5.1 Traceability)\n- isection-d046f5a3ipu33f9 (Operator Procedure: 1.4.1.12)",
+      "answer_chars": 3597,
+      "wall_s": 54.4,
+      "first_token_s": 0.02,
+      "cited_ids": [
+        "csection-ca733875ca7a9504340f",
+        "csection-440a5cdf9a6b65292ef3",
+        "csection-754b5967f6905d4c376e",
+        "csection-7700dd5499cead0994ec",
+        "csection-c0cd08b61c308b0e6403",
+        "csection-c36c38b8842c8bc217ac",
+        "isection-21a30e0d44708f5dfdce",
+        "isection-5a6e77a9acc7ab5eee74",
+        "isection-e450e773b7d8578062c6"
+      ],
+      "resolved_ids": [
+        "csection-ca733875ca7a9504340f"
+      ],
+      "unresolved_ids": [
+        "csection-440a5cdf9a6b65292ef3",
+        "csection-754b5967f6905d4c376e",
+        "csection-7700dd5499cead0994ec",
+        "csection-c0cd08b61c308b0e6403",
+        "csection-c36c38b8842c8bc217ac",
+        "isection-21a30e0d44708f5dfdce",
+        "isection-5a6e77a9acc7ab5eee74",
+        "isection-e450e773b7d8578062c6"
+      ],
+      "grounding": {
+        "n_claims": 18,
+        "n_ungrounded": 13,
+        "unsupported_lines": [
+          "*   **The Standard Requires:** A documented process for tracking, evaluating, and installing cyber security patches for applicable Cyber Assets. This process must include identifying the source or sources that the Responsible Entity tracks for the release of patches for updateable assets where a source exists [csection-754b5967f6905d4c376e].",
+          "*   **The Operator's Position:** The operator's policy and procedure both confirm that a process is in place and that sources have been identified and are being tracked [isection-5a6e77a9acc7ab5eee74]. However, the specific list of these sources is not contained in the provided material.",
+          "*   **The Standard Requires:** An evaluation of security patches for applicability at least once every **35 calendar days** [csection-7700dd5499cead0994ec].",
+          "*   **The Operator's Position:** The operator's procedure specifies a 35-day interval [isection-21a30e0d44708f5dfdce].",
+          "*   **Latitude Statement:** The operator is using **more strictness** than the standard requires. An operator note explicitly states that they evaluate patches every **30 days** to align with their monthly change window, rather than the 35-day maximum allowed by the standard [csection-440a5cdf9a6b65292ef3].",
+          "Mitigation plans must include planned actions and a timeframe for completion [csection-c36c38b8842c8bc217ac].",
+          "*   **The Operator's Position:** The operator's traceability documentation confirms that their procedures (Sections 3.5 & 3.6) are designed to address these actions [isection-e450e773b7d8578062c6].",
+          "*   **The Standard Requires:** Any mitigation plan created or revised under Part 2.3 must be implemented within the timeframe specified in the plan, unless an extension or revision is approved by the CIP Senior Manager or their delegate [csection-c0cd08b61c308b0e6403].",
+          "*   **The Operator's Position:** The operator's procedure (Section 3.6.7) is mapped to this requirement [isection-e450e773b7d8578062c6], and the roles and responsibilities section notes that the creation of mitigation plans is a responsibility of the relevant teams [isection-d046f5a3ipu33f9].",
+          "- csection-440a5cdf9a6b65292ef3 (Operator Note: intentional strictness)",
+          "- isection-5a6e77a9acc7ab5eee74 (Operator Procedure: 3.1.2)",
+          "- isection-21a30e0d44708f5dfdce (Operator Procedure: 3.3.1)",
+          "- isection-e450e773b7d8578062c6 (Operator Procedure: 5.1 Traceability)"
+        ]
+      },
+      "pipeline_errors": {},
+      "sides_cited": [
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "cited_something": true,
+        "grounding_per_claim": false,
+        "required_side_present": false
+      },
+      "verdict": "FAIL",
+      "reason": "failed: grounding_per_claim, required_side_present"
+    },
+    {
+      "standard": "CIP-004-7",
+      "requirement": "CIP-004-7 R4",
+      "key": "exceedance",
+      "requires_side": "operator",
+      "has_stored_relation": false,
+      "cross_check": null,
+      "question": "For CIP-004-7 R4, where do my documents commit me to more than the standard requires? Quote the standard's requirement and my document's stronger commitment side by side, and cite both.",
+      "answer": "Your documents commit you to a more frequent review interval for certain access types than the standard requires. Specifically, while the standard allows for a 15-month interval for electronic access verification, your work instruction mandates a quarterly review for both electronic and physical access, including BCSI access.\n\nThe following comparison highlights the increased frequency in your internal procedures:\n\n| Requirement / Duty | NERC CIP-004-7 R4 (Standard) | LSPG Electronic and Physical Access Review Work Instruction (Operator) |\n| :--- | :--- | :--- |\n| **Review Interval** | \"For electronic access, verify at least once every 15 calendar months that all user accounts... are correct...\" [cite R-c4.3] | \"LSPG shall conduct reviews of individuals with active electronic access, unescorted physical access, and associated authorization records, including BCSI access, on a quarterly basis and at least once every 15 calendar months.\" [cite O-884f2646] |\n\n**Latitude Statement:**\nThe operator is using less latitude than NERC grants. While CIP-004-7 R4 Part 4.3 permits a verification interval of up to 15 calendar months for electronic access, your internal work instruction narrows this to a quarterly requirement (every 3 months) for both electronic and physical access, as well as BCSI access.\n\nCited sections:\n- csection-e9450f7ad3b69f962c90 (CIP-004-7 R4 Part 4.3)\n- isection-884f2646b20d13ba3a7d (LSPG Electronic and Physical Access Review Work Instruction 3.1.1)",
+      "answer_chars": 1485,
+      "wall_s": 39.08,
+      "first_token_s": 0.03,
+      "cited_ids": [
+        "csection-c7bf393be955297c67d7",
+        "csection-e9450f7ad3b69f962c90",
+        "isection-884f2646b20d13ba3a7d"
+      ],
+      "resolved_ids": [
+        "csection-c7bf393be955297c67d7",
+        "csection-e9450f7ad3b69f962c90",
+        "isection-884f2646b20d13ba3a7d"
+      ],
+      "unresolved_ids": [],
+      "grounding": {
+        "n_claims": 4,
+        "n_ungrounded": 0,
+        "unsupported_lines": []
+      },
+      "pipeline_errors": {},
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "cited_something": true,
+        "grounding_per_claim": true,
+        "required_side_present": true
+      },
+      "verdict": "PASS",
+      "reason": "all checks passed"
+    },
+    {
+      "standard": "CIP-004-7",
+      "requirement": "CIP-004-7 R4",
+      "key": "unused_latitude",
+      "requires_side": "regulatory",
+      "has_stored_relation": false,
+      "cross_check": null,
+      "question": "For CIP-004-7 R4, where does the standard leave a choice or an allowance that my documents do not take up? Cite the standard's own words granting the latitude, and say what my documents do instead.",
+      "answer": "Under CIP-004-7 R4, the standard provides specific latitude regarding how authorization is determined and how certain exceptions are handled. Your documents are using less latitude than NERC grants in the following areas:\n\n### 1. Determination of \"Need\"\nThe standard grants the Responsible Entity the authority to define the criteria for access.\n*   **The Standard's Latitude:** For electronic and unescorted physical access, the entity must use a \"**Process to authorize based on need, as determined by the Responsible Entity**\" [cite R-c7bf393be955297c67d7].\n*   **Your Documents:** While your policy (LSPG Access Management) references an \"Access Management Program,\" it does not explicitly state that the criteria for \"need\" are left to the discretion of the Responsible Entity, potentially implying a more rigid or pre-defined set of rules than the standard requires [cite O-503810bbb237b55532a4].\n\n### 2. CIP Exceptional Circumstances\nThe standard explicitly allows for a departure from the standard authorization process during specific events.\n*   **The Standard's Latitude:** The requirement to follow the authorization process applies \"**except for CIP Exceptional Circumstances**\" [cite R-ca733875ca7a9504340f].\n*   **Your Documents:** Your policy (CIP Cyber Security Policy) contains a separate section for \"**Declaring and responding to CIP Exceptional Circumstances**\" [cite O-33386dc31a5696c751f7]. While you have a process for this, the standard's text explicitly uses these circumstances as a carve-out to the primary authorization duty, whereas your documentation treats it as a separate, reactive procedure.\n\n### 3. Verification Frequency (Electronic Access)\nThe standard provides a specific, long-term window for verifying the correctness of account privileges.\n*   **The Standard's Latitude:** For electronic access, the entity must verify that accounts and privileges are correct \"**at least once every 15 calendar months**\" [cite R-e9450f7ad3b69f962c90].\n*   **Your Documents:** Your work instruction (LSPG Electronic and Physical Access Review Work Instruction) specifies a \"**Quarterly and 15-month Review Overview**\" [cite O-884f2646b20d13ba3a7d]. By performing quarterly reviews, you are using significantly less latitude than the 15-month maximum permitted by the standard.\n\nCited sections:\n- csection-ca733875ca7a9504340f (CIP-004-7 R4 Part 4.1)\n- csection-c7bf393be955297c67d7 (CIP-004-7 R4 Part 4.2)\n- csection-e9450f7ad3b69f962c90 (CIP-004-7 R4 Part 4.3)\n- isection-503810bbb237b55532a4 (LSPG Access Management 3.1)\n- isection-33386dc31a5696c751f7 (CIP Cyber Security Policy 3.9)\n- isection-884f2646b20d13ba3a7d (LSPG Electronic and Physical Access Review Work Instruction 3.1)",
+      "answer_chars": 2709,
+      "wall_s": 44.98,
+      "first_token_s": 0.03,
+      "cited_ids": [
+        "csection-c7bf393be955297c67d7",
+        "csection-ca733875ca7a9504340f",
+        "csection-e9450f7ad3b69f962c90",
+        "isection-33386dc31a5696c751f7",
+        "isection-503810bbb237b55532a4",
+        "isection-884f2646b20d13ba3a7d"
+      ],
+      "resolved_ids": [
+        "csection-c7bf393be955297c67d7",
+        "csection-ca733875ca7a9504340f",
+        "csection-e9450f7ad3b69f962c90",
+        "isection-33386dc31a5696c751f7",
+        "isection-503810bbb237b55532a4",
+        "isection-884f2646b20d13ba3a7d"
+      ],
+      "unresolved_ids": [],
+      "grounding": {
+        "n_claims": 7,
+        "n_ungrounded": 0,
+        "unsupported_lines": []
+      },
+      "pipeline_errors": {},
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "cited_something": true,
+        "grounding_per_claim": true,
+        "required_side_present": true
+      },
+      "verdict": "PASS",
+      "reason": "all checks passed"
+    },
+    {
+      "standard": "CIP-010-4",
+      "requirement": "CIP-010-4 R1",
+      "key": "coverage_gap",
+      "requires_side": "operator",
+      "has_stored_relation": true,
+      "cross_check": "compliance_coverage",
+      "question": "For CIP-010-4 R1, which Parts do my documents not cover? For each Part with no implementing section of mine, say so plainly and cite the Part. For each Part that is covered, cite the section of mine that covers it.",
+      "answer": "For CIP-010-4 R1, all identified Parts are covered by your documents. There are no Parts within this requirement that lack an implementing section.\n\nThe coverage is as follows:\n\n*   **Part 1.1**: Covered by `[O-1500fee07c685ebbaece]` (CIP Cyber Security Policy), `[O-2fc1523841e401230655]` (LSPG Security Controls Testing), `[O-aa654d19e361cf4621]` (LSPG Change Management Procedure), `[O-e751293d38c9c5f46a39]` (LSPG Security Controls Testing), and `[O-ed239c37c5c9ea99aa23]` (LSPG Security Controls Testing).\n*   **Part 1.2**: Covered by `[O-1500fee07c685ebbaece]` (CIP Cyber Security Policy), `[O-2d5709630f6566082ce1]` (LSPG Change Management Procedure), `[O-3d2874e685fc97754de2]` (LSPG Zero Trust Procedure), `[O-c9e93374a7db42100961]` (OT Configuration Change Monitoring Work Instruction), and `[O-e5b5d30cde2c9c1f3cd4]` (LSPG Security Controls Testing).\n*   **Part 1.3**: Covered by `[O-1500fee07c685ebbaece]` (CIP Cyber Security Policy), `[O-3d2874e685fc97754de2]` (LSPG Zero Trust Procedure), `[O-5e0cad3bd147480bd22e]` (LSPG Security Controls Testing), `[O-d25a469654085bff6b6b]` (LSPG Security Controls Testing), and `[O-e5b5d30cde2c9c1f3cd4]` (LSPG Security Controls Testing).\n*   **Part 1.4**: Covered by `[O-1500fee07c685ebbaece]` (CIP Cyber Security Policy), `[O-7b944c35ce9261c14275]` (LSPG Change Management Procedure), `[O-7d6a91bd1915c55b5176]` (LSPG Security Controls Testing), `[O-d25a469654085bff6b6b]` (LSPG Security Controls Testing), and `[O-d9dea8e10632778bd35a]` (LSPG Security Controls Testing).\n*   **Part 1.5**: Covered by `[O-1500fee07c685ebbaece]` (CIP Cyber Security Policy), `[O-5e0cad3bd147480bd22e]` (LSPG Security Controls Testing), `[O-73896053ded1873b7d1c]` (LSPG Security Controls Testing), `[O-d25a469654085bff6b6b]` (LSPG Security Controls Testing), and `[O-e5b5d30cde2c9c1f3cd4]` (LSPG Security Controls Testing).\n*   **Part 1.6**: Covered by `[O-1500fee07c685ebbaece]` (CIP Cyber Security Policy), `[O-7b944c35ce9261c14275]` (LSPG Change Management Procedure), `[O-ad30ace3fcb3593cb2a9]` (LSPG CIP-013 Risk Assessment Procedure), `[O-ad41ac8e196bb2874827]` (LSPG Software Authenticity and Integrity Verification Procedure), and `[O-d25a469654085bff6b6b]` (LSPG Security Controls Testing).\n\nCited sections:\n- isection-1500fee07c685ebbaece (CIP Cyber Security Policy)\n- isection-2fc1523841e401230655 (LSPG Security Controls Testing)\n- isection-aa654d19e361cf4621 (LSPG Change Management Procedure)\n- isection-e751293d38c9c5f46a39 (LSPG Security Controls Testing)\n- isection-ed239c37c5c9ea99aa23 (LSPG Security Controls Testing)\n- isection-2d5709630f6566082ce1 (LSPG Change Management Procedure)\n- isection-3d2874e685fc97754de2 (LSPG Zero Trust Procedure)\n- isection-c9e93374a7db42100961 (OT Configuration Change Monitoring Work Instruction)\n- isection-e5b5d30cde2c9c1f3cd4 (LSPG Security Controls Testing)\n- isection-5e0cad3bd147480bd22e (LSPG Security Controls Testing)\n- isection-d25a469654085bff6b6b (LSPG Security Controls Testing)\n- isection-7b944c35ce9261c14275 (LSPG Change Management Procedure)\n- isection-7d6a91bd1915c55b5176 (LSPG Security Controls Testing)\n- isection-d9dea8e10632778bd35a (LSPG Security Controls Testing)\n- isection-ad30ace3fcb3593cb2a9 (LSPG CIP-013 Risk Assessment Procedure)\n- isection-ad41ac8e196bb2874827 (LSPG Software Authenticity and Integrity Verification Procedure)\n- isection-73896053ded1873b7d1c (LSPG Security Controls Testing)",
+      "answer_chars": 3411,
+      "wall_s": 66.14,
+      "first_token_s": 0.02,
+      "cited_ids": [
+        "csection-bab99f5894a223b613f2",
+        "isection-1500fee07c685ebbaece",
+        "isection-2d5709630f6566082ce1",
+        "isection-2fc1523841e401230655",
+        "isection-3d2874e685fc97754de2",
+        "isection-5e0cad3bd147480bd22e",
+        "isection-73896053ded1873b7d1c",
+        "isection-7b944c35ce9261c14275",
+        "isection-7d6a91bd1915c55b5176",
+        "isection-ad30ace3fcb3593cb2a9",
+        "isection-ad41ac8e196bb2874827",
+        "isection-c9e93374a7db42100961",
+        "isection-d25a469654085bff6b6b",
+        "isection-d9dea8e10632778bd35a",
+        "isection-e5b5d30cde2c9c1f3cd4",
+        "isection-e751293d38c9c5f46a39",
+        "isection-ed239c37c5c9ea99aa23",
+        "isection-aa654d19e361cf4621"
+      ],
+      "resolved_ids": [
+        "csection-bab99f5894a223b613f2",
+        "isection-1500fee07c685ebbaece",
+        "isection-2d5709630f6566082ce1",
+        "isection-2fc1523841e401230655",
+        "isection-3d2874e685fc97754de2",
+        "isection-5e0cad3bd147480bd22e",
+        "isection-73896053ded1873b7d1c",
+        "isection-7b944c35ce9261c14275",
+        "isection-7d6a91bd1915c55b5176",
+        "isection-ad30ace3fcb3593cb2a9",
+        "isection-ad41ac8e196bb2874827",
+        "isection-c9e93374a7db42100961",
+        "isection-d25a469654085bff6b6b",
+        "isection-d9dea8e10632778bd35a",
+        "isection-e5b5d30cde2c9c1f3cd4",
+        "isection-e751293d38c9c5f46a39",
+        "isection-ed239c37c5c9ea99aa23"
+      ],
+      "unresolved_ids": [
+        "isection-aa654d19e361cf4621"
+      ],
+      "grounding": {
+        "n_claims": 18,
+        "n_ungrounded": 1,
+        "unsupported_lines": [
+          "- isection-aa654d19e361cf4621 (LSPG Change Management Procedure)"
+        ]
+      },
+      "pipeline_errors": {},
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "cited_something": true,
+        "grounding_per_claim": false,
+        "required_side_present": true
+      },
+      "verdict": "FAIL",
+      "reason": "failed: grounding_per_claim"
+    },
+    {
+      "standard": "CIP-010-4",
+      "requirement": "CIP-010-4 R1",
+      "key": "exceedance",
+      "requires_side": "operator",
+      "has_stored_relation": false,
+      "cross_check": null,
+      "question": "For CIP-010-4 R1, where do my documents commit me to more than the standard requires? Quote the standard's requirement and my document's stronger commitment side by side, and cite both.",
+      "answer": "Your documents commit you to a more stringent timeline for updating baseline configurations than the standard requires.\n\nWhile **CIP-010-4 R1** requires the development of a baseline configuration, it does not specify a deadline for updating that baseline after a change has occurred. In contrast, your **CIP Cyber Security Policy** mandates that the baseline must be updated within a specific window.\n\n| Requirement / Policy | Commitment |\n| :--- | :--- |\n| **CIP-010-4 R1** [csection-726f83910bfd144216f9] | \"Develop a baseline configuration, individually or by group, which shall include the following items: ... 1.1.5. Any security patches applied.\" |\n| **LSPG CIP Cyber Security Policy** [isection-1500fee07c685ebbaece] | \"Update the baseline configuration within 30 calendar days of completing the change (Part 1.3)\" |\n\n**Latitude Statement:**\nThe operator is using less latitude than NERC grants. The standard (CIP-010-4) sets the duty to develop and maintain the baseline but does not prescribe a maximum timeframe for the update following a change; your policy narrows this choice to a hardcoded 30-calendar-day deadline.\n\nCited sections:\n- csection-726f83910bfd144216f9 (CIP-010-4 R1 Part 1.1)\n- isection-1500fee07c685ebbaece (LSPG CIP Cyber Security Policy 3.7.1)",
+      "answer_chars": 1274,
+      "wall_s": 35.48,
+      "first_token_s": 0.05,
+      "cited_ids": [
+        "csection-726f83910bfd144216f9",
+        "csection-bab99f5894a223b613f2",
+        "isection-1500fee07c685ebbaece"
+      ],
+      "resolved_ids": [
+        "csection-726f83910bfd144216f9",
+        "csection-bab99f5894a223b613f2",
+        "isection-1500fee07c685ebbaece"
+      ],
+      "unresolved_ids": [],
+      "grounding": {
+        "n_claims": 5,
+        "n_ungrounded": 0,
+        "unsupported_lines": []
+      },
+      "pipeline_errors": {},
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "cited_something": true,
+        "grounding_per_claim": true,
+        "required_side_present": true
+      },
+      "verdict": "PASS",
+      "reason": "all checks passed"
+    },
+    {
+      "standard": "CIP-010-4",
+      "requirement": "CIP-010-4 R1",
+      "key": "unused_latitude",
+      "requires_side": "regulatory",
+      "has_stored_relation": false,
+      "cross_check": null,
+      "question": "For CIP-010-4 R1, where does the standard leave a choice or an allowance that my documents do not take up? Cite the standard's own words granting the latitude, and say what my documents do instead.",
+      "answer": "Under CIP-010-4 R1, the standard provides specific latitude regarding the timing of baseline updates and the method of software verification that your current documentation does not fully utilize.\n\n### 1. Baseline Update Deadline\nThe standard provides a 30-day window to update a baseline after a change has been completed. Your documents do not take up this allowance; instead, they appear to mandate a more immediate or strictly controlled process.\n\n*   **Standard's Latitude:** For a change that deviates from the existing baseline configuration, the standard requires you to \"update the baseline configuration as necessary **within 30 calendar days of completing the change**\" [csection-bbee7b9801c2e52957fe].\n*   **Operator's Position:** Your `LSPG Security Controls Testing` procedure (specifically section 3.6.2) states that \"For any changes that deviate from the existing baseline configuration, update the baseline\" [isection-5e0cad3bd147480bd22e] without explicitly adopting the 30-day grace period allowed by the standard.\n\n### 2. Software Source Verification\nThe standard allows you to bypass manual identity and integrity verification if you have an automated mechanism in place.\n\n*   **Standard's Latitude:** The standard permits verification \"when the method to do so is available to the Responsible Entity from the software source\" [csection-7afe8c779ac4afe40838]. It explicitly notes that evidence can include \"a process which documents the mechanisms in place that would **automatically ensure** the identity of the software source and integrity of the software\" [csection-7afe8c779ac4afe40838].\n*   **Operator's Position:** While your `LSPG Software Authenticity and Integrity Verification Procedure` (section 3.1) addresses verifying identity and integrity [isection-ad41ac8e196bb2874827], it does not explicitly document the use of automated mechanisms as a primary method of compliance, focusing instead on the manual verification steps.\n\n### Summary of Latitude\n| Feature | NERC CIP-010-4 R1 Allowance | Operator's Current Stance |\n| :--- | :--- | :--- |\n| **Baseline Update Window** | Up to 30 calendar days post-change [csection-bbee7b9801c2e52957fe] | No specific window mentioned; implies immediate update [isection-5e0cad3bd147480bd22e] |\n| **Verification Method** | Permits automated mechanisms [csection-7afe8c779ac4afe40838] | Focuses on manual verification of source and integrity [isection-ad41ac8e196bb2874827] |\n\nCited sections:\n- csection-726f83910bfd144216f9 (CIP-010-4 R1 Part 1.1)\n- csection-7d19467d422ab348fe37 (CIP-010-4 R1 Part 1.2)\n- csection-bbee7b9801c2e52957fe (CIP-010-4 R1 Part 1.3)\n- csection-dc2ad349c3df05265143 (CIP-010-4 R1 Part 1.4)\n- csection-c612411ae52957cfccab (CIP-010-4 R1 Part 1.5)\n- csection-7afe8c779ac4afe40838 (CIP-010-4 R1 Part 1.6)\n- isection-5e0cad3bd147480bd22e (LSPG Security Controls Testing 3.6.2)\n- isection-ad41ac8e196bb2874827 (LSPG Software Authenticity and Integrity Verification Procedure 3.1)",
+      "answer_chars": 2972,
+      "wall_s": 54.75,
+      "first_token_s": 0.05,
+      "cited_ids": [
+        "csection-726f83910bfd144216f9",
+        "csection-7afe8c779ac4afe40838",
+        "csection-7d19467d422ab348fe37",
+        "csection-bab99f5894a223b613f2",
+        "csection-bbee7b9801c2e52957fe",
+        "csection-c612411ae52957cfccab",
+        "csection-dc2ad349c3df05265143",
+        "isection-5e0cad3bd147480bd22e",
+        "isection-ad41ac8e196bb2874827"
+      ],
+      "resolved_ids": [
+        "csection-726f83910bfd144216f9",
+        "csection-7afe8c779ac4afe40838",
+        "csection-7d19467d422ab348fe37",
+        "csection-bab99f5894a223b613f2",
+        "csection-bbee7b9801c2e52957fe",
+        "csection-c612411ae52957cfccab",
+        "csection-dc2ad349c3df05265143",
+        "isection-5e0cad3bd147480bd22e",
+        "isection-ad41ac8e196bb2874827"
+      ],
+      "unresolved_ids": [],
+      "grounding": {
+        "n_claims": 16,
+        "n_ungrounded": 0,
+        "unsupported_lines": []
+      },
+      "pipeline_errors": {},
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "cited_something": true,
+        "grounding_per_claim": true,
+        "required_side_present": true
+      },
+      "verdict": "PASS",
+      "reason": "all checks passed"
+    },
+    {
+      "standard": "CIP-003-8",
+      "requirement": "CIP-003-8 R1",
+      "key": "coverage_gap",
+      "requires_side": "operator",
+      "has_stored_relation": true,
+      "cross_check": "compliance_coverage",
+      "question": "For CIP-003-8 R1, which Parts do my documents not cover? For each Part with no implementing section of mine, say so plainly and cite the Part. For each Part that is covered, cite the section of mine that covers it.",
+      "answer": "Based on the available documentation, the requirements for patch management under **CIP-007-6 R2** involve a documented process for tracking, evaluating, and installing security patches.\n\nThe requirements are broken down into four specific parts:\n\n### 1. Patch Management Process and Source Identification (Part 2.1)\nThe standard requires a documented process for tracking, evaluating, and installing cyber security patches for applicable Cyber Assets. This process must include identifying the source or sources that the Responsible Entity tracks for the release of patches for updateable assets where a patching source exists [csection-754b5967f6905d4c376e].\n\nThe operator's **Security Patch Management Procedure** confirms they have identified and are tracking these sources [isection-5a6e77a9acc7ab5eee74].\n\n### 2. Evaluation Frequency (Part 2.2)\nThe standard requires that, at least once every **35 calendar days**, the entity must evaluate security patches for applicability that have been released since the last evaluation from the identified sources [csection-7700dd5499cead0994ec].\n\n**Latitude Statement:** The operator is using **less latitude** than NERC grants. While the standard allows for a 35-day window, the operator's recorded decision states they evaluate patches every **30 days** to align with their monthly change window [csection-440a5_...]. This intentional strictness ensures they do not straddle two monthly windows [csection-440a5_...].\n\n### 3. Action Post-Evaluation (Part 2.3)\nWithin **35 calendar days** of completing an evaluation, the entity must take one of three permitted actions for applicable patches:\n*   Apply the applicable patches;\n*   Create a dated mitigation plan; or\n*   Revise an existing mitigation plan.\n\nAny mitigation plans must include the planned actions to mitigate the vulnerabilities and a timeframe for completion [csection-c36c38b8842c8bc217ac].\n\n### 4. Mitigation Plan Implementation (Part 2.4)\nFor any mitigation plan created or revised under Part 2.3, the entity must implement the plan within the timeframe specified in the plan. An exception is permitted only if a revision or an extension to the timeframe is approved by the CIP Senior Manager or their delegate [csection-c0cd08b61c308b0e6403].\n\n***\n\n**Note on Unverified Obligations:** While the operator's procedure (Section 3.1.2) claims that sources have been identified [isection-5a6e77a9acc7ab5eee74], the actual list of these sources was not present in the provided material. Therefore, I cannot verify that a concrete, current source list is actively maintained.\n\nCited sections:\n- csection-754b5967f6905d4c376e (CIP-007-6 R2 Part 2.1)\n- csection-7700dd5499cead0994ec (CIP-007-6 R2 Part 2.2)\n- csection-c36c38b8842c8bc217ac (CIP-007-6 R2 Part 2.3)\n- csection-c0cd08b61c308b0e6403 (CIP-007-6 R2 Part 2.4)\n- csection-440a5cdf9a6b65292ef3 (Operator Note: intentional strictness)\n- isection-5a6e77a9acc7ab5eee74 (LSPG SPM Procedure \u00a73.1.2)",
+      "answer_chars": 2957,
+      "wall_s": 46.15,
+      "first_token_s": 0.05,
+      "cited_ids": [
+        "csection-f0c49844cbbaa58a6278",
+        "csection-440a5cdf9a6b65292ef3",
+        "csection-754b5967f6905d4c376e",
+        "csection-7700dd5499cead0994ec",
+        "csection-c0cd08b61c308b0e6403",
+        "csection-c36c38b8842c8bc217ac",
+        "isection-5a6e77a9acc7ab5eee74"
+      ],
+      "resolved_ids": [
+        "csection-f0c49844cbbaa58a6278"
+      ],
+      "unresolved_ids": [
+        "csection-440a5cdf9a6b65292ef3",
+        "csection-754b5967f6905d4c376e",
+        "csection-7700dd5499cead0994ec",
+        "csection-c0cd08b61c308b0e6403",
+        "csection-c36c38b8842c8bc217ac",
+        "isection-5a6e77a9acc7ab5eee74"
+      ],
+      "grounding": {
+        "n_claims": 13,
+        "n_ungrounded": 8,
+        "unsupported_lines": [
+          "The standard requires a documented process for tracking, evaluating, and installing cyber security patches for applicable Cyber Assets. This process must include identifying the source or sources that the Responsible Entity tracks for the release of patches for updateable assets where a patching source exists [csection-754b5967f6905d4c376e].",
+          "The operator's **Security Patch Management Procedure** confirms they have identified and are tracking these sources [isection-5a6e77a9acc7ab5eee74].",
+          "The standard requires that, at least once every **35 calendar days**, the entity must evaluate security patches for applicability that have been released since the last evaluation from the identified sources [csection-7700dd5499cead0994ec].",
+          "Any mitigation plans must include the planned actions to mitigate the vulnerabilities and a timeframe for completion [csection-c36c38b8842c8bc217ac].",
+          "For any mitigation plan created or revised under Part 2.3, the entity must implement the plan within the timeframe specified in the plan. An exception is permitted only if a revision or an extension to the timeframe is approved by the CIP Senior Manager or their delegate [csection-c0cd08b61c308b0e6403].",
+          "**Note on Unverified Obligations:** While the operator's procedure (Section 3.1.2) claims that sources have been identified [isection-5a6e77a9acc7ab5eee74], the actual list of these sources was not present in the provided material. Therefore, I cannot verify that a concrete, current source list is actively maintained.",
+          "- csection-440a5cdf9a6b65292ef3 (Operator Note: intentional strictness)",
+          "- isection-5a6e77a9acc7ab5eee74 (LSPG SPM Procedure \u00a73.1.2)"
+        ]
+      },
+      "pipeline_errors": {},
+      "sides_cited": [
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "cited_something": true,
+        "grounding_per_claim": false,
+        "required_side_present": false
+      },
+      "verdict": "FAIL",
+      "reason": "failed: grounding_per_claim, required_side_present"
+    },
+    {
+      "standard": "CIP-003-8",
+      "requirement": "CIP-003-8 R1",
+      "key": "exceedance",
+      "requires_side": "operator",
+      "has_stored_relation": false,
+      "cross_check": null,
+      "question": "For CIP-003-8 R1, where do my documents commit me to more than the standard requires? Quote the standard's requirement and my document's stronger commitment side by side, and cite both.",
+      "answer": "For **CIP-003-8 R1**, the requirement and the operator's policy are aligned on the review interval and the required approval authority.\n\n### Comparison of Duties\n\n| Feature | NERC CIP-003-8 R1 | LSPG CIP Cyber Security Policy |\n| :--- | :--- | :--- |\n| **Review Interval** | At least once every 15 calendar months [csection-d21e0f057bbd30fec278] | At least once every 15 calendar months [isection-32dc3c4039e6db26700e] |\n| **Approval Authority** | CIP Senior Manager [csection-d21e0f057bbd30fec278] | CIP Senior Manager [isection-7586cec5a35ff25cfda7] |\n| **Scope of Topics** | Specific topics including Personnel/Training, ESP, Physical Security, etc. [csection-c7f69412d5450d011452, csection-148363e2632db6dbccab, csection-a22537d536cb70e6ebc7, csection-d2c71233f6ba8aac792a, csection-d22b4561a0d24db32e2f, csection-1cd7b86408d9df6761a1, csection-2c614b197f8b55560cb5, csection-860ec529d930e45be90b, csection-860ec529d930e45be90b, csection-25de1e881e70e79623bb, csection-6d48053dd82006244005, csection-0f26c60ece9a692fa6ee, csection-9d641b0a2c68d6119792, csection-4f503d3e3c796b52b375] | Establishes requirements for high and medium impact BES Cyber Systems [isection-32dc3c4039e6db26700e] |\n\n### Analysis\nThe operator's **CIP Cyber Security Policy (v13.0)** mirrors the standard's requirement for a 15-month review and approval cycle by the CIP Senior Manager [isection-7586cec5a35ff25cfda7]. \n\nI have not read the specific \"documented cyber security policies\" that are subject to this review to verify if they cover all the required topics listed in the standard (e.g., CIP-004, CIP-005, CIP-006, etc.) [csection-d21e0f057bbd30fec278].\n\nCited sections:\n- csection-d21e0f057bbd30fec278 (CIP-003-8 R1 text)\n- csection-c7f69412d5450d011452 (CIP-003-8 R1 Part 1.1.1)\n- csection-148363e2632db6dbccab (CIP-003-8 R1 Part 1.1.2)\n- csection-a22537d536cb70e6ebc7 (CIP-003-8 R1 Part 1.1.3)\n- csection-d2c71233f6ba8aac792a (CIP-003-8 R1 Part 1.1.4)\n- csection-d22b4561a0d24db32e2f (CIP-003-8 R1 Part 1.1.5)\n- csection-1cd7b86408d9df6761a1 (CIP-003-8 R1 Part 1.1.6)\n- csection-2c614b197f8b55560cb5 (CIP-003-8 R1 Part 1.1.8)\n- csection-860ec529d930e45be90b (CIP-003-8 R1 Part 1.1.9)\n- csection-25de1e881e70e79623bb (CIP-003-8 R1 Part 1.2.1)\n- csection-6d48053dd82006244005 (CIP-003-8 R1 Part 1.2.2)\n- csection-0f26c60ece9a692fa6ee (CIP-003-8 R1 Part 1.2.3)\n- csection-9d641b0a2c68d6119792 (CIP-003-8 R1 Part 1.2.4)\n- csection-4f503d3e3c796b52b375 (CIP-003-8 R1 Part 1.2.5)\n- isection-7586cec5a35ff25cfda7 (LSPG CIP Cyber Security Policy 1.4.1.1)\n- isection-32dc3c4039e6db26700e (LSPG CIP Cyber Security Policy 3.0)",
+      "answer_chars": 2604,
+      "wall_s": 146.24,
+      "first_token_s": 0.03,
+      "cited_ids": [
+        "csection-03c6142fb36c39a4390c",
+        "csection-0f26c60ece9a692fa6ee",
+        "csection-148363e2632db6dbccab",
+        "csection-1cd7b86408d9df6761a1",
+        "csection-25de1e881e70e79623bb",
+        "csection-2c614b197f8b55560cb5",
+        "csection-4f503d3e3c796b52b375",
+        "csection-6d48053dd82006244005",
+        "csection-860ec529d930e45be90b",
+        "csection-9d641b0a2c68d6119792",
+        "csection-a22537d536cb70e6ebc7",
+        "csection-c7f69412d5450d011452",
+        "csection-d21e0f057bbd30fec278",
+        "csection-d22b4561a0d24db32e2f",
+        "csection-d2c71233f6ba8aac792a",
+        "isection-32dc3c4039e6db26700e",
+        "isection-7586cec5a35ff25cfda7"
+      ],
+      "resolved_ids": [
+        "csection-03c6142fb36c39a4390c",
+        "csection-0f26c60ece9a692fa6ee",
+        "csection-148363e2632db6dbccab",
+        "csection-1cd7b86408d9df6761a1",
+        "csection-25de1e881e70e79623bb",
+        "csection-2c614b197f8b55560cb5",
+        "csection-4f503d3e3c796b52b375",
+        "csection-6d48053dd82006244005",
+        "csection-860ec529d930e45be90b",
+        "csection-9d641b0a2c68d6119792",
+        "csection-a22537d536cb70e6ebc7",
+        "csection-c7f69412d5450d011452",
+        "csection-d21e0f057bbd30fec278",
+        "csection-d22b4561a0d24db32e2f",
+        "csection-d2c71233f6ba8aac792a",
+        "isection-32dc3c4039e6db26700e",
+        "isection-7586cec5a35ff25cfda7"
+      ],
+      "unresolved_ids": [],
+      "grounding": {
+        "n_claims": 23,
+        "n_ungrounded": 0,
+        "unsupported_lines": []
+      },
+      "pipeline_errors": {},
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "cited_something": true,
+        "grounding_per_claim": true,
+        "required_side_present": true
+      },
+      "verdict": "PASS",
+      "reason": "all checks passed"
+    },
+    {
+      "standard": "CIP-003-8",
+      "requirement": "CIP-003-8 R1",
+      "key": "unused_latitude",
+      "requires_side": "regulatory",
+      "has_stored_relation": false,
+      "cross_check": null,
+      "question": "For CIP-003-8 R1, where does the standard leave a choice or an allowance that my documents do not take up? Cite the standard's own words granting the latitude, and say what my documents do instead.",
+      "answer": "The standard for CIP-003-8 R1 provides two specific areas of latitude\u2014one regarding the frequency of the review and one regarding the scope of the policies being reviewed\u2014that your current documentation does not fully utilize.\n\n### 1. Review Interval\nThe standard grants a wide window for the review cycle, allowing the Responsible Entity to perform the review **\"at least once every 15 calendar months\"** [cite R-d21e0f057bbd30fec278]. \n\nWhile your documents do not explicitly state a fixed interval in the provided context, if your internal procedures mandate a more frequent or rigid schedule (such as an annual review), you are using less latitude than NERC permits.\n\n### 2. Policy Scope (Aggregation)\nThe standard allows for flexibility in how policies are grouped for the review process. It requires the review of **\"one or more documented cyber security policies that collectively address\"** the required topics [cite R-d21e0f057bbd30fec278]. \n\nThis means the standard permits you to consolidate multiple different policy documents into a single review event, provided the \"collective\" set covers all the required topics (ranging from Personnel and Training in 1.1.1 to Transient Cyber Asset risk in 1.2.5). If your procedures require each topic to be reviewed as a separate, independent event, you are not taking advantage of the standard's allowance for collective addressing.\n\n**Summary of Findings:**\n*   **Standard's Latitude:** Allows reviews as infrequent as every 15 months and allows grouping multiple policies into a single reviewable set.\n*   **Operator Position:** I have not identified a specific procedure in your provided documents that contradicts these, but I cannot confirm if you are currently utilizing this latitude without reading your specific Review or Policy Management procedures.\n\nI can examine your \"CIP Cyber Security Policy\" or \"Supply Chain Cyber Security Risk Management Plan\" to see if they impose stricter intervals or more fragmented review requirements if you would like.\n\nCited sections:\n- csection-d21e0f057bbd30fec278 (CIP-003-8 R1 text)",
+      "answer_chars": 2083,
+      "wall_s": 92.85,
+      "first_token_s": 0.03,
+      "cited_ids": [
+        "csection-03c6142fb36c39a4390c",
+        "csection-d21e0f057bbd30fec278"
+      ],
+      "resolved_ids": [
+        "csection-03c6142fb36c39a4390c",
+        "csection-d21e0f057bbd30fec278"
+      ],
+      "unresolved_ids": [],
+      "grounding": {
+        "n_claims": 2,
+        "n_ungrounded": 0,
+        "unsupported_lines": []
+      },
+      "pipeline_errors": {},
+      "sides_cited": [
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "cited_something": true,
+        "grounding_per_claim": true,
+        "required_side_present": true
+      },
+      "verdict": "PASS",
+      "reason": "all checks passed"
+    },
+    {
+      "standard": "CIP-002-5.1a",
+      "requirement": "CIP-002-5.1a R1",
+      "key": "coverage_gap",
+      "requires_side": "operator",
+      "has_stored_relation": true,
+      "cross_check": "compliance_coverage",
+      "question": "For CIP-002-5.1a R1, which Parts do my documents not cover? For each Part with no implementing section of mine, say so plainly and cite the Part. For each Part that is covered, cite the section of mine that covers it.",
+      "answer": "Based on the compliance coverage for **CIP-002-5.1a R1**, here is the status of your documentation coverage for each identified Part:\n\n### Covered Parts\nThe following Parts of the requirement are covered by your documents:\n\n*   **Part 1.1**: Covered by:\n    *   `[O-018c9573]` OT Cyber Security Training and Awareness (Section 1.3)\n    *   `[O-3c43dc37]` Physical Security Plan (Section 1.3)\n    *   `[O-9e5720e7]` LSPG Change Management Procedure (Section 1.3)\n    *   `[O-b80f47ef]` BES Cyber System Categorization Process (Section 5.1)\n    *   `[O-db5d5bb6]` LSPG BES Cyber Asset Reuse and Disposal (Section 1.3)\n*   **Part 1.2**: Covered by:\n    *   `[O-018c9573]` OT Cyber Security Training and Awareness (Section 1.3)\n    *   `[O-3c43dc37]` Physical Security Plan (Section 1.3)\n    *   `[O-9e5720e7]` LSPG Change Management Procedure (Section 1.3)\n    *   `[O-b80f47ef]` BES Cyber System Categorization Process (Section 5.1)\n    *   `[O-db5d5bb6]` LSPG BES Cyber Asset Reuse and Disposal (Section 1.3)\n*   **Part 1.3**: Covered by:\n    *   `[O-018c9573]` OT Cyber Security Training and Awareness (Section 1.3)\n    *   `[O-66e4a81]` BES Cyber System Categorization Process (Section 3.4)\n    *   `[O-9e5720e7]` LSPG Change Management Procedure (Section 1.3)\n    *   `[O-abf410e0]` Physical Security Plan (Section 3.3.4)\n    *   `[O-b80f47ef]` BES Cyber and Cyber System Categorization Process (Section 5.1)\n\n### Uncovered Parts\n*   **R1 (Main Requirement)**: There are no implementing sections in your documents that directly cover the top-level R1 requirement itself, though the sub-parts (1.1, 1.2, 1.3) are covered as noted above.\n\nCited sections:\n- isection-0da86e8620c76da446c5 (Supply Chain Cyber Security Risk Management Plan)\n- isection-2ef1cac3f1e8507a618d (LSPG CIP-013 Procurement Procedure)\n- isection-2f109d20ed037c6f24f5 (LSPG CIP-013 Risk Assessment Procedure)\n- isection-92592a9832a91d9ae017 (Vendor Remote Access Management Procedure)\n- isection-b80f47ef364a6f201459 (BES Cyber System Categorization Process)\n- isection-018c957370a6d218b039 (OT Cyber Security Training and Awareness)\n- isection-3c43dc37970716138ea9 (Physical Security Plan)\n- isection-9e5720e7a0f354310133 (LSPG Change Management Procedure)\n- isection-66e4a8111f75c938e21a (BES Cyber System Categorization Process)\n- isection-abf410e0579fb5f2fd54 (Physical Security Plan)\n- isection-db5d5bb62cb1811d51c2 (LSPG BES Cyber Asset Reuse and Disposal)",
+      "answer_chars": 2433,
+      "wall_s": 38.74,
+      "first_token_s": 0.03,
+      "cited_ids": [
+        "csection-02606f31dd97f1020aaa",
+        "isection-018c957370a6d218b039",
+        "isection-0da86e8620c76da446c5",
+        "isection-2ef1cac3f1e8507a618d",
+        "isection-2f109d20ed037c6f24f5",
+        "isection-3c43dc37970716138ea9",
+        "isection-66e4a8111f75c938e21a",
+        "isection-92592a9832a91d9ae017",
+        "isection-9e5720e7a0f354310133",
+        "isection-abf410e0579fb5f2fd54",
+        "isection-b80f47ef364a6f201459",
+        "isection-db5d5bb62cb1811d51c2"
+      ],
+      "resolved_ids": [
+        "csection-02606f31dd97f1020aaa",
+        "isection-018c957370a6d218b039",
+        "isection-0da86e8620c76da446c5",
+        "isection-2ef1cac3f1e8507a618d",
+        "isection-2f109d20ed037c6f24f5",
+        "isection-3c43dc37970716138ea9",
+        "isection-66e4a8111f75c938e21a",
+        "isection-92592a9832a91d9ae017",
+        "isection-9e5720e7a0f354310133",
+        "isection-abf410e0579fb5f2fd54",
+        "isection-b80f47ef364a6f201459",
+        "isection-db5d5bb62cb1811d51c2"
+      ],
+      "unresolved_ids": [],
+      "grounding": {
+        "n_claims": 13,
+        "n_ungrounded": 0,
+        "unsupported_lines": []
+      },
+      "pipeline_errors": {},
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "cited_something": true,
+        "grounding_per_claim": true,
+        "required_side_present": true
+      },
+      "verdict": "PASS",
+      "reason": "all checks passed"
+    },
+    {
+      "standard": "CIP-002-5.1a",
+      "requirement": "CIP-002-5.1a R1",
+      "key": "exceedance",
+      "requires_side": "operator",
+      "has_stored_relation": false,
+      "cross_check": null,
+      "question": "For CIP-002-5.1a R1, where do my documents commit me to more than the standard requires? Quote the standard's requirement and my document's stronger commitment side by side, and cite both.",
+      "answer": "I have reviewed the requirements for CIP-002-5.1a R1 and the linked operator documents. \n\nI found no instance where your documents commit you to a higher standard of identification or a broader scope of assets than the NERC requirement itself. The standard requires the identification of High, Medium, and Low impact BES Cyber Systems [csection-46a4beb22dab8f81dae7, csection-4b1cdc3baba791c0a379, csection-e6bf618df35849d29604]. While your internal documents (such as the *BES Cyber System Categorization Process* [isection-66e4a8111f75c938e21a]) are linked to this requirement to demonstrate how you fulfill these duties, they do not introduce a more stringent threshold or additional asset categories.\n\nIf you believe there is a specific procedure or a different requirement (such as a different Part of CIP-002) that contains a stricter commitment, please let me know and I will investigate that specific reference.\n\nCited sections:\n- csection-46a4beb22dab8f81dae7 (Standard R1 Part 1.1)\n- csection-4b1cdc3baba791c0a379 (Standard R1 Part 1.2)\n- csection-e6bf618df35849d29604 (Standard R1 Part 1.3)\n- isection-66e4a8111f75c938e21a (Operator: BES Cyber System Categorization Process)",
+      "answer_chars": 1185,
+      "wall_s": 29.46,
+      "first_token_s": 0.05,
+      "cited_ids": [
+        "csection-02606f31dd97f1020aaa",
+        "csection-46a4beb22dab8f81dae7",
+        "csection-4b1cdc3baba791c0a379",
+        "csection-e6bf618df35849d29604",
+        "isection-66e4a8111f75c938e21a"
+      ],
+      "resolved_ids": [
+        "csection-02606f31dd97f1020aaa",
+        "csection-46a4beb22dab8f81dae7",
+        "csection-4b1cdc3baba791c0a379",
+        "csection-e6bf618df35849d29604",
+        "isection-66e4a8111f75c938e21a"
+      ],
+      "unresolved_ids": [],
+      "grounding": {
+        "n_claims": 6,
+        "n_ungrounded": 0,
+        "unsupported_lines": []
+      },
+      "pipeline_errors": {},
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "cited_something": true,
+        "grounding_per_claim": true,
+        "required_side_present": true
+      },
+      "verdict": "PASS",
+      "reason": "all checks passed"
+    },
+    {
+      "standard": "CIP-002-5.1a",
+      "requirement": "CIP-002-5.1a R1",
+      "key": "unused_latitude",
+      "requires_side": "regulatory",
+      "has_stored_relation": false,
+      "cross_check": null,
+      "question": "For CIP-002-5.1a R1, where does the standard leave a choice or an allowance that my documents do not take up? Cite the standard's own words granting the latitude, and say what my documents do instead.",
+      "answer": "The standard for CIP-002-5.1a R1 provides specific latitude regarding the identification of Low Impact BES Cyber Systems that your documents do not utilize.\n\nThe standard grants an allowance in Part 1.3, stating that for the purpose of identifying assets, \"**a discrete list of low impact BES Cyber Systems is not required**\" [R-csection-e6bf618df35849d29604]. This means the standard permits you to satisfy the requirement simply by identifying the assets that contain such systems, without needing to maintain a separate, granular inventory of every individual Low Impact BES Cyber System itself.\n\nHowever, your current documentation, specifically the **BES Cyber System Categorization Process**, does not take advantage of this reduced burden. Instead, your process is recorded as being responsible for the identification of these systems at the asset level [O-isection-b80f47ef364a6f201459]. While your process is compliant, it is using less latitude than NERC grants by not explicitly defining the boundary of what is (or is not) required for the Low Impact list.\n\nCited sections:\n- csection-e6bf618df35849d29604 (CIP-002-5.1a R1 Part 1.3)\n- isection-b80f47ef364a6f201459 (BES Cyber System Categorization Process)",
+      "answer_chars": 1218,
+      "wall_s": 23.2,
+      "first_token_s": 0.03,
+      "cited_ids": [
+        "csection-02606f31dd97f1020aaa",
+        "csection-e6bf618df35849d29604",
+        "isection-b80f47ef364a6f201459"
+      ],
+      "resolved_ids": [
+        "csection-02606f31dd97f1020aaa",
+        "csection-e6bf618df35849d29604",
+        "isection-b80f47ef364a6f201459"
+      ],
+      "unresolved_ids": [],
+      "grounding": {
+        "n_claims": 5,
+        "n_ungrounded": 0,
+        "unsupported_lines": []
+      },
+      "pipeline_errors": {},
+      "sides_cited": [
+        "operator",
+        "regulatory"
+      ],
+      "checks": {
+        "answered": true,
+        "cited_something": true,
+        "grounding_per_claim": true,
+        "required_side_present": true
+      },
+      "verdict": "PASS",
+      "reason": "all checks passed"
+    }
+  ],
+  "relation_asymmetry_note": "coverage_gap has a stored relation behind it (absence of IMPLEMENTS) and is cross-checkable against compliance_coverage. exceedance and unused_latitude have no stored relation: DETERMINATION_RELATIONS is (IMPLEMENTS, EVIDENCES, REFERENCES). Those two answers are readings, with a reading's reliability, and the closing report says so.",
+  "wording_note": "Every question above uses the natural wording that used to trigger _select_explicit_required_tool's nerc_cip_requirement narrowing (fixed in TASK_COMPLIANCE_PROVE_THE_MODULE_V1 \u00a7P4.1). Run 1 died at hop 1 on exactly these strings for CIP-007-6 R2; preserved at reports/compliance/closeout/p8/product_questions_run1_blocked_by_router.json.",
+  "verdict": "FAIL"
+}
