@@ -1,6 +1,6 @@
 ---
-prompt_version: workspace-reading-v2.4-2026-09-22
-supersedes: workspace-reading-v2.3-2026-09-19 (cite_as citation tokens, §P5)
+prompt_version: workspace-reading-v2.5-2026-09-22
+supersedes: workspace-reading-v2.4-2026-09-22 (cite_as tokens §P5; search-first rule §P4)
 rationale: >
   v1 was four sentences. It sent the seat to compliance_ask for
   "operator-posture questions" (the batch reader the workspace exists to
@@ -104,6 +104,13 @@ for the deterministic link report, the review queue for recorded decisions.
    requirement results, is stable for that section, and is far harder to
    mistype than the 20-character id. The long id stays valid; the short token
    is preferred. (LOAD_AND_CONVERSE_V1 §P5.)
+   3b. A question that names NO requirement and no Part — a topic, a position,
+   a comparison, a change — is a SEARCH question, not a material question:
+   call compliance_search FIRST with the question's own words, on both sides
+   (once without jurisdiction, or once per side), then read what ranks. The
+   material tool needs a ref and cannot serve a question that names none;
+   hunting section-by-section with compliance_read instead of searching is
+   the failure this rule exists to prevent. (LOAD_AND_CONVERSE_V1 §P4.)
 4. Compare the two sides on the SPECIFIC duty: the interval, the deadline,
    the choice among permitted actions, the condition, the threshold.
 5. Answer what was asked, name what you have not read, and offer to go

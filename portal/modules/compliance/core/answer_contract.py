@@ -53,6 +53,12 @@ _HANDLE_TOKEN = re.compile(r"\b([RON])(\d{1,3})\b")
 #: per section, and resolved here by UNIQUE PREFIX (an ambiguous prefix
 #: resolves to nothing, never to a guess).
 _CITEAS_TOKEN = re.compile(r"\b([RON])-([0-9a-f]{6})\b", re.I)
+#: a section id the model TRUNCATED while copying — it kept the id's own
+#: prefix and dropped characters off the end. Measured live (LOAD_AND_CONVERSE_V1
+#: P4 run 1): ``csection-440a5c``, ``isection-5a5ab9d23``. A prefix resolves when
+#: it names exactly ONE section the material presented; ambiguous or shorter
+#: than six hex characters resolves to nothing — never a guess.
+_SECTION_PREFIX_TOKEN = re.compile(r"\b[ci]section-([0-9a-f]{6,19})\b", re.I)
 
 _HANDLE_PREFIX = {"regulatory": "R", "operator": "O", "operator_note": "N"}
 
@@ -119,16 +125,21 @@ class AnswerContract:
     addresses: dict[str, str] = field(default_factory=dict)  # spelling -> canonical
 
     def resolve(self, token: str) -> Token | None:
-        """A handle, a raw section id, or a ``cite_as`` prefix token. Unknown
-        resolves to None — never to a near neighbour. Repairing a citation by
-        similarity could attach a claim to the wrong document, which is worse
-        than refusing it."""
+        """A handle, a raw section id, a ``cite_as`` token, or a truncated
+        prefix of one. Unknown resolves to None — never to a near neighbour.
+        Repairing a citation by similarity could attach a claim to the wrong
+        document, which is worse than refusing it; a PREFIX is different — it
+        names its section by construction when unique, and refuses when
+        ambiguous."""
         raw = str(token or "").strip().lstrip("[").rstrip("]")
         if not raw:
             return None
         hit = self.tokens.get(raw.upper())
         if hit is not None:
             return hit
+        full = self.by_section_id.get(raw.split("#")[0].lower())
+        if full is not None:
+            return full
         citeas = _CITEAS_TOKEN.fullmatch(raw)
         if citeas is not None:
             letter, prefix = citeas.group(1).upper(), citeas.group(2).lower()
@@ -138,7 +149,16 @@ class AnswerContract:
                 if sid.rsplit("-", 1)[-1].startswith(prefix) and t.side[0].upper() == letter
             ]
             return matches[0] if len(matches) == 1 else None
-        return self.by_section_id.get(raw.split("#")[0].lower())
+        prefix_match = _SECTION_PREFIX_TOKEN.fullmatch(raw.split("#")[0])
+        if prefix_match is not None:
+            hex_prefix = prefix_match.group(1)
+            matches = [
+                t
+                for sid, t in self.by_section_id.items()
+                if sid.rsplit("-", 1)[-1].startswith(hex_prefix)
+            ]
+            return matches[0] if len(matches) == 1 else None
+        return None
 
     def side(self, token: str) -> str | None:
         found = self.resolve(token)
