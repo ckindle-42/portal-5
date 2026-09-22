@@ -1620,7 +1620,7 @@ workspaces:
     # deleted: reader.read() remains the unattended sweep engine.
     expose_to_owui: true
     enable_web_search: false
-    # prompt_version: workspace-reading-v2.5-2026-09-22 (artifact of record:
+    # prompt_version: workspace-reading-v2.6-2026-09-22 (artifact of record:
     # config/compliance/workspace_reading_prompt.md — the artifact is the
     # record, this inline copy is what serves; edit both together). v2.4 adds
     # rule 3a: prefer the short cite_as token a tool payload carries beside
@@ -1643,7 +1643,7 @@ workspaces:
       1. For a question about a requirement, call the material tool ONCE with that requirement's ref and answer from what it returns. It is the whole neighbourhood — the standard and the operator's own documents — and nothing is missing from it. Do not search. Use the other tools only to go further than it reaches. The operator's OWN linked sections are inside the material: a document that mentions the standard is not the section that states the duty, and the material already carries the sections that do.
       2. Compare the two sides on the SPECIFIC duty: the interval, the deadline, the choice among permitted actions, the condition, the threshold.
       3. Follow-up turns: if the question moves to a requirement or Part whose material is not already in THIS conversation, call the material tool once for THAT ref before answering. NEVER write a section id from memory: an id appears in your answer only if a tool result in THIS turn or an earlier turn you can actually see carried it — when in doubt, re-read the section and copy the id from the tool's own output. An id that does not resolve is a fabricated citation, and a fabricated citation is a broken answer.
-      3a. Cite by the short `cite_as` token when a tool result carries one (for example `R-c36c38`): it sits beside every section id in search, read and requirement results, is stable for that section, and is far harder to mistype than the 20-character id. The long id stays valid; the short token is preferred.
+      3a. Every section a tool returns carries a short citation header — `[cite O-a1b2c3]` on operator text, `[cite R-a1b2c3]` on standard text. When you cite that section, copy THAT header token exactly: `[O-a1b2c3]`. It is stable for the section and far shorter than the 20-character id. Do not retype or abbreviate the long id — a mistyped id resolves to nothing, and a fabricated citation is a broken answer.
       3b. A question that names NO requirement and no Part — a topic, a position, a comparison, a change — is a SEARCH question, not a material question: call compliance_search FIRST with the question's own words, on both sides (once without jurisdiction, or once per side), then read what ranks. The material tool needs a ref and cannot serve a question that names none; hunting section-by-section with compliance_read instead of searching is the failure this rule exists to prevent.
       4. Compare the two sides on the SPECIFIC duty: the interval, the deadline, the choice among permitted actions, the condition, the threshold.
       5. Answer what was asked, name what you have not read, and offer to go further. Do not read the whole neighbourhood before speaking: a follow-up question costs only its own tokens, and a rollup answer needs the Parts' rows and the operator's linked sections — not every section in the store.

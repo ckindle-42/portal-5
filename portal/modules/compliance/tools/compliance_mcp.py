@@ -39,6 +39,9 @@ from portal.modules.compliance.core.addressing import (
 from portal.modules.compliance.core.addressing import (
     resolve_by_address as _resolve_by_address,
 )
+from portal.modules.compliance.core.addressing import (
+    with_cite_header as _with_cite_header,
+)
 from portal.modules.compliance.core.graph_queries import links as _graph_links
 from portal.modules.compliance.core.graph_queries import timeline as _graph_timeline
 from portal.platform.data_loader import load_data
@@ -2125,7 +2128,14 @@ def compliance_read(ref: str, neighbors: bool = False, max_chars: int = 6000) ->
         units: list[dict[str, Any]] = []
         for section_id, entry in sorted(resolved.items(), key=lambda kv: kv[1].get("ordinal", 0)):
             text, note = _clip(entry.get("text", ""), max_chars)
-            units.append({**_provenance(entry), "section_id": section_id, "text": text, **note})
+            units.append(
+                {
+                    **_provenance(entry),
+                    "section_id": section_id,
+                    "text": _with_cite_header(entry, text),
+                    **note,
+                }
+            )
         payload: dict[str, Any] = {"ref": ref, "resolved": True, "units": units}
         if neighbors and units:
             payload["neighbors"] = _neighbors(repo, list(resolved.values())[0], max_chars)

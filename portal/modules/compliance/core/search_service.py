@@ -29,6 +29,7 @@ from typing import Any
 from portal.modules.compliance.core.addressing import addressed_hits as _addressed_hits
 from portal.modules.compliance.core.addressing import clip as _clip
 from portal.modules.compliance.core.addressing import provenance as _provenance
+from portal.modules.compliance.core.addressing import with_cite_header as _with_cite_header
 from portal.modules.compliance.core.addressing import within_clocks as _within_clocks
 from portal.platform.retrieval import predicates
 
@@ -346,7 +347,7 @@ def search(
                 "kb_id": hit.get("kb_id"),
                 "match": "retrieval",
                 "score": hit.get("fused_score"),
-                "text": text,
+                "text": _with_cite_header(entry, text),
                 **note,
             }
         )
