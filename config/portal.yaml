@@ -81,6 +81,12 @@ mcp_fleet:
     # server is declared for tool advertisement but expected down until an
     # operator runs `./launch.sh install-video-mlx` + `portal module enable video`.
     default_enabled: false
+  - id: auk
+    module: media
+    name: portal-auk
+    port: 8940
+    expose_to_pipeline: true
+    expose_to_ide: false
   # id: music-ace (portal-music-ace, :8933) intentionally removed from the
   # fleet 2026-08-27 -- TASK_MUSIC_DUAL_BACKEND's [GATE: SELECT ENGINE]:
   # operator compared both engines on real 60s/30-step generations and

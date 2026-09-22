@@ -35,6 +35,7 @@ modules:
   vulnintel:
     enabled: true
 launched_mcp_ids:
+- auk
 - binresearch
 - browser
 - cad_render

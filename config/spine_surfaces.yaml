@@ -440,6 +440,10 @@ surfaces:
   globs:
   - portal/modules/media/tools/_admission.py
   unit: unit-HOWTO-media-memory-and-launch-order
+- name: file-portal-modules-media-tools-auk_mcp
+  globs:
+  - portal/modules/media/tools/auk_mcp.py
+  unit: unit-capability-auk
 - name: file-portal-modules-media-tools-mflux_mcp
   globs:
   - portal/modules/media/tools/mflux_mcp.py

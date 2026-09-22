@@ -23,7 +23,7 @@ updated_at: 1788030600.446044
 # Environment variables — the .env.example families
 
 The operator's runtime configuration lives in `.env`, copied from
-`.env.example` on first `up`; the example file declares 243 env vars, grouped
+`.env.example` on first `up`; the example file declares 249 env vars, grouped
 by what they tune. Every var carries an inline or section comment so a knob is
 never a bare secret.
 
@@ -38,6 +38,9 @@ never a bare secret.
 
 - `TTS_DEFAULT_VOICE`, `MUSIC_MODEL_SIZE`, `MAX_MUSIC_FILES` — default voice,
   music model size, and file retention.
+- `AUK_MCP_PORT`, `AUK_VARIANT`, `AUK_CHECKPOINT_DIR`, `AUK_TIMEOUT`,
+  `AUK_BITS`, `AUK_SEQUENTIAL` — the parallel AuK speech-editing MCP. These
+  do not change the seated speech server.
 - `AUDIO_STT_ENGINE` — Open WebUI's auto-transcription of audio uploads and
   microphone input.
 

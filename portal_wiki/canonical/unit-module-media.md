@@ -12,6 +12,8 @@ sources:
 - type: code
   path: portal/modules/media/tools/whisper_mcp.py
 - type: code
+  path: portal/modules/media/tools/auk_mcp.py
+- type: code
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml
@@ -38,7 +40,9 @@ text-to-speech), and `whisper_mcp` (:8915, STT). `music_ace_mcp` is retained as
 unwired code (ACE-Step disabled 2026-08-27 after the operator's engine-select
 gate). Image generation and video generation are their own modules now —
 `unit-module-image` (`mflux`, :8933) and `unit-module-video` (`video_mlx`,
-:8935) — not part of the media toggle.
+:8935) — not part of the media toggle. `auk_mcp` (:8940) is a parallel
+host-MLX speech editing spike (`./launch.sh install-auk`); it does not
+replace the seated speech stack on :8918 and is not pinned into a workspace.
 
 ## Workspaces
 
