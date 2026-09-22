@@ -124,14 +124,31 @@ def derive_standard_hint(file_path: Path) -> str | None:
 async def ingest_folder(
     source_dir: str, kb_id: str = "operator_corpus", rebuild: bool = False
 ) -> dict[str, Any]:
-    """Ingest every PDF under ``source_dir`` into the ``compliance_*``
-    composition; derive and queue layer/tier for each; report the layer
-    census. ``kb_*`` tables are never touched (compliance_retrieval's own
-    prefix guarantee — verified by ``test_compliance_retrieval_seam.py``)."""
+    """ACQUISITION, not projection (LOAD_AND_CONVERSE_V1 §P2): discover the
+    operator's PDFs, derive layer and authority tier from each document's own
+    self-description, queue every derivation, and report the layer census.
+
+    It also writes docling chunks with their own sha1 ids into the index — the
+    second identity space BILATERAL_CORPUS_V1 P4 unified away, ids that resolve
+    to nothing in ``source_sections``. The product index is emitted from the
+    canonical sections by ``compliance_retrieval.project_sections`` (``chunk_id
+    = section_id``), so any flow that acquires MUST re-project afterwards.
+    Called from a projection context — while ``project_sections`` is rebuilding
+    — it raises, so the deprecated path can never write beside or after a
+    section projection. ``kb_*`` tables are never touched
+    (compliance_retrieval's own prefix guarantee — verified by
+    ``test_compliance_retrieval_seam.py``)."""
     from portal.modules.compliance.tools import compliance_retrieval as _cr
     from portal.platform.retrieval import extraction as _extraction
     from portal.platform.retrieval import pipeline as _pipeline
 
+    if _cr._PROJECTION_IN_FLIGHT:
+        raise RuntimeError(
+            "ingest_folder is the ACQUISITION path, not a projection path: its sha1 "
+            "chunk ids resolve to nothing in source_sections. The projection path is "
+            "compliance_retrieval.project_sections; run acquisition before the "
+            "projection, never inside it (LOAD_AND_CONVERSE_V1 §P2)."
+        )
     src = Path(source_dir).expanduser().resolve()
     if not src.is_dir():
         return {"error": f"directory not found: {src}"}
