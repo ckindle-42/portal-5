@@ -561,22 +561,6 @@ PYEOF
     _launch_pull_video_mlx_models "$@"
     ;;
 
-  install-auk)
-    _launch_install_auk
-    ;;
-
-  start-auk)
-    _launch_start_auk
-    ;;
-
-  stop-auk)
-    _launch_stop_auk
-    ;;
-
-  pull-auk-models)
-    _launch_pull_auk_models
-    ;;
-
   install-music-ace)
     _launch_install_music_ace
     ;;
@@ -671,7 +655,7 @@ PYEOF
 
 
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|sync-config|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-music-minimax|install-mflux|start-mflux|stop-mflux|pull-mflux-models|install-video-mlx|start-video-mlx|stop-video-mlx|pull-video-mlx-models|install-auk|start-auk|stop-auk|pull-auk-models|install-music-ace|stop-music-ace|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|apply-mtp-drafts|build-lab-attack|build-binresearch|coder-reap288]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|sync-config|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-music-minimax|install-mflux|start-mflux|stop-mflux|pull-mflux-models|install-video-mlx|start-video-mlx|stop-video-mlx|pull-video-mlx-models|install-music-ace|stop-music-ace|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|apply-mtp-drafts|build-lab-attack|build-binresearch|coder-reap288]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -684,10 +668,6 @@ PYEOF
     echo "  start-video-mlx       Start (or install) the Video-MLX MCP launchd service"
     echo "  stop-video-mlx        Stop the Video-MLX MCP launchd service"
     echo "  pull-video-mlx-models Pre-pull LTX-2.3 model packs (q4 + q8)"
-    echo "  install-auk           Install AuK MCP — MLX-native speech edit/separate (Apple Silicon), port 8940"
-    echo "  start-auk             Start (or install) the AuK MCP launchd service"
-    echo "  stop-auk              Stop the AuK MCP launchd service"
-    echo "  pull-auk-models       Pre-pull AuK weights and convert them to MLX layout"
     echo "  install-music-ace     Install ACE-Step engine and proxy MCP"
     echo "  stop-music-ace        Stop the ACE-Step engine and proxy MCP"
     echo "  start-speech          Start MLX Speech server (Kokoro + Chatterbox clone + Qwen3-ASR)"

@@ -1,11 +1,11 @@
 ---
 id: unit-fact-tool-registry
 kind: what
-title: 173 MCP tools across 34 servers
+title: 168 MCP tools across 33 servers
 sources:
 - type: code
   path: portal/modules/*/tools/*_mcp.py
-  commit: 7499bb20eca5
+  commit: ede1ae59168e
 claims: []
 confidence: high
 tags:
@@ -13,7 +13,7 @@ tags:
 - tools
 - mcp
 created_at: 1784049584.748966
-updated_at: 1790042793.183349
+updated_at: 1789609101.624369
 ---
 
 # MCP tool registry
@@ -22,7 +22,6 @@ What each MCP server actually registers — `@mcp.tool()` defs, or `@mcp.custom_
 
 | Server | Registered tools |
 |---|---|
-| `auk` | `edit_content`, `edit_paralinguistic`, `enhance`, `separate`, `synthesize` |
 | `binresearch` | _(unresolved — server file not found)_ |
 | `browser` | `browser_click`, `browser_close`, `browser_evaluate`, `browser_fill`, `browser_list_profiles`, `browser_navigate`, `browser_screenshot`, `browser_snapshot` |
 | `cad_render` | `convert_cad`, `generate_scad`, `render_mesh`, `render_openscad` |
