@@ -63,7 +63,6 @@ from portal.modules.compliance.core.section_index import parent_section_id  # no
 
 _SECTION_TOKEN = re.compile(rf"\b{SECTION_ID_PATTERN}\b", re.I)
 _REQUIREMENT_ADDRESS = re.compile(r"\bCIP-\d{3}-[A-Za-z0-9.]+(\s+R\d+)?\b")
-_ID_BODY = re.compile(r"^([ci])section-([0-9a-f]+)", re.I)
 
 #: the floor set from the task file, plus the two additions argued for above.
 QUESTIONS: list[dict[str, str]] = [
@@ -177,13 +176,13 @@ def _resolve_token(store: Repository, raw: str) -> dict | None:
             got = resolve_sections(store, [str(rows[0][0])])
             return got.get(str(rows[0][0]))
         return None
-    prefix_match = _ID_BODY.match(full)
-    if prefix_match is not None and len(prefix_match.group(2)) >= 6:
-        stem = "isection" if prefix_match.group(1).lower() == "i" else "csection"
-        hex_prefix = prefix_match.group(2).lower()
+    # "csection-<hex>" / "isection-<hex>" — plain split; the section-id shape is
+    # decided in answer_contract alone, so this module compiles no second regex
+    stem, _, hex_prefix = full.partition("-")
+    if stem.lower() in ("csection", "isection") and len(hex_prefix) >= 6 and hex_prefix.isalnum():
         rows = store._conn.execute(
             "SELECT section_id FROM source_sections WHERE section_id LIKE ?",
-            (f"{stem}-{hex_prefix}%",),
+            (f"{stem.lower()}-{hex_prefix.lower()}%",),
         ).fetchall()
         if len(rows) == 1:
             got = resolve_sections(store, [str(rows[0][0])])
