@@ -52,6 +52,16 @@ actually overrides the source image. gen01/gen02 (pure text-to-image, no
 init image) are unaffected by this and look genuinely strong — that's where
 this model's real strength is.
 
-Before scoring id01-04/tx01-02 as an editing comparison, either re-run the
-2.1 arm at a higher strength or treat those six items as unscored and
-judge the 2.1 arm only on gen01/gen02 base generation.
+Reran all six at `--image-strength 0.8` (files with `_1` suffix in
+`tests/benchmarks/results/qwen21_outputs/2.1/`, since mflux auto-suffixes
+rather than overwriting). Result: no change. Sweater still not red, no
+"HELLO" text appears, id04 is still front-facing rather than a side
+profile — identical outcome to strength 0.5, just faster (~30s vs ~68s).
+
+Conclusion: this is not a strength-tuning issue. As tested, Qwen-Image-2.1's
+img2img path via `mflux-generate-qwen-2.1` (mflux 0.20.0) does not follow
+edit instructions on the six identity/text items in this corpus — it
+regenerates a close variant of the source image regardless of what the
+prompt asks for. Score the 2.1 arm on `gen01`/`gen02` base generation only;
+id01-04/tx01-02 should not be scored as an editing comparison against
+`qwen-image-edit` on this evidence.
