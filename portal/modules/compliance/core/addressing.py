@@ -35,7 +35,7 @@ def cite_as(entry: dict[str, Any]) -> str:
     appears wherever the section does — search, read, requirement, material —
     and never collides with a render's numbered handles (``O1``, ``R2``).
     ``answer_contract`` resolves it by unique prefix; a prefix that is
-    ambiguous resolves to nothing, never to a guess.
+    ambiguous resolves to nothing, never a guess.
     """
     from portal.modules.compliance.core.jurisdiction import is_operator_side
 
@@ -44,6 +44,21 @@ def cite_as(entry: dict[str, Any]) -> str:
     hex_part = body.rsplit("-", 1)[-1][:6]
     letter = "O" if is_operator_side(entry.get("jurisdiction")) else "R"
     return f"{letter}-{hex_part}" if hex_part else ""
+
+
+def with_cite_header(entry: dict[str, Any], text: str) -> str:
+    """Prepend the short cite token to the section text a TOOL returns.
+
+    Measured twice (LOAD_AND_CONVERSE_V1 P4 runs 1-2): shown a 20-hex id in a
+    JSON field, the seat copies it with dropped or transposed characters
+    mid-hash — deterministically, across independent runs — and a corrupted id
+    resolves to nothing. Shown a short token ON the text it quotes from, it
+    copies that. The header is explicit and the body below it is verbatim; the
+    id stays in the payload beside it for every downstream consumer.
+    """
+    token = cite_as(entry)
+    body = str(text or "")
+    return f"[cite {token}]\n{body}" if token and body else body
 
 
 def provenance(entry: dict[str, Any]) -> dict[str, Any]:
