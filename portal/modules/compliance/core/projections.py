@@ -125,9 +125,25 @@ def projection_status(
     }
 
 
+def _projectable_sections_in_store(repo: Any, jurisdiction: str) -> int:
+    """Sections the store holds for one jurisdiction that a projection SHOULD
+    hold: anchored into a capture (``char_start >= 0``). Pre-capture rows carry
+    ``char_start = -1`` — a second extraction of bytes the capture already
+    covers, never part of the eligible population (``section_index.build_plan``
+    classifies them superseded, not eligible) — so they do not count as
+    something the index is missing."""
+    return repo._conn.execute(
+        """SELECT COUNT(*) FROM source_sections s
+             JOIN document_revisions r ON r.revision_id = s.revision_id
+             JOIN source_documents d ON d.logical_id = r.logical_id
+            WHERE d.jurisdiction = ? AND s.char_start >= 0""",
+        (jurisdiction,),
+    ).fetchone()[0]
+
+
 def retrieval_projection_status(repo: Any) -> dict[str, Any]:
-    """FRESH / STALE / ABSENT per corpus, against the SECTION POPULATION each is
-    a projection of (BILATERAL_CORPUS_V1 P4.5).
+    """FRESH / STALE / UNPROJECTED / ABSENT per corpus, against the SECTION
+    POPULATION each is a projection of (BILATERAL_CORPUS_V1 P4.5).
 
     :func:`canonical_fingerprint` hashes ``section_id || role``, which does not
     move when a section's span does — so a re-capture that shifted a boundary
@@ -139,6 +155,14 @@ def retrieval_projection_status(repo: Any) -> dict[str, Any]:
     hash would mark the regulatory index stale the moment somebody writes an
     operator note, which is false and teaches people to ignore the signal. The
     overall status is the worst of them.
+
+    **The manifest alone cannot see an unprojected corpus** (LOAD_AND_CONVERSE_V1
+    P1.2): "nothing to project is a state, not a drift" is true of an empty
+    corpus and false of one whose sections sit in the store while the index holds
+    none — to a manifest-only check those are indistinguishable, and GS passed
+    across exactly that hole. Each entry therefore carries the store's own
+    projectable section count, and a corpus with sections in the store and no
+    recorded generation reads ``UNPROJECTED`` — a failure, never an absence.
     """
     from portal.modules.compliance.core.section_index import (
         CORPUS_FOR_JURISDICTION,
@@ -150,26 +174,40 @@ def retrieval_projection_status(repo: Any) -> dict[str, Any]:
            WHERE index_kind = 'retrieval' AND active = 1
            ORDER BY created_at DESC LIMIT 1"""
     ).fetchone()
-    if row is None:
-        return {"index_kind": "retrieval", "status": "ABSENT", "corpora": {}}
-    built = json.loads(row[2] or "{}").get("corpora", {})
+    built: dict[str, Any] = {}
+    if row is not None:
+        built = json.loads(row[2] or "{}").get("corpora", {})
     corpora: dict[str, Any] = {}
     for jurisdiction, kb_id in CORPUS_FOR_JURISDICTION.items():
         live = section_population_fingerprint(repo, jurisdiction)
         recorded = str((built.get(kb_id) or {}).get("fingerprint", ""))
+        in_store = _projectable_sections_in_store(repo, jurisdiction)
+        if not recorded:
+            status = "UNPROJECTED" if in_store else "ABSENT"
+        else:
+            status = "FRESH" if recorded == live else "STALE"
         corpora[kb_id] = {
-            "status": "ABSENT" if not recorded else ("FRESH" if recorded == live else "STALE"),
+            "status": status,
             "live_fingerprint": live,
             "built_from_fingerprint": recorded,
             "sections": (built.get(kb_id) or {}).get("sections"),
+            "sections_in_store": in_store,
         }
-    # an empty corpus is not a stale one: nothing to project is a state, not a drift
+    # an empty corpus is not a stale one: nothing to project is a state, not a
+    # drift. An UNPROJECTED corpus is neither — it is the failure the gate exists
+    # to catch, and it is never excluded.
     interesting = [
         entry["status"]
-        for kb_id, entry in corpora.items()
-        if entry["status"] != "ABSENT" or (built.get(kb_id) or {}).get("sections")
+        for entry in corpora.values()
+        if entry["status"] != "ABSENT" or entry["sections_in_store"]
     ]
-    overall = "STALE" if "STALE" in interesting else ("FRESH" if interesting else "ABSENT")
+    overall = (
+        "UNPROJECTED"
+        if "UNPROJECTED" in interesting
+        else ("STALE" if "STALE" in interesting else ("FRESH" if interesting else "ABSENT"))
+    )
+    if row is None:
+        return {"index_kind": "retrieval", "status": overall, "corpora": corpora}
     return {
         "index_kind": "retrieval",
         "status": overall,

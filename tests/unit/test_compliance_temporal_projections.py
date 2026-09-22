@@ -14,6 +14,7 @@ from portal.modules.compliance.core import projections
 from portal.modules.compliance.core.impact import analyze as impact_analyze
 from portal.modules.compliance.core.models import RelationshipAssertion, SourceDocument
 from portal.modules.compliance.core.repository import Repository
+from portal.modules.compliance.core.section_index import section_population_fingerprint
 from portal.modules.compliance.core.temporal import now_iso
 from portal.modules.compliance.core.temporal_selection import (
     select_revision_effectivity,
@@ -281,4 +282,80 @@ class TestProjectionManifests:
             "SELECT generation_id FROM index_manifests WHERE index_kind='graph' AND active=1"
         ).fetchall()
         assert [r[0] for r in rows] == ["g2"]
+        repo.close()
+
+
+class TestRetrievalProjectionStatus:
+    """LOAD_AND_CONVERSE_V1 P1.2 — a corpus in the store and not in the index is
+    UNPROJECTED, not absent. "Nothing to project is a state, not a drift" is true
+    of an empty corpus and false of a populated one; a manifest-only check could
+    not tell the two apart and GS passed across exactly that hole."""
+
+    def _sections(self, repo: Repository, jurisdiction: str, n: int = 2) -> None:
+        conn = repo._conn
+        with repo._lock, conn:
+            logical_id = f"{jurisdiction}/doc"
+            conn.execute(
+                "INSERT OR IGNORE INTO source_documents(logical_id, title, jurisdiction) "
+                "VALUES (?,?,?)",
+                (logical_id, "Doc", jurisdiction),
+            )
+            conn.execute(
+                "INSERT OR IGNORE INTO document_revisions(revision_id, logical_id, alias_path,"
+                " retrieved_at, recorded_from) VALUES (?,?,?,?,?)",
+                (f"rev-{jurisdiction}", logical_id, "d.pdf", now_iso(), now_iso()),
+            )
+            for i in range(n):
+                conn.execute(
+                    "INSERT OR REPLACE INTO source_sections(section_id, revision_id, path,"
+                    " char_start, char_end) VALUES (?,?,?,?,?)",
+                    (f"isection-{jurisdiction}{i}", f"rev-{jurisdiction}", "d#s{i}", i, i + 5),
+                )
+
+    def _record_generation(self, repo: Repository, kb_id: str, fingerprint: str) -> None:
+        projections.record_index_manifest(
+            repo,
+            index_kind="retrieval",
+            generation_id=f"gen-{kb_id}",
+            canonical_fingerprint_value=fingerprint,
+            counts={"corpora": {kb_id: {"fingerprint": fingerprint, "sections": 3}}},
+        )
+
+    def test_sections_in_store_and_no_generation_is_unprojected(self, repo):
+        self._sections(repo, "internal")
+        status = projections.retrieval_projection_status(repo)
+        assert status["status"] == "UNPROJECTED"
+        entry = status["corpora"]["operator_corpus"]
+        assert entry["status"] == "UNPROJECTED"
+        assert entry["sections_in_store"] == 2
+        repo.close()
+
+    def test_truly_empty_corpus_stays_absent_and_reports_zero(self, repo):
+        status = projections.retrieval_projection_status(repo)
+        entry = status["corpora"]["operator_corpus"]
+        assert entry["status"] == "ABSENT"
+        assert entry["sections_in_store"] == 0
+        repo.close()
+
+    def test_unprojected_is_the_overall_verdict_beside_a_fresh_corpus(self, repo):
+        self._sections(repo, "internal")
+        live_us = section_population_fingerprint(repo, "US")
+        self._record_generation(repo, "nerc_corpus", live_us)
+        status = projections.retrieval_projection_status(repo)
+        assert status["corpora"]["nerc_corpus"]["status"] == "FRESH"
+        assert status["corpora"]["operator_corpus"]["status"] == "UNPROJECTED"
+        assert status["status"] == "UNPROJECTED"
+        repo.close()
+
+    def test_recorded_generation_reads_fresh_or_stale_against_the_store(self, repo):
+        self._sections(repo, "internal")
+        live = section_population_fingerprint(repo, "internal")
+        self._record_generation(repo, "operator_corpus", live)
+        fresh = projections.retrieval_projection_status(repo)
+        assert fresh["status"] == "FRESH"
+        assert fresh["corpora"]["operator_corpus"]["sections_in_store"] == 2
+        self._sections(repo, "internal", n=3)  # the population moved
+        stale = projections.retrieval_projection_status(repo)
+        assert stale["corpora"]["operator_corpus"]["status"] == "STALE"
+        assert stale["status"] == "STALE"
         repo.close()

@@ -110,8 +110,14 @@ def check_compliance_corpus_currency() -> tuple[str, str, list[dict]]:
         # Reading them from the top level raised KeyError, so the ONE branch that
         # reports the real drift crashed instead of naming it — and a check that
         # dies where it should explain is indistinguishable from a broken check.
+        # An UNPROJECTED corpus has no fingerprints to compare — what it has is
+        # sections in the store and none in the index — so the message names the
+        # two counts instead (LOAD_AND_CONVERSE_V1 P1.2).
         drifted = [
-            f"{kb_id} is {entry['status']} (built from "
+            f"{kb_id} is UNPROJECTED — {entry.get('sections_in_store', 0)} sections in the "
+            f"store, {entry.get('sections') or 0} in the index"
+            if entry["status"] == "UNPROJECTED"
+            else f"{kb_id} is {entry['status']} (built from "
             f"{str(entry.get('built_from_fingerprint', '') or 'nothing')[:12]}…, store is now "
             f"{str(entry.get('live_fingerprint', ''))[:12]}…)"
             for kb_id, entry in corpora.items()
