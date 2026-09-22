@@ -1,0 +1,115 @@
+{
+  "timestamp_utc": "2026-09-22T01:55:00Z",
+  "head_commit": "1aefe218a68dadccca6663fb2000c566103f1013",
+  "head_subject": "docs(bench): mlx-serve engine bench — beats Ollama concurrency, may revive compliance-sweep speedup",
+  "head_committed_at": "2026-09-21 20:26:43 -0500",
+  "task_file": "coding_task/TASK_LANDSCAPE_2026Q3_BENCHES_V1.md",
+  "ollama_version_expected": "0.34.2",
+  "task_file_base_commit": "e776b3a9",
+  "ollama_version_observed": "0.34.2",
+  "free_port_chosen_for_auk": 8940,
+  "audio_fixture_ok": true,
+  "adjudication_receipt_present": true,
+  "mflux_qwen_edit_bin_present": true,
+  "granite_switch_pypi_version": "0.1.0",
+  "auk_feat_mlx_branch_exists": true,
+  "preconditions": {
+    "arch": "arm64",
+    "macos_product_version": "27.0",
+    "macos_build": "26A428",
+    "unified_memory_bytes": 68719476736,
+    "python3": "3.14.7",
+    "python3_path": "/opt/homebrew/bin/python3",
+    "python311": "/opt/homebrew/bin/python3.11",
+    "python312_uv": "/Users/chris/.local/share/uv/python/cpython-3.12-macos-aarch64-none/bin/python3.12",
+    "mflux_health": "ok",
+    "speech_health_port_8918": "ok",
+    "disk_avail_data_volume": "399Gi"
+  },
+  "ports": {
+    "task_file_assumed_port": 8940,
+    "agreement": true,
+    "free_ports_first_5": [8940, 8942, 8943, 8944, 8945],
+    "used_ports": [8912, 8913, 8914, 8915, 8916, 8917, 8918, 8919, 8920, 8921, 8922, 8923, 8924, 8925, 8926, 8927, 8928, 8929, 8930, 8931, 8932, 8933, 8934, 8935, 8936, 8937, 8938, 8939, 8941]
+  },
+  "audio_fixture": {
+    "path": "tests/fixtures/sample_two_speakers.wav",
+    "exists": true,
+    "channels": 1,
+    "sample_rate": 16000,
+    "sampwidth_bytes": 2,
+    "n_frames": 294162,
+    "duration_s": 18.385
+  },
+  "image_fixtures": {
+    "tests/fixtures/sample.png": 12576,
+    "tests/benchmarks/fixtures/fara_login.png": 9718
+  },
+  "adjudication": {
+    "path": "reports/compliance/prove/p1",
+    "n_verdicts": 183,
+    "n_units": 183,
+    "verdict_counts": {
+      "SUPPORTED": 141,
+      "UNSUPPORTED": 41,
+      "WRONG_RELATION": 1
+    },
+    "n_boilerplate_shape_unsupported": 34,
+    "unit_keys_first": [
+      "assertion_id",
+      "standard",
+      "derivation_kind",
+      "status",
+      "relation_type",
+      "requirement_id",
+      "requirement_text",
+      "requirement_text_synthesized",
+      "section_id",
+      "section_text",
+      "cited_sentences",
+      "n_citations"
+    ]
+  },
+  "mflux_qwen_edit": {
+    "binary": "/Users/chris/.portal5/mflux/.venv/bin/mflux-generate-qwen-edit",
+    "present": true,
+    "image_flag": "--image-paths",
+    "model_flag_accepts_hf_repo": true,
+    "base_model_flag": "--base-model",
+    "built_in_model_list_contains_qwen_image_edit_2509": false,
+    "built_in_models_include": ["qwen-image", "qwen-image-edit"]
+  },
+  "auk": {
+    "remote": "https://github.com/Tencent-Hunyuan/AuK.git",
+    "branch": "feat/mlx-apple-silicon",
+    "branch_head": "6943a1e967409e8c73139a7a345f2a611cfb3dd6",
+    "main_head": "871bf3d4635c5ca0ecb6b85f3c4e29c4682a88c7",
+    "python_version_file": "3.10",
+    "cli_entry": "auk-mlx-infer = auk_mlx.cli:main",
+    "cli_module": "python -m auk_mlx.cli",
+    "inference_mlx_py_at_repo_root": false,
+    "mlx_weights_require_convert": true,
+    "hf_repos": ["tencent/AuK", "tencent/AuK-Flash", "Qwen/Qwen2.5-Omni-3B"]
+  },
+  "granite_switch": {
+    "pypi_version": "0.1.0",
+    "requires_python": "<3.14,>=3.11",
+    "pip_index_on_system_python314": "No matching distribution found for granite-switch",
+    "hf_repo": "ibm-granite/granite-switch-4.1-3b-preview",
+    "hf_config_http": 307,
+    "hf_revision_hint": "7a3ac02e07868411424ac89440397b475da66fa7"
+  },
+  "speech_corpus_api": {
+    "task_file_endpoint": "POST http://localhost:8918/synthesize",
+    "live_endpoint": "POST http://localhost:8918/v1/audio/speech",
+    "live_body": {"model": "kokoro|qwen3-tts-design", "input": "<text>", "voice": "af_heart|design:<description>"}
+  },
+  "discovered_disagreements": [
+    "HEAD is 1aefe218a68dadccca6663fb2000c566103f1013, not the task-file base e776b3a9. e776b3a9 is an ancestor (PROVE_THE_MODULE_V1). Two later commits sit on main. Later phases record this HEAD.",
+    "AuK feat/mlx-apple-silicon does not ship inference_mlx.py. The MLX CLI is `auk-mlx-infer` / `python -m auk_mlx.cli` with --instruction, --audio, --output/-o, --flash, --mlx_dir, --qwen_path, --config, --gen_seconds, --bits, --sequential. Tasks are instruction text, not a --task enum. Weights must be converted once via `python -m auk_mlx.convert` into ckpts/mlx. Branch tip 6943a1e967409e8c73139a7a345f2a611cfb3dd6. .python-version is 3.10.",
+    "System python3 is 3.14.7. granite-switch 0.1.0 requires Python <3.14,>=3.11, so `python3 -m pip index versions granite-switch` reports no distribution and `python3 -m venv` cannot install it. P3 will use /opt/homebrew/bin/python3.11. PyPI latest is 0.1.0.",
+    "mflux-generate-qwen-edit --help takes --image-paths (one or more), not --image. --model accepts a built-in name, an HF repo id, or a local path, plus --base-model for third-party checkpoints. The built-in list includes qwen-image-edit and does not include qwen-image-edit-2509. P2.1 still probes case (a) then (b).",
+    "Seated speech on :8918 exposes POST /v1/audio/speech (OpenAI-compatible: model, input, voice), not POST /synthesize. Kokoro voices include af_heart and am_adam. Voice design is voice 'design:<description>' with model qwen3-tts-design. P1.5 will use that live surface.",
+    "macOS ProductVersion is 27.0 (build 26A428). The task minimum is 26.4+; the precondition holds. Unified memory is 64 GiB."
+  ]
+}
