@@ -1,6 +1,6 @@
 ---
-prompt_version: workspace-reading-v2.3-2026-09-19
-supersedes: workspace-reading-v2.1-2026-09-17 (rung-1 revision one, §P7)
+prompt_version: workspace-reading-v2.4-2026-09-22
+supersedes: workspace-reading-v2.3-2026-09-19 (cite_as citation tokens, §P5)
 rationale: >
   v1 was four sentences. It sent the seat to compliance_ask for
   "operator-posture questions" (the batch reader the workspace exists to
@@ -99,6 +99,11 @@ for the deterministic link report, the review queue for recorded decisions.
    turn you can actually see carried it — when in doubt, re-read the section
    and copy the id from the tool's own output. An id that does not resolve is
    a fabricated citation, and a fabricated citation is a broken answer.
+   3a. Cite by the short `cite_as` token when a tool result carries one (for
+   example `R-c36c38`): it sits beside every section id in search, read and
+   requirement results, is stable for that section, and is far harder to
+   mistype than the 20-character id. The long id stays valid; the short token
+   is preferred. (LOAD_AND_CONVERSE_V1 §P5.)
 4. Compare the two sides on the SPECIFIC duty: the interval, the deadline,
    the choice among permitted actions, the condition, the threshold.
 5. Answer what was asked, name what you have not read, and offer to go

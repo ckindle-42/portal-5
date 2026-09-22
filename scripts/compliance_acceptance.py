@@ -585,6 +585,7 @@ class WorkspaceThread:
             ),
             "tool_calls": deltas["tools"],
             "tool_errors": deltas["tool_errors"],
+            "pipeline_errors": deltas["pipeline_errors"],
             "usage_hops": stream["usage_hops"],
             "prompt_tokens_high_water": (
                 max((h["prompt_tokens"] for h in stream["usage_hops"]), default=0)

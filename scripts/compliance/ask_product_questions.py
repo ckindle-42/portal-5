@@ -180,13 +180,21 @@ def _ask_one(
         cited = contract.cited(answer)
         ids = cited["resolved"] + cited["unresolved"]
         sides = set(cited["by_side"])
+        # LOAD_AND_CONVERSE_V1 §P5: grounding is per CLAIM, not per token — an
+        # answer whose every claim carries a resolving citation passes; a claim
+        # standing only on a citation that resolves to nothing fails. The
+        # mistyped-restatement case (CIP-007-6 unused_latitude) no longer voids
+        # a grounded answer, and the strict half is unchanged: an unresolved id
+        # with no resolving counterpart anywhere still fails, and no unresolved
+        # id is ever mapped to a near neighbour to make it resolve.
+        claims = contract.cited_claims(answer)
 
         checks = {
             "answered": bool(answer.strip())
             and not record.get("turn_budget_exceeded")
             and record.get("http_status") in (200, None),
             "cited_something": bool(ids),
-            "all_citations_resolve": bool(ids) and not cited["unresolved"],
+            "grounding_per_claim": claims["grounded"],
             "required_side_present": spec["requires_side"] in sides,
         }
         verdict = "PASS" if all(checks.values()) else "FAIL"
@@ -208,6 +216,12 @@ def _ask_one(
                 "cited_ids": ids,
                 "resolved_ids": cited["resolved"],
                 "unresolved_ids": cited["unresolved"],
+                "grounding": {
+                    "n_claims": claims["n_claims"],
+                    "n_ungrounded": claims["n_ungrounded"],
+                    "unsupported_lines": claims["unsupported_lines"],
+                },
+                "pipeline_errors": record.get("pipeline_errors") or {},
                 "sides_cited": sorted(sides),
                 "checks": checks,
                 "verdict": verdict,
